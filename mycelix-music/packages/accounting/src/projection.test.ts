@@ -5,7 +5,11 @@ import { createRoyaltyObligationAuthority } from './obligation-authority.js';
 import { money } from './money.js';
 import { compileRoyaltyStatement, type StatementDeduction } from './projection.js';
 import { SettlementAttemptState, reconstructSettlementRecovery, type SettlementAttemptObservation } from './recovery.js';
-import { createSettlementAllocationAuthority } from './settlement-allocation.js';
+import {
+  createSettlementAllocationLineageBoundary,
+  resolveSettlementAllocationLineage,
+} from './settlement-allocation-lineage.js';
+import { createSettlementAllocationAuthority, type SettlementAllocationAuthority } from './settlement-allocation.js';
 import { SettlementEligibilityCode, type RoyaltyObligation, type SettlementEligibilityObservation, type SettlementEpoch } from './settlement.js';
 import { StatementKind } from './statements.js';
 
@@ -33,6 +37,15 @@ function settlementObservation(batch: DeterministicNettingBatch, state: Settleme
 }
 function finalizedObservation(batch: DeterministicNettingBatch, observedAt: string, amountMinor = batch.grossAmount.amountMinor): SettlementAttemptObservation {
   return settlementObservation(batch, SettlementAttemptState.Finalized, observedAt, { railReceiptRef: 'rail:receipt:1', settledAmount: money(amountMinor, batch.currency) });
+}
+function allocationLineage(allocation: SettlementAllocationAuthority, coverage: 'complete' | 'partial' = 'complete') {
+  const boundary = createSettlementAllocationLineageBoundary({
+    asOf: '2026-10-02T00:00:00Z',
+    observedThrough: coverage === 'complete' ? '2026-10-02T00:00:00Z' : '2026-10-01T23:59:59Z',
+    coverage,
+    sourceRef: `allocation-store:${allocation.allocationId}`,
+  });
+  return resolveSettlementAllocationLineage([allocation], [], boundary);
 }
 
 describe('royalty statement compiler', () => {
@@ -94,7 +107,7 @@ describe('royalty statement compiler', () => {
     expect(finalized.railCoversBatchGross).toBe(true);
     expect(compile(obligations, { eligibilityObservations, settlements: [{ batch, recovery: finalized }] }).paid.amountMinor).toBe(500n);
   });
-  it('uses allocation authority to discharge a 450 creator receipt plus 50 withholding', () => {
+  it('uses canonical allocation lineage to discharge a 450 creator receipt plus 50 withholding', () => {
     const obligations = [obligation('obl:1', 500n)]; const eligibilityObservations = defaultEligibility(obligations); const batch = buildDeterministicNettingBatches(obligations, epoch, eligibilityObservations)[0]!;
     const withholding = deduction('deduction:1', 50n);
     const recovery = reconstructSettlementRecovery(batch, [finalizedObservation(batch, '2026-10-01T00:02:00Z', 450n)]);
@@ -102,9 +115,26 @@ describe('royalty statement compiler', () => {
     const unallocated = compile(obligations, { eligibilityObservations, deductions: [withholding], settlements: [{ batch, recovery }] });
     const allocation = createSettlementAllocationAuthority({ allocationId: 'allocation:1', batch, recovery, deductions: [withholding], residualHeld: money(0n, 'USD'), allocatedAt: '2026-10-01T12:01:00Z' });
     expect(allocation.obligationSetDischarged).toBe(true);
-    const allocated = compile(obligations, { eligibilityObservations, deductions: [withholding], settlements: [{ batch, recovery, allocation }] });
+    const lineage = allocationLineage(allocation);
+    const allocated = compile(obligations, { eligibilityObservations, deductions: [withholding], settlements: [{ batch, recovery, allocationLineage: lineage }] });
     expect(allocated.netPayable.amountMinor).toBe(450n); expect(allocated.paid.amountMinor).toBe(450n);
     expect(allocated.settlementRoot).not.toBe(unallocated.settlementRoot);
+  });
+  it('rejects direct allocation evidence even when it is otherwise canonical', () => {
+    const obligations = [obligation('obl:1', 500n)]; const eligibilityObservations = defaultEligibility(obligations); const batch = buildDeterministicNettingBatches(obligations, epoch, eligibilityObservations)[0]!;
+    const withholding = deduction('deduction:1', 50n); const recovery = reconstructSettlementRecovery(batch, [finalizedObservation(batch, '2026-10-01T00:02:00Z', 450n)]);
+    const allocation = createSettlementAllocationAuthority({ allocationId: 'allocation:legacy-direct', batch, recovery, deductions: [withholding], residualHeld: money(0n, 'USD'), allocatedAt: '2026-10-01T12:01:00Z' });
+    const directEvidence = { batch, recovery, allocation };
+    expect(() => compile(obligations, { eligibilityObservations, deductions: [withholding], settlements: [directEvidence] }))
+      .toThrow(/direct settlement allocation evidence is forbidden/);
+  });
+  it('rejects provisional allocation lineage as discharge authority', () => {
+    const obligations = [obligation('obl:1', 500n)]; const eligibilityObservations = defaultEligibility(obligations); const batch = buildDeterministicNettingBatches(obligations, epoch, eligibilityObservations)[0]!;
+    const withholding = deduction('deduction:1', 50n); const recovery = reconstructSettlementRecovery(batch, [finalizedObservation(batch, '2026-10-01T00:02:00Z', 450n)]);
+    const allocation = createSettlementAllocationAuthority({ allocationId: 'allocation:partial-source', batch, recovery, deductions: [withholding], residualHeld: money(0n, 'USD'), allocatedAt: '2026-10-01T12:01:00Z' });
+    const lineage = allocationLineage(allocation, 'partial');
+    expect(() => compile(obligations, { eligibilityObservations, deductions: [withholding], settlements: [{ batch, recovery, allocationLineage: lineage }] }))
+      .toThrow(/provisional/);
   });
   it('commits an authorized residual without claiming economic discharge', () => {
     const obligations = [obligation('obl:1', 500n)]; const eligibilityObservations = defaultEligibility(obligations); const batch = buildDeterministicNettingBatches(obligations, epoch, eligibilityObservations)[0]!;
@@ -112,7 +142,7 @@ describe('royalty statement compiler', () => {
     const recovery = reconstructSettlementRecovery(batch, [finalizedObservation(batch, '2026-10-01T00:02:00Z', 425n)]);
     const allocation = createSettlementAllocationAuthority({ allocationId: 'allocation:held', batch, recovery, deductions: [withholding], residualHeld: money(25n, 'USD'), residualAuthorityRef: 'reconciliation:case:7', allocatedAt: '2026-10-01T12:01:00Z' });
     expect(allocation.obligationSetDischarged).toBe(false);
-    const statement = compile(obligations, { eligibilityObservations, deductions: [withholding], settlements: [{ batch, recovery, allocation }] });
+    const statement = compile(obligations, { eligibilityObservations, deductions: [withholding], settlements: [{ batch, recovery, allocationLineage: allocationLineage(allocation) }] });
     expect(statement.paid.amountMinor).toBe(425n); expect(statement.netPayable.amountMinor).toBe(450n);
   });
   it('rejects receipt-backed paid value that exceeds statement net payable', () => {
@@ -120,11 +150,11 @@ describe('royalty statement compiler', () => {
     const recovery = reconstructSettlementRecovery(batch, [finalizedObservation(batch, '2026-10-01T00:02:00Z', 475n)]);
     expect(() => compile(obligations, { eligibilityObservations, deductions: [deduction('deduction:1', 50n)], settlements: [{ batch, recovery }] })).toThrow(/exceed statement net payable/);
   });
-  it('rejects an allocation that references a deduction outside the statement', () => {
+  it('rejects an allocation lineage whose canonical head references a deduction outside the statement', () => {
     const obligations = [obligation('obl:1', 500n)]; const eligibilityObservations = defaultEligibility(obligations); const batch = buildDeterministicNettingBatches(obligations, epoch, eligibilityObservations)[0]!;
     const withholding = deduction('deduction:1', 50n); const recovery = reconstructSettlementRecovery(batch, [finalizedObservation(batch, '2026-10-01T00:02:00Z', 450n)]);
     const allocation = createSettlementAllocationAuthority({ allocationId: 'allocation:1', batch, recovery, deductions: [withholding], residualHeld: money(0n, 'USD'), allocatedAt: '2026-10-01T12:01:00Z' });
-    expect(() => compile(obligations, { eligibilityObservations, settlements: [{ batch, recovery, allocation }] })).toThrow(/deduction outside statement/);
+    expect(() => compile(obligations, { eligibilityObservations, settlements: [{ batch, recovery, allocationLineage: allocationLineage(allocation) }] })).toThrow(/deduction outside statement/);
   });
   it('does not count historically finalized value as paid after reversal', () => {
     const obligations = [obligation('obl:1', 500n)]; const eligibilityObservations = defaultEligibility(obligations); const batch = buildDeterministicNettingBatches(obligations, epoch, eligibilityObservations)[0]!;
