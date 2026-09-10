@@ -71,6 +71,14 @@ describe('settlement recovery', () => {
     expect(reconstructSettlementRecovery(batch, observations).status).toBe('in_flight');
   });
 
+  it('rejects an initial attempt that claims to supersede nonexistent history', () => {
+    expect(() => reconstructSettlementRecovery(batch, [
+      obs(SettlementAttemptState.Authorized, '2026-09-10T00:00:00Z', {
+        supersedesAttemptId: 'attempt:missing',
+      }),
+    ])).toThrow(/initial settlement attempt cannot supersede/);
+  });
+
   it('rejects an overlapping retry even when it names the failed attempt', () => {
     expect(() => reconstructSettlementRecovery(batch, [
       obs(SettlementAttemptState.Authorized, '2026-09-10T00:00:00Z'),
@@ -82,7 +90,7 @@ describe('settlement recovery', () => {
     ])).toThrow(/after the prior terminal observation/);
   });
 
-  it('blocks retry after a reversal until reconciliation resolves ambiguity', () => {
+  it('blocks retry after a reversal while retaining the finalized receipt evidence', () => {
     const observations = [
       obs(SettlementAttemptState.Authorized, '2026-09-10T00:00:00Z'),
       obs(SettlementAttemptState.Submitted, '2026-09-10T00:01:00Z'),
@@ -93,6 +101,7 @@ describe('settlement recovery', () => {
     const recovered = reconstructSettlementRecovery(batch, observations);
     expect(recovered.status).toBe('blocked_ambiguous');
     expect(recovered.obligationSetSettled).toBe(false);
+    expect(recovered.finalReceiptRef).toBe('rail:receipt:7');
     expect(mayStartSettlementAttempt(recovered)).toBe(false);
   });
 

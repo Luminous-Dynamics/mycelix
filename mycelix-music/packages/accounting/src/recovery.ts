@@ -19,7 +19,7 @@ export interface SettlementAttemptObservation {
   readonly state: SettlementAttemptState;
   readonly observedAt: string;
   readonly railReceiptRef?: string;
-  /** Required on the first observation of a retry attempt. */
+  /** Required on the first observation of a retry attempt. Forbidden on the initial attempt. */
   readonly supersedesAttemptId?: string;
 }
 
@@ -36,9 +36,10 @@ export interface SettlementRecoveryState {
   readonly status: SettlementRecoveryStatus;
   readonly activeAttemptId?: string;
   readonly lastObservedAt?: string;
+  /** Durable receipt from a finalized observation, retained through later reversal/dispute. */
   readonly finalReceiptRef?: string;
   readonly reason?: string;
-  /** True only after a terminal Finalized observation with no later contradiction. */
+  /** True only while the latest authoritative state remains Finalized. */
   readonly obligationSetSettled: boolean;
 }
 
@@ -126,6 +127,7 @@ interface AttemptHistory {
   readonly lastObservedAt: number;
   readonly finalState: SettlementAttemptState;
   readonly supersedesAttemptId?: string;
+  readonly finalizedReceiptRef?: string;
 }
 
 function buildAttemptHistories(
@@ -179,6 +181,7 @@ function buildAttemptHistories(
       throw new Error(`finalized rail receipt reference changed within attempt ${attemptId}`);
     }
 
+    const finalizedReceiptRef = finalizedRefs.values().next().value as string | undefined;
     const final = sorted[sorted.length - 1]!;
     histories.push(Object.freeze({
       attemptId,
@@ -187,10 +190,15 @@ function buildAttemptHistories(
       lastObservedAt: parseTimestamp(final.observedAt),
       finalState: final.state,
       ...(first.supersedesAttemptId === undefined ? {} : { supersedesAttemptId: first.supersedesAttemptId }),
+      ...(finalizedReceiptRef === undefined ? {} : { finalizedReceiptRef }),
     }));
   }
 
   histories.sort((a, b) => a.firstObservedAt - b.firstObservedAt || a.attemptId.localeCompare(b.attemptId));
+  const initial = histories[0]!;
+  if (initial.supersedesAttemptId !== undefined) {
+    throw new Error('initial settlement attempt cannot supersede another attempt');
+  }
   for (let index = 1; index < histories.length; index += 1) {
     const prior = histories[index - 1]!;
     const current = histories[index]!;
@@ -239,7 +247,7 @@ export function reconstructSettlementRecovery(
       return Object.freeze({
         ...base,
         status: 'finalized',
-        finalReceiptRef: finalObservation.railReceiptRef!,
+        finalReceiptRef: latest.finalizedReceiptRef!,
         obligationSetSettled: true,
       });
 
@@ -252,6 +260,7 @@ export function reconstructSettlementRecovery(
       return Object.freeze({
         ...base,
         status: 'blocked_ambiguous',
+        ...(latest.finalizedReceiptRef === undefined ? {} : { finalReceiptRef: latest.finalizedReceiptRef }),
         reason: `rail state ${latest.finalState} requires reconciliation before any retry`,
         obligationSetSettled: false,
       });
