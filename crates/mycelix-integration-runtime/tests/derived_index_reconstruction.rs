@@ -96,7 +96,7 @@ fn finalized_without_provider_operation(
 }
 
 #[test]
-fn missing_derived_binding_index_is_reconstructed_from_append_only_history() {
+fn derived_binding_index_is_reconstructed_from_append_only_history() {
     let temp = tempfile::tempdir().expect("tempdir must be created");
     let path = temp.path().join("derived-index.sqlite");
     let entry_id;
@@ -137,7 +137,7 @@ fn missing_derived_binding_index_is_reconstructed_from_append_only_history() {
     }
 
     let mut reopened = SqliteIntegrationStore::open(&path)
-        .expect("reopen must reconstruct a consistent derived binding index");
+        .expect("reopen must reconstruct a missing derived binding index");
     assert_eq!(
         reopened
             .provider_operation_binding(entry_id)
@@ -145,7 +145,6 @@ fn missing_derived_binding_index_is_reconstructed_from_append_only_history() {
             .as_deref(),
         Some("provider-op-a")
     );
-
     assert!(matches!(
         reopened.record_execution(
             entry_id,
@@ -156,4 +155,41 @@ fn missing_derived_binding_index_is_reconstructed_from_append_only_history() {
         ),
         Err(RuntimeError::OutcomeOperationMismatch { entry_id: id }) if id == entry_id
     ));
+    drop(reopened);
+
+    // A wrong derived row is also repairable because history, not the index,
+    // is the source material. The second v3.1 open must load the repaired value
+    // rather than retaining the stale pre-reconstruction cache.
+    {
+        let conn = Connection::open(&path).expect("raw connection must open");
+        conn.execute(
+            "UPDATE integration_runtime_operation_binding\n\
+             SET provider_operation = 'provider-op-stale' WHERE entry_id = ?1",
+            params![entry_id],
+        )
+        .expect("test must corrupt only the derived index row");
+    }
+
+    let mut repaired = SqliteIntegrationStore::open(&path)
+        .expect("reopen must repair a stale derived binding index");
+    assert_eq!(
+        repaired
+            .provider_operation_binding(entry_id)
+            .expect("repaired binding must load")
+            .as_deref(),
+        Some("provider-op-a")
+    );
+    let same_binding = repaired
+        .record_execution(
+            entry_id,
+            &attempt_id,
+            "derived-index-worker",
+            &confirmed(Some("provider-op-a"), "receipt-late-a2", 170),
+            170,
+        )
+        .expect("the reloaded process cache must agree with reconstructed history");
+    assert_eq!(
+        same_binding,
+        ExecutionRecordDisposition::RecordedForStaleAttempt
+    );
 }
