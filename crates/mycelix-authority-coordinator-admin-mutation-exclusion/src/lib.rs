@@ -24,8 +24,8 @@ compile_error!("coordinator Admin mutation exclusion v0.1 requires Linux");
 use holochain_client::AdminWebsocket;
 use holochain_types::prelude::UpdateCoordinatorsPayload;
 use mycelix_authority_coordinator_admin_isolation::{
-    begin_exclusive_admin_isolation, AdminIsolationError, BrokerProcessBinding,
-    ExclusiveAdminIsolationGuard, QualifiedExclusiveAdminIsolation,
+    AdminIsolationError, BrokerProcessBinding, ExclusiveAdminIsolationGuard,
+    QualifiedExclusiveAdminIsolation, begin_exclusive_admin_isolation,
 };
 use mycelix_authority_coordinator_conductor_process::TrustedConductorProcessStore;
 use mycelix_institutional_core::Digest32;
@@ -39,8 +39,7 @@ use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-pub const PROTOCOL_VERSION: &str =
-    "mycelix-authority-coordinator-admin-mutation-exclusion-v0.1";
+pub const PROTOCOL_VERSION: &str = "mycelix-authority-coordinator-admin-mutation-exclusion-v0.1";
 pub const BINDING_PROFILE: &str =
     "mycelix-authority-coordinator-admin-mutation-exclusion-binding-v1-blake3-framed";
 pub const RESPONSE_EXCLUSION_PROFILE: &str =
@@ -244,7 +243,9 @@ impl TrustedAdminMutationExclusion {
             .read(true)
             .write(true)
             .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC);
-        let file = options.open(path).map_err(AdminMutationExclusionError::Io)?;
+        let file = options
+            .open(path)
+            .map_err(AdminMutationExclusionError::Io)?;
         validate_lock_file(&file, &self.binding)?;
 
         let rc = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX) };
@@ -642,10 +643,16 @@ impl fmt::Display for AdminMutationExclusionError {
             Self::WrongProtocol => write!(f, "wrong Admin mutation exclusion protocol"),
             Self::InvalidDigest(field) => write!(f, "invalid {field}"),
             Self::InvalidText(field) => write!(f, "invalid {field}"),
-            Self::InvalidLockIdentity => write!(f, "invalid provisioned Admin mutation lock identity"),
+            Self::InvalidLockIdentity => {
+                write!(f, "invalid provisioned Admin mutation lock identity")
+            }
             Self::InvalidLockPath => write!(f, "invalid fixed Admin mutation lock path"),
-            Self::NonCanonicalLockDirectory => write!(f, "Admin mutation lock directory path is not canonical"),
-            Self::UnsafeLockDirectory => write!(f, "Admin mutation lock parent is not a safe directory"),
+            Self::NonCanonicalLockDirectory => {
+                write!(f, "Admin mutation lock directory path is not canonical")
+            }
+            Self::UnsafeLockDirectory => {
+                write!(f, "Admin mutation lock parent is not a safe directory")
+            }
             Self::UnsafeLockDirectoryMode { expected, observed } => write!(
                 f,
                 "unsafe Admin mutation lock directory mode: expected {expected:o}, observed {observed:o}"
@@ -656,8 +663,14 @@ impl fmt::Display for AdminMutationExclusionError {
                 "unsafe Admin mutation lock file mode: expected {expected:o}, observed {observed:o}"
             ),
             Self::LockOwnerMismatch => write!(f, "Admin mutation lock ownership mismatch"),
-            Self::LockIdentityMismatch => write!(f, "Admin mutation lock device/inode differs from provisioned binding"),
-            Self::BrokerBindingMismatch => write!(f, "Admin mutation exclusion does not match the pinned broker binding"),
+            Self::LockIdentityMismatch => write!(
+                f,
+                "Admin mutation lock device/inode differs from provisioned binding"
+            ),
+            Self::BrokerBindingMismatch => write!(
+                f,
+                "Admin mutation exclusion does not match the pinned broker binding"
+            ),
             Self::AttemptNotDurable => write!(f, "response attempt is not durably reserved"),
             Self::InvalidInterval => write!(f, "invalid Admin mutation exclusion interval"),
             Self::ClockBeforeUnixEpoch => write!(f, "system clock is before Unix epoch"),
