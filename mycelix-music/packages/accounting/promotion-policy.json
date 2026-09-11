@@ -20,7 +20,7 @@
       "id": "source-invariants",
       "workingDirectory": "mycelix-music",
       "command": "npm run check:invariants",
-      "purpose": "prevent legacy payment/status authority and other source-level economic regressions, including checkpoint compiler, signer-custody and signer-trust bypass"
+      "purpose": "prevent legacy payment/status authority and other source-level economic regressions, including checkpoint compiler, signer-custody, signer-trust and trust-anchor bypass"
     },
     {
       "id": "accounting-type-check",
@@ -32,7 +32,7 @@
       "id": "accounting-tests",
       "workingDirectory": "mycelix-music",
       "command": "npm test --workspace=@mycelix/accounting",
-      "purpose": "run economic conservation, settlement recovery, statement, audit, disclosure, lineage-checkpoint, compiler, signer-capability and trust-rotation regressions"
+      "purpose": "run economic conservation, settlement recovery, statement, audit, disclosure, lineage-checkpoint, compiler, signer-capability, trust-rotation and trust-anchor regressions"
     }
   ],
   "promotionRule": "Every qualification item must succeed after the workflow has checked out and mechanically verified the exact proposed head commit. Missing, queued, skipped, stale, synthetic-merge-only, source-only, or ancestor evidence is not PASS.",
@@ -47,6 +47,8 @@
     "A serialized source snapshot is signing authority without canonical accounting replay.",
     "Database or checkpoint compiler access implies possession of checkpoint signing keys.",
     "A stale signer trust bundle predating the checkpoint signature is sufficient revocation evidence.",
-    "Key rotation invalidates all historically valid checkpoints by default."
+    "Key rotation invalidates all historically valid checkpoints by default.",
+    "An unattested signer trust bundle is sufficient root trust authority.",
+    "A cryptographically valid trust bundle below the pinned minimum policy sequence is acceptable."
   ]
 }
