@@ -23,6 +23,12 @@
       "purpose": "prevent legacy payment/status authority and other source-level economic regressions, including checkpoint compiler, signer-custody, signer-trust, trust-anchor, statement-root-trust, audit-capsule, audit-issuer, audit-issuer-trust, audit-issuer-root-trust, interop-audit-provenance, reporting-line-proof, reporting-evidence-attestation and reporting-evidence-issuer-trust bypass"
     },
     {
+      "id": "reporting-evidence-trust-anchor-invariants",
+      "workingDirectory": "mycelix-music",
+      "command": "bash scripts/check-interop-line-proof-attestation-trust-anchor-invariants.sh",
+      "purpose": "require root-attested reporting-evidence issuer trust, anti-rollback policy sequencing, predecessor continuity, future-attestation rejection and detached root-key custody"
+    },
+    {
       "id": "accounting-type-check",
       "workingDirectory": "mycelix-music",
       "command": "npm run type-check --workspace=@mycelix/accounting",
@@ -32,7 +38,7 @@
       "id": "accounting-tests",
       "workingDirectory": "mycelix-music",
       "command": "npm test --workspace=@mycelix/accounting",
-      "purpose": "run economic conservation, settlement recovery, statement, audit, disclosure, lineage-checkpoint, compiler, signer-capability, trust-rotation, trust-anchor, statement-root-trust, audit-capsule-v2, audit-issuer-attestation, audit-issuer-trust, audit-issuer-root-trust, attested-interop, reporting-safe line-proof, reporting-evidence-attestation and reporting-evidence-issuer-trust regressions"
+      "purpose": "run economic conservation, settlement recovery, statement, audit, disclosure, lineage-checkpoint, compiler, signer-capability, trust-rotation, trust-anchor, statement-root-trust, audit-capsule-v2, audit-issuer-attestation, audit-issuer-trust, audit-issuer-root-trust, attested-interop, reporting-safe line-proof, reporting-evidence-attestation, reporting-evidence-issuer-trust and reporting-evidence-root-trust regressions"
     }
   ],
   "promotionRule": "Every qualification item must succeed after the workflow has checked out and mechanically verified the exact proposed head commit. Missing, queued, skipped, stale, synthetic-merge-only, source-only, or ancestor evidence is not PASS.",
@@ -77,6 +83,10 @@
     "A detached reporting evidence package attestation turns DDEX or CISAC CRD into accounting ledger authority.",
     "A stale reporting evidence issuer trust bundle predating the package attestation signature is sufficient revocation evidence.",
     "Reporting evidence issuer key rotation invalidates all historically valid package attestations by default.",
-    "A revoked reporting evidence issuer trust entry can authorize package signatures at or after revokedAt."
+    "A revoked reporting evidence issuer trust entry can authorize package signatures at or after revokedAt.",
+    "An unattested reporting evidence issuer trust bundle is sufficient root trust authority.",
+    "A cryptographically valid reporting evidence issuer trust bundle below the pinned minimum policy sequence is acceptable.",
+    "A reporting evidence issuer root attestation signed after the requested verification instant can authorize that earlier view.",
+    "Accounting or reporting verification code should custody reporting evidence issuer trust-anchor signing keys."
   ]
 }
