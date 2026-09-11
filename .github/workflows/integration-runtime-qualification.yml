@@ -1,0 +1,284 @@
+name: Integration Runtime Qualification
+
+on:
+  pull_request:
+    branches:
+      - main
+      - architecture/integration-plane-v1
+      - feat/integration-core-v1
+    paths:
+      - 'crates/mycelix-integration-core/**'
+      - 'crates/mycelix-integration-runtime/**'
+      - 'docs/rfcs/integration-plane-v1-execution-safety.md'
+      - '.github/workflows/integration-runtime-qualification.yml'
+  push:
+    branches:
+      - feat/integration-runtime-v1
+    paths:
+      - 'crates/mycelix-integration-core/**'
+      - 'crates/mycelix-integration-runtime/**'
+      - 'docs/rfcs/integration-plane-v1-execution-safety.md'
+      - '.github/workflows/integration-runtime-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUNTIME_MANIFEST: crates/mycelix-integration-runtime/Cargo.toml
+
+concurrency:
+  group: integration-runtime-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Integration Runtime Qualification
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            crates/mycelix-integration-core
+            crates/mycelix-integration-runtime
+
+      - name: Verify constitutional and crate boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          constitution='docs/rfcs/integration-plane-v1-execution-safety.md'
+          manifest="$RUNTIME_MANIFEST"
+          boundary='crates/mycelix-integration-runtime/src/runtime.rs'
+          bootstrap='crates/mycelix-integration-runtime/src/bootstrap_guard.rs'
+          schema='crates/mycelix-integration-runtime/src/schema_manifest.rs'
+          guard='crates/mycelix-integration-runtime/src/storage_guard.rs'
+          facade='crates/mycelix-integration-runtime/src/v31.rs'
+          legacy='crates/mycelix-integration-runtime/src/lib.rs'
+          bootstrap_test='crates/mycelix-integration-runtime/tests/fresh_bootstrap_concurrency.rs'
+          atomic_hardening='crates/mycelix-integration-runtime/tests/hardening_transaction_atomicity.rs'
+
+          test -f "$constitution"
+          grep -Fq 'Claim MUST be distinct from external dispatch' "$constitution"
+          grep -Fq 'Each attempt MUST have an exact fence identity' "$constitution"
+          grep -Fq 'Every provider execution outcome MUST bind one exact logical operation' "$constitution"
+          grep -Fq 'Authority denial and provider rejection-before-commit MUST remain distinct' "$constitution"
+          grep -Fq 'Ambiguity MUST preserve unknown commit state' "$constitution"
+          grep -Fq 'Reconciliation observations MUST be append-only and non-conclusive by default' "$constitution"
+          grep -Fq 'Durable intent and queue claims MUST NOT materialize current execution capability' "$constitution"
+          grep -Fq 'Storage schema evolution MUST preserve causal meaning' "$constitution"
+          grep -Fq 'Execution history and admission MUST be bounded' "$constitution"
+
+          grep -Fq 'path = "src/runtime.rs"' "$manifest"
+          test -f "$boundary"
+          test -f "$bootstrap"
+          test -f "$schema"
+          test -f "$guard"
+          test -f "$facade"
+          test -f "$legacy"
+          test -f "$bootstrap_test"
+          test -f "$atomic_hardening"
+          test ! -f 'crates/mycelix-integration-runtime/src/schema_guard.rs'
+
+          grep -Fq 'mod bootstrap_guard' "$boundary"
+          grep -Fq 'mod schema_manifest' "$boundary"
+          grep -Fq 'mod storage_guard' "$boundary"
+          grep -Fq 'pub use bootstrap_guard::RUNTIME_BOOTSTRAP_PROFILE_V1' "$boundary"
+          grep -Fq 'pub use schema_manifest::RUNTIME_STRUCTURAL_MANIFEST_V2' "$boundary"
+          grep -Fq 'RUNTIME_ENFORCEMENT_PROFILE_V5' "$boundary"
+          grep -Fq 'bootstrap_guard::prepare_unversioned_file_store(&path)' "$boundary"
+          grep -Fq 'storage_guard::prepare_and_classify_file_store(&path)' "$boundary"
+          grep -Fq 'bootstrap_guard::qualify_file_store_bootstrap(' "$boundary"
+          grep -Fq 'storage_guard::harden_file_store(&path, RUNTIME_SEMANTIC_PROFILE_V31)' "$boundary"
+          grep -Fq 'load_reconciliation_checkpoint_snapshot' "$boundary"
+          grep -Fq 'require_fresh_causal_time' "$boundary"
+          grep -Fq 'require_fresh_operation_binding' "$boundary"
+
+          if grep -Fq 'schema_manifest::validate_pre_repair_file_store' "$boundary" || \
+             grep -Fq 'schema_manifest::validate_hardened_file_store' "$boundary"; then
+            echo 'Public startup must not split structural qualification around the v5 hardener.'
+            exit 1
+          fi
+
+          unversioned_line="$(grep -nF 'let coarse = match bootstrap_guard::prepare_unversioned_file_store(&path)? {' "$boundary" | head -n1 | cut -d: -f1)"
+          legacy_coarse_line="$(grep -nF 'None => storage_guard::prepare_and_classify_file_store(&path)?,' "$boundary" | head -n1 | cut -d: -f1)"
+          qualify_line="$(grep -nF 'let admission = bootstrap_guard::qualify_file_store_bootstrap(' "$boundary" | head -n1 | cut -d: -f1)"
+          harden_line="$(grep -nF 'storage_guard::harden_file_store(&path, RUNTIME_SEMANTIC_PROFILE_V31)?;' "$boundary" | head -n1 | cut -d: -f1)"
+          cache_line="$(grep -nF 'let inner = v31::SqliteIntegrationStore::open(&path)?;' "$boundary" | head -n1 | cut -d: -f1)"
+          test "$unversioned_line" -lt "$legacy_coarse_line"
+          test "$legacy_coarse_line" -lt "$qualify_line"
+          test "$qualify_line" -lt "$harden_line"
+          test "$harden_line" -lt "$cache_line"
+
+          grep -Fq 'RUNTIME_BOOTSTRAP_PROFILE_V1' "$bootstrap"
+          grep -Fq 'bootstrap-profile-v1' "$bootstrap"
+          grep -Fq 'prepare_unversioned_file_store' "$bootstrap"
+          grep -Fq "name NOT LIKE 'sqlite_%'" "$bootstrap"
+          grep -Fq "type IN ('table', 'index', 'trigger', 'view')" "$bootstrap"
+          grep -Fq 'QUALIFIED_BOOTSTRAP_TABLES' "$bootstrap"
+          grep -Fq 'QUALIFIED_BOOTSTRAP_INDEXES' "$bootstrap"
+          grep -Fq 'QUALIFIED_BOOTSTRAP_TRIGGERS' "$bootstrap"
+          grep -Fq 'first_unqualified_user_schema_object' "$bootstrap"
+          grep -Fq 'EXPECTED_STRUCTURAL_SCHEMA_V2: i64 = 2' "$bootstrap"
+          grep -Fq 'DURABLE_RECORD_TABLES' "$bootstrap"
+          grep -Fq 'integration_runtime_enforcement' "$bootstrap"
+          grep -Fq 'sqlite_sequence' "$bootstrap"
+          grep -Fq 'has_prior_autoincrement_activity' "$bootstrap"
+          grep -Fq 'ensure_expected_semantic_profile' "$bootstrap"
+          grep -Fq 'TransactionBehavior::Immediate' "$bootstrap"
+          grep -Fq 'durable_record_table.is_some() || prior_autoincrement_activity' "$bootstrap"
+
+          foreign_schema_line="$(grep -nF 'if first_unqualified_user_schema_object(&tx)?.is_some() {' "$bootstrap" | head -n1 | cut -d: -f1)"
+          semantic_write_line="$(grep -nF 'ensure_expected_semantic_profile(&tx, expected_semantic_profile)?;' "$bootstrap" | head -n1 | cut -d: -f1)"
+          test "$foreign_schema_line" -lt "$semantic_write_line"
+
+          grep -Fq 'unversioned_historical_mycelix_state_is_not_stamped_or_promoted' "$bootstrap_test"
+          grep -Fq 'unrelated_unversioned_schema_is_not_annexed_even_when_empty' "$bootstrap_test"
+          grep -Fq 'unrelated_structural_v2_schema_is_not_annexed_or_semantically_tagged' "$bootstrap_test"
+          grep -Fq 'assert_schema_version(&conn, 0)' "$bootstrap_test"
+          grep -Fq 'assert_semantic_table_absent(&conn)' "$bootstrap_test"
+
+          grep -Fq 'RUNTIME_STRUCTURAL_MANIFEST_V2' "$schema"
+          grep -Fq 'structural-manifest-v2' "$schema"
+          grep -Fq 'validate_pre_repair_transaction' "$schema"
+          grep -Fq 'validate_hardened_transaction' "$schema"
+          grep -Fq 'PRAGMA table_xinfo' "$schema"
+          grep -Fq 'PRAGMA index_list' "$schema"
+          grep -Fq 'PRAGMA foreign_key_list' "$schema"
+          grep -Fq 'PRAGMA foreign_key_check' "$schema"
+          grep -Fq 'CHECK(SINGLETON=1)' "$schema"
+          grep -Fq 'count_sql_keyword' "$schema"
+          grep -Fq 'require_trigger_allowlist' "$schema"
+          grep -Fq 'unqualified trigger' "$schema"
+          grep -Fq 'validate_named_indexes' "$schema"
+          grep -Fq 'AUTOINCREMENT contract differs' "$schema"
+          grep -Fq 'UNIQUE/primary-key index set differs' "$schema"
+
+          grep -Fq 'EXPECTED_STRUCTURAL_SCHEMA_V2: i64 = 2' "$guard"
+          grep -Fq 'RUNTIME_ENFORCEMENT_PROFILE_V5' "$guard"
+          grep -Fq 'TransactionBehavior::Immediate' "$guard"
+          grep -Fq 'schema_manifest::validate_pre_repair_transaction(&tx, expected_semantic_profile)?;' "$guard"
+          grep -Fq 'schema_manifest::validate_hardened_transaction(' "$guard"
+          grep -Fq 'require_semantic_profile' "$guard"
+          grep -Fq 'require_structural_schema_version' "$guard"
+          grep -Fq 'PRAGMA user_version' "$guard"
+          grep -Fq 'require_no_orphan_history' "$guard"
+          grep -Fq 'collect_typed_provider_operation_bindings' "$guard"
+          grep -Fq 'serde_json::from_slice' "$guard"
+          grep -Fq 'validate_operation_subject' "$guard"
+          grep -Fq 'rebuild_provider_operation_bindings' "$guard"
+          grep -Fq 'integration_validate_execution_subject_before' "$guard"
+          grep -Fq 'integration_validate_reconciliation_subject_before' "$guard"
+          grep -Fq 'DROP TRIGGER IF EXISTS integration_bind_execution_operation_before' "$guard"
+          grep -Fq 'DROP TRIGGER IF EXISTS integration_causal_outbox_update_before' "$guard"
+          grep -Fq 'checkpoint_file_cas' "$guard"
+
+          tx_line="$(grep -nF 'let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;' "$guard" | head -n1 | cut -d: -f1)"
+          pre_line="$(grep -nF 'schema_manifest::validate_pre_repair_transaction(&tx, expected_semantic_profile)?;' "$guard" | head -n1 | cut -d: -f1)"
+          repair_line="$(grep -nF 'ensure_binding_table(&tx)?;' "$guard" | head -n1 | cut -d: -f1)"
+          profile_line="$(grep -nF 'record_enforcement_profile(&tx)?;' "$guard" | head -n1 | cut -d: -f1)"
+          post_line="$(grep -nF 'schema_manifest::validate_hardened_transaction(' "$guard" | head -n1 | cut -d: -f1)"
+          commit_line="$(grep -nF 'tx.commit()?;' "$guard" | awk -F: -v start="$post_line" '$1 > start {print $1; exit}')"
+          test "$tx_line" -lt "$pre_line"
+          test "$pre_line" -lt "$repair_line"
+          test "$repair_line" -lt "$profile_line"
+          test "$profile_line" -lt "$post_line"
+          test "$post_line" -lt "$commit_line"
+
+          grep -Fq 'post_manifest_failure_rolls_back_all_hardening_mutations' "$atomic_hardening"
+          grep -Fq 'pre-v5-rollback-marker' "$atomic_hardening"
+          grep -Fq 'foreign-key integrity violation' "$atomic_hardening"
+          grep -Fq 'failed post-manifest qualification must roll back trigger replacement' "$atomic_hardening"
+
+          grep -Fq 'RUNTIME_SEMANTIC_PROFILE_V31' "$facade"
+          grep -Fq 'const STRUCTURAL_SCHEMA_V2: i64 = 2' "$facade"
+          grep -Fq 'integration_runtime_operation_binding' "$facade"
+          grep -Fq 'preflight_semantic_identity' "$facade"
+          grep -Fq 'isolate_poisoned_recovery_entries' "$facade"
+          grep -Fq 'quarantine_reason' "$facade"
+
+          if grep -R -Fq 'RUNTIME_ENFORCEMENT_PROFILE_V4' crates/mycelix-integration-runtime; then
+            echo 'Stale enforcement-profile-v4 reference remains after v5 atomic hardening.'
+            exit 1
+          fi
+
+          if grep -Eq 'pub (async )?fn (execute|send_payment|refund|transfer)\b' "$boundary" "$bootstrap" "$schema" "$guard" "$facade" "$legacy"; then
+            echo 'INT-03 must not expose provider execution before INT-04 authority composition.'
+            exit 1
+          fi
+
+      - name: Enforce provider-neutral transitive dependency closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          tree="$(cargo tree --manifest-path "$RUNTIME_MANIFEST" -e normal --prefix none)"
+          if printf '%s\n' "$tree" | grep -Eiq '^(hdk|hdi|reqwest|tokio|stripe|aws-sdk|odoo|mercury)( |$)'; then
+            echo 'Forbidden provider/network/Holochain dependency entered INT-03 normal dependency closure:'
+            printf '%s\n' "$tree" | grep -Ei '^(hdk|hdi|reqwest|tokio|stripe|aws-sdk|odoo|mercury)( |$)' || true
+            exit 1
+          fi
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path "$RUNTIME_MANIFEST" --all --check
+
+      - name: Compile all tests without running
+        run: cargo test --manifest-path "$RUNTIME_MANIFEST" --no-run
+
+      - name: Run full runtime test corpus
+        run: cargo test --manifest-path "$RUNTIME_MANIFEST"
+
+      - name: Run inherited INT-02 identifier qualification
+        run: |
+          cargo test --manifest-path crates/mycelix-integration-core/Cargo.toml id_deserialization_preserves_constructor_invariants
+          cargo test --manifest-path crates/mycelix-integration-core/Cargo.toml nested_identifier_deserialization_cannot_bypass_validation
+
+      - name: Run bootstrap, semantic identity, and structural manifest qualification
+        run: |
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test fresh_bootstrap_concurrency
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test legacy_rejection_migration
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test v3_semantic_identity
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test structural_schema_admission
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test structural_manifest
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test hardening_transaction_atomicity
+
+      - name: Run attempt and stale-fence qualification
+        run: |
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test attempt_budget
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test attempt_budget_liveness
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test expired_attempt_fence
+
+      - name: Run exact-operation identity qualification
+        run: |
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test provider_operation_binding
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test provider_operation_history_binding
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test cross_handle_consistency
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test typed_history_subject_binding
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test orphan_history_rejection
+
+      - name: Run causal-time and failure-isolation qualification
+        run: |
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test causal_time_ordering
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test atomic_causal_fence
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test recovery_poison_isolation
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test execution_observation_budget
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test post_resolution_evidence
+
+      - name: Run checkpoint and storage-reconstruction qualification
+        run: |
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test reconciliation_checkpoint_monotonic
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test derived_index_reconstruction
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test enforcement_manifest_tamper
+
+      - name: Clippy runtime and core dependency
+        run: cargo clippy --manifest-path "$RUNTIME_MANIFEST" --all-targets -- -D warnings

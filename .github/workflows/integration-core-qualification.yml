@@ -1,0 +1,199 @@
+name: Integration Core Qualification
+
+on:
+  pull_request:
+    branches:
+      - main
+      - architecture/integration-plane-v1
+    paths:
+      - 'crates/mycelix-integration-core/**'
+      - 'docs/rfcs/integration-plane-v1-execution-safety.md'
+      - '.github/workflows/integration-core-qualification.yml'
+  push:
+    branches:
+      - main
+      - architecture/integration-plane-v1
+      - feat/integration-core-v1
+    paths:
+      - 'crates/mycelix-integration-core/**'
+      - 'docs/rfcs/integration-plane-v1-execution-safety.md'
+      - '.github/workflows/integration-core-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+concurrency:
+  group: integration-core-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Integration Core Qualification
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/mycelix-integration-core
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path crates/mycelix-integration-core/Cargo.toml --all --check
+
+      - name: Compile tests without running
+        run: cargo test --manifest-path crates/mycelix-integration-core/Cargo.toml --no-run
+
+      - name: Run tests
+        run: cargo test --manifest-path crates/mycelix-integration-core/Cargo.toml
+
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-integration-core/Cargo.toml --all-targets -- -D warnings
+
+      - name: Enforce validated identifier deserialization
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-core/src/lib.rs'
+
+          grep -Fq "impl<'de> Deserialize<'de> for \$name" "$source"
+          grep -Fq 'let value = String::deserialize(deserializer)?;' "$source"
+          grep -Fq 'Self::new(value).map_err(serde::de::Error::custom)' "$source"
+          grep -Fq 'id_deserialization_preserves_constructor_invariants' "$source"
+          grep -Fq 'nested_identifier_deserialization_cannot_bypass_validation' "$source"
+
+          if grep -Fq 'Hash, Serialize, Deserialize' "$source"; then
+            echo 'Validated identifier newtypes must not derive unchecked Deserialize.'
+            exit 1
+          fi
+
+      - name: Enforce execution-safety constitution
+        shell: bash
+        run: |
+          set -euo pipefail
+          constitution='docs/rfcs/integration-plane-v1-execution-safety.md'
+          test -f "$constitution"
+          grep -Fq 'Claim MUST be distinct from external dispatch' "$constitution"
+          grep -Fq 'Each attempt MUST have an exact fence identity' "$constitution"
+          grep -Fq 'Every provider execution outcome MUST bind one exact logical operation' "$constitution"
+          grep -Fq 'Authority denial and provider rejection-before-commit MUST remain distinct' "$constitution"
+          grep -Fq 'Ambiguity MUST preserve unknown commit state' "$constitution"
+          grep -Fq 'Idempotency MUST be a qualified provider property' "$constitution"
+          grep -Fq 'Durable intent and queue claims MUST NOT materialize current execution capability' "$constitution"
+          grep -Fq 'Storage schema evolution MUST preserve causal meaning' "$constitution"
+          grep -Fq 'Cross-layer immutable identity MUST be typed and verifiable' "$constitution"
+
+      - name: Enforce transport-neutral dependency boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest='crates/mycelix-integration-core/Cargo.toml'
+          source='crates/mycelix-integration-core/src'
+
+          forbidden_manifest='(^|[[:space:]])(hdk|hdi|reqwest|axum|hyper|tonic|sqlx|rusqlite|diesel|tokio|async-std|actix|rocket|stripe|aws-sdk|kube|rdkafka|lapin)[[:space:]]*='
+          if grep -Eiq "$forbidden_manifest" "$manifest"; then
+            echo 'Forbidden transport/provider/runtime/storage dependency found:'
+            grep -Ein "$forbidden_manifest" "$manifest" || true
+            exit 1
+          fi
+
+          forbidden_source='\b(hdk|hdi|reqwest|axum|hyper|tonic|sqlx|rusqlite|diesel|tokio|async_std|actix|rocket|rdkafka|lapin)::'
+          if grep -REIn "$forbidden_source" "$source"; then
+            echo 'Forbidden transport/provider/runtime/storage import found.'
+            exit 1
+          fi
+
+      - name: Enforce completion and finalization semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-core/src/lib.rs'
+          terminal_test='crates/mycelix-integration-core/tests/rejected_terminal.rs'
+
+          if grep -Fq '(DomainAccepted, Finalized)' "$source"; then
+            echo 'Inbound state machine permits DomainAccepted -> Finalized without reconciliation.'
+            exit 1
+          fi
+
+          if grep -Fq '(Confirmed, Finalized)' "$source" || grep -Fq '(Ambiguous, Finalized)' "$source"; then
+            echo 'Effectful or uncertain outbound completion bypasses reconciliation.'
+            exit 1
+          fi
+
+          grep -Fq '(DomainAccepted, Reconciled)' "$source"
+          grep -Fq '(Confirmed, Reconciled)' "$source"
+          grep -Fq '(Ambiguous, Reconciled)' "$source"
+          grep -Fq '(AuthorityDenied, Finalized)' "$source"
+          grep -Fq '(RejectedBeforeCommit, Finalized)' "$source"
+          grep -Fq '(Reconciled, Finalized)' "$source"
+          grep -Fq 'StillAmbiguous' "$source"
+          grep -Fq 'pub fn is_conclusive' "$source"
+
+          test -f "$terminal_test"
+          grep -Fq 'denial_and_before_commit_rejection_are_distinct_terminal_no_effect_paths' "$terminal_test"
+          grep -Fq 'OutboundStage::AuthorityDenied' "$terminal_test"
+          grep -Fq 'OutboundStage::RejectedBeforeCommit' "$terminal_test"
+
+      - name: Enforce denial claim dispatch boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-core/src/lib.rs'
+
+          grep -Fq '(AuthorityChecked, AuthorityDenied)' "$source"
+          grep -Fq '(AuthorityDenied, Finalized)' "$source"
+          grep -Fq '(Approved, OutboxCommitted)' "$source"
+          grep -Fq '(OutboxCommitted, AttemptPrepared)' "$source"
+          grep -Fq '(AttemptPrepared, OutboxCommitted)' "$source"
+          grep -Fq '(AttemptPrepared, DispatchStarted)' "$source"
+          grep -Fq '(DispatchStarted, Confirmed)' "$source"
+          grep -Fq '(DispatchStarted, RejectedBeforeCommit)' "$source"
+          grep -Fq '(DispatchStarted, Ambiguous)' "$source"
+
+          if grep -Fq '(AuthorityChecked, RejectedBeforeCommit)' "$source" || \
+             grep -Fq '(Approved, DispatchStarted)' "$source" || \
+             grep -Fq '(OutboxCommitted, DispatchStarted)' "$source" || \
+             grep -Fq '(AttemptPrepared, Confirmed)' "$source" || \
+             grep -Fq '(AttemptPrepared, RejectedBeforeCommit)' "$source"; then
+            echo 'Outbound state machine conflates denial, claim, dispatch, or provider rejection.'
+            exit 1
+          fi
+
+      - name: Enforce exact operation and ambiguity semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-core/src/lib.rs'
+
+          grep -Fq 'id_type!(ExecutionAttemptId)' "$source"
+          grep -Fq 'RejectedBeforeCommit {' "$source"
+          grep -Fq 'operation: ExternalOperationRef' "$source"
+          grep -Fq 'pub fn operation(&self) -> &ExternalOperationRef' "$source"
+          grep -Fq 'requires_reconciliation_if_ambiguous' "$source"
+          grep -Fq 'SideEffectClass::Reversible' "$source"
+          grep -Fq 'SideEffectClass::Compensatable' "$source"
+          grep -Fq 'SideEffectClass::Irreversible' "$source"
+
+      - name: Enforce core claim-boundary vocabulary
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-core/src/lib.rs'
+
+          grep -Fq 'pub enum ExternalExecutionOutcome' "$source"
+          grep -Fq 'Ambiguous {' "$source"
+          grep -Fq 'pub enum SideEffectClass' "$source"
+          grep -Fq 'ReconcileBeforeReexecution' "$source"
+          grep -Fq 'pub trait IntegrationProjection' "$source"
