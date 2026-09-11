@@ -460,6 +460,8 @@ impl ControlAuthenticityCoverageEvidence {
                 actual: self.windows.len(),
             });
         }
+        let mut verifier_receipts = BTreeSet::new();
+        let mut authenticity_bindings = BTreeSet::new();
         for ((planned, control_receipt), authenticity_receipt) in control_plan
             .windows
             .iter()
@@ -472,6 +474,12 @@ impl ControlAuthenticityCoverageEvidence {
                 });
             }
             authenticity_receipt.validate_against(control_receipt)?;
+            if !verifier_receipts.insert(authenticity_receipt.verifier_receipt_digest) {
+                return Err(AuthenticityCoverageError::DuplicateVerifierReceipt);
+            }
+            if !authenticity_bindings.insert(authenticity_receipt.authenticity_binding_digest) {
+                return Err(AuthenticityCoverageError::DuplicateAuthenticityBinding);
+            }
         }
         if self.coverage_digest != authenticity_coverage_digest(self) {
             return Err(AuthenticityCoverageError::DigestMismatch);
@@ -479,13 +487,26 @@ impl ControlAuthenticityCoverageEvidence {
         Ok(())
     }
 
+    /// A limitation transition requires the original external authenticity receipts and current
+    /// verifier/credential/revocation contexts. A digest-valid summary alone is insufficient.
     pub fn qualification_limitation_transition(
         &self,
         plan: &ControlAuthenticityCoveragePlan,
         control_plan: &ControlCoveragePlan,
         control_coverage: &ControlCoverageEvidence,
+        control_entries: &[ControlCoverageEntry],
+        authenticity_entries: &[ControlAuthenticityEntry],
     ) -> Result<AuthenticityQualificationTransition, AuthenticityCoverageError> {
-        self.validate_against(plan, control_plan, control_coverage)?;
+        let rebuilt = verify_control_authenticity_coverage(
+            plan,
+            control_plan,
+            control_coverage,
+            control_entries,
+            authenticity_entries,
+        )?;
+        if &rebuilt != self {
+            return Err(AuthenticityCoverageError::DigestMismatch);
+        }
         Ok(AuthenticityQualificationTransition::new(
             plan,
             self.coverage_digest,
@@ -585,7 +606,7 @@ fn authenticity_transition_digest(value: &AuthenticityQualificationTransition) -
 
 #[cfg(test)]
 mod tests {
-    use mycelix_business_control_coverage::{ControlCoverageWindow, ControlCoveragePlan};
+    use mycelix_business_control_coverage::{ControlCoveragePlan, ControlCoverageWindow};
     use mycelix_business_control_reconciliation::{ControlAggregationKind, ControlSourceClass};
     use mycelix_business_ingress::IngressQualificationBinding;
 
