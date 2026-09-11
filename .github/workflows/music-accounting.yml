@@ -23,6 +23,7 @@ on:
       - 'mycelix-music/scripts/check-accounting-wire-python-conformance-invariants.sh'
       - 'mycelix-music/scripts/accounting_merkle_v2_conformance.py'
       - 'mycelix-music/scripts/check-accounting-merkle-v2-invariants.sh'
+      - 'mycelix-music/scripts/check-interop-portable-manifest-v2-invariants.sh'
       - '.github/workflows/music-accounting.yml'
   push:
     branches: [main]
@@ -47,6 +48,7 @@ on:
       - 'mycelix-music/scripts/check-accounting-wire-python-conformance-invariants.sh'
       - 'mycelix-music/scripts/accounting_merkle_v2_conformance.py'
       - 'mycelix-music/scripts/check-accounting-merkle-v2-invariants.sh'
+      - 'mycelix-music/scripts/check-interop-portable-manifest-v2-invariants.sh'
       - '.github/workflows/music-accounting.yml'
 
 permissions:
@@ -121,6 +123,10 @@ jobs:
       - name: Enforce portable reporting verification invariants
         working-directory: mycelix-music
         run: bash scripts/check-interop-portable-verification-invariants.sh
+
+      - name: Enforce portable dual-commitment manifest v2 invariants
+        working-directory: mycelix-music
+        run: bash scripts/check-interop-portable-manifest-v2-invariants.sh
 
       - name: Type-check accounting authority boundary
         working-directory: mycelix-music
