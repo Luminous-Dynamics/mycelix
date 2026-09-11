@@ -12,8 +12,7 @@ use mycelix_business_campaign_replay::CampaignReplay;
 use mycelix_business_control_reconciliation::{
     ControlAggregationKind, ControlReconciliationContract, ControlReconciliationDecision,
     ControlReconciliationEvidence, ControlSourceClass, ControlTotalStatement, ReconciliationError,
-    ScopedLimitationTransition, aggregation_semantic_authority_unverified_ref,
-    control_metric_semantic_authority_unverified_ref,
+    aggregation_semantic_authority_unverified_ref, control_metric_semantic_authority_unverified_ref,
     control_source_external_reality_unverified_ref, upstream_export_completeness_unverified_ref,
 };
 use mycelix_business_core::{Digest32, ReferenceId, ScopeRef};
@@ -227,6 +226,8 @@ pub struct ControlCoverageEntry {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WindowCoverageEvidence {
     pub window_id: ReferenceId,
+    pub window_start_unix_ms: u64,
+    pub window_end_unix_ms: u64,
     pub contract_digest: Digest32,
     pub statement_digest: Digest32,
     pub reconciliation_digest: Digest32,
@@ -257,6 +258,7 @@ pub enum CoverageError {
     StatementOrEvidence { window_id: ReferenceId, error: ReconciliationError },
     ReconciliationDidNotMatch { window_id: ReferenceId },
     TransitionMismatch { window_id: ReferenceId },
+    WindowEvidenceInvalid { window_id: ReferenceId },
     ZeroDigest,
     DigestMismatch,
 }
@@ -346,6 +348,8 @@ pub fn verify_control_coverage(
             .collect::<Vec<_>>();
         let window_digest = window_evidence_digest(
             &entry.window_id,
+            window.start_unix_ms,
+            window.end_unix_ms,
             entry.contract.contract_digest,
             entry.statement.statement_digest,
             entry.reconciliation.evidence_digest,
@@ -355,6 +359,8 @@ pub fn verify_control_coverage(
             entry.window_id.clone(),
             WindowCoverageEvidence {
                 window_id: entry.window_id.clone(),
+                window_start_unix_ms: window.start_unix_ms,
+                window_end_unix_ms: window.end_unix_ms,
                 contract_digest: entry.contract.contract_digest,
                 statement_digest: entry.statement.statement_digest,
                 reconciliation_digest: entry.reconciliation.evidence_digest,
@@ -414,6 +420,37 @@ fn validate_contract_semantics(
     Ok(())
 }
 
+impl WindowCoverageEvidence {
+    fn validate_against(&self, planned: &ControlCoverageWindow) -> Result<(), CoverageError> {
+        if self.window_id != planned.window_id
+            || self.window_start_unix_ms != planned.start_unix_ms
+            || self.window_end_unix_ms != planned.end_unix_ms
+            || self.transition_digests.len() != 2
+            || zero_digest(&self.contract_digest)
+            || zero_digest(&self.statement_digest)
+            || zero_digest(&self.reconciliation_digest)
+            || zero_digest(&self.window_digest)
+            || self.transition_digests.iter().any(zero_digest)
+            || self.transition_digests[0] == self.transition_digests[1]
+            || self.window_digest
+                != window_evidence_digest(
+                    &self.window_id,
+                    self.window_start_unix_ms,
+                    self.window_end_unix_ms,
+                    self.contract_digest,
+                    self.statement_digest,
+                    self.reconciliation_digest,
+                    &self.transition_digests,
+                )
+        {
+            return Err(CoverageError::WindowEvidenceInvalid {
+                window_id: self.window_id.clone(),
+            });
+        }
+        Ok(())
+    }
+}
+
 impl ControlCoverageEvidence {
     pub fn validate_against(&self, plan: &ControlCoveragePlan) -> Result<(), CoverageError> {
         plan.validate().map_err(CoverageError::Plan)?;
@@ -427,9 +464,7 @@ impl ControlCoverageEvidence {
             });
         }
         for (planned, actual) in plan.windows.iter().zip(&self.windows) {
-            if planned.window_id != actual.window_id || zero_digest(&actual.window_digest) {
-                return Err(CoverageError::DigestMismatch);
-            }
+            actual.validate_against(planned)?;
         }
         if self.coverage_digest != coverage_evidence_digest(self) {
             return Err(CoverageError::DigestMismatch);
@@ -526,6 +561,8 @@ fn qualification_transition_digest(value: &QualificationLimitationTransition) ->
 
 fn window_evidence_digest(
     window_id: &ReferenceId,
+    window_start_unix_ms: u64,
+    window_end_unix_ms: u64,
     contract_digest: Digest32,
     statement_digest: Digest32,
     reconciliation_digest: Digest32,
@@ -534,9 +571,12 @@ fn window_evidence_digest(
     let mut hasher = Sha256::new();
     hash_str(&mut hasher, "mycelix:control-window-coverage-evidence:v1");
     hash_str(&mut hasher, window_id.as_str());
+    hasher.update(window_start_unix_ms.to_be_bytes());
+    hasher.update(window_end_unix_ms.to_be_bytes());
     hasher.update(contract_digest.0);
     hasher.update(statement_digest.0);
     hasher.update(reconciliation_digest.0);
+    hasher.update((transition_digests.len() as u64).to_be_bytes());
     for digest in transition_digests {
         hasher.update(digest.0);
     }
@@ -750,6 +790,24 @@ mod tests {
     }
 
     #[test]
+    fn window_receipt_tampering_fails_self_validation() {
+        let (plan, campaign, replay, entries) = fixture();
+        let mut evidence = verify_control_coverage(&plan, &campaign, &replay, &entries).unwrap();
+        evidence.windows[0].window_end_unix_ms -= 1;
+        assert!(matches!(
+            evidence.validate_against(&plan),
+            Err(CoverageError::WindowEvidenceInvalid { .. })
+        ));
+
+        let mut evidence = verify_control_coverage(&plan, &campaign, &replay, &entries).unwrap();
+        evidence.windows[0].transition_digests.pop();
+        assert!(matches!(
+            evidence.validate_against(&plan),
+            Err(CoverageError::WindowEvidenceInvalid { .. })
+        ));
+    }
+
+    #[test]
     fn plan_with_gap_fails_before_evidence_collection() {
         let adapter = adapter();
         let file = source_file();
@@ -850,14 +908,13 @@ mod tests {
             },
         )
         .unwrap();
-        let late_reconciliation =
-            mycelix_business_control_reconciliation::reconcile_control_total(
-                &campaign,
-                &replay,
-                &late_contract,
-                &late_statement,
-            )
-            .unwrap();
+        let late_reconciliation = reconcile_control_total(
+            &campaign,
+            &replay,
+            &late_contract,
+            &late_statement,
+        )
+        .unwrap();
         entries[1] = ControlCoverageEntry {
             window_id: window.window_id.clone(),
             contract: late_contract,
