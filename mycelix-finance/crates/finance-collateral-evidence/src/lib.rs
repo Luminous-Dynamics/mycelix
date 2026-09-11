@@ -120,6 +120,7 @@ pub enum CollateralHealthEvidenceV2ValidationError {
     EvidenceTimestampAfterComputation,
     EvaluationBeforeComputation,
     EvidenceTooOld,
+    TimestampArithmeticOverflow,
     SnapshotSubjectMismatch,
     SnapshotMismatch,
 }
@@ -234,6 +235,24 @@ impl CollateralHealthEvidenceV2 {
         Ok(())
     }
 
+    /// Validate that this record is current at `evaluated_at_micros` under the
+    /// exact policy expected by the consumer.
+    pub fn validate_current_at(
+        &self,
+        expected_policy: &CollateralHealthFreshnessPolicy,
+        evaluated_at_micros: i64,
+    ) -> Result<(), CollateralHealthEvidenceV2ValidationError> {
+        self.validate_against_policy(expected_policy)?;
+        if evaluated_at_micros < self.snapshot.computed_at_micros {
+            return Err(CollateralHealthEvidenceV2ValidationError::EvaluationBeforeComputation);
+        }
+        ensure_evidence_fresh_at(
+            &self.envelope,
+            evaluated_at_micros,
+            expected_policy.max_evidence_age_micros,
+        )
+    }
+
     /// Whether this historically valid record crossed the liquidation threshold
     /// when it was computed.
     ///
@@ -255,15 +274,7 @@ impl CollateralHealthEvidenceV2 {
         expected_policy: &CollateralHealthFreshnessPolicy,
         evaluated_at_micros: i64,
     ) -> Result<bool, CollateralHealthEvidenceV2ValidationError> {
-        self.validate_against_policy(expected_policy)?;
-        if evaluated_at_micros < self.snapshot.computed_at_micros {
-            return Err(CollateralHealthEvidenceV2ValidationError::EvaluationBeforeComputation);
-        }
-        ensure_evidence_fresh_at(
-            &self.envelope,
-            evaluated_at_micros,
-            expected_policy.max_evidence_age_micros,
-        )?;
+        self.validate_current_at(expected_policy, evaluated_at_micros)?;
         Ok(self.snapshot.assessment.is_liquidation_evidence())
     }
 }
@@ -300,7 +311,10 @@ fn ensure_evidence_fresh_at(
     if evaluated_at_micros < evidence_time {
         return Err(CollateralHealthEvidenceV2ValidationError::EvaluationBeforeComputation);
     }
-    if evaluated_at_micros - evidence_time > max_evidence_age_micros {
+    let age = evaluated_at_micros
+        .checked_sub(evidence_time)
+        .ok_or(CollateralHealthEvidenceV2ValidationError::TimestampArithmeticOverflow)?;
+    if age > max_evidence_age_micros {
         return Err(CollateralHealthEvidenceV2ValidationError::EvidenceTooOld);
     }
     Ok(())
@@ -400,6 +414,13 @@ mod tests {
             record.is_current_liquidation_evidence_at(&policy(), 15),
             Ok(true)
         );
+    }
+
+    #[test]
+    fn generic_currentness_validation_is_not_liquidation_specific() {
+        let record = CollateralHealthEvidenceV2::new(request(), observed(100, 10), policy(), 50, 11)
+            .expect("valid healthy evidence");
+        assert_eq!(record.validate_current_at(&policy(), 15), Ok(()));
     }
 
     #[test]
@@ -510,6 +531,24 @@ mod tests {
         assert_eq!(
             record.is_current_liquidation_evidence_at(&policy(), 10),
             Err(CollateralHealthEvidenceV2ValidationError::EvaluationBeforeComputation)
+        );
+    }
+
+    #[test]
+    fn timestamp_age_overflow_fails_closed() {
+        let mut extreme_policy = policy();
+        extreme_policy.max_evidence_age_micros = i64::MAX;
+        let record = CollateralHealthEvidenceV2::new(
+            request(),
+            observed(100, i64::MIN),
+            extreme_policy.clone(),
+            50,
+            i64::MIN,
+        )
+        .expect("zero age at construction is valid even at lower bound");
+        assert_eq!(
+            record.validate_current_at(&extreme_policy, i64::MAX),
+            Err(CollateralHealthEvidenceV2ValidationError::TimestampArithmeticOverflow)
         );
     }
 
