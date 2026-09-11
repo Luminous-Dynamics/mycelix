@@ -7,6 +7,7 @@ on:
       - 'mycelix-music/packages/database/prisma/schema.prisma'
       - 'mycelix-music/package.json'
       - 'mycelix-music/scripts/check-source-invariants.sh'
+      - 'mycelix-music/scripts/check-source-invariants-base.sh'
       - 'mycelix-music/scripts/check-checkpoint-compiler-invariants.sh'
       - '.github/workflows/music-accounting.yml'
   push:
@@ -16,6 +17,7 @@ on:
       - 'mycelix-music/packages/database/prisma/schema.prisma'
       - 'mycelix-music/package.json'
       - 'mycelix-music/scripts/check-source-invariants.sh'
+      - 'mycelix-music/scripts/check-source-invariants-base.sh'
       - 'mycelix-music/scripts/check-checkpoint-compiler-invariants.sh'
       - '.github/workflows/music-accounting.yml'
 

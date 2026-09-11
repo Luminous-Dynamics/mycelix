@@ -7,6 +7,10 @@ import {
 } from './netting.js';
 import type { SettlementRecoveryState } from './recovery.js';
 import { requireCheckpointBackedSettlementAllocationLineage } from './settlement-allocation-lineage-checkpoint.js';
+import {
+  requireAnchoredSettlementAllocationLineageCheckpointAuthority,
+  type AnchoredSettlementAllocationLineageCheckpointAuthority,
+} from './settlement-allocation-lineage-checkpoint-trust-anchor.js';
 import type { SettlementAllocationLineageResolution } from './settlement-allocation-lineage.js';
 import {
   assertSettlementAllocationAuthority,
@@ -38,6 +42,8 @@ export interface StatementSettlementEvidence {
   readonly recovery: SettlementRecoveryState;
   /** Optional economic disposition. Only a verified-checkpoint-backed canonical lineage may supply it. */
   readonly allocationLineage?: SettlementAllocationLineageResolution;
+  /** Required whenever allocationLineage is present. Must be resolver-minted from root-attested signer trust. */
+  readonly anchoredTrust?: AnchoredSettlementAllocationLineageCheckpointAuthority;
 }
 
 export interface CompileRoyaltyStatementInput {
@@ -59,6 +65,12 @@ interface ValidatedAllocationEvidence {
   readonly allocation: SettlementAllocationAuthority;
   readonly checkpointRoot: string;
   readonly checkpointHighWaterMark: string;
+  readonly checkpointVerificationReceiptRoot: string;
+  readonly anchoredVerificationReceiptRoot: string;
+  readonly trustBundleRoot: string;
+  readonly trustBundleAttestationRoot: string;
+  readonly trustAnchorId: string;
+  readonly trustPolicySequence: string;
 }
 
 function withinPeriod(observedAt: string, period: AccountingPeriod): boolean {
@@ -104,6 +116,17 @@ function validateDeduction(
 
 function hasReceiptBackedFinality(recovery: SettlementRecoveryState): boolean {
   return recovery.status === 'finalized' || recovery.status === 'partial_finality';
+}
+
+function sameSignedCheckpointEnvelope(
+  left: ReturnType<typeof requireCheckpointBackedSettlementAllocationLineage>['checkpoint'],
+  right: AnchoredSettlementAllocationLineageCheckpointAuthority['checkpointAuthority']['checkpoint'],
+): boolean {
+  return left.checkpointRoot === right.checkpointRoot
+    && left.signingRequest.requestRoot === right.signingRequest.requestRoot
+    && left.signerKeyId === right.signerKeyId
+    && left.signedAt === right.signedAt
+    && left.signatureBase64 === right.signatureBase64;
 }
 
 function validateSettlementEvidence(
@@ -161,7 +184,16 @@ function validateSettlementEvidence(
     if (lastObservedAt > statementAsOf) throw new Error('settlement evidence cannot be later than statement asOf');
   }
 
-  if (evidence.allocationLineage === undefined) return undefined;
+  if (evidence.allocationLineage === undefined) {
+    if (evidence.anchoredTrust !== undefined) {
+      throw new Error('anchored settlement trust requires allocationLineage');
+    }
+    return undefined;
+  }
+  if (evidence.anchoredTrust === undefined) {
+    throw new Error('checkpoint-backed allocation lineage requires anchored trust authority');
+  }
+
   const lineage = evidence.allocationLineage;
   if (lineage.batchId !== batch.batchId) {
     throw new Error('settlement allocation lineage is not bound to the supplied batch');
@@ -172,6 +204,13 @@ function validateSettlementEvidence(
   const checkpointBacked = requireCheckpointBackedSettlementAllocationLineage(lineage);
   if (Date.parse(checkpointBacked.checkpoint.asOf) !== statementAsOf) {
     throw new Error('settlement allocation checkpoint asOf must equal statement asOf');
+  }
+  const anchoredTrust = requireAnchoredSettlementAllocationLineageCheckpointAuthority(evidence.anchoredTrust);
+  if (!sameSignedCheckpointEnvelope(checkpointBacked.checkpoint, anchoredTrust.checkpointAuthority.checkpoint)) {
+    throw new Error('anchored trust authority is not bound to the lineage signed checkpoint envelope');
+  }
+  if (Date.parse(anchoredTrust.receipt.verifiedAt) !== statementAsOf) {
+    throw new Error('anchored trust verification time must equal statement asOf');
   }
   const allocation = checkpointBacked.headAllocation;
   if (allocation.allocationRoot !== lineage.headAllocationRoot) {
@@ -190,6 +229,12 @@ function validateSettlementEvidence(
     allocation,
     checkpointRoot: checkpointBacked.checkpoint.checkpointRoot,
     checkpointHighWaterMark: checkpointBacked.checkpoint.highWaterMark,
+    checkpointVerificationReceiptRoot: anchoredTrust.receipt.checkpointVerificationReceiptRoot,
+    anchoredVerificationReceiptRoot: anchoredTrust.receipt.receiptRoot,
+    trustBundleRoot: anchoredTrust.receipt.trustBundleRoot,
+    trustBundleAttestationRoot: anchoredTrust.receipt.trustBundleAttestationRoot,
+    trustAnchorId: anchoredTrust.receipt.trustAnchorId,
+    trustPolicySequence: anchoredTrust.receipt.trustPolicySequence,
   });
 }
 
@@ -318,7 +363,7 @@ export function compileRoyaltyStatement(
     ...orderedSettlements.map(evidence => {
       const validatedAllocation = allocationEvidenceByBatch.get(evidence.batch.batchId);
       return {
-        evidenceKind: 'settlement_execution_v6',
+        evidenceKind: 'settlement_execution_v7',
         batchId: evidence.batch.batchId,
         obligationSetRoot: evidence.batch.obligationSetRoot,
         eligibilityAsOf: evidence.batch.eligibilityAsOf,
@@ -333,6 +378,12 @@ export function compileRoyaltyStatement(
         allocationBoundaryRoot: evidence.allocationLineage?.boundary.boundaryRoot ?? null,
         allocationCheckpointRoot: validatedAllocation?.checkpointRoot ?? null,
         allocationCheckpointHighWaterMark: validatedAllocation?.checkpointHighWaterMark ?? null,
+        checkpointVerificationReceiptRoot: validatedAllocation?.checkpointVerificationReceiptRoot ?? null,
+        anchoredVerificationReceiptRoot: validatedAllocation?.anchoredVerificationReceiptRoot ?? null,
+        trustBundleRoot: validatedAllocation?.trustBundleRoot ?? null,
+        trustBundleAttestationRoot: validatedAllocation?.trustBundleAttestationRoot ?? null,
+        trustAnchorId: validatedAllocation?.trustAnchorId ?? null,
+        trustPolicySequence: validatedAllocation?.trustPolicySequence ?? null,
         allocationHeadRoot: validatedAllocation?.allocation.allocationRoot ?? null,
         obligationSetDischarged: validatedAllocation?.allocation.obligationSetDischarged ?? false,
       };

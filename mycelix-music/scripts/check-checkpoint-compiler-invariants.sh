@@ -10,6 +10,8 @@ compiler=packages/accounting/src/settlement-allocation-lineage-checkpoint-compil
 checkpoint=packages/accounting/src/settlement-allocation-lineage-checkpoint.ts
 trust=packages/accounting/src/settlement-allocation-lineage-checkpoint-trust.ts
 trust_anchor=packages/accounting/src/settlement-allocation-lineage-checkpoint-trust-anchor.ts
+projection=packages/accounting/src/projection.ts
+projection_tests=packages/accounting/src/projection-allocation-lineage.test.ts
 tests=packages/accounting/src/settlement-allocation-lineage-checkpoint-compiler.test.ts
 trust_tests=packages/accounting/src/settlement-allocation-lineage-checkpoint-trust.test.ts
 trust_anchor_tests=packages/accounting/src/settlement-allocation-lineage-checkpoint-trust-anchor.test.ts
@@ -21,6 +23,8 @@ policy=packages/accounting/promotion-policy.json
 [[ -f "$checkpoint" ]] || fail "checkpoint verification source is missing"
 [[ -f "$trust" ]] || fail "checkpoint signer trust source is missing"
 [[ -f "$trust_anchor" ]] || fail "checkpoint trust-anchor source is missing"
+[[ -f "$projection" ]] || fail "statement projection source is missing"
+[[ -f "$projection_tests" ]] || fail "statement anchored-trust regressions are missing"
 [[ -f "$tests" ]] || fail "checkpoint compiler regressions are missing"
 [[ -f "$trust_tests" ]] || fail "checkpoint signer trust regressions are missing"
 [[ -f "$trust_anchor_tests" ]] || fail "checkpoint trust-anchor regressions are missing"
@@ -132,6 +136,37 @@ grep -Fq 'trustBundleAttestationRoot: trustBundleAuthority.attestation.attestati
 grep -Fq 'trustPolicySequence: trustBundleAuthority.policySequence' "$trust_anchor" \
   || fail "anchored receipt must bind exact trust policy sequence"
 
+# Statements may consume allocation/discharge semantics only with root-anchored
+# trust authority for the exact signed checkpoint envelope and exact statement instant.
+grep -Fq 'readonly anchoredTrust?: AnchoredSettlementAllocationLineageCheckpointAuthority;' "$projection" \
+  || fail "statement settlement evidence must carry root-anchored trust authority"
+grep -Fq 'checkpoint-backed allocation lineage requires anchored trust authority' "$projection" \
+  || fail "statement compiler must reject unanchored allocation lineage"
+grep -Fq 'requireAnchoredSettlementAllocationLineageCheckpointAuthority' "$projection" \
+  || fail "statement compiler must require resolver-minted anchored trust authority"
+grep -Fq 'anchored trust authority is not bound to the lineage signed checkpoint envelope' "$projection" \
+  || fail "statement compiler must bind anchored trust to exact signed checkpoint envelope"
+grep -Fq "evidenceKind: 'settlement_execution_v7'" "$projection" \
+  || fail "statement settlement commitment must use root-trust-aware v7 evidence domain"
+grep -Fq 'checkpointVerificationReceiptRoot: validatedAllocation?.checkpointVerificationReceiptRoot' "$projection" \
+  || fail "statement settlement root must commit checkpoint verification receipt"
+grep -Fq 'anchoredVerificationReceiptRoot: validatedAllocation?.anchoredVerificationReceiptRoot' "$projection" \
+  || fail "statement settlement root must commit anchored verification receipt"
+grep -Fq 'trustBundleRoot: validatedAllocation?.trustBundleRoot' "$projection" \
+  || fail "statement settlement root must commit signer trust bundle root"
+grep -Fq 'trustBundleAttestationRoot: validatedAllocation?.trustBundleAttestationRoot' "$projection" \
+  || fail "statement settlement root must commit root-attested trust bundle"
+grep -Fq 'trustAnchorId: validatedAllocation?.trustAnchorId' "$projection" \
+  || fail "statement settlement root must identify trust anchor"
+grep -Fq 'trustPolicySequence: validatedAllocation?.trustPolicySequence' "$projection" \
+  || fail "statement settlement root must commit anti-rollback policy sequence"
+grep -Fq 'rejects checkpoint-backed lineage without root-anchored trust authority' "$projection_tests" \
+  || fail "statement regressions must reject unanchored checkpoint lineage"
+grep -Fq 'rejects a structural clone of a genuine anchored trust authority' "$projection_tests" \
+  || fail "statement regressions must reject fabricated anchored trust"
+grep -Fq 'changes settlement commitment when root trust-policy evidence changes' "$projection_tests" \
+  || fail "statement regressions must bind trust policy evidence into settlement root"
+
 grep -Fq 'rejects a cryptographically valid older trust bundle below the pinned rollback floor' "$trust_anchor_tests" \
   || fail "trust-anchor regressions must exercise rollback attack"
 grep -Fq 'requires exact predecessor continuity and one-step policy advancement' "$trust_anchor_tests" \
@@ -191,5 +226,7 @@ grep -Fq 'An unattested signer trust bundle is sufficient root trust authority.'
   || fail "promotion policy must require trust-bundle root attestation"
 grep -Fq 'A cryptographically valid trust bundle below the pinned minimum policy sequence is acceptable.' "$policy" \
   || fail "promotion policy must forbid trust-policy rollback"
+grep -Fq 'A checkpoint-backed allocation lineage without root-anchored signer trust is sufficient statement discharge authority.' "$policy" \
+  || fail "promotion policy must forbid unanchored statement discharge authority"
 
 echo "checkpoint compiler invariants passed"
