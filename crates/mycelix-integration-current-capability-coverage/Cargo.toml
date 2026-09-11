@@ -1,0 +1,18 @@
+[package]
+name = "mycelix-integration-current-capability-coverage"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Exact current executor capability coverage for current Mycelix integration commands"
+
+[dependencies]
+blake3 = "1.8"
+mycelix-authority-freshness = { path = "../mycelix-authority-freshness" }
+mycelix-governance-current-executor-authority = { path = "../mycelix-governance-current-executor-authority" }
+mycelix-governance-executor-designation = { path = "../mycelix-governance-executor-designation" }
+mycelix-governance-executor-lineage = { path = "../mycelix-governance-executor-lineage" }
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+mycelix-integration-capability-currentness = { path = "../mycelix-integration-capability-currentness" }
+mycelix-integration-current-action-authority = { path = "../mycelix-integration-current-action-authority" }
+mycelix-integration-core = { path = "../mycelix-integration-core" }
+thiserror = "2.0"
