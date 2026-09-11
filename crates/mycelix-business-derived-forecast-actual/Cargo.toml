@@ -18,3 +18,6 @@ mycelix-business-core = { path = "../mycelix-business-core" }
 mycelix-business-shadow = { path = "../mycelix-business-shadow" }
 mycelix-business-forecast-plan = { path = "../mycelix-business-forecast-plan" }
 mycelix-business-campaign-replay = { path = "../mycelix-business-campaign-replay" }
+
+[dev-dependencies]
+mycelix-business-ingress = { path = "../mycelix-business-ingress" }
