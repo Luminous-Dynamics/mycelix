@@ -1,0 +1,28 @@
+[package]
+name = "mycelix-business-hospitality-transaction-field"
+version = "0.1.0"
+edition = "2024"
+description = "Transaction-derived read-only hospitality field qualification for Mycelix Business"
+license = "AGPL-3.0-or-later"
+authors = ["Luminous Dynamics <contact@luminousdynamics.org>"]
+repository = "https://github.com/luminous-dynamics/mycelix"
+readme = "README.md"
+
+[lib]
+name = "mycelix_business_hospitality_transaction_field"
+crate-type = ["rlib"]
+
+[dependencies]
+sha2 = "0.10"
+mycelix-business-adapter-delimited = { path = "../mycelix-business-adapter-delimited" }
+mycelix-business-campaign-replay = { path = "../mycelix-business-campaign-replay" }
+mycelix-business-core = { path = "../mycelix-business-core" }
+mycelix-business-derived-forecast-actual = { path = "../mycelix-business-derived-forecast-actual" }
+mycelix-business-field-qualification = { path = "../mycelix-business-field-qualification" }
+mycelix-business-forecast-plan = { path = "../mycelix-business-forecast-plan" }
+mycelix-business-import-diagnostics = { path = "../mycelix-business-import-diagnostics" }
+mycelix-business-import-membership = { path = "../mycelix-business-import-membership" }
+mycelix-business-ingress = { path = "../mycelix-business-ingress" }
+mycelix-business-pilot-hospitality = { path = "../mycelix-business-pilot-hospitality" }
+mycelix-business-shadow = { path = "../mycelix-business-shadow" }
+mycelix-business-time-evidence = { path = "../mycelix-business-time-evidence" }
