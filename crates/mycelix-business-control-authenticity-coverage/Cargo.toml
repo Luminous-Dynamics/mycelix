@@ -1,0 +1,23 @@
+[package]
+name = "mycelix-business-control-authenticity-coverage"
+version = "0.1.0"
+edition = "2024"
+description = "Full-window external authenticity coverage for Mycelix Business control evidence"
+license = "AGPL-3.0-or-later"
+authors = ["Luminous Dynamics <contact@luminousdynamics.org>"]
+repository = "https://github.com/luminous-dynamics/mycelix"
+readme = "README.md"
+
+[lib]
+name = "mycelix_business_control_authenticity_coverage"
+crate-type = ["rlib"]
+
+[dependencies]
+sha2 = "0.10"
+mycelix-business-control-coverage = { path = "../mycelix-business-control-coverage" }
+mycelix-business-control-reconciliation = { path = "../mycelix-business-control-reconciliation" }
+mycelix-business-core = { path = "../mycelix-business-core" }
+mycelix-business-evidence-authenticity = { path = "../mycelix-business-evidence-authenticity" }
+
+[dev-dependencies]
+mycelix-business-ingress = { path = "../mycelix-business-ingress" }
