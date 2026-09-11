@@ -1,0 +1,22 @@
+[package]
+name = "finance-collateral-portfolio"
+version = "0.1.0"
+edition = "2024"
+description = "Fail-closed multi-collateral portfolio health evaluation for Mycelix Finance"
+license.workspace = true
+
+[lib]
+name = "finance_collateral_portfolio"
+crate-type = ["rlib"]
+
+[dependencies]
+serde = { workspace = true }
+finance-collateral-safety = { path = "../finance-collateral-safety" }
+finance-collateral-valuation = { path = "../finance-collateral-valuation" }
+finance-collateral-evidence = { path = "../finance-collateral-evidence" }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+
+[lints.rust]
+unsafe_code = "forbid"
