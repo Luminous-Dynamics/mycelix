@@ -215,10 +215,12 @@ fn validate_control_semantics(
     {
         return Err(ControlledQualificationError::QualificationWindowMismatch);
     }
-    if control_plan.campaign_binding_mismatch(report, coverage) {
+    if coverage.campaign_digest != report.campaign_digest
+        || coverage.replay_digest != report.campaign_replay.evidence_digest
+    {
         return Err(ControlledQualificationError::OriginalReportBindingMismatch);
     }
-    if !matches!(projection_spec.aggregation, AggregationKind::Sum) {
+    if projection_spec.aggregation != AggregationKind::Sum {
         return Err(ControlledQualificationError::ProjectionAggregationMismatch);
     }
     for planned in &target_plan.targets {
@@ -234,25 +236,6 @@ fn validate_control_semantics(
         }
     }
     Ok(())
-}
-
-trait ControlCampaignBinding {
-    fn campaign_binding_mismatch(
-        &self,
-        report: &TransactionHospitalityReport,
-        coverage: &ControlCoverageEvidence,
-    ) -> bool;
-}
-
-impl ControlCampaignBinding for ControlCoveragePlan {
-    fn campaign_binding_mismatch(
-        &self,
-        report: &TransactionHospitalityReport,
-        coverage: &ControlCoverageEvidence,
-    ) -> bool {
-        coverage.campaign_digest != report.campaign_digest
-            || coverage.replay_digest != report.campaign_replay.evidence_digest
-    }
 }
 
 fn validate_transition_set(
@@ -297,7 +280,7 @@ fn apply_expected_replacements(
     for required in [&export, &aggregation] {
         if !prior.contains(required) {
             return Err(ControlledQualificationError::MissingBroadLimitation {
-                limitation: required.clone(),
+                limitation: (*required).clone(),
             });
         }
     }
