@@ -9,6 +9,7 @@ export * from './netting.js';
 export * from './audit.js';
 export * from './audit-capsule-attestation.js';
 export * from './audit-capsule-attestation-trust.js';
+export * from './audit-capsule-attestation-trust-anchor.js';
 export * from './interop.js';
 export * from './recovery.js';
 export * from './projection.js';
