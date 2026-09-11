@@ -4,9 +4,10 @@
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Fail-closed collateral-health assessment for Mycelix Finance.
 //!
-//! This crate deliberately separates two questions:
-//! 1. what collateral-health tier a valid finite LTV observation implies; and
-//! 2. whether the observation is valid enough to support any tier conclusion.
+//! This crate deliberately separates three questions:
+//! 1. whether a valuation observation is currently available and trustworthy;
+//! 2. what LTV ratio follows from valid numeric evidence; and
+//! 3. what collateral-health tier that valid finite LTV observation implies.
 //!
 //! Invalid or unavailable valuation is `Indeterminate`. It is neither
 //! `Healthy` nor evidence of `Liquidation`.
@@ -17,6 +18,29 @@ use mycelix_finance_types::{
 };
 use serde::{Deserialize, Serialize};
 
+/// Why a valuation observation is unavailable before any LTV arithmetic.
+///
+/// Keeping acquisition failure typed prevents callers from using a numeric
+/// sentinel such as `0`, `999.0`, NaN, or infinity to represent missing data.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CollateralValuationUnavailableReason {
+    /// No current valuation observation exists.
+    Missing,
+    /// The configured valuation/oracle service could not be reached.
+    OracleUnavailable,
+    /// A response was received but could not be accepted as a valid observation.
+    InvalidObservation,
+}
+
+/// A valuation acquisition result before collateral-health computation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CollateralValuationObservation {
+    /// A numeric value was actually observed.
+    Observed { value: u64 },
+    /// No usable numeric observation is currently available.
+    Unavailable(CollateralValuationUnavailableReason),
+}
+
 /// Why a collateral-health observation could not be classified.
 ///
 /// These reasons are intentionally stable and serializable so coordinator,
@@ -26,12 +50,28 @@ use serde::{Deserialize, Serialize};
 pub enum CollateralHealthIndeterminateReason {
     /// No current valuation observation was available.
     MissingValuation,
-    /// The collateral valuation denominator was zero.
+    /// The valuation/oracle service was unavailable.
+    OracleUnavailable,
+    /// The valuation source returned an unusable observation.
+    InvalidValuationObservation,
+    /// The collateral valuation denominator was observed as zero.
     ZeroValuation,
     /// A supplied or derived LTV ratio was NaN or infinite.
     NonFiniteRatio,
     /// A supplied LTV ratio was negative and therefore outside the model.
     NegativeRatio,
+}
+
+impl From<CollateralValuationUnavailableReason> for CollateralHealthIndeterminateReason {
+    fn from(reason: CollateralValuationUnavailableReason) -> Self {
+        match reason {
+            CollateralValuationUnavailableReason::Missing => Self::MissingValuation,
+            CollateralValuationUnavailableReason::OracleUnavailable => Self::OracleUnavailable,
+            CollateralValuationUnavailableReason::InvalidObservation => {
+                Self::InvalidValuationObservation
+            }
+        }
+    }
 }
 
 /// Checked collateral-health evidence.
@@ -121,31 +161,46 @@ pub fn assess_ltv_ratio(ltv: f64) -> CollateralHealthAssessment {
     CollateralHealthAssessment::Known(status)
 }
 
-/// Compute and classify LTV from an obligation amount and optional current
-/// collateral valuation.
+/// Classify collateral health from a typed valuation observation.
 ///
-/// Missing and zero valuation are detected *before* division. In particular,
-/// zero valuation must not be converted to `+Inf` and then mistaken for
-/// liquidation evidence.
-pub fn assess_collateral_health(
+/// Unavailable observations remain unavailable: no numeric sentinel is
+/// manufactured. An observed zero value is also handled before division so it
+/// cannot accidentally become infinity and then masquerade as threshold
+/// evidence.
+pub fn assess_collateral_observation(
     obligation_amount: u64,
-    current_value: Option<u64>,
+    observation: CollateralValuationObservation,
 ) -> CollateralHealthAssessment {
-    let current_value = match current_value {
-        None => {
-            return CollateralHealthAssessment::Indeterminate(
-                CollateralHealthIndeterminateReason::MissingValuation,
-            );
+    let current_value = match observation {
+        CollateralValuationObservation::Unavailable(reason) => {
+            return CollateralHealthAssessment::Indeterminate(reason.into());
         }
-        Some(0) => {
+        CollateralValuationObservation::Observed { value: 0 } => {
             return CollateralHealthAssessment::Indeterminate(
                 CollateralHealthIndeterminateReason::ZeroValuation,
             );
         }
-        Some(value) => value,
+        CollateralValuationObservation::Observed { value } => value,
     };
 
     assess_ltv_ratio(obligation_amount as f64 / current_value as f64)
+}
+
+/// Compatibility helper for callers that only have an optional numeric value.
+///
+/// New oracle-facing code should prefer [`assess_collateral_observation`] so it
+/// can distinguish a missing observation from a specific acquisition failure.
+pub fn assess_collateral_health(
+    obligation_amount: u64,
+    current_value: Option<u64>,
+) -> CollateralHealthAssessment {
+    let observation = match current_value {
+        Some(value) => CollateralValuationObservation::Observed { value },
+        None => CollateralValuationObservation::Unavailable(
+            CollateralValuationUnavailableReason::Missing,
+        ),
+    };
+    assess_collateral_observation(obligation_amount, observation)
 }
 
 #[cfg(test)]
@@ -203,6 +258,60 @@ mod tests {
     }
 
     #[test]
+    fn acquisition_failure_is_typed_before_ratio_computation() {
+        assert_eq!(
+            assess_collateral_observation(
+                100,
+                CollateralValuationObservation::Unavailable(
+                    CollateralValuationUnavailableReason::OracleUnavailable,
+                ),
+            ),
+            CollateralHealthAssessment::Indeterminate(
+                CollateralHealthIndeterminateReason::OracleUnavailable
+            )
+        );
+        assert_eq!(
+            assess_collateral_observation(
+                100,
+                CollateralValuationObservation::Unavailable(
+                    CollateralValuationUnavailableReason::InvalidObservation,
+                ),
+            ),
+            CollateralHealthAssessment::Indeterminate(
+                CollateralHealthIndeterminateReason::InvalidValuationObservation
+            )
+        );
+    }
+
+    #[test]
+    fn oracle_unavailable_and_observed_zero_are_not_the_same_evidence() {
+        let unavailable = assess_collateral_observation(
+            100,
+            CollateralValuationObservation::Unavailable(
+                CollateralValuationUnavailableReason::OracleUnavailable,
+            ),
+        );
+        let observed_zero = assess_collateral_observation(
+            100,
+            CollateralValuationObservation::Observed { value: 0 },
+        );
+
+        assert_eq!(
+            unavailable,
+            CollateralHealthAssessment::Indeterminate(
+                CollateralHealthIndeterminateReason::OracleUnavailable
+            )
+        );
+        assert_eq!(
+            observed_zero,
+            CollateralHealthAssessment::Indeterminate(
+                CollateralHealthIndeterminateReason::ZeroValuation
+            )
+        );
+        assert_ne!(unavailable, observed_zero);
+    }
+
+    #[test]
     fn missing_and_zero_valuation_are_distinct_indeterminate_reasons() {
         assert_eq!(
             assess_collateral_health(100, None),
@@ -245,6 +354,12 @@ mod tests {
             assess_ltv_ratio(f64::INFINITY),
             assess_collateral_health(100, None),
             assess_collateral_health(100, Some(0)),
+            assess_collateral_observation(
+                100,
+                CollateralValuationObservation::Unavailable(
+                    CollateralValuationUnavailableReason::OracleUnavailable,
+                ),
+            ),
         ] {
             assert!(!assessment.is_liquidation_evidence());
             assert_eq!(assessment.status_label(), "Indeterminate");
@@ -255,15 +370,23 @@ mod tests {
 
     #[test]
     fn recovery_requires_a_new_valid_observation() {
-        let first = assess_collateral_health(90, None);
+        let first = assess_collateral_observation(
+            90,
+            CollateralValuationObservation::Unavailable(
+                CollateralValuationUnavailableReason::OracleUnavailable,
+            ),
+        );
         assert_eq!(
             first,
             CollateralHealthAssessment::Indeterminate(
-                CollateralHealthIndeterminateReason::MissingValuation
+                CollateralHealthIndeterminateReason::OracleUnavailable
             )
         );
 
-        let second = assess_collateral_health(90, Some(100));
+        let second = assess_collateral_observation(
+            90,
+            CollateralValuationObservation::Observed { value: 100 },
+        );
         assert_eq!(
             second,
             CollateralHealthAssessment::Known(CollateralHealthStatus::Warning)
@@ -280,11 +403,22 @@ mod tests {
     #[test]
     fn serialized_indeterminate_preserves_reason() {
         let assessment = CollateralHealthAssessment::Indeterminate(
-            CollateralHealthIndeterminateReason::ZeroValuation,
+            CollateralHealthIndeterminateReason::OracleUnavailable,
         );
         let encoded = serde_json::to_string(&assessment).expect("serialize assessment");
         let decoded: CollateralHealthAssessment =
             serde_json::from_str(&encoded).expect("deserialize assessment");
         assert_eq!(decoded, assessment);
+    }
+
+    #[test]
+    fn serialized_valuation_observation_preserves_availability_reason() {
+        let observation = CollateralValuationObservation::Unavailable(
+            CollateralValuationUnavailableReason::InvalidObservation,
+        );
+        let encoded = serde_json::to_string(&observation).expect("serialize observation");
+        let decoded: CollateralValuationObservation =
+            serde_json::from_str(&encoded).expect("deserialize observation");
+        assert_eq!(decoded, observation);
     }
 }
