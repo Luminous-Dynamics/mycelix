@@ -20,7 +20,7 @@
       "id": "source-invariants",
       "workingDirectory": "mycelix-music",
       "command": "npm run check:invariants",
-      "purpose": "prevent legacy payment/status authority and other source-level economic regressions, including checkpoint compiler, signer-custody, signer-trust, trust-anchor, statement-root-trust, audit-capsule, audit-issuer, audit-issuer-trust, audit-issuer-root-trust and interop-audit-provenance bypass"
+      "purpose": "prevent legacy payment/status authority and other source-level economic regressions, including checkpoint compiler, signer-custody, signer-trust, trust-anchor, statement-root-trust, audit-capsule, audit-issuer, audit-issuer-trust, audit-issuer-root-trust, interop-audit-provenance and reporting-line-proof bypass"
     },
     {
       "id": "accounting-type-check",
@@ -32,7 +32,7 @@
       "id": "accounting-tests",
       "workingDirectory": "mycelix-music",
       "command": "npm test --workspace=@mycelix/accounting",
-      "purpose": "run economic conservation, settlement recovery, statement, audit, disclosure, lineage-checkpoint, compiler, signer-capability, trust-rotation, trust-anchor, statement-root-trust, audit-capsule-v2, audit-issuer-attestation, audit-issuer-trust, audit-issuer-root-trust and attested-interop regressions"
+      "purpose": "run economic conservation, settlement recovery, statement, audit, disclosure, lineage-checkpoint, compiler, signer-capability, trust-rotation, trust-anchor, statement-root-trust, audit-capsule-v2, audit-issuer-attestation, audit-issuer-trust, audit-issuer-root-trust, attested-interop and reporting-safe line-proof regressions"
     }
   ],
   "promotionRule": "Every qualification item must succeed after the workflow has checked out and mechanically verified the exact proposed head commit. Missing, queued, skipped, stale, synthetic-merge-only, source-only, or ancestor evidence is not PASS.",
@@ -67,6 +67,10 @@
     "A root-attested audit capsule reference turns a DDEX or CISAC CRD projection into accounting ledger authority.",
     "A statement-level attested audit reference proves per-line obligation membership without inclusion proofs.",
     "An interop projectionRoot is an issuer signature.",
-    "Caller-supplied reporting source provenance is equivalent to provenance derived from a sealed anchored audit issuer authority."
+    "Caller-supplied reporting source provenance is equivalent to provenance derived from a sealed anchored audit issuer authority.",
+    "A reporting-safe Merkle inclusion proof is a zero-knowledge proof.",
+    "A compiler-derived reporting disclosure sidecar is issuer-attested evidence.",
+    "A reporting-safe obligation proof authenticates workReference, usageReference, or territory fields.",
+    "A proof-bearing DDEX or CISAC CRD package becomes accounting ledger authority."
   ]
 }
