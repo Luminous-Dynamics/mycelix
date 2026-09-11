@@ -1,0 +1,45 @@
+name: Business Derived Forecast Actual
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-business-derived-forecast-actual/**'
+      - 'crates/mycelix-business-campaign-replay/**'
+      - 'crates/mycelix-business-forecast-plan/**'
+      - 'crates/mycelix-business-shadow/**'
+      - 'crates/mycelix-business-ingress/**'
+      - 'crates/mycelix-business-core/**'
+      - '.github/workflows/business-derived-forecast-actual.yml'
+  push:
+    branches:
+      - main
+      - feat/business-derived-forecast-actual-v0-1
+    paths:
+      - 'crates/mycelix-business-derived-forecast-actual/**'
+      - 'crates/mycelix-business-campaign-replay/**'
+      - 'crates/mycelix-business-forecast-plan/**'
+      - 'crates/mycelix-business-shadow/**'
+      - 'crates/mycelix-business-ingress/**'
+      - 'crates/mycelix-business-core/**'
+      - '.github/workflows/business-derived-forecast-actual.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  derived-forecast-actual:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: crates/mycelix-business-derived-forecast-actual
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Format
+        run: cargo fmt --check
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+      - name: Test
+        run: cargo test
