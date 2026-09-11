@@ -191,8 +191,10 @@ pub fn replay_campaign(
         u64::try_from(observations.len()).map_err(|_| ReplayError::ArithmeticOverflow)?;
     source_file_digests.sort();
     observations.sort_by(|left, right| {
-        left.input
-            .cmp(&right.input)
+        left.observation
+            .observed_at_unix_ms
+            .cmp(&right.observation.observed_at_unix_ms)
+            .then_with(|| left.input.cmp(&right.input))
             .then_with(|| left.observation.observation.cmp(&right.observation.observation))
     });
     let observation_set_digest = observation_set_digest(&observations);
