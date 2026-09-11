@@ -3,41 +3,27 @@ name: Business Hospitality Transaction Field
 on:
   pull_request:
     paths:
-      - 'crates/mycelix-business-hospitality-transaction-field/**'
-      - 'crates/mycelix-business-derived-forecast-actual/**'
-      - 'crates/mycelix-business-campaign-replay/**'
-      - 'crates/mycelix-business-forecast-plan/**'
-      - 'crates/mycelix-business-time-evidence/**'
-      - 'crates/mycelix-business-pilot-hospitality/**'
-      - 'crates/mycelix-business-field-qualification/**'
-      - 'crates/mycelix-business-import-diagnostics/**'
-      - 'crates/mycelix-business-import-membership/**'
-      - 'crates/mycelix-business-adapter-delimited/**'
-      - 'crates/mycelix-business-ingress/**'
-      - 'crates/mycelix-business-shadow/**'
-      - 'crates/mycelix-business-core/**'
+      - 'crates/mycelix-business-*/**'
+      - 'scripts/verify-business-qualification-stack.sh'
       - '.github/workflows/business-hospitality-transaction-field.yml'
   push:
     branches:
       - 'feat/business-hospitality-transaction-field-v0-1'
     paths:
-      - 'crates/mycelix-business-hospitality-transaction-field/**'
+      - 'crates/mycelix-business-*/**'
+      - 'scripts/verify-business-qualification-stack.sh'
       - '.github/workflows/business-hospitality-transaction-field.yml'
 
 permissions:
   contents: read
 
 jobs:
-  transaction-hospitality-field:
+  business-qualification-stack:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-      - name: Format
-        run: cargo fmt --manifest-path crates/mycelix-business-hospitality-transaction-field/Cargo.toml -- --check
-      - name: Clippy
-        run: cargo clippy --manifest-path crates/mycelix-business-hospitality-transaction-field/Cargo.toml --all-targets -- -D warnings
-      - name: Test
-        run: cargo test --manifest-path crates/mycelix-business-hospitality-transaction-field/Cargo.toml
+      - name: Verify all Business crates together
+        run: bash scripts/verify-business-qualification-stack.sh
