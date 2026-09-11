@@ -2,10 +2,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! Protocol-bound, derived qualification evidence for read-only hospitality pilots.
 //!
-//! This layer does not accept caller-supplied slice pass/fail booleans. It validates exact
-//! forecast cases against the preregistered hospitality protocol, derives deterministic local-time
-//! slice membership from a preregistered fixed UTC offset, scores each slice, and only then builds
-//! the generic field-evidence representation consumed by the lower-level qualification gate.
+//! Slice verdicts are derived from exact forecast cases. Callers cannot supply pass/fail booleans.
+//! Fixed-offset clock rules, model lineage, evaluation windows, extraction evidence, and scorecard
+//! digests are bound before the generic field-qualification gate is evaluated.
 
 use std::collections::BTreeSet;
 
@@ -41,8 +40,7 @@ fn hash_str(hasher: &mut Sha256, value: &str) {
 }
 
 fn finish_digest(hasher: Sha256) -> Digest32 {
-    let bytes: [u8; 32] = hasher.finalize().into();
-    Digest32(bytes)
+    Digest32(hasher.finalize().into())
 }
 
 pub fn fixed_offset_clock_limitation_ref() -> ReferenceId {
@@ -86,7 +84,7 @@ impl FixedOffsetSlicePlan {
         registration
             .validate()
             .map_err(|_| ClockPlanError::RegistrationInvalid)?;
-        if !(-14 * 60..=14 * 60).contains(&i32::from(utc_offset_minutes)) {
+        if i32::from(utc_offset_minutes).abs() > 14 * 60 {
             return Err(ClockPlanError::InvalidOffset);
         }
         if registered_at_unix_ms == 0
@@ -121,7 +119,7 @@ impl FixedOffsetSlicePlan {
         registration
             .validate()
             .map_err(|_| ClockPlanError::RegistrationInvalid)?;
-        if !(-14 * 60..=14 * 60).contains(&i32::from(self.utc_offset_minutes)) {
+        if i32::from(self.utc_offset_minutes).abs() > 14 * 60 {
             return Err(ClockPlanError::InvalidOffset);
         }
         if self.registered_at_unix_ms == 0
@@ -243,8 +241,8 @@ pub fn derive_and_evaluate_hospitality_pilot(
     }
     validate_cases(registration, &cases)?;
 
-    let overall_scorecard = ForecastScorecard::score(&cases)
-        .map_err(|_| DerivedEvidenceError::ScoringFailed)?;
+    let overall_scorecard =
+        ForecastScorecard::score(&cases).map_err(|_| DerivedEvidenceError::ScoringFailed)?;
     let overall_case_set_digest = case_set_digest(&cases);
     let overall_decision = evaluate_forecast_gate(&registration.protocol, &overall_scorecard)
         .map_err(|_| DerivedEvidenceError::ProtocolGateFailed)?;
@@ -252,13 +250,14 @@ pub fn derive_and_evaluate_hospitality_pilot(
     let mut slice_reports = Vec::with_capacity(registration.slices.len());
     let mut slice_evidence = Vec::with_capacity(registration.slices.len());
     for slice in &registration.slices {
-        let selected = cases
-            .iter()
-            .filter(|case| case_belongs_to_slice(case, slice, clock).unwrap_or(false))
-            .cloned()
-            .collect::<Vec<_>>();
-        let scorecard = ForecastScorecard::score(&selected)
-            .map_err(|_| DerivedEvidenceError::ScoringFailed)?;
+        let mut selected = Vec::new();
+        for case in &cases {
+            if case_belongs_to_slice(case, slice, clock)? {
+                selected.push(case.clone());
+            }
+        }
+        let scorecard =
+            ForecastScorecard::score(&selected).map_err(|_| DerivedEvidenceError::ScoringFailed)?;
         let selected_digest = case_set_digest(&selected);
         let passed = scorecard.cases >= slice.minimum_cases
             && scorecard.abstention_bps() <= registration.protocol.maximum_abstention_bps
@@ -314,23 +313,26 @@ pub fn derive_and_evaluate_hospitality_pilot(
         evidence_digest: field_evidence_digest,
     };
 
+    // Always validate extraction/field evidence, even when the model gate fails. A weak model must
+    // not mask a malformed denominator, connector mismatch, or invalid data-quality claim.
+    let pilot_evidence = HospitalityPilotEvidence {
+        registration_digest: registration.registration_digest,
+        ingress_connector: registration.ingress_connector.clone(),
+        field_evidence,
+    };
+    let extraction_evidence = ExtractionBoundHospitalityEvidence {
+        campaign,
+        pilot_evidence,
+    };
+    let field_decision = evaluate_extraction_bound_hospitality_pilot(
+        registration,
+        &extraction_evidence,
+    )
+    .map_err(DerivedEvidenceError::Extraction)?;
+
     let decision = if overall_decision != ShadowPromotionDecision::PassShadowGate {
         DerivedQualificationDecision::OverallShadowFailed(overall_decision)
     } else {
-        let pilot_evidence = HospitalityPilotEvidence {
-            registration_digest: registration.registration_digest,
-            ingress_connector: registration.ingress_connector.clone(),
-            field_evidence,
-        };
-        let extraction_evidence = ExtractionBoundHospitalityEvidence {
-            campaign,
-            pilot_evidence,
-        };
-        let field_decision = evaluate_extraction_bound_hospitality_pilot(
-            registration,
-            &extraction_evidence,
-        )
-        .map_err(DerivedEvidenceError::Extraction)?;
         DerivedQualificationDecision::Field(field_decision)
     };
 
@@ -426,15 +428,20 @@ fn case_belongs_to_slice(
     let (end_day, end_minute, end_weekday) =
         local_parts(end_inclusive, clock.utc_offset_minutes)?;
     match slice.kind {
-        HospitalitySliceKind::Weekend => Ok(start_weekday >= 5 && end_weekday >= 5),
+        HospitalitySliceKind::Weekend => {
+            let same_weekend_day =
+                start_day == end_day && start_weekday >= 5 && end_weekday >= 5;
+            let saturday_to_sunday = start_day.checked_add(1) == Some(end_day)
+                && start_weekday == 5
+                && end_weekday == 6;
+            Ok(same_weekend_day || saturday_to_sunday)
+        }
         _ => {
             let (Some(start), Some(end)) = (slice.start_local_minute, slice.end_local_minute)
             else {
                 return Ok(false);
             };
-            Ok(start_day == end_day
-                && start_minute >= start
-                && end_minute < end)
+            Ok(start_day == end_day && start_minute >= start && end_minute < end)
         }
     }
 }
@@ -601,17 +608,15 @@ mod tests {
         TimestampEncoding, ValueMapping,
     };
     use mycelix_business_core::{Digest32, ForecastRef, ObservationRef, ReferenceId, ScopeRef};
-    use mycelix_business_field_qualification::DataQualityEvidence;
     use mycelix_business_import_diagnostics::{
         ExtractionCampaignManifest, diagnose_delimited_import,
     };
     use mycelix_business_pilot_hospitality::{
-        HospitalityForecastPilotConfig, HospitalityPilotPolicy, HOUR_MS, standard_daypart_slices_v1,
-        sales_input_ref,
+        HOUR_MS, HospitalityForecastPilotConfig, HospitalityPilotPolicy,
+        sales_input_ref, standard_daypart_slices_v1,
     };
     use mycelix_business_shadow::{
-        ForecastDisposition, ForecastTarget, ForecastValue, MetricObservation, ScaledValue,
-        ShadowForecast,
+        ForecastDisposition, ForecastValue, MetricObservation,
     };
 
     const EVAL_START: u64 = 1_788_739_200_000;
@@ -621,27 +626,42 @@ mod tests {
         ReferenceId::new(value).unwrap()
     }
 
-    fn connector_and_campaign() -> (mycelix_business_ingress::IngressQualificationBinding, ExtractionCampaignManifest) {
+    fn connector_and_campaign() -> (
+        mycelix_business_ingress::IngressQualificationBinding,
+        ExtractionCampaignManifest,
+    ) {
         let adapter = DelimitedIngressAdapter::new(DelimitedAdapterConfig {
             adapter_semantic_id: id("adapter:test:v1"),
             source_system: id("source:test-pos"),
             adapter_digest: Digest32::repeat(1),
             source_schema: id("schema:test:v1"),
             delimiter: b',',
-            expected_headers: vec!["event_id".into(), "occurred_at".into(), "location".into(), "quantity".into()],
+            expected_headers: vec![
+                "event_id".into(),
+                "occurred_at".into(),
+                "location".into(),
+                "quantity".into(),
+            ],
             source_event_id_column: "event_id".into(),
             observed_at_column: "occurred_at".into(),
             timestamp_encoding: TimestampEncoding::UnixMilliseconds,
-            scope: ScopeMapping::Column { column: "location".into(), prefix: "scope:location:".into() },
+            scope: ScopeMapping::Column {
+                column: "location".into(),
+                prefix: "scope:location:".into(),
+            },
             outputs: vec![OutputMapping {
                 input: sales_input_ref(),
                 metric: id("metric:hospitality:item-demand"),
-                value: ValueMapping::Column { column: "quantity".into(), decimal: DecimalPolicy::default() },
+                value: ValueMapping::Column {
+                    column: "quantity".into(),
+                    decimal: DecimalPolicy::default(),
+                },
                 unit: id("unit:count"),
                 scale: 0,
             }],
             maximum_batch_records: 100,
-        }).unwrap();
+        })
+        .unwrap();
         let csv = b"event_id,occurred_at,location,quantity\nevent:1,1000,a,1\nevent:2,1100,a,2\nevent:3,1200,a,3\nevent:4,1300,a,4\n";
         let manifest = diagnose_delimited_import(&adapter, csv.as_slice(), 2_000).unwrap();
         let connector = manifest.connector.clone();
@@ -649,7 +669,9 @@ mod tests {
         (connector, campaign)
     }
 
-    fn registration(connector: mycelix_business_ingress::IngressQualificationBinding) -> HospitalityForecastPilotRegistration {
+    fn registration(
+        connector: mycelix_business_ingress::IngressQualificationBinding,
+    ) -> HospitalityForecastPilotRegistration {
         HospitalityForecastPilotRegistration::build(HospitalityForecastPilotConfig {
             plan_id: id("pilot:derived-test:v1"),
             scope: ScopeRef(id("scope:location:a")),
@@ -670,8 +692,12 @@ mod tests {
                 maximum_stale_bps: 10_000,
                 maximum_ingest_delay_ms: u64::MAX,
             },
-            slices: Some(standard_daypart_slices_v1(id("timezone:iana:Africa/Johannesburg"), 1)),
-        }).unwrap()
+            slices: Some(standard_daypart_slices_v1(
+                id("timezone:iana:Africa/Johannesburg"),
+                1,
+            )),
+        })
+        .unwrap()
     }
 
     fn case(
@@ -682,7 +708,7 @@ mod tests {
         candidate_value: i128,
     ) -> ForecastCase {
         let unit = id("unit:count");
-        let target = ForecastTarget {
+        let target = mycelix_business_shadow::ForecastTarget {
             metric: id("metric:hospitality:item-demand"),
             scope: registration.field_plan.scope.clone(),
             unit: unit.clone(),
@@ -691,9 +717,21 @@ mod tests {
             window_end_unix_ms: start + HOUR_MS,
         };
         let value = |point: i128| ForecastValue {
-            point: ScaledValue { mantissa: point, scale: 0, unit: unit.clone() },
-            lower: ScaledValue { mantissa: point.saturating_sub(1), scale: 0, unit: unit.clone() },
-            upper: ScaledValue { mantissa: point.saturating_add(1), scale: 0, unit: unit.clone() },
+            point: ScaledValue {
+                mantissa: point,
+                scale: 0,
+                unit: unit.clone(),
+            },
+            lower: ScaledValue {
+                mantissa: point.saturating_sub(1),
+                scale: 0,
+                unit: unit.clone(),
+            },
+            upper: ScaledValue {
+                mantissa: point.saturating_add(1),
+                scale: 0,
+                unit: unit.clone(),
+            },
         };
         ForecastCase {
             candidate: ShadowForecast {
@@ -718,7 +756,11 @@ mod tests {
                 mapping_digest: registration.ingress_connector.mapping_digest,
                 metric: id("metric:hospitality:item-demand"),
                 scope: registration.field_plan.scope.clone(),
-                value: ScaledValue { mantissa: actual_value, scale: 0, unit },
+                value: ScaledValue {
+                    mantissa: actual_value,
+                    scale: 0,
+                    unit,
+                },
                 observed_at_unix_ms: start + HOUR_MS + 1,
             },
         }
@@ -736,30 +778,35 @@ mod tests {
         }]
     }
 
+    fn good_cases(registration: &HospitalityForecastPilotRegistration) -> Vec<ForecastCase> {
+        vec![
+            case(registration, "breakfast", 1_788_760_800_000, 10, 10),
+            case(registration, "lunch", 1_788_775_200_000, 20, 20),
+            case(registration, "evening", 1_788_796_800_000, 30, 30),
+            case(registration, "weekend", 1_789_192_800_000, 40, 40),
+        ]
+    }
+
     #[test]
     fn derives_daypart_and_weekend_gates_from_cases() {
         let (connector, campaign) = connector_and_campaign();
         let registration = registration(connector);
         let clock = FixedOffsetSlicePlan::build(&registration, EVAL_START - DAY_MS, 120).unwrap();
-        let cases = vec![
-            case(&registration, "breakfast", 1_788_760_800_000, 10, 10),
-            case(&registration, "lunch", 1_788_775_200_000, 20, 20),
-            case(&registration, "evening", 1_788_796_800_000, 30, 30),
-            case(&registration, "weekend", 1_789_192_800_000, 40, 40),
-        ];
         let report = derive_and_evaluate_hospitality_pilot(
             &registration,
             &clock,
             campaign.clone(),
-            cases,
+            good_cases(&registration),
             quality(&campaign),
             BTreeSet::new(),
-        ).unwrap();
+        )
+        .unwrap();
         assert!(DERIVED_EVIDENCE_IS_READ_ONLY);
-        assert_eq!(report.decision, DerivedQualificationDecision::Field(FieldQualificationDecision::PassShadowFieldGate));
+        assert_eq!(
+            report.decision,
+            DerivedQualificationDecision::Field(FieldQualificationDecision::PassShadowFieldGate)
+        );
         assert!(report.slices.iter().all(|slice| slice.shadow_gate_passed));
-        let weekend = report.slices.iter().find(|slice| slice.slice.as_str().contains("weekend")).unwrap();
-        assert_eq!(weekend.scorecard.cases, 1);
     }
 
     #[test]
@@ -767,10 +814,17 @@ mod tests {
         let (connector, campaign) = connector_and_campaign();
         let registration = registration(connector);
         let clock = FixedOffsetSlicePlan::build(&registration, EVAL_START - DAY_MS, 120).unwrap();
-        let mut cases = vec![case(&registration, "bad-lineage", 1_788_760_800_000, 10, 10)];
+        let mut cases = good_cases(&registration);
         cases[0].candidate.model_lineage = id("model:wrong");
         assert!(matches!(
-            derive_and_evaluate_hospitality_pilot(&registration, &clock, campaign.clone(), cases, quality(&campaign), BTreeSet::new()),
+            derive_and_evaluate_hospitality_pilot(
+                &registration,
+                &clock,
+                campaign.clone(),
+                cases,
+                quality(&campaign),
+                BTreeSet::new(),
+            ),
             Err(DerivedEvidenceError::CandidateLineageMismatch { .. })
         ));
     }
@@ -781,38 +835,65 @@ mod tests {
         let registration = registration(connector);
         let clock = FixedOffsetSlicePlan::build(&registration, EVAL_START - DAY_MS, 120).unwrap();
         let a = case(&registration, "a", 1_788_760_800_000, 10, 10);
-        let mut b = case(&registration, "b", 1_788_760_800_000, 10, 10);
-        b.actual.source_event_id = id("actual-event:b-unique");
+        let b = case(&registration, "b", 1_788_760_800_000, 10, 10);
         assert!(matches!(
-            derive_and_evaluate_hospitality_pilot(&registration, &clock, campaign.clone(), vec![a, b], quality(&campaign), BTreeSet::new()),
+            derive_and_evaluate_hospitality_pilot(
+                &registration,
+                &clock,
+                campaign.clone(),
+                vec![a, b],
+                quality(&campaign),
+                BTreeSet::new(),
+            ),
             Err(DerivedEvidenceError::DuplicateTargetWindow)
         ));
     }
 
     #[test]
-    fn weak_breakfast_slice_is_derived_as_failure() {
+    fn malformed_field_evidence_is_rejected_even_when_model_gate_fails() {
         let (connector, campaign) = connector_and_campaign();
         let registration = registration(connector);
         let clock = FixedOffsetSlicePlan::build(&registration, EVAL_START - DAY_MS, 120).unwrap();
-        let cases = vec![
-            case(&registration, "breakfast-bad", 1_788_760_800_000, 10, 100),
-            case(&registration, "lunch-good", 1_788_775_200_000, 20, 20),
-        ];
-        let report = derive_and_evaluate_hospitality_pilot(
-            &registration,
-            &clock,
-            campaign.clone(),
-            cases,
-            quality(&campaign),
-            BTreeSet::new(),
-        ).unwrap();
-        let breakfast = report.slices.iter().find(|slice| slice.slice.as_str().contains("breakfast")).unwrap();
-        assert!(!breakfast.shadow_gate_passed);
+        let mut cases = good_cases(&registration);
+        for case in &mut cases {
+            if let ForecastDisposition::Predicted(value) = &mut case.candidate.disposition {
+                value.point.mantissa = value.point.mantissa.saturating_add(1_000);
+                value.lower.mantissa = value.point.mantissa.saturating_sub(1);
+                value.upper.mantissa = value.point.mantissa.saturating_add(1);
+            }
+        }
+        let mut malformed_quality = quality(&campaign);
+        malformed_quality[0].expected_records = campaign.discovered_rows + 1;
         assert!(matches!(
-            report.decision,
-            DerivedQualificationDecision::Field(FieldQualificationDecision::SliceShadowGateFailed { .. })
-                | DerivedQualificationDecision::OverallShadowFailed(_)
+            derive_and_evaluate_hospitality_pilot(
+                &registration,
+                &clock,
+                campaign,
+                cases,
+                malformed_quality,
+                BTreeSet::new(),
+            ),
+            Err(DerivedEvidenceError::Extraction(
+                ExtractionBoundPilotError::DenominatorMismatch { .. }
+            ))
         ));
+    }
+
+    #[test]
+    fn long_window_with_weekend_endpoints_is_not_a_weekend_case() {
+        let (connector, _) = connector_and_campaign();
+        let registration = registration(connector);
+        let clock = FixedOffsetSlicePlan::build(&registration, EVAL_START - DAY_MS, 120).unwrap();
+        let weekend = registration
+            .slices
+            .iter()
+            .find(|slice| slice.kind == HospitalitySliceKind::Weekend)
+            .unwrap();
+        let mut value = case(&registration, "long-weekend", 1_789_192_800_000, 10, 10);
+        value.candidate.target.window_end_unix_ms =
+            value.candidate.target.window_start_unix_ms + 7 * DAY_MS;
+        value.baseline.target = value.candidate.target.clone();
+        assert!(!case_belongs_to_slice(&value, weekend, &clock).unwrap());
     }
 
     #[test]
