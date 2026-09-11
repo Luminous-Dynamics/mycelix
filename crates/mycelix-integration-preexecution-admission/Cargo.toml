@@ -1,0 +1,15 @@
+[package]
+name = "mycelix-integration-preexecution-admission"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Same-call preexecution admission for current Mycelix integration authority and provider policy"
+
+[dependencies]
+blake3 = "1.8"
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+mycelix-integration-core = { path = "../mycelix-integration-core" }
+mycelix-integration-current-capability-coverage = { path = "../mycelix-integration-current-capability-coverage" }
+mycelix-integration-execution-binding = { path = "../mycelix-integration-execution-binding" }
+mycelix-integration-runtime = { path = "../mycelix-integration-runtime" }
+thiserror = "2.0"
