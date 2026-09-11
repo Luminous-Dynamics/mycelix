@@ -14,6 +14,7 @@ export * from './interop.js';
 export * from './interop-line-proofs.js';
 export * from './interop-line-proof-attestation.js';
 export * from './interop-line-proof-attestation-trust.js';
+export * from './interop-line-proof-attestation-trust-anchor.js';
 export * from './recovery.js';
 export * from './projection.js';
 export * from './legacy.js';
