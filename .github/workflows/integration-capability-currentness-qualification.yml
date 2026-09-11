@@ -1,0 +1,132 @@
+name: Integration Capability Currentness Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-authority-freshness/**'
+      - 'crates/mycelix-integration-capability-policy/**'
+      - 'crates/mycelix-integration-capability-currentness/**'
+      - '.github/workflows/integration-capability-currentness-qualification.yml'
+  push:
+    branches:
+      - 'feat/integration-capability-currentness-v1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: integration-capability-currentness-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Current adopted operation capability semantics
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: '1.89.0'
+          components: rustfmt, clippy
+
+      - name: Format
+        run: |
+          cargo fmt --manifest-path crates/mycelix-authority-freshness/Cargo.toml -- --check
+          cargo fmt --manifest-path crates/mycelix-integration-capability-currentness/Cargo.toml -- --check
+
+      - name: Tests
+        run: |
+          cargo test --manifest-path crates/mycelix-authority-freshness/Cargo.toml --all-targets
+          cargo test --manifest-path crates/mycelix-integration-capability-policy/Cargo.toml --all-targets
+          cargo test --manifest-path crates/mycelix-integration-capability-currentness/Cargo.toml --all-targets
+
+      - name: Clippy
+        run: |
+          cargo clippy --manifest-path crates/mycelix-authority-freshness/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path crates/mycelix-integration-capability-currentness/Cargo.toml --all-targets -- -D warnings
+
+      - name: Existing authority consumer compatibility
+        run: |
+          cargo check --manifest-path crates/mycelix-governance-current-executor-authority/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-effect-safety/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-authority-control-plane-freshness/Cargo.toml --all-targets
+
+      - name: Boundary audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          fresh = Path('crates/mycelix-authority-freshness/src/lib.rs').read_text()
+          root = Path('crates/mycelix-integration-capability-currentness')
+          src = (root / 'src/lib.rs').read_text()
+          readme = (root / 'README.md').read_text()
+          cargo = (root / 'Cargo.toml').read_text()
+          prod = src.split('#[cfg(test)]', 1)[0]
+          compact = ''.join(prod.split())
+
+          # Existing protocol codes are frozen. Code 10 is additive only.
+          expected = [
+              ('AuthorityGrant', 1),
+              ('SigningPolicy', 2),
+              ('ThresholdAuthorization', 3),
+              ('ExecutorDesignation', 4),
+              ('EffectSafetyPolicy', 5),
+              ('Delegation', 6),
+              ('AuthorityCoveragePolicy', 7),
+              ('CoverageTrustContextPolicy', 8),
+              ('WitnessTrustPolicy', 9),
+              ('IntegrationCapabilityPolicy', 10),
+          ]
+          for name, code in expected:
+              assert f'Self::{name} => {code}' in fresh, (name, code)
+              assert f'AuthoritySubjectKind::{name}.code(), {code}' in fresh, (name, code)
+
+          for dep in [
+              'mycelix-authority-freshness = ',
+              'mycelix-integration-capability-policy = ',
+          ]:
+              assert dep in cargo, dep
+
+          for token in [
+              'kind: AuthoritySubjectKind::IntegrationCapabilityPolicy',
+              'namespace: policy.institution.as_str().to_owned()',
+              'subject_id: policy.policy_id.clone()',
+              'digest: adopted_policy.policy_digest()',
+              'profile: POLICY_IDENTITY_PROFILE.to_owned()',
+              'qualify_current_freshness(',
+              'freshness.snapshot.effective_at_ms < policy.valid_from_ms',
+              'adopted_policy.valid_until_ms().min(current.lease_until_ms)',
+              'pub struct QualifiedCurrentIntegrationCapabilityPolicy {',
+              'pub struct QualifiedCurrentIntegrationCapabilityMapping {',
+          ]:
+              assert token in src, token
+
+          for positive in [
+              'pub struct QualifiedCurrentIntegrationCapabilityPolicy {',
+              'pub struct QualifiedCurrentIntegrationCapabilityMapping {',
+          ]:
+              prefix = src.split(positive, 1)[0].split('\n')[-8:]
+              assert not any('Deserialize' in line for line in prefix), positive
+
+          for forbidden in [
+              'AuthoritySubjectKind::AuthorityCoveragePolicy',
+              'AuthoritySubjectKind::EffectSafetyPolicy',
+              'reqwest', 'hyper', 'holochain_client', 'AdminWebsocket', 'AppWebsocket',
+              'perform_external_effect', 'invoke_external_effect', 'mark_dispatch_started',
+          ]:
+              assert forbidden not in prod, forbidden
+
+          assert 'pubconstfngeneration_currentness_verified_here(&self)->bool{true}' in compact
+          assert compact.count('pubconstfngrants_execution_authority(&self)->bool{false}') >= 2
+          assert compact.count('pubconstfnexecutor_capability_matched_here(&self)->bool{false}') >= 2
+
+          for phrase in [
+              'Codes 1-9 are frozen',
+              'CurrentCapabilityMapping != CurrentExecutorCapabilityMatch',
+              'CurrentCapabilityMapping != CurrentExecutionAuthority',
+          ]:
+              assert phrase in readme, phrase
+
+          print('PASS: integration capability policy has distinct code-10 currentness and remains pre-executor/pre-effect')
+          PY

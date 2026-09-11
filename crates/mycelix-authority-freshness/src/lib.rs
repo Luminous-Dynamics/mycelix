@@ -54,6 +54,9 @@ pub enum AuthoritySubjectKind {
     AuthorityCoveragePolicy,
     CoverageTrustContextPolicy,
     WitnessTrustPolicy,
+    /// Institution-adopted mapping from one exact integration operation domain
+    /// to one exact capability. Added additively; codes 1-9 remain frozen.
+    IntegrationCapabilityPolicy,
 }
 
 impl AuthoritySubjectKind {
@@ -68,6 +71,7 @@ impl AuthoritySubjectKind {
             Self::AuthorityCoveragePolicy => 7,
             Self::CoverageTrustContextPolicy => 8,
             Self::WitnessTrustPolicy => 9,
+            Self::IntegrationCapabilityPolicy => 10,
         }
     }
 }
@@ -491,7 +495,7 @@ mod tests {
     }
 
     #[test]
-    fn subject_kind_codes_are_stable_and_coverage_kinds_are_additive() {
+    fn subject_kind_codes_are_stable_and_additive() {
         assert_eq!(AuthoritySubjectKind::AuthorityGrant.code(), 1);
         assert_eq!(AuthoritySubjectKind::SigningPolicy.code(), 2);
         assert_eq!(AuthoritySubjectKind::ThresholdAuthorization.code(), 3);
@@ -501,6 +505,7 @@ mod tests {
         assert_eq!(AuthoritySubjectKind::AuthorityCoveragePolicy.code(), 7);
         assert_eq!(AuthoritySubjectKind::CoverageTrustContextPolicy.code(), 8);
         assert_eq!(AuthoritySubjectKind::WitnessTrustPolicy.code(), 9);
+        assert_eq!(AuthoritySubjectKind::IntegrationCapabilityPolicy.code(), 10);
     }
 
     #[test]

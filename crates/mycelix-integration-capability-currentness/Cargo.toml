@@ -1,0 +1,15 @@
+[package]
+name = "mycelix-integration-capability-currentness"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Generation-bound currentness for institution-adopted integration capability policies"
+
+[dependencies]
+blake3 = "1.8"
+mycelix-authority-freshness = { path = "../mycelix-authority-freshness" }
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+mycelix-integration-capability-policy = { path = "../mycelix-integration-capability-policy" }
+mycelix-integration-core = { path = "../mycelix-integration-core" }
+serde = { version = "1", features = ["derive"] }
+thiserror = "2.0"
