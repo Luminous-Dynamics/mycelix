@@ -2,6 +2,11 @@
 resolver = "2"
 members = [
     "types",
+    "crates/finance-collateral-safety",
+    "crates/finance-collateral-valuation",
+    "crates/finance-collateral-evidence",
+    "crates/finance-collateral-settlement",
+    "crates/finance-collateral-deposit",
     "crates/finance-wire-types",
     "crates/finance-leptos-types",
     "zomes/shared",
@@ -59,7 +64,7 @@ thiserror = "2.0"
 derive_more = "2.1"
 
 # WASM compatibility - getrandom 0.3 with custom backend (HDK provides __getrandom_v03_custom)
-# NOTE: Do NOT use features = ["js"] or ["wasm_js"] - they pull in wasm-bindgen
+# NOTE: DO NOT use features = ["js"] or ["wasm_js"] - they pull in wasm-bindgen
 # which is incompatible with Holochain's WASM runtime.
 getrandom = { version = "0.2", features = ["custom"] }
 getrandom_03 = { package = "getrandom", version = "0.3" }
