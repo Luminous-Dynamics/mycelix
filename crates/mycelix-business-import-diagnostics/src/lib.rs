@@ -10,7 +10,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::io::Read;
 
 use csv::{ReaderBuilder, StringRecord, WriterBuilder};
-use mycelix_business_adapter_delimited::{AdapterError, DelimitedIngressAdapter};
+use mycelix_business_adapter_delimited::{
+    AdapterError, DelimitedIngressAdapter, MAX_BATCH_INPUT_BYTES,
+};
 use mycelix_business_core::{Digest32, ReferenceId};
 use mycelix_business_field_qualification::{
     DataQualityEvidence, FieldQualificationDecision, FieldQualificationEvidence,
@@ -23,7 +25,7 @@ use mycelix_business_pilot_hospitality::{
 use sha2::{Digest, Sha256};
 
 pub const IMPORT_DIAGNOSTICS_ARE_READ_ONLY: bool = true;
-pub const MAX_DIAGNOSTIC_INPUT_BYTES: u64 = 64 * 1024 * 1024;
+pub const MAX_DIAGNOSTIC_INPUT_BYTES: u64 = MAX_BATCH_INPUT_BYTES;
 
 fn zero_digest(value: &Digest32) -> bool {
     value == &Digest32([0; 32])
@@ -108,7 +110,9 @@ fn classify_adapter_error(error: &AdapterError) -> ImportRejectionClass {
         AdapterError::InvalidScope { .. } => ImportRejectionClass::InvalidScope,
         AdapterError::Config(_) => ImportRejectionClass::AdapterConfiguration,
         AdapterError::Ingress(_) => ImportRejectionClass::IngressValidation,
-        AdapterError::HeaderMismatch
+        AdapterError::Io(_)
+        | AdapterError::InputTooLarge { .. }
+        | AdapterError::HeaderMismatch
         | AdapterError::TooManyRecords { .. }
         | AdapterError::EmptyFile => ImportRejectionClass::Other,
     }
@@ -322,7 +326,7 @@ pub fn diagnose_delimited_import<R: Read>(
 }
 
 fn read_bounded<R: Read>(reader: R) -> Result<Vec<u8>, DiagnosticError> {
-    let mut limited = reader.take(MAX_DIAGNOSTIC_INPUT_BYTES + 1);
+    let mut limited = reader.take(MAX_DIAGNOSTIC_INPUT_BYTES.saturating_add(1));
     let mut bytes = Vec::new();
     limited
         .read_to_end(&mut bytes)
