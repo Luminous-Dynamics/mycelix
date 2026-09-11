@@ -9,7 +9,6 @@ description = "Request-bound SAP issuance provenance and balance conservation th
 serde = { workspace = true }
 finance-collateral-settlement = { path = "../finance-collateral-settlement" }
 finance-collateral-request-binding = { path = "../finance-collateral-request-binding" }
-mycelix_finance_types = { path = "../../types" }
 
 [dev-dependencies]
 serde_json = { workspace = true }
