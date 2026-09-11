@@ -9,9 +9,8 @@
 //! consumer's expected authority policy, preventing a structurally valid
 //! self-declared provider policy from becoming authoritative after deserialization.
 
-mod kernel {
-    include!("lib.rs");
-}
+#[path = "lib.rs"]
+mod kernel;
 
 pub use kernel::{
     derive_settlement_intent, CollateralDepositState, CollateralDepositTerms,
