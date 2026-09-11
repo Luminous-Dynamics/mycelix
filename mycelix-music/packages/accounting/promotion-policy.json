@@ -20,7 +20,7 @@
       "id": "source-invariants",
       "workingDirectory": "mycelix-music",
       "command": "npm run check:invariants",
-      "purpose": "prevent legacy payment/status authority and other source-level economic regressions, including checkpoint compiler, signer-custody, signer-trust, trust-anchor and statement-root-trust bypass"
+      "purpose": "prevent legacy payment/status authority and other source-level economic regressions, including checkpoint compiler, signer-custody, signer-trust, trust-anchor, statement-root-trust and audit-capsule bypass"
     },
     {
       "id": "accounting-type-check",
@@ -32,7 +32,7 @@
       "id": "accounting-tests",
       "workingDirectory": "mycelix-music",
       "command": "npm test --workspace=@mycelix/accounting",
-      "purpose": "run economic conservation, settlement recovery, statement, audit, disclosure, lineage-checkpoint, compiler, signer-capability, trust-rotation, trust-anchor and statement-root-trust regressions"
+      "purpose": "run economic conservation, settlement recovery, statement, audit, disclosure, lineage-checkpoint, compiler, signer-capability, trust-rotation, trust-anchor, statement-root-trust and audit-capsule-v2 regressions"
     }
   ],
   "promotionRule": "Every qualification item must succeed after the workflow has checked out and mechanically verified the exact proposed head commit. Missing, queued, skipped, stale, synthetic-merge-only, source-only, or ancestor evidence is not PASS.",
@@ -50,6 +50,9 @@
     "Key rotation invalidates all historically valid checkpoints by default.",
     "An unattested signer trust bundle is sufficient root trust authority.",
     "A cryptographically valid trust bundle below the pinned minimum policy sequence is acceptable.",
-    "A checkpoint-backed allocation lineage without root-anchored signer trust is sufficient statement discharge authority."
+    "A checkpoint-backed allocation lineage without root-anchored signer trust is sufficient statement discharge authority.",
+    "A caller-supplied trust list is equivalent to trust evidence derived from the exact statement compiler input.",
+    "A caller-supplied conservation proof is authoritative for an EconomicAuditCapsule v2.",
+    "A structurally valid serialized audit capsule proves who produced or anchored it."
   ]
 }
