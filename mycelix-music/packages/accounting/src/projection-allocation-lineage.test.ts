@@ -1,4 +1,4 @@
-import { generateKeyPairSync } from 'node:crypto';
+import { generateKeyPairSync, sign as signEd25519 } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { createRoyaltyDeductionAuthority } from './deduction-authority.js';
 import { money } from './money.js';
@@ -13,6 +13,16 @@ import {
   verifySettlementAllocationLineageCheckpoint,
 } from './settlement-allocation-lineage-checkpoint.js';
 import {
+  createSettlementAllocationLineageCheckpointSignerTrustBundle,
+} from './settlement-allocation-lineage-checkpoint-trust.js';
+import {
+  attachSettlementAllocationLineageTrustBundleDetachedSignature,
+  createSettlementAllocationLineageTrustBundleAttestationRequest,
+  settlementAllocationLineageTrustBundleAttestationPayloadBase64,
+  verifySettlementAllocationLineageCheckpointWithAnchoredTrustBundle,
+  type AnchoredSettlementAllocationLineageCheckpointAuthority,
+} from './settlement-allocation-lineage-checkpoint-trust-anchor.js';
+import {
   createSettlementAllocationLineageBoundary,
   createSettlementAllocationSuccessorLink,
   resolveSettlementAllocationLineage,
@@ -24,8 +34,10 @@ import { SettlementEligibilityCode, type SettlementEpoch } from './settlement.js
 import { StatementKind } from './statements.js';
 
 const keyPair = generateKeyPairSync('ed25519');
+const rootKeyPair = generateKeyPairSync('ed25519');
 const privateKeyPem = keyPair.privateKey.export({ format: 'pem', type: 'pkcs8' }).toString();
 const publicKeyPem = keyPair.publicKey.export({ format: 'pem', type: 'spki' }).toString();
+const rootPublicKeyPem = rootKeyPair.publicKey.export({ format: 'pem', type: 'spki' }).toString();
 const checkpointTrust = {
   sourceRef: 'postgres:statement-lineage',
   sourceInstanceId: 'cluster:test:statement-lineage',
@@ -103,11 +115,22 @@ const link = createSettlementAllocationSuccessorLink({
 });
 const asOf = '2026-10-02T00:00:00Z';
 
+type TrustedLineage = Readonly<{
+  lineage: SettlementAllocationLineageResolution;
+  anchoredTrust: AnchoredSettlementAllocationLineageCheckpointAuthority;
+}>;
+
 function checkpointBackedLineage(
   allocations: readonly SettlementAllocationAuthority[],
   links: readonly SettlementAllocationSuccessorLink[],
-  options: { readonly asOf?: string; readonly checkpointId?: string; readonly highWaterMark?: string } = {},
-): SettlementAllocationLineageResolution {
+  options: {
+    readonly asOf?: string;
+    readonly checkpointId?: string;
+    readonly highWaterMark?: string;
+    readonly trustPolicySequence?: string;
+    readonly predecessorBundleRoot?: string;
+  } = {},
+): TrustedLineage {
   const checkpointAsOf = options.asOf ?? asOf;
   const unsigned = createSettlementAllocationLineageCheckpoint({
     checkpointId: options.checkpointId ?? 'checkpoint:statement-lineage',
@@ -122,12 +145,66 @@ function checkpointBackedLineage(
   });
   const signed = signSettlementAllocationLineageCheckpoint(unsigned, checkpointTrust.signerKeyId, privateKeyPem);
   const verified = verifySettlementAllocationLineageCheckpoint(signed, checkpointTrust);
-  return resolveCheckpointBackedSettlementAllocationLineage(allocations, links, verified);
+  const lineage = resolveCheckpointBackedSettlementAllocationLineage(allocations, links, verified);
+
+  const trustBundle = createSettlementAllocationLineageCheckpointSignerTrustBundle({
+    bundleId: `trust-bundle:${options.checkpointId ?? 'statement-lineage'}:${options.trustPolicySequence ?? '1'}`,
+    policyAsOf: checkpointAsOf,
+    entries: [{
+      entryId: 'checkpoint-signer:statement-lineage',
+      sourceRef: checkpointTrust.sourceRef,
+      sourceInstanceId: checkpointTrust.sourceInstanceId,
+      capabilityId: signed.signingRequest.capabilityId,
+      signerKeyId: signed.signerKeyId,
+      publicKeyPem,
+      validFrom: '2026-09-01T00:00:00Z',
+      validUntil: '2027-01-01T00:00:00Z',
+    }],
+  });
+  const policySequence = options.trustPolicySequence ?? '1';
+  const request = createSettlementAllocationLineageTrustBundleAttestationRequest(trustBundle, {
+    requestId: `trust-attestation:${unsigned.checkpointId}:${policySequence}`,
+    anchorId: 'root-anchor:statement-lineage',
+    signerKeyId: 'root-anchor-key:statement-lineage',
+    policySequence,
+    ...(options.predecessorBundleRoot === undefined ? {} : { predecessorBundleRoot: options.predecessorBundleRoot }),
+    issuedAt: checkpointAsOf,
+    expiresAt: '2026-12-31T00:00:00Z',
+    nonce: `nonce:${unsigned.checkpointId}:${policySequence}`,
+  });
+  const signatureBase64 = signEd25519(
+    null,
+    Buffer.from(
+      settlementAllocationLineageTrustBundleAttestationPayloadBase64(request, trustBundle, checkpointAsOf),
+      'base64',
+    ),
+    rootKeyPair.privateKey,
+  ).toString('base64');
+  const attestation = attachSettlementAllocationLineageTrustBundleDetachedSignature(trustBundle, request, {
+    signerKeyId: request.signerKeyId,
+    signedAt: checkpointAsOf,
+    signatureBase64,
+  });
+  const anchoredTrust = verifySettlementAllocationLineageCheckpointWithAnchoredTrustBundle(
+    signed,
+    trustBundle,
+    attestation,
+    {
+      anchorId: request.anchorId,
+      signerKeyId: request.signerKeyId,
+      publicKeyPem: rootPublicKeyPem,
+      validFrom: '2026-09-01T00:00:00Z',
+      validUntil: '2027-01-01T00:00:00Z',
+      minimumPolicySequence: policySequence,
+    },
+    checkpointAsOf,
+  );
+  return Object.freeze({ lineage, anchoredTrust });
 }
 
-const lineage = checkpointBackedLineage([successor, initial], [link]);
+const trustedLineage = checkpointBackedLineage([successor, initial], [link]);
 
-function compile(allocationLineage = lineage) {
+function compile(trusted = trustedLineage) {
   return compileRoyaltyStatement({
     statementId: 'statement:statement-lineage',
     kind: StatementKind.Periodic,
@@ -146,14 +223,14 @@ function compile(allocationLineage = lineage) {
     obligations: [obligation],
     eligibilityObservations: eligibility,
     deductions: [tax50, tax25],
-    settlements: [{ batch, recovery, allocationLineage }],
+    settlements: [{ batch, recovery, allocationLineage: trusted.lineage, anchoredTrust: trusted.anchoredTrust }],
   });
 }
 
 describe('statement allocation-lineage authority', () => {
-  it('uses the checkpoint-backed successor head and commits the lineage history', () => {
-    expect(lineage.headAllocationRoot).toBe(successor.allocationRoot);
-    expect(lineage.headAllocation.obligationSetDischarged).toBe(true);
+  it('uses the root-anchored successor head and commits the lineage history', () => {
+    expect(trustedLineage.lineage.headAllocationRoot).toBe(successor.allocationRoot);
+    expect(trustedLineage.lineage.headAllocation.obligationSetDischarged).toBe(true);
     const statement = compile();
     expect(statement.paid.amountMinor).toBe(425n);
     expect(statement.deductions.amountMinor).toBe(75n);
@@ -166,23 +243,58 @@ describe('statement allocation-lineage authority', () => {
       highWaterMark: '99',
     });
     const predecessorStatement = compile(predecessorOnly);
-    const successorStatement = compile(lineage);
+    const successorStatement = compile(trustedLineage);
     expect(successorStatement.obligationRoot).toBe(predecessorStatement.obligationRoot);
     expect(successorStatement.adjustmentRoot).toBe(predecessorStatement.adjustmentRoot);
     expect(successorStatement.settlementRoot).not.toBe(predecessorStatement.settlementRoot);
   });
 
+  it('changes settlement commitment when root trust-policy evidence changes', () => {
+    const policy2 = checkpointBackedLineage([successor, initial], [link], {
+      checkpointId: 'checkpoint:statement-lineage:policy-2',
+      highWaterMark: '101',
+      trustPolicySequence: '2',
+      predecessorBundleRoot: trustedLineage.anchoredTrust.receipt.trustBundleRoot,
+    });
+    const first = compile(trustedLineage);
+    const second = compile(policy2);
+    expect(second.obligationRoot).toBe(first.obligationRoot);
+    expect(second.adjustmentRoot).toBe(first.adjustmentRoot);
+    expect(second.settlementRoot).not.toBe(first.settlementRoot);
+  });
+
+  it('rejects checkpoint-backed lineage without root-anchored trust authority', () => {
+    expect(() => compileRoyaltyStatement({
+      statementId: 'statement:unanchored',
+      kind: StatementKind.Periodic,
+      beneficiaryId: batch.beneficiaryId,
+      period: { startInclusive: '2026-09-01T00:00:00Z', endExclusive: '2026-10-01T00:00:00Z' },
+      asOf,
+      completeness: { kind: 'complete', through: { usageObservedThrough: asOf, rightsResolvedThrough: asOf, settlementsObservedThrough: asOf } },
+      settlementEpoch: epoch,
+      obligations: [obligation],
+      eligibilityObservations: eligibility,
+      deductions: [tax50, tax25],
+      settlements: [{ batch, recovery, allocationLineage: trustedLineage.lineage }],
+    })).toThrow(/requires anchored trust authority/);
+  });
+
   it('rejects a checkpoint-backed lineage resolved for a different statement instant', () => {
-    const wrongLineage = checkpointBackedLineage([initial, successor], [link], {
+    const wrong = checkpointBackedLineage([initial, successor], [link], {
       asOf: '2026-10-01T23:59:59Z',
       checkpointId: 'checkpoint:statement-lineage:wrong-asof',
       highWaterMark: '98',
     });
-    expect(() => compile(wrongLineage)).toThrow(/boundary asOf must equal statement asOf/);
+    expect(() => compile(wrong)).toThrow(/boundary asOf must equal statement asOf/);
   });
 
   it('rejects a structural clone of a genuine checkpoint-backed lineage resolution', () => {
-    expect(() => compile({ ...lineage })).toThrow(/verified source checkpoint/);
+    expect(() => compile({ ...trustedLineage, lineage: { ...trustedLineage.lineage } })).toThrow(/verified source checkpoint/);
+  });
+
+  it('rejects a structural clone of a genuine anchored trust authority', () => {
+    expect(() => compile({ ...trustedLineage, anchoredTrust: { ...trustedLineage.anchoredTrust } }))
+      .toThrow(/requires verified anchored trust authority/);
   });
 
   it('rejects a direct caller-asserted complete lineage even when structurally valid', () => {
@@ -196,6 +308,6 @@ describe('statement allocation-lineage authority', () => {
         sourceRef: 'caller-asserted-complete',
       }),
     );
-    expect(() => compile(directComplete)).toThrow(/verified source checkpoint/);
+    expect(() => compile({ ...trustedLineage, lineage: directComplete })).toThrow(/verified source checkpoint/);
   });
 });
