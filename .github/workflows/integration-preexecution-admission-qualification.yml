@@ -1,0 +1,113 @@
+name: Integration Preexecution Admission Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-integration-preexecution-admission/**'
+      - 'crates/mycelix-integration-current-capability-coverage/**'
+      - 'crates/mycelix-integration-execution-binding/**'
+      - 'crates/mycelix-integration-runtime/**'
+      - '.github/workflows/integration-preexecution-admission-qualification.yml'
+  push:
+    branches:
+      - 'feat/integration-preexecution-admission-v1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: integration-preexecution-admission-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Same-call authority + attempt + provider admission
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: '1.89.0'
+          components: rustfmt, clippy
+
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-integration-preexecution-admission/Cargo.toml -- --check
+
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-integration-preexecution-admission/Cargo.toml --all-targets
+
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-integration-preexecution-admission/Cargo.toml --all-targets -- -D warnings
+
+      - name: Upstream compatibility
+        run: |
+          cargo check --manifest-path crates/mycelix-integration-current-capability-coverage/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-integration-execution-binding/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-integration-runtime/Cargo.toml --all-targets
+
+      - name: Boundary audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path('crates/mycelix-integration-preexecution-admission')
+          src = (root / 'src/lib.rs').read_text()
+          prod = src.split('#[cfg(test)]', 1)[0]
+          readme = (root / 'README.md').read_text()
+          cargo = (root / 'Cargo.toml').read_text()
+          compact = ''.join(prod.split())
+
+          for dep in [
+              'mycelix-integration-current-capability-coverage = ',
+              'mycelix-integration-execution-binding = ',
+              'mycelix-integration-runtime = ',
+          ]:
+              assert dep in cargo, dep
+
+          for token in [
+              'pub struct QualifiedIntegrationPreexecutionAdmission {',
+              'pub fn qualify_preexecution_admission<C>(',
+              'qualify_execution_binding(',
+              'coverage.current_action().command_commitment()',
+              'execution_binding.command_commitment()',
+              'provider.profile().not_after_ms',
+              'execution_binding.provider_profile_commitment()',
+              'execution_binding.provider_trust_root_commitment()',
+              'execution_binding.materializer_release()',
+          ]:
+              assert token in src, token
+
+          prefix = src.split('pub struct QualifiedIntegrationPreexecutionAdmission {', 1)[0].split('\n')[-8:]
+          assert not any('Deserialize' in line for line in prefix)
+
+          for forbidden in [
+              'reqwest', 'hyper', 'holochain_client', 'AdminWebsocket', 'AppWebsocket',
+              'perform_external_effect', 'invoke_external_effect',
+              '.mark_dispatch_started(', 'mark_effect_started',
+          ]:
+              assert forbidden not in cargo + prod, forbidden
+
+          for token in [
+              'pubconstfncurrent_authority_capability_bound_here(&self)->bool{true}',
+              'pubconstfnprovider_profile_requalified_here(&self)->bool{true}',
+              'pubconstfnexact_attempt_bound_here(&self)->bool{true}',
+              'pubconstfnprovider_trust_root_origin_verified_here(&self)->bool{false}',
+              'pubconstfnreusable_without_provider_root_recheck_here(&self)->bool{false}',
+              'pubconstfnprovider_payload_materialized_here(&self)->bool{false}',
+              'pubconstfndispatch_started_here(&self)->bool{false}',
+              'pubconstfncoordinator_update_excluded_here(&self)->bool{false}',
+              'pubconstfngrants_execution_authority(&self)->bool{false}',
+          ]:
+              assert token in compact, token
+
+          for phrase in [
+              'A previously cached `QualifiedExecutionBinding` is deliberately **not** accepted',
+              'provider_profile_valid_through_ms',
+              'PreexecutionAdmission != CoordinatorMutationExclusion',
+              'PreexecutionAdmission != CurrentExecutionAuthority',
+          ]:
+              assert phrase in readme, phrase
+
+          print('PASS: same-call authority/provider/attempt admission remains pre-materialization/pre-dispatch/pre-effect')
+          PY
