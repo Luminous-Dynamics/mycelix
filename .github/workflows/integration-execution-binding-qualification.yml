@@ -73,14 +73,19 @@ jobs:
               'claim.command_commitment',
               'command.canonical_commitment_v1()',
               'signed.profile.generation != trust_root.current_generation',
+              'provider.trust_root_commitment() != current_trust_root.root_commitment()',
+              'profile.generation != current_trust_root.current_generation',
+              'QualificationError::ProviderTrustRootChanged',
               'now_ms >= claim.lease_until_ms',
               'ProviderReconciliationMode::IdempotencyKey',
               'lookup_supported: true',
               'profile.materializer_release',
+              'profile.max_payload_bytes',
           ]:
               assert token in src, token
 
-          # Positive results are local non-wire capabilities/evidence subjects.
+          # Positive results are local non-wire evidence subjects, not a
+          # serialization route around currentness or authority qualification.
           for positive in [
               'pub struct QualifiedProviderExecutionProfile {',
               'pub struct QualifiedExecutionBinding {',
@@ -92,6 +97,12 @@ jobs:
           assert 'pubconstfnpayload_materialized_here(&self)->bool{false}' in compact
           assert 'pubconstfndispatch_started_here(&self)->bool{false}' in compact
 
+          # Use-time root rotation is an explicit hostile regression, including
+          # same-generation key replacement.
+          tests = src.split('#[cfg(test)]', 1)[1]
+          assert 'root_rotation_after_profile_qualification_fails_at_use_time' in tests
+          assert 'ProviderTrustRootChanged' in tests
+
           for phrase in [
               'QualifiedExecutionBinding != CurrentExecutionAuthority',
               'IdempotencyKeyPresent != provider idempotency guarantee',
@@ -101,5 +112,5 @@ jobs:
           ]:
               assert phrase in readme, phrase
 
-          print('PASS: exact claim/command/current signed provider-profile binding remains non-authoritative and pre-materialization')
+          print('PASS: exact claim/command/current provider-profile binding rechecks trust-root currentness and remains non-authoritative/pre-materialization')
           PY
