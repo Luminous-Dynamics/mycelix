@@ -1,0 +1,46 @@
+name: Business Campaign Integrity
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-business-campaign-integrity/**'
+      - 'crates/mycelix-business-import-membership/**'
+      - 'crates/mycelix-business-import-diagnostics/**'
+      - 'crates/mycelix-business-adapter-delimited/**'
+      - 'crates/mycelix-business-ingress/**'
+      - 'crates/mycelix-business-core/**'
+      - '.github/workflows/business-campaign-integrity.yml'
+  push:
+    branches:
+      - main
+      - 'feat/business-campaign-integrity-*'
+    paths:
+      - 'crates/mycelix-business-campaign-integrity/**'
+      - 'crates/mycelix-business-import-membership/**'
+      - 'crates/mycelix-business-import-diagnostics/**'
+      - 'crates/mycelix-business-adapter-delimited/**'
+      - 'crates/mycelix-business-ingress/**'
+      - 'crates/mycelix-business-core/**'
+      - '.github/workflows/business-campaign-integrity.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  campaign-integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: crates/mycelix-business-campaign-integrity
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Format
+        run: cargo fmt --check
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+      - name: Test
+        run: cargo test
