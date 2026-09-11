@@ -7,12 +7,17 @@ fail() {
 }
 
 audit=packages/accounting/src/audit.ts
-tests=packages/accounting/src/audit.test.ts
+audit_tests=packages/accounting/src/audit.test.ts
+attestation=packages/accounting/src/audit-capsule-attestation.ts
+attestation_tests=packages/accounting/src/audit-capsule-attestation.test.ts
+index=packages/accounting/src/index.ts
 policy=packages/accounting/promotion-policy.json
 workflow=../.github/workflows/music-accounting.yml
 
 [[ -f "$audit" ]] || fail "audit capsule source is missing"
-[[ -f "$tests" ]] || fail "audit capsule regressions are missing"
+[[ -f "$audit_tests" ]] || fail "audit capsule regressions are missing"
+[[ -f "$attestation" ]] || fail "audit capsule attestation source is missing"
+[[ -f "$attestation_tests" ]] || fail "audit capsule attestation regressions are missing"
 
 grep -Fq 'export interface EconomicAuditCapsuleV1' "$audit" \
   || fail "historical v1 audit capsules must remain explicitly verifiable"
@@ -62,20 +67,76 @@ if grep -Fq 'anchoredSettlementTrust' <<<"$v2_input"; then
   fail "v2 creation must not accept a caller-supplied parallel trust list"
 fi
 
-grep -Fq 'compiles the exact statement input and derives a complete per-batch anchored-trust set' "$tests" \
+grep -Fq 'compiles the exact statement input and derives a complete per-batch anchored-trust set' "$audit_tests" \
   || fail "regressions must prove trust-set derivation from exact statement input"
-grep -Fq 'is reproducible for identical authoritative statement and trust inputs' "$tests" \
+grep -Fq 'is reproducible for identical authoritative statement and trust inputs' "$audit_tests" \
   || fail "regressions must prove v2 reproducibility"
-grep -Fq 'changes identity when root trust policy evidence changes' "$tests" \
+grep -Fq 'changes identity when root trust policy evidence changes' "$audit_tests" \
   || fail "regressions must prove root-trust sensitivity"
-grep -Fq 'detects omission or mutation inside the committed anchored-trust set' "$tests" \
+grep -Fq 'detects omission or mutation inside the committed anchored-trust set' "$audit_tests" \
   || fail "regressions must attack trust-set omission and mutation"
-grep -Fq 'binds the full statement snapshot and recomputes conservation from embedded economics' "$tests" \
+grep -Fq 'binds the full statement snapshot and recomputes conservation from embedded economics' "$audit_tests" \
   || fail "regressions must attack statement/conservation drift"
-grep -Fq 'requires v2 external roots and compiler build identity to be canonical SHA-256 digests' "$tests" \
+grep -Fq 'requires v2 external roots and compiler build identity to be canonical SHA-256 digests' "$audit_tests" \
   || fail "regressions must reject malformed v2 roots"
-grep -Fq 'keeps historical v1 capsules verifiable without allowing v1 creation through the v2 constructor' "$tests" \
+grep -Fq 'keeps historical v1 capsules verifiable without allowing v1 creation through the v2 constructor' "$audit_tests" \
   || fail "regressions must preserve historical v1 verification"
+
+# Capsule issuer authority is detached from accounting/compiler key custody and
+# must bind the exact v2 capsule digest, statement snapshot and compiler build.
+grep -Fq 'ECONOMIC_AUDIT_CAPSULE_ATTESTATION_SCOPE' "$attestation" \
+  || fail "audit capsule attestation scope is missing"
+grep -Fq "recordType: 'economic_audit_capsule_attestation_capability_v1'" "$attestation" \
+  || fail "audit issuer capability must have a domain-separated root"
+grep -Fq "recordType: 'economic_audit_capsule_attestation_request_v1'" "$attestation" \
+  || fail "audit attestation request must have a domain-separated root"
+grep -Fq "recordType: 'economic_audit_capsule_attestation_v1'" "$attestation" \
+  || fail "audit attestation must have a domain-separated root"
+grep -Fq "recordType: 'economic_audit_capsule_attestation_verification_receipt_v1'" "$attestation" \
+  || fail "audit attestation verification receipt must be domain-separated"
+grep -Fq 'compilerBuildDigest: digest' "$attestation" \
+  || fail "audit issuer capability must bind exact compiler build digest"
+grep -Fq 'capabilityRoot: capability.capabilityRoot' "$attestation" \
+  || fail "attestation request must bind exact capability root"
+grep -Fq 'capsuleDigest: economicAuditCapsuleDigest(capsule)' "$attestation" \
+  || fail "attestation request must bind exact audit capsule digest"
+grep -Fq 'statementSnapshotRoot: capsule.statementSnapshotRoot' "$attestation" \
+  || fail "attestation request must bind exact statement snapshot root"
+grep -Fq 'audit capsule attestation request is outside exact capability authority' "$attestation" \
+  || fail "attestation request must fail outside exact capability authority"
+grep -Fq 'audit capsule attestation request must remain inside capability validity window' "$attestation" \
+  || fail "attestation request must remain inside capability validity window"
+grep -Fq 'Date.parse(signedAt) >= Date.parse(canonical.expiresAt)' "$attestation" \
+  || fail "audit attestation request signing window must be half-open"
+grep -Fq 'audit capsule attestation is not authorized by pinned issuer trust policy' "$attestation" \
+  || fail "verification must pin exact issuer/signer/capability root"
+grep -Fq 'const VERIFIED_AUDIT_CAPSULE_ATTESTATIONS = new WeakSet<object>();' "$attestation" \
+  || fail "verified audit attestations must carry private runtime provenance"
+grep -Fq 'requireVerifiedEconomicAuditCapsuleAttestation' "$attestation" \
+  || fail "verified audit attestation promotion accessor is missing"
+if grep -Eq 'privateKeyPem|createPrivateKey|signEd25519' "$attestation"; then
+  fail "audit attestation module must not contain private-key custody or signing calls"
+fi
+
+grep -Fq "export * from './audit-capsule-attestation.js';" "$index" \
+  || fail "package index must expose detached audit capsule attestation API"
+
+grep -Fq 'verifies a capability-scoped detached signature and emits a root-bearing receipt' "$attestation_tests" \
+  || fail "regressions must prove detached issuer verification"
+grep -Fq 'rejects a capability that does not authorize the exact compiler build' "$attestation_tests" \
+  || fail "regressions must attack compiler-build scope"
+grep -Fq 'rejects capability content changed behind an unchanged capability root' "$attestation_tests" \
+  || fail "regressions must attack capability mutation"
+grep -Fq 'rejects rebinding a request or signature to another capsule' "$attestation_tests" \
+  || fail "regressions must attack capsule/signature rebinding"
+grep -Fq 'uses a half-open request signing window' "$attestation_tests" \
+  || fail "regressions must prove attestation expiry boundary"
+grep -Fq 'rejects signatures from an untrusted key' "$attestation_tests" \
+  || fail "regressions must reject wrong issuer key"
+grep -Fq 'requires issuer trust to pin the exact capability root' "$attestation_tests" \
+  || fail "regressions must prove exact capability-root pinning"
+grep -Fq 'rejects structural clones of verified attestation authority' "$attestation_tests" \
+  || fail "regressions must reject fabricated verified attestation authority"
 
 grep -Fq "'mycelix-music/scripts/check-audit-capsule-invariants.sh'" "$workflow" \
   || fail "accounting workflow must trigger when audit capsule invariants change"
@@ -87,5 +148,11 @@ grep -Fq 'A caller-supplied conservation proof is authoritative for an EconomicA
   || fail "promotion policy must require statement-derived v2 conservation"
 grep -Fq 'A structurally valid serialized audit capsule proves who produced or anchored it.' "$policy" \
   || fail "promotion policy must distinguish committed evidence from provenance/authentication"
+grep -Fq 'An EconomicAuditCapsule digest without a verified detached issuer attestation proves issuer identity.' "$policy" \
+  || fail "promotion policy must require issuer attestation for attribution"
+grep -Fq 'Accounting, database or statement compiler access implies possession of audit-capsule issuer signing keys.' "$policy" \
+  || fail "promotion policy must separate audit issuer key custody"
+grep -Fq 'Pinning an audit attestation capabilityId is equivalent to pinning the exact capability root.' "$policy" \
+  || fail "promotion policy must require exact capability-root pinning"
 
 echo "audit capsule invariants passed"
