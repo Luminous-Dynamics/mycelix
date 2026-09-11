@@ -4,7 +4,8 @@
 //! total statement.
 //!
 //! A match proves consistency with the supplied control statement. It does not prove that the
-//! statement is authentic, complete, legally authoritative, or identical to physical reality.
+//! statement is authentic, legally authoritative, semantically correct, or identical to physical
+//! reality. Stronger evidence narrows limitations; it never rewrites prior evidence into certainty.
 
 use std::collections::BTreeSet;
 
@@ -323,7 +324,6 @@ pub enum ReconciliationError {
     IncompatibleObservation,
     ArithmeticOverflow,
     CountOverflow,
-    ZeroEvidenceDigest,
     DigestMismatch,
 }
 
@@ -446,16 +446,15 @@ impl ControlReconciliationEvidence {
             || self.replay_digest != replay.evidence.evidence_digest
             || zero_digest(&self.source_observation_set_digest)
             || zero_digest(&self.evidence_digest)
+            || self.evidence_digest != reconciliation_evidence_digest(self)
         {
-            return Err(ReconciliationError::DigestMismatch);
-        }
-        if self.evidence_digest != reconciliation_evidence_digest(self) {
             return Err(ReconciliationError::DigestMismatch);
         }
         Ok(())
     }
 
-    /// A match narrows broad limitations; it does not remove uncertainty about the control source.
+    /// A match narrows two broad limitations. Authenticity of the control source remains a
+    /// separate unresolved limitation and is never represented as a no-op/self transition.
     pub fn limitation_transitions(&self) -> Vec<LimitationTransition> {
         if !self.decision.is_match() {
             return Vec::new();
@@ -469,11 +468,6 @@ impl ControlReconciliationEvidence {
             LimitationTransition::new(
                 aggregation_semantic_authority_unverified_ref(),
                 control_metric_semantic_authority_unverified_ref(),
-                self.evidence_digest,
-            ),
-            LimitationTransition::new(
-                control_source_authenticity_unverified_ref(),
-                control_source_authenticity_unverified_ref(),
                 self.evidence_digest,
             ),
         ]
@@ -501,9 +495,106 @@ impl LimitationTransition {
     }
 
     pub fn validate(&self) -> bool {
-        !zero_digest(&self.supporting_evidence_digest)
+        self.from != self.to
+            && !zero_digest(&self.supporting_evidence_digest)
             && !zero_digest(&self.transition_digest)
             && self.transition_digest == limitation_transition_digest(self)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LimitationApplication {
+    pub supporting_reconciliation_digest: Digest32,
+    pub before_digest: Digest32,
+    pub transition_set_digest: Digest32,
+    pub after: BTreeSet<ReferenceId>,
+    pub after_digest: Digest32,
+    pub application_digest: Digest32,
+}
+
+#[derive(Debug)]
+pub enum LimitationApplicationError {
+    Reconciliation(ReconciliationError),
+    ReconciliationDidNotMatch,
+    EmptyTransitions,
+    InvalidTransition { index: usize },
+    DuplicateSource { limitation: ReferenceId },
+    MissingSource { limitation: ReferenceId },
+    DigestMismatch,
+}
+
+/// Validate reconciliation evidence and apply only strict replacements. A matched control report
+/// always leaves control-source authenticity unresolved unless a separate authenticity verifier
+/// later discharges or narrows that limitation.
+#[allow(clippy::too_many_arguments)]
+pub fn apply_control_reconciliation_limitations(
+    current: &BTreeSet<ReferenceId>,
+    evidence: &ControlReconciliationEvidence,
+    campaign: &ExtractionCampaignManifest,
+    replay: &CampaignReplay,
+    contract: &ControlReconciliationContract,
+    statement: &ControlTotalStatement,
+) -> Result<LimitationApplication, LimitationApplicationError> {
+    evidence
+        .validate_against(campaign, replay, contract, statement)
+        .map_err(LimitationApplicationError::Reconciliation)?;
+    if !evidence.decision.is_match() {
+        return Err(LimitationApplicationError::ReconciliationDidNotMatch);
+    }
+    let transitions = evidence.limitation_transitions();
+    if transitions.is_empty() {
+        return Err(LimitationApplicationError::EmptyTransitions);
+    }
+
+    let mut seen_sources = BTreeSet::new();
+    let mut after = current.clone();
+    for (index, transition) in transitions.iter().enumerate() {
+        if !transition.validate() {
+            return Err(LimitationApplicationError::InvalidTransition { index });
+        }
+        if !seen_sources.insert(transition.from.clone()) {
+            return Err(LimitationApplicationError::DuplicateSource {
+                limitation: transition.from.clone(),
+            });
+        }
+        if !after.remove(&transition.from) {
+            return Err(LimitationApplicationError::MissingSource {
+                limitation: transition.from.clone(),
+            });
+        }
+        after.insert(transition.to.clone());
+    }
+    after.insert(control_source_authenticity_unverified_ref());
+
+    let before_digest = limitation_set_digest(current);
+    let transition_set_digest = limitation_transition_set_digest(&transitions);
+    let after_digest = limitation_set_digest(&after);
+    let mut application = LimitationApplication {
+        supporting_reconciliation_digest: evidence.evidence_digest,
+        before_digest,
+        transition_set_digest,
+        after,
+        after_digest,
+        application_digest: Digest32([0; 32]),
+    };
+    application.application_digest = limitation_application_digest(&application);
+    application.validate()?;
+    Ok(application)
+}
+
+impl LimitationApplication {
+    pub fn validate(&self) -> Result<(), LimitationApplicationError> {
+        if zero_digest(&self.supporting_reconciliation_digest)
+            || zero_digest(&self.before_digest)
+            || zero_digest(&self.transition_set_digest)
+            || zero_digest(&self.after_digest)
+            || zero_digest(&self.application_digest)
+            || self.after_digest != limitation_set_digest(&self.after)
+            || self.application_digest != limitation_application_digest(self)
+        {
+            return Err(LimitationApplicationError::DigestMismatch);
+        }
+        Ok(())
     }
 }
 
@@ -513,6 +604,43 @@ fn limitation_transition_digest(value: &LimitationTransition) -> Digest32 {
     hash_str(&mut hasher, value.from.as_str());
     hash_str(&mut hasher, value.to.as_str());
     hasher.update(value.supporting_evidence_digest.0);
+    finish_digest(hasher)
+}
+
+fn limitation_transition_set_digest(transitions: &[LimitationTransition]) -> Digest32 {
+    let mut canonical = transitions.iter().collect::<Vec<_>>();
+    canonical.sort_by(|left, right| {
+        left.from
+            .cmp(&right.from)
+            .then_with(|| left.to.cmp(&right.to))
+            .then_with(|| left.transition_digest.cmp(&right.transition_digest))
+    });
+    let mut hasher = Sha256::new();
+    hash_str(&mut hasher, "mycelix:limitation-transition-set:v1");
+    hasher.update((canonical.len() as u64).to_be_bytes());
+    for transition in canonical {
+        hasher.update(transition.transition_digest.0);
+    }
+    finish_digest(hasher)
+}
+
+fn limitation_set_digest(limitations: &BTreeSet<ReferenceId>) -> Digest32 {
+    let mut hasher = Sha256::new();
+    hash_str(&mut hasher, "mycelix:limitation-set:v1");
+    hasher.update((limitations.len() as u64).to_be_bytes());
+    for limitation in limitations {
+        hash_str(&mut hasher, limitation.as_str());
+    }
+    finish_digest(hasher)
+}
+
+fn limitation_application_digest(value: &LimitationApplication) -> Digest32 {
+    let mut hasher = Sha256::new();
+    hash_str(&mut hasher, "mycelix:limitation-application:v1");
+    hasher.update(value.supporting_reconciliation_digest.0);
+    hasher.update(value.before_digest.0);
+    hasher.update(value.transition_set_digest.0);
+    hasher.update(value.after_digest.0);
     finish_digest(hasher)
 }
 
@@ -745,8 +873,13 @@ mod tests {
         .unwrap()
     }
 
-    #[test]
-    fn exact_provider_control_total_matches_replay() {
+    fn matched_fixture() -> (
+        ExtractionCampaignManifest,
+        CampaignReplay,
+        ControlReconciliationContract,
+        ControlTotalStatement,
+        ControlReconciliationEvidence,
+    ) {
         let adapter = adapter();
         let file = source_file();
         let campaign = campaign(&adapter, &file);
@@ -754,16 +887,55 @@ mod tests {
         let contract = contract(campaign.connector.clone());
         let statement = statement(&contract, 2, 5);
         let evidence = reconcile_control_total(&campaign, &replay, &contract, &statement).unwrap();
+        (campaign, replay, contract, statement, evidence)
+    }
+
+    #[test]
+    fn exact_provider_control_total_matches_replay() {
+        let (campaign, replay, contract, statement, evidence) = matched_fixture();
         assert!(CONTROL_RECONCILIATION_IS_READ_ONLY);
         assert_eq!(evidence.decision, ControlReconciliationDecision::Match);
         assert_eq!(evidence.source_event_count, 2);
         assert_eq!(evidence.actual_value.mantissa, 5);
-        assert_eq!(evidence.limitation_transitions().len(), 3);
-        assert!(evidence.limitation_transitions().iter().all(LimitationTransition::validate));
+        let transitions = evidence.limitation_transitions();
+        assert_eq!(transitions.len(), 2);
+        assert!(transitions.iter().all(LimitationTransition::validate));
+
+        let current = BTreeSet::from([
+            upstream_export_completeness_unverified_ref(),
+            aggregation_semantic_authority_unverified_ref(),
+            id("limitation:unrelated:v1"),
+        ]);
+        let application = apply_control_reconciliation_limitations(
+            &current,
+            &evidence,
+            &campaign,
+            &replay,
+            &contract,
+            &statement,
+        )
+        .unwrap();
+        assert!(!application
+            .after
+            .contains(&upstream_export_completeness_unverified_ref()));
+        assert!(!application
+            .after
+            .contains(&aggregation_semantic_authority_unverified_ref()));
+        assert!(application
+            .after
+            .contains(&control_source_external_reality_unverified_ref()));
+        assert!(application
+            .after
+            .contains(&control_metric_semantic_authority_unverified_ref()));
+        assert!(application
+            .after
+            .contains(&control_source_authenticity_unverified_ref()));
+        assert!(application.after.contains(&id("limitation:unrelated:v1")));
+        assert!(application.validate().is_ok());
     }
 
     #[test]
-    fn count_mismatch_is_preserved_not_coerced() {
+    fn count_mismatch_is_preserved_and_cannot_narrow_limitations() {
         let adapter = adapter();
         let file = source_file();
         let campaign = campaign(&adapter, &file);
@@ -776,20 +948,39 @@ mod tests {
             ControlReconciliationDecision::CountMismatch { expected: 3, actual: 2 }
         ));
         assert!(evidence.limitation_transitions().is_empty());
+        let current = BTreeSet::from([
+            upstream_export_completeness_unverified_ref(),
+            aggregation_semantic_authority_unverified_ref(),
+        ]);
+        assert!(matches!(
+            apply_control_reconciliation_limitations(
+                &current,
+                &evidence,
+                &campaign,
+                &replay,
+                &contract,
+                &statement,
+            ),
+            Err(LimitationApplicationError::ReconciliationDidNotMatch)
+        ));
     }
 
     #[test]
-    fn value_mismatch_is_preserved_not_coerced() {
+    fn count_and_value_mismatch_is_preserved() {
         let adapter = adapter();
         let file = source_file();
         let campaign = campaign(&adapter, &file);
         let replay = replay_campaign(&adapter, &campaign, std::slice::from_ref(&file)).unwrap();
         let contract = contract(campaign.connector.clone());
-        let statement = statement(&contract, 2, 6);
+        let statement = statement(&contract, 3, 6);
         let evidence = reconcile_control_total(&campaign, &replay, &contract, &statement).unwrap();
         assert!(matches!(
             evidence.decision,
-            ControlReconciliationDecision::ValueMismatch { .. }
+            ControlReconciliationDecision::CountAndValueMismatch {
+                expected_count: 3,
+                actual_count: 2,
+                ..
+            }
         ));
     }
 
@@ -827,5 +1018,36 @@ mod tests {
             },
         );
         assert!(matches!(result, Err(StatementError::IssuedBeforeWindowClosed)));
+    }
+
+    #[test]
+    fn self_transition_is_invalid() {
+        let limitation = id("limitation:test:v1");
+        let mut transition = LimitationTransition {
+            from: limitation.clone(),
+            to: limitation,
+            supporting_evidence_digest: Digest32::repeat(4),
+            transition_digest: Digest32([0; 32]),
+        };
+        transition.transition_digest = limitation_transition_digest(&transition);
+        assert!(!transition.validate());
+    }
+
+    #[test]
+    fn matched_reconciliation_cannot_remove_an_absent_limitation() {
+        let (campaign, replay, contract, statement, evidence) = matched_fixture();
+        let current = BTreeSet::from([upstream_export_completeness_unverified_ref()]);
+        assert!(matches!(
+            apply_control_reconciliation_limitations(
+                &current,
+                &evidence,
+                &campaign,
+                &replay,
+                &contract,
+                &statement,
+            ),
+            Err(LimitationApplicationError::MissingSource { limitation })
+                if limitation == aggregation_semantic_authority_unverified_ref()
+        ));
     }
 }
