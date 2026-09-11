@@ -8,6 +8,7 @@ export * from './settlement.js';
 export * from './netting.js';
 export * from './audit.js';
 export * from './audit-capsule-attestation.js';
+export * from './audit-capsule-attestation-trust.js';
 export * from './interop.js';
 export * from './recovery.js';
 export * from './projection.js';

@@ -30,7 +30,7 @@
 
     "test:integration": "tsx scripts/test-integration.ts",
     "test:e2e": "playwright test",
-    "check:invariants": "bash scripts/check-source-invariants.sh && bash scripts/check-checkpoint-compiler-invariants.sh && bash scripts/check-audit-capsule-invariants.sh",
+    "check:invariants": "bash scripts/check-source-invariants.sh && bash scripts/check-checkpoint-compiler-invariants.sh && bash scripts/check-audit-capsule-invariants.sh && bash scripts/check-audit-issuer-trust-invariants.sh",
 
     "setup:local": "npm run services:up && sleep 10 && npm run contracts:deploy:local && npm run seed:local",
     "prepare": "husky",
