@@ -21,6 +21,7 @@ use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 pub const DELIMITED_ADAPTER_IS_READ_ONLY: bool = true;
 pub const MAX_EXPECTED_HEADERS: usize = 256;
 pub const MAX_OUTPUT_MAPPINGS: usize = 64;
+pub const MAX_BATCH_INPUT_BYTES: u64 = 64 * 1024 * 1024;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TimestampEncoding {
@@ -116,7 +117,9 @@ pub enum ConfigError {
 #[derive(Debug)]
 pub enum AdapterError {
     Config(ConfigError),
+    Io(std::io::Error),
     Csv(csv::Error),
+    InputTooLarge { actual_bytes: u64, maximum_bytes: u64 },
     HeaderMismatch,
     EmptyField { row: usize, column: String },
     InvalidReference { row: usize, column: String },
@@ -357,12 +360,13 @@ impl DelimitedIngressAdapter {
     ) -> Result<IngressBatch, AdapterError> {
         self.config.validate().map_err(AdapterError::Config)?;
         let descriptor = self.descriptor().map_err(AdapterError::Config)?;
+        let bytes = read_bounded(reader, MAX_BATCH_INPUT_BYTES)?;
         let mut csv = ReaderBuilder::new()
             .delimiter(self.config.delimiter)
             .has_headers(true)
             .flexible(false)
             .trim(csv::Trim::None)
-            .from_reader(reader);
+            .from_reader(bytes.as_slice());
 
         let actual_headers = csv.headers().map_err(AdapterError::Csv)?.clone();
         let expected = StringRecord::from(self.config.expected_headers.clone());
@@ -421,31 +425,19 @@ impl DelimitedIngressAdapter {
         ingested_at_unix_ms: u64,
         descriptor: &ExternalAdapterDescriptor,
     ) -> Result<IngressRecord, AdapterError> {
-        let get = |column: &str| -> Result<&str, AdapterError> {
-            let index = *header_index.get(column).expect("configuration was validated");
-            let value = record.get(index).unwrap_or_default().trim();
-            if value.is_empty() {
-                return Err(AdapterError::EmptyField {
-                    row,
-                    column: column.to_owned(),
-                });
-            }
-            Ok(value)
-        };
-
-        let event_raw = get(&self.config.source_event_id_column)?;
+        let event_raw = required_field(row, header_index, record, &self.config.source_event_id_column)?;
         let source_event_id = ReferenceId::new(event_raw).map_err(|_| AdapterError::InvalidReference {
             row,
             column: self.config.source_event_id_column.clone(),
         })?;
-        let timestamp_raw = get(&self.config.observed_at_column)?;
+        let timestamp_raw = required_field(row, header_index, record, &self.config.observed_at_column)?;
         let observed_at_unix_ms = parse_timestamp(
             timestamp_raw,
             self.config.timestamp_encoding,
             row,
             &self.config.observed_at_column,
         )?;
-        let scope = self.parse_scope(row, &get)?;
+        let scope = self.parse_scope(row, header_index, record)?;
         let payload_digest = digest_record(headers, record);
         let mapping_digest = descriptor.mapping_digest;
 
@@ -462,7 +454,7 @@ impl DelimitedIngressAdapter {
             let mantissa = match &output.value {
                 ValueMapping::Constant { mantissa } => *mantissa,
                 ValueMapping::Column { column, decimal } => {
-                    let raw = get(column)?;
+                    let raw = required_field(row, header_index, record, column)?;
                     parse_scaled_decimal(raw, output.scale, decimal, row, column)?
                 }
             };
@@ -508,14 +500,16 @@ impl DelimitedIngressAdapter {
         })
     }
 
-    fn parse_scope<'a, F>(&self, row: usize, get: &F) -> Result<ScopeRef, AdapterError>
-    where
-        F: Fn(&str) -> Result<&'a str, AdapterError>,
-    {
+    fn parse_scope(
+        &self,
+        row: usize,
+        header_index: &BTreeMap<String, usize>,
+        record: &StringRecord,
+    ) -> Result<ScopeRef, AdapterError> {
         match &self.config.scope {
             ScopeMapping::Constant(scope) => Ok(scope.clone()),
             ScopeMapping::Column { column, prefix } => {
-                let value = get(column)?;
+                let value = required_field(row, header_index, record, column)?;
                 ScopeRef::new(format!("{prefix}{value}")).map_err(|_| AdapterError::InvalidScope {
                     row,
                     column: column.clone(),
@@ -523,6 +517,39 @@ impl DelimitedIngressAdapter {
             }
         }
     }
+}
+
+fn read_bounded<R: Read>(reader: R, maximum_bytes: u64) -> Result<Vec<u8>, AdapterError> {
+    let mut limited = reader.take(maximum_bytes.saturating_add(1));
+    let mut bytes = Vec::new();
+    limited.read_to_end(&mut bytes).map_err(AdapterError::Io)?;
+    let actual_bytes = bytes.len() as u64;
+    if actual_bytes > maximum_bytes {
+        return Err(AdapterError::InputTooLarge {
+            actual_bytes,
+            maximum_bytes,
+        });
+    }
+    Ok(bytes)
+}
+
+fn required_field<'a>(
+    row: usize,
+    header_index: &BTreeMap<String, usize>,
+    record: &'a StringRecord,
+    column: &str,
+) -> Result<&'a str, AdapterError> {
+    let index = *header_index
+        .get(column)
+        .expect("configuration and exact header contract were validated");
+    let value = record.get(index).unwrap_or_default().trim();
+    if value.is_empty() {
+        return Err(AdapterError::EmptyField {
+            row,
+            column: column.to_owned(),
+        });
+    }
+    Ok(value)
 }
 
 fn digest_record(headers: &StringRecord, record: &StringRecord) -> Digest32 {
@@ -741,7 +768,13 @@ fn parse_scaled_decimal(
                 row,
                 column: column.to_owned(),
             })?;
-        raw.checked_mul(10_i128.pow(scale - fraction.len() as u32))
+        let fraction_factor = 10_i128
+            .checked_pow(scale - fraction.len() as u32)
+            .ok_or_else(|| AdapterError::ArithmeticOverflow {
+                row,
+                column: column.to_owned(),
+            })?;
+        raw.checked_mul(fraction_factor)
             .ok_or_else(|| AdapterError::ArithmeticOverflow {
                 row,
                 column: column.to_owned(),
@@ -954,6 +987,18 @@ mod tests {
         assert!(matches!(
             adapter.parse_batch(csv.as_bytes(), 1_789_000_000_000),
             Err(AdapterError::Ingress(IngressBatchError::DuplicateSourceEvent { .. }))
+        ));
+    }
+
+    #[test]
+    fn bounded_reader_rejects_oversize_input_without_large_fixture() {
+        let bytes = b"123456789";
+        assert!(matches!(
+            read_bounded(bytes.as_slice(), 8),
+            Err(AdapterError::InputTooLarge {
+                actual_bytes: 9,
+                maximum_bytes: 8,
+            })
         ));
     }
 
