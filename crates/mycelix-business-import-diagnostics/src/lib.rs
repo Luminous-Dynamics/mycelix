@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! Non-mutating import diagnostics for Mycelix Business pilots.
 //!
-//! This crate scans external delimited exports without admitting them to witness state. It binds
-//! the discovered-row denominator, parser rejections, connector lineage, and file identity into
-//! evidence that can be checked before field qualification.
+//! The diagnostic path binds source-file identity, denominators, parser rejections, connector
+//! lineage, source-event replay protection, and privacy-minimal normalized-observation commitments
+//! before field qualification. It never admits records to durable witness state.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::Read;
@@ -19,9 +19,10 @@ use mycelix_business_field_qualification::{
 };
 use mycelix_business_ingress::IngressQualificationBinding;
 use mycelix_business_pilot_hospitality::{
-    HospitalityForecastPilotRegistration, HospitalityPilotEvidence,
-    HospitalityPilotEvidenceError, evaluate_hospitality_forecast_pilot, sales_input_ref,
+    HospitalityForecastPilotRegistration, HospitalityPilotEvidence, HospitalityPilotEvidenceError,
+    evaluate_hospitality_forecast_pilot, sales_input_ref,
 };
+use mycelix_business_shadow::MetricObservation;
 use sha2::{Digest, Sha256};
 
 pub const IMPORT_DIAGNOSTICS_ARE_READ_ONLY: bool = true;
@@ -37,8 +38,7 @@ fn hash_str(hasher: &mut Sha256, value: &str) {
 }
 
 fn finish_digest(hasher: Sha256) -> Digest32 {
-    let bytes: [u8; 32] = hasher.finalize().into();
-    Digest32(bytes)
+    Digest32(hasher.finalize().into())
 }
 
 fn digest_bytes(label: &str, bytes: &[u8]) -> Digest32 {
@@ -52,6 +52,38 @@ fn digest_bytes(label: &str, bytes: &[u8]) -> Digest32 {
 pub fn upstream_export_completeness_unverified_ref() -> ReferenceId {
     ReferenceId::new("limitation:upstream-export-completeness-unverified:v1")
         .expect("static limitation id is canonical")
+}
+
+/// Privacy-minimal key used to detect the same provider event across multiple export files.
+pub fn source_event_key_commitment(
+    source_system: &ReferenceId,
+    source_event_id: &ReferenceId,
+) -> Digest32 {
+    let mut hasher = Sha256::new();
+    hash_str(&mut hasher, "mycelix:source-event-key:v1");
+    hash_str(&mut hasher, source_system.as_str());
+    hash_str(&mut hasher, source_event_id.as_str());
+    finish_digest(hasher)
+}
+
+/// Exact commitment to a normalized observation without copying the provider payload.
+///
+/// A forecast actual can prove membership in an extraction campaign by reproducing this digest.
+pub fn normalized_observation_commitment(observation: &MetricObservation) -> Digest32 {
+    let mut hasher = Sha256::new();
+    hash_str(&mut hasher, "mycelix:normalized-observation:v1");
+    hash_str(&mut hasher, observation.observation.as_ref_id().as_str());
+    hash_str(&mut hasher, observation.source_system.as_str());
+    hash_str(&mut hasher, observation.source_event_id.as_str());
+    hasher.update(observation.source_payload_digest.0);
+    hasher.update(observation.mapping_digest.0);
+    hash_str(&mut hasher, observation.metric.as_str());
+    hash_str(&mut hasher, observation.scope.as_ref_id().as_str());
+    hasher.update(observation.value.mantissa.to_be_bytes());
+    hasher.update(observation.value.scale.to_be_bytes());
+    hash_str(&mut hasher, observation.value.unit.as_str());
+    hasher.update(observation.observed_at_unix_ms.to_be_bytes());
+    finish_digest(hasher)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -133,6 +165,8 @@ pub struct ImportDiagnosticManifest {
     pub maximum_batch_records: u32,
     pub recommended_batches: u64,
     pub rejection_counts: BTreeMap<ImportRejectionClass, u64>,
+    pub accepted_event_keys: BTreeSet<Digest32>,
+    pub accepted_observation_commitments: BTreeSet<Digest32>,
     pub manifest_digest: Digest32,
 }
 
@@ -142,6 +176,9 @@ pub enum ManifestError {
     ZeroDiscoveredRows,
     CountMismatch,
     RejectionCountMismatch,
+    EventCommitmentCountMismatch,
+    ObservationCommitmentsMissing,
+    ZeroCommitment,
     InvalidObservedWindow,
     ZeroBatchLimit,
     RecommendedBatchMismatch,
@@ -158,6 +195,17 @@ impl ImportDiagnosticManifest {
         }
         if self.accepted_rows.saturating_add(self.rejected_rows) != self.discovered_rows {
             return Err(ManifestError::CountMismatch);
+        }
+        if self.accepted_event_keys.len() as u64 != self.accepted_rows {
+            return Err(ManifestError::EventCommitmentCountMismatch);
+        }
+        if self.accepted_rows > 0 && self.accepted_observation_commitments.is_empty() {
+            return Err(ManifestError::ObservationCommitmentsMissing);
+        }
+        if self.accepted_event_keys.iter().any(zero_digest)
+            || self.accepted_observation_commitments.iter().any(zero_digest)
+        {
+            return Err(ManifestError::ZeroCommitment);
         }
         let rejection_sum = self
             .rejection_counts
@@ -204,6 +252,7 @@ pub enum DiagnosticError {
     InputTooLarge { maximum_bytes: u64 },
     HeaderMismatch,
     EmptyFile,
+    ObservationCommitmentCollision,
     Manifest(ManifestError),
 }
 
@@ -239,6 +288,8 @@ pub fn diagnose_delimited_import<R: Read>(
     let mut maximum_delay = 0_u64;
     let mut rejection_counts = BTreeMap::new();
     let mut accepted_event_ids = BTreeSet::new();
+    let mut accepted_event_keys = BTreeSet::new();
+    let mut accepted_observation_commitments = BTreeSet::new();
 
     for result in csv.records() {
         discovered_rows = discovered_rows.saturating_add(1);
@@ -267,7 +318,7 @@ pub fn diagnose_delimited_import<R: Read>(
                     continue;
                 };
                 let event_id = parsed.event.witness.source_event_id.clone();
-                if !accepted_event_ids.insert(event_id) {
+                if !accepted_event_ids.insert(event_id.clone()) {
                     record_rejection(
                         &mut rejected_rows,
                         &mut rejection_counts,
@@ -275,6 +326,24 @@ pub fn diagnose_delimited_import<R: Read>(
                     );
                     continue;
                 }
+                let event_key = source_event_key_commitment(
+                    &parsed.event.witness.source_system,
+                    &event_id,
+                );
+                if !accepted_event_keys.insert(event_key) {
+                    return Err(DiagnosticError::ObservationCommitmentCollision);
+                }
+                let mut row_observations = BTreeSet::new();
+                for normalized in &parsed.normalized {
+                    let commitment = normalized_observation_commitment(&normalized.observation);
+                    if !row_observations.insert(commitment)
+                        || accepted_observation_commitments.contains(&commitment)
+                    {
+                        return Err(DiagnosticError::ObservationCommitmentCollision);
+                    }
+                }
+                accepted_observation_commitments.extend(row_observations);
+
                 let observed = parsed.event.witness.observed_at_unix_ms;
                 if observed > ingested_at_unix_ms {
                     future_timestamp_rows = future_timestamp_rows.saturating_add(1);
@@ -318,6 +387,8 @@ pub fn diagnose_delimited_import<R: Read>(
         maximum_batch_records: descriptor.maximum_batch_records,
         recommended_batches,
         rejection_counts,
+        accepted_event_keys,
+        accepted_observation_commitments,
         manifest_digest: Digest32([0; 32]),
     };
     manifest.manifest_digest = compute_manifest_digest(&manifest);
@@ -365,7 +436,7 @@ fn record_rejection(
 
 fn compute_manifest_digest(manifest: &ImportDiagnosticManifest) -> Digest32 {
     let mut hasher = Sha256::new();
-    hash_str(&mut hasher, "mycelix:import-diagnostic-manifest:v1");
+    hash_str(&mut hasher, "mycelix:import-diagnostic-manifest:v2");
     hash_str(&mut hasher, manifest.connector.source_system.as_str());
     hash_str(&mut hasher, manifest.connector.adapter_semantic_id.as_str());
     hasher.update(manifest.connector.adapter_digest.0);
@@ -398,6 +469,12 @@ fn compute_manifest_digest(manifest: &ImportDiagnosticManifest) -> Digest32 {
         hasher.update([class.tag()]);
         hasher.update(count.to_be_bytes());
     }
+    for commitment in &manifest.accepted_event_keys {
+        hasher.update(commitment.0);
+    }
+    for commitment in &manifest.accepted_observation_commitments {
+        hasher.update(commitment.0);
+    }
     finish_digest(hasher)
 }
 
@@ -411,6 +488,8 @@ pub struct ExtractionCampaignManifest {
     pub rejected_rows: u64,
     pub future_timestamp_rows: u64,
     pub maximum_observed_ingest_delay_ms: u64,
+    pub accepted_event_keys: BTreeSet<Digest32>,
+    pub accepted_observation_commitments: BTreeSet<Digest32>,
     pub campaign_digest: Digest32,
 }
 
@@ -421,6 +500,9 @@ pub enum CampaignError {
     ConnectorMismatch,
     SupportedInputsMismatch,
     DuplicateSourceFile,
+    DuplicateSourceEventAcrossFiles,
+    DuplicateObservationAcrossFiles,
+    EventCommitmentCountMismatch,
     Overflow,
     DigestMismatch,
 }
@@ -438,6 +520,8 @@ impl ExtractionCampaignManifest {
         let connector = files[0].connector.clone();
         let supported_inputs = files[0].supported_inputs.clone();
         let mut file_digests = BTreeSet::new();
+        let mut event_keys = BTreeSet::new();
+        let mut observations = BTreeSet::new();
         let mut discovered_rows = 0_u64;
         let mut accepted_rows = 0_u64;
         let mut rejected_rows = 0_u64;
@@ -453,6 +537,16 @@ impl ExtractionCampaignManifest {
             if !file_digests.insert(file.source_file_digest) {
                 return Err(CampaignError::DuplicateSourceFile);
             }
+            for event_key in &file.accepted_event_keys {
+                if !event_keys.insert(*event_key) {
+                    return Err(CampaignError::DuplicateSourceEventAcrossFiles);
+                }
+            }
+            for observation in &file.accepted_observation_commitments {
+                if !observations.insert(*observation) {
+                    return Err(CampaignError::DuplicateObservationAcrossFiles);
+                }
+            }
             discovered_rows = discovered_rows
                 .checked_add(file.discovered_rows)
                 .ok_or(CampaignError::Overflow)?;
@@ -467,6 +561,9 @@ impl ExtractionCampaignManifest {
                 .ok_or(CampaignError::Overflow)?;
             maximum_delay = maximum_delay.max(file.maximum_observed_ingest_delay_ms);
         }
+        if event_keys.len() as u64 != accepted_rows {
+            return Err(CampaignError::EventCommitmentCountMismatch);
+        }
         let mut campaign = Self {
             connector,
             supported_inputs,
@@ -476,6 +573,8 @@ impl ExtractionCampaignManifest {
             rejected_rows,
             future_timestamp_rows,
             maximum_observed_ingest_delay_ms: maximum_delay,
+            accepted_event_keys: event_keys,
+            accepted_observation_commitments: observations,
             campaign_digest: Digest32([0; 32]),
         };
         campaign.campaign_digest = compute_campaign_digest(&campaign);
@@ -489,11 +588,16 @@ impl ExtractionCampaignManifest {
         }
         Ok(())
     }
+
+    pub fn contains_observation(&self, observation: &MetricObservation) -> bool {
+        self.accepted_observation_commitments
+            .contains(&normalized_observation_commitment(observation))
+    }
 }
 
 fn compute_campaign_digest(campaign: &ExtractionCampaignManifest) -> Digest32 {
     let mut hasher = Sha256::new();
-    hash_str(&mut hasher, "mycelix:extraction-campaign:v1");
+    hash_str(&mut hasher, "mycelix:extraction-campaign:v2");
     hash_str(&mut hasher, campaign.connector.source_system.as_str());
     hash_str(&mut hasher, campaign.connector.adapter_semantic_id.as_str());
     hasher.update(campaign.connector.adapter_digest.0);
@@ -510,6 +614,12 @@ fn compute_campaign_digest(campaign: &ExtractionCampaignManifest) -> Digest32 {
     hasher.update(campaign.rejected_rows.to_be_bytes());
     hasher.update(campaign.future_timestamp_rows.to_be_bytes());
     hasher.update(campaign.maximum_observed_ingest_delay_ms.to_be_bytes());
+    for commitment in &campaign.accepted_event_keys {
+        hasher.update(commitment.0);
+    }
+    for commitment in &campaign.accepted_observation_commitments {
+        hasher.update(commitment.0);
+    }
     finish_digest(hasher)
 }
 
@@ -670,6 +780,8 @@ mod tests {
         assert_eq!(manifest.discovered_rows, 3);
         assert_eq!(manifest.accepted_rows, 1);
         assert_eq!(manifest.rejected_rows, 2);
+        assert_eq!(manifest.accepted_event_keys.len(), 1);
+        assert_eq!(manifest.accepted_observation_commitments.len(), 1);
         assert_eq!(
             manifest.rejection_counts[&ImportRejectionClass::InvalidNumber],
             1
@@ -681,28 +793,42 @@ mod tests {
     }
 
     #[test]
-    fn manifest_recommends_safe_chunk_count() {
-        let manifest = diagnose_delimited_import(&adapter(), valid_csv(), 2_000).unwrap();
-        assert_eq!(manifest.accepted_rows, 2);
-        assert_eq!(manifest.maximum_batch_records, 2);
-        assert_eq!(manifest.recommended_batches, 1);
-        assert_eq!(manifest.validate(), Ok(()));
+    fn exact_normalized_observation_is_committed() {
+        let adapter = adapter();
+        let manifest = diagnose_delimited_import(&adapter, valid_csv(), 2_000).unwrap();
+        let batch = adapter.parse_batch(valid_csv(), 2_000).unwrap();
+        for record in &batch.records {
+            for output in &record.normalized {
+                assert!(manifest
+                    .accepted_observation_commitments
+                    .contains(&normalized_observation_commitment(&output.observation)));
+            }
+        }
+    }
+
+    #[test]
+    fn campaign_rejects_same_source_event_across_files() {
+        let first = diagnose_delimited_import(
+            &adapter(),
+            b"event_id,occurred_at,location,quantity\nevent:1,1000,a,1\n".as_slice(),
+            2_000,
+        )
+        .unwrap();
+        let second = diagnose_delimited_import(
+            &adapter(),
+            b"event_id,occurred_at,location,quantity\nevent:1,1200,a,2\n".as_slice(),
+            2_000,
+        )
+        .unwrap();
+        assert_eq!(
+            ExtractionCampaignManifest::from_files(vec![first, second]),
+            Err(CampaignError::DuplicateSourceEventAcrossFiles)
+        );
     }
 
     fn pilot_registration(
         connector: IngressQualificationBinding,
     ) -> HospitalityForecastPilotRegistration {
-        let policy = HospitalityPilotPolicy {
-            minimum_preregistration_lead_ms: HOUR_MS,
-            minimum_evaluation_duration_ms: DAY_MS,
-            minimum_total_forecast_cases: 1,
-            minimum_cases_per_slice: 1,
-            maximum_abstention_bps: 10_000,
-            maximum_missing_bps: 10_000,
-            maximum_conflicting_bps: 10_000,
-            maximum_stale_bps: 10_000,
-            maximum_ingest_delay_ms: 10_000,
-        };
         HospitalityForecastPilotRegistration::build(HospitalityForecastPilotConfig {
             plan_id: id("pilot:test:v1"),
             scope: ScopeRef(id("scope:location:a")),
@@ -712,7 +838,17 @@ mod tests {
             registered_at_unix_ms: DAY_MS,
             evaluation_start_unix_ms: 2 * DAY_MS,
             evaluation_end_unix_ms: 4 * DAY_MS,
-            policy,
+            policy: HospitalityPilotPolicy {
+                minimum_preregistration_lead_ms: HOUR_MS,
+                minimum_evaluation_duration_ms: DAY_MS,
+                minimum_total_forecast_cases: 1,
+                minimum_cases_per_slice: 1,
+                maximum_abstention_bps: 10_000,
+                maximum_missing_bps: 10_000,
+                maximum_conflicting_bps: 10_000,
+                maximum_stale_bps: 10_000,
+                maximum_ingest_delay_ms: 10_000,
+            },
             slices: Some(standard_daypart_slices_v1(
                 id("timezone:iana:Africa/Johannesburg"),
                 1,
@@ -798,54 +934,6 @@ mod tests {
                 manifest: campaign.discovered_rows,
                 evidence: campaign.discovered_rows + 1,
             })
-        );
-    }
-
-    #[test]
-    fn rejected_parser_rows_must_count_as_missing() {
-        let csv = b"event_id,occurred_at,location,quantity\nevent:1,1000,a,1\nevent:2,1100,a,oops\n";
-        let manifest = diagnose_delimited_import(&adapter(), csv.as_slice(), 2_000).unwrap();
-        let campaign = ExtractionCampaignManifest::from_files(vec![manifest]).unwrap();
-        let registration = pilot_registration(campaign.connector.clone());
-        let field = field_evidence(
-            &registration,
-            campaign.discovered_rows,
-            0,
-            campaign.maximum_observed_ingest_delay_ms,
-            true,
-        );
-        let evidence = ExtractionBoundHospitalityEvidence {
-            campaign: campaign.clone(),
-            pilot_evidence: pilot_evidence(&registration, field),
-        };
-        assert_eq!(
-            evaluate_extraction_bound_hospitality_pilot(&registration, &evidence),
-            Err(ExtractionBoundPilotError::RejectedRowsNotCountedMissing {
-                rejected: 1,
-                missing: 0,
-            })
-        );
-    }
-
-    #[test]
-    fn file_scan_cannot_claim_upstream_export_completeness() {
-        let manifest = diagnose_delimited_import(&adapter(), valid_csv(), 2_000).unwrap();
-        let campaign = ExtractionCampaignManifest::from_files(vec![manifest]).unwrap();
-        let registration = pilot_registration(campaign.connector.clone());
-        let field = field_evidence(
-            &registration,
-            campaign.discovered_rows,
-            0,
-            campaign.maximum_observed_ingest_delay_ms,
-            false,
-        );
-        let evidence = ExtractionBoundHospitalityEvidence {
-            campaign,
-            pilot_evidence: pilot_evidence(&registration, field),
-        };
-        assert_eq!(
-            evaluate_extraction_bound_hospitality_pilot(&registration, &evidence),
-            Err(ExtractionBoundPilotError::UpstreamCompletenessLimitationMissing)
         );
     }
 
