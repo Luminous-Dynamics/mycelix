@@ -8,7 +8,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use mycelix_business_core::{CapabilityRef, Digest32, ProfileRef, ReferenceId};
+use mycelix_business_core::{CapabilityRef, Digest32, ProfileRef, ReferenceId, ScopeRef};
 use mycelix_business_shadow::{
     ForecastCase, ForecastQualificationProtocol, ForecastTarget, ShadowForecast,
 };
@@ -146,7 +146,7 @@ impl ForecastTargetPlan {
         if self
             .targets
             .windows(2)
-            .any(|pair| pair[0].target_id >= pair[1].target_id)
+            .any(|pair| pair[0].target_id > pair[1].target_id)
         {
             return Err(ForecastPlanError::NonCanonicalOrder);
         }
@@ -170,29 +170,44 @@ impl ForecastTargetPlan {
                     target: planned.target_id.clone(),
                 });
             }
-            let semantic = target_semantic_key(&planned.target);
-            if !semantics.insert(semantic) {
+            if !semantics.insert(target_semantic_key(&planned.target)) {
                 return Err(ForecastPlanError::DuplicateTargetSemantics {
                     target: planned.target_id.clone(),
                 });
             }
         }
 
-        // The same metric/scope cannot be evaluated over overlapping windows under two target IDs.
-        // That would let one real interval gain multiple statistical weights.
-        for left_index in 0..self.targets.len() {
-            for right_index in (left_index + 1)..self.targets.len() {
-                let left = &self.targets[left_index];
-                let right = &self.targets[right_index];
-                if left.target.metric == right.target.metric
-                    && left.target.scope == right.target.scope
-                    && windows_overlap(&left.target, &right.target)
-                {
-                    return Err(ForecastPlanError::OverlappingTargets {
-                        left: left.target_id.clone(),
-                        right: right.target_id.clone(),
-                    });
-                }
+        // O(n log n) sweep: targets are grouped by metric/scope and ordered by start time. If no
+        // adjacent windows overlap inside a group, no non-adjacent windows can overlap either.
+        let mut by_time = self.targets.iter().collect::<Vec<_>>();
+        by_time.sort_by(|left, right| {
+            left.target
+                .metric
+                .cmp(&right.target.metric)
+                .then_with(|| left.target.scope.cmp(&right.target.scope))
+                .then_with(|| {
+                    left.target
+                        .window_start_unix_ms
+                        .cmp(&right.target.window_start_unix_ms)
+                })
+                .then_with(|| {
+                    left.target
+                        .window_end_unix_ms
+                        .cmp(&right.target.window_end_unix_ms)
+                })
+                .then_with(|| left.target_id.cmp(&right.target_id))
+        });
+        for pair in by_time.windows(2) {
+            let left = pair[0];
+            let right = pair[1];
+            if left.target.metric == right.target.metric
+                && left.target.scope == right.target.scope
+                && windows_overlap(&left.target, &right.target)
+            {
+                return Err(ForecastPlanError::OverlappingTargets {
+                    left: left.target_id.clone(),
+                    right: right.target_id.clone(),
+                });
             }
         }
 
@@ -210,7 +225,7 @@ fn windows_overlap(left: &ForecastTarget, right: &ForecastTarget) -> bool {
 
 fn target_semantic_key(
     target: &ForecastTarget,
-) -> (ReferenceId, mycelix_business_core::ScopeRef, ReferenceId, u32, u64, u64) {
+) -> (ReferenceId, ScopeRef, ReferenceId, u32, u64, u64) {
     (
         target.metric.clone(),
         target.scope.clone(),
@@ -372,8 +387,7 @@ fn coverage_evidence_digest(evidence: &ForecastCoverageEvidence) -> Digest32 {
     finish_digest(hasher)
 }
 
-/// Helper to compare one forecast's target against a plan without implying that the forecast is
-/// otherwise qualified.
+/// Compare one forecast target with the preregistered plan without implying qualification.
 pub fn planned_target_id<'a>(
     plan: &'a ForecastTargetPlan,
     forecast: &ShadowForecast,
@@ -387,9 +401,9 @@ pub fn planned_target_id<'a>(
 
 #[cfg(test)]
 mod tests {
-    use mycelix_business_core::{ForecastRef, ObservationRef, ScopeRef};
+    use mycelix_business_core::{ForecastRef, ObservationRef};
     use mycelix_business_shadow::{
-        ForecastDisposition, ForecastValue, MetricObservation, ScaledValue, ShadowForecast,
+        ForecastDisposition, ForecastValue, MetricObservation, ScaledValue,
     };
 
     use super::*;
@@ -465,14 +479,14 @@ mod tests {
             },
         };
         ForecastCase {
-            candidate: ShadowForecast {
+            candidate: mycelix_business_shadow::ShadowForecast {
                 forecast: ForecastRef(id(&format!("forecast:candidate:{name}"))),
                 model_lineage: id("model:candidate:v1"),
                 target: target.clone(),
                 issued_at_unix_ms: 1_500,
                 disposition: ForecastDisposition::Predicted(value(10)),
             },
-            baseline: ShadowForecast {
+            baseline: mycelix_business_shadow::ShadowForecast {
                 forecast: ForecastRef(id(&format!("forecast:baseline:{name}"))),
                 model_lineage: id("model:baseline:v1"),
                 target: target.clone(),
@@ -563,6 +577,29 @@ mod tests {
         assert!(matches!(
             result,
             Err(ForecastPlanError::OverlappingTargets { .. })
+        ));
+    }
+
+    #[test]
+    fn duplicate_target_id_is_not_misclassified_as_ordering_drift() {
+        let result = ForecastTargetPlan::build(
+            &protocol(),
+            id("target-plan:duplicate-id:v1"),
+            900,
+            vec![
+                PlannedForecastTarget {
+                    target_id: id("target:a"),
+                    target: target(3_000, 4_000),
+                },
+                PlannedForecastTarget {
+                    target_id: id("target:a"),
+                    target: target(5_000, 6_000),
+                },
+            ],
+        );
+        assert!(matches!(
+            result,
+            Err(ForecastPlanError::DuplicateTargetId { .. })
         ));
     }
 
