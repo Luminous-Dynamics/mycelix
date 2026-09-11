@@ -8,14 +8,18 @@ fail() {
 
 compiler=packages/accounting/src/settlement-allocation-lineage-checkpoint-compiler.ts
 checkpoint=packages/accounting/src/settlement-allocation-lineage-checkpoint.ts
+trust=packages/accounting/src/settlement-allocation-lineage-checkpoint-trust.ts
 tests=packages/accounting/src/settlement-allocation-lineage-checkpoint-compiler.test.ts
+trust_tests=packages/accounting/src/settlement-allocation-lineage-checkpoint-trust.test.ts
 index=packages/accounting/src/index.ts
 workflow=../.github/workflows/music-accounting.yml
 policy=packages/accounting/promotion-policy.json
 
 [[ -f "$compiler" ]] || fail "checkpoint compiler source is missing"
 [[ -f "$checkpoint" ]] || fail "checkpoint verification source is missing"
+[[ -f "$trust" ]] || fail "checkpoint signer trust source is missing"
 [[ -f "$tests" ]] || fail "checkpoint compiler regressions are missing"
+[[ -f "$trust_tests" ]] || fail "checkpoint signer trust regressions are missing"
 
 grep -Fq 'verifyPersistedSettlementAllocation' "$compiler" \
   || fail "compiler must canonically replay persisted allocations before checkpoint creation"
@@ -44,8 +48,6 @@ grep -Fq 'createCompiledSettlementAllocationLineageCheckpointSigningRequest' "$c
 grep -Fq 'must be produced by canonical source compiler before requesting signature' "$compiler" \
   || fail "signing requests must reject caller-fabricated compiler candidates"
 
-# Database/compiler processes may prepare signing requests but must never own or
-# invoke private-key material.
 if grep -Eq 'privateKeyPem|createPrivateKey|signEd25519|signSettlementAllocationLineageCheckpoint' "$compiler"; then
   fail "checkpoint compiler must not contain private-key custody or signing calls"
 fi
@@ -53,7 +55,6 @@ if grep -Eq 'PrismaClient|\$transaction|DATABASE_URL' "$compiler"; then
   fail "checkpoint compiler must remain independent of database connection custody"
 fi
 
-# The supported package surface exposes capability-scoped detached signing only.
 grep -Fq 'SETTLEMENT_ALLOCATION_LINEAGE_CHECKPOINT_SIGNING_SCOPE' "$checkpoint" \
   || fail "checkpoint signing scope is missing"
 grep -Fq "recordType: 'settlement_allocation_lineage_checkpoint_signing_request_v1'" "$checkpoint" \
@@ -78,6 +79,40 @@ grep -Fq 'attachSettlementAllocationLineageCheckpointDetachedSignature' "$index"
   || fail "package index must expose detached signature verification"
 grep -Fq 'createSettlementAllocationLineageCheckpointSigningRequest' "$index" \
   || fail "package index must expose capability-scoped signing requests"
+grep -Fq "export * from './settlement-allocation-lineage-checkpoint-trust.js';" "$index" \
+  || fail "package index must expose signer trust rotation and receipt verification"
+
+grep -Fq "recordType: 'settlement_allocation_lineage_checkpoint_signer_trust_bundle_v1'" "$trust" \
+  || fail "signer trust bundle must have a domain-separated commitment"
+grep -Fq "recordType: 'settlement_allocation_lineage_checkpoint_verification_receipt_v1'" "$trust" \
+  || fail "checkpoint verification receipts must have a domain-separated commitment"
+grep -Fq 'checkpoint signer trust policy must be observed through checkpoint signedAt' "$trust" \
+  || fail "verification must reject trust policy snapshots stale at signedAt"
+grep -Fq 'signedMs >= Date.parse(entry.validUntil)' "$trust" \
+  || fail "signer trust validity must use a half-open end boundary"
+grep -Fq 'signedMs >= Date.parse(entry.revokedAt)' "$trust" \
+  || fail "revocation must block signatures at and after the cutoff"
+grep -Fq 'checkpoint signer trust bundle contains overlapping authority windows' "$trust" \
+  || fail "same-authority overlapping trust windows must fail closed"
+grep -Fq 'trustBundleRoot: bundle.bundleRoot' "$trust" \
+  || fail "verification receipt must bind exact trust bundle root"
+grep -Fq 'trustEntryId: entry.entryId' "$trust" \
+  || fail "verification receipt must identify the exact trust entry"
+
+grep -Fq 'preserves historical old-key verification after rotation and emits an auditable receipt' "$trust_tests" \
+  || fail "regressions must prove historical verification survives rotation"
+grep -Fq 'accepts the rotated key after its authority window begins' "$trust_tests" \
+  || fail "regressions must prove new key acceptance after rotation"
+grep -Fq 'rejects an old-key signature after the trust window expires' "$trust_tests" \
+  || fail "regressions must reject retired-key signatures"
+grep -Fq 'treats revocation prospectively: pre-cutoff signatures survive, post-cutoff signatures fail' "$trust_tests" \
+  || fail "regressions must prove prospective revocation semantics"
+grep -Fq 'rejects stale trust policy snapshots that do not reach checkpoint signedAt' "$trust_tests" \
+  || fail "regressions must reject stale trust bundles"
+grep -Fq 'rejects overlapping authority windows for the same signer capability identity' "$trust_tests" \
+  || fail "regressions must reject ambiguous trust windows"
+grep -Fq 'rejects trust-bundle tampering and binds receipt identity to the exact bundle root' "$trust_tests" \
+  || fail "regressions must bind verification receipts to exact trust policy"
 
 grep -Fq 'hands a compiler-minted request to an external signer without private-key custody' "$tests" \
   || fail "regressions must prove external detached signer flow"
@@ -102,5 +137,9 @@ grep -Fq 'A serialized source snapshot is signing authority without canonical ac
   || fail "promotion policy must forbid signing raw source snapshots as authority"
 grep -Fq 'Database or checkpoint compiler access implies possession of checkpoint signing keys.' "$policy" \
   || fail "promotion policy must forbid conflating compiler/database access with key custody"
+grep -Fq 'A stale signer trust bundle predating the checkpoint signature is sufficient revocation evidence.' "$policy" \
+  || fail "promotion policy must forbid stale trust policy evidence"
+grep -Fq 'Key rotation invalidates all historically valid checkpoints by default.' "$policy" \
+  || fail "promotion policy must preserve historical signatures under time-bounded trust"
 
 echo "checkpoint compiler invariants passed"
