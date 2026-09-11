@@ -385,7 +385,8 @@ impl LimitationDischarge {
     }
 
     pub fn validate(&self) -> bool {
-        !zero_digest(&self.supporting_evidence_digest)
+        self.limitation == forecast_actual_campaign_membership_unverified_ref()
+            && !zero_digest(&self.supporting_evidence_digest)
             && !zero_digest(&self.campaign_digest)
             && self.discharge_digest == limitation_discharge_digest(self)
     }
@@ -407,6 +408,25 @@ pub struct VerifiedHospitalityReport {
     /// The inner immutable report retains the original limitation. This outer evidence explicitly
     /// discharges it rather than rewriting prior evidence.
     pub membership_limitation_discharge: LimitationDischarge,
+    pub report_digest: Digest32,
+}
+
+impl VerifiedHospitalityReport {
+    pub fn validate(&self) -> bool {
+        self.membership_limitation_discharge.validate()
+            && self.membership_limitation_discharge.supporting_evidence_digest
+                == self.membership.evidence_digest
+            && self.report_digest == verified_report_digest(self)
+    }
+}
+
+fn verified_report_digest(report: &VerifiedHospitalityReport) -> Digest32 {
+    let mut hasher = Sha256::new();
+    hash_str(&mut hasher, "mycelix:verified-hospitality-report:v1");
+    hasher.update(report.derived.field_evidence_digest.0);
+    hasher.update(report.membership.evidence_digest.0);
+    hasher.update(report.membership_limitation_discharge.discharge_digest.0);
+    finish_digest(hasher)
 }
 
 #[derive(Debug)]
@@ -454,11 +474,15 @@ pub fn derive_evaluate_and_verify_actual_membership(
     let discharge = LimitationDischarge::actual_membership(&membership);
     debug_assert!(discharge.validate());
 
-    Ok(VerifiedHospitalityReport {
+    let mut report = VerifiedHospitalityReport {
         derived,
         membership,
         membership_limitation_discharge: discharge,
-    })
+        report_digest: Digest32([0; 32]),
+    };
+    report.report_digest = verified_report_digest(&report);
+    debug_assert!(report.validate());
+    Ok(report)
 }
 
 #[cfg(test)]
@@ -760,5 +784,6 @@ event:weekend,{},a,40\n",
             forecast_actual_campaign_membership_unverified_ref()
         );
         assert!(report.membership_limitation_discharge.validate());
+        assert!(report.validate());
     }
 }
