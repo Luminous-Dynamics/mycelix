@@ -1,0 +1,17 @@
+[package]
+name = "mycelix-business-evidence-authenticity"
+version = "0.1.0"
+edition = "2024"
+description = "Externally verified evidence-authenticity references for Mycelix Business"
+license = "AGPL-3.0-or-later"
+authors = ["Luminous Dynamics <contact@luminousdynamics.org>"]
+repository = "https://github.com/luminous-dynamics/mycelix"
+readme = "README.md"
+
+[lib]
+name = "mycelix_business_evidence_authenticity"
+crate-type = ["rlib"]
+
+[dependencies]
+sha2 = "0.10"
+mycelix-business-core = { path = "../mycelix-business-core" }
