@@ -1,0 +1,37 @@
+name: Business Read-Only Ingress
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-business-core/**'
+      - 'crates/mycelix-business-shadow/**'
+      - 'crates/mycelix-business-ingress/**'
+      - '.github/workflows/business-ingress.yml'
+  push:
+    branches:
+      - main
+      - 'feat/business-readonly-ingress-*'
+    paths:
+      - 'crates/mycelix-business-core/**'
+      - 'crates/mycelix-business-shadow/**'
+      - 'crates/mycelix-business-ingress/**'
+      - '.github/workflows/business-ingress.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  business-ingress:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path crates/mycelix-business-ingress/Cargo.toml --all --check
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-business-ingress/Cargo.toml --all-targets -- -D warnings
+      - name: Test read-only ingress contracts
+        run: cargo test --manifest-path crates/mycelix-business-ingress/Cargo.toml --all-targets
