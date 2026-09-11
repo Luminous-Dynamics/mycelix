@@ -1,0 +1,47 @@
+name: Business Import Diagnostics
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-business-core/**'
+      - 'crates/mycelix-business-shadow/**'
+      - 'crates/mycelix-business-ingress/**'
+      - 'crates/mycelix-business-field-qualification/**'
+      - 'crates/mycelix-business-profile-hospitality/**'
+      - 'crates/mycelix-business-adapter-delimited/**'
+      - 'crates/mycelix-business-pilot-hospitality/**'
+      - 'crates/mycelix-business-import-diagnostics/**'
+      - '.github/workflows/business-import-diagnostics.yml'
+  push:
+    branches:
+      - main
+      - 'feat/business-import-diagnostics-*'
+    paths:
+      - 'crates/mycelix-business-core/**'
+      - 'crates/mycelix-business-shadow/**'
+      - 'crates/mycelix-business-ingress/**'
+      - 'crates/mycelix-business-field-qualification/**'
+      - 'crates/mycelix-business-profile-hospitality/**'
+      - 'crates/mycelix-business-adapter-delimited/**'
+      - 'crates/mycelix-business-pilot-hospitality/**'
+      - 'crates/mycelix-business-import-diagnostics/**'
+      - '.github/workflows/business-import-diagnostics.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  business-import-diagnostics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path crates/mycelix-business-import-diagnostics/Cargo.toml --all --check
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-business-import-diagnostics/Cargo.toml --all-targets -- -D warnings
+      - name: Test diagnostics
+        run: cargo test --manifest-path crates/mycelix-business-import-diagnostics/Cargo.toml --all-targets
