@@ -41,6 +41,12 @@
       "purpose": "independently reproduce accounting-wire v1 canonical bytes, UTF-8 key ordering, binary64 encoding, scalar-value rejection and SHA-256 golden digests using Python standard library only"
     },
     {
+      "id": "accounting-merkle-v2-conformance",
+      "workingDirectory": "mycelix-music",
+      "command": "python3 scripts/accounting_merkle_v2_conformance.py && bash scripts/check-accounting-merkle-v2-invariants.sh",
+      "purpose": "require versioned cross-language Merkle v2 commitments and inclusion proofs over canonical accounting-wire bytes while preserving historical Merkle v1 roots unchanged"
+    },
+    {
       "id": "portable-reporting-verification-invariants",
       "workingDirectory": "mycelix-music",
       "command": "bash scripts/check-interop-portable-verification-invariants.sh",
@@ -56,7 +62,7 @@
       "id": "accounting-tests",
       "workingDirectory": "mycelix-music",
       "command": "npm test --workspace=@mycelix/accounting",
-      "purpose": "run economic conservation, settlement recovery, statement, audit, disclosure, lineage-checkpoint, compiler, signer-capability, trust-rotation, trust-anchor, statement-root-trust, audit-capsule-v2, audit-issuer-attestation, audit-issuer-trust, audit-issuer-root-trust, attested-interop, reporting-safe line-proof, reporting-evidence-attestation, reporting-evidence-issuer-trust, reporting-evidence-root-trust, accounting-wire and portable-verification regressions"
+      "purpose": "run economic conservation, settlement recovery, statement, audit, disclosure, lineage-checkpoint, compiler, signer-capability, trust-rotation, trust-anchor, statement-root-trust, audit-capsule-v2, audit-issuer-attestation, audit-issuer-trust, audit-issuer-root-trust, attested-interop, reporting-safe line-proof, reporting-evidence-attestation, reporting-evidence-issuer-trust, reporting-evidence-root-trust, accounting-wire, cross-language Merkle v2 and portable-verification regressions"
     }
   ],
   "promotionRule": "Every qualification item must succeed after the workflow has checked out and mechanically verified the exact proposed head commit. Missing, queued, skipped, stale, synthetic-merge-only, source-only, or ancestor evidence is not PASS.",
@@ -113,6 +119,10 @@
     "TypeScript-only accounting wire tests are sufficient evidence of cross-language conformance.",
     "An independent accounting wire conformance implementation may delegate to Node, npm, or the TypeScript reference implementation.",
     "Passing independent wire-format conformance replaces domain-specific economic, signature, or trust verification.",
+    "Merkle v1 JavaScript canonical-value encoding is a language-neutral portable commitment encoding.",
+    "Merkle v2 silently replaces, reinterprets, or invalidates an existing Merkle v1 authority root.",
+    "A Merkle v2 leaf may bypass canonical accounting-wire encoding.",
+    "Matching a Merkle v2 commitment or inclusion proof creates ledger authority that the committed record did not already possess.",
     "A portable reporting evidence bundle may embed or choose the verifier's root-anchor policies.",
     "Verifying only the reporting package signature is equivalent to independently verifying the referenced EconomicAuditCapsule trust chain.",
     "A reporting package's audit reference may be accepted without matching the exact independently verified capsule authority.",

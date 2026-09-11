@@ -2,6 +2,7 @@ export * from './money.js';
 export * from './ledger.js';
 export * from './statements.js';
 export * from './merkle.js';
+export * from './merkle-v2.js';
 export * from './reconciliation.js';
 export * from './lineage.js';
 export * from './settlement.js';
