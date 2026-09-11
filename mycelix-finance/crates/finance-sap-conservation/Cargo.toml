@@ -1,0 +1,14 @@
+[package]
+name = "finance-sap-conservation"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+description = "Pure SAP issuance provenance and balance conservation theorems"
+
+[dependencies]
+serde = { workspace = true }
+finance-collateral-settlement = { path = "../finance-collateral-settlement" }
+mycelix_finance_types = { path = "../../types" }
+
+[dev-dependencies]
+serde_json = { workspace = true }
