@@ -21,6 +21,7 @@ use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 pub const DELIMITED_ADAPTER_IS_READ_ONLY: bool = true;
 pub const MAX_EXPECTED_HEADERS: usize = 256;
 pub const MAX_OUTPUT_MAPPINGS: usize = 64;
+pub const MAX_BATCH_INPUT_BYTES: u64 = 64 * 1024 * 1024;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TimestampEncoding {
@@ -116,13 +117,16 @@ pub enum ConfigError {
 #[derive(Debug)]
 pub enum AdapterError {
     Config(ConfigError),
+    Io(std::io::Error),
     Csv(csv::Error),
+    InputTooLarge { actual_bytes: u64, maximum_bytes: u64 },
     HeaderMismatch,
     EmptyField { row: usize, column: String },
     InvalidReference { row: usize, column: String },
     InvalidTimestamp { row: usize, column: String },
     TimestampOutOfRange { row: usize, column: String },
     InvalidNumber { row: usize, column: String },
+    InvalidGrouping { row: usize, column: String },
     PrecisionLoss { row: usize, column: String },
     NegativeNotAllowed { row: usize, column: String },
     ArithmeticOverflow { row: usize, column: String },
@@ -160,12 +164,19 @@ fn hex_digest(digest: Digest32) -> String {
     out
 }
 
+fn invalid_numeric_separator(value: char) -> bool {
+    value.is_ascii_digit() || value.is_control() || matches!(value, '+' | '-')
+}
+
 impl DelimitedAdapterConfig {
     pub fn validate(&self) -> Result<(), ConfigError> {
         if zero_digest(&self.adapter_digest) {
             return Err(ConfigError::ZeroAdapterDigest);
         }
-        if matches!(self.delimiter, b'\n' | b'\r' | b'"') || !self.delimiter.is_ascii() {
+        if self.delimiter == 0
+            || matches!(self.delimiter, b'\n' | b'\r' | b'"')
+            || !self.delimiter.is_ascii()
+        {
             return Err(ConfigError::InvalidDelimiter);
         }
         if self.expected_headers.is_empty() {
@@ -230,9 +241,10 @@ impl DelimitedAdapterConfig {
                         column: column.clone(),
                     });
                 }
-                if decimal.decimal_separator == '\0'
-                    || decimal.decimal_separator == '\n'
-                    || decimal.decimal_separator == '\r'
+                if invalid_numeric_separator(decimal.decimal_separator)
+                    || decimal
+                        .grouping_separator
+                        .is_some_and(invalid_numeric_separator)
                     || decimal.grouping_separator == Some(decimal.decimal_separator)
                 {
                     return Err(ConfigError::InvalidDecimalPolicy {
@@ -348,12 +360,13 @@ impl DelimitedIngressAdapter {
     ) -> Result<IngressBatch, AdapterError> {
         self.config.validate().map_err(AdapterError::Config)?;
         let descriptor = self.descriptor().map_err(AdapterError::Config)?;
+        let bytes = read_bounded(reader, MAX_BATCH_INPUT_BYTES)?;
         let mut csv = ReaderBuilder::new()
             .delimiter(self.config.delimiter)
             .has_headers(true)
             .flexible(false)
             .trim(csv::Trim::None)
-            .from_reader(reader);
+            .from_reader(bytes.as_slice());
 
         let actual_headers = csv.headers().map_err(AdapterError::Csv)?.clone();
         let expected = StringRecord::from(self.config.expected_headers.clone());
@@ -389,7 +402,7 @@ impl DelimitedIngressAdapter {
             return Err(AdapterError::EmptyFile);
         }
 
-        let batch_digest = digest_batch(descriptor.adapter_digest, &records);
+        let batch_digest = digest_batch(&descriptor, &records);
         let batch = IngressBatch {
             adapter_digest: descriptor.adapter_digest,
             records,
@@ -412,31 +425,19 @@ impl DelimitedIngressAdapter {
         ingested_at_unix_ms: u64,
         descriptor: &ExternalAdapterDescriptor,
     ) -> Result<IngressRecord, AdapterError> {
-        let get = |column: &str| -> Result<&str, AdapterError> {
-            let index = *header_index.get(column).expect("configuration was validated");
-            let value = record.get(index).unwrap_or_default().trim();
-            if value.is_empty() {
-                return Err(AdapterError::EmptyField {
-                    row,
-                    column: column.to_owned(),
-                });
-            }
-            Ok(value)
-        };
-
-        let event_raw = get(&self.config.source_event_id_column)?;
+        let event_raw = required_field(row, header_index, record, &self.config.source_event_id_column)?;
         let source_event_id = ReferenceId::new(event_raw).map_err(|_| AdapterError::InvalidReference {
             row,
             column: self.config.source_event_id_column.clone(),
         })?;
-        let timestamp_raw = get(&self.config.observed_at_column)?;
+        let timestamp_raw = required_field(row, header_index, record, &self.config.observed_at_column)?;
         let observed_at_unix_ms = parse_timestamp(
             timestamp_raw,
             self.config.timestamp_encoding,
             row,
             &self.config.observed_at_column,
         )?;
-        let scope = self.parse_scope(row, &get)?;
+        let scope = self.parse_scope(row, header_index, record)?;
         let payload_digest = digest_record(headers, record);
         let mapping_digest = descriptor.mapping_digest;
 
@@ -453,7 +454,7 @@ impl DelimitedIngressAdapter {
             let mantissa = match &output.value {
                 ValueMapping::Constant { mantissa } => *mantissa,
                 ValueMapping::Column { column, decimal } => {
-                    let raw = get(column)?;
+                    let raw = required_field(row, header_index, record, column)?;
                     parse_scaled_decimal(raw, output.scale, decimal, row, column)?
                 }
             };
@@ -499,14 +500,16 @@ impl DelimitedIngressAdapter {
         })
     }
 
-    fn parse_scope<'a, F>(&self, row: usize, get: &F) -> Result<ScopeRef, AdapterError>
-    where
-        F: Fn(&str) -> Result<&'a str, AdapterError>,
-    {
+    fn parse_scope(
+        &self,
+        row: usize,
+        header_index: &BTreeMap<String, usize>,
+        record: &StringRecord,
+    ) -> Result<ScopeRef, AdapterError> {
         match &self.config.scope {
             ScopeMapping::Constant(scope) => Ok(scope.clone()),
             ScopeMapping::Column { column, prefix } => {
-                let value = get(column)?;
+                let value = required_field(row, header_index, record, column)?;
                 ScopeRef::new(format!("{prefix}{value}")).map_err(|_| AdapterError::InvalidScope {
                     row,
                     column: column.clone(),
@@ -514,6 +517,39 @@ impl DelimitedIngressAdapter {
             }
         }
     }
+}
+
+fn read_bounded<R: Read>(reader: R, maximum_bytes: u64) -> Result<Vec<u8>, AdapterError> {
+    let mut limited = reader.take(maximum_bytes.saturating_add(1));
+    let mut bytes = Vec::new();
+    limited.read_to_end(&mut bytes).map_err(AdapterError::Io)?;
+    let actual_bytes = bytes.len() as u64;
+    if actual_bytes > maximum_bytes {
+        return Err(AdapterError::InputTooLarge {
+            actual_bytes,
+            maximum_bytes,
+        });
+    }
+    Ok(bytes)
+}
+
+fn required_field<'a>(
+    row: usize,
+    header_index: &BTreeMap<String, usize>,
+    record: &'a StringRecord,
+    column: &str,
+) -> Result<&'a str, AdapterError> {
+    let index = *header_index
+        .get(column)
+        .expect("configuration and exact header contract were validated");
+    let value = record.get(index).unwrap_or_default().trim();
+    if value.is_empty() {
+        return Err(AdapterError::EmptyField {
+            row,
+            column: column.to_owned(),
+        });
+    }
+    Ok(value)
 }
 
 fn digest_record(headers: &StringRecord, record: &StringRecord) -> Digest32 {
@@ -543,10 +579,14 @@ fn digest_observation_identity(
     finish_digest(hasher)
 }
 
-fn digest_batch(adapter_digest: Digest32, records: &[IngressRecord]) -> Digest32 {
+fn digest_batch(descriptor: &ExternalAdapterDescriptor, records: &[IngressRecord]) -> Digest32 {
     let mut hasher = Sha256::new();
-    hash_str(&mut hasher, "mycelix:delimited-batch:v1");
-    hasher.update(adapter_digest.0);
+    hash_str(&mut hasher, "mycelix:delimited-batch:v2");
+    hash_str(&mut hasher, descriptor.source_system.as_str());
+    hash_str(&mut hasher, descriptor.source_schema.as_str());
+    hasher.update(descriptor.adapter_digest.0);
+    hasher.update(descriptor.source_schema_digest.0);
+    hasher.update(descriptor.mapping_digest.0);
     for record in records {
         hash_str(&mut hasher, record.event.witness.source_event_id.as_str());
         hasher.update(record.event.witness.payload_digest.0);
@@ -614,10 +654,7 @@ fn parse_scaled_decimal(
     row: usize,
     column: &str,
 ) -> Result<i128, AdapterError> {
-    let mut text = value.trim().to_owned();
-    if let Some(group) = policy.grouping_separator {
-        text.retain(|character| character != group);
-    }
+    let mut text = value.trim();
     let negative = text.starts_with('-');
     if negative {
         if !policy.allow_negative {
@@ -626,9 +663,9 @@ fn parse_scaled_decimal(
                 column: column.to_owned(),
             });
         }
-        text.remove(0);
+        text = &text[1..];
     } else if text.starts_with('+') {
-        text.remove(0);
+        text = &text[1..];
     }
     if text.is_empty() {
         return Err(AdapterError::InvalidNumber {
@@ -644,11 +681,55 @@ fn parse_scaled_decimal(
             column: column.to_owned(),
         });
     }
-    let whole = parts[0];
+    let whole_raw = parts[0];
     let fraction = parts.get(1).copied().unwrap_or("");
-    if !whole.chars().all(|c| c.is_ascii_digit())
-        || !fraction.chars().all(|c| c.is_ascii_digit())
+    if policy
+        .grouping_separator
+        .is_some_and(|group| fraction.contains(group))
     {
+        return Err(AdapterError::InvalidGrouping {
+            row,
+            column: column.to_owned(),
+        });
+    }
+    if !fraction.chars().all(|c| c.is_ascii_digit()) {
+        return Err(AdapterError::InvalidNumber {
+            row,
+            column: column.to_owned(),
+        });
+    }
+
+    let whole = if let Some(group) = policy.grouping_separator {
+        if whole_raw.contains(group) {
+            let groups = whole_raw.split(group).collect::<Vec<_>>();
+            let Some(first) = groups.first() else {
+                return Err(AdapterError::InvalidGrouping {
+                    row,
+                    column: column.to_owned(),
+                });
+            };
+            if first.is_empty()
+                || first.len() > 3
+                || !first.chars().all(|c| c.is_ascii_digit())
+                || groups
+                    .iter()
+                    .skip(1)
+                    .any(|part| part.len() != 3 || !part.chars().all(|c| c.is_ascii_digit()))
+            {
+                return Err(AdapterError::InvalidGrouping {
+                    row,
+                    column: column.to_owned(),
+                });
+            }
+            groups.concat()
+        } else {
+            whole_raw.to_owned()
+        }
+    } else {
+        whole_raw.to_owned()
+    };
+
+    if !whole.chars().all(|c| c.is_ascii_digit()) {
         return Err(AdapterError::InvalidNumber {
             row,
             column: column.to_owned(),
@@ -687,7 +768,13 @@ fn parse_scaled_decimal(
                 row,
                 column: column.to_owned(),
             })?;
-        raw.checked_mul(10_i128.pow(scale - fraction.len() as u32))
+        let fraction_factor = 10_i128
+            .checked_pow(scale - fraction.len() as u32)
+            .ok_or_else(|| AdapterError::ArithmeticOverflow {
+                row,
+                column: column.to_owned(),
+            })?;
+        raw.checked_mul(fraction_factor)
             .ok_or_else(|| AdapterError::ArithmeticOverflow {
                 row,
                 column: column.to_owned(),
@@ -768,6 +855,12 @@ mod tests {
         }
     }
 
+    fn one_row_csv(amount: &str) -> String {
+        format!(
+            "event_id,occurred_at,location,item,quantity,net_amount\nsale:1,2026-09-10T08:00:00+02:00,rosebank,Coffee,1,{amount}\n"
+        )
+    }
+
     #[test]
     fn parses_realistic_csv_without_write_surface() {
         let adapter = DelimitedIngressAdapter::new(config()).unwrap();
@@ -823,14 +916,24 @@ mod tests {
     }
 
     #[test]
-    fn mapping_change_changes_mapping_digest() {
+    fn mapping_change_changes_mapping_and_batch_digest() {
         let original = config();
-        let mut changed = original.clone();
+        let original_mapping = original.mapping_digest().unwrap();
+        let original_batch = DelimitedIngressAdapter::new(original.clone())
+            .unwrap()
+            .parse_batch(one_row_csv("34.50").as_bytes(), 1_789_000_000_000)
+            .unwrap();
+
+        let mut changed = original;
         changed.outputs[1].scale = 3;
-        assert_ne!(
-            original.mapping_digest().unwrap(),
-            changed.mapping_digest().unwrap()
-        );
+        let changed_mapping = changed.mapping_digest().unwrap();
+        let changed_batch = DelimitedIngressAdapter::new(changed)
+            .unwrap()
+            .parse_batch(one_row_csv("34.50").as_bytes(), 1_789_000_000_000)
+            .unwrap();
+
+        assert_ne!(original_mapping, changed_mapping);
+        assert_ne!(original_batch.batch_digest, changed_batch.batch_digest);
     }
 
     #[test]
@@ -861,6 +964,19 @@ mod tests {
     }
 
     #[test]
+    fn malformed_grouping_fails_closed() {
+        let policy = DecimalPolicy {
+            decimal_separator: '.',
+            grouping_separator: Some(','),
+            allow_negative: false,
+        };
+        assert!(matches!(
+            parse_scaled_decimal("1,2,34.50", 2, &policy, 2, "amount"),
+            Err(AdapterError::InvalidGrouping { .. })
+        ));
+    }
+
+    #[test]
     fn duplicate_source_event_fails_batch_validation() {
         let adapter = DelimitedIngressAdapter::new(config()).unwrap();
         let csv = concat!(
@@ -871,6 +987,18 @@ mod tests {
         assert!(matches!(
             adapter.parse_batch(csv.as_bytes(), 1_789_000_000_000),
             Err(AdapterError::Ingress(IngressBatchError::DuplicateSourceEvent { .. }))
+        ));
+    }
+
+    #[test]
+    fn bounded_reader_rejects_oversize_input_without_large_fixture() {
+        let bytes = b"123456789";
+        assert!(matches!(
+            read_bounded(bytes.as_slice(), 8),
+            Err(AdapterError::InputTooLarge {
+                actual_bytes: 9,
+                maximum_bytes: 8,
+            })
         ));
     }
 
