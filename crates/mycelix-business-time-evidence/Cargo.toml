@@ -1,0 +1,17 @@
+[package]
+name = "mycelix-business-time-evidence"
+version = "0.1.0"
+edition = "2024"
+description = "Preregistered transition-aware local-time evidence contracts for Mycelix Business"
+license = "AGPL-3.0-or-later"
+authors = ["Luminous Dynamics <contact@luminousdynamics.org>"]
+repository = "https://github.com/luminous-dynamics/mycelix"
+readme = "README.md"
+
+[lib]
+name = "mycelix_business_time_evidence"
+crate-type = ["rlib"]
+
+[dependencies]
+sha2 = "0.10"
+mycelix-business-core = { path = "../mycelix-business-core" }
