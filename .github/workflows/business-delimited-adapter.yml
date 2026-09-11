@@ -1,0 +1,39 @@
+name: Business Delimited Ingress Adapter
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-business-core/**'
+      - 'crates/mycelix-business-shadow/**'
+      - 'crates/mycelix-business-ingress/**'
+      - 'crates/mycelix-business-adapter-delimited/**'
+      - '.github/workflows/business-delimited-adapter.yml'
+  push:
+    branches:
+      - main
+      - 'feat/business-delimited-ingress-adapter-*'
+    paths:
+      - 'crates/mycelix-business-core/**'
+      - 'crates/mycelix-business-shadow/**'
+      - 'crates/mycelix-business-ingress/**'
+      - 'crates/mycelix-business-adapter-delimited/**'
+      - '.github/workflows/business-delimited-adapter.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  business-delimited-adapter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path crates/mycelix-business-adapter-delimited/Cargo.toml --all --check
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-business-adapter-delimited/Cargo.toml --all-targets -- -D warnings
+      - name: Test adapter
+        run: cargo test --manifest-path crates/mycelix-business-adapter-delimited/Cargo.toml --all-targets
