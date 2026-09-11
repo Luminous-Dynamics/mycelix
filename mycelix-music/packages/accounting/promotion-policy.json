@@ -20,7 +20,7 @@
       "id": "source-invariants",
       "workingDirectory": "mycelix-music",
       "command": "npm run check:invariants",
-      "purpose": "prevent legacy payment/status authority and other source-level economic regressions, including checkpoint compiler, signer-custody, signer-trust, trust-anchor, statement-root-trust, audit-capsule, audit-issuer and audit-issuer-trust bypass"
+      "purpose": "prevent legacy payment/status authority and other source-level economic regressions, including checkpoint compiler, signer-custody, signer-trust, trust-anchor, statement-root-trust, audit-capsule, audit-issuer, audit-issuer-trust and audit-issuer-root-trust bypass"
     },
     {
       "id": "accounting-type-check",
@@ -32,7 +32,7 @@
       "id": "accounting-tests",
       "workingDirectory": "mycelix-music",
       "command": "npm test --workspace=@mycelix/accounting",
-      "purpose": "run economic conservation, settlement recovery, statement, audit, disclosure, lineage-checkpoint, compiler, signer-capability, trust-rotation, trust-anchor, statement-root-trust, audit-capsule-v2, audit-issuer-attestation and audit-issuer-trust regressions"
+      "purpose": "run economic conservation, settlement recovery, statement, audit, disclosure, lineage-checkpoint, compiler, signer-capability, trust-rotation, trust-anchor, statement-root-trust, audit-capsule-v2, audit-issuer-attestation, audit-issuer-trust and audit-issuer-root-trust regressions"
     }
   ],
   "promotionRule": "Every qualification item must succeed after the workflow has checked out and mechanically verified the exact proposed head commit. Missing, queued, skipped, stale, synthetic-merge-only, source-only, or ancestor evidence is not PASS.",
@@ -59,6 +59,10 @@
     "Pinning an audit attestation capabilityId is equivalent to pinning the exact capability root.",
     "A stale audit-issuer trust bundle predating the capsule attestation signature is sufficient revocation evidence.",
     "Audit issuer key rotation invalidates all historically valid capsule attestations by default.",
-    "A revoked audit issuer trust entry can authorize signatures at or after revokedAt."
+    "A revoked audit issuer trust entry can authorize signatures at or after revokedAt.",
+    "An unattested audit-issuer trust bundle is sufficient root trust authority.",
+    "A cryptographically valid audit-issuer trust bundle below the pinned minimum policy sequence is acceptable.",
+    "A root attestation signed after the requested audit verification instant can authorize that earlier view.",
+    "Accounting or audit verification code should custody audit issuer trust-anchor signing keys."
   ]
 }
