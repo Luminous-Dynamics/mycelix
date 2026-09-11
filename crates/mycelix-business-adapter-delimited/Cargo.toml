@@ -1,0 +1,21 @@
+[package]
+name = "mycelix-business-adapter-delimited"
+version = "0.1.0"
+edition = "2024"
+description = "Strict read-only CSV/TSV adapter for Mycelix Business ingress"
+license = "AGPL-3.0-or-later"
+authors = ["Luminous Dynamics <contact@luminousdynamics.org>"]
+repository = "https://github.com/luminous-dynamics/mycelix"
+readme = "README.md"
+
+[lib]
+name = "mycelix_business_adapter_delimited"
+crate-type = ["rlib"]
+
+[dependencies]
+csv = "1.3"
+sha2 = "0.10"
+time = { version = "0.3", features = ["parsing"] }
+mycelix-business-core = { path = "../mycelix-business-core" }
+mycelix-business-shadow = { path = "../mycelix-business-shadow" }
+mycelix-business-ingress = { path = "../mycelix-business-ingress" }
