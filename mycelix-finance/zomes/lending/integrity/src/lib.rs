@@ -92,31 +92,62 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Validate a public app-entry create identically for entry and record authorities.
+///
+/// `must_get_valid_record` reports StoreRecord validity. Keeping the create/update
+/// rules shared here ensures an update that depends on a predecessor gets the same
+/// semantic theorem from StoreRecord authorities that StoreEntry authorities apply.
+fn validate_app_entry_create(
+    action: Create,
+    app_entry: EntryTypes,
+) -> ExternResult<ValidateCallbackResult> {
+    match app_entry {
+        EntryTypes::Loan(loan) => {
+            validate_create_loan(EntryCreationAction::Create(action), loan)
+        }
+        EntryTypes::LoanOffer(offer) => {
+            validate_create_loan_offer(EntryCreationAction::Create(action), offer)
+        }
+        EntryTypes::PaymentSchedule(schedule) => {
+            validate_create_payment_schedule(EntryCreationAction::Create(action), schedule)
+        }
+    }
+}
+
+/// Validate a public app-entry update identically for entry and record authorities.
+fn validate_app_entry_update(
+    action: Update,
+    app_entry: EntryTypes,
+) -> ExternResult<ValidateCallbackResult> {
+    match app_entry {
+        EntryTypes::Loan(loan) => validate_update_loan(action, loan),
+        EntryTypes::LoanOffer(offer) => validate_update_loan_offer(action, offer),
+        EntryTypes::PaymentSchedule(_) => Ok(ValidateCallbackResult::Invalid(
+            "Payment schedules cannot be updated".into(),
+        )),
+    }
+}
+
 /// Main validation callback using FlatOp pattern
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, action } => match app_entry {
-                EntryTypes::Loan(loan) => {
-                    validate_create_loan(EntryCreationAction::Create(action), loan)
-                }
-                EntryTypes::LoanOffer(offer) => {
-                    validate_create_loan_offer(EntryCreationAction::Create(action), offer)
-                }
-                EntryTypes::PaymentSchedule(schedule) => {
-                    validate_create_payment_schedule(EntryCreationAction::Create(action), schedule)
-                }
-            },
+            OpEntry::CreateEntry { app_entry, action } => {
+                validate_app_entry_create(action, app_entry)
+            }
             OpEntry::UpdateEntry {
                 app_entry, action, ..
-            } => match app_entry {
-                EntryTypes::Loan(loan) => validate_update_loan(action, loan),
-                EntryTypes::LoanOffer(offer) => validate_update_loan_offer(action, offer),
-                EntryTypes::PaymentSchedule(_) => Ok(ValidateCallbackResult::Invalid(
-                    "Payment schedules cannot be updated".into(),
-                )),
-            },
+            } => validate_app_entry_update(action, app_entry),
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::StoreRecord(store_record) => match store_record {
+            OpRecord::CreateEntry { app_entry, action } => {
+                validate_app_entry_create(action, app_entry)
+            }
+            OpRecord::UpdateEntry {
+                app_entry, action, ..
+            } => validate_app_entry_update(action, app_entry),
             _ => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::RegisterCreateLink {
@@ -184,7 +215,6 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 _ => Ok(ValidateCallbackResult::Valid),
             }
         }
-        FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
