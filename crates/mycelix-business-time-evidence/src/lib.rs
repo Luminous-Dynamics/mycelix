@@ -118,7 +118,9 @@ impl LocalTimeSchedule {
             {
                 return Err(ScheduleError::InvalidPeriod { index });
             }
-            if period.utc_offset_minutes.abs() > MAX_UTC_OFFSET_MINUTES {
+            if i32::from(period.utc_offset_minutes).abs()
+                > i32::from(MAX_UTC_OFFSET_MINUTES)
+            {
                 return Err(ScheduleError::OffsetOutOfRange { index });
             }
         }
@@ -344,6 +346,16 @@ mod tests {
             },
         ]);
         assert!(matches!(overlap, Err(ScheduleError::GapOrOverlap { .. })));
+    }
+
+    #[test]
+    fn minimum_integer_offset_fails_without_panicking() {
+        let result = build(vec![UtcOffsetPeriod {
+            start_unix_ms: 1_000,
+            end_unix_ms: 5_000,
+            utc_offset_minutes: i16::MIN,
+        }]);
+        assert!(matches!(result, Err(ScheduleError::OffsetOutOfRange { .. })));
     }
 
     #[test]
