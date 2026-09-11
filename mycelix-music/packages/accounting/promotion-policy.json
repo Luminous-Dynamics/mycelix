@@ -35,6 +35,12 @@
       "purpose": "require canonical JSON-safe accounting transport with arbitrary-precision integer preservation, IEEE-754 binary64 bit encoding, deterministic object ordering and audit-digest-preserving round trips"
     },
     {
+      "id": "accounting-wire-python-conformance",
+      "workingDirectory": "mycelix-music",
+      "command": "python3 scripts/accounting_wire_conformance.py && bash scripts/check-accounting-wire-python-conformance-invariants.sh",
+      "purpose": "independently reproduce accounting-wire v1 canonical bytes, UTF-8 key ordering, binary64 encoding, scalar-value rejection and SHA-256 golden digests using Python standard library only"
+    },
+    {
       "id": "portable-reporting-verification-invariants",
       "workingDirectory": "mycelix-music",
       "command": "bash scripts/check-interop-portable-verification-invariants.sh",
@@ -104,6 +110,9 @@
     "ECMAScript decimal number formatting is a cross-language canonical numeric encoding.",
     "An accounting wire digest proves issuer identity or accounting authority by itself.",
     "Successfully decoding accounting wire bytes replaces domain-specific capsule, package, signature or trust verification.",
+    "TypeScript-only accounting wire tests are sufficient evidence of cross-language conformance.",
+    "An independent accounting wire conformance implementation may delegate to Node, npm, or the TypeScript reference implementation.",
+    "Passing independent wire-format conformance replaces domain-specific economic, signature, or trust verification.",
     "A portable reporting evidence bundle may embed or choose the verifier's root-anchor policies.",
     "Verifying only the reporting package signature is equivalent to independently verifying the referenced EconomicAuditCapsule trust chain.",
     "A reporting package's audit reference may be accepted without matching the exact independently verified capsule authority.",

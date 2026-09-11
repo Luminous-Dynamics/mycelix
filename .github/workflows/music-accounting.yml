@@ -19,6 +19,8 @@ on:
       - 'mycelix-music/scripts/check-interop-line-proof-attestation-trust-anchor-invariants.sh'
       - 'mycelix-music/scripts/check-accounting-wire-invariants.sh'
       - 'mycelix-music/scripts/check-interop-portable-verification-invariants.sh'
+      - 'mycelix-music/scripts/accounting_wire_conformance.py'
+      - 'mycelix-music/scripts/check-accounting-wire-python-conformance-invariants.sh'
       - '.github/workflows/music-accounting.yml'
   push:
     branches: [main]
@@ -39,6 +41,8 @@ on:
       - 'mycelix-music/scripts/check-interop-line-proof-attestation-trust-anchor-invariants.sh'
       - 'mycelix-music/scripts/check-accounting-wire-invariants.sh'
       - 'mycelix-music/scripts/check-interop-portable-verification-invariants.sh'
+      - 'mycelix-music/scripts/accounting_wire_conformance.py'
+      - 'mycelix-music/scripts/check-accounting-wire-python-conformance-invariants.sh'
       - '.github/workflows/music-accounting.yml'
 
 permissions:
@@ -97,6 +101,12 @@ jobs:
       - name: Enforce canonical accounting wire invariants
         working-directory: mycelix-music
         run: bash scripts/check-accounting-wire-invariants.sh
+
+      - name: Enforce independent Python accounting wire conformance
+        working-directory: mycelix-music
+        run: |
+          python3 scripts/accounting_wire_conformance.py
+          bash scripts/check-accounting-wire-python-conformance-invariants.sh
 
       - name: Enforce portable reporting verification invariants
         working-directory: mycelix-music
