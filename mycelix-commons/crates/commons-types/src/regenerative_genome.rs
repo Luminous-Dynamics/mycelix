@@ -133,6 +133,26 @@ impl RegenerativeGenomeLineageEvidenceV1 {
     }
 }
 
+/// Verify one explicit direct genome-lineage step.
+///
+/// This verifies only the recipe-free lineage relationship. It does not verify
+/// qualification evidence, substitution semantics, Commons authorship, or the
+/// contents of either genome manifest.
+pub fn verify_regenerative_genome_lineage_successor(
+    previous: &RegenerativeGenomeLineageEvidenceV1,
+    next: &RegenerativeGenomeLineageEvidenceV1,
+) -> Result<(), String> {
+    previous.validate()?;
+    next.validate()?;
+    if next.parent_genome_binding.as_deref() != Some(previous.genome_binding.as_str()) {
+        return Err("successor genome does not bind the predecessor genome".into());
+    }
+    if next.genome_id == previous.genome_id {
+        return Err("successor genome must use a distinct genome_id".into());
+    }
+    Ok(())
+}
+
 fn validate_refs(field: &str, refs: &[String]) -> Result<(), String> {
     if refs.len() > MAX_REFERENCES_PER_CLASS {
         return Err(format!(
@@ -191,6 +211,24 @@ mod tests {
         }
     }
 
+    fn root_fixture() -> RegenerativeGenomeLineageEvidenceV1 {
+        RegenerativeGenomeLineageEvidenceV1 {
+            schema_version: REGENERATIVE_GENOME_LINEAGE_SCHEMA_V1,
+            genome_id: "manta-genome-v1".into(),
+            genome_binding: "genome:manta-v1:sha256:example".into(),
+            parent_genome_binding: None,
+            closure_model_binding: "model:manta-forge-v1:sha256:example".into(),
+            supportability_report_binding: "supportability:manta-v1:5-period".into(),
+            qualification_binding: "qualification:manta-v1".into(),
+            requirement_evidence_refs: vec![
+                "requirement:req-electronics".into(),
+                "requirement:req-reactor-service".into(),
+                "requirement:req-structure".into(),
+            ],
+            substitution_evidence_refs: Vec::new(),
+        }
+    }
+
     #[test]
     fn lineage_round_trips_strictly_and_pins_content_identity() {
         let evidence = fixture();
@@ -201,6 +239,24 @@ mod tests {
             evidence.content_digest().unwrap(),
             "a319bd837e9035f576ac5854d194dd3dbd351a5eae2511407c45135517775ca6"
         );
+    }
+
+    #[test]
+    fn direct_lineage_successor_binds_exact_parent_genome() {
+        let root = root_fixture();
+        let successor = fixture();
+        assert_eq!(
+            verify_regenerative_genome_lineage_successor(&root, &successor),
+            Ok(())
+        );
+
+        let mut wrong_parent = successor.clone();
+        wrong_parent.parent_genome_binding = Some("genome:other:sha256:example".into());
+        assert!(verify_regenerative_genome_lineage_successor(&root, &wrong_parent).is_err());
+
+        let mut reused_id = successor;
+        reused_id.genome_id = root.genome_id.clone();
+        assert!(verify_regenerative_genome_lineage_successor(&root, &reused_id).is_err());
     }
 
     #[test]
