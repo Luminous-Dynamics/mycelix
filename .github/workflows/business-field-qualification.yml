@@ -1,0 +1,35 @@
+name: Business Field Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-business-core/**'
+      - 'crates/mycelix-business-field-qualification/**'
+      - '.github/workflows/business-field-qualification.yml'
+  push:
+    branches:
+      - main
+      - 'feat/business-field-qualification-*'
+    paths:
+      - 'crates/mycelix-business-core/**'
+      - 'crates/mycelix-business-field-qualification/**'
+      - '.github/workflows/business-field-qualification.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  business-field-qualification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path crates/mycelix-business-field-qualification/Cargo.toml --all --check
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-business-field-qualification/Cargo.toml --all-targets -- -D warnings
+      - name: Test field qualification contracts
+        run: cargo test --manifest-path crates/mycelix-business-field-qualification/Cargo.toml --all-targets
