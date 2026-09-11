@@ -1,0 +1,116 @@
+name: Integration Execution Binding Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-integration-execution-binding/**'
+      - 'crates/mycelix-integration-core/**'
+      - 'crates/mycelix-integration-runtime/**'
+      - '.github/workflows/integration-execution-binding-qualification.yml'
+  push:
+    branches:
+      - 'feat/integration-execution-binding-v1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: integration-execution-binding-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Exact claim + command + provider profile binding
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: '1.89.0'
+          components: rustfmt, clippy
+
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-integration-execution-binding/Cargo.toml -- --check
+
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-integration-execution-binding/Cargo.toml --all-targets
+
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-integration-execution-binding/Cargo.toml --all-targets -- -D warnings
+
+      - name: Boundary audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path('crates/mycelix-integration-execution-binding')
+          src = (root / 'src/lib.rs').read_text()
+          prod = src.split('#[cfg(test)]', 1)[0]
+          cargo = (root / 'Cargo.toml').read_text()
+          readme = (root / 'README.md').read_text()
+          compact = ''.join(prod.split())
+
+          for dep in [
+              'mycelix-integration-core = ',
+              'mycelix-integration-runtime = ',
+              'ed25519-dalek = ',
+          ]:
+              assert dep in cargo, dep
+
+          for forbidden in [
+              'reqwest', 'hyper', 'axum', 'tonic', 'holochain_client',
+              'rusqlite', 'AdminWebsocket', 'AppWebsocket', '.execute(',
+              'perform_external_effect', 'invoke_external_effect',
+          ]:
+              assert forbidden not in cargo + prod, forbidden
+
+          for token in [
+              'pub struct QualifiedProviderExecutionProfile {',
+              'pub struct QualifiedExecutionBinding {',
+              'pub fn qualify_provider_profile(',
+              'pub fn qualify_execution_binding<C>(',
+              'claim.command_commitment',
+              'command.canonical_commitment_v1()',
+              'signed.profile.generation != trust_root.current_generation',
+              'provider.trust_root_commitment() != current_trust_root.root_commitment()',
+              'profile.generation != current_trust_root.current_generation',
+              'QualificationError::ProviderTrustRootChanged',
+              'now_ms >= claim.lease_until_ms',
+              'ProviderReconciliationMode::IdempotencyKey',
+              'lookup_supported: true',
+              'profile.materializer_release',
+              'profile.max_payload_bytes',
+          ]:
+              assert token in src, token
+
+          # Positive results are local non-wire evidence subjects, not a
+          # serialization route around currentness or authority qualification.
+          for positive in [
+              'pub struct QualifiedProviderExecutionProfile {',
+              'pub struct QualifiedExecutionBinding {',
+          ]:
+              prefix = src.split(positive, 1)[0].split('\n')[-8:]
+              assert not any('Deserialize' in line for line in prefix), positive
+
+          assert compact.count('pubconstfngrants_execution_authority(&self)->bool{false}') >= 3
+          assert 'pubconstfnpayload_materialized_here(&self)->bool{false}' in compact
+          assert 'pubconstfndispatch_started_here(&self)->bool{false}' in compact
+
+          # Use-time root rotation is an explicit hostile regression, including
+          # same-generation key replacement.
+          tests = src.split('#[cfg(test)]', 1)[1]
+          assert 'root_rotation_after_profile_qualification_fails_at_use_time' in tests
+          assert 'ProviderTrustRootChanged' in tests
+
+          for phrase in [
+              'QualifiedExecutionBinding != CurrentExecutionAuthority',
+              'IdempotencyKeyPresent != provider idempotency guarantee',
+              'Binding != DispatchStarted',
+              'does not expose command bytes',
+              'must not grow a parallel authorization model',
+          ]:
+              assert phrase in readme, phrase
+
+          print('PASS: exact claim/command/current provider-profile binding rechecks trust-root currentness and remains non-authoritative/pre-materialization')
+          PY
