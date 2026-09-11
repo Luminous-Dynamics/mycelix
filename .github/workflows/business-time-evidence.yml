@@ -1,0 +1,38 @@
+name: Business Time Evidence
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-business-time-evidence/**'
+      - 'crates/mycelix-business-core/**'
+      - '.github/workflows/business-time-evidence.yml'
+  push:
+    branches:
+      - main
+      - 'feat/business-time-evidence-*'
+    paths:
+      - 'crates/mycelix-business-time-evidence/**'
+      - 'crates/mycelix-business-core/**'
+      - '.github/workflows/business-time-evidence.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  time-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: crates/mycelix-business-time-evidence
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Format
+        run: cargo fmt --check
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+      - name: Test
+        run: cargo test
