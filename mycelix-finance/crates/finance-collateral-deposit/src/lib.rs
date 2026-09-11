@@ -369,10 +369,7 @@ mod tests {
             100,
         )
         .expect("valid request");
-        request.deposit_id.replace_range(
-            COLLATERAL_DEPOSIT_ID_PREFIX.len()..COLLATERAL_DEPOSIT_ID_PREFIX.len() + 1,
-            "f",
-        );
+        request.deposit_id.push('x');
         assert_eq!(
             request.validate(),
             Err(CollateralDepositRequestError::DepositIdMismatch)
