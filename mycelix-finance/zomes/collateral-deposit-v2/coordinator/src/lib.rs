@@ -2,19 +2,22 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
-//! FIN-SAFE-008 request-only collateral deposit coordinator.
+//! FIN-SAFE-008/009 request-only collateral deposit coordinator.
 //!
 //! This zome cannot price collateral, confirm custody, mint SAP, settle, redeem,
-//! or mutate a request. It only creates immutable V2 deposit intent records and
-//! reads them by exact action hash / the caller's own source chain.
+//! or mutate a request. It creates immutable V2 deposit intent records and can
+//! load one exact valid request action into the pure FIN-SAFE-009 binding type.
 
 use collateral_deposit_v2_integrity::{
     CollateralDepositRequestV2Entry, EntryTypes, UnitEntryTypes,
+    MAX_CREATE_TIMESTAMP_SKEW_MICROS,
 };
 use finance_collateral_deposit::{
     CollateralDepositRequestV2, COLLATERAL_DEPOSIT_NONCE_BYTES,
 };
+use finance_collateral_request_binding::BoundCollateralDepositRequest;
 use hdk::prelude::*;
+use mycelix_bridge_entry_types::did_for_author;
 use mycelix_finance_shared::verify_caller_is_did;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -102,6 +105,61 @@ pub fn get_collateral_deposit_request_v2(
         }
         None => Ok(None),
     }
+}
+
+/// Load one exact **valid** V2 request action for downstream settlement.
+///
+/// Unlike `get_collateral_deposit_request_v2`, this uses `must_get_valid_record`
+/// and replays the request's identity/author/timestamp theorem before returning a
+/// storage-independent `BoundCollateralDepositRequest`. Future settlement code
+/// should accept this object rather than free-form `CollateralDepositTerms`.
+#[hdk_extern]
+pub fn get_bound_collateral_deposit_request_v2(
+    action_hash: ActionHash,
+) -> ExternResult<BoundCollateralDepositRequest> {
+    let record = must_get_valid_record(action_hash.clone())?;
+    if record.action().action_type() != ActionType::Create {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Bound collateral settlement requires an exact V2 request Create action".into()
+        )));
+    }
+
+    let entry = decode_request(&record)?;
+    let request = entry.to_model().map_err(|message| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Invalid V2 collateral request entry: {message}"
+        )))
+    })?;
+
+    request
+        .validate_action_timestamp(
+            record.action().timestamp().as_micros(),
+            MAX_CREATE_TIMESTAMP_SKEW_MICROS,
+        )
+        .map_err(|error| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "V2 collateral request action binding failed: {error:?}"
+            )))
+        })?;
+
+    let author_did = did_for_author(record.action().author());
+    if request.depositor_did != author_did {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "V2 collateral request depositor DID does not match Create author: expected {}, got {}",
+            author_did, request.depositor_did
+        ))));
+    }
+
+    let bound = BoundCollateralDepositRequest {
+        request_action_reference: action_hash.to_string(),
+        request,
+    };
+    bound.validate().map_err(|error| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Bound V2 collateral request failed validation: {error:?}"
+        )))
+    })?;
+    Ok(bound)
 }
 
 /// Return V2 requests authored on the current agent's source chain.
