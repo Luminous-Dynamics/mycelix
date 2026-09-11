@@ -1,0 +1,22 @@
+[package]
+name = "mycelix-business-import-diagnostics"
+version = "0.1.0"
+edition = "2024"
+description = "Non-mutating import diagnostics and extraction manifests for Mycelix Business pilots"
+license = "AGPL-3.0-or-later"
+authors = ["Luminous Dynamics <contact@luminousdynamics.org>"]
+repository = "https://github.com/luminous-dynamics/mycelix"
+readme = "README.md"
+
+[lib]
+name = "mycelix_business_import_diagnostics"
+crate-type = ["rlib"]
+
+[dependencies]
+csv = "1.3"
+sha2 = "0.10"
+mycelix-business-core = { path = "../mycelix-business-core" }
+mycelix-business-field-qualification = { path = "../mycelix-business-field-qualification" }
+mycelix-business-ingress = { path = "../mycelix-business-ingress" }
+mycelix-business-adapter-delimited = { path = "../mycelix-business-adapter-delimited" }
+mycelix-business-pilot-hospitality = { path = "../mycelix-business-pilot-hospitality" }
