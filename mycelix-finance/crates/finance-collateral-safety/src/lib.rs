@@ -18,6 +18,9 @@ use mycelix_finance_types::{
 };
 use serde::{Deserialize, Serialize};
 
+/// Current checked wire/evidence snapshot schema version.
+pub const CHECKED_COLLATERAL_HEALTH_SNAPSHOT_VERSION: u16 = 1;
+
 /// Why a valuation observation is unavailable before any LTV arithmetic.
 ///
 /// Keeping acquisition failure typed prevents callers from using a numeric
@@ -125,6 +128,14 @@ impl CollateralHealthAssessment {
     }
 }
 
+/// Why a deserialized or externally supplied checked snapshot is invalid.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CollateralHealthSnapshotValidationError {
+    UnsupportedSchemaVersion,
+    LtvRatioMismatch,
+    AssessmentMismatch,
+}
+
 /// A storage-independent checked health snapshot suitable for bridge/wire use.
 ///
 /// This deliberately does not expose a Holochain `Record` or integrity-entry
@@ -132,6 +143,7 @@ impl CollateralHealthAssessment {
 /// same evidence semantics.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CheckedCollateralHealthSnapshot {
+    pub schema_version: u16,
     pub collateral_id: String,
     pub obligation_amount: u64,
     pub valuation: CollateralValuationObservation,
@@ -152,6 +164,7 @@ impl CheckedCollateralHealthSnapshot {
         let ltv_ratio = ltv_ratio_from_observation(obligation_amount, &valuation);
         let assessment = assess_collateral_observation(obligation_amount, valuation);
         Self {
+            schema_version: CHECKED_COLLATERAL_HEALTH_SNAPSHOT_VERSION,
             collateral_id,
             obligation_amount,
             valuation,
@@ -161,12 +174,31 @@ impl CheckedCollateralHealthSnapshot {
         }
     }
 
-    /// Recompute derived fields and confirm a deserialized snapshot is internally
-    /// consistent with its source observation.
+    /// Recompute all derived fields and reject unsupported or contradictory data.
+    ///
+    /// Call this on deserialized/untrusted snapshots before treating them as
+    /// collateral-health evidence.
+    pub fn validate(&self) -> Result<(), CollateralHealthSnapshotValidationError> {
+        if self.schema_version != CHECKED_COLLATERAL_HEALTH_SNAPSHOT_VERSION {
+            return Err(CollateralHealthSnapshotValidationError::UnsupportedSchemaVersion);
+        }
+
+        if self.ltv_ratio != ltv_ratio_from_observation(self.obligation_amount, &self.valuation) {
+            return Err(CollateralHealthSnapshotValidationError::LtvRatioMismatch);
+        }
+
+        if self.assessment
+            != assess_collateral_observation(self.obligation_amount, self.valuation)
+        {
+            return Err(CollateralHealthSnapshotValidationError::AssessmentMismatch);
+        }
+
+        Ok(())
+    }
+
+    /// Convenience predicate for callers that only need a boolean check.
     pub fn is_consistent(&self) -> bool {
-        self.ltv_ratio == ltv_ratio_from_observation(self.obligation_amount, &self.valuation)
-            && self.assessment
-                == assess_collateral_observation(self.obligation_amount, self.valuation)
+        self.validate().is_ok()
     }
 }
 
@@ -218,7 +250,9 @@ pub fn ltv_ratio_from_observation(
         }
         CollateralValuationObservation::Observed { value: 0 }
         | CollateralValuationObservation::Unavailable(_) => None,
-        CollateralValuationObservation::Observed { .. } => unreachable!("u64 value cases exhausted"),
+        CollateralValuationObservation::Observed { .. } => {
+            unreachable!("u64 value cases exhausted")
+        }
     }
 }
 
@@ -418,6 +452,7 @@ mod tests {
             ),
             42,
         );
+        assert_eq!(snapshot.schema_version, CHECKED_COLLATERAL_HEALTH_SNAPSHOT_VERSION);
         assert_eq!(snapshot.ltv_ratio, None);
         assert_eq!(
             snapshot.assessment,
@@ -425,7 +460,7 @@ mod tests {
                 CollateralHealthIndeterminateReason::OracleUnavailable
             )
         );
-        assert!(snapshot.is_consistent());
+        assert_eq!(snapshot.validate(), Ok(()));
     }
 
     #[test]
@@ -443,7 +478,7 @@ mod tests {
                 CollateralHealthIndeterminateReason::ZeroValuation
             )
         );
-        assert!(snapshot.is_consistent());
+        assert_eq!(snapshot.validate(), Ok(()));
     }
 
     #[test]
@@ -454,25 +489,59 @@ mod tests {
             CollateralValuationObservation::Observed { value: 100 },
             44,
         );
-        assert_eq!(snapshot.ltv_ratio, Some(0.91));
+        let ratio = snapshot.ltv_ratio.expect("valid observation should have ratio");
+        assert!((ratio - 0.91).abs() < f64::EPSILON);
         assert_eq!(
             snapshot.assessment,
             CollateralHealthAssessment::Known(CollateralHealthStatus::MarginCall)
         );
-        assert!(snapshot.is_consistent());
+        assert_eq!(snapshot.validate(), Ok(()));
     }
 
     #[test]
-    fn snapshot_consistency_detects_tampered_derived_fields() {
+    fn snapshot_validation_detects_tampered_assessment() {
         let mut snapshot = CheckedCollateralHealthSnapshot::new(
-            "collateral:tampered".into(),
+            "collateral:tampered-assessment".into(),
             50,
             CollateralValuationObservation::Observed { value: 100 },
             45,
         );
         snapshot.assessment =
             CollateralHealthAssessment::Known(CollateralHealthStatus::Liquidation);
-        assert!(!snapshot.is_consistent());
+        assert_eq!(
+            snapshot.validate(),
+            Err(CollateralHealthSnapshotValidationError::AssessmentMismatch)
+        );
+    }
+
+    #[test]
+    fn snapshot_validation_detects_tampered_ratio() {
+        let mut snapshot = CheckedCollateralHealthSnapshot::new(
+            "collateral:tampered-ratio".into(),
+            50,
+            CollateralValuationObservation::Observed { value: 100 },
+            46,
+        );
+        snapshot.ltv_ratio = Some(0.96);
+        assert_eq!(
+            snapshot.validate(),
+            Err(CollateralHealthSnapshotValidationError::LtvRatioMismatch)
+        );
+    }
+
+    #[test]
+    fn snapshot_validation_rejects_unknown_schema_version() {
+        let mut snapshot = CheckedCollateralHealthSnapshot::new(
+            "collateral:future".into(),
+            50,
+            CollateralValuationObservation::Observed { value: 100 },
+            47,
+        );
+        snapshot.schema_version = CHECKED_COLLATERAL_HEALTH_SNAPSHOT_VERSION + 1;
+        assert_eq!(
+            snapshot.validate(),
+            Err(CollateralHealthSnapshotValidationError::UnsupportedSchemaVersion)
+        );
     }
 
     #[test]
@@ -558,12 +627,12 @@ mod tests {
             CollateralValuationObservation::Unavailable(
                 CollateralValuationUnavailableReason::OracleUnavailable,
             ),
-            46,
+            48,
         );
         let encoded = serde_json::to_string(&snapshot).expect("serialize snapshot");
         let decoded: CheckedCollateralHealthSnapshot =
             serde_json::from_str(&encoded).expect("deserialize snapshot");
         assert_eq!(decoded, snapshot);
-        assert!(decoded.is_consistent());
+        assert_eq!(decoded.validate(), Ok(()));
     }
 }
