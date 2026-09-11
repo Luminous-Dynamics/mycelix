@@ -36,6 +36,7 @@ export {
   type CreateSettlementAllocationLineageCheckpointInput,
   type CheckpointBackedSettlementAllocationLineage,
 } from './settlement-allocation-lineage-checkpoint.js';
+export * from './settlement-allocation-lineage-checkpoint-trust.js';
 export * from './settlement-allocation-lineage-persistence.js';
 export * from './settlement-allocation-lineage-checkpoint-compiler.js';
 export * from './persistence-projection.js';
