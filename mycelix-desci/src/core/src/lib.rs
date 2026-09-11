@@ -62,6 +62,7 @@ pub mod cartel;
 pub mod decay;
 pub mod dispute;
 pub mod evolution;
+pub mod lattice_prediction_dkg;
 pub mod legacy_migration;
 pub mod prediction;
 pub mod reproducibility;
@@ -233,6 +234,14 @@ pub use spectroscopy_dkg::{
     SPECTROSCOPY_DKG_PROTOCOL, SPECTROSCOPY_DKG_SCHEMA_VERSION, SpectroscopyDkgBundle,
     SpectroscopyDkgEdge, SpectroscopyDkgError, SpectroscopyDkgNode, SpectroscopyNodeKind,
     SpectroscopyProvenance, SpectroscopyRelation,
+};
+
+// Symthaea blinded lattice-prediction transport
+pub use lattice_prediction_dkg::{
+    LATTICE_PREDICTION_PROTOCOL, LATTICE_PREDICTION_SCHEMA_VERSION,
+    LatticePredictionCommitment, LatticePredictionDkgError, LatticePredictionMethod,
+    LatticePredictionReveal, LatticePredictionScore, reveal_context_edge,
+    score_lattice_prediction,
 };
 
 pub use legacy_migration::{
