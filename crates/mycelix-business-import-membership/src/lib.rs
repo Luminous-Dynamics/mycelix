@@ -414,6 +414,8 @@ pub struct VerifiedHospitalityReport {
 impl VerifiedHospitalityReport {
     pub fn validate(&self) -> bool {
         self.membership_limitation_discharge.validate()
+            && self.membership_limitation_discharge.campaign_digest
+                == self.membership.campaign_digest
             && self.membership_limitation_discharge.supporting_evidence_digest
                 == self.membership.evidence_digest
             && self.report_digest == verified_report_digest(self)
@@ -491,7 +493,7 @@ mod tests {
         DecimalPolicy, DelimitedAdapterConfig, OutputMapping, ScopeMapping, TimestampEncoding,
         ValueMapping,
     };
-    use mycelix_business_core::{Digest32, ForecastRef, ObservationRef, ScopeRef};
+    use mycelix_business_core::{Digest32, ForecastRef, ScopeRef};
     use mycelix_business_import_diagnostics::{
         diagnose_delimited_import, upstream_export_completeness_unverified_ref,
     };
