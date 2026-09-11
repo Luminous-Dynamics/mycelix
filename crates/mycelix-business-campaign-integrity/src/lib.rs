@@ -179,8 +179,7 @@ pub fn verify_campaign_integrity(
             unique_events: unique_source_events,
         });
     }
-    let expected_coverage = manifest_coverage(&campaign.files);
-    if (earliest, latest) != expected_coverage {
+    if (earliest, latest) != manifest_coverage(&campaign.files) {
         return Err(IntegrityError::CoverageMismatch);
     }
 
@@ -229,7 +228,8 @@ fn scan_file_events(
         let Ok(record) = row else {
             continue;
         };
-        let one_row = serialize_single_record(adapter.config.delimiter, &headers, &record, file_index)?;
+        let one_row =
+            serialize_single_record(adapter.config.delimiter, &headers, &record, file_index)?;
         let Ok(batch) = adapter.parse_batch(one_row.as_slice(), file.ingested_at_unix_ms) else {
             continue;
         };
@@ -247,8 +247,8 @@ fn scan_file_events(
             });
         }
         let observed = parsed.event.witness.observed_at_unix_ms;
-        *earliest = Some(earliest.map_or(observed, |value| value.min(observed)));
-        *latest = Some(latest.map_or(observed, |value| value.max(observed)));
+        *earliest = Some((*earliest).map_or(observed, |value| value.min(observed)));
+        *latest = Some((*latest).map_or(observed, |value| value.max(observed)));
     }
     Ok(())
 }
@@ -424,7 +424,7 @@ mod tests {
         let evidence = verify_campaign_integrity(&adapter, &campaign, &files).unwrap();
         assert!(CAMPAIGN_INTEGRITY_IS_READ_ONLY);
         assert_eq!(evidence.unique_source_events, 4);
-        assert_eq!(evidence.validate_against(&campaign), Ok(()));
+        assert!(evidence.validate_against(&campaign).is_ok());
     }
 
     #[test]
