@@ -1,0 +1,16 @@
+[package]
+name = "mycelix-business-coordination"
+version = "0.1.0"
+edition = "2024"
+description = "Action, objective, and coordination contracts for the Mycelix Business Fabric"
+license = "AGPL-3.0-or-later"
+authors = ["Luminous Dynamics <contact@luminousdynamics.org>"]
+repository = "https://github.com/luminous-dynamics/mycelix"
+readme = "README.md"
+
+[lib]
+name = "mycelix_business_coordination"
+crate-type = ["rlib"]
+
+[dependencies]
+mycelix-business-core = { path = "../mycelix-business-core" }
