@@ -125,6 +125,51 @@ impl CollateralHealthAssessment {
     }
 }
 
+/// A storage-independent checked health snapshot suitable for bridge/wire use.
+///
+/// This deliberately does not expose a Holochain `Record` or integrity-entry
+/// layout. Storage can evolve independently while external callers receive the
+/// same evidence semantics.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct CheckedCollateralHealthSnapshot {
+    pub collateral_id: String,
+    pub obligation_amount: u64,
+    pub valuation: CollateralValuationObservation,
+    /// Present only when a valid positive denominator produced a numeric ratio.
+    pub ltv_ratio: Option<f64>,
+    pub assessment: CollateralHealthAssessment,
+    pub computed_at_micros: i64,
+}
+
+impl CheckedCollateralHealthSnapshot {
+    /// Construct a self-consistent snapshot from source evidence.
+    pub fn new(
+        collateral_id: String,
+        obligation_amount: u64,
+        valuation: CollateralValuationObservation,
+        computed_at_micros: i64,
+    ) -> Self {
+        let ltv_ratio = ltv_ratio_from_observation(obligation_amount, &valuation);
+        let assessment = assess_collateral_observation(obligation_amount, valuation);
+        Self {
+            collateral_id,
+            obligation_amount,
+            valuation,
+            ltv_ratio,
+            assessment,
+            computed_at_micros,
+        }
+    }
+
+    /// Recompute derived fields and confirm a deserialized snapshot is internally
+    /// consistent with its source observation.
+    pub fn is_consistent(&self) -> bool {
+        self.ltv_ratio == ltv_ratio_from_observation(self.obligation_amount, &self.valuation)
+            && self.assessment
+                == assess_collateral_observation(self.obligation_amount, self.valuation)
+    }
+}
+
 /// Classify a pre-computed LTV ratio using the canonical Finance thresholds.
 ///
 /// The existing strict-boundary policy is preserved deliberately:
@@ -159,6 +204,22 @@ pub fn assess_ltv_ratio(ltv: f64) -> CollateralHealthAssessment {
     };
 
     CollateralHealthAssessment::Known(status)
+}
+
+/// Compute the numeric LTV only when the valuation observation supplies a
+/// positive denominator.
+pub fn ltv_ratio_from_observation(
+    obligation_amount: u64,
+    observation: &CollateralValuationObservation,
+) -> Option<f64> {
+    match observation {
+        CollateralValuationObservation::Observed { value } if *value > 0 => {
+            Some(obligation_amount as f64 / *value as f64)
+        }
+        CollateralValuationObservation::Observed { value: 0 }
+        | CollateralValuationObservation::Unavailable(_) => None,
+        CollateralValuationObservation::Observed { .. } => unreachable!("u64 value cases exhausted"),
+    }
 }
 
 /// Classify collateral health from a typed valuation observation.
@@ -348,6 +409,73 @@ mod tests {
     }
 
     #[test]
+    fn snapshot_keeps_unavailable_ratio_absent() {
+        let snapshot = CheckedCollateralHealthSnapshot::new(
+            "collateral:1".into(),
+            100,
+            CollateralValuationObservation::Unavailable(
+                CollateralValuationUnavailableReason::OracleUnavailable,
+            ),
+            42,
+        );
+        assert_eq!(snapshot.ltv_ratio, None);
+        assert_eq!(
+            snapshot.assessment,
+            CollateralHealthAssessment::Indeterminate(
+                CollateralHealthIndeterminateReason::OracleUnavailable
+            )
+        );
+        assert!(snapshot.is_consistent());
+    }
+
+    #[test]
+    fn snapshot_keeps_observed_zero_distinct_without_ratio_sentinel() {
+        let snapshot = CheckedCollateralHealthSnapshot::new(
+            "collateral:zero".into(),
+            100,
+            CollateralValuationObservation::Observed { value: 0 },
+            43,
+        );
+        assert_eq!(snapshot.ltv_ratio, None);
+        assert_eq!(
+            snapshot.assessment,
+            CollateralHealthAssessment::Indeterminate(
+                CollateralHealthIndeterminateReason::ZeroValuation
+            )
+        );
+        assert!(snapshot.is_consistent());
+    }
+
+    #[test]
+    fn snapshot_computes_ratio_from_valid_observation() {
+        let snapshot = CheckedCollateralHealthSnapshot::new(
+            "collateral:known".into(),
+            91,
+            CollateralValuationObservation::Observed { value: 100 },
+            44,
+        );
+        assert_eq!(snapshot.ltv_ratio, Some(0.91));
+        assert_eq!(
+            snapshot.assessment,
+            CollateralHealthAssessment::Known(CollateralHealthStatus::MarginCall)
+        );
+        assert!(snapshot.is_consistent());
+    }
+
+    #[test]
+    fn snapshot_consistency_detects_tampered_derived_fields() {
+        let mut snapshot = CheckedCollateralHealthSnapshot::new(
+            "collateral:tampered".into(),
+            50,
+            CollateralValuationObservation::Observed { value: 100 },
+            45,
+        );
+        snapshot.assessment =
+            CollateralHealthAssessment::Known(CollateralHealthStatus::Liquidation);
+        assert!(!snapshot.is_consistent());
+    }
+
+    #[test]
     fn indeterminate_is_never_liquidation_evidence() {
         for assessment in [
             assess_ltv_ratio(f64::NAN),
@@ -420,5 +548,22 @@ mod tests {
         let decoded: CollateralValuationObservation =
             serde_json::from_str(&encoded).expect("deserialize observation");
         assert_eq!(decoded, observation);
+    }
+
+    #[test]
+    fn serialized_snapshot_preserves_checked_evidence() {
+        let snapshot = CheckedCollateralHealthSnapshot::new(
+            "collateral:wire".into(),
+            100,
+            CollateralValuationObservation::Unavailable(
+                CollateralValuationUnavailableReason::OracleUnavailable,
+            ),
+            46,
+        );
+        let encoded = serde_json::to_string(&snapshot).expect("serialize snapshot");
+        let decoded: CheckedCollateralHealthSnapshot =
+            serde_json::from_str(&encoded).expect("deserialize snapshot");
+        assert_eq!(decoded, snapshot);
+        assert!(decoded.is_consistent());
     }
 }
