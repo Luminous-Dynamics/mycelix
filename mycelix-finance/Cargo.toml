@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "types",
     "crates/finance-collateral-safety",
+    "crates/finance-collateral-valuation",
     "crates/finance-wire-types",
     "crates/finance-leptos-types",
     "zomes/shared",

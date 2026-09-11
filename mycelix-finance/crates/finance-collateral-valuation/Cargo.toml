@@ -1,0 +1,20 @@
+[package]
+name = "finance-collateral-valuation"
+version = "0.1.0"
+edition = "2024"
+description = "Typed collateral valuation capability contract for Mycelix Finance"
+license.workspace = true
+
+[lib]
+name = "finance_collateral_valuation"
+crate-type = ["rlib"]
+
+[dependencies]
+serde = { workspace = true }
+finance-collateral-safety = { path = "../finance-collateral-safety" }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+
+[lints.rust]
+unsafe_code = "forbid"
