@@ -4,9 +4,10 @@
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! FIN-SAFE-007 request-bound SAP issuance and conservation theorems.
 //!
-//! The checked V2 path is deliberately staged:
+//! The checked collateral V2 path is deliberately independent of the legacy
+//! payments `SapMintRecord` schema:
 //!
-//! `bound settlement -> mint authorization -> mint record -> issuance receipt -> balance update`
+//! `bound settlement -> mint authorization -> collateral mint v2 -> issuance receipt -> balance update`
 //!
 //! Each stage has zero balance effect until the final predecessor-bound balance
 //! transition. Demurrage and issuance are separate transitions.
@@ -17,48 +18,18 @@ use finance_collateral_request_binding::{
 use finance_collateral_settlement::{
     CollateralSettlementAuthorityPolicy, PolicyBoundSettlementError,
 };
-use mycelix_finance_types::SapMintSource;
 use serde::{Deserialize, Serialize};
 
 pub const COLLATERAL_SAP_MINT_AUTHORIZATION_V2_SCHEMA_VERSION: u16 = 2;
+pub const COLLATERAL_SAP_MINT_RECORD_V2_SCHEMA_VERSION: u16 = 2;
 pub const COLLATERAL_SAP_ISSUANCE_RECEIPT_V2_SCHEMA_VERSION: u16 = 2;
 pub const MAX_MINT_ID_LEN: usize = 256;
 pub const MAX_ACTION_REFERENCE_LEN: usize = 256;
 
-/// Storage-independent view of the existing immutable Holochain `SapMintRecord`.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct SapMintRecordView {
-    pub mint_id: String,
-    pub recipient_did: String,
-    pub amount: u64,
-    pub source: SapMintSource,
-}
-
-impl SapMintRecordView {
-    pub fn validate_shape(&self) -> Result<(), SapConservationError> {
-        if !valid_reference(&self.mint_id, MAX_MINT_ID_LEN) {
-            return Err(SapConservationError::InvalidMintId);
-        }
-        if !valid_did(&self.recipient_did) {
-            return Err(SapConservationError::InvalidRecipientDid);
-        }
-        if self.amount == 0 {
-            return Err(SapConservationError::ZeroMintAmount);
-        }
-        if let SapMintSource::CollateralBridge { deposit_id } = &self.source {
-            if !valid_reference(deposit_id, MAX_MINT_ID_LEN) {
-                return Err(SapConservationError::InvalidCollateralDepositId);
-            }
-        }
-        Ok(())
-    }
-}
-
 /// Immutable authorization for one collateral-backed SAP mint.
 ///
-/// Unlike the legacy `CollateralBridge { deposit_id }` provenance alone, this
-/// object retains the exact FIN-SAFE-009 request action reference by embedding
-/// the bound settlement intent from which the mint was derived.
+/// It embeds the exact FIN-SAFE-009 bound settlement, preserving the selected
+/// valid V2 request action and the trusted settlement basis through issuance.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CollateralSapMintAuthorizationV2 {
     pub schema_version: u16,
@@ -115,7 +86,7 @@ impl CollateralSapMintAuthorizationV2 {
         if self.recipient_did != self.bound_settlement.intent.basis.terms.depositor_did {
             return Err(SapConservationError::MintRecipientMismatch);
         }
-        if self.amount != self.bound_settlement.intent.basis.sap_amount {
+        if self.amount == 0 || self.amount != self.bound_settlement.intent.basis.sap_amount {
             return Err(SapConservationError::MintAmountMismatch);
         }
         Ok(())
@@ -128,64 +99,112 @@ impl CollateralSapMintAuthorizationV2 {
     pub fn deposit_id(&self) -> &str {
         self.bound_settlement.deposit_id()
     }
+}
 
-    pub fn expected_mint_record_view(&self) -> SapMintRecordView {
-        SapMintRecordView {
-            mint_id: self.mint_id.clone(),
-            recipient_did: self.recipient_did.clone(),
-            amount: self.amount,
-            source: SapMintSource::CollateralBridge {
-                deposit_id: self.deposit_id().to_string(),
-            },
+/// V2 collateral mint record.
+///
+/// This is intentionally distinct from the legacy payments `SapMintRecord`.
+/// It binds the exact authorization action and repeats the request/deposit terms
+/// needed for cheap consistency checks. Integration must load the referenced
+/// authorization action and compare the full authorization value before accepting
+/// this mint as authoritative.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CollateralSapMintRecordV2 {
+    pub schema_version: u16,
+    pub authorization_action_reference: String,
+    pub request_action_reference: String,
+    pub deposit_id: String,
+    pub mint_id: String,
+    pub recipient_did: String,
+    pub amount: u64,
+}
+
+impl CollateralSapMintRecordV2 {
+    pub fn from_authorization(
+        authorization_action_reference: String,
+        authorization: &CollateralSapMintAuthorizationV2,
+        expected_policy: &CollateralSettlementAuthorityPolicy,
+    ) -> Result<Self, SapConservationError> {
+        authorization.validate_against_policy(expected_policy)?;
+        if !valid_reference(
+            &authorization_action_reference,
+            MAX_ACTION_REFERENCE_LEN,
+        ) {
+            return Err(SapConservationError::InvalidAuthorizationActionReference);
         }
+        let record = Self {
+            schema_version: COLLATERAL_SAP_MINT_RECORD_V2_SCHEMA_VERSION,
+            authorization_action_reference,
+            request_action_reference: authorization.request_action_reference().to_string(),
+            deposit_id: authorization.deposit_id().to_string(),
+            mint_id: authorization.mint_id.clone(),
+            recipient_did: authorization.recipient_did.clone(),
+            amount: authorization.amount,
+        };
+        record.validate_against_authorization(authorization, expected_policy)?;
+        Ok(record)
     }
 
-    pub fn validate_mint_record(
+    pub fn validate_against_authorization(
         &self,
-        mint: &SapMintRecordView,
+        authorization: &CollateralSapMintAuthorizationV2,
+        expected_policy: &CollateralSettlementAuthorityPolicy,
     ) -> Result<(), SapConservationError> {
-        mint.validate_shape()?;
-        if mint.mint_id != self.mint_id {
+        if self.schema_version != COLLATERAL_SAP_MINT_RECORD_V2_SCHEMA_VERSION {
+            return Err(SapConservationError::UnsupportedMintRecordSchema);
+        }
+        if !valid_reference(
+            &self.authorization_action_reference,
+            MAX_ACTION_REFERENCE_LEN,
+        ) {
+            return Err(SapConservationError::InvalidAuthorizationActionReference);
+        }
+        authorization.validate_against_policy(expected_policy)?;
+        if self.request_action_reference != authorization.request_action_reference() {
+            return Err(SapConservationError::RequestActionReferenceMismatch);
+        }
+        if self.deposit_id != authorization.deposit_id() {
+            return Err(SapConservationError::DepositIdMismatch);
+        }
+        if self.mint_id != authorization.mint_id {
             return Err(SapConservationError::MintIdMismatch);
         }
-        if mint.recipient_did != self.recipient_did {
+        if self.recipient_did != authorization.recipient_did {
             return Err(SapConservationError::MintRecipientMismatch);
         }
-        if mint.amount != self.amount {
+        if self.amount == 0 || self.amount != authorization.amount {
             return Err(SapConservationError::MintAmountMismatch);
         }
-        match &mint.source {
-            SapMintSource::CollateralBridge { deposit_id } if deposit_id == self.deposit_id() => {
-                Ok(())
-            }
-            _ => Err(SapConservationError::MintSourceMismatch),
-        }
+        Ok(())
     }
 }
 
-/// Immutable proof object created only after the exact `SapMintRecord` action is
-/// known. This is the object a checked positive balance delta should reference.
+/// Immutable proof object created after the exact authorization and mint actions
+/// exist. This is the object a checked positive balance delta references.
 ///
-/// Holochain integration must load `mint_record_action_reference` with
-/// `must_get_valid_record`, decode the exact immutable mint record, and ensure it
-/// equals `mint_record` before persisting this receipt.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+/// Holochain integration must load both referenced actions with
+/// `must_get_valid_record`, require the V2 authorization/mint entry types, decode
+/// them, and require exact equality with the values embedded here.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CollateralSapIssuanceReceiptV2 {
     pub schema_version: u16,
+    pub authorization_action_reference: String,
     pub authorization: CollateralSapMintAuthorizationV2,
     pub mint_record_action_reference: String,
-    pub mint_record: SapMintRecordView,
+    pub mint_record: CollateralSapMintRecordV2,
 }
 
 impl CollateralSapIssuanceReceiptV2 {
     pub fn new(
+        authorization_action_reference: String,
         authorization: CollateralSapMintAuthorizationV2,
         expected_policy: &CollateralSettlementAuthorityPolicy,
         mint_record_action_reference: String,
-        mint_record: SapMintRecordView,
+        mint_record: CollateralSapMintRecordV2,
     ) -> Result<Self, SapConservationError> {
         let receipt = Self {
             schema_version: COLLATERAL_SAP_ISSUANCE_RECEIPT_V2_SCHEMA_VERSION,
+            authorization_action_reference,
             authorization,
             mint_record_action_reference,
             mint_record,
@@ -202,13 +221,25 @@ impl CollateralSapIssuanceReceiptV2 {
             return Err(SapConservationError::UnsupportedIssuanceReceiptSchema);
         }
         if !valid_reference(
+            &self.authorization_action_reference,
+            MAX_ACTION_REFERENCE_LEN,
+        ) {
+            return Err(SapConservationError::InvalidAuthorizationActionReference);
+        }
+        if !valid_reference(
             &self.mint_record_action_reference,
             MAX_ACTION_REFERENCE_LEN,
         ) {
             return Err(SapConservationError::InvalidMintActionReference);
         }
         self.authorization.validate_against_policy(expected_policy)?;
-        self.authorization.validate_mint_record(&self.mint_record)?;
+        if self.mint_record.authorization_action_reference
+            != self.authorization_action_reference
+        {
+            return Err(SapConservationError::AuthorizationActionReferenceMismatch);
+        }
+        self.mint_record
+            .validate_against_authorization(&self.authorization, expected_policy)?;
         Ok(())
     }
 
@@ -219,6 +250,14 @@ impl CollateralSapIssuanceReceiptV2 {
     pub fn deposit_id(&self) -> &str {
         self.authorization.deposit_id()
     }
+
+    pub fn recipient_did(&self) -> &str {
+        &self.authorization.recipient_did
+    }
+
+    pub fn amount(&self) -> u64 {
+        self.authorization.amount
+    }
 }
 
 /// Minimal SAP balance state used to prove one exact predecessor transition.
@@ -226,8 +265,8 @@ impl CollateralSapIssuanceReceiptV2 {
 pub struct SapBalanceStateView {
     pub member_did: String,
     pub balance: u64,
-    /// On the checked V2 issuance path this points to the exact immutable
-    /// `CollateralSapIssuanceReceiptV2` action, not merely the mint record.
+    /// On the checked V2 collateral path this points to the exact immutable
+    /// `CollateralSapIssuanceReceiptV2` action.
     pub justified_by: Option<String>,
 }
 
@@ -263,7 +302,7 @@ pub fn validate_genesis_balance(
 /// Prove one positive collateral-backed issuance delta.
 ///
 /// Demurrage MUST NOT be folded into this transition. The next raw balance is
-/// exactly `previous.balance + authorization.amount` using checked addition.
+/// exactly `previous.balance + receipt.amount()` using checked addition.
 /// `justified_by` must name the exact persisted issuance-receipt action.
 pub fn validate_positive_collateral_issuance_transition(
     previous: &SapBalanceStateView,
@@ -279,7 +318,7 @@ pub fn validate_positive_collateral_issuance_transition(
     if previous.member_did != updated.member_did {
         return Err(SapConservationError::BalanceMemberChanged);
     }
-    if receipt.authorization.recipient_did != updated.member_did {
+    if receipt.recipient_did() != updated.member_did {
         return Err(SapConservationError::MintRecipientMismatch);
     }
     if !valid_reference(
@@ -294,7 +333,7 @@ pub fn validate_positive_collateral_issuance_transition(
 
     let expected_balance = previous
         .balance
-        .checked_add(receipt.authorization.amount)
+        .checked_add(receipt.amount())
         .ok_or(SapConservationError::BalanceOverflow)?;
     if updated.balance != expected_balance {
         return Err(SapConservationError::IssuanceDeltaMismatch);
@@ -302,8 +341,8 @@ pub fn validate_positive_collateral_issuance_transition(
     Ok(())
 }
 
-/// Canonical logical mint ID remains the bounded V2 deposit ID. The separate
-/// issuance receipt carries the exact request and mint action references.
+/// Canonical logical mint ID is the bounded V2 deposit ID. Exact action identity
+/// is carried separately by authorization/mint/receipt references.
 pub fn canonical_collateral_mint_id(
     deposit_id: &str,
 ) -> Result<&str, SapConservationError> {
@@ -323,22 +362,23 @@ fn valid_did(value: &str) -> bool {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SapConservationError {
-    InvalidMintId,
-    InvalidRecipientDid,
-    ZeroMintAmount,
     InvalidCollateralDepositId,
     InvalidBalanceMemberDid,
     InvalidJustificationReference,
+    InvalidAuthorizationActionReference,
     InvalidMintActionReference,
     InvalidIssuanceReceiptActionReference,
     UnsupportedAuthorizationSchema,
+    UnsupportedMintRecordSchema,
     UnsupportedIssuanceReceiptSchema,
     RequestBinding(RequestBindingError),
     SettlementPolicy(PolicyBoundSettlementError),
+    RequestActionReferenceMismatch,
+    AuthorizationActionReferenceMismatch,
+    DepositIdMismatch,
     MintIdMismatch,
     MintRecipientMismatch,
     MintAmountMismatch,
-    MintSourceMismatch,
     NonZeroGenesisBalance,
     GenesisMustNotHaveJustification,
     BalanceMemberChanged,
@@ -452,13 +492,29 @@ mod tests {
         .expect("authorization")
     }
 
+    fn mint_record() -> CollateralSapMintRecordV2 {
+        CollateralSapMintRecordV2::from_authorization(
+            "uhCkk-authorization-action".into(),
+            &authorization(),
+            &policy("approved-provider"),
+        )
+        .expect("mint record")
+    }
+
     fn receipt() -> CollateralSapIssuanceReceiptV2 {
         let auth = authorization();
+        let mint = CollateralSapMintRecordV2::from_authorization(
+            "uhCkk-authorization-action".into(),
+            &auth,
+            &policy("approved-provider"),
+        )
+        .expect("mint record");
         CollateralSapIssuanceReceiptV2::new(
-            auth.clone(),
+            "uhCkk-authorization-action".into(),
+            auth,
             &policy("approved-provider"),
             "uhCkk-mint-action".into(),
-            auth.expected_mint_record_view(),
+            mint,
         )
         .expect("issuance receipt")
     }
@@ -487,35 +543,43 @@ mod tests {
     }
 
     #[test]
-    fn tampered_authorization_amount_is_rejected() {
-        let mut auth = authorization();
-        auth.amount += 1;
+    fn mint_record_carries_exact_authorization_and_request_references() {
+        let mint = mint_record();
+        assert_eq!(mint.authorization_action_reference, "uhCkk-authorization-action");
+        assert_eq!(mint.request_action_reference, "uhCkk-request-exact");
         assert_eq!(
-            auth.validate_against_policy(&policy("approved-provider")),
-            Err(SapConservationError::MintAmountMismatch)
+            mint.validate_against_authorization(&authorization(), &policy("approved-provider")),
+            Ok(())
         );
     }
 
     #[test]
-    fn mint_record_must_match_authorization_exactly() {
+    fn wrong_authorization_action_reference_is_rejected_by_receipt() {
         let auth = authorization();
-        let valid = auth.expected_mint_record_view();
-        assert_eq!(auth.validate_mint_record(&valid), Ok(()));
-
-        let mut wrong = valid;
-        wrong.source = SapMintSource::GovernanceProposal {
-            proposal_id: "proposal:1".into(),
-        };
+        let mint = CollateralSapMintRecordV2::from_authorization(
+            "uhCkk-authorization-action".into(),
+            &auth,
+            &policy("approved-provider"),
+        )
+        .expect("mint record");
+        let result = CollateralSapIssuanceReceiptV2::new(
+            "uhCkk-other-authorization".into(),
+            auth,
+            &policy("approved-provider"),
+            "uhCkk-mint-action".into(),
+            mint,
+        );
         assert_eq!(
-            auth.validate_mint_record(&wrong),
-            Err(SapConservationError::MintSourceMismatch)
+            result,
+            Err(SapConservationError::AuthorizationActionReferenceMismatch)
         );
     }
 
     #[test]
-    fn issuance_receipt_binds_request_and_mint_action_references() {
+    fn issuance_receipt_binds_request_authorization_and_mint_actions() {
         let receipt = receipt();
         assert_eq!(receipt.request_action_reference(), "uhCkk-request-exact");
+        assert_eq!(receipt.authorization_action_reference, "uhCkk-authorization-action");
         assert_eq!(receipt.mint_record_action_reference, "uhCkk-mint-action");
         assert_eq!(
             receipt.validate_against_policy(&policy("approved-provider")),
@@ -648,6 +712,7 @@ mod tests {
             serde_json::from_slice(&bytes).expect("deserialize");
         assert_eq!(decoded, receipt);
         assert_eq!(decoded.request_action_reference(), "uhCkk-request-exact");
+        assert_eq!(decoded.authorization_action_reference, "uhCkk-authorization-action");
         assert_eq!(decoded.mint_record_action_reference, "uhCkk-mint-action");
     }
 }
