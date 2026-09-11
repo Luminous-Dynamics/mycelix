@@ -1,0 +1,169 @@
+name: Authority Coordinator Admin Mutation Exclusion
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-authority-coordinator-admin-mutation-exclusion/**'
+      - 'crates/mycelix-authority-coordinator-admin-isolation/**'
+      - 'crates/mycelix-authority-coordinator-conductor-process/**'
+      - 'crates/mycelix-response-attempt-store/**'
+      - '.github/workflows/authority-coordinator-admin-mutation-exclusion.yml'
+  push:
+    branches:
+      - 'response-authority-11-admin-mutation-exclusion'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: authority-coordinator-admin-mutation-exclusion-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: One pinned lock for coordinator mutation + response interval
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: '1.89.0'
+          components: rustfmt, clippy
+
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-authority-coordinator-admin-mutation-exclusion/Cargo.toml -- --check
+
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-authority-coordinator-admin-mutation-exclusion/Cargo.toml --all-targets
+
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-authority-coordinator-admin-mutation-exclusion/Cargo.toml --all-targets -- -D warnings
+
+      - name: Upstream boundary compatibility
+        run: |
+          cargo check --manifest-path crates/mycelix-authority-coordinator-admin-isolation/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-authority-coordinator-conductor-process/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-response-attempt-store/Cargo.toml --all-targets
+
+      - name: Trust-boundary audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path('crates/mycelix-authority-coordinator-admin-mutation-exclusion')
+          src = (root / 'src/lib.rs').read_text()
+          prod = src.split('#[cfg(test)]', 1)[0]
+          compact = ''.join(prod.split())
+          inv = (root / 'INVARIANTS.md').read_text().lower()
+          cargo = (root / 'Cargo.toml').read_text()
+
+          for dep in [
+              'holochain_client = "=0.8.1"',
+              'holochain_types = "=0.6.1"',
+              'mycelix-authority-coordinator-admin-isolation = ',
+              'mycelix-response-attempt-store = ',
+          ]:
+              assert dep in cargo, dep
+
+          for token in [
+              'pub const LOCK_PATH: &str = "/var/lib/mycelix/authority/admin-mutation.lock";',
+              'pub struct AdminMutationExclusionBinding {',
+              'pub struct TrustedAdminMutationExclusion {',
+              'pub fn begin_response_critical_section',
+              'reserved_attempt: &DurablyReservedResponseAttempt',
+              'self.acquire_lock()?',
+              'begin_exclusive_admin_isolation(conductor_store, broker_binding)',
+              'pub async fn update_coordinators_exclusive',
+              'AdminWebsocket::connect(endpoint, Some(BROKER_ORIGIN.to_string()))',
+              '.update_coordinators(payload)',
+              'drop(admin);',
+              'pub struct QualifiedResponseAdminMutationExclusion {',
+              'pub struct QualifiedCoordinatorUpdateOperation {',
+              'libc::O_NOFOLLOW | libc::O_CLOEXEC',
+              'libc::flock(file.as_raw_fd(), libc::LOCK_EX)',
+              'metadata.dev() != binding.lock_device',
+              'metadata.ino() != binding.lock_inode',
+          ]:
+              assert token in src, token
+
+          # Response ordering: exact lock first, then #535. Final #535 close occurs
+          # while the lock object is still live and is followed by inode revalidation.
+          response_body = prod.split('pub fn begin_response_critical_section', 1)[1].split('/// The only v0.1 broker operation', 1)[0]
+          assert response_body.index('self.acquire_lock()?') < response_body.index('begin_exclusive_admin_isolation')
+          finish_body = prod.split('pub fn finish(', 1)[1].split('/// Historical proof', 1)[0]
+          assert finish_body.index('lock.validate(&binding)?') < finish_body.index('.finish()')
+          assert finish_body.rindex('lock.validate(&binding)?') > finish_body.index('.finish()')
+          assert finish_body.rindex('lock.validate(&binding)?') < finish_body.index('Ok(QualifiedResponseAdminMutationExclusion {')
+
+          # Update ordering uses the same lock and isolation domain.
+          update_body = prod.split('pub async fn update_coordinators_exclusive', 1)[1].split('fn require_broker_binding', 1)[0]
+          order = [
+              update_body.index('self.acquire_lock()?'),
+              update_body.index('begin_exclusive_admin_isolation'),
+              update_body.index('AdminWebsocket::connect'),
+              update_body.index('.update_coordinators(payload)'),
+              update_body.index('drop(admin);'),
+              update_body.index('.finish()'),
+              update_body.rindex('lock.validate(&self.binding)?'),
+              update_body.index('Ok(QualifiedCoordinatorUpdateOperation {'),
+          ]
+          assert order == sorted(order), order
+
+          # The positive objects are non-deserializable and no external effect API exists.
+          for positive in [
+              'pub struct QualifiedResponseAdminMutationExclusion {',
+              'pub struct QualifiedCoordinatorUpdateOperation {',
+          ]:
+              prefix = src.split(positive, 1)[0].split('\n')[-8:]
+              assert not any('Deserialize' in line for line in prefix), positive
+          for forbidden in [
+              'perform_external_effect', 'invoke_external_effect', 'mark_effect_started',
+              'call_zome(', 'AppWebsocket',
+          ]:
+              assert forbidden not in prod, forbidden
+
+          # Direct coordinator replacement ownership is closed across authority/response
+          # production Rust. Tests/comments cannot provide a second live path.
+          hits = []
+          for base in [Path('crates')]:
+              for path in base.rglob('*.rs'):
+                  if not (
+                      path.name == 'lib.rs'
+                      or 'authority' in str(path)
+                      or 'response' in str(path)
+                  ):
+                      continue
+                  text = path.read_text().split('#[cfg(test)]', 1)[0]
+                  if '.update_coordinators(' in text:
+                      hits.append(path.as_posix())
+          expected = 'crates/mycelix-authority-coordinator-admin-mutation-exclusion/src/lib.rs'
+          assert hits == [expected], hits
+
+          # Fixed historical boundary is mechanically visible.
+          assert 'pubconstfncoordinator_update_excluded_here(&self)->bool{true}' in compact
+          assert 'pubconstfneffect_started_here(&self)->bool{false}' in compact
+          assert 'pubconstfnwork_inside_interval_verified_here(&self)->bool{false}' in compact
+          assert compact.count('pubconstfngrants_execution_authority(&self)->bool{false}') >= 2
+
+          for phrase in [
+              'isolation precedes meaningful mutex authority',
+              'one exclusion domain has one fixed path',
+              'the provisioned lock inode is authority-relevant',
+              'lock parent is owner-private and canonical',
+              'the response path binds a durable attempt',
+              'ordering for response exclusion is exact',
+              'coordinator update uses the same exclusion domain',
+              'the update lock is conductor-global in v0.1',
+              'direct update call ownership is mechanically closed',
+              'update completion is not approved deployment',
+              'response exclusion does not prove caller work',
+              'positive results are non-deserializable',
+              'no external response effect',
+              'remaining root of trust is explicit',
+              'next composition must avoid nested #381 fences',
+          ]:
+              assert phrase in inv, phrase
+
+          print('PASS: one pinned Admin mutation lock serializes coordinator update against one durable response critical interval; no effect authority')
+          PY
