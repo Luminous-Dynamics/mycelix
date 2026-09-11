@@ -20,7 +20,7 @@
       "id": "source-invariants",
       "workingDirectory": "mycelix-music",
       "command": "npm run check:invariants",
-      "purpose": "prevent legacy payment/status authority and other source-level economic regressions, including checkpoint compiler, signer-custody, signer-trust, trust-anchor, statement-root-trust, audit-capsule, audit-issuer, audit-issuer-trust, audit-issuer-root-trust, interop-audit-provenance, reporting-line-proof and reporting-evidence-attestation bypass"
+      "purpose": "prevent legacy payment/status authority and other source-level economic regressions, including checkpoint compiler, signer-custody, signer-trust, trust-anchor, statement-root-trust, audit-capsule, audit-issuer, audit-issuer-trust, audit-issuer-root-trust, interop-audit-provenance, reporting-line-proof, reporting-evidence-attestation and reporting-evidence-issuer-trust bypass"
     },
     {
       "id": "accounting-type-check",
@@ -32,7 +32,7 @@
       "id": "accounting-tests",
       "workingDirectory": "mycelix-music",
       "command": "npm test --workspace=@mycelix/accounting",
-      "purpose": "run economic conservation, settlement recovery, statement, audit, disclosure, lineage-checkpoint, compiler, signer-capability, trust-rotation, trust-anchor, statement-root-trust, audit-capsule-v2, audit-issuer-attestation, audit-issuer-trust, audit-issuer-root-trust, attested-interop, reporting-safe line-proof and reporting-evidence-attestation regressions"
+      "purpose": "run economic conservation, settlement recovery, statement, audit, disclosure, lineage-checkpoint, compiler, signer-capability, trust-rotation, trust-anchor, statement-root-trust, audit-capsule-v2, audit-issuer-attestation, audit-issuer-trust, audit-issuer-root-trust, attested-interop, reporting-safe line-proof, reporting-evidence-attestation and reporting-evidence-issuer-trust regressions"
     }
   ],
   "promotionRule": "Every qualification item must succeed after the workflow has checked out and mechanically verified the exact proposed head commit. Missing, queued, skipped, stale, synthetic-merge-only, source-only, or ancestor evidence is not PASS.",
@@ -74,6 +74,9 @@
     "A proof-bearing DDEX or CISAC CRD package becomes accounting ledger authority.",
     "Possession of a reporting evidence package or compiler access implies possession of the reporting evidence attestation private key.",
     "Pinning a reporting evidence attestation capabilityId is equivalent to pinning the exact capability root.",
-    "A detached reporting evidence package attestation turns DDEX or CISAC CRD into accounting ledger authority."
+    "A detached reporting evidence package attestation turns DDEX or CISAC CRD into accounting ledger authority.",
+    "A stale reporting evidence issuer trust bundle predating the package attestation signature is sufficient revocation evidence.",
+    "Reporting evidence issuer key rotation invalidates all historically valid package attestations by default.",
+    "A revoked reporting evidence issuer trust entry can authorize package signatures at or after revokedAt."
   ]
 }
