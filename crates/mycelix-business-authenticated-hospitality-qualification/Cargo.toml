@@ -1,0 +1,25 @@
+[package]
+name = "mycelix-business-authenticated-hospitality-qualification"
+version = "0.1.0"
+edition = "2024"
+description = "Additive authenticity-strengthened hospitality qualification for Mycelix Business"
+license = "AGPL-3.0-or-later"
+authors = ["Luminous Dynamics <contact@luminousdynamics.org>"]
+repository = "https://github.com/luminous-dynamics/mycelix"
+readme = "README.md"
+
+[lib]
+name = "mycelix_business_authenticated_hospitality_qualification"
+crate-type = ["rlib"]
+
+[dependencies]
+sha2 = "0.10"
+mycelix-business-control-authenticity-coverage = { path = "../mycelix-business-control-authenticity-coverage" }
+mycelix-business-control-coverage = { path = "../mycelix-business-control-coverage" }
+mycelix-business-control-reconciliation = { path = "../mycelix-business-control-reconciliation" }
+mycelix-business-controlled-hospitality-qualification = { path = "../mycelix-business-controlled-hospitality-qualification" }
+mycelix-business-core = { path = "../mycelix-business-core" }
+mycelix-business-derived-forecast-actual = { path = "../mycelix-business-derived-forecast-actual" }
+mycelix-business-forecast-plan = { path = "../mycelix-business-forecast-plan" }
+mycelix-business-hospitality-transaction-field = { path = "../mycelix-business-hospitality-transaction-field" }
+mycelix-business-pilot-hospitality = { path = "../mycelix-business-pilot-hospitality" }
