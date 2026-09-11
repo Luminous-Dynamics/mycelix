@@ -488,6 +488,40 @@ fn validate_update_loan(action: Update, loan: Loan) -> ExternResult<ValidateCall
     ))
 }
 
+fn loan_offer_validation_error(offer: &LoanOffer) -> Option<String> {
+    if offer.id.is_empty() {
+        return Some("Offer id must not be empty".into());
+    }
+    if !offer.lender_did.starts_with("did:") {
+        return Some("Lender must be a valid DID".into());
+    }
+    if offer.currency.is_empty() {
+        return Some("Offer currency must not be empty".into());
+    }
+    if !offer.min_amount.is_finite()
+        || !offer.max_amount.is_finite()
+        || offer.min_amount <= 0.0
+        || offer.max_amount <= 0.0
+    {
+        return Some("Offer amounts must be finite and positive".into());
+    }
+    if offer.min_amount > offer.max_amount {
+        return Some("Min amount cannot exceed max amount".into());
+    }
+    if !offer.base_interest_rate.is_finite()
+        || !(0.0..=1.0).contains(&offer.base_interest_rate)
+    {
+        return Some("Interest rate must be finite and between 0 and 100%".into());
+    }
+    if !offer.min_credit_score.is_finite() {
+        return Some("Minimum credit score must be finite".into());
+    }
+    if offer.max_term_days == 0 {
+        return Some("Maximum term must be at least one day".into());
+    }
+    None
+}
+
 fn validate_create_loan_offer(
     action: EntryCreationAction,
     offer: LoanOffer,
@@ -497,9 +531,6 @@ fn validate_create_loan_offer(
     // and never checks the caller, so before this any agent could publish a loan
     // offer in someone else's name (MYCELIX_AUTHOR_BINDING_TRIAGE_2026-07-09.md,
     // finance Class-A, `lending:234`).
-    //
-    // Safe to bind: exactly one coordinator creation path, no on-behalf-of flow
-    // (verified 2026-07-28).
     let author_did = did_for_author(action.author());
     if let ValidateCallbackResult::Invalid(msg) =
         require_did_is_author("LoanOffer", "lender_did", &offer.lender_did, &author_did)
@@ -507,111 +538,131 @@ fn validate_create_loan_offer(
         return Ok(ValidateCallbackResult::Invalid(msg));
     }
 
-    if !offer.lender_did.starts_with("did:") {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Lender must be a valid DID".into(),
-        ));
+    if let Some(msg) = loan_offer_validation_error(&offer) {
+        return Ok(ValidateCallbackResult::Invalid(msg));
     }
-    if !offer.min_amount.is_finite()
-        || !offer.max_amount.is_finite()
-        || offer.min_amount <= 0.0
-        || offer.max_amount <= 0.0
-    {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Offer amounts must be finite and positive".into(),
-        ));
-    }
-    if offer.min_amount > offer.max_amount {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Min amount cannot exceed max amount".into(),
-        ));
-    }
-    if !offer.base_interest_rate.is_finite()
-        || !(0.0..=1.0).contains(&offer.base_interest_rate)
-    {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Interest rate must be finite and between 0 and 100%".into(),
-        ));
-    }
-    if !offer.min_credit_score.is_finite() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Minimum credit score must be finite".into(),
-        ));
-    }
-    if offer.max_term_days == 0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Maximum term must be at least one day".into(),
-        ));
-    }
+
     Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_loan_offer_update_against_previous(
+    actor_did: &str,
+    previous: &LoanOffer,
+    updated: &LoanOffer,
+) -> ValidateCallbackResult {
+    if actor_did != previous.lender_did {
+        return ValidateCallbackResult::Invalid(
+            "Only the lender may update a legacy loan offer".into(),
+        );
+    }
+
+    if previous.id != updated.id
+        || previous.lender_did != updated.lender_did
+        || previous.max_amount != updated.max_amount
+        || previous.min_amount != updated.min_amount
+        || previous.currency != updated.currency
+        || previous.base_interest_rate != updated.base_interest_rate
+        || previous.min_credit_score != updated.min_credit_score
+        || previous.max_term_days != updated.max_term_days
+        || previous.collateral_required != updated.collateral_required
+        || previous.created != updated.created
+    {
+        return ValidateCallbackResult::Invalid(
+            "Legacy loan-offer economic terms are immutable".into(),
+        );
+    }
+
+    // The deprecated coordinator has exactly one supported offer mutation:
+    // active -> inactive. Do not let an update become a hidden repricing surface.
+    if !previous.active || updated.active {
+        return ValidateCallbackResult::Invalid(
+            "Legacy loan offers may only transition from active to inactive".into(),
+        );
+    }
+
+    ValidateCallbackResult::Valid
 }
 
 fn validate_update_loan_offer(
     action: Update,
     offer: LoanOffer,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Bind updates too, so a bound create cannot simply be overwritten by another
-    // agent. Safe: the only coordinator update path (`deactivate_offer`:415)
-    // locates the offer with `query()`, which reads the CALLER'S OWN source chain
-    // only — it can already only touch offers the caller authored.
-    //
-    // NOTE: `Update.author` is a field; `EntryCreationAction::author()` is a
-    // method. Hence the asymmetry with the create validator above.
-    let author_did = did_for_author(&action.author);
-    if let ValidateCallbackResult::Invalid(msg) =
-        require_did_is_author("LoanOffer", "lender_did", &offer.lender_did, &author_did)
-    {
-        return Ok(ValidateCallbackResult::Invalid(msg));
-    }
+    let previous_record = must_get_valid_record(action.original_action_address.clone())?;
+    let previous_offer = match previous_record.entry().to_app_option::<LoanOffer>() {
+        Ok(Some(previous)) => previous,
+        _ => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "LoanOffer update must reference a valid predecessor LoanOffer entry".into(),
+            ))
+        }
+    };
 
-    if !offer.min_amount.is_finite()
-        || !offer.max_amount.is_finite()
-        || offer.min_amount <= 0.0
-        || offer.max_amount <= 0.0
-    {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Offer amounts must be finite and positive".into(),
-        ));
-    }
-    if offer.min_amount > offer.max_amount {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Min amount cannot exceed max amount".into(),
-        ));
-    }
-    if !offer.base_interest_rate.is_finite()
-        || !(0.0..=1.0).contains(&offer.base_interest_rate)
-    {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Interest rate must be finite and between 0 and 100%".into(),
-        ));
-    }
-    if !offer.min_credit_score.is_finite() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Minimum credit score must be finite".into(),
-        ));
-    }
-    Ok(ValidateCallbackResult::Valid)
+    let actor_did = did_for_author(&action.author);
+    Ok(validate_loan_offer_update_against_previous(
+        &actor_did,
+        &previous_offer,
+        &offer,
+    ))
 }
 
 fn validate_create_payment_schedule(
     _action: EntryCreationAction,
     schedule: PaymentSchedule,
 ) -> ExternResult<ValidateCallbackResult> {
+    if schedule.loan_id.is_empty() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Schedule loan id must not be empty".into(),
+        ));
+    }
     if schedule.payments.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Schedule must have at least one payment".into(),
         ));
     }
-    for payment in &schedule.payments {
+
+    let mut previous_due: Option<Timestamp> = None;
+    for (index, payment) in schedule.payments.iter().enumerate() {
+        if payment.payment_number != (index as u32 + 1) {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Scheduled payment numbers must be contiguous starting at 1".into(),
+            ));
+        }
+        if let Some(due) = previous_due {
+            if payment.due_date <= due {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Scheduled payment due dates must be strictly increasing".into(),
+                ));
+            }
+        }
+        previous_due = Some(payment.due_date);
+
+        if payment.paid {
+            return Ok(ValidateCallbackResult::Invalid(
+                "New payment schedules cannot contain already-paid installments".into(),
+            ));
+        }
         if !payment.principal_amount.is_finite()
             || !payment.interest_amount.is_finite()
             || !payment.total_amount.is_finite()
-            || payment.principal_amount < 0.0
+            || payment.principal_amount <= 0.0
             || payment.interest_amount < 0.0
-            || payment.total_amount < 0.0
+            || payment.total_amount <= 0.0
         {
             return Ok(ValidateCallbackResult::Invalid(
-                "Scheduled payment amounts must be finite and non-negative".into(),
+                "Scheduled payment amounts must be finite with positive principal/total and non-negative interest".into(),
+            ));
+        }
+
+        let expected_total = payment.principal_amount + payment.interest_amount;
+        if !expected_total.is_finite() {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Scheduled payment principal plus interest must remain finite".into(),
+            ));
+        }
+        let tolerance = 1e-9_f64.max(expected_total.abs() * 1e-12);
+        if (payment.total_amount - expected_total).abs() > tolerance {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Scheduled payment total must equal principal plus interest".into(),
             ));
         }
     }
@@ -699,6 +750,30 @@ mod tests {
             collateral_required: false,
             active: true,
             created: ts(1_000_000),
+        }
+    }
+
+    fn valid_schedule() -> PaymentSchedule {
+        PaymentSchedule {
+            loan_id: "loan:test:001".into(),
+            payments: vec![
+                ScheduledPayment {
+                    payment_number: 1,
+                    due_date: ts(10_000_000),
+                    principal_amount: 100.0,
+                    interest_amount: 5.0,
+                    total_amount: 105.0,
+                    paid: false,
+                },
+                ScheduledPayment {
+                    payment_number: 2,
+                    due_date: ts(20_000_000),
+                    principal_amount: 100.0,
+                    interest_amount: 5.0,
+                    total_amount: 105.0,
+                    paid: false,
+                },
+            ],
         }
     }
 
@@ -862,16 +937,114 @@ mod tests {
     }
 
     #[test]
-    fn test_update_own_offer_is_accepted() {
-        let result = validate_update_loan_offer(make_update(), valid_offer()).unwrap();
+    fn test_offer_owner_can_deactivate_without_repricing() {
+        let previous = valid_offer();
+        let mut updated = previous.clone();
+        updated.active = false;
+        let result = validate_loan_offer_update_against_previous(
+            &previous.lender_did,
+            &previous,
+            &updated,
+        );
         assert!(matches!(result, ValidateCallbackResult::Valid));
     }
 
     #[test]
+    fn test_offer_update_cannot_change_economic_terms() {
+        let previous = valid_offer();
+        let mut updated = previous.clone();
+        updated.active = false;
+        updated.max_amount += 1.0;
+        let result = validate_loan_offer_update_against_previous(
+            &previous.lender_did,
+            &previous,
+            &updated,
+        );
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_inactive_offer_cannot_be_reactivated() {
+        let mut previous = valid_offer();
+        previous.active = false;
+        let mut updated = previous.clone();
+        updated.active = true;
+        let result = validate_loan_offer_update_against_previous(
+            &previous.lender_did,
+            &previous,
+            &updated,
+        );
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
     fn test_update_another_lenders_offer_is_rejected() {
-        let mut forged = valid_offer();
-        forged.lender_did = "did:mycelix:uhCAkSomeoneElse".into();
-        let result = validate_update_loan_offer(make_update(), forged).unwrap();
+        let previous = valid_offer();
+        let mut updated = previous.clone();
+        updated.active = false;
+        let result = validate_loan_offer_update_against_previous(
+            "did:mycelix:uhCAkSomeoneElse",
+            &previous,
+            &updated,
+        );
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_valid_payment_schedule_is_accepted() {
+        let result = validate_create_payment_schedule(
+            EntryCreationAction::Create(make_create()),
+            valid_schedule(),
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn test_payment_schedule_numbers_must_be_contiguous() {
+        let mut schedule = valid_schedule();
+        schedule.payments[1].payment_number = 3;
+        let result = validate_create_payment_schedule(
+            EntryCreationAction::Create(make_create()),
+            schedule,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_payment_schedule_due_dates_must_increase() {
+        let mut schedule = valid_schedule();
+        schedule.payments[1].due_date = schedule.payments[0].due_date;
+        let result = validate_create_payment_schedule(
+            EntryCreationAction::Create(make_create()),
+            schedule,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_new_payment_schedule_cannot_claim_paid_installment() {
+        let mut schedule = valid_schedule();
+        schedule.payments[0].paid = true;
+        let result = validate_create_payment_schedule(
+            EntryCreationAction::Create(make_create()),
+            schedule,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_payment_schedule_total_must_match_components() {
+        let mut schedule = valid_schedule();
+        schedule.payments[0].total_amount = 999.0;
+        let result = validate_create_payment_schedule(
+            EntryCreationAction::Create(make_create()),
+            schedule,
+        )
+        .unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 }
