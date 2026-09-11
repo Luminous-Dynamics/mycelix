@@ -317,6 +317,7 @@ pub enum ReconciliationError {
     Statement(StatementError),
     ReplayEvidence(ReplayError),
     ConnectorMismatch,
+    SourceInputNotDeclared { input: ReferenceId },
     ReplayObservationCountMismatch,
     ReplayObservationSetMismatch,
     InvalidObservation,
@@ -340,6 +341,11 @@ pub fn reconcile_control_total(
     validate_replay(campaign, replay)?;
     if replay.evidence.connector != contract.connector || campaign.connector != contract.connector {
         return Err(ReconciliationError::ConnectorMismatch);
+    }
+    if !campaign.supported_inputs.contains(&contract.source_input) {
+        return Err(ReconciliationError::SourceInputNotDeclared {
+            input: contract.source_input.clone(),
+        });
     }
 
     let mut observation_ids = BTreeSet::new();
@@ -440,6 +446,11 @@ impl ControlReconciliationEvidence {
             .validate_against(contract)
             .map_err(ReconciliationError::Statement)?;
         validate_replay(campaign, replay)?;
+        if !campaign.supported_inputs.contains(&contract.source_input) {
+            return Err(ReconciliationError::SourceInputNotDeclared {
+                input: contract.source_input.clone(),
+            });
+        }
         if self.contract_digest != contract.contract_digest
             || self.statement_digest != statement.statement_digest
             || self.campaign_digest != campaign.campaign_digest
@@ -526,7 +537,6 @@ pub enum LimitationApplicationError {
 /// Validate reconciliation evidence and apply only strict replacements. A matched control report
 /// always leaves control-source authenticity unresolved unless a separate authenticity verifier
 /// later discharges or narrows that limitation.
-#[allow(clippy::too_many_arguments)]
 pub fn apply_control_reconciliation_limitations(
     current: &BTreeSet<ReferenceId>,
     evidence: &ControlReconciliationEvidence,
@@ -981,6 +991,22 @@ mod tests {
                 actual_count: 2,
                 ..
             }
+        ));
+    }
+
+    #[test]
+    fn undeclared_control_input_cannot_match_zero_and_narrow_limitations() {
+        let adapter = adapter();
+        let file = source_file();
+        let campaign = campaign(&adapter, &file);
+        let replay = replay_campaign(&adapter, &campaign, std::slice::from_ref(&file)).unwrap();
+        let mut contract = contract(campaign.connector.clone());
+        contract.source_input = id("input:undeclared:v1");
+        contract.contract_digest = contract_digest(&contract);
+        let statement = statement(&contract, 0, 0);
+        assert!(matches!(
+            reconcile_control_total(&campaign, &replay, &contract, &statement),
+            Err(ReconciliationError::SourceInputNotDeclared { .. })
         ));
     }
 
