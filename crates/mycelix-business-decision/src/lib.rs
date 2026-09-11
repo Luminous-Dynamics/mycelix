@@ -40,6 +40,7 @@ pub struct DecisionCapsule {
     pub conflicts: BTreeSet<ReferenceId>,
     pub alternatives: BTreeSet<ProposalRef>,
     pub recommendation: ProposalRef,
+    /// Audit declaration only. The Action Contract remains authoritative for required capabilities.
     pub required_capabilities: BTreeSet<CapabilityRef>,
     pub model_lineage: ReferenceId,
     pub objective_contract_digest: Digest32,
@@ -53,6 +54,10 @@ pub enum DecisionCapsuleError {
     InvalidWindow,
     NoEpistemicInputs,
     RecommendationNotAlternative,
+    ContractMismatch,
+    PreparedDecisionMismatch,
+    CapabilityContractMismatch,
+    PreparedActionOutlivesDecision,
 }
 
 impl DecisionCapsule {
@@ -65,6 +70,27 @@ impl DecisionCapsule {
         }
         if !self.alternatives.contains(&self.recommendation) {
             return Err(DecisionCapsuleError::RecommendationNotAlternative);
+        }
+        Ok(())
+    }
+
+    /// Ensure the reasoning capsule cannot silently redefine execution requirements.
+    pub fn validate_against_coordination(
+        &self,
+        coordination: &CoordinationEnvelope,
+    ) -> Result<(), DecisionCapsuleError> {
+        self.validate()?;
+        if self.action_contract != coordination.contract.contract_ref {
+            return Err(DecisionCapsuleError::ContractMismatch);
+        }
+        if self.capsule_ref.id != coordination.prepared.decision_capsule {
+            return Err(DecisionCapsuleError::PreparedDecisionMismatch);
+        }
+        if self.required_capabilities != coordination.contract.required_capabilities {
+            return Err(DecisionCapsuleError::CapabilityContractMismatch);
+        }
+        if coordination.prepared.expires_at_unix_ms > self.valid_until_unix_ms {
+            return Err(DecisionCapsuleError::PreparedActionOutlivesDecision);
         }
         Ok(())
     }
@@ -100,7 +126,10 @@ pub enum AuthorizationBindingError {
 
 impl AuthorizationBinding {
     /// Validate that this authorization binds the exact prepared action it claims to authorize.
-    pub fn validate_prepared(&self, prepared: &PreparedAction) -> Result<(), AuthorizationBindingError> {
+    pub fn validate_prepared(
+        &self,
+        prepared: &PreparedAction,
+    ) -> Result<(), AuthorizationBindingError> {
         if prepared.decision_capsule != self.decision.id {
             return Err(AuthorizationBindingError::DecisionMismatch);
         }
@@ -332,7 +361,9 @@ pub fn retry_disposition(
         Some(EconomicEffectDisposition::Applied | EconomicEffectDisposition::Compensated) => {
             RetryDisposition::DoNotRetry
         }
-        Some(EconomicEffectDisposition::NotApplied) => RetryDisposition::RetryAfterConfirmedNotApplied,
+        Some(EconomicEffectDisposition::NotApplied) => {
+            RetryDisposition::RetryAfterConfirmedNotApplied
+        }
         Some(EconomicEffectDisposition::StillUnknown) | None => match policy {
             UnknownOutcomePolicy::IdempotentRetryOnly if provider_supports_stable_idempotency => {
                 RetryDisposition::RetryWithSameIdempotencyKey
@@ -357,7 +388,9 @@ pub struct DecisionOutcomeRecord {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DecisionOutcomeError {
+    DecisionMismatch,
     ReconciliationMismatch,
+    AttemptMismatch,
     EconomicEffectStillUnknown,
     NoOutcomeObservations,
     ZeroEvaluationHorizon,
@@ -365,9 +398,19 @@ pub enum DecisionOutcomeError {
 }
 
 impl DecisionOutcomeRecord {
-    pub fn validate(&self, reconciliation: &ReconciliationRecord) -> Result<(), DecisionOutcomeError> {
+    pub fn validate(
+        &self,
+        reconciliation: &ReconciliationRecord,
+        attempt: &ExecutionAttemptRecord,
+    ) -> Result<(), DecisionOutcomeError> {
+        if self.decision != attempt.decision {
+            return Err(DecisionOutcomeError::DecisionMismatch);
+        }
         if self.reconciliation != reconciliation.reconciliation {
             return Err(DecisionOutcomeError::ReconciliationMismatch);
+        }
+        if reconciliation.attempt != attempt.attempt {
+            return Err(DecisionOutcomeError::AttemptMismatch);
         }
         if reconciliation.disposition == EconomicEffectDisposition::StillUnknown {
             return Err(DecisionOutcomeError::EconomicEffectStillUnknown);
@@ -443,10 +486,7 @@ mod tests {
             forecasts: BTreeSet::new(),
             assumptions: BTreeSet::from([id("assumption:delivery-window")]),
             conflicts: BTreeSet::new(),
-            alternatives: BTreeSet::from([
-                proposal("proposal:no-order"),
-                recommended.clone(),
-            ]),
+            alternatives: BTreeSet::from([proposal("proposal:no-order"), recommended.clone()]),
             recommendation: recommended,
             required_capabilities: BTreeSet::from([capability("procurement:place-order")]),
             model_lineage: id("model:symthaea-demand:v17"),
@@ -574,13 +614,16 @@ mod tests {
     }
 
     #[test]
-    fn decision_capsule_requires_recommendation_to_be_an_explicit_alternative() {
+    fn decision_capsule_cannot_redefine_action_contract_capabilities() {
+        let coordination = coordination();
         let mut value = capsule();
-        assert_eq!(value.validate(), Ok(()));
-        value.alternatives.clear();
+        assert_eq!(value.validate_against_coordination(&coordination), Ok(()));
+        value
+            .required_capabilities
+            .insert(capability("treasury:borrow"));
         assert_eq!(
-            value.validate(),
-            Err(DecisionCapsuleError::RecommendationNotAlternative)
+            value.validate_against_coordination(&coordination),
+            Err(DecisionCapsuleError::CapabilityContractMismatch)
         );
     }
 
@@ -601,10 +644,7 @@ mod tests {
         let coordination = coordination();
         let authorization = authorization();
         let mut value = attempt();
-        assert_eq!(
-            value.validate_binding(&authorization, &coordination),
-            Ok(())
-        );
+        assert_eq!(value.validate_binding(&authorization, &coordination), Ok(()));
         value.idempotency_key = id("order:different");
         assert_eq!(
             value.validate_binding(&authorization, &coordination),
@@ -658,9 +698,10 @@ mod tests {
     }
 
     #[test]
-    fn outcomes_wait_until_economic_effect_is_reconciled() {
+    fn outcomes_bind_back_to_the_same_decision_and_reconciliation() {
+        let attempt = attempt();
         let unknown = reconciliation(EconomicEffectDisposition::StillUnknown);
-        let outcome = DecisionOutcomeRecord {
+        let mut outcome = DecisionOutcomeRecord {
             decision: decision_ref(),
             reconciliation: ReconciliationRef(id("reconciliation:1")),
             outcome_observations: BTreeSet::from([observation("observation:outcome:1")]),
@@ -669,11 +710,20 @@ mod tests {
             calibration_evidence: Some(id("calibration:1")),
         };
         assert_eq!(
-            outcome.validate(&unknown),
+            outcome.validate(&unknown, &attempt),
             Err(DecisionOutcomeError::EconomicEffectStillUnknown)
         );
 
         let applied = reconciliation(EconomicEffectDisposition::Applied);
-        assert_eq!(outcome.validate(&applied), Ok(()));
+        assert_eq!(outcome.validate(&applied, &attempt), Ok(()));
+
+        outcome.decision = DecisionCapsuleRef {
+            id: id("decision:other"),
+            digest: Digest32::repeat(90),
+        };
+        assert_eq!(
+            outcome.validate(&applied, &attempt),
+            Err(DecisionOutcomeError::DecisionMismatch)
+        );
     }
 }
