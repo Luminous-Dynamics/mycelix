@@ -18,3 +18,6 @@ mycelix-business-control-coverage = { path = "../mycelix-business-control-covera
 mycelix-business-control-reconciliation = { path = "../mycelix-business-control-reconciliation" }
 mycelix-business-core = { path = "../mycelix-business-core" }
 mycelix-business-evidence-authenticity = { path = "../mycelix-business-evidence-authenticity" }
+
+[dev-dependencies]
+mycelix-business-ingress = { path = "../mycelix-business-ingress" }
