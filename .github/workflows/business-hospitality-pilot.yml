@@ -1,0 +1,43 @@
+name: Business Hospitality Pilot Registration
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-business-core/**'
+      - 'crates/mycelix-business-shadow/**'
+      - 'crates/mycelix-business-ingress/**'
+      - 'crates/mycelix-business-field-qualification/**'
+      - 'crates/mycelix-business-profile-hospitality/**'
+      - 'crates/mycelix-business-pilot-hospitality/**'
+      - '.github/workflows/business-hospitality-pilot.yml'
+  push:
+    branches:
+      - main
+      - 'feat/business-hospitality-pilot-registration-*'
+    paths:
+      - 'crates/mycelix-business-core/**'
+      - 'crates/mycelix-business-shadow/**'
+      - 'crates/mycelix-business-ingress/**'
+      - 'crates/mycelix-business-field-qualification/**'
+      - 'crates/mycelix-business-profile-hospitality/**'
+      - 'crates/mycelix-business-pilot-hospitality/**'
+      - '.github/workflows/business-hospitality-pilot.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  hospitality-pilot-registration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path crates/mycelix-business-pilot-hospitality/Cargo.toml --all --check
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-business-pilot-hospitality/Cargo.toml --all-targets -- -D warnings
+      - name: Test pilot registration
+        run: cargo test --manifest-path crates/mycelix-business-pilot-hospitality/Cargo.toml --all-targets
