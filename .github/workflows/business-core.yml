@@ -6,7 +6,6 @@ on:
       - 'crates/mycelix-business-core/**'
       - '.github/workflows/business-core.yml'
   push:
-    branches: [main]
     paths:
       - 'crates/mycelix-business-core/**'
       - '.github/workflows/business-core.yml'
