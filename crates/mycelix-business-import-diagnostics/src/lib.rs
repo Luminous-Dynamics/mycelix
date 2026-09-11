@@ -168,7 +168,7 @@ impl ImportDiagnosticManifest {
             self.latest_observed_at_unix_ms,
         ) {
             (Some(first), Some(last)) if first > last => {
-                return Err(ManifestError::InvalidObservedWindow)
+                return Err(ManifestError::InvalidObservedWindow);
             }
             (Some(_), None) | (None, Some(_)) => return Err(ManifestError::InvalidObservedWindow),
             _ => {}
@@ -250,11 +250,8 @@ pub fn diagnose_delimited_import<R: Read>(
             }
         };
 
-        let one_row = serialize_single_record(
-            adapter.config.delimiter,
-            &actual_headers,
-            &record,
-        )?;
+        let one_row =
+            serialize_single_record(adapter.config.delimiter, &actual_headers, &record)?;
         match adapter.parse_batch(one_row.as_slice(), ingested_at_unix_ms) {
             Ok(batch) => {
                 let Some(parsed) = batch.records.first() else {
@@ -327,7 +324,9 @@ pub fn diagnose_delimited_import<R: Read>(
 fn read_bounded<R: Read>(reader: R) -> Result<Vec<u8>, DiagnosticError> {
     let mut limited = reader.take(MAX_DIAGNOSTIC_INPUT_BYTES + 1);
     let mut bytes = Vec::new();
-    limited.read_to_end(&mut bytes).map_err(DiagnosticError::Io)?;
+    limited
+        .read_to_end(&mut bytes)
+        .map_err(DiagnosticError::Io)?;
     if bytes.len() as u64 > MAX_DIAGNOSTIC_INPUT_BYTES {
         return Err(DiagnosticError::InputTooLarge {
             maximum_bytes: MAX_DIAGNOSTIC_INPUT_BYTES,
@@ -607,10 +606,8 @@ mod tests {
         DecimalPolicy, DelimitedAdapterConfig, OutputMapping, ScopeMapping, TimestampEncoding,
         ValueMapping,
     };
-    use mycelix_business_core::{CapabilityRef, ProfileRef, ScopeRef};
-    use mycelix_business_field_qualification::{
-        ConnectorBinding, DataQualityEvidence, SliceEvidence,
-    };
+    use mycelix_business_core::ScopeRef;
+    use mycelix_business_field_qualification::{DataQualityEvidence, SliceEvidence};
     use mycelix_business_pilot_hospitality::{
         DAY_MS, HOUR_MS, HospitalityForecastPilotConfig, HospitalityPilotPolicy,
         standard_daypart_slices_v1,
