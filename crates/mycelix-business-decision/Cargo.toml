@@ -1,0 +1,17 @@
+[package]
+name = "mycelix-business-decision"
+version = "0.1.0"
+edition = "2024"
+description = "Decision, execution receipt, and reconciliation lineage contracts for the Mycelix Business Fabric"
+license = "AGPL-3.0-or-later"
+authors = ["Luminous Dynamics <contact@luminousdynamics.org>"]
+repository = "https://github.com/luminous-dynamics/mycelix"
+readme = "README.md"
+
+[lib]
+name = "mycelix_business_decision"
+crate-type = ["rlib"]
+
+[dependencies]
+mycelix-business-core = { path = "../mycelix-business-core" }
+mycelix-business-coordination = { path = "../mycelix-business-coordination" }
