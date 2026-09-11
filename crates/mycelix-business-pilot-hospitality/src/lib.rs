@@ -5,12 +5,10 @@
 //! This crate composes the generic shadow, field-qualification, ingress, and hospitality-profile
 //! contracts. It introduces no execution path and grants no authority.
 
-use std::collections::BTreeSet;
-
 use mycelix_business_core::{CapabilityRef, Digest32, ReferenceId, ScopeRef};
 use mycelix_business_field_qualification::{
-    ConnectorBinding, DataQualityEvidence, DataQualityThreshold, EvaluationSlice, EvidenceError,
-    FieldQualificationDecision, FieldQualificationEvidence, FieldQualificationPlan, SliceEvidence,
+    ConnectorBinding, DataQualityThreshold, EvaluationSlice, EvidenceError,
+    FieldQualificationDecision, FieldQualificationEvidence, FieldQualificationPlan,
     evaluate_field_qualification,
 };
 use mycelix_business_ingress::IngressQualificationBinding;
@@ -631,6 +629,10 @@ fn registration_digest(
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
+
+    use mycelix_business_field_qualification::{DataQualityEvidence, SliceEvidence};
+
     use super::*;
 
     fn connector(schema_byte: u8) -> IngressQualificationBinding {
