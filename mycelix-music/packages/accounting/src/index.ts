@@ -16,7 +16,26 @@ export * from './obligation-authority.js';
 export * from './deduction-authority.js';
 export * from './settlement-allocation.js';
 export * from './settlement-allocation-lineage.js';
-export * from './settlement-allocation-lineage-checkpoint.js';
+export {
+  SETTLEMENT_ALLOCATION_LINEAGE_CHECKPOINT_SIGNING_SCOPE,
+  createSettlementAllocationLineageCheckpoint,
+  assertSettlementAllocationLineageCheckpoint,
+  createSettlementAllocationLineageCheckpointSigningRequest,
+  settlementAllocationLineageCheckpointSigningPayloadBase64,
+  attachSettlementAllocationLineageCheckpointDetachedSignature,
+  verifySettlementAllocationLineageCheckpoint,
+  resolveCheckpointBackedSettlementAllocationLineage,
+  requireCheckpointBackedSettlementAllocationLineage,
+  type SettlementAllocationLineageCheckpoint,
+  type SettlementAllocationLineageCheckpointSigningCapability,
+  type SettlementAllocationLineageCheckpointSigningRequest,
+  type CreateSettlementAllocationLineageCheckpointSigningRequestInput,
+  type SettlementAllocationLineageCheckpointDetachedSignature,
+  type SignedSettlementAllocationLineageCheckpoint,
+  type SettlementAllocationLineageCheckpointTrustPolicy,
+  type CreateSettlementAllocationLineageCheckpointInput,
+  type CheckpointBackedSettlementAllocationLineage,
+} from './settlement-allocation-lineage-checkpoint.js';
 export * from './settlement-allocation-lineage-persistence.js';
 export * from './settlement-allocation-lineage-checkpoint-compiler.js';
 export * from './persistence-projection.js';

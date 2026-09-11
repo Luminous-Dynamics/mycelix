@@ -15,6 +15,8 @@ import {
 import type { SettlementAllocationAuthority } from './settlement-allocation.js';
 
 const CHECKPOINT_SIGNATURE_DOMAIN = 'mycelix-accounting-settlement-allocation-lineage-checkpoint-signature-v1\0';
+export const SETTLEMENT_ALLOCATION_LINEAGE_CHECKPOINT_SIGNING_SCOPE =
+  'accounting.settlement-allocation-lineage.checkpoint.sign' as const;
 const SHA256_HEX = /^[0-9a-f]{64}$/;
 const CANONICAL_UINT = /^(0|[1-9][0-9]*)$/;
 
@@ -32,9 +34,54 @@ export interface SettlementAllocationLineageCheckpoint {
   readonly checkpointRoot: Digest;
 }
 
+export interface SettlementAllocationLineageCheckpointSigningCapability {
+  readonly capabilityId: string;
+  readonly scope: typeof SETTLEMENT_ALLOCATION_LINEAGE_CHECKPOINT_SIGNING_SCOPE;
+  readonly sourceRef: string;
+  readonly sourceInstanceId: string;
+  readonly signerKeyId: string;
+  readonly validFrom: string;
+  readonly validUntil: string;
+}
+
+export interface SettlementAllocationLineageCheckpointSigningRequest {
+  readonly requestId: string;
+  readonly capabilityId: string;
+  readonly scope: typeof SETTLEMENT_ALLOCATION_LINEAGE_CHECKPOINT_SIGNING_SCOPE;
+  readonly sourceRef: string;
+  readonly sourceInstanceId: string;
+  readonly signerKeyId: string;
+  readonly capabilityValidFrom: string;
+  readonly capabilityValidUntil: string;
+  readonly checkpointId: string;
+  readonly checkpointRoot: Digest;
+  readonly batchId: string;
+  readonly highWaterMark: string;
+  readonly issuedAt: string;
+  readonly expiresAt: string;
+  readonly nonce: string;
+  readonly requestRoot: Digest;
+}
+
+export interface CreateSettlementAllocationLineageCheckpointSigningRequestInput {
+  readonly requestId: string;
+  readonly issuedAt: string;
+  readonly expiresAt: string;
+  readonly nonce: string;
+}
+
+export interface SettlementAllocationLineageCheckpointDetachedSignature {
+  readonly requestRoot: Digest;
+  readonly signerKeyId: string;
+  readonly signedAt: string;
+  readonly signatureBase64: string;
+}
+
 export interface SignedSettlementAllocationLineageCheckpoint extends SettlementAllocationLineageCheckpoint {
   readonly signerKeyId: string;
   readonly signatureBase64: string;
+  readonly signedAt: string;
+  readonly signingRequest: SettlementAllocationLineageCheckpointSigningRequest;
 }
 
 export interface SettlementAllocationLineageCheckpointTrustPolicy {
@@ -42,6 +89,8 @@ export interface SettlementAllocationLineageCheckpointTrustPolicy {
   readonly sourceInstanceId: string;
   readonly signerKeyId: string;
   readonly publicKeyPem: string;
+  /** Optional pin for deployments that rotate multiple scoped capabilities on one key. */
+  readonly capabilityId?: string;
 }
 
 export interface CreateSettlementAllocationLineageCheckpointInput {
@@ -84,7 +133,7 @@ function assertDigest(label: string, value: string): Digest {
 
 function canonicalHighWaterMark(value: string): string {
   const normalized = value.trim();
-  if (!CANONICAL_UINT.test(normalized)) {
+  if (normalized !== value || !CANONICAL_UINT.test(normalized)) {
     throw new Error('settlement allocation checkpoint highWaterMark must be a canonical unsigned integer');
   }
   return normalized;
@@ -121,8 +170,17 @@ function checkpointCommitment(input: Omit<SettlementAllocationLineageCheckpoint,
   }]).root;
 }
 
-function checkpointSigningMessage(checkpointRoot: Digest): Buffer {
-  return Buffer.from(`${CHECKPOINT_SIGNATURE_DOMAIN}${checkpointRoot}`, 'utf8');
+function signingRequestCommitment(
+  input: Omit<SettlementAllocationLineageCheckpointSigningRequest, 'requestRoot'>,
+): Digest {
+  return buildMerkleCommitment([{
+    recordType: 'settlement_allocation_lineage_checkpoint_signing_request_v1',
+    ...input,
+  }]).root;
+}
+
+function checkpointSigningMessage(requestRoot: Digest, signedAt: string): Buffer {
+  return Buffer.from(`${CHECKPOINT_SIGNATURE_DOMAIN}detached-v2\0${requestRoot}\0${signedAt}`, 'utf8');
 }
 
 function assertCanonicalSignature(value: string): Buffer {
@@ -132,6 +190,59 @@ function assertCanonicalSignature(value: string): Buffer {
     throw new Error('settlement allocation checkpoint signature must be canonical Ed25519 base64');
   }
   return decoded;
+}
+
+function canonicalSigningRequest(
+  request: SettlementAllocationLineageCheckpointSigningRequest,
+  checkpoint?: SettlementAllocationLineageCheckpoint,
+): Readonly<SettlementAllocationLineageCheckpointSigningRequest> {
+  const committed = Object.freeze({
+    requestId: required('checkpoint signing requestId', request.requestId),
+    capabilityId: required('checkpoint signing capabilityId', request.capabilityId),
+    scope: request.scope,
+    sourceRef: required('checkpoint signing sourceRef', request.sourceRef),
+    sourceInstanceId: required('checkpoint signing sourceInstanceId', request.sourceInstanceId),
+    signerKeyId: required('checkpoint signing signerKeyId', request.signerKeyId),
+    capabilityValidFrom: timestamp('checkpoint signing capabilityValidFrom', request.capabilityValidFrom),
+    capabilityValidUntil: timestamp('checkpoint signing capabilityValidUntil', request.capabilityValidUntil),
+    checkpointId: required('checkpoint signing checkpointId', request.checkpointId),
+    checkpointRoot: assertDigest('checkpoint signing checkpointRoot', request.checkpointRoot),
+    batchId: required('checkpoint signing batchId', request.batchId),
+    highWaterMark: canonicalHighWaterMark(request.highWaterMark),
+    issuedAt: timestamp('checkpoint signing issuedAt', request.issuedAt),
+    expiresAt: timestamp('checkpoint signing expiresAt', request.expiresAt),
+    nonce: required('checkpoint signing nonce', request.nonce),
+  });
+  if (committed.scope !== SETTLEMENT_ALLOCATION_LINEAGE_CHECKPOINT_SIGNING_SCOPE) {
+    throw new Error('checkpoint signing request has unsupported capability scope');
+  }
+  const validFromMs = Date.parse(committed.capabilityValidFrom);
+  const validUntilMs = Date.parse(committed.capabilityValidUntil);
+  const issuedAtMs = Date.parse(committed.issuedAt);
+  const expiresAtMs = Date.parse(committed.expiresAt);
+  if (validUntilMs <= validFromMs) throw new Error('checkpoint signing capability validity window is invalid');
+  if (expiresAtMs <= issuedAtMs) throw new Error('checkpoint signing request expiry must be after issuance');
+  if (issuedAtMs < validFromMs || expiresAtMs > validUntilMs) {
+    throw new Error('checkpoint signing request must remain inside capability validity window');
+  }
+  const expectedRoot = signingRequestCommitment(committed);
+  if (request.requestRoot !== expectedRoot) {
+    throw new Error('checkpoint signing request root does not match canonical contents');
+  }
+  if (checkpoint !== undefined) {
+    assertSettlementAllocationLineageCheckpoint(checkpoint);
+    if (
+      committed.sourceRef !== checkpoint.sourceRef
+      || committed.sourceInstanceId !== checkpoint.sourceInstanceId
+      || committed.checkpointId !== checkpoint.checkpointId
+      || committed.checkpointRoot !== checkpoint.checkpointRoot
+      || committed.batchId !== checkpoint.batchId
+      || committed.highWaterMark !== checkpoint.highWaterMark
+    ) {
+      throw new Error('checkpoint signing request does not match checkpoint authority');
+    }
+  }
+  return Object.freeze({ ...committed, requestRoot: expectedRoot });
 }
 
 export function createSettlementAllocationLineageCheckpoint(
@@ -203,6 +314,119 @@ export function assertSettlementAllocationLineageCheckpoint(
   }
 }
 
+export function createSettlementAllocationLineageCheckpointSigningRequest(
+  checkpoint: SettlementAllocationLineageCheckpoint,
+  capability: SettlementAllocationLineageCheckpointSigningCapability,
+  input: CreateSettlementAllocationLineageCheckpointSigningRequestInput,
+): Readonly<SettlementAllocationLineageCheckpointSigningRequest> {
+  assertSettlementAllocationLineageCheckpoint(checkpoint);
+  const capabilityId = required('checkpoint signing capabilityId', capability.capabilityId);
+  const sourceRef = required('checkpoint signing capability sourceRef', capability.sourceRef);
+  const sourceInstanceId = required('checkpoint signing capability sourceInstanceId', capability.sourceInstanceId);
+  const signerKeyId = required('checkpoint signing capability signerKeyId', capability.signerKeyId);
+  const capabilityValidFrom = timestamp('checkpoint signing capability validFrom', capability.validFrom);
+  const capabilityValidUntil = timestamp('checkpoint signing capability validUntil', capability.validUntil);
+  if (capability.scope !== SETTLEMENT_ALLOCATION_LINEAGE_CHECKPOINT_SIGNING_SCOPE) {
+    throw new Error('checkpoint signing capability has unsupported scope');
+  }
+  if (sourceRef !== checkpoint.sourceRef || sourceInstanceId !== checkpoint.sourceInstanceId) {
+    throw new Error('checkpoint signing capability does not authorize checkpoint source identity');
+  }
+  const committed = Object.freeze({
+    requestId: required('checkpoint signing requestId', input.requestId),
+    capabilityId,
+    scope: capability.scope,
+    sourceRef,
+    sourceInstanceId,
+    signerKeyId,
+    capabilityValidFrom,
+    capabilityValidUntil,
+    checkpointId: checkpoint.checkpointId,
+    checkpointRoot: checkpoint.checkpointRoot,
+    batchId: checkpoint.batchId,
+    highWaterMark: checkpoint.highWaterMark,
+    issuedAt: timestamp('checkpoint signing issuedAt', input.issuedAt),
+    expiresAt: timestamp('checkpoint signing expiresAt', input.expiresAt),
+    nonce: required('checkpoint signing nonce', input.nonce),
+  });
+  const requestRoot = signingRequestCommitment(committed);
+  const request = Object.freeze({ ...committed, requestRoot });
+  return canonicalSigningRequest(request, checkpoint);
+}
+
+export function settlementAllocationLineageCheckpointSigningPayloadBase64(
+  request: SettlementAllocationLineageCheckpointSigningRequest,
+  signedAt: string,
+): string {
+  const canonicalRequest = canonicalSigningRequest(request);
+  const canonicalSignedAt = timestamp('checkpoint signature signedAt', signedAt);
+  const signedAtMs = Date.parse(canonicalSignedAt);
+  if (
+    signedAtMs < Date.parse(canonicalRequest.issuedAt)
+    || signedAtMs > Date.parse(canonicalRequest.expiresAt)
+    || signedAtMs < Date.parse(canonicalRequest.capabilityValidFrom)
+    || signedAtMs > Date.parse(canonicalRequest.capabilityValidUntil)
+  ) {
+    throw new Error('checkpoint detached signature time is outside authorized request window');
+  }
+  return checkpointSigningMessage(canonicalRequest.requestRoot, canonicalSignedAt).toString('base64');
+}
+
+export function attachSettlementAllocationLineageCheckpointDetachedSignature(
+  checkpoint: SettlementAllocationLineageCheckpoint,
+  request: SettlementAllocationLineageCheckpointSigningRequest,
+  detached: SettlementAllocationLineageCheckpointDetachedSignature,
+  policy: SettlementAllocationLineageCheckpointTrustPolicy,
+): Readonly<SignedSettlementAllocationLineageCheckpoint> {
+  assertSettlementAllocationLineageCheckpoint(checkpoint);
+  const canonicalRequest = canonicalSigningRequest(request, checkpoint);
+  const trustedSourceRef = required('trusted checkpoint sourceRef', policy.sourceRef);
+  const trustedSourceInstanceId = required('trusted checkpoint sourceInstanceId', policy.sourceInstanceId);
+  const trustedSignerKeyId = required('trusted checkpoint signerKeyId', policy.signerKeyId);
+  if (checkpoint.sourceRef !== trustedSourceRef || checkpoint.sourceInstanceId !== trustedSourceInstanceId) {
+    throw new Error('settlement allocation checkpoint source identity is not trusted');
+  }
+  if (canonicalRequest.signerKeyId !== trustedSignerKeyId || detached.signerKeyId !== trustedSignerKeyId) {
+    throw new Error('settlement allocation checkpoint signer key is not trusted');
+  }
+  if (policy.capabilityId !== undefined && canonicalRequest.capabilityId !== required('trusted checkpoint capabilityId', policy.capabilityId)) {
+    throw new Error('settlement allocation checkpoint signing capability is not trusted');
+  }
+  if (detached.requestRoot !== canonicalRequest.requestRoot) {
+    throw new Error('checkpoint detached signature does not bind the canonical signing request');
+  }
+  const canonicalSignedAt = timestamp('checkpoint signature signedAt', detached.signedAt);
+  const expectedPayload = settlementAllocationLineageCheckpointSigningPayloadBase64(canonicalRequest, canonicalSignedAt);
+
+  const publicKey = createPublicKey(policy.publicKeyPem);
+  if (publicKey.asymmetricKeyType !== 'ed25519') {
+    throw new Error('settlement allocation checkpoint verification key must be Ed25519');
+  }
+  const signature = assertCanonicalSignature(detached.signatureBase64);
+  const valid = verifyEd25519(
+    null,
+    Buffer.from(expectedPayload, 'base64'),
+    publicKey,
+    signature,
+  );
+  if (!valid) throw new Error('settlement allocation checkpoint signature verification failed');
+
+  const verified = Object.freeze({
+    ...checkpoint,
+    signerKeyId: trustedSignerKeyId,
+    signatureBase64: detached.signatureBase64,
+    signedAt: canonicalSignedAt,
+    signingRequest: canonicalRequest,
+  });
+  VERIFIED_CHECKPOINTS.add(verified);
+  return verified;
+}
+
+/**
+ * Deprecated deep-module compatibility helper. It is intentionally omitted from
+ * the @mycelix/accounting package index. Operational code must use detached
+ * signing requests so database/compiler processes never receive private keys.
+ */
 export function signSettlementAllocationLineageCheckpoint(
   checkpoint: SettlementAllocationLineageCheckpoint,
   signerKeyId: string,
@@ -214,45 +438,55 @@ export function signSettlementAllocationLineageCheckpoint(
   if (privateKey.asymmetricKeyType !== 'ed25519') {
     throw new Error('settlement allocation checkpoint signing key must be Ed25519');
   }
-  const signatureBase64 = signEd25519(
-    null,
-    checkpointSigningMessage(checkpoint.checkpointRoot),
-    privateKey,
-  ).toString('base64');
-  return Object.freeze({ ...checkpoint, signerKeyId: keyId, signatureBase64 });
+  const issuedAt = checkpoint.observedThrough;
+  const expiresAt = new Date(Date.parse(issuedAt) + 60_000).toISOString();
+  const request = createSettlementAllocationLineageCheckpointSigningRequest(
+    checkpoint,
+    {
+      capabilityId: `legacy-inline:${keyId}`,
+      scope: SETTLEMENT_ALLOCATION_LINEAGE_CHECKPOINT_SIGNING_SCOPE,
+      sourceRef: checkpoint.sourceRef,
+      sourceInstanceId: checkpoint.sourceInstanceId,
+      signerKeyId: keyId,
+      validFrom: checkpoint.asOf,
+      validUntil: expiresAt,
+    },
+    {
+      requestId: `legacy-inline:${checkpoint.checkpointId}`,
+      issuedAt,
+      expiresAt,
+      nonce: checkpoint.checkpointRoot,
+    },
+  );
+  const payload = Buffer.from(
+    settlementAllocationLineageCheckpointSigningPayloadBase64(request, issuedAt),
+    'base64',
+  );
+  const signatureBase64 = signEd25519(null, payload, privateKey).toString('base64');
+  return Object.freeze({
+    ...checkpoint,
+    signerKeyId: keyId,
+    signatureBase64,
+    signedAt: issuedAt,
+    signingRequest: request,
+  });
 }
 
 export function verifySettlementAllocationLineageCheckpoint(
   checkpoint: SignedSettlementAllocationLineageCheckpoint,
   policy: SettlementAllocationLineageCheckpointTrustPolicy,
 ): Readonly<SignedSettlementAllocationLineageCheckpoint> {
-  assertSettlementAllocationLineageCheckpoint(checkpoint);
-  const trustedSourceRef = required('trusted checkpoint sourceRef', policy.sourceRef);
-  const trustedSourceInstanceId = required('trusted checkpoint sourceInstanceId', policy.sourceInstanceId);
-  const trustedSignerKeyId = required('trusted checkpoint signerKeyId', policy.signerKeyId);
-  if (checkpoint.sourceRef !== trustedSourceRef || checkpoint.sourceInstanceId !== trustedSourceInstanceId) {
-    throw new Error('settlement allocation checkpoint source identity is not trusted');
-  }
-  if (checkpoint.signerKeyId !== trustedSignerKeyId) {
-    throw new Error('settlement allocation checkpoint signer key is not trusted');
-  }
-
-  const publicKey = createPublicKey(policy.publicKeyPem);
-  if (publicKey.asymmetricKeyType !== 'ed25519') {
-    throw new Error('settlement allocation checkpoint verification key must be Ed25519');
-  }
-  const signature = assertCanonicalSignature(checkpoint.signatureBase64);
-  const valid = verifyEd25519(
-    null,
-    checkpointSigningMessage(checkpoint.checkpointRoot),
-    publicKey,
-    signature,
+  return attachSettlementAllocationLineageCheckpointDetachedSignature(
+    checkpoint,
+    checkpoint.signingRequest,
+    {
+      requestRoot: checkpoint.signingRequest.requestRoot,
+      signerKeyId: checkpoint.signerKeyId,
+      signedAt: checkpoint.signedAt,
+      signatureBase64: checkpoint.signatureBase64,
+    },
+    policy,
   );
-  if (!valid) throw new Error('settlement allocation checkpoint signature verification failed');
-
-  const verified = Object.freeze({ ...checkpoint });
-  VERIFIED_CHECKPOINTS.add(verified);
-  return verified;
 }
 
 export function resolveCheckpointBackedSettlementAllocationLineage(
