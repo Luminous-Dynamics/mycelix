@@ -103,7 +103,7 @@ pub enum CollateralValuationFailure {
 }
 
 /// Provider outcome. Failure is never represented by a numeric value.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CollateralValuationOutcome {
     Observed {
         value: u64,
