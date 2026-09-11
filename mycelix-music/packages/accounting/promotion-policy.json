@@ -20,7 +20,7 @@
       "id": "source-invariants",
       "workingDirectory": "mycelix-music",
       "command": "npm run check:invariants",
-      "purpose": "prevent legacy payment/status authority and other source-level economic regressions, including checkpoint compiler, signer-custody, signer-trust, trust-anchor, statement-root-trust and audit-capsule bypass"
+      "purpose": "prevent legacy payment/status authority and other source-level economic regressions, including checkpoint compiler, signer-custody, signer-trust, trust-anchor, statement-root-trust, audit-capsule and audit-issuer bypass"
     },
     {
       "id": "accounting-type-check",
@@ -32,7 +32,7 @@
       "id": "accounting-tests",
       "workingDirectory": "mycelix-music",
       "command": "npm test --workspace=@mycelix/accounting",
-      "purpose": "run economic conservation, settlement recovery, statement, audit, disclosure, lineage-checkpoint, compiler, signer-capability, trust-rotation, trust-anchor, statement-root-trust and audit-capsule-v2 regressions"
+      "purpose": "run economic conservation, settlement recovery, statement, audit, disclosure, lineage-checkpoint, compiler, signer-capability, trust-rotation, trust-anchor, statement-root-trust, audit-capsule-v2 and audit-issuer-attestation regressions"
     }
   ],
   "promotionRule": "Every qualification item must succeed after the workflow has checked out and mechanically verified the exact proposed head commit. Missing, queued, skipped, stale, synthetic-merge-only, source-only, or ancestor evidence is not PASS.",
@@ -53,6 +53,9 @@
     "A checkpoint-backed allocation lineage without root-anchored signer trust is sufficient statement discharge authority.",
     "A caller-supplied trust list is equivalent to trust evidence derived from the exact statement compiler input.",
     "A caller-supplied conservation proof is authoritative for an EconomicAuditCapsule v2.",
-    "A structurally valid serialized audit capsule proves who produced or anchored it."
+    "A structurally valid serialized audit capsule proves who produced or anchored it.",
+    "An EconomicAuditCapsule digest without a verified detached issuer attestation proves issuer identity.",
+    "Accounting, database or statement compiler access implies possession of audit-capsule issuer signing keys.",
+    "Pinning an audit attestation capabilityId is equivalent to pinning the exact capability root."
   ]
 }
