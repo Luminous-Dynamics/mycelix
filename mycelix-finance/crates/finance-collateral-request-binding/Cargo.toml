@@ -1,0 +1,14 @@
+[package]
+name = "finance-collateral-request-binding"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+description = "Bind FIN-SAFE-006 collateral settlement to one exact FIN-SAFE-008 request action"
+
+[dependencies]
+serde = { workspace = true }
+finance-collateral-deposit = { path = "../finance-collateral-deposit" }
+finance-collateral-settlement = { path = "../finance-collateral-settlement" }
+
+[dev-dependencies]
+serde_json = { workspace = true }
