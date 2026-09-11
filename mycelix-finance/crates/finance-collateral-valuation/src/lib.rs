@@ -80,6 +80,9 @@ impl CollateralValuationRequest {
     pub fn validate(&self) -> Result<(), CollateralValuationContractError> {
         self.subject.validate()?;
         self.capability.validate()?;
+        if self.capability.protocol_version != COLLATERAL_VALUATION_PROTOCOL_VERSION {
+            return Err(CollateralValuationContractError::UnsupportedProtocolVersion);
+        }
         Ok(())
     }
 }
@@ -125,6 +128,7 @@ pub struct CollateralValuationEnvelope {
 pub enum CollateralValuationContractError {
     InvalidSubject,
     InvalidCapability,
+    UnsupportedProtocolVersion,
     SubjectMismatch,
     ProviderMismatch,
     MethodMismatch,
@@ -246,6 +250,16 @@ mod tests {
             },
         };
         assert_eq!(response.validate_for(&request()), Ok(()));
+    }
+
+    #[test]
+    fn unsupported_requested_protocol_is_rejected_even_if_nonzero() {
+        let mut unsupported = request();
+        unsupported.capability.protocol_version = COLLATERAL_VALUATION_PROTOCOL_VERSION + 1;
+        assert_eq!(
+            unsupported.validate(),
+            Err(CollateralValuationContractError::UnsupportedProtocolVersion)
+        );
     }
 
     #[test]
