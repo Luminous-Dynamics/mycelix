@@ -1,0 +1,106 @@
+name: Integration Capability Policy Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-integration-capability-policy/**'
+      - 'crates/mycelix-integration-core/**'
+      - 'crates/mycelix-institutional-core/**'
+      - '.github/workflows/integration-capability-policy-qualification.yml'
+  push:
+    branches:
+      - 'feat/integration-capability-policy-v1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: integration-capability-policy-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Adopted operation to capability semantics
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: '1.89.0'
+          components: rustfmt, clippy
+
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-integration-capability-policy/Cargo.toml -- --check
+
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-integration-capability-policy/Cargo.toml --all-targets
+
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-integration-capability-policy/Cargo.toml --all-targets -- -D warnings
+
+      - name: Boundary audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path('crates/mycelix-integration-capability-policy')
+          src = (root / 'src/lib.rs').read_text()
+          readme = (root / 'README.md').read_text()
+          cargo = (root / 'Cargo.toml').read_text()
+          prod = src.split('#[cfg(test)]', 1)[0]
+          compact = ''.join(prod.split())
+
+          for dep in [
+              'mycelix-institutional-core = ',
+              'mycelix-integration-core = ',
+              'blake3 = ',
+          ]:
+              assert dep in cargo, dep
+
+          for forbidden in [
+              'reqwest', 'hyper', 'axum', 'tonic', 'holochain_client',
+              'rusqlite', 'AdminWebsocket', 'AppWebsocket',
+              'qualify_current_freshness(', 'AuthorityCoveragePolicy',
+              'EffectSafetyPolicy', 'perform_external_effect', 'invoke_external_effect',
+          ]:
+              assert forbidden not in cargo + prod, forbidden
+
+          for token in [
+              'pub struct IntegrationCapabilityPolicy {',
+              'pub struct VerifiedIntegrationCapabilityPolicyRecordProof {',
+              'pub struct VerifiedIntegrationCapabilityPolicyAdoptionProof {',
+              'pub struct QualifiedIntegrationCapabilityPolicy {',
+              'pub struct QualifiedIntegrationCapabilityMapping {',
+              'pub fn qualify_integration_capability_policy(',
+              'pub fn qualify_command_capability<C>(',
+              'command.system != expected.system',
+              'command.operation_kind != expected.operation_kind',
+              'command.semantic_profile != expected.semantic_profile',
+              'command.side_effect_class != expected.side_effect_class',
+              'policy.authority_ref',
+              'policy.policy_proof_ref',
+          ]:
+              assert token in src, token
+
+          for positive in [
+              'pub struct QualifiedIntegrationCapabilityPolicy {',
+              'pub struct QualifiedIntegrationCapabilityMapping {',
+          ]:
+              prefix = src.split(positive, 1)[0].split('\n')[-8:]
+              assert not any('Deserialize' in line for line in prefix), positive
+
+          assert compact.count('pubconstfngeneration_currentness_verified_here(&self)->bool{false}') >= 2
+          assert compact.count('pubconstfngrants_execution_authority(&self)->bool{false}') >= 2
+
+          for phrase in [
+              'operation -> capability semantics',
+              '!= institutional adoption',
+              '!= generation-bound currentness',
+              'does **not** fake currentness',
+              'QualifiedIntegrationCapabilityMapping != CurrentExecutionAuthority',
+          ]:
+              assert phrase in readme, phrase
+
+          print('PASS: exact adopted operation-to-capability semantics remain non-current and non-authoritative')
+          PY
