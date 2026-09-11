@@ -18,6 +18,7 @@ on:
       - 'mycelix-music/scripts/check-interop-line-proof-attestation-trust-invariants.sh'
       - 'mycelix-music/scripts/check-interop-line-proof-attestation-trust-anchor-invariants.sh'
       - 'mycelix-music/scripts/check-accounting-wire-invariants.sh'
+      - 'mycelix-music/scripts/check-interop-portable-verification-invariants.sh'
       - '.github/workflows/music-accounting.yml'
   push:
     branches: [main]
@@ -37,6 +38,7 @@ on:
       - 'mycelix-music/scripts/check-interop-line-proof-attestation-trust-invariants.sh'
       - 'mycelix-music/scripts/check-interop-line-proof-attestation-trust-anchor-invariants.sh'
       - 'mycelix-music/scripts/check-accounting-wire-invariants.sh'
+      - 'mycelix-music/scripts/check-interop-portable-verification-invariants.sh'
       - '.github/workflows/music-accounting.yml'
 
 permissions:
@@ -95,6 +97,10 @@ jobs:
       - name: Enforce canonical accounting wire invariants
         working-directory: mycelix-music
         run: bash scripts/check-accounting-wire-invariants.sh
+
+      - name: Enforce portable reporting verification invariants
+        working-directory: mycelix-music
+        run: bash scripts/check-interop-portable-verification-invariants.sh
 
       - name: Type-check accounting authority boundary
         working-directory: mycelix-music

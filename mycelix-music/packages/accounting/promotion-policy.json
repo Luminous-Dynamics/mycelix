@@ -35,6 +35,12 @@
       "purpose": "require canonical JSON-safe accounting transport with arbitrary-precision integer preservation, IEEE-754 binary64 bit encoding, deterministic object ordering and audit-digest-preserving round trips"
     },
     {
+      "id": "portable-reporting-verification-invariants",
+      "workingDirectory": "mycelix-music",
+      "command": "bash scripts/check-interop-portable-verification-invariants.sh",
+      "purpose": "require canonical-wire replay of both root-attested trust chains, external root-policy pinning, audit-reference cross-checks and a rooted portable verification receipt"
+    },
+    {
       "id": "accounting-type-check",
       "workingDirectory": "mycelix-music",
       "command": "npm run type-check --workspace=@mycelix/accounting",
@@ -44,7 +50,7 @@
       "id": "accounting-tests",
       "workingDirectory": "mycelix-music",
       "command": "npm test --workspace=@mycelix/accounting",
-      "purpose": "run economic conservation, settlement recovery, statement, audit, disclosure, lineage-checkpoint, compiler, signer-capability, trust-rotation, trust-anchor, statement-root-trust, audit-capsule-v2, audit-issuer-attestation, audit-issuer-trust, audit-issuer-root-trust, attested-interop, reporting-safe line-proof, reporting-evidence-attestation, reporting-evidence-issuer-trust, reporting-evidence-root-trust and accounting-wire regressions"
+      "purpose": "run economic conservation, settlement recovery, statement, audit, disclosure, lineage-checkpoint, compiler, signer-capability, trust-rotation, trust-anchor, statement-root-trust, audit-capsule-v2, audit-issuer-attestation, audit-issuer-trust, audit-issuer-root-trust, attested-interop, reporting-safe line-proof, reporting-evidence-attestation, reporting-evidence-issuer-trust, reporting-evidence-root-trust, accounting-wire and portable-verification regressions"
     }
   ],
   "promotionRule": "Every qualification item must succeed after the workflow has checked out and mechanically verified the exact proposed head commit. Missing, queued, skipped, stale, synthetic-merge-only, source-only, or ancestor evidence is not PASS.",
@@ -97,6 +103,10 @@
     "Plain JSON serialization of bigint-bearing accounting artifacts is a canonical portable representation.",
     "ECMAScript decimal number formatting is a cross-language canonical numeric encoding.",
     "An accounting wire digest proves issuer identity or accounting authority by itself.",
-    "Successfully decoding accounting wire bytes replaces domain-specific capsule, package, signature or trust verification."
+    "Successfully decoding accounting wire bytes replaces domain-specific capsule, package, signature or trust verification.",
+    "A portable reporting evidence bundle may embed or choose the verifier's root-anchor policies.",
+    "Verifying only the reporting package signature is equivalent to independently verifying the referenced EconomicAuditCapsule trust chain.",
+    "A reporting package's audit reference may be accepted without matching the exact independently verified capsule authority.",
+    "A portable verification receipt turns reporting-safe Merkle proofs into zero-knowledge proofs or internal ledger authority."
   ]
 }
