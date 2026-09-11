@@ -3,8 +3,8 @@
 //! Transaction-derived read-only hospitality field qualification.
 //!
 //! This layer accepts preregistered target/projection plans, exact source files, and model
-//! forecasts. It constructs the canonical campaign replay and all evaluation actuals internally.
-//! Callers cannot supply raw/derived actuals, slice verdicts, or field-quality counts.
+//! forecasts. It constructs the canonical campaign replay, evaluation actuals, slice evidence,
+//! and field-quality counts internally. Callers cannot supply actuals or slice verdicts.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -19,7 +19,7 @@ use mycelix_business_field_qualification::{
     DataQualityEvidence, FieldQualificationDecision, FieldQualificationEvidence, SliceEvidence,
     evaluate_field_qualification,
 };
-use mycelix_business_forecast_plan::{ForecastPlanError, ForecastTargetPlan, PlannedForecastTarget};
+use mycelix_business_forecast_plan::{ForecastPlanError, ForecastTargetPlan};
 use mycelix_business_import_diagnostics::{
     ExtractionCampaignManifest, ImportRejectionClass, upstream_export_completeness_unverified_ref,
 };
@@ -46,8 +46,14 @@ fn finish_digest(hasher: Sha256) -> Digest32 {
     Digest32(hasher.finalize().into())
 }
 
-fn zero_digest(value: &Digest32) -> bool {
-    value == &Digest32([0; 32])
+pub fn fixed_offset_clock_limitation_ref() -> ReferenceId {
+    ReferenceId::new("limitation:fixed-offset-clock-rules:v1")
+        .expect("static limitation id is canonical")
+}
+
+pub fn forecast_actual_membership_limitation_ref() -> ReferenceId {
+    ReferenceId::new("limitation:forecast-actual-campaign-membership-unverified:v1")
+        .expect("static limitation id is canonical")
 }
 
 pub fn time_rule_source_authority_unverified_ref() -> ReferenceId {
@@ -153,6 +159,8 @@ pub enum TransactionFieldError {
     TimeResolution(ResolveError),
     TargetCrossesOffsetTransition { target: ReferenceId },
     QualityPlanMismatch,
+    QualityArithmeticOverflow,
+    RetiredLimitationPresent { limitation: ReferenceId },
     FieldEvidenceInvalid,
 }
 
@@ -168,6 +176,7 @@ pub fn evaluate_transaction_hospitality_field(
         .validate()
         .map_err(TransactionFieldError::TimeSchedule)?;
     validate_schedule_binding(request.registration, request.schedule)?;
+    reject_retired_limitations(request.additional_limitations)?;
     request
         .target_plan
         .validate_against(&request.registration.protocol)
@@ -216,14 +225,12 @@ pub fn evaluate_transaction_hospitality_field(
     let mut slice_reports = Vec::with_capacity(request.registration.slices.len());
     let mut slice_evidence = Vec::with_capacity(request.registration.slices.len());
     for slice in &request.registration.slices {
-        let selected = derived_cases
-            .iter()
-            .filter_map(|case| match derived_case_belongs_to_slice(case, slice, request.schedule) {
-                Ok(true) => Some(Ok(case.clone())),
-                Ok(false) => None,
-                Err(error) => Some(Err(error)),
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+        let mut selected = Vec::new();
+        for case in &derived_cases {
+            if derived_case_belongs_to_slice(case, slice, request.schedule)? {
+                selected.push(case.clone());
+            }
+        }
         let scorecard =
             score_derived_cases(&selected).map_err(TransactionFieldError::DerivedScoring)?;
         let selected_digest = derived_case_set_digest(&selected);
@@ -331,6 +338,22 @@ fn validate_schedule_binding(
     }
     if schedule.registered_at_unix_ms > registration.protocol.registered_at_unix_ms {
         return Err(TransactionFieldError::TimeScheduleRegisteredAfterPilot);
+    }
+    Ok(())
+}
+
+fn reject_retired_limitations(
+    limitations: &BTreeSet<ReferenceId>,
+) -> Result<(), TransactionFieldError> {
+    for retired in [
+        fixed_offset_clock_limitation_ref(),
+        forecast_actual_membership_limitation_ref(),
+    ] {
+        if limitations.contains(&retired) {
+            return Err(TransactionFieldError::RetiredLimitationPresent {
+                limitation: retired,
+            });
+        }
     }
     Ok(())
 }
@@ -536,16 +559,15 @@ fn derive_data_quality(
         return Err(TransactionFieldError::QualityPlanMismatch);
     }
     let threshold = &registration.field_plan.data_quality[0];
-    let conflicting_records = campaign
-        .files
-        .iter()
-        .map(|file| {
+    let conflicting_records = campaign.files.iter().try_fold(0_u64, |total, file| {
+        total.checked_add(
             file.rejection_counts
                 .get(&ImportRejectionClass::DuplicateSourceEvent)
                 .copied()
-                .unwrap_or(0)
-        })
-        .fold(0_u64, u64::saturating_add);
+                .unwrap_or(0),
+        )
+        .ok_or(TransactionFieldError::QualityArithmeticOverflow)
+    })?;
     // Conservative v0.1 classification: campaign manifests prove the exact maximum ingest delay,
     // but not the exact count of late accepted records. If even one accepted record may exceed the
     // registered delay ceiling, mark the entire accepted set stale rather than undercounting.
@@ -1005,7 +1027,7 @@ mod tests {
     fn forecast(
         id_value: &str,
         model: ReferenceId,
-        target: &ForecastTarget,
+        target: &mycelix_business_shadow::ForecastTarget,
         issued_at: u64,
         point: i128,
     ) -> ShadowForecast {
@@ -1023,33 +1045,68 @@ mod tests {
         }
     }
 
+    fn expected_point(target_id: &ReferenceId) -> i128 {
+        match target_id.as_str() {
+            "target:breakfast" => 5,
+            "target:lunch" => 5,
+            "target:evening" => 7,
+            "target:weekend" => 11,
+            other => panic!("unexpected test target {other}"),
+        }
+    }
+
     fn submissions(
         registration: &HospitalityForecastPilotRegistration,
         plan: &ForecastTargetPlan,
     ) -> Vec<PlannedForecastSubmission> {
-        let values = [("breakfast", 5_i128), ("lunch", 5), ("evening", 7), ("weekend", 11)];
         plan.targets
             .iter()
-            .zip(values)
             .enumerate()
-            .map(|(index, (planned, (name, point)))| PlannedForecastSubmission {
-                target_id: planned.target_id.clone(),
-                candidate: forecast(
-                    &format!("forecast:candidate:{name}"),
-                    registration.protocol.candidate_model_lineage.clone(),
-                    &planned.target,
-                    planned.target.window_start_unix_ms - HOUR_MS,
-                    point,
-                ),
-                baseline: forecast(
-                    &format!("forecast:baseline:{index}"),
-                    registration.protocol.baseline_model_lineage.clone(),
-                    &planned.target,
-                    planned.target.window_start_unix_ms - HOUR_MS,
-                    point + 3,
-                ),
+            .map(|(index, planned)| {
+                let point = expected_point(&planned.target_id);
+                PlannedForecastSubmission {
+                    target_id: planned.target_id.clone(),
+                    candidate: forecast(
+                        &format!("forecast:candidate:{index}"),
+                        registration.protocol.candidate_model_lineage.clone(),
+                        &planned.target,
+                        planned.target.window_start_unix_ms - HOUR_MS,
+                        point,
+                    ),
+                    baseline: forecast(
+                        &format!("forecast:baseline:{index}"),
+                        registration.protocol.baseline_model_lineage.clone(),
+                        &planned.target,
+                        planned.target.window_start_unix_ms - HOUR_MS,
+                        point + 3,
+                    ),
+                }
             })
             .collect()
+    }
+
+    fn request<'a>(
+        registration: &'a HospitalityForecastPilotRegistration,
+        schedule: &'a LocalTimeSchedule,
+        plan: &'a ForecastTargetPlan,
+        projection: &'a ActualProjectionSpec,
+        adapter: &'a DelimitedIngressAdapter,
+        campaign: &'a ExtractionCampaignManifest,
+        file: &'a CampaignSourceFile,
+        submissions: &'a [PlannedForecastSubmission],
+        limitations: &'a BTreeSet<ReferenceId>,
+    ) -> TransactionFieldRequest<'a> {
+        TransactionFieldRequest {
+            registration,
+            schedule,
+            target_plan: plan,
+            projection_spec: projection,
+            adapter,
+            campaign,
+            source_files: std::slice::from_ref(file),
+            submissions,
+            additional_limitations: limitations,
+        }
     }
 
     #[test]
@@ -1063,22 +1120,25 @@ mod tests {
         let projection = projection(&registration, &plan);
         let submissions = submissions(&registration, &plan);
         let limitations = BTreeSet::new();
-        let report = evaluate_transaction_hospitality_field(TransactionFieldRequest {
-            registration: &registration,
-            schedule: &schedule,
-            target_plan: &plan,
-            projection_spec: &projection,
-            adapter: &adapter,
-            campaign: &campaign,
-            source_files: std::slice::from_ref(&file),
-            submissions: &submissions,
-            additional_limitations: &limitations,
-        })
+        let report = evaluate_transaction_hospitality_field(request(
+            &registration,
+            &schedule,
+            &plan,
+            &projection,
+            &adapter,
+            &campaign,
+            &file,
+            &submissions,
+            &limitations,
+        ))
         .unwrap();
         assert!(TRANSACTION_FIELD_IS_READ_ONLY);
         assert_eq!(report.overall_scorecard.cases, 4);
         assert_eq!(report.overall_scorecard.candidate_absolute_error_sum, 0);
         assert!(report.validate_digest());
+        assert!(report
+            .unresolved_limitations
+            .contains(&aggregation_semantic_authority_unverified_ref()));
         assert!(matches!(
             report.decision,
             TransactionQualificationDecision::Field(FieldQualificationDecision::PassShadowFieldGate)
@@ -1098,30 +1158,29 @@ mod tests {
         submissions.pop();
         let limitations = BTreeSet::new();
         assert!(matches!(
-            evaluate_transaction_hospitality_field(TransactionFieldRequest {
-                registration: &registration,
-                schedule: &schedule,
-                target_plan: &plan,
-                projection_spec: &projection,
-                adapter: &adapter,
-                campaign: &campaign,
-                source_files: std::slice::from_ref(&file),
-                submissions: &submissions,
-                additional_limitations: &limitations,
-            }),
+            evaluate_transaction_hospitality_field(request(
+                &registration,
+                &schedule,
+                &plan,
+                &projection,
+                &adapter,
+                &campaign,
+                &file,
+                &submissions,
+                &limitations,
+            )),
             Err(TransactionFieldError::SubmissionCountMismatch { .. })
         ));
     }
 
     #[test]
     fn caller_cannot_supply_an_actual_or_slice_verdict() {
-        // Compile-time surface theorem: the request type contains forecasts and source files only.
         let _ = std::mem::size_of::<TransactionFieldRequest<'static>>();
         assert!(TRANSACTION_FIELD_IS_READ_ONLY);
     }
 
     #[test]
-    fn projection_input_must_be_declared_by_the_registered_connector() {
+    fn projection_input_must_be_declared_by_registered_connector() {
         let adapter = adapter();
         let file = source_file();
         let campaign = campaign(&adapter, &file);
@@ -1133,17 +1192,17 @@ mod tests {
         let submissions = submissions(&registration, &plan);
         let limitations = BTreeSet::new();
         assert!(matches!(
-            evaluate_transaction_hospitality_field(TransactionFieldRequest {
-                registration: &registration,
-                schedule: &schedule,
-                target_plan: &plan,
-                projection_spec: &projection,
-                adapter: &adapter,
-                campaign: &campaign,
-                source_files: std::slice::from_ref(&file),
-                submissions: &submissions,
-                additional_limitations: &limitations,
-            }),
+            evaluate_transaction_hospitality_field(request(
+                &registration,
+                &schedule,
+                &plan,
+                &projection,
+                &adapter,
+                &campaign,
+                &file,
+                &submissions,
+                &limitations,
+            )),
             Err(TransactionFieldError::ProjectionInvalid)
                 | Err(TransactionFieldError::ProjectionInputNotDeclared)
         ));
@@ -1167,18 +1226,45 @@ mod tests {
         let submissions = submissions(&registration, &plan);
         let limitations = BTreeSet::new();
         assert!(matches!(
-            evaluate_transaction_hospitality_field(TransactionFieldRequest {
-                registration: &registration,
-                schedule: &schedule,
-                target_plan: &plan,
-                projection_spec: &projection,
-                adapter: &adapter,
-                campaign: &campaign,
-                source_files: std::slice::from_ref(&file),
-                submissions: &submissions,
-                additional_limitations: &limitations,
-            }),
+            evaluate_transaction_hospitality_field(request(
+                &registration,
+                &schedule,
+                &plan,
+                &projection,
+                &adapter,
+                &campaign,
+                &file,
+                &submissions,
+                &limitations,
+            )),
             Err(TransactionFieldError::CampaignHasFutureTimestamps { .. })
+        ));
+    }
+
+    #[test]
+    fn retired_weaker_limitations_cannot_reenter_v2_report() {
+        let adapter = adapter();
+        let file = source_file();
+        let campaign = campaign(&adapter, &file);
+        let registration = registration(campaign.connector.clone());
+        let plan = target_plan(&registration);
+        let schedule = schedule(&registration);
+        let projection = projection(&registration, &plan);
+        let submissions = submissions(&registration, &plan);
+        let limitations = BTreeSet::from([fixed_offset_clock_limitation_ref()]);
+        assert!(matches!(
+            evaluate_transaction_hospitality_field(request(
+                &registration,
+                &schedule,
+                &plan,
+                &projection,
+                &adapter,
+                &campaign,
+                &file,
+                &submissions,
+                &limitations,
+            )),
+            Err(TransactionFieldError::RetiredLimitationPresent { .. })
         ));
     }
 }
