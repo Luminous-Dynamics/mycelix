@@ -1,0 +1,49 @@
+name: Business Hospitality Derived Evidence
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-business-hospitality-derived-evidence/**'
+      - 'crates/mycelix-business-import-diagnostics/**'
+      - 'crates/mycelix-business-pilot-hospitality/**'
+      - 'crates/mycelix-business-shadow/**'
+      - 'crates/mycelix-business-field-qualification/**'
+      - 'crates/mycelix-business-adapter-delimited/**'
+      - 'crates/mycelix-business-ingress/**'
+      - 'crates/mycelix-business-core/**'
+      - '.github/workflows/business-hospitality-derived-evidence.yml'
+  push:
+    branches:
+      - main
+      - feat/business-hospitality-derived-slices-v0-1
+    paths:
+      - 'crates/mycelix-business-hospitality-derived-evidence/**'
+      - 'crates/mycelix-business-import-diagnostics/**'
+      - 'crates/mycelix-business-pilot-hospitality/**'
+      - 'crates/mycelix-business-shadow/**'
+      - 'crates/mycelix-business-field-qualification/**'
+      - 'crates/mycelix-business-adapter-delimited/**'
+      - 'crates/mycelix-business-ingress/**'
+      - 'crates/mycelix-business-core/**'
+      - '.github/workflows/business-hospitality-derived-evidence.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  derived-hospitality-evidence:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: crates/mycelix-business-hospitality-derived-evidence
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Format
+        run: cargo fmt --check
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+      - name: Test
+        run: cargo test
