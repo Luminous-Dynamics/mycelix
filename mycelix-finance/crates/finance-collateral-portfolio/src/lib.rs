@@ -19,9 +19,7 @@ use finance_collateral_evidence::{
     CollateralHealthEvidenceV2, CollateralHealthEvidenceV2ValidationError,
     CollateralHealthFreshnessPolicy,
 };
-use finance_collateral_safety::{
-    assess_collateral_health, CollateralHealthAssessment,
-};
+use finance_collateral_safety::{assess_collateral_health, CollateralHealthAssessment};
 use finance_collateral_valuation::CollateralValuationOutcome;
 use serde::{Deserialize, Serialize};
 
@@ -50,6 +48,7 @@ pub enum PortfolioHealthEvaluationError {
         duplicate_index: u16,
     },
     AggregateValueOverflow,
+    UnavailableAssessmentMismatch,
 }
 
 /// A checked portfolio result valid at one explicit evaluation time.
@@ -79,8 +78,7 @@ impl CheckedPortfolioHealthEvaluation {
     /// Evidence predicate only. This does not authorize default, seizure, or
     /// liquidation and becomes stale as soon as its source evidence ages out.
     pub fn is_liquidation_threshold_evidence_at_evaluation(&self) -> bool {
-        self.unavailable_component_ids.is_empty()
-            && self.assessment.is_liquidation_evidence()
+        self.unavailable_component_ids.is_empty() && self.assessment.is_liquidation_evidence()
     }
 }
 
@@ -122,7 +120,8 @@ pub fn evaluate_current_portfolio_health(
     let mut first_indeterminate_assessment: Option<CollateralHealthAssessment> = None;
 
     for (index, evidence) in components.iter().enumerate() {
-        let index = u16::try_from(index).expect("component count is bounded to u16 range");
+        let index = u16::try_from(index)
+            .map_err(|_| PortfolioHealthEvaluationError::TooManyComponents)?;
 
         evidence
             .validate_current_at(expected_policy, evaluated_at_micros)
@@ -166,16 +165,17 @@ pub fn evaluate_current_portfolio_health(
     }
 
     let component_count = u16::try_from(components.len())
-        .expect("component count is bounded to u16 range");
+        .map_err(|_| PortfolioHealthEvaluationError::TooManyComponents)?;
 
     if !unavailable_component_ids.is_empty() {
+        let assessment = first_indeterminate_assessment
+            .ok_or(PortfolioHealthEvaluationError::UnavailableAssessmentMismatch)?;
         return Ok(CheckedPortfolioHealthEvaluation {
             component_count,
             aggregate_value: None,
             aggregate_obligation,
             ltv_ratio: None,
-            assessment: first_indeterminate_assessment
-                .expect("unavailable validated evidence must be indeterminate"),
+            assessment,
             risk_reducing_diversification_credit_bps:
                 RISK_REDUCING_DIVERSIFICATION_CREDIT_BPS,
             unavailable_component_ids,
