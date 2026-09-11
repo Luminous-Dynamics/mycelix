@@ -8,6 +8,7 @@
 //! exact INT-03 ExecutionClaim
 //! + exact typed IntegrationCommand
 //! + current signed provider execution profile
+//! + current provider-profile trust root
 //!     -> QualifiedExecutionBinding
 //! ```
 //!
@@ -18,13 +19,13 @@
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use mycelix_integration_core::{
     CanonicalEncodeV1, ConnectorInstanceId, ContentCommitment, DigestAlgorithm,
-    ExternalObjectType, ExternalOperationKind, ExternalSystemId, IdempotencyKey,
-    IntegrationCommand, IntegrationCommandId, SemanticProfileId, SideEffectClass,
+    ExternalObjectType, ExternalOperationKind, ExternalSystemId, IntegrationCommand,
+    IntegrationCommandId, SemanticProfileId, SideEffectClass,
 };
 use mycelix_integration_runtime::ExecutionClaim;
 use thiserror::Error;
 
-const PROFILE_PROTOCOL_V1: &str = "mycelix-integration-provider-execution-profile-v1";
+pub const PROFILE_PROTOCOL_V1: &str = "mycelix-integration-provider-execution-profile-v1";
 const DOMAIN_PROFILE: &[u8] = b"mycelix/integration/provider-execution-profile/v1";
 const DOMAIN_TRUST_ROOT: &[u8] = b"mycelix/integration/provider-profile-trust-root/v1";
 const DOMAIN_BINDING: &[u8] = b"mycelix/integration/execution-binding/v1";
@@ -34,8 +35,6 @@ const MAX_PROFILE_PAYLOAD_BYTES: u32 = 64 * 1024 * 1024;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProviderIdempotencySemantics {
     Unsupported,
-    /// The provider contract promises request-key deduplication for at least
-    /// `retention_ms`; lookup support means reconciliation can query by that key.
     RequestKey {
         retention_ms: u64,
         lookup_supported: bool,
@@ -89,13 +88,11 @@ impl ProviderExecutionProfile {
         if self.max_payload_bytes == 0 || self.max_payload_bytes > MAX_PROFILE_PAYLOAD_BYTES {
             return Err(QualificationError::InvalidPayloadLimit);
         }
-
         if let ProviderIdempotencySemantics::RequestKey { retention_ms, .. } = self.idempotency
             && retention_ms == 0
         {
             return Err(QualificationError::InvalidIdempotencyContract);
         }
-
         if self.reconciliation == ProviderReconciliationMode::IdempotencyKey {
             match self.idempotency {
                 ProviderIdempotencySemantics::RequestKey {
@@ -159,7 +156,7 @@ pub struct SignedProviderExecutionProfile {
     pub signature: [u8; 64],
 }
 
-/// Current trust-root input supplied by the enclosing authority/configuration
+/// Current trust-root input supplied by the enclosing configuration/authority
 /// system. Qualification is explicitly relative to this root; constructing a
 /// root does not itself grant execution authority.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -183,7 +180,6 @@ impl ProviderProfileTrustRoot {
         }
         VerifyingKey::from_bytes(&verifying_key)
             .map_err(|_| QualificationError::InvalidVerifyingKey)?;
-
         let mut preimage = DOMAIN_TRUST_ROOT.to_vec();
         push_str(&mut preimage, &key_id);
         preimage.extend_from_slice(&verifying_key);
@@ -214,9 +210,10 @@ impl ProviderProfileTrustRoot {
     }
 }
 
-/// Non-deserializable positive result proving one exact provider profile is
-/// signed by the supplied current trust root and valid at the qualification
-/// instant. This is provider-policy evidence, never institutional authority.
+/// Non-deserializable positive result proving one exact provider profile was
+/// signed by the supplied trust root and valid at the qualification instant.
+/// Use-time currentness is rechecked against a fresh root in
+/// `qualify_execution_binding`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QualifiedProviderExecutionProfile {
     profile: ProviderExecutionProfile,
@@ -266,7 +263,6 @@ pub fn qualify_provider_profile(
     if now_ms < signed.profile.not_before_ms || now_ms > signed.profile.not_after_ms {
         return Err(QualificationError::ProfileNotCurrent);
     }
-
     let preimage = signed.profile.canonical_preimage_v1()?;
     let verifying_key = VerifyingKey::from_bytes(&trust_root.verifying_key)
         .map_err(|_| QualificationError::InvalidVerifyingKey)?;
@@ -274,7 +270,6 @@ pub fn qualify_provider_profile(
     verifying_key
         .verify(&preimage, &signature)
         .map_err(|_| QualificationError::InvalidSignature)?;
-
     let profile_commitment = ContentCommitment::sha256(&preimage);
     Ok(QualifiedProviderExecutionProfile {
         profile: signed.profile,
@@ -285,10 +280,8 @@ pub fn qualify_provider_profile(
 }
 
 /// Non-deserializable compatibility theorem for one exact INT-03 claim, typed
-/// command, and current signed provider profile.
-///
-/// This object deliberately contains no provider payload bytes and cannot cross
-/// the durable runtime into `DispatchStarted` by itself.
+/// command, and current signed provider profile. It contains no provider payload
+/// bytes and cannot cross the durable runtime into `DispatchStarted` by itself.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QualifiedExecutionBinding {
     entry_id: i64,
@@ -299,6 +292,7 @@ pub struct QualifiedExecutionBinding {
     provider_profile_commitment: ContentCommitment,
     provider_trust_root_commitment: ContentCommitment,
     materializer_release: ContentCommitment,
+    max_payload_bytes: u32,
     lease_until_ms: i64,
     qualified_at_ms: i64,
     binding_commitment: ContentCommitment,
@@ -308,55 +302,45 @@ impl QualifiedExecutionBinding {
     pub fn entry_id(&self) -> i64 {
         self.entry_id
     }
-
     pub fn attempt_id(&self) -> &mycelix_integration_core::ExecutionAttemptId {
         &self.attempt_id
     }
-
     pub fn command_id(&self) -> &IntegrationCommandId {
         &self.command_id
     }
-
     pub fn connector_instance(&self) -> &ConnectorInstanceId {
         &self.connector_instance
     }
-
     pub fn command_commitment(&self) -> &ContentCommitment {
         &self.command_commitment
     }
-
     pub fn provider_profile_commitment(&self) -> &ContentCommitment {
         &self.provider_profile_commitment
     }
-
     pub fn provider_trust_root_commitment(&self) -> &ContentCommitment {
         &self.provider_trust_root_commitment
     }
-
     pub fn materializer_release(&self) -> &ContentCommitment {
         &self.materializer_release
     }
-
+    pub fn max_payload_bytes(&self) -> u32 {
+        self.max_payload_bytes
+    }
     pub fn lease_until_ms(&self) -> i64 {
         self.lease_until_ms
     }
-
     pub fn qualified_at_ms(&self) -> i64 {
         self.qualified_at_ms
     }
-
     pub fn binding_commitment(&self) -> &ContentCommitment {
         &self.binding_commitment
     }
-
     pub const fn grants_execution_authority(&self) -> bool {
         false
     }
-
     pub const fn payload_materialized_here(&self) -> bool {
         false
     }
-
     pub const fn dispatch_started_here(&self) -> bool {
         false
     }
@@ -366,6 +350,7 @@ pub fn qualify_execution_binding<C>(
     claim: &ExecutionClaim,
     command: &IntegrationCommand<C>,
     provider: &QualifiedProviderExecutionProfile,
+    current_trust_root: &ProviderProfileTrustRoot,
     now_ms: i64,
 ) -> Result<QualifiedExecutionBinding, QualificationError>
 where
@@ -396,6 +381,12 @@ where
     }
 
     let profile = provider.profile();
+    if provider.trust_root_commitment() != current_trust_root.root_commitment()
+        || profile.signer_key_id != current_trust_root.key_id
+        || profile.generation != current_trust_root.current_generation
+    {
+        return Err(QualificationError::ProviderTrustRootChanged);
+    }
     if now_ms < profile.not_before_ms || now_ms > profile.not_after_ms {
         return Err(QualificationError::ProfileNotCurrent);
     }
@@ -411,7 +402,6 @@ where
     if profile.side_effect_class != command.side_effect_class {
         return Err(QualificationError::ProfileSideEffectMismatch);
     }
-
     if let Some(target) = &command.target
         && target.system != command.system
     {
@@ -423,7 +413,6 @@ where
             _ => return Err(QualificationError::TargetTypeMismatch),
         }
     }
-
     if command.side_effect_class != SideEffectClass::ReadOnly
         && profile.reconciliation == ProviderReconciliationMode::None
     {
@@ -450,8 +439,9 @@ where
     push_str(&mut preimage, claim.connector_instance.as_str());
     push_commitment(&mut preimage, &command_commitment);
     push_commitment(&mut preimage, provider.profile_commitment());
-    push_commitment(&mut preimage, provider.trust_root_commitment());
+    push_commitment(&mut preimage, current_trust_root.root_commitment());
     push_commitment(&mut preimage, &profile.materializer_release);
+    preimage.extend_from_slice(&profile.max_payload_bytes.to_be_bytes());
     preimage.extend_from_slice(&claim.lease_until_ms.to_be_bytes());
     preimage.extend_from_slice(&now_ms.to_be_bytes());
     let binding_commitment = ContentCommitment::sha256(&preimage);
@@ -463,8 +453,9 @@ where
         connector_instance: claim.connector_instance.clone(),
         command_commitment,
         provider_profile_commitment: provider.profile_commitment().clone(),
-        provider_trust_root_commitment: provider.trust_root_commitment().clone(),
+        provider_trust_root_commitment: current_trust_root.root_commitment().clone(),
         materializer_release: profile.materializer_release.clone(),
+        max_payload_bytes: profile.max_payload_bytes,
         lease_until_ms: claim.lease_until_ms,
         qualified_at_ms: now_ms,
         binding_commitment,
@@ -491,6 +482,8 @@ pub enum QualificationError {
     SignerMismatch,
     #[error("provider profile generation {profile} is not current generation {current}")]
     GenerationMismatch { profile: u64, current: u64 },
+    #[error("provider profile trust root changed after qualification")]
+    ProviderTrustRootChanged,
     #[error("provider profile is not current at the requested instant")]
     ProfileNotCurrent,
     #[error("provider profile signature is invalid")]
@@ -582,7 +575,7 @@ mod tests {
     use super::*;
     use ed25519_dalek::{Signer, SigningKey};
     use mycelix_integration_core::{
-        ExecutionAttemptId, ExternalObjectRef, ExternalOpaqueId, ValidationError,
+        ExecutionAttemptId, ExternalObjectRef, ExternalOpaqueId, IdempotencyKey, ValidationError,
     };
 
     #[derive(Debug, Clone, PartialEq, Eq)]
@@ -602,6 +595,10 @@ mod tests {
 
     fn signing_key() -> SigningKey {
         SigningKey::from_bytes(&[7_u8; 32])
+    }
+
+    fn rotated_signing_key() -> SigningKey {
+        SigningKey::from_bytes(&[9_u8; 32])
     }
 
     fn command(amount: u64) -> IntegrationCommand<DemoPayload> {
@@ -663,6 +660,15 @@ mod tests {
         .expect("valid root")
     }
 
+    fn rotated_root(generation: u64) -> ProviderProfileTrustRoot {
+        ProviderProfileTrustRoot::new(
+            "root-1",
+            rotated_signing_key().verifying_key().to_bytes(),
+            generation,
+        )
+        .expect("valid rotated root")
+    }
+
     fn claim(command: &IntegrationCommand<DemoPayload>) -> ExecutionClaim {
         ExecutionClaim {
             entry_id: 7,
@@ -680,11 +686,10 @@ mod tests {
     #[test]
     fn exact_claim_command_and_current_signed_profile_bind_without_granting_authority() {
         let command = command(5000);
-        let qualified = qualify_provider_profile(signed_profile(3), &trust_root(3), 200)
-            .expect("profile qualifies");
-        let binding = qualify_execution_binding(&claim(&command), &command, &qualified, 300)
-            .expect("exact binding qualifies");
-
+        let root = trust_root(3);
+        let qualified = qualify_provider_profile(signed_profile(3), &root, 200).unwrap();
+        let binding = qualify_execution_binding(&claim(&command), &command, &qualified, &root, 300)
+            .unwrap();
         assert_eq!(binding.command_id(), &command.command_id);
         assert_eq!(binding.attempt_id().as_str(), "7:1");
         assert!(!qualified.grants_execution_authority());
@@ -715,13 +720,31 @@ mod tests {
     }
 
     #[test]
+    fn root_rotation_after_profile_qualification_fails_at_use_time() {
+        let command = command(5000);
+        let root = trust_root(3);
+        let qualified = qualify_provider_profile(signed_profile(3), &root, 200).unwrap();
+        assert_eq!(
+            qualify_execution_binding(
+                &claim(&command),
+                &command,
+                &qualified,
+                &rotated_root(3),
+                300,
+            ),
+            Err(QualificationError::ProviderTrustRootChanged)
+        );
+    }
+
+    #[test]
     fn command_substitution_fails_exact_commitment_binding() {
         let original = command(5000);
         let claim = claim(&original);
         let changed = command(5001);
-        let qualified = qualify_provider_profile(signed_profile(3), &trust_root(3), 200).unwrap();
+        let root = trust_root(3);
+        let qualified = qualify_provider_profile(signed_profile(3), &root, 200).unwrap();
         assert_eq!(
-            qualify_execution_binding(&claim, &changed, &qualified, 300),
+            qualify_execution_binding(&claim, &changed, &qualified, &root, 300),
             Err(QualificationError::CommandCommitmentMismatch)
         );
     }
@@ -729,9 +752,10 @@ mod tests {
     #[test]
     fn expired_attempt_cannot_be_bound() {
         let command = command(5000);
-        let qualified = qualify_provider_profile(signed_profile(3), &trust_root(3), 200).unwrap();
+        let root = trust_root(3);
+        let qualified = qualify_provider_profile(signed_profile(3), &root, 200).unwrap();
         assert_eq!(
-            qualify_execution_binding(&claim(&command), &command, &qualified, 900),
+            qualify_execution_binding(&claim(&command), &command, &qualified, &root, 900),
             Err(QualificationError::ClaimLeaseExpired)
         );
     }
@@ -739,14 +763,15 @@ mod tests {
     #[test]
     fn provider_operation_substitution_fails() {
         let command = command(5000);
+        let root = trust_root(3);
         let mut signed = signed_profile(3);
         signed.profile.operation_kind = id("delete-account", ExternalOperationKind::new);
         signed.signature = signing_key()
             .sign(&signed.profile.canonical_preimage_v1().unwrap())
             .to_bytes();
-        let qualified = qualify_provider_profile(signed, &trust_root(3), 200).unwrap();
+        let qualified = qualify_provider_profile(signed, &root, 200).unwrap();
         assert_eq!(
-            qualify_execution_binding(&claim(&command), &command, &qualified, 300),
+            qualify_execution_binding(&claim(&command), &command, &qualified, &root, 300),
             Err(QualificationError::ProfileOperationMismatch)
         );
     }
@@ -764,14 +789,15 @@ mod tests {
     #[test]
     fn side_effecting_command_requires_reconciliation_support() {
         let command = command(5000);
+        let root = trust_root(3);
         let mut signed = signed_profile(3);
         signed.profile.reconciliation = ProviderReconciliationMode::None;
         signed.signature = signing_key()
             .sign(&signed.profile.canonical_preimage_v1().unwrap())
             .to_bytes();
-        let qualified = qualify_provider_profile(signed, &trust_root(3), 200).unwrap();
+        let qualified = qualify_provider_profile(signed, &root, 200).unwrap();
         assert_eq!(
-            qualify_execution_binding(&claim(&command), &command, &qualified, 300),
+            qualify_execution_binding(&claim(&command), &command, &qualified, &root, 300),
             Err(QualificationError::ReconciliationUnavailable)
         );
     }
