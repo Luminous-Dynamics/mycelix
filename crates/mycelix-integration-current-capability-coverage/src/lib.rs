@@ -144,7 +144,9 @@ pub fn match_current_integration_capability_coverage(
         executor_freshness,
         now_ms,
     )?;
-    if requalified_executor.verified_at_ms() > now_ms || requalified_executor.lease_until_ms() <= now_ms {
+    if requalified_executor.verified_at_ms() > now_ms
+        || requalified_executor.lease_until_ms() <= now_ms
+    {
         return Err(CurrentCapabilityCoverageError::RequalifiedExecutorNotLive);
     }
 
@@ -285,7 +287,7 @@ fn frame(h: &mut blake3::Hasher, bytes: &[u8]) {
     h.update(bytes);
 }
 
-#[derive(Debug, Error, PartialEq, Eq)]
+#[derive(Debug, Error)]
 pub enum CurrentCapabilityCoverageError {
     #[error("verification time must be non-zero")]
     InvalidVerificationTime,
@@ -366,7 +368,7 @@ mod tests {
         let institution = iid("institution:acme", InstitutionId::new);
         let capability = iid("payments.transfer.execute", CapabilityId::new);
         let rulebook = rulebook(1);
-        assert_eq!(
+        assert!(matches!(
             validate_coverage_facts(
                 &command(1),
                 &command(2),
@@ -384,10 +386,9 @@ mod tests {
                 &None,
                 &capability,
                 &capability,
-            )
-            .unwrap_err(),
-            CurrentCapabilityCoverageError::CommandCommitmentMismatch
-        );
+            ),
+            Err(CurrentCapabilityCoverageError::CommandCommitmentMismatch)
+        ));
     }
 
     #[test]
@@ -396,7 +397,7 @@ mod tests {
         let capability = iid("payments.transfer.execute", CapabilityId::new);
         let other = iid("payments.refund.execute", CapabilityId::new);
         let rulebook = rulebook(1);
-        assert_eq!(
+        assert!(matches!(
             validate_coverage_facts(
                 &command(1),
                 &command(1),
@@ -414,10 +415,9 @@ mod tests {
                 &None,
                 &capability,
                 &other,
-            )
-            .unwrap_err(),
-            CurrentCapabilityCoverageError::CapabilityMismatch
-        );
+            ),
+            Err(CurrentCapabilityCoverageError::CapabilityMismatch)
+        ));
     }
 
     #[test]
@@ -425,7 +425,7 @@ mod tests {
         let institution = iid("institution:acme", InstitutionId::new);
         let capability = iid("payments.transfer.execute", CapabilityId::new);
         let rulebook = rulebook(1);
-        assert_eq!(
+        assert!(matches!(
             validate_coverage_facts(
                 &command(1),
                 &command(1),
@@ -443,10 +443,9 @@ mod tests {
                 &None,
                 &capability,
                 &capability,
-            )
-            .unwrap_err(),
-            CurrentCapabilityCoverageError::CurrentExecutorIdentityMismatch
-        );
+            ),
+            Err(CurrentCapabilityCoverageError::CurrentExecutorIdentityMismatch)
+        ));
     }
 
     #[test]
@@ -455,7 +454,7 @@ mod tests {
         let other = iid("institution:other", InstitutionId::new);
         let capability = iid("payments.transfer.execute", CapabilityId::new);
         let rulebook = rulebook(1);
-        assert_eq!(
+        assert!(matches!(
             validate_coverage_facts(
                 &command(1),
                 &command(1),
@@ -473,10 +472,9 @@ mod tests {
                 &None,
                 &capability,
                 &capability,
-            )
-            .unwrap_err(),
-            CurrentCapabilityCoverageError::InstitutionMismatch
-        );
+            ),
+            Err(CurrentCapabilityCoverageError::InstitutionMismatch)
+        ));
     }
 
     #[test]
@@ -486,7 +484,7 @@ mod tests {
         let jurisdiction = Some(iid("jurisdiction:one", JurisdictionId::new));
         let other = Some(iid("jurisdiction:two", JurisdictionId::new));
         let rulebook = rulebook(1);
-        assert_eq!(
+        assert!(matches!(
             validate_coverage_facts(
                 &command(1),
                 &command(1),
@@ -504,9 +502,8 @@ mod tests {
                 &other,
                 &capability,
                 &capability,
-            )
-            .unwrap_err(),
-            CurrentCapabilityCoverageError::JurisdictionMismatch
-        );
+            ),
+            Err(CurrentCapabilityCoverageError::JurisdictionMismatch)
+        ));
     }
 }
