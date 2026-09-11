@@ -7,6 +7,7 @@ members = [
     "crates/finance-collateral-evidence",
     "crates/finance-collateral-settlement",
     "crates/finance-collateral-deposit",
+    "crates/finance-collateral-request-binding",
     "crates/finance-wire-types",
     "crates/finance-leptos-types",
     "zomes/shared",
