@@ -1,0 +1,32 @@
+name: Business Coordination Contracts
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-business-core/**'
+      - 'crates/mycelix-business-coordination/**'
+      - '.github/workflows/business-coordination.yml'
+  push:
+    paths:
+      - 'crates/mycelix-business-core/**'
+      - 'crates/mycelix-business-coordination/**'
+      - '.github/workflows/business-coordination.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  business-coordination:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path crates/mycelix-business-coordination/Cargo.toml --all --check
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-business-coordination/Cargo.toml --all-targets -- -D warnings
+      - name: Test contracts
+        run: cargo test --manifest-path crates/mycelix-business-coordination/Cargo.toml --all-targets
