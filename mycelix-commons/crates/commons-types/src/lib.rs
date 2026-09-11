@@ -11,6 +11,7 @@
 //! - Mission-neutral maritime evidence carried by existing bridge events
 //! - Local replay/gap/fork classification for maritime store-forward streams
 //! - Recipe-free regenerative component provenance carried by maritime evidence
+//! - Recipe-free regenerative genome lineage provenance carried by maritime evidence
 
 pub mod anchors;
 pub mod batch;
@@ -19,6 +20,7 @@ pub mod geo;
 pub mod maritime;
 pub mod maritime_stream;
 pub mod regenerative_component;
+pub mod regenerative_genome;
 
 pub use anchors::*;
 pub use batch::*;
@@ -27,3 +29,4 @@ pub use geo::*;
 pub use maritime::*;
 pub use maritime_stream::*;
 pub use regenerative_component::*;
+pub use regenerative_genome::*;
