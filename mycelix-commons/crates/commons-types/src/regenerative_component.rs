@@ -9,8 +9,8 @@
 
 use crate::{MaritimeEvidenceEnvelope, MaritimeEvidenceKind};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
 
-/// Current component-evidence schema version.
 pub const REGENERATIVE_COMPONENT_SCHEMA_V1: u8 = 1;
 
 const MAX_ID_BYTES: usize = 256;
@@ -18,13 +18,10 @@ const MAX_BINDING_BYTES: usize = 1024;
 const MAX_REFERENCE_BYTES: usize = 512;
 const MAX_REFERENCES_PER_CLASS: usize = 64;
 
-/// How a qualified component entered the regenerative inventory.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ComponentOriginV1 {
-    /// Newly manufactured from qualified material inputs.
     Manufactured,
-    /// Existing component or module restored/rebuilt for continued service.
     Remanufactured,
 }
 
@@ -32,22 +29,18 @@ pub enum ComponentOriginV1 {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RegenerativeComponentEvidenceV1 {
-    /// Exact schema version. V1 consumers reject other values.
     pub schema_version: u8,
-    /// Canonical component or module instance identifier.
     pub component_id: String,
     /// Opaque binding to the design/BOM/capability definition that was built.
     pub design_binding: String,
-    /// Whether this instance was manufactured new or remanufactured.
     pub origin: ComponentOriginV1,
     /// Qualified material/input batch references, strictly sorted and unique.
     pub material_batch_refs: Vec<String>,
     /// Recovered/recycled input references, strictly sorted and unique.
     pub recycled_input_refs: Vec<String>,
-    /// Evidence references for the production/remanufacturing process, without
-    /// embedding process recipes or actuator instructions.
+    /// Evidence references for production/remanufacturing, never embedded recipes.
     pub process_evidence_refs: Vec<String>,
-    /// Metrology/NDE/calibration evidence references, strictly sorted and unique.
+    /// Metrology/NDE/calibration evidence references.
     pub metrology_evidence_refs: Vec<String>,
     /// Opaque binding to producer identity/authorization evidence owned upstream.
     pub producer_evidence_binding: String,
@@ -56,7 +49,6 @@ pub struct RegenerativeComponentEvidenceV1 {
 }
 
 impl RegenerativeComponentEvidenceV1 {
-    /// Validate canonical shape and minimum qualification evidence.
     pub fn validate(&self) -> Result<(), String> {
         if self.schema_version != REGENERATIVE_COMPONENT_SCHEMA_V1 {
             return Err(format!(
@@ -64,8 +56,8 @@ impl RegenerativeComponentEvidenceV1 {
                 self.schema_version
             ));
         }
-        if !canonical_text(&self.component_id, MAX_ID_BYTES) {
-            return Err("component_id is empty, oversized, padded, or contains control bytes".into());
+        if !canonical_id(&self.component_id, MAX_ID_BYTES) {
+            return Err("component_id is empty, oversized, padded, whitespace-bearing, or control-bearing".into());
         }
         for (field, value) in [
             ("design_binding", self.design_binding.as_str()),
@@ -96,22 +88,46 @@ impl RegenerativeComponentEvidenceV1 {
         if self.origin == ComponentOriginV1::Remanufactured && self.recycled_input_refs.is_empty() {
             return Err("remanufactured component requires at least one recovered/recycled input reference".into());
         }
+
+        let material_refs: BTreeSet<&str> = self.material_batch_refs.iter().map(String::as_str).collect();
+        if let Some(overlap) = self
+            .recycled_input_refs
+            .iter()
+            .map(String::as_str)
+            .find(|reference| material_refs.contains(reference))
+        {
+            return Err(format!(
+                "input reference appears in both material and recycled classes: {overlap}"
+            ));
+        }
         Ok(())
     }
 
-    /// Serialize the exact canonical V1 struct representation used as maritime payload JSON.
+    /// Serialize the exact canonical V1 representation used as maritime payload JSON.
     pub fn to_payload_json(&self) -> Result<String, String> {
         self.validate()?;
         serde_json::to_string(self)
             .map_err(|error| format!("failed to serialize regenerative component evidence: {error}"))
     }
 
+    /// Stable identity of the component-evidence record, independent of transport sequence.
+    ///
+    /// This is a content identifier only. It does not authenticate the producer,
+    /// qualify the component, or replace the outer Commons action signature.
+    pub fn content_digest(&self) -> Result<String, String> {
+        let payload = self.to_payload_json()?;
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(b"mycelix-regenerative-component-evidence-v1\0");
+        hasher.update(&(payload.len() as u64).to_le_bytes());
+        hasher.update(payload.as_bytes());
+        Ok(hasher.finalize().to_hex().to_string())
+    }
+
     /// Wrap this provenance payload in the existing store-forward maritime envelope.
     ///
-    /// The returned envelope uses `LogisticsEvent`; callers may subsequently bind
-    /// it into an existing continuity chain with `MaritimeEvidenceEnvelope::chain_after`.
-    /// The outer maritime validation remains authoritative for the Commons 8 KiB
-    /// bridge-payload limit.
+    /// `event_evidence_binding` belongs to the upstream event/session evidence
+    /// provider. It is deliberately distinct from this record's content digest,
+    /// producer evidence and qualification binding.
     pub fn to_maritime_envelope(
         &self,
         platform_id: impl Into<String>,
@@ -141,9 +157,9 @@ fn validate_refs(field: &str, refs: &[String]) -> Result<(), String> {
         ));
     }
     for reference in refs {
-        if !canonical_text(reference, MAX_REFERENCE_BYTES) {
+        if !canonical_reference(reference) {
             return Err(format!(
-                "{field} contains an empty, oversized, padded, or control-bearing reference"
+                "{field} contains a non-canonical opaque reference"
             ));
         }
     }
@@ -153,6 +169,16 @@ fn validate_refs(field: &str, refs: &[String]) -> Result<(), String> {
         ));
     }
     Ok(())
+}
+
+fn canonical_reference(value: &str) -> bool {
+    canonical_text(value, MAX_REFERENCE_BYTES)
+        && value.contains(':')
+        && !value.chars().any(char::is_whitespace)
+}
+
+fn canonical_id(value: &str, max_bytes: usize) -> bool {
+    canonical_text(value, max_bytes) && !value.chars().any(char::is_whitespace)
 }
 
 fn canonical_text(value: &str, max_bytes: usize) -> bool {
@@ -214,9 +240,20 @@ mod tests {
         unsorted.material_batch_refs = vec!["batch:z".into(), "batch:a".into()];
         assert!(unsorted.validate().is_err());
 
+        let mut free_form = fixture();
+        free_form.process_evidence_refs = vec!["process evidence with instructions".into()];
+        assert!(free_form.validate().is_err());
+
         let mut no_metrology = fixture();
         no_metrology.metrology_evidence_refs.clear();
         assert!(no_metrology.validate().is_err());
+    }
+
+    #[test]
+    fn material_and_recycled_inputs_cannot_double_count_same_reference() {
+        let mut evidence = fixture();
+        evidence.recycled_input_refs = vec!["batch:alloy-feedstock-003".into()];
+        assert!(evidence.validate().unwrap_err().contains("both material and recycled"));
     }
 
     #[test]
@@ -227,6 +264,21 @@ mod tests {
             evidence.validate(),
             Err("remanufactured component requires at least one recovered/recycled input reference".into())
         );
+    }
+
+    #[test]
+    fn component_content_identity_is_transport_independent_and_sensitive() {
+        let evidence = fixture();
+        let digest = evidence.content_digest().unwrap();
+        assert_eq!(digest.len(), 64);
+
+        let decoded: RegenerativeComponentEvidenceV1 =
+            serde_json::from_str(&evidence.to_payload_json().unwrap()).unwrap();
+        assert_eq!(decoded.content_digest().unwrap(), digest);
+
+        let mut changed = evidence;
+        changed.qualification_binding = "qualification:impeller-0042-r2".into();
+        assert_ne!(changed.content_digest().unwrap(), digest);
     }
 
     #[test]
