@@ -102,11 +102,12 @@ impl QualifiedCurrentIntegrationCapabilityPolicy {
 }
 
 /// Exact command mapping under one current, institution-adopted capability
-/// policy. This still does not prove that the current executor designation names
-/// the same capability or that a provider attempt may execute.
+/// policy. Retaining the actual non-deserializable current policy prevents a
+/// mapping qualified under generation N from being rebound to generation N+1
+/// merely because the semantic policy digest stayed unchanged.
 #[derive(Clone, Debug, Serialize)]
 pub struct QualifiedCurrentIntegrationCapabilityMapping {
-    current_policy_qualification_digest: Digest32,
+    current_policy: QualifiedCurrentIntegrationCapabilityPolicy,
     mapping: QualifiedIntegrationCapabilityMapping,
     current_mapping_digest: Digest32,
     verified_at_ms: u64,
@@ -114,6 +115,10 @@ pub struct QualifiedCurrentIntegrationCapabilityMapping {
 }
 
 impl QualifiedCurrentIntegrationCapabilityMapping {
+    pub fn current_policy(&self) -> &QualifiedCurrentIntegrationCapabilityPolicy {
+        &self.current_policy
+    }
+
     pub fn mapping(&self) -> &QualifiedIntegrationCapabilityMapping {
         &self.mapping
     }
@@ -242,7 +247,7 @@ where
     );
 
     Ok(QualifiedCurrentIntegrationCapabilityMapping {
-        current_policy_qualification_digest: current_policy.qualification_digest,
+        current_policy: current_policy.clone(),
         mapping,
         current_mapping_digest,
         verified_at_ms: current_policy.verified_at_ms,
@@ -494,6 +499,10 @@ mod tests {
         .unwrap();
         let mapped = qualify_current_command_capability(&current_policy, &command(), 3_300).unwrap();
         assert_eq!(mapped.required_capability(), current_policy.required_capability());
+        assert_eq!(
+            mapped.current_policy().qualification_digest(),
+            current_policy.qualification_digest()
+        );
         assert!(mapped.exact_command_semantics_current_here());
         assert!(!mapped.executor_capability_matched_here());
         assert!(!mapped.attempt_bound_here());
