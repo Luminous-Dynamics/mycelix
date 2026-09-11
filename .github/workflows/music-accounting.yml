@@ -12,6 +12,7 @@ on:
       - 'mycelix-music/scripts/check-audit-capsule-invariants.sh'
       - 'mycelix-music/scripts/check-audit-issuer-trust-invariants.sh'
       - 'mycelix-music/scripts/check-audit-issuer-trust-anchor-invariants.sh'
+      - 'mycelix-music/scripts/check-interop-audit-provenance-invariants.sh'
       - '.github/workflows/music-accounting.yml'
   push:
     branches: [main]
@@ -25,6 +26,7 @@ on:
       - 'mycelix-music/scripts/check-audit-capsule-invariants.sh'
       - 'mycelix-music/scripts/check-audit-issuer-trust-invariants.sh'
       - 'mycelix-music/scripts/check-audit-issuer-trust-anchor-invariants.sh'
+      - 'mycelix-music/scripts/check-interop-audit-provenance-invariants.sh'
       - '.github/workflows/music-accounting.yml'
 
 permissions:
