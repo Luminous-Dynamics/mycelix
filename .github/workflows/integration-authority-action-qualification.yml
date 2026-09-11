@@ -1,0 +1,114 @@
+name: Integration Authority Action Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-integration-authority-action/**'
+      - 'crates/mycelix-integration-core/**'
+      - 'crates/mycelix-execution-action-digest/**'
+      - '.github/workflows/integration-authority-action-qualification.yml'
+  push:
+    branches:
+      - 'feat/integration-authority-action-v1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: integration-authority-action-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Exact integration command to governance action bytes
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: '1.89.0'
+          components: rustfmt, clippy
+
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-integration-authority-action/Cargo.toml -- --check
+
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-integration-authority-action/Cargo.toml --all-targets
+
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-integration-authority-action/Cargo.toml --all-targets -- -D warnings
+
+      - name: Boundary audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path('crates/mycelix-integration-authority-action')
+          src = (root / 'src/lib.rs').read_text()
+          prod = src.split('#[cfg(test)]', 1)[0]
+          cargo = (root / 'Cargo.toml').read_text()
+          readme = (root / 'README.md').read_text()
+          exact = (root / 'tests/exact_action.rs').read_text()
+          compact = ''.join(prod.split())
+
+          for dep in [
+              'mycelix-execution-action-digest = ',
+              'mycelix-governance-authority = ',
+              'mycelix-integration-core = ',
+          ]:
+              assert dep in cargo, dep
+
+          for forbidden in [
+              'reqwest', 'hyper', 'axum', 'tonic', 'holochain_client',
+              'rusqlite', 'AdminWebsocket', 'AppWebsocket',
+              'QualifiedCurrentExecutorAuthority', 'qualify_current_executor_authority',
+              'QualifiedExecutionBinding', 'mark_dispatch_started',
+              'perform_external_effect', 'invoke_external_effect',
+          ]:
+              assert forbidden not in cargo + prod, forbidden
+
+          for token in [
+              'pub struct QualifiedIntegrationAuthorityAction {',
+              'pub fn qualify_integration_authority_action<C>(',
+              'command.canonical_commitment_v1()',
+              'execution_authority_digest(proposal_id.as_str(), &exact_action_json)',
+              'ACTIONS_DIGEST_PROFILE_V1',
+              'TargetSystemMismatch',
+              'INTEGRATION_COMMAND_COMMITMENT_PROFILE_V1',
+          ]:
+              assert token in src, token
+
+          # There is no caller-provided action JSON argument; serialization is
+          # local from private wire structs.
+          signature = src.split('pub fn qualify_integration_authority_action<C>(', 1)[1].split('where', 1)[0]
+          assert 'String' not in signature
+          assert '&str' not in signature
+          assert 'AuthorityActionWire' in prod
+          assert 'serde_json::to_string(&wire)' in prod
+
+          prefix = src.split('pub struct QualifiedIntegrationAuthorityAction {', 1)[0].split('\n')[-8:]
+          assert not any('Deserialize' in line for line in prefix)
+          assert 'Deserialize' not in cargo
+
+          for invariant in [
+              'pubconstfnauthority_origin_verified_here(&self)->bool{false}',
+              'pubconstfncurrent_authority_verified_here(&self)->bool{false}',
+              'pubconstfncapability_semantics_closed_here(&self)->bool{false}',
+              'pubconstfnprovider_payload_materialized_here(&self)->bool{false}',
+              'pubconstfngrants_execution_authority(&self)->bool{false}',
+          ]:
+              assert invariant in compact, invariant
+
+          assert '14364b6794d2fdebe0c2778e3c0e82ae7df2cc6e514016a8a446c1ad2316fdb9' in exact
+          assert 'mycelix-integration-authority-action-v1' in exact
+
+          for phrase in [
+              'translation theorem, not an authority source',
+              'Hash equality alone must never close that semantic question',
+              'callers do not supply arbitrary governance action JSON',
+          ]:
+              assert phrase in readme, phrase
+
+          print('PASS: exact integration-command action translation remains local, deterministic, shared-profile and non-authoritative')
+          PY
