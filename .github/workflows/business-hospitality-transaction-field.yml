@@ -1,0 +1,29 @@
+name: Business Hospitality Transaction Field
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-business-*/**'
+      - 'scripts/verify-business-qualification-stack.sh'
+      - '.github/workflows/business-hospitality-transaction-field.yml'
+  push:
+    branches:
+      - 'feat/business-hospitality-transaction-field-v0-1'
+    paths:
+      - 'crates/mycelix-business-*/**'
+      - 'scripts/verify-business-qualification-stack.sh'
+      - '.github/workflows/business-hospitality-transaction-field.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  business-qualification-stack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Verify all Business crates together
+        run: bash scripts/verify-business-qualification-stack.sh
