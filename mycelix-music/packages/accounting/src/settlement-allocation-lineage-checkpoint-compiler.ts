@@ -7,9 +7,11 @@ import {
 import type { SettlementRecoveryState } from './recovery.js';
 import {
   createSettlementAllocationLineageCheckpoint,
-  signSettlementAllocationLineageCheckpoint,
+  createSettlementAllocationLineageCheckpointSigningRequest,
+  type CreateSettlementAllocationLineageCheckpointSigningRequestInput,
   type SettlementAllocationLineageCheckpoint,
-  type SignedSettlementAllocationLineageCheckpoint,
+  type SettlementAllocationLineageCheckpointSigningCapability,
+  type SettlementAllocationLineageCheckpointSigningRequest,
 } from './settlement-allocation-lineage-checkpoint.js';
 import {
   verifyPersistedSettlementAllocationSuccessorLink,
@@ -221,16 +223,16 @@ export function compileSettlementAllocationLineageCheckpoint(
 }
 
 /**
- * Safer signing surface for operational code: only compiler-minted candidates
- * can reach the low-level checkpoint signer through this API.
+ * Operational handoff boundary. The compiler may mint a scoped signing request
+ * for a canonical candidate, but it never receives or invokes a private key.
  */
-export function signCompiledSettlementAllocationLineageCheckpoint(
+export function createCompiledSettlementAllocationLineageCheckpointSigningRequest(
   compiled: CompiledSettlementAllocationLineageCheckpoint,
-  signerKeyId: string,
-  privateKeyPem: string,
-): Readonly<SignedSettlementAllocationLineageCheckpoint> {
+  capability: SettlementAllocationLineageCheckpointSigningCapability,
+  input: CreateSettlementAllocationLineageCheckpointSigningRequestInput,
+): Readonly<SettlementAllocationLineageCheckpointSigningRequest> {
   if (!COMPILED_CHECKPOINTS.has(compiled as object)) {
-    throw new Error('settlement allocation checkpoint must be produced by canonical source compiler before signing');
+    throw new Error('settlement allocation checkpoint must be produced by canonical source compiler before requesting signature');
   }
-  return signSettlementAllocationLineageCheckpoint(compiled.checkpoint, signerKeyId, privateKeyPem);
+  return createSettlementAllocationLineageCheckpointSigningRequest(compiled.checkpoint, capability, input);
 }

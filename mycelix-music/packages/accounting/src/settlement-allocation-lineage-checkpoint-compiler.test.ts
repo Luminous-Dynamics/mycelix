@@ -1,4 +1,4 @@
-import { generateKeyPairSync } from 'node:crypto';
+import { generateKeyPairSync, sign as signEd25519 } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { createRoyaltyDeductionAuthority } from './deduction-authority.js';
 import { money } from './money.js';
@@ -8,11 +8,16 @@ import { projectSettlementAllocationRecord } from './persistence-projection.js';
 import { reconstructSettlementRecovery, SettlementAttemptState } from './recovery.js';
 import {
   compileSettlementAllocationLineageCheckpoint,
-  signCompiledSettlementAllocationLineageCheckpoint,
+  createCompiledSettlementAllocationLineageCheckpointSigningRequest,
   type PersistedSettlementAllocationLineageSourceSnapshot,
+  type SettlementAllocationReplayContext,
 } from './settlement-allocation-lineage-checkpoint-compiler.js';
 import {
+  SETTLEMENT_ALLOCATION_LINEAGE_CHECKPOINT_SIGNING_SCOPE,
+  attachSettlementAllocationLineageCheckpointDetachedSignature,
+  settlementAllocationLineageCheckpointSigningPayloadBase64,
   verifySettlementAllocationLineageCheckpoint,
+  type SettlementAllocationLineageCheckpointSigningRequest,
 } from './settlement-allocation-lineage-checkpoint.js';
 import {
   createSettlementAllocationSuccessorLink,
@@ -117,18 +122,67 @@ const snapshot: PersistedSettlementAllocationLineageSourceSnapshot = {
   ],
   links: [{ ingestSeq: '9', ...linkRecord }],
 };
-const contexts = {
+const contexts: Readonly<Record<string, SettlementAllocationReplayContext>> = {
   [initial.allocationId]: { recovery, deductions: [deduction50] },
   [successor.allocationId]: { recovery, deductions: [deduction50, deduction25] },
 };
 
-function compile(source = snapshot, allocationContexts = contexts) {
+const signer = generateKeyPairSync('ed25519');
+const publicKeyPem = signer.publicKey.export({ format: 'pem', type: 'spki' }).toString();
+const capability = {
+  capabilityId: 'capability:checkpoint-compiler:sign',
+  scope: SETTLEMENT_ALLOCATION_LINEAGE_CHECKPOINT_SIGNING_SCOPE,
+  sourceRef: snapshot.sourceRef,
+  sourceInstanceId: snapshot.sourceInstanceId,
+  signerKeyId: 'key:checkpoint-compiler',
+  validFrom: '2026-10-01T00:00:00Z',
+  validUntil: '2026-10-03T00:00:00Z',
+} as const;
+const trust = {
+  sourceRef: snapshot.sourceRef,
+  sourceInstanceId: snapshot.sourceInstanceId,
+  signerKeyId: capability.signerKeyId,
+  capabilityId: capability.capabilityId,
+  publicKeyPem,
+} as const;
+
+function compile(
+  source: PersistedSettlementAllocationLineageSourceSnapshot = snapshot,
+  allocationContexts: Readonly<Record<string, SettlementAllocationReplayContext>> = contexts,
+) {
   return compileSettlementAllocationLineageCheckpoint({
     checkpointId: 'checkpoint:compiled:1',
     snapshot: source,
     batch,
     allocationContexts,
   });
+}
+
+function createSigningRequest(compiled = compile()) {
+  return createCompiledSettlementAllocationLineageCheckpointSigningRequest(
+    compiled,
+    capability,
+    {
+      requestId: 'sign-request:checkpoint-compiler:1',
+      issuedAt: '2026-10-02T00:00:02Z',
+      expiresAt: '2026-10-02T00:05:00Z',
+      nonce: 'nonce:checkpoint-compiler:1',
+    },
+  );
+}
+
+function detachedSignature(request: SettlementAllocationLineageCheckpointSigningRequest) {
+  const signedAt = '2026-10-02T00:00:03Z';
+  const payload = Buffer.from(
+    settlementAllocationLineageCheckpointSigningPayloadBase64(request, signedAt),
+    'base64',
+  );
+  return {
+    requestRoot: request.requestRoot,
+    signerKeyId: capability.signerKeyId,
+    signedAt,
+    signatureBase64: signEd25519(null, payload, signer.privateKey).toString('base64'),
+  } as const;
 }
 
 describe('serialized allocation-lineage checkpoint compiler', () => {
@@ -144,21 +198,72 @@ describe('serialized allocation-lineage checkpoint compiler', () => {
     expect(compiled.checkpoint.highWaterMark).toBe('11');
   });
 
-  it('signs only a compiler-minted candidate through the strict signing surface', () => {
-    const { privateKey, publicKey } = generateKeyPairSync('ed25519');
-    const privateKeyPem = privateKey.export({ format: 'pem', type: 'pkcs8' }).toString();
-    const publicKeyPem = publicKey.export({ format: 'pem', type: 'spki' }).toString();
+  it('hands a compiler-minted request to an external signer without private-key custody', () => {
     const compiled = compile();
-    const signed = signCompiledSettlementAllocationLineageCheckpoint(compiled, 'key:checkpoint-compiler', privateKeyPem);
-    const verified = verifySettlementAllocationLineageCheckpoint(signed, {
-      sourceRef: snapshot.sourceRef,
-      sourceInstanceId: snapshot.sourceInstanceId,
-      signerKeyId: 'key:checkpoint-compiler',
-      publicKeyPem,
-    });
+    const request = createSigningRequest(compiled);
+    const signed = attachSettlementAllocationLineageCheckpointDetachedSignature(
+      compiled.checkpoint,
+      request,
+      detachedSignature(request),
+      trust,
+    );
+    const verified = verifySettlementAllocationLineageCheckpoint(signed, trust);
     expect(verified.checkpointRoot).toBe(compiled.checkpoint.checkpointRoot);
-    expect(() => signCompiledSettlementAllocationLineageCheckpoint({ ...compiled }, 'key:checkpoint-compiler', privateKeyPem))
-      .toThrow(/must be produced by canonical source compiler/);
+    expect(verified.signingRequest.requestRoot).toBe(request.requestRoot);
+    expect(verified.signingRequest.capabilityId).toBe(capability.capabilityId);
+    expect(() => createCompiledSettlementAllocationLineageCheckpointSigningRequest(
+      { ...compiled },
+      capability,
+      {
+        requestId: 'sign-request:clone',
+        issuedAt: '2026-10-02T00:00:02Z',
+        expiresAt: '2026-10-02T00:05:00Z',
+        nonce: 'nonce:clone',
+      },
+    )).toThrow(/must be produced by canonical source compiler/);
+  });
+
+  it('rejects capabilities that do not authorize the exact source or validity window', () => {
+    const compiled = compile();
+    expect(() => createCompiledSettlementAllocationLineageCheckpointSigningRequest(
+      compiled,
+      { ...capability, sourceInstanceId: 'postgres:other-instance' },
+      {
+        requestId: 'sign-request:wrong-source',
+        issuedAt: '2026-10-02T00:00:02Z',
+        expiresAt: '2026-10-02T00:05:00Z',
+        nonce: 'nonce:wrong-source',
+      },
+    )).toThrow(/does not authorize checkpoint source identity/);
+
+    expect(() => createCompiledSettlementAllocationLineageCheckpointSigningRequest(
+      compiled,
+      capability,
+      {
+        requestId: 'sign-request:expired',
+        issuedAt: '2026-10-02T23:59:59Z',
+        expiresAt: '2026-10-03T00:00:01Z',
+        nonce: 'nonce:expired',
+      },
+    )).toThrow(/inside capability validity window/);
+  });
+
+  it('rejects detached signatures rebound to another request or capability', () => {
+    const compiled = compile();
+    const request = createSigningRequest(compiled);
+    const signature = detachedSignature(request);
+    expect(() => attachSettlementAllocationLineageCheckpointDetachedSignature(
+      compiled.checkpoint,
+      request,
+      { ...signature, requestRoot: 'f'.repeat(64) },
+      trust,
+    )).toThrow(/does not bind the canonical signing request/);
+    expect(() => attachSettlementAllocationLineageCheckpointDetachedSignature(
+      compiled.checkpoint,
+      request,
+      signature,
+      { ...trust, capabilityId: 'capability:other' },
+    )).toThrow(/signing capability is not trusted/);
   });
 
   it('rejects persisted allocation content changed behind its authority root', () => {
@@ -173,7 +278,9 @@ describe('serialized allocation-lineage checkpoint compiler', () => {
   });
 
   it('requires the exact semantic replay context for every allocation', () => {
-    const missing = { [initial.allocationId]: contexts[initial.allocationId] };
+    const missing: Readonly<Record<string, SettlementAllocationReplayContext>> = {
+      [initial.allocationId]: contexts[initial.allocationId]!,
+    };
     expect(() => compile(snapshot, missing)).toThrow(/missing replay context for allocation/);
   });
 
@@ -195,6 +302,12 @@ describe('serialized allocation-lineage checkpoint compiler', () => {
       highWaterMark: '8',
     };
     expect(() => compile(beyond)).toThrow(/exceeds snapshot highWaterMark/);
+
+    const noncanonical: PersistedSettlementAllocationLineageSourceSnapshot = {
+      ...snapshot,
+      allocations: [{ ...snapshot.allocations[0]!, ingestSeq: '03' }, snapshot.allocations[1]!],
+    };
+    expect(() => compile(noncanonical)).toThrow(/canonical unsigned-integer text/);
   });
 
   it('requires a successor link cursor to follow both endpoint allocations', () => {
@@ -218,7 +331,7 @@ describe('serialized allocation-lineage checkpoint compiler', () => {
       ...snapshot,
       allocations: [snapshot.allocations[0]!],
     };
-    expect(() => compile(omitted, { [initial.allocationId]: contexts[initial.allocationId] }))
+    expect(() => compile(omitted, { [initial.allocationId]: contexts[initial.allocationId]! }))
       .toThrow(/references allocation omitted from source snapshot/);
   });
 });
