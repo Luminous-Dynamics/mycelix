@@ -9,8 +9,10 @@ fail() {
 compiler=packages/accounting/src/settlement-allocation-lineage-checkpoint-compiler.ts
 checkpoint=packages/accounting/src/settlement-allocation-lineage-checkpoint.ts
 trust=packages/accounting/src/settlement-allocation-lineage-checkpoint-trust.ts
+trust_anchor=packages/accounting/src/settlement-allocation-lineage-checkpoint-trust-anchor.ts
 tests=packages/accounting/src/settlement-allocation-lineage-checkpoint-compiler.test.ts
 trust_tests=packages/accounting/src/settlement-allocation-lineage-checkpoint-trust.test.ts
+trust_anchor_tests=packages/accounting/src/settlement-allocation-lineage-checkpoint-trust-anchor.test.ts
 index=packages/accounting/src/index.ts
 workflow=../.github/workflows/music-accounting.yml
 policy=packages/accounting/promotion-policy.json
@@ -18,8 +20,10 @@ policy=packages/accounting/promotion-policy.json
 [[ -f "$compiler" ]] || fail "checkpoint compiler source is missing"
 [[ -f "$checkpoint" ]] || fail "checkpoint verification source is missing"
 [[ -f "$trust" ]] || fail "checkpoint signer trust source is missing"
+[[ -f "$trust_anchor" ]] || fail "checkpoint trust-anchor source is missing"
 [[ -f "$tests" ]] || fail "checkpoint compiler regressions are missing"
 [[ -f "$trust_tests" ]] || fail "checkpoint signer trust regressions are missing"
+[[ -f "$trust_anchor_tests" ]] || fail "checkpoint trust-anchor regressions are missing"
 
 grep -Fq 'verifyPersistedSettlementAllocation' "$compiler" \
   || fail "compiler must canonically replay persisted allocations before checkpoint creation"
@@ -81,6 +85,8 @@ grep -Fq 'createSettlementAllocationLineageCheckpointSigningRequest' "$index" \
   || fail "package index must expose capability-scoped signing requests"
 grep -Fq "export * from './settlement-allocation-lineage-checkpoint-trust.js';" "$index" \
   || fail "package index must expose signer trust rotation and receipt verification"
+grep -Fq "export * from './settlement-allocation-lineage-checkpoint-trust-anchor.js';" "$index" \
+  || fail "package index must expose root-attested trust verification"
 
 grep -Fq "recordType: 'settlement_allocation_lineage_checkpoint_signer_trust_bundle_v1'" "$trust" \
   || fail "signer trust bundle must have a domain-separated commitment"
@@ -98,6 +104,46 @@ grep -Fq 'trustBundleRoot: bundle.bundleRoot' "$trust" \
   || fail "verification receipt must bind exact trust bundle root"
 grep -Fq 'trustEntryId: entry.entryId' "$trust" \
   || fail "verification receipt must identify the exact trust entry"
+
+grep -Fq 'SETTLEMENT_ALLOCATION_LINEAGE_TRUST_BUNDLE_ATTESTATION_SCOPE' "$trust_anchor" \
+  || fail "trust bundle root-attestation scope missing"
+grep -Fq "recordType: 'settlement_allocation_lineage_trust_bundle_attestation_request_v1'" "$trust_anchor" \
+  || fail "trust bundle attestation request must be domain-separated"
+grep -Fq "recordType: 'settlement_allocation_lineage_trust_bundle_attestation_v1'" "$trust_anchor" \
+  || fail "trust bundle attestation must have a domain-separated root"
+grep -Fq 'trust bundle policy sequence is below anti-rollback floor' "$trust_anchor" \
+  || fail "trust anchor must enforce an externally pinned anti-rollback floor"
+grep -Fq 'trust bundle attestation successor must advance policy sequence exactly once' "$trust_anchor" \
+  || fail "trust bundle succession must be contiguous"
+grep -Fq 'trust bundle attestation successor must bind predecessor bundle root' "$trust_anchor" \
+  || fail "trust bundle succession must bind predecessor root"
+grep -Fq 'Date.parse(signedAt) >= Date.parse(canonical.expiresAt)' "$trust_anchor" \
+  || fail "trust bundle attestation signing window must be half-open"
+grep -Fq 'attachSettlementAllocationLineageTrustBundleDetachedSignature' "$trust_anchor" \
+  || fail "root signer must remain detached from accounting key custody"
+grep -Fq 'const VERIFIED_ANCHORED_CHECKPOINT_AUTHORITIES = new WeakSet<object>();' "$trust_anchor" \
+  || fail "anchored checkpoint authorities must carry private runtime provenance"
+grep -Fq 'requireAnchoredSettlementAllocationLineageCheckpointAuthority' "$trust_anchor" \
+  || fail "anchored checkpoint authority promotion accessor missing"
+grep -Fq "recordType: 'settlement_allocation_lineage_checkpoint_anchored_verification_receipt_v1'" "$trust_anchor" \
+  || fail "anchored checkpoint verification must emit a domain-separated receipt"
+grep -Fq 'trustBundleAttestationRoot: trustBundleAuthority.attestation.attestationRoot' "$trust_anchor" \
+  || fail "anchored receipt must bind exact trust bundle attestation"
+grep -Fq 'trustPolicySequence: trustBundleAuthority.policySequence' "$trust_anchor" \
+  || fail "anchored receipt must bind exact trust policy sequence"
+
+grep -Fq 'rejects a cryptographically valid older trust bundle below the pinned rollback floor' "$trust_anchor_tests" \
+  || fail "trust-anchor regressions must exercise rollback attack"
+grep -Fq 'requires exact predecessor continuity and one-step policy advancement' "$trust_anchor_tests" \
+  || fail "trust-anchor regressions must prove contiguous policy succession"
+grep -Fq 'rejects a successor that names the wrong predecessor bundle root' "$trust_anchor_tests" \
+  || fail "trust-anchor regressions must reject predecessor substitution"
+grep -Fq 'uses half-open attestation request windows' "$trust_anchor_tests" \
+  || fail "trust-anchor regressions must prove expiry boundary"
+grep -Fq 'does not let structural clones participate in verified policy succession' "$trust_anchor_tests" \
+  || fail "trust-anchor regressions must reject fabricated verified authority"
+grep -Fq 'rejects fabricated anchored checkpoint authority objects' "$trust_anchor_tests" \
+  || fail "trust-anchor regressions must reject fabricated anchored checkpoint authorities"
 
 grep -Fq 'preserves historical old-key verification after rotation and emits an auditable receipt' "$trust_tests" \
   || fail "regressions must prove historical verification survives rotation"
@@ -141,5 +187,9 @@ grep -Fq 'A stale signer trust bundle predating the checkpoint signature is suff
   || fail "promotion policy must forbid stale trust policy evidence"
 grep -Fq 'Key rotation invalidates all historically valid checkpoints by default.' "$policy" \
   || fail "promotion policy must preserve historical signatures under time-bounded trust"
+grep -Fq 'An unattested signer trust bundle is sufficient root trust authority.' "$policy" \
+  || fail "promotion policy must require trust-bundle root attestation"
+grep -Fq 'A cryptographically valid trust bundle below the pinned minimum policy sequence is acceptable.' "$policy" \
+  || fail "promotion policy must forbid trust-policy rollback"
 
 echo "checkpoint compiler invariants passed"
