@@ -181,7 +181,6 @@ impl ProviderProfileTrustRoot {
         if current_generation == 0 {
             return Err(QualificationError::InvalidGeneration);
         }
-        // Reject malformed Ed25519 public encodings up front.
         VerifyingKey::from_bytes(&verifying_key)
             .map_err(|_| QualificationError::InvalidVerifyingKey)?;
 
@@ -218,7 +217,7 @@ impl ProviderProfileTrustRoot {
 /// Non-deserializable positive result proving one exact provider profile is
 /// signed by the supplied current trust root and valid at the qualification
 /// instant. This is provider-policy evidence, never institutional authority.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QualifiedProviderExecutionProfile {
     profile: ProviderExecutionProfile,
     profile_commitment: ContentCommitment,
@@ -290,7 +289,7 @@ pub fn qualify_provider_profile(
 ///
 /// This object deliberately contains no provider payload bytes and cannot cross
 /// the durable runtime into `DispatchStarted` by itself.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QualifiedExecutionBinding {
     entry_id: i64,
     attempt_id: mycelix_integration_core::ExecutionAttemptId,
@@ -397,8 +396,6 @@ where
     }
 
     let profile = provider.profile();
-    // Provider qualification can outlive the instant at which it was produced,
-    // so materialization admission rechecks its time window at the use instant.
     if now_ms < profile.not_before_ms || now_ms > profile.not_after_ms {
         return Err(QualificationError::ProfileNotCurrent);
     }
@@ -415,10 +412,10 @@ where
         return Err(QualificationError::ProfileSideEffectMismatch);
     }
 
-    if let Some(target) = &command.target {
-        if target.system != command.system {
-            return Err(QualificationError::TargetSystemMismatch);
-        }
+    if let Some(target) = &command.target
+        && target.system != command.system
+    {
+        return Err(QualificationError::TargetSystemMismatch);
     }
     if let Some(required) = &profile.required_target_type {
         match &command.target {
