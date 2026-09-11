@@ -150,6 +150,9 @@ pub fn verify_regenerative_genome_lineage_successor(
     if next.genome_id == previous.genome_id {
         return Err("successor genome must use a distinct genome_id".into());
     }
+    if next.genome_binding == previous.genome_binding {
+        return Err("successor genome must use a distinct genome binding".into());
+    }
     Ok(())
 }
 
@@ -254,9 +257,14 @@ mod tests {
         wrong_parent.parent_genome_binding = Some("genome:other:sha256:example".into());
         assert!(verify_regenerative_genome_lineage_successor(&root, &wrong_parent).is_err());
 
-        let mut reused_id = successor;
+        let mut reused_id = successor.clone();
         reused_id.genome_id = root.genome_id.clone();
         assert!(verify_regenerative_genome_lineage_successor(&root, &reused_id).is_err());
+
+        let mut reused_binding = successor;
+        reused_binding.genome_binding = root.genome_binding.clone();
+        reused_binding.parent_genome_binding = Some(root.genome_binding.clone());
+        assert!(verify_regenerative_genome_lineage_successor(&root, &reused_binding).is_err());
     }
 
     #[test]
