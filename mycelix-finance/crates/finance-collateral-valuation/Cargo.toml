@@ -15,6 +15,7 @@ finance-collateral-safety = { path = "../finance-collateral-safety" }
 
 [dev-dependencies]
 serde_json = { workspace = true }
+mycelix_finance_types = { path = "../../types" }
 
 [lints.rust]
 unsafe_code = "forbid"
