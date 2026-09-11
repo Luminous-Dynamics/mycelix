@@ -26,7 +26,7 @@ pub const MAX_ACTION_REFERENCE_LEN: usize = 256;
 
 /// Minimal, storage-independent view of the existing immutable Holochain
 /// `SapMintRecord` fields needed by the conservation theorem.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SapMintRecordView {
     pub mint_id: String,
     pub recipient_did: String,
