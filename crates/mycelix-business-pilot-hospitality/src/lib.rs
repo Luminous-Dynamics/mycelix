@@ -5,9 +5,13 @@
 //! This crate composes the generic shadow, field-qualification, ingress, and hospitality-profile
 //! contracts. It introduces no execution path and grants no authority.
 
+use std::collections::BTreeSet;
+
 use mycelix_business_core::{CapabilityRef, Digest32, ReferenceId, ScopeRef};
 use mycelix_business_field_qualification::{
-    ConnectorBinding, DataQualityThreshold, EvaluationSlice, FieldQualificationPlan,
+    ConnectorBinding, DataQualityEvidence, DataQualityThreshold, EvaluationSlice, EvidenceError,
+    FieldQualificationDecision, FieldQualificationEvidence, FieldQualificationPlan, SliceEvidence,
+    evaluate_field_qualification,
 };
 use mycelix_business_ingress::IngressQualificationBinding;
 use mycelix_business_profile_hospitality::{
@@ -67,10 +71,10 @@ impl HospitalityPilotPolicy {
             minimum_evaluation_duration_ms: 28 * DAY_MS,
             minimum_total_forecast_cases: 56,
             minimum_cases_per_slice: 10,
-            maximum_abstention_bps: 1_000, // 10%
-            maximum_missing_bps: 100,      // 1%
+            maximum_abstention_bps: 1_000,
+            maximum_missing_bps: 100,
             maximum_conflicting_bps: 0,
-            maximum_stale_bps: 200,        // 2%
+            maximum_stale_bps: 200,
             maximum_ingest_delay_ms: 36 * HOUR_MS,
         }
     }
@@ -271,7 +275,7 @@ pub enum PilotError {
     FieldPlanInvalid,
     ProfileMismatch,
     CapabilityMismatch,
-    ScopeMismatch,
+    ProtocolPolicyMismatch,
     ProtocolDigestMismatch,
     EvaluationWindowMismatch,
     ConnectorMismatch,
@@ -390,6 +394,13 @@ impl HospitalityForecastPilotRegistration {
         {
             return Err(PilotError::CapabilityMismatch);
         }
+        if self.protocol.baseline_model_lineage != seasonal_naive_baseline_ref()
+            || self.protocol.minimum_cases != self.policy.minimum_total_forecast_cases
+            || self.protocol.maximum_abstention_bps != self.policy.maximum_abstention_bps
+            || !self.protocol.require_candidate_not_worse_than_baseline
+        {
+            return Err(PilotError::ProtocolPolicyMismatch);
+        }
         if self.protocol.protocol_digest != self.field_plan.shadow_protocol_digest {
             return Err(PilotError::ProtocolDigestMismatch);
         }
@@ -478,6 +489,41 @@ impl HospitalityForecastPilotRegistration {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HospitalityPilotEvidence {
+    pub registration_digest: Digest32,
+    /// Exact connector identity observed during the pilot, including source schema.
+    pub ingress_connector: IngressQualificationBinding,
+    pub field_evidence: FieldQualificationEvidence,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HospitalityPilotEvidenceError {
+    InvalidRegistration(PilotError),
+    RegistrationDigestMismatch,
+    ConnectorMismatch,
+    Field(EvidenceError),
+}
+
+/// Evaluate field evidence only after the full ingress connector identity, including source schema,
+/// is proven to be the one preregistered for the pilot.
+pub fn evaluate_hospitality_forecast_pilot(
+    registration: &HospitalityForecastPilotRegistration,
+    evidence: &HospitalityPilotEvidence,
+) -> Result<FieldQualificationDecision, HospitalityPilotEvidenceError> {
+    registration
+        .validate()
+        .map_err(HospitalityPilotEvidenceError::InvalidRegistration)?;
+    if evidence.registration_digest != registration.registration_digest {
+        return Err(HospitalityPilotEvidenceError::RegistrationDigestMismatch);
+    }
+    if evidence.ingress_connector != registration.ingress_connector {
+        return Err(HospitalityPilotEvidenceError::ConnectorMismatch);
+    }
+    evaluate_field_qualification(&registration.field_plan, &evidence.field_evidence)
+        .map_err(HospitalityPilotEvidenceError::Field)
+}
+
 fn validate_window(config: &HospitalityForecastPilotConfig) -> Result<(), PilotError> {
     if config.registered_at_unix_ms == 0
         || config.evaluation_start_unix_ms == 0
@@ -546,15 +592,25 @@ fn registration_digest(
     slices: &[HospitalitySliceDefinition],
 ) -> Digest32 {
     let mut hasher = Sha256::new();
-    hash_str(&mut hasher, "mycelix:hospitality-field-registration:v1");
+    hash_str(&mut hasher, "mycelix:hospitality-field-registration:v2");
     hash_str(&mut hasher, config.plan_id.as_str());
     hash_str(&mut hasher, config.scope.0.as_str());
+    hash_str(&mut hasher, config.timezone.as_str());
     hasher.update(protocol_digest.0);
     hash_str(&mut hasher, config.connector.source_system.as_str());
     hash_str(&mut hasher, config.connector.adapter_semantic_id.as_str());
     hasher.update(config.connector.adapter_digest.0);
     hasher.update(config.connector.mapping_digest.0);
     hasher.update(config.connector.source_schema_digest.0);
+    hasher.update(config.policy.minimum_preregistration_lead_ms.to_be_bytes());
+    hasher.update(config.policy.minimum_evaluation_duration_ms.to_be_bytes());
+    hasher.update(config.policy.minimum_total_forecast_cases.to_be_bytes());
+    hasher.update(config.policy.minimum_cases_per_slice.to_be_bytes());
+    hasher.update(config.policy.maximum_abstention_bps.to_be_bytes());
+    hasher.update(config.policy.maximum_missing_bps.to_be_bytes());
+    hasher.update(config.policy.maximum_conflicting_bps.to_be_bytes());
+    hasher.update(config.policy.maximum_stale_bps.to_be_bytes());
+    hasher.update(config.policy.maximum_ingest_delay_ms.to_be_bytes());
     for threshold in quality {
         hash_str(&mut hasher, threshold.input.as_str());
         hasher.update(threshold.maximum_missing_bps.to_be_bytes());
@@ -602,13 +658,49 @@ mod tests {
         }
     }
 
+    fn passing_field_evidence(
+        registration: &HospitalityForecastPilotRegistration,
+    ) -> FieldQualificationEvidence {
+        FieldQualificationEvidence {
+            plan_digest: registration.field_plan.plan_digest,
+            profile: registration.field_plan.profile.clone(),
+            capability: registration.field_plan.capability.clone(),
+            scope: registration.field_plan.scope.clone(),
+            shadow_protocol_digest: registration.field_plan.shadow_protocol_digest,
+            connectors: registration.field_plan.connectors.clone(),
+            data_quality: vec![DataQualityEvidence {
+                input: sales_input_ref(),
+                expected_records: 1_000,
+                missing_records: 0,
+                conflicting_records: 0,
+                stale_records: 0,
+                maximum_observed_ingest_delay_ms: HOUR_MS,
+                evidence_digest: Digest32::repeat(11),
+            }],
+            slices: registration
+                .slices
+                .iter()
+                .enumerate()
+                .map(|(index, slice)| SliceEvidence {
+                    slice: slice.slice.clone(),
+                    criterion_digest: slice.criterion_digest,
+                    cases: slice.minimum_cases,
+                    shadow_gate_passed: true,
+                    evidence_digest: Digest32::repeat((index + 20) as u8),
+                })
+                .collect(),
+            known_limitations: BTreeSet::new(),
+            evidence_digest: Digest32::repeat(10),
+        }
+    }
+
     #[test]
     fn builds_preregistered_read_only_forecast_pilot() {
         let registration = HospitalityForecastPilotRegistration::build(config()).unwrap();
         assert!(HOSPITALITY_PILOT_IS_READ_ONLY);
         assert_eq!(registration.validate(), Ok(()));
         assert_eq!(registration.protocol.baseline_model_lineage, seasonal_naive_baseline_ref());
-        assert_eq!(registration.protocol.require_candidate_not_worse_than_baseline, true);
+        assert!(registration.protocol.require_candidate_not_worse_than_baseline);
         assert_eq!(registration.slices.len(), 4);
         assert_eq!(registration.field_plan.plan_digest, registration.registration_digest);
     }
@@ -623,12 +715,31 @@ mod tests {
     }
 
     #[test]
-    fn schema_substitution_after_registration_fails_closed() {
-        let mut registration = HospitalityForecastPilotRegistration::build(config()).unwrap();
-        registration.ingress_connector.source_schema_digest = Digest32::repeat(9);
+    fn source_schema_substitution_is_rejected_at_evidence_evaluation() {
+        let registration = HospitalityForecastPilotRegistration::build(config()).unwrap();
+        let mut evidence = HospitalityPilotEvidence {
+            registration_digest: registration.registration_digest,
+            ingress_connector: registration.ingress_connector.clone(),
+            field_evidence: passing_field_evidence(&registration),
+        };
+        evidence.ingress_connector.source_schema_digest = Digest32::repeat(9);
         assert_eq!(
-            registration.validate(),
-            Err(PilotError::RegistrationDigestMismatch)
+            evaluate_hospitality_forecast_pilot(&registration, &evidence),
+            Err(HospitalityPilotEvidenceError::ConnectorMismatch)
+        );
+    }
+
+    #[test]
+    fn passing_evidence_remains_only_a_field_shadow_gate() {
+        let registration = HospitalityForecastPilotRegistration::build(config()).unwrap();
+        let evidence = HospitalityPilotEvidence {
+            registration_digest: registration.registration_digest,
+            ingress_connector: registration.ingress_connector.clone(),
+            field_evidence: passing_field_evidence(&registration),
+        };
+        assert_eq!(
+            evaluate_hospitality_forecast_pilot(&registration, &evidence),
+            Ok(FieldQualificationDecision::PassShadowFieldGate)
         );
     }
 
@@ -663,6 +774,16 @@ mod tests {
             second.slices[0].criterion_digest
         );
         assert_ne!(first.registration_digest, second.registration_digest);
+    }
+
+    #[test]
+    fn policy_mutation_invalidates_registration_digest() {
+        let mut registration = HospitalityForecastPilotRegistration::build(config()).unwrap();
+        registration.policy.minimum_evaluation_duration_ms = 7 * DAY_MS;
+        assert_eq!(
+            registration.validate(),
+            Err(PilotError::RegistrationDigestMismatch)
+        );
     }
 
     #[test]
