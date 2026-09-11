@@ -5,6 +5,9 @@ edition = "2021"
 license = "AGPL-3.0-or-later"
 description = "Evidence-gated collateral-backed SAP settlement kernel"
 
+[lib]
+path = "src/policy_bound.rs"
+
 [dependencies]
 serde = { workspace = true }
 
