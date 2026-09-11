@@ -10,6 +10,7 @@ readme = "README.md"
 
 [lib]
 name = "mycelix_business_shadow"
+path = "src/bound.rs"
 crate-type = ["rlib"]
 
 [dependencies]
