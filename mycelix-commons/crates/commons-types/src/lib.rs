@@ -23,6 +23,7 @@
 //! - Policy-normalized regenerative lineage provenance carried by maritime evidence
 //! - Reproduction-policy sensitivity-surface provenance carried by maritime evidence
 //! - Immutable policy-surface revision/supersession provenance carried by maritime evidence
+//! - Intergenerational regenerative support-basis provenance carried by maritime evidence
 
 pub mod anchors;
 pub mod batch;
@@ -41,6 +42,7 @@ pub mod regenerative_policy_sensitivity_surface;
 pub mod regenerative_policy_surface_revision;
 pub mod regenerative_reproduction_policy_frontier;
 pub mod regenerative_successor_depth;
+pub mod regenerative_support_basis;
 pub mod regenerative_viability;
 pub mod regenerative_viability_frontier;
 
@@ -61,5 +63,6 @@ pub use regenerative_policy_sensitivity_surface::*;
 pub use regenerative_policy_surface_revision::*;
 pub use regenerative_reproduction_policy_frontier::*;
 pub use regenerative_successor_depth::*;
+pub use regenerative_support_basis::*;
 pub use regenerative_viability::*;
 pub use regenerative_viability_frontier::*;
