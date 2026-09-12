@@ -48,9 +48,10 @@ const DOMAIN_TRANSPORT_ADMISSION: &[u8] = b"mycelix/integration/transport-admiss
 /// exact shared coordinator-mutation exclusion guard is still owned while the
 /// exact payload and exact durable dispatch-start proof remain bound together.
 ///
-/// Future provider transports should accept this type (or an even narrower
-/// connector-specific wrapper around it), never a raw ExecutionClaim,
-/// preexecution object, materialized bytes, or caller-constructed trust root.
+/// The raw request bytes intentionally have no public extractor. A future
+/// provider-transport boundary must consume this token directly rather than
+/// accepting copied bytes, a raw ExecutionClaim, a preexecution object, or a
+/// caller-constructed trust root.
 pub struct QualifiedIntegrationTransportAdmission<'a> {
     guard: IntegrationAdminMutationExclusionGuard<'a>,
     current_provider_trust: QualifiedCurrentProviderTrustPolicy,
@@ -63,14 +64,6 @@ pub struct QualifiedIntegrationTransportAdmission<'a> {
 }
 
 impl QualifiedIntegrationTransportAdmission<'_> {
-    pub fn request_bytes(&self) -> &[u8] {
-        self.materialized.bytes()
-    }
-
-    pub fn materialized(&self) -> &MaterializedProviderRequest {
-        &self.materialized
-    }
-
     pub fn atomic_dispatch(&self) -> &QualifiedAtomicDispatchStart {
         &self.atomic_dispatch
     }
@@ -81,6 +74,14 @@ impl QualifiedIntegrationTransportAdmission<'_> {
 
     pub fn current_provider_trust(&self) -> &QualifiedCurrentProviderTrustPolicy {
         &self.current_provider_trust
+    }
+
+    pub fn output_commitment(&self) -> &mycelix_integration_core::ContentCommitment {
+        self.materialized.output_commitment()
+    }
+
+    pub fn materialization_digest(&self) -> Digest32 {
+        self.materialized.materialization_digest()
     }
 
     pub fn transport_digest(&self) -> Digest32 {
@@ -103,6 +104,10 @@ impl QualifiedIntegrationTransportAdmission<'_> {
 
     pub fn entry_id(&self) -> i64 {
         self.atomic_dispatch.dispatch().entry_id
+    }
+
+    pub const fn raw_payload_extractable_here(&self) -> bool {
+        false
     }
 
     pub const fn authority_capability_coverage_live_here(&self) -> bool {
@@ -172,11 +177,9 @@ where
 {
     validate_provider_authority_domain(coverage, command, provider, adopted_provider_trust)?;
 
-    // Pre-lock qualification exists only to bind #655's live exclusion subject.
-    // Nothing effectful can occur from this object alone.
     let precheck_at_ms = system_now_ms()?;
-    let precheck_at_u64 = u64::try_from(precheck_at_ms)
-        .map_err(|_| TransportAdmissionError::ClockOverflow)?;
+    let precheck_at_u64 =
+        u64::try_from(precheck_at_ms).map_err(|_| TransportAdmissionError::ClockOverflow)?;
     let pre_root = qualify_current_provider_trust_policy(
         adopted_provider_trust,
         provider_trust_freshness,
@@ -200,11 +203,9 @@ where
         &pre_admission,
     )?;
 
-    // Re-establish provider-root currentness and exact store/provider admission
-    // after the shared exclusion interval is actually live.
     let inside_at_ms = system_now_ms()?;
-    let inside_at_u64 = u64::try_from(inside_at_ms)
-        .map_err(|_| TransportAdmissionError::ClockOverflow)?;
+    let inside_at_u64 =
+        u64::try_from(inside_at_ms).map_err(|_| TransportAdmissionError::ClockOverflow)?;
     if inside_at_u64 < guard.started_at_ms() {
         return Err(TransportAdmissionError::ClockRegression);
     }
@@ -225,9 +226,8 @@ where
     )?;
     validate_guard_subject(&guard, &inside_admission)?;
 
-    // The caller cannot substitute arbitrary canonical bytes. Materialization
-    // input is generated here from the exact typed command already covered by
-    // authority/provider/store qualification.
+    // Canonical bytes are generated from the exact typed command inside this
+    // theorem; callers cannot substitute another preimage.
     let canonical_command = command.canonical_preimage_v1();
     let materialized = materialize_provider_request(
         materializer,
@@ -236,15 +236,15 @@ where
         fuel_limit,
     )?;
 
-    // Materialization may consume enough time for a lease or root policy to
-    // expire. Re-run current root + store/provider qualification once more after
-    // materialization and immediately before the durable dispatch transition.
+    // Materialization may consume enough time for a lease/root/profile to become
+    // stale. Re-run current root + store/provider admission immediately before
+    // the durable dispatch transition.
     let final_at_ms = system_now_ms()?;
     if final_at_ms < inside_at_ms {
         return Err(TransportAdmissionError::ClockRegression);
     }
-    let final_at_u64 = u64::try_from(final_at_ms)
-        .map_err(|_| TransportAdmissionError::ClockOverflow)?;
+    let final_at_u64 =
+        u64::try_from(final_at_ms).map_err(|_| TransportAdmissionError::ClockOverflow)?;
     let final_root = qualify_current_provider_trust_policy(
         adopted_provider_trust,
         provider_trust_freshness,
@@ -263,17 +263,11 @@ where
     validate_guard_subject(&guard, &final_admission)?;
     validate_materialization_against_final_admission(&materialized, &final_admission)?;
 
-    let transport_deadline_ms = transport_deadline(
-        &final_admission,
-        &final_root,
-        provider,
-        final_at_ms,
-    )?;
+    let transport_deadline_ms =
+        transport_deadline(&final_admission, &final_root, provider, final_at_ms)?;
 
-    // From this call onward a successful return means DispatchStarted is already
-    // durable. `bind_materialization_and_start_dispatch` guarantees its own commit
-    // is the last fallible operation internally. This function performs only
-    // pure/infallible construction after the call returns Ok.
+    // A successful return from this call means DispatchStarted is already
+    // durable. Every operation after it is pure/infallible construction.
     let atomic_dispatch = bind_materialization_and_start_dispatch(
         final_admission.current_attempt(),
         &materialized,
@@ -379,8 +373,8 @@ fn transport_deadline(
 ) -> Result<i64, TransportAdmissionError> {
     let authority_until = i64::try_from(admission.admission().authority_valid_until_ms())
         .map_err(|_| TransportAdmissionError::DeadlineOverflow)?;
-    let root_until = i64::try_from(root.valid_until_ms())
-        .map_err(|_| TransportAdmissionError::DeadlineOverflow)?;
+    let root_until =
+        i64::try_from(root.valid_until_ms()).map_err(|_| TransportAdmissionError::DeadlineOverflow)?;
     let attempt_until = admission.current_attempt().claim().lease_until_ms;
     let profile_exclusive = provider
         .profile()
