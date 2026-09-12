@@ -136,12 +136,12 @@ pub(crate) fn qualify_file_store_bootstrap(
     }
 
     let semantic_profile = load_semantic_profile(&tx)?;
-    if let Some(profile) = semantic_profile.as_deref() {
-        if profile != expected_semantic_profile {
-            return Err(RuntimeError::StoredIdentifier(format!(
-                "unsupported integration runtime semantic profile: {profile}"
-            )));
-        }
+    if let Some(profile) = semantic_profile.as_deref()
+        && profile != expected_semantic_profile
+    {
+        return Err(RuntimeError::StoredIdentifier(format!(
+            "unsupported integration runtime semantic profile: {profile}"
+        )));
     }
 
     let required_schema_complete = required_structural_tables_exist(&tx)?;
