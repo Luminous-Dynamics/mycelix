@@ -235,14 +235,29 @@ mod tests {
             mode: 0o600,
         };
         assert!(base.validate().is_ok());
-        assert!(RuntimeStoreProvisioningExpectation { mode: 0o640, ..base }
+        assert!(
+            RuntimeStoreProvisioningExpectation {
+                mode: 0o640,
+                ..base
+            }
             .validate()
-            .is_ok());
-        assert!(RuntimeStoreProvisioningExpectation { mode: 0o660, ..base }
+            .is_ok()
+        );
+        assert!(
+            RuntimeStoreProvisioningExpectation {
+                mode: 0o660,
+                ..base
+            }
             .validate()
-            .is_err());
-        assert!(RuntimeStoreProvisioningExpectation { mode: 0o400, ..base }
+            .is_err()
+        );
+        assert!(
+            RuntimeStoreProvisioningExpectation {
+                mode: 0o400,
+                ..base
+            }
             .validate()
-            .is_err());
+            .is_err()
+        );
     }
 }
