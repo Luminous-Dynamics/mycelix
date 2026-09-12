@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "genome_binding": "genome:manta-v2:sha256:fixture",
+  "lineage_evidence_binding": "lineage:blake3:fixture",
+  "viability_profile_binding": "viability-profile:manta-v2:v1",
+  "static_viability_report_binding": "symthaea-report:manta-v2:sha256:fixture",
+  "dynamic_simulation_binding": "symtropy-run:manta-v2:sha256:fixture",
+  "closure_model_binding": "closure-model:manta-v2:sha256:fixture",
+  "flow_support_binding": "flow-support:manta-v2:sha256:fixture",
+  "period_duration_ms": 1,
+  "roles": [
+    {
+      "role_id": "operation",
+      "static_horizon": { "finite_periods": 100 },
+      "dynamic_first_unavailable_tick": 101,
+      "fully_modeled_support": true,
+      "limiting_dependency_refs": ["dependency:platform-spares"]
+    },
+    {
+      "role_id": "successor_construction",
+      "static_horizon": { "finite_periods": 40 },
+      "dynamic_first_unavailable_tick": 41,
+      "fully_modeled_support": true,
+      "limiting_dependency_refs": ["dependency:forge-tooling"]
+    },
+    {
+      "role_id": "successor_qualification",
+      "static_horizon": { "finite_periods": 30 },
+      "dynamic_first_unavailable_tick": 31,
+      "fully_modeled_support": true,
+      "limiting_dependency_refs": ["dependency:metrology"]
+    }
+  ],
+  "regenerative_viability_horizon": { "finite_periods": 30 },
+  "limiting_role_ids": ["successor_qualification"],
+  "fully_modeled_regenerative_viability": true
+}
