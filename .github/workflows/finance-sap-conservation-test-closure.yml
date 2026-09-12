@@ -1,0 +1,161 @@
+name: Finance SAP Conservation Test Closure
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/finance-sap-conservation-test-closure.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: finance-sap-conservation-test-closure
+  cancel-in-progress: false
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  SOURCE_SHA: 'ea01f1f02e08b04786bce4e85d50a6a7d1f8408f'
+  FIN_SAFE_024_ARTIFACT_ID: '10307633449'
+  FIN_SAFE_024_ARTIFACT_SHA256: '7c45e732689e9c431ee679db1229b91f9b4b9f0850162d6d967f6c61913cb8bd'
+
+jobs:
+  qualify:
+    name: Qualify FIN-SAFE-025 on exact FIN-SAFE-024 source
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'ci-fin-safe-025-workspace-closure'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Checkout frozen FIN-SAFE-020 source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Bind exact source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - name: Restore exact FIN-SAFE-024 qualified source and lock
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${FIN_SAFE_024_ARTIFACT_ID}/zip" \
+            -o /tmp/fin-safe-024.zip
+          echo "${FIN_SAFE_024_ARTIFACT_SHA256}  /tmp/fin-safe-024.zip" | sha256sum -c -
+          mkdir -p /tmp/fin-safe-024-evidence
+          unzip -q /tmp/fin-safe-024.zip -d /tmp/fin-safe-024-evidence
+
+          for required in \
+            fin-safe-024-source.tar.gz \
+            fin-safe-024-source.tar.gz.sha256 \
+            fin-safe-024-source.sha256 \
+            Cargo.lock.candidate \
+            Cargo.lock.candidate.sha256; do
+            test -s "/tmp/fin-safe-024-evidence/$required"
+          done
+
+          expected_source_archive="$(awk '{print $1}' /tmp/fin-safe-024-evidence/fin-safe-024-source.tar.gz.sha256)"
+          actual_source_archive="$(sha256sum /tmp/fin-safe-024-evidence/fin-safe-024-source.tar.gz | awk '{print $1}')"
+          test "$actual_source_archive" = "$expected_source_archive"
+
+          tar -xzf /tmp/fin-safe-024-evidence/fin-safe-024-source.tar.gz -C .
+          sha256sum -c /tmp/fin-safe-024-evidence/fin-safe-024-source.sha256
+
+          expected_lock="$(awk '{print $1}' /tmp/fin-safe-024-evidence/Cargo.lock.candidate.sha256)"
+          actual_lock="$(sha256sum /tmp/fin-safe-024-evidence/Cargo.lock.candidate | awk '{print $1}')"
+          test "$actual_lock" = "$expected_lock"
+          cp /tmp/fin-safe-024-evidence/Cargo.lock.candidate mycelix-finance/Cargo.lock
+
+      - name: Apply FIN-SAFE-025 test-only dependency closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('mycelix-finance/crates/finance-sap-conservation/Cargo.toml')
+          text = path.read_text()
+          anchor = '[dev-dependencies]\nserde_json = { workspace = true }\n'
+          replacement = (
+              '[dev-dependencies]\n'
+              'serde_json = { workspace = true }\n'
+              'finance-collateral-deposit = { path = "../finance-collateral-deposit" }\n'
+          )
+          if text.count(anchor) != 1:
+              raise SystemExit('FIN-SAFE-025 manifest anchor mismatch')
+          path.write_text(text.replace(anchor, replacement))
+          PY
+          cd mycelix-finance
+          cargo fmt --all
+          cargo fmt --all --check
+          cd ..
+          git diff --check
+
+      - name: Regenerate and bind cumulative lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo metadata --format-version 1 > /tmp/fin-safe-025-metadata-generated.json
+          cp Cargo.lock /tmp/fin-safe-025-Cargo.lock
+          sha256sum Cargo.lock > /tmp/fin-safe-025-Cargo.lock.sha256
+          cargo metadata --locked --format-version 1 > /tmp/fin-safe-025-metadata-locked.json
+          cargo tree --workspace --locked > /tmp/fin-safe-025-tree-locked.txt
+
+      - name: Test finance-sap-conservation under lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo test -p finance-sap-conservation --locked 2>&1 | tee /tmp/fin-safe-025-targeted.log
+
+      - name: Test full Finance workspace under lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo test --workspace --locked 2>&1 | tee /tmp/fin-safe-025-workspace.log
+
+      - name: Capture exact cumulative source
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git status --porcelain=v1 --untracked-files=all > /tmp/fin-safe-025-status.txt
+          mkdir -p /tmp/fin-safe-025-source
+          cp mycelix-finance/crates/finance-sap-conservation/Cargo.toml /tmp/fin-safe-025-source/finance-sap-conservation.Cargo.toml
+          sha256sum /tmp/fin-safe-025-source/finance-sap-conservation.Cargo.toml > /tmp/fin-safe-025-source.sha256
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fin-safe-025-${{ env.SOURCE_SHA }}-${{ github.run_attempt }}
+          path: |
+            /tmp/fin-safe-025-status.txt
+            /tmp/fin-safe-025-source
+            /tmp/fin-safe-025-source.sha256
+            /tmp/fin-safe-025-Cargo.lock
+            /tmp/fin-safe-025-Cargo.lock.sha256
+            /tmp/fin-safe-025-metadata-generated.json
+            /tmp/fin-safe-025-metadata-locked.json
+            /tmp/fin-safe-025-tree-locked.txt
+            /tmp/fin-safe-025-targeted.log
+            /tmp/fin-safe-025-workspace.log
+          if-no-files-found: warn
+          retention-days: 30
