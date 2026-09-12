@@ -9,6 +9,7 @@ description = "Durable inbox, outbox, lease recovery, and reconciliation runtime
 path = "src/runtime.rs"
 
 [dependencies]
+blake3 = "1.5"
 mycelix-integration-core = { path = "../mycelix-integration-core" }
 rusqlite = { version = "0.32", features = ["bundled"] }
 serde_json = "1.0"
