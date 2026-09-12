@@ -1,0 +1,14 @@
+[package]
+name = "finance-sap-transfer-finality"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "FIN-SAFE-017 transfer output claim versus spendability theorem"
+
+[dependencies]
+serde = { workspace = true }
+finance-sap-value-notes = { path = "../finance-sap-value-notes" }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+finance-sap-account-v2 = { path = "../finance-sap-account-v2" }
