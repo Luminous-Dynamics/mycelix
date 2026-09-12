@@ -23,9 +23,7 @@ pub use attempt_guard::{
 };
 pub use bootstrap_guard::RUNTIME_BOOTSTRAP_PROFILE_V1;
 pub use schema_manifest::RUNTIME_STRUCTURAL_MANIFEST_V2;
-pub use storage_guard::{
-    RUNTIME_ENFORCEMENT_PROFILE_V5, ReconciliationCheckpointSnapshot,
-};
+pub use storage_guard::{RUNTIME_ENFORCEMENT_PROFILE_V5, ReconciliationCheckpointSnapshot};
 pub use v31::{
     DispatchStarted, DurableOutboundIntent, EnqueueDisposition, ExecutionClaim,
     ExecutionRecordDisposition, InsertDisposition, OutboxSnapshot, PersistableInbound,
@@ -193,10 +191,7 @@ impl SqliteIntegrationStore {
             .mark_dispatch_started(entry_id, attempt_id, worker_id, now_ms)
     }
 
-    pub fn recover_expired_claims(
-        &mut self,
-        now_ms: i64,
-    ) -> Result<RecoverySummary, RuntimeError> {
+    pub fn recover_expired_claims(&mut self, now_ms: i64) -> Result<RecoverySummary, RuntimeError> {
         self.inner.recover_expired_claims(now_ms)
     }
 
@@ -233,11 +228,7 @@ impl SqliteIntegrationStore {
         self.inner.reconciliation_history(entry_id)
     }
 
-    pub fn finalize_outbound(
-        &mut self,
-        entry_id: i64,
-        now_ms: i64,
-    ) -> Result<(), RuntimeError> {
+    pub fn finalize_outbound(&mut self, entry_id: i64, now_ms: i64) -> Result<(), RuntimeError> {
         self.require_fresh_causal_time(entry_id, now_ms)?;
         self.inner.finalize_outbound(entry_id, now_ms)
     }
@@ -252,7 +243,9 @@ impl SqliteIntegrationStore {
         }
 
         let key = cursor.connector_instance.as_str().to_owned();
-        let existing_cursor = self.inner.load_reconciliation_checkpoint(&cursor.connector_instance)?;
+        let existing_cursor = self
+            .inner
+            .load_reconciliation_checkpoint(&cursor.connector_instance)?;
         let existing = match existing_cursor.as_ref() {
             Some(stored) => {
                 let stored_at_ms = self
@@ -275,7 +268,8 @@ impl SqliteIntegrationStore {
         if should_write {
             self.inner
                 .checkpoint_reconciliation(cursor, updated_at_ms)?;
-            self.in_memory_checkpoint_times_ms.insert(key, updated_at_ms);
+            self.in_memory_checkpoint_times_ms
+                .insert(key, updated_at_ms);
         }
         Ok(())
     }
@@ -297,7 +291,10 @@ impl SqliteIntegrationStore {
             return storage_guard::load_checkpoint_snapshot(path, connector_instance);
         }
 
-        let Some(cursor) = self.inner.load_reconciliation_checkpoint(connector_instance)? else {
+        let Some(cursor) = self
+            .inner
+            .load_reconciliation_checkpoint(connector_instance)?
+        else {
             return Ok(None);
         };
         let updated_at_ms = self
@@ -306,7 +303,8 @@ impl SqliteIntegrationStore {
             .copied()
             .ok_or_else(|| {
                 RuntimeError::StoredIdentifier(
-                    "in-memory reconciliation checkpoint is missing its causal timestamp".to_owned(),
+                    "in-memory reconciliation checkpoint is missing its causal timestamp"
+                        .to_owned(),
                 )
             })?;
         Ok(Some(ReconciliationCheckpointSnapshot {
@@ -340,19 +338,13 @@ impl SqliteIntegrationStore {
         let Some(path) = &self.path else {
             return Ok(());
         };
-        if load_durable_causal_frontier(path, entry_id)?
-            .is_some_and(|frontier| now_ms < frontier)
-        {
+        if load_durable_causal_frontier(path, entry_id)?.is_some_and(|frontier| now_ms < frontier) {
             return Err(RuntimeError::InvalidTimestamp);
         }
         Ok(())
     }
 
-    fn require_fresh_claim_frontiers(
-        &self,
-        now_ms: i64,
-        limit: usize,
-    ) -> Result<(), RuntimeError> {
+    fn require_fresh_claim_frontiers(&self, now_ms: i64, limit: usize) -> Result<(), RuntimeError> {
         if now_ms < 0 {
             return Err(RuntimeError::InvalidTimestamp);
         }
@@ -417,10 +409,7 @@ fn is_retryable_open_contention(error: &RuntimeError) -> bool {
     )
 }
 
-fn load_durable_causal_frontier(
-    path: &Path,
-    entry_id: i64,
-) -> Result<Option<i64>, RuntimeError> {
+fn load_durable_causal_frontier(path: &Path, entry_id: i64) -> Result<Option<i64>, RuntimeError> {
     let conn = open_aux(path)?;
     conn.query_row(
         "SELECT MAX(ts) FROM (\n\
