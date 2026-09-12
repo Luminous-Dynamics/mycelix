@@ -17,6 +17,7 @@ members = [
     "crates/finance-sap-transfer-v2",
     "crates/finance-sap-transfer-finality",
     "crates/finance-sap-witness-policy",
+    "crates/finance-sap-witness-allocation",
     "crates/finance-wire-types",
     "crates/finance-leptos-types",
     "zomes/shared",
