@@ -10,8 +10,7 @@
 //! value merely because their Holochain action hashes differ.
 
 use finance_collateral_issuance_persistence::{
-    CollateralSapIssuanceReceiptRecordV2,
-    COLLATERAL_ISSUANCE_RECEIPT_RECORD_V2_SCHEMA_VERSION,
+    COLLATERAL_ISSUANCE_RECEIPT_RECORD_V2_SCHEMA_VERSION, CollateralSapIssuanceReceiptRecordV2,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -237,14 +236,11 @@ pub fn project_collateral_claims(
     for observation in physical_actions.values() {
         match deposit_to_mint.get(&observation.deposit_id) {
             Some(existing_mint) if existing_mint != &observation.mint_id => {
-                return Err(SapAccountV2Error::ConflictingDepositIdentity)
+                return Err(SapAccountV2Error::ConflictingDepositIdentity);
             }
             Some(_) => {}
             None => {
-                deposit_to_mint.insert(
-                    observation.deposit_id.clone(),
-                    observation.mint_id.clone(),
-                );
+                deposit_to_mint.insert(observation.deposit_id.clone(), observation.mint_id.clone());
             }
         }
 
@@ -270,12 +266,12 @@ pub fn project_collateral_claims(
                         member_did: observation.member_did.clone(),
                         deposit_id: observation.deposit_id.clone(),
                         amount: observation.amount,
-                        claim_action_references: BTreeSet::from([
-                            observation.claim_action_reference.clone(),
-                        ]),
-                        issuance_receipt_action_references: BTreeSet::from([
-                            observation.issuance_receipt_action_reference.clone(),
-                        ]),
+                        claim_action_references: BTreeSet::from([observation
+                            .claim_action_reference
+                            .clone()]),
+                        issuance_receipt_action_references: BTreeSet::from([observation
+                            .issuance_receipt_action_reference
+                            .clone()]),
                     },
                 );
             }
@@ -349,7 +345,10 @@ fn validate_receipt_shape(
     Ok(())
 }
 
-fn require_owner_author(action_author_did: &str, member_did: &str) -> Result<(), SapAccountV2Error> {
+fn require_owner_author(
+    action_author_did: &str,
+    member_did: &str,
+) -> Result<(), SapAccountV2Error> {
     validate_did(action_author_did)?;
     validate_did(member_did)?;
     if action_author_did != member_did {
@@ -404,7 +403,12 @@ pub enum SapAccountV2Error {
 mod tests {
     use super::*;
 
-    fn receipt(mint_id: &str, deposit_id: &str, recipient: &str, amount: u64) -> CollateralSapIssuanceReceiptRecordV2 {
+    fn receipt(
+        mint_id: &str,
+        deposit_id: &str,
+        recipient: &str,
+        amount: u64,
+    ) -> CollateralSapIssuanceReceiptRecordV2 {
         CollateralSapIssuanceReceiptRecordV2 {
             schema_version: COLLATERAL_ISSUANCE_RECEIPT_RECORD_V2_SCHEMA_VERSION,
             authorization_action_reference: "uhCkk-auth".into(),
@@ -445,7 +449,10 @@ mod tests {
     fn shipped_config_is_disabled() {
         let config = SapAccountV2Config::default();
         assert_eq!(config.validate(), Ok(()));
-        assert_eq!(config.require_enabled(), Err(SapAccountV2Error::ProtocolDisabled));
+        assert_eq!(
+            config.require_enabled(),
+            Err(SapAccountV2Error::ProtocolDisabled)
+        );
     }
 
     #[test]
@@ -498,8 +505,20 @@ mod tests {
         let projection = project_collateral_claims(
             "did:mycelix:alice",
             &[
-                validated("uhCkk-claim-a", "uhCkk-receipt-a", "mint:one", "deposit:one", 50),
-                validated("uhCkk-claim-b", "uhCkk-receipt-b", "mint:one", "deposit:one", 50),
+                validated(
+                    "uhCkk-claim-a",
+                    "uhCkk-receipt-a",
+                    "mint:one",
+                    "deposit:one",
+                    50,
+                ),
+                validated(
+                    "uhCkk-claim-b",
+                    "uhCkk-receipt-b",
+                    "mint:one",
+                    "deposit:one",
+                    50,
+                ),
             ],
         )
         .unwrap();
@@ -519,11 +538,9 @@ mod tests {
             "deposit:one",
             50,
         );
-        let projection = project_collateral_claims(
-            "did:mycelix:alice",
-            &[observation.clone(), observation],
-        )
-        .unwrap();
+        let projection =
+            project_collateral_claims("did:mycelix:alice", &[observation.clone(), observation])
+                .unwrap();
         assert_eq!(projection.physical_claim_action_count, 1);
         assert_eq!(projection.unique_mint_count, 1);
         assert_eq!(projection.duplicate_claim_action_count, 0);
@@ -604,13 +621,7 @@ mod tests {
             project_collateral_claims(
                 "did:mycelix:alice",
                 &[
-                    validated(
-                        "uhCkk-a",
-                        "uhCkk-ra",
-                        "mint:a",
-                        "deposit:a",
-                        u64::MAX,
-                    ),
+                    validated("uhCkk-a", "uhCkk-ra", "mint:a", "deposit:a", u64::MAX,),
                     validated("uhCkk-b", "uhCkk-rb", "mint:b", "deposit:b", 1),
                 ],
             ),
@@ -622,13 +633,7 @@ mod tests {
     fn projection_round_trips() {
         let projection = project_collateral_claims(
             "did:mycelix:alice",
-            &[validated(
-                "uhCkk-a",
-                "uhCkk-ra",
-                "mint:a",
-                "deposit:a",
-                10,
-            )],
+            &[validated("uhCkk-a", "uhCkk-ra", "mint:a", "deposit:a", 10)],
         )
         .unwrap();
         let bytes = serde_json::to_vec(&projection).unwrap();

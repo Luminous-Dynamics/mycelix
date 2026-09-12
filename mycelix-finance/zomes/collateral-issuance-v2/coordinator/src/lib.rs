@@ -36,15 +36,16 @@ pub fn create_collateral_sap_mint_authorization_v2(
         )))
     })?;
 
-    let authorization = AuthenticatedCollateralSapMintAuthorizationV2::from_authenticated_settlement(
-        authenticated_settlement,
-        root,
-    )
-    .map_err(|error| {
-        wasm_error!(WasmErrorInner::Guest(format!(
-            "Authenticated collateral mint authorization failed: {error:?}"
-        )))
-    })?;
+    let authorization =
+        AuthenticatedCollateralSapMintAuthorizationV2::from_authenticated_settlement(
+            authenticated_settlement,
+            root,
+        )
+        .map_err(|error| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Authenticated collateral mint authorization failed: {error:?}"
+            )))
+        })?;
     let compact = CollateralSapMintAuthorizationRecordV2::from_authenticated(&authorization, root)
         .map_err(|error| {
             wasm_error!(WasmErrorInner::Guest(format!(
@@ -149,8 +150,11 @@ fn load_authorization(
         AppEntryDef::try_from(UnitEntryTypes::CollateralSapMintAuthorizationV2)?,
         "FIN-SAFE-010 mint authorization",
     )?;
-    decode_entry::<CollateralSapMintAuthorizationV2Entry>(&record, "FIN-SAFE-010 mint authorization")
-        .map(|entry| entry.record)
+    decode_entry::<CollateralSapMintAuthorizationV2Entry>(
+        &record,
+        "FIN-SAFE-010 mint authorization",
+    )
+    .map(|entry| entry.record)
 }
 
 fn load_mint(action_hash: ActionHash) -> ExternResult<CollateralSapMintRecordV2Compact> {
@@ -202,9 +206,5 @@ where
                 "Failed to decode {label}: {error:?}"
             )))
         })?
-        .ok_or_else(|| {
-            wasm_error!(WasmErrorInner::Guest(format!(
-                "{label} entry is missing"
-            )))
-        })
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(format!("{label} entry is missing"))))
 }

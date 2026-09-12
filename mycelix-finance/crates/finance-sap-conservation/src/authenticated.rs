@@ -122,7 +122,8 @@ impl AuthenticatedCollateralSapIssuanceReceiptV2 {
         &self,
         root: &CollateralSettlementTrustRootV1,
     ) -> Result<(), AuthenticatedSapConservationError> {
-        self.authenticated_authorization.validate_against_root(root)?;
+        self.authenticated_authorization
+            .validate_against_root(root)?;
         self.receipt
             .validate_against_policy(&root.settlement_policy)
             .map_err(AuthenticatedSapConservationError::Conservation)?;
@@ -186,9 +187,7 @@ mod tests {
         COLLATERAL_EVIDENCE_AUTH_PROTOCOL_VERSION, CUSTODY_ATTESTATION_V1_SCHEMA_VERSION,
         PRICE_ATTESTATION_V1_SCHEMA_VERSION,
     };
-    use finance_collateral_deposit::{
-        CollateralDepositRequestV2, COLLATERAL_DEPOSIT_NONCE_BYTES,
-    };
+    use finance_collateral_deposit::{CollateralDepositRequestV2, COLLATERAL_DEPOSIT_NONCE_BYTES};
     use finance_collateral_request_binding::{
         derive_authenticated_bound_settlement_intent_from_valid_actions,
         BoundCollateralDepositRequest,
@@ -291,25 +290,33 @@ mod tests {
     #[test]
     fn mint_authorization_retains_all_exact_evidence_actions() {
         let root = root();
-        let authorization = AuthenticatedCollateralSapMintAuthorizationV2::from_authenticated_settlement(
-            authenticated_settlement(&root),
-            &root,
-        )
-        .expect("authorization");
+        let authorization =
+            AuthenticatedCollateralSapMintAuthorizationV2::from_authenticated_settlement(
+                authenticated_settlement(&root),
+                &root,
+            )
+            .expect("authorization");
         assert_eq!(authorization.request_action_reference(), "uhCkk-request");
-        assert_eq!(authorization.price_attestation_action_reference(), "uhCkk-price");
-        assert_eq!(authorization.custody_attestation_action_reference(), "uhCkk-custody");
+        assert_eq!(
+            authorization.price_attestation_action_reference(),
+            "uhCkk-price"
+        );
+        assert_eq!(
+            authorization.custody_attestation_action_reference(),
+            "uhCkk-custody"
+        );
         assert_eq!(authorization.validate_against_root(&root), Ok(()));
     }
 
     #[test]
     fn authenticated_receipt_preserves_lineage_through_balance_delta() {
         let root = root();
-        let authorization = AuthenticatedCollateralSapMintAuthorizationV2::from_authenticated_settlement(
-            authenticated_settlement(&root),
-            &root,
-        )
-        .expect("authorization");
+        let authorization =
+            AuthenticatedCollateralSapMintAuthorizationV2::from_authenticated_settlement(
+                authenticated_settlement(&root),
+                &root,
+            )
+            .expect("authorization");
         let mint = CollateralSapMintRecordV2::from_authorization(
             "uhCkk-auth".into(),
             &authorization.authorization,
@@ -350,11 +357,12 @@ mod tests {
     #[test]
     fn alternate_root_cannot_validate_existing_authorization() {
         let root = root();
-        let authorization = AuthenticatedCollateralSapMintAuthorizationV2::from_authenticated_settlement(
-            authenticated_settlement(&root),
-            &root,
-        )
-        .expect("authorization");
+        let authorization =
+            AuthenticatedCollateralSapMintAuthorizationV2::from_authenticated_settlement(
+                authenticated_settlement(&root),
+                &root,
+            )
+            .expect("authorization");
         let mut alternate = root.clone();
         alternate.root_version = 2;
         assert_eq!(

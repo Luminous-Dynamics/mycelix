@@ -76,10 +76,7 @@ impl AuthenticatedBoundCollateralSettlementIntentV1 {
 
         let expected = derive_bound_settlement_intent(
             BoundCollateralDepositRequest {
-                request_action_reference: self
-                    .bound_settlement
-                    .request_action_reference
-                    .clone(),
+                request_action_reference: self.bound_settlement.request_action_reference.clone(),
                 request: self.bound_settlement.request.clone(),
             },
             &root.settlement_policy,
@@ -191,9 +188,7 @@ mod tests {
         COLLATERAL_EVIDENCE_AUTH_PROTOCOL_VERSION, CUSTODY_ATTESTATION_V1_SCHEMA_VERSION,
         PRICE_ATTESTATION_V1_SCHEMA_VERSION,
     };
-    use finance_collateral_deposit::{
-        CollateralDepositRequestV2, COLLATERAL_DEPOSIT_NONCE_BYTES,
-    };
+    use finance_collateral_deposit::{CollateralDepositRequestV2, COLLATERAL_DEPOSIT_NONCE_BYTES};
     use finance_collateral_settlement::{
         CollateralSettlementAuthorityPolicy, CustodyAttestationCapability,
         PriceAttestationCapability, PriceRatio, SettlementFreshnessPolicy,

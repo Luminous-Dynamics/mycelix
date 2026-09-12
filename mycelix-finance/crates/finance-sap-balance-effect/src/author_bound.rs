@@ -13,9 +13,8 @@
 mod kernel;
 
 pub use kernel::{
-    BalanceLineageStatusV2, CollateralIssuanceEffectV2, SapBalanceEffectError,
-    SapBalanceStateV2, MAX_ACTION_REFERENCE_LEN, MAX_DID_LEN, MAX_ID_LEN,
-    SAP_BALANCE_EFFECT_V2_SCHEMA_VERSION,
+    BalanceLineageStatusV2, CollateralIssuanceEffectV2, SapBalanceEffectError, SapBalanceStateV2,
+    MAX_ACTION_REFERENCE_LEN, MAX_DID_LEN, MAX_ID_LEN, SAP_BALANCE_EFFECT_V2_SCHEMA_VERSION,
 };
 
 use finance_collateral_issuance_persistence::CollateralSapIssuanceReceiptRecordV2;
@@ -148,8 +147,7 @@ pub enum AuthorBoundSapBalanceEffectError {
 mod tests {
     use super::*;
     use finance_collateral_issuance_persistence::{
-        CollateralSapIssuanceReceiptRecordV2,
-        COLLATERAL_ISSUANCE_RECEIPT_RECORD_V2_SCHEMA_VERSION,
+        CollateralSapIssuanceReceiptRecordV2, COLLATERAL_ISSUANCE_RECEIPT_RECORD_V2_SCHEMA_VERSION,
     };
 
     fn state(value: u64) -> SapBalanceStateV2 {

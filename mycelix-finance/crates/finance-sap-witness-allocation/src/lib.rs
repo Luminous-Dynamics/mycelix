@@ -42,8 +42,12 @@ impl SapWitnessAllocationV1 {
         transfer: &SapTransferV2,
         spend_action_reference: String,
     ) -> Result<Self, SapWitnessAllocationError> {
-        policy.validate().map_err(|_| SapWitnessAllocationError::InvalidPolicy)?;
-        transfer.validate_shape().map_err(|_| SapWitnessAllocationError::InvalidTransfer)?;
+        policy
+            .validate()
+            .map_err(|_| SapWitnessAllocationError::InvalidPolicy)?;
+        transfer
+            .validate_shape()
+            .map_err(|_| SapWitnessAllocationError::InvalidTransfer)?;
         validate_did(&witness_did)?;
         validate_action_reference(&spend_action_reference)?;
         require_optional_witness(policy, &witness_did)?;
@@ -84,8 +88,12 @@ impl SapWitnessAllocationV1 {
         transfer: &SapTransferV2,
     ) -> Result<(), SapWitnessAllocationError> {
         self.validate_shape()?;
-        policy.validate().map_err(|_| SapWitnessAllocationError::InvalidPolicy)?;
-        transfer.validate_shape().map_err(|_| SapWitnessAllocationError::InvalidTransfer)?;
+        policy
+            .validate()
+            .map_err(|_| SapWitnessAllocationError::InvalidPolicy)?;
+        transfer
+            .validate_shape()
+            .map_err(|_| SapWitnessAllocationError::InvalidTransfer)?;
         require_optional_witness(policy, &self.witness_did)?;
         if self.policy_fingerprint != policy.policy_fingerprint {
             return Err(SapWitnessAllocationError::PolicyFingerprintMismatch);
@@ -179,7 +187,9 @@ impl AuthenticatedWitnessAllocationObservationV1 {
         expected_witness_did: &str,
     ) -> Result<(), SapWitnessAllocationError> {
         self.validate_shape()?;
-        policy.validate().map_err(|_| SapWitnessAllocationError::InvalidPolicy)?;
+        policy
+            .validate()
+            .map_err(|_| SapWitnessAllocationError::InvalidPolicy)?;
         validate_did(expected_witness_did)?;
         require_optional_witness(policy, expected_witness_did)?;
         if self.allocation.witness_did != expected_witness_did {
@@ -213,7 +223,9 @@ impl AuthenticatedCompleteWitnessAllocationHistoryV1 {
         witness_did: String,
         observations: Vec<AuthenticatedWitnessAllocationObservationV1>,
     ) -> Result<Self, SapWitnessAllocationError> {
-        policy.validate().map_err(|_| SapWitnessAllocationError::InvalidPolicy)?;
+        policy
+            .validate()
+            .map_err(|_| SapWitnessAllocationError::InvalidPolicy)?;
         validate_did(&witness_did)?;
         require_optional_witness(policy, &witness_did)?;
         canonicalize_history(policy, &witness_did, &observations)?;
@@ -237,7 +249,9 @@ impl AuthenticatedCompleteWitnessAllocationHistoryV1 {
         policy: &SapTransferWitnessPolicyV1,
         expected_witness_did: &str,
     ) -> Result<(), SapWitnessAllocationError> {
-        policy.validate().map_err(|_| SapWitnessAllocationError::InvalidPolicy)?;
+        policy
+            .validate()
+            .map_err(|_| SapWitnessAllocationError::InvalidPolicy)?;
         validate_did(expected_witness_did)?;
         if self.witness_did != expected_witness_did {
             return Err(SapWitnessAllocationError::CompleteHistoryWitnessMismatch);
@@ -252,7 +266,9 @@ impl AuthenticatedCompleteWitnessAllocationHistoryV1 {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SapWitnessInputAllocationStateV1 {
-    Unallocated { note_id: String },
+    Unallocated {
+        note_id: String,
+    },
     AllocatedTo {
         note_id: String,
         transfer_id: String,
@@ -268,7 +284,9 @@ pub enum SapWitnessInputAllocationStateV1 {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SapWitnessAllocationDecisionV1 {
-    ApproveNew { allocation: SapWitnessAllocationV1 },
+    ApproveNew {
+        allocation: SapWitnessAllocationV1,
+    },
     IdempotentExisting {
         transfer_id: String,
         allocation_id: String,
@@ -292,8 +310,12 @@ pub fn decide_witness_allocation(
     spend_action_reference: &str,
     history: &AuthenticatedCompleteWitnessAllocationHistoryV1,
 ) -> Result<SapWitnessAllocationDecisionV1, SapWitnessAllocationError> {
-    policy.validate().map_err(|_| SapWitnessAllocationError::InvalidPolicy)?;
-    transfer.validate_shape().map_err(|_| SapWitnessAllocationError::InvalidTransfer)?;
+    policy
+        .validate()
+        .map_err(|_| SapWitnessAllocationError::InvalidPolicy)?;
+    transfer
+        .validate_shape()
+        .map_err(|_| SapWitnessAllocationError::InvalidTransfer)?;
     validate_did(witness_did)?;
     validate_action_reference(spend_action_reference)?;
     require_optional_witness(policy, witness_did)?;
@@ -377,7 +399,9 @@ pub fn decide_witness_allocation(
         });
     }
 
-    Ok(SapWitnessAllocationDecisionV1::ApproveNew { allocation: candidate })
+    Ok(SapWitnessAllocationDecisionV1::ApproveNew {
+        allocation: candidate,
+    })
 }
 
 pub fn classify_witness_input_allocation(
@@ -396,8 +420,10 @@ fn canonicalize_history<'a>(
     policy: &SapTransferWitnessPolicyV1,
     witness_did: &str,
     history: &'a [AuthenticatedWitnessAllocationObservationV1],
-) -> Result<BTreeMap<String, &'a AuthenticatedWitnessAllocationObservationV1>, SapWitnessAllocationError>
-{
+) -> Result<
+    BTreeMap<String, &'a AuthenticatedWitnessAllocationObservationV1>,
+    SapWitnessAllocationError,
+> {
     if history.len() > MAX_WITNESS_HISTORY_OBSERVATIONS {
         return Err(SapWitnessAllocationError::TooManyHistoryObservations);
     }
@@ -410,7 +436,10 @@ fn canonicalize_history<'a>(
             Some(existing) if *existing == observation => {}
             Some(_) => return Err(SapWitnessAllocationError::InconsistentDuplicateAction),
             None => {
-                physical.insert(observation.allocation_action_reference().to_string(), observation);
+                physical.insert(
+                    observation.allocation_action_reference().to_string(),
+                    observation,
+                );
             }
         }
 
@@ -440,8 +469,12 @@ fn classify_input_from_history<'a>(
         let aggregate = by_transfer
             .entry(allocation.transfer_id.clone())
             .or_insert_with(|| (BTreeSet::new(), BTreeSet::new()));
-        aggregate.0.insert(observation.allocation_action_reference().to_string());
-        aggregate.1.insert(allocation.spend_action_reference.clone());
+        aggregate
+            .0
+            .insert(observation.allocation_action_reference().to_string());
+        aggregate
+            .1
+            .insert(allocation.spend_action_reference.clone());
     }
 
     if by_transfer.is_empty() {
@@ -619,13 +652,7 @@ mod tests {
     }
 
     fn transfer(recipient: &str, inputs: &[SapValueNoteV2], amount: u64) -> SapTransferV2 {
-        SapTransferV2::derive(
-            "did:mycelix:alice".into(),
-            recipient.into(),
-            inputs,
-            amount,
-        )
-        .unwrap()
+        SapTransferV2::derive("did:mycelix:alice".into(), recipient.into(), inputs, amount).unwrap()
     }
 
     fn observation(
@@ -659,8 +686,7 @@ mod tests {
         let t = transfer("did:mycelix:bob", &[note("a", 40), note("b", 60)], 75);
         let history = complete(&p, "did:mycelix:w1", vec![]);
         assert!(matches!(
-            decide_witness_allocation(&p, "did:mycelix:w1", &t, "uhCkk-spend", &history)
-                .unwrap(),
+            decide_witness_allocation(&p, "did:mycelix:w1", &t, "uhCkk-spend", &history).unwrap(),
             SapWitnessAllocationDecisionV1::ApproveNew { .. }
         ));
     }
@@ -669,14 +695,12 @@ mod tests {
     fn physical_duplicate_spends_share_one_economic_allocation_id() {
         let p = policy();
         let t = transfer("did:mycelix:bob", &[note("a", 40)], 20);
-        let a = SapWitnessAllocationV1::derive(
-            "did:mycelix:w1".into(), &p, &t, "uhCkk-spend-a".into(),
-        )
-        .unwrap();
-        let b = SapWitnessAllocationV1::derive(
-            "did:mycelix:w1".into(), &p, &t, "uhCkk-spend-b".into(),
-        )
-        .unwrap();
+        let a =
+            SapWitnessAllocationV1::derive("did:mycelix:w1".into(), &p, &t, "uhCkk-spend-a".into())
+                .unwrap();
+        let b =
+            SapWitnessAllocationV1::derive("did:mycelix:w1".into(), &p, &t, "uhCkk-spend-b".into())
+                .unwrap();
         assert_eq!(a.allocation_id, b.allocation_id);
         assert_ne!(a.spend_action_reference, b.spend_action_reference);
     }
@@ -686,7 +710,10 @@ mod tests {
         let p = policy();
         let t = transfer("did:mycelix:bob", &[note("a", 40)], 20);
         let existing = SapWitnessAllocationV1::derive(
-            "did:mycelix:w1".into(), &p, &t, "uhCkk-spend-original".into(),
+            "did:mycelix:w1".into(),
+            &p,
+            &t,
+            "uhCkk-spend-original".into(),
         )
         .unwrap();
         let expected_id = existing.allocation_id.clone();
@@ -695,14 +722,8 @@ mod tests {
             "did:mycelix:w1",
             vec![observation("uhCkk-allocation", existing)],
         );
-        match decide_witness_allocation(
-            &p,
-            "did:mycelix:w1",
-            &t,
-            "uhCkk-spend-retry",
-            &history,
-        )
-        .unwrap()
+        match decide_witness_allocation(&p, "did:mycelix:w1", &t, "uhCkk-spend-retry", &history)
+            .unwrap()
         {
             SapWitnessAllocationDecisionV1::IdempotentExisting { allocation_id, .. } => {
                 assert_eq!(allocation_id, expected_id)
@@ -718,7 +739,10 @@ mod tests {
         let prior = transfer("did:mycelix:carol", &[a.clone()], 20);
         let candidate = transfer("did:mycelix:bob", &[a.clone(), note("b", 60)], 75);
         let prior_allocation = SapWitnessAllocationV1::derive(
-            "did:mycelix:w1".into(), &p, &prior, "uhCkk-spend-prior".into(),
+            "did:mycelix:w1".into(),
+            &p,
+            &prior,
+            "uhCkk-spend-prior".into(),
         )
         .unwrap();
         let history = complete(
@@ -751,10 +775,9 @@ mod tests {
     fn policy_rotation_history_fails_closed() {
         let old = policy();
         let t = transfer("did:mycelix:bob", &[note("a", 40)], 20);
-        let allocation = SapWitnessAllocationV1::derive(
-            "did:mycelix:w1".into(), &old, &t, "uhCkk-spend".into(),
-        )
-        .unwrap();
+        let allocation =
+            SapWitnessAllocationV1::derive("did:mycelix:w1".into(), &old, &t, "uhCkk-spend".into())
+                .unwrap();
         let raw = vec![observation("uhCkk-allocation", allocation)];
         let new = SapTransferWitnessPolicyV1::new(
             "sap-main".into(),
@@ -782,10 +805,9 @@ mod tests {
     fn authenticated_observation_binds_real_author_to_witness() {
         let p = policy();
         let t = transfer("did:mycelix:bob", &[note("a", 40)], 20);
-        let allocation = SapWitnessAllocationV1::derive(
-            "did:mycelix:w1".into(), &p, &t, "uhCkk-spend".into(),
-        )
-        .unwrap();
+        let allocation =
+            SapWitnessAllocationV1::derive("did:mycelix:w1".into(), &p, &t, "uhCkk-spend".into())
+                .unwrap();
         assert_eq!(
             AuthenticatedWitnessAllocationObservationV1::from_authenticated_action(
                 "uhCkk-allocation".into(),
@@ -802,7 +824,10 @@ mod tests {
         let t = transfer("did:mycelix:bob", &[note("a", 40)], 20);
         assert_eq!(
             SapWitnessAllocationV1::derive(
-                "did:mycelix:enzyme".into(), &p, &t, "uhCkk-spend".into(),
+                "did:mycelix:enzyme".into(),
+                &p,
+                &t,
+                "uhCkk-spend".into(),
             ),
             Err(SapWitnessAllocationError::EnzymeCannotBeOptionalWitness)
         );
@@ -812,10 +837,9 @@ mod tests {
     fn persistent_record_round_trip_requires_revalidation() {
         let p = policy();
         let t = transfer("did:mycelix:bob", &[note("a", 40)], 20);
-        let allocation = SapWitnessAllocationV1::derive(
-            "did:mycelix:w1".into(), &p, &t, "uhCkk-spend".into(),
-        )
-        .unwrap();
+        let allocation =
+            SapWitnessAllocationV1::derive("did:mycelix:w1".into(), &p, &t, "uhCkk-spend".into())
+                .unwrap();
         let json = serde_json::to_string(&allocation).unwrap();
         let decoded: SapWitnessAllocationV1 = serde_json::from_str(&json).unwrap();
         assert_eq!(decoded.validate_for(&p, &t), Ok(()));

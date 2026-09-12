@@ -168,8 +168,9 @@ pub fn load_exact_validated_collateral_claim(
     reference: &str,
 ) -> Result<ValidatedCollateralClaimV2, String> {
     let claim_hash = parse_action_reference(reference, "collateral claim")?;
-    let claim_record = must_get_valid_record(claim_hash.clone())
-        .map_err(|error| format!("Unable to load exact FIN-SAFE-014 collateral claim: {error:?}"))?;
+    let claim_record = must_get_valid_record(claim_hash.clone()).map_err(|error| {
+        format!("Unable to load exact FIN-SAFE-014 collateral claim: {error:?}")
+    })?;
     require_exact_create_entry(
         &claim_record,
         foreign_public_entry_def(
@@ -178,15 +179,12 @@ pub fn load_exact_validated_collateral_claim(
         )?,
         "FIN-SAFE-014 collateral claim",
     )?;
-    let claim_entry = decode_entry::<SapCollateralClaimV2Entry>(
-        &claim_record,
-        "FIN-SAFE-014 collateral claim",
-    )?;
+    let claim_entry =
+        decode_entry::<SapCollateralClaimV2Entry>(&claim_record, "FIN-SAFE-014 collateral claim")?;
     let claim_author_did = did_for_author(claim_record.action().author());
 
-    let receipt = load_exact_issuance_receipt(
-        &claim_entry.claim.issuance_receipt_action_reference,
-    )?;
+    let receipt =
+        load_exact_issuance_receipt(&claim_entry.claim.issuance_receipt_action_reference)?;
 
     ValidatedCollateralClaimV2::from_valid_receipt(
         claim_hash.to_string(),
@@ -199,11 +197,11 @@ pub fn load_exact_validated_collateral_claim(
 
 fn load_exact_issuance_receipt(
     reference: &str,
-) -> Result<finance_collateral_issuance_persistence::CollateralSapIssuanceReceiptRecordV2, String>
-{
+) -> Result<finance_collateral_issuance_persistence::CollateralSapIssuanceReceiptRecordV2, String> {
     let receipt_hash = parse_action_reference(reference, "issuance receipt")?;
-    let record = must_get_valid_record(receipt_hash)
-        .map_err(|error| format!("Unable to load exact FIN-SAFE-010 issuance receipt: {error:?}"))?;
+    let record = must_get_valid_record(receipt_hash).map_err(|error| {
+        format!("Unable to load exact FIN-SAFE-010 issuance receipt: {error:?}")
+    })?;
     require_exact_create_entry(
         &record,
         foreign_public_entry_def(
@@ -212,11 +210,8 @@ fn load_exact_issuance_receipt(
         )?,
         "FIN-SAFE-010 issuance receipt",
     )?;
-    decode_entry::<CollateralSapIssuanceReceiptV2Entry>(
-        &record,
-        "FIN-SAFE-010 issuance receipt",
-    )
-    .map(|entry| entry.record)
+    decode_entry::<CollateralSapIssuanceReceiptV2Entry>(&record, "FIN-SAFE-010 issuance receipt")
+        .map(|entry| entry.record)
 }
 
 fn parse_action_reference(reference: &str, label: &str) -> Result<ActionHash, String> {

@@ -187,8 +187,7 @@ impl CheckedCollateralHealthSnapshot {
             return Err(CollateralHealthSnapshotValidationError::LtvRatioMismatch);
         }
 
-        if self.assessment
-            != assess_collateral_observation(self.obligation_amount, self.valuation)
+        if self.assessment != assess_collateral_observation(self.obligation_amount, self.valuation)
         {
             return Err(CollateralHealthSnapshotValidationError::AssessmentMismatch);
         }
@@ -452,7 +451,10 @@ mod tests {
             ),
             42,
         );
-        assert_eq!(snapshot.schema_version, CHECKED_COLLATERAL_HEALTH_SNAPSHOT_VERSION);
+        assert_eq!(
+            snapshot.schema_version,
+            CHECKED_COLLATERAL_HEALTH_SNAPSHOT_VERSION
+        );
         assert_eq!(snapshot.ltv_ratio, None);
         assert_eq!(
             snapshot.assessment,
@@ -489,7 +491,9 @@ mod tests {
             CollateralValuationObservation::Observed { value: 100 },
             44,
         );
-        let ratio = snapshot.ltv_ratio.expect("valid observation should have ratio");
+        let ratio = snapshot
+            .ltv_ratio
+            .expect("valid observation should have ratio");
         assert!((ratio - 0.91).abs() < f64::EPSILON);
         assert_eq!(
             snapshot.assessment,

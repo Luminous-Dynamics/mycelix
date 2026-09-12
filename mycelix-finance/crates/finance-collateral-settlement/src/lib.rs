@@ -60,10 +60,7 @@ pub struct SettlementFreshnessPolicy {
 
 impl SettlementFreshnessPolicy {
     pub fn validate(&self) -> Result<(), CollateralSettlementError> {
-        if !valid_id(&self.policy_id)
-            || self.policy_version == 0
-            || self.max_age_micros <= 0
-        {
+        if !valid_id(&self.policy_id) || self.policy_version == 0 || self.max_age_micros <= 0 {
             return Err(CollateralSettlementError::InvalidFreshnessPolicy);
         }
         Ok(())
@@ -299,8 +296,7 @@ impl CustodyEvidenceEnvelope {
             return Err(CollateralSettlementError::SelfCustodyAttestationNotAllowed);
         }
         if let CustodyEvidenceOutcome::Confirmed {
-            external_reference,
-            ..
+            external_reference, ..
         } = &self.outcome
         {
             if external_reference.is_empty()
@@ -574,16 +570,16 @@ pub fn derive_settlement_intent(
         CollateralSettlementError::PriceEvidenceTooOld,
     )?;
 
-    let (custody_external_reference, custody_confirmed_at_micros) =
-        match &custody_evidence.outcome {
-            CustodyEvidenceOutcome::Confirmed {
-                external_reference,
-                confirmed_at_micros,
-            } => (external_reference.clone(), *confirmed_at_micros),
-            CustodyEvidenceOutcome::Unavailable { reason, .. } => {
-                return Err(CollateralSettlementError::CustodyUnavailable(*reason));
-            }
-        };
+    let (custody_external_reference, custody_confirmed_at_micros) = match &custody_evidence.outcome
+    {
+        CustodyEvidenceOutcome::Confirmed {
+            external_reference,
+            confirmed_at_micros,
+        } => (external_reference.clone(), *confirmed_at_micros),
+        CustodyEvidenceOutcome::Unavailable { reason, .. } => {
+            return Err(CollateralSettlementError::CustodyUnavailable(*reason));
+        }
+    };
     ensure_current(
         custody_confirmed_at_micros,
         evaluated_at_micros,
@@ -820,13 +816,7 @@ mod tests {
             attempted_at_micros: 10,
         };
         assert_eq!(
-            derive_settlement_intent(
-                terms(),
-                &policy(),
-                &evidence,
-                &custody("proof", 10),
-                11,
-            ),
+            derive_settlement_intent(terms(), &policy(), &evidence, &custody("proof", 10), 11,),
             Err(CollateralSettlementError::PriceUnavailable(
                 PriceEvidenceFailure::ProviderUnavailable
             ))
@@ -895,13 +885,7 @@ mod tests {
         );
         evidence.base_asset_id = "USDC".into();
         assert_eq!(
-            derive_settlement_intent(
-                terms(),
-                &policy(),
-                &evidence,
-                &custody("proof", 10),
-                11,
-            ),
+            derive_settlement_intent(terms(), &policy(), &evidence, &custody("proof", 10), 11,),
             Err(CollateralSettlementError::PriceSubjectMismatch)
         );
     }
@@ -1090,9 +1074,8 @@ mod tests {
     #[test]
     fn retry_returns_existing_receipt_without_new_evidence_or_credit() {
         let intent = intent();
-        let receipt =
-            finalize_settlement_receipt(intent.clone(), payment_for(&intent), 13)
-                .expect("valid receipt");
+        let receipt = finalize_settlement_receipt(intent.clone(), payment_for(&intent), 13)
+            .expect("valid receipt");
 
         assert_eq!(
             plan_settlement_for_deposit(&terms(), Some(&receipt), None),
@@ -1116,9 +1099,8 @@ mod tests {
     #[test]
     fn existing_receipt_for_different_terms_is_a_conflict() {
         let intent = intent();
-        let receipt =
-            finalize_settlement_receipt(intent.clone(), payment_for(&intent), 13)
-                .expect("valid receipt");
+        let receipt = finalize_settlement_receipt(intent.clone(), payment_for(&intent), 13)
+            .expect("valid receipt");
         let mut other = terms();
         other.collateral_amount += 1;
         assert_eq!(
@@ -1183,16 +1165,15 @@ mod tests {
 
     #[test]
     fn lifecycle_disallows_settle_before_evidence_ready_and_double_settle() {
-        assert!(!CollateralDepositState::Requested
-            .may_transition_to(CollateralDepositState::Settled));
+        assert!(
+            !CollateralDepositState::Requested.may_transition_to(CollateralDepositState::Settled)
+        );
         assert!(CollateralDepositState::Requested
             .may_transition_to(CollateralDepositState::EvidenceReady));
         assert!(CollateralDepositState::EvidenceReady
             .may_transition_to(CollateralDepositState::Settled));
-        assert!(!CollateralDepositState::Settled
-            .may_transition_to(CollateralDepositState::Settled));
-        assert!(CollateralDepositState::Settled
-            .may_transition_to(CollateralDepositState::Redeemed));
+        assert!(!CollateralDepositState::Settled.may_transition_to(CollateralDepositState::Settled));
+        assert!(CollateralDepositState::Settled.may_transition_to(CollateralDepositState::Redeemed));
     }
 
     #[test]

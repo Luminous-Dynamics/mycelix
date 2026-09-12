@@ -7,9 +7,7 @@
 //! V2 requests are immutable intent records. They carry no caller-authoritative
 //! price, minted amount, settlement status, or custody claim.
 
-use finance_collateral_deposit::{
-    CollateralDepositRequestV2, COLLATERAL_DEPOSIT_NONCE_BYTES,
-};
+use finance_collateral_deposit::{COLLATERAL_DEPOSIT_NONCE_BYTES, CollateralDepositRequestV2};
 use hdi::prelude::*;
 use mycelix_bridge_entry_types::{did_for_author, require_did_is_author};
 
@@ -33,14 +31,13 @@ pub struct CollateralDepositRequestV2Entry {
 
 impl CollateralDepositRequestV2Entry {
     pub fn to_model(&self) -> Result<CollateralDepositRequestV2, String> {
-        let request_nonce: [u8; COLLATERAL_DEPOSIT_NONCE_BYTES] = self
-            .request_nonce
-            .as_slice()
-            .try_into()
-            .map_err(|_| format!(
-                "request_nonce must contain exactly {} bytes",
-                COLLATERAL_DEPOSIT_NONCE_BYTES
-            ))?;
+        let request_nonce: [u8; COLLATERAL_DEPOSIT_NONCE_BYTES] =
+            self.request_nonce.as_slice().try_into().map_err(|_| {
+                format!(
+                    "request_nonce must contain exactly {} bytes",
+                    COLLATERAL_DEPOSIT_NONCE_BYTES
+                )
+            })?;
         Ok(CollateralDepositRequestV2 {
             schema_version: self.schema_version,
             deposit_id: self.deposit_id.clone(),
@@ -214,8 +211,8 @@ mod tests {
     fn tampered_identity_is_rejected() {
         let mut entry = valid_entry(1, 1_000_000);
         entry.deposit_id.push('x');
-        let result = validate_request_create(action(1, 1_000_000), entry)
-            .expect("validation result");
+        let result =
+            validate_request_create(action(1, 1_000_000), entry).expect("validation result");
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
@@ -223,8 +220,8 @@ mod tests {
     fn malformed_nonce_is_rejected() {
         let mut entry = valid_entry(1, 1_000_000);
         entry.request_nonce.pop();
-        let result = validate_request_create(action(1, 1_000_000), entry)
-            .expect("validation result");
+        let result =
+            validate_request_create(action(1, 1_000_000), entry).expect("validation result");
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 

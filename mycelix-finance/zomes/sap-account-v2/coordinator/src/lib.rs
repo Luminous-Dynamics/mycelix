@@ -10,16 +10,15 @@
 //! are reconstructed from the caller and the exact valid receipt.
 
 use collateral_issuance_v2_integrity::{
-    CollateralSapIssuanceReceiptV2Entry,
-    UnitEntryTypes as CollateralIssuanceUnitEntryTypes,
+    CollateralSapIssuanceReceiptV2Entry, UnitEntryTypes as CollateralIssuanceUnitEntryTypes,
 };
 use finance_collateral_issuance_persistence::CollateralSapIssuanceReceiptRecordV2;
 use finance_sap_account_v2::{SapAccountOpenedV2, SapCollateralClaimV2};
 use hdk::prelude::*;
 use mycelix_bridge_entry_types::did_for_author;
 use sap_account_v2_integrity::{
-    load_sap_account_v2_config, EntryTypes, SapAccountOpenedV2Entry,
-    SapCollateralClaimV2Entry, UnitEntryTypes,
+    EntryTypes, SapAccountOpenedV2Entry, SapCollateralClaimV2Entry, UnitEntryTypes,
+    load_sap_account_v2_config,
 };
 
 /// Create a zero-economic-effect owner-authored account opening marker.
@@ -51,11 +50,8 @@ pub fn claim_collateral_issuance_v2(
         ))));
     }
 
-    let claim = SapCollateralClaimV2::new(
-        member_did,
-        issuance_receipt_action_hash.to_string(),
-    )
-    .map_err(guest_error)?;
+    let claim = SapCollateralClaimV2::new(member_did, issuance_receipt_action_hash.to_string())
+        .map_err(guest_error)?;
 
     create_and_reload(EntryTypes::SapCollateralClaimV2(
         SapCollateralClaimV2Entry { claim },
@@ -63,9 +59,7 @@ pub fn claim_collateral_issuance_v2(
 }
 
 #[hdk_extern]
-pub fn get_sap_account_opened_v2(
-    action_hash: ActionHash,
-) -> ExternResult<SapAccountOpenedV2> {
+pub fn get_sap_account_opened_v2(action_hash: ActionHash) -> ExternResult<SapAccountOpenedV2> {
     let record = must_get_valid_record(action_hash)?;
     require_exact_create_entry(
         &record,
@@ -77,9 +71,7 @@ pub fn get_sap_account_opened_v2(
 }
 
 #[hdk_extern]
-pub fn get_sap_collateral_claim_v2(
-    action_hash: ActionHash,
-) -> ExternResult<SapCollateralClaimV2> {
+pub fn get_sap_collateral_claim_v2(action_hash: ActionHash) -> ExternResult<SapCollateralClaimV2> {
     let record = must_get_valid_record(action_hash)?;
     require_exact_create_entry(
         &record,
@@ -110,10 +102,8 @@ pub fn get_verified_sap_collateral_claim_v2(
         AppEntryDef::try_from(UnitEntryTypes::SapCollateralClaimV2)?,
         "FIN-SAFE-014 SAP collateral claim",
     )?;
-    let entry = decode_entry::<SapCollateralClaimV2Entry>(
-        &record,
-        "FIN-SAFE-014 SAP collateral claim",
-    )?;
+    let entry =
+        decode_entry::<SapCollateralClaimV2Entry>(&record, "FIN-SAFE-014 SAP collateral claim")?;
     let author_did = did_for_author(record.action().author());
     if author_did != entry.claim.member_did {
         return Err(wasm_error!(WasmErrorInner::Guest(
@@ -157,16 +147,11 @@ fn load_exact_issuance_receipt(
     let record = must_get_valid_record(action_hash)?;
     require_exact_create_entry(
         &record,
-        AppEntryDef::try_from(
-            CollateralIssuanceUnitEntryTypes::CollateralSapIssuanceReceiptV2,
-        )?,
+        AppEntryDef::try_from(CollateralIssuanceUnitEntryTypes::CollateralSapIssuanceReceiptV2)?,
         "FIN-SAFE-010 issuance receipt",
     )?;
-    decode_entry::<CollateralSapIssuanceReceiptV2Entry>(
-        &record,
-        "FIN-SAFE-010 issuance receipt",
-    )
-    .map(|entry| entry.record)
+    decode_entry::<CollateralSapIssuanceReceiptV2Entry>(&record, "FIN-SAFE-010 issuance receipt")
+        .map(|entry| entry.record)
 }
 
 fn create_and_reload(entry: EntryTypes) -> ExternResult<Record> {
@@ -207,11 +192,7 @@ where
                 "Failed to decode {label}: {error:?}"
             )))
         })?
-        .ok_or_else(|| {
-            wasm_error!(WasmErrorInner::Guest(format!(
-                "{label} entry is missing"
-            )))
-        })
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(format!("{label} entry is missing"))))
 }
 
 fn guest_error(error: impl core::fmt::Debug) -> WasmError {

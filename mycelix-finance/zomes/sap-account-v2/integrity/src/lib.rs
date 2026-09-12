@@ -10,9 +10,7 @@
 //! projection de-duplicates their economic effect by canonical `mint_id`.
 
 use collateral_issuance_v2_integrity::CollateralSapIssuanceReceiptV2Entry;
-use finance_sap_account_v2::{
-    SapAccountOpenedV2, SapAccountV2Config, SapCollateralClaimV2,
-};
+use finance_sap_account_v2::{SapAccountOpenedV2, SapAccountV2Config, SapCollateralClaimV2};
 use hdi::prelude::*;
 use mycelix_bridge_entry_types::did_for_author;
 
@@ -166,9 +164,8 @@ fn validate_claim_create(
         ));
     }
 
-    let receipt = match load_exact_issuance_receipt(
-        &entry.claim.issuance_receipt_action_reference,
-    ) {
+    let receipt = match load_exact_issuance_receipt(&entry.claim.issuance_receipt_action_reference)
+    {
         Ok(receipt) => receipt,
         Err(message) => return Ok(ValidateCallbackResult::Invalid(message)),
     };
@@ -184,12 +181,12 @@ fn validate_claim_create(
 
 fn load_exact_issuance_receipt(
     reference: &str,
-) -> Result<finance_collateral_issuance_persistence::CollateralSapIssuanceReceiptRecordV2, String>
-{
+) -> Result<finance_collateral_issuance_persistence::CollateralSapIssuanceReceiptRecordV2, String> {
     let action_hash = ActionHash::try_from(reference.to_string())
         .map_err(|error| format!("Invalid issuance receipt action reference: {error:?}"))?;
-    let record = must_get_valid_record(action_hash)
-        .map_err(|error| format!("Unable to load exact FIN-SAFE-010 issuance receipt: {error:?}"))?;
+    let record = must_get_valid_record(action_hash).map_err(|error| {
+        format!("Unable to load exact FIN-SAFE-010 issuance receipt: {error:?}")
+    })?;
     require_exact_create_entry(
         &record,
         foreign_public_entry_def(
@@ -198,11 +195,8 @@ fn load_exact_issuance_receipt(
         )?,
         "FIN-SAFE-010 issuance receipt",
     )?;
-    decode_entry::<CollateralSapIssuanceReceiptV2Entry>(
-        &record,
-        "FIN-SAFE-010 issuance receipt",
-    )
-    .map(|entry| entry.record)
+    decode_entry::<CollateralSapIssuanceReceiptV2Entry>(&record, "FIN-SAFE-010 issuance receipt")
+        .map(|entry| entry.record)
 }
 
 fn foreign_public_entry_def(zome_name: &str, entry_index: u8) -> Result<AppEntryDef, String> {

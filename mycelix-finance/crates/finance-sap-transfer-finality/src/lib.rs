@@ -10,9 +10,8 @@
 //! independently authenticating witness/notary evidence under the expected policy.
 
 use finance_sap_value_notes::{
-    SapTransferOutputAvailabilityV2, SapTransferOutputRoleV2, SapTransferV2,
-    SapValueNoteOriginV2, SapValueNoteV2, ValidatedTransferClaimV2,
-    MAX_ACTION_REFERENCE_LEN, MAX_ID_LEN,
+    MAX_ACTION_REFERENCE_LEN, MAX_ID_LEN, SapTransferOutputAvailabilityV2, SapTransferOutputRoleV2,
+    SapTransferV2, SapValueNoteOriginV2, SapValueNoteV2, ValidatedTransferClaimV2,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -96,8 +95,7 @@ impl VerifiedWitnessSpendAssuranceV1 {
         if self.schema_version != SAP_TRANSFER_FINALITY_V1_SCHEMA_VERSION {
             return Err(SapTransferFinalityError::UnsupportedSchemaVersion);
         }
-        validate_id(&self.transfer_id)
-            .map_err(|_| SapTransferFinalityError::InvalidTransferId)?;
+        validate_id(&self.transfer_id).map_err(|_| SapTransferFinalityError::InvalidTransferId)?;
         validate_action_reference(&self.spend_action_reference)?;
         validate_action_reference(&self.evidence_action_reference)?;
         SapTransferWitnessPolicyRefV1 {
@@ -266,9 +264,7 @@ impl SpendableTransferClaimV2 {
     }
 }
 
-fn recipient_output_transfer_id(
-    note: &SapValueNoteV2,
-) -> Result<&str, SapTransferFinalityError> {
+fn recipient_output_transfer_id(note: &SapValueNoteV2) -> Result<&str, SapTransferFinalityError> {
     note.validate_shape()
         .map_err(|_| SapTransferFinalityError::InvalidTransferClaim)?;
     match &note.origin {
@@ -291,14 +287,12 @@ fn validate_availability(
             if input_note_ids.is_empty() {
                 return Err(SapTransferFinalityError::MalformedAvailability);
             }
-            let allowed: BTreeSet<&str> = transfer
-                .input_note_ids
-                .iter()
-                .map(String::as_str)
-                .collect();
+            let allowed: BTreeSet<&str> =
+                transfer.input_note_ids.iter().map(String::as_str).collect();
             let mut seen = BTreeSet::new();
             for note_id in input_note_ids {
-                validate_id(note_id).map_err(|_| SapTransferFinalityError::MalformedAvailability)?;
+                validate_id(note_id)
+                    .map_err(|_| SapTransferFinalityError::MalformedAvailability)?;
                 if !allowed.contains(note_id.as_str()) || !seen.insert(note_id.as_str()) {
                     return Err(SapTransferFinalityError::MalformedAvailability);
                 }
