@@ -4,8 +4,8 @@
 //!
 //! Mycelix preserves the fixed physical coordinate plus policy-indexed descendant
 //! outcomes established upstream. It validates provenance composition, canonical
-//! policy ordering, arithmetic feasibility, and monotonicity, but does not recompute
-//! Symthaea projection math or execute Symtropy industrial dynamics.
+//! policy ordering, conditioning, arithmetic feasibility, and monotonicity, but
+//! does not recompute Symthaea projection math or execute Symtropy industrial dynamics.
 
 use crate::{
     MaritimeEvidenceEnvelope, MaritimeEvidenceKind, RegenerativeGenerationCountEvidenceV1,
@@ -84,6 +84,10 @@ impl RegenerativePolicySensitivitySurfaceEvidenceV1 {
             ));
         }
 
+        let finite_physical_horizon = matches!(
+            self.physical_successor_reproduction_horizon,
+            RegenerativeViabilityHorizonV1::FinitePeriods(_)
+        );
         let mut policy_ids = BTreeSet::new();
         let mut policy_bindings = BTreeSet::new();
         let mut previous_maturity = None;
@@ -126,6 +130,12 @@ impl RegenerativePolicySensitivitySurfaceEvidenceV1 {
                     RegenerativeGenerationCountEvidenceV1::Finite(transitions),
                     Some(residual),
                 ) => {
+                    if !finite_physical_horizon {
+                        return Err(
+                            "finite policy outcomes require a finite physical successor horizon"
+                                .into(),
+                        );
+                    }
                     if matured > founded || transitions > matured {
                         return Err(
                             "finite policy sensitivity counts violate ordering constraints".into(),
@@ -163,6 +173,12 @@ impl RegenerativePolicySensitivitySurfaceEvidenceV1 {
                     RegenerativeGenerationCountEvidenceV1::IndefiniteUnderStaticModel,
                     None,
                 ) => {
+                    if finite_physical_horizon {
+                        return Err(
+                            "indefinite policy outcomes require an indefinite physical successor horizon"
+                                .into(),
+                        );
+                    }
                     previous_finite_counts = None;
                 }
                 _ => {
