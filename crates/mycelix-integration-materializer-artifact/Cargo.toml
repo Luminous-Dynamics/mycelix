@@ -1,0 +1,17 @@
+[package]
+name = "mycelix-integration-materializer-artifact"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Hash-pinned local WASM materializer artifact qualification for Mycelix integrations"
+
+[dependencies]
+blake3 = "1.5"
+libc = "0.2"
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+mycelix-integration-core = { path = "../mycelix-integration-core" }
+mycelix-integration-execution-binding = { path = "../mycelix-integration-execution-binding" }
+thiserror = "2.0"
+
+[dev-dependencies]
+tempfile = "3.13"
