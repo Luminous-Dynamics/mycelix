@@ -1,0 +1,307 @@
+name: Finance V2 Compatibility Stack
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/finance-v2-compat-stack.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: finance-v2-compat-stack
+  cancel-in-progress: false
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  SOURCE_SHA: 'ea01f1f02e08b04786bce4e85d50a6a7d1f8408f'
+  TARGET_021: 'fin-safe-021-dna-properties'
+  TARGET_023: 'fin-safe-023-entry-type-binding'
+  TARGET_022: 'fin-safe-022-settlement-auth-test-dep'
+
+jobs:
+  validate-and-promote-stack:
+    name: Validate composed V2 fixes + promote semantic commits
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'ci-fin-v2-compat-stack'
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout frozen FIN-SAFE-020 source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: true
+
+      - name: Prove frozen source and target refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          for branch in "$TARGET_021" "$TARGET_023" "$TARGET_022"; do
+            test "$(git ls-remote origin "refs/heads/$branch" | cut -f1)" = "$SOURCE_SHA"
+          done
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - name: Define exact mutation program
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/apply_stack.py <<'PY'
+          from pathlib import Path
+          import sys
+
+          derive_targets = [
+              Path('mycelix-finance/zomes/collateral-settlement-auth/integrity/src/lib.rs'),
+              Path('mycelix-finance/zomes/sap-account-v2/integrity/src/lib.rs'),
+              Path('mycelix-finance/zomes/sap-transfer-v2/integrity/src/lib.rs'),
+          ]
+          entry_targets = [
+              Path('mycelix-finance/zomes/collateral-issuance-v2/integrity/src/lib.rs'),
+              Path('mycelix-finance/zomes/sap-account-v2/integrity/src/lib.rs'),
+              Path('mycelix-finance/zomes/sap-transfer-v2/integrity/src/lib.rs'),
+          ]
+          manifest = Path('mycelix-finance/zomes/collateral-settlement-auth/integrity/Cargo.toml')
+
+          def apply_derive():
+              old = '#[dna_properties]\n#[derive(Clone, Debug, Serialize, Deserialize)]'
+              new = '#[dna_properties]\n#[derive(Clone)]'
+              for path in derive_targets:
+                  text = path.read_text()
+                  if text.count(old) != 1:
+                      raise SystemExit(f'{path}: expected exactly one DNA-properties derive pattern')
+                  path.write_text(text.replace(old, new))
+
+          def apply_entry():
+              marker = 'fn require_exact_create_entry('
+              next_fn = '\nfn decode_entry'
+              for path in entry_targets:
+                  text = path.read_text()
+                  if text.count(marker) != 1:
+                      raise SystemExit(f'{path}: expected exactly one exact-create helper')
+                  start = text.index(marker)
+                  end = text.index(next_fn, start)
+                  block = text[start:end]
+                  required = [
+                      'record.action().app_entry_def()',
+                      'Some(actual) if actual == &expected => Ok(()),',
+                      'Some(actual) => Err(format!(',
+                      'None => Err(format!("{label} is not an application entry")),',
+                  ]
+                  for needle in required:
+                      if block.count(needle) != 1:
+                          raise SystemExit(f'{path}: exact-create helper shape mismatch for {needle!r}')
+                  block = block.replace('record.action().app_entry_def()', 'record.action().entry_type()')
+                  block = block.replace(
+                      'Some(actual) if actual == &expected => Ok(()),',
+                      'Some(EntryType::App(actual)) if actual == &expected => Ok(()),',
+                  )
+                  block = block.replace(
+                      'Some(actual) => Err(format!(',
+                      'Some(EntryType::App(actual)) => Err(format!(',
+                      1,
+                  )
+                  block = block.replace(
+                      '        None => Err(format!("{label} is not an application entry")),',
+                      '        Some(actual) => Err(format!(\n'
+                      '            "{label} is not an application entry: got {actual:?}"\n'
+                      '        )),\n'
+                      '        None => Err(format!("{label} has no entry type")),',
+                  )
+                  if 'app_entry_def()' in block:
+                      raise SystemExit(f'{path}: obsolete helper call remains')
+                  if block.count('Some(EntryType::App(actual))') != 2:
+                      raise SystemExit(f'{path}: expected two App entry match arms')
+                  path.write_text(text[:start] + block + text[end:])
+
+          def apply_devdep():
+              text = manifest.read_text()
+              if '[dev-dependencies]' in text:
+                  raise SystemExit('settlement-auth integrity unexpectedly already has dev-dependencies')
+              dep = '\n[dev-dependencies]\nfinance-collateral-settlement = { path = "../../../crates/finance-collateral-settlement" }\n'
+              manifest.write_text(text.rstrip() + dep)
+
+          mode = sys.argv[1]
+          if mode in ('derive', 'all'):
+              apply_derive()
+          if mode in ('entry', 'all'):
+              apply_entry()
+          if mode in ('devdep', 'all'):
+              apply_devdep()
+          PY
+          python -m py_compile /tmp/apply_stack.py
+
+      - name: Apply and close-world check composed source repairs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python /tmp/apply_stack.py all
+          cd mycelix-finance
+          cargo fmt --all
+          cargo fmt --all --check
+          cd ..
+          git diff --check
+          cat > /tmp/expected-source-paths.txt <<'EOF'
+          mycelix-finance/zomes/collateral-issuance-v2/integrity/src/lib.rs
+          mycelix-finance/zomes/collateral-settlement-auth/integrity/Cargo.toml
+          mycelix-finance/zomes/collateral-settlement-auth/integrity/src/lib.rs
+          mycelix-finance/zomes/sap-account-v2/integrity/src/lib.rs
+          mycelix-finance/zomes/sap-transfer-v2/integrity/src/lib.rs
+          EOF
+          LC_ALL=C sort -o /tmp/expected-source-paths.txt /tmp/expected-source-paths.txt
+          git diff --name-only | LC_ALL=C sort > /tmp/actual-source-paths.txt
+          diff -u /tmp/expected-source-paths.txt /tmp/actual-source-paths.txt
+          git diff > /tmp/composed-source.patch
+          test -s /tmp/composed-source.patch
+
+      - name: Generate and bind cumulative lock candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp mycelix-finance/Cargo.lock /tmp/Cargo.lock.before
+          cd mycelix-finance
+          cargo metadata --format-version 1 > /tmp/cargo-metadata-generated.json
+          cp Cargo.lock /tmp/Cargo.lock.candidate
+          git diff -- Cargo.lock > /tmp/Cargo.lock.diff
+          sha256sum Cargo.lock > /tmp/Cargo.lock.candidate.sha256
+          cargo metadata --locked --format-version 1 > /tmp/cargo-metadata-locked.json
+          cargo tree --workspace --locked > /tmp/cargo-tree-locked.txt
+          cd ..
+          test -s /tmp/Cargo.lock.diff
+          cat > /tmp/expected-with-lock.txt <<'EOF'
+          mycelix-finance/Cargo.lock
+          mycelix-finance/zomes/collateral-issuance-v2/integrity/src/lib.rs
+          mycelix-finance/zomes/collateral-settlement-auth/integrity/Cargo.toml
+          mycelix-finance/zomes/collateral-settlement-auth/integrity/src/lib.rs
+          mycelix-finance/zomes/sap-account-v2/integrity/src/lib.rs
+          mycelix-finance/zomes/sap-transfer-v2/integrity/src/lib.rs
+          EOF
+          LC_ALL=C sort -o /tmp/expected-with-lock.txt /tmp/expected-with-lock.txt
+          git diff --name-only | LC_ALL=C sort > /tmp/actual-with-lock.txt
+          diff -u /tmp/expected-with-lock.txt /tmp/actual-with-lock.txt
+
+      - name: Test affected V2 integrity stack under generated lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo test \
+            -p collateral_settlement_auth_integrity \
+            -p collateral_issuance_v2_integrity \
+            -p sap_account_v2_integrity \
+            -p sap_transfer_v2_integrity \
+            --locked 2>&1 | tee /tmp/targeted-v2-tests.log
+
+      - name: Test cumulative Finance workspace under generated lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo test --workspace --locked 2>&1 | tee /tmp/cargo-test-workspace-locked.log
+
+      - name: Check affected V2 integrity libraries for wasm32
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo check \
+            -p collateral_settlement_auth_integrity \
+            -p collateral_issuance_v2_integrity \
+            -p sap_account_v2_integrity \
+            -p sap_transfer_v2_integrity \
+            --target wasm32-unknown-unknown --lib --locked \
+            2>&1 | tee /tmp/targeted-v2-wasm-check.log
+
+      - name: Restore lock and freeze validated aggregate patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp /tmp/Cargo.lock.before mycelix-finance/Cargo.lock
+          git diff --quiet -- mycelix-finance/Cargo.lock
+          git diff --name-only | LC_ALL=C sort > /tmp/final-source-paths.txt
+          diff -u /tmp/expected-source-paths.txt /tmp/final-source-paths.txt
+          git diff > /tmp/validated-source.patch
+          cmp /tmp/composed-source.patch /tmp/validated-source.patch
+          sha256sum /tmp/validated-source.patch > /tmp/validated-source.patch.sha256
+
+      - name: Reconstruct semantic commits and prove byte identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          git reset --hard "$SOURCE_SHA"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          python /tmp/apply_stack.py derive
+          cd mycelix-finance && cargo fmt --all && cd ..
+          git add \
+            mycelix-finance/zomes/collateral-settlement-auth/integrity/src/lib.rs \
+            mycelix-finance/zomes/sap-account-v2/integrity/src/lib.rs \
+            mycelix-finance/zomes/sap-transfer-v2/integrity/src/lib.rs
+          git diff --cached --check
+          git commit -m 'fix(finance): remove duplicate DNA property derives'
+          sha_021="$(git rev-parse HEAD)"
+
+          python /tmp/apply_stack.py entry
+          cd mycelix-finance && cargo fmt --all && cd ..
+          git add \
+            mycelix-finance/zomes/collateral-issuance-v2/integrity/src/lib.rs \
+            mycelix-finance/zomes/sap-account-v2/integrity/src/lib.rs \
+            mycelix-finance/zomes/sap-transfer-v2/integrity/src/lib.rs
+          git diff --cached --check
+          git commit -m 'fix(finance): bind exact app entries through EntryType'
+          sha_023="$(git rev-parse HEAD)"
+
+          python /tmp/apply_stack.py devdep
+          git add mycelix-finance/zomes/collateral-settlement-auth/integrity/Cargo.toml
+          git diff --cached --check
+          git commit -m 'test(finance): declare settlement kernel test dependency'
+          sha_022="$(git rev-parse HEAD)"
+
+          git diff "$SOURCE_SHA" HEAD > /tmp/reconstructed-source.patch
+          cmp /tmp/validated-source.patch /tmp/reconstructed-source.patch
+          for branch in "$TARGET_021" "$TARGET_023" "$TARGET_022"; do
+            test "$(git ls-remote origin "refs/heads/$branch" | cut -f1)" = "$SOURCE_SHA"
+          done
+          git push origin "$sha_021:refs/heads/$TARGET_021"
+          git push origin "$sha_023:refs/heads/$TARGET_023"
+          git push origin "$sha_022:refs/heads/$TARGET_022"
+          {
+            echo "source_sha=$SOURCE_SHA"
+            echo "fin_safe_021_sha=$sha_021"
+            echo "fin_safe_023_sha=$sha_023"
+            echo "fin_safe_022_sha=$sha_022"
+            cat /tmp/validated-source.patch.sha256
+            cat /tmp/Cargo.lock.candidate.sha256
+          } | tee /tmp/promotion.env >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: finance-v2-compat-stack-${{ env.SOURCE_SHA }}-${{ github.run_attempt }}
+          path: |
+            /tmp/promotion.env
+            /tmp/composed-source.patch
+            /tmp/validated-source.patch
+            /tmp/validated-source.patch.sha256
+            /tmp/Cargo.lock.before
+            /tmp/Cargo.lock.candidate
+            /tmp/Cargo.lock.diff
+            /tmp/Cargo.lock.candidate.sha256
+            /tmp/cargo-metadata-generated.json
+            /tmp/cargo-metadata-locked.json
+            /tmp/cargo-tree-locked.txt
+            /tmp/targeted-v2-tests.log
+            /tmp/cargo-test-workspace-locked.log
+            /tmp/targeted-v2-wasm-check.log
+          if-no-files-found: warn
+          retention-days: 30
