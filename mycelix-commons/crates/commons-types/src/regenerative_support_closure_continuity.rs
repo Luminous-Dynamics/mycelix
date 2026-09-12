@@ -7,7 +7,8 @@
 //! support-basis evidence without re-running either engineering theorem.
 
 use crate::{
-    MaritimeEvidenceEnvelope, MaritimeEvidenceKind, RegenerativePolicySensitivitySurfaceEvidenceV1,
+    verify_regenerative_support_basis_surface_authorization, MaritimeEvidenceEnvelope,
+    MaritimeEvidenceKind, RegenerativePolicySensitivitySurfaceEvidenceV1,
     RegenerativeSupportBasisEvidenceV1, RegenerativeViabilityEvidenceV1,
 };
 use serde::{Deserialize, Serialize};
@@ -236,11 +237,23 @@ pub fn verify_regenerative_support_closure_surface_authorization(
     continuity: &RegenerativeSupportClosureContinuityEvidenceV1,
     surface: &RegenerativePolicySensitivitySurfaceEvidenceV1,
 ) -> Result<(), String> {
-    basis.validate()?;
+    // The parent support-basis theorem must independently authorize this exact
+    // surface before the stronger closure-continuity layer may compose over it.
+    verify_regenerative_support_basis_surface_authorization(basis, surface)?;
     continuity.validate()?;
-    surface.validate()?;
-    if !basis.scalar_runway_projection_safe || !continuity.scalar_runway_projection_safe {
-        return Err("unsafe basis or support closure cannot authorize a policy surface".into());
+    if continuity.support_basis_evidence_content_digest != basis.content_digest()? {
+        return Err("support-closure basis digest mismatch during surface authorization".into());
+    }
+    if continuity.source_model_binding != basis.source_model_binding
+        || continuity.successor_model_binding != basis.successor_model_binding
+    {
+        return Err("support-closure model subjects disagree with parent basis".into());
+    }
+    if continuity.viability_evidence_content_digest != basis.viability_evidence_content_digest {
+        return Err("support-closure and basis refer to different viability subjects".into());
+    }
+    if !continuity.scalar_runway_projection_safe {
+        return Err("unsafe support closure cannot authorize a policy surface".into());
     }
     let expected = continuity
         .authorized_policy_surface_content_digest
