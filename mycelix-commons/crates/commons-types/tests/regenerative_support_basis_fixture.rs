@@ -1,4 +1,4 @@
-use mycelix_commons_types::*;
+use commons_types::*;
 
 const FIXTURE: &str =
     include_str!("../fixtures/manta-forge-intergenerational-support-basis-v1.txt");
