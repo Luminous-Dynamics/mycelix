@@ -1,0 +1,18 @@
+[package]
+name = "mycelix-integration-admin-mutation-exclusion"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+license = "AGPL-3.0-or-later"
+description = "Shared coordinator Admin-mutation exclusion interval for exact Mycelix integration admissions"
+
+[dependencies]
+blake3 = "1"
+libc = "0.2"
+mycelix-authority-coordinator-admin-isolation = { path = "../mycelix-authority-coordinator-admin-isolation" }
+mycelix-authority-coordinator-admin-mutation-exclusion = { path = "../mycelix-authority-coordinator-admin-mutation-exclusion" }
+mycelix-authority-coordinator-conductor-process = { path = "../mycelix-authority-coordinator-conductor-process" }
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+mycelix-integration-core = { path = "../mycelix-integration-core" }
+mycelix-integration-store-rechecked-preexecution = { path = "../mycelix-integration-store-rechecked-preexecution" }
+thiserror = "2.0"

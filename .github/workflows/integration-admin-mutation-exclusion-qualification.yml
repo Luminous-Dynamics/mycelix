@@ -1,0 +1,141 @@
+name: Integration Admin-Mutation Exclusion Qualification
+
+on:
+  pull_request:
+    branches:
+      - feat/integration-store-rechecked-preexecution-v1
+      - main
+    paths:
+      - 'crates/mycelix-integration-admin-mutation-exclusion/**'
+      - 'crates/mycelix-authority-coordinator-admin-mutation-exclusion/**'
+      - 'crates/mycelix-authority-coordinator-admin-isolation/**'
+      - '.github/workflows/integration-admin-mutation-exclusion-qualification.yml'
+  push:
+    branches:
+      - feat/integration-admin-mutation-exclusion-v1
+    paths:
+      - 'crates/mycelix-integration-admin-mutation-exclusion/**'
+      - '.github/workflows/integration-admin-mutation-exclusion-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  MANIFEST: crates/mycelix-integration-admin-mutation-exclusion/Cargo.toml
+
+concurrency:
+  group: integration-admin-mutation-exclusion-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Same pinned lock domain, no effect authority
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/mycelix-integration-admin-mutation-exclusion
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path "$MANIFEST" --all --check
+
+      - name: Compile tests without running
+        run: cargo test --manifest-path "$MANIFEST" --no-run
+
+      - name: Run tests
+        run: cargo test --manifest-path "$MANIFEST"
+
+      - name: Clippy
+        run: cargo clippy --manifest-path "$MANIFEST" --all-targets -- -D warnings
+
+      - name: Enforce exact #539 exclusion domain reuse
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-admin-mutation-exclusion/src/lib.rs'
+          manifest='crates/mycelix-integration-admin-mutation-exclusion/Cargo.toml'
+
+          grep -Fq 'mycelix-authority-coordinator-admin-mutation-exclusion' "$manifest"
+          grep -Fq 'AdminMutationExclusionBinding' "$source"
+          grep -Fq 'LOCK_PATH' "$source"
+          grep -Fq 'LOCK_DIR_MODE' "$source"
+          grep -Fq 'LOCK_FILE_MODE' "$source"
+          grep -Fq 'binding.lock_device' "$source"
+          grep -Fq 'binding.lock_inode' "$source"
+          grep -Fq 'libc::flock(file.as_raw_fd(), libc::LOCK_EX)' "$source"
+          grep -Fq 'libc::O_NOFOLLOW | libc::O_CLOEXEC' "$source"
+          grep -Fq 'binding.binding_digest()' "$source"
+          grep -Fq 'broker_binding.binding_digest()' "$source"
+
+      - name: Enforce lock-before-isolation ordering
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-admin-mutation-exclusion/src/lib.rs'
+          lock_line="$(grep -nF 'let lock = acquire_shared_lock(binding)?;' "$source" | cut -d: -f1)"
+          isolation_line="$(grep -nF 'let isolation = begin_exclusive_admin_isolation' "$source" | cut -d: -f1)"
+          test "$lock_line" -lt "$isolation_line"
+          grep -Fq 'lock.validate(binding)?;' "$source"
+          grep -Fq 'lock.validate(&binding)?;' "$source"
+
+      - name: Enforce exact integration subject binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-admin-mutation-exclusion/src/lib.rs'
+          grep -Fq 'admission.qualification_digest()' "$source"
+          grep -Fq 'admission.current_attempt().store_state_digest()' "$source"
+          grep -Fq 'execution.entry_id()' "$source"
+          grep -Fq 'execution.attempt_id()' "$source"
+          grep -Fq 'execution.command_commitment()' "$source"
+          grep -Fq 'SUBJECT_PROFILE' "$source"
+          grep -Fq 'INTERVAL_PROFILE' "$source"
+          grep -Fq 'isolation.isolation_digest()' "$source"
+          grep -Fq 'isolation.isolation_profile()' "$source"
+
+      - name: Enforce no Admin endpoint or effect path
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-admin-mutation-exclusion/src/lib.rs'
+
+          grep -Fq 'preexecution_requalified_inside_guard_here(&self) -> bool' "$source"
+          grep -Fq 'provider_root_rechecked_inside_guard_here(&self) -> bool' "$source"
+          grep -Fq 'dispatch_started_here(&self) -> bool' "$source"
+          grep -Fq 'provider_payload_materialized_here(&self) -> bool' "$source"
+          grep -Fq 'provider_call_started_here(&self) -> bool' "$source"
+          grep -Fq 'grants_execution_authority(&self) -> bool' "$source"
+          grep -Fq 'work_inside_interval_verified_here(&self) -> bool' "$source"
+          grep -Fq 'external_effect_started_here(&self) -> bool' "$source"
+
+          if grep -Eq 'pub fn admin_endpoint|AdminWebsocket|update_coordinators\(|reqwest::|hyper::|tonic::|stripe::' "$source"; then
+            echo 'Integration exclusion adapter exposed Admin/provider/effect execution.'
+            exit 1
+          fi
+          if grep -Eq 'derive\([^)]*Deserialize' "$source"; then
+            echo 'Live/historical integration exclusion proofs must not be deserializable.'
+            exit 1
+          fi
+
+      - name: Enforce subject substitution regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-admin-mutation-exclusion/src/lib.rs'
+          grep -Fq 'exact_subject_identity_is_stable' "$source"
+          grep -Fq 'durable_store_state_changes_subject_identity' "$source"
+          grep -Fq 'attempt_fence_changes_subject_identity' "$source"
+          grep -Fq 'command_changes_subject_identity' "$source"
