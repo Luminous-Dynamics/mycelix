@@ -8,6 +8,8 @@ use mycelix_integration_runtime::{
 use rusqlite::{params, Connection};
 
 const EXECUTION_OBSERVATION_LIMIT: i64 = 4_096;
+const FIRST_SYNTHETIC_OBSERVATION_MS: i64 = 112;
+const RECOVERY_NOW_MS: i64 = FIRST_SYNTHETIC_OBSERVATION_MS + EXECUTION_OBSERVATION_LIMIT;
 
 fn connector() -> ConnectorInstanceId {
     ConnectorInstanceId::new("recovery-isolation-connector")
@@ -82,7 +84,9 @@ fn history_exhausted_stale_entry_does_not_block_unrelated_claims() {
     // now stale and its per-entry observation budget is already exhausted. Each
     // synthetic row is still a genuine typed INT-02 outcome bound to the exact
     // owning command + connector, so this test exercises budget isolation rather
-    // than bypassing the runtime's subject-integrity trigger.
+    // than bypassing the runtime's subject-integrity trigger. Recovery is then
+    // evaluated strictly after the durable history frontier so the liveness
+    // theorem does not ask the causal clock to move backward.
     {
         let conn = Connection::open(&path).expect("raw fixture connection must open");
         let tx = conn
@@ -90,12 +94,10 @@ fn history_exhausted_stale_entry_does_not_block_unrelated_claims() {
             .expect("fixture transaction must start");
         let attempt_id = format!("{poisoned_entry}:1");
         for sequence in 0..EXECUTION_OBSERVATION_LIMIT {
-            let observed_at_ms = 112 + sequence;
-            let outcome_json = serde_json::to_vec(&confirmed(
-                "poisoned-command",
-                observed_at_ms,
-            ))
-            .expect("typed fixture outcome must serialize");
+            let observed_at_ms = FIRST_SYNTHETIC_OBSERVATION_MS + sequence;
+            let outcome_json =
+                serde_json::to_vec(&confirmed("poisoned-command", observed_at_ms))
+                    .expect("typed fixture outcome must serialize");
             tx.execute(
                 "INSERT INTO integration_execution_observation (\n\
                     entry_id, attempt_id, outcome_json, observed_at_ms, applied_to_current\n\
@@ -114,7 +116,7 @@ fn history_exhausted_stale_entry_does_not_block_unrelated_claims() {
 
     let mut store = SqliteIntegrationStore::open(&path).expect("store must reopen");
     let claimed = store
-        .claim_outbox("worker-fresh", 121, 20, 1)
+        .claim_outbox("worker-fresh", RECOVERY_NOW_MS, 20, 1)
         .expect("one poisoned stale entry must not block unrelated eligible work");
 
     assert_eq!(claimed.len(), 1);
