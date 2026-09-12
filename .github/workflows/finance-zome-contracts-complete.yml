@@ -1,0 +1,365 @@
+name: Finance Zome Contracts Complete
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/finance-zome-contracts-complete.yml'
+      - '.github/scripts/fin_safe_024_complete.py'
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: finance-zome-contracts-complete
+  cancel-in-progress: false
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  SOURCE_SHA: 'ea01f1f02e08b04786bce4e85d50a6a7d1f8408f'
+  PHASE_A_ARTIFACT_ID: '10306281633'
+  PHASE_A_ARTIFACT_SHA256: '11097c15ee15257e7f2129b94b0ffb453ff121ba859bb25e0b0e55319d7cb086'
+
+jobs:
+  qualify:
+    name: Qualify complete ABI-neutral V2 boundary
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'ci-fin-safe-024-complete'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Checkout frozen FIN-SAFE-020 source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Bind exact source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - name: Reconstruct exact validated Phase A state
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${PHASE_A_ARTIFACT_ID}/zip" \
+            -o /tmp/phase-a.zip
+          echo "${PHASE_A_ARTIFACT_SHA256}  /tmp/phase-a.zip" | sha256sum -c -
+          mkdir -p /tmp/phase-a-evidence
+          unzip -q /tmp/phase-a.zip -d /tmp/phase-a-evidence
+          test -s /tmp/phase-a-evidence/phase-a-r2-source.patch
+          git apply --check /tmp/phase-a-evidence/phase-a-r2-source.patch
+          git apply /tmp/phase-a-evidence/phase-a-r2-source.patch
+
+          mkdir -p mycelix-finance/crates/finance-holochain-contracts/src
+          cat > mycelix-finance/crates/finance-holochain-contracts/Cargo.toml <<'EOF'
+          [package]
+          name = "finance-holochain-contracts"
+          version = "0.1.0"
+          edition = "2024"
+          license.workspace = true
+          description = "ABI-neutral shared Holochain entry contracts for Mycelix Finance V2 zomes"
+
+          [dependencies]
+          hdi = { workspace = true }
+          holochain_serialized_bytes = { workspace = true }
+          serde = { workspace = true }
+          finance-collateral-deposit = { path = "../finance-collateral-deposit" }
+          finance-collateral-auth = { path = "../finance-collateral-auth" }
+          EOF
+
+          cat > mycelix-finance/crates/finance-holochain-contracts/src/lib.rs <<'EOF'
+          #![deny(unsafe_code)]
+          // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+          // SPDX-License-Identifier: AGPL-3.0-or-later
+          // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
+          //! ABI-neutral serialized contracts shared by Finance V2 Holochain zomes.
+          //!
+          //! This crate deliberately declares no EntryTypes, LinkTypes, callbacks,
+          //! extern functions, or zome authority. Zomes own authority; this crate
+          //! owns only canonical payload serialization and shared property decoding.
+
+          use finance_collateral_auth::{
+              CollateralSettlementAuthConfig, CustodyAttestationV1, PriceAttestationV1,
+          };
+          use finance_collateral_deposit::{
+              COLLATERAL_DEPOSIT_NONCE_BYTES, CollateralDepositRequestV2,
+          };
+          use hdi::prelude::*;
+
+          pub const MAX_CREATE_TIMESTAMP_SKEW_MICROS: i64 = 5_000_000;
+
+          #[dna_properties]
+          #[derive(Clone)]
+          pub struct FinanceCollateralAuthDnaProperties {
+              pub collateral_settlement_auth: CollateralSettlementAuthConfig,
+          }
+
+          pub fn load_collateral_auth_config() -> ExternResult<CollateralSettlementAuthConfig> {
+              Ok(FinanceCollateralAuthDnaProperties::try_from_dna_properties()?
+                  .collateral_settlement_auth)
+          }
+
+          #[hdk_entry_helper]
+          #[derive(Clone, PartialEq)]
+          pub struct CollateralDepositRequestV2Entry {
+              pub schema_version: u16,
+              pub deposit_id: String,
+              pub depositor_did: String,
+              pub collateral_asset_id: String,
+              pub collateral_amount: u64,
+              pub quote_asset_id: String,
+              pub request_nonce: Vec<u8>,
+              pub created_at_micros: i64,
+          }
+
+          impl CollateralDepositRequestV2Entry {
+              pub fn to_model(&self) -> Result<CollateralDepositRequestV2, String> {
+                  let request_nonce: [u8; COLLATERAL_DEPOSIT_NONCE_BYTES] =
+                      self.request_nonce.as_slice().try_into().map_err(|_| {
+                          format!(
+                              "request_nonce must contain exactly {} bytes",
+                              COLLATERAL_DEPOSIT_NONCE_BYTES
+                          )
+                      })?;
+                  Ok(CollateralDepositRequestV2 {
+                      schema_version: self.schema_version,
+                      deposit_id: self.deposit_id.clone(),
+                      depositor_did: self.depositor_did.clone(),
+                      collateral_asset_id: self.collateral_asset_id.clone(),
+                      collateral_amount: self.collateral_amount,
+                      quote_asset_id: self.quote_asset_id.clone(),
+                      request_nonce,
+                      created_at_micros: self.created_at_micros,
+                  })
+              }
+          }
+
+          impl From<CollateralDepositRequestV2> for CollateralDepositRequestV2Entry {
+              fn from(value: CollateralDepositRequestV2) -> Self {
+                  Self {
+                      schema_version: value.schema_version,
+                      deposit_id: value.deposit_id,
+                      depositor_did: value.depositor_did,
+                      collateral_asset_id: value.collateral_asset_id,
+                      collateral_amount: value.collateral_amount,
+                      quote_asset_id: value.quote_asset_id,
+                      request_nonce: value.request_nonce.to_vec(),
+                      created_at_micros: value.created_at_micros,
+                  }
+              }
+          }
+
+          #[hdk_entry_helper]
+          #[derive(Clone, PartialEq)]
+          pub struct PriceAttestationV1Entry {
+              pub attestation: PriceAttestationV1,
+          }
+
+          #[hdk_entry_helper]
+          #[derive(Clone, PartialEq)]
+          pub struct CustodyAttestationV1Entry {
+              pub attestation: CustodyAttestationV1,
+          }
+          EOF
+
+          cd mycelix-finance
+          cargo fmt --all
+          cd ..
+          git diff > /tmp/phase-a-reconstructed.patch
+          cmp /tmp/phase-a-reconstructed.patch /tmp/phase-a-evidence/phase-a-r2-source.patch
+
+      - name: Fetch exact completion helper
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TOOLING_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/contents/.github/scripts/fin_safe_024_complete.py?ref=${TOOLING_SHA}" \
+            -o /tmp/fin-safe-024-helper.json
+          python - <<'PY'
+          import base64, json
+          from pathlib import Path
+          payload = json.loads(Path('/tmp/fin-safe-024-helper.json').read_text())
+          if payload.get('encoding') != 'base64':
+              raise SystemExit('unexpected helper encoding')
+          Path('/tmp/fin_safe_024_complete.py').write_bytes(base64.b64decode(payload['content']))
+          PY
+          test -s /tmp/fin_safe_024_complete.py
+          sha256sum /tmp/fin_safe_024_complete.py > /tmp/fin-safe-024-helper.sha256
+
+      - name: Complete ABI-neutral contract isolation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python /tmp/fin_safe_024_complete.py
+          cd mycelix-finance
+          cargo fmt --all
+          cargo fmt --all --check
+          cd ..
+          git diff --check
+          python /tmp/fin_safe_024_complete.py >/tmp/reapply.out 2>/tmp/reapply.err && {
+            echo 'completion helper unexpectedly reapplied cleanly; migration is not fail-closed/idempotence-aware' >&2
+            exit 1
+          } || true
+
+      - name: Prove source boundary and capture exact source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          allowed = {
+              'mycelix-finance/Cargo.toml',
+              'mycelix-finance/crates/finance-holochain-contracts/Cargo.toml',
+              'mycelix-finance/crates/finance-holochain-contracts/src/lib.rs',
+              'mycelix-finance/zomes/collateral-deposit-v2/integrity/Cargo.toml',
+              'mycelix-finance/zomes/collateral-deposit-v2/integrity/src/lib.rs',
+              'mycelix-finance/zomes/collateral-deposit-v2/coordinator/Cargo.toml',
+              'mycelix-finance/zomes/collateral-deposit-v2/coordinator/src/lib.rs',
+              'mycelix-finance/zomes/collateral-settlement-auth/integrity/Cargo.toml',
+              'mycelix-finance/zomes/collateral-settlement-auth/integrity/src/lib.rs',
+              'mycelix-finance/zomes/collateral-settlement-auth/coordinator/Cargo.toml',
+              'mycelix-finance/zomes/collateral-settlement-auth/coordinator/src/lib.rs',
+              'mycelix-finance/zomes/collateral-issuance-v2/integrity/Cargo.toml',
+              'mycelix-finance/zomes/collateral-issuance-v2/integrity/src/lib.rs',
+              'mycelix-finance/zomes/collateral-issuance-v2/coordinator/Cargo.toml',
+              'mycelix-finance/zomes/collateral-issuance-v2/coordinator/src/lib.rs',
+              'mycelix-finance/zomes/sap-account-v2/integrity/Cargo.toml',
+              'mycelix-finance/zomes/sap-account-v2/integrity/src/lib.rs',
+              'mycelix-finance/zomes/sap-account-v2/coordinator/Cargo.toml',
+              'mycelix-finance/zomes/sap-account-v2/coordinator/src/lib.rs',
+              'mycelix-finance/zomes/sap-transfer-v2/integrity/Cargo.toml',
+              'mycelix-finance/zomes/sap-transfer-v2/integrity/src/lib.rs',
+              'mycelix-finance/zomes/sap-transfer-v2/coordinator/Cargo.toml',
+              'mycelix-finance/zomes/sap-transfer-v2/coordinator/src/lib.rs',
+          }
+          import subprocess
+          rows = subprocess.check_output(['git','status','--porcelain=v1'], text=True).splitlines()
+          actual = {row[3:] for row in rows}
+          unexpected = actual - allowed
+          missing = {
+              'mycelix-finance/crates/finance-holochain-contracts/Cargo.toml',
+              'mycelix-finance/crates/finance-holochain-contracts/src/lib.rs',
+          } - actual
+          if unexpected:
+              raise SystemExit(f'unexpected source paths: {sorted(unexpected)}')
+          if missing:
+              raise SystemExit(f'expected new contract paths absent: {sorted(missing)}')
+          PY
+          git status --porcelain=v1 > /tmp/fin-safe-024-status.txt
+          paths=(
+            mycelix-finance/Cargo.toml
+            mycelix-finance/crates/finance-holochain-contracts
+            mycelix-finance/zomes/collateral-deposit-v2/integrity/Cargo.toml
+            mycelix-finance/zomes/collateral-deposit-v2/integrity/src/lib.rs
+            mycelix-finance/zomes/collateral-deposit-v2/coordinator/Cargo.toml
+            mycelix-finance/zomes/collateral-deposit-v2/coordinator/src/lib.rs
+            mycelix-finance/zomes/collateral-settlement-auth/integrity/Cargo.toml
+            mycelix-finance/zomes/collateral-settlement-auth/integrity/src/lib.rs
+            mycelix-finance/zomes/collateral-settlement-auth/coordinator/Cargo.toml
+            mycelix-finance/zomes/collateral-settlement-auth/coordinator/src/lib.rs
+            mycelix-finance/zomes/collateral-issuance-v2/integrity/Cargo.toml
+            mycelix-finance/zomes/collateral-issuance-v2/integrity/src/lib.rs
+            mycelix-finance/zomes/collateral-issuance-v2/coordinator/Cargo.toml
+            mycelix-finance/zomes/collateral-issuance-v2/coordinator/src/lib.rs
+            mycelix-finance/zomes/sap-account-v2/integrity/Cargo.toml
+            mycelix-finance/zomes/sap-account-v2/integrity/src/lib.rs
+            mycelix-finance/zomes/sap-account-v2/coordinator/Cargo.toml
+            mycelix-finance/zomes/sap-account-v2/coordinator/src/lib.rs
+            mycelix-finance/zomes/sap-transfer-v2/integrity/Cargo.toml
+            mycelix-finance/zomes/sap-transfer-v2/integrity/src/lib.rs
+            mycelix-finance/zomes/sap-transfer-v2/coordinator/Cargo.toml
+            mycelix-finance/zomes/sap-transfer-v2/coordinator/src/lib.rs
+          )
+          tar -czf /tmp/fin-safe-024-source.tar.gz "${paths[@]}"
+          find "${paths[@]}" -type f -print0 | sort -z | xargs -0 sha256sum > /tmp/fin-safe-024-source.sha256
+          sha256sum /tmp/fin-safe-024-source.tar.gz > /tmp/fin-safe-024-source.tar.gz.sha256
+
+      - name: Generate cumulative lock candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp mycelix-finance/Cargo.lock /tmp/Cargo.lock.before
+          cd mycelix-finance
+          cargo metadata --format-version 1 > /tmp/cargo-metadata-generated.json
+          cp Cargo.lock /tmp/Cargo.lock.candidate
+          sha256sum Cargo.lock > /tmp/Cargo.lock.candidate.sha256
+          cargo metadata --locked --format-version 1 > /tmp/cargo-metadata-locked.json
+          cargo tree --workspace --locked > /tmp/cargo-tree-locked.txt
+
+      - name: Test complete V2 native boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo test \
+            -p finance-holochain-contracts \
+            -p collateral_deposit_v2_integrity -p collateral_deposit_v2 \
+            -p collateral_settlement_auth_integrity -p collateral_settlement_auth \
+            -p collateral_issuance_v2_integrity -p collateral_issuance_v2 \
+            -p sap_account_v2_integrity -p sap_account_v2 \
+            -p sap_transfer_v2_integrity -p sap_transfer_v2 \
+            --locked 2>&1 | tee /tmp/fin-safe-024-targeted-tests.log
+
+      - name: Check complete V2 wasm boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo check \
+            -p collateral_deposit_v2_integrity -p collateral_deposit_v2 \
+            -p collateral_settlement_auth_integrity -p collateral_settlement_auth \
+            -p collateral_issuance_v2_integrity -p collateral_issuance_v2 \
+            -p sap_account_v2_integrity -p sap_account_v2 \
+            -p sap_transfer_v2_integrity -p sap_transfer_v2 \
+            --target wasm32-unknown-unknown --lib --locked \
+            2>&1 | tee /tmp/fin-safe-024-wasm.log
+
+      - name: Test full Finance workspace under lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo test --workspace --locked 2>&1 | tee /tmp/fin-safe-024-workspace-tests.log
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fin-safe-024-complete-${{ env.SOURCE_SHA }}-${{ github.run_attempt }}
+          path: |
+            /tmp/fin-safe-024-helper.sha256
+            /tmp/fin-safe-024-status.txt
+            /tmp/fin-safe-024-source.tar.gz
+            /tmp/fin-safe-024-source.tar.gz.sha256
+            /tmp/fin-safe-024-source.sha256
+            /tmp/Cargo.lock.before
+            /tmp/Cargo.lock.candidate
+            /tmp/Cargo.lock.candidate.sha256
+            /tmp/cargo-metadata-generated.json
+            /tmp/cargo-metadata-locked.json
+            /tmp/cargo-tree-locked.txt
+            /tmp/fin-safe-024-targeted-tests.log
+            /tmp/fin-safe-024-wasm.log
+            /tmp/fin-safe-024-workspace-tests.log
+          if-no-files-found: warn
+          retention-days: 30
