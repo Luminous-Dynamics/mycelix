@@ -39,6 +39,7 @@ use std::time::Duration;
 use thiserror::Error;
 
 const TABLE: &str = "integration_http_transport_attempt_v1";
+const OUTBOX_DISPATCH_STARTED: i64 = 5;
 const JOURNAL_PREPARED: i64 = 0;
 const JOURNAL_WRITE_MAY_BEGIN: i64 = 1;
 const JOURNAL_OBSERVATION_RECORDED: i64 = 2;
@@ -548,23 +549,34 @@ fn validate_dispatch_row(
     dispatch: &QualifiedContextBoundDispatchStart,
     descriptor: &QualifiedHttpIssuanceDescriptor,
 ) -> Result<(), TransportJournalError> {
-    let row: Option<(String, Vec<u8>, Vec<u8>, i64, Vec<u8>)> = tx
+    let row: Option<(i64, String, Vec<u8>, Vec<u8>, i64, Vec<u8>)> = tx
         .query_row(
-            "SELECT d.context_profile, d.context_digest, d.binding_digest,\n\
+            "SELECT o.stage, d.context_profile, d.context_digest, d.binding_digest,\n\
                     d.command_commitment_algorithm, d.command_commitment_digest\n\
-             FROM integration_dispatch_binding_v2 d\n\
+             FROM integration_outbox o\n\
+             JOIN integration_dispatch_binding_v2 d ON d.entry_id = o.entry_id\n\
              WHERE d.entry_id = ?1 AND d.attempt_id = ?2",
             params![
                 dispatch.dispatch().entry_id,
                 dispatch.dispatch().attempt_id.as_str(),
             ],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+            |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                ))
+            },
         )
         .optional()?;
-    let Some((context_profile, context_digest, binding_digest, algorithm, command_digest)) = row else {
+    let Some((outbox_stage, context_profile, context_digest, binding_digest, algorithm, command_digest)) = row else {
         return Err(TransportJournalError::MissingContextDispatch);
     };
-    if context_profile != dispatch.context().profile()
+    if outbox_stage != OUTBOX_DISPATCH_STARTED
+        || context_profile != dispatch.context().profile()
         || context_digest.as_slice() != dispatch.context().digest().0
         || binding_digest.as_slice() != dispatch.binding_digest().0
         || algorithm != digest_algorithm_code(descriptor.command_commitment().algorithm)
