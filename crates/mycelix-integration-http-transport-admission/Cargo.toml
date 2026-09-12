@@ -1,0 +1,28 @@
+[package]
+name = "mycelix-integration-http-transport-admission"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Live HTTP transport admission with current safety policy, canonical plan, and context-bound DispatchStarted"
+
+[dependencies]
+blake3 = "1.5"
+mycelix-authority-coordinator-admin-isolation = { path = "../mycelix-authority-coordinator-admin-isolation" }
+mycelix-authority-coordinator-admin-mutation-exclusion = { path = "../mycelix-authority-coordinator-admin-mutation-exclusion" }
+mycelix-authority-coordinator-conductor-process = { path = "../mycelix-authority-coordinator-conductor-process" }
+mycelix-authority-freshness = { path = "../mycelix-authority-freshness" }
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+mycelix-integration-admin-mutation-exclusion = { path = "../mycelix-integration-admin-mutation-exclusion" }
+mycelix-integration-atomic-dispatch-context = { path = "../mycelix-integration-atomic-dispatch-context" }
+mycelix-integration-core = { path = "../mycelix-integration-core" }
+mycelix-integration-current-capability-coverage = { path = "../mycelix-integration-current-capability-coverage" }
+mycelix-integration-execution-binding = { path = "../mycelix-integration-execution-binding" }
+mycelix-integration-http-request-plan = { path = "../mycelix-integration-http-request-plan" }
+mycelix-integration-http-transport-policy = { path = "../mycelix-integration-http-transport-policy" }
+mycelix-integration-materializer-determinism = { path = "../mycelix-integration-materializer-determinism" }
+mycelix-integration-materializer-runtime = { path = "../mycelix-integration-materializer-runtime" }
+mycelix-integration-provider-trust-currentness = { path = "../mycelix-integration-provider-trust-currentness" }
+mycelix-integration-provider-trust-policy = { path = "../mycelix-integration-provider-trust-policy" }
+mycelix-integration-runtime = { path = "../mycelix-integration-runtime" }
+mycelix-integration-store-rechecked-preexecution = { path = "../mycelix-integration-store-rechecked-preexecution" }
+thiserror = "2.0"

@@ -1,0 +1,190 @@
+name: Integration HTTP Transport Admission Qualification
+
+on:
+  pull_request:
+    branches:
+      - feat/integration-dispatch-context-v1
+      - main
+    paths:
+      - 'crates/mycelix-integration-http-transport-admission/**'
+      - 'crates/mycelix-integration-atomic-dispatch-context/**'
+      - 'crates/mycelix-integration-http-request-plan/**'
+      - 'crates/mycelix-integration-http-transport-policy/**'
+      - '.github/workflows/integration-http-transport-admission-qualification.yml'
+  push:
+    branches:
+      - feat/integration-http-transport-admission-v1
+    paths:
+      - 'crates/mycelix-integration-http-transport-admission/**'
+      - '.github/workflows/integration-http-transport-admission-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  MANIFEST: crates/mycelix-integration-http-transport-admission/Cargo.toml
+  SOURCE: crates/mycelix-integration-http-transport-admission/src/lib.rs
+
+concurrency:
+  group: integration-http-transport-admission-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: HTTP policy-plan context-bound admission
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/mycelix-integration-http-transport-admission
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path "$MANIFEST" --all --check
+
+      - name: Compile tests without running
+        run: cargo test --manifest-path "$MANIFEST" --no-run
+
+      - name: Run tests
+        run: cargo test --manifest-path "$MANIFEST"
+
+      - name: Clippy
+        run: cargo clippy --manifest-path "$MANIFEST" --all-targets -- -D warnings
+
+      - name: Enforce exact authority and HTTP safety domains
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'trust.institution != capability.institution || http.institution != capability.institution' "$SOURCE"
+          grep -Fq 'trust.jurisdiction != capability.jurisdiction || http.jurisdiction != capability.jurisdiction' "$SOURCE"
+          grep -Fq 'trust.rulebook != capability.rulebook || http.rulebook != capability.rulebook' "$SOURCE"
+          grep -Fq 'http.connector_instance != command.connector_instance' "$SOURCE"
+          grep -Fq 'http.system != command.system' "$SOURCE"
+          grep -Fq 'http.operation_kind != command.operation_kind' "$SOURCE"
+
+      - name: Enforce in-guard and post-materialization requalification sequence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          s = Path('crates/mycelix-integration-http-transport-admission/src/lib.rs').read_text()
+          ordered = [
+              'begin_integration_admin_mutation_exclusion(',
+              'let inside_at_ms = system_now_ms()?',
+              'let inside_root = qualify_current_provider_trust_policy(',
+              'let inside_http = qualify_current_http_transport_policy(',
+              'let inside_http_binding =',
+              'let inside_admission = qualify_store_rechecked_preexecution(',
+              'let canonical_command = command.canonical_preimage_v1();',
+              'let materialized = materialize_provider_request(',
+              'let _inside_plan = qualify_http_request_plan(',
+              'let final_at_ms = system_now_ms()?',
+              'let final_root = qualify_current_provider_trust_policy(',
+              'let final_http = qualify_current_http_transport_policy(',
+              'let final_http_binding =',
+              'let final_admission = qualify_store_rechecked_preexecution(',
+              'let final_plan = qualify_http_request_plan(',
+              'let context = http_dispatch_context(',
+              'let atomic_dispatch = bind_context_and_start_dispatch(',
+          ]
+          cursor = -1
+          for needle in ordered:
+              pos = s.find(needle, cursor + 1)
+              if pos < 0 or pos <= cursor:
+                  raise SystemExit(f'missing/out-of-order HTTP admission step: {needle}')
+              cursor = pos
+          PY
+
+      - name: Enforce HTTP context binds current policy and canonical plan
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'HTTP_DISPATCH_CONTEXT_PROFILE' "$SOURCE"
+          grep -Fq '&binding.binding_digest().0' "$SOURCE"
+          grep -Fq '&plan.qualification_digest().0' "$SOURCE"
+          grep -Fq 'DispatchContextCommitment::new(HTTP_DISPATCH_CONTEXT_PROFILE, digest)' "$SOURCE"
+          grep -Fq '&context,' "$SOURCE"
+          grep -Fq 'http_transport_policy_binding_digest(&self)' "$SOURCE"
+          grep -Fq 'request_plan_commitment(&self)' "$SOURCE"
+
+      - name: Enforce internal command bytes and opaque request capability
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'let canonical_command = command.canonical_preimage_v1();' "$SOURCE"
+          grep -Fq 'raw_payload_extractable_here(&self) -> bool' "$SOURCE"
+          grep -Fq 'raw_request_plan_extractable_here(&self) -> bool' "$SOURCE"
+          if grep -Eq 'pub fn (request_bytes|materialized|request_plan|body|raw_body)\(' "$SOURCE"; then
+            echo 'HTTP admission exposed reusable request bytes/plan/body.'
+            exit 1
+          fi
+          if grep -Eq 'derive\([^)]*(Serialize|Deserialize)' "$SOURCE"; then
+            echo 'Live HTTP transport admission must remain process-local.'
+            exit 1
+          fi
+
+      - name: Enforce HTTP policy horizon participates in deadline
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'let http_until = i64::try_from(http.valid_until_ms())' "$SOURCE"
+          grep -Fq '.min(http_until)' "$SOURCE"
+          grep -Fq 'final_http.verified_at_ms() > final_at_u64' "$SOURCE"
+
+      - name: Enforce context dispatch is final fallible boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          s = Path('crates/mycelix-integration-http-transport-admission/src/lib.rs').read_text()
+          start = s.find('let atomic_dispatch = bind_context_and_start_dispatch(')
+          end = s.find('Ok(QualifiedHttpTransportAdmission {', start)
+          if min(start, end) < 0:
+              raise SystemExit('unable to locate context dispatch/final construction')
+          tail = s[start:end]
+          boundary = tail.find(')?;')
+          if boundary < 0:
+              raise SystemExit('context dispatch result boundary missing')
+          after = tail[boundary + 3:]
+          forbidden = ['?', 'return Err', 'system_now_ms(', 'qualify_', '.validate(', 'store.', 'fs::']
+          for needle in forbidden:
+              if needle in after:
+                  raise SystemExit(f'fallible operation after durable context-bound DispatchStarted: {needle}')
+          PY
+
+      - name: Enforce no direct native network or secret capability yet
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, subprocess
+          meta = json.loads(subprocess.check_output([
+              'cargo', 'metadata', '--manifest-path',
+              'crates/mycelix-integration-http-transport-admission/Cargo.toml',
+              '--no-deps', '--format-version', '1'
+          ]))
+          package = next(p for p in meta['packages'] if p['name'] == 'mycelix-integration-http-transport-admission')
+          direct = {d['name'] for d in package['dependencies']}
+          forbidden = {'reqwest','hyper','tonic','curl','ureq','tokio','async-std','rustls','native-tls','openssl'}
+          hit = sorted(direct & forbidden)
+          if hit:
+              raise SystemExit(f'direct network/TLS dependency entered pre-I/O HTTP admission: {hit}')
+          PY
+          if grep -Eq 'TcpStream|UdpSocket|reqwest::|hyper::|keyring::|vault::|secret_service::|AdminWebsocket|update_coordinators' "$SOURCE"; then
+            echo 'HTTP admission crossed into direct network/secret/Admin I/O.'
+            exit 1
+          fi
