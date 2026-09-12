@@ -1,0 +1,18 @@
+[package]
+name = "finance-sap-conservation"
+version = "0.3.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+description = "Authenticated collateral issuance provenance and SAP balance conservation theorems"
+
+[lib]
+path = "src/authenticated.rs"
+
+[dependencies]
+serde = { workspace = true }
+finance-collateral-auth = { path = "../finance-collateral-auth" }
+finance-collateral-settlement = { path = "../finance-collateral-settlement" }
+finance-collateral-request-binding = { path = "../finance-collateral-request-binding" }
+
+[dev-dependencies]
+serde_json = { workspace = true }
