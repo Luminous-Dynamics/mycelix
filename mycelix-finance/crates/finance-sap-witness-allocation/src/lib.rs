@@ -346,7 +346,7 @@ pub fn decide_witness_allocation(
     let mut candidate_allocated_notes = BTreeSet::new();
 
     for note_id in &candidate.input_note_ids {
-        match classify_input_from_history(note_id, physical.values())? {
+        match classify_input_from_history(note_id, physical.values().copied())? {
             SapWitnessInputAllocationStateV1::Unallocated { .. } => {}
             SapWitnessInputAllocationStateV1::AllocatedTo {
                 transfer_id,
@@ -413,7 +413,7 @@ pub fn classify_witness_input_allocation(
     validate_id(note_id)?;
     history.validate_for(policy, witness_did)?;
     let physical = canonicalize_history(policy, witness_did, history.observations())?;
-    classify_input_from_history(note_id, physical.values())
+    classify_input_from_history(note_id, physical.values().copied())
 }
 
 fn canonicalize_history<'a>(
