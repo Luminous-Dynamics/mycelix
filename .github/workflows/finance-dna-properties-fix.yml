@@ -1,0 +1,156 @@
+name: Finance DNA Properties Fix
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/finance-dna-properties-fix.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: finance-dna-properties-fix
+  cancel-in-progress: false
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  SOURCE_SHA: 'ea01f1f02e08b04786bce4e85d50a6a7d1f8408f'
+  TARGET_BRANCH: 'fin-safe-021-dna-properties'
+
+jobs:
+  validate-and-promote:
+    name: Validate + promote DNA properties derive fix
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'ci-fin-safe-021-dna-properties'
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Checkout frozen FIN-SAFE-020 source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: true
+
+      - name: Prove source and target identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          remote_target="$(git ls-remote origin "refs/heads/$TARGET_BRANCH" | cut -f1)"
+          test "$remote_target" = "$SOURCE_SHA"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - name: Apply exact three-site macro derive correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          targets = [
+              Path('mycelix-finance/zomes/collateral-settlement-auth/integrity/src/lib.rs'),
+              Path('mycelix-finance/zomes/sap-account-v2/integrity/src/lib.rs'),
+              Path('mycelix-finance/zomes/sap-transfer-v2/integrity/src/lib.rs'),
+          ]
+          old = '#[dna_properties]\n#[derive(Clone, Debug, Serialize, Deserialize)]'
+          new = '#[dna_properties]\n#[derive(Clone)]'
+          for path in targets:
+              text = path.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'refusing {path}: expected exactly 1 target pattern, found {count}')
+              if new in text:
+                  raise SystemExit(f'refusing {path}: replacement already present before mutation')
+              path.write_text(text.replace(old, new))
+          PY
+
+          cd mycelix-finance
+          cargo fmt --all
+          cargo fmt --all --check
+          cd ..
+          git diff --check
+
+          cat > /tmp/expected-paths.txt <<'EOF'
+          mycelix-finance/zomes/collateral-settlement-auth/integrity/src/lib.rs
+          mycelix-finance/zomes/sap-account-v2/integrity/src/lib.rs
+          mycelix-finance/zomes/sap-transfer-v2/integrity/src/lib.rs
+          EOF
+          git diff --name-only | LC_ALL=C sort > /tmp/actual-paths.txt
+          LC_ALL=C sort -o /tmp/expected-paths.txt /tmp/expected-paths.txt
+          diff -u /tmp/expected-paths.txt /tmp/actual-paths.txt
+
+      - name: Generate ephemeral lock and validate affected crates
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp mycelix-finance/Cargo.lock /tmp/Cargo.lock.before
+          cd mycelix-finance
+          cargo metadata --format-version 1 > /tmp/cargo-metadata-generated.json
+          cargo metadata --locked --format-version 1 > /tmp/cargo-metadata-locked.json
+          cargo test \
+            -p collateral_settlement_auth_integrity \
+            -p sap_account_v2_integrity \
+            -p sap_transfer_v2_integrity \
+            --locked 2>&1 | tee /tmp/dna-properties-targeted-tests.log
+          cd ..
+          test "$(git diff --name-only -- mycelix-finance/Cargo.lock)" = 'mycelix-finance/Cargo.lock'
+
+      - name: Restore generated lock and prove closed-world source delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp /tmp/Cargo.lock.before mycelix-finance/Cargo.lock
+          git diff --quiet -- mycelix-finance/Cargo.lock
+          git diff --name-only | LC_ALL=C sort > /tmp/actual-paths-after.txt
+          diff -u /tmp/expected-paths.txt /tmp/actual-paths-after.txt
+          git diff > /tmp/dna-properties-fix.patch
+          test -s /tmp/dna-properties-fix.patch
+          test "$(grep -R -F '#[derive(Clone)]' \
+            mycelix-finance/zomes/collateral-settlement-auth/integrity/src/lib.rs \
+            mycelix-finance/zomes/sap-account-v2/integrity/src/lib.rs \
+            mycelix-finance/zomes/sap-transfer-v2/integrity/src/lib.rs | wc -l)" -ge 3
+
+      - name: Commit validated three-file fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          while IFS= read -r path; do git add -- "$path"; done < /tmp/expected-paths.txt
+          git diff --cached --check
+          git diff --cached --name-only | LC_ALL=C sort > /tmp/staged-paths.txt
+          diff -u /tmp/expected-paths.txt /tmp/staged-paths.txt
+          git commit -m 'fix(finance): remove duplicate DNA property derives'
+          promoted_sha="$(git rev-parse HEAD)"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          {
+            echo "source_sha=$SOURCE_SHA"
+            echo "promoted_sha=$promoted_sha"
+            sha256sum /tmp/dna-properties-fix.patch
+            sha256sum \
+              mycelix-finance/zomes/collateral-settlement-auth/integrity/src/lib.rs \
+              mycelix-finance/zomes/sap-account-v2/integrity/src/lib.rs \
+              mycelix-finance/zomes/sap-transfer-v2/integrity/src/lib.rs
+          } > /tmp/promotion.env
+          cat /tmp/promotion.env >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload validation receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: finance-dna-properties-fix-${{ env.SOURCE_SHA }}-${{ github.run_attempt }}
+          path: |
+            /tmp/promotion.env
+            /tmp/dna-properties-fix.patch
+            /tmp/dna-properties-targeted-tests.log
+            /tmp/cargo-metadata-locked.json
+          if-no-files-found: warn
+          retention-days: 30
