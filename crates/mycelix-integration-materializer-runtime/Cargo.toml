@@ -1,0 +1,16 @@
+[package]
+name = "mycelix-integration-materializer-runtime"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Fresh-instance fuel-bounded WASM provider materialization runtime for Mycelix integrations"
+
+[dependencies]
+blake3 = "1.5"
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+mycelix-integration-core = { path = "../mycelix-integration-core" }
+mycelix-integration-materializer-abi = { path = "../mycelix-integration-materializer-abi" }
+mycelix-integration-materializer-determinism = { path = "../mycelix-integration-materializer-determinism" }
+mycelix-integration-preexecution-admission = { path = "../mycelix-integration-preexecution-admission" }
+thiserror = "2.0"
+wasmi = "=2.0.0"
