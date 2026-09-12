@@ -3,9 +3,12 @@
 //! `v31` owns the v3.1 durable semantic/storage contract. This shell adds
 //! file-backed cross-handle freshness, explicit bootstrap-admission identity,
 //! zero-history semantic bootstrap qualification, one-transaction structural
-//! qualification/enforcement repair, and connector-checkpoint CAS semantics so
-//! process-local caches or check/write races cannot weaken durable causal meaning.
+//! qualification/enforcement repair, connector-checkpoint CAS semantics, and
+//! store-bound current-attempt observation so process-local claims cannot stand
+//! in for durable state.
 
+#[path = "attempt_guard.rs"]
+mod attempt_guard;
 #[path = "bootstrap_guard.rs"]
 mod bootstrap_guard;
 #[path = "schema_manifest.rs"]
@@ -15,6 +18,9 @@ mod storage_guard;
 #[path = "v31.rs"]
 mod v31;
 
+pub use attempt_guard::{
+    CurrentAttemptQualificationError, QualifiedCurrentExecutionAttempt, CURRENT_ATTEMPT_PROFILE,
+};
 pub use bootstrap_guard::RUNTIME_BOOTSTRAP_PROFILE_V1;
 pub use schema_manifest::RUNTIME_STRUCTURAL_MANIFEST_V2;
 pub use storage_guard::{
@@ -123,6 +129,26 @@ impl SqliteIntegrationStore {
         self.require_fresh_claim_frontiers(now_ms, limit)?;
         self.inner
             .claim_outbox(worker_id, now_ms, lease_duration_ms, limit)
+    }
+
+    /// Re-read the file-backed durable runtime and prove that `claim` is still
+    /// the exact current `AttemptPrepared` row for `worker_id` at `now_ms`.
+    ///
+    /// The returned observation intentionally expires as a theorem when this
+    /// function returns: it is not atomic with `mark_dispatch_started()`. The
+    /// eventual native effect-start boundary must repeat its final durable check
+    /// and transition while holding the relevant exclusion/transaction domain.
+    pub fn qualify_current_execution_attempt(
+        &self,
+        claim: &ExecutionClaim,
+        worker_id: &str,
+        now_ms: i64,
+    ) -> Result<QualifiedCurrentExecutionAttempt, CurrentAttemptQualificationError> {
+        let path = self
+            .path
+            .as_deref()
+            .ok_or(CurrentAttemptQualificationError::FileBackedStoreRequired)?;
+        attempt_guard::qualify_file_current_attempt(path, claim, worker_id, now_ms)
     }
 
     pub fn mark_dispatch_started(
