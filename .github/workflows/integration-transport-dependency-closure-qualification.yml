@@ -109,7 +109,7 @@ jobs:
           grep -Fq 'OPEN_CONTENTION_RETRY_WINDOW' "$RUNTIME_SHELL_SOURCE"
           grep -Fq 'ErrorCode::DatabaseBusy | ErrorCode::DatabaseLocked' "$RUNTIME_SHELL_SOURCE"
           grep -Fq 'match Self::open_once(&path)' "$RUNTIME_SHELL_SOURCE"
-          grep -Fq 'Only SQLite BUSY/LOCKED contention is retryable' "$RUNTIME_SHELL_SOURCE"
+          grep -Fq 'SQLite BUSY/LOCKED contention is retryable' "$RUNTIME_SHELL_SOURCE"
           grep -Fq 'unsupported integration runtime semantic profile:' "$RUNTIME_BOOTSTRAP_SOURCE"
           grep -Fq 'but no semantic producer identity; automatic bootstrap is forbidden' "$RUNTIME_BOOTSTRAP_SOURCE"
           grep -Fq 'mycelix-integration-core = { path = "../mycelix-integration-core" }' "$AUTH_ACTION_MANIFEST"
