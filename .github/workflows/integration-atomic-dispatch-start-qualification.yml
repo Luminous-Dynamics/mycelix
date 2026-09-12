@@ -1,0 +1,173 @@
+name: Integration Atomic Dispatch Start Qualification
+
+on:
+  pull_request:
+    branches:
+      - feat/integration-materializer-runtime-v1
+      - main
+    paths:
+      - 'crates/mycelix-integration-atomic-dispatch-start/**'
+      - 'crates/mycelix-integration-materializer-runtime/**'
+      - 'crates/mycelix-integration-runtime/**'
+      - '.github/workflows/integration-atomic-dispatch-start-qualification.yml'
+  push:
+    branches:
+      - feat/integration-atomic-dispatch-start-v1
+    paths:
+      - 'crates/mycelix-integration-atomic-dispatch-start/**'
+      - '.github/workflows/integration-atomic-dispatch-start-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  MANIFEST: crates/mycelix-integration-atomic-dispatch-start/Cargo.toml
+
+concurrency:
+  group: integration-atomic-dispatch-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Exact materialization + DispatchStarted transaction
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            crates/mycelix-integration-runtime
+            crates/mycelix-integration-materializer-runtime
+            crates/mycelix-integration-atomic-dispatch-start
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path "$MANIFEST" --all --check
+
+      - name: Compile tests without running
+        run: cargo test --manifest-path "$MANIFEST" --no-run
+
+      - name: Run tests
+        run: cargo test --manifest-path "$MANIFEST"
+
+      - name: Clippy
+        run: cargo clippy --manifest-path "$MANIFEST" --all-targets -- -D warnings
+
+      - name: Enforce provider-neutral dependency closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          tree="$(cargo tree --manifest-path "$MANIFEST" -e normal --prefix none)"
+          if printf '%s\n' "$tree" | grep -Eiq '^(reqwest|hyper|tonic|curl|ureq|tokio|async-std|rustls|native-tls|openssl|holochain_client)( |$)'; then
+            echo 'Network/provider/Admin dependency entered atomic dispatch closure:'
+            printf '%s\n' "$tree" | grep -Ei '^(reqwest|hyper|tonic|curl|ureq|tokio|async-std|rustls|native-tls|openssl|holochain_client)( |$)' || true
+            exit 1
+          fi
+
+      - name: Enforce exact attempt and materialization join
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-atomic-dispatch-start/src/lib.rs'
+          grep -Fq 'materialized.entry_id() != claim.entry_id' "$source"
+          grep -Fq 'materialized.attempt_id() != &claim.attempt_id' "$source"
+          grep -Fq 'materialized.command_id() != &claim.command_id' "$source"
+          grep -Fq 'materialized.connector_instance() != &claim.connector_instance' "$source"
+          grep -Fq 'materialized.input_commitment() != &claim.command_commitment' "$source"
+          grep -Fq 'row.stage != ATTEMPT_PREPARED_STAGE_V2' "$source"
+          grep -Fq 'row.worker_id.as_deref() != Some(current_attempt.worker_id())' "$source"
+          grep -Fq 'row.lease_until_ms != Some(claim.lease_until_ms)' "$source"
+          grep -Fq 'row.attempt_count != i64::from(claim.attempt_count)' "$source"
+          grep -Fq 'row.current_attempt_id.as_deref() != Some(claim.attempt_id.as_str())' "$source"
+          grep -Fq 'row.command_commitment_algorithm != digest_algorithm_code(claim.command_commitment.algorithm)' "$source"
+          grep -Fq 'row.side_effect_class != side_effect_code(claim.side_effect_class)' "$source"
+          grep -Fq 'IdempotencyMismatch' "$source"
+          grep -Fq 'CausalTimeRegression' "$source"
+          grep -Fq 'AttemptQuarantined' "$source"
+
+      - name: Enforce same-transaction dispatch evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-atomic-dispatch-start/src/lib.rs'
+          insert_line="$(grep -nF 'INSERT INTO integration_dispatch_binding_v1' "$source" | head -1 | cut -d: -f1)"
+          update_line="$(grep -nF 'UPDATE integration_outbox' "$source" | head -1 | cut -d: -f1)"
+          commit_line="$(grep -nF 'tx.commit()?;' "$source" | head -1 | cut -d: -f1)"
+          test -n "$insert_line"
+          test -n "$update_line"
+          test -n "$commit_line"
+          test "$insert_line" -lt "$update_line"
+          test "$update_line" -lt "$commit_line"
+
+          grep -Fq 'TransactionBehavior::Immediate' "$source"
+          grep -Fq 'DISPATCH_STARTED_STAGE_V2' "$source"
+          grep -Fq 'materialized.materialization_digest().0.as_slice()' "$source"
+          grep -Fq 'materialized.output_commitment().digest.as_slice()' "$source"
+          grep -Fq 'materialized.admission_digest().0.as_slice()' "$source"
+          grep -Fq 'materialized.determinism_digest().0.as_slice()' "$source"
+          grep -Fq 'materialized.provider_profile_commitment().digest.as_slice()' "$source"
+          grep -Fq 'materialized.provider_trust_root_commitment().digest.as_slice()' "$source"
+          grep -Fq 'materialized.materializer_release().digest.as_slice()' "$source"
+          grep -Fq 'binding_digest.0.as_slice()' "$source"
+
+      - name: Enforce no fallible path after DispatchStarted commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-atomic-dispatch-start/src/lib.rs'
+          commit_line="$(grep -nF 'tx.commit()?;' "$source" | head -1 | cut -d: -f1)"
+          ok_line="$(grep -nF 'Ok(QualifiedAtomicDispatchStart {' "$source" | head -1 | cut -d: -f1)"
+          test -n "$commit_line"
+          test -n "$ok_line"
+          test "$commit_line" -lt "$ok_line"
+          between="$(sed -n "$((commit_line + 1)),$((ok_line - 1))p" "$source")"
+          if printf '%s\n' "$between" | grep -Eq '\?|return[[:space:]]+Err|fs::|Connection::|query_|execute|commit\('; then
+            echo 'Fallible I/O/control path exists after durable DispatchStarted commit.'
+            printf '%s\n' "$between"
+            exit 1
+          fi
+
+      - name: Enforce dispatch journal structural contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-atomic-dispatch-start/src/lib.rs'
+          test_file='crates/mycelix-integration-atomic-dispatch-start/tests/additive_dispatch_table.rs'
+          grep -Fq 'PRIMARY KEY(entry_id, attempt_id)' "$source"
+          grep -Fq 'FOREIGN KEY(entry_id) REFERENCES integration_outbox(entry_id)' "$source"
+          grep -Fq 'binding_digest BLOB NOT NULL' "$source"
+          grep -Fq 'PRAGMA table_info(integration_dispatch_binding_v1)' "$source"
+          grep -Fq 'PRAGMA foreign_key_list(integration_dispatch_binding_v1)' "$source"
+          grep -Fq "tbl_name = 'integration_dispatch_binding_v1'" "$source"
+          grep -Fq 'dispatch_binding_schema_is_exact_and_trigger_free' "$source"
+          grep -Fq 'dispatch_binding_schema_rejects_unqualified_trigger' "$source"
+          grep -Fq 'additive_dispatch_binding_table_survives_runtime_reopen_hardening' "$test_file"
+
+      - name: Enforce audit binding without raw payload persistence
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-atomic-dispatch-start/src/lib.rs'
+          grep -Fq 'pub const fn raw_provider_payload_persisted_here(&self) -> bool {' "$source"
+          grep -Fq 'pub const fn provider_call_started_here(&self) -> bool {' "$source"
+          grep -Fq 'pub const fn provider_commit_confirmed_here(&self) -> bool {' "$source"
+          grep -Fq 'pub const fn grants_execution_authority(&self) -> bool {' "$source"
+          if grep -Eq 'derive\([^)]*Deserialize' "$source"; then
+            echo 'Atomic dispatch positive proof must not be deserializable.'
+            exit 1
+          fi
+          if grep -Eq 'reqwest::|hyper::|tonic::|TcpStream|UdpSocket|AdminWebsocket|update_coordinators' "$source"; then
+            echo 'Atomic dispatch substrate crossed into provider/Admin I/O.'
+            exit 1
+          fi
