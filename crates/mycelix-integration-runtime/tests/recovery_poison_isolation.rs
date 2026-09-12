@@ -1,5 +1,6 @@
 use mycelix_integration_core::{
-    ConnectorInstanceId, ContentCommitment, IdempotencyKey, IntegrationCommandId, SideEffectClass,
+    ConnectorInstanceId, ContentCommitment, ExternalExecutionOutcome, ExternalOperationRef,
+    ExternalReceipt, IdempotencyKey, IntegrationCommandId, SideEffectClass,
 };
 use mycelix_integration_runtime::{
     DurableOutboundIntent, EnqueueDisposition, SqliteIntegrationStore,
@@ -13,9 +14,13 @@ fn connector() -> ConnectorInstanceId {
         .expect("fixture connector must be valid")
 }
 
+fn command_id(name: &str) -> IntegrationCommandId {
+    IntegrationCommandId::new(name).expect("fixture command must be valid")
+}
+
 fn intent(name: &str) -> DurableOutboundIntent {
     DurableOutboundIntent {
-        command_id: IntegrationCommandId::new(name).expect("fixture command must be valid"),
+        command_id: command_id(name),
         connector_instance: connector(),
         command_commitment: ContentCommitment::sha256(format!("command:{name}").as_bytes()),
         authority_commitment: ContentCommitment::sha256(format!("authority:{name}").as_bytes()),
@@ -27,6 +32,21 @@ fn intent(name: &str) -> DurableOutboundIntent {
         command_bytes: format!("sealed:{name}").into_bytes(),
         created_at_ms: 100,
     }
+}
+
+fn confirmed(name: &str, confirmed_at_ms: i64) -> ExternalExecutionOutcome {
+    ExternalExecutionOutcome::Confirmed(ExternalReceipt {
+        operation: ExternalOperationRef {
+            command_id: command_id(name),
+            connector_instance: connector(),
+            provider_operation: None,
+        },
+        provider_receipt: None,
+        receipt_commitment: ContentCommitment::sha256(
+            format!("recovery-isolation-receipt:{confirmed_at_ms}").as_bytes(),
+        ),
+        confirmed_at_ms,
+    })
 }
 
 fn enqueue(store: &mut SqliteIntegrationStore, name: &str) -> i64 {
@@ -59,8 +79,10 @@ fn history_exhausted_stale_entry_does_not_block_unrelated_claims() {
     }
 
     // Build the hostile durable condition directly: the post-dispatch attempt is
-    // now stale and its per-entry observation budget is already exhausted. A
-    // boundedness failure for this one entry must not become global queue denial.
+    // now stale and its per-entry observation budget is already exhausted. Each
+    // synthetic row is still a genuine typed INT-02 outcome bound to the exact
+    // owning command + connector, so this test exercises budget isolation rather
+    // than bypassing the runtime's subject-integrity trigger.
     {
         let conn = Connection::open(&path).expect("raw fixture connection must open");
         let tx = conn
@@ -68,6 +90,12 @@ fn history_exhausted_stale_entry_does_not_block_unrelated_claims() {
             .expect("fixture transaction must start");
         let attempt_id = format!("{poisoned_entry}:1");
         for sequence in 0..EXECUTION_OBSERVATION_LIMIT {
+            let observed_at_ms = 112 + sequence;
+            let outcome_json = serde_json::to_vec(&confirmed(
+                "poisoned-command",
+                observed_at_ms,
+            ))
+            .expect("typed fixture outcome must serialize");
             tx.execute(
                 "INSERT INTO integration_execution_observation (\n\
                     entry_id, attempt_id, outcome_json, observed_at_ms, applied_to_current\n\
@@ -75,11 +103,11 @@ fn history_exhausted_stale_entry_does_not_block_unrelated_claims() {
                 params![
                     poisoned_entry,
                     attempt_id.as_str(),
-                    br#"{\"outcome\":\"fixture\"}"#.as_slice(),
-                    112 + sequence,
+                    outcome_json,
+                    observed_at_ms,
                 ],
             )
-            .expect("fixture history row must insert");
+            .expect("typed subject-bound fixture history row must insert");
         }
         tx.commit().expect("fixture transaction must commit");
     }
