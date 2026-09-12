@@ -5,6 +5,7 @@ use mycelix_integration_runtime::{
     CurrentAttemptQualificationError, DurableOutboundIntent, EnqueueDisposition,
     SqliteIntegrationStore,
 };
+use rusqlite::{params, Connection};
 use tempfile::tempdir;
 
 fn intent(created_at_ms: i64) -> DurableOutboundIntent {
@@ -111,6 +112,34 @@ fn causal_time_cannot_move_behind_durable_attempt_frontier() {
             durable_updated_at_ms: 1_000,
             observed_at_ms: 999,
         })
+    ));
+}
+
+#[test]
+fn quarantined_attempt_cannot_requalify() {
+    let temp = tempdir().unwrap();
+    let path = temp.path().join("runtime.sqlite");
+    let mut store = SqliteIntegrationStore::open(&path).unwrap();
+    store.enqueue_outbound(&intent(900)).unwrap();
+    let claim = store
+        .claim_outbox("worker-a", 1_000, 5_000, 1)
+        .unwrap()
+        .pop()
+        .unwrap();
+
+    let conn = Connection::open(&path).unwrap();
+    conn.execute(
+        "INSERT INTO integration_runtime_quarantine (entry_id, reason, quarantined_at_ms)\n\
+         VALUES (?1, ?2, ?3)",
+        params![claim.entry_id, "test-quarantine", 1_050_i64],
+    )
+    .unwrap();
+    drop(conn);
+
+    assert!(matches!(
+        store.qualify_current_execution_attempt(&claim, "worker-a", 1_100),
+        Err(CurrentAttemptQualificationError::QuarantinedEntry { entry_id })
+            if entry_id == claim.entry_id
     ));
 }
 
