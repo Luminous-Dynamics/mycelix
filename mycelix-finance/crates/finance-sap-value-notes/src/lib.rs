@@ -520,7 +520,7 @@ pub fn classify_note_consumption(
             .or_default();
         match &aggregate.transfer {
             Some(existing) if existing != &observation.transfer => {
-                return Err(SapValueNoteError::ConflictingTransferFacts)
+                return Err(SapValueNoteError::ConflictingTransferFacts);
             }
             Some(_) => {}
             None => aggregate.transfer = Some(observation.transfer.clone()),
@@ -560,12 +560,8 @@ pub fn classify_note_consumption(
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SapTransferOutputAvailabilityV2 {
     ConflictFreeObserved,
-    FrozenConflict {
-        input_note_ids: Vec<String>,
-    },
-    Indeterminate {
-        input_note_ids: Vec<String>,
-    },
+    FrozenConflict { input_note_ids: Vec<String> },
+    Indeterminate { input_note_ids: Vec<String> },
 }
 
 pub fn classify_transfer_output_availability(
@@ -1281,11 +1277,8 @@ mod tests {
         )
         .unwrap();
         let output = transfer.recipient_note.clone();
-        let claim = SapTransferClaimV2::new(
-            "did:mycelix:bob".into(),
-            output.note_id.clone(),
-        )
-        .unwrap();
+        let claim =
+            SapTransferClaimV2::new("did:mycelix:bob".into(), output.note_id.clone()).unwrap();
         let a = ValidatedTransferClaimV2::from_valid_output(
             "uhCkk-claim-a".into(),
             "did:mycelix:bob".into(),
@@ -1321,11 +1314,8 @@ mod tests {
         let forged = ValidatedTransferClaimV2 {
             claim_action_reference: "uhCkk-claim".into(),
             action_author_did: "did:mycelix:alice".into(),
-            claim: SapTransferClaimV2::new(
-                "did:mycelix:alice".into(),
-                change.note_id.clone(),
-            )
-            .unwrap(),
+            claim: SapTransferClaimV2::new("did:mycelix:alice".into(), change.note_id.clone())
+                .unwrap(),
             output_note: change,
         };
         assert_eq!(

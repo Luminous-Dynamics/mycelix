@@ -8,9 +8,7 @@
 //! obtain `request_action_reference` from one exact valid V2 request Create
 //! action, then construct `BoundCollateralDepositRequest` from that record.
 
-use finance_collateral_deposit::{
-    CollateralDepositRequestError, CollateralDepositRequestV2,
-};
+use finance_collateral_deposit::{CollateralDepositRequestError, CollateralDepositRequestV2};
 use finance_collateral_settlement::{
     derive_settlement_intent, CollateralDepositTerms, CollateralSettlementAuthorityPolicy,
     CollateralSettlementError, CollateralSettlementIntent, CustodyEvidenceEnvelope,
@@ -116,10 +114,10 @@ mod tests {
     use super::*;
     use finance_collateral_deposit::COLLATERAL_DEPOSIT_NONCE_BYTES;
     use finance_collateral_settlement::{
-        CollateralSettlementAuthorityPolicy, CustodyAttestationCapability,
-        CustodyEvidenceOutcome, PriceAttestationCapability, PriceEvidenceOutcome, PriceRatio,
-        SettlementFreshnessPolicy, COLLATERAL_SETTLEMENT_PROTOCOL_VERSION,
-        CUSTODY_ATTESTATION_PROTOCOL_VERSION, PRICE_ATTESTATION_PROTOCOL_VERSION, SAP_ASSET_ID,
+        CollateralSettlementAuthorityPolicy, CustodyAttestationCapability, CustodyEvidenceOutcome,
+        PriceAttestationCapability, PriceEvidenceOutcome, PriceRatio, SettlementFreshnessPolicy,
+        COLLATERAL_SETTLEMENT_PROTOCOL_VERSION, CUSTODY_ATTESTATION_PROTOCOL_VERSION,
+        PRICE_ATTESTATION_PROTOCOL_VERSION, SAP_ASSET_ID,
     };
 
     fn request(amount: u64, nonce_byte: u8) -> CollateralDepositRequestV2 {
@@ -199,14 +197,8 @@ mod tests {
             request_action_reference: "uhCkk-request-action".into(),
             request: req.clone(),
         };
-        let intent = derive_bound_settlement_intent(
-            bound,
-            &policy(),
-            &price(),
-            &custody(&req),
-            12,
-        )
-        .expect("bound settlement");
+        let intent = derive_bound_settlement_intent(bound, &policy(), &price(), &custody(&req), 12)
+            .expect("bound settlement");
 
         assert_eq!(intent.request, req);
         assert_eq!(intent.intent.basis.sap_amount, 20);

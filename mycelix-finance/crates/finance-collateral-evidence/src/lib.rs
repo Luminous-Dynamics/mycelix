@@ -14,8 +14,8 @@ use finance_collateral_safety::{
     CheckedCollateralHealthSnapshot, CollateralHealthSnapshotValidationError,
 };
 use finance_collateral_valuation::{
-    CollateralValuationContractError, CollateralValuationEnvelope,
-    CollateralValuationOutcome, CollateralValuationRequest,
+    CollateralValuationContractError, CollateralValuationEnvelope, CollateralValuationOutcome,
+    CollateralValuationRequest,
 };
 use serde::{Deserialize, Serialize};
 
@@ -131,9 +131,7 @@ impl From<CollateralValuationContractError> for CollateralHealthEvidenceV2Valida
     }
 }
 
-impl From<CollateralHealthSnapshotValidationError>
-    for CollateralHealthEvidenceV2ValidationError
-{
+impl From<CollateralHealthSnapshotValidationError> for CollateralHealthEvidenceV2ValidationError {
     fn from(value: CollateralHealthSnapshotValidationError) -> Self {
         Self::Snapshot(value)
     }
@@ -159,11 +157,8 @@ impl CollateralHealthEvidenceV2 {
             freshness_policy.max_evidence_age_micros,
         )?;
 
-        let snapshot = envelope.checked_health_snapshot(
-            &request,
-            obligation_amount,
-            computed_at_micros,
-        )?;
+        let snapshot =
+            envelope.checked_health_snapshot(&request, obligation_amount, computed_at_micros)?;
         snapshot.validate()?;
 
         let record = Self {
@@ -282,8 +277,7 @@ impl CollateralHealthEvidenceV2 {
 fn evidence_time_micros(envelope: &CollateralValuationEnvelope) -> i64 {
     match envelope.outcome {
         CollateralValuationOutcome::Observed {
-            observed_at_micros,
-            ..
+            observed_at_micros, ..
         } => observed_at_micros,
         CollateralValuationOutcome::Unavailable {
             attempted_at_micros,
@@ -324,8 +318,8 @@ fn ensure_evidence_fresh_at(
 mod tests {
     use super::*;
     use finance_collateral_valuation::{
-        CollateralValuationCapability, CollateralValuationFailure,
-        CollateralValuationSubject, COLLATERAL_VALUATION_PROTOCOL_VERSION,
+        COLLATERAL_VALUATION_PROTOCOL_VERSION, CollateralValuationCapability,
+        CollateralValuationFailure, CollateralValuationSubject,
     };
 
     fn subject() -> CollateralValuationSubject {
@@ -386,8 +380,9 @@ mod tests {
 
     #[test]
     fn valid_observed_v2_round_trips_and_recomputes() {
-        let record = CollateralHealthEvidenceV2::new(request(), observed(100, 10), policy(), 91, 11)
-            .expect("valid bound evidence");
+        let record =
+            CollateralHealthEvidenceV2::new(request(), observed(100, 10), policy(), 91, 11)
+                .expect("valid bound evidence");
         assert_eq!(record.validate(), Ok(()));
         assert_eq!(record.snapshot.assessment.status_label(), "MarginCall");
         assert_eq!(
@@ -404,8 +399,9 @@ mod tests {
 
     #[test]
     fn valid_liquidation_threshold_requires_real_bound_observation() {
-        let record = CollateralHealthEvidenceV2::new(request(), observed(100, 10), policy(), 96, 11)
-            .expect("valid bound evidence");
+        let record =
+            CollateralHealthEvidenceV2::new(request(), observed(100, 10), policy(), 96, 11)
+                .expect("valid bound evidence");
         assert_eq!(
             record.is_historical_liquidation_threshold_evidence(),
             Ok(true)
@@ -418,8 +414,9 @@ mod tests {
 
     #[test]
     fn generic_currentness_validation_is_not_liquidation_specific() {
-        let record = CollateralHealthEvidenceV2::new(request(), observed(100, 10), policy(), 50, 11)
-            .expect("valid healthy evidence");
+        let record =
+            CollateralHealthEvidenceV2::new(request(), observed(100, 10), policy(), 50, 11)
+                .expect("valid healthy evidence");
         assert_eq!(record.validate_current_at(&policy(), 15), Ok(()));
     }
 
@@ -479,8 +476,9 @@ mod tests {
 
     #[test]
     fn once_fresh_evidence_eventually_becomes_stale_for_current_decisions() {
-        let record = CollateralHealthEvidenceV2::new(request(), observed(100, 10), policy(), 96, 11)
-            .expect("fresh at construction");
+        let record =
+            CollateralHealthEvidenceV2::new(request(), observed(100, 10), policy(), 96, 11)
+                .expect("fresh at construction");
         assert_eq!(
             record.is_current_liquidation_evidence_at(&policy(), 20),
             Ok(true)
@@ -499,14 +497,9 @@ mod tests {
     fn self_declared_more_permissive_policy_cannot_override_expected_policy() {
         let mut permissive = policy();
         permissive.max_evidence_age_micros = 1_000_000;
-        let record = CollateralHealthEvidenceV2::new(
-            request(),
-            observed(100, 10),
-            permissive,
-            96,
-            11,
-        )
-        .expect("record can preserve the policy it was created under");
+        let record =
+            CollateralHealthEvidenceV2::new(request(), observed(100, 10), permissive, 96, 11)
+                .expect("record can preserve the policy it was created under");
 
         assert_eq!(
             record.is_current_liquidation_evidence_at(&policy(), 15),
@@ -526,8 +519,9 @@ mod tests {
 
     #[test]
     fn evaluation_before_snapshot_computation_is_rejected() {
-        let record = CollateralHealthEvidenceV2::new(request(), observed(100, 10), policy(), 96, 11)
-            .expect("valid bound evidence");
+        let record =
+            CollateralHealthEvidenceV2::new(request(), observed(100, 10), policy(), 96, 11)
+                .expect("valid bound evidence");
         assert_eq!(
             record.is_current_liquidation_evidence_at(&policy(), 10),
             Err(CollateralHealthEvidenceV2ValidationError::EvaluationBeforeComputation)
@@ -564,24 +558,27 @@ mod tests {
 
     #[test]
     fn tampered_snapshot_assessment_is_rejected() {
-        let mut record = CollateralHealthEvidenceV2::new(request(), observed(100, 10), policy(), 50, 11)
-            .expect("valid bound evidence");
+        let mut record =
+            CollateralHealthEvidenceV2::new(request(), observed(100, 10), policy(), 50, 11)
+                .expect("valid bound evidence");
         record.snapshot.assessment = finance_collateral_safety::assess_ltv_ratio(0.96);
         assert!(record.validate().is_err());
     }
 
     #[test]
     fn tampered_snapshot_ratio_is_rejected() {
-        let mut record = CollateralHealthEvidenceV2::new(request(), observed(100, 10), policy(), 50, 11)
-            .expect("valid bound evidence");
+        let mut record =
+            CollateralHealthEvidenceV2::new(request(), observed(100, 10), policy(), 50, 11)
+                .expect("valid bound evidence");
         record.snapshot.ltv_ratio = Some(0.96);
         assert!(record.validate().is_err());
     }
 
     #[test]
     fn unsupported_outer_schema_version_is_rejected() {
-        let mut record = CollateralHealthEvidenceV2::new(request(), observed(100, 10), policy(), 50, 11)
-            .expect("valid bound evidence");
+        let mut record =
+            CollateralHealthEvidenceV2::new(request(), observed(100, 10), policy(), 50, 11)
+                .expect("valid bound evidence");
         record.schema_version = COLLATERAL_HEALTH_EVIDENCE_V2_SCHEMA_VERSION + 1;
         assert_eq!(
             record.validate(),

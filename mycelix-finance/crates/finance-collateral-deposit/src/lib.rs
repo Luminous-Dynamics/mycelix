@@ -211,7 +211,8 @@ fn push_len_prefixed(
     hasher: &mut blake3::Hasher,
     bytes: &[u8],
 ) -> Result<(), CollateralDepositRequestError> {
-    let len = u32::try_from(bytes.len()).map_err(|_| CollateralDepositRequestError::FieldTooLong)?;
+    let len =
+        u32::try_from(bytes.len()).map_err(|_| CollateralDepositRequestError::FieldTooLong)?;
     hasher.update(&len.to_be_bytes());
     hasher.update(bytes);
     Ok(())
@@ -275,72 +276,32 @@ mod tests {
 
     #[test]
     fn same_terms_and_nonce_are_stable_across_retries() {
-        let first = derive_deposit_id(
-            "did:mycelix:alice",
-            "ETH",
-            42,
-            SAP_ASSET_ID,
-            &nonce(3),
-        )
-        .expect("id");
-        let retry = derive_deposit_id(
-            "did:mycelix:alice",
-            "ETH",
-            42,
-            SAP_ASSET_ID,
-            &nonce(3),
-        )
-        .expect("id");
+        let first =
+            derive_deposit_id("did:mycelix:alice", "ETH", 42, SAP_ASSET_ID, &nonce(3)).expect("id");
+        let retry =
+            derive_deposit_id("did:mycelix:alice", "ETH", 42, SAP_ASSET_ID, &nonce(3)).expect("id");
         assert_eq!(first, retry);
     }
 
     #[test]
     fn nonce_changes_identity_for_concurrent_same_terms() {
-        let first = derive_deposit_id(
-            "did:mycelix:alice",
-            "ETH",
-            42,
-            SAP_ASSET_ID,
-            &nonce(4),
-        )
-        .expect("id");
-        let second = derive_deposit_id(
-            "did:mycelix:alice",
-            "ETH",
-            42,
-            SAP_ASSET_ID,
-            &nonce(5),
-        )
-        .expect("id");
+        let first =
+            derive_deposit_id("did:mycelix:alice", "ETH", 42, SAP_ASSET_ID, &nonce(4)).expect("id");
+        let second =
+            derive_deposit_id("did:mycelix:alice", "ETH", 42, SAP_ASSET_ID, &nonce(5)).expect("id");
         assert_ne!(first, second);
     }
 
     #[test]
     fn immutable_term_changes_change_identity() {
-        let base = derive_deposit_id(
-            "did:mycelix:alice",
-            "ETH",
-            42,
-            SAP_ASSET_ID,
-            &nonce(6),
-        )
-        .expect("base");
-        let asset_changed = derive_deposit_id(
-            "did:mycelix:alice",
-            "USDC",
-            42,
-            SAP_ASSET_ID,
-            &nonce(6),
-        )
-        .expect("asset");
-        let amount_changed = derive_deposit_id(
-            "did:mycelix:alice",
-            "ETH",
-            43,
-            SAP_ASSET_ID,
-            &nonce(6),
-        )
-        .expect("amount");
+        let base = derive_deposit_id("did:mycelix:alice", "ETH", 42, SAP_ASSET_ID, &nonce(6))
+            .expect("base");
+        let asset_changed =
+            derive_deposit_id("did:mycelix:alice", "USDC", 42, SAP_ASSET_ID, &nonce(6))
+                .expect("asset");
+        let amount_changed =
+            derive_deposit_id("did:mycelix:alice", "ETH", 43, SAP_ASSET_ID, &nonce(6))
+                .expect("amount");
         assert_ne!(base, asset_changed);
         assert_ne!(base, amount_changed);
     }

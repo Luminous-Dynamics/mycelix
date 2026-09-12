@@ -12,7 +12,7 @@ use collateral_deposit_v2_integrity::{
     CollateralDepositRequestV2Entry, MAX_CREATE_TIMESTAMP_SKEW_MICROS,
 };
 use collateral_settlement_auth_integrity::{
-    load_collateral_auth_config, CustodyAttestationV1Entry, PriceAttestationV1Entry,
+    CustodyAttestationV1Entry, PriceAttestationV1Entry, load_collateral_auth_config,
 };
 use finance_collateral_auth::{
     CollateralSettlementTrustRootV1, CustodyAttestationV1, PriceAttestationV1,
@@ -22,8 +22,7 @@ use finance_collateral_issuance_persistence::{
     CollateralSapMintRecordV2Compact,
 };
 use finance_collateral_request_binding::{
-    derive_authenticated_bound_settlement_intent_from_valid_actions,
-    BoundCollateralDepositRequest,
+    BoundCollateralDepositRequest, derive_authenticated_bound_settlement_intent_from_valid_actions,
 };
 use finance_sap_conservation::AuthenticatedCollateralSapMintAuthorizationV2;
 use hdi::prelude::*;
@@ -119,9 +118,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::CollateralSapMintAuthorizationV2(entry) => {
                     validate_authorization_create(action, entry)
                 }
-                EntryTypes::CollateralSapMintRecordV2(entry) => {
-                    validate_mint_create(action, entry)
-                }
+                EntryTypes::CollateralSapMintRecordV2(entry) => validate_mint_create(action, entry),
                 EntryTypes::CollateralSapIssuanceReceiptV2(entry) => {
                     validate_receipt_create(action, entry)
                 }
@@ -136,9 +133,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::CollateralSapMintAuthorizationV2(entry) => {
                     validate_authorization_create(action, entry)
                 }
-                EntryTypes::CollateralSapMintRecordV2(entry) => {
-                    validate_mint_create(action, entry)
-                }
+                EntryTypes::CollateralSapMintRecordV2(entry) => validate_mint_create(action, entry),
                 EntryTypes::CollateralSapIssuanceReceiptV2(entry) => {
                     validate_receipt_create(action, entry)
                 }
@@ -244,9 +239,7 @@ fn validate_receipt_model(compact: &CollateralSapIssuanceReceiptRecordV2) -> Res
     compact
         .validate_against_records(&authorization, &mint)
         .map_err(|error| {
-            format!(
-                "Issuance receipt does not match exact authorization/mint actions: {error:?}"
-            )
+            format!("Issuance receipt does not match exact authorization/mint actions: {error:?}")
         })
 }
 
@@ -352,10 +345,8 @@ fn load_custody_attestation(
         )?,
         "FIN-SAFE-011 custody attestation",
     )?;
-    let entry = decode_entry::<CustodyAttestationV1Entry>(
-        &record,
-        "FIN-SAFE-011 custody attestation",
-    )?;
+    let entry =
+        decode_entry::<CustodyAttestationV1Entry>(&record, "FIN-SAFE-011 custody attestation")?;
     let author_did = did_for_author(record.action().author());
     let timestamp = record.action().timestamp().as_micros();
     entry
@@ -394,10 +385,8 @@ fn load_mint_record(reference: &str) -> Result<CollateralSapMintRecordV2Compact,
             .map_err(|error| format!("Mint entry definition: {error:?}"))?,
         "FIN-SAFE-010 V2 collateral mint",
     )?;
-    let entry = decode_entry::<CollateralSapMintRecordV2Entry>(
-        &record,
-        "FIN-SAFE-010 V2 collateral mint",
-    )?;
+    let entry =
+        decode_entry::<CollateralSapMintRecordV2Entry>(&record, "FIN-SAFE-010 V2 collateral mint")?;
     Ok(entry.record)
 }
 

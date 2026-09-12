@@ -9,12 +9,9 @@
 //! load one exact valid request action into the pure FIN-SAFE-009 binding type.
 
 use collateral_deposit_v2_integrity::{
-    CollateralDepositRequestV2Entry, EntryTypes, UnitEntryTypes,
-    MAX_CREATE_TIMESTAMP_SKEW_MICROS,
+    CollateralDepositRequestV2Entry, EntryTypes, MAX_CREATE_TIMESTAMP_SKEW_MICROS, UnitEntryTypes,
 };
-use finance_collateral_deposit::{
-    CollateralDepositRequestV2, COLLATERAL_DEPOSIT_NONCE_BYTES,
-};
+use finance_collateral_deposit::{COLLATERAL_DEPOSIT_NONCE_BYTES, CollateralDepositRequestV2};
 use finance_collateral_request_binding::BoundCollateralDepositRequest;
 use hdk::prelude::*;
 use mycelix_bridge_entry_types::did_for_author;
@@ -46,11 +43,8 @@ pub fn create_collateral_deposit_request_v2(
 ) -> ExternResult<Record> {
     verify_caller_is_did(&input.depositor_did)?;
 
-    let request_nonce: [u8; COLLATERAL_DEPOSIT_NONCE_BYTES] = input
-        .request_nonce
-        .as_slice()
-        .try_into()
-        .map_err(|_| {
+    let request_nonce: [u8; COLLATERAL_DEPOSIT_NONCE_BYTES] =
+        input.request_nonce.as_slice().try_into().map_err(|_| {
             wasm_error!(WasmErrorInner::Guest(format!(
                 "request_nonce must contain exactly {} bytes",
                 COLLATERAL_DEPOSIT_NONCE_BYTES
@@ -95,9 +89,7 @@ pub fn create_collateral_deposit_request_v2(
 
 /// Read one V2 request by its exact Create action hash.
 #[hdk_extern]
-pub fn get_collateral_deposit_request_v2(
-    action_hash: ActionHash,
-) -> ExternResult<Option<Record>> {
+pub fn get_collateral_deposit_request_v2(action_hash: ActionHash) -> ExternResult<Option<Record>> {
     match get(action_hash, GetOptions::default())? {
         Some(record) => {
             decode_request(&record)?;

@@ -14,15 +14,13 @@ mod kernel;
 
 pub use kernel::{
     derive_settlement_intent, CollateralDepositState, CollateralDepositTerms,
-    CollateralSettlementAuthorityPolicy, CollateralSettlementBasis,
-    CollateralSettlementError, CollateralSettlementIntent, CollateralSettlementReceipt,
-    CustodyAttestationCapability, CustodyEvidenceEnvelope, CustodyEvidenceFailure,
-    CustodyEvidenceOutcome, PaymentCommitEvidence, PriceAttestationCapability,
-    PriceEvidenceEnvelope, PriceEvidenceFailure, PriceEvidenceOutcome, PriceRatio,
-    SettlementExecutionPlan, SettlementFreshnessPolicy,
+    CollateralSettlementAuthorityPolicy, CollateralSettlementBasis, CollateralSettlementError,
+    CollateralSettlementIntent, CollateralSettlementReceipt, CustodyAttestationCapability,
+    CustodyEvidenceEnvelope, CustodyEvidenceFailure, CustodyEvidenceOutcome, PaymentCommitEvidence,
+    PriceAttestationCapability, PriceEvidenceEnvelope, PriceEvidenceFailure, PriceEvidenceOutcome,
+    PriceRatio, SettlementExecutionPlan, SettlementFreshnessPolicy,
     COLLATERAL_SETTLEMENT_PROTOCOL_VERSION, CUSTODY_ATTESTATION_PROTOCOL_VERSION,
-    MAX_EXTERNAL_REFERENCE_LEN, MAX_ID_LEN, PRICE_ATTESTATION_PROTOCOL_VERSION,
-    SAP_ASSET_ID,
+    MAX_EXTERNAL_REFERENCE_LEN, MAX_ID_LEN, PRICE_ATTESTATION_PROTOCOL_VERSION, SAP_ASSET_ID,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -73,8 +71,7 @@ pub fn finalize_settlement_receipt(
     settled_at_micros: i64,
 ) -> Result<CollateralSettlementReceipt, PolicyBoundSettlementError> {
     intent.validate_against_policy(expected_policy)?;
-    let receipt =
-        kernel::finalize_settlement_receipt(intent, payment_commit, settled_at_micros)?;
+    let receipt = kernel::finalize_settlement_receipt(intent, payment_commit, settled_at_micros)?;
     receipt.validate_against_policy(expected_policy)?;
     Ok(receipt)
 }
@@ -172,8 +169,7 @@ mod policy_binding_tests {
                 confirmed_at_micros: 10,
             },
         };
-        derive_settlement_intent(terms(), authority, &price, &custody, 11)
-            .expect("valid intent")
+        derive_settlement_intent(terms(), authority, &price, &custody, 11).expect("valid intent")
     }
 
     fn payment(intent: &CollateralSettlementIntent) -> PaymentCommitEvidence {

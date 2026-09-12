@@ -11,8 +11,7 @@
 //! action reference is globally unique consumption under Holochain forks.
 
 use finance_collateral_issuance_persistence::{
-    CollateralSapIssuanceReceiptRecordV2,
-    COLLATERAL_ISSUANCE_RECEIPT_RECORD_V2_SCHEMA_VERSION,
+    CollateralSapIssuanceReceiptRecordV2, COLLATERAL_ISSUANCE_RECEIPT_RECORD_V2_SCHEMA_VERSION,
 };
 use mycelix_finance_types::AmberExemption;
 use serde::{Deserialize, Serialize};
@@ -118,9 +117,7 @@ impl CollateralIssuanceEffectV2 {
         if self.amount == 0 {
             return Err(SapBalanceEffectError::ZeroAmount);
         }
-        if self.member_did != predecessor.member_did
-            || self.member_did != receipt.recipient_did
-        {
+        if self.member_did != predecessor.member_did || self.member_did != receipt.recipient_did {
             return Err(SapBalanceEffectError::ReceiptRecipientMismatch);
         }
         if self.deposit_id != receipt.deposit_id || self.amount != receipt.amount {
@@ -190,9 +187,7 @@ pub fn validate_collateral_issuance_transition(
     Ok(effect)
 }
 
-pub fn validate_genesis_balance(
-    state: &SapBalanceStateV2,
-) -> Result<(), SapBalanceEffectError> {
+pub fn validate_genesis_balance(state: &SapBalanceStateV2) -> Result<(), SapBalanceEffectError> {
     state.validate_shape()?;
     if state.balance != 0 {
         return Err(SapBalanceEffectError::NonZeroGenesisBalance);
@@ -689,11 +684,7 @@ mod tests {
     #[test]
     fn successor_for_another_predecessor_is_not_silently_mixed() {
         let predecessor = balance(100);
-        let observations = vec![observation(
-            "uhCkk-next",
-            "uhCkk-other-prev",
-            balance(120),
-        )];
+        let observations = vec![observation("uhCkk-next", "uhCkk-other-prev", balance(120))];
         assert_eq!(
             classify_successors("uhCkk-prev", &predecessor, &observations),
             Err(SapBalanceEffectError::PredecessorReferenceMismatch)

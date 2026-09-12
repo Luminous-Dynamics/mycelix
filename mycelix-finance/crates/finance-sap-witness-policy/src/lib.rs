@@ -11,12 +11,11 @@
 //! deserializable: caller JSON must never manufacture authenticated authority.
 
 use finance_sap_transfer_finality::{
-    SapTransferWitnessPolicyRefV1, SpendableTransferClaimV2,
-    VerifiedWitnessSpendAssuranceV1,
+    SapTransferWitnessPolicyRefV1, SpendableTransferClaimV2, VerifiedWitnessSpendAssuranceV1,
 };
 use finance_sap_value_notes::{
-    SapTransferOutputAvailabilityV2, SapTransferV2, ValidatedTransferClaimV2,
-    MAX_ACTION_REFERENCE_LEN, MAX_DID_LEN, MAX_ID_LEN,
+    MAX_ACTION_REFERENCE_LEN, MAX_DID_LEN, MAX_ID_LEN, SapTransferOutputAvailabilityV2,
+    SapTransferV2, ValidatedTransferClaimV2,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -37,7 +36,10 @@ pub struct SapWitnessPolicyConfigV1 {
 
 impl Default for SapWitnessPolicyConfigV1 {
     fn default() -> Self {
-        Self { enabled: false, active_policy: None }
+        Self {
+            enabled: false,
+            active_policy: None,
+        }
     }
 }
 
@@ -50,12 +52,16 @@ impl SapWitnessPolicyConfigV1 {
         }
     }
 
-    pub fn require_enabled_policy(&self) -> Result<&SapTransferWitnessPolicyV1, SapWitnessPolicyError> {
+    pub fn require_enabled_policy(
+        &self,
+    ) -> Result<&SapTransferWitnessPolicyV1, SapWitnessPolicyError> {
         self.validate()?;
         if !self.enabled {
             return Err(SapWitnessPolicyError::ProtocolDisabled);
         }
-        self.active_policy.as_ref().ok_or(SapWitnessPolicyError::EnabledWithoutPolicy)
+        self.active_policy
+            .as_ref()
+            .ok_or(SapWitnessPolicyError::EnabledWithoutPolicy)
     }
 }
 
@@ -118,7 +124,11 @@ impl SapTransferWitnessPolicyV1 {
         }
         validate_did(&self.enzyme_did)?;
         validate_sorted_unique_dids(&self.optional_witness_dids, false)?;
-        if self.optional_witness_dids.iter().any(|did| did == &self.enzyme_did) {
+        if self
+            .optional_witness_dids
+            .iter()
+            .any(|did| did == &self.enzyme_did)
+        {
             return Err(SapWitnessPolicyError::EnzymeIsOptionalWitness);
         }
         let count = self.optional_witness_dids.len();
@@ -155,7 +165,11 @@ impl SapTransferWitnessPolicyV1 {
         hash_u16(&mut hasher, self.policy_version);
         hash_string(&mut hasher, &self.enzyme_did);
         hash_u16(&mut hasher, self.required_optional_witnesses);
-        hash_u32(&mut hasher, u32::try_from(self.optional_witness_dids.len()).map_err(|_| SapWitnessPolicyError::TooManyWitnesses)?);
+        hash_u32(
+            &mut hasher,
+            u32::try_from(self.optional_witness_dids.len())
+                .map_err(|_| SapWitnessPolicyError::TooManyWitnesses)?,
+        );
         for witness in &self.optional_witness_dids {
             hash_string(&mut hasher, witness);
         }
@@ -210,7 +224,9 @@ impl AuthenticatedWitnessSessionFactsV1 {
         Ok(facts)
     }
 
-    pub fn session_action_reference(&self) -> &str { &self.session_action_reference }
+    pub fn session_action_reference(&self) -> &str {
+        &self.session_action_reference
+    }
 
     pub fn validate_shape(&self) -> Result<(), SapWitnessPolicyError> {
         if self.schema_version != SAP_WITNESS_SESSION_FACTS_V1_SCHEMA_VERSION {
@@ -220,7 +236,9 @@ impl AuthenticatedWitnessSessionFactsV1 {
             return Err(SapWitnessPolicyError::UnsupportedProtocol);
         }
         validate_id(&self.policy_id).map_err(|_| SapWitnessPolicyError::InvalidPolicyId)?;
-        if self.policy_version == 0 { return Err(SapWitnessPolicyError::InvalidPolicyVersion); }
+        if self.policy_version == 0 {
+            return Err(SapWitnessPolicyError::InvalidPolicyVersion);
+        }
         validate_id(&self.transfer_id).map_err(|_| SapWitnessPolicyError::InvalidTransferId)?;
         validate_action_reference(&self.spend_action_reference)?;
         validate_action_reference(&self.session_action_reference)?;
@@ -241,18 +259,43 @@ pub struct PolicyValidatedWitnessAssuranceV1 {
 }
 
 impl PolicyValidatedWitnessAssuranceV1 {
-    pub fn assurance(&self) -> &VerifiedWitnessSpendAssuranceV1 { &self.assurance }
-    pub fn policy_fingerprint(&self) -> &str { &self.policy_fingerprint }
-    pub fn enzyme_signer_did(&self) -> &str { &self.enzyme_signer_did }
-    pub fn optional_witness_signer_dids(&self) -> &[String] { &self.optional_witness_signer_dids }
+    pub fn assurance(&self) -> &VerifiedWitnessSpendAssuranceV1 {
+        &self.assurance
+    }
+    pub fn policy_fingerprint(&self) -> &str {
+        &self.policy_fingerprint
+    }
+    pub fn enzyme_signer_did(&self) -> &str {
+        &self.enzyme_signer_did
+    }
+    pub fn optional_witness_signer_dids(&self) -> &[String] {
+        &self.optional_witness_signer_dids
+    }
 
-    pub fn validate_for(&self, policy: &SapTransferWitnessPolicyV1, transfer: &SapTransferV2, spend_action_reference: &str) -> Result<(), SapWitnessPolicyError> {
+    pub fn validate_for(
+        &self,
+        policy: &SapTransferWitnessPolicyV1,
+        transfer: &SapTransferV2,
+        spend_action_reference: &str,
+    ) -> Result<(), SapWitnessPolicyError> {
         policy.validate()?;
-        transfer.validate_shape().map_err(|_| SapWitnessPolicyError::InvalidTransfer)?;
-        if self.policy_fingerprint != policy.policy_fingerprint { return Err(SapWitnessPolicyError::PolicyFingerprintMismatch); }
-        if self.enzyme_signer_did != policy.enzyme_did { return Err(SapWitnessPolicyError::EnzymeSignerMismatch); }
+        transfer
+            .validate_shape()
+            .map_err(|_| SapWitnessPolicyError::InvalidTransfer)?;
+        if self.policy_fingerprint != policy.policy_fingerprint {
+            return Err(SapWitnessPolicyError::PolicyFingerprintMismatch);
+        }
+        if self.enzyme_signer_did != policy.enzyme_did {
+            return Err(SapWitnessPolicyError::EnzymeSignerMismatch);
+        }
         validate_signers_against_policy(policy, &self.optional_witness_signer_dids)?;
-        self.assurance.validate_for(&policy.policy_ref(), &transfer.transfer_id, spend_action_reference).map_err(|_| SapWitnessPolicyError::DerivedAssuranceMismatch)
+        self.assurance
+            .validate_for(
+                &policy.policy_ref(),
+                &transfer.transfer_id,
+                spend_action_reference,
+            )
+            .map_err(|_| SapWitnessPolicyError::DerivedAssuranceMismatch)
     }
 }
 
@@ -266,11 +309,23 @@ pub struct PolicyValidatedSpendableTransferClaimV2 {
 }
 
 impl PolicyValidatedSpendableTransferClaimV2 {
-    pub fn claim(&self) -> &SpendableTransferClaimV2 { &self.spendable_claim }
-    pub fn witness_authority(&self) -> &PolicyValidatedWitnessAssuranceV1 { &self.witness_authority }
-    pub fn validate_for(&self, policy: &SapTransferWitnessPolicyV1, transfer: &SapTransferV2, spend_action_reference: &str) -> Result<(), SapWitnessPolicyError> {
-        self.witness_authority.validate_for(policy, transfer, spend_action_reference)?;
-        self.spendable_claim.validate_for_policy(&policy.policy_ref()).map_err(|_| SapWitnessPolicyError::SpendableClaimMismatch)
+    pub fn claim(&self) -> &SpendableTransferClaimV2 {
+        &self.spendable_claim
+    }
+    pub fn witness_authority(&self) -> &PolicyValidatedWitnessAssuranceV1 {
+        &self.witness_authority
+    }
+    pub fn validate_for(
+        &self,
+        policy: &SapTransferWitnessPolicyV1,
+        transfer: &SapTransferV2,
+        spend_action_reference: &str,
+    ) -> Result<(), SapWitnessPolicyError> {
+        self.witness_authority
+            .validate_for(policy, transfer, spend_action_reference)?;
+        self.spendable_claim
+            .validate_for_policy(&policy.policy_ref())
+            .map_err(|_| SapWitnessPolicyError::SpendableClaimMismatch)
     }
 }
 
@@ -281,18 +336,34 @@ pub fn validate_authenticated_witness_session(
     facts: &AuthenticatedWitnessSessionFactsV1,
 ) -> Result<PolicyValidatedWitnessAssuranceV1, SapWitnessPolicyError> {
     policy.validate()?;
-    transfer.validate_shape().map_err(|_| SapWitnessPolicyError::InvalidTransfer)?;
+    transfer
+        .validate_shape()
+        .map_err(|_| SapWitnessPolicyError::InvalidTransfer)?;
     facts.validate_shape()?;
     validate_action_reference(spend_action_reference)?;
-    if facts.policy_id != policy.policy_id || facts.policy_version != policy.policy_version { return Err(SapWitnessPolicyError::PolicySelectorMismatch); }
-    if facts.transfer_id != transfer.transfer_id { return Err(SapWitnessPolicyError::SessionTransferMismatch); }
-    if facts.spend_action_reference != spend_action_reference { return Err(SapWitnessPolicyError::SessionSpendActionMismatch); }
-    if facts.input_note_ids != transfer.input_note_ids { return Err(SapWitnessPolicyError::SessionInputSetMismatch); }
-    if facts.enzyme_signer_did != policy.enzyme_did { return Err(SapWitnessPolicyError::EnzymeSignerMismatch); }
+    if facts.policy_id != policy.policy_id || facts.policy_version != policy.policy_version {
+        return Err(SapWitnessPolicyError::PolicySelectorMismatch);
+    }
+    if facts.transfer_id != transfer.transfer_id {
+        return Err(SapWitnessPolicyError::SessionTransferMismatch);
+    }
+    if facts.spend_action_reference != spend_action_reference {
+        return Err(SapWitnessPolicyError::SessionSpendActionMismatch);
+    }
+    if facts.input_note_ids != transfer.input_note_ids {
+        return Err(SapWitnessPolicyError::SessionInputSetMismatch);
+    }
+    if facts.enzyme_signer_did != policy.enzyme_did {
+        return Err(SapWitnessPolicyError::EnzymeSignerMismatch);
+    }
     validate_signers_against_policy(policy, &facts.optional_witness_signer_dids)?;
     let assurance = VerifiedWitnessSpendAssuranceV1::from_authenticated_evidence(
-        transfer.transfer_id.clone(), spend_action_reference.to_string(), facts.session_action_reference.clone(), &policy.policy_ref(),
-    ).map_err(|_| SapWitnessPolicyError::DerivedAssuranceMismatch)?;
+        transfer.transfer_id.clone(),
+        spend_action_reference.to_string(),
+        facts.session_action_reference.clone(),
+        &policy.policy_ref(),
+    )
+    .map_err(|_| SapWitnessPolicyError::DerivedAssuranceMismatch)?;
     let validated = PolicyValidatedWitnessAssuranceV1 {
         policy_fingerprint: policy.policy_fingerprint.clone(),
         enzyme_signer_did: facts.enzyme_signer_did.clone(),
@@ -313,58 +384,119 @@ pub fn authorize_transfer_claim_spendability(
 ) -> Result<PolicyValidatedSpendableTransferClaimV2, SapWitnessPolicyError> {
     match availability {
         SapTransferOutputAvailabilityV2::ConflictFreeObserved => {}
-        SapTransferOutputAvailabilityV2::FrozenConflict { .. } => return Err(SapWitnessPolicyError::ParentTransferConflicted),
-        SapTransferOutputAvailabilityV2::Indeterminate { .. } => return Err(SapWitnessPolicyError::ParentTransferIndeterminate),
+        SapTransferOutputAvailabilityV2::FrozenConflict { .. } => {
+            return Err(SapWitnessPolicyError::ParentTransferConflicted);
+        }
+        SapTransferOutputAvailabilityV2::Indeterminate { .. } => {
+            return Err(SapWitnessPolicyError::ParentTransferIndeterminate);
+        }
     }
-    let witness_authority = validate_authenticated_witness_session(policy, transfer, spend_action_reference, facts)?;
+    let witness_authority =
+        validate_authenticated_witness_session(policy, transfer, spend_action_reference, facts)?;
     let spendable_claim = SpendableTransferClaimV2::from_verified_witness(
-        claim, spend_action_reference.to_string(), witness_authority.assurance().clone(), &policy.policy_ref(),
-    ).map_err(|_| SapWitnessPolicyError::SpendableClaimMismatch)?;
-    let validated = PolicyValidatedSpendableTransferClaimV2 { spendable_claim, witness_authority };
+        claim,
+        spend_action_reference.to_string(),
+        witness_authority.assurance().clone(),
+        &policy.policy_ref(),
+    )
+    .map_err(|_| SapWitnessPolicyError::SpendableClaimMismatch)?;
+    let validated = PolicyValidatedSpendableTransferClaimV2 {
+        spendable_claim,
+        witness_authority,
+    };
     validated.validate_for(policy, transfer, spend_action_reference)?;
     Ok(validated)
 }
 
-fn validate_signers_against_policy(policy: &SapTransferWitnessPolicyV1, signer_dids: &[String]) -> Result<(), SapWitnessPolicyError> {
+fn validate_signers_against_policy(
+    policy: &SapTransferWitnessPolicyV1,
+    signer_dids: &[String],
+) -> Result<(), SapWitnessPolicyError> {
     validate_sorted_unique_dids(signer_dids, true)?;
-    let eligible: BTreeSet<&str> = policy.optional_witness_dids.iter().map(String::as_str).collect();
+    let eligible: BTreeSet<&str> = policy
+        .optional_witness_dids
+        .iter()
+        .map(String::as_str)
+        .collect();
     for signer in signer_dids {
-        if !eligible.contains(signer.as_str()) { return Err(SapWitnessPolicyError::IneligibleWitnessSigner); }
+        if !eligible.contains(signer.as_str()) {
+            return Err(SapWitnessPolicyError::IneligibleWitnessSigner);
+        }
     }
-    if signer_dids.len() < usize::from(policy.required_optional_witnesses) { return Err(SapWitnessPolicyError::InsufficientWitnessQuorum); }
+    if signer_dids.len() < usize::from(policy.required_optional_witnesses) {
+        return Err(SapWitnessPolicyError::InsufficientWitnessQuorum);
+    }
     Ok(())
 }
 
-fn validate_sorted_unique_ids(values: &[String], allow_empty: bool) -> Result<(), SapWitnessPolicyError> {
-    if !allow_empty && values.is_empty() { return Err(SapWitnessPolicyError::EmptyInputSet); }
+fn validate_sorted_unique_ids(
+    values: &[String],
+    allow_empty: bool,
+) -> Result<(), SapWitnessPolicyError> {
+    if !allow_empty && values.is_empty() {
+        return Err(SapWitnessPolicyError::EmptyInputSet);
+    }
     let mut previous: Option<&str> = None;
     for value in values {
         validate_id(value).map_err(|_| SapWitnessPolicyError::InvalidTransferId)?;
-        if let Some(prev) = previous { if prev >= value.as_str() { return Err(SapWitnessPolicyError::NonCanonicalInputSet); } }
+        if let Some(prev) = previous {
+            if prev >= value.as_str() {
+                return Err(SapWitnessPolicyError::NonCanonicalInputSet);
+            }
+        }
         previous = Some(value);
     }
     Ok(())
 }
-fn validate_sorted_unique_dids(values: &[String], allow_empty: bool) -> Result<(), SapWitnessPolicyError> {
-    if !allow_empty && values.is_empty() { return Err(SapWitnessPolicyError::EmptyWitnessSet); }
-    if values.len() > MAX_OPTIONAL_WITNESSES { return Err(SapWitnessPolicyError::TooManyWitnesses); }
+fn validate_sorted_unique_dids(
+    values: &[String],
+    allow_empty: bool,
+) -> Result<(), SapWitnessPolicyError> {
+    if !allow_empty && values.is_empty() {
+        return Err(SapWitnessPolicyError::EmptyWitnessSet);
+    }
+    if values.len() > MAX_OPTIONAL_WITNESSES {
+        return Err(SapWitnessPolicyError::TooManyWitnesses);
+    }
     let mut previous: Option<&str> = None;
     for value in values {
         validate_did(value)?;
-        if let Some(prev) = previous { if prev >= value.as_str() { return Err(SapWitnessPolicyError::NonCanonicalWitnessSet); } }
+        if let Some(prev) = previous {
+            if prev >= value.as_str() {
+                return Err(SapWitnessPolicyError::NonCanonicalWitnessSet);
+            }
+        }
         previous = Some(value);
     }
     Ok(())
 }
 fn validate_did(value: &str) -> Result<(), SapWitnessPolicyError> {
-    if value.starts_with("did:") && value.len() <= MAX_DID_LEN { Ok(()) } else { Err(SapWitnessPolicyError::InvalidDid) }
+    if value.starts_with("did:") && value.len() <= MAX_DID_LEN {
+        Ok(())
+    } else {
+        Err(SapWitnessPolicyError::InvalidDid)
+    }
 }
-fn validate_id(value: &str) -> Result<(), ()> { if value.is_empty() || value.len() > MAX_ID_LEN { Err(()) } else { Ok(()) } }
+fn validate_id(value: &str) -> Result<(), ()> {
+    if value.is_empty() || value.len() > MAX_ID_LEN {
+        Err(())
+    } else {
+        Ok(())
+    }
+}
 fn validate_action_reference(value: &str) -> Result<(), SapWitnessPolicyError> {
-    if value.is_empty() || value.len() > MAX_ACTION_REFERENCE_LEN { Err(SapWitnessPolicyError::InvalidActionReference) } else { Ok(()) }
+    if value.is_empty() || value.len() > MAX_ACTION_REFERENCE_LEN {
+        Err(SapWitnessPolicyError::InvalidActionReference)
+    } else {
+        Ok(())
+    }
 }
-fn hash_u16(hasher: &mut blake3::Hasher, value: u16) { hasher.update(&value.to_le_bytes()); }
-fn hash_u32(hasher: &mut blake3::Hasher, value: u32) { hasher.update(&value.to_le_bytes()); }
+fn hash_u16(hasher: &mut blake3::Hasher, value: u16) {
+    hasher.update(&value.to_le_bytes());
+}
+fn hash_u32(hasher: &mut blake3::Hasher, value: u32) {
+    hasher.update(&value.to_le_bytes());
+}
 fn hash_string(hasher: &mut blake3::Hasher, value: &str) {
     let bytes = value.as_bytes();
     hasher.update(&(bytes.len() as u64).to_le_bytes());
@@ -373,14 +505,36 @@ fn hash_string(hasher: &mut blake3::Hasher, value: &str) {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SapWitnessPolicyError {
-    ProtocolDisabled, EnabledWithoutPolicy, UnsupportedPolicySchema, UnsupportedSessionSchema,
-    UnsupportedProtocol, InvalidPolicyId, InvalidPolicyVersion, InvalidDid, EmptyWitnessSet,
-    TooManyWitnesses, EnzymeIsOptionalWitness, NonCanonicalWitnessSet, InvalidWitnessQuorum,
-    PolicyFingerprintMismatch, InvalidTransferId, InvalidActionReference, EmptyInputSet,
-    NonCanonicalInputSet, InvalidTransfer, PolicySelectorMismatch, SessionTransferMismatch,
-    SessionSpendActionMismatch, SessionInputSetMismatch, EnzymeSignerMismatch,
-    IneligibleWitnessSigner, InsufficientWitnessQuorum, DerivedAssuranceMismatch,
-    ParentTransferConflicted, ParentTransferIndeterminate, SpendableClaimMismatch,
+    ProtocolDisabled,
+    EnabledWithoutPolicy,
+    UnsupportedPolicySchema,
+    UnsupportedSessionSchema,
+    UnsupportedProtocol,
+    InvalidPolicyId,
+    InvalidPolicyVersion,
+    InvalidDid,
+    EmptyWitnessSet,
+    TooManyWitnesses,
+    EnzymeIsOptionalWitness,
+    NonCanonicalWitnessSet,
+    InvalidWitnessQuorum,
+    PolicyFingerprintMismatch,
+    InvalidTransferId,
+    InvalidActionReference,
+    EmptyInputSet,
+    NonCanonicalInputSet,
+    InvalidTransfer,
+    PolicySelectorMismatch,
+    SessionTransferMismatch,
+    SessionSpendActionMismatch,
+    SessionInputSetMismatch,
+    EnzymeSignerMismatch,
+    IneligibleWitnessSigner,
+    InsufficientWitnessQuorum,
+    DerivedAssuranceMismatch,
+    ParentTransferConflicted,
+    ParentTransferIndeterminate,
+    SpendableClaimMismatch,
 }
 
 #[cfg(test)]
@@ -391,102 +545,235 @@ mod tests {
 
     fn policy() -> SapTransferWitnessPolicyV1 {
         SapTransferWitnessPolicyV1::new(
-            "sap-witness-main".into(), 1, "did:mycelix:enzyme".into(),
-            vec!["did:mycelix:w3".into(), "did:mycelix:w1".into(), "did:mycelix:w2".into()], 2,
-        ).unwrap()
+            "sap-witness-main".into(),
+            1,
+            "did:mycelix:enzyme".into(),
+            vec![
+                "did:mycelix:w3".into(),
+                "did:mycelix:w1".into(),
+                "did:mycelix:w2".into(),
+            ],
+            2,
+        )
+        .unwrap()
     }
     fn transfer() -> SapTransferV2 {
         let claim = ValidatedCollateralClaimV2 {
-            claim_action_reference: "uhCkk-claim".into(), action_author_did: "did:mycelix:alice".into(),
-            member_did: "did:mycelix:alice".into(), issuance_receipt_action_reference: "uhCkk-receipt".into(),
-            mint_id: "mint-a".into(), deposit_id: "deposit-a".into(), amount: 100,
+            claim_action_reference: "uhCkk-claim".into(),
+            action_author_did: "did:mycelix:alice".into(),
+            member_did: "did:mycelix:alice".into(),
+            issuance_receipt_action_reference: "uhCkk-receipt".into(),
+            mint_id: "mint-a".into(),
+            deposit_id: "deposit-a".into(),
+            amount: 100,
         };
         let input = SapValueNoteV2::from_collateral_claim(&claim).unwrap();
-        SapTransferV2::derive("did:mycelix:alice".into(), "did:mycelix:bob".into(), &[input], 60).unwrap()
+        SapTransferV2::derive(
+            "did:mycelix:alice".into(),
+            "did:mycelix:bob".into(),
+            &[input],
+            60,
+        )
+        .unwrap()
     }
-    fn facts(policy: &SapTransferWitnessPolicyV1, transfer: &SapTransferV2) -> AuthenticatedWitnessSessionFactsV1 {
+    fn facts(
+        policy: &SapTransferWitnessPolicyV1,
+        transfer: &SapTransferV2,
+    ) -> AuthenticatedWitnessSessionFactsV1 {
         AuthenticatedWitnessSessionFactsV1::from_authenticated_holochain_session(
-            policy.policy_id.clone(), policy.policy_version, transfer.transfer_id.clone(), "uhCkk-spend".into(),
-            transfer.input_note_ids.clone(), "uhCkk-session".into(), policy.enzyme_did.clone(),
+            policy.policy_id.clone(),
+            policy.policy_version,
+            transfer.transfer_id.clone(),
+            "uhCkk-spend".into(),
+            transfer.input_note_ids.clone(),
+            "uhCkk-session".into(),
+            policy.enzyme_did.clone(),
             vec!["did:mycelix:w2".into(), "did:mycelix:w1".into()],
-        ).unwrap()
+        )
+        .unwrap()
     }
     fn recipient_claim(transfer: &SapTransferV2) -> ValidatedTransferClaimV2 {
-        let claim = SapTransferClaimV2::new("did:mycelix:bob".into(), transfer.recipient_note.note_id.clone()).unwrap();
+        let claim = SapTransferClaimV2::new(
+            "did:mycelix:bob".into(),
+            transfer.recipient_note.note_id.clone(),
+        )
+        .unwrap();
         ValidatedTransferClaimV2::from_valid_output(
-            "uhCkk-transfer-claim".into(), "did:mycelix:bob".into(), claim, transfer.recipient_note.clone(),
-        ).unwrap()
+            "uhCkk-transfer-claim".into(),
+            "did:mycelix:bob".into(),
+            claim,
+            transfer.recipient_note.clone(),
+        )
+        .unwrap()
     }
 
     #[test]
     fn default_config_is_disabled_without_authority() {
         let config = SapWitnessPolicyConfigV1::default();
         assert!(config.validate().is_ok());
-        assert_eq!(config.require_enabled_policy(), Err(SapWitnessPolicyError::ProtocolDisabled));
+        assert_eq!(
+            config.require_enabled_policy(),
+            Err(SapWitnessPolicyError::ProtocolDisabled)
+        );
     }
     #[test]
     fn strict_majority_quorum_is_required() {
-        assert_eq!(SapTransferWitnessPolicyV1::new(
-            "policy".into(), 1, "did:mycelix:enzyme".into(),
-            vec!["did:mycelix:w1".into(), "did:mycelix:w2".into(), "did:mycelix:w3".into(), "did:mycelix:w4".into()], 2,
-        ), Err(SapWitnessPolicyError::InvalidWitnessQuorum));
+        assert_eq!(
+            SapTransferWitnessPolicyV1::new(
+                "policy".into(),
+                1,
+                "did:mycelix:enzyme".into(),
+                vec![
+                    "did:mycelix:w1".into(),
+                    "did:mycelix:w2".into(),
+                    "did:mycelix:w3".into(),
+                    "did:mycelix:w4".into()
+                ],
+                2,
+            ),
+            Err(SapWitnessPolicyError::InvalidWitnessQuorum)
+        );
     }
     #[test]
     fn enzyme_cannot_be_optional_witness() {
-        assert_eq!(SapTransferWitnessPolicyV1::new(
-            "policy".into(), 1, "did:mycelix:enzyme".into(), vec!["did:mycelix:enzyme".into()], 1,
-        ), Err(SapWitnessPolicyError::EnzymeIsOptionalWitness));
+        assert_eq!(
+            SapTransferWitnessPolicyV1::new(
+                "policy".into(),
+                1,
+                "did:mycelix:enzyme".into(),
+                vec!["did:mycelix:enzyme".into()],
+                1,
+            ),
+            Err(SapWitnessPolicyError::EnzymeIsOptionalWitness)
+        );
     }
     #[test]
     fn policy_fingerprint_binds_full_authority_set() {
         let a = policy();
         let b = SapTransferWitnessPolicyV1::new(
-            a.policy_id.clone(), a.policy_version, a.enzyme_did.clone(),
-            vec!["did:mycelix:w1".into(), "did:mycelix:w2".into(), "did:mycelix:w4".into()], 2,
-        ).unwrap();
+            a.policy_id.clone(),
+            a.policy_version,
+            a.enzyme_did.clone(),
+            vec![
+                "did:mycelix:w1".into(),
+                "did:mycelix:w2".into(),
+                "did:mycelix:w4".into(),
+            ],
+            2,
+        )
+        .unwrap();
         assert_ne!(a.policy_fingerprint, b.policy_fingerprint);
     }
     #[test]
     fn exact_authenticated_quorum_validates_and_revalidates() {
-        let policy = policy(); let transfer = transfer();
-        let validated = validate_authenticated_witness_session(&policy, &transfer, "uhCkk-spend", &facts(&policy, &transfer)).unwrap();
+        let policy = policy();
+        let transfer = transfer();
+        let validated = validate_authenticated_witness_session(
+            &policy,
+            &transfer,
+            "uhCkk-spend",
+            &facts(&policy, &transfer),
+        )
+        .unwrap();
         assert_eq!(validated.enzyme_signer_did(), policy.enzyme_did);
         assert_eq!(validated.optional_witness_signer_dids().len(), 2);
-        assert!(validated.validate_for(&policy, &transfer, "uhCkk-spend").is_ok());
+        assert!(
+            validated
+                .validate_for(&policy, &transfer, "uhCkk-spend")
+                .is_ok()
+        );
     }
     #[test]
     fn ineligible_or_insufficient_signers_are_rejected() {
-        let policy = policy(); let transfer = transfer();
+        let policy = policy();
+        let transfer = transfer();
         let bad = AuthenticatedWitnessSessionFactsV1::from_authenticated_holochain_session(
-            policy.policy_id.clone(), policy.policy_version, transfer.transfer_id.clone(), "uhCkk-spend".into(),
-            transfer.input_note_ids.clone(), "uhCkk-session".into(), policy.enzyme_did.clone(),
+            policy.policy_id.clone(),
+            policy.policy_version,
+            transfer.transfer_id.clone(),
+            "uhCkk-spend".into(),
+            transfer.input_note_ids.clone(),
+            "uhCkk-session".into(),
+            policy.enzyme_did.clone(),
             vec!["did:mycelix:w1".into(), "did:mycelix:mallory".into()],
-        ).unwrap();
-        assert_eq!(validate_authenticated_witness_session(&policy, &transfer, "uhCkk-spend", &bad), Err(SapWitnessPolicyError::IneligibleWitnessSigner));
-        let insufficient = AuthenticatedWitnessSessionFactsV1::from_authenticated_holochain_session(
-            policy.policy_id.clone(), policy.policy_version, transfer.transfer_id.clone(), "uhCkk-spend".into(),
-            transfer.input_note_ids.clone(), "uhCkk-session".into(), policy.enzyme_did.clone(), vec!["did:mycelix:w1".into()],
-        ).unwrap();
-        assert_eq!(validate_authenticated_witness_session(&policy, &transfer, "uhCkk-spend", &insufficient), Err(SapWitnessPolicyError::InsufficientWitnessQuorum));
+        )
+        .unwrap();
+        assert_eq!(
+            validate_authenticated_witness_session(&policy, &transfer, "uhCkk-spend", &bad),
+            Err(SapWitnessPolicyError::IneligibleWitnessSigner)
+        );
+        let insufficient =
+            AuthenticatedWitnessSessionFactsV1::from_authenticated_holochain_session(
+                policy.policy_id.clone(),
+                policy.policy_version,
+                transfer.transfer_id.clone(),
+                "uhCkk-spend".into(),
+                transfer.input_note_ids.clone(),
+                "uhCkk-session".into(),
+                policy.enzyme_did.clone(),
+                vec!["did:mycelix:w1".into()],
+            )
+            .unwrap();
+        assert_eq!(
+            validate_authenticated_witness_session(
+                &policy,
+                &transfer,
+                "uhCkk-spend",
+                &insufficient
+            ),
+            Err(SapWitnessPolicyError::InsufficientWitnessQuorum)
+        );
     }
     #[test]
     fn conflict_or_indeterminate_parent_never_promotes_to_spendable_v1() {
-        let policy = policy(); let transfer = transfer(); let claim = recipient_claim(&transfer);
-        assert_eq!(authorize_transfer_claim_spendability(
-            &policy, &transfer, "uhCkk-spend", &SapTransferOutputAvailabilityV2::FrozenConflict { input_note_ids: transfer.input_note_ids.clone() },
-            claim.clone(), &facts(&policy, &transfer)), Err(SapWitnessPolicyError::ParentTransferConflicted));
-        assert_eq!(authorize_transfer_claim_spendability(
-            &policy, &transfer, "uhCkk-spend", &SapTransferOutputAvailabilityV2::Indeterminate { input_note_ids: transfer.input_note_ids.clone() },
-            claim, &facts(&policy, &transfer)), Err(SapWitnessPolicyError::ParentTransferIndeterminate));
+        let policy = policy();
+        let transfer = transfer();
+        let claim = recipient_claim(&transfer);
+        assert_eq!(
+            authorize_transfer_claim_spendability(
+                &policy,
+                &transfer,
+                "uhCkk-spend",
+                &SapTransferOutputAvailabilityV2::FrozenConflict {
+                    input_note_ids: transfer.input_note_ids.clone()
+                },
+                claim.clone(),
+                &facts(&policy, &transfer)
+            ),
+            Err(SapWitnessPolicyError::ParentTransferConflicted)
+        );
+        assert_eq!(
+            authorize_transfer_claim_spendability(
+                &policy,
+                &transfer,
+                "uhCkk-spend",
+                &SapTransferOutputAvailabilityV2::Indeterminate {
+                    input_note_ids: transfer.input_note_ids.clone()
+                },
+                claim,
+                &facts(&policy, &transfer)
+            ),
+            Err(SapWitnessPolicyError::ParentTransferIndeterminate)
+        );
     }
     #[test]
     fn exact_conflict_free_witness_can_authorize_stronger_spendable_claim() {
-        let policy = policy(); let transfer = transfer();
+        let policy = policy();
+        let transfer = transfer();
         let spendable = authorize_transfer_claim_spendability(
-            &policy, &transfer, "uhCkk-spend", &SapTransferOutputAvailabilityV2::ConflictFreeObserved,
-            recipient_claim(&transfer), &facts(&policy, &transfer),
-        ).unwrap();
+            &policy,
+            &transfer,
+            "uhCkk-spend",
+            &SapTransferOutputAvailabilityV2::ConflictFreeObserved,
+            recipient_claim(&transfer),
+            &facts(&policy, &transfer),
+        )
+        .unwrap();
         assert_eq!(spendable.claim().spendable_note(), &transfer.recipient_note);
-        assert!(spendable.validate_for(&policy, &transfer, "uhCkk-spend").is_ok());
+        assert!(
+            spendable
+                .validate_for(&policy, &transfer, "uhCkk-spend")
+                .is_ok()
+        );
     }
 }

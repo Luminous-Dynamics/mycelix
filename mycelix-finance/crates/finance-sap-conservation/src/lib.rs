@@ -12,9 +12,7 @@
 //! Each stage has zero balance effect until the final predecessor-bound balance
 //! transition. Demurrage and issuance are separate transitions.
 
-use finance_collateral_request_binding::{
-    BoundCollateralSettlementIntent, RequestBindingError,
-};
+use finance_collateral_request_binding::{BoundCollateralSettlementIntent, RequestBindingError};
 use finance_collateral_settlement::{
     CollateralSettlementAuthorityPolicy, PolicyBoundSettlementError,
 };
@@ -126,10 +124,7 @@ impl CollateralSapMintRecordV2 {
         expected_policy: &CollateralSettlementAuthorityPolicy,
     ) -> Result<Self, SapConservationError> {
         authorization.validate_against_policy(expected_policy)?;
-        if !valid_reference(
-            &authorization_action_reference,
-            MAX_ACTION_REFERENCE_LEN,
-        ) {
+        if !valid_reference(&authorization_action_reference, MAX_ACTION_REFERENCE_LEN) {
             return Err(SapConservationError::InvalidAuthorizationActionReference);
         }
         let record = Self {
@@ -226,16 +221,12 @@ impl CollateralSapIssuanceReceiptV2 {
         ) {
             return Err(SapConservationError::InvalidAuthorizationActionReference);
         }
-        if !valid_reference(
-            &self.mint_record_action_reference,
-            MAX_ACTION_REFERENCE_LEN,
-        ) {
+        if !valid_reference(&self.mint_record_action_reference, MAX_ACTION_REFERENCE_LEN) {
             return Err(SapConservationError::InvalidMintActionReference);
         }
-        self.authorization.validate_against_policy(expected_policy)?;
-        if self.mint_record.authorization_action_reference
-            != self.authorization_action_reference
-        {
+        self.authorization
+            .validate_against_policy(expected_policy)?;
+        if self.mint_record.authorization_action_reference != self.authorization_action_reference {
             return Err(SapConservationError::AuthorizationActionReferenceMismatch);
         }
         self.mint_record
@@ -286,9 +277,7 @@ impl SapBalanceStateView {
 
 /// Ordinary balance genesis is zero and carries no provenance pointer. A first
 /// issuance is a separate predecessor-bound update.
-pub fn validate_genesis_balance(
-    balance: &SapBalanceStateView,
-) -> Result<(), SapConservationError> {
+pub fn validate_genesis_balance(balance: &SapBalanceStateView) -> Result<(), SapConservationError> {
     balance.validate_shape()?;
     if balance.balance != 0 {
         return Err(SapConservationError::NonZeroGenesisBalance);
@@ -321,10 +310,7 @@ pub fn validate_positive_collateral_issuance_transition(
     if receipt.recipient_did() != updated.member_did {
         return Err(SapConservationError::MintRecipientMismatch);
     }
-    if !valid_reference(
-        issuance_receipt_action_reference,
-        MAX_ACTION_REFERENCE_LEN,
-    ) {
+    if !valid_reference(issuance_receipt_action_reference, MAX_ACTION_REFERENCE_LEN) {
         return Err(SapConservationError::InvalidIssuanceReceiptActionReference);
     }
     if updated.justified_by.as_deref() != Some(issuance_receipt_action_reference) {
@@ -343,9 +329,7 @@ pub fn validate_positive_collateral_issuance_transition(
 
 /// Canonical logical mint ID is the bounded V2 deposit ID. Exact action identity
 /// is carried separately by authorization/mint/receipt references.
-pub fn canonical_collateral_mint_id(
-    deposit_id: &str,
-) -> Result<&str, SapConservationError> {
+pub fn canonical_collateral_mint_id(deposit_id: &str) -> Result<&str, SapConservationError> {
     if !valid_reference(deposit_id, MAX_MINT_ID_LEN) {
         return Err(SapConservationError::InvalidCollateralDepositId);
     }
@@ -390,16 +374,14 @@ pub enum SapConservationError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use finance_collateral_deposit::{
-        CollateralDepositRequestV2, COLLATERAL_DEPOSIT_NONCE_BYTES,
-    };
+    use finance_collateral_deposit::{CollateralDepositRequestV2, COLLATERAL_DEPOSIT_NONCE_BYTES};
     use finance_collateral_request_binding::{
         derive_bound_settlement_intent, BoundCollateralDepositRequest,
     };
     use finance_collateral_settlement::{
-        CollateralSettlementAuthorityPolicy, CustodyAttestationCapability,
-        CustodyEvidenceEnvelope, CustodyEvidenceOutcome, PriceAttestationCapability,
-        PriceEvidenceEnvelope, PriceEvidenceOutcome, PriceRatio, SettlementFreshnessPolicy,
+        CollateralSettlementAuthorityPolicy, CustodyAttestationCapability, CustodyEvidenceEnvelope,
+        CustodyEvidenceOutcome, PriceAttestationCapability, PriceEvidenceEnvelope,
+        PriceEvidenceOutcome, PriceRatio, SettlementFreshnessPolicy,
         COLLATERAL_SETTLEMENT_PROTOCOL_VERSION, CUSTODY_ATTESTATION_PROTOCOL_VERSION,
         PRICE_ATTESTATION_PROTOCOL_VERSION, SAP_ASSET_ID,
     };
@@ -524,7 +506,10 @@ mod tests {
         let auth = authorization();
         assert_eq!(auth.request_action_reference(), "uhCkk-request-exact");
         assert_eq!(auth.amount, 20);
-        assert_eq!(auth.validate_against_policy(&policy("approved-provider")), Ok(()));
+        assert_eq!(
+            auth.validate_against_policy(&policy("approved-provider")),
+            Ok(())
+        );
     }
 
     #[test]
@@ -545,7 +530,10 @@ mod tests {
     #[test]
     fn mint_record_carries_exact_authorization_and_request_references() {
         let mint = mint_record();
-        assert_eq!(mint.authorization_action_reference, "uhCkk-authorization-action");
+        assert_eq!(
+            mint.authorization_action_reference,
+            "uhCkk-authorization-action"
+        );
         assert_eq!(mint.request_action_reference, "uhCkk-request-exact");
         assert_eq!(
             mint.validate_against_authorization(&authorization(), &policy("approved-provider")),
@@ -579,7 +567,10 @@ mod tests {
     fn issuance_receipt_binds_request_authorization_and_mint_actions() {
         let receipt = receipt();
         assert_eq!(receipt.request_action_reference(), "uhCkk-request-exact");
-        assert_eq!(receipt.authorization_action_reference, "uhCkk-authorization-action");
+        assert_eq!(
+            receipt.authorization_action_reference,
+            "uhCkk-authorization-action"
+        );
         assert_eq!(receipt.mint_record_action_reference, "uhCkk-mint-action");
         assert_eq!(
             receipt.validate_against_policy(&policy("approved-provider")),
@@ -712,7 +703,10 @@ mod tests {
             serde_json::from_slice(&bytes).expect("deserialize");
         assert_eq!(decoded, receipt);
         assert_eq!(decoded.request_action_reference(), "uhCkk-request-exact");
-        assert_eq!(decoded.authorization_action_reference, "uhCkk-authorization-action");
+        assert_eq!(
+            decoded.authorization_action_reference,
+            "uhCkk-authorization-action"
+        );
         assert_eq!(decoded.mint_record_action_reference, "uhCkk-mint-action");
     }
 }

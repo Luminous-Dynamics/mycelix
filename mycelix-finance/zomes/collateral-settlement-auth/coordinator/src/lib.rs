@@ -14,15 +14,15 @@ use collateral_deposit_v2_integrity::{
     UnitEntryTypes as DepositUnitEntryTypes,
 };
 use collateral_settlement_auth_integrity::{
-    load_collateral_auth_config, CustodyAttestationV1Entry, EntryTypes,
-    PriceAttestationV1Entry, UnitEntryTypes as AuthUnitEntryTypes,
+    CustodyAttestationV1Entry, EntryTypes, PriceAttestationV1Entry,
+    UnitEntryTypes as AuthUnitEntryTypes, load_collateral_auth_config,
 };
 use finance_collateral_auth::{
     CollateralSettlementTrustRootV1, CustodyAttestationV1, PriceAttestationV1,
 };
 use finance_collateral_request_binding::{
-    derive_authenticated_bound_settlement_intent_from_valid_actions,
     AuthenticatedBoundCollateralSettlementIntentV1, BoundCollateralDepositRequest,
+    derive_authenticated_bound_settlement_intent_from_valid_actions,
 };
 use finance_collateral_settlement::{CustodyEvidenceEnvelope, PriceEvidenceEnvelope};
 use hdk::prelude::*;
@@ -78,9 +78,7 @@ pub fn create_price_attestation_v1(attestation: PriceAttestationV1) -> ExternRes
 }
 
 #[hdk_extern]
-pub fn create_custody_attestation_v1(
-    attestation: CustodyAttestationV1,
-) -> ExternResult<Record> {
+pub fn create_custody_attestation_v1(attestation: CustodyAttestationV1) -> ExternResult<Record> {
     let config = load_collateral_auth_config()?;
     let root = config.require_enabled_root().map_err(|error| {
         wasm_error!(WasmErrorInner::Guest(format!(

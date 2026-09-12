@@ -11,8 +11,8 @@
 
 use finance_sap_account_v2::ValidatedCollateralClaimV2;
 use finance_sap_value_notes::{
-    SapSpendAssuranceV2, SapTransferSpendObservationV2, SapTransferV2, SapValueNoteV2,
-    MAX_ACTION_REFERENCE_LEN, MAX_TRANSFER_INPUTS,
+    MAX_ACTION_REFERENCE_LEN, MAX_TRANSFER_INPUTS, SapSpendAssuranceV2,
+    SapTransferSpendObservationV2, SapTransferV2, SapValueNoteV2,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -264,7 +264,10 @@ mod tests {
     }
 
     fn fixture() -> (Vec<ValidatedCollateralClaimV2>, SapTransferV2) {
-        let claims = vec![claim("uhCkk-claim-a", "mint-a", 70), claim("uhCkk-claim-b", "mint-b", 50)];
+        let claims = vec![
+            claim("uhCkk-claim-a", "mint-a", 70),
+            claim("uhCkk-claim-b", "mint-b", 50),
+        ];
         let notes: Vec<_> = claims
             .iter()
             .map(|claim| SapValueNoteV2::from_collateral_claim(claim).unwrap())
@@ -290,7 +293,8 @@ mod tests {
     #[test]
     fn record_derives_only_claim_references_not_authoritative_note_payloads() {
         let (claims, transfer) = fixture();
-        let record = SapTransferSpendRecordV2::from_validated_claims(transfer.clone(), &claims).unwrap();
+        let record =
+            SapTransferSpendRecordV2::from_validated_claims(transfer.clone(), &claims).unwrap();
         assert_eq!(record.transfer, transfer);
         assert_eq!(record.input_claims.len(), 2);
         assert!(record.validate_against_claims(&claims).is_ok());
@@ -320,7 +324,8 @@ mod tests {
     #[test]
     fn forged_note_to_claim_mapping_is_rejected() {
         let (claims, transfer) = fixture();
-        let mut record = SapTransferSpendRecordV2::from_validated_claims(transfer, &claims).unwrap();
+        let mut record =
+            SapTransferSpendRecordV2::from_validated_claims(transfer, &claims).unwrap();
         record.input_claims.swap(0, 1);
         assert_eq!(
             record.validate_against_claims(&claims),
@@ -331,8 +336,10 @@ mod tests {
     #[test]
     fn duplicate_claim_reference_is_rejected() {
         let (claims, transfer) = fixture();
-        let mut record = SapTransferSpendRecordV2::from_validated_claims(transfer, &claims).unwrap();
-        record.input_claims[1].claim_action_reference = record.input_claims[0].claim_action_reference.clone();
+        let mut record =
+            SapTransferSpendRecordV2::from_validated_claims(transfer, &claims).unwrap();
+        record.input_claims[1].claim_action_reference =
+            record.input_claims[0].claim_action_reference.clone();
         assert_eq!(
             record.validate_shape(),
             Err(SapTransferAdapterError::DuplicateClaimReference)
@@ -358,7 +365,10 @@ mod tests {
                 &claims,
             )
             .unwrap();
-        assert_eq!(observation.assurance, SapSpendAssuranceV2::ForkDetectionOnly);
+        assert_eq!(
+            observation.assurance,
+            SapSpendAssuranceV2::ForkDetectionOnly
+        );
     }
 
     #[test]

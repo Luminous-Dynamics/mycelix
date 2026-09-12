@@ -48,8 +48,7 @@ pub enum LinkTypes {
 }
 
 pub fn load_collateral_auth_config() -> ExternResult<CollateralSettlementAuthConfig> {
-    Ok(FinanceCollateralAuthDnaProperties::try_from_dna_properties()?
-        .collateral_settlement_auth)
+    Ok(FinanceCollateralAuthDnaProperties::try_from_dna_properties()?.collateral_settlement_auth)
 }
 
 #[hdk_extern]
@@ -73,7 +72,7 @@ fn validate_price_create(
         Err(error) => {
             return Ok(ValidateCallbackResult::Invalid(format!(
                 "Collateral price attestation is not authorized by DNA policy: {error:?}"
-            )))
+            )));
         }
     };
     let author_did = did_for_author(&action.author);
@@ -99,7 +98,7 @@ fn validate_custody_create(
         Err(error) => {
             return Ok(ValidateCallbackResult::Invalid(format!(
                 "Collateral custody attestation is not authorized by DNA policy: {error:?}"
-            )))
+            )));
         }
     };
     let author_did = did_for_author(&action.author);
@@ -162,14 +161,14 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 mod tests {
     use super::*;
     use finance_collateral_auth::{
-        CollateralSettlementTrustRootV1, COLLATERAL_EVIDENCE_AUTH_PROTOCOL_VERSION,
-        CUSTODY_ATTESTATION_V1_SCHEMA_VERSION, PRICE_ATTESTATION_V1_SCHEMA_VERSION,
+        COLLATERAL_EVIDENCE_AUTH_PROTOCOL_VERSION, CUSTODY_ATTESTATION_V1_SCHEMA_VERSION,
+        CollateralSettlementTrustRootV1, PRICE_ATTESTATION_V1_SCHEMA_VERSION,
     };
     use finance_collateral_settlement::{
-        CollateralSettlementAuthorityPolicy, CustodyAttestationCapability,
-        PriceAttestationCapability, PriceRatio, SettlementFreshnessPolicy,
         COLLATERAL_SETTLEMENT_PROTOCOL_VERSION, CUSTODY_ATTESTATION_PROTOCOL_VERSION,
-        PRICE_ATTESTATION_PROTOCOL_VERSION, SAP_ASSET_ID,
+        CollateralSettlementAuthorityPolicy, CustodyAttestationCapability,
+        PRICE_ATTESTATION_PROTOCOL_VERSION, PriceAttestationCapability, PriceRatio, SAP_ASSET_ID,
+        SettlementFreshnessPolicy,
     };
 
     fn action(author_byte: u8, timestamp_micros: i64) -> Create {
@@ -275,22 +274,20 @@ mod tests {
     #[test]
     fn wrong_price_author_is_rejected() {
         let r = root(1, 2);
-        let result = price_entry(1).attestation.to_evidence_from_valid_action(
-            &r,
-            &author_did(9),
-            1_001,
-        );
+        let result =
+            price_entry(1)
+                .attestation
+                .to_evidence_from_valid_action(&r, &author_did(9), 1_001);
         assert!(result.is_err());
     }
 
     #[test]
     fn configured_custody_author_is_valid() {
         let r = root(1, 2);
-        let result = custody_entry(2).attestation.to_evidence_from_valid_action(
-            &r,
-            &author_did(2),
-            1_001,
-        );
+        let result =
+            custody_entry(2)
+                .attestation
+                .to_evidence_from_valid_action(&r, &author_did(2), 1_001);
         assert!(result.is_ok());
     }
 }

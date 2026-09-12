@@ -335,9 +335,7 @@ mod tests {
         COLLATERAL_EVIDENCE_AUTH_PROTOCOL_VERSION, CUSTODY_ATTESTATION_V1_SCHEMA_VERSION,
         PRICE_ATTESTATION_V1_SCHEMA_VERSION,
     };
-    use finance_collateral_deposit::{
-        CollateralDepositRequestV2, COLLATERAL_DEPOSIT_NONCE_BYTES,
-    };
+    use finance_collateral_deposit::{CollateralDepositRequestV2, COLLATERAL_DEPOSIT_NONCE_BYTES};
     use finance_collateral_request_binding::{
         derive_authenticated_bound_settlement_intent_from_valid_actions,
         BoundCollateralDepositRequest,
@@ -437,8 +435,7 @@ mod tests {
         )
         .expect("authenticated settlement");
         AuthenticatedCollateralSapMintAuthorizationV2::from_authenticated_settlement(
-            settlement,
-            root,
+            settlement, root,
         )
         .expect("mint authorization")
     }
@@ -447,14 +444,15 @@ mod tests {
     fn compact_authorization_retains_exact_evidence_refs_and_facts() {
         let root = root();
         let authorization = authenticated_authorization(&root);
-        let compact = CollateralSapMintAuthorizationRecordV2::from_authenticated(
-            &authorization,
-            &root,
-        )
-        .expect("compact authorization");
+        let compact =
+            CollateralSapMintAuthorizationRecordV2::from_authenticated(&authorization, &root)
+                .expect("compact authorization");
         assert_eq!(compact.request_action_reference, "uhCkk-request");
         assert_eq!(compact.price_attestation_action_reference, "uhCkk-price");
-        assert_eq!(compact.custody_attestation_action_reference, "uhCkk-custody");
+        assert_eq!(
+            compact.custody_attestation_action_reference,
+            "uhCkk-custody"
+        );
         assert_eq!(compact.amount, 20);
         assert_eq!(
             compact.validate_against_authenticated(&authorization, &root),
@@ -466,11 +464,9 @@ mod tests {
     fn tampered_authorization_amount_is_rejected() {
         let root = root();
         let authorization = authenticated_authorization(&root);
-        let mut compact = CollateralSapMintAuthorizationRecordV2::from_authenticated(
-            &authorization,
-            &root,
-        )
-        .expect("compact authorization");
+        let mut compact =
+            CollateralSapMintAuthorizationRecordV2::from_authenticated(&authorization, &root)
+                .expect("compact authorization");
         compact.amount += 1;
         assert_eq!(
             compact.validate_against_authenticated(&authorization, &root),
@@ -482,11 +478,9 @@ mod tests {
     fn mint_and_receipt_chain_exact_action_references() {
         let root = root();
         let authorization = authenticated_authorization(&root);
-        let compact = CollateralSapMintAuthorizationRecordV2::from_authenticated(
-            &authorization,
-            &root,
-        )
-        .expect("compact authorization");
+        let compact =
+            CollateralSapMintAuthorizationRecordV2::from_authenticated(&authorization, &root)
+                .expect("compact authorization");
         let mint = CollateralSapMintRecordV2Compact::from_authorization_record(
             "uhCkk-auth".into(),
             &compact,
@@ -503,18 +497,19 @@ mod tests {
         assert_eq!(receipt.mint_action_reference, "uhCkk-mint");
         assert_eq!(receipt.request_action_reference, "uhCkk-request");
         assert_eq!(receipt.price_attestation_action_reference, "uhCkk-price");
-        assert_eq!(receipt.custody_attestation_action_reference, "uhCkk-custody");
+        assert_eq!(
+            receipt.custody_attestation_action_reference,
+            "uhCkk-custody"
+        );
     }
 
     #[test]
     fn receipt_rejects_mint_field_drift() {
         let root = root();
         let authorization = authenticated_authorization(&root);
-        let compact = CollateralSapMintAuthorizationRecordV2::from_authenticated(
-            &authorization,
-            &root,
-        )
-        .expect("compact authorization");
+        let compact =
+            CollateralSapMintAuthorizationRecordV2::from_authenticated(&authorization, &root)
+                .expect("compact authorization");
         let mut mint = CollateralSapMintRecordV2Compact::from_authorization_record(
             "uhCkk-auth".into(),
             &compact,
@@ -536,11 +531,9 @@ mod tests {
     fn compact_records_round_trip_without_embedding_full_settlement_graph() {
         let root = root();
         let authorization = authenticated_authorization(&root);
-        let compact = CollateralSapMintAuthorizationRecordV2::from_authenticated(
-            &authorization,
-            &root,
-        )
-        .expect("compact authorization");
+        let compact =
+            CollateralSapMintAuthorizationRecordV2::from_authenticated(&authorization, &root)
+                .expect("compact authorization");
         let json = serde_json::to_string(&compact).expect("serialize");
         assert!(!json.contains("price_rate"));
         assert!(!json.contains("custody_external_reference"));
