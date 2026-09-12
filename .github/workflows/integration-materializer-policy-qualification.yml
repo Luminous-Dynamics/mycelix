@@ -1,0 +1,137 @@
+name: Integration Materializer Static Policy Qualification
+
+on:
+  pull_request:
+    branches:
+      - feat/integration-materializer-artifact-v1
+      - main
+    paths:
+      - 'crates/mycelix-integration-materializer-policy/**'
+      - 'crates/mycelix-integration-materializer-artifact/**'
+      - '.github/workflows/integration-materializer-policy-qualification.yml'
+  push:
+    branches:
+      - feat/integration-materializer-policy-v1
+    paths:
+      - 'crates/mycelix-integration-materializer-policy/**'
+      - '.github/workflows/integration-materializer-policy-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  MANIFEST: crates/mycelix-integration-materializer-policy/Cargo.toml
+
+concurrency:
+  group: integration-materializer-policy-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Import-free bounded WASM materializer policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/mycelix-integration-materializer-policy
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path "$MANIFEST" --all --check
+
+      - name: Compile tests without running
+        run: cargo test --manifest-path "$MANIFEST" --no-run
+
+      - name: Run tests
+        run: cargo test --manifest-path "$MANIFEST"
+
+      - name: Clippy
+        run: cargo clippy --manifest-path "$MANIFEST" --all-targets -- -D warnings
+
+      - name: Enforce validated core-module policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-materializer-policy/src/lib.rs'
+          manifest='crates/mycelix-integration-materializer-policy/Cargo.toml'
+
+          grep -Fq 'wasmparser = "0.240"' "$manifest"
+          grep -Fq 'Validator::new().validate_all(bytes)?;' "$source"
+          grep -Fq 'encoding != Encoding::Module' "$source"
+          grep -Fq 'ImportsForbidden' "$source"
+          grep -Fq 'TablesForbidden' "$source"
+          grep -Fq 'ElementsForbidden' "$source"
+          grep -Fq 'ExceptionTagsForbidden' "$source"
+          grep -Fq 'StartFunctionForbidden' "$source"
+          grep -Fq 'memory_type.memory64 || memory_type.shared' "$source"
+          grep -Fq 'memory_type.page_size_log2.is_some()' "$source"
+          grep -Fq 'MemoryMaximumRequired' "$source"
+          grep -Fq 'MAX_LINEAR_MEMORY_PAGES' "$source"
+
+      - name: Enforce narrow export and fresh-instance contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-materializer-policy/src/lib.rs'
+
+          grep -Fq '("memory", ExternalKind::Memory)' "$source"
+          grep -Fq '("materialize", ExternalKind::Func)' "$source"
+          grep -Fq 'if export_count != 2' "$source"
+          grep -Fq 'UnexpectedExport' "$source"
+          grep -Fq 'fresh_instance_per_materialization_required_by_policy(&self) -> bool' "$source"
+          grep -Fq 'Payload::GlobalSection(_)' "$source"
+
+          if grep -Fq '("global",' "$source"; then
+            echo 'Global export entered materializer ABI.'
+            exit 1
+          fi
+
+      - name: Enforce static-policy non-authority boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-materializer-policy/src/lib.rs'
+
+          grep -Fq 'no_imports_verified_here(&self) -> bool' "$source"
+          grep -Fq 'no_host_io_via_imports_verified_here(&self) -> bool' "$source"
+          grep -Fq 'no_tables_or_elements_verified_here(&self) -> bool' "$source"
+          grep -Fq 'bounded_linear_memory_verified_here(&self) -> bool' "$source"
+          grep -Fq 'narrow_export_surface_verified_here(&self) -> bool' "$source"
+          grep -Fq 'materialize_signature_verified_here(&self) -> bool' "$source"
+          grep -Fq 'instruction_determinism_verified_here(&self) -> bool' "$source"
+          grep -Fq 'fuel_bound_enforced_here(&self) -> bool' "$source"
+          grep -Fq 'provider_payload_materialized_here(&self) -> bool' "$source"
+          grep -Fq 'grants_execution_authority(&self) -> bool' "$source"
+
+          if grep -Eq 'derive\([^)]*Deserialize' "$source"; then
+            echo 'Qualified materializer policy must not be deserializable.'
+            exit 1
+          fi
+          if grep -Eq 'reqwest::|hyper::|tonic::|stripe::|wasmtime::|wasmer::|mark_dispatch_started|AdminWebsocket' "$source"; then
+            echo 'Static materializer policy crossed into runtime/network/effect execution.'
+            exit 1
+          fi
+
+      - name: Enforce policy regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-materializer-policy/src/lib.rs'
+          grep -Fq 'narrow_import_free_bounded_module_qualifies' "$source"
+          grep -Fq 'internal_global_is_compatible_with_fresh_instance_policy' "$source"
+          grep -Fq 'any_import_fails_closed' "$source"
+          grep -Fq 'unbounded_memory_fails_closed' "$source"
+          grep -Fq 'start_function_fails_closed' "$source"
+          grep -Fq 'extra_export_fails_closed' "$source"
