@@ -3,14 +3,16 @@
 //!
 //! This crate is deliberately provider-neutral and network-free. It consumes the
 //! exact deterministic WASM theorem plus a same-call preexecution admission,
-//! verifies they refer to the same provider profile/release/command, and only
-//! then materializes captured provider request bytes.
+//! verifies they refer to the same provider profile/release/command/attempt, and
+//! only then materializes captured provider request bytes.
 //!
 //! It still does not cross `DispatchStarted`, call a provider, or grant execution
 //! authority. Those remain obligations of the final native effect-start theorem.
 
 use mycelix_institutional_core::Digest32;
-use mycelix_integration_core::ContentCommitment;
+use mycelix_integration_core::{
+    ConnectorInstanceId, ContentCommitment, ExecutionAttemptId, IntegrationCommandId,
+};
 use mycelix_integration_materializer_abi::decode_output_region;
 use mycelix_integration_materializer_determinism::QualifiedDeterministicWasmMaterializer;
 use mycelix_integration_preexecution_admission::QualifiedIntegrationPreexecutionAdmission;
@@ -32,13 +34,22 @@ struct HostState {
     limits: StoreLimits,
 }
 
-/// Captured provider request bytes produced under the exact deterministic
-/// materializer + preexecution identities supplied to `materialize_provider_request`.
+/// Captured provider request bytes produced under one exact admitted durable
+/// attempt. The explicit attempt identity prevents a materialization created for
+/// attempt N from being replayed as attempt N+1 even when command bytes are
+/// identical.
 #[derive(Debug)]
 pub struct MaterializedProviderRequest {
+    entry_id: i64,
+    attempt_id: ExecutionAttemptId,
+    command_id: IntegrationCommandId,
+    connector_instance: ConnectorInstanceId,
     bytes: Vec<u8>,
     input_commitment: ContentCommitment,
     output_commitment: ContentCommitment,
+    provider_profile_commitment: ContentCommitment,
+    provider_trust_root_commitment: ContentCommitment,
+    materializer_release: ContentCommitment,
     admission_digest: Digest32,
     determinism_digest: Digest32,
     materialization_digest: Digest32,
@@ -48,6 +59,22 @@ pub struct MaterializedProviderRequest {
 }
 
 impl MaterializedProviderRequest {
+    pub fn entry_id(&self) -> i64 {
+        self.entry_id
+    }
+
+    pub fn attempt_id(&self) -> &ExecutionAttemptId {
+        &self.attempt_id
+    }
+
+    pub fn command_id(&self) -> &IntegrationCommandId {
+        &self.command_id
+    }
+
+    pub fn connector_instance(&self) -> &ConnectorInstanceId {
+        &self.connector_instance
+    }
+
     pub fn bytes(&self) -> &[u8] {
         &self.bytes
     }
@@ -58,6 +85,18 @@ impl MaterializedProviderRequest {
 
     pub fn output_commitment(&self) -> &ContentCommitment {
         &self.output_commitment
+    }
+
+    pub fn provider_profile_commitment(&self) -> &ContentCommitment {
+        &self.provider_profile_commitment
+    }
+
+    pub fn provider_trust_root_commitment(&self) -> &ContentCommitment {
+        &self.provider_trust_root_commitment
+    }
+
+    pub fn materializer_release(&self) -> &ContentCommitment {
+        &self.materializer_release
     }
 
     pub fn admission_digest(&self) -> Digest32 {
@@ -82,6 +121,10 @@ impl MaterializedProviderRequest {
 
     pub fn memory_pages_after(&self) -> u64 {
         self.memory_pages_after
+    }
+
+    pub const fn exact_attempt_identity_retained_here(&self) -> bool {
+        true
     }
 
     pub const fn fresh_instance_enforced_here(&self) -> bool {
@@ -269,19 +312,31 @@ pub fn materialize_provider_request(
     let memory_pages_after = memory.size(&store);
     let output_commitment = ContentCommitment::sha256(&bytes);
     let materialization_digest = materialization_digest(
+        binding.entry_id(),
+        binding.attempt_id(),
         admission.admission_digest(),
         materializer.determinism_digest(),
         &input_commitment,
         &output_commitment,
+        binding.provider_profile_commitment(),
+        binding.provider_trust_root_commitment(),
+        binding.materializer_release(),
         fuel_limit,
         fuel_consumed,
         memory_pages_after,
     );
 
     Ok(MaterializedProviderRequest {
+        entry_id: binding.entry_id(),
+        attempt_id: binding.attempt_id().clone(),
+        command_id: binding.command_id().clone(),
+        connector_instance: binding.connector_instance().clone(),
         bytes,
         input_commitment,
         output_commitment,
+        provider_profile_commitment: binding.provider_profile_commitment().clone(),
+        provider_trust_root_commitment: binding.provider_trust_root_commitment().clone(),
+        materializer_release: binding.materializer_release().clone(),
         admission_digest: admission.admission_digest(),
         determinism_digest: materializer.determinism_digest(),
         materialization_digest,
@@ -304,10 +359,15 @@ fn div_ceil(value: usize, divisor: usize) -> usize {
 
 #[allow(clippy::too_many_arguments)]
 fn materialization_digest(
+    entry_id: i64,
+    attempt_id: &ExecutionAttemptId,
     admission: Digest32,
     determinism: Digest32,
     input: &ContentCommitment,
     output: &ContentCommitment,
+    provider_profile: &ContentCommitment,
+    provider_root: &ContentCommitment,
+    release: &ContentCommitment,
     fuel_limit: u64,
     fuel_consumed: u64,
     memory_pages_after: u64,
@@ -315,10 +375,15 @@ fn materialization_digest(
     let mut h = blake3::Hasher::new();
     h.update(DOMAIN_MATERIALIZATION);
     frame(&mut h, RUNTIME_PROFILE.as_bytes());
+    frame(&mut h, &entry_id.to_le_bytes());
+    frame(&mut h, attempt_id.as_str().as_bytes());
     frame(&mut h, &admission.0);
     frame(&mut h, &determinism.0);
     frame(&mut h, &input.digest);
     frame(&mut h, &output.digest);
+    frame(&mut h, &provider_profile.digest);
+    frame(&mut h, &provider_root.digest);
+    frame(&mut h, &release.digest);
     frame(&mut h, &fuel_limit.to_le_bytes());
     frame(&mut h, &fuel_consumed.to_le_bytes());
     frame(&mut h, &memory_pages_after.to_le_bytes());
