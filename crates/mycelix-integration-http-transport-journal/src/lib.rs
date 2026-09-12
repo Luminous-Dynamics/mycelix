@@ -25,6 +25,9 @@ use mycelix_integration_core::{
     IntegrationCommandId,
 };
 use mycelix_integration_http_issuance_descriptor::QualifiedHttpIssuanceDescriptor;
+use mycelix_integration_runtime_store_binding::{
+    QualifiedRuntimeStoreBinding, RuntimeStoreBindingError,
+};
 use mycelix_integration_transport_observation::{
     QualifiedTransportObservation, TransportObservationDisposition,
 };
@@ -36,7 +39,6 @@ use std::time::Duration;
 use thiserror::Error;
 
 const TABLE: &str = "integration_http_transport_attempt_v1";
-const DISPATCH_STARTED_STAGE: i64 = 5;
 const JOURNAL_PREPARED: i64 = 0;
 const JOURNAL_WRITE_MAY_BEGIN: i64 = 1;
 const JOURNAL_OBSERVATION_RECORDED: i64 = 2;
@@ -104,6 +106,7 @@ pub struct ArmedHttpApplicationWrite {
     issuance_digest: mycelix_institutional_core::Digest32,
     observation_request_commitment: ContentCommitment,
     valid_until_ms: u64,
+    prepared_at_ms: i64,
     armed_at_ms: i64,
     store_device: u64,
     store_inode: u64,
@@ -124,6 +127,10 @@ impl ArmedHttpApplicationWrite {
 
     pub fn observation_request_commitment(&self) -> &ContentCommitment {
         &self.observation_request_commitment
+    }
+
+    pub fn valid_until_ms(&self) -> u64 {
+        self.valid_until_ms
     }
 
     pub fn armed_at_ms(&self) -> i64 {
@@ -155,6 +162,22 @@ pub enum TransportJournalRecovery {
     ObservationRecorded(TransportObservationDisposition),
 }
 
+#[derive(Debug)]
+struct DurableJournalRow {
+    stage: i64,
+    command_id: String,
+    connector_instance: String,
+    dispatch_binding_digest: Vec<u8>,
+    issuance_digest: Vec<u8>,
+    request_commitment_algorithm: i64,
+    request_commitment_digest: Vec<u8>,
+    descriptor_valid_until_ms: i64,
+    prepared_at_ms: i64,
+    armed_at_ms: Option<i64>,
+    observation_digest: Option<Vec<u8>>,
+    observation_disposition: Option<i64>,
+}
+
 /// Attach one exact secret-free issuance descriptor to one exact durable v2
 /// dispatch before any transport-write capability can exist.
 pub fn prepare_http_transport_attempt(
@@ -178,20 +201,14 @@ pub fn prepare_http_transport_attempt(
 
     let entry_id = dispatch.dispatch().entry_id;
     let attempt_id = dispatch.dispatch().attempt_id.clone();
-    let existing: Option<i64> = tx
-        .query_row(
-            "SELECT stage FROM integration_http_transport_attempt_v1\n\
-             WHERE entry_id = ?1 AND attempt_id = ?2",
-            params![entry_id, attempt_id.as_str()],
-            |row| row.get(0),
-        )
-        .optional()?;
-    if existing.is_some() {
+    if load_journal_row(&tx, entry_id, &attempt_id)?.is_some() {
         return Err(TransportJournalError::JournalAlreadyExists);
     }
 
     let request_commitment = observation_request_commitment(descriptor);
     let operation = &dispatch.dispatch().operation;
+    let valid_until_ms = i64::try_from(descriptor.valid_until_ms())
+        .map_err(|_| TransportJournalError::TimeOverflow)?;
     tx.execute(
         "INSERT INTO integration_http_transport_attempt_v1 (\n\
             entry_id, attempt_id, command_id, connector_instance,\n\
@@ -209,8 +226,7 @@ pub fn prepare_http_transport_attempt(
             descriptor.issuance_digest().0.as_slice(),
             digest_algorithm_code(request_commitment.algorithm),
             request_commitment.digest.as_slice(),
-            i64::try_from(descriptor.valid_until_ms())
-                .map_err(|_| TransportJournalError::TimeOverflow)?,
+            valid_until_ms,
             JOURNAL_PREPARED,
             now_ms,
         ],
@@ -284,6 +300,7 @@ pub fn arm_http_application_write(
         issuance_digest: prepared.issuance_digest,
         observation_request_commitment: prepared.observation_request_commitment,
         valid_until_ms: prepared.valid_until_ms,
+        prepared_at_ms: prepared.prepared_at_ms,
         armed_at_ms: now_ms,
         store_device: prepared.store_device,
         store_inode: prepared.store_inode,
@@ -328,6 +345,7 @@ pub fn record_armed_observation(
     let mut conn = open_exact_store(&canonical, armed.store_device, armed.store_inode)?;
     let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
     ensure_table(&tx)?;
+    validate_journal_identity_armed(&tx, &armed)?;
     let changed = tx.execute(
         "UPDATE integration_http_transport_attempt_v1\n\
          SET stage = ?1, observation_digest = ?2, observation_disposition = ?3, updated_at_ms = ?4\n\
@@ -352,16 +370,33 @@ pub fn record_armed_observation(
     Ok(())
 }
 
+/// Restart-safe recovery using durable attempt identity plus an independently
+/// provisioned runtime-store filesystem binding. No process-local dispatch token
+/// is required to survive the crash.
 pub fn recover_http_transport_attempt(
-    dispatch: &QualifiedContextBoundDispatchStart,
-    store_path: impl AsRef<Path>,
+    store_binding: &QualifiedRuntimeStoreBinding,
+    entry_id: i64,
+    attempt_id: &ExecutionAttemptId,
 ) -> Result<TransportJournalRecovery, TransportJournalError> {
-    let canonical = canonical_exact_store_path(
-        store_path.as_ref(),
-        dispatch.store_device(),
-        dispatch.store_inode(),
+    store_binding.revalidate()?;
+    let conn = open_exact_store(
+        store_binding.path(),
+        store_binding.expected_device(),
+        store_binding.expected_inode(),
     )?;
-    let conn = open_exact_store(&canonical, dispatch.store_device(), dispatch.store_inode())?;
+
+    let durable_dispatch: Option<Vec<u8>> = conn
+        .query_row(
+            "SELECT binding_digest FROM integration_dispatch_binding_v2\n\
+             WHERE entry_id = ?1 AND attempt_id = ?2",
+            params![entry_id, attempt_id.as_str()],
+            |row| row.get(0),
+        )
+        .optional()?;
+    let Some(durable_dispatch) = durable_dispatch else {
+        return Err(TransportJournalError::MissingContextDispatch);
+    };
+
     let table_exists: bool = conn.query_row(
         "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1)",
         params![TABLE],
@@ -370,26 +405,28 @@ pub fn recover_http_transport_attempt(
     if !table_exists {
         return Ok(TransportJournalRecovery::NotPrepared);
     }
-    let row: Option<(i64, Option<i64>)> = conn
-        .query_row(
-            "SELECT stage, observation_disposition\n\
-             FROM integration_http_transport_attempt_v1\n\
-             WHERE entry_id = ?1 AND attempt_id = ?2 AND dispatch_binding_digest = ?3",
-            params![
-                dispatch.dispatch().entry_id,
-                dispatch.dispatch().attempt_id.as_str(),
-                dispatch.binding_digest().0.as_slice(),
-            ],
-            |row| Ok((row.get(0)?, row.get(1)?)),
-        )
-        .optional()?;
-    match row {
-        None => Ok(TransportJournalRecovery::NotPrepared),
-        Some((JOURNAL_PREPARED, None)) => Ok(TransportJournalRecovery::NoWriteCapabilityIssued),
-        Some((JOURNAL_WRITE_MAY_BEGIN, None)) => {
+    validate_table_schema(&conn)?;
+
+    let Some(row) = load_journal_row(&conn, entry_id, attempt_id)? else {
+        return Ok(TransportJournalRecovery::NotPrepared);
+    };
+    if row.dispatch_binding_digest.as_slice() != durable_dispatch.as_slice() {
+        return Err(TransportJournalError::JournalIdentityMismatch);
+    }
+
+    match (
+        row.stage,
+        row.armed_at_ms,
+        row.observation_digest.as_ref(),
+        row.observation_disposition,
+    ) {
+        (JOURNAL_PREPARED, None, None, None) => {
+            Ok(TransportJournalRecovery::NoWriteCapabilityIssued)
+        }
+        (JOURNAL_WRITE_MAY_BEGIN, Some(_), None, None) => {
             Ok(TransportJournalRecovery::AmbiguousPossibleIssue)
         }
-        Some((JOURNAL_OBSERVATION_RECORDED, Some(code))) => Ok(
+        (JOURNAL_OBSERVATION_RECORDED, _, Some(_), Some(code)) => Ok(
             TransportJournalRecovery::ObservationRecorded(disposition_from_code(code)?),
         ),
         _ => Err(TransportJournalError::InvalidJournalState),
@@ -414,7 +451,8 @@ fn record_observation_from_prepared(
     let changed = tx.execute(
         "UPDATE integration_http_transport_attempt_v1\n\
          SET stage = ?1, observation_digest = ?2, observation_disposition = ?3, updated_at_ms = ?4\n\
-         WHERE entry_id = ?5 AND attempt_id = ?6 AND stage = ?7",
+         WHERE entry_id = ?5 AND attempt_id = ?6 AND stage = ?7\n\
+           AND dispatch_binding_digest = ?8 AND issuance_digest = ?9",
         params![
             JOURNAL_OBSERVATION_RECORDED,
             observation.observation_digest.0.as_slice(),
@@ -423,6 +461,8 @@ fn record_observation_from_prepared(
             prepared.entry_id,
             prepared.attempt_id.as_str(),
             JOURNAL_PREPARED,
+            prepared.dispatch_binding_digest.0.as_slice(),
+            prepared.issuance_digest.0.as_slice(),
         ],
     )?;
     if changed != 1 {
@@ -437,6 +477,10 @@ fn validate_observation_identity_prepared(
     observation: &QualifiedTransportObservation,
     now_ms: i64,
 ) -> Result<(), TransportJournalError> {
+    let now_u64 = to_u64_time(now_ms)?;
+    if now_u64 >= prepared.valid_until_ms {
+        return Err(TransportJournalError::InvalidTime);
+    }
     validate_observation_identity(
         &prepared.attempt_id,
         &prepared.command_id,
@@ -453,6 +497,10 @@ fn validate_observation_identity_armed(
     observation: &QualifiedTransportObservation,
     now_ms: i64,
 ) -> Result<(), TransportJournalError> {
+    let now_u64 = to_u64_time(now_ms)?;
+    if now_u64 >= armed.valid_until_ms {
+        return Err(TransportJournalError::InvalidTime);
+    }
     validate_observation_identity(
         &armed.attempt_id,
         &armed.command_id,
@@ -491,7 +539,7 @@ fn observation_request_commitment(
     descriptor: &QualifiedHttpIssuanceDescriptor,
 ) -> ContentCommitment {
     // Secret-free convention for #676: identify the exact qualified issuance
-    // descriptor, never hash final wire bytes containing Authorization/API keys.
+    // descriptor rather than hashing final credential-bearing wire bytes.
     ContentCommitment::sha256(&descriptor.issuance_digest().0)
 }
 
@@ -500,25 +548,23 @@ fn validate_dispatch_row(
     dispatch: &QualifiedContextBoundDispatchStart,
     descriptor: &QualifiedHttpIssuanceDescriptor,
 ) -> Result<(), TransportJournalError> {
-    let row: Option<(i64, String, Vec<u8>, Vec<u8>, i64, Vec<u8>)> = tx
+    let row: Option<(String, Vec<u8>, Vec<u8>, i64, Vec<u8>)> = tx
         .query_row(
-            "SELECT o.stage, d.context_profile, d.context_digest, d.binding_digest,\n\
+            "SELECT d.context_profile, d.context_digest, d.binding_digest,\n\
                     d.command_commitment_algorithm, d.command_commitment_digest\n\
-             FROM integration_outbox o\n\
-             JOIN integration_dispatch_binding_v2 d ON d.entry_id = o.entry_id\n\
+             FROM integration_dispatch_binding_v2 d\n\
              WHERE d.entry_id = ?1 AND d.attempt_id = ?2",
             params![
                 dispatch.dispatch().entry_id,
                 dispatch.dispatch().attempt_id.as_str(),
             ],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?)),
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
         )
         .optional()?;
-    let Some((stage, context_profile, context_digest, binding_digest, algorithm, command_digest)) = row else {
+    let Some((context_profile, context_digest, binding_digest, algorithm, command_digest)) = row else {
         return Err(TransportJournalError::MissingContextDispatch);
     };
-    if stage != DISPATCH_STARTED_STAGE
-        || context_profile != dispatch.context().profile()
+    if context_profile != dispatch.context().profile()
         || context_digest.as_slice() != dispatch.context().digest().0
         || binding_digest.as_slice() != dispatch.binding_digest().0
         || algorithm != digest_algorithm_code(descriptor.command_commitment().algorithm)
@@ -529,26 +575,92 @@ fn validate_dispatch_row(
     Ok(())
 }
 
+fn load_journal_row(
+    conn: &Connection,
+    entry_id: i64,
+    attempt_id: &ExecutionAttemptId,
+) -> Result<Option<DurableJournalRow>, TransportJournalError> {
+    conn.query_row(
+        "SELECT stage, command_id, connector_instance, dispatch_binding_digest, issuance_digest,\n\
+                request_commitment_algorithm, request_commitment_digest,\n\
+                descriptor_valid_until_ms, prepared_at_ms, armed_at_ms,\n\
+                observation_digest, observation_disposition\n\
+         FROM integration_http_transport_attempt_v1\n\
+         WHERE entry_id = ?1 AND attempt_id = ?2",
+        params![entry_id, attempt_id.as_str()],
+        |row| {
+            Ok(DurableJournalRow {
+                stage: row.get(0)?,
+                command_id: row.get(1)?,
+                connector_instance: row.get(2)?,
+                dispatch_binding_digest: row.get(3)?,
+                issuance_digest: row.get(4)?,
+                request_commitment_algorithm: row.get(5)?,
+                request_commitment_digest: row.get(6)?,
+                descriptor_valid_until_ms: row.get(7)?,
+                prepared_at_ms: row.get(8)?,
+                armed_at_ms: row.get(9)?,
+                observation_digest: row.get(10)?,
+                observation_disposition: row.get(11)?,
+            })
+        },
+    )
+    .optional()
+    .map_err(TransportJournalError::Sqlite)
+}
+
 fn validate_journal_identity_prepared(
-    tx: &rusqlite::Transaction<'_>,
+    conn: &Connection,
     prepared: &PreparedHttpTransportAttempt,
 ) -> Result<(), TransportJournalError> {
-    let row: Option<(i64, Vec<u8>, Vec<u8>, i64)> = tx
-        .query_row(
-            "SELECT stage, dispatch_binding_digest, issuance_digest, descriptor_valid_until_ms\n\
-             FROM integration_http_transport_attempt_v1\n\
-             WHERE entry_id = ?1 AND attempt_id = ?2",
-            params![prepared.entry_id, prepared.attempt_id.as_str()],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
-        )
-        .optional()?;
-    let Some((stage, dispatch_digest, issuance_digest, valid_until)) = row else {
+    let Some(row) = load_journal_row(conn, prepared.entry_id, &prepared.attempt_id)? else {
         return Err(TransportJournalError::MissingJournal);
     };
-    if stage != JOURNAL_PREPARED
-        || dispatch_digest.as_slice() != prepared.dispatch_binding_digest.0
-        || issuance_digest.as_slice() != prepared.issuance_digest.0
-        || valid_until != i64::try_from(prepared.valid_until_ms).map_err(|_| TransportJournalError::TimeOverflow)?
+    let valid_until = i64::try_from(prepared.valid_until_ms)
+        .map_err(|_| TransportJournalError::TimeOverflow)?;
+    if row.stage != JOURNAL_PREPARED
+        || row.command_id != prepared.command_id.as_str()
+        || row.connector_instance != prepared.connector_instance.as_str()
+        || row.dispatch_binding_digest.as_slice() != prepared.dispatch_binding_digest.0
+        || row.issuance_digest.as_slice() != prepared.issuance_digest.0
+        || row.request_commitment_algorithm
+            != digest_algorithm_code(prepared.observation_request_commitment.algorithm)
+        || row.request_commitment_digest.as_slice()
+            != prepared.observation_request_commitment.digest
+        || row.descriptor_valid_until_ms != valid_until
+        || row.prepared_at_ms != prepared.prepared_at_ms
+        || row.armed_at_ms.is_some()
+        || row.observation_digest.is_some()
+        || row.observation_disposition.is_some()
+    {
+        return Err(TransportJournalError::JournalIdentityMismatch);
+    }
+    Ok(())
+}
+
+fn validate_journal_identity_armed(
+    conn: &Connection,
+    armed: &ArmedHttpApplicationWrite,
+) -> Result<(), TransportJournalError> {
+    let Some(row) = load_journal_row(conn, armed.entry_id, &armed.attempt_id)? else {
+        return Err(TransportJournalError::MissingJournal);
+    };
+    let valid_until = i64::try_from(armed.valid_until_ms)
+        .map_err(|_| TransportJournalError::TimeOverflow)?;
+    if row.stage != JOURNAL_WRITE_MAY_BEGIN
+        || row.command_id != armed.command_id.as_str()
+        || row.connector_instance != armed.connector_instance.as_str()
+        || row.dispatch_binding_digest.as_slice() != armed.dispatch_binding_digest.0
+        || row.issuance_digest.as_slice() != armed.issuance_digest.0
+        || row.request_commitment_algorithm
+            != digest_algorithm_code(armed.observation_request_commitment.algorithm)
+        || row.request_commitment_digest.as_slice()
+            != armed.observation_request_commitment.digest
+        || row.descriptor_valid_until_ms != valid_until
+        || row.prepared_at_ms != armed.prepared_at_ms
+        || row.armed_at_ms != Some(armed.armed_at_ms)
+        || row.observation_digest.is_some()
+        || row.observation_disposition.is_some()
     {
         return Err(TransportJournalError::JournalIdentityMismatch);
     }
@@ -582,7 +694,7 @@ fn ensure_table(tx: &rusqlite::Transaction<'_>) -> Result<(), TransportJournalEr
     validate_table_schema(tx)
 }
 
-fn validate_table_schema(tx: &rusqlite::Transaction<'_>) -> Result<(), TransportJournalError> {
+fn validate_table_schema(conn: &Connection) -> Result<(), TransportJournalError> {
     const EXPECTED: &[(&str, &str, i64, i64)] = &[
         ("entry_id", "INTEGER", 1, 1),
         ("attempt_id", "TEXT", 1, 2),
@@ -600,7 +712,7 @@ fn validate_table_schema(tx: &rusqlite::Transaction<'_>) -> Result<(), Transport
         ("observation_disposition", "INTEGER", 0, 0),
         ("updated_at_ms", "INTEGER", 1, 0),
     ];
-    let mut statement = tx.prepare("PRAGMA table_info(integration_http_transport_attempt_v1)")?;
+    let mut statement = conn.prepare("PRAGMA table_info(integration_http_transport_attempt_v1)")?;
     let actual = statement
         .query_map([], |row| {
             Ok((
@@ -621,7 +733,32 @@ fn validate_table_schema(tx: &rusqlite::Transaction<'_>) -> Result<(), Transport
     {
         return Err(TransportJournalError::JournalSchemaMismatch);
     }
-    let trigger_count: i64 = tx.query_row(
+
+    let foreign_keys = conn
+        .prepare("PRAGMA foreign_key_list(integration_http_transport_attempt_v1)")?
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, String>(4)?,
+                row.get::<_, String>(5)?,
+                row.get::<_, String>(6)?,
+            ))
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    if foreign_keys
+        != vec![(
+            "integration_outbox".to_owned(),
+            "entry_id".to_owned(),
+            "entry_id".to_owned(),
+            "NO ACTION".to_owned(),
+            "NO ACTION".to_owned(),
+        )]
+    {
+        return Err(TransportJournalError::JournalSchemaMismatch);
+    }
+
+    let trigger_count: i64 = conn.query_row(
         "SELECT COUNT(*) FROM sqlite_master WHERE type = 'trigger' AND tbl_name = ?1",
         params![TABLE],
         |row| row.get(0),
@@ -705,7 +842,9 @@ fn disposition_code(disposition: TransportObservationDisposition) -> i64 {
     }
 }
 
-fn disposition_from_code(code: i64) -> Result<TransportObservationDisposition, TransportJournalError> {
+fn disposition_from_code(
+    code: i64,
+) -> Result<TransportObservationDisposition, TransportJournalError> {
     match code {
         1 => Ok(TransportObservationDisposition::DefinitelyNotIssued),
         2 => Ok(TransportObservationDisposition::CompleteProviderResponse),
@@ -757,6 +896,8 @@ pub enum TransportJournalError {
     #[error("transport observation time violates the journal causal frontier")]
     ObservationTimeMismatch,
     #[error(transparent)]
+    StoreBinding(#[from] RuntimeStoreBindingError),
+    #[error(transparent)]
     Sqlite(#[from] rusqlite::Error),
     #[error("runtime store filesystem error: {0}")]
     Io(std::io::Error),
@@ -768,7 +909,10 @@ mod tests {
 
     #[test]
     fn disposition_storage_codes_are_stable() {
-        assert_eq!(disposition_code(TransportObservationDisposition::DefinitelyNotIssued), 1);
+        assert_eq!(
+            disposition_code(TransportObservationDisposition::DefinitelyNotIssued),
+            1
+        );
         assert_eq!(
             disposition_code(TransportObservationDisposition::CompleteProviderResponse),
             2
