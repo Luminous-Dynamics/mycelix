@@ -12,16 +12,25 @@ fn scalar(key: &str) -> u64 {
         .unwrap()
 }
 
-fn viability() -> RegenerativeViabilityEvidenceV1 {
+fn viability(hidden: bool) -> RegenerativeViabilityEvidenceV1 {
+    let variant = if hidden { "hidden" } else { "direct" };
+    let construction_refs = if hidden {
+        vec![
+            "dependency:controller-support-v3".into(),
+            "dependency:forge-tooling-v3".into(),
+        ]
+    } else {
+        vec!["dependency:forge-tooling-v3".into()]
+    };
     RegenerativeViabilityEvidenceV1 {
         schema_version: REGENERATIVE_VIABILITY_EVIDENCE_SCHEMA_V1,
         genome_binding: "genome:manta-v3:topology".into(),
         lineage_evidence_binding: "lineage:manta-v3:topology".into(),
         viability_profile_binding: "profile:manta-v3:topology".into(),
-        static_viability_report_binding: "symthaea:manta-v3:topology-static".into(),
-        dynamic_simulation_binding: "symtropy:manta-v3:topology-dynamic".into(),
+        static_viability_report_binding: format!("symthaea:manta-v3:topology-static:{variant}"),
+        dynamic_simulation_binding: format!("symtropy:manta-v3:topology-dynamic:{variant}"),
         closure_model_binding: "model:closure-v3-topology".into(),
-        flow_support_binding: "flow-support:v3:direct".into(),
+        flow_support_binding: format!("flow-support:v3:{variant}"),
         period_duration_ms: scalar("period_duration_ms"),
         roles: vec![
             RegenerativeViabilityRoleEvidenceV1 {
@@ -38,7 +47,7 @@ fn viability() -> RegenerativeViabilityEvidenceV1 {
                 ),
                 dynamic_first_unavailable_tick: Some(5),
                 fully_modeled_support: true,
-                limiting_dependency_refs: vec!["dependency:forge-tooling-v3".into()],
+                limiting_dependency_refs: construction_refs,
             },
             RegenerativeViabilityRoleEvidenceV1 {
                 role_id: "successor_qualification".into(),
@@ -116,12 +125,19 @@ fn surface(viability: &RegenerativeViabilityEvidenceV1) -> RegenerativePolicySen
 
 fn basis(
     viability: &RegenerativeViabilityEvidenceV1,
-    surface: &RegenerativePolicySensitivitySurfaceEvidenceV1,
+    authorized_surface: Option<&RegenerativePolicySensitivitySurfaceEvidenceV1>,
 ) -> RegenerativeSupportBasisEvidenceV1 {
     let period = scalar("period_duration_ms");
     RegenerativeSupportBasisEvidenceV1 {
         schema_version: REGENERATIVE_SUPPORT_BASIS_EVIDENCE_SCHEMA_V1,
-        basis_evidence_id: "manta-v3-v4-topology-basis".into(),
+        basis_evidence_id: format!(
+            "manta-v3-v4-topology-basis-{}",
+            if viability.flow_support_binding.ends_with(":hidden") {
+                "hidden"
+            } else {
+                "direct"
+            }
+        ),
         viability_evidence_content_digest: viability.content_digest().unwrap(),
         symthaea_support_basis_binding: "symthaea:pr-2052:a9344c".into(),
         symtropy_support_basis_binding: "symtropy:pr-821:bc074d".into(),
@@ -154,7 +170,8 @@ fn basis(
             },
         ],
         scalar_runway_projection_safe: true,
-        authorized_policy_surface_content_digest: Some(surface.content_digest().unwrap()),
+        authorized_policy_surface_content_digest: authorized_surface
+            .map(|surface| surface.content_digest().unwrap()),
     }
 }
 
@@ -268,9 +285,9 @@ fn hidden_continuity(
 
 #[test]
 fn direct_closure_can_authorize_exact_surface() {
-    let viability = viability();
+    let viability = viability(false);
     let surface = surface(&viability);
-    let basis = basis(&viability, &surface);
+    let basis = basis(&viability, Some(&surface));
     let continuity = direct_continuity(&viability, &basis, &surface);
     assert_eq!(
         verify_regenerative_support_closure_continuity_evidence(
@@ -292,9 +309,9 @@ fn direct_closure_can_authorize_exact_surface() {
 
 #[test]
 fn hidden_finite_root_refusal_is_auditable_but_cannot_authorize_surface() {
-    let viability = viability();
-    let surface = surface(&viability);
-    let basis = basis(&viability, &surface);
+    let viability = viability(true);
+    let hypothetical_surface = surface(&viability);
+    let basis = basis(&viability, None);
     let continuity = hidden_continuity(&viability, &basis);
     assert_eq!(
         verify_regenerative_support_closure_continuity_evidence(
@@ -308,44 +325,48 @@ fn hidden_finite_root_refusal_is_auditable_but_cannot_authorize_surface() {
     assert!(verify_regenerative_support_closure_surface_authorization(
         &basis,
         &continuity,
-        &surface,
+        &hypothetical_surface,
     )
     .is_err());
 }
 
 #[test]
 fn forged_safe_root_or_surface_digest_fails_closed() {
-    let viability = viability();
-    let surface = surface(&viability);
-    let basis = basis(&viability, &surface);
-    let mut hidden = hidden_continuity(&viability, &basis);
+    let hidden_viability = viability(true);
+    let hidden_basis = basis(&hidden_viability, None);
+    let mut hidden = hidden_continuity(&hidden_viability, &hidden_basis);
     hidden.finite_root_pairs[0].basis_qualified = true;
     hidden.finite_root_pairs[0].transfer_qualified = true;
     hidden.scalar_runway_projection_safe = true;
     hidden.rejection_binding = None;
-    hidden.authorized_policy_surface_content_digest = Some(surface.content_digest().unwrap());
+    let hypothetical_surface = surface(&hidden_viability);
+    hidden.authorized_policy_surface_content_digest =
+        Some(hypothetical_surface.content_digest().unwrap());
     assert!(verify_regenerative_support_closure_continuity_evidence(
-        &viability,
-        &basis,
+        &hidden_viability,
+        &hidden_basis,
         &hidden,
     )
     .is_err());
 
-    let mut direct = direct_continuity(&viability, &basis, &surface);
+    let direct_viability = viability(false);
+    let direct_surface = surface(&direct_viability);
+    let direct_basis = basis(&direct_viability, Some(&direct_surface));
+    let mut direct = direct_continuity(&direct_viability, &direct_basis, &direct_surface);
     direct.authorized_policy_surface_content_digest = Some("0".repeat(64));
     assert!(verify_regenerative_support_closure_surface_authorization(
-        &basis,
+        &direct_basis,
         &direct,
-        &surface,
+        &direct_surface,
     )
     .is_err());
 }
 
 #[test]
 fn support_closure_evidence_round_trips_over_maritime_transport() {
-    let viability = viability();
+    let viability = viability(false);
     let surface = surface(&viability);
-    let basis = basis(&viability, &surface);
+    let basis = basis(&viability, Some(&surface));
     let evidence = direct_continuity(&viability, &basis, &surface);
     let envelope = evidence
         .to_maritime_envelope(
