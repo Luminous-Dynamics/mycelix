@@ -3,12 +3,12 @@
 //! This crate derives an audit identity for the exact request shape that a native
 //! transport may later issue, without containing or hashing credential material.
 //! It binds current transport policy, canonical path/query/body plan, exact public
-//! route, exact credential *version metadata*, command/idempotency identity and
-//! all relevant validity horizons.
+//! route, exact credential *version metadata*, the full canonical command identity
+//! (which already contains idempotency semantics), and all relevant horizons.
 
 use mycelix_institutional_core::Digest32;
 use mycelix_integration_core::{
-    ContentCommitment, DigestAlgorithm, IntegrationCommand, IdempotencyKey,
+    CanonicalEncodeV1, ContentCommitment, DigestAlgorithm, IntegrationCommand,
 };
 use mycelix_integration_http_credential_slot::QualifiedHttpCredentialSlot;
 use mycelix_integration_http_egress_route::QualifiedPublicHttpsRoute;
@@ -29,6 +29,7 @@ const MAX_RENDERED_QUERY_BYTES: usize = 64 * 1024;
 #[derive(Clone, Debug)]
 pub struct QualifiedHttpIssuanceDescriptor {
     issuance_digest: Digest32,
+    command_commitment: ContentCommitment,
     transport_policy_binding_digest: Digest32,
     request_plan_digest: Digest32,
     route_digest: Digest32,
@@ -36,7 +37,6 @@ pub struct QualifiedHttpIssuanceDescriptor {
     rendered_path_commitment: ContentCommitment,
     rendered_query_commitment: ContentCommitment,
     body_commitment: ContentCommitment,
-    idempotency_key_commitment: Option<ContentCommitment>,
     rendered_path_len: u32,
     rendered_query_len: u32,
     body_len: u64,
@@ -46,6 +46,10 @@ pub struct QualifiedHttpIssuanceDescriptor {
 impl QualifiedHttpIssuanceDescriptor {
     pub fn issuance_digest(&self) -> Digest32 {
         self.issuance_digest
+    }
+
+    pub fn command_commitment(&self) -> &ContentCommitment {
+        &self.command_commitment
     }
 
     pub fn transport_policy_binding_digest(&self) -> Digest32 {
@@ -76,10 +80,6 @@ impl QualifiedHttpIssuanceDescriptor {
         &self.body_commitment
     }
 
-    pub fn idempotency_key_commitment(&self) -> Option<&ContentCommitment> {
-        self.idempotency_key_commitment.as_ref()
-    }
-
     pub fn rendered_path_len(&self) -> u32 {
         self.rendered_path_len
     }
@@ -100,11 +100,19 @@ impl QualifiedHttpIssuanceDescriptor {
         now_ms < self.valid_until_ms
     }
 
+    pub const fn idempotency_identity_bound_via_command_commitment_here(&self) -> bool {
+        true
+    }
+
     pub const fn credential_material_present_here(&self) -> bool {
         false
     }
 
     pub const fn credential_material_hashed_here(&self) -> bool {
+        false
+    }
+
+    pub const fn standalone_idempotency_key_hashed_here(&self) -> bool {
         false
     }
 
@@ -132,7 +140,10 @@ pub fn qualify_http_issuance_descriptor<C>(
     route: &QualifiedPublicHttpsRoute,
     credential: &QualifiedHttpCredentialSlot,
     now_ms: u64,
-) -> Result<QualifiedHttpIssuanceDescriptor, IssuanceDescriptorError> {
+) -> Result<QualifiedHttpIssuanceDescriptor, IssuanceDescriptorError>
+where
+    C: CanonicalEncodeV1,
+{
     if now_ms == 0
         || transport.valid_until_ms() <= now_ms
         || !route.is_live_at(now_ms)
@@ -162,6 +173,10 @@ pub fn qualify_http_issuance_descriptor<C>(
     if credential.slot_id() != policy.credential_slot_id {
         return Err(IssuanceDescriptorError::CredentialSlotMismatch);
     }
+    validate_idempotency_requirement(
+        policy.idempotency_header_name.is_some(),
+        command.idempotency_key.is_some(),
+    )?;
 
     let rendered_path = render_path(&policy.path_prefix, plan.path_segments())?;
     let rendered_query = render_query(plan)?;
@@ -177,10 +192,7 @@ pub fn qualify_http_issuance_descriptor<C>(
     let body_len = u64::try_from(plan.body_len())
         .map_err(|_| IssuanceDescriptorError::BodyLengthOverflow)?;
 
-    let idempotency_key_commitment = idempotency_commitment(
-        policy.idempotency_header_name.as_deref(),
-        command.idempotency_key.as_ref(),
-    )?;
+    let command_commitment = command.canonical_commitment_v1();
     let rendered_path_commitment = ContentCommitment::sha256(&rendered_path);
     let rendered_query_commitment = ContentCommitment::sha256(&rendered_query);
     let body_commitment = plan.body_commitment().clone();
@@ -194,6 +206,7 @@ pub fn qualify_http_issuance_descriptor<C>(
     }
 
     let issuance_digest = issuance_digest(
+        &command_commitment,
         transport_digest,
         plan.qualification_digest(),
         route.route_digest(),
@@ -207,7 +220,6 @@ pub fn qualify_http_issuance_descriptor<C>(
         &rendered_path_commitment,
         &rendered_query_commitment,
         &body_commitment,
-        idempotency_key_commitment.as_ref(),
         rendered_path_len,
         rendered_query_len,
         body_len,
@@ -216,6 +228,7 @@ pub fn qualify_http_issuance_descriptor<C>(
 
     Ok(QualifiedHttpIssuanceDescriptor {
         issuance_digest,
+        command_commitment,
         transport_policy_binding_digest: transport_digest,
         request_plan_digest: plan.qualification_digest(),
         route_digest: route.route_digest(),
@@ -223,7 +236,6 @@ pub fn qualify_http_issuance_descriptor<C>(
         rendered_path_commitment,
         rendered_query_commitment,
         body_commitment,
-        idempotency_key_commitment,
         rendered_path_len,
         rendered_query_len,
         body_len,
@@ -231,14 +243,14 @@ pub fn qualify_http_issuance_descriptor<C>(
     })
 }
 
-fn idempotency_commitment(
-    header_name: Option<&str>,
-    key: Option<&IdempotencyKey>,
-) -> Result<Option<ContentCommitment>, IssuanceDescriptorError> {
-    match (header_name, key) {
-        (Some(_), None) => Err(IssuanceDescriptorError::MissingIdempotencyKey),
-        (_, Some(key)) => Ok(Some(ContentCommitment::sha256(key.as_str().as_bytes()))),
-        (None, None) => Ok(None),
+fn validate_idempotency_requirement(
+    header_required: bool,
+    key_present: bool,
+) -> Result<(), IssuanceDescriptorError> {
+    if header_required && !key_present {
+        Err(IssuanceDescriptorError::MissingIdempotencyKey)
+    } else {
+        Ok(())
     }
 }
 
@@ -291,6 +303,7 @@ fn is_unreserved(byte: u8) -> bool {
 
 #[allow(clippy::too_many_arguments)]
 fn issuance_digest(
+    command: &ContentCommitment,
     transport: Digest32,
     plan: Digest32,
     route: Digest32,
@@ -304,7 +317,6 @@ fn issuance_digest(
     path: &ContentCommitment,
     query: &ContentCommitment,
     body: &ContentCommitment,
-    idempotency_key: Option<&ContentCommitment>,
     path_len: u32,
     query_len: u32,
     body_len: u64,
@@ -313,6 +325,7 @@ fn issuance_digest(
     let mut h = blake3::Hasher::new();
     h.update(DOMAIN_DESCRIPTOR);
     frame(&mut h, ISSUANCE_DESCRIPTOR_PROFILE.as_bytes());
+    frame_commitment(&mut h, command);
     frame(&mut h, &transport.0);
     frame(&mut h, &plan.0);
     frame(&mut h, &route.0);
@@ -326,7 +339,6 @@ fn issuance_digest(
     frame_commitment(&mut h, path);
     frame_commitment(&mut h, query);
     frame_commitment(&mut h, body);
-    frame_optional_commitment(&mut h, idempotency_key);
     frame(&mut h, &path_len.to_le_bytes());
     frame(&mut h, &query_len.to_le_bytes());
     frame(&mut h, &body_len.to_le_bytes());
@@ -349,16 +361,6 @@ fn frame_optional_text(h: &mut blake3::Hasher, value: Option<&str>) {
         Some(value) => {
             frame(h, &[1]);
             frame(h, value.as_bytes());
-        }
-        None => frame(h, &[0]),
-    }
-}
-
-fn frame_optional_commitment(h: &mut blake3::Hasher, value: Option<&ContentCommitment>) {
-    match value {
-        Some(value) => {
-            frame(h, &[1]);
-            frame_commitment(h, value);
         }
         None => frame(h, &[0]),
     }
@@ -421,8 +423,10 @@ mod tests {
     #[test]
     fn missing_required_idempotency_key_fails_closed() {
         assert_eq!(
-            idempotency_commitment(Some("idempotency-key"), None),
+            validate_idempotency_requirement(true, false),
             Err(IssuanceDescriptorError::MissingIdempotencyKey)
         );
+        assert!(validate_idempotency_requirement(true, true).is_ok());
+        assert!(validate_idempotency_requirement(false, false).is_ok());
     }
 }
