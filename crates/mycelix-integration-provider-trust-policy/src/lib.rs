@@ -7,9 +7,7 @@
 //! a separate child theorem using the shared authority freshness kernel.
 
 use mycelix_institutional_core::{Digest32, InstitutionId, JurisdictionId, RulebookRef};
-use mycelix_integration_core::{
-    ConnectorInstanceId, DigestAlgorithm, ExternalSystemId,
-};
+use mycelix_integration_core::{ConnectorInstanceId, DigestAlgorithm, ExternalSystemId};
 use mycelix_integration_execution_binding::ProviderProfileTrustRoot;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -45,8 +43,6 @@ pub struct IntegrationProviderTrustPolicy {
     pub system: ExternalSystemId,
     pub signer_key_id: String,
     pub verifying_key: [u8; 32],
-    /// Must match both the provider-profile generation and shared freshness
-    /// generation before the root can be treated as current.
     pub generation: u64,
     pub valid_from_ms: u64,
     pub valid_until_ms: u64,
@@ -86,7 +82,9 @@ impl IntegrationProviderTrustPolicy {
         self.valid_from_ms <= now_ms && now_ms < self.valid_until_ms
     }
 
-    pub fn candidate_trust_root(&self) -> Result<ProviderProfileTrustRoot, ProviderTrustPolicyError> {
+    pub fn candidate_trust_root(
+        &self,
+    ) -> Result<ProviderProfileTrustRoot, ProviderTrustPolicyError> {
         ProviderProfileTrustRoot::new(
             self.signer_key_id.clone(),
             self.verifying_key,
@@ -96,7 +94,7 @@ impl IntegrationProviderTrustPolicy {
     }
 
     pub fn identity_digest(&self) -> Result<Digest32, ProviderTrustPolicyError> {
-        self.validate_without_digest_recursion()?;
+        self.validate()?;
         let root = self.candidate_trust_root()?;
         let mut h = blake3::Hasher::new();
         h.update(DOMAIN_POLICY);
@@ -122,32 +120,6 @@ impl IntegrationProviderTrustPolicy {
         frame(&mut h, self.authority_ref.as_bytes());
         frame(&mut h, self.policy_proof_ref.as_bytes());
         Ok(Digest32(*h.finalize().as_bytes()))
-    }
-
-    fn validate_without_digest_recursion(&self) -> Result<(), ProviderTrustPolicyError> {
-        if self.protocol_version != PROTOCOL_VERSION {
-            return Err(ProviderTrustPolicyError::WrongProtocolVersion);
-        }
-        require_text(&self.policy_id)?;
-        require_text(self.institution.as_str())?;
-        if let Some(jurisdiction) = &self.jurisdiction {
-            require_text(jurisdiction.as_str())?;
-        }
-        self.rulebook
-            .validate()
-            .map_err(|_| ProviderTrustPolicyError::InvalidRulebook)?;
-        require_text(self.connector_instance.as_str())?;
-        require_text(self.system.as_str())?;
-        require_text(&self.signer_key_id)?;
-        require_text(&self.authority_ref)?;
-        require_text(&self.policy_proof_ref)?;
-        if self.generation == 0 {
-            return Err(ProviderTrustPolicyError::InvalidGeneration);
-        }
-        if self.valid_from_ms == 0 || self.valid_until_ms <= self.valid_from_ms {
-            return Err(ProviderTrustPolicyError::InvalidPolicyWindow);
-        }
-        Ok(())
     }
 }
 
@@ -177,10 +149,10 @@ pub struct VerifiedProviderTrustPolicyAdoptionProof {
     pub valid_until_ms: u64,
 }
 
-/// Non-deserializable proof that exact provider-root semantics, immutable record
-/// evidence and institutional adoption evidence all refer to the same policy.
-/// It is not yet generation-current.
-#[derive(Clone, Debug, Serialize)]
+/// Process-local positive proof that exact provider-root semantics, immutable
+/// record evidence and institutional adoption evidence all refer to the same
+/// policy. The retained root is intentionally not serializable/deserializable.
+#[derive(Clone, Debug)]
 pub struct QualifiedAdoptedProviderTrustPolicy {
     policy: IntegrationProviderTrustPolicy,
     candidate_root: ProviderProfileTrustRoot,
@@ -284,7 +256,8 @@ pub fn qualify_adopted_provider_trust_policy(
     }
 
     let candidate_root = policy.candidate_trust_root()?;
-    let qualification_digest = qualification_digest(policy_digest, candidate_root.root_commitment());
+    let qualification_digest =
+        qualification_digest(policy_digest, candidate_root.root_commitment());
     let evidence_digest = evidence_digest(
         qualification_digest,
         policy_record_ref,
@@ -460,23 +433,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn policy_generation_and_root_commitment_change_identity() {
-        // The exact end-to-end policy fixture is exercised by the currentness
-        // child crate. Keep the local regression focused on root commitment
-        // semantics so this crate has no private-key test dependency.
-        let a = ProviderProfileTrustRoot::new("provider-key-1", [1; 32], 1);
-        let b = ProviderProfileTrustRoot::new("provider-key-1", [1; 32], 2);
-        if let (Ok(a), Ok(b)) = (a, b) {
-            assert_ne!(a.root_commitment(), b.root_commitment());
-        }
-    }
-
-    #[test]
     fn evidence_window_requires_live_evidence() {
         assert!(validate_evidence_window(10, 30, 20).is_ok());
         assert!(matches!(
             validate_evidence_window(10, 20, 20),
             Err(ProviderTrustPolicyError::InvalidEvidenceWindow)
+        ));
+    }
+
+    #[test]
+    fn zero_generation_is_rejected_before_root_use() {
+        // Full typed/adopted fixtures are exercised by the currentness child.
+        // This local regression freezes the policy-level zero-generation rule.
+        assert!(matches!(
+            ProviderProfileTrustRoot::new("provider-key", [0; 32], 0),
+            Err(_)
         ));
     }
 }
