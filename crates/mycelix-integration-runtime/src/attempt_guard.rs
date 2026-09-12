@@ -11,10 +11,10 @@
 //! transition inside the protected native critical section.
 
 use mycelix_integration_core::{DigestAlgorithm, SideEffectClass};
-use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
+use rusqlite::{params, Connection, OpenFlags, OptionalExtension, TransactionBehavior};
 use std::fs;
 use std::os::unix::fs::MetadataExt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 use thiserror::Error;
 
@@ -35,6 +35,7 @@ pub struct QualifiedCurrentExecutionAttempt {
     store_device: u64,
     store_inode: u64,
     store_state_digest: [u8; 32],
+    durable_updated_at_ms: i64,
     qualified_at_ms: i64,
 }
 
@@ -59,6 +60,10 @@ impl QualifiedCurrentExecutionAttempt {
         self.store_state_digest
     }
 
+    pub fn durable_updated_at_ms(&self) -> i64 {
+        self.durable_updated_at_ms
+    }
+
     pub fn qualification_profile(&self) -> &'static str {
         CURRENT_ATTEMPT_PROFILE
     }
@@ -76,6 +81,14 @@ impl QualifiedCurrentExecutionAttempt {
     }
 
     pub const fn lease_current_at_read_here(&self) -> bool {
+        true
+    }
+
+    pub const fn quarantine_excluded_here(&self) -> bool {
+        true
+    }
+
+    pub const fn causal_frontier_checked_here(&self) -> bool {
         true
     }
 
@@ -107,6 +120,7 @@ struct DurableAttemptRow {
     command_commitment_digest: Vec<u8>,
     side_effect_class: i64,
     idempotency_key: Option<String>,
+    updated_at_ms: i64,
 }
 
 pub(crate) fn qualify_file_current_attempt(
@@ -117,22 +131,29 @@ pub(crate) fn qualify_file_current_attempt(
 ) -> Result<QualifiedCurrentExecutionAttempt, CurrentAttemptQualificationError> {
     validate_inputs(claim, worker_id, now_ms)?;
 
-    let before = fs::metadata(path).map_err(CurrentAttemptQualificationError::Io)?;
+    let canonical_before = canonical_store_path(path)?;
+    let before = fs::metadata(&canonical_before).map_err(CurrentAttemptQualificationError::Io)?;
     if !before.is_file() {
         return Err(CurrentAttemptQualificationError::StoreFileIdentityChanged);
     }
 
-    let mut conn = Connection::open(path)?;
+    let mut conn = Connection::open_with_flags(&canonical_before, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
     conn.busy_timeout(Duration::from_secs(5))?;
     conn.execute_batch("PRAGMA foreign_keys = ON; PRAGMA query_only = ON;")?;
     let tx = conn.transaction_with_behavior(TransactionBehavior::Deferred)?;
+
+    if entry_is_quarantined(&tx, claim.entry_id)? {
+        return Err(CurrentAttemptQualificationError::QuarantinedEntry {
+            entry_id: claim.entry_id,
+        });
+    }
 
     let row = tx
         .query_row(
             "SELECT stage, worker_id, lease_until_ms, attempt_count, current_attempt_id,\n\
                     command_id, connector_instance,\n\
                     command_commitment_algorithm, command_commitment_digest,\n\
-                    side_effect_class, idempotency_key\n\
+                    side_effect_class, idempotency_key, updated_at_ms\n\
              FROM integration_outbox WHERE entry_id = ?1",
             params![claim.entry_id],
             |row| {
@@ -148,6 +169,7 @@ pub(crate) fn qualify_file_current_attempt(
                     command_commitment_digest: row.get(8)?,
                     side_effect_class: row.get(9)?,
                     idempotency_key: row.get(10)?,
+                    updated_at_ms: row.get(11)?,
                 })
             },
         )
@@ -157,11 +179,15 @@ pub(crate) fn qualify_file_current_attempt(
         })?;
 
     validate_row(&row, claim, worker_id, now_ms)?;
-    let state_digest = durable_state_digest(claim, worker_id);
+    let state_digest = durable_state_digest(claim, worker_id, row.updated_at_ms);
     tx.commit()?;
 
-    let after = fs::metadata(path).map_err(CurrentAttemptQualificationError::Io)?;
-    if before.dev() != after.dev() || before.ino() != after.ino() {
+    let canonical_after = canonical_store_path(path)?;
+    let after = fs::metadata(&canonical_after).map_err(CurrentAttemptQualificationError::Io)?;
+    if canonical_before != canonical_after
+        || before.dev() != after.dev()
+        || before.ino() != after.ino()
+    {
         return Err(CurrentAttemptQualificationError::StoreFileIdentityChanged);
     }
 
@@ -171,8 +197,38 @@ pub(crate) fn qualify_file_current_attempt(
         store_device: after.dev(),
         store_inode: after.ino(),
         store_state_digest: state_digest,
+        durable_updated_at_ms: row.updated_at_ms,
         qualified_at_ms: now_ms,
     })
+}
+
+fn canonical_store_path(path: &Path) -> Result<PathBuf, CurrentAttemptQualificationError> {
+    fs::canonicalize(path).map_err(CurrentAttemptQualificationError::Io)
+}
+
+fn entry_is_quarantined(
+    tx: &rusqlite::Transaction<'_>,
+    entry_id: i64,
+) -> Result<bool, CurrentAttemptQualificationError> {
+    let table_exists: bool = tx.query_row(
+        "SELECT EXISTS(\n\
+             SELECT 1 FROM sqlite_master\n\
+             WHERE type = 'table' AND name = 'integration_runtime_quarantine'\n\
+         )",
+        [],
+        |row| row.get(0),
+    )?;
+    if !table_exists {
+        return Ok(false);
+    }
+    let quarantined: bool = tx.query_row(
+        "SELECT EXISTS(\n\
+             SELECT 1 FROM integration_runtime_quarantine WHERE entry_id = ?1\n\
+         )",
+        params![entry_id],
+        |row| row.get(0),
+    )?;
+    Ok(quarantined)
 }
 
 fn validate_inputs(
@@ -223,7 +279,7 @@ fn validate_row(
         return Err(CurrentAttemptQualificationError::ConnectorMismatch);
     }
     if row.command_commitment_algorithm != digest_algorithm_code(claim.command_commitment.algorithm)
-        || row.command_commitment_digest.as_slice() != claim.command_commitment.digest
+        || row.command_commitment_digest.as_slice() != claim.command_commitment.digest.as_slice()
     {
         return Err(CurrentAttemptQualificationError::CommandCommitmentMismatch);
     }
@@ -235,10 +291,20 @@ fn validate_row(
     {
         return Err(CurrentAttemptQualificationError::IdempotencyKeyMismatch);
     }
+    if row.updated_at_ms > now_ms {
+        return Err(CurrentAttemptQualificationError::CausalTimeRegression {
+            durable_updated_at_ms: row.updated_at_ms,
+            observed_at_ms: now_ms,
+        });
+    }
     Ok(())
 }
 
-fn durable_state_digest(claim: &ExecutionClaim, worker_id: &str) -> [u8; 32] {
+fn durable_state_digest(
+    claim: &ExecutionClaim,
+    worker_id: &str,
+    durable_updated_at_ms: i64,
+) -> [u8; 32] {
     let mut h = blake3::Hasher::new();
     h.update(DOMAIN_CURRENT_ATTEMPT);
     frame(&mut h, CURRENT_ATTEMPT_PROFILE.as_bytes());
@@ -246,7 +312,10 @@ fn durable_state_digest(claim: &ExecutionClaim, worker_id: &str) -> [u8; 32] {
     frame(&mut h, claim.attempt_id.as_str().as_bytes());
     frame(&mut h, claim.command_id.as_str().as_bytes());
     frame(&mut h, claim.connector_instance.as_str().as_bytes());
-    frame(&mut h, &[digest_algorithm_code(claim.command_commitment.algorithm) as u8]);
+    frame(
+        &mut h,
+        &[digest_algorithm_code(claim.command_commitment.algorithm) as u8],
+    );
     frame(&mut h, &claim.command_commitment.digest);
     frame(&mut h, &[side_effect_code(claim.side_effect_class) as u8]);
     match &claim.idempotency_key {
@@ -259,6 +328,7 @@ fn durable_state_digest(claim: &ExecutionClaim, worker_id: &str) -> [u8; 32] {
     frame(&mut h, &claim.attempt_count.to_le_bytes());
     frame(&mut h, &claim.lease_until_ms.to_le_bytes());
     frame(&mut h, worker_id.as_bytes());
+    frame(&mut h, &durable_updated_at_ms.to_le_bytes());
     *h.finalize().as_bytes()
 }
 
@@ -284,6 +354,8 @@ fn frame(h: &mut blake3::Hasher, bytes: &[u8]) {
 
 #[derive(Debug, Error)]
 pub enum CurrentAttemptQualificationError {
+    #[error("current-attempt qualification requires a file-backed integration runtime")]
+    FileBackedStoreRequired,
     #[error("current-attempt qualification requires a valid durable claim")]
     InvalidClaim,
     #[error("current-attempt qualification requires a valid worker id")]
@@ -292,6 +364,8 @@ pub enum CurrentAttemptQualificationError {
     InvalidTime,
     #[error("outbox entry {entry_id} does not exist")]
     UnknownEntry { entry_id: i64 },
+    #[error("outbox entry {entry_id} is quarantined")]
+    QuarantinedEntry { entry_id: i64 },
     #[error("durable outbox row is not in AttemptPrepared")]
     AttemptNotPrepared,
     #[error("durable prepared attempt belongs to a different worker")]
@@ -312,6 +386,11 @@ pub enum CurrentAttemptQualificationError {
     SideEffectMismatch,
     #[error("durable idempotency key differs from the claim")]
     IdempotencyKeyMismatch,
+    #[error("current-attempt observation time {observed_at_ms} predates durable frontier {durable_updated_at_ms}")]
+    CausalTimeRegression {
+        durable_updated_at_ms: i64,
+        observed_at_ms: i64,
+    },
     #[error("runtime store file identity changed during qualification")]
     StoreFileIdentityChanged,
     #[error(transparent)]
