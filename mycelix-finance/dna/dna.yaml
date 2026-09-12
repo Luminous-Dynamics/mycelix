@@ -46,6 +46,8 @@ integrity:
       path: ../target/wasm32-unknown-unknown/release/collateral_deposit_v2_integrity.wasm
     - name: collateral_settlement_auth_integrity
       path: ../target/wasm32-unknown-unknown/release/collateral_settlement_auth_integrity.wasm
+    - name: collateral_issuance_v2_integrity
+      path: ../target/wasm32-unknown-unknown/release/collateral_issuance_v2_integrity.wasm
     - name: staking_integrity
       path: ../target/wasm32-unknown-unknown/release/staking_integrity.wasm
     - name: tend_integrity
@@ -83,6 +85,10 @@ coordinator:
       dependencies:
         - name: collateral_settlement_auth_integrity
         - name: collateral_deposit_v2_integrity
+    - name: collateral_issuance_v2
+      path: ../target/wasm32-unknown-unknown/release/collateral_issuance_v2.wasm
+      dependencies:
+        - name: collateral_issuance_v2_integrity
     - name: staking
       path: ../target/wasm32-unknown-unknown/release/staking_coordinator.wasm
       dependencies:
