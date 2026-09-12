@@ -1,0 +1,13 @@
+[package]
+name = "mycelix-integration-materializer-determinism"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Deterministic instruction-subset qualification for Mycelix WASM materializers"
+
+[dependencies]
+blake3 = "1.5"
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+mycelix-integration-materializer-abi = { path = "../mycelix-integration-materializer-abi" }
+thiserror = "2.0"
+wasmparser = "0.240"
