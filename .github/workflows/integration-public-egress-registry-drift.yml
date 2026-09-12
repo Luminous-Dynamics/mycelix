@@ -1,0 +1,90 @@
+name: Integration Public Egress Registry Drift
+
+on:
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: integration-public-egress-registry-drift
+  cancel-in-progress: true
+
+jobs:
+  drift:
+    name: Advisory IANA registry drift sentinel
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Fetch current IANA registry text
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --proto '=https' --tlsv1.2 --location --fail --silent --show-error \
+            --output /tmp/iana-ipv4.txt \
+            https://www.iana.org/assignments/iana-ipv4-special-registry/iana-ipv4-special-registry.txt
+          curl --proto '=https' --tlsv1.2 --location --fail --silent --show-error \
+            --output /tmp/iana-ipv6.txt \
+            https://www.iana.org/assignments/iana-ipv6-special-registry/iana-ipv6-special-registry.txt
+          curl --proto '=https' --tlsv1.2 --location --fail --silent --show-error \
+            --output /tmp/iana-special-domains.txt \
+            https://www.iana.org/assignments/special-use-domain-names/special-use-domain-names.txt
+
+      - name: Compare pinned registry dates
+        shell: bash
+        env:
+          PINNED_IP_DATE: '2025-10-09'
+          PINNED_DOMAIN_DATE: '2026-05-22'
+        run: |
+          set -euo pipefail
+
+          extract_date() {
+            awk '
+              /Last Updated/ {
+                if (getline > 0) {
+                  gsub(/^[[:space:]]+|[[:space:]]+$/, "", $0)
+                  print $0
+                  exit
+                }
+              }
+            ' "$1"
+          }
+
+          ipv4_date="$(extract_date /tmp/iana-ipv4.txt)"
+          ipv6_date="$(extract_date /tmp/iana-ipv6.txt)"
+          domain_date="$(extract_date /tmp/iana-special-domains.txt)"
+
+          printf 'Pinned IPv4/IPv6 special-purpose date: %s\n' "$PINNED_IP_DATE"
+          printf 'Current IPv4 special-purpose date:     %s\n' "$ipv4_date"
+          printf 'Current IPv6 special-purpose date:     %s\n' "$ipv6_date"
+          printf 'Pinned special-use domain date:        %s\n' "$PINNED_DOMAIN_DATE"
+          printf 'Current special-use domain date:       %s\n' "$domain_date"
+
+          if [[ -z "$ipv4_date" || -z "$ipv6_date" || -z "$domain_date" ]]; then
+            echo 'Unable to parse one or more IANA Last Updated fields.' >&2
+            exit 1
+          fi
+
+          if [[ "$ipv4_date" != "$PINNED_IP_DATE" || "$ipv6_date" != "$PINNED_IP_DATE" ]]; then
+            echo 'IANA IP special-purpose registry drift detected.' >&2
+            echo 'Review the upstream registry and create a new source/policy profile; do not auto-update production authority.' >&2
+            exit 1
+          fi
+
+          if [[ "$domain_date" != "$PINNED_DOMAIN_DATE" ]]; then
+            echo 'IANA special-use domain registry drift detected.' >&2
+            echo 'Review the upstream registry and create a new source/policy profile; do not auto-update production authority.' >&2
+            exit 1
+          fi
+
+          echo 'Pinned IANA registry dates still match upstream.'
+
+      - name: Reassert advisory-only boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'This workflow is a drift sentinel only.'
+          echo 'It does not mutate source, update policy tables, or qualify production execution authority.'
