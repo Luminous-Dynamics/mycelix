@@ -16,7 +16,7 @@ use mycelix_integration_materializer_determinism::QualifiedDeterministicWasmMate
 use mycelix_integration_preexecution_admission::QualifiedIntegrationPreexecutionAdmission;
 use thiserror::Error;
 use wasmi::{
-    Config, Engine, Linker, Module, Store, StoreLimits, StoreLimitsBuilder,
+    CompilationMode, Config, Engine, Linker, Module, Store, StoreLimits, StoreLimitsBuilder,
 };
 
 pub const RUNTIME_PROFILE: &str =
@@ -141,7 +141,9 @@ pub fn materialize_provider_request(
     fuel_limit: u64,
 ) -> Result<MaterializedProviderRequest, MaterializerRuntimeError> {
     validate_fuel(fuel_limit)?;
-    if canonical_command_bytes.is_empty() || canonical_command_bytes.len() > MAX_CANONICAL_INPUT_BYTES {
+    if canonical_command_bytes.is_empty()
+        || canonical_command_bytes.len() > MAX_CANONICAL_INPUT_BYTES
+    {
         return Err(MaterializerRuntimeError::InvalidInputSize);
     }
 
@@ -171,12 +173,11 @@ pub fn materialize_provider_request(
         .consume_fuel(true)
         .allow_start_fn(false)
         .floats(false)
-        .wasm_simd(false)
-        .wasm_relaxed_simd(false)
         .wasm_tail_call(false)
         .wasm_reference_types(false)
         .wasm_memory64(false)
-        .wasm_multi_memory(false);
+        .wasm_multi_memory(false)
+        .compilation_mode(CompilationMode::Eager);
     let engine = Engine::new(&config);
     let module = Module::new(&engine, artifact.module_bytes())
         .map_err(|error| MaterializerRuntimeError::Engine(error.to_string()))?;
@@ -379,8 +380,14 @@ mod tests {
     fn fuel_policy_is_bounded() {
         assert!(validate_fuel(MIN_FUEL).is_ok());
         assert!(validate_fuel(MAX_FUEL).is_ok());
-        assert!(matches!(validate_fuel(MIN_FUEL - 1), Err(MaterializerRuntimeError::InvalidFuelLimit)));
-        assert!(matches!(validate_fuel(MAX_FUEL + 1), Err(MaterializerRuntimeError::InvalidFuelLimit)));
+        assert!(matches!(
+            validate_fuel(MIN_FUEL - 1),
+            Err(MaterializerRuntimeError::InvalidFuelLimit)
+        ));
+        assert!(matches!(
+            validate_fuel(MAX_FUEL + 1),
+            Err(MaterializerRuntimeError::InvalidFuelLimit)
+        ));
     }
 
     #[test]
