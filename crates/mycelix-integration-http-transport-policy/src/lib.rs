@@ -1,10 +1,9 @@
 //! Institution-adopted HTTP transport safety for Mycelix integrations.
 //!
-//! This policy is deliberately narrower than a general HTTP client. Provider
-//! materializers do not get authority over scheme, host, port, method,
-//! authorization/idempotency headers, content type, redirects, environment
-//! proxies, or arbitrary headers. A later request-plan theorem may provide only
-//! bounded path-suffix/query/body data under this policy.
+//! v0.1 is intentionally narrower than a general HTTP client. Provider
+//! materializers never control scheme, host, port, method, engine-owned headers,
+//! redirects, environment proxies, or credential material. A later request-plan
+//! theorem may supply only bounded path-suffix/query/body data.
 
 use mycelix_authority_freshness::{
     qualify_current_freshness, AuthoritySubjectKind, AuthoritySubjectRef, FreshnessError,
@@ -64,24 +63,17 @@ pub struct IntegrationHttpTransportPolicy {
     pub connector_instance: ConnectorInstanceId,
     pub system: ExternalSystemId,
     pub operation_kind: ExternalOperationKind,
-    /// Exact signed provider execution profile to which this transport policy is
-    /// attached. Provider-profile rotation requires explicit transport-policy
-    /// re-adoption rather than silently inheriting endpoint authority.
     pub provider_profile_commitment: ContentCommitment,
     /// Lowercase DNS hostname only. No scheme, port, path, IP literal or userinfo.
     pub endpoint_host: String,
-    /// v0.1 requires 443.
+    /// v0.1 requires HTTPS on 443.
     pub endpoint_port: u16,
     pub method: HttpMethod,
-    /// Absolute path prefix such as `/v1/payment_intents/`.
     pub path_prefix: String,
-    /// Engine-owned request Content-Type.
     pub content_type: String,
-    /// Engine-owned credential header, usually `authorization`.
     pub credential_header_name: String,
-    /// Opaque secret-manager slot identity; never secret material.
+    /// Secret-manager reference only; never the secret value.
     pub credential_slot_id: String,
-    /// Engine-owned provider idempotency header when required.
     pub idempotency_header_name: Option<String>,
     pub max_body_bytes: u32,
     pub max_query_bytes: u32,
@@ -386,11 +378,10 @@ pub fn qualify_adopted_http_transport_policy(
     if verified_at_ms > now_ms || valid_until_ms <= now_ms {
         return Err(HttpTransportPolicyError::NoUsablePolicyWindow);
     }
-    let qualification_digest = adopted_digest(policy_digest);
     Ok(QualifiedAdoptedHttpTransportPolicy {
         policy: policy.clone(),
         policy_digest,
-        qualification_digest,
+        qualification_digest: adopted_digest(policy_digest),
         verified_at_ms,
         valid_until_ms,
     })
@@ -430,11 +421,13 @@ pub fn qualify_current_http_transport_policy(
     if verified_at_ms > now_ms || valid_until_ms <= now_ms {
         return Err(HttpTransportPolicyError::NoUsableCurrentWindow);
     }
-    let qualification_digest = current_digest(adopted.qualification_digest, current.freshness_digest);
     Ok(QualifiedCurrentHttpTransportPolicy {
         adopted: adopted.clone(),
         freshness_digest: current.freshness_digest,
-        qualification_digest,
+        qualification_digest: current_digest(
+            adopted.qualification_digest,
+            current.freshness_digest,
+        ),
         verified_at_ms,
         valid_until_ms,
     })
@@ -448,8 +441,16 @@ pub fn bind_http_transport_to_provider(
     if now_ms == 0 || current.verified_at_ms > now_ms || current.valid_until_ms <= now_ms {
         return Err(HttpTransportPolicyError::NoUsableCurrentWindow);
     }
+    let now_i64 =
+        i64::try_from(now_ms).map_err(|_| HttpTransportPolicyError::ProviderProfileTimeOverflow)?;
     let policy = current.policy();
     let profile = provider.profile();
+    if provider.qualified_at_ms() > now_i64
+        || now_i64 < profile.not_before_ms
+        || now_i64 > profile.not_after_ms
+    {
+        return Err(HttpTransportPolicyError::ProviderProfileNotLive);
+    }
     if &policy.provider_profile_commitment != provider.profile_commitment() {
         return Err(HttpTransportPolicyError::ProviderProfileCommitmentMismatch);
     }
@@ -469,14 +470,13 @@ pub fn bind_http_transport_to_provider(
     if valid_until_ms <= now_ms {
         return Err(HttpTransportPolicyError::NoUsableProviderWindow);
     }
-    let binding_digest = provider_binding_digest(
-        current.qualification_digest,
-        provider.profile_commitment(),
-    );
     Ok(QualifiedHttpTransportProviderBinding {
         current_policy: current.clone(),
         provider_profile_commitment: provider.profile_commitment().clone(),
-        binding_digest,
+        binding_digest: provider_binding_digest(
+            current.qualification_digest,
+            provider.profile_commitment(),
+        ),
         valid_until_ms,
     })
 }
@@ -531,13 +531,16 @@ fn validate_evidence_window(
 }
 
 fn validate_dns_host(host: &str) -> Result<(), HttpTransportPolicyError> {
-    if host.is_empty() || host.len() > 253 || host != host.to_ascii_lowercase() {
-        return Err(HttpTransportPolicyError::InvalidEndpointHost);
-    }
-    if host.contains(['/', ':', '@', '[', ']', '?', '#'])
+    if host.is_empty()
+        || host.len() > 253
+        || host != host.to_ascii_lowercase()
+        || host.contains(['/', ':', '@', '[', ']', '?', '#'])
         || host.starts_with('.')
         || host.ends_with('.')
         || !host.contains('.')
+        || host
+            .split('.')
+            .all(|label| label.bytes().all(|byte| byte.is_ascii_digit()))
     {
         return Err(HttpTransportPolicyError::InvalidEndpointHost);
     }
@@ -697,7 +700,7 @@ pub enum HttpTransportPolicyError {
     InvalidGeneration,
     #[error("transport policy rulebook is invalid")]
     InvalidRulebook,
-    #[error("transport endpoint host must be a lowercase DNS name")]
+    #[error("transport endpoint host must be a lowercase non-IP DNS name")]
     InvalidEndpointHost,
     #[error("HTTP transport v0.1 requires HTTPS port 443")]
     HttpsPortRequired,
@@ -729,6 +732,8 @@ pub enum HttpTransportPolicyError {
     FreshnessPredatesPolicy,
     #[error("transport policy has no usable current window")]
     NoUsableCurrentWindow,
+    #[error("signed provider profile is not live at transport-policy use time")]
+    ProviderProfileNotLive,
     #[error("transport policy exact provider profile commitment differs")]
     ProviderProfileCommitmentMismatch,
     #[error("transport policy provider semantics differ from signed provider profile")]
@@ -765,7 +770,12 @@ mod tests {
 
     #[test]
     fn engine_reserved_headers_are_rejected() {
-        for name in ["host", "content-length", "transfer-encoding", "proxy-authorization"] {
+        for name in [
+            "host",
+            "content-length",
+            "transfer-encoding",
+            "proxy-authorization",
+        ] {
             assert!(validate_header_name(name).is_err());
         }
         assert!(validate_header_name("authorization").is_ok());
@@ -774,7 +784,6 @@ mod tests {
 
     #[test]
     fn policy_exposes_no_redirect_proxy_or_arbitrary_header_authority() {
-        // Compile-time/API surface assertions are reinforced by CI source ratchets.
         let _ = IntegrationHttpTransportPolicy::redirects_allowed_here;
         let _ = IntegrationHttpTransportPolicy::environment_proxy_allowed_here;
         let _ = IntegrationHttpTransportPolicy::arbitrary_materializer_headers_allowed_here;
