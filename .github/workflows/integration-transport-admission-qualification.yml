@@ -1,0 +1,192 @@
+name: Integration Transport Admission Qualification
+
+on:
+  pull_request:
+    branches:
+      - feat/integration-provider-trust-currentness-v1
+      - main
+    paths:
+      - 'crates/mycelix-integration-transport-admission/**'
+      - 'crates/mycelix-integration-provider-trust-currentness/**'
+      - 'crates/mycelix-integration-provider-trust-policy/**'
+      - 'crates/mycelix-integration-atomic-dispatch-start/**'
+      - 'crates/mycelix-integration-materializer-runtime/**'
+      - 'crates/mycelix-integration-admin-mutation-exclusion/**'
+      - 'crates/mycelix-integration-store-rechecked-preexecution/**'
+      - '.github/workflows/integration-transport-admission-qualification.yml'
+  push:
+    branches:
+      - feat/integration-transport-admission-v1
+    paths:
+      - 'crates/mycelix-integration-transport-admission/**'
+      - '.github/workflows/integration-transport-admission-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  MANIFEST: crates/mycelix-integration-transport-admission/Cargo.toml
+  SOURCE: crates/mycelix-integration-transport-admission/src/lib.rs
+
+concurrency:
+  group: integration-transport-admission-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Live exclusion-bound transport admission
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/mycelix-integration-transport-admission
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path "$MANIFEST" --all --check
+
+      - name: Compile tests without running
+        run: cargo test --manifest-path "$MANIFEST" --no-run
+
+      - name: Run tests
+        run: cargo test --manifest-path "$MANIFEST"
+
+      - name: Clippy
+        run: cargo clippy --manifest-path "$MANIFEST" --all-targets -- -D warnings
+
+      - name: Reject direct network and provider SDK dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, subprocess
+          meta = json.loads(subprocess.check_output([
+              'cargo', 'metadata', '--manifest-path',
+              'crates/mycelix-integration-transport-admission/Cargo.toml',
+              '--no-deps', '--format-version', '1'
+          ]))
+          package = next(p for p in meta['packages'] if p['name'] == 'mycelix-integration-transport-admission')
+          direct = {d['name'] for d in package['dependencies']}
+          forbidden = {'reqwest','hyper','tonic','curl','ureq','tokio','async-std','rustls','native-tls','openssl','stripe'}
+          hit = sorted(direct & forbidden)
+          if hit:
+              raise SystemExit(f'direct network/TLS/provider dependency entered transport admission: {hit}')
+          PY
+
+      - name: Enforce current adopted provider root and exact authority domain
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'QualifiedCurrentProviderTrustPolicy' "$SOURCE"
+          grep -Fq 'qualify_current_provider_trust_policy' "$SOURCE"
+          grep -Fq 'trust_policy.institution != capability_policy.institution' "$SOURCE"
+          grep -Fq 'trust_policy.jurisdiction != capability_policy.jurisdiction' "$SOURCE"
+          grep -Fq 'trust_policy.rulebook != capability_policy.rulebook' "$SOURCE"
+          grep -Fq 'trust_policy.connector_instance != command.connector_instance' "$SOURCE"
+          grep -Fq 'trust_policy.system != command.system' "$SOURCE"
+          if grep -Fq 'ProviderProfileTrustRoot' "$SOURCE"; then
+            echo 'Transport admission must not accept a raw caller-created provider root.'
+            exit 1
+          fi
+
+      - name: Enforce live exclusion and inside-guard requalification order
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          s = Path('crates/mycelix-integration-transport-admission/src/lib.rs').read_text()
+          ordered = [
+              'begin_integration_admin_mutation_exclusion(',
+              'let inside_at_ms = system_now_ms()?',
+              'let inside_root = qualify_current_provider_trust_policy(',
+              'let inside_admission = qualify_store_rechecked_preexecution(',
+              'let canonical_command = command.canonical_preimage_v1();',
+              'let materialized = materialize_provider_request(',
+              'let final_at_ms = system_now_ms()?',
+              'let final_root = qualify_current_provider_trust_policy(',
+              'let final_admission = qualify_store_rechecked_preexecution(',
+              'validate_materialization_against_final_admission(',
+              'let atomic_dispatch = bind_materialization_and_start_dispatch(',
+          ]
+          cursor = -1
+          for needle in ordered:
+              pos = s.find(needle, cursor + 1)
+              if pos < 0:
+                  raise SystemExit(f'missing ordered theorem step: {needle}')
+              if pos <= cursor:
+                  raise SystemExit(f'theorem step out of order: {needle}')
+              cursor = pos
+          PY
+
+      - name: Enforce canonical command bytes are generated internally
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'let canonical_command = command.canonical_preimage_v1();' "$SOURCE"
+          if grep -Eq 'canonical_command_bytes:[[:space:]]*&\[u8\]' "$SOURCE"; then
+            echo 'Caller-supplied canonical command bytes are forbidden.'
+            exit 1
+          fi
+
+      - name: Enforce admitted payload remains opaque
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'pub const fn raw_payload_extractable_here(&self) -> bool {' "$SOURCE"
+          if grep -Eq 'pub fn (request_bytes|materialized)\(' "$SOURCE"; then
+            echo 'Transport admission must not expose raw/copyable provider payload bytes.'
+            exit 1
+          fi
+          if grep -Eq 'derive\([^)]*(Serialize|Deserialize)' "$SOURCE"; then
+            echo 'Live transport admission must remain process-local and non-serializable.'
+            exit 1
+          fi
+
+      - name: Enforce atomic dispatch is the last fallible boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          s = Path('crates/mycelix-integration-transport-admission/src/lib.rs').read_text()
+          start = s.find('let atomic_dispatch = bind_materialization_and_start_dispatch(')
+          if start < 0:
+              raise SystemExit('atomic dispatch call missing')
+          end = s.find('Ok(QualifiedIntegrationTransportAdmission {', start)
+          if end < 0:
+              raise SystemExit('transport-admission construction missing')
+          tail = s[start:end]
+          boundary = tail.find(')?;')
+          if boundary < 0:
+              raise SystemExit('atomic dispatch result boundary missing')
+          after = tail[boundary + 3:]
+          forbidden = ['?', 'system_now_ms(', '.validate(', 'qualify_', 'fs::', 'Sqlite', 'store.', 'trust_root()']
+          for needle in forbidden:
+              if needle in after:
+                  raise SystemExit(f'fallible/post-dispatch operation found after durable DispatchStarted: {needle}')
+          PY
+
+      - name: Enforce transport token still does no provider I/O
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'pub const fn provider_transport_admitted_here(&self) -> bool {' "$SOURCE"
+          grep -Fq 'pub const fn provider_call_started_here(&self) -> bool {' "$SOURCE"
+          grep -Fq 'pub const fn originates_execution_authority_here(&self) -> bool {' "$SOURCE"
+          if grep -Eq 'reqwest::|hyper::|tonic::|TcpStream|UdpSocket|send\(|execute_http|provider_client|AdminWebsocket|update_coordinators' "$SOURCE"; then
+            echo 'Transport admission crossed into provider/Admin I/O.'
+            exit 1
+          fi
