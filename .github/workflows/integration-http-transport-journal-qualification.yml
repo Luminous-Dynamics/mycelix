@@ -1,0 +1,156 @@
+name: Integration HTTP Transport Journal Qualification
+
+on:
+  pull_request:
+    branches:
+      - feat/integration-http-issuance-descriptor-v1
+      - main
+    paths:
+      - 'crates/mycelix-integration-http-transport-journal/**'
+      - '.github/workflows/integration-http-transport-journal-qualification.yml'
+  push:
+    branches:
+      - feat/integration-http-transport-journal-v1
+    paths:
+      - 'crates/mycelix-integration-http-transport-journal/**'
+      - '.github/workflows/integration-http-transport-journal-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  MANIFEST: crates/mycelix-integration-http-transport-journal/Cargo.toml
+  SOURCE: crates/mycelix-integration-http-transport-journal/src/lib.rs
+
+concurrency:
+  group: integration-http-transport-journal-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Durable first-byte uncertainty ratchet
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/mycelix-integration-http-transport-journal
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path "$MANIFEST" --all --check
+
+      - name: Compile tests without running
+        run: cargo test --manifest-path "$MANIFEST" --no-run
+
+      - name: Run tests
+        run: cargo test --manifest-path "$MANIFEST"
+
+      - name: Clippy
+        run: cargo clippy --manifest-path "$MANIFEST" --all-targets -- -D warnings
+
+      - name: Enforce one-way uncertainty ratchet
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'JOURNAL_PREPARED' "$SOURCE"
+          grep -Fq 'JOURNAL_WRITE_MAY_BEGIN' "$SOURCE"
+          grep -Fq 'JOURNAL_OBSERVATION_RECORDED' "$SOURCE"
+          grep -Fq 'application_write_capability_issued_here(&self) -> bool' "$SOURCE"
+          grep -Fq 'ambiguity_floor_crossed_here(&self) -> bool' "$SOURCE"
+          grep -Fq 'NoWriteCapabilityIssued' "$SOURCE"
+          grep -Fq 'AmbiguousPossibleIssue' "$SOURCE"
+
+      - name: Enforce durable arm occurs before write capability return
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          s = Path('crates/mycelix-integration-http-transport-journal/src/lib.rs').read_text()
+          start = s.find('pub fn arm_http_application_write(')
+          update = s.find('SET stage = ?1, armed_at_ms = ?2', start)
+          commit = s.find('tx.commit()?;', update)
+          ret = s.find('Ok(armed)', commit)
+          if min(start, update, commit, ret) < 0 or not (start < update < commit < ret):
+              raise SystemExit('write-arm ordering is missing or unsafe')
+          tail = s[commit + len('tx.commit()?;'):ret]
+          if '?' in tail or 'return Err' in tail:
+              raise SystemExit('fallible path exists after durable WriteMayBegin commit')
+          PY
+
+      - name: Enforce descriptor identity is secret-free observation identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'ContentCommitment::sha256(&descriptor.issuance_digest().0)' "$SOURCE"
+          grep -Fq '&evidence.request_commitment != request_commitment' "$SOURCE"
+          grep -Fq 'dispatch.binding_digest()' "$SOURCE"
+          grep -Fq 'descriptor.issuance_digest()' "$SOURCE"
+          if grep -Eq 'authorization|credential_value|api_key|password|secret_value' "$SOURCE"; then
+            echo 'Transport journal contains credential-material semantics.'
+            exit 1
+          fi
+
+      - name: Enforce pre-write nonissuance is narrow
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'observation.disposition != TransportObservationDisposition::DefinitelyNotIssued' "$SOURCE"
+          grep -Fq 'observation.evidence.application_bytes_written != 0' "$SOURCE"
+          grep -Fq 'PrewriteObservationNotNonissuance' "$SOURCE"
+
+      - name: Enforce exact context-dispatch and file identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'integration_dispatch_binding_v2' "$SOURCE"
+          grep -Fq 'context_profile != dispatch.context().profile()' "$SOURCE"
+          grep -Fq 'binding_digest.as_slice() != dispatch.binding_digest().0' "$SOURCE"
+          grep -Fq 'command_digest.as_slice() != descriptor.command_commitment().digest' "$SOURCE"
+          grep -Fq 'symlink_metadata' "$SOURCE"
+          grep -Fq 'metadata.dev() != expected_device' "$SOURCE"
+          grep -Fq 'metadata.ino() != expected_inode' "$SOURCE"
+
+      - name: Enforce journal schema and no trigger side channels
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'integration_http_transport_attempt_v1' "$SOURCE"
+          grep -Fq 'PRIMARY KEY(entry_id, attempt_id)' "$SOURCE"
+          grep -Fq 'FOREIGN KEY(entry_id) REFERENCES integration_outbox(entry_id)' "$SOURCE"
+          grep -Fq 'trigger_count != 0' "$SOURCE"
+
+      - name: Enforce journal performs no network or secret access
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, subprocess
+          meta = json.loads(subprocess.check_output([
+              'cargo','metadata','--manifest-path',
+              'crates/mycelix-integration-http-transport-journal/Cargo.toml',
+              '--no-deps','--format-version','1'
+          ]))
+          package = next(p for p in meta['packages'] if p['name'] == 'mycelix-integration-http-transport-journal')
+          direct = {d['name'] for d in package['dependencies']}
+          forbidden = {'reqwest','hyper','tokio','rustls','native-tls','openssl','keyring','vault','vaultrs','secret-service'}
+          hit = sorted(direct & forbidden)
+          if hit:
+              raise SystemExit(f'network/secret runtime entered journal: {hit}')
+          PY
+          if grep -Eq 'TcpStream|UdpSocket|reqwest::|hyper::|rustls::|std::env|keyring::|vault::|secret_service::' "$SOURCE"; then
+            echo 'Transport journal crossed into network/secret access.'
+            exit 1
+          fi
