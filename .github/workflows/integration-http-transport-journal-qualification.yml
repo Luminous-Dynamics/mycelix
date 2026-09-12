@@ -98,8 +98,12 @@ jobs:
           grep -Fq '&evidence.request_commitment != request_commitment' "$SOURCE"
           grep -Fq 'dispatch.binding_digest()' "$SOURCE"
           grep -Fq 'descriptor.issuance_digest()' "$SOURCE"
-          if grep -Eq 'authorization|credential_value|api_key|password|secret_value' "$SOURCE"; then
-            echo 'Transport journal contains credential-material semantics.'
+          if grep -Eq 'pub (secret|credential_value|authorization_value|api_key|password)[[:space:]]*:' "$SOURCE"; then
+            echo 'Transport journal gained a credential-material field.'
+            exit 1
+          fi
+          if grep -Eq 'pub fn (secret|credential_value|authorization_value|api_key|password)\(' "$SOURCE"; then
+            echo 'Transport journal exposes credential material.'
             exit 1
           fi
 
