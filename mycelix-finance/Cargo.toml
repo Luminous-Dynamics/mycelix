@@ -15,6 +15,7 @@ members = [
     "crates/finance-sap-account-v2",
     "crates/finance-sap-value-notes",
     "crates/finance-sap-transfer-v2",
+    "crates/finance-sap-transfer-finality",
     "crates/finance-wire-types",
     "crates/finance-leptos-types",
     "zomes/shared",
