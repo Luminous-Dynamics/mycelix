@@ -60,16 +60,44 @@ jobs:
       - name: Clippy
         run: cargo clippy --manifest-path "$MANIFEST" --all-targets -- -D warnings
 
-      - name: Enforce exact provisioned filesystem identity
+      - name: Enforce exact provisioned identity and security attributes
         shell: bash
         run: |
           set -euo pipefail
+          grep -Fq 'pub struct RuntimeStoreProvisioningExpectation' "$SOURCE"
+          grep -Fq 'pub device: u64' "$SOURCE"
+          grep -Fq 'pub inode: u64' "$SOURCE"
+          grep -Fq 'pub uid: u32' "$SOURCE"
+          grep -Fq 'pub gid: u32' "$SOURCE"
+          grep -Fq 'pub mode: u32' "$SOURCE"
           grep -Fq 'fs::symlink_metadata(path)' "$SOURCE"
           grep -Fq 'fs::canonicalize(path)' "$SOURCE"
-          grep -Fq 'metadata.dev() != expected_device' "$SOURCE"
-          grep -Fq 'metadata.ino() != expected_inode' "$SOURCE"
-          grep -Fq 'expected_inode == 0' "$SOURCE"
+          grep -Fq 'metadata.dev() != expectation.device' "$SOURCE"
+          grep -Fq 'metadata.ino() != expectation.inode' "$SOURCE"
+          grep -Fq 'metadata.uid() != expectation.uid' "$SOURCE"
+          grep -Fq 'metadata.gid() != expectation.gid' "$SOURCE"
+          grep -Fq 'mode != expectation.mode' "$SOURCE"
           grep -Fq 'pub fn revalidate(&self)' "$SOURCE"
+          grep -Fq 'current_security_attributes_verified_here(&self) -> bool' "$SOURCE"
+
+      - name: Enforce frozen mode remains owner-rw and not writable by others
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'self.mode & 0o600 != 0o600 || self.mode & 0o022 != 0' "$SOURCE"
+          grep -Fq 'mode & 0o600 != 0o600 || mode & 0o022 != 0' "$SOURCE"
+          grep -Fq 'StoreSecurityAttributesChanged' "$SOURCE"
+          grep -Fq 'UnsafeFileMode' "$SOURCE"
+
+      - name: Enforce binding digest commits identity and security tuple
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq '&expectation.device.to_le_bytes()' "$SOURCE"
+          grep -Fq '&expectation.inode.to_le_bytes()' "$SOURCE"
+          grep -Fq '&expectation.uid.to_le_bytes()' "$SOURCE"
+          grep -Fq '&expectation.gid.to_le_bytes()' "$SOURCE"
+          grep -Fq '&expectation.mode.to_le_bytes()' "$SOURCE"
 
       - name: Enforce deployment authority stays external
         shell: bash
@@ -84,21 +112,16 @@ jobs:
           pos = s.find(marker)
           if pos < 0 or 'false' not in s[pos:pos+180]:
               raise SystemExit('store binding must not claim provisioning-origin verification')
+          if 'fs::metadata(&canonical_path)' in s and 'expectation:' not in s:
+              raise SystemExit('store binding must not learn its security expectation from the candidate file')
           PY
-
-      - name: Enforce writable-by-others stores fail closed
-        shell: bash
-        run: |
-          set -euo pipefail
-          grep -Fq 'metadata.permissions().mode() & 0o022 != 0' "$SOURCE"
-          grep -Fq 'UnsafeFileMode' "$SOURCE"
 
       - name: Enforce binding never creates or replaces the store
         shell: bash
         run: |
           set -euo pipefail
-          if grep -Eq 'File::create|OpenOptions|create\(|create_new|truncate|rename\(|remove_file|set_len' "$SOURCE"; then
-            echo 'Runtime-store binding must verify an independently provisioned store, never create/replace it.'
+          if grep -Eq 'File::create|OpenOptions|create\(|create_new|truncate|rename\(|remove_file|set_len|set_permissions|chown|chmod' "$SOURCE"; then
+            echo 'Runtime-store binding must verify independently provisioned state, never create/replace/repair it.'
             exit 1
           fi
 
