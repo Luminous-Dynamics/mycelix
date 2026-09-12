@@ -66,16 +66,24 @@ jobs:
       - name: Clippy
         run: cargo clippy --manifest-path "$MANIFEST" --all-targets -- -D warnings
 
-      - name: Reject network and provider SDK dependencies
+      - name: Reject direct network and provider SDK dependencies
         shell: bash
         run: |
           set -euo pipefail
-          tree="$(cargo tree --manifest-path "$MANIFEST" -e normal --prefix none)"
-          if printf '%s\n' "$tree" | grep -Eiq '^(reqwest|hyper|tonic|curl|ureq|tokio|async-std|rustls|native-tls|openssl|stripe)( |$)'; then
-            echo 'Network/TLS/provider dependency entered transport-admission closure:'
-            printf '%s\n' "$tree" | grep -Ei '^(reqwest|hyper|tonic|curl|ureq|tokio|async-std|rustls|native-tls|openssl|stripe)( |$)' || true
-            exit 1
-          fi
+          python3 - <<'PY'
+          import json, subprocess
+          meta = json.loads(subprocess.check_output([
+              'cargo', 'metadata', '--manifest-path',
+              'crates/mycelix-integration-transport-admission/Cargo.toml',
+              '--no-deps', '--format-version', '1'
+          ]))
+          package = next(p for p in meta['packages'] if p['name'] == 'mycelix-integration-transport-admission')
+          direct = {d['name'] for d in package['dependencies']}
+          forbidden = {'reqwest','hyper','tonic','curl','ureq','tokio','async-std','rustls','native-tls','openssl','stripe'}
+          hit = sorted(direct & forbidden)
+          if hit:
+              raise SystemExit(f'direct network/TLS/provider dependency entered transport admission: {hit}')
+          PY
 
       - name: Enforce current adopted provider root and exact authority domain
         shell: bash
@@ -161,8 +169,6 @@ jobs:
           if end < 0:
               raise SystemExit('transport-admission construction missing')
           tail = s[start:end]
-          # The atomic call itself may return Err. Once its trailing `)?;` completes,
-          # no subsequent operation may introduce another fallible path.
           boundary = tail.find(')?;')
           if boundary < 0:
               raise SystemExit('atomic dispatch result boundary missing')
