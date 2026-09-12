@@ -8,12 +8,14 @@ on:
     paths:
       - 'crates/mycelix-integration-http-egress-route/**'
       - '.github/workflows/integration-public-egress-registry-qualification.yml'
+      - '.github/workflows/integration-public-egress-registry-drift.yml'
   push:
     branches:
       - feat/integration-public-egress-registry-v2
     paths:
       - 'crates/mycelix-integration-http-egress-route/**'
       - '.github/workflows/integration-public-egress-registry-qualification.yml'
+      - '.github/workflows/integration-public-egress-registry-drift.yml'
   workflow_dispatch:
 
 permissions:
@@ -23,6 +25,7 @@ env:
   CARGO_TERM_COLOR: always
   MANIFEST: crates/mycelix-integration-http-egress-route/Cargo.toml
   SOURCE: crates/mycelix-integration-http-egress-route/src/lib.rs
+  DRIFT: .github/workflows/integration-public-egress-registry-drift.yml
 
 concurrency:
   group: integration-public-egress-registry-${{ github.event.pull_request.head.ref || github.ref_name }}
@@ -165,7 +168,24 @@ jobs:
             grep -Fq "$needle" "$SOURCE"
           done
 
-      - name: Enforce no dynamic network or registry fetch capability
+      - name: Enforce advisory registry drift sentinel
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq "cron: '17 6 * * 1'" "$DRIFT"
+          grep -Fq "PINNED_IP_DATE: '2025-10-09'" "$DRIFT"
+          grep -Fq "PINNED_DOMAIN_DATE: '2026-05-22'" "$DRIFT"
+          grep -Fq 'iana-ipv4-special-registry.txt' "$DRIFT"
+          grep -Fq 'iana-ipv6-special-registry.txt' "$DRIFT"
+          grep -Fq 'special-use-domain-names.txt' "$DRIFT"
+          grep -Fq 'do not auto-update production authority' "$DRIFT"
+          grep -Fq 'contents: read' "$DRIFT"
+          if grep -Eq 'contents:[[:space:]]*write|issues:[[:space:]]*write|pull-requests:[[:space:]]*write|git push|gh issue|gh pr' "$DRIFT"; then
+            echo 'Registry drift sentinel gained mutation authority.'
+            exit 1
+          fi
+
+      - name: Enforce no dynamic network or registry fetch capability in theorem
         shell: bash
         run: |
           set -euo pipefail
