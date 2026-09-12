@@ -1,5 +1,5 @@
-use crate::{storage_guard::FileStoreAdmission, RuntimeError};
-use rusqlite::{params, Connection, OptionalExtension, Transaction, TransactionBehavior};
+use crate::{RuntimeError, storage_guard::FileStoreAdmission};
+use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior, params};
 use std::{path::Path, time::Duration};
 
 const EXPECTED_STRUCTURAL_SCHEMA_V2: i64 = 2;
@@ -11,8 +11,7 @@ const EXPECTED_STRUCTURAL_SCHEMA_V2: i64 = 2;
 /// database to contain no user schema objects before Mycelix may stamp it as a
 /// fresh structural-v2 bootstrap candidate, and partial-v2 recovery to contain
 /// only recognized Mycelix bootstrap objects before semantic metadata is written.
-pub const RUNTIME_BOOTSTRAP_PROFILE_V1: &str =
-    "mycelix-integration-runtime/bootstrap-profile-v1";
+pub const RUNTIME_BOOTSTRAP_PROFILE_V1: &str = "mycelix-integration-runtime/bootstrap-profile-v1";
 
 const REQUIRED_STRUCTURAL_TABLES: &[&str] = &[
     "integration_inbound",
