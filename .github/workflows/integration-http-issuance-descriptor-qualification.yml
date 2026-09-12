@@ -1,0 +1,146 @@
+name: Integration HTTP Issuance Descriptor Qualification
+
+on:
+  pull_request:
+    branches:
+      - feat/integration-http-credential-slot-v1
+      - main
+    paths:
+      - 'crates/mycelix-integration-http-issuance-descriptor/**'
+      - '.github/workflows/integration-http-issuance-descriptor-qualification.yml'
+  push:
+    branches:
+      - feat/integration-http-issuance-descriptor-v1
+    paths:
+      - 'crates/mycelix-integration-http-issuance-descriptor/**'
+      - '.github/workflows/integration-http-issuance-descriptor-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  MANIFEST: crates/mycelix-integration-http-issuance-descriptor/Cargo.toml
+  SOURCE: crates/mycelix-integration-http-issuance-descriptor/src/lib.rs
+
+concurrency:
+  group: integration-http-issuance-descriptor-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Secret-free exact issuance identity
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/mycelix-integration-http-issuance-descriptor
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path "$MANIFEST" --all --check
+
+      - name: Compile tests without running
+        run: cargo test --manifest-path "$MANIFEST" --no-run
+
+      - name: Run tests
+        run: cargo test --manifest-path "$MANIFEST"
+
+      - name: Clippy
+        run: cargo clippy --manifest-path "$MANIFEST" --all-targets -- -D warnings
+
+      - name: Enforce exact transport-plan-route-credential join
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'plan.transport_policy_binding_digest() != transport_digest' "$SOURCE"
+          grep -Fq 'route.transport_policy_binding_digest() != transport_digest' "$SOURCE"
+          grep -Fq 'credential.transport_policy_binding_digest() != transport_digest' "$SOURCE"
+          grep -Fq 'command.connector_instance != policy.connector_instance' "$SOURCE"
+          grep -Fq 'command.system != policy.system' "$SOURCE"
+          grep -Fq 'command.operation_kind != policy.operation_kind' "$SOURCE"
+          grep -Fq 'route.hostname() != policy.endpoint_host' "$SOURCE"
+          grep -Fq 'credential.slot_id() != policy.credential_slot_id' "$SOURCE"
+
+      - name: Enforce deterministic URL-shape commitments
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'render_path(&policy.path_prefix, plan.path_segments())' "$SOURCE"
+          grep -Fq 'render_query(plan)' "$SOURCE"
+          grep -Fq '0123456789ABCDEF' "$SOURCE"
+          grep -Fq 'rendered_path_commitment' "$SOURCE"
+          grep -Fq 'rendered_query_commitment' "$SOURCE"
+          grep -Fq 'body_commitment' "$SOURCE"
+
+      - name: Enforce command-level idempotency binding without standalone key hash
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'let command_commitment = command.canonical_commitment_v1();' "$SOURCE"
+          grep -Fq 'idempotency_identity_bound_via_command_commitment_here(&self) -> bool' "$SOURCE"
+          grep -Fq 'standalone_idempotency_key_hashed_here(&self) -> bool' "$SOURCE"
+          grep -Fq 'validate_idempotency_requirement(' "$SOURCE"
+          if grep -Eq 'sha256\([^\n]*idempotency|idempotency_key_commitment' "$SOURCE"; then
+            echo 'Standalone idempotency-key hashing entered issuance descriptor.'
+            exit 1
+          fi
+
+      - name: Enforce no credential-derived audit artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'credential_material_present_here(&self) -> bool' "$SOURCE"
+          grep -Fq 'credential_material_hashed_here(&self) -> bool' "$SOURCE"
+          if grep -Eq 'pub (secret|credential_value|authorization_value|api_key|password)[[:space:]]*:' "$SOURCE"; then
+            echo 'Secret material entered issuance descriptor.'
+            exit 1
+          fi
+          if grep -Eq 'pub fn (raw_url|raw_body|credential_value|authorization_value|api_key|secret)\(' "$SOURCE"; then
+            echo 'Issuance descriptor exposed reusable/secret wire material.'
+            exit 1
+          fi
+
+      - name: Enforce all live horizons constrain descriptor
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq '!route.is_live_at(now_ms)' "$SOURCE"
+          grep -Fq '!credential.is_live_at(now_ms)' "$SOURCE"
+          grep -Fq 'transport.valid_until_ms() <= now_ms' "$SOURCE"
+          grep -Fq '.min(route.valid_until_ms())' "$SOURCE"
+          grep -Fq '.min(credential.valid_until_ms())' "$SOURCE"
+
+      - name: Enforce pure descriptor layer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, subprocess
+          meta = json.loads(subprocess.check_output([
+              'cargo','metadata','--manifest-path',
+              'crates/mycelix-integration-http-issuance-descriptor/Cargo.toml',
+              '--no-deps','--format-version','1'
+          ]))
+          package = next(p for p in meta['packages'] if p['name'] == 'mycelix-integration-http-issuance-descriptor')
+          direct = {d['name'] for d in package['dependencies']}
+          forbidden = {'reqwest','hyper','tokio','rustls','native-tls','openssl','keyring','vault','vaultrs','secret-service'}
+          hit = sorted(direct & forbidden)
+          if hit:
+              raise SystemExit(f'network/secret runtime entered pure issuance descriptor: {hit}')
+          PY
+          if grep -Eq 'TcpStream|UdpSocket|reqwest::|hyper::|rustls::|std::env|keyring::|vault::|secret_service::' "$SOURCE"; then
+            echo 'Issuance descriptor crossed into network/secret access.'
+            exit 1
+          fi
