@@ -299,6 +299,7 @@ fn direct_closure_can_authorize_exact_surface() {
     );
     assert_eq!(
         verify_regenerative_support_closure_surface_authorization(
+            &viability,
             &basis,
             &continuity,
             &surface,
@@ -323,6 +324,7 @@ fn hidden_finite_root_refusal_is_auditable_but_cannot_authorize_surface() {
     );
     assert!(!continuity.scalar_runway_projection_safe);
     assert!(verify_regenerative_support_closure_surface_authorization(
+        &viability,
         &basis,
         &continuity,
         &hypothetical_surface,
@@ -355,6 +357,7 @@ fn forged_safe_root_or_surface_digest_fails_closed() {
     let mut direct = direct_continuity(&direct_viability, &direct_basis, &direct_surface);
     direct.authorized_policy_surface_content_digest = Some("0".repeat(64));
     assert!(verify_regenerative_support_closure_surface_authorization(
+        &direct_viability,
         &direct_basis,
         &direct,
         &direct_surface,
