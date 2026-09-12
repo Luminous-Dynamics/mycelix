@@ -7,6 +7,7 @@ on:
       - main
     paths:
       - 'crates/mycelix-integration-runtime/Cargo.toml'
+      - 'crates/mycelix-integration-runtime/src/runtime.rs'
       - 'crates/mycelix-integration-runtime/src/attempt_guard.rs'
       - 'crates/mycelix-integration-runtime/src/bootstrap_guard.rs'
       - 'crates/mycelix-integration-current-action-authority/Cargo.toml'
@@ -19,6 +20,7 @@ on:
       - feat/integration-http-transport-journal-v1
     paths:
       - 'crates/mycelix-integration-runtime/Cargo.toml'
+      - 'crates/mycelix-integration-runtime/src/runtime.rs'
       - 'crates/mycelix-integration-runtime/src/attempt_guard.rs'
       - 'crates/mycelix-integration-runtime/src/bootstrap_guard.rs'
       - 'crates/mycelix-integration-current-action-authority/Cargo.toml'
@@ -36,6 +38,7 @@ env:
   RUST_TOOLCHAIN: '1.96.0'
   QUALIFICATION_SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
   RUNTIME_MANIFEST: crates/mycelix-integration-runtime/Cargo.toml
+  RUNTIME_SHELL_SOURCE: crates/mycelix-integration-runtime/src/runtime.rs
   RUNTIME_SOURCE: crates/mycelix-integration-runtime/src/attempt_guard.rs
   RUNTIME_BOOTSTRAP_SOURCE: crates/mycelix-integration-runtime/src/bootstrap_guard.rs
   AUTH_ACTION_MANIFEST: crates/mycelix-integration-current-action-authority/Cargo.toml
@@ -92,7 +95,7 @@ jobs:
           set -euo pipefail
           rustc --version --verbose
           cargo --version --verbose
-          sha256sum "$RUNTIME_MANIFEST" "$RUNTIME_SOURCE" "$RUNTIME_BOOTSTRAP_SOURCE" "$AUTH_ACTION_MANIFEST" "$MATERIALIZER_ABI_SOURCE" "$STORE_MANIFEST" "$JOURNAL_MANIFEST" "$WORKFLOW"
+          sha256sum "$RUNTIME_MANIFEST" "$RUNTIME_SHELL_SOURCE" "$RUNTIME_SOURCE" "$RUNTIME_BOOTSTRAP_SOURCE" "$AUTH_ACTION_MANIFEST" "$MATERIALIZER_ABI_SOURCE" "$STORE_MANIFEST" "$JOURNAL_MANIFEST" "$WORKFLOW"
           cargo metadata --manifest-path "$JOURNAL_MANIFEST" --format-version 1 > /tmp/integration-transport-dependency-metadata.json
           echo 'No --locked claim is made here until this standalone stack carries an intentionally committed lockfile.'
 
@@ -103,6 +106,10 @@ jobs:
           grep -Fq 'blake3 = "1.5"' "$RUNTIME_MANIFEST"
           grep -Fq 'let mut h = blake3::Hasher::new();' "$RUNTIME_SOURCE"
           grep -Fq 'fn frame(h: &mut blake3::Hasher, bytes: &[u8])' "$RUNTIME_SOURCE"
+          grep -Fq 'OPEN_CONTENTION_RETRY_WINDOW' "$RUNTIME_SHELL_SOURCE"
+          grep -Fq 'ErrorCode::DatabaseBusy | ErrorCode::DatabaseLocked' "$RUNTIME_SHELL_SOURCE"
+          grep -Fq 'match Self::open_once(&path)' "$RUNTIME_SHELL_SOURCE"
+          grep -Fq 'Only SQLite BUSY/LOCKED contention is retryable' "$RUNTIME_SHELL_SOURCE"
           grep -Fq 'unsupported integration runtime semantic profile:' "$RUNTIME_BOOTSTRAP_SOURCE"
           grep -Fq 'but no semantic producer identity; automatic bootstrap is forbidden' "$RUNTIME_BOOTSTRAP_SOURCE"
           grep -Fq 'mycelix-integration-core = { path = "../mycelix-integration-core" }' "$AUTH_ACTION_MANIFEST"
@@ -110,6 +117,7 @@ jobs:
 
       - name: Check changed runtime sources formatting
         run: |
+          rustfmt --edition 2024 --check "$RUNTIME_SHELL_SOURCE"
           rustfmt --edition 2024 --check "$RUNTIME_SOURCE"
           rustfmt --edition 2024 --check "$RUNTIME_BOOTSTRAP_SOURCE"
 
@@ -151,9 +159,11 @@ jobs:
           grep -Fq "RUST_TOOLCHAIN: '1.96.0'" "$WORKFLOW"
           grep -Fq 'github.event.pull_request.head.sha || github.sha' "$WORKFLOW"
           grep -Fq 'persist-credentials: false' "$WORKFLOW"
+          grep -Fq 'crates/mycelix-integration-runtime/src/runtime.rs' "$WORKFLOW"
           grep -Fq 'crates/mycelix-integration-runtime/src/bootstrap_guard.rs' "$WORKFLOW"
           grep -Fq 'crates/mycelix-integration-current-action-authority/Cargo.toml' "$WORKFLOW"
           grep -Fq 'crates/mycelix-integration-materializer-abi/src/lib.rs' "$WORKFLOW"
+          grep -Fq 'rustfmt --edition 2024 --check "$RUNTIME_SHELL_SOURCE"' "$WORKFLOW"
           grep -Fq 'rustfmt --edition 2024 --check "$RUNTIME_SOURCE"' "$WORKFLOW"
           grep -Fq 'rustfmt --edition 2024 --check "$RUNTIME_BOOTSTRAP_SOURCE"' "$WORKFLOW"
           grep -Fq 'Store-binding and journal source formatting are intentionally owned by' "$WORKFLOW"
@@ -162,4 +172,4 @@ jobs:
             exit 1
           fi
           test "$(git rev-parse HEAD)" = "$QUALIFICATION_SUBJECT_SHA"
-          git diff --exit-code -- "$RUNTIME_MANIFEST" "$RUNTIME_SOURCE" "$RUNTIME_BOOTSTRAP_SOURCE" "$AUTH_ACTION_MANIFEST" "$MATERIALIZER_ABI_SOURCE" "$STORE_MANIFEST" "$JOURNAL_MANIFEST" "$WORKFLOW"
+          git diff --exit-code -- "$RUNTIME_MANIFEST" "$RUNTIME_SHELL_SOURCE" "$RUNTIME_SOURCE" "$RUNTIME_BOOTSTRAP_SOURCE" "$AUTH_ACTION_MANIFEST" "$MATERIALIZER_ABI_SOURCE" "$STORE_MANIFEST" "$JOURNAL_MANIFEST" "$WORKFLOW"
