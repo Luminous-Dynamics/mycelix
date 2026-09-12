@@ -1,0 +1,133 @@
+name: Finance Witness Iterator Fix
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/finance-witness-iterator-fix.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: finance-witness-iterator-fix
+  cancel-in-progress: false
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  SOURCE_SHA: 'e0b02592125ecd2e7cc2a7971eed467f369d0ad2'
+  TARGET_BRANCH: 'fin-safe-020-witness-iterator'
+  TARGET_FILE: 'mycelix-finance/crates/finance-sap-witness-allocation/src/lib.rs'
+
+jobs:
+  validate-and-promote:
+    name: Validate + promote witness iterator fix
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'ci-fin-002-lock-candidate-r2'
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout frozen formatted source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: true
+
+      - name: Prove source and target branch identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          remote_target="$(git ls-remote origin "refs/heads/$TARGET_BRANCH" | cut -f1)"
+          test "$remote_target" = "$SOURCE_SHA"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - name: Apply exact two-site iterator flattening
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('mycelix-finance/crates/finance-sap-witness-allocation/src/lib.rs')
+          text = path.read_text()
+          old = 'classify_input_from_history(note_id, physical.values())'
+          new = 'classify_input_from_history(note_id, physical.values().copied())'
+          count = text.count(old)
+          if count != 2:
+              raise SystemExit(f'refusing: expected exactly 2 target call sites, found {count}')
+          if new in text:
+              raise SystemExit('refusing: replacement already present before mutation')
+          path.write_text(text.replace(old, new))
+          PY
+          cd mycelix-finance
+          cargo fmt --all
+          cargo fmt --all --check
+          cd ..
+          git diff --check
+          changed="$(git diff --name-only)"
+          test "$changed" = "$TARGET_FILE"
+
+      - name: Generate ephemeral lock candidate for targeted validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp mycelix-finance/Cargo.lock /tmp/Cargo.lock.before
+          cd mycelix-finance
+          cargo metadata --format-version 1 > /tmp/cargo-metadata-generated.json
+          cargo metadata --locked --format-version 1 > /tmp/cargo-metadata-locked.json
+          cargo test -p finance-sap-witness-allocation --locked 2>&1 | tee /tmp/witness-allocation-test.log
+          cd ..
+          test "$(git diff --name-only -- mycelix-finance/Cargo.lock)" = 'mycelix-finance/Cargo.lock'
+
+      - name: Restore generated lock and prove one-file source delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp /tmp/Cargo.lock.before mycelix-finance/Cargo.lock
+          git diff --quiet -- mycelix-finance/Cargo.lock
+          changed="$(git diff --name-only)"
+          test "$changed" = "$TARGET_FILE"
+          git diff -- "$TARGET_FILE" > /tmp/witness-iterator-fix.patch
+          test -s /tmp/witness-iterator-fix.patch
+          grep -F 'physical.values().copied()' "$TARGET_FILE" | wc -l | grep -qx '2'
+
+      - name: Commit validated one-file fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- "$TARGET_FILE"
+          test "$(git diff --cached --name-only)" = "$TARGET_FILE"
+          git diff --cached --check
+          git commit -m 'fix(finance): flatten witness history iterator references'
+          promoted_sha="$(git rev-parse HEAD)"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          {
+            echo "source_sha=$SOURCE_SHA"
+            echo "promoted_sha=$promoted_sha"
+            echo "target_file=$TARGET_FILE"
+            sha256sum /tmp/witness-iterator-fix.patch
+            sha256sum "$TARGET_FILE"
+          } > /tmp/promotion.env
+          cat /tmp/promotion.env >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload fix validation receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: finance-witness-iterator-fix-${{ env.SOURCE_SHA }}-${{ github.run_attempt }}
+          path: |
+            /tmp/promotion.env
+            /tmp/witness-iterator-fix.patch
+            /tmp/witness-allocation-test.log
+            /tmp/cargo-metadata-locked.json
+          if-no-files-found: warn
+          retention-days: 30
