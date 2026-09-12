@@ -1,0 +1,138 @@
+name: Finance Rustfmt Candidate
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-finance/**'
+      - '.github/workflows/finance-rustfmt-candidate.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: finance-rustfmt-candidate-${{ github.event.pull_request.head.repo.full_name }}-${{ github.event.pull_request.head.ref }}
+  cancel-in-progress: true
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  QUALIFICATION_SUBJECT_SHA: ${{ github.event.pull_request.head.sha }}
+  QUALIFICATION_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+
+jobs:
+  generate-rustfmt-candidate:
+    name: Generate Finance rustfmt candidate
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact candidate subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.QUALIFICATION_SUBJECT_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Bind exact subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$QUALIFICATION_SUBJECT_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$QUALIFICATION_SUBJECT_SHA"
+          mkdir -p evidence/rustfmt-candidate/formatted-files
+          {
+            echo 'schema=finance-rustfmt-candidate-v1'
+            echo "subject_sha=$QUALIFICATION_SUBJECT_SHA"
+            echo "base_sha=$QUALIFICATION_BASE_SHA"
+            echo "runtime_github_sha=$GITHUB_SHA"
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "run_attempt=$GITHUB_RUN_ATTEMPT"
+            echo "runner_os=$RUNNER_OS"
+            echo "runner_arch=$RUNNER_ARCH"
+          } > evidence/rustfmt-candidate/subject.env
+
+      - name: Install pinned Rust formatter
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt
+
+      - name: Capture pre-format source identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc --version --verbose > evidence/rustfmt-candidate/rustc.txt
+          cargo --version --verbose > evidence/rustfmt-candidate/cargo.txt
+          rustfmt --version > evidence/rustfmt-candidate/rustfmt.txt
+          cat /etc/os-release > evidence/rustfmt-candidate/os-release.txt
+          uname -a > evidence/rustfmt-candidate/uname.txt
+          git ls-files 'mycelix-finance/**/*.rs' 'mycelix-finance/*.rs' \
+            | LC_ALL=C sort > evidence/rustfmt-candidate/rust-paths.before.txt
+          while IFS= read -r path; do sha256sum "$path"; done \
+            < evidence/rustfmt-candidate/rust-paths.before.txt \
+            > evidence/rustfmt-candidate/rust-before.sha256
+          sha256sum mycelix-finance/Cargo.toml mycelix-finance/Cargo.lock \
+            > evidence/rustfmt-candidate/non-rust-authority.before.sha256
+
+      - name: Generate rustfmt candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo fmt --all
+          cargo fmt --all --check
+          cd ..
+          git diff --check
+
+      - name: Enforce formatting-only closed world
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --name-only -- mycelix-finance | LC_ALL=C sort \
+            > evidence/rustfmt-candidate/changed-paths.txt
+          test -s evidence/rustfmt-candidate/changed-paths.txt
+          while IFS= read -r path; do
+            case "$path" in
+              mycelix-finance/*.rs|mycelix-finance/**/*.rs) ;;
+              *) echo "Non-Rust path changed by formatter candidate: $path" >&2; exit 1 ;;
+            esac
+          done < evidence/rustfmt-candidate/changed-paths.txt
+          sha256sum mycelix-finance/Cargo.toml mycelix-finance/Cargo.lock \
+            > evidence/rustfmt-candidate/non-rust-authority.after.sha256
+          diff -u \
+            evidence/rustfmt-candidate/non-rust-authority.before.sha256 \
+            evidence/rustfmt-candidate/non-rust-authority.after.sha256
+          git diff -- mycelix-finance > evidence/rustfmt-candidate/rustfmt.patch
+          test -s evidence/rustfmt-candidate/rustfmt.patch
+
+      - name: Capture formatted files and post-format hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r path; do
+            mkdir -p "evidence/rustfmt-candidate/formatted-files/$(dirname "$path")"
+            cp "$path" "evidence/rustfmt-candidate/formatted-files/$path"
+            sha256sum "$path"
+          done < evidence/rustfmt-candidate/changed-paths.txt \
+            > evidence/rustfmt-candidate/rust-after.sha256
+          printf 'changed_file_count=%s\n' "$(wc -l < evidence/rustfmt-candidate/changed-paths.txt)" \
+            > evidence/rustfmt-candidate/summary.env
+
+      - name: Finalize evidence manifest
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/rustfmt-candidate
+          find evidence/rustfmt-candidate -type f ! -name manifest.sha256 -print0 \
+            | sort -z \
+            | xargs -0 -r sha256sum \
+            > evidence/rustfmt-candidate/manifest.sha256
+
+      - name: Upload exact rustfmt candidate
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: finance-rustfmt-candidate-${{ env.QUALIFICATION_SUBJECT_SHA }}-${{ github.run_attempt }}
+          path: evidence/rustfmt-candidate
+          if-no-files-found: error
+          retention-days: 30
