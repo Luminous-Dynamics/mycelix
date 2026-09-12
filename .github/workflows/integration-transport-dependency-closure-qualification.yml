@@ -1,0 +1,146 @@
+name: Integration Transport Dependency Closure Qualification
+
+on:
+  pull_request:
+    branches:
+      - feat/integration-http-issuance-descriptor-v1
+      - main
+    paths:
+      - 'crates/mycelix-integration-runtime/Cargo.toml'
+      - 'crates/mycelix-integration-runtime/src/attempt_guard.rs'
+      - 'crates/mycelix-integration-runtime-store-binding/**'
+      - 'crates/mycelix-integration-http-transport-journal/**'
+      - '.github/workflows/integration-transport-dependency-closure-qualification.yml'
+  push:
+    branches:
+      - feat/integration-http-transport-journal-v1
+    paths:
+      - 'crates/mycelix-integration-runtime/Cargo.toml'
+      - 'crates/mycelix-integration-runtime/src/attempt_guard.rs'
+      - 'crates/mycelix-integration-runtime-store-binding/**'
+      - 'crates/mycelix-integration-http-transport-journal/**'
+      - '.github/workflows/integration-transport-dependency-closure-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_TOOLCHAIN: '1.96.0'
+  QUALIFICATION_SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  RUNTIME_MANIFEST: crates/mycelix-integration-runtime/Cargo.toml
+  RUNTIME_SOURCE: crates/mycelix-integration-runtime/src/attempt_guard.rs
+  STORE_MANIFEST: crates/mycelix-integration-runtime-store-binding/Cargo.toml
+  JOURNAL_MANIFEST: crates/mycelix-integration-http-transport-journal/Cargo.toml
+  WORKFLOW: .github/workflows/integration-transport-dependency-closure-qualification.yml
+
+concurrency:
+  group: integration-transport-dependency-closure-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Exact transport dependency closure
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.QUALIFICATION_SUBJECT_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Bind exact source head
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$QUALIFICATION_SUBJECT_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$QUALIFICATION_SUBJECT_SHA"
+          printf 'qualification_subject_sha=%s\n' "$QUALIFICATION_SUBJECT_SHA"
+          printf 'runtime_github_sha=%s\n' "$GITHUB_SHA"
+          printf 'workflow_sha=%s\n' "$GITHUB_WORKFLOW_SHA"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
+
+      - name: Restore pinned Rust cache action
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          workspaces: |
+            crates/mycelix-integration-runtime
+            crates/mycelix-integration-runtime-store-binding
+            crates/mycelix-integration-http-transport-journal
+
+      - name: Capture exact environment and source capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc --version --verbose
+          cargo --version --verbose
+          sha256sum "$RUNTIME_MANIFEST" "$RUNTIME_SOURCE" "$STORE_MANIFEST" "$JOURNAL_MANIFEST" "$WORKFLOW"
+          cargo metadata --manifest-path "$JOURNAL_MANIFEST" --format-version 1 > /tmp/integration-transport-dependency-metadata.json
+          echo 'No --locked claim is made here until this standalone stack carries an intentionally committed lockfile.'
+
+      - name: Enforce direct BLAKE3 dependency for durable attempt digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'blake3 = "1.5"' "$RUNTIME_MANIFEST"
+          grep -Fq 'let mut h = blake3::Hasher::new();' "$RUNTIME_SOURCE"
+          grep -Fq 'fn frame(h: &mut blake3::Hasher, bytes: &[u8])' "$RUNTIME_SOURCE"
+
+      - name: Check runtime package formatting only
+        run: cargo fmt --manifest-path "$RUNTIME_MANIFEST" --package mycelix-integration-runtime -- --check
+
+      - name: Check store-binding package formatting only
+        run: cargo fmt --manifest-path "$STORE_MANIFEST" --package mycelix-integration-runtime-store-binding -- --check
+
+      - name: Check journal package formatting only
+        run: cargo fmt --manifest-path "$JOURNAL_MANIFEST" --package mycelix-integration-http-transport-journal -- --check
+
+      - name: Compile runtime tests
+        run: cargo test --manifest-path "$RUNTIME_MANIFEST" --package mycelix-integration-runtime --no-run
+
+      - name: Compile store-binding tests
+        run: cargo test --manifest-path "$STORE_MANIFEST" --package mycelix-integration-runtime-store-binding --no-run
+
+      - name: Compile transport-journal tests
+        run: cargo test --manifest-path "$JOURNAL_MANIFEST" --package mycelix-integration-http-transport-journal --no-run
+
+      - name: Run runtime tests
+        run: cargo test --manifest-path "$RUNTIME_MANIFEST" --package mycelix-integration-runtime
+
+      - name: Run store-binding tests
+        run: cargo test --manifest-path "$STORE_MANIFEST" --package mycelix-integration-runtime-store-binding
+
+      - name: Run transport-journal tests
+        run: cargo test --manifest-path "$JOURNAL_MANIFEST" --package mycelix-integration-http-transport-journal
+
+      - name: Clippy runtime
+        run: cargo clippy --manifest-path "$RUNTIME_MANIFEST" --package mycelix-integration-runtime --all-targets -- -D warnings
+
+      - name: Clippy store binding
+        run: cargo clippy --manifest-path "$STORE_MANIFEST" --package mycelix-integration-runtime-store-binding --all-targets -- -D warnings
+
+      - name: Clippy transport journal
+        run: cargo clippy --manifest-path "$JOURNAL_MANIFEST" --package mycelix-integration-http-transport-journal --all-targets -- -D warnings
+
+      - name: Enforce qualification scope and immutable subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq "RUST_TOOLCHAIN: '1.96.0'" "$WORKFLOW"
+          grep -Fq 'github.event.pull_request.head.sha || github.sha' "$WORKFLOW"
+          grep -Fq 'persist-credentials: false' "$WORKFLOW"
+          if grep -Fq 'cargo fmt --manifest-path "$JOURNAL_MANIFEST" --all --check' "$WORKFLOW"; then
+            echo 'Dependency-closure formatter escaped package scope.'
+            exit 1
+          fi
+          test "$(git rev-parse HEAD)" = "$QUALIFICATION_SUBJECT_SHA"
+          git diff --exit-code -- "$RUNTIME_MANIFEST" "$RUNTIME_SOURCE" "$STORE_MANIFEST" "$JOURNAL_MANIFEST" "$WORKFLOW"
