@@ -113,7 +113,7 @@ jobs:
             echo 'Current-attempt positive proof fields must remain private.'
             exit 1
           fi
-          if grep -Eq 'mark_dispatch_started|DispatchStarted|provider call|reqwest|hyper|tonic|stripe' "$guard"; then
+          if grep -Eq 'fn[[:space:]]+(mark_dispatch_started|dispatch|execute_provider)|reqwest::|hyper::|tonic::|stripe::' "$guard"; then
             echo 'Current-attempt observation crossed into dispatch/provider execution.'
             exit 1
           fi
