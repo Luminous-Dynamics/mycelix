@@ -127,5 +127,6 @@ jobs:
           grep -Fq 'in_memory_runtime_cannot_mint_store_bound_attempt_proof' "$tests"
           grep -Fq 'forged_worker_and_lease_fail_closed' "$tests"
           grep -Fq 'causal_time_cannot_move_behind_durable_attempt_frontier' "$tests"
+          grep -Fq 'quarantined_attempt_cannot_requalify' "$tests"
           grep -Fq 'prepared_attempt_proof_cannot_be_reused_after_dispatch_transition' "$tests"
           grep -Fq 'expired_claim_cannot_requalify_even_before_recovery_runs' "$tests"
