@@ -76,6 +76,26 @@ jobs:
           grep -Fq 'NoWriteCapabilityIssued' "$SOURCE"
           grep -Fq 'AmbiguousPossibleIssue' "$SOURCE"
 
+      - name: Enforce prepare-time DispatchStarted join
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'const OUTBOX_DISPATCH_STARTED: i64 = 5;' "$SOURCE"
+          grep -Fq 'SELECT o.stage, d.context_profile' "$SOURCE"
+          grep -Fq 'FROM integration_outbox o' "$SOURCE"
+          grep -Fq 'JOIN integration_dispatch_binding_v2 d ON d.entry_id = o.entry_id' "$SOURCE"
+          grep -Fq 'outbox_stage != OUTBOX_DISPATCH_STARTED' "$SOURCE"
+          python3 - <<'PY'
+          from pathlib import Path
+          s = Path('crates/mycelix-integration-http-transport-journal/src/lib.rs').read_text()
+          prepare = s[s.find('pub fn prepare_http_transport_attempt('):s.find('\n}\n\n/// Durably cross', s.find('pub fn prepare_http_transport_attempt('))]
+          if 'validate_dispatch_row(&tx, dispatch, descriptor)?;' not in prepare:
+              raise SystemExit('prepare path must rejoin outbox + v2 dispatch inside its transaction')
+          recovery = s[s.find('pub fn recover_http_transport_attempt('):s.find('\n}\n\nfn record_observation_from_prepared', s.find('pub fn recover_http_transport_attempt('))]
+          if 'OUTBOX_DISPATCH_STARTED' in recovery:
+              raise SystemExit('restart recovery must not require outbox to remain at DispatchStarted')
+          PY
+
       - name: Enforce durable arm occurs before write capability return
         shell: bash
         run: |
