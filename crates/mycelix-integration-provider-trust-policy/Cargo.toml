@@ -1,0 +1,14 @@
+[package]
+name = "mycelix-integration-provider-trust-policy"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Institution-adopted provider-profile trust-root policy for Mycelix integrations"
+
+[dependencies]
+blake3 = "1.5"
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+mycelix-integration-core = { path = "../mycelix-integration-core" }
+mycelix-integration-execution-binding = { path = "../mycelix-integration-execution-binding" }
+serde = { version = "1", features = ["derive"] }
+thiserror = "2.0"
