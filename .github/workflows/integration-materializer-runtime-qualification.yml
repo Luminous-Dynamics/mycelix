@@ -1,0 +1,136 @@
+name: Integration Materializer Runtime Qualification
+
+on:
+  pull_request:
+    branches:
+      - feat/integration-materializer-determinism-v1
+      - main
+    paths:
+      - 'crates/mycelix-integration-materializer-runtime/**'
+      - 'crates/mycelix-integration-materializer-determinism/**'
+      - 'crates/mycelix-integration-materializer-abi/**'
+      - 'crates/mycelix-integration-materializer-policy/**'
+      - 'crates/mycelix-integration-materializer-artifact/**'
+      - 'crates/mycelix-integration-preexecution-admission/**'
+      - '.github/workflows/integration-materializer-runtime-qualification.yml'
+  push:
+    branches:
+      - feat/integration-materializer-runtime-v1
+    paths:
+      - 'crates/mycelix-integration-materializer-runtime/**'
+      - '.github/workflows/integration-materializer-runtime-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  MANIFEST: crates/mycelix-integration-materializer-runtime/Cargo.toml
+
+concurrency:
+  group: integration-materializer-runtime-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Fresh fuel-bounded provider materialization
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/mycelix-integration-materializer-runtime
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path "$MANIFEST" --all --check
+
+      - name: Compile tests without running
+        run: cargo test --manifest-path "$MANIFEST" --no-run
+
+      - name: Run tests
+        run: cargo test --manifest-path "$MANIFEST"
+
+      - name: Clippy
+        run: cargo clippy --manifest-path "$MANIFEST" --all-targets -- -D warnings
+
+      - name: Enforce exact Wasmi runtime dependency
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest="$MANIFEST"
+          grep -Fq 'wasmi = "=2.0.0"' "$manifest"
+          tree="$(cargo tree --manifest-path "$manifest" -e normal --prefix none)"
+          if printf '%s\n' "$tree" | grep -Eiq '^(reqwest|hyper|tonic|curl|ureq|tokio|async-std|rustls|native-tls|openssl)( |$)'; then
+            echo 'Network/TLS/runtime dependency entered materializer runtime closure:'
+            printf '%s\n' "$tree" | grep -Ei '^(reqwest|hyper|tonic|curl|ureq|tokio|async-std|rustls|native-tls|openssl)( |$)' || true
+            exit 1
+          fi
+
+      - name: Enforce fresh bounded interpreter semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-materializer-runtime/src/lib.rs'
+          grep -Fq 'CompilationMode::Eager' "$source"
+          grep -Fq '.consume_fuel(true)' "$source"
+          grep -Fq '.allow_start_fn(false)' "$source"
+          grep -Fq '.floats(false)' "$source"
+          grep -Fq '.wasm_tail_call(false)' "$source"
+          grep -Fq '.wasm_reference_types(false)' "$source"
+          grep -Fq '.wasm_memory64(false)' "$source"
+          grep -Fq '.wasm_multi_memory(false)' "$source"
+          grep -Fq 'StoreLimitsBuilder::new()' "$source"
+          grep -Fq '.instances(1)' "$source"
+          grep -Fq '.memories(1)' "$source"
+          grep -Fq '.tables(0)' "$source"
+          grep -Fq 'store.limiter(|state| &mut state.limits)' "$source"
+          grep -Fq 'store.set_fuel' "$source" || grep -Fq '.set_fuel(fuel_limit)' "$source"
+          grep -Fq 'Linker::<HostState>::new(&engine)' "$source"
+          grep -Fq 'instantiate_and_start' "$source"
+          grep -Fq 'memory.grow(&mut store' "$source" || grep -Fq '.grow(&mut store' "$source"
+          grep -Fq 'memory.write(&mut store' "$source" || grep -Fq '.write(&mut store' "$source"
+          grep -Fq 'get_typed_func::<(i32, i32), i64>' "$source"
+          grep -Fq 'memory.read(&store' "$source" || grep -Fq '.read(&store' "$source"
+
+      - name: Enforce exact authority/profile/input joins
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-materializer-runtime/src/lib.rs'
+          grep -Fq 'artifact.release_commitment() != binding.materializer_release()' "$source"
+          grep -Fq 'artifact.provider_profile_commitment() != binding.provider_profile_commitment()' "$source"
+          grep -Fq 'ContentCommitment::sha256(canonical_command_bytes)' "$source"
+          grep -Fq '&input_commitment != binding.command_commitment()' "$source"
+          grep -Fq 'output_len_u32 > binding.max_payload_bytes()' "$source"
+          grep -Fq 'decode_output_region(packed)' "$source"
+          grep -Fq 'output_end > memory_size' "$source"
+
+      - name: Enforce materialization is not dispatch authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-materializer-runtime/src/lib.rs'
+          grep -Fq 'pub struct MaterializedProviderRequest' "$source"
+          grep -Fq 'pub const fn provider_payload_materialized_here(&self) -> bool {' "$source"
+          grep -Fq 'pub const fn dispatch_started_here(&self) -> bool {' "$source"
+          grep -Fq 'pub const fn provider_call_started_here(&self) -> bool {' "$source"
+          grep -Fq 'pub const fn grants_execution_authority(&self) -> bool {' "$source"
+          if grep -Eq 'derive\([^)]*Deserialize' "$source"; then
+            echo 'Materialized provider request proof must not be deserializable.'
+            exit 1
+          fi
+          if grep -Eq 'reqwest::|hyper::|tonic::|TcpStream|UdpSocket|mark_dispatch_started|AdminWebsocket|update_coordinators' "$source"; then
+            echo 'Materializer runtime crossed into network, durable dispatch, or Admin mutation.'
+            exit 1
+          fi
