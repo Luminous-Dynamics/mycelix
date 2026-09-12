@@ -98,12 +98,10 @@ jobs:
       - name: Check changed runtime digest source formatting
         run: rustfmt --edition 2024 --check "$RUNTIME_SOURCE"
 
-      - name: Check store-binding package formatting only
-        run: cargo fmt --manifest-path "$STORE_MANIFEST" --package mycelix-integration-runtime-store-binding -- --check
-
-      - name: Check journal package formatting only
-        run: cargo fmt --manifest-path "$JOURNAL_MANIFEST" --package mycelix-integration-http-transport-journal -- --check
-
+      # Store-binding and journal source formatting are intentionally owned by
+      # their dedicated qualification workflows. This lane proves dependency
+      # closure across the three packages and must reach compile/test/Clippy even
+      # when unrelated style debt exists in a sibling package.
       - name: Compile runtime tests
         run: cargo test --manifest-path "$RUNTIME_MANIFEST" --package mycelix-integration-runtime --no-run
 
@@ -139,12 +137,9 @@ jobs:
           grep -Fq 'github.event.pull_request.head.sha || github.sha' "$WORKFLOW"
           grep -Fq 'persist-credentials: false' "$WORKFLOW"
           grep -Fq 'rustfmt --edition 2024 --check "$RUNTIME_SOURCE"' "$WORKFLOW"
-          if grep -Eq 'cargo fmt --manifest-path "\$RUNTIME_MANIFEST".*mycelix-integration-runtime' "$WORKFLOW"; then
-            echo 'Runtime style gate escaped the changed digest source.'
-            exit 1
-          fi
-          if grep -Fq 'cargo fmt --manifest-path "$JOURNAL_MANIFEST" --all --check' "$WORKFLOW"; then
-            echo 'Dependency-closure formatter escaped package scope.'
+          grep -Fq 'Store-binding and journal source formatting are intentionally owned by' "$WORKFLOW"
+          if grep -Eq 'cargo fmt --manifest-path "\$(RUNTIME|STORE|JOURNAL)_MANIFEST"' "$WORKFLOW"; then
+            echo 'Dependency-closure lane must not duplicate sibling package style gates.'
             exit 1
           fi
           test "$(git rev-parse HEAD)" = "$QUALIFICATION_SUBJECT_SHA"
