@@ -315,6 +315,10 @@ pub fn arm_http_application_write(
 
 /// Record a conclusive zero-application-byte failure before the ambiguity floor
 /// was crossed (for example connect/TLS failure in the eventual native engine).
+///
+/// The issuance deadline does not block recording later evidence. It gates the
+/// transition that can enable issuance, not the persistence of facts observed
+/// after a previously admitted pre-write operation terminates.
 pub fn record_prewrite_nonissuance(
     prepared: PreparedHttpTransportAttempt,
     observation: &QualifiedTransportObservation,
@@ -331,6 +335,10 @@ pub fn record_prewrite_nonissuance(
 }
 
 /// Record the transport observation after the durable `WriteMayBegin` fence.
+///
+/// `WriteMayBegin` had to be crossed while the issuance descriptor was live.
+/// Once crossed, the resulting response/failure evidence remains recordable even
+/// after that permission window expires.
 pub fn record_armed_observation(
     armed: ArmedHttpApplicationWrite,
     observation: &QualifiedTransportObservation,
@@ -478,10 +486,6 @@ fn validate_observation_identity_prepared(
     observation: &QualifiedTransportObservation,
     now_ms: i64,
 ) -> Result<(), TransportJournalError> {
-    let now_u64 = to_u64_time(now_ms)?;
-    if now_u64 >= prepared.valid_until_ms {
-        return Err(TransportJournalError::InvalidTime);
-    }
     validate_observation_identity(
         &prepared.attempt_id,
         &prepared.command_id,
@@ -498,10 +502,6 @@ fn validate_observation_identity_armed(
     observation: &QualifiedTransportObservation,
     now_ms: i64,
 ) -> Result<(), TransportJournalError> {
-    let now_u64 = to_u64_time(now_ms)?;
-    if now_u64 >= armed.valid_until_ms {
-        return Err(TransportJournalError::InvalidTime);
-    }
     validate_observation_identity(
         &armed.attempt_id,
         &armed.command_id,
