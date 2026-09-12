@@ -96,8 +96,10 @@ fn surface(viability: &RegenerativeViabilityEvidenceV1) -> RegenerativePolicySen
         schema_version: REGENERATIVE_POLICY_SENSITIVITY_SURFACE_SCHEMA_V1,
         surface_id: "manta-v3-topology-direct-surface".into(),
         viability_evidence_content_digest: viability.content_digest().unwrap(),
-        symthaea_surface_binding: "symthaea:pr-2160:direct-surface".into(),
-        symtropy_surface_binding: "symtropy:pr-840:direct-surface".into(),
+        symthaea_surface_binding:
+            "symthaea:pr-2160:b174f4a19b11f10b364b145679ecafaf71969177:direct-surface".into(),
+        symtropy_surface_binding:
+            "symtropy:pr-840:d1e3835e08848840bf26114b012d0acc0b0b218e:direct-surface".into(),
         shared_surface_fixture_binding:
             "git-blob:64a17015d8fab3a30eae95f34e327c705f47087f".into(),
         physical_successor_reproduction_horizon: RegenerativeViabilityHorizonV1::FinitePeriods(
@@ -181,8 +183,10 @@ fn direct_continuity(
         continuity_evidence_id: "manta-v3-v4-direct-support-closure".into(),
         viability_evidence_content_digest: viability.content_digest().unwrap(),
         support_basis_evidence_content_digest: basis.content_digest().unwrap(),
-        symthaea_continuity_binding: "symthaea:pr-2160:31a3a96".into(),
-        symtropy_topology_binding: "symtropy:pr-840:direct".into(),
+        symthaea_continuity_binding:
+            "symthaea:pr-2160:b174f4a19b11f10b364b145679ecafaf71969177".into(),
+        symtropy_topology_binding:
+            "symtropy:pr-840:d1e3835e08848840bf26114b012d0acc0b0b218e:direct".into(),
         shared_topology_fixture_binding:
             "git-blob:64a17015d8fab3a30eae95f34e327c705f47087f".into(),
         source_model_binding: basis.source_model_binding.clone(),
@@ -221,8 +225,10 @@ fn hidden_continuity(
         continuity_evidence_id: "manta-v3-v4-hidden-support-closure".into(),
         viability_evidence_content_digest: viability.content_digest().unwrap(),
         support_basis_evidence_content_digest: basis.content_digest().unwrap(),
-        symthaea_continuity_binding: "symthaea:pr-2160:finite-root-refusal".into(),
-        symtropy_topology_binding: "symtropy:pr-840:hidden".into(),
+        symthaea_continuity_binding:
+            "symthaea:pr-2160:b174f4a19b11f10b364b145679ecafaf71969177:finite-root-refusal".into(),
+        symtropy_topology_binding:
+            "symtropy:pr-840:d1e3835e08848840bf26114b012d0acc0b0b218e:hidden".into(),
         shared_topology_fixture_binding:
             "git-blob:64a17015d8fab3a30eae95f34e327c705f47087f".into(),
         source_model_binding: basis.source_model_binding.clone(),
@@ -253,7 +259,9 @@ fn hidden_continuity(
         ],
         topology_isomorphic: true,
         scalar_runway_projection_safe: false,
-        rejection_binding: Some("symthaea:pr-2160:finite-root-not-transferred".into()),
+        rejection_binding: Some(
+            "symthaea:pr-2160:b174f4a19b11f10b364b145679ecafaf71969177:finite-root-not-transferred".into(),
+        ),
         authorized_policy_surface_content_digest: None,
     }
 }
