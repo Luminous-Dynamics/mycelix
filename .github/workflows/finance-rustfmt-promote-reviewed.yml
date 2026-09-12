@@ -1,0 +1,111 @@
+name: Finance Rustfmt Promote Reviewed
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/finance-rustfmt-promote-reviewed.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: finance-rustfmt-reviewed-promotion
+  cancel-in-progress: false
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  SOURCE_SHA: '7e483d41f771620686e341a65af55b203694194a'
+  TARGET_BRANCH: 'fin-safe-019-rustfmt-1-96'
+  EXPECTED_PATCH_SHA256: 'e6fea1f07227ee057a9c001d65e9872084ba265889944555474575861d9301cb'
+  EXPECTED_PATHS_SHA256: '8b1af9b25bb735c0b7cbac246aeafe9f8401c6601906107e9c1977cd3b1758dd'
+  EXPECTED_AFTER_HASHES_SHA256: '881e9cd7725865b38310e0d6e79ee97046a5527bb2425704ae5b70e69c41b6b9'
+
+jobs:
+  promote-reviewed-rustfmt:
+    name: Promote exact reviewed rustfmt bytes
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'ci-fin-003-rustfmt-candidate'
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout frozen FIN-SAFE-019 source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: true
+
+      - name: Prove target branch has not moved
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          remote_target="$(git ls-remote origin "refs/heads/$TARGET_BRANCH" | cut -f1)"
+          test "$remote_target" = "$SOURCE_SHA"
+
+      - name: Install exact reviewed formatter
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt
+
+      - name: Reproduce reviewed formatting candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo fmt --all
+          cargo fmt --all --check
+          cd ..
+          git diff --check
+
+          git diff --name-only -- mycelix-finance | LC_ALL=C sort > /tmp/changed-paths.txt
+          test -s /tmp/changed-paths.txt
+          test "$(sha256sum /tmp/changed-paths.txt | cut -d' ' -f1)" = "$EXPECTED_PATHS_SHA256"
+
+          while IFS= read -r path; do
+            case "$path" in
+              mycelix-finance/*.rs|mycelix-finance/**/*.rs) ;;
+              *) echo "Refusing unexpected non-Rust change: $path" >&2; exit 1 ;;
+            esac
+          done < /tmp/changed-paths.txt
+
+          git diff --quiet -- mycelix-finance/Cargo.toml mycelix-finance/Cargo.lock
+          git diff -- mycelix-finance > /tmp/rustfmt.patch
+          test "$(sha256sum /tmp/rustfmt.patch | cut -d' ' -f1)" = "$EXPECTED_PATCH_SHA256"
+
+          while IFS= read -r path; do sha256sum "$path"; done \
+            < /tmp/changed-paths.txt > /tmp/rust-after.sha256
+          test "$(sha256sum /tmp/rust-after.sha256 | cut -d' ' -f1)" = "$EXPECTED_AFTER_HASHES_SHA256"
+
+      - name: Commit exact reviewed formatter output
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          while IFS= read -r path; do git add -- "$path"; done < /tmp/changed-paths.txt
+          git diff --cached --check
+          git diff --cached --name-only | LC_ALL=C sort > /tmp/staged-paths.txt
+          test "$(sha256sum /tmp/staged-paths.txt | cut -d' ' -f1)" = "$EXPECTED_PATHS_SHA256"
+          git commit -m 'style(finance): normalize safety stack with rustfmt 1.96.0'
+          promoted_sha="$(git rev-parse HEAD)"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          {
+            echo "promoted_sha=$promoted_sha"
+            echo "source_sha=$SOURCE_SHA"
+            echo "patch_sha256=$EXPECTED_PATCH_SHA256"
+            echo "paths_sha256=$EXPECTED_PATHS_SHA256"
+            echo "after_hashes_sha256=$EXPECTED_AFTER_HASHES_SHA256"
+          } > /tmp/promotion.env
+          cat /tmp/promotion.env >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload promotion receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: finance-rustfmt-promotion-${{ env.SOURCE_SHA }}-${{ github.run_attempt }}
+          path: /tmp/promotion.env
+          if-no-files-found: warn
+          retention-days: 30
