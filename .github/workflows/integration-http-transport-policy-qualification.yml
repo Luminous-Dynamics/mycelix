@@ -1,0 +1,120 @@
+name: Integration HTTP Transport Policy Qualification
+
+on:
+  pull_request:
+    branches:
+      - feat/integration-transport-observation-v1
+      - main
+    paths:
+      - 'crates/mycelix-integration-http-transport-policy/**'
+      - '.github/workflows/integration-http-transport-policy-qualification.yml'
+  push:
+    branches:
+      - feat/integration-http-transport-policy-v1
+    paths:
+      - 'crates/mycelix-integration-http-transport-policy/**'
+      - '.github/workflows/integration-http-transport-policy-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  MANIFEST: crates/mycelix-integration-http-transport-policy/Cargo.toml
+  SOURCE: crates/mycelix-integration-http-transport-policy/src/lib.rs
+
+concurrency:
+  group: integration-http-transport-policy-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Current institution-adopted HTTP transport safety
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/mycelix-integration-http-transport-policy
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path "$MANIFEST" --all --check
+
+      - name: Compile tests without running
+        run: cargo test --manifest-path "$MANIFEST" --no-run
+
+      - name: Run tests
+        run: cargo test --manifest-path "$MANIFEST"
+
+      - name: Clippy
+        run: cargo clippy --manifest-path "$MANIFEST" --all-targets -- -D warnings
+
+      - name: Enforce institution-adopted current safety policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'AuthoritySubjectKind::EffectSafetyPolicy' "$SOURCE"
+          grep -Fq 'qualify_current_freshness' "$SOURCE"
+          grep -Fq 'freshness.snapshot.generation != policy.generation' "$SOURCE"
+          grep -Fq 'freshness.snapshot.effective_at_ms < policy.valid_from_ms' "$SOURCE"
+          grep -Fq 'institutional_adoption_bound_here(&self) -> bool' "$SOURCE"
+          grep -Fq 'generation_currentness_verified_here(&self) -> bool' "$SOURCE"
+
+      - name: Enforce fixed network authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'self.endpoint_port != 443' "$SOURCE"
+          grep -Fq 'https_required_here(&self) -> bool' "$SOURCE"
+          grep -Fq 'redirects_allowed_here(&self) -> bool' "$SOURCE"
+          grep -Fq 'environment_proxy_allowed_here(&self) -> bool' "$SOURCE"
+          grep -Fq 'arbitrary_materializer_headers_allowed_here(&self) -> bool' "$SOURCE"
+          grep -Fq 'credential_material_present_here(&self) -> bool' "$SOURCE"
+          grep -Fq "all(|label| label.bytes().all(|byte| byte.is_ascii_digit()))" "$SOURCE"
+
+      - name: Enforce engine-owned sensitive header roles
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'credential_header_name' "$SOURCE"
+          grep -Fq 'credential_slot_id' "$SOURCE"
+          grep -Fq 'idempotency_header_name' "$SOURCE"
+          grep -Fq '"host"' "$SOURCE"
+          grep -Fq '"content-length"' "$SOURCE"
+          grep -Fq '"transfer-encoding"' "$SOURCE"
+          grep -Fq '"proxy-authorization"' "$SOURCE"
+
+      - name: Enforce exact provider-profile and use-time liveness binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq '&policy.provider_profile_commitment != provider.profile_commitment()' "$SOURCE"
+          grep -Fq 'provider.qualified_at_ms() > now_i64' "$SOURCE"
+          grep -Fq 'now_i64 < profile.not_before_ms' "$SOURCE"
+          grep -Fq 'now_i64 > profile.not_after_ms' "$SOURCE"
+          grep -Fq 'policy.max_materialized_plan_bytes > profile.max_payload_bytes' "$SOURCE"
+
+      - name: Enforce policy layer performs no network or secret access
+        shell: bash
+        run: |
+          set -euo pipefail
+          tree="$(cargo tree --manifest-path "$MANIFEST" -e normal --prefix none)"
+          if printf '%s\n' "$tree" | grep -Eiq '^(reqwest|hyper|tonic|curl|ureq|tokio|async-std|rustls|native-tls|openssl)( |$)'; then
+            echo 'Network/TLS dependency entered HTTP transport policy.'
+            exit 1
+          fi
+          if grep -Eq 'TcpStream|UdpSocket|reqwest::|hyper::|std::env|keyring::|vault::|secret_service::|aws_sdk_secretsmanager' "$SOURCE"; then
+            echo 'HTTP transport policy crossed into network or secret-manager access.'
+            exit 1
+          fi
