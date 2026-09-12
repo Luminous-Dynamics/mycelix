@@ -17,6 +17,7 @@
 //! - Recovery-aware regenerative lineage-experiment provenance carried by maritime evidence
 //! - Controlled regenerative viability-frontier provenance carried by maritime evidence
 //! - Successor lineage-depth provenance carried by maritime evidence
+//! - Multi-generation regenerative lineage-depth provenance carried by maritime evidence
 
 pub mod anchors;
 pub mod batch;
@@ -28,6 +29,7 @@ pub mod regenerative_component;
 pub mod regenerative_epoch_handoff;
 pub mod regenerative_genome;
 pub mod regenerative_lineage_experiment;
+pub mod regenerative_multigeneration_depth;
 pub mod regenerative_successor_depth;
 pub mod regenerative_viability;
 pub mod regenerative_viability_frontier;
@@ -42,6 +44,7 @@ pub use regenerative_component::*;
 pub use regenerative_epoch_handoff::*;
 pub use regenerative_genome::*;
 pub use regenerative_lineage_experiment::*;
+pub use regenerative_multigeneration_depth::*;
 pub use regenerative_successor_depth::*;
 pub use regenerative_viability::*;
 pub use regenerative_viability_frontier::*;
