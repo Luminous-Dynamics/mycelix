@@ -2,18 +2,19 @@
 //!
 //! This crate performs no DNS or network I/O. It takes a resolution observation,
 //! binds it to the exact current HTTP transport/provider policy, rejects
-//! special/private/non-public address space and special-use hostnames, and
-//! produces a short-lived route proof. The eventual native HTTPS engine must
+//! special/private/non-public address space and special-use/private-use hostnames,
+//! and produces a short-lived route proof. The eventual native HTTPS engine must
 //! perform resolution itself (or consume independently verified resolver
 //! evidence), connect only to an address in this exact qualified set, and verify
 //! WebPKI DNS identity for the policy hostname. A hostname must never be
 //! re-resolved after qualification and used without repeating this theorem.
 //!
-//! Public-SaaS v2 is deliberately stricter than "globally reachable": every
+//! Public-SaaS v3 is deliberately stricter than "globally reachable": every
 //! prefix present in the pinned IANA IPv4/IPv6 Special-Purpose Address registries
 //! is denied, including protocol anycast/AS112/AMT entries that IANA marks as
 //! globally reachable. IANA Special-Use Domain names and their subdomains are
-//! also denied; public-SaaS additionally rejects the entire `.arpa` namespace.
+//! also denied; public-SaaS rejects the entire `.arpa` namespace and ICANN's
+//! permanently reserved `.internal` private-use TLD and its subdomains.
 //! Private/self-hosted deployments require a separate institution-adopted egress
 //! theorem rather than an `allow_private` escape hatch.
 
@@ -23,14 +24,15 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use thiserror::Error;
 
 pub const PUBLIC_HTTPS_ROUTE_PROFILE: &str =
-    "mycelix-integration-http-public-egress-route-v2-blake3-framed";
+    "mycelix-integration-http-public-egress-route-v3-blake3-framed";
 pub const PUBLIC_ADDRESS_POLICY_PROFILE: &str =
     "mycelix-public-saas-egress-iana-special-purpose-deny-2025-10-09-v1";
 pub const PUBLIC_HOSTNAME_POLICY_PROFILE: &str =
-    "mycelix-public-saas-hostname-iana-special-use-deny-2026-05-22-v1";
+    "mycelix-public-saas-hostname-iana-special-use-plus-icann-private-use-v2";
 pub const IANA_SPECIAL_PURPOSE_REGISTRY_SNAPSHOT: &str = "2025-10-09";
 pub const IANA_SPECIAL_USE_DOMAIN_REGISTRY_SNAPSHOT: &str = "2026-05-22";
-const DOMAIN_ROUTE: &[u8] = b"mycelix/integration/http-public-egress-route/v2";
+pub const ICANN_PRIVATE_USE_TLD_POLICY: &str = "icann-board-resolution-2024.07.29.06";
+const DOMAIN_ROUTE: &[u8] = b"mycelix/integration/http-public-egress-route/v3";
 const MAX_RESOLVED_ADDRESSES: usize = 16;
 const MAX_TEXT_BYTES: usize = 1024;
 
@@ -95,6 +97,12 @@ const IANA_SPECIAL_USE_NON_ARPA_SUFFIXES: &[&str] = &[
     "onion",
     "test",
 ];
+
+// ICANN Board Resolution 2024.07.29.06 permanently reserves `.internal` from
+// delegation in the DNS root for private-use applications. This fact is not an
+// RFC 6761 Special-Use Domain registry row, so it is modeled separately rather
+// than being misrepresented as part of the pinned IANA special-use snapshot.
+const ICANN_PRIVATE_USE_TLD_SUFFIXES: &[&str] = &["internal"];
 
 /// Untrusted-by-itself observation supplied to the pure qualifier. A future
 /// native transport should construct this from its own pinned resolver path or
@@ -171,11 +179,19 @@ impl QualifiedPublicHttpsRoute {
         IANA_SPECIAL_USE_DOMAIN_REGISTRY_SNAPSHOT
     }
 
+    pub fn private_use_tld_policy_ref(&self) -> &'static str {
+        ICANN_PRIVATE_USE_TLD_POLICY
+    }
+
     pub const fn all_iana_special_purpose_prefixes_denied_here(&self) -> bool {
         true
     }
 
     pub const fn iana_special_use_domains_denied_here(&self) -> bool {
+        true
+    }
+
+    pub const fn icann_private_use_tld_denied_here(&self) -> bool {
         true
     }
 
@@ -229,7 +245,7 @@ pub fn qualify_public_https_route(
         return Err(HttpEgressRouteError::HostnameMismatch);
     }
     if is_forbidden_public_saas_hostname(&observation.hostname) {
-        return Err(HttpEgressRouteError::SpecialUseHostname);
+        return Err(HttpEgressRouteError::SpecialUseOrPrivateUseHostname);
     }
     validate_text(&observation.resolver_ref)?;
     if observation.observed_at_ms == 0
@@ -285,6 +301,9 @@ fn strictly_sorted_unique(addresses: &[IpAddr]) -> bool {
 fn is_forbidden_public_saas_hostname(host: &str) -> bool {
     hostname_matches_suffix(host, "arpa")
         || IANA_SPECIAL_USE_NON_ARPA_SUFFIXES
+            .iter()
+            .any(|suffix| hostname_matches_suffix(host, suffix))
+        || ICANN_PRIVATE_USE_TLD_SUFFIXES
             .iter()
             .any(|suffix| hostname_matches_suffix(host, suffix))
 }
@@ -364,6 +383,7 @@ fn route_digest(
     frame(&mut h, PUBLIC_HOSTNAME_POLICY_PROFILE.as_bytes());
     frame(&mut h, IANA_SPECIAL_PURPOSE_REGISTRY_SNAPSHOT.as_bytes());
     frame(&mut h, IANA_SPECIAL_USE_DOMAIN_REGISTRY_SNAPSHOT.as_bytes());
+    frame(&mut h, ICANN_PRIVATE_USE_TLD_POLICY.as_bytes());
     frame(&mut h, &transport_binding.0);
     frame(&mut h, hostname.as_bytes());
     frame(&mut h, &port.to_be_bytes());
@@ -407,8 +427,8 @@ pub enum HttpEgressRouteError {
     TransportPolicyNotLive,
     #[error("DNS observation hostname differs from transport policy hostname")]
     HostnameMismatch,
-    #[error("public-SaaS endpoint hostname is IANA special-use or ARPA infrastructure")]
-    SpecialUseHostname,
+    #[error("public-SaaS endpoint hostname is special-use, ARPA infrastructure, or reserved private-use")]
+    SpecialUseOrPrivateUseHostname,
     #[error("resolver evidence reference is invalid")]
     InvalidResolverRef,
     #[error("DNS resolution evidence window is invalid")]
@@ -431,6 +451,7 @@ mod tests {
     fn ordinary_public_saas_hostnames_are_admitted_by_name_policy() {
         assert!(!is_forbidden_public_saas_hostname("api.stripe.com"));
         assert!(!is_forbidden_public_saas_hostname("api.github.com"));
+        assert!(!is_forbidden_public_saas_hostname("internal.com"));
     }
 
     #[test]
@@ -462,10 +483,22 @@ mod tests {
     }
 
     #[test]
+    fn icann_private_use_internal_and_subdomains_fail_closed() {
+        for hostname in ["internal", "api.internal", "service.prod.internal"] {
+            assert!(
+                is_forbidden_public_saas_hostname(hostname),
+                "{hostname} should fail"
+            );
+        }
+    }
+
+    #[test]
     fn suffix_matching_does_not_confuse_lookalikes() {
         assert!(!hostname_matches_suffix("notexample.com", "example.com"));
         assert!(!hostname_matches_suffix("example.com.evil", "example.com"));
         assert!(hostname_matches_suffix("a.example.com", "example.com"));
+        assert!(!hostname_matches_suffix("internal.com", "internal"));
+        assert!(hostname_matches_suffix("api.internal", "internal"));
     }
 
     #[test]

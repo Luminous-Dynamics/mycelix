@@ -3,6 +3,7 @@ name: Integration Public Egress Registry Qualification
 on:
   pull_request:
     branches:
+      - feat/integration-public-egress-registry-v2
       - feat/integration-http-issuance-admission-v2
       - main
     paths:
@@ -11,7 +12,7 @@ on:
       - '.github/workflows/integration-public-egress-registry-drift.yml'
   push:
     branches:
-      - feat/integration-public-egress-registry-v2
+      - security/integration-public-egress-private-use-v3
     paths:
       - 'crates/mycelix-integration-http-egress-route/**'
       - '.github/workflows/integration-public-egress-registry-qualification.yml'
@@ -37,7 +38,7 @@ concurrency:
 
 jobs:
   qualify:
-    name: Pinned IANA public-SaaS egress policy
+    name: Pinned public-SaaS egress policy
     runs-on: ubuntu-24.04
     timeout-minutes: 20
 
@@ -115,7 +116,7 @@ jobs:
             exit 1
           fi
 
-      - name: Enforce registry-versioned policy semantics independent of rustfmt line wrapping
+      - name: Enforce versioned address and hostname policy semantics
         shell: bash
         run: |
           set -euo pipefail
@@ -126,24 +127,28 @@ jobs:
           compact = ''.join(src.split())
 
           required = [
-              'mycelix-integration-http-public-egress-route-v2-blake3-framed',
+              'mycelix-integration-http-public-egress-route-v3-blake3-framed',
               'mycelix-public-saas-egress-iana-special-purpose-deny-2025-10-09-v1',
-              'mycelix-public-saas-hostname-iana-special-use-deny-2026-05-22-v1',
+              'mycelix-public-saas-hostname-iana-special-use-plus-icann-private-use-v2',
               'IANA_SPECIAL_PURPOSE_REGISTRY_SNAPSHOT:&str="2025-10-09"',
               'IANA_SPECIAL_USE_DOMAIN_REGISTRY_SNAPSHOT:&str="2026-05-22"',
+              'ICANN_PRIVATE_USE_TLD_POLICY:&str="icann-board-resolution-2024.07.29.06"',
               'frame(&muth,PUBLIC_ADDRESS_POLICY_PROFILE.as_bytes())',
               'frame(&muth,PUBLIC_HOSTNAME_POLICY_PROFILE.as_bytes())',
               'frame(&muth,IANA_SPECIAL_PURPOSE_REGISTRY_SNAPSHOT.as_bytes())',
               'frame(&muth,IANA_SPECIAL_USE_DOMAIN_REGISTRY_SNAPSHOT.as_bytes())',
+              'frame(&muth,ICANN_PRIVATE_USE_TLD_POLICY.as_bytes())',
               'all_iana_special_purpose_prefixes_denied_here(&self)->bool',
               'iana_special_use_domains_denied_here(&self)->bool',
+              'icann_private_use_tld_denied_here(&self)->bool',
+              'private_use_tld_policy_ref(&self)->&\'staticstr',
               'resolution_evidence_origin_verified_here(&self)->bool{false}',
               'network_io_performed_here(&self)->bool{false}',
               'grants_execution_authority(&self)->bool{false}',
           ]
           for needle in required:
               if needle not in compact:
-                  raise SystemExit(f'missing registry-policy semantic ratchet: {needle}')
+                  raise SystemExit(f'missing policy semantic ratchet: {needle}')
 
           ipv4 = [
               '([0,0,0,0],8)', '([10,0,0,0],8)', '([100,64,0,0],10)',
@@ -174,9 +179,11 @@ jobs:
           for suffix in ('"alt"','"example"','"example.com"','"example.net"','"example.org"',
                          '"invalid"','"local"','"localhost"','"onion"','"test"'):
               if suffix not in src:
-                  raise SystemExit(f'missing special-use suffix: {suffix}')
+                  raise SystemExit(f'missing IANA special-use suffix: {suffix}')
           if 'hostname_matches_suffix(host,"arpa")' not in compact:
               raise SystemExit('ARPA namespace exclusion disappeared')
+          if 'ICANN_PRIVATE_USE_TLD_SUFFIXES:&[&str]=&["internal"]' not in compact:
+              raise SystemExit('ICANN private-use .internal exclusion disappeared')
 
           regressions = [
               'Ipv4Addr::new(192,0,0,9)', 'Ipv4Addr::new(192,31,196,1)',
@@ -185,14 +192,15 @@ jobs:
               '"2001:20::1"', '"2001:30::1"', '"2620:4f:8000::1"',
               '"api.example.com"', '"service.local"', '"foo.localhost"',
               '"hidden.onion"', '"home.arpa"', '"resolver.arpa"', '"anything.arpa"',
-              '"api.stripe.com"', '"api.github.com"',
+              '"internal"', '"api.internal"', '"service.prod.internal"',
+              '"internal.com"', '"api.stripe.com"', '"api.github.com"',
           ]
           for needle in regressions:
               if ''.join(needle.split()) not in compact:
                   raise SystemExit(f'missing regression witness: {needle}')
           PY
 
-      - name: Enforce advisory registry drift sentinel remains read-only
+      - name: Enforce advisory IANA registry drift sentinel remains read-only
         shell: bash
         run: |
           set -euo pipefail
