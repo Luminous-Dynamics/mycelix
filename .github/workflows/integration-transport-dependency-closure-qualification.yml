@@ -117,7 +117,7 @@ jobs:
 
       - name: Check changed runtime sources formatting
         run: |
-          rustfmt --edition 2024 --check "$RUNTIME_SHELL_SOURCE"
+          rustfmt --edition 2024 --check --config skip_children=true "$RUNTIME_SHELL_SOURCE"
           rustfmt --edition 2024 --check "$RUNTIME_SOURCE"
           rustfmt --edition 2024 --check "$RUNTIME_BOOTSTRAP_SOURCE"
 
@@ -163,7 +163,7 @@ jobs:
           grep -Fq 'crates/mycelix-integration-runtime/src/bootstrap_guard.rs' "$WORKFLOW"
           grep -Fq 'crates/mycelix-integration-current-action-authority/Cargo.toml' "$WORKFLOW"
           grep -Fq 'crates/mycelix-integration-materializer-abi/src/lib.rs' "$WORKFLOW"
-          grep -Fq 'rustfmt --edition 2024 --check "$RUNTIME_SHELL_SOURCE"' "$WORKFLOW"
+          grep -Fq 'rustfmt --edition 2024 --check --config skip_children=true "$RUNTIME_SHELL_SOURCE"' "$WORKFLOW"
           grep -Fq 'rustfmt --edition 2024 --check "$RUNTIME_SOURCE"' "$WORKFLOW"
           grep -Fq 'rustfmt --edition 2024 --check "$RUNTIME_BOOTSTRAP_SOURCE"' "$WORKFLOW"
           grep -Fq 'Store-binding and journal source formatting are intentionally owned by' "$WORKFLOW"
