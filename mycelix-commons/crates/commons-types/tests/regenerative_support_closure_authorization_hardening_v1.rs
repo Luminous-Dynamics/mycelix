@@ -16,6 +16,7 @@ fn surface_authorization_rejects_a_substituted_safe_parent_basis() {
     );
 
     assert!(verify_regenerative_support_closure_surface_authorization(
+        &viability,
         &substituted_basis,
         &continuity,
         &surface,
