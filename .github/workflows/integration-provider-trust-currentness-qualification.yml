@@ -1,0 +1,76 @@
+name: Integration Provider Trust Currentness Qualification
+
+on:
+  pull_request:
+    branches:
+      - feat/integration-provider-trust-policy-v1
+      - main
+    paths:
+      - 'crates/mycelix-integration-provider-trust-currentness/**'
+      - 'crates/mycelix-integration-provider-trust-policy/**'
+      - 'crates/mycelix-authority-freshness/**'
+      - '.github/workflows/integration-provider-trust-currentness-qualification.yml'
+  push:
+    branches:
+      - feat/integration-provider-trust-currentness-v1
+    paths:
+      - 'crates/mycelix-integration-provider-trust-currentness/**'
+      - '.github/workflows/integration-provider-trust-currentness-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  MANIFEST: crates/mycelix-integration-provider-trust-currentness/Cargo.toml
+
+jobs:
+  qualify:
+    name: Current institution-adopted provider root
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - run: cargo fmt --manifest-path "$MANIFEST" --all --check
+      - run: cargo test --manifest-path "$MANIFEST" --no-run
+      - run: cargo test --manifest-path "$MANIFEST"
+      - run: cargo clippy --manifest-path "$MANIFEST" --all-targets -- -D warnings
+
+      - name: Enforce shared signing-policy freshness semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-provider-trust-currentness/src/lib.rs'
+          grep -Fq 'kind: AuthoritySubjectKind::SigningPolicy' "$source"
+          grep -Fq 'FRESHNESS_NAMESPACE_SUFFIX' "$source"
+          grep -Fq 'identity: ProfiledDigest {' "$source"
+          grep -Fq 'profile: POLICY_IDENTITY_PROFILE.to_owned()' "$source"
+          grep -Fq 'freshness.snapshot.generation != policy.generation' "$source"
+          grep -Fq 'freshness.snapshot.effective_at_ms < policy.valid_from_ms' "$source"
+          grep -Fq 'qualify_current_freshness(' "$source"
+          grep -Fq 'adopted_policy.valid_until_ms().min(current.lease_until_ms)' "$source"
+          grep -Fq 'current_root.current_generation() != policy.generation' "$source"
+
+      - name: Enforce current root remains process-local and non-executable
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-provider-trust-currentness/src/lib.rs'
+          grep -Fq 'pub struct QualifiedCurrentProviderTrustPolicy' "$source"
+          grep -Fq 'pub fn trust_root(&self) -> &ProviderProfileTrustRoot' "$source"
+          grep -Fq 'pub const fn institutional_provider_root_adopted_here(&self) -> bool {' "$source"
+          grep -Fq 'pub const fn generation_currentness_verified_here(&self) -> bool {' "$source"
+          grep -Fq 'pub const fn raw_caller_root_accepted_here(&self) -> bool {' "$source"
+          grep -Fq 'pub const fn grants_execution_authority(&self) -> bool {' "$source"
+          if grep -Eq 'derive\([^)]*(Serialize|Deserialize)' "$source"; then
+            echo 'Current provider-root positive object must remain process-local.'
+            exit 1
+          fi
+          if grep -Eq 'reqwest::|hyper::|tonic::|TcpStream|UdpSocket|mark_dispatch_started|AdminWebsocket' "$source"; then
+            echo 'Provider trust currentness crossed into I/O or dispatch.'
+            exit 1
+          fi
