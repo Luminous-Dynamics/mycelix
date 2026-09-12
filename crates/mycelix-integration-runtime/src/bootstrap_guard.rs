@@ -137,17 +137,29 @@ pub(crate) fn qualify_file_store_bootstrap(
     }
 
     let semantic_profile = load_semantic_profile(&tx)?;
-    if semantic_profile
-        .as_deref()
-        .is_some_and(|profile| profile != expected_semantic_profile)
-    {
-        tx.commit()?;
-        return Ok(FileStoreAdmission::Initialized);
+    if let Some(profile) = semantic_profile.as_deref() {
+        if profile != expected_semantic_profile {
+            return Err(RuntimeError::StoredIdentifier(format!(
+                "unsupported integration runtime semantic profile: {profile}"
+            )));
+        }
     }
 
     let required_schema_complete = required_structural_tables_exist(&tx)?;
     let durable_record_table = first_nonempty_durable_table(&tx)?;
     let prior_autoincrement_activity = has_prior_autoincrement_activity(&tx)?;
+
+    if semantic_profile.is_none()
+        && (durable_record_table.is_some() || prior_autoincrement_activity)
+    {
+        let observed_history = match durable_record_table {
+            Some(table) => format!("durable history in {table}"),
+            None => "prior AUTOINCREMENT activity".to_owned(),
+        };
+        return Err(RuntimeError::StoredIdentifier(format!(
+            "integration runtime has {observed_history} but no semantic producer identity; automatic bootstrap is forbidden"
+        )));
+    }
 
     if durable_record_table.is_some() || prior_autoincrement_activity {
         tx.commit()?;
