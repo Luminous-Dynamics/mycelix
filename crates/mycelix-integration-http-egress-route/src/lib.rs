@@ -64,9 +64,17 @@ const IANA_IPV4_SPECIAL_PREFIXES: &[([u8; 4], u8)] = &[
 // protocol anycast/AMT/AS112/ORCHIDv2/DETs children.
 const IANA_IPV6_SPECIAL_GUA_PREFIXES: &[([u8; 16], u8)] = &[
     ([0x20, 0x01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 23),
-    ([0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 32),
+    (
+        [0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        32,
+    ),
     ([0x20, 0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 16),
-    ([0x26, 0x20, 0x00, 0x4f, 0x80, 0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 48),
+    (
+        [
+            0x26, 0x20, 0x00, 0x4f, 0x80, 0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ],
+        48,
+    ),
     ([0x3f, 0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 20),
 ];
 
@@ -231,9 +239,7 @@ pub fn qualify_public_https_route(
     {
         return Err(HttpEgressRouteError::InvalidResolutionWindow);
     }
-    if observation.addresses.is_empty()
-        || observation.addresses.len() > MAX_RESOLVED_ADDRESSES
-    {
+    if observation.addresses.is_empty() || observation.addresses.len() > MAX_RESOLVED_ADDRESSES {
         return Err(HttpEgressRouteError::InvalidAddressCount);
     }
     if !strictly_sorted_unique(&observation.addresses) {
@@ -356,14 +362,8 @@ fn route_digest(
     frame(&mut h, PUBLIC_HTTPS_ROUTE_PROFILE.as_bytes());
     frame(&mut h, PUBLIC_ADDRESS_POLICY_PROFILE.as_bytes());
     frame(&mut h, PUBLIC_HOSTNAME_POLICY_PROFILE.as_bytes());
-    frame(
-        &mut h,
-        IANA_SPECIAL_PURPOSE_REGISTRY_SNAPSHOT.as_bytes(),
-    );
-    frame(
-        &mut h,
-        IANA_SPECIAL_USE_DOMAIN_REGISTRY_SNAPSHOT.as_bytes(),
-    );
+    frame(&mut h, IANA_SPECIAL_PURPOSE_REGISTRY_SNAPSHOT.as_bytes());
+    frame(&mut h, IANA_SPECIAL_USE_DOMAIN_REGISTRY_SNAPSHOT.as_bytes());
     frame(&mut h, &transport_binding.0);
     frame(&mut h, hostname.as_bytes());
     frame(&mut h, &port.to_be_bytes());
@@ -494,7 +494,10 @@ mod tests {
             Ipv4Addr::new(192, 52, 193, 1),
             Ipv4Addr::new(192, 175, 48, 1),
         ] {
-            assert!(!ipv4_is_public_saas_unicast(address), "{address} should fail");
+            assert!(
+                !ipv4_is_public_saas_unicast(address),
+                "{address} should fail"
+            );
         }
     }
 
@@ -534,7 +537,10 @@ mod tests {
             "2620:4f:8000::1",
         ] {
             let address: Ipv6Addr = address.parse().unwrap();
-            assert!(!ipv6_is_public_saas_unicast(address), "{address} should fail");
+            assert!(
+                !ipv6_is_public_saas_unicast(address),
+                "{address} should fail"
+            );
         }
     }
 
@@ -552,14 +558,21 @@ mod tests {
             "ff02::1",
         ] {
             let address: Ipv6Addr = address.parse().unwrap();
-            assert!(!ipv6_is_public_saas_unicast(address), "{address} should fail");
+            assert!(
+                !ipv6_is_public_saas_unicast(address),
+                "{address} should fail"
+            );
         }
     }
 
     #[test]
     fn prefix_matcher_handles_partial_octets() {
         assert!(bytes_match_prefix(&[100, 64, 1, 1], &[100, 64, 0, 0], 10));
-        assert!(bytes_match_prefix(&[172, 31, 255, 255], &[172, 16, 0, 0], 12));
+        assert!(bytes_match_prefix(
+            &[172, 31, 255, 255],
+            &[172, 16, 0, 0],
+            12
+        ));
         assert!(!bytes_match_prefix(&[100, 128, 0, 1], &[100, 64, 0, 0], 10));
         assert!(!bytes_match_prefix(&[172, 32, 0, 1], &[172, 16, 0, 0], 12));
     }
