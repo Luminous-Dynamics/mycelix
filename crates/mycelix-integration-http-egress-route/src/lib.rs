@@ -2,18 +2,20 @@
 //!
 //! This crate performs no DNS or network I/O. It takes a resolution observation,
 //! binds it to the exact current HTTP transport/provider policy, rejects
-//! special/private/non-public address space, and produces a short-lived route
-//! proof. The eventual native HTTPS engine must perform resolution itself (or
-//! consume independently verified resolver evidence), connect only to an address
-//! in this exact qualified set, and verify WebPKI DNS identity for the policy
-//! hostname. A hostname must never be re-resolved after qualification and used
-//! without repeating this theorem.
+//! special/private/non-public address space and special-use hostnames, and
+//! produces a short-lived route proof. The eventual native HTTPS engine must
+//! perform resolution itself (or consume independently verified resolver
+//! evidence), connect only to an address in this exact qualified set, and verify
+//! WebPKI DNS identity for the policy hostname. A hostname must never be
+//! re-resolved after qualification and used without repeating this theorem.
 //!
 //! Public-SaaS v2 is deliberately stricter than "globally reachable": every
 //! prefix present in the pinned IANA IPv4/IPv6 Special-Purpose Address registries
 //! is denied, including protocol anycast/AS112/AMT entries that IANA marks as
-//! globally reachable. Private/self-hosted deployments require a separate
-//! institution-adopted egress theorem rather than an `allow_private` escape hatch.
+//! globally reachable. IANA Special-Use Domain names and their subdomains are
+//! also denied; public-SaaS additionally rejects the entire `.arpa` namespace.
+//! Private/self-hosted deployments require a separate institution-adopted egress
+//! theorem rather than an `allow_private` escape hatch.
 
 use mycelix_institutional_core::Digest32;
 use mycelix_integration_http_transport_policy::QualifiedHttpTransportProviderBinding;
@@ -24,7 +26,10 @@ pub const PUBLIC_HTTPS_ROUTE_PROFILE: &str =
     "mycelix-integration-http-public-egress-route-v2-blake3-framed";
 pub const PUBLIC_ADDRESS_POLICY_PROFILE: &str =
     "mycelix-public-saas-egress-iana-special-purpose-deny-2025-10-09-v1";
+pub const PUBLIC_HOSTNAME_POLICY_PROFILE: &str =
+    "mycelix-public-saas-hostname-iana-special-use-deny-2026-05-22-v1";
 pub const IANA_SPECIAL_PURPOSE_REGISTRY_SNAPSHOT: &str = "2025-10-09";
+pub const IANA_SPECIAL_USE_DOMAIN_REGISTRY_SNAPSHOT: &str = "2026-05-22";
 const DOMAIN_ROUTE: &[u8] = b"mycelix/integration/http-public-egress-route/v2";
 const MAX_RESOLVED_ADDRESSES: usize = 16;
 const MAX_TEXT_BYTES: usize = 1024;
@@ -65,6 +70,24 @@ const IANA_IPV6_SPECIAL_GUA_PREFIXES: &[([u8; 16], u8)] = &[
     ([0x3f, 0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 20),
 ];
 
+// IANA Special-Use Domain entries outside `.arpa` as of 2026-05-22. IANA says
+// the special-use designation applies to listed names and all subdomains.
+// Public-SaaS denies all `.arpa` names separately, which strictly contains the
+// registry's individual ARPA entries and prevents reverse/infrastructure names
+// from becoming provider endpoints.
+const IANA_SPECIAL_USE_NON_ARPA_SUFFIXES: &[&str] = &[
+    "alt",
+    "example",
+    "example.com",
+    "example.net",
+    "example.org",
+    "invalid",
+    "local",
+    "localhost",
+    "onion",
+    "test",
+];
+
 /// Untrusted-by-itself observation supplied to the pure qualifier. A future
 /// native transport should construct this from its own pinned resolver path or
 /// independently authenticated resolver evidence.
@@ -79,7 +102,7 @@ pub struct DnsResolutionObservation {
 
 /// Non-deserializable proof that one exact DNS observation is compatible with
 /// one exact current public-HTTPS transport policy and contains only admissible
-/// public addresses under the pinned public-SaaS address policy.
+/// public addresses/hostnames under the pinned public-SaaS policy.
 #[derive(Clone, Debug)]
 pub struct QualifiedPublicHttpsRoute {
     hostname: String,
@@ -128,11 +151,23 @@ impl QualifiedPublicHttpsRoute {
         PUBLIC_ADDRESS_POLICY_PROFILE
     }
 
-    pub fn registry_snapshot(&self) -> &'static str {
+    pub fn hostname_policy_profile(&self) -> &'static str {
+        PUBLIC_HOSTNAME_POLICY_PROFILE
+    }
+
+    pub fn address_registry_snapshot(&self) -> &'static str {
         IANA_SPECIAL_PURPOSE_REGISTRY_SNAPSHOT
     }
 
+    pub fn special_use_domain_registry_snapshot(&self) -> &'static str {
+        IANA_SPECIAL_USE_DOMAIN_REGISTRY_SNAPSHOT
+    }
+
     pub const fn all_iana_special_purpose_prefixes_denied_here(&self) -> bool {
+        true
+    }
+
+    pub const fn iana_special_use_domains_denied_here(&self) -> bool {
         true
     }
 
@@ -185,6 +220,9 @@ pub fn qualify_public_https_route(
     if observation.hostname != policy.endpoint_host {
         return Err(HttpEgressRouteError::HostnameMismatch);
     }
+    if is_forbidden_public_saas_hostname(&observation.hostname) {
+        return Err(HttpEgressRouteError::SpecialUseHostname);
+    }
     validate_text(&observation.resolver_ref)?;
     if observation.observed_at_ms == 0
         || observation.observed_at_ms > now_ms
@@ -236,6 +274,20 @@ pub fn qualify_public_https_route(
 
 fn strictly_sorted_unique(addresses: &[IpAddr]) -> bool {
     addresses.windows(2).all(|pair| pair[0] < pair[1])
+}
+
+fn is_forbidden_public_saas_hostname(host: &str) -> bool {
+    hostname_matches_suffix(host, "arpa")
+        || IANA_SPECIAL_USE_NON_ARPA_SUFFIXES
+            .iter()
+            .any(|suffix| hostname_matches_suffix(host, suffix))
+}
+
+fn hostname_matches_suffix(host: &str, suffix: &str) -> bool {
+    host == suffix
+        || host
+            .strip_suffix(suffix)
+            .is_some_and(|prefix| prefix.ends_with('.'))
 }
 
 fn is_public_saas_unicast(address: IpAddr) -> bool {
@@ -303,9 +355,14 @@ fn route_digest(
     h.update(DOMAIN_ROUTE);
     frame(&mut h, PUBLIC_HTTPS_ROUTE_PROFILE.as_bytes());
     frame(&mut h, PUBLIC_ADDRESS_POLICY_PROFILE.as_bytes());
+    frame(&mut h, PUBLIC_HOSTNAME_POLICY_PROFILE.as_bytes());
     frame(
         &mut h,
         IANA_SPECIAL_PURPOSE_REGISTRY_SNAPSHOT.as_bytes(),
+    );
+    frame(
+        &mut h,
+        IANA_SPECIAL_USE_DOMAIN_REGISTRY_SNAPSHOT.as_bytes(),
     );
     frame(&mut h, &transport_binding.0);
     frame(&mut h, hostname.as_bytes());
@@ -350,6 +407,8 @@ pub enum HttpEgressRouteError {
     TransportPolicyNotLive,
     #[error("DNS observation hostname differs from transport policy hostname")]
     HostnameMismatch,
+    #[error("public-SaaS endpoint hostname is IANA special-use or ARPA infrastructure")]
+    SpecialUseHostname,
     #[error("resolver evidence reference is invalid")]
     InvalidResolverRef,
     #[error("DNS resolution evidence window is invalid")]
@@ -367,6 +426,47 @@ pub enum HttpEgressRouteError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ordinary_public_saas_hostnames_are_admitted_by_name_policy() {
+        assert!(!is_forbidden_public_saas_hostname("api.stripe.com"));
+        assert!(!is_forbidden_public_saas_hostname("api.github.com"));
+    }
+
+    #[test]
+    fn iana_special_use_names_and_subdomains_fail_closed() {
+        for hostname in [
+            "foo.alt",
+            "api.example",
+            "example.com",
+            "api.example.com",
+            "example.net",
+            "example.org",
+            "foo.invalid",
+            "service.local",
+            "foo.localhost",
+            "hidden.onion",
+            "api.test",
+            "home.arpa",
+            "service.home.arpa",
+            "resolver.arpa",
+            "10.in-addr.arpa",
+            "foo.ipv4only.arpa",
+            "anything.arpa",
+        ] {
+            assert!(
+                is_forbidden_public_saas_hostname(hostname),
+                "{hostname} should fail"
+            );
+        }
+    }
+
+    #[test]
+    fn suffix_matching_does_not_confuse_lookalikes() {
+        assert!(!hostname_matches_suffix("notexample.com", "example.com"));
+        assert!(!hostname_matches_suffix("example.com.evil", "example.com"));
+        assert!(hostname_matches_suffix("a.example.com", "example.com"));
+    }
 
     #[test]
     fn public_ipv4_examples_are_admitted() {
