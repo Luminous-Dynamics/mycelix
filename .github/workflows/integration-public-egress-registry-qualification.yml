@@ -1,0 +1,240 @@
+name: Integration Public Egress Registry Qualification
+
+on:
+  pull_request:
+    branches:
+      - feat/integration-http-issuance-admission-v2
+      - main
+    paths:
+      - 'crates/mycelix-integration-http-egress-route/**'
+      - '.github/workflows/integration-public-egress-registry-qualification.yml'
+      - '.github/workflows/integration-public-egress-registry-drift.yml'
+  push:
+    branches:
+      - feat/integration-public-egress-registry-v2
+    paths:
+      - 'crates/mycelix-integration-http-egress-route/**'
+      - '.github/workflows/integration-public-egress-registry-qualification.yml'
+      - '.github/workflows/integration-public-egress-registry-drift.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_TOOLCHAIN: '1.96.0'
+  QUALIFICATION_SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  PACKAGE: mycelix-integration-http-egress-route
+  MANIFEST: crates/mycelix-integration-http-egress-route/Cargo.toml
+  SOURCE: crates/mycelix-integration-http-egress-route/src/lib.rs
+  WORKFLOW: .github/workflows/integration-public-egress-registry-qualification.yml
+  DRIFT: .github/workflows/integration-public-egress-registry-drift.yml
+
+concurrency:
+  group: integration-public-egress-registry-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Pinned IANA public-SaaS egress policy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.QUALIFICATION_SUBJECT_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Bind exact source head before toolchain setup
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$QUALIFICATION_SUBJECT_SHA" =~ ^[0-9a-f]{40}$ ]]
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$QUALIFICATION_SUBJECT_SHA"
+          printf 'qualification_subject_sha=%s\n' "$QUALIFICATION_SUBJECT_SHA"
+          printf 'runtime_github_sha=%s\n' "$GITHUB_SHA"
+          printf 'workflow_sha=%s\n' "$GITHUB_WORKFLOW_SHA"
+          printf 'runner_os=%s\n' "$RUNNER_OS"
+          printf 'runner_arch=%s\n' "$RUNNER_ARCH"
+
+      - name: Install pinned Rust qualification toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
+
+      - name: Restore pinned Rust cache action
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          workspaces: crates/mycelix-integration-http-egress-route
+
+      - name: Capture toolchain and dependency-resolution capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc --version --verbose
+          cargo --version --verbose
+          cargo metadata --manifest-path "$MANIFEST" --format-version 1 > /tmp/integration-egress-cargo-metadata.json
+          sha256sum "$MANIFEST" "$SOURCE" "$WORKFLOW" "$DRIFT"
+          echo 'No --locked claim is made by this lane because this standalone integration crate does not yet carry a committed dedicated Cargo.lock.'
+
+      - name: Check package formatting only
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path "$MANIFEST" --package "$PACKAGE" -- --check
+
+      - name: Compile tests without running
+        run: cargo test --manifest-path "$MANIFEST" --package "$PACKAGE" --no-run
+
+      - name: Run tests
+        run: cargo test --manifest-path "$MANIFEST" --package "$PACKAGE"
+
+      - name: Clippy selected package
+        run: cargo clippy --manifest-path "$MANIFEST" --package "$PACKAGE" --all-targets -- -D warnings
+
+      - name: Enforce exact-head and pinned qualification environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq "RUST_TOOLCHAIN: '1.96.0'" "$WORKFLOW"
+          grep -Fq 'github.event.pull_request.head.sha || github.sha' "$WORKFLOW"
+          grep -Fq 'actions/checkout@11d5960a326750d5838078e36cf38b85af677262' "$WORKFLOW"
+          grep -Fq 'dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87' "$WORKFLOW"
+          grep -Fq 'Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6' "$WORKFLOW"
+          grep -Fq 'runs-on: ubuntu-24.04' "$WORKFLOW"
+          grep -Fq 'persist-credentials: false' "$WORKFLOW"
+          grep -Fq 'cargo fmt --manifest-path "$MANIFEST" --package "$PACKAGE" -- --check' "$WORKFLOW"
+          if grep -Fq 'cargo fmt --manifest-path "$MANIFEST" --all --check' "$WORKFLOW"; then
+            echo 'Qualification formatting escaped package scope.'
+            exit 1
+          fi
+
+      - name: Enforce registry-versioned policy semantics independent of rustfmt line wrapping
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          src = Path('crates/mycelix-integration-http-egress-route/src/lib.rs').read_text()
+          compact = ''.join(src.split())
+
+          required = [
+              'mycelix-integration-http-public-egress-route-v2-blake3-framed',
+              'mycelix-public-saas-egress-iana-special-purpose-deny-2025-10-09-v1',
+              'mycelix-public-saas-hostname-iana-special-use-deny-2026-05-22-v1',
+              'IANA_SPECIAL_PURPOSE_REGISTRY_SNAPSHOT:&str="2025-10-09"',
+              'IANA_SPECIAL_USE_DOMAIN_REGISTRY_SNAPSHOT:&str="2026-05-22"',
+              'frame(&muth,PUBLIC_ADDRESS_POLICY_PROFILE.as_bytes())',
+              'frame(&muth,PUBLIC_HOSTNAME_POLICY_PROFILE.as_bytes())',
+              'frame(&muth,IANA_SPECIAL_PURPOSE_REGISTRY_SNAPSHOT.as_bytes())',
+              'frame(&muth,IANA_SPECIAL_USE_DOMAIN_REGISTRY_SNAPSHOT.as_bytes())',
+              'all_iana_special_purpose_prefixes_denied_here(&self)->bool',
+              'iana_special_use_domains_denied_here(&self)->bool',
+              'resolution_evidence_origin_verified_here(&self)->bool{false}',
+              'network_io_performed_here(&self)->bool{false}',
+              'grants_execution_authority(&self)->bool{false}',
+          ]
+          for needle in required:
+              if needle not in compact:
+                  raise SystemExit(f'missing registry-policy semantic ratchet: {needle}')
+
+          ipv4 = [
+              '([0,0,0,0],8)', '([10,0,0,0],8)', '([100,64,0,0],10)',
+              '([127,0,0,0],8)', '([169,254,0,0],16)', '([172,16,0,0],12)',
+              '([192,0,0,0],24)', '([192,0,2,0],24)', '([192,31,196,0],24)',
+              '([192,52,193,0],24)', '([192,88,99,0],24)', '([192,168,0,0],16)',
+              '([192,175,48,0],24)', '([198,18,0,0],15)', '([198,51,100,0],24)',
+              '([203,0,113,0],24)', '([240,0,0,0],4)',
+          ]
+          for needle in ipv4:
+              if needle not in compact:
+                  raise SystemExit(f'missing IPv4 special-purpose parent: {needle}')
+          if 'address.is_multicast()' not in src:
+              raise SystemExit('IPv4 multicast exclusion disappeared')
+
+          ipv6 = [
+              '([0x20,0x01,0,0,0,0,0,0,0,0,0,0,0,0,0,0],23)',
+              '([0x20,0x01,0x0d,0xb8,0,0,0,0,0,0,0,0,0,0,0,0],32)',
+              '([0x20,0x02,0,0,0,0,0,0,0,0,0,0,0,0,0,0],16)',
+              '([0x26,0x20,0x00,0x4f,0x80,0x00,0,0,0,0,0,0,0,0,0,0],48)',
+              '([0x3f,0xff,0,0,0,0,0,0,0,0,0,0,0,0,0,0],20)',
+              'bytes[0]&0xe0!=0x20',
+          ]
+          for needle in ipv6:
+              if needle not in compact:
+                  raise SystemExit(f'missing IPv6 special-purpose/GUA ratchet: {needle}')
+
+          for suffix in ('"alt"','"example"','"example.com"','"example.net"','"example.org"',
+                         '"invalid"','"local"','"localhost"','"onion"','"test"'):
+              if suffix not in src:
+                  raise SystemExit(f'missing special-use suffix: {suffix}')
+          if 'hostname_matches_suffix(host,"arpa")' not in compact:
+              raise SystemExit('ARPA namespace exclusion disappeared')
+
+          regressions = [
+              'Ipv4Addr::new(192,0,0,9)', 'Ipv4Addr::new(192,31,196,1)',
+              'Ipv4Addr::new(192,52,193,1)', 'Ipv4Addr::new(192,175,48,1)',
+              '"2001:1::1"', '"2001:1::3"', '"2001:3::1"', '"2001:4:112::1"',
+              '"2001:20::1"', '"2001:30::1"', '"2620:4f:8000::1"',
+              '"api.example.com"', '"service.local"', '"foo.localhost"',
+              '"hidden.onion"', '"home.arpa"', '"resolver.arpa"', '"anything.arpa"',
+              '"api.stripe.com"', '"api.github.com"',
+          ]
+          for needle in regressions:
+              if ''.join(needle.split()) not in compact:
+                  raise SystemExit(f'missing regression witness: {needle}')
+          PY
+
+      - name: Enforce advisory registry drift sentinel remains read-only
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq "cron: '17 6 * * 1'" "$DRIFT"
+          grep -Fq "PINNED_IP_DATE: '2025-10-09'" "$DRIFT"
+          grep -Fq "PINNED_DOMAIN_DATE: '2026-05-22'" "$DRIFT"
+          grep -Fq 'iana-ipv4-special-registry.txt' "$DRIFT"
+          grep -Fq 'iana-ipv6-special-registry.txt' "$DRIFT"
+          grep -Fq 'special-use-domain-names.txt' "$DRIFT"
+          grep -Fq 'do not auto-update production authority' "$DRIFT"
+          grep -Fq 'contents: read' "$DRIFT"
+          if grep -Eq 'contents:[[:space:]]*write|issues:[[:space:]]*write|pull-requests:[[:space:]]*write|git push|gh issue|gh pr' "$DRIFT"; then
+            echo 'Registry drift sentinel gained mutation authority.'
+            exit 1
+          fi
+
+      - name: Enforce no dynamic network or registry fetch capability in theorem
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, subprocess
+          meta = json.loads(subprocess.check_output([
+              'cargo', 'metadata', '--manifest-path',
+              'crates/mycelix-integration-http-egress-route/Cargo.toml',
+              '--no-deps', '--format-version', '1'
+          ]))
+          package = next(p for p in meta['packages'] if p['name'] == 'mycelix-integration-http-egress-route')
+          direct = {d['name'] for d in package['dependencies']}
+          forbidden = {'reqwest','hyper','tokio','rustls','native-tls','openssl','trust-dns','hickory-resolver'}
+          hit = sorted(direct & forbidden)
+          if hit:
+              raise SystemExit(f'dynamic DNS/network capability entered pure route policy: {hit}')
+          PY
+          if grep -Eq 'TcpStream|UdpSocket|ToSocketAddrs|lookup_host|reqwest::|hyper::|hickory|trust_dns' "$SOURCE"; then
+            echo 'Pure route qualifier must not fetch DNS or registries dynamically.'
+            exit 1
+          fi
+
+      - name: Reconfirm immutable qualification subject after all checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$QUALIFICATION_SUBJECT_SHA"
+          git diff --exit-code -- "$MANIFEST" "$SOURCE" "$WORKFLOW" "$DRIFT"
