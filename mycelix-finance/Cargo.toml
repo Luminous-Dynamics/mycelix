@@ -13,6 +13,7 @@ members = [
     "crates/finance-collateral-issuance-persistence",
     "crates/finance-sap-balance-effect",
     "crates/finance-sap-account-v2",
+    "crates/finance-sap-value-notes",
     "crates/finance-wire-types",
     "crates/finance-leptos-types",
     "zomes/shared",
