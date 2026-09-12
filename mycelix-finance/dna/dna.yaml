@@ -35,6 +35,12 @@ integrity:
       enabled: false
       root: ~
 
+    # FIN-SAFE-014 owner-authored SAP V2 claim journal.
+    # Shipped disabled/non-canonical. Enabling requires an explicit DNA/network
+    # decision after the account protocol and its upstream provenance stack qualify.
+    sap_account_v2:
+      enabled: false
+
   zomes:
     - name: payments_integrity
       path: ../target/wasm32-unknown-unknown/release/payments_integrity.wasm
@@ -48,6 +54,8 @@ integrity:
       path: ../target/wasm32-unknown-unknown/release/collateral_settlement_auth_integrity.wasm
     - name: collateral_issuance_v2_integrity
       path: ../target/wasm32-unknown-unknown/release/collateral_issuance_v2_integrity.wasm
+    - name: sap_account_v2_integrity
+      path: ../target/wasm32-unknown-unknown/release/sap_account_v2_integrity.wasm
     - name: staking_integrity
       path: ../target/wasm32-unknown-unknown/release/staking_integrity.wasm
     - name: tend_integrity
@@ -88,6 +96,11 @@ coordinator:
     - name: collateral_issuance_v2
       path: ../target/wasm32-unknown-unknown/release/collateral_issuance_v2.wasm
       dependencies:
+        - name: collateral_issuance_v2_integrity
+    - name: sap_account_v2
+      path: ../target/wasm32-unknown-unknown/release/sap_account_v2.wasm
+      dependencies:
+        - name: sap_account_v2_integrity
         - name: collateral_issuance_v2_integrity
     - name: staking
       path: ../target/wasm32-unknown-unknown/release/staking_coordinator.wasm
