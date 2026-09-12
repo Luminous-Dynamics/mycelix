@@ -1,0 +1,146 @@
+name: Finance Lock Candidate
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-finance/**'
+      - '.github/workflows/finance-lock-candidate.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: finance-lock-candidate-${{ github.event.pull_request.head.repo.full_name }}-${{ github.event.pull_request.head.ref }}
+  cancel-in-progress: true
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  QUALIFICATION_SUBJECT_SHA: ${{ github.event.pull_request.head.sha }}
+  QUALIFICATION_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+
+jobs:
+  generate-lock-candidate:
+    name: Generate + test Finance lock candidate
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - name: Checkout exact candidate subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.QUALIFICATION_SUBJECT_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Bind exact subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$QUALIFICATION_SUBJECT_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$QUALIFICATION_SUBJECT_SHA"
+          mkdir -p evidence/lock-candidate
+          {
+            echo 'schema=finance-lock-candidate-v1'
+            echo "subject_sha=$QUALIFICATION_SUBJECT_SHA"
+            echo "base_sha=$QUALIFICATION_BASE_SHA"
+            echo "runtime_github_sha=$GITHUB_SHA"
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "run_attempt=$GITHUB_RUN_ATTEMPT"
+            echo "runner_os=$RUNNER_OS"
+            echo "runner_arch=$RUNNER_ARCH"
+          } > evidence/lock-candidate/subject.env
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - name: Restore Rust cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          workspaces: mycelix-finance
+
+      - name: Capture pre-generation state
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat /etc/os-release > evidence/lock-candidate/os-release.txt
+          uname -a > evidence/lock-candidate/uname.txt
+          rustc --version --verbose > evidence/lock-candidate/rustc.txt
+          cargo --version --verbose > evidence/lock-candidate/cargo.txt
+          cp mycelix-finance/Cargo.lock evidence/lock-candidate/Cargo.lock.before
+          sha256sum mycelix-finance/Cargo.toml mycelix-finance/Cargo.lock \
+            > evidence/lock-candidate/before.sha256
+          cd mycelix-finance
+          cargo fmt --all --check
+
+      - name: Generate conservative lock candidate from exact manifests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          # Deliberately omit --locked once. Cargo starts from the committed lock
+          # and changes only what current manifests/resolution require.
+          cargo metadata --format-version 1 > ../evidence/lock-candidate/cargo-metadata-generated.json
+          cd ..
+          changed="$(git diff --name-only -- mycelix-finance)"
+          if [ "$changed" != 'mycelix-finance/Cargo.lock' ]; then
+            echo 'Lock generation changed an unexpected tracked Finance path:' >&2
+            printf '%s\n' "$changed" >&2
+            exit 1
+          fi
+          cp mycelix-finance/Cargo.lock evidence/lock-candidate/Cargo.lock.candidate
+          git diff -- mycelix-finance/Cargo.lock > evidence/lock-candidate/Cargo.lock.diff
+          sha256sum mycelix-finance/Cargo.lock > evidence/lock-candidate/after.sha256
+          test -s evidence/lock-candidate/Cargo.lock.diff
+
+      - name: Prove generated candidate is self-consistent under --locked
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo metadata --locked --format-version 1 > ../evidence/lock-candidate/cargo-metadata-locked.json
+          cargo tree --workspace --locked > ../evidence/lock-candidate/cargo-tree-locked.txt
+
+      - name: Test cumulative Finance workspace against candidate lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo test --workspace --locked 2>&1 | tee ../evidence/lock-candidate/cargo-test-locked.log
+
+      - name: Verify only Cargo.lock was mutated
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/lock-candidate
+          git status --short > evidence/lock-candidate/git-status.txt
+          changed="$(git diff --name-only -- mycelix-finance || true)"
+          printf '%s\n' "$changed" > evidence/lock-candidate/changed-finance-paths.txt
+          if [ -n "$changed" ] && [ "$changed" != 'mycelix-finance/Cargo.lock' ]; then
+            echo 'Unexpected tracked Finance mutation after qualification.' >&2
+            exit 1
+          fi
+
+      - name: Finalize evidence manifest
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/lock-candidate
+          find evidence/lock-candidate -type f ! -name manifest.sha256 -print0 \
+            | sort -z \
+            | xargs -0 -r sha256sum \
+            > evidence/lock-candidate/manifest.sha256
+
+      - name: Upload generated lock candidate and evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: finance-lock-candidate-${{ env.QUALIFICATION_SUBJECT_SHA }}-${{ github.run_attempt }}
+          path: evidence/lock-candidate
+          if-no-files-found: error
+          retention-days: 30
