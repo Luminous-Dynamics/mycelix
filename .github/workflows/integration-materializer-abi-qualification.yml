@@ -1,0 +1,124 @@
+name: Integration Materializer ABI Qualification
+
+on:
+  pull_request:
+    branches:
+      - feat/integration-materializer-policy-v1
+      - main
+    paths:
+      - 'crates/mycelix-integration-materializer-abi/**'
+      - 'crates/mycelix-integration-materializer-policy/**'
+      - '.github/workflows/integration-materializer-abi-qualification.yml'
+  push:
+    branches:
+      - feat/integration-materializer-abi-v1
+    paths:
+      - 'crates/mycelix-integration-materializer-abi/**'
+      - '.github/workflows/integration-materializer-abi-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  MANIFEST: crates/mycelix-integration-materializer-abi/Cargo.toml
+
+concurrency:
+  group: integration-materializer-abi-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Exact materialize function and packed output ABI
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/mycelix-integration-materializer-abi
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path "$MANIFEST" --all --check
+
+      - name: Compile tests without running
+        run: cargo test --manifest-path "$MANIFEST" --no-run
+
+      - name: Run tests
+        run: cargo test --manifest-path "$MANIFEST"
+
+      - name: Clippy
+        run: cargo clippy --manifest-path "$MANIFEST" --all-targets -- -D warnings
+
+      - name: Enforce exact exported function resolution
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-materializer-abi/src/lib.rs'
+
+          grep -Fq 'reader.into_iter_err_on_gc_types()' "$source"
+          grep -Fq 'Payload::FunctionSection(reader)' "$source"
+          grep -Fq '("materialize", ExternalKind::Func)' "$source"
+          grep -Fq '("memory", ExternalKind::Memory)' "$source"
+          grep -Fq 'function_index != expected_function_index' "$source"
+          grep -Fq 'function_type_indices' "$source"
+          grep -Fq 'function_type.params() != [ValType::I32, ValType::I32]' "$source"
+          grep -Fq 'function_type.results() != [ValType::I64]' "$source"
+          grep -Fq 'exported_memory_index != Some(0)' "$source"
+
+      - name: Enforce canonical packed region ABI
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-materializer-abi/src/lib.rs'
+
+          grep -Fq 'mycelix-integration-materializer-abi-v1-i32-i32-to-packed-i64' "$source"
+          grep -Fq 'mycelix-integration-materializer-output-region-v1-ptr-hi32-len-lo32' "$source"
+          grep -Fq 'pub fn decode_output_region(value: i64) -> (u32, u32)' "$source"
+          grep -Fq 'pub fn encode_output_region(pointer: u32, length: u32) -> i64' "$source"
+          grep -Fq 'output_region_packing_round_trips' "$source"
+
+      - name: Enforce ABI is not runtime authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-materializer-abi/src/lib.rs'
+
+          grep -Fq 'exact_materialize_signature_verified_here(&self) -> bool' "$source"
+          grep -Fq 'canonical_output_packing_bound_here(&self) -> bool' "$source"
+          grep -Fq 'input_region_bounds_verified_here(&self) -> bool' "$source"
+          grep -Fq 'output_region_bounds_verified_here(&self) -> bool' "$source"
+          grep -Fq 'fresh_instance_enforced_here(&self) -> bool' "$source"
+          grep -Fq 'instruction_determinism_verified_here(&self) -> bool' "$source"
+          grep -Fq 'fuel_bound_enforced_here(&self) -> bool' "$source"
+          grep -Fq 'provider_payload_materialized_here(&self) -> bool' "$source"
+          grep -Fq 'grants_execution_authority(&self) -> bool' "$source"
+
+          if grep -Eq 'derive\([^)]*Deserialize' "$source"; then
+            echo 'Qualified ABI must not be deserializable.'
+            exit 1
+          fi
+          if grep -Eq 'wasmtime::|wasmer::|reqwest::|hyper::|tonic::|mark_dispatch_started|AdminWebsocket' "$source"; then
+            echo 'ABI theorem crossed into runtime/network/effect execution.'
+            exit 1
+          fi
+
+      - name: Enforce ABI substitution regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-materializer-abi/src/lib.rs'
+          grep -Fq 'exact_i32_i32_to_i64_signature_qualifies' "$source"
+          grep -Fq 'wrong_parameter_shape_fails_closed' "$source"
+          grep -Fq 'wrong_result_type_fails_closed' "$source"
+          grep -Fq 'policy_function_index_substitution_fails_closed' "$source"
