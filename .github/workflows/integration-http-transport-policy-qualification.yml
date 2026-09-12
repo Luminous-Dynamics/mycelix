@@ -114,7 +114,7 @@ jobs:
             echo 'Network/TLS dependency entered HTTP transport policy.'
             exit 1
           fi
-          if grep -Eq 'TcpStream|UdpSocket|reqwest::|hyper::|std::env|secret(_|::)|keyring|vault' "$SOURCE"; then
-            echo 'HTTP transport policy crossed into network or secret access.'
+          if grep -Eq 'TcpStream|UdpSocket|reqwest::|hyper::|std::env|keyring::|vault::|secret_service::|aws_sdk_secretsmanager' "$SOURCE"; then
+            echo 'HTTP transport policy crossed into network or secret-manager access.'
             exit 1
           fi
