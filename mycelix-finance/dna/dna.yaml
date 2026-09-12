@@ -41,6 +41,12 @@ integrity:
     sap_account_v2:
       enabled: false
 
+    # FIN-SAFE-016 owner-authored SAP V2 transfer-spend lane.
+    # Shipped disabled/non-canonical. V1 supports exact collateral-claim inputs
+    # and fork-detection assurance only; witnessed finality remains a later theorem.
+    sap_transfer_v2:
+      enabled: false
+
   zomes:
     - name: payments_integrity
       path: ../target/wasm32-unknown-unknown/release/payments_integrity.wasm
@@ -56,6 +62,8 @@ integrity:
       path: ../target/wasm32-unknown-unknown/release/collateral_issuance_v2_integrity.wasm
     - name: sap_account_v2_integrity
       path: ../target/wasm32-unknown-unknown/release/sap_account_v2_integrity.wasm
+    - name: sap_transfer_v2_integrity
+      path: ../target/wasm32-unknown-unknown/release/sap_transfer_v2_integrity.wasm
     - name: staking_integrity
       path: ../target/wasm32-unknown-unknown/release/staking_integrity.wasm
     - name: tend_integrity
@@ -100,6 +108,12 @@ coordinator:
     - name: sap_account_v2
       path: ../target/wasm32-unknown-unknown/release/sap_account_v2.wasm
       dependencies:
+        - name: sap_account_v2_integrity
+        - name: collateral_issuance_v2_integrity
+    - name: sap_transfer_v2
+      path: ../target/wasm32-unknown-unknown/release/sap_transfer_v2.wasm
+      dependencies:
+        - name: sap_transfer_v2_integrity
         - name: sap_account_v2_integrity
         - name: collateral_issuance_v2_integrity
     - name: staking
