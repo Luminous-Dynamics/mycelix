@@ -95,15 +95,15 @@ jobs:
           grep -Fq '.memories(1)' "$source"
           grep -Fq '.tables(0)' "$source"
           grep -Fq 'store.limiter(|state| &mut state.limits)' "$source"
-          grep -Fq 'store.set_fuel' "$source" || grep -Fq '.set_fuel(fuel_limit)' "$source"
+          grep -Fq '.set_fuel(fuel_limit)' "$source"
           grep -Fq 'Linker::<HostState>::new(&engine)' "$source"
           grep -Fq 'instantiate_and_start' "$source"
-          grep -Fq 'memory.grow(&mut store' "$source" || grep -Fq '.grow(&mut store' "$source"
-          grep -Fq 'memory.write(&mut store' "$source" || grep -Fq '.write(&mut store' "$source"
+          grep -Fq '.grow(&mut store' "$source"
+          grep -Fq '.write(&mut store' "$source"
           grep -Fq 'get_typed_func::<(i32, i32), i64>' "$source"
-          grep -Fq 'memory.read(&store' "$source" || grep -Fq '.read(&store' "$source"
+          grep -Fq '.read(&store' "$source"
 
-      - name: Enforce exact authority/profile/input joins
+      - name: Enforce exact authority/profile/input/attempt joins
         shell: bash
         run: |
           set -euo pipefail
@@ -112,9 +112,15 @@ jobs:
           grep -Fq 'artifact.provider_profile_commitment() != binding.provider_profile_commitment()' "$source"
           grep -Fq 'ContentCommitment::sha256(canonical_command_bytes)' "$source"
           grep -Fq '&input_commitment != binding.command_commitment()' "$source"
+          grep -Fq 'entry_id: binding.entry_id()' "$source"
+          grep -Fq 'attempt_id: binding.attempt_id().clone()' "$source"
+          grep -Fq 'command_id: binding.command_id().clone()' "$source"
+          grep -Fq 'connector_instance: binding.connector_instance().clone()' "$source"
+          grep -Fq 'provider_trust_root_commitment: binding.provider_trust_root_commitment().clone()' "$source"
           grep -Fq 'output_len_u32 > binding.max_payload_bytes()' "$source"
           grep -Fq 'decode_output_region(packed)' "$source"
           grep -Fq 'output_end > memory_size' "$source"
+          grep -Fq 'pub const fn exact_attempt_identity_retained_here(&self) -> bool {' "$source"
 
       - name: Enforce materialization is not dispatch authority
         shell: bash
