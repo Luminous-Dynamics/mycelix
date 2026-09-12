@@ -88,12 +88,46 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           s = Path('crates/mycelix-integration-http-transport-journal/src/lib.rs').read_text()
-          prepare = s[s.find('pub fn prepare_http_transport_attempt('):s.find('\n}\n\n/// Durably cross', s.find('pub fn prepare_http_transport_attempt('))]
+          prepare_start = s.find('pub fn prepare_http_transport_attempt(')
+          prepare_end = s.find('\n}\n\n/// Durably cross', prepare_start)
+          prepare = s[prepare_start:prepare_end]
           if 'validate_dispatch_row(&tx, dispatch, descriptor)?;' not in prepare:
               raise SystemExit('prepare path must rejoin outbox + v2 dispatch inside its transaction')
-          recovery = s[s.find('pub fn recover_http_transport_attempt('):s.find('\n}\n\nfn record_observation_from_prepared', s.find('pub fn recover_http_transport_attempt('))]
+          recovery_start = s.find('pub fn recover_http_transport_attempt(')
+          recovery_end = s.find('\n}\n\nfn record_observation_from_prepared', recovery_start)
+          recovery = s[recovery_start:recovery_end]
           if 'OUTBOX_DISPATCH_STARTED' in recovery:
               raise SystemExit('restart recovery must not require outbox to remain at DispatchStarted')
+          PY
+
+      - name: Enforce issuance expiry gates arming but never evidence persistence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          s = Path('crates/mycelix-integration-http-transport-journal/src/lib.rs').read_text()
+
+          arm_start = s.find('pub fn arm_http_application_write(')
+          arm_end = s.find('\n}\n\n/// Record a conclusive', arm_start)
+          arm = s[arm_start:arm_end]
+          if 'now_u64 >= prepared.valid_until_ms' not in arm:
+              raise SystemExit('WriteMayBegin must remain issuance-deadline gated')
+
+          for name, end_marker in [
+              ('fn validate_observation_identity_prepared(', '\n}\n\nfn validate_observation_identity_armed'),
+              ('fn validate_observation_identity_armed(', '\n}\n\nfn validate_observation_identity('),
+          ]:
+              start = s.find(name)
+              end = s.find(end_marker, start)
+              body = s[start:end]
+              forbidden = ['valid_until_ms', 'to_u64_time(now_ms)', 'descriptor.is_live_at']
+              for needle in forbidden:
+                  if needle in body:
+                      raise SystemExit(f'observation evidence must remain recordable after issuance expiry: {name} contains {needle}')
+
+          if 'evidence.observed_at_ms < causal_floor_ms || evidence.observed_at_ms > now_ms' not in s:
+              raise SystemExit('post-expiry evidence still needs exact causal timestamp checks')
           PY
 
       - name: Enforce durable arm occurs before write capability return
