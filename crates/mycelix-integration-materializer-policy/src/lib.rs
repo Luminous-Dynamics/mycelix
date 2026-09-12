@@ -1,10 +1,10 @@
 //! Static capability policy for hash-pinned integration WASM materializers.
 //!
 //! The policy is intentionally stricter than general WebAssembly. A v0.1
-//! materializer may have no imports, no tables, no start function, exactly one
-//! bounded 32-bit linear memory, and only the `memory` + `materialize` exports.
-//! With no imports, the module has no host route to network, clock, randomness,
-//! filesystem, environment, or secrets.
+//! materializer may have no imports, tables, globals, elements, exception tags,
+//! or start function; exactly one bounded 32-bit linear memory; and only the
+//! `memory` + `materialize` exports. With no imports, the module has no host route
+//! to network, clock, randomness, filesystem, environment, or secrets.
 //!
 //! This still does not execute the module or prove instruction-level
 //! determinism. Fuel, runtime configuration, ABI signature and output semantics
@@ -59,6 +59,10 @@ impl QualifiedWasmMaterializerPolicy {
     }
 
     pub const fn no_host_io_via_imports_verified_here(&self) -> bool {
+        true
+    }
+
+    pub const fn no_tables_globals_or_elements_verified_here(&self) -> bool {
         true
     }
 
@@ -149,6 +153,16 @@ fn analyze_module(bytes: &[u8]) -> Result<PolicyFacts, MaterializerPolicyError> 
                     return Err(MaterializerPolicyError::TablesForbidden);
                 }
             }
+            Payload::GlobalSection(reader) => {
+                if reader.count() != 0 {
+                    return Err(MaterializerPolicyError::GlobalsForbidden);
+                }
+            }
+            Payload::ElementSection(reader) => {
+                if reader.count() != 0 {
+                    return Err(MaterializerPolicyError::ElementsForbidden);
+                }
+            }
             Payload::MemorySection(reader) => {
                 for item in reader {
                     let memory_type = item?;
@@ -200,8 +214,6 @@ fn analyze_module(bytes: &[u8]) -> Result<PolicyFacts, MaterializerPolicyError> 
             }
             Payload::TypeSection(_)
             | Payload::FunctionSection(_)
-            | Payload::GlobalSection(_)
-            | Payload::ElementSection(_)
             | Payload::DataCountSection { .. }
             | Payload::DataSection(_)
             | Payload::CodeSectionStart { .. }
@@ -259,6 +271,10 @@ pub enum MaterializerPolicyError {
     ImportsForbidden,
     #[error("materializer tables are forbidden")]
     TablesForbidden,
+    #[error("materializer globals are forbidden")]
+    GlobalsForbidden,
+    #[error("materializer element segments are forbidden")]
+    ElementsForbidden,
     #[error("materializer exception tags are forbidden")]
     ExceptionTagsForbidden,
     #[error("materializer start functions are forbidden")]
@@ -302,7 +318,13 @@ mod tests {
         module.extend_from_slice(payload);
     }
 
-    fn module(with_import: bool, bounded_memory: bool, with_start: bool, extra_export: bool) -> Vec<u8> {
+    fn module(
+        with_import: bool,
+        bounded_memory: bool,
+        with_start: bool,
+        extra_export: bool,
+        with_global: bool,
+    ) -> Vec<u8> {
         let mut module = b"\0asm\x01\0\0\0".to_vec();
 
         // type[0] = () -> ()
@@ -325,6 +347,11 @@ mod tests {
             push_section(&mut module, 5, &[1, 1, 1, 2]);
         } else {
             push_section(&mut module, 5, &[1, 0, 1]);
+        }
+
+        if with_global {
+            // One immutable i32 global initialized to zero.
+            push_section(&mut module, 6, &[1, 0x7f, 0, 0x41, 0, 0x0b]);
         }
 
         let materialize_index = u8::from(with_import);
@@ -350,7 +377,7 @@ mod tests {
 
     #[test]
     fn narrow_import_free_bounded_module_qualifies() {
-        let facts = analyze_module(&module(false, true, false, false)).unwrap();
+        let facts = analyze_module(&module(false, true, false, false, false)).unwrap();
         assert_eq!(facts.initial_memory_pages, 1);
         assert_eq!(facts.maximum_memory_pages, 2);
         assert_eq!(facts.materialize_function_index, 0);
@@ -359,7 +386,7 @@ mod tests {
     #[test]
     fn any_import_fails_closed() {
         assert!(matches!(
-            analyze_module(&module(true, true, false, false)),
+            analyze_module(&module(true, true, false, false, false)),
             Err(MaterializerPolicyError::ImportsForbidden)
         ));
     }
@@ -367,15 +394,23 @@ mod tests {
     #[test]
     fn unbounded_memory_fails_closed() {
         assert!(matches!(
-            analyze_module(&module(false, false, false, false)),
+            analyze_module(&module(false, false, false, false, false)),
             Err(MaterializerPolicyError::MemoryMaximumRequired)
+        ));
+    }
+
+    #[test]
+    fn global_state_fails_closed() {
+        assert!(matches!(
+            analyze_module(&module(false, true, false, false, true)),
+            Err(MaterializerPolicyError::GlobalsForbidden)
         ));
     }
 
     #[test]
     fn start_function_fails_closed() {
         assert!(matches!(
-            analyze_module(&module(false, true, true, false)),
+            analyze_module(&module(false, true, true, false, false)),
             Err(MaterializerPolicyError::StartFunctionForbidden)
         ));
     }
@@ -383,7 +418,7 @@ mod tests {
     #[test]
     fn extra_export_fails_closed() {
         assert!(matches!(
-            analyze_module(&module(false, true, false, true)),
+            analyze_module(&module(false, true, false, true, false)),
             Err(MaterializerPolicyError::UnexpectedExport)
         ));
     }
