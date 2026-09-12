@@ -2,10 +2,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! Provenance for intergenerational regenerative support-basis qualification.
 //!
-//! Symthaea owns semantic qualification of quantity/time-basis continuity and
-//! Symtropy owns runtime inventory/accounting behavior. Mycelix preserves those
-//! claims, checks canonical/arithmetic consistency, and prevents an unsafe basis
-//! record from authorizing a scalar policy-sensitivity surface.
+//! Symthaea owns semantic qualification and Symtropy owns runtime inventory/accounting.
+//! Mycelix preserves those claims, checks canonical/arithmetic consistency, and
+//! prevents an unsafe basis record from authorizing a scalar policy surface.
+//!
+//! `FinitePeriods` is a period count. Equal physical draw rate across unlike period
+//! durations is useful diagnostic evidence, but is not enough to authorize direct
+//! period-count projection. V1 therefore also requires equal period duration.
 
 use crate::{
     MaritimeEvidenceEnvelope, MaritimeEvidenceKind, RegenerativePolicySensitivitySurfaceEvidenceV1,
@@ -29,6 +32,8 @@ pub struct RegenerativeSupportBasisAssessmentEvidenceV1 {
     pub successor_stockpile_draw_units_per_period: u64,
     pub source_period_duration_ms: u64,
     pub successor_period_duration_ms: u64,
+    /// Diagnostic equality of physical draw rate. Scalar period-count safety also
+    /// requires the two period durations themselves to be equal.
     pub normalized_stockpile_draw_rate_preserved: bool,
 }
 
@@ -37,9 +42,7 @@ pub struct RegenerativeSupportBasisAssessmentEvidenceV1 {
 pub struct RegenerativeSupportBasisEvidenceV1 {
     pub schema_version: u8,
     pub basis_evidence_id: String,
-    /// Exact Mycelix viability record for the physical source subject.
     pub viability_evidence_content_digest: String,
-    /// Exact upstream engineering evidence.
     pub symthaea_support_basis_binding: String,
     pub symtropy_support_basis_binding: String,
     pub shared_support_basis_fixture_binding: String,
@@ -49,9 +52,10 @@ pub struct RegenerativeSupportBasisEvidenceV1 {
     pub successor_model_binding: String,
     /// Strictly sorted by `(source_dependency_id, successor_dependency_id)`.
     pub assessments: Vec<RegenerativeSupportBasisAssessmentEvidenceV1>,
+    /// True only when every assessment preserves physical draw rate AND exact
+    /// model-period duration, so a period-count runway retains its basis.
     pub scalar_runway_projection_safe: bool,
-    /// Optional exact policy-surface content digest. This MUST be absent when the
-    /// basis is unsafe. A safe record may exist before a surface has been produced.
+    /// MUST be absent when `scalar_runway_projection_safe` is false.
     pub authorized_policy_surface_content_digest: Option<String>,
 }
 
@@ -103,7 +107,7 @@ impl RegenerativeSupportBasisEvidenceV1 {
             return Err("support-basis assessments must be strictly sorted and unique".into());
         }
 
-        let mut all_preserved = true;
+        let mut all_scalar_period_bases_preserved = true;
         for assessment in &self.assessments {
             if !canonical_id(&assessment.source_dependency_id)
                 || !canonical_id(&assessment.successor_dependency_id)
@@ -118,30 +122,33 @@ impl RegenerativeSupportBasisEvidenceV1 {
             {
                 return Err("support-basis period durations must be positive".into());
             }
-            let expected_preserved = u128::from(
-                assessment.source_stockpile_draw_units_per_period,
-            ) * u128::from(assessment.successor_period_duration_ms)
-                == u128::from(assessment.successor_stockpile_draw_units_per_period)
-                    * u128::from(assessment.source_period_duration_ms);
-            if assessment.normalized_stockpile_draw_rate_preserved != expected_preserved {
+
+            let expected_rate_preserved =
+                u128::from(assessment.source_stockpile_draw_units_per_period)
+                    * u128::from(assessment.successor_period_duration_ms)
+                    == u128::from(assessment.successor_stockpile_draw_units_per_period)
+                        * u128::from(assessment.source_period_duration_ms);
+            if assessment.normalized_stockpile_draw_rate_preserved != expected_rate_preserved {
                 return Err(
-                    "support-basis preserved flag disagrees with carried rate arithmetic".into(),
+                    "support-basis preserved-rate flag disagrees with carried arithmetic".into(),
                 );
             }
-            all_preserved &= expected_preserved;
+            let period_duration_preserved =
+                assessment.source_period_duration_ms == assessment.successor_period_duration_ms;
+            all_scalar_period_bases_preserved &=
+                expected_rate_preserved && period_duration_preserved;
         }
 
-        if self.scalar_runway_projection_safe != all_preserved {
+        if self.scalar_runway_projection_safe != all_scalar_period_bases_preserved {
             return Err(
-                "support-basis scalar projection flag disagrees with transfer assessments".into(),
+                "support-basis scalar projection flag disagrees with period-basis assessments"
+                    .into(),
             );
         }
         if !self.scalar_runway_projection_safe
             && self.authorized_policy_surface_content_digest.is_some()
         {
-            return Err(
-                "unsafe support basis cannot authorize a scalar policy surface".into(),
-            );
+            return Err("unsafe support basis cannot authorize a scalar policy surface".into());
         }
         if let Some(digest) = &self.authorized_policy_surface_content_digest {
             if !lower_hex_64(digest) {
