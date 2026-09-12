@@ -1,0 +1,14 @@
+[package]
+name = "mycelix-integration-provider-trust-currentness"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Generation-bound currentness for institution-adopted Mycelix provider-profile trust roots"
+
+[dependencies]
+blake3 = "1.5"
+mycelix-authority-freshness = { path = "../mycelix-authority-freshness" }
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+mycelix-integration-execution-binding = { path = "../mycelix-integration-execution-binding" }
+mycelix-integration-provider-trust-policy = { path = "../mycelix-integration-provider-trust-policy" }
+thiserror = "2.0"
