@@ -1,0 +1,463 @@
+name: Finance Zome Contracts Phase A R2
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/finance-zome-contracts-phase-a-r2.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: finance-zome-contracts-phase-a-r2
+  cancel-in-progress: false
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  SOURCE_SHA: 'ea01f1f02e08b04786bce4e85d50a6a7d1f8408f'
+
+jobs:
+  qualify:
+    name: Qualify ABI-neutral contract Phase A R2
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'ci-fin-safe-024-phase-a-r2'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout frozen FIN-SAFE-020 source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Bind exact source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - name: Apply prerequisite compatibility repairs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          # FIN-SAFE-021: #[dna_properties] already provides these traits.
+          for path in [
+              Path('mycelix-finance/zomes/collateral-settlement-auth/integrity/src/lib.rs'),
+              Path('mycelix-finance/zomes/sap-account-v2/integrity/src/lib.rs'),
+              Path('mycelix-finance/zomes/sap-transfer-v2/integrity/src/lib.rs'),
+          ]:
+              text = path.read_text()
+              old = '#[dna_properties]\n#[derive(Clone, Debug, Serialize, Deserialize)]'
+              if text.count(old) != 1:
+                  raise SystemExit(f'{path}: DNA properties derive shape mismatch')
+              path.write_text(text.replace(old, '#[dna_properties]\n#[derive(Clone)]'))
+
+          # FIN-SAFE-023: preserve exact AppEntryDef equality through pinned HDI.
+          for path in [
+              Path('mycelix-finance/zomes/collateral-issuance-v2/integrity/src/lib.rs'),
+              Path('mycelix-finance/zomes/sap-account-v2/integrity/src/lib.rs'),
+              Path('mycelix-finance/zomes/sap-transfer-v2/integrity/src/lib.rs'),
+          ]:
+              text = path.read_text()
+              marker = 'fn require_exact_create_entry('
+              next_fn = '\nfn decode_entry'
+              if text.count(marker) != 1:
+                  raise SystemExit(f'{path}: exact-create helper count mismatch')
+              start = text.index(marker)
+              end = text.index(next_fn, start)
+              block = text[start:end]
+              required = [
+                  'record.action().app_entry_def()',
+                  'Some(actual) if actual == &expected => Ok(()),',
+                  'Some(actual) => Err(format!(',
+                  'None => Err(format!("{label} is not an application entry")),',
+              ]
+              for needle in required:
+                  if block.count(needle) != 1:
+                      raise SystemExit(f'{path}: helper mismatch for {needle!r}')
+              block = block.replace('record.action().app_entry_def()', 'record.action().entry_type()')
+              block = block.replace(
+                  'Some(actual) if actual == &expected => Ok(()),',
+                  'Some(EntryType::App(actual)) if actual == &expected => Ok(()),',
+              )
+              block = block.replace(
+                  'Some(actual) => Err(format!(',
+                  'Some(EntryType::App(actual)) => Err(format!(',
+                  1,
+              )
+              block = block.replace(
+                  '        None => Err(format!("{label} is not an application entry")),',
+                  '        Some(actual) => Err(format!(\n'
+                  '            "{label} is not an application entry: got {actual:?}"\n'
+                  '        )),\n'
+                  '        None => Err(format!("{label} has no entry type")),',
+              )
+              path.write_text(text[:start] + block + text[end:])
+
+          # FIN-SAFE-022: settlement kernel is required only by #[cfg(test)].
+          manifest = Path('mycelix-finance/zomes/collateral-settlement-auth/integrity/Cargo.toml')
+          text = manifest.read_text()
+          if '[dev-dependencies]' in text:
+              raise SystemExit('settlement-auth dev-dependencies unexpectedly already exist')
+          manifest.write_text(
+              text.rstrip()
+              + '\n\n[dev-dependencies]\n'
+              + 'finance-collateral-settlement = { path = "../../../crates/finance-collateral-settlement" }\n'
+          )
+          PY
+
+      - name: Create ABI-neutral V2 Holochain contract crate
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p mycelix-finance/crates/finance-holochain-contracts/src
+          cat > mycelix-finance/crates/finance-holochain-contracts/Cargo.toml <<'EOF'
+          [package]
+          name = "finance-holochain-contracts"
+          version = "0.1.0"
+          edition = "2024"
+          license.workspace = true
+          description = "ABI-neutral shared Holochain entry contracts for Mycelix Finance V2 zomes"
+
+          [dependencies]
+          hdi = { workspace = true }
+          holochain_serialized_bytes = { workspace = true }
+          serde = { workspace = true }
+          finance-collateral-deposit = { path = "../finance-collateral-deposit" }
+          finance-collateral-auth = { path = "../finance-collateral-auth" }
+          EOF
+
+          cat > mycelix-finance/crates/finance-holochain-contracts/src/lib.rs <<'EOF'
+          #![deny(unsafe_code)]
+          // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+          // SPDX-License-Identifier: AGPL-3.0-or-later
+          // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
+          //! ABI-neutral serialized contracts shared by Finance V2 Holochain zomes.
+          //!
+          //! This crate deliberately declares no EntryTypes, LinkTypes, callbacks,
+          //! extern functions, or zome authority. Zomes own authority; this crate
+          //! owns only canonical payload serialization and shared property decoding.
+
+          use finance_collateral_auth::{
+              CollateralSettlementAuthConfig, CustodyAttestationV1, PriceAttestationV1,
+          };
+          use finance_collateral_deposit::{
+              COLLATERAL_DEPOSIT_NONCE_BYTES, CollateralDepositRequestV2,
+          };
+          use hdi::prelude::*;
+
+          pub const MAX_CREATE_TIMESTAMP_SKEW_MICROS: i64 = 5_000_000;
+
+          #[dna_properties]
+          #[derive(Clone)]
+          pub struct FinanceCollateralAuthDnaProperties {
+              pub collateral_settlement_auth: CollateralSettlementAuthConfig,
+          }
+
+          pub fn load_collateral_auth_config() -> ExternResult<CollateralSettlementAuthConfig> {
+              Ok(FinanceCollateralAuthDnaProperties::try_from_dna_properties()?
+                  .collateral_settlement_auth)
+          }
+
+          #[hdk_entry_helper]
+          #[derive(Clone, PartialEq)]
+          pub struct CollateralDepositRequestV2Entry {
+              pub schema_version: u16,
+              pub deposit_id: String,
+              pub depositor_did: String,
+              pub collateral_asset_id: String,
+              pub collateral_amount: u64,
+              pub quote_asset_id: String,
+              pub request_nonce: Vec<u8>,
+              pub created_at_micros: i64,
+          }
+
+          impl CollateralDepositRequestV2Entry {
+              pub fn to_model(&self) -> Result<CollateralDepositRequestV2, String> {
+                  let request_nonce: [u8; COLLATERAL_DEPOSIT_NONCE_BYTES] =
+                      self.request_nonce.as_slice().try_into().map_err(|_| {
+                          format!(
+                              "request_nonce must contain exactly {} bytes",
+                              COLLATERAL_DEPOSIT_NONCE_BYTES
+                          )
+                      })?;
+                  Ok(CollateralDepositRequestV2 {
+                      schema_version: self.schema_version,
+                      deposit_id: self.deposit_id.clone(),
+                      depositor_did: self.depositor_did.clone(),
+                      collateral_asset_id: self.collateral_asset_id.clone(),
+                      collateral_amount: self.collateral_amount,
+                      quote_asset_id: self.quote_asset_id.clone(),
+                      request_nonce,
+                      created_at_micros: self.created_at_micros,
+                  })
+              }
+          }
+
+          impl From<CollateralDepositRequestV2> for CollateralDepositRequestV2Entry {
+              fn from(value: CollateralDepositRequestV2) -> Self {
+                  Self {
+                      schema_version: value.schema_version,
+                      deposit_id: value.deposit_id,
+                      depositor_did: value.depositor_did,
+                      collateral_asset_id: value.collateral_asset_id,
+                      collateral_amount: value.collateral_amount,
+                      quote_asset_id: value.quote_asset_id,
+                      request_nonce: value.request_nonce.to_vec(),
+                      created_at_micros: value.created_at_micros,
+                  }
+              }
+          }
+
+          #[hdk_entry_helper]
+          #[derive(Clone, PartialEq)]
+          pub struct PriceAttestationV1Entry {
+              pub attestation: PriceAttestationV1,
+          }
+
+          #[hdk_entry_helper]
+          #[derive(Clone, PartialEq)]
+          pub struct CustodyAttestationV1Entry {
+              pub attestation: CustodyAttestationV1,
+          }
+          EOF
+
+      - name: Move request and evidence payloads behind contract boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          # Workspace membership.
+          ws = Path('mycelix-finance/Cargo.toml')
+          text = ws.read_text()
+          anchor = '    "crates/finance-collateral-auth",\n'
+          if text.count(anchor) != 1:
+              raise SystemExit('workspace contract insertion anchor mismatch')
+          ws.write_text(text.replace(anchor, anchor + '    "crates/finance-holochain-contracts",\n'))
+
+          # Deposit integrity retains only authority and imports the canonical payload.
+          path = Path('mycelix-finance/zomes/collateral-deposit-v2/integrity/src/lib.rs')
+          text = path.read_text()
+          start = text.index('/// The coordinator obtains `created_at_micros`')
+          end = text.index('#[hdk_entry_types]', start)
+          text = text[:start] + text[end:]
+          old_import = 'use finance_collateral_deposit::{COLLATERAL_DEPOSIT_NONCE_BYTES, CollateralDepositRequestV2};\nuse hdi::prelude::*;'
+          new_import = 'use finance_holochain_contracts::{\n    CollateralDepositRequestV2Entry, MAX_CREATE_TIMESTAMP_SKEW_MICROS,\n};\nuse hdi::prelude::*;'
+          if text.count(old_import) != 1:
+              raise SystemExit('deposit production import mismatch')
+          text = text.replace(old_import, new_import)
+          # Test-only constant/model import lost when the local helper block moved.
+          old_test = '    use finance_collateral_deposit::CollateralDepositRequestV2;'
+          new_test = '    use finance_collateral_deposit::{\n        COLLATERAL_DEPOSIT_NONCE_BYTES, CollateralDepositRequestV2,\n    };'
+          if text.count(old_test) != 1:
+              raise SystemExit('deposit test import mismatch')
+          path.write_text(text.replace(old_test, new_test))
+
+          manifest = Path('mycelix-finance/zomes/collateral-deposit-v2/integrity/Cargo.toml')
+          text = manifest.read_text()
+          anchor = 'finance-collateral-deposit = { path = "../../../crates/finance-collateral-deposit" }\n'
+          if text.count(anchor) != 1:
+              raise SystemExit('deposit manifest anchor mismatch')
+          manifest.write_text(text.replace(
+              anchor,
+              anchor + 'finance-holochain-contracts = { path = "../../../crates/finance-holochain-contracts" }\n',
+          ))
+
+          # Settlement-auth integrity owns EntryTypes/validation; payloads/properties move.
+          path = Path('mycelix-finance/zomes/collateral-settlement-auth/integrity/src/lib.rs')
+          text = path.read_text()
+          start = text.index('#[dna_properties]')
+          end = text.index('#[hdk_entry_types]', start)
+          text = text[:start] + text[end:]
+          loader = '''pub fn load_collateral_auth_config() -> ExternResult<CollateralSettlementAuthConfig> {
+              Ok(FinanceCollateralAuthDnaProperties::try_from_dna_properties()?.collateral_settlement_auth)
+          }
+
+          '''.replace('          ', '')
+          if text.count(loader) != 1:
+              raise SystemExit('settlement-auth local loader mismatch')
+          text = text.replace(loader, '')
+          old_import = '''use finance_collateral_auth::{
+              CollateralSettlementAuthConfig, CustodyAttestationV1, PriceAttestationV1,
+          };
+          use hdi::prelude::*;'''.replace('          ', '')
+          new_import = '''use finance_holochain_contracts::{
+              CustodyAttestationV1Entry, PriceAttestationV1Entry, load_collateral_auth_config,
+          };
+          use hdi::prelude::*;'''.replace('          ', '')
+          if text.count(old_import) != 1:
+              raise SystemExit('settlement-auth production import mismatch')
+          text = text.replace(old_import, new_import)
+          old_test = '''    use finance_collateral_auth::{
+              COLLATERAL_EVIDENCE_AUTH_PROTOCOL_VERSION, CUSTODY_ATTESTATION_V1_SCHEMA_VERSION,
+              CollateralSettlementTrustRootV1, PRICE_ATTESTATION_V1_SCHEMA_VERSION,
+          };'''.replace('          ', '')
+          new_test = '''    use finance_collateral_auth::{
+              COLLATERAL_EVIDENCE_AUTH_PROTOCOL_VERSION, CUSTODY_ATTESTATION_V1_SCHEMA_VERSION,
+              CollateralSettlementTrustRootV1, CustodyAttestationV1,
+              PRICE_ATTESTATION_V1_SCHEMA_VERSION, PriceAttestationV1,
+          };'''.replace('          ', '')
+          if text.count(old_test) != 1:
+              raise SystemExit('settlement-auth test import mismatch')
+          path.write_text(text.replace(old_test, new_test))
+
+          manifest = Path('mycelix-finance/zomes/collateral-settlement-auth/integrity/Cargo.toml')
+          text = manifest.read_text()
+          anchor = 'finance-collateral-auth = { path = "../../../crates/finance-collateral-auth" }\n'
+          if text.count(anchor) != 1:
+              raise SystemExit('settlement-auth manifest anchor mismatch')
+          manifest.write_text(text.replace(
+              anchor,
+              anchor + 'finance-holochain-contracts = { path = "../../../crates/finance-holochain-contracts" }\n',
+          ))
+          PY
+
+      - name: Decouple issuance integrity from foreign integrity crates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('mycelix-finance/zomes/collateral-issuance-v2/integrity/src/lib.rs')
+          text = path.read_text()
+          old = '''use collateral_deposit_v2_integrity::{
+              CollateralDepositRequestV2Entry, MAX_CREATE_TIMESTAMP_SKEW_MICROS,
+          };
+          use collateral_settlement_auth_integrity::{
+              CustodyAttestationV1Entry, PriceAttestationV1Entry, load_collateral_auth_config,
+          };
+          '''.replace('          ', '')
+          new = '''use finance_holochain_contracts::{
+              CollateralDepositRequestV2Entry, CustodyAttestationV1Entry,
+              MAX_CREATE_TIMESTAMP_SKEW_MICROS, PriceAttestationV1Entry,
+              load_collateral_auth_config,
+          };
+          '''.replace('          ', '')
+          if text.count(old) != 1:
+              raise SystemExit('issuance foreign import block mismatch')
+          path.write_text(text.replace(old, new))
+
+          manifest = Path('mycelix-finance/zomes/collateral-issuance-v2/integrity/Cargo.toml')
+          text = manifest.read_text()
+          for line in [
+              'collateral_deposit_v2_integrity = { path = "../../collateral-deposit-v2/integrity" }\n',
+              'collateral_settlement_auth_integrity = { path = "../../collateral-settlement-auth/integrity" }\n',
+          ]:
+              if text.count(line) != 1:
+                  raise SystemExit(f'issuance dependency mismatch: {line!r}')
+              text = text.replace(line, '')
+          anchor = 'finance-collateral-auth = { path = "../../../crates/finance-collateral-auth" }\n'
+          if text.count(anchor) != 1:
+              raise SystemExit('issuance contract dependency anchor mismatch')
+          manifest.write_text(text.replace(
+              anchor,
+              anchor + 'finance-holochain-contracts = { path = "../../../crates/finance-holochain-contracts" }\n',
+          ))
+          PY
+
+      - name: Format and prove Phase A source boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo fmt --all
+          cargo fmt --all --check
+          cd ..
+          git diff --check
+          ! grep -F 'collateral_deposit_v2_integrity = { path = "../../collateral-deposit-v2/integrity" }' \
+            mycelix-finance/zomes/collateral-issuance-v2/integrity/Cargo.toml
+          ! grep -F 'collateral_settlement_auth_integrity = { path = "../../collateral-settlement-auth/integrity" }' \
+            mycelix-finance/zomes/collateral-issuance-v2/integrity/Cargo.toml
+          ! grep -R -E '#\[(hdk_entry_types|hdk_link_types|hdk_extern)\]' \
+            mycelix-finance/crates/finance-holochain-contracts/src
+          git diff > /tmp/phase-a-r2-source.patch
+          test -s /tmp/phase-a-r2-source.patch
+
+      - name: Generate cumulative lock candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp mycelix-finance/Cargo.lock /tmp/Cargo.lock.before
+          cd mycelix-finance
+          cargo metadata --format-version 1 > /tmp/cargo-metadata-generated.json
+          cp Cargo.lock /tmp/Cargo.lock.candidate
+          git diff -- Cargo.lock > /tmp/Cargo.lock.diff
+          sha256sum Cargo.lock > /tmp/Cargo.lock.candidate.sha256
+          cargo metadata --locked --format-version 1 > /tmp/cargo-metadata-locked.json
+          cargo tree --workspace --locked > /tmp/cargo-tree-locked.txt
+          test -s ../mycelix-finance/Cargo.lock || true
+
+      - name: Test Phase A core boundary under generated lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo test \
+            -p finance-holochain-contracts \
+            -p collateral_deposit_v2_integrity \
+            -p collateral_settlement_auth_integrity \
+            -p collateral_issuance_v2_integrity \
+            --locked 2>&1 | tee /tmp/phase-a-r2-core-tests.log
+
+      - name: Check Phase A core wasm boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo check \
+            -p collateral_deposit_v2_integrity \
+            -p collateral_settlement_auth_integrity \
+            -p collateral_issuance_v2_integrity \
+            --target wasm32-unknown-unknown --lib --locked \
+            2>&1 | tee /tmp/phase-a-r2-core-wasm.log
+
+      - name: Probe downstream SAP account and transfer integrity linkage
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo test \
+            -p sap_account_v2_integrity \
+            -p sap_transfer_v2_integrity \
+            --locked 2>&1 | tee /tmp/phase-a-r2-downstream-tests.log
+
+      - name: Full cumulative Finance workspace if downstream is healthy
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo test --workspace --locked 2>&1 | tee /tmp/phase-a-r2-workspace-tests.log
+
+      - name: Upload diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: finance-zome-contracts-phase-a-r2-${{ env.SOURCE_SHA }}-${{ github.run_attempt }}
+          path: |
+            /tmp/phase-a-r2-source.patch
+            /tmp/Cargo.lock.before
+            /tmp/Cargo.lock.candidate
+            /tmp/Cargo.lock.diff
+            /tmp/Cargo.lock.candidate.sha256
+            /tmp/cargo-metadata-generated.json
+            /tmp/cargo-metadata-locked.json
+            /tmp/cargo-tree-locked.txt
+            /tmp/phase-a-r2-core-tests.log
+            /tmp/phase-a-r2-core-wasm.log
+            /tmp/phase-a-r2-downstream-tests.log
+            /tmp/phase-a-r2-workspace-tests.log
+          if-no-files-found: warn
+          retention-days: 30
