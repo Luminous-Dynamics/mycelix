@@ -239,23 +239,15 @@ pub fn verify_regenerative_support_closure_continuity_evidence(
 }
 
 pub fn verify_regenerative_support_closure_surface_authorization(
+    viability: &RegenerativeViabilityEvidenceV1,
     basis: &RegenerativeSupportBasisEvidenceV1,
     continuity: &RegenerativeSupportClosureContinuityEvidenceV1,
     surface: &RegenerativePolicySensitivitySurfaceEvidenceV1,
 ) -> Result<(), String> {
+    // Full continuity composition is mandatory here; callers cannot skip the
+    // source model/support identity checks and jump straight to surface authorization.
+    verify_regenerative_support_closure_continuity_evidence(viability, basis, continuity)?;
     verify_regenerative_support_basis_surface_authorization(basis, surface)?;
-    continuity.validate()?;
-    if continuity.support_basis_evidence_content_digest != basis.content_digest()? {
-        return Err("support-closure basis digest mismatch during surface authorization".into());
-    }
-    if continuity.source_model_binding != basis.source_model_binding
-        || continuity.successor_model_binding != basis.successor_model_binding
-    {
-        return Err("support-closure model subjects disagree with parent basis".into());
-    }
-    if continuity.viability_evidence_content_digest != basis.viability_evidence_content_digest {
-        return Err("support-closure and basis refer to different viability subjects".into());
-    }
     if !continuity.scalar_runway_projection_safe {
         return Err("unsafe support closure cannot authorize a policy surface".into());
     }
