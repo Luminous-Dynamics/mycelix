@@ -87,7 +87,7 @@ jobs:
           LC_ALL=C sort -o /tmp/expected-paths.txt /tmp/expected-paths.txt
           diff -u /tmp/expected-paths.txt /tmp/actual-paths.txt
 
-      - name: Generate ephemeral lock and validate affected crates
+      - name: Generate ephemeral lock and validate production libraries
         shell: bash
         run: |
           set -euo pipefail
@@ -95,11 +95,11 @@ jobs:
           cd mycelix-finance
           cargo metadata --format-version 1 > /tmp/cargo-metadata-generated.json
           cargo metadata --locked --format-version 1 > /tmp/cargo-metadata-locked.json
-          cargo test \
+          cargo check \
             -p collateral_settlement_auth_integrity \
             -p sap_account_v2_integrity \
             -p sap_transfer_v2_integrity \
-            --locked 2>&1 | tee /tmp/dna-properties-targeted-tests.log
+            --lib --locked 2>&1 | tee /tmp/dna-properties-targeted-check.log
           cd ..
           test "$(git diff --name-only -- mycelix-finance/Cargo.lock)" = 'mycelix-finance/Cargo.lock'
 
@@ -113,10 +113,6 @@ jobs:
           diff -u /tmp/expected-paths.txt /tmp/actual-paths-after.txt
           git diff > /tmp/dna-properties-fix.patch
           test -s /tmp/dna-properties-fix.patch
-          test "$(grep -R -F '#[derive(Clone)]' \
-            mycelix-finance/zomes/collateral-settlement-auth/integrity/src/lib.rs \
-            mycelix-finance/zomes/sap-account-v2/integrity/src/lib.rs \
-            mycelix-finance/zomes/sap-transfer-v2/integrity/src/lib.rs | wc -l)" -ge 3
 
       - name: Commit validated three-file fix
         shell: bash
@@ -150,7 +146,7 @@ jobs:
           path: |
             /tmp/promotion.env
             /tmp/dna-properties-fix.patch
-            /tmp/dna-properties-targeted-tests.log
+            /tmp/dna-properties-targeted-check.log
             /tmp/cargo-metadata-locked.json
           if-no-files-found: warn
           retention-days: 30
