@@ -23,33 +23,64 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
+  RUST_TOOLCHAIN: '1.96.0'
+  QUALIFICATION_SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
   MANIFEST: crates/mycelix-integration-http-egress-route/Cargo.toml
   SOURCE: crates/mycelix-integration-http-egress-route/src/lib.rs
+  WORKFLOW: .github/workflows/integration-public-egress-registry-qualification.yml
   DRIFT: .github/workflows/integration-public-egress-registry-drift.yml
 
 concurrency:
-  group: integration-public-egress-registry-${{ github.event.pull_request.head.ref || github.ref_name }}
+  group: integration-public-egress-registry-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
   qualify:
     name: Pinned IANA public-SaaS egress policy
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     steps:
-      - name: Checkout exact head
-        uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
+          ref: ${{ env.QUALIFICATION_SUBJECT_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Bind exact source head before toolchain setup
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$QUALIFICATION_SUBJECT_SHA" =~ ^[0-9a-f]{40}$ ]]
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$QUALIFICATION_SUBJECT_SHA"
+          printf 'qualification_subject_sha=%s\n' "$QUALIFICATION_SUBJECT_SHA"
+          printf 'runtime_github_sha=%s\n' "$GITHUB_SHA"
+          printf 'workflow_sha=%s\n' "$GITHUB_WORKFLOW_SHA"
+          printf 'runner_os=%s\n' "$RUNNER_OS"
+          printf 'runner_arch=%s\n' "$RUNNER_ARCH"
+
+      - name: Install pinned Rust qualification toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
           components: rustfmt, clippy
 
-      - name: Cache Rust artifacts
-        uses: Swatinem/rust-cache@v2
+      - name: Restore pinned Rust cache action
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
         with:
           workspaces: crates/mycelix-integration-http-egress-route
+
+      - name: Capture toolchain and dependency-resolution capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc --version --verbose
+          cargo --version --verbose
+          cargo metadata --manifest-path "$MANIFEST" --format-version 1 > /tmp/integration-egress-cargo-metadata.json
+          sha256sum "$MANIFEST" "$SOURCE" "$WORKFLOW" "$DRIFT"
+          echo 'No --locked claim is made by this lane because this standalone integration crate does not yet carry a committed dedicated Cargo.lock.'
 
       - name: Check formatting
         run: cargo fmt --manifest-path "$MANIFEST" --all --check
@@ -62,6 +93,19 @@ jobs:
 
       - name: Clippy
         run: cargo clippy --manifest-path "$MANIFEST" --all-targets -- -D warnings
+
+      - name: Enforce exact-head and pinned qualification environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq "RUST_TOOLCHAIN: '1.96.0'" "$WORKFLOW"
+          grep -Fq 'github.event.pull_request.head.sha || github.sha' "$WORKFLOW"
+          grep -Fq 'actions/checkout@11d5960a326750d5838078e36cf38b85af677262' "$WORKFLOW"
+          grep -Fq 'dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87' "$WORKFLOW"
+          grep -Fq 'Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6' "$WORKFLOW"
+          grep -Fq 'runs-on: ubuntu-24.04' "$WORKFLOW"
+          grep -Fq 'persist-credentials: false' "$WORKFLOW"
+          grep -Fq 'test "$actual" = "$QUALIFICATION_SUBJECT_SHA"' "$WORKFLOW"
 
       - name: Enforce registry-versioned address and hostname policies
         shell: bash
