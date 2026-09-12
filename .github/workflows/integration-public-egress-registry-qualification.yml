@@ -30,7 +30,7 @@ concurrency:
 
 jobs:
   qualify:
-    name: Pinned IANA special-purpose deny policy
+    name: Pinned IANA public-SaaS egress policy
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -60,16 +60,54 @@ jobs:
       - name: Clippy
         run: cargo clippy --manifest-path "$MANIFEST" --all-targets -- -D warnings
 
-      - name: Enforce registry-versioned public-SaaS policy
+      - name: Enforce registry-versioned address and hostname policies
         shell: bash
         run: |
           set -euo pipefail
           grep -Fq 'mycelix-integration-http-public-egress-route-v2-blake3-framed' "$SOURCE"
           grep -Fq 'mycelix-public-saas-egress-iana-special-purpose-deny-2025-10-09-v1' "$SOURCE"
+          grep -Fq 'mycelix-public-saas-hostname-iana-special-use-deny-2026-05-22-v1' "$SOURCE"
           grep -Fq 'IANA_SPECIAL_PURPOSE_REGISTRY_SNAPSHOT: &str = "2025-10-09"' "$SOURCE"
+          grep -Fq 'IANA_SPECIAL_USE_DOMAIN_REGISTRY_SNAPSHOT: &str = "2026-05-22"' "$SOURCE"
           grep -Fq 'frame(&mut h, PUBLIC_ADDRESS_POLICY_PROFILE.as_bytes())' "$SOURCE"
+          grep -Fq 'frame(&mut h, PUBLIC_HOSTNAME_POLICY_PROFILE.as_bytes())' "$SOURCE"
           grep -Fq 'IANA_SPECIAL_PURPOSE_REGISTRY_SNAPSHOT.as_bytes()' "$SOURCE"
+          grep -Fq 'IANA_SPECIAL_USE_DOMAIN_REGISTRY_SNAPSHOT.as_bytes()' "$SOURCE"
           grep -Fq 'all_iana_special_purpose_prefixes_denied_here(&self) -> bool' "$SOURCE"
+          grep -Fq 'iana_special_use_domains_denied_here(&self) -> bool' "$SOURCE"
+
+      - name: Enforce public-SaaS special-use hostname exclusions
+        shell: bash
+        run: |
+          set -euo pipefail
+          for suffix in \
+            '"alt"' \
+            '"example"' \
+            '"example.com"' \
+            '"example.net"' \
+            '"example.org"' \
+            '"invalid"' \
+            '"local"' \
+            '"localhost"' \
+            '"onion"' \
+            '"test"'; do
+            grep -Fq "$suffix" "$SOURCE"
+          done
+          grep -Fq 'hostname_matches_suffix(host, "arpa")' "$SOURCE"
+          grep -Fq 'is_forbidden_public_saas_hostname(&observation.hostname)' "$SOURCE"
+          grep -Fq 'HttpEgressRouteError::SpecialUseHostname' "$SOURCE"
+          for example in \
+            '"api.example.com"' \
+            '"service.local"' \
+            '"foo.localhost"' \
+            '"hidden.onion"' \
+            '"home.arpa"' \
+            '"resolver.arpa"' \
+            '"anything.arpa"'; do
+            grep -Fq "$example" "$SOURCE"
+          done
+          grep -Fq '"api.stripe.com"' "$SOURCE"
+          grep -Fq '"api.github.com"' "$SOURCE"
 
       - name: Enforce complete IPv4 special-purpose parent set
         shell: bash
