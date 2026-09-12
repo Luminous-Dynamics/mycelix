@@ -1,0 +1,131 @@
+name: Integration Current Attempt Qualification
+
+on:
+  pull_request:
+    branches:
+      - feat/integration-preexecution-admission-v1
+      - feat/integration-runtime-v1
+      - main
+    paths:
+      - 'crates/mycelix-integration-runtime/**'
+      - '.github/workflows/integration-current-attempt-qualification.yml'
+  push:
+    branches:
+      - feat/integration-current-attempt-v1
+    paths:
+      - 'crates/mycelix-integration-runtime/**'
+      - '.github/workflows/integration-current-attempt-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUNTIME_MANIFEST: crates/mycelix-integration-runtime/Cargo.toml
+
+concurrency:
+  group: integration-current-attempt-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: File-backed current prepared attempt
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/mycelix-integration-runtime
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path "$RUNTIME_MANIFEST" --all --check
+
+      - name: Compile tests without running
+        run: cargo test --manifest-path "$RUNTIME_MANIFEST" --no-run
+
+      - name: Run runtime tests
+        run: cargo test --manifest-path "$RUNTIME_MANIFEST"
+
+      - name: Clippy
+        run: cargo clippy --manifest-path "$RUNTIME_MANIFEST" --all-targets -- -D warnings
+
+      - name: Enforce durable current-attempt boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          guard='crates/mycelix-integration-runtime/src/attempt_guard.rs'
+          runtime='crates/mycelix-integration-runtime/src/runtime.rs'
+          tests='crates/mycelix-integration-runtime/tests/current_attempt_guard.rs'
+
+          test -f "$guard"
+          test -f "$tests"
+          grep -Fq 'pub struct QualifiedCurrentExecutionAttempt' "$guard"
+          grep -Fq 'pub(crate) fn qualify_file_current_attempt' "$guard"
+          grep -Fq 'Connection::open_with_flags' "$guard"
+          grep -Fq 'OpenFlags::SQLITE_OPEN_READ_ONLY' "$guard"
+          grep -Fq 'ATTEMPT_PREPARED_STAGE_V2' "$guard"
+          grep -Fq 'current_attempt_id' "$guard"
+          grep -Fq 'lease_until_ms' "$guard"
+          grep -Fq 'attempt_count' "$guard"
+          grep -Fq 'command_commitment_algorithm' "$guard"
+          grep -Fq 'command_commitment_digest' "$guard"
+          grep -Fq 'side_effect_class' "$guard"
+          grep -Fq 'idempotency_key' "$guard"
+          grep -Fq 'updated_at_ms' "$guard"
+          grep -Fq 'integration_runtime_quarantine' "$guard"
+          grep -Fq 'StoreFileIdentityChanged' "$guard"
+          grep -Fq 'CausalTimeRegression' "$guard"
+
+          grep -Fq 'pub fn qualify_current_execution_attempt' "$runtime"
+          grep -Fq 'FileBackedStoreRequired' "$runtime"
+          grep -Fq 'attempt_guard::qualify_file_current_attempt' "$runtime"
+
+      - name: Enforce observation is not effect authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          guard='crates/mycelix-integration-runtime/src/attempt_guard.rs'
+
+          grep -Fq 'pub const fn exact_prepared_attempt_observed_here(&self) -> bool {' "$guard"
+          grep -Fq 'pub const fn lease_current_at_read_here(&self) -> bool {' "$guard"
+          grep -Fq 'pub const fn quarantine_excluded_here(&self) -> bool {' "$guard"
+          grep -Fq 'pub const fn causal_frontier_checked_here(&self) -> bool {' "$guard"
+          grep -Fq 'pub const fn atomic_with_dispatch_started_here(&self) -> bool {' "$guard"
+          grep -Fq 'pub const fn coordinator_update_excluded_here(&self) -> bool {' "$guard"
+          grep -Fq 'pub const fn grants_execution_authority(&self) -> bool {' "$guard"
+
+          if grep -Eq 'derive\([^)]*Deserialize' "$guard"; then
+            echo 'Current-attempt positive proof must not be deserializable.'
+            exit 1
+          fi
+          if grep -Eq 'pub[[:space:]]+(claim|worker_id|store_device|store_inode|store_state_digest|durable_updated_at_ms|qualified_at_ms):' "$guard"; then
+            echo 'Current-attempt positive proof fields must remain private.'
+            exit 1
+          fi
+          if grep -Eq 'mark_dispatch_started|DispatchStarted|provider call|reqwest|hyper|tonic|stripe' "$guard"; then
+            echo 'Current-attempt observation crossed into dispatch/provider execution.'
+            exit 1
+          fi
+
+      - name: Enforce adversarial regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          tests='crates/mycelix-integration-runtime/tests/current_attempt_guard.rs'
+          grep -Fq 'exact_file_backed_prepared_attempt_qualifies' "$tests"
+          grep -Fq 'in_memory_runtime_cannot_mint_store_bound_attempt_proof' "$tests"
+          grep -Fq 'forged_worker_and_lease_fail_closed' "$tests"
+          grep -Fq 'causal_time_cannot_move_behind_durable_attempt_frontier' "$tests"
+          grep -Fq 'prepared_attempt_proof_cannot_be_reused_after_dispatch_transition' "$tests"
+          grep -Fq 'expired_claim_cannot_requalify_even_before_recovery_runs' "$tests"
