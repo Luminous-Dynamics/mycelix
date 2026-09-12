@@ -258,7 +258,6 @@ jobs:
           if text.count(old_import) != 1:
               raise SystemExit('deposit production import mismatch')
           text = text.replace(old_import, new_import)
-          # Test-only constant/model import lost when the local helper block moved.
           old_test = '    use finance_collateral_deposit::CollateralDepositRequestV2;'
           new_test = '    use finance_collateral_deposit::{\n        COLLATERAL_DEPOSIT_NONCE_BYTES, CollateralDepositRequestV2,\n    };'
           if text.count(old_test) != 1:
@@ -300,18 +299,20 @@ jobs:
           if text.count(old_import) != 1:
               raise SystemExit('settlement-auth production import mismatch')
           text = text.replace(old_import, new_import)
-          old_test = '''    use finance_collateral_auth::{
-              COLLATERAL_EVIDENCE_AUTH_PROTOCOL_VERSION, CUSTODY_ATTESTATION_V1_SCHEMA_VERSION,
-              CollateralSettlementTrustRootV1, PRICE_ATTESTATION_V1_SCHEMA_VERSION,
-          };'''.replace('          ', '')
-          new_test = '''    use finance_collateral_auth::{
-              COLLATERAL_EVIDENCE_AUTH_PROTOCOL_VERSION, CUSTODY_ATTESTATION_V1_SCHEMA_VERSION,
-              CollateralSettlementTrustRootV1, CustodyAttestationV1,
-              PRICE_ATTESTATION_V1_SCHEMA_VERSION, PriceAttestationV1,
-          };'''.replace('          ', '')
-          if text.count(old_test) != 1:
-              raise SystemExit('settlement-auth test import mismatch')
-          path.write_text(text.replace(old_test, new_test))
+
+          # Move model-only attestation imports into the test module structurally.
+          test_start = text.index('#[cfg(test)]\nmod tests {')
+          test_block = text[test_start:]
+          needle = 'CollateralSettlementTrustRootV1, PRICE_ATTESTATION_V1_SCHEMA_VERSION,'
+          replacement = (
+              'CollateralSettlementTrustRootV1, CustodyAttestationV1, '
+              'PRICE_ATTESTATION_V1_SCHEMA_VERSION, PriceAttestationV1,'
+          )
+          if test_block.count(needle) != 1:
+              raise SystemExit('settlement-auth test import semantic anchor mismatch')
+          test_block = test_block.replace(needle, replacement)
+          text = text[:test_start] + test_block
+          path.write_text(text)
 
           manifest = Path('mycelix-finance/zomes/collateral-settlement-auth/integrity/Cargo.toml')
           text = manifest.read_text()
@@ -398,7 +399,6 @@ jobs:
           sha256sum Cargo.lock > /tmp/Cargo.lock.candidate.sha256
           cargo metadata --locked --format-version 1 > /tmp/cargo-metadata-locked.json
           cargo tree --workspace --locked > /tmp/cargo-tree-locked.txt
-          test -s ../mycelix-finance/Cargo.lock || true
 
       - name: Test Phase A core boundary under generated lock
         shell: bash
