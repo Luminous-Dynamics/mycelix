@@ -1,0 +1,17 @@
+[package]
+name = "finance-collateral-issuance-persistence"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+description = "Compact FIN-SAFE-010 persistence models for authenticated collateral SAP issuance"
+
+[dependencies]
+serde = { workspace = true }
+finance-collateral-auth = { path = "../finance-collateral-auth" }
+finance-sap-conservation = { path = "../finance-sap-conservation" }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+finance-collateral-deposit = { path = "../finance-collateral-deposit" }
+finance-collateral-request-binding = { path = "../finance-collateral-request-binding" }
+finance-collateral-settlement = { path = "../finance-collateral-settlement" }
