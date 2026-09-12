@@ -9,6 +9,7 @@ on:
       - 'crates/mycelix-integration-runtime/Cargo.toml'
       - 'crates/mycelix-integration-runtime/src/attempt_guard.rs'
       - 'crates/mycelix-integration-current-action-authority/Cargo.toml'
+      - 'crates/mycelix-integration-materializer-abi/src/lib.rs'
       - 'crates/mycelix-integration-runtime-store-binding/**'
       - 'crates/mycelix-integration-http-transport-journal/**'
       - '.github/workflows/integration-transport-dependency-closure-qualification.yml'
@@ -19,6 +20,7 @@ on:
       - 'crates/mycelix-integration-runtime/Cargo.toml'
       - 'crates/mycelix-integration-runtime/src/attempt_guard.rs'
       - 'crates/mycelix-integration-current-action-authority/Cargo.toml'
+      - 'crates/mycelix-integration-materializer-abi/src/lib.rs'
       - 'crates/mycelix-integration-runtime-store-binding/**'
       - 'crates/mycelix-integration-http-transport-journal/**'
       - '.github/workflows/integration-transport-dependency-closure-qualification.yml'
@@ -34,6 +36,7 @@ env:
   RUNTIME_MANIFEST: crates/mycelix-integration-runtime/Cargo.toml
   RUNTIME_SOURCE: crates/mycelix-integration-runtime/src/attempt_guard.rs
   AUTH_ACTION_MANIFEST: crates/mycelix-integration-current-action-authority/Cargo.toml
+  MATERIALIZER_ABI_SOURCE: crates/mycelix-integration-materializer-abi/src/lib.rs
   STORE_MANIFEST: crates/mycelix-integration-runtime-store-binding/Cargo.toml
   JOURNAL_MANIFEST: crates/mycelix-integration-http-transport-journal/Cargo.toml
   WORKFLOW: .github/workflows/integration-transport-dependency-closure-qualification.yml
@@ -86,11 +89,11 @@ jobs:
           set -euo pipefail
           rustc --version --verbose
           cargo --version --verbose
-          sha256sum "$RUNTIME_MANIFEST" "$RUNTIME_SOURCE" "$AUTH_ACTION_MANIFEST" "$STORE_MANIFEST" "$JOURNAL_MANIFEST" "$WORKFLOW"
+          sha256sum "$RUNTIME_MANIFEST" "$RUNTIME_SOURCE" "$AUTH_ACTION_MANIFEST" "$MATERIALIZER_ABI_SOURCE" "$STORE_MANIFEST" "$JOURNAL_MANIFEST" "$WORKFLOW"
           cargo metadata --manifest-path "$JOURNAL_MANIFEST" --format-version 1 > /tmp/integration-transport-dependency-metadata.json
           echo 'No --locked claim is made here until this standalone stack carries an intentionally committed lockfile.'
 
-      - name: Enforce direct dependency closure for inherited digest and authority types
+      - name: Enforce direct dependency and API closure for inherited sources
         shell: bash
         run: |
           set -euo pipefail
@@ -98,6 +101,7 @@ jobs:
           grep -Fq 'let mut h = blake3::Hasher::new();' "$RUNTIME_SOURCE"
           grep -Fq 'fn frame(h: &mut blake3::Hasher, bytes: &[u8])' "$RUNTIME_SOURCE"
           grep -Fq 'mycelix-integration-core = { path = "../mycelix-integration-core" }' "$AUTH_ACTION_MANIFEST"
+          grep -Fq 'function_type_indices = reader.into_iter().collect::<Result<Vec<_>, _>>()?;' "$MATERIALIZER_ABI_SOURCE"
 
       - name: Check changed runtime digest source formatting
         run: rustfmt --edition 2024 --check "$RUNTIME_SOURCE"
@@ -141,6 +145,7 @@ jobs:
           grep -Fq 'github.event.pull_request.head.sha || github.sha' "$WORKFLOW"
           grep -Fq 'persist-credentials: false' "$WORKFLOW"
           grep -Fq 'crates/mycelix-integration-current-action-authority/Cargo.toml' "$WORKFLOW"
+          grep -Fq 'crates/mycelix-integration-materializer-abi/src/lib.rs' "$WORKFLOW"
           grep -Fq 'rustfmt --edition 2024 --check "$RUNTIME_SOURCE"' "$WORKFLOW"
           grep -Fq 'Store-binding and journal source formatting are intentionally owned by' "$WORKFLOW"
           if grep -Eq 'cargo fmt --manifest-path "\$(RUNTIME|STORE|JOURNAL)_MANIFEST"' "$WORKFLOW"; then
@@ -148,4 +153,4 @@ jobs:
             exit 1
           fi
           test "$(git rev-parse HEAD)" = "$QUALIFICATION_SUBJECT_SHA"
-          git diff --exit-code -- "$RUNTIME_MANIFEST" "$RUNTIME_SOURCE" "$AUTH_ACTION_MANIFEST" "$STORE_MANIFEST" "$JOURNAL_MANIFEST" "$WORKFLOW"
+          git diff --exit-code -- "$RUNTIME_MANIFEST" "$RUNTIME_SOURCE" "$AUTH_ACTION_MANIFEST" "$MATERIALIZER_ABI_SOURCE" "$STORE_MANIFEST" "$JOURNAL_MANIFEST" "$WORKFLOW"
