@@ -1,0 +1,16 @@
+[package]
+name = "mycelix-integration-http-issuance-descriptor"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Secret-free exact HTTP issuance descriptors for Mycelix integrations"
+
+[dependencies]
+blake3 = "1.5"
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+mycelix-integration-core = { path = "../mycelix-integration-core" }
+mycelix-integration-http-credential-slot = { path = "../mycelix-integration-http-credential-slot" }
+mycelix-integration-http-egress-route = { path = "../mycelix-integration-http-egress-route" }
+mycelix-integration-http-request-plan = { path = "../mycelix-integration-http-request-plan" }
+mycelix-integration-http-transport-policy = { path = "../mycelix-integration-http-transport-policy" }
+thiserror = "2.0"
