@@ -1,0 +1,17 @@
+[package]
+name = "mycelix-integration-current-action-authority"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Same-call current executor requalification for exact Mycelix integration governance actions"
+
+[dependencies]
+mycelix-authority-freshness = { path = "../mycelix-authority-freshness" }
+mycelix-execution-action-digest = { path = "../mycelix-execution-action-digest" }
+mycelix-governance-current-executor-authority = { path = "../mycelix-governance-current-executor-authority" }
+mycelix-governance-executor-designation = { path = "../mycelix-governance-executor-designation" }
+mycelix-governance-executor-lineage = { path = "../mycelix-governance-executor-lineage" }
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+mycelix-integration-authority-action = { path = "../mycelix-integration-authority-action" }
+mycelix-integration-core = { path = "../mycelix-integration-core" }
+thiserror = "2.0"

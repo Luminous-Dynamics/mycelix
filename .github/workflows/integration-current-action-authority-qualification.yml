@@ -1,0 +1,114 @@
+name: Integration Current Action Authority Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-integration-current-action-authority/**'
+      - 'crates/mycelix-integration-authority-action/**'
+      - 'crates/mycelix-governance-current-executor-authority/**'
+      - 'crates/mycelix-governance-executor-designation/**'
+      - 'crates/mycelix-governance-executor-lineage/**'
+      - 'crates/mycelix-authority-freshness/**'
+      - '.github/workflows/integration-current-action-authority-qualification.yml'
+  push:
+    branches:
+      - 'feat/integration-current-action-authority-v1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: integration-current-action-authority-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Same-call current executor + exact action binding
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: '1.89.0'
+          components: rustfmt, clippy
+
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-integration-current-action-authority/Cargo.toml -- --check
+
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-integration-current-action-authority/Cargo.toml --all-targets
+
+      - name: Clippy library
+        run: cargo clippy --manifest-path crates/mycelix-integration-current-action-authority/Cargo.toml --lib -- -D warnings
+
+      - name: Boundary audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path('crates/mycelix-integration-current-action-authority')
+          src = (root / 'src/lib.rs').read_text()
+          prod = src.split('#[cfg(test)]', 1)[0]
+          cargo = (root / 'Cargo.toml').read_text()
+          readme = (root / 'README.md').read_text()
+          compact = ''.join(prod.split())
+
+          for dep in [
+              'mycelix-integration-authority-action = ',
+              'mycelix-governance-current-executor-authority = ',
+              'mycelix-governance-executor-designation = ',
+              'mycelix-governance-executor-lineage = ',
+              'mycelix-authority-freshness = ',
+          ]:
+              assert dep in cargo, dep
+
+          for forbidden in [
+              'CurrentExecutorAuthorityProjection',
+              'VerifiedCurrentExecutorAuthorityReceipt',
+              'mycelix-governance-executor-provider-contract',
+              'reqwest', 'hyper', 'axum', 'tonic', 'holochain_client',
+              'rusqlite', 'AdminWebsocket', 'AppWebsocket',
+              'mark_dispatch_started', 'perform_external_effect',
+              'invoke_external_effect',
+          ]:
+              assert forbidden not in cargo + prod, forbidden
+
+          for token in [
+              'pub struct QualifiedCurrentIntegrationAction {',
+              'pub fn requalify_current_integration_action(',
+              'qualify_current_executor_authority(',
+              'action.actions_digest_profile() != ACTIONS_DIGEST_PROFILE_V1',
+              'threshold.actions_digest_profile != ACTIONS_DIGEST_PROFILE_V1',
+              'designation.actions_digest_profile != ACTIONS_DIGEST_PROFILE_V1',
+              'action.actions_digest() != threshold.authorization.actions_digest',
+              'action.actions_digest() != designation.actions_digest',
+              'current_executor.proposal_id() != action.proposal_id()',
+              'current_executor.lease_until_ms() <= now_ms',
+          ]:
+              assert token in src, token
+
+          prefix = src.split('pub struct QualifiedCurrentIntegrationAction {', 1)[0].split('\n')[-8:]
+          assert not any('Deserialize' in line for line in prefix)
+          assert 'Deserialize' not in cargo
+
+          for invariant in [
+              'pubconstfnexact_action_authorized_here(&self)->bool{true}',
+              'pubconstfncurrent_executor_requalified_here(&self)->bool{true}',
+              'pubconstfnwire_projection_used_here(&self)->bool{false}',
+              'pubconstfncapability_semantics_closed_here(&self)->bool{false}',
+              'pubconstfnprovider_profile_bound_here(&self)->bool{false}',
+              'pubconstfnattempt_bound_here(&self)->bool{false}',
+              'pubconstfngrants_execution_authority(&self)->bool{false}',
+          ]:
+              assert invariant in compact, invariant
+
+          for phrase in [
+              'does not accept a `CurrentExecutorAuthorityProjection`',
+              'must independently be shown to cover the integration operation kind',
+              'refuses to infer that mapping from names',
+          ]:
+              assert phrase in readme, phrase
+
+          print('PASS: same-call current executor is bound to exact integration action bytes without closing capability/provider/attempt authority')
+          PY
