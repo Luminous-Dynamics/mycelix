@@ -7,13 +7,17 @@ on:
       - main
     paths:
       - 'crates/mycelix-integration-http-transport-journal/**'
+      - 'crates/mycelix-integration-runtime-store-binding/**'
       - '.github/workflows/integration-http-transport-journal-qualification.yml'
+      - '.github/workflows/integration-runtime-store-binding-qualification.yml'
   push:
     branches:
       - feat/integration-http-transport-journal-v1
     paths:
       - 'crates/mycelix-integration-http-transport-journal/**'
+      - 'crates/mycelix-integration-runtime-store-binding/**'
       - '.github/workflows/integration-http-transport-journal-qualification.yml'
+      - '.github/workflows/integration-runtime-store-binding-qualification.yml'
   workflow_dispatch:
 
 permissions:
@@ -115,6 +119,42 @@ jobs:
           grep -Fq 'observation.evidence.application_bytes_written != 0' "$SOURCE"
           grep -Fq 'PrewriteObservationNotNonissuance' "$SOURCE"
 
+      - name: Enforce restart-safe recovery uses provisioned store identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'store_binding: &QualifiedRuntimeStoreBinding' "$SOURCE"
+          grep -Fq 'store_binding.revalidate()?' "$SOURCE"
+          grep -Fq 'store_binding.expected_device()' "$SOURCE"
+          grep -Fq 'store_binding.expected_inode()' "$SOURCE"
+          grep -Fq 'entry_id: i64' "$SOURCE"
+          grep -Fq 'attempt_id: &ExecutionAttemptId' "$SOURCE"
+          python3 - <<'PY'
+          from pathlib import Path
+          s = Path('crates/mycelix-integration-http-transport-journal/src/lib.rs').read_text()
+          start = s.find('pub fn recover_http_transport_attempt(')
+          end = s.find('\n}\n\nfn record_observation_from_prepared', start)
+          recovery = s[start:end]
+          if 'QualifiedContextBoundDispatchStart' in recovery:
+              raise SystemExit('restart recovery must not require a process-local dispatch token')
+          if 'integration_dispatch_binding_v2' not in recovery:
+              raise SystemExit('restart recovery must rejoin durable context-bound dispatch evidence')
+          PY
+
+      - name: Enforce exact prepared and armed row identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'row.command_id != prepared.command_id.as_str()' "$SOURCE"
+          grep -Fq 'row.connector_instance != prepared.connector_instance.as_str()' "$SOURCE"
+          grep -Fq 'row.request_commitment_algorithm' "$SOURCE"
+          grep -Fq 'row.request_commitment_digest.as_slice()' "$SOURCE"
+          grep -Fq 'row.prepared_at_ms != prepared.prepared_at_ms' "$SOURCE"
+          grep -Fq 'row.command_id != armed.command_id.as_str()' "$SOURCE"
+          grep -Fq 'row.prepared_at_ms != armed.prepared_at_ms' "$SOURCE"
+          grep -Fq 'row.armed_at_ms != Some(armed.armed_at_ms)' "$SOURCE"
+          grep -Fq 'validate_journal_identity_armed(&tx, &armed)?' "$SOURCE"
+
       - name: Enforce exact context-dispatch and file identity
         shell: bash
         run: |
@@ -127,13 +167,15 @@ jobs:
           grep -Fq 'metadata.dev() != expected_device' "$SOURCE"
           grep -Fq 'metadata.ino() != expected_inode' "$SOURCE"
 
-      - name: Enforce journal schema and no trigger side channels
+      - name: Enforce journal schema foreign key and no trigger side channels
         shell: bash
         run: |
           set -euo pipefail
           grep -Fq 'integration_http_transport_attempt_v1' "$SOURCE"
           grep -Fq 'PRIMARY KEY(entry_id, attempt_id)' "$SOURCE"
           grep -Fq 'FOREIGN KEY(entry_id) REFERENCES integration_outbox(entry_id)' "$SOURCE"
+          grep -Fq 'PRAGMA foreign_key_list(integration_http_transport_attempt_v1)' "$SOURCE"
+          grep -Fq '"integration_outbox".to_owned()' "$SOURCE"
           grep -Fq 'trigger_count != 0' "$SOURCE"
 
       - name: Enforce journal performs no network or secret access
