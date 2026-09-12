@@ -1,0 +1,304 @@
+name: Finance Exact-Head Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-finance/**'
+      - '.github/workflows/finance-exact-head-qualification.yml'
+  workflow_dispatch:
+    inputs:
+      subject_sha:
+        description: 'Exact 40-hex commit SHA to qualify'
+        required: true
+        type: string
+      base_sha:
+        description: 'Optional base SHA recorded as provenance only'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: finance-exact-head-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || inputs.subject_sha || github.ref_name }}
+  cancel-in-progress: true
+
+env:
+  # Match nix/modules/holochain-base.nix and the repository system toolchain.
+  RUST_TOOLCHAIN: '1.96.0'
+  QUALIFICATION_SUBJECT_SHA: ${{ github.event.pull_request.head.sha || inputs.subject_sha }}
+  QUALIFICATION_BASE_SHA: ${{ github.event.pull_request.base.sha || inputs.base_sha || '' }}
+  QUALIFICATION_WORKFLOW_SHA: ${{ github.workflow_sha }}
+  QUALIFICATION_WORKFLOW_PATH: .github/workflows/finance-exact-head-qualification.yml
+
+jobs:
+  source-qualification:
+    name: Finance Source (exact head, locked)
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.QUALIFICATION_SUBJECT_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Checkout exact workflow definition
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.QUALIFICATION_WORKFLOW_SHA }}
+          path: .qualification-workflow-source
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout: |
+            .github/workflows/finance-exact-head-qualification.yml
+          sparse-checkout-cone-mode: false
+
+      - name: Bind exact subject before toolchain setup
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$QUALIFICATION_SUBJECT_SHA" =~ ^[0-9a-f]{40}$ ]]
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$QUALIFICATION_SUBJECT_SHA"
+          mkdir -p evidence/source
+          {
+            echo 'schema=finance-exact-head-qualification-v1'
+            echo "subject_sha=$QUALIFICATION_SUBJECT_SHA"
+            echo "base_sha=${QUALIFICATION_BASE_SHA:-}"
+            echo "runtime_github_sha=$GITHUB_SHA"
+            echo "workflow_sha=$QUALIFICATION_WORKFLOW_SHA"
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "run_attempt=$GITHUB_RUN_ATTEMPT"
+            echo "event_name=$GITHUB_EVENT_NAME"
+            echo "repository=$GITHUB_REPOSITORY"
+            echo "runner_os=$RUNNER_OS"
+            echo "runner_arch=$RUNNER_ARCH"
+          } > evidence/source/subject.env
+
+      - name: Install pinned Rust qualification toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - name: Restore Rust cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          workspaces: mycelix-finance
+
+      - name: Capture execution capsule and committed input identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat /etc/os-release > evidence/source/os-release.txt
+          uname -a > evidence/source/uname.txt
+          rustc --version --verbose > evidence/source/rustc.txt
+          cargo --version --verbose > evidence/source/cargo.txt
+          rustup --version > evidence/source/rustup.txt
+          test -f mycelix-finance/Cargo.toml
+          test -f mycelix-finance/Cargo.lock
+          test -f ".qualification-workflow-source/$QUALIFICATION_WORKFLOW_PATH"
+          sha256sum \
+            mycelix-finance/Cargo.toml \
+            mycelix-finance/Cargo.lock \
+            ".qualification-workflow-source/$QUALIFICATION_WORKFLOW_PATH" \
+            > evidence/source/committed-inputs.sha256
+          cat > evidence/source/commands.txt <<'EOF'
+          cargo fmt --all --check
+          cargo metadata --locked --format-version 1
+          cargo test --workspace --locked
+          EOF
+
+      - name: Check Finance formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo fmt --all --check
+
+      - name: Prove committed lock resolves exact workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo metadata --locked --format-version 1 > ../evidence/source/cargo-metadata.json
+          git diff --exit-code -- Cargo.lock
+
+      - name: Test exact Finance workspace with committed lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo test --workspace --locked 2>&1 | tee ../evidence/source/cargo-test.log
+          git diff --exit-code -- Cargo.lock
+
+      - name: Finalize source evidence manifest
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/source
+          find evidence/source -type f ! -name manifest.sha256 -print0 \
+            | sort -z \
+            | xargs -0 -r sha256sum \
+            > evidence/source/manifest.sha256
+
+      - name: Upload exact-head source evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: finance-source-evidence-${{ env.QUALIFICATION_SUBJECT_SHA }}-${{ github.run_attempt }}
+          path: evidence/source
+          if-no-files-found: error
+          retention-days: 30
+
+  wasm-dna-qualification:
+    name: Finance WASM + DNA (exact head, locked)
+    needs: source-qualification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.QUALIFICATION_SUBJECT_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Checkout exact workflow definition
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.QUALIFICATION_WORKFLOW_SHA }}
+          path: .qualification-workflow-source
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout: |
+            .github/workflows/finance-exact-head-qualification.yml
+          sparse-checkout-cone-mode: false
+
+      - name: Bind exact subject before Nix setup
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$QUALIFICATION_SUBJECT_SHA" =~ ^[0-9a-f]{40}$ ]]
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$QUALIFICATION_SUBJECT_SHA"
+          mkdir -p evidence/wasm-dna
+          {
+            echo 'schema=finance-exact-head-qualification-v1'
+            echo "subject_sha=$QUALIFICATION_SUBJECT_SHA"
+            echo "base_sha=${QUALIFICATION_BASE_SHA:-}"
+            echo "runtime_github_sha=$GITHUB_SHA"
+            echo "workflow_sha=$QUALIFICATION_WORKFLOW_SHA"
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "run_attempt=$GITHUB_RUN_ATTEMPT"
+            echo "event_name=$GITHUB_EVENT_NAME"
+            echo "repository=$GITHUB_REPOSITORY"
+            echo "runner_os=$RUNNER_OS"
+            echo "runner_arch=$RUNNER_ARCH"
+          } > evidence/wasm-dna/subject.env
+
+      - name: Install pinned Nix action
+        uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b
+
+      - name: Configure pinned Cachix action
+        uses: cachix/cachix-action@ad2ddac53f961de1989924296a1f236fcfbaa4fc
+        with:
+          name: holochain-ci
+
+      - name: Capture Nix execution capsule and committed inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix --version > evidence/wasm-dna/nix.txt
+          cat /etc/os-release > evidence/wasm-dna/os-release.txt
+          uname -a > evidence/wasm-dna/uname.txt
+          test -f mycelix-finance/Cargo.toml
+          test -f mycelix-finance/Cargo.lock
+          test -f mycelix-finance/flake.nix
+          test -f mycelix-finance/flake.lock
+          test -f mycelix-finance/dna/dna.yaml
+          test -f nix/modules/holochain-base.nix
+          test -f ".qualification-workflow-source/$QUALIFICATION_WORKFLOW_PATH"
+          sha256sum \
+            mycelix-finance/Cargo.toml \
+            mycelix-finance/Cargo.lock \
+            mycelix-finance/flake.nix \
+            mycelix-finance/flake.lock \
+            mycelix-finance/dna/dna.yaml \
+            nix/modules/holochain-base.nix \
+            ".qualification-workflow-source/$QUALIFICATION_WORKFLOW_PATH" \
+            > evidence/wasm-dna/committed-inputs.sha256
+          cat > evidence/wasm-dna/commands.txt <<'EOF'
+          nix develop .#ci --impure --command cargo build --release --target wasm32-unknown-unknown --workspace --exclude finance-leptos-types --locked
+          nix develop .#ci --impure --command hc dna pack dna/
+          EOF
+
+      - name: Capture Finance Nix-shell toolchain identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          nix develop .#ci --impure --command bash -c '
+            rustc --version --verbose
+            cargo --version --verbose
+            hc --version
+          ' > ../evidence/wasm-dna/nix-shell-toolchain.txt
+
+      - name: Build exact Finance WASM workspace with committed lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          nix develop .#ci --impure --command \
+            cargo build --release --target wasm32-unknown-unknown \
+              --workspace --exclude finance-leptos-types --locked
+          git diff --exit-code -- Cargo.lock
+          find target/wasm32-unknown-unknown/release \
+            -maxdepth 1 -type f -name '*.wasm' -print0 \
+            | sort -z \
+            | xargs -0 -r sha256sum \
+            > ../evidence/wasm-dna/wasm.sha256
+          test -s ../evidence/wasm-dna/wasm.sha256
+
+      - name: Pack exact Finance DNA
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          if find . -type f -name '*.dna' -print -quit | grep -q .; then
+            echo 'Unexpected pre-existing packed .dna file in source tree' >&2
+            exit 1
+          fi
+          nix develop .#ci --impure --command hc dna pack dna/
+          find . -maxdepth 3 -type f -name '*.dna' -print0 \
+            | sort -z \
+            | xargs -0 -r sha256sum \
+            > ../evidence/wasm-dna/dna.sha256
+          test -s ../evidence/wasm-dna/dna.sha256
+          git diff --exit-code -- Cargo.lock
+
+      - name: Finalize WASM/DNA evidence manifest
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/wasm-dna
+          find evidence/wasm-dna -type f ! -name manifest.sha256 -print0 \
+            | sort -z \
+            | xargs -0 -r sha256sum \
+            > evidence/wasm-dna/manifest.sha256
+
+      - name: Upload exact-head WASM/DNA evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: finance-wasm-dna-evidence-${{ env.QUALIFICATION_SUBJECT_SHA }}-${{ github.run_attempt }}
+          path: evidence/wasm-dna
+          if-no-files-found: error
+          retention-days: 30
