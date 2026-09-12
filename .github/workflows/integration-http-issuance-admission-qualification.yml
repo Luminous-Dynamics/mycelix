@@ -1,0 +1,209 @@
+name: Integration HTTP Issuance Admission Qualification
+
+on:
+  pull_request:
+    branches:
+      - feat/integration-http-transport-journal-v1
+      - main
+    paths:
+      - 'crates/mycelix-integration-http-issuance-admission/**'
+      - 'crates/mycelix-integration-http-egress-route/**'
+      - 'crates/mycelix-integration-http-credential-slot/**'
+      - 'crates/mycelix-integration-http-issuance-descriptor/**'
+      - 'crates/mycelix-integration-atomic-dispatch-context/**'
+      - '.github/workflows/integration-http-issuance-admission-qualification.yml'
+  push:
+    branches:
+      - feat/integration-http-issuance-admission-v2
+    paths:
+      - 'crates/mycelix-integration-http-issuance-admission/**'
+      - '.github/workflows/integration-http-issuance-admission-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  MANIFEST: crates/mycelix-integration-http-issuance-admission/Cargo.toml
+  SOURCE: crates/mycelix-integration-http-issuance-admission/src/lib.rs
+
+concurrency:
+  group: integration-http-issuance-admission-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Route and credential bound atomic HTTP issuance
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/mycelix-integration-http-issuance-admission
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path "$MANIFEST" --all --check
+
+      - name: Compile tests without running
+        run: cargo test --manifest-path "$MANIFEST" --no-run
+
+      - name: Run tests
+        run: cargo test --manifest-path "$MANIFEST"
+
+      - name: Clippy
+        run: cargo clippy --manifest-path "$MANIFEST" --all-targets -- -D warnings
+
+      - name: Enforce route credential descriptor precede DispatchStarted
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          s = Path('crates/mycelix-integration-http-issuance-admission/src/lib.rs').read_text()
+          ordered = [
+              'begin_integration_admin_mutation_exclusion(',
+              'let inside_root = qualify_current_provider_trust_policy(',
+              'let inside_http = qualify_current_http_transport_policy(',
+              'let inside_admission = qualify_store_rechecked_preexecution(',
+              'let canonical_command = command.canonical_preimage_v1();',
+              'let materialized = materialize_provider_request(',
+              'let final_root = qualify_current_provider_trust_policy(',
+              'let final_http = qualify_current_http_transport_policy(',
+              'let final_admission = qualify_store_rechecked_preexecution(',
+              'let final_plan =',
+              'qualify_public_https_route(&final_http_binding, dns_observation, final_at_u64)?',
+              'let final_credential = qualify_http_credential_slot(',
+              'let final_descriptor = qualify_http_issuance_descriptor(',
+              'validate_descriptor_against_final_admission(&final_descriptor, &final_admission)?;',
+              'let context = issuance_dispatch_context(',
+              'let issuance_deadline_ms = issuance_deadline(',
+              'let atomic_dispatch = bind_context_and_start_dispatch(',
+          ]
+          cursor = -1
+          for needle in ordered:
+              pos = s.find(needle, cursor + 1)
+              if pos < 0 or pos <= cursor:
+                  raise SystemExit(f'missing/out-of-order issuance theorem step: {needle}')
+              cursor = pos
+          PY
+
+      - name: Enforce dispatch context includes exact issuance semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'HTTP_ISSUANCE_CONTEXT_PROFILE' "$SOURCE"
+          grep -Fq '&binding.binding_digest().0' "$SOURCE"
+          grep -Fq '&plan.qualification_digest().0' "$SOURCE"
+          grep -Fq '&route.route_digest().0' "$SOURCE"
+          grep -Fq '&credential.qualification_digest().0' "$SOURCE"
+          grep -Fq '&descriptor.issuance_digest().0' "$SOURCE"
+          grep -Fq '&materialized.materialization_digest().0' "$SOURCE"
+          grep -Fq 'DispatchContextCommitment::new(HTTP_ISSUANCE_CONTEXT_PROFILE, digest)' "$SOURCE"
+
+      - name: Enforce all issuance horizons participate
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'let authority_until = i64::try_from(admission.admission().authority_valid_until_ms())' "$SOURCE"
+          grep -Fq 'let root_until = i64::try_from(root.valid_until_ms())' "$SOURCE"
+          grep -Fq 'let http_until = i64::try_from(http.valid_until_ms())' "$SOURCE"
+          grep -Fq 'let route_until = i64::try_from(route.valid_until_ms())' "$SOURCE"
+          grep -Fq 'let credential_until = i64::try_from(credential.valid_until_ms())' "$SOURCE"
+          grep -Fq 'let descriptor_until = i64::try_from(descriptor.valid_until_ms())' "$SOURCE"
+          grep -Fq '.min(route_until)' "$SOURCE"
+          grep -Fq '.min(credential_until)' "$SOURCE"
+          grep -Fq '.min(descriptor_until)' "$SOURCE"
+          grep -Fq '.min(attempt_until)' "$SOURCE"
+          grep -Fq '.min(profile_exclusive)' "$SOURCE"
+
+      - name: Enforce origin caveats block native-I/O authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'resolver_origin_verified_here(&self) -> bool' "$SOURCE"
+          grep -Fq 'credential_metadata_origin_verified_here(&self) -> bool' "$SOURCE"
+          grep -Fq 'native_io_authorized_here(&self) -> bool' "$SOURCE"
+          python3 - <<'PY'
+          from pathlib import Path
+          s = Path('crates/mycelix-integration-http-issuance-admission/src/lib.rs').read_text()
+          for marker in [
+              'pub const fn resolver_origin_verified_here(&self) -> bool',
+              'pub const fn credential_metadata_origin_verified_here(&self) -> bool',
+              'pub const fn native_io_authorized_here(&self) -> bool',
+          ]:
+              pos = s.find(marker)
+              if pos < 0 or 'false' not in s[pos:pos+180]:
+                  raise SystemExit(f'conservative non-claim changed: {marker}')
+          PY
+
+      - name: Enforce opaque issuance capability
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'credential_material_present_here(&self) -> bool' "$SOURCE"
+          grep -Fq 'raw_payload_extractable_here(&self) -> bool' "$SOURCE"
+          grep -Fq 'raw_request_plan_extractable_here(&self) -> bool' "$SOURCE"
+          if grep -Eq 'pub fn (route|credential|descriptor|request_plan|materialized|request_bytes|raw_body|body)\(' "$SOURCE"; then
+            echo 'Issuance admission exposed a reusable transport/secret/request object.'
+            exit 1
+          fi
+          if grep -Eq 'derive\([^)]*(Serialize|Deserialize)' "$SOURCE"; then
+            echo 'Live issuance admission must remain process-local.'
+            exit 1
+          fi
+
+      - name: Enforce atomic dispatch is final fallible boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          s = Path('crates/mycelix-integration-http-issuance-admission/src/lib.rs').read_text()
+          start = s.find('let atomic_dispatch = bind_context_and_start_dispatch(')
+          end = s.find('Ok(QualifiedHttpIssuanceAdmission {', start)
+          if min(start, end) < 0:
+              raise SystemExit('unable to locate atomic dispatch/final construction')
+          tail = s[start:end]
+          boundary = tail.find(')?;')
+          if boundary < 0:
+              raise SystemExit('atomic dispatch result boundary missing')
+          after = tail[boundary + 3:]
+          forbidden = ['?', 'return Err', 'system_now_ms(', 'qualify_', '.validate(', 'store.', 'fs::']
+          for needle in forbidden:
+              if needle in after:
+                  raise SystemExit(f'fallible operation after context-bound DispatchStarted: {needle}')
+          PY
+
+      - name: Enforce no native network or secret capability
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, subprocess
+          meta = json.loads(subprocess.check_output([
+              'cargo','metadata','--manifest-path',
+              'crates/mycelix-integration-http-issuance-admission/Cargo.toml',
+              '--no-deps','--format-version','1'
+          ]))
+          package = next(p for p in meta['packages'] if p['name'] == 'mycelix-integration-http-issuance-admission')
+          direct = {d['name'] for d in package['dependencies']}
+          forbidden = {'reqwest','hyper','tonic','curl','ureq','tokio','async-std','rustls','native-tls','openssl','keyring','vault','vaultrs','secret-service'}
+          hit = sorted(direct & forbidden)
+          if hit:
+              raise SystemExit(f'native network/secret dependency entered issuance admission: {hit}')
+          PY
+          if grep -Eq 'TcpStream|UdpSocket|reqwest::|hyper::|rustls::|std::env|keyring::|vault::|secret_service::|AdminWebsocket|update_coordinators' "$SOURCE"; then
+            echo 'Issuance admission crossed into network/secret/Admin I/O.'
+            exit 1
+          fi
