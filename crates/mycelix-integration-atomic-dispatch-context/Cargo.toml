@@ -1,0 +1,15 @@
+[package]
+name = "mycelix-integration-atomic-dispatch-context"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Atomic dispatch start with mandatory profiled transport-context commitment"
+
+[dependencies]
+blake3 = "1.5"
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+mycelix-integration-core = { path = "../mycelix-integration-core" }
+mycelix-integration-materializer-runtime = { path = "../mycelix-integration-materializer-runtime" }
+mycelix-integration-runtime = { path = "../mycelix-integration-runtime" }
+rusqlite = { version = "0.32", features = ["bundled"] }
+thiserror = "2.0"

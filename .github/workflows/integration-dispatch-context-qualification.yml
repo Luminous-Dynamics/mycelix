@@ -1,0 +1,150 @@
+name: Integration Dispatch Context Qualification
+
+on:
+  pull_request:
+    branches:
+      - feat/integration-http-request-plan-v1
+      - main
+    paths:
+      - 'crates/mycelix-integration-atomic-dispatch-context/**'
+      - '.github/workflows/integration-dispatch-context-qualification.yml'
+  push:
+    branches:
+      - feat/integration-dispatch-context-v1
+    paths:
+      - 'crates/mycelix-integration-atomic-dispatch-context/**'
+      - '.github/workflows/integration-dispatch-context-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  MANIFEST: crates/mycelix-integration-atomic-dispatch-context/Cargo.toml
+  SOURCE: crates/mycelix-integration-atomic-dispatch-context/src/lib.rs
+
+concurrency:
+  group: integration-dispatch-context-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Context-bound atomic DispatchStarted
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/mycelix-integration-atomic-dispatch-context
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path "$MANIFEST" --all --check
+
+      - name: Compile tests without running
+        run: cargo test --manifest-path "$MANIFEST" --no-run
+
+      - name: Run tests
+        run: cargo test --manifest-path "$MANIFEST"
+
+      - name: Clippy
+        run: cargo clippy --manifest-path "$MANIFEST" --all-targets -- -D warnings
+
+      - name: Enforce mandatory profiled dispatch context
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'pub struct DispatchContextCommitment' "$SOURCE"
+          grep -Fq 'context: &DispatchContextCommitment' "$SOURCE"
+          grep -Fq 'context_profile TEXT NOT NULL' "$SOURCE"
+          grep -Fq 'context_digest BLOB NOT NULL' "$SOURCE"
+          grep -Fq 'frame(&mut h, context.profile().as_bytes())' "$SOURCE"
+          grep -Fq 'frame(&mut h, &context.digest().0)' "$SOURCE"
+          grep -Fq 'dispatch_context_bound_in_same_transaction_here(&self) -> bool' "$SOURCE"
+
+      - name: Enforce v2 journal is separate and exact
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'integration_dispatch_binding_v2' "$SOURCE"
+          grep -Fq 'PRIMARY KEY(entry_id, attempt_id)' "$SOURCE"
+          grep -Fq 'FOREIGN KEY(entry_id) REFERENCES integration_outbox(entry_id)' "$SOURCE"
+          grep -Fq 'trigger_count != 0' "$SOURCE"
+          if grep -Eq 'ALTER TABLE integration_dispatch_binding_v1|DROP TABLE integration_dispatch_binding_v1' "$SOURCE"; then
+            echo 'v2 must not reinterpret/mutate v1 dispatch evidence.'
+            exit 1
+          fi
+
+      - name: Enforce one-transaction ordering
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          s = Path('crates/mycelix-integration-atomic-dispatch-context/src/lib.rs').read_text()
+          ordered = [
+              'transaction_with_behavior(TransactionBehavior::Immediate)',
+              'INSERT INTO integration_dispatch_binding_v2',
+              'UPDATE integration_outbox',
+              'tx.commit()?;',
+              'Ok(QualifiedContextBoundDispatchStart {',
+          ]
+          cursor = -1
+          for needle in ordered:
+              pos = s.find(needle, cursor + 1)
+              if pos < 0 or pos <= cursor:
+                  raise SystemExit(f'missing/out-of-order atomic step: {needle}')
+              cursor = pos
+          PY
+
+      - name: Enforce complete exact-attempt fence
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'current_attempt_id = ?5' "$SOURCE"
+          grep -Fq 'worker_id = ?6' "$SOURCE"
+          grep -Fq 'lease_until_ms = ?7' "$SOURCE"
+          grep -Fq 'attempt_count = ?8' "$SOURCE"
+          grep -Fq 'validate_materialization_identity(current_attempt, materialized)?' "$SOURCE"
+          grep -Fq 'reject_quarantined_attempt(&tx, claim.entry_id)?' "$SOURCE"
+
+      - name: Enforce commit is final fallible operation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          s = Path('crates/mycelix-integration-atomic-dispatch-context/src/lib.rs').read_text()
+          start = s.find('pub fn bind_context_and_start_dispatch(')
+          commit = s.find('tx.commit()?;', start)
+          finish = s.find('\n}\n\nfn validate_materialization_identity', commit)
+          if min(start, commit, finish) < 0:
+              raise SystemExit('unable to locate atomic function/commit boundary')
+          after = s[commit + len('tx.commit()?;'):finish]
+          if '?' in after or 'return Err' in after:
+              raise SystemExit('fallible path exists after durable DispatchStarted commit')
+          PY
+
+      - name: Enforce provider-neutral no-I/O substrate
+        shell: bash
+        run: |
+          set -euo pipefail
+          tree="$(cargo tree --manifest-path "$MANIFEST" -e normal --prefix none)"
+          if printf '%s\n' "$tree" | grep -Eiq '^(reqwest|hyper|tonic|curl|ureq|tokio|async-std|rustls|native-tls|openssl)( |$)'; then
+            echo 'Network/TLS dependency entered atomic dispatch context.'
+            exit 1
+          fi
+          if grep -Eq 'TcpStream|UdpSocket|reqwest::|hyper::|AdminWebsocket|update_coordinators|provider_client' "$SOURCE"; then
+            echo 'Atomic context dispatch crossed into network/Admin/provider I/O.'
+            exit 1
+          fi
