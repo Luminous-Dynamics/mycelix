@@ -1,10 +1,16 @@
 //! Static capability policy for hash-pinned integration WASM materializers.
 //!
 //! The policy is intentionally stricter than general WebAssembly. A v0.1
-//! materializer may have no imports, tables, globals, elements, exception tags,
-//! or start function; exactly one bounded 32-bit linear memory; and only the
-//! `memory` + `materialize` exports. With no imports, the module has no host route
-//! to network, clock, randomness, filesystem, environment, or secrets.
+//! materializer may have no imports, tables, elements, exception tags, or start
+//! function; exactly one bounded 32-bit linear memory; and only the `memory` +
+//! `materialize` exports. With no imports, the module has no host route to
+//! network, clock, randomness, filesystem, environment, or secrets.
+//!
+//! Internal globals are permitted because ordinary Rust/C WebAssembly toolchains
+//! commonly use an internal stack-pointer global. They cannot be imported or
+//! exported under this policy, and the eventual execution theorem MUST create a
+//! fresh module instance for every materialization so internal mutable state is
+//! never reused across requests.
 //!
 //! This still does not execute the module or prove instruction-level
 //! determinism. Fuel, runtime configuration, ABI signature and output semantics
@@ -62,7 +68,7 @@ impl QualifiedWasmMaterializerPolicy {
         true
     }
 
-    pub const fn no_tables_globals_or_elements_verified_here(&self) -> bool {
+    pub const fn no_tables_or_elements_verified_here(&self) -> bool {
         true
     }
 
@@ -79,6 +85,12 @@ impl QualifiedWasmMaterializerPolicy {
     }
 
     pub const fn wasm_structural_validity_verified_here(&self) -> bool {
+        true
+    }
+
+    /// Runtime requirement, not a claim that this static qualifier instantiated
+    /// or executed the module.
+    pub const fn fresh_instance_per_materialization_required_by_policy(&self) -> bool {
         true
     }
 
@@ -153,11 +165,6 @@ fn analyze_module(bytes: &[u8]) -> Result<PolicyFacts, MaterializerPolicyError> 
                     return Err(MaterializerPolicyError::TablesForbidden);
                 }
             }
-            Payload::GlobalSection(reader) => {
-                if reader.count() != 0 {
-                    return Err(MaterializerPolicyError::GlobalsForbidden);
-                }
-            }
             Payload::ElementSection(reader) => {
                 if reader.count() != 0 {
                     return Err(MaterializerPolicyError::ElementsForbidden);
@@ -214,6 +221,7 @@ fn analyze_module(bytes: &[u8]) -> Result<PolicyFacts, MaterializerPolicyError> 
             }
             Payload::TypeSection(_)
             | Payload::FunctionSection(_)
+            | Payload::GlobalSection(_)
             | Payload::DataCountSection { .. }
             | Payload::DataSection(_)
             | Payload::CodeSectionStart { .. }
@@ -271,8 +279,6 @@ pub enum MaterializerPolicyError {
     ImportsForbidden,
     #[error("materializer tables are forbidden")]
     TablesForbidden,
-    #[error("materializer globals are forbidden")]
-    GlobalsForbidden,
     #[error("materializer element segments are forbidden")]
     ElementsForbidden,
     #[error("materializer exception tags are forbidden")]
@@ -323,7 +329,7 @@ mod tests {
         bounded_memory: bool,
         with_start: bool,
         extra_export: bool,
-        with_global: bool,
+        with_internal_global: bool,
     ) -> Vec<u8> {
         let mut module = b"\0asm\x01\0\0\0".to_vec();
 
@@ -349,9 +355,11 @@ mod tests {
             push_section(&mut module, 5, &[1, 0, 1]);
         }
 
-        if with_global {
-            // One immutable i32 global initialized to zero.
-            push_section(&mut module, 6, &[1, 0x7f, 0, 0x41, 0, 0x0b]);
+        if with_internal_global {
+            // One internal mutable i32 global initialized to zero. This models
+            // toolchain stack-pointer state; it is never exported and later
+            // execution must instantiate a fresh module for every request.
+            push_section(&mut module, 6, &[1, 0x7f, 1, 0x41, 0, 0x0b]);
         }
 
         let materialize_index = u8::from(with_import);
@@ -384,6 +392,12 @@ mod tests {
     }
 
     #[test]
+    fn internal_global_is_compatible_with_fresh_instance_policy() {
+        let facts = analyze_module(&module(false, true, false, false, true)).unwrap();
+        assert_eq!(facts.materialize_function_index, 0);
+    }
+
+    #[test]
     fn any_import_fails_closed() {
         assert!(matches!(
             analyze_module(&module(true, true, false, false, false)),
@@ -396,14 +410,6 @@ mod tests {
         assert!(matches!(
             analyze_module(&module(false, false, false, false, false)),
             Err(MaterializerPolicyError::MemoryMaximumRequired)
-        ));
-    }
-
-    #[test]
-    fn global_state_fails_closed() {
-        assert!(matches!(
-            analyze_module(&module(false, true, false, false, true)),
-            Err(MaterializerPolicyError::GlobalsForbidden)
         ));
     }
 
