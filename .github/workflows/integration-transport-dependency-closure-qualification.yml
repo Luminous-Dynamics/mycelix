@@ -95,8 +95,8 @@ jobs:
           grep -Fq 'let mut h = blake3::Hasher::new();' "$RUNTIME_SOURCE"
           grep -Fq 'fn frame(h: &mut blake3::Hasher, bytes: &[u8])' "$RUNTIME_SOURCE"
 
-      - name: Check runtime package formatting only
-        run: cargo fmt --manifest-path "$RUNTIME_MANIFEST" --package mycelix-integration-runtime -- --check
+      - name: Check changed runtime digest source formatting
+        run: rustfmt --edition 2024 --check "$RUNTIME_SOURCE"
 
       - name: Check store-binding package formatting only
         run: cargo fmt --manifest-path "$STORE_MANIFEST" --package mycelix-integration-runtime-store-binding -- --check
@@ -138,6 +138,11 @@ jobs:
           grep -Fq "RUST_TOOLCHAIN: '1.96.0'" "$WORKFLOW"
           grep -Fq 'github.event.pull_request.head.sha || github.sha' "$WORKFLOW"
           grep -Fq 'persist-credentials: false' "$WORKFLOW"
+          grep -Fq 'rustfmt --edition 2024 --check "$RUNTIME_SOURCE"' "$WORKFLOW"
+          if grep -Eq 'cargo fmt --manifest-path "\$RUNTIME_MANIFEST".*mycelix-integration-runtime' "$WORKFLOW"; then
+            echo 'Runtime style gate escaped the changed digest source.'
+            exit 1
+          fi
           if grep -Fq 'cargo fmt --manifest-path "$JOURNAL_MANIFEST" --all --check' "$WORKFLOW"; then
             echo 'Dependency-closure formatter escaped package scope.'
             exit 1
