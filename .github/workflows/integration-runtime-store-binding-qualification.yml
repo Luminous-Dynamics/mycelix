@@ -1,0 +1,122 @@
+name: Integration Runtime Store Binding Qualification
+
+on:
+  pull_request:
+    branches:
+      - feat/integration-http-issuance-descriptor-v1
+      - main
+    paths:
+      - 'crates/mycelix-integration-runtime-store-binding/**'
+      - '.github/workflows/integration-runtime-store-binding-qualification.yml'
+  push:
+    branches:
+      - feat/integration-http-transport-journal-v1
+    paths:
+      - 'crates/mycelix-integration-runtime-store-binding/**'
+      - '.github/workflows/integration-runtime-store-binding-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  MANIFEST: crates/mycelix-integration-runtime-store-binding/Cargo.toml
+  SOURCE: crates/mycelix-integration-runtime-store-binding/src/lib.rs
+
+concurrency:
+  group: integration-runtime-store-binding-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Provisioned exact runtime-store filesystem identity
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/mycelix-integration-runtime-store-binding
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path "$MANIFEST" --all --check
+
+      - name: Compile tests without running
+        run: cargo test --manifest-path "$MANIFEST" --no-run
+
+      - name: Run tests
+        run: cargo test --manifest-path "$MANIFEST"
+
+      - name: Clippy
+        run: cargo clippy --manifest-path "$MANIFEST" --all-targets -- -D warnings
+
+      - name: Enforce exact provisioned filesystem identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'fs::symlink_metadata(path)' "$SOURCE"
+          grep -Fq 'fs::canonicalize(path)' "$SOURCE"
+          grep -Fq 'metadata.dev() != expected_device' "$SOURCE"
+          grep -Fq 'metadata.ino() != expected_inode' "$SOURCE"
+          grep -Fq 'expected_inode == 0' "$SOURCE"
+          grep -Fq 'pub fn revalidate(&self)' "$SOURCE"
+
+      - name: Enforce deployment authority stays external
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'provisioning_ref' "$SOURCE"
+          grep -Fq 'provisioning_origin_verified_here(&self) -> bool' "$SOURCE"
+          python3 - <<'PY'
+          from pathlib import Path
+          s = Path('crates/mycelix-integration-runtime-store-binding/src/lib.rs').read_text()
+          marker = 'pub const fn provisioning_origin_verified_here(&self) -> bool'
+          pos = s.find(marker)
+          if pos < 0 or 'false' not in s[pos:pos+180]:
+              raise SystemExit('store binding must not claim provisioning-origin verification')
+          PY
+
+      - name: Enforce writable-by-others stores fail closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'metadata.permissions().mode() & 0o022 != 0' "$SOURCE"
+          grep -Fq 'UnsafeFileMode' "$SOURCE"
+
+      - name: Enforce binding never creates or replaces the store
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -Eq 'File::create|OpenOptions|create\(|create_new|truncate|rename\(|remove_file|set_len' "$SOURCE"; then
+            echo 'Runtime-store binding must verify an independently provisioned store, never create/replace it.'
+            exit 1
+          fi
+
+      - name: Enforce pure filesystem theorem
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, subprocess
+          meta = json.loads(subprocess.check_output([
+              'cargo','metadata','--manifest-path',
+              'crates/mycelix-integration-runtime-store-binding/Cargo.toml',
+              '--no-deps','--format-version','1'
+          ]))
+          package = next(p for p in meta['packages'] if p['name'] == 'mycelix-integration-runtime-store-binding')
+          direct = {d['name'] for d in package['dependencies']}
+          forbidden = {'rusqlite','reqwest','hyper','tokio','rustls','openssl','keyring','vault'}
+          hit = sorted(direct & forbidden)
+          if hit:
+              raise SystemExit(f'non-filesystem runtime dependency entered store binding: {hit}')
+          PY
