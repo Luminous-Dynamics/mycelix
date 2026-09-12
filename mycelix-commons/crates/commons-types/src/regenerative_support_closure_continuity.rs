@@ -207,6 +207,12 @@ pub fn verify_regenerative_support_closure_continuity_evidence(
     {
         return Err("support-closure model bindings disagree with basis evidence".into());
     }
+    if continuity.source_model_binding != viability.closure_model_binding {
+        return Err("support-closure source model disagrees with viability evidence".into());
+    }
+    if continuity.source_support_binding != viability.flow_support_binding {
+        return Err("support-closure source support graph disagrees with viability evidence".into());
+    }
 
     for root in &continuity.finite_root_pairs {
         if root.basis_qualified {
@@ -237,8 +243,6 @@ pub fn verify_regenerative_support_closure_surface_authorization(
     continuity: &RegenerativeSupportClosureContinuityEvidenceV1,
     surface: &RegenerativePolicySensitivitySurfaceEvidenceV1,
 ) -> Result<(), String> {
-    // The parent support-basis theorem must independently authorize this exact
-    // surface before the stronger closure-continuity layer may compose over it.
     verify_regenerative_support_basis_surface_authorization(basis, surface)?;
     continuity.validate()?;
     if continuity.support_basis_evidence_content_digest != basis.content_digest()? {
