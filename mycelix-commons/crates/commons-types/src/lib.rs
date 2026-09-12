@@ -19,6 +19,7 @@
 //! - Successor lineage-depth provenance carried by maritime evidence
 //! - Multi-generation regenerative lineage-depth provenance carried by maritime evidence
 //! - Descendant reproduction-policy frontier provenance carried by maritime evidence
+//! - Decomposed descendant generation-policy metrics carried by maritime evidence
 
 pub mod anchors;
 pub mod batch;
@@ -28,6 +29,7 @@ pub mod maritime;
 pub mod maritime_stream;
 pub mod regenerative_component;
 pub mod regenerative_epoch_handoff;
+pub mod regenerative_generation_policy_metrics;
 pub mod regenerative_genome;
 pub mod regenerative_lineage_experiment;
 pub mod regenerative_multigeneration_depth;
@@ -44,6 +46,7 @@ pub use maritime::*;
 pub use maritime_stream::*;
 pub use regenerative_component::*;
 pub use regenerative_epoch_handoff::*;
+pub use regenerative_generation_policy_metrics::*;
 pub use regenerative_genome::*;
 pub use regenerative_lineage_experiment::*;
 pub use regenerative_multigeneration_depth::*;
