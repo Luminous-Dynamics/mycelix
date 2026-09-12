@@ -41,8 +41,7 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
           for branch in "$TARGET_021" "$TARGET_023" "$TARGET_022"; do
-            remote="$(git ls-remote origin "refs/heads/$branch" | cut -f1)"
-            test "$remote" = "$SOURCE_SHA"
+            test "$(git ls-remote origin "refs/heads/$branch" | cut -f1)" = "$SOURCE_SHA"
           done
 
       - name: Install pinned Rust toolchain
@@ -52,68 +51,104 @@ jobs:
           components: rustfmt
           targets: wasm32-unknown-unknown
 
-      - name: Apply exact composed source repairs
+      - name: Define exact mutation program
         shell: bash
         run: |
           set -euo pipefail
-          python - <<'PY'
+          cat > /tmp/apply_stack.py <<'PY'
           from pathlib import Path
+          import sys
 
           derive_targets = [
               Path('mycelix-finance/zomes/collateral-settlement-auth/integrity/src/lib.rs'),
               Path('mycelix-finance/zomes/sap-account-v2/integrity/src/lib.rs'),
               Path('mycelix-finance/zomes/sap-transfer-v2/integrity/src/lib.rs'),
           ]
-          old_derive = '#[dna_properties]\n#[derive(Clone, Debug, Serialize, Deserialize)]'
-          new_derive = '#[dna_properties]\n#[derive(Clone)]'
-          for path in derive_targets:
-              text = path.read_text()
-              if text.count(old_derive) != 1:
-                  raise SystemExit(f'{path}: expected exactly one DNA-properties derive pattern')
-              path.write_text(text.replace(old_derive, new_derive))
-
           entry_targets = [
               Path('mycelix-finance/zomes/collateral-issuance-v2/integrity/src/lib.rs'),
               Path('mycelix-finance/zomes/sap-account-v2/integrity/src/lib.rs'),
               Path('mycelix-finance/zomes/sap-transfer-v2/integrity/src/lib.rs'),
           ]
-          old_entry = '''    match record.action().app_entry_def() {
-              Some(actual) if actual == &expected => Ok(()),
-              Some(actual) => Err(format!(
-                  "{label} has wrong app entry definition: expected {expected:?}, got {actual:?}"
-              )),
-              None => Err(format!("{label} is not an application entry")),
-          }'''
-          new_entry = '''    match record.action().entry_type() {
-              Some(EntryType::App(actual)) if actual == &expected => Ok(()),
-              Some(EntryType::App(actual)) => Err(format!(
-                  "{label} has wrong app entry definition: expected {expected:?}, got {actual:?}"
-              )),
-              Some(actual) => Err(format!(
-                  "{label} is not an application entry: got {actual:?}"
-              )),
-              None => Err(format!("{label} has no entry type")),
-          }'''
-          for path in entry_targets:
-              text = path.read_text()
-              if text.count(old_entry) != 1:
-                  raise SystemExit(f'{path}: expected exactly one app_entry_def helper pattern')
-              path.write_text(text.replace(old_entry, new_entry))
-
           manifest = Path('mycelix-finance/zomes/collateral-settlement-auth/integrity/Cargo.toml')
-          text = manifest.read_text()
-          if '[dev-dependencies]' in text:
-              raise SystemExit('settlement-auth integrity unexpectedly already has dev-dependencies')
-          dep = '\n[dev-dependencies]\nfinance-collateral-settlement = { path = "../../../crates/finance-collateral-settlement" }\n'
-          manifest.write_text(text.rstrip() + '\n' + dep)
-          PY
 
+          def apply_derive():
+              old = '#[dna_properties]\n#[derive(Clone, Debug, Serialize, Deserialize)]'
+              new = '#[dna_properties]\n#[derive(Clone)]'
+              for path in derive_targets:
+                  text = path.read_text()
+                  if text.count(old) != 1:
+                      raise SystemExit(f'{path}: expected exactly one DNA-properties derive pattern')
+                  path.write_text(text.replace(old, new))
+
+          def apply_entry():
+              marker = 'fn require_exact_create_entry('
+              next_fn = '\nfn decode_entry'
+              for path in entry_targets:
+                  text = path.read_text()
+                  if text.count(marker) != 1:
+                      raise SystemExit(f'{path}: expected exactly one exact-create helper')
+                  start = text.index(marker)
+                  end = text.index(next_fn, start)
+                  block = text[start:end]
+                  required = [
+                      'record.action().app_entry_def()',
+                      'Some(actual) if actual == &expected => Ok(()),',
+                      'Some(actual) => Err(format!(',
+                      'None => Err(format!("{label} is not an application entry")),',
+                  ]
+                  for needle in required:
+                      if block.count(needle) != 1:
+                          raise SystemExit(f'{path}: exact-create helper shape mismatch for {needle!r}')
+                  block = block.replace('record.action().app_entry_def()', 'record.action().entry_type()')
+                  block = block.replace(
+                      'Some(actual) if actual == &expected => Ok(()),',
+                      'Some(EntryType::App(actual)) if actual == &expected => Ok(()),',
+                  )
+                  block = block.replace(
+                      'Some(actual) => Err(format!(',
+                      'Some(EntryType::App(actual)) => Err(format!(',
+                      1,
+                  )
+                  block = block.replace(
+                      '        None => Err(format!("{label} is not an application entry")),',
+                      '        Some(actual) => Err(format!(\n'
+                      '            "{label} is not an application entry: got {actual:?}"\n'
+                      '        )),\n'
+                      '        None => Err(format!("{label} has no entry type")),',
+                  )
+                  if 'app_entry_def()' in block:
+                      raise SystemExit(f'{path}: obsolete helper call remains')
+                  if block.count('Some(EntryType::App(actual))') != 2:
+                      raise SystemExit(f'{path}: expected two App entry match arms')
+                  path.write_text(text[:start] + block + text[end:])
+
+          def apply_devdep():
+              text = manifest.read_text()
+              if '[dev-dependencies]' in text:
+                  raise SystemExit('settlement-auth integrity unexpectedly already has dev-dependencies')
+              dep = '\n[dev-dependencies]\nfinance-collateral-settlement = { path = "../../../crates/finance-collateral-settlement" }\n'
+              manifest.write_text(text.rstrip() + dep)
+
+          mode = sys.argv[1]
+          if mode in ('derive', 'all'):
+              apply_derive()
+          if mode in ('entry', 'all'):
+              apply_entry()
+          if mode in ('devdep', 'all'):
+              apply_devdep()
+          PY
+          python -m py_compile /tmp/apply_stack.py
+
+      - name: Apply and close-world check composed source repairs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python /tmp/apply_stack.py all
           cd mycelix-finance
           cargo fmt --all
           cargo fmt --all --check
           cd ..
           git diff --check
-
           cat > /tmp/expected-source-paths.txt <<'EOF'
           mycelix-finance/zomes/collateral-issuance-v2/integrity/src/lib.rs
           mycelix-finance/zomes/collateral-settlement-auth/integrity/Cargo.toml
@@ -140,6 +175,7 @@ jobs:
           cargo metadata --locked --format-version 1 > /tmp/cargo-metadata-locked.json
           cargo tree --workspace --locked > /tmp/cargo-tree-locked.txt
           cd ..
+          test -s /tmp/Cargo.lock.diff
           cat > /tmp/expected-with-lock.txt <<'EOF'
           mycelix-finance/Cargo.lock
           mycelix-finance/zomes/collateral-issuance-v2/integrity/src/lib.rs
@@ -181,10 +217,10 @@ jobs:
             -p collateral_issuance_v2_integrity \
             -p sap_account_v2_integrity \
             -p sap_transfer_v2_integrity \
-            --target wasm32-unknown-unknown \
-            --lib --locked 2>&1 | tee /tmp/targeted-v2-wasm-check.log
+            --target wasm32-unknown-unknown --lib --locked \
+            2>&1 | tee /tmp/targeted-v2-wasm-check.log
 
-      - name: Restore lock and prove validated source patch
+      - name: Restore lock and freeze validated aggregate patch
         shell: bash
         run: |
           set -euo pipefail
@@ -196,7 +232,7 @@ jobs:
           cmp /tmp/composed-source.patch /tmp/validated-source.patch
           sha256sum /tmp/validated-source.patch > /tmp/validated-source.patch.sha256
 
-      - name: Reconstruct three semantic commits and prove byte identity
+      - name: Reconstruct semantic commits and prove byte identity
         shell: bash
         run: |
           set -euo pipefail
@@ -204,21 +240,7 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
 
-          python - <<'PY'
-          from pathlib import Path
-          targets = [
-              Path('mycelix-finance/zomes/collateral-settlement-auth/integrity/src/lib.rs'),
-              Path('mycelix-finance/zomes/sap-account-v2/integrity/src/lib.rs'),
-              Path('mycelix-finance/zomes/sap-transfer-v2/integrity/src/lib.rs'),
-          ]
-          old = '#[dna_properties]\n#[derive(Clone, Debug, Serialize, Deserialize)]'
-          new = '#[dna_properties]\n#[derive(Clone)]'
-          for path in targets:
-              text = path.read_text()
-              if text.count(old) != 1:
-                  raise SystemExit(f'{path}: derive reconstruction mismatch')
-              path.write_text(text.replace(old, new))
-          PY
+          python /tmp/apply_stack.py derive
           cd mycelix-finance && cargo fmt --all && cd ..
           git add \
             mycelix-finance/zomes/collateral-settlement-auth/integrity/src/lib.rs \
@@ -228,36 +250,7 @@ jobs:
           git commit -m 'fix(finance): remove duplicate DNA property derives'
           sha_021="$(git rev-parse HEAD)"
 
-          python - <<'PY'
-          from pathlib import Path
-          targets = [
-              Path('mycelix-finance/zomes/collateral-issuance-v2/integrity/src/lib.rs'),
-              Path('mycelix-finance/zomes/sap-account-v2/integrity/src/lib.rs'),
-              Path('mycelix-finance/zomes/sap-transfer-v2/integrity/src/lib.rs'),
-          ]
-          old = '''    match record.action().app_entry_def() {
-              Some(actual) if actual == &expected => Ok(()),
-              Some(actual) => Err(format!(
-                  "{label} has wrong app entry definition: expected {expected:?}, got {actual:?}"
-              )),
-              None => Err(format!("{label} is not an application entry")),
-          }'''
-          new = '''    match record.action().entry_type() {
-              Some(EntryType::App(actual)) if actual == &expected => Ok(()),
-              Some(EntryType::App(actual)) => Err(format!(
-                  "{label} has wrong app entry definition: expected {expected:?}, got {actual:?}"
-              )),
-              Some(actual) => Err(format!(
-                  "{label} is not an application entry: got {actual:?}"
-              )),
-              None => Err(format!("{label} has no entry type")),
-          }'''
-          for path in targets:
-              text = path.read_text()
-              if text.count(old) != 1:
-                  raise SystemExit(f'{path}: entry-type reconstruction mismatch')
-              path.write_text(text.replace(old, new))
-          PY
+          python /tmp/apply_stack.py entry
           cd mycelix-finance && cargo fmt --all && cd ..
           git add \
             mycelix-finance/zomes/collateral-issuance-v2/integrity/src/lib.rs \
@@ -267,15 +260,7 @@ jobs:
           git commit -m 'fix(finance): bind exact app entries through EntryType'
           sha_023="$(git rev-parse HEAD)"
 
-          python - <<'PY'
-          from pathlib import Path
-          path = Path('mycelix-finance/zomes/collateral-settlement-auth/integrity/Cargo.toml')
-          text = path.read_text()
-          if '[dev-dependencies]' in text:
-              raise SystemExit('dev-dependency reconstruction found existing section')
-          dep = '\n[dev-dependencies]\nfinance-collateral-settlement = { path = "../../../crates/finance-collateral-settlement" }\n'
-          path.write_text(text.rstrip() + '\n' + dep)
-          PY
+          python /tmp/apply_stack.py devdep
           git add mycelix-finance/zomes/collateral-settlement-auth/integrity/Cargo.toml
           git diff --cached --check
           git commit -m 'test(finance): declare settlement kernel test dependency'
@@ -283,16 +268,12 @@ jobs:
 
           git diff "$SOURCE_SHA" HEAD > /tmp/reconstructed-source.patch
           cmp /tmp/validated-source.patch /tmp/reconstructed-source.patch
-
           for branch in "$TARGET_021" "$TARGET_023" "$TARGET_022"; do
-            remote="$(git ls-remote origin "refs/heads/$branch" | cut -f1)"
-            test "$remote" = "$SOURCE_SHA"
+            test "$(git ls-remote origin "refs/heads/$branch" | cut -f1)" = "$SOURCE_SHA"
           done
-
           git push origin "$sha_021:refs/heads/$TARGET_021"
           git push origin "$sha_023:refs/heads/$TARGET_023"
           git push origin "$sha_022:refs/heads/$TARGET_022"
-
           {
             echo "source_sha=$SOURCE_SHA"
             echo "fin_safe_021_sha=$sha_021"
