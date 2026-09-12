@@ -14,6 +14,7 @@
 //! - Recipe-free regenerative genome lineage provenance carried by maritime evidence
 //! - Recipe-free regenerative viability provenance carried by maritime evidence
 //! - Recipe-free regenerative epoch-handoff provenance carried by maritime evidence
+//! - Recovery-aware regenerative lineage-experiment provenance carried by maritime evidence
 
 pub mod anchors;
 pub mod batch;
@@ -24,6 +25,7 @@ pub mod maritime_stream;
 pub mod regenerative_component;
 pub mod regenerative_epoch_handoff;
 pub mod regenerative_genome;
+pub mod regenerative_lineage_experiment;
 pub mod regenerative_viability;
 
 pub use anchors::*;
@@ -35,4 +37,5 @@ pub use maritime_stream::*;
 pub use regenerative_component::*;
 pub use regenerative_epoch_handoff::*;
 pub use regenerative_genome::*;
+pub use regenerative_lineage_experiment::*;
 pub use regenerative_viability::*;
