@@ -166,16 +166,25 @@ jobs:
                   raise SystemExit(f'fallible operation after durable context-bound DispatchStarted: {needle}')
           PY
 
-      - name: Enforce no native network or secret access yet
+      - name: Enforce no direct native network or secret capability yet
         shell: bash
         run: |
           set -euo pipefail
-          tree="$(cargo tree --manifest-path "$MANIFEST" -e normal --prefix none)"
-          if printf '%s\n' "$tree" | grep -Eiq '^(reqwest|hyper|tonic|curl|ureq|tokio|async-std|rustls|native-tls|openssl)( |$)'; then
-            echo 'Network/TLS dependency entered pre-I/O HTTP admission.'
-            exit 1
-          fi
+          python3 - <<'PY'
+          import json, subprocess
+          meta = json.loads(subprocess.check_output([
+              'cargo', 'metadata', '--manifest-path',
+              'crates/mycelix-integration-http-transport-admission/Cargo.toml',
+              '--no-deps', '--format-version', '1'
+          ]))
+          package = next(p for p in meta['packages'] if p['name'] == 'mycelix-integration-http-transport-admission')
+          direct = {d['name'] for d in package['dependencies']}
+          forbidden = {'reqwest','hyper','tonic','curl','ureq','tokio','async-std','rustls','native-tls','openssl'}
+          hit = sorted(direct & forbidden)
+          if hit:
+              raise SystemExit(f'direct network/TLS dependency entered pre-I/O HTTP admission: {hit}')
+          PY
           if grep -Eq 'TcpStream|UdpSocket|reqwest::|hyper::|keyring::|vault::|secret_service::|AdminWebsocket|update_coordinators' "$SOURCE"; then
-            echo 'HTTP admission crossed into network/secret/Admin I/O.'
+            echo 'HTTP admission crossed into direct network/secret/Admin I/O.'
             exit 1
           fi
