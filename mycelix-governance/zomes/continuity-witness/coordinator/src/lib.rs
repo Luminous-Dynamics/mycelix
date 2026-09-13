@@ -8,8 +8,9 @@ use hdk::prelude::*;
 use mycelix_zome_helpers as _;
 
 const MAX_MINIMUM_WITNESSES: u32 = 1024;
+const MAX_NAMESPACE_BYTES: usize = 256;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct SubmitCheckpointInput {
     pub namespace: String,
     pub source_protocol: String,
@@ -20,7 +21,7 @@ pub struct SubmitCheckpointInput {
     pub previous_checkpoint: Option<ActionHash>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct RevisionWitnessQuery {
     pub namespace: String,
     pub object_fingerprint: Vec<u8>,
@@ -28,7 +29,7 @@ pub struct RevisionWitnessQuery {
     pub minimum_distinct_witnesses: u32,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct CheckpointCandidateStatus {
     pub checkpoint_action: ActionHash,
     pub checkpoint: ContinuityCheckpoint,
@@ -37,7 +38,7 @@ pub struct CheckpointCandidateStatus {
     pub threshold_met: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct RevisionWitnessStatus {
     pub namespace: String,
     pub object_fingerprint: Vec<u8>,
@@ -72,16 +73,53 @@ fn revision_anchor(object_fingerprint: &[u8], revision: u64) -> String {
 }
 
 fn checkpoint_from_record(record: &Record) -> ExternResult<Option<ContinuityCheckpoint>> {
-    record.entry().to_app_option::<ContinuityCheckpoint>()
+    record
+        .entry()
+        .to_app_option::<ContinuityCheckpoint>()
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))
 }
 
 fn attestation_from_record(record: &Record) -> ExternResult<Option<WitnessAttestation>> {
-    record.entry().to_app_option::<WitnessAttestation>()
+    record
+        .entry()
+        .to_app_option::<WitnessAttestation>()
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))
 }
 
+fn validate_query(query: &RevisionWitnessQuery) -> ExternResult<()> {
+    if query.namespace.trim().is_empty()
+        || query.namespace != query.namespace.trim()
+        || query.namespace.len() > MAX_NAMESPACE_BYTES
+        || query.namespace.chars().any(char::is_control)
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Invalid continuity namespace".into()
+        )));
+    }
+    if query.object_fingerprint.len() != 32
+        || query.object_fingerprint.iter().all(|byte| *byte == 0)
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Object fingerprint must be a non-zero 32-byte value".into()
+        )));
+    }
+    if query.revision == 0 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Revision must be non-zero".into()
+        )));
+    }
+    if query.minimum_distinct_witnesses == 0
+        || query.minimum_distinct_witnesses > MAX_MINIMUM_WITNESSES
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "minimum_distinct_witnesses is outside the supported range".into()
+        )));
+    }
+    Ok(())
+}
+
 fn revision_candidates(query: &RevisionWitnessQuery) -> ExternResult<Vec<Record>> {
+    validate_query(query)?;
     let links = get_links(
         LinkQuery::try_new(
             anchor_hash(&revision_anchor(&query.object_fingerprint, query.revision))?,
@@ -92,10 +130,18 @@ fn revision_candidates(query: &RevisionWitnessQuery) -> ExternResult<Vec<Record>
     let mut out = Vec::new();
     let mut seen = Vec::<ActionHash>::new();
     for link in links {
-        let Ok(hash) = ActionHash::try_from(link.target) else { continue };
-        if seen.contains(&hash) { continue; }
-        let Some(record) = get(hash.clone(), GetOptions::default())? else { continue };
-        let Some(checkpoint) = checkpoint_from_record(&record)? else { continue };
+        let Ok(hash) = ActionHash::try_from(link.target) else {
+            continue;
+        };
+        if seen.contains(&hash) {
+            continue;
+        }
+        let Some(record) = get(hash.clone(), GetOptions::default())? else {
+            continue;
+        };
+        let Some(checkpoint) = checkpoint_from_record(&record)? else {
+            continue;
+        };
         if checkpoint.namespace == query.namespace
             && checkpoint.object_fingerprint == query.object_fingerprint
             && checkpoint.revision == query.revision
@@ -108,32 +154,49 @@ fn revision_candidates(query: &RevisionWitnessQuery) -> ExternResult<Vec<Record>
     Ok(out)
 }
 
+fn attestation_matches(
+    value: &WitnessAttestation,
+    checkpoint_action: &ActionHash,
+    checkpoint: &ContinuityCheckpoint,
+) -> bool {
+    check_attestation_shape(value).is_ok()
+        && value.checkpoint_action == *checkpoint_action
+        && value.object_fingerprint == checkpoint.object_fingerprint
+        && value.revision == checkpoint.revision
+        && value.checkpoint_digest == checkpoint.checkpoint_digest
+}
+
 fn distinct_witnesses(
     checkpoint_action: &ActionHash,
     checkpoint: &ContinuityCheckpoint,
     submitter: &AgentPubKey,
 ) -> ExternResult<Vec<AgentPubKey>> {
     let links = get_links(
-        LinkQuery::try_new(checkpoint_action.clone(), LinkTypes::CheckpointToAttestation)?,
+        LinkQuery::try_new(
+            checkpoint_action.clone(),
+            LinkTypes::CheckpointToAttestation,
+        )?,
         GetStrategy::default(),
     )?;
     let mut witnesses = Vec::new();
     for link in links {
-        let Ok(hash) = ActionHash::try_from(link.target) else { continue };
-        let Some(record) = get(hash, GetOptions::default())? else { continue };
+        let Ok(hash) = ActionHash::try_from(link.target) else {
+            continue;
+        };
+        let Some(record) = get(hash, GetOptions::default())? else {
+            continue;
+        };
         let author = record.action().author().clone();
-        if &author == submitter || witnesses.contains(&author) { continue; }
-        let Some(attestation) = attestation_from_record(&record)? else { continue };
-        if attestation.checkpoint_action == *checkpoint_action
-            && attestation.object_fingerprint == checkpoint.object_fingerprint
-            && attestation.revision == checkpoint.revision
-            && attestation.checkpoint_digest == checkpoint.checkpoint_digest
-            && check_attestation_shape(&attestation).is_ok()
-        {
+        if &author == submitter || witnesses.contains(&author) {
+            continue;
+        }
+        let Some(attestation) = attestation_from_record(&record)? else {
+            continue;
+        };
+        if attestation_matches(&attestation, checkpoint_action, checkpoint) {
             witnesses.push(author);
         }
     }
-    witnesses.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
     Ok(witnesses)
 }
 
@@ -148,7 +211,7 @@ pub fn submit_continuity_checkpoint(input: SubmitCheckpointInput) -> ExternResul
         anchor_fingerprint: input.anchor_fingerprint,
         checkpoint_digest: digest_checkpoint_bytes(&input.checkpoint_bytes),
         checkpoint_bytes: input.checkpoint_bytes,
-        previous_checkpoint: input.previous_checkpoint.clone(),
+        previous_checkpoint: input.previous_checkpoint,
         observed_at: sys_time()?,
     };
     check_checkpoint_shape(&checkpoint)
@@ -169,12 +232,24 @@ pub fn submit_continuity_checkpoint(input: SubmitCheckpointInput) -> ExternResul
     let action_hash = create_entry(&EntryTypes::ContinuityCheckpoint(checkpoint.clone()))?;
     let key = revision_anchor(&checkpoint.object_fingerprint, checkpoint.revision);
     create_entry(&EntryTypes::Anchor(Anchor(key.clone())))?;
-    create_link(anchor_hash(&key)?, action_hash.clone(), LinkTypes::RevisionToCheckpoint, ())?;
+    create_link(
+        anchor_hash(&key)?,
+        action_hash.clone(),
+        LinkTypes::RevisionToCheckpoint,
+        (),
+    )?;
     if let Some(previous) = checkpoint.previous_checkpoint {
-        create_link(previous, action_hash.clone(), LinkTypes::CheckpointToSuccessor, ())?;
+        create_link(
+            previous,
+            action_hash.clone(),
+            LinkTypes::CheckpointToSuccessor,
+            (),
+        )?;
     }
     get(action_hash, GetOptions::default())?.ok_or_else(|| {
-        wasm_error!(WasmErrorInner::Guest("Created checkpoint not readable".into()))
+        wasm_error!(WasmErrorInner::Guest(
+            "Created checkpoint not readable".into()
+        ))
     })
 }
 
@@ -184,6 +259,9 @@ pub fn attest_continuity_checkpoint(checkpoint_action: ActionHash) -> ExternResu
         .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Checkpoint not found".into())))?;
     let checkpoint = checkpoint_from_record(&checkpoint_record)?
         .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Target is not a checkpoint".into())))?;
+    check_checkpoint_shape(&checkpoint)
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e)))?;
+
     let witness = agent_info()?.agent_initial_pubkey;
     if checkpoint_record.action().author() == &witness {
         return Err(wasm_error!(WasmErrorInner::Guest(
@@ -191,12 +269,27 @@ pub fn attest_continuity_checkpoint(checkpoint_action: ActionHash) -> ExternResu
         )));
     }
     for link in get_links(
-        LinkQuery::try_new(checkpoint_action.clone(), LinkTypes::CheckpointToAttestation)?,
+        LinkQuery::try_new(
+            checkpoint_action.clone(),
+            LinkTypes::CheckpointToAttestation,
+        )?,
         GetStrategy::default(),
     )? {
-        let Ok(hash) = ActionHash::try_from(link.target) else { continue };
-        let Some(record) = get(hash, GetOptions::default())? else { continue };
-        if record.action().author() == &witness { return Ok(record); }
+        let Ok(hash) = ActionHash::try_from(link.target) else {
+            continue;
+        };
+        let Some(record) = get(hash, GetOptions::default())? else {
+            continue;
+        };
+        if record.action().author() != &witness {
+            continue;
+        }
+        let Some(attestation) = attestation_from_record(&record)? else {
+            continue;
+        };
+        if attestation_matches(&attestation, &checkpoint_action, &checkpoint) {
+            return Ok(record);
+        }
     }
 
     let attestation = WitnessAttestation {
@@ -207,26 +300,35 @@ pub fn attest_continuity_checkpoint(checkpoint_action: ActionHash) -> ExternResu
         checkpoint_digest: checkpoint.checkpoint_digest.clone(),
         witnessed_at: sys_time()?,
     };
+    check_attestation_shape(&attestation)
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e)))?;
     let action_hash = create_entry(&EntryTypes::WitnessAttestation(attestation))?;
-    create_link(checkpoint_action, action_hash.clone(), LinkTypes::CheckpointToAttestation, ())?;
+    create_link(
+        checkpoint_action,
+        action_hash.clone(),
+        LinkTypes::CheckpointToAttestation,
+        (),
+    )?;
     get(action_hash, GetOptions::default())?.ok_or_else(|| {
-        wasm_error!(WasmErrorInner::Guest("Created attestation not readable".into()))
+        wasm_error!(WasmErrorInner::Guest(
+            "Created attestation not readable".into()
+        ))
     })
 }
 
 #[hdk_extern]
-pub fn get_revision_witness_status(query: RevisionWitnessQuery) -> ExternResult<RevisionWitnessStatus> {
-    if query.minimum_distinct_witnesses == 0 || query.minimum_distinct_witnesses > MAX_MINIMUM_WITNESSES {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "minimum_distinct_witnesses is outside the supported range".into()
-        )));
-    }
+pub fn get_revision_witness_status(
+    query: RevisionWitnessQuery,
+) -> ExternResult<RevisionWitnessStatus> {
+    validate_query(&query)?;
     let records = revision_candidates(&query)?;
     let mut candidates = Vec::new();
     for record in records {
         let checkpoint_action = record.action_address().clone();
         let submitter = record.action().author().clone();
-        let Some(checkpoint) = checkpoint_from_record(&record)? else { continue };
+        let Some(checkpoint) = checkpoint_from_record(&record)? else {
+            continue;
+        };
         let witnesses = distinct_witnesses(&checkpoint_action, &checkpoint, &submitter)?;
         let threshold_met = witnesses.len() as u32 >= query.minimum_distinct_witnesses;
         candidates.push(CheckpointCandidateStatus {
