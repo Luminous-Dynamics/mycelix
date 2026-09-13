@@ -1,6 +1,6 @@
 use rusqlite::{Connection, TransactionBehavior};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 fn unique_db_path() -> PathBuf {
@@ -14,7 +14,7 @@ fn unique_db_path() -> PathBuf {
     ))
 }
 
-fn remove_sqlite_files(path: &PathBuf) {
+fn remove_sqlite_files(path: &Path) {
     let _ = fs::remove_file(path);
     let mut wal = path.as_os_str().to_os_string();
     wal.push("-wal");
