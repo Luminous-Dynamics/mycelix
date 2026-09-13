@@ -155,19 +155,13 @@ fn recovery_coordinate_composes_with_exact_safe_nominal_continuity() {
 }
 
 #[test]
-fn second_spend_requires_exact_predecessor_digest_sequence_and_quantity() {
-    let (viability, basis, continuity) = parents();
+fn generic_second_spend_requires_exact_predecessor_digest_sequence_and_quantity() {
+    let (viability, _basis, continuity) = parents();
     let first = two_spend_first(&viability, &continuity);
     let second = second_recovery_evidence(&first);
 
     assert_eq!(
-        verify_regenerative_recovery_coordinate_evidence_with_predecessor(
-            &viability,
-            &basis,
-            &continuity,
-            Some(&first),
-            &second,
-        ),
+        verify_regenerative_recovery_reserve_lineage(Some(&first), &second),
         Ok(())
     );
 
