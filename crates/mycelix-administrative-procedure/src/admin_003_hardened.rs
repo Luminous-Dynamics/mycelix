@@ -1,27 +1,80 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
-//! Public ADMIN-003 stay-history hardening.
+//! Public ADMIN-003 review-lineage hardening.
 //!
-//! The semantic ADMIN-003 module keeps stay state intentionally compact. This
-//! facade adds the missing temporal-history token so a later directive cannot
-//! be dated before the directive that produced the current state.
+//! The semantic ADMIN-003 module keeps core review records intentionally small.
+//! This facade adds two proof-carrying facts needed by the public path:
+//! monotonic stay-transition history and immutable provenance for the original
+//! decision authority when independent review is required.
 
 use super::admin_003;
 use mycelix_institutional_core::{
-    Appeal, AuthorityGrant, EvidenceRef,
+    Appeal, AuthorityGrant, AuthorityGrantId, EvidenceRef, PrincipalId,
 };
 use std::fmt;
 
 pub use admin_003::{StayDirective, StayDirectiveKind, StayState};
 
-/// Opaque appeal-review token carrying monotonic stay-transition history.
+/// Opaque challenge token retaining the exact original decision-authority
+/// provenance that would otherwise disappear behind the thinner Challenge type.
+#[derive(Debug, PartialEq, Eq)]
+pub struct QualifiedChallenge {
+    inner: admin_003::QualifiedChallenge,
+    original_decider: PrincipalId,
+    original_authority_grant_id: AuthorityGrantId,
+    require_independent_reviewer: bool,
+}
+
+impl QualifiedChallenge {
+    pub fn challenge(&self) -> &mycelix_institutional_core::Challenge {
+        self.inner.challenge()
+    }
+
+    pub fn original_decision_id(&self) -> &mycelix_institutional_core::DecisionId {
+        self.inner.original_decision_id()
+    }
+
+    pub fn original_decider(&self) -> &PrincipalId {
+        &self.original_decider
+    }
+
+    pub fn original_authority_grant_id(&self) -> &AuthorityGrantId {
+        &self.original_authority_grant_id
+    }
+
+    pub fn grants_external_effect_authority(&self) -> bool {
+        false
+    }
+}
+
+pub fn qualify_challenge(
+    reviewable: admin_003::QualifiedReviewableDecision,
+    submission: admin_003::ChallengeSubmission,
+) -> Result<QualifiedChallenge, AdministrativeReviewHardeningError> {
+    let original_decider = reviewable.issued().decider().clone();
+    let original_authority_grant_id = reviewable.issued().authority_grant_id().clone();
+    let require_independent_reviewer = reviewable.policy().require_independent_reviewer;
+    let inner = admin_003::qualify_challenge(reviewable, submission)?;
+    Ok(QualifiedChallenge {
+        inner,
+        original_decider,
+        original_authority_grant_id,
+        require_independent_reviewer,
+    })
+}
+
+/// Opaque appeal-review token carrying original-authority provenance plus
+/// monotonic stay-transition history.
 ///
-/// `last_stay_transition_ms` is deliberately not serialized. Persisted review
-/// state must be rebuilt from the ordered stay-directive lineage instead of
-/// accepting a deserialized current-state snapshot as sufficient history.
+/// These fields are deliberately not serialized. Persisted review state must be
+/// rebuilt from the exact decision/challenge/appeal/stay lineage instead of
+/// accepting a deserialized current-state snapshot as sufficient proof.
 #[derive(Debug, PartialEq, Eq)]
 pub struct QualifiedAppealReview {
     inner: admin_003::QualifiedAppealReview,
+    original_decider: PrincipalId,
+    original_authority_grant_id: AuthorityGrantId,
+    require_independent_reviewer: bool,
     last_stay_transition_ms: Option<u64>,
     active_stay_imposed_at_ms: Option<u64>,
 }
@@ -35,6 +88,14 @@ impl QualifiedAppealReview {
         self.inner.stay_state()
     }
 
+    pub fn original_decider(&self) -> &PrincipalId {
+        &self.original_decider
+    }
+
+    pub fn original_authority_grant_id(&self) -> &AuthorityGrantId {
+        &self.original_authority_grant_id
+    }
+
     pub fn last_stay_transition_ms(&self) -> Option<u64> {
         self.last_stay_transition_ms
     }
@@ -45,12 +106,18 @@ impl QualifiedAppealReview {
 }
 
 pub fn qualify_appeal(
-    challenge: admin_003::QualifiedChallenge,
+    challenge: QualifiedChallenge,
     appeal: Appeal,
 ) -> Result<QualifiedAppealReview, AdministrativeReviewHardeningError> {
-    let inner = admin_003::qualify_appeal(challenge, appeal)?;
+    let original_decider = challenge.original_decider.clone();
+    let original_authority_grant_id = challenge.original_authority_grant_id.clone();
+    let require_independent_reviewer = challenge.require_independent_reviewer;
+    let inner = admin_003::qualify_appeal(challenge.inner, appeal)?;
     Ok(QualifiedAppealReview {
         inner,
+        original_decider,
+        original_authority_grant_id,
+        require_independent_reviewer,
         last_stay_transition_ms: None,
         active_stay_imposed_at_ms: None,
     })
@@ -105,6 +172,9 @@ pub fn qualify_review_disposition(
     grant: &AuthorityGrant,
     authority_evidence: &[EvidenceRef],
 ) -> Result<admin_003::QualifiedReviewDisposition, AdministrativeReviewHardeningError> {
+    if review.require_independent_reviewer && grant.id == review.original_authority_grant_id {
+        return Err(AdministrativeReviewHardeningError::ReviewerGrantNotIndependent);
+    }
     admin_003::qualify_review_disposition(review.inner, disposition, grant, authority_evidence)
         .map_err(Into::into)
 }
@@ -114,6 +184,7 @@ pub enum AdministrativeReviewHardeningError {
     Review(admin_003::AdministrativeReviewError),
     StayTimeRegression,
     NoQualifiedActiveStayHistory,
+    ReviewerGrantNotIndependent,
 }
 
 impl From<admin_003::AdministrativeReviewError> for AdministrativeReviewHardeningError {
@@ -132,6 +203,10 @@ impl fmt::Display for AdministrativeReviewHardeningError {
             Self::NoQualifiedActiveStayHistory => {
                 write!(f, "stay lift lacks a qualified active-stay history")
             }
+            Self::ReviewerGrantNotIndependent => write!(
+                f,
+                "independent review cannot reuse the original decision authority grant"
+            ),
         }
     }
 }
@@ -142,15 +217,15 @@ impl std::error::Error for AdministrativeReviewHardeningError {}
 mod tests {
     use super::*;
 
-    // The semantic module owns the full end-to-end review fixtures. This facade
-    // is additionally statically gated in CI to ensure the raw stay/review
-    // functions are not re-exported. Runtime qualification tests exercise the
-    // wrapper together with the semantic ADMIN-003 corpus.
     #[test]
-    fn hardening_error_is_not_authority() {
+    fn hardening_errors_are_explicit() {
         assert_eq!(
             AdministrativeReviewHardeningError::StayTimeRegression.to_string(),
             "stay directive time regresses behind qualified stay history"
+        );
+        assert_eq!(
+            AdministrativeReviewHardeningError::ReviewerGrantNotIndependent.to_string(),
+            "independent review cannot reuse the original decision authority grant"
         );
     }
 }
