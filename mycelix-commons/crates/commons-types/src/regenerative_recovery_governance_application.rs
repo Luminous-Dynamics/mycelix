@@ -10,10 +10,9 @@
 //! them.
 
 use crate::{
-    apply_regenerative_recovery_fork_resolution,
-    verify_regenerative_recovery_governance_authority,
     RegenerativeRecoveryCoordinateEvidenceV1, RegenerativeRecoveryForkResolutionEvidenceV1,
     RegenerativeRecoveryGovernanceAuthorityEvidenceV1, RegenerativeRecoveryReserveHeadV1,
+    apply_regenerative_recovery_fork_resolution, verify_regenerative_recovery_governance_authority,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
