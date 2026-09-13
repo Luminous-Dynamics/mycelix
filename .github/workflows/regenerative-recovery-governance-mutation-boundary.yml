@@ -1,0 +1,125 @@
+name: Regenerative Recovery Governance Mutation Boundary
+
+on:
+  push:
+    branches:
+      - security/regenerative-recovery-governance-mutation-boundary-v1
+  pull_request:
+    branches:
+      - feat/regenerative-recovery-governance-authority-v1
+
+permissions:
+  contents: read
+
+concurrency:
+  group: regenerative-recovery-governance-mutation-boundary-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  boundary:
+    name: Unverified authority cannot mutate recovery cursor
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+
+      - name: Toolchain identity
+        run: |
+          rustc --version --verbose
+          cargo --version
+          rustfmt --version
+          cargo clippy --version
+
+      - name: Format owned security subjects
+        run: |
+          rustfmt --edition 2024 --check \
+            mycelix-commons/crates/commons-types/src/regenerative_recovery_governance_application.rs \
+            mycelix-commons/crates/commons-types/tests/regenerative_recovery_governance_mutation_boundary.rs
+
+      - name: Test commons-types
+        run: cargo test --manifest-path mycelix-commons/Cargo.toml -p commons-types
+
+      - name: Clippy commons-types; gate owned security subjects
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          cargo clippy --manifest-path mycelix-commons/Cargo.toml -p commons-types \
+            --all-targets --message-format=json 2>&1 | tee /tmp/recovery-mutation-clippy.jsonl
+          cargo_status=${PIPESTATUS[0]}
+          set -e
+          python3 - "$cargo_status" <<'PY'
+          import json
+          import sys
+
+          cargo_status = int(sys.argv[1])
+          owned = {
+              'mycelix-commons/crates/commons-types/src/regenerative_recovery_governance_application.rs',
+              'mycelix-commons/crates/commons-types/tests/regenerative_recovery_governance_mutation_boundary.rs',
+          }
+          owned_warnings = []
+          compiler_errors = []
+
+          with open('/tmp/recovery-mutation-clippy.jsonl', encoding='utf-8', errors='replace') as handle:
+              for line in handle:
+                  try:
+                      event = json.loads(line)
+                  except json.JSONDecodeError:
+                      continue
+                  if event.get('reason') != 'compiler-message':
+                      continue
+                  message = event.get('message') or {}
+                  level = message.get('level')
+                  spans = message.get('spans') or []
+                  if level == 'error':
+                      compiler_errors.append(message.get('message', 'compiler error'))
+                  if level != 'warning':
+                      continue
+                  for span in spans:
+                      if span.get('is_primary') and span.get('file_name') in owned:
+                          owned_warnings.append(message.get('message', 'warning'))
+                          break
+
+          if cargo_status != 0:
+              if compiler_errors:
+                  print('Compiler/Clippy errors:', *compiler_errors, sep='\n- ', file=sys.stderr)
+              else:
+                  print(f'cargo clippy failed with exit status {cargo_status}', file=sys.stderr)
+              raise SystemExit(1)
+          if compiler_errors:
+              print('Compiler/Clippy errors:', *compiler_errors, sep='\n- ', file=sys.stderr)
+              raise SystemExit(1)
+          if owned_warnings:
+              print('Owned security warnings:', *owned_warnings, sep='\n- ', file=sys.stderr)
+              raise SystemExit(1)
+          print('PASS: no compiler errors and no Clippy warnings on owned mutation-boundary subjects')
+          PY
+
+      - name: Mutation-boundary audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          application=mycelix-commons/crates/commons-types/src/regenerative_recovery_governance_application.rs
+          test_file=mycelix-commons/crates/commons-types/tests/regenerative_recovery_governance_mutation_boundary.rs
+
+          grep -q 'qualify_regenerative_recovery_fork_resolution_governance_binding' "$application"
+          grep -q 'recovery_cursor_mutation_authorized_here' "$application"
+          grep -q 'return false\|false' "$application"
+          grep -q 'trusted provider' "$application"
+          grep -q 'assert_eq!(head, frozen_before)' "$test_file"
+          grep -q 'assert!(head.fork_pending())' "$test_file"
+
+          if grep -q 'apply_regenerative_recovery_fork_resolution,' "$application"; then
+            echo 'Commons governance application must not import the provider-neutral mutation primitive' >&2
+            exit 1
+          fi
