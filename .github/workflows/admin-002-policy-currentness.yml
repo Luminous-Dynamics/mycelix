@@ -1,0 +1,134 @@
+name: ADMIN-002 Policy Currentness
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-procedure-policy-currentness/**'
+      - '.github/workflows/admin-002-policy-currentness.yml'
+  push:
+    branches:
+      - 'feat/admin-002-authoritative-policy-currentness-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: admin-002-policy-currentness-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Authority-qualified closed-world procedure-policy currentness
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+
+      - name: Toolchain identity
+        run: |
+          git rev-parse HEAD
+          rustc --version --verbose
+          cargo --version
+          rustfmt --version
+          cargo clippy --version
+
+      - name: Preserve exact qualified policy-identity parent
+        run: |
+          test "$(git hash-object crates/mycelix-procedure-policy-identity/Cargo.toml)" = \
+            '53040ceac9753fdbdf41ba9fd40ba0509305a4ba'
+          test "$(git hash-object crates/mycelix-procedure-policy-identity/src/lib.rs)" = \
+            '42f1c0fb76a67a993c208866e46111dc11a511be'
+          test "$(git hash-object crates/mycelix-procedure-policy-identity/INVARIANTS.md)" = \
+            '225184a26a7ea04744ff64adbe73d404d151cb8c'
+          test "$(git hash-object crates/mycelix-procedure-policy-identity/PROFILE_V1.md)" = \
+            '613be1f117e40fc26830f7096926e4bdae4b54cf'
+
+      - name: Dependency and semantic boundary
+        run: |
+          python3 - <<'PY'
+          import pathlib
+          import tomllib
+
+          root = pathlib.Path('crates/mycelix-procedure-policy-currentness')
+          manifest = tomllib.loads((root / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          assert set(deps) == {
+              'mycelix-institutional-core',
+              'mycelix-administrative-procedure',
+              'mycelix-procedure-policy-identity',
+          }
+          assert deps['mycelix-institutional-core'].get('path') == '../mycelix-institutional-core'
+          admin = deps['mycelix-administrative-procedure']
+          assert admin.get('path') == '../mycelix-administrative-procedure'
+          assert admin.get('features') == ['procedural-completeness']
+          assert deps['mycelix-procedure-policy-identity'].get('path') == '../mycelix-procedure-policy-identity'
+          assert not manifest.get('dev-dependencies')
+          assert not manifest.get('build-dependencies')
+
+          src = (root / 'src' / 'lib.rs').read_text()
+          for required in (
+              'ProcedurePolicyCurrentnessPolicy',
+              'ProcedurePolicyCurrentnessClaim',
+              'QualifiedCurrentProcedurePolicy',
+              'qualify_current_procedure_policy',
+              'closed_through_ms',
+              'provider_generation',
+              'provider_state_digest',
+              'provider_authority_rulebook',
+              'target_rulebook',
+              'evaluate_authority',
+              'CurrentnessDoesNotCoverAsOf',
+              'grants_administrative_decision_authority',
+              'grants_external_effect_authority',
+          ):
+              assert required in src
+          PY
+
+      - name: Closed-world and authority separation audit
+        run: |
+          src='crates/mycelix-procedure-policy-currentness/src/lib.rs'
+          grep -q 'as_of_ms > claim.closed_through_ms' "$src"
+          grep -q 'claim.provider_grant_id != provider_grant.id' "$src"
+          grep -q 'claim.provider != provider_grant.holder' "$src"
+          grep -q 'claim.policy_digest != identity.identity().digest' "$src"
+          grep -q 'claim.policy_digest_profile != identity.identity().profile' "$src"
+          grep -q 'provider_authority_evidence' "$src"
+          grep -q 'AuthorityEvidenceFromFuture' "$src"
+          grep -q 'ProviderAuthorityDenied' "$src"
+
+          # Currentness must never collapse into local absence, a bare boolean,
+          # ambient time, runtime transport, or administrative decision authority.
+          code_lines="$(grep -nEv '^[[:space:]]*//' "$src" || true)"
+          forbidden='(hdk|hdi|holochain)::|std::(net|fs|process)::|SystemTime::|Instant::now|current[[:space:]]*:[[:space:]]*bool|authorized[[:space:]]*:[[:space:]]*bool|official[[:space:]]*:[[:space:]]*bool|NoLocalPolicyFound|LatestRecordSeen'
+          if printf '%s\n' "$code_lines" | grep -E "$forbidden"; then
+            echo 'policy currentness gained forbidden local/runtime/boolean authority surface' >&2
+            exit 1
+          fi
+
+      - name: Format owned source
+        run: |
+          rustfmt --edition 2024 --check \
+            crates/mycelix-procedure-policy-currentness/src/lib.rs
+
+      - name: Isolated executable qualification
+        run: |
+          qroot="$(mktemp -d)"
+          mkdir -p "$qroot/crates"
+          cp -a crates/mycelix-institutional-core "$qroot/crates/"
+          cp -a crates/mycelix-administrative-procedure "$qroot/crates/"
+          cp -a crates/mycelix-procedure-policy-identity "$qroot/crates/"
+          cp -a crates/mycelix-procedure-policy-currentness "$qroot/crates/"
+          manifest="$qroot/crates/mycelix-procedure-policy-currentness/Cargo.toml"
+
+          cargo test --manifest-path "$manifest" --all-targets
+          cargo clippy --manifest-path "$manifest" --all-targets -- -D warnings
+
+      - name: Immutable checkout postflight
+        run: test -z "$(git status --short)"
