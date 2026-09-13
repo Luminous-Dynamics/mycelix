@@ -1,0 +1,110 @@
+name: Regenerative Recovery Fork Resolution
+
+on:
+  push:
+    branches:
+      - feat/regenerative-recovery-reserve-fork-resolution-v1
+  pull_request:
+    branches:
+      - feat/regenerative-recovery-coordinate-provenance
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fork-resolution:
+    name: Recovery reserve fork resolution
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      - name: Format fork-resolution subjects
+        run: |
+          rustfmt --edition 2024 --check \
+            mycelix-commons/crates/commons-types/src/regenerative_recovery_reserve_stream.rs \
+            mycelix-commons/crates/commons-types/src/regenerative_recovery_fork_resolution.rs
+
+      - name: Test commons-types
+        run: cargo test --manifest-path mycelix-commons/Cargo.toml -p commons-types
+
+      - name: Clippy commons-types; gate owned subjects
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          cargo clippy \
+            --manifest-path mycelix-commons/Cargo.toml \
+            -p commons-types \
+            --all-targets \
+            --message-format=json \
+            2>clippy.stderr | tee clippy.jsonl
+          cargo_status=${PIPESTATUS[0]}
+          set -e
+          cat clippy.stderr
+          if [[ ${cargo_status} -ne 0 ]]; then
+            echo "cargo clippy failed to compile commons-types" >&2
+            exit "${cargo_status}"
+          fi
+
+          python3 - <<'PY'
+          import json
+          import sys
+
+          owned = {
+              "crates/commons-types/src/regenerative_recovery_reserve_stream.rs",
+              "crates/commons-types/src/regenerative_recovery_fork_resolution.rs",
+          }
+          failures = []
+          with open("clippy.jsonl", encoding="utf-8") as handle:
+              for raw in handle:
+                  try:
+                      event = json.loads(raw)
+                  except json.JSONDecodeError:
+                      continue
+                  if event.get("reason") != "compiler-message":
+                      continue
+                  message = event.get("message", {})
+                  if message.get("level") not in {"warning", "error"}:
+                      continue
+                  for span in message.get("spans", []):
+                      if not span.get("is_primary"):
+                          continue
+                      filename = span.get("file_name", "").replace("\\", "/")
+                      if any(filename.endswith(path) for path in owned):
+                          code = (message.get("code") or {}).get("code", "compiler")
+                          failures.append(f"{filename}: {code}: {message.get('message', '')}")
+                          break
+          if failures:
+              print("Clippy/compiler diagnostics on fork-resolution-owned subjects:", file=sys.stderr)
+              for failure in failures:
+                  print(f"  {failure}", file=sys.stderr)
+              raise SystemExit(1)
+          PY
+
+      - name: Fork-resolution boundary audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          stream=mycelix-commons/crates/commons-types/src/regenerative_recovery_reserve_stream.rs
+          resolution=mycelix-commons/crates/commons-types/src/regenerative_recovery_fork_resolution.rs
+
+          grep -q 'FrozenPendingResolution' "$stream"
+          grep -q 'pending_sibling_fork_digest' "$stream"
+          grep -q 'SuspendReserve' "$resolution"
+          grep -q 'selected recovery evidence is not one of the observed fork branches' "$stream"
+
+          if grep -E -q 'QualifiedThresholdAuthorization|SigningCommittee|ThresholdSignature|committee_threshold|signer_count|pq_required' "$stream" "$resolution"; then
+            echo 'fork-resolution layer must remain governance-provider neutral' >&2
+            exit 1
+          fi
