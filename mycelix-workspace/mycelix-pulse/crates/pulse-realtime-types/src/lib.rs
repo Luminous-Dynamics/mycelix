@@ -14,6 +14,7 @@
 //! - reordering hints must be safe;
 //! - hints carry no message plaintext/ciphertext or delivery claim;
 //! - unknown envelope fields fail closed rather than extending hint authority;
+//! - oversized or malformed wire payloads fail before reconciliation is scheduled;
 //! - durable state is recovered from the authoritative Holochain/DHT source;
 //! - an arbitrary burst of hints during one reconciliation pass coalesces into
 //!   at most one immediate follow-up pass.
@@ -22,6 +23,12 @@ use serde::{Deserialize, Serialize};
 
 /// Current wire version for [`PulseRealtimeHintV1`].
 pub const PULSE_REALTIME_HINT_V1: u16 = 1;
+
+/// Maximum accepted encoded size for a realtime hint.
+///
+/// V1 carries only a version and reconciliation scope, so 1 KiB leaves ample
+/// encoding headroom while bounding work before any deserializer sees the input.
+pub const MAX_REALTIME_HINT_BYTES: usize = 1024;
 
 /// Versioned envelope for non-authoritative Pulse realtime hints.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -63,6 +70,48 @@ pub enum DurableWakeHintV1 {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RealtimeContractError {
     UnsupportedVersion(u16),
+}
+
+/// Failure to admit and validate a realtime wire payload.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RealtimeDecodeError {
+    /// Empty transport frames carry no reconciliation request.
+    Empty,
+    /// Reject before deserialization so attacker-controlled frames cannot make
+    /// decoder work scale with arbitrary payload size.
+    TooLarge { actual: usize, max: usize },
+    /// The bytes are neither an exact MessagePack nor JSON V1 envelope.
+    Malformed,
+    /// The envelope decoded exactly but failed the versioned contract.
+    Contract(RealtimeContractError),
+}
+
+/// Decode one bounded, exact realtime hint.
+///
+/// MessagePack is attempted first because Holochain signal transports normally
+/// use MessagePack-shaped serialized bytes. JSON remains an explicit browser /
+/// test compatibility encoding. Both paths deserialize the same strict type,
+/// including `deny_unknown_fields`, and then run version validation.
+///
+/// This function only admits a scheduling hint. Successful decode says nothing
+/// about durable message existence, delivery, read state, sender trust, or
+/// cryptographic verification.
+pub fn decode_realtime_hint(bytes: &[u8]) -> Result<PulseRealtimeHintV1, RealtimeDecodeError> {
+    if bytes.is_empty() {
+        return Err(RealtimeDecodeError::Empty);
+    }
+    if bytes.len() > MAX_REALTIME_HINT_BYTES {
+        return Err(RealtimeDecodeError::TooLarge {
+            actual: bytes.len(),
+            max: MAX_REALTIME_HINT_BYTES,
+        });
+    }
+
+    let hint = rmp_serde::from_slice::<PulseRealtimeHintV1>(bytes)
+        .or_else(|_| serde_json::from_slice::<PulseRealtimeHintV1>(bytes))
+        .map_err(|_| RealtimeDecodeError::Malformed)?;
+    hint.validate().map_err(RealtimeDecodeError::Contract)?;
+    Ok(hint)
 }
 
 /// A transport-neutral, single-owner reconciliation reducer.
@@ -210,6 +259,68 @@ mod tests {
 
         assert_eq!(decoded, original);
         assert_eq!(decoded.validate(), Ok(()));
+    }
+
+    #[test]
+    fn bounded_decoder_accepts_exact_json_and_messagepack() {
+        let original = PulseRealtimeHintV1::inbox_changed_v2();
+        let json = serde_json::to_vec(&original).expect("serialize JSON wake");
+        let messagepack = rmp_serde::to_vec_named(&original).expect("serialize MessagePack wake");
+
+        assert_eq!(decode_realtime_hint(&json), Ok(original.clone()));
+        assert_eq!(decode_realtime_hint(&messagepack), Ok(original));
+    }
+
+    #[test]
+    fn bounded_decoder_rejects_empty_before_deserialization() {
+        assert_eq!(decode_realtime_hint(&[]), Err(RealtimeDecodeError::Empty));
+    }
+
+    #[test]
+    fn bounded_decoder_rejects_oversized_before_deserialization() {
+        let oversized = vec![0u8; MAX_REALTIME_HINT_BYTES + 1];
+        assert_eq!(
+            decode_realtime_hint(&oversized),
+            Err(RealtimeDecodeError::TooLarge {
+                actual: MAX_REALTIME_HINT_BYTES + 1,
+                max: MAX_REALTIME_HINT_BYTES,
+            })
+        );
+    }
+
+    #[test]
+    fn bounded_decoder_rejects_malformed_and_unknown_fields() {
+        assert_eq!(
+            decode_realtime_hint(b"not a realtime envelope"),
+            Err(RealtimeDecodeError::Malformed)
+        );
+
+        let with_authority = serde_json::to_vec(&json!({
+            "version": PULSE_REALTIME_HINT_V1,
+            "hint": "inbox_changed_v2",
+            "delivered": true,
+        }))
+        .expect("serialize stronger envelope");
+        assert_eq!(
+            decode_realtime_hint(&with_authority),
+            Err(RealtimeDecodeError::Malformed)
+        );
+    }
+
+    #[test]
+    fn bounded_decoder_preserves_version_failure() {
+        let unsupported = serde_json::to_vec(&json!({
+            "version": PULSE_REALTIME_HINT_V1 + 1,
+            "hint": "inbox_changed_v2",
+        }))
+        .expect("serialize unsupported wake");
+
+        assert_eq!(
+            decode_realtime_hint(&unsupported),
+            Err(RealtimeDecodeError::Contract(
+                RealtimeContractError::UnsupportedVersion(PULSE_REALTIME_HINT_V1 + 1)
+            ))
+        );
     }
 
     #[test]

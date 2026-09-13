@@ -30,6 +30,8 @@ pub enum ConnectionStatus {
 }
 
 type TransportCell = SendWrapper<Rc<RefCell<Option<BrowserWsTransport>>>>;
+type SignalHandler = Rc<dyn Fn(Vec<u8>)>;
+type SignalHandlersCell = SendWrapper<Rc<RefCell<Vec<SignalHandler>>>>;
 
 #[derive(Clone)]
 pub struct HolochainCtx {
@@ -38,6 +40,7 @@ pub struct HolochainCtx {
     set_status: WriteSignal<ConnectionStatus>,
     set_last_error: WriteSignal<Option<String>>,
     transport: TransportCell,
+    signal_handlers: SignalHandlersCell,
 }
 
 impl HolochainCtx {
@@ -53,11 +56,13 @@ impl HolochainCtx {
     }
 
     /// Register a callback for real-time signals from the conductor.
+    ///
+    /// Registrations are retained even before the WebSocket transport becomes
+    /// ready. The connected transport owns one dispatcher over this shared
+    /// callback set, so later registrations also become active without
+    /// replacing earlier consumers.
     pub fn set_signal_handler<F: Fn(Vec<u8>) + 'static>(&self, handler: F) {
-        let transport_ref = self.transport.borrow();
-        if let Some(transport) = transport_ref.as_ref() {
-            transport.set_signal_handler(handler);
-        }
+        self.signal_handlers.borrow_mut().push(Rc::new(handler));
     }
 
     pub async fn call_zome<I: Serialize, O: DeserializeOwned>(
@@ -298,6 +303,7 @@ pub fn HolochainProvider(children: Children) -> impl IntoView {
     let (status, set_status) = signal(initial_status);
     let (last_error, set_last_error) = signal(None::<String>);
     let transport: TransportCell = SendWrapper::new(Rc::new(RefCell::new(None)));
+    let signal_handlers: SignalHandlersCell = SendWrapper::new(Rc::new(RefCell::new(Vec::new())));
 
     let ctx = HolochainCtx {
         status,
@@ -305,11 +311,13 @@ pub fn HolochainProvider(children: Children) -> impl IntoView {
         set_status,
         set_last_error,
         transport: transport.clone(),
+        signal_handlers: signal_handlers.clone(),
     };
 
     provide_context(ctx);
 
     let transport_for_connect = transport.clone();
+    let signal_handlers_for_connect = signal_handlers.clone();
     if designated_demo {
         return children();
     }
@@ -392,6 +400,17 @@ pub fn HolochainProvider(children: Children) -> impl IntoView {
             set_status.set(ConnectionStatus::Unavailable);
             return;
         }
+
+        // Install one transport callback over the persistent subscription set
+        // before publishing Connected. `set_signal_handler` may have been
+        // called while the transport was still connecting; those handlers are
+        // therefore active on the first signal rather than silently dropped.
+        ws_transport.set_signal_handler(move |bytes| {
+            let callbacks = signal_handlers_for_connect.borrow().clone();
+            for callback in callbacks {
+                callback(bytes.clone());
+            }
+        });
 
         *transport_for_connect.borrow_mut() = Some(ws_transport);
         set_last_error.set(None);
