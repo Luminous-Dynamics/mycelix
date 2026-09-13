@@ -1,0 +1,15 @@
+[package]
+name = "finance-tend-authority"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Pure fail-closed authority policy for Mycelix Finance TEND control-plane mutations"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
