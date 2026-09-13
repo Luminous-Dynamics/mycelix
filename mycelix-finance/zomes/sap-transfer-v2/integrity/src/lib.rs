@@ -15,7 +15,7 @@ use finance_holochain_contracts::{
     SapCollateralClaimV2Entry, SapTransferSpendV2Entry,
 };
 use finance_sap_account_v2::ValidatedCollateralClaimV2;
-use finance_sap_transfer_v2::{SapTransferSpendRecordV2, SapTransferV2Config};
+use finance_sap_transfer_v2::SapTransferV2Config;
 use hdi::prelude::*;
 use mycelix_bridge_entry_types::did_for_author;
 
