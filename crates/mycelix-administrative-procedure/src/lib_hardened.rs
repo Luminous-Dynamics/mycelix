@@ -38,17 +38,17 @@ pub use admin_002::{
 pub use admin_003::{
     ADMIN_003_PROTOCOL_VERSION, AdministrativeFinalityReceipt, AdministrativeReviewDisposition,
     AdministrativeReviewError, AdministrativeReviewPolicy, ChallengeSubmission,
-    ExternalJudicialFinalityReference, QualifiedAdministrativeFinality, QualifiedChallenge,
-    QualifiedRemedy, QualifiedReviewDisposition, QualifiedReviewableDecision,
-    RecordedExternalJudicialFinality, ReviewDispositionOutcome, qualify_administrative_finality,
-    qualify_challenge, qualify_remedy, qualify_reviewable_decision,
-    record_external_judicial_finality,
+    ExternalJudicialFinalityReference, QualifiedAdministrativeFinality, QualifiedRemedy,
+    QualifiedReviewDisposition, QualifiedReviewableDecision, RecordedExternalJudicialFinality,
+    ReviewDispositionOutcome, qualify_administrative_finality, qualify_remedy,
+    qualify_reviewable_decision, record_external_judicial_finality,
 };
 
 #[cfg(feature = "administrative-review")]
 pub use admin_003_hardened::{
-    AdministrativeReviewHardeningError, QualifiedAppealReview, StayDirective, StayDirectiveKind,
-    StayState, apply_stay_directive, qualify_appeal, qualify_review_disposition,
+    AdministrativeReviewHardeningError, QualifiedAppealReview, QualifiedChallenge, StayDirective,
+    StayDirectiveKind, StayState, apply_stay_directive, qualify_appeal, qualify_challenge,
+    qualify_review_disposition,
 };
 
 pub use legacy::{
