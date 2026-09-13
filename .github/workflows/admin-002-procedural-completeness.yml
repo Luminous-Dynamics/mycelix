@@ -1,0 +1,124 @@
+name: ADMIN-002 Procedural Completeness
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-administrative-procedure/**'
+      - '.github/workflows/admin-002-procedural-completeness.yml'
+  push:
+    branches:
+      - 'feat/admin-002-procedural-completeness-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: admin-002-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Completeness-gated administrative decision qualification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+
+      - name: Toolchain identity
+        run: |
+          git rev-parse HEAD
+          rustc --version --verbose
+          cargo --version
+          rustfmt --version
+          cargo clippy --version
+
+      - name: Dependency and feature boundary
+        run: |
+          python3 - <<'PY'
+          import pathlib
+          import tomllib
+
+          root = pathlib.Path('crates/mycelix-administrative-procedure')
+          manifest = tomllib.loads((root / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          assert set(deps) == {'serde', 'mycelix-institutional-core'}
+          assert deps['mycelix-institutional-core'].get('path') == '../mycelix-institutional-core'
+          assert set(manifest.get('dev-dependencies', {})) == {'serde_json'}
+          assert not manifest.get('build-dependencies')
+          assert manifest.get('lib', {}).get('path') == 'src/lib_hardened.rs'
+
+          features = manifest.get('features', {})
+          assert features.get('default') == []
+          assert features.get('procedural-completeness') == []
+
+          root_src = (root / 'src' / 'lib_hardened.rs').read_text()
+          admin2 = (root / 'src' / 'admin_002.rs').read_text()
+
+          assert '#[cfg(feature = "procedural-completeness")]\nmod admin_002;' in root_src
+          assert '#[cfg(not(feature = "procedural-completeness"))]\npub fn qualify_administrative_decision' in root_src
+          assert '#[cfg(not(feature = "procedural-completeness"))]\npub fn issue_qualified_decision' in root_src
+          assert 'QualifiedProcedurallyCompleteCase' in root_src
+          assert 'qualify_procedural_completeness' in root_src
+          assert 'pub struct QualifiedProcedurallyCompleteCase' in admin2
+          assert 'pub struct QualifiedProceduralDecision' in admin2
+          assert 'legacy::qualify_administrative_decision(' in admin2
+          assert 'legacy::issue_qualified_decision(' in admin2
+          assert 'pub use legacy::qualify_administrative_decision' not in root_src
+          assert 'pub use legacy::qualify_administrative_decision' not in admin2
+          assert 'pub use legacy::issue_qualified_decision' not in root_src
+          assert 'pub use legacy::issue_qualified_decision' not in admin2
+          PY
+
+      - name: Procedural and authority separation audit
+        run: |
+          root='crates/mycelix-administrative-procedure/src/lib_hardened.rs'
+          admin2='crates/mycelix-administrative-procedure/src/admin_002.rs'
+          grep -q 'QualifiedAdministrativeCaseLineage' "$admin2"
+          grep -q 'QualifiedProcedurallyCompleteCase' "$admin2"
+          grep -q 'EvidenceObservedAfterClosure' "$admin2"
+          grep -q 'DecisionEvidenceCutMismatch' "$admin2"
+          grep -q 'RequiredReasonsMissing' "$admin2"
+          grep -q 'grants_external_effect_authority' "$admin2"
+
+          code_lines="$(cat "$root" "$admin2" | grep -nEv '^[[:space:]]*//' || true)"
+          forbidden='(hdk|hdi|holochain)::|std::(net|fs|process)::|SystemTime::|Instant::now|[[:space:]{(,](phi|reputation|stake|model_score)[[:space:]]*:|authorized[[:space:]]*:[[:space:]]*bool|official[[:space:]]*:[[:space:]]*bool'
+          if printf '%s\n' "$code_lines" | grep -E "$forbidden"; then
+            echo 'ADMIN-002 gained forbidden runtime/advisory/boolean authority surface' >&2
+            exit 1
+          fi
+
+      - name: Format owned surfaces
+        run: |
+          rustfmt --edition 2024 --check --config skip_children=true \
+            crates/mycelix-administrative-procedure/src/lib_hardened.rs
+          rustfmt --edition 2024 --check \
+            crates/mycelix-administrative-procedure/src/admin_002.rs
+
+      - name: Isolated dual-mode executable qualification
+        run: |
+          qroot="$(mktemp -d)"
+          mkdir -p "$qroot/crates"
+          cp -a crates/mycelix-institutional-core "$qroot/crates/"
+          cp -a crates/mycelix-administrative-procedure "$qroot/crates/"
+          manifest="$qroot/crates/mycelix-administrative-procedure/Cargo.toml"
+
+          # Parent theorem remains independently valid.
+          cargo test --manifest-path "$manifest" --all-targets
+          cargo clippy --manifest-path "$manifest" --all-targets -- -D warnings
+
+          # ADMIN-002 must be a monotonic strengthening, not a replacement that
+          # breaks the parent crate or introduces warnings.
+          cargo test --manifest-path "$manifest" --all-targets \
+            --features procedural-completeness
+          cargo clippy --manifest-path "$manifest" --all-targets \
+            --features procedural-completeness -- -D warnings
+
+      - name: Immutable checkout postflight
+        run: test -z "$(git status --short)"
