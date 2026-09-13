@@ -1,0 +1,80 @@
+name: ADMIN-001 Procedure Core
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-administrative-procedure/**'
+      - '.github/workflows/admin-001-procedure-core.yml'
+  push:
+    branches:
+      - 'feat/admin-001-procedure-core-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: admin-001-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Pure administrative decision qualification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+
+      - name: Toolchain identity
+        run: |
+          rustc --version --verbose
+          cargo --version
+          rustfmt --version
+          cargo clippy --version
+
+      - name: Dependency boundary
+        run: |
+          python3 - <<'PY'
+          import pathlib
+          import tomllib
+
+          root = pathlib.Path('crates/mycelix-administrative-procedure')
+          manifest = tomllib.loads((root / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          assert set(deps) == {'serde', 'mycelix-institutional-core'}
+          assert deps['mycelix-institutional-core'].get('path') == '../mycelix-institutional-core'
+          assert set(manifest.get('dev-dependencies', {})) == {'serde_json'}
+          assert not manifest.get('build-dependencies')
+          PY
+
+      - name: Authority and runtime separation audit
+        run: |
+          src='crates/mycelix-administrative-procedure/src/lib.rs'
+          grep -q 'mycelix_institutional_core' "$src"
+          grep -q 'evaluate_authority' "$src"
+          grep -q 'Decision' "$src"
+          grep -q 'ReadyForDecision' "$src"
+          grep -q 'issue_qualified_decision' "$src"
+          grep -q 'grants_external_effect_authority' "$src"
+          if grep -n -E 'hdk|hdi|holochain|std::net|std::fs|std::process|SystemTime|Instant::now|phi|reputation|stake|model_score|authorized[[:space:]]*:[[:space:]]*bool|official[[:space:]]*:[[:space:]]*bool' "$src"; then
+            echo 'ADMIN-001 gained forbidden runtime/advisory/boolean authority surface' >&2
+            exit 1
+          fi
+
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-administrative-procedure/Cargo.toml --all -- --check
+
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-administrative-procedure/Cargo.toml --all-targets
+
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-administrative-procedure/Cargo.toml --all-targets -- -D warnings
+
+      - name: Immutable checkout postflight
+        run: test -z "$(git status --short)"
