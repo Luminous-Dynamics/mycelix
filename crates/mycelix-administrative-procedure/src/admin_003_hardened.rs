@@ -138,10 +138,10 @@ pub fn apply_stay_directive(
     let event_at_ms = directive.issued_at_ms;
     let kind = directive.kind;
 
-    if let Some(previous_at_ms) = review.last_stay_transition_ms {
-        if event_at_ms < previous_at_ms {
-            return Err(AdministrativeReviewHardeningError::StayTimeRegression);
-        }
+    if let Some(previous_at_ms) = review.last_stay_transition_ms
+        && event_at_ms < previous_at_ms
+    {
+        return Err(AdministrativeReviewHardeningError::StayTimeRegression);
     }
     if matches!(kind, StayDirectiveKind::Lift) {
         let imposed_at_ms = review
@@ -152,12 +152,8 @@ pub fn apply_stay_directive(
         }
     }
 
-    review.inner = admin_003::apply_stay_directive(
-        review.inner,
-        directive,
-        grant,
-        authority_evidence,
-    )?;
+    review.inner =
+        admin_003::apply_stay_directive(review.inner, directive, grant, authority_evidence)?;
     review.last_stay_transition_ms = Some(event_at_ms);
     review.active_stay_imposed_at_ms = match kind {
         StayDirectiveKind::Impose => Some(event_at_ms),
@@ -198,7 +194,10 @@ impl fmt::Display for AdministrativeReviewHardeningError {
         match self {
             Self::Review(error) => write!(f, "{error}"),
             Self::StayTimeRegression => {
-                write!(f, "stay directive time regresses behind qualified stay history")
+                write!(
+                    f,
+                    "stay directive time regresses behind qualified stay history"
+                )
             }
             Self::NoQualifiedActiveStayHistory => {
                 write!(f, "stay lift lacks a qualified active-stay history")

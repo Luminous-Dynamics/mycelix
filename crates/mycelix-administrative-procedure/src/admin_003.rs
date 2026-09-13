@@ -147,10 +147,6 @@ impl QualifiedChallenge {
     pub fn original_decision_id(&self) -> &DecisionId {
         &self.reviewable.issued.decision().id
     }
-
-    pub fn grants_external_effect_authority(&self) -> bool {
-        false
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -193,10 +189,6 @@ impl QualifiedAppealReview {
 
     pub fn stay_state(&self) -> StayState {
         self.stay_state
-    }
-
-    pub fn grants_external_effect_authority(&self) -> bool {
-        false
     }
 }
 
@@ -726,10 +718,10 @@ fn validate_remedy(remedy: &Remedy) -> Result<(), AdministrativeReviewError> {
     if remedy.issued_at_ms == 0 {
         return Err(AdministrativeReviewError::InvalidRemedyTime);
     }
-    if let Some(expires) = remedy.expires_at_ms {
-        if expires <= remedy.issued_at_ms {
-            return Err(AdministrativeReviewError::InvalidRemedyLifetime);
-        }
+    if let Some(expires) = remedy.expires_at_ms
+        && expires <= remedy.issued_at_ms
+    {
+        return Err(AdministrativeReviewError::InvalidRemedyLifetime);
     }
     Ok(())
 }
