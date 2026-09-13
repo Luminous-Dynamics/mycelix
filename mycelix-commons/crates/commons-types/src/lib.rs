@@ -28,6 +28,7 @@
 //! - Disturbance-conditioned regenerative recovery-coordinate provenance
 //! - Local recovery-reserve replay/gap/fork classification
 //! - Explicit evidence-bearing recovery-reserve fork resolution
+//! - Governance/threshold-signature authority provenance for fork resolution
 
 pub mod anchors;
 pub mod batch;
@@ -46,6 +47,7 @@ pub mod regenerative_policy_sensitivity_surface;
 pub mod regenerative_policy_surface_revision;
 pub mod regenerative_recovery_coordinate;
 pub mod regenerative_recovery_fork_resolution;
+pub mod regenerative_recovery_governance_authority;
 pub mod regenerative_recovery_reserve_stream;
 pub mod regenerative_reproduction_policy_frontier;
 pub mod regenerative_successor_depth;
@@ -71,6 +73,7 @@ pub use regenerative_policy_sensitivity_surface::*;
 pub use regenerative_policy_surface_revision::*;
 pub use regenerative_recovery_coordinate::*;
 pub use regenerative_recovery_fork_resolution::*;
+pub use regenerative_recovery_governance_authority::*;
 pub use regenerative_recovery_reserve_stream::*;
 pub use regenerative_reproduction_policy_frontier::*;
 pub use regenerative_successor_depth::*;
