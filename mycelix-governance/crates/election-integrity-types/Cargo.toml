@@ -1,0 +1,17 @@
+[package]
+name = "election-integrity-types"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Fail-closed public-election integrity types and lifecycle kernel for Mycelix governance"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+
+# Keep this foundation independently testable while the public-election profile is
+# still being qualified. A later integration tranche may promote it into the
+# governance workspace after lockfile/call-surface review.
+[workspace]
