@@ -2,7 +2,9 @@ include!("regenerative_support_closure_continuity_fixture.rs");
 
 const RECOVERY_FIXTURE: &str =
     include_str!("../fixtures/regenerative-recovery-coordinate-v1.txt");
-const SYMTROPY_RECOVERY_HEAD: &str = "1759282b98a600c4dbde9d3903dee099fcbdeca2";
+const SYMTROPY_RECOVERY_HEAD: &str = "272cf3727ecf3c2746a562f537b496af3757edad";
+const DYNAMIC_RECOVERY_FIXTURE_BLOB: &str =
+    "fa6f2a283cb2fa583a5eab9361a92a7d14482567";
 
 fn recovery_scalar(key: &str) -> u64 {
     RECOVERY_FIXTURE
@@ -36,8 +38,7 @@ fn recovery_evidence(
         symtropy_recovery_binding: format!("symtropy:pr-862:{SYMTROPY_RECOVERY_HEAD}"),
         semantic_recovery_fixture_binding:
             "git-blob:725880ba8affd94efd6a9cfb798c39e6c08c9c49".into(),
-        dynamic_recovery_fixture_binding:
-            "git-blob:4c043fdf476f4811ac89e82d46b327919ceffd27".into(),
+        dynamic_recovery_fixture_binding: format!("git-blob:{DYNAMIC_RECOVERY_FIXTURE_BLOB}"),
         successor_profile_id: "profile-v4-topology".into(),
         successor_profile_evidence_binding: "profile-evidence:v4:topology".into(),
         successor_model_binding: continuity.successor_model_binding.clone(),
@@ -81,19 +82,35 @@ fn recovery_evidence(
     }
 }
 
+fn two_spend_first(
+    viability: &RegenerativeViabilityEvidenceV1,
+    continuity: &RegenerativeSupportClosureContinuityEvidenceV1,
+) -> RegenerativeRecoveryCoordinateEvidenceV1 {
+    let mut first = recovery_evidence(viability, continuity);
+    first.recovery_evidence_id = "generic-linear-recovery-spend-1".into();
+    first.external_recovery_reserve_initial_units = 2;
+    first.external_recovery_reserve_units_at_qualification = 2;
+    first.reserve_units_before = 2;
+    first.reserve_units_after = 1;
+    first.dynamic_disturbance_observation_binding =
+        format!("symtropy:pr-862:{SYMTROPY_RECOVERY_HEAD}:linear-observation-1");
+    first.dynamic_recovery_receipt_binding =
+        format!("symtropy:pr-862:{SYMTROPY_RECOVERY_HEAD}:linear-receipt-1");
+    first
+}
+
 fn second_recovery_evidence(
     first: &RegenerativeRecoveryCoordinateEvidenceV1,
 ) -> RegenerativeRecoveryCoordinateEvidenceV1 {
     let mut second = first.clone();
-    second.recovery_evidence_id = "manta-v4-metrology-recovery-coordinate-2".into();
+    second.recovery_evidence_id = "generic-linear-recovery-spend-2".into();
     second.disturbance_id = "disturbance:metrology-production-loss-v4-2".into();
     second.disturbance_evidence_binding = "disturbance:metrology-production-loss-v4:2".into();
     second.dynamic_disturbance_observation_binding = format!(
-        "symtropy:pr-862:{SYMTROPY_RECOVERY_HEAD}:disturbance-observation-v4-2"
+        "symtropy:pr-862:{SYMTROPY_RECOVERY_HEAD}:linear-observation-2"
     );
-    second.dynamic_recovery_receipt_binding = format!(
-        "symtropy:pr-862:{SYMTROPY_RECOVERY_HEAD}:recovery-receipt-v4-2"
-    );
+    second.dynamic_recovery_receipt_binding =
+        format!("symtropy:pr-862:{SYMTROPY_RECOVERY_HEAD}:linear-receipt-2");
     second.reserve_units_before = first.reserve_units_after;
     second.reserve_units_after = second.reserve_units_before - second.reserve_units_per_recovery;
     second.reserve_spend_sequence_before = first.reserve_spend_sequence_after;
@@ -124,6 +141,8 @@ fn recovery_coordinate_composes_with_exact_safe_nominal_continuity() {
     assert_eq!(recovery.successor_profile_id, "profile-v4-topology");
     assert_eq!(recovery.reserve_spend_sequence_before, 0);
     assert_eq!(recovery.reserve_spend_sequence_after, 1);
+    assert_eq!(recovery.reserve_units_before, 1);
+    assert_eq!(recovery.reserve_units_after, 0);
     assert_eq!(
         verify_regenerative_recovery_coordinate_evidence(
             &viability,
@@ -138,7 +157,7 @@ fn recovery_coordinate_composes_with_exact_safe_nominal_continuity() {
 #[test]
 fn second_spend_requires_exact_predecessor_digest_sequence_and_quantity() {
     let (viability, basis, continuity) = parents();
-    let first = recovery_evidence(&viability, &continuity);
+    let first = two_spend_first(&viability, &continuity);
     let second = second_recovery_evidence(&first);
 
     assert_eq!(
@@ -158,7 +177,8 @@ fn second_spend_requires_exact_predecessor_digest_sequence_and_quantity() {
 
     let mut quantity_reset = second.clone();
     quantity_reset.reserve_units_before = first.reserve_units_before;
-    quantity_reset.reserve_units_after = quantity_reset.reserve_units_before - quantity_reset.reserve_units_per_recovery;
+    quantity_reset.reserve_units_after =
+        quantity_reset.reserve_units_before - quantity_reset.reserve_units_per_recovery;
     assert!(verify_regenerative_recovery_reserve_lineage(Some(&first), &quantity_reset).is_err());
 
     let mut sequence_gap = second.clone();
@@ -170,7 +190,7 @@ fn second_spend_requires_exact_predecessor_digest_sequence_and_quantity() {
 #[test]
 fn later_spend_without_predecessor_is_rejected_even_when_arithmetic_is_valid() {
     let (viability, _basis, continuity) = parents();
-    let first = recovery_evidence(&viability, &continuity);
+    let first = two_spend_first(&viability, &continuity);
     let mut second = second_recovery_evidence(&first);
     second.previous_recovery_evidence_content_digest = None;
     assert!(second.validate().is_err());
