@@ -191,7 +191,7 @@ impl DefinitelyNotCommittedHttpObservation {
         &self.original_error
     }
 
-    pub const fn exact_predecessor_reobserved_here(&self) -> bool {
+    pub const fn exact_prepared_predecessor_reobserved_here(&self) -> bool {
         true
     }
 
@@ -308,7 +308,9 @@ pub fn record_prewrite_nonissuance_classified(
     validate_predecessor_snapshot(&predecessor, &subject)?;
 
     match record_prewrite_nonissuance(prepared, observation, store_binding.path(), now_ms) {
-        Ok(()) => Ok(ClassifiedHttpObservationOutcome::Committed(committed(&subject))),
+        Ok(()) => Ok(ClassifiedHttpObservationOutcome::Committed(committed(
+            &subject,
+        ))),
         Err(original_error) => Ok(classify_returned_observation_error(
             store_binding,
             subject,
@@ -331,7 +333,9 @@ pub fn record_armed_observation_classified(
     validate_predecessor_snapshot(&predecessor, &subject)?;
 
     match record_armed_observation(armed, observation, store_binding.path(), now_ms) {
-        Ok(()) => Ok(ClassifiedHttpObservationOutcome::Committed(committed(&subject))),
+        Ok(()) => Ok(ClassifiedHttpObservationOutcome::Committed(committed(
+            &subject,
+        ))),
         Err(original_error) => Ok(classify_returned_observation_error(
             store_binding,
             subject,
@@ -445,12 +449,8 @@ fn classify_returned_observation_error(
     match read_exact_observation_snapshot(store_binding, &subject) {
         Ok(successor) => {
             let predecessor_exact = successor == predecessor;
-            let successor_exact = observation_successor_exact(
-                &predecessor,
-                &successor,
-                &subject,
-                now_ms,
-            );
+            let successor_exact =
+                observation_successor_exact(&predecessor, &successor, &subject, now_ms);
             match classify_exact_durable_transition(successor_exact, predecessor_exact) {
                 CommitClassification::Committed => {
                     ClassifiedHttpObservationOutcome::RecoveredCommitted(
@@ -676,10 +676,7 @@ fn require_exact_journal_schema(
     Ok(())
 }
 
-fn table_exists(
-    conn: &Connection,
-    name: &str,
-) -> Result<bool, DurableHttpObservationRereadError> {
+fn table_exists(conn: &Connection, name: &str) -> Result<bool, DurableHttpObservationRereadError> {
     conn.query_row(
         "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1)",
         params![name],
@@ -734,7 +731,9 @@ fn disposition_from_code(value: i64) -> TransportObservationDisposition {
 pub enum HttpObservationClassificationError {
     #[error("transport observation evidence failed deterministic requalification: {0}")]
     ObservationEvidenceInvalid(TransportObservationError),
-    #[error("transport observation disposition/digest/profile differs from deterministic requalification")]
+    #[error(
+        "transport observation disposition/digest/profile differs from deterministic requalification"
+    )]
     ObservationIntegrityMismatch,
     #[error("HTTP transport journal row is missing")]
     MissingJournal,
@@ -835,7 +834,10 @@ mod tests {
     fn snapshot(path: ObservationWritePath) -> DurableObservationSnapshot {
         let subject = subject(path);
         DurableObservationSnapshot {
-            row: Some(row(subject.predecessor_stage, subject.predecessor_armed_at_ms)),
+            row: Some(row(
+                subject.predecessor_stage,
+                subject.predecessor_armed_at_ms,
+            )),
             dispatch_binding_digest: Some(vec![1; 32]),
         }
     }
