@@ -1,0 +1,59 @@
+name: Regenerative Recovery Governance Authority
+
+on:
+  push:
+    branches:
+      - feat/regenerative-recovery-governance-authority-v1
+  pull_request:
+    branches:
+      - feat/regenerative-recovery-reserve-fork-resolution-v1
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  governance-authority:
+    name: Recovery governance authority binding
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      - name: Format commons-types
+        run: cargo fmt --manifest-path mycelix-commons/Cargo.toml -p commons-types -- --check
+
+      - name: Test commons-types
+        run: cargo test --manifest-path mycelix-commons/Cargo.toml -p commons-types
+
+      - name: Clippy commons-types
+        run: cargo clippy --manifest-path mycelix-commons/Cargo.toml -p commons-types --all-targets -- -D warnings
+
+      - name: Authority-composition boundary audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          authority=mycelix-commons/crates/commons-types/src/regenerative_recovery_governance_authority.rs
+          application=mycelix-commons/crates/commons-types/src/regenerative_recovery_governance_application.rs
+
+          grep -q 'mycelix-governance-execution-authority-v1-blake3-exact-json' "$authority"
+          grep -q 'mycelix-governance-threshold-authorization-v1-blake3-framed-semantic' "$authority"
+          grep -q 'governance_authority_verified_here' "$authority"
+          grep -q 'false' "$authority"
+          grep -q 'apply_regenerative_recovery_fork_resolution_with_bound_governance_authority' "$application"
+          grep -q 'verify_regenerative_recovery_governance_authority' "$application"
+          grep -q 'upstream_threshold_authority_verified_here' "$application"
+
+          if grep -E -q 'committee_threshold|signer_count|committee_scope|committee_pq_required|struct SigningCommittee|struct ThresholdSignature|verified: bool' "$authority" "$application"; then
+            echo 'Commons must not duplicate threshold/committee authority semantics' >&2
+            exit 1
+          fi
