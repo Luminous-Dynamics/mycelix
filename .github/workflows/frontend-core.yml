@@ -34,6 +34,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
           persist-credentials: false
           submodules: recursive
 
@@ -86,12 +87,37 @@ jobs:
           cargo metadata --manifest-path crates/mycelix-leptos-ui/Cargo.toml --no-deps --format-version 1 >/dev/null
           cargo metadata --manifest-path crates/mycelix-leptos-core/Cargo.toml --no-deps --format-version 1 >/dev/null
 
-      - name: Check shared frontend formatting
+      - name: Check changed frontend Rust formatting
+        shell: bash
         run: |
           set -euo pipefail
-          cargo fmt --manifest-path crates/mycelix-leptos-client/Cargo.toml --all -- --check
-          cargo fmt --manifest-path crates/mycelix-leptos-ui/Cargo.toml --all -- --check
-          cargo fmt --manifest-path crates/mycelix-leptos-core/Cargo.toml --all -- --check
+          head='${{ github.event.pull_request.head.sha || github.sha }}'
+          if [ '${{ github.event_name }}' = 'pull_request' ]; then
+            base='${{ github.event.pull_request.base.sha }}'
+          else
+            base='${{ github.event.before }}'
+          fi
+
+          if [ -z "$base" ] || [[ "$base" =~ ^0+$ ]]; then
+            echo "::error::Cannot establish a comparison base for scoped rustfmt qualification."
+            exit 1
+          fi
+
+          mapfile -t rust_files < <(
+            git diff --diff-filter=ACMR --name-only "$base" "$head" -- \
+              'crates/mycelix-leptos-client/**/*.rs' \
+              'crates/mycelix-leptos-ui/**/*.rs' \
+              'crates/mycelix-leptos-core/**/*.rs' \
+              | sort -u
+          )
+
+          if [ "${#rust_files[@]}" -eq 0 ]; then
+            echo "No changed shared-frontend Rust files to format-check."
+            exit 0
+          fi
+
+          printf 'rustfmt subject file: %s\n' "${rust_files[@]}"
+          rustfmt --edition 2024 --check "${rust_files[@]}"
 
       - name: Check shared frontend crates for wasm32
         run: |
