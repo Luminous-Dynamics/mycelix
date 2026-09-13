@@ -1,0 +1,16 @@
+[package]
+name = "election-verifier-receipt-envelope"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Canonical verifier receipt and provenance envelopes for Mycelix public elections"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+election-verifier-contract = { path = "../election-verifier-contract" }
+election-resource-anchor-certification = { path = "../election-resource-anchor-certification" }
+sha2 = "0.10"
+
+[workspace]
