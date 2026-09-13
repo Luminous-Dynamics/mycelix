@@ -7,9 +7,7 @@ on:
       - main
     paths:
       - 'crates/mycelix-integration-runtime/Cargo.toml'
-      - 'crates/mycelix-integration-runtime/src/runtime.rs'
-      - 'crates/mycelix-integration-runtime/src/attempt_guard.rs'
-      - 'crates/mycelix-integration-runtime/src/bootstrap_guard.rs'
+      - 'crates/mycelix-integration-runtime/src/**'
       - 'crates/mycelix-integration-runtime/tests/**'
       - 'crates/mycelix-integration-current-action-authority/Cargo.toml'
       - 'crates/mycelix-integration-materializer-abi/src/lib.rs'
@@ -21,9 +19,7 @@ on:
       - feat/integration-http-transport-journal-v1
     paths:
       - 'crates/mycelix-integration-runtime/Cargo.toml'
-      - 'crates/mycelix-integration-runtime/src/runtime.rs'
-      - 'crates/mycelix-integration-runtime/src/attempt_guard.rs'
-      - 'crates/mycelix-integration-runtime/src/bootstrap_guard.rs'
+      - 'crates/mycelix-integration-runtime/src/**'
       - 'crates/mycelix-integration-runtime/tests/**'
       - 'crates/mycelix-integration-current-action-authority/Cargo.toml'
       - 'crates/mycelix-integration-materializer-abi/src/lib.rs'
@@ -40,6 +36,7 @@ env:
   RUST_TOOLCHAIN: '1.96.0'
   QUALIFICATION_SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
   RUNTIME_MANIFEST: crates/mycelix-integration-runtime/Cargo.toml
+  RUNTIME_SOURCE_DIR: crates/mycelix-integration-runtime/src
   RUNTIME_SHELL_SOURCE: crates/mycelix-integration-runtime/src/runtime.rs
   RUNTIME_SOURCE: crates/mycelix-integration-runtime/src/attempt_guard.rs
   RUNTIME_BOOTSTRAP_SOURCE: crates/mycelix-integration-runtime/src/bootstrap_guard.rs
@@ -47,7 +44,9 @@ env:
   AUTH_ACTION_MANIFEST: crates/mycelix-integration-current-action-authority/Cargo.toml
   MATERIALIZER_ABI_SOURCE: crates/mycelix-integration-materializer-abi/src/lib.rs
   STORE_MANIFEST: crates/mycelix-integration-runtime-store-binding/Cargo.toml
+  STORE_SOURCE_DIR: crates/mycelix-integration-runtime-store-binding/src
   JOURNAL_MANIFEST: crates/mycelix-integration-http-transport-journal/Cargo.toml
+  JOURNAL_SOURCE_DIR: crates/mycelix-integration-http-transport-journal/src
   WORKFLOW: .github/workflows/integration-transport-dependency-closure-qualification.yml
 
 concurrency:
@@ -98,9 +97,13 @@ jobs:
           set -euo pipefail
           rustc --version --verbose
           cargo --version --verbose
-          sha256sum "$RUNTIME_MANIFEST" "$RUNTIME_SHELL_SOURCE" "$RUNTIME_SOURCE" "$RUNTIME_BOOTSTRAP_SOURCE" "$AUTH_ACTION_MANIFEST" "$MATERIALIZER_ABI_SOURCE" "$STORE_MANIFEST" "$JOURNAL_MANIFEST" "$WORKFLOW"
+          sha256sum "$RUNTIME_MANIFEST" "$AUTH_ACTION_MANIFEST" "$MATERIALIZER_ABI_SOURCE" "$STORE_MANIFEST" "$JOURNAL_MANIFEST" "$WORKFLOW"
+          for source_dir in "$RUNTIME_SOURCE_DIR" "$STORE_SOURCE_DIR" "$JOURNAL_SOURCE_DIR"; do
+            find "$source_dir" -type f -name '*.rs' -print0 | sort -z | xargs -0 sha256sum
+          done
           find "$RUNTIME_TEST_DIR" -type f -name '*.rs' -print0 | sort -z | xargs -0 sha256sum
           cargo metadata --manifest-path "$JOURNAL_MANIFEST" --format-version 1 > /tmp/integration-transport-dependency-metadata.json
+          sha256sum /tmp/integration-transport-dependency-metadata.json
           echo 'No --locked claim is made here until this standalone stack carries an intentionally committed lockfile.'
 
       - name: Enforce direct dependency and API closure for inherited sources
@@ -163,10 +166,11 @@ jobs:
           grep -Fq -- "RUST_TOOLCHAIN: '1.96.0'" "$WORKFLOW"
           grep -Fq -- 'github.event.pull_request.head.sha || github.sha' "$WORKFLOW"
           grep -Fq -- 'persist-credentials: false' "$WORKFLOW"
-          grep -Fq -- 'crates/mycelix-integration-runtime/src/runtime.rs' "$WORKFLOW"
-          grep -Fq -- 'crates/mycelix-integration-runtime/src/bootstrap_guard.rs' "$WORKFLOW"
+          grep -Fq -- "- 'crates/mycelix-integration-runtime/src/**'" "$WORKFLOW"
           grep -Fq -- "- 'crates/mycelix-integration-runtime/tests/**'" "$WORKFLOW"
+          grep -Fq -- 'for source_dir in "$RUNTIME_SOURCE_DIR" "$STORE_SOURCE_DIR" "$JOURNAL_SOURCE_DIR"; do' "$WORKFLOW"
           grep -Fq -- 'find "$RUNTIME_TEST_DIR" -type f -name '\''*.rs'\'' -print0 | sort -z | xargs -0 sha256sum' "$WORKFLOW"
+          grep -Fq -- 'sha256sum /tmp/integration-transport-dependency-metadata.json' "$WORKFLOW"
           grep -Fq -- 'crates/mycelix-integration-current-action-authority/Cargo.toml' "$WORKFLOW"
           grep -Fq -- 'crates/mycelix-integration-materializer-abi/src/lib.rs' "$WORKFLOW"
           grep -Fq -- 'rustfmt --edition 2024 --check --config skip_children=true "$RUNTIME_SHELL_SOURCE"' "$WORKFLOW"
@@ -178,4 +182,4 @@ jobs:
             exit 1
           fi
           test "$(git rev-parse HEAD)" = "$QUALIFICATION_SUBJECT_SHA"
-          git diff --exit-code -- "$RUNTIME_MANIFEST" "$RUNTIME_SHELL_SOURCE" "$RUNTIME_SOURCE" "$RUNTIME_BOOTSTRAP_SOURCE" "$RUNTIME_TEST_DIR" "$AUTH_ACTION_MANIFEST" "$MATERIALIZER_ABI_SOURCE" "$STORE_MANIFEST" "$JOURNAL_MANIFEST" "$WORKFLOW"
+          git diff --exit-code -- "$RUNTIME_MANIFEST" "$RUNTIME_SOURCE_DIR" "$RUNTIME_TEST_DIR" "$AUTH_ACTION_MANIFEST" "$MATERIALIZER_ABI_SOURCE" "$STORE_MANIFEST" "$STORE_SOURCE_DIR" "$JOURNAL_MANIFEST" "$JOURNAL_SOURCE_DIR" "$WORKFLOW"
