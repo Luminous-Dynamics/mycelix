@@ -1,0 +1,132 @@
+name: One-shot Group Current Authority Freshness
+
+on:
+  push:
+    branches:
+      - 'security/governance-current-executor-authority-v0.1'
+
+permissions:
+  contents: write
+
+jobs:
+  refactor:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: security/governance-current-executor-authority-v0.1
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+      - name: Refuse unexpected existing call sites
+        shell: bash
+        run: |
+          set -euo pipefail
+          matches="$(git grep -n 'qualify_current_executor_authority(' -- '*.rs' || true)"
+          count="$(printf '%s\n' "$matches" | sed '/^$/d' | wc -l)"
+          if [[ "$count" -ne 1 ]]; then
+            echo "Expected exactly the function declaration before refactor; found $count matches:" >&2
+            printf '%s\n' "$matches" >&2
+            exit 1
+          fi
+      - name: Introduce typed freshness bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('crates/mycelix-governance-current-executor-authority/src/lib.rs')
+          src = path.read_text()
+
+          marker = '''/// Reconstruct exact executor semantics and then qualify the exact current
+/// revocation generations for the same authority objects.
+pub fn qualify_current_executor_authority(
+'''
+          replacement = '''/// Exact current-state receipts for the three authority subjects that must
+/// remain jointly fresh. Named fields make grant/threshold/executor ordering
+/// explicit at the provider boundary instead of relying on positional arguments.
+#[derive(Clone, Copy, Debug)]
+pub struct CurrentExecutorFreshnessEvidence<'a> {
+    pub grant: &'a VerifiedAuthorityFreshness,
+    pub threshold: &'a VerifiedAuthorityFreshness,
+    pub executor: &'a VerifiedAuthorityFreshness,
+}
+
+/// Reconstruct exact executor semantics and then qualify the exact current
+/// revocation generations for the same authority objects.
+pub fn qualify_current_executor_authority(
+'''
+          if src.count(marker) != 1:
+              raise SystemExit('unexpected function marker count')
+          src = src.replace(marker, replacement, 1)
+
+          old_sig = '''    lineage_evidence: DelegationLineageEvidence<'_>,
+    grant_freshness: &VerifiedAuthorityFreshness,
+    threshold_freshness: &VerifiedAuthorityFreshness,
+    executor_freshness: &VerifiedAuthorityFreshness,
+    now_ms: u64,
+) -> Result<QualifiedCurrentExecutorAuthority, CurrentExecutorAuthorityError> {
+    if now_ms == 0 {
+'''
+          new_sig = '''    lineage_evidence: DelegationLineageEvidence<'_>,
+    freshness_evidence: CurrentExecutorFreshnessEvidence<'_>,
+    now_ms: u64,
+) -> Result<QualifiedCurrentExecutorAuthority, CurrentExecutorAuthorityError> {
+    if now_ms == 0 {
+'''
+          if src.count(old_sig) != 1:
+              raise SystemExit('unexpected qualification signature shape')
+          src = src.replace(old_sig, new_sig, 1)
+
+          insertion = '''    if now_ms == 0 {
+        return Err(CurrentExecutorAuthorityError::InvalidVerificationTime);
+    }
+
+'''
+          replacement_insertion = '''    if now_ms == 0 {
+        return Err(CurrentExecutorAuthorityError::InvalidVerificationTime);
+    }
+
+    let CurrentExecutorFreshnessEvidence {
+        grant: grant_freshness,
+        threshold: threshold_freshness,
+        executor: executor_freshness,
+    } = freshness_evidence;
+
+'''
+          if src.count(insertion) != 1:
+              raise SystemExit('unexpected verification-time prelude shape')
+          src = src.replace(insertion, replacement_insertion, 1)
+
+          path.write_text(src)
+          PY
+          cargo fmt --manifest-path crates/mycelix-governance-current-executor-authority/Cargo.toml
+      - name: Refuse unexpected change scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          changed="$(git diff --name-only)"
+          expected='crates/mycelix-governance-current-executor-authority/src/lib.rs'
+          if [[ "$changed" != "$expected" ]]; then
+            echo 'Refactor changed an unexpected path:' >&2
+            printf '%s\n' "$changed" >&2
+            exit 1
+          fi
+          git diff --check
+      - name: Exercise focused package
+        run: |
+          cargo test --manifest-path crates/mycelix-governance-current-executor-authority/Cargo.toml --all-targets
+          cargo clippy --manifest-path crates/mycelix-governance-current-executor-authority/Cargo.toml --all-targets -- -D warnings
+      - name: Commit exact refactor
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add crates/mycelix-governance-current-executor-authority/src/lib.rs
+          git commit -m 'refactor(governance): group current authority freshness inputs'
+          git push origin HEAD:security/governance-current-executor-authority-v0.1
