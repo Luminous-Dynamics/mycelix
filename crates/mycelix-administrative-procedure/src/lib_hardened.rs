@@ -20,11 +20,10 @@ mod admin_002;
 
 #[cfg(feature = "procedural-completeness")]
 pub use admin_002::{
-    ADMIN_002_PROTOCOL_VERSION, EvidenceClosureReceipt, NoticeReceipt,
-    ProceduralCompletenessError, ProceduralCompletenessPolicy, QualifiedProceduralDecision,
-    QualifiedProcedurallyCompleteCase, ReasonsRequirement, ResponseMode, ResponseModeRequirement,
-    ResponseOpportunityReceipt, issue_qualified_decision, qualify_administrative_decision,
-    qualify_procedural_completeness,
+    ADMIN_002_PROTOCOL_VERSION, EvidenceClosureReceipt, NoticeReceipt, ProceduralCompletenessError,
+    ProceduralCompletenessPolicy, QualifiedProceduralDecision, QualifiedProcedurallyCompleteCase,
+    ReasonsRequirement, ResponseMode, ResponseModeRequirement, ResponseOpportunityReceipt,
+    issue_qualified_decision, qualify_administrative_decision, qualify_procedural_completeness,
 };
 
 pub use legacy::{
