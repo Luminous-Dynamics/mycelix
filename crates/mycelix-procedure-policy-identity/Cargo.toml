@@ -1,0 +1,12 @@
+[package]
+name = "mycelix-procedure-policy-identity"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Canonical semantic identities for Mycelix administrative procedure policies"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+
+[dependencies]
+blake3 = "1"
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+mycelix-administrative-procedure = { path = "../mycelix-administrative-procedure", features = ["procedural-completeness"] }

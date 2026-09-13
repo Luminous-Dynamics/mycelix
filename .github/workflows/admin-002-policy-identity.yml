@@ -1,0 +1,118 @@
+name: ADMIN-002 Policy Identity
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-procedure-policy-identity/**'
+      - '.github/workflows/admin-002-policy-identity.yml'
+  push:
+    branches:
+      - 'feat/admin-002-canonical-policy-identity-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: admin-002-policy-identity-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Canonical procedure-policy semantic identity
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+
+      - name: Toolchain identity
+        run: |
+          git rev-parse HEAD
+          rustc --version --verbose
+          cargo --version
+          rustfmt --version
+          cargo clippy --version
+
+      - name: Preserve exact qualified ADMIN-002 parent blobs
+        run: |
+          test "$(git hash-object crates/mycelix-administrative-procedure/Cargo.toml)" = \
+            '705fd87cdc8e26769ea278537225485fbb48ee7f'
+          test "$(git hash-object crates/mycelix-administrative-procedure/src/lib_hardened.rs)" = \
+            'ccb16b6414867e774896bd4e165dc736c34b2048'
+          test "$(git hash-object crates/mycelix-administrative-procedure/src/admin_002.rs)" = \
+            'e48ec572c6162ecf8360166f6c86bb42b5c85d0c'
+
+      - name: Dependency and identity profile boundary
+        run: |
+          python3 - <<'PY'
+          import pathlib
+          import tomllib
+
+          root = pathlib.Path('crates/mycelix-procedure-policy-identity')
+          manifest = tomllib.loads((root / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          assert set(deps) == {
+              'blake3',
+              'mycelix-institutional-core',
+              'mycelix-administrative-procedure',
+          }
+          admin = deps['mycelix-administrative-procedure']
+          assert admin.get('path') == '../mycelix-administrative-procedure'
+          assert admin.get('features') == ['procedural-completeness']
+          assert deps['mycelix-institutional-core'].get('path') == '../mycelix-institutional-core'
+          assert not manifest.get('dev-dependencies')
+          assert not manifest.get('build-dependencies')
+
+          src = (root / 'src' / 'lib.rs').read_text()
+          assert 'mycelix-administrative-procedure-policy-v1-blake3-framed-semantic' in src
+          assert 'mycelix/administrative-procedure/policy/v1' in src
+          assert 'QualifiedProceduralPolicyIdentity' in src
+          assert 'procedural_policy_semantic_identity' in src
+          assert 'qualify_procedural_policy_identity' in src
+          assert 'policy_ref' in src
+          assert 'SemanticDigestMismatch' in src
+          assert 'UnsupportedIdentityProfile' in src
+          PY
+
+      - name: Semantic identity and sovereignty separation audit
+        run: |
+          src='crates/mycelix-procedure-policy-identity/src/lib.rs'
+          grep -q 'blake3::Hasher' "$src"
+          grep -q 'BTreeSet' "$src"
+          grep -q 'policy_digest = Digest32' "$src"
+          grep -q 'policy_digest_profile = PROCEDURAL_POLICY_IDENTITY_PROFILE' "$src"
+          grep -q 'grants_authority' "$src"
+          grep -q 'grants_external_effect_authority' "$src"
+
+          code_lines="$(grep -nEv '^[[:space:]]*//' "$src" || true)"
+          forbidden='(hdk|hdi|holochain)::|std::(net|fs|process)::|SystemTime::|Instant::now|authorized[[:space:]]*:[[:space:]]*bool|official[[:space:]]*:[[:space:]]*bool'
+          if printf '%s\n' "$code_lines" | grep -E "$forbidden"; then
+            echo 'policy identity gained forbidden runtime/boolean authority surface' >&2
+            exit 1
+          fi
+
+      - name: Format owned source
+        run: |
+          rustfmt --edition 2024 --check \
+            crates/mycelix-procedure-policy-identity/src/lib.rs
+
+      - name: Isolated executable qualification
+        run: |
+          qroot="$(mktemp -d)"
+          mkdir -p "$qroot/crates"
+          cp -a crates/mycelix-institutional-core "$qroot/crates/"
+          cp -a crates/mycelix-administrative-procedure "$qroot/crates/"
+          cp -a crates/mycelix-procedure-policy-identity "$qroot/crates/"
+          manifest="$qroot/crates/mycelix-procedure-policy-identity/Cargo.toml"
+
+          cargo test --manifest-path "$manifest" --all-targets
+          cargo clippy --manifest-path "$manifest" --all-targets -- -D warnings
+
+      - name: Immutable checkout postflight
+        run: test -z "$(git status --short)"
