@@ -1,0 +1,15 @@
+[package]
+name = "mycelix-integration-runtime-claim-commit-classification"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Fail-closed commit classification for runtime claim and expired-lease recovery"
+
+[dependencies]
+mycelix-integration-core = { path = "../mycelix-integration-core" }
+mycelix-integration-runtime = { path = "../mycelix-integration-runtime" }
+mycelix-integration-runtime-store-binding = { path = "../mycelix-integration-runtime-store-binding" }
+mycelix-integration-sqlite-commit-classification = { path = "../mycelix-integration-sqlite-commit-classification" }
+rusqlite = { version = "0.37", features = ["bundled"] }
+serde_json = "1.0"
+thiserror = "2.0"
