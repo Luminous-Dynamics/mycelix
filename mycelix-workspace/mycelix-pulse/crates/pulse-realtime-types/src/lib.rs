@@ -86,12 +86,23 @@ pub enum RealtimeDecodeError {
     Contract(RealtimeContractError),
 }
 
+fn decode_messagepack_exact(bytes: &[u8]) -> Result<PulseRealtimeHintV1, ()> {
+    let mut deserializer = rmp_serde::Deserializer::new(std::io::Cursor::new(bytes));
+    let hint = PulseRealtimeHintV1::deserialize(&mut deserializer).map_err(|_| ())?;
+    if deserializer.position() != bytes.len() as u64 {
+        return Err(());
+    }
+    Ok(hint)
+}
+
 /// Decode one bounded, exact realtime hint.
 ///
 /// MessagePack is attempted first because Holochain signal transports normally
-/// use MessagePack-shaped serialized bytes. JSON remains an explicit browser /
-/// test compatibility encoding. Both paths deserialize the same strict type,
-/// including `deny_unknown_fields`, and then run version validation.
+/// use MessagePack-shaped serialized bytes. The decoder explicitly verifies
+/// that the MessagePack deserializer consumed the entire frame. JSON remains an
+/// explicit browser / test compatibility encoding and likewise requires one
+/// complete value. Both paths deserialize the same strict type, including
+/// `deny_unknown_fields`, and then run version validation.
 ///
 /// This function only admits a scheduling hint. Successful decode says nothing
 /// about durable message existence, delivery, read state, sender trust, or
@@ -107,8 +118,8 @@ pub fn decode_realtime_hint(bytes: &[u8]) -> Result<PulseRealtimeHintV1, Realtim
         });
     }
 
-    let hint = rmp_serde::from_slice::<PulseRealtimeHintV1>(bytes)
-        .or_else(|_| serde_json::from_slice::<PulseRealtimeHintV1>(bytes))
+    let hint = decode_messagepack_exact(bytes)
+        .or_else(|_| serde_json::from_slice::<PulseRealtimeHintV1>(bytes).map_err(|_| ()))
         .map_err(|_| RealtimeDecodeError::Malformed)?;
     hint.validate().map_err(RealtimeDecodeError::Contract)?;
     Ok(hint)
