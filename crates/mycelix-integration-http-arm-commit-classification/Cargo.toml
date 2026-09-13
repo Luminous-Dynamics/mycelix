@@ -1,0 +1,14 @@
+[package]
+name = "mycelix-integration-http-arm-commit-classification"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Fail-closed durable commit classification for HTTP transport arming"
+
+[dependencies]
+mycelix-integration-core = { path = "../mycelix-integration-core" }
+mycelix-integration-http-transport-journal = { path = "../mycelix-integration-http-transport-journal" }
+mycelix-integration-runtime-store-binding = { path = "../mycelix-integration-runtime-store-binding" }
+mycelix-integration-sqlite-commit-classification = { path = "../mycelix-integration-sqlite-commit-classification" }
+rusqlite = { version = "0.37", features = ["bundled"] }
+thiserror = "2.0"
