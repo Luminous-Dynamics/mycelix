@@ -25,6 +25,8 @@
 //! - Immutable policy-surface revision/supersession provenance carried by maritime evidence
 //! - Intergenerational regenerative support-basis provenance carried by maritime evidence
 //! - Role-support closure continuity provenance carried by maritime evidence
+//! - Disturbance-conditioned regenerative recovery-coordinate provenance
+//! - Local recovery-reserve replay/gap/fork classification
 
 pub mod anchors;
 pub mod batch;
@@ -41,6 +43,8 @@ pub mod regenerative_multigeneration_depth;
 pub mod regenerative_policy_normalized_lineage;
 pub mod regenerative_policy_sensitivity_surface;
 pub mod regenerative_policy_surface_revision;
+pub mod regenerative_recovery_coordinate;
+pub mod regenerative_recovery_reserve_stream;
 pub mod regenerative_reproduction_policy_frontier;
 pub mod regenerative_successor_depth;
 pub mod regenerative_support_basis;
@@ -63,6 +67,8 @@ pub use regenerative_multigeneration_depth::*;
 pub use regenerative_policy_normalized_lineage::*;
 pub use regenerative_policy_sensitivity_surface::*;
 pub use regenerative_policy_surface_revision::*;
+pub use regenerative_recovery_coordinate::*;
+pub use regenerative_recovery_reserve_stream::*;
 pub use regenerative_reproduction_policy_frontier::*;
 pub use regenerative_successor_depth::*;
 pub use regenerative_support_basis::*;
