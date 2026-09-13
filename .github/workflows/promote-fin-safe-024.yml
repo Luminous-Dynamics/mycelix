@@ -1,0 +1,140 @@
+name: Promote Qualified FIN-SAFE-024
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/promote-fin-safe-024.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: promote-fin-safe-024
+  cancel-in-progress: false
+
+env:
+  SOURCE_SHA: 'ea01f1f02e08b04786bce4e85d50a6a7d1f8408f'
+  PRODUCT_BRANCH: 'fin-safe-024-zome-abi-isolation'
+  ARTIFACT_ID: '10307633449'
+  ARTIFACT_SHA256: '7c45e732689e9c431ee679db1229b91f9b4b9f0850162d6d967f6c61913cb8bd'
+  QUALIFICATION_RUN: '34726058573'
+
+jobs:
+  promote:
+    name: Promote exact qualified source bytes
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'ci-fin-safe-024-promote'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout frozen product base
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Bind exact base and ensure destination absent
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          if git ls-remote --exit-code --heads origin "$PRODUCT_BRANCH" >/dev/null 2>&1; then
+            echo "Destination branch already exists: $PRODUCT_BRANCH" >&2
+            exit 1
+          fi
+
+      - name: Download and verify qualified artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip" \
+            -o /tmp/fin-safe-024.zip
+          echo "${ARTIFACT_SHA256}  /tmp/fin-safe-024.zip" | sha256sum -c -
+          mkdir -p /tmp/fin-safe-024-evidence
+          unzip -q /tmp/fin-safe-024.zip -d /tmp/fin-safe-024-evidence
+
+          for required in \
+            fin-safe-024-source.tar.gz \
+            fin-safe-024-source.tar.gz.sha256 \
+            fin-safe-024-source.sha256 \
+            fin-safe-024-status.txt \
+            Cargo.lock.candidate \
+            Cargo.lock.candidate.sha256; do
+            test -s "/tmp/fin-safe-024-evidence/$required"
+          done
+
+          expected_source_archive="$(awk '{print $1}' /tmp/fin-safe-024-evidence/fin-safe-024-source.tar.gz.sha256)"
+          actual_source_archive="$(sha256sum /tmp/fin-safe-024-evidence/fin-safe-024-source.tar.gz | awk '{print $1}')"
+          test "$actual_source_archive" = "$expected_source_archive"
+
+          expected_lock="$(awk '{print $1}' /tmp/fin-safe-024-evidence/Cargo.lock.candidate.sha256)"
+          actual_lock="$(sha256sum /tmp/fin-safe-024-evidence/Cargo.lock.candidate | awk '{print $1}')"
+          test "$actual_lock" = "$expected_lock"
+
+      - name: Restore exact source and lock candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar -xzf /tmp/fin-safe-024-evidence/fin-safe-024-source.tar.gz -C .
+          sha256sum -c /tmp/fin-safe-024-evidence/fin-safe-024-source.sha256
+          cp /tmp/fin-safe-024-evidence/Cargo.lock.candidate mycelix-finance/Cargo.lock
+
+          cp /tmp/fin-safe-024-evidence/fin-safe-024-status.txt /tmp/expected-status.txt
+          printf ' M mycelix-finance/Cargo.lock\n' >> /tmp/expected-status.txt
+          LC_ALL=C sort -o /tmp/expected-status.txt /tmp/expected-status.txt
+          git status --porcelain=v1 --untracked-files=all | LC_ALL=C sort > /tmp/actual-status.txt
+          diff -u /tmp/expected-status.txt /tmp/actual-status.txt
+          git diff --check
+
+      - name: Create exact semantic commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git switch -c "$PRODUCT_BRANCH"
+          git config user.name 'Luminous Dynamics CI'
+          git config user.email 'actions@users.noreply.github.com'
+
+          git add \
+            mycelix-finance/Cargo.toml \
+            mycelix-finance/Cargo.lock \
+            mycelix-finance/crates/finance-holochain-contracts \
+            mycelix-finance/zomes/collateral-deposit-v2 \
+            mycelix-finance/zomes/collateral-settlement-auth \
+            mycelix-finance/zomes/collateral-issuance-v2 \
+            mycelix-finance/zomes/sap-account-v2 \
+            mycelix-finance/zomes/sap-transfer-v2
+
+          test -n "$(git diff --cached --name-only)"
+          git diff --cached --check
+          git commit -m 'refactor(finance): isolate V2 Holochain ABI contracts' \
+            -m 'FIN-SAFE-024: move shared V2 entry/property payloads behind an ABI-neutral contract crate while keeping each zome authority local. Foreign entry identity remains bound to exact DNA zome order and public entry index.' \
+            -m "Qualified by run ${QUALIFICATION_RUN}, artifact ${ARTIFACT_ID}, outer SHA-256 ${ARTIFACT_SHA256}. Targeted native and wasm32 gates passed on these exact source bytes; the broader workspace blocker is tracked separately as FIN-SAFE-025."
+
+          printf 'product_commit=%s\n' "$(git rev-parse HEAD)" | tee /tmp/fin-safe-024-promotion-receipt.txt
+          printf 'product_tree=%s\n' "$(git rev-parse HEAD^{tree})" | tee -a /tmp/fin-safe-024-promotion-receipt.txt
+          printf 'source_base=%s\n' "$SOURCE_SHA" | tee -a /tmp/fin-safe-024-promotion-receipt.txt
+          printf 'qualification_run=%s\nartifact_id=%s\nartifact_sha256=%s\n' \
+            "$QUALIFICATION_RUN" "$ARTIFACT_ID" "$ARTIFACT_SHA256" | tee -a /tmp/fin-safe-024-promotion-receipt.txt
+
+      - name: Push product branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push origin "HEAD:refs/heads/${PRODUCT_BRANCH}"
+
+      - name: Upload promotion receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fin-safe-024-promotion-${{ env.SOURCE_SHA }}-${{ github.run_attempt }}
+          path: /tmp/fin-safe-024-promotion-receipt.txt
+          if-no-files-found: warn
+          retention-days: 30
