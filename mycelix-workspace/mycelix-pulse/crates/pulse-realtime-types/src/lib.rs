@@ -14,7 +14,9 @@
 //! - reordering hints must be safe;
 //! - hints carry no message plaintext/ciphertext or delivery claim;
 //! - unknown envelope fields fail closed rather than extending hint authority;
-//! - durable state is recovered from the authoritative Holochain/DHT source.
+//! - durable state is recovered from the authoritative Holochain/DHT source;
+//! - an arbitrary burst of hints during one reconciliation pass coalesces into
+//!   at most one immediate follow-up pass.
 
 use serde::{Deserialize, Serialize};
 
@@ -61,6 +63,112 @@ pub enum DurableWakeHintV1 {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RealtimeContractError {
     UnsupportedVersion(u16),
+}
+
+/// A transport-neutral, single-owner reconciliation reducer.
+///
+/// The reducer carries **scheduling metadata only**. It never contains a
+/// message identifier, thread identifier, receipt state, verification result,
+/// or any other durable authority.
+///
+/// Callers MUST serialize access to one reducer instance. Under that single-
+/// owner rule, every accepted wake is linearized either while a pass is
+/// running (and therefore marks that pass dirty) or while idle (and therefore
+/// starts a new pass). There is no accepted-but-uncovered wake state.
+///
+/// The reducer is intentionally neither `Clone` nor `Copy`: duplicating it
+/// would create multiple scheduling authorities and invalidate that theorem.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct ReconcileScheduler {
+    state: ReconcileState,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum ReconcileState {
+    #[default]
+    Idle,
+    Running {
+        dirty: bool,
+    },
+}
+
+/// Effect produced when authoritative reconciliation is requested.
+#[must_use = "reconciliation request effects must be acted on or a wake can be lost"]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ReconcileRequestEffect {
+    /// The caller owns responsibility for starting one authoritative pass.
+    StartPass,
+    /// A pass is already running; this wake was coalesced into one dirty bit.
+    Coalesced,
+}
+
+/// Effect produced when an authoritative reconciliation pass completes.
+#[must_use = "reconciliation completion effects must be acted on to preserve wake coverage"]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ReconcileCompletionEffect {
+    /// One or more wakes arrived during the completed pass. Start exactly one
+    /// immediate follow-up pass; all of those wakes are represented by it.
+    StartFollowUpPass,
+    /// No wake arrived during the completed pass. The reducer is quiescent.
+    BecameIdle,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ReconcileSchedulerError {
+    /// Completion was reported when no pass was running.
+    CompletionWhileIdle,
+}
+
+impl ReconcileScheduler {
+    pub const fn new() -> Self {
+        Self {
+            state: ReconcileState::Idle,
+        }
+    }
+
+    /// Request reconciliation after a validated realtime hint, startup, or
+    /// reconnect event.
+    ///
+    /// This function only schedules work. It cannot establish any message or
+    /// receipt fact by construction.
+    pub fn request_reconcile(&mut self) -> ReconcileRequestEffect {
+        match self.state {
+            ReconcileState::Idle => {
+                self.state = ReconcileState::Running { dirty: false };
+                ReconcileRequestEffect::StartPass
+            }
+            ReconcileState::Running { .. } => {
+                self.state = ReconcileState::Running { dirty: true };
+                ReconcileRequestEffect::Coalesced
+            }
+        }
+    }
+
+    /// Report completion of exactly one authoritative pass.
+    ///
+    /// If any number of wakes arrived during that pass, they collapse into one
+    /// follow-up pass. Otherwise the reducer becomes idle.
+    pub fn complete_pass(&mut self) -> Result<ReconcileCompletionEffect, ReconcileSchedulerError> {
+        match self.state {
+            ReconcileState::Idle => Err(ReconcileSchedulerError::CompletionWhileIdle),
+            ReconcileState::Running { dirty: true } => {
+                self.state = ReconcileState::Running { dirty: false };
+                Ok(ReconcileCompletionEffect::StartFollowUpPass)
+            }
+            ReconcileState::Running { dirty: false } => {
+                self.state = ReconcileState::Idle;
+                Ok(ReconcileCompletionEffect::BecameIdle)
+            }
+        }
+    }
+
+    pub const fn is_running(&self) -> bool {
+        matches!(self.state, ReconcileState::Running { .. })
+    }
+
+    pub const fn is_dirty(&self) -> bool {
+        matches!(self.state, ReconcileState::Running { dirty: true })
+    }
 }
 
 #[cfg(test)]
@@ -154,5 +262,121 @@ mod tests {
 
         serde_json::from_value::<PulseRealtimeHintV1>(value)
             .expect_err("unknown wake scopes must not acquire authority by default");
+    }
+
+    #[test]
+    fn first_request_starts_exactly_one_pass() {
+        let mut scheduler = ReconcileScheduler::new();
+
+        assert_eq!(
+            scheduler.request_reconcile(),
+            ReconcileRequestEffect::StartPass
+        );
+        assert!(scheduler.is_running());
+        assert!(!scheduler.is_dirty());
+    }
+
+    #[test]
+    fn arbitrary_wake_burst_collapses_to_one_dirty_bit() {
+        let mut scheduler = ReconcileScheduler::new();
+        assert_eq!(
+            scheduler.request_reconcile(),
+            ReconcileRequestEffect::StartPass
+        );
+
+        for _ in 0..10_000 {
+            assert_eq!(
+                scheduler.request_reconcile(),
+                ReconcileRequestEffect::Coalesced
+            );
+        }
+
+        assert!(scheduler.is_running());
+        assert!(scheduler.is_dirty());
+        assert_eq!(
+            scheduler.complete_pass(),
+            Ok(ReconcileCompletionEffect::StartFollowUpPass)
+        );
+        assert!(scheduler.is_running());
+        assert!(!scheduler.is_dirty());
+        assert_eq!(
+            scheduler.complete_pass(),
+            Ok(ReconcileCompletionEffect::BecameIdle)
+        );
+        assert!(!scheduler.is_running());
+    }
+
+    #[test]
+    fn clean_completion_becomes_quiescent() {
+        let mut scheduler = ReconcileScheduler::new();
+        assert_eq!(
+            scheduler.request_reconcile(),
+            ReconcileRequestEffect::StartPass
+        );
+
+        assert_eq!(
+            scheduler.complete_pass(),
+            Ok(ReconcileCompletionEffect::BecameIdle)
+        );
+        assert!(!scheduler.is_running());
+        assert!(!scheduler.is_dirty());
+    }
+
+    #[test]
+    fn wake_during_follow_up_is_not_lost() {
+        let mut scheduler = ReconcileScheduler::new();
+        assert_eq!(
+            scheduler.request_reconcile(),
+            ReconcileRequestEffect::StartPass
+        );
+        assert_eq!(
+            scheduler.request_reconcile(),
+            ReconcileRequestEffect::Coalesced
+        );
+        assert_eq!(
+            scheduler.complete_pass(),
+            Ok(ReconcileCompletionEffect::StartFollowUpPass)
+        );
+
+        assert_eq!(
+            scheduler.request_reconcile(),
+            ReconcileRequestEffect::Coalesced
+        );
+        assert_eq!(
+            scheduler.complete_pass(),
+            Ok(ReconcileCompletionEffect::StartFollowUpPass)
+        );
+        assert_eq!(
+            scheduler.complete_pass(),
+            Ok(ReconcileCompletionEffect::BecameIdle)
+        );
+    }
+
+    #[test]
+    fn wake_after_quiescence_starts_a_fresh_pass() {
+        let mut scheduler = ReconcileScheduler::new();
+        assert_eq!(
+            scheduler.request_reconcile(),
+            ReconcileRequestEffect::StartPass
+        );
+        assert_eq!(
+            scheduler.complete_pass(),
+            Ok(ReconcileCompletionEffect::BecameIdle)
+        );
+
+        assert_eq!(
+            scheduler.request_reconcile(),
+            ReconcileRequestEffect::StartPass
+        );
+        assert!(scheduler.is_running());
+    }
+
+    #[test]
+    fn completion_while_idle_fails_closed() {
+        let mut scheduler = ReconcileScheduler::new();
+        assert_eq!(
+            scheduler.complete_pass(),
+            Err(ReconcileSchedulerError::CompletionWhileIdle)
+        );
     }
 }
