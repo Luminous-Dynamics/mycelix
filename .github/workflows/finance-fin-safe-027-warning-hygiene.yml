@@ -1,0 +1,179 @@
+name: Finance FIN-SAFE-027 Warning Hygiene
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/finance-fin-safe-027-warning-hygiene.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: finance-fin-safe-027-warning-hygiene
+  cancel-in-progress: false
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  SOURCE_SHA: '5f33c6658fef7fb9c975c10b160486e528e640d4'
+  PRODUCT_BRANCH: 'fin-safe-027-abi-warning-hygiene'
+  LOCK_SHA256: '2fa0aae7b219218a0d358ac12fa63b596109613c3ea17c5751ce1f6d57630e93'
+
+jobs:
+  qualify-and-promote:
+    name: Qualify and promote warning hygiene
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'ci-fin-safe-027-warning-hygiene'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Checkout exact FIN-SAFE-026 product head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Bind source and untouched destination
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(sha256sum mycelix-finance/Cargo.lock | awk '{print $1}')" = "$LOCK_SHA256"
+          remote_product="$(git ls-remote --heads origin "$PRODUCT_BRANCH" | awk '{print $1}')"
+          test "$remote_product" = "$SOURCE_SHA"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - name: Remove only ABI-extraction unused imports
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          edits = [
+              (
+                  Path('mycelix-finance/zomes/sap-account-v2/integrity/src/lib.rs'),
+                  'use finance_sap_account_v2::{SapAccountOpenedV2, SapAccountV2Config, SapCollateralClaimV2};',
+                  'use finance_sap_account_v2::SapAccountV2Config;',
+              ),
+              (
+                  Path('mycelix-finance/zomes/sap-transfer-v2/integrity/src/lib.rs'),
+                  'use finance_sap_transfer_v2::{SapTransferSpendRecordV2, SapTransferV2Config};',
+                  'use finance_sap_transfer_v2::SapTransferV2Config;',
+              ),
+          ]
+          for path, old, new in edits:
+              text = path.read_text()
+              if text.count(old) != 1:
+                  raise SystemExit(f'FIN-SAFE-027 exact import anchor mismatch: {path}')
+              path.write_text(text.replace(old, new))
+          PY
+
+          cat > /tmp/expected-status.txt <<'EOF'
+           M mycelix-finance/zomes/sap-account-v2/integrity/src/lib.rs
+           M mycelix-finance/zomes/sap-transfer-v2/integrity/src/lib.rs
+          EOF
+          git status --porcelain=v1 --untracked-files=all > /tmp/actual-status.txt
+          diff -u /tmp/expected-status.txt /tmp/actual-status.txt
+          git diff --check
+          test "$(sha256sum mycelix-finance/Cargo.lock | awk '{print $1}')" = "$LOCK_SHA256"
+
+      - name: Format and bind locked graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo fmt --all
+          cargo fmt --all --check
+          cargo metadata --locked --format-version 1 > /tmp/fin-safe-027-metadata.json
+          cargo tree --workspace --locked > /tmp/fin-safe-027-tree.txt
+          test "$(sha256sum Cargo.lock | awk '{print $1}')" = "$LOCK_SHA256"
+          cd ..
+          git diff --check
+          git status --porcelain=v1 --untracked-files=all > /tmp/post-format-status.txt
+          diff -u /tmp/expected-status.txt /tmp/post-format-status.txt
+
+      - name: Prove affected native integrity crates warning-free
+        shell: bash
+        env:
+          RUSTFLAGS: '-D warnings'
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo check \
+            -p sap_account_v2_integrity \
+            -p sap_transfer_v2_integrity \
+            --all-targets --locked \
+            2>&1 | tee /tmp/fin-safe-027-native-warning-fatal.log
+
+      - name: Prove affected wasm integrity crates warning-free
+        shell: bash
+        env:
+          RUSTFLAGS: '-D warnings'
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo check \
+            -p sap_account_v2_integrity \
+            -p sap_transfer_v2_integrity \
+            --target wasm32-unknown-unknown --lib --locked \
+            2>&1 | tee /tmp/fin-safe-027-wasm-warning-fatal.log
+
+      - name: Test full Finance workspace under lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo test --workspace --locked 2>&1 | tee /tmp/fin-safe-027-workspace.log
+
+      - name: Create one exact semantic commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum mycelix-finance/Cargo.lock | awk '{print $1}')" = "$LOCK_SHA256"
+          git status --porcelain=v1 --untracked-files=all > /tmp/precommit-status.txt
+          diff -u /tmp/expected-status.txt /tmp/precommit-status.txt
+          git switch -c "$PRODUCT_BRANCH"
+          git config user.name 'Luminous Dynamics CI'
+          git config user.email 'actions@users.noreply.github.com'
+          git add \
+            mycelix-finance/zomes/sap-account-v2/integrity/src/lib.rs \
+            mycelix-finance/zomes/sap-transfer-v2/integrity/src/lib.rs
+          test "$(git diff --cached --name-only | wc -l)" -eq 2
+          git diff --cached --check
+          git commit -m 'chore(finance): remove V2 ABI extraction warning residue' \
+            -m 'FIN-SAFE-027: remove only model imports made redundant by finance-holochain-contracts extraction. Entry authority, validation callbacks, foreign zome/index identity, schemas, and Cargo.lock are unchanged.' \
+            -m 'Qualified with Rust 1.96 warning-fatal native and wasm checks for the affected integrity crates plus full cargo test --workspace --locked.'
+          printf 'product_commit=%s\nproduct_tree=%s\nsource_base=%s\nlock_sha256=%s\n' \
+            "$(git rev-parse HEAD)" "$(git rev-parse HEAD^{tree})" "$SOURCE_SHA" "$LOCK_SHA256" \
+            | tee /tmp/fin-safe-027-promotion-receipt.txt
+
+      - name: Push qualified product commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push origin "HEAD:refs/heads/${PRODUCT_BRANCH}"
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fin-safe-027-warning-hygiene-${{ env.SOURCE_SHA }}-${{ github.run_attempt }}
+          path: |
+            /tmp/expected-status.txt
+            /tmp/post-format-status.txt
+            /tmp/precommit-status.txt
+            /tmp/fin-safe-027-metadata.json
+            /tmp/fin-safe-027-tree.txt
+            /tmp/fin-safe-027-native-warning-fatal.log
+            /tmp/fin-safe-027-wasm-warning-fatal.log
+            /tmp/fin-safe-027-workspace.log
+            /tmp/fin-safe-027-promotion-receipt.txt
+          if-no-files-found: warn
+          retention-days: 30
