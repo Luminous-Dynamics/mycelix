@@ -45,6 +45,9 @@ pub struct RegenerativeRecoveryCoordinateEvidenceV1 {
     pub recovery_qualification_binding: String,
     pub disturbance_id: String,
     pub disturbance_evidence_binding: String,
+    /// Exact Symtropy observation that bound the semantic disturbance to the
+    /// concrete degraded state immediately before recovery execution.
+    pub dynamic_disturbance_observation_binding: String,
     pub target_dependency_id: String,
     pub flow_kind: RegenerativeRecoveryFlowKindEvidenceV1,
     pub healthy_units_per_period: u64,
@@ -103,6 +106,7 @@ impl RegenerativeRecoveryCoordinateEvidenceV1 {
             &self.recovery_policy_evidence_binding,
             &self.recovery_qualification_binding,
             &self.disturbance_evidence_binding,
+            &self.dynamic_disturbance_observation_binding,
             &self.external_recovery_reserve_binding,
             &self.dynamic_recovery_receipt_binding,
         ] {
