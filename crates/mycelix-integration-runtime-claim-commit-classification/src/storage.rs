@@ -133,9 +133,7 @@ fn open_exact_writer(
     Ok(conn)
 }
 
-fn require_exact_runtime_pragmas(
-    conn: &Connection,
-) -> Result<(), ClaimClassificationError> {
+fn require_exact_runtime_pragmas(conn: &Connection) -> Result<(), ClaimClassificationError> {
     let version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
     if version != RUNTIME_SCHEMA_VERSION {
         return Err(ClaimClassificationError::UnsupportedRuntimeSchema {
@@ -143,13 +141,13 @@ fn require_exact_runtime_pragmas(
             expected: RUNTIME_SCHEMA_VERSION,
         });
     }
-    let journal_mode: String =
-        conn.pragma_query_value(None, "journal_mode", |row| row.get(0))?;
+    let journal_mode: String = conn.pragma_query_value(None, "journal_mode", |row| row.get(0))?;
     if !journal_mode.eq_ignore_ascii_case("wal") {
-        return Err(ClaimClassificationError::UnexpectedJournalMode(journal_mode));
+        return Err(ClaimClassificationError::UnexpectedJournalMode(
+            journal_mode,
+        ));
     }
-    let synchronous: i64 =
-        conn.pragma_query_value(None, "synchronous", |row| row.get(0))?;
+    let synchronous: i64 = conn.pragma_query_value(None, "synchronous", |row| row.get(0))?;
     if synchronous != 2 {
         return Err(ClaimClassificationError::UnexpectedSynchronousMode(
             synchronous,
@@ -158,9 +156,7 @@ fn require_exact_runtime_pragmas(
     Ok(())
 }
 
-fn require_exact_runtime_schema(
-    conn: &Connection,
-) -> Result<(), ClaimClassificationError> {
+fn require_exact_runtime_schema(conn: &Connection) -> Result<(), ClaimClassificationError> {
     if !table_exists(conn, OUTBOX_TABLE)? || !table_exists(conn, OBSERVATION_TABLE)? {
         return Err(ClaimClassificationError::RuntimeSchemaMismatch);
     }
@@ -264,10 +260,7 @@ fn require_table_columns(
     Ok(())
 }
 
-fn table_exists(
-    conn: &Connection,
-    name: &str,
-) -> Result<bool, ClaimClassificationError> {
+fn table_exists(conn: &Connection, name: &str) -> Result<bool, ClaimClassificationError> {
     Ok(conn
         .query_row(
             "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1",
