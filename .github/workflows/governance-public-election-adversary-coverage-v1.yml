@@ -1,0 +1,131 @@
+name: Governance Public Election Adversary Coverage v1
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/governance-public-election-adversary-coverage-v1.yml'
+      - 'mycelix-governance/crates/election-adversary-coverage/**'
+      - 'mycelix-governance/docs/PUBLIC_ELECTION_ADVERSARY_COVERAGE_V1.md'
+
+permissions:
+  contents: read
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  BASE_SHA: 'c4bd99c327e21d755c692022bae14b6b41f3a6da'
+
+jobs:
+  qualify:
+    name: Qualify adversary-class coverage
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'test/governance-public-election-adversary-coverage-v1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact pull-request head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Bind exact ADV-002 delta
+        shell: bash
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          mapfile -t changed < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          test "${#changed[@]}" -eq 4
+          printf '%s\n' "${changed[@]}" | sort > /tmp/adv-002-files.txt
+          cat > /tmp/adv-002-expected.txt <<'EOF'
+          .github/workflows/governance-public-election-adversary-coverage-v1.yml
+          mycelix-governance/crates/election-adversary-coverage/Cargo.toml
+          mycelix-governance/crates/election-adversary-coverage/src/lib.rs
+          mycelix-governance/docs/PUBLIC_ELECTION_ADVERSARY_COVERAGE_V1.md
+          EOF
+          sort -o /tmp/adv-002-expected.txt /tmp/adv-002-expected.txt
+          diff -u /tmp/adv-002-expected.txt /tmp/adv-002-files.txt
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt,clippy
+
+      - name: Format ADV-002 crate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path mycelix-governance/crates/election-adversary-coverage/Cargo.toml -- --check
+
+      - name: Generate exact dependency lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-governance/crates/election-adversary-coverage
+          cargo generate-lockfile
+          cp Cargo.lock /tmp/adv-002-Cargo.lock
+          sha256sum Cargo.lock | tee /tmp/adv-002-lock.sha256
+          cargo metadata --locked --format-version 1 > /tmp/adv-002-metadata.json
+
+      - name: Execute ADV-002 threat-accountability tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path mycelix-governance/crates/election-adversary-coverage/Cargo.toml --locked 2>&1 | tee /tmp/adv-002-test.log
+
+      - name: Run warning-fatal library Clippy
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo clippy --manifest-path mycelix-governance/crates/election-adversary-coverage/Cargo.toml --locked --lib -- -D warnings 2>&1 | tee /tmp/adv-002-clippy.log
+
+      - name: Audit fail-visible threat boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          src='mycelix-governance/crates/election-adversary-coverage/src/lib.rs'
+          grep -F 'REQUIRED_ADVERSARY_COVERAGE: [AdversaryCoverageSpecV1; 12]' "$src"
+          grep -F 'AdversaryClass::ColludingTrusteeSubset' "$src"
+          grep -F 'ResidualAdversaryGapId::TrusteeThresholdRobustness' "$src"
+          grep -F 'AdversaryClass::CompromisedVotingDevice' "$src"
+          grep -F 'ResidualAdversaryGapId::EndpointCompromiseResistance' "$src"
+          grep -F 'AdversaryClass::Coercer' "$src"
+          grep -F 'ProtocolGapId::CoercionResistance' "$src"
+          grep -F 'AdversaryClass::StolenCredential' "$src"
+          grep -F 'ResidualAdversaryGapId::CredentialTheftRecovery' "$src"
+          grep -F 'full_threat_model_security_claim_is_blocked' "$src"
+          if grep -Eq '^use (hdk|hdi|voting_integrity)' "$src"; then
+            echo 'ADV-002 must remain runtime independent' >&2
+            exit 1
+          fi
+
+      - name: Remove transient lock and prove immutable checkout
+        if: always()
+        shell: bash
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          rm -f mycelix-governance/crates/election-adversary-coverage/Cargo.lock
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          git status --porcelain=v1 --untracked-files=all > /tmp/adv-002-status.txt
+          test ! -s /tmp/adv-002-status.txt
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: adv-002-${{ github.event.pull_request.head.sha }}-${{ github.run_attempt }}
+          path: |
+            /tmp/adv-002-Cargo.lock
+            /tmp/adv-002-lock.sha256
+            /tmp/adv-002-metadata.json
+            /tmp/adv-002-test.log
+            /tmp/adv-002-clippy.log
+            /tmp/adv-002-status.txt
+          if-no-files-found: warn
+          retention-days: 30

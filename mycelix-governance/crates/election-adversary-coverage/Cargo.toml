@@ -1,0 +1,15 @@
+[package]
+name = "election-adversary-coverage"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Threat-class coverage registry for Mycelix public-election adversarial assurance"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+election-integrity-types = { path = "../election-integrity-types" }
+election-adversarial-corpus = { path = "../election-adversarial-corpus" }
+
+[workspace]
