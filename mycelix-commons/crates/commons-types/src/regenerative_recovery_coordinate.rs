@@ -6,6 +6,10 @@
 //! execution. Mycelix preserves those exact subjects, composes them with the
 //! nominal support-closure theorem, and verifies structural/arithmetic consistency.
 //! Recovery reserve state is explicitly external to the nominal closure subject.
+//!
+//! Reserve spends are provenance-linear: sequence zero is the unique first spend
+//! for one reserve subject, while every later spend must name the exact predecessor
+//! evidence digest and continue its quantity/sequence state.
 
 use crate::{
     verify_regenerative_support_closure_continuity_evidence, MaritimeEvidenceEnvelope,
@@ -45,8 +49,6 @@ pub struct RegenerativeRecoveryCoordinateEvidenceV1 {
     pub recovery_qualification_binding: String,
     pub disturbance_id: String,
     pub disturbance_evidence_binding: String,
-    /// Exact Symtropy observation that bound the semantic disturbance to the
-    /// concrete degraded state immediately before recovery execution.
     pub dynamic_disturbance_observation_binding: String,
     pub target_dependency_id: String,
     pub flow_kind: RegenerativeRecoveryFlowKindEvidenceV1,
@@ -54,10 +56,14 @@ pub struct RegenerativeRecoveryCoordinateEvidenceV1 {
     pub degraded_units_per_period: u64,
     pub external_recovery_reserve_id: String,
     pub external_recovery_reserve_binding: String,
+    pub external_recovery_reserve_initial_units: u64,
     pub external_recovery_reserve_units_at_qualification: u64,
     pub reserve_units_per_recovery: u64,
     pub reserve_units_before: u64,
     pub reserve_units_after: u64,
+    pub reserve_spend_sequence_before: u64,
+    pub reserve_spend_sequence_after: u64,
+    pub previous_recovery_evidence_content_digest: Option<String>,
     pub reserve_external_to_nominal_closure: bool,
     pub dynamic_recovery_receipt_binding: String,
     pub recovery_qualified: bool,
@@ -95,6 +101,11 @@ impl RegenerativeRecoveryCoordinateEvidenceV1 {
                 return Err("recovery-coordinate parent digest must be lowercase 64-hex".into());
             }
         }
+        if let Some(previous) = &self.previous_recovery_evidence_content_digest {
+            if !lower_hex_64(previous) {
+                return Err("previous recovery digest must be lowercase 64-hex".into());
+            }
+        }
         for binding in [
             &self.symthaea_recovery_binding,
             &self.symtropy_recovery_binding,
@@ -126,11 +137,16 @@ impl RegenerativeRecoveryCoordinateEvidenceV1 {
         if self.reserve_units_per_recovery == 0 {
             return Err("recovery reserve cost must be positive".into());
         }
+        if self.external_recovery_reserve_initial_units
+            < self.external_recovery_reserve_units_at_qualification
+        {
+            return Err("recovery qualification quantity exceeds reserve genesis".into());
+        }
         if self.external_recovery_reserve_units_at_qualification < self.reserve_units_per_recovery {
             return Err("external recovery reserve was insufficient at qualification".into());
         }
-        if self.reserve_units_before != self.external_recovery_reserve_units_at_qualification {
-            return Err("recovery reserve changed between qualification and execution".into());
+        if self.reserve_units_before > self.external_recovery_reserve_initial_units {
+            return Err("recovery receipt exceeds reserve genesis quantity".into());
         }
         let expected_after = self
             .reserve_units_before
@@ -138,6 +154,23 @@ impl RegenerativeRecoveryCoordinateEvidenceV1 {
             .ok_or_else(|| "recovery reserve arithmetic underflow".to_string())?;
         if self.reserve_units_after != expected_after {
             return Err("recovery reserve receipt arithmetic mismatch".into());
+        }
+        let expected_sequence_after = self
+            .reserve_spend_sequence_before
+            .checked_add(1)
+            .ok_or_else(|| "recovery reserve spend sequence overflow".to_string())?;
+        if self.reserve_spend_sequence_after != expected_sequence_after {
+            return Err("recovery reserve spend sequence is not monotonic".into());
+        }
+        if self.reserve_spend_sequence_before == 0 {
+            if self.previous_recovery_evidence_content_digest.is_some() {
+                return Err("first reserve spend cannot name a predecessor".into());
+            }
+            if self.reserve_units_before != self.external_recovery_reserve_units_at_qualification {
+                return Err("first reserve spend must start from the qualification snapshot".into());
+            }
+        } else if self.previous_recovery_evidence_content_digest.is_none() {
+            return Err("later reserve spend requires exact predecessor evidence".into());
         }
         if !self.reserve_external_to_nominal_closure {
             return Err("recovery reserve must remain external to the nominal closure".into());
@@ -198,14 +231,77 @@ impl RegenerativeRecoveryCoordinateEvidenceV1 {
     }
 }
 
+pub fn verify_regenerative_recovery_reserve_lineage(
+    previous: Option<&RegenerativeRecoveryCoordinateEvidenceV1>,
+    current: &RegenerativeRecoveryCoordinateEvidenceV1,
+) -> Result<(), String> {
+    current.validate()?;
+    match (previous, current.reserve_spend_sequence_before) {
+        (None, 0) => {
+            if current.previous_recovery_evidence_content_digest.is_some() {
+                return Err("first recovery evidence cannot name a predecessor".into());
+            }
+        }
+        (None, _) => return Err("later recovery evidence requires its predecessor record".into()),
+        (Some(_), 0) => return Err("sequence-zero recovery evidence cannot follow a predecessor".into()),
+        (Some(previous), _) => {
+            previous.validate()?;
+            let expected_digest = previous.content_digest()?;
+            if current.previous_recovery_evidence_content_digest.as_deref()
+                != Some(expected_digest.as_str())
+            {
+                return Err("recovery predecessor digest mismatch".into());
+            }
+            if current.external_recovery_reserve_id != previous.external_recovery_reserve_id
+                || current.external_recovery_reserve_binding
+                    != previous.external_recovery_reserve_binding
+                || current.external_recovery_reserve_initial_units
+                    != previous.external_recovery_reserve_initial_units
+            {
+                return Err("recovery reserve genesis subject changed across spend lineage".into());
+            }
+            if current.viability_evidence_content_digest
+                != previous.viability_evidence_content_digest
+                || current.support_closure_continuity_content_digest
+                    != previous.support_closure_continuity_content_digest
+            {
+                return Err("recovery reserve lineage crossed nominal viability subjects".into());
+            }
+            if current.reserve_spend_sequence_before != previous.reserve_spend_sequence_after {
+                return Err("recovery reserve spend sequence fork or gap detected".into());
+            }
+            if current.reserve_units_before != previous.reserve_units_after {
+                return Err("recovery reserve quantity fork or reset detected".into());
+            }
+        }
+    }
+    Ok(())
+}
+
 pub fn verify_regenerative_recovery_coordinate_evidence(
     viability: &RegenerativeViabilityEvidenceV1,
     basis: &RegenerativeSupportBasisEvidenceV1,
     continuity: &RegenerativeSupportClosureContinuityEvidenceV1,
     recovery: &RegenerativeRecoveryCoordinateEvidenceV1,
 ) -> Result<(), String> {
+    verify_regenerative_recovery_coordinate_evidence_with_predecessor(
+        viability,
+        basis,
+        continuity,
+        None,
+        recovery,
+    )
+}
+
+pub fn verify_regenerative_recovery_coordinate_evidence_with_predecessor(
+    viability: &RegenerativeViabilityEvidenceV1,
+    basis: &RegenerativeSupportBasisEvidenceV1,
+    continuity: &RegenerativeSupportClosureContinuityEvidenceV1,
+    previous_recovery: Option<&RegenerativeRecoveryCoordinateEvidenceV1>,
+    recovery: &RegenerativeRecoveryCoordinateEvidenceV1,
+) -> Result<(), String> {
     verify_regenerative_support_closure_continuity_evidence(viability, basis, continuity)?;
-    recovery.validate()?;
+    verify_regenerative_recovery_reserve_lineage(previous_recovery, recovery)?;
     if !continuity.scalar_runway_projection_safe {
         return Err("recovery coordinate requires a safe nominal support-closure subject".into());
     }
