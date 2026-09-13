@@ -7,6 +7,8 @@ members = [
     "crates/mycelix-crypto",
     # eIDAS 2.0 ZKP selective disclosure
     "crates/eidas-zkp",
+    # Canonical VC claims profile for independent continuity witnesses
+    "crates/continuity-witness-domain-profile",
     # Zomes
     "zomes/did_registry/integrity",
     "zomes/did_registry/coordinator",
