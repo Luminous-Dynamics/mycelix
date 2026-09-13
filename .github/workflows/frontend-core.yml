@@ -1,0 +1,106 @@
+name: Mycelix Frontend Core
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-leptos-core/**'
+      - 'crates/mycelix-leptos-ui/**'
+      - 'crates/mycelix-leptos-client/**'
+      - '.github/workflows/frontend-core.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/mycelix-leptos-core/**'
+      - 'crates/mycelix-leptos-ui/**'
+      - 'crates/mycelix-leptos-client/**'
+      - '.github/workflows/frontend-core.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-core-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  frontend-core:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          submodules: recursive
+
+      - name: Verify shared frontend source distribution
+        shell: bash
+        run: |
+          set -euo pipefail
+          for manifest in \
+            crates/mycelix-leptos-client/Cargo.toml \
+            crates/mycelix-leptos-ui/Cargo.toml \
+            crates/mycelix-leptos-core/Cargo.toml \
+            mycelix-workspace/mycelix-personal/crates/personal-leptos-types/Cargo.toml \
+            mycelix-workspace/mycelix-identity/crates/mycelix-crypto/Cargo.toml; do
+            test -f "$manifest" || {
+              echo "::error file=$manifest::Required shared frontend dependency source is missing from this repository."
+              exit 1
+            }
+          done
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87b
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+          targets: wasm32-unknown-unknown
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          workspaces: |
+            crates/mycelix-leptos-core
+            crates/mycelix-leptos-ui
+            crates/mycelix-leptos-client
+
+      - name: Resolve shared frontend manifests
+        run: |
+          set -euo pipefail
+          cargo metadata --manifest-path crates/mycelix-leptos-client/Cargo.toml --no-deps --format-version 1 >/dev/null
+          cargo metadata --manifest-path crates/mycelix-leptos-ui/Cargo.toml --no-deps --format-version 1 >/dev/null
+          cargo metadata --manifest-path crates/mycelix-leptos-core/Cargo.toml --no-deps --format-version 1 >/dev/null
+
+      - name: Check shared frontend formatting
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path crates/mycelix-leptos-client/Cargo.toml --all -- --check
+          cargo fmt --manifest-path crates/mycelix-leptos-ui/Cargo.toml --all -- --check
+          cargo fmt --manifest-path crates/mycelix-leptos-core/Cargo.toml --all -- --check
+
+      - name: Check shared frontend crates for wasm32
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path crates/mycelix-leptos-client/Cargo.toml --target wasm32-unknown-unknown
+          cargo check --manifest-path crates/mycelix-leptos-ui/Cargo.toml --target wasm32-unknown-unknown
+          cargo check --manifest-path crates/mycelix-leptos-core/Cargo.toml --target wasm32-unknown-unknown
+
+      - name: Run shared frontend unit tests
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path crates/mycelix-leptos-client/Cargo.toml --lib
+          cargo test --manifest-path crates/mycelix-leptos-ui/Cargo.toml --lib
+          cargo test --manifest-path crates/mycelix-leptos-core/Cargo.toml --lib
+
+      - name: Clippy shared frontend crates
+        run: |
+          set -euo pipefail
+          cargo clippy --manifest-path crates/mycelix-leptos-client/Cargo.toml --lib -- -D warnings
+          cargo clippy --manifest-path crates/mycelix-leptos-ui/Cargo.toml --lib -- -D warnings
+          cargo clippy --manifest-path crates/mycelix-leptos-core/Cargo.toml --lib -- -D warnings
+
+      - name: Prove checkout immutability
+        run: git diff --exit-code && test -z "$(git status --porcelain)"
