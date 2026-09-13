@@ -136,7 +136,9 @@ pub struct ReconcileScheduler {
 enum ReconcileState {
     #[default]
     Idle,
-    Running { dirty: bool },
+    Running {
+        dirty: bool,
+    },
 }
 
 /// Effect produced when authoritative reconciliation is requested.
