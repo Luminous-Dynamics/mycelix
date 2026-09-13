@@ -1,0 +1,74 @@
+name: AGENT-001 Adversary Census
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/docs/agents/AGENT_ADVERSARY_CENSUS_V0.1.md'
+      - 'mycelix-workspace/docs/agents/agent-threat-census-v0.1.json'
+      - 'scripts/qualification/agent_threat_census_v0_1.py'
+      - '.github/workflows/agent-threat-census.yml'
+  push:
+    branches:
+      - 'docs/agent-001-adversary-census-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-001-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Agent adversary accountability
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Execution identity
+        run: |
+          git rev-parse HEAD
+          python3 --version
+
+      - name: Require exact AGENT-000 parent
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='9182e86c3816223d2e8c1ab98d564a4f682d09a9'
+          actual="$(git rev-parse HEAD^)"
+          test "$actual" = "$expected"
+
+      - name: Qualify adversary census
+        run: python3 scripts/qualification/agent_threat_census_v0_1.py
+
+      - name: AGENT-001 remains documentation and qualification only
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="${{ github.event.pull_request.base.sha || github.event.before }}"
+          changed="$(git diff --name-only "$base" HEAD 2>/dev/null || true)"
+          printf '%s\n' "$changed"
+
+          allowed='^(\.github/workflows/agent-threat-census\.yml|scripts/qualification/agent_threat_census_v0_1\.py|mycelix-workspace/docs/agents/AGENT_ADVERSARY_CENSUS_V0\.1\.md|mycelix-workspace/docs/agents/agent-threat-census-v0\.1\.json)$'
+          unexpected="$(printf '%s\n' "$changed" | grep -Ev "$allowed" || true)"
+          if [ -n "$unexpected" ]; then
+            echo "AGENT-001 must remain documentation/qualification-only; unexpected paths:" >&2
+            printf '%s\n' "$unexpected" >&2
+            exit 1
+          fi
+
+      - name: Strong negative security claim
+        run: |
+          set -euo pipefail
+          grep -Fq '"full_agent_security_claim_blocked": true' \
+            mycelix-workspace/docs/agents/agent-threat-census-v0.1.json
+          grep -Fq 'AGENT-001 PASS != full agent security' \
+            mycelix-workspace/docs/agents/AGENT_ADVERSARY_CENSUS_V0.1.md
+
+      - name: Immutable checkout postflight
+        run: test -z "$(git status --short)"

@@ -1,0 +1,513 @@
+{
+  "schema_version": "agent-threat-census-v0.1",
+  "subject": "AGENT-001",
+  "parent_constitution": "AGENT-000",
+  "full_agent_security_claim_blocked": true,
+  "coverage_vocabulary": [
+    "future_executable_attack",
+    "protocol_dependent_blocker",
+    "residual_research_gap"
+  ],
+  "threats": [
+    {
+      "id": "AT-001",
+      "name": "Agent principal impersonation",
+      "class": "identity",
+      "adversary": "external attacker or malicious peer",
+      "description": "A different principal presents itself as the authorized stable agent principal.",
+      "invariant_refs": ["AA-001", "AA-002", "AA-007"],
+      "coverage": "future_executable_attack",
+      "next_tranche": "AGENT-002"
+    },
+    {
+      "id": "AT-002",
+      "name": "Controller or mandator substitution",
+      "class": "identity",
+      "adversary": "malicious agent, peer, or integration",
+      "description": "An agent or adapter replaces the legitimate controlling/mandating principal with another principal.",
+      "invariant_refs": ["AA-001", "AA-002", "AA-006"],
+      "coverage": "future_executable_attack",
+      "next_tranche": "AGENT-002"
+    },
+    {
+      "id": "AT-003",
+      "name": "Runtime instance substitution",
+      "class": "identity",
+      "adversary": "compromised host or operator",
+      "description": "A different runtime/workload instance attempts to inherit runtime-sensitive authority from the stable agent identity.",
+      "invariant_refs": ["AA-002", "AA-003", "AA-013"],
+      "coverage": "future_executable_attack",
+      "next_tranche": "AGENT-002/003"
+    },
+    {
+      "id": "AT-004",
+      "name": "Model substitution",
+      "class": "identity",
+      "adversary": "compromised runtime, provider, or operator",
+      "description": "A materially different model is substituted where policy binds authority to model/runtime provenance.",
+      "invariant_refs": ["AA-002", "AA-003"],
+      "coverage": "future_executable_attack",
+      "next_tranche": "AGENT-003"
+    },
+    {
+      "id": "AT-005",
+      "name": "Credential or key theft",
+      "class": "identity",
+      "adversary": "credential thief or compromised runtime",
+      "description": "Stolen authentication/signing material is replayed to impersonate an otherwise legitimate agent or controller.",
+      "invariant_refs": ["AA-007", "AA-013", "AA-016"],
+      "coverage": "future_executable_attack",
+      "next_tranche": "AGENT-002/008"
+    },
+    {
+      "id": "AT-006",
+      "name": "Identity or key rotation race",
+      "class": "identity",
+      "adversary": "attacker exploiting concurrent rotation",
+      "description": "Old and new identity/key generations are raced so stale material is accepted as current.",
+      "invariant_refs": ["AA-002", "AA-013"],
+      "coverage": "future_executable_attack",
+      "next_tranche": "AGENT-002/006"
+    },
+    {
+      "id": "AT-007",
+      "name": "Mission-to-intent semantic overreach",
+      "class": "intent",
+      "adversary": "misaligned or malicious model",
+      "description": "A broad natural-language mission is translated into a typed intent with authority-significant permissions the principal did not approve.",
+      "invariant_refs": ["AA-004", "AA-005", "AA-024"],
+      "coverage": "future_executable_attack",
+      "next_tranche": "AGENT-004"
+    },
+    {
+      "id": "AT-008",
+      "name": "Prompt-injection intent confusion",
+      "class": "intent",
+      "adversary": "untrusted content or malicious peer",
+      "description": "Untrusted instructions cause the model to reinterpret the principal's mission or propose unauthorized intent.",
+      "invariant_refs": ["AA-004", "AA-005", "AA-024"],
+      "coverage": "future_executable_attack",
+      "next_tranche": "AGENT-004"
+    },
+    {
+      "id": "AT-009",
+      "name": "Approved-intent substitution",
+      "class": "intent",
+      "adversary": "malicious agent or adapter",
+      "description": "A different typed intent is substituted after principal approval or qualification.",
+      "invariant_refs": ["AA-005", "AA-006", "AA-014"],
+      "coverage": "future_executable_attack",
+      "next_tranche": "AGENT-004/007"
+    },
+    {
+      "id": "AT-010",
+      "name": "Deceptive or spoofed approval",
+      "class": "intent",
+      "adversary": "phisher, malicious UI, or compromised agent",
+      "description": "The system claims principal approval that did not occur or misrepresents the exact intent/action being approved.",
+      "invariant_refs": ["AA-001", "AA-005", "AA-020"],
+      "coverage": "residual_research_gap",
+      "next_tranche": "AGENT-004"
+    },
+    {
+      "id": "AT-011",
+      "name": "Consent UI semantic mismatch",
+      "class": "intent",
+      "adversary": "buggy or deceptive interface",
+      "description": "The user-visible approval summary differs materially from the typed intent or exact action that receives authority.",
+      "invariant_refs": ["AA-005", "AA-014", "AA-020"],
+      "coverage": "residual_research_gap",
+      "next_tranche": "AGENT-004/007"
+    },
+    {
+      "id": "AT-012",
+      "name": "Confused deputy",
+      "class": "authority",
+      "adversary": "malicious requester or sub-agent",
+      "description": "A less-authorized party induces a more-authorized agent or broker to exercise authority for the wrong principal, resource, or purpose.",
+      "invariant_refs": ["AA-006", "AA-007", "AA-009"],
+      "coverage": "future_executable_attack",
+      "next_tranche": "AGENT-006/008"
+    },
+    {
+      "id": "AT-013",
+      "name": "Capability scope expansion",
+      "class": "authority",
+      "adversary": "malicious delegate or adapter",
+      "description": "A child or translated authorization adds capabilities, resources, audiences, validity, or roles absent from the qualified parent.",
+      "invariant_refs": ["AA-009", "AA-010", "AA-017"],
+      "coverage": "future_executable_attack",
+      "next_tranche": "AGENT-005/007"
+    },
+    {
+      "id": "AT-014",
+      "name": "Consumable-budget fan-out duplication",
+      "class": "authority",
+      "adversary": "delegating agent or colluding sub-agents",
+      "description": "Multiple children each receive individually valid-looking allocations whose sum exceeds the parent's conserved budget.",
+      "invariant_refs": ["AA-010", "AA-011"],
+      "coverage": "future_executable_attack",
+      "next_tranche": "AGENT-005"
+    },
+    {
+      "id": "AT-015",
+      "name": "Unauthorized re-delegation",
+      "class": "authority",
+      "adversary": "delegate or sub-agent",
+      "description": "A delegate passes authority onward without explicit qualified permission to re-delegate.",
+      "invariant_refs": ["AA-010", "AA-012"],
+      "coverage": "future_executable_attack",
+      "next_tranche": "AGENT-005"
+    },
+    {
+      "id": "AT-016",
+      "name": "Delegation cycle or depth exhaustion",
+      "class": "authority",
+      "adversary": "malicious or buggy agent graph",
+      "description": "Cyclic or excessively deep delegation consumes verifier resources or obscures the actual authority source.",
+      "invariant_refs": ["AA-012", "AA-023"],
+      "coverage": "future_executable_attack",
+      "next_tranche": "AGENT-005/010"
+    },
+    {
+      "id": "AT-017",
+      "name": "Stale authority replay",
+      "class": "authority",
+      "adversary": "agent with cached historical evidence",
+      "description": "A previously valid positive grant/delegation/currentness result is replayed after it is no longer current.",
+      "invariant_refs": ["AA-013"],
+      "coverage": "future_executable_attack",
+      "next_tranche": "AGENT-006"
+    },
+    {
+      "id": "AT-018",
+      "name": "Revoked authority continued use",
+      "class": "authority",
+      "adversary": "revoked agent or delayed integration",
+      "description": "An agent continues consequential execution after a relevant authority generation becomes revoked or superseded.",
+      "invariant_refs": ["AA-013", "AA-018"],
+      "coverage": "future_executable_attack",
+      "next_tranche": "AGENT-006/008"
+    },
+    {
+      "id": "AT-019",
+      "name": "Audience or provider substitution",
+      "class": "authority",
+      "adversary": "malicious adapter or agent",
+      "description": "Authority intended for one audience/provider is exercised against another.",
+      "invariant_refs": ["AA-009", "AA-014", "AA-016"],
+      "coverage": "future_executable_attack",
+      "next_tranche": "AGENT-007/008"
+    },
+    {
+      "id": "AT-020",
+      "name": "Policy or rulebook substitution",
+      "class": "authority",
+      "adversary": "malicious caller or provider",
+      "description": "A weaker policy/profile is swapped in while retaining superficially similar authority identifiers.",
+      "invariant_refs": ["AA-009", "AA-013", "AA-014"],
+      "coverage": "future_executable_attack",
+      "next_tranche": "AGENT-006/007"
+    },
+    {
+      "id": "AT-021",
+      "name": "Currentness TOCTOU race",
+      "class": "authority",
+      "adversary": "attacker exploiting timing window",
+      "description": "Authority is qualified as current and then revoked or materially changed before effect dispatch.",
+      "invariant_refs": ["AA-013", "AA-018"],
+      "coverage": "future_executable_attack",
+      "next_tranche": "AGENT-006/009"
+    },
+    {
+      "id": "AT-022",
+      "name": "Runtime-attestation downgrade",
+      "class": "runtime",
+      "adversary": "compromised runtime or verifier",
+      "description": "Weaker or self-asserted runtime provenance is substituted for a policy-required assurance level.",
+      "invariant_refs": ["AA-003", "AA-007"],
+      "coverage": "future_executable_attack",
+      "next_tranche": "AGENT-003"
+    },
+    {
+      "id": "AT-023",
+      "name": "Compromised runtime or model",
+      "class": "runtime",
+      "adversary": "malware, malicious model, or compromised host",
+      "description": "The active agent runtime behaves adversarially while possessing otherwise valid identity or authority inputs.",
+      "invariant_refs": ["AA-003", "AA-015", "AA-024"],
+      "coverage": "residual_research_gap",
+      "next_tranche": "AGENT-003/007"
+    },
+    {
+      "id": "AT-024",
+      "name": "Software supply-chain compromise",
+      "class": "runtime",
+      "adversary": "dependency, build, or distribution attacker",
+      "description": "Agent/broker/verifier software is replaced or modified before execution.",
+      "invariant_refs": ["AA-003", "AA-023", "AA-024"],
+      "coverage": "residual_research_gap",
+      "next_tranche": "AGENT-003"
+    },
+    {
+      "id": "AT-025",
+      "name": "Authority broker compromise",
+      "class": "runtime",
+      "adversary": "malware or malicious operator",
+      "description": "The credential-less authority broker leaks secrets, forges qualification, or dispatches effects outside qualified scope.",
+      "invariant_refs": ["AA-016", "AA-018", "AA-024"],
+      "coverage": "residual_research_gap",
+      "next_tranche": "AGENT-008/009"
+    },
+    {
+      "id": "AT-026",
+      "name": "Tool-argument escape",
+      "class": "action",
+      "adversary": "malicious model, prompt injection, or tool server",
+      "description": "An action remains in an allowed tool class but authority-significant arguments escape the QualifiedIntent or authority envelope.",
+      "invariant_refs": ["AA-014", "AA-015"],
+      "coverage": "future_executable_attack",
+      "next_tranche": "AGENT-007"
+    },
+    {
+      "id": "AT-027",
+      "name": "Canonical-action ambiguity",
+      "class": "action",
+      "adversary": "malicious caller or serialization mismatch",
+      "description": "Different authority-relevant actions collide or are treated as equivalent because canonicalization/profile identity is ambiguous.",
+      "invariant_refs": ["AA-014", "AA-023"],
+      "coverage": "future_executable_attack",
+      "next_tranche": "AGENT-007/010"
+    },
+    {
+      "id": "AT-028",
+      "name": "Model self-certification bypass",
+      "class": "action",
+      "adversary": "malicious or compromised model",
+      "description": "Model output asserting compliance is accepted in place of deterministic constraint qualification.",
+      "invariant_refs": ["AA-015", "AA-024"],
+      "coverage": "future_executable_attack",
+      "next_tranche": "AGENT-007"
+    },
+    {
+      "id": "AT-029",
+      "name": "Cross-action replay",
+      "class": "action",
+      "adversary": "malicious agent or peer",
+      "description": "A valid authorization/receipt for one exact action is replayed against a changed action, resource, amount, or recipient.",
+      "invariant_refs": ["AA-014", "AA-020"],
+      "coverage": "future_executable_attack",
+      "next_tranche": "AGENT-007/009"
+    },
+    {
+      "id": "AT-030",
+      "name": "Long-lived secret exfiltration",
+      "class": "credentials",
+      "adversary": "prompt injector, malicious tool, or compromised model",
+      "description": "Reusable credentials exposed to model context are extracted and reused outside the intended action.",
+      "invariant_refs": ["AA-016", "AA-024"],
+      "coverage": "future_executable_attack",
+      "next_tranche": "AGENT-008"
+    },
+    {
+      "id": "AT-031",
+      "name": "Capability-handle replay",
+      "class": "credentials",
+      "adversary": "agent or attacker possessing an opaque handle",
+      "description": "An opaque capability reference is reused after current authority, audience, scope, or use limits changed.",
+      "invariant_refs": ["AA-013", "AA-016"],
+      "coverage": "future_executable_attack",
+      "next_tranche": "AGENT-006/008"
+    },
+    {
+      "id": "AT-032",
+      "name": "Protocol translation authority widening",
+      "class": "protocol",
+      "adversary": "buggy or malicious adapter",
+      "description": "Translation into A2A/MCP/OAuth/AP2 or another protocol silently broadens scope, validity, audience, or delegation.",
+      "invariant_refs": ["AA-017", "AA-022"],
+      "coverage": "protocol_dependent_blocker",
+      "next_tranche": "AGENT-011+"
+    },
+    {
+      "id": "AT-033",
+      "name": "Malicious A2A peer or Agent Card",
+      "class": "protocol",
+      "adversary": "remote agent operator",
+      "description": "Discovery/task metadata misrepresents capabilities, identity, endpoints, or trust-relevant facts to induce unsafe delegation/action.",
+      "invariant_refs": ["AA-017", "AA-022", "AA-024"],
+      "coverage": "protocol_dependent_blocker",
+      "next_tranche": "AGENT-011"
+    },
+    {
+      "id": "AT-034",
+      "name": "Malicious MCP server or tool metadata",
+      "class": "protocol",
+      "adversary": "tool/server operator",
+      "description": "Tool descriptions, schemas, resources, or responses are crafted to induce credential leakage or unauthorized actions.",
+      "invariant_refs": ["AA-015", "AA-017", "AA-022", "AA-024"],
+      "coverage": "protocol_dependent_blocker",
+      "next_tranche": "AGENT-012"
+    },
+    {
+      "id": "AT-035",
+      "name": "External authorization semantic mismatch",
+      "class": "protocol",
+      "adversary": "adapter or authorization server",
+      "description": "A downstream token/credential encodes materially different scope semantics from the qualified Mycelix authority.",
+      "invariant_refs": ["AA-016", "AA-017"],
+      "coverage": "protocol_dependent_blocker",
+      "next_tranche": "AGENT-013"
+    },
+    {
+      "id": "AT-036",
+      "name": "Commerce mandate mismatch",
+      "class": "protocol",
+      "adversary": "merchant, shopping agent, or payment adapter",
+      "description": "Commerce/payment mandate semantics diverge from the QualifiedIntent, conserved budget, or exact purchase action.",
+      "invariant_refs": ["AA-011", "AA-014", "AA-017"],
+      "coverage": "protocol_dependent_blocker",
+      "next_tranche": "AGENT-015"
+    },
+    {
+      "id": "AT-037",
+      "name": "Duplicate effect by retry",
+      "class": "effect",
+      "adversary": "agent, network fault, or malicious provider",
+      "description": "A caller retries after an uncertain result and causes the same consequential intent to produce multiple external effects.",
+      "invariant_refs": ["AA-018", "AA-019"],
+      "coverage": "future_executable_attack",
+      "next_tranche": "AGENT-009"
+    },
+    {
+      "id": "AT-038",
+      "name": "Ambiguous commit exploitation",
+      "class": "effect",
+      "adversary": "malicious provider or network adversary",
+      "description": "A provider returns an error/timeout while the effect may have committed, inducing unsafe retry or inconsistent local state.",
+      "invariant_refs": ["AA-019"],
+      "coverage": "future_executable_attack",
+      "next_tranche": "AGENT-009"
+    },
+    {
+      "id": "AT-039",
+      "name": "Partial multi-effect completion",
+      "class": "effect",
+      "adversary": "faulty provider set or orchestrator",
+      "description": "A multi-step action partially commits and local logic incorrectly treats the whole transaction as committed or not committed.",
+      "invariant_refs": ["AA-018", "AA-019", "AA-020"],
+      "coverage": "future_executable_attack",
+      "next_tranche": "AGENT-009"
+    },
+    {
+      "id": "AT-040",
+      "name": "External provider equivocation",
+      "class": "effect",
+      "adversary": "malicious or faulty provider",
+      "description": "A provider presents inconsistent receipts/status to different observers for the same effect attempt.",
+      "invariant_refs": ["AA-019", "AA-020", "AA-023"],
+      "coverage": "residual_research_gap",
+      "next_tranche": "AGENT-009/010"
+    },
+    {
+      "id": "AT-041",
+      "name": "Receipt replay or substitution",
+      "class": "evidence",
+      "adversary": "malicious agent, adapter, or auditor",
+      "description": "A valid receipt is reused for a different action/attempt or substituted into another evidence package.",
+      "invariant_refs": ["AA-020", "AA-023"],
+      "coverage": "future_executable_attack",
+      "next_tranche": "AGENT-009/010"
+    },
+    {
+      "id": "AT-042",
+      "name": "Receipt equivocation or tampering",
+      "class": "evidence",
+      "adversary": "malicious producer or storage layer",
+      "description": "Different receipt facts are presented under the same apparent receipt identity, or receipt content is altered without detection.",
+      "invariant_refs": ["AA-020", "AA-023"],
+      "coverage": "future_executable_attack",
+      "next_tranche": "AGENT-009/010"
+    },
+    {
+      "id": "AT-043",
+      "name": "Evidence withholding or incomplete view",
+      "class": "evidence",
+      "adversary": "malicious agent, node, provider, or verifier",
+      "description": "Security-relevant evidence is omitted so a partial observation appears sufficient for positive qualification.",
+      "invariant_refs": ["AA-013", "AA-020", "AA-023"],
+      "coverage": "residual_research_gap",
+      "next_tranche": "AGENT-010"
+    },
+    {
+      "id": "AT-044",
+      "name": "Malicious independent verifier",
+      "class": "evidence",
+      "adversary": "compromised or dishonest verifier",
+      "description": "A verifier falsely reports a package as valid, suppresses a failure, or uses a weaker verification profile.",
+      "invariant_refs": ["AA-023", "AA-024"],
+      "coverage": "residual_research_gap",
+      "next_tranche": "AGENT-010"
+    },
+    {
+      "id": "AT-045",
+      "name": "Over-disclosure and cross-context correlation",
+      "class": "privacy",
+      "adversary": "curious or malicious counterparty",
+      "description": "An agent discloses more identity, credential, intent, or evidence than necessary, enabling privacy loss or cross-context linkage.",
+      "invariant_refs": ["AA-020", "AA-021"],
+      "coverage": "residual_research_gap",
+      "next_tranche": "AGENT-014"
+    },
+    {
+      "id": "AT-046",
+      "name": "Colluding sub-agents",
+      "class": "system",
+      "adversary": "multiple malicious delegates",
+      "description": "Multiple agents coordinate to exploit delegation, budgets, evidence views, or provider boundaries while each appears individually compliant.",
+      "invariant_refs": ["AA-011", "AA-012", "AA-023", "AA-024"],
+      "coverage": "residual_research_gap",
+      "next_tranche": "AGENT-005/017"
+    },
+    {
+      "id": "AT-047",
+      "name": "Network partition or delayed revocation",
+      "class": "system",
+      "adversary": "network fault or adversary",
+      "description": "Partition/delay prevents timely observation of revocation/currentness or produces divergent evidence views.",
+      "invariant_refs": ["AA-013", "AA-019", "AA-023"],
+      "coverage": "residual_research_gap",
+      "next_tranche": "AGENT-006/017"
+    },
+    {
+      "id": "AT-048",
+      "name": "Resource exhaustion",
+      "class": "system",
+      "adversary": "malicious peer, agent, or evidence producer",
+      "description": "Unbounded delegation, intent, action, receipt, proof, or evidence inputs exhaust verifier/broker resources.",
+      "invariant_refs": ["AA-012", "AA-023", "AA-024"],
+      "coverage": "future_executable_attack",
+      "next_tranche": "AGENT-017"
+    },
+    {
+      "id": "AT-049",
+      "name": "Malicious or ambiguous Mycelix network view",
+      "class": "system",
+      "adversary": "malicious nodes or partitioned DHT authorities",
+      "description": "Network data is incomplete, conflicting, reordered, or adversarially presented and is mistaken for authoritative global current state.",
+      "invariant_refs": ["AA-013", "AA-022", "AA-023"],
+      "coverage": "residual_research_gap",
+      "next_tranche": "AGENT-006/010"
+    },
+    {
+      "id": "AT-050",
+      "name": "Valid authority but substantively bad outcome",
+      "class": "safety",
+      "adversary": "authorized but mistaken human/agent/institution",
+      "description": "An action is correctly authorized yet factually wrong, unsafe, unwise, unfair, or harmful; authority verification is misrepresented as outcome correctness.",
+      "invariant_refs": ["AA-003", "AA-020", "AA-024"],
+      "coverage": "residual_research_gap",
+      "next_tranche": "cross-domain safety policy"
+    }
+  ]
+}
