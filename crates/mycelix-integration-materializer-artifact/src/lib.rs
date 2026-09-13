@@ -8,7 +8,7 @@
 use mycelix_institutional_core::Digest32;
 use mycelix_integration_core::{ContentCommitment, DigestAlgorithm};
 use mycelix_integration_execution_binding::QualifiedProviderExecutionProfile;
-use std::fs::{self, File, OpenOptions};
+use std::fs::{self, OpenOptions};
 use std::io::Read;
 use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
@@ -270,6 +270,7 @@ pub enum MaterializerArtifactError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs::File;
     use std::io::Write;
     use std::os::unix::fs::PermissionsExt;
     use tempfile::tempdir;

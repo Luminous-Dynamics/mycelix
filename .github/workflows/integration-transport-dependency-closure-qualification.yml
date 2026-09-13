@@ -7,7 +7,10 @@ on:
       - main
     paths:
       - 'crates/mycelix-integration-runtime/Cargo.toml'
-      - 'crates/mycelix-integration-runtime/src/attempt_guard.rs'
+      - 'crates/mycelix-integration-runtime/src/**'
+      - 'crates/mycelix-integration-runtime/tests/**'
+      - 'crates/mycelix-integration-current-action-authority/Cargo.toml'
+      - 'crates/mycelix-integration-materializer-abi/src/lib.rs'
       - 'crates/mycelix-integration-runtime-store-binding/**'
       - 'crates/mycelix-integration-http-transport-journal/**'
       - '.github/workflows/integration-transport-dependency-closure-qualification.yml'
@@ -16,7 +19,10 @@ on:
       - feat/integration-http-transport-journal-v1
     paths:
       - 'crates/mycelix-integration-runtime/Cargo.toml'
-      - 'crates/mycelix-integration-runtime/src/attempt_guard.rs'
+      - 'crates/mycelix-integration-runtime/src/**'
+      - 'crates/mycelix-integration-runtime/tests/**'
+      - 'crates/mycelix-integration-current-action-authority/Cargo.toml'
+      - 'crates/mycelix-integration-materializer-abi/src/lib.rs'
       - 'crates/mycelix-integration-runtime-store-binding/**'
       - 'crates/mycelix-integration-http-transport-journal/**'
       - '.github/workflows/integration-transport-dependency-closure-qualification.yml'
@@ -30,9 +36,17 @@ env:
   RUST_TOOLCHAIN: '1.96.0'
   QUALIFICATION_SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
   RUNTIME_MANIFEST: crates/mycelix-integration-runtime/Cargo.toml
+  RUNTIME_SOURCE_DIR: crates/mycelix-integration-runtime/src
+  RUNTIME_SHELL_SOURCE: crates/mycelix-integration-runtime/src/runtime.rs
   RUNTIME_SOURCE: crates/mycelix-integration-runtime/src/attempt_guard.rs
+  RUNTIME_BOOTSTRAP_SOURCE: crates/mycelix-integration-runtime/src/bootstrap_guard.rs
+  RUNTIME_TEST_DIR: crates/mycelix-integration-runtime/tests
+  AUTH_ACTION_MANIFEST: crates/mycelix-integration-current-action-authority/Cargo.toml
+  MATERIALIZER_ABI_SOURCE: crates/mycelix-integration-materializer-abi/src/lib.rs
   STORE_MANIFEST: crates/mycelix-integration-runtime-store-binding/Cargo.toml
+  STORE_SOURCE_DIR: crates/mycelix-integration-runtime-store-binding/src
   JOURNAL_MANIFEST: crates/mycelix-integration-http-transport-journal/Cargo.toml
+  JOURNAL_SOURCE_DIR: crates/mycelix-integration-http-transport-journal/src
   WORKFLOW: .github/workflows/integration-transport-dependency-closure-qualification.yml
 
 concurrency:
@@ -83,27 +97,41 @@ jobs:
           set -euo pipefail
           rustc --version --verbose
           cargo --version --verbose
-          sha256sum "$RUNTIME_MANIFEST" "$RUNTIME_SOURCE" "$STORE_MANIFEST" "$JOURNAL_MANIFEST" "$WORKFLOW"
+          sha256sum "$RUNTIME_MANIFEST" "$AUTH_ACTION_MANIFEST" "$MATERIALIZER_ABI_SOURCE" "$STORE_MANIFEST" "$JOURNAL_MANIFEST" "$WORKFLOW"
+          for source_dir in "$RUNTIME_SOURCE_DIR" "$STORE_SOURCE_DIR" "$JOURNAL_SOURCE_DIR"; do
+            find "$source_dir" -type f -name '*.rs' -print0 | sort -z | xargs -0 sha256sum
+          done
+          find "$RUNTIME_TEST_DIR" -type f -name '*.rs' -print0 | sort -z | xargs -0 sha256sum
           cargo metadata --manifest-path "$JOURNAL_MANIFEST" --format-version 1 > /tmp/integration-transport-dependency-metadata.json
+          sha256sum /tmp/integration-transport-dependency-metadata.json
           echo 'No --locked claim is made here until this standalone stack carries an intentionally committed lockfile.'
 
-      - name: Enforce direct BLAKE3 dependency for durable attempt digest
+      - name: Enforce direct dependency and API closure for inherited sources
         shell: bash
         run: |
           set -euo pipefail
           grep -Fq 'blake3 = "1.5"' "$RUNTIME_MANIFEST"
           grep -Fq 'let mut h = blake3::Hasher::new();' "$RUNTIME_SOURCE"
           grep -Fq 'fn frame(h: &mut blake3::Hasher, bytes: &[u8])' "$RUNTIME_SOURCE"
+          grep -Fq 'OPEN_CONTENTION_RETRY_WINDOW' "$RUNTIME_SHELL_SOURCE"
+          grep -Fq 'ErrorCode::DatabaseBusy | ErrorCode::DatabaseLocked' "$RUNTIME_SHELL_SOURCE"
+          grep -Fq 'match Self::open_once(&path)' "$RUNTIME_SHELL_SOURCE"
+          grep -Fq 'SQLite BUSY/LOCKED contention is retryable' "$RUNTIME_SHELL_SOURCE"
+          grep -Fq 'unsupported integration runtime semantic profile:' "$RUNTIME_BOOTSTRAP_SOURCE"
+          grep -Fq 'but no semantic producer identity; automatic bootstrap is forbidden' "$RUNTIME_BOOTSTRAP_SOURCE"
+          grep -Fq 'mycelix-integration-core = { path = "../mycelix-integration-core" }' "$AUTH_ACTION_MANIFEST"
+          grep -Fq 'function_type_indices = reader.into_iter().collect::<Result<Vec<_>, _>>()?;' "$MATERIALIZER_ABI_SOURCE"
 
-      - name: Check runtime package formatting only
-        run: cargo fmt --manifest-path "$RUNTIME_MANIFEST" --package mycelix-integration-runtime -- --check
+      - name: Check changed runtime sources formatting
+        run: |
+          rustfmt --edition 2024 --check --config skip_children=true "$RUNTIME_SHELL_SOURCE"
+          rustfmt --edition 2024 --check "$RUNTIME_SOURCE"
+          rustfmt --edition 2024 --check "$RUNTIME_BOOTSTRAP_SOURCE"
 
-      - name: Check store-binding package formatting only
-        run: cargo fmt --manifest-path "$STORE_MANIFEST" --package mycelix-integration-runtime-store-binding -- --check
-
-      - name: Check journal package formatting only
-        run: cargo fmt --manifest-path "$JOURNAL_MANIFEST" --package mycelix-integration-http-transport-journal -- --check
-
+      # Store-binding and journal source formatting are intentionally owned by
+      # their dedicated qualification workflows. This lane proves dependency
+      # closure across the transport graph and must reach compile/test/Clippy even
+      # when unrelated style debt exists in a sibling package.
       - name: Compile runtime tests
         run: cargo test --manifest-path "$RUNTIME_MANIFEST" --package mycelix-integration-runtime --no-run
 
@@ -135,12 +163,23 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -Fq "RUST_TOOLCHAIN: '1.96.0'" "$WORKFLOW"
-          grep -Fq 'github.event.pull_request.head.sha || github.sha' "$WORKFLOW"
-          grep -Fq 'persist-credentials: false' "$WORKFLOW"
-          if grep -Fq 'cargo fmt --manifest-path "$JOURNAL_MANIFEST" --all --check' "$WORKFLOW"; then
-            echo 'Dependency-closure formatter escaped package scope.'
+          grep -Fq -- "RUST_TOOLCHAIN: '1.96.0'" "$WORKFLOW"
+          grep -Fq -- 'github.event.pull_request.head.sha || github.sha' "$WORKFLOW"
+          grep -Fq -- 'persist-credentials: false' "$WORKFLOW"
+          grep -Fq -- "- 'crates/mycelix-integration-runtime/src/**'" "$WORKFLOW"
+          grep -Fq -- "- 'crates/mycelix-integration-runtime/tests/**'" "$WORKFLOW"
+          grep -Fq -- 'for source_dir in "$RUNTIME_SOURCE_DIR" "$STORE_SOURCE_DIR" "$JOURNAL_SOURCE_DIR"; do' "$WORKFLOW"
+          grep -Fq -- 'find "$RUNTIME_TEST_DIR" -type f -name '\''*.rs'\'' -print0 | sort -z | xargs -0 sha256sum' "$WORKFLOW"
+          grep -Fq -- 'sha256sum /tmp/integration-transport-dependency-metadata.json' "$WORKFLOW"
+          grep -Fq -- 'crates/mycelix-integration-current-action-authority/Cargo.toml' "$WORKFLOW"
+          grep -Fq -- 'crates/mycelix-integration-materializer-abi/src/lib.rs' "$WORKFLOW"
+          grep -Fq -- 'rustfmt --edition 2024 --check --config skip_children=true "$RUNTIME_SHELL_SOURCE"' "$WORKFLOW"
+          grep -Fq -- 'rustfmt --edition 2024 --check "$RUNTIME_SOURCE"' "$WORKFLOW"
+          grep -Fq -- 'rustfmt --edition 2024 --check "$RUNTIME_BOOTSTRAP_SOURCE"' "$WORKFLOW"
+          grep -Fq -- 'Store-binding and journal source formatting are intentionally owned by' "$WORKFLOW"
+          if grep -Eq -- 'cargo fmt --manifest-path "\$(RUNTIME|STORE|JOURNAL)_MANIFEST"' "$WORKFLOW"; then
+            echo 'Dependency-closure lane must not duplicate sibling package style gates.'
             exit 1
           fi
           test "$(git rev-parse HEAD)" = "$QUALIFICATION_SUBJECT_SHA"
-          git diff --exit-code -- "$RUNTIME_MANIFEST" "$RUNTIME_SOURCE" "$STORE_MANIFEST" "$JOURNAL_MANIFEST" "$WORKFLOW"
+          git diff --exit-code -- "$RUNTIME_MANIFEST" "$RUNTIME_SOURCE_DIR" "$RUNTIME_TEST_DIR" "$AUTH_ACTION_MANIFEST" "$MATERIALIZER_ABI_SOURCE" "$STORE_MANIFEST" "$STORE_SOURCE_DIR" "$JOURNAL_MANIFEST" "$JOURNAL_SOURCE_DIR" "$WORKFLOW"
