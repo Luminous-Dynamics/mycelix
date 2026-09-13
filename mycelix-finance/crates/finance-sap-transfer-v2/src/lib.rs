@@ -326,10 +326,14 @@ mod tests {
         let (claims, transfer) = fixture();
         let mut record =
             SapTransferSpendRecordV2::from_validated_claims(transfer, &claims).unwrap();
-        record.input_claims.swap(0, 1);
+        let first_claim = record.input_claims[0].claim_action_reference.clone();
+        record.input_claims[0].claim_action_reference =
+            record.input_claims[1].claim_action_reference.clone();
+        record.input_claims[1].claim_action_reference = first_claim;
+        assert_eq!(record.validate_shape(), Ok(()));
         assert_eq!(
             record.validate_against_claims(&claims),
-            Err(SapTransferAdapterError::NonCanonicalInputOrder)
+            Err(SapTransferAdapterError::ClaimNoteMismatch)
         );
     }
 
