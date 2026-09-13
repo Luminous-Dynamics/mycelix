@@ -5,27 +5,9 @@ on:
     branches:
       - feat/integration-http-issuance-descriptor-v1
       - main
-    paths:
-      - 'crates/mycelix-integration-runtime/Cargo.toml'
-      - 'crates/mycelix-integration-runtime/src/**'
-      - 'crates/mycelix-integration-runtime/tests/**'
-      - 'crates/mycelix-integration-current-action-authority/Cargo.toml'
-      - 'crates/mycelix-integration-materializer-abi/src/lib.rs'
-      - 'crates/mycelix-integration-runtime-store-binding/**'
-      - 'crates/mycelix-integration-http-transport-journal/**'
-      - '.github/workflows/integration-transport-dependency-closure-qualification.yml'
   push:
     branches:
       - feat/integration-http-transport-journal-v1
-    paths:
-      - 'crates/mycelix-integration-runtime/Cargo.toml'
-      - 'crates/mycelix-integration-runtime/src/**'
-      - 'crates/mycelix-integration-runtime/tests/**'
-      - 'crates/mycelix-integration-current-action-authority/Cargo.toml'
-      - 'crates/mycelix-integration-materializer-abi/src/lib.rs'
-      - 'crates/mycelix-integration-runtime-store-binding/**'
-      - 'crates/mycelix-integration-http-transport-journal/**'
-      - '.github/workflows/integration-transport-dependency-closure-qualification.yml'
   workflow_dispatch:
 
 permissions:
@@ -43,6 +25,9 @@ env:
   RUNTIME_TEST_DIR: crates/mycelix-integration-runtime/tests
   AUTH_ACTION_MANIFEST: crates/mycelix-integration-current-action-authority/Cargo.toml
   MATERIALIZER_ABI_SOURCE: crates/mycelix-integration-materializer-abi/src/lib.rs
+  ADMIN_EXCLUSION_MANIFEST: crates/mycelix-integration-admin-mutation-exclusion/Cargo.toml
+  ATOMIC_MANIFEST: crates/mycelix-integration-atomic-dispatch-context/Cargo.toml
+  ATOMIC_SOURCE_DIR: crates/mycelix-integration-atomic-dispatch-context/src
   STORE_MANIFEST: crates/mycelix-integration-runtime-store-binding/Cargo.toml
   STORE_SOURCE_DIR: crates/mycelix-integration-runtime-store-binding/src
   JOURNAL_MANIFEST: crates/mycelix-integration-http-transport-journal/Cargo.toml
@@ -57,7 +42,7 @@ jobs:
   qualify:
     name: Exact transport dependency closure
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 30
 
     steps:
       - name: Checkout exact qualification subject
@@ -88,6 +73,7 @@ jobs:
         with:
           workspaces: |
             crates/mycelix-integration-runtime
+            crates/mycelix-integration-atomic-dispatch-context
             crates/mycelix-integration-runtime-store-binding
             crates/mycelix-integration-http-transport-journal
 
@@ -97,14 +83,41 @@ jobs:
           set -euo pipefail
           rustc --version --verbose
           cargo --version --verbose
-          sha256sum "$RUNTIME_MANIFEST" "$AUTH_ACTION_MANIFEST" "$MATERIALIZER_ABI_SOURCE" "$STORE_MANIFEST" "$JOURNAL_MANIFEST" "$WORKFLOW"
-          for source_dir in "$RUNTIME_SOURCE_DIR" "$STORE_SOURCE_DIR" "$JOURNAL_SOURCE_DIR"; do
+          sha256sum "$RUNTIME_MANIFEST" "$AUTH_ACTION_MANIFEST" "$MATERIALIZER_ABI_SOURCE" "$ADMIN_EXCLUSION_MANIFEST" "$ATOMIC_MANIFEST" "$STORE_MANIFEST" "$JOURNAL_MANIFEST" "$WORKFLOW"
+          for source_dir in "$RUNTIME_SOURCE_DIR" "$ATOMIC_SOURCE_DIR" "$STORE_SOURCE_DIR" "$JOURNAL_SOURCE_DIR"; do
             find "$source_dir" -type f -name '*.rs' -print0 | sort -z | xargs -0 sha256sum
           done
           find "$RUNTIME_TEST_DIR" -type f -name '*.rs' -print0 | sort -z | xargs -0 sha256sum
           cargo metadata --manifest-path "$JOURNAL_MANIFEST" --format-version 1 > /tmp/integration-transport-dependency-metadata.json
-          sha256sum /tmp/integration-transport-dependency-metadata.json
+          cargo metadata --manifest-path "$ADMIN_EXCLUSION_MANIFEST" --format-version 1 > /tmp/integration-authority-runtime-metadata.json
+          sha256sum /tmp/integration-transport-dependency-metadata.json /tmp/integration-authority-runtime-metadata.json
           echo 'No --locked claim is made here until this standalone stack carries an intentionally committed lockfile.'
+
+      - name: Enforce single SQLite ABI across transport and authority bridge
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          for path in (
+              Path('/tmp/integration-transport-dependency-metadata.json'),
+              Path('/tmp/integration-authority-runtime-metadata.json'),
+          ):
+              meta = json.loads(path.read_text())
+              rusqlite = sorted({p['version'] for p in meta['packages'] if p['name'] == 'rusqlite'})
+              sqlite_sys = sorted({p['version'] for p in meta['packages'] if p['name'] == 'libsqlite3-sys'})
+              if len(rusqlite) != 1 or not rusqlite[0].startswith('0.37.'):
+                  raise SystemExit(f'{path.name}: expected one rusqlite 0.37.x, got {rusqlite}')
+              if len(sqlite_sys) != 1:
+                  raise SystemExit(f'{path.name}: expected one libsqlite3-sys ABI owner, got {sqlite_sys}')
+              print(f'{path.name}: rusqlite={rusqlite[0]} libsqlite3-sys={sqlite_sys[0]}')
+          PY
+          sqlite_dep='rusqlite = { version = "0.37", features = ["bundled"] }'
+          grep -Fqx -- "$sqlite_dep" "$RUNTIME_MANIFEST"
+          grep -Fqx -- "$sqlite_dep" "$ATOMIC_MANIFEST"
+          grep -Fqx -- "$sqlite_dep" "$JOURNAL_MANIFEST"
 
       - name: Enforce direct dependency and API closure for inherited sources
         shell: bash
@@ -120,6 +133,9 @@ jobs:
           grep -Fq 'unsupported integration runtime semantic profile:' "$RUNTIME_BOOTSTRAP_SOURCE"
           grep -Fq 'but no semantic producer identity; automatic bootstrap is forbidden' "$RUNTIME_BOOTSTRAP_SOURCE"
           grep -Fq 'mycelix-integration-core = { path = "../mycelix-integration-core" }' "$AUTH_ACTION_MANIFEST"
+          grep -Fq 'mycelix-authority-coordinator-admin-mutation-exclusion = { path = "../mycelix-authority-coordinator-admin-mutation-exclusion" }' "$ADMIN_EXCLUSION_MANIFEST"
+          grep -Fq 'mycelix-integration-store-rechecked-preexecution = { path = "../mycelix-integration-store-rechecked-preexecution" }' "$ADMIN_EXCLUSION_MANIFEST"
+          grep -Fq 'mycelix-integration-runtime = { path = "../mycelix-integration-runtime" }' crates/mycelix-integration-store-rechecked-preexecution/Cargo.toml
           grep -Fq 'function_type_indices = reader.into_iter().collect::<Result<Vec<_>, _>>()?;' "$MATERIALIZER_ABI_SOURCE"
 
       - name: Check changed runtime sources formatting
@@ -135,6 +151,9 @@ jobs:
       - name: Compile runtime tests
         run: cargo test --manifest-path "$RUNTIME_MANIFEST" --package mycelix-integration-runtime --no-run
 
+      - name: Compile atomic-dispatch tests
+        run: cargo test --manifest-path "$ATOMIC_MANIFEST" --package mycelix-integration-atomic-dispatch-context --no-run
+
       - name: Compile store-binding tests
         run: cargo test --manifest-path "$STORE_MANIFEST" --package mycelix-integration-runtime-store-binding --no-run
 
@@ -144,6 +163,9 @@ jobs:
       - name: Run runtime tests
         run: cargo test --manifest-path "$RUNTIME_MANIFEST" --package mycelix-integration-runtime
 
+      - name: Run atomic-dispatch tests
+        run: cargo test --manifest-path "$ATOMIC_MANIFEST" --package mycelix-integration-atomic-dispatch-context
+
       - name: Run store-binding tests
         run: cargo test --manifest-path "$STORE_MANIFEST" --package mycelix-integration-runtime-store-binding
 
@@ -152,6 +174,9 @@ jobs:
 
       - name: Clippy runtime
         run: cargo clippy --manifest-path "$RUNTIME_MANIFEST" --package mycelix-integration-runtime --all-targets -- -D warnings
+
+      - name: Clippy atomic dispatch
+        run: cargo clippy --manifest-path "$ATOMIC_MANIFEST" --package mycelix-integration-atomic-dispatch-context --all-targets -- -D warnings
 
       - name: Clippy store binding
         run: cargo clippy --manifest-path "$STORE_MANIFEST" --package mycelix-integration-runtime-store-binding --all-targets -- -D warnings
@@ -166,20 +191,21 @@ jobs:
           grep -Fq -- "RUST_TOOLCHAIN: '1.96.0'" "$WORKFLOW"
           grep -Fq -- 'github.event.pull_request.head.sha || github.sha' "$WORKFLOW"
           grep -Fq -- 'persist-credentials: false' "$WORKFLOW"
-          grep -Fq -- "- 'crates/mycelix-integration-runtime/src/**'" "$WORKFLOW"
-          grep -Fq -- "- 'crates/mycelix-integration-runtime/tests/**'" "$WORKFLOW"
-          grep -Fq -- 'for source_dir in "$RUNTIME_SOURCE_DIR" "$STORE_SOURCE_DIR" "$JOURNAL_SOURCE_DIR"; do' "$WORKFLOW"
+          grep -Fq -- 'ATOMIC_MANIFEST: crates/mycelix-integration-atomic-dispatch-context/Cargo.toml' "$WORKFLOW"
+          grep -Fq -- 'ADMIN_EXCLUSION_MANIFEST: crates/mycelix-integration-admin-mutation-exclusion/Cargo.toml' "$WORKFLOW"
+          grep -Fq -- 'for source_dir in "$RUNTIME_SOURCE_DIR" "$ATOMIC_SOURCE_DIR" "$STORE_SOURCE_DIR" "$JOURNAL_SOURCE_DIR"; do' "$WORKFLOW"
           grep -Fq -- 'find "$RUNTIME_TEST_DIR" -type f -name '\''*.rs'\'' -print0 | sort -z | xargs -0 sha256sum' "$WORKFLOW"
-          grep -Fq -- 'sha256sum /tmp/integration-transport-dependency-metadata.json' "$WORKFLOW"
-          grep -Fq -- 'crates/mycelix-integration-current-action-authority/Cargo.toml' "$WORKFLOW"
-          grep -Fq -- 'crates/mycelix-integration-materializer-abi/src/lib.rs' "$WORKFLOW"
+          grep -Fq -- 'cargo metadata --manifest-path "$ADMIN_EXCLUSION_MANIFEST" --format-version 1' "$WORKFLOW"
+          grep -Fq -- 'expected one rusqlite 0.37.x' "$WORKFLOW"
+          grep -Fq -- 'expected one libsqlite3-sys ABI owner' "$WORKFLOW"
           grep -Fq -- 'rustfmt --edition 2024 --check --config skip_children=true "$RUNTIME_SHELL_SOURCE"' "$WORKFLOW"
           grep -Fq -- 'rustfmt --edition 2024 --check "$RUNTIME_SOURCE"' "$WORKFLOW"
           grep -Fq -- 'rustfmt --edition 2024 --check "$RUNTIME_BOOTSTRAP_SOURCE"' "$WORKFLOW"
+          grep -Fq -- 'Clippy atomic dispatch' "$WORKFLOW"
           grep -Fq -- 'Store-binding and journal source formatting are intentionally owned by' "$WORKFLOW"
           if grep -Eq -- 'cargo fmt --manifest-path "\$(RUNTIME|STORE|JOURNAL)_MANIFEST"' "$WORKFLOW"; then
             echo 'Dependency-closure lane must not duplicate sibling package style gates.'
             exit 1
           fi
           test "$(git rev-parse HEAD)" = "$QUALIFICATION_SUBJECT_SHA"
-          git diff --exit-code -- "$RUNTIME_MANIFEST" "$RUNTIME_SOURCE_DIR" "$RUNTIME_TEST_DIR" "$AUTH_ACTION_MANIFEST" "$MATERIALIZER_ABI_SOURCE" "$STORE_MANIFEST" "$STORE_SOURCE_DIR" "$JOURNAL_MANIFEST" "$JOURNAL_SOURCE_DIR" "$WORKFLOW"
+          git diff --exit-code -- "$RUNTIME_MANIFEST" "$RUNTIME_SOURCE_DIR" "$RUNTIME_TEST_DIR" "$AUTH_ACTION_MANIFEST" "$MATERIALIZER_ABI_SOURCE" "$ADMIN_EXCLUSION_MANIFEST" "$ATOMIC_MANIFEST" "$ATOMIC_SOURCE_DIR" "$STORE_MANIFEST" "$STORE_SOURCE_DIR" "$JOURNAL_MANIFEST" "$JOURNAL_SOURCE_DIR" "$WORKFLOW"
