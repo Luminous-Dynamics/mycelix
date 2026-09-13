@@ -16,3 +16,4 @@ finance-collateral-request-binding = { path = "../finance-collateral-request-bin
 
 [dev-dependencies]
 serde_json = { workspace = true }
+finance-collateral-deposit = { path = "../finance-collateral-deposit" }

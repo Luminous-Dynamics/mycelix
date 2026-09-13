@@ -649,6 +649,7 @@ name = "finance-sap-conservation"
 version = "0.3.0"
 dependencies = [
  "finance-collateral-auth",
+ "finance-collateral-deposit",
  "finance-collateral-request-binding",
  "finance-collateral-settlement",
  "serde",
