@@ -1,0 +1,66 @@
+name: Pulse V2 Exact Frame
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-pulse/crates/pulse-realtime-types/**'
+      - '.github/workflows/pulse-v2-exact-frame.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-pulse/crates/pulse-realtime-types/**'
+      - '.github/workflows/pulse-v2-exact-frame.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pulse-v2-exact-frame-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  MANIFEST: mycelix-workspace/mycelix-pulse/crates/pulse-realtime-types/Cargo.toml
+
+jobs:
+  exact-frame:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact subject checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ github.event.pull_request.head.sha || github.sha }}'
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$expected" || {
+            echo "::error::Expected exact subject $expected, got $actual"
+            exit 1
+          }
+          test -f "$MANIFEST"
+          test -f mycelix-workspace/mycelix-pulse/crates/pulse-realtime-types/tests/exact_frame.rs
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87b
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path "$MANIFEST" -- --check
+
+      - name: Run exact-frame tests
+        run: cargo test --manifest-path "$MANIFEST" --test exact_frame
+
+      - name: Clippy exact-frame test target
+        run: cargo clippy --manifest-path "$MANIFEST" --test exact_frame -- -D warnings
+
+      - name: Prove checkout immutability
+        if: always()
+        run: git diff --exit-code && test -z "$(git status --porcelain)"
