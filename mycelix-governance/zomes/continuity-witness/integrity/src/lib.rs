@@ -113,7 +113,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::RegisterDeleteLink { .. } => {
             invalid("Continuity witness index links cannot be deleted")
         }
-        FlatOp::RegisterDelete { .. } => invalid("Continuity witness entries cannot be deleted"),
+        FlatOp::RegisterDelete(_) => invalid("Continuity witness entries cannot be deleted"),
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
