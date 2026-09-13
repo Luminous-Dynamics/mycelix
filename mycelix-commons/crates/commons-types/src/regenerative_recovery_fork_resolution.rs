@@ -72,10 +72,10 @@ impl RegenerativeRecoveryForkResolutionEvidenceV1 {
         {
             return Err("recovery fork-resolution nominal digest is not lowercase 64-hex".into());
         }
-        if let Some(predecessor) = &self.fork_predecessor_recovery_evidence_content_digest {
-            if !lower_hex_64(predecessor) {
-                return Err("recovery fork predecessor digest is not lowercase 64-hex".into());
-            }
+        if let Some(predecessor) = &self.fork_predecessor_recovery_evidence_content_digest
+            && !lower_hex_64(predecessor)
+        {
+            return Err("recovery fork predecessor digest is not lowercase 64-hex".into());
         }
         if self.conflicting_recovery_evidence_content_digests.len() != 2 {
             return Err("recovery fork resolution must bind exactly two branch digests".into());
