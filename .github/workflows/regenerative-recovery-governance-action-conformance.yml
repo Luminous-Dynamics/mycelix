@@ -6,7 +6,7 @@ on:
       - test/regenerative-recovery-governance-action-conformance-v1
   pull_request:
     branches:
-      - feat/regenerative-recovery-governance-authority-v1
+      - security/regenerative-recovery-governance-mutation-boundary-v1
 
 permissions:
   contents: read
