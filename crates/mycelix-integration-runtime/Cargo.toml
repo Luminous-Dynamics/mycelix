@@ -11,7 +11,7 @@ path = "src/runtime.rs"
 [dependencies]
 blake3 = "1.5"
 mycelix-integration-core = { path = "../mycelix-integration-core" }
-rusqlite = { version = "0.32", features = ["bundled"] }
+rusqlite = { version = "0.37", features = ["bundled"] }
 serde_json = "1.0"
 thiserror = "2.0"
 
