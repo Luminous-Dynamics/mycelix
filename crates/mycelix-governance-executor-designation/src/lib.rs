@@ -12,7 +12,7 @@
 
 use mycelix_governance_authority::ProposalId;
 use mycelix_governance_threshold_qualification::{
-    QualifiedThresholdAuthorization, PROTOCOL_VERSION as THRESHOLD_PROTOCOL_VERSION,
+    PROTOCOL_VERSION as THRESHOLD_PROTOCOL_VERSION, QualifiedThresholdAuthorization,
 };
 use mycelix_institutional_core::{
     AuthorityGrant, AuthorityGrantId, AuthoritySourceRef, CapabilityId, Digest32, InstitutionId,
@@ -194,7 +194,10 @@ pub fn qualify_executor_designation(
     if designation.authority_grant_id != grant.id {
         return Err(ExecutorDesignationError::GrantIdentityMismatch);
     }
-    if !grant.capabilities.contains(&designation.required_capability) {
+    if !grant
+        .capabilities
+        .contains(&designation.required_capability)
+    {
         return Err(ExecutorDesignationError::MissingExecutionCapability);
     }
 
@@ -284,7 +287,10 @@ fn validate_grant_receipt(
     if receipt.verified_grant_proof_ref != receipt.grant.grant_proof_ref {
         return Err(ExecutorDesignationError::GrantProofMismatch);
     }
-    match (&receipt.grant.delegated_from, &receipt.delegation_verification_ref) {
+    match (
+        &receipt.grant.delegated_from,
+        &receipt.delegation_verification_ref,
+    ) {
         (Some(_), Some(reference)) => require_ref(reference)?,
         (Some(_), None) => return Err(ExecutorDesignationError::MissingDelegationVerification),
         (None, _) => {}
@@ -393,21 +399,35 @@ impl fmt::Display for ExecutorDesignationError {
             Self::InvalidVerificationTime => "invalid executor authority verification time",
             Self::GrantProofMismatch => "verified grant proof does not match grant",
             Self::MissingDelegationVerification => "delegated grant lacks delegation verification",
-            Self::DesignationProofMismatch => "verified designation proof does not match designation",
+            Self::DesignationProofMismatch => {
+                "verified designation proof does not match designation"
+            }
             Self::SourceProofMismatch => "verified source proof does not match designation source",
             Self::ProposalMismatch => "executor designation targets another proposal",
             Self::ActionDigestMismatch => "executor designation targets different action bytes",
-            Self::ActionDigestProfileMismatch => "executor designation uses another action digest profile",
-            Self::ThresholdAuthorizationMismatch => "executor designation references another threshold authorization",
+            Self::ActionDigestProfileMismatch => {
+                "executor designation uses another action digest profile"
+            }
+            Self::ThresholdAuthorizationMismatch => {
+                "executor designation references another threshold authorization"
+            }
             Self::InstitutionMismatch => "executor authority institution mismatch",
             Self::JurisdictionMismatch => "executor authority jurisdiction mismatch",
             Self::RulebookMismatch => "executor authority rulebook mismatch",
             Self::ExecutorHolderMismatch => "executor is not the authority-grant holder",
-            Self::GrantIdentityMismatch => "executor designation references another authority grant",
-            Self::MissingExecutionCapability => "authority grant lacks required execution capability",
+            Self::GrantIdentityMismatch => {
+                "executor designation references another authority grant"
+            }
+            Self::MissingExecutionCapability => {
+                "authority grant lacks required execution capability"
+            }
             Self::DesignationExceedsGrantLifetime => "executor designation exceeds grant lifetime",
-            Self::DesignationPredatesThresholdAuthority => "executor designation predates referenced threshold authority",
-            Self::DesignationExceedsThresholdLifetime => "executor designation exceeds threshold authority lifetime",
+            Self::DesignationPredatesThresholdAuthority => {
+                "executor designation predates referenced threshold authority"
+            }
+            Self::DesignationExceedsThresholdLifetime => {
+                "executor designation exceeds threshold authority lifetime"
+            }
         };
         write!(f, "{message}")
     }
@@ -465,7 +485,8 @@ mod tests {
                 verified_at_ms: 21,
                 valid_until_ms: 90,
             },
-            actions_digest_profile: "mycelix-governance-execution-authority-v1-blake3-exact-json".into(),
+            actions_digest_profile: "mycelix-governance-execution-authority-v1-blake3-exact-json"
+                .into(),
             threshold_authorization_ref: "threshold-authorization:1".into(),
             verification_ref: "threshold-provider:verified:1".into(),
             verified_at_ms: 22,
@@ -513,7 +534,8 @@ mod tests {
             authority_grant_id: AuthorityGrantId::new("grant:executor").unwrap(),
             proposal_id: ProposalId::new("MIP-42").unwrap(),
             actions_digest: d(2),
-            actions_digest_profile: "mycelix-governance-execution-authority-v1-blake3-exact-json".into(),
+            actions_digest_profile: "mycelix-governance-execution-authority-v1-blake3-exact-json"
+                .into(),
             threshold_authorization_ref: "threshold-authorization:1".into(),
             institution: InstitutionId::new("institution:test").unwrap(),
             jurisdiction: None,
@@ -550,7 +572,10 @@ mod tests {
             30,
         )
         .unwrap();
-        assert_eq!(qualified.executor_principal.as_str(), "did:mycelix:executor");
+        assert_eq!(
+            qualified.executor_principal.as_str(),
+            "did:mycelix:executor"
+        );
         assert_eq!(qualified.capability_scope.as_str(), "governance.execute");
         assert_eq!(qualified.valid_until_ms, 80);
     }
@@ -559,14 +584,13 @@ mod tests {
     fn later_threshold_reverification_does_not_invalidate_exact_designation() {
         let mut threshold = threshold();
         threshold.verified_at_ms = 29;
-        let qualified = qualify_executor_designation(
-            &threshold,
-            &grant_receipt(),
-            &designation_receipt(),
-            30,
-        )
-        .unwrap();
-        assert_eq!(qualified.executor_principal.as_str(), "did:mycelix:executor");
+        let qualified =
+            qualify_executor_designation(&threshold, &grant_receipt(), &designation_receipt(), 30)
+                .unwrap();
+        assert_eq!(
+            qualified.executor_principal.as_str(),
+            "did:mycelix:executor"
+        );
         assert_eq!(qualified.valid_until_ms, 80);
     }
 
@@ -575,8 +599,7 @@ mod tests {
         let mut receipt = designation_receipt();
         receipt.designation.proposal_id = ProposalId::new("MIP-99").unwrap();
         assert_eq!(
-            qualify_executor_designation(&threshold(), &grant_receipt(), &receipt, 30)
-                .unwrap_err(),
+            qualify_executor_designation(&threshold(), &grant_receipt(), &receipt, 30).unwrap_err(),
             ExecutorDesignationError::ProposalMismatch
         );
     }
@@ -586,8 +609,7 @@ mod tests {
         let mut receipt = designation_receipt();
         receipt.designation.actions_digest_profile = "other-profile".into();
         assert_eq!(
-            qualify_executor_designation(&threshold(), &grant_receipt(), &receipt, 30)
-                .unwrap_err(),
+            qualify_executor_designation(&threshold(), &grant_receipt(), &receipt, 30).unwrap_err(),
             ExecutorDesignationError::ActionDigestProfileMismatch
         );
     }
@@ -619,8 +641,7 @@ mod tests {
         let mut receipt = designation_receipt();
         receipt.designation.issued_at_ms = 19;
         assert_eq!(
-            qualify_executor_designation(&threshold(), &grant_receipt(), &receipt, 30)
-                .unwrap_err(),
+            qualify_executor_designation(&threshold(), &grant_receipt(), &receipt, 30).unwrap_err(),
             ExecutorDesignationError::DesignationPredatesThresholdAuthority
         );
     }
@@ -630,8 +651,7 @@ mod tests {
         let mut receipt = designation_receipt();
         receipt.designation.expires_at_ms = 95;
         assert_eq!(
-            qualify_executor_designation(&threshold(), &grant_receipt(), &receipt, 30)
-                .unwrap_err(),
+            qualify_executor_designation(&threshold(), &grant_receipt(), &receipt, 30).unwrap_err(),
             ExecutorDesignationError::DesignationExceedsThresholdLifetime
         );
     }
