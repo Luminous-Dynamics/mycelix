@@ -31,7 +31,7 @@ use mycelix_integration_runtime_store_binding::{
 use mycelix_integration_transport_observation::{
     QualifiedTransportObservation, TransportObservationDisposition,
 };
-use rusqlite::{params, Connection, OpenFlags, OptionalExtension, TransactionBehavior};
+use rusqlite::{Connection, OpenFlags, OptionalExtension, TransactionBehavior, params};
 use std::fs;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
@@ -356,11 +356,8 @@ pub fn record_armed_observation(
     now_ms: i64,
 ) -> Result<(), TransportJournalError> {
     validate_observation_identity_armed(&armed, observation, now_ms)?;
-    let canonical = canonical_exact_store_path(
-        store_path.as_ref(),
-        armed.store_device,
-        armed.store_inode,
-    )?;
+    let canonical =
+        canonical_exact_store_path(store_path.as_ref(), armed.store_device, armed.store_inode)?;
     let mut conn = open_exact_store(&canonical, armed.store_device, armed.store_inode)?;
     let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
     ensure_table(&tx)?;
@@ -639,8 +636,8 @@ fn validate_journal_identity_prepared(
     let Some(row) = load_journal_row(conn, prepared.entry_id, &prepared.attempt_id)? else {
         return Err(TransportJournalError::MissingJournal);
     };
-    let valid_until = i64::try_from(prepared.valid_until_ms)
-        .map_err(|_| TransportJournalError::TimeOverflow)?;
+    let valid_until =
+        i64::try_from(prepared.valid_until_ms).map_err(|_| TransportJournalError::TimeOverflow)?;
     if row.stage != JOURNAL_PREPARED
         || row.command_id != prepared.command_id.as_str()
         || row.connector_instance != prepared.connector_instance.as_str()
@@ -668,8 +665,8 @@ fn validate_journal_identity_armed(
     let Some(row) = load_journal_row(conn, armed.entry_id, &armed.attempt_id)? else {
         return Err(TransportJournalError::MissingJournal);
     };
-    let valid_until = i64::try_from(armed.valid_until_ms)
-        .map_err(|_| TransportJournalError::TimeOverflow)?;
+    let valid_until =
+        i64::try_from(armed.valid_until_ms).map_err(|_| TransportJournalError::TimeOverflow)?;
     if row.stage != JOURNAL_WRITE_MAY_BEGIN
         || row.command_id != armed.command_id.as_str()
         || row.connector_instance != armed.connector_instance.as_str()
@@ -677,8 +674,7 @@ fn validate_journal_identity_armed(
         || row.issuance_digest.as_slice() != armed.issuance_digest.0
         || row.request_commitment_algorithm
             != digest_algorithm_code(armed.observation_request_commitment.algorithm)
-        || row.request_commitment_digest.as_slice()
-            != armed.observation_request_commitment.digest
+        || row.request_commitment_digest.as_slice() != armed.observation_request_commitment.digest
         || row.descriptor_valid_until_ms != valid_until
         || row.prepared_at_ms != armed.prepared_at_ms
         || row.armed_at_ms != Some(armed.armed_at_ms)
@@ -829,10 +825,7 @@ fn require_exact_store_identity(
     expected_inode: u64,
 ) -> Result<(), TransportJournalError> {
     let metadata = fs::metadata(path).map_err(TransportJournalError::Io)?;
-    if !metadata.is_file()
-        || metadata.dev() != expected_device
-        || metadata.ino() != expected_inode
-    {
+    if !metadata.is_file() || metadata.dev() != expected_device || metadata.ino() != expected_inode {
         return Err(TransportJournalError::StoreIdentityChanged);
     }
     Ok(())
@@ -914,7 +907,9 @@ pub enum TransportJournalError {
     InvalidJournalState,
     #[error("pre-write observation is not conclusive zero-byte non-issuance")]
     PrewriteObservationNotNonissuance,
-    #[error("transport observation does not match exact attempt/command/connector/request identity")]
+    #[error(
+        "transport observation does not match exact attempt/command/connector/request identity"
+    )]
     ObservationIdentityMismatch,
     #[error("transport observation time violates the journal causal frontier")]
     ObservationTimeMismatch,
