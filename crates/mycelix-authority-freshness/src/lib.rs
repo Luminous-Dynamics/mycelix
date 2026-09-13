@@ -13,12 +13,9 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 pub const PROTOCOL_VERSION: &str = "mycelix-authority-freshness-v0.1";
-pub const SUBJECT_IDENTITY_PROFILE: &str =
-    "mycelix-authority-freshness-subject-v1-blake3-framed";
-pub const SNAPSHOT_IDENTITY_PROFILE: &str =
-    "mycelix-authority-freshness-snapshot-v1-blake3-framed";
-pub const BUNDLE_IDENTITY_PROFILE: &str =
-    "mycelix-authority-freshness-bundle-v1-blake3-framed";
+pub const SUBJECT_IDENTITY_PROFILE: &str = "mycelix-authority-freshness-subject-v1-blake3-framed";
+pub const SNAPSHOT_IDENTITY_PROFILE: &str = "mycelix-authority-freshness-snapshot-v1-blake3-framed";
+pub const BUNDLE_IDENTITY_PROFILE: &str = "mycelix-authority-freshness-bundle-v1-blake3-framed";
 
 const DOMAIN_SUBJECT: &[u8] = b"mycelix/authority-freshness/subject/v1";
 const DOMAIN_SNAPSHOT: &[u8] = b"mycelix/authority-freshness/snapshot/v1";
@@ -487,19 +484,20 @@ mod tests {
     #[test]
     fn input_order_does_not_change_bundle_identity() {
         let a = subject(AuthoritySubjectKind::AuthorityGrant, "grant:1", 1);
-        let b = subject(AuthoritySubjectKind::ExecutorDesignation, "designation:1", 2);
+        let b = subject(
+            AuthoritySubjectKind::ExecutorDesignation,
+            "designation:1",
+            2,
+        );
         let first = qualify_current_freshness(
             &[a.clone(), b.clone()],
             &[receipt(a.clone(), 1), receipt(b.clone(), 1)],
             30,
         )
         .unwrap();
-        let second = qualify_current_freshness(
-            &[b.clone(), a.clone()],
-            &[receipt(b, 1), receipt(a, 1)],
-            30,
-        )
-        .unwrap();
+        let second =
+            qualify_current_freshness(&[b.clone(), a.clone()], &[receipt(b, 1), receipt(a, 1)], 30)
+                .unwrap();
         assert_eq!(first.freshness_digest, second.freshness_digest);
         assert_eq!(first.subjects, second.subjects);
     }
@@ -532,12 +530,9 @@ mod tests {
             30,
         )
         .unwrap();
-        let second = qualify_current_freshness(
-            std::slice::from_ref(&grant),
-            &[receipt(grant, 2)],
-            30,
-        )
-        .unwrap();
+        let second =
+            qualify_current_freshness(std::slice::from_ref(&grant), &[receipt(grant, 2)], 30)
+                .unwrap();
         assert_ne!(first.freshness_digest, second.freshness_digest);
     }
 
