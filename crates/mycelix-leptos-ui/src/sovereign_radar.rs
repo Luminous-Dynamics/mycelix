@@ -4,7 +4,7 @@
 //! 8D Sovereign Profile Radar Chart
 
 use leptos::prelude::*;
-use sovereign_profile::{CivicTier, SovereignDimension, SovereignProfile};
+use sovereign_profile::{SovereignDimension, SovereignProfile};
 
 /// Size presets for the radar chart.
 #[derive(Clone, Copy, Default, PartialEq)]
