@@ -1,0 +1,6 @@
+[package]
+name = "mycelix-integration-sqlite-commit-classification"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Fail-closed durable commit outcome classification for Mycelix integration state transitions"
