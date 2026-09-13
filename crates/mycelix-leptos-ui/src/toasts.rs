@@ -63,14 +63,15 @@ impl ToastState {
 
         let toasts = self.toasts;
         wasm_bindgen_futures::spawn_local(async move {
-            // Basic delay without gloo-timers for now if not available, 
+            // Basic delay without gloo-timers for now if not available,
             // but we'll assume it's okay to use for a prototype.
             // In real Leptos 0.6+ we use set_timeout.
             let _ = gloo_timers::callback::Timeout::new(4000, move || {
                 toasts.update(|t| {
                     t.retain(|toast| toast.id != id);
                 });
-            }).forget();
+            })
+            .forget();
         });
     }
 
