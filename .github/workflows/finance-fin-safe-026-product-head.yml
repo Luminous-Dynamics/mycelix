@@ -1,0 +1,114 @@
+name: Finance FIN-SAFE-026 Exact Product Head
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/finance-fin-safe-026-product-head.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: finance-fin-safe-026-product-head
+  cancel-in-progress: false
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  PRODUCT_SHA: '5f33c6658fef7fb9c975c10b160486e528e640d4'
+  TRANSFER_SOURCE_SHA256: '83333f3b7bb9f59cc6947ddbb8ed2303c09a5ac20d381ed98e8475515a495649'
+  CONSERVATION_MANIFEST_SHA256: '2900cb097630cb71a016c40be9137ba5dc35554a46e47739dddcfa40a37f3a2b'
+  LOCK_SHA256: '2fa0aae7b219218a0d358ac12fa63b596109613c3ea17c5751ce1f6d57630e93'
+
+jobs:
+  qualify:
+    name: Qualify exact FIN-SAFE-026 product head
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'ci-fin-safe-026-product-head'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Checkout exact promoted product head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.PRODUCT_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Bind exact product bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$PRODUCT_SHA"
+          test "$(sha256sum mycelix-finance/crates/finance-sap-transfer-v2/src/lib.rs | awk '{print $1}')" = "$TRANSFER_SOURCE_SHA256"
+          test "$(sha256sum mycelix-finance/crates/finance-sap-conservation/Cargo.toml | awk '{print $1}')" = "$CONSERVATION_MANIFEST_SHA256"
+          test "$(sha256sum mycelix-finance/Cargo.lock | awk '{print $1}')" = "$LOCK_SHA256"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - name: Check formatting and locked graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo fmt --all --check
+          cargo metadata --locked --format-version 1 > /tmp/fin-safe-026-product-metadata.json
+          cargo tree --workspace --locked > /tmp/fin-safe-026-product-tree.txt
+          test "$(sha256sum Cargo.lock | awk '{print $1}')" = "$LOCK_SHA256"
+
+      - name: Test focused remap theorem
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo test -p finance-sap-transfer-v2 --locked 2>&1 | tee /tmp/fin-safe-026-product-targeted.log
+
+      - name: Check complete V2 wasm boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo check \
+            -p collateral_deposit_v2_integrity -p collateral_deposit_v2 \
+            -p collateral_settlement_auth_integrity -p collateral_settlement_auth \
+            -p collateral_issuance_v2_integrity -p collateral_issuance_v2 \
+            -p sap_account_v2_integrity -p sap_account_v2 \
+            -p sap_transfer_v2_integrity -p sap_transfer_v2 \
+            --target wasm32-unknown-unknown --lib --locked \
+            2>&1 | tee /tmp/fin-safe-026-product-wasm.log
+
+      - name: Test full Finance workspace under lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo test --workspace --locked 2>&1 | tee /tmp/fin-safe-026-product-workspace.log
+
+      - name: Prove checkout remained immutable
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$PRODUCT_SHA"
+          git status --porcelain=v1 --untracked-files=all > /tmp/fin-safe-026-product-status.txt
+          test ! -s /tmp/fin-safe-026-product-status.txt
+          test "$(sha256sum mycelix-finance/Cargo.lock | awk '{print $1}')" = "$LOCK_SHA256"
+
+      - name: Upload exact-head evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fin-safe-026-product-head-${{ env.PRODUCT_SHA }}-${{ github.run_attempt }}
+          path: |
+            /tmp/fin-safe-026-product-status.txt
+            /tmp/fin-safe-026-product-metadata.json
+            /tmp/fin-safe-026-product-tree.txt
+            /tmp/fin-safe-026-product-targeted.log
+            /tmp/fin-safe-026-product-wasm.log
+            /tmp/fin-safe-026-product-workspace.log
+          if-no-files-found: warn
+          retention-days: 30
