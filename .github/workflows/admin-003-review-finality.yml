@@ -39,7 +39,7 @@ jobs:
           rustfmt --version
           cargo clippy --version
 
-      - name: Dependency and feature ancestry
+      - name: Dependency, feature and hardened-public-surface ancestry
         run: |
           python3 - <<'PY'
           import pathlib
@@ -61,9 +61,12 @@ jobs:
 
           facade = (root / 'src' / 'lib_hardened.rs').read_text()
           admin3 = (root / 'src' / 'admin_003.rs').read_text()
+          hard = (root / 'src' / 'admin_003_hardened.rs').read_text()
           assert '#[cfg(feature = "administrative-review")]\nmod admin_003;' in facade
+          assert '#[cfg(feature = "administrative-review")]\nmod admin_003_hardened;' in facade
           assert 'QualifiedAdministrativeFinality' in facade
           assert 'record_external_judicial_finality' in facade
+          assert 'AdministrativeReviewHardeningError' in facade
           assert 'pub struct QualifiedReviewableDecision' in admin3
           assert 'pub struct QualifiedChallenge' in admin3
           assert 'pub struct QualifiedAppealReview' in admin3
@@ -71,12 +74,39 @@ jobs:
           assert 'pub struct QualifiedAdministrativeFinality' in admin3
           assert 'pub struct RecordedExternalJudicialFinality' in admin3
           assert 'pub struct QualifiedRemedy' in admin3
+          assert 'pub struct QualifiedAppealReview' in hard
+          assert 'last_stay_transition_ms' in hard
+          assert 'active_stay_imposed_at_ms' in hard
+          assert 'StayTimeRegression' in hard
+
+          # The semantic raw stay/review transition functions stay inside the
+          # private module; the public surface must route through hardening.
+          raw_export = facade.split('pub use admin_003::{', 1)[1].split('};', 1)[0]
+          for forbidden in (
+              'QualifiedAppealReview',
+              'StayDirective',
+              'StayDirectiveKind',
+              'StayState',
+              'apply_stay_directive',
+              'qualify_appeal',
+              'qualify_review_disposition',
+          ):
+              assert forbidden not in raw_export
+          hardened_export = facade.split('pub use admin_003_hardened::{', 1)[1].split('};', 1)[0]
+          for required in (
+              'QualifiedAppealReview',
+              'apply_stay_directive',
+              'qualify_appeal',
+              'qualify_review_disposition',
+          ):
+              assert required in hardened_export
           PY
 
       - name: Review authority and sovereignty separation audit
         run: |
           root='crates/mycelix-administrative-procedure/src/lib_hardened.rs'
           admin3='crates/mycelix-administrative-procedure/src/admin_003.rs'
+          hard='crates/mycelix-administrative-procedure/src/admin_003_hardened.rs'
 
           grep -q 'evaluate_authority' "$admin3"
           grep -q 'review_capability' "$admin3"
@@ -89,15 +119,17 @@ jobs:
           grep -q 'RecordedExternalJudicialFinality' "$admin3"
           grep -q 'grants_authority' "$admin3"
           grep -q 'grants_external_effect_authority' "$admin3"
+          grep -q 'StayTimeRegression' "$hard"
+          grep -q 'last_stay_transition_ms' "$hard"
 
           # Court finality must remain a recorded external reference, not an
           # authority grant created by the administrative kernel.
-          if grep -Eq 'QualifiedJudicial(Authority|Finality)|grant(s)?_judicial_authority' "$admin3"; then
+          if grep -Eq 'QualifiedJudicial(Authority|Finality)|grant(s)?_judicial_authority' "$admin3" "$hard"; then
             echo 'ADMIN-003 attempted to mint judicial authority' >&2
             exit 1
           fi
 
-          code_lines="$(cat "$root" "$admin3" | grep -nEv '^[[:space:]]*//' || true)"
+          code_lines="$(cat "$root" "$admin3" "$hard" | grep -nEv '^[[:space:]]*//' || true)"
           forbidden='(hdk|hdi|holochain)::|std::(net|fs|process)::|SystemTime::|Instant::now|[[:space:]{(,](phi|reputation|stake|model_score)[[:space:]]*:|authorized[[:space:]]*:[[:space:]]*bool|official[[:space:]]*:[[:space:]]*bool'
           if printf '%s\n' "$code_lines" | grep -E "$forbidden"; then
             echo 'ADMIN-003 gained forbidden runtime/advisory/boolean authority surface' >&2
@@ -110,6 +142,8 @@ jobs:
             crates/mycelix-administrative-procedure/src/lib_hardened.rs
           rustfmt --edition 2024 --check \
             crates/mycelix-administrative-procedure/src/admin_003.rs
+          rustfmt --edition 2024 --check \
+            crates/mycelix-administrative-procedure/src/admin_003_hardened.rs
 
       - name: Isolated three-mode executable qualification
         run: |
@@ -129,7 +163,8 @@ jobs:
           cargo clippy --manifest-path "$manifest" --all-targets \
             --features procedural-completeness -- -D warnings
 
-          # ADMIN-003 is a monotonic child of ADMIN-002.
+          # ADMIN-003 is a monotonic child of ADMIN-002 and its public stay
+          # transitions are routed through the hardened temporal-history facade.
           cargo test --manifest-path "$manifest" --all-targets \
             --features administrative-review
           cargo clippy --manifest-path "$manifest" --all-targets \
