@@ -1,0 +1,76 @@
+name: ADMIN-003 One-Shot Clippy Autofix
+
+on:
+  push:
+    branches:
+      - 'feat/admin-003-review-finality-v0.1'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: true
+
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+
+      - name: Repair exact ADMIN-003 quality defects
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          admin = Path('crates/mycelix-administrative-procedure/src/admin_003.rs')
+          text = admin.read_text()
+
+          # These two accessors are on private semantic tokens. The public
+          # hardened tokens retain the explicit no-effect boundary; keeping
+          # unreachable private duplicates only creates dead-code lint debt.
+          needle = '''\n    pub fn grants_external_effect_authority(&self) -> bool {\n        false\n    }\n'''
+          assert text.count(needle) >= 2, 'expected private no-effect accessors'
+          text = text.replace(needle, '', 2)
+
+          old = '''    if let Some(expires) = remedy.expires_at_ms {\n        if expires <= remedy.issued_at_ms {\n            return Err(AdministrativeReviewError::InvalidRemedyLifetime);\n        }\n    }\n'''
+          new = '''    if let Some(expires) = remedy.expires_at_ms\n        && expires <= remedy.issued_at_ms\n    {\n        return Err(AdministrativeReviewError::InvalidRemedyLifetime);\n    }\n'''
+          assert text.count(old) == 1, 'expected exact remedy lifetime block'
+          text = text.replace(old, new)
+          admin.write_text(text)
+
+          hard = Path('crates/mycelix-administrative-procedure/src/admin_003_hardened.rs')
+          text = hard.read_text()
+          old = '''    if let Some(previous_at_ms) = review.last_stay_transition_ms {\n        if event_at_ms < previous_at_ms {\n            return Err(AdministrativeReviewHardeningError::StayTimeRegression);\n        }\n    }\n'''
+          new = '''    if let Some(previous_at_ms) = review.last_stay_transition_ms\n        && event_at_ms < previous_at_ms\n    {\n        return Err(AdministrativeReviewHardeningError::StayTimeRegression);\n    }\n'''
+          assert text.count(old) == 1, 'expected exact stay-history block'
+          hard.write_text(text.replace(old, new))
+          PY
+
+          rustfmt --edition 2024 crates/mycelix-administrative-procedure/src/admin_003.rs
+          rustfmt --edition 2024 crates/mycelix-administrative-procedure/src/admin_003_hardened.rs
+          git diff --check
+
+      - name: Warnings-denied ADMIN-003 verification
+        run: |
+          qroot="$(mktemp -d)"
+          mkdir -p "$qroot/crates"
+          cp -a crates/mycelix-institutional-core "$qroot/crates/"
+          cp -a crates/mycelix-administrative-procedure "$qroot/crates/"
+          manifest="$qroot/crates/mycelix-administrative-procedure/Cargo.toml"
+          cargo test --manifest-path "$manifest" --all-targets --features administrative-review
+          cargo clippy --manifest-path "$manifest" --all-targets --features administrative-review -- -D warnings
+
+      - name: Commit exact repair
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add crates/mycelix-administrative-procedure/src/admin_003.rs \
+                  crates/mycelix-administrative-procedure/src/admin_003_hardened.rs
+          git diff --cached --quiet && exit 1
+          git commit -m 'fix(admin): clear ADMIN-003 format and Clippy gates'
+          git push origin HEAD:feat/admin-003-review-finality-v0.1
