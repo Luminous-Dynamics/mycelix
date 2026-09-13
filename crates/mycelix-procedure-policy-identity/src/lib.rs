@@ -219,10 +219,7 @@ mod tests {
             policy_digest: Digest32([9; 32]),
             policy_digest_profile: "unverified-input".into(),
             required_notice_recipients: vec![p("did:example:applicant"), p("did:example:owner")],
-            required_response_recipients: vec![
-                p("did:example:applicant"),
-                p("did:example:owner"),
-            ],
+            required_response_recipients: vec![p("did:example:applicant"), p("did:example:owner")],
             response_mode: ResponseModeRequirement::WrittenOrHearing,
             min_response_window_ms: 86_400_000,
             reasons: ReasonsRequirement::AtLeastOne,
@@ -281,8 +278,7 @@ mod tests {
         let baseline = procedural_policy_semantic_identity(&first).unwrap().digest;
 
         let mut changed_profile = first.clone();
-        changed_profile.procedure_profile =
-            ProcedureProfileId::new("procedure:permit:v2").unwrap();
+        changed_profile.procedure_profile = ProcedureProfileId::new("procedure:permit:v2").unwrap();
         assert_ne!(
             baseline,
             procedural_policy_semantic_identity(&changed_profile)
