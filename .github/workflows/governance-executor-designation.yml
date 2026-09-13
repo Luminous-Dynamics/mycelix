@@ -43,6 +43,8 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
+
           src = Path('crates/mycelix-governance-executor-designation/src/lib.rs').read_text()
           assert 'AuthorityGrant' in src
           assert 'threshold_authorization_ref' in src
@@ -53,6 +55,10 @@ jobs:
           assert 'MissingDelegationVerification' in src
           assert 'phi' not in src.lower()
           assert 'reputation' not in src.lower()
-          assert 'verified: bool' not in src
+          forbidden_boolean_authority = re.compile(
+              r'^\s*(?:pub(?:\([^)]*\))?\s+)?(?:verified|trusted)\s*:\s*bool\b',
+              re.MULTILINE,
+          )
+          assert not forbidden_boolean_authority.search(src)
           print('PASS: executor designation is scoped attenuation, not generic score/identity authority')
           PY
