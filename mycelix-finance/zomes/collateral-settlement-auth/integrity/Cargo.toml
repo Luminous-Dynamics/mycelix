@@ -14,4 +14,8 @@ holochain_serialized_bytes = { workspace = true }
 hdi = { workspace = true }
 serde = { workspace = true }
 finance-collateral-auth = { path = "../../../crates/finance-collateral-auth" }
+finance-holochain-contracts = { path = "../../../crates/finance-holochain-contracts" }
 mycelix-bridge-entry-types = { workspace = true }
+
+[dev-dependencies]
+finance-collateral-settlement = { path = "../../../crates/finance-collateral-settlement" }

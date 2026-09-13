@@ -8,11 +8,12 @@
 //! or mutate a request. It creates immutable V2 deposit intent records and can
 //! load one exact valid request action into the pure FIN-SAFE-009 binding type.
 
-use collateral_deposit_v2_integrity::{
-    CollateralDepositRequestV2Entry, EntryTypes, MAX_CREATE_TIMESTAMP_SKEW_MICROS, UnitEntryTypes,
-};
+use collateral_deposit_v2_integrity::{EntryTypes, UnitEntryTypes};
 use finance_collateral_deposit::{COLLATERAL_DEPOSIT_NONCE_BYTES, CollateralDepositRequestV2};
 use finance_collateral_request_binding::BoundCollateralDepositRequest;
+use finance_holochain_contracts::{
+    CollateralDepositRequestV2Entry, MAX_CREATE_TIMESTAMP_SKEW_MICROS,
+};
 use hdk::prelude::*;
 use mycelix_bridge_entry_types::did_for_author;
 use mycelix_finance_shared::verify_caller_is_did;

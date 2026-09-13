@@ -15,7 +15,6 @@ serde = { workspace = true }
 finance-sap-transfer-v2 = { path = "../../../crates/finance-sap-transfer-v2" }
 finance-sap-account-v2 = { path = "../../../crates/finance-sap-account-v2" }
 finance-sap-value-notes = { path = "../../../crates/finance-sap-value-notes" }
+finance-holochain-contracts = { path = "../../../crates/finance-holochain-contracts" }
 sap_transfer_v2_integrity = { path = "../integrity" }
-sap_account_v2_integrity = { path = "../../sap-account-v2/integrity" }
-collateral_issuance_v2_integrity = { path = "../../collateral-issuance-v2/integrity" }
 mycelix-bridge-entry-types = { workspace = true }

@@ -10,29 +10,19 @@
 //! transfer theorem is rerun. No caller-supplied note amount/owner payload is
 //! authoritative.
 
-use collateral_issuance_v2_integrity::CollateralSapIssuanceReceiptV2Entry;
+use finance_holochain_contracts::{
+    CollateralSapIssuanceReceiptV2Entry, FinanceSapTransferV2DnaProperties,
+    SapCollateralClaimV2Entry, SapTransferSpendV2Entry,
+};
 use finance_sap_account_v2::ValidatedCollateralClaimV2;
 use finance_sap_transfer_v2::{SapTransferSpendRecordV2, SapTransferV2Config};
 use hdi::prelude::*;
 use mycelix_bridge_entry_types::did_for_author;
-use sap_account_v2_integrity::SapCollateralClaimV2Entry;
 
 const SAP_ACCOUNT_V2_INTEGRITY_ZOME: &str = "sap_account_v2_integrity";
 const SAP_COLLATERAL_CLAIM_ENTRY_INDEX: u8 = 1;
 const COLLATERAL_ISSUANCE_INTEGRITY_ZOME: &str = "collateral_issuance_v2_integrity";
 const COLLATERAL_ISSUANCE_RECEIPT_ENTRY_INDEX: u8 = 2;
-
-#[dna_properties]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct FinanceSapTransferV2DnaProperties {
-    pub sap_transfer_v2: SapTransferV2Config,
-}
-
-#[hdk_entry_helper]
-#[derive(Clone, PartialEq)]
-pub struct SapTransferSpendV2Entry {
-    pub spend: SapTransferSpendRecordV2,
-}
 
 #[hdk_entry_types]
 #[unit_enum(UnitEntryTypes)]
@@ -244,12 +234,15 @@ fn require_exact_create_entry(
     if record.action().action_type() != ActionType::Create {
         return Err(format!("{label} reference is not an exact Create action"));
     }
-    match record.action().app_entry_def() {
-        Some(actual) if actual == &expected => Ok(()),
-        Some(actual) => Err(format!(
+    match record.action().entry_type() {
+        Some(EntryType::App(actual)) if actual == &expected => Ok(()),
+        Some(EntryType::App(actual)) => Err(format!(
             "{label} has wrong app entry definition: expected {expected:?}, got {actual:?}"
         )),
-        None => Err(format!("{label} is not an application entry")),
+        Some(actual) => Err(format!(
+            "{label} is not an application entry: got {actual:?}"
+        )),
+        None => Err(format!("{label} has no entry type")),
     }
 }
 

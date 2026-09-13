@@ -9,7 +9,10 @@
 //! authorized by exact valid FIN-SAFE-010 issuance-receipt actions; downstream
 //! projection de-duplicates their economic effect by canonical `mint_id`.
 
-use collateral_issuance_v2_integrity::CollateralSapIssuanceReceiptV2Entry;
+use finance_holochain_contracts::{
+    CollateralSapIssuanceReceiptV2Entry, FinanceSapAccountV2DnaProperties, SapAccountOpenedV2Entry,
+    SapCollateralClaimV2Entry,
+};
 use finance_sap_account_v2::{SapAccountOpenedV2, SapAccountV2Config, SapCollateralClaimV2};
 use hdi::prelude::*;
 use mycelix_bridge_entry_types::did_for_author;
@@ -18,24 +21,6 @@ const COLLATERAL_ISSUANCE_INTEGRITY_ZOME: &str = "collateral_issuance_v2_integri
 /// FIN-SAFE-010 local entry order:
 /// 0 authorization, 1 mint, 2 issuance receipt.
 const COLLATERAL_ISSUANCE_RECEIPT_ENTRY_INDEX: u8 = 2;
-
-#[dna_properties]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct FinanceSapAccountV2DnaProperties {
-    pub sap_account_v2: SapAccountV2Config,
-}
-
-#[hdk_entry_helper]
-#[derive(Clone, PartialEq)]
-pub struct SapAccountOpenedV2Entry {
-    pub opened: SapAccountOpenedV2,
-}
-
-#[hdk_entry_helper]
-#[derive(Clone, PartialEq)]
-pub struct SapCollateralClaimV2Entry {
-    pub claim: SapCollateralClaimV2,
-}
 
 #[hdk_entry_types]
 #[unit_enum(UnitEntryTypes)]
@@ -224,12 +209,15 @@ fn require_exact_create_entry(
     if record.action().action_type() != ActionType::Create {
         return Err(format!("{label} reference is not an exact Create action"));
     }
-    match record.action().app_entry_def() {
-        Some(actual) if actual == &expected => Ok(()),
-        Some(actual) => Err(format!(
+    match record.action().entry_type() {
+        Some(EntryType::App(actual)) if actual == &expected => Ok(()),
+        Some(EntryType::App(actual)) => Err(format!(
             "{label} has wrong app entry definition: expected {expected:?}, got {actual:?}"
         )),
-        None => Err(format!("{label} is not an application entry")),
+        Some(actual) => Err(format!(
+            "{label} is not an application entry: got {actual:?}"
+        )),
+        None => Err(format!("{label} has no entry type")),
     }
 }
 

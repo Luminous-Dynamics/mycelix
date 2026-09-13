@@ -9,6 +9,7 @@ members = [
     "crates/finance-collateral-deposit",
     "crates/finance-collateral-request-binding",
     "crates/finance-collateral-auth",
+    "crates/finance-holochain-contracts",
     "crates/finance-sap-conservation",
     "crates/finance-collateral-issuance-persistence",
     "crates/finance-sap-balance-effect",

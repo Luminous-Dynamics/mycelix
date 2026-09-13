@@ -9,17 +9,17 @@
 //! FIN-SAFE-010 issuance-receipt `ActionHash`; member identity and economic facts
 //! are reconstructed from the caller and the exact valid receipt.
 
-use collateral_issuance_v2_integrity::{
-    CollateralSapIssuanceReceiptV2Entry, UnitEntryTypes as CollateralIssuanceUnitEntryTypes,
-};
 use finance_collateral_issuance_persistence::CollateralSapIssuanceReceiptRecordV2;
+use finance_holochain_contracts::{
+    CollateralSapIssuanceReceiptV2Entry, SapAccountOpenedV2Entry, SapCollateralClaimV2Entry,
+};
 use finance_sap_account_v2::{SapAccountOpenedV2, SapCollateralClaimV2};
 use hdk::prelude::*;
 use mycelix_bridge_entry_types::did_for_author;
-use sap_account_v2_integrity::{
-    EntryTypes, SapAccountOpenedV2Entry, SapCollateralClaimV2Entry, UnitEntryTypes,
-    load_sap_account_v2_config,
-};
+
+const COLLATERAL_ISSUANCE_INTEGRITY_ZOME: &str = "collateral_issuance_v2_integrity";
+const COLLATERAL_ISSUANCE_RECEIPT_ENTRY_INDEX: u8 = 2;
+use sap_account_v2_integrity::{EntryTypes, UnitEntryTypes, load_sap_account_v2_config};
 
 /// Create a zero-economic-effect owner-authored account opening marker.
 ///
@@ -147,11 +147,37 @@ fn load_exact_issuance_receipt(
     let record = must_get_valid_record(action_hash)?;
     require_exact_create_entry(
         &record,
-        AppEntryDef::try_from(CollateralIssuanceUnitEntryTypes::CollateralSapIssuanceReceiptV2)?,
+        foreign_public_entry_def(
+            COLLATERAL_ISSUANCE_INTEGRITY_ZOME,
+            COLLATERAL_ISSUANCE_RECEIPT_ENTRY_INDEX,
+        )?,
         "FIN-SAFE-010 issuance receipt",
     )?;
     decode_entry::<CollateralSapIssuanceReceiptV2Entry>(&record, "FIN-SAFE-010 issuance receipt")
         .map(|entry| entry.record)
+}
+
+fn foreign_public_entry_def(zome_name: &str, entry_index: u8) -> ExternResult<AppEntryDef> {
+    let info = dna_info()?;
+    let zome_position = info
+        .zome_names
+        .iter()
+        .position(|name| name.to_string() == zome_name)
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Required integrity zome {zome_name:?} is absent from this DNA"
+            )))
+        })?;
+    let zome_index = u8::try_from(zome_position).map_err(|_| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Integrity zome index for {zome_name:?} exceeds u8"
+        )))
+    })?;
+    Ok(AppEntryDef::new(
+        EntryDefIndex::from(entry_index),
+        ZomeIndex::from(zome_index),
+        EntryVisibility::Public,
+    ))
 }
 
 fn create_and_reload(entry: EntryTypes) -> ExternResult<Record> {
@@ -169,13 +195,16 @@ fn require_exact_create_entry(
             "{label} reference is not an exact Create action"
         ))));
     }
-    match record.action().app_entry_def() {
-        Some(actual) if actual == &expected => Ok(()),
-        Some(actual) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+    match record.action().entry_type() {
+        Some(EntryType::App(actual)) if actual == &expected => Ok(()),
+        Some(EntryType::App(actual)) => Err(wasm_error!(WasmErrorInner::Guest(format!(
             "{label} has wrong app entry definition: expected {expected:?}, got {actual:?}"
         )))),
+        Some(actual) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "{label} is not an application entry: got {actual:?}"
+        )))),
         None => Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "{label} is not an application entry"
+            "{label} has no entry type"
         )))),
     }
 }

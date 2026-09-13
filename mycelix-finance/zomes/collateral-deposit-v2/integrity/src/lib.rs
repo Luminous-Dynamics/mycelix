@@ -7,64 +7,11 @@
 //! V2 requests are immutable intent records. They carry no caller-authoritative
 //! price, minted amount, settlement status, or custody claim.
 
-use finance_collateral_deposit::{COLLATERAL_DEPOSIT_NONCE_BYTES, CollateralDepositRequestV2};
+use finance_holochain_contracts::{
+    CollateralDepositRequestV2Entry, MAX_CREATE_TIMESTAMP_SKEW_MICROS,
+};
 use hdi::prelude::*;
 use mycelix_bridge_entry_types::{did_for_author, require_did_is_author};
-
-/// The coordinator obtains `created_at_micros` from `sys_time()` immediately
-/// before commit. Integrity binds that claim to the actual Create timestamp
-/// under a narrow explicit allowance for host-call/commit latency.
-pub const MAX_CREATE_TIMESTAMP_SKEW_MICROS: i64 = 5_000_000;
-
-#[hdk_entry_helper]
-#[derive(Clone, PartialEq)]
-pub struct CollateralDepositRequestV2Entry {
-    pub schema_version: u16,
-    pub deposit_id: String,
-    pub depositor_did: String,
-    pub collateral_asset_id: String,
-    pub collateral_amount: u64,
-    pub quote_asset_id: String,
-    pub request_nonce: Vec<u8>,
-    pub created_at_micros: i64,
-}
-
-impl CollateralDepositRequestV2Entry {
-    pub fn to_model(&self) -> Result<CollateralDepositRequestV2, String> {
-        let request_nonce: [u8; COLLATERAL_DEPOSIT_NONCE_BYTES] =
-            self.request_nonce.as_slice().try_into().map_err(|_| {
-                format!(
-                    "request_nonce must contain exactly {} bytes",
-                    COLLATERAL_DEPOSIT_NONCE_BYTES
-                )
-            })?;
-        Ok(CollateralDepositRequestV2 {
-            schema_version: self.schema_version,
-            deposit_id: self.deposit_id.clone(),
-            depositor_did: self.depositor_did.clone(),
-            collateral_asset_id: self.collateral_asset_id.clone(),
-            collateral_amount: self.collateral_amount,
-            quote_asset_id: self.quote_asset_id.clone(),
-            request_nonce,
-            created_at_micros: self.created_at_micros,
-        })
-    }
-}
-
-impl From<CollateralDepositRequestV2> for CollateralDepositRequestV2Entry {
-    fn from(value: CollateralDepositRequestV2) -> Self {
-        Self {
-            schema_version: value.schema_version,
-            deposit_id: value.deposit_id,
-            depositor_did: value.depositor_did,
-            collateral_asset_id: value.collateral_asset_id,
-            collateral_amount: value.collateral_amount,
-            quote_asset_id: value.quote_asset_id,
-            request_nonce: value.request_nonce.to_vec(),
-            created_at_micros: value.created_at_micros,
-        }
-    }
-}
 
 #[hdk_entry_types]
 #[unit_enum(UnitEntryTypes)]
@@ -163,7 +110,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use finance_collateral_deposit::CollateralDepositRequestV2;
+    use finance_collateral_deposit::{COLLATERAL_DEPOSIT_NONCE_BYTES, CollateralDepositRequestV2};
 
     fn action(author_byte: u8, timestamp_micros: i64) -> Create {
         Create {

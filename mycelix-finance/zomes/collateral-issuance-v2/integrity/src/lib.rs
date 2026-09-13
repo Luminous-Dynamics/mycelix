@@ -8,12 +8,6 @@
 //! types can mutate a SAP balance. Authority is reconstructed by loading the exact
 //! V2 request + FIN-SAFE-011 price/custody actions and the DNA trust root.
 
-use collateral_deposit_v2_integrity::{
-    CollateralDepositRequestV2Entry, MAX_CREATE_TIMESTAMP_SKEW_MICROS,
-};
-use collateral_settlement_auth_integrity::{
-    CustodyAttestationV1Entry, PriceAttestationV1Entry, load_collateral_auth_config,
-};
 use finance_collateral_auth::{
     CollateralSettlementTrustRootV1, CustodyAttestationV1, PriceAttestationV1,
 };
@@ -23,6 +17,12 @@ use finance_collateral_issuance_persistence::{
 };
 use finance_collateral_request_binding::{
     BoundCollateralDepositRequest, derive_authenticated_bound_settlement_intent_from_valid_actions,
+};
+use finance_holochain_contracts::{
+    CollateralDepositRequestV2Entry, CollateralSapIssuanceReceiptV2Entry,
+    CollateralSapMintAuthorizationV2Entry, CollateralSapMintRecordV2Entry,
+    CustodyAttestationV1Entry, MAX_CREATE_TIMESTAMP_SKEW_MICROS, PriceAttestationV1Entry,
+    load_collateral_auth_config,
 };
 use finance_sap_conservation::AuthenticatedCollateralSapMintAuthorizationV2;
 use hdi::prelude::*;
@@ -38,24 +38,6 @@ const SETTLEMENT_AUTH_INTEGRITY_ZOME: &str = "collateral_settlement_auth_integri
 const DEPOSIT_REQUEST_ENTRY_INDEX: u8 = 0;
 const PRICE_ATTESTATION_ENTRY_INDEX: u8 = 0;
 const CUSTODY_ATTESTATION_ENTRY_INDEX: u8 = 1;
-
-#[hdk_entry_helper]
-#[derive(Clone, PartialEq)]
-pub struct CollateralSapMintAuthorizationV2Entry {
-    pub record: CollateralSapMintAuthorizationRecordV2,
-}
-
-#[hdk_entry_helper]
-#[derive(Clone, PartialEq)]
-pub struct CollateralSapMintRecordV2Entry {
-    pub record: CollateralSapMintRecordV2Compact,
-}
-
-#[hdk_entry_helper]
-#[derive(Clone, PartialEq)]
-pub struct CollateralSapIssuanceReceiptV2Entry {
-    pub record: CollateralSapIssuanceReceiptRecordV2,
-}
 
 #[hdk_entry_types]
 #[unit_enum(UnitEntryTypes)]
@@ -423,12 +405,15 @@ fn require_exact_create_entry(
     if record.action().action_type() != ActionType::Create {
         return Err(format!("{label} reference is not a Create action"));
     }
-    match record.action().app_entry_def() {
-        Some(actual) if actual == &expected => Ok(()),
-        Some(actual) => Err(format!(
+    match record.action().entry_type() {
+        Some(EntryType::App(actual)) if actual == &expected => Ok(()),
+        Some(EntryType::App(actual)) => Err(format!(
             "{label} has wrong app entry definition: expected {expected:?}, got {actual:?}"
         )),
-        None => Err(format!("{label} is not an application entry")),
+        Some(actual) => Err(format!(
+            "{label} is not an application entry: got {actual:?}"
+        )),
+        None => Err(format!("{label} has no entry type")),
     }
 }
 

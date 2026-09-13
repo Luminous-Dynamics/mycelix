@@ -143,6 +143,7 @@ dependencies = [
  "getrandom 0.2.17",
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -157,6 +158,91 @@ dependencies = [
  "num-traits",
  "serde",
  "windows-link",
+]
+
+[[package]]
+name = "collateral_deposit_v2"
+version = "0.1.0"
+dependencies = [
+ "collateral_deposit_v2_integrity",
+ "finance-collateral-deposit",
+ "finance-collateral-request-binding",
+ "finance-holochain-contracts",
+ "hdk",
+ "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
+ "mycelix_finance_shared",
+ "serde",
+]
+
+[[package]]
+name = "collateral_deposit_v2_integrity"
+version = "0.1.0"
+dependencies = [
+ "finance-collateral-deposit",
+ "finance-holochain-contracts",
+ "hdi",
+ "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
+ "serde",
+]
+
+[[package]]
+name = "collateral_issuance_v2"
+version = "0.1.0"
+dependencies = [
+ "collateral_issuance_v2_integrity",
+ "finance-collateral-auth",
+ "finance-collateral-issuance-persistence",
+ "finance-collateral-request-binding",
+ "finance-holochain-contracts",
+ "finance-sap-conservation",
+ "hdk",
+ "holochain_serialized_bytes",
+ "serde",
+]
+
+[[package]]
+name = "collateral_issuance_v2_integrity"
+version = "0.1.0"
+dependencies = [
+ "finance-collateral-auth",
+ "finance-collateral-issuance-persistence",
+ "finance-collateral-request-binding",
+ "finance-holochain-contracts",
+ "finance-sap-conservation",
+ "hdi",
+ "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
+ "serde",
+]
+
+[[package]]
+name = "collateral_settlement_auth"
+version = "0.2.0"
+dependencies = [
+ "collateral_settlement_auth_integrity",
+ "finance-collateral-auth",
+ "finance-collateral-request-binding",
+ "finance-collateral-settlement",
+ "finance-holochain-contracts",
+ "hdk",
+ "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
+ "serde",
+]
+
+[[package]]
+name = "collateral_settlement_auth_integrity"
+version = "0.1.0"
+dependencies = [
+ "finance-collateral-auth",
+ "finance-collateral-settlement",
+ "finance-holochain-contracts",
+ "hdi",
+ "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
+ "serde",
 ]
 
 [[package]]
@@ -228,6 +314,7 @@ dependencies = [
  "getrandom 0.2.17",
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -437,9 +524,187 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f1f227452a390804cdb637b74a86990f2a7d7ba4b7d5693aac9b4dd6defd8d6"
 
 [[package]]
+name = "finance-collateral-auth"
+version = "0.1.0"
+dependencies = [
+ "finance-collateral-settlement",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "finance-collateral-deposit"
+version = "0.1.0"
+dependencies = [
+ "blake3",
+ "finance-collateral-settlement",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "finance-collateral-evidence"
+version = "0.1.0"
+dependencies = [
+ "finance-collateral-safety",
+ "finance-collateral-valuation",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "finance-collateral-issuance-persistence"
+version = "0.1.0"
+dependencies = [
+ "finance-collateral-auth",
+ "finance-collateral-deposit",
+ "finance-collateral-request-binding",
+ "finance-collateral-settlement",
+ "finance-sap-conservation",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "finance-collateral-request-binding"
+version = "0.2.0"
+dependencies = [
+ "finance-collateral-auth",
+ "finance-collateral-deposit",
+ "finance-collateral-settlement",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "finance-collateral-safety"
+version = "0.1.0"
+dependencies = [
+ "mycelix_finance_types",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "finance-collateral-settlement"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "finance-collateral-valuation"
+version = "0.1.0"
+dependencies = [
+ "finance-collateral-safety",
+ "mycelix_finance_types",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "finance-holochain-contracts"
+version = "0.1.0"
+dependencies = [
+ "finance-collateral-auth",
+ "finance-collateral-deposit",
+ "finance-collateral-issuance-persistence",
+ "finance-sap-account-v2",
+ "finance-sap-transfer-v2",
+ "hdi",
+ "holochain_serialized_bytes",
+ "serde",
+]
+
+[[package]]
 name = "finance-leptos-types"
 version = "0.1.0"
 dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "finance-sap-account-v2"
+version = "0.1.0"
+dependencies = [
+ "finance-collateral-issuance-persistence",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "finance-sap-balance-effect"
+version = "0.2.0"
+dependencies = [
+ "finance-collateral-issuance-persistence",
+ "mycelix_finance_types",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "finance-sap-conservation"
+version = "0.3.0"
+dependencies = [
+ "finance-collateral-auth",
+ "finance-collateral-request-binding",
+ "finance-collateral-settlement",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "finance-sap-transfer-finality"
+version = "0.1.0"
+dependencies = [
+ "finance-sap-account-v2",
+ "finance-sap-value-notes",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "finance-sap-transfer-v2"
+version = "0.1.0"
+dependencies = [
+ "finance-sap-account-v2",
+ "finance-sap-value-notes",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "finance-sap-value-notes"
+version = "0.1.0"
+dependencies = [
+ "blake3",
+ "finance-sap-account-v2",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "finance-sap-witness-allocation"
+version = "0.1.0"
+dependencies = [
+ "blake3",
+ "finance-sap-account-v2",
+ "finance-sap-value-notes",
+ "finance-sap-witness-policy",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "finance-sap-witness-policy"
+version = "0.1.0"
+dependencies = [
+ "blake3",
+ "finance-sap-account-v2",
+ "finance-sap-transfer-finality",
+ "finance-sap-value-notes",
  "serde",
  "serde_json",
 ]
@@ -706,6 +971,7 @@ dependencies = [
  "getrandom 0.2.17",
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -969,6 +1235,7 @@ dependencies = [
  "getrandom 0.2.17",
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -1124,6 +1391,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "mycelix_finance_types",
  "serde",
  "serde_json",
@@ -1356,6 +1624,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "mycelix_finance_types",
  "serde",
 ]
@@ -1424,6 +1693,61 @@ dependencies = [
  "quick-error",
  "tempfile",
  "wait-timeout",
+]
+
+[[package]]
+name = "sap_account_v2"
+version = "0.1.0"
+dependencies = [
+ "finance-collateral-issuance-persistence",
+ "finance-holochain-contracts",
+ "finance-sap-account-v2",
+ "hdk",
+ "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
+ "sap_account_v2_integrity",
+ "serde",
+]
+
+[[package]]
+name = "sap_account_v2_integrity"
+version = "0.1.0"
+dependencies = [
+ "finance-collateral-issuance-persistence",
+ "finance-holochain-contracts",
+ "finance-sap-account-v2",
+ "hdi",
+ "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
+ "serde",
+]
+
+[[package]]
+name = "sap_transfer_v2"
+version = "0.1.0"
+dependencies = [
+ "finance-holochain-contracts",
+ "finance-sap-account-v2",
+ "finance-sap-transfer-v2",
+ "finance-sap-value-notes",
+ "hdk",
+ "mycelix-bridge-entry-types",
+ "sap_transfer_v2_integrity",
+ "serde",
+]
+
+[[package]]
+name = "sap_transfer_v2_integrity"
+version = "0.1.0"
+dependencies = [
+ "finance-collateral-issuance-persistence",
+ "finance-holochain-contracts",
+ "finance-sap-account-v2",
+ "finance-sap-transfer-v2",
+ "hdi",
+ "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
+ "serde",
 ]
 
 [[package]]
@@ -1544,6 +1868,8 @@ checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 [[package]]
 name = "sovereign-profile"
 version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "049f13004bc45a09549c4df44beeaca97def2fce17099de065c0051851ba2249"
 dependencies = [
  "serde",
 ]
@@ -1570,6 +1896,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "mycelix_finance_types",
  "serde",
  "serde_json",
@@ -1660,6 +1987,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "mycelix_finance_types",
  "serde",
  "serde_json",
@@ -1738,6 +2066,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "mycelix_finance_types",
  "serde",
  "serde_json",

@@ -8,29 +8,11 @@
 //! authority comes from Finance DNA properties plus the actual Holochain Create
 //! author, never from a provider-name string embedded in the entry.
 
-use finance_collateral_auth::{
-    CollateralSettlementAuthConfig, CustodyAttestationV1, PriceAttestationV1,
+use finance_holochain_contracts::{
+    CustodyAttestationV1Entry, PriceAttestationV1Entry, load_collateral_auth_config,
 };
 use hdi::prelude::*;
 use mycelix_bridge_entry_types::did_for_author;
-
-#[dna_properties]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct FinanceCollateralAuthDnaProperties {
-    pub collateral_settlement_auth: CollateralSettlementAuthConfig,
-}
-
-#[hdk_entry_helper]
-#[derive(Clone, PartialEq)]
-pub struct PriceAttestationV1Entry {
-    pub attestation: PriceAttestationV1,
-}
-
-#[hdk_entry_helper]
-#[derive(Clone, PartialEq)]
-pub struct CustodyAttestationV1Entry {
-    pub attestation: CustodyAttestationV1,
-}
 
 #[hdk_entry_types]
 #[unit_enum(UnitEntryTypes)]
@@ -45,10 +27,6 @@ pub enum EntryTypes {
 #[hdk_link_types]
 pub enum LinkTypes {
     ReservedAttestationIndex,
-}
-
-pub fn load_collateral_auth_config() -> ExternResult<CollateralSettlementAuthConfig> {
-    Ok(FinanceCollateralAuthDnaProperties::try_from_dna_properties()?.collateral_settlement_auth)
 }
 
 #[hdk_extern]
@@ -162,7 +140,8 @@ mod tests {
     use super::*;
     use finance_collateral_auth::{
         COLLATERAL_EVIDENCE_AUTH_PROTOCOL_VERSION, CUSTODY_ATTESTATION_V1_SCHEMA_VERSION,
-        CollateralSettlementTrustRootV1, PRICE_ATTESTATION_V1_SCHEMA_VERSION,
+        CollateralSettlementTrustRootV1, CustodyAttestationV1, PRICE_ATTESTATION_V1_SCHEMA_VERSION,
+        PriceAttestationV1,
     };
     use finance_collateral_settlement::{
         COLLATERAL_SETTLEMENT_PROTOCOL_VERSION, CUSTODY_ATTESTATION_PROTOCOL_VERSION,
