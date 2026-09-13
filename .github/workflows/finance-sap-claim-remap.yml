@@ -1,0 +1,196 @@
+name: Finance SAP Claim Remap
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/finance-sap-claim-remap.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: finance-sap-claim-remap
+  cancel-in-progress: false
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  SOURCE_SHA: 'ea01f1f02e08b04786bce4e85d50a6a7d1f8408f'
+  FIN_SAFE_024_ARTIFACT_ID: '10307633449'
+  FIN_SAFE_024_ARTIFACT_SHA256: '7c45e732689e9c431ee679db1229b91f9b4b9f0850162d6d967f6c61913cb8bd'
+  FIN_SAFE_025_ARTIFACT_ID: '10307653937'
+  FIN_SAFE_025_ARTIFACT_SHA256: 'b02f83bd73214d04d010114a08623da75ceca509fe25764cb5839e98ec83b0e8'
+  FIN_SAFE_025_LOCK_SHA256: '2fa0aae7b219218a0d358ac12fa63b596109613c3ea17c5751ce1f6d57630e93'
+  FIN_SAFE_025_MANIFEST_SHA256: '2900cb097630cb71a016c40be9137ba5dc35554a46e47739dddcfa40a37f3a2b'
+
+jobs:
+  qualify:
+    name: Qualify FIN-SAFE-026 on exact 024+025 lineage
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'ci-fin-safe-026-claim-remap'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Checkout frozen FIN-SAFE-020 source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Bind exact source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - name: Restore exact FIN-SAFE-024 qualified source
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${FIN_SAFE_024_ARTIFACT_ID}/zip" \
+            -o /tmp/fin-safe-024.zip
+          echo "${FIN_SAFE_024_ARTIFACT_SHA256}  /tmp/fin-safe-024.zip" | sha256sum -c -
+          mkdir -p /tmp/fin-safe-024
+          unzip -q /tmp/fin-safe-024.zip -d /tmp/fin-safe-024
+
+          for required in \
+            fin-safe-024-source.tar.gz \
+            fin-safe-024-source.tar.gz.sha256 \
+            fin-safe-024-source.sha256; do
+            test -s "/tmp/fin-safe-024/$required"
+          done
+
+          expected_archive="$(awk '{print $1}' /tmp/fin-safe-024/fin-safe-024-source.tar.gz.sha256)"
+          actual_archive="$(sha256sum /tmp/fin-safe-024/fin-safe-024-source.tar.gz | awk '{print $1}')"
+          test "$actual_archive" = "$expected_archive"
+          tar -xzf /tmp/fin-safe-024/fin-safe-024-source.tar.gz -C .
+          sha256sum -c /tmp/fin-safe-024/fin-safe-024-source.sha256
+
+      - name: Restore exact FIN-SAFE-025 manifest and lock
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${FIN_SAFE_025_ARTIFACT_ID}/zip" \
+            -o /tmp/fin-safe-025.zip
+          echo "${FIN_SAFE_025_ARTIFACT_SHA256}  /tmp/fin-safe-025.zip" | sha256sum -c -
+          mkdir -p /tmp/fin-safe-025
+          unzip -q /tmp/fin-safe-025.zip -d /tmp/fin-safe-025
+
+          test -s /tmp/fin-safe-025/fin-safe-025-source/finance-sap-conservation.Cargo.toml
+          test -s /tmp/fin-safe-025/fin-safe-025-Cargo.lock
+          echo "${FIN_SAFE_025_MANIFEST_SHA256}  /tmp/fin-safe-025/fin-safe-025-source/finance-sap-conservation.Cargo.toml" | sha256sum -c -
+          echo "${FIN_SAFE_025_LOCK_SHA256}  /tmp/fin-safe-025/fin-safe-025-Cargo.lock" | sha256sum -c -
+
+          cp /tmp/fin-safe-025/fin-safe-025-source/finance-sap-conservation.Cargo.toml \
+            mycelix-finance/crates/finance-sap-conservation/Cargo.toml
+          cp /tmp/fin-safe-025/fin-safe-025-Cargo.lock mycelix-finance/Cargo.lock
+
+      - name: Strengthen forged note-to-claim remap theorem
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('mycelix-finance/crates/finance-sap-transfer-v2/src/lib.rs')
+          text = path.read_text()
+          old = '''    #[test]
+              fn forged_note_to_claim_mapping_is_rejected() {
+                  let (claims, transfer) = fixture();
+                  let mut record =
+                      SapTransferSpendRecordV2::from_validated_claims(transfer, &claims).unwrap();
+                  record.input_claims.swap(0, 1);
+                  assert_eq!(
+                      record.validate_against_claims(&claims),
+                      Err(SapTransferAdapterError::NonCanonicalInputOrder)
+                  );
+              }
+          '''
+          # Exact source has four-space indentation; normalize only this literal block.
+          old = old.replace('              ', '    ')
+          new = '''    #[test]
+              fn forged_note_to_claim_mapping_is_rejected() {
+                  let (claims, transfer) = fixture();
+                  let mut record =
+                      SapTransferSpendRecordV2::from_validated_claims(transfer, &claims).unwrap();
+                  let first_claim = record.input_claims[0].claim_action_reference.clone();
+                  record.input_claims[0].claim_action_reference =
+                      record.input_claims[1].claim_action_reference.clone();
+                  record.input_claims[1].claim_action_reference = first_claim;
+                  assert_eq!(record.validate_shape(), Ok(()));
+                  assert_eq!(
+                      record.validate_against_claims(&claims),
+                      Err(SapTransferAdapterError::ClaimNoteMismatch)
+                  );
+              }
+          '''
+          new = new.replace('              ', '    ')
+          if text.count(old) != 1:
+              raise SystemExit('FIN-SAFE-026 test anchor mismatch')
+          path.write_text(text.replace(old, new))
+          PY
+          cd mycelix-finance
+          cargo fmt --all
+          cargo fmt --all --check
+          cargo metadata --locked --format-version 1 > /tmp/fin-safe-026-metadata-locked.json
+          test "$(sha256sum Cargo.lock | awk '{print $1}')" = "$FIN_SAFE_025_LOCK_SHA256"
+          cd ..
+          git diff --check
+
+      - name: Test transfer remap theorem under lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo test -p finance-sap-transfer-v2 --locked 2>&1 | tee /tmp/fin-safe-026-targeted.log
+
+      - name: Test full Finance workspace under lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo test --workspace --locked 2>&1 | tee /tmp/fin-safe-026-workspace.log
+
+      - name: Capture exact FIN-SAFE-026 source
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git status --porcelain=v1 --untracked-files=all > /tmp/fin-safe-026-status.txt
+          mkdir -p /tmp/fin-safe-026-source
+          cp mycelix-finance/crates/finance-sap-transfer-v2/src/lib.rs /tmp/fin-safe-026-source/finance-sap-transfer-v2.lib.rs
+          cp mycelix-finance/crates/finance-sap-conservation/Cargo.toml /tmp/fin-safe-026-source/finance-sap-conservation.Cargo.toml
+          sha256sum /tmp/fin-safe-026-source/* > /tmp/fin-safe-026-source.sha256
+          sha256sum mycelix-finance/Cargo.lock > /tmp/fin-safe-026-Cargo.lock.sha256
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fin-safe-026-${{ env.SOURCE_SHA }}-${{ github.run_attempt }}
+          path: |
+            /tmp/fin-safe-026-status.txt
+            /tmp/fin-safe-026-source
+            /tmp/fin-safe-026-source.sha256
+            /tmp/fin-safe-026-Cargo.lock.sha256
+            /tmp/fin-safe-026-metadata-locked.json
+            /tmp/fin-safe-026-targeted.log
+            /tmp/fin-safe-026-workspace.log
+          if-no-files-found: warn
+          retention-days: 30
