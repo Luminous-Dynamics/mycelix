@@ -1,0 +1,134 @@
+name: ADMIN-003 Review Policy Identity
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-administrative-review-policy-identity/**'
+      - 'crates/mycelix-administrative-procedure/**'
+      - 'crates/mycelix-institutional-core/**'
+      - '.github/workflows/admin-003-review-policy-identity.yml'
+  push:
+    branches:
+      - 'feat/admin-003-review-policy-identity-v0.1'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Canonical ADMIN-003 review-policy semantic identity
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+
+      - name: Toolchain identity
+        run: |
+          git rev-parse HEAD
+          rustc --version --verbose
+          cargo --version
+          rustfmt --version
+          cargo clippy --version
+
+      - name: Preserve exact ADMIN-003 parent blobs
+        run: |
+          test "$(git hash-object crates/mycelix-administrative-procedure/Cargo.toml)" = \
+            '58641fbd28f1d1023f63bb46aa06b52ae2c52e38'
+          test "$(git hash-object crates/mycelix-administrative-procedure/src/admin_003.rs)" = \
+            'b91124ca2cd280bfccf7a591d2fdc87012d00f9a'
+          test "$(git hash-object crates/mycelix-administrative-procedure/src/admin_003_hardened.rs)" = \
+            '82f131f033a70758e5ddc20bba8d7009583520a7'
+          test "$(git hash-object crates/mycelix-administrative-procedure/src/lib_hardened.rs)" = \
+            '1f3fb3a6049eef443d328850fac9a1dfa565e7d6'
+
+      - name: Dependency and identity-profile boundary
+        run: |
+          python3 - <<'PY'
+          import pathlib
+          import tomllib
+
+          root = pathlib.Path('crates/mycelix-administrative-review-policy-identity')
+          manifest = tomllib.loads((root / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          assert set(deps) == {
+              'blake3',
+              'mycelix-institutional-core',
+              'mycelix-administrative-procedure',
+          }
+          assert deps['mycelix-institutional-core'].get('path') == '../mycelix-institutional-core'
+          admin = deps['mycelix-administrative-procedure']
+          assert admin.get('path') == '../mycelix-administrative-procedure'
+          assert admin.get('features') == ['administrative-review']
+          assert not manifest.get('dev-dependencies')
+          assert not manifest.get('build-dependencies')
+
+          src = (root / 'src' / 'lib.rs').read_text()
+          profile = (root / 'PROFILE_V1.md').read_text()
+          invariants = (root / 'INVARIANTS.md').read_text()
+
+          required = (
+              'ADMINISTRATIVE_REVIEW_POLICY_IDENTITY_PROFILE',
+              'mycelix-administrative-review-policy-v1-blake3-framed-semantic',
+              'mycelix/administrative-review/policy/v1',
+              'CanonicalAdministrativeReviewPolicyIdentity',
+              'QualifiedAdministrativeReviewPolicyIdentity',
+              'administrative_review_policy_semantic_identity',
+              'qualify_administrative_review_policy_identity',
+              'policy.challenge_window_ms',
+              'policy.appeal_window_ms',
+              'policy.finality_delay_ms',
+              'policy.require_independent_reviewer',
+              'policy.review_capability',
+              'policy.stay_capability',
+              'policy.remedy_capability',
+          )
+          for item in required:
+              assert item in src
+
+          assert 'policy_ref' in invariants
+          assert 'policy_digest' in invariants
+          assert 'policy_digest_profile' in invariants
+          assert 'decision.decided_at_ms' in profile
+          assert 'service-aware challenge clocks' in profile
+          PY
+
+      - name: Sovereignty and runtime separation audit
+        run: |
+          src='crates/mycelix-administrative-review-policy-identity/src/lib.rs'
+          code_lines="$(grep -nEv '^[[:space:]]*//' "$src" || true)"
+          forbidden='(hdk|hdi|holochain)::|std::(net|fs|process)::|SystemTime::|Instant::now|current[[:space:]]*:[[:space:]]*bool|authorized[[:space:]]*:[[:space:]]*bool|official[[:space:]]*:[[:space:]]*bool|latest_record|latest-by|Dht|DHT'
+          if printf '%s\n' "$code_lines" | grep -E "$forbidden"; then
+            echo 'review-policy identity gained forbidden runtime/currentness/boolean authority surface' >&2
+            exit 1
+          fi
+          grep -q 'grants_review_authority(&self) -> bool' "$src"
+          grep -q 'grants_external_effect_authority(&self) -> bool' "$src"
+          grep -q 'policy_ref' "$src"
+          grep -q 'policy_digest_profile' "$src"
+
+      - name: Format owned source
+        run: |
+          rustfmt --edition 2024 --check \
+            crates/mycelix-administrative-review-policy-identity/src/lib.rs
+
+      - name: Isolated executable qualification
+        run: |
+          qroot="$(mktemp -d)"
+          mkdir -p "$qroot/crates"
+          cp -a crates/mycelix-institutional-core "$qroot/crates/"
+          cp -a crates/mycelix-administrative-procedure "$qroot/crates/"
+          cp -a crates/mycelix-administrative-review-policy-identity "$qroot/crates/"
+          manifest="$qroot/crates/mycelix-administrative-review-policy-identity/Cargo.toml"
+          cargo test --manifest-path "$manifest" --all-targets
+          cargo clippy --manifest-path "$manifest" --all-targets -- -D warnings
+
+      - name: Immutable checkout postflight
+        run: |
+          git diff --exit-code
+          test -z "$(git status --porcelain=v1)"
