@@ -40,6 +40,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
           persist-credentials: false
           submodules: recursive
 
@@ -101,8 +102,36 @@ jobs:
       - name: Resolve Pulse frontend manifest
         run: cargo metadata --manifest-path "$PULSE_MANIFEST" --no-deps --format-version 1 >/dev/null
 
-      - name: Check Pulse frontend formatting
-        run: cargo fmt --manifest-path "$PULSE_MANIFEST" --all -- --check
+      - name: Check changed Pulse Rust formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          head='${{ github.event.pull_request.head.sha || github.sha }}'
+          if [ '${{ github.event_name }}' = 'pull_request' ]; then
+            base='${{ github.event.pull_request.base.sha }}'
+          else
+            base='${{ github.event.before }}'
+          fi
+
+          if [ -z "$base" ] || [[ "$base" =~ ^0+$ ]]; then
+            echo "::error::Cannot establish a comparison base for scoped Pulse rustfmt qualification."
+            exit 1
+          fi
+
+          mapfile -t rust_files < <(
+            git diff --diff-filter=ACMR --name-only "$base" "$head" -- \
+              'mycelix-workspace/mycelix-pulse/apps/leptos/**/*.rs' \
+              'mycelix-workspace/mycelix-pulse/crates/mail-leptos-types/**/*.rs' \
+              | sort -u
+          )
+
+          if [ "${#rust_files[@]}" -eq 0 ]; then
+            echo "No changed Pulse Rust files to format-check."
+            exit 0
+          fi
+
+          printf 'rustfmt subject file: %s\n' "${rust_files[@]}"
+          rustfmt --edition 2024 --check "${rust_files[@]}"
 
       - name: Check Pulse frontend for wasm32
         run: cargo check --manifest-path "$PULSE_MANIFEST" --target wasm32-unknown-unknown
