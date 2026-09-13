@@ -52,7 +52,10 @@ pub fn authority_grant_identity(
         AuthorityIdentityError::DuplicateRole,
     )?;
     let capabilities = canonical_text_set(
-        grant.capabilities.iter().map(|capability| capability.as_str()),
+        grant
+            .capabilities
+            .iter()
+            .map(|capability| capability.as_str()),
         AuthorityIdentityError::DuplicateCapability,
     )?;
 
@@ -194,7 +197,10 @@ impl PartialEq for AuthorityIdentityError {
                 )
         ) || matches!(
             (self, other),
-            (Self::InvalidAuthorityGrant(_), Self::InvalidAuthorityGrant(_))
+            (
+                Self::InvalidAuthorityGrant(_),
+                Self::InvalidAuthorityGrant(_)
+            )
         )
     }
 }
@@ -229,8 +235,8 @@ impl std::error::Error for AuthorityIdentityError {}
 mod tests {
     use super::*;
     use mycelix_institutional_core::{
-        AuthorityGrantId, AuthoritySourceRef, CapabilityId, InstitutionId, PrincipalId, RoleId,
-        RulebookId, RulebookRef, PROTOCOL_VERSION,
+        AuthorityGrantId, AuthoritySourceRef, CapabilityId, InstitutionId, PROTOCOL_VERSION,
+        PrincipalId, RoleId, RulebookId, RulebookRef,
     };
 
     fn d(byte: u8) -> Digest32 {
@@ -361,7 +367,9 @@ mod tests {
         );
 
         let mut duplicate_source = grant();
-        duplicate_source.sources.push(duplicate_source.sources[0].clone());
+        duplicate_source
+            .sources
+            .push(duplicate_source.sources[0].clone());
         assert_eq!(
             authority_grant_identity(&duplicate_source).unwrap_err(),
             AuthorityIdentityError::DuplicateAuthoritySource
