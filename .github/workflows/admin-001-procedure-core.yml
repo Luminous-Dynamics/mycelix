@@ -62,7 +62,13 @@ jobs:
           grep -q 'ReadyForDecision' "$src"
           grep -q 'issue_qualified_decision' "$src"
           grep -q 'grants_external_effect_authority' "$src"
-          if grep -n -E 'hdk|hdi|holochain|std::net|std::fs|std::process|SystemTime|Instant::now|phi|reputation|stake|model_score|authorized[[:space:]]*:[[:space:]]*bool|official[[:space:]]*:[[:space:]]*bool' "$src"; then
+
+          # Inspect Rust source lines, not prose-only comments. The previous raw
+          # substring audit falsely matched harmless words such as
+          # "cryptographic" across identifier fragments.
+          code_lines="$(grep -nEv '^[[:space:]]*//' "$src" || true)"
+          forbidden='(hdk|hdi|holochain)::|std::(net|fs|process)::|SystemTime::|Instant::now|[[:space:]{(,](phi|reputation|stake|model_score)[[:space:]]*:|authorized[[:space:]]*:[[:space:]]*bool|official[[:space:]]*:[[:space:]]*bool'
+          if printf '%s\n' "$code_lines" | grep -E "$forbidden"; then
             echo 'ADMIN-001 gained forbidden runtime/advisory/boolean authority surface' >&2
             exit 1
           fi
