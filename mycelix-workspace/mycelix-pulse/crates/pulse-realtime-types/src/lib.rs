@@ -75,7 +75,10 @@ pub enum RealtimeContractError {
 /// owner rule, every accepted wake is linearized either while a pass is
 /// running (and therefore marks that pass dirty) or while idle (and therefore
 /// starts a new pass). There is no accepted-but-uncovered wake state.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+///
+/// The reducer is intentionally neither `Clone` nor `Copy`: duplicating it
+/// would create multiple scheduling authorities and invalidate that theorem.
+#[derive(Debug, Default, PartialEq, Eq)]
 pub struct ReconcileScheduler {
     state: ReconcileState,
 }
@@ -90,6 +93,7 @@ enum ReconcileState {
 }
 
 /// Effect produced when authoritative reconciliation is requested.
+#[must_use = "reconciliation request effects must be acted on or a wake can be lost"]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ReconcileRequestEffect {
     /// The caller owns responsibility for starting one authoritative pass.
@@ -99,6 +103,7 @@ pub enum ReconcileRequestEffect {
 }
 
 /// Effect produced when an authoritative reconciliation pass completes.
+#[must_use = "reconciliation completion effects must be acted on to preserve wake coverage"]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ReconcileCompletionEffect {
     /// One or more wakes arrived during the completed pass. Start exactly one
@@ -304,7 +309,10 @@ mod tests {
     #[test]
     fn clean_completion_becomes_quiescent() {
         let mut scheduler = ReconcileScheduler::new();
-        scheduler.request_reconcile();
+        assert_eq!(
+            scheduler.request_reconcile(),
+            ReconcileRequestEffect::StartPass
+        );
 
         assert_eq!(
             scheduler.complete_pass(),
@@ -317,8 +325,14 @@ mod tests {
     #[test]
     fn wake_during_follow_up_is_not_lost() {
         let mut scheduler = ReconcileScheduler::new();
-        scheduler.request_reconcile();
-        scheduler.request_reconcile();
+        assert_eq!(
+            scheduler.request_reconcile(),
+            ReconcileRequestEffect::StartPass
+        );
+        assert_eq!(
+            scheduler.request_reconcile(),
+            ReconcileRequestEffect::Coalesced
+        );
         assert_eq!(
             scheduler.complete_pass(),
             Ok(ReconcileCompletionEffect::StartFollowUpPass)
@@ -341,7 +355,10 @@ mod tests {
     #[test]
     fn wake_after_quiescence_starts_a_fresh_pass() {
         let mut scheduler = ReconcileScheduler::new();
-        scheduler.request_reconcile();
+        assert_eq!(
+            scheduler.request_reconcile(),
+            ReconcileRequestEffect::StartPass
+        );
         assert_eq!(
             scheduler.complete_pass(),
             Ok(ReconcileCompletionEffect::BecameIdle)
