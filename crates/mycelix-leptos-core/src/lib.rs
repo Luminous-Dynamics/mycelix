@@ -43,10 +43,19 @@
 //! - [`use_thermodynamic`] — Retrieve device energy and torpor state
 //! - [`use_homeostasis`] — Retrieve homeostasis (all-pending-zero) state
 
+// --- Core transport ---
 pub mod connection_status;
 pub mod holochain_provider;
 pub mod provider;
+// bridge_finance: unfinished proof-of-concept, never wired to any consumer —
+// imports `use_holochain`/`Record`/`ActionHash`/`SapBalanceResponse` that
+// don't exist in their claimed source crates, and calls
+// `create_server_action` (a server-function-only API) from a CSR-only
+// crate. Disabled rather than fixed since nothing depends on it; delete
+// outright once confirmed nobody's mid-flight on finishing it.
+// pub mod bridge_finance;
 
+// --- UI components ---
 pub mod activity_feed;
 pub mod app_shell;
 pub mod availability_state;
@@ -79,6 +88,7 @@ pub mod tier_gate;
 pub mod trust_badge;
 pub mod zome_call_button;
 
+// --- Reactive systems ---
 pub mod consciousness;
 pub mod consciousness_ui;
 pub mod homeostasis;
@@ -86,16 +96,23 @@ pub mod theme;
 pub mod thermodynamic;
 pub use mycelix_leptos_ui::toasts;
 
+// --- Utilities ---
 pub mod util;
 
+// Re-exports for convenience — transport
 pub use holochain_provider::{
     ConnectStrategy, ConnectionBadge, ConnectionStatus, HolochainCtx, HolochainProviderAuto,
     HolochainProviderConfig,
 };
 pub use provider::{HolochainProvider, use_holochain, use_zome_call};
+// Note: holochain_provider::use_holochain() returns concrete HolochainCtx,
+// while provider::use_holochain::<T>() is generic. Access the concrete one
+// via mycelix_leptos_core::holochain_provider::use_holochain().
 
+// Re-exports — types
 pub use personal_leptos_types::TrustTier;
 
+// Re-exports — UI components
 pub use connection_status::ConnectionStatusIndicator;
 pub use error_boundary::AppErrorBoundary;
 pub use evidence::{EvidenceAvailability, EvidenceDisclosure};
@@ -107,6 +124,7 @@ pub use tier_gate::TierGate;
 pub use trust_badge::TrustBadge;
 pub use zome_call_button::ZomeCallButton;
 
+// Re-exports — reactive systems
 pub use consciousness::{
     ConsciousnessProfile, ConsciousnessState, provide_consciousness_context, use_consciousness,
 };
@@ -116,6 +134,7 @@ pub use theme::{AppTheme, ThemeState, provide_theme_context, use_theme_state};
 pub use thermodynamic::{ThermodynamicState, provide_thermodynamic_context, use_thermodynamic};
 pub use toasts::{Toast, ToastContainer, ToastKind, ToastState, provide_toast_context, use_toasts};
 
+// Re-exports — new components
 pub use activity_feed::{ActivityFeed, ActivityFeedItem};
 pub use app_shell::{AppNav, AppShell, MobileBottomNav, NavLink, NavTab};
 pub use availability_state::{AvailabilityState, AvailabilityStateKind};
@@ -141,4 +160,5 @@ pub use summary_card::{
 };
 pub use tabs::{TabPanel, Tabs};
 
+// Re-exports — utilities
 pub use util::{set_css_var, set_root_attribute};
