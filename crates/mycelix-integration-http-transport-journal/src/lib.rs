@@ -825,7 +825,8 @@ fn require_exact_store_identity(
     expected_inode: u64,
 ) -> Result<(), TransportJournalError> {
     let metadata = fs::metadata(path).map_err(TransportJournalError::Io)?;
-    if !metadata.is_file() || metadata.dev() != expected_device || metadata.ino() != expected_inode {
+    if !metadata.is_file() || metadata.dev() != expected_device || metadata.ino() != expected_inode
+    {
         return Err(TransportJournalError::StoreIdentityChanged);
     }
     Ok(())

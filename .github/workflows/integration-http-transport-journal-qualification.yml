@@ -237,7 +237,7 @@ jobs:
           grep -Fq 'integration_dispatch_binding_v2' "$SOURCE"
           grep -Fq 'context_profile != dispatch.context().profile()' "$SOURCE"
           grep -Fq 'binding_digest.as_slice() != dispatch.binding_digest().0' "$SOURCE"
-          grep -Fq 'command_digest.as_slice() != descriptor.command_commitment().digest' "$SOURCE"
+          grep -Fq 'command_commitment_digest.as_slice() != descriptor.command_commitment().digest' "$SOURCE"
           grep -Fq 'symlink_metadata' "$SOURCE"
           grep -Fq 'metadata.dev() != expected_device' "$SOURCE"
           grep -Fq 'metadata.ino() != expected_inode' "$SOURCE"
