@@ -9,6 +9,7 @@
 //!
 //! # Components
 //!
+//! - [`MycelixApplication`] — Canonical cross-domain runtime composition boundary
 //! - [`HolochainProvider`] — Generic context provider wrapping a [`HolochainTransport`]
 //! - [`HolochainProviderAuto`] — Auto-connecting provider with mock fallback
 //! - [`ConnectionStatusIndicator`] — Navbar-sized connection state indicator
@@ -42,7 +43,8 @@
 //! - [`use_thermodynamic`] — Retrieve device energy and torpor state
 //! - [`use_homeostasis`] — Retrieve homeostasis (all-pending-zero) state
 
-// --- Core transport ---
+// --- Core transport / composition ---
+pub mod application;
 pub mod connection_status;
 pub mod holochain_provider;
 pub mod provider;
@@ -97,7 +99,8 @@ pub use mycelix_leptos_ui::toasts;
 // --- Utilities ---
 pub mod util;
 
-// Re-exports for convenience — transport
+// Re-exports for convenience — application / transport
+pub use application::{HomeostasisConfig, MycelixApplication, MycelixApplicationConfig};
 pub use holochain_provider::{
     ConnectStrategy, ConnectionBadge, ConnectionStatus, HolochainCtx, HolochainProviderAuto,
     HolochainProviderConfig,
