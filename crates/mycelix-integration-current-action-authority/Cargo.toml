@@ -13,4 +13,5 @@ mycelix-governance-executor-designation = { path = "../mycelix-governance-execut
 mycelix-governance-executor-lineage = { path = "../mycelix-governance-executor-lineage" }
 mycelix-institutional-core = { path = "../mycelix-institutional-core" }
 mycelix-integration-authority-action = { path = "../mycelix-integration-authority-action" }
+mycelix-integration-core = { path = "../mycelix-integration-core" }
 thiserror = "2.0"

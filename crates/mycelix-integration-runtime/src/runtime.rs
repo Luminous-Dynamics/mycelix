@@ -19,32 +19,33 @@ mod storage_guard;
 mod v31;
 
 pub use attempt_guard::{
-    CurrentAttemptQualificationError, QualifiedCurrentExecutionAttempt, CURRENT_ATTEMPT_PROFILE,
+    CURRENT_ATTEMPT_PROFILE, CurrentAttemptQualificationError, QualifiedCurrentExecutionAttempt,
 };
 pub use bootstrap_guard::RUNTIME_BOOTSTRAP_PROFILE_V1;
 pub use schema_manifest::RUNTIME_STRUCTURAL_MANIFEST_V2;
-pub use storage_guard::{
-    ReconciliationCheckpointSnapshot, RUNTIME_ENFORCEMENT_PROFILE_V5,
-};
+pub use storage_guard::{RUNTIME_ENFORCEMENT_PROFILE_V5, ReconciliationCheckpointSnapshot};
 pub use v31::{
     DispatchStarted, DurableOutboundIntent, EnqueueDisposition, ExecutionClaim,
     ExecutionRecordDisposition, InsertDisposition, OutboxSnapshot, PersistableInbound,
-    ReconciliationHistoryItem, RecoverySummary, RuntimeError, RUNTIME_SEMANTIC_PROFILE_V31,
+    RUNTIME_SEMANTIC_PROFILE_V31, ReconciliationHistoryItem, RecoverySummary, RuntimeError,
 };
 
 use mycelix_integration_core::{
     ConnectorInstanceId, ExecutionAttemptId, ExternalExecutionOutcome, ExternalOperationRef,
     ReconcileCursor, ReconciliationResult,
 };
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{Connection, ErrorCode, OptionalExtension, params};
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 const OUTBOX_COMMITTED_STAGE_V2: i64 = 3;
 const MAX_EXECUTION_ATTEMPTS_V01: i64 = 1_024;
+const OPEN_CONTENTION_RETRY_WINDOW: Duration = Duration::from_secs(5);
+const OPEN_CONTENTION_INITIAL_BACKOFF_MS: u64 = 2;
+const OPEN_CONTENTION_MAX_BACKOFF_MS: u64 = 50;
 
 pub struct SqliteIntegrationStore {
     inner: v31::SqliteIntegrationStore,
@@ -55,17 +56,44 @@ pub struct SqliteIntegrationStore {
 impl SqliteIntegrationStore {
     pub fn open(path: impl AsRef<Path>) -> Result<Self, RuntimeError> {
         let path = path.as_ref().to_path_buf();
+        let deadline = Instant::now() + OPEN_CONTENTION_RETRY_WINDOW;
+        let mut backoff_ms = OPEN_CONTENTION_INITIAL_BACKOFF_MS;
+
+        loop {
+            match Self::open_once(&path) {
+                Ok(store) => return Ok(store),
+                Err(error) if is_retryable_open_contention(&error) => {
+                    let now = Instant::now();
+                    if now >= deadline {
+                        return Err(error);
+                    }
+                    let remaining = deadline.saturating_duration_since(now);
+                    let sleep_for = Duration::from_millis(backoff_ms).min(remaining);
+                    std::thread::sleep(sleep_for);
+                    backoff_ms = backoff_ms
+                        .saturating_mul(2)
+                        .min(OPEN_CONTENTION_MAX_BACKOFF_MS);
+                }
+                Err(error) => return Err(error),
+            }
+        }
+    }
+
+    fn open_once(path: &Path) -> Result<Self, RuntimeError> {
+        // Every retry re-runs the complete durable qualification path. Only
+        // SQLite BUSY/LOCKED contention is retryable; semantic, structural,
+        // identity, history, and authority failures remain immediate denial.
 
         // Every unversioned database is decided under an IMMEDIATE transaction
         // before the older coarse classifier can mutate it. Only a database with
         // no user schema objects at all may be stamped as a fresh structural-v2
         // bootstrap candidate; ambiguous/foreign version-0 databases stay intact.
-        let coarse = match bootstrap_guard::prepare_unversioned_file_store(&path)? {
+        let coarse = match bootstrap_guard::prepare_unversioned_file_store(path)? {
             Some(admission) => admission,
-            None => storage_guard::prepare_and_classify_file_store(&path)?,
+            None => storage_guard::prepare_and_classify_file_store(path)?,
         };
         let admission = bootstrap_guard::qualify_file_store_bootstrap(
-            &path,
+            path,
             RUNTIME_SEMANTIC_PROFILE_V31,
             coarse,
         )?;
@@ -76,7 +104,7 @@ impl SqliteIntegrationStore {
             // no prior AUTOINCREMENT activity, and absent/exact semantic producer
             // identity under an IMMEDIATE transaction. No public runtime is
             // exposed until strict structural/semantic admission succeeds.
-            let bootstrap = v31::SqliteIntegrationStore::open(&path)?;
+            let bootstrap = v31::SqliteIntegrationStore::open(path)?;
             drop(bootstrap);
         }
 
@@ -84,15 +112,15 @@ impl SqliteIntegrationStore {
         // qualification, semantic/schema checks, typed-history reconstruction,
         // derived index/trigger replacement, enforcement-profile-v5 recording,
         // and post-repair structural-manifest-v2 qualification before commit.
-        storage_guard::harden_file_store(&path, RUNTIME_SEMANTIC_PROFILE_V31)?;
+        storage_guard::harden_file_store(path, RUNTIME_SEMANTIC_PROFILE_V31)?;
 
         // Load process-local caches only after the complete durable hardening
         // transaction commits successfully.
-        let inner = v31::SqliteIntegrationStore::open(&path)?;
+        let inner = v31::SqliteIntegrationStore::open(path)?;
 
         Ok(Self {
             inner,
-            path: Some(path),
+            path: Some(path.to_path_buf()),
             in_memory_checkpoint_times_ms: BTreeMap::new(),
         })
     }
@@ -163,10 +191,7 @@ impl SqliteIntegrationStore {
             .mark_dispatch_started(entry_id, attempt_id, worker_id, now_ms)
     }
 
-    pub fn recover_expired_claims(
-        &mut self,
-        now_ms: i64,
-    ) -> Result<RecoverySummary, RuntimeError> {
+    pub fn recover_expired_claims(&mut self, now_ms: i64) -> Result<RecoverySummary, RuntimeError> {
         self.inner.recover_expired_claims(now_ms)
     }
 
@@ -203,11 +228,7 @@ impl SqliteIntegrationStore {
         self.inner.reconciliation_history(entry_id)
     }
 
-    pub fn finalize_outbound(
-        &mut self,
-        entry_id: i64,
-        now_ms: i64,
-    ) -> Result<(), RuntimeError> {
+    pub fn finalize_outbound(&mut self, entry_id: i64, now_ms: i64) -> Result<(), RuntimeError> {
         self.require_fresh_causal_time(entry_id, now_ms)?;
         self.inner.finalize_outbound(entry_id, now_ms)
     }
@@ -222,7 +243,9 @@ impl SqliteIntegrationStore {
         }
 
         let key = cursor.connector_instance.as_str().to_owned();
-        let existing_cursor = self.inner.load_reconciliation_checkpoint(&cursor.connector_instance)?;
+        let existing_cursor = self
+            .inner
+            .load_reconciliation_checkpoint(&cursor.connector_instance)?;
         let existing = match existing_cursor.as_ref() {
             Some(stored) => {
                 let stored_at_ms = self
@@ -245,7 +268,8 @@ impl SqliteIntegrationStore {
         if should_write {
             self.inner
                 .checkpoint_reconciliation(cursor, updated_at_ms)?;
-            self.in_memory_checkpoint_times_ms.insert(key, updated_at_ms);
+            self.in_memory_checkpoint_times_ms
+                .insert(key, updated_at_ms);
         }
         Ok(())
     }
@@ -267,7 +291,10 @@ impl SqliteIntegrationStore {
             return storage_guard::load_checkpoint_snapshot(path, connector_instance);
         }
 
-        let Some(cursor) = self.inner.load_reconciliation_checkpoint(connector_instance)? else {
+        let Some(cursor) = self
+            .inner
+            .load_reconciliation_checkpoint(connector_instance)?
+        else {
             return Ok(None);
         };
         let updated_at_ms = self
@@ -276,7 +303,8 @@ impl SqliteIntegrationStore {
             .copied()
             .ok_or_else(|| {
                 RuntimeError::StoredIdentifier(
-                    "in-memory reconciliation checkpoint is missing its causal timestamp".to_owned(),
+                    "in-memory reconciliation checkpoint is missing its causal timestamp"
+                        .to_owned(),
                 )
             })?;
         Ok(Some(ReconciliationCheckpointSnapshot {
@@ -310,19 +338,13 @@ impl SqliteIntegrationStore {
         let Some(path) = &self.path else {
             return Ok(());
         };
-        if load_durable_causal_frontier(path, entry_id)?
-            .is_some_and(|frontier| now_ms < frontier)
-        {
+        if load_durable_causal_frontier(path, entry_id)?.is_some_and(|frontier| now_ms < frontier) {
             return Err(RuntimeError::InvalidTimestamp);
         }
         Ok(())
     }
 
-    fn require_fresh_claim_frontiers(
-        &self,
-        now_ms: i64,
-        limit: usize,
-    ) -> Result<(), RuntimeError> {
+    fn require_fresh_claim_frontiers(&self, now_ms: i64, limit: usize) -> Result<(), RuntimeError> {
         if now_ms < 0 {
             return Err(RuntimeError::InvalidTimestamp);
         }
@@ -376,10 +398,18 @@ impl SqliteIntegrationStore {
     }
 }
 
-fn load_durable_causal_frontier(
-    path: &Path,
-    entry_id: i64,
-) -> Result<Option<i64>, RuntimeError> {
+fn is_retryable_open_contention(error: &RuntimeError) -> bool {
+    matches!(
+        error,
+        RuntimeError::Sqlite(rusqlite::Error::SqliteFailure(failure, _))
+            if matches!(
+                failure.code,
+                ErrorCode::DatabaseBusy | ErrorCode::DatabaseLocked
+            )
+    )
+}
+
+fn load_durable_causal_frontier(path: &Path, entry_id: i64) -> Result<Option<i64>, RuntimeError> {
     let conn = open_aux(path)?;
     conn.query_row(
         "SELECT MAX(ts) FROM (\n\

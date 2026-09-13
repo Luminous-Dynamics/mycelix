@@ -39,6 +39,15 @@ fn reconciliation() -> ReconciliationResult {
     }
 }
 
+fn disable_foreign_keys_for_corrupt_fixture(conn: &Connection) {
+    conn.execute_batch("PRAGMA foreign_keys = OFF;")
+        .expect("fixture must disable foreign-key enforcement");
+    let enabled: i64 = conn
+        .pragma_query_value(None, "foreign_keys", |row| row.get(0))
+        .expect("fixture must read foreign-key mode");
+    assert_eq!(enabled, 0, "fixture requires foreign keys to be disabled");
+}
+
 #[test]
 fn reopen_rejects_orphan_execution_history() {
     let temp = tempfile::tempdir().expect("tempdir must be created");
@@ -47,6 +56,7 @@ fn reopen_rejects_orphan_execution_history() {
 
     {
         let conn = Connection::open(&path).expect("raw connection must open");
+        disable_foreign_keys_for_corrupt_fixture(&conn);
         conn.execute_batch(
             "DROP TRIGGER integration_validate_execution_subject_before;",
         )
@@ -75,6 +85,7 @@ fn reopen_rejects_orphan_reconciliation_history() {
 
     {
         let conn = Connection::open(&path).expect("raw connection must open");
+        disable_foreign_keys_for_corrupt_fixture(&conn);
         conn.execute_batch(
             "DROP TRIGGER integration_validate_reconciliation_subject_before;",
         )

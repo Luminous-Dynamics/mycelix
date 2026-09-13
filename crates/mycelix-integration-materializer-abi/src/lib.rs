@@ -152,7 +152,7 @@ fn analyze_abi(bytes: &[u8], expected_function_index: u32) -> Result<AbiFacts, M
                 }
             }
             Payload::FunctionSection(reader) => {
-                function_type_indices = reader.collect::<Result<Vec<_>, _>>()?;
+                function_type_indices = reader.into_iter().collect::<Result<Vec<_>, _>>()?;
             }
             Payload::ExportSection(reader) => {
                 for item in reader {

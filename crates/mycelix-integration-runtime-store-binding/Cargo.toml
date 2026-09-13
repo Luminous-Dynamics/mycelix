@@ -1,0 +1,11 @@
+[package]
+name = "mycelix-integration-runtime-store-binding"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Provisioned filesystem identity binding for Mycelix integration runtime stores"
+
+[dependencies]
+blake3 = "1.5"
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+thiserror = "2.0"

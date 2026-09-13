@@ -11,5 +11,5 @@ mycelix-institutional-core = { path = "../mycelix-institutional-core" }
 mycelix-integration-core = { path = "../mycelix-integration-core" }
 mycelix-integration-materializer-runtime = { path = "../mycelix-integration-materializer-runtime" }
 mycelix-integration-runtime = { path = "../mycelix-integration-runtime" }
-rusqlite = { version = "0.32", features = ["bundled"] }
+rusqlite = { version = "0.37", features = ["bundled"] }
 thiserror = "2.0"

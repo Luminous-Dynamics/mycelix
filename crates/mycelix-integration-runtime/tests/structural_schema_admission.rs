@@ -1,4 +1,6 @@
-use mycelix_integration_runtime::{RuntimeError, SqliteIntegrationStore};
+use mycelix_integration_runtime::{
+    RUNTIME_STRUCTURAL_MANIFEST_V2, RuntimeError, SqliteIntegrationStore,
+};
 use rusqlite::Connection;
 
 #[test]
@@ -32,7 +34,14 @@ fn unsupported_structural_schema_is_rejected_before_enforcement_repair() {
 
     match SqliteIntegrationStore::open(&path) {
         Err(RuntimeError::StoredIdentifier(message)) => {
-            assert!(message.contains("unsupported integration runtime structural schema: 99"));
+            assert!(
+                message.starts_with(RUNTIME_STRUCTURAL_MANIFEST_V2),
+                "structural rejection must be owned by the structural manifest: {message}"
+            );
+            assert!(
+                message.contains("structural manifest expected schema v2, observed 99"),
+                "structural rejection must bind expected and observed schema versions: {message}"
+            );
         }
         Err(other) => panic!("unexpected reopen error: {other:?}"),
         Ok(_) => panic!("unsupported structural schema must fail closed"),

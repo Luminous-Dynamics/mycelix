@@ -1,0 +1,16 @@
+[package]
+name = "mycelix-integration-http-transport-journal"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Crash-safe first-byte uncertainty journal for Mycelix HTTP transport attempts"
+
+[dependencies]
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+mycelix-integration-atomic-dispatch-context = { path = "../mycelix-integration-atomic-dispatch-context" }
+mycelix-integration-core = { path = "../mycelix-integration-core" }
+mycelix-integration-http-issuance-descriptor = { path = "../mycelix-integration-http-issuance-descriptor" }
+mycelix-integration-runtime-store-binding = { path = "../mycelix-integration-runtime-store-binding" }
+mycelix-integration-transport-observation = { path = "../mycelix-integration-transport-observation" }
+rusqlite = { version = "0.37", features = ["bundled"] }
+thiserror = "2.0"
