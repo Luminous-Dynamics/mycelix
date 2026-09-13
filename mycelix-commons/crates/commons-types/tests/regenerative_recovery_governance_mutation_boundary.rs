@@ -6,11 +6,11 @@
 use commons_types::{
     GOVERNANCE_ACTIONS_DIGEST_PROFILE_V1, REGENERATIVE_RECOVERY_COORDINATE_EVIDENCE_SCHEMA_V1,
     REGENERATIVE_RECOVERY_FORK_RESOLUTION_SCHEMA_V1,
-    REGENERATIVE_RECOVERY_GOVERNANCE_AUTHORITY_SCHEMA_V1,
-    RegenerativeRecoveryCoordinateEvidenceV1, RegenerativeRecoveryFlowKindEvidenceV1,
-    RegenerativeRecoveryForkResolutionEvidenceV1, RegenerativeRecoveryForkResolutionOutcomeV1,
-    RegenerativeRecoveryGovernanceAuthorityEvidenceV1, RegenerativeRecoveryReserveDispositionV1,
-    RegenerativeRecoveryReserveHeadV1, THRESHOLD_AUTHORIZATION_IDENTITY_PROFILE_V1,
+    REGENERATIVE_RECOVERY_GOVERNANCE_AUTHORITY_SCHEMA_V1, RegenerativeRecoveryCoordinateEvidenceV1,
+    RegenerativeRecoveryFlowKindEvidenceV1, RegenerativeRecoveryForkResolutionEvidenceV1,
+    RegenerativeRecoveryForkResolutionOutcomeV1, RegenerativeRecoveryGovernanceAuthorityEvidenceV1,
+    RegenerativeRecoveryReserveDispositionV1, RegenerativeRecoveryReserveHeadV1,
+    THRESHOLD_AUTHORIZATION_IDENTITY_PROFILE_V1,
     apply_regenerative_recovery_fork_resolution_with_bound_governance_authority,
     qualify_regenerative_recovery_fork_resolution_governance_binding,
     qualify_regenerative_recovery_governance_action,
@@ -116,8 +116,8 @@ fn authority(
             "mycelix-governance-threshold-identity:receipt-security-1".into(),
         threshold_authorization_ref: "threshold-authorization:record-security-1".into(),
         threshold_authorization_identity_digest: threshold_identity.into(),
-        threshold_authorization_identity_profile:
-            THRESHOLD_AUTHORIZATION_IDENTITY_PROFILE_V1.into(),
+        threshold_authorization_identity_profile: THRESHOLD_AUTHORIZATION_IDENTITY_PROFILE_V1
+            .into(),
         qualified_actions_digest: action.actions_digest().into(),
         qualified_actions_digest_profile: GOVERNANCE_ACTIONS_DIGEST_PROFILE_V1.into(),
     }
@@ -145,11 +145,9 @@ fn internally_consistent_but_unverified_authority_never_moves_the_cursor() {
     let resolution = resolution(&current, &sibling, &identity);
     let authority = authority(&resolution, &identity);
 
-    let binding = qualify_regenerative_recovery_fork_resolution_governance_binding(
-        &resolution,
-        &authority,
-    )
-    .unwrap();
+    let binding =
+        qualify_regenerative_recovery_fork_resolution_governance_binding(&resolution, &authority)
+            .unwrap();
     assert!(!binding.upstream_threshold_authority_verified_here());
     assert!(!binding.recovery_cursor_mutation_authorized_here());
 
