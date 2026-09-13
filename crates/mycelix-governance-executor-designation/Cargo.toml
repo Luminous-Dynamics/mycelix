@@ -1,0 +1,12 @@
+[package]
+name = "mycelix-governance-executor-designation"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Pure scoped executor designation over institutional AuthorityGrant"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+mycelix-governance-authority = { path = "../mycelix-governance-authority" }
+mycelix-governance-threshold-qualification = { path = "../mycelix-governance-threshold-qualification" }
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }

@@ -1,0 +1,64 @@
+name: Governance Executor Designation
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-governance-executor-designation/**'
+      - '.github/workflows/governance-executor-designation.yml'
+  push:
+    branches:
+      - 'security/governance-executor-designation-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: governance-executor-designation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Scoped executor designation kernel
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+      - name: Toolchain identity
+        run: |
+          rustc --version --verbose
+          cargo --version
+          rustfmt --version
+          cargo clippy --version
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-governance-executor-designation/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-governance-executor-designation/Cargo.toml --all-targets
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-governance-executor-designation/Cargo.toml --all-targets -- -D warnings
+      - name: Authority attenuation audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          src = Path('crates/mycelix-governance-executor-designation/src/lib.rs').read_text()
+          assert 'AuthorityGrant' in src
+          assert 'threshold_authorization_ref' in src
+          assert 'actions_digest_profile' in src
+          assert 'MissingExecutionCapability' in src
+          assert 'DesignationExceedsGrantLifetime' in src
+          assert 'DesignationExceedsThresholdLifetime' in src
+          assert 'MissingDelegationVerification' in src
+          assert not re.search(r'\bphi\b', src, re.IGNORECASE)
+          assert not re.search(r'\breputation\b', src, re.IGNORECASE)
+          forbidden_boolean_authority = re.compile(
+              r'^\s*(?:pub(?:\([^)]*\))?\s+)?(?:verified|trusted)\s*:\s*bool\b',
+              re.MULTILINE,
+          )
+          assert not forbidden_boolean_authority.search(src)
+          print('PASS: executor designation is scoped attenuation, not generic score/identity authority')
+          PY
