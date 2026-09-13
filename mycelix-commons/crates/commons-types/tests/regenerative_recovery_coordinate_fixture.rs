@@ -30,13 +30,15 @@ fn recovery_evidence(
         recovery_evidence_id: "manta-v4-metrology-recovery-coordinate".into(),
         viability_evidence_content_digest: viability.content_digest().unwrap(),
         support_closure_continuity_content_digest: continuity.content_digest().unwrap(),
-        // Rebound to the exact final heads before this PR is frozen.
+        // Rebound to immutable final heads before the PR is frozen.
         symthaea_recovery_binding: "symthaea:pr-2235:recovery-coordinate-v1".into(),
         symtropy_recovery_binding: "symtropy:pr-862:recovery-coordinate-v1".into(),
         semantic_recovery_fixture_binding:
             "git-blob:725880ba8affd94efd6a9cfb798c39e6c08c9c49".into(),
         dynamic_recovery_fixture_binding:
             "git-blob:4c043fdf476f4811ac89e82d46b327919ceffd27".into(),
+        successor_profile_id: "profile-v4-topology".into(),
+        successor_profile_evidence_binding: "profile-evidence:v4:topology".into(),
         successor_model_binding: continuity.successor_model_binding.clone(),
         successor_support_binding: continuity.successor_support_binding.clone(),
         recovery_policy_id: "recovery-policy:metrology-v4".into(),
@@ -57,6 +59,7 @@ fn recovery_evidence(
         reserve_units_per_recovery: recovery_cost,
         reserve_units_before: external_units,
         reserve_units_after: external_units - recovery_cost,
+        reserve_external_to_nominal_closure: true,
         dynamic_recovery_receipt_binding: "symtropy:pr-862:recovery-receipt-v4".into(),
         recovery_qualified: true,
         disturbance_conditioned_recovery_authorized: true,
@@ -78,6 +81,11 @@ fn recovery_coordinate_composes_with_exact_safe_nominal_continuity() {
 
     assert_eq!(continuity.successor_model_binding, "model:closure-v4-topology");
     assert_eq!(continuity.successor_support_binding, "flow-support:v4:direct");
+    assert_eq!(recovery.successor_profile_id, "profile-v4-topology");
+    assert_eq!(
+        recovery.successor_profile_evidence_binding,
+        "profile-evidence:v4:topology"
+    );
     assert_eq!(
         verify_regenerative_recovery_coordinate_evidence(
             &viability,
@@ -118,7 +126,7 @@ fn recovery_coordinate_rejects_parent_substitution_and_external_reserve_collisio
 }
 
 #[test]
-fn recovery_reserve_receipt_and_qualification_snapshot_are_fail_closed() {
+fn recovery_reserve_receipt_and_externality_verdict_are_fail_closed() {
     let viability = viability(false);
     let surface = surface(&viability);
     let basis = basis(&viability, Some(&surface));
@@ -131,6 +139,10 @@ fn recovery_reserve_receipt_and_qualification_snapshot_are_fail_closed() {
     let mut snapshot_drift = recovery_evidence(&viability, &continuity);
     snapshot_drift.reserve_units_before = 0;
     assert!(snapshot_drift.validate().is_err());
+
+    let mut externality_drift = recovery_evidence(&viability, &continuity);
+    externality_drift.reserve_external_to_nominal_closure = false;
+    assert!(externality_drift.validate().is_err());
 }
 
 #[test]
