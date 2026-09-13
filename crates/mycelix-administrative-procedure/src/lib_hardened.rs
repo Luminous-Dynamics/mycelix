@@ -23,6 +23,9 @@ mod admin_002;
 #[cfg(feature = "administrative-review")]
 mod admin_003;
 
+#[cfg(feature = "administrative-review")]
+mod admin_003_hardened;
+
 #[cfg(feature = "procedural-completeness")]
 pub use admin_002::{
     ADMIN_002_PROTOCOL_VERSION, EvidenceClosureReceipt, NoticeReceipt, ProceduralCompletenessError,
@@ -35,12 +38,17 @@ pub use admin_002::{
 pub use admin_003::{
     ADMIN_003_PROTOCOL_VERSION, AdministrativeFinalityReceipt, AdministrativeReviewDisposition,
     AdministrativeReviewError, AdministrativeReviewPolicy, ChallengeSubmission,
-    ExternalJudicialFinalityReference, QualifiedAdministrativeFinality, QualifiedAppealReview,
-    QualifiedChallenge, QualifiedRemedy, QualifiedReviewDisposition, QualifiedReviewableDecision,
-    RecordedExternalJudicialFinality, ReviewDispositionOutcome, StayDirective, StayDirectiveKind,
-    StayState, apply_stay_directive, qualify_administrative_finality, qualify_appeal,
-    qualify_challenge, qualify_remedy, qualify_review_disposition, qualify_reviewable_decision,
+    ExternalJudicialFinalityReference, QualifiedAdministrativeFinality, QualifiedChallenge,
+    QualifiedRemedy, QualifiedReviewDisposition, QualifiedReviewableDecision,
+    RecordedExternalJudicialFinality, ReviewDispositionOutcome, qualify_administrative_finality,
+    qualify_challenge, qualify_remedy, qualify_reviewable_decision,
     record_external_judicial_finality,
+};
+
+#[cfg(feature = "administrative-review")]
+pub use admin_003_hardened::{
+    AdministrativeReviewHardeningError, QualifiedAppealReview, StayDirective, StayDirectiveKind,
+    StayState, apply_stay_directive, qualify_appeal, qualify_review_disposition,
 };
 
 pub use legacy::{
