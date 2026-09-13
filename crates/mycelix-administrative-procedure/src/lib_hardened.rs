@@ -6,7 +6,9 @@
 //! semantic module so its focused transition machinery is preserved. Default
 //! builds expose the ADMIN-001 lineage-qualified decision path. Builds with the
 //! `procedural-completeness` feature hide that raw consequential path and expose
-//! ADMIN-002's stricter completeness-gated path instead.
+//! ADMIN-002's stricter completeness-gated path instead. The additive
+//! `administrative-review` feature implies ADMIN-002 and exposes ADMIN-003's
+//! immutable challenge/appeal/finality semantics.
 //!
 //! The ADMIN-001 key theorem is:
 //!
@@ -18,12 +20,35 @@ mod legacy;
 #[cfg(feature = "procedural-completeness")]
 mod admin_002;
 
+#[cfg(feature = "administrative-review")]
+mod admin_003;
+
+#[cfg(feature = "administrative-review")]
+mod admin_003_hardened;
+
 #[cfg(feature = "procedural-completeness")]
 pub use admin_002::{
     ADMIN_002_PROTOCOL_VERSION, EvidenceClosureReceipt, NoticeReceipt, ProceduralCompletenessError,
     ProceduralCompletenessPolicy, QualifiedProceduralDecision, QualifiedProcedurallyCompleteCase,
     ReasonsRequirement, ResponseMode, ResponseModeRequirement, ResponseOpportunityReceipt,
     issue_qualified_decision, qualify_administrative_decision, qualify_procedural_completeness,
+};
+
+#[cfg(feature = "administrative-review")]
+pub use admin_003::{
+    ADMIN_003_PROTOCOL_VERSION, AdministrativeFinalityReceipt, AdministrativeReviewDisposition,
+    AdministrativeReviewError, AdministrativeReviewPolicy, ChallengeSubmission,
+    ExternalJudicialFinalityReference, QualifiedAdministrativeFinality, QualifiedRemedy,
+    QualifiedReviewDisposition, QualifiedReviewableDecision, RecordedExternalJudicialFinality,
+    ReviewDispositionOutcome, qualify_administrative_finality, qualify_remedy,
+    qualify_reviewable_decision, record_external_judicial_finality,
+};
+
+#[cfg(feature = "administrative-review")]
+pub use admin_003_hardened::{
+    AdministrativeReviewHardeningError, QualifiedAppealReview, QualifiedChallenge, StayDirective,
+    StayDirectiveKind, StayState, apply_stay_directive, qualify_appeal, qualify_challenge,
+    qualify_review_disposition,
 };
 
 pub use legacy::{
