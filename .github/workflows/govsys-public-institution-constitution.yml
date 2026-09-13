@@ -1,0 +1,48 @@
+name: GOVSYS-002 Public Institution Constitution
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/docs/government/PUBLIC_INSTITUTION_CONSTITUTION_V0.1.md'
+      - 'scripts/qualification/govsys_public_institution_constitution_v0_1.py'
+      - '.github/workflows/govsys-public-institution-constitution.yml'
+  push:
+    branches:
+      - 'docs/govsys-002-public-institution-constitution-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: govsys-002-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Public institution composition boundaries
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+
+      - name: Execution identity
+        run: |
+          git rev-parse HEAD
+          python3 --version
+
+      - name: Qualify constitutional corpus
+        run: python3 scripts/qualification/govsys_public_institution_constitution_v0_1.py
+
+      - name: No runtime implementation in GOVSYS-002
+        run: |
+          changed="$(git diff --name-only '${{ github.event.pull_request.base.sha || github.event.before }}' HEAD 2>/dev/null || true)"
+          printf '%s\n' "$changed"
+          if printf '%s\n' "$changed" | grep -E '\.(rs|toml|lock)$' | grep -v 'capability-matrix-v0.1.toml'; then
+            echo 'GOVSYS-002 must remain a documentation/qualification-only tranche' >&2
+            exit 1
+          fi
+
+      - name: Immutable checkout postflight
+        run: test -z "$(git status --short)"
