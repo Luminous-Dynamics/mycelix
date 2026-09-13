@@ -131,6 +131,16 @@ impl QualifiedCurrentExecutorAuthority {
     }
 }
 
+/// Exact current-state receipts for the three authority subjects that must
+/// remain jointly fresh. Named fields make grant/threshold/executor ordering
+/// explicit at the provider boundary instead of relying on positional arguments.
+#[derive(Clone, Copy, Debug)]
+pub struct CurrentExecutorFreshnessEvidence<'a> {
+    pub grant: &'a VerifiedAuthorityFreshness,
+    pub threshold: &'a VerifiedAuthorityFreshness,
+    pub executor: &'a VerifiedAuthorityFreshness,
+}
+
 /// Reconstruct exact executor semantics and then qualify the exact current
 /// revocation generations for the same authority objects.
 pub fn qualify_current_executor_authority(
@@ -138,14 +148,18 @@ pub fn qualify_current_executor_authority(
     grant_receipt: &VerifiedAuthorityGrant,
     designation_receipt: &VerifiedExecutorDesignation,
     lineage_evidence: DelegationLineageEvidence<'_>,
-    grant_freshness: &VerifiedAuthorityFreshness,
-    threshold_freshness: &VerifiedAuthorityFreshness,
-    executor_freshness: &VerifiedAuthorityFreshness,
+    freshness_evidence: CurrentExecutorFreshnessEvidence<'_>,
     now_ms: u64,
 ) -> Result<QualifiedCurrentExecutorAuthority, CurrentExecutorAuthorityError> {
     if now_ms == 0 {
         return Err(CurrentExecutorAuthorityError::InvalidVerificationTime);
     }
+
+    let CurrentExecutorFreshnessEvidence {
+        grant: grant_freshness,
+        threshold: threshold_freshness,
+        executor: executor_freshness,
+    } = freshness_evidence;
 
     // Re-run the full exact semantic qualifier. This ensures the current layer
     // cannot combine freshness for object A with a previously qualified executor
