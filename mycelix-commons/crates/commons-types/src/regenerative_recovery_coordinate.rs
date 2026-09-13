@@ -4,8 +4,8 @@
 //!
 //! Symthaea owns semantic recovery qualification and Symtropy owns deterministic
 //! execution. Mycelix preserves those exact subjects, composes them with the
-//! nominal support-closure theorem, and verifies only structural/arithmetic
-//! consistency. It does not infer physical repair feasibility or grant authority.
+//! nominal support-closure theorem, and verifies structural/arithmetic consistency.
+//! Recovery reserve state is explicitly external to the nominal closure subject.
 
 use crate::{
     verify_regenerative_support_closure_continuity_evidence, MaritimeEvidenceEnvelope,
@@ -38,13 +38,19 @@ pub struct RegenerativeRecoveryCoordinateEvidenceV1 {
     pub dynamic_recovery_fixture_binding: String,
     pub successor_model_binding: String,
     pub successor_support_binding: String,
+    pub recovery_policy_id: String,
+    pub recovery_policy_evidence_binding: String,
+    pub recovery_qualification_binding: String,
     pub disturbance_id: String,
     pub disturbance_evidence_binding: String,
     pub target_dependency_id: String,
     pub flow_kind: RegenerativeRecoveryFlowKindEvidenceV1,
     pub healthy_units_per_period: u64,
     pub degraded_units_per_period: u64,
-    pub reserve_dependency_id: String,
+    /// Separately evidence-bound reserve: never a nominal closure dependency.
+    pub external_recovery_reserve_id: String,
+    pub external_recovery_reserve_binding: String,
+    pub external_recovery_reserve_units_at_qualification: u64,
     pub reserve_units_per_recovery: u64,
     pub reserve_units_before: u64,
     pub reserve_units_after: u64,
@@ -66,9 +72,10 @@ impl RegenerativeRecoveryCoordinateEvidenceV1 {
         }
         for id in [
             &self.recovery_evidence_id,
+            &self.recovery_policy_id,
             &self.disturbance_id,
             &self.target_dependency_id,
-            &self.reserve_dependency_id,
+            &self.external_recovery_reserve_id,
         ] {
             if !canonical_id(id) {
                 return Err("recovery-coordinate identifier is not canonical".into());
@@ -89,15 +96,18 @@ impl RegenerativeRecoveryCoordinateEvidenceV1 {
             &self.dynamic_recovery_fixture_binding,
             &self.successor_model_binding,
             &self.successor_support_binding,
+            &self.recovery_policy_evidence_binding,
+            &self.recovery_qualification_binding,
             &self.disturbance_evidence_binding,
+            &self.external_recovery_reserve_binding,
             &self.dynamic_recovery_receipt_binding,
         ] {
             if !canonical_reference(binding) {
                 return Err("recovery-coordinate binding is not canonical".into());
             }
         }
-        if self.target_dependency_id == self.reserve_dependency_id {
-            return Err("recovery target and reserve must be distinct".into());
+        if self.target_dependency_id == self.external_recovery_reserve_id {
+            return Err("recovery target and external reserve IDs must be distinct".into());
         }
         if self.healthy_units_per_period == 0 {
             return Err("healthy recovery flow must be positive".into());
@@ -108,8 +118,13 @@ impl RegenerativeRecoveryCoordinateEvidenceV1 {
         if self.reserve_units_per_recovery == 0 {
             return Err("recovery reserve cost must be positive".into());
         }
-        if self.reserve_units_before < self.reserve_units_per_recovery {
-            return Err("recovery reserve is insufficient for the claimed receipt".into());
+        if self.external_recovery_reserve_units_at_qualification < self.reserve_units_per_recovery {
+            return Err("external recovery reserve was insufficient at qualification".into());
+        }
+        // V1 evidence keeps the controlled experiment exact: no unmodeled reserve
+        // mutation may occur between qualification and execution.
+        if self.reserve_units_before != self.external_recovery_reserve_units_at_qualification {
+            return Err("recovery reserve changed between qualification and execution".into());
         }
         let expected_after = self
             .reserve_units_before
@@ -174,7 +189,7 @@ impl RegenerativeRecoveryCoordinateEvidenceV1 {
     }
 }
 
-/// Compose one recovery-coordinate record with the exact nominal continuity
+/// Compose one recovery-coordinate record with the exact safe nominal continuity
 /// subject it extends.
 pub fn verify_regenerative_recovery_coordinate_evidence(
     viability: &RegenerativeViabilityEvidenceV1,
@@ -199,6 +214,9 @@ pub fn verify_regenerative_recovery_coordinate_evidence(
     if recovery.successor_support_binding != continuity.successor_support_binding {
         return Err("recovery-coordinate successor support mismatch".into());
     }
+    if !recovery.recovery_qualified || !recovery.disturbance_conditioned_recovery_authorized {
+        return Err("recovery-coordinate record is not semantically authorized".into());
+    }
 
     let target_ref = format!("dependency:{}", recovery.target_dependency_id);
     if !continuity
@@ -208,13 +226,13 @@ pub fn verify_regenerative_recovery_coordinate_evidence(
     {
         return Err("recovery target is outside the nominal role-support closure".into());
     }
-    let reserve_ref = format!("dependency:{}", recovery.reserve_dependency_id);
+    let reserve_ref = format!("dependency:{}", recovery.external_recovery_reserve_id);
     if continuity
         .successor_role_support_dependency_refs
         .iter()
         .any(|reference| reference == &reserve_ref)
     {
-        return Err("recovery reserve is inside the nominal role-support closure".into());
+        return Err("external recovery reserve collides with nominal role-support closure".into());
     }
     Ok(())
 }
