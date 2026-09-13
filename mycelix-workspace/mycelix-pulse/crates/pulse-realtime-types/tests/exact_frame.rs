@@ -1,9 +1,7 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use pulse_realtime_types::{
-    PulseRealtimeHintV1, RealtimeDecodeError, decode_realtime_hint,
-};
+use pulse_realtime_types::{PulseRealtimeHintV1, RealtimeDecodeError, decode_realtime_hint};
 
 #[test]
 fn messagepack_hint_must_consume_the_entire_transport_frame() {
