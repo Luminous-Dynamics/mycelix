@@ -1,0 +1,139 @@
+name: ADMIN-003 Review Finality
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-administrative-procedure/**'
+      - '.github/workflows/admin-003-review-finality.yml'
+  push:
+    branches:
+      - 'feat/admin-003-review-finality-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: admin-003-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Immutable administrative review and finality qualification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+
+      - name: Toolchain identity
+        run: |
+          git rev-parse HEAD
+          rustc --version --verbose
+          cargo --version
+          rustfmt --version
+          cargo clippy --version
+
+      - name: Dependency and feature ancestry
+        run: |
+          python3 - <<'PY'
+          import pathlib
+          import tomllib
+
+          root = pathlib.Path('crates/mycelix-administrative-procedure')
+          manifest = tomllib.loads((root / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          assert set(deps) == {'serde', 'mycelix-institutional-core'}
+          assert deps['mycelix-institutional-core'].get('path') == '../mycelix-institutional-core'
+          assert set(manifest.get('dev-dependencies', {})) == {'serde_json'}
+          assert not manifest.get('build-dependencies')
+          assert manifest.get('lib', {}).get('path') == 'src/lib_hardened.rs'
+
+          features = manifest.get('features', {})
+          assert features.get('default') == []
+          assert features.get('procedural-completeness') == []
+          assert features.get('administrative-review') == ['procedural-completeness']
+
+          facade = (root / 'src' / 'lib_hardened.rs').read_text()
+          admin3 = (root / 'src' / 'admin_003.rs').read_text()
+          assert '#[cfg(feature = "administrative-review")]\nmod admin_003;' in facade
+          assert 'QualifiedAdministrativeFinality' in facade
+          assert 'record_external_judicial_finality' in facade
+          assert 'pub struct QualifiedReviewableDecision' in admin3
+          assert 'pub struct QualifiedChallenge' in admin3
+          assert 'pub struct QualifiedAppealReview' in admin3
+          assert 'pub struct QualifiedReviewDisposition' in admin3
+          assert 'pub struct QualifiedAdministrativeFinality' in admin3
+          assert 'pub struct RecordedExternalJudicialFinality' in admin3
+          assert 'pub struct QualifiedRemedy' in admin3
+          PY
+
+      - name: Review authority and sovereignty separation audit
+        run: |
+          root='crates/mycelix-administrative-procedure/src/lib_hardened.rs'
+          admin3='crates/mycelix-administrative-procedure/src/admin_003.rs'
+
+          grep -q 'evaluate_authority' "$admin3"
+          grep -q 'review_capability' "$admin3"
+          grep -q 'stay_capability' "$admin3"
+          grep -q 'remedy_capability' "$admin3"
+          grep -q 'ReviewerNotIndependent' "$admin3"
+          grep -q 'ChallengeUntimely' "$admin3"
+          grep -q 'AppealUntimely' "$admin3"
+          grep -q 'FinalityTooEarly' "$admin3"
+          grep -q 'RecordedExternalJudicialFinality' "$admin3"
+          grep -q 'grants_authority' "$admin3"
+          grep -q 'grants_external_effect_authority' "$admin3"
+
+          # Court finality must remain a recorded external reference, not an
+          # authority grant created by the administrative kernel.
+          if grep -Eq 'QualifiedJudicial(Authority|Finality)|grant(s)?_judicial_authority' "$admin3"; then
+            echo 'ADMIN-003 attempted to mint judicial authority' >&2
+            exit 1
+          fi
+
+          code_lines="$(cat "$root" "$admin3" | grep -nEv '^[[:space:]]*//' || true)"
+          forbidden='(hdk|hdi|holochain)::|std::(net|fs|process)::|SystemTime::|Instant::now|[[:space:]{(,](phi|reputation|stake|model_score)[[:space:]]*:|authorized[[:space:]]*:[[:space:]]*bool|official[[:space:]]*:[[:space:]]*bool'
+          if printf '%s\n' "$code_lines" | grep -E "$forbidden"; then
+            echo 'ADMIN-003 gained forbidden runtime/advisory/boolean authority surface' >&2
+            exit 1
+          fi
+
+      - name: Format owned surfaces
+        run: |
+          rustfmt --edition 2024 --check --config skip_children=true \
+            crates/mycelix-administrative-procedure/src/lib_hardened.rs
+          rustfmt --edition 2024 --check \
+            crates/mycelix-administrative-procedure/src/admin_003.rs
+
+      - name: Isolated three-mode executable qualification
+        run: |
+          qroot="$(mktemp -d)"
+          mkdir -p "$qroot/crates"
+          cp -a crates/mycelix-institutional-core "$qroot/crates/"
+          cp -a crates/mycelix-administrative-procedure "$qroot/crates/"
+          manifest="$qroot/crates/mycelix-administrative-procedure/Cargo.toml"
+
+          # ADMIN-001 remains valid.
+          cargo test --manifest-path "$manifest" --all-targets
+          cargo clippy --manifest-path "$manifest" --all-targets -- -D warnings
+
+          # ADMIN-002 remains independently valid.
+          cargo test --manifest-path "$manifest" --all-targets \
+            --features procedural-completeness
+          cargo clippy --manifest-path "$manifest" --all-targets \
+            --features procedural-completeness -- -D warnings
+
+          # ADMIN-003 is a monotonic child of ADMIN-002.
+          cargo test --manifest-path "$manifest" --all-targets \
+            --features administrative-review
+          cargo clippy --manifest-path "$manifest" --all-targets \
+            --features administrative-review -- -D warnings
+
+      - name: Immutable checkout postflight
+        run: test -z "$(git status --short)"
