@@ -30,12 +30,12 @@ jobs:
           admin = Path('crates/mycelix-administrative-procedure/src/admin_003.rs')
           text = admin.read_text()
 
-          # These two accessors are on private semantic tokens. The public
-          # hardened tokens retain the explicit no-effect boundary; keeping
-          # unreachable private duplicates only creates dead-code lint debt.
+          # All occurrences are on private semantic tokens. The public hardened
+          # facade retains explicit no-effect accessors; keeping unreachable
+          # private duplicates only creates dead-code lint debt.
           needle = '''\n    pub fn grants_external_effect_authority(&self) -> bool {\n        false\n    }\n'''
-          assert text.count(needle) >= 2, 'expected private no-effect accessors'
-          text = text.replace(needle, '', 2)
+          assert text.count(needle) == 3, 'expected three private no-effect accessors'
+          text = text.replace(needle, '')
 
           old = '''    if let Some(expires) = remedy.expires_at_ms {\n        if expires <= remedy.issued_at_ms {\n            return Err(AdministrativeReviewError::InvalidRemedyLifetime);\n        }\n    }\n'''
           new = '''    if let Some(expires) = remedy.expires_at_ms\n        && expires <= remedy.issued_at_ms\n    {\n        return Err(AdministrativeReviewError::InvalidRemedyLifetime);\n    }\n'''
