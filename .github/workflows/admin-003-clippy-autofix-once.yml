@@ -29,18 +29,20 @@ jobs:
 
           admin = Path('crates/mycelix-administrative-procedure/src/admin_003.rs')
           text = admin.read_text()
-
-          # Remove only the effect-boundary accessor on the raw private appeal
-          # token. The public hardened facade replaces this type and retains its
-          # own explicit no-effect theorem. Other public semantic tokens keep
-          # their accessors unchanged.
-          impl_start = text.index('impl QualifiedAppealReview {')
-          impl_end = text.index('\n}\n\n#[derive', impl_start) + 2
-          block = text[impl_start:impl_end]
           needle = '''\n    pub fn grants_external_effect_authority(&self) -> bool {\n        false\n    }\n'''
-          assert block.count(needle) == 1, 'expected one private appeal no-effect accessor'
-          block = block.replace(needle, '')
-          text = text[:impl_start] + block + text[impl_end:]
+
+          # Raw QualifiedChallenge and QualifiedAppealReview are both replaced
+          # by hardened public wrappers at lib_hardened.rs. Remove only their
+          # unreachable private duplicate no-effect accessors. All directly
+          # re-exported semantic token types keep their public accessors.
+          for type_name in ('QualifiedChallenge', 'QualifiedAppealReview'):
+              marker = f'impl {type_name} {{'
+              impl_start = text.index(marker)
+              impl_end = text.index('\n}\n\n#[derive', impl_start) + 2
+              block = text[impl_start:impl_end]
+              assert block.count(needle) == 1, f'expected one hidden {type_name} no-effect accessor'
+              block = block.replace(needle, '')
+              text = text[:impl_start] + block + text[impl_end:]
 
           old = '''    if let Some(expires) = remedy.expires_at_ms {\n        if expires <= remedy.issued_at_ms {\n            return Err(AdministrativeReviewError::InvalidRemedyLifetime);\n        }\n    }\n'''
           new = '''    if let Some(expires) = remedy.expires_at_ms\n        && expires <= remedy.issued_at_ms\n    {\n        return Err(AdministrativeReviewError::InvalidRemedyLifetime);\n    }\n'''
