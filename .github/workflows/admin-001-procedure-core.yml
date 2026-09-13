@@ -38,7 +38,7 @@ jobs:
           rustfmt --version
           cargo clippy --version
 
-      - name: Dependency boundary
+      - name: Dependency and public-surface boundary
         run: |
           python3 - <<'PY'
           import pathlib
@@ -51,22 +51,35 @@ jobs:
           assert deps['mycelix-institutional-core'].get('path') == '../mycelix-institutional-core'
           assert set(manifest.get('dev-dependencies', {})) == {'serde_json'}
           assert not manifest.get('build-dependencies')
+          assert manifest.get('lib', {}).get('path') == 'src/lib_hardened.rs'
+
+          facade = (root / 'src' / 'lib_hardened.rs').read_text()
+          assert '#[path = "lib.rs"]\nmod legacy;' in facade
+          assert 'pub struct QualifiedAdministrativeCaseLineage' in facade
+          assert 'pub fn qualify_case_lineage' in facade
+          assert 'legacy::qualify_administrative_decision(' in facade
+          assert 'legacy::issue_qualified_decision(' in facade
+          assert 'pub use legacy::qualify_administrative_decision' not in facade
+          assert 'pub use legacy::issue_qualified_decision' not in facade
+          assert 'pub use legacy::qualify_pre_decision_transition' not in facade
           PY
 
       - name: Authority and runtime separation audit
         run: |
-          src='crates/mycelix-administrative-procedure/src/lib.rs'
-          grep -q 'mycelix_institutional_core' "$src"
-          grep -q 'evaluate_authority' "$src"
-          grep -q 'Decision' "$src"
-          grep -q 'ReadyForDecision' "$src"
-          grep -q 'issue_qualified_decision' "$src"
-          grep -q 'grants_external_effect_authority' "$src"
+          legacy='crates/mycelix-administrative-procedure/src/lib.rs'
+          facade='crates/mycelix-administrative-procedure/src/lib_hardened.rs'
+          grep -q 'mycelix_institutional_core' "$legacy"
+          grep -q 'evaluate_authority' "$legacy"
+          grep -q 'Decision' "$legacy"
+          grep -q 'ReadyForDecision' "$legacy"
+          grep -q 'issue_qualified_decision' "$legacy"
+          grep -q 'grants_external_effect_authority' "$legacy"
+          grep -q 'QualifiedAdministrativeCaseLineage' "$facade"
+          grep -q 'LineageRootMustBeFiled' "$facade"
 
-          # Inspect Rust source lines, not prose-only comments. The previous raw
-          # substring audit falsely matched harmless words such as
-          # "cryptographic" across identifier fragments.
-          code_lines="$(grep -nEv '^[[:space:]]*//' "$src" || true)"
+          # Inspect Rust source lines, not prose-only comments. A previous raw
+          # substring audit falsely matched harmless documentation text.
+          code_lines="$(cat "$legacy" "$facade" | grep -nEv '^[[:space:]]*//' || true)"
           forbidden='(hdk|hdi|holochain)::|std::(net|fs|process)::|SystemTime::|Instant::now|[[:space:]{(,](phi|reputation|stake|model_score)[[:space:]]*:|authorized[[:space:]]*:[[:space:]]*bool|official[[:space:]]*:[[:space:]]*bool'
           if printf '%s\n' "$code_lines" | grep -E "$forbidden"; then
             echo 'ADMIN-001 gained forbidden runtime/advisory/boolean authority surface' >&2
