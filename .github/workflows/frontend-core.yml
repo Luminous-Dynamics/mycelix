@@ -134,11 +134,40 @@ jobs:
           cargo test --manifest-path crates/mycelix-leptos-core/Cargo.toml --lib
 
       - name: Clippy shared frontend crates
+        id: clippy
+        shell: bash
         run: |
-          set -euo pipefail
-          cargo clippy --manifest-path crates/mycelix-leptos-client/Cargo.toml --lib -- -D warnings
-          cargo clippy --manifest-path crates/mycelix-leptos-ui/Cargo.toml --lib -- -D warnings
-          cargo clippy --manifest-path crates/mycelix-leptos-core/Cargo.toml --lib -- -D warnings
+          set -uo pipefail
+          log="$RUNNER_TEMP/frontend-core-clippy.log"
+          : > "$log"
+          status=0
+
+          for manifest in \
+            crates/mycelix-leptos-client/Cargo.toml \
+            crates/mycelix-leptos-ui/Cargo.toml \
+            crates/mycelix-leptos-core/Cargo.toml; do
+            printf '\n===== cargo clippy: %s =====\n' "$manifest" | tee -a "$log"
+            cargo clippy \
+              --message-format short \
+              --manifest-path "$manifest" \
+              --lib -- -D warnings 2>&1 | tee -a "$log"
+            rc=${PIPESTATUS[0]}
+            if [ "$rc" -ne 0 ]; then
+              status="$rc"
+            fi
+          done
+
+          exit "$status"
+
+      - name: Upload exact Clippy diagnostics
+        if: ${{ always() && steps.clippy.outcome == 'failure' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: frontend-core-clippy-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/frontend-core-clippy.log
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Prove checkout immutability
+        if: always()
         run: git diff --exit-code && test -z "$(git status --porcelain)"
