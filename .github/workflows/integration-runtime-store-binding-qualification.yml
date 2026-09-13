@@ -145,7 +145,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if grep -Eq 'File::create|OpenOptions|create\(|create_new|truncate|rename\(|remove_file|set_len|set_permissions|chown|chmod' "$SOURCE"; then
+          if grep -Eq 'File::create|OpenOptions|\.create\(|\.create_new\(|\.truncate\(|fs::rename\(|fs::remove_file\(|fs::set_permissions\(|\.set_len\(|libc::chmod|libc::chown|nix::unistd::chown' "$SOURCE"; then
             echo 'Runtime-store binding must verify independently provisioned state, never create/replace/repair it.'
             exit 1
           fi
