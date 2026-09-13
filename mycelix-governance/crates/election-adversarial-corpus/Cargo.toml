@@ -1,0 +1,18 @@
+[package]
+name = "election-adversarial-corpus"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Deterministic structural adversarial corpus for Mycelix public-election assurance"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+election-integrity-types = { path = "../election-integrity-types" }
+election-anonymous-authority = { path = "../election-anonymous-authority" }
+election-transparency-witness = { path = "../election-transparency-witness" }
+election-verifier-contract = { path = "../election-verifier-contract" }
+election-physical-evidence = { path = "../election-physical-evidence" }
+
+[workspace]

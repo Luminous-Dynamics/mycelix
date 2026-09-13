@@ -1,0 +1,145 @@
+name: Governance Public Election Adversarial Corpus v1
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/governance-public-election-adversarial-corpus-v1.yml'
+      - 'mycelix-governance/crates/election-adversarial-corpus/**'
+      - 'mycelix-governance/docs/PUBLIC_ELECTION_ADVERSARIAL_CORPUS_V1.md'
+
+permissions:
+  contents: read
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  BASE_SHA: '14bcbfac9403fb24bd1de095bb30eee659421122'
+
+jobs:
+  qualify:
+    name: Qualify structural adversarial corpus
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'test/governance-public-election-adversarial-corpus-v1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact pull-request head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Bind exact ADV-001 delta
+        shell: bash
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          mapfile -t changed < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          test "${#changed[@]}" -eq 5
+          printf '%s\n' "${changed[@]}" | sort > /tmp/adv-001-files.txt
+          cat > /tmp/adv-001-expected.txt <<'EOF'
+          .github/workflows/governance-public-election-adversarial-corpus-v1.yml
+          mycelix-governance/crates/election-adversarial-corpus/Cargo.toml
+          mycelix-governance/crates/election-adversarial-corpus/src/lib.rs
+          mycelix-governance/crates/election-adversarial-corpus/tests/coverage.rs
+          mycelix-governance/docs/PUBLIC_ELECTION_ADVERSARIAL_CORPUS_V1.md
+          EOF
+          sort -o /tmp/adv-001-expected.txt /tmp/adv-001-expected.txt
+          diff -u /tmp/adv-001-expected.txt /tmp/adv-001-files.txt
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt,clippy
+
+      - name: Format production corpus and coverage policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          src='mycelix-governance/crates/election-adversarial-corpus/src/lib.rs'
+          coverage='mycelix-governance/crates/election-adversarial-corpus/tests/coverage.rs'
+          awk '/^#\[cfg\(test\)\]/{exit} {print}' "$src" > /tmp/adv-001-prod.rs
+          perl -0pi -e 's/\n+\z/\n/' /tmp/adv-001-prod.rs
+          rustfmt --edition 2024 --check /tmp/adv-001-prod.rs "$coverage"
+
+      - name: Generate and archive exact dependency lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-governance/crates/election-adversarial-corpus
+          cargo generate-lockfile
+          cp Cargo.lock /tmp/adv-001-Cargo.lock
+          sha256sum Cargo.lock | tee /tmp/adv-001-lock.sha256
+          cargo metadata --locked --format-version 1 > /tmp/adv-001-metadata.json
+
+      - name: Execute complete adversarial corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path mycelix-governance/crates/election-adversarial-corpus/Cargo.toml --locked 2>&1 | tee /tmp/adv-001-test.log
+
+      - name: Run warning-fatal library Clippy
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo clippy --manifest-path mycelix-governance/crates/election-adversarial-corpus/Cargo.toml --locked --lib -- -D warnings 2>&1 | tee /tmp/adv-001-clippy.log
+
+      - name: Audit adversarial and gap-ledger boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          src='mycelix-governance/crates/election-adversarial-corpus/src/lib.rs'
+          coverage='mycelix-governance/crates/election-adversarial-corpus/tests/coverage.rs'
+          grep -F 'MIN_REQUIRED_EXECUTABLE_CASES: usize = 26' "$src"
+          grep -F 'PROTOCOL_DEPENDENT_GAPS' "$src"
+          grep -F 'ProtocolGapId::ReceiptFreeness' "$src"
+          grep -F 'ProtocolGapId::CastAsIntended' "$src"
+          grep -F 'ProtocolGapId::TalliedAsRecorded' "$src"
+          grep -F 'AttackCaseId::SplitViewEquivocation' "$src"
+          grep -F 'AttackCaseId::WitnessControlDomainCollapse' "$src"
+          grep -F 'AttackCaseId::BallotConservationLoss' "$src"
+          grep -F 'AttackCaseId::PhysicalFailureDominatesVerifier' "$src"
+          grep -F 'every_registered_attack_produces_exact_expected_disposition' "$src"
+          grep -F 'positive_controls_still_pass' "$src"
+          grep -F 'every_assurance_layer_retains_executable_attack_coverage' "$coverage"
+          grep -F 'every_certification_theorem_is_executable_or_explicitly_blocked' "$coverage"
+          grep -F 'PUBLIC_ELECTION_THEOREMS' "$coverage"
+          if grep -Eq '^use (hdk|hdi|voting_integrity)' "$src"; then
+            echo 'ADV-001 must remain runtime independent' >&2
+            exit 1
+          fi
+          if grep -Eq 'SystemTime|thread_rng|std::net|reqwest|tokio::net' "$src"; then
+            echo 'ADV-001 must remain deterministic and offline' >&2
+            exit 1
+          fi
+
+      - name: Remove transient lock and prove immutable checkout
+        if: always()
+        shell: bash
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          rm -f mycelix-governance/crates/election-adversarial-corpus/Cargo.lock
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          git status --porcelain=v1 --untracked-files=all > /tmp/adv-001-status.txt
+          test ! -s /tmp/adv-001-status.txt
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: adv-001-${{ github.event.pull_request.head.sha }}-${{ github.run_attempt }}
+          path: |
+            /tmp/adv-001-Cargo.lock
+            /tmp/adv-001-lock.sha256
+            /tmp/adv-001-metadata.json
+            /tmp/adv-001-test.log
+            /tmp/adv-001-clippy.log
+            /tmp/adv-001-status.txt
+          if-no-files-found: warn
+          retention-days: 30
