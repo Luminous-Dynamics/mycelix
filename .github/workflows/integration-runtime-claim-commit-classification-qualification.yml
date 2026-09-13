@@ -1,0 +1,278 @@
+name: Integration Runtime Claim Commit Classification Qualification
+
+on:
+  pull_request:
+    branches:
+      - feat/integration-sqlite-commit-classification-v1
+      - main
+  push:
+    branches:
+      - feat/integration-runtime-claim-commit-classification-v1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_TOOLCHAIN: '1.96.0'
+  QUALIFICATION_SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  MANIFEST: crates/mycelix-integration-runtime-claim-commit-classification/Cargo.toml
+  SOURCE_DIR: crates/mycelix-integration-runtime-claim-commit-classification/src
+  RUNTIME_SOURCE: crates/mycelix-integration-runtime/src/lib.rs
+  STORE_BINDING_SOURCE: crates/mycelix-integration-runtime-store-binding/src/lib.rs
+  KERNEL_SOURCE: crates/mycelix-integration-sqlite-commit-classification/src/lib.rs
+  WORKFLOW: .github/workflows/integration-runtime-claim-commit-classification-qualification.yml
+
+concurrency:
+  group: integration-runtime-claim-commit-classification-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Exact runtime recovery and claim commit classification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.QUALIFICATION_SUBJECT_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Bind exact source head
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$QUALIFICATION_SUBJECT_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$QUALIFICATION_SUBJECT_SHA"
+          printf 'qualification_subject_sha=%s\n' "$QUALIFICATION_SUBJECT_SHA"
+          printf 'runtime_github_sha=%s\n' "$GITHUB_SHA"
+          printf 'workflow_sha=%s\n' "$GITHUB_WORKFLOW_SHA"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
+
+      - name: Restore pinned Rust cache action
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          workspaces: crates/mycelix-integration-runtime-claim-commit-classification
+
+      - name: Capture exact environment and source capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc --version --verbose
+          cargo --version --verbose
+          sha256sum "$MANIFEST" "$RUNTIME_SOURCE" "$STORE_BINDING_SOURCE" "$KERNEL_SOURCE" "$WORKFLOW"
+          find "$SOURCE_DIR" -type f -name '*.rs' -print0 | sort -z | xargs -0 sha256sum
+          cargo metadata --manifest-path "$MANIFEST" --format-version 1 > /tmp/runtime-claim-commit-classification-metadata.json
+          sha256sum /tmp/runtime-claim-commit-classification-metadata.json
+          echo 'No --locked claim is made here until this standalone stack carries an intentionally committed lockfile.'
+
+      - name: Enforce one SQLite ABI owner
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          meta = json.loads(Path('/tmp/runtime-claim-commit-classification-metadata.json').read_text())
+          rusqlite = sorted({p['version'] for p in meta['packages'] if p['name'] == 'rusqlite'})
+          sqlite_sys = sorted({p['version'] for p in meta['packages'] if p['name'] == 'libsqlite3-sys'})
+          if len(rusqlite) != 1 or not rusqlite[0].startswith('0.37.'):
+              raise SystemExit(f'expected one rusqlite 0.37.x, got {rusqlite}')
+          if len(sqlite_sys) != 1:
+              raise SystemExit(f'expected one libsqlite3-sys ABI owner, got {sqlite_sys}')
+          print(f'rusqlite={rusqlite[0]} libsqlite3-sys={sqlite_sys[0]}')
+          PY
+          grep -Fqx 'rusqlite = { version = "0.37", features = ["bundled"] }' "$MANIFEST"
+
+      - name: Check formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' source; do
+            rustfmt --edition 2024 --check "$source"
+          done < <(find "$SOURCE_DIR" -type f -name '*.rs' -print0 | sort -z)
+
+      - name: Compile tests without running
+        run: cargo test --manifest-path "$MANIFEST" --package mycelix-integration-runtime-claim-commit-classification --no-run
+
+      - name: Run deterministic fault campaign
+        run: cargo test --manifest-path "$MANIFEST" --package mycelix-integration-runtime-claim-commit-classification
+
+      - name: Clippy
+        run: cargo clippy --manifest-path "$MANIFEST" --package mycelix-integration-runtime-claim-commit-classification --all-targets -- -D warnings
+
+      - name: Enforce transaction-local predecessor and candidate witnesses
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'transaction_with_behavior(TransactionBehavior::Immediate)?' "$SOURCE_DIR/transaction.rs"
+          grep -Fq 'capture_entry_snapshot(tx, entry_id)?' "$SOURCE_DIR/transaction.rs"
+          grep -Fq 'let recovery = recover_stale_entries(tx, &stale_ids, now_ms)?;' "$SOURCE_DIR/transaction.rs"
+          grep -Fq 'let commit_result = finish_commit(tx, commit_mode);' "$SOURCE_DIR/transaction.rs"
+          grep -Fq 'drop(conn);' "$SOURCE_DIR/transaction.rs"
+          python3 - <<'PY'
+          from pathlib import Path
+          s = Path('crates/mycelix-integration-runtime-claim-commit-classification/src/transaction.rs').read_text()
+          predecessor = s.find('capture_entry_snapshot(tx, entry_id)?')
+          recover = s.find('let recovery = recover_stale_entries(tx, &stale_ids, now_ms)?;')
+          candidate = s.find('let mut candidate = BatchWitness::default();')
+          finish = s.find('let commit_result = finish_commit(tx, commit_mode);')
+          drop = s.find('drop(conn);', finish)
+          classify = s.find('classify_returned_commit_error(', drop)
+          if min(predecessor, recover, candidate, finish, drop, classify) < 0:
+              raise SystemExit('required classified transaction ordering marker missing')
+          if not predecessor < recover < candidate:
+              raise SystemExit('predecessor must be captured before recovery and candidate after mutation')
+          if not finish < drop < classify:
+              raise SystemExit('writer must be closed before post-error durable classification')
+          PY
+
+      - name: Enforce complete outbox and observation witnesses
+        shell: bash
+        run: |
+          set -euo pipefail
+          for field in entry_id command_id connector_instance command_commitment_algorithm command_commitment_digest authority_commitment_algorithm authority_commitment_digest side_effect_class idempotency_key command_bytes stage worker_id lease_until_ms attempt_count current_attempt_id dispatch_started_at_ms outcome_json reconciliation_json created_at_ms updated_at_ms; do
+            grep -Fq "$field" "$SOURCE_DIR/storage.rs"
+          done
+          grep -Fq 'SELECT COUNT(*), MAX(observation_id)' "$SOURCE_DIR/storage.rs"
+          grep -Fq 'max_row' "$SOURCE_DIR/types.rs"
+          grep -Fq 'observation_id, entry_id, attempt_id, outcome_json' "$SOURCE_DIR/storage.rs"
+          grep -Fq 'trigger_count != 0' "$SOURCE_DIR/storage.rs"
+          grep -Fq 'actual.len() != expected.len()' "$SOURCE_DIR/storage.rs"
+
+      - name: Enforce coherent independent durable reread
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX' "$SOURCE_DIR/storage.rs"
+          grep -Fq 'PRAGMA foreign_keys = ON; PRAGMA query_only = ON;' "$SOURCE_DIR/storage.rs"
+          grep -Fq 'transaction_with_behavior(TransactionBehavior::Deferred)?' "$SOURCE_DIR/storage.rs"
+          grep -Fq 'store_binding.revalidate()?;' "$SOURCE_DIR/storage.rs"
+          grep -Fq 'require_main_database_path(&conn, store_binding.path())?;' "$SOURCE_DIR/storage.rs"
+          grep -Fq 'require_exact_runtime_pragmas(&conn)?;' "$SOURCE_DIR/storage.rs"
+          grep -Fq 'RUNTIME_SCHEMA_VERSION: i64 = 2;' "$SOURCE_DIR/lib.rs"
+
+      - name: Enforce exact three-state classification and capability loss
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'classify_exact_durable_transition(candidate_exact, predecessor_exact)' "$SOURCE_DIR/transaction.rs"
+          grep -Fq 'RecoveredAttemptIdentity' "$SOURCE_DIR/types.rs"
+          grep -Fq 'live_claims_reconstructed_here(&self) -> bool' "$SOURCE_DIR/types.rs"
+          grep -Fq 'persistence_retry_eligible_here(&self) -> bool' "$SOURCE_DIR/types.rs"
+          grep -Fq 'ordinary_retry_authorized_here(&self) -> bool' "$SOURCE_DIR/types.rs"
+          grep -Fq 'grants_execution_authority(&self) -> bool' "$SOURCE_DIR/types.rs"
+          grep -Fq 'Committed' "$KERNEL_SOURCE"
+          grep -Fq 'DefinitelyNotCommitted' "$KERNEL_SOURCE"
+          grep -Fq 'IndeterminateCommit' "$KERNEL_SOURCE"
+          python3 - <<'PY'
+          from pathlib import Path
+          s = Path('crates/mycelix-integration-runtime-claim-commit-classification/src/types.rs').read_text()
+          for marker in ['live_claims_reconstructed_here(&self) -> bool', 'ordinary_retry_authorized_here(&self) -> bool']:
+              positions = []
+              start = 0
+              while True:
+                  pos = s.find(marker, start)
+                  if pos < 0:
+                      break
+                  positions.append(pos)
+                  start = pos + 1
+              if not positions:
+                  raise SystemExit(f'missing {marker}')
+              for pos in positions:
+                  if 'false' not in s[pos:pos+180]:
+                      raise SystemExit(f'{marker} must remain false on post-error outcomes')
+          PY
+
+      - name: Enforce deterministic commit-failure campaign
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'RollbackThenError' "$SOURCE_DIR/transaction.rs"
+          grep -Fq 'RollbackThenBusy' "$SOURCE_DIR/transaction.rs"
+          grep -Fq 'CommitThenError' "$SOURCE_DIR/transaction.rs"
+          grep -Fq 'SQLITE_BUSY' "$SOURCE_DIR/transaction.rs"
+          grep -Fq 'injected_precommit_failure_reobserves_exact_predecessor' "$SOURCE_DIR/tests.rs"
+          grep -Fq 'injected_sqlite_busy_is_classified_from_durable_state_not_error_code' "$SOURCE_DIR/tests.rs"
+          grep -Fq 'injected_postcommit_failure_recovers_without_live_claims' "$SOURCE_DIR/tests.rs"
+          grep -Fq 'unexpected_durable_state_is_indeterminate' "$SOURCE_DIR/tests.rs"
+          if grep -Eq 'database is locked|database is busy|\.contains\(' "$SOURCE_DIR/transaction.rs" "$SOURCE_DIR/storage.rs"; then
+            echo 'Commit classification depends on error text/string matching.'
+            exit 1
+          fi
+
+      - name: Enforce legacy runtime semantic parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'const MAX_EXECUTION_OBSERVATIONS_PER_ENTRY: i64 = 4096;' "$RUNTIME_SOURCE"
+          grep -Fq 'const MAX_EXECUTION_ATTEMPTS_PER_ENTRY: i64 = 1024;' "$RUNTIME_SOURCE"
+          grep -Fq 'OutboundStage::OutboxCommitted => 3' "$RUNTIME_SOURCE"
+          grep -Fq 'OutboundStage::AttemptPrepared => 4' "$RUNTIME_SOURCE"
+          grep -Fq 'OutboundStage::DispatchStarted => 5' "$RUNTIME_SOURCE"
+          grep -Fq 'OutboundStage::Ambiguous => 8' "$RUNTIME_SOURCE"
+          grep -Fq 'ReconciliationStrategy::ManualReview' "$RUNTIME_SOURCE"
+          grep -Fq 'MAX_EXECUTION_ATTEMPTS_PER_ENTRY: i64 = 1024;' "$SOURCE_DIR/lib.rs"
+          grep -Fq 'MAX_EXECUTION_OBSERVATIONS_PER_ENTRY: i64 = 4096;' "$SOURCE_DIR/lib.rs"
+
+      - name: Enforce no new external legacy claim callers
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          allowed = {
+              Path('crates/mycelix-integration-runtime/src/lib.rs'),
+              Path('crates/mycelix-integration-runtime-claim-commit-classification/src/tests.rs'),
+          }
+          offenders = []
+          for path in Path('crates').rglob('*.rs'):
+              if path in allowed:
+                  continue
+              text = path.read_text(errors='replace')
+              if '.claim_outbox(' in text:
+                  offenders.append(str(path))
+          if offenders:
+              raise SystemExit('external code still calls unclassified claim_outbox: ' + ', '.join(sorted(offenders)))
+          PY
+
+      - name: Enforce no network provider or secret capability
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, subprocess
+          meta = json.loads(subprocess.check_output([
+              'cargo','metadata','--manifest-path',
+              'crates/mycelix-integration-runtime-claim-commit-classification/Cargo.toml',
+              '--no-deps','--format-version','1'
+          ]))
+          package = next(p for p in meta['packages'] if p['name'] == 'mycelix-integration-runtime-claim-commit-classification')
+          direct = {d['name'] for d in package['dependencies']}
+          forbidden = {'reqwest','hyper','tokio','rustls','native-tls','openssl','keyring','vault','vaultrs','secret-service'}
+          hit = sorted(direct & forbidden)
+          if hit:
+              raise SystemExit(f'forbidden runtime capability entered claim classifier: {hit}')
+          PY
+
+      - name: Enforce exact qualification scope and immutable subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq -- "RUST_TOOLCHAIN: '1.96.0'" "$WORKFLOW"
+          grep -Fq -- 'github.event.pull_request.head.sha || github.sha' "$WORKFLOW"
+          grep -Fq -- 'persist-credentials: false' "$WORKFLOW"
+          grep -Fq -- 'actions/checkout@11d5960a326750d5838078e36cf38b85af677262' "$WORKFLOW"
+          grep -Fq -- 'dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87' "$WORKFLOW"
+          grep -Fq -- 'Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6' "$WORKFLOW"
+          test "$(git rev-parse HEAD)" = "$QUALIFICATION_SUBJECT_SHA"
+          git diff --exit-code -- "$MANIFEST" "$SOURCE_DIR" "$RUNTIME_SOURCE" "$STORE_BINDING_SOURCE" "$KERNEL_SOURCE" "$WORKFLOW"
