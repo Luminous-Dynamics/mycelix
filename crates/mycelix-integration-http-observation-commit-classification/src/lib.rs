@@ -191,7 +191,7 @@ impl DefinitelyNotCommittedHttpObservation {
         &self.original_error
     }
 
-    pub const fn exact_prepared_predecessor_reobserved_here(&self) -> bool {
+    pub const fn exact_predecessor_reobserved_here(&self) -> bool {
         true
     }
 
@@ -550,11 +550,11 @@ fn load_observation_row(
     subject: &ObservationSubject,
 ) -> Result<Option<DurableObservationRow>, DurableHttpObservationRereadError> {
     conn.query_row(
-        "SELECT stage, command_id, connector_instance, dispatch_binding_digest, issuance_digest,\n\
-                request_commitment_algorithm, request_commitment_digest,\n\
-                descriptor_valid_until_ms, prepared_at_ms, armed_at_ms,\n\
-                observation_digest, observation_disposition, updated_at_ms\n\
-         FROM integration_http_transport_attempt_v1\n\
+        "SELECT stage, command_id, connector_instance, dispatch_binding_digest, issuance_digest,\
+                request_commitment_algorithm, request_commitment_digest,\
+                descriptor_valid_until_ms, prepared_at_ms, armed_at_ms,\
+                observation_digest, observation_disposition, updated_at_ms\
+         FROM integration_http_transport_attempt_v1\
          WHERE entry_id = ?1 AND attempt_id = ?2",
         params![subject.entry_id, subject.attempt_id.as_str()],
         |row| {
@@ -587,7 +587,7 @@ fn load_dispatch_binding(
         return Ok(None);
     }
     conn.query_row(
-        "SELECT binding_digest FROM integration_dispatch_binding_v2\n\
+        "SELECT binding_digest FROM integration_dispatch_binding_v2\
          WHERE entry_id = ?1 AND attempt_id = ?2",
         params![subject.entry_id, subject.attempt_id.as_str()],
         |row| row.get(0),
