@@ -587,7 +587,7 @@ fn current_authority_digest(policy_digest: Digest32, freshness_digest: Digest32)
     frame(&mut hasher, BUNDLE_IDENTITY_PROFILE.as_bytes());
     frame(&mut hasher, &policy_digest.0);
     frame(&mut hasher, &freshness_digest.0);
-    Digest32(*hasher.finalize().as_bytes()))
+    Digest32(*hasher.finalize().as_bytes())
 }
 
 fn canonical_roles(roles: &[RoleId]) -> Result<Vec<&str>, DelegationPolicyError> {
