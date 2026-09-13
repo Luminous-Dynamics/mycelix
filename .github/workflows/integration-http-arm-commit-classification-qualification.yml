@@ -1,0 +1,207 @@
+name: Integration HTTP Arm Commit Classification Qualification
+
+on:
+  pull_request:
+    branches:
+      - feat/integration-sqlite-commit-classification-v1
+      - main
+  push:
+    branches:
+      - feat/integration-http-arm-commit-classification-v1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_TOOLCHAIN: '1.96.0'
+  QUALIFICATION_SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  MANIFEST: crates/mycelix-integration-http-arm-commit-classification/Cargo.toml
+  SOURCE: crates/mycelix-integration-http-arm-commit-classification/src/lib.rs
+  KERNEL_SOURCE: crates/mycelix-integration-sqlite-commit-classification/src/lib.rs
+  JOURNAL_SOURCE: crates/mycelix-integration-http-transport-journal/src/lib.rs
+  STORE_BINDING_SOURCE: crates/mycelix-integration-runtime-store-binding/src/lib.rs
+  WORKFLOW: .github/workflows/integration-http-arm-commit-classification-qualification.yml
+
+concurrency:
+  group: integration-http-arm-commit-classification-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Exact HTTP arming commit classification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.QUALIFICATION_SUBJECT_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Bind exact source head
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$QUALIFICATION_SUBJECT_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$QUALIFICATION_SUBJECT_SHA"
+          printf 'qualification_subject_sha=%s\n' "$QUALIFICATION_SUBJECT_SHA"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
+
+      - name: Restore pinned Rust cache action
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          workspaces: crates/mycelix-integration-http-arm-commit-classification
+
+      - name: Capture exact environment and source capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc --version --verbose
+          cargo --version --verbose
+          sha256sum "$MANIFEST" "$SOURCE" "$KERNEL_SOURCE" "$JOURNAL_SOURCE" "$STORE_BINDING_SOURCE" "$WORKFLOW"
+          cargo metadata --manifest-path "$MANIFEST" --format-version 1 > /tmp/integration-http-arm-commit-classification-metadata.json
+          sha256sum /tmp/integration-http-arm-commit-classification-metadata.json
+          echo 'No --locked claim is made here until this standalone stack carries an intentionally committed lockfile.'
+
+      - name: Enforce one SQLite ABI owner
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          meta = json.loads(Path('/tmp/integration-http-arm-commit-classification-metadata.json').read_text())
+          rusqlite = sorted({p['version'] for p in meta['packages'] if p['name'] == 'rusqlite'})
+          sqlite_sys = sorted({p['version'] for p in meta['packages'] if p['name'] == 'libsqlite3-sys'})
+          if len(rusqlite) != 1 or not rusqlite[0].startswith('0.37.'):
+              raise SystemExit(f'expected one rusqlite 0.37.x, got {rusqlite}')
+          if len(sqlite_sys) != 1:
+              raise SystemExit(f'expected one libsqlite3-sys ABI owner, got {sqlite_sys}')
+          print(f'rusqlite={rusqlite[0]} libsqlite3-sys={sqlite_sys[0]}')
+          PY
+          grep -Fqx 'rusqlite = { version = "0.37", features = ["bundled"] }' "$MANIFEST"
+
+      - name: Check formatting
+        run: rustfmt --edition 2024 --check "$SOURCE"
+
+      - name: Compile tests without running
+        run: cargo test --manifest-path "$MANIFEST" --package mycelix-integration-http-arm-commit-classification --no-run
+
+      - name: Run tests
+        run: cargo test --manifest-path "$MANIFEST" --package mycelix-integration-http-arm-commit-classification
+
+      - name: Clippy
+        run: cargo clippy --manifest-path "$MANIFEST" --package mycelix-integration-http-arm-commit-classification --all-targets -- -D warnings
+
+      - name: Enforce sole-writer composition and ordering
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(grep -Fc 'arm_http_application_write(prepared, store_binding.path(), now_ms)' "$SOURCE")" -eq 1
+          python3 - <<'PY'
+          from pathlib import Path
+          s = Path('crates/mycelix-integration-http-arm-commit-classification/src/lib.rs').read_text()
+          pre = s.find('let predecessor = read_exact_arm_snapshot(store_binding, &subject)?;')
+          write = s.find('match arm_http_application_write(prepared, store_binding.path(), now_ms)')
+          post = s.find('match read_exact_arm_snapshot(store_binding, &subject)', write)
+          if min(pre, write, post) < 0 or not (pre < write < post):
+              raise SystemExit('required pre-snapshot -> sole writer -> post-error reread ordering missing')
+          PY
+
+      - name: Enforce one-snapshot exact durable reread
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX' "$SOURCE"
+          grep -Fq 'PRAGMA foreign_keys = ON; PRAGMA query_only = ON;' "$SOURCE"
+          grep -Fq 'transaction_with_behavior(TransactionBehavior::Deferred)?' "$SOURCE"
+          grep -Fq 'require_exact_journal_schema(&tx)?;' "$SOURCE"
+          grep -Fq 'load_arm_row(&tx, subject)?' "$SOURCE"
+          grep -Fq 'load_dispatch_binding(&tx, subject)?' "$SOURCE"
+          grep -Fq 'store_binding.revalidate()?;' "$SOURCE"
+          grep -Fq 'require_main_database_path(&conn, store_binding.path())?;' "$SOURCE"
+
+      - name: Enforce exact predecessor and successor identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'let predecessor_exact = successor == predecessor;' "$SOURCE"
+          grep -Fq 'expected.stage = JOURNAL_WRITE_MAY_BEGIN;' "$SOURCE"
+          grep -Fq 'expected.armed_at_ms = Some(now_ms);' "$SOURCE"
+          grep -Fq 'expected.updated_at_ms = now_ms;' "$SOURCE"
+          grep -Fq 'after == &expected' "$SOURCE"
+          grep -Fq 'row.dispatch_binding_digest.as_slice() != dispatch.as_slice()' "$SOURCE"
+          grep -Fq 'row.issuance_digest.as_slice() != subject.issuance_digest.as_slice()' "$SOURCE"
+          grep -Fq 'row.request_commitment_digest.as_slice() != subject.request_commitment_digest.as_slice()' "$SOURCE"
+
+      - name: Enforce recovered commit never reconstructs write capability
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'RecoveredCommittedHttpArm' "$SOURCE"
+          grep -Fq 'live_write_capability_reconstructed_here(&self) -> bool' "$SOURCE"
+          grep -Fq 'ordinary_retry_authorized_here(&self) -> bool' "$SOURCE"
+          python3 - <<'PY'
+          from pathlib import Path
+          s = Path('crates/mycelix-integration-http-arm-commit-classification/src/lib.rs').read_text()
+          marker = 'pub const fn live_write_capability_reconstructed_here(&self) -> bool'
+          pos = s.find(marker)
+          if pos < 0 or 'false' not in s[pos:pos+180]:
+              raise SystemExit('recovered committed arm must not recreate live write capability')
+          if '.contains(' in s or 'database is locked' in s:
+              raise SystemExit('commit classification must not depend on error strings')
+          PY
+
+      - name: Enforce shared three-state kernel
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'classify_exact_durable_transition(successor_exact, predecessor_exact)' "$SOURCE"
+          grep -Fq 'Committed' "$KERNEL_SOURCE"
+          grep -Fq 'DefinitelyNotCommitted' "$KERNEL_SOURCE"
+          grep -Fq 'IndeterminateCommit' "$KERNEL_SOURCE"
+          grep -Fq 'pub const fn authorizes_retry(self) -> bool' "$KERNEL_SOURCE"
+
+      - name: Enforce mature journal remains sole writer and no provider capability enters
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'pub fn arm_http_application_write(' "$JOURNAL_SOURCE"
+          grep -Fq 'tx.commit()?;' "$JOURNAL_SOURCE"
+          grep -Fq 'Ok(armed)' "$JOURNAL_SOURCE"
+          python3 - <<'PY'
+          import json, subprocess
+          meta = json.loads(subprocess.check_output([
+              'cargo','metadata','--manifest-path',
+              'crates/mycelix-integration-http-arm-commit-classification/Cargo.toml',
+              '--no-deps','--format-version','1'
+          ]))
+          package = next(p for p in meta['packages'] if p['name'] == 'mycelix-integration-http-arm-commit-classification')
+          direct = {d['name'] for d in package['dependencies']}
+          forbidden = {'reqwest','hyper','tokio','rustls','openssl','keyring','vault'}
+          hit = sorted(direct & forbidden)
+          if hit:
+              raise SystemExit(f'forbidden capability entered HTTP arm classifier: {hit}')
+          PY
+
+      - name: Enforce exact qualification scope and immutable subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq -- "RUST_TOOLCHAIN: '1.96.0'" "$WORKFLOW"
+          grep -Fq -- 'github.event.pull_request.head.sha || github.sha' "$WORKFLOW"
+          grep -Fq -- 'persist-credentials: false' "$WORKFLOW"
+          grep -Fq -- 'actions/checkout@11d5960a326750d5838078e36cf38b85af677262' "$WORKFLOW"
+          grep -Fq -- 'dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87' "$WORKFLOW"
+          grep -Fq -- 'Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6' "$WORKFLOW"
+          test "$(git rev-parse HEAD)" = "$QUALIFICATION_SUBJECT_SHA"
+          git diff --exit-code -- "$MANIFEST" "$SOURCE" "$KERNEL_SOURCE" "$JOURNAL_SOURCE" "$STORE_BINDING_SOURCE" "$WORKFLOW"
