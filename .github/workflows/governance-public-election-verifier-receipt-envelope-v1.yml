@@ -1,0 +1,135 @@
+name: Governance Public Election Verifier Receipt Envelope v1
+
+on:
+  push:
+    branches:
+      - 'feat/governance-public-election-verifier-receipt-envelope-v1'
+    paths:
+      - '.github/workflows/governance-public-election-verifier-receipt-envelope-v1.yml'
+      - 'mycelix-governance/crates/election-verifier-receipt-envelope/**'
+      - 'mycelix-governance/docs/PUBLIC_ELECTION_VERIFIER_RECEIPT_ENVELOPE_V1.md'
+  pull_request:
+    paths:
+      - '.github/workflows/governance-public-election-verifier-receipt-envelope-v1.yml'
+      - 'mycelix-governance/crates/election-verifier-receipt-envelope/**'
+      - 'mycelix-governance/docs/PUBLIC_ELECTION_VERIFIER_RECEIPT_ENVELOPE_V1.md'
+
+permissions:
+  contents: read
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  BASE_SHA: 'f9ae516fca5b83e1723a03217c39d6ba02b93268'
+  HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  qualify:
+    name: Qualify canonical verifier receipt envelope
+    if: github.event_name == 'push' || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'feat/governance-public-election-verifier-receipt-envelope-v1')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact subject head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.HEAD_SHA }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Bind exact ELECT-016 delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          mapfile -t changed < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          test "${#changed[@]}" -eq 4
+          printf '%s\n' "${changed[@]}" | sort > /tmp/elect-016-files.txt
+          cat > /tmp/elect-016-expected.txt <<'EOF'
+          .github/workflows/governance-public-election-verifier-receipt-envelope-v1.yml
+          mycelix-governance/crates/election-verifier-receipt-envelope/Cargo.toml
+          mycelix-governance/crates/election-verifier-receipt-envelope/src/lib.rs
+          mycelix-governance/docs/PUBLIC_ELECTION_VERIFIER_RECEIPT_ENVELOPE_V1.md
+          EOF
+          sed -i 's/^          //' /tmp/elect-016-expected.txt
+          sort -o /tmp/elect-016-expected.txt /tmp/elect-016-expected.txt
+          diff -u /tmp/elect-016-expected.txt /tmp/elect-016-files.txt
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt,clippy
+
+      - name: Check ELECT-016 formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path mycelix-governance/crates/election-verifier-receipt-envelope/Cargo.toml -- --check
+
+      - name: Generate exact dependency lock and metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-governance/crates/election-verifier-receipt-envelope
+          cargo generate-lockfile
+          cp Cargo.lock /tmp/elect-016-Cargo.lock
+          sha256sum Cargo.lock > /tmp/elect-016-lock.sha256
+          cargo metadata --locked --format-version 1 > /tmp/elect-016-metadata.json
+
+      - name: Execute canonical receipt corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-governance/crates/election-verifier-receipt-envelope
+          cargo test --locked 2>&1 | tee /tmp/elect-016-test.log
+
+      - name: Run warning-fatal library Clippy
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-governance/crates/election-verifier-receipt-envelope
+          cargo clippy --locked --lib -- -D warnings 2>&1 | tee /tmp/elect-016-clippy.log
+
+      - name: Audit canonicalization and compatibility boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          src='mycelix-governance/crates/election-verifier-receipt-envelope/src/lib.rs'
+          grep -Fq 'canonical_verifier_run_receipt_digest' "$src"
+          grep -Fq 'canonical_resource_anchor_receipt_digest' "$src"
+          grep -Fq 'canonical_verifier_execution_provenance_digest' "$src"
+          grep -Fq 'canonical_verifier_receipt_envelope_digest' "$src"
+          grep -Fq 'anchor_receipt_matches_elect_015_qualified_digest_semantics' "$src"
+          grep -Fq 'stage_vector_order_is_not_semantic' "$src"
+          grep -Fq 'stale_opaque_base_run_digest_fails_closed' "$src"
+          grep -Fq 'a7892dbba3e9432741f005685c5c7b5a92023affd52f22d8a0abbb6a1f42ac75' "$src"
+          grep -Fq '1b990e3b5da5ead13d489860c4cb7e3f2f4fd6a763c676bbf4eaac1db173ecef' "$src"
+          grep -Fq 'cc1a912f027b6a11cf87fb5873b1a67f00a1b4482f4f002108ae5b1185982096' "$src"
+          grep -Fq 'cbbcc8bf5b69fb28ce67bcc1f7b64aa7bdd381702311966ccbcfcc87e947ed3f' "$src"
+
+      - name: Remove transient lock and prove immutable checkout
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f mycelix-governance/crates/election-verifier-receipt-envelope/Cargo.lock
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          git status --porcelain=v1 --untracked-files=all > /tmp/elect-016-status.txt
+          test ! -s /tmp/elect-016-status.txt
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: elect-016-${{ env.HEAD_SHA }}-${{ github.run_attempt }}
+          path: |
+            /tmp/elect-016-Cargo.lock
+            /tmp/elect-016-lock.sha256
+            /tmp/elect-016-metadata.json
+            /tmp/elect-016-test.log
+            /tmp/elect-016-clippy.log
+            /tmp/elect-016-status.txt
+          if-no-files-found: warn
+          retention-days: 30
