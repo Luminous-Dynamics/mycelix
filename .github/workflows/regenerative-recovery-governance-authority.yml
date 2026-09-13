@@ -43,13 +43,17 @@ jobs:
         run: |
           set -euo pipefail
           authority=mycelix-commons/crates/commons-types/src/regenerative_recovery_governance_authority.rs
+          application=mycelix-commons/crates/commons-types/src/regenerative_recovery_governance_application.rs
 
           grep -q 'mycelix-governance-execution-authority-v1-blake3-exact-json' "$authority"
           grep -q 'mycelix-governance-threshold-authorization-v1-blake3-framed-semantic' "$authority"
           grep -q 'governance_authority_verified_here' "$authority"
           grep -q 'false' "$authority"
+          grep -q 'apply_regenerative_recovery_fork_resolution_with_bound_governance_authority' "$application"
+          grep -q 'verify_regenerative_recovery_governance_authority' "$application"
+          grep -q 'upstream_threshold_authority_verified_here' "$application"
 
-          if grep -E -q 'committee_threshold|signer_count|committee_scope|committee_pq_required|struct SigningCommittee|struct ThresholdSignature|verified: bool' "$authority"; then
+          if grep -E -q 'committee_threshold|signer_count|committee_scope|committee_pq_required|struct SigningCommittee|struct ThresholdSignature|verified: bool' "$authority" "$application"; then
             echo 'Commons must not duplicate threshold/committee authority semantics' >&2
             exit 1
           fi
