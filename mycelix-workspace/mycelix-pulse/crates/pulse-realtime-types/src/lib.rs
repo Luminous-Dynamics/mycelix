@@ -13,6 +13,7 @@
 //! - duplicate hints must be safe;
 //! - reordering hints must be safe;
 //! - hints carry no message plaintext/ciphertext or delivery claim;
+//! - unknown envelope fields fail closed rather than extending hint authority;
 //! - durable state is recovered from the authoritative Holochain/DHT source.
 
 use serde::{Deserialize, Serialize};
@@ -22,6 +23,7 @@ pub const PULSE_REALTIME_HINT_V1: u16 = 1;
 
 /// Versioned envelope for non-authoritative Pulse realtime hints.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PulseRealtimeHintV1 {
     pub version: u16,
     pub hint: DurableWakeHintV1,
@@ -64,6 +66,7 @@ pub enum RealtimeContractError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     #[test]
     fn v2_inbox_wake_has_no_state_payload() {
@@ -112,5 +115,44 @@ mod tests {
                 PULSE_REALTIME_HINT_V1 + 1
             ))
         );
+    }
+
+    #[test]
+    fn stronger_unknown_fields_fail_closed() {
+        for (field, value) in [
+            ("subject", json!("pretend subject")),
+            ("delivered", json!(true)),
+            ("thread_id", json!("pretend-thread")),
+            ("ciphertext", json!("pretend-ciphertext")),
+            ("verified", json!(true)),
+            ("authorized", json!(true)),
+        ] {
+            let mut value = json!({
+                "version": PULSE_REALTIME_HINT_V1,
+                "hint": "inbox_changed_v2",
+            });
+            value
+                .as_object_mut()
+                .expect("wake fixture is an object")
+                .insert(field.to_string(), value);
+
+            let error = serde_json::from_value::<PulseRealtimeHintV1>(value)
+                .expect_err("stronger realtime fields must fail closed");
+            assert!(
+                error.to_string().contains("unknown field"),
+                "unexpected decode error for {field}: {error}"
+            );
+        }
+    }
+
+    #[test]
+    fn unknown_wake_scope_fails_closed() {
+        let value = json!({
+            "version": PULSE_REALTIME_HINT_V1,
+            "hint": "message_delivered",
+        });
+
+        serde_json::from_value::<PulseRealtimeHintV1>(value)
+            .expect_err("unknown wake scopes must not acquire authority by default");
     }
 }
