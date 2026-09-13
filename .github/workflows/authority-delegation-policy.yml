@@ -1,0 +1,77 @@
+name: Authority Delegation Policy
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-authority-delegation-policy/**'
+      - 'crates/mycelix-authority-identity/**'
+      - 'crates/mycelix-authority-freshness/**'
+      - 'crates/mycelix-institutional-core/**'
+      - '.github/workflows/authority-delegation-policy.yml'
+  push:
+    branches:
+      - 'security/authority-delegation-policy-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: authority-delegation-policy-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Delegation policy qualification kernel
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-authority-delegation-policy/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-authority-delegation-policy/Cargo.toml --all-targets
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-authority-delegation-policy/Cargo.toml --all-targets -- -D warnings
+      - name: Authority-separation audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          src = Path('crates/mycelix-authority-delegation-policy/src/lib.rs').read_text()
+          invariants = Path('crates/mycelix-authority-delegation-policy/INVARIANTS.md').read_text()
+
+          required = [
+              'DelegationPolicy',
+              'QualifiedDelegationAuthority',
+              'DelegationAuthorityRef',
+              'CURRENT_DELEGATION_AUTHORITY_PROFILE',
+              'policy_generation',
+              'allow_redelegation',
+              'validate_delegation_scope',
+              'PolicyFreshnessIdentityMismatch',
+              'CircularDelegationPolicySource',
+              'CapabilityExpansion',
+              'DelegateNotAllowed',
+          ]
+          for token in required:
+              assert token in src, token
+
+          assert 'Deserialize)]\npub struct QualifiedDelegationAuthority' not in src
+          assert 'verified: bool' not in src
+          lowered = src.lower()
+          assert 'phi' not in lowered
+          assert 'reputation' not in lowered
+          assert 'model_score' not in lowered
+
+          assert 'Possession is not delegability' in invariants
+          assert 'Policy freshness is independently revocable' in invariants
+          assert 'Current authority ref prevents resurrection' in invariants
+          print('PASS: delegation policy is current, attenuated, revocable institutional authority')
+          PY
