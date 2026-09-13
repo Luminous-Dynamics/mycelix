@@ -7,18 +7,17 @@
 //! issuance functions and re-exports the completeness-gated functions here.
 
 use super::{
-    legacy, AdministrativeCase, AdministrativeCaseId, AdministrativeCaseState,
+    AdministrativeCase, AdministrativeCaseId, AdministrativeCaseState,
     AdministrativeDecisionEnvelope, AdministrativeProcedureError, AdministrativeQualificationError,
     IssuedAdministrativeDecision, ProcedureProfileId, QualifiedAdministrativeCaseLineage,
-    QualifiedAdministrativeDecision,
+    QualifiedAdministrativeDecision, legacy,
 };
 use mycelix_institutional_core::{AuthorityGrant, Digest32, EvidenceRef, PrincipalId};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
-pub const ADMIN_002_PROTOCOL_VERSION: &str =
-    "mycelix-administrative-procedure-completeness-v0.1";
+pub const ADMIN_002_PROTOCOL_VERSION: &str = "mycelix-administrative-procedure-completeness-v0.1";
 const MAX_REF_BYTES: usize = 2048;
 const MAX_PROFILE_BYTES: usize = 128;
 const MAX_PARTIES: usize = 64;
@@ -437,7 +436,6 @@ fn validate_ref(value: &str) -> Result<(), ProceduralCompletenessError> {
         Ok(())
     }
 }
-
 fn validate_profile(value: &str) -> Result<(), ProceduralCompletenessError> {
     let bytes = value.as_bytes();
     if bytes.is_empty()
@@ -534,7 +532,10 @@ impl fmt::Display for ProceduralCompletenessError {
                 write!(f, "response opportunity closes after evidence closure")
             }
             Self::DecisionEvidenceCutMismatch => {
-                write!(f, "decision evidence differs from the exact closed evidence cut")
+                write!(
+                    f,
+                    "decision evidence differs from the exact closed evidence cut"
+                )
             }
             Self::RequiredReasonsMissing => write!(f, "required decision reasons are missing"),
         }
@@ -744,7 +745,8 @@ mod tests {
         let complete = complete();
         assert!(!complete.grants_authority());
         assert!(!complete.grants_external_effect_authority());
-        let qualified = qualify_administrative_decision(complete, envelope(), &grant(), &[]).unwrap();
+        let qualified =
+            qualify_administrative_decision(complete, envelope(), &grant(), &[]).unwrap();
         assert!(!qualified.grants_external_effect_authority());
         let issued = issue_qualified_decision(qualified).unwrap();
         assert!(matches!(
