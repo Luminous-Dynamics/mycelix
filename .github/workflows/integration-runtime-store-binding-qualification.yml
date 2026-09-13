@@ -1,0 +1,188 @@
+name: Integration Runtime Store Binding Qualification
+
+on:
+  pull_request:
+    branches:
+      - feat/integration-http-issuance-descriptor-v1
+      - main
+  push:
+    branches:
+      - feat/integration-http-transport-journal-v1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_TOOLCHAIN: '1.96.0'
+  QUALIFICATION_SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  MANIFEST: crates/mycelix-integration-runtime-store-binding/Cargo.toml
+  SOURCE_DIR: crates/mycelix-integration-runtime-store-binding/src
+  SOURCE: crates/mycelix-integration-runtime-store-binding/src/lib.rs
+  WORKFLOW: .github/workflows/integration-runtime-store-binding-qualification.yml
+
+concurrency:
+  group: integration-runtime-store-binding-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Provisioned exact runtime-store filesystem identity
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.QUALIFICATION_SUBJECT_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Bind exact source head
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$QUALIFICATION_SUBJECT_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$QUALIFICATION_SUBJECT_SHA"
+          printf 'qualification_subject_sha=%s\n' "$QUALIFICATION_SUBJECT_SHA"
+          printf 'runtime_github_sha=%s\n' "$GITHUB_SHA"
+          printf 'workflow_sha=%s\n' "$GITHUB_WORKFLOW_SHA"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
+
+      - name: Restore pinned Rust cache action
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          workspaces: crates/mycelix-integration-runtime-store-binding
+
+      - name: Capture exact environment and source capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc --version --verbose
+          cargo --version --verbose
+          sha256sum "$MANIFEST" "$WORKFLOW"
+          find "$SOURCE_DIR" -type f -name '*.rs' -print0 | sort -z | xargs -0 sha256sum
+          cargo metadata --manifest-path "$MANIFEST" --format-version 1 > /tmp/integration-runtime-store-binding-metadata.json
+          sha256sum /tmp/integration-runtime-store-binding-metadata.json
+          echo 'No --locked claim is made here until this standalone stack carries an intentionally committed lockfile.'
+
+      - name: Check formatting
+        run: rustfmt --edition 2024 --check "$SOURCE"
+
+      - name: Compile tests without running
+        run: cargo test --manifest-path "$MANIFEST" --package mycelix-integration-runtime-store-binding --no-run
+
+      - name: Run tests
+        run: cargo test --manifest-path "$MANIFEST" --package mycelix-integration-runtime-store-binding
+
+      - name: Clippy
+        run: cargo clippy --manifest-path "$MANIFEST" --package mycelix-integration-runtime-store-binding --all-targets -- -D warnings
+
+      - name: Enforce exact provisioned identity and security attributes
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'pub struct RuntimeStoreProvisioningExpectation' "$SOURCE"
+          grep -Fq 'pub device: u64' "$SOURCE"
+          grep -Fq 'pub inode: u64' "$SOURCE"
+          grep -Fq 'pub uid: u32' "$SOURCE"
+          grep -Fq 'pub gid: u32' "$SOURCE"
+          grep -Fq 'pub mode: u32' "$SOURCE"
+          grep -Fq 'fs::symlink_metadata(path)' "$SOURCE"
+          grep -Fq 'fs::canonicalize(path)' "$SOURCE"
+          grep -Fq 'metadata.dev() != expectation.device' "$SOURCE"
+          grep -Fq 'metadata.ino() != expectation.inode' "$SOURCE"
+          grep -Fq 'metadata.uid() != expectation.uid' "$SOURCE"
+          grep -Fq 'metadata.gid() != expectation.gid' "$SOURCE"
+          grep -Fq 'mode != expectation.mode' "$SOURCE"
+          grep -Fq 'pub fn revalidate(&self)' "$SOURCE"
+          grep -Fq 'current_security_attributes_verified_here(&self) -> bool' "$SOURCE"
+
+      - name: Enforce frozen mode remains owner-rw and not writable by others
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'self.mode & 0o600 != 0o600 || self.mode & 0o022 != 0' "$SOURCE"
+          grep -Fq 'mode & 0o600 != 0o600 || mode & 0o022 != 0' "$SOURCE"
+          grep -Fq 'StoreSecurityAttributesChanged' "$SOURCE"
+          grep -Fq 'UnsafeFileMode' "$SOURCE"
+
+      - name: Enforce binding digest commits identity and security tuple
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq '&expectation.device.to_le_bytes()' "$SOURCE"
+          grep -Fq '&expectation.inode.to_le_bytes()' "$SOURCE"
+          grep -Fq '&expectation.uid.to_le_bytes()' "$SOURCE"
+          grep -Fq '&expectation.gid.to_le_bytes()' "$SOURCE"
+          grep -Fq '&expectation.mode.to_le_bytes()' "$SOURCE"
+
+      - name: Enforce deployment authority stays external
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'provisioning_ref' "$SOURCE"
+          grep -Fq 'provisioning_origin_verified_here(&self) -> bool' "$SOURCE"
+          python3 - <<'PY'
+          from pathlib import Path
+          s = Path('crates/mycelix-integration-runtime-store-binding/src/lib.rs').read_text()
+          marker = 'pub const fn provisioning_origin_verified_here(&self) -> bool'
+          pos = s.find(marker)
+          if pos < 0 or 'false' not in s[pos:pos+180]:
+              raise SystemExit('store binding must not claim provisioning-origin verification')
+          if 'fs::metadata(&canonical_path)' in s and 'expectation:' not in s:
+              raise SystemExit('store binding must not learn its security expectation from the candidate file')
+          PY
+
+      - name: Enforce binding never creates or replaces the store
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -Eq 'File::create|OpenOptions|\.create\(|\.create_new\(|\.truncate\(|fs::rename\(|fs::remove_file\(|fs::set_permissions\(|\.set_len\(|libc::chmod|libc::chown|nix::unistd::chown' "$SOURCE"; then
+            echo 'Runtime-store binding must verify independently provisioned state, never create/replace/repair it.'
+            exit 1
+          fi
+
+      - name: Enforce pure filesystem theorem
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, subprocess
+          meta = json.loads(subprocess.check_output([
+              'cargo','metadata','--manifest-path',
+              'crates/mycelix-integration-runtime-store-binding/Cargo.toml',
+              '--no-deps','--format-version','1'
+          ]))
+          package = next(p for p in meta['packages'] if p['name'] == 'mycelix-integration-runtime-store-binding')
+          direct = {d['name'] for d in package['dependencies']}
+          forbidden = {'rusqlite','reqwest','hyper','tokio','rustls','openssl','keyring','vault'}
+          hit = sorted(direct & forbidden)
+          if hit:
+              raise SystemExit(f'non-filesystem runtime dependency entered store binding: {hit}')
+          PY
+
+      - name: Enforce exact qualification scope and immutable subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq -- "RUST_TOOLCHAIN: '1.96.0'" "$WORKFLOW"
+          grep -Fq -- 'github.event.pull_request.head.sha || github.sha' "$WORKFLOW"
+          grep -Fq -- 'persist-credentials: false' "$WORKFLOW"
+          grep -Fq -- 'actions/checkout@11d5960a326750d5838078e36cf38b85af677262' "$WORKFLOW"
+          grep -Fq -- 'dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87' "$WORKFLOW"
+          grep -Fq -- 'Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6' "$WORKFLOW"
+          grep -Fq -- 'sha256sum /tmp/integration-runtime-store-binding-metadata.json' "$WORKFLOW"
+          if grep -Eq -- 'uses: (actions/checkout|dtolnay/rust-toolchain|Swatinem/rust-cache)@(v[0-9]+|stable|master|main)$' "$WORKFLOW"; then
+            echo 'Qualification action ref became floating.'
+            exit 1
+          fi
+          test "$(git rev-parse HEAD)" = "$QUALIFICATION_SUBJECT_SHA"
+          git diff --exit-code -- "$MANIFEST" "$SOURCE_DIR" "$WORKFLOW"

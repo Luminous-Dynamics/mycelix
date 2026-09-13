@@ -11,7 +11,7 @@
 //! transition inside the protected native critical section.
 
 use mycelix_integration_core::{DigestAlgorithm, SideEffectClass};
-use rusqlite::{params, Connection, OpenFlags, OptionalExtension, TransactionBehavior};
+use rusqlite::{Connection, OpenFlags, OptionalExtension, TransactionBehavior, params};
 use std::fs;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
@@ -137,7 +137,8 @@ pub(crate) fn qualify_file_current_attempt(
         return Err(CurrentAttemptQualificationError::StoreFileIdentityChanged);
     }
 
-    let mut conn = Connection::open_with_flags(&canonical_before, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+    let mut conn =
+        Connection::open_with_flags(&canonical_before, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
     conn.busy_timeout(Duration::from_secs(5))?;
     conn.execute_batch("PRAGMA foreign_keys = ON; PRAGMA query_only = ON;")?;
     let tx = conn.transaction_with_behavior(TransactionBehavior::Deferred)?;
@@ -286,8 +287,7 @@ fn validate_row(
     if row.side_effect_class != side_effect_code(claim.side_effect_class) {
         return Err(CurrentAttemptQualificationError::SideEffectMismatch);
     }
-    if row.idempotency_key.as_deref()
-        != claim.idempotency_key.as_ref().map(|value| value.as_str())
+    if row.idempotency_key.as_deref() != claim.idempotency_key.as_ref().map(|value| value.as_str())
     {
         return Err(CurrentAttemptQualificationError::IdempotencyKeyMismatch);
     }
@@ -386,7 +386,9 @@ pub enum CurrentAttemptQualificationError {
     SideEffectMismatch,
     #[error("durable idempotency key differs from the claim")]
     IdempotencyKeyMismatch,
-    #[error("current-attempt observation time {observed_at_ms} predates durable frontier {durable_updated_at_ms}")]
+    #[error(
+        "current-attempt observation time {observed_at_ms} predates durable frontier {durable_updated_at_ms}"
+    )]
     CausalTimeRegression {
         durable_updated_at_ms: i64,
         observed_at_ms: i64,

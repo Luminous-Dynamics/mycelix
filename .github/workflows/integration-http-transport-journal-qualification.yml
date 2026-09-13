@@ -1,0 +1,295 @@
+name: Integration HTTP Transport Journal Qualification
+
+on:
+  pull_request:
+    branches:
+      - feat/integration-http-issuance-descriptor-v1
+      - main
+  push:
+    branches:
+      - feat/integration-http-transport-journal-v1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_TOOLCHAIN: '1.96.0'
+  QUALIFICATION_SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  MANIFEST: crates/mycelix-integration-http-transport-journal/Cargo.toml
+  SOURCE_DIR: crates/mycelix-integration-http-transport-journal/src
+  SOURCE: crates/mycelix-integration-http-transport-journal/src/lib.rs
+  WORKFLOW: .github/workflows/integration-http-transport-journal-qualification.yml
+
+concurrency:
+  group: integration-http-transport-journal-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Durable first-byte uncertainty ratchet
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.QUALIFICATION_SUBJECT_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Bind exact source head
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$QUALIFICATION_SUBJECT_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$QUALIFICATION_SUBJECT_SHA"
+          printf 'qualification_subject_sha=%s\n' "$QUALIFICATION_SUBJECT_SHA"
+          printf 'runtime_github_sha=%s\n' "$GITHUB_SHA"
+          printf 'workflow_sha=%s\n' "$GITHUB_WORKFLOW_SHA"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
+
+      - name: Restore pinned Rust cache action
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          workspaces: crates/mycelix-integration-http-transport-journal
+
+      - name: Capture exact environment and source capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc --version --verbose
+          cargo --version --verbose
+          sha256sum "$MANIFEST" "$WORKFLOW"
+          find "$SOURCE_DIR" -type f -name '*.rs' -print0 | sort -z | xargs -0 sha256sum
+          cargo metadata --manifest-path "$MANIFEST" --format-version 1 > /tmp/integration-http-transport-journal-metadata.json
+          sha256sum /tmp/integration-http-transport-journal-metadata.json
+          echo 'No --locked claim is made here until this standalone stack carries an intentionally committed lockfile.'
+
+      - name: Check formatting
+        run: rustfmt --edition 2024 --check "$SOURCE"
+
+      - name: Compile tests without running
+        run: cargo test --manifest-path "$MANIFEST" --package mycelix-integration-http-transport-journal --no-run
+
+      - name: Run tests
+        run: cargo test --manifest-path "$MANIFEST" --package mycelix-integration-http-transport-journal
+
+      - name: Clippy
+        run: cargo clippy --manifest-path "$MANIFEST" --package mycelix-integration-http-transport-journal --all-targets -- -D warnings
+
+      - name: Enforce one-way uncertainty ratchet
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'JOURNAL_PREPARED' "$SOURCE"
+          grep -Fq 'JOURNAL_WRITE_MAY_BEGIN' "$SOURCE"
+          grep -Fq 'JOURNAL_OBSERVATION_RECORDED' "$SOURCE"
+          grep -Fq 'application_write_capability_issued_here(&self) -> bool' "$SOURCE"
+          grep -Fq 'ambiguity_floor_crossed_here(&self) -> bool' "$SOURCE"
+          grep -Fq 'NoWriteCapabilityIssued' "$SOURCE"
+          grep -Fq 'AmbiguousPossibleIssue' "$SOURCE"
+
+      - name: Enforce prepare-time DispatchStarted join
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'const OUTBOX_DISPATCH_STARTED: i64 = 5;' "$SOURCE"
+          grep -Fq 'SELECT o.stage, d.context_profile' "$SOURCE"
+          grep -Fq 'FROM integration_outbox o' "$SOURCE"
+          grep -Fq 'JOIN integration_dispatch_binding_v2 d ON d.entry_id = o.entry_id' "$SOURCE"
+          grep -Fq 'outbox_stage != OUTBOX_DISPATCH_STARTED' "$SOURCE"
+          python3 - <<'PY'
+          from pathlib import Path
+          s = Path('crates/mycelix-integration-http-transport-journal/src/lib.rs').read_text()
+          prepare_start = s.find('pub fn prepare_http_transport_attempt(')
+          prepare_end = s.find('\n}\n\n/// Durably cross', prepare_start)
+          prepare = s[prepare_start:prepare_end]
+          if 'validate_dispatch_row(&tx, dispatch, descriptor)?;' not in prepare:
+              raise SystemExit('prepare path must rejoin outbox + v2 dispatch inside its transaction')
+          recovery_start = s.find('pub fn recover_http_transport_attempt(')
+          recovery_end = s.find('\n}\n\nfn record_observation_from_prepared', recovery_start)
+          recovery = s[recovery_start:recovery_end]
+          if 'OUTBOX_DISPATCH_STARTED' in recovery:
+              raise SystemExit('restart recovery must not require outbox to remain at DispatchStarted')
+          PY
+
+      - name: Enforce issuance expiry gates arming but never evidence persistence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          s = Path('crates/mycelix-integration-http-transport-journal/src/lib.rs').read_text()
+
+          arm_start = s.find('pub fn arm_http_application_write(')
+          arm_end = s.find('\n}\n\n/// Record a conclusive', arm_start)
+          arm = s[arm_start:arm_end]
+          if 'now_u64 >= prepared.valid_until_ms' not in arm:
+              raise SystemExit('WriteMayBegin must remain issuance-deadline gated')
+
+          for name, end_marker in [
+              ('fn validate_observation_identity_prepared(', '\n}\n\nfn validate_observation_identity_armed'),
+              ('fn validate_observation_identity_armed(', '\n}\n\nfn validate_observation_identity('),
+          ]:
+              start = s.find(name)
+              end = s.find(end_marker, start)
+              body = s[start:end]
+              forbidden = ['valid_until_ms', 'to_u64_time(now_ms)', 'descriptor.is_live_at']
+              for needle in forbidden:
+                  if needle in body:
+                      raise SystemExit(f'observation evidence must remain recordable after issuance expiry: {name} contains {needle}')
+
+          if 'evidence.observed_at_ms < causal_floor_ms || evidence.observed_at_ms > now_ms' not in s:
+              raise SystemExit('post-expiry evidence still needs exact causal timestamp checks')
+          PY
+
+      - name: Enforce durable arm occurs before write capability return
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          s = Path('crates/mycelix-integration-http-transport-journal/src/lib.rs').read_text()
+          start = s.find('pub fn arm_http_application_write(')
+          update = s.find('SET stage = ?1, armed_at_ms = ?2', start)
+          commit = s.find('tx.commit()?;', update)
+          ret = s.find('Ok(armed)', commit)
+          if min(start, update, commit, ret) < 0 or not (start < update < commit < ret):
+              raise SystemExit('write-arm ordering is missing or unsafe')
+          tail = s[commit + len('tx.commit()?;'):ret]
+          if '?' in tail or 'return Err' in tail:
+              raise SystemExit('fallible path exists after durable WriteMayBegin commit')
+          PY
+
+      - name: Enforce descriptor identity is secret-free observation identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'ContentCommitment::sha256(&descriptor.issuance_digest().0)' "$SOURCE"
+          grep -Fq '&evidence.request_commitment != request_commitment' "$SOURCE"
+          grep -Fq 'dispatch.binding_digest()' "$SOURCE"
+          grep -Fq 'descriptor.issuance_digest()' "$SOURCE"
+          if grep -Eq 'pub (secret|credential_value|authorization_value|api_key|password)[[:space:]]*:' "$SOURCE"; then
+            echo 'Transport journal gained a credential-material field.'
+            exit 1
+          fi
+          if grep -Eq 'pub fn (secret|credential_value|authorization_value|api_key|password)\(' "$SOURCE"; then
+            echo 'Transport journal exposes credential material.'
+            exit 1
+          fi
+
+      - name: Enforce pre-write nonissuance is narrow
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'observation.disposition != TransportObservationDisposition::DefinitelyNotIssued' "$SOURCE"
+          grep -Fq 'observation.evidence.application_bytes_written != 0' "$SOURCE"
+          grep -Fq 'PrewriteObservationNotNonissuance' "$SOURCE"
+
+      - name: Enforce restart-safe recovery uses provisioned store identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'store_binding: &QualifiedRuntimeStoreBinding' "$SOURCE"
+          grep -Fq 'store_binding.revalidate()?' "$SOURCE"
+          grep -Fq 'store_binding.expected_device()' "$SOURCE"
+          grep -Fq 'store_binding.expected_inode()' "$SOURCE"
+          grep -Fq 'entry_id: i64' "$SOURCE"
+          grep -Fq 'attempt_id: &ExecutionAttemptId' "$SOURCE"
+          python3 - <<'PY'
+          from pathlib import Path
+          s = Path('crates/mycelix-integration-http-transport-journal/src/lib.rs').read_text()
+          start = s.find('pub fn recover_http_transport_attempt(')
+          end = s.find('\n}\n\nfn record_observation_from_prepared', start)
+          recovery = s[start:end]
+          if 'QualifiedContextBoundDispatchStart' in recovery:
+              raise SystemExit('restart recovery must not require a process-local dispatch token')
+          if 'integration_dispatch_binding_v2' not in recovery:
+              raise SystemExit('restart recovery must rejoin durable context-bound dispatch evidence')
+          PY
+
+      - name: Enforce exact prepared and armed row identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'row.command_id != prepared.command_id.as_str()' "$SOURCE"
+          grep -Fq 'row.connector_instance != prepared.connector_instance.as_str()' "$SOURCE"
+          grep -Fq 'row.request_commitment_algorithm' "$SOURCE"
+          grep -Fq 'row.request_commitment_digest.as_slice()' "$SOURCE"
+          grep -Fq 'row.prepared_at_ms != prepared.prepared_at_ms' "$SOURCE"
+          grep -Fq 'row.command_id != armed.command_id.as_str()' "$SOURCE"
+          grep -Fq 'row.prepared_at_ms != armed.prepared_at_ms' "$SOURCE"
+          grep -Fq 'row.armed_at_ms != Some(armed.armed_at_ms)' "$SOURCE"
+          grep -Fq 'validate_journal_identity_armed(&tx, &armed)?' "$SOURCE"
+
+      - name: Enforce exact context-dispatch and file identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'integration_dispatch_binding_v2' "$SOURCE"
+          grep -Fq 'context_profile != dispatch.context().profile()' "$SOURCE"
+          grep -Fq 'binding_digest.as_slice() != dispatch.binding_digest().0' "$SOURCE"
+          grep -Fq 'command_digest.as_slice() != descriptor.command_commitment().digest' "$SOURCE"
+          grep -Fq 'symlink_metadata' "$SOURCE"
+          grep -Fq 'metadata.dev() != expected_device' "$SOURCE"
+          grep -Fq 'metadata.ino() != expected_inode' "$SOURCE"
+
+      - name: Enforce journal schema foreign key and no trigger side channels
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'integration_http_transport_attempt_v1' "$SOURCE"
+          grep -Fq 'PRIMARY KEY(entry_id, attempt_id)' "$SOURCE"
+          grep -Fq 'FOREIGN KEY(entry_id) REFERENCES integration_outbox(entry_id)' "$SOURCE"
+          grep -Fq 'PRAGMA foreign_key_list(integration_http_transport_attempt_v1)' "$SOURCE"
+          grep -Fq '"integration_outbox".to_owned()' "$SOURCE"
+          grep -Fq 'trigger_count != 0' "$SOURCE"
+
+      - name: Enforce journal performs no network or secret access
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, subprocess
+          meta = json.loads(subprocess.check_output([
+              'cargo','metadata','--manifest-path',
+              'crates/mycelix-integration-http-transport-journal/Cargo.toml',
+              '--no-deps','--format-version','1'
+          ]))
+          package = next(p for p in meta['packages'] if p['name'] == 'mycelix-integration-http-transport-journal')
+          direct = {d['name'] for d in package['dependencies']}
+          forbidden = {'reqwest','hyper','tokio','rustls','native-tls','openssl','keyring','vault','vaultrs','secret-service'}
+          hit = sorted(direct & forbidden)
+          if hit:
+              raise SystemExit(f'network/secret runtime entered journal: {hit}')
+          PY
+          if grep -Eq 'TcpStream|UdpSocket|reqwest::|hyper::|rustls::|std::env|keyring::|vault::|secret_service::' "$SOURCE"; then
+            echo 'Transport journal crossed into network/secret access.'
+            exit 1
+          fi
+
+      - name: Enforce exact qualification scope and immutable subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq -- "RUST_TOOLCHAIN: '1.96.0'" "$WORKFLOW"
+          grep -Fq -- 'github.event.pull_request.head.sha || github.sha' "$WORKFLOW"
+          grep -Fq -- 'persist-credentials: false' "$WORKFLOW"
+          grep -Fq -- 'actions/checkout@11d5960a326750d5838078e36cf38b85af677262' "$WORKFLOW"
+          grep -Fq -- 'dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87' "$WORKFLOW"
+          grep -Fq -- 'Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6' "$WORKFLOW"
+          grep -Fq -- 'sha256sum /tmp/integration-http-transport-journal-metadata.json' "$WORKFLOW"
+          if grep -Eq -- 'uses: (actions/checkout|dtolnay/rust-toolchain|Swatinem/rust-cache)@(v[0-9]+|stable|master|main)$' "$WORKFLOW"; then
+            echo 'Qualification action ref became floating.'
+            exit 1
+          fi
+          test "$(git rev-parse HEAD)" = "$QUALIFICATION_SUBJECT_SHA"
+          git diff --exit-code -- "$MANIFEST" "$SOURCE_DIR" "$WORKFLOW"
