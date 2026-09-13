@@ -146,7 +146,7 @@ pub use flow_indicator::FlowIndicator;
 pub use forms::{Checkbox, FormField, Select, SelectOption, TextArea, TextInput};
 pub use freshness::{FreshnessBadge, FreshnessLevel};
 pub use graph_node::{GraphEdge, GraphNode, NodeEmphasis};
-pub use njia::{GrowthStage, community_warmth, knowledge_freshness};
+pub use indlela::{GrowthStage, community_warmth, knowledge_freshness};
 pub use local_identity::{
     LocalIdentity, load_json, local_did, provide_local_identity, save_json, use_local_identity,
 };
