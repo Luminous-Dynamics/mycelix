@@ -180,7 +180,7 @@ impl RegenerativeRecoveryGovernanceAuthorityEvidenceV1 {
             generation,
             sequence,
             observed_at_us,
-            MaritimeEvidenceKind::GovernanceDecision,
+            MaritimeEvidenceKind::AuthorityTransition,
             self.to_payload_json()?,
             event_evidence_binding,
         );
@@ -371,8 +371,8 @@ mod tests {
         let resolution = resolution();
         let mut authority = authority(&resolution);
         authority.committee_scope = RegenerativeRecoveryGovernanceCommitteeScopeV1::Custom(vec![
-            "other-scope".into(),
             RECOVERY_FORK_RESOLUTION_SCOPE_ID_V1.into(),
+            "other-scope".into(),
         ]);
         assert!(authority.validate().is_err());
 
