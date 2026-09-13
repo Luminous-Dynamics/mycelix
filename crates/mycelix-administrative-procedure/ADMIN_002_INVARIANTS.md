@@ -18,20 +18,27 @@ external effect authority
 
 ADMIN-001 remains responsible for exact filing lineage, case context, retained decision policy, and competent authority. ADMIN-002 adds the evidence required to say that the configured procedural opportunities existed before a decision was qualified.
 
-## Public API gating
+## Feature-gated public API
 
-The crate root is `src/lib_admin_002.rs`.
+The crate root remains `src/lib_hardened.rs`, preserving ADMIN-001's qualified default contract.
 
-ADMIN-001 is imported privately through:
+`Cargo.toml` defines:
 
 ```text
-#[path = "lib_hardened.rs"]
-mod admin001;
+procedural-completeness = []
 ```
 
-The public ADMIN-002 root re-exports safe case/lineage types and `qualify_case_lineage`, but it does **not** re-export ADMIN-001's raw consequential decision qualifier or issuance function.
+With default features, the public consequential API remains ADMIN-001:
 
-The only public consequential path is:
+```text
+QualifiedAdministrativeCaseLineage
+-> qualify_administrative_decision(...)
+-> issue_qualified_decision(...)
+```
+
+With `procedural-completeness` enabled, those two raw consequential ADMIN-001 functions are not compiled into the public root. Instead `src/admin_002.rs` is compiled and its stricter functions are re-exported under the same consequential names.
+
+The feature-mode public path is therefore:
 
 ```text
 QualifiedAdministrativeCaseLineage
@@ -49,7 +56,11 @@ QualifiedProcedurallyCompleteCase
 -> IssuedAdministrativeDecision
 ```
 
+ADMIN-002 can call the private legacy semantic kernel because it is a child module of the hardened crate root. External callers cannot use that private path.
+
 Both ADMIN-002 positive types are opaque and intentionally not `Clone`, `Serialize`, or `Deserialize`.
+
+This design keeps ADMIN-001 independently executable/qualified while making the stronger feature mechanically non-bypassable for consumers that select it.
 
 ## Exact policy capture
 
@@ -106,8 +117,9 @@ The cut is order-independent but identity/content exact:
 
 - evidence IDs must be unique;
 - every evidence record must pass institutional structural validation;
-- evidence count is bounded; and
-- evidence observed after the closure instant is rejected.
+- evidence count is bounded;
+- evidence observed after the closure instant is rejected; and
+- closure itself must occur no later than case readiness.
 
 The eventual `Decision.evidence` set must equal this closed cut exactly. A decision cannot silently omit evidence from the qualified cut, add later evidence, or substitute changed evidence under the same case.
 
@@ -126,7 +138,7 @@ This is a completeness theorem only. ADMIN-002 does not establish that reasons a
 
 ADMIN-002 does not evaluate governmental legitimacy or invent authority.
 
-After completeness qualification, the exact decision is still passed through private ADMIN-001, which requires its replayed lineage, retained decision policy, exact case context, exact grant holder, exact institutional capability/role/evidence requirement, and decision-time `evaluate_authority()` result.
+After completeness qualification, the exact decision is still passed through the private ADMIN-001 semantic kernel, which requires replayed lineage, retained decision policy, exact case context, exact grant holder, exact institutional capability/role/evidence requirement, and decision-time `evaluate_authority()` result.
 
 Thus:
 
@@ -175,6 +187,15 @@ ADMIN-002 does not establish:
 - external/physical effects.
 
 Those remain profile/provider work, ADMIN-003, and later runtime/effect adapters.
+
+## Qualification rule
+
+ADMIN-002 qualification must run both API modes:
+
+1. default ADMIN-001 tests/Clippy, proving the parent contract still works unchanged; and
+2. `--features procedural-completeness`, proving the stricter public path compiles, tests, and passes warnings-denied Clippy.
+
+The qualification workflow must also statically verify that the feature build re-exports ADMIN-002's consequential functions while the ADMIN-001 raw functions are guarded by `cfg(not(feature = "procedural-completeness"))`.
 
 ## Next
 
