@@ -325,12 +325,14 @@ fn classify_returned_dispatch_error(
                 )
             }
             CommitClassification::IndeterminateCommit => {
-                ClassifiedContextDispatchOutcome::IndeterminateCommit(IndeterminateContextDispatch {
-                    entry_id: claim.entry_id,
-                    attempt_id: claim.attempt_id.as_str().to_owned(),
-                    original_error,
-                    reread_error: None,
-                })
+                ClassifiedContextDispatchOutcome::IndeterminateCommit(
+                    IndeterminateContextDispatch {
+                        entry_id: claim.entry_id,
+                        attempt_id: claim.attempt_id.as_str().to_owned(),
+                        original_error,
+                        reread_error: None,
+                    },
+                )
             }
         },
         Err(reread_error) => {
@@ -452,7 +454,8 @@ fn common_attempt_identity_exact(
         && row.current_attempt_id.as_deref() == Some(claim.attempt_id.as_str())
         && row.command_id == claim.command_id.as_str()
         && row.connector_instance == claim.connector_instance.as_str()
-        && row.command_commitment_algorithm == digest_algorithm_code(claim.command_commitment.algorithm)
+        && row.command_commitment_algorithm
+            == digest_algorithm_code(claim.command_commitment.algorithm)
         && row.command_commitment_digest.as_slice() == claim.command_commitment.digest.as_slice()
         && row.side_effect_class == side_effect_code(claim.side_effect_class)
         && row.idempotency_key.as_deref()
@@ -472,12 +475,15 @@ fn binding_row_exact(
         && row.attempt_id == claim.attempt_id.as_str()
         && row.command_id == claim.command_id.as_str()
         && row.connector_instance == claim.connector_instance.as_str()
-        && row.command_commitment_algorithm == digest_algorithm_code(claim.command_commitment.algorithm)
+        && row.command_commitment_algorithm
+            == digest_algorithm_code(claim.command_commitment.algorithm)
         && row.command_commitment_digest.as_slice() == claim.command_commitment.digest.as_slice()
-        && row.materialization_digest.as_slice() == materialized.materialization_digest().0.as_slice()
+        && row.materialization_digest.as_slice()
+            == materialized.materialization_digest().0.as_slice()
         && row.output_commitment_algorithm
             == digest_algorithm_code(materialized.output_commitment().algorithm)
-        && row.output_commitment_digest.as_slice() == materialized.output_commitment().digest.as_slice()
+        && row.output_commitment_digest.as_slice()
+            == materialized.output_commitment().digest.as_slice()
         && row.admission_digest.as_slice() == materialized.admission_digest().0.as_slice()
         && row.determinism_digest.as_slice() == materialized.determinism_digest().0.as_slice()
         && row.provider_profile_algorithm
@@ -487,7 +493,10 @@ fn binding_row_exact(
         && row.provider_root_algorithm
             == digest_algorithm_code(materialized.provider_trust_root_commitment().algorithm)
         && row.provider_root_digest.as_slice()
-            == materialized.provider_trust_root_commitment().digest.as_slice()
+            == materialized
+                .provider_trust_root_commitment()
+                .digest
+                .as_slice()
         && row.materializer_release_algorithm
             == digest_algorithm_code(materialized.materializer_release().algorithm)
         && row.materializer_release_digest.as_slice()
@@ -630,9 +639,7 @@ fn require_exact_store_identity(
     expected_inode: u64,
 ) -> Result<(), DurableDispatchRereadError> {
     let metadata = fs::metadata(path).map_err(DurableDispatchRereadError::Io)?;
-    if !metadata.is_file()
-        || metadata.dev() != expected_device
-        || metadata.ino() != expected_inode
+    if !metadata.is_file() || metadata.dev() != expected_device || metadata.ino() != expected_inode
     {
         return Err(DurableDispatchRereadError::StoreIdentityChanged);
     }
