@@ -1,0 +1,17 @@
+[package]
+name = "mycelix-integration-atomic-dispatch-commit-classification"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Exact durable reread classification for context-bound integration dispatch commits"
+
+[dependencies]
+blake3 = "1.5"
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+mycelix-integration-atomic-dispatch-context = { path = "../mycelix-integration-atomic-dispatch-context" }
+mycelix-integration-core = { path = "../mycelix-integration-core" }
+mycelix-integration-materializer-runtime = { path = "../mycelix-integration-materializer-runtime" }
+mycelix-integration-runtime = { path = "../mycelix-integration-runtime" }
+mycelix-integration-sqlite-commit-classification = { path = "../mycelix-integration-sqlite-commit-classification" }
+rusqlite = { version = "0.37", features = ["bundled"] }
+thiserror = "2.0"

@@ -1,0 +1,221 @@
+name: Integration SQLite Commit Classification Qualification
+
+on:
+  pull_request:
+    branches:
+      - feat/integration-http-transport-journal-v1
+      - main
+  push:
+    branches:
+      - feat/integration-sqlite-commit-classification-v1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_TOOLCHAIN: '1.96.0'
+  QUALIFICATION_SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  KERNEL_MANIFEST: crates/mycelix-integration-sqlite-commit-classification/Cargo.toml
+  KERNEL_SOURCE: crates/mycelix-integration-sqlite-commit-classification/src/lib.rs
+  ADAPTER_MANIFEST: crates/mycelix-integration-atomic-dispatch-commit-classification/Cargo.toml
+  ADAPTER_SOURCE: crates/mycelix-integration-atomic-dispatch-commit-classification/src/lib.rs
+  ADAPTER_TEST: crates/mycelix-integration-atomic-dispatch-commit-classification/tests/snapshot_consistency.rs
+  ATOMIC_SOURCE: crates/mycelix-integration-atomic-dispatch-context/src/lib.rs
+  WORKFLOW: .github/workflows/integration-sqlite-commit-classification-qualification.yml
+
+concurrency:
+  group: integration-sqlite-commit-classification-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Exact durable commit outcome classification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.QUALIFICATION_SUBJECT_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Bind exact source head
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$QUALIFICATION_SUBJECT_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$QUALIFICATION_SUBJECT_SHA"
+          printf 'qualification_subject_sha=%s\n' "$QUALIFICATION_SUBJECT_SHA"
+          printf 'runtime_github_sha=%s\n' "$GITHUB_SHA"
+          printf 'workflow_sha=%s\n' "$GITHUB_WORKFLOW_SHA"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
+
+      - name: Restore pinned Rust cache action
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          workspaces: |
+            crates/mycelix-integration-sqlite-commit-classification
+            crates/mycelix-integration-atomic-dispatch-commit-classification
+
+      - name: Capture exact environment and source capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc --version --verbose
+          cargo --version --verbose
+          sha256sum "$KERNEL_MANIFEST" "$KERNEL_SOURCE" "$ADAPTER_MANIFEST" "$ADAPTER_SOURCE" "$ADAPTER_TEST" "$ATOMIC_SOURCE" "$WORKFLOW"
+          cargo metadata --manifest-path "$ADAPTER_MANIFEST" --format-version 1 > /tmp/integration-sqlite-commit-classification-metadata.json
+          sha256sum /tmp/integration-sqlite-commit-classification-metadata.json
+          echo 'No --locked claim is made here until this standalone stack carries an intentionally committed lockfile.'
+
+      - name: Enforce one SQLite ABI owner
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          meta = json.loads(Path('/tmp/integration-sqlite-commit-classification-metadata.json').read_text())
+          rusqlite = sorted({p['version'] for p in meta['packages'] if p['name'] == 'rusqlite'})
+          sqlite_sys = sorted({p['version'] for p in meta['packages'] if p['name'] == 'libsqlite3-sys'})
+          if len(rusqlite) != 1 or not rusqlite[0].startswith('0.37.'):
+              raise SystemExit(f'expected one rusqlite 0.37.x, got {rusqlite}')
+          if len(sqlite_sys) != 1:
+              raise SystemExit(f'expected one libsqlite3-sys ABI owner, got {sqlite_sys}')
+          print(f'rusqlite={rusqlite[0]} libsqlite3-sys={sqlite_sys[0]}')
+          PY
+          grep -Fqx 'rusqlite = { version = "0.37", features = ["bundled"] }' "$ADAPTER_MANIFEST"
+
+      - name: Check formatting
+        run: |
+          rustfmt --edition 2024 --check "$KERNEL_SOURCE"
+          rustfmt --edition 2024 --check "$ADAPTER_SOURCE"
+          rustfmt --edition 2024 --check "$ADAPTER_TEST"
+
+      - name: Compile tests without running
+        run: |
+          cargo test --manifest-path "$KERNEL_MANIFEST" --package mycelix-integration-sqlite-commit-classification --no-run
+          cargo test --manifest-path "$ADAPTER_MANIFEST" --package mycelix-integration-atomic-dispatch-commit-classification --no-run
+
+      - name: Run tests
+        run: |
+          cargo test --manifest-path "$KERNEL_MANIFEST" --package mycelix-integration-sqlite-commit-classification
+          cargo test --manifest-path "$ADAPTER_MANIFEST" --package mycelix-integration-atomic-dispatch-commit-classification
+
+      - name: Clippy
+        run: |
+          cargo clippy --manifest-path "$KERNEL_MANIFEST" --package mycelix-integration-sqlite-commit-classification --all-targets -- -D warnings
+          cargo clippy --manifest-path "$ADAPTER_MANIFEST" --package mycelix-integration-atomic-dispatch-commit-classification --all-targets -- -D warnings
+
+      - name: Enforce exact three-state persistence semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'Committed' "$KERNEL_SOURCE"
+          grep -Fq 'DefinitelyNotCommitted' "$KERNEL_SOURCE"
+          grep -Fq 'IndeterminateCommit' "$KERNEL_SOURCE"
+          grep -Fq 'classify_exact_durable_transition' "$KERNEL_SOURCE"
+          grep -Fq '(true, false) => CommitClassification::Committed' "$KERNEL_SOURCE"
+          grep -Fq '(false, true) => CommitClassification::DefinitelyNotCommitted' "$KERNEL_SOURCE"
+          grep -Fq '_ => CommitClassification::IndeterminateCommit' "$KERNEL_SOURCE"
+          grep -Fq 'pub const fn authorizes_retry(self) -> bool' "$KERNEL_SOURCE"
+
+      - name: Enforce independent one-snapshot durable reread
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX' "$ADAPTER_SOURCE"
+          grep -Fq 'PRAGMA foreign_keys = ON; PRAGMA query_only = ON;' "$ADAPTER_SOURCE"
+          grep -Fq 'transaction_with_behavior(TransactionBehavior::Deferred)?' "$ADAPTER_SOURCE"
+          grep -Fq 'entry_is_quarantined(&tx, current_attempt.claim().entry_id)?' "$ADAPTER_SOURCE"
+          grep -Fq 'load_outbox_row(&tx, current_attempt.claim().entry_id)?' "$ADAPTER_SOURCE"
+          grep -Fq 'load_binding_row(&tx, current_attempt)?' "$ADAPTER_SOURCE"
+          grep -Fq 'tx.commit()?;' "$ADAPTER_SOURCE"
+          grep -Fq 'canonical_exact_store_path' "$ADAPTER_SOURCE"
+          grep -Fq 'require_main_database_path' "$ADAPTER_SOURCE"
+          grep -Fq 'require_exact_store_identity(&canonical, store_device, store_inode)?;' "$ADAPTER_SOURCE"
+          grep -Fq 'outbox.updated_at_ms == current_attempt.durable_updated_at_ms()' "$ADAPTER_SOURCE"
+          grep -Fq 'outbox.dispatch_started_at_ms == Some(now_ms)' "$ADAPTER_SOURCE"
+          grep -Fq 'binding_row_exact(' "$ADAPTER_SOURCE"
+          grep -Fq 'row.binding_digest.as_slice() == expected_binding_digest.0.as_slice()' "$ADAPTER_SOURCE"
+
+      - name: Enforce snapshot regression evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'transaction_with_behavior(TransactionBehavior::Deferred)' "$ADAPTER_TEST"
+          grep -Fq 'transaction_with_behavior(TransactionBehavior::Immediate)' "$ADAPTER_TEST"
+          grep -Fq 'assert_eq!(stage_same_snapshot, 4);' "$ADAPTER_TEST"
+          grep -Fq 'assert!(!binding_same_snapshot);' "$ADAPTER_TEST"
+          grep -Fq 'assert_eq!(stage_after, 5);' "$ADAPTER_TEST"
+          grep -Fq 'assert!(binding_after);' "$ADAPTER_TEST"
+
+      - name: Enforce recovery-only successor after returned error
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'RecoveredCommittedContextDispatch' "$ADAPTER_SOURCE"
+          grep -Fq 'live_dispatch_token_reconstructed_here(&self) -> bool' "$ADAPTER_SOURCE"
+          grep -Fq 'pub const fn recovery_only_here(&self) -> bool' "$ADAPTER_SOURCE"
+          grep -Fq 'ordinary_retry_authorized_here(&self) -> bool' "$ADAPTER_SOURCE"
+          python3 - <<'PY'
+          from pathlib import Path
+          s = Path('crates/mycelix-integration-atomic-dispatch-commit-classification/src/lib.rs').read_text()
+          marker = 'pub const fn live_dispatch_token_reconstructed_here(&self) -> bool'
+          pos = s.find(marker)
+          if pos < 0 or 'false' not in s[pos:pos+180]:
+              raise SystemExit('recovered committed result must not reconstruct the live dispatch token')
+          if '.contains(' in s or 'SQLITE_BUSY' in s or 'database is locked' in s:
+              raise SystemExit('commit classification must not depend on exception/error strings')
+          PY
+
+      - name: Enforce exact upstream binding digest contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'b"mycelix/integration/atomic-dispatch-context/v1"' "$ATOMIC_SOURCE"
+          grep -Fq 'mycelix-integration-atomic-dispatch-context-v1-blake3-framed' "$ATOMIC_SOURCE"
+          grep -Fq 'b"mycelix/integration/atomic-dispatch-context/v1"' "$ADAPTER_SOURCE"
+          test "$(grep -Fc 'bind_context_and_start_dispatch(' "$ADAPTER_SOURCE")" -eq 1
+
+      - name: Enforce no network provider or secret capability
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, subprocess
+          meta = json.loads(subprocess.check_output([
+              'cargo','metadata','--manifest-path',
+              'crates/mycelix-integration-atomic-dispatch-commit-classification/Cargo.toml',
+              '--no-deps','--format-version','1'
+          ]))
+          package = next(p for p in meta['packages'] if p['name'] == 'mycelix-integration-atomic-dispatch-commit-classification')
+          direct = {d['name'] for d in package['dependencies']}
+          forbidden = {'reqwest','hyper','tokio','rustls','openssl','keyring','vault'}
+          hit = sorted(direct & forbidden)
+          if hit:
+              raise SystemExit(f'forbidden runtime capability entered commit classifier: {hit}')
+          PY
+
+      - name: Enforce exact qualification scope and immutable subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq -- "RUST_TOOLCHAIN: '1.96.0'" "$WORKFLOW"
+          grep -Fq -- 'github.event.pull_request.head.sha || github.sha' "$WORKFLOW"
+          grep -Fq -- 'persist-credentials: false' "$WORKFLOW"
+          grep -Fq -- 'actions/checkout@11d5960a326750d5838078e36cf38b85af677262' "$WORKFLOW"
+          grep -Fq -- 'dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87' "$WORKFLOW"
+          grep -Fq -- 'Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6' "$WORKFLOW"
+          grep -Fq -- 'ADAPTER_TEST: crates/mycelix-integration-atomic-dispatch-commit-classification/tests/snapshot_consistency.rs' "$WORKFLOW"
+          test "$(git rev-parse HEAD)" = "$QUALIFICATION_SUBJECT_SHA"
+          git diff --exit-code -- "$KERNEL_MANIFEST" "$KERNEL_SOURCE" "$ADAPTER_MANIFEST" "$ADAPTER_SOURCE" "$ADAPTER_TEST" "$ATOMIC_SOURCE" "$WORKFLOW"
