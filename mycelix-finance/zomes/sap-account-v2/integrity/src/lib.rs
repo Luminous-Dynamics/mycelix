@@ -13,7 +13,7 @@ use finance_holochain_contracts::{
     CollateralSapIssuanceReceiptV2Entry, FinanceSapAccountV2DnaProperties, SapAccountOpenedV2Entry,
     SapCollateralClaimV2Entry,
 };
-use finance_sap_account_v2::{SapAccountOpenedV2, SapAccountV2Config, SapCollateralClaimV2};
+use finance_sap_account_v2::SapAccountV2Config;
 use hdi::prelude::*;
 use mycelix_bridge_entry_types::did_for_author;
 
