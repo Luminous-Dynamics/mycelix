@@ -3,7 +3,7 @@ name: One-shot Group Current Authority Freshness
 on:
   push:
     branches:
-      - 'security/governance-current-executor-authority-v0.1'
+      - security/governance-current-executor-authority-v0.1
 
 permissions:
   contents: write
@@ -17,10 +17,12 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           ref: security/governance-current-executor-authority-v0.1
+
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
         with:
           toolchain: 1.98.1
           components: rustfmt, clippy
+
       - name: Refuse unexpected existing call sites
         shell: bash
         run: |
@@ -32,6 +34,7 @@ jobs:
             printf '%s\n' "$matches" >&2
             exit 1
           fi
+
       - name: Introduce typed freshness bundle
         shell: bash
         run: |
@@ -39,72 +42,75 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
-          path = Path('crates/mycelix-governance-current-executor-authority/src/lib.rs')
+          path = Path("crates/mycelix-governance-current-executor-authority/src/lib.rs")
           src = path.read_text()
 
-          marker = '''/// Reconstruct exact executor semantics and then qualify the exact current
-/// revocation generations for the same authority objects.
-pub fn qualify_current_executor_authority(
-'''
-          replacement = '''/// Exact current-state receipts for the three authority subjects that must
-/// remain jointly fresh. Named fields make grant/threshold/executor ordering
-/// explicit at the provider boundary instead of relying on positional arguments.
-#[derive(Clone, Copy, Debug)]
-pub struct CurrentExecutorFreshnessEvidence<'a> {
-    pub grant: &'a VerifiedAuthorityFreshness,
-    pub threshold: &'a VerifiedAuthorityFreshness,
-    pub executor: &'a VerifiedAuthorityFreshness,
-}
-
-/// Reconstruct exact executor semantics and then qualify the exact current
-/// revocation generations for the same authority objects.
-pub fn qualify_current_executor_authority(
-'''
+          marker = (
+              "/// Reconstruct exact executor semantics and then qualify the exact current\n"
+              "/// revocation generations for the same authority objects.\n"
+              "pub fn qualify_current_executor_authority(\n"
+          )
+          replacement = (
+              "/// Exact current-state receipts for the three authority subjects that must\n"
+              "/// remain jointly fresh. Named fields make grant/threshold/executor ordering\n"
+              "/// explicit at the provider boundary instead of relying on positional arguments.\n"
+              "#[derive(Clone, Copy, Debug)]\n"
+              "pub struct CurrentExecutorFreshnessEvidence<'a> {\n"
+              "    pub grant: &'a VerifiedAuthorityFreshness,\n"
+              "    pub threshold: &'a VerifiedAuthorityFreshness,\n"
+              "    pub executor: &'a VerifiedAuthorityFreshness,\n"
+              "}\n\n"
+              "/// Reconstruct exact executor semantics and then qualify the exact current\n"
+              "/// revocation generations for the same authority objects.\n"
+              "pub fn qualify_current_executor_authority(\n"
+          )
           if src.count(marker) != 1:
-              raise SystemExit('unexpected function marker count')
+              raise SystemExit("unexpected function marker count")
           src = src.replace(marker, replacement, 1)
 
-          old_sig = '''    lineage_evidence: DelegationLineageEvidence<'_>,
-    grant_freshness: &VerifiedAuthorityFreshness,
-    threshold_freshness: &VerifiedAuthorityFreshness,
-    executor_freshness: &VerifiedAuthorityFreshness,
-    now_ms: u64,
-) -> Result<QualifiedCurrentExecutorAuthority, CurrentExecutorAuthorityError> {
-    if now_ms == 0 {
-'''
-          new_sig = '''    lineage_evidence: DelegationLineageEvidence<'_>,
-    freshness_evidence: CurrentExecutorFreshnessEvidence<'_>,
-    now_ms: u64,
-) -> Result<QualifiedCurrentExecutorAuthority, CurrentExecutorAuthorityError> {
-    if now_ms == 0 {
-'''
+          old_sig = (
+              "    lineage_evidence: DelegationLineageEvidence<'_>,\n"
+              "    grant_freshness: &VerifiedAuthorityFreshness,\n"
+              "    threshold_freshness: &VerifiedAuthorityFreshness,\n"
+              "    executor_freshness: &VerifiedAuthorityFreshness,\n"
+              "    now_ms: u64,\n"
+              ") -> Result<QualifiedCurrentExecutorAuthority, CurrentExecutorAuthorityError> {\n"
+              "    if now_ms == 0 {\n"
+          )
+          new_sig = (
+              "    lineage_evidence: DelegationLineageEvidence<'_>,\n"
+              "    freshness_evidence: CurrentExecutorFreshnessEvidence<'_>,\n"
+              "    now_ms: u64,\n"
+              ") -> Result<QualifiedCurrentExecutorAuthority, CurrentExecutorAuthorityError> {\n"
+              "    if now_ms == 0 {\n"
+          )
           if src.count(old_sig) != 1:
-              raise SystemExit('unexpected qualification signature shape')
+              raise SystemExit("unexpected qualification signature shape")
           src = src.replace(old_sig, new_sig, 1)
 
-          insertion = '''    if now_ms == 0 {
-        return Err(CurrentExecutorAuthorityError::InvalidVerificationTime);
-    }
-
-'''
-          replacement_insertion = '''    if now_ms == 0 {
-        return Err(CurrentExecutorAuthorityError::InvalidVerificationTime);
-    }
-
-    let CurrentExecutorFreshnessEvidence {
-        grant: grant_freshness,
-        threshold: threshold_freshness,
-        executor: executor_freshness,
-    } = freshness_evidence;
-
-'''
+          insertion = (
+              "    if now_ms == 0 {\n"
+              "        return Err(CurrentExecutorAuthorityError::InvalidVerificationTime);\n"
+              "    }\n\n"
+          )
+          replacement_insertion = (
+              "    if now_ms == 0 {\n"
+              "        return Err(CurrentExecutorAuthorityError::InvalidVerificationTime);\n"
+              "    }\n\n"
+              "    let CurrentExecutorFreshnessEvidence {\n"
+              "        grant: grant_freshness,\n"
+              "        threshold: threshold_freshness,\n"
+              "        executor: executor_freshness,\n"
+              "    } = freshness_evidence;\n\n"
+          )
           if src.count(insertion) != 1:
-              raise SystemExit('unexpected verification-time prelude shape')
+              raise SystemExit("unexpected verification-time prelude shape")
           src = src.replace(insertion, replacement_insertion, 1)
-
           path.write_text(src)
           PY
+
           cargo fmt --manifest-path crates/mycelix-governance-current-executor-authority/Cargo.toml
+
       - name: Refuse unexpected change scope
         shell: bash
         run: |
@@ -117,10 +123,12 @@ pub fn qualify_current_executor_authority(
             exit 1
           fi
           git diff --check
+
       - name: Exercise focused package
         run: |
           cargo test --manifest-path crates/mycelix-governance-current-executor-authority/Cargo.toml --all-targets
           cargo clippy --manifest-path crates/mycelix-governance-current-executor-authority/Cargo.toml --all-targets -- -D warnings
+
       - name: Commit exact refactor
         shell: bash
         run: |
