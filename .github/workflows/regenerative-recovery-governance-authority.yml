@@ -1,0 +1,113 @@
+name: Regenerative Recovery Governance Authority
+
+on:
+  push:
+    branches:
+      - feat/regenerative-recovery-governance-authority-v1
+  pull_request:
+    branches:
+      - feat/regenerative-recovery-reserve-fork-resolution-v1
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  governance-authority:
+    name: Recovery governance authority binding
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      - name: Format governance-authority subjects
+        run: |
+          rustfmt --edition 2024 --check \
+            mycelix-commons/crates/commons-types/src/regenerative_recovery_governance_authority.rs \
+            mycelix-commons/crates/commons-types/src/regenerative_recovery_governance_application.rs
+
+      - name: Test commons-types
+        run: cargo test --manifest-path mycelix-commons/Cargo.toml -p commons-types
+
+      - name: Clippy commons-types; gate owned subjects
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          cargo clippy \
+            --manifest-path mycelix-commons/Cargo.toml \
+            -p commons-types \
+            --all-targets \
+            --message-format=json \
+            2>clippy.stderr | tee clippy.jsonl
+          cargo_status=${PIPESTATUS[0]}
+          set -e
+          cat clippy.stderr
+          if [[ ${cargo_status} -ne 0 ]]; then
+            echo "cargo clippy failed to compile commons-types" >&2
+            exit "${cargo_status}"
+          fi
+
+          python3 - <<'PY'
+          import json
+          import sys
+
+          owned = {
+              "crates/commons-types/src/regenerative_recovery_governance_authority.rs",
+              "crates/commons-types/src/regenerative_recovery_governance_application.rs",
+          }
+          failures = []
+          with open("clippy.jsonl", encoding="utf-8") as handle:
+              for raw in handle:
+                  try:
+                      event = json.loads(raw)
+                  except json.JSONDecodeError:
+                      continue
+                  if event.get("reason") != "compiler-message":
+                      continue
+                  message = event.get("message", {})
+                  if message.get("level") not in {"warning", "error"}:
+                      continue
+                  for span in message.get("spans", []):
+                      if not span.get("is_primary"):
+                          continue
+                      filename = span.get("file_name", "").replace("\\", "/")
+                      if any(filename.endswith(path) for path in owned):
+                          code = (message.get("code") or {}).get("code", "compiler")
+                          failures.append(f"{filename}: {code}: {message.get('message', '')}")
+                          break
+          if failures:
+              print("Clippy/compiler diagnostics on governance-authority-owned subjects:", file=sys.stderr)
+              for failure in failures:
+                  print(f"  {failure}", file=sys.stderr)
+              raise SystemExit(1)
+          PY
+
+      - name: Authority-composition boundary audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          authority=mycelix-commons/crates/commons-types/src/regenerative_recovery_governance_authority.rs
+          application=mycelix-commons/crates/commons-types/src/regenerative_recovery_governance_application.rs
+
+          grep -q 'mycelix-governance-execution-authority-v1-blake3-exact-json' "$authority"
+          grep -q 'mycelix-governance-threshold-authorization-v1-blake3-framed-semantic' "$authority"
+          grep -q 'governance_authority_verified_here' "$authority"
+          grep -q 'false' "$authority"
+          grep -q 'apply_regenerative_recovery_fork_resolution_with_bound_governance_authority' "$application"
+          grep -q 'verify_regenerative_recovery_governance_authority' "$application"
+          grep -q 'upstream_threshold_authority_verified_here' "$application"
+
+          if grep -E -q 'committee_threshold|signer_count|committee_scope|committee_pq_required|struct SigningCommittee|struct ThresholdSignature|verified: bool' "$authority" "$application"; then
+            echo 'Commons must not duplicate threshold/committee authority semantics' >&2
+            exit 1
+          fi
