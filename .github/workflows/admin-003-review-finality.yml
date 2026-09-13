@@ -136,7 +136,11 @@ jobs:
             exit 1
           fi
 
+      # Format and executable qualification are both mandatory, but run as
+      # independent diagnostics so one cannot hide the other's failure mode.
       - name: Format owned surfaces
+        id: format
+        continue-on-error: true
         run: |
           rustfmt --edition 2024 --check --config skip_children=true \
             crates/mycelix-administrative-procedure/src/lib_hardened.rs
@@ -146,6 +150,8 @@ jobs:
             crates/mycelix-administrative-procedure/src/admin_003_hardened.rs
 
       - name: Isolated three-mode executable qualification
+        id: executable
+        continue-on-error: true
         run: |
           qroot="$(mktemp -d)"
           mkdir -p "$qroot/crates"
@@ -170,5 +176,9 @@ jobs:
           cargo clippy --manifest-path "$manifest" --all-targets \
             --features administrative-review -- -D warnings
 
-      - name: Immutable checkout postflight
-        run: test -z "$(git status --short)"
+      - name: Qualification result and immutable checkout
+        if: always()
+        run: |
+          test "${{ steps.format.outcome }}" = success
+          test "${{ steps.executable.outcome }}" = success
+          test -z "$(git status --short)"
