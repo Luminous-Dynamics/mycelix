@@ -1,0 +1,129 @@
+name: Finance FIN-SAFE-029 TEND Vitality Cleanup
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/finance-fin-safe-029-tend-vitality-cleanup.yml'
+
+permissions:
+  contents: write
+
+env:
+  SOURCE_SHA: 'f7b43e3f9718e2dc2445376916bd4d5010fbc4ea'
+  PRODUCT_BRANCH: 'fin-safe-029-tend-vitality-cleanup'
+  LOCK_SHA256: '2fa0aae7b219218a0d358ac12fa63b596109613c3ea17c5751ce1f6d57630e93'
+
+jobs:
+  qualify-and-promote:
+    name: Qualify and promote TEND vitality cleanup
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'ci-fin-safe-029-tend-vitality-cleanup'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Checkout exact FIN-SAFE-027 product head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Bind source and untouched destination
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(sha256sum mycelix-finance/Cargo.lock | awk '{print $1}')" = "$LOCK_SHA256"
+          remote_product="$(git ls-remote --heads origin "$PRODUCT_BRANCH" | awk '{print $1}')"
+          test "$remote_product" = "$SOURCE_SHA"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: '1.96.0'
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - name: Remove only duplicate coordinator constant
+        shell: bash
+        run: |
+          set -euo pipefail
+          file='mycelix-finance/zomes/tend/coordinator/src/lib.rs'
+          test "$(grep -c '^const MAX_VITALITY: u32 = 100;$' "$file")" -eq 1
+          sed -i '/^const MAX_VITALITY: u32 = 100;$/d' "$file"
+          test "$(git diff --name-only | wc -l)" -eq 1
+          test "$(git diff --name-only)" = "$file"
+          test "$(git diff --numstat | awk '{print $1" "$2}')" = '0 1'
+          git diff --check
+          test "$(sha256sum mycelix-finance/Cargo.lock | awk '{print $1}')" = "$LOCK_SHA256"
+
+      - name: Check format and locked graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo fmt --all --check
+          cargo metadata --locked --format-version 1 > /tmp/fin-safe-029-metadata.json
+          cargo tree --workspace --locked > /tmp/fin-safe-029-tree.txt
+          test "$(sha256sum Cargo.lock | awk '{print $1}')" = "$LOCK_SHA256"
+
+      - name: Prove TEND native target warning-free
+        shell: bash
+        env:
+          RUSTFLAGS: '-D warnings'
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo check -p tend --all-targets --locked 2>&1 | tee /tmp/fin-safe-029-tend-native.log
+
+      - name: Check TEND wasm target
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo check -p tend --target wasm32-unknown-unknown --lib --locked 2>&1 | tee /tmp/fin-safe-029-tend-wasm.log
+
+      - name: Test full Finance workspace under lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo test --workspace --locked 2>&1 | tee /tmp/fin-safe-029-workspace.log
+
+      - name: Create one exact semantic commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          file='mycelix-finance/zomes/tend/coordinator/src/lib.rs'
+          test "$(git diff --name-only | wc -l)" -eq 1
+          test "$(git diff --name-only)" = "$file"
+          test "$(git diff --numstat | awk '{print $1" "$2}')" = '0 1'
+          test "$(sha256sum mycelix-finance/Cargo.lock | awk '{print $1}')" = "$LOCK_SHA256"
+          git switch -c "$PRODUCT_BRANCH"
+          git config user.name 'Luminous Dynamics CI'
+          git config user.email 'actions@users.noreply.github.com'
+          git add "$file"
+          git diff --cached --check
+          git commit -m 'chore(finance): remove duplicate TEND vitality constant' -m 'FIN-SAFE-029: remove only unused coordinator-local MAX_VITALITY. Integrity remains the authoritative 0-100 vitality boundary.'
+          printf 'product_commit=%s\nproduct_tree=%s\nsource_base=%s\nlock_sha256=%s\n' "$(git rev-parse HEAD)" "$(git rev-parse HEAD^{tree})" "$SOURCE_SHA" "$LOCK_SHA256" | tee /tmp/fin-safe-029-promotion-receipt.txt
+
+      - name: Push qualified product commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push origin "HEAD:refs/heads/${PRODUCT_BRANCH}"
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fin-safe-029-tend-vitality-cleanup-${{ env.SOURCE_SHA }}-${{ github.run_attempt }}
+          path: |
+            /tmp/fin-safe-029-metadata.json
+            /tmp/fin-safe-029-tree.txt
+            /tmp/fin-safe-029-tend-native.log
+            /tmp/fin-safe-029-tend-wasm.log
+            /tmp/fin-safe-029-workspace.log
+            /tmp/fin-safe-029-promotion-receipt.txt
+          if-no-files-found: warn
+          retention-days: 30
