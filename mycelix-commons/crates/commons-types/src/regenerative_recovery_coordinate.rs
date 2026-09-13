@@ -36,6 +36,8 @@ pub struct RegenerativeRecoveryCoordinateEvidenceV1 {
     pub symtropy_recovery_binding: String,
     pub semantic_recovery_fixture_binding: String,
     pub dynamic_recovery_fixture_binding: String,
+    pub successor_profile_id: String,
+    pub successor_profile_evidence_binding: String,
     pub successor_model_binding: String,
     pub successor_support_binding: String,
     pub recovery_policy_id: String,
@@ -47,13 +49,13 @@ pub struct RegenerativeRecoveryCoordinateEvidenceV1 {
     pub flow_kind: RegenerativeRecoveryFlowKindEvidenceV1,
     pub healthy_units_per_period: u64,
     pub degraded_units_per_period: u64,
-    /// Separately evidence-bound reserve: never a nominal closure dependency.
     pub external_recovery_reserve_id: String,
     pub external_recovery_reserve_binding: String,
     pub external_recovery_reserve_units_at_qualification: u64,
     pub reserve_units_per_recovery: u64,
     pub reserve_units_before: u64,
     pub reserve_units_after: u64,
+    pub reserve_external_to_nominal_closure: bool,
     pub dynamic_recovery_receipt_binding: String,
     pub recovery_qualified: bool,
     pub disturbance_conditioned_recovery_authorized: bool,
@@ -72,6 +74,7 @@ impl RegenerativeRecoveryCoordinateEvidenceV1 {
         }
         for id in [
             &self.recovery_evidence_id,
+            &self.successor_profile_id,
             &self.recovery_policy_id,
             &self.disturbance_id,
             &self.target_dependency_id,
@@ -94,6 +97,7 @@ impl RegenerativeRecoveryCoordinateEvidenceV1 {
             &self.symtropy_recovery_binding,
             &self.semantic_recovery_fixture_binding,
             &self.dynamic_recovery_fixture_binding,
+            &self.successor_profile_evidence_binding,
             &self.successor_model_binding,
             &self.successor_support_binding,
             &self.recovery_policy_evidence_binding,
@@ -121,8 +125,6 @@ impl RegenerativeRecoveryCoordinateEvidenceV1 {
         if self.external_recovery_reserve_units_at_qualification < self.reserve_units_per_recovery {
             return Err("external recovery reserve was insufficient at qualification".into());
         }
-        // V1 evidence keeps the controlled experiment exact: no unmodeled reserve
-        // mutation may occur between qualification and execution.
         if self.reserve_units_before != self.external_recovery_reserve_units_at_qualification {
             return Err("recovery reserve changed between qualification and execution".into());
         }
@@ -132,6 +134,9 @@ impl RegenerativeRecoveryCoordinateEvidenceV1 {
             .ok_or_else(|| "recovery reserve arithmetic underflow".to_string())?;
         if self.reserve_units_after != expected_after {
             return Err("recovery reserve receipt arithmetic mismatch".into());
+        }
+        if !self.reserve_external_to_nominal_closure {
+            return Err("recovery reserve must remain external to the nominal closure".into());
         }
         if !self.recovery_qualified && self.disturbance_conditioned_recovery_authorized {
             return Err("unqualified recovery cannot authorize a disturbance claim".into());
@@ -189,8 +194,6 @@ impl RegenerativeRecoveryCoordinateEvidenceV1 {
     }
 }
 
-/// Compose one recovery-coordinate record with the exact safe nominal continuity
-/// subject it extends.
 pub fn verify_regenerative_recovery_coordinate_evidence(
     viability: &RegenerativeViabilityEvidenceV1,
     basis: &RegenerativeSupportBasisEvidenceV1,
