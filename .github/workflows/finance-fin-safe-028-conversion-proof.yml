@@ -1,0 +1,97 @@
+name: Finance FIN-SAFE-028 Conversion Proof
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/finance-fin-safe-028-conversion-proof.yml'
+
+permissions:
+  contents: read
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  PROOF_SHA: 'ee1a11c3e704dca9e7b291044c3e1af05842c431'
+  BASE_SHA: 'f7b43e3f9718e2dc2445376916bd4d5010fbc4ea'
+
+jobs:
+  qualify:
+    name: Qualify conservative legacy-to-civic proof
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'ci-fin-safe-028-conversion-proof'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout exact proof head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.PROOF_SHA }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Bind exact test-only delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$PROOF_SHA"
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          test "$(git diff --name-only "$BASE_SHA" "$PROOF_SHA" | wc -l)" -eq 1
+          test "$(git diff --name-only "$BASE_SHA" "$PROOF_SHA")" = 'crates/mycelix-bridge-common/tests/legacy_civic_requirement_proof.rs'
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt
+
+      - name: Format proof source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path crates/mycelix-bridge-common/Cargo.toml -- --check
+
+      - name: Generate and archive exact dependency lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd crates/mycelix-bridge-common
+          cargo generate-lockfile
+          cp Cargo.lock /tmp/fin-safe-028-conversion-proof-Cargo.lock
+          sha256sum Cargo.lock | tee /tmp/fin-safe-028-conversion-proof-lock.sha256
+          cargo metadata --locked --format-version 1 > /tmp/fin-safe-028-conversion-proof-metadata.json
+
+      - name: Run focused migration theorem proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path crates/mycelix-bridge-common/Cargo.toml --locked --test legacy_civic_requirement_proof 2>&1 | tee /tmp/fin-safe-028-conversion-proof-targeted.log
+
+      - name: Run bridge-common existing test suite under same lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path crates/mycelix-bridge-common/Cargo.toml --locked 2>&1 | tee /tmp/fin-safe-028-conversion-proof-crate.log
+
+      - name: Remove transient lock and prove immutable checkout
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f crates/mycelix-bridge-common/Cargo.lock
+          test "$(git rev-parse HEAD)" = "$PROOF_SHA"
+          git status --porcelain=v1 --untracked-files=all > /tmp/fin-safe-028-conversion-proof-status.txt
+          test ! -s /tmp/fin-safe-028-conversion-proof-status.txt
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fin-safe-028-conversion-proof-${{ env.PROOF_SHA }}-${{ github.run_attempt }}
+          path: |
+            /tmp/fin-safe-028-conversion-proof-Cargo.lock
+            /tmp/fin-safe-028-conversion-proof-lock.sha256
+            /tmp/fin-safe-028-conversion-proof-metadata.json
+            /tmp/fin-safe-028-conversion-proof-targeted.log
+            /tmp/fin-safe-028-conversion-proof-crate.log
+            /tmp/fin-safe-028-conversion-proof-status.txt
+          if-no-files-found: warn
+          retention-days: 30
