@@ -1,22 +1,31 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
-//! Hardened public surface for ADMIN-001.
+//! Hardened public surface for ADMIN-001 and its stricter feature layers.
 //!
 //! The original ADMIN-001 implementation remains in `lib.rs` as a private
-//! semantic module so its focused tests and internal transition machinery are
-//! preserved. External callers receive only this lineage-qualified facade.
+//! semantic module so its focused transition machinery is preserved. Default
+//! builds expose the ADMIN-001 lineage-qualified decision path. Builds with the
+//! `procedural-completeness` feature hide that raw consequential path and expose
+//! ADMIN-002's stricter completeness-gated path instead.
 //!
-//! The key theorem is:
+//! The ADMIN-001 key theorem is:
 //!
 //! `deserializable AdministrativeCase snapshot != qualified case lineage`.
-//!
-//! A consequential administrative decision therefore requires replay from an
-//! exact `Filed` root through the bounded pre-decision transitions. A caller
-//! cannot present a syntactically valid `ReadyForDecision` snapshot and skip
-//! the lineage proof.
 
 #[path = "lib.rs"]
 mod legacy;
+
+#[cfg(feature = "procedural-completeness")]
+mod admin_002;
+
+#[cfg(feature = "procedural-completeness")]
+pub use admin_002::{
+    ADMIN_002_PROTOCOL_VERSION, EvidenceClosureReceipt, NoticeReceipt,
+    ProceduralCompletenessError, ProceduralCompletenessPolicy, QualifiedProceduralDecision,
+    QualifiedProcedurallyCompleteCase, ReasonsRequirement, ResponseMode, ResponseModeRequirement,
+    ResponseOpportunityReceipt, issue_qualified_decision, qualify_administrative_decision,
+    qualify_procedural_completeness,
+};
 
 pub use legacy::{
     AdministrativeCase, AdministrativeCaseId, AdministrativeCaseState,
@@ -25,6 +34,7 @@ pub use legacy::{
     ProcedureProfileId, QualifiedAdministrativeDecision, QualifiedPreDecisionTransition,
 };
 
+#[cfg(not(feature = "procedural-completeness"))]
 use mycelix_institutional_core::{AuthorityGrant, EvidenceRef};
 use std::fmt;
 
@@ -102,8 +112,11 @@ pub fn qualify_case_lineage(
     })
 }
 
-/// Qualify a consequential administrative decision only against a replayed
-/// case lineage and the exact decision policy captured with that lineage.
+/// ADMIN-001 default consequential decision path.
+///
+/// Under `procedural-completeness`, this function is replaced at the public
+/// crate root by ADMIN-002's stricter completeness-gated function.
+#[cfg(not(feature = "procedural-completeness"))]
 pub fn qualify_administrative_decision(
     lineage: &QualifiedAdministrativeCaseLineage,
     envelope: AdministrativeDecisionEnvelope,
@@ -120,10 +133,11 @@ pub fn qualify_administrative_decision(
     .map_err(Into::into)
 }
 
-/// Issue only a decision that was qualified against the same replayed lineage.
+/// ADMIN-001 default semantic issuance path.
 ///
-/// This remains a pure semantic successor and grants no external-effect
-/// authority.
+/// Under `procedural-completeness`, public issuance consumes ADMIN-002's
+/// composite qualified-decision token instead.
+#[cfg(not(feature = "procedural-completeness"))]
 pub fn issue_qualified_decision(
     lineage: &QualifiedAdministrativeCaseLineage,
     qualified: QualifiedAdministrativeDecision,
@@ -164,7 +178,7 @@ impl fmt::Display for AdministrativeQualificationError {
 
 impl std::error::Error for AdministrativeQualificationError {}
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "procedural-completeness")))]
 mod hardening_tests {
     use super::*;
     use mycelix_institutional_core::{
