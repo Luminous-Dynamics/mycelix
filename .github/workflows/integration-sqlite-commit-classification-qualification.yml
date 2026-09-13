@@ -127,20 +127,24 @@ jobs:
           grep -Fq '_ => CommitClassification::IndeterminateCommit' "$KERNEL_SOURCE"
           grep -Fq 'pub const fn authorizes_retry(self) -> bool' "$KERNEL_SOURCE"
 
-      - name: Enforce independent exact durable reread
+      - name: Enforce independent one-snapshot durable reread
         shell: bash
         run: |
           set -euo pipefail
           grep -Fq 'OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX' "$ADAPTER_SOURCE"
           grep -Fq 'PRAGMA foreign_keys = ON; PRAGMA query_only = ON;' "$ADAPTER_SOURCE"
+          grep -Fq 'transaction_with_behavior(TransactionBehavior::Deferred)?' "$ADAPTER_SOURCE"
+          grep -Fq 'entry_is_quarantined(&tx, current_attempt.claim().entry_id)?' "$ADAPTER_SOURCE"
+          grep -Fq 'load_outbox_row(&tx, current_attempt.claim().entry_id)?' "$ADAPTER_SOURCE"
+          grep -Fq 'load_binding_row(&tx, current_attempt)?' "$ADAPTER_SOURCE"
+          grep -Fq 'tx.commit()?;' "$ADAPTER_SOURCE"
           grep -Fq 'canonical_exact_store_path' "$ADAPTER_SOURCE"
           grep -Fq 'require_main_database_path' "$ADAPTER_SOURCE"
           grep -Fq 'require_exact_store_identity(&canonical, store_device, store_inode)?;' "$ADAPTER_SOURCE"
           grep -Fq 'outbox.updated_at_ms == current_attempt.durable_updated_at_ms()' "$ADAPTER_SOURCE"
           grep -Fq 'outbox.dispatch_started_at_ms == Some(now_ms)' "$ADAPTER_SOURCE"
           grep -Fq 'binding_row_exact(' "$ADAPTER_SOURCE"
-          grep -Fq 'row.binding_digest.as_slice() == expected_binding_digest.0' "$ADAPTER_SOURCE"
-          grep -Fq 'entry_is_quarantined' "$ADAPTER_SOURCE"
+          grep -Fq 'row.binding_digest.as_slice() == expected_binding_digest.0.as_slice()' "$ADAPTER_SOURCE"
 
       - name: Enforce recovery-only successor after returned error
         shell: bash
