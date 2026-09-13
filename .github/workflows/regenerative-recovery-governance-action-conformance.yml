@@ -86,14 +86,17 @@ jobs:
                           owned_warnings.append(message.get('message', 'warning'))
                           break
 
+          if cargo_status != 0:
+              if compiler_errors:
+                  print('Compiler/Clippy errors:', *compiler_errors, sep='\n- ', file=sys.stderr)
+              else:
+                  print(f'cargo clippy failed with exit status {cargo_status}', file=sys.stderr)
+              raise SystemExit(1)
           if compiler_errors:
               print('Compiler/Clippy errors:', *compiler_errors, sep='\n- ', file=sys.stderr)
               raise SystemExit(1)
           if owned_warnings:
               print('Owned conformance warnings:', *owned_warnings, sep='\n- ', file=sys.stderr)
-              raise SystemExit(1)
-          if cargo_status not in (0, 101):
-              print(f'unexpected cargo clippy exit status {cargo_status}', file=sys.stderr)
               raise SystemExit(1)
           print('PASS: no compiler errors and no Clippy warnings on the owned conformance subject')
           PY
