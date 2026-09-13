@@ -6,14 +6,12 @@
 //! administrative decision and never turns a review/finality record into an
 //! external-effect capability.
 
-use super::{
-    AdministrativeCaseState, IssuedAdministrativeDecision, ProcedureProfileId,
-};
+use super::{AdministrativeCaseState, IssuedAdministrativeDecision, ProcedureProfileId};
 use mycelix_institutional_core::{
-    evaluate_authority, Appeal, AppealId, AuthorityDecision, AuthorityGrant, AuthorityGrantId,
-    AuthorityRequirement, CapabilityId, Challenge, DecisionId, Digest32, EvidenceRef,
-    InstitutionId, JurisdictionId, PrincipalId, Remedy, RoleId, RulebookRef,
-    PROTOCOL_VERSION as INSTITUTIONAL_PROTOCOL_VERSION,
+    Appeal, AppealId, AuthorityDecision, AuthorityGrant, AuthorityGrantId, AuthorityRequirement,
+    CapabilityId, Challenge, DecisionId, Digest32, EvidenceRef, InstitutionId, JurisdictionId,
+    PROTOCOL_VERSION as INSTITUTIONAL_PROTOCOL_VERSION, PrincipalId, Remedy, RoleId, RulebookRef,
+    evaluate_authority,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -345,8 +343,13 @@ pub fn qualify_reviewable_decision(
     policy.validate()?;
     let case = issued.successor_case();
     match &case.state {
-        AdministrativeCaseState::DecisionIssued { decision_id, issued_at_ms } => {
-            if decision_id != &issued.decision().id || *issued_at_ms != issued.decision().decided_at_ms {
+        AdministrativeCaseState::DecisionIssued {
+            decision_id,
+            issued_at_ms,
+        } => {
+            if decision_id != &issued.decision().id
+                || *issued_at_ms != issued.decision().decided_at_ms
+            {
                 return Err(AdministrativeReviewError::IssuedDecisionMismatch);
             }
         }
@@ -469,7 +472,7 @@ pub fn apply_stay_directive(
                     StayState::StayedUntil(expires)
                 }
                 StayState::StayedUntil(_) | StayState::LiftedAt(_) => {
-                    return Err(AdministrativeReviewError::StayAlreadyActive)
+                    return Err(AdministrativeReviewError::StayAlreadyActive);
                 }
             }
         }
@@ -526,7 +529,10 @@ pub fn qualify_review_disposition(
         return Err(AdministrativeReviewError::AffirmCannotAuthorizeRemedy);
     }
 
-    Ok(QualifiedReviewDisposition { review, disposition })
+    Ok(QualifiedReviewDisposition {
+        review,
+        disposition,
+    })
 }
 
 pub fn qualify_administrative_finality(
@@ -816,11 +822,19 @@ fn require_institutional_protocol(value: &str) -> Result<(), AdministrativeRevie
 }
 
 fn validate_id(value: &str) -> Result<(), AdministrativeReviewError> {
-    validate_bounded(value, MAX_REF_BYTES, AdministrativeReviewError::InvalidIdentifier)
+    validate_bounded(
+        value,
+        MAX_REF_BYTES,
+        AdministrativeReviewError::InvalidIdentifier,
+    )
 }
 
 fn validate_ref(value: &str) -> Result<(), AdministrativeReviewError> {
-    validate_bounded(value, MAX_REF_BYTES, AdministrativeReviewError::InvalidReference)
+    validate_bounded(
+        value,
+        MAX_REF_BYTES,
+        AdministrativeReviewError::InvalidReference,
+    )
 }
 
 fn validate_code(value: &str) -> Result<(), AdministrativeReviewError> {
@@ -828,7 +842,11 @@ fn validate_code(value: &str) -> Result<(), AdministrativeReviewError> {
 }
 
 fn validate_text(value: &str) -> Result<(), AdministrativeReviewError> {
-    validate_bounded(value, MAX_TEXT_BYTES, AdministrativeReviewError::InvalidText)
+    validate_bounded(
+        value,
+        MAX_TEXT_BYTES,
+        AdministrativeReviewError::InvalidText,
+    )
 }
 
 fn validate_bounded(
@@ -965,20 +983,32 @@ impl fmt::Display for AdministrativeReviewError {
             Self::InvalidEvidence => "invalid administrative-review evidence",
             Self::DuplicateEvidenceIdentity => "duplicate administrative-review evidence identity",
             Self::EvidenceFromFuture => "review evidence was observed after the event it supports",
-            Self::UnauthorizedRemedyType => "review/remedy type is not authorized by policy/disposition",
-            Self::AffirmCannotAuthorizeRemedy => "affirmance cannot authorize a corrective remedy in v0.1",
+            Self::UnauthorizedRemedyType => {
+                "review/remedy type is not authorized by policy/disposition"
+            }
+            Self::AffirmCannotAuthorizeRemedy => {
+                "affirmance cannot authorize a corrective remedy in v0.1"
+            }
             Self::FinalityScopeMismatch => "administrative-finality receipt targets another review",
             Self::FinalityTooEarly => "administrative finality closed before the configured delay",
-            Self::JudicialFinalityScopeMismatch => "judicial-finality reference targets another decision/review",
-            Self::JudicialFinalityBeforeAdministrativeFinality => "judicial finality predates administrative finality",
+            Self::JudicialFinalityScopeMismatch => {
+                "judicial-finality reference targets another decision/review"
+            }
+            Self::JudicialFinalityBeforeAdministrativeFinality => {
+                "judicial finality predates administrative finality"
+            }
             Self::InvalidRemedyTime => "invalid remedy issuance time",
             Self::InvalidRemedyLifetime => "invalid remedy lifetime",
             Self::RemedyBeforeFinality => "remedy predates administrative finality",
             Self::InvalidAuthorityGrant => "invalid review authority grant",
-            Self::AuthorityGrantMismatch => "review object authority grant does not match supplied grant",
+            Self::AuthorityGrantMismatch => {
+                "review object authority grant does not match supplied grant"
+            }
             Self::MissingAuthorityEvidence => "review authority requires missing evidence",
             Self::ReviewAuthorityDenied => "institutional authority denied the review action",
-            Self::AuthorityResultMismatch => "authority evaluator returned mismatched grant identity",
+            Self::AuthorityResultMismatch => {
+                "authority evaluator returned mismatched grant identity"
+            }
             Self::TimeOverflow => "administrative-review time arithmetic overflow",
         };
         write!(f, "{message}")
@@ -991,9 +1021,9 @@ impl std::error::Error for AdministrativeReviewError {}
 mod tests {
     use super::*;
     use crate::{
-        qualify_administrative_decision, qualify_case_lineage, qualify_procedural_completeness,
         EvidenceClosureReceipt, NoticeReceipt, ProceduralCompletenessPolicy, ReasonsRequirement,
         ResponseMode, ResponseModeRequirement, ResponseOpportunityReceipt,
+        qualify_administrative_decision, qualify_case_lineage, qualify_procedural_completeness,
     };
     use mycelix_institutional_core::{
         AuthoritySourceKind, AuthoritySourceRef, Decision, EvidenceId, RulebookId,
@@ -1085,8 +1115,8 @@ mod tests {
     fn issued_decision() -> IssuedAdministrativeDecision {
         use crate::{
             AdministrativeCase, AdministrativeCaseId, AdministrativeCaseState,
-            AdministrativeDecisionEnvelope, AdministrativeDecisionPolicy, PreDecisionState,
-            PreDecisionTransition, PROTOCOL_VERSION,
+            AdministrativeDecisionEnvelope, AdministrativeDecisionPolicy, PROTOCOL_VERSION,
+            PreDecisionState, PreDecisionTransition,
         };
         use mycelix_institutional_core::{DecisionId, EvidenceRequirement};
 
@@ -1162,14 +1192,9 @@ mod tests {
             decision_evidence: vec![],
             proof_ref: "proof:evidence-closure:1".into(),
         };
-        let complete = qualify_procedural_completeness(
-            lineage,
-            completeness,
-            &[notice],
-            &[response],
-            closure,
-        )
-        .unwrap();
+        let complete =
+            qualify_procedural_completeness(lineage, completeness, &[notice], &[response], closure)
+                .unwrap();
         let grant = AuthorityGrant {
             protocol_version: INSTITUTIONAL_PROTOCOL_VERSION.into(),
             id: AuthorityGrantId::new("grant:permit-officer:1").unwrap(),
@@ -1395,14 +1420,18 @@ mod tests {
             &[],
         )
         .unwrap_err();
-        assert_eq!(error, AdministrativeReviewError::AffirmCannotAuthorizeRemedy);
+        assert_eq!(
+            error,
+            AdministrativeReviewError::AffirmCannotAuthorizeRemedy
+        );
     }
 
     #[test]
     fn remedy_requires_exact_disposition_authorization_and_capability() {
         let reviewable = qualify_reviewable_decision(issued_decision(), review_policy()).unwrap();
         let review = appeal(challenge(reviewable));
-        let review_grant = review_grant(vec![CapabilityId::new("administration.review").unwrap()]);
+        let reviewer_grant =
+            review_grant(vec![CapabilityId::new("administration.review").unwrap()]);
         let disposition = qualify_review_disposition(
             review,
             AdministrativeReviewDisposition {
@@ -1410,7 +1439,7 @@ mod tests {
                 appeal_id: AppealId::new("appeal:1").unwrap(),
                 decision_id: DecisionId::new("decision:1").unwrap(),
                 reviewer: p("did:example:reviewer"),
-                authority_grant_id: review_grant.id.clone(),
+                authority_grant_id: reviewer_grant.id.clone(),
                 outcome: ReviewDispositionOutcome::Vacate,
                 reasons: vec!["material procedural defect".into()],
                 evidence: vec![],
@@ -1419,7 +1448,7 @@ mod tests {
                 proof_ref: "proof:vacate".into(),
                 authorized_remedy_types: vec!["vacate".into()],
             },
-            &review_grant,
+            &reviewer_grant,
             &[],
         )
         .unwrap();
