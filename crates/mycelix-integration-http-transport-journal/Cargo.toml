@@ -12,5 +12,5 @@ mycelix-integration-core = { path = "../mycelix-integration-core" }
 mycelix-integration-http-issuance-descriptor = { path = "../mycelix-integration-http-issuance-descriptor" }
 mycelix-integration-runtime-store-binding = { path = "../mycelix-integration-runtime-store-binding" }
 mycelix-integration-transport-observation = { path = "../mycelix-integration-transport-observation" }
-rusqlite = { version = "0.32", features = ["bundled"] }
+rusqlite = { version = "0.37", features = ["bundled"] }
 thiserror = "2.0"
