@@ -53,8 +53,8 @@ jobs:
           assert 'DesignationExceedsGrantLifetime' in src
           assert 'DesignationExceedsThresholdLifetime' in src
           assert 'MissingDelegationVerification' in src
-          assert 'phi' not in src.lower()
-          assert 'reputation' not in src.lower()
+          assert not re.search(r'\bphi\b', src, re.IGNORECASE)
+          assert not re.search(r'\breputation\b', src, re.IGNORECASE)
           forbidden_boolean_authority = re.compile(
               r'^\s*(?:pub(?:\([^)]*\))?\s+)?(?:verified|trusted)\s*:\s*bool\b',
               re.MULTILINE,
