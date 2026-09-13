@@ -218,7 +218,9 @@ pub fn qualify_threshold_authorization(
         policy_verification_ref: policy_receipt.institutional_verification_ref.clone(),
         cryptographic_verification_ref: signature_receipt.cryptographic_verification_ref.clone(),
         signed_at_ms: evidence.signed_at_ms,
-        verified_at_ms: signature_receipt.verified_at_ms.max(evidence.verified_at_ms),
+        verified_at_ms: signature_receipt
+            .verified_at_ms
+            .max(evidence.verified_at_ms),
         valid_until_ms,
     })
 }
@@ -239,7 +241,8 @@ fn validate_receipt_refs(
             return Err(ThresholdQualificationError::InvalidVerificationReference);
         }
     }
-    if policy.verified_policy_digest.is_zero() || signature.verified_committee_key_digest.is_zero() {
+    if policy.verified_policy_digest.is_zero() || signature.verified_committee_key_digest.is_zero()
+    {
         return Err(ThresholdQualificationError::ZeroVerifiedDigest);
     }
     Ok(())
@@ -336,12 +339,10 @@ impl std::error::Error for ThresholdQualificationError {}
 mod tests {
     use super::*;
     use mycelix_governance_authority::{
-        CommitteeId, GovernanceBodyId, ProposalId, SignatureId, SigningPolicyId,
-        PROTOCOL_VERSION as AUTHORITY_PROTOCOL_VERSION,
+        CommitteeId, GovernanceBodyId, PROTOCOL_VERSION as AUTHORITY_PROTOCOL_VERSION, ProposalId,
+        SignatureId, SigningPolicyId,
     };
-    use mycelix_institutional_core::{
-        AuthorityGrantId, InstitutionId, RulebookId, RulebookRef,
-    };
+    use mycelix_institutional_core::{AuthorityGrantId, InstitutionId, RulebookId, RulebookRef};
 
     fn d(byte: u8) -> Digest32 {
         Digest32([byte; 32])
@@ -440,13 +441,9 @@ mod tests {
 
     #[test]
     fn qualifies_exact_institution_policy_committee_and_signature() {
-        let qualified = qualify_threshold_authorization(
-            &context(),
-            &policy_receipt(),
-            &evidence_receipt(),
-            30,
-        )
-        .unwrap();
+        let qualified =
+            qualify_threshold_authorization(&context(), &policy_receipt(), &evidence_receipt(), 30)
+                .unwrap();
         assert_eq!(qualified.committee_id.as_str(), "committee:test");
         assert_eq!(qualified.epoch, 1);
         assert_eq!(qualified.signer_count, 2);
