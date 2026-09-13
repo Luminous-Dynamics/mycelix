@@ -21,6 +21,7 @@ env:
   KERNEL_SOURCE: crates/mycelix-integration-sqlite-commit-classification/src/lib.rs
   ADAPTER_MANIFEST: crates/mycelix-integration-atomic-dispatch-commit-classification/Cargo.toml
   ADAPTER_SOURCE: crates/mycelix-integration-atomic-dispatch-commit-classification/src/lib.rs
+  ADAPTER_TEST: crates/mycelix-integration-atomic-dispatch-commit-classification/tests/snapshot_consistency.rs
   ATOMIC_SOURCE: crates/mycelix-integration-atomic-dispatch-context/src/lib.rs
   WORKFLOW: .github/workflows/integration-sqlite-commit-classification-qualification.yml
 
@@ -71,7 +72,7 @@ jobs:
           set -euo pipefail
           rustc --version --verbose
           cargo --version --verbose
-          sha256sum "$KERNEL_MANIFEST" "$KERNEL_SOURCE" "$ADAPTER_MANIFEST" "$ADAPTER_SOURCE" "$ATOMIC_SOURCE" "$WORKFLOW"
+          sha256sum "$KERNEL_MANIFEST" "$KERNEL_SOURCE" "$ADAPTER_MANIFEST" "$ADAPTER_SOURCE" "$ADAPTER_TEST" "$ATOMIC_SOURCE" "$WORKFLOW"
           cargo metadata --manifest-path "$ADAPTER_MANIFEST" --format-version 1 > /tmp/integration-sqlite-commit-classification-metadata.json
           sha256sum /tmp/integration-sqlite-commit-classification-metadata.json
           echo 'No --locked claim is made here until this standalone stack carries an intentionally committed lockfile.'
@@ -98,6 +99,7 @@ jobs:
         run: |
           rustfmt --edition 2024 --check "$KERNEL_SOURCE"
           rustfmt --edition 2024 --check "$ADAPTER_SOURCE"
+          rustfmt --edition 2024 --check "$ADAPTER_TEST"
 
       - name: Compile tests without running
         run: |
@@ -145,6 +147,17 @@ jobs:
           grep -Fq 'outbox.dispatch_started_at_ms == Some(now_ms)' "$ADAPTER_SOURCE"
           grep -Fq 'binding_row_exact(' "$ADAPTER_SOURCE"
           grep -Fq 'row.binding_digest.as_slice() == expected_binding_digest.0.as_slice()' "$ADAPTER_SOURCE"
+
+      - name: Enforce snapshot regression evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'transaction_with_behavior(TransactionBehavior::Deferred)' "$ADAPTER_TEST"
+          grep -Fq 'transaction_with_behavior(TransactionBehavior::Immediate)' "$ADAPTER_TEST"
+          grep -Fq 'assert_eq!(stage_same_snapshot, 4);' "$ADAPTER_TEST"
+          grep -Fq 'assert!(!binding_same_snapshot);' "$ADAPTER_TEST"
+          grep -Fq 'assert_eq!(stage_after, 5);' "$ADAPTER_TEST"
+          grep -Fq 'assert!(binding_after);' "$ADAPTER_TEST"
 
       - name: Enforce recovery-only successor after returned error
         shell: bash
@@ -203,5 +216,6 @@ jobs:
           grep -Fq -- 'actions/checkout@11d5960a326750d5838078e36cf38b85af677262' "$WORKFLOW"
           grep -Fq -- 'dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87' "$WORKFLOW"
           grep -Fq -- 'Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6' "$WORKFLOW"
+          grep -Fq -- 'ADAPTER_TEST: crates/mycelix-integration-atomic-dispatch-commit-classification/tests/snapshot_consistency.rs' "$WORKFLOW"
           test "$(git rev-parse HEAD)" = "$QUALIFICATION_SUBJECT_SHA"
-          git diff --exit-code -- "$KERNEL_MANIFEST" "$KERNEL_SOURCE" "$ADAPTER_MANIFEST" "$ADAPTER_SOURCE" "$ATOMIC_SOURCE" "$WORKFLOW"
+          git diff --exit-code -- "$KERNEL_MANIFEST" "$KERNEL_SOURCE" "$ADAPTER_MANIFEST" "$ADAPTER_SOURCE" "$ADAPTER_TEST" "$ATOMIC_SOURCE" "$WORKFLOW"
