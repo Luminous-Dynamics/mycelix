@@ -1,0 +1,167 @@
+name: Finance FIN-SAFE-027 Exact Product Head
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/finance-fin-safe-027-product-head.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: finance-fin-safe-027-product-head
+  cancel-in-progress: false
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  PRODUCT_SHA: 'f7b43e3f9718e2dc2445376916bd4d5010fbc4ea'
+  PARENT_SHA: '5f33c6658fef7fb9c975c10b160486e528e640d4'
+  LOCK_SHA256: '2fa0aae7b219218a0d358ac12fa63b596109613c3ea17c5751ce1f6d57630e93'
+
+jobs:
+  qualify:
+    name: Qualify exact FIN-SAFE-027 product head
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'ci-fin-safe-027-product-head'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Checkout exact FIN-SAFE-027 product head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.PRODUCT_SHA }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Bind exact product and two-line semantic delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$PRODUCT_SHA"
+          test "$(git rev-parse HEAD^)" = "$PARENT_SHA"
+          test "$(sha256sum mycelix-finance/Cargo.lock | awk '{print $1}')" = "$LOCK_SHA256"
+          git diff --quiet "$PARENT_SHA" "$PRODUCT_SHA" -- mycelix-finance/Cargo.lock
+
+          cat > /tmp/fin-safe-027-product-expected-paths.txt <<'EOF'
+          mycelix-finance/zomes/sap-account-v2/integrity/src/lib.rs
+          mycelix-finance/zomes/sap-transfer-v2/integrity/src/lib.rs
+          EOF
+          git diff --name-only "$PARENT_SHA" "$PRODUCT_SHA" | sort > /tmp/fin-safe-027-product-actual-paths.txt
+          diff -u /tmp/fin-safe-027-product-expected-paths.txt /tmp/fin-safe-027-product-actual-paths.txt
+
+          cat > /tmp/fin-safe-027-product-expected-numstat.txt <<'EOF'
+          1	1	mycelix-finance/zomes/sap-account-v2/integrity/src/lib.rs
+          1	1	mycelix-finance/zomes/sap-transfer-v2/integrity/src/lib.rs
+          EOF
+          git diff --numstat "$PARENT_SHA" "$PRODUCT_SHA" | sort > /tmp/fin-safe-027-product-actual-numstat.txt
+          diff -u /tmp/fin-safe-027-product-expected-numstat.txt /tmp/fin-safe-027-product-actual-numstat.txt
+
+          grep -Fx 'use finance_sap_account_v2::SapAccountV2Config;' mycelix-finance/zomes/sap-account-v2/integrity/src/lib.rs
+          grep -Fx 'use finance_sap_transfer_v2::SapTransferV2Config;' mycelix-finance/zomes/sap-transfer-v2/integrity/src/lib.rs
+          ! grep -F 'SapAccountOpenedV2, SapAccountV2Config, SapCollateralClaimV2' mycelix-finance/zomes/sap-account-v2/integrity/src/lib.rs
+          ! grep -F 'SapTransferSpendRecordV2, SapTransferV2Config' mycelix-finance/zomes/sap-transfer-v2/integrity/src/lib.rs
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - name: Check formatting and locked graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo fmt --all --check
+          cargo metadata --locked --format-version 1 > /tmp/fin-safe-027-product-metadata.json
+          cargo tree --workspace --locked > /tmp/fin-safe-027-product-tree.txt
+          test "$(sha256sum Cargo.lock | awk '{print $1}')" = "$LOCK_SHA256"
+
+      - name: Prove affected native integrity crates warning-free
+        shell: bash
+        env:
+          RUSTFLAGS: '-D warnings'
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo check \
+            -p sap_account_v2_integrity \
+            -p sap_transfer_v2_integrity \
+            --all-targets --locked \
+            2>&1 | tee /tmp/fin-safe-027-product-native-warning-fatal.log
+
+      - name: Prove SAP account wasm target warning-free
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo rustc \
+            -p sap_account_v2_integrity \
+            --lib --target wasm32-unknown-unknown --locked \
+            -- -D warnings \
+            2>&1 | tee /tmp/fin-safe-027-product-account-wasm-warning-fatal.log
+
+      - name: Prove SAP transfer wasm target warning-free
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo rustc \
+            -p sap_transfer_v2_integrity \
+            --lib --target wasm32-unknown-unknown --locked \
+            -- -D warnings \
+            2>&1 | tee /tmp/fin-safe-027-product-transfer-wasm-warning-fatal.log
+
+      - name: Check complete V2 wasm boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo check \
+            -p collateral_deposit_v2_integrity -p collateral_deposit_v2 \
+            -p collateral_settlement_auth_integrity -p collateral_settlement_auth \
+            -p collateral_issuance_v2_integrity -p collateral_issuance_v2 \
+            -p sap_account_v2_integrity -p sap_account_v2 \
+            -p sap_transfer_v2_integrity -p sap_transfer_v2 \
+            --target wasm32-unknown-unknown --lib --locked \
+            2>&1 | tee /tmp/fin-safe-027-product-complete-wasm.log
+
+      - name: Test full Finance workspace under lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-finance
+          cargo test --workspace --locked 2>&1 | tee /tmp/fin-safe-027-product-workspace.log
+
+      - name: Prove checkout remained immutable
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$PRODUCT_SHA"
+          test "$(git rev-parse HEAD^)" = "$PARENT_SHA"
+          git status --porcelain=v1 --untracked-files=all > /tmp/fin-safe-027-product-status.txt
+          test ! -s /tmp/fin-safe-027-product-status.txt
+          test "$(sha256sum mycelix-finance/Cargo.lock | awk '{print $1}')" = "$LOCK_SHA256"
+
+      - name: Upload exact-head evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fin-safe-027-product-head-${{ env.PRODUCT_SHA }}-${{ github.run_attempt }}
+          path: |
+            /tmp/fin-safe-027-product-expected-paths.txt
+            /tmp/fin-safe-027-product-actual-paths.txt
+            /tmp/fin-safe-027-product-expected-numstat.txt
+            /tmp/fin-safe-027-product-actual-numstat.txt
+            /tmp/fin-safe-027-product-status.txt
+            /tmp/fin-safe-027-product-metadata.json
+            /tmp/fin-safe-027-product-tree.txt
+            /tmp/fin-safe-027-product-native-warning-fatal.log
+            /tmp/fin-safe-027-product-account-wasm-warning-fatal.log
+            /tmp/fin-safe-027-product-transfer-wasm-warning-fatal.log
+            /tmp/fin-safe-027-product-complete-wasm.log
+            /tmp/fin-safe-027-product-workspace.log
+          if-no-files-found: warn
+          retention-days: 30
