@@ -1,0 +1,140 @@
+name: Governance Public Election Resource Adversarial Corpus v1
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/governance-public-election-resource-adversarial-corpus-v1.yml'
+      - 'mycelix-governance/crates/election-resource-adversarial-corpus/**'
+      - 'mycelix-governance/docs/PUBLIC_ELECTION_RESOURCE_ADVERSARIAL_CORPUS_V1.md'
+
+permissions:
+  contents: read
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  BASE_SHA: '9054aa8b21b823f025f6a4945de4ff774b5635de'
+
+jobs:
+  qualify:
+    name: Qualify resource adversarial corpus
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'test/governance-public-election-resource-adversarial-corpus-v1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact pull-request head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Bind exact ADV-003 delta
+        shell: bash
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          mapfile -t changed < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          test "${#changed[@]}" -eq 4
+          printf '%s\n' "${changed[@]}" | sort > /tmp/adv-003-files.txt
+          cat > /tmp/adv-003-expected.txt <<'EOF'
+          .github/workflows/governance-public-election-resource-adversarial-corpus-v1.yml
+          mycelix-governance/crates/election-resource-adversarial-corpus/Cargo.toml
+          mycelix-governance/crates/election-resource-adversarial-corpus/src/lib.rs
+          mycelix-governance/docs/PUBLIC_ELECTION_RESOURCE_ADVERSARIAL_CORPUS_V1.md
+          EOF
+          sort -o /tmp/adv-003-expected.txt /tmp/adv-003-expected.txt
+          diff -u /tmp/adv-003-expected.txt /tmp/adv-003-files.txt
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt,clippy
+
+      - name: Format ADV-003 crate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path mycelix-governance/crates/election-resource-adversarial-corpus/Cargo.toml -- --check
+
+      - name: Generate exact dependency lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-governance/crates/election-resource-adversarial-corpus
+          cargo generate-lockfile
+          cp Cargo.lock /tmp/adv-003-Cargo.lock
+          sha256sum Cargo.lock | tee /tmp/adv-003-lock.sha256
+          cargo metadata --locked --format-version 1 > /tmp/adv-003-metadata.json
+
+      - name: Execute complete resource adversarial corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path mycelix-governance/crates/election-resource-adversarial-corpus/Cargo.toml --locked 2>&1 | tee /tmp/adv-003-test.log
+
+      - name: Run warning-fatal library Clippy
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo clippy --manifest-path mycelix-governance/crates/election-resource-adversarial-corpus/Cargo.toml --locked --lib -- -D warnings 2>&1 | tee /tmp/adv-003-clippy.log
+
+      - name: Audit resource attack coverage
+        shell: bash
+        run: |
+          set -euo pipefail
+          src='mycelix-governance/crates/election-resource-adversarial-corpus/src/lib.rs'
+          grep -F 'REQUIRED_RESOURCE_ATTACKS: [ResourceAttackSpecV1; 16]' "$src"
+          grep -F 'REQUIRED_RESOURCE_LIMIT_KINDS: [resource::ResourceLimitKind; 10]' "$src"
+          grep -F 'ArtifactCountBudgetExceeded' "$src"
+          grep -F 'SingleArtifactBudgetExceeded' "$src"
+          grep -F 'AggregateArtifactBudgetExceeded' "$src"
+          grep -F 'ManifestPreflightBudgetExceeded' "$src"
+          grep -F 'ContainerPreflightBudgetExceeded' "$src"
+          grep -F 'ExpandedByteBudgetExceeded' "$src"
+          grep -F 'NestedContainerDepthExceeded' "$src"
+          grep -F 'VerifierCapabilityBelowElectionPolicy' "$src"
+          grep -F 'DeclaredArtifactByteSumOverflow' "$src"
+          grep -F 'ManifestLargerThanContainer' "$src"
+          grep -F 'ExpandedBytesUnderReported' "$src"
+          grep -F 'every_resource_limit_axis_has_an_executable_capacity_attack' "$src"
+          grep -F 'positive_resource_path_still_proceeds' "$src"
+          if grep -Eq 'SystemTime|thread_rng|std::net|reqwest|tokio::net' "$src"; then
+            echo 'ADV-003 must remain deterministic and offline' >&2
+            exit 1
+          fi
+          if grep -Eq '^use (hdk|hdi|voting_integrity)' "$src"; then
+            echo 'ADV-003 must remain runtime independent' >&2
+            exit 1
+          fi
+
+      - name: Remove transient lock and prove immutable checkout
+        if: always()
+        shell: bash
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          rm -f mycelix-governance/crates/election-resource-adversarial-corpus/Cargo.lock
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          git status --porcelain=v1 --untracked-files=all > /tmp/adv-003-status.txt
+          test ! -s /tmp/adv-003-status.txt
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: adv-003-${{ github.event.pull_request.head.sha }}-${{ github.run_attempt }}
+          path: |
+            /tmp/adv-003-Cargo.lock
+            /tmp/adv-003-lock.sha256
+            /tmp/adv-003-metadata.json
+            /tmp/adv-003-test.log
+            /tmp/adv-003-clippy.log
+            /tmp/adv-003-status.txt
+          if-no-files-found: warn
+          retention-days: 30
