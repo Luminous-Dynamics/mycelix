@@ -3,11 +3,11 @@ name = "mycelix-administrative-procedure"
 version = "0.1.0"
 edition = "2024"
 license = "AGPL-3.0-or-later"
-description = "Pure administrative-case and competent-decision qualification over Mycelix institutional authority"
+description = "Pure administrative procedure, procedural completeness, and competent-decision qualification over Mycelix institutional authority"
 repository = "https://github.com/Luminous-Dynamics/mycelix"
 
 [lib]
-path = "src/lib_hardened.rs"
+path = "src/lib_admin_002.rs"
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
