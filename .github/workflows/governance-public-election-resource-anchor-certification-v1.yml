@@ -1,0 +1,135 @@
+name: Governance Public Election Resource Anchor Certification v1
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/governance-public-election-resource-anchor-certification-v1.yml'
+      - 'mycelix-governance/crates/election-resource-anchor-certification/**'
+      - 'mycelix-governance/docs/PUBLIC_ELECTION_RESOURCE_ANCHOR_CERTIFICATION_V1.md'
+
+permissions:
+  contents: read
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  BASE_SHA: '88bada1738c86d304d9983088a40d13731f592b9'
+
+jobs:
+  qualify:
+    name: Qualify resource-anchor certification gate
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'feat/governance-public-election-resource-anchor-certification-v1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact pull-request head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Bind exact ELECT-015 delta
+        shell: bash
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          mapfile -t changed < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          test "${#changed[@]}" -eq 4
+          printf '%s\n' "${changed[@]}" | sort > /tmp/elect-015-files.txt
+          cat > /tmp/elect-015-expected.txt <<'EOF'
+          .github/workflows/governance-public-election-resource-anchor-certification-v1.yml
+          mycelix-governance/crates/election-resource-anchor-certification/Cargo.toml
+          mycelix-governance/crates/election-resource-anchor-certification/src/lib.rs
+          mycelix-governance/docs/PUBLIC_ELECTION_RESOURCE_ANCHOR_CERTIFICATION_V1.md
+          EOF
+          sort -o /tmp/elect-015-expected.txt /tmp/elect-015-expected.txt
+          diff -u /tmp/elect-015-expected.txt /tmp/elect-015-files.txt
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt,clippy
+
+      - name: Format ELECT-015 crate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path mycelix-governance/crates/election-resource-anchor-certification/Cargo.toml -- --check
+
+      - name: Generate exact dependency lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-governance/crates/election-resource-anchor-certification
+          cargo generate-lockfile
+          cp Cargo.lock /tmp/elect-015-Cargo.lock
+          sha256sum Cargo.lock | tee /tmp/elect-015-lock.sha256
+          cargo metadata --locked --format-version 1 > /tmp/elect-015-metadata.json
+
+      - name: Execute certification-gate tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path mycelix-governance/crates/election-resource-anchor-certification/Cargo.toml --locked 2>&1 | tee /tmp/elect-015-test.log
+
+      - name: Run warning-fatal library Clippy
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo clippy --manifest-path mycelix-governance/crates/election-resource-anchor-certification/Cargo.toml --locked --lib -- -D warnings 2>&1 | tee /tmp/elect-015-clippy.log
+
+      - name: Audit certification and verifier-independence boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          src='mycelix-governance/crates/election-resource-anchor-certification/src/lib.rs'
+          grep -F 'MIN_RESOURCE_ANCHOR_VERIFIERS: u16 = 3' "$src"
+          grep -F 'MIN_RESOURCE_ANCHOR_IMPLEMENTATION_LINEAGES: u16 = 3' "$src"
+          grep -F 'MIN_RESOURCE_ANCHOR_BUILDER_DOMAINS: u16 = 2' "$src"
+          grep -F 'validate_transition(' "$src"
+          grep -F 'validate_independent_verifier_agreement(' "$src"
+          grep -F 'ReceiptNotBoundToPassingBaseVerifierRun' "$src"
+          grep -F 'ReceiptResourceVerificationDispositionNotPass' "$src"
+          grep -F 'AnchorPreflightResourceGateNotProceed' "$src"
+          grep -F 'base_verifier_quorum_is_revalidated_not_trusted_as_boolean' "$src"
+          grep -F 'certification_requires_both_base_and_anchor_quorums' "$src"
+          if grep -Eq 'SystemTime|thread_rng|std::net|reqwest|tokio::net' "$src"; then
+            echo 'ELECT-015 must remain deterministic and offline' >&2
+            exit 1
+          fi
+          if grep -Eq '^use (hdk|hdi|voting_integrity)' "$src"; then
+            echo 'ELECT-015 must remain runtime independent' >&2
+            exit 1
+          fi
+
+      - name: Remove transient lock and prove immutable checkout
+        if: always()
+        shell: bash
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          rm -f mycelix-governance/crates/election-resource-anchor-certification/Cargo.lock
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          git status --porcelain=v1 --untracked-files=all > /tmp/elect-015-status.txt
+          test ! -s /tmp/elect-015-status.txt
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: elect-015-${{ github.event.pull_request.head.sha }}-${{ github.run_attempt }}
+          path: |
+            /tmp/elect-015-Cargo.lock
+            /tmp/elect-015-lock.sha256
+            /tmp/elect-015-metadata.json
+            /tmp/elect-015-test.log
+            /tmp/elect-015-clippy.log
+            /tmp/elect-015-status.txt
+          if-no-files-found: warn
+          retention-days: 30
