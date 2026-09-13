@@ -4,17 +4,29 @@ This crate composes qualified canonical policy identity with explicit provider a
 
 ## Core theorem
 
-`canonical policy identity != authorized provider != current governing policy != administrative decision authority != external effect authority`
+`canonical policy identity != provider-qualification profile != authorized provider != current governing policy != administrative decision authority != external effect authority`
 
 A positive `QualifiedCurrentProcedurePolicy` proves only:
 
 1. the policy's semantic identity was independently qualified;
 2. the exact provider claim targets that identity and procedure scope;
-3. the provider principal/grant is explicitly authorized for the frozen currentness capability/profile;
+3. the provider principal/grant is explicitly authorized under the supplied frozen currentness profile;
 4. the policy is effective at the queried `as_of_ms`; and
 5. the provider's authoritative namespace is explicitly closed through `as_of_ms`.
 
 The token grants no administrative decision authority and no external-effect authority.
+
+## Currentness-policy adoption boundary
+
+`ProcedurePolicyCurrentnessPolicy` is a qualification profile, not a self-authorizing constitution.
+
+This crate proves that a provider is authorized **under that exact supplied profile**. It does not independently prove that the target institution adopted that profile as its governing provider-selection rule.
+
+A later administrative/constitutional composition layer must capture or otherwise authoritatively bind the exact currentness-policy profile before consequential decisions rely on it. This prevents the caller from choosing a convenient provider rule and then treating successful qualification as proof that the institution selected that rule.
+
+Therefore:
+
+`qualified under policy P != institution adopted policy P`.
 
 ## No local-absence inference
 
