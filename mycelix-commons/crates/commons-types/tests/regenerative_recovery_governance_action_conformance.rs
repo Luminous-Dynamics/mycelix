@@ -9,14 +9,11 @@
 
 use commons_types::{
     GOVERNANCE_ACTIONS_DIGEST_PROFILE_V1, RECOVERY_GOVERNANCE_ACTION_PROTOCOL_V1,
-    REGENERATIVE_RECOVERY_FORK_RESOLUTION_SCHEMA_V1,
-    RegenerativeRecoveryForkResolutionEvidenceV1,
-    RegenerativeRecoveryForkResolutionOutcomeV1,
-    qualify_regenerative_recovery_governance_action,
+    REGENERATIVE_RECOVERY_FORK_RESOLUTION_SCHEMA_V1, RegenerativeRecoveryForkResolutionEvidenceV1,
+    RegenerativeRecoveryForkResolutionOutcomeV1, qualify_regenerative_recovery_governance_action,
 };
 
-const REGISTERED_EXECUTION_AUTHORITY_DOMAIN: &[u8] =
-    b"mycelix-governance-execution-authority-v1\0";
+const REGISTERED_EXECUTION_AUTHORITY_DOMAIN: &[u8] = b"mycelix-governance-execution-authority-v1\0";
 const REGISTERED_EXECUTION_AUTHORITY_PROFILE: &str =
     "mycelix-governance-execution-authority-v1-blake3-exact-json";
 
@@ -64,7 +61,10 @@ fn recovery_action_matches_registered_execution_authority_contract() {
 
     assert_eq!(action.proposal_id(), "MIP-42");
     assert_eq!(action.exact_action_json(), expected_json);
-    assert_eq!(action.actions_digest_profile(), REGISTERED_EXECUTION_AUTHORITY_PROFILE);
+    assert_eq!(
+        action.actions_digest_profile(),
+        REGISTERED_EXECUTION_AUTHORITY_PROFILE
+    );
     assert_eq!(
         GOVERNANCE_ACTIONS_DIGEST_PROFILE_V1,
         REGISTERED_EXECUTION_AUTHORITY_PROFILE
