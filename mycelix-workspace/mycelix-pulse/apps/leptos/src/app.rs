@@ -8,6 +8,7 @@ use leptos_router::{
     components::{Route, Router, Routes},
     path,
 };
+use mycelix_leptos_core::{AvailabilityState, AvailabilityStateKind};
 
 use crate::components::{
     BottomNav, CommandPalette, ConductorSetup, KeyboardHelp, Nav, OnboardingTour, ProfileSetup,
@@ -113,7 +114,7 @@ fn AppInner() -> impl IntoView {
                         <Route path=path!("/drafts") view=DraftsPage />
                         <Route path=path!("/accounts") view=AccountsPage />
                         <Route path=path!("/calendar") view=CalendarPage />
-                        <Route path=path!("/chat") view=ChatPage />
+                        <Route path=path!("/chat") view=ChatUnavailablePage />
                         <Route path=path!("/meet") view=MeetPage />
                     </Routes>
                 </main>
@@ -132,17 +133,36 @@ fn AppInner() -> impl IntoView {
     }
 }
 
+/// Fail-closed route boundary for the mock-backed Chat surface.
+///
+/// The retained `ChatPage` source is useful implementation/design work, but it
+/// currently has no real chat backend wired to its mock channels/messages. Do
+/// not route users into a surface that would otherwise imply live delivery,
+/// chat E2E encryption, or DHT consolidation without evidence for those effects.
+#[component]
+fn ChatUnavailablePage() -> impl IntoView {
+    let action = view! {
+        <a href="/" class="btn btn-primary">"Back to inbox"</a>
+    }
+    .into_any();
+
+    view! {
+        <div class="page page-chat">
+            <AvailabilityState
+                kind=AvailabilityStateKind::Unavailable
+                title="Chat is not live in this build"
+                description="The retained Chat UI is mock-backed. This surface does not establish real chat delivery, chat-specific E2E encryption, or DHT consolidation."
+                action=Some(action)
+            />
+        </div>
+    }
+}
+
 /// Network/conductor status banner.
 #[component]
 fn OfflineBanner() -> impl IntoView {
     let hc = crate::holochain::use_holochain();
     let offline = crate::offline::use_offline();
-
-    let is_online = RwSignal::new(
-        web_sys::window()
-            .map(|w| w.navigator().on_line())
-            .unwrap_or(true),
-    );
 
     // Listen for online/offline events
     Effect::new(move |_| {
@@ -166,7 +186,7 @@ fn OfflineBanner() -> impl IntoView {
         // Network offline
         <div class="offline-banner network-offline"
              style=move || if check_online() { "display:none" } else { "" }>
-            "\u{1F4F5} You're offline — changes will sync when reconnected"
+            "\u{1F4F5} You're offline — supported mail-state changes can be queued locally. Sending requires reconnection."
             {move || {
                 let q = offline.queue_size.get();
                 (q > 0).then(|| view! { <span class="offline-queue-count">{format!(" ({q} queued)")}</span> })
