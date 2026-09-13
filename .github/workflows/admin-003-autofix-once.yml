@@ -1,0 +1,61 @@
+name: ADMIN-003 One-Shot Autofix
+
+on:
+  push:
+    branches:
+      - 'feat/admin-003-review-finality-v0.1'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: true
+
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          components: rustfmt
+
+      - name: Repair exact test shadowing and format ADMIN-003
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('crates/mycelix-administrative-procedure/src/admin_003.rs')
+          text = path.read_text()
+          marker = 'fn remedy_requires_exact_disposition_authorization_and_capability() {'
+          start = text.index(marker)
+          next_test = text.find('\n    #[test]', start + len(marker))
+          end = len(text) if next_test == -1 else next_test
+          before = text[:start]
+          body = text[start:end]
+          after = text[end:]
+
+          needle = 'let review_grant = review_grant(vec![CapabilityId::new("administration.review").unwrap()]);'
+          assert body.count(needle) == 1, 'expected exact review-grant shadowing site'
+          body = body.replace(
+              needle,
+              'let reviewer_grant = review_grant(vec![CapabilityId::new("administration.review").unwrap()]);',
+          )
+          body = body.replace('review_grant.id.clone()', 'reviewer_grant.id.clone()')
+          body = body.replace('&review_grant,', '&reviewer_grant,')
+          path.write_text(before + body + after)
+          PY
+
+          rustfmt --edition 2024 crates/mycelix-administrative-procedure/src/admin_003.rs
+          git diff --check
+
+      - name: Commit exact repair
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add crates/mycelix-administrative-procedure/src/admin_003.rs
+          git diff --cached --quiet && exit 1
+          git commit -m 'fix(admin): qualify ADMIN-003 executable review tests'
+          git push origin HEAD:feat/admin-003-review-finality-v0.1
