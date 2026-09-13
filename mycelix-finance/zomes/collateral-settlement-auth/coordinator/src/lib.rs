@@ -9,14 +9,7 @@
 //! semantics, obtains their real action authors/timestamps, and derives the
 //! request/evidence-bound settlement from the DNA trust root.
 
-use collateral_deposit_v2_integrity::{
-    CollateralDepositRequestV2Entry, MAX_CREATE_TIMESTAMP_SKEW_MICROS,
-    UnitEntryTypes as DepositUnitEntryTypes,
-};
-use collateral_settlement_auth_integrity::{
-    CustodyAttestationV1Entry, EntryTypes, PriceAttestationV1Entry,
-    UnitEntryTypes as AuthUnitEntryTypes, load_collateral_auth_config,
-};
+use collateral_settlement_auth_integrity::{EntryTypes, UnitEntryTypes as AuthUnitEntryTypes};
 use finance_collateral_auth::{
     CollateralSettlementTrustRootV1, CustodyAttestationV1, PriceAttestationV1,
 };
@@ -25,8 +18,15 @@ use finance_collateral_request_binding::{
     derive_authenticated_bound_settlement_intent_from_valid_actions,
 };
 use finance_collateral_settlement::{CustodyEvidenceEnvelope, PriceEvidenceEnvelope};
+use finance_holochain_contracts::{
+    CollateralDepositRequestV2Entry, CustodyAttestationV1Entry, MAX_CREATE_TIMESTAMP_SKEW_MICROS,
+    PriceAttestationV1Entry, load_collateral_auth_config,
+};
 use hdk::prelude::*;
 use mycelix_bridge_entry_types::did_for_author;
+
+const COLLATERAL_DEPOSIT_INTEGRITY_ZOME: &str = "collateral_deposit_v2_integrity";
+const COLLATERAL_DEPOSIT_REQUEST_ENTRY_INDEX: u8 = 0;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct VerifiedPriceAttestationV1 {
@@ -182,7 +182,10 @@ fn load_bound_request(action_hash: ActionHash) -> ExternResult<BoundCollateralDe
     require_create_action(&record, "collateral request")?;
     require_exact_app_entry_type(
         &record,
-        AppEntryDef::try_from(DepositUnitEntryTypes::CollateralDepositRequestV2)?,
+        foreign_public_entry_def(
+            COLLATERAL_DEPOSIT_INTEGRITY_ZOME,
+            COLLATERAL_DEPOSIT_REQUEST_ENTRY_INDEX,
+        )?,
         "V2 collateral request",
     )?;
     let entry = record
@@ -321,6 +324,29 @@ fn load_custody_attestation(
     })
 }
 
+fn foreign_public_entry_def(zome_name: &str, entry_index: u8) -> ExternResult<AppEntryDef> {
+    let info = dna_info()?;
+    let zome_position = info
+        .zome_names
+        .iter()
+        .position(|name| name.to_string() == zome_name)
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Required integrity zome {zome_name:?} is absent from this DNA"
+            )))
+        })?;
+    let zome_index = u8::try_from(zome_position).map_err(|_| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Integrity zome index for {zome_name:?} exceeds u8"
+        )))
+    })?;
+    Ok(AppEntryDef::new(
+        EntryDefIndex::from(entry_index),
+        ZomeIndex::from(zome_index),
+        EntryVisibility::Public,
+    ))
+}
+
 fn require_create_action(record: &Record, label: &str) -> ExternResult<()> {
     if record.action().action_type() != ActionType::Create {
         return Err(wasm_error!(WasmErrorInner::Guest(format!(
@@ -335,13 +361,16 @@ fn require_exact_app_entry_type(
     expected: AppEntryDef,
     label: &str,
 ) -> ExternResult<()> {
-    match record.action().app_entry_def() {
-        Some(actual) if actual == &expected => Ok(()),
+    match record.action().entry_type() {
+        Some(EntryType::App(actual)) if actual == &expected => Ok(()),
+        Some(EntryType::App(actual)) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "{label} has wrong app entry definition: expected {expected:?}, got {actual:?}"
+        )))),
         Some(actual) => Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "{label} action has the wrong app entry definition: expected {expected:?}, got {actual:?}"
+            "{label} is not an application entry: got {actual:?}"
         )))),
         None => Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "{label} action is not an application entry"
+            "{label} has no entry type"
         )))),
     }
 }

@@ -9,16 +9,16 @@
 //! receipt. The integrity zome independently reconstructs every authoritative
 //! reference before any stage is accepted.
 
-use collateral_issuance_v2_integrity::{
-    CollateralSapIssuanceReceiptV2Entry, CollateralSapMintAuthorizationV2Entry,
-    CollateralSapMintRecordV2Entry, EntryTypes, UnitEntryTypes,
-};
-use collateral_settlement_auth_integrity::load_collateral_auth_config;
+use collateral_issuance_v2_integrity::{EntryTypes, UnitEntryTypes};
 use finance_collateral_issuance_persistence::{
     CollateralSapIssuanceReceiptRecordV2, CollateralSapMintAuthorizationRecordV2,
     CollateralSapMintRecordV2Compact,
 };
 use finance_collateral_request_binding::AuthenticatedBoundCollateralSettlementIntentV1;
+use finance_holochain_contracts::{
+    CollateralSapIssuanceReceiptV2Entry, CollateralSapMintAuthorizationV2Entry,
+    CollateralSapMintRecordV2Entry, load_collateral_auth_config,
+};
 use finance_sap_conservation::AuthenticatedCollateralSapMintAuthorizationV2;
 use hdk::prelude::*;
 
@@ -183,13 +183,16 @@ fn require_exact_create_entry(
             "{label} reference is not an exact Create action"
         ))));
     }
-    match record.action().app_entry_def() {
-        Some(actual) if actual == &expected => Ok(()),
+    match record.action().entry_type() {
+        Some(EntryType::App(actual)) if actual == &expected => Ok(()),
+        Some(EntryType::App(actual)) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "{label} has wrong app entry definition: expected {expected:?}, got {actual:?}"
+        )))),
         Some(actual) => Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "{label} has the wrong app entry definition: expected {expected:?}, got {actual:?}"
+            "{label} is not an application entry: got {actual:?}"
         )))),
         None => Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "{label} is not an application entry"
+            "{label} has no entry type"
         )))),
     }
 }

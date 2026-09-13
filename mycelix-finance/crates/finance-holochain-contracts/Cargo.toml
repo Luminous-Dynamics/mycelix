@@ -1,0 +1,16 @@
+[package]
+name = "finance-holochain-contracts"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "ABI-neutral shared Holochain entry contracts for Mycelix Finance V2 zomes"
+
+[dependencies]
+hdi = { workspace = true }
+holochain_serialized_bytes = { workspace = true }
+serde = { workspace = true }
+finance-collateral-deposit = { path = "../finance-collateral-deposit" }
+finance-collateral-auth = { path = "../finance-collateral-auth" }
+finance-collateral-issuance-persistence = { path = "../finance-collateral-issuance-persistence" }
+finance-sap-account-v2 = { path = "../finance-sap-account-v2" }
+finance-sap-transfer-v2 = { path = "../finance-sap-transfer-v2" }

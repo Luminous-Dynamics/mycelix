@@ -16,6 +16,6 @@ serde = { workspace = true }
 finance-collateral-auth = { path = "../../../crates/finance-collateral-auth" }
 finance-collateral-request-binding = { path = "../../../crates/finance-collateral-request-binding" }
 finance-collateral-settlement = { path = "../../../crates/finance-collateral-settlement" }
+finance-holochain-contracts = { path = "../../../crates/finance-holochain-contracts" }
 collateral_settlement_auth_integrity = { path = "../integrity" }
-collateral_deposit_v2_integrity = { path = "../../collateral-deposit-v2/integrity" }
 mycelix-bridge-entry-types = { workspace = true }

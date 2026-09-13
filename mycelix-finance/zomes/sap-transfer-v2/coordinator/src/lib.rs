@@ -7,8 +7,8 @@
 //! Callers supply recipient, amount, and exact owner-authored collateral-claim
 //! action hashes. Authoritative note payloads are never accepted from callers.
 
-use collateral_issuance_v2_integrity::{
-    CollateralSapIssuanceReceiptV2Entry, UnitEntryTypes as CollateralIssuanceUnitEntryTypes,
+use finance_holochain_contracts::{
+    CollateralSapIssuanceReceiptV2Entry, SapCollateralClaimV2Entry, SapTransferSpendV2Entry,
 };
 use finance_sap_account_v2::ValidatedCollateralClaimV2;
 use finance_sap_transfer_v2::SapTransferSpendRecordV2;
@@ -18,12 +18,13 @@ use finance_sap_value_notes::{
 };
 use hdk::prelude::*;
 use mycelix_bridge_entry_types::did_for_author;
-use sap_account_v2_integrity::{
-    SapCollateralClaimV2Entry, UnitEntryTypes as SapAccountUnitEntryTypes,
-};
+
+const SAP_ACCOUNT_V2_INTEGRITY_ZOME: &str = "sap_account_v2_integrity";
+const SAP_COLLATERAL_CLAIM_ENTRY_INDEX: u8 = 1;
+const COLLATERAL_ISSUANCE_INTEGRITY_ZOME: &str = "collateral_issuance_v2_integrity";
+const COLLATERAL_ISSUANCE_RECEIPT_ENTRY_INDEX: u8 = 2;
 use sap_transfer_v2_integrity::{
-    EntryTypes, SapTransferSpendV2Entry, UnitEntryTypes as SapTransferUnitEntryTypes,
-    load_sap_transfer_v2_config,
+    EntryTypes, UnitEntryTypes as SapTransferUnitEntryTypes, load_sap_transfer_v2_config,
 };
 
 pub const MAX_EXPLICIT_SPEND_OBSERVATIONS: usize = 1024;
@@ -211,7 +212,10 @@ fn load_exact_validated_collateral_claim(
     require_create_action(&claim_record, "FIN-SAFE-014 collateral claim")?;
     require_exact_app_entry_type(
         &claim_record,
-        AppEntryDef::try_from(SapAccountUnitEntryTypes::SapCollateralClaimV2)?,
+        foreign_public_entry_def(
+            SAP_ACCOUNT_V2_INTEGRITY_ZOME,
+            SAP_COLLATERAL_CLAIM_ENTRY_INDEX,
+        )?,
         "FIN-SAFE-014 collateral claim",
     )?;
     let claim_entry = claim_record
@@ -237,7 +241,10 @@ fn load_exact_validated_collateral_claim(
     require_create_action(&receipt_record, "FIN-SAFE-010 issuance receipt")?;
     require_exact_app_entry_type(
         &receipt_record,
-        AppEntryDef::try_from(CollateralIssuanceUnitEntryTypes::CollateralSapIssuanceReceiptV2)?,
+        foreign_public_entry_def(
+            COLLATERAL_ISSUANCE_INTEGRITY_ZOME,
+            COLLATERAL_ISSUANCE_RECEIPT_ENTRY_INDEX,
+        )?,
         "FIN-SAFE-010 issuance receipt",
     )?;
     let receipt_entry = receipt_record
@@ -276,6 +283,29 @@ fn notes_from_claims(claims: &[ValidatedCollateralClaimV2]) -> ExternResult<Vec<
         .collect()
 }
 
+fn foreign_public_entry_def(zome_name: &str, entry_index: u8) -> ExternResult<AppEntryDef> {
+    let info = dna_info()?;
+    let zome_position = info
+        .zome_names
+        .iter()
+        .position(|name| name.to_string() == zome_name)
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Required integrity zome {zome_name:?} is absent from this DNA"
+            )))
+        })?;
+    let zome_index = u8::try_from(zome_position).map_err(|_| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Integrity zome index for {zome_name:?} exceeds u8"
+        )))
+    })?;
+    Ok(AppEntryDef::new(
+        EntryDefIndex::from(entry_index),
+        ZomeIndex::from(zome_index),
+        EntryVisibility::Public,
+    ))
+}
+
 fn require_create_action(record: &Record, label: &str) -> ExternResult<()> {
     if record.action().action_type() == ActionType::Create {
         Ok(())
@@ -289,12 +319,17 @@ fn require_exact_app_entry_type(
     expected: AppEntryDef,
     label: &str,
 ) -> ExternResult<()> {
-    match record.action().app_entry_def() {
-        Some(actual) if actual == &expected => Ok(()),
-        Some(actual) => Err(guest(format!(
+    match record.action().entry_type() {
+        Some(EntryType::App(actual)) if actual == &expected => Ok(()),
+        Some(EntryType::App(actual)) => Err(wasm_error!(WasmErrorInner::Guest(format!(
             "{label} has wrong app entry definition: expected {expected:?}, got {actual:?}"
-        ))),
-        None => Err(guest(format!("{label} is not an application entry"))),
+        )))),
+        Some(actual) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "{label} is not an application entry: got {actual:?}"
+        )))),
+        None => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "{label} has no entry type"
+        )))),
     }
 }
 

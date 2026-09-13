@@ -14,9 +14,8 @@ holochain_serialized_bytes = { workspace = true }
 hdi = { workspace = true }
 serde = { workspace = true }
 finance-collateral-auth = { path = "../../../crates/finance-collateral-auth" }
+finance-holochain-contracts = { path = "../../../crates/finance-holochain-contracts" }
 finance-collateral-issuance-persistence = { path = "../../../crates/finance-collateral-issuance-persistence" }
 finance-collateral-request-binding = { path = "../../../crates/finance-collateral-request-binding" }
 finance-sap-conservation = { path = "../../../crates/finance-sap-conservation" }
-collateral_deposit_v2_integrity = { path = "../../collateral-deposit-v2/integrity" }
-collateral_settlement_auth_integrity = { path = "../../collateral-settlement-auth/integrity" }
 mycelix-bridge-entry-types = { workspace = true }
