@@ -201,12 +201,7 @@ mod tests {
             let mut store = SqliteIntegrationStore::open(&path).unwrap();
             let first = store.claim_outbox("worker-old", 200, 10, 1).unwrap();
             store
-                .mark_dispatch_started(
-                    first[0].entry_id,
-                    &first[0].attempt_id,
-                    "worker-old",
-                    205,
-                )
+                .mark_dispatch_started(first[0].entry_id, &first[0].attempt_id, "worker-old", 205)
                 .unwrap();
         }
         let binding = binding(&path);
