@@ -179,6 +179,16 @@ struct DurableJournalRow {
     observation_disposition: Option<i64>,
 }
 
+#[derive(Debug)]
+struct DurableDispatchRow {
+    outbox_stage: i64,
+    context_profile: String,
+    context_digest: Vec<u8>,
+    binding_digest: Vec<u8>,
+    command_commitment_algorithm: i64,
+    command_commitment_digest: Vec<u8>,
+}
+
 /// Attach one exact secret-free issuance descriptor to one exact durable v2
 /// dispatch before any transport-write capability can exist.
 pub fn prepare_http_transport_attempt(
@@ -549,7 +559,7 @@ fn validate_dispatch_row(
     dispatch: &QualifiedContextBoundDispatchStart,
     descriptor: &QualifiedHttpIssuanceDescriptor,
 ) -> Result<(), TransportJournalError> {
-    let row: Option<(i64, String, Vec<u8>, Vec<u8>, i64, Vec<u8>)> = tx
+    let row: Option<DurableDispatchRow> = tx
         .query_row(
             "SELECT o.stage, d.context_profile, d.context_digest, d.binding_digest,\n\
                     d.command_commitment_algorithm, d.command_commitment_digest\n\
@@ -561,26 +571,27 @@ fn validate_dispatch_row(
                 dispatch.dispatch().attempt_id.as_str(),
             ],
             |row| {
-                Ok((
-                    row.get(0)?,
-                    row.get(1)?,
-                    row.get(2)?,
-                    row.get(3)?,
-                    row.get(4)?,
-                    row.get(5)?,
-                ))
+                Ok(DurableDispatchRow {
+                    outbox_stage: row.get(0)?,
+                    context_profile: row.get(1)?,
+                    context_digest: row.get(2)?,
+                    binding_digest: row.get(3)?,
+                    command_commitment_algorithm: row.get(4)?,
+                    command_commitment_digest: row.get(5)?,
+                })
             },
         )
         .optional()?;
-    let Some((outbox_stage, context_profile, context_digest, binding_digest, algorithm, command_digest)) = row else {
+    let Some(row) = row else {
         return Err(TransportJournalError::MissingContextDispatch);
     };
-    if outbox_stage != OUTBOX_DISPATCH_STARTED
-        || context_profile != dispatch.context().profile()
-        || context_digest.as_slice() != dispatch.context().digest().0
-        || binding_digest.as_slice() != dispatch.binding_digest().0
-        || algorithm != digest_algorithm_code(descriptor.command_commitment().algorithm)
-        || command_digest.as_slice() != descriptor.command_commitment().digest
+    if row.outbox_stage != OUTBOX_DISPATCH_STARTED
+        || row.context_profile != dispatch.context().profile()
+        || row.context_digest.as_slice() != dispatch.context().digest().0
+        || row.binding_digest.as_slice() != dispatch.binding_digest().0
+        || row.command_commitment_algorithm
+            != digest_algorithm_code(descriptor.command_commitment().algorithm)
+        || row.command_commitment_digest.as_slice() != descriptor.command_commitment().digest
     {
         return Err(TransportJournalError::ContextDispatchMismatch);
     }
