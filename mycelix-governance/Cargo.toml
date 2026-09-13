@@ -13,6 +13,8 @@ members = [
     "zomes/bridge/coordinator",
     "zomes/threshold-signing/integrity",
     "zomes/threshold-signing/coordinator",
+    "zomes/continuity-witness/integrity",
+    "zomes/continuity-witness/coordinator",
     "zomes/councils/integrity",
     "zomes/councils/coordinator",
     "zomes/jurisdiction/integrity",
