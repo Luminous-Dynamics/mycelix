@@ -1,0 +1,56 @@
+name: Regenerative Recovery Fork Resolution
+
+on:
+  push:
+    branches:
+      - feat/regenerative-recovery-reserve-fork-resolution-v1
+  pull_request:
+    branches:
+      - feat/regenerative-recovery-coordinate-provenance
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fork-resolution:
+    name: Recovery reserve fork resolution
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      - name: Format commons-types
+        run: cargo fmt --manifest-path mycelix-commons/Cargo.toml -p commons-types -- --check
+
+      - name: Test commons-types
+        run: cargo test --manifest-path mycelix-commons/Cargo.toml -p commons-types
+
+      - name: Clippy commons-types
+        run: cargo clippy --manifest-path mycelix-commons/Cargo.toml -p commons-types --all-targets -- -D warnings
+
+      - name: Fork-resolution boundary audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          stream=mycelix-commons/crates/commons-types/src/regenerative_recovery_reserve_stream.rs
+          resolution=mycelix-commons/crates/commons-types/src/regenerative_recovery_fork_resolution.rs
+
+          grep -q 'FrozenPendingResolution' "$stream"
+          grep -q 'pending_sibling_fork_digest' "$stream"
+          grep -q 'SuspendReserve' "$resolution"
+          grep -q 'selected recovery evidence is not one of the observed fork branches' "$stream"
+
+          if grep -E -q 'QualifiedThresholdAuthorization|SigningCommittee|ThresholdSignature|committee_threshold|signer_count|pq_required' "$stream" "$resolution"; then
+            echo 'fork-resolution layer must remain governance-provider neutral' >&2
+            exit 1
+          fi
