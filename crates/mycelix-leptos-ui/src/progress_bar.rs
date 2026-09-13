@@ -5,44 +5,83 @@
 
 use leptos::prelude::*;
 
+fn normalized_progress(value: f64) -> f64 {
+    if value.is_finite() {
+        value.clamp(0.0, 1.0)
+    } else {
+        0.0
+    }
+}
+
 /// A horizontal progress bar.
+///
+/// The component exposes semantic class names and CSS custom properties so a
+/// domain stylesheet can take over presentation. Inline values are deliberately
+/// limited to theme-aware fallbacks and the dynamic progress width, preserving
+/// correct rendering for consumers that have not imported the shared stylesheet.
 #[component]
 pub fn ProgressBar(
     value: f64,
     #[prop(optional)] label: Option<String>,
     #[prop(optional)] color: Option<String>,
 ) -> impl IntoView {
-    let clamped = value.clamp(0.0, 1.0);
-    let pct = clamped * 100.0;
-    let fill_color = color.unwrap_or_else(|| "#2563eb".to_string());
+    let pct = normalized_progress(value) * 100.0;
+    let aria_label = label.clone().unwrap_or_else(|| "Progress".to_string());
+    let fill_style = match color {
+        Some(color) => format!(
+            "width: {pct:.1}%; --progress-color: {color}; \
+             height: 100%; background: var(--progress-color, var(--primary, var(--mycelix-cyan, #2563eb))); \
+             border-radius: inherit; transition: width var(--duration-interact, 0.3s) var(--ease-interact, ease);"
+        ),
+        None => format!(
+            "width: {pct:.1}%; height: 100%; \
+             background: var(--progress-color, var(--primary, var(--mycelix-cyan, #2563eb))); \
+             border-radius: inherit; transition: width var(--duration-interact, 0.3s) var(--ease-interact, ease);"
+        ),
+    };
 
     view! {
         <div
+            class="progress-bar"
             style="position: relative; width: 100%; height: 20px; \
-                   background-color: #e5e7eb; border-radius: 9999px; \
-                   overflow: hidden; font-family: system-ui, sans-serif;"
+                   background: var(--progress-track, var(--bg-surface, #e5e7eb)); \
+                   border-radius: var(--radius-pill, 9999px); overflow: hidden; \
+                   font-family: var(--font-sans, system-ui, sans-serif);"
             role="progressbar"
+            aria-label=aria_label
             aria-valuenow=pct
             aria-valuemin=0.0
             aria-valuemax=100.0
         >
-            <div
-                style=format!(
-                    "height: 100%; width: {pct:.1}%; background-color: {fill_color}; \
-                     border-radius: 9999px; transition: width 0.3s ease;"
-                )
-            ></div>
+            <div class="progress-bar-fill" style=fill_style></div>
             {label.map(|text| {
                 view! {
                     <span
+                        class="progress-bar-label"
+                        aria-hidden="true"
                         style="position: absolute; inset: 0; display: flex; \
                                align-items: center; justify-content: center; \
-                               font-size: 0.7rem; font-weight: 600; color: #1f2937;"
+                               font-size: var(--text-xs, 0.75rem); font-weight: 600; \
+                               color: var(--progress-label, var(--text-primary, #1f2937));"
                     >
                         {text}
                     </span>
                 }
             })}
         </div>
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalized_progress;
+
+    #[test]
+    fn progress_is_bounded_and_non_finite_values_fail_closed_to_zero() {
+        assert_eq!(normalized_progress(-0.5), 0.0);
+        assert_eq!(normalized_progress(0.4), 0.4);
+        assert_eq!(normalized_progress(1.5), 1.0);
+        assert_eq!(normalized_progress(f64::NAN), 0.0);
+        assert_eq!(normalized_progress(f64::INFINITY), 0.0);
     }
 }
