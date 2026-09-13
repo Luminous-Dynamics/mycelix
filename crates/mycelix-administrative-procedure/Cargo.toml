@@ -7,7 +7,11 @@ description = "Pure administrative procedure, procedural completeness, and compe
 repository = "https://github.com/Luminous-Dynamics/mycelix"
 
 [lib]
-path = "src/lib_admin_002.rs"
+path = "src/lib_hardened.rs"
+
+[features]
+default = []
+procedural-completeness = []
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
