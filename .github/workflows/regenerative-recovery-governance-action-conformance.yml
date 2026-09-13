@@ -1,0 +1,113 @@
+name: Regenerative Recovery Governance Action Conformance
+
+on:
+  push:
+    branches:
+      - test/regenerative-recovery-governance-action-conformance-v1
+  pull_request:
+    branches:
+      - security/regenerative-recovery-governance-mutation-boundary-v1
+
+permissions:
+  contents: read
+
+concurrency:
+  group: regenerative-recovery-governance-action-conformance-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  conformance:
+    name: Recovery governance action digest conformance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+
+      - name: Toolchain identity
+        run: |
+          rustc --version --verbose
+          cargo --version
+          rustfmt --version
+          cargo clippy --version
+
+      - name: Format conformance subject
+        run: rustfmt --edition 2024 --check mycelix-commons/crates/commons-types/tests/regenerative_recovery_governance_action_conformance.rs
+
+      - name: Execute conformance tests
+        run: cargo test --manifest-path mycelix-commons/Cargo.toml -p commons-types --test regenerative_recovery_governance_action_conformance
+
+      - name: Clippy conformance target; gate owned diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          owned='mycelix-commons/crates/commons-types/tests/regenerative_recovery_governance_action_conformance.rs'
+          set +e
+          cargo clippy --manifest-path mycelix-commons/Cargo.toml -p commons-types \
+            --test regenerative_recovery_governance_action_conformance \
+            --message-format=json 2>&1 | tee /tmp/recovery-action-clippy.jsonl
+          cargo_status=${PIPESTATUS[0]}
+          set -e
+          python3 - "$owned" "$cargo_status" <<'PY'
+          import json
+          import sys
+
+          owned = sys.argv[1]
+          cargo_status = int(sys.argv[2])
+          owned_warnings = []
+          compiler_errors = []
+
+          with open('/tmp/recovery-action-clippy.jsonl', encoding='utf-8', errors='replace') as handle:
+              for line in handle:
+                  try:
+                      event = json.loads(line)
+                  except json.JSONDecodeError:
+                      continue
+                  if event.get('reason') != 'compiler-message':
+                      continue
+                  message = event.get('message') or {}
+                  level = message.get('level')
+                  spans = message.get('spans') or []
+                  if level == 'error':
+                      compiler_errors.append(message.get('message', 'compiler error'))
+                  if level != 'warning':
+                      continue
+                  for span in spans:
+                      if span.get('is_primary') and span.get('file_name') == owned:
+                          owned_warnings.append(message.get('message', 'warning'))
+                          break
+
+          if cargo_status != 0:
+              if compiler_errors:
+                  print('Compiler/Clippy errors:', *compiler_errors, sep='\n- ', file=sys.stderr)
+              else:
+                  print(f'cargo clippy failed with exit status {cargo_status}', file=sys.stderr)
+              raise SystemExit(1)
+          if compiler_errors:
+              print('Compiler/Clippy errors:', *compiler_errors, sep='\n- ', file=sys.stderr)
+              raise SystemExit(1)
+          if owned_warnings:
+              print('Owned conformance warnings:', *owned_warnings, sep='\n- ', file=sys.stderr)
+              raise SystemExit(1)
+          print('PASS: no compiler errors and no Clippy warnings on the owned conformance subject')
+          PY
+
+      - name: Registered-contract audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          subject=mycelix-commons/crates/commons-types/tests/regenerative_recovery_governance_action_conformance.rs
+          grep -q 'mycelix-governance-execution-authority-v1\\0' "$subject"
+          grep -q 'mycelix-governance-execution-authority-v1-blake3-exact-json' "$subject"
+          grep -q 'to_le_bytes' "$subject"
+          grep -q 'qualify_regenerative_recovery_governance_action' "$subject"
+          grep -q 'exact_action_json' "$subject"
