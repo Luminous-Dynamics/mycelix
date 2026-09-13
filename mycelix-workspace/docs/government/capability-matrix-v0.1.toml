@@ -1,0 +1,616 @@
+schema_version = "mycelix-government-capability-matrix-v0.1"
+classification_basis = "capability-not-agency"
+status_values = ["strong_foundation", "partial", "missing", "external_by_design"]
+cofog_divisions = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10"]
+
+[[capability]]
+id = "general.institutional_authority"
+name = "Institutional authority, delegation, scoped execution, and currentness"
+cofog = "01"
+govtech = ["institutional_enablers"]
+status = "strong_foundation"
+domains = ["governance", "institutional-core", "authority"]
+evidence = ["PR#178 institutional core", "PR#98 authority-state runtime contract", "governance executor-designation stack"]
+gap = "Public-institution composition rules are not yet frozen across all government domains."
+next = "GOVSYS-002"
+boundary = "Authority remains institution/rulebook/jurisdiction scoped; platform presence is not legitimacy."
+
+[[capability]]
+id = "general.administrative_procedure"
+name = "Administrative case procedure and reasoned decisions"
+cofog = "01"
+govtech = ["service_delivery", "institutional_enablers"]
+status = "missing"
+domains = ["civic", "governance"]
+evidence = []
+gap = "No generic application/evidence/competent-authority/decision/notice/review state machine."
+next = "ADMIN-001"
+boundary = "Procedure qualification must not create substantive entitlement or authority."
+
+[[capability]]
+id = "general.authoritative_registries"
+name = "Authoritative public registries with correction and supersession"
+cofog = "01"
+govtech = ["core_government_systems", "institutional_enablers"]
+status = "partial"
+domains = ["identity", "property", "commerce", "civic"]
+evidence = ["Identity append-only lifecycle work including PR#542 and PR#544", "domain registries across Mycelix"]
+gap = "No generic registry lifecycle or conflict-preserving current-view theorem shared across domains."
+next = "REGISTRY-001"
+boundary = "Registry presence is evidence of an institutional record, not universal legal truth."
+
+[[capability]]
+id = "general.public_records"
+name = "Public-record creation, retention, disclosure, redaction, hold, archive, and disposal"
+cofog = "01"
+govtech = ["institutional_enablers"]
+status = "missing"
+domains = ["civic", "knowledge"]
+evidence = []
+gap = "Evidence records exist, but no government-grade records lifecycle and disclosure classification kernel exists."
+next = "RECORDS-001"
+boundary = "Record existence does not imply public-disclosure authority."
+
+[[capability]]
+id = "general.independent_audit"
+name = "Independent public audit, findings, responses, and remediation"
+cofog = "01"
+govtech = ["institutional_enablers", "core_government_systems"]
+status = "partial"
+domains = ["accounting", "governance", "civic"]
+evidence = ["Accounting qualification architecture", "evidence-first qualification patterns throughout repository"]
+gap = "No reusable independence/scope/finding/response/remediation public-audit theorem."
+next = "ACCOUNT-001"
+boundary = "Audit finding is not guilt, sanction, or execution authority."
+
+[[capability]]
+id = "general.public_financial_management"
+name = "Budget, appropriation, commitment, obligation, acceptance, disbursement, and accounting"
+cofog = "01"
+govtech = ["core_government_systems"]
+status = "partial"
+domains = ["finance", "accounting", "business", "governance"]
+evidence = ["PR#178 institutional composition", "Finance safety stacks", "Business Golden Paths"]
+gap = "Private/organizational finance semantics do not yet encode public appropriation and expenditure authority."
+next = "PFM-001"
+boundary = "Budget, appropriation, obligation, payment, and accounting recognition remain distinct facts."
+
+[[capability]]
+id = "general.public_procurement"
+name = "Public procurement from solicitation through award, protest, contract, performance, and audit"
+cofog = "01"
+govtech = ["core_government_systems"]
+status = "partial"
+domains = ["business", "commerce", "supply-chain", "finance", "accounting", "governance"]
+evidence = ["PR#240 procurement Golden Path", "PR#249/#265 closure qualification algebra"]
+gap = "Public-law tender, evaluator conflict, award, protest, transparency, and contract-modification semantics are absent."
+next = "PROC-001"
+boundary = "Qualified award is not payment authority."
+
+[[capability]]
+id = "general.tax_administration"
+name = "Tax registration, assessment, filing, payment, dispute, refund, and enforcement evidence"
+cofog = "01"
+govtech = ["core_government_systems"]
+status = "partial"
+domains = ["finance", "accounting", "identity", "commerce"]
+evidence = ["Finance and Accounting domains", "Identity and Commerce evidence primitives"]
+gap = "No tax-specific assessment, statutory period, return, appeal, collection, and refund authority profile."
+next = "TAX-001 after ADMIN/PFM/REGISTRY"
+boundary = "Tax calculation or assessment evidence is not seizure authority."
+
+[[capability]]
+id = "general.civil_service_hr_payroll"
+name = "Public workforce establishment, appointment, payroll, discipline, and separation"
+cofog = "01"
+govtech = ["core_government_systems"]
+status = "partial"
+domains = ["identity", "business", "finance", "governance"]
+evidence = ["Business workforce/obligation primitives", "Identity authority work", "Finance settlement semantics"]
+gap = "No public establishment-position-appointment-tenure-discipline-payroll profile."
+next = "CIVILSERVICE-001 after ADMIN/REGISTRY/PFM"
+boundary = "Employment record does not itself confer public office authority."
+
+[[capability]]
+id = "general.public_debt"
+name = "Public debt authorization, issuance, servicing, and reporting"
+cofog = "01"
+govtech = ["core_government_systems"]
+status = "missing"
+domains = ["finance", "governance", "accounting"]
+evidence = []
+gap = "No sovereign/public debt authority or debt-service lifecycle semantics."
+next = "DEBT-001 after PFM-001"
+boundary = "Debt-model output is not borrowing authority."
+
+[[capability]]
+id = "general.public_investment"
+name = "Public investment project appraisal, authorization, delivery, benefits, and closeout"
+cofog = "01"
+govtech = ["core_government_systems"]
+status = "partial"
+domains = ["business", "finance", "commons", "governance"]
+evidence = ["Business project/closure algebra", "Commons property/infrastructure work", "Finance qualification work"]
+gap = "No public investment gate from appraisal through appropriation, procurement, delivery, benefits, and post-review."
+next = "PIM-001 after PFM/PROC"
+boundary = "Appraisal or forecast is not project authorization."
+
+[[capability]]
+id = "general.intergovernmental_transfers"
+name = "Intergovernmental grants and transfers"
+cofog = "01"
+govtech = ["core_government_systems"]
+status = "partial"
+domains = ["finance", "governance", "municipal"]
+evidence = ["Municipal Foundations line", "Finance transfer semantics"]
+gap = "No formula/allocation/appropriation/conditions/reconciliation profile for public transfers."
+next = "IGT-001 after PFM-001"
+boundary = "Allocation formula does not itself authorize disbursement."
+
+[[capability]]
+id = "defense.civilian_governance"
+name = "Civilian governance, budgeting, and audit of defense institutions"
+cofog = "02"
+govtech = ["institutional_enablers", "core_government_systems"]
+status = "partial"
+domains = ["governance", "finance", "accounting"]
+evidence = ["Generic governance and financial authority primitives"]
+gap = "No defense-specific oversight profile."
+next = "DEFENSE-GOV-001 only if in scope"
+boundary = "Weapons employment, targeting, combat command, and lethal-force execution are outside ordinary Mycelix authority."
+
+[[capability]]
+id = "defense.combat_command"
+name = "Combat command, targeting, and lethal-force execution"
+cofog = "02"
+govtech = ["external_reserved_function"]
+status = "external_by_design"
+domains = ["none"]
+evidence = ["Repository-wide authority/effect separation patterns"]
+gap = "Intentionally not an ordinary platform capability."
+next = "none"
+boundary = "Mycelix must not become an autonomous lethal-force command or targeting authority."
+
+[[capability]]
+id = "safety.justice_adjudication"
+name = "Justice case evidence and adjudication semantics"
+cofog = "03"
+govtech = ["service_delivery", "institutional_enablers"]
+status = "partial"
+domains = ["justice", "civic"]
+evidence = ["justice-adjudication-evidence qualification workflow", "Justice arbitration/resolution work"]
+gap = "General administrative/judicial review, court procedure, remedies, and enforcement separation remain incomplete."
+next = "ADMIN-003 then JUSTICE-PROC-001"
+boundary = "Adjudication evidence is not physical enforcement authority."
+
+[[capability]]
+id = "safety.emergency_management"
+name = "Emergency incident coordination, mutual aid, alerts, and resource requests"
+cofog = "03"
+govtech = ["service_delivery"]
+status = "partial"
+domains = ["emergency", "mutualaid", "pulse"]
+evidence = ["mycelix-emergency", "mycelix-mutualaid", "Pulse communications"]
+gap = "No unified incident-command/public-authority profile with emergency declaration and expiry semantics."
+next = "EMERGENCY-001 after ADMIN/GOVSYS-002"
+boundary = "Emergency declaration does not erase ordinary evidence, review, expiry, or rights constraints."
+
+[[capability]]
+id = "safety.police_physical_enforcement"
+name = "Police detention, search, seizure, and physical enforcement"
+cofog = "03"
+govtech = ["external_reserved_function"]
+status = "external_by_design"
+domains = ["justice", "civic"]
+evidence = ["Justice evidence primitives may support audit and warrants"]
+gap = "Physical coercion intentionally remains outside ordinary software execution authority."
+next = "none"
+boundary = "Mycelix may carry qualified legal authority/evidence but must not autonomously exercise physical coercion."
+
+[[capability]]
+id = "safety.fire_rescue_dispatch"
+name = "Fire/rescue incident intake, dispatch evidence, and response coordination"
+cofog = "03"
+govtech = ["service_delivery"]
+status = "partial"
+domains = ["emergency", "pulse"]
+evidence = ["mycelix-emergency", "Pulse realtime communication"]
+gap = "No public-safety dispatch lifecycle, unit status, command, and after-action profile."
+next = "EMERGENCY-001"
+boundary = "Software coordination must not fabricate responder availability or command authority."
+
+[[capability]]
+id = "economic.business_registration"
+name = "Business registration and legal-entity public record"
+cofog = "04"
+govtech = ["service_delivery", "core_government_systems"]
+status = "partial"
+domains = ["commerce", "identity", "business"]
+evidence = ["Identity and Business institutional semantics", "Commerce domain"]
+gap = "Needs generic authoritative registry and administrative decision semantics."
+next = "REGISTRY-001 + ADMIN-001"
+boundary = "Registration record is not universal proof of beneficial ownership, licensing, or tax standing."
+
+[[capability]]
+id = "economic.customs_border_goods"
+name = "Customs declarations, classification, valuation, duty, release, and audit"
+cofog = "04"
+govtech = ["core_government_systems", "service_delivery"]
+status = "partial"
+domains = ["supply-chain", "commerce", "finance", "identity"]
+evidence = ["Supply-chain provenance", "Commerce and Finance semantics"]
+gap = "No customs declaration, tariff/classification, inspection, release, or appeal profile."
+next = "CUSTOMS-001 after ADMIN/REGISTRY/PFM"
+boundary = "Supply-chain evidence does not itself create border-release authority."
+
+[[capability]]
+id = "economic.transport_regulation"
+name = "Transport operator/vehicle licensing, safety compliance, and infrastructure regulation"
+cofog = "04"
+govtech = ["service_delivery"]
+status = "partial"
+domains = ["transport", "identity", "property"]
+evidence = ["Transport and property-related domain work"]
+gap = "No generic license/inspection/sanction administrative profile."
+next = "REGULATORY-001"
+boundary = "Telemetry or registry state is not regulatory guilt or sanction authority."
+
+[[capability]]
+id = "economic.labor_market_administration"
+name = "Labor standards, employment services, workplace claims, and inspections"
+cofog = "04"
+govtech = ["service_delivery"]
+status = "partial"
+domains = ["business", "care", "identity", "justice"]
+evidence = ["Business workforce semantics", "Justice evidence primitives"]
+gap = "No labor-law claims, inspector authority, remedy, or employment-service administrative profile."
+next = "LABOR-001 after ADMIN/REGULATORY"
+boundary = "Employment data does not itself establish violation or remedy."
+
+[[capability]]
+id = "economic.agriculture_administration"
+name = "Agricultural registration, support programs, biosecurity, and market administration"
+cofog = "04"
+govtech = ["service_delivery"]
+status = "partial"
+domains = ["food", "climate", "commerce", "commons"]
+evidence = ["Food/climate/commerce domain capabilities"]
+gap = "No agriculture-specific benefit/licensing/inspection administrative profile."
+next = "AGRI-001 after reusable ADMIN/REGISTRY/REGULATORY"
+boundary = "Scientific or sensor evidence is not benefit, quarantine, or sanction authority."
+
+[[capability]]
+id = "economic.communications_regulation"
+name = "Communications/spectrum/provider regulation"
+cofog = "04"
+govtech = ["service_delivery", "institutional_enablers"]
+status = "partial"
+domains = ["network", "governance", "identity"]
+evidence = ["Network/decentralized infrastructure work", "institutional authority primitives"]
+gap = "No regulator licensing/spectrum allocation/compliance/sanction profile."
+next = "REGULATORY-001"
+boundary = "Network participation is not regulatory authorization."
+
+[[capability]]
+id = "environment.environmental_permitting"
+name = "Environmental permits, conditions, monitoring, inspections, and enforcement evidence"
+cofog = "05"
+govtech = ["service_delivery"]
+status = "partial"
+domains = ["climate", "commons", "governance"]
+evidence = ["PR#389/#390 climate authority hardening", "planetary evidence/risk work"]
+gap = "No generic permit/inspection/corrective-action/sanction/appeal profile."
+next = "REGULATORY-001"
+boundary = "Environmental observation or risk model is not permit or sanction authority."
+
+[[capability]]
+id = "environment.waste_management"
+name = "Waste-service administration, manifests, facilities, and compliance"
+cofog = "05"
+govtech = ["service_delivery"]
+status = "partial"
+domains = ["commons", "climate", "municipal"]
+evidence = ["Commons/municipal service foundations"]
+gap = "No waste-specific service, manifest, facility, and regulatory profile."
+next = "WASTE-001 after REGULATORY/REGISTRY"
+boundary = "Manifest evidence does not prove lawful disposal without owning-domain qualification."
+
+[[capability]]
+id = "environment.pollution_statistics"
+name = "Official environmental indicators and pollution statistics"
+cofog = "05"
+govtech = ["institutional_enablers"]
+status = "missing"
+domains = ["climate", "knowledge"]
+evidence = []
+gap = "Environmental observations exist, but no official-statistics release semantics."
+next = "STATS-001"
+boundary = "Observation, modeled risk, statistic, causal inference, and policy decision remain distinct."
+
+[[capability]]
+id = "housing.land_registry"
+name = "Land/property authoritative registry and interests"
+cofog = "06"
+govtech = ["core_government_systems", "service_delivery"]
+status = "partial"
+domains = ["property", "housing", "identity", "municipal"]
+evidence = ["mycelix-property", "mycelix-housing", "Municipal Foundations"]
+gap = "No shared registry theorem for title/interests/corrections/conflicts/currentness."
+next = "REGISTRY-001/002"
+boundary = "Property record does not become legal title merely by DHT presence."
+
+[[capability]]
+id = "housing.building_permits"
+name = "Planning and building permit administration"
+cofog = "06"
+govtech = ["service_delivery"]
+status = "partial"
+domains = ["housing", "property", "municipal"]
+evidence = ["Housing/property/municipal domain foundations"]
+gap = "Needs administrative procedure, registry, inspection, and regulatory profiles."
+next = "ADMIN-001 + REGULATORY-001"
+boundary = "Plan/model acceptance is not construction permission without competent authority."
+
+[[capability]]
+id = "housing.municipal_service_requests"
+name = "Municipal service request intake, routing, evidence, and closure"
+cofog = "06"
+govtech = ["service_delivery"]
+status = "strong_foundation"
+domains = ["municipal", "commons"]
+evidence = ["Municipal Foundations v4 service-request boundary and typed evidence work"]
+gap = "Still needs generalized administrative/public-record composition and field qualification."
+next = "ADMIN-001 + RECORDS-001"
+boundary = "Service-request closure is not proof that broader statutory obligations were satisfied."
+
+[[capability]]
+id = "housing.water_services"
+name = "Public water service administration, metering evidence, and infrastructure coordination"
+cofog = "06"
+govtech = ["service_delivery"]
+status = "partial"
+domains = ["water", "commons", "municipal"]
+evidence = ["mycelix-water", "Commons and municipal infrastructure work"]
+gap = "No public tariff/entitlement/regulatory/utility-account profile."
+next = "UTILITY-001 after ADMIN/PFM/REGULATORY"
+boundary = "Meter observation is not billing, shutoff, or enforcement authority."
+
+[[capability]]
+id = "health.health_records_and_consent"
+name = "Health records, consent evidence, provider identity, and care coordination"
+cofog = "07"
+govtech = ["service_delivery"]
+status = "partial"
+domains = ["health", "care", "identity"]
+evidence = ["mycelix-health", "mycelix-care", "Identity/consent primitives"]
+gap = "No public-health administrative/registry/official-statistics profile and no claim of clinical-system readiness."
+next = "HEALTH-ADMIN-001 after ADMIN/REGISTRY/STATS"
+boundary = "Record exchange and decision support are not medical diagnosis, treatment authority, or licensure."
+
+[[capability]]
+id = "health.public_health_surveillance"
+name = "Public-health surveillance and official epidemiological statistics"
+cofog = "07"
+govtech = ["institutional_enablers", "service_delivery"]
+status = "partial"
+domains = ["health", "knowledge", "immune"]
+evidence = ["Health domain and federated-learning/immune-system concepts"]
+gap = "Needs official-statistics, privacy, public-health authority, revision, and release semantics."
+next = "STATS-001 then PUBLICHEALTH-001"
+boundary = "Model or anomaly signal is not an official case count, public-health order, or treatment decision."
+
+[[capability]]
+id = "health.provider_licensing"
+name = "Health professional/facility licensing and discipline"
+cofog = "07"
+govtech = ["service_delivery"]
+status = "missing"
+domains = ["health", "identity", "justice"]
+evidence = []
+gap = "No generic professional-license lifecycle and disciplinary administrative profile."
+next = "REGISTRY-001 + ADMIN-003 + REGULATORY-001"
+boundary = "Identity credentials are not professional licensure."
+
+[[capability]]
+id = "culture.cultural_grants"
+name = "Arts/cultural grant applications, awards, conditions, and reporting"
+cofog = "08"
+govtech = ["service_delivery"]
+status = "partial"
+domains = ["music", "media", "finance", "governance"]
+evidence = ["Music creator accounting stack", "Governance and Finance semantics"]
+gap = "No public-grant administrative and appropriation profile."
+next = "GRANTS-001 after ADMIN/PFM"
+boundary = "Artistic merit models or community preference do not create award authority."
+
+[[capability]]
+id = "culture.public_media"
+name = "Public-media governance, provenance, grants, and accountability"
+cofog = "08"
+govtech = ["service_delivery", "digital_participation"]
+status = "partial"
+domains = ["media", "pulse", "governance"]
+evidence = ["mycelix-media", "Pulse social/communications work"]
+gap = "No public-media charter/independence/funding/accountability profile."
+next = "PUBLICMEDIA-001 after GOVSYS-002/ACCOUNT-001"
+boundary = "Platform moderation or recommendation is not public-media editorial authority."
+
+[[capability]]
+id = "culture.recreation_public_facilities"
+name = "Public recreation/facility registration, booking, grants, and maintenance"
+cofog = "08"
+govtech = ["service_delivery"]
+status = "partial"
+domains = ["commons", "municipal"]
+evidence = ["Commons property and municipal service foundations"]
+gap = "Needs registry, public asset, fee/entitlement, and administrative profiles."
+next = "PUBLICASSET-001 after REGISTRY/PFM"
+boundary = "Booking record does not create ownership or unrestricted access rights."
+
+[[capability]]
+id = "education.student_records"
+name = "Student enrollment, academic records, credentials, and corrections"
+cofog = "09"
+govtech = ["service_delivery"]
+status = "partial"
+domains = ["knowledge", "identity"]
+evidence = ["Knowledge and Identity provenance primitives"]
+gap = "No education-specific authoritative registry, institution authority, credential issuance, and correction profile."
+next = "EDU-001 after REGISTRY/ADMIN"
+boundary = "Knowledge graph claims are not accredited academic credentials."
+
+[[capability]]
+id = "education.school_administration"
+name = "Public school admission, funding, staffing, attendance, and governance"
+cofog = "09"
+govtech = ["service_delivery", "core_government_systems"]
+status = "missing"
+domains = ["knowledge", "governance", "finance"]
+evidence = []
+gap = "No education-administration profile composing enrollment, funding, workforce, and governance."
+next = "EDU-002 after ADMIN/REGISTRY/PFM/CIVILSERVICE"
+boundary = "Education analytics do not create enrollment, discipline, or funding authority."
+
+[[capability]]
+id = "education.accreditation"
+name = "Institution/program accreditation and professional education quality assurance"
+cofog = "09"
+govtech = ["service_delivery"]
+status = "missing"
+domains = ["knowledge", "identity", "governance"]
+evidence = []
+gap = "No accreditation inspection/decision/review lifecycle."
+next = "ACCREDIT-001 after REGULATORY/ADMIN"
+boundary = "Reputation or model scores cannot substitute for accredited authority."
+
+[[capability]]
+id = "social.benefit_eligibility"
+name = "Social-benefit application, eligibility, award, payment, renewal, and appeal"
+cofog = "10"
+govtech = ["service_delivery", "core_government_systems"]
+status = "partial"
+domains = ["care", "mutualaid", "finance", "identity"]
+evidence = ["Care/mutual-aid domains", "Finance and Identity semantics"]
+gap = "No public entitlement administrative profile with statutory eligibility, award, renewal, overpayment, and appeal semantics."
+next = "BENEFITS-001 after ADMIN/REGISTRY/PFM"
+boundary = "Eligibility evidence is not benefit award; benefit award is not payment settlement."
+
+[[capability]]
+id = "social.unemployment_support"
+name = "Unemployment insurance/support administration"
+cofog = "10"
+govtech = ["service_delivery"]
+status = "missing"
+domains = ["care", "finance", "identity", "business"]
+evidence = []
+gap = "No earnings/employment contribution history plus statutory entitlement profile."
+next = "BENEFITS-001 specialization"
+boundary = "Employment record or model prediction is not entitlement authority."
+
+[[capability]]
+id = "social.pension_administration"
+name = "Public pension contribution, eligibility, award, payment, and survivor/dependent administration"
+cofog = "10"
+govtech = ["service_delivery", "core_government_systems"]
+status = "missing"
+domains = ["finance", "identity", "care"]
+evidence = []
+gap = "No pension account/entitlement/public-fund authority profile."
+next = "PENSION-001 after BENEFITS/PFM"
+boundary = "Contribution record is not pension entitlement or disbursement authority."
+
+[[capability]]
+id = "social.housing_assistance"
+name = "Housing-assistance eligibility, allocation, payment, and review"
+cofog = "10"
+govtech = ["service_delivery"]
+status = "partial"
+domains = ["housing", "care", "finance", "identity"]
+evidence = ["Housing/Care/Finance/Identity domains"]
+gap = "No statutory assistance, waitlist/allocation, award, recertification, and appeal profile."
+next = "BENEFITS-001 + HOUSING-AID-001"
+boundary = "Need/risk assessment is not entitlement or allocation authority."
+
+[[capability]]
+id = "cross.digital_identity"
+name = "Public-sector digital identity, key provenance, lifecycle, and selective evidence"
+cofog = "01"
+govtech = ["institutional_enablers"]
+status = "strong_foundation"
+domains = ["identity"]
+evidence = ["Identity V2 authority/provenance stack", "PR#371", "PR#392", "PR#542/#544"]
+gap = "Government credential profiles and generic registry/legal-status bindings remain separate future work."
+next = "REGISTRY-001 and domain credential profiles"
+boundary = "Cryptographic identity is not citizenship, residency, personhood, office, or entitlement by itself."
+
+[[capability]]
+id = "cross.public_elections"
+name = "Public-election assurance, evidence, verification, and certification prerequisites"
+cofog = "01"
+govtech = ["digital_participation", "institutional_enablers"]
+status = "strong_foundation"
+domains = ["governance"]
+evidence = ["PR#763 ELECT-001..006", "PR#765", "PR#768", "PR#774", "PR#775", "PR#782 adversarial corpus"]
+gap = "Concrete ballot/eligibility/tally cryptography, independent verifier lineages, field deployment, and legal certification remain unqualified."
+next = "continue ELECT protocol bake-off and cryptographic qualification"
+boundary = "Ordinary weighted/quadratic/delegated Mycelix governance is not silently promoted into public-election authority."
+
+[[capability]]
+id = "cross.digital_participation"
+name = "Petitions, deliberation, consultation, civic proposals, and participatory governance"
+cofog = "01"
+govtech = ["digital_participation"]
+status = "partial"
+domains = ["governance", "pulse", "praxis"]
+evidence = ["Governance domain", "Pulse", "Praxis"]
+gap = "Needs explicit consultation record, representativeness limits, response duties, and administrative linkage."
+next = "PARTICIPATION-001 after GOVSYS-002/RECORDS"
+boundary = "Participation signal, popularity, or reputation is not formal public authority."
+
+[[capability]]
+id = "cross.official_statistics"
+name = "Official statistics methodology, production, revision, confidentiality, and release"
+cofog = "01"
+govtech = ["institutional_enablers"]
+status = "missing"
+domains = ["knowledge", "climate", "health", "economy"]
+evidence = []
+gap = "No formal separation among administrative records, observations, statistical estimates, revisions, forecasts, simulations, and official releases."
+next = "STATS-001"
+boundary = "Symthaea analysis or Symtropy simulation cannot silently become an official statistic or policy decision."
+
+[[capability]]
+id = "cross.regulatory_administration"
+name = "Licensing, permitting, inspection, findings, corrective action, sanctions, and appeal"
+cofog = "01"
+govtech = ["service_delivery", "institutional_enablers"]
+status = "missing"
+domains = ["civic", "justice", "governance"]
+evidence = []
+gap = "No reusable regulator case lifecycle over administrative procedure and authoritative registries."
+next = "REGULATORY-001"
+boundary = "Inspection finding is not sanction; sanction requires separate competent authority and review semantics."
+
+[[capability]]
+id = "cross.interoperability"
+name = "Purpose-bound public-sector interoperability and evidence exchange"
+cofog = "01"
+govtech = ["institutional_enablers"]
+status = "partial"
+domains = ["integration", "identity", "business"]
+evidence = ["PR#489/#490 integration constitution/core", "PR#492 durable runtime", "later INT authority/currentness stacks"]
+gap = "No government-specific purpose/legal-basis/minimization disclosure receipt joining authoritative registries."
+next = "REGISTRY-003"
+boundary = "Connectivity or possession of a reference does not imply dereference/disclosure authority."
+
+[[capability]]
+id = "cross.external_effect_safety"
+name = "Durable, current-authority-bound external administrative effects"
+cofog = "01"
+govtech = ["institutional_enablers"]
+status = "strong_foundation"
+domains = ["integration", "authority", "ssf"]
+evidence = ["PR#492 durable integration runtime", "PR#539 mutation exclusion", "PR#615 convergence", "PR#646/#653 preexecution lines", "SSF replay/execution lines"]
+gap = "Each governmental effect still needs its own adapter, provider policy, qualified current authority, and field evidence."
+next = "domain effect adapters only after pure government semantics qualify"
+boundary = "Durable intent, queue claim, preexecution admission, and external effect remain distinct."

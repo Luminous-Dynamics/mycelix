@@ -1,0 +1,68 @@
+name: GOVSYS-001 Capability Matrix
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/docs/government/**'
+      - 'scripts/qualification/govsys_capability_matrix_v0_1.py'
+      - '.github/workflows/govsys-capability-matrix.yml'
+  push:
+    branches:
+      - 'docs/govsys-001-capability-matrix-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: govsys-001-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Conservative whole-of-government census
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+
+      - name: Execution identity
+        run: |
+          git rev-parse HEAD
+          python3 --version
+
+      - name: Validate matrix contract
+        run: python3 scripts/qualification/govsys_capability_matrix_v0_1.py
+
+      - name: Closed-world scope audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          matrix = Path('mycelix-workspace/docs/government/capability-matrix-v0.1.toml').read_text()
+          readme = Path('mycelix-workspace/docs/government/README.md').read_text()
+
+          forbidden = [
+              'status = "complete"',
+              'status = "solved"',
+              'status = "production_ready"',
+              'status = "government_ready"',
+          ]
+          for needle in forbidden:
+              assert needle not in matrix.lower(), needle
+
+          required_boundaries = [
+              'source of governmental legitimacy',
+              'There is intentionally no `complete`',
+              'external_by_design',
+              'capability-oriented, not agency-oriented',
+          ]
+          for needle in required_boundaries:
+              assert needle in readme, needle
+
+          print('PASS: GOVSYS-001 remains a measurement contract, not a governmental-readiness claim')
+          PY
+
+      - name: Immutable checkout postflight
+        run: test -z "$(git status --short)"
