@@ -1,0 +1,15 @@
+[package]
+name = "election-physical-evidence"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Paper ballot accounting, custody, CVR reconciliation, and audit evidence contracts for Mycelix public elections"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+election-integrity-types = { path = "../election-integrity-types" }
+
+[workspace]
