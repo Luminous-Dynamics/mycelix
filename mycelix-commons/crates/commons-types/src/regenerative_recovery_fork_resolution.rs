@@ -83,20 +83,26 @@ impl RegenerativeRecoveryForkResolutionEvidenceV1 {
         let first = &self.conflicting_recovery_evidence_content_digests[0];
         let second = &self.conflicting_recovery_evidence_content_digests[1];
         if !lower_hex_64(first) || !lower_hex_64(second) || first >= second {
-            return Err("recovery fork branch digests must be distinct canonical lexical order".into());
+            return Err(
+                "recovery fork branch digests must be distinct canonical lexical order".into(),
+            );
         }
         match self.outcome {
             RegenerativeRecoveryForkResolutionOutcomeV1::RetainSelectedBranch => {
                 let selected = self
                     .selected_recovery_evidence_content_digest
                     .as_deref()
-                    .ok_or_else(|| "retain outcome requires a selected branch digest".to_string())?;
+                    .ok_or_else(|| {
+                        "retain outcome requires a selected branch digest".to_string()
+                    })?;
                 if !self
                     .conflicting_recovery_evidence_content_digests
                     .iter()
                     .any(|digest| digest == selected)
                 {
-                    return Err("selected recovery branch is not one of the bound fork branches".into());
+                    return Err(
+                        "selected recovery branch is not one of the bound fork branches".into(),
+                    );
                 }
             }
             RegenerativeRecoveryForkResolutionOutcomeV1::SuspendReserve => {
@@ -158,7 +164,8 @@ pub fn verify_regenerative_recovery_fork_resolution(
             != sibling_branch.viability_evidence_content_digest
         || current_branch.support_closure_continuity_content_digest
             != sibling_branch.support_closure_continuity_content_digest
-        || current_branch.reserve_spend_sequence_after != sibling_branch.reserve_spend_sequence_after
+        || current_branch.reserve_spend_sequence_after
+            != sibling_branch.reserve_spend_sequence_after
         || current_branch.reserve_spend_sequence_before
             != sibling_branch.reserve_spend_sequence_before
         || current_branch.reserve_units_before != sibling_branch.reserve_units_before
@@ -176,7 +183,10 @@ pub fn verify_regenerative_recovery_fork_resolution(
         // previously ingested. Here we require the sibling to claim that same exact
         // predecessor digest; replaying the unavailable predecessor object is not
         // necessary to bind the fork-resolution subject.
-        if current_branch.previous_recovery_evidence_content_digest.is_none() {
+        if current_branch
+            .previous_recovery_evidence_content_digest
+            .is_none()
+        {
             return Err("non-root recovery fork is missing predecessor evidence".into());
         }
     }
@@ -258,8 +268,8 @@ fn lower_hex_64(value: &str) -> bool {
 mod tests {
     use super::*;
     use crate::{
-        RegenerativeRecoveryFlowKindEvidenceV1, RegenerativeRecoveryReserveDispositionV1,
         REGENERATIVE_RECOVERY_COORDINATE_EVIDENCE_SCHEMA_V1,
+        RegenerativeRecoveryFlowKindEvidenceV1, RegenerativeRecoveryReserveDispositionV1,
     };
 
     fn record(
@@ -317,7 +327,10 @@ mod tests {
         sibling: &RegenerativeRecoveryCoordinateEvidenceV1,
         selected: Option<String>,
     ) -> RegenerativeRecoveryForkResolutionEvidenceV1 {
-        let mut branches = vec![current.content_digest().unwrap(), sibling.content_digest().unwrap()];
+        let mut branches = vec![
+            current.content_digest().unwrap(),
+            sibling.content_digest().unwrap(),
+        ];
         branches.sort();
         RegenerativeRecoveryForkResolutionEvidenceV1 {
             schema_version: REGENERATIVE_RECOVERY_FORK_RESOLUTION_SCHEMA_V1,
@@ -371,13 +384,10 @@ mod tests {
     fn explicit_resolution_can_retain_current_branch_and_resume() {
         let (mut head, current, sibling) = frozen_fork();
         let decision = resolution(&current, &sibling, Some(current.content_digest().unwrap()));
-        assert!(apply_regenerative_recovery_fork_resolution(
-            &mut head,
-            &current,
-            &sibling,
-            &decision,
-        )
-        .unwrap());
+        assert!(
+            apply_regenerative_recovery_fork_resolution(&mut head, &current, &sibling, &decision,)
+                .unwrap()
+        );
         assert!(!head.fork_pending());
         assert_eq!(head.available_units(), current.reserve_units_after);
 
@@ -398,13 +408,10 @@ mod tests {
     fn explicit_resolution_can_switch_to_sibling_branch() {
         let (mut head, current, sibling) = frozen_fork();
         let decision = resolution(&current, &sibling, Some(sibling.content_digest().unwrap()));
-        assert!(apply_regenerative_recovery_fork_resolution(
-            &mut head,
-            &current,
-            &sibling,
-            &decision,
-        )
-        .unwrap());
+        assert!(
+            apply_regenerative_recovery_fork_resolution(&mut head, &current, &sibling, &decision,)
+                .unwrap()
+        );
         assert!(!head.fork_pending());
         assert_eq!(head.evidence_digest(), sibling.content_digest().unwrap());
         assert_eq!(head.available_units(), sibling.reserve_units_after);
@@ -414,13 +421,10 @@ mod tests {
     fn suspension_is_explicit_and_keeps_cursor_frozen() {
         let (mut head, current, sibling) = frozen_fork();
         let decision = resolution(&current, &sibling, None);
-        assert!(!apply_regenerative_recovery_fork_resolution(
-            &mut head,
-            &current,
-            &sibling,
-            &decision,
-        )
-        .unwrap());
+        assert!(
+            !apply_regenerative_recovery_fork_resolution(&mut head, &current, &sibling, &decision,)
+                .unwrap()
+        );
         assert!(head.fork_pending());
     }
 
@@ -429,12 +433,9 @@ mod tests {
         let (head, current, sibling) = frozen_fork();
         let mut decision = resolution(&current, &sibling, Some(current.content_digest().unwrap()));
         decision.selected_recovery_evidence_content_digest = Some("aa".repeat(32));
-        assert!(verify_regenerative_recovery_fork_resolution(
-            &head,
-            &current,
-            &sibling,
-            &decision,
-        )
-        .is_err());
+        assert!(
+            verify_regenerative_recovery_fork_resolution(&head, &current, &sibling, &decision,)
+                .is_err()
+        );
     }
 }
