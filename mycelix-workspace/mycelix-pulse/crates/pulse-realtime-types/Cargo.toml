@@ -9,6 +9,5 @@ description = "Transport-neutral, non-authoritative realtime hint contracts for 
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
-
-[dev-dependencies]
 serde_json = "1"
+rmp-serde = "1"
