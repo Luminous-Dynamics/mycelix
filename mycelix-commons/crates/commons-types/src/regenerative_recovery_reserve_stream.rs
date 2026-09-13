@@ -17,7 +17,7 @@
 //! if any, is authoritative.
 
 use crate::{
-    verify_regenerative_recovery_reserve_lineage, RegenerativeRecoveryCoordinateEvidenceV1,
+    RegenerativeRecoveryCoordinateEvidenceV1, verify_regenerative_recovery_reserve_lineage,
 };
 use serde::{Deserialize, Serialize};
 
@@ -159,7 +159,9 @@ impl RegenerativeRecoveryReserveHeadV1 {
 
         if candidate.reserve_spend_sequence_before != self.spend_sequence
             || candidate.reserve_units_before != self.available_units
-            || candidate.previous_recovery_evidence_content_digest.as_deref()
+            || candidate
+                .previous_recovery_evidence_content_digest
+                .as_deref()
                 != Some(self.evidence_digest.as_str())
         {
             return Ok(RegenerativeRecoveryReserveDispositionV1::Fork);
@@ -212,7 +214,9 @@ impl RegenerativeRecoveryReserveHeadV1 {
 
         let selected_digest = selected.content_digest()?;
         if selected_digest != self.evidence_digest && selected_digest != pending {
-            return Err("selected recovery evidence is not one of the observed fork branches".into());
+            return Err(
+                "selected recovery evidence is not one of the observed fork branches".into(),
+            );
         }
 
         self.available_units = selected.reserve_units_after;
@@ -226,8 +230,8 @@ impl RegenerativeRecoveryReserveHeadV1 {
 mod tests {
     use super::*;
     use crate::{
-        RegenerativeRecoveryCoordinateEvidenceV1, RegenerativeRecoveryFlowKindEvidenceV1,
         REGENERATIVE_RECOVERY_COORDINATE_EVIDENCE_SCHEMA_V1,
+        RegenerativeRecoveryCoordinateEvidenceV1, RegenerativeRecoveryFlowKindEvidenceV1,
     };
 
     fn record(
@@ -322,8 +326,7 @@ mod tests {
             RegenerativeRecoveryReserveDispositionV1::Gap
         );
 
-        let mut wrong_reserve =
-            record("spend-wrong-reserve", 1, 2, Some(first_digest.clone()));
+        let mut wrong_reserve = record("spend-wrong-reserve", 1, 2, Some(first_digest.clone()));
         wrong_reserve.external_recovery_reserve_id = "reserve-other".into();
         assert_eq!(
             head.classify(&wrong_reserve).unwrap(),
