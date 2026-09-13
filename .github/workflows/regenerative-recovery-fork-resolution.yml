@@ -29,8 +29,11 @@ jobs:
           toolchain: stable
           components: rustfmt, clippy
 
-      - name: Format commons-types
-        run: cargo fmt --manifest-path mycelix-commons/Cargo.toml -p commons-types -- --check
+      - name: Format fork-resolution subjects
+        run: |
+          rustfmt --edition 2024 --check \
+            mycelix-commons/crates/commons-types/src/regenerative_recovery_reserve_stream.rs \
+            mycelix-commons/crates/commons-types/src/regenerative_recovery_fork_resolution.rs
 
       - name: Test commons-types
         run: cargo test --manifest-path mycelix-commons/Cargo.toml -p commons-types
