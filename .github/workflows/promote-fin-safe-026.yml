@@ -1,0 +1,125 @@
+name: Promote Qualified FIN-SAFE-026
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/promote-fin-safe-026.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: promote-fin-safe-026
+  cancel-in-progress: false
+
+env:
+  SOURCE_SHA: '84a5519a766b3731e910deed4d06d0b0bc6493a0'
+  PRODUCT_BRANCH: 'fin-safe-026-claim-remap-theorem'
+  ARTIFACT_ID: '10308103361'
+  ARTIFACT_SHA256: 'c10d54b944c5a059b63304930655a373d457d95774bf6e6dd0c22adc1961891f'
+  TRANSFER_SOURCE_SHA256: '83333f3b7bb9f59cc6947ddbb8ed2303c09a5ac20d381ed98e8475515a495649'
+  CONSERVATION_MANIFEST_SHA256: '2900cb097630cb71a016c40be9137ba5dc35554a46e47739dddcfa40a37f3a2b'
+  LOCK_SHA256: '2fa0aae7b219218a0d358ac12fa63b596109613c3ea17c5751ce1f6d57630e93'
+  QUALIFICATION_RUN: '34729140379'
+
+jobs:
+  promote:
+    name: Promote exact FIN-SAFE-026 test bytes
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'ci-fin-safe-026-promote'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact FIN-SAFE-025 product base
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Bind exact base and prior evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(sha256sum mycelix-finance/Cargo.lock | awk '{print $1}')" = "$LOCK_SHA256"
+          test "$(sha256sum mycelix-finance/crates/finance-sap-conservation/Cargo.toml | awk '{print $1}')" = "$CONSERVATION_MANIFEST_SHA256"
+          if git ls-remote --exit-code --heads origin "$PRODUCT_BRANCH" >/dev/null 2>&1; then
+            echo "Destination branch already exists: $PRODUCT_BRANCH" >&2
+            exit 1
+          fi
+
+      - name: Download and verify FIN-SAFE-026 artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip" \
+            -o /tmp/fin-safe-026.zip
+          echo "${ARTIFACT_SHA256}  /tmp/fin-safe-026.zip" | sha256sum -c -
+          mkdir -p /tmp/fin-safe-026
+          unzip -q /tmp/fin-safe-026.zip -d /tmp/fin-safe-026
+
+          test -s /tmp/fin-safe-026/fin-safe-026-source/finance-sap-transfer-v2.lib.rs
+          test -s /tmp/fin-safe-026/fin-safe-026-source/finance-sap-conservation.Cargo.toml
+          test -s /tmp/fin-safe-026/fin-safe-026-Cargo.lock.sha256
+          echo "${TRANSFER_SOURCE_SHA256}  /tmp/fin-safe-026/fin-safe-026-source/finance-sap-transfer-v2.lib.rs" | sha256sum -c -
+          echo "${CONSERVATION_MANIFEST_SHA256}  /tmp/fin-safe-026/fin-safe-026-source/finance-sap-conservation.Cargo.toml" | sha256sum -c -
+          grep -F "${LOCK_SHA256}  mycelix-finance/Cargo.lock" /tmp/fin-safe-026/fin-safe-026-Cargo.lock.sha256
+
+      - name: Restore exact qualified transfer test source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp /tmp/fin-safe-026/fin-safe-026-source/finance-sap-transfer-v2.lib.rs \
+            mycelix-finance/crates/finance-sap-transfer-v2/src/lib.rs
+
+          cat > /tmp/expected-status.txt <<'EOF'
+           M mycelix-finance/crates/finance-sap-transfer-v2/src/lib.rs
+          EOF
+          git status --porcelain=v1 --untracked-files=all > /tmp/actual-status.txt
+          diff -u /tmp/expected-status.txt /tmp/actual-status.txt
+          git diff --check
+          test "$(sha256sum mycelix-finance/crates/finance-sap-transfer-v2/src/lib.rs | awk '{print $1}')" = "$TRANSFER_SOURCE_SHA256"
+          test "$(sha256sum mycelix-finance/Cargo.lock | awk '{print $1}')" = "$LOCK_SHA256"
+          test "$(sha256sum mycelix-finance/crates/finance-sap-conservation/Cargo.toml | awk '{print $1}')" = "$CONSERVATION_MANIFEST_SHA256"
+
+      - name: Create exact semantic commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git switch -c "$PRODUCT_BRANCH"
+          git config user.name 'Luminous Dynamics CI'
+          git config user.email 'actions@users.noreply.github.com'
+          git add mycelix-finance/crates/finance-sap-transfer-v2/src/lib.rs
+          test "$(git diff --cached --name-only | wc -l)" -eq 1
+          test "$(git diff --cached --name-only)" = 'mycelix-finance/crates/finance-sap-transfer-v2/src/lib.rs'
+          git diff --cached --check
+          git commit -m 'test(finance): prove authenticated SAP claim remap rejection' \
+            -m 'FIN-SAFE-026: strengthen the forged note-to-claim mapping theorem by preserving canonical note order while swapping only authenticated claim-action references. Shape validation remains valid and authenticated reconstruction rejects the remap as ClaimNoteMismatch.' \
+            -m "Qualified by run ${QUALIFICATION_RUN}, artifact ${ARTIFACT_ID}, outer SHA-256 ${ARTIFACT_SHA256}. The focused transfer suite and full cargo test --workspace --locked both passed on the exact cumulative lineage."
+
+          printf 'product_commit=%s\n' "$(git rev-parse HEAD)" | tee /tmp/fin-safe-026-promotion-receipt.txt
+          printf 'product_tree=%s\n' "$(git rev-parse HEAD^{tree})" | tee -a /tmp/fin-safe-026-promotion-receipt.txt
+          printf 'source_base=%s\nqualification_run=%s\nartifact_id=%s\nartifact_sha256=%s\ntransfer_source_sha256=%s\nlock_sha256=%s\n' \
+            "$SOURCE_SHA" "$QUALIFICATION_RUN" "$ARTIFACT_ID" "$ARTIFACT_SHA256" "$TRANSFER_SOURCE_SHA256" "$LOCK_SHA256" \
+            | tee -a /tmp/fin-safe-026-promotion-receipt.txt
+
+      - name: Push product branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push origin "HEAD:refs/heads/${PRODUCT_BRANCH}"
+
+      - name: Upload promotion receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fin-safe-026-promotion-${{ env.SOURCE_SHA }}-${{ github.run_attempt }}
+          path: /tmp/fin-safe-026-promotion-receipt.txt
+          if-no-files-found: warn
+          retention-days: 30
