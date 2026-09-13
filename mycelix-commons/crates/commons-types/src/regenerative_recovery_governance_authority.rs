@@ -1,17 +1,25 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
-//! Portable governance-authority evidence for recovery-reserve fork resolution.
+//! Portable composition between one exact recovery-fork resolution and Mycelix's
+//! existing threshold-authority theorem.
 //!
-//! This module deliberately does not depend on the Holochain governance zome
-//! crates. Instead it preserves the minimum facts required to compose an exact
-//! fork-resolution decision with an exact Mycelix governance proposal, threshold
-//! signature, signing committee and independent signature-verification receipt.
+//! This module deliberately does **not** define another signing committee,
+//! threshold, epoch, key, PQ policy, signer set, or cryptographic-verification
+//! model. Those semantics already belong to the governance authority stack:
+//! `QualifiedThresholdAuthorization` (#69), wrapped as
+//! `VerifiedThresholdAuthorization` (#71), with the stable semantic identity
+//! registered by #82.
 //!
-//! A `verified` boolean is intentionally not part of this evidence schema. The
-//! threshold-signing integrity zome's structural validator accepts well-shaped
-//! signatures independently of cryptographic verification, so recovery authority
-//! must bind a separate verification evidence subject rather than self-asserting
-//! finality.
+//! Commons proves only the translation/join:
+//!
+//! exact recovery-fork resolution
+//!   -> deterministic exact governance action JSON
+//!   -> registered execution-action digest/profile
+//!   == exact actions digest/profile carried by the qualified threshold authority
+//!   -> exact stable threshold-authorization identity/profile.
+//!
+//! The opaque evidence bindings in this portable record must be resolved by the
+//! governance authority provider. Their mere presence is not cryptographic proof.
 
 use crate::{
     MaritimeEvidenceEnvelope, MaritimeEvidenceKind,
@@ -20,72 +28,87 @@ use crate::{
 use serde::{Deserialize, Serialize};
 
 pub const REGENERATIVE_RECOVERY_GOVERNANCE_AUTHORITY_SCHEMA_V1: u8 = 1;
-pub const RECOVERY_FORK_RESOLUTION_SCOPE_ID_V1: &str =
-    "regenerative-recovery-fork-resolution";
+pub const RECOVERY_GOVERNANCE_ACTION_PROTOCOL_V1: &str =
+    "mycelix-regenerative-recovery-governance-action-v1";
+pub const GOVERNANCE_ACTIONS_DIGEST_PROFILE_V1: &str =
+    "mycelix-governance-execution-authority-v1-blake3-exact-json";
+pub const THRESHOLD_AUTHORIZATION_IDENTITY_PROFILE_V1: &str =
+    "mycelix-governance-threshold-authorization-v1-blake3-framed-semantic";
+
+const EXECUTION_AUTHORITY_DOMAIN: &[u8] = b"mycelix-governance-execution-authority-v1\0";
 const MAX_ID_BYTES: usize = 256;
-const MAX_BINDING_BYTES: usize = 1024;
+const MAX_BINDING_BYTES: usize = 2048;
+const MAX_ACTION_BYTES: usize = 4096;
+const MAX_PROPOSAL_ID_BYTES: usize = 512;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RegenerativeRecoveryGovernanceProposalFinalityV1 {
-    Signed,
-    Executed,
+/// Locally derived, exact-byte action subject. This is translation evidence, not
+/// governance authority by itself.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RegenerativeRecoveryGovernanceActionV1 {
+    proposal_id: String,
+    exact_action_json: String,
+    actions_digest: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RegenerativeRecoveryThresholdSignatureAlgorithmV1 {
-    Ecdsa,
-    MlDsa65,
-    HybridEcdsaMlDsa65,
+impl RegenerativeRecoveryGovernanceActionV1 {
+    pub fn proposal_id(&self) -> &str {
+        &self.proposal_id
+    }
+
+    pub fn exact_action_json(&self) -> &str {
+        &self.exact_action_json
+    }
+
+    pub fn actions_digest(&self) -> &str {
+        &self.actions_digest
+    }
+
+    pub const fn actions_digest_profile(&self) -> &'static str {
+        GOVERNANCE_ACTIONS_DIGEST_PROFILE_V1
+    }
+
+    pub const fn exact_resolution_bound_here(&self) -> bool {
+        true
+    }
+
+    pub const fn governance_authority_verified_here(&self) -> bool {
+        false
+    }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case", tag = "kind", content = "scope_ids")]
-pub enum RegenerativeRecoveryGovernanceCommitteeScopeV1 {
-    All,
-    Constitutional,
-    Treasury,
-    Protocol,
-    Custom(Vec<String>),
+#[derive(Serialize)]
+struct RecoveryResolutionActionWire<'a> {
+    protocol_version: &'static str,
+    action_type: &'static str,
+    resolution_content_digest: &'a str,
+    resolution_evidence_binding: &'a str,
 }
 
+/// Portable reference to an already-qualified threshold authorization and its #82
+/// stable semantic identity. All committee/policy/crypto semantics stay upstream.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RegenerativeRecoveryGovernanceAuthorityEvidenceV1 {
     pub schema_version: u8,
     pub authority_evidence_id: String,
-    /// Must equal the authority binding carried by the fork-resolution record.
-    pub governance_authority_binding: String,
-    /// Exact external binding for the fork-resolution record itself.
-    pub resolution_evidence_binding: String,
-    /// BLAKE3 content digest of the exact fork-resolution payload being authorized.
-    pub resolution_content_digest: String,
 
-    /// Exact Mycelix governance proposal subject.
+    /// Exact governance proposal whose action bytes authorize this resolution.
     pub governance_proposal_id: String,
-    pub governance_proposal_record_binding: String,
-    pub governance_proposal_finality: RegenerativeRecoveryGovernanceProposalFinalityV1,
-    /// Digest explicitly carried by the proposal action that names this resolution.
-    pub proposal_action_resolution_content_digest: String,
 
-    /// Exact threshold-signature subject.
-    pub threshold_signature_id: String,
-    pub threshold_signature_record_binding: String,
-    /// Independent evidence that the signature was cryptographically verified.
-    pub threshold_signature_verification_evidence_binding: String,
-    /// Digest the threshold signature actually signs.
-    pub signed_resolution_content_digest: String,
-    pub signature_algorithm: RegenerativeRecoveryThresholdSignatureAlgorithmV1,
+    /// Exact portable bindings to the #69/#71 qualification and #82 stable identity
+    /// evidence subjects. Commons preserves these references but does not invent
+    /// their authority.
+    pub threshold_qualification_evidence_binding: String,
+    pub threshold_identity_evidence_binding: String,
 
-    /// Exact committee subject and quorum facts at signing time.
-    pub signing_committee_id: String,
-    pub signing_committee_record_binding: String,
-    pub signing_committee_epoch: u32,
-    pub committee_threshold: u32,
-    pub signer_count: u32,
-    pub committee_scope: RegenerativeRecoveryGovernanceCommitteeScopeV1,
-    pub committee_pq_required: bool,
+    /// Immutable threshold-authorization record/reference used by #71/#82.
+    pub threshold_authorization_ref: String,
+    pub threshold_authorization_identity_digest: String,
+    pub threshold_authorization_identity_profile: String,
+
+    /// Exact action identity echoed by the qualified threshold authorization.
+    pub qualified_actions_digest: String,
+    pub qualified_actions_digest_profile: String,
 }
 
 impl RegenerativeRecoveryGovernanceAuthorityEvidenceV1 {
@@ -96,60 +119,46 @@ impl RegenerativeRecoveryGovernanceAuthorityEvidenceV1 {
                 self.schema_version
             ));
         }
-        for id in [
-            &self.authority_evidence_id,
-            &self.threshold_signature_id,
-            &self.signing_committee_id,
-        ] {
-            if !canonical_id(id) {
-                return Err("recovery governance-authority identifier is not canonical".into());
-            }
+        if !canonical_id(&self.authority_evidence_id) {
+            return Err("recovery governance-authority evidence ID is not canonical".into());
         }
-        if !self.governance_proposal_id.starts_with("MIP-")
-            || !canonical_id(&self.governance_proposal_id)
-        {
+        if !canonical_proposal_id(&self.governance_proposal_id) {
             return Err("governance proposal ID must be a canonical MIP-* identifier".into());
         }
         for binding in [
-            &self.governance_authority_binding,
-            &self.resolution_evidence_binding,
-            &self.governance_proposal_record_binding,
-            &self.threshold_signature_record_binding,
-            &self.threshold_signature_verification_evidence_binding,
-            &self.signing_committee_record_binding,
+            &self.threshold_qualification_evidence_binding,
+            &self.threshold_identity_evidence_binding,
+            &self.threshold_authorization_ref,
         ] {
             if !canonical_reference(binding) {
                 return Err("recovery governance-authority binding is not canonical".into());
             }
         }
-        for digest in [
-            &self.resolution_content_digest,
-            &self.proposal_action_resolution_content_digest,
-            &self.signed_resolution_content_digest,
-        ] {
-            if !lower_hex_64(digest) {
-                return Err("recovery governance-authority digest must be lowercase 64-hex".into());
-            }
-        }
-        if self.signing_committee_epoch == 0 {
-            return Err("signing committee epoch must be positive".into());
-        }
-        if self.committee_threshold == 0 {
-            return Err("signing committee threshold must be positive".into());
-        }
-        if self.signer_count < self.committee_threshold {
-            return Err("threshold signature signer count is below committee threshold".into());
-        }
-        if self.committee_pq_required
-            && self.signature_algorithm
-                == RegenerativeRecoveryThresholdSignatureAlgorithmV1::Ecdsa
+        if !lower_hex_64(&self.threshold_authorization_identity_digest)
+            || !lower_hex_64(&self.qualified_actions_digest)
         {
-            return Err("PQ-required committee cannot authorize with ECDSA-only signature".into());
+            return Err("recovery governance-authority digest is not lowercase 64-hex".into());
         }
-        if !scope_allows_recovery_resolution(&self.committee_scope)? {
-            return Err("signing committee scope does not authorize recovery fork resolution".into());
+        if self.threshold_authorization_identity_profile
+            != THRESHOLD_AUTHORIZATION_IDENTITY_PROFILE_V1
+        {
+            return Err("unexpected threshold-authorization identity profile".into());
+        }
+        if self.qualified_actions_digest_profile != GOVERNANCE_ACTIONS_DIGEST_PROFILE_V1 {
+            return Err("unexpected governance actions-digest profile".into());
         }
         Ok(())
+    }
+
+    /// Deterministic authority binding that the fork-resolution record must name.
+    /// A bare caller-chosen alias cannot substitute for the stable threshold identity.
+    pub fn canonical_authority_binding(&self) -> Result<String, String> {
+        self.validate()?;
+        Ok(format!(
+            "threshold-authorization:{}:{}",
+            self.threshold_authorization_identity_profile,
+            self.threshold_authorization_identity_digest
+        ))
     }
 
     pub fn to_payload_json(&self) -> Result<String, String> {
@@ -189,56 +198,81 @@ impl RegenerativeRecoveryGovernanceAuthorityEvidenceV1 {
     }
 }
 
+/// Translate the exact recovery resolution into the exact-byte governance action
+/// domain used by Mycelix execution authority. This mirrors the registered
+/// `mycelix-execution-action-digest` rule so whitespace/key-order changes remain
+/// authority-significant until these lineages converge on the shared crate.
+pub fn qualify_regenerative_recovery_governance_action(
+    proposal_id: &str,
+    resolution: &RegenerativeRecoveryForkResolutionEvidenceV1,
+) -> Result<RegenerativeRecoveryGovernanceActionV1, String> {
+    if !canonical_proposal_id(proposal_id) || proposal_id.len() > MAX_PROPOSAL_ID_BYTES {
+        return Err("invalid governance proposal ID for recovery action".into());
+    }
+    resolution.validate()?;
+    let resolution_content_digest = resolution.content_digest()?;
+    let wire = RecoveryResolutionActionWire {
+        protocol_version: RECOVERY_GOVERNANCE_ACTION_PROTOCOL_V1,
+        action_type: "resolve_regenerative_recovery_fork",
+        resolution_content_digest: &resolution_content_digest,
+        resolution_evidence_binding: &resolution.resolution_evidence_binding,
+    };
+    let exact_action_json = serde_json::to_string(&wire)
+        .map_err(|error| format!("failed to serialize recovery governance action: {error}"))?;
+    if exact_action_json.len() > MAX_ACTION_BYTES {
+        return Err("recovery governance action exceeds registered action-byte limit".into());
+    }
+    let actions_digest = execution_authority_digest(proposal_id, &exact_action_json)?;
+    Ok(RegenerativeRecoveryGovernanceActionV1 {
+        proposal_id: proposal_id.to_string(),
+        exact_action_json,
+        actions_digest,
+    })
+}
+
+/// Compose one exact fork resolution with an already-qualified threshold authority.
+/// This verifies the semantic join; it does not re-run #69/#71/#82 provider logic.
 pub fn verify_regenerative_recovery_governance_authority(
     resolution: &RegenerativeRecoveryForkResolutionEvidenceV1,
     authority: &RegenerativeRecoveryGovernanceAuthorityEvidenceV1,
-) -> Result<(), String> {
+) -> Result<RegenerativeRecoveryGovernanceActionV1, String> {
     resolution.validate()?;
     authority.validate()?;
 
-    let resolution_digest = resolution.content_digest()?;
-    if authority.governance_authority_binding != resolution.governance_authority_binding {
-        return Err("governance authority binding does not match fork resolution".into());
+    if resolution.governance_authority_binding != authority.canonical_authority_binding()? {
+        return Err("fork resolution does not name the exact stable threshold authorization".into());
     }
-    if authority.resolution_evidence_binding != resolution.resolution_evidence_binding {
-        return Err("governance authority references a different resolution evidence subject".into());
-    }
-    if authority.resolution_content_digest != resolution_digest
-        || authority.proposal_action_resolution_content_digest != resolution_digest
-        || authority.signed_resolution_content_digest != resolution_digest
+
+    let action = qualify_regenerative_recovery_governance_action(
+        &authority.governance_proposal_id,
+        resolution,
+    )?;
+    if action.actions_digest != authority.qualified_actions_digest
+        || action.actions_digest_profile() != authority.qualified_actions_digest_profile
     {
-        return Err("proposal action and threshold signature must bind the exact resolution digest".into());
+        return Err("qualified threshold authority does not bind the exact recovery action".into());
     }
-    Ok(())
+    Ok(action)
 }
 
-fn scope_allows_recovery_resolution(
-    scope: &RegenerativeRecoveryGovernanceCommitteeScopeV1,
-) -> Result<bool, String> {
-    match scope {
-        RegenerativeRecoveryGovernanceCommitteeScopeV1::All => Ok(true),
-        RegenerativeRecoveryGovernanceCommitteeScopeV1::Custom(scope_ids) => {
-            if scope_ids.is_empty() {
-                return Err("custom signing committee scope cannot be empty".into());
-            }
-            let mut prior: Option<&str> = None;
-            let mut authorized = false;
-            for scope_id in scope_ids {
-                if !canonical_id(scope_id) {
-                    return Err("custom signing committee scope ID is not canonical".into());
-                }
-                if prior.is_some_and(|value| value >= scope_id.as_str()) {
-                    return Err("custom signing committee scope IDs must be sorted and unique".into());
-                }
-                authorized |= scope_id == RECOVERY_FORK_RESOLUTION_SCOPE_ID_V1;
-                prior = Some(scope_id);
-            }
-            Ok(authorized)
-        }
-        RegenerativeRecoveryGovernanceCommitteeScopeV1::Constitutional
-        | RegenerativeRecoveryGovernanceCommitteeScopeV1::Treasury
-        | RegenerativeRecoveryGovernanceCommitteeScopeV1::Protocol => Ok(false),
+fn execution_authority_digest(proposal_id: &str, actions: &str) -> Result<String, String> {
+    if proposal_id.trim().is_empty() || proposal_id.len() > MAX_PROPOSAL_ID_BYTES {
+        return Err("invalid proposal ID for governance action digest".into());
     }
+    if actions.is_empty() || actions.len() > MAX_ACTION_BYTES {
+        return Err("invalid governance action byte length".into());
+    }
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(EXECUTION_AUTHORITY_DOMAIN);
+    hasher.update(&(proposal_id.len() as u64).to_le_bytes());
+    hasher.update(proposal_id.as_bytes());
+    hasher.update(&(actions.len() as u64).to_le_bytes());
+    hasher.update(actions.as_bytes());
+    Ok(hasher.finalize().to_hex().to_string())
+}
+
+fn canonical_proposal_id(value: &str) -> bool {
+    value.starts_with("MIP-") && canonical_id(value)
 }
 
 fn canonical_id(value: &str) -> bool {
@@ -273,7 +307,15 @@ mod tests {
         REGENERATIVE_RECOVERY_FORK_RESOLUTION_SCHEMA_V1,
     };
 
-    fn resolution() -> RegenerativeRecoveryForkResolutionEvidenceV1 {
+    fn authority_binding(identity_digest: &str) -> String {
+        format!(
+            "threshold-authorization:{}:{}",
+            THRESHOLD_AUTHORIZATION_IDENTITY_PROFILE_V1,
+            identity_digest
+        )
+    }
+
+    fn resolution(identity_digest: &str) -> RegenerativeRecoveryForkResolutionEvidenceV1 {
         RegenerativeRecoveryForkResolutionEvidenceV1 {
             schema_version: REGENERATIVE_RECOVERY_FORK_RESOLUTION_SCHEMA_V1,
             resolution_id: "resolution-1".into(),
@@ -290,103 +332,112 @@ mod tests {
             outcome: RegenerativeRecoveryForkResolutionOutcomeV1::RetainSelectedBranch,
             selected_recovery_evidence_content_digest: Some("44".repeat(32)),
             fork_observation_evidence_binding: "fork-observation:reserve-test:2".into(),
-            governance_authority_binding: "governance-authority:MIP-9001:resolution-1".into(),
+            governance_authority_binding: authority_binding(identity_digest),
             resolution_evidence_binding: "resolution-evidence:reserve-test:2:v1".into(),
         }
     }
 
-    fn authority(
+    fn evidence(
         resolution: &RegenerativeRecoveryForkResolutionEvidenceV1,
+        identity_digest: &str,
     ) -> RegenerativeRecoveryGovernanceAuthorityEvidenceV1 {
-        let digest = resolution.content_digest().unwrap();
+        let action = qualify_regenerative_recovery_governance_action("MIP-9001", resolution)
+            .unwrap();
         RegenerativeRecoveryGovernanceAuthorityEvidenceV1 {
             schema_version: REGENERATIVE_RECOVERY_GOVERNANCE_AUTHORITY_SCHEMA_V1,
             authority_evidence_id: "authority-1".into(),
-            governance_authority_binding: resolution.governance_authority_binding.clone(),
-            resolution_evidence_binding: resolution.resolution_evidence_binding.clone(),
-            resolution_content_digest: digest.clone(),
             governance_proposal_id: "MIP-9001".into(),
-            governance_proposal_record_binding: "governance-proposal:MIP-9001:actionhash-1".into(),
-            governance_proposal_finality: RegenerativeRecoveryGovernanceProposalFinalityV1::Signed,
-            proposal_action_resolution_content_digest: digest.clone(),
-            threshold_signature_id: "signature-1".into(),
-            threshold_signature_record_binding: "threshold-signature:signature-1:actionhash-2".into(),
-            threshold_signature_verification_evidence_binding:
-                "threshold-signature-verification:signature-1:v1".into(),
-            signed_resolution_content_digest: digest,
-            signature_algorithm:
-                RegenerativeRecoveryThresholdSignatureAlgorithmV1::HybridEcdsaMlDsa65,
-            signing_committee_id: "committee-1".into(),
-            signing_committee_record_binding: "signing-committee:committee-1:epoch-7".into(),
-            signing_committee_epoch: 7,
-            committee_threshold: 3,
-            signer_count: 4,
-            committee_scope: RegenerativeRecoveryGovernanceCommitteeScopeV1::Custom(vec![
-                RECOVERY_FORK_RESOLUTION_SCOPE_ID_V1.into(),
-            ]),
-            committee_pq_required: true,
+            threshold_qualification_evidence_binding:
+                "mycelix-governance-threshold-qualification:receipt-1".into(),
+            threshold_identity_evidence_binding:
+                "mycelix-governance-threshold-identity:receipt-1".into(),
+            threshold_authorization_ref: "threshold-authorization:record-1".into(),
+            threshold_authorization_identity_digest: identity_digest.into(),
+            threshold_authorization_identity_profile:
+                THRESHOLD_AUTHORIZATION_IDENTITY_PROFILE_V1.into(),
+            qualified_actions_digest: action.actions_digest().into(),
+            qualified_actions_digest_profile: GOVERNANCE_ACTIONS_DIGEST_PROFILE_V1.into(),
         }
     }
 
     #[test]
-    fn signed_governance_authority_must_bind_exact_resolution_digest() {
-        let resolution = resolution();
-        let authority = authority(&resolution);
-        assert_eq!(
-            verify_regenerative_recovery_governance_authority(&resolution, &authority),
-            Ok(())
-        );
-
-        let mut wrong = authority.clone();
-        wrong.signed_resolution_content_digest = "aa".repeat(32);
-        assert!(verify_regenerative_recovery_governance_authority(&resolution, &wrong).is_err());
+    fn exact_resolution_translates_into_exact_qualified_action_domain() {
+        let identity = "66".repeat(32);
+        let resolution = resolution(&identity);
+        let authority = evidence(&resolution, &identity);
+        let action = verify_regenerative_recovery_governance_authority(
+            &resolution,
+            &authority,
+        )
+        .unwrap();
+        assert!(action.exact_resolution_bound_here());
+        assert!(!action.governance_authority_verified_here());
+        assert_eq!(action.actions_digest(), authority.qualified_actions_digest);
+        assert_eq!(action.actions_digest_profile(), GOVERNANCE_ACTIONS_DIGEST_PROFILE_V1);
     }
 
     #[test]
-    fn signer_count_below_threshold_fails_closed() {
-        let resolution = resolution();
-        let mut authority = authority(&resolution);
-        authority.signer_count = 2;
+    fn changed_resolution_changes_governance_action_and_fails_old_authority() {
+        let identity = "66".repeat(32);
+        let original = resolution(&identity);
+        let authority = evidence(&original, &identity);
+        let mut changed = original.clone();
+        changed.selected_recovery_evidence_content_digest = Some("55".repeat(32));
+        assert!(verify_regenerative_recovery_governance_authority(
+            &changed,
+            &authority,
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn caller_alias_cannot_substitute_for_stable_threshold_identity() {
+        let identity = "66".repeat(32);
+        let mut resolution = resolution(&identity);
+        let authority = evidence(&resolution, &identity);
+        resolution.governance_authority_binding = "governance:looks-valid:v1".into();
+        assert!(verify_regenerative_recovery_governance_authority(
+            &resolution,
+            &authority,
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn action_digest_or_profile_substitution_fails_closed() {
+        let identity = "66".repeat(32);
+        let resolution = resolution(&identity);
+        let mut authority = evidence(&resolution, &identity);
+        authority.qualified_actions_digest = "aa".repeat(32);
+        assert!(verify_regenerative_recovery_governance_authority(
+            &resolution,
+            &authority,
+        )
+        .is_err());
+
+        let mut wrong_profile = evidence(&resolution, &identity);
+        wrong_profile.qualified_actions_digest_profile = "profile:other".into();
+        assert!(wrong_profile.validate().is_err());
+    }
+
+    #[test]
+    fn threshold_identity_profile_is_exact_not_caller_selected() {
+        let identity = "66".repeat(32);
+        let resolution = resolution(&identity);
+        let mut authority = evidence(&resolution, &identity);
+        authority.threshold_authorization_identity_profile = "profile:other".into();
         assert!(authority.validate().is_err());
     }
 
     #[test]
-    fn pq_required_committee_rejects_ecdsa_only_authority() {
-        let resolution = resolution();
-        let mut authority = authority(&resolution);
-        authority.signature_algorithm = RegenerativeRecoveryThresholdSignatureAlgorithmV1::Ecdsa;
-        assert!(authority.validate().is_err());
-    }
-
-    #[test]
-    fn unrelated_committee_scope_cannot_authorize_recovery_resolution() {
-        let resolution = resolution();
-        let mut authority = authority(&resolution);
-        authority.committee_scope = RegenerativeRecoveryGovernanceCommitteeScopeV1::Protocol;
-        assert!(authority.validate().is_err());
-    }
-
-    #[test]
-    fn custom_scope_must_be_canonical_and_explicitly_include_recovery_resolution() {
-        let resolution = resolution();
-        let mut authority = authority(&resolution);
-        authority.committee_scope = RegenerativeRecoveryGovernanceCommitteeScopeV1::Custom(vec![
-            RECOVERY_FORK_RESOLUTION_SCOPE_ID_V1.into(),
-            "other-scope".into(),
-        ]);
-        assert!(authority.validate().is_err());
-
-        authority.committee_scope = RegenerativeRecoveryGovernanceCommitteeScopeV1::Custom(vec![
-            "other-scope".into(),
-        ]);
-        assert!(authority.validate().is_err());
-    }
-
-    #[test]
-    fn cryptographic_verification_requires_an_external_evidence_binding() {
-        let resolution = resolution();
-        let mut authority = authority(&resolution);
-        authority.threshold_signature_verification_evidence_binding.clear();
-        assert!(authority.validate().is_err());
+    fn governance_action_serialization_is_deterministic() {
+        let identity = "66".repeat(32);
+        let resolution = resolution(&identity);
+        let a = qualify_regenerative_recovery_governance_action("MIP-9001", &resolution)
+            .unwrap();
+        let b = qualify_regenerative_recovery_governance_action("MIP-9001", &resolution)
+            .unwrap();
+        assert_eq!(a.exact_action_json(), b.exact_action_json());
+        assert_eq!(a.actions_digest(), b.actions_digest());
     }
 }
