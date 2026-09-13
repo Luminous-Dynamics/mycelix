@@ -62,4 +62,5 @@ jobs:
         run: cargo clippy --manifest-path "$MANIFEST" --test exact_frame -- -D warnings
 
       - name: Prove checkout immutability
+        if: always()
         run: git diff --exit-code && test -z "$(git status --porcelain)"
