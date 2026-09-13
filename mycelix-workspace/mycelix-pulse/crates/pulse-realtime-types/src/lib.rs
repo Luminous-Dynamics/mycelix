@@ -84,7 +84,9 @@ pub struct ReconcileScheduler {
 enum ReconcileState {
     #[default]
     Idle,
-    Running { dirty: bool },
+    Running {
+        dirty: bool,
+    },
 }
 
 /// Effect produced when authoritative reconciliation is requested.
@@ -141,9 +143,7 @@ impl ReconcileScheduler {
     ///
     /// If any number of wakes arrived during that pass, they collapse into one
     /// follow-up pass. Otherwise the reducer becomes idle.
-    pub fn complete_pass(
-        &mut self,
-    ) -> Result<ReconcileCompletionEffect, ReconcileSchedulerError> {
+    pub fn complete_pass(&mut self) -> Result<ReconcileCompletionEffect, ReconcileSchedulerError> {
         match self.state {
             ReconcileState::Idle => Err(ReconcileSchedulerError::CompletionWhileIdle),
             ReconcileState::Running { dirty: true } => {
