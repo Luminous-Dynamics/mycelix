@@ -160,20 +160,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -Fq "RUST_TOOLCHAIN: '1.96.0'" "$WORKFLOW"
-          grep -Fq 'github.event.pull_request.head.sha || github.sha' "$WORKFLOW"
-          grep -Fq 'persist-credentials: false' "$WORKFLOW"
-          grep -Fq 'crates/mycelix-integration-runtime/src/runtime.rs' "$WORKFLOW"
-          grep -Fq 'crates/mycelix-integration-runtime/src/bootstrap_guard.rs' "$WORKFLOW"
-          grep -Fq "- 'crates/mycelix-integration-runtime/tests/**'" "$WORKFLOW"
-          grep -Fq 'find "$RUNTIME_TEST_DIR" -type f -name '\''*.rs'\'' -print0 | sort -z | xargs -0 sha256sum' "$WORKFLOW"
-          grep -Fq 'crates/mycelix-integration-current-action-authority/Cargo.toml' "$WORKFLOW"
-          grep -Fq 'crates/mycelix-integration-materializer-abi/src/lib.rs' "$WORKFLOW"
-          grep -Fq 'rustfmt --edition 2024 --check --config skip_children=true "$RUNTIME_SHELL_SOURCE"' "$WORKFLOW"
-          grep -Fq 'rustfmt --edition 2024 --check "$RUNTIME_SOURCE"' "$WORKFLOW"
-          grep -Fq 'rustfmt --edition 2024 --check "$RUNTIME_BOOTSTRAP_SOURCE"' "$WORKFLOW"
-          grep -Fq 'Store-binding and journal source formatting are intentionally owned by' "$WORKFLOW"
-          if grep -Eq 'cargo fmt --manifest-path "\$(RUNTIME|STORE|JOURNAL)_MANIFEST"' "$WORKFLOW"; then
+          grep -Fq -- "RUST_TOOLCHAIN: '1.96.0'" "$WORKFLOW"
+          grep -Fq -- 'github.event.pull_request.head.sha || github.sha' "$WORKFLOW"
+          grep -Fq -- 'persist-credentials: false' "$WORKFLOW"
+          grep -Fq -- 'crates/mycelix-integration-runtime/src/runtime.rs' "$WORKFLOW"
+          grep -Fq -- 'crates/mycelix-integration-runtime/src/bootstrap_guard.rs' "$WORKFLOW"
+          grep -Fq -- "- 'crates/mycelix-integration-runtime/tests/**'" "$WORKFLOW"
+          grep -Fq -- 'find "$RUNTIME_TEST_DIR" -type f -name '\''*.rs'\'' -print0 | sort -z | xargs -0 sha256sum' "$WORKFLOW"
+          grep -Fq -- 'crates/mycelix-integration-current-action-authority/Cargo.toml' "$WORKFLOW"
+          grep -Fq -- 'crates/mycelix-integration-materializer-abi/src/lib.rs' "$WORKFLOW"
+          grep -Fq -- 'rustfmt --edition 2024 --check --config skip_children=true "$RUNTIME_SHELL_SOURCE"' "$WORKFLOW"
+          grep -Fq -- 'rustfmt --edition 2024 --check "$RUNTIME_SOURCE"' "$WORKFLOW"
+          grep -Fq -- 'rustfmt --edition 2024 --check "$RUNTIME_BOOTSTRAP_SOURCE"' "$WORKFLOW"
+          grep -Fq -- 'Store-binding and journal source formatting are intentionally owned by' "$WORKFLOW"
+          if grep -Eq -- 'cargo fmt --manifest-path "\$(RUNTIME|STORE|JOURNAL)_MANIFEST"' "$WORKFLOW"; then
             echo 'Dependency-closure lane must not duplicate sibling package style gates.'
             exit 1
           fi
