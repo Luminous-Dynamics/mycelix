@@ -21,8 +21,8 @@ mod legacy;
 pub use legacy::{
     AdministrativeCase, AdministrativeCaseId, AdministrativeCaseState,
     AdministrativeDecisionEnvelope, AdministrativeDecisionPolicy, AdministrativeProcedureError,
-    IssuedAdministrativeDecision, PreDecisionState, PreDecisionTransition, ProcedureProfileId,
-    QualifiedAdministrativeDecision, QualifiedPreDecisionTransition, PROTOCOL_VERSION,
+    IssuedAdministrativeDecision, PROTOCOL_VERSION, PreDecisionState, PreDecisionTransition,
+    ProcedureProfileId, QualifiedAdministrativeDecision, QualifiedPreDecisionTransition,
 };
 
 use mycelix_institutional_core::{AuthorityGrant, EvidenceRef};
@@ -149,7 +149,10 @@ impl fmt::Display for AdministrativeQualificationError {
         match self {
             Self::Procedure(error) => write!(f, "{error}"),
             Self::LineageRootMustBeFiled => {
-                write!(f, "administrative lineage must begin from an exact Filed root")
+                write!(
+                    f,
+                    "administrative lineage must begin from an exact Filed root"
+                )
             }
             Self::TooManyPreDecisionTransitions => write!(
                 f,
@@ -166,8 +169,9 @@ mod hardening_tests {
     use super::*;
     use mycelix_institutional_core::{
         AuthorityGrantId, AuthoritySourceKind, AuthoritySourceRef, CapabilityId, Decision,
-        DecisionId, Digest32, InstitutionId, JurisdictionId, PrincipalId, RoleId, RulebookId,
-        RulebookRef, PROTOCOL_VERSION as INSTITUTIONAL_PROTOCOL_VERSION,
+        DecisionId, Digest32, InstitutionId, JurisdictionId,
+        PROTOCOL_VERSION as INSTITUTIONAL_PROTOCOL_VERSION, PrincipalId, RoleId, RulebookId,
+        RulebookRef,
     };
 
     fn digest(byte: u8) -> Digest32 {
@@ -261,9 +265,7 @@ mod hardening_tests {
             PreDecisionTransition {
                 protocol_version: PROTOCOL_VERSION.into(),
                 case_id: case_id(),
-                next_state: PreDecisionState::ReadyForDecision {
-                    ready_at_ms: 3_000,
-                },
+                next_state: PreDecisionState::ReadyForDecision { ready_at_ms: 3_000 },
             },
         ]
     }
@@ -350,9 +352,7 @@ mod hardening_tests {
         transitions.push(PreDecisionTransition {
             protocol_version: PROTOCOL_VERSION.into(),
             case_id: case_id(),
-            next_state: PreDecisionState::ReadyForDecision {
-                ready_at_ms: 4_000,
-            },
+            next_state: PreDecisionState::ReadyForDecision { ready_at_ms: 4_000 },
         });
 
         assert_eq!(
