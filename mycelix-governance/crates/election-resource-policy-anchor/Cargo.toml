@@ -1,0 +1,17 @@
+[package]
+name = "election-resource-policy-anchor"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Non-circular resource-policy commitment and package anchoring for Mycelix public elections"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+election-integrity-types = { path = "../election-integrity-types" }
+election-verifier-contract = { path = "../election-verifier-contract" }
+election-verifier-resource-envelope = { path = "../election-verifier-resource-envelope" }
+sha2 = "0.10"
+
+[workspace]
