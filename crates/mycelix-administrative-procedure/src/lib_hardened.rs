@@ -6,7 +6,9 @@
 //! semantic module so its focused transition machinery is preserved. Default
 //! builds expose the ADMIN-001 lineage-qualified decision path. Builds with the
 //! `procedural-completeness` feature hide that raw consequential path and expose
-//! ADMIN-002's stricter completeness-gated path instead.
+//! ADMIN-002's stricter completeness-gated path instead. The additive
+//! `administrative-review` feature implies ADMIN-002 and exposes ADMIN-003's
+//! immutable challenge/appeal/finality semantics.
 //!
 //! The ADMIN-001 key theorem is:
 //!
@@ -18,12 +20,27 @@ mod legacy;
 #[cfg(feature = "procedural-completeness")]
 mod admin_002;
 
+#[cfg(feature = "administrative-review")]
+mod admin_003;
+
 #[cfg(feature = "procedural-completeness")]
 pub use admin_002::{
     ADMIN_002_PROTOCOL_VERSION, EvidenceClosureReceipt, NoticeReceipt, ProceduralCompletenessError,
     ProceduralCompletenessPolicy, QualifiedProceduralDecision, QualifiedProcedurallyCompleteCase,
     ReasonsRequirement, ResponseMode, ResponseModeRequirement, ResponseOpportunityReceipt,
     issue_qualified_decision, qualify_administrative_decision, qualify_procedural_completeness,
+};
+
+#[cfg(feature = "administrative-review")]
+pub use admin_003::{
+    ADMIN_003_PROTOCOL_VERSION, AdministrativeFinalityReceipt, AdministrativeReviewDisposition,
+    AdministrativeReviewError, AdministrativeReviewPolicy, ChallengeSubmission,
+    ExternalJudicialFinalityReference, QualifiedAdministrativeFinality, QualifiedAppealReview,
+    QualifiedChallenge, QualifiedRemedy, QualifiedReviewDisposition, QualifiedReviewableDecision,
+    RecordedExternalJudicialFinality, ReviewDispositionOutcome, StayDirective, StayDirectiveKind,
+    StayState, apply_stay_directive, qualify_administrative_finality, qualify_appeal,
+    qualify_challenge, qualify_remedy, qualify_review_disposition, qualify_reviewable_decision,
+    record_external_judicial_finality,
 };
 
 pub use legacy::{
