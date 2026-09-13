@@ -8,6 +8,10 @@
 //! at sequence N is accepted, a different record for the same N is a fork rather
 //! than another valid continuation.
 //!
+//! A sibling fork freezes automatic advancement. This is important: otherwise the
+//! first branch observed would become an implicit governance decision. A frozen
+//! cursor can resume only through the explicit fork-resolution layer.
+//!
 //! This remains a local classification primitive, not global consensus. Multiple
 //! branches may exist in a distributed store; reconciliation decides which branch,
 //! if any, is authoritative.
@@ -25,6 +29,7 @@ pub enum RegenerativeRecoveryReserveDispositionV1 {
     StaleReplay,
     Gap,
     Fork,
+    FrozenPendingResolution,
     WrongReserve,
     WrongNominalSubject,
 }
@@ -40,6 +45,7 @@ pub struct RegenerativeRecoveryReserveHeadV1 {
     spend_sequence: u64,
     available_units: u64,
     evidence_digest: String,
+    pending_sibling_fork_digest: Option<String>,
 }
 
 impl RegenerativeRecoveryReserveHeadV1 {
@@ -53,17 +59,55 @@ impl RegenerativeRecoveryReserveHeadV1 {
             reserve_binding: first.external_recovery_reserve_binding.clone(),
             reserve_initial_units: first.external_recovery_reserve_initial_units,
             viability_evidence_content_digest: first.viability_evidence_content_digest.clone(),
-            support_closure_continuity_content_digest: first.support_closure_continuity_content_digest.clone(),
+            support_closure_continuity_content_digest: first
+                .support_closure_continuity_content_digest
+                .clone(),
             spend_sequence: first.reserve_spend_sequence_after,
             available_units: first.reserve_units_after,
             evidence_digest: first.content_digest()?,
+            pending_sibling_fork_digest: None,
         })
     }
 
-    pub fn reserve_id(&self) -> &str { &self.reserve_id }
-    pub const fn spend_sequence(&self) -> u64 { self.spend_sequence }
-    pub const fn available_units(&self) -> u64 { self.available_units }
-    pub fn evidence_digest(&self) -> &str { &self.evidence_digest }
+    pub fn reserve_id(&self) -> &str {
+        &self.reserve_id
+    }
+
+    pub fn reserve_binding(&self) -> &str {
+        &self.reserve_binding
+    }
+
+    pub const fn reserve_initial_units(&self) -> u64 {
+        self.reserve_initial_units
+    }
+
+    pub fn viability_evidence_content_digest(&self) -> &str {
+        &self.viability_evidence_content_digest
+    }
+
+    pub fn support_closure_continuity_content_digest(&self) -> &str {
+        &self.support_closure_continuity_content_digest
+    }
+
+    pub const fn spend_sequence(&self) -> u64 {
+        self.spend_sequence
+    }
+
+    pub const fn available_units(&self) -> u64 {
+        self.available_units
+    }
+
+    pub fn evidence_digest(&self) -> &str {
+        &self.evidence_digest
+    }
+
+    pub const fn fork_pending(&self) -> bool {
+        self.pending_sibling_fork_digest.is_some()
+    }
+
+    pub fn pending_sibling_fork_digest(&self) -> Option<&str> {
+        self.pending_sibling_fork_digest.as_deref()
+    }
 
     pub fn classify(
         &self,
@@ -85,6 +129,16 @@ impl RegenerativeRecoveryReserveHeadV1 {
         }
 
         let candidate_digest = candidate.content_digest()?;
+        if let Some(pending) = &self.pending_sibling_fork_digest {
+            if candidate_digest == self.evidence_digest {
+                return Ok(RegenerativeRecoveryReserveDispositionV1::Duplicate);
+            }
+            if candidate_digest == *pending {
+                return Ok(RegenerativeRecoveryReserveDispositionV1::Fork);
+            }
+            return Ok(RegenerativeRecoveryReserveDispositionV1::FrozenPendingResolution);
+        }
+
         if candidate.reserve_spend_sequence_after == self.spend_sequence {
             return Ok(if candidate_digest == self.evidence_digest {
                 RegenerativeRecoveryReserveDispositionV1::Duplicate
@@ -119,12 +173,52 @@ impl RegenerativeRecoveryReserveHeadV1 {
         candidate: &RegenerativeRecoveryCoordinateEvidenceV1,
     ) -> Result<RegenerativeRecoveryReserveDispositionV1, String> {
         let disposition = self.classify(candidate)?;
-        if disposition == RegenerativeRecoveryReserveDispositionV1::Advance {
-            self.spend_sequence = candidate.reserve_spend_sequence_after;
-            self.available_units = candidate.reserve_units_after;
-            self.evidence_digest = candidate.content_digest()?;
+        match disposition {
+            RegenerativeRecoveryReserveDispositionV1::Advance => {
+                self.spend_sequence = candidate.reserve_spend_sequence_after;
+                self.available_units = candidate.reserve_units_after;
+                self.evidence_digest = candidate.content_digest()?;
+            }
+            RegenerativeRecoveryReserveDispositionV1::Fork
+                if self.pending_sibling_fork_digest.is_none()
+                    && candidate.reserve_spend_sequence_after == self.spend_sequence =>
+            {
+                self.pending_sibling_fork_digest = Some(candidate.content_digest()?);
+            }
+            _ => {}
         }
         Ok(disposition)
+    }
+
+    pub(crate) fn resolve_pending_sibling_fork_to(
+        &mut self,
+        selected: &RegenerativeRecoveryCoordinateEvidenceV1,
+    ) -> Result<(), String> {
+        let pending = self
+            .pending_sibling_fork_digest
+            .as_deref()
+            .ok_or_else(|| "recovery reserve cursor has no pending sibling fork".to_string())?;
+        selected.validate()?;
+        if selected.external_recovery_reserve_id != self.reserve_id
+            || selected.external_recovery_reserve_binding != self.reserve_binding
+            || selected.external_recovery_reserve_initial_units != self.reserve_initial_units
+            || selected.viability_evidence_content_digest != self.viability_evidence_content_digest
+            || selected.support_closure_continuity_content_digest
+                != self.support_closure_continuity_content_digest
+            || selected.reserve_spend_sequence_after != self.spend_sequence
+        {
+            return Err("selected fork branch does not match the frozen reserve subject".into());
+        }
+
+        let selected_digest = selected.content_digest()?;
+        if selected_digest != self.evidence_digest && selected_digest != pending {
+            return Err("selected recovery evidence is not one of the observed fork branches".into());
+        }
+
+        self.available_units = selected.reserve_units_after;
+        self.evidence_digest = selected_digest;
+        self.pending_sibling_fork_digest = None;
+        Ok(())
     }
 }
 
@@ -186,7 +280,7 @@ mod tests {
     }
 
     #[test]
-    fn accepted_child_makes_conflicting_sibling_an_explicit_fork() {
+    fn sibling_fork_freezes_cursor_until_explicit_resolution() {
         let first = record("spend-1", 0, 3, None);
         let mut head = RegenerativeRecoveryReserveHeadV1::from_first(&first).unwrap();
 
@@ -194,13 +288,25 @@ mod tests {
         let child_a = record("spend-2a", 1, 2, Some(first_digest.clone()));
         let child_b = record("spend-2b", 1, 2, Some(first_digest));
 
-        assert_eq!(head.ingest(&child_a).unwrap(), RegenerativeRecoveryReserveDispositionV1::Advance);
-        assert_eq!(head.spend_sequence(), 2);
-        assert_eq!(head.available_units(), 1);
-        assert_eq!(head.classify(&child_a).unwrap(), RegenerativeRecoveryReserveDispositionV1::Duplicate);
-        assert_eq!(head.classify(&child_b).unwrap(), RegenerativeRecoveryReserveDispositionV1::Fork);
-        assert_eq!(head.spend_sequence(), 2);
-        assert_eq!(head.available_units(), 1);
+        assert_eq!(
+            head.ingest(&child_a).unwrap(),
+            RegenerativeRecoveryReserveDispositionV1::Advance
+        );
+        assert_eq!(
+            head.ingest(&child_b).unwrap(),
+            RegenerativeRecoveryReserveDispositionV1::Fork
+        );
+        assert!(head.fork_pending());
+        assert_eq!(
+            head.classify(&record(
+                "spend-3",
+                2,
+                1,
+                Some(child_a.content_digest().unwrap()),
+            ))
+            .unwrap(),
+            RegenerativeRecoveryReserveDispositionV1::FrozenPendingResolution
+        );
     }
 
     #[test]
@@ -211,14 +317,24 @@ mod tests {
 
         let mut gap = record("spend-gap", 2, 1, Some(first_digest.clone()));
         gap.reserve_spend_sequence_after = 3;
-        assert_eq!(head.classify(&gap).unwrap(), RegenerativeRecoveryReserveDispositionV1::Gap);
+        assert_eq!(
+            head.classify(&gap).unwrap(),
+            RegenerativeRecoveryReserveDispositionV1::Gap
+        );
 
-        let mut wrong_reserve = record("spend-wrong-reserve", 1, 2, Some(first_digest.clone()));
+        let mut wrong_reserve =
+            record("spend-wrong-reserve", 1, 2, Some(first_digest.clone()));
         wrong_reserve.external_recovery_reserve_id = "reserve-other".into();
-        assert_eq!(head.classify(&wrong_reserve).unwrap(), RegenerativeRecoveryReserveDispositionV1::WrongReserve);
+        assert_eq!(
+            head.classify(&wrong_reserve).unwrap(),
+            RegenerativeRecoveryReserveDispositionV1::WrongReserve
+        );
 
         let mut wrong_subject = record("spend-wrong-subject", 1, 2, Some(first_digest));
         wrong_subject.viability_evidence_content_digest = "33".repeat(32);
-        assert_eq!(head.classify(&wrong_subject).unwrap(), RegenerativeRecoveryReserveDispositionV1::WrongNominalSubject);
+        assert_eq!(
+            head.classify(&wrong_subject).unwrap(),
+            RegenerativeRecoveryReserveDispositionV1::WrongNominalSubject
+        );
     }
 }
