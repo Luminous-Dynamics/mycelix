@@ -77,8 +77,6 @@ jobs:
           grep -q 'QualifiedAdministrativeCaseLineage' "$facade"
           grep -q 'LineageRootMustBeFiled' "$facade"
 
-          # Inspect Rust source lines, not prose-only comments. A previous raw
-          # substring audit falsely matched harmless documentation text.
           code_lines="$(cat "$legacy" "$facade" | grep -nEv '^[[:space:]]*//' || true)"
           forbidden='(hdk|hdi|holochain)::|std::(net|fs|process)::|SystemTime::|Instant::now|[[:space:]{(,](phi|reputation|stake|model_score)[[:space:]]*:|authorized[[:space:]]*:[[:space:]]*bool|official[[:space:]]*:[[:space:]]*bool'
           if printf '%s\n' "$code_lines" | grep -E "$forbidden"; then
@@ -88,18 +86,21 @@ jobs:
 
       - name: Format owned public surface
         run: |
-          # Do not let this child PR become responsible for rustfmt drift in the
-          # parent-owned institutional-core path dependency. The original
-          # ADMIN-001 semantic module is retained byte-for-byte as the private
-          # legacy implementation; new public-surface code is formatter-clean.
           rustfmt --edition 2024 --check --config skip_children=true \
             crates/mycelix-administrative-procedure/src/lib_hardened.rs
 
-      - name: Tests
-        run: cargo test --manifest-path crates/mycelix-administrative-procedure/Cargo.toml --all-targets
-
-      - name: Clippy
-        run: cargo clippy --manifest-path crates/mycelix-administrative-procedure/Cargo.toml --all-targets -- -D warnings
+      - name: Isolated executable qualification
+        run: |
+          # Cargo creates a lockfile for this standalone crate. Run compile/test/
+          # clippy against an exact temporary copy so qualification cannot mutate
+          # the repository checkout and the postflight remains meaningful.
+          qroot="$(mktemp -d)"
+          mkdir -p "$qroot/crates"
+          cp -a crates/mycelix-institutional-core "$qroot/crates/"
+          cp -a crates/mycelix-administrative-procedure "$qroot/crates/"
+          manifest="$qroot/crates/mycelix-administrative-procedure/Cargo.toml"
+          cargo test --manifest-path "$manifest" --all-targets
+          cargo clippy --manifest-path "$manifest" --all-targets -- -D warnings
 
       - name: Immutable checkout postflight
         run: test -z "$(git status --short)"
