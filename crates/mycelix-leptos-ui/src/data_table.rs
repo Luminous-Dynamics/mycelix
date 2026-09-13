@@ -80,11 +80,7 @@ pub fn Pagination(
 ) -> impl IntoView {
     let total_pages = move || {
         let t = total.get();
-        if t == 0 {
-            1
-        } else {
-            (t + per_page - 1) / per_page
-        }
+        if t == 0 { 1 } else { t.div_ceil(per_page) }
     };
 
     view! {
