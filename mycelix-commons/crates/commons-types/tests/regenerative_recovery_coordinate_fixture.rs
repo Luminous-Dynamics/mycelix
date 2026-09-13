@@ -30,9 +30,10 @@ fn recovery_evidence(
         recovery_evidence_id: "manta-v4-metrology-recovery-coordinate".into(),
         viability_evidence_content_digest: viability.content_digest().unwrap(),
         support_closure_continuity_content_digest: continuity.content_digest().unwrap(),
-        // Rebound to immutable final heads before the PR is frozen.
-        symthaea_recovery_binding: "symthaea:pr-2235:recovery-coordinate-v1".into(),
-        symtropy_recovery_binding: "symtropy:pr-862:recovery-coordinate-v1".into(),
+        symthaea_recovery_binding:
+            "symthaea:pr-2235:93beeb6ac163e56eeaf3bfbb7b53529eeca16a5f".into(),
+        symtropy_recovery_binding:
+            "symtropy:pr-862:e48f48a0c3ff35b5071647c2352fe62115c6f4b9".into(),
         semantic_recovery_fixture_binding:
             "git-blob:725880ba8affd94efd6a9cfb798c39e6c08c9c49".into(),
         dynamic_recovery_fixture_binding:
@@ -60,7 +61,9 @@ fn recovery_evidence(
         reserve_units_before: external_units,
         reserve_units_after: external_units - recovery_cost,
         reserve_external_to_nominal_closure: true,
-        dynamic_recovery_receipt_binding: "symtropy:pr-862:recovery-receipt-v4".into(),
+        dynamic_recovery_receipt_binding:
+            "symtropy:pr-862:e48f48a0c3ff35b5071647c2352fe62115c6f4b9:recovery-receipt-v4"
+                .into(),
         recovery_qualified: true,
         disturbance_conditioned_recovery_authorized: true,
         observed_maturity_periods: recovery_scalar("maturity_periods"),
