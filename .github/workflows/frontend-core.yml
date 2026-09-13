@@ -170,4 +170,16 @@ jobs:
 
       - name: Prove checkout immutability
         if: always()
-        run: git diff --exit-code && test -z "$(git status --porcelain)"
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '=== git status --short ==='
+          git status --short
+          echo '=== untracked paths ==='
+          git ls-files --others --exclude-standard
+          echo '=== git diff --stat ==='
+          git diff --stat
+          echo '=== git diff ==='
+          git diff
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
