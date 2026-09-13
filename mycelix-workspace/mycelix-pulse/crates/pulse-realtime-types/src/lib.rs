@@ -119,7 +119,7 @@ mod tests {
 
     #[test]
     fn stronger_unknown_fields_fail_closed() {
-        for (field, value) in [
+        for (field, injected_value) in [
             ("subject", json!("pretend subject")),
             ("delivered", json!(true)),
             ("thread_id", json!("pretend-thread")),
@@ -127,16 +127,16 @@ mod tests {
             ("verified", json!(true)),
             ("authorized", json!(true)),
         ] {
-            let mut value = json!({
+            let mut envelope = json!({
                 "version": PULSE_REALTIME_HINT_V1,
                 "hint": "inbox_changed_v2",
             });
-            value
+            envelope
                 .as_object_mut()
                 .expect("wake fixture is an object")
-                .insert(field.to_string(), value);
+                .insert(field.to_string(), injected_value);
 
-            let error = serde_json::from_value::<PulseRealtimeHintV1>(value)
+            let error = serde_json::from_value::<PulseRealtimeHintV1>(envelope)
                 .expect_err("stronger realtime fields must fail closed");
             assert!(
                 error.to_string().contains("unknown field"),
