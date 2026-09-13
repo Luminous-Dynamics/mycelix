@@ -1,0 +1,111 @@
+name: Pulse Frontend Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-pulse/apps/leptos/**'
+      - 'mycelix-workspace/mycelix-pulse/crates/mail-leptos-types/**'
+      - 'crates/mycelix-leptos-core/**'
+      - 'crates/mycelix-leptos-ui/**'
+      - 'crates/mycelix-leptos-client/**'
+      - '.github/workflows/pulse-frontend.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-pulse/apps/leptos/**'
+      - 'mycelix-workspace/mycelix-pulse/crates/mail-leptos-types/**'
+      - 'crates/mycelix-leptos-core/**'
+      - 'crates/mycelix-leptos-ui/**'
+      - 'crates/mycelix-leptos-client/**'
+      - '.github/workflows/pulse-frontend.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pulse-frontend-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  PULSE_MANIFEST: mycelix-workspace/mycelix-pulse/apps/leptos/Cargo.toml
+  PULSE_APP: mycelix-workspace/mycelix-pulse/apps/leptos/src/app.rs
+
+jobs:
+  pulse-frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          submodules: recursive
+
+      - name: Verify exact subject checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ github.event.pull_request.head.sha || github.sha }}'
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$expected" || {
+            echo "::error::Expected exact subject $expected, got $actual"
+            exit 1
+          }
+
+      - name: Verify Pulse source closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          for path in \
+            "$PULSE_MANIFEST" \
+            mycelix-workspace/mycelix-pulse/crates/mail-leptos-types/Cargo.toml \
+            crates/mycelix-leptos-core/Cargo.toml \
+            crates/mycelix-leptos-ui/Cargo.toml \
+            crates/mycelix-leptos-client/Cargo.toml; do
+            test -f "$path" || {
+              echo "::error file=$path::Required Pulse frontend dependency source is missing."
+              exit 1
+            }
+          done
+
+      - name: Enforce truth-closure boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F '<Route path=path!("/chat") view=ChatUnavailablePage />' "$PULSE_APP" >/dev/null || {
+            echo "::error file=$PULSE_APP::The mock-backed ChatPage must not be routed as a live chat surface."
+            exit 1
+          }
+          if grep -F '<Route path=path!("/chat") view=ChatPage />' "$PULSE_APP" >/dev/null; then
+            echo "::error file=$PULSE_APP::Mock ChatPage is routed directly and can overstate live chat guarantees."
+            exit 1
+          fi
+          grep -F 'Sending requires reconnection.' "$PULSE_APP" >/dev/null || {
+            echo "::error file=$PULSE_APP::Offline copy must disclose that sending is unavailable offline."
+            exit 1
+          }
+          if grep -F "changes will sync when reconnected" "$PULSE_APP" >/dev/null; then
+            echo "::error file=$PULSE_APP::Broad offline-sync claim has reappeared."
+            exit 1
+          fi
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87b
+        with:
+          toolchain: 1.96.0
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - name: Resolve Pulse frontend manifest
+        run: cargo metadata --manifest-path "$PULSE_MANIFEST" --no-deps --format-version 1 >/dev/null
+
+      - name: Check Pulse frontend formatting
+        run: cargo fmt --manifest-path "$PULSE_MANIFEST" --all -- --check
+
+      - name: Check Pulse frontend for wasm32
+        run: cargo check --manifest-path "$PULSE_MANIFEST" --target wasm32-unknown-unknown
+
+      - name: Prove checkout immutability
+        run: git diff --exit-code && test -z "$(git status --porcelain)"
