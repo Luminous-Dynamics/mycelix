@@ -3,8 +3,8 @@
 //! The mature atomic dispatcher remains the only writer. This crate wraps that
 //! operation and, after any returned error, independently reopens the exact
 //! provisioned SQLite file and compares the complete durable predecessor and
-//! successor identities. No error message, local autocommit bit, or source-order
-//! assumption controls retry semantics.
+//! successor identities from one read snapshot. No error message, local
+//! autocommit bit, or source-order assumption controls retry semantics.
 //!
 //! A successor observed after the original call returned an error is represented
 //! as `RecoveredCommittedContextDispatch`. It intentionally does not recreate the
@@ -15,7 +15,7 @@ compile_error!("classified atomic integration dispatch requires Unix file identi
 
 use mycelix_institutional_core::Digest32;
 use mycelix_integration_atomic_dispatch_context::{
-    DISPATCH_CONTEXT_PROFILE, ContextDispatchError, DispatchContextCommitment,
+    ContextDispatchError, DISPATCH_CONTEXT_PROFILE, DispatchContextCommitment,
     QualifiedContextBoundDispatchStart, bind_context_and_start_dispatch,
 };
 use mycelix_integration_core::{ContentCommitment, DigestAlgorithm, SideEffectClass};
@@ -24,7 +24,7 @@ use mycelix_integration_runtime::QualifiedCurrentExecutionAttempt;
 use mycelix_integration_sqlite_commit_classification::{
     CommitClassification, classify_exact_durable_transition,
 };
-use rusqlite::{Connection, OpenFlags, OptionalExtension, params};
+use rusqlite::{Connection, OpenFlags, OptionalExtension, TransactionBehavior, params};
 use std::fs;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
@@ -44,7 +44,7 @@ const DISPATCH_TABLE: &str = "integration_dispatch_binding_v2";
 pub enum ClassifiedContextDispatchOutcome {
     /// The original atomic dispatcher returned success and retained its live
     /// process-local token.
-    Committed(QualifiedContextBoundDispatchStart),
+    Committed(Box<QualifiedContextBoundDispatchStart>),
     /// The original call returned an error, but an independent exact reread
     /// proves the intended successor is durable. Recovery is required because
     /// the process-local live token did not escape the failed call.
@@ -269,60 +269,77 @@ pub fn bind_context_and_start_dispatch_classified(
         store_path,
         now_ms,
     ) {
-        Ok(dispatch) => ClassifiedContextDispatchOutcome::Committed(dispatch),
-        Err(original_error) => {
-            let claim = current_attempt.claim();
-            match observe_durable_dispatch_state(
-                current_attempt,
-                materialized,
-                context,
-                store_path,
-                now_ms,
-                expected_binding_digest,
-            ) {
-                Ok(observation) => match classify_exact_durable_transition(
-                    observation.successor_exact,
-                    observation.predecessor_exact,
-                ) {
-                    CommitClassification::Committed => {
-                        ClassifiedContextDispatchOutcome::RecoveredCommitted(
-                            RecoveredCommittedContextDispatch {
-                                entry_id: claim.entry_id,
-                                attempt_id: claim.attempt_id.as_str().to_owned(),
-                                binding_digest: expected_binding_digest,
-                                original_error,
-                            },
-                        )
-                    }
-                    CommitClassification::DefinitelyNotCommitted => {
-                        ClassifiedContextDispatchOutcome::DefinitelyNotCommitted(
-                            DefinitelyNotCommittedContextDispatch {
-                                entry_id: claim.entry_id,
-                                attempt_id: claim.attempt_id.as_str().to_owned(),
-                                original_error,
-                            },
-                        )
-                    }
-                    CommitClassification::IndeterminateCommit => {
-                        ClassifiedContextDispatchOutcome::IndeterminateCommit(
-                            IndeterminateContextDispatch {
-                                entry_id: claim.entry_id,
-                                attempt_id: claim.attempt_id.as_str().to_owned(),
-                                original_error,
-                                reread_error: None,
-                            },
-                        )
-                    }
-                },
-                Err(reread_error) => ClassifiedContextDispatchOutcome::IndeterminateCommit(
-                    IndeterminateContextDispatch {
+        Ok(dispatch) => ClassifiedContextDispatchOutcome::Committed(Box::new(dispatch)),
+        Err(original_error) => classify_returned_dispatch_error(
+            current_attempt,
+            materialized,
+            context,
+            store_path,
+            now_ms,
+            expected_binding_digest,
+            original_error,
+        ),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn classify_returned_dispatch_error(
+    current_attempt: &QualifiedCurrentExecutionAttempt,
+    materialized: &MaterializedProviderRequest,
+    context: &DispatchContextCommitment,
+    store_path: &Path,
+    now_ms: i64,
+    expected_binding_digest: Digest32,
+    original_error: ContextDispatchError,
+) -> ClassifiedContextDispatchOutcome {
+    let claim = current_attempt.claim();
+    match observe_durable_dispatch_state(
+        current_attempt,
+        materialized,
+        context,
+        store_path,
+        now_ms,
+        expected_binding_digest,
+    ) {
+        Ok(observation) => match classify_exact_durable_transition(
+            observation.successor_exact,
+            observation.predecessor_exact,
+        ) {
+            CommitClassification::Committed => {
+                ClassifiedContextDispatchOutcome::RecoveredCommitted(
+                    RecoveredCommittedContextDispatch {
+                        entry_id: claim.entry_id,
+                        attempt_id: claim.attempt_id.as_str().to_owned(),
+                        binding_digest: expected_binding_digest,
+                        original_error,
+                    },
+                )
+            }
+            CommitClassification::DefinitelyNotCommitted => {
+                ClassifiedContextDispatchOutcome::DefinitelyNotCommitted(
+                    DefinitelyNotCommittedContextDispatch {
                         entry_id: claim.entry_id,
                         attempt_id: claim.attempt_id.as_str().to_owned(),
                         original_error,
-                        reread_error: Some(reread_error),
                     },
-                ),
+                )
             }
+            CommitClassification::IndeterminateCommit => {
+                ClassifiedContextDispatchOutcome::IndeterminateCommit(IndeterminateContextDispatch {
+                    entry_id: claim.entry_id,
+                    attempt_id: claim.attempt_id.as_str().to_owned(),
+                    original_error,
+                    reread_error: None,
+                })
+            }
+        },
+        Err(reread_error) => {
+            ClassifiedContextDispatchOutcome::IndeterminateCommit(IndeterminateContextDispatch {
+                entry_id: claim.entry_id,
+                attempt_id: claim.attempt_id.as_str().to_owned(),
+                original_error,
+                reread_error: Some(reread_error),
+            })
         }
     }
 }
@@ -338,7 +355,7 @@ fn observe_durable_dispatch_state(
     let store_device = current_attempt.store_device();
     let store_inode = current_attempt.store_inode();
     let canonical = canonical_exact_store_path(store_path, store_device, store_inode)?;
-    let conn = Connection::open_with_flags(
+    let mut conn = Connection::open_with_flags(
         &canonical,
         OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
     )?;
@@ -347,22 +364,56 @@ fn observe_durable_dispatch_state(
     require_exact_store_identity(&canonical, store_device, store_inode)?;
     require_main_database_path(&conn, &canonical)?;
 
-    if entry_is_quarantined(&conn, current_attempt.claim().entry_id)? {
-        return Ok(DurableObservation {
-            successor_exact: false,
-            predecessor_exact: false,
-        });
-    }
+    // One deferred read transaction establishes one SQLite snapshot for every
+    // durable fact used in the classification. Separate autocommit SELECTs could
+    // otherwise splice an outbox predecessor from one database state together
+    // with a dispatch-binding successor from a later state.
+    let tx = conn.transaction_with_behavior(TransactionBehavior::Deferred)?;
+    let quarantined = entry_is_quarantined(&tx, current_attempt.claim().entry_id)?;
+    let outbox = load_outbox_row(&tx, current_attempt.claim().entry_id)?;
+    let binding = load_binding_row(&tx, current_attempt)?;
 
-    let Some(outbox) = load_outbox_row(&conn, current_attempt.claim().entry_id)? else {
-        return Ok(DurableObservation {
+    let observation = if quarantined {
+        DurableObservation {
             successor_exact: false,
             predecessor_exact: false,
-        });
+        }
+    } else if let Some(outbox) = outbox {
+        classify_snapshot_rows(
+            &outbox,
+            binding.as_ref(),
+            current_attempt,
+            materialized,
+            context,
+            now_ms,
+            expected_binding_digest,
+        )
+    } else {
+        DurableObservation {
+            successor_exact: false,
+            predecessor_exact: false,
+        }
     };
-    let binding = load_binding_row(&conn, current_attempt)?;
 
-    let identity_exact = common_attempt_identity_exact(&outbox, current_attempt);
+    // This is a read-only transaction. A failure to close it cleanly is not
+    // interpreted as a persistence verdict; it becomes a reread failure and the
+    // outer result is conservatively IndeterminateCommit.
+    tx.commit()?;
+    require_exact_store_identity(&canonical, store_device, store_inode)?;
+    Ok(observation)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn classify_snapshot_rows(
+    outbox: &DurableOutboxRow,
+    binding: Option<&DurableBindingRow>,
+    current_attempt: &QualifiedCurrentExecutionAttempt,
+    materialized: &MaterializedProviderRequest,
+    context: &DispatchContextCommitment,
+    now_ms: i64,
+    expected_binding_digest: Digest32,
+) -> DurableObservation {
+    let identity_exact = common_attempt_identity_exact(outbox, current_attempt);
     let predecessor_exact = identity_exact
         && outbox.stage == ATTEMPT_PREPARED_STAGE_V2
         && outbox.dispatch_started_at_ms.is_none()
@@ -373,7 +424,7 @@ fn observe_durable_dispatch_state(
         && outbox.stage == DISPATCH_STARTED_STAGE_V2
         && outbox.dispatch_started_at_ms == Some(now_ms)
         && outbox.updated_at_ms == now_ms
-        && binding.as_ref().is_some_and(|row| {
+        && binding.is_some_and(|row| {
             binding_row_exact(
                 row,
                 current_attempt,
@@ -384,11 +435,10 @@ fn observe_durable_dispatch_state(
             )
         });
 
-    require_exact_store_identity(&canonical, store_device, store_inode)?;
-    Ok(DurableObservation {
+    DurableObservation {
         successor_exact,
         predecessor_exact,
-    })
+    }
 }
 
 fn common_attempt_identity_exact(
@@ -403,7 +453,7 @@ fn common_attempt_identity_exact(
         && row.command_id == claim.command_id.as_str()
         && row.connector_instance == claim.connector_instance.as_str()
         && row.command_commitment_algorithm == digest_algorithm_code(claim.command_commitment.algorithm)
-        && row.command_commitment_digest.as_slice() == claim.command_commitment.digest
+        && row.command_commitment_digest.as_slice() == claim.command_commitment.digest.as_slice()
         && row.side_effect_class == side_effect_code(claim.side_effect_class)
         && row.idempotency_key.as_deref()
             == claim.idempotency_key.as_ref().map(|value| value.as_str())
@@ -423,29 +473,31 @@ fn binding_row_exact(
         && row.command_id == claim.command_id.as_str()
         && row.connector_instance == claim.connector_instance.as_str()
         && row.command_commitment_algorithm == digest_algorithm_code(claim.command_commitment.algorithm)
-        && row.command_commitment_digest.as_slice() == claim.command_commitment.digest
-        && row.materialization_digest.as_slice() == materialized.materialization_digest().0
+        && row.command_commitment_digest.as_slice() == claim.command_commitment.digest.as_slice()
+        && row.materialization_digest.as_slice() == materialized.materialization_digest().0.as_slice()
         && row.output_commitment_algorithm
             == digest_algorithm_code(materialized.output_commitment().algorithm)
-        && row.output_commitment_digest.as_slice() == materialized.output_commitment().digest
-        && row.admission_digest.as_slice() == materialized.admission_digest().0
-        && row.determinism_digest.as_slice() == materialized.determinism_digest().0
+        && row.output_commitment_digest.as_slice() == materialized.output_commitment().digest.as_slice()
+        && row.admission_digest.as_slice() == materialized.admission_digest().0.as_slice()
+        && row.determinism_digest.as_slice() == materialized.determinism_digest().0.as_slice()
         && row.provider_profile_algorithm
             == digest_algorithm_code(materialized.provider_profile_commitment().algorithm)
-        && row.provider_profile_digest.as_slice() == materialized.provider_profile_commitment().digest
+        && row.provider_profile_digest.as_slice()
+            == materialized.provider_profile_commitment().digest.as_slice()
         && row.provider_root_algorithm
             == digest_algorithm_code(materialized.provider_trust_root_commitment().algorithm)
         && row.provider_root_digest.as_slice()
-            == materialized.provider_trust_root_commitment().digest
+            == materialized.provider_trust_root_commitment().digest.as_slice()
         && row.materializer_release_algorithm
             == digest_algorithm_code(materialized.materializer_release().algorithm)
-        && row.materializer_release_digest.as_slice() == materialized.materializer_release().digest
+        && row.materializer_release_digest.as_slice()
+            == materialized.materializer_release().digest.as_slice()
         && row.context_profile == context.profile()
-        && row.context_digest.as_slice() == context.digest().0
+        && row.context_digest.as_slice() == context.digest().0.as_slice()
         && row.worker_id == current_attempt.worker_id()
         && row.lease_until_ms == claim.lease_until_ms
         && row.started_at_ms == started_at_ms
-        && row.binding_digest.as_slice() == expected_binding_digest.0
+        && row.binding_digest.as_slice() == expected_binding_digest.0.as_slice()
 }
 
 fn load_outbox_row(
