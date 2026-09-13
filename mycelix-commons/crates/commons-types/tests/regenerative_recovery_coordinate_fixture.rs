@@ -33,7 +33,7 @@ fn recovery_evidence(
         symthaea_recovery_binding:
             "symthaea:pr-2235:93beeb6ac163e56eeaf3bfbb7b53529eeca16a5f".into(),
         symtropy_recovery_binding:
-            "symtropy:pr-862:e48f48a0c3ff35b5071647c2352fe62115c6f4b9".into(),
+            "symtropy:pr-862:95842a28072ac8b5460ae6ddf1584aac3c33cf81".into(),
         semantic_recovery_fixture_binding:
             "git-blob:725880ba8affd94efd6a9cfb798c39e6c08c9c49".into(),
         dynamic_recovery_fixture_binding:
@@ -47,6 +47,9 @@ fn recovery_evidence(
         recovery_qualification_binding: "recovery-qualification:metrology-v4:v1".into(),
         disturbance_id: "disturbance:metrology-production-loss-v4".into(),
         disturbance_evidence_binding: "disturbance:metrology-production-loss-v4:v1".into(),
+        dynamic_disturbance_observation_binding:
+            "symtropy:pr-862:95842a28072ac8b5460ae6ddf1584aac3c33cf81:disturbance-observation-v4"
+                .into(),
         target_dependency_id: recovery_text("target_dependency").into(),
         flow_kind: RegenerativeRecoveryFlowKindEvidenceV1::Production,
         healthy_units_per_period: recovery_scalar("healthy_units_per_period"),
@@ -62,7 +65,7 @@ fn recovery_evidence(
         reserve_units_after: external_units - recovery_cost,
         reserve_external_to_nominal_closure: true,
         dynamic_recovery_receipt_binding:
-            "symtropy:pr-862:e48f48a0c3ff35b5071647c2352fe62115c6f4b9:recovery-receipt-v4"
+            "symtropy:pr-862:95842a28072ac8b5460ae6ddf1584aac3c33cf81:recovery-receipt-v4"
                 .into(),
         recovery_qualified: true,
         disturbance_conditioned_recovery_authorized: true,
@@ -146,6 +149,10 @@ fn recovery_reserve_receipt_and_externality_verdict_are_fail_closed() {
     let mut externality_drift = recovery_evidence(&viability, &continuity);
     externality_drift.reserve_external_to_nominal_closure = false;
     assert!(externality_drift.validate().is_err());
+
+    let mut missing_observation = recovery_evidence(&viability, &continuity);
+    missing_observation.dynamic_disturbance_observation_binding.clear();
+    assert!(missing_observation.validate().is_err());
 }
 
 #[test]
