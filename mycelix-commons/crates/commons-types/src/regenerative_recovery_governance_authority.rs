@@ -22,8 +22,7 @@
 //! governance authority provider. Their mere presence is not cryptographic proof.
 
 use crate::{
-    MaritimeEvidenceEnvelope, MaritimeEvidenceKind,
-    RegenerativeRecoveryForkResolutionEvidenceV1,
+    MaritimeEvidenceEnvelope, MaritimeEvidenceKind, RegenerativeRecoveryForkResolutionEvidenceV1,
 };
 use serde::{Deserialize, Serialize};
 
@@ -240,7 +239,9 @@ pub fn verify_regenerative_recovery_governance_authority(
     authority.validate()?;
 
     if resolution.governance_authority_binding != authority.canonical_authority_binding()? {
-        return Err("fork resolution does not name the exact stable threshold authorization".into());
+        return Err(
+            "fork resolution does not name the exact stable threshold authorization".into(),
+        );
     }
 
     let action = qualify_regenerative_recovery_governance_action(
@@ -303,15 +304,14 @@ fn lower_hex_64(value: &str) -> bool {
 mod tests {
     use super::*;
     use crate::{
-        RegenerativeRecoveryForkResolutionOutcomeV1,
         REGENERATIVE_RECOVERY_FORK_RESOLUTION_SCHEMA_V1,
+        RegenerativeRecoveryForkResolutionOutcomeV1,
     };
 
     fn authority_binding(identity_digest: &str) -> String {
         format!(
             "threshold-authorization:{}:{}",
-            THRESHOLD_AUTHORIZATION_IDENTITY_PROFILE_V1,
-            identity_digest
+            THRESHOLD_AUTHORIZATION_IDENTITY_PROFILE_V1, identity_digest
         )
     }
 
@@ -325,10 +325,7 @@ mod tests {
             support_closure_continuity_content_digest: "22".repeat(32),
             fork_spend_sequence: 2,
             fork_predecessor_recovery_evidence_content_digest: Some("33".repeat(32)),
-            conflicting_recovery_evidence_content_digests: vec![
-                "44".repeat(32),
-                "55".repeat(32),
-            ],
+            conflicting_recovery_evidence_content_digests: vec!["44".repeat(32), "55".repeat(32)],
             outcome: RegenerativeRecoveryForkResolutionOutcomeV1::RetainSelectedBranch,
             selected_recovery_evidence_content_digest: Some("44".repeat(32)),
             fork_observation_evidence_binding: "fork-observation:reserve-test:2".into(),
@@ -341,20 +338,20 @@ mod tests {
         resolution: &RegenerativeRecoveryForkResolutionEvidenceV1,
         identity_digest: &str,
     ) -> RegenerativeRecoveryGovernanceAuthorityEvidenceV1 {
-        let action = qualify_regenerative_recovery_governance_action("MIP-9001", resolution)
-            .unwrap();
+        let action =
+            qualify_regenerative_recovery_governance_action("MIP-9001", resolution).unwrap();
         RegenerativeRecoveryGovernanceAuthorityEvidenceV1 {
             schema_version: REGENERATIVE_RECOVERY_GOVERNANCE_AUTHORITY_SCHEMA_V1,
             authority_evidence_id: "authority-1".into(),
             governance_proposal_id: "MIP-9001".into(),
             threshold_qualification_evidence_binding:
                 "mycelix-governance-threshold-qualification:receipt-1".into(),
-            threshold_identity_evidence_binding:
-                "mycelix-governance-threshold-identity:receipt-1".into(),
+            threshold_identity_evidence_binding: "mycelix-governance-threshold-identity:receipt-1"
+                .into(),
             threshold_authorization_ref: "threshold-authorization:record-1".into(),
             threshold_authorization_identity_digest: identity_digest.into(),
-            threshold_authorization_identity_profile:
-                THRESHOLD_AUTHORIZATION_IDENTITY_PROFILE_V1.into(),
+            threshold_authorization_identity_profile: THRESHOLD_AUTHORIZATION_IDENTITY_PROFILE_V1
+                .into(),
             qualified_actions_digest: action.actions_digest().into(),
             qualified_actions_digest_profile: GOVERNANCE_ACTIONS_DIGEST_PROFILE_V1.into(),
         }
@@ -365,15 +362,15 @@ mod tests {
         let identity = "66".repeat(32);
         let resolution = resolution(&identity);
         let authority = evidence(&resolution, &identity);
-        let action = verify_regenerative_recovery_governance_authority(
-            &resolution,
-            &authority,
-        )
-        .unwrap();
+        let action =
+            verify_regenerative_recovery_governance_authority(&resolution, &authority).unwrap();
         assert!(action.exact_resolution_bound_here());
         assert!(!action.governance_authority_verified_here());
         assert_eq!(action.actions_digest(), authority.qualified_actions_digest);
-        assert_eq!(action.actions_digest_profile(), GOVERNANCE_ACTIONS_DIGEST_PROFILE_V1);
+        assert_eq!(
+            action.actions_digest_profile(),
+            GOVERNANCE_ACTIONS_DIGEST_PROFILE_V1
+        );
     }
 
     #[test]
@@ -383,11 +380,7 @@ mod tests {
         let authority = evidence(&original, &identity);
         let mut changed = original.clone();
         changed.selected_recovery_evidence_content_digest = Some("55".repeat(32));
-        assert!(verify_regenerative_recovery_governance_authority(
-            &changed,
-            &authority,
-        )
-        .is_err());
+        assert!(verify_regenerative_recovery_governance_authority(&changed, &authority,).is_err());
     }
 
     #[test]
@@ -396,11 +389,9 @@ mod tests {
         let mut resolution = resolution(&identity);
         let authority = evidence(&resolution, &identity);
         resolution.governance_authority_binding = "governance:looks-valid:v1".into();
-        assert!(verify_regenerative_recovery_governance_authority(
-            &resolution,
-            &authority,
-        )
-        .is_err());
+        assert!(
+            verify_regenerative_recovery_governance_authority(&resolution, &authority,).is_err()
+        );
     }
 
     #[test]
@@ -409,11 +400,9 @@ mod tests {
         let resolution = resolution(&identity);
         let mut authority = evidence(&resolution, &identity);
         authority.qualified_actions_digest = "aa".repeat(32);
-        assert!(verify_regenerative_recovery_governance_authority(
-            &resolution,
-            &authority,
-        )
-        .is_err());
+        assert!(
+            verify_regenerative_recovery_governance_authority(&resolution, &authority,).is_err()
+        );
 
         let mut wrong_profile = evidence(&resolution, &identity);
         wrong_profile.qualified_actions_digest_profile = "profile:other".into();
@@ -433,10 +422,8 @@ mod tests {
     fn governance_action_serialization_is_deterministic() {
         let identity = "66".repeat(32);
         let resolution = resolution(&identity);
-        let a = qualify_regenerative_recovery_governance_action("MIP-9001", &resolution)
-            .unwrap();
-        let b = qualify_regenerative_recovery_governance_action("MIP-9001", &resolution)
-            .unwrap();
+        let a = qualify_regenerative_recovery_governance_action("MIP-9001", &resolution).unwrap();
+        let b = qualify_regenerative_recovery_governance_action("MIP-9001", &resolution).unwrap();
         assert_eq!(a.exact_action_json(), b.exact_action_json());
         assert_eq!(a.actions_digest(), b.actions_digest());
     }
