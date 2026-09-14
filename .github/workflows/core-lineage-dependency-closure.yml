@@ -1,0 +1,203 @@
+name: CORE-LINEAGE Dependency Closure
+
+on:
+  pull_request:
+    branches:
+      - feat/core-lineage-stage1-v0.1
+    paths:
+      - .github/workflows/core-lineage-dependency-closure.yml
+      - crates/mycelix-core-lineage/Cargo.lock
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Exact locked dependency graph
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Exact qualification subject
+        shell: bash
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+          parent=6c90aa822309d5f85c43ef1a0a70b5f592085cbd
+          test "$(git rev-parse HEAD^)" = "$parent"
+          test "$(git rev-list --count "${parent}..HEAD")" -eq 1
+
+      - name: Exact two-file closure surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent=6c90aa822309d5f85c43ef1a0a70b5f592085cbd
+          mapfile -t changed < <(git diff --name-only "$parent"..HEAD | sort)
+          expected=(
+            .github/workflows/core-lineage-dependency-closure.yml
+            crates/mycelix-core-lineage/Cargo.lock
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#changed[@]}" -eq 2
+          for i in "${!expected_sorted[@]}"; do
+            test "${changed[$i]}" = "${expected_sorted[$i]}"
+          done
+          test ! -e .github/workflows/core-lineage-lock-materialize-once.yml
+
+      - name: Qualified semantic theorem blobs unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent=6c90aa822309d5f85c43ef1a0a70b5f592085cbd
+          for path in \
+            .github/workflows/core-lineage-stage1.yml \
+            crates/mycelix-core-lineage/Cargo.toml \
+            crates/mycelix-core-lineage/src/lib.rs \
+            crates/mycelix-core-lineage/vectors/rooted_lineage_v1.json \
+            docs/core/CORE_LINEAGE_STAGE1_V0.1.md
+          do
+            test "$(git rev-parse "HEAD:${path}")" = "$(git rev-parse "${parent}:${path}")"
+          done
+
+      - name: Exact Cargo.lock identity and package census
+        id: lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          lock=crates/mycelix-core-lineage/Cargo.lock
+          expected_sha=f1278453b3baa65c3572183fd85715bbee9e2a7a39f7edda37a54009732f27c1
+          actual_sha="$(sha256sum "$lock" | awk '{print $1}')"
+          test "$actual_sha" = "$expected_sha"
+          python3 - <<'PY'
+          import tomllib
+          from pathlib import Path
+
+          lock = tomllib.loads(Path('crates/mycelix-core-lineage/Cargo.lock').read_text(encoding='utf-8'))
+          packages = {
+              p['name']: (p['version'], p.get('checksum'))
+              for p in lock['package']
+          }
+          expected = {
+              'block-buffer': ('0.10.4', '3078c7629b62d3f0439517fa394996acacc5cbc91c5a20d8c658e77abd503a71'),
+              'cfg-if': ('1.0.4', '9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801'),
+              'cpufeatures': ('0.2.17', '59ed5838eebb26a2bb2e58f6d5b5316989ae9d08bab10e0e6d103e656d1b0280'),
+              'crypto-common': ('0.1.7', '78c8292055d1c1df0cce5d180393dc8cce0abec0a7102adb6c7b1eef6016d60a'),
+              'digest': ('0.10.7', '9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292'),
+              'generic-array': ('0.14.7', '85649ca51fd72272d7821adaf274ad91c288277713d9c18820d8499a7ff69e9a'),
+              'libc': ('0.2.189', '3eaf3ede3fee6db1a4c2ee091bf8a8b4dccdc6d17f656fb07896ee72867612f2'),
+              'mycelix-core-lineage': ('0.1.0', None),
+              'sha2': ('0.10.9', 'a7507d819769d01a365ab707794a4084392c824f54a7a6a7862f8c3d0892b283'),
+              'typenum': ('1.20.1', 'b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20'),
+              'version_check': ('0.9.5', '0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a'),
+          }
+          assert packages == expected, (packages, expected)
+          print('CORE-LINEAGE exact package census PASS')
+          PY
+          echo "sha=$actual_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Install exact Rust qualification toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+
+      - name: Materialize isolated locked subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/mycelix-core-lineage-locked-subject"
+          mkdir -p "$crate"
+          cp -a crates/mycelix-core-lineage/. "$crate/"
+          printf '%s\n' "$crate" > "$RUNNER_TEMP/core_lineage_locked_subject_path"
+          test "$(sha256sum "$crate/Cargo.lock" | awk '{print $1}')" = "f1278453b3baa65c3572183fd85715bbee9e2a7a39f7edda37a54009732f27c1"
+
+      - name: Locked metadata graph
+        id: metadata
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$(cat "$RUNNER_TEMP/core_lineage_locked_subject_path")"
+          cargo metadata --locked --manifest-path "$crate/Cargo.toml" --format-version 1 > "$RUNNER_TEMP/core-lineage-metadata.json"
+          test "$(sha256sum "$crate/Cargo.lock" | awk '{print $1}')" = "f1278453b3baa65c3572183fd85715bbee9e2a7a39f7edda37a54009732f27c1"
+
+      - name: Rustfmt
+        id: rustfmt
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$(cat "$RUNNER_TEMP/core_lineage_locked_subject_path")"
+          cargo fmt --manifest-path "$crate/Cargo.toml" -- --check
+
+      - name: Locked all-target tests
+        id: tests
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$(cat "$RUNNER_TEMP/core_lineage_locked_subject_path")"
+          cargo test --locked --manifest-path "$crate/Cargo.toml" --all-targets
+          test "$(sha256sum "$crate/Cargo.lock" | awk '{print $1}')" = "f1278453b3baa65c3572183fd85715bbee9e2a7a39f7edda37a54009732f27c1"
+
+      - name: Locked Clippy warnings denied
+        id: clippy
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$(cat "$RUNNER_TEMP/core_lineage_locked_subject_path")"
+          cargo clippy --locked --manifest-path "$crate/Cargo.toml" --all-targets -- -D warnings
+          test "$(sha256sum "$crate/Cargo.lock" | awk '{print $1}')" = "f1278453b3baa65c3572183fd85715bbee9e2a7a39f7edda37a54009732f27c1"
+
+      - name: Locked no_std wasm32 check
+        id: wasm
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$(cat "$RUNNER_TEMP/core_lineage_locked_subject_path")"
+          cargo check --locked --manifest-path "$crate/Cargo.toml" --target wasm32-unknown-unknown
+          test "$(sha256sum "$crate/Cargo.lock" | awk '{print $1}')" = "f1278453b3baa65c3572183fd85715bbee9e2a7a39f7edda37a54009732f27c1"
+
+      - name: Immutable checkout postflight
+        id: immutable
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum crates/mycelix-core-lineage/Cargo.lock | awk '{print $1}')" = "f1278453b3baa65c3572183fd85715bbee9e2a7a39f7edda37a54009732f27c1"
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
+
+      - name: Fail closed on any dependency-closure defect
+        if: always()
+        shell: bash
+        env:
+          METADATA_OUTCOME: ${{ steps.metadata.outcome }}
+          RUSTFMT_OUTCOME: ${{ steps.rustfmt.outcome }}
+          TESTS_OUTCOME: ${{ steps.tests.outcome }}
+          CLIPPY_OUTCOME: ${{ steps.clippy.outcome }}
+          WASM_OUTCOME: ${{ steps.wasm.outcome }}
+          IMMUTABLE_OUTCOME: ${{ steps.immutable.outcome }}
+        run: |
+          set -euo pipefail
+          test "$METADATA_OUTCOME" = success
+          test "$RUSTFMT_OUTCOME" = success
+          test "$TESTS_OUTCOME" = success
+          test "$CLIPPY_OUTCOME" = success
+          test "$WASM_OUTCOME" = success
+          test "$IMMUTABLE_OUTCOME" = success
