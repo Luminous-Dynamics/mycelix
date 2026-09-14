@@ -145,7 +145,7 @@ jobs:
           ! grep -q 'EXECUTION_AUTHORITY_DOMAIN' "$production"
           ! grep -q 'mycelix-governance-execution-authority-v1\\0' "$production"
 
-          grep -q 'blake3::Hasher' "$oracle"
+          grep -q 'blake3::hash' "$oracle"
           ! grep -q 'mycelix_execution_action_digest_core' "$oracle"
           ! grep -q 'execution_authority_digest_hex' "$oracle"
 
