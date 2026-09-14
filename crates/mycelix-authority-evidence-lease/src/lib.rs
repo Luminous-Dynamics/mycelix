@@ -60,11 +60,7 @@ impl EvidenceLease {
 
     /// Intersect two evidence leases. This operation is monotone:
     /// verification time can only move later and validity can only move earlier.
-    pub fn intersect(
-        &self,
-        other: &Self,
-        now_ms: u64,
-    ) -> Result<Self, EvidenceLeaseError> {
+    pub fn intersect(&self, other: &Self, now_ms: u64) -> Result<Self, EvidenceLeaseError> {
         self.validate_at(now_ms)?;
         other.validate_at(now_ms)?;
         Self::new(
@@ -113,11 +109,7 @@ pub struct LeasedEvidence<T> {
 }
 
 impl<T> LeasedEvidence<T> {
-    pub fn new(
-        evidence: T,
-        lease: EvidenceLease,
-        now_ms: u64,
-    ) -> Result<Self, EvidenceLeaseError> {
+    pub fn new(evidence: T, lease: EvidenceLease, now_ms: u64) -> Result<Self, EvidenceLeaseError> {
         lease.validate_at(now_ms)?;
         Ok(Self { evidence, lease })
     }
@@ -169,10 +161,7 @@ mod tests {
             lease.cap_valid_until(2_000, 200).unwrap().valid_until_ms,
             1_000
         );
-        assert_eq!(
-            lease.cap_valid_until(700, 200).unwrap().valid_until_ms,
-            700
-        );
+        assert_eq!(lease.cap_valid_until(700, 200).unwrap().valid_until_ms, 700);
     }
 
     #[test]
