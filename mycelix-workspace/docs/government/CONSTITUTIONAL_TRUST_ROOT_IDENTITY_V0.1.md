@@ -16,7 +16,7 @@ and explicitly:
 ```text
 canonical root identity
 != root provenance
-!= institutional adoption
+!= authoritative source coverage
 != current root
 != legal legitimacy
 != provider-policy currentness
@@ -61,36 +61,52 @@ One root contains exactly:
 8. `bootstrap_profile`;
 9. `authoritative_root_source_ref`;
 10. `root_coverage_profile`;
-11. canonical set `authorized_policy_scopes`;
-12. `valid_from_ms`;
-13. optional `expires_at_ms`;
-14. `rotation_mode`; and
-15. optional `rotation_profile`.
+11. `root_source_verification_profile`;
+12. `root_source_anchor_digest_hex`;
+13. canonical set `authorized_policy_scopes`;
+14. `valid_from_ms`;
+15. optional `expires_at_ms`;
+16. `rotation_mode`; and
+17. optional `rotation_profile`.
 
 Unknown or omitted fields are invalid at the normative vector/oracle boundary.
 
-## Authoritative root source is part of Root-A
+## Constitutional root-source trust descriptor
 
-Closed-world currentness cannot be derived from a locally supplied transition prefix. Therefore Root-A commits the exact logical source from which root-lineage coverage/current-head evidence must later be obtained:
-
-`authoritative_root_source_ref`
-
-It also commits the exact semantic profile used to interpret a root-source coverage/head receipt:
-
-`root_coverage_profile`
-
-These are constitutional semantics, not Root-D caller configuration.
+Closed-world currentness cannot be derived from a locally supplied transition prefix. Root-A therefore commits the complete trust descriptor that Root-D must later use:
 
 ```text
-caller-selected root registry
-!= authoritative constitutional root source
+(
+  authoritative_root_source_ref,
+  root_coverage_profile,
+  root_source_verification_profile,
+  root_source_anchor_digest
+)
 ```
 
-Root-B's external pin anchors these values indirectly by pinning the complete Root-A digest. Root-D must exact-match its coverage evidence to both values before any current-root claim is possible.
+`authoritative_root_source_ref` names the exact logical source whose covered effective head may define constitutional currentness.
 
-Changing either source or coverage profile changes the Root-A identity and therefore requires predecessor-authorized constitutional succession or a separately qualified recovery/migration theorem. A currentness provider cannot silently redirect the constitutional source.
+`root_coverage_profile` names the exact semantic contract for proving source coverage/head completeness.
 
-## Authorized policy scopes are bound tuples
+`root_source_verification_profile` names the exact verification semantics used to authenticate a coverage receipt or source snapshot.
+
+`root_source_anchor_digest` is a non-zero raw 32-byte commitment to the exact verification anchor required by that profile: for example a pinned verification-key commitment, threshold-policy commitment, trust-bundle commitment, or other profile-defined verifier configuration.
+
+The digest deliberately commits the anchor rather than embedding one universal key type into Root-A. The verification profile owns interpretation of the anchor bytes.
+
+```text
+right source name
++ caller-selected verifier/key/config
+!= qualified constitutional root coverage
+```
+
+Root-B's external pin anchors all four values indirectly by pinning the complete Root-A digest. Root-D MUST exact-match its coverage evidence and verification result to this complete descriptor before any current-root claim is possible.
+
+Changing the source reference, coverage profile, verification profile, or anchor digest changes Root-A identity. Normal successor semantics must therefore treat verification-anchor rotation as an explicit constitutional transition, never ambient configuration drift.
+
+Root-C may later authorize an exact successor carrying a new verifier anchor because predecessor transition authority binds the complete successor Root-A digest. Such rotation must remain visible in lineage and takes effect only with that successor. Root-D must evaluate each covered generation under the verification descriptor committed by the relevant Root-A identity; it may not silently use a new anchor to reinterpret an older root.
+
+## Authorized ordinary policy scopes are bound tuples
 
 Each `authorized_policy_scopes` member contains exactly:
 
@@ -144,7 +160,7 @@ ordinary policy-currentness machinery
     to declare constitutional root identity current
 ```
 
-Root provenance/currentness belongs to GOVSYS-003B/003C/003D.
+Root provenance/currentness belongs only to GOVSYS-003B/003C/003D.
 
 ### Resource bound
 
@@ -210,7 +226,7 @@ Non-ASCII whitespace is not implicitly stripped. If supplied, its exact UTF-8 by
 Field bounds:
 
 - ordinary institutional/capability IDs: 512 bytes;
-- policy/bootstrap/rotation/coverage profiles: 256 bytes;
+- policy/bootstrap/rotation/coverage/verification profiles: 256 bytes;
 - policy-registry namespace or authoritative root-source reference: 1,024 bytes;
 - rulebook version: 128 bytes.
 
@@ -218,7 +234,7 @@ A producer that needs stronger identifier syntax or normalization must apply the
 
 ## Digest representation
 
-Every rulebook/predecessor digest is semantically a raw non-zero 32-byte value.
+Every rulebook, predecessor, and root-source verification-anchor digest is semantically a raw non-zero 32-byte value.
 
 The JSON oracle/vector transport represents those bytes as exactly 64 hexadecimal characters. Hexadecimal letter case is representation-only: upper- and lower-case encodings of the same 32 bytes have identical Root-A identity.
 
@@ -292,6 +308,8 @@ DOMAIN_UNFRAMED
 || frame(bootstrap_profile)
 || frame(authoritative_root_source_ref)
 || frame(root_coverage_profile)
+|| frame(root_source_verification_profile)
+|| frame(raw_32_byte_root_source_anchor_digest)
 || canonical_policy_scope_set(authorized_policy_scopes)
 || frame_u64(valid_from_ms)
 || optional_u64(expires_at_ms)
@@ -305,7 +323,7 @@ No JSON serialization, object/map iteration order, CBOR, MessagePack, Rust layou
 
 The checked-in v0.1 vector has canonical identity:
 
-`fb91b8d0abca410985f88c1763ccd943036c105a6cd5cee75ba4e4c8565753dc`
+`ce8eb35f69b1007a6f1152c2b7bc203cec9d093f1daf1216cc4f135012010669`
 
 The standard-library Python oracle independently recomputes the value and verifies the profile's adversarial corpus.
 
@@ -319,7 +337,7 @@ Extra wrapper metadata is rejected so a consumer cannot accidentally treat unaut
 
 ## Relationship to Root-D and qualified policy layers
 
-Root-D must require coverage/head evidence to exact-match both `authoritative_root_source_ref` and `root_coverage_profile` from the current Root-A lineage. It must not accept a caller-selected root source.
+Root-D must require coverage/head evidence to exact-match the complete Root-A root-source trust descriptor: source reference, coverage profile, source-verification profile, and verification-anchor digest. It must not accept a caller-selected source, verifier profile, or anchor.
 
 Qualified #815 gives stable semantic identity to a procedure-policy currentness-provider selection policy. Qualified #812 gives a reusable record/adoption evidence waist. Neither is imported into this constitutional branch.
 
@@ -337,7 +355,7 @@ GOVSYS-003B independent genesis provenance
         ↓
 GOVSYS-003C predecessor-authorized rooted lineage
         ↓
-GOVSYS-003D exact-source covered current head
+GOVSYS-003D exact-source, exact-anchor covered current head
         ↓
 exact authorized policy-scope tuple
 + qualified provider-policy identity
@@ -357,7 +375,8 @@ GOVSYS-003A does **not** establish:
 - institutional/democratic adoption;
 - legal validity or legitimacy;
 - authoritative source availability/authenticity;
-- source coverage or current head;
+- source coverage or coverage-verifier origin;
+- current effective head;
 - root currentness or non-revocation;
 - predecessor authorization;
 - successful root rotation;
