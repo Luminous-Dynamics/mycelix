@@ -61,16 +61,40 @@ One root commitment contains, in fixed semantic order:
 6. optional predecessor root digest;
 7. exact bootstrap mode;
 8. exact bootstrap verification/provisioning profile;
-9. a canonical set of policy semantic-identity profiles the root may authorize;
-10. a canonical set of exact policy-registry namespaces the root may authorize;
-11. exact provider-authority institution;
-12. optional exact provider-authority jurisdiction;
-13. exact provider-authority rulebook identifier, version, and digest;
-14. a canonical set of provider capabilities the root may authorize;
-15. root validity start;
-16. optional root expiry;
-17. exact rotation mode; and
-18. optional exact rotation profile.
+9. a canonical set of exact **authorized policy scopes**;
+10. root validity start;
+11. optional root expiry;
+12. exact rotation mode; and
+13. optional exact rotation profile.
+
+Each authorized policy scope is one indivisible tuple:
+
+```text
+(
+  policy_identity_profile,
+  exact_policy_registry_namespace,
+  provider_authority_institution,
+  optional_provider_authority_jurisdiction,
+  exact_provider_authority_rulebook,
+  required_provider_capability
+)
+```
+
+A later provider-policy adapter must exact-match **one whole tuple**. It may not independently choose a profile from one scope, a namespace from another, and a capability or provider authority from a third.
+
+This prevents a constitutional confused-deputy / Cartesian-product failure mode.
+
+```text
+{profile A, profile B}
++ {namespace X, namespace Y}
++ {capability P, capability Q}
+
+MUST NOT imply
+
+all eight profile × namespace × capability combinations
+```
+
+Only the exact checked-in scope tuples are authorized by Root-A semantics.
 
 This profile intentionally authorizes **exact namespaces**, not string prefixes or wildcard patterns. Namespace-family semantics require a later explicit profile rather than accidental prefix authority.
 
@@ -122,17 +146,24 @@ A successor root's own rotation mode does not authorize the transition into that
 
 GOVSYS-003A has no ambient clock and does not prove that the root is currently live. It only commits the intended validity interval.
 
-## Canonical sets
+## Canonical authorized policy-scope set
 
-The following are semantic sets:
+`authorized_policy_scopes` is a semantic set of bound authorization tuples.
 
-- authorized policy identity profiles;
-- authorized policy-registry namespaces; and
-- allowed provider capabilities.
+Every scope contains exactly:
 
-Each member is encoded as raw UTF-8 bytes after validation. Duplicate members are invalid. Members are sorted by raw UTF-8 byte sequence before hashing. Input order is therefore non-semantic.
+- `policy_identity_profile`;
+- `policy_registry_namespace`;
+- `provider_authority_institution_id`;
+- optional `provider_authority_jurisdiction_id`;
+- `provider_authority_rulebook { id, version, digest_hex }`; and
+- `required_provider_capability`.
 
-Empty sets are permitted. This allows a constitutional root to intentionally authorize no policy profiles, namespaces, or provider capabilities without inventing a separate shutdown semantic.
+Each scope is independently validated and encoded. Duplicate encoded scopes are invalid. Encoded scope byte strings are sorted lexicographically before hashing. Input scope order is therefore non-semantic.
+
+The scope set may be empty. An empty scope set means the constitutional root intentionally authorizes no policy-currentness provider scope; it does not require a separate shutdown flag.
+
+The v0.1 profile does not infer capability inheritance, namespace prefixing, institution hierarchy, jurisdiction subsumption, role equivalence, or rulebook equivalence. Any such semantic expansion requires another explicitly qualified profile.
 
 ## String validity
 
@@ -178,16 +209,27 @@ frame(rulebook_id)
 || frame(raw_32_byte_rulebook_digest)
 ```
 
-A canonical string set is encoded as:
+One authorized policy scope is encoded as:
 
 ```text
-frame_u64(member_count)
-|| frame(member_0)
-|| ...
-|| frame(member_n)
+frame(policy_identity_profile)
+|| frame(policy_registry_namespace)
+|| frame(provider_authority_institution_id)
+|| optional_text(provider_authority_jurisdiction_id)
+|| rulebook(provider_authority_rulebook)
+|| frame(required_provider_capability)
 ```
 
-with members sorted by raw UTF-8 bytes.
+The canonical scope set is encoded as:
+
+```text
+frame_u64(scope_count)
+|| encoded_scope_0
+|| ...
+|| encoded_scope_n
+```
+
+where the complete encoded scope byte strings are sorted lexicographically. Duplicate complete encoded scopes are invalid.
 
 ## Canonical byte sequence
 
@@ -204,12 +246,7 @@ DOMAIN_UNFRAMED
 || optional_digest(predecessor_root_digest)
 || frame(bootstrap_mode)
 || frame(bootstrap_profile)
-|| canonical_set(authorized_policy_profiles)
-|| canonical_set(authorized_policy_registry_namespaces)
-|| frame(provider_authority_institution_id)
-|| optional_text(provider_authority_jurisdiction_id)
-|| rulebook(provider_authority_rulebook)
-|| canonical_set(allowed_provider_capabilities)
+|| canonical_policy_scope_set(authorized_policy_scopes)
 || frame_u64(valid_from_ms)
 || optional_u64(expires_at_ms)
 || frame(rotation_mode)
@@ -222,9 +259,11 @@ No JSON, CBOR, MessagePack, Rust struct layout, Holochain encoding, map iteratio
 
 The checked-in GOVSYS-003A vector is normative for v0.1 and has expected digest:
 
-`bb622a0322a30c314db6fe545c3b4cd933c6d9c3159f8b36d5e5a79a2e08f5c2`
+`9c5d1a27ccb89e6bdea6788c21f811a956be7b631765539640c79f44a5a4daf7`
 
 The independent Python oracle recomputes this value using only the Python standard library.
+
+The vector contains two separate policy scopes using the same city-clerk authority rulebook but different exact `(profile, namespace, capability)` bindings. Reordering those scopes is non-semantic; swapping capabilities between them changes the root identity.
 
 ## Relationship to qualified policy layers
 
@@ -232,7 +271,9 @@ Qualified #815 gives a stable semantic identity to one procedure-policy currentn
 
 Qualified #812 gives a reusable evidence waist for immutable policy-record verification plus institutional adoption evidence.
 
-Neither artifact is imported into this constitutional branch. After explicit ancestry convergence, a later adapter may require that a provider-policy identity/profile and namespace are members of this exact root commitment and then consume independently qualified #812 evidence.
+Neither artifact is imported into this constitutional branch. After explicit ancestry convergence, a later adapter may require that one qualified provider policy exact-match one complete `authorized_policy_scopes` tuple and then consume independently qualified #812 evidence.
+
+For a procedure-policy provider, the adapter should separately require the provider-policy target institution/jurisdiction to match the constitutional root institution/jurisdiction. Root-A v0.1 does not turn one provider scope into cross-institution authority.
 
 The intended future composition is:
 
@@ -243,9 +284,11 @@ GOVSYS-003B independently qualified bootstrap/provenance
         ↓
 GOVSYS-003C predecessor-authorized succession/currentness
         ↓
-root-authorized provider-policy currentness
+exact authorized-policy-scope tuple match
+        + qualified provider-policy identity
+        + qualified policy record/adoption evidence
         ↓
-qualified provider-selection policy
+root-authorized provider-policy currentness
         ↓
 domain policy currentness
 ```
