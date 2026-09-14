@@ -1,6 +1,6 @@
 {
   "profile": "mycelix-constitutional-trust-root-v1-sha256-framed-semantic",
-  "expected_digest_hex": "ce8eb35f69b1007a6f1152c2b7bc203cec9d093f1daf1216cc4f135012010669",
+  "expected_digest_hex": "c3f9ba9b323f20c2d2ebd597e424857e8f3459d31393886fd6a7f835a6a93d6d",
   "root": {
     "protocol_version": "mycelix-constitutional-trust-root-v0.1",
     "institution_id": "institution:city-of-example",
@@ -47,6 +47,7 @@
     "valid_from_ms": 1800000000000,
     "expires_at_ms": null,
     "rotation_mode": "predecessor-authorized",
-    "rotation_profile": "constitutional-root-rotation-v1"
+    "rotation_profile": "constitutional-root-rotation-v1",
+    "rotation_authority_anchor_digest_hex": "4444444444444444444444444444444444444444444444444444444444444444"
   }
 }
