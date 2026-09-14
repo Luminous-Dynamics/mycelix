@@ -91,15 +91,46 @@ def validate_post_commit(post_commit: str | None) -> str:
         ".action()": "post_commit must inspect committed actions directly",
         "Action::CreateLink": "V2 wake authority must originate from a committed CreateLink action",
         "ScopedLinkType": "committed link coordinates must be reconstructed explicitly",
+        "zome_index: create_link.zome_index": "committed link zome index must come from the committed action",
+        "zome_type: create_link.link_type": "committed link local type must come from the committed action",
         "LinkTypes::try_from": "committed link coordinates must be interpreted through the generated LinkTypes contract",
         "LinkTypes::AgentToInboxV2": "only the V2 inbox-link type may authorize a wake",
+        "create_link.tag": "the committed link tag must be checked directly",
         'LinkTag::new("inbox-v2")': "only the exact V2 inbox tag may authorize a wake",
-        "base_address": "recipient authority must come from the committed link base",
+        "create_link.base_address": "recipient authority must come from the committed link base",
         "into_agent_pub_key()": "the committed link base must decode as an agent key",
         "PulseV2RemoteSignal::inbox_changed_v2()": "post_commit must emit only the qualified information-poor V2 wake",
     }
     for token, meaning in required.items():
         require(token in post_commit, f"{meaning}: missing {token}")
+
+    require(
+        re.search(
+            r"LinkTypes::try_from\([^\n]+\)\s*!=\s*Ok\(LinkTypes::AgentToInboxV2\)\s*\{\s*continue;\s*\}",
+            post_commit,
+            re.S,
+        )
+        is not None,
+        "non-V2-inbox committed links must be rejected before signaling",
+    )
+    require(
+        re.search(
+            r"create_link\.tag\s*!=\s*LinkTag::new\(\"inbox-v2\"\)\s*\{\s*continue;\s*\}",
+            post_commit,
+            re.S,
+        )
+        is not None,
+        "wrong-tag committed links must be rejected before signaling",
+    )
+    require(
+        re.search(
+            r"let\s+Some\(recipient\)\s*=\s*base_address\.into_agent_pub_key\(\)\s+else\s*\{\s*continue;\s*\};",
+            post_commit,
+            re.S,
+        )
+        is not None,
+        "non-agent link bases must be rejected rather than guessed or unwrapped",
+    )
 
     require(
         "ExternIO::encode" not in post_commit,
@@ -119,8 +150,46 @@ def validate_post_commit(post_commit: str | None) -> str:
         "post_commit V2 wake must target only the recipient recovered from the committed inbox-link base",
     )
     require(
-        re.search(r"target_address[\s\S]{0,160}into_agent_pub_key\(\)", post_commit) is None,
-        "recipient may not be derived from the link target; the V2 inbox-link base is the recipient authority",
+        "target_address" not in post_commit,
+        "post_commit V2 wake authority may not consult the link target; the inbox-link base is the recipient",
+    )
+    for panic_token in (".unwrap(", ".expect(", "panic!(", "unreachable!("):
+        require(
+            panic_token not in post_commit,
+            f"post_commit V2 wake path must fail closed without panic primitive: {panic_token}",
+        )
+
+    create_pos = post_commit.find("Action::CreateLink")
+    scope_pos = post_commit.find("ScopedLinkType")
+    type_pos = post_commit.find("LinkTypes::try_from")
+    inbox_type_pos = post_commit.find("LinkTypes::AgentToInboxV2")
+    tag_check_pos = post_commit.find("create_link.tag")
+    tag_pos = post_commit.find('LinkTag::new("inbox-v2")')
+    base_pos = post_commit.find("create_link.base_address")
+    agent_pos = post_commit.find("into_agent_pub_key()")
+    send_pos = post_commit.find("send_remote_signal(")
+    require(send_pos >= 0, "post_commit V2 implementation is missing send_remote_signal")
+    require(
+        max(
+            create_pos,
+            scope_pos,
+            type_pos,
+            inbox_type_pos,
+            tag_check_pos,
+            tag_pos,
+            base_pos,
+            agent_pos,
+        )
+        < send_pos,
+        "committed-link classification, tag validation, and recipient derivation must all occur before the V2 network send",
+    )
+    require(
+        create_pos < scope_pos <= type_pos < send_pos,
+        "CreateLink classification must precede scoped link-type validation and signaling",
+    )
+    require(
+        base_pos < agent_pos < send_pos,
+        "recipient must be derived from the committed link base before signaling",
     )
 
     forbidden_authority = (
@@ -137,7 +206,7 @@ def validate_post_commit(post_commit: str | None) -> str:
             f"post_commit V2 wake path must not inspect or transport message authority: {token}",
         )
 
-    return "post_commit wake authority is committed-link-only, recipient-only, minimal, and best-effort"
+    return "post_commit wake authority is committed-link-only, recipient-only, ordered, panic-free, minimal, and best-effort"
 
 
 def self_test() -> None:
@@ -216,6 +285,28 @@ def self_test() -> None:
         pass
     else:
         raise BoundaryViolation("self-test: wrong committed link tag was not rejected")
+
+    early_send = good_post_commit.replace(
+        'if create_link.tag != LinkTag::new("inbox-v2") { continue; }',
+        'let _ = send_remote_signal(PulseV2RemoteSignal::inbox_changed_v2(), vec![recipient]);\n                if create_link.tag != LinkTag::new("inbox-v2") { continue; }',
+    )
+    try:
+        validate_post_commit(early_send)
+    except BoundaryViolation:
+        pass
+    else:
+        raise BoundaryViolation("self-test: network send before committed-link checks was not rejected")
+
+    panic_path = good_post_commit.replace(
+        "let Some(recipient) = base_address.into_agent_pub_key() else { continue; };",
+        "let recipient = base_address.into_agent_pub_key().unwrap();",
+    )
+    try:
+        validate_post_commit(panic_path)
+    except BoundaryViolation:
+        pass
+    else:
+        raise BoundaryViolation("self-test: panic-based recipient derivation was not rejected")
 
 
 def main() -> None:
