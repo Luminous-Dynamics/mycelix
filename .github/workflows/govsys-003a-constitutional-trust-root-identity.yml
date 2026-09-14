@@ -1,0 +1,84 @@
+name: GOVSYS-003A Constitutional Trust Root Identity
+
+on:
+  pull_request:
+    branches:
+      - docs/govsys-002-public-institution-constitution-v0.1
+    paths:
+      - .github/workflows/govsys-003a-constitutional-trust-root-identity.yml
+      - mycelix-workspace/docs/government/CONSTITUTIONAL_TRUST_ROOT_IDENTITY_V0.1.md
+      - scripts/qualification/govsys_constitutional_trust_root_identity_v0_1.py
+      - scripts/qualification/govsys_003a_root_identity_vector_v1.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Language-neutral constitutional trust-root identity
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+
+      - name: Exact GOVSYS-002 constitutional ancestry
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent=d5924a6607cfb422c47424f8a083739e5d5fd165
+          git cat-file -e "${parent}^{commit}"
+          git merge-base --is-ancestor "$parent" HEAD
+          test "$(git hash-object mycelix-workspace/docs/government/PUBLIC_INSTITUTION_CONSTITUTION_V0.1.md)" = "c9f652d4300e6703ef97c242ce6910ba2c25ea82"
+
+      - name: Exact documentation and oracle surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent=d5924a6607cfb422c47424f8a083739e5d5fd165
+          mapfile -t changed < <(git diff --name-only "$parent"..HEAD | sort)
+          expected=(
+            .github/workflows/govsys-003a-constitutional-trust-root-identity.yml
+            mycelix-workspace/docs/government/CONSTITUTIONAL_TRUST_ROOT_IDENTITY_V0.1.md
+            scripts/qualification/govsys_003a_root_identity_vector_v1.json
+            scripts/qualification/govsys_constitutional_trust_root_identity_v0_1.py
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#changed[@]}" -eq "${#expected_sorted[@]}"
+          for i in "${!expected_sorted[@]}"; do
+            test "${changed[$i]}" = "${expected_sorted[$i]}"
+          done
+          if printf '%s\n' "${changed[@]}" | grep -Eq '^(crates/|mycelix-workspace/.*/src/|mycelix-workspace/.*/zomes/)'; then
+            echo 'GOVSYS-003A must not add executable/runtime authority surfaces' >&2
+            exit 1
+          fi
+
+      - name: Profile and sovereignty separation audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          doc=mycelix-workspace/docs/government/CONSTITUTIONAL_TRUST_ROOT_IDENTITY_V0.1.md
+          grep -F 'mycelix-constitutional-trust-root-v1-sha256-framed-semantic' "$doc"
+          grep -F 'canonical root identity' "$doc"
+          grep -F '!= root provenance' "$doc"
+          grep -F '!= legal legitimacy' "$doc"
+          grep -F '!= actor authority' "$doc"
+          grep -F '!= external-effect authority' "$doc"
+          grep -F 'authority and evidence may not self-justify cyclically' "$doc"
+          grep -F 'The network remains infrastructure for institutions. It is not the sovereign.' "$doc"
+
+      - name: Python identity oracle syntax
+        run: |
+          python3 --version
+          python3 -m py_compile scripts/qualification/govsys_constitutional_trust_root_identity_v0_1.py
+
+      - name: Execute independent golden-vector and adversarial oracle
+        run: python3 scripts/qualification/govsys_constitutional_trust_root_identity_v0_1.py
+
+      - name: Immutable checkout postflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
