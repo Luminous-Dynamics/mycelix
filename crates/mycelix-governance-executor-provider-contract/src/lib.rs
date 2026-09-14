@@ -12,12 +12,13 @@
 //! authoritative freshness evidence. Callers do not get to choose the authority
 //! ref, current digest, or validity horizon.
 
-use mycelix_authority_freshness::{VerifiedAuthorityFreshness, BUNDLE_IDENTITY_PROFILE};
+use mycelix_authority_freshness::BUNDLE_IDENTITY_PROFILE;
 use mycelix_authority_identity::AUTHORITY_GRANT_IDENTITY_PROFILE;
 use mycelix_governance_authority::ProposalId;
 use mycelix_governance_current_executor_authority::{
-    qualify_current_executor_authority, CurrentExecutorAuthorityError,
-    THRESHOLD_AUTHORIZATION_IDENTITY_PROFILE, CURRENT_EXECUTOR_AUTHORITY_PROFILE,
+    CURRENT_EXECUTOR_AUTHORITY_PROFILE, CurrentExecutorAuthorityError,
+    CurrentExecutorFreshnessEvidence, THRESHOLD_AUTHORIZATION_IDENTITY_PROFILE,
+    qualify_current_executor_authority,
 };
 use mycelix_governance_executor_designation::{
     VerifiedAuthorityGrant, VerifiedExecutorDesignation, VerifiedThresholdAuthorization,
@@ -97,8 +98,7 @@ impl CurrentExecutorAuthorityProjection {
             .validate()
             .map_err(|_| ExecutorProviderContractError::InvalidRulebook)?;
 
-        if self.threshold_authorization_identity_profile
-            != THRESHOLD_AUTHORIZATION_IDENTITY_PROFILE
+        if self.threshold_authorization_identity_profile != THRESHOLD_AUTHORIZATION_IDENTITY_PROFILE
         {
             return Err(ExecutorProviderContractError::WrongThresholdIdentityProfile);
         }
@@ -163,15 +163,12 @@ impl VerifiedCurrentExecutorAuthorityReceipt {
 
 /// Re-run exact current executor qualification and project it into the runtime
 /// provider ABI expected by the lifecycle verifier.
-#[allow(clippy::too_many_arguments)]
 pub fn qualify_executor_provider_receipt(
     threshold: &VerifiedThresholdAuthorization,
     grant_receipt: &VerifiedAuthorityGrant,
     designation_receipt: &VerifiedExecutorDesignation,
     lineage_evidence: DelegationLineageEvidence<'_>,
-    grant_freshness: &VerifiedAuthorityFreshness,
-    threshold_freshness: &VerifiedAuthorityFreshness,
-    executor_freshness: &VerifiedAuthorityFreshness,
+    freshness_evidence: CurrentExecutorFreshnessEvidence<'_>,
     provider_verification_ref: impl Into<String>,
     now_ms: u64,
 ) -> Result<VerifiedCurrentExecutorAuthorityReceipt, ExecutorProviderContractError> {
@@ -180,9 +177,7 @@ pub fn qualify_executor_provider_receipt(
         grant_receipt,
         designation_receipt,
         lineage_evidence,
-        grant_freshness,
-        threshold_freshness,
-        executor_freshness,
+        freshness_evidence,
         now_ms,
     )
     .map_err(ExecutorProviderContractError::CurrentAuthority)?;
@@ -209,8 +204,7 @@ pub fn qualify_executor_provider_receipt(
         actions_digest: threshold.authorization.actions_digest,
         actions_digest_profile: threshold.actions_digest_profile.clone(),
         threshold_authorization_ref: current.threshold_authorization_ref().to_string(),
-        threshold_authorization_identity_digest: current
-            .threshold_authorization_identity_digest(),
+        threshold_authorization_identity_digest: current.threshold_authorization_identity_digest(),
         threshold_authorization_identity_profile: THRESHOLD_AUTHORIZATION_IDENTITY_PROFILE.into(),
         executor_principal: current.executor_principal().clone(),
         executor_authority_ref: authority_ref,
@@ -353,10 +347,17 @@ impl fmt::Display for ExecutorProviderContractError {
             Self::WrongFreshnessProfile => write!(f, "wrong authority-freshness bundle profile"),
             Self::InvalidValidityHorizon => write!(f, "invalid executor-provider validity horizon"),
             Self::ExecutorAuthorityRefMismatch => {
-                write!(f, "executor authority ref does not match current authority digest/profile")
+                write!(
+                    f,
+                    "executor authority ref does not match current authority digest/profile"
+                )
             }
-            Self::InvalidVerificationWindow => write!(f, "invalid executor-provider verification window"),
-            Self::CurrentAuthority(error) => write!(f, "current executor authority failed: {error}"),
+            Self::InvalidVerificationWindow => {
+                write!(f, "invalid executor-provider verification window")
+            }
+            Self::CurrentAuthority(error) => {
+                write!(f, "current executor authority failed: {error}")
+            }
         }
     }
 }
@@ -379,7 +380,8 @@ mod tests {
             actions_digest_profile: "actions-v1-blake3".into(),
             threshold_authorization_ref: "threshold:1".into(),
             threshold_authorization_identity_digest: d(2),
-            threshold_authorization_identity_profile: THRESHOLD_AUTHORIZATION_IDENTITY_PROFILE.into(),
+            threshold_authorization_identity_profile: THRESHOLD_AUTHORIZATION_IDENTITY_PROFILE
+                .into(),
             executor_principal: PrincipalId::new("did:example:executor").unwrap(),
             executor_authority_ref: executor_authority_ref(
                 d(3),
@@ -412,7 +414,9 @@ mod tests {
         let a = executor_authority_ref(d(9), CURRENT_EXECUTOR_AUTHORITY_PROFILE).unwrap();
         let b = executor_authority_ref(d(9), CURRENT_EXECUTOR_AUTHORITY_PROFILE).unwrap();
         assert_eq!(a, b);
-        assert!(a.starts_with("current-executor:mycelix-governance-current-executor-authority-v1-blake3-framed:"));
+        assert!(a.starts_with(
+            "current-executor:mycelix-governance-current-executor-authority-v1-blake3-framed:"
+        ));
     }
 
     #[test]
