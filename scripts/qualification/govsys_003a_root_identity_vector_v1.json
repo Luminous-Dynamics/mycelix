@@ -1,0 +1,53 @@
+{
+  "profile": "mycelix-constitutional-trust-root-v1-sha256-framed-semantic",
+  "expected_digest_hex": "c3f9ba9b323f20c2d2ebd597e424857e8f3459d31393886fd6a7f835a6a93d6d",
+  "root": {
+    "protocol_version": "mycelix-constitutional-trust-root-v0.1",
+    "institution_id": "institution:city-of-example",
+    "jurisdiction_id": "jurisdiction:example-city",
+    "constitutional_rulebook": {
+      "id": "rulebook:city-charter:v1",
+      "version": "1.0.0",
+      "digest_hex": "1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    "generation": 0,
+    "predecessor_root_digest_hex": null,
+    "bootstrap_mode": "pinned-constitutional-commitment",
+    "bootstrap_profile": "deployment-pinned-root-digest-v1",
+    "authoritative_root_source_ref": "registry:constitutional-root:example-city",
+    "root_coverage_profile": "mycelix-constitutional-root-covered-head-v1",
+    "root_source_verification_profile": "mycelix-constitutional-root-source-verification-v1",
+    "root_source_anchor_digest_hex": "3333333333333333333333333333333333333333333333333333333333333333",
+    "authorized_policy_scopes": [
+      {
+        "policy_identity_profile": "mycelix-review-policy-v1-blake3-framed-semantic",
+        "policy_registry_namespace": "registry:review-policy:example-city",
+        "provider_authority_institution_id": "institution:city-clerk",
+        "provider_authority_jurisdiction_id": "jurisdiction:example-city",
+        "provider_authority_rulebook": {
+          "id": "rulebook:city-clerk:v1",
+          "version": "1.0.0",
+          "digest_hex": "2222222222222222222222222222222222222222222222222222222222222222"
+        },
+        "required_provider_capability": "administration.review-policy.currentness.attest"
+      },
+      {
+        "policy_identity_profile": "mycelix-procedure-policy-currentness-provider-v1-blake3-framed-semantic",
+        "policy_registry_namespace": "registry:procedure-policy:example-city",
+        "provider_authority_institution_id": "institution:city-clerk",
+        "provider_authority_jurisdiction_id": "jurisdiction:example-city",
+        "provider_authority_rulebook": {
+          "id": "rulebook:city-clerk:v1",
+          "version": "1.0.0",
+          "digest_hex": "2222222222222222222222222222222222222222222222222222222222222222"
+        },
+        "required_provider_capability": "administration.policy.currentness.attest"
+      }
+    ],
+    "valid_from_ms": 1800000000000,
+    "expires_at_ms": null,
+    "rotation_mode": "predecessor-authorized",
+    "rotation_profile": "constitutional-root-rotation-v1",
+    "rotation_authority_anchor_digest_hex": "4444444444444444444444444444444444444444444444444444444444444444"
+  }
+}

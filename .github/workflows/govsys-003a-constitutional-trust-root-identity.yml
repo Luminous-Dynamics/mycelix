@@ -1,0 +1,241 @@
+name: GOVSYS-003A Constitutional Trust Root Identity
+
+on:
+  pull_request:
+    branches:
+      - docs/govsys-002-public-institution-constitution-v0.1
+    paths:
+      - .github/workflows/govsys-003a-constitutional-trust-root-identity.yml
+      - mycelix-workspace/docs/government/CONSTITUTIONAL_TRUST_ROOT_IDENTITY_V0.1.md
+      - scripts/qualification/govsys_constitutional_trust_root_identity_v0_1.py
+      - scripts/qualification/govsys_003a_root_identity_vector_v1.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Language-neutral constitutional trust-root identity
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Exact qualification subject
+        shell: bash
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+
+      - name: Exact GOVSYS-002 constitutional ancestry
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent=d5924a6607cfb422c47424f8a083739e5d5fd165
+          git cat-file -e "${parent}^{commit}"
+          git merge-base --is-ancestor "$parent" HEAD
+          test "$(git hash-object mycelix-workspace/docs/government/PUBLIC_INSTITUTION_CONSTITUTION_V0.1.md)" = "c9f652d4300e6703ef97c242ce6910ba2c25ea82"
+
+      - name: Exact documentation and oracle surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent=d5924a6607cfb422c47424f8a083739e5d5fd165
+          mapfile -t changed < <(git diff --name-only "$parent"..HEAD | sort)
+          expected=(
+            .github/workflows/govsys-003a-constitutional-trust-root-identity.yml
+            mycelix-workspace/docs/government/CONSTITUTIONAL_TRUST_ROOT_IDENTITY_V0.1.md
+            scripts/qualification/govsys_003a_root_identity_vector_v1.json
+            scripts/qualification/govsys_constitutional_trust_root_identity_v0_1.py
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#changed[@]}" -eq "${#expected_sorted[@]}"
+          for i in "${!expected_sorted[@]}"; do
+            test "${changed[$i]}" = "${expected_sorted[$i]}"
+          done
+          if printf '%s\n' "${changed[@]}" | grep -Eq '^(crates/|mycelix-workspace/.*/src/|mycelix-workspace/.*/zomes/)'; then
+            echo 'GOVSYS-003A must not add executable/runtime authority surfaces' >&2
+            exit 1
+          fi
+
+      - name: Profile and sovereignty separation audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          doc=mycelix-workspace/docs/government/CONSTITUTIONAL_TRUST_ROOT_IDENTITY_V0.1.md
+          grep -F 'mycelix-constitutional-trust-root-v1-sha256-framed-semantic' "$doc"
+          grep -F 'mycelix-constitutional-root-source-descriptor-v1-sha256-framed-semantic' "$doc"
+          grep -F 'mycelix-constitutional-root-rotation-authority-v1-sha256-framed-semantic' "$doc"
+          grep -F 'source-verification authority' "$doc"
+          grep -F 'constitutional rotation authority' "$doc"
+          grep -F '!= bootstrap provenance' "$doc"
+          grep -F '!= legal legitimacy' "$doc"
+          grep -F '!= actor authority' "$doc"
+          grep -F '!= external-effect authority' "$doc"
+          grep -F 'authority and evidence may not self-justify cyclically' "$doc"
+          grep -F 'A future provider-policy adapter must exact-match **one complete tuple**.' "$doc"
+          grep -F 'The network remains infrastructure for institutions. It is not the sovereign.' "$doc"
+
+      - name: Python identity oracle syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/qualification/govsys_constitutional_trust_root_identity_v0_1.py')
+          compile(path.read_text(encoding='utf-8'), str(path), 'exec')
+          PY
+
+      - name: Execute independent golden-vector and adversarial oracle
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python3 scripts/qualification/govsys_constitutional_trust_root_identity_v0_1.py
+
+      - name: Execute derived root-source descriptor golden vector
+        shell: bash
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import copy
+          import hashlib
+          import json
+          import struct
+          from pathlib import Path
+
+          PROFILE = b"mycelix-constitutional-root-source-descriptor-v1-sha256-framed-semantic"
+          DOMAIN = b"mycelix/public-institution/constitutional-root-source-descriptor/v1"
+          EXPECTED = "f97a96e20ce6dd0c86c67e1590252abc678dfd6401128ab44ced4a66ec088126"
+          ROOT_EXPECTED = "c3f9ba9b323f20c2d2ebd597e424857e8f3459d31393886fd6a7f835a6a93d6d"
+
+          def frame(raw: bytes) -> bytes:
+              return struct.pack("<Q", len(raw)) + raw
+
+          def descriptor(root: dict) -> str:
+              transcript = bytearray(DOMAIN)
+              transcript += frame(PROFILE)
+              transcript += frame(root["authoritative_root_source_ref"].encode("utf-8"))
+              transcript += frame(root["root_coverage_profile"].encode("utf-8"))
+              transcript += frame(root["root_source_verification_profile"].encode("utf-8"))
+              transcript += frame(bytes.fromhex(root["root_source_anchor_digest_hex"]))
+              return hashlib.sha256(transcript).hexdigest()
+
+          vector = json.loads(
+              Path("scripts/qualification/govsys_003a_root_identity_vector_v1.json")
+              .read_text(encoding="utf-8")
+          )
+          root = vector["root"]
+          actual = descriptor(root)
+          assert actual == EXPECTED, (actual, EXPECTED)
+          assert vector["expected_digest_hex"] == ROOT_EXPECTED
+
+          for field, replacement in (
+              ("authoritative_root_source_ref", "registry:constitutional-root:other"),
+              ("root_coverage_profile", "mycelix-other-root-coverage-v1"),
+              ("root_source_verification_profile", "mycelix-other-root-source-verification-v1"),
+          ):
+              changed = copy.deepcopy(root)
+              changed[field] = replacement
+              assert descriptor(changed) != EXPECTED
+
+          changed_anchor = copy.deepcopy(root)
+          changed_anchor["root_source_anchor_digest_hex"] = "66" * 32
+          assert descriptor(changed_anchor) != EXPECTED
+
+          uppercase_anchor = copy.deepcopy(root)
+          uppercase_anchor["root_source_anchor_digest_hex"] = (
+              uppercase_anchor["root_source_anchor_digest_hex"].upper()
+          )
+          assert descriptor(uppercase_anchor) == EXPECTED
+
+          unrelated_rotation = copy.deepcopy(root)
+          unrelated_rotation["rotation_authority_anchor_digest_hex"] = "77" * 32
+          assert descriptor(unrelated_rotation) == EXPECTED
+
+          unrelated_rulebook = copy.deepcopy(root)
+          unrelated_rulebook["constitutional_rulebook"]["digest_hex"] = "55" * 32
+          assert descriptor(unrelated_rulebook) == EXPECTED
+
+          unrelated_scope = copy.deepcopy(root)
+          unrelated_scope["authorized_policy_scopes"][0]["required_provider_capability"] = (
+              "administration.other-policy.currentness.attest"
+          )
+          assert descriptor(unrelated_scope) == EXPECTED
+
+          print(f"GOVSYS-003A source descriptor PASS: {actual}")
+          PY
+
+      - name: Execute derived rotation-authority golden vector
+        shell: bash
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import copy
+          import hashlib
+          import json
+          import struct
+          from pathlib import Path
+
+          PROFILE = b"mycelix-constitutional-root-rotation-authority-v1-sha256-framed-semantic"
+          DOMAIN = b"mycelix/public-institution/constitutional-root-rotation-authority/v1"
+          EXPECTED = "cf86718a53410b1e5e38cf5c552b3e4448772da97533fbd08c7b9bbfbee909ae"
+
+          def frame(raw: bytes) -> bytes:
+              return struct.pack("<Q", len(raw)) + raw
+
+          def descriptor(root: dict) -> str:
+              transcript = bytearray(DOMAIN)
+              transcript += frame(PROFILE)
+              transcript += frame(root["rotation_profile"].encode("utf-8"))
+              transcript += frame(bytes.fromhex(root["rotation_authority_anchor_digest_hex"]))
+              return hashlib.sha256(transcript).hexdigest()
+
+          vector = json.loads(
+              Path("scripts/qualification/govsys_003a_root_identity_vector_v1.json")
+              .read_text(encoding="utf-8")
+          )
+          root = vector["root"]
+          actual = descriptor(root)
+          assert actual == EXPECTED, (actual, EXPECTED)
+
+          changed_profile = copy.deepcopy(root)
+          changed_profile["rotation_profile"] = "constitutional-root-rotation-v2"
+          assert descriptor(changed_profile) != EXPECTED
+
+          changed_anchor = copy.deepcopy(root)
+          changed_anchor["rotation_authority_anchor_digest_hex"] = "77" * 32
+          assert descriptor(changed_anchor) != EXPECTED
+
+          uppercase_anchor = copy.deepcopy(root)
+          uppercase_anchor["rotation_authority_anchor_digest_hex"] = (
+              uppercase_anchor["rotation_authority_anchor_digest_hex"].upper()
+          )
+          assert descriptor(uppercase_anchor) == EXPECTED
+
+          unrelated_source_anchor = copy.deepcopy(root)
+          unrelated_source_anchor["root_source_anchor_digest_hex"] = "66" * 32
+          assert descriptor(unrelated_source_anchor) == EXPECTED
+
+          unrelated_rulebook = copy.deepcopy(root)
+          unrelated_rulebook["constitutional_rulebook"]["digest_hex"] = "55" * 32
+          assert descriptor(unrelated_rulebook) == EXPECTED
+
+          print(f"GOVSYS-003A rotation authority PASS: {actual}")
+          PY
+
+      - name: Immutable checkout postflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
