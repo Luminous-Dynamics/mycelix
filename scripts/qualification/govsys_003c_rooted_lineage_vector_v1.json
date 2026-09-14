@@ -1,0 +1,45 @@
+{
+  "profile": "mycelix-constitutional-rooted-lineage-v0.1",
+  "root_b_pin": {
+    "pin_profile": "mycelix-provisioned-constitutional-root-pin-v1",
+    "root_identity_profile": "mycelix-constitutional-trust-root-v1-sha256-framed-semantic",
+    "root_digest_hex": "b7a0c7cb28f182d06367d4bf1d3cc4f7d82094701d955eeaa7ec53153d2080a6",
+    "bootstrap_profile": "deployment-pinned-root-digest-v1",
+    "provisioning_ref": "deployment:example-city:constitutional-root-pin:transition-fixture:v1"
+  },
+  "alternate_root_b_pin": {
+    "pin_profile": "mycelix-provisioned-constitutional-root-pin-v1",
+    "root_identity_profile": "mycelix-constitutional-trust-root-v1-sha256-framed-semantic",
+    "root_digest_hex": "b7a0c7cb28f182d06367d4bf1d3cc4f7d82094701d955eeaa7ec53153d2080a6",
+    "bootstrap_profile": "deployment-pinned-root-digest-v1",
+    "provisioning_ref": "deployment:example-city:constitutional-root-pin:v1"
+  },
+  "expected": {
+    "primary": {
+      "protocol_version": "mycelix-constitutional-rooted-lineage-v0.1",
+      "lineage_domain_profile": "mycelix-constitutional-root-lineage-domain-v1-sha256-framed-semantic",
+      "lineage_domain_digest_hex": "6067a895dfec8c8a6f5650e5f2031cf981c116f5b22fc1e5f316893f6dcb7f7a",
+      "root_b_provenance_profile": "mycelix-constitutional-pinned-root-provenance-v1-sha256-framed-semantic",
+      "root_b_provenance_digest_hex": "6d4a106b254a5c6ef7845aca919a729353063c15860eb2a9a9ce24aac068c6ac",
+      "core_lineage_profile": "mycelix-core-lineage-v1-sha256-framed-semantic",
+      "core_lineage_digest_hex": "e039378be03e597f6d3c117890e8395cb112efbe6f19e2c7e0a2ccdf37eb1b74",
+      "constitutional_lineage_profile": "mycelix-constitutional-root-lineage-v1-sha256-framed-semantic",
+      "constitutional_lineage_digest_hex": "2501ddf71646e27797822390310f0c558a72491f8ec46e0efdd3fd4647c09317",
+      "qualification_profile": "mycelix-constitutional-root-lineage-qualification-v1-sha256-framed-semantic",
+      "qualification_digest_hex": "cf1ae9c79767ed5d4da31448cb9a4b641d797f495a664d50f143839d917fde9d",
+      "endpoint_generation": 1,
+      "endpoint_root_identity_profile": "mycelix-constitutional-trust-root-v1-sha256-framed-semantic",
+      "endpoint_root_digest_hex": "c970bfc0957efc00946d08a957d7617b85815f47d98fcc98aa43f6f6a6ced963",
+      "endpoint_source_descriptor_profile": "mycelix-constitutional-root-source-descriptor-v1-sha256-framed-semantic",
+      "endpoint_source_descriptor_digest_hex": "3f867aab08093b08f8f4088a540e8cffa85dc25ab7c7cfb34ac65c8bc071a3fe",
+      "replay_key_predecessor_root_digest_hex": "b7a0c7cb28f182d06367d4bf1d3cc4f7d82094701d955eeaa7ec53153d2080a6",
+      "replay_key_nonce_hex": "9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a",
+      "grants_currentness": false,
+      "grants_effect_authority": false
+    },
+    "alternate": {
+      "root_b_provenance_digest_hex": "6debe1913282a5ddd7c440798ca2697ad3702e2f301e0614402bfc4c7ca4acd7",
+      "qualification_digest_hex": "9d2d572c26be9dced64fc1eb644dfc2a4c8de8ec15ac5900f3a356c215e26437"
+    }
+  }
+}
