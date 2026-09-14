@@ -1,0 +1,153 @@
+name: Regenerative Recovery Shared Action Digest
+
+on:
+  push:
+    branches:
+      - refactor/recovery-shared-execution-action-digest-v1
+  pull_request:
+    branches:
+      - test/regenerative-recovery-governance-action-conformance-v1
+
+permissions:
+  contents: read
+
+concurrency:
+  group: regenerative-recovery-shared-action-digest-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Recovery shared action digest convergence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact head subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+
+      - name: Verify exact checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ github.event.pull_request.head.sha }}'
+          if [[ -z "$expected" ]]; then
+            expected="$GITHUB_SHA"
+          fi
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$expected"
+          echo "exact subject: $actual"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+
+      - name: Toolchain identity
+        run: |
+          rustc --version --verbose
+          cargo --version
+          rustfmt --version
+          cargo clippy --version
+
+      - name: Bind exact qualified core blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object crates/mycelix-execution-action-digest-core/Cargo.toml)" = '5a0064e187f2905bf74ece3767d42cf2ce3e3869'
+          test "$(git hash-object crates/mycelix-execution-action-digest-core/INVARIANTS.md)" = 'acf871eecbeecbcf986fc827919abeabc1a6d305'
+          test "$(git hash-object crates/mycelix-execution-action-digest-core/src/lib.rs)" = '4a4cd7689f6dba585d1bff50a22c615921b2ee64'
+          echo 'PASS: recovery branch carries exact green #821 core blobs'
+
+      - name: Format
+        run: |
+          cargo fmt --manifest-path crates/mycelix-execution-action-digest-core/Cargo.toml -- --check
+          rustfmt --edition 2024 --check mycelix-commons/crates/commons-types/src/regenerative_recovery_governance_authority.rs
+          rustfmt --edition 2024 --check mycelix-commons/crates/commons-types/tests/regenerative_recovery_governance_action_conformance.rs
+
+      - name: Test shared core
+        run: cargo test --manifest-path crates/mycelix-execution-action-digest-core/Cargo.toml --all-targets
+
+      - name: Test independent recovery oracle
+        run: cargo test --manifest-path mycelix-commons/Cargo.toml -p commons-types --test regenerative_recovery_governance_action_conformance
+
+      - name: Test Commons
+        run: cargo test --manifest-path mycelix-commons/Cargo.toml -p commons-types
+
+      - name: Clippy shared core
+        run: cargo clippy --manifest-path crates/mycelix-execution-action-digest-core/Cargo.toml --all-targets -- -D warnings
+
+      - name: Clippy Commons; gate migrated production source
+        shell: bash
+        run: |
+          set -euo pipefail
+          target='mycelix-commons/crates/commons-types/src/regenerative_recovery_governance_authority.rs'
+          set +e
+          cargo clippy --manifest-path mycelix-commons/Cargo.toml -p commons-types \
+            --message-format=json 2>&1 | tee /tmp/recovery-shared-action-digest-clippy.jsonl
+          cargo_status=${PIPESTATUS[0]}
+          set -e
+          python3 - "$target" "$cargo_status" <<'PY'
+          import json
+          import sys
+
+          target = sys.argv[1]
+          cargo_status = int(sys.argv[2])
+          errors = []
+          warnings = []
+          with open('/tmp/recovery-shared-action-digest-clippy.jsonl', encoding='utf-8', errors='replace') as handle:
+              for line in handle:
+                  try:
+                      event = json.loads(line)
+                  except json.JSONDecodeError:
+                      continue
+                  if event.get('reason') != 'compiler-message':
+                      continue
+                  message = event.get('message') or {}
+                  level = message.get('level')
+                  spans = message.get('spans') or []
+                  if level == 'error':
+                      errors.append(message.get('message', 'compiler error'))
+                  if level == 'warning' and any(
+                      span.get('is_primary') and span.get('file_name') == target for span in spans
+                  ):
+                      warnings.append(message.get('message', 'warning'))
+
+          if cargo_status != 0 or errors:
+              for error in errors:
+                  print(f'- {error}', file=sys.stderr)
+              raise SystemExit(1)
+          if warnings:
+              for warning in warnings:
+                  print(f'- {warning}', file=sys.stderr)
+              raise SystemExit(1)
+          print('PASS: Commons compiled and migrated production source has no Clippy warnings')
+          PY
+
+      - name: Production-waist and oracle-independence audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          production='mycelix-commons/crates/commons-types/src/regenerative_recovery_governance_authority.rs'
+          oracle='mycelix-commons/crates/commons-types/tests/regenerative_recovery_governance_action_conformance.rs'
+          manifest='mycelix-commons/crates/commons-types/Cargo.toml'
+
+          grep -q 'mycelix_execution_action_digest_core' "$production"
+          grep -q 'execution_authority_digest_hex' "$production"
+          grep -q 'ACTIONS_DIGEST_PROFILE_V1' "$production"
+          grep -q 'mycelix-execution-action-digest-core' "$manifest"
+          ! grep -q 'fn execution_authority_digest(' "$production"
+          ! grep -q 'EXECUTION_AUTHORITY_DOMAIN' "$production"
+          ! grep -q 'mycelix-governance-execution-authority-v1\\0' "$production"
+
+          grep -q 'blake3::Hasher' "$oracle"
+          ! grep -q 'mycelix_execution_action_digest_core' "$oracle"
+          ! grep -q 'execution_authority_digest_hex' "$oracle"
+
+          test ! -e .github/workflows/zz-one-shot-migrate-recovery-action-digest.yml
+          echo 'PASS: one production digest waist; independent recovery oracle; no write helper'
