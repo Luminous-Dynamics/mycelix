@@ -154,6 +154,8 @@ def validate_root(root: Any) -> dict[str, Any]:
         "predecessor_root_digest_hex",
         "bootstrap_mode",
         "bootstrap_profile",
+        "authoritative_root_source_ref",
+        "root_coverage_profile",
         "authorized_policy_scopes",
         "valid_from_ms",
         "expires_at_ms",
@@ -182,6 +184,12 @@ def validate_root(root: Any) -> dict[str, Any]:
     if root["bootstrap_mode"] not in BOOTSTRAP_MODES:
         raise ContractError("unknown bootstrap mode")
     _text(root["bootstrap_profile"], "bootstrap_profile", MAX_PROFILE_BYTES)
+    _text(
+        root["authoritative_root_source_ref"],
+        "authoritative_root_source_ref",
+        MAX_NAMESPACE_BYTES,
+    )
+    _text(root["root_coverage_profile"], "root_coverage_profile", MAX_PROFILE_BYTES)
 
     scopes = root["authorized_policy_scopes"]
     if not isinstance(scopes, list):
@@ -292,6 +300,8 @@ def canonical_bytes(root: dict[str, Any]) -> bytes:
     output += _frame_optional_digest(root["predecessor_root_digest_hex"])
     output += _frame_text(root["bootstrap_mode"])
     output += _frame_text(root["bootstrap_profile"])
+    output += _frame_text(root["authoritative_root_source_ref"])
+    output += _frame_text(root["root_coverage_profile"])
     output += _frame_scope_set(root["authorized_policy_scopes"])
     output += _frame_u64(root["valid_from_ms"])
     output += _frame_optional_u64(root["expires_at_ms"])
@@ -343,9 +353,7 @@ def self_test() -> None:
     _expect_error(ambiguous_provider)
 
     self_authorizing = copy.deepcopy(root)
-    self_authorizing["authorized_policy_scopes"][0]["policy_identity_profile"] = (
-        IDENTITY_PROFILE
-    )
+    self_authorizing["authorized_policy_scopes"][0]["policy_identity_profile"] = IDENTITY_PROFILE
     _expect_error(self_authorizing)
 
     too_many_scopes = copy.deepcopy(root)
@@ -384,9 +392,9 @@ def self_test() -> None:
     assert bytes.fromhex(identity_hex(wrong_scope_namespace)) != expected
 
     wrong_provider_scope = copy.deepcopy(root)
-    wrong_provider_scope["authorized_policy_scopes"][0][
-        "provider_authority_rulebook"
-    ]["digest_hex"] = "44" * 32
+    wrong_provider_scope["authorized_policy_scopes"][0]["provider_authority_rulebook"][
+        "digest_hex"
+    ] = "44" * 32
     assert bytes.fromhex(identity_hex(wrong_provider_scope)) != expected
 
     wrong_capability = copy.deepcopy(root)
@@ -397,9 +405,7 @@ def self_test() -> None:
 
     crossed_capabilities = copy.deepcopy(root)
     scopes = crossed_capabilities["authorized_policy_scopes"]
-    scopes[0]["required_provider_capability"], scopes[1][
-        "required_provider_capability"
-    ] = (
+    scopes[0]["required_provider_capability"], scopes[1]["required_provider_capability"] = (
         scopes[1]["required_provider_capability"],
         scopes[0]["required_provider_capability"],
     )
@@ -408,6 +414,14 @@ def self_test() -> None:
     wrong_bootstrap = copy.deepcopy(root)
     wrong_bootstrap["bootstrap_mode"] = "genesis-governance-decision"
     assert bytes.fromhex(identity_hex(wrong_bootstrap)) != expected
+
+    wrong_root_source = copy.deepcopy(root)
+    wrong_root_source["authoritative_root_source_ref"] = "registry:constitutional-root:other"
+    assert bytes.fromhex(identity_hex(wrong_root_source)) != expected
+
+    wrong_coverage_profile = copy.deepcopy(root)
+    wrong_coverage_profile["root_coverage_profile"] = "mycelix-other-root-coverage-v1"
+    assert bytes.fromhex(identity_hex(wrong_coverage_profile)) != expected
 
     genesis_with_predecessor = copy.deepcopy(root)
     genesis_with_predecessor["predecessor_root_digest_hex"] = "55" * 32
@@ -443,9 +457,9 @@ def self_test() -> None:
     _expect_error(zero_rulebook)
 
     zero_provider_rulebook = copy.deepcopy(root)
-    zero_provider_rulebook["authorized_policy_scopes"][0][
-        "provider_authority_rulebook"
-    ]["digest_hex"] = "00" * 32
+    zero_provider_rulebook["authorized_policy_scopes"][0]["provider_authority_rulebook"][
+        "digest_hex"
+    ] = "00" * 32
     _expect_error(zero_provider_rulebook)
 
     control_identifier = copy.deepcopy(root)
