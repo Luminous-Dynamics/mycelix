@@ -163,10 +163,21 @@ def build_report():
         additive_weight = additive(*values)
         multiplicative_attested = multiplicative(*values, provenance="Attested")
         multiplicative_unavailable = multiplicative(*values, provenance="Unavailable")
-        rows.append((additive_weight, multiplicative_attested, values))
-        unavailable_rows.append((additive_weight, multiplicative_unavailable, values))
 
-    differences = [multiplicative_weight - additive_weight for additive_weight, multiplicative_weight, _ in rows]
+        # Production get_voter_phi_weight() materializes Unavailable Phi as 0.0.
+        # The additive composite has no provenance branch, so its live unavailable
+        # semantics receive a zero Phi contribution rather than a neutral multiplier.
+        additive_unavailable = additive(
+            0.0, values[1], values[2], values[3], values[4]
+        )
+
+        rows.append((additive_weight, multiplicative_attested, values))
+        unavailable_rows.append((additive_unavailable, multiplicative_unavailable, values))
+
+    differences = [
+        multiplicative_weight - additive_weight
+        for additive_weight, multiplicative_weight, _ in rows
+    ]
     absolute_differences = [abs(value) for value in differences]
 
     max_absolute_index = max(range(len(rows)), key=lambda i: absolute_differences[i])
@@ -190,6 +201,11 @@ def build_report():
         < 1e-15
         for k, stake, participation, domain in itertools.product(GRID, repeat=4)
     )
+
+    unavailable_differences = [
+        multiplicative_weight - additive_weight
+        for additive_weight, multiplicative_weight, _ in unavailable_rows
+    ]
 
     report = {
         "schema": "mycelix-voting-weight-differential-v1",
@@ -227,8 +243,19 @@ def build_report():
             "pairwise_order": pairwise_order_stats(rows),
         },
         "unavailable_phi": {
-            "phi_independent": unavailable_phi_independent,
-            "pairwise_order_vs_additive": pairwise_order_stats(unavailable_rows),
+            "source_semantics": (
+                "get_voter_phi_weight sets phi_score=0.0; multiplicative uses neutral "
+                "consciousness=1.0 while additive composite has no provenance branch and "
+                "therefore receives zero Phi contribution"
+            ),
+            "multiplicative_phi_independent": unavailable_phi_independent,
+            "pairwise_order_zero_phi_additive_vs_neutral_multiplicative": pairwise_order_stats(
+                unavailable_rows
+            ),
+            "mean_signed_m_minus_a": statistics.fmean(unavailable_differences),
+            "mean_absolute": statistics.fmean(
+                [abs(value) for value in unavailable_differences]
+            ),
         },
         "monotonicity": {
             "additive": monotonicity(additive),
@@ -237,14 +264,16 @@ def build_report():
         },
         "sensitivity_fixtures": {
             "stake_additive_delta_at_mid_others": (
-                additive(0.5, 0.5, 1.0, 0.5, 0.5) - additive(0.5, 0.5, 0.0, 0.5, 0.5)
+                additive(0.5, 0.5, 1.0, 0.5, 0.5)
+                - additive(0.5, 0.5, 0.0, 0.5, 0.5)
             ),
             "stake_multiplicative_delta_at_mid_others": (
                 multiplicative(0.5, 0.5, 1.0, 0.5, 0.5)
                 - multiplicative(0.5, 0.5, 0.0, 0.5, 0.5)
             ),
             "reputation_additive_delta_025_to_05_mid_others": (
-                additive(0.5, 0.5, 0.5, 0.5, 0.5) - additive(0.5, 0.25, 0.5, 0.5, 0.5)
+                additive(0.5, 0.5, 0.5, 0.5, 0.5)
+                - additive(0.5, 0.25, 0.5, 0.5, 0.5)
             ),
             "reputation_multiplicative_delta_025_to_05_mid_others": (
                 multiplicative(0.5, 0.5, 0.5, 0.5, 0.5)
@@ -269,7 +298,7 @@ def build_report():
 def self_test():
     report = build_report()
     assert report["profile_count"] == 3125
-    assert report["unavailable_phi"]["phi_independent"] is True
+    assert report["unavailable_phi"]["multiplicative_phi_independent"] is True
     for model in report["monotonicity"].values():
         assert all(axis["violations"] == 0 for axis in model.values())
     assert report["attested_difference"]["pairwise_order"]["strict_rank_inversions"] > 0
