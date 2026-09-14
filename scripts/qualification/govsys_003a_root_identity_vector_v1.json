@@ -1,0 +1,41 @@
+{
+  "profile": "mycelix-constitutional-trust-root-v1-sha256-framed-semantic",
+  "expected_digest_hex": "bb622a0322a30c314db6fe545c3b4cd933c6d9c3159f8b36d5e5a79a2e08f5c2",
+  "root": {
+    "protocol_version": "mycelix-constitutional-trust-root-v0.1",
+    "institution_id": "institution:city-of-example",
+    "jurisdiction_id": "jurisdiction:example-city",
+    "constitutional_rulebook": {
+      "id": "rulebook:city-charter:v1",
+      "version": "1.0.0",
+      "digest_hex": "1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    "generation": 0,
+    "predecessor_root_digest_hex": null,
+    "bootstrap_mode": "pinned-constitutional-commitment",
+    "bootstrap_profile": "deployment-pinned-root-digest-v1",
+    "authorized_policy_profiles": [
+      "mycelix-review-policy-v1-blake3-framed-semantic",
+      "mycelix-procedure-policy-currentness-provider-v1-blake3-framed-semantic"
+    ],
+    "authorized_policy_registry_namespaces": [
+      "registry:review-policy:example-city",
+      "registry:procedure-policy:example-city"
+    ],
+    "provider_authority_institution_id": "institution:city-clerk",
+    "provider_authority_jurisdiction_id": "jurisdiction:example-city",
+    "provider_authority_rulebook": {
+      "id": "rulebook:city-clerk:v1",
+      "version": "1.0.0",
+      "digest_hex": "2222222222222222222222222222222222222222222222222222222222222222"
+    },
+    "allowed_provider_capabilities": [
+      "administration.review-policy.currentness.attest",
+      "administration.policy.currentness.attest"
+    ],
+    "valid_from_ms": 1800000000000,
+    "expires_at_ms": null,
+    "rotation_mode": "predecessor-authorized",
+    "rotation_profile": "constitutional-root-rotation-v1"
+  }
+}
