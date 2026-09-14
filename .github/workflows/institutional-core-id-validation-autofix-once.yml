@@ -148,6 +148,37 @@ jobs:
                   self.rulebook.validate()?;
           ''')
 
+          # Rust 1.98 strict Clippy rejects two inherited nested-if forms in this
+          # same source file. Collapse them mechanically without changing logic;
+          # this keeps -D warnings intact rather than weakening qualification.
+          replace_one(
+          '''        if let Some(expires_at_ms) = self.expires_at_ms {
+                      if expires_at_ms <= self.granted_at_ms {
+                          return Err(ValidationError::InvalidTimeRange("consent"));
+                      }
+                  }
+          ''',
+          '''        if let Some(expires_at_ms) = self.expires_at_ms
+                      && expires_at_ms <= self.granted_at_ms
+                  {
+                      return Err(ValidationError::InvalidTimeRange("consent"));
+                  }
+          ''')
+
+          replace_one(
+          '''        if let Some(expires_at_ms) = self.expires_at_ms {
+                      if expires_at_ms <= self.generated_at_ms {
+                          return Err(ValidationError::InvalidTimeRange("advisory signal"));
+                      }
+                  }
+          ''',
+          '''        if let Some(expires_at_ms) = self.expires_at_ms
+                      && expires_at_ms <= self.generated_at_ms
+                  {
+                      return Err(ValidationError::InvalidTimeRange("advisory signal"));
+                  }
+          ''')
+
           path.write_text(text)
           PY
 
