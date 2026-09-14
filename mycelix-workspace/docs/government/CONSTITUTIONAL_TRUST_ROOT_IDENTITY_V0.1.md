@@ -80,7 +80,7 @@ Each authorized policy scope is one indivisible tuple:
 )
 ```
 
-A later provider-policy adapter must exact-match **one whole tuple**. It may not independently choose a profile from one scope, a namespace from another, and a capability or provider authority from a third.
+A later provider-policy adapter must exact-match **one complete tuple**. It may not independently choose a profile from one scope, a namespace from another, and a capability or provider authority from a third.
 
 This prevents a constitutional confused-deputy / Cartesian-product failure mode.
 
@@ -163,7 +163,26 @@ Each scope is independently validated and encoded. Duplicate encoded scopes are 
 
 The scope set may be empty. An empty scope set means the constitutional root intentionally authorizes no policy-currentness provider scope; it does not require a separate shutdown flag.
 
-The v0.1 profile does not infer capability inheritance, namespace prefixing, institution hierarchy, jurisdiction subsumption, role equivalence, or rulebook equivalence. Any such semantic expansion requires another explicitly qualified profile.
+A v0.1 root may contain at most **1,024 authorized policy scopes**. This bound is normative and prevents different implementations from accepting unbounded identity inputs that create avoidable memory/CPU denial-of-service surfaces.
+
+### Constitutional self-authorization is forbidden
+
+An authorized policy scope MUST NOT name Root-A's own identity profile:
+
+`mycelix-constitutional-trust-root-v1-sha256-framed-semantic`
+
+as its `policy_identity_profile`.
+
+```text
+constitutional root identity
+    cannot authorize
+ordinary policy-currentness machinery
+    to declare constitutional root identity current
+```
+
+Root currentness belongs only to GOVSYS-003B/003C. This rule prevents a future generic provider-policy adapter from accidentally reintroducing the recursion GOVSYS-003 exists to terminate.
+
+The v0.1 profile also does not infer capability inheritance, namespace prefixing, institution hierarchy, jurisdiction subsumption, role equivalence, or rulebook equivalence. Any such semantic expansion requires another explicitly qualified profile.
 
 ## String validity
 
