@@ -34,7 +34,12 @@ class ContractError(ValueError):
 
 
 def _u64(value: Any, field: str) -> int:
-    if not isinstance(value, int) or isinstance(value, bool) or value < 0 or value > 0xFFFFFFFFFFFFFFFF:
+    if (
+        not isinstance(value, int)
+        or isinstance(value, bool)
+        or value < 0
+        or value > 0xFFFFFFFFFFFFFFFF
+    ):
         raise ContractError(f"{field} must be a u64")
     return value
 
@@ -80,13 +85,36 @@ def _rulebook(value: Any, field: str) -> dict[str, Any]:
     return value
 
 
-def _string_set(value: Any, field: str, max_bytes: int) -> list[str]:
-    if not isinstance(value, list):
-        raise ContractError(f"{field} must be a list")
-    checked = [_text(member, field, max_bytes) for member in value]
-    if len(set(checked)) != len(checked):
-        raise ContractError(f"duplicate member in {field}")
-    return sorted(checked, key=lambda member: member.encode("utf-8"))
+def _policy_scope(value: Any, field: str) -> dict[str, Any]:
+    required = {
+        "policy_identity_profile",
+        "policy_registry_namespace",
+        "provider_authority_institution_id",
+        "provider_authority_jurisdiction_id",
+        "provider_authority_rulebook",
+        "required_provider_capability",
+    }
+    if not isinstance(value, dict) or set(value) != required:
+        raise ContractError(f"invalid {field} shape")
+    _text(value["policy_identity_profile"], f"{field}.policy_identity_profile", MAX_PROFILE_BYTES)
+    _text(value["policy_registry_namespace"], f"{field}.policy_registry_namespace", MAX_NAMESPACE_BYTES)
+    _text(
+        value["provider_authority_institution_id"],
+        f"{field}.provider_authority_institution_id",
+        MAX_ID_BYTES,
+    )
+    _optional_text(
+        value["provider_authority_jurisdiction_id"],
+        f"{field}.provider_authority_jurisdiction_id",
+        MAX_ID_BYTES,
+    )
+    _rulebook(value["provider_authority_rulebook"], f"{field}.provider_authority_rulebook")
+    _text(
+        value["required_provider_capability"],
+        f"{field}.required_provider_capability",
+        MAX_ID_BYTES,
+    )
+    return value
 
 
 def validate_root(root: Any) -> dict[str, Any]:
@@ -99,12 +127,7 @@ def validate_root(root: Any) -> dict[str, Any]:
         "predecessor_root_digest_hex",
         "bootstrap_mode",
         "bootstrap_profile",
-        "authorized_policy_profiles",
-        "authorized_policy_registry_namespaces",
-        "provider_authority_institution_id",
-        "provider_authority_jurisdiction_id",
-        "provider_authority_rulebook",
-        "allowed_provider_capabilities",
+        "authorized_policy_scopes",
         "valid_from_ms",
         "expires_at_ms",
         "rotation_mode",
@@ -121,7 +144,9 @@ def validate_root(root: Any) -> dict[str, Any]:
     _rulebook(root["constitutional_rulebook"], "constitutional_rulebook")
 
     generation = _u64(root["generation"], "generation")
-    predecessor = _optional_digest(root["predecessor_root_digest_hex"], "predecessor_root_digest_hex")
+    predecessor = _optional_digest(
+        root["predecessor_root_digest_hex"], "predecessor_root_digest_hex"
+    )
     if generation == 0 and predecessor is not None:
         raise ContractError("generation zero must not name a predecessor")
     if generation > 0 and predecessor is None:
@@ -131,21 +156,14 @@ def validate_root(root: Any) -> dict[str, Any]:
         raise ContractError("unknown bootstrap mode")
     _text(root["bootstrap_profile"], "bootstrap_profile", MAX_PROFILE_BYTES)
 
-    _string_set(root["authorized_policy_profiles"], "authorized_policy_profiles", MAX_PROFILE_BYTES)
-    _string_set(
-        root["authorized_policy_registry_namespaces"],
-        "authorized_policy_registry_namespaces",
-        MAX_NAMESPACE_BYTES,
-    )
-
-    _text(root["provider_authority_institution_id"], "provider_authority_institution_id", MAX_ID_BYTES)
-    _optional_text(
-        root["provider_authority_jurisdiction_id"],
-        "provider_authority_jurisdiction_id",
-        MAX_ID_BYTES,
-    )
-    _rulebook(root["provider_authority_rulebook"], "provider_authority_rulebook")
-    _string_set(root["allowed_provider_capabilities"], "allowed_provider_capabilities", MAX_ID_BYTES)
+    scopes = root["authorized_policy_scopes"]
+    if not isinstance(scopes, list):
+        raise ContractError("authorized_policy_scopes must be a list")
+    for index, scope in enumerate(scopes):
+        _policy_scope(scope, f"authorized_policy_scopes[{index}]")
+    encoded_scopes = [_scope_bytes(scope) for scope in scopes]
+    if len(set(encoded_scopes)) != len(encoded_scopes):
+        raise ContractError("duplicate authorized policy scope")
 
     valid_from = _u64(root["valid_from_ms"], "valid_from_ms")
     expires = root["expires_at_ms"]
@@ -205,12 +223,22 @@ def _frame_rulebook(value: dict[str, Any]) -> bytes:
     )
 
 
-def _frame_set(values: list[str]) -> bytes:
-    ordered = sorted(values, key=lambda member: member.encode("utf-8"))
-    output = bytearray(_frame_u64(len(ordered)))
-    for member in ordered:
-        output += _frame_text(member)
-    return bytes(output)
+def _scope_bytes(scope: dict[str, Any]) -> bytes:
+    return (
+        _frame_text(scope["policy_identity_profile"])
+        + _frame_text(scope["policy_registry_namespace"])
+        + _frame_text(scope["provider_authority_institution_id"])
+        + _frame_optional_text(scope["provider_authority_jurisdiction_id"])
+        + _frame_rulebook(scope["provider_authority_rulebook"])
+        + _frame_text(scope["required_provider_capability"])
+    )
+
+
+def _frame_scope_set(scopes: list[dict[str, Any]]) -> bytes:
+    encoded = sorted(_scope_bytes(scope) for scope in scopes)
+    if len(set(encoded)) != len(encoded):
+        raise ContractError("duplicate authorized policy scope")
+    return _frame_u64(len(encoded)) + b"".join(encoded)
 
 
 def canonical_bytes(root: dict[str, Any]) -> bytes:
@@ -225,12 +253,7 @@ def canonical_bytes(root: dict[str, Any]) -> bytes:
     output += _frame_optional_digest(root["predecessor_root_digest_hex"])
     output += _frame_text(root["bootstrap_mode"])
     output += _frame_text(root["bootstrap_profile"])
-    output += _frame_set(root["authorized_policy_profiles"])
-    output += _frame_set(root["authorized_policy_registry_namespaces"])
-    output += _frame_text(root["provider_authority_institution_id"])
-    output += _frame_optional_text(root["provider_authority_jurisdiction_id"])
-    output += _frame_rulebook(root["provider_authority_rulebook"])
-    output += _frame_set(root["allowed_provider_capabilities"])
+    output += _frame_scope_set(root["authorized_policy_scopes"])
     output += _frame_u64(root["valid_from_ms"])
     output += _frame_optional_u64(root["expires_at_ms"])
     output += _frame_text(root["rotation_mode"])
@@ -259,13 +282,13 @@ def self_test() -> None:
     assert actual == expected, (actual, expected)
 
     reordered = copy.deepcopy(root)
-    reordered["authorized_policy_profiles"].reverse()
-    reordered["authorized_policy_registry_namespaces"].reverse()
-    reordered["allowed_provider_capabilities"].reverse()
+    reordered["authorized_policy_scopes"].reverse()
     assert identity_hex(reordered) == expected
 
     duplicate = copy.deepcopy(root)
-    duplicate["allowed_provider_capabilities"].append(duplicate["allowed_provider_capabilities"][0])
+    duplicate["authorized_policy_scopes"].append(
+        copy.deepcopy(duplicate["authorized_policy_scopes"][0])
+    )
     _expect_error(duplicate)
 
     wrong_institution = copy.deepcopy(root)
@@ -276,9 +299,40 @@ def self_test() -> None:
     wrong_rulebook["constitutional_rulebook"]["digest_hex"] = "33" * 32
     assert identity_hex(wrong_rulebook) != expected
 
+    wrong_scope_profile = copy.deepcopy(root)
+    wrong_scope_profile["authorized_policy_scopes"][0]["policy_identity_profile"] = (
+        "mycelix-other-policy-v1"
+    )
+    assert identity_hex(wrong_scope_profile) != expected
+
+    wrong_scope_namespace = copy.deepcopy(root)
+    wrong_scope_namespace["authorized_policy_scopes"][0]["policy_registry_namespace"] = (
+        "registry:other-policy:example-city"
+    )
+    assert identity_hex(wrong_scope_namespace) != expected
+
     wrong_provider_scope = copy.deepcopy(root)
-    wrong_provider_scope["provider_authority_rulebook"]["digest_hex"] = "44" * 32
+    wrong_provider_scope["authorized_policy_scopes"][0]["provider_authority_rulebook"][
+        "digest_hex"
+    ] = "44" * 32
     assert identity_hex(wrong_provider_scope) != expected
+
+    wrong_capability = copy.deepcopy(root)
+    wrong_capability["authorized_policy_scopes"][0]["required_provider_capability"] = (
+        "administration.other-policy.currentness.attest"
+    )
+    assert identity_hex(wrong_capability) != expected
+
+    # Confused-deputy defense: both capabilities are individually present in the
+    # vector, but exchanging which policy/namespace tuple owns them changes the
+    # constitutional root identity. They are not an independent capability set.
+    crossed_capabilities = copy.deepcopy(root)
+    scopes = crossed_capabilities["authorized_policy_scopes"]
+    scopes[0]["required_provider_capability"], scopes[1]["required_provider_capability"] = (
+        scopes[1]["required_provider_capability"],
+        scopes[0]["required_provider_capability"],
+    )
+    assert identity_hex(crossed_capabilities) != expected
 
     wrong_bootstrap = copy.deepcopy(root)
     wrong_bootstrap["bootstrap_mode"] = "genesis-governance-decision"
@@ -317,9 +371,21 @@ def self_test() -> None:
     zero_rulebook["constitutional_rulebook"]["digest_hex"] = "00" * 32
     _expect_error(zero_rulebook)
 
+    zero_provider_rulebook = copy.deepcopy(root)
+    zero_provider_rulebook["authorized_policy_scopes"][0]["provider_authority_rulebook"][
+        "digest_hex"
+    ] = "00" * 32
+    _expect_error(zero_provider_rulebook)
+
     control_identifier = copy.deepcopy(root)
     control_identifier["institution_id"] = "institution:city\nsmuggled"
     _expect_error(control_identifier)
+
+    control_scope = copy.deepcopy(root)
+    control_scope["authorized_policy_scopes"][0]["policy_registry_namespace"] = (
+        "registry:review\nsmuggled"
+    )
+    _expect_error(control_scope)
 
     print(f"GOVSYS-003A PASS: {actual}")
 
