@@ -1,0 +1,301 @@
+name: Authority Delegation Semantic Repair
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-institutional-core/**'
+      - 'crates/mycelix-authority-freshness/**'
+      - 'crates/mycelix-authority-delegation-policy/**'
+      - 'crates/mycelix-authority-delegation/**'
+      - '.github/workflows/authority-delegation-semantic-repair.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: authority-delegation-semantic-repair-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Generation-lineage semantic repair
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Execution identity and exact parent
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_parent='8e4a04f9e03caf36bc58cd30bc5ce92e40c8fe0f'
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          git rev-parse HEAD
+          git rev-parse HEAD^
+          test "$(git rev-parse HEAD^)" = "$source_parent"
+          test "$(git merge-base "$source_parent" HEAD)" = "$source_parent"
+          test "$(git rev-list --count "$source_parent"..HEAD)" -eq 1
+          test "$(git diff --name-only "$source_parent" HEAD | grep -Ev '^(crates/mycelix-institutional-core/src/lib.rs|crates/mycelix-authority-freshness/src/lib.rs|crates/mycelix-authority-delegation/src/lib.rs|crates/mycelix-authority-delegation-policy/src/lib.rs|\.github/workflows/authority-delegation-semantic-repair\.yml)$' || true)" = ''
+
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          components: clippy
+
+      - name: Pin Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc --version --verbose
+          cargo --version
+          test "$(rustc --version | awk '{print $2}')" = '1.98.1'
+          echo "QUALIFICATION_CARGO_VERSION=$(cargo --version)" >> "$GITHUB_ENV"
+
+      - name: Prepare isolated five-package workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          qual_tree="$RUNNER_TEMP/authority-delegation-semantic-repair"
+          cargo_home="$RUNNER_TEMP/authority-delegation-cargo-home"
+          cargo_target="$RUNNER_TEMP/authority-delegation-target"
+          rm -rf "$qual_tree" "$cargo_home" "$cargo_target"
+          mkdir -p "$qual_tree/crates" "$cargo_home" "$cargo_target"
+          for root in \
+            mycelix-institutional-core \
+            mycelix-authority-identity \
+            mycelix-authority-freshness \
+            mycelix-authority-delegation-policy \
+            mycelix-authority-delegation
+          do
+            cp -a "crates/$root" "$qual_tree/crates/$root"
+          done
+          cat > "$qual_tree/Cargo.toml" <<'EOF'
+          [workspace]
+          resolver = "3"
+          members = [
+            "crates/mycelix-institutional-core",
+            "crates/mycelix-authority-identity",
+            "crates/mycelix-authority-freshness",
+            "crates/mycelix-authority-delegation-policy",
+            "crates/mycelix-authority-delegation",
+          ]
+          EOF
+          echo "QUAL_TREE=$qual_tree" >> "$GITHUB_ENV"
+          echo "CARGO_HOME=$cargo_home" >> "$GITHUB_ENV"
+          echo "CARGO_TARGET_DIR=$cargo_target" >> "$GITHUB_ENV"
+
+      - name: Guard admitted local package build surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          for root in \
+            mycelix-institutional-core \
+            mycelix-authority-identity \
+            mycelix-authority-freshness \
+            mycelix-authority-delegation-policy \
+            mycelix-authority-delegation
+          do
+            manifest="$QUAL_TREE/crates/$root/Cargo.toml"
+            test ! -e "$QUAL_TREE/crates/$root/build.rs"
+            if grep -Eq '^[[:space:]]*build[[:space:]]*=' "$manifest"; then
+              echo "custom package build hook is outside this qualification profile: $root" >&2
+              exit 1
+            fi
+            if grep -Eq '(^|[,{[:space:]])git[[:space:]]*=' "$manifest"; then
+              echo "git dependency is outside this qualification profile: $root" >&2
+              exit 1
+            fi
+          done
+
+      - name: Freeze and fetch resolved dependency graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$QUAL_TREE"
+          cargo generate-lockfile
+          cargo metadata --locked --no-deps --format-version 1 > metadata.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          expected = {
+              "mycelix-institutional-core",
+              "mycelix-authority-identity",
+              "mycelix-authority-freshness",
+              "mycelix-authority-delegation-policy",
+              "mycelix-authority-delegation",
+          }
+          data = json.loads(Path("metadata.json").read_text())
+          actual = {package["name"] for package in data["packages"]}
+          if actual != expected:
+              raise SystemExit(f"unexpected isolated package census: {sorted(actual)}")
+          print("isolated package census: PASS", sorted(actual))
+          PY
+
+          lock_sha="$(sha256sum Cargo.lock | awk '{print $1}')"
+          echo "DIAGNOSTIC_LOCK_SHA256=$lock_sha"
+          echo '--- Cargo.lock diagnostic evidence ---'
+          cat Cargo.lock
+          echo "QUALIFICATION_LOCK_SHA256=$lock_sha" >> "$GITHUB_ENV"
+
+          cargo fetch --manifest-path Cargo.toml --locked
+          echo 'CARGO_NET_OFFLINE=true' >> "$GITHUB_ENV"
+
+      - name: Five-package all-target tests with Cargo offline
+        run: cargo test --manifest-path "$QUAL_TREE/Cargo.toml" --workspace --all-targets --locked
+
+      - name: Five-package strict Clippy with Cargo offline
+        run: cargo clippy --manifest-path "$QUAL_TREE/Cargo.toml" --workspace --all-targets --locked -- -D warnings
+
+      - name: Qualification scope guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_parent='8e4a04f9e03caf36bc58cd30bc5ce92e40c8fe0f'
+          test -n "$(grep -F 'fn mixed_intermediate_generations_fail_closed()' crates/mycelix-authority-delegation/src/lib.rs)"
+          test -n "$(grep -F 'qualify_edge_at_generations(&mid, &leaf, false, 2, 1)' crates/mycelix-authority-delegation/src/lib.rs)"
+          if grep -Fq 'mid_to_leaf.parent_generation = 2' crates/mycelix-authority-delegation/src/lib.rs; then
+            echo 'malformed post-qualification generation mutation returned' >&2
+            exit 1
+          fi
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess
+
+          source_parent = "8e4a04f9e03caf36bc58cd30bc5ce92e40c8fe0f"
+
+          def git_text(ref: str, path: str) -> str:
+              return subprocess.check_output(
+                  ["git", "show", f"{ref}:{path}"], text=True
+              )
+
+          def assert_exact_replacements(path: str, replacements: list[tuple[str, str]]) -> None:
+              expected = git_text(source_parent, path)
+              for old, new in replacements:
+                  count = expected.count(old)
+                  if count != 1:
+                      raise SystemExit(
+                          f"expected exactly one source occurrence for {path}, got {count}: {old!r}"
+                      )
+                  expected = expected.replace(old, new, 1)
+              actual = Path(path).read_text()
+              if actual != expected:
+                  raise SystemExit(
+                      f"unexpected semantic repair outside exact replacements: {path}"
+                  )
+              print(f"exact replacement scope: PASS {path}")
+
+          assert_exact_replacements(
+              "crates/mycelix-authority-freshness/src/lib.rs",
+              [
+                  (
+                      "            &[receipt(grant, 2)],\n",
+                      "            &[receipt(grant.clone(), 2)],\n",
+                  ),
+              ],
+          )
+
+          assert_exact_replacements(
+              "crates/mycelix-institutional-core/src/lib.rs",
+              [
+                  (
+                      "        if let Some(expires_at_ms) = self.expires_at_ms {\n"
+                      "            if expires_at_ms <= self.granted_at_ms {\n"
+                      "                return Err(ValidationError::InvalidTimeRange(\"consent\"));\n"
+                      "            }\n"
+                      "        }\n",
+                      "        if let Some(expires_at_ms) = self.expires_at_ms\n"
+                      "            && expires_at_ms <= self.granted_at_ms\n"
+                      "        {\n"
+                      "            return Err(ValidationError::InvalidTimeRange(\"consent\"));\n"
+                      "        }\n",
+                  ),
+                  (
+                      "        if let Some(expires_at_ms) = self.expires_at_ms {\n"
+                      "            if expires_at_ms <= self.generated_at_ms {\n"
+                      "                return Err(ValidationError::InvalidTimeRange(\"advisory signal\"));\n"
+                      "            }\n"
+                      "        }\n",
+                      "        if let Some(expires_at_ms) = self.expires_at_ms\n"
+                      "            && expires_at_ms <= self.generated_at_ms\n"
+                      "        {\n"
+                      "            return Err(ValidationError::InvalidTimeRange(\"advisory signal\"));\n"
+                      "        }\n",
+                  ),
+              ],
+          )
+          PY
+
+      - name: Immutable checkout postflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="$(git status --short)"
+          printf '%s\n' "$status"
+          test -z "$status"
+
+      - name: Emit successful qualification receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$QUAL_TREE"
+          lock_sha="$(sha256sum Cargo.lock | awk '{print $1}')"
+          test "$lock_sha" = "$QUALIFICATION_LOCK_SHA256"
+          test -z "$(git -C "$GITHUB_WORKSPACE" status --short)"
+          export QUALIFICATION_LOCK_SHA="$lock_sha"
+          receipt_json="$(python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+
+          workspace = os.environ["GITHUB_WORKSPACE"]
+          roots = [
+              "crates/mycelix-institutional-core",
+              "crates/mycelix-authority-identity",
+              "crates/mycelix-authority-freshness",
+              "crates/mycelix-authority-delegation-policy",
+              "crates/mycelix-authority-delegation",
+          ]
+
+          def git(*args: str) -> str:
+              return subprocess.check_output(["git", "-C", workspace, *args], text=True).strip()
+
+          receipt = {
+              "schema": "mycelix.authority-delegation-semantic-repair.receipt.v0.2",
+              "qualification_pass": True,
+              "subject_head": git("rev-parse", "HEAD"),
+              "source_parent": "8e4a04f9e03caf36bc58cd30bc5ce92e40c8fe0f",
+              "github_repository": os.environ["GITHUB_REPOSITORY"],
+              "github_run_id": int(os.environ["GITHUB_RUN_ID"]),
+              "github_run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
+              "github_workflow": os.environ["GITHUB_WORKFLOW"],
+              "runner_os": os.environ["RUNNER_OS"],
+              "runner_arch": os.environ["RUNNER_ARCH"],
+              "rust_toolchain": "1.98.1",
+              "cargo_version": os.environ["QUALIFICATION_CARGO_VERSION"],
+              "checkout_action": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "rust_toolchain_action": "dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87",
+              "qualification_lock_sha256": os.environ["QUALIFICATION_LOCK_SHA"],
+              "admitted_root_trees": {
+                  root: git("rev-parse", f"HEAD:{root}") for root in roots
+              },
+              "local_build_hooks_allowed": False,
+              "local_git_dependencies_allowed": False,
+              "cargo_offline_for_semantic_commands": True,
+              "os_network_sandbox_claimed": False,
+              "authority_source_full_qualification_inherited": False,
+          }
+          print(json.dumps(receipt, sort_keys=True, separators=(",", ":")))
+          PY
+          )"
+          lock_b64="$(base64 -w0 Cargo.lock)"
+          echo "QUALIFICATION_LOCK_SHA256=$lock_sha"
+          echo "QUALIFICATION_LOCK_BASE64=$lock_b64"
+          echo "QUALIFICATION_RECEIPT_JSON=$receipt_json"

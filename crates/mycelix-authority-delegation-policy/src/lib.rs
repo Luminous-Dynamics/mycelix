@@ -9,9 +9,9 @@
 //! authority instead of trusting an opaque policy digest echo.
 
 use mycelix_authority_freshness::{
-    qualify_current_freshness, AuthorityFreshnessState, AuthoritySubjectKind,
-    AuthoritySubjectRef, FreshnessError, ProfiledDigest as FreshnessProfiledDigest,
-    VerifiedAuthorityFreshness, BUNDLE_IDENTITY_PROFILE,
+    qualify_current_freshness, AuthoritySubjectKind, AuthoritySubjectRef, FreshnessError,
+    ProfiledDigest as FreshnessProfiledDigest, VerifiedAuthorityFreshness,
+    BUNDLE_IDENTITY_PROFILE,
 };
 use mycelix_authority_identity::{
     authority_grant_identity, AuthorityIdentityError, CanonicalAuthorityIdentity,
@@ -861,7 +861,8 @@ impl std::error::Error for DelegationPolicyError {}
 mod tests {
     use super::*;
     use mycelix_authority_freshness::{
-        AuthorityFreshnessSnapshot, PROTOCOL_VERSION as FRESHNESS_PROTOCOL_VERSION,
+        AuthorityFreshnessSnapshot, AuthorityFreshnessState,
+        PROTOCOL_VERSION as FRESHNESS_PROTOCOL_VERSION,
     };
     use mycelix_institutional_core::{RulebookId, PROTOCOL_VERSION as CORE_PROTOCOL_VERSION};
 

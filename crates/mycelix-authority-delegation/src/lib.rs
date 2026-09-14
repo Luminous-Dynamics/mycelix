@@ -542,10 +542,10 @@ pub fn qualify_complete_delegation_lineage(
         if edge.child_grant_identity_digest != expected_identity {
             return Err(DelegationError::LineageGrantIdentityMismatch);
         }
-        if let Some(expected_generation) = expected_child_generation {
-            if edge.child_generation != expected_generation {
-                return Err(DelegationError::LineageGenerationMismatch);
-            }
+        if let Some(expected_generation) = expected_child_generation
+            && edge.child_generation != expected_generation
+        {
+            return Err(DelegationError::LineageGenerationMismatch);
         }
         reverse.push(edge);
         current_id = edge.parent_grant_id.clone();
@@ -1090,6 +1090,7 @@ mod tests {
         parent: &AuthorityGrant,
         delegate: &PrincipalId,
         allow_redelegation: bool,
+        parent_generation: u64,
     ) -> DelegationPolicy {
         let parent_identity = authority_grant_identity(parent).unwrap();
         DelegationPolicy {
@@ -1100,7 +1101,7 @@ mod tests {
             rulebook: parent.rulebook.clone(),
             parent_grant_id: parent.id.clone(),
             parent_grant_digest: parent_identity.digest,
-            parent_generation: 1,
+            parent_generation,
             delegator: parent.holder.clone(),
             delegable_roles: vec![RoleId::new("role:executor").unwrap()],
             delegable_capabilities: vec![CapabilityId::new("governance.execute").unwrap()],
@@ -1148,9 +1149,10 @@ mod tests {
         parent: &AuthorityGrant,
         delegate: &PrincipalId,
         allow_redelegation: bool,
+        parent_generation: u64,
         policy_generation: u64,
     ) -> QualifiedDelegationAuthority {
-        let policy = policy_for(parent, delegate, allow_redelegation);
+        let policy = policy_for(parent, delegate, allow_redelegation, parent_generation);
         let receipt = VerifiedDelegationPolicy {
             verified_policy_proof_ref: policy.policy_proof_ref.clone(),
             verified_source_proof_ref: policy.source.proof_ref.clone(),
@@ -1161,7 +1163,7 @@ mod tests {
             policy,
         };
         qualify_delegation_authority(
-            &policy_parent_receipt(parent.clone(), 1),
+            &policy_parent_receipt(parent.clone(), parent_generation),
             &receipt,
             120,
         )
@@ -1235,22 +1237,44 @@ mod tests {
         }
     }
 
-    fn qualify_edge(
+    fn qualify_edge_at_generations(
         parent: &AuthorityGrant,
         child: &AuthorityGrant,
         allow_redelegation: bool,
+        parent_generation: u64,
+        child_generation: u64,
     ) -> QualifiedDelegationEdge {
-        let authority = policy_authority(parent, &child.holder, allow_redelegation, 1);
-        let attestation = attestation(parent, child, &authority, 1, 1);
+        let authority = policy_authority(
+            parent,
+            &child.holder,
+            allow_redelegation,
+            parent_generation,
+            1,
+        );
+        let attestation = attestation(
+            parent,
+            child,
+            &authority,
+            parent_generation,
+            child_generation,
+        );
         qualify_delegation_edge(
-            &grant_receipt(parent.clone(), 1),
-            &grant_receipt(child.clone(), 1),
+            &grant_receipt(parent.clone(), parent_generation),
+            &grant_receipt(child.clone(), child_generation),
             &delegation_receipt(attestation.clone()),
             &delegation_freshness(&attestation),
             &authority,
             120,
         )
         .unwrap()
+    }
+
+    fn qualify_edge(
+        parent: &AuthorityGrant,
+        child: &AuthorityGrant,
+        allow_redelegation: bool,
+    ) -> QualifiedDelegationEdge {
+        qualify_edge_at_generations(parent, child, allow_redelegation, 1, 1)
     }
 
     #[test]
@@ -1267,8 +1291,8 @@ mod tests {
     fn changed_current_policy_authority_cannot_reuse_old_attestation() {
         let parent = root_grant();
         let child = child_grant(&parent, "grant:child", "did:example:child");
-        let first_authority = policy_authority(&parent, &child.holder, false, 1);
-        let second_authority = policy_authority(&parent, &child.holder, false, 2);
+        let first_authority = policy_authority(&parent, &child.holder, false, 1, 1);
+        let second_authority = policy_authority(&parent, &child.holder, false, 1, 2);
         let attestation = attestation(&parent, &child, &first_authority, 1, 1);
         assert_eq!(
             qualify_delegation_edge(
@@ -1291,7 +1315,7 @@ mod tests {
         child
             .capabilities
             .push(CapabilityId::new("treasury.admin").unwrap());
-        let authority = policy_authority(&parent, &child.holder, false, 1);
+        let authority = policy_authority(&parent, &child.holder, false, 1, 1);
         let attestation = attestation(&parent, &child, &authority, 1, 1);
         assert_eq!(
             qualify_delegation_edge(
@@ -1311,7 +1335,7 @@ mod tests {
     fn stale_parent_generation_cannot_be_replayed() {
         let parent = root_grant();
         let child = child_grant(&parent, "grant:child", "did:example:child");
-        let authority = policy_authority(&parent, &child.holder, false, 1);
+        let authority = policy_authority(&parent, &child.holder, false, 1, 1);
         let attestation = attestation(&parent, &child, &authority, 1, 1);
         assert_eq!(
             qualify_delegation_edge(
@@ -1333,7 +1357,7 @@ mod tests {
         let child = child_grant(&parent, "grant:child", "did:example:child");
         let first = qualify_edge(&parent, &child, false);
 
-        let authority = policy_authority(&parent, &child.holder, false, 1);
+        let authority = policy_authority(&parent, &child.holder, false, 1, 1);
         let attestation = attestation(&parent, &child, &authority, 1, 1);
         let mut parent_receipt = grant_receipt(parent.clone(), 1);
         parent_receipt.freshness.verification_ref = "freshness:later-parent".into();
@@ -1403,9 +1427,8 @@ mod tests {
         let root = root_grant();
         let mid = child_grant(&root, "grant:mid", "did:example:mid");
         let leaf = child_grant(&mid, "grant:leaf", "did:example:leaf");
-        let root_to_mid = qualify_edge(&root, &mid, true);
-        let mut mid_to_leaf = qualify_edge(&mid, &leaf, false);
-        mid_to_leaf.parent_generation = 2;
+        let root_to_mid = qualify_edge_at_generations(&root, &mid, true, 1, 1);
+        let mid_to_leaf = qualify_edge_at_generations(&mid, &leaf, false, 2, 1);
         assert_eq!(
             qualify_complete_delegation_lineage(&root, &leaf, &[root_to_mid, mid_to_leaf], 120)
                 .unwrap_err(),

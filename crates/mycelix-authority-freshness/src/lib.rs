@@ -534,7 +534,7 @@ mod tests {
         .unwrap();
         let second = qualify_current_freshness(
             std::slice::from_ref(&grant),
-            &[receipt(grant, 2)],
+            &[receipt(grant.clone(), 2)],
             30,
         )
         .unwrap();
