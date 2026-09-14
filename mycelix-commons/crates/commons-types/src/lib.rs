@@ -32,6 +32,7 @@
 //! - Composed governance-bound fork application receipts
 //! - Deterministic pre-state/post-state commitments for recovery fork transitions
 //! - Self-contained transport integrity for recovery transition commitments
+//! - Ephemeral exact-source qualification for recovery transitions
 
 pub mod anchors;
 pub mod batch;
@@ -54,6 +55,7 @@ pub mod regenerative_recovery_governance_application;
 pub mod regenerative_recovery_governance_authority;
 pub mod regenerative_recovery_reserve_stream;
 pub mod regenerative_recovery_transition_commitment;
+pub mod regenerative_recovery_transition_source_qualification;
 pub mod regenerative_recovery_transition_transport;
 pub mod regenerative_reproduction_policy_frontier;
 pub mod regenerative_successor_depth;
@@ -83,6 +85,7 @@ pub use regenerative_recovery_governance_application::*;
 pub use regenerative_recovery_governance_authority::*;
 pub use regenerative_recovery_reserve_stream::*;
 pub use regenerative_recovery_transition_commitment::*;
+pub use regenerative_recovery_transition_source_qualification::*;
 pub use regenerative_recovery_transition_transport::*;
 pub use regenerative_reproduction_policy_frontier::*;
 pub use regenerative_successor_depth::*;
