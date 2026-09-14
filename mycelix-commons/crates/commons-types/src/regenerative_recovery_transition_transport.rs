@@ -77,10 +77,7 @@ impl RegenerativeRecoveryTransitionTransportV1 {
             return Err("unsupported recovery transition transport schema".into());
         }
         validate_commitment_structure(&self.commitment)?;
-        validate_digest(
-            "commitment_content_digest",
-            &self.commitment_content_digest,
-        )?;
+        validate_digest("commitment_content_digest", &self.commitment_content_digest)?;
         let recomputed = self.commitment.content_digest()?;
         if recomputed != self.commitment_content_digest {
             return Err("recovery transition transport content digest mismatch".into());
@@ -175,7 +172,9 @@ fn validate_commitment_structure(
                 return Err("suspended recovery transition cannot report a resumed cursor".into());
             }
             if commitment.pre_state_digest != commitment.post_state_digest {
-                return Err("suspended recovery transition must preserve exact cursor state".into());
+                return Err(
+                    "suspended recovery transition must preserve exact cursor state".into(),
+                );
             }
         }
         RegenerativeRecoveryForkResolutionOutcomeV1::RetainSelectedBranch => {
@@ -256,10 +255,9 @@ mod tests {
 
     #[test]
     fn retained_transport_round_trips_through_bounded_decoder_without_gaining_authority() {
-        let transport = RegenerativeRecoveryTransitionTransportV1::from_commitment(
-            retained_commitment(),
-        )
-        .unwrap();
+        let transport =
+            RegenerativeRecoveryTransitionTransportV1::from_commitment(retained_commitment())
+                .unwrap();
         transport.validate().unwrap();
         let bytes = serde_json::to_vec(&transport).unwrap();
         let decoded = decode_regenerative_recovery_transition_transport_json(&bytes).unwrap();
@@ -322,10 +320,9 @@ mod tests {
 
     #[test]
     fn envelope_digest_detects_transport_tampering() {
-        let mut transport = RegenerativeRecoveryTransitionTransportV1::from_commitment(
-            retained_commitment(),
-        )
-        .unwrap();
+        let mut transport =
+            RegenerativeRecoveryTransitionTransportV1::from_commitment(retained_commitment())
+                .unwrap();
         transport.commitment.post_state_digest = digest("f");
         assert!(validate_regenerative_recovery_transition_transport(&transport).is_err());
     }
