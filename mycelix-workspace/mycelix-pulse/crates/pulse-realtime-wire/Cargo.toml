@@ -1,0 +1,13 @@
+[package]
+name = "pulse-realtime-wire"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Fail-closed wire-family demultiplexing for Mycelix Pulse realtime wakes"
+
+[workspace]
+
+[dependencies]
+pulse-realtime-types = { path = "../pulse-realtime-types" }
+rmp-serde = "1"
+serde = "1"
