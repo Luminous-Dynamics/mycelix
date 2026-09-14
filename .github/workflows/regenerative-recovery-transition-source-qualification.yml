@@ -103,6 +103,7 @@ jobs:
         run: |
           set -euo pipefail
           subject=mycelix-commons/crates/commons-types/src/regenerative_recovery_transition_source_qualification.rs
+          head_subject=mycelix-commons/crates/commons-types/src/regenerative_recovery_reserve_stream.rs
           grep -q 'validate_regenerative_recovery_transition_transport(transport)?' "$subject"
           grep -q 'verify_regenerative_recovery_transition_commitment(' "$subject"
           grep -q 'pub const fn source_lifetime_bound_here' "$subject"
@@ -191,4 +192,44 @@ jobs:
               raise SystemExit('qualification result lost source lifetime')
 
           print('PASS: exact-source token remains lifetime-bound, private, sealed, non-replayable, and non-authorizing')
+          PY
+
+          python3 - "$head_subject" <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          text = pathlib.Path(sys.argv[1]).read_text()
+          declaration = re.search(
+              r'pub struct RegenerativeRecoveryReserveHeadV1\s*\{(.*?)\n\}',
+              text,
+              re.S,
+          )
+          if not declaration:
+              raise SystemExit('recovery reserve head declaration not found')
+          fields = declaration.group(1)
+          forbidden = [
+              'Cell<',
+              'RefCell<',
+              'UnsafeCell<',
+              'Mutex<',
+              'RwLock<',
+              'AtomicBool',
+              'AtomicU',
+              'AtomicI',
+              'AtomicPtr',
+          ]
+          for token in forbidden:
+              if token in fields:
+                  raise SystemExit(f'recovery head gained interior/concurrent mutability: {token}')
+
+          required_mutators = [
+              r'pub fn ingest\s*\(\s*&mut self,',
+              r'pub\(crate\) fn resolve_pending_sibling_fork_to\s*\(\s*&mut self,',
+          ]
+          for pattern in required_mutators:
+              if not re.search(pattern, text, re.S):
+                  raise SystemExit(f'recovery head mutation boundary changed: {pattern}')
+
+          print('PASS: borrowed recovery head remains ordinary state with explicit &mut mutation boundaries')
           PY
