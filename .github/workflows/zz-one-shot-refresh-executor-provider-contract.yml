@@ -1,0 +1,135 @@
+name: One-shot Refresh Executor Provider Contract
+
+on:
+  push:
+    branches:
+      - 'security/governance-executor-provider-contract-v0.1'
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: security/governance-executor-provider-contract-v0.1
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+      - name: Toolchain identity
+        run: |
+          rustc --version --verbose
+          cargo --version
+          rustfmt --version
+          cargo clippy --version
+      - name: Propagate typed freshness boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('crates/mycelix-governance-executor-provider-contract/src/lib.rs')
+          src = path.read_text()
+
+          old_import = '''use mycelix_authority_freshness::{VerifiedAuthorityFreshness, BUNDLE_IDENTITY_PROFILE};
+          use mycelix_authority_identity::AUTHORITY_GRANT_IDENTITY_PROFILE;
+          use mycelix_governance_authority::ProposalId;
+          use mycelix_governance_current_executor_authority::{
+              qualify_current_executor_authority, CurrentExecutorAuthorityError,
+              THRESHOLD_AUTHORIZATION_IDENTITY_PROFILE, CURRENT_EXECUTOR_AUTHORITY_PROFILE,
+          };
+          '''
+          new_import = '''use mycelix_authority_freshness::BUNDLE_IDENTITY_PROFILE;
+          use mycelix_authority_identity::AUTHORITY_GRANT_IDENTITY_PROFILE;
+          use mycelix_governance_authority::ProposalId;
+          use mycelix_governance_current_executor_authority::{
+              CURRENT_EXECUTOR_AUTHORITY_PROFILE, CurrentExecutorAuthorityError,
+              CurrentExecutorFreshnessEvidence, THRESHOLD_AUTHORIZATION_IDENTITY_PROFILE,
+              qualify_current_executor_authority,
+          };
+          '''
+          if src.count(old_import) != 1:
+              raise SystemExit('unexpected provider import shape')
+          src = src.replace(old_import, new_import, 1)
+
+          old_sig = '''/// Re-run exact current executor qualification and project it into the runtime
+          /// provider ABI expected by the lifecycle verifier.
+          #[allow(clippy::too_many_arguments)]
+          pub fn qualify_executor_provider_receipt(
+              threshold: &VerifiedThresholdAuthorization,
+              grant_receipt: &VerifiedAuthorityGrant,
+              designation_receipt: &VerifiedExecutorDesignation,
+              lineage_evidence: DelegationLineageEvidence<'_>,
+              grant_freshness: &VerifiedAuthorityFreshness,
+              threshold_freshness: &VerifiedAuthorityFreshness,
+              executor_freshness: &VerifiedAuthorityFreshness,
+              provider_verification_ref: impl Into<String>,
+              now_ms: u64,
+          ) -> Result<VerifiedCurrentExecutorAuthorityReceipt, ExecutorProviderContractError> {
+          '''
+          new_sig = '''/// Re-run exact current executor qualification and project it into the runtime
+          /// provider ABI expected by the lifecycle verifier.
+          pub fn qualify_executor_provider_receipt(
+              threshold: &VerifiedThresholdAuthorization,
+              grant_receipt: &VerifiedAuthorityGrant,
+              designation_receipt: &VerifiedExecutorDesignation,
+              lineage_evidence: DelegationLineageEvidence<'_>,
+              freshness_evidence: CurrentExecutorFreshnessEvidence<'_>,
+              provider_verification_ref: impl Into<String>,
+              now_ms: u64,
+          ) -> Result<VerifiedCurrentExecutorAuthorityReceipt, ExecutorProviderContractError> {
+          '''
+          if src.count(old_sig) != 1:
+              raise SystemExit('unexpected provider signature shape')
+          src = src.replace(old_sig, new_sig, 1)
+
+          old_call = '''        lineage_evidence,
+                  grant_freshness,
+                  threshold_freshness,
+                  executor_freshness,
+                  now_ms,
+              )
+          '''
+          new_call = '''        lineage_evidence,
+                  freshness_evidence,
+                  now_ms,
+              )
+          '''
+          if src.count(old_call) != 1:
+              raise SystemExit('unexpected current-authority call shape')
+          src = src.replace(old_call, new_call, 1)
+
+          path.write_text(src)
+          PY
+          rustfmt --edition 2024 crates/mycelix-governance-executor-provider-contract/src/lib.rs
+      - name: Refuse unexpected change scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          changed="$(git diff --name-only)"
+          expected='crates/mycelix-governance-executor-provider-contract/src/lib.rs'
+          if [[ "$changed" != "$expected" ]]; then
+            echo 'Provider refresh changed an unexpected path:' >&2
+            printf '%s\n' "$changed" >&2
+            exit 1
+          fi
+          git diff --check
+      - name: Exercise provider contract
+        run: |
+          cargo test --manifest-path crates/mycelix-governance-executor-provider-contract/Cargo.toml --all-targets
+          cargo clippy --manifest-path crates/mycelix-governance-executor-provider-contract/Cargo.toml --all-targets -- -D warnings
+      - name: Commit exact provider refresh
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add crates/mycelix-governance-executor-provider-contract/src/lib.rs
+          git commit -m 'refactor(governance): carry typed freshness into provider contract'
+          git push origin HEAD:security/governance-executor-provider-contract-v0.1
