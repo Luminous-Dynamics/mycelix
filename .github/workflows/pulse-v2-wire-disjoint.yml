@@ -1,0 +1,79 @@
+name: Pulse V2 Wire Disjointness
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-pulse/crates/pulse-realtime-types/**'
+      - 'mycelix-workspace/mycelix-pulse/crates/pulse-realtime-wire/**'
+      - '.github/workflows/pulse-v2-wire-disjoint.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-pulse/crates/pulse-realtime-types/**'
+      - 'mycelix-workspace/mycelix-pulse/crates/pulse-realtime-wire/**'
+      - '.github/workflows/pulse-v2-wire-disjoint.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pulse-v2-wire-disjoint-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CONTRACT_MANIFEST: mycelix-workspace/mycelix-pulse/crates/pulse-realtime-types/Cargo.toml
+  WIRE_MANIFEST: mycelix-workspace/mycelix-pulse/crates/pulse-realtime-wire/Cargo.toml
+
+jobs:
+  wire-disjointness:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact subject checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ github.event.pull_request.head.sha || github.sha }}'
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$expected" || {
+            echo "::error::Expected exact subject $expected, got $actual"
+            exit 1
+          }
+          test -f "$CONTRACT_MANIFEST"
+          test -f "$WIRE_MANIFEST"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87b
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+
+      - name: Reprove transport-neutral hint contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path "$CONTRACT_MANIFEST" --lib
+          cargo test --manifest-path "$CONTRACT_MANIFEST" --test exact_frame
+          cargo clippy --manifest-path "$CONTRACT_MANIFEST" --lib --test exact_frame -- -D warnings
+
+      - name: Prove wire-family disjointness
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path "$WIRE_MANIFEST" -- --check
+          cargo test --manifest-path "$WIRE_MANIFEST" --all-targets
+          cargo clippy --manifest-path "$WIRE_MANIFEST" --all-targets -- -D warnings
+
+      - name: Prove checkout immutability
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
