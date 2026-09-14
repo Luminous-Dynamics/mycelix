@@ -35,6 +35,10 @@ macro_rules! id_type {
             pub fn as_str(&self) -> &str {
                 &self.0
             }
+
+            pub fn validate(&self) -> Result<(), ValidationError> {
+                validate_text(&self.0, $label, MAX_ID_BYTES)
+            }
         }
     };
 }
@@ -161,6 +165,12 @@ impl AuthorityGrant {
                 MAX_ID_BYTES,
             )?;
         }
+        for role in &self.roles {
+            role.validate()?;
+        }
+        for capability in &self.capabilities {
+            capability.validate()?;
+        }
         if self.capabilities.is_empty() {
             return Err(ValidationError::NoCapabilities);
         }
@@ -173,6 +183,9 @@ impl AuthorityGrant {
         self.rulebook.validate()?;
         for source in &self.sources {
             source.validate()?;
+        }
+        if let Some(parent) = &self.delegated_from {
+            parent.validate()?;
         }
         validate_text(
             &self.grant_proof_ref,
@@ -200,6 +213,9 @@ impl EvidenceRef {
     pub fn validate(&self) -> Result<(), ValidationError> {
         validate_text(self.id.as_str(), "evidence.id", MAX_ID_BYTES)?;
         validate_text(&self.evidence_type, "evidence.type", MAX_CODE_BYTES)?;
+        if let Some(issuer) = &self.issuer {
+            issuer.validate()?;
+        }
         if let Some(digest) = self.digest {
             require_nonzero_digest(digest, "evidence.digest")?;
         }
@@ -220,7 +236,15 @@ pub struct EvidenceRequirement {
 
 impl EvidenceRequirement {
     pub fn validate(&self) -> Result<(), ValidationError> {
-        validate_text(&self.evidence_type, "evidence_requirement.type", MAX_CODE_BYTES)
+        validate_text(
+            &self.evidence_type,
+            "evidence_requirement.type",
+            MAX_CODE_BYTES,
+        )?;
+        for issuer in &self.accepted_issuers {
+            issuer.validate()?;
+        }
+        Ok(())
     }
 }
 
@@ -237,8 +261,18 @@ pub struct AuthorityRequirement {
 
 impl AuthorityRequirement {
     pub fn validate(&self) -> Result<(), ValidationError> {
+        self.institution.validate()?;
+        if let Some(jurisdiction) = &self.jurisdiction {
+            jurisdiction.validate()?;
+        }
         if self.required_capabilities.is_empty() {
             return Err(ValidationError::NoCapabilities);
+        }
+        for capability in &self.required_capabilities {
+            capability.validate()?;
+        }
+        for role in &self.accepted_roles {
+            role.validate()?;
         }
         self.rulebook.validate()?;
         for requirement in &self.evidence {
@@ -291,23 +325,38 @@ pub fn evaluate_authority(
         return deny("invalid_requirement", err.to_string());
     }
     if !grant.is_active_at(now_ms) {
-        return deny("grant_inactive", "authority grant is not active at evaluation time");
+        return deny(
+            "grant_inactive",
+            "authority grant is not active at evaluation time",
+        );
     }
     if grant.institution != requirement.institution {
-        return deny("institution_mismatch", "grant institution does not match requirement");
+        return deny(
+            "institution_mismatch",
+            "grant institution does not match requirement",
+        );
     }
     if grant.jurisdiction != requirement.jurisdiction {
-        return deny("jurisdiction_mismatch", "grant jurisdiction does not match requirement");
+        return deny(
+            "jurisdiction_mismatch",
+            "grant jurisdiction does not match requirement",
+        );
     }
     if grant.rulebook != requirement.rulebook {
-        return deny("rulebook_mismatch", "grant and requirement bind different rulebooks");
+        return deny(
+            "rulebook_mismatch",
+            "grant and requirement bind different rulebooks",
+        );
     }
     if requirement
         .required_capabilities
         .iter()
         .any(|required| !grant.capabilities.contains(required))
     {
-        return deny("missing_capability", "grant does not contain every required capability");
+        return deny(
+            "missing_capability",
+            "grant does not contain every required capability",
+        );
     }
     if !requirement.accepted_roles.is_empty()
         && !grant
@@ -315,7 +364,10 @@ pub fn evaluate_authority(
             .iter()
             .any(|role| requirement.accepted_roles.contains(role))
     {
-        return deny("role_not_accepted", "grant does not contain an accepted role");
+        return deny(
+            "role_not_accepted",
+            "grant does not contain an accepted role",
+        );
     }
 
     let missing: Vec<EvidenceRequirement> = requirement
@@ -404,10 +456,10 @@ impl ConsentReceipt {
             return Err(ValidationError::NoConsentParties);
         }
         require_nonzero_digest(self.scope_digest, "consent.scope_digest")?;
-        if let Some(expires_at_ms) = self.expires_at_ms {
-            if expires_at_ms <= self.granted_at_ms {
-                return Err(ValidationError::InvalidTimeRange("consent"));
-            }
+        if let Some(expires_at_ms) = self.expires_at_ms
+            && expires_at_ms <= self.granted_at_ms
+        {
+            return Err(ValidationError::InvalidTimeRange("consent"));
         }
         validate_text(&self.proof_ref, "consent.proof_ref", MAX_ID_BYTES)
     }
@@ -501,7 +553,11 @@ impl ActionEvent {
         for evidence in &self.evidence {
             evidence.validate()?;
         }
-        validate_text(&self.event_proof_ref, "action_event.proof_ref", MAX_ID_BYTES)
+        validate_text(
+            &self.event_proof_ref,
+            "action_event.proof_ref",
+            MAX_ID_BYTES,
+        )
     }
 }
 
@@ -529,10 +585,10 @@ impl AdvisorySignal {
             return Err(ValidationError::ConfidenceOutOfRange);
         }
         require_nonzero_digest(self.value_digest, "advisory_signal.value_digest")?;
-        if let Some(expires_at_ms) = self.expires_at_ms {
-            if expires_at_ms <= self.generated_at_ms {
-                return Err(ValidationError::InvalidTimeRange("advisory signal"));
-            }
+        if let Some(expires_at_ms) = self.expires_at_ms
+            && expires_at_ms <= self.generated_at_ms
+        {
+            return Err(ValidationError::InvalidTimeRange("advisory signal"));
         }
         for evidence in &self.evidence {
             evidence.validate()?;
@@ -652,10 +708,7 @@ fn validate_text(
     Ok(())
 }
 
-fn require_nonzero_digest(
-    digest: Digest32,
-    field: &'static str,
-) -> Result<(), ValidationError> {
+fn require_nonzero_digest(digest: Digest32, field: &'static str) -> Result<(), ValidationError> {
     if digest.is_zero() {
         Err(ValidationError::ZeroDigest(field))
     } else {
