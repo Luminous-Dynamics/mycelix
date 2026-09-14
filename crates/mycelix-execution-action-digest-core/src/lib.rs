@@ -112,10 +112,8 @@ mod tests {
 
     #[test]
     fn byte_and_hex_views_are_one_identity() {
-        let bytes = execution_authority_digest_bytes("MIP-42", "[{\"type\":\"noop\"}]")
-            .unwrap();
-        let hex = execution_authority_digest_hex("MIP-42", "[{\"type\":\"noop\"}]")
-            .unwrap();
+        let bytes = execution_authority_digest_bytes("MIP-42", "[{\"type\":\"noop\"}]").unwrap();
+        let hex = execution_authority_digest_hex("MIP-42", "[{\"type\":\"noop\"}]").unwrap();
         assert_eq!(hex, hex_32(bytes));
     }
 
@@ -140,16 +138,10 @@ mod tests {
 
     #[test]
     fn action_order_is_exact_byte_sensitive() {
-        let a = execution_authority_digest_bytes(
-            "MIP-42",
-            "[{\"type\":\"a\"},{\"type\":\"b\"}]",
-        )
-        .unwrap();
-        let b = execution_authority_digest_bytes(
-            "MIP-42",
-            "[{\"type\":\"b\"},{\"type\":\"a\"}]",
-        )
-        .unwrap();
+        let a = execution_authority_digest_bytes("MIP-42", "[{\"type\":\"a\"},{\"type\":\"b\"}]")
+            .unwrap();
+        let b = execution_authority_digest_bytes("MIP-42", "[{\"type\":\"b\"},{\"type\":\"a\"}]")
+            .unwrap();
         assert_ne!(a, b);
     }
 
