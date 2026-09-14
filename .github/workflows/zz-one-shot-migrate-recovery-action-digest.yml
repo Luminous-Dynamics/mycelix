@@ -85,14 +85,16 @@ jobs:
               raise SystemExit('canonical_proposal_id boundary not found')
           text = text[:start] + text[end + 1:]
 
+          # Ban only the duplicated execution-action framing artifacts. This file
+          # legitimately uses BLAKE3 for other recovery/governance commitments.
           forbidden = [
               'EXECUTION_AUTHORITY_DOMAIN',
               'fn execution_authority_digest(',
-              'blake3::Hasher::new()',
+              'mycelix-governance-execution-authority-v1\\0',
           ]
           for token in forbidden:
               if token in text:
-                  raise SystemExit(f'duplicate digest implementation remains: {token}')
+                  raise SystemExit(f'duplicate execution-action digest implementation remains: {token}')
 
           required = [
               'execution_authority_digest_hex',
