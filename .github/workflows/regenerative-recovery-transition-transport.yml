@@ -112,6 +112,34 @@ jobs:
           grep -q 'struct RegenerativeRecoveryTransitionTransportWireV1' "$subject"
           grep -q '#\[derive(Debug, Clone, PartialEq, Eq, Serialize)\]' "$subject"
           ! grep -q '#\[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)\]' "$subject"
+          grep -q 'pub const fn schema_version(&self) -> u8' "$subject"
+          grep -q 'pub fn commitment(&self) -> &RegenerativeRecoveryTransitionCommitmentV1' "$subject"
+          grep -q 'pub fn commitment_content_digest(&self) -> &str' "$subject"
+          python3 - "$subject" <<'PY'
+          import re
+          import sys
+
+          text = open(sys.argv[1], encoding='utf-8').read()
+          match = re.search(
+              r'pub struct RegenerativeRecoveryTransitionTransportV1\s*\{(?P<body>.*?)\n\}',
+              text,
+              re.S,
+          )
+          if not match:
+              raise SystemExit('validated transport struct not found')
+          body = match.group('body')
+          expected = {
+              'schema_version: u8,',
+              'commitment: RegenerativeRecoveryTransitionCommitmentV1,',
+              'commitment_content_digest: String,',
+          }
+          fields = {line.strip() for line in body.splitlines() if line.strip()}
+          if fields != expected:
+              raise SystemExit(f'unexpected validated transport fields: {sorted(fields)}')
+          if any(line.strip().startswith('pub ') for line in body.splitlines()):
+              raise SystemExit('validated transport fields must remain private')
+          print('PASS: validated transport is not directly constructible outside its module')
+          PY
           grep -q 'selected recovery transition branch is not one of the committed fork branches' "$subject"
           grep -q 'suspended recovery transition must preserve exact cursor state' "$subject"
           grep -q 'exact_source_recomputation_verified_here' "$subject"
