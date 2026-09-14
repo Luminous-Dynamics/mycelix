@@ -1,0 +1,191 @@
+name: GOVSYS-003C-B Two-Edge Rooted Lineage
+
+on:
+  pull_request:
+    branches:
+      - feat/govsys-003c-a-rooted-lineage-composition-v0.1
+    paths:
+      - .github/workflows/govsys-003c-two-edge-lineage.yml
+      - mycelix-workspace/docs/government/CONSTITUTIONAL_ROOTED_LINEAGE_TWO_EDGE_V0.1.md
+      - scripts/qualification/govsys_003c_two_edge_lineage_vector_v1.json
+      - scripts/qualification/govsys_constitutional_rooted_lineage_two_edge_v0_1.py
+      - scripts/qualification/govsys_003c_two_edge_core_harness.rs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Two independently authorized constitutional transitions
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Exact one-commit five-file subject
+        shell: bash
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          parent=b30a3cf30df7fc925834240b89ae0edcc0e42f74
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+          test "$(git rev-parse HEAD^)" = "$parent"
+          test "$(git rev-list --count "${parent}..HEAD")" -eq 1
+          mapfile -t changed < <(git diff --name-only "$parent"..HEAD | sort)
+          expected=(
+            .github/workflows/govsys-003c-two-edge-lineage.yml
+            mycelix-workspace/docs/government/CONSTITUTIONAL_ROOTED_LINEAGE_TWO_EDGE_V0.1.md
+            scripts/qualification/govsys_003c_two_edge_core_harness.rs
+            scripts/qualification/govsys_003c_two_edge_lineage_vector_v1.json
+            scripts/qualification/govsys_constitutional_rooted_lineage_two_edge_v0_1.py
+          )
+          mapfile -t wanted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#changed[@]}" -eq 5
+          for i in "${!wanted[@]}"; do test "${changed[$i]}" = "${wanted[$i]}"; done
+
+      - name: Qualified parent theorem blobs unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent=b30a3cf30df7fc925834240b89ae0edcc0e42f74
+          for path in \
+            scripts/qualification/govsys_constitutional_trust_root_identity_v0_1.py \
+            scripts/qualification/govsys_constitutional_pinned_root_provenance_v0_1.py \
+            scripts/qualification/govsys_003c_transition_verifier_vector_v1.json \
+            scripts/qualification/govsys_constitutional_transition_verifier_v0_1.py \
+            scripts/qualification/govsys_constitutional_rooted_lineage_v0_1.py \
+            crates/mycelix-core-lineage/Cargo.toml \
+            crates/mycelix-core-lineage/src/lib.rs
+          do
+            test "$(git rev-parse "HEAD:${path}")" = "$(git rev-parse "${parent}:${path}")"
+          done
+
+      - name: Static authority and fixture audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          doc=mycelix-workspace/docs/government/CONSTITUTIONAL_ROOTED_LINEAGE_TWO_EDGE_V0.1.md
+          oracle=scripts/qualification/govsys_constitutional_rooted_lineage_two_edge_v0_1.py
+          vector=scripts/qualification/govsys_003c_two_edge_lineage_vector_v1.json
+          grep -F 'G0 --K0--> G1 --K1--> G2' "$doc"
+          grep -F 'fork-free supplied evidence' "$doc"
+          grep -F 'Root-D owns closed-world source coverage and current-head promotion.' "$doc"
+          grep -F 'grants_currentness = false' "$doc"
+          grep -F 'grants_effect_authority = false' "$doc"
+          grep -F 'TRANSITION.qualify_transition' "$oracle"
+          grep -F 'TRANSITION.assert_no_replay_conflicts' "$oracle"
+          grep -F 'reverse_input' "$oracle"
+          grep -F 'rotation_mode' "$oracle"
+          if grep -Eqi '(BEGIN [A-Z ]*PRIVATE KEY|private_key|secret_key|seed_hex|secret_seed)' "$oracle" "$vector"; then
+            echo 'private fixture material must never be checked in' >&2
+            exit 1
+          fi
+
+      - name: Re-execute qualified one-edge parent
+        id: parent
+        continue-on-error: true
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python3 scripts/qualification/govsys_constitutional_rooted_lineage_v0_1.py
+
+      - name: Execute two-edge cryptographic composition oracle
+        id: two_edge
+        if: always()
+        continue-on-error: true
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python3 scripts/qualification/govsys_constitutional_rooted_lineage_two_edge_v0_1.py
+
+      - name: Independently verify both signatures with OpenSSL
+        id: openssl
+        if: always()
+        continue-on-error: true
+        shell: bash
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          set -euo pipefail
+          tmp="$RUNNER_TEMP/govsys-003c-two-edge-openssl"
+          python3 scripts/qualification/govsys_constitutional_rooted_lineage_two_edge_v0_1.py --emit-openssl "$tmp"
+          for index in 0 1; do
+            openssl pkeyutl -verify \
+              -pubin -inkey "$tmp/public-${index}.der" -keyform DER \
+              -rawin -in "$tmp/candidate-${index}.bin" \
+              -sigfile "$tmp/signature-${index}.bin"
+          done
+          cmp -s "$tmp/public-0.der" "$tmp/public-1.der" && exit 1 || true
+
+      - name: Install exact CORE-LINEAGE Rust toolchain
+        id: toolchain
+        if: always()
+        continue-on-error: true
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+
+      - name: Rust harness format check
+        id: rustfmt
+        if: always()
+        continue-on-error: true
+        run: rustfmt --edition 2024 --check scripts/qualification/govsys_003c_two_edge_core_harness.rs
+
+      - name: Execute actual two-edge CORE-LINEAGE harness
+        id: rust_harness
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          core="$RUNNER_TEMP/mycelix-core-lineage"
+          app="$RUNNER_TEMP/govsys-003c-two-edge-core-harness"
+          mkdir -p "$core" "$app/src"
+          cp -a crates/mycelix-core-lineage/. "$core/"
+          cp scripts/qualification/govsys_003c_two_edge_core_harness.rs "$app/src/main.rs"
+          cat > "$app/Cargo.toml" <<EOF
+          [package]
+          name = "govsys-003c-two-edge-core-harness"
+          version = "0.1.0"
+          edition = "2024"
+
+          [dependencies]
+          mycelix-core-lineage = { path = "$core" }
+          EOF
+          cargo run --quiet --manifest-path "$app/Cargo.toml"
+          cargo clippy --manifest-path "$app/Cargo.toml" -- -D warnings
+
+      - name: Immutable checkout postflight
+        id: immutable
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
+
+      - name: Fail closed on any two-edge qualification defect
+        if: always()
+        shell: bash
+        env:
+          PARENT_OUTCOME: ${{ steps.parent.outcome }}
+          TWO_EDGE_OUTCOME: ${{ steps.two_edge.outcome }}
+          OPENSSL_OUTCOME: ${{ steps.openssl.outcome }}
+          TOOLCHAIN_OUTCOME: ${{ steps.toolchain.outcome }}
+          RUSTFMT_OUTCOME: ${{ steps.rustfmt.outcome }}
+          RUST_HARNESS_OUTCOME: ${{ steps.rust_harness.outcome }}
+          IMMUTABLE_OUTCOME: ${{ steps.immutable.outcome }}
+        run: |
+          set -euo pipefail
+          test "$PARENT_OUTCOME" = success
+          test "$TWO_EDGE_OUTCOME" = success
+          test "$OPENSSL_OUTCOME" = success
+          test "$TOOLCHAIN_OUTCOME" = success
+          test "$RUSTFMT_OUTCOME" = success
+          test "$RUST_HARNESS_OUTCOME" = success
+          test "$IMMUTABLE_OUTCOME" = success
