@@ -1,0 +1,13 @@
+[package]
+name = "mycelix-execution-action-digest"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Institutional Digest32 adapter for the shared Mycelix execution action digest core"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+mycelix-execution-action-digest-core = { path = "../mycelix-execution-action-digest-core" }
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
