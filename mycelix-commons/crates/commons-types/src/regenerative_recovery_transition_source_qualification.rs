@@ -77,7 +77,7 @@ impl<'a> RegenerativeRecoveryTransitionSourceQualificationV1<'a> {
         self.transport.commitment_content_digest()
     }
 
-    pub const fn cursor_resumed(&self) -> bool {
+    pub fn cursor_resumed(&self) -> bool {
         self.transport.commitment().cursor_resumed
     }
 
