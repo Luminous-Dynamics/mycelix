@@ -1,0 +1,304 @@
+name: GOVSYS-003C Root-C Convergence
+
+on:
+  pull_request:
+    branches:
+      - feat/govsys-003b-pinned-root-provenance-v0.1
+    paths:
+      - .github/workflows/govsys-003c-root-convergence.yml
+      - mycelix-workspace/docs/government/CONSTITUTIONAL_ROOT_LINEAGE_CONVERGENCE_V0.1.md
+      - .github/workflows/core-lineage-stage1.yml
+      - crates/mycelix-core-lineage/Cargo.toml
+      - crates/mycelix-core-lineage/src/lib.rs
+      - crates/mycelix-core-lineage/vectors/rooted_lineage_v1.json
+      - docs/core/CORE_LINEAGE_STAGE1_V0.1.md
+      - .github/workflows/govsys-003c-transition-verifier.yml
+      - mycelix-workspace/docs/government/CONSTITUTIONAL_ROOT_TRANSITION_VERIFIER_V0.1.md
+      - scripts/qualification/govsys_003c_transition_verifier_vector_v1.json
+      - scripts/qualification/govsys_constitutional_transition_verifier_v0_1.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Exact three-parent Root-C convergence
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Exact qualification subject
+        shell: bash
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+
+      - name: Exact one-commit qualifier surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          convergence=120d31918763f18be910af5570089ff1eed1ce78
+          test "$(git rev-parse HEAD^)" = "$convergence"
+          test "$(git rev-list --count "${convergence}..HEAD")" -eq 1
+
+          mapfile -t changed < <(git diff --name-only "$convergence"..HEAD | sort)
+          expected=(
+            .github/workflows/govsys-003c-root-convergence.yml
+            mycelix-workspace/docs/government/CONSTITUTIONAL_ROOT_LINEAGE_CONVERGENCE_V0.1.md
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#changed[@]}" -eq "${#expected_sorted[@]}"
+          for i in "${!expected_sorted[@]}"; do
+            test "${changed[$i]}" = "${expected_sorted[$i]}"
+          done
+
+      - name: Exact convergence parent set and trees
+        shell: bash
+        run: |
+          set -euo pipefail
+          convergence=120d31918763f18be910af5570089ff1eed1ce78
+          root_b=65848e071bf5e4e6a4f07b09ad659ca6e831d6c7
+          core=6c90aa822309d5f85c43ef1a0a70b5f592085cbd
+          verifier=883aed18e6df3c31dc8e74c780164533c39ede8f
+
+          git cat-file -e "${convergence}^{commit}"
+          git cat-file -e "${root_b}^{commit}"
+          git cat-file -e "${core}^{commit}"
+          git cat-file -e "${verifier}^{commit}"
+
+          set -- $(git show -s --format=%P "$convergence")
+          test "$#" -eq 3
+          test "$1" = "$root_b"
+          test "$2" = "$core"
+          test "$3" = "$verifier"
+
+          test "$(git rev-parse "${root_b}^{tree}")" = "8df058c2e7a507e9ac845a212ee6bf0ede961784"
+          test "$(git rev-parse "${convergence}^{tree}")" = "9f705542ac258e6d08a5b7b6744511dfd8ccb6a9"
+
+      - name: Exact selective Root-B to convergence delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          root_b=65848e071bf5e4e6a4f07b09ad659ca6e831d6c7
+          convergence=120d31918763f18be910af5570089ff1eed1ce78
+
+          mapfile -t changed < <(git diff --name-only "$root_b".."$convergence" | sort)
+          expected=(
+            .github/workflows/core-lineage-stage1.yml
+            crates/mycelix-core-lineage/Cargo.toml
+            crates/mycelix-core-lineage/src/lib.rs
+            crates/mycelix-core-lineage/vectors/rooted_lineage_v1.json
+            docs/core/CORE_LINEAGE_STAGE1_V0.1.md
+            .github/workflows/govsys-003c-transition-verifier.yml
+            mycelix-workspace/docs/government/CONSTITUTIONAL_ROOT_TRANSITION_VERIFIER_V0.1.md
+            scripts/qualification/govsys_003c_transition_verifier_vector_v1.json
+            scripts/qualification/govsys_constitutional_transition_verifier_v0_1.py
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#changed[@]}" -eq 9
+          test "${#changed[@]}" -eq "${#expected_sorted[@]}"
+          for i in "${!expected_sorted[@]}"; do
+            test "${changed[$i]}" = "${expected_sorted[$i]}"
+          done
+
+      - name: Exact qualified source blob inheritance
+        shell: bash
+        run: |
+          set -euo pipefail
+          convergence=120d31918763f18be910af5570089ff1eed1ce78
+          core=6c90aa822309d5f85c43ef1a0a70b5f592085cbd
+          verifier=883aed18e6df3c31dc8e74c780164533c39ede8f
+
+          check_blob() {
+            source="$1"
+            path="$2"
+            test "$(git rev-parse "${convergence}:${path}")" = "$(git rev-parse "${source}:${path}")"
+          }
+
+          check_blob "$core" .github/workflows/core-lineage-stage1.yml
+          check_blob "$core" crates/mycelix-core-lineage/Cargo.toml
+          check_blob "$core" crates/mycelix-core-lineage/src/lib.rs
+          check_blob "$core" crates/mycelix-core-lineage/vectors/rooted_lineage_v1.json
+          check_blob "$core" docs/core/CORE_LINEAGE_STAGE1_V0.1.md
+
+          check_blob "$verifier" .github/workflows/govsys-003c-transition-verifier.yml
+          check_blob "$verifier" mycelix-workspace/docs/government/CONSTITUTIONAL_ROOT_TRANSITION_VERIFIER_V0.1.md
+          check_blob "$verifier" scripts/qualification/govsys_003c_transition_verifier_vector_v1.json
+          check_blob "$verifier" scripts/qualification/govsys_constitutional_transition_verifier_v0_1.py
+
+      - name: Static convergence-boundary audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          doc=mycelix-workspace/docs/government/CONSTITUTIONAL_ROOT_LINEAGE_CONVERGENCE_V0.1.md
+          grep -F 'qualified Root-C convergence substrate' "$doc"
+          grep -F '!= constitutional rooted lineage' "$doc"
+          grep -F 'adapter not yet implemented' "$doc"
+          grep -F 'ReplayNonceConflict' "$doc"
+          grep -F '!= current constitutional root' "$doc"
+          grep -F '!= external-effect authority' "$doc"
+          grep -F 'The network remains infrastructure for institutions. It is not the sovereign.' "$doc"
+
+      - name: Re-execute Root-A identity oracle
+        id: root_a
+        continue-on-error: true
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python3 scripts/qualification/govsys_constitutional_trust_root_identity_v0_1.py
+
+      - name: Re-execute Root-B provenance oracle
+        id: root_b
+        if: always()
+        continue-on-error: true
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python3 scripts/qualification/govsys_constitutional_pinned_root_provenance_v0_1.py
+
+      - name: Re-execute predecessor transition verifier
+        id: verifier
+        if: always()
+        continue-on-error: true
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python3 scripts/qualification/govsys_constitutional_transition_verifier_v0_1.py
+
+      - name: Re-verify frozen Ed25519 fixture with OpenSSL
+        id: openssl
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmp="$RUNNER_TEMP/govsys-root-c-convergence-openssl"
+          mkdir -p "$tmp"
+          python3 - "$tmp" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          out = Path(sys.argv[1])
+          vector = json.loads(
+              Path('scripts/qualification/govsys_003c_transition_verifier_vector_v1.json')
+              .read_text(encoding='utf-8')
+          )
+          (out / 'candidate.bin').write_bytes(
+              bytes.fromhex(vector['expected']['candidate_canonical_bytes_hex'])
+          )
+          (out / 'public.der').write_bytes(
+              bytes.fromhex(vector['authorization_material']['public_key_spki_der_hex'])
+          )
+          (out / 'signature.bin').write_bytes(
+              bytes.fromhex(vector['authorization_proof']['signature_hex'])
+          )
+          PY
+          openssl pkeyutl -verify \
+            -pubin -inkey "$tmp/public.der" -keyform DER \
+            -rawin -in "$tmp/candidate.bin" -sigfile "$tmp/signature.bin"
+
+      - name: Install exact CORE-LINEAGE Rust toolchain
+        id: toolchain
+        if: always()
+        continue-on-error: true
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+
+      - name: Materialize isolated exact CORE-LINEAGE subject
+        id: materialize
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          target="$RUNNER_TEMP/mycelix-core-lineage-subject"
+          mkdir -p "$target"
+          cp -a crates/mycelix-core-lineage/. "$target/"
+          printf '%s\n' "$target" > "$RUNNER_TEMP/core_lineage_subject_path"
+
+      - name: CORE-LINEAGE rustfmt
+        id: rustfmt
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$(cat "$RUNNER_TEMP/core_lineage_subject_path")"
+          cargo fmt --manifest-path "$crate/Cargo.toml" -- --check
+
+      - name: CORE-LINEAGE all-target tests
+        id: tests
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$(cat "$RUNNER_TEMP/core_lineage_subject_path")"
+          cargo test --manifest-path "$crate/Cargo.toml" --all-targets
+
+      - name: CORE-LINEAGE Clippy warnings denied
+        id: clippy
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$(cat "$RUNNER_TEMP/core_lineage_subject_path")"
+          cargo clippy --manifest-path "$crate/Cargo.toml" --all-targets -- -D warnings
+
+      - name: CORE-LINEAGE wasm32 no_std check
+        id: wasm
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$(cat "$RUNNER_TEMP/core_lineage_subject_path")"
+          cargo check --manifest-path "$crate/Cargo.toml" --target wasm32-unknown-unknown
+
+      - name: Immutable checkout postflight
+        id: immutable
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
+
+      - name: Fail closed on any convergence qualification defect
+        if: always()
+        shell: bash
+        env:
+          ROOT_A_OUTCOME: ${{ steps.root_a.outcome }}
+          ROOT_B_OUTCOME: ${{ steps.root_b.outcome }}
+          VERIFIER_OUTCOME: ${{ steps.verifier.outcome }}
+          OPENSSL_OUTCOME: ${{ steps.openssl.outcome }}
+          TOOLCHAIN_OUTCOME: ${{ steps.toolchain.outcome }}
+          MATERIALIZE_OUTCOME: ${{ steps.materialize.outcome }}
+          RUSTFMT_OUTCOME: ${{ steps.rustfmt.outcome }}
+          TESTS_OUTCOME: ${{ steps.tests.outcome }}
+          CLIPPY_OUTCOME: ${{ steps.clippy.outcome }}
+          WASM_OUTCOME: ${{ steps.wasm.outcome }}
+          IMMUTABLE_OUTCOME: ${{ steps.immutable.outcome }}
+        run: |
+          set -euo pipefail
+          test "$ROOT_A_OUTCOME" = success
+          test "$ROOT_B_OUTCOME" = success
+          test "$VERIFIER_OUTCOME" = success
+          test "$OPENSSL_OUTCOME" = success
+          test "$TOOLCHAIN_OUTCOME" = success
+          test "$MATERIALIZE_OUTCOME" = success
+          test "$RUSTFMT_OUTCOME" = success
+          test "$TESTS_OUTCOME" = success
+          test "$CLIPPY_OUTCOME" = success
+          test "$WASM_OUTCOME" = success
+          test "$IMMUTABLE_OUTCOME" = success
