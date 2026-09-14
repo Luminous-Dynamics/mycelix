@@ -1,0 +1,356 @@
+name: GOVSYS-003C-A Rooted Lineage Composition
+
+on:
+  pull_request:
+    branches:
+      - feat/govsys-003c-rooted-lineage-v0.1
+    paths:
+      - .github/workflows/govsys-003c-rooted-lineage-composition.yml
+      - mycelix-workspace/docs/government/CONSTITUTIONAL_ROOTED_LINEAGE_COMPOSITION_V0.1.md
+      - scripts/qualification/govsys_003c_rooted_lineage_vector_v1.json
+      - scripts/qualification/govsys_constitutional_rooted_lineage_v0_1.py
+      - scripts/qualification/govsys_003c_rooted_lineage_core_harness.rs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Exact Root-B to verified-edge to CORE-LINEAGE composition
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Exact qualification subject
+        shell: bash
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+
+      - name: Exact one-commit five-file composition surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent=c9d1d744919f1b0e0190a3122b6708aee9e70a89
+          test "$(git rev-parse HEAD^)" = "$parent"
+          test "$(git rev-list --count "${parent}..HEAD")" -eq 1
+
+          mapfile -t changed < <(git diff --name-only "$parent"..HEAD | sort)
+          expected=(
+            .github/workflows/govsys-003c-rooted-lineage-composition.yml
+            mycelix-workspace/docs/government/CONSTITUTIONAL_ROOTED_LINEAGE_COMPOSITION_V0.1.md
+            scripts/qualification/govsys_003c_rooted_lineage_core_harness.rs
+            scripts/qualification/govsys_003c_rooted_lineage_vector_v1.json
+            scripts/qualification/govsys_constitutional_rooted_lineage_v0_1.py
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#changed[@]}" -eq 5
+          test "${#changed[@]}" -eq "${#expected_sorted[@]}"
+          for i in "${!expected_sorted[@]}"; do
+            test "${changed[$i]}" = "${expected_sorted[$i]}"
+          done
+
+      - name: Exact inherited theorem blobs unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent=c9d1d744919f1b0e0190a3122b6708aee9e70a89
+          check_same() {
+            path="$1"
+            test "$(git rev-parse "HEAD:${path}")" = "$(git rev-parse "${parent}:${path}")"
+          }
+
+          check_same scripts/qualification/govsys_constitutional_trust_root_identity_v0_1.py
+          check_same scripts/qualification/govsys_constitutional_pinned_root_provenance_v0_1.py
+          check_same scripts/qualification/govsys_003c_transition_verifier_vector_v1.json
+          check_same scripts/qualification/govsys_constitutional_transition_verifier_v0_1.py
+          check_same crates/mycelix-core-lineage/Cargo.toml
+          check_same crates/mycelix-core-lineage/src/lib.rs
+          check_same crates/mycelix-core-lineage/vectors/rooted_lineage_v1.json
+
+      - name: Static semantic-boundary audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          doc=mycelix-workspace/docs/government/CONSTITUTIONAL_ROOTED_LINEAGE_COMPOSITION_V0.1.md
+          oracle=scripts/qualification/govsys_constitutional_rooted_lineage_v0_1.py
+
+          grep -F 'stable constitutional history' "$doc"
+          grep -F '!= complete global constitutional history' "$doc"
+          grep -F 'Root-D owns closed-world coverage and current-head promotion.' "$doc"
+          grep -F 'ReplayNonceConflict' "$doc"
+          grep -F 'grants_currentness = false' "$doc"
+          grep -F 'grants_effect_authority = false' "$doc"
+          grep -F 'The network remains infrastructure for institutions. It is not the sovereign.' "$doc"
+
+          grep -F 'ROOT_B.qualify_pinned_root' "$oracle"
+          grep -F 'TRANSITION.qualify_transition' "$oracle"
+          grep -F 'TRANSITION.assert_no_replay_conflicts' "$oracle"
+          grep -F 'lineage_domain_identity_hex' "$oracle"
+          grep -F 'constitutional_lineage_identity_hex' "$oracle"
+          grep -F 'qualification_identity_hex' "$oracle"
+
+          if grep -Eq '(hdk::|holochain|evaluate_authority|reputation|stake|Phi|model_score)' "$oracle"; then
+            echo 'Root-C-A qualification oracle must remain pure and non-recursive' >&2
+            exit 1
+          fi
+
+      - name: Re-execute exact Root-A oracle
+        id: root_a
+        continue-on-error: true
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python3 scripts/qualification/govsys_constitutional_trust_root_identity_v0_1.py
+
+      - name: Re-execute exact Root-B oracle
+        id: root_b
+        if: always()
+        continue-on-error: true
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python3 scripts/qualification/govsys_constitutional_pinned_root_provenance_v0_1.py
+
+      - name: Re-execute exact predecessor transition verifier
+        id: verifier
+        if: always()
+        continue-on-error: true
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python3 scripts/qualification/govsys_constitutional_transition_verifier_v0_1.py
+
+      - name: Execute rooted-lineage composition oracle
+        id: composition
+        if: always()
+        continue-on-error: true
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python3 scripts/qualification/govsys_constitutional_rooted_lineage_v0_1.py
+
+      - name: Independently verify frozen predecessor signature with OpenSSL
+        id: openssl
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmp="$RUNNER_TEMP/govsys-003c-a-openssl"
+          mkdir -p "$tmp"
+          python3 - "$tmp" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          out = Path(sys.argv[1])
+          vector = json.loads(
+              Path('scripts/qualification/govsys_003c_transition_verifier_vector_v1.json')
+              .read_text(encoding='utf-8')
+          )
+          (out / 'candidate.bin').write_bytes(
+              bytes.fromhex(vector['expected']['candidate_canonical_bytes_hex'])
+          )
+          (out / 'public.der').write_bytes(
+              bytes.fromhex(vector['authorization_material']['public_key_spki_der_hex'])
+          )
+          (out / 'signature.bin').write_bytes(
+              bytes.fromhex(vector['authorization_proof']['signature_hex'])
+          )
+          PY
+          openssl pkeyutl -verify \
+            -pubin -inkey "$tmp/public.der" -keyform DER \
+            -rawin -in "$tmp/candidate.bin" -sigfile "$tmp/signature.bin"
+
+      - name: Independently recompute Root-C-A golden identities
+        id: independent
+        if: always()
+        continue-on-error: true
+        shell: bash
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import struct
+          from pathlib import Path
+
+          vector = json.loads(
+              Path('scripts/qualification/govsys_003c_rooted_lineage_vector_v1.json')
+              .read_text(encoding='utf-8')
+          )
+          transition = json.loads(
+              Path('scripts/qualification/govsys_003c_transition_verifier_vector_v1.json')
+              .read_text(encoding='utf-8')
+          )
+          root = transition['predecessor_root']
+          expected = vector['expected']['primary']
+
+          def frame(raw):
+              return struct.pack('<Q', len(raw)) + raw
+          def text(value):
+              return frame(value.encode('utf-8'))
+          def u64(value):
+              return frame(struct.pack('<Q', value))
+          def optional_text(value):
+              if value is None:
+                  return frame(b'\x00')
+              return frame(b'\x01') + text(value)
+          def profiled(profile, digest_hex):
+              return text(profile) + frame(bytes.fromhex(digest_hex))
+
+          domain_profile = 'mycelix-constitutional-root-lineage-domain-v1-sha256-framed-semantic'
+          domain = bytearray(b'mycelix/public-institution/constitutional-root-lineage-domain/v1')
+          domain += text(domain_profile)
+          domain += text('mycelix-constitutional-trust-root-v1-sha256-framed-semantic')
+          domain += text(root['protocol_version'])
+          domain += text(root['institution_id'])
+          domain += optional_text(root['jurisdiction_id'])
+          domain += text(root['bootstrap_mode'])
+          domain += text(root['bootstrap_profile'])
+          domain += text(root['authoritative_root_source_ref'])
+          domain += text(root['root_coverage_profile'])
+          domain += text(root['root_source_verification_profile'])
+          domain_digest = hashlib.sha256(domain).hexdigest()
+          assert domain_digest == '6067a895dfec8c8a6f5650e5f2031cf981c116f5b22fc1e5f316893f6dcb7f7a'
+          assert domain_digest == expected['lineage_domain_digest_hex']
+
+          core_profile = 'mycelix-core-lineage-v1-sha256-framed-semantic'
+          core = bytearray(b'mycelix/core-lineage/rooted-lineage/v1')
+          core += text(core_profile)
+          core += profiled(domain_profile, domain_digest)
+          core += u64(0)
+          core += profiled(
+              'mycelix-constitutional-trust-root-v1-sha256-framed-semantic',
+              transition['candidate']['predecessor_root_digest_hex'],
+          )
+          core += profiled(
+              'mycelix-constitutional-root-source-descriptor-v1-sha256-framed-semantic',
+              transition['candidate']['predecessor_source_descriptor_digest_hex'],
+          )
+          core += u64(root['valid_from_ms'])
+          core += u64(1)
+          core += u64(0)
+          core += profiled(
+              'mycelix-constitutional-trust-root-v1-sha256-framed-semantic',
+              transition['candidate']['predecessor_root_digest_hex'],
+          )
+          core += profiled(
+              'mycelix-constitutional-root-source-descriptor-v1-sha256-framed-semantic',
+              transition['candidate']['predecessor_source_descriptor_digest_hex'],
+          )
+          core += u64(1)
+          core += profiled(
+              'mycelix-constitutional-trust-root-v1-sha256-framed-semantic',
+              transition['candidate']['successor_root_digest_hex'],
+          )
+          core += profiled(
+              'mycelix-constitutional-root-source-descriptor-v1-sha256-framed-semantic',
+              transition['candidate']['successor_source_descriptor_digest_hex'],
+          )
+          core += profiled(
+              'mycelix-constitutional-root-transition-v1-sha256-framed-semantic',
+              transition['expected']['candidate_digest_hex'],
+          )
+          core += u64(transition['candidate']['effective_at_ms'])
+          core_digest = hashlib.sha256(core).hexdigest()
+          assert core_digest == 'e039378be03e597f6d3c117890e8395cb112efbe6f19e2c7e0a2ccdf37eb1b74'
+          assert core_digest == expected['core_lineage_digest_hex']
+
+          history_profile = 'mycelix-constitutional-root-lineage-v1-sha256-framed-semantic'
+          history = bytearray(b'mycelix/public-institution/constitutional-root-lineage/v1')
+          history += text(history_profile)
+          history += profiled(domain_profile, domain_digest)
+          history += profiled(core_profile, core_digest)
+          history_digest = hashlib.sha256(history).hexdigest()
+          assert history_digest == '2501ddf71646e27797822390310f0c558a72491f8ec46e0efdd3fd4647c09317'
+          assert history_digest == expected['constitutional_lineage_digest_hex']
+
+          print('GOVSYS-003C-A independent identity recomputation PASS:', history_digest)
+          PY
+
+      - name: Install exact CORE-LINEAGE Rust toolchain
+        id: toolchain
+        if: always()
+        continue-on-error: true
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+
+      - name: Rust harness format check
+        id: rustfmt
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustfmt --edition 2024 --check \
+            scripts/qualification/govsys_003c_rooted_lineage_core_harness.rs
+
+      - name: Execute actual CORE-LINEAGE bridge harness
+        id: rust_harness
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          core="$RUNNER_TEMP/mycelix-core-lineage"
+          app="$RUNNER_TEMP/govsys-003c-a-core-harness"
+          mkdir -p "$core" "$app/src"
+          cp -a crates/mycelix-core-lineage/. "$core/"
+          cp scripts/qualification/govsys_003c_rooted_lineage_core_harness.rs "$app/src/main.rs"
+          cat > "$app/Cargo.toml" <<EOF
+          [package]
+          name = "govsys-003c-a-core-harness"
+          version = "0.1.0"
+          edition = "2024"
+
+          [dependencies]
+          mycelix-core-lineage = { path = "$core" }
+          EOF
+          cargo run --quiet --manifest-path "$app/Cargo.toml"
+          cargo clippy --manifest-path "$app/Cargo.toml" -- -D warnings
+
+      - name: Immutable checkout postflight
+        id: immutable
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
+
+      - name: Fail closed on any Root-C-A qualification defect
+        if: always()
+        shell: bash
+        env:
+          ROOT_A_OUTCOME: ${{ steps.root_a.outcome }}
+          ROOT_B_OUTCOME: ${{ steps.root_b.outcome }}
+          VERIFIER_OUTCOME: ${{ steps.verifier.outcome }}
+          COMPOSITION_OUTCOME: ${{ steps.composition.outcome }}
+          OPENSSL_OUTCOME: ${{ steps.openssl.outcome }}
+          INDEPENDENT_OUTCOME: ${{ steps.independent.outcome }}
+          TOOLCHAIN_OUTCOME: ${{ steps.toolchain.outcome }}
+          RUSTFMT_OUTCOME: ${{ steps.rustfmt.outcome }}
+          RUST_HARNESS_OUTCOME: ${{ steps.rust_harness.outcome }}
+          IMMUTABLE_OUTCOME: ${{ steps.immutable.outcome }}
+        run: |
+          set -euo pipefail
+          test "$ROOT_A_OUTCOME" = success
+          test "$ROOT_B_OUTCOME" = success
+          test "$VERIFIER_OUTCOME" = success
+          test "$COMPOSITION_OUTCOME" = success
+          test "$OPENSSL_OUTCOME" = success
+          test "$INDEPENDENT_OUTCOME" = success
+          test "$TOOLCHAIN_OUTCOME" = success
+          test "$RUSTFMT_OUTCOME" = success
+          test "$RUST_HARNESS_OUTCOME" = success
+          test "$IMMUTABLE_OUTCOME" = success
