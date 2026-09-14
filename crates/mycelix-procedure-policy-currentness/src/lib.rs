@@ -157,10 +157,10 @@ impl ProcedurePolicyCurrentnessClaim {
         if self.effective_from_ms == 0 || self.issued_at_ms == 0 || self.closed_through_ms == 0 {
             return Err(ProcedurePolicyCurrentnessError::InvalidCurrentnessTime);
         }
-        if let Some(until_ms) = self.effective_until_ms {
-            if until_ms <= self.effective_from_ms {
-                return Err(ProcedurePolicyCurrentnessError::InvalidEffectiveInterval);
-            }
+        if let Some(until_ms) = self.effective_until_ms
+            && until_ms <= self.effective_from_ms
+        {
+            return Err(ProcedurePolicyCurrentnessError::InvalidEffectiveInterval);
         }
         if self.closed_through_ms > self.issued_at_ms {
             return Err(ProcedurePolicyCurrentnessError::ClosureAfterClaimIssuance);
@@ -239,9 +239,9 @@ pub fn qualify_current_procedure_policy(
         return Err(ProcedurePolicyCurrentnessError::TooMuchAuthorityEvidence);
     }
     for evidence in provider_authority_evidence {
-        evidence
-            .validate()
-            .map_err(|error| ProcedurePolicyCurrentnessError::InvalidAuthorityEvidence(error.to_string()))?;
+        evidence.validate().map_err(|error| {
+            ProcedurePolicyCurrentnessError::InvalidAuthorityEvidence(error.to_string())
+        })?;
         if evidence.observed_at_ms > claim.issued_at_ms {
             return Err(ProcedurePolicyCurrentnessError::AuthorityEvidenceFromFuture);
         }
@@ -305,9 +305,11 @@ pub fn qualify_current_procedure_policy(
             });
         }
         AuthorityDecision::NeedsEvidence(missing) => {
-            return Err(ProcedurePolicyCurrentnessError::ProviderAuthorityNeedsEvidence(
-                missing.requirements.len(),
-            ));
+            return Err(
+                ProcedurePolicyCurrentnessError::ProviderAuthorityNeedsEvidence(
+                    missing.requirements.len(),
+                ),
+            );
         }
     }
 
@@ -406,7 +408,9 @@ pub enum ProcedurePolicyCurrentnessError {
 impl fmt::Display for ProcedurePolicyCurrentnessError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::WrongProtocolVersion => write!(f, "wrong procedure-policy currentness protocol version"),
+            Self::WrongProtocolVersion => {
+                write!(f, "wrong procedure-policy currentness protocol version")
+            }
             Self::InvalidReference => write!(f, "invalid procedure-policy currentness reference"),
             Self::InvalidProviderNamespace => write!(f, "invalid policy-provider namespace"),
             Self::InvalidPolicyDigestProfile => write!(f, "invalid policy digest profile"),
@@ -417,34 +421,69 @@ impl fmt::Display for ProcedurePolicyCurrentnessError {
             Self::ZeroProviderGeneration => write!(f, "provider generation must be non-zero"),
             Self::InvalidCurrentnessTime => write!(f, "invalid currentness claim time"),
             Self::InvalidEffectiveInterval => write!(f, "invalid policy effective interval"),
-            Self::ClosureAfterClaimIssuance => write!(f, "provider closure extends beyond claim issuance"),
+            Self::ClosureAfterClaimIssuance => {
+                write!(f, "provider closure extends beyond claim issuance")
+            }
             Self::InvalidAsOfTime => write!(f, "invalid currentness as-of time"),
             Self::TooManyProviderRoles => write!(f, "provider role count exceeds v0.1 bound"),
             Self::DuplicateProviderRole => write!(f, "duplicate accepted provider role"),
             Self::TooManyAuthorityEvidenceRequirements => {
-                write!(f, "provider authority evidence requirements exceed v0.1 bound")
+                write!(
+                    f,
+                    "provider authority evidence requirements exceed v0.1 bound"
+                )
             }
-            Self::TooMuchAuthorityEvidence => write!(f, "provider authority evidence exceeds v0.1 bound"),
-            Self::InvalidAuthorityEvidence(detail) => write!(f, "invalid provider authority evidence: {detail}"),
-            Self::AuthorityEvidenceFromFuture => write!(f, "provider authority evidence postdates currentness claim"),
+            Self::TooMuchAuthorityEvidence => {
+                write!(f, "provider authority evidence exceeds v0.1 bound")
+            }
+            Self::InvalidAuthorityEvidence(detail) => {
+                write!(f, "invalid provider authority evidence: {detail}")
+            }
+            Self::AuthorityEvidenceFromFuture => {
+                write!(f, "provider authority evidence postdates currentness claim")
+            }
             Self::TargetInstitutionMismatch => write!(f, "currentness target institution mismatch"),
-            Self::TargetJurisdictionMismatch => write!(f, "currentness target jurisdiction mismatch"),
+            Self::TargetJurisdictionMismatch => {
+                write!(f, "currentness target jurisdiction mismatch")
+            }
             Self::TargetRulebookMismatch => write!(f, "currentness target rulebook mismatch"),
             Self::ProcedureProfileMismatch => write!(f, "currentness procedure profile mismatch"),
-            Self::PolicyDigestMismatch => write!(f, "currentness policy digest differs from qualified semantic identity"),
+            Self::PolicyDigestMismatch => write!(
+                f,
+                "currentness policy digest differs from qualified semantic identity"
+            ),
             Self::PolicyDigestProfileMismatch => {
-                write!(f, "currentness policy digest profile differs from qualified semantic identity")
+                write!(
+                    f,
+                    "currentness policy digest profile differs from qualified semantic identity"
+                )
             }
             Self::ProviderNamespaceMismatch => write!(f, "currentness provider namespace mismatch"),
-            Self::ProviderGrantMismatch => write!(f, "currentness provider grant identity mismatch"),
+            Self::ProviderGrantMismatch => {
+                write!(f, "currentness provider grant identity mismatch")
+            }
             Self::ProviderPrincipalMismatch => write!(f, "currentness provider principal mismatch"),
-            Self::PolicyNotEffectiveAtAsOf => write!(f, "policy is not effective at requested currentness time"),
-            Self::CurrentnessDoesNotCoverAsOf => write!(f, "provider closed-world currentness does not cover requested time"),
-            Self::ProviderAuthorityDenied { reason_code, detail } => {
-                write!(f, "policy-provider authority denied ({reason_code}): {detail}")
+            Self::PolicyNotEffectiveAtAsOf => {
+                write!(f, "policy is not effective at requested currentness time")
+            }
+            Self::CurrentnessDoesNotCoverAsOf => write!(
+                f,
+                "provider closed-world currentness does not cover requested time"
+            ),
+            Self::ProviderAuthorityDenied {
+                reason_code,
+                detail,
+            } => {
+                write!(
+                    f,
+                    "policy-provider authority denied ({reason_code}): {detail}"
+                )
             }
             Self::ProviderAuthorityNeedsEvidence(count) => {
-                write!(f, "policy-provider authority requires {count} missing evidence item(s)")
+                write!(
+                    f,
+                    "policy-provider authority requires {count} missing evidence item(s)"
+                )
             }
         }
     }
@@ -460,8 +499,8 @@ mod tests {
         ResponseModeRequirement,
     };
     use mycelix_institutional_core::{
-        AuthoritySourceKind, AuthoritySourceRef, PROTOCOL_VERSION as INSTITUTIONAL_PROTOCOL_VERSION,
-        RulebookId,
+        AuthoritySourceKind, AuthoritySourceRef,
+        PROTOCOL_VERSION as INSTITUTIONAL_PROTOCOL_VERSION, RulebookId,
     };
     use mycelix_procedure_policy_identity::{
         PROCEDURAL_POLICY_IDENTITY_PROFILE, procedural_policy_semantic_identity,
@@ -540,7 +579,10 @@ mod tests {
             provider_authority_institution: provider_institution(),
             provider_authority_jurisdiction: Some(jurisdiction()),
             provider_authority_rulebook: provider_rulebook(),
-            required_provider_capability: CapabilityId::new("administration.policy.currentness.attest").unwrap(),
+            required_provider_capability: CapabilityId::new(
+                "administration.policy.currentness.attest",
+            )
+            .unwrap(),
             accepted_provider_roles: vec![RoleId::new("role:policy-registrar").unwrap()],
             provider_authority_evidence: vec![],
         }
@@ -554,7 +596,9 @@ mod tests {
             institution: provider_institution(),
             jurisdiction: Some(jurisdiction()),
             roles: vec![RoleId::new("role:policy-registrar").unwrap()],
-            capabilities: vec![CapabilityId::new("administration.policy.currentness.attest").unwrap()],
+            capabilities: vec![
+                CapabilityId::new("administration.policy.currentness.attest").unwrap(),
+            ],
             rulebook: provider_rulebook(),
             sources: vec![AuthoritySourceRef {
                 kind: AuthoritySourceKind::GovernanceDecision,
@@ -592,7 +636,9 @@ mod tests {
         }
     }
 
-    fn qualify_at(as_of_ms: u64) -> Result<QualifiedCurrentProcedurePolicy, ProcedurePolicyCurrentnessError> {
+    fn qualify_at(
+        as_of_ms: u64,
+    ) -> Result<QualifiedCurrentProcedurePolicy, ProcedurePolicyCurrentnessError> {
         qualify_current_procedure_policy(
             identity(),
             currentness_policy(),
