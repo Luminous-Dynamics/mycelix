@@ -106,6 +106,58 @@ Changing the source reference, coverage profile, verification profile, or anchor
 
 Root-C may later authorize an exact successor carrying a new verifier anchor because predecessor transition authority binds the complete successor Root-A digest. Such rotation must remain visible in lineage and takes effect only with that successor. Root-D must evaluate each covered generation under the verification descriptor committed by the relevant Root-A identity; it may not silently use a new anchor to reinterpret an older root.
 
+### Derived source-descriptor identity
+
+For domain-neutral lineage/current-head composition, the four already-committed source fields also have a separately registered **derived identity**.
+
+Profile:
+
+`mycelix-constitutional-root-source-descriptor-v1-sha256-framed-semantic`
+
+Unframed domain separator:
+
+`mycelix/public-institution/constitutional-root-source-descriptor/v1`
+
+Its SHA-256 transcript is exactly:
+
+```text
+SOURCE_DESCRIPTOR_DOMAIN_UNFRAMED
+|| frame(SOURCE_DESCRIPTOR_PROFILE)
+|| frame(authoritative_root_source_ref)
+|| frame(root_coverage_profile)
+|| frame(root_source_verification_profile)
+|| frame(raw_32_byte_root_source_anchor_digest)
+```
+
+The same `frame(x) = u64_le(len(x)) || x` rule applies.
+
+This is a projection over fields already committed by Root-A. It is **not** an additional Root-A field and is not inserted back into the Root-A canonical transcript. Therefore registering this adapter identity does not change the Root-A semantic identity or create a recursive commitment.
+
+For the normative v0.1 fixture, the derived source-descriptor identity is:
+
+`f97a96e20ce6dd0c86c67e1590252abc678dfd6401128ab44ced4a66ec088126`
+
+The descriptor has exact subset semantics:
+
+- changing source ref changes the descriptor;
+- changing coverage profile changes the descriptor;
+- changing source-verification profile changes the descriptor;
+- changing source-anchor bytes changes the descriptor;
+- hexadecimal case of the same source-anchor bytes does not change the descriptor; and
+- changing unrelated Root-A fields such as the constitutional rulebook or ordinary policy scopes does not change the descriptor.
+
+This gives CORE-LINEAGE-001 / #837 one opaque profiled identity to bind without teaching the generic kernel how civic source/verifier fields are interpreted.
+
+```text
+source-descriptor identity
+!= Root-A identity
+!= source authenticity
+!= coverage verification
+!= currentness
+```
+
+A consumer must still retain or reconstruct the complete Root-A identity separately. Equality of source-descriptor identities only establishes equality of these four source-verification semantics.
+
 ## Authorized ordinary policy scopes are bound tuples
 
 Each `authorized_policy_scopes` member contains exactly:
@@ -334,6 +386,8 @@ The vector wrapper itself has exactly three members:
 - `root`.
 
 Extra wrapper metadata is rejected so a consumer cannot accidentally treat unauthenticated side metadata as part of the normative vector contract.
+
+The derived source-descriptor golden value is separately frozen by this specification and independently recomputed by the exact-head qualification workflow. It is not inserted into the three-member Root-A vector wrapper because it is a projection of the normative root fields rather than an additional root semantic input.
 
 ## Relationship to Root-D and qualified policy layers
 
