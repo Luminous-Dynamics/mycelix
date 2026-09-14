@@ -10,20 +10,20 @@
 //! string can substitute for those exact current authority subjects.
 
 use mycelix_authority_freshness::{
-    qualify_current_freshness, AuthoritySubjectKind, AuthoritySubjectRef, FreshnessError,
+    AuthoritySubjectKind, AuthoritySubjectRef, BUNDLE_IDENTITY_PROFILE, FreshnessError,
     ProfiledDigest as FreshnessProfiledDigest, VerifiedAuthorityFreshness,
-    BUNDLE_IDENTITY_PROFILE,
+    qualify_current_freshness,
 };
 use mycelix_authority_identity::{
-    authority_grant_identity, AuthorityIdentityError, AUTHORITY_GRANT_IDENTITY_PROFILE,
+    AUTHORITY_GRANT_IDENTITY_PROFILE, AuthorityIdentityError, authority_grant_identity,
 };
 use mycelix_governance_authority::{ProposalId, SignatureAlgorithm};
 use mycelix_governance_executor_designation::{
     VerifiedAuthorityGrant, VerifiedExecutorDesignation, VerifiedThresholdAuthorization,
 };
 use mycelix_governance_executor_lineage::{
-    qualify_lineage_bound_executor_authority, DelegationLineageEvidence, ExecutorLineageError,
-    EXECUTOR_LINEAGE_AUTHORITY_PROFILE,
+    DelegationLineageEvidence, EXECUTOR_LINEAGE_AUTHORITY_PROFILE, ExecutorLineageError,
+    qualify_lineage_bound_executor_authority,
 };
 use mycelix_institutional_core::{
     AuthorityGrantId, Digest32, InstitutionId, PrincipalId, RulebookRef,
@@ -131,6 +131,16 @@ impl QualifiedCurrentExecutorAuthority {
     }
 }
 
+/// Exact current-state receipts for the three authority subjects that must
+/// remain jointly fresh. Named fields make grant/threshold/executor ordering
+/// explicit at the provider boundary instead of relying on positional arguments.
+#[derive(Clone, Copy, Debug)]
+pub struct CurrentExecutorFreshnessEvidence<'a> {
+    pub grant: &'a VerifiedAuthorityFreshness,
+    pub threshold: &'a VerifiedAuthorityFreshness,
+    pub executor: &'a VerifiedAuthorityFreshness,
+}
+
 /// Reconstruct exact executor semantics and then qualify the exact current
 /// revocation generations for the same authority objects.
 pub fn qualify_current_executor_authority(
@@ -138,14 +148,18 @@ pub fn qualify_current_executor_authority(
     grant_receipt: &VerifiedAuthorityGrant,
     designation_receipt: &VerifiedExecutorDesignation,
     lineage_evidence: DelegationLineageEvidence<'_>,
-    grant_freshness: &VerifiedAuthorityFreshness,
-    threshold_freshness: &VerifiedAuthorityFreshness,
-    executor_freshness: &VerifiedAuthorityFreshness,
+    freshness_evidence: CurrentExecutorFreshnessEvidence<'_>,
     now_ms: u64,
 ) -> Result<QualifiedCurrentExecutorAuthority, CurrentExecutorAuthorityError> {
     if now_ms == 0 {
         return Err(CurrentExecutorAuthorityError::InvalidVerificationTime);
     }
+
+    let CurrentExecutorFreshnessEvidence {
+        grant: grant_freshness,
+        threshold: threshold_freshness,
+        executor: executor_freshness,
+    } = freshness_evidence;
 
     // Re-run the full exact semantic qualifier. This ensures the current layer
     // cannot combine freshness for object A with a previously qualified executor
@@ -324,7 +338,10 @@ pub fn threshold_authorization_identity(
         THRESHOLD_AUTHORIZATION_IDENTITY_PROFILE.as_bytes(),
     );
     frame(&mut hasher, authority.protocol_version.as_bytes());
-    frame(&mut hasher, threshold.threshold_authorization_ref.as_bytes());
+    frame(
+        &mut hasher,
+        threshold.threshold_authorization_ref.as_bytes(),
+    );
     frame(&mut hasher, authority.proposal_id.as_str().as_bytes());
     frame(&mut hasher, authority.institution.as_str().as_bytes());
     frame_optional_text(
@@ -346,7 +363,10 @@ pub fn threshold_authorization_identity(
     frame(&mut hasher, &authority.min_signers.to_le_bytes());
     frame(&mut hasher, &authority.member_count.to_le_bytes());
     frame(&mut hasher, &authority.signer_count.to_le_bytes());
-    frame(&mut hasher, &[signature_algorithm_code(&authority.algorithm)]);
+    frame(
+        &mut hasher,
+        &[signature_algorithm_code(&authority.algorithm)],
+    );
     frame(&mut hasher, authority.signature_id.as_str().as_bytes());
     frame(&mut hasher, authority.signature_ref.as_bytes());
     frame(&mut hasher, authority.policy_record_ref.as_bytes());
@@ -447,21 +467,54 @@ pub enum CurrentExecutorAuthorityError {
 impl fmt::Display for CurrentExecutorAuthorityError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::InvalidVerificationTime => write!(f, "invalid current-executor verification time"),
+            Self::InvalidVerificationTime => {
+                write!(f, "invalid current-executor verification time")
+            }
             Self::InvalidReference => write!(f, "invalid current-executor reference"),
             Self::InvalidProfile => write!(f, "invalid current-executor digest profile"),
-            Self::InvalidThresholdIdentity => write!(f, "invalid threshold-authorization semantic identity"),
-            Self::GrantIdentity(error) => write!(f, "cannot canonicalize current executor grant: {error}"),
-            Self::GrantIdentityMismatch => write!(f, "current executor grant does not match lineage-bound executor authority"),
-            Self::ExecutorSemanticMismatch => write!(f, "executor semantics do not match exact threshold/designation inputs"),
-            Self::ExecutorLineage(error) => write!(f, "lineage-bound executor qualification failed: {error}"),
-            Self::GrantFreshnessMismatch => write!(f, "grant freshness does not bind the exact canonical executor grant"),
-            Self::ThresholdFreshnessMismatch => write!(f, "threshold freshness does not bind the exact threshold authorization"),
-            Self::ExecutorFreshnessMismatch => write!(f, "executor freshness does not bind the exact lineage-bound executor authority"),
-            Self::FreshnessPredatesAuthority => write!(f, "current freshness state predates the immutable authority it governs"),
-            Self::Freshness(error) => write!(f, "current executor freshness qualification failed: {error}"),
-            Self::FreshnessProfileMismatch => write!(f, "unexpected current executor freshness profile"),
-            Self::CurrentAuthorityExpired => write!(f, "current executor authority is stale or expired"),
+            Self::InvalidThresholdIdentity => {
+                write!(f, "invalid threshold-authorization semantic identity")
+            }
+            Self::GrantIdentity(error) => {
+                write!(f, "cannot canonicalize current executor grant: {error}")
+            }
+            Self::GrantIdentityMismatch => write!(
+                f,
+                "current executor grant does not match lineage-bound executor authority"
+            ),
+            Self::ExecutorSemanticMismatch => write!(
+                f,
+                "executor semantics do not match exact threshold/designation inputs"
+            ),
+            Self::ExecutorLineage(error) => {
+                write!(f, "lineage-bound executor qualification failed: {error}")
+            }
+            Self::GrantFreshnessMismatch => write!(
+                f,
+                "grant freshness does not bind the exact canonical executor grant"
+            ),
+            Self::ThresholdFreshnessMismatch => write!(
+                f,
+                "threshold freshness does not bind the exact threshold authorization"
+            ),
+            Self::ExecutorFreshnessMismatch => write!(
+                f,
+                "executor freshness does not bind the exact lineage-bound executor authority"
+            ),
+            Self::FreshnessPredatesAuthority => write!(
+                f,
+                "current freshness state predates the immutable authority it governs"
+            ),
+            Self::Freshness(error) => write!(
+                f,
+                "current executor freshness qualification failed: {error}"
+            ),
+            Self::FreshnessProfileMismatch => {
+                write!(f, "unexpected current executor freshness profile")
+            }
+            Self::CurrentAuthorityExpired => {
+                write!(f, "current executor authority is stale or expired")
+            }
         }
     }
 }
