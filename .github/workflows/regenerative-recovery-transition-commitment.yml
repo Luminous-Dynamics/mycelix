@@ -24,8 +24,22 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - name: Checkout exact subject
+      - name: Checkout exact branch head
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Verify exact checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ github.event.pull_request.head.sha }}'
+          if [[ -z "$expected" ]]; then
+            expected="$GITHUB_SHA"
+          fi
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$expected"
+          echo "exact subject: $actual"
 
       - name: Install pinned Rust toolchain
         uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
@@ -40,10 +54,8 @@ jobs:
           rustfmt --version
           cargo clippy --version
 
-      - name: Format owned subjects
-        run: |
-          rustfmt --edition 2024 --check mycelix-commons/crates/commons-types/src/regenerative_recovery_transition_commitment.rs
-          rustfmt --edition 2024 --check mycelix-commons/crates/commons-types/src/lib.rs
+      - name: Format owned source
+        run: rustfmt --edition 2024 --check mycelix-commons/crates/commons-types/src/regenerative_recovery_transition_commitment.rs
 
       - name: Test commons-types
         run: cargo test --manifest-path mycelix-commons/Cargo.toml -p commons-types
