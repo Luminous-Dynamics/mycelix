@@ -1,0 +1,149 @@
+{
+  "profiles": {
+    "root_identity": "mycelix-constitutional-trust-root-v1-sha256-framed-semantic",
+    "source_descriptor": "mycelix-constitutional-root-source-descriptor-v1-sha256-framed-semantic",
+    "rotation_authority": "mycelix-constitutional-root-rotation-authority-v1-sha256-framed-semantic",
+    "authorization_material": "mycelix-constitutional-root-rotation-authority-ed25519-single-v1",
+    "authorization_suite": "ed25519-spki-v1",
+    "authorization_proof_suite": "ed25519-signature-v1",
+    "transition": "mycelix-constitutional-root-transition-v1-sha256-framed-semantic"
+  },
+  "predecessor_root": {
+    "protocol_version": "mycelix-constitutional-trust-root-v0.1",
+    "institution_id": "institution:city-of-example",
+    "jurisdiction_id": "jurisdiction:example-city",
+    "constitutional_rulebook": {
+      "id": "rulebook:city-charter:v1",
+      "version": "1.0.0",
+      "digest_hex": "1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    "generation": 0,
+    "predecessor_root_digest_hex": null,
+    "bootstrap_mode": "pinned-constitutional-commitment",
+    "bootstrap_profile": "deployment-pinned-root-digest-v1",
+    "authoritative_root_source_ref": "registry:constitutional-root:example-city",
+    "root_coverage_profile": "mycelix-constitutional-root-covered-head-v1",
+    "root_source_verification_profile": "mycelix-constitutional-root-source-verification-v1",
+    "root_source_anchor_digest_hex": "3333333333333333333333333333333333333333333333333333333333333333",
+    "authorized_policy_scopes": [
+      {
+        "policy_identity_profile": "mycelix-review-policy-v1-blake3-framed-semantic",
+        "policy_registry_namespace": "registry:review-policy:example-city",
+        "provider_authority_institution_id": "institution:city-clerk",
+        "provider_authority_jurisdiction_id": "jurisdiction:example-city",
+        "provider_authority_rulebook": {
+          "id": "rulebook:city-clerk:v1",
+          "version": "1.0.0",
+          "digest_hex": "2222222222222222222222222222222222222222222222222222222222222222"
+        },
+        "required_provider_capability": "administration.review-policy.currentness.attest"
+      },
+      {
+        "policy_identity_profile": "mycelix-procedure-policy-currentness-provider-v1-blake3-framed-semantic",
+        "policy_registry_namespace": "registry:procedure-policy:example-city",
+        "provider_authority_institution_id": "institution:city-clerk",
+        "provider_authority_jurisdiction_id": "jurisdiction:example-city",
+        "provider_authority_rulebook": {
+          "id": "rulebook:city-clerk:v1",
+          "version": "1.0.0",
+          "digest_hex": "2222222222222222222222222222222222222222222222222222222222222222"
+        },
+        "required_provider_capability": "administration.policy.currentness.attest"
+      }
+    ],
+    "valid_from_ms": 1800000000000,
+    "expires_at_ms": 1800000200000,
+    "rotation_mode": "predecessor-authorized",
+    "rotation_profile": "constitutional-root-rotation-v1",
+    "rotation_authority_anchor_digest_hex": "32d29fa9f5a28f5ef5ca3f298902add00f1ddd79007b729d0c12eae77358367f"
+  },
+  "successor_root": {
+    "protocol_version": "mycelix-constitutional-trust-root-v0.1",
+    "institution_id": "institution:city-of-example",
+    "jurisdiction_id": "jurisdiction:example-city",
+    "constitutional_rulebook": {
+      "id": "rulebook:city-charter:v2",
+      "version": "2.0.0",
+      "digest_hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "generation": 1,
+    "predecessor_root_digest_hex": "b7a0c7cb28f182d06367d4bf1d3cc4f7d82094701d955eeaa7ec53153d2080a6",
+    "bootstrap_mode": "pinned-constitutional-commitment",
+    "bootstrap_profile": "deployment-pinned-root-digest-v1",
+    "authoritative_root_source_ref": "registry:constitutional-root:example-city",
+    "root_coverage_profile": "mycelix-constitutional-root-covered-head-v1",
+    "root_source_verification_profile": "mycelix-constitutional-root-source-verification-v1",
+    "root_source_anchor_digest_hex": "5555555555555555555555555555555555555555555555555555555555555555",
+    "authorized_policy_scopes": [
+      {
+        "policy_identity_profile": "mycelix-review-policy-v1-blake3-framed-semantic",
+        "policy_registry_namespace": "registry:review-policy:example-city",
+        "provider_authority_institution_id": "institution:city-clerk",
+        "provider_authority_jurisdiction_id": "jurisdiction:example-city",
+        "provider_authority_rulebook": {
+          "id": "rulebook:city-clerk:v1",
+          "version": "1.0.0",
+          "digest_hex": "2222222222222222222222222222222222222222222222222222222222222222"
+        },
+        "required_provider_capability": "administration.review-policy.currentness.attest"
+      },
+      {
+        "policy_identity_profile": "mycelix-procedure-policy-currentness-provider-v1-blake3-framed-semantic",
+        "policy_registry_namespace": "registry:procedure-policy:example-city",
+        "provider_authority_institution_id": "institution:city-clerk",
+        "provider_authority_jurisdiction_id": "jurisdiction:example-city",
+        "provider_authority_rulebook": {
+          "id": "rulebook:city-clerk:v1",
+          "version": "1.0.0",
+          "digest_hex": "2222222222222222222222222222222222222222222222222222222222222222"
+        },
+        "required_provider_capability": "administration.policy.currentness.attest"
+      }
+    ],
+    "valid_from_ms": 1800000100000,
+    "expires_at_ms": null,
+    "rotation_mode": "predecessor-authorized",
+    "rotation_profile": "constitutional-root-rotation-v1",
+    "rotation_authority_anchor_digest_hex": "f6833e11f4317ff680813e6e1d9e1189b4cbb1abb44a67f4b7fec3897427435f"
+  },
+  "authorization_material": {
+    "profile": "mycelix-constitutional-root-rotation-authority-ed25519-single-v1",
+    "suite": "ed25519-spki-v1",
+    "public_key_spki_der_hex": "302a300506032b657003210059e958de703e469ebab72fc99f64d7f715cb1fd723f571575e74833cbc4bedee"
+  },
+  "authorization_proof": {
+    "suite": "ed25519-signature-v1",
+    "signature_hex": "1bd78cbe9f303f8b258c928bef0c2173dc581c22c699cf1d2c43c7565bd3a4f6576def1a1c06aa8e107556ac964ef1862d0ea2fb48b2d3c88f27f5019aab7601"
+  },
+  "candidate": {
+    "profile": "mycelix-constitutional-root-transition-v1-sha256-framed-semantic",
+    "predecessor_root_identity_profile": "mycelix-constitutional-trust-root-v1-sha256-framed-semantic",
+    "predecessor_root_digest_hex": "b7a0c7cb28f182d06367d4bf1d3cc4f7d82094701d955eeaa7ec53153d2080a6",
+    "predecessor_generation": 0,
+    "predecessor_source_descriptor_profile": "mycelix-constitutional-root-source-descriptor-v1-sha256-framed-semantic",
+    "predecessor_source_descriptor_digest_hex": "f97a96e20ce6dd0c86c67e1590252abc678dfd6401128ab44ced4a66ec088126",
+    "predecessor_rotation_authority_profile": "mycelix-constitutional-root-rotation-authority-v1-sha256-framed-semantic",
+    "predecessor_rotation_authority_digest_hex": "db3bf05b04063ea2e9626e9ea63def4920f205cb36c43d64a046fd04e87b8304",
+    "successor_root_identity_profile": "mycelix-constitutional-trust-root-v1-sha256-framed-semantic",
+    "successor_root_digest_hex": "c970bfc0957efc00946d08a957d7617b85815f47d98fcc98aa43f6f6a6ced963",
+    "successor_generation": 1,
+    "successor_source_descriptor_profile": "mycelix-constitutional-root-source-descriptor-v1-sha256-framed-semantic",
+    "successor_source_descriptor_digest_hex": "3f867aab08093b08f8f4088a540e8cffa85dc25ab7c7cfb34ac65c8bc071a3fe",
+    "successor_rotation_authority_profile": "mycelix-constitutional-root-rotation-authority-v1-sha256-framed-semantic",
+    "successor_rotation_authority_digest_hex": "ee35844f067306e66ec8fcb40442b3564e9f7f5bd824a3e2a71265ea318aebea",
+    "authorized_at_ms": 1800000050000,
+    "effective_at_ms": 1800000100000,
+    "replay_nonce_hex": "9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a"
+  },
+  "successor_authorization_material": {
+    "profile": "mycelix-constitutional-root-rotation-authority-ed25519-single-v1",
+    "suite": "ed25519-spki-v1",
+    "public_key_spki_der_hex": "302a300506032b6570032100b3aeb3ef6cd8f7957cc868ecf66e2ba21d3dfd2417a43354749d684633380333"
+  },
+  "expected": {
+    "authorization_material_commitment_hex": "32d29fa9f5a28f5ef5ca3f298902add00f1ddd79007b729d0c12eae77358367f",
+    "candidate_digest_hex": "d71e66425effe3668790f552409aeba2005cca3c50ccb23cbd1d5a32dd060a24",
+    "successor_material_commitment_hex": "f6833e11f4317ff680813e6e1d9e1189b4cbb1abb44a67f4b7fec3897427435f",
+    "candidate_canonical_bytes_hex": "6d7963656c69782f7075626c69632d696e737469747574696f6e2f636f6e737469747574696f6e616c2d726f6f742d7472616e736974696f6e2f763140000000000000006d7963656c69782d636f6e737469747574696f6e616c2d726f6f742d7472616e736974696f6e2d76312d7368613235362d6672616d65642d73656d616e7469633b000000000000006d7963656c69782d636f6e737469747574696f6e616c2d74727573742d726f6f742d76312d7368613235362d6672616d65642d73656d616e7469632000000000000000b7a0c7cb28f182d06367d4bf1d3cc4f7d82094701d955eeaa7ec53153d2080a60800000000000000000000000000000047000000000000006d7963656c69782d636f6e737469747574696f6e616c2d726f6f742d736f757263652d64657363726970746f722d76312d7368613235362d6672616d65642d73656d616e7469632000000000000000f97a96e20ce6dd0c86c67e1590252abc678dfd6401128ab44ced4a66ec08812648000000000000006d7963656c69782d636f6e737469747574696f6e616c2d726f6f742d726f746174696f6e2d617574686f726974792d76312d7368613235362d6672616d65642d73656d616e7469632000000000000000db3bf05b04063ea2e9626e9ea63def4920f205cb36c43d64a046fd04e87b83043b000000000000006d7963656c69782d636f6e737469747574696f6e616c2d74727573742d726f6f742d76312d7368613235362d6672616d65642d73656d616e7469632000000000000000c970bfc0957efc00946d08a957d7617b85815f47d98fcc98aa43f6f6a6ced9630800000000000000010000000000000047000000000000006d7963656c69782d636f6e737469747574696f6e616c2d726f6f742d736f757263652d64657363726970746f722d76312d7368613235362d6672616d65642d73656d616e74696320000000000000003f867aab08093b08f8f4088a540e8cffa85dc25ab7c7cfb34ac65c8bc071a3fe01000000000000000148000000000000006d7963656c69782d636f6e737469747574696f6e616c2d726f6f742d726f746174696f6e2d617574686f726974792d76312d7368613235362d6672616d65642d73656d616e7469632000000000000000ee35844f067306e66ec8fcb40442b3564e9f7f5bd824a3e2a71265ea318aebea080000000000000050135d18a30100000800000000000000a0d65d18a301000020000000000000009a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a"
+  }
+}
