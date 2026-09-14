@@ -8,9 +8,11 @@ sender provenance and an unrestricted capability would otherwise make rich
 legacy semantic payloads forgeable.
 
 The only permitted remote grant is an unrestricted, listed-function grant for
-`recv_remote_signal` itself. The initializer may perform no other source-chain
-provisioning. A valid V2 signal remains information-poor and can only schedule
-reconciliation against durable authenticated state.
+`recv_remote_signal` itself. The initializer may perform no other source-chain,
+network, scheduling, or local-signal provisioning. A capability-open receiver
+may perform no DHT reads/writes or remote calls; its sole successful side effect
+is forwarding one qualified information-poor V2 hint to the local UI. Malformed
+V2 and legacy bytes are terminal errors.
 """
 
 from __future__ import annotations
@@ -54,18 +56,22 @@ def extract_function(source: str, name: str) -> str:
 
 
 def validate_init(init: str) -> tuple[bool, str]:
-    forbidden_writes = (
+    forbidden_side_effects = (
         "create_entry(",
         "create_link(",
         "update_entry(",
         "delete_entry(",
         "create_cap_claim(",
         "delete_cap_grant(",
+        "send_remote_signal(",
+        "call_remote(",
+        "emit_signal(",
+        "schedule(",
     )
-    for token in forbidden_writes:
+    for token in forbidden_side_effects:
         require(
             token not in init,
-            f"init may not provision legacy/application source-chain state: {token}",
+            f"init may do nothing except install the one remote-ingress grant: {token}",
         )
 
     if "create_cap_grant(" not in init:
@@ -76,6 +82,7 @@ def validate_init(init: str) -> tuple[bool, str]:
         return False, "remote ingress capability is not opened yet"
 
     require(init.count("create_cap_grant(") == 1, "init must create exactly one capability grant")
+    require(init.count("CapGrantEntry") == 1, "init must construct exactly one CapGrantEntry")
     require("GrantedFunctions::All" not in init, "remote ingress may not use GrantedFunctions::All")
     require(
         "let mut fns = HashSet::new();" in init,
@@ -95,10 +102,13 @@ def validate_init(init: str) -> tuple[bool, str]:
         "the sole remotely granted function must be recv_remote_signal in this zome",
     )
     require(
-        "let functions = GrantedFunctions::Listed(fns);" in init,
-        "remote ingress grant must use GrantedFunctions::Listed",
+        init.count("GrantedFunctions::Listed(fns)") == 1,
+        "remote ingress grant must use exactly one GrantedFunctions::Listed allowlist",
     )
-    require("CapGrantEntry" in init, "remote ingress grant must create a CapGrantEntry")
+    require(
+        "let functions = GrantedFunctions::Listed(fns);" in init,
+        "remote ingress grant must bind the explicit function allowlist",
+    )
     require(
         'tag: "pulse-v2-remote-ingress-v1".into()' in init,
         "remote ingress capability must carry the canonical audit tag",
@@ -113,7 +123,7 @@ def validate_init(init: str) -> tuple[bool, str]:
         "remote ingress capability entry must bind the listed functions",
     )
 
-    return True, "init grants only unrestricted recv_remote_signal and performs no other provisioning"
+    return True, "init grants only unrestricted recv_remote_signal and performs no other side effects"
 
 
 def validate_recv(recv: str, capability_open: bool) -> str:
@@ -139,23 +149,64 @@ def validate_recv(recv: str, capability_open: bool) -> str:
         "capability-open recv_remote_signal may not perform legacy deserialization",
     )
 
-    legacy_pos = recv.find("RemoteSignalAdmission::Legacy(_)")
-    require(legacy_pos >= 0, "capability-open receiver must explicitly reject the Legacy family")
-    legacy_tail = recv[legacy_pos:]
+    forbidden_receiver_side_effects = (
+        "create_entry(",
+        "create_link(",
+        "update_entry(",
+        "delete_entry(",
+        "get(",
+        "get_links(",
+        "must_get",
+        "send_remote_signal(",
+        "call_remote(",
+        "call(",
+        "schedule(",
+    )
+    for token in forbidden_receiver_side_effects:
+        require(
+            token not in recv,
+            f"capability-open receiver may only classify/reject or emit one local wake: {token}",
+        )
+
     require(
-        "return Err(" in legacy_tail or "Err(" in legacy_tail,
-        "legacy remote bytes must terminate as an error rather than fall through",
+        recv.count("emit_signal(") == 1,
+        "capability-open receiver must have exactly one local signal side effect",
     )
 
     admission_pos = recv.find("admit_extern_io(&signal)")
     ok_pos = recv.find("RemoteSignalAdmission::PulseV2(Ok(hint))")
     err_pos = recv.find("RemoteSignalAdmission::PulseV2(Err(")
+    legacy_pos = recv.find("RemoteSignalAdmission::Legacy(_)")
+    emit_pos = recv.find("emit_signal(hint)")
     require(
         admission_pos < min(ok_pos, err_pos, legacy_pos),
         "raw ExternIO admission must occur before all protocol-family branches",
     )
+    require(
+        ok_pos < emit_pos,
+        "the sole local wake may occur only inside the admitted V2-success branch",
+    )
 
-    return "capability-open receiver is V2-only; legacy remote semantics are unrepresentable"
+    require(
+        re.search(
+            r"RemoteSignalAdmission::PulseV2\(Err\([^)]*\)\)\s*=>\s*\{\s*return\s+Err\(",
+            recv,
+            re.S,
+        )
+        is not None,
+        "malformed V2-family traffic must terminate explicitly as an error",
+    )
+    require(
+        re.search(
+            r"RemoteSignalAdmission::Legacy\(_\)\s*=>\s*\{\s*return\s+Err\(",
+            recv,
+            re.S,
+        )
+        is not None,
+        "legacy remote traffic must terminate explicitly as an error",
+    )
+
+    return "capability-open receiver is V2-only, side-effect-minimal, and cannot express legacy remote semantics"
 
 
 def self_test() -> None:
@@ -189,6 +240,10 @@ def self_test() -> None:
             "let mut fns = HashSet::new();",
             "create_entry(x)?;\n        let mut fns = HashSet::new();",
         ),
+        good_init.replace(
+            "let mut fns = HashSet::new();",
+            "emit_signal(x)?;\n        let mut fns = HashSet::new();",
+        ),
     ):
         try:
             validate_init(bad_init)
@@ -207,16 +262,27 @@ def self_test() -> None:
     }"""
     validate_recv(good_recv, True)
 
-    bad_legacy = good_recv.replace(
-        "RemoteSignalAdmission::Legacy(_) => { return Err(legacy_disabled()); }",
-        "RemoteSignalAdmission::Legacy(_) => { let mail: MailSignal = signal.decode()?; emit_signal(mail)?; }",
+    bad_cases = (
+        good_recv.replace(
+            "RemoteSignalAdmission::Legacy(_) => { return Err(legacy_disabled()); }",
+            "RemoteSignalAdmission::Legacy(_) => { let mail: MailSignal = signal.decode()?; emit_signal(mail)?; }",
+        ),
+        good_recv.replace(
+            "match admit_extern_io(&signal) {",
+            "let _ = get(x)?;\n        match admit_extern_io(&signal) {",
+        ),
+        good_recv.replace(
+            "RemoteSignalAdmission::Legacy(_) => { return Err(legacy_disabled()); }",
+            "RemoteSignalAdmission::Legacy(_) => { emit_signal(PulseRealtimeHintV1::inbox_changed())?; }",
+        ),
     )
-    try:
-        validate_recv(bad_legacy, True)
-    except BoundaryViolation:
-        pass
-    else:
-        raise BoundaryViolation("self-test: capability-open legacy semantic decode was not rejected")
+    for bad_recv in bad_cases:
+        try:
+            validate_recv(bad_recv, True)
+        except BoundaryViolation:
+            pass
+        else:
+            raise BoundaryViolation("self-test: authority-bearing or side-effecting remote ingress was not rejected")
 
 
 def main() -> None:
