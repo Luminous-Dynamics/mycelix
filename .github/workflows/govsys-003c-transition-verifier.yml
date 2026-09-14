@@ -1,0 +1,299 @@
+name: GOVSYS-003C-V Transition Verifier
+
+on:
+  pull_request:
+    branches:
+      - feat/govsys-003a-constitutional-trust-root-identity-v0.1
+    paths:
+      - .github/workflows/govsys-003c-transition-verifier.yml
+      - mycelix-workspace/docs/government/CONSTITUTIONAL_ROOT_TRANSITION_VERIFIER_V0.1.md
+      - scripts/qualification/govsys_003c_transition_verifier_vector_v1.json
+      - scripts/qualification/govsys_constitutional_transition_verifier_v0_1.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Exact predecessor-owned constitutional transition verification
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Exact qualification subject
+        shell: bash
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+
+      - name: Exact qualified Root-A ancestry and four-file surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent=235834fc726c1a79467e6f910a2cf39fb9abd2e3
+          git cat-file -e "${parent}^{commit}"
+          git merge-base --is-ancestor "$parent" HEAD
+          test "$(git hash-object scripts/qualification/govsys_003a_root_identity_vector_v1.json)" = "095fd6e1604e62d066aefb3d67c79b68f7ab763f"
+          test "$(git hash-object scripts/qualification/govsys_constitutional_trust_root_identity_v0_1.py)" = "4e1554d7548268e0fa460395828d6333adf9fc47"
+
+          mapfile -t changed < <(git diff --name-only "$parent"..HEAD | sort)
+          expected=(
+            .github/workflows/govsys-003c-transition-verifier.yml
+            mycelix-workspace/docs/government/CONSTITUTIONAL_ROOT_TRANSITION_VERIFIER_V0.1.md
+            scripts/qualification/govsys_003c_transition_verifier_vector_v1.json
+            scripts/qualification/govsys_constitutional_transition_verifier_v0_1.py
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#changed[@]}" -eq "${#expected_sorted[@]}"
+          for i in "${!expected_sorted[@]}"; do
+            test "${changed[$i]}" = "${expected_sorted[$i]}"
+          done
+
+          if printf '%s\n' "${changed[@]}" | grep -Eq '(^|/)src/|(^|/)zomes?/|\.key$|\.pem$'; then
+            echo 'Root-C-V review surface must not add runtime/effect/private-key files' >&2
+            exit 1
+          fi
+
+      - name: Static trust-boundary and private-key audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          doc=mycelix-workspace/docs/government/CONSTITUTIONAL_ROOT_TRANSITION_VERIFIER_V0.1.md
+          oracle=scripts/qualification/govsys_constitutional_transition_verifier_v0_1.py
+          vector=scripts/qualification/govsys_003c_transition_verifier_vector_v1.json
+
+          grep -F 'predecessor authorization' "$doc"
+          grep -F '!= current constitutional root' "$doc"
+          grep -F 'source anchor cannot substitute for the rotation anchor' "$doc"
+          grep -F 'ReplayNonceConflict' "$doc"
+          grep -F 'same semantic transition' "$doc"
+          grep -F 'The network remains infrastructure for institutions. It is not the sovereign.' "$doc"
+          grep -F 'mycelix-constitutional-root-rotation-authority-ed25519-single-v1' "$oracle" "$vector"
+          grep -F 'mycelix-constitutional-root-transition-v1-sha256-framed-semantic' "$oracle" "$vector"
+          grep -F 'grants_currentness' "$oracle"
+          grep -F 'grants_effect_authority' "$oracle"
+
+          if grep -Eq '(AuthorityGrant|evaluate_authority|provider.policy.currentness|domain.policy.currentness|reputation|Phi)' "$oracle"; then
+            echo 'Transition verifier must remain non-recursive and independent of ordinary authority/currentness' >&2
+            exit 1
+          fi
+          if grep -R -E -- '-----BEGIN ([A-Z0-9 ]+ )?PRIVATE KEY-----' \
+              mycelix-workspace/docs/government/CONSTITUTIONAL_ROOT_TRANSITION_VERIFIER_V0.1.md \
+              scripts/qualification/govsys_003c_transition_verifier_vector_v1.json \
+              scripts/qualification/govsys_constitutional_transition_verifier_v0_1.py; then
+            echo 'Private key material must never be checked in' >&2
+            exit 1
+          fi
+
+      - name: Execute exact qualified Root-A parent oracle
+        id: parent_oracle
+        continue-on-error: true
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python3 scripts/qualification/govsys_constitutional_trust_root_identity_v0_1.py
+
+      - name: Independently recompute transition vector
+        id: independent_vector
+        if: always()
+        continue-on-error: true
+        shell: bash
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import importlib.util
+          import json
+          import struct
+          from pathlib import Path
+
+          ROOT_PATH = Path('scripts/qualification/govsys_constitutional_trust_root_identity_v0_1.py')
+          VECTOR_PATH = Path('scripts/qualification/govsys_003c_transition_verifier_vector_v1.json')
+          TRANSITION_PROFILE = 'mycelix-constitutional-root-transition-v1-sha256-framed-semantic'
+          TRANSITION_DOMAIN = b'mycelix/public-institution/constitutional-root-transition/v1'
+          MATERIAL_PROFILE = 'mycelix-constitutional-root-rotation-authority-ed25519-single-v1'
+          MATERIAL_SUITE = 'ed25519-spki-v1'
+          MATERIAL_DOMAIN = b'mycelix/public-institution/constitutional-root-rotation-authority-material/ed25519-single/v1'
+
+          spec = importlib.util.spec_from_file_location('root_a_oracle', ROOT_PATH)
+          assert spec is not None and spec.loader is not None
+          root = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(root)
+
+          def frame(raw: bytes) -> bytes:
+              return struct.pack('<Q', len(raw)) + raw
+          def text(value: str) -> bytes:
+              return frame(value.encode('utf-8'))
+          def u64(value: int) -> bytes:
+              return frame(struct.pack('<Q', value))
+          def profiled(profile: str, digest_hex: str) -> bytes:
+              return text(profile) + frame(bytes.fromhex(digest_hex))
+          def optional_profiled(profile, digest_hex) -> bytes:
+              if profile is None:
+                  assert digest_hex is None
+                  return frame(b'\x00')
+              assert digest_hex is not None
+              return frame(b'\x01') + profiled(profile, digest_hex)
+
+          vector = json.loads(VECTOR_PATH.read_text(encoding='utf-8'))
+          pred = vector['predecessor_root']
+          succ = vector['successor_root']
+          candidate = vector['candidate']
+          material = vector['authorization_material']
+          expected = vector['expected']
+
+          pred_id = root.identity_hex(pred)
+          succ_id = root.identity_hex(succ)
+          pred_source = root.source_descriptor_hex(pred)
+          succ_source = root.source_descriptor_hex(succ)
+          pred_rotation = root.rotation_authority_hex(pred)
+          succ_rotation = root.rotation_authority_hex(succ)
+
+          assert pred_id == 'b7a0c7cb28f182d06367d4bf1d3cc4f7d82094701d955eeaa7ec53153d2080a6'
+          assert succ_id == 'c970bfc0957efc00946d08a957d7617b85815f47d98fcc98aa43f6f6a6ced963'
+          assert pred_source == 'f97a96e20ce6dd0c86c67e1590252abc678dfd6401128ab44ced4a66ec088126'
+          assert succ_source == '3f867aab08093b08f8f4088a540e8cffa85dc25ab7c7cfb34ac65c8bc071a3fe'
+          assert pred_rotation == 'db3bf05b04063ea2e9626e9ea63def4920f205cb36c43d64a046fd04e87b8304'
+          assert succ_rotation == 'ee35844f067306e66ec8fcb40442b3564e9f7f5bd824a3e2a71265ea318aebea'
+
+          der = bytes.fromhex(material['public_key_spki_der_hex'])
+          material_transcript = bytearray(MATERIAL_DOMAIN)
+          material_transcript += text(MATERIAL_PROFILE)
+          material_transcript += text(MATERIAL_SUITE)
+          material_transcript += frame(der)
+          material_commitment = hashlib.sha256(material_transcript).hexdigest()
+          assert material_commitment == expected['authorization_material_commitment_hex']
+          assert material_commitment == pred['rotation_authority_anchor_digest_hex']
+
+          encoded = bytearray(TRANSITION_DOMAIN)
+          encoded += text(TRANSITION_PROFILE)
+          encoded += profiled(candidate['predecessor_root_identity_profile'], candidate['predecessor_root_digest_hex'])
+          encoded += u64(candidate['predecessor_generation'])
+          encoded += profiled(candidate['predecessor_source_descriptor_profile'], candidate['predecessor_source_descriptor_digest_hex'])
+          encoded += profiled(candidate['predecessor_rotation_authority_profile'], candidate['predecessor_rotation_authority_digest_hex'])
+          encoded += profiled(candidate['successor_root_identity_profile'], candidate['successor_root_digest_hex'])
+          encoded += u64(candidate['successor_generation'])
+          encoded += profiled(candidate['successor_source_descriptor_profile'], candidate['successor_source_descriptor_digest_hex'])
+          encoded += optional_profiled(candidate['successor_rotation_authority_profile'], candidate['successor_rotation_authority_digest_hex'])
+          encoded += u64(candidate['authorized_at_ms'])
+          encoded += u64(candidate['effective_at_ms'])
+          encoded += frame(bytes.fromhex(candidate['replay_nonce_hex']))
+
+          actual = hashlib.sha256(encoded).hexdigest()
+          assert actual == expected['candidate_digest_hex']
+          assert actual == 'd71e66425effe3668790f552409aeba2005cca3c50ccb23cbd1d5a32dd060a24'
+          assert encoded.hex() == expected['candidate_canonical_bytes_hex']
+          print(f'GOVSYS-003C-V independent vector PASS: {actual}')
+          PY
+
+      - name: Independently verify Ed25519 authorization with OpenSSL
+        id: openssl
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmp="$RUNNER_TEMP/govsys-003c-v-openssl"
+          mkdir -p "$tmp"
+          python3 - "$tmp" <<'PY'
+          import json
+          import struct
+          import sys
+          from pathlib import Path
+
+          out = Path(sys.argv[1])
+          vector = json.loads(Path('scripts/qualification/govsys_003c_transition_verifier_vector_v1.json').read_text())
+          c = vector['candidate']
+          def frame(raw: bytes) -> bytes:
+              return struct.pack('<Q', len(raw)) + raw
+          def text(v: str) -> bytes:
+              return frame(v.encode())
+          def u64(v: int) -> bytes:
+              return frame(struct.pack('<Q', v))
+          def profiled(p: str, d: str) -> bytes:
+              return text(p) + frame(bytes.fromhex(d))
+          def optional_profiled(p, d) -> bytes:
+              if p is None:
+                  assert d is None
+                  return frame(b'\x00')
+              return frame(b'\x01') + profiled(p, d)
+
+          msg = bytearray(b'mycelix/public-institution/constitutional-root-transition/v1')
+          msg += text('mycelix-constitutional-root-transition-v1-sha256-framed-semantic')
+          msg += profiled(c['predecessor_root_identity_profile'], c['predecessor_root_digest_hex'])
+          msg += u64(c['predecessor_generation'])
+          msg += profiled(c['predecessor_source_descriptor_profile'], c['predecessor_source_descriptor_digest_hex'])
+          msg += profiled(c['predecessor_rotation_authority_profile'], c['predecessor_rotation_authority_digest_hex'])
+          msg += profiled(c['successor_root_identity_profile'], c['successor_root_digest_hex'])
+          msg += u64(c['successor_generation'])
+          msg += profiled(c['successor_source_descriptor_profile'], c['successor_source_descriptor_digest_hex'])
+          msg += optional_profiled(c['successor_rotation_authority_profile'], c['successor_rotation_authority_digest_hex'])
+          msg += u64(c['authorized_at_ms'])
+          msg += u64(c['effective_at_ms'])
+          msg += frame(bytes.fromhex(c['replay_nonce_hex']))
+
+          (out / 'candidate.bin').write_bytes(msg)
+          (out / 'public.der').write_bytes(bytes.fromhex(vector['authorization_material']['public_key_spki_der_hex']))
+          (out / 'signature.bin').write_bytes(bytes.fromhex(vector['authorization_proof']['signature_hex']))
+          PY
+          openssl pkeyutl -verify \
+            -pubin -inkey "$tmp/public.der" -keyform DER \
+            -rawin -in "$tmp/candidate.bin" -sigfile "$tmp/signature.bin"
+
+      - name: Transition verifier syntax
+        id: syntax
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/qualification/govsys_constitutional_transition_verifier_v0_1.py')
+          compile(path.read_text(encoding='utf-8'), str(path), 'exec')
+          PY
+
+      - name: Execute transition-verifier golden and adversarial corpus
+        id: verifier
+        if: always()
+        continue-on-error: true
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python3 scripts/qualification/govsys_constitutional_transition_verifier_v0_1.py
+
+      - name: Immutable checkout postflight
+        id: immutable
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
+
+      - name: Fail closed on any verifier qualification defect
+        if: always()
+        shell: bash
+        env:
+          PARENT_OUTCOME: ${{ steps.parent_oracle.outcome }}
+          VECTOR_OUTCOME: ${{ steps.independent_vector.outcome }}
+          OPENSSL_OUTCOME: ${{ steps.openssl.outcome }}
+          SYNTAX_OUTCOME: ${{ steps.syntax.outcome }}
+          VERIFIER_OUTCOME: ${{ steps.verifier.outcome }}
+          IMMUTABLE_OUTCOME: ${{ steps.immutable.outcome }}
+        run: |
+          set -euo pipefail
+          test "$PARENT_OUTCOME" = success
+          test "$VECTOR_OUTCOME" = success
+          test "$OPENSSL_OUTCOME" = success
+          test "$SYNTAX_OUTCOME" = success
+          test "$VERIFIER_OUTCOME" = success
+          test "$IMMUTABLE_OUTCOME" = success
