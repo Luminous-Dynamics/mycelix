@@ -19,15 +19,17 @@ pub const MAX_REGENERATIVE_RECOVERY_TRANSITION_TRANSPORT_JSON_BYTES: usize = 8 *
 
 /// Validated recovery-transition transport evidence.
 ///
-/// This positive type intentionally does not implement `Deserialize`. Untrusted
-/// bytes must enter through [`decode_regenerative_recovery_transition_transport_json`],
-/// which applies the raw-size bound before serde is allowed to allocate strings.
+/// This positive type intentionally does not implement `Deserialize`, and its
+/// fields are private so callers cannot construct an unchecked "validated" value
+/// with a struct literal. Untrusted bytes must enter through
+/// [`decode_regenerative_recovery_transition_transport_json`], which applies the
+/// raw-size bound before serde is allowed to allocate strings.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct RegenerativeRecoveryTransitionTransportV1 {
-    pub schema_version: u8,
-    pub commitment: RegenerativeRecoveryTransitionCommitmentV1,
-    pub commitment_content_digest: String,
+    schema_version: u8,
+    commitment: RegenerativeRecoveryTransitionCommitmentV1,
+    commitment_content_digest: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -55,6 +57,18 @@ impl RegenerativeRecoveryTransitionTransportV1 {
         };
         transport.validate()?;
         Ok(transport)
+    }
+
+    pub const fn schema_version(&self) -> u8 {
+        self.schema_version
+    }
+
+    pub fn commitment(&self) -> &RegenerativeRecoveryTransitionCommitmentV1 {
+        &self.commitment
+    }
+
+    pub fn commitment_content_digest(&self) -> &str {
+        &self.commitment_content_digest
     }
 
     /// Validate only self-contained transport invariants.
@@ -250,6 +264,15 @@ mod tests {
         let bytes = serde_json::to_vec(&transport).unwrap();
         let decoded = decode_regenerative_recovery_transition_transport_json(&bytes).unwrap();
         assert_eq!(transport, decoded);
+        assert_eq!(
+            decoded.schema_version(),
+            REGENERATIVE_RECOVERY_TRANSITION_TRANSPORT_SCHEMA_V1
+        );
+        assert_eq!(decoded.commitment(), transport.commitment());
+        assert_eq!(
+            decoded.commitment_content_digest(),
+            transport.commitment_content_digest()
+        );
         assert!(!decoded.exact_source_recomputation_verified_here());
         assert!(!decoded.governance_authority_verified_here());
         assert!(!decoded.persistence_authorized_here());
