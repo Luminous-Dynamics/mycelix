@@ -106,13 +106,68 @@ jobs:
           grep -q 'validate_regenerative_recovery_transition_transport(transport)?' "$subject"
           grep -q 'verify_regenerative_recovery_transition_commitment(' "$subject"
           grep -q 'pub const fn exact_source_recomputation_verified_here' "$subject"
-          grep -q '^        true$' "$subject"
           grep -q 'pub const fn live_governance_authority_verified_here' "$subject"
           grep -q 'pub const fn persistence_authorized_here' "$subject"
           grep -q 'pub const fn persistence_executed_here' "$subject"
-          test "$(grep -c '^        false$' "$subject")" -ge 3
-          grep -q '#\[derive(Debug)\]' "$subject"
-          ! grep -Eq '#\[derive\([^]]*(Clone|Serialize|Deserialize)' "$subject"
-          ! grep -Eq 'impl[[:space:]]+Clone[[:space:]]+for[[:space:]]+RegenerativeRecoveryTransitionSourceQualificationV1' "$subject"
-          ! grep -Eq 'Serialize|Deserialize' "$subject" || grep -q 'no `Clone`, `Serialize`, or `Deserialize` implementation' "$subject"
           ! grep -Eq '\bhdk\b|create_entry|update_entry|delete_entry|CallTargetCell|ZomeName' "$subject"
+          python3 - "$subject" <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          text = pathlib.Path(sys.argv[1]).read_text()
+          name = 'RegenerativeRecoveryTransitionSourceQualificationV1'
+
+          declaration = re.search(
+              rf'#\[derive\(([^)]*)\)\]\s*pub struct {name}\s*\{{(.*?)\n\}}',
+              text,
+              re.S,
+          )
+          if not declaration:
+              raise SystemExit('source qualification token declaration not found')
+
+          derives = {item.strip() for item in declaration.group(1).split(',') if item.strip()}
+          forbidden_derives = {'Clone', 'Copy', 'Serialize', 'Deserialize'}
+          present = derives & forbidden_derives
+          if present:
+              raise SystemExit(f'replay-capable token derives forbidden traits: {sorted(present)}')
+          if derives != {'Debug'}:
+              raise SystemExit(f'unexpected token derive surface: {sorted(derives)}')
+
+          fields = declaration.group(2)
+          if re.search(r'^\s*pub(?:\([^)]*\))?\s+\w+\s*:', fields, re.M):
+              raise SystemExit('source qualification token fields must remain private')
+          if '_sealed: ()' not in fields:
+              raise SystemExit('source qualification token lost private seal')
+
+          forbidden_impls = [
+              rf'impl\s+Clone\s+for\s+{name}',
+              rf'impl\s+Copy\s+for\s+{name}',
+              rf'impl\s+(?:serde::)?Serialize\s+for\s+{name}',
+              rf'impl(?:<[^>]*>)?\s+(?:serde::)?Deserialize(?:<[^>]*>)?\s+for\s+{name}',
+          ]
+          for pattern in forbidden_impls:
+              if re.search(pattern, text):
+                  raise SystemExit(f'forbidden replay/serialization impl detected: {pattern}')
+
+          positive = re.search(
+              r'pub const fn exact_source_recomputation_verified_here\(&self\) -> bool \{\s*(true|false)\s*\}',
+              text,
+          )
+          negatives = [
+              'live_governance_authority_verified_here',
+              'persistence_authorized_here',
+              'persistence_executed_here',
+          ]
+          if not positive or positive.group(1) != 'true':
+              raise SystemExit('exact-source positive theorem is not fixed true')
+          for method in negatives:
+              match = re.search(
+                  rf'pub const fn {method}\(&self\) -> bool \{{\s*(true|false)\s*\}}',
+                  text,
+              )
+              if not match or match.group(1) != 'false':
+                  raise SystemExit(f'{method} must remain fixed false')
+
+          print('PASS: exact-source token remains private, sealed, non-cloneable, non-serializable, and non-authorizing')
+          PY
