@@ -1,0 +1,119 @@
+name: Institutional Core Typed-ID Validation
+
+on:
+  pull_request:
+    branches:
+      - feature/institutional-core-v0.1
+    paths:
+      - .github/workflows/institutional-core-id-validation.yml
+      - crates/mycelix-institutional-core/TYPED_ID_VALIDATION_V0.1.md
+      - crates/mycelix-institutional-core/src/lib.rs
+      - crates/mycelix-institutional-core/tests/authority_identifier_validation.rs
+  push:
+    branches:
+      - security/institutional-core-id-validation-v0.1
+    paths:
+      - .github/workflows/institutional-core-id-validation.yml
+      - crates/mycelix-institutional-core/TYPED_ID_VALIDATION_V0.1.md
+      - crates/mycelix-institutional-core/src/lib.rs
+      - crates/mycelix-institutional-core/tests/authority_identifier_validation.rs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Institutional authority typed-ID theorem
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Exact qualification subject
+        shell: bash
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+
+      - name: Require exact institutional-core parent
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent=2927f10997f99af9c9065246fae11e89dc91b130
+          git cat-file -e "${parent}^{commit}"
+          git merge-base --is-ancestor "$parent" HEAD
+          test "$(git show "$parent":crates/mycelix-institutional-core/src/lib.rs | git hash-object --stdin)" = "da47978387f9cc167e8b5238e013626adb948fe5"
+
+      - name: Require exact four-file security surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent=2927f10997f99af9c9065246fae11e89dc91b130
+          mapfile -t changed < <(git diff --name-only "$parent"..HEAD | sort)
+          expected=(
+            .github/workflows/institutional-core-id-validation.yml
+            crates/mycelix-institutional-core/TYPED_ID_VALIDATION_V0.1.md
+            crates/mycelix-institutional-core/src/lib.rs
+            crates/mycelix-institutional-core/tests/authority_identifier_validation.rs
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#changed[@]}" -eq "${#expected_sorted[@]}"
+          for i in "${!expected_sorted[@]}"; do
+            test "${changed[$i]}" = "${expected_sorted[$i]}"
+          done
+          test "$(git hash-object crates/mycelix-institutional-core/src/lib.rs)" = "3e50e7264b3cd0d31542221adaba6a2aedac92b5"
+          test "$(git hash-object crates/mycelix-institutional-core/tests/authority_identifier_validation.rs)" = "6c78e8e650fcd40005311ea230ae70563ea8c72d"
+          test "$(git hash-object crates/mycelix-institutional-core/TYPED_ID_VALIDATION_V0.1.md)" = "58aa93af9987d4c704de7032b15d5a73c12f8453"
+
+      - name: Static authority-boundary assertions
+        shell: bash
+        run: |
+          set -euo pipefail
+          src=crates/mycelix-institutional-core/src/lib.rs
+          grep -F 'pub fn validate(&self) -> Result<(), ValidationError>' "$src"
+          grep -F 'for role in &self.roles {' "$src"
+          grep -F 'for capability in &self.capabilities {' "$src"
+          grep -F 'if let Some(parent) = &self.delegated_from {' "$src"
+          grep -F 'if let Some(issuer) = &self.issuer {' "$src"
+          grep -F 'for issuer in &self.accepted_issuers {' "$src"
+          grep -F 'for capability in &self.required_capabilities {' "$src"
+          grep -F 'for role in &self.accepted_roles {' "$src"
+
+      - name: Materialize isolated exact crate subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          subject="$RUNNER_TEMP/institutional-core-subject"
+          rm -rf "$subject"
+          mkdir -p "$subject"
+          cp -a crates/mycelix-institutional-core/. "$subject/"
+          test "$(git hash-object "$subject/src/lib.rs")" = "3e50e7264b3cd0d31542221adaba6a2aedac92b5"
+          test "$(git hash-object "$subject/tests/authority_identifier_validation.rs")" = "6c78e8e650fcd40005311ea230ae70563ea8c72d"
+          echo "QUAL_MANIFEST=$subject/Cargo.toml" >> "$GITHUB_ENV"
+
+      - name: Rustfmt
+        run: cargo fmt --manifest-path "$QUAL_MANIFEST" -- --check
+
+      - name: All-target tests
+        run: cargo test --manifest-path "$QUAL_MANIFEST" --all-targets
+
+      - name: Clippy warnings denied
+        run: cargo clippy --manifest-path "$QUAL_MANIFEST" --all-targets -- -D warnings
+
+      - name: Immutable checkout postflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
