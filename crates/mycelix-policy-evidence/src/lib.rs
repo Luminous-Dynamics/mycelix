@@ -12,9 +12,7 @@
 //! authority, and external-effect authority remain distinct facts.
 
 use mycelix_authority_evidence_lease::{EvidenceLease, EvidenceLeaseError};
-use mycelix_institutional_core::{
-    Digest32, InstitutionId, JurisdictionId, RulebookRef,
-};
+use mycelix_institutional_core::{Digest32, InstitutionId, JurisdictionId, RulebookRef};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -399,13 +397,22 @@ impl fmt::Display for PolicyEvidenceError {
                 write!(f, "policy-record evidence belongs to another exact subject")
             }
             Self::AdoptionSubjectMismatch => {
-                write!(f, "policy-adoption evidence belongs to another exact subject")
+                write!(
+                    f,
+                    "policy-adoption evidence belongs to another exact subject"
+                )
             }
             Self::CrossEvidencePolicyMismatch => {
-                write!(f, "record and adoption evidence bind different policy identities")
+                write!(
+                    f,
+                    "record and adoption evidence bind different policy identities"
+                )
             }
             Self::VerifierDomainCollision => {
-                write!(f, "record and adoption evidence use the same verifier identity")
+                write!(
+                    f,
+                    "record and adoption evidence use the same verifier identity"
+                )
             }
             Self::EvidenceLease(error) => write!(f, "invalid policy evidence lease: {error}"),
         }
@@ -417,7 +424,7 @@ impl std::error::Error for PolicyEvidenceError {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mycelix_institutional_core::{RulebookId, PROTOCOL_VERSION as INSTITUTIONAL_PROTOCOL};
+    use mycelix_institutional_core::{PROTOCOL_VERSION as INSTITUTIONAL_PROTOCOL, RulebookId};
 
     fn d(byte: u8) -> Digest32 {
         Digest32([byte; 32])
@@ -563,8 +570,7 @@ mod tests {
         let record = qualified_record();
         let mut evidence = adoption_evidence();
         evidence.verifier_ref = record.evidence().verifier_ref.clone();
-        let adoption =
-            qualify_policy_adoption_evidence(adoption_subject(), evidence, 200).unwrap();
+        let adoption = qualify_policy_adoption_evidence(adoption_subject(), evidence, 200).unwrap();
         assert_eq!(
             join_policy_evidence(record, adoption, 200).unwrap_err(),
             PolicyEvidenceError::VerifierDomainCollision
@@ -610,13 +616,19 @@ mod tests {
             digest: Digest32([0; 32]),
             profile: "profile:v1".into(),
         };
-        assert_eq!(zero.validate().unwrap_err(), PolicyEvidenceError::ZeroPolicyDigest);
+        assert_eq!(
+            zero.validate().unwrap_err(),
+            PolicyEvidenceError::ZeroPolicyDigest
+        );
 
         let malformed = PolicyIdentityRef {
             digest: d(1),
             profile: "\n".into(),
         };
-        assert_eq!(malformed.validate().unwrap_err(), PolicyEvidenceError::InvalidProfile);
+        assert_eq!(
+            malformed.validate().unwrap_err(),
+            PolicyEvidenceError::InvalidProfile
+        );
 
         // Keep the institutional protocol constant live in this test corpus so
         // dependency drift cannot silently remove the typed institutional base.
