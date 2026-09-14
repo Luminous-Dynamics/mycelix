@@ -1,0 +1,198 @@
+name: Governance Public Election Verifier Key Authorization v1
+
+on:
+  push:
+    branches:
+      - feat/governance-public-election-verifier-key-authorization-v1
+    paths:
+      - '.github/workflows/governance-public-election-verifier-key-authorization-v1.yml'
+      - 'mycelix-governance/crates/election-verifier-key-authorization/**'
+      - 'mycelix-governance/docs/PUBLIC_ELECTION_VERIFIER_KEY_AUTHORIZATION_V1.md'
+  pull_request:
+    paths:
+      - '.github/workflows/governance-public-election-verifier-key-authorization-v1.yml'
+      - 'mycelix-governance/crates/election-verifier-key-authorization/**'
+      - 'mycelix-governance/docs/PUBLIC_ELECTION_VERIFIER_KEY_AUTHORIZATION_V1.md'
+
+permissions:
+  contents: read
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  ELECT017_PARENT: '585534c7744474442eec019ccba24d3a346b931c'
+
+jobs:
+  qualify:
+    name: Qualify immutable verifier-key authorization root
+    if: >-
+      (github.event_name == 'push' &&
+       github.ref_name == 'feat/governance-public-election-verifier-key-authorization-v1') ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       github.event.pull_request.head.ref == 'feat/governance-public-election-verifier-key-authorization-v1')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact subject head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Bind exact ELECT-017 delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$ELECT017_PARENT"
+          test "$(git rev-list --count "$ELECT017_PARENT..HEAD")" -eq 1
+          mapfile -t changed < <(git diff --name-only "$ELECT017_PARENT" HEAD | sort)
+          expected=(
+            '.github/workflows/governance-public-election-verifier-key-authorization-v1.yml'
+            'mycelix-governance/crates/election-verifier-key-authorization/Cargo.toml'
+            'mycelix-governance/crates/election-verifier-key-authorization/src/lib.rs'
+            'mycelix-governance/docs/PUBLIC_ELECTION_VERIFIER_KEY_AUTHORIZATION_V1.md'
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#changed[@]}" -eq "${#expected_sorted[@]}"
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed[@]}")
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt,clippy
+
+      - name: Check ELECT-017 formatting
+        run: cargo fmt --manifest-path mycelix-governance/crates/election-verifier-key-authorization/Cargo.toml -- --check
+
+      - name: Generate dependency evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p qualification
+          cd mycelix-governance/crates/election-verifier-key-authorization
+          cargo generate-lockfile
+          cp Cargo.lock ../../../qualification/ELECT017.Cargo.lock
+          sha256sum Cargo.lock > ../../../qualification/ELECT017.Cargo.lock.sha256
+          cargo metadata --locked --format-version 1 > ../../../qualification/ELECT017.cargo-metadata.json
+
+      - name: Execute ELECT-017 theorem corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test \
+            --manifest-path mycelix-governance/crates/election-verifier-key-authorization/Cargo.toml \
+            --locked 2>&1 | tee qualification/ELECT017.tests.log
+
+      - name: Run warning-fatal library Clippy
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo clippy \
+            --manifest-path mycelix-governance/crates/election-verifier-key-authorization/Cargo.toml \
+            --locked --lib -- -D warnings 2>&1 | tee qualification/ELECT017.clippy.log
+
+      - name: Independently reproduce language-neutral vectors
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+
+          def d(byte):
+              return bytes([byte]) * 32
+
+          def lp(text):
+              raw = text.encode()
+              return len(raw).to_bytes(4, 'big') + raw
+
+          public_profile = 'mycelix-public-election-v1'
+          auth_profile = 'mycelix-public-election-verifier-key-authorization-v1'
+          registry = bytes.fromhex(
+              '0255c2b3070e579d52e41ab6a9d767d1700b61fd68787bbae78bd41aa868945f'
+          )
+
+          policy = (
+              b'MYCELIX:PUBLIC-ELECTION:VERIFIER-KEY-AUTHORIZATION-POLICY:V1\x00'
+              + lp(public_profile)
+              + lp(auth_profile)
+              + registry
+              + (3).to_bytes(2, 'big')
+              + (3).to_bytes(2, 'big')
+              + (2).to_bytes(2, 'big')
+              + bytes([1, 1])
+          )
+          policy_digest = hashlib.sha256(policy).digest()
+          assert policy_digest.hex() == (
+              '91536dd76459b2be14882239b2192510ef940e94c47371beb3ae22d91a44fd98'
+          )
+
+          records = [
+              (d(0x21), d(0x31), d(0x41), d(0x51), d(0x61)),
+              (d(0x22), d(0x32), d(0x42), d(0x52), d(0x62)),
+              (d(0x23), d(0x33), d(0x41), d(0x53), d(0x63)),
+          ]
+          records.sort()
+          root = (
+              b'MYCELIX:PUBLIC-ELECTION:VERIFIER-KEY-AUTHORIZATION-ROOT:V1\x00'
+              + lp(auth_profile)
+              + d(0x11)
+              + d(0x12)
+              + policy_digest
+              + len(records).to_bytes(2, 'big')
+              + b''.join(b''.join(record) for record in records)
+          )
+          root_digest = hashlib.sha256(root).digest()
+          assert root_digest.hex() == (
+              'b091acf3f91ca78baf02e1df52965d73eb8619b49a0f0a8c60b879e4fe70afb4'
+          )
+
+          requirements = (
+              b'MYCELIX:PUBLIC-ELECTION:CERTIFICATION-REQUIREMENTS:'
+              b'VERIFIER-KEY-AUTHORIZATION:V1\x00'
+              + d(0x70)
+              + root_digest
+          )
+          assert hashlib.sha256(requirements).hexdigest() == (
+              '957e054bf72aeff6896f756ec35d5562096162f0e64ca0865cbd27f8adaba1a1'
+          )
+          PY
+
+      - name: Audit authority boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest='mycelix-governance/crates/election-verifier-key-authorization/Cargo.toml'
+          src='mycelix-governance/crates/election-verifier-key-authorization/src/lib.rs'
+          grep -F 'XENIA_ED25519_AUTHENTICATION_SUITE_ID: u16 = 1' "$src"
+          grep -F 'XENIA_ML_DSA_65_AUTHENTICATION_SUITE_ID: u16 = 2' "$src"
+          grep -F 'previous_certification_requirements_digest' "$src"
+          grep -F 'DuplicateVerifierRelease' "$src"
+          grep -F 'TooFewDistinctImplementationLineages' "$src"
+          grep -F 'TooFewDistinctBuilderControlDomains' "$src"
+          if grep -Eiq '(ed25519-dalek|ml-dsa|xenia-zk|signature::|verify_signature)' "$manifest"; then
+            echo 'ELECT-017 must remain authorization-only; cryptographic verification dependency found' >&2
+            exit 1
+          fi
+
+      - name: Remove transient lock and prove immutable checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f mycelix-governance/crates/election-verifier-key-authorization/Cargo.lock
+          test -z "$(git status --porcelain=v1 --untracked-files=all | grep -v '^?? qualification/' || true)"
+          printf '%s\n' \
+            "subject_head=$(git rev-parse HEAD)" \
+            "parent=$ELECT017_PARENT" \
+            "rust_toolchain=$RUST_TOOLCHAIN" \
+            "immutable_checkout=PASS" \
+            > qualification/ELECT017.status.txt
+
+      - name: Upload qualification evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: governance-public-election-verifier-key-authorization-v1
+          path: qualification/ELECT017.*
+          if-no-files-found: error
+          retention-days: 30
