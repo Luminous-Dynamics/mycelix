@@ -1,0 +1,258 @@
+name: AGENT Generic Authority Convergence
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-institutional-core/**'
+      - 'crates/mycelix-authority-identity/**'
+      - 'crates/mycelix-authority-freshness/**'
+      - 'crates/mycelix-authority-delegation-policy/**'
+      - 'crates/mycelix-authority-delegation/**'
+      - 'mycelix-workspace/docs/agents/AGENT_GENERIC_AUTHORITY_CONVERGENCE_V0.1.md'
+      - 'mycelix-workspace/docs/agents/agent-generic-authority-convergence-v0.1.json'
+      - 'mycelix-workspace/docs/agents/evidence/agent-generic-authority-convergence-v0.1/**'
+      - 'scripts/qualification/agent_generic_authority_convergence_v0_1.py'
+      - '.github/workflows/agent-generic-authority-convergence.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-authority-convergence-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Selective authority materialization
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Exact subject and two-parent convergence
+        shell: bash
+        run: |
+          set -euo pipefail
+          agent_parent='7b729880b651ab1e476baad3903d4620041223ed'
+          authority_parent='5e945700c4c0dba015f571acd2e754475a5143fc'
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          test "$(git rev-parse HEAD^1)" = "$agent_parent"
+          test "$(git rev-parse HEAD^2)" = "$authority_parent"
+          test "$(git rev-list --parents -n1 HEAD | wc -w)" -eq 3
+          git rev-parse HEAD
+          git rev-parse HEAD^1
+          git rev-parse HEAD^2
+
+      - name: Qualify source evidence and selective convergence structure
+        run: python3 scripts/qualification/agent_generic_authority_convergence_v0_1.py
+
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          components: clippy
+
+      - name: Pin Rust and Cargo
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc --version --verbose
+          cargo --version
+          test "$(rustc --version | awk '{print $2}')" = '1.98.1'
+          test "$(cargo --version)" = 'cargo 1.98.1 (797e8a9bc 2026-08-05)'
+          echo "QUALIFICATION_CARGO_VERSION=$(cargo --version)" >> "$GITHUB_ENV"
+
+      - name: Prepare isolated five-package workspace with carried lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          qual_tree="$RUNNER_TEMP/agent-generic-authority-convergence"
+          cargo_home="$RUNNER_TEMP/agent-generic-authority-cargo-home"
+          cargo_target="$RUNNER_TEMP/agent-generic-authority-target"
+          rm -rf "$qual_tree" "$cargo_home" "$cargo_target"
+          mkdir -p "$qual_tree/crates" "$cargo_home" "$cargo_target"
+
+          for root in \
+            mycelix-institutional-core \
+            mycelix-authority-identity \
+            mycelix-authority-freshness \
+            mycelix-authority-delegation-policy \
+            mycelix-authority-delegation
+          do
+            cp -a "crates/$root" "$qual_tree/crates/$root"
+          done
+
+          cat > "$qual_tree/Cargo.toml" <<'EOF'
+          [workspace]
+          resolver = "3"
+          members = [
+            "crates/mycelix-institutional-core",
+            "crates/mycelix-authority-identity",
+            "crates/mycelix-authority-freshness",
+            "crates/mycelix-authority-delegation-policy",
+            "crates/mycelix-authority-delegation",
+          ]
+          EOF
+
+          cp \
+            mycelix-workspace/docs/agents/evidence/agent-generic-authority-convergence-v0.1/authority-source-Cargo.lock \
+            "$qual_tree/Cargo.lock"
+
+          echo "QUAL_TREE=$qual_tree" >> "$GITHUB_ENV"
+          echo "CARGO_HOME=$cargo_home" >> "$GITHUB_ENV"
+          echo "CARGO_TARGET_DIR=$cargo_target" >> "$GITHUB_ENV"
+
+      - name: Guard admitted local package build surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          for root in \
+            mycelix-institutional-core \
+            mycelix-authority-identity \
+            mycelix-authority-freshness \
+            mycelix-authority-delegation-policy \
+            mycelix-authority-delegation
+          do
+            manifest="$QUAL_TREE/crates/$root/Cargo.toml"
+            test ! -e "$QUAL_TREE/crates/$root/build.rs"
+            if grep -Eq '^[[:space:]]*build[[:space:]]*=' "$manifest"; then
+              echo "custom package build hook is outside this qualification profile: $root" >&2
+              exit 1
+            fi
+            if grep -Eq '(^|[,{[:space:]])git[[:space:]]*=' "$manifest"; then
+              echo "git dependency is outside this qualification profile: $root" >&2
+              exit 1
+            fi
+          done
+
+      - name: Verify carried dependency graph and fetch exactly that graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$QUAL_TREE"
+
+          expected_lock_sha='38889f5045c6e5f6ea3b9427e056429b316021b244cdec6fda4fbd1afb49888d'
+          actual_lock_sha="$(sha256sum Cargo.lock | awk '{print $1}')"
+          test "$actual_lock_sha" = "$expected_lock_sha"
+          echo "QUALIFICATION_LOCK_SHA256=$actual_lock_sha" >> "$GITHUB_ENV"
+
+          cargo metadata --locked --no-deps --format-version 1 > metadata.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          expected = {
+              "mycelix-institutional-core",
+              "mycelix-authority-identity",
+              "mycelix-authority-freshness",
+              "mycelix-authority-delegation-policy",
+              "mycelix-authority-delegation",
+          }
+          data = json.loads(Path("metadata.json").read_text())
+          actual = {package["name"] for package in data["packages"]}
+          if actual != expected:
+              raise SystemExit(f"unexpected isolated package census: {sorted(actual)}")
+          print("isolated package census: PASS", sorted(actual))
+          PY
+
+          cargo fetch --manifest-path Cargo.toml --locked
+          echo 'CARGO_NET_OFFLINE=true' >> "$GITHUB_ENV"
+
+      - name: Five-package all-target tests with Cargo offline
+        run: cargo test --manifest-path "$QUAL_TREE/Cargo.toml" --workspace --all-targets --locked
+
+      - name: Five-package strict Clippy with Cargo offline
+        run: cargo clippy --manifest-path "$QUAL_TREE/Cargo.toml" --workspace --all-targets --locked -- -D warnings
+
+      - name: Strong negative claims
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest='mycelix-workspace/docs/agents/agent-generic-authority-convergence-v0.1.json'
+          doc='mycelix-workspace/docs/agents/AGENT_GENERIC_AUTHORITY_CONVERGENCE_V0.1.md'
+          grep -Fq '"authority_source_full_qualification_inherited": false' "$manifest"
+          grep -Fq '"agent_002_identity_claim_blocked": true' "$manifest"
+          grep -Fq '"full_agent_security_claim_blocked": true' "$manifest"
+          grep -Fq 'AGENT authority convergence PASS != upstream PR #77 full qualification' "$doc"
+          grep -Fq 'AGENT authority convergence PASS != AGENT-002 identity PASS' "$doc"
+          grep -Fq 'AGENT authority convergence PASS != full agent security' "$doc"
+
+      - name: Immutable checkout postflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="$(git status --short)"
+          printf '%s\n' "$status"
+          test -z "$status"
+
+      - name: Emit successful convergence receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          lock_path='mycelix-workspace/docs/agents/evidence/agent-generic-authority-convergence-v0.1/authority-source-Cargo.lock'
+          source_receipt='mycelix-workspace/docs/agents/evidence/agent-generic-authority-convergence-v0.1/authority-source-receipt.json'
+          lock_sha="$(sha256sum "$lock_path" | awk '{print $1}')"
+          source_receipt_sha="$(sha256sum "$source_receipt" | awk '{print $1}')"
+          test "$lock_sha" = '38889f5045c6e5f6ea3b9427e056429b316021b244cdec6fda4fbd1afb49888d'
+          test "$source_receipt_sha" = '9c444ebc06595fcd19b2fcc28fd93af859cac4376f1c0d615faf4c3afc39fa05'
+          test -z "$(git status --short)"
+          export AGENT_SOURCE_LOCK_SHA="$lock_sha"
+          export AGENT_SOURCE_RECEIPT_SHA="$source_receipt_sha"
+
+          receipt_json="$(python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+
+          roots = [
+              "crates/mycelix-institutional-core",
+              "crates/mycelix-authority-identity",
+              "crates/mycelix-authority-freshness",
+              "crates/mycelix-authority-delegation-policy",
+              "crates/mycelix-authority-delegation",
+          ]
+
+          def git(*args: str) -> str:
+              return subprocess.check_output(["git", *args], text=True).strip()
+
+          receipt = {
+              "schema": "mycelix.agent.generic-authority-convergence.receipt.v0.1",
+              "qualification_pass": True,
+              "subject_head": git("rev-parse", "HEAD"),
+              "agent_parent": git("rev-parse", "HEAD^1"),
+              "authority_parent": git("rev-parse", "HEAD^2"),
+              "historical_authority_source": "8e4a04f9e03caf36bc58cd30bc5ce92e40c8fe0f",
+              "agent_parent_qualification_run": 34788543972,
+              "authority_parent_qualification_run": 34833153899,
+              "authority_parent_qualification_attempt": 1,
+              "authority_parent_receipt_sha256": os.environ["AGENT_SOURCE_RECEIPT_SHA"],
+              "authority_parent_qualification_lock_sha256": os.environ["AGENT_SOURCE_LOCK_SHA"],
+              "admitted_root_trees": {root: git("rev-parse", f"HEAD:{root}") for root in roots},
+              "rust_toolchain": "1.98.1",
+              "cargo_version": os.environ["QUALIFICATION_CARGO_VERSION"],
+              "checkout_action": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "rust_toolchain_action": "dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87",
+              "github_repository": os.environ["GITHUB_REPOSITORY"],
+              "github_run_id": int(os.environ["GITHUB_RUN_ID"]),
+              "github_run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
+              "github_workflow": os.environ["GITHUB_WORKFLOW"],
+              "runner_os": os.environ["RUNNER_OS"],
+              "runner_arch": os.environ["RUNNER_ARCH"],
+              "local_build_hooks_allowed": False,
+              "local_git_dependencies_allowed": False,
+              "cargo_offline_for_semantic_commands": True,
+              "os_network_sandbox_claimed": False,
+              "authority_source_full_qualification_inherited": False,
+              "agent_002_identity_claim_blocked": True,
+              "full_agent_security_claim_blocked": True,
+          }
+          print(json.dumps(receipt, sort_keys=True, separators=(",", ":")))
+          PY
+          )"
+          echo "AGENT_AUTHORITY_CONVERGENCE_RECEIPT_JSON=$receipt_json"
