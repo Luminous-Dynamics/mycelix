@@ -1,0 +1,92 @@
+name: Policy Evidence Waist
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-policy-evidence/**'
+      - 'crates/mycelix-authority-evidence-lease/**'
+      - 'crates/mycelix-institutional-core/**'
+      - '.github/workflows/policy-evidence-waist.yml'
+  push:
+    branches:
+      - 'foundation/policy-evidence-waist-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: policy-evidence-waist-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Cross-domain policy record and adoption evidence qualification
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+
+      - name: Toolchain identity
+        run: |
+          rustc --version --verbose
+          cargo --version
+
+      - name: Exact parent and dependency boundary
+        run: |
+          test "$(git hash-object crates/mycelix-authority-evidence-lease/src/lib.rs)" = "2da6f4a2fb421ba46bd6c16354efa216e3885056"
+          test "$(git hash-object crates/mycelix-authority-evidence-lease/Cargo.toml)" = "4d367cf31df51b9f6e53a2c56bf4db7f774a15d0"
+          test "$(git hash-object crates/mycelix-institutional-core/Cargo.toml)" = "1737453cc0402ca49b29a8c11ca72bc17951ffc6"
+
+          manifest=crates/mycelix-policy-evidence/Cargo.toml
+          grep -F 'mycelix-institutional-core = { path = "../mycelix-institutional-core" }' "$manifest"
+          grep -F 'mycelix-authority-evidence-lease = { path = "../mycelix-authority-evidence-lease" }' "$manifest"
+          ! grep -Eiq 'hdk|hdi|holochain|tokio|reqwest|rusqlite|sqlx|wasmtime' "$manifest"
+
+      - name: Evidence-plane and authority separation audit
+        run: |
+          src=crates/mycelix-policy-evidence/src/lib.rs
+          inv=crates/mycelix-policy-evidence/INVARIANTS.md
+
+          grep -F 'pub struct PolicyRecordVerificationEvidence' "$src"
+          grep -F 'pub struct PolicyAdoptionVerificationEvidence' "$src"
+          grep -F 'pub struct QualifiedPolicyRecordEvidence' "$src"
+          grep -F 'pub struct QualifiedPolicyAdoptionEvidence' "$src"
+          grep -F 'pub struct QualifiedPolicyEvidenceBundle' "$src"
+          grep -F 'EvidenceLease' "$src"
+          grep -F 'VerifierDomainCollision' "$src"
+          grep -F 'generation_currentness_verified_here' "$src"
+          grep -F 'grants_external_effect_authority' "$src"
+
+          ! grep -Eiq 'qualify_current_freshness|latest_record|latest-record|get_links|get_details|hdk::|hdi::|extern_io|zome|actuator|dispatch|execute_effect' "$src"
+          ! grep -Eiq 'std::fs|std::net|std::process|std::env|SystemTime|thread_rng|rand::' "$src"
+
+          grep -F 'canonical policy identity' "$inv"
+          grep -F 'generation currentness' "$inv"
+          grep -F 'No authority amplification' "$inv"
+
+      - name: Format owned surfaces
+        run: |
+          cargo fmt --manifest-path crates/mycelix-policy-evidence/Cargo.toml -- --check
+
+      - name: Isolated executable qualification
+        run: |
+          qroot="$(mktemp -d)"
+          mkdir -p "$qroot/crates"
+          cp -a crates/mycelix-institutional-core "$qroot/crates/"
+          cp -a crates/mycelix-authority-evidence-lease "$qroot/crates/"
+          cp -a crates/mycelix-policy-evidence "$qroot/crates/"
+          manifest="$qroot/crates/mycelix-policy-evidence/Cargo.toml"
+
+          cargo test --manifest-path "$manifest" --all-targets
+          cargo clippy --manifest-path "$manifest" --all-targets -- -D warnings
+
+      - name: Qualification result and immutable checkout
+        run: |
+          git diff --exit-code
+          git status --porcelain=v1 | test "$(cat)" = ""
