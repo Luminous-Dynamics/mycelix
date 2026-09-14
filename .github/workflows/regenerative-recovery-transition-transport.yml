@@ -106,6 +106,12 @@ jobs:
           subject=mycelix-commons/crates/commons-types/src/regenerative_recovery_transition_transport.rs
           grep -q 'commitment_content_digest' "$subject"
           grep -q 'validate_commitment_structure' "$subject"
+          grep -q 'MAX_REGENERATIVE_RECOVERY_TRANSITION_TRANSPORT_JSON_BYTES' "$subject"
+          grep -q 'decode_regenerative_recovery_transition_transport_json' "$subject"
+          grep -q 'if bytes.len() > MAX_REGENERATIVE_RECOVERY_TRANSITION_TRANSPORT_JSON_BYTES' "$subject"
+          grep -q 'struct RegenerativeRecoveryTransitionTransportWireV1' "$subject"
+          grep -q '#\[derive(Debug, Clone, PartialEq, Eq, Serialize)\]' "$subject"
+          ! grep -q '#\[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)\]' "$subject"
           grep -q 'selected recovery transition branch is not one of the committed fork branches' "$subject"
           grep -q 'suspended recovery transition must preserve exact cursor state' "$subject"
           grep -q 'exact_source_recomputation_verified_here' "$subject"
