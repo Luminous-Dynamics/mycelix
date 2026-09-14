@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use mycelix_institutional_core::{
-    evaluate_authority, AuthorityDecision, AuthorityGrant, AuthorityGrantId, AuthorityRequirement,
-    AuthoritySourceKind, AuthoritySourceRef, CapabilityId, Digest32, EvidenceId, EvidenceRef,
-    EvidenceRequirement, InstitutionId, JurisdictionId, PrincipalId, RoleId, RulebookId,
-    RulebookRef, PROTOCOL_VERSION,
+    AuthorityDecision, AuthorityGrant, AuthorityGrantId, AuthorityRequirement, AuthoritySourceKind,
+    AuthoritySourceRef, CapabilityId, Digest32, EvidenceId, EvidenceRef, EvidenceRequirement,
+    InstitutionId, JurisdictionId, PROTOCOL_VERSION, PrincipalId, RoleId, RulebookId, RulebookRef,
+    evaluate_authority,
 };
 
 fn d(byte: u8) -> Digest32 {
