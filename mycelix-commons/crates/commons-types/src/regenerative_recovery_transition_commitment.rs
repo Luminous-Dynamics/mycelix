@@ -92,8 +92,9 @@ impl RegenerativeRecoveryTransitionCommitmentV1 {
         if self.schema_version != REGENERATIVE_RECOVERY_TRANSITION_COMMITMENT_SCHEMA_V1 {
             return Err("unsupported recovery transition commitment schema".into());
         }
-        let payload = serde_json::to_vec(self)
-            .map_err(|error| format!("failed to serialize recovery transition commitment: {error}"))?;
+        let payload = serde_json::to_vec(self).map_err(|error| {
+            format!("failed to serialize recovery transition commitment: {error}")
+        })?;
         Ok(framed_digest(
             b"mycelix-regenerative-recovery-transition-v1\0",
             REGENERATIVE_RECOVERY_TRANSITION_COMMITMENT_PROFILE_V1.as_bytes(),
@@ -111,12 +112,7 @@ pub fn qualify_regenerative_recovery_transition_commitment(
     sibling_branch: &RegenerativeRecoveryCoordinateEvidenceV1,
     resolution: &RegenerativeRecoveryForkResolutionEvidenceV1,
 ) -> Result<RegenerativeRecoveryTransitionCommitmentV1, String> {
-    verify_regenerative_recovery_fork_resolution(
-        head,
-        current_branch,
-        sibling_branch,
-        resolution,
-    )?;
+    verify_regenerative_recovery_fork_resolution(head, current_branch, sibling_branch, resolution)?;
 
     let pre = RegenerativeRecoveryReserveHeadSnapshotV1::from_head(head);
     let pre_state_digest = pre.content_digest()?;
@@ -203,8 +199,8 @@ mod tests {
     use super::*;
     use crate::{
         REGENERATIVE_RECOVERY_COORDINATE_EVIDENCE_SCHEMA_V1,
-        REGENERATIVE_RECOVERY_FORK_RESOLUTION_SCHEMA_V1,
-        RegenerativeRecoveryFlowKindEvidenceV1, RegenerativeRecoveryReserveDispositionV1,
+        REGENERATIVE_RECOVERY_FORK_RESOLUTION_SCHEMA_V1, RegenerativeRecoveryFlowKindEvidenceV1,
+        RegenerativeRecoveryReserveDispositionV1,
     };
 
     fn record(
@@ -360,7 +356,8 @@ mod tests {
     fn selecting_another_branch_changes_transition_identity() {
         let (head, current, sibling) = frozen_fork();
         let keep_current = resolution(&current, &sibling, Some(current.content_digest().unwrap()));
-        let switch_sibling = resolution(&current, &sibling, Some(sibling.content_digest().unwrap()));
+        let switch_sibling =
+            resolution(&current, &sibling, Some(sibling.content_digest().unwrap()));
         let first = qualify_regenerative_recovery_transition_commitment(
             &head,
             &current,
@@ -376,7 +373,10 @@ mod tests {
         )
         .unwrap();
 
-        assert_ne!(first.content_digest().unwrap(), second.content_digest().unwrap());
+        assert_ne!(
+            first.content_digest().unwrap(),
+            second.content_digest().unwrap()
+        );
         assert_ne!(first.post_state_digest, second.post_state_digest);
     }
 
