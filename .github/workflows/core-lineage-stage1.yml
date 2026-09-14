@@ -1,0 +1,191 @@
+name: CORE-LINEAGE Stage 1
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/core-lineage-stage1.yml
+      - crates/mycelix-core-lineage/Cargo.toml
+      - crates/mycelix-core-lineage/src/lib.rs
+      - crates/mycelix-core-lineage/vectors/rooted_lineage_v1.json
+      - docs/core/CORE_LINEAGE_STAGE1_V0.1.md
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Stable rooted causal-lineage kernel
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Exact qualification subject
+        shell: bash
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+
+      - name: Exact main ancestry and five-file surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent=a5b9873384b8e934836162c7a4acf71b8298568e
+          git cat-file -e "${parent}^{commit}"
+          git merge-base --is-ancestor "$parent" HEAD
+          mapfile -t changed < <(git diff --name-only "$parent"..HEAD | sort)
+          expected=(
+            .github/workflows/core-lineage-stage1.yml
+            crates/mycelix-core-lineage/Cargo.toml
+            crates/mycelix-core-lineage/src/lib.rs
+            crates/mycelix-core-lineage/vectors/rooted_lineage_v1.json
+            docs/core/CORE_LINEAGE_STAGE1_V0.1.md
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#changed[@]}" -eq "${#expected_sorted[@]}"
+          for i in "${!expected_sorted[@]}"; do
+            test "${changed[$i]}" = "${expected_sorted[$i]}"
+          done
+
+      - name: Static structural-boundary audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo_toml=crates/mycelix-core-lineage/Cargo.toml
+          lib=crates/mycelix-core-lineage/src/lib.rs
+          doc=docs/core/CORE_LINEAGE_STAGE1_V0.1.md
+          grep -F 'mycelix-core-lineage-v1-sha256-framed-semantic' "$lib"
+          grep -F 'grants_currentness' "$lib"
+          grep -F 'grants_effect_authority' "$lib"
+          grep -F 'ParallelTransitionConflict' "$lib"
+          grep -F 'ForkConflict' "$lib"
+          grep -F 'TransitionIdentityCollision' "$lib"
+          grep -F 'stable rooted lineage' "$doc"
+          grep -F '!= current head' "$doc"
+          grep -F '!= effect authority' "$doc"
+          if grep -Eq '(serde|hdk|hdi|holochain|tokio|reqwest|wasmtime)' "$cargo_toml" "$lib"; then
+            echo 'Stage 1 must remain serialization/runtime/network independent' >&2
+            exit 1
+          fi
+          if grep -Eq '\b(verified_at|valid_until|EvidenceLease|now_ms)\b' "$lib"; then
+            echo 'Dynamic evidence leases do not belong in stable Stage 1' >&2
+            exit 1
+          fi
+
+      - name: Independent language-neutral golden vector
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import struct
+          from pathlib import Path
+
+          DOMAIN = b"mycelix/core-lineage/rooted-lineage/v1"
+          PROFILE = "mycelix-core-lineage-v1-sha256-framed-semantic"
+
+          def frame(raw: bytes) -> bytes:
+              return struct.pack("<Q", len(raw)) + raw
+
+          def text(value: str) -> bytes:
+              return frame(value.encode("utf-8"))
+
+          def u64(value: int) -> bytes:
+              return frame(struct.pack("<Q", value))
+
+          def profiled(value: dict) -> bytes:
+              return text(value["profile"]) + frame(bytes.fromhex(value["digest_hex"]))
+
+          vector = json.loads(
+              Path("crates/mycelix-core-lineage/vectors/rooted_lineage_v1.json")
+              .read_text(encoding="utf-8")
+          )
+          assert vector["profile"] == PROFILE
+          root = vector["root"]
+          transitions = vector["transitions"]
+
+          encoded = bytearray(DOMAIN)
+          encoded += text(PROFILE)
+          encoded += profiled(root["lineage_domain_identity"])
+          encoded += u64(root["generation"])
+          encoded += profiled(root["node_identity"])
+          encoded += profiled(root["source_descriptor_identity"])
+          encoded += u64(root["effective_at_ms"])
+          encoded += u64(len(transitions))
+
+          for transition in transitions:
+              encoded += u64(transition["predecessor_generation"])
+              encoded += profiled(transition["predecessor_node_identity"])
+              encoded += profiled(transition["predecessor_source_descriptor_identity"])
+              encoded += u64(transition["successor_generation"])
+              encoded += profiled(transition["successor_node_identity"])
+              encoded += profiled(transition["successor_source_descriptor_identity"])
+              encoded += profiled(transition["transition_semantic_identity"])
+              encoded += u64(transition["effective_at_ms"])
+
+          actual = hashlib.sha256(encoded).hexdigest()
+          expected = vector["expected_lineage_digest_hex"]
+          assert actual == expected, (actual, expected)
+          assert actual == "89a02c2002d5e95e2cb972d3726dd1be0b88b049f01351e4a31ac75872a7d5c0"
+          print(f"CORE-LINEAGE Stage 1 vector PASS: {actual}")
+          PY
+
+      - name: Run dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+
+      - name: Materialize isolated exact crate subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          target="$RUNNER_TEMP/mycelix-core-lineage-subject"
+          mkdir -p "$target"
+          cp -a crates/mycelix-core-lineage/. "$target/"
+          printf '%s\n' "$target" > "$RUNNER_TEMP/core_lineage_subject_path"
+
+      - name: Rustfmt
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$(cat "$RUNNER_TEMP/core_lineage_subject_path")"
+          cargo fmt --manifest-path "$crate/Cargo.toml" -- --check
+
+      - name: All-target tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$(cat "$RUNNER_TEMP/core_lineage_subject_path")"
+          cargo test --manifest-path "$crate/Cargo.toml" --all-targets
+
+      - name: Clippy warnings denied
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$(cat "$RUNNER_TEMP/core_lineage_subject_path")"
+          cargo clippy --manifest-path "$crate/Cargo.toml" --all-targets -- -D warnings
+
+      - name: no_std wasm32 check
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$(cat "$RUNNER_TEMP/core_lineage_subject_path")"
+          cargo check --manifest-path "$crate/Cargo.toml" --target wasm32-unknown-unknown
+
+      - name: Immutable checkout postflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
