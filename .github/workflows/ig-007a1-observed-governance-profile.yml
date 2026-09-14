@@ -1,0 +1,92 @@
+name: IG-007A1 Observed Governance Profile
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-governance/profiles/observed/voting-fca2c107-v1.json"
+      - "mycelix-governance/scripts/validate_ig007a1_observed_profile.py"
+      - "mycelix-governance/docs/IG_007A1_OBSERVED_SOURCE_PROFILE.md"
+      - ".github/workflows/ig-007a1-observed-governance-profile.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-observed-profile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      EXPECTED_SUBJECT: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      PROFILE: mycelix-governance/profiles/observed/voting-fca2c107-v1.json
+
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_SUBJECT }}
+          fetch-depth: 1
+
+      - name: Install Python 3.13.5
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13.5"
+
+      - name: Verify exact subject and clean preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT"
+          test -z "$(git status --porcelain)"
+
+      - name: Bind observed production source blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object mycelix-governance/zomes/voting/coordinator/src/lib.rs)" = "969b845e6186cbcad507c742a718060844f82eb2"
+          test "$(git hash-object mycelix-governance/zomes/voting/integrity/src/lib.rs)" = "658562c8dfaf6a2f1b97a7bfd5cf0fc8a5ab6e66"
+
+      - name: Syntax compile profile validator
+        run: python -m py_compile mycelix-governance/scripts/validate_ig007a1_observed_profile.py
+
+      - name: Re-run parent differential self-test
+        run: python mycelix-governance/scripts/ig007a0_voting_weight_differential.py --self-test > /tmp/ig007a0-parent-self.json
+
+      - name: Validate profile twice deterministically
+        shell: bash
+        run: |
+          set -euo pipefail
+          python mycelix-governance/scripts/validate_ig007a1_observed_profile.py --profile "$PROFILE" > /tmp/profile-1.json
+          python mycelix-governance/scripts/validate_ig007a1_observed_profile.py --profile "$PROFILE" > /tmp/profile-2.json
+          cmp /tmp/profile-1.json /tmp/profile-2.json
+
+      - name: Execute profile regression self-test twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          python mycelix-governance/scripts/validate_ig007a1_observed_profile.py --profile "$PROFILE" --self-test > /tmp/self-1.json
+          python mycelix-governance/scripts/validate_ig007a1_observed_profile.py --profile "$PROFILE" --self-test > /tmp/self-2.json
+          cmp /tmp/self-1.json /tmp/self-2.json
+
+      - name: Assert frozen profile commitment and authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          with open('/tmp/profile-1.json', encoding='utf-8') as f:
+              result = json.load(f)
+          assert result['validated'] is True
+          assert result['authority_class'] == 'ObservedSourceBound'
+          assert result['profile_content_sha256'] == 'cbbbb3553ce465be989b5f096364ea97ccc9b1c5d6aae67d80177df8d8109763'
+          assert result['known_gap_issues'] == [851, 855, 856]
+          PY
+
+      - name: Verify checkout immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT"
+          git diff --exit-code
+          git diff --cached --exit-code
+          test -z "$(git status --porcelain)"
