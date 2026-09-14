@@ -1,0 +1,97 @@
+name: Pulse V2 Runtime Derivation
+
+on:
+  push:
+    branches:
+      - feat/pulse-v2-post-commit-runtime-v1
+    paths:
+      - '.github/workflows/pulse-v2-runtime-derive.yml'
+      - 'mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/**'
+      - 'mycelix-workspace/mycelix-pulse/crates/pulse-realtime-types/**'
+      - 'mycelix-workspace/mycelix-pulse/crates/pulse-realtime-wire/**'
+      - 'mycelix-workspace/mycelix-pulse/crates/pulse-realtime-hdk-adapter/**'
+
+permissions:
+  contents: read
+
+jobs:
+  derive-runtime-closure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact derivation subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '${{ github.sha }}'
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87b
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+          targets: wasm32-unknown-unknown
+
+      - name: Apply exact HDK infallible callback correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src/lib.rs')
+          text = path.read_text(encoding='utf-8')
+          old = '#[hdk_extern]\npub fn post_commit(actions: Vec<SignedActionHashed>) {'
+          new = '#[hdk_extern(infallible)]\npub fn post_commit(actions: Vec<SignedActionHashed>) {'
+          if text.count(old) != 1:
+              raise SystemExit(f'expected exactly one fallible post_commit marker, found {text.count(old)}')
+          text = text.replace(old, new)
+          path.write_text(text, encoding='utf-8')
+          PY
+          rustfmt --edition 2024 mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src/lib.rs
+
+      - name: Derive nested Holochain lock closure and compile runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest=mycelix-workspace/mycelix-pulse/holochain/Cargo.toml
+          cargo check --manifest-path "$manifest" --package mail_messages
+          cargo check --locked --manifest-path "$manifest" --package mail_messages
+          cargo clippy --locked --manifest-path "$manifest" --package mail_messages -- -D warnings
+          cargo check --locked --manifest-path "$manifest" --package mail_messages --target wasm32-unknown-unknown
+
+      - name: Capture exact derived diff
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/pulse-v2-runtime-derived"
+          mkdir -p "$out/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src"
+          mkdir -p "$out/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator"
+          mkdir -p "$out/mycelix-workspace/mycelix-pulse/holochain"
+          cp mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src/lib.rs \
+            "$out/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src/lib.rs"
+          cp mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/Cargo.toml \
+            "$out/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/Cargo.toml"
+          cp mycelix-workspace/mycelix-pulse/holochain/Cargo.lock \
+            "$out/mycelix-workspace/mycelix-pulse/holochain/Cargo.lock"
+          git diff -- \
+            mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src/lib.rs \
+            mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/Cargo.toml \
+            mycelix-workspace/mycelix-pulse/holochain/Cargo.lock \
+            > "$out/derived.diff"
+
+      - name: Upload derived runtime closure
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: pulse-v2-runtime-derived-${{ github.sha }}
+          path: ${{ runner.temp }}/pulse-v2-runtime-derived
+          if-no-files-found: error
+          retention-days: 7
