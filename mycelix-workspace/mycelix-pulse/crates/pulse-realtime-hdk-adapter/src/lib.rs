@@ -56,7 +56,10 @@ mod tests {
         let signal = ExternIO::encode(PulseV2RemoteSignal::inbox_changed_v2())
             .expect("HDK must serialize canonical V2 wake");
 
-        assert_eq!(admit_extern_io(&signal), admit_remote_signal(signal.as_bytes()));
+        assert_eq!(
+            admit_extern_io(&signal),
+            admit_remote_signal(signal.as_bytes())
+        );
     }
 
     #[test]
