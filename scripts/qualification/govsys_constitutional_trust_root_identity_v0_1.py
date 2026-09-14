@@ -25,6 +25,7 @@ ROTATION_MODES = {"immutable", "predecessor-authorized"}
 MAX_ID_BYTES = 512
 MAX_PROFILE_BYTES = 256
 MAX_NAMESPACE_BYTES = 1024
+MAX_RULEBOOK_VERSION_BYTES = 128
 MAX_AUTHORIZED_POLICY_SCOPES = 1024
 HEX_32 = re.compile(r"^[0-9a-fA-F]{64}$")
 VECTOR_PATH = Path(__file__).with_name("govsys_003a_root_identity_vector_v1.json")
@@ -49,10 +50,12 @@ def _text(value: Any, field: str, max_bytes: int) -> str:
     if not isinstance(value, str):
         raise ContractError(f"{field} must be text")
     raw = value.encode("utf-8")
-    if not value.strip() or len(raw) > max_bytes:
+    if not raw or len(raw) > max_bytes:
         raise ContractError(f"invalid {field}")
+    if raw[0] == 0x20 or raw[-1] == 0x20:
+        raise ContractError(f"leading/trailing ASCII space in {field}")
     if any(byte < 0x20 or byte == 0x7F for byte in raw):
-        raise ContractError(f"control byte in {field}")
+        raise ContractError(f"ASCII control byte in {field}")
     return value
 
 
@@ -81,7 +84,7 @@ def _rulebook(value: Any, field: str) -> dict[str, Any]:
     if not isinstance(value, dict) or set(value) != {"id", "version", "digest_hex"}:
         raise ContractError(f"invalid {field} shape")
     _text(value["id"], f"{field}.id", MAX_ID_BYTES)
-    _text(value["version"], f"{field}.version", 128)
+    _text(value["version"], f"{field}.version", MAX_RULEBOOK_VERSION_BYTES)
     _digest(value["digest_hex"], f"{field}.digest_hex")
     return value
 
@@ -97,13 +100,16 @@ def _policy_scope(value: Any, field: str) -> dict[str, Any]:
     }
     if not isinstance(value, dict) or set(value) != required:
         raise ContractError(f"invalid {field} shape")
+
     profile = _text(
         value["policy_identity_profile"],
         f"{field}.policy_identity_profile",
         MAX_PROFILE_BYTES,
     )
     if profile == IDENTITY_PROFILE:
-        raise ContractError("constitutional root profile cannot authorize itself as policy currentness")
+        raise ContractError(
+            "constitutional root profile cannot authorize itself as policy currentness"
+        )
     _text(
         value["policy_registry_namespace"],
         f"{field}.policy_registry_namespace",
@@ -119,13 +125,23 @@ def _policy_scope(value: Any, field: str) -> dict[str, Any]:
         f"{field}.provider_authority_jurisdiction_id",
         MAX_ID_BYTES,
     )
-    _rulebook(value["provider_authority_rulebook"], f"{field}.provider_authority_rulebook")
+    _rulebook(
+        value["provider_authority_rulebook"],
+        f"{field}.provider_authority_rulebook",
+    )
     _text(
         value["required_provider_capability"],
         f"{field}.required_provider_capability",
         MAX_ID_BYTES,
     )
     return value
+
+
+def _scope_key(scope: dict[str, Any]) -> tuple[bytes, bytes]:
+    return (
+        scope["policy_identity_profile"].encode("utf-8"),
+        scope["policy_registry_namespace"].encode("utf-8"),
+    )
 
 
 def validate_root(root: Any) -> dict[str, Any]:
@@ -172,9 +188,19 @@ def validate_root(root: Any) -> dict[str, Any]:
         raise ContractError("authorized_policy_scopes must be a list")
     if len(scopes) > MAX_AUTHORIZED_POLICY_SCOPES:
         raise ContractError("too many authorized policy scopes")
+
+    scope_keys: set[tuple[bytes, bytes]] = set()
+    encoded_scopes: list[bytes] = []
     for index, scope in enumerate(scopes):
         _policy_scope(scope, f"authorized_policy_scopes[{index}]")
-    encoded_scopes = [_scope_bytes(scope) for scope in scopes]
+        key = _scope_key(scope)
+        if key in scope_keys:
+            raise ContractError(
+                "duplicate policy profile/namespace key requires an explicit multi-provider profile"
+            )
+        scope_keys.add(key)
+        encoded_scopes.append(_scope_bytes(scope))
+
     if len(set(encoded_scopes)) != len(encoded_scopes):
         raise ContractError("duplicate authorized policy scope")
 
@@ -288,15 +314,21 @@ def _expect_error(root: dict[str, Any]) -> None:
 
 def self_test() -> None:
     vector = json.loads(VECTOR_PATH.read_text(encoding="utf-8"))
+    if not isinstance(vector, dict) or set(vector) != {
+        "profile",
+        "expected_digest_hex",
+        "root",
+    }:
+        raise AssertionError("golden vector wrapper must have exact shape")
     assert vector["profile"] == IDENTITY_PROFILE
+    expected = _digest(vector["expected_digest_hex"], "expected_digest_hex")
     root = vector["root"]
-    expected = vector["expected_digest_hex"]
-    actual = identity_hex(root)
-    assert actual == expected, (actual, expected)
+    actual = bytes.fromhex(identity_hex(root))
+    assert actual == expected, (actual.hex(), expected.hex())
 
     reordered = copy.deepcopy(root)
     reordered["authorized_policy_scopes"].reverse()
-    assert identity_hex(reordered) == expected
+    assert bytes.fromhex(identity_hex(reordered)) == expected
 
     duplicate = copy.deepcopy(root)
     duplicate["authorized_policy_scopes"].append(
@@ -304,63 +336,78 @@ def self_test() -> None:
     )
     _expect_error(duplicate)
 
+    ambiguous_provider = copy.deepcopy(root)
+    alternate = copy.deepcopy(ambiguous_provider["authorized_policy_scopes"][0])
+    alternate["provider_authority_institution_id"] = "institution:alternate-clerk"
+    ambiguous_provider["authorized_policy_scopes"].append(alternate)
+    _expect_error(ambiguous_provider)
+
     self_authorizing = copy.deepcopy(root)
-    self_authorizing["authorized_policy_scopes"][0]["policy_identity_profile"] = IDENTITY_PROFILE
+    self_authorizing["authorized_policy_scopes"][0]["policy_identity_profile"] = (
+        IDENTITY_PROFILE
+    )
     _expect_error(self_authorizing)
 
     too_many_scopes = copy.deepcopy(root)
-    too_many_scopes["authorized_policy_scopes"] = [
-        copy.deepcopy(root["authorized_policy_scopes"][0])
-        for _ in range(MAX_AUTHORIZED_POLICY_SCOPES + 1)
-    ]
+    too_many_scopes["authorized_policy_scopes"] = []
+    prototype = root["authorized_policy_scopes"][0]
+    for index in range(MAX_AUTHORIZED_POLICY_SCOPES + 1):
+        scope = copy.deepcopy(prototype)
+        scope["policy_registry_namespace"] = f"registry:test:{index}"
+        too_many_scopes["authorized_policy_scopes"].append(scope)
     _expect_error(too_many_scopes)
 
     wrong_institution = copy.deepcopy(root)
     wrong_institution["institution_id"] = "institution:other-city"
-    assert identity_hex(wrong_institution) != expected
+    assert bytes.fromhex(identity_hex(wrong_institution)) != expected
 
     wrong_rulebook = copy.deepcopy(root)
     wrong_rulebook["constitutional_rulebook"]["digest_hex"] = "33" * 32
-    assert identity_hex(wrong_rulebook) != expected
+    assert bytes.fromhex(identity_hex(wrong_rulebook)) != expected
+
+    uppercase_digest = copy.deepcopy(root)
+    uppercase_digest["constitutional_rulebook"]["digest_hex"] = (
+        uppercase_digest["constitutional_rulebook"]["digest_hex"].upper()
+    )
+    assert bytes.fromhex(identity_hex(uppercase_digest)) == expected
 
     wrong_scope_profile = copy.deepcopy(root)
     wrong_scope_profile["authorized_policy_scopes"][0]["policy_identity_profile"] = (
         "mycelix-other-policy-v1"
     )
-    assert identity_hex(wrong_scope_profile) != expected
+    assert bytes.fromhex(identity_hex(wrong_scope_profile)) != expected
 
     wrong_scope_namespace = copy.deepcopy(root)
     wrong_scope_namespace["authorized_policy_scopes"][0]["policy_registry_namespace"] = (
         "registry:other-policy:example-city"
     )
-    assert identity_hex(wrong_scope_namespace) != expected
+    assert bytes.fromhex(identity_hex(wrong_scope_namespace)) != expected
 
     wrong_provider_scope = copy.deepcopy(root)
-    wrong_provider_scope["authorized_policy_scopes"][0]["provider_authority_rulebook"][
-        "digest_hex"
-    ] = "44" * 32
-    assert identity_hex(wrong_provider_scope) != expected
+    wrong_provider_scope["authorized_policy_scopes"][0][
+        "provider_authority_rulebook"
+    ]["digest_hex"] = "44" * 32
+    assert bytes.fromhex(identity_hex(wrong_provider_scope)) != expected
 
     wrong_capability = copy.deepcopy(root)
     wrong_capability["authorized_policy_scopes"][0]["required_provider_capability"] = (
         "administration.other-policy.currentness.attest"
     )
-    assert identity_hex(wrong_capability) != expected
+    assert bytes.fromhex(identity_hex(wrong_capability)) != expected
 
-    # Confused-deputy defense: both capabilities are individually present in the
-    # vector, but exchanging which policy/namespace tuple owns them changes the
-    # constitutional root identity. They are not an independent capability set.
     crossed_capabilities = copy.deepcopy(root)
     scopes = crossed_capabilities["authorized_policy_scopes"]
-    scopes[0]["required_provider_capability"], scopes[1]["required_provider_capability"] = (
+    scopes[0]["required_provider_capability"], scopes[1][
+        "required_provider_capability"
+    ] = (
         scopes[1]["required_provider_capability"],
         scopes[0]["required_provider_capability"],
     )
-    assert identity_hex(crossed_capabilities) != expected
+    assert bytes.fromhex(identity_hex(crossed_capabilities)) != expected
 
     wrong_bootstrap = copy.deepcopy(root)
     wrong_bootstrap["bootstrap_mode"] = "genesis-governance-decision"
-    assert identity_hex(wrong_bootstrap) != expected
+    assert bytes.fromhex(identity_hex(wrong_bootstrap)) != expected
 
     genesis_with_predecessor = copy.deepcopy(root)
     genesis_with_predecessor["predecessor_root_digest_hex"] = "55" * 32
@@ -372,8 +419,8 @@ def self_test() -> None:
 
     successor = copy.deepcopy(root)
     successor["generation"] = 1
-    successor["predecessor_root_digest_hex"] = expected
-    assert identity_hex(successor) != expected
+    successor["predecessor_root_digest_hex"] = expected.hex()
+    assert bytes.fromhex(identity_hex(successor)) != expected
 
     zero_predecessor = copy.deepcopy(successor)
     zero_predecessor["predecessor_root_digest_hex"] = "00" * 32
@@ -396,22 +443,24 @@ def self_test() -> None:
     _expect_error(zero_rulebook)
 
     zero_provider_rulebook = copy.deepcopy(root)
-    zero_provider_rulebook["authorized_policy_scopes"][0]["provider_authority_rulebook"][
-        "digest_hex"
-    ] = "00" * 32
+    zero_provider_rulebook["authorized_policy_scopes"][0][
+        "provider_authority_rulebook"
+    ]["digest_hex"] = "00" * 32
     _expect_error(zero_provider_rulebook)
 
     control_identifier = copy.deepcopy(root)
     control_identifier["institution_id"] = "institution:city\nsmuggled"
     _expect_error(control_identifier)
 
-    control_scope = copy.deepcopy(root)
-    control_scope["authorized_policy_scopes"][0]["policy_registry_namespace"] = (
-        "registry:review\nsmuggled"
-    )
-    _expect_error(control_scope)
+    leading_space = copy.deepcopy(root)
+    leading_space["institution_id"] = " institution:city"
+    _expect_error(leading_space)
 
-    print(f"GOVSYS-003A PASS: {actual}")
+    trailing_space = copy.deepcopy(root)
+    trailing_space["authorized_policy_scopes"][0]["policy_registry_namespace"] += " "
+    _expect_error(trailing_space)
+
+    print(f"GOVSYS-003A PASS: {actual.hex()}")
 
 
 if __name__ == "__main__":
