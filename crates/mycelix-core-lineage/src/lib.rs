@@ -7,8 +7,7 @@ use sha2::{Digest, Sha256};
 
 pub const MAX_PROFILE_BYTES: usize = 256;
 pub const MAX_TRANSITIONS: usize = 4096;
-pub const ROOTED_LINEAGE_PROFILE: &str =
-    "mycelix-core-lineage-v1-sha256-framed-semantic";
+pub const ROOTED_LINEAGE_PROFILE: &str = "mycelix-core-lineage-v1-sha256-framed-semantic";
 const ROOTED_LINEAGE_DOMAIN: &[u8] = b"mycelix/core-lineage/rooted-lineage/v1";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -283,11 +282,9 @@ pub fn project_rooted_lineage(
     }
 
     if consumed.iter().any(|consumed| !consumed) {
-        if canonical
-            .iter()
-            .enumerate()
-            .any(|(index, transition)| !consumed[index] && transition.predecessor_generation > generation)
-        {
+        if canonical.iter().enumerate().any(|(index, transition)| {
+            !consumed[index] && transition.predecessor_generation > generation
+        }) {
             return Err(LineageError::DiscontinuousGeneration);
         }
         return Err(LineageError::UnreachableTransition);
@@ -354,7 +351,10 @@ fn stable_lineage_commitment(root: &RootAnchorFacts, transitions: &[TransitionFa
     for transition in transitions {
         frame_u64(&mut bytes, transition.predecessor_generation);
         frame_profiled_digest(&mut bytes, &transition.predecessor_node_identity);
-        frame_profiled_digest(&mut bytes, &transition.predecessor_source_descriptor_identity);
+        frame_profiled_digest(
+            &mut bytes,
+            &transition.predecessor_source_descriptor_identity,
+        );
         frame_u64(&mut bytes, transition.successor_generation);
         frame_profiled_digest(&mut bytes, &transition.successor_node_identity);
         frame_profiled_digest(&mut bytes, &transition.successor_source_descriptor_identity);
@@ -463,8 +463,12 @@ mod tests {
     #[test]
     fn source_descriptor_rotation_is_structurally_allowed() {
         let (root, transitions) = fixture();
-        let projected = project_rooted_lineage(root, &transitions).expect("rotation is domain-qualified");
-        assert_eq!(projected.endpoint_source_descriptor_identity(), &id("example-source-v1", 0x77));
+        let projected =
+            project_rooted_lineage(root, &transitions).expect("rotation is domain-qualified");
+        assert_eq!(
+            projected.endpoint_source_descriptor_identity(),
+            &id("example-source-v1", 0x77)
+        );
     }
 
     #[test]
@@ -503,7 +507,10 @@ mod tests {
             id("example-transition-v1", 0xbb),
             first.effective_at_ms,
         ));
-        assert_eq!(project_rooted_lineage(root, &transitions), Err(LineageError::ForkConflict));
+        assert_eq!(
+            project_rooted_lineage(root, &transitions),
+            Err(LineageError::ForkConflict)
+        );
     }
 
     #[test]
@@ -561,7 +568,10 @@ mod tests {
     fn wrong_domain_fails_closed() {
         let (root, mut transitions) = fixture();
         transitions[0].lineage_domain_identity = id("other-domain-v1", 0xee);
-        assert_eq!(project_rooted_lineage(root, &transitions), Err(LineageError::DomainMismatch));
+        assert_eq!(
+            project_rooted_lineage(root, &transitions),
+            Err(LineageError::DomainMismatch)
+        );
     }
 
     #[test]
