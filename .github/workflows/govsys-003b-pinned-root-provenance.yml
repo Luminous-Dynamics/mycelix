@@ -91,6 +91,58 @@ jobs:
           PYTHONDONTWRITEBYTECODE: '1'
         run: python3 scripts/qualification/govsys_constitutional_trust_root_identity_v0_1.py
 
+      - name: Independently recompute Root-B provenance identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import struct
+          from pathlib import Path
+
+          PROTOCOL = "mycelix-constitutional-pinned-root-provenance-v0.1"
+          PIN_PROFILE = "mycelix-provisioned-constitutional-root-pin-v1"
+          ROOT_PROFILE = "mycelix-constitutional-trust-root-v1-sha256-framed-semantic"
+          PROVENANCE_PROFILE = (
+              "mycelix-constitutional-pinned-root-provenance-v1-sha256-framed-semantic"
+          )
+          DOMAIN = b"mycelix/public-institution/constitutional-pinned-root-provenance/v1"
+          EXPECTED = "dc28fbf6ba1396dd34908c24fca6faa51bc98b0b78dcab25091e07be425313db"
+
+          def frame(raw: bytes) -> bytes:
+              return struct.pack("<Q", len(raw)) + raw
+
+          def text(value: str) -> bytes:
+              return frame(value.encode("utf-8"))
+
+          vector = json.loads(
+              Path("scripts/qualification/govsys_003b_pinned_root_provenance_vector_v1.json")
+              .read_text(encoding="utf-8")
+          )
+          assert vector["profile"] == PROVENANCE_PROFILE
+          pin = vector["pin"]
+          assert pin["pin_profile"] == PIN_PROFILE
+          assert pin["root_identity_profile"] == ROOT_PROFILE
+
+          encoded = bytearray(DOMAIN)
+          encoded += text(PROVENANCE_PROFILE)
+          encoded += text(PROTOCOL)
+          encoded += text(PIN_PROFILE)
+          encoded += text(ROOT_PROFILE)
+          encoded += frame(bytes.fromhex(pin["root_digest_hex"]))
+          encoded += text(pin["bootstrap_profile"])
+          encoded += text(pin["provisioning_ref"])
+
+          actual = hashlib.sha256(encoded).hexdigest()
+          assert actual == vector["expected_provenance_digest_hex"], (
+              actual,
+              vector["expected_provenance_digest_hex"],
+          )
+          assert actual == EXPECTED
+          print(f"GOVSYS-003B independent provenance vector PASS: {actual}")
+          PY
+
       - name: Root-B oracle syntax
         shell: bash
         run: |
