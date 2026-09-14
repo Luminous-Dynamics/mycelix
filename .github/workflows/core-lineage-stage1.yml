@@ -156,6 +156,8 @@ jobs:
           printf '%s\n' "$target" > "$RUNNER_TEMP/core_lineage_subject_path"
 
       - name: Rustfmt
+        id: rustfmt
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
@@ -163,6 +165,9 @@ jobs:
           cargo fmt --manifest-path "$crate/Cargo.toml" -- --check
 
       - name: All-target tests
+        id: tests
+        if: always()
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
@@ -170,6 +175,9 @@ jobs:
           cargo test --manifest-path "$crate/Cargo.toml" --all-targets
 
       - name: Clippy warnings denied
+        id: clippy
+        if: always()
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
@@ -177,6 +185,9 @@ jobs:
           cargo clippy --manifest-path "$crate/Cargo.toml" --all-targets -- -D warnings
 
       - name: no_std wasm32 check
+        id: wasm
+        if: always()
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
@@ -184,8 +195,28 @@ jobs:
           cargo check --manifest-path "$crate/Cargo.toml" --target wasm32-unknown-unknown
 
       - name: Immutable checkout postflight
+        id: immutable
+        if: always()
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
           git diff --exit-code
           test -z "$(git status --porcelain)"
+
+      - name: Fail closed on any qualification defect
+        if: always()
+        shell: bash
+        env:
+          RUSTFMT_OUTCOME: ${{ steps.rustfmt.outcome }}
+          TESTS_OUTCOME: ${{ steps.tests.outcome }}
+          CLIPPY_OUTCOME: ${{ steps.clippy.outcome }}
+          WASM_OUTCOME: ${{ steps.wasm.outcome }}
+          IMMUTABLE_OUTCOME: ${{ steps.immutable.outcome }}
+        run: |
+          set -euo pipefail
+          test "$RUSTFMT_OUTCOME" = success
+          test "$TESTS_OUTCOME" = success
+          test "$CLIPPY_OUTCOME" = success
+          test "$WASM_OUTCOME" = success
+          test "$IMMUTABLE_OUTCOME" = success
