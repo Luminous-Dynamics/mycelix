@@ -11,3 +11,6 @@ description = "Fail-closed wire-family demultiplexing for Mycelix Pulse realtime
 pulse-realtime-types = { path = "../pulse-realtime-types" }
 rmp-serde = "1"
 serde = "1"
+
+[dev-dependencies]
+serde_json = "1"
