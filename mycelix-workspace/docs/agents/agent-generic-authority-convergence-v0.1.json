@@ -1,0 +1,46 @@
+{
+  "schema": "mycelix.agent.generic-authority-convergence.v0.1",
+  "agent_parent": "7b729880b651ab1e476baad3903d4620041223ed",
+  "agent_parent_qualification_run": 34788543972,
+  "authority_parent": "5e945700c4c0dba015f571acd2e754475a5143fc",
+  "authority_parent_pr": 809,
+  "authority_parent_semantic_qualification_run": 34833153899,
+  "authority_parent_semantic_qualification_attempt": 1,
+  "authority_parent_semantic_qualification_pass": true,
+  "authority_parent_receipt_schema": "mycelix.authority-delegation-semantic-repair.receipt.v0.2",
+  "authority_parent_receipt_sha256": "9c444ebc06595fcd19b2fcc28fd93af859cac4376f1c0d615faf4c3afc39fa05",
+  "authority_parent_qualification_lock_sha256": "38889f5045c6e5f6ea3b9427e056429b316021b244cdec6fda4fbd1afb49888d",
+  "authority_parent_receipt_file": "mycelix-workspace/docs/agents/evidence/agent-generic-authority-convergence-v0.1/authority-source-receipt.json",
+  "authority_parent_lock_file": "mycelix-workspace/docs/agents/evidence/agent-generic-authority-convergence-v0.1/authority-source-Cargo.lock",
+  "historical_authority_source": "8e4a04f9e03caf36bc58cd30bc5ce92e40c8fe0f",
+  "historical_authority_source_pr": 77,
+  "historical_authority_source_workflow_run": 33865664837,
+  "authority_source_full_qualification_inherited": false,
+  "authority_source_known_failure": "cargo fmt --check under Rust 1.98.1 stopped before tests and Clippy",
+  "semantic_requalification_toolchain": "1.98.1",
+  "semantic_requalification_cargo": "cargo 1.98.1 (797e8a9bc 2026-08-05)",
+  "checkout_action": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+  "rust_toolchain_action": "dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87",
+  "admitted_roots": [
+    "crates/mycelix-institutional-core",
+    "crates/mycelix-authority-identity",
+    "crates/mycelix-authority-freshness",
+    "crates/mycelix-authority-delegation-policy",
+    "crates/mycelix-authority-delegation"
+  ],
+  "admitted_root_trees": {
+    "crates/mycelix-institutional-core": "6602af340acaa660ffd7e4d46a2f84e67009f396",
+    "crates/mycelix-authority-identity": "ab98e976ee7acc67e7b5d2af7fc0d16a476f2710",
+    "crates/mycelix-authority-freshness": "76ec24222cfbd7a7d528996eb27df2f33dcc3c5a",
+    "crates/mycelix-authority-delegation-policy": "9c41ee69990e0fbb78a58dd82ed693df0889c862",
+    "crates/mycelix-authority-delegation": "665db95344b9787a377a4e06c74e434914535389"
+  },
+  "excluded_semantics": [
+    "governance proposal authority",
+    "governance threshold qualification",
+    "governance executor designation",
+    "governance execution lifecycle"
+  ],
+  "agent_002_identity_claim_blocked": true,
+  "full_agent_security_claim_blocked": true
+}
