@@ -54,10 +54,8 @@ jobs:
           rustfmt --version
           cargo clippy --version
 
-      - name: Format owned subjects
-        run: |
-          rustfmt --edition 2024 --check mycelix-commons/crates/commons-types/src/regenerative_recovery_transition_transport.rs
-          rustfmt --edition 2024 --check mycelix-commons/crates/commons-types/src/lib.rs
+      - name: Format owned source
+        run: rustfmt --edition 2024 --check mycelix-commons/crates/commons-types/src/regenerative_recovery_transition_transport.rs
 
       - name: Test commons-types
         run: cargo test --manifest-path mycelix-commons/Cargo.toml -p commons-types
