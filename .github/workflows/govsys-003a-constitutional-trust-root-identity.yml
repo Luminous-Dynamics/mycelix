@@ -21,7 +21,17 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
+          persist-credentials: false
+
+      - name: Exact qualification subject
+        shell: bash
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
 
       - name: Exact GOVSYS-002 constitutional ancestry
         shell: bash
@@ -66,7 +76,7 @@ jobs:
           grep -F '!= actor authority' "$doc"
           grep -F '!= external-effect authority' "$doc"
           grep -F 'authority and evidence may not self-justify cyclically' "$doc"
-          grep -F 'A future provider-policy adapter must exact-match **one complete tuple**.' "$doc"
+          grep -F 'A later provider-policy adapter must exact-match **one complete tuple**.' "$doc"
           grep -F 'The network remains infrastructure for institutions. It is not the sovereign.' "$doc"
 
       - name: Python identity oracle syntax
