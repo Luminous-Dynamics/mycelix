@@ -1,0 +1,247 @@
+name: Regenerative Recovery Transition Source Qualification
+
+on:
+  push:
+    branches:
+      - feat/regenerative-recovery-transition-source-qualified-v1
+  pull_request:
+    branches:
+      - feat/regenerative-recovery-transition-transport-v1
+
+permissions:
+  contents: read
+
+concurrency:
+  group: regenerative-recovery-transition-source-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Exact transition source recomputation boundary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Verify exact checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ github.event.pull_request.head.sha }}'
+          if [[ -z "$expected" ]]; then
+            expected="$GITHUB_SHA"
+          fi
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$expected"
+          echo "exact subject: $actual"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+
+      - name: Toolchain identity
+        run: |
+          rustc --version --verbose
+          cargo --version
+          rustfmt --version
+          cargo clippy --version
+
+      - name: Format owned source
+        run: rustfmt --edition 2024 --check mycelix-commons/crates/commons-types/src/regenerative_recovery_transition_source_qualification.rs
+
+      - name: Test commons-types
+        run: cargo test --manifest-path mycelix-commons/Cargo.toml -p commons-types
+
+      - name: Clippy commons-types; gate owned subjects
+        shell: bash
+        run: |
+          set -euo pipefail
+          owned_a='mycelix-commons/crates/commons-types/src/regenerative_recovery_transition_source_qualification.rs'
+          owned_b='mycelix-commons/crates/commons-types/src/lib.rs'
+          set +e
+          cargo clippy --manifest-path mycelix-commons/Cargo.toml -p commons-types \
+            --message-format=json 2>&1 | tee /tmp/recovery-transition-source-clippy.jsonl
+          cargo_status=${PIPESTATUS[0]}
+          set -e
+          python3 - "$owned_a" "$owned_b" "$cargo_status" <<'PY'
+          import json
+          import sys
+
+          owned = set(sys.argv[1:3])
+          cargo_status = int(sys.argv[3])
+          owned_warnings = []
+          compiler_errors = []
+          with open('/tmp/recovery-transition-source-clippy.jsonl', encoding='utf-8', errors='replace') as handle:
+              for line in handle:
+                  try:
+                      event = json.loads(line)
+                  except json.JSONDecodeError:
+                      continue
+                  if event.get('reason') != 'compiler-message':
+                      continue
+                  message = event.get('message') or {}
+                  level = message.get('level')
+                  spans = message.get('spans') or []
+                  if level == 'error':
+                      compiler_errors.append(message.get('message', 'compiler error'))
+                  if level == 'warning' and any(
+                      span.get('is_primary') and span.get('file_name') in owned for span in spans
+                  ):
+                      owned_warnings.append(message.get('message', 'warning'))
+
+          if cargo_status != 0 or compiler_errors:
+              print('Whole-package compiler/Clippy failure', file=sys.stderr)
+              for error in compiler_errors:
+                  print(f'- {error}', file=sys.stderr)
+              raise SystemExit(1)
+          if owned_warnings:
+              print('Owned source-qualification warnings:', file=sys.stderr)
+              for warning in owned_warnings:
+                  print(f'- {warning}', file=sys.stderr)
+              raise SystemExit(1)
+          print('PASS: package compiled and owned source-qualification subjects have no Clippy warnings')
+          PY
+
+      - name: Exact-source lifetime and non-replay boundary audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          subject=mycelix-commons/crates/commons-types/src/regenerative_recovery_transition_source_qualification.rs
+          head_subject=mycelix-commons/crates/commons-types/src/regenerative_recovery_reserve_stream.rs
+          grep -q 'validate_regenerative_recovery_transition_transport(transport)?' "$subject"
+          grep -q 'verify_regenerative_recovery_transition_commitment(' "$subject"
+          grep -q 'pub const fn source_lifetime_bound_here' "$subject"
+          grep -q 'pub const fn exact_source_recomputation_verified_here' "$subject"
+          grep -q 'pub const fn live_governance_authority_verified_here' "$subject"
+          grep -q 'pub const fn persistence_authorized_here' "$subject"
+          grep -q 'pub const fn persistence_executed_here' "$subject"
+          ! grep -Eq '\bhdk\b|create_entry|update_entry|delete_entry|CallTargetCell|ZomeName' "$subject"
+          python3 - "$subject" <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          text = pathlib.Path(sys.argv[1]).read_text()
+          name = 'RegenerativeRecoveryTransitionSourceQualificationV1'
+
+          declaration = re.search(
+              rf'pub struct {name}<\x27a>\s*\{{(.*?)\n\}}',
+              text,
+              re.S,
+          )
+          if not declaration:
+              raise SystemExit('lifetime-bound source qualification token declaration not found')
+
+          prefix = text[max(0, declaration.start() - 160):declaration.start()]
+          if re.search(r'#\[derive\([^]]*\)\]\s*$', prefix):
+              raise SystemExit('source qualification token must not derive traits')
+
+          fields = declaration.group(1)
+          if re.search(r'^\s*pub(?:\([^)]*\))?\s+\w+\s*:', fields, re.M):
+              raise SystemExit('source qualification token fields must remain private')
+          if 'String' in fields or 'Vec<' in fields:
+              raise SystemExit('source qualification token must borrow sources, not own replayable payloads')
+
+          expected_borrows = {
+              'transport': 'RegenerativeRecoveryTransitionTransportV1',
+              'head': 'RegenerativeRecoveryReserveHeadV1',
+              'current_branch': 'RegenerativeRecoveryCoordinateEvidenceV1',
+              'sibling_branch': 'RegenerativeRecoveryCoordinateEvidenceV1',
+              'resolution': 'RegenerativeRecoveryForkResolutionEvidenceV1',
+          }
+          for field, ty in expected_borrows.items():
+              pattern = rf'^\s*{field}:\s*&\x27a\s+{ty},\s*$'
+              if not re.search(pattern, fields, re.M):
+                  raise SystemExit(f'missing exact lifetime-bound source field: {field}')
+          if '_sealed: ()' not in fields:
+              raise SystemExit('source qualification token lost private seal')
+
+          forbidden_impls = [
+              rf'impl(?:<[^>]*>)?\s+Clone\s+for\s+{name}',
+              rf'impl(?:<[^>]*>)?\s+Copy\s+for\s+{name}',
+              rf'impl(?:<[^>]*>)?\s+(?:serde::)?Serialize\s+for\s+{name}',
+              rf'impl(?:<[^>]*>)?\s+(?:serde::)?Deserialize(?:<[^>]*>)?\s+for\s+{name}',
+          ]
+          for pattern in forbidden_impls:
+              if re.search(pattern, text):
+                  raise SystemExit(f'forbidden replay/serialization impl detected: {pattern}')
+
+          positives = [
+              'source_lifetime_bound_here',
+              'exact_source_recomputation_verified_here',
+          ]
+          negatives = [
+              'live_governance_authority_verified_here',
+              'persistence_authorized_here',
+              'persistence_executed_here',
+          ]
+          for method in positives:
+              match = re.search(
+                  rf'pub const fn {method}\(&self\) -> bool \{{\s*(true|false)\s*\}}',
+                  text,
+              )
+              if not match or match.group(1) != 'true':
+                  raise SystemExit(f'{method} must remain fixed true')
+          for method in negatives:
+              match = re.search(
+                  rf'pub const fn {method}\(&self\) -> bool \{{\s*(true|false)\s*\}}',
+                  text,
+              )
+              if not match or match.group(1) != 'false':
+                  raise SystemExit(f'{method} must remain fixed false')
+
+          if "pub fn qualify_regenerative_recovery_transition_sources<'a>(" not in text:
+              raise SystemExit('qualification function lost shared source lifetime')
+          if "Result<RegenerativeRecoveryTransitionSourceQualificationV1<'a>, String>" not in text:
+              raise SystemExit('qualification result lost source lifetime')
+
+          print('PASS: exact-source token remains lifetime-bound, private, sealed, non-replayable, and non-authorizing')
+          PY
+
+          python3 - "$head_subject" <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          text = pathlib.Path(sys.argv[1]).read_text()
+          declaration = re.search(
+              r'pub struct RegenerativeRecoveryReserveHeadV1\s*\{(.*?)\n\}',
+              text,
+              re.S,
+          )
+          if not declaration:
+              raise SystemExit('recovery reserve head declaration not found')
+          fields = declaration.group(1)
+          forbidden = [
+              'Cell<',
+              'RefCell<',
+              'UnsafeCell<',
+              'Mutex<',
+              'RwLock<',
+              'AtomicBool',
+              'AtomicU',
+              'AtomicI',
+              'AtomicPtr',
+          ]
+          for token in forbidden:
+              if token in fields:
+                  raise SystemExit(f'recovery head gained interior/concurrent mutability: {token}')
+
+          required_mutators = [
+              r'pub fn ingest\s*\(\s*&mut self,',
+              r'pub\(crate\) fn resolve_pending_sibling_fork_to\s*\(\s*&mut self,',
+          ]
+          for pattern in required_mutators:
+              if not re.search(pattern, text, re.S):
+                  raise SystemExit(f'recovery head mutation boundary changed: {pattern}')
+
+          print('PASS: borrowed recovery head remains ordinary state with explicit &mut mutation boundaries')
+          PY
