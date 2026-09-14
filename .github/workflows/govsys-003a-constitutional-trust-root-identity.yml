@@ -71,8 +71,10 @@ jobs:
           doc=mycelix-workspace/docs/government/CONSTITUTIONAL_TRUST_ROOT_IDENTITY_V0.1.md
           grep -F 'mycelix-constitutional-trust-root-v1-sha256-framed-semantic' "$doc"
           grep -F 'mycelix-constitutional-root-source-descriptor-v1-sha256-framed-semantic' "$doc"
-          grep -F 'canonical root identity' "$doc"
-          grep -F '!= root provenance' "$doc"
+          grep -F 'mycelix-constitutional-root-rotation-authority-v1-sha256-framed-semantic' "$doc"
+          grep -F 'source-verification authority' "$doc"
+          grep -F 'constitutional rotation authority' "$doc"
+          grep -F '!= bootstrap provenance' "$doc"
           grep -F '!= legal legitimacy' "$doc"
           grep -F '!= actor authority' "$doc"
           grep -F '!= external-effect authority' "$doc"
@@ -112,6 +114,7 @@ jobs:
           PROFILE = b"mycelix-constitutional-root-source-descriptor-v1-sha256-framed-semantic"
           DOMAIN = b"mycelix/public-institution/constitutional-root-source-descriptor/v1"
           EXPECTED = "f97a96e20ce6dd0c86c67e1590252abc678dfd6401128ab44ced4a66ec088126"
+          ROOT_EXPECTED = "c3f9ba9b323f20c2d2ebd597e424857e8f3459d31393886fd6a7f835a6a93d6d"
 
           def frame(raw: bytes) -> bytes:
               return struct.pack("<Q", len(raw)) + raw
@@ -132,7 +135,7 @@ jobs:
           root = vector["root"]
           actual = descriptor(root)
           assert actual == EXPECTED, (actual, EXPECTED)
-          assert vector["expected_digest_hex"] == "ce8eb35f69b1007a6f1152c2b7bc203cec9d093f1daf1216cc4f135012010669"
+          assert vector["expected_digest_hex"] == ROOT_EXPECTED
 
           for field, replacement in (
               ("authoritative_root_source_ref", "registry:constitutional-root:other"),
@@ -153,8 +156,12 @@ jobs:
           )
           assert descriptor(uppercase_anchor) == EXPECTED
 
+          unrelated_rotation = copy.deepcopy(root)
+          unrelated_rotation["rotation_authority_anchor_digest_hex"] = "77" * 32
+          assert descriptor(unrelated_rotation) == EXPECTED
+
           unrelated_rulebook = copy.deepcopy(root)
-          unrelated_rulebook["constitutional_rulebook"]["digest_hex"] = "44" * 32
+          unrelated_rulebook["constitutional_rulebook"]["digest_hex"] = "55" * 32
           assert descriptor(unrelated_rulebook) == EXPECTED
 
           unrelated_scope = copy.deepcopy(root)
@@ -163,11 +170,67 @@ jobs:
           )
           assert descriptor(unrelated_scope) == EXPECTED
 
-          unrelated_institution = copy.deepcopy(root)
-          unrelated_institution["institution_id"] = "institution:other-city"
-          assert descriptor(unrelated_institution) == EXPECTED
-
           print(f"GOVSYS-003A source descriptor PASS: {actual}")
+          PY
+
+      - name: Execute derived rotation-authority golden vector
+        shell: bash
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import copy
+          import hashlib
+          import json
+          import struct
+          from pathlib import Path
+
+          PROFILE = b"mycelix-constitutional-root-rotation-authority-v1-sha256-framed-semantic"
+          DOMAIN = b"mycelix/public-institution/constitutional-root-rotation-authority/v1"
+          EXPECTED = "cf86718a53410b1e5e38cf5c552b3e4448772da97533fbd08c7b9bbfbee909ae"
+
+          def frame(raw: bytes) -> bytes:
+              return struct.pack("<Q", len(raw)) + raw
+
+          def descriptor(root: dict) -> str:
+              transcript = bytearray(DOMAIN)
+              transcript += frame(PROFILE)
+              transcript += frame(root["rotation_profile"].encode("utf-8"))
+              transcript += frame(bytes.fromhex(root["rotation_authority_anchor_digest_hex"]))
+              return hashlib.sha256(transcript).hexdigest()
+
+          vector = json.loads(
+              Path("scripts/qualification/govsys_003a_root_identity_vector_v1.json")
+              .read_text(encoding="utf-8")
+          )
+          root = vector["root"]
+          actual = descriptor(root)
+          assert actual == EXPECTED, (actual, EXPECTED)
+
+          changed_profile = copy.deepcopy(root)
+          changed_profile["rotation_profile"] = "constitutional-root-rotation-v2"
+          assert descriptor(changed_profile) != EXPECTED
+
+          changed_anchor = copy.deepcopy(root)
+          changed_anchor["rotation_authority_anchor_digest_hex"] = "77" * 32
+          assert descriptor(changed_anchor) != EXPECTED
+
+          uppercase_anchor = copy.deepcopy(root)
+          uppercase_anchor["rotation_authority_anchor_digest_hex"] = (
+              uppercase_anchor["rotation_authority_anchor_digest_hex"].upper()
+          )
+          assert descriptor(uppercase_anchor) == EXPECTED
+
+          unrelated_source_anchor = copy.deepcopy(root)
+          unrelated_source_anchor["root_source_anchor_digest_hex"] = "66" * 32
+          assert descriptor(unrelated_source_anchor) == EXPECTED
+
+          unrelated_rulebook = copy.deepcopy(root)
+          unrelated_rulebook["constitutional_rulebook"]["digest_hex"] = "55" * 32
+          assert descriptor(unrelated_rulebook) == EXPECTED
+
+          print(f"GOVSYS-003A rotation authority PASS: {actual}")
           PY
 
       - name: Immutable checkout postflight
