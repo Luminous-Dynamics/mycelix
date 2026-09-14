@@ -57,6 +57,7 @@ impl RegenerativeRecoveryReserveHeadSnapshotV1 {
             .map_err(|error| format!("failed to serialize recovery head snapshot: {error}"))?;
         Ok(framed_digest(
             b"mycelix-regenerative-recovery-head-snapshot-v1\0",
+            REGENERATIVE_RECOVERY_HEAD_SNAPSHOT_PROFILE_V1.as_bytes(),
             &payload,
         ))
     }
@@ -95,6 +96,7 @@ impl RegenerativeRecoveryTransitionCommitmentV1 {
             .map_err(|error| format!("failed to serialize recovery transition commitment: {error}"))?;
         Ok(framed_digest(
             b"mycelix-regenerative-recovery-transition-v1\0",
+            REGENERATIVE_RECOVERY_TRANSITION_COMMITMENT_PROFILE_V1.as_bytes(),
             &payload,
         ))
     }
@@ -186,9 +188,11 @@ pub fn verify_regenerative_recovery_transition_commitment(
     Ok(())
 }
 
-fn framed_digest(domain: &[u8], payload: &[u8]) -> String {
+fn framed_digest(domain: &[u8], profile: &[u8], payload: &[u8]) -> String {
     let mut hasher = blake3::Hasher::new();
     hasher.update(domain);
+    hasher.update(&(profile.len() as u64).to_le_bytes());
+    hasher.update(profile);
     hasher.update(&(payload.len() as u64).to_le_bytes());
     hasher.update(payload);
     hasher.finalize().to_hex().to_string()
@@ -313,7 +317,8 @@ mod tests {
     #[test]
     fn switch_commitment_binds_exact_pre_and_post_state() {
         let (head, current, sibling) = frozen_fork();
-        let decision = resolution(&current, &sibling, Some(sibling.content_digest().unwrap()));
+        let sibling_digest = sibling.content_digest().unwrap();
+        let decision = resolution(&current, &sibling, Some(sibling_digest.clone()));
         let commitment = qualify_regenerative_recovery_transition_commitment(
             &head, &current, &sibling, &decision,
         )
@@ -322,7 +327,7 @@ mod tests {
         assert!(commitment.cursor_resumed);
         assert_eq!(
             commitment.selected_branch_content_digest.as_deref(),
-            Some(sibling.content_digest().unwrap().as_str())
+            Some(sibling_digest.as_str())
         );
         assert_ne!(commitment.pre_state_digest, commitment.post_state_digest);
         assert!(!commitment.governance_authority_verified_here());
@@ -373,6 +378,32 @@ mod tests {
 
         assert_ne!(first.content_digest().unwrap(), second.content_digest().unwrap());
         assert_ne!(first.post_state_digest, second.post_state_digest);
+    }
+
+    #[test]
+    fn commitment_is_bound_to_the_exact_frozen_prestate() {
+        let (mut head, current, sibling) = frozen_fork();
+        let decision = resolution(&current, &sibling, Some(current.content_digest().unwrap()));
+        let commitment = qualify_regenerative_recovery_transition_commitment(
+            &head, &current, &sibling, &decision,
+        )
+        .unwrap();
+
+        assert!(
+            apply_regenerative_recovery_fork_resolution(&mut head, &current, &sibling, &decision)
+                .unwrap()
+        );
+        assert!(!head.fork_pending());
+        assert!(
+            verify_regenerative_recovery_transition_commitment(
+                &head,
+                &current,
+                &sibling,
+                &decision,
+                &commitment,
+            )
+            .is_err()
+        );
     }
 
     #[test]
