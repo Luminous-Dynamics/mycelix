@@ -1,0 +1,247 @@
+name: GOVSYS-003A-R Rust Root-A Conformance
+
+on:
+  pull_request:
+    branches:
+      - feat/govsys-003a-constitutional-trust-root-identity-v0.1
+    paths:
+      - .github/workflows/govsys-003a-rust-root-conformance.yml
+      - crates/mycelix-constitutional-root/Cargo.toml
+      - crates/mycelix-constitutional-root/src/lib.rs
+      - crates/mycelix-constitutional-root/examples/conformance.rs
+      - crates/mycelix-constitutional-root/vectors/root_a_transition_pair_v1.json
+      - mycelix-workspace/docs/government/CONSTITUTIONAL_ROOT_RUST_CONFORMANCE_V0.1.md
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Byte-exact Python and Rust Root-A conformance
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Exact qualification subject and six-file surface
+        shell: bash
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          parent=235834fc726c1a79467e6f910a2cf39fb9abd2e3
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+          test "$(git rev-parse HEAD^)" = "$parent"
+          test "$(git rev-list --count "${parent}..HEAD")" -eq 1
+
+          mapfile -t changed < <(git diff --name-only "$parent"..HEAD | sort)
+          expected=(
+            .github/workflows/govsys-003a-rust-root-conformance.yml
+            crates/mycelix-constitutional-root/Cargo.toml
+            crates/mycelix-constitutional-root/examples/conformance.rs
+            crates/mycelix-constitutional-root/src/lib.rs
+            crates/mycelix-constitutional-root/vectors/root_a_transition_pair_v1.json
+            mycelix-workspace/docs/government/CONSTITUTIONAL_ROOT_RUST_CONFORMANCE_V0.1.md
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#changed[@]}" -eq 6
+          test "${#changed[@]}" -eq "${#expected_sorted[@]}"
+          for i in "${!expected_sorted[@]}"; do
+            test "${changed[$i]}" = "${expected_sorted[$i]}"
+          done
+
+      - name: Exact qualified Python source theorem unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent=235834fc726c1a79467e6f910a2cf39fb9abd2e3
+          for path in \
+            scripts/qualification/govsys_003a_root_identity_vector_v1.json \
+            scripts/qualification/govsys_constitutional_trust_root_identity_v0_1.py; do
+            test "$(git rev-parse "HEAD:${path}")" = "$(git rev-parse "${parent}:${path}")"
+          done
+
+      - name: Static production-boundary audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo=crates/mycelix-constitutional-root/Cargo.toml
+          lib=crates/mycelix-constitutional-root/src/lib.rs
+          doc=mycelix-workspace/docs/government/CONSTITUTIONAL_ROOT_RUST_CONFORMANCE_V0.1.md
+
+          grep -F '#![no_std]' "$lib"
+          grep -F 'pub struct QualifiedConstitutionalRootA' "$lib"
+          grep -F 'pub fn qualify_root' "$lib"
+          grep -F 'grants_currentness' "$lib"
+          grep -F 'grants_effect_authority' "$lib"
+          grep -F 'sha2 = { version = "=0.10.9", default-features = false }' "$cargo"
+          grep -F 'same exact Root-A semantics' "$doc"
+          grep -F 'source descriptor != rotation authority' "$doc"
+          grep -F 'The network remains infrastructure for institutions. It is not the sovereign.' "$doc"
+
+          if grep -Eq '(serde|hdk|hdi|holochain|tokio|reqwest|wasmtime|evaluate_authority|reputation|stake|Phi)' "$cargo" "$lib"; then
+            echo 'Root-A Rust core must remain serialization/runtime/network/ordinary-authority independent' >&2
+            exit 1
+          fi
+
+      - name: Re-execute exact qualified Python Root-A oracle
+        id: python_parent
+        continue-on-error: true
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python3 scripts/qualification/govsys_constitutional_trust_root_identity_v0_1.py
+
+      - name: Produce exact Python conformance identities
+        id: python_conformance
+        if: always()
+        continue-on-error: true
+        shell: bash
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' > "$RUNNER_TEMP/root-a-python.out"
+          import json
+          import sys
+          from pathlib import Path
+
+          sys.path.insert(0, 'scripts/qualification')
+          import govsys_constitutional_trust_root_identity_v0_1 as root
+
+          golden = json.loads(
+              Path('scripts/qualification/govsys_003a_root_identity_vector_v1.json')
+              .read_text(encoding='utf-8')
+          )['root']
+          pair = json.loads(
+              Path('crates/mycelix-constitutional-root/vectors/root_a_transition_pair_v1.json')
+              .read_text(encoding='utf-8')
+          )
+
+          def emit(label, value):
+              rotation = root.rotation_authority_hex(value)
+              assert rotation is not None
+              print(f'{label}.root={root.identity_hex(value)}')
+              print(f'{label}.source={root.source_descriptor_hex(value)}')
+              print(f'{label}.rotation={rotation}')
+
+          emit('golden', golden)
+          emit('predecessor', pair['predecessor'])
+          emit('successor', pair['successor'])
+          PY
+          cat "$RUNNER_TEMP/root-a-python.out"
+
+      - name: Install exact Rust toolchain
+        id: toolchain
+        if: always()
+        continue-on-error: true
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+
+      - name: Materialize isolated Rust subject
+        id: materialize
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          target="$RUNNER_TEMP/mycelix-constitutional-root"
+          mkdir -p "$target"
+          cp -a crates/mycelix-constitutional-root/. "$target/"
+          printf '%s\n' "$target" > "$RUNNER_TEMP/root_a_rust_subject"
+
+      - name: Rustfmt
+        id: rustfmt
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$(cat "$RUNNER_TEMP/root_a_rust_subject")"
+          cargo fmt --manifest-path "$crate/Cargo.toml" -- --check
+
+      - name: Rust all-target tests
+        id: tests
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$(cat "$RUNNER_TEMP/root_a_rust_subject")"
+          cargo test --manifest-path "$crate/Cargo.toml" --all-targets
+
+      - name: Rust Clippy warnings denied
+        id: clippy
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$(cat "$RUNNER_TEMP/root_a_rust_subject")"
+          cargo clippy --manifest-path "$crate/Cargo.toml" --all-targets -- -D warnings
+
+      - name: Rust wasm32 no_std check
+        id: wasm
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$(cat "$RUNNER_TEMP/root_a_rust_subject")"
+          cargo check --manifest-path "$crate/Cargo.toml" --lib --target wasm32-unknown-unknown
+
+      - name: Produce Rust conformance identities and diff Python
+        id: cross_language
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$(cat "$RUNNER_TEMP/root_a_rust_subject")"
+          cargo run --quiet --manifest-path "$crate/Cargo.toml" --example conformance \
+            > "$RUNNER_TEMP/root-a-rust.out"
+          cat "$RUNNER_TEMP/root-a-rust.out"
+          diff -u "$RUNNER_TEMP/root-a-python.out" "$RUNNER_TEMP/root-a-rust.out"
+
+      - name: Immutable checkout postflight
+        id: immutable
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
+
+      - name: Fail closed on any Rust Root-A conformance defect
+        if: always()
+        shell: bash
+        env:
+          PYTHON_PARENT_OUTCOME: ${{ steps.python_parent.outcome }}
+          PYTHON_CONFORMANCE_OUTCOME: ${{ steps.python_conformance.outcome }}
+          TOOLCHAIN_OUTCOME: ${{ steps.toolchain.outcome }}
+          MATERIALIZE_OUTCOME: ${{ steps.materialize.outcome }}
+          RUSTFMT_OUTCOME: ${{ steps.rustfmt.outcome }}
+          TESTS_OUTCOME: ${{ steps.tests.outcome }}
+          CLIPPY_OUTCOME: ${{ steps.clippy.outcome }}
+          WASM_OUTCOME: ${{ steps.wasm.outcome }}
+          CROSS_LANGUAGE_OUTCOME: ${{ steps.cross_language.outcome }}
+          IMMUTABLE_OUTCOME: ${{ steps.immutable.outcome }}
+        run: |
+          set -euo pipefail
+          test "$PYTHON_PARENT_OUTCOME" = success
+          test "$PYTHON_CONFORMANCE_OUTCOME" = success
+          test "$TOOLCHAIN_OUTCOME" = success
+          test "$MATERIALIZE_OUTCOME" = success
+          test "$RUSTFMT_OUTCOME" = success
+          test "$TESTS_OUTCOME" = success
+          test "$CLIPPY_OUTCOME" = success
+          test "$WASM_OUTCOME" = success
+          test "$CROSS_LANGUAGE_OUTCOME" = success
+          test "$IMMUTABLE_OUTCOME" = success
