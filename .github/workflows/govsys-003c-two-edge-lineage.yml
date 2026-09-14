@@ -1,0 +1,271 @@
+name: GOVSYS-003C-B Two-Edge Rooted Lineage
+
+on:
+  pull_request:
+    branches:
+      - feat/govsys-003c-a-rooted-lineage-composition-v0.1
+    paths:
+      - .github/workflows/govsys-003c-two-edge-lineage.yml
+      - mycelix-workspace/docs/government/CONSTITUTIONAL_ROOTED_LINEAGE_TWO_EDGE_V0.1.md
+      - scripts/qualification/govsys_003c_two_edge_core_harness.rs
+      - scripts/qualification/govsys_003c_two_edge_lineage_vector_v1.json
+      - scripts/qualification/govsys_constitutional_two_edge_lineage_v0_1.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Fresh two-edge cryptographic rooted lineage
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Exact qualification subject
+        shell: bash
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+          parent=b30a3cf30df7fc925834240b89ae0edcc0e42f74
+          test "$(git rev-parse HEAD^)" = "$parent"
+          test "$(git rev-list --count "${parent}..HEAD")" -eq 1
+
+      - name: Exact one-commit five-file surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent=b30a3cf30df7fc925834240b89ae0edcc0e42f74
+          mapfile -t changed < <(git diff --name-only "$parent"..HEAD | sort)
+          expected=(
+            .github/workflows/govsys-003c-two-edge-lineage.yml
+            mycelix-workspace/docs/government/CONSTITUTIONAL_ROOTED_LINEAGE_TWO_EDGE_V0.1.md
+            scripts/qualification/govsys_003c_two_edge_core_harness.rs
+            scripts/qualification/govsys_003c_two_edge_lineage_vector_v1.json
+            scripts/qualification/govsys_constitutional_two_edge_lineage_v0_1.py
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#changed[@]}" -eq 5
+          for i in "${!expected_sorted[@]}"; do
+            test "${changed[$i]}" = "${expected_sorted[$i]}"
+          done
+
+      - name: Inherited theorem blobs unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent=b30a3cf30df7fc925834240b89ae0edcc0e42f74
+          for path in \
+            scripts/qualification/govsys_constitutional_trust_root_identity_v0_1.py \
+            scripts/qualification/govsys_constitutional_pinned_root_provenance_v0_1.py \
+            scripts/qualification/govsys_constitutional_transition_verifier_v0_1.py \
+            scripts/qualification/govsys_constitutional_rooted_lineage_v0_1.py \
+            crates/mycelix-core-lineage/Cargo.toml \
+            crates/mycelix-core-lineage/src/lib.rs
+          do
+            test "$(git rev-parse "HEAD:${path}")" = "$(git rev-parse "${parent}:${path}")"
+          done
+
+      - name: Static theorem and fixture boundary audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          doc=mycelix-workspace/docs/government/CONSTITUTIONAL_ROOTED_LINEAGE_TWO_EDGE_V0.1.md
+          oracle=scripts/qualification/govsys_constitutional_two_edge_lineage_v0_1.py
+          vector=scripts/qualification/govsys_003c_two_edge_lineage_vector_v1.json
+          grep -F 'Root-D remains the owner of closed-world coverage and current-head promotion.' "$doc"
+          grep -F 'grants_currentness = false' "$doc"
+          grep -F 'grants_effect_authority = false' "$doc"
+          grep -F 'The network remains infrastructure for institutions. It is not the sovereign.' "$doc"
+          grep -F 'TRANSITION.qualify_transition' "$oracle"
+          grep -F 'ROOT_B.qualify_pinned_root' "$oracle"
+          grep -F 'TRANSITION.assert_no_replay_conflicts' "$oracle"
+          grep -F 'G2 must be an immutable terminal root' "$oracle"
+          if grep -Eq -- 'BEGIN (OPENSSH |EC |RSA |)PRIVATE KEY|private_key_hex|secret_key_hex|seed_hex' "$vector"; then
+            echo 'fixture vector must not contain private signing material' >&2
+            exit 1
+          fi
+          if grep -Eq '(hdk::|holochain|evaluate_authority|reputation|stake|model_score)' "$oracle"; then
+            echo 'two-edge qualification oracle must remain pure and non-recursive' >&2
+            exit 1
+          fi
+
+      - name: Re-execute exact Root-A oracle
+        id: root_a
+        continue-on-error: true
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: python3 scripts/qualification/govsys_constitutional_trust_root_identity_v0_1.py
+
+      - name: Re-execute exact Root-B oracle
+        id: root_b
+        if: always()
+        continue-on-error: true
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: python3 scripts/qualification/govsys_constitutional_pinned_root_provenance_v0_1.py
+
+      - name: Re-execute exact predecessor transition verifier
+        id: transition
+        if: always()
+        continue-on-error: true
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: python3 scripts/qualification/govsys_constitutional_transition_verifier_v0_1.py
+
+      - name: Re-execute qualified one-edge Root-C theorem
+        id: root_c_a
+        if: always()
+        continue-on-error: true
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: python3 scripts/qualification/govsys_constitutional_rooted_lineage_v0_1.py
+
+      - name: Execute fresh two-edge qualification oracle
+        id: two_edge
+        if: always()
+        continue-on-error: true
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: python3 scripts/qualification/govsys_constitutional_two_edge_lineage_v0_1.py
+
+      - name: Independently verify both Ed25519 transitions with OpenSSL
+        id: openssl
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmp="$RUNNER_TEMP/govsys-003c-b-openssl"
+          mkdir -p "$tmp"
+          python3 - "$tmp" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+          out = Path(sys.argv[1])
+          vector = json.loads(Path('scripts/qualification/govsys_003c_two_edge_lineage_vector_v1.json').read_text(encoding='utf-8'))
+          for index, edge in enumerate(vector['edges']):
+              (out / f'candidate-{index}.bin').write_bytes(bytes.fromhex(vector['expected']['candidate_canonical_bytes_hex'][index]))
+              (out / f'public-{index}.der').write_bytes(bytes.fromhex(edge['authorization_material']['public_key_spki_der_hex']))
+              (out / f'signature-{index}.bin').write_bytes(bytes.fromhex(edge['authorization_proof']['signature_hex']))
+          PY
+          for index in 0 1; do
+            openssl pkeyutl -verify \
+              -pubin -inkey "$tmp/public-${index}.der" -keyform DER \
+              -rawin -in "$tmp/candidate-${index}.bin" \
+              -sigfile "$tmp/signature-${index}.bin"
+          done
+
+      - name: Independently audit fixture key separation and immutable terminal
+        id: independent
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          vector = json.loads(Path('scripts/qualification/govsys_003c_two_edge_lineage_vector_v1.json').read_text(encoding='utf-8'))
+          edges = vector['edges']
+          roots = vector['roots']
+          expected = vector['expected']
+          assert edges[0]['authorization_material']['public_key_spki_der_hex'] != edges[1]['authorization_material']['public_key_spki_der_hex']
+          assert roots['g0']['rotation_authority_anchor_digest_hex'] != roots['g1']['rotation_authority_anchor_digest_hex']
+          assert roots['g2']['rotation_mode'] == 'immutable'
+          assert roots['g2']['rotation_profile'] is None
+          assert roots['g2']['rotation_authority_anchor_digest_hex'] is None
+          assert expected['rotation_authority_digest_hex'][2] is None
+          for index, edge in enumerate(edges):
+              proof = bytes.fromhex(edge['authorization_proof']['signature_hex'])
+              assert hashlib.sha256(proof).hexdigest() == expected['authorization_proof_digest_hex'][index]
+          print('GOVSYS-003C-B independent fixture-boundary audit PASS')
+          PY
+
+      - name: Install exact CORE-LINEAGE Rust toolchain
+        id: toolchain
+        if: always()
+        continue-on-error: true
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+
+      - name: Rust harness format check
+        id: rustfmt
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustfmt --edition 2024 --check scripts/qualification/govsys_003c_two_edge_core_harness.rs
+
+      - name: Execute actual CORE-LINEAGE two-edge bridge harness
+        id: rust_harness
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          core="$RUNNER_TEMP/mycelix-core-lineage"
+          app="$RUNNER_TEMP/govsys-003c-b-core-harness"
+          mkdir -p "$core" "$app/src"
+          cp -a crates/mycelix-core-lineage/. "$core/"
+          cp scripts/qualification/govsys_003c_two_edge_core_harness.rs "$app/src/main.rs"
+          cat > "$app/Cargo.toml" <<EOF
+          [package]
+          name = "govsys-003c-b-core-harness"
+          version = "0.1.0"
+          edition = "2024"
+
+          [dependencies]
+          mycelix-core-lineage = { path = "$core" }
+          EOF
+          cargo run --quiet --manifest-path "$app/Cargo.toml"
+          cargo clippy --manifest-path "$app/Cargo.toml" -- -D warnings
+
+      - name: Immutable checkout postflight
+        id: immutable
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
+
+      - name: Fail closed on any GOVSYS-003C-B qualification defect
+        if: always()
+        shell: bash
+        env:
+          ROOT_A_OUTCOME: ${{ steps.root_a.outcome }}
+          ROOT_B_OUTCOME: ${{ steps.root_b.outcome }}
+          TRANSITION_OUTCOME: ${{ steps.transition.outcome }}
+          ROOT_C_A_OUTCOME: ${{ steps.root_c_a.outcome }}
+          TWO_EDGE_OUTCOME: ${{ steps.two_edge.outcome }}
+          OPENSSL_OUTCOME: ${{ steps.openssl.outcome }}
+          INDEPENDENT_OUTCOME: ${{ steps.independent.outcome }}
+          TOOLCHAIN_OUTCOME: ${{ steps.toolchain.outcome }}
+          RUSTFMT_OUTCOME: ${{ steps.rustfmt.outcome }}
+          RUST_HARNESS_OUTCOME: ${{ steps.rust_harness.outcome }}
+          IMMUTABLE_OUTCOME: ${{ steps.immutable.outcome }}
+        run: |
+          set -euo pipefail
+          test "$ROOT_A_OUTCOME" = success
+          test "$ROOT_B_OUTCOME" = success
+          test "$TRANSITION_OUTCOME" = success
+          test "$ROOT_C_A_OUTCOME" = success
+          test "$TWO_EDGE_OUTCOME" = success
+          test "$OPENSSL_OUTCOME" = success
+          test "$INDEPENDENT_OUTCOME" = success
+          test "$TOOLCHAIN_OUTCOME" = success
+          test "$RUSTFMT_OUTCOME" = success
+          test "$RUST_HARNESS_OUTCOME" = success
+          test "$IMMUTABLE_OUTCOME" = success

@@ -1,0 +1,159 @@
+{
+  "profile": "mycelix-constitutional-rooted-lineage-two-edge-v0.1",
+  "profiles": {
+    "root_identity": "mycelix-constitutional-trust-root-v1-sha256-framed-semantic",
+    "source_descriptor": "mycelix-constitutional-root-source-descriptor-v1-sha256-framed-semantic",
+    "rotation_authority": "mycelix-constitutional-root-rotation-authority-v1-sha256-framed-semantic",
+    "authorization_material": "mycelix-constitutional-root-rotation-authority-ed25519-single-v1",
+    "authorization_suite": "ed25519-spki-v1",
+    "authorization_proof_suite": "ed25519-signature-v1",
+    "transition": "mycelix-constitutional-root-transition-v1-sha256-framed-semantic"
+  },
+  "root_b_pin": {
+    "pin_profile": "mycelix-provisioned-constitutional-root-pin-v1",
+    "root_identity_profile": "mycelix-constitutional-trust-root-v1-sha256-framed-semantic",
+    "root_digest_hex": "2684cc6c8b8f13e2e564b0bb7682dde0d333124d4a5db4ed04eaae1ad99023c9",
+    "bootstrap_profile": "deployment-pinned-root-digest-v1",
+    "provisioning_ref": "deployment:root-c-two-edge-fixture:constitutional-root-pin:v1"
+  },
+  "roots": {
+    "g0": {
+      "protocol_version": "mycelix-constitutional-trust-root-v0.1",
+      "institution_id": "institution:root-c-two-edge-fixture",
+      "jurisdiction_id": "jurisdiction:root-c-fixture",
+      "bootstrap_mode": "pinned-constitutional-commitment",
+      "bootstrap_profile": "deployment-pinned-root-digest-v1",
+      "authoritative_root_source_ref": "registry:constitutional-root:root-c-two-edge-fixture",
+      "root_coverage_profile": "mycelix-constitutional-root-covered-head-v1",
+      "root_source_verification_profile": "mycelix-constitutional-root-source-verification-v1",
+      "constitutional_rulebook": {"id": "rulebook:fixture-charter:v1", "version": "1.0.0", "digest_hex": "3131313131313131313131313131313131313131313131313131313131313131"},
+      "generation": 0,
+      "predecessor_root_digest_hex": null,
+      "root_source_anchor_digest_hex": "4141414141414141414141414141414141414141414141414141414141414141",
+      "authorized_policy_scopes": [
+        {"policy_identity_profile": "mycelix-review-policy-v1-blake3-framed-semantic", "policy_registry_namespace": "registry:review-policy:root-c-two-edge-fixture", "provider_authority_institution_id": "institution:fixture-clerk", "provider_authority_jurisdiction_id": "jurisdiction:root-c-fixture", "provider_authority_rulebook": {"id": "rulebook:fixture-clerk:v1", "version": "1.0.0", "digest_hex": "2121212121212121212121212121212121212121212121212121212121212121"}, "required_provider_capability": "administration.review-policy.currentness.attest"},
+        {"policy_identity_profile": "mycelix-procedure-policy-currentness-provider-v1-blake3-framed-semantic", "policy_registry_namespace": "registry:procedure-policy:root-c-two-edge-fixture", "provider_authority_institution_id": "institution:fixture-clerk", "provider_authority_jurisdiction_id": "jurisdiction:root-c-fixture", "provider_authority_rulebook": {"id": "rulebook:fixture-clerk:v1", "version": "1.0.0", "digest_hex": "2121212121212121212121212121212121212121212121212121212121212121"}, "required_provider_capability": "administration.policy.currentness.attest"}
+      ],
+      "valid_from_ms": 1810000000000,
+      "expires_at_ms": 1810000150000,
+      "rotation_mode": "predecessor-authorized",
+      "rotation_profile": "constitutional-root-rotation-v1",
+      "rotation_authority_anchor_digest_hex": "95da72b5b496cc8d6d5c33eb18beac23ef4d9282ae5964fd9da4c3ed9d9dc851"
+    },
+    "g1": {
+      "protocol_version": "mycelix-constitutional-trust-root-v0.1",
+      "institution_id": "institution:root-c-two-edge-fixture",
+      "jurisdiction_id": "jurisdiction:root-c-fixture",
+      "bootstrap_mode": "pinned-constitutional-commitment",
+      "bootstrap_profile": "deployment-pinned-root-digest-v1",
+      "authoritative_root_source_ref": "registry:constitutional-root:root-c-two-edge-fixture",
+      "root_coverage_profile": "mycelix-constitutional-root-covered-head-v1",
+      "root_source_verification_profile": "mycelix-constitutional-root-source-verification-v1",
+      "constitutional_rulebook": {"id": "rulebook:fixture-charter:v2", "version": "2.0.0", "digest_hex": "3232323232323232323232323232323232323232323232323232323232323232"},
+      "generation": 1,
+      "predecessor_root_digest_hex": "2684cc6c8b8f13e2e564b0bb7682dde0d333124d4a5db4ed04eaae1ad99023c9",
+      "root_source_anchor_digest_hex": "4242424242424242424242424242424242424242424242424242424242424242",
+      "authorized_policy_scopes": [
+        {"policy_identity_profile": "mycelix-procedure-policy-currentness-provider-v1-blake3-framed-semantic", "policy_registry_namespace": "registry:procedure-policy:root-c-two-edge-fixture", "provider_authority_institution_id": "institution:fixture-clerk", "provider_authority_jurisdiction_id": "jurisdiction:root-c-fixture", "provider_authority_rulebook": {"id": "rulebook:fixture-clerk:v1", "version": "1.0.0", "digest_hex": "2121212121212121212121212121212121212121212121212121212121212121"}, "required_provider_capability": "administration.policy.currentness.attest"},
+        {"policy_identity_profile": "mycelix-review-policy-v1-blake3-framed-semantic", "policy_registry_namespace": "registry:review-policy:root-c-two-edge-fixture", "provider_authority_institution_id": "institution:fixture-clerk", "provider_authority_jurisdiction_id": "jurisdiction:root-c-fixture", "provider_authority_rulebook": {"id": "rulebook:fixture-clerk:v1", "version": "1.0.0", "digest_hex": "2121212121212121212121212121212121212121212121212121212121212121"}, "required_provider_capability": "administration.review-policy.currentness.attest"}
+      ],
+      "valid_from_ms": 1810000100000,
+      "expires_at_ms": 1810000250000,
+      "rotation_mode": "predecessor-authorized",
+      "rotation_profile": "constitutional-root-rotation-v1",
+      "rotation_authority_anchor_digest_hex": "9103fea7a3d6999b67ae597cb0e10b2ba33149d2a721f9b9523b0e3fd21e27d1"
+    },
+    "g2": {
+      "protocol_version": "mycelix-constitutional-trust-root-v0.1",
+      "institution_id": "institution:root-c-two-edge-fixture",
+      "jurisdiction_id": "jurisdiction:root-c-fixture",
+      "bootstrap_mode": "pinned-constitutional-commitment",
+      "bootstrap_profile": "deployment-pinned-root-digest-v1",
+      "authoritative_root_source_ref": "registry:constitutional-root:root-c-two-edge-fixture",
+      "root_coverage_profile": "mycelix-constitutional-root-covered-head-v1",
+      "root_source_verification_profile": "mycelix-constitutional-root-source-verification-v1",
+      "constitutional_rulebook": {"id": "rulebook:fixture-charter:v3", "version": "3.0.0", "digest_hex": "3333333333333333333333333333333333333333333333333333333333333333"},
+      "generation": 2,
+      "predecessor_root_digest_hex": "8f868c8c33698e6734ead90df9383f81141b6ff52d8ab765aa2aa5d6a028810c",
+      "root_source_anchor_digest_hex": "4343434343434343434343434343434343434343434343434343434343434343",
+      "authorized_policy_scopes": [
+        {"policy_identity_profile": "mycelix-review-policy-v1-blake3-framed-semantic", "policy_registry_namespace": "registry:review-policy:root-c-two-edge-fixture", "provider_authority_institution_id": "institution:fixture-clerk", "provider_authority_jurisdiction_id": "jurisdiction:root-c-fixture", "provider_authority_rulebook": {"id": "rulebook:fixture-clerk:v1", "version": "1.0.0", "digest_hex": "2121212121212121212121212121212121212121212121212121212121212121"}, "required_provider_capability": "administration.review-policy.currentness.attest"}
+      ],
+      "valid_from_ms": 1810000200000,
+      "expires_at_ms": null,
+      "rotation_mode": "immutable",
+      "rotation_profile": null,
+      "rotation_authority_anchor_digest_hex": null
+    }
+  },
+  "edges": [
+    {
+      "authorization_material": {"profile": "mycelix-constitutional-root-rotation-authority-ed25519-single-v1", "suite": "ed25519-spki-v1", "public_key_spki_der_hex": "302a300506032b6570032100bee5e0faf2f5994a33e64bedd2d94028b5e541d364653bb48baf426bbfcd68d4"},
+      "authorization_proof": {"suite": "ed25519-signature-v1", "signature_hex": "b0f2a88e1050acb737680e3f3742c03d9281101c1564a36c60cc039de4659490da37ca2b50d432f55094fdfb1df95c3f83e471b3dc8c4ad14212c5cd64be300d"},
+      "candidate": {
+        "profile": "mycelix-constitutional-root-transition-v1-sha256-framed-semantic",
+        "predecessor_root_identity_profile": "mycelix-constitutional-trust-root-v1-sha256-framed-semantic",
+        "predecessor_root_digest_hex": "2684cc6c8b8f13e2e564b0bb7682dde0d333124d4a5db4ed04eaae1ad99023c9",
+        "predecessor_generation": 0,
+        "predecessor_source_descriptor_profile": "mycelix-constitutional-root-source-descriptor-v1-sha256-framed-semantic",
+        "predecessor_source_descriptor_digest_hex": "aa78b5370cb1def51be692498ef6a5bc6c51612155fb9167421d8b10cd01cb84",
+        "predecessor_rotation_authority_profile": "mycelix-constitutional-root-rotation-authority-v1-sha256-framed-semantic",
+        "predecessor_rotation_authority_digest_hex": "8bfa94e985fa2d5c0905d3e3af9209ac033d8940a1ce94742b3a3b1ff99a4ab2",
+        "successor_root_identity_profile": "mycelix-constitutional-trust-root-v1-sha256-framed-semantic",
+        "successor_root_digest_hex": "8f868c8c33698e6734ead90df9383f81141b6ff52d8ab765aa2aa5d6a028810c",
+        "successor_generation": 1,
+        "successor_source_descriptor_profile": "mycelix-constitutional-root-source-descriptor-v1-sha256-framed-semantic",
+        "successor_source_descriptor_digest_hex": "9c4db710b045aee584019e6ff1ec1d0721df11fa1da0c8b2d4172e21fc96a1e1",
+        "successor_rotation_authority_profile": "mycelix-constitutional-root-rotation-authority-v1-sha256-framed-semantic",
+        "successor_rotation_authority_digest_hex": "57a64d9a7447bd0e7204da3731f17e91873f095aec126d24ea43b1dd59dee608",
+        "authorized_at_ms": 1810000050000,
+        "effective_at_ms": 1810000100000,
+        "replay_nonce_hex": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"
+      }
+    },
+    {
+      "authorization_material": {"profile": "mycelix-constitutional-root-rotation-authority-ed25519-single-v1", "suite": "ed25519-spki-v1", "public_key_spki_der_hex": "302a300506032b6570032100973a7fc3896825470a41d87102a5b2f9770881c01b79ec35910c8d341edaf561"},
+      "authorization_proof": {"suite": "ed25519-signature-v1", "signature_hex": "a1765296e86181b017f1b58c275ad67620c66073c345e4afb4803b1a75b6a317d84b8e7b04ddac7209e71649d78ec331a9ea5a565e5b0502285e493c9c572d0f"},
+      "candidate": {
+        "profile": "mycelix-constitutional-root-transition-v1-sha256-framed-semantic",
+        "predecessor_root_identity_profile": "mycelix-constitutional-trust-root-v1-sha256-framed-semantic",
+        "predecessor_root_digest_hex": "8f868c8c33698e6734ead90df9383f81141b6ff52d8ab765aa2aa5d6a028810c",
+        "predecessor_generation": 1,
+        "predecessor_source_descriptor_profile": "mycelix-constitutional-root-source-descriptor-v1-sha256-framed-semantic",
+        "predecessor_source_descriptor_digest_hex": "9c4db710b045aee584019e6ff1ec1d0721df11fa1da0c8b2d4172e21fc96a1e1",
+        "predecessor_rotation_authority_profile": "mycelix-constitutional-root-rotation-authority-v1-sha256-framed-semantic",
+        "predecessor_rotation_authority_digest_hex": "57a64d9a7447bd0e7204da3731f17e91873f095aec126d24ea43b1dd59dee608",
+        "successor_root_identity_profile": "mycelix-constitutional-trust-root-v1-sha256-framed-semantic",
+        "successor_root_digest_hex": "49be9b61e1c3f2b8f016e3b4e9c416dc83c689760a83cfb28ec9f6ff1f7d8825",
+        "successor_generation": 2,
+        "successor_source_descriptor_profile": "mycelix-constitutional-root-source-descriptor-v1-sha256-framed-semantic",
+        "successor_source_descriptor_digest_hex": "ab5a3de2df73dc4b22ea438795ceb4be851338615106067f524d080e13ad873e",
+        "successor_rotation_authority_profile": null,
+        "successor_rotation_authority_digest_hex": null,
+        "authorized_at_ms": 1810000150000,
+        "effective_at_ms": 1810000200000,
+        "replay_nonce_hex": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
+      }
+    }
+  ],
+  "expected": {
+    "root_identity_digest_hex": ["2684cc6c8b8f13e2e564b0bb7682dde0d333124d4a5db4ed04eaae1ad99023c9", "8f868c8c33698e6734ead90df9383f81141b6ff52d8ab765aa2aa5d6a028810c", "49be9b61e1c3f2b8f016e3b4e9c416dc83c689760a83cfb28ec9f6ff1f7d8825"],
+    "source_descriptor_digest_hex": ["aa78b5370cb1def51be692498ef6a5bc6c51612155fb9167421d8b10cd01cb84", "9c4db710b045aee584019e6ff1ec1d0721df11fa1da0c8b2d4172e21fc96a1e1", "ab5a3de2df73dc4b22ea438795ceb4be851338615106067f524d080e13ad873e"],
+    "rotation_authority_digest_hex": ["8bfa94e985fa2d5c0905d3e3af9209ac033d8940a1ce94742b3a3b1ff99a4ab2", "57a64d9a7447bd0e7204da3731f17e91873f095aec126d24ea43b1dd59dee608", null],
+    "authorization_material_commitment_hex": ["95da72b5b496cc8d6d5c33eb18beac23ef4d9282ae5964fd9da4c3ed9d9dc851", "9103fea7a3d6999b67ae597cb0e10b2ba33149d2a721f9b9523b0e3fd21e27d1"],
+    "authorization_proof_digest_hex": ["18bc19d085b5d5270fd6399b935ceb36376ab3bbe8c52f8daeb903ba5a2b3838", "fc1fdc446608beaea47306bff8a6b30175c9320d098c2d2e9b54920fa0d9d676"],
+    "transition_identity_digest_hex": ["19e565417b53d57e0e73250dae14d33665d9461839083ce6260dc296d03cf2e1", "4d41a29c0c3ad8a51bde874d2fb25a709b1a9b7099fa82da855eabb4374111f7"],
+    "candidate_canonical_bytes_hex": [
+      "6d7963656c69782f7075626c69632d696e737469747574696f6e2f636f6e737469747574696f6e616c2d726f6f742d7472616e736974696f6e2f763140000000000000006d7963656c69782d636f6e737469747574696f6e616c2d726f6f742d7472616e736974696f6e2d76312d7368613235362d6672616d65642d73656d616e7469633b000000000000006d7963656c69782d636f6e737469747574696f6e616c2d74727573742d726f6f742d76312d7368613235362d6672616d65642d73656d616e74696320000000000000002684cc6c8b8f13e2e564b0bb7682dde0d333124d4a5db4ed04eaae1ad99023c90800000000000000000000000000000047000000000000006d7963656c69782d636f6e737469747574696f6e616c2d726f6f742d736f757263652d64657363726970746f722d76312d7368613235362d6672616d65642d73656d616e7469632000000000000000aa78b5370cb1def51be692498ef6a5bc6c51612155fb9167421d8b10cd01cb8448000000000000006d7963656c69782d636f6e737469747574696f6e616c2d726f6f742d726f746174696f6e2d617574686f726974792d76312d7368613235362d6672616d65642d73656d616e74696320000000000000008bfa94e985fa2d5c0905d3e3af9209ac033d8940a1ce94742b3a3b1ff99a4ab23b000000000000006d7963656c69782d636f6e737469747574696f6e616c2d74727573742d726f6f742d76312d7368613235362d6672616d65642d73656d616e74696320000000000000008f868c8c33698e6734ead90df9383f81141b6ff52d8ab765aa2aa5d6a028810c0800000000000000010000000000000047000000000000006d7963656c69782d636f6e737469747574696f6e616c2d726f6f742d736f757263652d64657363726970746f722d76312d7368613235362d6672616d65642d73656d616e74696320000000000000009c4db710b045aee584019e6ff1ec1d0721df11fa1da0c8b2d4172e21fc96a1e101000000000000000148000000000000006d7963656c69782d636f6e737469747574696f6e616c2d726f6f742d726f746174696f6e2d617574686f726974792d76312d7368613235362d6672616d65642d73656d616e746963200000000000000057a64d9a7447bd0e7204da3731f17e91873f095aec126d24ea43b1dd59dee608080000000000000050f7686ca50100000800000000000000a0ba696ca50100002000000000000000a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "6d7963656c69782f7075626c69632d696e737469747574696f6e2f636f6e737469747574696f6e616c2d726f6f742d7472616e736974696f6e2f763140000000000000006d7963656c69782d636f6e737469747574696f6e616c2d726f6f742d7472616e736974696f6e2d76312d7368613235362d6672616d65642d73656d616e7469633b000000000000006d7963656c69782d636f6e737469747574696f6e616c2d74727573742d726f6f742d76312d7368613235362d6672616d65642d73656d616e74696320000000000000008f868c8c33698e6734ead90df9383f81141b6ff52d8ab765aa2aa5d6a028810c0800000000000000010000000000000047000000000000006d7963656c69782d636f6e737469747574696f6e616c2d726f6f742d736f757263652d64657363726970746f722d76312d7368613235362d6672616d65642d73656d616e74696320000000000000009c4db710b045aee584019e6ff1ec1d0721df11fa1da0c8b2d4172e21fc96a1e148000000000000006d7963656c69782d636f6e737469747574696f6e616c2d726f6f742d726f746174696f6e2d617574686f726974792d76312d7368613235362d6672616d65642d73656d616e746963200000000000000057a64d9a7447bd0e7204da3731f17e91873f095aec126d24ea43b1dd59dee6083b000000000000006d7963656c69782d636f6e737469747574696f6e616c2d74727573742d726f6f742d76312d7368613235362d6672616d65642d73656d616e746963200000000000000049be9b61e1c3f2b8f016e3b4e9c416dc83c689760a83cfb28ec9f6ff1f7d88250800000000000000020000000000000047000000000000006d7963656c69782d636f6e737469747574696f6e616c2d726f6f742d736f757263652d64657363726970746f722d76312d7368613235362d6672616d65642d73656d616e7469632000000000000000ab5a3de2df73dc4b22ea438795ceb4be851338615106067f524d080e13ad873e0100000000000000000800000000000000f07d6a6ca5010000080000000000000040416b6ca50100002000000000000000b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
+    ],
+    "lineage_domain_digest_hex": "d95e2f1af546480ebfcc1218f7ad671ac38ac3898cdce89a91328407dc3bc005",
+    "core_lineage_digest_hex": "579c8810162e88958117b085fad6d01b599d8222a37fcd6e540f787c4fcdd5b1",
+    "constitutional_lineage_digest_hex": "d814323282d6f9ec9ca5c6ab32fe3cd5cd529f73286a9075588b89e7afd8c18f",
+    "root_b_provenance_digest_hex": "c0055cf1a57e7ee013b81425ba78bf5f04d1d2d0d0a8f7ac61bd8ec3db0c9003",
+    "qualification_digest_hex": "c6e554cad1cf2610bae81f64d9760c60913e9184690f07297a10e7e84775de3f",
+    "endpoint_generation": 2,
+    "endpoint_root_digest_hex": "49be9b61e1c3f2b8f016e3b4e9c416dc83c689760a83cfb28ec9f6ff1f7d8825",
+    "endpoint_source_descriptor_digest_hex": "ab5a3de2df73dc4b22ea438795ceb4be851338615106067f524d080e13ad873e"
+  }
+}
