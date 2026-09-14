@@ -250,7 +250,7 @@ pub fn project_rooted_lineage(
         }
 
         let first = &canonical[candidates[0]];
-        for index in candidates.iter().skip(1) {
+        if let Some(index) = candidates.get(1) {
             let other = &canonical[*index];
             let same_successor = first.successor_generation == other.successor_generation
                 && first.successor_node_identity == other.successor_node_identity
