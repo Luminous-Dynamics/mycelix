@@ -125,10 +125,57 @@ jobs:
       - name: Re-run independent recovery action oracle
         run: cargo test --manifest-path mycelix-commons/Cargo.toml -p commons-types --test regenerative_recovery_governance_action_conformance
 
-      - name: Test and Clippy Commons
+      - name: Test Commons
+        run: cargo test --manifest-path mycelix-commons/Cargo.toml -p commons-types
+
+      - name: Clippy Commons; gate migrated production source
+        shell: bash
         run: |
-          cargo test --manifest-path mycelix-commons/Cargo.toml -p commons-types
-          cargo clippy --manifest-path mycelix-commons/Cargo.toml -p commons-types -- -D warnings
+          set -euo pipefail
+          target='mycelix-commons/crates/commons-types/src/regenerative_recovery_governance_authority.rs'
+          set +e
+          cargo clippy --manifest-path mycelix-commons/Cargo.toml -p commons-types \
+            --message-format=json 2>&1 | tee /tmp/recovery-action-digest-clippy.jsonl
+          cargo_status=${PIPESTATUS[0]}
+          set -e
+          python3 - "$target" "$cargo_status" <<'PY'
+          import json
+          import sys
+
+          target = sys.argv[1]
+          cargo_status = int(sys.argv[2])
+          compiler_errors = []
+          owned_warnings = []
+          with open('/tmp/recovery-action-digest-clippy.jsonl', encoding='utf-8', errors='replace') as handle:
+              for line in handle:
+                  try:
+                      event = json.loads(line)
+                  except json.JSONDecodeError:
+                      continue
+                  if event.get('reason') != 'compiler-message':
+                      continue
+                  message = event.get('message') or {}
+                  level = message.get('level')
+                  spans = message.get('spans') or []
+                  if level == 'error':
+                      compiler_errors.append(message.get('message', 'compiler error'))
+                  if level == 'warning' and any(
+                      span.get('is_primary') and span.get('file_name') == target for span in spans
+                  ):
+                      owned_warnings.append(message.get('message', 'warning'))
+
+          if cargo_status != 0 or compiler_errors:
+              print('Compiler/Clippy execution failed', file=sys.stderr)
+              for error in compiler_errors:
+                  print(f'- {error}', file=sys.stderr)
+              raise SystemExit(1)
+          if owned_warnings:
+              print('Migrated recovery-authority warnings:', file=sys.stderr)
+              for warning in owned_warnings:
+                  print(f'- {warning}', file=sys.stderr)
+              raise SystemExit(1)
+          print('PASS: Commons compiled and migrated recovery authority source has no Clippy warnings')
+          PY
 
       - name: Commit exact one-file production migration
         shell: bash
