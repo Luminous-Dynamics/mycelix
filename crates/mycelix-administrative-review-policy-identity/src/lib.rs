@@ -133,14 +133,20 @@ pub fn administrative_review_policy_semantic_identity(
     frame(&mut hasher, policy.source_institution.as_str().as_bytes());
     frame_optional_id(
         &mut hasher,
-        policy.source_jurisdiction.as_ref().map(|value| value.as_str()),
+        policy
+            .source_jurisdiction
+            .as_ref()
+            .map(|value| value.as_str()),
     );
     frame_rulebook(&mut hasher, &policy.source_rulebook);
 
     frame(&mut hasher, policy.review_forum.as_str().as_bytes());
     frame_optional_id(
         &mut hasher,
-        policy.review_jurisdiction.as_ref().map(|value| value.as_str()),
+        policy
+            .review_jurisdiction
+            .as_ref()
+            .map(|value| value.as_str()),
     );
     frame_rulebook(&mut hasher, &policy.review_rulebook);
 
@@ -239,7 +245,10 @@ impl fmt::Display for AdministrativeReviewPolicyIdentityError {
         match self {
             Self::ReviewPolicy(error) => write!(f, "invalid administrative review policy: {error}"),
             Self::UnsupportedIdentityProfile => {
-                write!(f, "unsupported administrative review policy identity profile")
+                write!(
+                    f,
+                    "unsupported administrative review policy identity profile"
+                )
             }
             Self::SemanticDigestMismatch => {
                 write!(f, "administrative review policy semantic digest mismatch")
