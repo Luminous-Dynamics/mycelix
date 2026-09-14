@@ -1,0 +1,15 @@
+[package]
+name = "pulse-realtime-hdk-adapter"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "HDK ExternIO admission seam for fail-closed Mycelix Pulse V2 realtime wakes"
+
+[workspace]
+
+[dependencies]
+hdk = "0.6"
+pulse-realtime-wire = { path = "../pulse-realtime-wire" }
+
+[dev-dependencies]
+serde = { version = "1", features = ["derive"] }
