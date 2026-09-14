@@ -198,11 +198,30 @@ jobs:
 
           exit "$status"
 
+      - name: Preserve generated frontend lockfiles
+        if: ${{ always() && steps.immutability.outcome == 'failure' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/frontend-locks"
+          mkdir -p "$out"
+          for crate in \
+            crates/mycelix-leptos-client \
+            crates/mycelix-leptos-ui \
+            crates/mycelix-leptos-core; do
+            if [ -f "$crate/Cargo.lock" ]; then
+              mkdir -p "$out/$crate"
+              cp "$crate/Cargo.lock" "$out/$crate/Cargo.lock"
+            fi
+          done
+
       - name: Upload exact immutability diagnostics
         if: ${{ always() && steps.immutability.outcome == 'failure' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: frontend-core-immutability-${{ github.event.pull_request.head.sha || github.sha }}
-          path: ${{ runner.temp }}/frontend-core-immutability.log
+          path: |
+            ${{ runner.temp }}/frontend-core-immutability.log
+            ${{ runner.temp }}/frontend-locks
           if-no-files-found: error
           retention-days: 7
