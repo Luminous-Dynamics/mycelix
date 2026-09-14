@@ -16,6 +16,20 @@ from typing import Any
 PROTOCOL_VERSION = "mycelix-constitutional-trust-root-v0.1"
 IDENTITY_PROFILE = "mycelix-constitutional-trust-root-v1-sha256-framed-semantic"
 DOMAIN = b"mycelix/public-institution/constitutional-trust-root/v1"
+
+SOURCE_DESCRIPTOR_PROFILE = (
+    "mycelix-constitutional-root-source-descriptor-v1-sha256-framed-semantic"
+)
+SOURCE_DESCRIPTOR_DOMAIN = (
+    b"mycelix/public-institution/constitutional-root-source-descriptor/v1"
+)
+ROTATION_AUTHORITY_PROFILE = (
+    "mycelix-constitutional-root-rotation-authority-v1-sha256-framed-semantic"
+)
+ROTATION_AUTHORITY_DOMAIN = (
+    b"mycelix/public-institution/constitutional-root-rotation-authority/v1"
+)
+
 BOOTSTRAP_MODES = {
     "pinned-constitutional-commitment",
     "genesis-governance-decision",
@@ -59,6 +73,12 @@ def _text(value: Any, field: str, max_bytes: int) -> str:
     return value
 
 
+def _optional_text(value: Any, field: str, max_bytes: int) -> str | None:
+    if value is None:
+        return None
+    return _text(value, field, max_bytes)
+
+
 def _digest(value: Any, field: str) -> bytes:
     if not isinstance(value, str) or HEX_32.fullmatch(value) is None:
         raise ContractError(f"{field} must be exactly 32 bytes of hex")
@@ -72,12 +92,6 @@ def _optional_digest(value: Any, field: str) -> bytes | None:
     if value is None:
         return None
     return _digest(value, field)
-
-
-def _optional_text(value: Any, field: str, max_bytes: int) -> str | None:
-    if value is None:
-        return None
-    return _text(value, field, max_bytes)
 
 
 def _rulebook(value: Any, field: str) -> dict[str, Any]:
@@ -125,10 +139,7 @@ def _policy_scope(value: Any, field: str) -> dict[str, Any]:
         f"{field}.provider_authority_jurisdiction_id",
         MAX_ID_BYTES,
     )
-    _rulebook(
-        value["provider_authority_rulebook"],
-        f"{field}.provider_authority_rulebook",
-    )
+    _rulebook(value["provider_authority_rulebook"], f"{field}.provider_authority_rulebook")
     _text(
         value["required_provider_capability"],
         f"{field}.required_provider_capability",
@@ -163,10 +174,10 @@ def validate_root(root: Any) -> dict[str, Any]:
         "expires_at_ms",
         "rotation_mode",
         "rotation_profile",
+        "rotation_authority_anchor_digest_hex",
     }
     if not isinstance(root, dict) or set(root) != required:
         raise ContractError("root shape must contain exactly the GOVSYS-003A fields")
-
     if root["protocol_version"] != PROTOCOL_VERSION:
         raise ContractError("wrong protocol version")
 
@@ -216,7 +227,6 @@ def validate_root(root: Any) -> dict[str, Any]:
             )
         scope_keys.add(key)
         encoded_scopes.append(_scope_bytes(scope))
-
     if len(set(encoded_scopes)) != len(encoded_scopes):
         raise ContractError("duplicate authorized policy scope")
 
@@ -231,11 +241,15 @@ def validate_root(root: Any) -> dict[str, Any]:
     if rotation_mode not in ROTATION_MODES:
         raise ContractError("unknown rotation mode")
     rotation_profile = root["rotation_profile"]
+    rotation_anchor = root["rotation_authority_anchor_digest_hex"]
     if rotation_mode == "immutable":
-        if rotation_profile is not None:
-            raise ContractError("immutable root must not carry a rotation profile")
+        if rotation_profile is not None or rotation_anchor is not None:
+            raise ContractError(
+                "immutable root must not carry rotation profile or authority anchor"
+            )
     else:
         _text(rotation_profile, "rotation_profile", MAX_PROFILE_BYTES)
+        _digest(rotation_anchor, "rotation_authority_anchor_digest_hex")
 
     return root
 
@@ -317,11 +331,34 @@ def canonical_bytes(root: dict[str, Any]) -> bytes:
     output += _frame_optional_u64(root["expires_at_ms"])
     output += _frame_text(root["rotation_mode"])
     output += _frame_optional_text(root["rotation_profile"])
+    output += _frame_optional_digest(root["rotation_authority_anchor_digest_hex"])
     return bytes(output)
 
 
 def identity_hex(root: dict[str, Any]) -> str:
     return hashlib.sha256(canonical_bytes(root)).hexdigest()
+
+
+def source_descriptor_hex(root: dict[str, Any]) -> str:
+    validate_root(root)
+    transcript = bytearray(SOURCE_DESCRIPTOR_DOMAIN)
+    transcript += _frame_text(SOURCE_DESCRIPTOR_PROFILE)
+    transcript += _frame_text(root["authoritative_root_source_ref"])
+    transcript += _frame_text(root["root_coverage_profile"])
+    transcript += _frame_text(root["root_source_verification_profile"])
+    transcript += _frame(bytes.fromhex(root["root_source_anchor_digest_hex"]))
+    return hashlib.sha256(transcript).hexdigest()
+
+
+def rotation_authority_hex(root: dict[str, Any]) -> str | None:
+    validate_root(root)
+    if root["rotation_mode"] == "immutable":
+        return None
+    transcript = bytearray(ROTATION_AUTHORITY_DOMAIN)
+    transcript += _frame_text(ROTATION_AUTHORITY_PROFILE)
+    transcript += _frame_text(root["rotation_profile"])
+    transcript += _frame(bytes.fromhex(root["rotation_authority_anchor_digest_hex"]))
+    return hashlib.sha256(transcript).hexdigest()
 
 
 def _expect_error(root: dict[str, Any]) -> None:
@@ -345,6 +382,11 @@ def self_test() -> None:
     root = vector["root"]
     actual = bytes.fromhex(identity_hex(root))
     assert actual == expected, (actual.hex(), expected.hex())
+
+    source_expected = "f97a96e20ce6dd0c86c67e1590252abc678dfd6401128ab44ced4a66ec088126"
+    rotation_expected = "cf86718a53410b1e5e38cf5c552b3e4448772da97533fbd08c7b9bbfbee909ae"
+    assert source_descriptor_hex(root) == source_expected
+    assert rotation_authority_hex(root) == rotation_expected
 
     reordered = copy.deepcopy(root)
     reordered["authorized_policy_scopes"].reverse()
@@ -375,83 +417,74 @@ def self_test() -> None:
         too_many_scopes["authorized_policy_scopes"].append(scope)
     _expect_error(too_many_scopes)
 
-    wrong_institution = copy.deepcopy(root)
-    wrong_institution["institution_id"] = "institution:other-city"
-    assert bytes.fromhex(identity_hex(wrong_institution)) != expected
+    for mutate in (
+        lambda r: r.update(institution_id="institution:other-city"),
+        lambda r: r["constitutional_rulebook"].update(digest_hex="55" * 32),
+        lambda r: r["authorized_policy_scopes"][0].update(
+            policy_identity_profile="mycelix-other-policy-v1"
+        ),
+        lambda r: r["authorized_policy_scopes"][0].update(
+            policy_registry_namespace="registry:other-policy:example-city"
+        ),
+        lambda r: r["authorized_policy_scopes"][0].update(
+            required_provider_capability="administration.other-policy.currentness.attest"
+        ),
+        lambda r: r.update(bootstrap_mode="genesis-governance-decision"),
+        lambda r: r.update(authoritative_root_source_ref="registry:constitutional-root:other"),
+        lambda r: r.update(root_coverage_profile="mycelix-other-root-coverage-v1"),
+        lambda r: r.update(
+            root_source_verification_profile="mycelix-other-root-source-verification-v1"
+        ),
+        lambda r: r.update(root_source_anchor_digest_hex="66" * 32),
+        lambda r: r.update(rotation_profile="constitutional-root-rotation-v2"),
+        lambda r: r.update(rotation_authority_anchor_digest_hex="77" * 32),
+    ):
+        changed = copy.deepcopy(root)
+        mutate(changed)
+        assert bytes.fromhex(identity_hex(changed)) != expected
 
-    wrong_rulebook = copy.deepcopy(root)
-    wrong_rulebook["constitutional_rulebook"]["digest_hex"] = "44" * 32
-    assert bytes.fromhex(identity_hex(wrong_rulebook)) != expected
-
-    uppercase_digest = copy.deepcopy(root)
-    uppercase_digest["constitutional_rulebook"]["digest_hex"] = (
-        uppercase_digest["constitutional_rulebook"]["digest_hex"].upper()
+    crossed = copy.deepcopy(root)
+    a, b = crossed["authorized_policy_scopes"]
+    a["required_provider_capability"], b["required_provider_capability"] = (
+        b["required_provider_capability"],
+        a["required_provider_capability"],
     )
-    assert bytes.fromhex(identity_hex(uppercase_digest)) == expected
+    assert bytes.fromhex(identity_hex(crossed)) != expected
 
-    wrong_scope_profile = copy.deepcopy(root)
-    wrong_scope_profile["authorized_policy_scopes"][0]["policy_identity_profile"] = (
-        "mycelix-other-policy-v1"
+    uppercase_rulebook = copy.deepcopy(root)
+    uppercase_rulebook["constitutional_rulebook"]["digest_hex"] = (
+        uppercase_rulebook["constitutional_rulebook"]["digest_hex"].upper()
     )
-    assert bytes.fromhex(identity_hex(wrong_scope_profile)) != expected
-
-    wrong_scope_namespace = copy.deepcopy(root)
-    wrong_scope_namespace["authorized_policy_scopes"][0]["policy_registry_namespace"] = (
-        "registry:other-policy:example-city"
-    )
-    assert bytes.fromhex(identity_hex(wrong_scope_namespace)) != expected
-
-    wrong_provider_scope = copy.deepcopy(root)
-    wrong_provider_scope["authorized_policy_scopes"][0]["provider_authority_rulebook"][
-        "digest_hex"
-    ] = "55" * 32
-    assert bytes.fromhex(identity_hex(wrong_provider_scope)) != expected
-
-    wrong_capability = copy.deepcopy(root)
-    wrong_capability["authorized_policy_scopes"][0]["required_provider_capability"] = (
-        "administration.other-policy.currentness.attest"
-    )
-    assert bytes.fromhex(identity_hex(wrong_capability)) != expected
-
-    crossed_capabilities = copy.deepcopy(root)
-    scopes = crossed_capabilities["authorized_policy_scopes"]
-    scopes[0]["required_provider_capability"], scopes[1]["required_provider_capability"] = (
-        scopes[1]["required_provider_capability"],
-        scopes[0]["required_provider_capability"],
-    )
-    assert bytes.fromhex(identity_hex(crossed_capabilities)) != expected
-
-    wrong_bootstrap = copy.deepcopy(root)
-    wrong_bootstrap["bootstrap_mode"] = "genesis-governance-decision"
-    assert bytes.fromhex(identity_hex(wrong_bootstrap)) != expected
-
-    wrong_root_source = copy.deepcopy(root)
-    wrong_root_source["authoritative_root_source_ref"] = "registry:constitutional-root:other"
-    assert bytes.fromhex(identity_hex(wrong_root_source)) != expected
-
-    wrong_coverage_profile = copy.deepcopy(root)
-    wrong_coverage_profile["root_coverage_profile"] = "mycelix-other-root-coverage-v1"
-    assert bytes.fromhex(identity_hex(wrong_coverage_profile)) != expected
-
-    wrong_verification_profile = copy.deepcopy(root)
-    wrong_verification_profile["root_source_verification_profile"] = (
-        "mycelix-other-root-source-verification-v1"
-    )
-    assert bytes.fromhex(identity_hex(wrong_verification_profile)) != expected
-
-    wrong_source_anchor = copy.deepcopy(root)
-    wrong_source_anchor["root_source_anchor_digest_hex"] = "66" * 32
-    assert bytes.fromhex(identity_hex(wrong_source_anchor)) != expected
+    assert bytes.fromhex(identity_hex(uppercase_rulebook)) == expected
 
     uppercase_source_anchor = copy.deepcopy(root)
     uppercase_source_anchor["root_source_anchor_digest_hex"] = (
         uppercase_source_anchor["root_source_anchor_digest_hex"].upper()
     )
     assert bytes.fromhex(identity_hex(uppercase_source_anchor)) == expected
+    assert source_descriptor_hex(uppercase_source_anchor) == source_expected
 
-    zero_source_anchor = copy.deepcopy(root)
-    zero_source_anchor["root_source_anchor_digest_hex"] = "00" * 32
-    _expect_error(zero_source_anchor)
+    uppercase_rotation_anchor = copy.deepcopy(root)
+    uppercase_rotation_anchor["rotation_authority_anchor_digest_hex"] = (
+        uppercase_rotation_anchor["rotation_authority_anchor_digest_hex"].upper()
+    )
+    assert bytes.fromhex(identity_hex(uppercase_rotation_anchor)) == expected
+    assert rotation_authority_hex(uppercase_rotation_anchor) == rotation_expected
+
+    changed_rotation_anchor = copy.deepcopy(root)
+    changed_rotation_anchor["rotation_authority_anchor_digest_hex"] = "88" * 32
+    assert source_descriptor_hex(changed_rotation_anchor) == source_expected
+    assert rotation_authority_hex(changed_rotation_anchor) != rotation_expected
+
+    changed_source_anchor = copy.deepcopy(root)
+    changed_source_anchor["root_source_anchor_digest_hex"] = "99" * 32
+    assert source_descriptor_hex(changed_source_anchor) != source_expected
+    assert rotation_authority_hex(changed_source_anchor) == rotation_expected
+
+    changed_rulebook = copy.deepcopy(root)
+    changed_rulebook["constitutional_rulebook"]["digest_hex"] = "aa" * 32
+    assert source_descriptor_hex(changed_rulebook) == source_expected
+    assert rotation_authority_hex(changed_rulebook) == rotation_expected
 
     genesis_with_predecessor = copy.deepcopy(root)
     genesis_with_predecessor["predecessor_root_digest_hex"] = "77" * 32
@@ -474,23 +507,47 @@ def self_test() -> None:
     expired["expires_at_ms"] = expired["valid_from_ms"]
     _expect_error(expired)
 
-    immutable_with_profile = copy.deepcopy(root)
-    immutable_with_profile["rotation_mode"] = "immutable"
-    _expect_error(immutable_with_profile)
-
-    rotatable_without_profile = copy.deepcopy(root)
-    rotatable_without_profile["rotation_profile"] = None
-    _expect_error(rotatable_without_profile)
-
-    zero_rulebook = copy.deepcopy(root)
-    zero_rulebook["constitutional_rulebook"]["digest_hex"] = "00" * 32
-    _expect_error(zero_rulebook)
+    for field in (
+        "constitutional_rulebook",
+        "root_source_anchor_digest_hex",
+        "rotation_authority_anchor_digest_hex",
+    ):
+        zeroed = copy.deepcopy(root)
+        if field == "constitutional_rulebook":
+            zeroed[field]["digest_hex"] = "00" * 32
+        else:
+            zeroed[field] = "00" * 32
+        _expect_error(zeroed)
 
     zero_provider_rulebook = copy.deepcopy(root)
     zero_provider_rulebook["authorized_policy_scopes"][0]["provider_authority_rulebook"][
         "digest_hex"
     ] = "00" * 32
     _expect_error(zero_provider_rulebook)
+
+    immutable_with_profile = copy.deepcopy(root)
+    immutable_with_profile["rotation_mode"] = "immutable"
+    _expect_error(immutable_with_profile)
+
+    immutable_with_anchor = copy.deepcopy(root)
+    immutable_with_anchor["rotation_mode"] = "immutable"
+    immutable_with_anchor["rotation_profile"] = None
+    _expect_error(immutable_with_anchor)
+
+    immutable = copy.deepcopy(root)
+    immutable["rotation_mode"] = "immutable"
+    immutable["rotation_profile"] = None
+    immutable["rotation_authority_anchor_digest_hex"] = None
+    assert rotation_authority_hex(immutable) is None
+    assert bytes.fromhex(identity_hex(immutable)) != expected
+
+    rotatable_without_profile = copy.deepcopy(root)
+    rotatable_without_profile["rotation_profile"] = None
+    _expect_error(rotatable_without_profile)
+
+    rotatable_without_anchor = copy.deepcopy(root)
+    rotatable_without_anchor["rotation_authority_anchor_digest_hex"] = None
+    _expect_error(rotatable_without_anchor)
 
     control_identifier = copy.deepcopy(root)
     control_identifier["institution_id"] = "institution:city\nsmuggled"
@@ -505,6 +562,8 @@ def self_test() -> None:
     _expect_error(trailing_space)
 
     print(f"GOVSYS-003A PASS: {actual.hex()}")
+    print(f"GOVSYS-003A source descriptor PASS: {source_expected}")
+    print(f"GOVSYS-003A rotation authority PASS: {rotation_expected}")
 
 
 if __name__ == "__main__":
