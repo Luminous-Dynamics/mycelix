@@ -1,0 +1,112 @@
+name: Pulse V2 Remote Ingress Boundary
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/**'
+      - 'mycelix-workspace/mycelix-pulse/crates/pulse-realtime-types/**'
+      - 'mycelix-workspace/mycelix-pulse/crates/pulse-realtime-wire/**'
+      - 'mycelix-workspace/mycelix-pulse/crates/pulse-realtime-hdk-adapter/**'
+      - 'scripts/ci/pulse_v2_producer_boundary.py'
+      - 'scripts/ci/pulse_v2_post_commit_boundary.py'
+      - 'scripts/ci/pulse_v2_remote_ingress_boundary.py'
+      - '.github/workflows/pulse-v2-remote-ingress-boundary.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/**'
+      - 'mycelix-workspace/mycelix-pulse/crates/pulse-realtime-types/**'
+      - 'mycelix-workspace/mycelix-pulse/crates/pulse-realtime-wire/**'
+      - 'mycelix-workspace/mycelix-pulse/crates/pulse-realtime-hdk-adapter/**'
+      - 'scripts/ci/pulse_v2_producer_boundary.py'
+      - 'scripts/ci/pulse_v2_post_commit_boundary.py'
+      - 'scripts/ci/pulse_v2_remote_ingress_boundary.py'
+      - '.github/workflows/pulse-v2-remote-ingress-boundary.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pulse-v2-remote-ingress-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CONTRACT_MANIFEST: mycelix-workspace/mycelix-pulse/crates/pulse-realtime-types/Cargo.toml
+  WIRE_MANIFEST: mycelix-workspace/mycelix-pulse/crates/pulse-realtime-wire/Cargo.toml
+  ADAPTER_MANIFEST: mycelix-workspace/mycelix-pulse/crates/pulse-realtime-hdk-adapter/Cargo.toml
+  PRODUCER_GUARD: scripts/ci/pulse_v2_producer_boundary.py
+  POST_COMMIT_GUARD: scripts/ci/pulse_v2_post_commit_boundary.py
+  INGRESS_GUARD: scripts/ci/pulse_v2_remote_ingress_boundary.py
+
+jobs:
+  remote-ingress-boundary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact subject checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ github.event.pull_request.head.sha || github.sha }}'
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$expected" || {
+            echo "::error::Expected exact subject $expected, got $actual"
+            exit 1
+          }
+          test -f "$PRODUCER_GUARD"
+          test -f "$POST_COMMIT_GUARD"
+          test -f "$INGRESS_GUARD"
+          test -f "$CONTRACT_MANIFEST"
+          test -f "$WIRE_MANIFEST"
+          test -f "$ADAPTER_MANIFEST"
+
+      - name: Validate authority guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          for path in (
+              Path('scripts/ci/pulse_v2_producer_boundary.py'),
+              Path('scripts/ci/pulse_v2_post_commit_boundary.py'),
+              Path('scripts/ci/pulse_v2_remote_ingress_boundary.py'),
+          ):
+              compile(path.read_text(encoding='utf-8'), str(path), 'exec')
+          PY
+          python3 "$PRODUCER_GUARD"
+          python3 "$POST_COMMIT_GUARD"
+          python3 "$INGRESS_GUARD"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87b
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+
+      - name: Reprove realtime authority stack
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path "$CONTRACT_MANIFEST" --lib
+          cargo test --manifest-path "$CONTRACT_MANIFEST" --test exact_frame
+          cargo clippy --manifest-path "$CONTRACT_MANIFEST" --lib --test exact_frame -- -D warnings
+          cargo fmt --manifest-path "$WIRE_MANIFEST" -- --check
+          cargo test --manifest-path "$WIRE_MANIFEST" --all-targets
+          cargo clippy --manifest-path "$WIRE_MANIFEST" --all-targets -- -D warnings
+          cargo fmt --manifest-path "$ADAPTER_MANIFEST" -- --check
+          cargo test --manifest-path "$ADAPTER_MANIFEST" --all-targets
+          cargo clippy --manifest-path "$ADAPTER_MANIFEST" --all-targets -- -D warnings
+
+      - name: Prove checkout immutability
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
