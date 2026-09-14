@@ -1,0 +1,103 @@
+name: IG-007A2 Observed Voting Counterexamples
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-governance/scripts/ig007a2_observed_counterexamples.py"
+      - "mycelix-governance/docs/IG_007A2_OBSERVED_COUNTEREXAMPLES.md"
+      - ".github/workflows/ig-007a2-observed-counterexamples.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-counterexamples:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      EXPECTED_SUBJECT: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      PROFILE: mycelix-governance/profiles/observed/voting-fca2c107-v1.json
+
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_SUBJECT }}
+          fetch-depth: 1
+
+      - name: Install Python 3.13.5
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13.5"
+
+      - name: Verify exact subject and clean preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT"
+          test -z "$(git status --porcelain)"
+
+      - name: Bind production source blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object mycelix-governance/zomes/voting/coordinator/src/lib.rs)" = "969b845e6186cbcad507c742a718060844f82eb2"
+          test "$(git hash-object mycelix-governance/zomes/voting/integrity/src/lib.rs)" = "658562c8dfaf6a2f1b97a7bfd5cf0fc8a5ab6e66"
+
+      - name: Syntax compile profile and counterexample validators
+        run: |
+          python -m py_compile mycelix-governance/scripts/validate_ig007a1_observed_profile.py
+          python -m py_compile mycelix-governance/scripts/ig007a2_observed_counterexamples.py
+
+      - name: Validate exact observed profile prerequisite
+        run: python mycelix-governance/scripts/validate_ig007a1_observed_profile.py --profile "$PROFILE" > /tmp/profile.json
+
+      - name: Execute counterexample self-test twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          python mycelix-governance/scripts/ig007a2_observed_counterexamples.py --profile "$PROFILE" --self-test > /tmp/self-1.json
+          python mycelix-governance/scripts/ig007a2_observed_counterexamples.py --profile "$PROFILE" --self-test > /tmp/self-2.json
+          cmp /tmp/self-1.json /tmp/self-2.json
+
+      - name: Emit corpus twice byte-identically
+        shell: bash
+        run: |
+          set -euo pipefail
+          python mycelix-governance/scripts/ig007a2_observed_counterexamples.py --profile "$PROFILE" --corpus > /tmp/corpus-1.json
+          python mycelix-governance/scripts/ig007a2_observed_counterexamples.py --profile "$PROFILE" --corpus > /tmp/corpus-2.json
+          cmp /tmp/corpus-1.json /tmp/corpus-2.json
+
+      - name: Assert frozen counterexample outcomes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          with open('/tmp/corpus-1.json', encoding='utf-8') as f:
+              c = json.load(f)
+          assert c['authority'] == 'MeasurementOnly'
+          assert c['profile']['content_sha256'] == 'cbbbb3553ce465be989b5f096364ea97ccc9b1c5d6aae67d80177df8d8109763'
+          assert c['corpus_sha256'] == 'bb1cdcfe2205bcf6e6d718b536cbb73ba29a21c9da7dfa664798d02f9f866d90'
+          by = {x['id']: x for x in c['counterexamples']}
+          assert by['CE-01']['comparison']['legacy_direct_multiplicative'] == 0.1
+          assert by['CE-01']['comparison']['phi_weighted_additive'] == 0.8125
+          assert by['CE-02']['comparison']['legacy_direct_multiplicative_unavailable'] == 1.1
+          assert by['CE-02']['comparison']['phi_weighted_additive_materialized_zero'] == 0.35
+          assert by['CE-03']['comparison']['caller_basic']['approved'] is True
+          assert by['CE-03']['comparison']['caller_constitutional']['approved'] is False
+          assert by['CE-04']['comparison']['observed_mixed_escalation']['approved'] is True
+          assert by['CE-04']['comparison']['coherent_effective_tier_counterfactual']['approved'] is False
+          assert by['CE-05']['comparison']['observed_tally']['approval_rate'] == 1.0
+          assert by['CE-05']['comparison']['observed_tally']['approved'] is True
+          PY
+
+      - name: Verify checkout immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT"
+          git diff --exit-code
+          git diff --cached --exit-code
+          test -z "$(git status --porcelain)"
