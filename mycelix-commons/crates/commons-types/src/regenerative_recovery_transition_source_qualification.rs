@@ -145,9 +145,9 @@ mod tests {
     use super::*;
     use crate::{
         REGENERATIVE_RECOVERY_COORDINATE_EVIDENCE_SCHEMA_V1,
-        REGENERATIVE_RECOVERY_FORK_RESOLUTION_SCHEMA_V1,
-        RegenerativeRecoveryFlowKindEvidenceV1, RegenerativeRecoveryForkResolutionOutcomeV1,
-        RegenerativeRecoveryReserveDispositionV1, RegenerativeRecoveryTransitionTransportV1,
+        REGENERATIVE_RECOVERY_FORK_RESOLUTION_SCHEMA_V1, RegenerativeRecoveryFlowKindEvidenceV1,
+        RegenerativeRecoveryForkResolutionOutcomeV1, RegenerativeRecoveryReserveDispositionV1,
+        RegenerativeRecoveryTransitionTransportV1,
         qualify_regenerative_recovery_transition_commitment,
     };
 
@@ -264,10 +264,7 @@ mod tests {
         let (head, current, sibling) = frozen_fork();
         let decision = resolution(&current, &sibling, sibling.content_digest().unwrap());
         let commitment = qualify_regenerative_recovery_transition_commitment(
-            &head,
-            &current,
-            &sibling,
-            &decision,
+            &head, &current, &sibling, &decision,
         )
         .unwrap();
         let transport =
@@ -279,11 +276,7 @@ mod tests {
     fn exact_sources_mint_only_lifetime_bound_source_qualification() {
         let (head, current, sibling, decision, transport) = qualified_subject();
         let qualified = qualify_regenerative_recovery_transition_sources(
-            &transport,
-            &head,
-            &current,
-            &sibling,
-            &decision,
+            &transport, &head, &current, &sibling, &decision,
         )
         .unwrap();
 
@@ -316,20 +309,13 @@ mod tests {
         let (mut head, current, sibling, decision, transport) = qualified_subject();
         assert!(
             crate::apply_regenerative_recovery_fork_resolution(
-                &mut head,
-                &current,
-                &sibling,
-                &decision,
+                &mut head, &current, &sibling, &decision,
             )
             .unwrap()
         );
         assert!(
             qualify_regenerative_recovery_transition_sources(
-                &transport,
-                &head,
-                &current,
-                &sibling,
-                &decision,
+                &transport, &head, &current, &sibling, &decision,
             )
             .is_err()
         );
@@ -341,11 +327,7 @@ mod tests {
         sibling.recovery_evidence_id = "spend-2b-changed".into();
         assert!(
             qualify_regenerative_recovery_transition_sources(
-                &transport,
-                &head,
-                &current,
-                &sibling,
-                &decision,
+                &transport, &head, &current, &sibling, &decision,
             )
             .is_err()
         );
@@ -370,8 +352,7 @@ mod tests {
         let mut changed_commitment = transport.commitment().clone();
         changed_commitment.post_state_digest = "aa".repeat(32);
         let changed_transport =
-            RegenerativeRecoveryTransitionTransportV1::from_commitment(changed_commitment)
-                .unwrap();
+            RegenerativeRecoveryTransitionTransportV1::from_commitment(changed_commitment).unwrap();
         assert!(
             qualify_regenerative_recovery_transition_sources(
                 &changed_transport,
