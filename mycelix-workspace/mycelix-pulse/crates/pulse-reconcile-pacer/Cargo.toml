@@ -1,0 +1,10 @@
+[package]
+name = "pulse-reconcile-pacer"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Transport-neutral sustained-rate bound for Mycelix Pulse authoritative reconciliation"
+
+[workspace]
+
+[dependencies]
