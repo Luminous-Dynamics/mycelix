@@ -1,6 +1,6 @@
 {
   "profile": "mycelix-constitutional-trust-root-v1-sha256-framed-semantic",
-  "expected_digest_hex": "9c5d1a27ccb89e6bdea6788c21f811a956be7b631765539640c79f44a5a4daf7",
+  "expected_digest_hex": "fb91b8d0abca410985f88c1763ccd943036c105a6cd5cee75ba4e4c8565753dc",
   "root": {
     "protocol_version": "mycelix-constitutional-trust-root-v0.1",
     "institution_id": "institution:city-of-example",
@@ -14,6 +14,8 @@
     "predecessor_root_digest_hex": null,
     "bootstrap_mode": "pinned-constitutional-commitment",
     "bootstrap_profile": "deployment-pinned-root-digest-v1",
+    "authoritative_root_source_ref": "registry:constitutional-root:example-city",
+    "root_coverage_profile": "mycelix-constitutional-root-covered-head-v1",
     "authorized_policy_scopes": [
       {
         "policy_identity_profile": "mycelix-review-policy-v1-blake3-framed-semantic",
