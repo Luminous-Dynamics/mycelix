@@ -156,6 +156,8 @@ def validate_root(root: Any) -> dict[str, Any]:
         "bootstrap_profile",
         "authoritative_root_source_ref",
         "root_coverage_profile",
+        "root_source_verification_profile",
+        "root_source_anchor_digest_hex",
         "authorized_policy_scopes",
         "valid_from_ms",
         "expires_at_ms",
@@ -190,6 +192,12 @@ def validate_root(root: Any) -> dict[str, Any]:
         MAX_NAMESPACE_BYTES,
     )
     _text(root["root_coverage_profile"], "root_coverage_profile", MAX_PROFILE_BYTES)
+    _text(
+        root["root_source_verification_profile"],
+        "root_source_verification_profile",
+        MAX_PROFILE_BYTES,
+    )
+    _digest(root["root_source_anchor_digest_hex"], "root_source_anchor_digest_hex")
 
     scopes = root["authorized_policy_scopes"]
     if not isinstance(scopes, list):
@@ -302,6 +310,8 @@ def canonical_bytes(root: dict[str, Any]) -> bytes:
     output += _frame_text(root["bootstrap_profile"])
     output += _frame_text(root["authoritative_root_source_ref"])
     output += _frame_text(root["root_coverage_profile"])
+    output += _frame_text(root["root_source_verification_profile"])
+    output += _frame(bytes.fromhex(root["root_source_anchor_digest_hex"]))
     output += _frame_scope_set(root["authorized_policy_scopes"])
     output += _frame_u64(root["valid_from_ms"])
     output += _frame_optional_u64(root["expires_at_ms"])
@@ -370,7 +380,7 @@ def self_test() -> None:
     assert bytes.fromhex(identity_hex(wrong_institution)) != expected
 
     wrong_rulebook = copy.deepcopy(root)
-    wrong_rulebook["constitutional_rulebook"]["digest_hex"] = "33" * 32
+    wrong_rulebook["constitutional_rulebook"]["digest_hex"] = "44" * 32
     assert bytes.fromhex(identity_hex(wrong_rulebook)) != expected
 
     uppercase_digest = copy.deepcopy(root)
@@ -394,7 +404,7 @@ def self_test() -> None:
     wrong_provider_scope = copy.deepcopy(root)
     wrong_provider_scope["authorized_policy_scopes"][0]["provider_authority_rulebook"][
         "digest_hex"
-    ] = "44" * 32
+    ] = "55" * 32
     assert bytes.fromhex(identity_hex(wrong_provider_scope)) != expected
 
     wrong_capability = copy.deepcopy(root)
@@ -423,8 +433,28 @@ def self_test() -> None:
     wrong_coverage_profile["root_coverage_profile"] = "mycelix-other-root-coverage-v1"
     assert bytes.fromhex(identity_hex(wrong_coverage_profile)) != expected
 
+    wrong_verification_profile = copy.deepcopy(root)
+    wrong_verification_profile["root_source_verification_profile"] = (
+        "mycelix-other-root-source-verification-v1"
+    )
+    assert bytes.fromhex(identity_hex(wrong_verification_profile)) != expected
+
+    wrong_source_anchor = copy.deepcopy(root)
+    wrong_source_anchor["root_source_anchor_digest_hex"] = "66" * 32
+    assert bytes.fromhex(identity_hex(wrong_source_anchor)) != expected
+
+    uppercase_source_anchor = copy.deepcopy(root)
+    uppercase_source_anchor["root_source_anchor_digest_hex"] = (
+        uppercase_source_anchor["root_source_anchor_digest_hex"].upper()
+    )
+    assert bytes.fromhex(identity_hex(uppercase_source_anchor)) == expected
+
+    zero_source_anchor = copy.deepcopy(root)
+    zero_source_anchor["root_source_anchor_digest_hex"] = "00" * 32
+    _expect_error(zero_source_anchor)
+
     genesis_with_predecessor = copy.deepcopy(root)
-    genesis_with_predecessor["predecessor_root_digest_hex"] = "55" * 32
+    genesis_with_predecessor["predecessor_root_digest_hex"] = "77" * 32
     _expect_error(genesis_with_predecessor)
 
     successor_without_predecessor = copy.deepcopy(root)
