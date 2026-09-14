@@ -1,0 +1,80 @@
+name: Pulse V2 HDK Adapter
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-pulse/crates/pulse-realtime-types/**'
+      - 'mycelix-workspace/mycelix-pulse/crates/pulse-realtime-wire/**'
+      - 'mycelix-workspace/mycelix-pulse/crates/pulse-realtime-hdk-adapter/**'
+      - '.github/workflows/pulse-v2-hdk-adapter.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-pulse/crates/pulse-realtime-types/**'
+      - 'mycelix-workspace/mycelix-pulse/crates/pulse-realtime-wire/**'
+      - 'mycelix-workspace/mycelix-pulse/crates/pulse-realtime-hdk-adapter/**'
+      - '.github/workflows/pulse-v2-hdk-adapter.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pulse-v2-hdk-adapter-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  WIRE_MANIFEST: mycelix-workspace/mycelix-pulse/crates/pulse-realtime-wire/Cargo.toml
+  ADAPTER_MANIFEST: mycelix-workspace/mycelix-pulse/crates/pulse-realtime-hdk-adapter/Cargo.toml
+
+jobs:
+  hdk-adapter:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact subject checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ github.event.pull_request.head.sha || github.sha }}'
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$expected" || {
+            echo "::error::Expected exact subject $expected, got $actual"
+            exit 1
+          }
+          test -f "$WIRE_MANIFEST"
+          test -f "$ADAPTER_MANIFEST"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87b
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+
+      - name: Reprove wire theorem
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path "$WIRE_MANIFEST" --all-targets
+          cargo clippy --manifest-path "$WIRE_MANIFEST" --all-targets -- -D warnings
+
+      - name: Prove HDK ExternIO admission seam
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path "$ADAPTER_MANIFEST" -- --check
+          cargo test --manifest-path "$ADAPTER_MANIFEST" --all-targets
+          cargo clippy --manifest-path "$ADAPTER_MANIFEST" --all-targets -- -D warnings
+
+      - name: Prove checkout immutability
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
