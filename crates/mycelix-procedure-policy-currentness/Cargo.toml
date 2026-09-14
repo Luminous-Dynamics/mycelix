@@ -1,0 +1,12 @@
+[package]
+name = "mycelix-procedure-policy-currentness"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Authority-qualified closed-world currentness for Mycelix administrative procedure policies"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+
+[dependencies]
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+mycelix-administrative-procedure = { path = "../mycelix-administrative-procedure", features = ["procedural-completeness"] }
+mycelix-procedure-policy-identity = { path = "../mycelix-procedure-policy-identity" }
