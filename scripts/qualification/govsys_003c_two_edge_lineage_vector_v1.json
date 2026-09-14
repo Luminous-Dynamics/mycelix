@@ -1,0 +1,77 @@
+{
+  "profile": "mycelix-constitutional-rooted-lineage-two-edge-v0.1",
+  "provisioning_ref": "deployment:example-city:constitutional-root-pin:two-edge-fixture:v1",
+  "public_key_spki_der_hex": [
+    "302a300506032b65700321008de9bb3d00e2de2e510f7e7fbc10bcefc37bc5fafbc26bf1de5056439f810025",
+    "302a300506032b6570032100e4492ed9ec6a9975d9e5b08dedfd60020c088c5d11c41deed2273622cf6977ba"
+  ],
+  "signatures_hex": [
+    "75d1f68bab48c94fa69248f4c2962692d1db7a67496d32233359542bbe88efa00f308903f1925af5421a401e4c4611b8d0e7070b335915a997f4e7eabe45f400",
+    "5ce4a3c9e0be052bec364122d23dbadf1c3af7b80ca33b36a4b82c90c2d8803f206c5e26893e61ab1c4305a02545253a774784d640c420af10749dfccf6fd50d"
+  ],
+  "replay_nonces_hex": [
+    "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+    "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
+  ],
+  "root_source_anchor_hex": [
+    "6161616161616161616161616161616161616161616161616161616161616161",
+    "6262626262626262626262626262626262626262626262626262626262626262",
+    "6363636363636363636363636363636363636363636363636363636363636363"
+  ],
+  "rulebooks": [
+    {
+      "id": "rulebook:city-charter:two-edge:v1",
+      "version": "1.0.0",
+      "digest_hex": "3131313131313131313131313131313131313131313131313131313131313131"
+    },
+    {
+      "id": "rulebook:city-charter:two-edge:v2",
+      "version": "2.0.0",
+      "digest_hex": "3232323232323232323232323232323232323232323232323232323232323232"
+    },
+    {
+      "id": "rulebook:city-charter:two-edge:v3",
+      "version": "3.0.0",
+      "digest_hex": "3333333333333333333333333333333333333333333333333333333333333333"
+    }
+  ],
+  "times": {
+    "g0_valid_from_ms": 1900000000000,
+    "g0_expires_at_ms": 1900000200000,
+    "edge01_authorized_at_ms": 1900000050000,
+    "edge01_effective_at_ms": 1900000100000,
+    "g1_expires_at_ms": 1900000300000,
+    "edge12_authorized_at_ms": 1900000150000,
+    "edge12_effective_at_ms": 1900000200000
+  },
+  "expected": {
+    "material_commitments_hex": [
+      "7d39017c0a2a9cbc71347b361d4cdfd19fe1dba4cf52bd6188bb15cd4218326b",
+      "e0989c290f4c5ff63ec5609d38240313348af0ee4be43df01038efa72a783518"
+    ],
+    "root_digests_hex": [
+      "978bd949775e927e55dc6b7c5e7ef2ca18ebadbfc71b8782950af0c22644ed8b",
+      "35b89e7c6ad5ac7c8e7eccd80182f2f4c047778b538068fa4e63ce2ab61ac526",
+      "9d9b2901ba66fa3bbdd53b72f2897c05aab0f6fd5d1e3e3fe01da7d6be9ccbd4"
+    ],
+    "source_descriptor_digests_hex": [
+      "a5d9e84877dc89e83462e65fdc1cccc14af0e9438a6f7b67ccdf4a4c51baecec",
+      "c20eb54d468d2878acf6966fd8efd61674bb1b0412c28fd7952be0830bd3bef8",
+      "3c6aa2aea5a138e1da33f0cd96225c6b26adb5e4651151779ab7617311bae99c"
+    ],
+    "rotation_authority_digests_hex": [
+      "ca7d866da9da0f9e1d648fa3e2a69b16e19badefb400b28ebd8a5934978e3c12",
+      "e59db1d6866717a753e0e17e9d4f42e51fe729729264eacf50c09399b0101c66",
+      null
+    ],
+    "transition_digests_hex": [
+      "3144c9cbbdc7e40bcce842a26e52a78839a88f900713551c081ffe9ebf1343ed",
+      "8b5fab72940e3f6280abbe7b5481c7775cd872caffa33609a38b233bf3f15f19"
+    ],
+    "lineage_domain_digest_hex": "6067a895dfec8c8a6f5650e5f2031cf981c116f5b22fc1e5f316893f6dcb7f7a",
+    "root_b_provenance_digest_hex": "bf8646d156c24baa2c08f4d806d196881a75eaf31d849b8f609e7b58f8d8a0eb",
+    "core_lineage_digest_hex": "3802a7e337444b8252dde31d619c14d2c443f3ab35dea825801cb6eb265169e4",
+    "constitutional_lineage_digest_hex": "2bceed3c055a2a48443d5db5d4e7163580f7aa6ff8cb8c69100bf61ebe8c67c5",
+    "qualification_digest_hex": "7833d1860d5d54c9c22fea00022c61512eb3fac9a04f4f0b1223946f6cf2dc22"
+  }
+}
