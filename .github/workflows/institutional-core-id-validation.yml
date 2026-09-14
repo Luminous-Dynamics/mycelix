@@ -29,7 +29,17 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
+          persist-credentials: false
+
+      - name: Exact qualification subject
+        shell: bash
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
 
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
         with:
