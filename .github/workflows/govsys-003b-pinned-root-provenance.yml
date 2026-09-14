@@ -1,0 +1,166 @@
+name: GOVSYS-003B Pinned Root Provenance
+
+on:
+  pull_request:
+    branches:
+      - feat/govsys-003a-constitutional-trust-root-identity-v0.1
+    paths:
+      - .github/workflows/govsys-003b-pinned-root-provenance.yml
+      - mycelix-workspace/docs/government/CONSTITUTIONAL_PINNED_ROOT_PROVENANCE_V0.1.md
+      - scripts/qualification/govsys_constitutional_pinned_root_provenance_v0_1.py
+      - scripts/qualification/govsys_003b_pinned_root_provenance_vector_v1.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Exact external pinned-root provenance
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Exact qualification subject
+        shell: bash
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+
+      - name: Exact qualified Root-A ancestry
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent=235834fc726c1a79467e6f910a2cf39fb9abd2e3
+          git cat-file -e "${parent}^{commit}"
+          git merge-base --is-ancestor "$parent" HEAD
+          test "$(git hash-object scripts/qualification/govsys_003a_root_identity_vector_v1.json)" = "095fd6e1604e62d066aefb3d67c79b68f7ab763f"
+          test "$(git hash-object scripts/qualification/govsys_constitutional_trust_root_identity_v0_1.py)" = "4e1554d7548268e0fa460395828d6333adf9fc47"
+
+      - name: Exact four-file Root-B surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent=235834fc726c1a79467e6f910a2cf39fb9abd2e3
+          mapfile -t changed < <(git diff --name-only "$parent"..HEAD | sort)
+          expected=(
+            .github/workflows/govsys-003b-pinned-root-provenance.yml
+            mycelix-workspace/docs/government/CONSTITUTIONAL_PINNED_ROOT_PROVENANCE_V0.1.md
+            scripts/qualification/govsys_003b_pinned_root_provenance_vector_v1.json
+            scripts/qualification/govsys_constitutional_pinned_root_provenance_v0_1.py
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#changed[@]}" -eq "${#expected_sorted[@]}"
+          for i in "${!expected_sorted[@]}"; do
+            test "${changed[$i]}" = "${expected_sorted[$i]}"
+          done
+          if printf '%s\n' "${changed[@]}" | grep -Eq '^(crates/|mycelix-workspace/.*/src/|mycelix-workspace/.*/zomes/)'; then
+            echo 'GOVSYS-003B must not add runtime or consequential authority surfaces' >&2
+            exit 1
+          fi
+
+      - name: Anti-recursion and non-authority audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          doc=mycelix-workspace/docs/government/CONSTITUTIONAL_PINNED_ROOT_PROVENANCE_V0.1.md
+          oracle=scripts/qualification/govsys_constitutional_pinned_root_provenance_v0_1.py
+          grep -F 'pinned-root provenance' "$doc"
+          grep -F '!= root currentness' "$doc"
+          grep -F '!= legal legitimacy' "$doc"
+          grep -F '!= external-effect authority' "$doc"
+          grep -F 'ordinary policy currentness' "$doc"
+          grep -F 'The network remains infrastructure for institutions. It is not the sovereign.' "$doc"
+          if grep -Eq '\b(now_ms|datetime|time\.time|time_ns|monotonic)\b' "$oracle"; then
+            echo 'Root-B must not acquire an ambient currentness clock' >&2
+            exit 1
+          fi
+          if grep -Eq '(AuthorityGrant|evaluate_authority|policy.currentness|reputation|Phi|external_effect)' "$oracle"; then
+            echo 'Root-B oracle must remain independent of ordinary authority/currentness machinery' >&2
+            exit 1
+          fi
+
+      - name: Execute exact qualified Root-A parent oracle
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python3 scripts/qualification/govsys_constitutional_trust_root_identity_v0_1.py
+
+      - name: Independently recompute Root-B provenance identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import struct
+          from pathlib import Path
+
+          PROTOCOL = "mycelix-constitutional-pinned-root-provenance-v0.1"
+          PIN_PROFILE = "mycelix-provisioned-constitutional-root-pin-v1"
+          ROOT_PROFILE = "mycelix-constitutional-trust-root-v1-sha256-framed-semantic"
+          PROVENANCE_PROFILE = (
+              "mycelix-constitutional-pinned-root-provenance-v1-sha256-framed-semantic"
+          )
+          DOMAIN = b"mycelix/public-institution/constitutional-pinned-root-provenance/v1"
+          EXPECTED = "dc28fbf6ba1396dd34908c24fca6faa51bc98b0b78dcab25091e07be425313db"
+
+          def frame(raw: bytes) -> bytes:
+              return struct.pack("<Q", len(raw)) + raw
+
+          def text(value: str) -> bytes:
+              return frame(value.encode("utf-8"))
+
+          vector = json.loads(
+              Path("scripts/qualification/govsys_003b_pinned_root_provenance_vector_v1.json")
+              .read_text(encoding="utf-8")
+          )
+          assert vector["profile"] == PROVENANCE_PROFILE
+          pin = vector["pin"]
+          assert pin["pin_profile"] == PIN_PROFILE
+          assert pin["root_identity_profile"] == ROOT_PROFILE
+
+          encoded = bytearray(DOMAIN)
+          encoded += text(PROVENANCE_PROFILE)
+          encoded += text(PROTOCOL)
+          encoded += text(PIN_PROFILE)
+          encoded += text(ROOT_PROFILE)
+          encoded += frame(bytes.fromhex(pin["root_digest_hex"]))
+          encoded += text(pin["bootstrap_profile"])
+          encoded += text(pin["provisioning_ref"])
+
+          actual = hashlib.sha256(encoded).hexdigest()
+          assert actual == vector["expected_provenance_digest_hex"], (
+              actual,
+              vector["expected_provenance_digest_hex"],
+          )
+          assert actual == EXPECTED
+          print(f"GOVSYS-003B independent provenance vector PASS: {actual}")
+          PY
+
+      - name: Root-B oracle syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/qualification/govsys_constitutional_pinned_root_provenance_v0_1.py')
+          compile(path.read_text(encoding='utf-8'), str(path), 'exec')
+          PY
+
+      - name: Execute pinned-root golden and adversarial corpus
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python3 scripts/qualification/govsys_constitutional_pinned_root_provenance_v0_1.py
+
+      - name: Immutable checkout postflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          test -z "$(git status --porcelain)"

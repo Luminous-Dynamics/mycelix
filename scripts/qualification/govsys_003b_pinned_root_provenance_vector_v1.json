@@ -1,0 +1,11 @@
+{
+  "profile": "mycelix-constitutional-pinned-root-provenance-v1-sha256-framed-semantic",
+  "expected_provenance_digest_hex": "dc28fbf6ba1396dd34908c24fca6faa51bc98b0b78dcab25091e07be425313db",
+  "pin": {
+    "pin_profile": "mycelix-provisioned-constitutional-root-pin-v1",
+    "root_identity_profile": "mycelix-constitutional-trust-root-v1-sha256-framed-semantic",
+    "root_digest_hex": "c3f9ba9b323f20c2d2ebd597e424857e8f3459d31393886fd6a7f835a6a93d6d",
+    "bootstrap_profile": "deployment-pinned-root-digest-v1",
+    "provisioning_ref": "deployment:example-city:constitutional-root-pin:v1"
+  }
+}
