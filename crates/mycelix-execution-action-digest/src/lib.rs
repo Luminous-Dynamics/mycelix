@@ -56,16 +56,10 @@ mod tests {
 
     #[test]
     fn action_order_is_exact_byte_sensitive() {
-        let a = execution_authority_digest(
-            "response:1",
-            "[{\"type\":\"a\"},{\"type\":\"b\"}]",
-        )
-        .unwrap();
-        let b = execution_authority_digest(
-            "response:1",
-            "[{\"type\":\"b\"},{\"type\":\"a\"}]",
-        )
-        .unwrap();
+        let a = execution_authority_digest("response:1", "[{\"type\":\"a\"},{\"type\":\"b\"}]")
+            .unwrap();
+        let b = execution_authority_digest("response:1", "[{\"type\":\"b\"},{\"type\":\"a\"}]")
+            .unwrap();
         assert_ne!(a, b);
     }
 
