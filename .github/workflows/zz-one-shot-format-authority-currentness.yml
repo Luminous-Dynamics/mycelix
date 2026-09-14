@@ -84,6 +84,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Cargo may refresh the governance lock while compiling the Holochain runtime.
+          # That generated lock delta is not part of this compatibility repair.
+          git checkout -- mycelix-governance/Cargo.lock
           if git diff --quiet; then
             echo 'No repair/formatter delta to commit.'
             exit 0
