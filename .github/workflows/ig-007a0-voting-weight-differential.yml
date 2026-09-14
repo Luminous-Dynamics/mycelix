@@ -79,7 +79,7 @@ jobs:
           assert self_test['authority'] == 'MeasurementOnly'
           assert self_test['profile_count'] == 3125
           assert self_test['strict_rank_inversions'] == 992545
-          assert self_test['result_sha256'] == 'db6d526d5ef6eb206c4a2f88e9032c91441d96d91e7a92079ea9c0c60b68fc73'
+          assert self_test['result_sha256'] == '848db4981afa6d438096bf1942cc8eebc177fb99331b7df7c0f6f318e4bdd7f1'
 
           assert report['result_sha256'] == self_test['result_sha256']
           assert report['source_binding']['coordinator_blob'] == '969b845e6186cbcad507c742a718060844f82eb2'
@@ -89,7 +89,16 @@ jobs:
           assert report['attested_difference']['pairwise_order']['strict_comparable_pairs'] == 4018036
           assert report['attested_difference']['pairwise_order']['strict_rank_inversions'] == 992545
           assert report['attested_difference']['pairwise_order']['tie_disagreements'] == 845518
-          assert report['unavailable_phi']['phi_independent'] is True
+
+          unavailable = report['unavailable_phi']
+          assert unavailable['multiplicative_phi_independent'] is True
+          assert abs(unavailable['mean_signed_m_minus_a'] - 0.09964765625) < 1e-15
+          assert abs(unavailable['mean_absolute'] - 0.257330925) < 1e-15
+          unavailable_order = unavailable['pairwise_order_zero_phi_additive_vs_neutral_multiplicative']
+          assert unavailable_order['strict_comparable_pairs'] == 3992000
+          assert unavailable_order['strict_rank_inversions'] == 718000
+          assert unavailable_order['tie_disagreements'] == 859350
+
           for model in report['monotonicity'].values():
               assert all(axis['violations'] == 0 for axis in model.values())
           assert report['non_claims'] == [
