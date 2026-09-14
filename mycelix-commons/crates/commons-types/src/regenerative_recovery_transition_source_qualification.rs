@@ -54,31 +54,31 @@ impl<'a> RegenerativeRecoveryTransitionSourceQualificationV1<'a> {
     }
 
     pub fn pre_state_digest(&self) -> &str {
-        &self.transport.commitment.pre_state_digest
+        &self.transport.commitment().pre_state_digest
     }
 
     pub fn fork_resolution_content_digest(&self) -> &str {
-        &self.transport.commitment.fork_resolution_content_digest
+        &self.transport.commitment().fork_resolution_content_digest
     }
 
     pub fn current_branch_content_digest(&self) -> &str {
-        &self.transport.commitment.current_branch_content_digest
+        &self.transport.commitment().current_branch_content_digest
     }
 
     pub fn sibling_branch_content_digest(&self) -> &str {
-        &self.transport.commitment.sibling_branch_content_digest
+        &self.transport.commitment().sibling_branch_content_digest
     }
 
     pub fn post_state_digest(&self) -> &str {
-        &self.transport.commitment.post_state_digest
+        &self.transport.commitment().post_state_digest
     }
 
     pub fn commitment_content_digest(&self) -> &str {
-        &self.transport.commitment_content_digest
+        self.transport.commitment_content_digest()
     }
 
     pub const fn cursor_resumed(&self) -> bool {
-        self.transport.commitment.cursor_resumed
+        self.transport.commitment().cursor_resumed
     }
 
     /// The token cannot outlive the exact sources used for recomputation.
@@ -127,7 +127,7 @@ pub fn qualify_regenerative_recovery_transition_sources<'a>(
         current_branch,
         sibling_branch,
         resolution,
-        &transport.commitment,
+        transport.commitment(),
     )?;
 
     Ok(RegenerativeRecoveryTransitionSourceQualificationV1 {
@@ -299,10 +299,16 @@ mod tests {
         assert!(std::ptr::eq(qualified.resolution(), &decision));
         assert_eq!(
             qualified.commitment_content_digest(),
-            transport.commitment_content_digest
+            transport.commitment_content_digest()
         );
-        assert_eq!(qualified.pre_state_digest(), transport.commitment.pre_state_digest);
-        assert_eq!(qualified.post_state_digest(), transport.commitment.post_state_digest);
+        assert_eq!(
+            qualified.pre_state_digest(),
+            transport.commitment().pre_state_digest
+        );
+        assert_eq!(
+            qualified.post_state_digest(),
+            transport.commitment().post_state_digest
+        );
     }
 
     #[test]
@@ -359,12 +365,16 @@ mod tests {
     }
 
     #[test]
-    fn transport_tampering_is_rejected_before_source_token_is_minted() {
-        let (head, current, sibling, decision, mut transport) = qualified_subject();
-        transport.commitment.post_state_digest = "aa".repeat(32);
+    fn different_valid_transport_cannot_mint_source_token() {
+        let (head, current, sibling, decision, transport) = qualified_subject();
+        let mut changed_commitment = transport.commitment().clone();
+        changed_commitment.post_state_digest = "aa".repeat(32);
+        let changed_transport =
+            RegenerativeRecoveryTransitionTransportV1::from_commitment(changed_commitment)
+                .unwrap();
         assert!(
             qualify_regenerative_recovery_transition_sources(
-                &transport,
+                &changed_transport,
                 &head,
                 &current,
                 &sibling,
