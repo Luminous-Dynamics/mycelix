@@ -18,8 +18,7 @@ pub const GENESIS_CURRENTNESS_LEASE_BASIS: &str =
     "dna-immutable-genesis-amendments-disabled-local-reuse-v1";
 pub const GENESIS_CURRENTNESS_REUSE_MS: u64 = 30_000;
 
-const DOMAIN_CURRENTNESS_EVIDENCE: &[u8] =
-    b"mycelix/governance/current-constitution-evidence/v1";
+const DOMAIN_CURRENTNESS_EVIDENCE: &[u8] = b"mycelix/governance/current-constitution-evidence/v1";
 const MAX_DNA_HASH_BYTES: usize = 1024;
 
 /// Transport projection of one bounded current-constitution verification.
@@ -293,8 +292,8 @@ impl std::error::Error for CurrentnessContractError {}
 mod tests {
     use super::*;
     use mycelix_governance_constitution::{
-        ConstitutionGenesisManifest, ConstitutionId, InstitutionId, NetworkId, ProfiledDigest,
-        RulebookId, PROTOCOL_VERSION as CONSTITUTION_PROTOCOL_VERSION,
+        ConstitutionGenesisManifest, ConstitutionId, InstitutionId, NetworkId,
+        PROTOCOL_VERSION as CONSTITUTION_PROTOCOL_VERSION, ProfiledDigest, RulebookId,
     };
 
     fn digest(byte: u8) -> Digest32 {
@@ -354,7 +353,10 @@ mod tests {
         )
         .unwrap();
         assert_eq!(first.statement_digest, second.statement_digest);
-        assert_ne!(first.currentness_evidence_digest, second.currentness_evidence_digest);
+        assert_ne!(
+            first.currentness_evidence_digest,
+            second.currentness_evidence_digest
+        );
         assert_ne!(first.verification_ref, second.verification_ref);
     }
 

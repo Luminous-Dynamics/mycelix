@@ -1,7 +1,7 @@
 fn call_local<I, O>(zome: &str, function: &str, input: I) -> ExternResult<O>
 where
-    I: Serialize,
-    O: DeserializeOwned,
+    I: Serialize + std::fmt::Debug,
+    O: DeserializeOwned + std::fmt::Debug,
 {
     let response = call(
         CallTargetCell::Local,
@@ -144,8 +144,8 @@ fn resolve_root() -> ExternResult<ResolvedBootstrapRoot> {
         )))
     })?;
 
-    let adoption_claim = build_adoption_claim(&manifest, &constitution_before.statement)
-        .map_err(|error| {
+    let adoption_claim =
+        build_adoption_claim(&manifest, &constitution_before.statement).map_err(|error| {
             wasm_error!(WasmErrorInner::Guest(format!(
                 "bootstrap-root adoption claim denied: {error}"
             )))
@@ -188,12 +188,13 @@ fn resolve_root() -> ExternResult<ResolvedBootstrapRoot> {
 
     let adoption = qualified_adoption.to_verified_adoption();
     let constitution_receipt = current_constitution_receipt(&constitution_after, now)?;
-    let root = qualify_bootstrap_root(&manifest, &constitution_receipt, &adoption, now)
-        .map_err(|error| {
+    let root = qualify_bootstrap_root(&manifest, &constitution_receipt, &adoption, now).map_err(
+        |error| {
             wasm_error!(WasmErrorInner::Guest(format!(
                 "bootstrap-root qualification denied: {error}"
             )))
-        })?;
+        },
+    )?;
 
     if root.manifest().identity_digest().map_err(|error| {
         wasm_error!(WasmErrorInner::Guest(format!(
