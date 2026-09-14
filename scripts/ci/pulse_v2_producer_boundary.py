@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Fail-closed source invariant for Pulse V2 realtime producer authority.
 
-The durable V2 coordinator may emit no wake yet, or it may emit the shared
-information-poor PulseRealtimeHintV1. It must never regress to legacy MailSignal
-payloads or put message authority fields onto the realtime transport.
+The durable V2 coordinator may emit no wake yet. Once a wake is implemented it
+must use the qualified PulseV2RemoteSignal wire wrapper directly, occur only
+after the durable V2 inbox link has been committed, target only the recipient,
+and remain best-effort. The receive side must classify raw ExternIO bytes before
+legacy decoding; V2-family failures are terminal and may never downgrade into
+MailSignal parsing.
 """
 
 from __future__ import annotations
@@ -16,19 +19,22 @@ ROOT = Path(__file__).resolve().parents[2]
 COORDINATOR = ROOT / "mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src/lib.rs"
 
 
-def fail(message: str) -> None:
-    print(f"producer-boundary: FAIL: {message}", file=sys.stderr)
-    raise SystemExit(1)
+class BoundaryViolation(RuntimeError):
+    pass
+
+
+def require(condition: bool, message: str) -> None:
+    if not condition:
+        raise BoundaryViolation(message)
 
 
 def extract_function(source: str, name: str) -> str:
     marker = re.search(rf"\bpub\s+fn\s+{re.escape(name)}\s*\(", source)
-    if marker is None:
-        fail(f"missing function {name}")
+    require(marker is not None, f"missing function {name}")
+    assert marker is not None
 
     brace = source.find("{", marker.start())
-    if brace < 0:
-        fail(f"missing body for {name}")
+    require(brace >= 0, f"missing body for {name}")
 
     depth = 0
     for index in range(brace, len(source)):
@@ -40,14 +46,10 @@ def extract_function(source: str, name: str) -> str:
             if depth == 0:
                 return source[marker.start() : index + 1]
 
-    fail(f"unterminated body for {name}")
-    raise AssertionError("unreachable")
+    raise BoundaryViolation(f"unterminated body for {name}")
 
 
-def main() -> None:
-    source = COORDINATOR.read_text(encoding="utf-8")
-    send_v2 = extract_function(source, "send_email_v2")
-
+def validate_send_v2(send_v2: str) -> str:
     forbidden = {
         "MailSignal": "legacy realtime envelope type",
         "EmailReceived": "legacy message-arrival authority shape",
@@ -56,43 +58,161 @@ def main() -> None:
         "encrypted_subject": "message content metadata",
     }
     for token, meaning in forbidden.items():
-        if token in send_v2:
-            fail(f"send_email_v2 contains {meaning}: {token}")
+        require(token not in send_v2, f"send_email_v2 contains {meaning}: {token}")
 
-    has_remote_wake = "send_remote_signal(" in send_v2
-    if has_remote_wake:
-        required = {
-            "PulseRealtimeHintV1::inbox_changed_v2()": "shared minimal V2 wake constructor",
-            "ExternIO::encode": "typed Holochain signal encoding",
-        }
-        for token, meaning in required.items():
-            if token not in send_v2:
-                fail(f"V2 remote wake is missing {meaning}: {token}")
+    if "send_remote_signal(" not in send_v2:
+        return "send_email_v2 emits no realtime wake yet"
 
-        if not re.search(r"send_remote_signal\s*\([^,]+,\s*vec!\s*\[\s*input\.recipient(?:\.clone\(\))?\s*\]", send_v2, re.S):
-            fail("V2 wake must target only input.recipient")
+    require(
+        "PulseV2RemoteSignal::inbox_changed_v2()" in send_v2,
+        "V2 remote wake must use the qualified typed wire wrapper",
+    )
+    require(
+        "ExternIO::encode" not in send_v2,
+        "V2 typed wire wrapper must be passed directly to send_remote_signal; explicit ExternIO::encode would double-encode",
+    )
 
-        best_effort_patterns = (
-            "let _ = send_remote_signal",
-            "if let Err(",
+    recipient_only = re.search(
+        r"send_remote_signal\s*\(\s*PulseV2RemoteSignal::inbox_changed_v2\(\)\s*,\s*vec!\s*\[\s*input\.recipient(?:\.clone\(\))?\s*\]",
+        send_v2,
+        re.S,
+    )
+    require(recipient_only is not None, "V2 wake must target only input.recipient")
+
+    require(
+        "let _ = send_remote_signal" in send_v2 or "if let Err(" in send_v2,
+        "V2 wake must be best-effort and must not determine durable send success",
+    )
+
+    wake_pos = send_v2.find("send_remote_signal(")
+    entry_pos = send_v2.find("create_entry(")
+    sent_link_pos = send_v2.find("LinkTypes::AgentToSentV2")
+    inbox_link_pos = send_v2.find("LinkTypes::AgentToInboxV2")
+    require(entry_pos >= 0, "send_email_v2 must commit the V2 entry before waking")
+    require(sent_link_pos >= 0, "send_email_v2 must commit the V2 sent link before waking")
+    require(inbox_link_pos >= 0, "send_email_v2 must commit the V2 inbox link before waking")
+    require(
+        max(entry_pos, sent_link_pos, inbox_link_pos) < wake_pos,
+        "V2 wake must occur only after entry, sent-link, and inbox-link durable operations",
+    )
+
+    return "send_email_v2 wake is typed, recipient-only, post-durable, and best-effort"
+
+
+def validate_recv(recv: str) -> str:
+    if "admit_extern_io" not in recv:
+        require(
+            "PulseV2RemoteSignal" not in recv and "RemoteSignalAdmission" not in recv,
+            "recv_remote_signal mentions V2 wire types without the qualified ExternIO admission seam",
         )
-        if not any(pattern in send_v2 for pattern in best_effort_patterns):
-            fail("V2 wake must be best-effort and must not determine durable send success")
+        return "recv_remote_signal is still legacy-only; implementation tranche remains pending"
 
-        print("producer-boundary: PASS: send_email_v2 emits only the shared minimal V2 wake")
-    else:
-        print("producer-boundary: PASS: send_email_v2 emits no realtime wake yet")
+    admission_pos = recv.find("admit_extern_io")
+    legacy_pos = recv.find("RemoteSignalAdmission::Legacy")
+    v2_ok_pos = recv.find("RemoteSignalAdmission::PulseV2(Ok(hint))")
+    v2_err_pos = recv.find("RemoteSignalAdmission::PulseV2(Err(")
+    decode_pos = recv.find("signal.decode")
+    mail_signal_pos = recv.find("MailSignal")
 
-    recv = extract_function(source, "recv_remote_signal")
-    v2_receiver_tokens = ("PulseRealtimeHintV1", "decode_realtime_hint")
-    if any(token in recv for token in v2_receiver_tokens):
-        if "emit_signal" not in recv:
-            fail("V2 receive path recognizes the minimal hint but does not forward a local wake")
-        if "MailSignal" in recv and "decode_realtime_hint" not in recv:
-            fail("V2 receive path may not reinterpret the minimal hint as legacy MailSignal authority")
-        print("producer-boundary: PASS: recv_remote_signal has an explicit V2 hint path")
+    require(v2_ok_pos >= 0, "V2 receive path must explicitly handle admitted V2 hints")
+    require(v2_err_pos >= 0, "V2 receive path must explicitly handle terminal V2 failures")
+    require(legacy_pos >= 0, "V2 receive path must retain an explicit legacy branch")
+    require("emit_signal(hint)" in recv, "admitted V2 hint must be forwarded only as a local wake")
+    require(
+        admission_pos < min(v2_ok_pos, v2_err_pos, legacy_pos),
+        "raw ExternIO admission must occur before protocol branches",
+    )
+    require(
+        v2_err_pos < legacy_pos and "return Err(" in recv[v2_err_pos:legacy_pos],
+        "V2-family decode failure must terminate before the legacy branch",
+    )
+    require(
+        decode_pos > legacy_pos,
+        "legacy signal.decode must occur only after RemoteSignalAdmission::Legacy",
+    )
+    require(
+        mail_signal_pos > legacy_pos,
+        "MailSignal interpretation must occur only inside the explicit legacy branch",
+    )
+
+    return "recv_remote_signal classifies raw bytes first and cannot downgrade V2 failures"
+
+
+def self_test() -> None:
+    baseline_send = "pub fn send_email_v2() { create_entry(x)?; LinkTypes::AgentToSentV2; LinkTypes::AgentToInboxV2; Ok(hash) }"
+    validate_send_v2(baseline_send)
+
+    good_send = """pub fn send_email_v2() {
+        create_entry(x)?;
+        LinkTypes::AgentToSentV2;
+        LinkTypes::AgentToInboxV2;
+        let _ = send_remote_signal(
+            PulseV2RemoteSignal::inbox_changed_v2(),
+            vec![input.recipient.clone()],
+        );
+        Ok(hash)
+    }"""
+    validate_send_v2(good_send)
+
+    bad_double_encode = good_send.replace(
+        "let _ = send_remote_signal(",
+        "let _ = ExternIO::encode(PulseV2RemoteSignal::inbox_changed_v2()); let _ = send_remote_signal(",
+    )
+    try:
+        validate_send_v2(bad_double_encode)
+    except BoundaryViolation:
+        pass
     else:
-        print("producer-boundary: INFO: recv_remote_signal is still legacy-only; implementation tranche remains pending")
+        raise BoundaryViolation("self-test: double-encoded V2 wake was not rejected")
+
+    bad_order = good_send.replace(
+        "LinkTypes::AgentToInboxV2;\n        let _ = send_remote_signal(",
+        "let _ = send_remote_signal(",
+    ) + " LinkTypes::AgentToInboxV2;"
+    try:
+        validate_send_v2(bad_order)
+    except BoundaryViolation:
+        pass
+    else:
+        raise BoundaryViolation("self-test: pre-inbox-link wake was not rejected")
+
+    good_recv = """pub fn recv_remote_signal(signal: ExternIO) {
+        match admit_extern_io(&signal) {
+            RemoteSignalAdmission::PulseV2(Ok(hint)) => { emit_signal(hint)?; }
+            RemoteSignalAdmission::PulseV2(Err(error)) => { return Err(make_error(error)); }
+            RemoteSignalAdmission::Legacy(_) => {
+                let mail_signal: MailSignal = signal.decode()?;
+                emit_signal(mail_signal)?;
+            }
+        }
+    }"""
+    validate_recv(good_recv)
+
+    bad_fallback = good_recv.replace(
+        "RemoteSignalAdmission::PulseV2(Err(error)) => { return Err(make_error(error)); }",
+        "RemoteSignalAdmission::PulseV2(Err(_error)) => {}",
+    )
+    try:
+        validate_recv(bad_fallback)
+    except BoundaryViolation:
+        pass
+    else:
+        raise BoundaryViolation("self-test: V2-to-legacy fallthrough was not rejected")
+
+
+def main() -> None:
+    try:
+        self_test()
+        source = COORDINATOR.read_text(encoding="utf-8")
+        send_v2 = extract_function(source, "send_email_v2")
+        recv = extract_function(source, "recv_remote_signal")
+        print(f"producer-boundary: PASS: {validate_send_v2(send_v2)}")
+        recv_result = validate_recv(recv)
+        prefix = "PASS" if "cannot downgrade" in recv_result else "INFO"
+        print(f"producer-boundary: {prefix}: {recv_result}")
+    except BoundaryViolation as error:
+        print(f"producer-boundary: FAIL: {error}", file=sys.stderr)
+        raise SystemExit(1) from error
 
 
 if __name__ == "__main__":
