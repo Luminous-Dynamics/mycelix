@@ -98,13 +98,14 @@ jobs:
           print('PASS: package compiled and owned source-qualification subjects have no Clippy warnings')
           PY
 
-      - name: Exact-source and non-replay boundary audit
+      - name: Exact-source lifetime and non-replay boundary audit
         shell: bash
         run: |
           set -euo pipefail
           subject=mycelix-commons/crates/commons-types/src/regenerative_recovery_transition_source_qualification.rs
           grep -q 'validate_regenerative_recovery_transition_transport(transport)?' "$subject"
           grep -q 'verify_regenerative_recovery_transition_commitment(' "$subject"
+          grep -q 'pub const fn source_lifetime_bound_here' "$subject"
           grep -q 'pub const fn exact_source_recomputation_verified_here' "$subject"
           grep -q 'pub const fn live_governance_authority_verified_here' "$subject"
           grep -q 'pub const fn persistence_authorized_here' "$subject"
@@ -119,48 +120,63 @@ jobs:
           name = 'RegenerativeRecoveryTransitionSourceQualificationV1'
 
           declaration = re.search(
-              rf'#\[derive\(([^)]*)\)\]\s*pub struct {name}\s*\{{(.*?)\n\}}',
+              rf'pub struct {name}<\x27a>\s*\{{(.*?)\n\}}',
               text,
               re.S,
           )
           if not declaration:
-              raise SystemExit('source qualification token declaration not found')
+              raise SystemExit('lifetime-bound source qualification token declaration not found')
 
-          derives = {item.strip() for item in declaration.group(1).split(',') if item.strip()}
-          forbidden_derives = {'Clone', 'Copy', 'Serialize', 'Deserialize'}
-          present = derives & forbidden_derives
-          if present:
-              raise SystemExit(f'replay-capable token derives forbidden traits: {sorted(present)}')
-          if derives != {'Debug'}:
-              raise SystemExit(f'unexpected token derive surface: {sorted(derives)}')
+          prefix = text[max(0, declaration.start() - 160):declaration.start()]
+          if re.search(r'#\[derive\([^]]*\)\]\s*$', prefix):
+              raise SystemExit('source qualification token must not derive traits')
 
-          fields = declaration.group(2)
+          fields = declaration.group(1)
           if re.search(r'^\s*pub(?:\([^)]*\))?\s+\w+\s*:', fields, re.M):
               raise SystemExit('source qualification token fields must remain private')
+          if 'String' in fields or 'Vec<' in fields:
+              raise SystemExit('source qualification token must borrow sources, not own replayable payloads')
+
+          expected_borrows = {
+              'transport': 'RegenerativeRecoveryTransitionTransportV1',
+              'head': 'RegenerativeRecoveryReserveHeadV1',
+              'current_branch': 'RegenerativeRecoveryCoordinateEvidenceV1',
+              'sibling_branch': 'RegenerativeRecoveryCoordinateEvidenceV1',
+              'resolution': 'RegenerativeRecoveryForkResolutionEvidenceV1',
+          }
+          for field, ty in expected_borrows.items():
+              pattern = rf'^\s*{field}:\s*&\x27a\s+{ty},\s*$'
+              if not re.search(pattern, fields, re.M):
+                  raise SystemExit(f'missing exact lifetime-bound source field: {field}')
           if '_sealed: ()' not in fields:
               raise SystemExit('source qualification token lost private seal')
 
           forbidden_impls = [
-              rf'impl\s+Clone\s+for\s+{name}',
-              rf'impl\s+Copy\s+for\s+{name}',
-              rf'impl\s+(?:serde::)?Serialize\s+for\s+{name}',
+              rf'impl(?:<[^>]*>)?\s+Clone\s+for\s+{name}',
+              rf'impl(?:<[^>]*>)?\s+Copy\s+for\s+{name}',
+              rf'impl(?:<[^>]*>)?\s+(?:serde::)?Serialize\s+for\s+{name}',
               rf'impl(?:<[^>]*>)?\s+(?:serde::)?Deserialize(?:<[^>]*>)?\s+for\s+{name}',
           ]
           for pattern in forbidden_impls:
               if re.search(pattern, text):
                   raise SystemExit(f'forbidden replay/serialization impl detected: {pattern}')
 
-          positive = re.search(
-              r'pub const fn exact_source_recomputation_verified_here\(&self\) -> bool \{\s*(true|false)\s*\}',
-              text,
-          )
+          positives = [
+              'source_lifetime_bound_here',
+              'exact_source_recomputation_verified_here',
+          ]
           negatives = [
               'live_governance_authority_verified_here',
               'persistence_authorized_here',
               'persistence_executed_here',
           ]
-          if not positive or positive.group(1) != 'true':
-              raise SystemExit('exact-source positive theorem is not fixed true')
+          for method in positives:
+              match = re.search(
+                  rf'pub const fn {method}\(&self\) -> bool \{{\s*(true|false)\s*\}}',
+                  text,
+              )
+              if not match or match.group(1) != 'true':
+                  raise SystemExit(f'{method} must remain fixed true')
           for method in negatives:
               match = re.search(
                   rf'pub const fn {method}\(&self\) -> bool \{{\s*(true|false)\s*\}}',
@@ -169,5 +185,10 @@ jobs:
               if not match or match.group(1) != 'false':
                   raise SystemExit(f'{method} must remain fixed false')
 
-          print('PASS: exact-source token remains private, sealed, non-cloneable, non-serializable, and non-authorizing')
+          if "pub fn qualify_regenerative_recovery_transition_sources<'a>(" not in text:
+              raise SystemExit('qualification function lost shared source lifetime')
+          if "Result<RegenerativeRecoveryTransitionSourceQualificationV1<'a>, String>" not in text:
+              raise SystemExit('qualification result lost source lifetime')
+
+          print('PASS: exact-source token remains lifetime-bound, private, sealed, non-replayable, and non-authorizing')
           PY
