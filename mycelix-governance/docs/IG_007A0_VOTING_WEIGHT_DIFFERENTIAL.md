@@ -47,6 +47,21 @@ The explicit Phi-weighted vote path and delegation resolution currently consume 
 
 The two rules are therefore treated as distinct observed mechanism semantics. This document does not decide which rule should survive.
 
+## Unavailable-Phi semantics are also split
+
+`get_voter_phi_weight` materializes an unavailable Phi observation as:
+
+```text
+phi_score = 0.0
+phi_provenance = Unavailable
+```
+
+The multiplicative formula explicitly recognizes `Unavailable` and substitutes a neutral consciousness multiplier of `1.0`.
+
+The additive `composite_weight()` method does not branch on provenance. On the observed unavailable path it therefore receives `Phi=0.0`, which means **zero Phi contribution**, not a neutral multiplicative factor.
+
+The explicit Phi-vote path intentionally skips the minimum-Phi threshold gate when provenance is unavailable, so this distinction is reachable rather than dead code.
+
 ## Preregistered finite census
 
 The oracle evaluates the Cartesian grid:
@@ -63,15 +78,18 @@ for:
 
 Total profiles: `3125`.
 
-For Formula A the primary comparison uses `PhiProvenance::Attested`. A second census evaluates `Unavailable`, where Phi must be numerically irrelevant.
+The primary comparison treats Phi as attested. A second source-observed unavailable census compares:
+
+- multiplicative `Unavailable`, where Phi is neutralized by provenance; and
+- additive composite with `Phi=0.0`, matching `get_voter_phi_weight` materialization.
 
 ## Frozen result commitment
 
 Independent report SHA-256:
 
-`db6d526d5ef6eb206c4a2f88e9032c91441d96d91e7a92079ea9c0c60b68fc73`
+`848db4981afa6d438096bf1942cc8eebc177fb99331b7df7c0f6f318e4bdd7f1`
 
-## Key finite-grid observations
+## Key attested finite-grid observations
 
 These are simulation/census observations over the declared finite grid, not universal mechanism theorems.
 
@@ -83,11 +101,23 @@ These are simulation/census observations over the declared finite grid, not univ
 - Among `4,018,036` profile pairs that both formulas rank strictly, `992,545` are strict rank inversions.
 - An additional `845,518` pairs are tied by one formula but not the other.
 - Both formulas are non-decreasing on every one-dimensional grid step in the checked domain; this does **not** make their rankings equivalent.
-- Under Formula A with `PhiProvenance::Unavailable`, changing only Phi is inert on the checked grid, as intended by that formula.
 
 The ranking result is particularly important: this is not merely a rescaling. The formulas can prefer different participants.
 
-## Representative divergence
+## Source-observed unavailable-Phi census
+
+Under unavailable provenance:
+
+- the multiplicative rule is exactly Phi-independent on the checked grid;
+- the additive comparison uses `Phi=0.0`, reflecting the actual materialized source state;
+- mean signed difference `(multiplicative - zero-Phi additive)` is approximately `+0.09964765625`;
+- mean absolute difference is approximately `0.257330925`;
+- among `3,992,000` pairs ranked strictly by both unavailable-path rules, `718,000` are strict rank inversions;
+- `859,350` additional pairs are tied by one unavailable-path rule but not the other.
+
+So the split is not only numerical. It also encodes two different interpretations of missing Phi evidence: **neutral multiplier** versus **zero additive contribution**.
+
+## Representative attested divergence
 
 Largest additive-over-multiplicative difference on the grid:
 
@@ -136,6 +166,8 @@ The next policy tranche must explicitly determine whether:
 1. these are intentionally different mechanism profiles for different vote paths; or
 2. one path is historical drift and should migrate to a versioned canonical successor.
 
+It must also explicitly decide the semantics of missing Phi evidence rather than inheriting whichever behavior falls out of the selected arithmetic form.
+
 Do not silently replace one formula with the other.
 
 If migration occurs, already-recorded vote weights remain historical facts under their original policy profile. They must not be retroactively recomputed without an explicit versioned migration theorem.
@@ -152,6 +184,7 @@ This census does not establish:
 
 - which formula is fairer;
 - which formula is more meritocratic;
+- which missing-evidence treatment is normatively preferable;
 - Sybil resistance;
 - capture resistance;
 - human legitimacy;
