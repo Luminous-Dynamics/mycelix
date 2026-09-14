@@ -1,0 +1,71 @@
+name: Execution Action Digest Core
+
+on:
+  push:
+    branches:
+      - refactor/authority-shared-execution-action-digest-core-v1
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: execution-action-digest-core-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Shared exact-byte digest core and institutional adapter
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+
+      - name: Toolchain identity
+        run: |
+          rustc --version --verbose
+          cargo --version
+          rustfmt --version
+          cargo clippy --version
+
+      - name: Format
+        run: |
+          cargo fmt --manifest-path crates/mycelix-execution-action-digest-core/Cargo.toml -- --check
+          cargo fmt --manifest-path crates/mycelix-execution-action-digest/Cargo.toml -- --check
+
+      - name: Test raw core
+        run: cargo test --manifest-path crates/mycelix-execution-action-digest-core/Cargo.toml --all-targets
+
+      - name: Test institutional adapter
+        run: cargo test --manifest-path crates/mycelix-execution-action-digest/Cargo.toml --all-targets
+
+      - name: Clippy raw core
+        run: cargo clippy --manifest-path crates/mycelix-execution-action-digest-core/Cargo.toml --all-targets -- -D warnings
+
+      - name: Clippy institutional adapter
+        run: cargo clippy --manifest-path crates/mycelix-execution-action-digest/Cargo.toml --all-targets -- -D warnings
+
+      - name: Single-production-framing audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          core='crates/mycelix-execution-action-digest-core/src/lib.rs'
+          adapter='crates/mycelix-execution-action-digest/src/lib.rs'
+          grep -q 'mycelix-governance-execution-authority-v1\\0' "$core"
+          grep -q 'execution_authority_digest_bytes' "$adapter"
+          grep -q 'map(Digest32)' "$adapter"
+          grep -q 'pub use mycelix_execution_action_digest_core' "$adapter"
+          ! grep -q 'blake3::Hasher' "$adapter"
+          ! grep -q 'EXECUTION_AUTHORITY_DOMAIN' "$adapter"
+          ! grep -Eq 'const MAX_ACTION_BYTES|const MAX_PROPOSAL_ID_BYTES' "$adapter"
+          echo 'PASS: institutional adapter delegates framing to the shared core'
