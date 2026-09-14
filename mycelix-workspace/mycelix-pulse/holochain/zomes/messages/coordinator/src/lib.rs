@@ -1046,7 +1046,7 @@ pub fn get_drafts(_: ()) -> ExternResult<Vec<(ActionHash, EmailDraft)>> {
     let my_agent = agent_info()?.agent_initial_pubkey;
 
     let links = get_links(
-        LinkQuery::try_new(my_agent, LinkTypes::AgentToDrafts)?;
+        LinkQuery::try_new(my_agent, LinkTypes::AgentToDrafts)?,
         GetStrategy::default(),
     )?;
 
@@ -1113,7 +1113,7 @@ pub fn get_folders(_: ()) -> ExternResult<Vec<(ActionHash, EmailFolder)>> {
     let my_agent = agent_info()?.agent_initial_pubkey;
 
     let links = get_links(
-        LinkQuery::try_new(my_agent, LinkTypes::AgentToFolders)?;
+        LinkQuery::try_new(my_agent, LinkTypes::AgentToFolders)?,
         GetStrategy::default(),
     )?;
 
@@ -1175,7 +1175,7 @@ pub fn add_attachment(input: EncryptedAttachment) -> ExternResult<ActionHash> {
 #[hdk_extern]
 pub fn get_attachments(email_hash: ActionHash) -> ExternResult<Vec<EncryptedAttachment>> {
     let links = get_links(
-        LinkQuery::try_new(email_hash, LinkTypes::EmailToAttachments)?;
+        LinkQuery::try_new(email_hash, LinkTypes::EmailToAttachments)?,
         GetStrategy::default(),
     )?;
 
