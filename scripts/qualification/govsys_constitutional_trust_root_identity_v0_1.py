@@ -25,6 +25,7 @@ ROTATION_MODES = {"immutable", "predecessor-authorized"}
 MAX_ID_BYTES = 512
 MAX_PROFILE_BYTES = 256
 MAX_NAMESPACE_BYTES = 1024
+MAX_AUTHORIZED_POLICY_SCOPES = 1024
 HEX_32 = re.compile(r"^[0-9a-fA-F]{64}$")
 VECTOR_PATH = Path(__file__).with_name("govsys_003a_root_identity_vector_v1.json")
 
@@ -96,8 +97,18 @@ def _policy_scope(value: Any, field: str) -> dict[str, Any]:
     }
     if not isinstance(value, dict) or set(value) != required:
         raise ContractError(f"invalid {field} shape")
-    _text(value["policy_identity_profile"], f"{field}.policy_identity_profile", MAX_PROFILE_BYTES)
-    _text(value["policy_registry_namespace"], f"{field}.policy_registry_namespace", MAX_NAMESPACE_BYTES)
+    profile = _text(
+        value["policy_identity_profile"],
+        f"{field}.policy_identity_profile",
+        MAX_PROFILE_BYTES,
+    )
+    if profile == IDENTITY_PROFILE:
+        raise ContractError("constitutional root profile cannot authorize itself as policy currentness")
+    _text(
+        value["policy_registry_namespace"],
+        f"{field}.policy_registry_namespace",
+        MAX_NAMESPACE_BYTES,
+    )
     _text(
         value["provider_authority_institution_id"],
         f"{field}.provider_authority_institution_id",
@@ -159,6 +170,8 @@ def validate_root(root: Any) -> dict[str, Any]:
     scopes = root["authorized_policy_scopes"]
     if not isinstance(scopes, list):
         raise ContractError("authorized_policy_scopes must be a list")
+    if len(scopes) > MAX_AUTHORIZED_POLICY_SCOPES:
+        raise ContractError("too many authorized policy scopes")
     for index, scope in enumerate(scopes):
         _policy_scope(scope, f"authorized_policy_scopes[{index}]")
     encoded_scopes = [_scope_bytes(scope) for scope in scopes]
@@ -290,6 +303,17 @@ def self_test() -> None:
         copy.deepcopy(duplicate["authorized_policy_scopes"][0])
     )
     _expect_error(duplicate)
+
+    self_authorizing = copy.deepcopy(root)
+    self_authorizing["authorized_policy_scopes"][0]["policy_identity_profile"] = IDENTITY_PROFILE
+    _expect_error(self_authorizing)
+
+    too_many_scopes = copy.deepcopy(root)
+    too_many_scopes["authorized_policy_scopes"] = [
+        copy.deepcopy(root["authorized_policy_scopes"][0])
+        for _ in range(MAX_AUTHORIZED_POLICY_SCOPES + 1)
+    ]
+    _expect_error(too_many_scopes)
 
     wrong_institution = copy.deepcopy(root)
     wrong_institution["institution_id"] = "institution:other-city"
