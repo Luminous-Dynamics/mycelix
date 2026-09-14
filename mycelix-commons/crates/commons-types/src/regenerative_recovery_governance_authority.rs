@@ -24,21 +24,21 @@
 use crate::{
     MaritimeEvidenceEnvelope, MaritimeEvidenceKind, RegenerativeRecoveryForkResolutionEvidenceV1,
 };
+use mycelix_execution_action_digest_core::{
+    ACTIONS_DIGEST_PROFILE_V1, MAX_ACTION_BYTES, MAX_PROPOSAL_ID_BYTES,
+    execution_authority_digest_hex,
+};
 use serde::{Deserialize, Serialize};
 
 pub const REGENERATIVE_RECOVERY_GOVERNANCE_AUTHORITY_SCHEMA_V1: u8 = 1;
 pub const RECOVERY_GOVERNANCE_ACTION_PROTOCOL_V1: &str =
     "mycelix-regenerative-recovery-governance-action-v1";
-pub const GOVERNANCE_ACTIONS_DIGEST_PROFILE_V1: &str =
-    "mycelix-governance-execution-authority-v1-blake3-exact-json";
+pub const GOVERNANCE_ACTIONS_DIGEST_PROFILE_V1: &str = ACTIONS_DIGEST_PROFILE_V1;
 pub const THRESHOLD_AUTHORIZATION_IDENTITY_PROFILE_V1: &str =
     "mycelix-governance-threshold-authorization-v1-blake3-framed-semantic";
 
-const EXECUTION_AUTHORITY_DOMAIN: &[u8] = b"mycelix-governance-execution-authority-v1\0";
 const MAX_ID_BYTES: usize = 256;
 const MAX_BINDING_BYTES: usize = 2048;
-const MAX_ACTION_BYTES: usize = 4096;
-const MAX_PROPOSAL_ID_BYTES: usize = 512;
 
 /// Locally derived, exact-byte action subject. This is translation evidence, not
 /// governance authority by itself.
@@ -221,7 +221,8 @@ pub fn qualify_regenerative_recovery_governance_action(
     if exact_action_json.len() > MAX_ACTION_BYTES {
         return Err("recovery governance action exceeds registered action-byte limit".into());
     }
-    let actions_digest = execution_authority_digest(proposal_id, &exact_action_json)?;
+    let actions_digest = execution_authority_digest_hex(proposal_id, &exact_action_json)
+        .map_err(|error| format!("failed to digest recovery governance action: {error}"))?;
     Ok(RegenerativeRecoveryGovernanceActionV1 {
         proposal_id: proposal_id.to_string(),
         exact_action_json,
@@ -254,22 +255,6 @@ pub fn verify_regenerative_recovery_governance_authority(
         return Err("qualified threshold authority does not bind the exact recovery action".into());
     }
     Ok(action)
-}
-
-fn execution_authority_digest(proposal_id: &str, actions: &str) -> Result<String, String> {
-    if proposal_id.trim().is_empty() || proposal_id.len() > MAX_PROPOSAL_ID_BYTES {
-        return Err("invalid proposal ID for governance action digest".into());
-    }
-    if actions.is_empty() || actions.len() > MAX_ACTION_BYTES {
-        return Err("invalid governance action byte length".into());
-    }
-    let mut hasher = blake3::Hasher::new();
-    hasher.update(EXECUTION_AUTHORITY_DOMAIN);
-    hasher.update(&(proposal_id.len() as u64).to_le_bytes());
-    hasher.update(proposal_id.as_bytes());
-    hasher.update(&(actions.len() as u64).to_le_bytes());
-    hasher.update(actions.as_bytes());
-    Ok(hasher.finalize().to_hex().to_string())
 }
 
 fn canonical_proposal_id(value: &str) -> bool {
