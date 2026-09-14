@@ -20,6 +20,7 @@ concurrency:
 
 env:
   MANIFEST: mycelix-workspace/mycelix-pulse/crates/pulse-reconcile-pacer/Cargo.toml
+  LOCKFILE: mycelix-workspace/mycelix-pulse/crates/pulse-reconcile-pacer/Cargo.lock
 
 jobs:
   pacer:
@@ -43,6 +44,7 @@ jobs:
             exit 1
           }
           test -f "$MANIFEST"
+          test -f "$LOCKFILE"
 
       - name: Install pinned Rust toolchain
         uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87b
@@ -55,8 +57,8 @@ jobs:
         run: |
           set -euo pipefail
           cargo fmt --manifest-path "$MANIFEST" -- --check
-          cargo test --manifest-path "$MANIFEST" --all-targets
-          cargo clippy --manifest-path "$MANIFEST" --all-targets -- -D warnings
+          cargo test --locked --manifest-path "$MANIFEST" --all-targets
+          cargo clippy --locked --manifest-path "$MANIFEST" --all-targets -- -D warnings
 
       - name: Prove checkout immutability
         if: always()
