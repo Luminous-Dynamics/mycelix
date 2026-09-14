@@ -90,14 +90,26 @@ jobs:
           grep -F 'for capability in &self.required_capabilities {' "$src"
           grep -F 'for role in &self.accepted_roles {' "$src"
 
+      - name: Materialize isolated exact crate subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          subject="$RUNNER_TEMP/institutional-core-subject"
+          rm -rf "$subject"
+          mkdir -p "$subject"
+          cp -a crates/mycelix-institutional-core/. "$subject/"
+          test "$(git hash-object "$subject/src/lib.rs")" = "3e50e7264b3cd0d31542221adaba6a2aedac92b5"
+          test "$(git hash-object "$subject/tests/authority_identifier_validation.rs")" = "6c78e8e650fcd40005311ea230ae70563ea8c72d"
+          echo "QUAL_MANIFEST=$subject/Cargo.toml" >> "$GITHUB_ENV"
+
       - name: Rustfmt
-        run: cargo fmt --manifest-path crates/mycelix-institutional-core/Cargo.toml -- --check
+        run: cargo fmt --manifest-path "$QUAL_MANIFEST" -- --check
 
       - name: All-target tests
-        run: cargo test --manifest-path crates/mycelix-institutional-core/Cargo.toml --all-targets
+        run: cargo test --manifest-path "$QUAL_MANIFEST" --all-targets
 
       - name: Clippy warnings denied
-        run: cargo clippy --manifest-path crates/mycelix-institutional-core/Cargo.toml --all-targets -- -D warnings
+        run: cargo clippy --manifest-path "$QUAL_MANIFEST" --all-targets -- -D warnings
 
       - name: Immutable checkout postflight
         shell: bash
