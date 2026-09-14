@@ -82,6 +82,8 @@ mod tests;
 
 use hdk::prelude::*;
 use mail_messages_integrity::*;
+use pulse_realtime_hdk_adapter::admit_extern_io;
+use pulse_realtime_wire::{PulseV2RemoteSignal, RemoteSignalAdmission};
 
 /// Signal types for real-time notifications
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -273,6 +275,35 @@ pub fn send_email_v2(input: SendEmailV2Input) -> ExternResult<ActionHash> {
         LinkTag::new("inbox-v2"),
     )?;
     Ok(hash)
+}
+
+/// Emit the non-authoritative V2 inbox wake only after Holochain has committed
+/// the source-chain transaction that created the recipient's V2 inbox link.
+#[hdk_extern]
+pub fn post_commit(actions: Vec<SignedActionHashed>) {
+    for signed in actions {
+        let Action::CreateLink(create_link) = signed.action() else {
+            continue;
+        };
+        let scoped = ScopedLinkType {
+            zome_index: create_link.zome_index,
+            zome_type: create_link.link_type,
+        };
+        if LinkTypes::try_from(scoped) != Ok(LinkTypes::AgentToInboxV2) {
+            continue;
+        }
+        if create_link.tag != LinkTag::new("inbox-v2") {
+            continue;
+        }
+        let base_address = create_link.base_address.clone();
+        let Some(recipient) = base_address.into_agent_pub_key() else {
+            continue;
+        };
+        let _ = send_remote_signal(
+            PulseV2RemoteSignal::inbox_changed_v2(),
+            vec![recipient],
+        );
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -1015,7 +1046,7 @@ pub fn get_drafts(_: ()) -> ExternResult<Vec<(ActionHash, EmailDraft)>> {
     let my_agent = agent_info()?.agent_initial_pubkey;
 
     let links = get_links(
-        LinkQuery::try_new(my_agent, LinkTypes::AgentToDrafts)?,
+        LinkQuery::try_new(my_agent, LinkTypes::AgentToDrafts)?;
         GetStrategy::default(),
     )?;
 
@@ -1082,7 +1113,7 @@ pub fn get_folders(_: ()) -> ExternResult<Vec<(ActionHash, EmailFolder)>> {
     let my_agent = agent_info()?.agent_initial_pubkey;
 
     let links = get_links(
-        LinkQuery::try_new(my_agent, LinkTypes::AgentToFolders)?,
+        LinkQuery::try_new(my_agent, LinkTypes::AgentToFolders)?;
         GetStrategy::default(),
     )?;
 
@@ -1144,7 +1175,7 @@ pub fn add_attachment(input: EncryptedAttachment) -> ExternResult<ActionHash> {
 #[hdk_extern]
 pub fn get_attachments(email_hash: ActionHash) -> ExternResult<Vec<EncryptedAttachment>> {
     let links = get_links(
-        LinkQuery::try_new(email_hash, LinkTypes::EmailToAttachments)?,
+        LinkQuery::try_new(email_hash, LinkTypes::EmailToAttachments)?;
         GetStrategy::default(),
     )?;
 
@@ -1173,18 +1204,31 @@ pub fn get_attachments(email_hash: ActionHash) -> ExternResult<Vec<EncryptedAtta
 
 // ==================== SIGNALS ====================
 
-/// Signal handler for incoming signals
+/// Signal handler for incoming signals.
+///
+/// V2-family bytes are classified before any legacy decode. A malformed V2
+/// frame is terminal and can never fall through to `MailSignal` parsing.
 #[hdk_extern]
 pub fn recv_remote_signal(signal: ExternIO) -> ExternResult<()> {
-    let mail_signal: MailSignal = signal.decode().map_err(|e| {
-        wasm_error!(WasmErrorInner::Guest(format!(
-            "Failed to decode signal: {}",
-            e
-        )))
-    })?;
-
-    // Forward to UI
-    emit_signal(mail_signal)?;
+    match admit_extern_io(&signal) {
+        RemoteSignalAdmission::PulseV2(Ok(hint)) => {
+            emit_signal(hint)?;
+        }
+        RemoteSignalAdmission::PulseV2(Err(error)) => {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Rejected Pulse V2 realtime frame: {error:?}"
+            ))));
+        }
+        RemoteSignalAdmission::Legacy(_) => {
+            let mail_signal: MailSignal = signal.decode().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Failed to decode signal: {}",
+                    e
+                )))
+            })?;
+            emit_signal(mail_signal)?;
+        }
+    }
 
     Ok(())
 }
