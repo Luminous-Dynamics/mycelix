@@ -1,86 +1,122 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Transport framing for Pulse realtime wakes.
+//! Holochain remote-signal framing for Pulse V2 reconciliation wakes.
 //!
-//! This crate deliberately sits outside `pulse-realtime-types`: the latter
-//! defines transport-neutral, non-authoritative reconciliation hints, while
-//! this crate assigns those hints an explicit remote-signal wire family.
+//! `hdk::send_remote_signal` serializes its input with `ExternIO::encode`
+//! before the receiver's `recv_remote_signal(ExternIO)` callback sees it.
+//! Therefore the protocol discriminator must be part of that canonical
+//! MessagePack value; it cannot be a byte prefix wrapped inside an `ExternIO`.
 //!
-//! The security rule is structural: once a frame starts with the V2 wire
-//! prefix, every subsequent decode failure remains a V2 failure. Callers must
-//! not offer those bytes to a legacy decoder. This prevents malformed,
-//! truncated, future-version, or trailing-data V2 traffic from acquiring
-//! legacy `MailSignal` semantics through parser fallback.
+//! V2 reserves one canonical top-level shape: a two-element MessagePack tuple
+//! whose first element is [`PULSE_V2_REMOTE_SIGNAL_MAGIC`] and whose second
+//! element is the strict, information-poor [`PulseRealtimeHintV1`]. The
+//! canonical Holochain serializer emits that tuple with the fixed byte prefix
+//! in [`PULSE_V2_REMOTE_SIGNAL_PREFIX`]. Current legacy `MailSignal` values are
+//! serde-tagged maps, so the top-level tuple namespace is disjoint.
+//!
+//! The fail-closed rule is structural: any callback frame beginning with the
+//! canonical two-element-array family marker is V2-family traffic. A truncated
+//! namespace, wrong magic value, malformed payload, oversized payload, trailing
+//! value, or unsupported version is terminal V2 failure and is never returned
+//! to a legacy decoder.
 
 #![forbid(unsafe_code)]
 
 use pulse_realtime_types::{
     MAX_REALTIME_HINT_BYTES, PulseRealtimeHintV1, RealtimeContractError,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::io::Cursor;
 
-/// Raw-byte namespace assigned to Pulse V2 remote reconciliation wakes.
-///
-/// This prefix is outside the MessagePack payload on purpose. Holochain 0.6.x
-/// `ExternIO` exposes raw bytes, so a receiver can classify the protocol family
-/// before invoking either the V2 or legacy deserializer.
-pub const PULSE_V2_REMOTE_SIGNAL_PREFIX: &[u8] = b"MYCELIX:PULSE:WAKE:V1\0";
+/// Stable semantic namespace carried as the first element of the remote tuple.
+pub const PULSE_V2_REMOTE_SIGNAL_MAGIC: &str = "MYCELIX:PULSE:WAKE:V1";
 
-/// Maximum complete V2 remote-signal frame, including its discriminator.
+/// Canonical Holochain/MessagePack prefix for the two-element tuple followed by
+/// the 21-byte `PULSE_V2_REMOTE_SIGNAL_MAGIC` fixstr.
+///
+/// `0x92` is MessagePack fixarray(2); `0xb5` is fixstr(21). Unlike the first
+/// revision of this theorem, this prefix is deliberately *inside* the value
+/// serialized by `ExternIO::encode`, matching HDK 0.6.1 `send_remote_signal`.
+pub const PULSE_V2_REMOTE_SIGNAL_PREFIX: &[u8] = b"\x92\xb5MYCELIX:PULSE:WAKE:V1";
+
+/// The top-level MessagePack marker reserved for Pulse V2 remote wakes.
+const PULSE_V2_REMOTE_SIGNAL_FAMILY_MARKER: u8 = 0x92;
+
+/// Maximum complete V2 callback frame, including tuple namespace overhead.
 pub const MAX_V2_REMOTE_SIGNAL_BYTES: usize =
     PULSE_V2_REMOTE_SIGNAL_PREFIX.len() + MAX_REALTIME_HINT_BYTES;
+
+/// The only value callers should pass to `hdk::send_remote_signal` for a Pulse
+/// V2 reconciliation wake. Private fields prevent constructing another magic
+/// string through this API.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct PulseV2RemoteSignal(&'static str, PulseRealtimeHintV1);
+
+impl PulseV2RemoteSignal {
+    pub fn new(hint: PulseRealtimeHintV1) -> Result<Self, V2WireEncodeError> {
+        hint.validate().map_err(V2WireEncodeError::Contract)?;
+        Ok(Self(PULSE_V2_REMOTE_SIGNAL_MAGIC, hint))
+    }
+
+    pub fn inbox_changed_v2() -> Self {
+        Self(
+            PULSE_V2_REMOTE_SIGNAL_MAGIC,
+            PulseRealtimeHintV1::inbox_changed_v2(),
+        )
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum V2WireEncodeError {
     Contract(RealtimeContractError),
     Serialization,
+    CanonicalNamespaceMismatch,
     TooLarge { actual: usize, max: usize },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum V2WireDecodeError {
+    InvalidNamespace,
     EmptyPayload,
     TooLarge { actual: usize, max: usize },
     Malformed,
     Contract(RealtimeContractError),
 }
 
-/// Result of classifying one raw Holochain remote-signal payload.
+/// Result of classifying one raw `recv_remote_signal(ExternIO)` callback frame.
 ///
-/// `PulseV2(Err(_))` is terminal for the V2 family. The original bytes are not
-/// returned in that branch by design, which makes accidental decoder fallback
-/// harder to express. Only frames without the V2 prefix are exposed to the
-/// legacy compatibility path.
+/// `PulseV2(Err(_))` is terminal. The original bytes are intentionally not
+/// available in that branch, making parser-fallback downgrade hard to express.
 #[derive(Debug, PartialEq, Eq)]
 pub enum RemoteSignalAdmission<'a> {
     PulseV2(Result<PulseRealtimeHintV1, V2WireDecodeError>),
     Legacy(&'a [u8]),
 }
 
-/// Encode one canonical Pulse V2 remote wake.
+/// Reproduce the bytes HDK 0.6.1 will place in the callback `ExternIO` when the
+/// corresponding [`PulseV2RemoteSignal`] is supplied to `send_remote_signal`.
 ///
-/// Remote V2 uses exactly one encoding: named MessagePack behind the fixed
-/// raw-byte discriminator. JSON remains available in the transport-neutral
-/// crate for browser/test compatibility, but is intentionally not admitted on
-/// this remote-signal wire.
+/// This uses `holochain_serialized_bytes` directly because `ExternIO::encode`
+/// uses the same canonical serialization layer. The explicit prefix assertion
+/// turns serializer/configuration drift into a local failure rather than
+/// silently routing a nominal V2 wake through the legacy branch.
 pub fn encode_v2_remote_signal(
     hint: &PulseRealtimeHintV1,
 ) -> Result<Vec<u8>, V2WireEncodeError> {
-    hint.validate().map_err(V2WireEncodeError::Contract)?;
+    let wire = PulseV2RemoteSignal::new(hint.clone())?;
+    let frame = holochain_serialized_bytes::encode(&wire)
+        .map_err(|_| V2WireEncodeError::Serialization)?;
 
-    let payload = rmp_serde::to_vec_named(hint).map_err(|_| V2WireEncodeError::Serialization)?;
-    if payload.len() > MAX_REALTIME_HINT_BYTES {
+    if !frame.starts_with(PULSE_V2_REMOTE_SIGNAL_PREFIX) {
+        return Err(V2WireEncodeError::CanonicalNamespaceMismatch);
+    }
+    if frame.len() > MAX_V2_REMOTE_SIGNAL_BYTES {
         return Err(V2WireEncodeError::TooLarge {
-            actual: payload.len(),
-            max: MAX_REALTIME_HINT_BYTES,
+            actual: frame.len(),
+            max: MAX_V2_REMOTE_SIGNAL_BYTES,
         });
     }
-
-    let mut frame = Vec::with_capacity(PULSE_V2_REMOTE_SIGNAL_PREFIX.len() + payload.len());
-    frame.extend_from_slice(PULSE_V2_REMOTE_SIGNAL_PREFIX);
-    frame.extend_from_slice(&payload);
     Ok(frame)
 }
 
@@ -106,47 +142,95 @@ fn decode_v2_payload_exact(bytes: &[u8]) -> Result<PulseRealtimeHintV1, V2WireDe
     Ok(hint)
 }
 
-/// Classify and, for V2 traffic, fully validate one remote-signal frame.
+/// Classify and validate one raw Holochain remote-signal callback frame.
 ///
-/// This is the demultiplexing theorem boundary. Prefix classification happens
-/// before deserialization. Any frame bearing the V2 prefix remains in the V2
-/// branch even when its payload is empty, oversized, malformed, has trailing
-/// bytes, or requests an unsupported future version.
+/// The first byte is classified before either payload decoder is invoked. The
+/// canonical V2 serializer starts with MessagePack fixarray(2), `0x92`; that
+/// marker is reserved to V2 here. Consequently even a frame truncated midway
+/// through the magic string remains terminal V2-family traffic instead of
+/// falling through to legacy parsing.
 pub fn admit_remote_signal(bytes: &[u8]) -> RemoteSignalAdmission<'_> {
-    match bytes.strip_prefix(PULSE_V2_REMOTE_SIGNAL_PREFIX) {
-        Some(payload) => RemoteSignalAdmission::PulseV2(decode_v2_payload_exact(payload)),
-        None => RemoteSignalAdmission::Legacy(bytes),
+    if bytes.first().copied() != Some(PULSE_V2_REMOTE_SIGNAL_FAMILY_MARKER) {
+        return RemoteSignalAdmission::Legacy(bytes);
     }
+
+    let result = bytes
+        .strip_prefix(PULSE_V2_REMOTE_SIGNAL_PREFIX)
+        .ok_or(V2WireDecodeError::InvalidNamespace)
+        .and_then(decode_v2_payload_exact);
+    RemoteSignalAdmission::PulseV2(result)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pulse_realtime_types::{DurableWakeHintV1, PULSE_REALTIME_HINT_V1};
+    use pulse_realtime_types::PULSE_REALTIME_HINT_V1;
 
-    fn prefixed(payload: &[u8]) -> Vec<u8> {
-        let mut frame = Vec::with_capacity(PULSE_V2_REMOTE_SIGNAL_PREFIX.len() + payload.len());
-        frame.extend_from_slice(PULSE_V2_REMOTE_SIGNAL_PREFIX);
-        frame.extend_from_slice(payload);
-        frame
+    #[derive(Debug, Serialize)]
+    #[serde(tag = "type", content = "data")]
+    enum LegacyShape {
+        EmailReceived { encrypted_subject: Vec<u8> },
+    }
+
+    fn encode_unchecked_tuple(hint: &PulseRealtimeHintV1) -> Vec<u8> {
+        holochain_serialized_bytes::encode(&(PULSE_V2_REMOTE_SIGNAL_MAGIC, hint))
+            .expect("encode adversarial canonical tuple")
     }
 
     #[test]
-    fn canonical_v2_wire_round_trips_only_as_v2() {
+    fn canonical_holochain_encoding_establishes_the_actual_callback_namespace() {
         let hint = PulseRealtimeHintV1::inbox_changed_v2();
-        let frame = encode_v2_remote_signal(&hint).expect("encode canonical V2 wake");
+        let wire = PulseV2RemoteSignal::new(hint.clone()).expect("construct V2 wire value");
+        let direct = holochain_serialized_bytes::encode(&wire)
+            .expect("canonical Holochain serialization");
+        let helper = encode_v2_remote_signal(&hint).expect("encode canonical V2 wake");
 
-        assert!(frame.starts_with(PULSE_V2_REMOTE_SIGNAL_PREFIX));
+        assert_eq!(helper, direct);
+        assert!(helper.starts_with(PULSE_V2_REMOTE_SIGNAL_PREFIX));
+        assert_eq!(helper[0], PULSE_V2_REMOTE_SIGNAL_FAMILY_MARKER);
         assert_eq!(
-            admit_remote_signal(&frame),
+            admit_remote_signal(&helper),
             RemoteSignalAdmission::PulseV2(Ok(hint))
         );
     }
 
     #[test]
-    fn malformed_prefixed_v2_is_terminal_not_legacy() {
-        let frame = prefixed(b"not-messagepack");
+    fn current_legacy_tagged_map_shape_is_disjoint_from_reserved_v2_tuple_shape() {
+        let legacy = LegacyShape::EmailReceived {
+            encrypted_subject: vec![1, 2, 3],
+        };
+        let bytes = holochain_serialized_bytes::encode(&legacy)
+            .expect("encode legacy-shaped tagged map");
 
+        assert_ne!(bytes.first().copied(), Some(PULSE_V2_REMOTE_SIGNAL_FAMILY_MARKER));
+        assert_eq!(admit_remote_signal(&bytes), RemoteSignalAdmission::Legacy(&bytes));
+    }
+
+    #[test]
+    fn every_truncated_canonical_namespace_is_terminal_v2() {
+        for cut in 1..PULSE_V2_REMOTE_SIGNAL_PREFIX.len() {
+            let truncated = &PULSE_V2_REMOTE_SIGNAL_PREFIX[..cut];
+            assert_eq!(
+                admit_remote_signal(truncated),
+                RemoteSignalAdmission::PulseV2(Err(V2WireDecodeError::InvalidNamespace)),
+                "cut={cut}"
+            );
+        }
+    }
+
+    #[test]
+    fn wrong_magic_inside_reserved_family_is_terminal_v2() {
+        let frame = [0x92, 0xa1, b'X', 0xc0];
+        assert_eq!(
+            admit_remote_signal(&frame),
+            RemoteSignalAdmission::PulseV2(Err(V2WireDecodeError::InvalidNamespace))
+        );
+    }
+
+    #[test]
+    fn malformed_prefixed_payload_is_terminal_not_legacy() {
+        let mut frame = PULSE_V2_REMOTE_SIGNAL_PREFIX.to_vec();
+        frame.extend_from_slice(b"not-messagepack");
         assert_eq!(
             admit_remote_signal(&frame),
             RemoteSignalAdmission::PulseV2(Err(V2WireDecodeError::Malformed))
@@ -154,7 +238,7 @@ mod tests {
     }
 
     #[test]
-    fn empty_prefixed_v2_is_terminal_not_legacy() {
+    fn empty_prefixed_payload_is_terminal_not_legacy() {
         assert_eq!(
             admit_remote_signal(PULSE_V2_REMOTE_SIGNAL_PREFIX),
             RemoteSignalAdmission::PulseV2(Err(V2WireDecodeError::EmptyPayload))
@@ -164,8 +248,8 @@ mod tests {
     #[test]
     fn trailing_messagepack_value_is_rejected_without_downgrade() {
         let hint = PulseRealtimeHintV1::inbox_changed_v2();
-        let mut frame = encode_v2_remote_signal(&hint).expect("encode canonical V2 wake");
-        frame.push(0xc0); // individually valid MessagePack nil
+        let mut frame = encode_v2_remote_signal(&hint).expect("encode canonical wake");
+        frame.push(0xc0); // one valid trailing MessagePack nil value
 
         assert_eq!(
             admit_remote_signal(&frame),
@@ -174,10 +258,10 @@ mod tests {
     }
 
     #[test]
-    fn oversized_prefixed_v2_is_rejected_before_deserialization() {
-        let frame = prefixed(&vec![0u8; MAX_REALTIME_HINT_BYTES + 1]);
+    fn oversized_v2_is_rejected_before_payload_deserialization() {
+        let mut frame = PULSE_V2_REMOTE_SIGNAL_PREFIX.to_vec();
+        frame.extend(std::iter::repeat_n(0u8, MAX_REALTIME_HINT_BYTES + 1));
 
-        assert_eq!(frame.len(), MAX_V2_REMOTE_SIGNAL_BYTES + 1);
         assert_eq!(
             admit_remote_signal(&frame),
             RemoteSignalAdmission::PulseV2(Err(V2WireDecodeError::TooLarge {
@@ -188,13 +272,11 @@ mod tests {
     }
 
     #[test]
-    fn future_version_stays_in_v2_family_and_fails_closed() {
-        let future = PulseRealtimeHintV1 {
-            version: PULSE_REALTIME_HINT_V1 + 1,
-            hint: DurableWakeHintV1::InboxChangedV2,
-        };
-        let payload = rmp_serde::to_vec_named(&future).expect("encode future-version fixture");
-        let frame = prefixed(&payload);
+    fn unsupported_version_stays_v2_and_fails_closed() {
+        let mut unsupported = PulseRealtimeHintV1::inbox_changed_v2();
+        unsupported.version = PULSE_REALTIME_HINT_V1 + 1;
+        let frame = encode_unchecked_tuple(&unsupported);
+        assert!(frame.starts_with(PULSE_V2_REMOTE_SIGNAL_PREFIX));
 
         assert_eq!(
             admit_remote_signal(&frame),
@@ -205,58 +287,45 @@ mod tests {
     }
 
     #[test]
-    fn json_is_not_a_second_remote_wire_encoding() {
+    fn unframed_hint_cannot_self_promote_to_remote_v2() {
         let hint = PulseRealtimeHintV1::inbox_changed_v2();
-        let json = serde_json::to_vec(&hint).expect("encode JSON fixture");
-        let frame = prefixed(&json);
+        let bare = holochain_serialized_bytes::encode(&hint).expect("encode bare hint");
 
-        assert_eq!(
-            admit_remote_signal(&frame),
-            RemoteSignalAdmission::PulseV2(Err(V2WireDecodeError::Malformed))
-        );
+        assert!(!bare.starts_with(PULSE_V2_REMOTE_SIGNAL_PREFIX));
+        assert!(matches!(admit_remote_signal(&bare), RemoteSignalAdmission::Legacy(_)));
     }
 
     #[test]
-    fn valid_hint_without_prefix_never_self_promotes_to_v2() {
+    fn json_is_not_an_alternate_v2_remote_encoding() {
         let hint = PulseRealtimeHintV1::inbox_changed_v2();
-        let raw_hint = rmp_serde::to_vec_named(&hint).expect("encode unframed hint fixture");
+        let json = serde_json::to_vec(&hint).expect("encode JSON hint");
 
-        assert_eq!(
-            admit_remote_signal(&raw_hint),
-            RemoteSignalAdmission::Legacy(raw_hint.as_slice())
-        );
+        assert!(matches!(admit_remote_signal(&json), RemoteSignalAdmission::Legacy(_)));
     }
 
     #[test]
-    fn arbitrary_non_prefixed_bytes_are_legacy_only() {
-        let legacy_fixture = b"legacy-mail-signal-fixture";
-        assert_eq!(
-            admit_remote_signal(legacy_fixture),
-            RemoteSignalAdmission::Legacy(legacy_fixture)
-        );
-    }
+    fn canonical_remote_wake_remains_information_poor() {
+        let wire = PulseV2RemoteSignal::inbox_changed_v2();
+        let json = serde_json::to_string(&wire).expect("inspect remote wake semantics");
 
-    #[test]
-    fn canonical_remote_wake_contains_no_authority_bearing_fields() {
-        let frame = encode_v2_remote_signal(&PulseRealtimeHintV1::inbox_changed_v2())
-            .expect("encode canonical V2 wake");
-        let printable = String::from_utf8_lossy(&frame);
-
+        assert!(json.contains(PULSE_V2_REMOTE_SIGNAL_MAGIC));
+        assert!(json.contains("inbox_changed_v2"));
         for forbidden in [
             "subject",
             "body",
             "ciphertext",
-            "message_hash",
             "thread_id",
             "sender",
+            "message_id",
+            "email_hash",
             "delivered",
+            "read_receipt",
             "verified",
             "authorized",
-            "read_receipt",
         ] {
             assert!(
-                !printable.contains(forbidden),
-                "remote wake must not carry or imply {forbidden}: {printable}"
+                !json.contains(forbidden),
+                "remote wake must not carry or imply {forbidden}: {json}"
             );
         }
     }
