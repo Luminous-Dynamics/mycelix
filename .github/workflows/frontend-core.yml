@@ -169,17 +169,40 @@ jobs:
           retention-days: 7
 
       - name: Prove checkout immutability
+        id: immutability
         if: always()
         shell: bash
         run: |
-          set -euo pipefail
-          echo '=== git status --short ==='
-          git status --short
-          echo '=== untracked paths ==='
-          git ls-files --others --exclude-standard
-          echo '=== git diff --stat ==='
-          git diff --stat
-          echo '=== git diff ==='
-          git diff
-          git diff --exit-code
-          test -z "$(git status --porcelain)"
+          set -uo pipefail
+          log="$RUNNER_TEMP/frontend-core-immutability.log"
+          : > "$log"
+
+          {
+            echo '=== git status --short ==='
+            git status --short
+            echo '=== untracked paths ==='
+            git ls-files --others --exclude-standard
+            echo '=== git diff --stat ==='
+            git diff --stat
+            echo '=== git diff ==='
+            git diff
+          } 2>&1 | tee "$log"
+          status=${PIPESTATUS[0]}
+
+          if ! git diff --exit-code >>"$log" 2>&1; then
+            status=1
+          fi
+          if [ -n "$(git status --porcelain)" ]; then
+            status=1
+          fi
+
+          exit "$status"
+
+      - name: Upload exact immutability diagnostics
+        if: ${{ always() && steps.immutability.outcome == 'failure' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: frontend-core-immutability-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/frontend-core-immutability.log
+          if-no-files-found: error
+          retention-days: 7
