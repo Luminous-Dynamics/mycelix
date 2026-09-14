@@ -23,9 +23,7 @@
 
 #![forbid(unsafe_code)]
 
-use pulse_realtime_types::{
-    MAX_REALTIME_HINT_BYTES, PulseRealtimeHintV1, RealtimeContractError,
-};
+use pulse_realtime_types::{MAX_REALTIME_HINT_BYTES, PulseRealtimeHintV1, RealtimeContractError};
 use serde::{Deserialize, Serialize};
 use std::io::Cursor;
 
@@ -101,12 +99,10 @@ pub enum RemoteSignalAdmission<'a> {
 /// uses the same canonical serialization layer. The explicit prefix assertion
 /// turns serializer/configuration drift into a local failure rather than
 /// silently routing a nominal V2 wake through the legacy branch.
-pub fn encode_v2_remote_signal(
-    hint: &PulseRealtimeHintV1,
-) -> Result<Vec<u8>, V2WireEncodeError> {
+pub fn encode_v2_remote_signal(hint: &PulseRealtimeHintV1) -> Result<Vec<u8>, V2WireEncodeError> {
     let wire = PulseV2RemoteSignal::new(hint.clone())?;
-    let frame = holochain_serialized_bytes::encode(&wire)
-        .map_err(|_| V2WireEncodeError::Serialization)?;
+    let frame =
+        holochain_serialized_bytes::encode(&wire).map_err(|_| V2WireEncodeError::Serialization)?;
 
     if !frame.starts_with(PULSE_V2_REMOTE_SIGNAL_PREFIX) {
         return Err(V2WireEncodeError::CanonicalNamespaceMismatch);
@@ -181,8 +177,8 @@ mod tests {
     fn canonical_holochain_encoding_establishes_the_actual_callback_namespace() {
         let hint = PulseRealtimeHintV1::inbox_changed_v2();
         let wire = PulseV2RemoteSignal::new(hint.clone()).expect("construct V2 wire value");
-        let direct = holochain_serialized_bytes::encode(&wire)
-            .expect("canonical Holochain serialization");
+        let direct =
+            holochain_serialized_bytes::encode(&wire).expect("canonical Holochain serialization");
         let helper = encode_v2_remote_signal(&hint).expect("encode canonical V2 wake");
 
         assert_eq!(helper, direct);
@@ -199,11 +195,17 @@ mod tests {
         let legacy = LegacyShape::EmailReceived {
             encrypted_subject: vec![1, 2, 3],
         };
-        let bytes = holochain_serialized_bytes::encode(&legacy)
-            .expect("encode legacy-shaped tagged map");
+        let bytes =
+            holochain_serialized_bytes::encode(&legacy).expect("encode legacy-shaped tagged map");
 
-        assert_ne!(bytes.first().copied(), Some(PULSE_V2_REMOTE_SIGNAL_FAMILY_MARKER));
-        assert_eq!(admit_remote_signal(&bytes), RemoteSignalAdmission::Legacy(&bytes));
+        assert_ne!(
+            bytes.first().copied(),
+            Some(PULSE_V2_REMOTE_SIGNAL_FAMILY_MARKER)
+        );
+        assert_eq!(
+            admit_remote_signal(&bytes),
+            RemoteSignalAdmission::Legacy(&bytes)
+        );
     }
 
     #[test]
@@ -292,7 +294,10 @@ mod tests {
         let bare = holochain_serialized_bytes::encode(&hint).expect("encode bare hint");
 
         assert!(!bare.starts_with(PULSE_V2_REMOTE_SIGNAL_PREFIX));
-        assert!(matches!(admit_remote_signal(&bare), RemoteSignalAdmission::Legacy(_)));
+        assert!(matches!(
+            admit_remote_signal(&bare),
+            RemoteSignalAdmission::Legacy(_)
+        ));
     }
 
     #[test]
@@ -300,7 +305,10 @@ mod tests {
         let hint = PulseRealtimeHintV1::inbox_changed_v2();
         let json = serde_json::to_vec(&hint).expect("encode JSON hint");
 
-        assert!(matches!(admit_remote_signal(&json), RemoteSignalAdmission::Legacy(_)));
+        assert!(matches!(
+            admit_remote_signal(&json),
+            RemoteSignalAdmission::Legacy(_)
+        ));
     }
 
     #[test]
