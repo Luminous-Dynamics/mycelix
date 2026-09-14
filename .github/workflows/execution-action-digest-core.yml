@@ -22,8 +22,22 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - name: Checkout exact subject
+      - name: Checkout exact branch head
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Verify exact checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ github.event.pull_request.head.sha }}'
+          if [[ -z "$expected" ]]; then
+            expected="$GITHUB_SHA"
+          fi
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$expected"
+          echo "exact subject: $actual"
 
       - name: Install pinned Rust toolchain
         uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
