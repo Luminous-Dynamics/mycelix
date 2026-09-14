@@ -31,20 +31,34 @@ env:
 jobs:
   qualify:
     name: Current executor provider projection
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+      - name: Checkout exact subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
         with:
-          toolchain: stable
+          toolchain: 1.98.1
           components: rustfmt, clippy
+
+      - name: Toolchain identity
+        run: |
+          rustc --version --verbose
+          cargo --version
+          rustfmt --version
+          cargo clippy --version
+
       - name: Format
         run: cargo fmt --manifest-path crates/mycelix-governance-executor-provider-contract/Cargo.toml -- --check
+
       - name: Tests
         run: cargo test --manifest-path crates/mycelix-governance-executor-provider-contract/Cargo.toml --all-targets
+
       - name: Clippy
         run: cargo clippy --manifest-path crates/mycelix-governance-executor-provider-contract/Cargo.toml --all-targets -- -D warnings
+
       - name: Authority-projection audit
         run: |
           python3 - <<'PY'
