@@ -91,11 +91,9 @@ impl QualifiedCurrentnessProviderPolicyIdentity {
 pub fn currentness_provider_policy_semantic_identity(
     policy: &ProcedurePolicyCurrentnessPolicy,
 ) -> Result<CanonicalCurrentnessProviderPolicyIdentity, CurrentnessProviderPolicyIdentityError> {
-    policy
-        .validate()
-        .map_err(|error| CurrentnessProviderPolicyIdentityError::InvalidCurrentnessPolicy(
-            error.to_string(),
-        ))?;
+    policy.validate().map_err(|error| {
+        CurrentnessProviderPolicyIdentityError::InvalidCurrentnessPolicy(error.to_string())
+    })?;
     validate_semantic_ids(policy)?;
 
     let roles = canonical_roles(policy)?;
@@ -272,9 +270,7 @@ fn validate_id(value: &str) -> Result<(), CurrentnessProviderPolicyIdentityError
     }
 }
 
-fn validate_evidence_type(
-    value: &str,
-) -> Result<(), CurrentnessProviderPolicyIdentityError> {
+fn validate_evidence_type(value: &str) -> Result<(), CurrentnessProviderPolicyIdentityError> {
     if value.trim().is_empty() || value.len() > MAX_EVIDENCE_TYPE_BYTES {
         Err(CurrentnessProviderPolicyIdentityError::InvalidEvidenceType)
     } else {
@@ -296,7 +292,10 @@ impl fmt::Display for CurrentnessProviderPolicyIdentityError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InvalidCurrentnessPolicy(error) => {
-                write!(f, "invalid procedure-policy currentness-provider policy: {error}")
+                write!(
+                    f,
+                    "invalid procedure-policy currentness-provider policy: {error}"
+                )
             }
             Self::InvalidIdentifier => write!(f, "invalid currentness-provider policy identifier"),
             Self::InvalidEvidenceType => {
@@ -351,7 +350,8 @@ mod tests {
             target_rulebook: rulebook("rulebook:administration:v1", 1),
             procedure_profile: ProcedureProfileId::new("procedure:permit:v1").unwrap(),
             provider_namespace: "registry:procedure-policy:city".into(),
-            provider_authority_institution: InstitutionId::new("institution:records-office").unwrap(),
+            provider_authority_institution: InstitutionId::new("institution:records-office")
+                .unwrap(),
             provider_authority_jurisdiction: Some(
                 JurisdictionId::new("jurisdiction:city").unwrap(),
             ),
@@ -386,7 +386,10 @@ mod tests {
     #[test]
     fn exact_provider_policy_has_identity_without_authority_amplification() {
         let qualified = qualify_currentness_provider_policy_identity(policy()).unwrap();
-        assert_eq!(qualified.identity().profile, CURRENTNESS_PROVIDER_POLICY_IDENTITY_PROFILE);
+        assert_eq!(
+            qualified.identity().profile,
+            CURRENTNESS_PROVIDER_POLICY_IDENTITY_PROFILE
+        );
         assert!(!qualified.grants_authority());
         assert!(!qualified.grants_policy_currentness());
         assert!(!qualified.grants_administrative_decision_authority());
@@ -407,7 +410,9 @@ mod tests {
         assert_eq!(identity(&requirements), expected);
 
         let mut issuers = base;
-        issuers.provider_authority_evidence[0].accepted_issuers.reverse();
+        issuers.provider_authority_evidence[0]
+            .accepted_issuers
+            .reverse();
         assert_eq!(identity(&issuers), expected);
     }
 
@@ -468,10 +473,12 @@ mod tests {
         assert_ne!(identity(&changed), expected);
 
         let mut changed = base;
-        changed.provider_authority_evidence.push(EvidenceRequirement {
-            evidence_type: "proof:bonded-office".into(),
-            accepted_issuers: vec![],
-        });
+        changed
+            .provider_authority_evidence
+            .push(EvidenceRequirement {
+                evidence_type: "proof:bonded-office".into(),
+                accepted_issuers: vec![],
+            });
         assert_ne!(identity(&changed), expected);
     }
 
