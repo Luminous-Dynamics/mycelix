@@ -1,0 +1,18 @@
+[package]
+name = "mycelix-procedure-policy-currentness-provider-identity"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Canonical semantic identity for Mycelix administrative procedure-policy currentness-provider selection policies"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+blake3 = "1.5"
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+mycelix-procedure-policy-currentness = { path = "../mycelix-procedure-policy-currentness" }
+
+[dev-dependencies]
+mycelix-administrative-procedure = { path = "../mycelix-administrative-procedure" }
