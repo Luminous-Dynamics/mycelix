@@ -404,10 +404,10 @@ impl ConsentReceipt {
             return Err(ValidationError::NoConsentParties);
         }
         require_nonzero_digest(self.scope_digest, "consent.scope_digest")?;
-        if let Some(expires_at_ms) = self.expires_at_ms {
-            if expires_at_ms <= self.granted_at_ms {
-                return Err(ValidationError::InvalidTimeRange("consent"));
-            }
+        if let Some(expires_at_ms) = self.expires_at_ms
+            && expires_at_ms <= self.granted_at_ms
+        {
+            return Err(ValidationError::InvalidTimeRange("consent"));
         }
         validate_text(&self.proof_ref, "consent.proof_ref", MAX_ID_BYTES)
     }
@@ -529,10 +529,10 @@ impl AdvisorySignal {
             return Err(ValidationError::ConfidenceOutOfRange);
         }
         require_nonzero_digest(self.value_digest, "advisory_signal.value_digest")?;
-        if let Some(expires_at_ms) = self.expires_at_ms {
-            if expires_at_ms <= self.generated_at_ms {
-                return Err(ValidationError::InvalidTimeRange("advisory signal"));
-            }
+        if let Some(expires_at_ms) = self.expires_at_ms
+            && expires_at_ms <= self.generated_at_ms
+        {
+            return Err(ValidationError::InvalidTimeRange("advisory signal"));
         }
         for evidence in &self.evidence {
             evidence.validate()?;
