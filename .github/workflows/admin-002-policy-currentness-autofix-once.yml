@@ -22,8 +22,19 @@ jobs:
           toolchain: 1.98.1
           components: rustfmt, clippy
 
-      - name: Format exact currentness source
+      - name: Repair exact currentness quality defect
         run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('crates/mycelix-procedure-policy-currentness/src/lib.rs')
+          text = path.read_text()
+          old = '''        if let Some(until_ms) = self.effective_until_ms {\n            if until_ms <= self.effective_from_ms {\n                return Err(ProcedurePolicyCurrentnessError::InvalidEffectiveInterval);\n            }\n        }\n'''
+          new = '''        if let Some(until_ms) = self.effective_until_ms\n            && until_ms <= self.effective_from_ms\n        {\n            return Err(ProcedurePolicyCurrentnessError::InvalidEffectiveInterval);\n        }\n'''
+          assert text.count(old) == 1, 'expected exact effective-interval block'
+          path.write_text(text.replace(old, new))
+          PY
+
           rustfmt --edition 2024 crates/mycelix-procedure-policy-currentness/src/lib.rs
           git diff --check
 
@@ -45,5 +56,5 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add crates/mycelix-procedure-policy-currentness/src/lib.rs
           git diff --cached --quiet && exit 1
-          git commit -m 'fix(admin): format and qualify policy currentness'
+          git commit -m 'fix(admin): clear policy-currentness format and Clippy gates'
           git push origin HEAD:feat/admin-002-authoritative-policy-currentness-v0.1
