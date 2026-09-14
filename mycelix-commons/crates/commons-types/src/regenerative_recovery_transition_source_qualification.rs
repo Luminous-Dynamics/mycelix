@@ -5,8 +5,9 @@
 //! This is the bridge between transport integrity and live authority. It proves
 //! that one already-validated transport commitment exactly recomputes from the
 //! supplied frozen recovery head, both exact fork branches, and the exact fork
-//! resolution. The resulting token is intentionally non-serializable and
-//! non-cloneable so it cannot become a portable/replayable authority artifact.
+//! resolution. The resulting token borrows those exact source objects, is
+//! intentionally non-serializable/non-cloneable, and therefore cannot become a
+//! portable/replayable authority artifact or outlive the source objects it proved.
 //!
 //! This module still does not verify live governance/current-provider authority
 //! and does not authorize or execute persistence.
@@ -19,48 +20,70 @@ use crate::{
 };
 
 /// In-process proof that transport integrity and exact transition recomputation
-/// both succeeded against the supplied source objects.
+/// both succeeded against these exact borrowed source objects.
 ///
-/// Deliberately no `Clone`, `Serialize`, or `Deserialize` implementation.
-#[derive(Debug)]
-pub struct RegenerativeRecoveryTransitionSourceQualificationV1 {
-    pre_state_digest: String,
-    fork_resolution_content_digest: String,
-    current_branch_content_digest: String,
-    sibling_branch_content_digest: String,
-    post_state_digest: String,
-    commitment_content_digest: String,
-    cursor_resumed: bool,
+/// Deliberately no `Clone`, `Copy`, `Serialize`, or `Deserialize` implementation.
+pub struct RegenerativeRecoveryTransitionSourceQualificationV1<'a> {
+    transport: &'a RegenerativeRecoveryTransitionTransportV1,
+    head: &'a RegenerativeRecoveryReserveHeadV1,
+    current_branch: &'a RegenerativeRecoveryCoordinateEvidenceV1,
+    sibling_branch: &'a RegenerativeRecoveryCoordinateEvidenceV1,
+    resolution: &'a RegenerativeRecoveryForkResolutionEvidenceV1,
     _sealed: (),
 }
 
-impl RegenerativeRecoveryTransitionSourceQualificationV1 {
+impl<'a> RegenerativeRecoveryTransitionSourceQualificationV1<'a> {
+    pub fn transport(&self) -> &'a RegenerativeRecoveryTransitionTransportV1 {
+        self.transport
+    }
+
+    pub fn source_head(&self) -> &'a RegenerativeRecoveryReserveHeadV1 {
+        self.head
+    }
+
+    pub fn current_branch(&self) -> &'a RegenerativeRecoveryCoordinateEvidenceV1 {
+        self.current_branch
+    }
+
+    pub fn sibling_branch(&self) -> &'a RegenerativeRecoveryCoordinateEvidenceV1 {
+        self.sibling_branch
+    }
+
+    pub fn resolution(&self) -> &'a RegenerativeRecoveryForkResolutionEvidenceV1 {
+        self.resolution
+    }
+
     pub fn pre_state_digest(&self) -> &str {
-        &self.pre_state_digest
+        &self.transport.commitment.pre_state_digest
     }
 
     pub fn fork_resolution_content_digest(&self) -> &str {
-        &self.fork_resolution_content_digest
+        &self.transport.commitment.fork_resolution_content_digest
     }
 
     pub fn current_branch_content_digest(&self) -> &str {
-        &self.current_branch_content_digest
+        &self.transport.commitment.current_branch_content_digest
     }
 
     pub fn sibling_branch_content_digest(&self) -> &str {
-        &self.sibling_branch_content_digest
+        &self.transport.commitment.sibling_branch_content_digest
     }
 
     pub fn post_state_digest(&self) -> &str {
-        &self.post_state_digest
+        &self.transport.commitment.post_state_digest
     }
 
     pub fn commitment_content_digest(&self) -> &str {
-        &self.commitment_content_digest
+        &self.transport.commitment_content_digest
     }
 
     pub const fn cursor_resumed(&self) -> bool {
-        self.cursor_resumed
+        self.transport.commitment.cursor_resumed
+    }
+
+    /// The token cannot outlive the exact sources used for recomputation.
+    pub const fn source_lifetime_bound_here(&self) -> bool {
+        true
     }
 
     /// Unlike transport-only validation, this exact source recomputation has run.
@@ -87,16 +110,17 @@ impl RegenerativeRecoveryTransitionSourceQualificationV1 {
 /// Validate transport integrity and then re-run #814's exact transition theorem
 /// against all original source objects.
 ///
-/// The returned token is an ephemeral in-process fact. A future trusted provider
-/// must still directly requalify live governance/currentness and perform an atomic
-/// compare-and-swap against the authoritative stored pre-state before mutation.
-pub fn qualify_regenerative_recovery_transition_sources(
-    transport: &RegenerativeRecoveryTransitionTransportV1,
-    head: &RegenerativeRecoveryReserveHeadV1,
-    current_branch: &RegenerativeRecoveryCoordinateEvidenceV1,
-    sibling_branch: &RegenerativeRecoveryCoordinateEvidenceV1,
-    resolution: &RegenerativeRecoveryForkResolutionEvidenceV1,
-) -> Result<RegenerativeRecoveryTransitionSourceQualificationV1, String> {
+/// The returned token borrows every exact source and therefore cannot outlive
+/// them. A future trusted provider must still directly requalify live governance/
+/// currentness and perform an atomic compare-and-swap against the authoritative
+/// stored pre-state before mutation.
+pub fn qualify_regenerative_recovery_transition_sources<'a>(
+    transport: &'a RegenerativeRecoveryTransitionTransportV1,
+    head: &'a RegenerativeRecoveryReserveHeadV1,
+    current_branch: &'a RegenerativeRecoveryCoordinateEvidenceV1,
+    sibling_branch: &'a RegenerativeRecoveryCoordinateEvidenceV1,
+    resolution: &'a RegenerativeRecoveryForkResolutionEvidenceV1,
+) -> Result<RegenerativeRecoveryTransitionSourceQualificationV1<'a>, String> {
     validate_regenerative_recovery_transition_transport(transport)?;
     verify_regenerative_recovery_transition_commitment(
         head,
@@ -107,22 +131,11 @@ pub fn qualify_regenerative_recovery_transition_sources(
     )?;
 
     Ok(RegenerativeRecoveryTransitionSourceQualificationV1 {
-        pre_state_digest: transport.commitment.pre_state_digest.clone(),
-        fork_resolution_content_digest: transport
-            .commitment
-            .fork_resolution_content_digest
-            .clone(),
-        current_branch_content_digest: transport
-            .commitment
-            .current_branch_content_digest
-            .clone(),
-        sibling_branch_content_digest: transport
-            .commitment
-            .sibling_branch_content_digest
-            .clone(),
-        post_state_digest: transport.commitment.post_state_digest.clone(),
-        commitment_content_digest: transport.commitment_content_digest.clone(),
-        cursor_resumed: transport.commitment.cursor_resumed,
+        transport,
+        head,
+        current_branch,
+        sibling_branch,
+        resolution,
         _sealed: (),
     })
 }
@@ -134,8 +147,7 @@ mod tests {
         REGENERATIVE_RECOVERY_COORDINATE_EVIDENCE_SCHEMA_V1,
         REGENERATIVE_RECOVERY_FORK_RESOLUTION_SCHEMA_V1,
         RegenerativeRecoveryFlowKindEvidenceV1, RegenerativeRecoveryForkResolutionOutcomeV1,
-        RegenerativeRecoveryReserveDispositionV1,
-        RegenerativeRecoveryTransitionTransportV1,
+        RegenerativeRecoveryReserveDispositionV1, RegenerativeRecoveryTransitionTransportV1,
         qualify_regenerative_recovery_transition_commitment,
     };
 
@@ -258,13 +270,13 @@ mod tests {
             &decision,
         )
         .unwrap();
-        let transport = RegenerativeRecoveryTransitionTransportV1::from_commitment(commitment)
-            .unwrap();
+        let transport =
+            RegenerativeRecoveryTransitionTransportV1::from_commitment(commitment).unwrap();
         (head, current, sibling, decision, transport)
     }
 
     #[test]
-    fn exact_sources_mint_only_ephemeral_source_qualification() {
+    fn exact_sources_mint_only_lifetime_bound_source_qualification() {
         let (head, current, sibling, decision, transport) = qualified_subject();
         let qualified = qualify_regenerative_recovery_transition_sources(
             &transport,
@@ -275,10 +287,16 @@ mod tests {
         )
         .unwrap();
 
+        assert!(qualified.source_lifetime_bound_here());
         assert!(qualified.exact_source_recomputation_verified_here());
         assert!(!qualified.live_governance_authority_verified_here());
         assert!(!qualified.persistence_authorized_here());
         assert!(!qualified.persistence_executed_here());
+        assert!(std::ptr::eq(qualified.transport(), &transport));
+        assert!(std::ptr::eq(qualified.source_head(), &head));
+        assert!(std::ptr::eq(qualified.current_branch(), &current));
+        assert!(std::ptr::eq(qualified.sibling_branch(), &sibling));
+        assert!(std::ptr::eq(qualified.resolution(), &decision));
         assert_eq!(
             qualified.commitment_content_digest(),
             transport.commitment_content_digest
@@ -288,7 +306,7 @@ mod tests {
     }
 
     #[test]
-    fn stale_or_already_applied_head_cannot_reuse_source_qualification() {
+    fn stale_or_already_applied_head_cannot_mint_source_qualification() {
         let (mut head, current, sibling, decision, transport) = qualified_subject();
         assert!(
             crate::apply_regenerative_recovery_fork_resolution(
@@ -326,7 +344,7 @@ mod tests {
             .is_err()
         );
 
-        let (_, current, sibling, mut changed_decision, transport) = qualified_subject();
+        let (head, current, sibling, mut changed_decision, transport) = qualified_subject();
         changed_decision.resolution_evidence_binding = "resolution-evidence:changed:v1".into();
         assert!(
             qualify_regenerative_recovery_transition_sources(
