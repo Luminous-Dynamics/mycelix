@@ -59,13 +59,36 @@ One root contains exactly:
 6. optional `predecessor_root_digest_hex`;
 7. `bootstrap_mode`;
 8. `bootstrap_profile`;
-9. canonical set `authorized_policy_scopes`;
-10. `valid_from_ms`;
-11. optional `expires_at_ms`;
-12. `rotation_mode`; and
-13. optional `rotation_profile`.
+9. `authoritative_root_source_ref`;
+10. `root_coverage_profile`;
+11. canonical set `authorized_policy_scopes`;
+12. `valid_from_ms`;
+13. optional `expires_at_ms`;
+14. `rotation_mode`; and
+15. optional `rotation_profile`.
 
 Unknown or omitted fields are invalid at the normative vector/oracle boundary.
+
+## Authoritative root source is part of Root-A
+
+Closed-world currentness cannot be derived from a locally supplied transition prefix. Therefore Root-A commits the exact logical source from which root-lineage coverage/current-head evidence must later be obtained:
+
+`authoritative_root_source_ref`
+
+It also commits the exact semantic profile used to interpret a root-source coverage/head receipt:
+
+`root_coverage_profile`
+
+These are constitutional semantics, not Root-D caller configuration.
+
+```text
+caller-selected root registry
+!= authoritative constitutional root source
+```
+
+Root-B's external pin anchors these values indirectly by pinning the complete Root-A digest. Root-D must exact-match its coverage evidence to both values before any current-root claim is possible.
+
+Changing either source or coverage profile changes the Root-A identity and therefore requires predecessor-authorized constitutional succession or a separately qualified recovery/migration theorem. A currentness provider cannot silently redirect the constitutional source.
 
 ## Authorized policy scopes are bound tuples
 
@@ -121,7 +144,7 @@ ordinary policy-currentness machinery
     to declare constitutional root identity current
 ```
 
-Root provenance/currentness belongs to GOVSYS-003B/003C.
+Root provenance/currentness belongs to GOVSYS-003B/003C/003D.
 
 ### Resource bound
 
@@ -139,6 +162,8 @@ Exactly three v0.1 bootstrap modes are registered:
 
 Root-B must obtain its expectation/evidence through a trust mechanism independent from the ordinary policy-currentness machinery being bootstrapped.
 
+For generation greater than zero, normal succession does not interpret `bootstrap_mode`/`bootstrap_profile` as a fresh trust anchor. A later Root-C normal-rotation profile should require them to remain equal to the predecessor lineage unless a separately qualified recovery/reprovisioning theorem explicitly authorizes a new anchor.
+
 ## Generation and predecessor
 
 Generation `0` MUST have no predecessor digest.
@@ -150,7 +175,7 @@ generation link encoded
 != predecessor authority verified
 ```
 
-Root-A commits the succession hook only. Root-C must prove predecessor authenticity/currentness and transition authorization.
+Root-A commits the succession hook only. Root-C must prove predecessor authorization and rooted lineage; Root-D must separately prove which covered lineage endpoint is current.
 
 ## Rotation modes
 
@@ -185,8 +210,8 @@ Non-ASCII whitespace is not implicitly stripped. If supplied, its exact UTF-8 by
 Field bounds:
 
 - ordinary institutional/capability IDs: 512 bytes;
-- policy/bootstrap/rotation profiles: 256 bytes;
-- policy-registry namespace: 1,024 bytes;
+- policy/bootstrap/rotation/coverage profiles: 256 bytes;
+- policy-registry namespace or authoritative root-source reference: 1,024 bytes;
 - rulebook version: 128 bytes.
 
 A producer that needs stronger identifier syntax or normalization must apply the owning identifier profile before constructing Root-A.
@@ -265,6 +290,8 @@ DOMAIN_UNFRAMED
 || optional_digest(predecessor_root_digest)
 || frame(bootstrap_mode)
 || frame(bootstrap_profile)
+|| frame(authoritative_root_source_ref)
+|| frame(root_coverage_profile)
 || canonical_policy_scope_set(authorized_policy_scopes)
 || frame_u64(valid_from_ms)
 || optional_u64(expires_at_ms)
@@ -278,7 +305,7 @@ No JSON serialization, object/map iteration order, CBOR, MessagePack, Rust layou
 
 The checked-in v0.1 vector has canonical identity:
 
-`9c5d1a27ccb89e6bdea6788c21f811a956be7b631765539640c79f44a5a4daf7`
+`fb91b8d0abca410985f88c1763ccd943036c105a6cd5cee75ba4e4c8565753dc`
 
 The standard-library Python oracle independently recomputes the value and verifies the profile's adversarial corpus.
 
@@ -290,24 +317,27 @@ The vector wrapper itself has exactly three members:
 
 Extra wrapper metadata is rejected so a consumer cannot accidentally treat unauthenticated side metadata as part of the normative vector contract.
 
-## Relationship to qualified policy layers
+## Relationship to Root-D and qualified policy layers
+
+Root-D must require coverage/head evidence to exact-match both `authoritative_root_source_ref` and `root_coverage_profile` from the current Root-A lineage. It must not accept a caller-selected root source.
 
 Qualified #815 gives stable semantic identity to a procedure-policy currentness-provider selection policy. Qualified #812 gives a reusable record/adoption evidence waist. Neither is imported into this constitutional branch.
 
-After explicit convergence, a downstream adapter should require all of the following:
+After explicit convergence, a downstream provider-policy adapter should require all of the following:
 
-1. a Root-B/Root-C-qualified current constitutional root;
+1. a Root-D-qualified current constitutional root;
 2. provider-policy target institution/jurisdiction exactly matching the constitutional root scope;
-3. the qualified provider policy exact-matching one complete authorized policy tuple;
-4. independently qualified #812 record/adoption evidence for the exact provider-policy identity; and
-5. no alternative v0.1 tuple with the same `(profile, namespace)` key, which Root-A already forbids.
+3. the qualified provider policy exact-matching one complete authorized policy tuple; and
+4. independently qualified #812 record/adoption evidence for the exact provider-policy identity.
 
 ```text
 GOVSYS-003A root identity
         ↓
-GOVSYS-003B independent provenance
+GOVSYS-003B independent genesis provenance
         ↓
-GOVSYS-003C predecessor-authorized root currentness
+GOVSYS-003C predecessor-authorized rooted lineage
+        ↓
+GOVSYS-003D exact-source covered current head
         ↓
 exact authorized policy-scope tuple
 + qualified provider-policy identity
@@ -326,6 +356,8 @@ GOVSYS-003A does **not** establish:
 - bootstrap provenance;
 - institutional/democratic adoption;
 - legal validity or legitimacy;
+- authoritative source availability/authenticity;
+- source coverage or current head;
 - root currentness or non-revocation;
 - predecessor authorization;
 - successful root rotation;
