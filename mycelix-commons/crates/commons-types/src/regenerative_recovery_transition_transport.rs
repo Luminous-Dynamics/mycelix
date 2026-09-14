@@ -3,7 +3,7 @@
 //! Self-contained transport integrity for recovery transition commitments.
 //!
 //! This layer is deliberately weaker than exact transition recomputation. It can
-//! validate that deserialized bytes are internally coherent and content-addressed,
+//! validate that transported bytes are internally coherent and content-addressed,
 //! but it cannot prove governance authority, source-object provenance, currentness,
 //! or persistence authority. A trusted runtime must still re-run the stronger
 //! transition theorem against authoritative live inputs before any mutation.
@@ -15,13 +15,27 @@ use crate::{
 use serde::{Deserialize, Serialize};
 
 pub const REGENERATIVE_RECOVERY_TRANSITION_TRANSPORT_SCHEMA_V1: u8 = 1;
+pub const MAX_REGENERATIVE_RECOVERY_TRANSITION_TRANSPORT_JSON_BYTES: usize = 8 * 1024;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Validated recovery-transition transport evidence.
+///
+/// This positive type intentionally does not implement `Deserialize`. Untrusted
+/// bytes must enter through [`decode_regenerative_recovery_transition_transport_json`],
+/// which applies the raw-size bound before serde is allowed to allocate strings.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct RegenerativeRecoveryTransitionTransportV1 {
     pub schema_version: u8,
     pub commitment: RegenerativeRecoveryTransitionCommitmentV1,
     pub commitment_content_digest: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RegenerativeRecoveryTransitionTransportWireV1 {
+    schema_version: u8,
+    commitment: RegenerativeRecoveryTransitionCommitmentV1,
+    commitment_content_digest: String,
 }
 
 impl RegenerativeRecoveryTransitionTransportV1 {
@@ -73,6 +87,29 @@ impl RegenerativeRecoveryTransitionTransportV1 {
     pub const fn persistence_authorized_here(&self) -> bool {
         false
     }
+}
+
+/// Decode untrusted JSON through a pre-allocation size gate and then validate all
+/// self-contained transport invariants.
+pub fn decode_regenerative_recovery_transition_transport_json(
+    bytes: &[u8],
+) -> Result<RegenerativeRecoveryTransitionTransportV1, String> {
+    if bytes.len() > MAX_REGENERATIVE_RECOVERY_TRANSITION_TRANSPORT_JSON_BYTES {
+        return Err(format!(
+            "recovery transition transport is {} bytes; maximum is {}",
+            bytes.len(),
+            MAX_REGENERATIVE_RECOVERY_TRANSITION_TRANSPORT_JSON_BYTES
+        ));
+    }
+    let wire: RegenerativeRecoveryTransitionTransportWireV1 = serde_json::from_slice(bytes)
+        .map_err(|error| format!("invalid recovery transition transport JSON: {error}"))?;
+    let transport = RegenerativeRecoveryTransitionTransportV1 {
+        schema_version: wire.schema_version,
+        commitment: wire.commitment,
+        commitment_content_digest: wire.commitment_content_digest,
+    };
+    transport.validate()?;
+    Ok(transport)
 }
 
 pub fn validate_regenerative_recovery_transition_transport(
@@ -144,7 +181,9 @@ fn validate_commitment_structure(
                 return Err("retained recovery transition must report a resumed cursor".into());
             }
             if commitment.pre_state_digest == commitment.post_state_digest {
-                return Err("retained recovery transition must clear or change frozen cursor state".into());
+                return Err(
+                    "retained recovery transition must clear or change frozen cursor state".into(),
+                );
             }
         }
     }
@@ -202,20 +241,26 @@ mod tests {
     }
 
     #[test]
-    fn retained_transport_round_trips_without_gaining_authority() {
+    fn retained_transport_round_trips_through_bounded_decoder_without_gaining_authority() {
         let transport = RegenerativeRecoveryTransitionTransportV1::from_commitment(
             retained_commitment(),
         )
         .unwrap();
         transport.validate().unwrap();
         let bytes = serde_json::to_vec(&transport).unwrap();
-        let decoded: RegenerativeRecoveryTransitionTransportV1 =
-            serde_json::from_slice(&bytes).unwrap();
-        decoded.validate().unwrap();
+        let decoded = decode_regenerative_recovery_transition_transport_json(&bytes).unwrap();
         assert_eq!(transport, decoded);
         assert!(!decoded.exact_source_recomputation_verified_here());
         assert!(!decoded.governance_authority_verified_here());
         assert!(!decoded.persistence_authorized_here());
+    }
+
+    #[test]
+    fn oversized_untrusted_transport_is_rejected_before_json_decode() {
+        let bytes = vec![b' '; MAX_REGENERATIVE_RECOVERY_TRANSITION_TRANSPORT_JSON_BYTES + 1];
+        let error = decode_regenerative_recovery_transition_transport_json(&bytes).unwrap_err();
+        assert!(error.contains("maximum is"));
+        assert!(!error.contains("invalid recovery transition transport JSON"));
     }
 
     #[test]
