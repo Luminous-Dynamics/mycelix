@@ -1,0 +1,77 @@
+name: Authority Evidence Lease
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-authority-evidence-lease/**'
+      - '.github/workflows/authority-evidence-lease.yml'
+  push:
+    branches:
+      - 'security/authority-evidence-lease-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: authority-evidence-lease-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Monotone evidence-lease algebra
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-authority-evidence-lease/Cargo.toml -- --check
+
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-authority-evidence-lease/Cargo.toml --all-targets
+
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-authority-evidence-lease/Cargo.toml --all-targets -- -D warnings
+
+      - name: Lease authority audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          src = Path('crates/mycelix-authority-evidence-lease/src/lib.rs').read_text()
+          inv = Path('crates/mycelix-authority-evidence-lease/INVARIANTS.md').read_text().lower()
+
+          assert 'pub struct EvidenceLease {' in src
+          assert 'pub struct LeasedEvidence<T> {' in src
+          assert 'self.verified_at_ms.max(other.verified_at_ms)' in src
+          assert 'self.valid_until_ms.min(other.valid_until_ms)' in src
+          assert 'self.valid_until_ms.min(cap_valid_until_ms)' in src
+          assert 'EmptyLeaseSet' in src
+
+          for forbidden in [
+              'hdk::',
+              '#[hdk_extern]',
+              'get_links(',
+              'get_details(',
+              'create_entry(',
+              'call_remote(',
+              'execute_actions',
+              'reputation',
+              'model_score',
+              'phi',
+          ]:
+              assert forbidden.lower() not in src.lower(), forbidden
+
+          assert 'lease is not authority identity' in inv
+          assert 'intersections are monotone' in inv
+          assert 'expiry cannot be revived' in inv
+          assert 'transport envelope grants no authority' in inv
+          print('PASS: evidence leases only narrow reusable proof horizons')
+          PY
