@@ -1,0 +1,72 @@
+name: LEX-NET-000 Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'docs/lex-net/LEX_NET_CONSTITUTION_V1.md'
+      - 'docs/lex-net/lex_net_000_manifest.json'
+      - 'scripts/validate_lex_net_000.py'
+      - '.github/workflows/lex-net-000.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lex-net-000-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 2
+
+      - name: Prove exact head, parent, and review surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_head='${{ github.event.pull_request.head.sha || github.sha }}'
+          expected_parent='feb30a89257e96592fdbd40b249258581d42fde7'
+          actual_head="$(git rev-parse HEAD)"
+          actual_parent="$(git rev-parse HEAD^)"
+          test "$actual_head" = "$expected_head"
+          test "$actual_parent" = "$expected_parent"
+
+          mapfile -t changed < <(git diff --name-only "$expected_parent" HEAD | sort)
+          expected=(
+            '.github/workflows/lex-net-000.yml'
+            'docs/lex-net/LEX_NET_CONSTITUTION_V1.md'
+            'docs/lex-net/lex_net_000_manifest.json'
+            'scripts/validate_lex_net_000.py'
+          )
+          printf '%s\n' "${expected[@]}" | sort > /tmp/expected
+          printf '%s\n' "${changed[@]}" > /tmp/actual
+          diff -u /tmp/expected /tmp/actual
+
+          test "$(git rev-list --count "$expected_parent"..HEAD)" -eq 1
+
+      - name: Validate constitution and machine corpus
+        run: python3 scripts/validate_lex_net_000.py
+
+      - name: Static non-authority audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fiq 'foreign evidence does not directly import foreign authority' docs/lex-net/LEX_NET_CONSTITUTION_V1.md
+          grep -Fq 'TCK PASS' docs/lex-net/LEX_NET_CONSTITUTION_V1.md
+          grep -Fq 'The network remains infrastructure for institutions. It is not the sovereign.' docs/lex-net/LEX_NET_CONSTITUTION_V1.md
+          ! grep -Eiq 'LEX-NET (is|creates) (international )?law|Mycelix (is|becomes) the adjudicator|SCITT receipt (is|becomes) authority' docs/lex-net/LEX_NET_CONSTITUTION_V1.md
+
+      - name: Immutable checkout postflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain)"
+          echo "LEX-NET-000 exact-scope qualification completed."
