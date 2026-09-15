@@ -1,0 +1,143 @@
+name: IG-007A4 Delegation Counterexamples
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-governance/profiles/observed/voting-fca2c107-v1.json"
+      - "mycelix-governance/profiles/observed/voting-fca2c107-v2.json"
+      - "mycelix-governance/scripts/validate_ig007a1_observed_profile.py"
+      - "mycelix-governance/scripts/validate_ig007a3_observed_profile_v2.py"
+      - "mycelix-governance/scripts/ig007a2_observed_counterexamples.py"
+      - "mycelix-governance/scripts/ig007a4_delegation_counterexamples.py"
+      - "mycelix-governance/docs/IG_007A4_DELEGATION_COUNTEREXAMPLES.md"
+      - ".github/workflows/ig-007a4-delegation-counterexamples.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-delegation-counterexamples:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      EXPECTED_SUBJECT: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_SUBJECT }}
+          fetch-depth: 1
+
+      - name: Install Python 3.13.5
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13.5"
+
+      - name: Verify exact subject and clean preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT"
+          test -z "$(git status --porcelain)"
+
+      - name: Bind frozen production source blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object mycelix-governance/zomes/voting/coordinator/src/lib.rs)" = "969b845e6186cbcad507c742a718060844f82eb2"
+          test "$(git hash-object mycelix-governance/zomes/voting/integrity/src/lib.rs)" = "658562c8dfaf6a2f1b97a7bfd5cf0fc8a5ab6e66"
+
+      - name: Syntax compile validators and counterexample oracles
+        run: |
+          python -m py_compile mycelix-governance/scripts/validate_ig007a1_observed_profile.py
+          python -m py_compile mycelix-governance/scripts/validate_ig007a3_observed_profile_v2.py
+          python -m py_compile mycelix-governance/scripts/ig007a2_observed_counterexamples.py
+          python -m py_compile mycelix-governance/scripts/ig007a4_delegation_counterexamples.py
+
+      - name: Re-validate observation v2 twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          python mycelix-governance/scripts/validate_ig007a3_observed_profile_v2.py \
+            --profile mycelix-governance/profiles/observed/voting-fca2c107-v2.json \
+            --self-test > /tmp/ig007a4-profile-1.json
+          python mycelix-governance/scripts/validate_ig007a3_observed_profile_v2.py \
+            --profile mycelix-governance/profiles/observed/voting-fca2c107-v2.json \
+            --self-test > /tmp/ig007a4-profile-2.json
+          cmp /tmp/ig007a4-profile-1.json /tmp/ig007a4-profile-2.json
+
+      - name: Re-run predecessor corpus twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          python mycelix-governance/scripts/ig007a2_observed_counterexamples.py \
+            --profile mycelix-governance/profiles/observed/voting-fca2c107-v1.json \
+            --self-test > /tmp/ig007a4-prev-1.json
+          python mycelix-governance/scripts/ig007a2_observed_counterexamples.py \
+            --profile mycelix-governance/profiles/observed/voting-fca2c107-v1.json \
+            --self-test > /tmp/ig007a4-prev-2.json
+          cmp /tmp/ig007a4-prev-1.json /tmp/ig007a4-prev-2.json
+
+      - name: Execute A4 self-test twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          python mycelix-governance/scripts/ig007a4_delegation_counterexamples.py \
+            --profile mycelix-governance/profiles/observed/voting-fca2c107-v2.json \
+            --self-test > /tmp/ig007a4-self-1.json
+          python mycelix-governance/scripts/ig007a4_delegation_counterexamples.py \
+            --profile mycelix-governance/profiles/observed/voting-fca2c107-v2.json \
+            --self-test > /tmp/ig007a4-self-2.json
+          cmp /tmp/ig007a4-self-1.json /tmp/ig007a4-self-2.json
+
+      - name: Emit full A4 corpus twice deterministically
+        shell: bash
+        run: |
+          set -euo pipefail
+          python mycelix-governance/scripts/ig007a4_delegation_counterexamples.py \
+            --profile mycelix-governance/profiles/observed/voting-fca2c107-v2.json \
+            --corpus > /tmp/ig007a4-corpus-1.json
+          python mycelix-governance/scripts/ig007a4_delegation_counterexamples.py \
+            --profile mycelix-governance/profiles/observed/voting-fca2c107-v2.json \
+            --corpus > /tmp/ig007a4-corpus-2.json
+          cmp /tmp/ig007a4-corpus-1.json /tmp/ig007a4-corpus-2.json
+
+      - name: Assert frozen lineage and counterexamples
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          with open('/tmp/ig007a4-prev-1.json', encoding='utf-8') as f:
+              prev = json.load(f)
+          with open('/tmp/ig007a4-self-1.json', encoding='utf-8') as f:
+              cur = json.load(f)
+          with open('/tmp/ig007a4-corpus-1.json', encoding='utf-8') as f:
+              corpus = json.load(f)
+
+          assert prev['corpus_sha256'] == 'bb1cdcfe2205bcf6e6d718b536cbb73ba29a21c9da7dfa664798d02f9f866d90'
+          assert cur['profile_sha256'] == '680af4668889c299b7e0d74531f44894a64a384be71778bca54d3f21ca80ac01'
+          assert cur['predecessor_corpus_sha256'] == prev['corpus_sha256']
+          assert cur['corpus_sha256'] == 'ee5e7649a773f564b443320689f465080d4641a0f4f09f13c0c49a7087d6dc10'
+          assert cur['counterexample_count'] == 4
+          assert corpus['corpus_sha256'] == cur['corpus_sha256']
+
+          by_id = {x['id']: x for x in corpus['counterexamples']}
+          assert set(by_id) == {'CE-06', 'CE-07', 'CE-08', 'CE-09'}
+          assert by_id['CE-06']['comparison']['one_record']['approved'] is False
+          assert by_id['CE-06']['comparison']['three_same_voter_records']['approved'] is True
+          assert by_id['CE-07']['comparison']['representation_multiple'] == 2.0
+          assert by_id['CE-08']['comparison']['delegated_phi'] == 'NoObservedWindowRejectionGate'
+          assert by_id['CE-09']['comparison']['delegated_phi'] == 'NoObservedPhiThresholdRejectionGate'
+          PY
+
+      - name: Verify checkout immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT"
+          git diff --exit-code
+          git diff --cached --exit-code
+          test -z "$(git status --porcelain)"
