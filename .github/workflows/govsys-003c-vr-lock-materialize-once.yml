@@ -1,0 +1,121 @@
+name: GOVSYS-003C-VR Lock Materialize Once
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - '.github/workflows/govsys-003c-vr-lock-materialize-once.yml'
+      - 'crates/mycelix-constitutional-transition-verifier/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    if: >-
+      github.actor != 'github-actions[bot]' &&
+      github.event.pull_request.head.ref == 'ci/govsys-003c-vr-dependency-closure-v0.1'
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: never
+      CRATE: crates/mycelix-constitutional-transition-verifier
+      PARENT: 9ac0ac1408b39c8ad9e61cd83a41f0889565fcf0
+      WORKFLOW: .github/workflows/govsys-003c-vr-lock-materialize-once.yml
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Exact one-file construction child
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$PARENT"
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          mapfile -t changed < <(git diff --name-only "$PARENT" HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$WORKFLOW"
+          test ! -e "$CRATE/Cargo.lock"
+
+      - name: Install exact Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+
+      - name: Materialize exact lock and audit closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo generate-lockfile --manifest-path "$CRATE/Cargo.toml"
+          test -f "$CRATE/Cargo.lock"
+          cargo metadata --manifest-path "$CRATE/Cargo.toml" --locked --format-version 1 > /tmp/verifier-metadata.json
+          cargo tree --manifest-path "$CRATE/Cargo.toml" --locked -e features > /tmp/verifier-feature-tree.txt
+          python3 - <<'PY'
+          import json, pathlib, tomllib
+          crate = pathlib.Path('crates/mycelix-constitutional-transition-verifier')
+          lock = tomllib.loads((crate / 'Cargo.lock').read_text())
+          packages = lock['package']
+          by_name = {}
+          for p in packages:
+              by_name.setdefault(p['name'], []).append(p)
+              src = p.get('source')
+              checksum = p.get('checksum')
+              if src is not None:
+                  assert src.startswith('registry+https://github.com/rust-lang/crates.io-index'), (p['name'], src)
+                  assert isinstance(checksum, str) and len(checksum) == 64, (p['name'], checksum)
+          required = {
+              'ed25519-dalek': '3.0.0',
+              'curve25519-dalek': '5.0.0',
+              'sha2': '0.11.0',
+          }
+          for name, version in required.items():
+              matches = [p for p in by_name.get(name, []) if p['version'] == version]
+              assert len(matches) == 1, (name, version, by_name.get(name))
+          meta = json.loads(pathlib.Path('/tmp/verifier-metadata.json').read_text())
+          root = next(p for p in meta['packages'] if p['name'] == 'mycelix-constitutional-transition-verifier')
+          direct = {(d['name'], d['req']) for d in root['dependencies'] if d['kind'] is None}
+          for name, version in required.items():
+              assert any(n == name and req == f'={version}' for n, req in direct), (name, direct)
+          print('package-census')
+          for p in sorted(packages, key=lambda x: (x['name'], x['version'], x.get('source',''))):
+              print(p['name'], p['version'], p.get('source','path'), p.get('checksum','path'))
+          PY
+          if grep -Eq '(sha2|ed25519-dalek|curve25519-dalek) feature "std"' /tmp/verifier-feature-tree.txt; then
+            echo 'forbidden std feature enabled in direct crypto closure' >&2
+            cat /tmp/verifier-feature-tree.txt >&2
+            exit 1
+          fi
+          sha256sum "$CRATE/Cargo.lock"
+          cat /tmp/verifier-feature-tree.txt
+
+      - name: Self-verify locked candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path "$CRATE/Cargo.toml" --check
+          cargo test --manifest-path "$CRATE/Cargo.toml" --locked --all-targets
+          cargo clippy --manifest-path "$CRATE/Cargo.toml" --locked --all-targets -- -D warnings
+          cargo check --manifest-path "$CRATE/Cargo.toml" --locked --target wasm32-unknown-unknown
+          git diff --exit-code -- "$CRATE/Cargo.toml" "$CRATE/src/lib.rs" "$CRATE/tests/conformance.rs"
+          mapfile -t dirty < <(git status --porcelain --untracked-files=all | sed -E 's/^.. //')
+          test "${#dirty[@]}" -eq 1
+          test "${dirty[0]}" = "$CRATE/Cargo.lock"
+
+      - name: Commit lock only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "$CRATE/Cargo.lock"
+          mapfile -t staged < <(git diff --cached --name-only)
+          test "${#staged[@]}" -eq 1
+          test "${staged[0]}" = "$CRATE/Cargo.lock"
+          git commit -m 'ci(civic): freeze transition verifier dependency closure'
+          git push origin HEAD:ci/govsys-003c-vr-dependency-closure-v0.1
