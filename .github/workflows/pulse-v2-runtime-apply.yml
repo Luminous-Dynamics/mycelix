@@ -1,5 +1,5 @@
 name: Pulse V2 Runtime Apply
-# Exact-subject retrigger after the V2-only ingress-token correction.
+# Temporary exact-subject installer; removed immediately after runtime materialization.
 
 on:
   push:
@@ -12,9 +12,8 @@ permissions:
   contents: write
 
 env:
-  PATCH: .github/runtime/pulse-v2-runtime-v2.patch
+  INSTALLER: .github/runtime/apply_pulse_v2_runtime.py
   HOLOCHAIN_MANIFEST: mycelix-workspace/mycelix-pulse/holochain/Cargo.toml
-  COORDINATOR_MANIFEST: mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/Cargo.toml
 
 jobs:
   apply-runtime:
@@ -27,19 +26,19 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
 
-      - name: Verify exact patch subject
+      - name: Verify exact installer subject
         shell: bash
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = '${{ github.sha }}'
-          test -f "$PATCH"
-          git apply --check "$PATCH"
+          test -f "$INSTALLER"
+          python3 -m py_compile "$INSTALLER"
 
-      - name: Apply deterministic runtime patch
+      - name: Apply deterministic runtime transformation
         shell: bash
         run: |
           set -euo pipefail
-          git apply "$PATCH"
+          python3 "$INSTALLER"
           python3 scripts/ci/pulse_v2_producer_boundary.py
           python3 scripts/ci/pulse_v2_post_commit_boundary.py
           python3 scripts/ci/pulse_v2_remote_ingress_boundary.py
