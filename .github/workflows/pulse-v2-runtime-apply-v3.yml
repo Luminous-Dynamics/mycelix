@@ -1,0 +1,108 @@
+name: Pulse V2 Runtime V3 Apply
+
+on:
+  push:
+    branches:
+      - feat/pulse-v2-post-commit-runtime-v3
+    paths:
+      - '.github/workflows/pulse-v2-runtime-apply-v3.yml'
+
+permissions:
+  contents: write
+
+env:
+  INSTALLER: .github/runtime/apply_pulse_v2_runtime.py
+  HOLOCHAIN_MANIFEST: mycelix-workspace/mycelix-pulse/holochain/Cargo.toml
+
+jobs:
+  apply-runtime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Verify exact installer subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '${{ github.sha }}'
+          test -f "$INSTALLER"
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('.github/runtime/apply_pulse_v2_runtime.py')
+          compile(path.read_text(encoding='utf-8'), str(path), 'exec')
+          PY
+
+      - name: Apply deterministic runtime transformation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 "$INSTALLER"
+          python3 scripts/ci/pulse_v2_producer_boundary.py
+          python3 scripts/ci/pulse_v2_post_commit_boundary.py
+          python3 scripts/ci/pulse_v2_remote_ingress_boundary.py
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87b
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+
+      - name: Format production coordinator
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path "$HOLOCHAIN_MANIFEST" --package mail_messages
+
+      - name: Resolve and compile exact runtime closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path "$HOLOCHAIN_MANIFEST" -p mail_messages
+          cargo check --manifest-path "$HOLOCHAIN_MANIFEST" --locked -p mail_messages
+          cargo test --manifest-path "$HOLOCHAIN_MANIFEST" --locked -p mail_messages --lib
+          cargo clippy --manifest-path "$HOLOCHAIN_MANIFEST" --locked -p mail_messages --lib -- -D warnings
+
+      - name: Reprove authority after formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/ci/pulse_v2_producer_boundary.py
+          python3 scripts/ci/pulse_v2_post_commit_boundary.py
+          python3 scripts/ci/pulse_v2_remote_ingress_boundary.py
+
+      - name: Prove exact mutation scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t changed < <(git status --porcelain | sed 's/^...//' | sort)
+          expected=(
+            mycelix-workspace/mycelix-pulse/holochain/Cargo.lock
+            mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/Cargo.toml
+            mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src/lib.rs
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "$(printf '%s\n' "${changed[@]}")" = "$(printf '%s\n' "${expected_sorted[@]}")" || {
+            echo '::error::Runtime preflight changed unexpected paths'
+            git status --short
+            exit 1
+          }
+          git diff --check
+
+      - name: Commit exact preflighted runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            mycelix-workspace/mycelix-pulse/holochain/Cargo.lock \
+            mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/Cargo.toml \
+            mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src/lib.rs
+          git diff --cached --check
+          git commit -m 'feat(pulse): enable qualified post-commit V2 wake runtime'
+          git push origin HEAD:feat/pulse-v2-post-commit-runtime-v3
