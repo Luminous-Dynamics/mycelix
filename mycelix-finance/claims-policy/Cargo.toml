@@ -1,0 +1,14 @@
+[package]
+name = "mycelix-claims-policy"
+version = "0.1.0"
+edition = "2024"
+description = "Typed economic claim, right, obligation, and instrument policy for Mycelix"
+license = "AGPL-3.0-or-later"
+publish = false
+
+[dependencies]
+mycelix-economic-policy = { path = "../policy" }
+mycelix-sap-policy = { path = "../sap-policy" }
+mycelix-tend-policy = { path = "../tend-policy" }
+
+[workspace]
