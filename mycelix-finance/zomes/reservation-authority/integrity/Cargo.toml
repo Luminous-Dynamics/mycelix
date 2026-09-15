@@ -1,0 +1,20 @@
+[package]
+name = "reservation_authority_integrity"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Integrity rules for issuer-authenticated Mycelix Finance reservations"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "reservation_authority_integrity"
+
+[dependencies]
+hdi = { workspace = true }
+serde = { workspace = true }
+mycelix-bridge-entry-types = { path = "../../../../crates/mycelix-bridge-entry-types" }
+mycelix-business-core = { path = "../../../../crates/mycelix-business-core" }
+mycelix-business-decision = { path = "../../../../crates/mycelix-business-decision" }
+mycelix-finance-exact = { path = "../../../crates/finance-exact" }
+mycelix-finance-settlement = { path = "../../../crates/finance-settlement" }
+mycelix-finance-reservation-core = { path = "../../../crates/finance-reservation-core" }

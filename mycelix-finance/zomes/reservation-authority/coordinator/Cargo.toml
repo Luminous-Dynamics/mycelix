@@ -1,0 +1,17 @@
+[package]
+name = "reservation_authority"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Issuer-owned reservation lifecycle coordinator for Mycelix Finance"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "reservation_authority"
+
+[dependencies]
+hdk = { workspace = true }
+serde = { workspace = true }
+reservation_authority_integrity = { path = "../integrity" }
+mycelix-business-core = { path = "../../../../crates/mycelix-business-core" }
+mycelix-finance-reservation-core = { path = "../../../crates/finance-reservation-core" }

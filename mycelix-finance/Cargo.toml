@@ -13,6 +13,8 @@ members = [
     "zomes/payments/coordinator",
     "zomes/treasury/integrity",
     "zomes/treasury/coordinator",
+    "zomes/reservation-authority/integrity",
+    "zomes/reservation-authority/coordinator",
     "zomes/bridge/integrity",
     "zomes/bridge/coordinator",
     "zomes/staking/integrity",

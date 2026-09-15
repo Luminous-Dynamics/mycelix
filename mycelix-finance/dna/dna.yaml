@@ -33,6 +33,8 @@ integrity:
       path: ../target/wasm32-unknown-unknown/release/payments_integrity.wasm
     - name: treasury_integrity
       path: ../target/wasm32-unknown-unknown/release/treasury_integrity.wasm
+    - name: reservation_authority_integrity
+      path: ../target/wasm32-unknown-unknown/release/reservation_authority_integrity.wasm
     - name: finance_bridge_integrity
       path: ../target/wasm32-unknown-unknown/release/finance_bridge_integrity.wasm
     - name: staking_integrity
@@ -59,6 +61,10 @@ coordinator:
       dependencies:
         - name: treasury_integrity
         - name: payments_integrity
+    - name: reservation_authority
+      path: ../target/wasm32-unknown-unknown/release/reservation_authority.wasm
+      dependencies:
+        - name: reservation_authority_integrity
     - name: finance_bridge
       path: ../target/wasm32-unknown-unknown/release/finance_bridge.wasm
       dependencies:

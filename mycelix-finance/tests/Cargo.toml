@@ -24,6 +24,10 @@ payments = { path = "../zomes/payments/coordinator" }
 treasury_integrity = { path = "../zomes/treasury/integrity" }
 treasury = { path = "../zomes/treasury/coordinator" }
 
+# FIN-ECO reservation authority zomes
+reservation_authority_integrity = { path = "../zomes/reservation-authority/integrity" }
+reservation_authority = { path = "../zomes/reservation-authority/coordinator" }
+
 # Bridge zome dependencies
 finance_bridge_integrity = { path = "../zomes/bridge/integrity" }
 finance_bridge = { path = "../zomes/bridge/coordinator" }
@@ -125,6 +129,11 @@ path = "sweettest_consciousness_gating.rs"
 [[test]]
 name = "sweettest_race_conditions"
 path = "sweettest_race_conditions.rs"
+
+# FIN-ECO-004B reservation authority provenance/concurrency Sweettest
+[[test]]
+name = "sweettest_reservation_authority"
+path = "sweettest_reservation_authority.rs"
 
 # Price Oracle Accuracy-Weighted Consensus Sweettest
 [[test]]
