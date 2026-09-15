@@ -1,0 +1,60 @@
+{
+  "schema": "mycelix.sov-dpi.adoption-constitution.v1",
+  "tranche": "SOV-DPI-000",
+  "issue": 1025,
+  "status": "draft",
+  "governing_theorem": "national customization != constitutional degradation",
+  "invariants": [
+    {"id":"SDPI-001","name":"customization-is-not-authority"},
+    {"id":"SDPI-002","name":"centralization-is-not-unbounded-authority"},
+    {"id":"SDPI-003","name":"observation-is-not-coercive-authority"},
+    {"id":"SDPI-004","name":"emergency-authority-cannot-self-expand"},
+    {"id":"SDPI-005","name":"person-linked-access-is-accountable"},
+    {"id":"SDPI-006","name":"disconnection-cannot-increase-authority"},
+    {"id":"SDPI-007","name":"foreign-evidence-is-not-local-authority"},
+    {"id":"SDPI-008","name":"capital-is-not-constitutional-authority"},
+    {"id":"SDPI-009","name":"vendor-dependency-is-not-sovereignty"},
+    {"id":"SDPI-010","name":"low-resource-operation-preserves-floor"},
+    {"id":"SDPI-011","name":"contestability-remains-representable"},
+    {"id":"SDPI-012","name":"ai-is-not-sovereign-by-intelligence"}
+  ],
+  "threats": [
+    "foreign-control-plane-dependency",
+    "domestic-executive-authority-widening",
+    "agency-privilege-creep",
+    "permanent-emergency-authority",
+    "model-output-promoted-to-public-authority",
+    "cross-domain-person-linked-surveillance-joins",
+    "challenge-appeal-remedy-removal",
+    "provider-lock-in",
+    "low-resource-exclusion",
+    "partition-authority-widening",
+    "corrupted-registry-procurement-evidence-inputs",
+    "donor-development-finance-capture",
+    "capital-to-protocol-authority-conversion",
+    "foreign-evidence-to-local-authority-conversion",
+    "luminous-dynamics-disappearance-or-compromise"
+  ],
+  "dependencies": [
+    {"ref":"#870","role":"anti-capture constitutional kernel"},
+    {"ref":"#28","role":"reciprocal person-linked accountability"},
+    {"ref":"#31","role":"institutional authority core"},
+    {"ref":"#489","role":"sovereign interoperability plane"},
+    {"ref":"#783","role":"whole-of-government capability census"},
+    {"ref":"#883","role":"capital/evidence architecture"},
+    {"ref":"#798","role":"agent authority constitution"}
+  ],
+  "next": ["SOV-DPI-001","SOV-DPI-002","SOV-DPI-003","SOV-DPI-004","SOV-DPI-005","SOV-DPI-006"],
+  "nonclaims": [
+    "legal-validity",
+    "regulatory-compliance",
+    "human-rights-certification",
+    "cybersecurity-certification",
+    "production-readiness",
+    "affordability",
+    "deployment-performance",
+    "governmental-legitimacy",
+    "national-adoption",
+    "external-effect-authority"
+  ]
+}
