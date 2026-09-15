@@ -1,0 +1,13 @@
+[package]
+name = "mycelix-sap-policy"
+version = "0.1.0"
+edition = "2024"
+description = "Dependency-light SAP unit, balance, issuance, and claim semantics for Mycelix"
+license = "AGPL-3.0-or-later"
+publish = false
+
+[dependencies]
+mycelix-economic-policy = { path = "../policy" }
+
+# Independent policy workspace: no parent Finance lock or runtime zome changes in ECON-003.
+[workspace]
