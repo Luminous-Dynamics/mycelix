@@ -1,0 +1,271 @@
+name: ADMIN-002 Provider Policy Evidence Convergence
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-authority-evidence-lease/**'
+      - 'crates/mycelix-policy-evidence/**'
+      - 'crates/mycelix-institutional-core/**'
+      - 'crates/mycelix-procedure-policy-currentness-provider-identity/**'
+      - 'docs/release/evidence/ADMIN_002_PROVIDER_POLICY_EVIDENCE_CONVERGENCE_V0.1.md'
+      - '.github/workflows/admin-002-provider-policy-evidence-convergence.yml'
+  push:
+    branches:
+      - 'feat/admin-002-provider-policy-evidence-convergence-v0.1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: admin-002-provider-policy-evidence-convergence-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Exact provider-policy identity/evidence/security convergence
+    runs-on: ubuntu-24.04
+    env:
+      SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      MERGE_SHA: c3d5818767896c48a984ce39b64d547510cfdfd0
+      MERGE_TREE: 3572fe5b91321bc9ddefd9fb554be856d3e72174
+      PROVIDER_IDENTITY_SHA: fc452111cb6071541b7a418347dae8721bac3d80
+      POLICY_EVIDENCE_SHA: 00df4a9b39273e4953d02fd5e580ff7f7fe4b0d9
+      EVIDENCE_LEASE_SHA: 58fa357e53d7e529362c5f766965498ee557d6ce
+      HARDENED_CORE_SHA: 856788a5a47f6690ebc19b982809495ad997e0c0
+    steps:
+      - id: checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ env.SUBJECT_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - id: subject
+        name: Exact qualification subject and direct child
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          read -r commit parent extra <<< "$(git rev-list --parents -n 1 HEAD)"
+          test "$commit" = "$SUBJECT_SHA"
+          test "$parent" = "$MERGE_SHA"
+          test -z "${extra:-}"
+
+      - id: ancestry
+        name: Exact ordered three-parent selective merge
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          read -r commit p1 p2 p3 extra <<< "$(git rev-list --parents -n 1 "$MERGE_SHA")"
+          test "$commit" = "$MERGE_SHA"
+          test "$p1" = "$PROVIDER_IDENTITY_SHA"
+          test "$p2" = "$POLICY_EVIDENCE_SHA"
+          test "$p3" = "$HARDENED_CORE_SHA"
+          test -z "${extra:-}"
+          test "$(git show -s --format=%T "$MERGE_SHA")" = "$MERGE_TREE"
+          git merge-base --is-ancestor "$EVIDENCE_LEASE_SHA" "$POLICY_EVIDENCE_SHA"
+
+      - id: merge_surface
+        name: Exact nine-file merge product surface
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/expected-merge-files" <<'EOF'
+          crates/mycelix-authority-evidence-lease/Cargo.toml
+          crates/mycelix-authority-evidence-lease/INVARIANTS.md
+          crates/mycelix-authority-evidence-lease/src/lib.rs
+          crates/mycelix-institutional-core/TYPED_ID_VALIDATION_V0.1.md
+          crates/mycelix-institutional-core/src/lib.rs
+          crates/mycelix-institutional-core/tests/authority_identifier_validation.rs
+          crates/mycelix-policy-evidence/Cargo.toml
+          crates/mycelix-policy-evidence/INVARIANTS.md
+          crates/mycelix-policy-evidence/src/lib.rs
+          EOF
+          git diff --name-only "$PROVIDER_IDENTITY_SHA" "$MERGE_SHA" | sort > "$RUNNER_TEMP/actual-merge-files"
+          diff -u "$RUNNER_TEMP/expected-merge-files" "$RUNNER_TEMP/actual-merge-files"
+
+      - id: child_surface
+        name: Exact two-file qualification child surface
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/expected-child-files" <<'EOF'
+          .github/workflows/admin-002-provider-policy-evidence-convergence.yml
+          docs/release/evidence/ADMIN_002_PROVIDER_POLICY_EVIDENCE_CONVERGENCE_V0.1.md
+          EOF
+          git diff --name-only "$MERGE_SHA" HEAD | sort > "$RUNNER_TEMP/actual-child-files"
+          diff -u "$RUNNER_TEMP/expected-child-files" "$RUNNER_TEMP/actual-child-files"
+
+      - id: blobs
+        name: Exact qualified blob inheritance
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          for path in \
+            crates/mycelix-authority-evidence-lease/Cargo.toml \
+            crates/mycelix-authority-evidence-lease/INVARIANTS.md \
+            crates/mycelix-authority-evidence-lease/src/lib.rs; do
+            test "$(git rev-parse "$MERGE_SHA:$path")" = "$(git rev-parse "$EVIDENCE_LEASE_SHA:$path")"
+          done
+          for path in \
+            crates/mycelix-policy-evidence/Cargo.toml \
+            crates/mycelix-policy-evidence/INVARIANTS.md \
+            crates/mycelix-policy-evidence/src/lib.rs; do
+            test "$(git rev-parse "$MERGE_SHA:$path")" = "$(git rev-parse "$POLICY_EVIDENCE_SHA:$path")"
+          done
+          for path in \
+            crates/mycelix-institutional-core/TYPED_ID_VALIDATION_V0.1.md \
+            crates/mycelix-institutional-core/src/lib.rs \
+            crates/mycelix-institutional-core/tests/authority_identifier_validation.rs; do
+            test "$(git rev-parse "$MERGE_SHA:$path")" = "$(git rev-parse "$HARDENED_CORE_SHA:$path")"
+          done
+          test "$(git rev-parse "$MERGE_SHA:crates/mycelix-institutional-core/Cargo.toml")" = \
+               "$(git rev-parse "$HARDENED_CORE_SHA:crates/mycelix-institutional-core/Cargo.toml")"
+          test "$(git rev-parse "$MERGE_SHA:crates/mycelix-procedure-policy-currentness-provider-identity/src/lib.rs")" = \
+               "$(git rev-parse "$PROVIDER_IDENTITY_SHA:crates/mycelix-procedure-policy-currentness-provider-identity/src/lib.rs")"
+
+      - id: separation
+        name: Static non-authority and non-currentness boundary
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          doc=docs/release/evidence/ADMIN_002_PROVIDER_POLICY_EVIDENCE_CONVERGENCE_V0.1.md
+          evidence=crates/mycelix-policy-evidence/src/lib.rs
+          identity=crates/mycelix-procedure-policy-currentness-provider-identity/src/lib.rs
+          grep -F 'does **not** prove that any record/adoption evidence exists' "$doc"
+          grep -F 'verifier_origins_verified_here' "$evidence"
+          grep -F 'generation_currentness_verified_here' "$evidence"
+          grep -F 'grants_administrative_decision_authority' "$evidence"
+          grep -F 'grants_policy_currentness' "$identity"
+          grep -F 'grants_external_effect_authority' "$identity"
+          ! grep -Eiq 'qualify_current_procedure_policy|execute_effect|dispatch_effect' "$evidence"
+
+      - id: toolchain
+        name: Pinned Rust qualification toolchain
+        if: ${{ always() }}
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+
+      - id: lease
+        name: EvidenceLease executable replay
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          qroot="$(mktemp -d)"
+          mkdir -p "$qroot/crates"
+          cp -a crates/mycelix-authority-evidence-lease "$qroot/crates/"
+          manifest="$qroot/crates/mycelix-authority-evidence-lease/Cargo.toml"
+          cargo fmt --manifest-path "$manifest" -- --check
+          cargo test --manifest-path "$manifest" --all-targets
+          cargo clippy --manifest-path "$manifest" --all-targets -- -D warnings
+
+      - id: core
+        name: Hardened institutional-core executable replay
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          qroot="$(mktemp -d)"
+          mkdir -p "$qroot/crates"
+          cp -a crates/mycelix-institutional-core "$qroot/crates/"
+          manifest="$qroot/crates/mycelix-institutional-core/Cargo.toml"
+          cargo fmt --manifest-path "$manifest" -- --check
+          cargo test --manifest-path "$manifest" --all-targets
+          cargo clippy --manifest-path "$manifest" --all-targets -- -D warnings
+
+      - id: evidence
+        name: Policy-evidence waist executable replay on hardened core
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          qroot="$(mktemp -d)"
+          mkdir -p "$qroot/crates"
+          cp -a crates/mycelix-institutional-core "$qroot/crates/"
+          cp -a crates/mycelix-authority-evidence-lease "$qroot/crates/"
+          cp -a crates/mycelix-policy-evidence "$qroot/crates/"
+          manifest="$qroot/crates/mycelix-policy-evidence/Cargo.toml"
+          cargo fmt --manifest-path "$manifest" -- --check
+          cargo test --manifest-path "$manifest" --all-targets
+          cargo clippy --manifest-path "$manifest" --all-targets -- -D warnings
+
+      - id: identity
+        name: Provider-policy identity compatibility replay on hardened core
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          qroot="$(mktemp -d)"
+          mkdir -p "$qroot/crates"
+          cp -a crates/mycelix-institutional-core "$qroot/crates/"
+          cp -a crates/mycelix-administrative-procedure "$qroot/crates/"
+          cp -a crates/mycelix-procedure-policy-identity "$qroot/crates/"
+          cp -a crates/mycelix-procedure-policy-currentness "$qroot/crates/"
+          cp -a crates/mycelix-procedure-policy-currentness-provider-identity "$qroot/crates/"
+          manifest="$qroot/crates/mycelix-procedure-policy-currentness-provider-identity/Cargo.toml"
+          source="$qroot/crates/mycelix-procedure-policy-currentness-provider-identity/src/lib.rs"
+
+          # Keep the qualified #815 repository blob exact.  Adapt only its one
+          # historical assertion in this isolated replay copy: #823 now rejects
+          # the same malformed capability earlier through policy validation.
+          python3 - "$source" <<'PY'
+          from pathlib import Path
+          import sys
+
+          path = Path(sys.argv[1])
+          text = path.read_text()
+          old = '''        assert_eq!(
+            currentness_provider_policy_semantic_identity(&malformed).unwrap_err(),
+            CurrentnessProviderPolicyIdentityError::InvalidIdentifier
+        );'''
+          new = '''        let error = currentness_provider_policy_semantic_identity(&malformed).unwrap_err();
+        match error {
+            CurrentnessProviderPolicyIdentityError::InvalidCurrentnessPolicy(message) => {
+                assert!(message.contains("capability_id must not be empty"));
+            }
+            other => panic!("unexpected malformed-ID error after hardened-core convergence: {other:?}"),
+        }'''
+          if text.count(old) != 1:
+              raise SystemExit("expected exactly one historical malformed-ID assertion")
+          path.write_text(text.replace(old, new))
+          PY
+
+          # Formatting of the isolated compatibility copy is non-semantic.  Run
+          # rustfmt there, then require it to be stable before tests and Clippy.
+          cargo fmt --manifest-path "$manifest"
+          cargo fmt --manifest-path "$manifest" -- --check
+          cargo test --manifest-path "$manifest" --all-targets
+          cargo clippy --manifest-path "$manifest" --all-targets -- -D warnings
+          grep -F 'capability_id must not be empty' "$source"
+
+      - id: immutable
+        name: Immutable checkout postflight
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Fail-closed qualification aggregator
+        if: ${{ always() }}
+        env:
+          CHECKOUT: ${{ steps.checkout.outcome }}
+          SUBJECT: ${{ steps.subject.outcome }}
+          ANCESTRY: ${{ steps.ancestry.outcome }}
+          MERGE_SURFACE: ${{ steps.merge_surface.outcome }}
+          CHILD_SURFACE: ${{ steps.child_surface.outcome }}
+          BLOBS: ${{ steps.blobs.outcome }}
+          SEPARATION: ${{ steps.separation.outcome }}
+          TOOLCHAIN: ${{ steps.toolchain.outcome }}
+          LEASE: ${{ steps.lease.outcome }}
+          CORE: ${{ steps.core.outcome }}
+          EVIDENCE: ${{ steps.evidence.outcome }}
+          IDENTITY: ${{ steps.identity.outcome }}
+          IMMUTABLE: ${{ steps.immutable.outcome }}
+        run: |
+          set -euo pipefail
+          for outcome in \
+            "$CHECKOUT" "$SUBJECT" "$ANCESTRY" "$MERGE_SURFACE" "$CHILD_SURFACE" \
+            "$BLOBS" "$SEPARATION" "$TOOLCHAIN" "$LEASE" "$CORE" \
+            "$EVIDENCE" "$IDENTITY" "$IMMUTABLE"; do
+            test "$outcome" = success
+          done
