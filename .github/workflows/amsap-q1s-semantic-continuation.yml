@@ -1,0 +1,121 @@
+name: AMSAP-Q1S Semantic Diagnostic Continuation
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/amsap-q1s-semantic-continuation.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: amsap-q1s-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose-frozen-stack:
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
+    steps:
+      - name: Check out exact qualification subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 8
+
+      - name: Prove qualification-only child surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "082a3524610a32dc1ba8c7ac664b0198240dc73f"
+          mapfile -t changed < <(git diff --name-only HEAD^ HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = ".github/workflows/amsap-q1s-semantic-continuation.yml"
+
+      - name: Bootstrap hash-pinned Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUSTUP_VERSION="1.29.0"
+          RUSTUP_SHA256="4acc9acc76d5079515b46346a485974457b5a79893cfb01112423c89aeb5aa10"
+          HOST="x86_64-unknown-linux-gnu"
+          URL="https://static.rust-lang.org/rustup/archive/${RUSTUP_VERSION}/${HOST}/rustup-init"
+          curl --fail --location --retry 3 --silent --show-error "$URL" -o /tmp/rustup-init
+          echo "${RUSTUP_SHA256}  /tmp/rustup-init" | sha256sum --check
+          chmod 0755 /tmp/rustup-init
+          /tmp/rustup-init -y --no-modify-path --profile minimal --default-host "$HOST" --default-toolchain 1.98.1
+          "$HOME/.cargo/bin/rustup" component add --toolchain 1.98.1 rustfmt clippy
+          "$HOME/.cargo/bin/rustup" target add --toolchain 1.98.1 wasm32-unknown-unknown
+          "$HOME/.cargo/bin/rustc" +1.98.1 --version
+
+      - name: Snapshot frozen lockfiles
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum \
+            crates/mycelix-artificial-status/Cargo.lock \
+            crates/mycelix-welfare-decision/Cargo.lock \
+            crates/mycelix-ai-lineage/Cargo.lock \
+            crates/mycelix-welfare-evidence/Cargo.lock \
+            > /tmp/amsap-locks.before
+
+      - name: Run complete non-fail-fast diagnostic matrix
+        id: diagnostic
+        shell: bash
+        run: |
+          set -u
+          C="$HOME/.cargo/bin/cargo"
+          status=0
+          : > /tmp/q1s-summary
+          manifests=(
+            crates/mycelix-artificial-status/Cargo.toml
+            crates/mycelix-welfare-decision/Cargo.toml
+            crates/mycelix-ai-lineage/Cargo.toml
+            crates/mycelix-welfare-evidence/Cargo.toml
+          )
+
+          record() {
+            local label="$1"
+            shift
+            echo "=== $label ==="
+            "$@"
+            local rc=$?
+            if [ "$rc" -eq 0 ]; then
+              echo "$label=PASS" | tee -a /tmp/q1s-summary
+            else
+              echo "$label=FAIL($rc)" | tee -a /tmp/q1s-summary
+              status=1
+            fi
+          }
+
+          for manifest in "${manifests[@]}"; do
+            name="$(basename "$(dirname "$manifest")")"
+            record "$name/rustfmt" "$C" +1.98.1 fmt --manifest-path "$manifest" -- --check
+            record "$name/test" "$C" +1.98.1 test --locked --offline --manifest-path "$manifest" --all-targets
+            record "$name/clippy" "$C" +1.98.1 clippy --locked --offline --manifest-path "$manifest" --all-targets -- -D warnings
+            record "$name/wasm" "$C" +1.98.1 check --locked --offline --manifest-path "$manifest" --target wasm32-unknown-unknown
+          done
+
+          cat /tmp/q1s-summary
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Prove lockfiles and checkout remained immutable
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum --check /tmp/amsap-locks.before
+          test -z "$(git status --porcelain)"
+
+      - name: Emit bounded diagnostic receipt and enforce result
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat /tmp/q1s-summary
+          printf '%s\n' \
+            'scope=source-format plus semantic/toolchain diagnostics only' \
+            'scientific_moral_status_claim=none' \
+            'legal_or_governance_authority=none'
+          test "${{ steps.diagnostic.outputs.status }}" = "0"
