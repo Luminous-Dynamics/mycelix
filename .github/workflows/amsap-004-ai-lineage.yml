@@ -1,0 +1,84 @@
+name: AMSAP-004 AI Lineage Semantics
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-ai-lineage/**'
+      - '.github/workflows/amsap-004-ai-lineage.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact subject
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 2
+
+      - name: Prove exact AMSAP-003 parent and review surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "5bc7d961e61d33baac62849943ff0778b8969906"
+          mapfile -t changed < <(git diff --name-only HEAD^ HEAD | sort)
+          expected=(
+            ".github/workflows/amsap-004-ai-lineage.yml"
+            "crates/mycelix-ai-lineage/Cargo.lock"
+            "crates/mycelix-ai-lineage/Cargo.toml"
+            "crates/mycelix-ai-lineage/README.md"
+            "crates/mycelix-ai-lineage/src/lib.rs"
+          )
+          printf '%s\n' "${changed[@]}" > /tmp/changed
+          printf '%s\n' "${expected[@]}" | sort > /tmp/expected
+          diff -u /tmp/expected /tmp/changed
+
+      - name: Install exact Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.98.1 --profile minimal --component rustfmt --component clippy
+          rustup target add --toolchain 1.98.1 wasm32-unknown-unknown
+
+      - name: Audit identity and authority boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(sed -n '/\[dependencies\]/,$p' crates/mycelix-ai-lineage/Cargo.toml | tail -n +2 | tr -d '[:space:]')"
+          ! grep -R -E 'hdk|hdi|holochain|serde|reqwest|tokio|SystemTime|Instant|reputation|stake|vote_count|execute_effect|dispatch_effect' crates/mycelix-ai-lineage/src crates/mycelix-ai-lineage/Cargo.toml
+          grep -F 'creates_civic_identity' crates/mycelix-ai-lineage/src/lib.rs
+          grep -F 'grants_governance_authority' crates/mycelix-ai-lineage/src/lib.rs
+          python3 - <<'PY'
+          from pathlib import Path
+          src = Path('crates/mycelix-ai-lineage/src/lib.rs').read_text()
+          start = src.index('pub struct ForkChild')
+          end = src.index('pub enum LineageEventType')
+          event_surface = src[start:end]
+          if 'CivicId' in event_surface:
+              raise SystemExit('lineage events must not carry CivicId')
+          for name in ('ModelId', 'LineageId', 'InstanceId', 'CivicId', 'CheckpointId'):
+              if f'identifier_type!({name},' not in src:
+                  raise SystemExit(f'missing typed identifier: {name}')
+          PY
+
+      - name: Rust qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          lock_before="$(sha256sum crates/mycelix-ai-lineage/Cargo.lock)"
+          cargo +1.98.1 fmt --manifest-path crates/mycelix-ai-lineage/Cargo.toml -- --check
+          cargo +1.98.1 test --locked --manifest-path crates/mycelix-ai-lineage/Cargo.toml --all-targets
+          cargo +1.98.1 clippy --locked --manifest-path crates/mycelix-ai-lineage/Cargo.toml --all-targets -- -D warnings
+          cargo +1.98.1 check --locked --manifest-path crates/mycelix-ai-lineage/Cargo.toml --target wasm32-unknown-unknown
+          test "$lock_before" = "$(sha256sum crates/mycelix-ai-lineage/Cargo.lock)"
+
+      - name: Immutable checkout postflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain)"
