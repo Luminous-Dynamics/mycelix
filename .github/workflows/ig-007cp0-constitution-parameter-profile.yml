@@ -1,0 +1,80 @@
+name: IG-007CP0 Constitution Parameter Authority Profile
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-governance/profiles/observed/constitution-parameter-fca2c107-v1.json"
+      - "mycelix-governance/scripts/validate_ig007cp0_constitution_parameter_profile.py"
+      - "mycelix-governance/docs/IG_007CP0_CONSTITUTION_PARAMETER_AUTHORITY_PROFILE.md"
+      - ".github/workflows/ig-007cp0-constitution-parameter-profile.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-constitution-parameter-profile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      EXPECTED_SUBJECT: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      PROFILE_SHA256: 770552d12489df1d2cdf8b0af676b01ea9a3da21940f70ed8a71910deaa35009
+
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_SUBJECT }}
+          fetch-depth: 1
+
+      - name: Install Python 3.13.5
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13.5"
+
+      - name: Verify exact checkout and source blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT"
+          test -z "$(git status --porcelain)"
+          test "$(git hash-object mycelix-governance/zomes/execution/coordinator/src/lib.rs)" = "3dbb8a8f69b377e494ccf24164c94bd80f54e0ef"
+          test "$(git hash-object mycelix-governance/zomes/constitution/coordinator/src/lib.rs)" = "923a1ce789c8319c79df7f33a9241af50804ec55"
+          test "$(git hash-object mycelix-governance/zomes/constitution/integrity/src/lib.rs)" = "f83a457a8ff40b0003c07dba9da598a478c5e6f6"
+
+      - name: Syntax compile validator
+        run: python -m py_compile mycelix-governance/scripts/validate_ig007cp0_constitution_parameter_profile.py
+
+      - name: Validate twice byte-identically
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROFILE=mycelix-governance/profiles/observed/constitution-parameter-fca2c107-v1.json
+          python mycelix-governance/scripts/validate_ig007cp0_constitution_parameter_profile.py --profile "$PROFILE" --self-test > /tmp/ig007cp0-1.json
+          python mycelix-governance/scripts/validate_ig007cp0_constitution_parameter_profile.py --profile "$PROFILE" --self-test > /tmp/ig007cp0-2.json
+          cmp /tmp/ig007cp0-1.json /tmp/ig007cp0-2.json
+
+      - name: Assert frozen profile identity and authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          with open('/tmp/ig007cp0-1.json', encoding='utf-8') as f:
+              result = json.load(f)
+          assert result['validated'] is True
+          assert result['self_test'] is True
+          assert result['authority_class'] == 'ObservedSourceBound'
+          assert result['profile_id'] == 'mycelix-constitution-parameter-observed-fca2c107-v1'
+          assert result['profile_content_sha256'] == '770552d12489df1d2cdf8b0af676b01ea9a3da21940f70ed8a71910deaa35009'
+          assert result['known_gap_issue'] == 1002
+          PY
+
+      - name: Verify checkout immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT"
+          git diff --exit-code
+          git diff --cached --exit-code
+          test -z "$(git status --porcelain)"
