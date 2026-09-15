@@ -1,0 +1,14 @@
+[package]
+name = "mycelix-finance-settlement"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Rail-neutral settlement qualification contracts for Mycelix Finance"
+
+[lib]
+crate-type = ["rlib"]
+name = "mycelix_finance_settlement"
+
+[dependencies]
+mycelix-business-core = { path = "../../../crates/mycelix-business-core" }
+mycelix-finance-exact = { path = "../finance-exact" }
