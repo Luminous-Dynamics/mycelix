@@ -1,0 +1,107 @@
+name: IG-007CP1 Constitution Parameter Counterexamples
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-governance/scripts/ig007cp1_constitution_parameter_counterexamples.py"
+      - "mycelix-governance/docs/IG_007CP1_CONSTITUTION_PARAMETER_COUNTEREXAMPLES.md"
+      - ".github/workflows/ig-007cp1-constitution-parameter-counterexamples.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-constitution-parameter-counterexamples:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      EXPECTED_SUBJECT: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      PROFILE_SHA256: 770552d12489df1d2cdf8b0af676b01ea9a3da21940f70ed8a71910deaa35009
+      CORPUS_SHA256: b37be9d2e3fd0cbec3696a19327c26dc4ba7062ec089ad92ad99bc28a11fea8e
+
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_SUBJECT }}
+          fetch-depth: 1
+
+      - name: Install Python 3.13.5
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13.5"
+
+      - name: Verify exact checkout and source blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT"
+          test -z "$(git status --porcelain)"
+          test "$(git hash-object mycelix-governance/zomes/execution/coordinator/src/lib.rs)" = "3dbb8a8f69b377e494ccf24164c94bd80f54e0ef"
+          test "$(git hash-object mycelix-governance/zomes/constitution/coordinator/src/lib.rs)" = "923a1ce789c8319c79df7f33a9241af50804ec55"
+          test "$(git hash-object mycelix-governance/zomes/constitution/integrity/src/lib.rs)" = "f83a457a8ff40b0003c07dba9da598a478c5e6f6"
+
+      - name: Syntax compile CP0 and CP1
+        run: |
+          python -m py_compile mycelix-governance/scripts/validate_ig007cp0_constitution_parameter_profile.py
+          python -m py_compile mycelix-governance/scripts/ig007cp1_constitution_parameter_counterexamples.py
+
+      - name: Revalidate CP0 twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROFILE=mycelix-governance/profiles/observed/constitution-parameter-fca2c107-v1.json
+          python mycelix-governance/scripts/validate_ig007cp0_constitution_parameter_profile.py --profile "$PROFILE" --self-test > /tmp/ig007cp0-1.json
+          python mycelix-governance/scripts/validate_ig007cp0_constitution_parameter_profile.py --profile "$PROFILE" --self-test > /tmp/ig007cp0-2.json
+          cmp /tmp/ig007cp0-1.json /tmp/ig007cp0-2.json
+
+      - name: Run CP1 twice and emit corpus twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROFILE=mycelix-governance/profiles/observed/constitution-parameter-fca2c107-v1.json
+          python mycelix-governance/scripts/ig007cp1_constitution_parameter_counterexamples.py --profile "$PROFILE" --self-test > /tmp/ig007cp1-self-1.json
+          python mycelix-governance/scripts/ig007cp1_constitution_parameter_counterexamples.py --profile "$PROFILE" --self-test > /tmp/ig007cp1-self-2.json
+          cmp /tmp/ig007cp1-self-1.json /tmp/ig007cp1-self-2.json
+          python mycelix-governance/scripts/ig007cp1_constitution_parameter_counterexamples.py --profile "$PROFILE" --corpus > /tmp/ig007cp1-corpus-1.json
+          python mycelix-governance/scripts/ig007cp1_constitution_parameter_counterexamples.py --profile "$PROFILE" --corpus > /tmp/ig007cp1-corpus-2.json
+          cmp /tmp/ig007cp1-corpus-1.json /tmp/ig007cp1-corpus-2.json
+
+      - name: Assert exact commitments and counterexamples
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          def read(path):
+              with open(path, encoding='utf-8') as f:
+                  return json.load(f)
+          p0 = read('/tmp/ig007cp0-1.json')
+          p1 = read('/tmp/ig007cp1-self-1.json')
+          corpus = read('/tmp/ig007cp1-corpus-1.json')
+          assert p0['profile_content_sha256'] == '770552d12489df1d2cdf8b0af676b01ea9a3da21940f70ed8a71910deaa35009'
+          assert p0['known_gap_issue'] == 1002
+          assert p1['authority'] == 'MeasurementOnly'
+          assert p1['schema'] == 'mycelix-constitution-parameter-counterexamples-v1'
+          assert p1['profile_sha256'] == p0['profile_content_sha256']
+          assert p1['corpus_sha256'] == 'b37be9d2e3fd0cbec3696a19327c26dc4ba7062ec089ad92ad99bc28a11fea8e'
+          assert p1['counterexample_count'] == 5
+          assert p1['issue'] == 1002
+          by_id = {x['id']: x for x in corpus['counterexamples']}
+          assert set(by_id) == {'CE-CP-01','CE-CP-02','CE-CP-03','CE-CP-04','CE-CP-05'}
+          assert by_id['CE-CP-01']['comparison']['result'] == 'ObservedExecutionDispatchCannotPassExistingParameterPresenceGate'
+          assert by_id['CE-CP-02']['comparison']['result'] == 'NewParameterCreationAllowedWithoutProposalLinkage'
+          assert by_id['CE-CP-03']['comparison']['result'] == 'ProposalIdPresencePassesObservedCoordinatorGateWithoutAuthorityReconstruction'
+          assert by_id['CE-CP-04']['comparison']['result'] == 'IntegrityShapeValidityDoesNotEstablishParameterMutationAuthority'
+          assert by_id['CE-CP-05']['comparison']['result'] == 'TimestampSelectedProjectionNotAuthoritativeForkResolution'
+          PY
+
+      - name: Verify checkout immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT"
+          git diff --exit-code
+          git diff --cached --exit-code
+          test -z "$(git status --porcelain)"
