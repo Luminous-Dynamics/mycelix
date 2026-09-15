@@ -1,0 +1,12 @@
+[package]
+name = "mycelix-tend-policy"
+version = "0.1.0"
+edition = "2024"
+description = "Exact zero-sum TEND reciprocity policy for Mycelix"
+license = "AGPL-3.0-or-later"
+publish = false
+
+[dependencies]
+mycelix-economic-policy = { path = "../policy" }
+
+[workspace]
