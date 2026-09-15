@@ -1,0 +1,70 @@
+name: CI-GOV-001A Queue Census
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-gov-001a-queue-census
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+jobs:
+  census:
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    steps:
+      - name: Check out telemetry source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Unit-test queue census
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/test_ci_queue_census.py
+
+      - name: Audit read-only authority boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          workflow = Path('.github/workflows/ci-gov-001a-queue-census.yml').read_text()
+          script = Path('.github/scripts/ci_queue_census.py').read_text()
+
+          forbidden_permissions = (
+              'actions: write', 'contents: write', 'issues: write',
+              'pull-requests: write', 'checks: write',
+          )
+          for token in forbidden_permissions:
+              if token in workflow:
+                  raise SystemExit(f'forbidden workflow permission: {token}')
+
+          for trigger in ('pull_request:', '\n  push:', '\n  schedule:'):
+              if trigger in workflow:
+                  raise SystemExit(f'queue census has forbidden automatic trigger: {trigger.strip()}')
+          if 'method="GET"' not in script:
+              raise SystemExit('read-only client lost explicit GET method')
+          for method in ('POST', 'PUT', 'PATCH', 'DELETE'):
+              if f'method="{method}"' in script:
+                  raise SystemExit(f'mutating HTTP method present: {method}')
+          PY
+
+      - name: Observe queue
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/ci_queue_census.py \
+            --json-output "$RUNNER_TEMP/ci-queue-census.json" \
+            | tee "$RUNNER_TEMP/ci-queue-census.md"
+          cat "$RUNNER_TEMP/ci-queue-census.md" >> "$GITHUB_STEP_SUMMARY"
+          echo '--- canonical JSON ---'
+          cat "$RUNNER_TEMP/ci-queue-census.json"
