@@ -1,0 +1,85 @@
+name: Pulse Message Integrity Clippy Repair
+
+on:
+  push:
+    branches:
+      - fix/pulse-message-integrity-clippy-1-96-v1
+    paths:
+      - '.github/workflows/pulse-message-integrity-clippy-repair.yml'
+
+permissions:
+  contents: write
+
+env:
+  HOLOCHAIN_MANIFEST: mycelix-workspace/mycelix-pulse/holochain/Cargo.toml
+  SOURCE: mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Apply exact lint-only transformations
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('mycelix-workspace/mycelix-pulse/holochain/zomes/messages/integrity/src/lib.rs')
+          text = path.read_text(encoding='utf-8')
+          replacements = [
+              (
+                  '''    if let Some(expires) = email.expires_at {\n        if expires <= email.timestamp {\n            return Ok(ValidateCallbackResult::Invalid(\n                "Expiration must be after timestamp".to_string(),\n            ));\n        }\n    }\n''',
+                  '''    if let Some(expires) = email.expires_at\n        && expires <= email.timestamp\n    {\n        return Ok(ValidateCallbackResult::Invalid(\n            "Expiration must be after timestamp".to_string(),\n        ));\n    }\n''',
+              ),
+              (
+                  '''        "dilithium2" => {\n            if email.signature.len() != DILITHIUM2_SIG_LEN {\n                return Ok(ValidateCallbackResult::Invalid(format!(\n                    "Dilithium2 signature must be {} bytes",\n                    DILITHIUM2_SIG_LEN\n                )));\n            }\n        }\n        _ => {}\n''',
+                  '''        "dilithium2" if email.signature.len() != DILITHIUM2_SIG_LEN => {\n            return Ok(ValidateCallbackResult::Invalid(format!(\n                "Dilithium2 signature must be {} bytes",\n                DILITHIUM2_SIG_LEN\n            )));\n        }\n        "dilithium2" => {}\n        _ => {}\n''',
+              ),
+          ]
+          for old, new in replacements:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'expected exactly one lint baseline fragment, found {count}')
+              text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87b
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+
+      - name: Qualify integrity lint repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path "$HOLOCHAIN_MANIFEST" --package mail_messages_integrity
+          cargo check --manifest-path "$HOLOCHAIN_MANIFEST" --locked -p mail_messages_integrity
+          cargo test --manifest-path "$HOLOCHAIN_MANIFEST" --locked -p mail_messages_integrity --lib
+          cargo clippy --manifest-path "$HOLOCHAIN_MANIFEST" --locked -p mail_messages_integrity --lib --no-deps -- -D warnings
+          git diff --check
+
+      - name: Prove one-file mutation scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git status --porcelain | sed 's/^...//')" = "$SOURCE"
+
+      - name: Commit exact repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "$SOURCE"
+          git diff --cached --check
+          git commit -m 'style(pulse): satisfy Rust 1.96 message integrity lints'
+          git push origin HEAD:fix/pulse-message-integrity-clippy-1-96-v1
