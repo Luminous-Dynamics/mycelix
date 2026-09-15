@@ -1,0 +1,26 @@
+name: QUAL-001R Hash Census Scratch
+
+on:
+  push:
+    branches:
+      - assurance/qual-001-rotation-v0.2-hash-census
+
+permissions:
+  contents: read
+
+jobs:
+  hash:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Emit exact verifier hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum qualification/qual-001/verifier_v0_2.py
+          git hash-object qualification/qual-001/verifier_v0_2.py
+          python3 -m py_compile qualification/qual-001/verifier_v0_2.py
