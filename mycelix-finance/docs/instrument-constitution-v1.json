@@ -1,0 +1,90 @@
+{
+  "schema": "mycelix.economics.instrument-constitution.v1",
+  "status": "draft",
+  "canonical_symbols": ["SAP", "TEND", "MYCEL"],
+  "aliases": {
+    "MYCL": {
+      "canonical": "MYCEL",
+      "wire_identity": false
+    }
+  },
+  "lanes": {
+    "SAP": {
+      "role": "settlement_accounting_exchange",
+      "transfer": "transferable_value",
+      "balance": "non_negative_monetary",
+      "demurrage": "policy_eligible",
+      "automatic_civic_power": false
+    },
+    "TEND": {
+      "role": "reciprocity_mutual_credit_time_exchange",
+      "transfer": "mutual_credit_ledger",
+      "balance": "signed_zero_sum",
+      "demurrage": "forbidden",
+      "automatic_civic_power": false,
+      "canonical_time_unit": {
+        "tend": 1,
+        "hours": 1
+      }
+    },
+    "MYCEL": {
+      "role": "contextual_standing_credentials",
+      "transfer": "non_transferable",
+      "balance": "not_money",
+      "demurrage": "not_applicable",
+      "automatic_civic_power": false,
+      "permitted_governance_use": "bounded_domain_role_eligibility_only"
+    }
+  },
+  "forbidden_automatic_conversions": [
+    "SAP->TEND",
+    "SAP->MYCEL",
+    "TEND->SAP",
+    "TEND->MYCEL",
+    "MYCEL->SAP",
+    "MYCEL->TEND"
+  ],
+  "forbidden_semantic_shortcuts": [
+    "payment_volume_implies_standing",
+    "gift_amount_implies_standing",
+    "tend_balance_implies_standing",
+    "tend_exchange_volume_implies_standing",
+    "mycel_implies_human_worth",
+    "mycel_implies_fundamental_civic_rights",
+    "wealth_implies_constitutional_authority"
+  ],
+  "superseded_target_semantics": [
+    "transferable_mycel_currency",
+    "mycel_staking_as_direct_governance_weight",
+    "tend_demurrage",
+    "fixed_cross_lane_exchange_rate",
+    "automatic_economic_activity_to_mycel"
+  ],
+  "new_instrument_admission": {
+    "default": "reject",
+    "requires": [
+      "not_safely_representable_by_existing_lanes_or_typed_objects",
+      "distinct_settlement_semantics",
+      "explicit_safety_and_capture_model",
+      "interoperability_benefit_exceeds_fragmentation_cost",
+      "no_hidden_wealth_to_civic_sovereignty_path"
+    ],
+    "prefer_non_currency_representation": [
+      "right",
+      "claim",
+      "obligation",
+      "pool",
+      "attestation",
+      "receipt",
+      "contract"
+    ]
+  },
+  "non_claims": [
+    "does_not_migrate_existing_ledgers",
+    "does_not_change_balances",
+    "does_not_change_current_fee_tiers",
+    "does_not_change_current_staking_runtime",
+    "does_not_define_sap_reserve_or_redemption_policy",
+    "does_not_establish_runtime_conformance"
+  ]
+}
