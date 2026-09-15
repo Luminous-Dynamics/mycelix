@@ -1,0 +1,94 @@
+{
+  "assessment": {
+    "assessment_id": "physical-assessment-001",
+    "assessor_ref": "assessor:independent-physical",
+    "components": {
+      "fiber_backbone": {
+        "condition_state": "PASS",
+        "evidence_ref": "evidence:fiber-001",
+        "residual_life_units": 180
+      },
+      "power_system": {
+        "condition_state": "PASS",
+        "evidence_ref": "evidence:power-001",
+        "residual_life_units": 84
+      },
+      "site_facility": {
+        "condition_state": "PASS",
+        "evidence_ref": "evidence:site-001",
+        "residual_life_units": 96
+      }
+    },
+    "deferred_maintenance_evidence_ref": "evidence:maintenance-001",
+    "deferred_maintenance_units": 500000,
+    "evidence_ref": "evidence:physical-assessment-001",
+    "outgoing_operator_ref": "operator:incumbent",
+    "parent_transition_receipt_sha256": "60b7217980c615eab453eae25b74b27e75fc67cb336ea60d140f089341d50565",
+    "profile_sha256": "a318f2cf7f086779d61162301e38425d2aa8afed694884b25faa567a9ab8f5fc",
+    "project_id": "fiber:jhb:test-001",
+    "reserve_balance_units": 5000000
+  },
+  "parent_receipt": {
+    "counted_investor_distributions_units": 60000000,
+    "created_entitlement_units": 133000000,
+    "event_chain_tip_sha256": "f766650cbc8233f016ae3482f46708f395264cbc0baeb869ad7c09dd662d240d",
+    "event_count": 8,
+    "event_history_sha256": "b1e75101137bcecc60daba64aa0d232398b78d65e4e946723bd25e5ab23184b7",
+    "financial_state": "CLAIM_ACTIVE",
+    "grant_or_subsidy_units": 7000000,
+    "handback_accepted": false,
+    "impairments_units": 0,
+    "initial_principal_units": 100000000,
+    "legal_transition_complete": false,
+    "nonclaims": [
+      "financial satisfaction is not legal title transfer",
+      "financial satisfaction is not democratic legitimacy",
+      "financial satisfaction is not handback acceptance",
+      "receipt validity is not accounting-standard compliance",
+      "receipt validity is not tax or securities-law compliance",
+      "receipt validity is not infrastructure safety or performance"
+    ],
+    "preferred_return_cap_units": 20000000,
+    "profile_sha256": "6929b9e089e3f7b272713f6ff8587bf429594a51a9d67d67d0d4468ba72b52e7",
+    "profile_version": "mycelix-capital-to-commons-fixed-preferred-v1",
+    "project_id": "fiber:jhb:test-001",
+    "qualified_new_capital_units": 10000000,
+    "receipt_version": "mycelix-commons-transition-receipt-v1",
+    "recoverable_lifecycle_units": 3000000,
+    "remaining_claim_units": 73000000,
+    "required_reserve_units": 5000000,
+    "reserve_balance_units": 5000000,
+    "reserve_compliant": true,
+    "retired_claim_ppm": 451127,
+    "retired_claim_units": 60000000,
+    "unit": "ZAR-cent"
+  },
+  "profile": {
+    "components": [
+      {
+        "component_id": "fiber_backbone",
+        "min_residual_life_units": 120,
+        "required": true
+      },
+      {
+        "component_id": "power_system",
+        "min_residual_life_units": 60,
+        "required": true
+      },
+      {
+        "component_id": "site_facility",
+        "min_residual_life_units": 60,
+        "required": true
+      }
+    ],
+    "currency_unit": "ZAR-cent",
+    "max_amount_units": 1000000000,
+    "max_deferred_maintenance_units": 2000000,
+    "parent_subject_sha": "270b852e0ac744dfca3a2cb966bf53fce78f2ab9",
+    "parent_transition_receipt_sha256": "60b7217980c615eab453eae25b74b27e75fc67cb336ea60d140f089341d50565",
+    "profile_version": "mycelix-physical-handback-readiness-v1",
+    "project_id": "fiber:jhb:test-001",
+    "required_handback_reserve_units": 4000000,
+    "residual_life_unit": "month"
+  }
+}
