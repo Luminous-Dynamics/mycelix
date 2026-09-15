@@ -1,0 +1,91 @@
+{
+  "schema": "mycelix.regen.qualification-receipt-v1",
+  "receipt_id": "regen-002-product-head-01ee859e-run-34961479829",
+  "subject": {
+    "class": "ProductHead",
+    "declared_identity": "01ee859e5d8679be14501245c8becc4ba3e10985",
+    "observed_identity": "01ee859e5d8679be14501245c8becc4ba3e10985",
+    "git": {
+      "repository": "Luminous-Dynamics/mycelix",
+      "commit_sha": "01ee859e5d8679be14501245c8becc4ba3e10985",
+      "tree_sha": "51386e356b270b4b0c5a4670b36184322243a380",
+      "parent_shas": [
+        "6e9903196b0de29ee9bca844b5c46d2ac7e3fb92"
+      ]
+    }
+  },
+  "campaign": {
+    "provider": "github-actions",
+    "workflow_ref": ".github/workflows/regenerative-core-ci.yml",
+    "run_ref": "34961479829",
+    "job_ref": "104355832650",
+    "executed": true
+  },
+  "environment": {
+    "runner": "github-hosted:ubuntu-24.04@20260907.300.1",
+    "operating_system": "Ubuntu 24.04.5 LTS",
+    "toolchains": [
+      "git 2.55.0",
+      "rustc 1.96.0 (ac68faa20 2026-05-25)",
+      "cargo 1.96.0 (30a34c682 2026-05-25)"
+    ]
+  },
+  "dependencies": {
+    "state": "ExecutionResolved",
+    "identities": [
+      {
+        "kind": "cargo-lock",
+        "digest": "sha256:fc3552c9b3c36cf4a0784ff8dccc053a88cb6980b213b47b178d76d2839b34c5"
+      }
+    ]
+  },
+  "fixtures": [],
+  "assertions": [
+    {
+      "id": "subject.exact-head",
+      "result": "pass",
+      "details": "Declared and observed Git HEAD were exactly 01ee859e5d8679be14501245c8becc4ba3e10985 before qualification."
+    },
+    {
+      "id": "rustfmt",
+      "result": "pass"
+    },
+    {
+      "id": "tests.dependency-light",
+      "result": "pass",
+      "details": "6 tests passed; 0 failed."
+    },
+    {
+      "id": "tests.serde-wire",
+      "result": "pass",
+      "details": "8 tests passed; 0 failed."
+    },
+    {
+      "id": "clippy.strict-all-targets",
+      "result": "pass"
+    },
+    {
+      "id": "dependencies.execution-resolved-lock-recorded",
+      "result": "pass",
+      "details": "Generated Cargo.lock SHA-256 fc3552c9b3c36cf4a0784ff8dccc053a88cb6980b213b47b178d76d2839b34c5; 107 lines."
+    },
+    {
+      "id": "checkout.clean-postflight",
+      "result": "pass"
+    }
+  ],
+  "result": "pass",
+  "proposition": "Exact REGEN-002 canonical regenerative subject-identity implementation satisfies its pinned software qualification campaign under the recorded execution-resolved dependency graph.",
+  "non_claims": [
+    "No agronomic or soil-science claim.",
+    "No physical existence or provenance claim for any represented subject.",
+    "No authentication, governance, carbon, regulatory, or execution-authority claim.",
+    "Dependency identity is ExecutionResolved, not ProductFrozen reproducibility."
+  ],
+  "evidence_refs": [
+    "github:repo:Luminous-Dynamics/mycelix",
+    "github:run:34961479829",
+    "github:job:104355832650",
+    "github:pr:936"
+  ]
+}

@@ -1,0 +1,95 @@
+name: REGEN Qualification Receipt CI
+
+on:
+  pull_request:
+    paths:
+      - 'docs/regenerative/qualification/**'
+      - 'schemas/regenerative/**'
+      - 'scripts/verify-regen-qualification-receipt.py'
+      - 'evidence/regenerative/qualification/**'
+      - '.github/workflows/regen-qualification-receipt-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/regenerative/qualification/**'
+      - 'schemas/regenerative/**'
+      - 'scripts/verify-regen-qualification-receipt.py'
+      - 'evidence/regenerative/qualification/**'
+      - '.github/workflows/regen-qualification-receipt-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualification-receipt:
+    name: REGEN-Q001 receipt contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Verify exact subject
+        shell: bash
+        env:
+          TARGET_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          printf 'target_sha=%s\nactual_sha=%s\n' "$TARGET_SHA" "$actual"
+          test "$actual" = "$TARGET_SHA"
+
+      - name: Record Python identity
+        run: python3 --version
+
+      - name: Syntax check validator without bytecode
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/verify-regen-qualification-receipt.py')
+          compile(path.read_text(encoding='utf-8'), str(path), 'exec')
+          PY
+
+      - name: Validate schema surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('schemas/regenerative/qualification-receipt-v1.schema.json')
+          schema = json.loads(path.read_text(encoding='utf-8'))
+          assert schema['$id'] == 'mycelix://schemas/regenerative/qualification-receipt-v1'
+          assert schema['properties']['schema']['const'] == 'mycelix.regen.qualification-receipt-v1'
+          assert schema['additionalProperties'] is False
+          assert set(schema['properties']['subject']['properties']['class']['enum']) == {
+              'ProductHead', 'IntegrationMerge', 'ReleaseArtifact', 'ExternalFixture'
+          }
+          assert set(schema['properties']['dependencies']['properties']['state']['enum']) == {
+              'ProductFrozen', 'ExecutionResolved', 'Unresolved'
+          }
+          PY
+
+      - name: Execute independent validator self-test
+        run: python3 scripts/verify-regen-qualification-receipt.py --self-test
+
+      - name: Validate checked-in REGEN-002 receipt
+        run: >-
+          python3 scripts/verify-regen-qualification-receipt.py
+          evidence/regenerative/qualification/regen-002-01ee859e.json
+
+      - name: Diff and checkout hygiene
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          status="$(git status --short)"
+          printf 'git_status=%s\n' "$status"
+          test -z "$status"
