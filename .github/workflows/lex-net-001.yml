@@ -1,0 +1,75 @@
+name: LEX-NET-001 Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'docs/lex-net/LEX_NET_LOCAL_RECOGNITION_V1.md'
+      - 'docs/lex-net/lex_net_001_manifest.json'
+      - 'scripts/validate_lex_net_001.py'
+      - '.github/workflows/lex-net-001.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lex-net-001-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 2
+
+      - name: Prove exact qualified parent and review surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_parent='497182225c76fe4db6531422f7476dcef6b25365'
+          actual_head="$(git rev-parse HEAD)"
+          actual_parent="$(git rev-parse HEAD^)"
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            expected_head='${{ github.event.pull_request.head.sha }}'
+            test "$actual_head" = "$expected_head"
+          fi
+          test "$actual_parent" = "$expected_parent"
+
+          mapfile -t changed < <(git diff --name-only "$expected_parent" HEAD | sort)
+          expected=(
+            '.github/workflows/lex-net-001.yml'
+            'docs/lex-net/LEX_NET_LOCAL_RECOGNITION_V1.md'
+            'docs/lex-net/lex_net_001_manifest.json'
+            'scripts/validate_lex_net_001.py'
+          )
+          printf '%s\n' "${expected[@]}" | sort > /tmp/expected
+          printf '%s\n' "${changed[@]}" > /tmp/actual
+          diff -u /tmp/expected /tmp/actual
+          test "$(git rev-list --count "$expected_parent"..HEAD)" -eq 1
+
+      - name: Validate local recognition contract and golden corpus
+        run: python3 scripts/validate_lex_net_001.py
+
+      - name: Static non-authority and purity audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fiq 'Recognition is a technical local policy result.' docs/lex-net/LEX_NET_LOCAL_RECOGNITION_V1.md
+          grep -Fiq 'A recognition receipt is not a reusable capability token.' docs/lex-net/LEX_NET_LOCAL_RECOGNITION_V1.md
+          grep -Fiq 'Recognized evidence is still evidence.' docs/lex-net/LEX_NET_LOCAL_RECOGNITION_V1.md
+          grep -Fiq 'no ambient wall clock' docs/lex-net/LEX_NET_LOCAL_RECOGNITION_V1.md
+          ! grep -Eiq 'recognized evidence (is|becomes) local authority|recognition (is|becomes) legal recognition|indeterminate (is|becomes) recognized' docs/lex-net/LEX_NET_LOCAL_RECOGNITION_V1.md
+
+      - name: Immutable checkout postflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain)"
+          echo "LEX-NET-001 exact-scope qualification completed."
