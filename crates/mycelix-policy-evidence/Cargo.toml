@@ -1,0 +1,18 @@
+[package]
+name = "mycelix-policy-evidence"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Pure cross-domain policy record and institutional-adoption evidence qualification for Mycelix"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+mycelix-authority-evidence-lease = { path = "../mycelix-authority-evidence-lease" }
+
+[dev-dependencies]
+serde_json = "1.0"
