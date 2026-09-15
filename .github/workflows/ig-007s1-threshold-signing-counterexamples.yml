@@ -1,0 +1,122 @@
+name: IG-007S1 Threshold Signing Counterexamples
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-governance/profiles/observed/threshold-signing-fca2c107-v1.json"
+      - "mycelix-governance/scripts/validate_ig007s0_threshold_signing_profile.py"
+      - "mycelix-governance/scripts/ig007s1_threshold_signing_counterexamples.py"
+      - "mycelix-governance/docs/IG_007S1_THRESHOLD_SIGNING_COUNTEREXAMPLES.md"
+      - ".github/workflows/ig-007s1-threshold-signing-counterexamples.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-threshold-signing-counterexamples:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      EXPECTED_SUBJECT: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      PROFILE_SHA256: c15dfd860b759747938af2a13129d729fa0af1e75284418c9ea6b9c172f643ac
+      CORPUS_SHA256: 0f6532ae8e2c2e421da625592dbb3b38aa2b90c5342f46f3a305bdbec89b0269
+
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_SUBJECT }}
+          fetch-depth: 1
+
+      - name: Install Python 3.13.5
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13.5"
+
+      - name: Verify exact checkout and S0 source blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT"
+          test -z "$(git status --porcelain)"
+          test "$(git hash-object mycelix-governance/zomes/threshold-signing/coordinator/src/lib.rs)" = "3449df8b03a4dd1774a5f22756d06931c72855b2"
+          test "$(git hash-object mycelix-governance/zomes/threshold-signing/integrity/src/lib.rs)" = "3fec8344635600c044a494fa72bbbfe408fbe5ec"
+          test "$(git hash-object mycelix-governance/zomes/proposals/coordinator/src/lib.rs)" = "eb8358353ee259ef9c3b46617a61d3439f1c714c"
+          test "$(git hash-object mycelix-governance/zomes/execution/coordinator/src/lib.rs)" = "3dbb8a8f69b377e494ccf24164c94bd80f54e0ef"
+
+      - name: Syntax compile S0 and S1 oracles
+        run: |
+          python -m py_compile mycelix-governance/scripts/validate_ig007s0_threshold_signing_profile.py
+          python -m py_compile mycelix-governance/scripts/ig007s1_threshold_signing_counterexamples.py
+
+      - name: Revalidate S0 twice byte-identically
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROFILE=mycelix-governance/profiles/observed/threshold-signing-fca2c107-v1.json
+          python mycelix-governance/scripts/validate_ig007s0_threshold_signing_profile.py --profile "$PROFILE" --self-test > /tmp/ig007s0-1.json
+          python mycelix-governance/scripts/validate_ig007s0_threshold_signing_profile.py --profile "$PROFILE" --self-test > /tmp/ig007s0-2.json
+          cmp /tmp/ig007s0-1.json /tmp/ig007s0-2.json
+
+      - name: Run S1 self-test twice byte-identically
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROFILE=mycelix-governance/profiles/observed/threshold-signing-fca2c107-v1.json
+          python mycelix-governance/scripts/ig007s1_threshold_signing_counterexamples.py --profile "$PROFILE" --self-test > /tmp/ig007s1-self-1.json
+          python mycelix-governance/scripts/ig007s1_threshold_signing_counterexamples.py --profile "$PROFILE" --self-test > /tmp/ig007s1-self-2.json
+          cmp /tmp/ig007s1-self-1.json /tmp/ig007s1-self-2.json
+
+      - name: Emit S1 corpus twice byte-identically
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROFILE=mycelix-governance/profiles/observed/threshold-signing-fca2c107-v1.json
+          python mycelix-governance/scripts/ig007s1_threshold_signing_counterexamples.py --profile "$PROFILE" --corpus > /tmp/ig007s1-corpus-1.json
+          python mycelix-governance/scripts/ig007s1_threshold_signing_counterexamples.py --profile "$PROFILE" --corpus > /tmp/ig007s1-corpus-2.json
+          cmp /tmp/ig007s1-corpus-1.json /tmp/ig007s1-corpus-2.json
+
+      - name: Assert frozen profile, corpus, and outcomes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+
+          with open('/tmp/ig007s0-1.json', encoding='utf-8') as f:
+              s0 = json.load(f)
+          with open('/tmp/ig007s1-self-1.json', encoding='utf-8') as f:
+              s1 = json.load(f)
+          with open('/tmp/ig007s1-corpus-1.json', encoding='utf-8') as f:
+              corpus = json.load(f)
+
+          assert s0['authority_class'] == 'ObservedSourceBound'
+          assert s0['profile_content_sha256'] == 'c15dfd860b759747938af2a13129d729fa0af1e75284418c9ea6b9c172f643ac'
+          assert s0['known_gap_issues'] == [959, 960]
+
+          assert s1['authority'] == 'MeasurementOnly'
+          assert s1['profile_sha256'] == s0['profile_content_sha256']
+          assert s1['corpus_sha256'] == '0f6532ae8e2c2e421da625592dbb3b38aa2b90c5342f46f3a305bdbec89b0269'
+          assert s1['counterexample_count'] == 5
+          assert s1['issues'] == [959, 960]
+          assert s1['self_test'] is True
+
+          assert corpus['corpus_sha256'] == s1['corpus_sha256']
+          by_id = {item['id']: item for item in corpus['counterexamples']}
+          assert set(by_id) == {'CE-SIG-01', 'CE-SIG-02', 'CE-SIG-03', 'CE-SIG-04', 'CE-SIG-05'}
+          assert by_id['CE-SIG-01']['comparison']['cryptographic_validity'] == 'NotEstablished'
+          assert by_id['CE-SIG-02']['comparison']['result'] == 'VerifiedFlagDoesNotAffectObservedStructuralValidity'
+          assert by_id['CE-SIG-03']['comparison']['result'] == 'NoObservedCommitteeAuthorityPredicateInSignatureCreateValidation'
+          assert by_id['CE-SIG-04']['comparison']['result'] == 'LinkDoesNotEstablishObservedProposalSignatureAuthorization'
+          assert by_id['CE-SIG-05']['comparison']['result'] == 'ExpectedSignatureQueryContractAbsentFromObservedProducer'
+          PY
+
+      - name: Verify checkout immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT"
+          git diff --exit-code
+          git diff --cached --exit-code
+          test -z "$(git status --porcelain)"
