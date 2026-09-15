@@ -125,12 +125,21 @@ class ManifestTests(unittest.TestCase):
         with self.assertRaisesRegex(ManifestError, "PASS requires receipt_sha256"):
             validate_manifest(manifest)
 
-    def test_historical_subject_cannot_be_current_pass(self):
+    def test_historical_pass_is_preserved_but_not_current(self):
         manifest = valid_manifest()
         manifest["technical_evidence"][0][
             "designated_current_subject_sha"
         ] = SHA_B
-        with self.assertRaisesRegex(ManifestError, "stale historical subject"):
+        manifest["claims"][0]["authority"] = "Observed"
+        validate_manifest(manifest)
+        self.assertIn("Historical/Stale", render_markdown(manifest))
+
+    def test_stale_pass_cannot_support_current_qualified_claim(self):
+        manifest = valid_manifest()
+        manifest["technical_evidence"][0][
+            "designated_current_subject_sha"
+        ] = SHA_B
+        with self.assertRaisesRegex(ManifestError, "current technical PASS"):
             validate_manifest(manifest)
 
     def test_customer_evidence_cannot_self_promote_to_qualified(self):
