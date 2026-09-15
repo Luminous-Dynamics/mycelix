@@ -1,4 +1,5 @@
 name: Pulse V2 Runtime Apply
+# Exact-subject retrigger after staging permanent qualification workflow.
 
 on:
   push:
