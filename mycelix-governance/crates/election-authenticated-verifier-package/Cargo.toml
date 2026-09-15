@@ -1,0 +1,18 @@
+[package]
+name = "election-authenticated-verifier-package"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Versioned offline evidence-package extension for authenticated public-election verifier evidence"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+election-integrity-types = { path = "../election-integrity-types" }
+election-verifier-contract = { path = "../election-verifier-contract" }
+election-verifier-key-authorization = { path = "../election-verifier-key-authorization" }
+election-verifier-public-key-binding = { path = "../election-verifier-public-key-binding" }
+sha2 = "0.10"
+
+[workspace]
