@@ -1,5 +1,5 @@
 name: Pulse V2 Runtime Apply
-# Exact-subject retrigger after staging permanent qualification workflow.
+# Exact-subject retrigger after the V2-only ingress-token correction.
 
 on:
   push:
