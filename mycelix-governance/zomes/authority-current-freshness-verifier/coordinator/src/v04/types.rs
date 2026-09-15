@@ -4,46 +4,44 @@
 
 use hdk::prelude::*;
 use mycelix_authority_bootstrap_root_adoption_verifier::{
-    build_adoption_claim, qualify_bootstrap_root_adoption, BootstrapRootAdoptionClaim,
-    VerifiedBootstrapRootAdoptionProof, ADOPTION_CLAIM_PROFILE,
+    ADOPTION_CLAIM_PROFILE, BootstrapRootAdoptionClaim, VerifiedBootstrapRootAdoptionProof,
+    build_adoption_claim, qualify_bootstrap_root_adoption,
 };
 use mycelix_authority_control_plane_freshness::{
-    qualify_control_plane_subject_freshness, QualifiedControlPlaneSubjectFreshness,
+    QualifiedControlPlaneSubjectFreshness, qualify_control_plane_subject_freshness,
 };
 use mycelix_authority_evidence_lease::{
-    qualify_evidence_lease_manifest, EvidenceLease, EvidenceLeaseContribution,
-    EvidenceLeaseRole, LeasedEvidence, QualifiedEvidenceLeaseManifest,
+    EvidenceLease, EvidenceLeaseContribution, EvidenceLeaseRole, LeasedEvidence,
+    QualifiedEvidenceLeaseManifest, qualify_evidence_lease_manifest,
 };
 use mycelix_authority_freshness::{AuthoritySubjectRef, VerifiedAuthorityFreshness};
 use mycelix_authority_operational_context::qualify_operational_policy_context;
 use mycelix_authority_operational_deployment_fence::{
-    qualify_binding_constitution_context,
+    HostLocalDnaContext, qualify_binding_constitution_context,
     qualify_operational_freshness_for_deployment_with_constitution_and_provenance,
-    HostLocalDnaContext,
 };
 use mycelix_authority_operational_freshness::qualify_operational_subject_freshness;
 use mycelix_authority_state_bootstrap_root::{
-    qualify_bootstrap_root, AuthorityStateBootstrapRootManifest,
-    VerifiedCurrentConstitutionReceipt, CURRENT_CONSTITUTION_RECEIPT_PROTOCOL,
+    AuthorityStateBootstrapRootManifest, CURRENT_CONSTITUTION_RECEIPT_PROTOCOL,
+    VerifiedCurrentConstitutionReceipt, qualify_bootstrap_root,
 };
 use mycelix_authority_state_coverage::{
-    VerifiedAuthorityCoveragePolicy, VerifiedAuthorityHeadWitness, VerifiedAuthoritySourceHead,
-    POLICY_IDENTITY_PROFILE, SOURCE_HEAD_IDENTITY_PROFILE, WITNESS_IDENTITY_PROFILE,
+    POLICY_IDENTITY_PROFILE, SOURCE_HEAD_IDENTITY_PROFILE, VerifiedAuthorityCoveragePolicy,
+    VerifiedAuthorityHeadWitness, VerifiedAuthoritySourceHead, WITNESS_IDENTITY_PROFILE,
 };
 use mycelix_authority_state_coverage_context::{
-    VerifiedCoverageChallenge, VerifiedCoverageTrustContextPolicy, VerifiedWitnessTrustBinding,
-    CONTEXT_POLICY_PROFILE, WITNESS_TRUST_BINDING_PROFILE,
+    CONTEXT_POLICY_PROFILE, VerifiedCoverageChallenge, VerifiedCoverageTrustContextPolicy,
+    VerifiedWitnessTrustBinding, WITNESS_TRUST_BINDING_PROFILE,
 };
 use mycelix_authority_state_source::{
-    AuthorityStateTransition, VerifiedAuthorityStateTransition, TRANSITION_IDENTITY_PROFILE,
+    AuthorityStateTransition, TRANSITION_IDENTITY_PROFILE, VerifiedAuthorityStateTransition,
 };
 use mycelix_authority_state_transition_verifier::{
-    qualify_authority_state_transition, VerifiedTransitionAuthorityProof,
-    VerifiedTransitionRecordProof,
+    VerifiedTransitionAuthorityProof, VerifiedTransitionRecordProof,
+    qualify_authority_state_transition,
 };
-use mycelix_governance_constitution::{
-    ConstitutionStatement, Digest32 as ConstitutionDigest32, STATEMENT_PROFILE,
-};
+use mycelix_governance_constitution::{Digest32 as ConstitutionDigest32, STATEMENT_PROFILE};
+use mycelix_governance_constitution_currentness::LeasedVerifiedCurrentConstitution as VerifiedCurrentConstitutionMirror;
 use mycelix_institutional_core::Digest32;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -52,14 +50,7 @@ const RUNTIME_PROTOCOL: &str = "mycelix-authority-current-freshness-verifier-v0.
 const ROOT_MANIFEST_PROVIDER_ZOME: &str = "authority_state_bootstrap_root_manifest_provider";
 const CONSTITUTION_CURRENTNESS_VERIFIER_ZOME: &str = "constitution_currentness_verifier";
 const CURRENT_CONSTITUTION_FUNCTION: &str = "get_leased_current_constitution";
-const LEASED_CURRENT_CONSTITUTION_PROTOCOL: &str =
-    "mycelix-governance-current-constitution-leased-v0.1";
-const CURRENT_CONSTITUTION_EVIDENCE_PROFILE: &str =
-    "mycelix-governance-current-constitution-evidence-v1-blake3-framed";
-const GENESIS_CURRENTNESS_LEASE_BASIS: &str =
-    "dna-immutable-genesis-amendments-disabled-local-reuse-v1";
-const ROOT_ADOPTION_PROOF_VERIFIER_ZOME: &str =
-    "authority_bootstrap_root_adoption_proof_verifier";
+const ROOT_ADOPTION_PROOF_VERIFIER_ZOME: &str = "authority_bootstrap_root_adoption_proof_verifier";
 const ROOT_ADOPTION_PROOF_VERIFIER_FUNCTION: &str = "verify_bootstrap_root_adoption_proof";
 const POLICY_PROVIDER_ZOME: &str = "authority_operational_policy_leased_provider";
 const EVIDENCE_PLAN_ZOME: &str = "authority_state_evidence_plan_provider";
@@ -76,25 +67,6 @@ const MAX_WITNESSES: usize = 64;
 const MAX_TRUST_BINDINGS: usize = 64;
 const MAX_TRANSITIONS: usize = 256;
 const DEPLOYMENT_RETURN_LEASE_MS: u64 = 5_000;
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-struct VerifiedCurrentConstitutionMirror {
-    protocol: String,
-    dna_hash: String,
-    statement: ConstitutionStatement,
-    statement_digest: ConstitutionDigest32,
-    currentness_evidence_digest: ConstitutionDigest32,
-    currentness_evidence_profile: String,
-    verified_transition_count: u64,
-    legacy_constitution_authoritative: bool,
-    lease_basis: String,
-    verification_ref: String,
-    verified_at_ms: u64,
-    valid_until_ms: u64,
-    genesis_currentness_by_amendments_disabled: bool,
-    transition_currentness_supported: bool,
-    candidate_discovery_used_for_positive_currentness: bool,
-}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RootAdoptionProofVerificationRequest {

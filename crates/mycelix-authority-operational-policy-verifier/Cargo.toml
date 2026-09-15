@@ -14,3 +14,6 @@ serde = { version = "1", features = ["derive"] }
 mycelix-institutional-core = { path = "../mycelix-institutional-core" }
 mycelix-authority-state-coverage = { path = "../mycelix-authority-state-coverage" }
 mycelix-authority-state-coverage-context = { path = "../mycelix-authority-state-coverage-context" }
+
+[dev-dependencies]
+mycelix-authority-freshness = { path = "../mycelix-authority-freshness" }

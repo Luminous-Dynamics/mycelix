@@ -3,15 +3,18 @@ name: Governance Constitution Currentness
 on:
   pull_request:
     paths:
+      - 'crates/mycelix-governance-constitution-currentness/**'
+      - 'crates/mycelix-governance-constitution/**'
       - 'mycelix-governance/zomes/constitution-currentness-verifier/**'
+      - 'mycelix-governance/zomes/authority-current-freshness-verifier/**'
       - 'mycelix-governance/zomes/constitution-authority/**'
       - 'mycelix-governance/Cargo.toml'
       - 'mycelix-governance/dna/dna.yaml'
-      - 'crates/mycelix-governance-constitution/**'
       - '.github/workflows/governance-constitution-currentness.yml'
   push:
     branches:
       - 'security/constitution-currentness-lease-v0.1'
+      - 'security/constitution-currentness-contract-v0.1'
 
 permissions:
   contents: read
@@ -25,7 +28,7 @@ env:
 
 jobs:
   qualify:
-    name: Genesis-only leased constitutional currentness
+    name: Shared genesis-only constitutional currentness
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -36,113 +39,177 @@ jobs:
           targets: wasm32-unknown-unknown
           components: rustfmt, clippy
 
-      - name: Format
+      - name: Pure currentness contract format
+        run: cargo fmt --manifest-path crates/mycelix-governance-constitution-currentness/Cargo.toml -- --check
+
+      - name: Pure currentness contract tests
+        run: cargo test --manifest-path crates/mycelix-governance-constitution-currentness/Cargo.toml --all-targets
+
+      - name: Pure currentness contract clippy
+        run: cargo clippy --manifest-path crates/mycelix-governance-constitution-currentness/Cargo.toml --all-targets -- -D warnings
+
+      - name: Verifier format
         working-directory: mycelix-governance
         run: cargo fmt --package constitution_currentness_verifier -- --check
 
-      - name: Native tests
+      - name: Verifier native tests
         working-directory: mycelix-governance
         run: cargo test --package constitution_currentness_verifier --all-targets
 
-      - name: Native clippy
+      - name: Verifier native clippy
         working-directory: mycelix-governance
         run: cargo clippy --package constitution_currentness_verifier --all-targets -- -D warnings
 
-      - name: WASM check
+      - name: Verifier WASM check
         working-directory: mycelix-governance
         run: cargo check --release --target wasm32-unknown-unknown --package constitution_currentness_verifier
 
-      - name: Currentness authority separation audit
+      - name: Shared currentness contract and authority separation audit
         run: |
           python3 - <<'PY'
           from pathlib import Path
 
-          root = Path('mycelix-governance/zomes/constitution-currentness-verifier')
-          src = (root / 'coordinator/src/lib.rs').read_text()
-          compact = ''.join(src.split())
-          inv = (root / 'INVARIANTS.md').read_text().lower()
-          cargo = (root / 'coordinator/Cargo.toml').read_text()
+          contract = Path('crates/mycelix-governance-constitution-currentness/src/lib.rs').read_text()
+          producer_root = Path('mycelix-governance/zomes/constitution-currentness-verifier')
+          producer = (producer_root / 'coordinator/src/lib.rs').read_text()
+          producer_inv = (producer_root / 'INVARIANTS.md').read_text().lower()
+          producer_cargo = (producer_root / 'coordinator/Cargo.toml').read_text()
+          consumer_root = Path('mycelix-governance/zomes/authority-current-freshness-verifier')
+          consumer_types = (consumer_root / 'coordinator/src/v04/types.rs').read_text()
+          consumer_runtime = (consumer_root / 'coordinator/src/v04/root.rs').read_text()
+          consumer_inv = (consumer_root / 'INVARIANTS.md').read_text().lower()
+          consumer_cargo = (consumer_root / 'coordinator/Cargo.toml').read_text()
           workspace = Path('mycelix-governance/Cargo.toml').read_text()
           dna = Path('mycelix-governance/dna/dna.yaml').read_text()
           authority = Path('mycelix-governance/zomes/constitution-authority/coordinator/src/lib.rs').read_text()
 
-          assert 'blake3 = "1"' in cargo
-          assert '"zomes/constitution-currentness-verifier/coordinator"' in workspace
-          assert 'name: constitution_currentness_verifier' not in dna
+          # One pure contract owns the wire ABI and all derived currentness identity rules.
+          for token in [
+              'pub const PROTOCOL_VERSION: &str = "mycelix-governance-current-constitution-leased-v0.1"',
+              'pub const CURRENTNESS_EVIDENCE_PROFILE: &str =',
+              'mycelix-governance-current-constitution-evidence-v1-blake3-framed',
+              'pub const GENESIS_CURRENTNESS_LEASE_BASIS: &str =',
+              'dna-immutable-genesis-amendments-disabled-local-reuse-v1',
+              'pub const GENESIS_CURRENTNESS_REUSE_MS: u64 = 30_000',
+              'pub struct LeasedVerifiedCurrentConstitution {',
+              'pub fn new_genesis(',
+              'pub fn validate_at(&self, now_ms: u64)',
+              'pub fn currentness_evidence_digest(',
+              'pub fn currentness_verification_ref(',
+              'LeaseExceedsGenesisReuseCap',
+              'NotGenesisStatement',
+          ]:
+              assert token in contract, token
 
-          # The only semantic authority source is immutable DNA genesis.
-          assert 'const CONSTITUTION_AUTHORITY_ZOME: &str = "constitution_authority";' in src
-          assert 'const CONSTITUTION_GENESIS_FUNCTION: &str = "get_verified_constitution_genesis";' in src
+          body = contract.split('pub struct LeasedVerifiedCurrentConstitution {', 1)[1].split('}', 1)[0]
+          fields = [
+              line.strip().split(':', 1)[0].removeprefix('pub ').strip()
+              for line in body.splitlines()
+              if line.strip().startswith('pub ')
+          ]
+          expected_fields = [
+              'protocol', 'dna_hash', 'statement', 'statement_digest',
+              'currentness_evidence_digest', 'currentness_evidence_profile',
+              'verified_transition_count', 'legacy_constitution_authoritative',
+              'lease_basis', 'verification_ref', 'verified_at_ms', 'valid_until_ms',
+              'genesis_currentness_by_amendments_disabled',
+              'transition_currentness_supported',
+              'candidate_discovery_used_for_positive_currentness',
+          ]
+          assert fields == expected_fields, (fields, expected_fields)
+
+          # The pure validator recomputes semantics, evidence identity, reference and lease mode.
+          for token in [
+              'validate_genesis_statement(&self.statement)?;',
+              'if statement_digest != self.statement_digest',
+              'if self.currentness_evidence_profile != CURRENTNESS_EVIDENCE_PROFILE',
+              'self.verified_transition_count != 0',
+              'self.legacy_constitution_authoritative',
+              '!self.genesis_currentness_by_amendments_disabled',
+              'self.transition_currentness_supported',
+              'self.candidate_discovery_used_for_positive_currentness',
+              'if self.lease_basis != GENESIS_CURRENTNESS_LEASE_BASIS',
+              'if width > GENESIS_CURRENTNESS_REUSE_MS',
+              'if expected_digest != self.currentness_evidence_digest',
+              'if self.verification_ref != currentness_verification_ref(expected_digest)',
+          ]:
+              assert token in contract, token
+
+          for test in [
+              'canonical_genesis_transport_validates',
+              'refreshed_observation_changes_evidence_not_statement_identity',
+              'tampered_evidence_digest_is_rejected',
+              'tampered_reference_is_rejected',
+              'widened_lease_is_rejected_even_with_recomputed_identity',
+              'transition_mode_is_rejected',
+              'non_genesis_statement_is_rejected',
+              'stale_and_future_dated_evidence_are_rejected',
+              'serde_round_trip_does_not_change_validation_identity',
+          ]:
+              assert test in contract, test
+
+          # Producer proves DNA genesis/amendment facts, then delegates canonical transport construction.
+          assert 'mycelix-governance-constitution-currentness' in producer_cargo
+          assert 'blake3' not in producer_cargo
+          assert 'LeasedVerifiedCurrentConstitution::new_genesis(' in producer
+          assert 'shared_currentness_contract_consumed: true' in producer
+          assert 'pub struct LeasedVerifiedCurrentConstitution {' not in producer
+          assert 'fn currentness_evidence_digest(' not in producer
+          assert 'blake3::' not in producer
+          assert 'if genesis.amendments_enabled' in producer
+          assert 'current.statement_digest != genesis.statement_digest' in producer
+
+          # Consumer decodes the exact shared ABI and independently reruns the shared validator.
+          assert 'mycelix-governance-constitution-currentness' in consumer_cargo
+          assert 'LeasedVerifiedCurrentConstitution as VerifiedCurrentConstitutionMirror' in consumer_types
+          assert 'struct VerifiedCurrentConstitutionMirror {' not in consumer_types
+          assert 'mycelix-governance-current-constitution-leased-v0.1' not in consumer_types
+          assert 'mycelix-governance-current-constitution-evidence-v1-blake3-framed' not in consumer_types
+          assert 'dna-immutable-genesis-amendments-disabled-local-reuse-v1' not in consumer_types
+          validator = consumer_runtime.split('fn verify_constitution_projection(', 1)[1].split('fn resolve_binding_current_constitution', 1)[0]
+          assert 'current.validate_at(now)' in validator
+          for forbidden in [
+              'expected_ref',
+              'LEASED_CURRENT_CONSTITUTION_PROTOCOL',
+              'CURRENT_CONSTITUTION_EVIDENCE_PROFILE',
+              'GENESIS_CURRENTNESS_LEASE_BASIS',
+              'current.currentness_evidence_profile !=',
+              'current.verified_transition_count != 0',
+          ]:
+              assert forbidden not in validator, forbidden
+
+          # Dynamic evidence still enters #192 while statement identity remains #111 semantics.
+          receipt = consumer_runtime.split('fn current_constitution_receipt(', 1)[1].split('fn resolve_root()', 1)[0]
+          assert 'statement_digest: constitution_digest_to_core(current.statement_digest)' in receipt
+          assert 'verification_ref: current.verification_ref.clone()' in receipt
+          assert 'verified_at_ms: current.verified_at_ms' in receipt
+          assert 'valid_until_ms: current.valid_until_ms' in receipt
+          current_contribution = consumer_runtime.split('EvidenceLeaseRole::CurrentConstitution,', 1)[1].split('EvidenceLeaseRole::BootstrapRootAdoption', 1)[0]
+          assert 'constitution_after.currentness_evidence_digest' in current_contribution
+          assert '&constitution_after.currentness_evidence_profile' in current_contribution
+          assert '&constitution_after.verification_ref' in current_contribution
+          assert 'constitution_receipt.statement_digest' not in current_contribution
+
+          # The only positive semantic source remains immutable DNA genesis; no DHT/latest heuristic appears.
+          assert 'const CONSTITUTION_AUTHORITY_ZOME: &str = "constitution_authority";' in producer
           assert 'get_verified_constitution_genesis' in authority
           assert 'amendments_enabled: false' in authority
-          assert 'if genesis.amendments_enabled' in src
-          assert 'amendments are enabled but bounded amendment currentness is not implemented' in src
-
-          # Currentness observation identity is separate from semantic statement identity.
-          for token in [
-              'CURRENTNESS_EVIDENCE_PROFILE',
-              'DOMAIN_CURRENTNESS_EVIDENCE',
-              'currentness_evidence_digest: Digest32',
-              'currentness_evidence_profile: String',
-              'fn currentness_evidence_digest(',
-              'frame(&mut hasher, dna_hash.as_bytes())',
-              'frame(&mut hasher, STATEMENT_PROFILE.as_bytes())',
-              'frame(&mut hasher, &statement_digest.0)',
-              'frame(&mut hasher, lease_basis.as_bytes())',
-              'frame(&mut hasher, &verified_at_ms.to_le_bytes())',
-              'frame(&mut hasher, &valid_until_ms.to_le_bytes())',
-              'constitution-currentness-evidence:{CURRENTNESS_EVIDENCE_PROFILE}',
-              'currentness_evidence_identity_explicit: true',
-          ]:
-              assert token in src, token
-          assert 'currentness_observation_window_changes_evidence_identity' in src
-          assert 'dna_identity_changes_currentness_evidence_identity' in src
-
-          # The lease is a short local re-observation cap, not semantic authority expiry.
-          assert 'GENESIS_CURRENTNESS_REUSE_MS: u64 = 30_000' in src
-          assert 'local_reuse_cap_is_authority_expiry: false' in src
-          assert 'verified_at_ms.checked_add(GENESIS_CURRENTNESS_REUSE_MS)' in compact
-
-          # Positive genesis currentness never depends on candidate/DHT visibility.
           for forbidden in [
-              'get_links(',
-              'get_details(',
-              'create_entry(',
-              'update_entry(',
-              'delete_entry(',
-              'project_verified_lineage',
-              'ConstitutionTransitionCandidate',
-              'constitution_transition',
-              'binding_voting',
-              'governance_rights_verifier',
-              'threshold_authority_verifier',
-              'execute_actions',
-              'phi',
-              'reputation',
-              'model_score',
+              'get_links(', 'get_details(', 'create_entry(', 'update_entry(', 'delete_entry(',
+              'project_verified_lineage', 'ConstitutionTransitionCandidate', 'constitution_transition',
+              'binding_voting', 'governance_rights_verifier', 'threshold_authority_verifier',
+              'execute_actions', 'phi', 'reputation', 'model_score',
           ]:
-              assert forbidden.lower() not in src.lower(), forbidden
+              assert forbidden.lower() not in producer.lower(), forbidden
 
-          for token in [
-              'genesis_currentness_supported: true',
-              'amendment_currentness_supported: false',
-              'candidate_discovery_grants_authority: false',
-              'absence_of_transition_record_grants_authority: false',
-              'unbounded_transition_verifier_receipts_accepted: false',
-              'local_reuse_cap_is_authority_expiry: false',
-          ]:
-              assert token in src, token
-
+          assert '"zomes/constitution-currentness-verifier/coordinator"' in workspace
+          assert 'name: constitution_currentness_verifier' not in dna
           for invariant in [
-              'currentness is a separate verifier role',
-              'candidate discovery is not used for positive genesis currentness',
-              'amendment currentness fails closed',
-              'the genesis lease is a reuse cap, not authority expiry',
+              'shared pure currentness contract',
               'currentness evidence identity is distinct from constitutional statement identity',
-              'no latest-record heuristic',
-              'amendment enablement gate',
+              'amendment currentness fails closed',
           ]:
-              assert invariant in inv, invariant
+              assert invariant in producer_inv or invariant in consumer_inv, invariant
 
-          print('PASS: DNA genesis currentness is independently leased, explicitly identified, and amendment/DHT currentness remains fail-closed')
+          print('PASS: one shared pure contract owns constitutional-currentness ABI/digest validation and both producer and consumer fail closed through it')
           PY

@@ -60,7 +60,10 @@ fn qualify_closed_provenance(
         ))));
     }
     qualify_evidence_lease_manifest(contributions, now).map_err(|error| {
-        lease_error("canonical evidence provenance manifest qualification denied", error)
+        lease_error(
+            "canonical evidence provenance manifest qualification denied",
+            error,
+        )
     })
 }
 
@@ -148,11 +151,13 @@ pub fn resolve_current_operational_freshness(
         )))
     })?;
     let semantic_freshness = current.to_verified_freshness();
-    semantic_freshness.validate_at(current_now).map_err(|error| {
-        wasm_error!(WasmErrorInner::Guest(format!(
-            "qualified operational freshness is not currently usable: {error}"
-        )))
-    })?;
+    semantic_freshness
+        .validate_at(current_now)
+        .map_err(|error| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "qualified operational freshness is not currently usable: {error}"
+            )))
+        })?;
     let semantic_lease = EvidenceLease::new(
         semantic_freshness.verified_at_ms,
         semantic_freshness.lease_until_ms,
@@ -166,19 +171,28 @@ pub fn resolve_current_operational_freshness(
         "dynamic evidence/semantic authority lease intersection denied",
     )?;
 
-    let coverage_digest = policies.evidence.coverage.policy.identity_digest().map_err(|error| {
-        wasm_error!(WasmErrorInner::Guest(format!(
-            "cannot compute operational coverage-policy provenance identity: {error}"
-        )))
-    })?;
-    let context_digest = policies.evidence.context.policy.identity_digest().map_err(|error| {
-        wasm_error!(WasmErrorInner::Guest(format!(
-            "cannot compute operational context-policy provenance identity: {error}"
-        )))
-    })?;
-    let mut contributions = Vec::with_capacity(
-        6 + control_plane.contributions.len() + evidence.contributions.len(),
-    );
+    let coverage_digest = policies
+        .evidence
+        .coverage
+        .policy
+        .identity_digest()
+        .map_err(|error| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "cannot compute operational coverage-policy provenance identity: {error}"
+            )))
+        })?;
+    let context_digest = policies
+        .evidence
+        .context
+        .policy
+        .identity_digest()
+        .map_err(|error| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "cannot compute operational context-policy provenance identity: {error}"
+            )))
+        })?;
+    let mut contributions =
+        Vec::with_capacity(6 + control_plane.contributions.len() + evidence.contributions.len());
     contributions.extend(resolved_root.contributions.iter().cloned());
     contributions.push(contribution(
         EvidenceLeaseRole::OperationalCoveragePolicy,
@@ -222,12 +236,14 @@ pub fn resolve_current_operational_freshness(
     // constitutional authority observation. This keeps the final constitution
     // read as the last authority-plane check before deployment qualification.
     let provenance_now = now_ms()?;
-    composition_lease.validate_at(provenance_now).map_err(|error| {
-        lease_error(
-            "global evidence lease expired before canonical provenance qualification",
-            error,
-        )
-    })?;
+    composition_lease
+        .validate_at(provenance_now)
+        .map_err(|error| {
+            lease_error(
+                "global evidence lease expired before canonical provenance qualification",
+                error,
+            )
+        })?;
     let provenance = qualify_closed_provenance(&contributions, expected, provenance_now)?;
     if provenance.aggregate_lease() != &composition_lease {
         return Err(wasm_error!(WasmErrorInner::Guest(
@@ -245,10 +261,10 @@ pub fn resolve_current_operational_freshness(
     let final_constitution_context =
         qualify_binding_constitution_context(&final_constitution_receipt, root, constitution_now)
             .map_err(|error| {
-                wasm_error!(WasmErrorInner::Guest(format!(
-                    "final binding constitution context denied: {error}"
-                )))
-            })?;
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "final binding constitution context denied: {error}"
+            )))
+        })?;
 
     // Host DNA is a local deployment fact, not an authority-plane source. Observe
     // it after the final constitution fence, then choose a fresh qualification

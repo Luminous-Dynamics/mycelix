@@ -1,0 +1,121 @@
+name: Constitution Currentness Contract Exact Head
+
+on:
+  pull_request:
+    branches:
+      - security/constitution-currentness-lease-v0.1
+    paths:
+      - 'crates/mycelix-governance-constitution-currentness/**'
+      - 'crates/mycelix-authority-operational-policy-verifier/**'
+      - 'mycelix-governance/zomes/constitution-currentness-verifier/**'
+      - 'mycelix-governance/zomes/authority-current-freshness-verifier/**'
+      - '.github/workflows/constitution-currentness-contract-exact-head.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: constitution-currentness-contract-exact-head-${{ github.event.pull_request.head.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Exact currentness contract tranche
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Verify exact checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ github.event.pull_request.head.sha }}'
+          actual="$(git rev-parse HEAD)"
+          test -n "$expected"
+          test "$actual" = "$expected"
+          echo "exact subject: $actual"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+
+      - name: Toolchain identity
+        run: |
+          rustc --version --verbose
+          cargo --version
+          rustfmt --version
+          cargo clippy --version
+
+      - name: Pure currentness contract
+        run: |
+          cargo fmt --manifest-path crates/mycelix-governance-constitution-currentness/Cargo.toml -- --check
+          cargo test --manifest-path crates/mycelix-governance-constitution-currentness/Cargo.toml --all-targets
+          cargo clippy --manifest-path crates/mycelix-governance-constitution-currentness/Cargo.toml --all-targets -- -D warnings
+
+      - name: Constitution currentness verifier native
+        working-directory: mycelix-governance
+        run: |
+          cargo fmt --package constitution_currentness_verifier -- --check
+          cargo test --package constitution_currentness_verifier --all-targets
+          cargo clippy --package constitution_currentness_verifier --all-targets -- -D warnings
+
+      - name: Constitution currentness verifier WASM
+        working-directory: mycelix-governance
+        run: cargo check --release --target wasm32-unknown-unknown --package constitution_currentness_verifier
+
+      - name: Current freshness runtime native
+        working-directory: mycelix-governance
+        run: |
+          cargo fmt --package authority_current_freshness_verifier -- --check
+          rustfmt --edition 2024 --check zomes/authority-current-freshness-verifier/coordinator/src/v04/*.rs
+          cargo check --package authority_current_freshness_verifier --all-targets
+          cargo clippy --package authority_current_freshness_verifier --all-targets -- -D warnings
+
+      - name: Current freshness runtime WASM
+        working-directory: mycelix-governance
+        run: cargo check --release --target wasm32-unknown-unknown --package authority_current_freshness_verifier
+
+      - name: Operational-policy verifier compatibility
+        run: |
+          cargo test --manifest-path crates/mycelix-authority-operational-policy-verifier/Cargo.toml --all-targets
+          cargo clippy --manifest-path crates/mycelix-authority-operational-policy-verifier/Cargo.toml --all-targets -- -D warnings
+
+      - name: Exact tranche boundary audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          contract='crates/mycelix-governance-constitution-currentness/src/lib.rs'
+          producer='mycelix-governance/zomes/constitution-currentness-verifier/coordinator/src/lib.rs'
+          consumer_root='mycelix-governance/zomes/authority-current-freshness-verifier/coordinator/src/v04/root.rs'
+          consumer_types='mycelix-governance/zomes/authority-current-freshness-verifier/coordinator/src/v04/types.rs'
+          producer_manifest='mycelix-governance/zomes/constitution-currentness-verifier/coordinator/Cargo.toml'
+          consumer_manifest='mycelix-governance/zomes/authority-current-freshness-verifier/coordinator/Cargo.toml'
+          policy_manifest='crates/mycelix-authority-operational-policy-verifier/Cargo.toml'
+
+          grep -q 'pub struct LeasedVerifiedCurrentConstitution' "$contract"
+          grep -q 'pub fn validate_at(&self, now_ms: u64)' "$contract"
+          grep -q 'LeasedVerifiedCurrentConstitution::new_genesis(' "$producer"
+          ! grep -q 'pub struct LeasedVerifiedCurrentConstitution' "$producer"
+          grep -q 'mycelix-governance-constitution-currentness' "$producer_manifest"
+          grep -q 'mycelix-governance-constitution-currentness' "$consumer_manifest"
+          grep -q 'LeasedVerifiedCurrentConstitution as VerifiedCurrentConstitutionMirror' "$consumer_types"
+          ! grep -q 'struct VerifiedCurrentConstitutionMirror' "$consumer_types"
+          grep -q 'current.validate_at(now)' "$consumer_root"
+
+          grep -q 'I: Serialize + std::fmt::Debug' "$consumer_root"
+          grep -q 'O: DeserializeOwned + std::fmt::Debug' "$consumer_root"
+          grep -q 'mycelix-authority-freshness' "$policy_manifest"
+
+          test ! -e .github/workflows/zz-one-shot-format-authority-currentness.yml
+          ! grep -Eq 'create_entry|update_entry|delete_entry' "$contract"
+          echo 'PASS: exact currentness tranche is shared, ABI-compatible, helper-free, and non-effectful'
