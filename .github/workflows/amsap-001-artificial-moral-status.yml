@@ -1,0 +1,62 @@
+name: AMSAP-001 Artificial Moral Status Constitution
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-civic/docs/AMSAP_001_ARTIFICIAL_MORAL_STATUS_CONSTITUTION.md'
+      - 'mycelix-civic/docs/amsap/amsap-v0.1.json'
+      - 'mycelix-civic/scripts/validate_amsap_v0_1.py'
+      - '.github/workflows/amsap-001-artificial-moral-status.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact subject
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 2
+
+      - name: Prove exact parent and review surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "303f624152120b78ed41b2f8ebe6165b324a5ef2"
+          mapfile -t changed < <(git diff --name-only HEAD^ HEAD | sort)
+          expected=(
+            ".github/workflows/amsap-001-artificial-moral-status.yml"
+            "mycelix-civic/docs/AMSAP_001_ARTIFICIAL_MORAL_STATUS_CONSTITUTION.md"
+            "mycelix-civic/docs/amsap/amsap-v0.1.json"
+            "mycelix-civic/scripts/validate_amsap_v0_1.py"
+          )
+          printf '%s\n' "${changed[@]}" > /tmp/changed
+          printf '%s\n' "${expected[@]}" | sort > /tmp/expected
+          diff -u /tmp/expected /tmp/changed
+
+      - name: Validate twice deterministically
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 mycelix-civic/scripts/validate_amsap_v0_1.py | tee /tmp/first
+          python3 mycelix-civic/scripts/validate_amsap_v0_1.py | tee /tmp/second
+          diff -u /tmp/first /tmp/second
+
+      - name: Audit non-sovereignty vocabulary
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'default_artificial_governance_authority' mycelix-civic/docs/amsap/amsap-v0.1.json
+          grep -F 'artificial_status->liability_erasure' mycelix-civic/docs/amsap/amsap-v0.1.json
+          grep -F 'protection_bundle->governance' mycelix-civic/docs/amsap/amsap-v0.1.json
+
+      - name: Immutable checkout postflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain)"

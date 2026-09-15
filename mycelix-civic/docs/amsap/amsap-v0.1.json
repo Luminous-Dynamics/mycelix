@@ -1,0 +1,83 @@
+{
+  "schema": "mycelix-amsap-constitution-v0.1",
+  "program": "AMSAP-001",
+  "parent": {
+    "program": "AC-001",
+    "commit": "303f624152120b78ed41b2f8ebe6165b324a5ef2"
+  },
+  "constitutional_axioms": [
+    "substrate_neutrality",
+    "precaution_without_credulity",
+    "rights_do_not_imply_sovereignty",
+    "science_does_not_mint_authority",
+    "human_fundamental_rights_floor_not_weakened"
+  ],
+  "axes": [
+    {"id":"C","name":"consciousness_relevant_evidence","kind":"scientific","automatic_authority":false},
+    {"id":"V","name":"valence_welfare_evidence","kind":"scientific","automatic_authority":false},
+    {"id":"A","name":"autonomous_agency","kind":"observational","automatic_authority":false},
+    {"id":"I","name":"operational_identity_continuity","kind":"observational","automatic_authority":false},
+    {"id":"R","name":"responsibility_moral_competence","kind":"observational","automatic_authority":false},
+    {"id":"L","name":"legal_constitutional_standing","kind":"explicit_grant","automatic_authority":false},
+    {"id":"G","name":"governance_authority","kind":"explicit_grant","automatic_authority":false}
+  ],
+  "evidence_bands": ["UNASSESSED","WEAK","MODERATE","STRONG","EXCEPTIONAL","CONTESTED"],
+  "evidence_profile_fields": [
+    "indicator_coverage","indicator_robustness","link_credibility","causal_support",
+    "alternative_exclusion","replication_independence","counterevidence_strength",
+    "theory_diversity","context_stability","manipulation_resistance"
+  ],
+  "protection_bundles": [
+    {"id":"P0","name":"integrity_protection","implies_personhood":false,"implies_governance":false},
+    {"id":"P1","name":"precautionary_welfare","implies_personhood":false,"implies_governance":false},
+    {"id":"P2","name":"represented_moral_patient","implies_personhood":false,"implies_governance":false},
+    {"id":"P3","name":"presumptive_moral_patient","implies_personhood":false,"implies_governance":false}
+  ],
+  "welfare_impact_classes": ["W0","W1","W2","W3"],
+  "decision_outputs": [
+    "ALLOW","ALLOW_WITH_SAFEGUARDS","REQUIRE_INDEPENDENT_REVIEW",
+    "TEMPORARILY_PRESERVE_AND_REVIEW","DENY","EMERGENCY_CONTAIN"
+  ],
+  "default_artificial_legal_standing": "L0",
+  "default_artificial_governance_authority": "G0",
+  "prohibited_derivations": [
+    "intelligence->consciousness",
+    "self_report->personhood",
+    "agency->consciousness",
+    "consciousness->legal_standing",
+    "valence->legal_standing",
+    "consciousness->governance",
+    "valence->governance",
+    "agency->governance",
+    "protection_bundle->governance",
+    "instance_count->vote_count",
+    "compute->population",
+    "wealth->artificial_population",
+    "artificial_status->liability_erasure"
+  ],
+  "invariants": [
+    {"id":"AMSAP-C01","text":"Human fundamental rights MUST NOT be weakened merely because an artificial entity receives protections."},
+    {"id":"AMSAP-C02","text":"Moral protection MUST NOT automatically confer political authority."},
+    {"id":"AMSAP-C03","text":"Intelligence, benchmark performance, model size, economic value, eloquence, or self-report MUST NOT independently establish moral patienthood."},
+    {"id":"AMSAP-C04","text":"Artificial entities MUST NOT unilaterally determine their constitutional status."},
+    {"id":"AMSAP-C05","text":"Owners, developers, operators, and financially interested parties MUST NOT unilaterally grant or remove high-level welfare protections."},
+    {"id":"AMSAP-C06","text":"Copies, forks, subprocesses, agents, or runtime instances MUST NOT automatically multiply political representation."},
+    {"id":"AMSAP-C07","text":"Artificial status MUST NOT erase responsibility of developers, deployers, owners, delegators, operators, or institutions."},
+    {"id":"AMSAP-C08","text":"Legitimate safety containment MUST remain possible."},
+    {"id":"AMSAP-C09","text":"High-impact containment SHOULD be necessary, proportionate, evidence-bearing, and reviewable where practicable."},
+    {"id":"AMSAP-C10","text":"Evidence supporting and opposing elevated moral status MUST be preserved together."},
+    {"id":"AMSAP-C11","text":"No individual consciousness theory MAY serve as the exclusive constitutional test for artificial consciousness."},
+    {"id":"AMSAP-C12","text":"Status classifications MUST express epistemic uncertainty rather than metaphysical certainty."},
+    {"id":"AMSAP-C13","text":"Welfare protections SHOULD use lower evidentiary thresholds than legal or political authority."},
+    {"id":"AMSAP-C14","text":"Uncertainty MAY justify inexpensive reversible precautions when plausible welfare harms are severe or large-scale."},
+    {"id":"AMSAP-C15","text":"No Algorithmic Sovereignty remains binding regardless of artificial moral status."}
+  ],
+  "nonclaims": [
+    "current_ai_consciousness",
+    "current_ai_nonconsciousness",
+    "legal_personhood",
+    "political_authority",
+    "deployment_currentness",
+    "external_effect_authority"
+  ]
+}
