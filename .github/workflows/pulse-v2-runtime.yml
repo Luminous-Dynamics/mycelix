@@ -1,0 +1,115 @@
+name: Pulse V2 Runtime Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-pulse/holochain/Cargo.lock'
+      - 'mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/**'
+      - 'mycelix-workspace/mycelix-pulse/crates/pulse-realtime-types/**'
+      - 'mycelix-workspace/mycelix-pulse/crates/pulse-realtime-wire/**'
+      - 'mycelix-workspace/mycelix-pulse/crates/pulse-realtime-hdk-adapter/**'
+      - 'scripts/ci/pulse_v2_producer_boundary.py'
+      - 'scripts/ci/pulse_v2_post_commit_boundary.py'
+      - 'scripts/ci/pulse_v2_remote_ingress_boundary.py'
+      - '.github/workflows/pulse-v2-runtime.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pulse-v2-runtime-${{ github.event.pull_request.head.repo.full_name }}-${{ github.event.pull_request.head.ref }}
+  cancel-in-progress: true
+
+env:
+  QUALIFIED_INGRESS_HEAD: 51713a02a884cb84cab3d86e9aaccb0d6606ae0a
+  CONTRACT_MANIFEST: mycelix-workspace/mycelix-pulse/crates/pulse-realtime-types/Cargo.toml
+  WIRE_MANIFEST: mycelix-workspace/mycelix-pulse/crates/pulse-realtime-wire/Cargo.toml
+  ADAPTER_MANIFEST: mycelix-workspace/mycelix-pulse/crates/pulse-realtime-hdk-adapter/Cargo.toml
+  HOLOCHAIN_MANIFEST: mycelix-workspace/mycelix-pulse/holochain/Cargo.toml
+  COORDINATOR: mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src/lib.rs
+
+jobs:
+  runtime-qualification:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact subject and qualified ancestry
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ github.event.pull_request.head.sha }}'
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$expected" || {
+            echo "::error::Expected exact subject $expected, got $actual"
+            exit 1
+          }
+          git merge-base --is-ancestor "$QUALIFIED_INGRESS_HEAD" HEAD || {
+            echo "::error::Runtime subject does not descend from qualified remote-ingress head $QUALIFIED_INGRESS_HEAD"
+            exit 1
+          }
+          test ! -e .github/runtime/pulse-v2-runtime-v2.patch
+          test ! -e .github/workflows/pulse-v2-runtime-apply.yml
+
+      - name: Require concrete runtime activation
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq '#[hdk_extern(infallible)]' "$COORDINATOR"
+          grep -Fq 'PulseV2RemoteSignal::inbox_changed_v2()' "$COORDINATOR"
+          grep -Fq 'admit_extern_io(&signal)' "$COORDINATOR"
+          grep -Fq 'tag: "pulse-v2-remote-ingress-v1".into()' "$COORDINATOR"
+          grep -Fq 'GrantedFunctions::Listed(fns)' "$COORDINATOR"
+
+      - name: Reprove authority theorems
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/ci/pulse_v2_producer_boundary.py
+          python3 scripts/ci/pulse_v2_post_commit_boundary.py
+          python3 scripts/ci/pulse_v2_remote_ingress_boundary.py
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87b
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+          targets: wasm32-unknown-unknown
+
+      - name: Reprove realtime contract stack
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path "$CONTRACT_MANIFEST" --lib
+          cargo test --manifest-path "$CONTRACT_MANIFEST" --test exact_frame
+          cargo clippy --manifest-path "$CONTRACT_MANIFEST" --lib --test exact_frame -- -D warnings
+          cargo fmt --manifest-path "$WIRE_MANIFEST" -- --check
+          cargo test --manifest-path "$WIRE_MANIFEST" --all-targets
+          cargo clippy --manifest-path "$WIRE_MANIFEST" --all-targets -- -D warnings
+          cargo fmt --manifest-path "$ADAPTER_MANIFEST" -- --check
+          cargo test --manifest-path "$ADAPTER_MANIFEST" --all-targets
+          cargo clippy --manifest-path "$ADAPTER_MANIFEST" --all-targets -- -D warnings
+
+      - name: Qualify production coordinator
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path "$HOLOCHAIN_MANIFEST" --package mail_messages -- --check
+          cargo check --manifest-path "$HOLOCHAIN_MANIFEST" --locked -p mail_messages
+          cargo check --manifest-path "$HOLOCHAIN_MANIFEST" --locked -p mail_messages --target wasm32-unknown-unknown
+          cargo test --manifest-path "$HOLOCHAIN_MANIFEST" --locked -p mail_messages --lib
+          cargo clippy --manifest-path "$HOLOCHAIN_MANIFEST" --locked -p mail_messages --lib -- -D warnings
+
+      - name: Prove checkout immutability
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
