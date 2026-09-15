@@ -65,7 +65,7 @@ jobs:
           cargo check --manifest-path "$HOLOCHAIN_MANIFEST" -p mail_messages
           cargo check --manifest-path "$HOLOCHAIN_MANIFEST" --locked -p mail_messages
           cargo test --manifest-path "$HOLOCHAIN_MANIFEST" --locked -p mail_messages --lib
-          cargo clippy --manifest-path "$HOLOCHAIN_MANIFEST" --locked -p mail_messages --lib -- -D warnings
+          cargo clippy --manifest-path "$HOLOCHAIN_MANIFEST" --locked -p mail_messages --lib --no-deps -- -D warnings
 
       - name: Reprove authority after formatting
         shell: bash
