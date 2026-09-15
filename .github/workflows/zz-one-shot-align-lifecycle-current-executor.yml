@@ -1,0 +1,338 @@
+name: One-shot Align Lifecycle Current Executor ABI
+
+on:
+  push:
+    branches:
+      - security/governance-lifecycle-current-executor-v0.1
+
+permissions:
+  contents: write
+
+concurrency:
+  group: one-shot-align-lifecycle-current-executor
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  align:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: security/governance-lifecycle-current-executor-v0.1
+          fetch-depth: 2
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+
+      - name: Align lifecycle verifier with exact #85 ABI
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          manifest = Path('mycelix-governance/zomes/execution-lifecycle-verifier/coordinator/Cargo.toml')
+          text = manifest.read_text()
+          dep = 'mycelix-governance-executor-provider-contract = { path = "../../../../crates/mycelix-governance-executor-provider-contract" }\n'
+          anchor = 'mycelix-governance-constitution = { path = "../../../../crates/mycelix-governance-constitution" }\n'
+          if dep not in text:
+              if text.count(anchor) != 1:
+                  raise SystemExit('unexpected lifecycle verifier manifest shape')
+              text = text.replace(anchor, anchor + dep, 1)
+          manifest.write_text(text)
+
+          path = Path('mycelix-governance/zomes/execution-lifecycle-verifier/coordinator/src/lib.rs')
+          text = path.read_text()
+
+          old = 'use mycelix_institutional_core::Digest32;\n'
+          new = (
+              'use mycelix_governance_executor_provider_contract::{\n'
+              '    PROTOCOL_VERSION as EXECUTOR_PROTOCOL, VerifiedCurrentExecutorAuthorityReceipt,\n'
+              '};\n'
+              'use mycelix_institutional_core::Digest32;\n'
+          )
+          if text.count(old) != 1:
+              raise SystemExit('institutional-core import anchor changed')
+          text = text.replace(old, new, 1)
+
+          local_protocol = 'const EXECUTOR_PROTOCOL: &str = "mycelix-governance-executor-authority-verifier-v0.1";\n'
+          if text.count(local_protocol) != 1:
+              raise SystemExit('legacy executor protocol constant changed')
+          text = text.replace(local_protocol, '', 1)
+
+          threshold_anchor = '    threshold_authorization_ref: String,\n    committee_ref: String,\n'
+          threshold_new = (
+              '    threshold_authorization_ref: String,\n'
+              '    threshold_authorization_identity_digest: Digest32,\n'
+              '    threshold_authorization_identity_profile: String,\n'
+              '    committee_ref: String,\n'
+          )
+          if text.count(threshold_anchor) != 1:
+              raise SystemExit('threshold receipt shape changed')
+          text = text.replace(threshold_anchor, threshold_new, 1)
+
+          start_marker = '#[derive(Serialize, Deserialize, Debug, Clone)]\nstruct ResolveExecutorDesignationRequest {'
+          end_marker = '#[derive(Serialize, Deserialize, Debug, Clone)]\nstruct ResolveEffectSafetyPolicyRequest {'
+          start = text.find(start_marker)
+          end = text.find(end_marker, start)
+          if start < 0 or end < 0:
+              raise SystemExit('legacy executor request/mirror block not found')
+          request = '''#[derive(Serialize, Deserialize, Debug, Clone)]
+struct ResolveCurrentExecutorAuthorityRequest {
+    proposal_id: String,
+    actions_digest: Digest32,
+    actions_digest_profile: String,
+    threshold_authorization_ref: String,
+    threshold_authorization_identity_digest: Digest32,
+    threshold_authorization_identity_profile: String,
+}
+
+'''
+          text = text[:start] + request + text[end:]
+
+          bounds_old = 'where\n    I: Serialize,\n    O: DeserializeOwned,\n'
+          bounds_new = 'where\n    I: Serialize + std::fmt::Debug,\n    O: DeserializeOwned + std::fmt::Debug,\n'
+          if text.count(bounds_old) != 1:
+              raise SystemExit('call_local generic bounds changed')
+          text = text.replace(bounds_old, bounds_new, 1)
+
+          text = text.replace(
+              '    executor: &VerifiedExecutorDesignation,\n',
+              '    executor: &VerifiedCurrentExecutorAuthorityReceipt,\n',
+          )
+
+          threshold_condition = '        || threshold.key_epoch == 0\n        || threshold.signing_policy_digest.is_zero()\n'
+          threshold_condition_new = (
+              '        || threshold.key_epoch == 0\n'
+              '        || threshold.signing_policy_digest.is_zero()\n'
+              '        || threshold.threshold_authorization_identity_digest.is_zero()\n'
+          )
+          if text.count(threshold_condition) != 1:
+              raise SystemExit('threshold validation condition changed')
+          text = text.replace(threshold_condition, threshold_condition_new, 1)
+          threshold_ref_line = '    require_ref(&threshold.threshold_authorization_ref, "threshold authorization ref")?;\n'
+          threshold_ref_new = threshold_ref_line + '    require_ref(&threshold.threshold_authorization_identity_profile, "threshold authorization identity profile")?;\n'
+          if text.count(threshold_ref_line) != 1:
+              raise SystemExit('threshold ref validation anchor changed')
+          text = text.replace(threshold_ref_line, threshold_ref_new, 1)
+
+          def replace_function(source: str, start_name: str, next_name: str, replacement: str) -> str:
+              start = source.find(f'fn {start_name}(')
+              end = source.find(f'\nfn {next_name}(', start)
+              if start < 0 or end < 0:
+                  raise SystemExit(f'cannot locate function {start_name}')
+              return source[:start] + replacement.rstrip() + '\n' + source[end+1:]
+
+          resolve_executor = r'''fn resolve_executor(
+    preflight: &VerifiedExecutionPreflightMirror,
+    threshold: &VerifiedExecutionThresholdAuthorization,
+    now: u64,
+) -> ExternResult<VerifiedCurrentExecutorAuthorityReceipt> {
+    let executor: VerifiedCurrentExecutorAuthorityReceipt = call_local(
+        EXECUTOR_VERIFIER_ZOME,
+        "resolve_current_executor_authority",
+        ResolveCurrentExecutorAuthorityRequest {
+            proposal_id: preflight.proposal_id.clone(),
+            actions_digest: preflight.actions_digest,
+            actions_digest_profile: preflight.actions_digest_profile.clone(),
+            threshold_authorization_ref: threshold.threshold_authorization_ref.clone(),
+            threshold_authorization_identity_digest: threshold
+                .threshold_authorization_identity_digest,
+            threshold_authorization_identity_profile: threshold
+                .threshold_authorization_identity_profile
+                .clone(),
+        },
+    )?;
+    executor.validate_at(now).map_err(|error| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "executor provider receipt failed #85 validation: {error}"
+        )))
+    })?;
+    let projection = &executor.projection;
+    if executor.protocol != EXECUTOR_PROTOCOL
+        || projection.proposal_id.as_str() != preflight.proposal_id
+        || projection.actions_digest != preflight.actions_digest
+        || projection.actions_digest_profile != preflight.actions_digest_profile
+        || projection.threshold_authorization_ref != threshold.threshold_authorization_ref
+        || projection.threshold_authorization_identity_digest
+            != threshold.threshold_authorization_identity_digest
+        || projection.threshold_authorization_identity_profile
+            != threshold.threshold_authorization_identity_profile
+        || executor.valid_until_ms > threshold.valid_until_ms
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "executor provider returned authority outside the exact threshold/execution domain".into(),
+        )));
+    }
+    Ok(executor)
+}
+'''
+          text = replace_function(text, 'resolve_executor', 'resolve_safety', resolve_executor)
+
+          resolve_safety = r'''fn resolve_safety(
+    plan: &VerifiedExecutionPlan,
+    executor: &VerifiedCurrentExecutorAuthorityReceipt,
+    now: u64,
+) -> ExternResult<VerifiedEffectSafetyPolicy> {
+    let projection = &executor.projection;
+    let safety: VerifiedEffectSafetyPolicy = call_local(
+        SAFETY_PROVIDER_ZOME,
+        "resolve_effect_safety_policy",
+        ResolveEffectSafetyPolicyRequest {
+            proposal_id: plan.proposal_id.clone(),
+            plan_ref: plan.plan_ref.clone(),
+            actions_digest: plan.actions_digest,
+            actions_digest_profile: plan.actions_digest_profile.clone(),
+            executor_principal: projection.executor_principal.as_str().to_string(),
+            executor_authority_ref: projection.executor_authority_ref.clone(),
+        },
+    )?;
+    if safety.protocol != SAFETY_PROVIDER_PROTOCOL
+        || safety.proposal_id != plan.proposal_id
+        || safety.plan_ref != plan.plan_ref
+        || safety.actions_digest != plan.actions_digest
+        || safety.actions_digest_profile != plan.actions_digest_profile
+        || safety.executor_principal != projection.executor_principal.as_str()
+        || safety.executor_authority_ref != projection.executor_authority_ref
+        || safety.policy_digest.is_zero()
+        || !safety.automatic_effects_allowed
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Effect-safety provider does not authorize automatic execution for this exact domain"
+                .into(),
+        )));
+    }
+    require_ref(&safety.policy_profile, "effect-safety policy profile")?;
+    require_ref(&safety.effect_class, "effect class")?;
+    require_ref(&safety.enforcement_mechanism, "effect-safety enforcement mechanism")?;
+    require_ref(&safety.verification_ref, "effect-safety verification ref")?;
+    require_current(safety.verified_at_ms, safety.valid_until_ms, now, "effect-safety policy")?;
+    Ok(safety)
+}
+'''
+          text = replace_function(text, 'resolve_safety', 'compose_domain', resolve_safety)
+
+          compose_domain = r'''fn compose_domain(
+    plan: &VerifiedExecutionPlan,
+    preflight: &VerifiedExecutionPreflightMirror,
+    threshold: &VerifiedExecutionThresholdAuthorization,
+    executor: &VerifiedCurrentExecutorAuthorityReceipt,
+    safety: &VerifiedEffectSafetyPolicy,
+) -> Result<ExecutionDomain, String> {
+    let projection = &executor.projection;
+    if preflight.actions_digest != plan.actions_digest
+        || threshold.actions_digest != plan.actions_digest
+        || projection.actions_digest != plan.actions_digest
+        || safety.actions_digest != plan.actions_digest
+    {
+        return Err("authority providers disagree on executable action digest".into());
+    }
+    if preflight.actions_digest_profile != plan.actions_digest_profile
+        || threshold.actions_digest_profile != plan.actions_digest_profile
+        || projection.actions_digest_profile != plan.actions_digest_profile
+        || safety.actions_digest_profile != plan.actions_digest_profile
+    {
+        return Err("authority providers disagree on executable action digest profile".into());
+    }
+    if projection.threshold_authorization_ref != threshold.threshold_authorization_ref
+        || projection.threshold_authorization_identity_digest
+            != threshold.threshold_authorization_identity_digest
+        || projection.threshold_authorization_identity_profile
+            != threshold.threshold_authorization_identity_profile
+    {
+        return Err("threshold and executor providers disagree on stable threshold authority identity".into());
+    }
+
+    let domain = ExecutionDomain {
+        protocol_version: LIFECYCLE_PROTOCOL_VERSION.into(),
+        proposal_id: plan.proposal_id.clone(),
+        timelock_ref: plan.plan_ref.clone(),
+        proposal_authority_ref: preflight.proposal_authority_binding.to_string(),
+        constitutional_epoch: ProfiledDigest {
+            digest: constitution_digest(preflight.constitution_statement_digest),
+            profile: STATEMENT_PROFILE.into(),
+        },
+        actions: ProfiledDigest {
+            digest: plan.actions_digest,
+            profile: plan.actions_digest_profile.clone(),
+        },
+        binding_tally_ref: preflight.binding_tally_action.to_string(),
+        threshold_authorization_ref: threshold.threshold_authorization_ref.clone(),
+        executor_principal: projection.executor_principal.as_str().to_string(),
+        executor_authority_ref: projection.executor_authority_ref.clone(),
+        effect_safety_policy: ProfiledDigest {
+            digest: safety.policy_digest,
+            profile: safety.policy_profile.clone(),
+        },
+    };
+    domain.validate().map_err(|e| e.to_string())?;
+    Ok(domain)
+}
+'''
+          text = replace_function(text, 'compose_domain', 'resolve_execution_domain', compose_domain)
+
+          path.write_text(text)
+          PY
+
+          rustfmt --edition 2024 mycelix-governance/zomes/execution-lifecycle-verifier/coordinator/src/lib.rs
+          cargo fmt --manifest-path mycelix-governance/Cargo.toml --package governance_execution_lifecycle_verifier
+
+      - name: Native tests
+        working-directory: mycelix-governance
+        run: cargo test --package governance_execution_lifecycle_verifier --all-targets
+
+      - name: Strict Clippy
+        working-directory: mycelix-governance
+        run: cargo clippy --package governance_execution_lifecycle_verifier --all-targets -- -D warnings
+
+      - name: WASM check
+        working-directory: mycelix-governance
+        run: cargo check --release --target wasm32-unknown-unknown --package governance_execution_lifecycle_verifier
+
+      - name: Contract and containment audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          src='mycelix-governance/zomes/execution-lifecycle-verifier/coordinator/src/lib.rs'
+          manifest='mycelix-governance/zomes/execution-lifecycle-verifier/coordinator/Cargo.toml'
+          dna='mycelix-governance/dna/dna.yaml'
+          grep -q 'VerifiedCurrentExecutorAuthorityReceipt' "$src"
+          grep -q 'executor.validate_at(now)' "$src"
+          grep -q 'threshold_authorization_identity_digest' "$src"
+          grep -q 'threshold_authorization_identity_profile' "$src"
+          grep -q 'resolve_current_executor_authority' "$src"
+          grep -q 'mycelix-governance-executor-provider-contract' "$manifest"
+          ! grep -q 'struct VerifiedExecutorDesignation' "$src"
+          ! grep -q 'name: governance_executor_authority_verifier' "$dna"
+          echo 'PASS: lifecycle consumes exact #85 ABI and provider remains unprovisioned'
+
+      - name: Commit exact provider-ABI repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout -- mycelix-governance/Cargo.lock 2>/dev/null || true
+          allowed='mycelix-governance/zomes/execution-lifecycle-verifier/coordinator/Cargo.toml
+mycelix-governance/zomes/execution-lifecycle-verifier/coordinator/src/lib.rs'
+          changed="$(git diff --name-only | sort)"
+          expected="$(printf '%s\n' "$allowed" | sort)"
+          if [[ "$changed" != "$expected" ]]; then
+            echo "Unexpected product scope:" >&2
+            printf '%s\n' "$changed" >&2
+            exit 1
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add mycelix-governance/zomes/execution-lifecycle-verifier/coordinator/Cargo.toml \
+                  mycelix-governance/zomes/execution-lifecycle-verifier/coordinator/src/lib.rs
+          git commit -m 'security(governance): consume exact current executor provider ABI'
+          git push origin HEAD:security/governance-lifecycle-current-executor-v0.1
