@@ -1,0 +1,16 @@
+[package]
+name = "mycelix-econ-conformance"
+version = "0.1.0"
+edition = "2024"
+description = "Cross-kernel conformance capsule for the Mycelix economic constitution"
+license = "AGPL-3.0-or-later"
+publish = false
+
+[dependencies]
+mycelix-economic-policy = { path = "../policy" }
+mycelix-sap-policy = { path = "../sap-policy" }
+mycelix-tend-policy = { path = "../tend-policy" }
+mycelix-mycel-policy = { path = "../mycel-policy" }
+mycelix-claims-policy = { path = "../claims-policy" }
+
+[workspace]
