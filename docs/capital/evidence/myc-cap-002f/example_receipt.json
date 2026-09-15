@@ -1,0 +1,32 @@
+{
+  "blockers": [],
+  "claim_modified": false,
+  "distribution_eligibility": "ELIGIBLE",
+  "measurement_epoch": 1,
+  "measurement_id": "measure-001",
+  "nonclaims": [
+    "distribution eligibility is not a determination of legally fair tariffs",
+    "distribution eligibility is not infrastructure engineering adequacy outside the frozen metrics",
+    "blocking distribution does not itself impair or increase the investor claim",
+    "service evidence validity is not proof of external measurement authenticity",
+    "service compliance is not solvency or handback readiness",
+    "service compliance is not democratic or regulatory legitimacy"
+  ],
+  "observed": {
+    "continuity_state": "PASS",
+    "coverage_ppm": 980000,
+    "deferred_maintenance_units": 1000000,
+    "reserve_balance_units": 5000000,
+    "tariff_units": 12000,
+    "uptime_ppm": 999000
+  },
+  "parent_remaining_claim_units": 73000000,
+  "parent_subject_sha": "270b852e0ac744dfca3a2cb966bf53fce78f2ab9",
+  "parent_transition_receipt_sha256": "60b7217980c615eab453eae25b74b27e75fc67cb336ea60d140f089341d50565",
+  "profile_sha256": "18dc049978d41bfda3e2d5c48280ccaa37f7e03d5a04cbedc50af80db49e0937",
+  "profile_version": "mycelix-public-service-distribution-gate-v1",
+  "project_id": "fiber:jhb:test-001",
+  "receipt_version": "mycelix-public-service-gate-receipt-v1",
+  "snapshot_sha256": "06276fa5f8c6622355bdcb874fe43f924c2b942bdf5991a11598e4a5de8269bf",
+  "unit": "ZAR-cent"
+}

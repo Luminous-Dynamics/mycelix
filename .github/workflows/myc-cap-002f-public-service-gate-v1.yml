@@ -1,0 +1,66 @@
+name: MYC-CAP-002F Public Service Gate v1
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/capital/public_service_gate_v1.py'
+      - 'scripts/capital/test_public_service_gate_v1.py'
+      - 'docs/capital/evidence/myc-cap-002f/**'
+      - '.github/workflows/myc-cap-002f-public-service-gate-v1.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Public-service distribution gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Exact PR head and parent
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "270b852e0ac744dfca3a2cb966bf53fce78f2ab9"
+
+      - name: Python environment
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 -m py_compile scripts/capital/public_service_gate_v1.py
+          python3 -m py_compile scripts/capital/test_public_service_gate_v1.py
+
+      - name: Fail-closed unit suite
+        run: |
+          set -euo pipefail
+          python3 -m unittest -v scripts/capital/test_public_service_gate_v1.py
+
+      - name: Deterministic example receipt
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp)"
+          python3 scripts/capital/public_service_gate_v1.py \
+            docs/capital/evidence/myc-cap-002f/example_case.json \
+            --receipt-out "$tmp"
+          diff -u docs/capital/evidence/myc-cap-002f/example_receipt.json "$tmp"
+          cp "$tmp" "${tmp}.second"
+          python3 scripts/capital/public_service_gate_v1.py \
+            docs/capital/evidence/myc-cap-002f/example_case.json \
+            --receipt-out "$tmp"
+          cmp "$tmp" "${tmp}.second"
+          echo '316d40c7fb9a99c1b647bcd376fe211a8fd7074c5c2bf7def0aafa9650523b74  docs/capital/evidence/myc-cap-002f/example_case.json' | sha256sum -c -
+          echo 'ae4500023ca4cd55dfac69de1127e503a8a3d6785e192ecd25e4edf6e01ee170  docs/capital/evidence/myc-cap-002f/example_receipt.json' | sha256sum -c -
+
+      - name: Strong nonclaims
+        run: |
+          set -euo pipefail
+          grep -Fq '"claim_modified": false' docs/capital/evidence/myc-cap-002f/example_receipt.json
+          grep -Fq 'blocking distribution does not itself impair or increase the investor claim' docs/capital/evidence/myc-cap-002f/example_receipt.json
+          grep -Fq '"distribution_eligibility": "ELIGIBLE"' docs/capital/evidence/myc-cap-002f/example_receipt.json
