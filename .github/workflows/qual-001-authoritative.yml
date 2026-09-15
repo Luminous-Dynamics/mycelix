@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - name: Require same-repository subject for v0.1
+      - name: Require same-repository subject
         shell: bash
         run: |
           set -euo pipefail
@@ -46,21 +46,16 @@ jobs:
           set -euo pipefail
           test "$(git -C verifier rev-parse HEAD)" = "${{ github.sha }}"
           test "$(git -C subject rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
-          git -C verifier rev-parse HEAD
-          git -C verifier rev-parse HEAD^{tree}
-          git -C subject rev-parse HEAD
-          git -C subject rev-parse HEAD^{tree}
 
-      - name: Verify hostile subject using verifier-owned policy only
+      - name: Dispatch through verifier-owned current pointer
         shell: bash
         run: |
           set -euo pipefail
           receipt="$RUNNER_TEMP/qual-001-receipt.json"
-          python3 -B verifier/qualification/qual-001/verifier_v0_1.py \
+          python3 -B verifier/qualification/qual-001/dispatcher_v0_1.py \
             --verifier-root verifier \
             --subject-root subject \
-            --manifest verifier/qualification/qual-001/gate-manifest-v0.1.json \
-            --bundle-manifest verifier/qualification/qual-001/verifier-bundle-v0.1.json \
+            --current-pointer verifier/qualification/qual-001/current-verifier.json \
             --expected-verifier-head "${{ github.sha }}" \
             --subject-base "${{ github.event.pull_request.base.sha }}" \
             --subject-head "${{ github.event.pull_request.head.sha }}" \
@@ -72,12 +67,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          verifier_status="$(git -C verifier status --short)"
-          subject_status="$(git -C subject status --short)"
-          printf 'verifier status: %s\n' "$verifier_status"
-          printf 'subject status: %s\n' "$subject_status"
-          test -z "$verifier_status"
-          test -z "$subject_status"
+          test -z "$(git -C verifier status --short)"
+          test -z "$(git -C subject status --short)"
 
       - name: Emit successful independent-verifier receipt
         shell: bash
@@ -86,5 +77,4 @@ jobs:
           test -s "$QUAL_001_RECEIPT_PATH"
           test -z "$(git -C verifier status --short)"
           test -z "$(git -C subject status --short)"
-          receipt_json="$(cat "$QUAL_001_RECEIPT_PATH")"
-          echo "QUAL_001_RECEIPT_JSON=$receipt_json"
+          echo "QUAL_001_RECEIPT_JSON=$(cat "$QUAL_001_RECEIPT_PATH")"

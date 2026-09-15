@@ -1,0 +1,6 @@
+{
+  "bundle_path": "qualification/qual-001/verifier-bundle-v0.2.json",
+  "bundle_sha256": "1360eff37924a6ce580e7363ab094e9f76caf3b36887b57202fafa628b76f028",
+  "profile": "mycelix.qual.static-subject-independence.v0.2-monotonic",
+  "schema": "mycelix.qual.current-verifier.v0.1"
+}

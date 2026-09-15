@@ -1,0 +1,47 @@
+{
+  "max_changed_bytes": 1048576,
+  "max_changed_paths": 64,
+  "ordinary_forbidden_exact_paths": [
+    ".github/workflows/qual-001-authoritative.yml",
+    "qualification/qual-001/current-verifier.json",
+    "qualification/qual-001/dispatcher_v0_1.py"
+  ],
+  "ordinary_forbidden_prefixes": [
+    "qualification/qual-001/"
+  ],
+  "profile": "mycelix.qual.static-subject-independence.v0.2",
+  "receipt_schema": "mycelix.qual.independent-verifier.receipt.v0.2",
+  "required_receipt_fields": [
+    "schema",
+    "qualification_pass",
+    "mode",
+    "subject_head",
+    "subject_tree",
+    "subject_base",
+    "verifier_head",
+    "verifier_tree",
+    "current_pointer_sha256",
+    "verifier_bundle_schema",
+    "verifier_bundle_sha256",
+    "gate_manifest_profile",
+    "gate_manifest_sha256",
+    "changed_paths_sha256",
+    "changed_path_count",
+    "changed_bytes",
+    "subject_code_executed",
+    "candidate_local_verifier_authoritative",
+    "os_network_sandbox_claimed"
+  ],
+  "required_rotation_receipt_fields": [
+    "previous_bundle_sha256",
+    "proposed_bundle_sha256",
+    "proposed_bundle_path",
+    "proposed_profile",
+    "proposed_pointer_sha256",
+    "successor_candidate_verifier_code_executed_during_rotation_authorization",
+    "admin_bypass_qualifies"
+  ],
+  "same_repository_subject_required": true,
+  "schema": "mycelix.qual.gate-manifest.v0.2",
+  "subject_execution": false
+}
