@@ -1,0 +1,174 @@
+name: FIN-ECO-004B Reservation Authority
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/fin-eco-004b.yml'
+      - 'mycelix-finance/Cargo.toml'
+      - 'mycelix-finance/Cargo.lock'
+      - 'mycelix-finance/dna/**'
+      - 'mycelix-finance/crates/finance-reservation-core/**'
+      - 'mycelix-finance/zomes/reservation-authority/**'
+      - 'mycelix-finance/tests/Cargo.toml'
+      - 'mycelix-finance/tests/sweettest_reservation_authority.rs'
+      - 'crates/mycelix-business-core/**'
+      - 'crates/mycelix-business-decision/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fin-eco-004b-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify-static:
+    name: qualify-reservation-authority-static
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Prove exact product head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          test -z "$(git status --porcelain=v1)"
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-finance
+
+      - name: Format Finance authority workspace
+        working-directory: mycelix-finance
+        run: cargo fmt --all --check
+
+      - name: Check reservation authority host crates
+        working-directory: mycelix-finance
+        run: |
+          cargo check -p mycelix-finance-reservation-core
+          cargo check -p reservation_authority_integrity
+          cargo check -p reservation_authority
+
+      - name: Clippy reservation authority host crates
+        working-directory: mycelix-finance
+        run: |
+          cargo clippy -p mycelix-finance-reservation-core --all-targets -- -D warnings
+          cargo clippy -p reservation_authority_integrity --all-targets -- -D warnings
+          cargo clippy -p reservation_authority --all-targets -- -D warnings
+
+      - name: Test pure reservation theorem
+        working-directory: mycelix-finance
+        run: cargo test -p mycelix-finance-reservation-core
+
+      - name: Compile authority zomes for Holochain WASM
+        working-directory: mycelix-finance
+        run: |
+          cargo check --release --target wasm32-unknown-unknown -p reservation_authority_integrity
+          cargo check --release --target wasm32-unknown-unknown -p reservation_authority
+
+      - name: Refuse qualification-time tracked source or Finance-lock drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          test -z "$(git status --porcelain=v1 --untracked-files=no)"
+
+  qualify-conductor:
+    name: qualify-reservation-authority-conductor
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Prove exact product head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          test -z "$(git status --porcelain=v1)"
+
+      - uses: cachix/install-nix-action@v27
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - uses: cachix/cachix-action@v15
+        with:
+          name: holochain-ci
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            mycelix-finance
+            mycelix-finance/tests
+
+      - name: Build exact Finance WASM product
+        run: |
+          cd mycelix-finance
+          nix develop .#ci --impure --command cargo build \
+            --release \
+            --target wasm32-unknown-unknown \
+            --workspace \
+            --exclude finance-leptos-types
+
+      - name: Pack exact Finance DNA
+        run: |
+          cd mycelix-finance
+          nix develop .#ci --impure --command hc dna pack dna/
+
+      - name: Format exact FIN-ECO-004B Sweettest workspace
+        run: |
+          cd mycelix-finance
+          nix develop .#ci --impure --command bash -c '
+            cd tests
+            cargo fmt --all --check
+          '
+
+      - name: Compile exact FIN-ECO-004B Sweettest
+        run: |
+          cd mycelix-finance
+          nix develop .#ci --impure --command bash -c '
+            cd tests
+            cargo test --test sweettest_reservation_authority --no-run
+          '
+
+      - name: Execute FIN-ECO-004B conductor theorem
+        run: |
+          cd mycelix-finance
+          nix develop .#ci --impure --command bash -c '
+            cd tests
+            cargo test --test sweettest_reservation_authority -- --ignored --test-threads=1
+          '
+
+      - name: Record qualification environment and generated test-lock identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'product_head=%s\n' "$(git rev-parse HEAD)"
+          grep -E '^(hdk|hdi|holochain_zome_types|holochain_integrity_types) = ' mycelix-finance/Cargo.toml
+          if test -f mycelix-finance/tests/Cargo.lock; then
+            sha256sum mycelix-finance/tests/Cargo.lock
+          else
+            echo 'tests/Cargo.lock was not generated'
+          fi
+          cd mycelix-finance
+          nix develop .#ci --impure --command bash -c 'rustc --version; cargo --version; hc --version || true'
+
+      - name: Refuse qualification-time tracked source or Finance-lock drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          test -z "$(git status --porcelain=v1 --untracked-files=no)"
