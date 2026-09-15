@@ -1,0 +1,39 @@
+{
+  "manifest_version": "mycelix-evidence-manifest-v1",
+  "technical_evidence": [
+    {
+      "id": "AGENT-002",
+      "profile": "agent-runtime-v1",
+      "subject_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "designated_current_subject_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "workflow_status": "completed",
+      "workflow_conclusion": "success",
+      "disposition": "PASS",
+      "receipt_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "dependencies": [],
+      "nonclaims": [
+        "Synthetic fixture only; this does not describe current AGENT-002 status."
+      ]
+    }
+  ],
+  "security_evidence": [],
+  "commercial_evidence": [],
+  "capital_evidence": [],
+  "claims": [
+    {
+      "id": "fixture-qualified-claim",
+      "text": "Synthetic AGENT-002 subject is qualified.",
+      "authority": "Qualified",
+      "evidence_refs": [
+        "technical:AGENT-002"
+      ],
+      "model_ref": null,
+      "nonclaims": [
+        "This claim applies only to the synthetic fixture."
+      ]
+    }
+  ],
+  "nonclaims": [
+    "This fixture is not a current Mycelix product-status manifest."
+  ]
+}
