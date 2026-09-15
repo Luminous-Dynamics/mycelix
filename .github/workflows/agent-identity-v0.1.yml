@@ -1,0 +1,211 @@
+name: AGENT-002 Identity Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-agent-identity/**'
+      - 'mycelix-workspace/docs/agents/AGENT_IDENTITY_V0.1.md'
+      - 'mycelix-workspace/docs/agents/agent-identity-v0.1.json'
+      - 'mycelix-workspace/docs/agents/evidence/agent-identity-v0.1/**'
+      - 'scripts/qualification/agent_identity_v0_1.py'
+      - '.github/workflows/agent-identity-v0.1.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-002-identity-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Stable agent runtime identity
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Exact subject and qualified convergence parent
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_parent='6163a80c8398fac01fbd506515c11f60cee48320'
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          test "$(git rev-parse HEAD^)" = "$expected_parent"
+          test "$(git rev-list --parents -n1 HEAD | wc -w)" -eq 2
+          git rev-parse HEAD
+          git rev-parse HEAD^
+
+      - name: Independent parent evidence and canonical-vector oracle
+        run: python3 scripts/qualification/agent_identity_v0_1.py
+
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          components: clippy,rustfmt
+
+      - name: Pin Rust and Cargo
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc --version --verbose
+          cargo --version
+          test "$(rustc --version | awk '{print $2}')" = '1.98.1'
+          test "$(cargo --version)" = 'cargo 1.98.1 (797e8a9bc 2026-08-05)'
+          echo "QUALIFICATION_CARGO_VERSION=$(cargo --version)" >> "$GITHUB_ENV"
+
+      - name: Prepare exact two-package identity workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          qual_tree="$RUNNER_TEMP/agent-002-identity"
+          cargo_home="$RUNNER_TEMP/agent-002-cargo-home"
+          cargo_target="$RUNNER_TEMP/agent-002-target"
+          rm -rf "$qual_tree" "$cargo_home" "$cargo_target"
+          mkdir -p "$qual_tree/crates" "$cargo_home" "$cargo_target"
+          cp -a crates/mycelix-institutional-core "$qual_tree/crates/mycelix-institutional-core"
+          cp -a crates/mycelix-agent-identity "$qual_tree/crates/mycelix-agent-identity"
+          cat > "$qual_tree/Cargo.toml" <<'EOF'
+          [workspace]
+          resolver = "3"
+          members = [
+            "crates/mycelix-institutional-core",
+            "crates/mycelix-agent-identity",
+          ]
+          EOF
+          cp mycelix-workspace/docs/agents/evidence/agent-identity-v0.1/agent-identity-Cargo.lock "$qual_tree/Cargo.lock"
+          echo "QUAL_TREE=$qual_tree" >> "$GITHUB_ENV"
+          echo "CARGO_HOME=$cargo_home" >> "$GITHUB_ENV"
+          echo "CARGO_TARGET_DIR=$cargo_target" >> "$GITHUB_ENV"
+
+      - name: Guard local build surface and frozen dependency graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          for root in mycelix-institutional-core mycelix-agent-identity; do
+            manifest="$QUAL_TREE/crates/$root/Cargo.toml"
+            test ! -e "$QUAL_TREE/crates/$root/build.rs"
+            if grep -Eq '^[[:space:]]*build[[:space:]]*=' "$manifest"; then
+              echo "custom package build hook is outside AGENT-002 qualification: $root" >&2
+              exit 1
+            fi
+            if grep -Eq '(^|[,{[:space:]])git[[:space:]]*=' "$manifest"; then
+              echo "git dependency is outside AGENT-002 qualification: $root" >&2
+              exit 1
+            fi
+          done
+
+          cd "$QUAL_TREE"
+          expected_lock_sha='17721b17f3f8fec578465b21ca504ee3e00b98e20c6a3a53b8f5f49efc9879a8'
+          actual_lock_sha="$(sha256sum Cargo.lock | awk '{print $1}')"
+          test "$actual_lock_sha" = "$expected_lock_sha"
+          echo "QUALIFICATION_LOCK_SHA256=$actual_lock_sha" >> "$GITHUB_ENV"
+
+          cargo metadata --locked --no-deps --format-version 1 > metadata.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          expected = {"mycelix-institutional-core", "mycelix-agent-identity"}
+          data = json.loads(Path("metadata.json").read_text())
+          actual = {package["name"] for package in data["packages"]}
+          if actual != expected:
+              raise SystemExit(f"unexpected AGENT-002 package census: {sorted(actual)}")
+          print("AGENT-002 package census: PASS", sorted(actual))
+          PY
+
+          cargo fetch --manifest-path Cargo.toml --locked
+          echo 'CARGO_NET_OFFLINE=true' >> "$GITHUB_ENV"
+
+      - name: New crate rustfmt
+        run: cargo fmt --manifest-path "$QUAL_TREE/Cargo.toml" --package mycelix-agent-identity -- --check
+
+      - name: Identity and inherited-core tests with Cargo offline
+        run: cargo test --manifest-path "$QUAL_TREE/Cargo.toml" --workspace --all-targets --locked
+
+      - name: Identity and inherited-core strict Clippy with Cargo offline
+        run: cargo clippy --manifest-path "$QUAL_TREE/Cargo.toml" --workspace --all-targets --locked -- -D warnings
+
+      - name: Strong negative claims
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest='mycelix-workspace/docs/agents/agent-identity-v0.1.json'
+          doc='mycelix-workspace/docs/agents/AGENT_IDENTITY_V0.1.md'
+          grep -Fq '"runtime_authenticity_claimed": false' "$manifest"
+          grep -Fq '"runtime_attestation_claimed": false' "$manifest"
+          grep -Fq '"current_agent_authority_claimed": false' "$manifest"
+          grep -Fq '"effect_authority_claimed": false' "$manifest"
+          grep -Fq '"full_agent_security_claimed": false' "$manifest"
+          grep -Fq 'AGENT-002 PASS != current agent authority' "$doc"
+          grep -Fq 'AGENT-002 PASS != effect authority' "$doc"
+          grep -Fq 'AGENT-002 PASS != full agent security' "$doc"
+
+      - name: Immutable checkout postflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="$(git status --short)"
+          printf '%s\n' "$status"
+          test -z "$status"
+
+      - name: Emit successful AGENT-002 receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent_receipt='mycelix-workspace/docs/agents/evidence/agent-identity-v0.1/parent-convergence-receipt.json'
+          parent_receipt_sha="$(sha256sum "$parent_receipt" | awk '{print $1}')"
+          test "$parent_receipt_sha" = 'ed74e503a5cc7f42fe354ecae1b645d885596add0d7b98987aa079bd7fc7113b'
+          test "$QUALIFICATION_LOCK_SHA256" = '17721b17f3f8fec578465b21ca504ee3e00b98e20c6a3a53b8f5f49efc9879a8'
+          test -z "$(git status --short)"
+          export AGENT_PARENT_RECEIPT_SHA="$parent_receipt_sha"
+
+          receipt_json="$(python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+
+          def git(*args: str) -> str:
+              return subprocess.check_output(["git", *args], text=True).strip()
+
+          receipt = {
+              "schema": "mycelix.agent.identity.receipt.v0.1",
+              "qualification_pass": True,
+              "subject_head": git("rev-parse", "HEAD"),
+              "parent_convergence_head": git("rev-parse", "HEAD^"),
+              "parent_convergence_run": 34881344813,
+              "parent_convergence_attempt": 1,
+              "parent_convergence_receipt_sha256": os.environ["AGENT_PARENT_RECEIPT_SHA"],
+              "qualification_lock_sha256": os.environ["QUALIFICATION_LOCK_SHA256"],
+              "product_tree": git("rev-parse", "HEAD:crates/mycelix-agent-identity"),
+              "protocol_version": "mycelix-agent-identity-v0.1",
+              "runtime_identity_profile": "mycelix-agent-runtime-instance-v1-blake3-framed-semantic",
+              "independent_vector_digest": "466beee862b306834aa76be027eb9c9f9629e6e550e1bdd5f033a7fec1398a9e",
+              "rust_toolchain": "1.98.1",
+              "cargo_version": os.environ["QUALIFICATION_CARGO_VERSION"],
+              "checkout_action": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "rust_toolchain_action": "dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87",
+              "github_repository": os.environ["GITHUB_REPOSITORY"],
+              "github_run_id": int(os.environ["GITHUB_RUN_ID"]),
+              "github_run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
+              "github_workflow": os.environ["GITHUB_WORKFLOW"],
+              "runner_os": os.environ["RUNNER_OS"],
+              "runner_arch": os.environ["RUNNER_ARCH"],
+              "cargo_offline_for_semantic_commands": True,
+              "os_network_sandbox_claimed": False,
+              "runtime_authenticity_claimed": False,
+              "runtime_attestation_claimed": False,
+              "current_agent_authority_claimed": False,
+              "effect_authority_claimed": False,
+              "full_agent_security_claimed": False,
+          }
+          print(json.dumps(receipt, sort_keys=True, separators=(",", ":")))
+          PY
+          )"
+          echo "AGENT_IDENTITY_RECEIPT_JSON=$receipt_json"

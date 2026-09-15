@@ -1,0 +1,29 @@
+{
+  "schema": "mycelix.agent.identity.v0.1",
+  "subject": "AGENT-002",
+  "parent_convergence_head": "6163a80c8398fac01fbd506515c11f60cee48320",
+  "parent_convergence_run": 34881344813,
+  "parent_convergence_attempt": 1,
+  "parent_convergence_receipt_sha256": "ed74e503a5cc7f42fe354ecae1b645d885596add0d7b98987aa079bd7fc7113b",
+  "parent_authority_lock_sha256": "38889f5045c6e5f6ea3b9427e056429b316021b244cdec6fda4fbd1afb49888d",
+  "qualification_lock_sha256": "17721b17f3f8fec578465b21ca504ee3e00b98e20c6a3a53b8f5f49efc9879a8",
+  "product_crate": "crates/mycelix-agent-identity",
+  "protocol_version": "mycelix-agent-identity-v0.1",
+  "runtime_identity_profile": "mycelix-agent-runtime-instance-v1-blake3-framed-semantic",
+  "runtime_identity_domain": "mycelix/agent/runtime-instance/v1",
+  "max_runtime_instance_id_bytes": 512,
+  "normalization_policy": "reject-boundary-whitespace-and-control; otherwise preserve exact UTF-8 bytes; no case folding; no Unicode normalization",
+  "independent_vector": {
+    "agent": "did:example:agent-alpha",
+    "runtime_instance_id": "runtime:host-a:proc-7",
+    "preimage_hex": "6d7963656c69782f6167656e742f72756e74696d652d696e7374616e63652f763138000000000000006d7963656c69782d6167656e742d72756e74696d652d696e7374616e63652d76312d626c616b65332d6672616d65642d73656d616e7469631b000000000000006d7963656c69782d6167656e742d6964656e746974792d76302e3117000000000000006469643a6578616d706c653a6167656e742d616c706861150000000000000072756e74696d653a686f73742d613a70726f632d37",
+    "digest_hex": "466beee862b306834aa76be027eb9c9f9629e6e550e1bdd5f033a7fec1398a9e"
+  },
+  "controller_binding_present": false,
+  "parallel_agent_principal_present": false,
+  "runtime_authenticity_claimed": false,
+  "runtime_attestation_claimed": false,
+  "current_agent_authority_claimed": false,
+  "effect_authority_claimed": false,
+  "full_agent_security_claimed": false
+}
