@@ -782,12 +782,12 @@ fn validate_encrypted_email(
     }
 
     // Check expiration if set
-    if let Some(expires) = email.expires_at {
-        if expires <= email.timestamp {
-            return Ok(ValidateCallbackResult::Invalid(
-                "Expiration must be after timestamp".to_string(),
-            ));
-        }
+    if let Some(expires) = email.expires_at
+        && expires <= email.timestamp
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Expiration must be after timestamp".to_string(),
+        ));
     }
 
     // Phase 0.8 — bound client-set timestamp against chain-assigned action
@@ -881,14 +881,13 @@ fn validate_encrypted_email(
             }
             // Dilithium verification requires PQC library, validated at application layer
         }
-        "dilithium2" => {
-            if email.signature.len() != DILITHIUM2_SIG_LEN {
-                return Ok(ValidateCallbackResult::Invalid(format!(
-                    "Dilithium2 signature must be {} bytes",
-                    DILITHIUM2_SIG_LEN
-                )));
-            }
+        "dilithium2" if email.signature.len() != DILITHIUM2_SIG_LEN => {
+            return Ok(ValidateCallbackResult::Invalid(format!(
+                "Dilithium2 signature must be {} bytes",
+                DILITHIUM2_SIG_LEN
+            )));
         }
+        "dilithium2" => {}
         _ => {}
     }
 
