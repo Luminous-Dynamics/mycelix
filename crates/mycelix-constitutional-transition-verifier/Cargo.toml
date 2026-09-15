@@ -1,0 +1,18 @@
+[package]
+name = "mycelix-constitutional-transition-verifier"
+version = "0.1.0"
+edition = "2024"
+description = "Predecessor-owned constitutional root transition verification for Mycelix"
+license = "AGPL-3.0-or-later"
+authors = ["Luminous Dynamics <contact@luminousdynamics.org>"]
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+
+[lib]
+name = "mycelix_constitutional_transition_verifier"
+path = "src/lib.rs"
+
+[dependencies]
+mycelix-constitutional-root = { path = "../mycelix-constitutional-root" }
+sha2 = { version = "=0.11.0", default-features = false }
+ed25519-dalek = { version = "=3.0.0", default-features = false }
+curve25519-dalek = { version = "=5.0.0", default-features = false }
