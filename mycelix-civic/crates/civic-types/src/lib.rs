@@ -12,6 +12,7 @@
 //! - Reversible public-entity identity reconciliation
 //! - Internal qualified equivalence-view projection engine
 //! - Trust-rooted public identity qualification boundary
+//! - Identity-resolution sensitivity diagnostics
 //! - Evidence types shared across justice and media
 //! - Status/phase traits for state machine validation
 //! - Role-based authorization helpers
@@ -25,8 +26,10 @@ mod equivalence_view;
 pub mod evidence;
 pub mod identity_qualification;
 mod identity_resolution;
+mod identity_sensitivity;
 pub mod institutional_graph;
 pub mod qualified_identity_resolution;
+pub mod qualified_identity_sensitivity;
 pub mod roles;
 // The adapter has private serde projection fields that exist to preserve external
 // standard structure even when AC-005 deliberately does not expose those fields.
@@ -48,8 +51,13 @@ pub use identity_resolution::{
     EntityBindingEvidence, EntityIdentityLink, IdentityLinkStatus, IdentityResolutionError,
     IdentityResolutionViolation, IdentityVerification, IdentityVerificationKind,
 };
+pub use identity_sensitivity::{
+    ComponentSensitivity, ExactDiagnosticRatio, IdentityProjectionSensitivityReport,
+    IdentitySensitivityError, SupplierMemberCount,
+};
 pub use institutional_graph::*;
 pub use qualified_identity_resolution::*;
+pub use qualified_identity_sensitivity::*;
 pub use roles::*;
 pub use standards_ingestion::*;
 pub use status::*;
