@@ -1,0 +1,112 @@
+{
+  "events": [
+    {
+      "amount_units": 100000000,
+      "authority_ref": "authority:0",
+      "counterparty_ref": null,
+      "event_id": "evt-0",
+      "evidence_ref": "evidence:0",
+      "kind": "InitialCapitalContribution",
+      "prev_event_sha256": null,
+      "profile_sha256": "6929b9e089e3f7b272713f6ff8587bf429594a51a9d67d67d0d4468ba72b52e7",
+      "project_id": "fiber:jhb:test-001",
+      "seq": 0
+    },
+    {
+      "amount_units": 5000000,
+      "authority_ref": "authority:1",
+      "counterparty_ref": null,
+      "event_id": "evt-1",
+      "evidence_ref": "evidence:1",
+      "kind": "ReserveFunding",
+      "prev_event_sha256": "181a23b339ec9a64ed61e815240c6cada013fd9ddabf40740b2c0b7ac67c0278",
+      "profile_sha256": "6929b9e089e3f7b272713f6ff8587bf429594a51a9d67d67d0d4468ba72b52e7",
+      "project_id": "fiber:jhb:test-001",
+      "seq": 1
+    },
+    {
+      "amount_units": 40000000,
+      "authority_ref": "authority:2",
+      "counterparty_ref": null,
+      "event_id": "evt-2",
+      "evidence_ref": "evidence:2",
+      "kind": "InvestorDistribution",
+      "prev_event_sha256": "62c01add91debed37b535fa53629351d50e60ab5dc55c7649820de31a662dc2e",
+      "profile_sha256": "6929b9e089e3f7b272713f6ff8587bf429594a51a9d67d67d0d4468ba72b52e7",
+      "project_id": "fiber:jhb:test-001",
+      "seq": 2
+    },
+    {
+      "amount_units": 0,
+      "authority_ref": "authority:3",
+      "counterparty_ref": "investor:b",
+      "event_id": "evt-3",
+      "evidence_ref": "evidence:3",
+      "kind": "RefinanceReplaceClaim",
+      "prev_event_sha256": "4fe8d5f512bac6313a0f5ef18c799decb95756a47b2a4d146e224e05f4639839",
+      "profile_sha256": "6929b9e089e3f7b272713f6ff8587bf429594a51a9d67d67d0d4468ba72b52e7",
+      "project_id": "fiber:jhb:test-001",
+      "seq": 3
+    },
+    {
+      "amount_units": 7000000,
+      "authority_ref": "authority:4",
+      "counterparty_ref": "public:grantor",
+      "event_id": "evt-4",
+      "evidence_ref": "evidence:4",
+      "kind": "GrantOrSubsidy",
+      "prev_event_sha256": "3c72ed374a14911a46cdf66f0e4b0072287cf98d8ef6cc4b9900e27a306a7df7",
+      "profile_sha256": "6929b9e089e3f7b272713f6ff8587bf429594a51a9d67d67d0d4468ba72b52e7",
+      "project_id": "fiber:jhb:test-001",
+      "seq": 4
+    },
+    {
+      "amount_units": 10000000,
+      "authority_ref": "authority:5",
+      "counterparty_ref": "investor:c",
+      "event_id": "evt-5",
+      "evidence_ref": "evidence:5",
+      "kind": "QualifiedNewCapital",
+      "prev_event_sha256": "f21176d8c0134548f39aaf2408edc29cb6813c5bf2917a4be82a6397ab6d6b4a",
+      "profile_sha256": "6929b9e089e3f7b272713f6ff8587bf429594a51a9d67d67d0d4468ba72b52e7",
+      "project_id": "fiber:jhb:test-001",
+      "seq": 5
+    },
+    {
+      "amount_units": 3000000,
+      "authority_ref": "authority:6",
+      "counterparty_ref": "contractor:lifecycle",
+      "event_id": "evt-6",
+      "evidence_ref": "evidence:6",
+      "kind": "ApprovedRecoverableLifecycleCost",
+      "prev_event_sha256": "6b5421ed9c3eed56460dd3756e36def57f19ce7ae2b69c9d7e313683fa56a2f1",
+      "profile_sha256": "6929b9e089e3f7b272713f6ff8587bf429594a51a9d67d67d0d4468ba72b52e7",
+      "project_id": "fiber:jhb:test-001",
+      "seq": 6
+    },
+    {
+      "amount_units": 20000000,
+      "authority_ref": "authority:7",
+      "counterparty_ref": "investor:b",
+      "event_id": "evt-7",
+      "evidence_ref": "evidence:7",
+      "kind": "InvestorDistribution",
+      "prev_event_sha256": "8737284c177ac9e16c16665972533fc69720e03639e49101f5f8bf972a5a7dc7",
+      "profile_sha256": "6929b9e089e3f7b272713f6ff8587bf429594a51a9d67d67d0d4468ba72b52e7",
+      "project_id": "fiber:jhb:test-001",
+      "seq": 7
+    }
+  ],
+  "profile": {
+    "initial_principal_units": 100000000,
+    "max_amount_units": 1000000000,
+    "max_events": 100,
+    "max_qualified_new_capital_units": 30000000,
+    "max_recoverable_lifecycle_units": 10000000,
+    "preferred_return_cap_units": 20000000,
+    "profile_version": "mycelix-capital-to-commons-fixed-preferred-v1",
+    "project_id": "fiber:jhb:test-001",
+    "required_reserve_units": 5000000,
+    "unit": "ZAR-cent"
+  }
+}

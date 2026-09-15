@@ -1,0 +1,62 @@
+name: MYC-CAP-002A Return Envelope v1
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/capital/capital_to_commons_v1.py'
+      - 'scripts/capital/test_capital_to_commons_v1.py'
+      - 'docs/capital/evidence/myc-cap-002a/**'
+      - '.github/workflows/myc-cap-002a-return-envelope-v1.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Fixed preferred Return Envelope
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+
+      - name: Python environment
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 -m py_compile scripts/capital/capital_to_commons_v1.py
+          python3 -m py_compile scripts/capital/test_capital_to_commons_v1.py
+
+      - name: Fail-closed unit suite
+        run: |
+          set -euo pipefail
+          python3 -m unittest -v scripts/capital/test_capital_to_commons_v1.py
+
+      - name: Deterministic example receipt
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp)"
+          python3 scripts/capital/capital_to_commons_v1.py \
+            docs/capital/evidence/myc-cap-002a/example_case.json \
+            --receipt-out "$tmp"
+          diff -u docs/capital/evidence/myc-cap-002a/example_receipt.json "$tmp"
+          cp "$tmp" "${tmp}.second"
+          python3 scripts/capital/capital_to_commons_v1.py \
+            docs/capital/evidence/myc-cap-002a/example_case.json \
+            --receipt-out "$tmp"
+          cmp "$tmp" "${tmp}.second"
+          sha256sum docs/capital/evidence/myc-cap-002a/example_case.json
+          sha256sum docs/capital/evidence/myc-cap-002a/example_receipt.json
+
+      - name: Strong nonclaims
+        run: |
+          set -euo pipefail
+          grep -Fq 'financial satisfaction is not legal title transfer' \
+            docs/capital/evidence/myc-cap-002a/example_receipt.json
+          grep -Fq 'financial satisfaction is not handback acceptance' \
+            docs/capital/evidence/myc-cap-002a/example_receipt.json
+          grep -Fq '"legal_transition_complete": false' \
+            docs/capital/evidence/myc-cap-002a/example_receipt.json
+          grep -Fq '"handback_accepted": false' \
+            docs/capital/evidence/myc-cap-002a/example_receipt.json
