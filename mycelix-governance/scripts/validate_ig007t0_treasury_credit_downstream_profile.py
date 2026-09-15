@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 PROFILE_ID = "mycelix-treasury-credit-downstream-observed-fca2c107-v1"
-PROFILE_SHA256 = "eec7006f9f8dcc4a59d54cf795d87764fa73ed54f3494e65c1ca87209474e3f8"
+PROFILE_SHA256 = "77db81e40ebe7b0ec9278f8c9aad7584faa08b6784cde4779393d1d6b88cf58d"
 PRODUCTION_SUBJECT = "fca2c107a1ea5108823ce617ba4111b6f7f77230"
 AUTHORING_HEAD = "feb30a89257e96592fdbd40b249258581d42fde7"
 AUTHORITY = "ObservedSourceBound"
@@ -25,16 +25,14 @@ BRIDGE_FILES = {
 
 
 def canonical(obj: object) -> bytes:
-    return json.dumps(
-        obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
-    ).encode("utf-8")
+    return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")
 
 
 def load(path: Path) -> dict:
     with path.open(encoding="utf-8") as handle:
         value = json.load(handle)
     if not isinstance(value, dict):
-        raise ValueError("profile root must be an object")
+        raise ValueError("profile root must be object")
     return value
 
 
@@ -44,159 +42,117 @@ def payload_digest(profile: dict) -> str:
     return hashlib.sha256(canonical(payload)).hexdigest()
 
 
+def require_equal(actual: object, expected: object, name: str) -> None:
+    if actual != expected:
+        raise ValueError(f"{name} drift: {actual!r}")
+
+
 def validate(profile: dict) -> dict:
-    if profile.get("schema") != "mycelix-treasury-credit-downstream-observed-profile-v1":
-        raise ValueError("profile schema drift")
-    if profile.get("profile_id") != PROFILE_ID or profile.get("profile_revision") != 1:
-        raise ValueError("profile identity drift")
-    if profile.get("authority_class") != AUTHORITY:
-        raise ValueError("profile authority promotion/drift")
-    if profile.get("profile_content_sha256") != PROFILE_SHA256:
-        raise ValueError("profile commitment field drift")
-    if payload_digest(profile) != PROFILE_SHA256:
-        raise ValueError("profile payload commitment mismatch")
+    require_equal(profile.get("schema"), "mycelix-treasury-credit-downstream-observed-profile-v1", "schema")
+    require_equal(profile.get("profile_id"), PROFILE_ID, "profile id")
+    require_equal(profile.get("profile_revision"), 1, "profile revision")
+    require_equal(profile.get("authority_class"), AUTHORITY, "authority")
+    require_equal(profile.get("profile_content_sha256"), PROFILE_SHA256, "commitment field")
+    require_equal(payload_digest(profile), PROFILE_SHA256, "payload commitment")
 
     source = profile.get("source_binding", {})
-    if source.get("repository") != "Luminous-Dynamics/mycelix":
-        raise ValueError("repository drift")
-    if source.get("semantic_production_subject_sha") != PRODUCTION_SUBJECT:
-        raise ValueError("semantic production subject drift")
-    if source.get("evidence_authoring_source_equivalent_head") != AUTHORING_HEAD:
-        raise ValueError("evidence-authoring head drift")
-    if source.get("source_equivalence_scope") != "ExactBoundFilesOnly":
-        raise ValueError("source equivalence must remain file-scoped")
-
-    if source.get("execution_coordinator") != {
+    require_equal(source.get("repository"), "Luminous-Dynamics/mycelix", "repository")
+    require_equal(source.get("semantic_production_subject_sha"), PRODUCTION_SUBJECT, "semantic subject")
+    require_equal(source.get("evidence_authoring_source_equivalent_head"), AUTHORING_HEAD, "authoring head")
+    require_equal(source.get("source_equivalence_scope"), "ExactBoundFilesOnly", "source-equivalence scope")
+    require_equal(source.get("execution_coordinator"), {
         "path": "mycelix-governance/zomes/execution/coordinator/src/lib.rs",
         "git_blob_sha1": "3dbb8a8f69b377e494ccf24164c94bd80f54e0ef",
-    }:
-        raise ValueError("execution source binding drift")
-    if source.get("finance_treasury_coordinator") != {
+    }, "execution source")
+    require_equal(source.get("finance_treasury_coordinator"), {
         "path": "mycelix-finance/zomes/treasury/coordinator/src/lib.rs",
         "git_blob_sha1": "840e66bcb6fdedb27fe2451752511d1317eb50b8",
-    }:
-        raise ValueError("Treasury coordinator source binding drift")
-    if source.get("finance_treasury_integrity") != {
+    }, "Treasury coordinator source")
+    require_equal(source.get("finance_treasury_integrity"), {
         "path": "mycelix-finance/zomes/treasury/integrity/src/lib.rs",
         "git_blob_sha1": "5ee9b72f7c138a5283818b873ceae36dff3305d4",
-    }:
-        raise ValueError("Treasury integrity source binding drift")
-
+    }, "Treasury integrity source")
+    require_equal(source.get("governance_utils"), {
+        "path": "mycelix-governance/crates/governance-utils/src/lib.rs",
+        "git_blob_sha1": "282888816cc101c2743ef5c5905119defc3fee6d",
+    }, "governance-utils source")
     bridge = {
         item.get("path"): item.get("git_blob_sha1")
         for item in source.get("governance_bridge_coordinator_census", [])
         if isinstance(item, dict)
     }
-    if bridge != BRIDGE_FILES or len(source.get("governance_bridge_coordinator_census", [])) != 8:
-        raise ValueError("governance bridge module census drift")
+    require_equal(bridge, BRIDGE_FILES, "bridge module census")
+    require_equal(len(source.get("governance_bridge_coordinator_census", [])), 8, "bridge module count")
 
     legacy = profile.get("legacy_execution_transfer", {})
-    if legacy.get("action_variant") != "TransferCredits":
-        raise ValueError("legacy action drift")
-    if legacy.get("payload_fields") != ["from", "to", "amount"]:
-        raise ValueError("legacy payload drift")
-    if legacy.get("amount_representation") != "f64":
-        raise ValueError("legacy amount representation drift")
-    if legacy.get("validation") != [
-        "FromNonEmpty", "ToNonEmpty", "AmountPositive", "AmountFinite"
-    ]:
-        raise ValueError("legacy validation drift")
-    if legacy.get("dispatch") != {
-        "call_type": "Local", "zome": "governance_bridge", "function": "transfer_credits"
-    }:
-        raise ValueError("legacy dispatch drift")
-    legacy_target = legacy.get("bridge_target_observation", {})
-    if legacy_target != {
+    require_equal(legacy.get("action_variant"), "TransferCredits", "legacy action")
+    require_equal(legacy.get("payload_fields"), ["from", "to", "amount"], "legacy payload")
+    require_equal(legacy.get("amount_representation"), "f64", "legacy amount representation")
+    require_equal(legacy.get("validation"), ["FromNonEmpty", "ToNonEmpty", "AmountPositive", "AmountFinite"], "legacy validation")
+    require_equal(legacy.get("dispatch"), {"call_type": "Local", "zome": "governance_bridge", "function": "transfer_credits"}, "legacy dispatch")
+    require_equal(legacy.get("bridge_target_observation"), {
         "exact_module_count": 8,
         "target_occurrences": 0,
         "absence_scope": "ExactBoundGovernanceBridgeCoordinatorCensus",
         "on_call_error": "ActionFailsClosed",
-    }:
-        raise ValueError("legacy target observation drift")
+    }, "legacy target observation")
 
-    bridge_finance = profile.get("governance_bridge_finance_transfer", {})
-    if bridge_finance.get("entrypoint") != "execute_approved_transfer":
-        raise ValueError("bridge Finance entrypoint drift")
-    if bridge_finance.get("input_fields") != [
-        "proposal_hash", "recipient_did", "amount_sap", "purpose"
-    ]:
-        raise ValueError("bridge Finance payload drift")
-    if bridge_finance.get("dispatch") != {
-        "call_type": "OtherRole",
-        "role": "finance",
-        "zome": "treasury",
-        "function": "execute_governance_transfer",
-    }:
-        raise ValueError("bridge Finance dispatch drift")
-    if bridge_finance.get("treasury_target_observation") != {
+    finance = profile.get("governance_bridge_finance_transfer", {})
+    require_equal(finance.get("entrypoint"), "execute_approved_transfer", "Finance bridge entrypoint")
+    require_equal(finance.get("input_fields"), ["proposal_hash", "recipient_did", "amount_sap", "purpose"], "Finance bridge payload")
+    require_equal(finance.get("dispatch"), {
+        "call_type": "OtherRole", "role": "finance", "zome": "treasury", "function": "execute_governance_transfer"
+    }, "Finance bridge dispatch")
+    require_equal(finance.get("treasury_target_observation"), {
         "target_occurrences": 0,
         "absence_scope": "ExactBoundFinanceTreasuryCoordinator",
         "on_role_call_error": "ExternReturnsError",
-    }:
-        raise ValueError("Treasury target observation drift")
+        "error_helper": "governance_utils::call_role",
+        "helper_failure_semantics": "ReturnsErrOnTransportNetworkOrUnexpectedResponse",
+    }, "Treasury target observation")
 
     plane = profile.get("treasury_allocation_plane", {})
-    if plane.get("propose_allocation") != {
-        "proposal_id": "OptionalCallerSupplied",
-        "proposal_authority_reconstruction": "NoneObserved",
-    }:
-        raise ValueError("propose-allocation semantics drift")
-    if plane.get("approve_allocation") != {
-        "required_status": "Proposed",
-        "caller_did_binding": True,
-        "approver_must_be_manager": True,
-        "approval_rule": "ManagerMajority",
-    }:
-        raise ValueError("approval semantics drift")
-    if plane.get("execute_allocation") != {
-        "required_status": "Approved",
-        "caller_role_check": "NoneObserved",
-        "effect": "DebitTreasuryThenMarkExecuted",
-        "debit_underflow": "CheckedSubRejects",
-        "optimistic_rmw_retries": 3,
-    }:
-        raise ValueError("execution allocation semantics drift")
-    if plane.get("large_dkg_allocation") != {
+    require_equal(plane.get("propose_allocation"), {
+        "proposal_id": "OptionalCallerSupplied", "proposal_authority_reconstruction": "NoneObserved"
+    }, "propose-allocation semantics")
+    require_equal(plane.get("approve_allocation"), {
+        "required_status": "Proposed", "caller_did_binding": True,
+        "approver_must_be_manager": True, "approval_rule": "ManagerMajority"
+    }, "approve-allocation semantics")
+    require_equal(plane.get("execute_allocation"), {
+        "required_status": "Approved", "caller_role_check": "NoneObserved",
+        "effect": "DebitTreasuryThenMarkExecuted", "debit_underflow": "CheckedSubRejects",
+        "optimistic_rmw_retries": 3
+    }, "execute-allocation semantics")
+    require_equal(plane.get("large_dkg_allocation"), {
         "threshold_micro_sap": 10_000_000_000,
         "governance_signature_verification": "FailClosedCrossRoleCall",
-        "proposal_id_recorded": False,
-        "separate_path": True,
-    }:
-        raise ValueError("DKG allocation semantics drift")
+        "proposal_id_recorded": False, "separate_path": True
+    }, "DKG allocation semantics")
 
     integrity = profile.get("treasury_integrity_plane", {})
-    if integrity.get("validate_update_treasury") != {
+    require_equal(integrity.get("validate_update_treasury"), {
         "checks": ["ReserveRatioFinite", "ReserveRatioUnitInterval"],
-        "author_binding": "NoneObserved",
-        "balance_authority_reconstruction": "NoneObserved",
-        "manager_authority_reconstruction": "NoneObserved",
-        "original_state_transition_binding": "NoneObserved",
-    }:
-        raise ValueError("Treasury integrity semantics drift")
-    if integrity.get("validate_create_allocation") != {
+        "author_binding": "NoneObserved", "balance_authority_reconstruction": "NoneObserved",
+        "manager_authority_reconstruction": "NoneObserved", "original_state_transition_binding": "NoneObserved"
+    }, "Treasury integrity")
+    require_equal(integrity.get("validate_create_allocation"), {
         "checks": ["RecipientDidShape", "StringLengthBounds", "AmountPositive"],
-        "author_binding": "NoneObserved",
-        "proposal_authority_reconstruction": "NoneObserved",
-        "manager_authority_reconstruction": "NoneObserved",
-    }:
-        raise ValueError("Allocation create integrity semantics drift")
-    if integrity.get("validate_update_allocation") != {
-        "checks": ["AmountPositive"],
-        "author_binding": "NoneObserved",
-        "status_transition_graph": "NoneObserved",
-        "approved_by_authority_reconstruction": "NoneObserved",
-        "proposal_authority_reconstruction": "NoneObserved",
-        "immutable_field_binding": "NoneObserved",
-    }:
-        raise ValueError("Allocation update integrity semantics drift")
+        "author_binding": "NoneObserved", "proposal_authority_reconstruction": "NoneObserved",
+        "manager_authority_reconstruction": "NoneObserved"
+    }, "Allocation create integrity")
+    require_equal(integrity.get("validate_update_allocation"), {
+        "checks": ["AmountPositive"], "author_binding": "NoneObserved",
+        "status_transition_graph": "NoneObserved", "approved_by_authority_reconstruction": "NoneObserved",
+        "proposal_authority_reconstruction": "NoneObserved", "immutable_field_binding": "NoneObserved"
+    }, "Allocation update integrity")
 
-    if profile.get("known_gaps") != [
+    require_equal(profile.get("known_gaps"), [
         {"issue": 1085, "class": "GovernanceTreasuryDispatchAuthorityContinuityGap", "status": "Observed"},
         {"issue": 1086, "class": "TreasuryAllocationIntegrityAuthorityGap", "status": "Observed"},
-    ]:
-        raise ValueError("known gap registry drift")
+    ], "known gaps")
 
-    expected_positive = [
+    positive = [
         "LegacyTransferCallFailsClosedOnMissingTarget",
         "BridgeFinanceCallFailsClosedOnMissingTarget",
         "TransferAmountMustBePositiveAndFinite",
@@ -204,10 +160,8 @@ def validate(profile: dict) -> dict:
         "CanonicalAllocationCoordinatorUsesManagerMajorityApproval",
         "LargeDkgAllocationFailsClosedOnSignatureVerificationFailure",
     ]
-    if profile.get("positive_containment") != expected_positive:
-        raise ValueError("positive-containment registry drift")
-
-    expected_unqualified = [
+    require_equal(profile.get("positive_containment"), positive, "positive containment")
+    unqualified = [
         "AuthorizedGovernanceValueTransfer",
         "GovernanceToTreasuryAuthorityContinuity",
         "DecentralizedTreasuryMutationAuthority",
@@ -215,8 +169,7 @@ def validate(profile: dict) -> dict:
         "TreasuryCreditDeploymentCurrentnessQualified",
         "TreasuryCreditGovernanceSafety",
     ]
-    if profile.get("unsupported_or_unqualified") != expected_unqualified:
-        raise ValueError("unqualified-property registry drift")
+    require_equal(profile.get("unsupported_or_unqualified"), unqualified, "unqualified properties")
 
     return {
         "profile_id": PROFILE_ID,
@@ -225,9 +178,10 @@ def validate(profile: dict) -> dict:
         "semantic_production_subject_sha": PRODUCTION_SUBJECT,
         "evidence_authoring_source_equivalent_head": AUTHORING_HEAD,
         "bridge_module_count": 8,
+        "governance_utils_bound": True,
         "known_issues": [1085, 1086],
-        "positive_containment_count": len(expected_positive),
-        "unqualified_property_count": len(expected_unqualified),
+        "positive_containment_count": len(positive),
+        "unqualified_property_count": len(unqualified),
         "valid": True,
     }
 
