@@ -1,0 +1,126 @@
+name: REGEN Soil Evidence Source+Dependency Preparation
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-regenerative-evidence/**'
+      - '.github/workflows/regen-soil-evidence-prep.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  prepare-source-and-lock:
+    name: REGEN-010 source and dependency preparation
+    runs-on: ubuntu-24.04
+    env:
+      TARGET_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      CRATE_DIR: crates/mycelix-regenerative-evidence
+      LOCK_PATH: crates/mycelix-regenerative-evidence/Cargo.lock
+      PREP_DIR: /tmp/regen010-prepared
+    steps:
+      - name: Checkout exact preparation subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          ref: ${{ env.TARGET_SHA }}
+
+      - name: Verify exact preparation subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          printf 'evidence_subject=SourceAndDependencyPreparation\n'
+          printf 'target_sha=%s\nactual_sha=%s\n' "$TARGET_SHA" "$actual"
+          test "$actual" = "$TARGET_SHA"
+
+      - name: Install pinned Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.96.0 --profile minimal --component rustfmt,clippy
+          rustup override set 1.96.0
+          rustc --version
+          cargo --version
+          rustfmt --version
+          rustc -vV
+
+      - name: Prepare child-owned Rust sources only
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$PREP_DIR"
+          mkdir -p "$PREP_DIR/crate/src" "$PREP_DIR/crate/tests"
+          cargo fmt --manifest-path "$CRATE_DIR/Cargo.toml"
+          changed="$(git diff --name-only)"
+          printf 'prepared_changed_paths=\n%s\n' "$changed"
+          test -n "$changed"
+          while IFS= read -r path; do
+            case "$path" in
+              crates/mycelix-regenerative-evidence/src/*.rs|crates/mycelix-regenerative-evidence/tests/*.rs) ;;
+              *) printf 'unexpected_preparation_mutation=%s\n' "$path" >&2; exit 1 ;;
+            esac
+          done <<< "$changed"
+          cp "$CRATE_DIR/Cargo.toml" "$PREP_DIR/crate/Cargo.toml"
+          cp "$CRATE_DIR/src/"*.rs "$PREP_DIR/crate/src/"
+          if compgen -G "$CRATE_DIR/tests/*.rs" > /dev/null; then
+            cp "$CRATE_DIR/tests/"*.rs "$PREP_DIR/crate/tests/"
+          fi
+
+      - name: Generate dependency-preparation lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e "$LOCK_PATH"
+          cargo generate-lockfile --manifest-path "$CRATE_DIR/Cargo.toml"
+          test -f "$LOCK_PATH"
+          cp "$LOCK_PATH" "$PREP_DIR/crate/Cargo.lock"
+          (
+            cd "$PREP_DIR"
+            find crate -type f -print0 | sort -z | xargs -0 sha256sum > PREPARED_FILES.sha256
+          )
+          lock_sha="$(sha256sum "$LOCK_PATH" | awk '{print $1}')"
+          printf 'dependency_state=execution_resolved_preparation\n'
+          printf 'prepared_lock_sha256=%s\n' "$lock_sha"
+          printf 'lock_lines=%s\n' "$(wc -l < "$LOCK_PATH")"
+          cat > "$PREP_DIR/PREPARATION_RECEIPT.txt" <<EOF
+          evidence_subject=SourceAndDependencyPreparation
+          product_head=$TARGET_SHA
+          rustc=$(rustc --version)
+          cargo=$(cargo --version)
+          rustfmt=$(rustfmt --version)
+          prepared_lock_sha256=$lock_sha
+          qualification_status=NOT_QUALIFIED_SOURCE_AND_DEPENDENCY_PREPARATION_ONLY
+          EOF
+          printf '%s\n' '---BEGIN_PREPARED_FILES_SHA256---'
+          cat "$PREP_DIR/PREPARED_FILES.sha256"
+          printf '%s\n' '---END_PREPARED_FILES_SHA256---'
+
+      - name: Test prepared default feature contract
+        run: cargo test --manifest-path "$CRATE_DIR/Cargo.toml" --locked
+
+      - name: Test prepared serde wire contract
+        run: cargo test --manifest-path "$CRATE_DIR/Cargo.toml" --features serde --locked
+
+      - name: Strict Clippy on prepared source and lock
+        run: cargo clippy --manifest-path "$CRATE_DIR/Cargo.toml" --all-targets --features serde --locked -- -D warnings
+
+      - name: Upload exact preparation capsule
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: regen010-source-dependency-preparation-${{ env.TARGET_SHA }}
+          path: /tmp/regen010-prepared
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Preparation postflight hygiene
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout -- "$CRATE_DIR/src" "$CRATE_DIR/tests"
+          rm -f "$LOCK_PATH"
+          git diff --check
+          status="$(git status --short)"
+          printf 'git_status=%s\n' "$status"
+          test -z "$status"
+          printf 'qualification_status=NOT_QUALIFIED_SOURCE_AND_DEPENDENCY_PREPARATION_ONLY\n'
