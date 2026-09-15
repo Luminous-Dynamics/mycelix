@@ -22,7 +22,7 @@ The frozen source currently provides positive fail-closed containment at two dis
 profile   mycelix-treasury-credit-downstream-observed-fca2c107-v1
 revision  1
 authority ObservedSourceBound
-SHA-256   eec7006f9f8dcc4a59d54cf795d87764fa73ed54f3494e65c1ca87209474e3f8
+SHA-256   77db81e40ebe7b0ec9278f8c9aad7584faa08b6784cde4779393d1d6b88cf58d
 ```
 
 Semantic production subject:
@@ -38,6 +38,15 @@ feb30a89257e96592fdbd40b249258581d42fde7
 ```
 
 The latter is only asserted source-equivalent for the exact bound files. No repository-wide tree-equivalence claim is made.
+
+The evidence also binds:
+
+```text
+mycelix-governance/crates/governance-utils/src/lib.rs
+blob 282888816cc101c2743ef5c5905119defc3fee6d
+```
+
+because the cross-role containment theorem depends on `governance_utils::call_role` propagating transport, network, and unexpected-response failures as `Err` rather than using the separate best-effort helper.
 
 ## Plane A — legacy execution dispatch
 
@@ -87,6 +96,8 @@ finance role / treasury::execute_governance_transfer
 ```
 
 The exact-head qualifier requires `execute_approved_transfer` to remain present while requiring **no exported `pub fn execute_governance_transfer(...)`** in the exact frozen Treasury coordinator.
+
+The call uses the exact bound `governance_utils::call_role` helper. That helper returns `Err` on transport errors, network errors and unexpected zome responses, so the missing-target observation is legitimately fail-closed rather than an assumed property of the caller.
 
 Again, this is modeled as fail-closed route disconnection, not a successful transfer.
 
@@ -164,7 +175,7 @@ coordinator checks == decentralized authority // also false claim
 The profile requires all six observations to remain explicit:
 
 1. legacy missing target fails closed;
-2. bridge→Finance missing target fails closed;
+2. bridge→Finance missing target fails closed through the bound `call_role` helper;
 3. legacy amount is positive and finite;
 4. Treasury debit uses checked subtraction;
 5. ordinary coordinator approval is manager-majority;
@@ -186,7 +197,7 @@ IG-007T0 does **not** establish:
 IG-007T1 / #1092 converts these observations into six deterministic source-contract fixtures with frozen corpus commitment:
 
 ```text
-beff2a58862df31c12949a4645843a3a258d664e5b9d645c58acabb6292dfd9a
+89b795cea150c1d0f18aa63bc6adfe2ffd31389ef9396bbde810f647540695de
 ```
 
 Historical T0/T1 evidence must remain immutable after a repair. Successor evidence should show which old counterexamples intentionally stop reproducing.
