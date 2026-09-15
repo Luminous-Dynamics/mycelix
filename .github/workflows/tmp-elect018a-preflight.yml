@@ -23,33 +23,13 @@ jobs:
           toolchain: '1.96.0'
           components: rustfmt,clippy
 
-      - name: Correct test-local shadowing and normalize owned source
+      - name: Correct test-helper shadowing and normalize owned source
         shell: bash
         run: |
           set -euo pipefail
           src='mycelix-governance/crates/election-verifier-key-lifecycle-core/src/lib.rs'
-          python3 - <<'PY'
-          from pathlib import Path
-          path = Path('mycelix-governance/crates/election-verifier-key-lifecycle-core/src/lib.rs')
-          text = path.read_text()
-          old = '''        let mut lifecycle_policy = lifecycle_policy();
-
-        lifecycle_policy.xenia_authentication_profile_digest = digest(0x99);
-        assert_eq!(
-            validate_verifier_key_lifecycle_core_policy(
-                &lifecycle_policy,
-'''
-          new = '''        let mut substituted_profile_policy = lifecycle_policy();
-
-        substituted_profile_policy.xenia_authentication_profile_digest = digest(0x99);
-        assert_eq!(
-            validate_verifier_key_lifecycle_core_policy(
-                &substituted_profile_policy,
-'''
-          if text.count(old) != 1:
-              raise SystemExit('expected exactly one shadowing fixture to correct')
-          path.write_text(text.replace(old, new, 1))
-          PY
+          perl -0pi -e 's/\blifecycle_policy\(\)/make_lifecycle_policy()/g' "$src"
+          grep -F 'fn make_lifecycle_policy()' "$src"
           cargo fmt --manifest-path mycelix-governance/crates/election-verifier-key-lifecycle-core/Cargo.toml
           mapfile -t changed < <(git diff --name-only)
           test "${#changed[@]}" -eq 1
