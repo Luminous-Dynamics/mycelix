@@ -530,9 +530,12 @@ mod tests {
             30,
         )
         .unwrap();
-        let second =
-            qualify_current_freshness(std::slice::from_ref(&grant), &[receipt(grant, 2)], 30)
-                .unwrap();
+        let second = qualify_current_freshness(
+            std::slice::from_ref(&grant),
+            &[receipt(grant.clone(), 2)],
+            30,
+        )
+        .unwrap();
         assert_ne!(first.freshness_digest, second.freshness_digest);
     }
 
