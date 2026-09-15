@@ -1,0 +1,115 @@
+name: Recovery Shared Execution Action Digest
+
+on:
+  push:
+    branches:
+      - refactor/recovery-shared-execution-action-digest-v1
+  pull_request:
+    branches:
+      - test/regenerative-recovery-governance-action-conformance-v1
+
+permissions:
+  contents: read
+
+concurrency:
+  group: recovery-shared-execution-action-digest-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Recovery action digest shared-kernel qualification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Verify exact checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ github.event.pull_request.head.sha }}'
+          if [[ -z "$expected" ]]; then expected="$GITHUB_SHA"; fi
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$expected"
+          echo "exact subject: $actual"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+
+      - name: Toolchain identity
+        run: |
+          rustc --version --verbose
+          cargo --version
+          rustfmt --version
+          cargo clippy --version
+
+      - name: Format shared core and recovery authority source
+        run: |
+          cargo fmt --manifest-path crates/mycelix-execution-action-digest-core/Cargo.toml -- --check
+          rustfmt --edition 2024 --check mycelix-commons/crates/commons-types/src/regenerative_recovery_governance_authority.rs
+
+      - name: Test shared digest core
+        run: cargo test --manifest-path crates/mycelix-execution-action-digest-core/Cargo.toml --all-targets
+
+      - name: Clippy shared digest core
+        run: cargo clippy --manifest-path crates/mycelix-execution-action-digest-core/Cargo.toml --all-targets -- -D warnings
+
+      - name: Re-run independent recovery action oracle
+        run: cargo test --manifest-path mycelix-commons/Cargo.toml -p commons-types --test regenerative_recovery_governance_action_conformance
+
+      - name: Test Commons
+        run: cargo test --manifest-path mycelix-commons/Cargo.toml -p commons-types
+
+      - name: Clippy Commons; gate migrated recovery authority source
+        shell: bash
+        run: |
+          set -euo pipefail
+          target='mycelix-commons/crates/commons-types/src/regenerative_recovery_governance_authority.rs'
+          set +e
+          cargo clippy --manifest-path mycelix-commons/Cargo.toml -p commons-types --message-format=json 2>&1 | tee /tmp/recovery-shared-digest-clippy.jsonl
+          cargo_status=${PIPESTATUS[0]}
+          set -e
+          python3 - "$target" "$cargo_status" <<'PY'
+          import json, sys
+          target = sys.argv[1]
+          cargo_status = int(sys.argv[2])
+          errors, owned = [], []
+          for line in open('/tmp/recovery-shared-digest-clippy.jsonl', encoding='utf-8', errors='replace'):
+              try: event = json.loads(line)
+              except json.JSONDecodeError: continue
+              if event.get('reason') != 'compiler-message': continue
+              msg = event.get('message') or {}
+              if msg.get('level') == 'error': errors.append(msg.get('message', 'compiler error'))
+              if msg.get('level') == 'warning' and any(s.get('is_primary') and s.get('file_name') == target for s in msg.get('spans') or []):
+                  owned.append(msg.get('message', 'warning'))
+          if cargo_status != 0 or errors:
+              print('Compiler/Clippy execution failed', file=sys.stderr)
+              raise SystemExit(1)
+          if owned:
+              print('Migrated recovery-authority warnings:', *owned, sep='\n- ', file=sys.stderr)
+              raise SystemExit(1)
+          print('PASS: migrated recovery authority has no owned Clippy warnings')
+          PY
+
+      - name: Single production framing audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          core='crates/mycelix-execution-action-digest-core/src/lib.rs'
+          consumer='mycelix-commons/crates/commons-types/src/regenerative_recovery_governance_authority.rs'
+          grep -q 'mycelix-governance-execution-authority-v1\\0' "$core"
+          grep -q 'execution_authority_digest_hex' "$consumer"
+          grep -q 'ACTIONS_DIGEST_PROFILE_V1' "$consumer"
+          ! grep -q 'EXECUTION_AUTHORITY_DOMAIN' "$consumer"
+          ! grep -q 'fn execution_authority_digest(' "$consumer"
+          ! grep -q 'mycelix-governance-execution-authority-v1\\0' "$consumer"
+          echo 'PASS: recovery delegates execution-action framing to one shared production kernel'

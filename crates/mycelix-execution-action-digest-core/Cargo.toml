@@ -1,0 +1,12 @@
+[package]
+name = "mycelix-execution-action-digest-core"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Substrate-neutral exact-byte governance execution action digest kernel for Mycelix"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+blake3 = "1"
