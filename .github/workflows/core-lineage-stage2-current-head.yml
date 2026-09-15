@@ -1,0 +1,187 @@
+name: CORE-LINEAGE Stage 2 Current Head
+
+on:
+  pull_request:
+    branches:
+      - ci/core-lineage-stage2-lease-convergence-v0.1
+    paths:
+      - .github/workflows/core-lineage-stage2-current-head.yml
+      - crates/mycelix-core-lineage-current-head/**
+      - mycelix-workspace/docs/government/CORE_LINEAGE_STAGE2_CURRENT_HEAD_V0.1.md
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Dynamic covered-current-head structural qualification
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Exact qualified parent and five-file child
+        id: subject
+        continue-on-error: true
+        shell: bash
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          parent=c906d8dfccc07711ca218df9fc5a0cc7bc4d1f8d
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+          test "$(git rev-parse HEAD^)" = "$parent"
+          test "$(git rev-list --count "${parent}..HEAD")" -eq 1
+          mapfile -t changed < <(git diff --name-only "$parent"..HEAD | sort)
+          expected=(
+            .github/workflows/core-lineage-stage2-current-head.yml
+            crates/mycelix-core-lineage-current-head/Cargo.toml
+            crates/mycelix-core-lineage-current-head/INVARIANTS.md
+            crates/mycelix-core-lineage-current-head/src/lib.rs
+            mycelix-workspace/docs/government/CORE_LINEAGE_STAGE2_CURRENT_HEAD_V0.1.md
+          )
+          mapfile -t wanted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#changed[@]}" -eq 5
+          for i in "${!wanted[@]}"; do test "${changed[$i]}" = "${wanted[$i]}"; done
+
+      - name: Exact Stage-1 and EvidenceLease blobs unchanged
+        id: inherited
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent=c906d8dfccc07711ca218df9fc5a0cc7bc4d1f8d
+          for path in \
+            crates/mycelix-core-lineage/Cargo.toml \
+            crates/mycelix-core-lineage/Cargo.lock \
+            crates/mycelix-core-lineage/src/lib.rs \
+            crates/mycelix-core-lineage/vectors/rooted_lineage_v1.json \
+            crates/mycelix-authority-evidence-lease/Cargo.toml \
+            crates/mycelix-authority-evidence-lease/INVARIANTS.md \
+            crates/mycelix-authority-evidence-lease/src/lib.rs; do
+            test "$(git rev-parse "HEAD:${path}")" = "$(git rev-parse "${parent}:${path}")"
+          done
+
+      - name: Static stable-vs-dynamic and no-authority audit
+        id: audit
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest=crates/mycelix-core-lineage-current-head/Cargo.toml
+          src=crates/mycelix-core-lineage-current-head/src/lib.rs
+          inv=crates/mycelix-core-lineage-current-head/INVARIANTS.md
+          doc=mycelix-workspace/docs/government/CORE_LINEAGE_STAGE2_CURRENT_HEAD_V0.1.md
+          grep -F 'mycelix-core-lineage = { path = "../mycelix-core-lineage" }' "$manifest"
+          grep -F 'mycelix-authority-evidence-lease = { path = "../mycelix-authority-evidence-lease" }' "$manifest"
+          grep -F 'pub fn validate_reuse_at(&self, now_ms: u64)' "$src"
+          grep -F 'ScheduledTransitionHorizonViolation' "$src"
+          grep -F 'source_authentication_verified_here' "$src"
+          grep -F 'grants_institutional_authority' "$src"
+          grep -F 'grants_effect_authority' "$src"
+          grep -F 'Stage 1 stays stable' "$inv"
+          grep -F 'Constructing this Rust value is not source authentication.' "$inv"
+          grep -F 'valid rooted lineage != covered current head' "$doc"
+          if grep -Eq '(hdk::|holochain|reqwest|tokio|std::fs|std::process|std::env|reputation|stake|model_score|Phi)' "$src"; then
+            echo 'Stage 2 crossed its pure structural current-head boundary' >&2
+            exit 1
+          fi
+
+      - name: Install exact Rust toolchain
+        id: toolchain
+        if: always()
+        continue-on-error: true
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+
+      - name: Re-execute frozen Stage 1
+        id: stage1
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/mycelix-core-lineage"
+          mkdir -p "$crate"
+          cp -a crates/mycelix-core-lineage/. "$crate/"
+          expected=f1278453b3baa65c3572183fd85715bbee9e2a7a39f7edda37a54009732f27c1
+          test "$(sha256sum "$crate/Cargo.lock" | awk '{print $1}')" = "$expected"
+          cargo fmt --manifest-path "$crate/Cargo.toml" -- --check
+          cargo test --manifest-path "$crate/Cargo.toml" --locked --all-targets
+          cargo clippy --manifest-path "$crate/Cargo.toml" --locked --all-targets -- -D warnings
+          cargo check --manifest-path "$crate/Cargo.toml" --locked --lib --target wasm32-unknown-unknown
+          test "$(sha256sum "$crate/Cargo.lock" | awk '{print $1}')" = "$expected"
+
+      - name: Re-execute shared EvidenceLease algebra
+        id: lease
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/mycelix-authority-evidence-lease"
+          mkdir -p "$crate"
+          cp -a crates/mycelix-authority-evidence-lease/. "$crate/"
+          cargo fmt --manifest-path "$crate/Cargo.toml" -- --check
+          cargo test --manifest-path "$crate/Cargo.toml" --all-targets
+          cargo clippy --manifest-path "$crate/Cargo.toml" --all-targets -- -D warnings
+
+      - name: Execute Stage 2 against exact sibling dependencies
+        id: stage2
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/core-lineage-stage2"
+          mkdir -p "$root/crates"
+          cp -a crates/mycelix-core-lineage "$root/crates/mycelix-core-lineage"
+          cp -a crates/mycelix-authority-evidence-lease "$root/crates/mycelix-authority-evidence-lease"
+          cp -a crates/mycelix-core-lineage-current-head "$root/crates/mycelix-core-lineage-current-head"
+          manifest="$root/crates/mycelix-core-lineage-current-head/Cargo.toml"
+          cargo fmt --manifest-path "$manifest" -- --check
+          cargo test --manifest-path "$manifest" --all-targets
+          cargo clippy --manifest-path "$manifest" --all-targets -- -D warnings
+          cargo check --manifest-path "$manifest" --lib --target wasm32-unknown-unknown
+
+      - name: Immutable checkout postflight
+        id: immutable
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
+
+      - name: Fail closed on any Stage-2 defect
+        if: always()
+        shell: bash
+        env:
+          SUBJECT_OUTCOME: ${{ steps.subject.outcome }}
+          INHERITED_OUTCOME: ${{ steps.inherited.outcome }}
+          AUDIT_OUTCOME: ${{ steps.audit.outcome }}
+          TOOLCHAIN_OUTCOME: ${{ steps.toolchain.outcome }}
+          STAGE1_OUTCOME: ${{ steps.stage1.outcome }}
+          LEASE_OUTCOME: ${{ steps.lease.outcome }}
+          STAGE2_OUTCOME: ${{ steps.stage2.outcome }}
+          IMMUTABLE_OUTCOME: ${{ steps.immutable.outcome }}
+        run: |
+          set -euo pipefail
+          test "$SUBJECT_OUTCOME" = success
+          test "$INHERITED_OUTCOME" = success
+          test "$AUDIT_OUTCOME" = success
+          test "$TOOLCHAIN_OUTCOME" = success
+          test "$STAGE1_OUTCOME" = success
+          test "$LEASE_OUTCOME" = success
+          test "$STAGE2_OUTCOME" = success
+          test "$IMMUTABLE_OUTCOME" = success

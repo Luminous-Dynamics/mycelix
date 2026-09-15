@@ -1,0 +1,16 @@
+[package]
+name = "mycelix-core-lineage-current-head"
+version = "0.1.0"
+edition = "2024"
+description = "Dynamic covered-current-head composition over stable Mycelix rooted lineages"
+license = "AGPL-3.0-or-later"
+authors = ["Luminous Dynamics <contact@luminousdynamics.org>"]
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+
+[lib]
+name = "mycelix_core_lineage_current_head"
+path = "src/lib.rs"
+
+[dependencies]
+mycelix-core-lineage = { path = "../mycelix-core-lineage" }
+mycelix-authority-evidence-lease = { path = "../mycelix-authority-evidence-lease" }
