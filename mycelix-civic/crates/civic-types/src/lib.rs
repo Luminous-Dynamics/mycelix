@@ -10,6 +10,7 @@
 //! - Deterministic institutional capture metrics
 //! - Standards-bound OCDS/BODS ingestion contracts
 //! - Reversible public-entity identity reconciliation
+//! - Internal qualified equivalence-view projection engine
 //! - Evidence types shared across justice and media
 //! - Status/phase traits for state machine validation
 //! - Role-based authorization helpers
@@ -19,6 +20,7 @@ pub mod anti_capture;
 pub mod bridge_types;
 pub mod capture_metrics;
 pub mod capture_observation;
+mod equivalence_view;
 pub mod evidence;
 mod identity_resolution;
 pub mod institutional_graph;
@@ -34,6 +36,10 @@ pub use anti_capture::*;
 pub use bridge_types::*;
 pub use capture_metrics::*;
 pub use capture_observation::*;
+pub use equivalence_view::{
+    EquivalenceComponent, EquivalenceViewError, IdentityProjectedObservation,
+    QualifiedEquivalenceView,
+};
 pub use evidence::*;
 pub use identity_resolution::{
     EntityBindingEvidence, EntityIdentityLink, IdentityLinkStatus, IdentityResolutionError,
