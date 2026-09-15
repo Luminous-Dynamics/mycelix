@@ -1,0 +1,70 @@
+name: MYC-CAP-002G1A Chamber Tally v1
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/capital/chamber_tally_v1.py'
+      - 'scripts/capital/test_chamber_tally_v1.py'
+      - 'docs/capital/evidence/myc-cap-002g1a/**'
+      - '.github/workflows/myc-cap-002g1a-chamber-tally-v1.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Exact chamber ballot and recusal reconstruction
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Exact PR head and parent
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          test "$(git rev-parse HEAD^)" = "c4eef3dd41a548388a6ff67d6f34f7b0351d5ea6"
+
+      - name: Python environment
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 -m py_compile scripts/capital/chamber_tally_v1.py
+          python3 -m py_compile scripts/capital/test_chamber_tally_v1.py
+
+      - name: Fail-closed unit suite
+        run: |
+          set -euo pipefail
+          python3 -m unittest -v scripts/capital/test_chamber_tally_v1.py
+
+      - name: Deterministic example receipt
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp)"
+          python3 scripts/capital/chamber_tally_v1.py \
+            docs/capital/evidence/myc-cap-002g1a/example_case.json \
+            --receipt-out "$tmp"
+          diff -u docs/capital/evidence/myc-cap-002g1a/example_receipt.json "$tmp"
+          python3 scripts/capital/chamber_tally_v1.py \
+            docs/capital/evidence/myc-cap-002g1a/example_case.json \
+            --receipt-out "${tmp}.second"
+          cmp "$tmp" "${tmp}.second"
+
+      - name: Frozen commitments
+        run: |
+          set -euo pipefail
+          echo 'be1470664b70078c7d3e090dcb41dc671af87f2c157c24b510572c887bf47446  docs/capital/evidence/myc-cap-002g1a/example_case.json' | sha256sum -c -
+          echo 'bd06c9beeec8532c3bd3d2010d14ca251772dfcff8009703e35bf04240643eea  docs/capital/evidence/myc-cap-002g1a/example_receipt.json' | sha256sum -c -
+          echo 'ee5203544258bbe43b78738b8d67149e8edc921deada96fc9a45d1ecd85a48ea  scripts/capital/chamber_tally_v1.py' | sha256sum -c -
+          echo '3d4f79e0e020a516dfcd096210d9f4cd0bd14a5031a8a7f9b7ca1b6844fcddf1  scripts/capital/test_chamber_tally_v1.py' | sha256sum -c -
+
+      - name: Strong nonclaims
+        run: |
+          set -euo pipefail
+          grep -Fq '"governance_authorization_established":false' docs/capital/evidence/myc-cap-002g1a/example_receipt.json
+          grep -Fq '"identity_authenticity_established":false' docs/capital/evidence/myc-cap-002g1a/example_receipt.json
+          grep -Fq '"democratic_legitimacy_established":false' docs/capital/evidence/myc-cap-002g1a/example_receipt.json
+          grep -Fq 'absence of a supplied conflict record is not proof that no real-world conflict exists' docs/capital/evidence/myc-cap-002g1a/example_receipt.json
