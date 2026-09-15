@@ -1,0 +1,92 @@
+name: REGEN Evidence Integration CI
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-core-types/**'
+      - 'crates/mycelix-regenerative-core/**'
+      - '.github/workflows/core-types-ci.yml'
+      - '.github/workflows/regenerative-core-ci.yml'
+      - '.github/workflows/regen-evidence-integration-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/mycelix-core-types/**'
+      - 'crates/mycelix-regenerative-core/**'
+      - '.github/workflows/core-types-ci.yml'
+      - '.github/workflows/regenerative-core-ci.yml'
+      - '.github/workflows/regen-evidence-integration-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  evidence-integration:
+    name: REGEN PEF identity convergence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      EXPECTED_PEF2_PARENT: 2c097613d5295840653531ba67c78fe74ee3cd10
+      EXPECTED_REGEN004A_PARENT: 9ff3eae332592602a0d48223723dd5d25cf87c58
+      EXPECTED_PEF_EVIDENCE_BLOB: 2069d6e56336d05c7bc293abfc5ccdc421ab53cb
+      EXPECTED_PEF_LINEAGE_BLOB: e0fda7c4c9e83c46761dae1e4fff2c43e3d6d41b
+      EXPECTED_PEF_PRODUCT_BLOB: dedc20b201759883b9c58b39905dfc700c1cfb21
+      EXPECTED_MERGED_CORE_LIB_BLOB: 3761f5cfcb6a7c78c7ce829ba4283f7e522aff72
+      EXPECTED_REGEN_CONSTITUTION_BLOB: 7716d4fd027a7a9a39f1c55b1b26284214ee07ab
+      EXPECTED_REGEN_CORE_MANIFEST_BLOB: 3715c205710b3a2be2e660dd93f354c0f12a0405
+      EXPECTED_REGEN_CORE_SOURCE_BLOB: 97978da98e9c476061b3d3ce1ba605f0c628a1b6
+      EXPECTED_REGEN_FIXTURE_BLOB: 61f93776b7fc9ae95decd96a0c508aaa31d32258
+      EXPECTED_REGEN_GOLDEN_TEST_BLOB: c743556ad7620a3bc0fe6aed9a93afbc8734b63d
+    steps:
+      - name: Checkout exact integration subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Verify exact integration subject and parents
+        shell: bash
+        env:
+          TARGET_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$TARGET_SHA"
+          mapfile -t parents < <(git cat-file -p HEAD | sed -n 's/^parent //p')
+          printf 'target_sha=%s\nactual_sha=%s\nparent_count=%s\n' "$TARGET_SHA" "$actual" "${#parents[@]}"
+          printf 'parent_1=%s\nparent_2=%s\n' "${parents[0]:-}" "${parents[1]:-}"
+          test "${#parents[@]}" -eq 2
+          test "${parents[0]}" = "$EXPECTED_PEF2_PARENT"
+          test "${parents[1]}" = "$EXPECTED_REGEN004A_PARENT"
+
+      - name: Verify PEF module preservation and explicit lib resolution
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:crates/mycelix-core-types/src/planetary_evidence.rs)" = "$EXPECTED_PEF_EVIDENCE_BLOB"
+          test "$(git rev-parse HEAD:crates/mycelix-core-types/src/planetary_lineage.rs)" = "$EXPECTED_PEF_LINEAGE_BLOB"
+          test "$(git rev-parse HEAD:crates/mycelix-core-types/src/planetary_product.rs)" = "$EXPECTED_PEF_PRODUCT_BLOB"
+          test "$(git rev-parse HEAD:crates/mycelix-core-types/src/lib.rs)" = "$EXPECTED_MERGED_CORE_LIB_BLOB"
+          git grep -q 'pub mod planetary_evidence' -- crates/mycelix-core-types/src/lib.rs
+          git grep -q 'pub mod planetary_lineage' -- crates/mycelix-core-types/src/lib.rs
+          git grep -q 'pub mod planetary_product' -- crates/mycelix-core-types/src/lib.rs
+          git grep -q 'bridge.on_pattern_learned(pattern);' -- crates/mycelix-core-types/src/lib.rs
+
+      - name: Verify preserved REGEN blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:docs/regenerative/REGEN_000_REGENERATIVE_COMMONS_CONSTITUTION_V0_1.md)" = "$EXPECTED_REGEN_CONSTITUTION_BLOB"
+          test "$(git rev-parse HEAD:crates/mycelix-regenerative-core/Cargo.toml)" = "$EXPECTED_REGEN_CORE_MANIFEST_BLOB"
+          test "$(git rev-parse HEAD:crates/mycelix-regenerative-core/src/lib.rs)" = "$EXPECTED_REGEN_CORE_SOURCE_BLOB"
+          test "$(git rev-parse HEAD:crates/mycelix-regenerative-core/test-vectors/regen_subject_ids_v1.json)" = "$EXPECTED_REGEN_FIXTURE_BLOB"
+          test "$(git rev-parse HEAD:crates/mycelix-regenerative-core/tests/golden_vectors.rs)" = "$EXPECTED_REGEN_GOLDEN_TEST_BLOB"
+
+      - name: Diff and checkout hygiene
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          status="$(git status --short)"
+          printf 'git_status=%s\n' "$status"
+          test -z "$status"
