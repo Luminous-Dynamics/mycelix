@@ -1,0 +1,20 @@
+[package]
+name = "mycelix-finance-reservation-core"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Canonical reservation commitments and lifecycle semantics for Mycelix Finance"
+
+[lib]
+crate-type = ["rlib"]
+name = "mycelix_finance_reservation_core"
+
+[dependencies]
+mycelix-business-core = { path = "../../../crates/mycelix-business-core" }
+mycelix-business-decision = { path = "../../../crates/mycelix-business-decision" }
+mycelix-finance-exact = { path = "../finance-exact" }
+mycelix-finance-settlement = { path = "../finance-settlement" }
+sha2 = "0.10"
+
+[dev-dependencies]
+serde_json = { workspace = true }
