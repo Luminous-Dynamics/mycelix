@@ -7,19 +7,17 @@
 
 use election_integrity_types::Digest32;
 use election_verifier_key_authorization::{
-    VerifierKeyAuthorizationPolicyV1,
-    VerifierKeyAuthorizationPolicyViolation, VerifierKeyAuthorizationRootV1,
-    VerifierKeyAuthorizationRootViolation, XENIA_AUTHENTICATION_SUITE_REGISTRY_V1_SHA256,
-    XENIA_ED25519_AUTHENTICATION_SUITE_ID, XENIA_ML_DSA_65_AUTHENTICATION_SUITE_ID,
-    validate_verifier_key_authorization_root, verifier_key_authorization_policy_digest,
-    verifier_key_authorization_root_digest,
+    VerifierKeyAuthorizationPolicyV1, VerifierKeyAuthorizationPolicyViolation,
+    VerifierKeyAuthorizationRootV1, VerifierKeyAuthorizationRootViolation,
+    XENIA_AUTHENTICATION_SUITE_REGISTRY_V1_SHA256, XENIA_ED25519_AUTHENTICATION_SUITE_ID,
+    XENIA_ML_DSA_65_AUTHENTICATION_SUITE_ID, validate_verifier_key_authorization_root,
+    verifier_key_authorization_policy_digest, verifier_key_authorization_root_digest,
 };
 use election_verifier_public_key_binding::{
-    VerifierAuthenticationPublicKeyBundleV1,
-    VerifierAuthenticationPublicKeyEvidenceV1, VerifierPublicKeyBundleViolation,
-    XENIA_AUTHENTICATION_PROFILE_V1_SHA256, XeniaSignerKeyIdViolation,
-    validate_verifier_authentication_public_key_bundle, verifier_authentication_public_key_bundle_digest,
-    xenia_authentication_signer_key_id_v1,
+    VerifierAuthenticationPublicKeyBundleV1, VerifierAuthenticationPublicKeyEvidenceV1,
+    VerifierPublicKeyBundleViolation, XENIA_AUTHENTICATION_PROFILE_V1_SHA256,
+    XeniaSignerKeyIdViolation, validate_verifier_authentication_public_key_bundle,
+    verifier_authentication_public_key_bundle_digest, xenia_authentication_signer_key_id_v1,
 };
 use sha2::{Digest as ShaDigest, Sha256};
 use std::collections::{HashMap, HashSet};
@@ -29,13 +27,11 @@ pub const VERIFIER_KEY_LIFECYCLE_CORE_PROFILE_ID: &str =
 pub const MAX_LIFECYCLE_TRANSITIONS_V1: u32 = 256;
 pub const MAX_CANONICAL_STRING_BYTES: usize = 256;
 
-const POLICY_DOMAIN: &[u8] =
-    b"MYCELIX:PUBLIC-ELECTION:VERIFIER-KEY-LIFECYCLE-CORE-POLICY:V1\0";
+const POLICY_DOMAIN: &[u8] = b"MYCELIX:PUBLIC-ELECTION:VERIFIER-KEY-LIFECYCLE-CORE-POLICY:V1\0";
 const STATE_DOMAIN: &[u8] = b"MYCELIX:PUBLIC-ELECTION:VERIFIER-KEY-LIFECYCLE-STATE:V1\0";
 const PROJECTION_DOMAIN: &[u8] =
     b"MYCELIX:PUBLIC-ELECTION:VERIFIER-KEY-LIFECYCLE-SUCCESSOR-PROJECTION:V1\0";
-const PROPOSAL_DOMAIN: &[u8] =
-    b"MYCELIX:PUBLIC-ELECTION:VERIFIER-KEY-LIFECYCLE-PROPOSAL:V1\0";
+const PROPOSAL_DOMAIN: &[u8] = b"MYCELIX:PUBLIC-ELECTION:VERIFIER-KEY-LIFECYCLE-PROPOSAL:V1\0";
 
 fn sha256(bytes: &[u8]) -> Digest32 {
     let mut hasher = Sha256::new();
@@ -175,14 +171,12 @@ pub fn verifier_key_lifecycle_core_policy_digest(
     authorization_policy: &VerifierKeyAuthorizationPolicyV1,
     public_key_bundle: &VerifierAuthenticationPublicKeyBundleV1,
 ) -> Result<Digest32, LifecycleCorePolicyViolation> {
-    Ok(sha256(
-        &canonical_verifier_key_lifecycle_core_policy_bytes(
-            policy,
-            authorization_root,
-            authorization_policy,
-            public_key_bundle,
-        )?,
-    ))
+    Ok(sha256(&canonical_verifier_key_lifecycle_core_policy_bytes(
+        policy,
+        authorization_root,
+        authorization_policy,
+        public_key_bundle,
+    )?))
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -295,15 +289,18 @@ pub enum LifecycleStateViolation {
     PublicKeyLengthOverflow,
 }
 
-fn evidence_by_release_and_suite<'a>(
-    bundle: &'a VerifierAuthenticationPublicKeyBundleV1,
-) -> HashMap<(Digest32, u16), &'a VerifierAuthenticationPublicKeyEvidenceV1> {
+fn evidence_by_release_and_suite(
+    bundle: &VerifierAuthenticationPublicKeyBundleV1,
+) -> HashMap<(Digest32, u16), &VerifierAuthenticationPublicKeyEvidenceV1> {
     bundle
         .evidence
         .iter()
         .map(|record| {
             (
-                (record.verifier_release_digest, record.authentication_suite_id),
+                (
+                    record.verifier_release_digest,
+                    record.authentication_suite_id,
+                ),
                 record,
             )
         })
@@ -483,8 +480,8 @@ pub fn validate_verifier_key_lifecycle_state(
         return Err(LifecycleStateViolation::SequenceExceedsLimit);
     }
 
-    let expected_retired_len =
-        usize::try_from(state.sequence).map_err(|_| LifecycleStateViolation::RetiredCountOverflow)?;
+    let expected_retired_len = usize::try_from(state.sequence)
+        .map_err(|_| LifecycleStateViolation::RetiredCountOverflow)?;
     if state.retired_ed25519_signer_key_ids.len() != expected_retired_len
         || state.retired_ml_dsa_65_signer_key_ids.len() != expected_retired_len
     {
@@ -519,7 +516,9 @@ pub fn validate_verifier_key_lifecycle_state(
 
     validate_record_population(state, authorization_root)?;
 
-    if state.sequence == 0 && state.records != genesis_records(authorization_root, public_key_bundle) {
+    if state.sequence == 0
+        && state.records != genesis_records(authorization_root, public_key_bundle)
+    {
         return Err(LifecycleStateViolation::GenesisRecordsMismatch);
     }
 
@@ -936,7 +935,8 @@ pub fn validate_and_project_lifecycle_transition(
     authorization_root: &VerifierKeyAuthorizationRootV1,
     authorization_policy: &VerifierKeyAuthorizationPolicyV1,
     public_key_bundle: &VerifierAuthenticationPublicKeyBundleV1,
-) -> Result<(ValidLifecycleProposalV1, ProjectedLifecycleSuccessorV1), LifecycleTransitionViolation> {
+) -> Result<(ValidLifecycleProposalV1, ProjectedLifecycleSuccessorV1), LifecycleTransitionViolation>
+{
     validate_verifier_key_lifecycle_core_policy(
         lifecycle_policy,
         authorization_root,
@@ -985,24 +985,20 @@ pub fn validate_and_project_lifecycle_transition(
     let target_index = current_state
         .records
         .iter()
-        .position(|record| {
-            record.verifier_release_digest == request.target_verifier_release_digest
-        })
+        .position(|record| record.verifier_release_digest == request.target_verifier_release_digest)
         .ok_or(LifecycleTransitionViolation::UnknownTargetVerifierRelease)?;
 
-    let (
-        current_ed25519_signer_key_id,
-        current_ml_dsa_65_signer_key_id,
-    ) = match &current_state.records[target_index].status {
-        VerifierKeyLifecycleStatusV1::Active {
-            ed25519_signer_key_id,
-            ml_dsa_65_signer_key_id,
-            ..
-        } => (*ed25519_signer_key_id, *ml_dsa_65_signer_key_id),
-        VerifierKeyLifecycleStatusV1::Disabled => {
-            return Err(LifecycleTransitionViolation::TargetVerifierDisabled);
-        }
-    };
+    let (current_ed25519_signer_key_id, current_ml_dsa_65_signer_key_id) =
+        match &current_state.records[target_index].status {
+            VerifierKeyLifecycleStatusV1::Active {
+                ed25519_signer_key_id,
+                ml_dsa_65_signer_key_id,
+                ..
+            } => (*ed25519_signer_key_id, *ml_dsa_65_signer_key_id),
+            VerifierKeyLifecycleStatusV1::Disabled => {
+                return Err(LifecycleTransitionViolation::TargetVerifierDisabled);
+            }
+        };
 
     if request.expected_current_ed25519_signer_key_id != current_ed25519_signer_key_id
         || request.expected_current_ml_dsa_65_signer_key_id != current_ml_dsa_65_signer_key_id
@@ -1183,34 +1179,34 @@ mod tests {
     use election_verifier_public_key_binding::VERIFIER_PUBLIC_KEY_BINDING_PROFILE_ID;
 
     const GOLDEN_PARENT_ROOT_DIGEST: Digest32 = [
-        0x4e, 0x52, 0xe8, 0xb4, 0x27, 0x61, 0x1e, 0x11, 0xb3, 0x6b, 0x0a, 0x22, 0xb8, 0xc8,
-        0xab, 0x7b, 0x62, 0xbf, 0x80, 0x8d, 0x42, 0x23, 0xdb, 0x19, 0x55, 0xf5, 0x0c, 0xa9,
-        0xb0, 0x2e, 0x65, 0xb5,
+        0x4e, 0x52, 0xe8, 0xb4, 0x27, 0x61, 0x1e, 0x11, 0xb3, 0x6b, 0x0a, 0x22, 0xb8, 0xc8, 0xab,
+        0x7b, 0x62, 0xbf, 0x80, 0x8d, 0x42, 0x23, 0xdb, 0x19, 0x55, 0xf5, 0x0c, 0xa9, 0xb0, 0x2e,
+        0x65, 0xb5,
     ];
     const GOLDEN_PARENT_BUNDLE_DIGEST: Digest32 = [
-        0x97, 0x56, 0x5d, 0x55, 0x4f, 0xfa, 0xdd, 0xbc, 0xc3, 0x5d, 0x2a, 0x22, 0xd2, 0x09,
-        0xec, 0x1f, 0xb2, 0x64, 0x6c, 0x0f, 0x43, 0x03, 0x14, 0x6b, 0xb7, 0x3c, 0x3d, 0x96,
-        0x40, 0xfd, 0xbe, 0xfc,
+        0x97, 0x56, 0x5d, 0x55, 0x4f, 0xfa, 0xdd, 0xbc, 0xc3, 0x5d, 0x2a, 0x22, 0xd2, 0x09, 0xec,
+        0x1f, 0xb2, 0x64, 0x6c, 0x0f, 0x43, 0x03, 0x14, 0x6b, 0xb7, 0x3c, 0x3d, 0x96, 0x40, 0xfd,
+        0xbe, 0xfc,
     ];
     const GOLDEN_LIFECYCLE_POLICY_DIGEST: Digest32 = [
-        0xa0, 0x16, 0xda, 0xb4, 0x77, 0x25, 0x7e, 0x83, 0x14, 0x70, 0x87, 0xe8, 0x78, 0x79,
-        0x44, 0xea, 0x38, 0xfd, 0xd0, 0x8f, 0xb1, 0x41, 0xb0, 0x76, 0xa7, 0xdb, 0x6c, 0xca,
-        0x07, 0x83, 0xdd, 0xac,
+        0xa0, 0x16, 0xda, 0xb4, 0x77, 0x25, 0x7e, 0x83, 0x14, 0x70, 0x87, 0xe8, 0x78, 0x79, 0x44,
+        0xea, 0x38, 0xfd, 0xd0, 0x8f, 0xb1, 0x41, 0xb0, 0x76, 0xa7, 0xdb, 0x6c, 0xca, 0x07, 0x83,
+        0xdd, 0xac,
     ];
     const GOLDEN_GENESIS_STATE_DIGEST: Digest32 = [
-        0x3f, 0x63, 0xf5, 0x0f, 0xf8, 0x14, 0xe7, 0xd4, 0x40, 0xce, 0x10, 0x8c, 0x98, 0x1a,
-        0x76, 0x16, 0xcc, 0x1c, 0xab, 0x78, 0xe5, 0x3d, 0x8f, 0x0b, 0x24, 0x95, 0x0d, 0x2e,
-        0x99, 0x4a, 0xd8, 0xd1,
+        0x3f, 0x63, 0xf5, 0x0f, 0xf8, 0x14, 0xe7, 0xd4, 0x40, 0xce, 0x10, 0x8c, 0x98, 0x1a, 0x76,
+        0x16, 0xcc, 0x1c, 0xab, 0x78, 0xe5, 0x3d, 0x8f, 0x0b, 0x24, 0x95, 0x0d, 0x2e, 0x99, 0x4a,
+        0xd8, 0xd1,
     ];
     const GOLDEN_ROTATION_PROJECTION_DIGEST: Digest32 = [
-        0xca, 0x71, 0x07, 0xc5, 0xe6, 0x29, 0xa5, 0x99, 0x4b, 0x4c, 0xfd, 0x4a, 0x49, 0x41,
-        0x3a, 0x92, 0x81, 0x40, 0x41, 0xd4, 0x80, 0x69, 0x6e, 0x4b, 0xcd, 0x58, 0x60, 0x7a,
-        0x54, 0x95, 0xb1, 0x9c,
+        0xca, 0x71, 0x07, 0xc5, 0xe6, 0x29, 0xa5, 0x99, 0x4b, 0x4c, 0xfd, 0x4a, 0x49, 0x41, 0x3a,
+        0x92, 0x81, 0x40, 0x41, 0xd4, 0x80, 0x69, 0x6e, 0x4b, 0xcd, 0x58, 0x60, 0x7a, 0x54, 0x95,
+        0xb1, 0x9c,
     ];
     const GOLDEN_ROTATION_PROPOSAL_DIGEST: Digest32 = [
-        0x94, 0x8e, 0x8b, 0xac, 0x9e, 0x77, 0xaf, 0x3d, 0xf6, 0xfc, 0x76, 0x66, 0x8a, 0x2f,
-        0x8d, 0x1e, 0x9a, 0x8c, 0x63, 0x0b, 0x70, 0x8a, 0x78, 0x16, 0x67, 0x8e, 0xa0, 0x5d,
-        0xba, 0xa4, 0x9d, 0x61,
+        0x94, 0x8e, 0x8b, 0xac, 0x9e, 0x77, 0xaf, 0x3d, 0xf6, 0xfc, 0x76, 0x66, 0x8a, 0x2f, 0x8d,
+        0x1e, 0x9a, 0x8c, 0x63, 0x0b, 0x70, 0x8a, 0x78, 0x16, 0x67, 0x8e, 0xa0, 0x5d, 0xba, 0xa4,
+        0x9d, 0x61,
     ];
 
     fn digest(byte: u8) -> Digest32 {
@@ -1308,7 +1304,8 @@ mod tests {
         }
 
         VerifierAuthenticationPublicKeyBundleV1 {
-            verifier_public_key_binding_profile_id: VERIFIER_PUBLIC_KEY_BINDING_PROFILE_ID.to_owned(),
+            verifier_public_key_binding_profile_id: VERIFIER_PUBLIC_KEY_BINDING_PROFILE_ID
+                .to_owned(),
             verifier_key_authorization_root_digest: root_digest,
             election_definition_digest: root.election_definition_digest,
             jurisdiction_snapshot_digest: root.jurisdiction_snapshot_digest,
@@ -1319,7 +1316,7 @@ mod tests {
         }
     }
 
-    fn lifecycle_policy() -> VerifierKeyLifecycleCorePolicyV1 {
+    fn make_lifecycle_policy() -> VerifierKeyLifecycleCorePolicyV1 {
         let authorization_policy = authorization_policy();
         let root = authorization_root();
         let bundle = public_key_bundle();
@@ -1357,14 +1354,10 @@ mod tests {
         let authorization_policy = authorization_policy();
         let root = authorization_root();
         let bundle = public_key_bundle();
-        let lifecycle_policy = lifecycle_policy();
-        let genesis = derive_root_lifecycle_state(
-            &lifecycle_policy,
-            &root,
-            &authorization_policy,
-            &bundle,
-        )
-        .unwrap();
+        let lifecycle_policy = make_lifecycle_policy();
+        let genesis =
+            derive_root_lifecycle_state(&lifecycle_policy, &root, &authorization_policy, &bundle)
+                .unwrap();
         (
             authorization_policy,
             root,
@@ -1386,7 +1379,9 @@ mod tests {
                 ml_dsa_65_signer_key_id,
                 ..
             } => (*ed25519_signer_key_id, *ml_dsa_65_signer_key_id),
-            VerifierKeyLifecycleStatusV1::Disabled => panic!("fixture target unexpectedly disabled"),
+            VerifierKeyLifecycleStatusV1::Disabled => {
+                panic!("fixture target unexpectedly disabled")
+            }
         }
     }
 
@@ -1396,10 +1391,9 @@ mod tests {
         authorization_policy: &VerifierKeyAuthorizationPolicyV1,
         root: &VerifierKeyAuthorizationRootV1,
         bundle: &VerifierAuthenticationPublicKeyBundleV1,
-        release: Digest32,
-        ed_byte: u8,
-        ml_byte: u8,
+        replacement: (Digest32, u8, u8),
     ) -> LifecycleTransitionRequestV1 {
+        let (release, ed_byte, ml_byte) = replacement;
         let current_state_digest = verifier_key_lifecycle_state_digest(
             state,
             lifecycle_policy,
@@ -1483,19 +1477,15 @@ mod tests {
         let authorization_policy = authorization_policy();
         let root = authorization_root();
         let bundle = public_key_bundle();
-        let lifecycle_policy = lifecycle_policy();
+        let lifecycle_policy = make_lifecycle_policy();
 
         assert_eq!(
             verifier_key_authorization_root_digest(&root, &authorization_policy).unwrap(),
             GOLDEN_PARENT_ROOT_DIGEST
         );
         assert_eq!(
-            verifier_authentication_public_key_bundle_digest(
-                &bundle,
-                &root,
-                &authorization_policy
-            )
-            .unwrap(),
+            verifier_authentication_public_key_bundle_digest(&bundle, &root, &authorization_policy)
+                .unwrap(),
             GOLDEN_PARENT_BUNDLE_DIGEST
         );
         assert_eq!(
@@ -1559,9 +1549,7 @@ mod tests {
             &authorization_policy,
             &root,
             &bundle,
-            digest(0x21),
-            0x91,
-            0x92,
+            (digest(0x21), 0x91, 0x92),
         );
         let (proposal, projection) = validate_and_project_lifecycle_transition(
             &lifecycle_policy,
@@ -1607,9 +1595,7 @@ mod tests {
             &authorization_policy,
             &root,
             &bundle,
-            digest(0x21),
-            0x91,
-            0x92,
+            (digest(0x21), 0x91, 0x92),
         );
         if let LifecycleTransitionOperationV1::RotateKeyPair {
             new_ed25519_signer_key_id,
@@ -1640,9 +1626,7 @@ mod tests {
             &authorization_policy,
             &root,
             &bundle,
-            digest(0x21),
-            0x91,
-            0x92,
+            (digest(0x21), 0x91, 0x92),
         );
         if let LifecycleTransitionOperationV1::RotateKeyPair {
             new_ml_dsa_65_public_key,
@@ -1675,9 +1659,7 @@ mod tests {
             &authorization_policy,
             &root,
             &bundle,
-            digest(0x21),
-            0x91,
-            0x92,
+            (digest(0x21), 0x91, 0x92),
         );
         let other = genesis
             .records()
@@ -1723,9 +1705,7 @@ mod tests {
             &authorization_policy,
             &root,
             &bundle,
-            digest(0x21),
-            0x91,
-            0x92,
+            (digest(0x21), 0x91, 0x92),
         );
         let (_, first_projection) = validate_and_project_lifecycle_transition(
             &lifecycle_policy,
@@ -1754,9 +1734,7 @@ mod tests {
             &authorization_policy,
             &root,
             &bundle,
-            digest(0x22),
-            0x93,
-            0x94,
+            (digest(0x22), 0x93, 0x94),
         );
         if let LifecycleTransitionOperationV1::RotateKeyPair {
             new_ed25519_signer_key_id,
@@ -1789,9 +1767,7 @@ mod tests {
             &authorization_policy,
             &root,
             &bundle,
-            digest(0x22),
-            0x93,
-            0x94,
+            (digest(0x22), 0x93, 0x94),
         );
         if let LifecycleTransitionOperationV1::RotateKeyPair {
             new_ml_dsa_65_signer_key_id,
@@ -1985,7 +1961,7 @@ mod tests {
         let authorization_policy = authorization_policy();
         let root = authorization_root();
         let bundle = public_key_bundle();
-        let mut lifecycle_policy = lifecycle_policy();
+        let mut lifecycle_policy = make_lifecycle_policy();
 
         lifecycle_policy.xenia_authentication_profile_digest = digest(0x99);
         assert_eq!(
@@ -1998,7 +1974,7 @@ mod tests {
             Err(LifecycleCorePolicyViolation::WrongXeniaAuthenticationProfile)
         );
 
-        let mut lifecycle_policy = lifecycle_policy();
+        let mut lifecycle_policy = make_lifecycle_policy();
         lifecycle_policy.verifier_public_key_bundle_digest = digest(0x99);
         assert_eq!(
             validate_verifier_key_lifecycle_core_policy(
@@ -2049,9 +2025,7 @@ mod tests {
             &authorization_policy,
             &root,
             &bundle,
-            digest(0x21),
-            0x91,
-            0x92,
+            (digest(0x21), 0x91, 0x92),
         );
         assert_eq!(
             validate_and_project_lifecycle_transition(
@@ -2075,9 +2049,7 @@ mod tests {
             &authorization_policy,
             &root,
             &bundle,
-            digest(0x21),
-            0x91,
-            0x92,
+            (digest(0x21), 0x91, 0x92),
         );
         let (_, projection) = validate_and_project_lifecycle_transition(
             &lifecycle_policy,
