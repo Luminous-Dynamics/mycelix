@@ -1,0 +1,73 @@
+name: AMSAP-002 Artificial Status Core
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-artificial-status/**'
+      - '.github/workflows/amsap-002-artificial-status.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact subject
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 2
+
+      - name: Prove exact AMSAP-001 parent and review surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "aef5e93e34ed39bc0d93b166c374faa7bda38270"
+          mapfile -t changed < <(git diff --name-only HEAD^ HEAD | sort)
+          expected=(
+            ".github/workflows/amsap-002-artificial-status.yml"
+            "crates/mycelix-artificial-status/Cargo.lock"
+            "crates/mycelix-artificial-status/Cargo.toml"
+            "crates/mycelix-artificial-status/README.md"
+            "crates/mycelix-artificial-status/src/lib.rs"
+          )
+          printf '%s\n' "${changed[@]}" > /tmp/changed
+          printf '%s\n' "${expected[@]}" | sort > /tmp/expected
+          diff -u /tmp/expected /tmp/changed
+
+      - name: Install exact Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.98.1 --profile minimal --component rustfmt --component clippy
+          rustup target add --toolchain 1.98.1 wasm32-unknown-unknown
+
+      - name: Audit authority-neutral dependency boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(sed -n '/\[dependencies\]/,$p' crates/mycelix-artificial-status/Cargo.toml | tail -n +2 | tr -d '[:space:]')"
+          ! grep -R -E 'hdk|hdi|holochain|serde|reqwest|tokio|SystemTime|Instant|legal_standing:|governance_authority:' crates/mycelix-artificial-status/src crates/mycelix-artificial-status/Cargo.toml
+          grep -F 'grants_legal_standing' crates/mycelix-artificial-status/src/lib.rs
+          grep -F 'grants_governance_authority' crates/mycelix-artificial-status/src/lib.rs
+          grep -F 'grants_external_effect_authority' crates/mycelix-artificial-status/src/lib.rs
+
+      - name: Rust qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          lock_before="$(sha256sum crates/mycelix-artificial-status/Cargo.lock)"
+          cargo +1.98.1 fmt --manifest-path crates/mycelix-artificial-status/Cargo.toml -- --check
+          cargo +1.98.1 test --locked --manifest-path crates/mycelix-artificial-status/Cargo.toml --all-targets
+          cargo +1.98.1 clippy --locked --manifest-path crates/mycelix-artificial-status/Cargo.toml --all-targets -- -D warnings
+          cargo +1.98.1 check --locked --manifest-path crates/mycelix-artificial-status/Cargo.toml --target wasm32-unknown-unknown
+          test "$lock_before" = "$(sha256sum crates/mycelix-artificial-status/Cargo.lock)"
+
+      - name: Immutable checkout postflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain)"
