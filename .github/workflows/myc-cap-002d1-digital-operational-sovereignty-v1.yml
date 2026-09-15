@@ -1,0 +1,67 @@
+name: MYC-CAP-002D1 Digital Operational Sovereignty v1
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/capital/digital_operational_sovereignty_v1.py'
+      - 'scripts/capital/test_digital_operational_sovereignty_v1.py'
+      - 'docs/capital/evidence/myc-cap-002d1/**'
+      - '.github/workflows/myc-cap-002d1-digital-operational-sovereignty-v1.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Digital operational-sovereignty readiness
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Exact PR head and parent
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "270b852e0ac744dfca3a2cb966bf53fce78f2ab9"
+
+      - name: Python environment
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 -m py_compile scripts/capital/digital_operational_sovereignty_v1.py
+          python3 -m py_compile scripts/capital/test_digital_operational_sovereignty_v1.py
+
+      - name: Fail-closed unit suite
+        run: |
+          set -euo pipefail
+          python3 -m unittest -v scripts/capital/test_digital_operational_sovereignty_v1.py
+
+      - name: Deterministic example receipt
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp)"
+          python3 scripts/capital/digital_operational_sovereignty_v1.py \
+            docs/capital/evidence/myc-cap-002d1/example_case.json \
+            --receipt-out "$tmp"
+          diff -u docs/capital/evidence/myc-cap-002d1/example_receipt.json "$tmp"
+          cp "$tmp" "${tmp}.second"
+          python3 scripts/capital/digital_operational_sovereignty_v1.py \
+            docs/capital/evidence/myc-cap-002d1/example_case.json \
+            --receipt-out "$tmp"
+          cmp "$tmp" "${tmp}.second"
+          echo '0e031c3f90b7b2e448210c2812479794308257a52df14432c681d8dcfe0210d8  docs/capital/evidence/myc-cap-002d1/example_case.json' | sha256sum -c -
+          echo '379320dbcdc65a00c843b96be97a2b4caf06df57b722689baa2a93bb1dc41e7d  docs/capital/evidence/myc-cap-002d1/example_receipt.json' | sha256sum -c -
+
+      - name: Strong handback boundaries
+        run: |
+          set -euo pipefail
+          grep -Fq '"readiness_state": "OPERATIONAL_TRANSFER_READY"' docs/capital/evidence/myc-cap-002d1/example_receipt.json
+          grep -Fq '"handover_accepted": false' docs/capital/evidence/myc-cap-002d1/example_receipt.json
+          grep -Fq '"legal_transition_complete": false' docs/capital/evidence/myc-cap-002d1/example_receipt.json
+          grep -Fq 'operational readiness is not handover acceptance' docs/capital/evidence/myc-cap-002d1/example_receipt.json
