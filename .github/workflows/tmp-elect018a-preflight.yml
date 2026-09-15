@@ -1,0 +1,61 @@
+name: Temporary ELECT-018A Preflight
+
+on:
+  push:
+    branches:
+      - tmp/elect018a-lifecycle-core-preflight
+
+permissions:
+  contents: write
+
+jobs:
+  preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: tmp/elect018a-lifecycle-core-preflight
+          fetch-depth: 2
+
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: '1.96.0'
+          components: rustfmt,clippy
+
+      - name: Normalize owned Rust source
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate='mycelix-governance/crates/election-verifier-key-lifecycle-core'
+          cargo fmt --manifest-path "$crate/Cargo.toml"
+          mapfile -t changed < <(git diff --name-only)
+          test "${#changed[@]}" -le 1
+          if [ "${#changed[@]}" -eq 1 ]; then
+            test "${changed[0]}" = "$crate/src/lib.rs"
+          fi
+
+      - name: Execute complete core corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate='mycelix-governance/crates/election-verifier-key-lifecycle-core'
+          cargo generate-lockfile --manifest-path "$crate/Cargo.toml"
+          cargo test --manifest-path "$crate/Cargo.toml" --locked
+          cargo clippy --manifest-path "$crate/Cargo.toml" --locked --all-targets -- -D warnings
+          rm -f "$crate/Cargo.lock"
+
+      - name: Commit normalized source
+        shell: bash
+        run: |
+          set -euo pipefail
+          src='mycelix-governance/crates/election-verifier-key-lifecycle-core/src/lib.rs'
+          if git diff --quiet -- "$src"; then
+            exit 0
+          fi
+          test "$(git diff --name-only | wc -l)" -eq 1
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "$src"
+          git commit -m 'style(elect018a): normalize lifecycle core with Rust 1.96'
+          git push origin HEAD:tmp/elect018a-lifecycle-core-preflight
