@@ -388,7 +388,9 @@ fn divide_round(
             if remainder == 0 {
                 Ok(quotient)
             } else {
-                quotient.checked_add(1).ok_or(ExactArithmeticError::Overflow)
+                quotient
+                    .checked_add(1)
+                    .ok_or(ExactArithmeticError::Overflow)
             }
         }
         RoundingMode::HalfEven => {
@@ -398,7 +400,9 @@ fn divide_round(
             if twice_remainder < denominator {
                 Ok(quotient)
             } else if twice_remainder > denominator || quotient % 2 == 1 {
-                quotient.checked_add(1).ok_or(ExactArithmeticError::Overflow)
+                quotient
+                    .checked_add(1)
+                    .ok_or(ExactArithmeticError::Overflow)
             } else {
                 Ok(quotient)
             }
@@ -538,16 +542,14 @@ mod tests {
         let decoded: AssetAmount = serde_json::from_str(&encoded).expect("deserialize");
         assert_eq!(decoded, amount);
 
-        let noncanonical: Rate =
-            serde_json::from_str("{\"numerator\":2,\"denominator\":4}")
-                .expect("deserialize and normalize");
+        let noncanonical: Rate = serde_json::from_str("{\"numerator\":2,\"denominator\":4}")
+            .expect("deserialize and normalize");
         assert_eq!(noncanonical, Rate::new(1, 2).expect("valid rate"));
     }
 
     #[test]
     fn serde_rejects_invalid_rate_and_asset() {
-        let bad_rate =
-            serde_json::from_str::<Rate>("{\"numerator\":1,\"denominator\":0}");
+        let bad_rate = serde_json::from_str::<Rate>("{\"numerator\":1,\"denominator\":0}");
         assert!(bad_rate.is_err());
 
         let bad_asset = serde_json::from_str::<AssetId>("\"\"");
