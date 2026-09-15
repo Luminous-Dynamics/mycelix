@@ -1,0 +1,182 @@
+{
+  "operations": [
+    {
+      "authority_ref": "authority:0",
+      "evidence_ref": "evidence:0",
+      "inputs": [],
+      "kind": "GenesisIssue",
+      "operation_id": "op-0",
+      "outputs": [
+        {
+          "face_units": 73000000,
+          "holder_ref": "investor:a",
+          "slice_id": "s0"
+        }
+      ],
+      "prev_operation_sha256": null,
+      "profile_sha256": "6011726fcb6af452a3c8d8d8027c000e9d324a2776a7739e4f22eb76de3ceb40",
+      "project_id": "fiber:jhb:test-001",
+      "seq": 0,
+      "transaction_price_units": 0
+    },
+    {
+      "authority_ref": "authority:1",
+      "evidence_ref": "evidence:1",
+      "inputs": [
+        "s0"
+      ],
+      "kind": "Transfer",
+      "operation_id": "op-1",
+      "outputs": [
+        {
+          "face_units": 73000000,
+          "holder_ref": "investor:b",
+          "slice_id": "s1"
+        }
+      ],
+      "prev_operation_sha256": "69d0edb1321534fb8d622b847eba9412d741651e0ca4ef662fa3a592e58bfd13",
+      "profile_sha256": "6011726fcb6af452a3c8d8d8027c000e9d324a2776a7739e4f22eb76de3ceb40",
+      "project_id": "fiber:jhb:test-001",
+      "seq": 1,
+      "transaction_price_units": 91000000
+    },
+    {
+      "authority_ref": "authority:2",
+      "evidence_ref": "evidence:2",
+      "inputs": [
+        "s1"
+      ],
+      "kind": "Split",
+      "operation_id": "op-2",
+      "outputs": [
+        {
+          "face_units": 40000000,
+          "holder_ref": "investor:b",
+          "slice_id": "s2"
+        },
+        {
+          "face_units": 33000000,
+          "holder_ref": "investor:b",
+          "slice_id": "s3"
+        }
+      ],
+      "prev_operation_sha256": "a173711ce579e8d6d25da906f7101d1509ee054336bd8d8bc3f67899db28606c",
+      "profile_sha256": "6011726fcb6af452a3c8d8d8027c000e9d324a2776a7739e4f22eb76de3ceb40",
+      "project_id": "fiber:jhb:test-001",
+      "seq": 2,
+      "transaction_price_units": 0
+    },
+    {
+      "authority_ref": "authority:3",
+      "evidence_ref": "evidence:3",
+      "inputs": [
+        "s3"
+      ],
+      "kind": "Transfer",
+      "operation_id": "op-3",
+      "outputs": [
+        {
+          "face_units": 33000000,
+          "holder_ref": "investor:c",
+          "slice_id": "s4"
+        }
+      ],
+      "prev_operation_sha256": "5c7075e339579c9c866c65ee964ecf9564981f34c3c6e129ff9fca3f38ca6c20",
+      "profile_sha256": "6011726fcb6af452a3c8d8d8027c000e9d324a2776a7739e4f22eb76de3ceb40",
+      "project_id": "fiber:jhb:test-001",
+      "seq": 3,
+      "transaction_price_units": 35000000
+    },
+    {
+      "authority_ref": "authority:4",
+      "evidence_ref": "evidence:4",
+      "inputs": [
+        "s4"
+      ],
+      "kind": "Transfer",
+      "operation_id": "op-4",
+      "outputs": [
+        {
+          "face_units": 33000000,
+          "holder_ref": "investor:b",
+          "slice_id": "s5"
+        }
+      ],
+      "prev_operation_sha256": "193c2a0d3321c3a6d250b8519e03afb8db3832d2297801960b972549c69c012b",
+      "profile_sha256": "6011726fcb6af452a3c8d8d8027c000e9d324a2776a7739e4f22eb76de3ceb40",
+      "project_id": "fiber:jhb:test-001",
+      "seq": 4,
+      "transaction_price_units": 30000000
+    },
+    {
+      "authority_ref": "authority:5",
+      "evidence_ref": "evidence:5",
+      "inputs": [
+        "s2",
+        "s5"
+      ],
+      "kind": "Merge",
+      "operation_id": "op-5",
+      "outputs": [
+        {
+          "face_units": 73000000,
+          "holder_ref": "investor:b",
+          "slice_id": "s6"
+        }
+      ],
+      "prev_operation_sha256": "c370322dbea7415227e3f1de7f80f6c18769e67c6108ba3b34081a53cc797762",
+      "profile_sha256": "6011726fcb6af452a3c8d8d8027c000e9d324a2776a7739e4f22eb76de3ceb40",
+      "project_id": "fiber:jhb:test-001",
+      "seq": 5,
+      "transaction_price_units": 0
+    }
+  ],
+  "parent_receipt": {
+    "counted_investor_distributions_units": 60000000,
+    "created_entitlement_units": 133000000,
+    "event_chain_tip_sha256": "f766650cbc8233f016ae3482f46708f395264cbc0baeb869ad7c09dd662d240d",
+    "event_count": 8,
+    "event_history_sha256": "b1e75101137bcecc60daba64aa0d232398b78d65e4e946723bd25e5ab23184b7",
+    "financial_state": "CLAIM_ACTIVE",
+    "grant_or_subsidy_units": 7000000,
+    "handback_accepted": false,
+    "impairments_units": 0,
+    "initial_principal_units": 100000000,
+    "legal_transition_complete": false,
+    "nonclaims": [
+      "financial satisfaction is not legal title transfer",
+      "financial satisfaction is not democratic legitimacy",
+      "financial satisfaction is not handback acceptance",
+      "receipt validity is not accounting-standard compliance",
+      "receipt validity is not tax or securities-law compliance",
+      "receipt validity is not infrastructure safety or performance"
+    ],
+    "preferred_return_cap_units": 20000000,
+    "profile_sha256": "6929b9e089e3f7b272713f6ff8587bf429594a51a9d67d67d0d4468ba72b52e7",
+    "profile_version": "mycelix-capital-to-commons-fixed-preferred-v1",
+    "project_id": "fiber:jhb:test-001",
+    "qualified_new_capital_units": 10000000,
+    "receipt_version": "mycelix-commons-transition-receipt-v1",
+    "recoverable_lifecycle_units": 3000000,
+    "remaining_claim_units": 73000000,
+    "required_reserve_units": 5000000,
+    "reserve_balance_units": 5000000,
+    "reserve_compliant": true,
+    "retired_claim_ppm": 451127,
+    "retired_claim_units": 60000000,
+    "unit": "ZAR-cent"
+  },
+  "profile": {
+    "claim_class_id": "single-priority-bounded-economic-claim-v1",
+    "max_face_units": 1000000000,
+    "max_operations": 100,
+    "max_transaction_price_units": 1000000000,
+    "parent_financial_profile_sha256": "6929b9e089e3f7b272713f6ff8587bf429594a51a9d67d67d0d4468ba72b52e7",
+    "parent_remaining_claim_units": 73000000,
+    "parent_subject_sha": "270b852e0ac744dfca3a2cb966bf53fce78f2ab9",
+    "parent_transition_receipt_sha256": "60b7217980c615eab453eae25b74b27e75fc67cb336ea60d140f089341d50565",
+    "project_id": "fiber:jhb:test-001",
+    "registry_version": "mycelix-capital-claim-registry-single-class-v1",
+    "unit": "ZAR-cent"
+  }
+}
