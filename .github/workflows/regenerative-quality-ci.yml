@@ -1,0 +1,79 @@
+name: Regenerative Quality CI
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-regenerative-quality/**'
+      - 'crates/mycelix-regenerative-core/**'
+      - '.github/workflows/regenerative-quality-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/mycelix-regenerative-quality/**'
+      - 'crates/mycelix-regenerative-core/**'
+      - '.github/workflows/regenerative-quality-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  regenerative-quality:
+    name: REGEN quality-profile contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Verify exact subject
+        shell: bash
+        env:
+          TARGET_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          printf 'target_sha=%s\nactual_sha=%s\n' "$TARGET_SHA" "$actual"
+          test "$actual" = "$TARGET_SHA"
+
+      - name: Install pinned Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.96.0 --profile minimal --component rustfmt,clippy
+          rustup override set 1.96.0
+          rustc --version
+          cargo --version
+
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-regenerative-quality/Cargo.toml --all -- --check
+
+      - name: Test structural profile contract
+        run: cargo test --manifest-path crates/mycelix-regenerative-quality/Cargo.toml
+
+      - name: Test serde wire contract
+        run: cargo test --manifest-path crates/mycelix-regenerative-quality/Cargo.toml --features serde
+
+      - name: Strict Clippy
+        run: cargo clippy --manifest-path crates/mycelix-regenerative-quality/Cargo.toml --all-targets --features serde -- -D warnings
+
+      - name: Record execution-resolved dependency lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          lock='crates/mycelix-regenerative-quality/Cargo.lock'
+          test -f "$lock"
+          sha256sum "$lock"
+          printf 'lock_lines=%s\n' "$(wc -l < "$lock")"
+
+      - name: Diff and checkout hygiene
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f crates/mycelix-regenerative-quality/Cargo.lock
+          git diff --check
+          status="$(git status --short)"
+          printf 'git_status=%s\n' "$status"
+          test -z "$status"
