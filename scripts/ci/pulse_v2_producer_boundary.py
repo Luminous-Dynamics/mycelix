@@ -4,9 +4,14 @@
 The durable V2 coordinator may emit no wake yet. Once a wake is implemented it
 must use the qualified PulseV2RemoteSignal wire wrapper directly, occur only
 after the durable V2 inbox link has been committed, target only the recipient,
-and remain best-effort. The receive side must classify raw ExternIO bytes before
-legacy decoding; V2-family failures are terminal and may never downgrade into
-MailSignal parsing.
+and remain best-effort.
+
+The receive side must classify raw ExternIO bytes before protocol-specific
+interpretation. V2-family failures are terminal. The explicit Legacy branch may
+either preserve the pre-capability compatibility decoder or reject legacy bytes
+terminally; it may never be reached by V2-family failure. The separate remote-
+ingress theorem requires the terminal V2-only form once recv_remote_signal is
+capability-opened.
 """
 
 from __future__ import annotations
@@ -116,7 +121,7 @@ def validate_recv(recv: str) -> str:
 
     require(v2_ok_pos >= 0, "V2 receive path must explicitly handle admitted V2 hints")
     require(v2_err_pos >= 0, "V2 receive path must explicitly handle terminal V2 failures")
-    require(legacy_pos >= 0, "V2 receive path must retain an explicit legacy branch")
+    require(legacy_pos >= 0, "V2 receive path must retain an explicit legacy-family branch")
     require("emit_signal(hint)" in recv, "admitted V2 hint must be forwarded only as a local wake")
     require(
         admission_pos < min(v2_ok_pos, v2_err_pos, legacy_pos),
@@ -126,16 +131,34 @@ def validate_recv(recv: str) -> str:
         v2_err_pos < legacy_pos and "return Err(" in recv[v2_err_pos:legacy_pos],
         "V2-family decode failure must terminate before the legacy branch",
     )
+
+    has_decode = decode_pos >= 0
+    has_mail_signal = mail_signal_pos >= 0
     require(
-        decode_pos > legacy_pos,
-        "legacy signal.decode must occur only after RemoteSignalAdmission::Legacy",
-    )
-    require(
-        mail_signal_pos > legacy_pos,
-        "MailSignal interpretation must occur only inside the explicit legacy branch",
+        has_decode == has_mail_signal,
+        "legacy compatibility must not partially retain a decoder or MailSignal interpretation",
     )
 
-    return "recv_remote_signal classifies raw bytes first and cannot downgrade V2 failures"
+    if has_decode:
+        require(
+            decode_pos > legacy_pos,
+            "legacy signal.decode must occur only after RemoteSignalAdmission::Legacy",
+        )
+        require(
+            mail_signal_pos > legacy_pos,
+            "MailSignal interpretation must occur only inside the explicit legacy branch",
+        )
+        return "recv_remote_signal classifies raw bytes first; V2 failures are terminal; legacy decode is branch-confined"
+
+    legacy_branch = re.search(
+        r"RemoteSignalAdmission::Legacy\s*\([^)]*\)\s*=>\s*\{[\s\S]*?return\s+Err\s*\(",
+        recv,
+    )
+    require(
+        legacy_branch is not None,
+        "V2-only receiver must terminally reject the explicit legacy-family branch",
+    )
+    return "recv_remote_signal classifies raw bytes first; V2 failures and legacy family are terminal"
 
 
 def self_test() -> None:
@@ -176,7 +199,7 @@ def self_test() -> None:
     else:
         raise BoundaryViolation("self-test: pre-inbox-link wake was not rejected")
 
-    good_recv = """pub fn recv_remote_signal(signal: ExternIO) {
+    compatibility_recv = """pub fn recv_remote_signal(signal: ExternIO) {
         match admit_extern_io(&signal) {
             RemoteSignalAdmission::PulseV2(Ok(hint)) => { emit_signal(hint)?; }
             RemoteSignalAdmission::PulseV2(Err(error)) => { return Err(make_error(error)); }
@@ -186,9 +209,18 @@ def self_test() -> None:
             }
         }
     }"""
-    validate_recv(good_recv)
+    validate_recv(compatibility_recv)
 
-    bad_fallback = good_recv.replace(
+    v2_only_recv = """pub fn recv_remote_signal(signal: ExternIO) {
+        match admit_extern_io(&signal) {
+            RemoteSignalAdmission::PulseV2(Ok(hint)) => { emit_signal(hint)?; }
+            RemoteSignalAdmission::PulseV2(Err(error)) => { return Err(make_error(error)); }
+            RemoteSignalAdmission::Legacy(_) => { return Err(legacy_disabled()); }
+        }
+    }"""
+    validate_recv(v2_only_recv)
+
+    bad_fallback = compatibility_recv.replace(
         "RemoteSignalAdmission::PulseV2(Err(error)) => { return Err(make_error(error)); }",
         "RemoteSignalAdmission::PulseV2(Err(_error)) => {}",
     )
@@ -199,6 +231,28 @@ def self_test() -> None:
     else:
         raise BoundaryViolation("self-test: V2-to-legacy fallthrough was not rejected")
 
+    silent_legacy = v2_only_recv.replace(
+        "RemoteSignalAdmission::Legacy(_) => { return Err(legacy_disabled()); }",
+        "RemoteSignalAdmission::Legacy(_) => {}",
+    )
+    try:
+        validate_recv(silent_legacy)
+    except BoundaryViolation:
+        pass
+    else:
+        raise BoundaryViolation("self-test: silent legacy acceptance in V2-only mode was not rejected")
+
+    partial_legacy = v2_only_recv.replace(
+        "RemoteSignalAdmission::Legacy(_) => { return Err(legacy_disabled()); }",
+        "RemoteSignalAdmission::Legacy(_) => { let _ = signal.decode::<u8>(); return Err(legacy_disabled()); }",
+    )
+    try:
+        validate_recv(partial_legacy)
+    except BoundaryViolation:
+        pass
+    else:
+        raise BoundaryViolation("self-test: partial legacy decoder retention was not rejected")
+
 
 def main() -> None:
     try:
@@ -208,7 +262,7 @@ def main() -> None:
         recv = extract_function(source, "recv_remote_signal")
         print(f"producer-boundary: PASS: {validate_send_v2(send_v2)}")
         recv_result = validate_recv(recv)
-        prefix = "PASS" if "cannot downgrade" in recv_result else "INFO"
+        prefix = "INFO" if "legacy-only" in recv_result else "PASS"
         print(f"producer-boundary: {prefix}: {recv_result}")
     except BoundaryViolation as error:
         print(f"producer-boundary: FAIL: {error}", file=sys.stderr)
