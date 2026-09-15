@@ -1,0 +1,98 @@
+name: AC-016 Civic Exact-Head Qualification
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ac016-civic-exact-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: "1"
+  QUALIFICATION_SUBJECT_SHA: ${{ github.event.pull_request.base.sha }}
+  QUALIFICATION_WORKFLOW_SHA: ${{ github.workflow_sha }}
+
+jobs:
+  qualify-civic-types:
+    name: Civic Types AC-001..016 exact subject
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact AC-016 subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.QUALIFICATION_SUBJECT_SHA }}
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Prove exact subject and clean checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          observed="$(git rev-parse HEAD)"
+          printf 'declared_subject=%s\n' "$QUALIFICATION_SUBJECT_SHA"
+          printf 'observed_subject=%s\n' "$observed"
+          printf 'workflow_sha=%s\n' "$QUALIFICATION_WORKFLOW_SHA"
+          printf 'runtime_sha=%s\n' "$GITHUB_SHA"
+          test "$observed" = "$QUALIFICATION_SUBJECT_SHA"
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Install pinned Rust qualification toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          components: rustfmt,clippy
+
+      - name: Restore Civic Cargo cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          workspaces: mycelix-civic
+
+      - name: Capture qualification environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc -vV
+          cargo -V
+          uname -a
+          cat /etc/os-release
+          sha256sum mycelix-civic/Cargo.toml
+          sha256sum mycelix-civic/Cargo.lock
+          printf 'workflow_sha=%s\n' "$QUALIFICATION_WORKFLOW_SHA"
+          printf 'run_id=%s\n' "$GITHUB_RUN_ID"
+          printf 'run_attempt=%s\n' "$GITHUB_RUN_ATTEMPT"
+
+      - name: Check civic-types formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-civic
+          cargo fmt -p civic-types -- --check
+
+      - name: Run civic-types all-target tests under committed lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-civic
+          cargo test -p civic-types --all-targets --locked
+
+      - name: Run warnings-denied civic-types Clippy under committed lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-civic
+          cargo clippy -p civic-types --all-targets --locked -- -D warnings
+
+      - name: Prove qualification did not mutate subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$QUALIFICATION_SUBJECT_SHA"
+          git diff --exit-code
+          test -z "$(git status --porcelain=v1)"
