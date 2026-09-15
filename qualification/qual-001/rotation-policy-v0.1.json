@@ -1,0 +1,32 @@
+{
+  "admin_bypass_qualifies": false,
+  "allowed_exact_paths": [
+    "qualification/qual-001/current-verifier.json"
+  ],
+  "allowed_prefixes": [
+    "qualification/qual-001/",
+    "mycelix-workspace/docs/agents/QUAL_001_",
+    "mycelix-workspace/docs/agents/qual-001-"
+  ],
+  "current_pointer_path": "qualification/qual-001/current-verifier.json",
+  "immutable_launcher_paths": [
+    ".github/workflows/qual-001-authoritative.yml",
+    "qualification/qual-001/dispatcher_v0_1.py"
+  ],
+  "max_changed_bytes": 524288,
+  "max_changed_paths": 16,
+  "profile": "mycelix.qual.verifier-rotation.v0.1",
+  "repository_protection_required": true,
+  "required_launcher_components": [
+    "authoritative_workflow",
+    "dispatcher"
+  ],
+  "required_successor_components": [
+    "gate_manifest",
+    "verifier",
+    "rotation_policy"
+  ],
+  "rotation_requires_predecessor_bundle": true,
+  "schema": "mycelix.qual.rotation-policy.v0.1",
+  "subject_code_execution": false
+}

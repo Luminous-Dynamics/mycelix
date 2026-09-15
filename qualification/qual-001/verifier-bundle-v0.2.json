@@ -1,0 +1,29 @@
+{
+  "components": {
+    "gate_manifest": {
+      "path": "qualification/qual-001/gate-manifest-v0.2.json",
+      "sha256": "69264268de3383b22ea0ac9392e76c30a7d94f333e2955f068050ed238112644"
+    },
+    "rotation_policy": {
+      "path": "qualification/qual-001/rotation-policy-v0.1.json",
+      "sha256": "72db15ea4d1f335e0553d1b9a30e49a45f2195ce6b7bed151e367ed0ad198a12"
+    },
+    "verifier": {
+      "path": "qualification/qual-001/verifier_monotonic_v0_2.py",
+      "sha256": "3541fd050d4eb4c76db324b664481b7d3ac9b98fbc4b15b409ac050222005030"
+    }
+  },
+  "launcher": {
+    "authoritative_workflow": {
+      "path": ".github/workflows/qual-001-authoritative.yml",
+      "sha256": "a2d03cb15c2afd53cf22051d0f776c9bb038b470239838b08f6aa7b9de4698eb"
+    },
+    "dispatcher": {
+      "path": "qualification/qual-001/dispatcher_v0_1.py",
+      "sha256": "828283d1fbd13dedaca778101bacb85a334a91296f2c7f167cab5fd354537e09"
+    }
+  },
+  "predecessor_bundle_sha256": "b0281549127d0aa892a347ebffd32c5d9e59f8b6c26b3a478db852dc4366a964",
+  "profile": "mycelix.qual.static-subject-independence.v0.2-monotonic",
+  "schema": "mycelix.qual.verifier-bundle.v0.2"
+}

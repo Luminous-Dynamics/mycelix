@@ -1,0 +1,300 @@
+name: QUAL-001R Rotation-Capable Verifier Bootstrap
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qual-001r-bootstrap-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: QUAL-001R rotation-capable verifier bootstrap
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Freeze exact subject shape
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent='9f707a765631e1dd3416d5a32249c2f190a6ccdf'
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          test "$(git rev-parse HEAD^)" = "$parent"
+          test "$(git rev-list --parents -n1 HEAD | wc -w)" -eq 2
+          python3 -B - <<'PY'
+          import subprocess
+          parent = "9f707a765631e1dd3416d5a32249c2f190a6ccdf"
+          expected = {
+              ".github/workflows/qual-001-authoritative.yml",
+              ".github/workflows/qual-001-bootstrap.yml",
+              ".github/workflows/qual-001r-bootstrap.yml",
+              "mycelix-workspace/docs/agents/QUAL_001_ROTATION_V0.1.md",
+              "mycelix-workspace/docs/agents/qual-001-rotation-v0.1.json",
+              "qualification/qual-001/current-verifier.json",
+              "qualification/qual-001/dispatcher_v0_1.py",
+              "qualification/qual-001/gate-manifest-v0.2.json",
+              "qualification/qual-001/rotation-policy-v0.1.json",
+              "qualification/qual-001/rotation_selftest_v0_1.py",
+              "qualification/qual-001/rotation_monotonic_selftest_v0_1.py",
+              "qualification/qual-001/verifier-bundle-v0.2.json",
+              "qualification/qual-001/verifier_v0_2.py",
+              "qualification/qual-001/verifier_monotonic_v0_2.py",
+          }
+          raw = subprocess.check_output(
+              ["git", "diff", "--name-only", "--no-renames", "-z", parent, "HEAD"]
+          )
+          actual = set()
+          for item in raw.split(b"\0"):
+              if not item:
+                  continue
+              value = item.decode("utf-8", "strict")
+              if any(ord(ch) < 0x20 or ord(ch) == 0x7f for ch in value):
+                  raise SystemExit(f"control character in path: {value!r}")
+              actual.add(value)
+          if actual != expected:
+              raise SystemExit(
+                  f"path census mismatch: missing={sorted(expected-actual)} "
+                  f"unexpected={sorted(actual-expected)}"
+              )
+          rc = subprocess.run(
+              ["git", "cat-file", "-e", "HEAD:.github/workflows/qual-001-bootstrap.yml"],
+              stdout=subprocess.DEVNULL,
+              stderr=subprocess.DEVNULL,
+          ).returncode
+          if rc == 0:
+              raise SystemExit("QUAL-001A genesis workflow was not retired")
+          print("QUAL-001R exact subject shape: PASS")
+          PY
+
+      - name: Freeze exact published bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          check() {
+            local path="$1" git_blob="$2" sha256="$3"
+            test "$(git hash-object "$path")" = "$git_blob"
+            test "$(sha256sum "$path" | awk '{print $1}')" = "$sha256"
+          }
+          check '.github/workflows/qual-001-authoritative.yml' \
+            'd33a4077206bec7f8e8c38d90445dbcd71e42e5b' \
+            'a2d03cb15c2afd53cf22051d0f776c9bb038b470239838b08f6aa7b9de4698eb'
+          check 'mycelix-workspace/docs/agents/QUAL_001_ROTATION_V0.1.md' \
+            '015e7a7a58a5188eca8abb7bd7c2daa91a6c3c75' \
+            '05c79dacbe153599a2ea08355d8d8c56a305a56bb4d85fc1de6659c2bd1e3ad4'
+          check 'mycelix-workspace/docs/agents/qual-001-rotation-v0.1.json' \
+            '0f8220b61689685780eafc5c4a4435e5b1d08268' \
+            '8f420e98aaff7aa9ee12fefa480bcb3ab4bb1c388bc0fceada8f09f85ecb6507'
+          check 'qualification/qual-001/current-verifier.json' \
+            'c40ced1c396c303044807c80f2ed183f34083dc3' \
+            'fe1af51c278f67459a96b1a1405645bc047443eae7de3b0b93a734432ee04e97'
+          check 'qualification/qual-001/dispatcher_v0_1.py' \
+            '8eb7f7eb27c0daa343be8f6cc30e5d9fe9e30f53' \
+            '828283d1fbd13dedaca778101bacb85a334a91296f2c7f167cab5fd354537e09'
+          check 'qualification/qual-001/gate-manifest-v0.2.json' \
+            '822bee81ee541f7557099bbf0f1eeba5f4173839' \
+            '69264268de3383b22ea0ac9392e76c30a7d94f333e2955f068050ed238112644'
+          check 'qualification/qual-001/rotation-policy-v0.1.json' \
+            'edfa6544c10be810c930e468ffc5349ace3c5e95' \
+            '72db15ea4d1f335e0553d1b9a30e49a45f2195ce6b7bed151e367ed0ad198a12'
+          check 'qualification/qual-001/rotation_selftest_v0_1.py' \
+            '602304ec038934d33076ae9213b9b2df9909222c' \
+            '39d7aa3e67b4bd92f7ab8bb4dbab11c58b25beb2c2998529d0f20124e36f0ece'
+          check 'qualification/qual-001/rotation_monotonic_selftest_v0_1.py' \
+            '7a910be0628fc15704b3829b19fc9d4b8504eb42' \
+            '50853049e235676f4f45ce032983e1bb4cab567c0b8dc4ae51f1f5d50b1d6532'
+          check 'qualification/qual-001/verifier-bundle-v0.2.json' \
+            '903e86f2f38e09ef18fb7604f11759d2a6ac7c1c' \
+            '1360eff37924a6ce580e7363ab094e9f76caf3b36887b57202fafa628b76f028'
+          check 'qualification/qual-001/verifier_v0_2.py' \
+            '9b65d982d92d419325f42bca6de65e667f928b1b' \
+            'a93af3422785695b601bd873f316d1119a34cd41a4c8c5bb18b93adde7ca9c5f'
+          check 'qualification/qual-001/verifier_monotonic_v0_2.py' \
+            '39ce11e2cebe6afa28996f6414712854f25979ab' \
+            '3541fd050d4eb4c76db324b664481b7d3ac9b98fbc4b15b409ac050222005030'
+
+      - name: Validate semantic chain and declarations
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -B - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          q = Path("qualification/qual-001")
+          bundle_raw = (q / "verifier-bundle-v0.2.json").read_bytes()
+          bundle = json.loads(bundle_raw)
+          pointer = json.loads((q / "current-verifier.json").read_text())
+          gate = json.loads((q / "gate-manifest-v0.2.json").read_text())
+          policy = json.loads((q / "rotation-policy-v0.1.json").read_text())
+          evidence = json.loads(
+              Path("mycelix-workspace/docs/agents/qual-001-rotation-v0.1.json").read_text()
+          )
+          digest = lambda p: hashlib.sha256(Path(p).read_bytes()).hexdigest()
+          assert pointer["bundle_sha256"] == hashlib.sha256(bundle_raw).hexdigest()
+          assert pointer["profile"] == bundle["profile"] == \
+              "mycelix.qual.static-subject-independence.v0.2-monotonic"
+          assert bundle["predecessor_bundle_sha256"] == \
+              "b0281549127d0aa892a347ebffd32c5d9e59f8b6c26b3a478db852dc4366a964"
+          assert bundle["components"]["gate_manifest"]["sha256"] == \
+              digest(q / "gate-manifest-v0.2.json")
+          assert bundle["components"]["verifier"]["sha256"] == \
+              digest(q / "verifier_monotonic_v0_2.py")
+          assert bundle["components"]["rotation_policy"]["sha256"] == \
+              digest(q / "rotation-policy-v0.1.json")
+          assert bundle["launcher"]["authoritative_workflow"]["sha256"] == \
+              digest(".github/workflows/qual-001-authoritative.yml")
+          assert bundle["launcher"]["dispatcher"]["sha256"] == \
+              digest(q / "dispatcher_v0_1.py")
+          assert gate["subject_execution"] is False
+          assert gate["same_repository_subject_required"] is True
+          assert policy["repository_protection_required"] is True
+          assert policy["admin_bypass_qualifies"] is False
+          assert policy["subject_code_execution"] is False
+          assert policy["rotation_requires_predecessor_bundle"] is True
+          assert evidence["candidate_bundle_sha256"] == hashlib.sha256(bundle_raw).hexdigest()
+          assert evidence["current_pointer_sha256"] == digest(q / "current-verifier.json")
+          assert evidence["monotonic_wrapper_sha256"] == \
+              digest(q / "verifier_monotonic_v0_2.py")
+          assert evidence["fixed_contract_selftest_sha256"] == \
+              digest(q / "rotation_monotonic_selftest_v0_1.py")
+          assert evidence["next_bundle_profile_required"] == \
+              "mycelix.qual.static-subject-independence.v0.3"
+          for key in (
+              "fixed_schema_gate_policy_contract_exact",
+              "gate_profile_continuity_required",
+              "rotation_policy_profile_continuity_required",
+              "receipt_field_census_exact",
+              "rotation_liveness_preserved_by_fixed_contract",
+              "repository_protection_required",
+              "qual_001a_bootstrap_workflow_retired",
+          ):
+              assert evidence[key] is True
+          assert evidence[
+              "successor_candidate_verifier_code_executed_during_rotation_authorization"
+          ] is False
+          for key in (
+              "p0_repository_protection_pass",
+              "default_branch_adopted",
+              "p1_required_verifier_check_pass",
+              "independent_topology_active",
+              "runtime_authority_claimed",
+          ):
+              assert evidence[key] is False
+          print("QUAL-001R semantic/declaration chain: PASS")
+          PY
+
+      - name: Run hostile verifier suites
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -B - <<'PY'
+          from pathlib import Path
+          for rel in (
+              "qualification/qual-001/dispatcher_v0_1.py",
+              "qualification/qual-001/verifier_v0_2.py",
+              "qualification/qual-001/verifier_monotonic_v0_2.py",
+              "qualification/qual-001/rotation_selftest_v0_1.py",
+              "qualification/qual-001/rotation_monotonic_selftest_v0_1.py",
+          ):
+              compile(Path(rel).read_bytes(), rel, "exec")
+          print("QUAL-001R in-memory syntax: PASS")
+          PY
+          python3 -B - <<'PY'
+          import shutil, sys
+          from pathlib import Path
+          here = Path("qualification/qual-001").resolve()
+          sys.path.insert(0, str(here))
+          import rotation_selftest_v0_1 as base
+          original = base.copy_current
+          wrapper_rel = Path("qualification/qual-001/verifier_monotonic_v0_2.py")
+          def copy_current(dst):
+              original(dst)
+              out = dst / wrapper_rel
+              out.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copy2(Path.cwd() / wrapper_rel, out)
+          base.copy_current = copy_current
+          base.main()
+          PY
+          python3 -B qualification/qual-001/rotation_monotonic_selftest_v0_1.py
+
+      - name: Non-claims and immutable postflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          doc='mycelix-workspace/docs/agents/QUAL_001_ROTATION_V0.1.md'
+          grep -Fq 'QUAL-001R bootstrap PASS != P0 repository protection' "$doc"
+          grep -Fq 'QUAL-001R bootstrap PASS != #1114 adoption PASS' "$doc"
+          grep -Fq 'QUAL-001R bootstrap PASS != #1107 hostile-subject independence PASS' "$doc"
+          grep -Fq 'QUAL-001R bootstrap PASS != active independent topology' "$doc"
+          test -z "$(git status --short)"
+
+      - name: Emit successful bootstrap receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --short)"
+          receipt_json="$(python3 -B - <<'PY'
+          import hashlib, json, os, subprocess
+          from pathlib import Path
+          def git(*args):
+              return subprocess.check_output(["git", *args], text=True).strip()
+          workflow = Path(".github/workflows/qual-001r-bootstrap.yml")
+          receipt = {
+              "schema": "mycelix.qual.rotation-bootstrap.receipt.v0.1",
+              "qualification_pass": True,
+              "bootstrap_head": git("rev-parse", "HEAD"),
+              "bootstrap_tree": git("rev-parse", "HEAD^{tree}"),
+              "bootstrap_parent_qual_001a": git("rev-parse", "HEAD^"),
+              "bootstrap_workflow_git_blob": git("hash-object", str(workflow)),
+              "bootstrap_workflow_sha256": hashlib.sha256(workflow.read_bytes()).hexdigest(),
+              "changed_path_count": 14,
+              "candidate_profile": "mycelix.qual.static-subject-independence.v0.2-monotonic",
+              "next_bundle_profile_required":
+                  "mycelix.qual.static-subject-independence.v0.3",
+              "predecessor_bundle_sha256":
+                  "b0281549127d0aa892a347ebffd32c5d9e59f8b6c26b3a478db852dc4366a964",
+              "predecessor_bootstrap_receipt_sha256":
+                  "e13ea1d651f1a5a2cfb19ceba483136488a2ff4275d25273b9935e18e5614fc2",
+              "candidate_bundle_sha256":
+                  "1360eff37924a6ce580e7363ab094e9f76caf3b36887b57202fafa628b76f028",
+              "current_pointer_sha256":
+                  "fe1af51c278f67459a96b1a1405645bc047443eae7de3b0b93a734432ee04e97",
+              "monotonic_wrapper_sha256":
+                  "3541fd050d4eb4c76db324b664481b7d3ac9b98fbc4b15b409ac050222005030",
+              "fixed_contract_selftest_sha256":
+                  "50853049e235676f4f45ce032983e1bb4cab567c0b8dc4ae51f1f5d50b1d6532",
+              "theorem_document_sha256":
+                  "05c79dacbe153599a2ea08355d8d8c56a305a56bb4d85fc1de6659c2bd1e3ad4",
+              "machine_evidence_sha256":
+                  "8f420e98aaff7aa9ee12fefa480bcb3ab4bb1c388bc0fceada8f09f85ecb6507",
+              "checkout_action":
+                  "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "python_version":
+                  subprocess.check_output(["python3", "--version"], text=True).strip(),
+              "github_repository": os.environ["GITHUB_REPOSITORY"],
+              "github_run_id": int(os.environ["GITHUB_RUN_ID"]),
+              "github_run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
+              "runner_os": os.environ["RUNNER_OS"],
+              "runner_arch": os.environ["RUNNER_ARCH"],
+              "successor_candidate_verifier_code_executed_during_rotation_authorization":
+                  False,
+              "p0_repository_protection_pass": False,
+              "default_branch_adopted": False,
+              "p1_required_verifier_check_pass": False,
+              "independent_topology_active": False,
+              "runtime_authority_claimed": False,
+          }
+          print(json.dumps(receipt, sort_keys=True, separators=(",", ":")))
+          PY
+          )"
+          test -z "$(git status --short)"
+          echo "QUAL_001R_BOOTSTRAP_RECEIPT_JSON=$receipt_json"
