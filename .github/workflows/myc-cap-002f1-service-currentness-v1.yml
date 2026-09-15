@@ -1,0 +1,67 @@
+name: MYC-CAP-002F1 Service Currentness v1
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/capital/service_currentness_v1.py'
+      - 'scripts/capital/test_service_currentness_v1.py'
+      - 'docs/capital/evidence/myc-cap-002f1/**'
+      - '.github/workflows/myc-cap-002f1-service-currentness-v1.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Designated-current service evidence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Exact PR head and parent
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "45361d938d9a56f66e6eab360b04d773f54b1c8c"
+
+      - name: Python environment
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 -m py_compile scripts/capital/service_currentness_v1.py
+          python3 -m py_compile scripts/capital/test_service_currentness_v1.py
+
+      - name: Fail-closed unit suite
+        run: |
+          set -euo pipefail
+          python3 -m unittest -v scripts/capital/test_service_currentness_v1.py
+
+      - name: Deterministic example receipt
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp)"
+          python3 scripts/capital/service_currentness_v1.py \
+            docs/capital/evidence/myc-cap-002f1/example_case.json \
+            --receipt-out "$tmp"
+          diff -u docs/capital/evidence/myc-cap-002f1/example_receipt.json "$tmp"
+          cp "$tmp" "${tmp}.second"
+          python3 scripts/capital/service_currentness_v1.py \
+            docs/capital/evidence/myc-cap-002f1/example_case.json \
+            --receipt-out "$tmp"
+          cmp "$tmp" "${tmp}.second"
+          echo 'dc2d0dc4ed404251347110cf270d100aed4ed469c121ec771aaaf4854533444d  docs/capital/evidence/myc-cap-002f1/example_case.json' | sha256sum -c -
+          echo 'eb9d9c3306652a35e0948cb36a9d89f86a22223038d151010a0e5f1edd849e38  docs/capital/evidence/myc-cap-002f1/example_receipt.json' | sha256sum -c -
+
+      - name: Strong currentness boundaries
+        run: |
+          set -euo pipefail
+          grep -Fq '"currentness_state": "CURRENT"' docs/capital/evidence/myc-cap-002f1/example_receipt.json
+          grep -Fq '"claim_modified": false' docs/capital/evidence/myc-cap-002f1/example_receipt.json
+          grep -Fq '"uses_local_wall_clock": false' docs/capital/evidence/myc-cap-002f1/example_receipt.json
+          grep -Fq 'historical service validity is not current distribution authority' docs/capital/evidence/myc-cap-002f1/example_receipt.json
