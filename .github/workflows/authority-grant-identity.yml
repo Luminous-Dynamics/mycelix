@@ -1,0 +1,58 @@
+name: Authority Grant Identity
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-authority-identity/**'
+      - '.github/workflows/authority-grant-identity.yml'
+  push:
+    branches:
+      - 'security/authority-grant-identity-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: authority-grant-identity-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Canonical institutional grant identity
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: crates/mycelix-authority-identity
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-authority-identity/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-authority-identity/Cargo.toml --all-targets
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-authority-identity/Cargo.toml --all-targets -- -D warnings
+      - name: Canonical authority identity audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          src = Path('crates/mycelix-authority-identity/src/lib.rs').read_text()
+          assert 'AUTHORITY_GRANT_IDENTITY_PROFILE' in src
+          assert 'DOMAIN_AUTHORITY_GRANT' in src
+          assert 'canonical_text_set' in src
+          assert 'DuplicateCapability' in src
+          assert 'DuplicateAuthoritySource' in src
+          assert 'delegated_from' in src
+          assert 'grant_proof_ref' in src
+          assert 'phi' not in src.lower()
+          assert 'reputation' not in src.lower()
+          assert 'serde_json' not in src
+          print('PASS: authority grant identity is framed, canonical, and score-free')
+          PY
