@@ -1,0 +1,18 @@
+[package]
+name = "mycelix-finance-business-binding"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Business Fabric to Finance reservation and execution binding contracts"
+
+[lib]
+crate-type = ["rlib"]
+name = "mycelix_finance_business_binding"
+
+[dependencies]
+mycelix-business-core = { path = "../../../crates/mycelix-business-core" }
+mycelix-business-coordination = { path = "../../../crates/mycelix-business-coordination" }
+mycelix-business-decision = { path = "../../../crates/mycelix-business-decision" }
+mycelix-business-revalidation = { path = "../../../crates/mycelix-business-revalidation" }
+mycelix-finance-exact = { path = "../finance-exact" }
+mycelix-finance-settlement = { path = "../finance-settlement" }
