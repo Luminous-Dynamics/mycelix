@@ -1,0 +1,306 @@
+name: Mycelix Public Election Authenticated Verifier Package v2
+
+on:
+  push:
+    branches:
+      - feat/governance-public-election-authenticated-verifier-package-v2
+    paths:
+      - '.github/workflows/governance-public-election-authenticated-verifier-package-v2.yml'
+      - 'mycelix-governance/crates/election-authenticated-verifier-package/**'
+      - 'mycelix-governance/docs/PUBLIC_ELECTION_AUTHENTICATED_VERIFIER_PACKAGE_V2.md'
+  pull_request:
+    paths:
+      - '.github/workflows/governance-public-election-authenticated-verifier-package-v2.yml'
+      - 'mycelix-governance/crates/election-authenticated-verifier-package/**'
+      - 'mycelix-governance/docs/PUBLIC_ELECTION_AUTHENTICATED_VERIFIER_PACKAGE_V2.md'
+
+permissions:
+  contents: read
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  ELECT017B_PARENT: '5c52d2b2e1a5afdfaa602849e17313ab73396650'
+  XENIA_AUTH_PROFILE_HEAD: 'e589b65b11f54590a3e5f1883c0581a2b272af0a'
+  XENIA_AUTH_PROFILE_SHA256: 'e8b6ac90028c3064880bfb6b59ac7fbd1a1db04182bd3841e656bba2736d2b90'
+
+jobs:
+  qualify:
+    name: Qualify authenticated-verifier package v2
+    if: >-
+      (github.event_name == 'push' &&
+       github.ref_name == 'feat/governance-public-election-authenticated-verifier-package-v2') ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       github.event.pull_request.head.ref == 'feat/governance-public-election-authenticated-verifier-package-v2')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact subject head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Bind exact additive tranche
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$ELECT017B_PARENT"
+          test "$(git rev-list --count "$ELECT017B_PARENT..HEAD")" -eq 1
+
+          mapfile -t changed < <(git diff --name-only "$ELECT017B_PARENT" HEAD | sort)
+          expected=(
+            '.github/workflows/governance-public-election-authenticated-verifier-package-v2.yml'
+            'mycelix-governance/crates/election-authenticated-verifier-package/Cargo.toml'
+            'mycelix-governance/crates/election-authenticated-verifier-package/src/lib.rs'
+            'mycelix-governance/docs/PUBLIC_ELECTION_AUTHENTICATED_VERIFIER_PACKAGE_V2.md'
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#changed[@]}" -eq "${#expected_sorted[@]}"
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed[@]}")
+
+          # ELECT-011 V1 package semantics are inherited, never rewritten here.
+          git diff --quiet "$ELECT017B_PARENT" HEAD -- \
+            mycelix-governance/crates/election-verifier-contract/src/lib.rs
+          git diff --quiet "$ELECT017B_PARENT" HEAD -- \
+            mycelix-governance/crates/election-verifier-public-key-binding/src/lib.rs
+
+      - name: Bind qualified Xenia authentication profile artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p qualification
+          url="https://raw.githubusercontent.com/Luminous-Dynamics/xenia-peer/${XENIA_AUTH_PROFILE_HEAD}/crates/xenia-auth-protocol/AUTHENTICATION_PROFILE_V1.txt"
+          curl --fail --silent --show-error --location "$url" \
+            > qualification/XENIA_AUTHENTICATION_PROFILE_V1.txt
+          test "$(wc -c < qualification/XENIA_AUTHENTICATION_PROFILE_V1.txt)" -eq 1120
+          test "$(sha256sum qualification/XENIA_AUTHENTICATION_PROFILE_V1.txt | awk '{print $1}')" \
+            = "$XENIA_AUTH_PROFILE_SHA256"
+          printf '%s\n' \
+            "repository=Luminous-Dynamics/xenia-peer" \
+            "qualified_head=$XENIA_AUTH_PROFILE_HEAD" \
+            "qualified_run=34893112622" \
+            "qualified_job=104140381678" \
+            "profile_sha256=$XENIA_AUTH_PROFILE_SHA256" \
+            > qualification/xenia-auth-profile-v1.dependency.txt
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt,clippy
+
+      - name: Check production-source formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          src='mycelix-governance/crates/election-authenticated-verifier-package/src/lib.rs'
+          awk '/^#\[cfg\(test\)\]/{exit} {print}' "$src" > /tmp/elect017c-prod.rs
+          perl -0pi -e 's/\n+\z/\n/' /tmp/elect017c-prod.rs
+          rustfmt --edition 2024 --check /tmp/elect017c-prod.rs
+
+      - name: Generate dependency evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate='mycelix-governance/crates/election-authenticated-verifier-package'
+          pushd "$crate" >/dev/null
+          cargo generate-lockfile
+          cp Cargo.lock "../../../qualification/election-authenticated-verifier-package.Cargo.lock"
+          sha256sum Cargo.lock \
+            > "../../../qualification/election-authenticated-verifier-package.Cargo.lock.sha256"
+          cargo metadata --locked --format-version 1 \
+            > "../../../qualification/election-authenticated-verifier-package.cargo-metadata.json"
+          popd >/dev/null
+
+      - name: Execute theorem corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test \
+            --manifest-path mycelix-governance/crates/election-authenticated-verifier-package/Cargo.toml \
+            --locked 2>&1 | tee qualification/election-authenticated-verifier-package.tests.log
+
+      - name: Run warning-fatal library Clippy
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo clippy \
+            --manifest-path mycelix-governance/crates/election-authenticated-verifier-package/Cargo.toml \
+            --locked --lib -- -D warnings \
+            2>&1 | tee qualification/election-authenticated-verifier-package.clippy.log
+
+      - name: Independently reproduce extension and package vectors
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          from pathlib import Path
+
+          KEY_DOMAIN = b'XENIA:AuthenticationSignerKeyId:v1'
+          BUNDLE_DOMAIN = b'MYCELIX:PUBLIC-ELECTION:VERIFIER-PUBLIC-KEY-BUNDLE:V1\x00'
+          EXT_DOMAIN = b'MYCELIX:PUBLIC-ELECTION:AUTHENTICATED-VERIFIER-EXTENSION-ROOT:V1\x00'
+          PACKAGE_DOMAIN = b'MYCELIX:PUBLIC-ELECTION:AUTHENTICATED-VERIFIER-EVIDENCE-PACKAGE:V2\x00'
+
+          PROFILE_ID = 'mycelix-public-election-evidence-package-authenticated-verifier-v2'
+          BUNDLE_PATH = 'authentication/verifier-public-key-bundle-v1.bin'
+          PROFILE_PATH = 'authentication/xenia-authentication-profile-v1.txt'
+
+          profile_bytes = Path('qualification/XENIA_AUTHENTICATION_PROFILE_V1.txt').read_bytes()
+          profile_digest = hashlib.sha256(profile_bytes).digest()
+          assert len(profile_bytes) == 1120
+          assert profile_digest.hex() == 'e8b6ac90028c3064880bfb6b59ac7fbd1a1db04182bd3841e656bba2736d2b90'
+
+          registry = bytes.fromhex(
+              '0255c2b3070e579d52e41ab6a9d767d1700b61fd68787bbae78bd41aa868945f'
+          )
+          root_digest = bytes.fromhex(
+              '4e52e8b427611e11b36b0a22b8c8ab7b62bf808d4223db1955f50ca9b02e65b5'
+          )
+          requirements_digest = bytes.fromhex(
+              '5885c0782e5fcddc7d96f4dea04a08aeec53e3f78934a1ac390a7467ed0cb293'
+          )
+
+          def sha(raw):
+              return hashlib.sha256(raw).digest()
+
+          def lp32(text):
+              raw = text.encode()
+              return len(raw).to_bytes(4, 'big') + raw
+
+          def signer_id(suite, public_key):
+              return sha(
+                  KEY_DOMAIN
+                  + suite.to_bytes(2, 'little')
+                  + len(public_key).to_bytes(8, 'little')
+                  + public_key
+              )
+
+          ed = [
+              bytes.fromhex('2152f8d19b791d24453242e15f2eab6cb7cffa7b6a5ed30097960e069881db12'),
+              bytes.fromhex('22fc297792f0b6ffc0bfcfdb7edb0c0aa14e025a365ec0e342e86e3829cb74b6'),
+              bytes.fromhex('d759793bbc13a2819a827c76adb6fba8a49aee007f49f2d0992d99b825ad2c48'),
+          ]
+          ml = [bytes([value]) * 1952 for value in (0x42, 0x43, 0x44)]
+          ed_ids = [signer_id(1, key) for key in ed]
+          ml_ids = [signer_id(2, key) for key in ml]
+
+          entries = []
+          for i in range(3):
+              release = bytes([0x21 + i]) * 32
+              entries.append((release, 1, profile_digest, ed_ids[i], ed[i]))
+              entries.append((release, 2, profile_digest, ml_ids[i], ml[i]))
+          entries.sort(key=lambda item: (item[0], item[1], item[3]))
+
+          bundle = (
+              BUNDLE_DOMAIN
+              + lp32('mycelix-public-election-verifier-public-key-binding-v1')
+              + root_digest
+              + bytes([0x11]) * 32
+              + bytes([0x12]) * 32
+              + profile_digest
+              + registry
+              + len(entries).to_bytes(2, 'big')
+          )
+          for release, suite, entry_profile, key_id, public_key in entries:
+              bundle += (
+                  release
+                  + suite.to_bytes(2, 'big')
+                  + entry_profile
+                  + key_id
+                  + len(public_key).to_bytes(4, 'big')
+                  + public_key
+              )
+
+          bundle_digest = sha(bundle)
+          assert len(bundle) == 6838
+          assert bundle_digest.hex() == (
+              '97565d554ffaddbcc35d2a22d209ec1fb2646c0f4303146bb73c3d9640fdbefc'
+          )
+
+          refs = [
+              (1, BUNDLE_PATH, bundle_digest, len(bundle)),
+              (2, PROFILE_PATH, profile_digest, len(profile_bytes)),
+          ]
+          extension_bytes = EXT_DOMAIN + len(refs).to_bytes(2, 'big')
+          for role, path, digest, byte_length in refs:
+              path_bytes = path.encode()
+              extension_bytes += (
+                  bytes([role])
+                  + len(path_bytes).to_bytes(4, 'big')
+                  + path_bytes
+                  + digest
+                  + byte_length.to_bytes(8, 'big')
+              )
+          extension_root = sha(extension_bytes)
+          assert extension_root.hex() == (
+              'f39819fd42dfc9c9da4b9c8bb98a10baa37e4b840b0c5e74c6ff4c74b8b0f2a9'
+          )
+
+          package_identity = sha(
+              PACKAGE_DOMAIN
+              + lp32(PROFILE_ID)
+              + bytes([0x04]) * 32
+              + extension_root
+              + requirements_digest
+          )
+          assert package_identity.hex() == (
+              '37646d8240afdcaecaaf8f810254a720b5bbafde329cb3ef2f274ca0205bd33d'
+          )
+          PY
+
+      - name: Audit V1 preservation and authenticated-extension boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          src='mycelix-governance/crates/election-authenticated-verifier-package/src/lib.rs'
+          cargo='mycelix-governance/crates/election-authenticated-verifier-package/Cargo.toml'
+          docs='mycelix-governance/docs/PUBLIC_ELECTION_AUTHENTICATED_VERIFIER_PACKAGE_V2.md'
+
+          grep -F 'AUTHENTICATED-VERIFIER-EXTENSION-ROOT:V1' "$src"
+          grep -F 'AUTHENTICATED-VERIFIER-EVIDENCE-PACKAGE:V2' "$src"
+          grep -F 'validate_evidence_package_manifest' "$src"
+          grep -F 'canonical_verifier_authentication_public_key_bundle_bytes' "$src"
+          grep -F 'verifier_public_key_requirements_digest' "$src"
+          grep -F 'VerifierPublicKeyBundleBytesMismatch' "$src"
+          grep -F 'XeniaProfileDigestMismatch' "$src"
+          grep -F 'MAX_VERIFIER_PUBLIC_KEY_BUNDLE_BYTES_V2: usize = 512 * 1024' "$src"
+          grep -F "$XENIA_AUTH_PROFILE_SHA256" "$docs"
+          grep -F 'does not recompute the V1 `package_root_digest` from archive bytes' "$docs"
+
+          if grep -Eiq '(ed25519-dalek|ml-dsa|xenia-auth[ ="])' "$cargo"; then
+            echo 'ELECT-017C must package public evidence, not implement signature verification' >&2
+            exit 1
+          fi
+          if grep -Eq '(SigningKey|PrivateKey|private_key|secret_key)' "$src"; then
+            echo 'ELECT-017C must not accept private-key material' >&2
+            exit 1
+          fi
+
+      - name: Remove transient lock and prove immutable checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f mycelix-governance/crates/election-authenticated-verifier-package/Cargo.lock
+          test -z "$(git status --porcelain=v1 --untracked-files=all | grep -v '^?? qualification/' || true)"
+          printf '%s\n' \
+            "subject_head=$(git rev-parse HEAD)" \
+            "parent=$ELECT017B_PARENT" \
+            "rust_toolchain=$RUST_TOOLCHAIN" \
+            "xenia_auth_profile_head=$XENIA_AUTH_PROFILE_HEAD" \
+            "xenia_auth_profile_sha256=$XENIA_AUTH_PROFILE_SHA256" \
+            "elect017b_qualified_run=34919377819" \
+            "elect017b_qualified_job=104223831338" \
+            "authenticated_verifier_package_v2=PASS" \
+            "immutable_checkout=PASS" \
+            > qualification/public-election-authenticated-verifier-package-v2.status.txt
+
+      - name: Upload qualification evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: public-election-authenticated-verifier-package-v2
+          path: qualification/*
+          if-no-files-found: error
+          retention-days: 30
