@@ -1,0 +1,95 @@
+name: FIN-ECO-001 Lock Delta Diagnostic
+
+on:
+  pull_request:
+    branches:
+      - fix/fin-eco-001-rustfmt-r1
+    paths:
+      - '.github/workflows/fin-eco-001-lock-delta-diagnostic.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  EXPECTED_PRODUCT_SHA: 'c85598178071d2fc7053069e60a848d494cfd367'
+  WORKSPACE_MANIFEST: 'mycelix-finance/Cargo.toml'
+  LOCKFILE: 'mycelix-finance/Cargo.lock'
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact diagnostic subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Prove diagnostic-only child
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PRODUCT_SHA"
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PRODUCT_SHA" HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = '.github/workflows/fin-eco-001-lock-delta-diagnostic.yml'
+
+      - name: Install pinned Rust
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
+
+      - name: Let Cargo compute the required lock delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          before="$(sha256sum "$LOCKFILE" | awk '{print $1}')"
+          cargo metadata --manifest-path "$WORKSPACE_MANIFEST" --format-version 1 >/dev/null
+          after="$(sha256sum "$LOCKFILE" | awk '{print $1}')"
+          printf 'lock_before=%s\nlock_after=%s\n' "$before" "$after"
+          echo '--- BEGIN CARGO-GENERATED LOCK DIFF ---'
+          git diff -- "$LOCKFILE"
+          echo '--- END CARGO-GENERATED LOCK DIFF ---'
+          test -n "$(git diff -- "$LOCKFILE")"
+          test -z "$(git status --porcelain=v1 --untracked-files=no | grep -v '^ M mycelix-finance/Cargo.lock$' || true)"
+
+      - name: Show exact package stanza
+        shell: bash
+        run: |
+          set -euo pipefail
+          awk '
+            /^\[\[package\]\]$/ { block=$0 ORS; capture=1; next }
+            capture { block=block $0 ORS }
+            capture && /^name = "mycelix-finance-exact"$/ { wanted=1 }
+            capture && /^$/ {
+              if (wanted) { printf "%s", block; found=1; exit }
+              block=""; capture=0; wanted=0
+            }
+            END { if (!found && wanted) printf "%s", block }
+          ' "$LOCKFILE"
+          grep -Fq 'name = "mycelix-finance-exact"' "$LOCKFILE"
+
+      - name: Compile exact arithmetic against Cargo-generated ephemeral lock
+        run: cargo test --manifest-path "$WORKSPACE_MANIFEST" -p mycelix-finance-exact --all-targets --locked --no-run
+
+      - name: Execute exact arithmetic tests against ephemeral lock
+        run: cargo test --manifest-path "$WORKSPACE_MANIFEST" -p mycelix-finance-exact --all-targets --locked
+
+      - name: Strict Clippy against ephemeral lock
+        run: cargo clippy --manifest-path "$WORKSPACE_MANIFEST" -p mycelix-finance-exact --all-targets --locked -- -D warnings
+
+      - name: Preserve diagnostic mutation boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t dirty < <(git status --porcelain=v1 --untracked-files=no)
+          test "${#dirty[@]}" -eq 1
+          test "${dirty[0]}" = ' M mycelix-finance/Cargo.lock'
+
+      - name: Nonclaim
+        run: echo 'diagnostic_only=PASS; ephemeral lock + source compile/tests/clippy succeeded; no product bytes were committed by this workflow'
