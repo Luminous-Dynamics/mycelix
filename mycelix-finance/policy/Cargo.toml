@@ -1,0 +1,11 @@
+[package]
+name = "mycelix-economic-policy"
+version = "0.1.0"
+edition = "2024"
+description = "Dependency-free constitutional economic policy kernel for SAP, TEND, and MYCEL"
+license = "AGPL-3.0-or-later"
+publish = false
+
+# Deliberately independent from the parent Finance workspace for ECON-002.
+# Runtime wiring is a later tranche after this policy surface is independently qualified.
+[workspace]
