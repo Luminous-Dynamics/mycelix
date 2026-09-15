@@ -16,6 +16,7 @@
 //! - Explicit institutional robustness envelopes
 //! - Procurement-specific robustness matrices
 //! - Qualified supplier-attributed procurement award values
+//! - Procurement weighting robustness bridge
 //! - Evidence types shared across justice and media
 //! - Status/phase traits for state machine validation
 //! - Role-based authorization helpers
@@ -34,6 +35,7 @@ pub mod institutional_graph;
 pub mod institutional_robustness;
 pub mod procurement_robustness;
 pub mod procurement_value;
+pub mod procurement_weighting;
 pub mod qualified_identity_resolution;
 pub mod qualified_identity_sensitivity;
 pub mod roles;
@@ -65,6 +67,7 @@ pub use institutional_graph::*;
 pub use institutional_robustness::*;
 pub use procurement_robustness::*;
 pub use procurement_value::*;
+pub use procurement_weighting::*;
 pub use qualified_identity_resolution::*;
 pub use qualified_identity_sensitivity::*;
 pub use roles::*;
