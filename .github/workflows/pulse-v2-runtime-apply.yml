@@ -1,0 +1,105 @@
+name: Pulse V2 Runtime Apply
+
+on:
+  push:
+    branches:
+      - feat/pulse-v2-post-commit-runtime-v2
+    paths:
+      - '.github/workflows/pulse-v2-runtime-apply.yml'
+
+permissions:
+  contents: write
+
+env:
+  PATCH: .github/runtime/pulse-v2-runtime-v2.patch
+  HOLOCHAIN_MANIFEST: mycelix-workspace/mycelix-pulse/holochain/Cargo.toml
+  COORDINATOR_MANIFEST: mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/Cargo.toml
+
+jobs:
+  apply-runtime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Verify exact patch subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '${{ github.sha }}'
+          test -f "$PATCH"
+          git apply --check "$PATCH"
+
+      - name: Apply deterministic runtime patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git apply "$PATCH"
+          python3 scripts/ci/pulse_v2_producer_boundary.py
+          python3 scripts/ci/pulse_v2_post_commit_boundary.py
+          python3 scripts/ci/pulse_v2_remote_ingress_boundary.py
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87b
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+
+      - name: Format runtime package
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path "$HOLOCHAIN_MANIFEST" --package mail_messages
+
+      - name: Resolve and compile exact runtime closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path "$HOLOCHAIN_MANIFEST" -p mail_messages
+          cargo check --manifest-path "$HOLOCHAIN_MANIFEST" --locked -p mail_messages
+          cargo test --manifest-path "$HOLOCHAIN_MANIFEST" --locked -p mail_messages --lib
+          cargo clippy --manifest-path "$HOLOCHAIN_MANIFEST" --locked -p mail_messages --lib -- -D warnings
+
+      - name: Reprove source authority after rustfmt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/ci/pulse_v2_producer_boundary.py
+          python3 scripts/ci/pulse_v2_post_commit_boundary.py
+          python3 scripts/ci/pulse_v2_remote_ingress_boundary.py
+
+      - name: Prove mutation scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t changed < <(git status --porcelain | sed 's/^...//' | sort)
+          expected=(
+            mycelix-workspace/mycelix-pulse/holochain/Cargo.lock
+            mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/Cargo.toml
+            mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src/lib.rs
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "$(printf '%s\n' "${changed[@]}")" = "$(printf '%s\n' "${expected_sorted[@]}")" || {
+            echo '::error::Runtime preflight changed unexpected paths'
+            git status --short
+            exit 1
+          }
+          git diff --check
+
+      - name: Commit exact preflighted runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            mycelix-workspace/mycelix-pulse/holochain/Cargo.lock \
+            mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/Cargo.toml \
+            mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src/lib.rs
+          git diff --cached --check
+          git commit -m 'feat(pulse): enable qualified post-commit V2 wake runtime'
+          git push origin HEAD:feat/pulse-v2-post-commit-runtime-v2
