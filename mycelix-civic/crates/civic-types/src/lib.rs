@@ -17,6 +17,7 @@
 //! - Procurement-specific robustness matrices
 //! - Qualified supplier-attributed procurement award values
 //! - Procurement weighting robustness bridge
+//! - Full procurement robustness composition
 //! - Evidence types shared across justice and media
 //! - Status/phase traits for state machine validation
 //! - Role-based authorization helpers
@@ -33,6 +34,7 @@ mod identity_resolution;
 mod identity_sensitivity;
 pub mod institutional_graph;
 pub mod institutional_robustness;
+pub mod procurement_full_robustness;
 pub mod procurement_robustness;
 pub mod procurement_value;
 pub mod procurement_weighting;
@@ -65,6 +67,7 @@ pub use identity_sensitivity::{
 };
 pub use institutional_graph::*;
 pub use institutional_robustness::*;
+pub use procurement_full_robustness::*;
 pub use procurement_robustness::*;
 pub use procurement_value::*;
 pub use procurement_weighting::*;
