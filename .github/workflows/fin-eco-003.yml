@@ -1,0 +1,54 @@
+name: FIN-ECO-003 Business Finance Binding
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-finance/Cargo.toml'
+      - 'mycelix-finance/crates/finance-exact/**'
+      - 'mycelix-finance/crates/finance-settlement/**'
+      - 'mycelix-finance/crates/finance-business-binding/**'
+      - '.github/workflows/fin-eco-003.yml'
+  push:
+    branches:
+      - 'feat/fin-eco-003-*'
+    paths:
+      - 'mycelix-finance/Cargo.toml'
+      - 'mycelix-finance/crates/finance-exact/**'
+      - 'mycelix-finance/crates/finance-settlement/**'
+      - 'mycelix-finance/crates/finance-business-binding/**'
+      - '.github/workflows/fin-eco-003.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-fin-eco-stack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check FIN-ECO formatting
+        run: |
+          cargo fmt --manifest-path mycelix-finance/crates/finance-exact/Cargo.toml -- --check
+          cargo fmt --manifest-path mycelix-finance/crates/finance-settlement/Cargo.toml -- --check
+          cargo fmt --manifest-path mycelix-finance/crates/finance-business-binding/Cargo.toml -- --check
+      - name: Clippy FIN-ECO stack
+        run: >-
+          cargo clippy
+          --manifest-path mycelix-finance/Cargo.toml
+          -p mycelix-finance-exact
+          -p mycelix-finance-settlement
+          -p mycelix-finance-business-binding
+          --all-targets
+          -- -D warnings
+      - name: Test FIN-ECO stack
+        run: >-
+          cargo test
+          --manifest-path mycelix-finance/Cargo.toml
+          -p mycelix-finance-exact
+          -p mycelix-finance-settlement
+          -p mycelix-finance-business-binding
+          --all-targets
