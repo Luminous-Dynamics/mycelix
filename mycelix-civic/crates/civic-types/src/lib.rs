@@ -5,6 +5,7 @@
 //!
 //! Common functionality for all domain zomes in the Civic cluster:
 //! - Constitutional anti-capture invariants
+//! - Capture observation, uncertainty, hypothesis, and signal contracts
 //! - Evidence types shared across justice and media
 //! - Status/phase traits for state machine validation
 //! - Role-based authorization helpers
@@ -12,12 +13,14 @@
 
 pub mod anti_capture;
 pub mod bridge_types;
+pub mod capture_observation;
 pub mod evidence;
 pub mod roles;
 pub mod status;
 
 pub use anti_capture::*;
 pub use bridge_types::*;
+pub use capture_observation::*;
 pub use evidence::*;
 pub use roles::*;
 pub use status::*;
