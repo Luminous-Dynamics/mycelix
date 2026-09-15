@@ -11,6 +11,7 @@
 //! - Standards-bound OCDS/BODS ingestion contracts
 //! - Reversible public-entity identity reconciliation
 //! - Internal qualified equivalence-view projection engine
+//! - Trust-rooted public identity qualification boundary
 //! - Evidence types shared across justice and media
 //! - Status/phase traits for state machine validation
 //! - Role-based authorization helpers
@@ -22,6 +23,7 @@ pub mod capture_metrics;
 pub mod capture_observation;
 mod equivalence_view;
 pub mod evidence;
+pub mod identity_qualification;
 mod identity_resolution;
 pub mod institutional_graph;
 pub mod qualified_identity_resolution;
@@ -41,6 +43,7 @@ pub use equivalence_view::{
     QualifiedEquivalenceView,
 };
 pub use evidence::*;
+pub use identity_qualification::*;
 pub use identity_resolution::{
     EntityBindingEvidence, EntityIdentityLink, IdentityLinkStatus, IdentityResolutionError,
     IdentityResolutionViolation, IdentityVerification, IdentityVerificationKind,
