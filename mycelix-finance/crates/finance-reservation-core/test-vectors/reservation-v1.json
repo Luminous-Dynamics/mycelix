@@ -1,0 +1,66 @@
+{
+  "profile": "MYCELIX_FINANCE_RESERVATION_DESCRIPTOR_V1",
+  "digest": "sha256",
+  "descriptor": {
+    "commitment_profile_revision": 1,
+    "reservation_id": "reservation:1",
+    "request_id": "request:1",
+    "finance_domain": "finance",
+    "issuer_authority": "finance-authority:alpha",
+    "issuer_profile": "issuer:finance:v1",
+    "issuer_profile_revision": 1,
+    "issuer_profile_digest_repeat_byte": 5,
+    "finance_policy_sequence": 9,
+    "finance_policy_digest_repeat_byte": 6,
+    "subject": "treasury:operating",
+    "amount": {
+      "asset": "USD.micro",
+      "atomic_units": 100
+    },
+    "effect_class": "finance-effect:payment",
+    "action_contract": {
+      "semantic_id": "mycelix.finance.pay.v1",
+      "digest_repeat_byte": 1
+    },
+    "decision": {
+      "id": "decision:1",
+      "digest_repeat_byte": 2
+    },
+    "authorized_intent": "intent:1",
+    "intent_digest_repeat_byte": 3,
+    "authority_lease_id": "authority:lease:1",
+    "authority_epoch": 7,
+    "fencing_token": 11,
+    "aggregate_policy_keys": [
+      "aggregate:counterparty:24h",
+      "aggregate:treasury:24h"
+    ],
+    "idempotency_key": "payment:idem:1",
+    "required_finality_profile": {
+      "id": "finality:bank:v1",
+      "revision": 1,
+      "digest_repeat_byte": 4
+    },
+    "issued_at_unix_ms": 100,
+    "expires_at_unix_ms": 1000
+  },
+  "expected": {
+    "canonical_descriptor_length": 621,
+    "descriptor_commitment_hex": "9fca16ee26def839f6d98d8b413c126a1fdd1267f8d6c065c7515941737538cd",
+    "initial_state": {
+      "state_profile_revision": 1,
+      "sequence": 1,
+      "lifecycle": "Active",
+      "state_commitment_hex": "03e797473a7cf8cb8b1ce4fdd6170363c135b28765abcb553eb76fcd7c7599bf"
+    },
+    "consumed_state": {
+      "state_profile_revision": 1,
+      "sequence": 2,
+      "lifecycle": "Consumed",
+      "attempt": "attempt:1",
+      "idempotency_key": "payment:idem:1",
+      "consumed_at_unix_ms": 400,
+      "state_commitment_hex": "5b2aedc5f5fd483a1ff2053057871ddf7be1ce30c3a52aac41c70ab472df2a1d"
+    }
+  }
+}

@@ -5,6 +5,7 @@ members = [
     "crates/finance-exact",
     "crates/finance-settlement",
     "crates/finance-business-binding",
+    "crates/finance-reservation-core",
     "crates/finance-wire-types",
     "crates/finance-leptos-types",
     "zomes/shared",

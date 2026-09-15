@@ -1,0 +1,59 @@
+name: FIN-ECO-004A Reservation Core
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-finance/Cargo.toml'
+      - 'mycelix-finance/crates/finance-exact/**'
+      - 'mycelix-finance/crates/finance-settlement/**'
+      - 'mycelix-finance/crates/finance-business-binding/**'
+      - 'mycelix-finance/crates/finance-reservation-core/**'
+      - '.github/workflows/fin-eco-004a.yml'
+  push:
+    branches:
+      - 'feat/fin-eco-004a-*'
+    paths:
+      - 'mycelix-finance/Cargo.toml'
+      - 'mycelix-finance/crates/finance-exact/**'
+      - 'mycelix-finance/crates/finance-settlement/**'
+      - 'mycelix-finance/crates/finance-business-binding/**'
+      - 'mycelix-finance/crates/finance-reservation-core/**'
+      - '.github/workflows/fin-eco-004a.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-reservation-core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check FIN-ECO formatting
+        run: |
+          cargo fmt --manifest-path mycelix-finance/crates/finance-exact/Cargo.toml -- --check
+          cargo fmt --manifest-path mycelix-finance/crates/finance-settlement/Cargo.toml -- --check
+          cargo fmt --manifest-path mycelix-finance/crates/finance-business-binding/Cargo.toml -- --check
+          cargo fmt --manifest-path mycelix-finance/crates/finance-reservation-core/Cargo.toml -- --check
+      - name: Clippy FIN-ECO reservation stack
+        run: >-
+          cargo clippy
+          --manifest-path mycelix-finance/Cargo.toml
+          -p mycelix-finance-exact
+          -p mycelix-finance-settlement
+          -p mycelix-finance-business-binding
+          -p mycelix-finance-reservation-core
+          --all-targets
+          -- -D warnings
+      - name: Test FIN-ECO reservation stack
+        run: >-
+          cargo test
+          --manifest-path mycelix-finance/Cargo.toml
+          -p mycelix-finance-exact
+          -p mycelix-finance-settlement
+          -p mycelix-finance-business-binding
+          -p mycelix-finance-reservation-core
+          --all-targets
