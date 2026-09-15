@@ -5,51 +5,104 @@ on:
     paths:
       - 'mycelix-governance/zomes/execution-lifecycle-verifier/**'
       - 'mycelix-governance/zomes/execution-lifecycle/VERIFIER_CONTRACT.md'
+      - 'crates/mycelix-governance-executor-provider-contract/**'
+      - 'crates/mycelix-governance-current-executor-authority/**'
       - 'mycelix-governance/Cargo.toml'
       - 'mycelix-governance/dna/dna.yaml'
       - '.github/workflows/governance-execution-lifecycle-verifier.yml'
   push:
     branches:
-      - 'security/governance-execution-lifecycle-verifier-v0.1'
+      - 'security/governance-lifecycle-current-executor-v0.1'
 
 permissions:
   contents: read
 
+concurrency:
+  group: governance-execution-lifecycle-verifier-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
   verifier:
     name: Lifecycle verifier native + WASM
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Checkout exact branch head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Verify exact checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ github.event.pull_request.head.sha }}'
+          if [[ -z "$expected" ]]; then expected="$GITHUB_SHA"; fi
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$expected"
+          echo "exact subject: $actual"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
           targets: wasm32-unknown-unknown
           components: rustfmt, clippy
+
+      - name: Toolchain identity
+        run: |
+          rustc --version --verbose
+          cargo --version
+          rustfmt --version
+          cargo clippy --version
+
       - name: Format
         working-directory: mycelix-governance
         run: cargo fmt --package governance_execution_lifecycle_verifier -- --check
+
       - name: Native tests
         working-directory: mycelix-governance
         run: cargo test --package governance_execution_lifecycle_verifier --all-targets
+
       - name: Native clippy
         working-directory: mycelix-governance
         run: cargo clippy --package governance_execution_lifecycle_verifier --all-targets -- -D warnings
+
       - name: WASM build
         working-directory: mycelix-governance
         run: cargo check --release --target wasm32-unknown-unknown --package governance_execution_lifecycle_verifier
 
   containment:
     name: Verifier remains unprovisioned until providers qualify
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout exact branch head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Verify exact checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ github.event.pull_request.head.sha }}'
+          if [[ -z "$expected" ]]; then expected="$GITHUB_SHA"; fi
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$expected"
+          echo "exact subject: $actual"
+
       - name: Verify authority providers are not silently provisioned
         run: |
           python3 - <<'PY'
           from pathlib import Path
           dna = Path('mycelix-governance/dna/dna.yaml').read_text()
           verifier = Path('mycelix-governance/zomes/execution-lifecycle-verifier/coordinator/src/lib.rs').read_text()
+          contract = Path('mycelix-governance/zomes/execution-lifecycle-verifier/CURRENT_EXECUTOR_AUTHORITY.md').read_text()
+          provider = Path('crates/mycelix-governance-executor-provider-contract/src/lib.rs').read_text()
           forbidden = [
               'name: governance_execution_lifecycle_verifier',
               'name: governance_execution_plan_verifier',
@@ -67,5 +120,10 @@ jobs:
           assert 'external_effects_enabled: false' in verifier
           assert 'Phi' not in verifier
           assert 'reputation' not in verifier.lower()
-          print('PASS: lifecycle verifier remains composition-only and unprovisioned')
+
+          assert 'current-executor:<CURRENT_EXECUTOR_AUTHORITY_PROFILE>:<64-hex digest>' in contract
+          assert 'same threshold-authorization identity digest/profile' in contract
+          assert 'executor_authority_ref' in provider
+          assert 'qualify_current_executor_authority' in provider
+          print('PASS: lifecycle remains unprovisioned and current-executor authority has a deterministic provider contract')
           PY
