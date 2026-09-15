@@ -23,13 +23,77 @@ jobs:
           toolchain: '1.96.0'
           components: rustfmt,clippy
 
-      - name: Correct test-helper shadowing and normalize owned source
+      - name: Normalize owned lifecycle core without lint suppression
         shell: bash
         run: |
           set -euo pipefail
           src='mycelix-governance/crates/election-verifier-key-lifecycle-core/src/lib.rs'
-          perl -0pi -e 's/\blifecycle_policy\(\)/make_lifecycle_policy()/g' "$src"
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('mycelix-governance/crates/election-verifier-key-lifecycle-core/src/lib.rs')
+          text = path.read_text()
+          text = text.replace('lifecycle_policy()', 'make_lifecycle_policy()')
+          text = text.replace("fn evidence_by_release_and_suite<'a>(\n    bundle: &'a VerifierAuthenticationPublicKeyBundleV1,\n) -> HashMap<(Digest32, u16), &'a VerifierAuthenticationPublicKeyEvidenceV1> {", "fn evidence_by_release_and_suite(\n    bundle: &VerifierAuthenticationPublicKeyBundleV1,\n) -> HashMap<(Digest32, u16), &VerifierAuthenticationPublicKeyEvidenceV1> {")
+          old_sig = "    fn rotation_request(\n        lifecycle_policy: &VerifierKeyLifecycleCorePolicyV1,\n        state: &VerifierKeyLifecycleStateV1,\n        authorization_policy: &VerifierKeyAuthorizationPolicyV1,\n        root: &VerifierKeyAuthorizationRootV1,\n        bundle: &VerifierAuthenticationPublicKeyBundleV1,\n        release: Digest32,\n        ed_byte: u8,\n        ml_byte: u8,\n    ) -> LifecycleTransitionRequestV1 {"
+          new_sig = "    fn rotation_request(\n        lifecycle_policy: &VerifierKeyLifecycleCorePolicyV1,\n        state: &VerifierKeyLifecycleStateV1,\n        authorization_policy: &VerifierKeyAuthorizationPolicyV1,\n        root: &VerifierKeyAuthorizationRootV1,\n        bundle: &VerifierAuthenticationPublicKeyBundleV1,\n        replacement: (Digest32, u8, u8),\n    ) -> LifecycleTransitionRequestV1 {\n        let (release, ed_byte, ml_byte) = replacement;"
+          if text.count(old_sig) != 1:
+              raise SystemExit('rotation helper signature not found exactly once')
+          text = text.replace(old_sig, new_sig, 1)
+
+          needle = 'rotation_request('
+          cursor = 0
+          rewritten = []
+          while True:
+              start = text.find(needle, cursor)
+              if start < 0:
+                  break
+              prefix = text[max(0, start - 8):start]
+              if 'fn ' in prefix:
+                  cursor = start + len(needle)
+                  continue
+              i = start + len(needle)
+              depth = 1
+              j = i
+              while j < len(text) and depth:
+                  ch = text[j]
+                  if ch == '(':
+                      depth += 1
+                  elif ch == ')':
+                      depth -= 1
+                  j += 1
+              if depth != 0:
+                  raise SystemExit('unbalanced rotation_request call')
+              body = text[i:j-1]
+              args = []
+              part = []
+              nested = 0
+              for ch in body:
+                  if ch in '([{':
+                      nested += 1
+                  elif ch in ')]}':
+                      nested -= 1
+                  if ch == ',' and nested == 0:
+                      args.append(''.join(part).strip())
+                      part = []
+                  else:
+                      part.append(ch)
+              if ''.join(part).strip():
+                  args.append(''.join(part).strip())
+              if len(args) == 8:
+                  packed = f'({args[5]}, {args[6]}, {args[7]})'
+                  replacement = ', '.join(args[:5] + [packed])
+                  text = text[:i] + replacement + text[j-1:]
+                  cursor = i + len(replacement) + 1
+                  rewritten.append(start)
+              else:
+                  cursor = j
+          if not rewritten:
+              raise SystemExit('no rotation_request calls rewritten')
+          path.write_text(text)
+          PY
           grep -F 'fn make_lifecycle_policy()' "$src"
+          grep -F 'fn evidence_by_release_and_suite(' "$src"
+          grep -F 'replacement: (Digest32, u8, u8)' "$src"
           cargo fmt --manifest-path mycelix-governance/crates/election-verifier-key-lifecycle-core/Cargo.toml
           mapfile -t changed < <(git diff --name-only)
           test "${#changed[@]}" -eq 1
@@ -55,5 +119,5 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add "$src"
-          git commit -m 'fix(elect018a): normalize lifecycle core fixture with Rust 1.96'
+          git commit -m 'fix(elect018a): normalize lifecycle core with Rust 1.96'
           git push origin HEAD:tmp/elect018a-lifecycle-core-preflight
