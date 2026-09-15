@@ -1,0 +1,28 @@
+{
+  "acceptance_receipt_sha256": "7a073b1b012c60ac645c9cc98c00d78392a2adadbf2474b0cd39df7a7c03b832",
+  "acceptance_subject_sha": "5bef6d4cf9cc1a09f43bbe09846edc6c0be19c10",
+  "active_blockers": [],
+  "constitutional_stewardship_transition_established": false,
+  "current_custodian_ref": "steward:community-trust",
+  "custody_state": "CURRENT",
+  "event_chain_tip_sha256": "5b0a895cbcc7a3e1f24ae93a93daa7c3c149afb4554cb5a0b07dc6e8f8682076",
+  "event_count": 3,
+  "event_history_sha256": "87341a9ba5a6b07f289d942c3753f0ec14430e3677af65ad5babc1277d73d18d",
+  "historical_handover_accepted": true,
+  "legal_title_transition_established": false,
+  "lineage_custodian_ref": "steward:community-trust",
+  "nonclaims": [
+    "current custody state does not alter the historical handover acceptance receipt",
+    "current custody state is not legal title",
+    "current custody state is not constitutional stewardship legitimacy",
+    "successor acceptance reference is not independently authenticated by this theorem",
+    "custody currentness is not service-quality or engineering fitness outside this profile"
+  ],
+  "profile_sha256": "881808eba6b08983a6eee434a98a2c508313ae3b885af37b8926246725fcb400",
+  "profile_version": "mycelix-custody-continuity-v1",
+  "project_id": "fiber:jhb:test-001",
+  "receipt_version": "mycelix-custody-state-receipt-v1",
+  "successor_acceptance_receipt_sha256": null,
+  "successor_custodian_ref": null,
+  "suspended": false
+}

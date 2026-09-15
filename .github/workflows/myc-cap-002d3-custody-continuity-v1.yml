@@ -1,0 +1,68 @@
+name: MYC-CAP-002D3 Custody Continuity v1
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/capital/custody_continuity_v1.py'
+      - 'scripts/capital/test_custody_continuity_v1.py'
+      - 'docs/capital/evidence/myc-cap-002d3/**'
+      - '.github/workflows/myc-cap-002d3-custody-continuity-v1.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Current custody continuity and successor state
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Exact PR head and parent
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "5bef6d4cf9cc1a09f43bbe09846edc6c0be19c10"
+
+      - name: Python environment
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 -m py_compile scripts/capital/custody_continuity_v1.py
+          python3 -m py_compile scripts/capital/test_custody_continuity_v1.py
+
+      - name: Fail-closed unit suite
+        run: |
+          set -euo pipefail
+          python3 scripts/capital/test_custody_continuity_v1.py -v
+
+      - name: Deterministic example receipt
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp)"
+          python3 scripts/capital/custody_continuity_v1.py \
+            docs/capital/evidence/myc-cap-002d3/example_case.json \
+            --receipt-out "$tmp"
+          diff -u docs/capital/evidence/myc-cap-002d3/example_receipt.json "$tmp"
+          cp "$tmp" "${tmp}.second"
+          python3 scripts/capital/custody_continuity_v1.py \
+            docs/capital/evidence/myc-cap-002d3/example_case.json \
+            --receipt-out "$tmp"
+          cmp "$tmp" "${tmp}.second"
+          echo 'd097318f48564a51bd58bf71062a1a271721be1307ecb9e8f5d0564660e72c9c  docs/capital/evidence/myc-cap-002d3/example_case.json' | sha256sum -c -
+          echo '6ced4e4a9ec5ab1d26c5e22dc7a2d0dd9788b52795555f67a3e1d52d37123d6d  docs/capital/evidence/myc-cap-002d3/example_receipt.json' | sha256sum -c -
+
+      - name: Strong custody nonclaims
+        run: |
+          set -euo pipefail
+          grep -Fq '"custody_state": "CURRENT"' docs/capital/evidence/myc-cap-002d3/example_receipt.json
+          grep -Fq '"historical_handover_accepted": true' docs/capital/evidence/myc-cap-002d3/example_receipt.json
+          grep -Fq '"legal_title_transition_established": false' docs/capital/evidence/myc-cap-002d3/example_receipt.json
+          grep -Fq '"constitutional_stewardship_transition_established": false' docs/capital/evidence/myc-cap-002d3/example_receipt.json
+          grep -Fq 'current custody state does not alter the historical handover acceptance receipt' docs/capital/evidence/myc-cap-002d3/example_receipt.json
