@@ -1,0 +1,45 @@
+name: CI Runner Label Probe
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/ci-runner-label-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-runner-label-probe-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    name: Probe (${{ matrix.runner }})
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+          - ubuntu-latest
+          - ubuntu-24.04
+          - ubuntu-slim
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 5
+    steps:
+      - name: Record runner assignment
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'requested_runner=%s\n' '${{ matrix.runner }}'
+          printf 'event=%s\n' '${{ github.event_name }}'
+          printf 'run_id=%s\n' '${{ github.run_id }}'
+          printf 'run_attempt=%s\n' '${{ github.run_attempt }}'
+          printf 'runtime_sha=%s\n' '${{ github.sha }}'
+          if [ '${{ github.event_name }}' = 'pull_request' ]; then
+            printf 'subject_sha=%s\n' '${{ github.event.pull_request.head.sha }}'
+          fi
+          printf '%s\n' '--- uname ---'
+          uname -a
+          printf '%s\n' '--- os-release ---'
+          cat /etc/os-release
