@@ -1,0 +1,92 @@
+name: MYC-CAP-002A1 Portable Evidence v1
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/capital/portable_qualification_v1.py'
+      - 'scripts/capital/test_portable_qualification_v1.py'
+      - 'docs/capital/evidence/myc-cap-002a/portable/**'
+      - '.github/workflows/myc-cap-002a1-portable-evidence-v1.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-portable-evidence:
+    name: Exact-subject portable replay
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact child head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Assert exact child lineage
+        env:
+          EXPECTED_PARENT: 270b852e0ac744dfca3a2cb966bf53fce78f2ab9
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          test "$(git rev-list --count HEAD^..HEAD)" = "1"
+
+      - name: Python environment
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 -m py_compile scripts/capital/portable_qualification_v1.py
+          python3 -m py_compile scripts/capital/test_portable_qualification_v1.py
+
+      - name: Portable-verifier fail-closed suite
+        run: |
+          set -euo pipefail
+          python3 -m unittest -v scripts/capital/test_portable_qualification_v1.py
+
+      - name: Build exact-subject evidence bundle
+        run: |
+          set -euo pipefail
+          bundle="$RUNNER_TEMP/myc-cap-002a1-bundle"
+          python3 scripts/capital/portable_qualification_v1.py \
+            --spec docs/capital/evidence/myc-cap-002a/portable/qualification_spec.json \
+            --repo . \
+            --build "$bundle"
+          printf '%s\n' "$bundle" > "$RUNNER_TEMP/bundle-path"
+
+      - name: Independent offline replay
+        run: |
+          set -euo pipefail
+          bundle="$(cat "$RUNNER_TEMP/bundle-path")"
+          python3 scripts/capital/portable_qualification_v1.py \
+            --spec docs/capital/evidence/myc-cap-002a/portable/qualification_spec.json \
+            --repo . \
+            --verify "$bundle"
+
+      - name: Closed bundle member census
+        run: |
+          set -euo pipefail
+          bundle="$(cat "$RUNNER_TEMP/bundle-path")"
+          find "$bundle" -maxdepth 1 -type f -printf '%f\n' | sort > "$RUNNER_TEMP/actual-members"
+          cat > "$RUNNER_TEMP/expected-members" <<'MEMBERS'
+          NONCLAIMS.md
+          case.json
+          qualification.json
+          receipt.json
+          source-digests.json
+          subject.txt
+          MEMBERS
+          diff -u "$RUNNER_TEMP/expected-members" "$RUNNER_TEMP/actual-members"
+          test "$(find "$bundle" -mindepth 1 -maxdepth 1 | wc -l)" = "6"
+
+      - name: Upload portable evidence
+        id: upload
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: myc-cap-002a1-${{ github.event.pull_request.head.sha }}
+          path: ${{ runner.temp }}/myc-cap-002a1-bundle/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30

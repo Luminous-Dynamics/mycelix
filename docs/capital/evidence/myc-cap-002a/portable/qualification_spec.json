@@ -1,0 +1,45 @@
+{
+  "case_path": "docs/capital/evidence/myc-cap-002a/example_case.json",
+  "hosted_run": {
+    "conclusion": "success",
+    "head_sha": "270b852e0ac744dfca3a2cb966bf53fce78f2ab9",
+    "repository": "Luminous-Dynamics/mycelix",
+    "run_attempt": 1,
+    "run_id": 34959974354,
+    "workflow_path": ".github/workflows/myc-cap-002a-return-envelope-v1.yml"
+  },
+  "nonclaims_path": "docs/capital/evidence/myc-cap-002a/portable/NONCLAIMS.md",
+  "pass_scope": "Deterministic fixed-preferred Return Envelope v1 arithmetic/state-machine consistency for the frozen profile and supplied evidence references only.",
+  "qualification_command": [
+    "python3",
+    "-m",
+    "unittest",
+    "-v",
+    "scripts/capital/test_capital_to_commons_v1.py"
+  ],
+  "qualification_profile": "MYC-CAP-002A fixed preferred Return Envelope v1",
+  "qualified_subject_sha": "270b852e0ac744dfca3a2cb966bf53fce78f2ab9",
+  "receipt_command": [
+    "python3",
+    "scripts/capital/capital_to_commons_v1.py",
+    "{case}",
+    "--receipt-out",
+    "{receipt}"
+  ],
+  "receipt_path": "docs/capital/evidence/myc-cap-002a/example_receipt.json",
+  "semantic_expectations": {
+    "case_canonical_sha256": "3958380f95b84a6f6f64b73df1e26af22b46c0366eee5a76e6d2cdabe72579c7",
+    "event_chain_tip_sha256": "f766650cbc8233f016ae3482f46708f395264cbc0baeb869ad7c09dd662d240d",
+    "event_history_sha256": "b1e75101137bcecc60daba64aa0d232398b78d65e4e946723bd25e5ab23184b7",
+    "profile_sha256": "6929b9e089e3f7b272713f6ff8587bf429594a51a9d67d67d0d4468ba72b52e7"
+  },
+  "source_files": [
+    ".github/workflows/myc-cap-002a-return-envelope-v1.yml",
+    "docs/capital/evidence/myc-cap-002a/PROFILE.md",
+    "docs/capital/evidence/myc-cap-002a/example_case.json",
+    "docs/capital/evidence/myc-cap-002a/example_receipt.json",
+    "scripts/capital/capital_to_commons_v1.py",
+    "scripts/capital/test_capital_to_commons_v1.py"
+  ],
+  "spec_version": "mycelix-capital-portable-qualification-spec-v1"
+}
