@@ -1,0 +1,172 @@
+name: GOVSYS-003C-VR Rust Transition Verifier
+
+on:
+  pull_request:
+    branches:
+      - feat/govsys-003c-vr-convergence-v0.1
+    paths:
+      - .github/workflows/govsys-003c-rust-transition-verifier.yml
+      - mycelix-workspace/docs/government/CONSTITUTIONAL_ROOT_RUST_TRANSITION_VERIFIER_V0.1.md
+      - crates/mycelix-constitutional-transition-verifier/Cargo.toml
+      - crates/mycelix-constitutional-transition-verifier/src/lib.rs
+      - crates/mycelix-constitutional-transition-verifier/tests/conformance.rs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Exact Rust predecessor-owned transition verification
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Exact qualification subject and five-file surface
+        shell: bash
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          parent=3b8bce9eeb5983065f6061f02bfe6cf3794b52ec
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+          test "$(git rev-parse HEAD^)" = "$parent"
+          test "$(git rev-list --count "${parent}..HEAD")" -eq 1
+          mapfile -t changed < <(git diff --name-only "$parent"..HEAD | sort)
+          expected=(
+            .github/workflows/govsys-003c-rust-transition-verifier.yml
+            crates/mycelix-constitutional-transition-verifier/Cargo.toml
+            crates/mycelix-constitutional-transition-verifier/src/lib.rs
+            crates/mycelix-constitutional-transition-verifier/tests/conformance.rs
+            mycelix-workspace/docs/government/CONSTITUTIONAL_ROOT_RUST_TRANSITION_VERIFIER_V0.1.md
+          )
+          mapfile -t wanted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#changed[@]}" -eq 5
+          for i in "${!wanted[@]}"; do test "${changed[$i]}" = "${wanted[$i]}"; done
+
+      - name: Exact inherited theorem blobs unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent=3b8bce9eeb5983065f6061f02bfe6cf3794b52ec
+          for path in \
+            crates/mycelix-constitutional-root/Cargo.toml \
+            crates/mycelix-constitutional-root/src/lib.rs \
+            crates/mycelix-constitutional-root/vectors/root_a_transition_pair_v1.json \
+            scripts/qualification/govsys_003c_transition_verifier_vector_v1.json \
+            scripts/qualification/govsys_constitutional_transition_verifier_v0_1.py; do
+            test "$(git rev-parse "HEAD:${path}")" = "$(git rev-parse "${parent}:${path}")"
+          done
+
+      - name: Static production-boundary audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest=crates/mycelix-constitutional-transition-verifier/Cargo.toml
+          src=crates/mycelix-constitutional-transition-verifier/src/lib.rs
+          doc=mycelix-workspace/docs/government/CONSTITUTIONAL_ROOT_RUST_TRANSITION_VERIFIER_V0.1.md
+
+          grep -F 'ed25519-dalek = { version = "=3.0.0", default-features = false }' "$manifest"
+          grep -F 'curve25519-dalek = { version = "=5.0.0", default-features = false }' "$manifest"
+          grep -F 'sha2 = { version = "=0.11.0", default-features = false }' "$manifest"
+          grep -F '#![no_std]' "$src"
+          grep -F 'is_torsion_free()' "$src"
+          grep -F '.verify_strict(message, &signature)' "$src"
+          grep -F 'Scalar::from_canonical_bytes' "$src"
+          grep -F 'MaterialCommitmentMismatch' "$src"
+          grep -F 'CandidateRebindingMismatch' "$src"
+          grep -F 'grants_currentness' "$src"
+          grep -F 'grants_effect_authority' "$src"
+          grep -F 'observed' "$doc" || true
+          grep -F 'The network remains infrastructure for institutions. It is not the sovereign.' "$doc"
+
+          if grep -Eq '(hdk::|holochain|serde::|Deserialize|reputation|stake|model_score|Phi)' "$src"; then
+            echo 'Rust transition verifier crossed its frozen pure authority boundary' >&2
+            exit 1
+          fi
+
+      - name: Re-execute exact Python predecessor verifier
+        id: python
+        continue-on-error: true
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python3 scripts/qualification/govsys_constitutional_transition_verifier_v0_1.py
+
+      - name: Independently verify frozen signature with OpenSSL
+        id: openssl
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmp="$RUNNER_TEMP/govsys-003c-vr-openssl"
+          mkdir -p "$tmp"
+          python3 - "$tmp" <<'PY'
+          import json, sys
+          from pathlib import Path
+          out = Path(sys.argv[1])
+          vector = json.loads(Path('scripts/qualification/govsys_003c_transition_verifier_vector_v1.json').read_text())
+          (out/'candidate.bin').write_bytes(bytes.fromhex(vector['expected']['candidate_canonical_bytes_hex']))
+          (out/'public.der').write_bytes(bytes.fromhex(vector['authorization_material']['public_key_spki_der_hex']))
+          (out/'signature.bin').write_bytes(bytes.fromhex(vector['authorization_proof']['signature_hex']))
+          PY
+          openssl pkeyutl -verify -pubin -inkey "$tmp/public.der" -keyform DER \
+            -rawin -in "$tmp/candidate.bin" -sigfile "$tmp/signature.bin"
+
+      - name: Install exact Rust toolchain
+        id: toolchain
+        if: always()
+        continue-on-error: true
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+
+      - name: Execute Rust verifier qualification in isolated workdir
+        id: rust
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/mycelix-constitutional-root"
+          verifier="$RUNNER_TEMP/mycelix-constitutional-transition-verifier"
+          mkdir -p "$root" "$verifier"
+          cp -a crates/mycelix-constitutional-root/. "$root/"
+          cp -a crates/mycelix-constitutional-transition-verifier/. "$verifier/"
+          cargo fmt --manifest-path "$verifier/Cargo.toml" -- --check
+          cargo test --manifest-path "$verifier/Cargo.toml" --all-targets
+          cargo clippy --manifest-path "$verifier/Cargo.toml" --all-targets -- -D warnings
+          cargo check --manifest-path "$verifier/Cargo.toml" --lib --target wasm32-unknown-unknown
+
+      - name: Immutable checkout postflight
+        id: immutable
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
+
+      - name: Fail closed on any Rust verifier defect
+        if: always()
+        shell: bash
+        env:
+          PYTHON_OUTCOME: ${{ steps.python.outcome }}
+          OPENSSL_OUTCOME: ${{ steps.openssl.outcome }}
+          TOOLCHAIN_OUTCOME: ${{ steps.toolchain.outcome }}
+          RUST_OUTCOME: ${{ steps.rust.outcome }}
+          IMMUTABLE_OUTCOME: ${{ steps.immutable.outcome }}
+        run: |
+          set -euo pipefail
+          test "$PYTHON_OUTCOME" = success
+          test "$OPENSSL_OUTCOME" = success
+          test "$TOOLCHAIN_OUTCOME" = success
+          test "$RUST_OUTCOME" = success
+          test "$IMMUTABLE_OUTCOME" = success
