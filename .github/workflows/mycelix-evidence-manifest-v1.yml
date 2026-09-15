@@ -1,0 +1,55 @@
+name: Mycelix Evidence Manifest v1
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/evidence/mycelix_evidence_manifest.py'
+      - 'scripts/evidence/test_mycelix_evidence_manifest.py'
+      - 'docs/evidence/MYCELIX_EVIDENCE_MANIFEST_V1.md'
+      - 'docs/evidence/examples/mycelix-evidence-manifest-v1.json'
+      - 'docs/evidence/examples/mycelix-evidence-status-v1.md'
+      - '.github/workflows/mycelix-evidence-manifest-v1.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  manifest-v1:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact PR subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+
+      - name: Python runtime
+        run: python3 --version
+
+      - name: Stdlib regression suite
+        run: python3 scripts/evidence/test_mycelix_evidence_manifest.py
+
+      - name: Validate synthetic fixture and freeze canonical digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='a1f2d94a313ed9a2a90152e0dd7063151aef745b164359cde70e51ea4cfd4994'
+          actual="$({
+            python3 scripts/evidence/mycelix_evidence_manifest.py \
+              docs/evidence/examples/mycelix-evidence-manifest-v1.json \
+              --markdown-out "$RUNNER_TEMP/status.md" \
+              --print-sha256 1>/dev/null
+          } 2>&1)"
+          test "$actual" = "$expected"
+          diff -u docs/evidence/examples/mycelix-evidence-status-v1.md "$RUNNER_TEMP/status.md"
+
+      - name: Deterministic second projection
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/evidence/mycelix_evidence_manifest.py \
+            docs/evidence/examples/mycelix-evidence-manifest-v1.json \
+            --markdown-out "$RUNNER_TEMP/status-a.md" 2>/dev/null
+          python3 scripts/evidence/mycelix_evidence_manifest.py \
+            docs/evidence/examples/mycelix-evidence-manifest-v1.json \
+            --markdown-out "$RUNNER_TEMP/status-b.md" 2>/dev/null
+          cmp "$RUNNER_TEMP/status-a.md" "$RUNNER_TEMP/status-b.md"
