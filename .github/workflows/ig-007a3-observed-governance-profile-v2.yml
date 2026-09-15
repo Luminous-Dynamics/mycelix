@@ -1,0 +1,107 @@
+name: IG-007A3 Observed Governance Profile V2
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-governance/profiles/observed/voting-fca2c107-v1.json"
+      - "mycelix-governance/profiles/observed/voting-fca2c107-v2.json"
+      - "mycelix-governance/scripts/validate_ig007a1_observed_profile.py"
+      - "mycelix-governance/scripts/validate_ig007a3_observed_profile_v2.py"
+      - "mycelix-governance/docs/IG_007A3_OBSERVED_SOURCE_PROFILE_V2.md"
+      - ".github/workflows/ig-007a3-observed-governance-profile-v2.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-observation-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      EXPECTED_SUBJECT: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_SUBJECT }}
+          fetch-depth: 1
+
+      - name: Install Python 3.13.5
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13.5"
+
+      - name: Verify exact subject and clean preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT"
+          test -z "$(git status --porcelain)"
+
+      - name: Bind frozen production source blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object mycelix-governance/zomes/voting/coordinator/src/lib.rs)" = "969b845e6186cbcad507c742a718060844f82eb2"
+          test "$(git hash-object mycelix-governance/zomes/voting/integrity/src/lib.rs)" = "658562c8dfaf6a2f1b97a7bfd5cf0fc8a5ab6e66"
+
+      - name: Syntax compile validators
+        run: |
+          python -m py_compile mycelix-governance/scripts/validate_ig007a1_observed_profile.py
+          python -m py_compile mycelix-governance/scripts/validate_ig007a3_observed_profile_v2.py
+
+      - name: Re-qualify frozen v1 observation twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          python mycelix-governance/scripts/validate_ig007a1_observed_profile.py \
+            --profile mycelix-governance/profiles/observed/voting-fca2c107-v1.json \
+            --self-test > /tmp/ig007a3-v1-1.json
+          python mycelix-governance/scripts/validate_ig007a1_observed_profile.py \
+            --profile mycelix-governance/profiles/observed/voting-fca2c107-v1.json \
+            --self-test > /tmp/ig007a3-v1-2.json
+          cmp /tmp/ig007a3-v1-1.json /tmp/ig007a3-v1-2.json
+
+      - name: Validate observation v2 twice deterministically
+        shell: bash
+        run: |
+          set -euo pipefail
+          python mycelix-governance/scripts/validate_ig007a3_observed_profile_v2.py \
+            --profile mycelix-governance/profiles/observed/voting-fca2c107-v2.json \
+            --self-test > /tmp/ig007a3-v2-1.json
+          python mycelix-governance/scripts/validate_ig007a3_observed_profile_v2.py \
+            --profile mycelix-governance/profiles/observed/voting-fca2c107-v2.json \
+            --self-test > /tmp/ig007a3-v2-2.json
+          cmp /tmp/ig007a3-v2-1.json /tmp/ig007a3-v2-2.json
+
+      - name: Assert observation lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          with open('/tmp/ig007a3-v1-1.json', encoding='utf-8') as f:
+              v1 = json.load(f)
+          with open('/tmp/ig007a3-v2-1.json', encoding='utf-8') as f:
+              v2 = json.load(f)
+
+          assert v1['validated'] is True
+          assert v1['profile_content_sha256'] == 'cbbbb3553ce465be989b5f096364ea97ccc9b1c5d6aae67d80177df8d8109763'
+          assert v2['validated'] is True
+          assert v2['authority_class'] == 'ObservedSourceBound'
+          assert v2['profile_revision'] == 2
+          assert v2['profile_content_sha256'] == '680af4668889c299b7e0d74531f44894a64a384be71778bca54d3f21ca80ac01'
+          assert v2['known_gap_issues'] == [851, 855, 856, 876, 877, 892]
+          assert v1['profile_content_sha256'] != v2['profile_content_sha256']
+          PY
+
+      - name: Verify checkout immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT"
+          git diff --exit-code
+          git diff --cached --exit-code
+          test -z "$(git status --porcelain)"
