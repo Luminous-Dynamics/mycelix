@@ -1,0 +1,24 @@
+[package]
+name = "mycelix-regenerative-evidence"
+version = "0.1.0"
+edition = "2024"
+description = "Dependency-light soil evidence bindings for Mycelix regenerative systems"
+license = "AGPL-3.0-or-later"
+authors = ["Luminous Dynamics <contact@luminousdynamics.org>"]
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+
+[features]
+default = []
+serde = [
+    "dep:serde",
+    "mycelix-regenerative-core/serde",
+    "mycelix-core-types/serde",
+]
+
+[dependencies]
+mycelix-regenerative-core = { path = "../mycelix-regenerative-core" }
+mycelix-core-types = { path = "../mycelix-core-types" }
+serde = { version = "1.0", features = ["derive"], optional = true }
+
+[dev-dependencies]
+serde_json = "1.0"

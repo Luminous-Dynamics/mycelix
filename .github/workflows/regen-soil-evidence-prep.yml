@@ -1,0 +1,80 @@
+name: REGEN Soil Evidence Dependency Preparation
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-regenerative-evidence/**'
+      - '.github/workflows/regen-soil-evidence-prep.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  prepare-lock-and-smoke-test:
+    name: REGEN-010 dependency preparation
+    runs-on: ubuntu-24.04
+    env:
+      TARGET_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact preparation subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          ref: ${{ env.TARGET_SHA }}
+
+      - name: Verify exact preparation subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          printf 'evidence_subject=DependencyPreparation\n'
+          printf 'target_sha=%s\nactual_sha=%s\n' "$TARGET_SHA" "$actual"
+          test "$actual" = "$TARGET_SHA"
+
+      - name: Install pinned Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.96.0 --profile minimal --component rustfmt,clippy
+          rustup override set 1.96.0
+          rustc --version
+          cargo --version
+          rustc -vV
+
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-regenerative-evidence/Cargo.toml --all -- --check
+
+      - name: Generate dependency-preparation lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          lock='crates/mycelix-regenerative-evidence/Cargo.lock'
+          test ! -e "$lock"
+          cargo generate-lockfile --manifest-path crates/mycelix-regenerative-evidence/Cargo.toml
+          test -f "$lock"
+          printf 'dependency_state=execution_resolved_preparation\n'
+          sha256sum "$lock"
+          printf 'lock_lines=%s\n' "$(wc -l < "$lock")"
+          printf '%s\n' '---BEGIN_REGEN010_CARGO_LOCK---'
+          cat "$lock"
+          printf '%s\n' '---END_REGEN010_CARGO_LOCK---'
+
+      - name: Test default feature contract against prepared lock
+        run: cargo test --manifest-path crates/mycelix-regenerative-evidence/Cargo.toml --locked
+
+      - name: Test serde wire contract against prepared lock
+        run: cargo test --manifest-path crates/mycelix-regenerative-evidence/Cargo.toml --features serde --locked
+
+      - name: Strict Clippy against prepared lock
+        run: cargo clippy --manifest-path crates/mycelix-regenerative-evidence/Cargo.toml --all-targets --features serde --locked -- -D warnings
+
+      - name: Preparation postflight hygiene
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f crates/mycelix-regenerative-evidence/Cargo.lock
+          git diff --check
+          status="$(git status --short)"
+          printf 'git_status=%s\n' "$status"
+          test -z "$status"
+          printf 'qualification_status=NOT_QUALIFIED_DEPENDENCY_PREPARATION_ONLY\n'
