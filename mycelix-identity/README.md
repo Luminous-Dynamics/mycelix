@@ -123,4 +123,4 @@ Identity is the foundation of the Three-Pillar architecture:
 
 ## License
 
-Apache 2.0
+AGPL-3.0-or-later. See [`LICENSE`](LICENSE) and the repository-level [`LICENSING.md`](../LICENSING.md) for scope and commercial-licensing notes.
