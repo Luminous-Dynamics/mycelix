@@ -1,0 +1,38 @@
+{
+  "forbidden_subject_exact_paths": [
+    ".github/workflows/qual-001-authoritative.yml"
+  ],
+  "forbidden_subject_prefixes": [
+    "qualification/qual-001/"
+  ],
+  "max_changed_bytes": 1048576,
+  "max_changed_paths": 64,
+  "non_authoritative_candidate_prefixes": [
+    ".github/workflows/",
+    "qualification/"
+  ],
+  "profile": "mycelix.qual.static-subject-independence.v0.1",
+  "receipt_schema": "mycelix.qual.independent-verifier.receipt.v0.1",
+  "required_receipt_fields": [
+    "qualification_pass",
+    "subject_head",
+    "subject_tree",
+    "subject_base",
+    "verifier_head",
+    "verifier_tree",
+    "verifier_bundle_schema",
+    "verifier_bundle_sha256",
+    "authoritative_workflow_sha256",
+    "verifier_source_sha256",
+    "gate_manifest_profile",
+    "gate_manifest_sha256",
+    "changed_paths_sha256",
+    "changed_path_count",
+    "changed_bytes",
+    "subject_code_executed",
+    "candidate_local_verifier_authoritative"
+  ],
+  "same_repository_subject_required": true,
+  "schema": "mycelix.qual.gate-manifest.v0.1",
+  "subject_execution": false
+}
