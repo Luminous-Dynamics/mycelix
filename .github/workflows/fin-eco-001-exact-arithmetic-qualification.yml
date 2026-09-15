@@ -1,0 +1,173 @@
+name: FIN-ECO-001 Exact Arithmetic Qualification
+
+on:
+  pull_request:
+    branches:
+      - fix/fin-eco-001-rustfmt-r1
+    paths:
+      - '.github/workflows/fin-eco-001-exact-arithmetic-qualification.yml'
+      - 'mycelix-finance/Cargo.toml'
+      - 'mycelix-finance/Cargo.lock'
+      - 'mycelix-finance/crates/finance-exact/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  CARGO_INCREMENTAL: '0'
+  EXPECTED_PRODUCT_SHA: 'c85598178071d2fc7053069e60a848d494cfd367'
+  EXPECTED_SOURCE_BLOB: '4e031b8d7c947d96df89002efdb234aac1a54227'
+  EXPECTED_MANIFEST_BLOB: '3c42e811457978b007edd07140735eea467f4816'
+  SOURCE: 'mycelix-finance/crates/finance-exact/src/lib.rs'
+  MANIFEST: 'mycelix-finance/crates/finance-exact/Cargo.toml'
+  WORKSPACE_MANIFEST: 'mycelix-finance/Cargo.toml'
+  LOCKFILE: 'mycelix-finance/Cargo.lock'
+  WORKFLOW: '.github/workflows/fin-eco-001-exact-arithmetic-qualification.yml'
+
+concurrency:
+  group: fin-eco-001-exact-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: qualify-finance-exact-arithmetic
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Prove qualification-only child and immutable arithmetic source
+        shell: bash
+        run: |
+          set -euo pipefail
+          SUBJECT_SHA="$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PRODUCT_SHA"
+          test "$(git rev-parse "$EXPECTED_PRODUCT_SHA:$SOURCE")" = "$EXPECTED_SOURCE_BLOB"
+          test "$(git rev-parse "$EXPECTED_PRODUCT_SHA:$MANIFEST")" = "$EXPECTED_MANIFEST_BLOB"
+          test "$(git rev-parse "HEAD:$SOURCE")" = "$EXPECTED_SOURCE_BLOB"
+          test "$(git rev-parse "HEAD:$MANIFEST")" = "$EXPECTED_MANIFEST_BLOB"
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PRODUCT_SHA" HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$WORKFLOW"
+          test -z "$(git status --porcelain=v1)"
+          printf 'product_sha=%s\nqualification_subject_sha=%s\n' "$EXPECTED_PRODUCT_SHA" "$SUBJECT_SHA"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
+
+      - name: Capture exact source, lock, runner, and toolchain capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'runner_profile=ubuntu-slim\n'
+          printf 'runner_os=%s\nrunner_arch=%s\n' "$RUNNER_OS" "$RUNNER_ARCH"
+          python3 --version
+          git --version
+          rustc --version --verbose
+          cargo --version --verbose
+          sha256sum "$SOURCE" "$MANIFEST" "$WORKSPACE_MANIFEST" "$LOCKFILE" "$WORKFLOW"
+          git rev-parse "HEAD:$SOURCE" "HEAD:$MANIFEST" "HEAD:$LOCKFILE"
+
+      - name: Independent arithmetic reference oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from math import gcd
+
+          def norm(n, d):
+              if d == 0:
+                  raise ZeroDivisionError
+              g = gcd(n, d)
+              return n // g, d // g
+
+          def apply(amount, n, d, mode):
+              n, d = norm(n, d)
+              p = amount * n
+              q, r = divmod(p, d)
+              if mode == 'floor':
+                  return q
+              if mode == 'ceiling':
+                  return q if r == 0 else q + 1
+              if mode == 'half-even':
+                  twice = 2 * r
+                  if twice < d:
+                      return q
+                  if twice > d or q % 2 == 1:
+                      return q + 1
+                  return q
+              raise ValueError(mode)
+
+          assert norm(2, 4) == (1, 2)
+          assert norm(0, 99) == (0, 1)
+          assert apply(1, 1, 2, 'half-even') == 0
+          assert apply(3, 1, 2, 'half-even') == 2
+          assert apply(5, 1, 2, 'half-even') == 2
+          assert apply(10, 1, 3, 'floor') == 3
+          assert apply(10, 1, 3, 'ceiling') == 4
+          m = 2**64 - 1
+          an, ad = norm(m, 2)
+          bn, bd = norm(2, m)
+          g1 = gcd(an, bd)
+          g2 = gcd(bn, ad)
+          assert ((an // g1) * (bn // g2), (ad // g2) * (bd // g1)) == (1, 1)
+          print('independent_finance_exact_oracle=PASS')
+          PY
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path "$MANIFEST" -- --check
+
+      - name: Compile exact arithmetic tests with locked graph
+        run: cargo test --manifest-path "$WORKSPACE_MANIFEST" -p mycelix-finance-exact --all-targets --locked --no-run
+
+      - name: Execute exact arithmetic tests with locked graph
+        run: cargo test --manifest-path "$WORKSPACE_MANIFEST" -p mycelix-finance-exact --all-targets --locked
+
+      - name: Strict Clippy with locked graph
+        run: cargo clippy --manifest-path "$WORKSPACE_MANIFEST" -p mycelix-finance-exact --all-targets --locked -- -D warnings
+
+      - name: Enforce arithmetic authority boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'pub struct AssetAmount' "$SOURCE"
+          grep -Fq 'pub struct SignedAssetAmount' "$SOURCE"
+          grep -Fq 'pub struct Rate' "$SOURCE"
+          grep -Fq 'checked_add' "$SOURCE"
+          grep -Fq 'checked_sub' "$SOURCE"
+          grep -Fq 'RoundingMode::HalfEven' "$SOURCE"
+          grep -Fq 'ExactArithmeticError::AssetMismatch' "$SOURCE"
+          grep -Fq 'ExactArithmeticError::Overflow' "$SOURCE"
+          grep -Fq 'ExactArithmeticError::Underflow' "$SOURCE"
+          grep -Fq 'This type deliberately does not prescribe a global currency registry.' "$SOURCE"
+
+      - name: Refuse qualification-time mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          test -z "$(git status --porcelain=v1 --untracked-files=no)"
+
+      - name: Emit postflight qualification facts
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'status=PASS\n'
+          printf 'product_sha=%s\n' "$EXPECTED_PRODUCT_SHA"
+          printf 'subject_sha=%s\n' "$(git rev-parse HEAD)"
+          printf 'source_blob=%s\n' "$(git rev-parse "HEAD:$SOURCE")"
+          printf 'manifest_blob=%s\n' "$(git rev-parse "HEAD:$MANIFEST")"
+          printf 'rust_toolchain=%s\n' "$RUST_TOOLCHAIN"
+          printf 'runner_profile=ubuntu-slim\n'
+          printf 'claim=exact arithmetic source executed under this qualification profile\n'
+          printf 'nonclaim=asset registry semantics, settlement correctness, accounting correctness, capacity authority, external value truth\n'
