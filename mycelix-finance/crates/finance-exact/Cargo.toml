@@ -1,0 +1,17 @@
+[package]
+name = "mycelix-finance-exact"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Exact authoritative amount and rate primitives for Mycelix Finance"
+
+[lib]
+crate-type = ["rlib"]
+name = "mycelix_finance_exact"
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+proptest = "1"
