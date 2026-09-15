@@ -1,0 +1,168 @@
+name: GOVSYS-003C Rust Rooted-Lineage Convergence
+
+on:
+  pull_request:
+    branches:
+      - feat/govsys-003c-two-edge-lineage-v0.1
+    paths:
+      - .github/workflows/govsys-003c-rust-rooted-lineage-convergence.yml
+      - mycelix-workspace/docs/government/GOVSYS_003C_RUST_ROOTED_LINEAGE_CONVERGENCE_V0.1.md
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Exact Rust verifier plus rooted-lineage convergence
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Exact subject, parents, tree, and selective imports
+        id: geometry
+        continue-on-error: true
+        shell: bash
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          merge=5de1485eadb4abba1e2cfca275a296fe1ff94ec7
+          p1=8adf899952587e2e63ca19383c7a49bca8618377
+          p2=9ac0ac1408b39c8ad9e61cd83a41f0889565fcf0
+          tree=1def3315b70a0f5812521b7d5b448cc0ad212619
+
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+          test "$(git rev-parse HEAD^)" = "$merge"
+          test "$(git rev-list --count "${merge}..HEAD")" -eq 1
+
+          read -ra parents <<< "$(git rev-list --parents -n 1 "$merge")"
+          test "${#parents[@]}" -eq 3
+          test "${parents[0]}" = "$merge"
+          test "${parents[1]}" = "$p1"
+          test "${parents[2]}" = "$p2"
+          test "$(git rev-parse "${merge}^{tree}")" = "$tree"
+
+          mapfile -t child_changed < <(git diff --name-only "$merge"..HEAD | sort)
+          child_expected=(
+            .github/workflows/govsys-003c-rust-rooted-lineage-convergence.yml
+            mycelix-workspace/docs/government/GOVSYS_003C_RUST_ROOTED_LINEAGE_CONVERGENCE_V0.1.md
+          )
+          mapfile -t child_wanted < <(printf '%s\n' "${child_expected[@]}" | sort)
+          test "${#child_changed[@]}" -eq 2
+          for i in "${!child_wanted[@]}"; do test "${child_changed[$i]}" = "${child_wanted[$i]}"; done
+
+          imports=(
+            crates/mycelix-constitutional-root/Cargo.toml
+            crates/mycelix-constitutional-root/examples/conformance.rs
+            crates/mycelix-constitutional-root/src/lib.rs
+            crates/mycelix-constitutional-root/vectors/root_a_transition_pair_v1.json
+            crates/mycelix-constitutional-transition-verifier/Cargo.toml
+            crates/mycelix-constitutional-transition-verifier/src/lib.rs
+            crates/mycelix-constitutional-transition-verifier/tests/conformance.rs
+          )
+          mapfile -t merge_changed < <(git diff --name-only "$p1".."$merge" | sort)
+          mapfile -t imports_sorted < <(printf '%s\n' "${imports[@]}" | sort)
+          test "${#merge_changed[@]}" -eq 7
+          for i in "${!imports_sorted[@]}"; do
+            test "${merge_changed[$i]}" = "${imports_sorted[$i]}"
+            path="${imports_sorted[$i]}"
+            test "$(git rev-parse "${merge}:${path}")" = "$(git rev-parse "${p2}:${path}")"
+            test "$(git rev-parse "HEAD:${path}")" = "$(git rev-parse "${p2}:${path}")"
+          done
+
+      - name: Static non-authority boundary audit
+        id: boundary
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          doc=mycelix-workspace/docs/government/GOVSYS_003C_RUST_ROOTED_LINEAGE_CONVERGENCE_V0.1.md
+          grep -F 'does **not** yet prove a production Root-C adapter' "$doc"
+          grep -F 'does **not** yet prove' "$doc"
+          grep -F 'Root-D remains solely responsible for closed-world source coverage and current-head promotion.' "$doc"
+          grep -F 'The network remains infrastructure for institutions. It is not the sovereign.' "$doc"
+          test ! -e crates/mycelix-constitutional-rooted-lineage-adapter
+
+      - name: Re-execute qualified two-edge observed-history theorem
+        id: history
+        if: always()
+        continue-on-error: true
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/qualification/govsys_003c_rooted_lineage_two_edge.py
+
+      - name: Install exact Rust toolchain
+        id: toolchain
+        if: always()
+        continue-on-error: true
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+
+      - name: Execute CORE-LINEAGE and production Rust verifier in isolated workdir
+        id: rust
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmp="$RUNNER_TEMP/govsys-003c-rust-rooted-lineage"
+          mkdir -p "$tmp/crates"
+          cp -a crates/mycelix-core-lineage "$tmp/crates/"
+          cp -a crates/mycelix-constitutional-root "$tmp/crates/"
+          cp -a crates/mycelix-constitutional-transition-verifier "$tmp/crates/"
+
+          cargo fmt --manifest-path "$tmp/crates/mycelix-core-lineage/Cargo.toml" -- --check
+          cargo test --manifest-path "$tmp/crates/mycelix-core-lineage/Cargo.toml" --all-targets
+          cargo clippy --manifest-path "$tmp/crates/mycelix-core-lineage/Cargo.toml" --all-targets -- -D warnings
+          cargo check --manifest-path "$tmp/crates/mycelix-core-lineage/Cargo.toml" --lib --target wasm32-unknown-unknown
+
+          cargo fmt --manifest-path "$tmp/crates/mycelix-constitutional-root/Cargo.toml" -- --check
+          cargo test --manifest-path "$tmp/crates/mycelix-constitutional-root/Cargo.toml" --all-targets
+          cargo clippy --manifest-path "$tmp/crates/mycelix-constitutional-root/Cargo.toml" --all-targets -- -D warnings
+          cargo check --manifest-path "$tmp/crates/mycelix-constitutional-root/Cargo.toml" --lib --target wasm32-unknown-unknown
+
+          cargo fmt --manifest-path "$tmp/crates/mycelix-constitutional-transition-verifier/Cargo.toml" -- --check
+          cargo test --manifest-path "$tmp/crates/mycelix-constitutional-transition-verifier/Cargo.toml" --all-targets
+          cargo clippy --manifest-path "$tmp/crates/mycelix-constitutional-transition-verifier/Cargo.toml" --all-targets -- -D warnings
+          cargo check --manifest-path "$tmp/crates/mycelix-constitutional-transition-verifier/Cargo.toml" --lib --target wasm32-unknown-unknown
+
+      - name: Immutable checkout postflight
+        id: immutable
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
+
+      - name: Fail closed on any convergence defect
+        if: always()
+        shell: bash
+        env:
+          GEOMETRY_OUTCOME: ${{ steps.geometry.outcome }}
+          BOUNDARY_OUTCOME: ${{ steps.boundary.outcome }}
+          HISTORY_OUTCOME: ${{ steps.history.outcome }}
+          TOOLCHAIN_OUTCOME: ${{ steps.toolchain.outcome }}
+          RUST_OUTCOME: ${{ steps.rust.outcome }}
+          IMMUTABLE_OUTCOME: ${{ steps.immutable.outcome }}
+        run: |
+          set -euo pipefail
+          test "$GEOMETRY_OUTCOME" = success
+          test "$BOUNDARY_OUTCOME" = success
+          test "$HISTORY_OUTCOME" = success
+          test "$TOOLCHAIN_OUTCOME" = success
+          test "$RUST_OUTCOME" = success
+          test "$IMMUTABLE_OUTCOME" = success
