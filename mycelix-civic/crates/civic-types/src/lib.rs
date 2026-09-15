@@ -13,6 +13,7 @@
 //! - Internal qualified equivalence-view projection engine
 //! - Trust-rooted public identity qualification boundary
 //! - Identity-resolution sensitivity diagnostics
+//! - Explicit institutional robustness envelopes
 //! - Evidence types shared across justice and media
 //! - Status/phase traits for state machine validation
 //! - Role-based authorization helpers
@@ -28,6 +29,7 @@ pub mod identity_qualification;
 mod identity_resolution;
 mod identity_sensitivity;
 pub mod institutional_graph;
+pub mod institutional_robustness;
 pub mod qualified_identity_resolution;
 pub mod qualified_identity_sensitivity;
 pub mod roles;
@@ -56,6 +58,7 @@ pub use identity_sensitivity::{
     IdentitySensitivityError, SupplierMemberCount,
 };
 pub use institutional_graph::*;
+pub use institutional_robustness::*;
 pub use qualified_identity_resolution::*;
 pub use qualified_identity_sensitivity::*;
 pub use roles::*;
