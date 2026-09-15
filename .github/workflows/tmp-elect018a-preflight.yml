@@ -23,17 +23,37 @@ jobs:
           toolchain: '1.96.0'
           components: rustfmt,clippy
 
-      - name: Normalize owned Rust source
+      - name: Correct test-local shadowing and normalize owned source
         shell: bash
         run: |
           set -euo pipefail
-          crate='mycelix-governance/crates/election-verifier-key-lifecycle-core'
-          cargo fmt --manifest-path "$crate/Cargo.toml"
+          src='mycelix-governance/crates/election-verifier-key-lifecycle-core/src/lib.rs'
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('mycelix-governance/crates/election-verifier-key-lifecycle-core/src/lib.rs')
+          text = path.read_text()
+          old = '''        let mut lifecycle_policy = lifecycle_policy();
+
+        lifecycle_policy.xenia_authentication_profile_digest = digest(0x99);
+        assert_eq!(
+            validate_verifier_key_lifecycle_core_policy(
+                &lifecycle_policy,
+'''
+          new = '''        let mut substituted_profile_policy = lifecycle_policy();
+
+        substituted_profile_policy.xenia_authentication_profile_digest = digest(0x99);
+        assert_eq!(
+            validate_verifier_key_lifecycle_core_policy(
+                &substituted_profile_policy,
+'''
+          if text.count(old) != 1:
+              raise SystemExit('expected exactly one shadowing fixture to correct')
+          path.write_text(text.replace(old, new, 1))
+          PY
+          cargo fmt --manifest-path mycelix-governance/crates/election-verifier-key-lifecycle-core/Cargo.toml
           mapfile -t changed < <(git diff --name-only)
-          test "${#changed[@]}" -le 1
-          if [ "${#changed[@]}" -eq 1 ]; then
-            test "${changed[0]}" = "$crate/src/lib.rs"
-          fi
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$src"
 
       - name: Execute complete core corpus
         shell: bash
@@ -50,12 +70,10 @@ jobs:
         run: |
           set -euo pipefail
           src='mycelix-governance/crates/election-verifier-key-lifecycle-core/src/lib.rs'
-          if git diff --quiet -- "$src"; then
-            exit 0
-          fi
           test "$(git diff --name-only | wc -l)" -eq 1
+          test "$(git diff --name-only)" = "$src"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add "$src"
-          git commit -m 'style(elect018a): normalize lifecycle core with Rust 1.96'
+          git commit -m 'fix(elect018a): normalize lifecycle core fixture with Rust 1.96'
           git push origin HEAD:tmp/elect018a-lifecycle-core-preflight
