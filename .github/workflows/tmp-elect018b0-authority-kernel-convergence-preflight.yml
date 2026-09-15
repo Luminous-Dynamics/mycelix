@@ -1,0 +1,104 @@
+name: Temporary ELECT-018B0 Authority Kernel Convergence Preflight
+
+on:
+  push:
+    branches:
+      - tmp/elect018b0-authority-kernel-convergence-preflight
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-slim
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify exact selected upstream blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          check_blob() {
+            local path="$1"
+            local expected="$2"
+            local actual
+            actual="$(git hash-object "$path")"
+            test "$actual" = "$expected" || {
+              echo "blob mismatch: $path: $actual != $expected" >&2
+              exit 1
+            }
+          }
+
+          check_blob crates/mycelix-institutional-core/Cargo.toml 1737453cc0402ca49b29a8c11ca72bc17951ffc6
+          check_blob crates/mycelix-institutional-core/src/lib.rs da47978387f9cc167e8b5238e013626adb948fe5
+          check_blob crates/mycelix-governance-authority/Cargo.toml bffc2290d5cfa67dfdc68c8fcf9fa974d74147cd
+          check_blob crates/mycelix-governance-authority/src/lib.rs d20968f4b5caa53e763092f258f75ef28d0d7a7a
+          check_blob crates/mycelix-governance-authority/README.md 8eda2d8c0be60d823f0180f74bebe64d0afc79c8
+          check_blob crates/mycelix-governance-threshold-qualification/Cargo.toml 5556f47238c295261c421d64369c62120934eb55
+          check_blob crates/mycelix-governance-threshold-qualification/src/lib.rs 4a599257a049a9e1c8594cd1155ffb5fcf840f73
+          check_blob crates/mycelix-authority-freshness/Cargo.toml e1f1c9823eb059b09b6a7e5e78d4af41057b2784
+          check_blob crates/mycelix-authority-freshness/src/lib.rs ef1df122c8d8f729846926771f9d864bce45509d
+
+      - name: Install election-line Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: '1.96.0'
+          components: rustfmt,clippy
+
+      - name: Require exact upstream formatting under Rust 1.96
+        shell: bash
+        run: |
+          set -euo pipefail
+          for manifest in \
+            crates/mycelix-institutional-core/Cargo.toml \
+            crates/mycelix-governance-authority/Cargo.toml \
+            crates/mycelix-governance-threshold-qualification/Cargo.toml \
+            crates/mycelix-authority-freshness/Cargo.toml; do
+            cargo fmt --manifest-path "$manifest" -- --check
+          done
+
+      - name: Test and lint exact imported closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          for crate in \
+            crates/mycelix-institutional-core \
+            crates/mycelix-governance-authority \
+            crates/mycelix-governance-threshold-qualification \
+            crates/mycelix-authority-freshness; do
+            echo "=== $crate ==="
+            cargo generate-lockfile --manifest-path "$crate/Cargo.toml"
+            cargo test --manifest-path "$crate/Cargo.toml" --locked
+            cargo clippy --manifest-path "$crate/Cargo.toml" --locked --all-targets -- -D warnings
+            rm -f "$crate/Cargo.lock"
+          done
+
+      - name: Audit narrow dependency closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          threshold='crates/mycelix-governance-threshold-qualification/Cargo.toml'
+          freshness='crates/mycelix-authority-freshness/Cargo.toml'
+
+          grep -F 'mycelix-governance-authority = { path = "../mycelix-governance-authority" }' "$threshold"
+          grep -F 'mycelix-institutional-core = { path = "../mycelix-institutional-core" }' "$threshold"
+          grep -F 'mycelix-institutional-core = { path = "../mycelix-institutional-core" }' "$freshness"
+
+          if grep -R -Eiq '(holochain|symthaea|external-effect|executor-designation)' \
+            crates/mycelix-governance-threshold-qualification/Cargo.toml \
+            crates/mycelix-authority-freshness/Cargo.toml; then
+            echo 'unexpected runtime/application dependency in convergence closure' >&2
+            exit 1
+          fi
+
+      - name: Prove immutable candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
