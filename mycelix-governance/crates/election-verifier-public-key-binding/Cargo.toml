@@ -1,0 +1,16 @@
+[package]
+name = "election-verifier-public-key-binding"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Public-key/profile binding for Mycelix public-election verifier authentication"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+election-integrity-types = { path = "../election-integrity-types" }
+election-verifier-key-authorization = { path = "../election-verifier-key-authorization" }
+sha2 = "0.10"
+
+[workspace]
