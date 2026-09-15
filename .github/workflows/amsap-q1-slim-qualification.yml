@@ -1,0 +1,314 @@
+name: AMSAP-Q1 Slim Qualification Rescue
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/amsap-q1-slim-qualification.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: amsap-q1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-frozen-stack:
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
+    steps:
+      - name: Check out exact qualification subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 7
+
+      - name: Prove qualification-only review surface and frozen ancestry
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "ced789c76c6180fc331aa3759aa92d6d9db20f8c"
+          test "$(git rev-parse HEAD^^)" = "9189e27da2cb07c35da4d43bb0d0d64b2f3b1bc6"
+          test "$(git rev-parse HEAD^^^)" = "5bc7d961e61d33baac62849943ff0778b8969906"
+          test "$(git rev-parse HEAD^^^^)" = "31f81490a2a1dc221a9aad5ede80d13103d670f4"
+          test "$(git rev-parse HEAD^^^^^)" = "aef5e93e34ed39bc0d93b166c374faa7bda38270"
+          test "$(git rev-parse HEAD^^^^^^)" = "303f624152120b78ed41b2f8ebe6165b324a5ef2"
+          mapfile -t changed < <(git diff --name-only HEAD^ HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = ".github/workflows/amsap-q1-slim-qualification.yml"
+
+      - name: Prove every frozen tranche review surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          check_surface() {
+            local base="$1"
+            local head="$2"
+            shift 2
+            git diff --name-only "$base" "$head" | sort > /tmp/actual-surface
+            printf '%s\n' "$@" | sort > /tmp/expected-surface
+            diff -u /tmp/expected-surface /tmp/actual-surface
+          }
+
+          check_surface \
+            303f624152120b78ed41b2f8ebe6165b324a5ef2 \
+            aef5e93e34ed39bc0d93b166c374faa7bda38270 \
+            .github/workflows/amsap-001-artificial-moral-status.yml \
+            mycelix-civic/docs/AMSAP_001_ARTIFICIAL_MORAL_STATUS_CONSTITUTION.md \
+            mycelix-civic/docs/amsap/amsap-v0.1.json \
+            mycelix-civic/scripts/validate_amsap_v0_1.py
+
+          check_surface \
+            aef5e93e34ed39bc0d93b166c374faa7bda38270 \
+            31f81490a2a1dc221a9aad5ede80d13103d670f4 \
+            .github/workflows/amsap-002-artificial-status.yml \
+            crates/mycelix-artificial-status/Cargo.lock \
+            crates/mycelix-artificial-status/Cargo.toml \
+            crates/mycelix-artificial-status/README.md \
+            crates/mycelix-artificial-status/src/lib.rs
+
+          check_surface \
+            31f81490a2a1dc221a9aad5ede80d13103d670f4 \
+            5bc7d961e61d33baac62849943ff0778b8969906 \
+            .github/workflows/amsap-003-welfare-decision.yml \
+            crates/mycelix-welfare-decision/Cargo.lock \
+            crates/mycelix-welfare-decision/Cargo.toml \
+            crates/mycelix-welfare-decision/README.md \
+            crates/mycelix-welfare-decision/src/lib.rs
+
+          check_surface \
+            5bc7d961e61d33baac62849943ff0778b8969906 \
+            9189e27da2cb07c35da4d43bb0d0d64b2f3b1bc6 \
+            .github/workflows/amsap-004-ai-lineage.yml \
+            crates/mycelix-ai-lineage/Cargo.lock \
+            crates/mycelix-ai-lineage/Cargo.toml \
+            crates/mycelix-ai-lineage/README.md \
+            crates/mycelix-ai-lineage/src/lib.rs
+
+          check_surface \
+            9189e27da2cb07c35da4d43bb0d0d64b2f3b1bc6 \
+            ced789c76c6180fc331aa3759aa92d6d9db20f8c \
+            .github/workflows/amsap-005-welfare-evidence.yml \
+            crates/mycelix-welfare-evidence/Cargo.lock \
+            crates/mycelix-welfare-evidence/Cargo.toml \
+            crates/mycelix-welfare-evidence/README.md \
+            crates/mycelix-welfare-evidence/src/lib.rs
+
+      - name: Audit frozen authority-neutrality boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          crates = {
+              '002': Path('crates/mycelix-artificial-status'),
+              '003': Path('crates/mycelix-welfare-decision'),
+              '004': Path('crates/mycelix-ai-lineage'),
+              '005': Path('crates/mycelix-welfare-evidence'),
+          }
+
+          def dep_lines(root: Path):
+              text = (root / 'Cargo.toml').read_text()
+              tail = text.split('[dependencies]\n', 1)[1]
+              section = tail.split('\n[', 1)[0]
+              return [line.strip() for line in section.splitlines() if line.strip()]
+
+          if dep_lines(crates['002']) != []:
+              raise SystemExit('AMSAP-002 dependency surface drift')
+          if dep_lines(crates['003']) != [
+              'mycelix-artificial-status = { path = "../mycelix-artificial-status" }'
+          ]:
+              raise SystemExit('AMSAP-003 dependency surface drift')
+          if dep_lines(crates['004']) != []:
+              raise SystemExit('AMSAP-004 dependency surface drift')
+          if dep_lines(crates['005']) != [
+              'mycelix-artificial-status = { path = "../mycelix-artificial-status" }',
+              'mycelix-ai-lineage = { path = "../mycelix-ai-lineage" }',
+          ]:
+              raise SystemExit('AMSAP-005 dependency surface drift')
+
+          forbidden = ('hdk', 'hdi', 'holochain', 'serde', 'reqwest', 'tokio', 'SystemTime', 'Instant', 'execute_effect', 'dispatch_effect')
+          for tranche, root in crates.items():
+              src = (root / 'src/lib.rs').read_text()
+              cargo = (root / 'Cargo.toml').read_text()
+              if '#![no_std]' not in src:
+                  raise SystemExit(f'AMSAP-{tranche} lost no_std')
+              for token in forbidden:
+                  if token in src or token in cargo:
+                      raise SystemExit(f'AMSAP-{tranche} forbidden runtime/effect token: {token}')
+              for guard in ('grants_legal_standing', 'grants_governance_authority', 'grants_currentness', 'grants_external_effect_authority'):
+                  if guard not in src:
+                      raise SystemExit(f'AMSAP-{tranche} missing non-authority guard: {guard}')
+
+          src002 = (crates['002'] / 'src/lib.rs').read_text()
+          if 'legal_standing:' in src002 or 'governance_authority:' in src002:
+              raise SystemExit('AMSAP-002 may not contain L/G state fields')
+
+          src003 = (crates['003'] / 'src/lib.rs').read_text()
+          for token in ('EmergencyContain', 'AdministrativeDowngrade', 'RapidUpgradeRequiresExceptionalEvidence'):
+              if token not in src003:
+                  raise SystemExit(f'AMSAP-003 missing policy guard: {token}')
+
+          src004 = (crates['004'] / 'src/lib.rs').read_text()
+          event_surface = src004[src004.index('pub struct ForkChild'):src004.index('pub enum LineageEventType')]
+          if 'CivicId' in event_surface:
+              raise SystemExit('AMSAP-004 lineage events must not carry CivicId')
+          for name in ('ModelId', 'LineageId', 'InstanceId', 'CivicId', 'CheckpointId'):
+              if f'identifier_type!({name},' not in src004:
+                  raise SystemExit(f'AMSAP-004 missing identifier type: {name}')
+
+          src005 = (crates['005'] / 'src/lib.rs').read_text()
+          for direction in ('Supports', 'Challenges', 'Null', 'Mixed'):
+              if direction not in src005:
+                  raise SystemExit(f'AMSAP-005 missing evidence direction: {direction}')
+          for guard in ('establishes_scientific_truth', 'grants_welfare_protection'):
+              if guard not in src005:
+                  raise SystemExit(f'AMSAP-005 missing epistemic guard: {guard}')
+
+          workflow_parents = {
+              '.github/workflows/amsap-001-artificial-moral-status.yml': '303f624152120b78ed41b2f8ebe6165b324a5ef2',
+              '.github/workflows/amsap-002-artificial-status.yml': 'aef5e93e34ed39bc0d93b166c374faa7bda38270',
+              '.github/workflows/amsap-003-welfare-decision.yml': '31f81490a2a1dc221a9aad5ede80d13103d670f4',
+              '.github/workflows/amsap-004-ai-lineage.yml': '5bc7d961e61d33baac62849943ff0778b8969906',
+              '.github/workflows/amsap-005-welfare-evidence.yml': '9189e27da2cb07c35da4d43bb0d0d64b2f3b1bc6',
+          }
+          for path, parent in workflow_parents.items():
+              if parent not in Path(path).read_text():
+                  raise SystemExit(f'stale exact-parent binding: {path}')
+          PY
+
+      - name: Qualify AMSAP-001 constitutional vocabulary
+        shell: bash
+        run: |
+          set -euo pipefail
+          first="$(python3 mycelix-civic/scripts/validate_amsap_v0_1.py)"
+          second="$(python3 mycelix-civic/scripts/validate_amsap_v0_1.py)"
+          test "$first" = "$second"
+          printf '%s\n' "$first"
+
+      - name: Bootstrap hash-pinned Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUSTUP_VERSION="1.29.0"
+          RUSTUP_SHA256="4acc9acc76d5079515b46346a485974457b5a79893cfb01112423c89aeb5aa10"
+          HOST="x86_64-unknown-linux-gnu"
+          URL="https://static.rust-lang.org/rustup/archive/${RUSTUP_VERSION}/${HOST}/rustup-init"
+          curl --fail --location --retry 3 --silent --show-error "$URL" -o /tmp/rustup-init
+          echo "${RUSTUP_SHA256}  /tmp/rustup-init" | sha256sum --check
+          chmod 0755 /tmp/rustup-init
+          /tmp/rustup-init -y --no-modify-path --profile minimal --default-host "$HOST" --default-toolchain 1.98.1
+          "$HOME/.cargo/bin/rustup" component add --toolchain 1.98.1 rustfmt clippy
+          "$HOME/.cargo/bin/rustup" target add --toolchain 1.98.1 wasm32-unknown-unknown
+          "$HOME/.cargo/bin/rustc" +1.98.1 --version
+          "$HOME/.cargo/bin/cargo" +1.98.1 --version
+          "$HOME/.cargo/bin/rustup" --version
+
+      - name: Snapshot frozen lockfiles
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum \
+            crates/mycelix-artificial-status/Cargo.lock \
+            crates/mycelix-welfare-decision/Cargo.lock \
+            crates/mycelix-ai-lineage/Cargo.lock \
+            crates/mycelix-welfare-evidence/Cargo.lock \
+            > /tmp/amsap-locks.before
+          cat /tmp/amsap-locks.before
+
+      - name: Audit all AMSAP Rust formatting surfaces
+        shell: bash
+        run: |
+          set -euo pipefail
+          C="$HOME/.cargo/bin/cargo"
+          status=0
+          manifests=(
+            crates/mycelix-artificial-status/Cargo.toml
+            crates/mycelix-welfare-decision/Cargo.toml
+            crates/mycelix-ai-lineage/Cargo.toml
+            crates/mycelix-welfare-evidence/Cargo.toml
+          )
+          for manifest in "${manifests[@]}"; do
+            echo "=== rustfmt: $manifest ==="
+            if ! "$C" +1.98.1 fmt --manifest-path "$manifest" -- --check; then
+              status=1
+            fi
+          done
+          exit "$status"
+
+      - name: Qualify AMSAP-002 artificial status core
+        shell: bash
+        run: |
+          set -euo pipefail
+          C="$HOME/.cargo/bin/cargo"
+          "$C" +1.98.1 test --locked --offline --manifest-path crates/mycelix-artificial-status/Cargo.toml --all-targets
+          "$C" +1.98.1 clippy --locked --offline --manifest-path crates/mycelix-artificial-status/Cargo.toml --all-targets -- -D warnings
+          "$C" +1.98.1 check --locked --offline --manifest-path crates/mycelix-artificial-status/Cargo.toml --target wasm32-unknown-unknown
+
+      - name: Qualify AMSAP-003 welfare decision core
+        shell: bash
+        run: |
+          set -euo pipefail
+          C="$HOME/.cargo/bin/cargo"
+          "$C" +1.98.1 test --locked --offline --manifest-path crates/mycelix-welfare-decision/Cargo.toml --all-targets
+          "$C" +1.98.1 clippy --locked --offline --manifest-path crates/mycelix-welfare-decision/Cargo.toml --all-targets -- -D warnings
+          "$C" +1.98.1 check --locked --offline --manifest-path crates/mycelix-welfare-decision/Cargo.toml --target wasm32-unknown-unknown
+
+      - name: Qualify AMSAP-004 lineage core
+        shell: bash
+        run: |
+          set -euo pipefail
+          C="$HOME/.cargo/bin/cargo"
+          "$C" +1.98.1 test --locked --offline --manifest-path crates/mycelix-ai-lineage/Cargo.toml --all-targets
+          "$C" +1.98.1 clippy --locked --offline --manifest-path crates/mycelix-ai-lineage/Cargo.toml --all-targets -- -D warnings
+          "$C" +1.98.1 check --locked --offline --manifest-path crates/mycelix-ai-lineage/Cargo.toml --target wasm32-unknown-unknown
+
+      - name: Qualify AMSAP-005 welfare evidence core
+        shell: bash
+        run: |
+          set -euo pipefail
+          C="$HOME/.cargo/bin/cargo"
+          "$C" +1.98.1 test --locked --offline --manifest-path crates/mycelix-welfare-evidence/Cargo.toml --all-targets
+          "$C" +1.98.1 clippy --locked --offline --manifest-path crates/mycelix-welfare-evidence/Cargo.toml --all-targets -- -D warnings
+          "$C" +1.98.1 check --locked --offline --manifest-path crates/mycelix-welfare-evidence/Cargo.toml --target wasm32-unknown-unknown
+
+      - name: Prove lockfiles and checkout remained immutable
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum \
+            crates/mycelix-artificial-status/Cargo.lock \
+            crates/mycelix-welfare-decision/Cargo.lock \
+            crates/mycelix-ai-lineage/Cargo.lock \
+            crates/mycelix-welfare-evidence/Cargo.lock \
+            > /tmp/amsap-locks.after
+          diff -u /tmp/amsap-locks.before /tmp/amsap-locks.after
+          test -z "$(git status --porcelain)"
+
+      - name: Emit bounded qualification receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo '### AMSAP-Q1 frozen-stack qualification'
+            echo
+            echo "- Qualification subject: \`$(git rev-parse HEAD)\`"
+            echo '- Frozen product head: `ced789c76c6180fc331aa3759aa92d6d9db20f8c` (AMSAP-005)'
+            echo '- Upstream constitutional head: `303f624152120b78ed41b2f8ebe6165b324a5ef2` (AC-001)'
+            echo "- Rust: \`$($HOME/.cargo/bin/rustc +1.98.1 --version)\`"
+            echo '- Frozen tranche ancestry + exact review surfaces: PASS'
+            echo '- Static authority-neutrality and original exact-parent gates: PASS'
+            echo '- AMSAP-001 deterministic constitutional validator: PASS'
+            echo '- AMSAP-002..005 aggregate Rust 1.98.1 rustfmt audit: PASS'
+            echo '- AMSAP-002 locked/offline test + clippy + wasm check: PASS'
+            echo '- AMSAP-003 locked/offline test + clippy + wasm check: PASS'
+            echo '- AMSAP-004 locked/offline test + clippy + wasm check: PASS'
+            echo '- AMSAP-005 locked/offline test + clippy + wasm check: PASS'
+            echo '- Frozen Cargo.lock files unchanged: PASS'
+            echo '- Checkout immutable: PASS'
+            echo
+            echo '**Nonclaims:** this receipt establishes source/toolchain coherence only. It does not establish consciousness, sentience, moral patienthood, scientific truth, welfare protection, legal standing, governance authority, deployment currentness, or external-effect authority.'
+          } >> "$GITHUB_STEP_SUMMARY"
