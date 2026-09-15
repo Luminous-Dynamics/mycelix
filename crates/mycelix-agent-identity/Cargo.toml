@@ -1,0 +1,15 @@
+[package]
+name = "mycelix-agent-identity"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Non-authorizing stable-agent to runtime-instance identity qualification for Mycelix"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+
+[dependencies]
+blake3 = "1"
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+serde_json = "1"
