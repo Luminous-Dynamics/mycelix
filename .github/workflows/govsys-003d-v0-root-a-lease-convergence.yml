@@ -1,0 +1,192 @@
+name: GOVSYS-003D-V0 Root-A Lease Convergence
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/govsys-003d-v0-root-a-lease-convergence.yml'
+      - 'mycelix-workspace/docs/government/GOVSYS_003D_V0_ROOT_A_LEASE_CONVERGENCE.md'
+      - 'crates/mycelix-constitutional-root/**'
+      - 'crates/mycelix-authority-evidence-lease/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Exact Root-A plus EvidenceLease convergence
+    runs-on: ubuntu-24.04
+    env:
+      ROOT_A: 9ce4f905d74ab53e414a0f9cce63e8122c84c8cd
+      LEASE: 58fa357e53d7e529362c5f766965498ee557d6ce
+      MERGE: 59174c73a506706bd9e68afa508b57454f147252
+      MERGE_TREE: e346f07b5700fff45b653555f28fb46aaaf0cab9
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Exact qualification child and ordered convergence
+        id: subject
+        continue-on-error: true
+        shell: bash
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$MERGE"
+          test "$(git rev-parse "$MERGE^{tree}")" = "$MERGE_TREE"
+          mapfile -t parents < <(git show -s --format='%P' "$MERGE")
+          read -r p1 p2 extra <<< "${parents[0]}"
+          test "$p1" = "$ROOT_A"
+          test "$p2" = "$LEASE"
+          test -z "${extra:-}"
+
+      - name: Exact two-file qualification surface
+        id: surface
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t changed < <(git diff --name-only "$MERGE" HEAD | sort)
+          expected=(
+            .github/workflows/govsys-003d-v0-root-a-lease-convergence.yml
+            mycelix-workspace/docs/government/GOVSYS_003D_V0_ROOT_A_LEASE_CONVERGENCE.md
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#changed[@]}" -eq 2
+          for i in "${!expected_sorted[@]}"; do test "${changed[$i]}" = "${expected_sorted[$i]}"; done
+
+      - name: Exact selective lease import
+        id: import
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse "$MERGE:crates/mycelix-authority-evidence-lease/Cargo.toml")" = 4d367cf31df51b9f6e53a2c56bf4db7f774a15d0
+          test "$(git rev-parse "$MERGE:crates/mycelix-authority-evidence-lease/INVARIANTS.md")" = 1357b91b37d9bf58b1b70d098e8511bb31142822
+          test "$(git rev-parse "$MERGE:crates/mycelix-authority-evidence-lease/src/lib.rs")" = 2da6f4a2fb421ba46bd6c16354efa216e3885056
+          mapfile -t imported < <(git diff --name-only "$ROOT_A" "$MERGE" | sort)
+          expected=(
+            crates/mycelix-authority-evidence-lease/Cargo.toml
+            crates/mycelix-authority-evidence-lease/INVARIANTS.md
+            crates/mycelix-authority-evidence-lease/src/lib.rs
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#imported[@]}" -eq 3
+          for i in "${!expected_sorted[@]}"; do test "${imported[$i]}" = "${expected_sorted[$i]}"; done
+
+      - name: Frozen Root-A theorem blobs unchanged
+        id: root_blobs
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          for path in \
+            crates/mycelix-constitutional-root/Cargo.toml \
+            crates/mycelix-constitutional-root/src/lib.rs \
+            crates/mycelix-constitutional-root/examples/conformance.rs \
+            crates/mycelix-constitutional-root/vectors/root_a_transition_pair_v1.json \
+            scripts/qualification/govsys_003a_root_identity_vector_v1.json \
+            scripts/qualification/govsys_constitutional_trust_root_identity_v0_1.py; do
+            test "$(git rev-parse "HEAD:${path}")" = "$(git rev-parse "${ROOT_A}:${path}")"
+          done
+
+      - name: Install exact Rust toolchain
+        id: toolchain
+        if: always()
+        continue-on-error: true
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+
+      - name: Re-execute Python Root-A oracle
+        id: python_root
+        if: always()
+        continue-on-error: true
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python3 scripts/qualification/govsys_constitutional_trust_root_identity_v0_1.py
+
+      - name: Re-execute Rust Root-A
+        id: rust_root
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/root-a"
+          mkdir -p "$crate"
+          cp -a crates/mycelix-constitutional-root/. "$crate/"
+          cargo fmt --manifest-path "$crate/Cargo.toml" -- --check
+          cargo test --manifest-path "$crate/Cargo.toml" --all-targets
+          cargo clippy --manifest-path "$crate/Cargo.toml" --all-targets -- -D warnings
+          cargo check --manifest-path "$crate/Cargo.toml" --lib --target wasm32-unknown-unknown
+          cargo run --quiet --manifest-path "$crate/Cargo.toml" --example conformance >/tmp/root-a-rust.out
+          test -s /tmp/root-a-rust.out
+
+      - name: Re-execute EvidenceLease algebra
+        id: lease
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/lease"
+          mkdir -p "$crate"
+          cp -a crates/mycelix-authority-evidence-lease/. "$crate/"
+          cargo fmt --manifest-path "$crate/Cargo.toml" -- --check
+          cargo test --manifest-path "$crate/Cargo.toml" --all-targets
+          cargo clippy --manifest-path "$crate/Cargo.toml" --all-targets -- -D warnings
+
+      - name: Static non-authority boundary audit
+        id: boundary
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'qualified Rust Root-A' mycelix-workspace/docs/government/GOVSYS_003D_V0_ROOT_A_LEASE_CONVERGENCE.md
+          grep -F '!= current constitutional root' mycelix-workspace/docs/government/GOVSYS_003D_V0_ROOT_A_LEASE_CONVERGENCE.md
+          grep -F 'root_source_anchor_digest' mycelix-workspace/docs/government/GOVSYS_003D_V0_ROOT_A_LEASE_CONVERGENCE.md
+          grep -F 'rotation_authority_anchor_digest' mycelix-workspace/docs/government/GOVSYS_003D_V0_ROOT_A_LEASE_CONVERGENCE.md
+          grep -F 'grants_currentness' crates/mycelix-constitutional-root/src/lib.rs
+          grep -F 'EvidenceLease' crates/mycelix-authority-evidence-lease/src/lib.rs
+
+      - name: Immutable checkout postflight
+        id: immutable
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          test -z "$(git status --porcelain --untracked-files=all)"
+
+      - name: Fail closed on any convergence defect
+        if: always()
+        shell: bash
+        env:
+          SUBJECT: ${{ steps.subject.outcome }}
+          SURFACE: ${{ steps.surface.outcome }}
+          IMPORT: ${{ steps.import.outcome }}
+          ROOT_BLOBS: ${{ steps.root_blobs.outcome }}
+          TOOLCHAIN: ${{ steps.toolchain.outcome }}
+          PYTHON_ROOT: ${{ steps.python_root.outcome }}
+          RUST_ROOT: ${{ steps.rust_root.outcome }}
+          LEASE_OUTCOME: ${{ steps.lease.outcome }}
+          BOUNDARY: ${{ steps.boundary.outcome }}
+          IMMUTABLE: ${{ steps.immutable.outcome }}
+        run: |
+          set -euo pipefail
+          for value in "$SUBJECT" "$SURFACE" "$IMPORT" "$ROOT_BLOBS" "$TOOLCHAIN" "$PYTHON_ROOT" "$RUST_ROOT" "$LEASE_OUTCOME" "$BOUNDARY" "$IMMUTABLE"; do
+            test "$value" = success
+          done
