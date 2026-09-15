@@ -14,7 +14,7 @@ use mycelix_governance_constitution::{
     STATEMENT_PROFILE,
 };
 use mycelix_governance_constitution_currentness::{
-    LeasedVerifiedCurrentConstitution, GENESIS_CURRENTNESS_REUSE_MS, PROTOCOL_VERSION,
+    GENESIS_CURRENTNESS_REUSE_MS, LeasedVerifiedCurrentConstitution, PROTOCOL_VERSION,
 };
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -97,11 +97,13 @@ fn manifest_from_genesis(
         threshold_authority_profile: statement.threshold_authority_profile.clone(),
         effective_from_ms: statement.effective_from_ms,
     };
-    manifest.verify_genesis_statement(statement).map_err(|error| {
-        wasm_error!(WasmErrorInner::Guest(format!(
-            "verified genesis cannot be reconstructed as a manifest: {error}"
-        )))
-    })?;
+    manifest
+        .verify_genesis_statement(statement)
+        .map_err(|error| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "verified genesis cannot be reconstructed as a manifest: {error}"
+            )))
+        })?;
     Ok(manifest)
 }
 
