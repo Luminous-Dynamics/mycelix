@@ -1,0 +1,146 @@
+name: IG-007CS0 Constitution Bridge Sync Profile
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-governance/profiles/observed/constitution-bridge-sync-fca2c107-v1.json"
+      - "mycelix-governance/scripts/validate_ig007cs0_constitution_bridge_sync_profile.py"
+      - "mycelix-governance/docs/IG_007CS0_CONSTITUTION_BRIDGE_SYNC_PROFILE.md"
+      - ".github/workflows/ig-007cs0-constitution-bridge-sync-profile.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-constitution-bridge-sync-profile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      EXPECTED_SUBJECT: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      EXPECTED_PARENT: 3232d611d8833b03eba9f5412f5d7cb0cf89d4e1
+      PROFILE_SHA256: 60daae86044098561fa8e41bcdf6f695ab41234760be4b7e235d2780271b681e
+
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_SUBJECT }}
+          fetch-depth: 0
+
+      - name: Install Python 3.13.5
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13.5"
+
+      - name: Verify exact subject and isolated four-file child
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT"
+          git merge-base --is-ancestor "$EXPECTED_PARENT" HEAD
+          test "$(git rev-list --count "$EXPECTED_PARENT"..HEAD)" = "4"
+          git diff --name-only "$EXPECTED_PARENT"..HEAD | sort > /tmp/changed.txt
+          cat > /tmp/expected.txt <<'EOF'
+          .github/workflows/ig-007cs0-constitution-bridge-sync-profile.yml
+          mycelix-governance/docs/IG_007CS0_CONSTITUTION_BRIDGE_SYNC_PROFILE.md
+          mycelix-governance/profiles/observed/constitution-bridge-sync-fca2c107-v1.json
+          mycelix-governance/scripts/validate_ig007cs0_constitution_bridge_sync_profile.py
+          EOF
+          sort -o /tmp/expected.txt /tmp/expected.txt
+          diff -u /tmp/expected.txt /tmp/changed.txt
+          test -z "$(git status --porcelain)"
+
+      - name: Bind constitution and complete bridge coordinator source census
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object mycelix-governance/zomes/constitution/coordinator/src/lib.rs)" = "923a1ce789c8319c79df7f33a9241af50804ec55"
+
+          test "$(git hash-object mycelix-governance/zomes/bridge/coordinator/src/attestation.rs)" = "6d7938084ba699b144ee5951966b1421c034f579"
+          test "$(git hash-object mycelix-governance/zomes/bridge/coordinator/src/consciousness.rs)" = "d0acabf306594ab3ccfae220a9c9bd9aceed0ca6"
+          test "$(git hash-object mycelix-governance/zomes/bridge/coordinator/src/consciousness_config.rs)" = "26da234e588bf26d0e25c10dbec34502e00c191a"
+          test "$(git hash-object mycelix-governance/zomes/bridge/coordinator/src/consensus.rs)" = "3842dfa365953a01ca90bb79059da53f9cb00a6f"
+          test "$(git hash-object mycelix-governance/zomes/bridge/coordinator/src/cross_cluster.rs)" = "3eb0ade8633d6e711fd266bca6eb2ebab616eac2"
+          test "$(git hash-object mycelix-governance/zomes/bridge/coordinator/src/lib.rs)" = "fb278023c269a89f300504c18538ab85b09f1178"
+          test "$(git hash-object mycelix-governance/zomes/bridge/coordinator/src/query.rs)" = "5a02812880a2fdaa8f3ed767a4686afc00c566f9"
+          test "$(git hash-object mycelix-governance/zomes/bridge/coordinator/src/validation.rs)" = "9e13ba58939880738eccb997e54f729da7a11304"
+
+          find mycelix-governance/zomes/bridge/coordinator/src -maxdepth 1 -type f -name '*.rs' -printf '%f\n' | sort > /tmp/bridge-files.txt
+          cat > /tmp/bridge-expected.txt <<'EOF'
+          attestation.rs
+          consciousness.rs
+          consciousness_config.rs
+          consensus.rs
+          cross_cluster.rs
+          lib.rs
+          query.rs
+          validation.rs
+          EOF
+          sort -o /tmp/bridge-expected.txt /tmp/bridge-expected.txt
+          diff -u /tmp/bridge-expected.txt /tmp/bridge-files.txt
+
+      - name: Verify frozen presence and absence source facts
+        shell: bash
+        run: |
+          set -euo pipefail
+          CONSTITUTION=mycelix-governance/zomes/constitution/coordinator/src/lib.rs
+          BRIDGE=mycelix-governance/zomes/bridge/coordinator/src
+          CONFIG=$BRIDGE/consciousness_config.rs
+
+          grep -F 'fn sync_phi_parameter_to_bridge' "$CONSTITUTION"
+          grep -F 'call_local_best_effort' "$CONSTITUTION"
+          grep -F '"update_phi_config"' "$CONSTITUTION"
+          grep -F 'PhiConfigSyncWarning' "$CONSTITUTION"
+
+          if grep -R -n -F 'update_phi_config' "$BRIDGE"; then
+            echo 'frozen CS0 theorem violated: update_phi_config now exists in bridge coordinator census' >&2
+            exit 1
+          fi
+          grep -F 'pub fn update_consciousness_config' "$CONFIG"
+
+      - name: Syntax compile validator without writing bytecode
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/scripts/validate_ig007cs0_constitution_bridge_sync_profile.py')
+          compile(p.read_text(encoding='utf-8'), str(p), 'exec')
+          PY
+
+      - name: Validate profile twice byte-identically
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROFILE=mycelix-governance/profiles/observed/constitution-bridge-sync-fca2c107-v1.json
+          SCRIPT=mycelix-governance/scripts/validate_ig007cs0_constitution_bridge_sync_profile.py
+          python "$SCRIPT" --profile "$PROFILE" --self-test > /tmp/cs0-1.json
+          python "$SCRIPT" --profile "$PROFILE" --self-test > /tmp/cs0-2.json
+          cmp /tmp/cs0-1.json /tmp/cs0-2.json
+
+      - name: Assert frozen commitment and claim ceiling
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          with open('/tmp/cs0-1.json', encoding='utf-8') as f:
+              r = json.load(f)
+          assert r['validated'] is True
+          assert r['authority_class'] == 'ObservedSourceBound'
+          assert r['profile_content_sha256'] == '60daae86044098561fa8e41bcdf6f695ab41234760be4b7e235d2780271b681e'
+          assert r['known_gap_issues'] == [943, 944]
+          assert r['bridge_module_count'] == 8
+          assert r['target_symbol_occurrences'] == 0
+          assert r['self_test'] is True
+          PY
+
+      - name: Verify checkout immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT"
+          git diff --exit-code
+          git diff --cached --exit-code
+          test -z "$(git status --porcelain)"
