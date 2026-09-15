@@ -89,7 +89,7 @@ diff --git a/mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinato
 +        }
 +        RemoteSignalAdmission::Legacy(_) => {
 +            return Err(wasm_error!(WasmErrorInner::Guest(
-+                "Legacy remote MailSignal ingress is disabled".to_string()
++                "Legacy remote ingress is disabled".to_string()
 +            )));
 +        }
 +    }
