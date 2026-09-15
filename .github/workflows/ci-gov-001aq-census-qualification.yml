@@ -1,0 +1,91 @@
+name: CI-GOV-001AQ Queue Census Qualification
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/ci-gov-001aq-census-qualification.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ci-gov-001aq-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    steps:
+      - name: Check out exact qualification subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 2
+
+      - name: Prove qualification-only review surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "5020410672ec603c081af7319a6979c471acfe86"
+          mapfile -t changed < <(git diff --name-only HEAD^ HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = ".github/workflows/ci-gov-001aq-census-qualification.yml"
+
+      - name: Compile and run deterministic census tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile \
+            .github/scripts/ci_queue_census.py \
+            .github/scripts/test_ci_queue_census.py
+          python3 .github/scripts/test_ci_queue_census.py -v
+
+      - name: Audit production workflow trigger and permission theorem
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          workflow = Path('.github/workflows/ci-gov-001a-queue-census.yml').read_text()
+          script = Path('.github/scripts/ci_queue_census.py').read_text()
+
+          if 'workflow_dispatch:' not in workflow:
+              raise SystemExit('production census lost manual dispatch')
+          for forbidden in ('pull_request:', 'push:', 'schedule:'):
+              if forbidden in workflow:
+                  raise SystemExit(f'production census gained automatic trigger: {forbidden}')
+
+          for required in ('contents: read', 'actions: read', 'pull-requests: read'):
+              if required not in workflow:
+                  raise SystemExit(f'missing read permission: {required}')
+          for write_token in ('contents: write', 'actions: write', 'pull-requests: write', 'issues: write'):
+              if write_token in workflow:
+                  raise SystemExit(f'write permission found: {write_token}')
+
+          if 'method="GET"' not in script:
+              raise SystemExit('explicit GET-only request method missing')
+          for mutating in ('method="POST"', 'method="PUT"', 'method="PATCH"', 'method="DELETE"'):
+              if mutating in script:
+                  raise SystemExit(f'mutating HTTP method present: {mutating}')
+          if 'MAX_RUN_PAGES = 20' not in script or 'MAX_PR_LOOKUPS = 500' not in script:
+              raise SystemExit('fail-closed census bounds drifted')
+          PY
+
+      - name: Audit unknown-metadata and superseded-head behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'except GitHubApiError as exc:' .github/scripts/ci_queue_census.py
+          grep -F 'if exc.status == 404:' .github/scripts/ci_queue_census.py
+          grep -F 'current_head != run_head' .github/scripts/ci_queue_census.py
+          grep -F '"unknown"' .github/scripts/ci_queue_census.py
+
+      - name: Prove checkout immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain)"
