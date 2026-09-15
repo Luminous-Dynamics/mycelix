@@ -1,0 +1,59 @@
+name: Authority Freshness
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-authority-freshness/**'
+      - '.github/workflows/authority-freshness.yml'
+  push:
+    branches:
+      - 'security/authority-freshness-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: authority-freshness-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Generation-bound authority freshness kernel
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: crates/mycelix-authority-freshness
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-authority-freshness/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-authority-freshness/Cargo.toml --all-targets
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-authority-freshness/Cargo.toml --all-targets -- -D warnings
+      - name: Authority freshness separation audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          src = Path('crates/mycelix-authority-freshness/src/lib.rs').read_text()
+          assert 'AuthorityFreshnessState' in src
+          assert 'generation' in src
+          assert 'freshness_digest' in src
+          assert 'SUBJECT_IDENTITY_PROFILE' in src
+          assert 'AmbiguousSubject' in src
+          assert 'MAX_RECEIPTS' in src
+          assert 'max_by_key' not in src
+          assert 'sort_by_key' not in src
+          assert 'phi' not in src.lower()
+          assert 'reputation' not in src.lower()
+          assert 'verified: bool' not in src
+          print('PASS: freshness identity is generation-bound, bounded, deterministic, and score-free')
+          PY

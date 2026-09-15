@@ -1,0 +1,11 @@
+[package]
+name = "mycelix-authority-freshness"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Pure generation-bound current-authority freshness and revocation commitments"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+blake3 = "1"
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
