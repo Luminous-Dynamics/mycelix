@@ -1,0 +1,18 @@
+{
+  "schema": "mycelix.qual.verifier-bundle.v0.1",
+  "profile": "mycelix.qual.static-subject-independence.v0.1",
+  "files": [
+    {
+      "path": ".github/workflows/qual-001-authoritative.yml",
+      "sha256": "884f8ea58b5a21d21e9626d463ceabdd2ef01a2df83629a5922ec7945f619ac3"
+    },
+    {
+      "path": "qualification/qual-001/gate-manifest-v0.1.json",
+      "sha256": "60478ceec4b5e5c542a8a66d6e34f13c94eb2048a4f77773100347ba0e859b61"
+    },
+    {
+      "path": "qualification/qual-001/verifier_v0_1.py",
+      "sha256": "ef1cf59d7d96e5689fcfe1f4f873a7cfeefa3c365cd813bd019d7c26952f44d2"
+    }
+  ]
+}
