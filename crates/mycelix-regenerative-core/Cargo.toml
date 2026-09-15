@@ -1,0 +1,18 @@
+[package]
+name = "mycelix-regenerative-core"
+version = "0.1.0"
+edition = "2024"
+description = "Dependency-light canonical subject identities for Mycelix regenerative systems"
+license = "AGPL-3.0-or-later"
+authors = ["Luminous Dynamics <contact@luminousdynamics.org>"]
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+
+[features]
+default = []
+serde = ["dep:serde"]
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"], optional = true }
+
+[dev-dependencies]
+serde_json = "1.0"
