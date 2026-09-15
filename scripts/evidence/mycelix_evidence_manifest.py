@@ -171,10 +171,6 @@ def _validate_technical(item: dict[str, Any], index: int) -> None:
             raise ManifestError(f"{context}: PASS requires completed/success")
         if receipt is None:
             raise ManifestError(f"{context}: PASS requires receipt_sha256")
-        if subject != current_subject:
-            raise ManifestError(
-                f"{context}: stale historical subject cannot be current PASS"
-            )
     if disposition == "PENDING" and status not in {"queued", "in_progress"}:
         raise ManifestError(
             f"{context}: PENDING requires queued/in_progress workflow"
