@@ -1,0 +1,304 @@
+name: Mycelix Public Election Verifier Key Lifecycle Core v1
+
+on:
+  push:
+    branches:
+      - feat/governance-public-election-verifier-key-lifecycle-core-v1
+    paths:
+      - '.github/workflows/governance-public-election-verifier-key-lifecycle-core-v1.yml'
+      - 'mycelix-governance/crates/election-verifier-key-lifecycle-core/**'
+      - 'mycelix-governance/docs/PUBLIC_ELECTION_VERIFIER_KEY_LIFECYCLE_CORE_V1.md'
+  pull_request:
+    paths:
+      - '.github/workflows/governance-public-election-verifier-key-lifecycle-core-v1.yml'
+      - 'mycelix-governance/crates/election-verifier-key-lifecycle-core/**'
+      - 'mycelix-governance/docs/PUBLIC_ELECTION_VERIFIER_KEY_LIFECYCLE_CORE_V1.md'
+
+permissions:
+  contents: read
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  ELECT017C_PARENT: '5fb4e89cde9ac2ed2314ebf287348f6db34247ec'
+
+jobs:
+  qualify:
+    name: Qualify verifier-key lifecycle core v1
+    if: >-
+      (github.event_name == 'push' &&
+       github.ref_name == 'feat/governance-public-election-verifier-key-lifecycle-core-v1') ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       github.event.pull_request.head.ref == 'feat/governance-public-election-verifier-key-lifecycle-core-v1')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact subject head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Bind exact additive tranche
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$ELECT017C_PARENT"
+          test "$(git rev-list --count "$ELECT017C_PARENT..HEAD")" -eq 1
+
+          mapfile -t changed < <(git diff --name-only "$ELECT017C_PARENT" HEAD | sort)
+          expected=(
+            '.github/workflows/governance-public-election-verifier-key-lifecycle-core-v1.yml'
+            'mycelix-governance/crates/election-verifier-key-lifecycle-core/Cargo.toml'
+            'mycelix-governance/crates/election-verifier-key-lifecycle-core/src/lib.rs'
+            'mycelix-governance/docs/PUBLIC_ELECTION_VERIFIER_KEY_LIFECYCLE_CORE_V1.md'
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#changed[@]}" -eq "${#expected_sorted[@]}"
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed[@]}")
+
+          # Parent authorization/public-key/package semantics remain byte-identical.
+          git diff --quiet "$ELECT017C_PARENT" HEAD -- \
+            mycelix-governance/crates/election-verifier-key-authorization/src/lib.rs
+          git diff --quiet "$ELECT017C_PARENT" HEAD -- \
+            mycelix-governance/crates/election-verifier-public-key-binding/src/lib.rs
+          git diff --quiet "$ELECT017C_PARENT" HEAD -- \
+            mycelix-governance/crates/election-authenticated-verifier-package/src/lib.rs
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt,clippy
+
+      - name: Check exact Rust formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt \
+            --manifest-path mycelix-governance/crates/election-verifier-key-lifecycle-core/Cargo.toml \
+            -- --check
+
+      - name: Generate dependency evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate='mycelix-governance/crates/election-verifier-key-lifecycle-core'
+          mkdir -p qualification
+          pushd "$crate" >/dev/null
+          cargo generate-lockfile
+          cp Cargo.lock "../../../qualification/election-verifier-key-lifecycle-core.Cargo.lock"
+          sha256sum Cargo.lock \
+            > "../../../qualification/election-verifier-key-lifecycle-core.Cargo.lock.sha256"
+          cargo metadata --locked --format-version 1 \
+            > "../../../qualification/election-verifier-key-lifecycle-core.cargo-metadata.json"
+          popd >/dev/null
+
+      - name: Execute complete lifecycle theorem corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test \
+            --manifest-path mycelix-governance/crates/election-verifier-key-lifecycle-core/Cargo.toml \
+            --locked 2>&1 | tee qualification/election-verifier-key-lifecycle-core.tests.log
+
+      - name: Run warning-fatal all-target Clippy
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo clippy \
+            --manifest-path mycelix-governance/crates/election-verifier-key-lifecycle-core/Cargo.toml \
+            --locked --all-targets -- -D warnings \
+            2>&1 | tee qualification/election-verifier-key-lifecycle-core.clippy.log
+
+      - name: Independently reproduce lifecycle vectors in Python
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+
+          def sha(raw):
+              return hashlib.sha256(raw).digest()
+
+          def lp32(raw):
+              return len(raw).to_bytes(4, 'big') + raw
+
+          KEY_DOMAIN = b'XENIA:AuthenticationSignerKeyId:v1'
+          POLICY_DOMAIN = b'MYCELIX:PUBLIC-ELECTION:VERIFIER-KEY-LIFECYCLE-CORE-POLICY:V1\x00'
+          STATE_DOMAIN = b'MYCELIX:PUBLIC-ELECTION:VERIFIER-KEY-LIFECYCLE-STATE:V1\x00'
+          PROJECTION_DOMAIN = b'MYCELIX:PUBLIC-ELECTION:VERIFIER-KEY-LIFECYCLE-SUCCESSOR-PROJECTION:V1\x00'
+          PROPOSAL_DOMAIN = b'MYCELIX:PUBLIC-ELECTION:VERIFIER-KEY-LIFECYCLE-PROPOSAL:V1\x00'
+          PROFILE = b'mycelix-public-election-verifier-key-lifecycle-core-v1'
+
+          root = bytes.fromhex('4e52e8b427611e11b36b0a22b8c8ab7b62bf808d4223db1955f50ca9b02e65b5')
+          auth_policy = bytes.fromhex('91536dd76459b2be14882239b2192510ef940e94c47371beb3ae22d91a44fd98')
+          bundle = bytes.fromhex('97565d554ffaddbcc35d2a22d209ec1fb2646c0f4303146bb73c3d9640fdbefc')
+          xenia_profile = bytes.fromhex('e8b6ac90028c3064880bfb6b59ac7fbd1a1db04182bd3841e656bba2736d2b90')
+          suite_registry = bytes.fromhex('0255c2b3070e579d52e41ab6a9d767d1700b61fd68787bbae78bd41aa868945f')
+
+          policy_raw = (
+              POLICY_DOMAIN + lp32(PROFILE) + root + auth_policy + bundle
+              + xenia_profile + suite_registry + (256).to_bytes(4, 'big')
+          )
+          policy_digest = sha(policy_raw)
+          assert policy_digest.hex() == 'a016dab477257e83147087e8787944ea38fdd08fb141b076a7db6cca0783ddac'
+
+          ed_keys = [
+              bytes.fromhex('2152f8d19b791d24453242e15f2eab6cb7cffa7b6a5ed30097960e069881db12'),
+              bytes.fromhex('22fc297792f0b6ffc0bfcfdb7edb0c0aa14e025a365ec0e342e86e3829cb74b6'),
+              bytes.fromhex('d759793bbc13a2819a827c76adb6fba8a49aee007f49f2d0992d99b825ad2c48'),
+          ]
+          ml_keys = [bytes([value]) * 1952 for value in (0x42, 0x43, 0x44)]
+
+          def signer_id(suite, public_key):
+              return sha(
+                  KEY_DOMAIN
+                  + suite.to_bytes(2, 'little')
+                  + len(public_key).to_bytes(8, 'little')
+                  + public_key
+              )
+
+          records = []
+          for index in range(3):
+              records.append({
+                  'release': bytes([0x21 + index]) * 32,
+                  'lineage': bytes([0x31 + index]) * 32,
+                  'builder': bytes([0x42 if index == 1 else 0x41]) * 32,
+                  'ed_id': signer_id(1, ed_keys[index]),
+                  'ed_key': ed_keys[index],
+                  'ml_id': signer_id(2, ml_keys[index]),
+                  'ml_key': ml_keys[index],
+              })
+
+          def record_population(items):
+              out = len(items).to_bytes(2, 'big')
+              for record in sorted(items, key=lambda item: item['release']):
+                  out += record['release']
+                  out += record['lineage']
+                  out += record['builder']
+                  out += b'\x01'
+                  out += record['ed_id']
+                  out += len(record['ed_key']).to_bytes(4, 'big')
+                  out += record['ed_key']
+                  out += record['ml_id']
+                  out += len(record['ml_key']).to_bytes(4, 'big')
+                  out += record['ml_key']
+              return out
+
+          def retired(values):
+              return len(values).to_bytes(2, 'big') + b''.join(values)
+
+          genesis_raw = (
+              STATE_DOMAIN + lp32(PROFILE) + policy_digest + root + xenia_profile
+              + (0).to_bytes(4, 'big') + bytes(32) + bytes(32)
+              + record_population(records) + retired([]) + retired([])
+          )
+          genesis_digest = sha(genesis_raw)
+          assert genesis_digest.hex() == '3f63f50ff814e7d440ce108c981a7616cc1cab78e53d8f0b24950d2e994ad8d1'
+
+          old_ed = records[0]['ed_id']
+          old_ml = records[0]['ml_id']
+          new_ed = bytes([0x91]) * 32
+          new_ml = bytes([0x92]) * 1952
+          new_ed_id = signer_id(1, new_ed)
+          new_ml_id = signer_id(2, new_ml)
+          rotated = [dict(item) for item in records]
+          rotated[0].update(ed_id=new_ed_id, ed_key=new_ed, ml_id=new_ml_id, ml_key=new_ml)
+
+          projection_raw = (
+              PROJECTION_DOMAIN + lp32(PROFILE) + policy_digest + root + xenia_profile
+              + (1).to_bytes(4, 'big') + genesis_digest
+              + record_population(rotated) + retired([old_ed]) + retired([old_ml])
+          )
+          projection_digest = sha(projection_raw)
+          assert projection_digest.hex() == 'ca7107c5e629a5994b4cfd4a49413a92814041d480696e4bcd58607a5495b19c'
+
+          proposal_raw = (
+              PROPOSAL_DOMAIN + lp32(PROFILE) + policy_digest + genesis_digest
+              + (1).to_bytes(4, 'big') + records[0]['release'] + old_ed + old_ml
+              + b'\x01' + new_ed_id + len(new_ed).to_bytes(4, 'big') + new_ed
+              + new_ml_id + len(new_ml).to_bytes(4, 'big') + new_ml
+              + projection_digest
+          )
+          proposal_digest = sha(proposal_raw)
+          assert proposal_digest.hex() == '948e8bac9e77af3df6fc76668a2f8d1e9a8c630b708a7816678ea05dbaa49d61'
+          PY
+
+      - name: Audit lifecycle authority separation and invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          src='mycelix-governance/crates/election-verifier-key-lifecycle-core/src/lib.rs'
+          cargo='mycelix-governance/crates/election-verifier-key-lifecycle-core/Cargo.toml'
+          docs='mycelix-governance/docs/PUBLIC_ELECTION_VERIFIER_KEY_LIFECYCLE_CORE_V1.md'
+
+          grep -F 'MAX_LIFECYCLE_TRANSITIONS_V1: u32 = 256' "$src"
+          grep -F 'RotateKeyPair' "$src"
+          grep -F 'DisableVerifier' "$src"
+          grep -F 'RetiredEd25519KeyReuse' "$src"
+          grep -F 'RetiredMlDsa65KeyReuse' "$src"
+          grep -F 'CurrentStateDigestMismatch' "$src"
+          grep -F 'CertificationCapacityV1::Insufficient' "$src"
+          grep -F 'detect_lifecycle_fork' "$src"
+          grep -F 'materialize_structural_lifecycle_state' "$src"
+          grep -F 'valid successor != authorized successor != current authoritative head' "$docs"
+          grep -F 'governance or threshold approval' "$docs"
+          grep -F 'durable/global latest-state currentness' "$docs"
+
+          for test_name in \
+            parent_vectors_and_lifecycle_policy_are_exact \
+            sequence_zero_is_deterministically_root_derived \
+            valid_pair_rotation_matches_language_neutral_vectors \
+            replacement_signer_ids_are_recomputed_from_complete_public_keys \
+            wrong_suite_specific_public_key_length_fails_before_rotation \
+            another_active_verifiers_key_cannot_be_reused \
+            retired_keys_cannot_reappear_later_or_on_another_release \
+            disable_is_terminal_and_capacity_loss_does_not_weaken_thresholds \
+            sequence_and_predecessor_are_exact_not_time_selected \
+            two_competing_successors_are_explicit_fork_evidence \
+            retired_history_cannot_be_dropped_from_materialized_state \
+            transition_limit_blocks_history_truncation_pressure \
+            materialization_requires_external_nonzero_event_but_makes_no_authority_claim \
+            frozen_xenia_profile_and_parent_bundle_cannot_be_substituted; do
+            grep -F "fn ${test_name}" "$src"
+          done
+
+          if grep -Eiq '(ed25519-dalek|ml-dsa|xenia-auth[ ="]|serde)' "$cargo"; then
+            echo 'ELECT-018A must remain a pure structural lifecycle core without crypto/signature/serialization authority dependencies' >&2
+            exit 1
+          fi
+          if grep -Eq '(Deserialize|Serialize)' "$src"; then
+            echo 'ELECT-018A qualified structural tokens must not gain a serialization construction path' >&2
+            exit 1
+          fi
+          if grep -Eq '(std::time|SystemTime|Utc::now|chrono::)' "$src"; then
+            echo 'ELECT-018A must not use wall-clock selection for lifecycle authority' >&2
+            exit 1
+          fi
+
+      - name: Remove transient lock and prove immutable checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f mycelix-governance/crates/election-verifier-key-lifecycle-core/Cargo.lock
+          test -z "$(git status --porcelain=v1 --untracked-files=all | grep -v '^?? qualification/' || true)"
+          printf '%s\n' \
+            "subject_head=$(git rev-parse HEAD)" \
+            "parent=$ELECT017C_PARENT" \
+            "rust_toolchain=$RUST_TOOLCHAIN" \
+            "elect017c_qualified_run=34954238915" \
+            "elect017c_qualified_job=104332299892" \
+            "preflight_run=34962289950" \
+            "verifier_key_lifecycle_core_v1=PASS" \
+            "immutable_checkout=PASS" \
+            > qualification/public-election-verifier-key-lifecycle-core-v1.status.txt
+
+      - name: Upload qualification evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: public-election-verifier-key-lifecycle-core-v1
+          path: qualification/*
+          if-no-files-found: error
+          retention-days: 30
