@@ -8,6 +8,7 @@
 //! - Capture observation, uncertainty, hypothesis, and signal contracts
 //! - Provenance-bearing institutional relationship graph contracts
 //! - Deterministic institutional capture metrics
+//! - Standards-bound OCDS/BODS ingestion contracts
 //! - Evidence types shared across justice and media
 //! - Status/phase traits for state machine validation
 //! - Role-based authorization helpers
@@ -20,6 +21,10 @@ pub mod capture_observation;
 pub mod evidence;
 pub mod institutional_graph;
 pub mod roles;
+// The adapter has private serde projection fields that exist to preserve external
+// standard structure even when AC-005 deliberately does not expose those fields.
+#[allow(dead_code)]
+pub mod standards_ingestion;
 pub mod status;
 
 pub use anti_capture::*;
@@ -29,4 +34,5 @@ pub use capture_observation::*;
 pub use evidence::*;
 pub use institutional_graph::*;
 pub use roles::*;
+pub use standards_ingestion::*;
 pub use status::*;
