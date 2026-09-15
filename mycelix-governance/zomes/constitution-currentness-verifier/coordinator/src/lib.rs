@@ -48,8 +48,8 @@ pub struct ConstitutionCurrentnessVerifierStatus {
 
 fn call_local<I, O>(zome: &str, function: &str, input: I) -> ExternResult<O>
 where
-    I: Serialize,
-    O: DeserializeOwned,
+    I: Serialize + std::fmt::Debug,
+    O: DeserializeOwned + std::fmt::Debug,
 {
     let response = call(
         CallTargetCell::Local,
