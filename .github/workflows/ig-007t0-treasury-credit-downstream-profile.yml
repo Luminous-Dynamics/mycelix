@@ -1,0 +1,131 @@
+name: IG-007T0 Treasury Credit Downstream Profile
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-governance/profiles/observed/treasury-credit-downstream-fca2c107-v1.json'
+      - 'mycelix-governance/scripts/validate_ig007t0_treasury_credit_downstream_profile.py'
+      - 'mycelix-governance/docs/IG_007T0_TREASURY_CREDIT_DOWNSTREAM_PROFILE.md'
+      - '.github/workflows/ig-007t0-treasury-credit-downstream-profile.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Bind exact subject and four-file tranche
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          BASE=feb30a89257e96592fdbd40b249258581d42fde7
+          git cat-file -e "${BASE}^{commit}"
+          mapfile -t changed < <(git diff --name-only "${BASE}..HEAD" | sort)
+          expected=(
+            .github/workflows/ig-007t0-treasury-credit-downstream-profile.yml
+            mycelix-governance/docs/IG_007T0_TREASURY_CREDIT_DOWNSTREAM_PROFILE.md
+            mycelix-governance/profiles/observed/treasury-credit-downstream-fca2c107-v1.json
+            mycelix-governance/scripts/validate_ig007t0_treasury_credit_downstream_profile.py
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#changed[@]}" -eq 4
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed[@]}")
+
+      - name: Bind exact product and helper blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          check_blob() {
+            local path="$1" expected="$2"
+            actual="$(git rev-parse "HEAD:${path}")"
+            test "${actual}" = "${expected}" || { echo "blob drift ${path}: ${actual}"; exit 1; }
+          }
+          check_blob mycelix-governance/zomes/execution/coordinator/src/lib.rs 3dbb8a8f69b377e494ccf24164c94bd80f54e0ef
+          check_blob mycelix-finance/zomes/treasury/coordinator/src/lib.rs 840e66bcb6fdedb27fe2451752511d1317eb50b8
+          check_blob mycelix-finance/zomes/treasury/integrity/src/lib.rs 5ee9b72f7c138a5283818b873ceae36dff3305d4
+          check_blob mycelix-governance/crates/governance-utils/src/lib.rs 282888816cc101c2743ef5c5905119defc3fee6d
+          check_blob mycelix-governance/zomes/bridge/coordinator/src/attestation.rs 6d7938084ba699b144ee5951966b1421c034f579
+          check_blob mycelix-governance/zomes/bridge/coordinator/src/consciousness.rs d0acabf306594ab3ccfae220a9c9bd9aceed0ca6
+          check_blob mycelix-governance/zomes/bridge/coordinator/src/consciousness_config.rs 26da234e588bf26d0e25c10dbec34502e00c191a
+          check_blob mycelix-governance/zomes/bridge/coordinator/src/consensus.rs 3842dfa365953a01ca90bb79059da53f9cb00a6f
+          check_blob mycelix-governance/zomes/bridge/coordinator/src/cross_cluster.rs 3eb0ade8633d6e711fd266bca6eb2ebab616eac2
+          check_blob mycelix-governance/zomes/bridge/coordinator/src/lib.rs fb278023c269a89f300504c18538ab85b09f1178
+          check_blob mycelix-governance/zomes/bridge/coordinator/src/query.rs 5a02812880a2fdaa8f3ed767a4686afc00c566f9
+          check_blob mycelix-governance/zomes/bridge/coordinator/src/validation.rs 9e13ba58939880738eccb997e54f729da7a11304
+
+      - name: Re-derive dispatch presence and absence facts
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXEC=mycelix-governance/zomes/execution/coordinator/src/lib.rs
+          BRIDGE=mycelix-governance/zomes/bridge/coordinator/src
+          TREASURY=mycelix-finance/zomes/treasury/coordinator/src/lib.rs
+          UTILS=mycelix-governance/crates/governance-utils/src/lib.rs
+
+          grep -F 'TransferCredits' "${EXEC}" >/dev/null
+          grep -F 'transfer_credits' "${EXEC}" >/dev/null
+
+          mapfile -t bridge_rs < <(find "${BRIDGE}" -maxdepth 1 -type f -name '*.rs' -printf '%f\n' | sort)
+          expected=(attestation.rs consciousness.rs consciousness_config.rs consensus.rs cross_cluster.rs lib.rs query.rs validation.rs)
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#bridge_rs[@]}" -eq 8
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${bridge_rs[@]}")
+          if grep -R -nE 'pub[[:space:]]+fn[[:space:]]+transfer_credits[[:space:]]*\(' "${BRIDGE}"; then
+            echo 'unexpected governance_bridge::transfer_credits entrypoint observed'
+            exit 1
+          fi
+
+          grep -F 'execute_approved_transfer' "${BRIDGE}/cross_cluster.rs" >/dev/null
+          grep -F 'execute_governance_transfer' "${BRIDGE}/cross_cluster.rs" >/dev/null
+          if grep -nE 'pub[[:space:]]+fn[[:space:]]+execute_governance_transfer[[:space:]]*\(' "${TREASURY}"; then
+            echo 'unexpected treasury::execute_governance_transfer entrypoint observed'
+            exit 1
+          fi
+
+          grep -F 'pub fn call_role(' "${UTILS}" >/dev/null
+          grep -F 'Ok(ZomeCallResponse::NetworkError(e)) => Err' "${UTILS}" >/dev/null
+          grep -F 'Ok(other) => Err' "${UTILS}" >/dev/null
+          grep -F 'Err(e) => Err' "${UTILS}" >/dev/null
+
+      - name: Validate source-bound profile twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROFILE=mycelix-governance/profiles/observed/treasury-credit-downstream-fca2c107-v1.json
+          VALIDATOR=mycelix-governance/scripts/validate_ig007t0_treasury_credit_downstream_profile.py
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+          ast.parse(Path('mycelix-governance/scripts/validate_ig007t0_treasury_credit_downstream_profile.py').read_text())
+          PY
+          python "${VALIDATOR}" --profile "${PROFILE}" > /tmp/t0-a.json
+          python "${VALIDATOR}" --profile "${PROFILE}" > /tmp/t0-b.json
+          cmp /tmp/t0-a.json /tmp/t0-b.json
+          python - <<'PY'
+          import json
+          r=json.load(open('/tmp/t0-a.json'))
+          assert r['valid'] is True
+          assert r['profile_content_sha256']=='77db81e40ebe7b0ec9278f8c9aad7584faa08b6784cde4779393d1d6b88cf58d'
+          assert r['semantic_production_subject_sha']=='fca2c107a1ea5108823ce617ba4111b6f7f77230'
+          assert r['evidence_authoring_source_equivalent_head']=='feb30a89257e96592fdbd40b249258581d42fde7'
+          assert r['known_issues']==[1085,1086]
+          assert r['bridge_module_count']==8
+          assert r['governance_utils_bound'] is True
+          assert r['positive_containment_count']==6
+          assert r['unqualified_property_count']==6
+          PY
+
+      - name: Verify checkout immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=all)"
