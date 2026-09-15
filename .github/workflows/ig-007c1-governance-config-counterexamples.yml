@@ -1,0 +1,116 @@
+name: IG-007C1 Governance Config Counterexamples
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-governance/scripts/ig007c1_governance_config_counterexamples.py"
+      - "mycelix-governance/docs/IG_007C1_GOVERNANCE_CONFIG_COUNTEREXAMPLES.md"
+      - ".github/workflows/ig-007c1-governance-config-counterexamples.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-config-counterexamples:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      EXPECTED_SUBJECT: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      PROFILE_SHA256: de4435a69356557b1812f8beb46d654c66b9c957be9d18c64bd0431f92546d5a
+      CORPUS_SHA256: 3009e97529934fa8f470769de5615dcfda17bde0e942683e939d2b733430a216
+
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_SUBJECT }}
+          fetch-depth: 1
+
+      - name: Install Python 3.13.5
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13.5"
+
+      - name: Verify exact checkout and frozen source blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT"
+          test -z "$(git status --porcelain)"
+          test "$(git hash-object mycelix-governance/zomes/bridge/coordinator/src/consciousness_config.rs)" = "26da234e588bf26d0e25c10dbec34502e00c191a"
+          test "$(git hash-object mycelix-governance/zomes/bridge/integrity/src/lib.rs)" = "61b20610216e2fd69c701ecaea5322c448eda119"
+          test "$(git hash-object mycelix-governance/zomes/proposals/coordinator/src/lib.rs)" = "eb8358353ee259ef9c3b46617a61d3439f1c714c"
+          test "$(git hash-object mycelix-governance/zomes/proposals/integrity/src/lib.rs)" = "986bc0526aec8d37436efbe5ba798bc41705e3cf"
+
+      - name: Syntax compile C0 and C1 oracles
+        run: |
+          python -m py_compile mycelix-governance/scripts/validate_ig007c0_governance_config_profile.py
+          python -m py_compile mycelix-governance/scripts/ig007c1_governance_config_counterexamples.py
+
+      - name: Requalify C0 profile
+        shell: bash
+        run: |
+          set -euo pipefail
+          python mycelix-governance/scripts/validate_ig007c0_governance_config_profile.py \
+            --profile mycelix-governance/profiles/observed/governance-config-fca2c107-v1.json \
+            --self-test > /tmp/ig007c1-profile-1.json
+          python mycelix-governance/scripts/validate_ig007c0_governance_config_profile.py \
+            --profile mycelix-governance/profiles/observed/governance-config-fca2c107-v1.json \
+            --self-test > /tmp/ig007c1-profile-2.json
+          cmp /tmp/ig007c1-profile-1.json /tmp/ig007c1-profile-2.json
+
+      - name: Run C1 self-test twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          python mycelix-governance/scripts/ig007c1_governance_config_counterexamples.py \
+            --profile mycelix-governance/profiles/observed/governance-config-fca2c107-v1.json \
+            --self-test > /tmp/ig007c1-self-1.json
+          python mycelix-governance/scripts/ig007c1_governance_config_counterexamples.py \
+            --profile mycelix-governance/profiles/observed/governance-config-fca2c107-v1.json \
+            --self-test > /tmp/ig007c1-self-2.json
+          cmp /tmp/ig007c1-self-1.json /tmp/ig007c1-self-2.json
+
+      - name: Emit corpus twice byte-identically
+        shell: bash
+        run: |
+          set -euo pipefail
+          python mycelix-governance/scripts/ig007c1_governance_config_counterexamples.py \
+            --profile mycelix-governance/profiles/observed/governance-config-fca2c107-v1.json \
+            --corpus > /tmp/ig007c1-corpus-1.json
+          python mycelix-governance/scripts/ig007c1_governance_config_counterexamples.py \
+            --profile mycelix-governance/profiles/observed/governance-config-fca2c107-v1.json \
+            --corpus > /tmp/ig007c1-corpus-2.json
+          cmp /tmp/ig007c1-corpus-1.json /tmp/ig007c1-corpus-2.json
+
+      - name: Assert frozen counterexamples
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          with open('/tmp/ig007c1-self-1.json', encoding='utf-8') as f:
+              self_test = json.load(f)
+          with open('/tmp/ig007c1-corpus-1.json', encoding='utf-8') as f:
+              corpus = json.load(f)
+          assert self_test['self_test'] is True
+          assert self_test['authority'] == 'MeasurementOnly'
+          assert self_test['profile_sha256'] == 'de4435a69356557b1812f8beb46d654c66b9c957be9d18c64bd0431f92546d5a'
+          assert self_test['corpus_sha256'] == '3009e97529934fa8f470769de5615dcfda17bde0e942683e939d2b733430a216'
+          assert self_test['counterexample_count'] == 3
+          fixtures = {x['id']: x for x in corpus['fixtures']}
+          assert fixtures['CE-CFG-01']['result'] == 'AuthorizationContinuesAfterExistenceOnly'
+          assert fixtures['CE-CFG-02']['result'] == 'StructurallyValidLowerRuntimeGate'
+          assert fixtures['CE-CFG-03']['result'] == 'IntegrityAcceptsShapeWithoutObservedProposalAuthorityPredicate'
+          assert corpus['corpus_sha256'] == self_test['corpus_sha256']
+          PY
+
+      - name: Verify checkout immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT"
+          git diff --exit-code
+          git diff --cached --exit-code
+          test -z "$(git status --porcelain)"
