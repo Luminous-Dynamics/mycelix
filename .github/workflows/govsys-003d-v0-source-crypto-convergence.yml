@@ -1,0 +1,193 @@
+name: GOVSYS-003D-V0 Source Crypto Convergence
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/govsys-003d-v0-source-crypto-convergence.yml'
+      - 'mycelix-workspace/docs/government/GOVSYS_003D_V0_SOURCE_CRYPTO_CONVERGENCE.md'
+      - 'crates/mycelix-constitutional-root/**'
+      - 'crates/mycelix-authority-evidence-lease/**'
+      - 'crates/mycelix-constitutional-transition-verifier/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Exact Root-D source crypto prerequisite convergence
+    runs-on: ubuntu-24.04
+    env:
+      SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      MERGE_SHA: b6a2359279ee1d288d545db5146cf9572163843d
+      MERGE_TREE: f569dc13b44835562a2f10e468df86af2b8fcad8
+      ROOT_LEASE_SHA: fb1673017acf4b40d2343df14eb5c7f062f7fe74
+      VERIFIER_SHA: 9ac0ac1408b39c8ad9e61cd83a41f0889565fcf0
+    steps:
+      - id: checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ env.SUBJECT_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - id: subject
+        name: Exact qualification child
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          read -r commit parent extra <<< "$(git rev-list --parents -n 1 HEAD)"
+          test "$commit" = "$SUBJECT_SHA"
+          test "$parent" = "$MERGE_SHA"
+          test -z "${extra:-}"
+
+      - id: ancestry
+        name: Exact ordered two-parent merge and tree
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          read -r commit p1 p2 extra <<< "$(git rev-list --parents -n 1 "$MERGE_SHA")"
+          test "$commit" = "$MERGE_SHA"
+          test "$p1" = "$ROOT_LEASE_SHA"
+          test "$p2" = "$VERIFIER_SHA"
+          test -z "${extra:-}"
+          test "$(git rev-parse "$MERGE_SHA^{tree}")" = "$MERGE_TREE"
+
+      - id: import
+        name: Exact three-file verifier import
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/expected-import" <<'EOF'
+          crates/mycelix-constitutional-transition-verifier/Cargo.toml
+          crates/mycelix-constitutional-transition-verifier/src/lib.rs
+          crates/mycelix-constitutional-transition-verifier/tests/conformance.rs
+          EOF
+          git diff --name-only "$ROOT_LEASE_SHA" "$MERGE_SHA" | sort > "$RUNNER_TEMP/actual-import"
+          diff -u "$RUNNER_TEMP/expected-import" "$RUNNER_TEMP/actual-import"
+          while read -r path; do
+            test "$(git rev-parse "$MERGE_SHA:$path")" = "$(git rev-parse "$VERIFIER_SHA:$path")"
+          done < "$RUNNER_TEMP/expected-import"
+
+      - id: surface
+        name: Exact two-file qualification surface
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/expected-child" <<'EOF'
+          .github/workflows/govsys-003d-v0-source-crypto-convergence.yml
+          mycelix-workspace/docs/government/GOVSYS_003D_V0_SOURCE_CRYPTO_CONVERGENCE.md
+          EOF
+          git diff --name-only "$MERGE_SHA" HEAD | sort > "$RUNNER_TEMP/actual-child"
+          diff -u "$RUNNER_TEMP/expected-child" "$RUNNER_TEMP/actual-child"
+
+      - id: frozen
+        name: Preserve Root-A and EvidenceLease qualified blobs
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          for path in \
+            crates/mycelix-constitutional-root/Cargo.toml \
+            crates/mycelix-constitutional-root/src/lib.rs \
+            crates/mycelix-constitutional-root/examples/conformance.rs \
+            crates/mycelix-constitutional-root/vectors/root_a_transition_pair_v1.json \
+            crates/mycelix-authority-evidence-lease/Cargo.toml \
+            crates/mycelix-authority-evidence-lease/INVARIANTS.md \
+            crates/mycelix-authority-evidence-lease/src/lib.rs; do
+            test "$(git rev-parse "$MERGE_SHA:$path")" = "$(git rev-parse "$ROOT_LEASE_SHA:$path")"
+          done
+
+      - id: boundary
+        name: Static source-vs-rotation and non-currentness boundary
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          src=crates/mycelix-constitutional-transition-verifier/src/lib.rs
+          doc=mycelix-workspace/docs/government/GOVSYS_003D_V0_SOURCE_CRYPTO_CONVERGENCE.md
+          grep -F 'is_torsion_free()' "$src"
+          grep -F 'verify_strict' "$src"
+          grep -F 'grants_currentness' "$src"
+          grep -F 'grants_effect_authority' "$src"
+          grep -F 'rotation_authority_anchor_digest != root_source_anchor_digest' "$doc"
+          grep -F 'VerifiedRootTransition != VerifiedRootSourceCoverage' "$doc"
+          grep -F '!= current constitutional root' "$doc"
+
+      - id: toolchain
+        name: Pinned Rust toolchain
+        if: ${{ always() }}
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+
+      - id: root
+        name: Re-execute Rust Root-A
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          qroot="$RUNNER_TEMP/root-a"
+          mkdir -p "$qroot"
+          cp -a crates/mycelix-constitutional-root/. "$qroot/"
+          cargo fmt --manifest-path "$qroot/Cargo.toml" -- --check
+          cargo test --manifest-path "$qroot/Cargo.toml" --all-targets
+          cargo clippy --manifest-path "$qroot/Cargo.toml" --all-targets -- -D warnings
+          cargo check --manifest-path "$qroot/Cargo.toml" --lib --target wasm32-unknown-unknown
+
+      - id: lease
+        name: Re-execute EvidenceLease
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          qroot="$RUNNER_TEMP/lease"
+          mkdir -p "$qroot"
+          cp -a crates/mycelix-authority-evidence-lease/. "$qroot/"
+          cargo fmt --manifest-path "$qroot/Cargo.toml" -- --check
+          cargo test --manifest-path "$qroot/Cargo.toml" --all-targets
+          cargo clippy --manifest-path "$qroot/Cargo.toml" --all-targets -- -D warnings
+
+      - id: verifier
+        name: Re-execute strict Rust verifier with Root-A
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          qroot="$RUNNER_TEMP/verifier-tree"
+          mkdir -p "$qroot/crates"
+          cp -a crates/mycelix-constitutional-root "$qroot/crates/"
+          cp -a crates/mycelix-constitutional-transition-verifier "$qroot/crates/"
+          manifest="$qroot/crates/mycelix-constitutional-transition-verifier/Cargo.toml"
+          cargo fmt --manifest-path "$manifest" -- --check
+          cargo test --manifest-path "$manifest" --all-targets
+          cargo clippy --manifest-path "$manifest" --all-targets -- -D warnings
+          cargo check --manifest-path "$manifest" --lib --target wasm32-unknown-unknown
+
+      - id: immutable
+        name: Immutable checkout postflight
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          test -z "$(git status --porcelain --untracked-files=all)"
+
+      - name: Fail closed on any convergence defect
+        if: ${{ always() }}
+        env:
+          CHECKOUT: ${{ steps.checkout.outcome }}
+          SUBJECT: ${{ steps.subject.outcome }}
+          ANCESTRY: ${{ steps.ancestry.outcome }}
+          IMPORT: ${{ steps.import.outcome }}
+          SURFACE: ${{ steps.surface.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          BOUNDARY: ${{ steps.boundary.outcome }}
+          TOOLCHAIN: ${{ steps.toolchain.outcome }}
+          ROOT: ${{ steps.root.outcome }}
+          LEASE: ${{ steps.lease.outcome }}
+          VERIFIER: ${{ steps.verifier.outcome }}
+          IMMUTABLE: ${{ steps.immutable.outcome }}
+        run: |
+          set -euo pipefail
+          for outcome in \
+            "$CHECKOUT" "$SUBJECT" "$ANCESTRY" "$IMPORT" "$SURFACE" "$FROZEN" \
+            "$BOUNDARY" "$TOOLCHAIN" "$ROOT" "$LEASE" "$VERIFIER" "$IMMUTABLE"; do
+            test "$outcome" = success
+          done
