@@ -1,0 +1,100 @@
+{
+  "acceptance_receipt": {
+    "acceptance_authority_ref": "authority:commons-acceptance-board",
+    "acceptance_event_id": "handover-accept-001",
+    "acceptance_event_sha256": "f485f924e1661842610b4564842604fd8f0f963b066a702bd0f593d821814734",
+    "constitutional_stewardship_transition_established": false,
+    "continuity_state": "PASS",
+    "handover_acceptance_state": "CUSTODY_ACCEPTED",
+    "incoming_custodian_ref": "steward:community-trust",
+    "inventory_acceptance_state": "COMPLETE",
+    "inventory_sha256": "dfff32cfecd33419e7645f2902a36fdce7ad24212432f3cc19f4c3318a96b7fe",
+    "legal_title_transition_established": false,
+    "missing_inventory": [],
+    "nonclaims": [
+      "operational custody acceptance is not legal title transfer",
+      "operational custody acceptance is not constitutional stewardship transition",
+      "handover acceptance is not democratic legitimacy",
+      "handover acceptance is not regulatory or property-law compliance",
+      "waiver acceptance does not rewrite the historical readiness receipt",
+      "receipt validity is not proof of external authority identity or signature authenticity",
+      "handover acceptance does not establish current post-acceptance condition after later material events"
+    ],
+    "operational_custody_accepted": true,
+    "outgoing_custodian_ref": "operator:incumbent",
+    "profile_sha256": "3689d61db89b1467ca0d0b73b00d220c70c9f9cd3e52cd6a5329052cae7aceb5",
+    "profile_version": "mycelix-handover-acceptance-v1",
+    "project_id": "fiber:jhb:test-001",
+    "readiness_currentness": "CURRENT",
+    "readiness_designation_sha256": "6c37af927af2e1047b50f50ebec94f62f55a41777130b3712a4baec5a2b5c12a",
+    "readiness_profile_sha256": "50a8af7e97ffa2c603d722f2ce39c51be6790116a9739a54a32e590d7554a853",
+    "readiness_receipt_sha256": "050e9db5299cc7eabe2c862fa5202c1e712e12a1a074bab784f9e35690889367",
+    "readiness_registry_epoch": 1,
+    "readiness_registry_id": "registry:handback-readiness",
+    "readiness_state": "OPERATIONAL_TRANSFER_READY",
+    "receipt_version": "mycelix-handover-acceptance-receipt-v1",
+    "waiver_set_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "waivers": []
+  },
+  "events": [
+    {
+      "authority_ref": "authority:commons-custody-board",
+      "blocker_code": null,
+      "event_id": "custody-evt-0",
+      "evidence_ref": "evidence:custody-genesis-001",
+      "kind": "GenesisCurrent",
+      "prev_event_sha256": null,
+      "profile_sha256": "881808eba6b08983a6eee434a98a2c508313ae3b885af37b8926246725fcb400",
+      "project_id": "fiber:jhb:test-001",
+      "seq": 0,
+      "successor_acceptance_receipt_sha256": null,
+      "successor_custodian_ref": null
+    },
+    {
+      "authority_ref": "authority:custody-regression-monitor",
+      "blocker_code": "BACKUP_RESTORE_FAILED",
+      "event_id": "custody-evt-1",
+      "evidence_ref": "evidence:backup-restore-failure-001",
+      "kind": "MaterialRegression",
+      "prev_event_sha256": "687b641f4c6b38e22d2e78fcdcc9a4f6bf1b024cad88fd27715ce739381b9816",
+      "profile_sha256": "881808eba6b08983a6eee434a98a2c508313ae3b885af37b8926246725fcb400",
+      "project_id": "fiber:jhb:test-001",
+      "seq": 1,
+      "successor_acceptance_receipt_sha256": null,
+      "successor_custodian_ref": null
+    },
+    {
+      "authority_ref": "authority:custody-remediation-verifier",
+      "blocker_code": "BACKUP_RESTORE_FAILED",
+      "event_id": "custody-evt-2",
+      "evidence_ref": "evidence:backup-restore-retest-002",
+      "kind": "VerifiedCure",
+      "prev_event_sha256": "625877633087217e264b01bc2dc767e5d89f0a565f25e1b881573199ad7d8643",
+      "profile_sha256": "881808eba6b08983a6eee434a98a2c508313ae3b885af37b8926246725fcb400",
+      "project_id": "fiber:jhb:test-001",
+      "seq": 2,
+      "successor_acceptance_receipt_sha256": null,
+      "successor_custodian_ref": null
+    }
+  ],
+  "profile": {
+    "acceptance_receipt_sha256": "7a073b1b012c60ac645c9cc98c00d78392a2adadbf2474b0cd39df7a7c03b832",
+    "acceptance_subject_sha": "5bef6d4cf9cc1a09f43bbe09846edc6c0be19c10",
+    "allowed_blocker_codes": [
+      "ADMIN_RECOVERY_LOST",
+      "BACKUP_RESTORE_FAILED",
+      "CONTINUITY_CAPABILITY_LOST",
+      "MATERIAL_CYBER_INCIDENT",
+      "OPERATOR_EXCLUSIVE_KEY_CAPTURE",
+      "TRUST_ROOT_ROTATION_LOST"
+    ],
+    "cure_authority_ref": "authority:custody-remediation-verifier",
+    "custody_authority_ref": "authority:commons-custody-board",
+    "initial_custodian_ref": "steward:community-trust",
+    "max_events": 100,
+    "profile_version": "mycelix-custody-continuity-v1",
+    "project_id": "fiber:jhb:test-001",
+    "regression_authority_ref": "authority:custody-regression-monitor",
+    "successor_authority_ref": "authority:commons-acceptance-board"
+  }
+}
