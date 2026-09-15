@@ -9,6 +9,7 @@
 //! - Provenance-bearing institutional relationship graph contracts
 //! - Deterministic institutional capture metrics
 //! - Standards-bound OCDS/BODS ingestion contracts
+//! - Reversible public-entity identity reconciliation
 //! - Evidence types shared across justice and media
 //! - Status/phase traits for state machine validation
 //! - Role-based authorization helpers
@@ -19,7 +20,9 @@ pub mod bridge_types;
 pub mod capture_metrics;
 pub mod capture_observation;
 pub mod evidence;
+mod identity_resolution;
 pub mod institutional_graph;
+pub mod qualified_identity_resolution;
 pub mod roles;
 // The adapter has private serde projection fields that exist to preserve external
 // standard structure even when AC-005 deliberately does not expose those fields.
@@ -32,7 +35,12 @@ pub use bridge_types::*;
 pub use capture_metrics::*;
 pub use capture_observation::*;
 pub use evidence::*;
+pub use identity_resolution::{
+    EntityBindingEvidence, EntityIdentityLink, IdentityLinkStatus, IdentityResolutionError,
+    IdentityResolutionViolation, IdentityVerification, IdentityVerificationKind,
+};
 pub use institutional_graph::*;
+pub use qualified_identity_resolution::*;
 pub use roles::*;
 pub use standards_ingestion::*;
 pub use status::*;
