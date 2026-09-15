@@ -1,0 +1,30 @@
+{
+  "blockers": [],
+  "claim_modified": false,
+  "currentness_state": "CURRENT",
+  "designation_id": "designation-001",
+  "designation_registry_epoch": 7,
+  "designation_registry_id": "service-currentness-registry-v1",
+  "designation_sha256": "abc54685ec6d568b382a2e5c95804928983379bbad608c57d01d42c07dde581f",
+  "event_chain_tip_sha256": null,
+  "event_count": 0,
+  "event_history_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "measurement_id": "measure-001",
+  "nonclaims": [
+    "historical service validity is not current distribution authority",
+    "currentness does not establish truth of external service measurements",
+    "currentness does not establish authenticity of external authority or evidence references",
+    "currentness does not mutate or increase the investor claim",
+    "currentness is relative to the supplied designation lineage, not local wall-clock time",
+    "CURRENT does not itself establish distribution eligibility"
+  ],
+  "profile_sha256": "b36fef31bdbe9b43458fbc4ce4a07b539037e37db7803f8b247fa07d81224f5a",
+  "profile_version": "mycelix-service-currentness-designated-v1",
+  "project_id": "fiber:jhb:test-001",
+  "receipt_version": "mycelix-service-currentness-receipt-v1",
+  "service_distribution_eligibility": "ELIGIBLE",
+  "service_gate_profile_sha256": "18dc049978d41bfda3e2d5c48280ccaa37f7e03d5a04cbedc50af80db49e0937",
+  "service_gate_subject_sha": "45361d938d9a56f66e6eab360b04d773f54b1c8c",
+  "service_receipt_sha256": "347cf7cc038ba918cade9e1e210871ddb6039440d9af5ea78c3745594acc8969",
+  "uses_local_wall_clock": false
+}
