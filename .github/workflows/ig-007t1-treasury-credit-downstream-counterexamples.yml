@@ -1,0 +1,139 @@
+name: IG-007T1 Treasury Credit Downstream Counterexamples
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-governance/scripts/ig007t1_treasury_credit_downstream_counterexamples.py'
+      - 'mycelix-governance/docs/IG_007T1_TREASURY_CREDIT_DOWNSTREAM_COUNTEREXAMPLES.md'
+      - '.github/workflows/ig-007t1-treasury-credit-downstream-counterexamples.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Bind exact parent and three-file child
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          PARENT=124490d8704f82f368f5e7e7671acf14326cea50
+          git cat-file -e "${PARENT}^{commit}"
+          mapfile -t changed < <(git diff --name-only "${PARENT}..HEAD" | sort)
+          expected=(
+            .github/workflows/ig-007t1-treasury-credit-downstream-counterexamples.yml
+            mycelix-governance/docs/IG_007T1_TREASURY_CREDIT_DOWNSTREAM_COUNTEREXAMPLES.md
+            mycelix-governance/scripts/ig007t1_treasury_credit_downstream_counterexamples.py
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#changed[@]}" -eq 3
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed[@]}")
+
+      - name: Rebind T0 source authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          check_blob() {
+            local path="$1" expected="$2"
+            actual="$(git rev-parse "HEAD:${path}")"
+            test "${actual}" = "${expected}" || { echo "blob drift ${path}: ${actual}"; exit 1; }
+          }
+          check_blob mycelix-governance/zomes/execution/coordinator/src/lib.rs 3dbb8a8f69b377e494ccf24164c94bd80f54e0ef
+          check_blob mycelix-finance/zomes/treasury/coordinator/src/lib.rs 840e66bcb6fdedb27fe2451752511d1317eb50b8
+          check_blob mycelix-finance/zomes/treasury/integrity/src/lib.rs 5ee9b72f7c138a5283818b873ceae36dff3305d4
+          check_blob mycelix-governance/crates/governance-utils/src/lib.rs 282888816cc101c2743ef5c5905119defc3fee6d
+          check_blob mycelix-governance/zomes/bridge/coordinator/src/attestation.rs 6d7938084ba699b144ee5951966b1421c034f579
+          check_blob mycelix-governance/zomes/bridge/coordinator/src/consciousness.rs d0acabf306594ab3ccfae220a9c9bd9aceed0ca6
+          check_blob mycelix-governance/zomes/bridge/coordinator/src/consciousness_config.rs 26da234e588bf26d0e25c10dbec34502e00c191a
+          check_blob mycelix-governance/zomes/bridge/coordinator/src/consensus.rs 3842dfa365953a01ca90bb79059da53f9cb00a6f
+          check_blob mycelix-governance/zomes/bridge/coordinator/src/cross_cluster.rs 3eb0ade8633d6e711fd266bca6eb2ebab616eac2
+          check_blob mycelix-governance/zomes/bridge/coordinator/src/lib.rs fb278023c269a89f300504c18538ab85b09f1178
+          check_blob mycelix-governance/zomes/bridge/coordinator/src/query.rs 5a02812880a2fdaa8f3ed767a4686afc00c566f9
+          check_blob mycelix-governance/zomes/bridge/coordinator/src/validation.rs 9e13ba58939880738eccb997e54f729da7a11304
+
+      - name: Re-derive containment source facts
+        shell: bash
+        run: |
+          set -euo pipefail
+          BRIDGE=mycelix-governance/zomes/bridge/coordinator/src
+          TREASURY=mycelix-finance/zomes/treasury/coordinator/src/lib.rs
+          UTILS=mycelix-governance/crates/governance-utils/src/lib.rs
+          if grep -R -nE 'pub[[:space:]]+fn[[:space:]]+transfer_credits[[:space:]]*\(' "${BRIDGE}"; then
+            echo 'unexpected transfer_credits entrypoint observed'
+            exit 1
+          fi
+          grep -F 'execute_approved_transfer' "${BRIDGE}/cross_cluster.rs" >/dev/null
+          grep -F 'execute_governance_transfer' "${BRIDGE}/cross_cluster.rs" >/dev/null
+          if grep -nE 'pub[[:space:]]+fn[[:space:]]+execute_governance_transfer[[:space:]]*\(' "${TREASURY}"; then
+            echo 'unexpected execute_governance_transfer entrypoint observed'
+            exit 1
+          fi
+          grep -F 'pub fn call_role(' "${UTILS}" >/dev/null
+          grep -F 'Ok(ZomeCallResponse::NetworkError(e)) => Err' "${UTILS}" >/dev/null
+          grep -F 'Ok(other) => Err' "${UTILS}" >/dev/null
+          grep -F 'Err(e) => Err' "${UTILS}" >/dev/null
+
+      - name: Run T0 and T1 deterministically
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROFILE=mycelix-governance/profiles/observed/treasury-credit-downstream-fca2c107-v1.json
+          T0=mycelix-governance/scripts/validate_ig007t0_treasury_credit_downstream_profile.py
+          T1=mycelix-governance/scripts/ig007t1_treasury_credit_downstream_counterexamples.py
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+          for p in [
+              'mycelix-governance/scripts/validate_ig007t0_treasury_credit_downstream_profile.py',
+              'mycelix-governance/scripts/ig007t1_treasury_credit_downstream_counterexamples.py',
+          ]:
+              ast.parse(Path(p).read_text())
+          PY
+          python "${T0}" --profile "${PROFILE}" > /tmp/t0-a.json
+          python "${T0}" --profile "${PROFILE}" > /tmp/t0-b.json
+          cmp /tmp/t0-a.json /tmp/t0-b.json
+          python "${T1}" --profile "${PROFILE}" --self-test > /tmp/t1-self-a.json
+          python "${T1}" --profile "${PROFILE}" --self-test > /tmp/t1-self-b.json
+          cmp /tmp/t1-self-a.json /tmp/t1-self-b.json
+          python "${T1}" --profile "${PROFILE}" --corpus > /tmp/t1-corpus-a.json
+          python "${T1}" --profile "${PROFILE}" --corpus > /tmp/t1-corpus-b.json
+          cmp /tmp/t1-corpus-a.json /tmp/t1-corpus-b.json
+          python - <<'PY'
+          import json
+          s=json.load(open('/tmp/t1-self-a.json'))
+          c=json.load(open('/tmp/t1-corpus-a.json'))
+          assert s['self_test'] is True
+          assert s['profile_sha256']=='77db81e40ebe7b0ec9278f8c9aad7584faa08b6784cde4779393d1d6b88cf58d'
+          assert s['corpus_sha256']=='89b795cea150c1d0f18aa63bc6adfe2ffd31389ef9396bbde810f647540695de'
+          assert s['issues']==[1085,1086]
+          assert s['counterexample_count']==6
+          assert s['positive_control_count']==4
+          assert c['corpus_sha256']==s['corpus_sha256']
+          expected={
+            'CE-TC-01':'LegacyTransferCreditsDispatchFailClosedByMissingTarget',
+            'CE-TC-02':'ApprovedTransferBridgeDispatchFailClosedByMissingTreasuryEntrypoint',
+            'CE-TC-03':'CoordinatorApprovalPolicyNotReconstructedByIntegrity',
+            'CE-TC-04':'TreasuryShapeValidityDoesNotEstablishMutationAuthority',
+            'CE-TC-05':'AllocationShapeValidityDoesNotEstablishAuthorizedTransition',
+            'CE-TC-06':'ObservedAllocationProposalLinkageIsOptionalAndUnreconstructed',
+          }
+          got={x['id']:x['comparison']['result'] for x in c['counterexamples']}
+          assert got==expected
+          PY
+
+      - name: Verify checkout immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=all)"
