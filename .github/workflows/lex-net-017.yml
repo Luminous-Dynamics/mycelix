@@ -1,0 +1,112 @@
+name: LEX-NET-017 Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'docs/lex-net/LEX_NET_SEMANTIC_TRANSLATION_V1.md'
+      - 'docs/lex-net/lex_net_017_manifest.json'
+      - 'scripts/validate_lex_net_017.py'
+      - '.github/workflows/lex-net-017.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lex-net-017-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      EXPECTED_PARENT: '4dadc07eecf8eab67d50d8526dd7e6d3015de9a7'
+      EVENT_NAME: '${{ github.event_name }}'
+      EXPECTED_HEAD: '${{ github.event.pull_request.head.sha || github.sha }}'
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 2
+
+      - name: Prove exact qualified parent and review surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          import subprocess
+
+          expected_parent = os.environ["EXPECTED_PARENT"]
+          expected_head = os.environ["EXPECTED_HEAD"]
+          event_name = os.environ["EVENT_NAME"]
+
+          def git(*args):
+              return subprocess.check_output(["git", *args])
+
+          actual_head = git("rev-parse", "HEAD").decode().strip()
+          actual_parent = git("rev-parse", "HEAD^").decode().strip()
+
+          if event_name == "pull_request" and actual_head != expected_head:
+              raise SystemExit(f"unexpected head: {actual_head} != {expected_head}")
+          if actual_parent != expected_parent:
+              raise SystemExit(f"unexpected parent: {actual_parent} != {expected_parent}")
+
+          changed_raw = git("diff", "--name-only", "-z", expected_parent, "HEAD")
+          changed = sorted(x.decode() for x in changed_raw.split(b"\0") if x)
+          expected = sorted([
+              ".github/workflows/lex-net-017.yml",
+              "docs/lex-net/LEX_NET_SEMANTIC_TRANSLATION_V1.md",
+              "docs/lex-net/lex_net_017_manifest.json",
+              "scripts/validate_lex_net_017.py",
+          ])
+          if changed != expected:
+              raise SystemExit(f"changed-path mismatch: actual={changed!r} expected={expected!r}")
+
+          count = int(git("rev-list", "--count", f"{expected_parent}..HEAD").decode().strip())
+          if count != 1:
+              raise SystemExit(f"expected one authored commit, got {count}")
+          PY
+
+      - name: Validate semantic translation contract and golden corpus
+        run: python3 scripts/validate_lex_net_017.py
+
+      - name: Independent static non-escalation audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          text = Path("docs/lex-net/LEX_NET_SEMANTIC_TRANSLATION_V1.md").read_text(encoding="utf-8")
+          norm = re.sub(r"\s+", " ", text.replace("`", "").casefold()).strip()
+          required = [
+              "syntax validity is not semantic equivalence",
+              "round-trip equality is representation evidence only",
+              "translation grants no stronger institutional status",
+              "it is not a recognitionreceipt, authoritygrant, capability, legal opinion, or external-effect receipt",
+          ]
+          forbidden = [
+              "translation grants local recognition",
+              "translation grants local authority",
+              "round-trip equality proves semantic equivalence",
+              "schema-valid target output establishes semantic equivalence",
+          ]
+          for phrase in required:
+              if phrase not in norm:
+                  raise SystemExit(f"missing required boundary: {phrase}")
+          for phrase in forbidden:
+              if phrase in norm:
+                  raise SystemExit(f"forbidden escalation claim present: {phrase}")
+          PY
+
+      - name: Immutable checkout postflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain)"
+          echo "LEX-NET-017 exact-scope qualification completed."
