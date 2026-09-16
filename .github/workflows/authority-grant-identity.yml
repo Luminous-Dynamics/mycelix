@@ -1,0 +1,124 @@
+name: Authority Grant Identity
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-authority-identity/**'
+      - '.github/workflows/authority-grant-identity.yml'
+  push:
+    branches:
+      - 'security/authority-grant-identity-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: authority-grant-identity-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  QUALIFIED_FRESHNESS_PARENT: 378de09b9b4bc6bb66fb337a677666cf3b2cfbe6
+  HISTORICAL_GRANT_IDENTITY_PARENT: 03c6f91f13962e7ee3b1d7493e10b2d6331716f4
+
+jobs:
+  qualify:
+    name: Canonical institutional grant identity
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Resolve literal qualification subject
+        id: subject
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "sha=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ steps.subject.outputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Exact subject and convergence ancestry
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          read -r subject parent1 parent2 extra <<<"$(git rev-list --parents -n1 HEAD)"
+          test "$subject" = "$(git rev-parse HEAD)"
+          test "$parent1" = "$QUALIFIED_FRESHNESS_PARENT"
+          test "$parent2" = "$HISTORICAL_GRANT_IDENTITY_PARENT"
+          test -z "${extra:-}"
+          mapfile -t changed < <(git diff --name-only "$QUALIFIED_FRESHNESS_PARENT" HEAD | sort)
+          expected=(
+            '.github/workflows/authority-grant-identity.yml'
+            'crates/mycelix-authority-identity/Cargo.toml'
+            'crates/mycelix-authority-identity/INVARIANTS.md'
+            'crates/mycelix-authority-identity/src/lib.rs'
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#changed[@]}" -eq "${#expected_sorted[@]}"
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed[@]}")
+
+      - name: Canonical authority identity audit
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          src = Path('crates/mycelix-authority-identity/src/lib.rs').read_text()
+          for required in (
+              'AUTHORITY_GRANT_IDENTITY_PROFILE',
+              'DOMAIN_AUTHORITY_GRANT',
+              'canonical_text_set',
+              'DuplicateCapability',
+              'DuplicateAuthoritySource',
+              'delegated_from',
+              'grant_proof_ref',
+          ):
+              assert required in src, required
+
+          # Reject standalone score/authority inputs without false positives from
+          # ordinary words such as "cryptographic".
+          assert re.search(r'(?i)\bphi\b', src) is None
+          assert re.search(r'(?i)\breputation\b', src) is None
+          assert 'serde_json' not in src
+          print('PASS: authority grant identity is framed, canonical, and score-free')
+          PY
+
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      - name: Materialize isolated exact crate pair
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/authority-identity-qualification"
+          rm -rf "$work"
+          mkdir -p "$work/crates"
+          cp -a crates/mycelix-authority-identity "$work/crates/"
+          cp -a crates/mycelix-institutional-core "$work/crates/"
+          echo "work=$work" >> "$GITHUB_ENV"
+
+      - name: Format
+        run: cargo fmt --manifest-path "$work/crates/mycelix-authority-identity/Cargo.toml" -- --check
+
+      - name: Tests
+        run: cargo test --manifest-path "$work/crates/mycelix-authority-identity/Cargo.toml" --all-targets
+
+      - name: Clippy
+        run: cargo clippy --manifest-path "$work/crates/mycelix-authority-identity/Cargo.toml" --all-targets -- -D warnings
+
+      - name: Immutable checkout postflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
