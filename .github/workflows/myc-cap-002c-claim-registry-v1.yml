@@ -1,0 +1,72 @@
+name: MYC-CAP-002C Claim Registry v1
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/capital/claim_registry_v1.py'
+      - 'scripts/capital/test_claim_registry_v1.py'
+      - 'docs/capital/evidence/myc-cap-002c/**'
+      - '.github/workflows/myc-cap-002c-claim-registry-v1.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Conserved secondary claim registry
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Exact subject, parent, and scope
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          test "$(git rev-parse HEAD^)" = "270b852e0ac744dfca3a2cb966bf53fce78f2ab9"
+          expected="$(mktemp)"
+          actual="$(mktemp)"
+          printf '%s\n' \
+            '.github/workflows/myc-cap-002c-claim-registry-v1.yml' \
+            'docs/capital/evidence/myc-cap-002c/PROFILE.md' \
+            'docs/capital/evidence/myc-cap-002c/example_case.json' \
+            'docs/capital/evidence/myc-cap-002c/example_receipt.json' \
+            'scripts/capital/claim_registry_v1.py' \
+            'scripts/capital/test_claim_registry_v1.py' | sort > "$expected"
+          git diff-tree --no-commit-id --name-only -r HEAD | sort > "$actual"
+          diff -u "$expected" "$actual"
+          test -z "$(git status --porcelain)"
+
+      - name: Python environment
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 -m py_compile scripts/capital/claim_registry_v1.py
+          python3 -m py_compile scripts/capital/test_claim_registry_v1.py
+
+      - name: Fail-closed unit suite
+        run: |
+          set -euo pipefail
+          python3 -m unittest -v scripts/capital/test_claim_registry_v1.py
+
+      - name: Deterministic example receipt
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp)"
+          python3 scripts/capital/claim_registry_v1.py docs/capital/evidence/myc-cap-002c/example_case.json --receipt-out "$tmp"
+          diff -u docs/capital/evidence/myc-cap-002c/example_receipt.json "$tmp"
+          python3 scripts/capital/claim_registry_v1.py docs/capital/evidence/myc-cap-002c/example_case.json --receipt-out "${tmp}.second"
+          cmp "$tmp" "${tmp}.second"
+          echo '4fd41847f00c2ea86db22cf010cb9711679877896618a7265343a0ad949970c1  docs/capital/evidence/myc-cap-002c/example_case.json' | sha256sum -c -
+          echo 'c3a9cbb06207462568516ed3bc4ed4f07bb082923cdb72fcd203f165553a847f  docs/capital/evidence/myc-cap-002c/example_receipt.json' | sha256sum -c -
+
+      - name: Strong nonclaims
+        run: |
+          set -euo pipefail
+          grep -Fq '"commons_asset_transferable": false' docs/capital/evidence/myc-cap-002c/example_receipt.json
+          grep -Fq 'claim ownership is not ownership of the commons asset' docs/capital/evidence/myc-cap-002c/example_receipt.json
+          grep -Fq 'secondary transaction price does not change project liability' docs/capital/evidence/myc-cap-002c/example_receipt.json
