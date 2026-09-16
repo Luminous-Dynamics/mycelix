@@ -2,7 +2,8 @@
 """Independent FIN-ECO-002A canonical-vector verifier.
 
 Uses only Python stdlib and checked-in JSON fixtures. It does not call Rust or
-reuse production canonicalization code.
+reuse production canonicalization code. All proof obligations use explicit
+fail-closed checks; Python optimization flags cannot disable them.
 """
 
 from __future__ import annotations
@@ -17,24 +18,40 @@ ROOT = Path(__file__).resolve().parent.parent
 VECTORS = ROOT / "test-vectors"
 
 
+class VerificationError(RuntimeError):
+    """Raised when any canonical-vector proof obligation fails."""
+
+
+def require(condition: bool, *detail: object) -> None:
+    if not condition:
+        message = "verification requirement failed"
+        if detail:
+            message += ": " + " | ".join(str(item) for item in detail)
+        raise VerificationError(message)
+
+
 def load(name: str) -> dict:
     with (VECTORS / name).open(encoding="utf-8") as fh:
         return json.load(fh)
 
 
 def u8(value: int) -> bytes:
+    require(0 <= value <= 0xFF, "u8 out of range", value)
     return bytes([value])
 
 
 def u16(value: int) -> bytes:
+    require(0 <= value <= 0xFFFF, "u16 out of range", value)
     return struct.pack(">H", value)
 
 
 def u32(value: int) -> bytes:
+    require(0 <= value <= 0xFFFFFFFF, "u32 out of range", value)
     return struct.pack(">I", value)
 
 
 def u64(value: int) -> bytes:
+    require(0 <= value <= 0xFFFFFFFFFFFFFFFF, "u64 out of range", value)
     return struct.pack(">Q", value)
 
 
@@ -44,8 +61,11 @@ def ref(value: str) -> bytes:
 
 
 def digest(hex_value: str) -> bytes:
-    raw = bytes.fromhex(hex_value)
-    assert len(raw) == 32
+    try:
+        raw = bytes.fromhex(hex_value)
+    except ValueError as exc:
+        raise VerificationError(f"invalid digest hex: {hex_value!r}") from exc
+    require(len(raw) == 32, "digest must be exactly 32 bytes", len(raw))
     return raw
 
 
@@ -56,19 +76,29 @@ def ordered_refs(values: Iterable[str]) -> bytes:
 
 def ordered_digests(values: Iterable[bytes]) -> bytes:
     unique = sorted(set(values))
+    for value in unique:
+        require(len(value) == 32, "ordered digest must be 32 bytes", len(value))
     return u32(len(unique)) + b"".join(unique)
 
 
 def check(expected: dict, canonical: bytes, label: str) -> bytes:
-    assert len(canonical) == expected["canonical_length"], (
+    require(
+        len(canonical) == expected["canonical_length"],
         label,
+        "canonical length",
         len(canonical),
         expected["canonical_length"],
     )
-    assert canonical.hex() == expected["canonical_hex"], label
-    actual = hashlib.sha256(canonical).hexdigest()
-    assert actual == expected["commitment_hex"], (
+    require(
+        canonical.hex() == expected["canonical_hex"],
         label,
+        "canonical bytes mismatch",
+    )
+    actual = hashlib.sha256(canonical).hexdigest()
+    require(
+        actual == expected["commitment_hex"],
+        label,
+        "commitment mismatch",
         actual,
         expected["commitment_hex"],
     )
@@ -197,7 +227,10 @@ def verify_invalidation(settlement: dict) -> None:
     observation = vector["invalidating_observation"]
     receipt = vector["receipt"]
 
-    assert vector["profile_commitment_hex"] == profile["commitment_hex"]
+    require(
+        vector["profile_commitment_hex"] == profile["commitment_hex"],
+        "invalidation profile commitment does not match settlement fixture",
+    )
 
     context_commitment = check(
         context, context_bytes(context), "invalidation.evaluation_context"
@@ -263,7 +296,12 @@ def verify_reference_ordering() -> None:
     physical = vector["physical_input_references"]
     expected_order = vector["expected_unique_order"]
     actual_order = sorted(set(physical), key=lambda value: value.encode("utf-8"))
-    assert actual_order == expected_order, (actual_order, expected_order)
+    require(
+        actual_order == expected_order,
+        "reference ordering mismatch",
+        actual_order,
+        expected_order,
+    )
 
     profile = vector["profile"]
     canonical = profile_bytes(profile, actual_order)
@@ -273,8 +311,14 @@ def verify_reference_ordering() -> None:
     encoded_values = {ref(value) for value in set(physical)}
     wrong_order = sorted(encoded_values)
     correct_order = [ref(value) for value in actual_order]
-    assert wrong_order != correct_order
-    assert b"".join(wrong_order) != b"".join(correct_order)
+    require(
+        wrong_order != correct_order,
+        "negative control failed: wrong and correct reference orders are equal",
+    )
+    require(
+        b"".join(wrong_order) != b"".join(correct_order),
+        "negative control failed: wrong and correct byte streams are equal",
+    )
 
     print("independent_reference_ordering_v1_oracle=PASS")
 
@@ -287,4 +331,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (VerificationError, KeyError, TypeError, ValueError, struct.error) as exc:
+        raise SystemExit(f"independent_fin_eco_002a_canonical_oracles=FAIL: {exc}") from exc
