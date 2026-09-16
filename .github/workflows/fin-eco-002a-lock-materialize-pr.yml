@@ -1,0 +1,141 @@
+name: FIN-ECO-002A Lock Materialization PR
+
+on:
+  pull_request:
+    branches:
+      - feat/fin-eco-002a-settlement-proof-v1
+    paths:
+      - '.github/workflows/fin-eco-002a-lock-materialize-pr.yml'
+
+permissions:
+  contents: write
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  EXPECTED_PARENT_SHA: '4a9c77bf4ca9ab49129298f477a10b43b396a09a'
+  EXPECTED_LOCK_BEFORE_SHA256: 'd73b43314930a9e7fab4e1633988db48a0982878d69c6c158d4f661b3365b1ad'
+  WORKSPACE_MANIFEST: 'mycelix-finance/Cargo.toml'
+  LOCKFILE: 'mycelix-finance/Cargo.lock'
+  WORKFLOW: '.github/workflows/fin-eco-002a-lock-materialize-pr.yml'
+
+jobs:
+  materialize:
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact generator head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+
+      - name: Prove generator-only child and capture old lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT_SHA"
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PARENT_SHA" HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$WORKFLOW"
+          test "$(sha256sum "$LOCKFILE" | awk '{print $1}')" = "$EXPECTED_LOCK_BEFORE_SHA256"
+          cp "$LOCKFILE" "$RUNNER_TEMP/Cargo.lock.before"
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Install pinned Rust
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+
+      - name: Materialize exact Cargo dependency capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo metadata --manifest-path "$WORKSPACE_MANIFEST" --format-version 1 >/dev/null
+
+          mapfile -t dirty < <(git status --porcelain=v1 --untracked-files=no)
+          test "${#dirty[@]}" -eq 1
+          test "${dirty[0]}" = ' M mycelix-finance/Cargo.lock'
+
+          read -r adds dels path < <(git diff --numstat -- "$LOCKFILE")
+          test "$dels" = '0'
+          test "$path" = "$LOCKFILE"
+          test "$adds" -gt 0
+
+          python3 - "$RUNNER_TEMP/Cargo.lock.before" "$LOCKFILE" <<'PY'
+          import json
+          import sys
+          import tomllib
+
+          old_path, new_path = sys.argv[1:]
+          with open(old_path, 'rb') as fh:
+              old = tomllib.load(fh)
+          with open(new_path, 'rb') as fh:
+              new = tomllib.load(fh)
+
+          assert old.get('version') == new.get('version') == 4
+          old_packages = old.get('package', [])
+          new_packages = new.get('package', [])
+
+          def frozen(package):
+              return json.dumps(package, sort_keys=True, separators=(',', ':'))
+
+          old_frozen = {frozen(package) for package in old_packages}
+          new_frozen = {frozen(package) for package in new_packages}
+          removed_or_changed = old_frozen - new_frozen
+          assert not removed_or_changed, removed_or_changed
+
+          added = [package for package in new_packages if frozen(package) not in old_frozen]
+          assert len(added) == 2, added
+          by_name = {package['name']: package for package in added}
+          assert set(by_name) == {'mycelix-business-core', 'mycelix-finance-settlement'}, by_name
+
+          business = by_name['mycelix-business-core']
+          assert business['version'] == '0.1.0'
+          assert 'source' not in business
+          assert 'checksum' not in business
+          assert not business.get('dependencies')
+
+          settlement = by_name['mycelix-finance-settlement']
+          assert settlement['version'] == '0.2.0'
+          assert 'source' not in settlement
+          assert 'checksum' not in settlement
+          assert set(settlement.get('dependencies', [])) == {
+              'mycelix-business-core',
+              'mycelix-finance-exact',
+              'serde_json',
+              'sha2',
+          }, settlement
+
+          print('old_package_count=', len(old_packages), sep='')
+          print('new_package_count=', len(new_packages), sep='')
+          print('new_local_packages=mycelix-business-core,mycelix-finance-settlement')
+          print('preexisting_package_entries_unchanged=PASS')
+          PY
+
+          echo '--- EXACT CARGO-GENERATED LOCK DIFF ---'
+          git diff -- "$LOCKFILE"
+          printf 'generated_lock_sha256=%s\n' "$(sha256sum "$LOCKFILE" | awk '{print $1}')"
+          printf 'lock_additions=%s\nlock_deletions=%s\n' "$adds" "$dels"
+
+      - name: Commit Cargo-produced lock bytes only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- "$LOCKFILE"
+          test "$(git diff --cached --name-only | wc -l)" -eq 1
+          git diff --cached --name-only | grep -Fxq "$LOCKFILE"
+          git commit -m 'fix(finance): synchronize FIN-ECO-002A dependency capsule [skip ci]'
+          git push origin "HEAD:${GITHUB_HEAD_REF}"
+
+      - name: Emit materialization receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'materialization=PASS'
+          echo 'source_parent=4a9c77bf4ca9ab49129298f477a10b43b396a09a'
+          echo 'cargo=1.96.0'
+          printf 'generated_lock_sha256=%s\n' "$(sha256sum "$LOCKFILE" | awk '{print $1}')"
+          echo 'claim=existing dependency identities unchanged; exactly two expected local package stanzas added'
+          echo 'nonclaim=source compilation, tests, settlement semantics, offline dependency acquisition, reproducible build'
