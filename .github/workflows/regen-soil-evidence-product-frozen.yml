@@ -1,0 +1,167 @@
+name: REGEN Soil Evidence ProductFrozen Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-regenerative-evidence/**'
+      - '.github/workflows/regen-soil-evidence-product-frozen.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-product-frozen:
+    name: REGEN-010 ProductFrozen qualification
+    runs-on: ubuntu-24.04
+    env:
+      TARGET_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      EXPECTED_PARENT_SHA: 2d1cb4fc81065b49ce936c889d4e22e08d10b882
+      CRATE_DIR: crates/mycelix-regenerative-evidence
+      EXPECTED_MANIFEST_SHA256: 93e77cf8f5bd6a9f91db25bf8a1f3460327fec52bc0e397f524eec2c4a520cb6
+      EXPECTED_LOCK_SHA256: b21c7127fa69f6f975578fdc93bcc5cd7a48925264718576f06c583cd39c9f98
+      EXPECTED_LIB_SHA256: 766e9024921d972a97f6bab43c98f6d4fb3ce90c71f95f39c79de40cda7f6ae7
+      EXPECTED_FIREWALL_SHA256: a74ba1e5160d2e33afaaeb7b6d1a29fc0dde08739e74d18e2b950da1351ab2c6
+    steps:
+      - name: Checkout exact ProductHead
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 2
+
+      - name: Verify exact ProductHead and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          parent="$(git rev-parse HEAD^)"
+          printf 'subject_kind=ProductHead\n'
+          printf 'subject_sha=%s\nactual_sha=%s\n' "$TARGET_SHA" "$actual"
+          printf 'expected_parent_sha=%s\nactual_parent_sha=%s\n' "$EXPECTED_PARENT_SHA" "$parent"
+          test "$actual" = "$TARGET_SHA"
+          test "$parent" = "$EXPECTED_PARENT_SHA"
+          expected="$(printf '%s\n' \
+            '.github/workflows/regen-soil-evidence-product-frozen.yml' \
+            'crates/mycelix-regenerative-evidence/Cargo.lock' \
+            'crates/mycelix-regenerative-evidence/Cargo.toml' \
+            'crates/mycelix-regenerative-evidence/src/lib.rs' \
+            'crates/mycelix-regenerative-evidence/tests/lineage_firewall.rs' | sort)"
+          actual_paths="$(git diff --name-only "$EXPECTED_PARENT_SHA" HEAD | sort)"
+          printf '%s\n' '---BEGIN_PRODUCT_SCOPE---'
+          printf '%s\n' "$actual_paths"
+          printf '%s\n' '---END_PRODUCT_SCOPE---'
+          test "$actual_paths" = "$expected"
+
+      - name: Verify preparation-derived immutable crate bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "$CRATE_DIR/Cargo.toml"
+          test -f "$CRATE_DIR/Cargo.lock"
+          test -f "$CRATE_DIR/src/lib.rs"
+          test -f "$CRATE_DIR/tests/lineage_firewall.rs"
+          test "$(sha256sum "$CRATE_DIR/Cargo.toml" | awk '{print $1}')" = "$EXPECTED_MANIFEST_SHA256"
+          test "$(sha256sum "$CRATE_DIR/Cargo.lock" | awk '{print $1}')" = "$EXPECTED_LOCK_SHA256"
+          test "$(sha256sum "$CRATE_DIR/src/lib.rs" | awk '{print $1}')" = "$EXPECTED_LIB_SHA256"
+          test "$(sha256sum "$CRATE_DIR/tests/lineage_firewall.rs" | awk '{print $1}')" = "$EXPECTED_FIREWALL_SHA256"
+          printf 'dependency_state=ProductFrozen\n'
+          printf 'preparation_source_head=052974431f94bdc7e9605fa2b7760079657ad6f2\n'
+          printf 'preparation_run=35029171236\n'
+          printf 'preparation_artifact_id=10422611840\n'
+          printf 'preparation_artifact_sha256=64d9b0cef0a6bafe7fba4a5b3722cf4f2e18130ed525292179c03c514d6ae72e\n'
+          printf 'cargo_manifest_sha256=%s\n' "$EXPECTED_MANIFEST_SHA256"
+          printf 'cargo_lock_sha256=%s\n' "$EXPECTED_LOCK_SHA256"
+          printf 'lib_sha256=%s\n' "$EXPECTED_LIB_SHA256"
+          printf 'lineage_firewall_sha256=%s\n' "$EXPECTED_FIREWALL_SHA256"
+
+      - name: Verify qualified upstream evidence and identity anchors
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:crates/mycelix-core-types/src/planetary_evidence.rs)" = '2069d6e56336d05c7bc293abfc5ccdc421ab53cb'
+          test "$(git rev-parse HEAD:crates/mycelix-core-types/src/planetary_lineage.rs)" = 'e0fda7c4c9e83c46761dae1e4fff2c43e3d6d41b'
+          test "$(git rev-parse HEAD:crates/mycelix-core-types/src/planetary_product.rs)" = 'dedc20b201759883b9c58b39905dfc700c1cfb21'
+          test "$(git rev-parse HEAD:crates/mycelix-core-types/src/lib.rs)" = '3761f5cfcb6a7c78c7ce829ba4283f7e522aff72'
+          test "$(git rev-parse HEAD:crates/mycelix-regenerative-core/Cargo.toml)" = '3715c205710b3a2be2e660dd93f354c0f12a0405'
+          test "$(git rev-parse HEAD:crates/mycelix-regenerative-core/src/lib.rs)" = '97978da98e9c476061b3d3ce1ba605f0c628a1b6'
+          printf 'upstream_regen009_product_head=34b1707802a5c780b33a2280b2b1ec18ae67817e\n'
+          printf 'upstream_regen009_dedicated_qualification_run=34972189404\n'
+
+      - name: Install and record pinned Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.96.0 --profile minimal --component rustfmt,clippy
+          rustup override set 1.96.0
+          rustc --version --verbose
+          cargo --version --verbose
+          rustfmt --version
+          printf 'host_target=%s\n' "$(rustc -vV | sed -n 's/^host: //p')"
+          printf 'system_closure=unfrozen\n'
+          printf 'runner_image_os=%s\n' "${ImageOS:-unknown}"
+          printf 'runner_image_version=%s\n' "${ImageVersion:-unknown}"
+          printf 'feature_campaign_1=[]\n'
+          printf 'feature_campaign_2=[serde]\n'
+
+      - name: Format check without mutation
+        run: cargo fmt --manifest-path "$CRATE_DIR/Cargo.toml" -- --check
+
+      - name: Test ProductFrozen default feature contract
+        run: cargo test --manifest-path "$CRATE_DIR/Cargo.toml" --locked
+
+      - name: Test ProductFrozen serde wire contract
+        run: cargo test --manifest-path "$CRATE_DIR/Cargo.toml" --features serde --locked
+
+      - name: Strict Clippy under ProductFrozen graph
+        run: cargo clippy --manifest-path "$CRATE_DIR/Cargo.toml" --all-targets --features serde --locked -- -D warnings
+
+      - name: Prove lock and source immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum "$CRATE_DIR/Cargo.toml" | awk '{print $1}')" = "$EXPECTED_MANIFEST_SHA256"
+          test "$(sha256sum "$CRATE_DIR/Cargo.lock" | awk '{print $1}')" = "$EXPECTED_LOCK_SHA256"
+          test "$(sha256sum "$CRATE_DIR/src/lib.rs" | awk '{print $1}')" = "$EXPECTED_LIB_SHA256"
+          test "$(sha256sum "$CRATE_DIR/tests/lineage_firewall.rs" | awk '{print $1}')" = "$EXPECTED_FIREWALL_SHA256"
+          git diff --check
+          status="$(git status --short)"
+          printf 'git_status=%s\n' "$status"
+          test -z "$status"
+
+      - name: Emit qualification receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          receipt="$RUNNER_TEMP/regen010-product-frozen-receipt.txt"
+          cat > "$receipt" <<EOF
+          subject_kind=ProductHead
+          subject_sha=$TARGET_SHA
+          parent_sha=$EXPECTED_PARENT_SHA
+          dependency_state=ProductFrozen
+          manifest_path=$CRATE_DIR/Cargo.toml
+          manifest_sha256=$EXPECTED_MANIFEST_SHA256
+          lock_path=$CRATE_DIR/Cargo.lock
+          lock_sha256=$EXPECTED_LOCK_SHA256
+          lib_sha256=$EXPECTED_LIB_SHA256
+          lineage_firewall_sha256=$EXPECTED_FIREWALL_SHA256
+          rustc=$(rustc --version | tr '\n' ' ')
+          cargo=$(cargo --version | tr '\n' ' ')
+          rustfmt=$(rustfmt --version | tr '\n' ' ')
+          host_target=$(rustc -vV | sed -n 's/^host: //p')
+          feature_campaigns=[];[serde]
+          system_closure=unfrozen
+          preparation_source_head=052974431f94bdc7e9605fa2b7760079657ad6f2
+          preparation_run=35029171236
+          preparation_artifact_id=10422611840
+          preparation_artifact_sha256=64d9b0cef0a6bafe7fba4a5b3722cf4f2e18130ed525292179c03c514d6ae72e
+          result=PASS
+          EOF
+          cat "$receipt"
+
+      - name: Upload qualification receipt
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: regen010-product-frozen-receipt-${{ env.TARGET_SHA }}
+          path: ${{ runner.temp }}/regen010-product-frozen-receipt.txt
+          if-no-files-found: error
+          retention-days: 90
