@@ -4,7 +4,7 @@
 use constitutional_consumption::{
     ConsumptionClaim, ConsumptionError, ConsumptionKey, ConsumptionState, EffectOutcome,
     EvidenceAvailability, FinalityProfile, FinalityProof, FinalityRequirement, FinalizeOutcome,
-    RevocationCutoff, RevokeOutcome, UsageBudget, WitnessAttestation,
+    IntegrityFault, RevocationCutoff, RevokeOutcome, UsageBudget, WitnessAttestation,
 };
 use constitutional_envelope::MatterId;
 
@@ -160,6 +160,43 @@ fn effect_cutoff_blocks_effect_if_revoked_after_finality_but_before_effect() {
 }
 
 #[test]
+fn effect_cutoff_late_revocation_before_finality_cancels_without_integrity_fault() {
+    let mut state = state_with_cutoff(1, RevocationCutoff::Effect);
+    state.submit_claim(claim("claim-a", 0, "budget-root")).unwrap();
+    state.finalize("claim-a", proof("claim-a", 10)).unwrap();
+
+    assert_eq!(state.revoke(5).unwrap(), RevokeOutcome::Revoked);
+    assert!(state.integrity_fault.is_none());
+    assert!(state.check_invariants().is_ok());
+    assert_eq!(
+        state.apply_effect("claim-a", 20, "output-1"),
+        Err(ConsumptionError::AuthorizationRevokedBeforeEffect)
+    );
+}
+
+#[test]
+fn effect_cutoff_late_revocation_before_applied_effect_raises_integrity_fault() {
+    let mut state = state_with_cutoff(1, RevocationCutoff::Effect);
+    state.submit_claim(claim("claim-a", 0, "budget-root")).unwrap();
+    state.finalize("claim-a", proof("claim-a", 10)).unwrap();
+    state.apply_effect("claim-a", 12, "output-1").unwrap();
+
+    assert_eq!(
+        state.revoke(5),
+        Err(ConsumptionError::LateEarlierRevocationConflict)
+    );
+    assert_eq!(
+        state.integrity_fault,
+        Some(IntegrityFault::LateEarlierRevocation {
+            revocation_seq: 5,
+            conflicting_use_index: 0,
+            cutoff: RevocationCutoff::Effect,
+            commit_at_seq: 12,
+        })
+    );
+}
+
+#[test]
 fn effect_cutoff_preserves_effect_that_logically_precedes_later_revocation() {
     let mut state = state_with_cutoff(1, RevocationCutoff::Effect);
     state.submit_claim(claim("claim-a", 0, "budget-root")).unwrap();
@@ -173,7 +210,7 @@ fn effect_cutoff_preserves_effect_that_logically_precedes_later_revocation() {
 }
 
 #[test]
-fn late_earlier_revocation_raises_integrity_fault_and_halts_new_effects() {
+fn finality_cutoff_late_earlier_revocation_raises_integrity_fault_and_halts_new_effects() {
     let mut state = state(1);
     state.submit_claim(claim("claim-a", 0, "budget-root")).unwrap();
     state.finalize("claim-a", proof("claim-a", 10)).unwrap();
@@ -182,7 +219,15 @@ fn late_earlier_revocation_raises_integrity_fault_and_halts_new_effects() {
         state.revoke(5),
         Err(ConsumptionError::LateEarlierRevocationConflict)
     );
-    assert!(state.integrity_fault.is_some());
+    assert_eq!(
+        state.integrity_fault,
+        Some(IntegrityFault::LateEarlierRevocation {
+            revocation_seq: 5,
+            conflicting_use_index: 0,
+            cutoff: RevocationCutoff::Finality,
+            commit_at_seq: 10,
+        })
+    );
     assert_eq!(
         state.apply_effect("claim-a", 20, "output-1"),
         Err(ConsumptionError::IntegrityFaultActive)
