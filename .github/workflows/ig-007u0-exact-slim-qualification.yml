@@ -1,0 +1,219 @@
+name: IG-007U0 Exact Slim Qualification
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/ig-007u0-exact-slim-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ig-007u0-exact-slim-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXPECTED_PRODUCT_SHA: 'fd801d9b46515d333eccd3f42a1664042a1b06d5'
+  EXPECTED_PRODUCT_PARENT: 'feb30a89257e96592fdbd40b249258581d42fde7'
+  WORKFLOW: '.github/workflows/ig-007u0-exact-slim-qualification.yml'
+  PRODUCT_WORKFLOW: '.github/workflows/ig-007u0-treasury-asset-unit-profile.yml'
+  PROFILE: 'mycelix-finance/profiles/observed/treasury-asset-unit-fca2c107-v1.json'
+  VALIDATOR: 'mycelix-finance/scripts/validate_ig007u0_treasury_asset_unit_profile.py'
+  DOC: 'mycelix-finance/docs/IG_007U0_TREASURY_ASSET_UNIT_PROFILE.md'
+  TREASURY_COORDINATOR: 'mycelix-finance/zomes/treasury/coordinator/src/lib.rs'
+  TREASURY_INTEGRITY: 'mycelix-finance/zomes/treasury/integrity/src/lib.rs'
+  FINANCE_TYPES: 'mycelix-finance/types/src/lib.rs'
+  EXPECTED_PRODUCT_WORKFLOW_BLOB: 'eef3edb25e37fbd31ff7d2016288285ef9500e50'
+  EXPECTED_PROFILE_BLOB: '933aec6c2c99bc6b49c3c8ba42af594e00fc52fc'
+  EXPECTED_VALIDATOR_BLOB: '53295c4a4a00aa5d78a9fe87ad6c1c82336502c4'
+  EXPECTED_DOC_BLOB: '2245e86af23aa242142c85f45657e6736f2701c8'
+  EXPECTED_TREASURY_COORDINATOR_BLOB: '840e66bcb6fdedb27fe2451752511d1317eb50b8'
+  EXPECTED_TREASURY_INTEGRITY_BLOB: '5ee9b72f7c138a5283818b873ceae36dff3305d4'
+  EXPECTED_FINANCE_TYPES_BLOB: '354a377c88a57e8a5612a518d8c8b8b519fb67e2'
+  EXPECTED_PROFILE_SHA256: '58280f735acecd84071b71876c5b38d12d6776b8505016b22a020a05cca2ffb5'
+
+jobs:
+  qualify:
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Prove qualification-only child
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PRODUCT_SHA"
+          mapfile -d '' changed < <(git diff --name-only -z "$EXPECTED_PRODUCT_SHA" HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$WORKFLOW"
+          test "$(git ls-tree HEAD -- "$WORKFLOW" | awk '{print $1}')" = '100644'
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Checkout frozen U0 product subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.EXPECTED_PRODUCT_SHA }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Prove exact U0 ancestry, scope, and blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_PRODUCT_SHA"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PRODUCT_PARENT"
+          python3 - <<'PY'
+          import os, subprocess
+          expected = sorted([
+              os.environ['PRODUCT_WORKFLOW'],
+              os.environ['PROFILE'],
+              os.environ['VALIDATOR'],
+              os.environ['DOC'],
+          ])
+          actual = subprocess.run(
+              ['git', 'diff', '--name-only', os.environ['EXPECTED_PRODUCT_PARENT'], os.environ['EXPECTED_PRODUCT_SHA']],
+              check=True, capture_output=True, text=True,
+          ).stdout.splitlines()
+          if sorted(actual) != expected:
+              raise SystemExit(f'U0 product scope mismatch: expected={expected!r} actual={sorted(actual)!r}')
+          PY
+          test "$(git rev-parse "HEAD:$PRODUCT_WORKFLOW")" = "$EXPECTED_PRODUCT_WORKFLOW_BLOB"
+          test "$(git rev-parse "HEAD:$PROFILE")" = "$EXPECTED_PROFILE_BLOB"
+          test "$(git rev-parse "HEAD:$VALIDATOR")" = "$EXPECTED_VALIDATOR_BLOB"
+          test "$(git rev-parse "HEAD:$DOC")" = "$EXPECTED_DOC_BLOB"
+          test "$(git rev-parse "HEAD:$TREASURY_COORDINATOR")" = "$EXPECTED_TREASURY_COORDINATOR_BLOB"
+          test "$(git rev-parse "HEAD:$TREASURY_INTEGRITY")" = "$EXPECTED_TREASURY_INTEGRITY_BLOB"
+          test "$(git rev-parse "HEAD:$FINANCE_TYPES")" = "$EXPECTED_FINANCE_TYPES_BLOB"
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Capture frozen evidence capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'runner_profile=ubuntu-slim\nrunner_os=%s\nrunner_arch=%s\n' "$RUNNER_OS" "$RUNNER_ARCH"
+          python3 --version
+          git --version
+          sha256sum "$PROFILE" "$VALIDATOR" "$DOC" "$PRODUCT_WORKFLOW" "$TREASURY_COORDINATOR" "$TREASURY_INTEGRITY" "$FINANCE_TYPES"
+          git rev-parse "HEAD:$PROFILE" "HEAD:$VALIDATOR" "HEAD:$DOC" "HEAD:$PRODUCT_WORKFLOW" "HEAD:$TREASURY_COORDINATOR" "HEAD:$TREASURY_INTEGRITY" "HEAD:$FINANCE_TYPES"
+
+      - name: Independently re-derive source-bound observations
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          coordinator = Path(os.environ['TREASURY_COORDINATOR']).read_text(encoding='utf-8')
+          integrity = Path(os.environ['TREASURY_INTEGRITY']).read_text(encoding='utf-8')
+          finance_types = Path(os.environ['FINANCE_TYPES']).read_text(encoding='utf-8')
+
+          assert 'pub enum Currency {' in finance_types
+          currency_block = finance_types.split('pub enum Currency {', 1)[1].split('}', 1)[0]
+          for variant in ('Mycel', 'Sap', 'Tend'):
+              assert variant in currency_block
+          transfer_block = finance_types.split('pub fn is_transferable(&self) -> bool {', 1)[1].split('}', 2)[0]
+          assert 'Currency::Mycel => false' in transfer_block
+          assert 'Currency::Sap => true' in transfer_block
+          assert 'Currency::Tend => true' in transfer_block
+
+          assert 'pub struct CreateTreasuryInput' in coordinator
+          assert 'pub currency: String' in coordinator
+          assert 'mycelix_finance_types::Currency' not in coordinator
+
+          create_treasury = coordinator.split('pub fn create_treasury(', 1)[1].split('#[derive(Serialize, Deserialize, Debug)]\npub struct CreateTreasuryInput', 1)[0]
+          assert 'currency: input.currency' in create_treasury
+
+          contribute = coordinator.split('pub fn contribute(', 1)[1].split('#[derive(Serialize, Deserialize, Debug)]\npub struct ContributeInput', 1)[0]
+          assert 'currency: input.currency' in contribute
+          assert 'credit_treasury(&input.treasury_id, input.amount)' in contribute
+          assert 'treasury.currency' not in contribute
+          assert '.checked_add(amount)' in coordinator
+
+          propose = coordinator.split('pub fn propose_allocation(', 1)[1].split('#[derive(Serialize, Deserialize, Debug)]\npub struct ProposeAllocationInput', 1)[0]
+          assert 'currency: input.currency' in propose
+
+          ordinary = coordinator.split('pub fn execute_allocation(', 1)[1].split('/// Internal helper: fetch an allocation', 1)[0]
+          assert 'debit_treasury(&alloc.treasury_id, alloc.amount)' in ordinary
+          assert 'alloc.currency' not in ordinary
+          assert '.checked_sub(amount)' in coordinator
+          assert 'Insufficient treasury balance' in coordinator
+
+          dkg = coordinator.split('pub fn execute_dkg_allocation(', 1)[1].split('/// Input for a DKG-gated treasury allocation.', 1)[0]
+          assert 'const DKG_THRESHOLD_AMOUNT: u64 = 10_000_000_000;' in coordinator
+          assert 'Minimum amount (in micro-SAP)' in coordinator
+          assert 'Amount in micro-SAP' in coordinator
+          assert 'currency: treasury.currency.clone()' in dkg
+          assert '"treasury_allocation:{}:{}:{}"' in dkg
+          message = dkg.split('let message = format!(', 1)[1].split(');', 1)[0]
+          assert 'input.treasury_id' in message
+          assert 'input.amount' in message
+          assert 'input.recipient_did' in message
+          for forbidden in ('asset_id', 'currency', 'base_unit', 'policy_revision'):
+              assert forbidden not in message
+
+          create_treasury_integrity = integrity.split('fn validate_create_treasury(', 1)[1].split('fn validate_update_treasury(', 1)[0]
+          update_treasury_integrity = integrity.split('fn validate_update_treasury(', 1)[1].split('fn validate_create_contribution(', 1)[0]
+          create_allocation_integrity = integrity.split('fn validate_create_allocation(', 1)[1].split('fn validate_update_allocation(', 1)[0]
+          update_allocation_integrity = integrity.split('fn validate_update_allocation(', 1)[1].split('fn validate_create_savings_pool(', 1)[0]
+          assert 'treasury.currency' not in create_treasury_integrity
+          assert 'treasury.currency' not in update_treasury_integrity
+          assert 'allocation.currency' not in create_allocation_integrity
+          assert 'allocation.currency' not in update_allocation_integrity
+          print('independent_u0_source_oracle=PASS')
+          PY
+
+      - name: Validate committed U0 profile twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import ast, os
+          from pathlib import Path
+          ast.parse(Path(os.environ['VALIDATOR']).read_text(encoding='utf-8'))
+          PY
+          python3 "$VALIDATOR" --profile "$PROFILE" > /tmp/u0-a.json
+          python3 "$VALIDATOR" --profile "$PROFILE" > /tmp/u0-b.json
+          cmp /tmp/u0-a.json /tmp/u0-b.json
+          python3 - <<'PY'
+          import json, os
+          r = json.load(open('/tmp/u0-a.json', encoding='utf-8'))
+          assert r['valid'] is True
+          assert r['profile_content_sha256'] == os.environ['EXPECTED_PROFILE_SHA256']
+          assert r['semantic_production_subject_sha'] == 'fca2c107a1ea5108823ce617ba4111b6f7f77230'
+          assert r['known_issues'] == [1222]
+          assert r['canonical_finance_currency_enum_bound'] is True
+          assert r['treasury_consumes_canonical_currency_type'] is False
+          assert r['canonical_treasury_asset_unit_binding'] == 'NotEstablished'
+          assert r['dkg_signed_subject_asset_unit_policy_binding'] == 'NotEstablished'
+          assert r['positive_control_count'] == 6
+          assert r['unqualified_property_count'] == 8
+          print('u0_profile_validator=PASS')
+          PY
+
+      - name: Refuse qualification-time mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          test -z "$(git status --porcelain=v1 --untracked-files=no)"
+
+      - name: Emit postflight evidence facts
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'status=PASS\n'
+          printf 'product_sha=%s\n' "$EXPECTED_PRODUCT_SHA"
+          printf 'profile_sha256=%s\n' "$EXPECTED_PROFILE_SHA256"
+          printf 'profile_blob=%s\n' "$(git rev-parse "HEAD:$PROFILE")"
+          printf 'validator_blob=%s\n' "$(git rev-parse "HEAD:$VALIDATOR")"
+          printf 'runner_profile=ubuntu-slim\n'
+          printf 'claim=exact IG-007U0 source-bound Treasury asset/unit observations re-derived and committed profile validated under this qualification profile\n'
+          printf 'nonclaim=live cross-currency transfer, deployed exploit, deployment currentness, Treasury safety, successor value semantics\n'
