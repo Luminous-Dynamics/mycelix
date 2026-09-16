@@ -1,0 +1,192 @@
+name: FIN-ECO-002A Source Oracle
+
+on:
+  pull_request:
+    branches:
+      - feat/fin-eco-002a-settlement-proof-v1
+    paths:
+      - '.github/workflows/fin-eco-002a-source-oracle.yml'
+
+permissions:
+  contents: read
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  EXPECTED_PARENT_SHA: '4a9c77bf4ca9ab49129298f477a10b43b396a09a'
+  WORKFLOW: '.github/workflows/fin-eco-002a-source-oracle.yml'
+  VECTOR: 'mycelix-finance/crates/finance-settlement/test-vectors/settlement-v1.json'
+
+jobs:
+  source-oracle:
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact diagnostic head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Prove diagnostic-only child
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT_SHA"
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PARENT_SHA" HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$WORKFLOW"
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Install pinned rustfmt only
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt
+
+      - name: Parse and format-check settlement source without Cargo resolution
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustfmt --version
+          rustfmt --edition 2024 --check \
+            mycelix-finance/crates/finance-settlement/src/lib.rs \
+            mycelix-finance/crates/finance-settlement/src/canonical.rs \
+            mycelix-finance/crates/finance-settlement/src/model.rs \
+            mycelix-finance/crates/finance-settlement/src/qualify.rs \
+            mycelix-finance/crates/finance-settlement/src/tests.rs
+          test -z "$(git status --porcelain=v1 --untracked-files=no)"
+
+      - name: Independent Python canonical-vector oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - "$VECTOR" <<'PY'
+          import hashlib
+          import json
+          import struct
+          import sys
+
+          with open(sys.argv[1], encoding='utf-8') as fh:
+              v = json.load(fh)
+
+          def u8(n): return bytes([n])
+          def u16(n): return struct.pack('>H', n)
+          def u32(n): return struct.pack('>I', n)
+          def u64(n): return struct.pack('>Q', n)
+          def ref(value):
+              raw = value.encode('utf-8')
+              return u32(len(raw)) + raw
+          def digest(hex_value):
+              raw = bytes.fromhex(hex_value)
+              assert len(raw) == 32
+              return raw
+          def ordered_refs(values):
+              values = sorted(set(values))
+              return u32(len(values)) + b''.join(ref(value) for value in values)
+          def ordered_digests(values):
+              values = sorted(set(values))
+              return u32(len(values)) + b''.join(values)
+          def check(section, canonical):
+              expected = v[section]
+              assert len(canonical) == expected['canonical_length']
+              assert canonical.hex() == expected['canonical_hex']
+              actual = hashlib.sha256(canonical).hexdigest()
+              assert actual == expected['commitment_hex'], (section, actual, expected['commitment_hex'])
+              return bytes.fromhex(actual)
+
+          p = v['profile']
+          profile_bytes = (
+              b'MYCELIX_FINANCE_SETTLEMENT_FINALITY_PROFILE_V1\0'
+              + u16(1)
+              + ref(p['id'])
+              + u64(p['revision'])
+              + ref(p['rail'])
+              + ref(p['network'])
+              + ordered_refs(p['required_evidence_kinds'])
+              + u16(p['min_distinct_sources'])
+              + u64(p['max_observation_age_ms'])
+              + u8({'MayReverse': 0, 'DeclaredTerminalByProfile': 1}[p['reversal_model']])
+          )
+          profile_commitment = check('profile', profile_bytes)
+
+          c = v['evaluation_context']
+          context_bytes = (
+              b'MYCELIX_FINANCE_SETTLEMENT_EVALUATION_CONTEXT_V1\0'
+              + u16(1)
+              + u8({'DeterministicSupplied': 0, 'HistoricalReplay': 1}[c['class']])
+              + u64(c['evaluation_time_unix_ms'])
+              + ref(c['temporal_profile_id'])
+              + u64(c['temporal_profile_revision'])
+              + digest(c['temporal_context_digest_hex'])
+          )
+          context_commitment = check('evaluation_context', context_bytes)
+
+          s = v['subject']
+          e = v['evidence']
+          evidence_bytes = (
+              b'MYCELIX_FINANCE_SETTLEMENT_EVIDENCE_V1\0'
+              + u16(1)
+              + ref(e['evidence_id'])
+              + ref(s['id'])
+              + ref(e['operation_id'])
+              + u64(e['operation_revision'])
+              + ref(e['observation_id'])
+              + ref(e['kind'])
+              + ref(e['source'])
+              + digest(e['payload_digest_hex'])
+          )
+          evidence_commitment = check('evidence', evidence_bytes)
+
+          o = v['observation']
+          observation_bytes = (
+              b'MYCELIX_FINANCE_SETTLEMENT_OBSERVATION_V1\0'
+              + u16(1)
+              + ref(o['observation_id'])
+              + ref(s['id'])
+              + digest(s['financial_effect_commitment_hex'])
+              + ref(s['attempt'])
+              + ref(p['rail'])
+              + ref(p['network'])
+              + ref(o['operation_id'])
+              + u64(o['revision'])
+              + ref(s['asset'])
+              + u64(s['atomic_units'])
+              + u8({'Applied': 0, 'Pending': 1, 'Rejected': 2, 'Unknown': 3, 'Reversed': 4}[o['state']])
+              + u64(o['observed_at_unix_ms'])
+              + ordered_digests([evidence_commitment])
+          )
+          observation_commitment = check('observation', observation_bytes)
+
+          frontier_bytes = (
+              b'MYCELIX_FINANCE_SETTLEMENT_FRONTIER_V1\0'
+              + u16(1)
+              + ref(s['id'])
+              + digest(s['financial_effect_commitment_hex'])
+              + ref(s['attempt'])
+              + ref(p['rail'])
+              + ref(p['network'])
+              + profile_commitment
+              + ref(s['asset'])
+              + u64(s['atomic_units'])
+              + context_commitment
+              + ordered_digests([observation_commitment])
+          )
+          check('frontier', frontier_bytes)
+          print('independent_settlement_v1_oracle=PASS')
+          PY
+
+      - name: Refuse diagnostic mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          test -z "$(git status --porcelain=v1 --untracked-files=no)"
+
+      - name: Emit diagnostic receipt
+        run: |
+          echo 'diagnostic=PASS'
+          echo 'source_parent=4a9c77bf4ca9ab49129298f477a10b43b396a09a'
+          echo 'rustfmt=1.96.0'
+          echo 'claim=source parses/formats and independent Python reproduces checked-in canonical vector'
+          echo 'nonclaim=Rust typecheck, Cargo locked graph, settlement theorem PASS, provider truth, currentness, legal discharge'
