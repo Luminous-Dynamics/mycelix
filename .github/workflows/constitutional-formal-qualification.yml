@@ -1,0 +1,82 @@
+name: Constitutional Formal Qualification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'mycelix-governance/specs/**'
+      - 'mycelix-governance/tools/formal/**'
+      - '.github/workflows/constitutional-formal-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: constitutional-formal-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NIXPKGS_REV: a50bf0c1b07873c1a53892292017041a8f0a1288
+  TLA_URL: https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar
+  TLA_SHA256: 936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88
+  ALLOY_URL: https://github.com/AlloyTools/org.alloytools.alloy/releases/download/v6.2.0/org.alloytools.alloy.dist.jar
+  ALLOY_SHA256: 6b8c1cb5bc93bedfc7c61435c4e1ab6e688a242dc702a394628d9a9801edb78d
+
+jobs:
+  formal-qualification:
+    name: TLA+ and Alloy exact-file qualification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Check Rust/formal crosswalk, acquire pinned tools, and qualify exact models
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .formal-tools formal-evidence
+          mkdir -p .formal-tools formal-evidence
+
+          nix shell \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#jdk17_headless" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#python312" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#curl" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#coreutils" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" \
+            --command bash -euo pipefail -c '
+              python3 mycelix-governance/tools/formal/check_crosswalk.py \
+                --out "$PWD/formal-evidence/crosswalk-receipt.json"
+
+              curl --fail --location --retry 3 --retry-all-errors \
+                --output .formal-tools/tla2tools.jar "$TLA_URL"
+              curl --fail --location --retry 3 --retry-all-errors \
+                --output .formal-tools/alloy.jar "$ALLOY_URL"
+
+              printf "%s  %s\n" "$TLA_SHA256" .formal-tools/tla2tools.jar | sha256sum --check --strict
+              printf "%s  %s\n" "$ALLOY_SHA256" .formal-tools/alloy.jar | sha256sum --check --strict
+
+              python3 mycelix-governance/tools/formal/qualify.py \
+                --tla-jar "$PWD/.formal-tools/tla2tools.jar" \
+                --alloy-jar "$PWD/.formal-tools/alloy.jar" \
+                --out "$PWD/formal-evidence"
+            '
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: constitutional-formal-evidence-${{ github.sha }}
+          path: formal-evidence
+          if-no-files-found: error
+          retention-days: 30
