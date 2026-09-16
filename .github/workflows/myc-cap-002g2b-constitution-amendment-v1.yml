@@ -55,8 +55,8 @@ jobs:
           set -euo pipefail
           echo '6900a6be578b706e7014d5f433352a183bc8b0cb24a5e9e21e44307652b830c6  docs/capital/evidence/myc-cap-002g2b/example_case.json' | sha256sum -c -
           echo 'd26ee8750ef11b23809321501cdd2dc8e7d491b9e12a5baa5ace9afea85b339b  docs/capital/evidence/myc-cap-002g2b/example_receipt.json' | sha256sum -c -
-          echo '6ca0fc77a490a5951c72f4627a01a7ecd4eca7d3c5196ead0aa09d2368f5ec0c  scripts/capital/constitution_amendment_v1.py' | sha256sum -c -
-          echo 'f5ac64c3d38b9d13b80c6d0d9d05e654f32969b4604603e819b71778b7be0352  scripts/capital/test_constitution_amendment_v1.py' | sha256sum -c -
+          echo 'b25e7ec56b3ce79fd84cf62e140a43cb7faa5878515e6516f00083e559c247b6  scripts/capital/constitution_amendment_v1.py' | sha256sum -c -
+          echo '4a32119fd6ab812da030e54c4c267de8f59182138f11f24f8895f27f4c2f85ad  scripts/capital/test_constitution_amendment_v1.py' | sha256sum -c -
 
       - name: Strong nonclaims
         run: |
