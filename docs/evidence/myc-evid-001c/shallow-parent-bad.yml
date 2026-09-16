@@ -1,0 +1,14 @@
+name: MYC-EVID-001C shallow-parent negative control
+on: workflow_dispatch
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Exact parent
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "0123456789012345678901234567890123456789"

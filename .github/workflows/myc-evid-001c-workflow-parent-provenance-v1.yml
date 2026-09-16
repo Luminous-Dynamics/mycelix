@@ -1,0 +1,66 @@
+name: MYC-EVID-001C Workflow Parent Provenance v1
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/evidence/workflow_parent_provenance_lint.py'
+      - 'scripts/evidence/test_workflow_parent_provenance_lint.py'
+      - 'docs/evidence/myc-evid-001c/**'
+      - '.github/workflows/myc-evid-001c-workflow-parent-provenance-v1.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Parent-availability provenance scanner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Python environment
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 -m py_compile scripts/evidence/workflow_parent_provenance_lint.py
+          python3 -m py_compile scripts/evidence/test_workflow_parent_provenance_lint.py
+
+      - name: Fail-closed regression suite
+        run: |
+          set -euo pipefail
+          python3 -m unittest -v scripts/evidence/test_workflow_parent_provenance_lint.py
+
+      - name: Permanent shallow-parent controls
+        run: |
+          set -euo pipefail
+          bad="$(mktemp)"
+          good="$(mktemp)"
+          python3 scripts/evidence/workflow_parent_provenance_lint.py \
+            docs/evidence/myc-evid-001c/shallow-parent-bad.yml \
+            --root . --report-only --report-out "$bad"
+          grep -Fq '"result":"FAIL"' "$bad"
+          python3 scripts/evidence/workflow_parent_provenance_lint.py \
+            docs/evidence/myc-evid-001c/shallow-parent-fixed.yml \
+            --root . --report-out "$good"
+          grep -Fq '"result":"PASS"' "$good"
+
+      - name: Deterministic report-only repository census
+        run: |
+          set -euo pipefail
+          a="$(mktemp)"
+          b="$(mktemp)"
+          python3 scripts/evidence/workflow_parent_provenance_lint.py --root . --report-only --report-out "$a"
+          python3 scripts/evidence/workflow_parent_provenance_lint.py --root . --report-only --report-out "$b"
+          cmp "$a" "$b"
+          python3 -m json.tool "$a" >/dev/null
+          cat "$a"
+
+      - name: Frozen scanner commitments
+        run: |
+          set -euo pipefail
+          echo 'b805dc90afe82ecd1f0a530a92185e8890dd61d389382bff9e15e277ef730b2b  scripts/evidence/workflow_parent_provenance_lint.py' | sha256sum -c -
+          echo '76c1f39d43cfae182c4bcc5df138fad24b1f0c0197845a20ab8860b57db99de6  scripts/evidence/test_workflow_parent_provenance_lint.py' | sha256sum -c -
