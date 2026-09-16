@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use constitutional_authority::{
-    branch_can_exercise, constituent_can_exercise, guardian_can_exercise, principal_can_exercise,
-    AuthorityPrincipal, Branch, ConstitutionalPower, Guardian,
+    AuthorityPrincipal, Branch, ConstitutionalPower, Guardian, branch_can_exercise,
+    constituent_can_exercise, guardian_can_exercise, principal_can_exercise,
 };
 
 fn branch_owners(power: ConstitutionalPower) -> Vec<Branch> {
@@ -25,7 +25,11 @@ fn every_enumerated_power_has_exactly_one_constitutional_owner_class() {
     for power in ConstitutionalPower::ALL {
         let branches = branch_owners(power);
         let guardians = guardian_owners(power);
-        let constituent = if constituent_can_exercise(power) { 1 } else { 0 };
+        let constituent = if constituent_can_exercise(power) {
+            1
+        } else {
+            0
+        };
         let owner_count = branches.len() + guardians.len() + constituent;
 
         assert_eq!(
@@ -50,8 +54,14 @@ fn no_power_is_shared_between_two_constituted_branches() {
 fn constituent_powers_are_not_branch_or_guardian_powers() {
     for power in ConstitutionalPower::ALL {
         if constituent_can_exercise(power) {
-            assert!(branch_owners(power).is_empty(), "{power:?} leaked to a branch");
-            assert!(guardian_owners(power).is_empty(), "{power:?} leaked to a guardian");
+            assert!(
+                branch_owners(power).is_empty(),
+                "{power:?} leaked to a branch"
+            );
+            assert!(
+                guardian_owners(power).is_empty(),
+                "{power:?} leaked to a guardian"
+            );
         }
     }
 }
@@ -60,7 +70,10 @@ fn constituent_powers_are_not_branch_or_guardian_powers() {
 fn guardian_powers_are_not_branch_powers() {
     for power in ConstitutionalPower::ALL {
         if !guardian_owners(power).is_empty() {
-            assert!(branch_owners(power).is_empty(), "{power:?} leaked to a branch");
+            assert!(
+                branch_owners(power).is_empty(),
+                "{power:?} leaked to a branch"
+            );
             assert!(
                 !constituent_can_exercise(power),
                 "{power:?} leaked to constituent sovereignty"
@@ -87,7 +100,10 @@ fn every_guardian_has_at_least_one_narrow_power() {
             .into_iter()
             .filter(|power| guardian_can_exercise(guardian, *power))
             .count();
-        assert!(count > 0, "guardian {guardian:?} has no constitutional power");
+        assert!(
+            count > 0,
+            "guardian {guardian:?} has no constitutional power"
+        );
     }
 }
 

@@ -266,7 +266,10 @@ pub fn guardian_can_exercise(guardian: Guardian, power: ConstitutionalPower) -> 
             matches!(power, ConstitutionalPower::PublishFiscalAssessment)
         }
         Guardian::PublicService => {
-            matches!(power, ConstitutionalPower::CertifyPublicServiceQualification)
+            matches!(
+                power,
+                ConstitutionalPower::CertifyPublicServiceQualification
+            )
         }
         Guardian::ProsecutionService => {
             matches!(power, ConstitutionalPower::InitiatePublicProsecution)
@@ -275,10 +278,7 @@ pub fn guardian_can_exercise(guardian: Guardian, power: ConstitutionalPower) -> 
 }
 
 /// Deny-by-default constitutional authorization check.
-pub fn principal_can_exercise(
-    principal: AuthorityPrincipal,
-    power: ConstitutionalPower,
-) -> bool {
+pub fn principal_can_exercise(principal: AuthorityPrincipal, power: ConstitutionalPower) -> bool {
     match principal {
         AuthorityPrincipal::ConstituentSovereignty => constituent_can_exercise(power),
         AuthorityPrincipal::Branch(branch) => branch_can_exercise(branch, power),
@@ -290,25 +290,12 @@ pub fn principal_can_exercise(
 /// Source from which a capability derives its authority.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum CapabilitySource {
-    Charter {
-        charter_id: String,
-        version: u32,
-    },
-    ConstituentRatification {
-        event_id: String,
-    },
-    Statute {
-        proposal_id: String,
-    },
-    JudicialOrder {
-        case_id: String,
-    },
-    EmergencyProtocol {
-        declaration_id: String,
-    },
-    Delegation {
-        parent_capability_id: String,
-    },
+    Charter { charter_id: String, version: u32 },
+    ConstituentRatification { event_id: String },
+    Statute { proposal_id: String },
+    JudicialOrder { case_id: String },
+    EmergencyProtocol { declaration_id: String },
+    Delegation { parent_capability_id: String },
 }
 
 /// A typed constitutional capability.
@@ -576,11 +563,13 @@ mod tests {
 
     #[test]
     fn ordinary_governance_may_choose_non_constituent_weighting() {
-        assert!(validate_vote_weight_basis(
-            DecisionClass::OrdinaryGovernance,
-            VoteWeightBasis::CompositeMerit
-        )
-        .is_ok());
+        assert!(
+            validate_vote_weight_basis(
+                DecisionClass::OrdinaryGovernance,
+                VoteWeightBasis::CompositeMerit
+            )
+            .is_ok()
+        );
     }
 
     #[test]
