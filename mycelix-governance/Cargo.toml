@@ -21,6 +21,7 @@ members = [
     "zomes/budgeting/coordinator",
     "crates/governance-utils",
     "crates/constitutional-authority",
+    "crates/constitutional-envelope",
 ]
 exclude = ["tests"]
 
@@ -68,6 +69,7 @@ k256 = { version = "0.13", default-features = false, features = ["arithmetic", "
 
 # Shared governance utilities
 constitutional-authority = { path = "crates/constitutional-authority" }
+constitutional-envelope = { path = "crates/constitutional-envelope" }
 governance-utils = { path = "crates/governance-utils" }
 
 # ZKP verification for anonymous voting
