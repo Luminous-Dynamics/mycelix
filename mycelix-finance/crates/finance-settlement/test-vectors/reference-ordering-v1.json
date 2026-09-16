@@ -1,0 +1,27 @@
+{
+  "physical_input_references": [
+    "b",
+    "z:long",
+    "aa",
+    "a",
+    "b"
+  ],
+  "expected_unique_order": [
+    "a",
+    "aa",
+    "b",
+    "z:long"
+  ],
+  "profile": {
+    "id": "finality:ordering:v1",
+    "revision": 1,
+    "rail": "rail:test",
+    "network": "network:test",
+    "min_distinct_sources": 1,
+    "max_observation_age_ms": 60000,
+    "reversal_model": "MayReverse",
+    "canonical_length": 151,
+    "canonical_hex": "4d5943454c49585f46494e414e43455f534554544c454d454e545f46494e414c4954595f50524f46494c455f56310000010000001466696e616c6974793a6f72646572696e673a76310000000000000001000000097261696c3a746573740000000c6e6574776f726b3a746573740000000400000001610000000261610000000162000000067a3a6c6f6e670001000000000000ea6000",
+    "commitment_hex": "8902e65f2eb6a486cb4a9e5c0e983bada3194152cd8f2a921c89df0884bfceb9"
+  }
+}
