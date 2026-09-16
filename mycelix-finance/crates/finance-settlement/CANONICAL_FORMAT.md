@@ -30,11 +30,16 @@ under new semantics.
 - UTF-8 string/reference: `u32 byte_length || utf8_bytes`.
 - execution-attempt reference: reference encoding of its canonical
   `ReferenceId`.
-- ordered reference set: `u32 count || sorted encoded references`.
+- ordered reference set: deduplicate exact reference values, sort ascending by
+  the raw UTF-8 bytes of each reference value, encode the count as `u32`, then
+  encode each already-sorted reference as `u32 byte_length || utf8_bytes`.
+  The length prefix does not participate in ordering.
 - ordered digest set: `u32 count || sorted raw 32-byte digests`.
 - `AssetAmount`: asset-id UTF-8 string followed by atomic-units `u64`.
 
-Lengths count UTF-8 bytes.
+Lengths count UTF-8 bytes. The reference-set ordering rule is additionally
+illustrated by `REFERENCE_SET_ORDERING_V1.md` and
+`test-vectors/reference-ordering-v1.json`.
 
 ## Finality profile commitment v1
 
@@ -284,7 +289,14 @@ It binds exact canonical bytes and SHA-256 commitments for:
 - one applied observation;
 - one selected-evidence frontier.
 
-Rust tests load the checked-in fixture and reproduce its bytes/hashes. Strong
+The multi-reference ordering conformance fixture is:
+
+`test-vectors/reference-ordering-v1.json`
+
+It binds an ordered-reference-set case that distinguishes raw-reference
+ordering from sorting complete length-prefixed encodings.
+
+Rust tests load the checked-in fixtures and reproduce their bytes/hashes. Strong
 qualification should additionally reconstruct them in an independent
 implementation, without calling production Rust.
 

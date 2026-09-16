@@ -37,4 +37,6 @@ mod receipt_tests;
 #[cfg(test)]
 mod receipt_vector_tests;
 #[cfg(test)]
+mod reference_ordering_vector_tests;
+#[cfg(test)]
 mod tests;
