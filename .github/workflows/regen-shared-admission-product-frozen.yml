@@ -1,0 +1,232 @@
+name: REGEN-019D Shared Admission ProductFrozen
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-regenerative-admission/**'
+      - 'qualification/regen-019d/**'
+      - '.github/workflows/regen-shared-admission-product-frozen.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  product-frozen:
+    name: REGEN-019D ProductFrozen qualification
+    if: github.event_name == 'pull_request' && github.head_ref == 'qual/regen-019d-shared-admission-product-frozen-v1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      EXPECTED_PARENT_SHA: 34b1707802a5c780b33a2280b2b1ec18ae67817e
+      CRATE_DIR: crates/mycelix-regenerative-admission
+      PINNED_TOOLCHAIN: 1.96.0
+      EXPECTED_MANIFEST_SHA256: 768a6018554215e29ec8f6f2c742e8d19524f6d9730dcec906903a789c1a024e
+      EXPECTED_LOCK_SHA256: 94259d8b424e8330cd0e9a36cebb34bd7564b1941210b47a23c65c88be7c9b9c
+      EXPECTED_SOURCE_SHA256: 425732f0e5d024926d5cec65e99c121b0076e5c0410a8016f759716a5f0146e4
+      EXPECTED_MATRIX_SHA256: 75497a3d16167979c099f32a9124b100f794c2cccb7fa0b5dd1b9615c1260f74
+      EXPECTED_MANIFEST_BLOB: 5073a8ea208d0f615c3d0269c3777c9460826478
+      EXPECTED_LOCK_BLOB: 55ce1ba153982351cce6fd29a2c1174ce40813f1
+      EXPECTED_SOURCE_BLOB: 294b777c95be79a13ca7d0e1e3463d32ff25c8f0
+      EXPECTED_MATRIX_BLOB: ffedf79527f89d61afeaab87b13a5ffdd33380a3
+      EXPECTED_Q001_VALIDATOR_BLOB: 653949df6a5dd6f37cb32eff57611a308846cdc7
+      PREPARATION_RUN: '35125008220'
+      PREPARATION_JOB: '104891780457'
+      PREPARATION_ARTIFACT: '10461576062'
+      PREPARATION_ARCHIVE_SHA256: 2a315d7ba34788247f4d6ea7faeb65bec0adf9c68c3ca8cfd4dfd2a1acafeea0
+
+    steps:
+      - name: Checkout exact ProductHead
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Verify exact subject, parent, and scope
+        shell: bash
+        env:
+          TARGET_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT_SHA"
+          expected="$(printf '%s\n' \
+            '.github/workflows/regen-shared-admission-product-frozen.yml' \
+            'qualification/regen-019d/verify-regen-qualification-receipt.py' \
+            'crates/mycelix-regenerative-admission/Cargo.toml' \
+            'crates/mycelix-regenerative-admission/Cargo.lock' \
+            'crates/mycelix-regenerative-admission/src/lib.rs' \
+            'crates/mycelix-regenerative-admission/tests/admission_matrix.rs' | sort)"
+          actual="$(git diff --name-only "$EXPECTED_PARENT_SHA" HEAD | sort)"
+          printf '%s\n' '---BEGIN_019D_SCOPE---' "$actual" '---END_019D_SCOPE---'
+          test "$actual" = "$expected"
+
+      - name: Verify exact promoted bytes and Q001 validator
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum "$CRATE_DIR/Cargo.toml" | awk '{print $1}')" = "$EXPECTED_MANIFEST_SHA256"
+          test "$(sha256sum "$CRATE_DIR/Cargo.lock" | awk '{print $1}')" = "$EXPECTED_LOCK_SHA256"
+          test "$(sha256sum "$CRATE_DIR/src/lib.rs" | awk '{print $1}')" = "$EXPECTED_SOURCE_SHA256"
+          test "$(sha256sum "$CRATE_DIR/tests/admission_matrix.rs" | awk '{print $1}')" = "$EXPECTED_MATRIX_SHA256"
+          test "$(git rev-parse HEAD:"$CRATE_DIR/Cargo.toml")" = "$EXPECTED_MANIFEST_BLOB"
+          test "$(git rev-parse HEAD:"$CRATE_DIR/Cargo.lock")" = "$EXPECTED_LOCK_BLOB"
+          test "$(git rev-parse HEAD:"$CRATE_DIR/src/lib.rs")" = "$EXPECTED_SOURCE_BLOB"
+          test "$(git rev-parse HEAD:"$CRATE_DIR/tests/admission_matrix.rs")" = "$EXPECTED_MATRIX_BLOB"
+          test "$(git rev-parse HEAD:qualification/regen-019d/verify-regen-qualification-receipt.py)" = "$EXPECTED_Q001_VALIDATOR_BLOB"
+          python3 qualification/regen-019d/verify-regen-qualification-receipt.py --self-test
+
+      - name: Verify qualified upstream PEF anchors
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:crates/mycelix-core-types/src/planetary_evidence.rs)" = '2069d6e56336d05c7bc293abfc5ccdc421ab53cb'
+          test "$(git rev-parse HEAD:crates/mycelix-core-types/src/planetary_lineage.rs)" = 'e0fda7c4c9e83c46761dae1e4fff2c43e3d6d41b'
+          test "$(git rev-parse HEAD:crates/mycelix-core-types/src/planetary_product.rs)" = 'dedc20b201759883b9c58b39905dfc700c1cfb21'
+          test "$(git rev-parse HEAD:crates/mycelix-core-types/src/lib.rs)" = '3761f5cfcb6a7c78c7ce829ba4283f7e522aff72'
+
+      - name: Install and prove pinned Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install "$PINNED_TOOLCHAIN" --profile minimal --component rustfmt,clippy
+          rustc +"$PINNED_TOOLCHAIN" --version --verbose
+          cargo +"$PINNED_TOOLCHAIN" --version --verbose
+          rustfmt +"$PINNED_TOOLCHAIN" --version
+          test "$(rustc +"$PINNED_TOOLCHAIN" --version | awk '{print $2}')" = "$PINNED_TOOLCHAIN"
+          test "$(cargo +"$PINNED_TOOLCHAIN" --version | awk '{print $2}')" = "$PINNED_TOOLCHAIN"
+
+      - name: Format exact frozen source
+        run: cargo +"$PINNED_TOOLCHAIN" fmt --manifest-path "$CRATE_DIR/Cargo.toml" -- --check
+
+      - name: Test exact ProductFrozen admission matrix
+        run: cargo +"$PINNED_TOOLCHAIN" test --manifest-path "$CRATE_DIR/Cargo.toml" --locked
+
+      - name: Strict Clippy
+        run: cargo +"$PINNED_TOOLCHAIN" clippy --manifest-path "$CRATE_DIR/Cargo.toml" --all-targets --locked -- -D warnings
+
+      - name: Verify post-execution immutability and clean checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum "$CRATE_DIR/Cargo.toml" | awk '{print $1}')" = "$EXPECTED_MANIFEST_SHA256"
+          test "$(sha256sum "$CRATE_DIR/Cargo.lock" | awk '{print $1}')" = "$EXPECTED_LOCK_SHA256"
+          test "$(sha256sum "$CRATE_DIR/src/lib.rs" | awk '{print $1}')" = "$EXPECTED_SOURCE_SHA256"
+          test "$(sha256sum "$CRATE_DIR/tests/admission_matrix.rs" | awk '{print $1}')" = "$EXPECTED_MATRIX_SHA256"
+          git diff --check
+          status="$(git status --short)"
+          printf 'git_status=%s\n' "$status"
+          test -z "$status"
+
+      - name: Emit and validate REGEN-Q001 qualification receipt
+        shell: bash
+        env:
+          TARGET_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/regen019d-receipt
+          python3 - <<'PY'
+          import json
+          import os
+          import platform
+          import subprocess
+          from pathlib import Path
+
+          def out(*args):
+              return subprocess.check_output(args, text=True).strip()
+
+          target = os.environ["TARGET_SHA"]
+          parent = os.environ["EXPECTED_PARENT_SHA"]
+          lock_sha = os.environ["EXPECTED_LOCK_SHA256"]
+          matrix_sha = os.environ["EXPECTED_MATRIX_SHA256"]
+          matrix_blob = os.environ["EXPECTED_MATRIX_BLOB"]
+          tree = out("git", "rev-parse", "HEAD^{tree}")
+          rustc = out("rustc", "+1.96.0", "--version")
+          cargo = out("cargo", "+1.96.0", "--version")
+          rustfmt = out("rustfmt", "+1.96.0", "--version")
+          receipt = {
+              "schema": "mycelix.regen.qualification-receipt-v1",
+              "receipt_id": f"regen-019d-product-head-{target[:8]}-run-{os.environ['GITHUB_RUN_ID']}",
+              "subject": {
+                  "class": "ProductHead",
+                  "declared_identity": target,
+                  "observed_identity": target,
+                  "git": {
+                      "repository": "Luminous-Dynamics/mycelix",
+                      "commit_sha": target,
+                      "tree_sha": tree,
+                      "parent_shas": [parent],
+                  },
+              },
+              "campaign": {
+                  "provider": "github-actions",
+                  "workflow_ref": ".github/workflows/regen-shared-admission-product-frozen.yml",
+                  "run_ref": os.environ["GITHUB_RUN_ID"],
+                  "job_ref": os.environ["GITHUB_JOB"],
+                  "executed": True,
+              },
+              "environment": {
+                  "runner": "github-hosted:ubuntu-24.04",
+                  "operating_system": platform.platform(),
+                  "toolchains": [rustc, cargo, rustfmt],
+              },
+              "dependencies": {
+                  "state": "ProductFrozen",
+                  "identities": [
+                      {"kind": "cargo-lock", "digest": f"sha256:{lock_sha}"}
+                  ],
+              },
+              "fixtures": [
+                  {
+                      "name": "regen-019c-preparation-capsule",
+                      "sha256": os.environ["PREPARATION_ARCHIVE_SHA256"],
+                      "git_blob": None,
+                  },
+                  {
+                      "name": "shared-admission-matrix",
+                      "sha256": matrix_sha,
+                      "git_blob": matrix_blob,
+                  },
+              ],
+              "assertions": [
+                  {"id": "subject.exact-head", "result": "pass"},
+                  {"id": "subject.exact-parent", "result": "pass"},
+                  {"id": "subject.exact-scope", "result": "pass"},
+                  {"id": "preparation.exact-promoted-bytes", "result": "pass"},
+                  {"id": "upstream.pef-source-anchors", "result": "pass"},
+                  {"id": "qualification.q001-validator-exact", "result": "pass"},
+                  {"id": "runtime.toolchain-rust-1.96", "result": "pass"},
+                  {"id": "runtime.toolchain-cargo-1.96", "result": "pass"},
+                  {"id": "dependencies.product-frozen-lock", "result": "pass"},
+                  {"id": "tests.admission-matrix", "result": "pass", "details": "9 tests passed; 0 failed."},
+                  {"id": "clippy.strict-all-targets", "result": "pass"},
+                  {"id": "checkout.immutable-postflight", "result": "pass"},
+              ],
+              "result": "pass",
+              "proposition": "The exact REGEN-019D mycelix-regenerative-admission ProductHead satisfies the frozen raw-vs-lineaged PEF admission contract and independent admission matrix under the recorded Rust 1.96.0 ProductFrozen Cargo graph.",
+              "non_claims": [
+                  "No hermetic system-closure or bit-reproducible-build claim.",
+                  "No truth, currentness, representativeness, spatial-containment, specimen-authenticity, contamination-safety, biomass-sustainability, agronomic, climate/carbon, governance, process-execution, or physical-actuation claim.",
+                  "Shared admission qualification does not qualify any downstream consumer integration.",
+              ],
+              "evidence_refs": [
+                  f"github:run:{os.environ['GITHUB_RUN_ID']}",
+                  f"github:preparation-run:{os.environ['PREPARATION_RUN']}",
+                  f"github:preparation-job:{os.environ['PREPARATION_JOB']}",
+                  f"github:artifact:{os.environ['PREPARATION_ARTIFACT']}",
+                  "github:pr:1290",
+              ],
+          }
+          path = Path("/tmp/regen019d-receipt/qualification.json")
+          path.write_text(json.dumps(receipt, sort_keys=True, separators=(",", ":")), encoding="utf-8")
+          PY
+          python3 qualification/regen-019d/verify-regen-qualification-receipt.py /tmp/regen019d-receipt/qualification.json
+          sha256sum /tmp/regen019d-receipt/qualification.json
+
+      - name: Upload validated qualification receipt
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: regen019d-product-frozen-receipt-${{ github.event.pull_request.head.sha }}
+          path: /tmp/regen019d-receipt/qualification.json
+          if-no-files-found: error
+          retention-days: 90
