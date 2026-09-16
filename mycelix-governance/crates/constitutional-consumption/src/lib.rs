@@ -235,14 +235,15 @@ pub struct EffectRecord {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum IntegrityFault {
-    /// A later-observed revocation claims an authenticated logical sequence that
-    /// precedes/equal a finality proof already accepted by this state. This is
-    /// evidence that freshness/order assumptions were violated; do not silently
-    /// rewrite history or continue applying effects.
+    /// A later-observed revocation proves an effective logical sequence at or
+    /// before the commit point already accepted under the configured cutoff.
+    /// For `Finality`, the commit point is finalization; for `Effect`, it is the
+    /// already-applied side effect. Preserve history, halt new effects, review.
     LateEarlierRevocation {
         revocation_seq: u64,
         conflicting_use_index: u32,
-        finalized_at_seq: u64,
+        cutoff: RevocationCutoff,
+        commit_at_seq: u64,
     },
 }
 
@@ -374,24 +375,33 @@ impl ConsumptionState {
 
     /// Record revocation in authenticated logical/event order.
     ///
-    /// If a newly observed earlier revocation contradicts finality already
-    /// accepted by this state, the model raises an integrity fault and halts
-    /// further effects. That contradiction must be reviewed; it is not safe to
-    /// erase history or ignore the earlier revocation.
+    /// Contradiction is measured against the constitutional commit point chosen
+    /// by `revocation_cutoff`: accepted finality for `Finality`, or an already
+    /// applied effect for `Effect`. A finalized-but-not-yet-applied Effect-mode
+    /// use may therefore be cancelled by newly learned earlier revocation
+    /// evidence without rewriting history or raising an integrity fault.
     pub fn revoke(&mut self, effective_seq: u64) -> Result<RevokeOutcome, ConsumptionError> {
         if self.integrity_fault.is_some() {
             return Err(ConsumptionError::IntegrityFaultActive);
         }
 
-        if let Some((use_index, record)) = self
-            .finalized
-            .iter()
-            .find(|(_, record)| record.proof.finalized_at_seq >= effective_seq)
-        {
+        let conflict = match self.requirement.revocation_cutoff {
+            RevocationCutoff::Finality => self.finalized.iter().find_map(|(use_index, record)| {
+                (record.proof.finalized_at_seq >= effective_seq)
+                    .then_some((*use_index, record.proof.finalized_at_seq))
+            }),
+            RevocationCutoff::Effect => self.effects.iter().find_map(|(use_index, record)| {
+                (record.applied_at_seq >= effective_seq)
+                    .then_some((*use_index, record.applied_at_seq))
+            }),
+        };
+
+        if let Some((use_index, commit_at_seq)) = conflict {
             self.integrity_fault = Some(IntegrityFault::LateEarlierRevocation {
                 revocation_seq: effective_seq,
-                conflicting_use_index: *use_index,
-                finalized_at_seq: record.proof.finalized_at_seq,
+                conflicting_use_index: use_index,
+                cutoff: self.requirement.revocation_cutoff,
+                commit_at_seq,
             });
             return Err(ConsumptionError::LateEarlierRevocationConflict);
         }
@@ -526,10 +536,11 @@ impl ConsumptionState {
             {
                 return Err(ConsumptionError::InvariantViolation);
             }
-            if self
-                .revoked_at_seq
-                .map(|revoked_at| revoked_at <= record.proof.finalized_at_seq)
-                .unwrap_or(false)
+            if self.requirement.revocation_cutoff == RevocationCutoff::Finality
+                && self
+                    .revoked_at_seq
+                    .map(|revoked_at| revoked_at <= record.proof.finalized_at_seq)
+                    .unwrap_or(false)
             {
                 return Err(ConsumptionError::InvariantViolation);
             }
