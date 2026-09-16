@@ -1,0 +1,108 @@
+name: REGEN-010C Adversarial Completeness Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-regenerative-evidence/tests/adversarial_completeness.rs'
+      - '.github/workflows/regen-soil-evidence-adversarial-completeness.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-adversarial-completeness:
+    name: REGEN-010C adversarial completeness
+    runs-on: ubuntu-24.04
+    env:
+      TARGET_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      EXPECTED_PARENT_SHA: 04bf45ea4e635e46beae68818c51effe9992b08d
+      CRATE_DIR: crates/mycelix-regenerative-evidence
+      EXPECTED_MANIFEST_SHA256: 93e77cf8f5bd6a9f91db25bf8a1f3460327fec52bc0e397f524eec2c4a520cb6
+      EXPECTED_LOCK_SHA256: b21c7127fa69f6f975578fdc93bcc5cd7a48925264718576f06c583cd39c9f98
+      EXPECTED_LIB_SHA256: 766e9024921d972a97f6bab43c98f6d4fb3ce90c71f95f39c79de40cda7f6ae7
+      EXPECTED_FIREWALL_SHA256: a74ba1e5160d2e33afaaeb7b6d1a29fc0dde08739e74d18e2b950da1351ab2c6
+      EXPECTED_ADVERSARIAL_TEST_BLOB: fb2f6a50e597496aff56b13bdc8e7f8832287ff5
+    steps:
+      - name: Checkout exact qualification-extension subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 2
+
+      - name: Verify exact qualified parent and two-path scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          parent="$(git rev-parse HEAD^)"
+          printf 'subject_sha=%s\nactual_sha=%s\n' "$TARGET_SHA" "$actual"
+          printf 'expected_parent_sha=%s\nactual_parent_sha=%s\n' "$EXPECTED_PARENT_SHA" "$parent"
+          test "$actual" = "$TARGET_SHA"
+          test "$parent" = "$EXPECTED_PARENT_SHA"
+          expected="$(printf '%s\n' \
+            '.github/workflows/regen-soil-evidence-adversarial-completeness.yml' \
+            'crates/mycelix-regenerative-evidence/tests/adversarial_completeness.rs' | sort)"
+          actual_paths="$(git diff --name-only "$EXPECTED_PARENT_SHA" HEAD | sort)"
+          printf '%s\n' '---BEGIN_EXTENSION_SCOPE---'
+          printf '%s\n' "$actual_paths"
+          printf '%s\n' '---END_EXTENSION_SCOPE---'
+          test "$actual_paths" = "$expected"
+
+      - name: Prove qualified product bytes and ProductFrozen graph are unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum "$CRATE_DIR/Cargo.toml" | awk '{print $1}')" = "$EXPECTED_MANIFEST_SHA256"
+          test "$(sha256sum "$CRATE_DIR/Cargo.lock" | awk '{print $1}')" = "$EXPECTED_LOCK_SHA256"
+          test "$(sha256sum "$CRATE_DIR/src/lib.rs" | awk '{print $1}')" = "$EXPECTED_LIB_SHA256"
+          test "$(sha256sum "$CRATE_DIR/tests/lineage_firewall.rs" | awk '{print $1}')" = "$EXPECTED_FIREWALL_SHA256"
+          test "$(git rev-parse HEAD:$CRATE_DIR/tests/adversarial_completeness.rs)" = "$EXPECTED_ADVERSARIAL_TEST_BLOB"
+          printf 'qualified_product_parent=%s\n' "$EXPECTED_PARENT_SHA"
+          printf 'dependency_state=ProductFrozen\n'
+          printf 'system_closure=unfrozen\n'
+
+      - name: Install and record pinned Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.96.0 --profile minimal --component rustfmt,clippy
+          rustup override set 1.96.0
+          rustc --version --verbose
+          cargo --version --verbose
+          rustfmt --version
+          printf 'host_target=%s\n' "$(rustc -vV | sed -n 's/^host: //p')"
+
+      - name: Format check without mutation
+        run: cargo fmt --manifest-path "$CRATE_DIR/Cargo.toml" -- --check
+
+      - name: Run adversarial completeness corpus under default features
+        run: cargo test --manifest-path "$CRATE_DIR/Cargo.toml" --locked --test adversarial_completeness
+
+      - name: Run adversarial completeness corpus under serde features
+        run: cargo test --manifest-path "$CRATE_DIR/Cargo.toml" --features serde --locked --test adversarial_completeness
+
+      - name: Re-run full qualified default baseline
+        run: cargo test --manifest-path "$CRATE_DIR/Cargo.toml" --locked
+
+      - name: Re-run full qualified serde baseline
+        run: cargo test --manifest-path "$CRATE_DIR/Cargo.toml" --features serde --locked
+
+      - name: Strict Clippy over all targets
+        run: cargo clippy --manifest-path "$CRATE_DIR/Cargo.toml" --all-targets --features serde --locked -- -D warnings
+
+      - name: Prove postflight immutability and clean checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum "$CRATE_DIR/Cargo.toml" | awk '{print $1}')" = "$EXPECTED_MANIFEST_SHA256"
+          test "$(sha256sum "$CRATE_DIR/Cargo.lock" | awk '{print $1}')" = "$EXPECTED_LOCK_SHA256"
+          test "$(sha256sum "$CRATE_DIR/src/lib.rs" | awk '{print $1}')" = "$EXPECTED_LIB_SHA256"
+          test "$(sha256sum "$CRATE_DIR/tests/lineage_firewall.rs" | awk '{print $1}')" = "$EXPECTED_FIREWALL_SHA256"
+          test "$(git rev-parse HEAD:$CRATE_DIR/tests/adversarial_completeness.rs)" = "$EXPECTED_ADVERSARIAL_TEST_BLOB"
+          git diff --check
+          status="$(git status --short)"
+          printf 'git_status=%s\n' "$status"
+          test -z "$status"
+          printf 'qualification_extension=REGEN-010C-adversarial-completeness\n'
+          printf 'result=PASS\n'
