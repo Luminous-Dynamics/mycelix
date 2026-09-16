@@ -1,0 +1,95 @@
+name: FIN-ECO-001 Lock Materialization
+
+on:
+  push:
+    branches:
+      - diag/fin-eco-001-lock-materialize-r1
+    paths:
+      - '.github/workflows/fin-eco-001-lock-materialize.yml'
+
+permissions:
+  contents: write
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  EXPECTED_PARENT_SHA: 'c85598178071d2fc7053069e60a848d494cfd367'
+  EXPECTED_LOCK_BEFORE_SHA256: 'fd60c09265aa579598d1fcaa001cf2668f309430986ec2ec76af5fe8504959a2'
+  EXPECTED_LOCK_AFTER_SHA256: 'd73b43314930a9e7fab4e1633988db48a0982878d69c6c158d4f661b3365b1ad'
+  WORKSPACE_MANIFEST: 'mycelix-finance/Cargo.toml'
+  LOCKFILE: 'mycelix-finance/Cargo.lock'
+
+jobs:
+  materialize:
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact generator subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+
+      - name: Prove generator-only child
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT_SHA"
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PARENT_SHA" HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = '.github/workflows/fin-eco-001-lock-materialize.yml'
+          test "$(sha256sum "$LOCKFILE" | awk '{print $1}')" = "$EXPECTED_LOCK_BEFORE_SHA256"
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Install pinned Rust
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+
+      - name: Reproduce Cargo-generated dependency capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo metadata --manifest-path "$WORKSPACE_MANIFEST" --format-version 1 >/dev/null
+          actual="$(sha256sum "$LOCKFILE" | awk '{print $1}')"
+          printf 'expected_lock_after=%s\nactual_lock_after=%s\n' "$EXPECTED_LOCK_AFTER_SHA256" "$actual"
+          test "$actual" = "$EXPECTED_LOCK_AFTER_SHA256"
+
+          mapfile -t dirty < <(git status --porcelain=v1 --untracked-files=no)
+          test "${#dirty[@]}" -eq 1
+          test "${dirty[0]}" = ' M mycelix-finance/Cargo.lock'
+
+          read -r adds dels path < <(git diff --numstat -- "$LOCKFILE")
+          test "$adds" = '20'
+          test "$dels" = '0'
+          test "$path" = "$LOCKFILE"
+
+          diff="$(git diff -- "$LOCKFILE")"
+          test "$(printf '%s\n' "$diff" | grep -c '^+ "mycelix-bridge-entry-types",$')" -eq 9
+          printf '%s\n' "$diff" | grep -Fq '+name = "mycelix-finance-exact"'
+          printf '%s\n' "$diff" | grep -Fq '+source = "registry+https://github.com/rust-lang/crates.io-index"'
+          printf '%s\n' "$diff" | grep -Fq '+checksum = "049f13004bc45a09549c4df44beeaca97def2fce17099de065c0051851ba2249"'
+          test "$(printf '%s\n' "$diff" | grep -c '^+version = "0.1.0"$')" -eq 1
+          test -z "$(printf '%s\n' "$diff" | grep '^-' | grep -v '^---' || true)"
+
+          echo '--- EXACT MATERIALIZED LOCK DIFF ---'
+          git diff -- "$LOCKFILE"
+
+      - name: Commit Cargo-produced lock bytes only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- "$LOCKFILE"
+          git diff --cached --name-only | grep -Fxq "$LOCKFILE"
+          test "$(git diff --cached --name-only | wc -l)" -eq 1
+          git commit -m 'fix(finance): synchronize FIN-ECO-001 dependency capsule [skip ci]'
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+      - name: Emit materialization receipt
+        run: |
+          echo 'materialization=PASS'
+          echo 'source_parent=c85598178071d2fc7053069e60a848d494cfd367'
+          echo 'cargo=1.96.0'
+          echo 'generated_lock_sha256=d73b43314930a9e7fab4e1633988db48a0982878d69c6c158d4f661b3365b1ad'
+          echo 'product_commit_is_next_branch_head=true'
