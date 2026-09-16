@@ -1,0 +1,66 @@
+name: MYC-CAP-002G2A Governance Decision Currentness v1
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/capital/governance_decision_currentness_v1.py'
+      - 'scripts/capital/test_governance_decision_currentness_v1.py'
+      - 'docs/capital/evidence/myc-cap-002g2a/**'
+      - '.github/workflows/myc-cap-002g2a-governance-currentness-v1.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Designated-current constitution and decision currentness
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Exact PR head and parent
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          test "$(git rev-parse HEAD^)" = "c4eef3dd41a548388a6ff67d6f34f7b0351d5ea6"
+
+      - name: Python environment
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 -m py_compile scripts/capital/governance_decision_currentness_v1.py
+          python3 -m py_compile scripts/capital/test_governance_decision_currentness_v1.py
+
+      - name: Fail-closed unit suite
+        run: |
+          set -euo pipefail
+          python3 -m unittest -v scripts/capital/test_governance_decision_currentness_v1.py
+
+      - name: Deterministic example receipt
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp)"
+          python3 scripts/capital/governance_decision_currentness_v1.py docs/capital/evidence/myc-cap-002g2a/example_case.json --receipt-out "$tmp"
+          diff -u docs/capital/evidence/myc-cap-002g2a/example_receipt.json "$tmp"
+          python3 scripts/capital/governance_decision_currentness_v1.py docs/capital/evidence/myc-cap-002g2a/example_case.json --receipt-out "${tmp}.second"
+          cmp "$tmp" "${tmp}.second"
+
+      - name: Frozen commitments
+        run: |
+          set -euo pipefail
+          echo '63c56620f2276c7f0f14b92c7f6ae9d266e5155562a539f65bad441ce321c9d4  docs/capital/evidence/myc-cap-002g2a/example_case.json' | sha256sum -c -
+          echo '929f5cdd8eef25e56d557a17a4f4a5ab59694579555d60ad75dc90a937973a1e  docs/capital/evidence/myc-cap-002g2a/example_receipt.json' | sha256sum -c -
+          echo '478e80cf8d33a687a7d411f51c404e9ec36780d6aef0ad0b7603805392945323  scripts/capital/governance_decision_currentness_v1.py' | sha256sum -c -
+          echo '97d4bad29afcef5df8188b5f6dfc91d8c43aaac4af682bf4a92ef73eaec9a746  scripts/capital/test_governance_decision_currentness_v1.py' | sha256sum -c -
+
+      - name: Strong nonclaims
+        run: |
+          set -euo pipefail
+          grep -Fq '"currentness_state":"CURRENT"' docs/capital/evidence/myc-cap-002g2a/example_receipt.json
+          grep -Fq '"execution_authority_established":false' docs/capital/evidence/myc-cap-002g2a/example_receipt.json
+          grep -Fq '"legal_validity_established":false' docs/capital/evidence/myc-cap-002g2a/example_receipt.json
+          grep -Fq '"democratic_legitimacy_established":false' docs/capital/evidence/myc-cap-002g2a/example_receipt.json
