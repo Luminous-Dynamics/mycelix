@@ -1,0 +1,197 @@
+name: Finance FIN-SAFE-028 Tier Authority Differential
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/finance-fin-safe-028-tier-authority-differential.yml'
+
+permissions:
+  contents: read
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  MEASUREMENT_SHA: 'e3f85369af40ece28a8d0bc78e568ccb2bd3b743'
+  BASE_SHA: 'f7b43e3f9718e2dc2445376916bd4d5010fbc4ea'
+  TEST_PATH: 'crates/mycelix-bridge-common/tests/legacy_civic_tier_differential.rs'
+
+jobs:
+  qualify:
+    name: Qualify 8D versus projected 4D authority differential
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'ci-fin-safe-028-tier-authority-differential'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout exact measurement head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.MEASUREMENT_SHA }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Bind exact test-only measurement delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MEASUREMENT_SHA"
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          test "$(git diff --name-only "$BASE_SHA" "$MEASUREMENT_SHA" | wc -l)" -eq 1
+          test "$(git diff --name-only "$BASE_SHA" "$MEASUREMENT_SHA")" = "$TEST_PATH"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt
+
+      - name: Check exact measurement formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path crates/mycelix-bridge-common/Cargo.toml -- --check
+
+      - name: Generate and archive exact standalone dependency lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd crates/mycelix-bridge-common
+          cargo generate-lockfile
+          cp Cargo.lock /tmp/fin-safe-028-tier-authority-Cargo.lock
+          sha256sum Cargo.lock | tee /tmp/fin-safe-028-tier-authority-lock.sha256
+          cargo metadata --locked --format-version 1 > /tmp/fin-safe-028-tier-authority-metadata.json
+
+      - name: Execute finite authority differential twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          for run in 1 2; do
+            cargo test \
+              --manifest-path crates/mycelix-bridge-common/Cargo.toml \
+              --locked \
+              --test legacy_civic_tier_differential \
+              -- --nocapture 2>&1 | tee "/tmp/fin-safe-028-tier-authority-run-${run}.log"
+            grep '^FIN_SAFE_028_' "/tmp/fin-safe-028-tier-authority-run-${run}.log" \
+              > "/tmp/fin-safe-028-tier-authority-markers-${run}.txt"
+            test "$(wc -l < "/tmp/fin-safe-028-tier-authority-markers-${run}.txt")" -eq 5
+          done
+          cmp /tmp/fin-safe-028-tier-authority-markers-1.txt \
+              /tmp/fin-safe-028-tier-authority-markers-2.txt
+
+      - name: Canonicalize measurement evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import pathlib
+          import re
+
+          measurement_sha = "e3f85369af40ece28a8d0bc78e568ccb2bd3b743"
+          base_sha = "f7b43e3f9718e2dc2445376916bd4d5010fbc4ea"
+          marker_path = pathlib.Path('/tmp/fin-safe-028-tier-authority-markers-1.txt')
+          lines = marker_path.read_text().splitlines()
+
+          summary_re = re.compile(
+              r'^FIN_SAFE_028_TIER_SUMMARY total=(\d+) native_higher=(\d+) equal=(\d+) native_lower=(\d+)$'
+          )
+          authority_re = re.compile(
+              r'^FIN_SAFE_028_AUTHORITY threshold=(Participant|Citizen|Steward|Guardian) '
+              r'native_pass_legacy_fail=(\d+) legacy_pass_native_fail=(\d+) '
+              r'first_native_pass_legacy_fail=(.+) first_legacy_pass_native_fail=(.+)$'
+          )
+
+          summary_match = summary_re.fullmatch(lines[0])
+          if summary_match is None:
+              raise SystemExit('missing or malformed summary marker')
+
+          total, native_higher, equal, native_lower = map(int, summary_match.groups())
+          if total != 390_625:
+              raise SystemExit(f'unexpected grid size: {total}')
+          if native_higher + equal + native_lower != total:
+              raise SystemExit('tier relation counts do not close')
+
+          expected_thresholds = ['Participant', 'Citizen', 'Steward', 'Guardian']
+          thresholds = []
+          for expected, line in zip(expected_thresholds, lines[1:], strict=True):
+              match = authority_re.fullmatch(line)
+              if match is None:
+                  raise SystemExit(f'malformed authority marker: {line!r}')
+              threshold, broaden, narrow, first_broaden, first_narrow = match.groups()
+              if threshold != expected:
+                  raise SystemExit(f'noncanonical threshold order: {threshold} != {expected}')
+              thresholds.append({
+                  'threshold': threshold,
+                  'native_pass_legacy_fail': int(broaden),
+                  'legacy_pass_native_fail': int(narrow),
+                  'first_native_pass_legacy_fail': first_broaden,
+                  'first_legacy_pass_native_fail': first_narrow,
+              })
+
+          payload = {
+              'schema': 'mycelix.finance.fin-safe-028.tier-authority-differential.v0.1',
+              'measurement_sha': measurement_sha,
+              'base_sha': base_sha,
+              'grid': '{0,.25,.5,.75,1}^8',
+              'total_profiles': total,
+              'tier_relation': {
+                  'native_higher': native_higher,
+                  'equal': equal,
+                  'native_lower': native_lower,
+              },
+              'authority_thresholds': thresholds,
+              'interpretation_boundary': {
+                  'nonzero_native_pass_legacy_fail': 'finite-grid authority-broadening class exists',
+                  'zero_native_pass_legacy_fail': 'does not prove global monotonicity',
+                  'migration_authority_claimed': False,
+              },
+          }
+          raw = (json.dumps(payload, sort_keys=True, separators=(',', ':')) + '\n').encode()
+          report = pathlib.Path('/tmp/fin-safe-028-tier-authority-report.json')
+          report.write_bytes(raw)
+          digest = hashlib.sha256(raw).hexdigest()
+          pathlib.Path('/tmp/fin-safe-028-tier-authority-report.sha256').write_text(
+              f'{digest}  {report}\n'
+          )
+          print(json.dumps(payload, indent=2, sort_keys=True))
+          print('report_sha256=' + digest)
+          PY
+          sha256sum -c /tmp/fin-safe-028-tier-authority-report.sha256
+
+      - name: Run existing bridge-common suite under same lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path crates/mycelix-bridge-common/Cargo.toml --locked \
+            2>&1 | tee /tmp/fin-safe-028-tier-authority-crate.log
+
+      - name: Remove transient lock and prove immutable checkout
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f crates/mycelix-bridge-common/Cargo.lock
+          test "$(git rev-parse HEAD)" = "$MEASUREMENT_SHA"
+          git status --porcelain=v1 --untracked-files=all \
+            > /tmp/fin-safe-028-tier-authority-status.txt
+          test ! -s /tmp/fin-safe-028-tier-authority-status.txt
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fin-safe-028-tier-authority-${{ env.MEASUREMENT_SHA }}-${{ github.run_attempt }}
+          path: |
+            /tmp/fin-safe-028-tier-authority-Cargo.lock
+            /tmp/fin-safe-028-tier-authority-lock.sha256
+            /tmp/fin-safe-028-tier-authority-metadata.json
+            /tmp/fin-safe-028-tier-authority-run-1.log
+            /tmp/fin-safe-028-tier-authority-run-2.log
+            /tmp/fin-safe-028-tier-authority-markers-1.txt
+            /tmp/fin-safe-028-tier-authority-markers-2.txt
+            /tmp/fin-safe-028-tier-authority-report.json
+            /tmp/fin-safe-028-tier-authority-report.sha256
+            /tmp/fin-safe-028-tier-authority-crate.log
+            /tmp/fin-safe-028-tier-authority-status.txt
+          if-no-files-found: warn
+          retention-days: 30
