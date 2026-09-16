@@ -200,13 +200,7 @@ fn canonical_vector_reproduces_profile_context_evidence_observation_and_frontier
     let profile = profile();
     let context = context();
     let subject = subject();
-    let observation = observation(
-        "op:1",
-        1,
-        100,
-        ObservedSettlementState::Applied,
-        1_000,
-    );
+    let observation = observation("op:1", 1, 100, ObservedSettlementState::Applied, 1_000);
     let evidence = &observation.evidence[0];
 
     let profile_bytes = canonical_finality_profile_bytes(&profile).expect("canonical profile");
@@ -308,7 +302,10 @@ fn canonical_vector_reproduces_profile_context_evidence_observation_and_frontier
 fn profile_body_mutation_with_old_digest_is_rejected() {
     let mut mutated = profile();
     mutated.max_observation_age_ms = 1;
-    assert_eq!(mutated.validate(), Err(FinalityProfileError::DigestMismatch));
+    assert_eq!(
+        mutated.validate(),
+        Err(FinalityProfileError::DigestMismatch)
+    );
 }
 
 #[test]
@@ -396,13 +393,7 @@ fn stale_same_revision_duplicate_cannot_launder_evidence_freshness() {
 
 #[test]
 fn revision_one_evidence_cannot_be_replayed_onto_revision_two() {
-    let mut replay = observation(
-        "op:1",
-        2,
-        100,
-        ObservedSettlementState::Applied,
-        1_000,
-    );
+    let mut replay = observation("op:1", 2, 100, ObservedSettlementState::Applied, 1_000);
     replay.evidence[0].operation_revision = 1;
     assert_eq!(
         qualify_settlement(&subject(), &profile(), &[replay], &context()),
@@ -412,13 +403,7 @@ fn revision_one_evidence_cannot_be_replayed_onto_revision_two() {
 
 #[test]
 fn evidence_must_bind_exact_observation_id() {
-    let mut replay = observation(
-        "op:1",
-        1,
-        100,
-        ObservedSettlementState::Applied,
-        1_000,
-    );
+    let mut replay = observation("op:1", 1, 100, ObservedSettlementState::Applied, 1_000);
     replay.evidence[0].observation_id = reference("observation:other");
     assert_eq!(
         qualify_settlement(&subject(), &profile(), &[replay], &context()),
@@ -462,20 +447,16 @@ fn cumulative_operation_revisions_use_only_current_amount() {
     let qualified =
         qualify_settlement(&subject(), &profile(), &observations, &context()).expect("current 100");
     assert_eq!(
-        qualified.operations()[&reference("op:1")].amount().atomic_units(),
+        qualified.operations()[&reference("op:1")]
+            .amount()
+            .atomic_units(),
         100
     );
 }
 
 #[test]
 fn same_attempt_amount_and_profile_still_require_exact_effect_commitment() {
-    let mut wrong_effect = observation(
-        "op:1",
-        1,
-        100,
-        ObservedSettlementState::Applied,
-        1_000,
-    );
+    let mut wrong_effect = observation("op:1", 1, 100, ObservedSettlementState::Applied, 1_000);
     wrong_effect.financial_effect_commitment = Digest32::repeat(99);
     assert_eq!(
         qualify_settlement(&subject(), &profile(), &[wrong_effect], &context()),
@@ -568,20 +549,8 @@ fn multiple_operations_can_exactly_satisfy_subject() {
         &subject(),
         &profile(),
         &[
-            observation(
-                "op:1",
-                1,
-                40,
-                ObservedSettlementState::Applied,
-                1_000,
-            ),
-            observation(
-                "op:2",
-                1,
-                60,
-                ObservedSettlementState::Applied,
-                1_010,
-            ),
+            observation("op:1", 1, 40, ObservedSettlementState::Applied, 1_000),
+            observation("op:2", 1, 60, ObservedSettlementState::Applied, 1_010),
         ],
         &context(),
     )
@@ -633,7 +602,10 @@ fn historical_context_is_distinct_from_deterministic_supplied_context() {
         qualified.evaluation_context_class(),
         EvaluationContextClass::HistoricalReplay
     );
-    assert_ne!(qualified.evaluation_context_commitment(), context().commitment());
+    assert_ne!(
+        qualified.evaluation_context_commitment(),
+        context().commitment()
+    );
 }
 
 #[test]
@@ -652,13 +624,7 @@ fn qualified_settlement_can_be_explicitly_invalidated_by_fresh_higher_revision_e
     )
     .expect("initial qualification");
 
-    let reversal = observation(
-        "op:1",
-        2,
-        100,
-        ObservedSettlementState::Reversed,
-        1_200,
-    );
+    let reversal = observation("op:1", 2, 100, ObservedSettlementState::Reversed, 1_200);
     let later_context = context_at(1_250);
     let invalidation = derive_invalidation(&prior, &profile(), &reversal, &later_context)
         .expect("fresh higher revision reversal should invalidate");
@@ -683,13 +649,7 @@ fn same_applied_amount_at_higher_revision_does_not_invalidate() {
         &context(),
     )
     .expect("initial qualification");
-    let same = observation(
-        "op:1",
-        2,
-        100,
-        ObservedSettlementState::Applied,
-        1_200,
-    );
+    let same = observation("op:1", 2, 100, ObservedSettlementState::Applied, 1_200);
     assert_eq!(
         derive_invalidation(&prior, &profile(), &same, &context_at(1_250)),
         Err(SettlementInvalidationError::ObservationDoesNotInvalidate)

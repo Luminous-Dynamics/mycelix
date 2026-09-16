@@ -78,9 +78,7 @@ fn observation(
         state,
         observed_at_unix_ms,
         evidence: vec![FinalityEvidence {
-            evidence_id: reference(
-                format!("evidence:op:1:{revision}:provider-a").as_str(),
-            ),
+            evidence_id: reference(format!("evidence:op:1:{revision}:provider-a").as_str()),
             subject: reference("settlement:subject:1"),
             operation_id: reference("op:1"),
             operation_revision: revision,
@@ -93,10 +91,8 @@ fn observation(
 }
 
 fn fixture() -> Value {
-    serde_json::from_str(include_str!(
-        "../test-vectors/invalidation-receipt-v1.json"
-    ))
-    .expect("checked-in invalidation receipt vector must parse")
+    serde_json::from_str(include_str!("../test-vectors/invalidation-receipt-v1.json"))
+        .expect("checked-in invalidation receipt vector must parse")
 }
 
 fn bytes_hex(bytes: &[u8]) -> String {
