@@ -10,6 +10,7 @@
 mod canonical;
 mod model;
 mod qualify;
+mod receipt;
 
 pub use canonical::{
     CanonicalEncodingError, SETTLEMENT_COMMITMENT_PROFILE_REVISION,
@@ -24,6 +25,14 @@ pub use qualify::{
     SettlementInvalidationError, SettlementQualificationError, derive_invalidation,
     qualify_settlement,
 };
+pub use receipt::{
+    QualifiedSettlementReceipt, SettlementInvalidationReceipt,
+    SettlementInvalidationReceiptError, SettlementReceiptError,
+    canonical_settlement_invalidation_receipt_bytes, derive_invalidation_with_receipt,
+    qualify_settlement_with_receipt, settlement_invalidation_receipt_commitment,
+};
 
+#[cfg(test)]
+mod receipt_tests;
 #[cfg(test)]
 mod tests;
