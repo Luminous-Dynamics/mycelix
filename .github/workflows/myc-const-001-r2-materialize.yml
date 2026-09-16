@@ -1,0 +1,283 @@
+name: MYC-CONST-001 R2 Materializer
+
+on:
+  push:
+    branches:
+      - mutate/myc-const-001-r2-materialize-v1
+    paths:
+      - '.github/workflows/myc-const-001-r2-materialize.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: myc-const-001-r2-materialize-v1
+  cancel-in-progress: true
+
+env:
+  MUTATOR_PARENT: '20452d0cde9448c424d708d6307aa33a3d1901e3'
+  MUTATOR_WORKFLOW: '.github/workflows/myc-const-001-r2-materialize.yml'
+  R1_SHA: 'd15ea01f428f7bc0a17d35eca73de5910768ec84'
+  R2_BRANCH: 'fix/myc-const-001-lock-r2'
+  RUST_TOOLCHAIN: '1.96.0'
+  CRATE_MANIFEST: 'mycelix-governance/crates/constitutional-authority/Cargo.toml'
+  LOCKFILE: 'mycelix-governance/Cargo.lock'
+  R1_LOCK_BLOB: 'f872b74f13264e7345be02b64270179eed56c703'
+  EXPECTED_R2_LOCK_SHA256: 'cf3d5738087fc5810f94aa044c8ec8fa504c9f8123bd1b0c19f20adf1070d5db'
+  ARTIFACT_NAME: 'myc-const-001-r2-lock-cf3d5738'
+
+jobs:
+  derive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
+      artifact_digest: ${{ steps.upload.outputs.artifact-digest }}
+    steps:
+      - name: Checkout exact mutator subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+          path: mutator
+
+      - name: Prove one-commit mutation-authority surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C mutator rev-parse HEAD^)" = "$MUTATOR_PARENT"
+          test "$(git -C mutator rev-list --count "$MUTATOR_PARENT..HEAD")" -eq 1
+          mapfile -t changed < <(git -C mutator diff --name-only "$MUTATOR_PARENT" HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$MUTATOR_WORKFLOW"
+          test -z "$(git -C mutator status --porcelain=v1)"
+          printf 'derive_job_repository_authority=READ_ONLY\n'
+
+      - name: Checkout exact R1 product read-only
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.R1_SHA }}
+          fetch-depth: 2
+          persist-credentials: false
+          path: product
+
+      - name: Bind exact untouched R1 parent
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C product rev-parse HEAD)" = "$R1_SHA"
+          test "$(git -C product rev-parse "HEAD:$LOCKFILE")" = "$R1_LOCK_BLOB"
+          test -z "$(git -C product status --porcelain=v1)"
+          test -z "$(git -C product config --local --get-regexp '^http\..*\.extraheader$' || true)"
+
+      - name: Install pinned Rust 1.96 toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt
+
+      - name: Derive exact Cargo lock repair from R1
+        shell: bash
+        working-directory: product
+        run: |
+          set -euo pipefail
+          cargo metadata --manifest-path "$CRATE_MANIFEST" --format-version 1 > /tmp/myc-const-r2-metadata.json
+          mapfile -t changed < <(git diff --name-only)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$LOCKFILE"
+          test "$(sha256sum "$LOCKFILE" | awk '{print $1}')" = "$EXPECTED_R2_LOCK_SHA256"
+          test "$(git diff --numstat -- "$LOCKFILE")" = $'14\t0\tmycelix-governance/Cargo.lock'
+
+      - name: Prove generated lock supports the R1 foundation
+        shell: bash
+        working-directory: product
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path "$CRATE_MANIFEST" --all -- --check
+          cargo test --manifest-path "$CRATE_MANIFEST" --all-targets --locked --no-run
+          cargo test --manifest-path "$CRATE_MANIFEST" --all-targets --locked
+
+      - name: Freeze exact derived payload
+        shell: bash
+        working-directory: product
+        run: |
+          set -euo pipefail
+          mapfile -t changed < <(git diff --name-only)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$LOCKFILE"
+          test "$(sha256sum "$LOCKFILE" | awk '{print $1}')" = "$EXPECTED_R2_LOCK_SHA256"
+          test "$(git diff --numstat -- "$LOCKFILE")" = $'14\t0\tmycelix-governance/Cargo.lock'
+          r2_lock_git_blob="$(git hash-object "$LOCKFILE")"
+          test -n "$r2_lock_git_blob"
+          test "${#r2_lock_git_blob}" -eq 40
+          rm -rf /tmp/r2-payload
+          mkdir -p /tmp/r2-payload
+          cp -- "$LOCKFILE" /tmp/r2-payload/Cargo.lock
+          cat > /tmp/r2-payload/manifest.txt <<EOF
+          schema=myc-const-001-r2-derived-lock-v1
+          r1_sha=$R1_SHA
+          r1_lock_blob=$R1_LOCK_BLOB
+          r2_lock_sha256=$EXPECTED_R2_LOCK_SHA256
+          r2_lock_git_blob=$r2_lock_git_blob
+          additions=14
+          deletions=0
+          changed_path=$LOCKFILE
+          rust_toolchain=$RUST_TOOLCHAIN
+          EOF
+          test "$(sha256sum /tmp/r2-payload/Cargo.lock | awk '{print $1}')" = "$EXPECTED_R2_LOCK_SHA256"
+          test "$(git hash-object /tmp/r2-payload/Cargo.lock)" = "$r2_lock_git_blob"
+          test "$(find /tmp/r2-payload -maxdepth 1 -type f -printf '%f\n' | sort | paste -sd ' ' -)" = 'Cargo.lock manifest.txt'
+          printf 'derive_job_repository_authority=READ_ONLY\n'
+          printf 'derived_lock_sha256=%s\n' "$EXPECTED_R2_LOCK_SHA256"
+          printf 'derived_lock_git_blob=%s\n' "$r2_lock_git_blob"
+
+      - name: Upload exact derived payload
+        id: upload
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: /tmp/r2-payload/
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+          overwrite: false
+
+      - name: Bind artifact identity
+        shell: bash
+        env:
+          ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+          ARTIFACT_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
+        run: |
+          set -euo pipefail
+          test -n "$ARTIFACT_ID"
+          test "$ARTIFACT_ID" -gt 0
+          test "${#ARTIFACT_DIGEST}" -eq 64
+          case "$ARTIFACT_DIGEST" in
+            *[!0-9a-f]*) echo 'artifact digest is not lowercase hex' >&2; exit 1 ;;
+          esac
+          printf 'artifact_id=%s\n' "$ARTIFACT_ID"
+          printf 'artifact_digest_sha256=%s\n' "$ARTIFACT_DIGEST"
+          git -C product diff --exit-code -- . ':!mycelix-governance/Cargo.lock'
+          test "$(sha256sum "product/$LOCKFILE" | awk '{print $1}')" = "$EXPECTED_R2_LOCK_SHA256"
+
+  publish:
+    needs: derive
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Verify exact artifact and atomically publish one lock-only commit
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ARTIFACT_ID: ${{ needs.derive.outputs.artifact_id }}
+          ARTIFACT_DIGEST: ${{ needs.derive.outputs.artifact_digest }}
+        run: |
+          set -euo pipefail
+          test -n "$GITHUB_TOKEN"
+          test -n "$ARTIFACT_ID"
+          test "$ARTIFACT_ID" -gt 0
+          test "${#ARTIFACT_DIGEST}" -eq 64
+          case "$ARTIFACT_DIGEST" in
+            *[!0-9a-f]*) echo 'artifact digest is not lowercase hex' >&2; exit 1 ;;
+          esac
+
+          # Download exactly the immutable artifact emitted by the read-only derive job.
+          artifact_url="https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip"
+          curl --fail --location --silent --show-error \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "$artifact_url" -o /tmp/r2-artifact.zip
+          test "$(sha256sum /tmp/r2-artifact.zip | awk '{print $1}')" = "$ARTIFACT_DIGEST"
+
+          mapfile -t zip_entries < <(unzip -Z1 /tmp/r2-artifact.zip | sort)
+          test "${#zip_entries[@]}" -eq 2
+          test "${zip_entries[0]}" = 'Cargo.lock'
+          test "${zip_entries[1]}" = 'manifest.txt'
+          rm -rf /tmp/r2-payload
+          mkdir -p /tmp/r2-payload
+          unzip -q /tmp/r2-artifact.zip -d /tmp/r2-payload
+          test "$(sha256sum /tmp/r2-payload/Cargo.lock | awk '{print $1}')" = "$EXPECTED_R2_LOCK_SHA256"
+          r2_lock_git_blob="$(git hash-object /tmp/r2-payload/Cargo.lock)"
+          test -n "$r2_lock_git_blob"
+          test "${#r2_lock_git_blob}" -eq 40
+
+          cat > /tmp/expected-r2-manifest.txt <<EOF
+          schema=myc-const-001-r2-derived-lock-v1
+          r1_sha=$R1_SHA
+          r1_lock_blob=$R1_LOCK_BLOB
+          r2_lock_sha256=$EXPECTED_R2_LOCK_SHA256
+          r2_lock_git_blob=$r2_lock_git_blob
+          additions=14
+          deletions=0
+          changed_path=$LOCKFILE
+          rust_toolchain=$RUST_TOOLCHAIN
+          EOF
+          cmp /tmp/expected-r2-manifest.txt /tmp/r2-payload/manifest.txt
+
+          # No product checkout occurs in this write-capable job. Fetch exact R1 objects,
+          # construct the replacement tree through a private index, and create a direct-child commit.
+          rm -rf product
+          git init -q product
+          git -C product remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          remote_before="$(git -C product ls-remote origin "refs/heads/$R2_BRANCH" | awk '{print $1}')"
+          test "$remote_before" = "$R1_SHA"
+          git -C product fetch --no-tags --depth=1 origin "$R2_BRANCH"
+          test "$(git -C product rev-parse FETCH_HEAD)" = "$R1_SHA"
+          test "$(git -C product rev-parse "$R1_SHA:$LOCKFILE")" = "$R1_LOCK_BLOB"
+
+          export GIT_INDEX_FILE="$PWD/product/.git/r2-index"
+          rm -f "$GIT_INDEX_FILE"
+          git -C product read-tree "$R1_SHA"
+          written_lock_blob="$(git -C product hash-object -w /tmp/r2-payload/Cargo.lock)"
+          test "$written_lock_blob" = "$r2_lock_git_blob"
+          git -C product update-index --add --cacheinfo "100644,$written_lock_blob,$LOCKFILE"
+          r2_tree="$(git -C product write-tree)"
+          test -n "$r2_tree"
+          mapfile -t changed < <(git -C product diff --name-only "$R1_SHA^{tree}" "$r2_tree")
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$LOCKFILE"
+          test "$(git -C product diff --numstat "$R1_SHA^{tree}" "$r2_tree" -- "$LOCKFILE")" = $'14\t0\tmycelix-governance/Cargo.lock'
+          test "$(git -C product rev-parse "$r2_tree:$LOCKFILE")" = "$r2_lock_git_blob"
+
+          git -C product config user.name 'github-actions[bot]'
+          git -C product config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          r2_sha="$(printf '%s\n' 'chore(governance): commit exact Cargo 1.96 R2 lock repair' | git -C product commit-tree "$r2_tree" -p "$R1_SHA")"
+          test -n "$r2_sha"
+          test "$(git -C product rev-parse "$r2_sha^")" = "$R1_SHA"
+          test "$(git -C product rev-parse "$r2_sha^{tree}")" = "$r2_tree"
+          mapfile -t committed < <(git -C product diff-tree --no-commit-id --name-only -r "$r2_sha")
+          test "${#committed[@]}" -eq 1
+          test "${committed[0]}" = "$LOCKFILE"
+
+          # Exact compare-and-swap publication: the remote R2 ref must still equal R1.
+          # A deletion, reset, concurrent successor, or unrelated movement makes this push fail.
+          publish_url="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git -C product push --quiet \
+            --force-with-lease="refs/heads/$R2_BRANCH:$R1_SHA" \
+            "$publish_url" \
+            "$r2_sha:refs/heads/$R2_BRANCH"
+          unset publish_url
+          remote_after="$(git -C product ls-remote origin "refs/heads/$R2_BRANCH" | awk '{print $1}')"
+          test "$remote_after" = "$r2_sha"
+
+          printf 'status=PASS\n'
+          printf 'derive_job_repository_authority=READ_ONLY\n'
+          printf 'publish_job_product_checkout=NONE\n'
+          printf 'publish_job_cargo_execution=NONE\n'
+          printf 'publish_precondition=FORCE_WITH_LEASE_EXACT_R1\n'
+          printf 'artifact_id=%s\n' "$ARTIFACT_ID"
+          printf 'artifact_digest_sha256=%s\n' "$ARTIFACT_DIGEST"
+          printf 'generated_lock_sha256=%s\n' "$EXPECTED_R2_LOCK_SHA256"
+          printf 'generated_lock_git_blob=%s\n' "$r2_lock_git_blob"
+          printf 'r2_tree=%s\n' "$r2_tree"
+          printf 'r2_product_sha=%s\n' "$r2_sha"
+          printf 'mutation_scope=%s only\n' "$LOCKFILE"
+          printf 'claim=exact Cargo-generated R2 lock metadata materialized as direct child of frozen R1 through an exact ref compare-and-swap\n'
+          printf 'nonclaim=semantic foundation PASS, strict-Clippy PASS, R3 repair, MYC-CONST-001B semantics, verifier authority, hermetic derivation\n'
