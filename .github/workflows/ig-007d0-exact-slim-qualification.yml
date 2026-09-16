@@ -1,0 +1,212 @@
+name: IG-007D0 Exact Slim Qualification
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/ig-007d0-exact-slim-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ig-007d0-exact-slim-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXPECTED_PRODUCT_SHA: 'fe3e9097ed19ff1ee29fd49b908e2b5086f06dd1'
+  EXPECTED_PRODUCT_PARENT: '20452d0cde9448c424d708d6307aa33a3d1901e3'
+  EXPECTED_PRODUCT_TREE: '9590510656b5e2f0522c1a0fec237754a37db4c6'
+  WORKFLOW: '.github/workflows/ig-007d0-exact-slim-qualification.yml'
+  PRODUCT_WORKFLOW: '.github/workflows/ig-007d0-holochain-source-intent-profile.yml'
+  PROFILE: 'mycelix-governance/profiles/deployment/governance-source-intent-20452d0c-v1.json'
+  VALIDATOR: 'mycelix-governance/scripts/validate_ig007d0_holochain_source_intent.py'
+  DOC: 'mycelix-governance/docs/IG_007D0_HOLOCHAIN_SOURCE_INTENT_PROFILE.md'
+  DNA_MANIFEST: 'mycelix-governance/dna/dna.yaml'
+  CARGO_MANIFEST: 'mycelix-governance/Cargo.toml'
+  CARGO_LOCK: 'mycelix-governance/Cargo.lock'
+  EXPECTED_PRODUCT_WORKFLOW_BLOB: 'b6dfecd4513ca8962c1841d006d4b0e7ab1fc35e'
+  EXPECTED_PROFILE_BLOB: '44eb84a48d5bbed3cc8000f8c5addbf359335721'
+  EXPECTED_VALIDATOR_BLOB: '0477ae64404fa8d2cff4742826a30106959c218a'
+  EXPECTED_DOC_BLOB: '55473af71de11653a353a01a7f4aa0f59c3e6d02'
+  EXPECTED_DNA_MANIFEST_BLOB: '972a9f32d43ce645aa71900eda11d1756d2e7055'
+  EXPECTED_CARGO_MANIFEST_BLOB: '219cbd48e02692c75a49f0b04a4130bf897aaa5c'
+  EXPECTED_CARGO_LOCK_BLOB: 'f872b74f13264e7345be02b64270179eed56c703'
+  EXPECTED_PROFILE_SHA256: '557282ebfdf98c14194b34db3412a6eadd97fabab06073cc5772b87101561003'
+
+jobs:
+  qualify:
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Prove qualification-only child
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PRODUCT_SHA"
+          mapfile -d '' changed < <(git diff --name-only -z "$EXPECTED_PRODUCT_SHA" HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$WORKFLOW"
+          test "$(git ls-tree HEAD -- "$WORKFLOW" | awk '{print $1}')" = '100644'
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Checkout frozen D0 product subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.EXPECTED_PRODUCT_SHA }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Prove exact D0 ancestry, scope, tree, and blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_PRODUCT_SHA"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PRODUCT_PARENT"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$EXPECTED_PRODUCT_TREE"
+          python3 - <<'PY'
+          import os, subprocess
+          expected = sorted([
+              os.environ['PRODUCT_WORKFLOW'],
+              os.environ['PROFILE'],
+              os.environ['VALIDATOR'],
+              os.environ['DOC'],
+          ])
+          actual = subprocess.run(
+              ['git', 'diff', '--name-only', os.environ['EXPECTED_PRODUCT_PARENT'], os.environ['EXPECTED_PRODUCT_SHA']],
+              check=True, capture_output=True, text=True,
+          ).stdout.splitlines()
+          if sorted(actual) != expected:
+              raise SystemExit(f'D0 product scope mismatch: expected={expected!r} actual={sorted(actual)!r}')
+          PY
+          test "$(git rev-parse "HEAD:$PRODUCT_WORKFLOW")" = "$EXPECTED_PRODUCT_WORKFLOW_BLOB"
+          test "$(git rev-parse "HEAD:$PROFILE")" = "$EXPECTED_PROFILE_BLOB"
+          test "$(git rev-parse "HEAD:$VALIDATOR")" = "$EXPECTED_VALIDATOR_BLOB"
+          test "$(git rev-parse "HEAD:$DOC")" = "$EXPECTED_DOC_BLOB"
+          test "$(git rev-parse "HEAD:$DNA_MANIFEST")" = "$EXPECTED_DNA_MANIFEST_BLOB"
+          test "$(git rev-parse "HEAD:$CARGO_MANIFEST")" = "$EXPECTED_CARGO_MANIFEST_BLOB"
+          test "$(git rev-parse "HEAD:$CARGO_LOCK")" = "$EXPECTED_CARGO_LOCK_BLOB"
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Capture frozen evidence capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'runner_profile=ubuntu-slim\nrunner_os=%s\nrunner_arch=%s\n' "$RUNNER_OS" "$RUNNER_ARCH"
+          python3 --version
+          git --version
+          sha256sum "$PROFILE" "$VALIDATOR" "$DOC" "$PRODUCT_WORKFLOW" "$DNA_MANIFEST" "$CARGO_MANIFEST" "$CARGO_LOCK"
+          git rev-parse "HEAD:$PROFILE" "HEAD:$VALIDATOR" "HEAD:$DOC" "HEAD:$PRODUCT_WORKFLOW" "HEAD:$DNA_MANIFEST" "HEAD:$CARGO_MANIFEST" "HEAD:$CARGO_LOCK"
+
+      - name: Independently re-derive D0 source intent
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, re
+          from pathlib import Path
+
+          dna = Path(os.environ['DNA_MANIFEST']).read_text(encoding='utf-8')
+          cargo = Path(os.environ['CARGO_MANIFEST']).read_text(encoding='utf-8')
+
+          assert 'manifest_version: "0"' in dna
+          assert 'name: mycelix_governance_dna' in dna
+          assert 'network_seed: "mycelix-governance-v1"' in dna
+
+          integrity, coordinator = dna.split('coordinator:', 1)
+          integrity_names = re.findall(r'^\s+- name: ([A-Za-z0-9_]+)\s*$', integrity, re.M)
+          coordinator_names = re.findall(r'^\s+- name: ([A-Za-z0-9_]+)\s*$', coordinator, re.M)
+          expected_integrity = [
+              'proposals_integrity','voting_integrity','execution_integrity',
+              'constitution_integrity','governance_bridge_integrity',
+              'threshold_signing_integrity','councils_integrity',
+              'jurisdiction_integrity','budgeting_integrity',
+          ]
+          expected_coordinator = [
+              'proposals','voting','execution','constitution','governance_bridge',
+              'threshold_signing','councils','jurisdiction','budgeting',
+          ]
+          assert integrity_names == expected_integrity, integrity_names
+          seen = []
+          for name in coordinator_names:
+              if name in expected_coordinator and name not in seen:
+                  seen.append(name)
+          assert seen == expected_coordinator, seen
+
+          expected_dependencies = [
+              'hdk = "=0.6.1"',
+              'hdi = "=0.7.1"',
+              'holochain_integrity_types = "=0.6.1"',
+              'holochain_zome_types = "=0.6.1"',
+              'holo_hash = "=0.6.1"',
+              'hdk_derive = "=0.6.1"',
+              'holochain_serialized_bytes = "=0.0.57"',
+          ]
+          for needle in expected_dependencies:
+              assert needle in cargo, needle
+
+          governance_root = Path('mycelix-governance')
+          toolchain_files = [
+              p for p in governance_root.rglob('*')
+              if p.is_file() and p.name in {'rust-toolchain', 'rust-toolchain.toml'}
+          ]
+          assert toolchain_files == [], toolchain_files
+          print('independent_d0_source_oracle=PASS')
+          PY
+
+      - name: Validate committed D0 profile twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import ast, os
+          from pathlib import Path
+          ast.parse(Path(os.environ['VALIDATOR']).read_text(encoding='utf-8'))
+          PY
+          python3 "$VALIDATOR" --profile "$PROFILE" > /tmp/d0-a.json
+          python3 "$VALIDATOR" --profile "$PROFILE" > /tmp/d0-b.json
+          cmp /tmp/d0-a.json /tmp/d0-b.json
+          python3 - <<'PY'
+          import json, os
+          r = json.load(open('/tmp/d0-a.json', encoding='utf-8'))
+          assert r['valid'] is True
+          assert r['profile_content_sha256'] == os.environ['EXPECTED_PROFILE_SHA256']
+          assert r['authority_class'] == 'SourceIntentBound'
+          assert r['claim_ceiling'] == 'SourceIntentOnly'
+          assert r['subject_sha'] == os.environ['EXPECTED_PRODUCT_PARENT']
+          assert r['subject_tree_sha'] == '4d24feadca2f076fac8e781f16350ce313f88995'
+          assert r['integrity_zome_count'] == 9
+          assert r['coordinator_zome_count'] == 9
+          assert r['positive_observation_count'] == 8
+          assert r['unqualified_property_count'] == 11
+          assert r['deployment_currentness_qualified'] is False
+          print('d0_profile_validator=PASS')
+          PY
+
+      - name: Refuse qualification-time mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          test -z "$(git status --porcelain=v1 --untracked-files=no)"
+
+      - name: Emit postflight evidence facts
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'status=PASS\n'
+          printf 'product_sha=%s\n' "$EXPECTED_PRODUCT_SHA"
+          printf 'source_subject=%s\n' "$EXPECTED_PRODUCT_PARENT"
+          printf 'profile_sha256=%s\n' "$EXPECTED_PROFILE_SHA256"
+          printf 'profile_blob=%s\n' "$(git rev-parse "HEAD:$PROFILE")"
+          printf 'validator_blob=%s\n' "$(git rev-parse "HEAD:$VALIDATOR")"
+          printf 'runner_profile=ubuntu-slim\n'
+          printf 'claim=exact IG-007D0 Holochain governance source intent re-derived and committed SourceIntentBound profile validated\n'
+          printf 'nonclaim=built WASM or DNA identity, DnaHash, installed app/cells, live conductor, runtime freshness, deployment authorization/currentness, safety\n'
