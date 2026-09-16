@@ -1,0 +1,273 @@
+name: Finance FIN-SAFE-028 Governance Gate Census R3
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/finance-fin-safe-028-governance-gate-census-r3.yml'
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_SHA: 'f7b43e3f9718e2dc2445376916bd4d5010fbc4ea'
+
+jobs:
+  census:
+    name: Census unique governance gate content identities
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'ci-fin-safe-028-governance-gate-census-r3-content-identity'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact census workflow head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Bind workflow-only measurement delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          test "$(git rev-parse HEAD^)" = "$SOURCE_SHA"
+          test "$(git diff --name-only "$SOURCE_SHA" HEAD | wc -l)" -eq 1
+          test "$(git diff --name-only "$SOURCE_SHA" HEAD)" = '.github/workflows/finance-fin-safe-028-governance-gate-census-r3.yml'
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Checkout exact frozen source subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout --detach "$SOURCE_SHA"
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Produce content-identity governance-gate census
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import pathlib
+          import re
+          import subprocess
+          from collections import Counter, defaultdict
+
+          SOURCE_SHA = "f7b43e3f9718e2dc2445376916bd4d5010fbc4ea"
+          TOKENS = (
+              "require_consciousness",
+              "gate_consciousness",
+              "GovernanceRequirement",
+              "require_civic",
+              "gate_civic",
+              "CivicRequirement",
+          )
+          GATE_TOKENS = {
+              "require_consciousness",
+              "gate_consciousness",
+              "require_civic",
+              "gate_civic",
+          }
+
+          index = {}
+          raw_index = subprocess.check_output(["git", "ls-files", "-s", "-z"])
+          for item in raw_index.split(b"\0"):
+              if not item:
+                  continue
+              meta, raw_path = item.split(b"\t", 1)
+              mode, blob_sha, stage = meta.decode("ascii").split()
+              path = raw_path.decode("utf-8", errors="surrogateescape")
+              if stage == "0":
+                  index[path] = {"mode": mode, "blob_sha": blob_sha}
+
+          def classify(path: pathlib.Path, line: str, token: str) -> str:
+              parts = tuple(part.lower() for part in path.parts)
+              lower = path.as_posix().lower()
+              stripped = line.strip()
+              if path.parts and path.parts[0] == ".github":
+                  return "workflow"
+              if "docs" in parts or lower.endswith((".md", ".txt", ".rst")):
+                  return "documentation"
+              if "tests" in parts or lower.endswith("_test.rs"):
+                  return "test_file"
+              if path.suffix == ".rs":
+                  def_pat = re.compile(
+                      r"(?:^|\s)(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?"
+                      r"(?:fn|struct|enum|type|trait|const)\s+" + re.escape(token) + r"\b"
+                  )
+                  if def_pat.search(stripped):
+                      return "definition"
+                  if re.match(r"^(?:pub\s+)?use\b", stripped) or stripped.startswith("use "):
+                      return "import"
+                  if stripped.startswith(("//", "///", "//!", "/*", "*")):
+                      return "source_comment"
+                  return "executable_or_source_reference"
+              return "other_source"
+
+          def call_like(line: str, token: str, classification: str) -> bool:
+              if classification != "executable_or_source_reference" or token not in GATE_TOKENS:
+                  return False
+              return re.search(r"\b" + re.escape(token) + r"\s*\(", line) is not None
+
+          records = []
+          for path_text, git_meta in sorted(index.items()):
+              path = pathlib.Path(path_text)
+              try:
+                  text = path.read_text(encoding="utf-8")
+              except (UnicodeDecodeError, OSError):
+                  continue
+              for lineno, line in enumerate(text.splitlines(), start=1):
+                  for token in TOKENS:
+                      if token not in line:
+                          continue
+                      classification = classify(path, line, token)
+                      records.append({
+                          "token": token,
+                          "path": path.as_posix(),
+                          "blob_sha": git_meta["blob_sha"],
+                          "line": lineno,
+                          "text": line.rstrip(),
+                          "classification": classification,
+                          "call_like": call_like(line, token, classification),
+                      })
+
+          records.sort(key=lambda r: (r["path"], r["line"], r["token"], r["classification"]))
+          raw_gate_refs = [
+              r for r in records
+              if r["classification"] == "executable_or_source_reference"
+              and r["token"] in GATE_TOKENS
+          ]
+          raw_call_sites = [r for r in raw_gate_refs if r["call_like"]]
+
+          def identity_key(record):
+              return (
+                  record["blob_sha"],
+                  record["line"],
+                  record["token"],
+                  record["text"].strip(),
+              )
+
+          def dedupe(items):
+              grouped = defaultdict(list)
+              representative = {}
+              for record in items:
+                  key = identity_key(record)
+                  grouped[key].append(record["path"])
+                  representative.setdefault(key, record)
+              output = []
+              for key in sorted(grouped):
+                  record = representative[key]
+                  aliases = sorted(set(grouped[key]))
+                  output.append({
+                      "blob_sha": record["blob_sha"],
+                      "line": record["line"],
+                      "token": record["token"],
+                      "text": record["text"].strip(),
+                      "classification": record["classification"],
+                      "call_like": record["call_like"],
+                      "paths": aliases,
+                      "path_alias_count": len(aliases),
+                  })
+              return output
+
+          unique_gate_refs = dedupe(raw_gate_refs)
+          unique_call_sites = dedupe(raw_call_sites)
+
+          by_token_raw = Counter(r["token"] for r in records)
+          by_class_raw = Counter(r["classification"] for r in records)
+          by_token_unique_gate = Counter(r["token"] for r in unique_gate_refs)
+          by_token_unique_call = Counter(r["token"] for r in unique_call_sites)
+          alias_gate_groups = [r for r in unique_gate_refs if r["path_alias_count"] > 1]
+          alias_call_groups = [r for r in unique_call_sites if r["path_alias_count"] > 1]
+
+          payload = {
+              "schema": "mycelix.finance.fin-safe-028.governance-gate-census.v0.2",
+              "source_sha": SOURCE_SHA,
+              "identity_rule": "blob_sha+line+token+trimmed_text",
+              "tokens": list(TOKENS),
+              "raw_total_matches": len(records),
+              "raw_executable_gate_references": len(raw_gate_refs),
+              "unique_executable_gate_references": len(unique_gate_refs),
+              "raw_call_like_sites": len(raw_call_sites),
+              "unique_call_like_sites": len(unique_call_sites),
+              "mirrored_gate_identity_groups": len(alias_gate_groups),
+              "mirrored_call_identity_groups": len(alias_call_groups),
+              "raw_counts_by_token": dict(sorted(by_token_raw.items())),
+              "raw_counts_by_classification": dict(sorted(by_class_raw.items())),
+              "unique_gate_counts_by_token": dict(sorted(by_token_unique_gate.items())),
+              "unique_call_counts_by_token": dict(sorted(by_token_unique_call.items())),
+              "unique_gate_references": unique_gate_refs,
+              "unique_call_like_sites_detail": unique_call_sites,
+          }
+          raw = (json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n").encode()
+          json_path = pathlib.Path("/tmp/fin-safe-028-governance-gate-census-r3.json")
+          json_path.write_bytes(raw)
+          digest = hashlib.sha256(raw).hexdigest()
+          pathlib.Path("/tmp/fin-safe-028-governance-gate-census-r3.sha256").write_text(
+              f"{digest}  fin-safe-028-governance-gate-census-r3.json\n"
+          )
+
+          lines = [
+              "# FIN-SAFE-028 governance gate census R3",
+              "",
+              f"source_sha: `{SOURCE_SHA}`",
+              f"raw_total_matches: {len(records)}",
+              f"raw_executable_gate_references: {len(raw_gate_refs)}",
+              f"unique_executable_gate_references: {len(unique_gate_refs)}",
+              f"raw_call_like_sites: {len(raw_call_sites)}",
+              f"unique_call_like_sites: {len(unique_call_sites)}",
+              f"mirrored_gate_identity_groups: {len(alias_gate_groups)}",
+              f"mirrored_call_identity_groups: {len(alias_call_groups)}",
+              f"sha256: `{digest}`",
+              "",
+              "## Unique call-like sites",
+          ]
+          for row in unique_call_sites:
+              aliases = ", ".join(row["paths"])
+              lines.append(
+                  f"- `{row['token']}` blob `{row['blob_sha']}` line {row['line']} "
+                  f"aliases={row['path_alias_count']} paths=[{aliases}] — `{row['text']}`"
+              )
+          pathlib.Path("/tmp/fin-safe-028-governance-gate-census-r3.md").write_text(
+              "\n".join(lines) + "\n"
+          )
+
+          print(json.dumps({
+              "source_sha": SOURCE_SHA,
+              "raw_total_matches": len(records),
+              "raw_executable_gate_references": len(raw_gate_refs),
+              "unique_executable_gate_references": len(unique_gate_refs),
+              "raw_call_like_sites": len(raw_call_sites),
+              "unique_call_like_sites": len(unique_call_sites),
+              "mirrored_gate_identity_groups": len(alias_gate_groups),
+              "mirrored_call_identity_groups": len(alias_call_groups),
+              "sha256": digest,
+              "unique_gate_counts_by_token": dict(sorted(by_token_unique_gate.items())),
+              "unique_call_counts_by_token": dict(sorted(by_token_unique_call.items())),
+          }, indent=2, sort_keys=True))
+          PY
+
+      - name: Prove source checkout immutability and evidence digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          git status --porcelain=v1 --untracked-files=all > /tmp/fin-safe-028-governance-gate-census-r3-status.txt
+          test ! -s /tmp/fin-safe-028-governance-gate-census-r3-status.txt
+          cd /tmp
+          sha256sum -c fin-safe-028-governance-gate-census-r3.sha256
+
+      - name: Upload census R3 evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fin-safe-028-governance-gate-census-r3-${{ env.SOURCE_SHA }}-${{ github.run_attempt }}
+          path: |
+            /tmp/fin-safe-028-governance-gate-census-r3.json
+            /tmp/fin-safe-028-governance-gate-census-r3.md
+            /tmp/fin-safe-028-governance-gate-census-r3.sha256
+            /tmp/fin-safe-028-governance-gate-census-r3-status.txt
+          if-no-files-found: warn
+          retention-days: 90
