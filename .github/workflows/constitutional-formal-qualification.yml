@@ -41,7 +41,7 @@ jobs:
           extra_nix_config: |
             experimental-features = nix-command flakes
 
-      - name: Acquire pinned tools and qualify exact models
+      - name: Check Rust/formal crosswalk, acquire pinned tools, and qualify exact models
         shell: bash
         run: |
           set -euo pipefail
@@ -55,6 +55,9 @@ jobs:
             "github:NixOS/nixpkgs/${NIXPKGS_REV}#coreutils" \
             "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" \
             --command bash -euo pipefail -c '
+              python3 mycelix-governance/tools/formal/check_crosswalk.py \
+                --out "$PWD/formal-evidence/crosswalk-receipt.json"
+
               curl --fail --location --retry 3 --retry-all-errors \
                 --output .formal-tools/tla2tools.jar "$TLA_URL"
               curl --fail --location --retry 3 --retry-all-errors \
