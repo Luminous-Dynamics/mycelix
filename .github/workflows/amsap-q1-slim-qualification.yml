@@ -1,0 +1,267 @@
+name: AMSAP-Q1 Frozen Stack Qualification
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/amsap-q1-slim-qualification.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: amsap-q1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-frozen-stack:
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
+    steps:
+      - name: Check out exact qualification subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 7
+
+      - name: Prove exact ancestry and qualification-only surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "c46bcbc952dad64f53026d31d1adc852a160150e"
+          test "$(git rev-parse HEAD^^)" = "d1e243b0204dd5fb3bde3e76edc8e05cdbfc1b53"
+          test "$(git rev-parse HEAD^^^)" = "6f8ad7f372d7ccfa2d3f094aa843f434a8acf836"
+          test "$(git rev-parse HEAD^^^^)" = "31f81490a2a1dc221a9aad5ede80d13103d670f4"
+          test "$(git rev-parse HEAD^^^^^)" = "aef5e93e34ed39bc0d93b166c374faa7bda38270"
+          test "$(git rev-parse HEAD^^^^^^)" = "303f624152120b78ed41b2f8ebe6165b324a5ef2"
+          mapfile -t changed < <(git diff --name-only HEAD^ HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = ".github/workflows/amsap-q1-slim-qualification.yml"
+
+      - name: Prove every tranche review surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          check_surface() {
+            local base="$1"
+            local head="$2"
+            shift 2
+            git diff --name-only "$base" "$head" | sort > /tmp/actual-surface
+            printf '%s\n' "$@" | sort > /tmp/expected-surface
+            diff -u /tmp/expected-surface /tmp/actual-surface
+          }
+
+          check_surface \
+            303f624152120b78ed41b2f8ebe6165b324a5ef2 \
+            aef5e93e34ed39bc0d93b166c374faa7bda38270 \
+            .github/workflows/amsap-001-artificial-moral-status.yml \
+            mycelix-civic/docs/AMSAP_001_ARTIFICIAL_MORAL_STATUS_CONSTITUTION.md \
+            mycelix-civic/docs/amsap/amsap-v0.1.json \
+            mycelix-civic/scripts/validate_amsap_v0_1.py
+
+          check_surface \
+            aef5e93e34ed39bc0d93b166c374faa7bda38270 \
+            31f81490a2a1dc221a9aad5ede80d13103d670f4 \
+            .github/workflows/amsap-002-artificial-status.yml \
+            crates/mycelix-artificial-status/Cargo.lock \
+            crates/mycelix-artificial-status/Cargo.toml \
+            crates/mycelix-artificial-status/README.md \
+            crates/mycelix-artificial-status/src/lib.rs
+
+          check_surface \
+            31f81490a2a1dc221a9aad5ede80d13103d670f4 \
+            6f8ad7f372d7ccfa2d3f094aa843f434a8acf836 \
+            .github/workflows/amsap-003-welfare-decision.yml \
+            crates/mycelix-welfare-decision/Cargo.lock \
+            crates/mycelix-welfare-decision/Cargo.toml \
+            crates/mycelix-welfare-decision/README.md \
+            crates/mycelix-welfare-decision/src/lib.rs
+
+          check_surface \
+            6f8ad7f372d7ccfa2d3f094aa843f434a8acf836 \
+            d1e243b0204dd5fb3bde3e76edc8e05cdbfc1b53 \
+            .github/workflows/amsap-004-ai-lineage.yml \
+            crates/mycelix-ai-lineage/Cargo.lock \
+            crates/mycelix-ai-lineage/Cargo.toml \
+            crates/mycelix-ai-lineage/README.md \
+            crates/mycelix-ai-lineage/src/lib.rs
+
+          check_surface \
+            d1e243b0204dd5fb3bde3e76edc8e05cdbfc1b53 \
+            c46bcbc952dad64f53026d31d1adc852a160150e \
+            .github/workflows/amsap-005-welfare-evidence.yml \
+            crates/mycelix-welfare-evidence/Cargo.lock \
+            crates/mycelix-welfare-evidence/Cargo.toml \
+            crates/mycelix-welfare-evidence/README.md \
+            crates/mycelix-welfare-evidence/src/lib.rs
+
+      - name: Audit authority-neutrality and exact-parent gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          roots = {
+              '002': Path('crates/mycelix-artificial-status'),
+              '003': Path('crates/mycelix-welfare-decision'),
+              '004': Path('crates/mycelix-ai-lineage'),
+              '005': Path('crates/mycelix-welfare-evidence'),
+          }
+
+          def deps(root):
+              text = (root / 'Cargo.toml').read_text()
+              section = text.split('[dependencies]\n', 1)[1].split('\n[', 1)[0]
+              return [line.strip() for line in section.splitlines() if line.strip()]
+
+          expected_deps = {
+              '002': [],
+              '003': ['mycelix-artificial-status = { path = "../mycelix-artificial-status" }'],
+              '004': [],
+              '005': [
+                  'mycelix-artificial-status = { path = "../mycelix-artificial-status" }',
+                  'mycelix-ai-lineage = { path = "../mycelix-ai-lineage" }',
+              ],
+          }
+          for tranche, root in roots.items():
+              if deps(root) != expected_deps[tranche]:
+                  raise SystemExit(f'AMSAP-{tranche} dependency surface drift')
+              src = (root / 'src/lib.rs').read_text()
+              cargo = (root / 'Cargo.toml').read_text()
+              if '#![no_std]' not in src:
+                  raise SystemExit(f'AMSAP-{tranche} lost no_std')
+              for token in ('hdk','hdi','holochain','serde','reqwest','tokio','SystemTime','Instant','execute_effect','dispatch_effect'):
+                  if token in src or token in cargo:
+                      raise SystemExit(f'AMSAP-{tranche} forbidden token: {token}')
+              for guard in ('grants_legal_standing','grants_governance_authority','grants_currentness','grants_external_effect_authority'):
+                  if guard not in src:
+                      raise SystemExit(f'AMSAP-{tranche} missing guard: {guard}')
+
+          src002 = (roots['002'] / 'src/lib.rs').read_text()
+          if 'legal_standing:' in src002 or 'governance_authority:' in src002:
+              raise SystemExit('AMSAP-002 may not contain L/G state fields')
+
+          src003 = (roots['003'] / 'src/lib.rs').read_text()
+          for token in ('EmergencyContain','AdministrativeDowngrade','RapidUpgradeRequiresExceptionalEvidence'):
+              if token not in src003:
+                  raise SystemExit(f'AMSAP-003 missing policy guard: {token}')
+
+          src004 = (roots['004'] / 'src/lib.rs').read_text()
+          event_surface = src004[src004.index('pub struct ForkChild'):src004.index('pub enum LineageEventType')]
+          if 'CivicId' in event_surface:
+              raise SystemExit('AMSAP-004 lineage events must not carry CivicId')
+
+          src005 = (roots['005'] / 'src/lib.rs').read_text()
+          for direction in ('Supports','Challenges','Null','Mixed'):
+              if direction not in src005:
+                  raise SystemExit(f'AMSAP-005 missing evidence direction: {direction}')
+          for guard in ('establishes_scientific_truth','grants_welfare_protection'):
+              if guard not in src005:
+                  raise SystemExit(f'AMSAP-005 missing epistemic guard: {guard}')
+
+          workflow_parents = {
+              '.github/workflows/amsap-001-artificial-moral-status.yml': '303f624152120b78ed41b2f8ebe6165b324a5ef2',
+              '.github/workflows/amsap-002-artificial-status.yml': 'aef5e93e34ed39bc0d93b166c374faa7bda38270',
+              '.github/workflows/amsap-003-welfare-decision.yml': '31f81490a2a1dc221a9aad5ede80d13103d670f4',
+              '.github/workflows/amsap-004-ai-lineage.yml': '6f8ad7f372d7ccfa2d3f094aa843f434a8acf836',
+              '.github/workflows/amsap-005-welfare-evidence.yml': 'd1e243b0204dd5fb3bde3e76edc8e05cdbfc1b53',
+          }
+          for path, parent in workflow_parents.items():
+              if parent not in Path(path).read_text():
+                  raise SystemExit(f'stale exact-parent binding: {path}')
+          PY
+
+      - name: Qualify AMSAP-001 constitutional vocabulary
+        shell: bash
+        run: |
+          set -euo pipefail
+          first="$(python3 mycelix-civic/scripts/validate_amsap_v0_1.py)"
+          second="$(python3 mycelix-civic/scripts/validate_amsap_v0_1.py)"
+          test "$first" = "$second"
+          printf '%s\n' "$first"
+
+      - name: Bootstrap hash-pinned Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUSTUP_VERSION="1.29.0"
+          RUSTUP_SHA256="4acc9acc76d5079515b46346a485974457b5a79893cfb01112423c89aeb5aa10"
+          HOST="x86_64-unknown-linux-gnu"
+          URL="https://static.rust-lang.org/rustup/archive/${RUSTUP_VERSION}/${HOST}/rustup-init"
+          curl --fail --location --retry 3 --silent --show-error "$URL" -o /tmp/rustup-init
+          echo "${RUSTUP_SHA256}  /tmp/rustup-init" | sha256sum --check
+          chmod 0755 /tmp/rustup-init
+          /tmp/rustup-init -y --no-modify-path --profile minimal --default-host "$HOST" --default-toolchain 1.98.1
+          "$HOME/.cargo/bin/rustup" component add --toolchain 1.98.1 rustfmt clippy
+          "$HOME/.cargo/bin/rustup" target add --toolchain 1.98.1 wasm32-unknown-unknown
+          "$HOME/.cargo/bin/rustc" +1.98.1 --version
+
+      - name: Snapshot lockfiles
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum \
+            crates/mycelix-artificial-status/Cargo.lock \
+            crates/mycelix-welfare-decision/Cargo.lock \
+            crates/mycelix-ai-lineage/Cargo.lock \
+            crates/mycelix-welfare-evidence/Cargo.lock \
+            > /tmp/amsap-locks.before
+
+      - name: Run complete qualification matrix
+        id: matrix
+        shell: bash
+        run: |
+          set -u
+          C="$HOME/.cargo/bin/cargo"
+          status=0
+          : > /tmp/q1-summary
+          manifests=(
+            crates/mycelix-artificial-status/Cargo.toml
+            crates/mycelix-welfare-decision/Cargo.toml
+            crates/mycelix-ai-lineage/Cargo.toml
+            crates/mycelix-welfare-evidence/Cargo.toml
+          )
+
+          record() {
+            local label="$1"
+            shift
+            echo "=== $label ==="
+            if "$@"; then
+              echo "$label=PASS" | tee -a /tmp/q1-summary
+            else
+              local rc=$?
+              echo "$label=FAIL($rc)" | tee -a /tmp/q1-summary
+              status=1
+            fi
+          }
+
+          for manifest in "${manifests[@]}"; do
+            name="$(basename "$(dirname "$manifest")")"
+            record "$name/rustfmt" "$C" +1.98.1 fmt --manifest-path "$manifest" -- --check
+            record "$name/test" "$C" +1.98.1 test --locked --offline --manifest-path "$manifest" --all-targets
+            record "$name/clippy" "$C" +1.98.1 clippy --locked --offline --manifest-path "$manifest" --all-targets -- -D warnings
+            record "$name/wasm" "$C" +1.98.1 check --locked --offline --manifest-path "$manifest" --target wasm32-unknown-unknown
+          done
+
+          cat /tmp/q1-summary
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Prove immutable checkout and lockfiles
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum --check /tmp/amsap-locks.before
+          test -z "$(git status --porcelain)"
+
+      - name: Emit bounded receipt and enforce promotion gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat /tmp/q1-summary
+          printf '%s\n' \
+            'scope=source/toolchain coherence only' \
+            'scientific_moral_status_claim=none' \
+            'legal_or_governance_authority=none'
+          test "${{ steps.matrix.outputs.status }}" = "0"
