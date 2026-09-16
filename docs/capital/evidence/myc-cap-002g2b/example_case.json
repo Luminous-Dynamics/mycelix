@@ -1,0 +1,139 @@
+{
+  "amendment_profile": {
+    "classes": {
+      "CONSTITUTIONAL_STRUCTURE": {
+        "allowed_changed_paths": [],
+        "enforcer_required": true,
+        "prohibited": true,
+        "required_chambers": {
+          "GUARDIAN": {"approval_ppm": 950000,"quorum_ppm": 900000},
+          "PUBLIC": {"approval_ppm": 950000,"quorum_ppm": 900000},
+          "USERS": {"approval_ppm": 950000,"quorum_ppm": 900000}
+        }
+      },
+      "POLICY_PARAMETER": {
+        "allowed_changed_paths": [
+          "/actions/OPERATOR_RENEWAL/required_chambers/PUBLIC/approval_ppm",
+          "/actions/OPERATOR_RENEWAL/required_chambers/PUBLIC/quorum_ppm",
+          "/actions/OPERATOR_RENEWAL/required_chambers/USERS/approval_ppm",
+          "/actions/OPERATOR_RENEWAL/required_chambers/USERS/quorum_ppm"
+        ],
+        "enforcer_required": true,
+        "prohibited": false,
+        "required_chambers": {
+          "GUARDIAN": {"approval_ppm": 800000,"quorum_ppm": 750000},
+          "PUBLIC": {"approval_ppm": 800000,"quorum_ppm": 750000},
+          "USERS": {"approval_ppm": 800000,"quorum_ppm": 750000}
+        }
+      },
+      "PROTECTED_INVARIANT": {
+        "allowed_changed_paths": [],
+        "enforcer_required": true,
+        "prohibited": true,
+        "required_chambers": {
+          "GUARDIAN": {"approval_ppm": 1000000,"quorum_ppm": 1000000},
+          "PUBLIC": {"approval_ppm": 1000000,"quorum_ppm": 1000000},
+          "USERS": {"approval_ppm": 1000000,"quorum_ppm": 1000000}
+        }
+      },
+      "REPRESENTATION": {
+        "allowed_changed_paths": [],
+        "enforcer_required": true,
+        "prohibited": true,
+        "required_chambers": {
+          "GUARDIAN": {"approval_ppm": 900000,"quorum_ppm": 800000},
+          "PUBLIC": {"approval_ppm": 900000,"quorum_ppm": 800000},
+          "USERS": {"approval_ppm": 900000,"quorum_ppm": 800000}
+        }
+      }
+    },
+    "enforcer_ref": "enforcer:public-interest-guardian",
+    "max_epoch": 1000000,
+    "max_vote_count": 1000000,
+    "profile_version": "mycelix-constitution-amendment-v1",
+    "project_id": "fiber:jhb:test-001",
+    "protected_actions": ["ASSET_LOCK_REMOVAL","STEWARD_SEAT_SALE"],
+    "protected_chambers": ["USERS","WORKERS","PUBLIC","GUARDIAN"],
+    "registry_id": "registry:stewardship-constitution:fiber:jhb:test-001"
+  },
+  "authorization": {
+    "amendment_class": "POLICY_PARAMETER",
+    "chamber_votes": {
+      "GUARDIAN": {"approval_count": 5,"eligible_count": 5,"participating_count": 5},
+      "PUBLIC": {"approval_count": 15,"eligible_count": 20,"participating_count": 18},
+      "USERS": {"approval_count": 75,"eligible_count": 100,"participating_count": 85}
+    },
+    "currentness_receipt_sha256": "929f5cdd8eef25e56d557a17a4f4a5ab59694579555d60ad75dc90a937973a1e",
+    "decision_id": "amendment-policy-001",
+    "enforcer": {"authority_ref":"enforcer:public-interest-guardian","concurred":true,"evidence_ref":"evidence:enforcer:amendment-policy-001"},
+    "notice_evidence_ref": "evidence:notice:amendment-policy-001",
+    "prior_epoch": 7,
+    "prior_profile_sha256": "945b558049d7570cd47b52d7d822b2dff142a46b3d5fa117ed24dadbcd1059cb",
+    "project_id": "fiber:jhb:test-001",
+    "registry_id": "registry:stewardship-constitution:fiber:jhb:test-001",
+    "successor_profile_sha256": "84cbcaff53366ab611402fc5114e9f4eafa066ef753f8e722ae9caff13b79284"
+  },
+  "prior_currentness_receipt": {
+    "action_code":"OPERATOR_RENEWAL",
+    "active_g1_profile_sha256":"945b558049d7570cd47b52d7d822b2dff142a46b3d5fa117ed24dadbcd1059cb",
+    "currentness_state":"CURRENT",
+    "decision_authorization_state":"AUTHORIZED",
+    "decision_id":"decision-ordinary-001",
+    "democratic_legitimacy_established":false,
+    "designation_epoch":7,
+    "designation_sha256":"23aac6cd4b0a213351f78267e371b1eee9a9a3d35f9c473daf3e6046cf8b9c87",
+    "designation_state":"ACTIVE",
+    "execution_authority_established":false,
+    "g1_decision_receipt_sha256":"5a330393381cdce9bd3d509a3aeab50fe66bb9c688cfc479c1bcb5efc0cbdccc",
+    "legal_validity_established":false,
+    "nonclaims":["CURRENT means only current relative to this exact designated constitution and revocation set","currentness does not establish execution authority","currentness does not establish legal or constitutional-law validity","currentness does not establish democratic legitimacy or social consensus","designation validity does not prove amendment authorization or authority authenticity"],
+    "profile_version":"mycelix-governance-decision-currentness-v1",
+    "project_id":"fiber:jhb:test-001",
+    "receipt_version":"mycelix-governance-decision-currentness-receipt-v1",
+    "registry_id":"registry:stewardship-constitution:fiber:jhb:test-001",
+    "revocation_set_sha256":"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "prior_g1_profile": {
+    "actions": {
+      "ASSET_LOCK_REMOVAL": {"decision_class":"CONSTITUTIONAL","emergency_required":false,"enforcer_required":true,"prohibited":true,"required_chambers":{"GUARDIAN":{"approval_ppm":1000000,"quorum_ppm":1000000},"PUBLIC":{"approval_ppm":900000,"quorum_ppm":750000},"USERS":{"approval_ppm":900000,"quorum_ppm":750000}},"required_recusal_conflicts":["INVESTOR_COMPENSATION","DIRECT_FINANCIAL_INTEREST"]},
+      "CONSTITUENCY_AMENDMENT": {"decision_class":"CONSTITUTIONAL","emergency_required":false,"enforcer_required":true,"prohibited":false,"required_chambers":{"GUARDIAN":{"approval_ppm":800000,"quorum_ppm":750000},"PUBLIC":{"approval_ppm":750000,"quorum_ppm":600000},"USERS":{"approval_ppm":750000,"quorum_ppm":600000}},"required_recusal_conflicts":["DIRECT_FINANCIAL_INTEREST"]},
+      "EMERGENCY_SERVICE_REROUTE": {"decision_class":"EMERGENCY","emergency_required":true,"enforcer_required":false,"prohibited":false,"required_chambers":{"GUARDIAN":{"approval_ppm":600000,"quorum_ppm":500000},"PUBLIC":{"approval_ppm":600000,"quorum_ppm":500000}},"required_recusal_conflicts":[]},
+      "OPERATOR_RENEWAL": {"decision_class":"ORDINARY","emergency_required":false,"enforcer_required":false,"prohibited":false,"required_chambers":{"PUBLIC":{"approval_ppm":600000,"quorum_ppm":500000},"USERS":{"approval_ppm":600000,"quorum_ppm":500000}},"required_recusal_conflicts":["OPERATOR_AFFILIATION","DIRECT_FINANCIAL_INTEREST"]},
+      "STEWARD_SEAT_SALE": {"decision_class":"CONSTITUTIONAL","emergency_required":false,"enforcer_required":true,"prohibited":true,"required_chambers":{"GUARDIAN":{"approval_ppm":1000000,"quorum_ppm":1000000},"PUBLIC":{"approval_ppm":900000,"quorum_ppm":750000},"USERS":{"approval_ppm":900000,"quorum_ppm":750000}},"required_recusal_conflicts":["DIRECT_FINANCIAL_INTEREST"]}
+    },
+    "chambers":["USERS","WORKERS","PUBLIC","GUARDIAN"],
+    "conflict_codes":["OPERATOR_AFFILIATION","INVESTOR_COMPENSATION","RELATED_PARTY_BENEFICIARY","DIRECT_FINANCIAL_INTEREST"],
+    "emergency_authority_ref":"authority:emergency-board",
+    "enforcer_ref":"enforcer:public-interest-guardian",
+    "max_vote_count":1000000,
+    "profile_version":"mycelix-stewardship-decision-gate-v1",
+    "project_id":"fiber:jhb:test-001"
+  },
+  "successor_g1_profile": {
+    "actions": {
+      "ASSET_LOCK_REMOVAL": {"decision_class":"CONSTITUTIONAL","emergency_required":false,"enforcer_required":true,"prohibited":true,"required_chambers":{"GUARDIAN":{"approval_ppm":1000000,"quorum_ppm":1000000},"PUBLIC":{"approval_ppm":900000,"quorum_ppm":750000},"USERS":{"approval_ppm":900000,"quorum_ppm":750000}},"required_recusal_conflicts":["INVESTOR_COMPENSATION","DIRECT_FINANCIAL_INTEREST"]},
+      "CONSTITUENCY_AMENDMENT": {"decision_class":"CONSTITUTIONAL","emergency_required":false,"enforcer_required":true,"prohibited":false,"required_chambers":{"GUARDIAN":{"approval_ppm":800000,"quorum_ppm":750000},"PUBLIC":{"approval_ppm":750000,"quorum_ppm":600000},"USERS":{"approval_ppm":750000,"quorum_ppm":600000}},"required_recusal_conflicts":["DIRECT_FINANCIAL_INTEREST"]},
+      "EMERGENCY_SERVICE_REROUTE": {"decision_class":"EMERGENCY","emergency_required":true,"enforcer_required":false,"prohibited":false,"required_chambers":{"GUARDIAN":{"approval_ppm":600000,"quorum_ppm":500000},"PUBLIC":{"approval_ppm":600000,"quorum_ppm":500000}},"required_recusal_conflicts":[]},
+      "OPERATOR_RENEWAL": {"decision_class":"ORDINARY","emergency_required":false,"enforcer_required":false,"prohibited":false,"required_chambers":{"PUBLIC":{"approval_ppm":650000,"quorum_ppm":500000},"USERS":{"approval_ppm":600000,"quorum_ppm":500000}},"required_recusal_conflicts":["OPERATOR_AFFILIATION","DIRECT_FINANCIAL_INTEREST"]},
+      "STEWARD_SEAT_SALE": {"decision_class":"CONSTITUTIONAL","emergency_required":false,"enforcer_required":true,"prohibited":true,"required_chambers":{"GUARDIAN":{"approval_ppm":1000000,"quorum_ppm":1000000},"PUBLIC":{"approval_ppm":900000,"quorum_ppm":750000},"USERS":{"approval_ppm":900000,"quorum_ppm":750000}},"required_recusal_conflicts":["DIRECT_FINANCIAL_INTEREST"]}
+    },
+    "chambers":["USERS","WORKERS","PUBLIC","GUARDIAN"],
+    "conflict_codes":["OPERATOR_AFFILIATION","INVESTOR_COMPENSATION","RELATED_PARTY_BENEFICIARY","DIRECT_FINANCIAL_INTEREST"],
+    "emergency_authority_ref":"authority:emergency-board",
+    "enforcer_ref":"enforcer:public-interest-guardian",
+    "max_vote_count":1000000,
+    "profile_version":"mycelix-stewardship-decision-gate-v1",
+    "project_id":"fiber:jhb:test-001"
+  },
+  "transition": {
+    "amendment_class":"POLICY_PARAMETER",
+    "evidence_ref":"evidence:transition:epoch-7-to-8",
+    "previous_transition_sha256":"0000000000000000000000000000000000000000000000000000000000000000",
+    "prior_epoch":7,
+    "prior_profile_sha256":"945b558049d7570cd47b52d7d822b2dff142a46b3d5fa117ed24dadbcd1059cb",
+    "project_id":"fiber:jhb:test-001",
+    "registry_id":"registry:stewardship-constitution:fiber:jhb:test-001",
+    "successor_epoch":8,
+    "successor_profile_sha256":"84cbcaff53366ab611402fc5114e9f4eafa066ef753f8e722ae9caff13b79284"
+  }
+}

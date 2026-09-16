@@ -1,0 +1,72 @@
+name: MYC-CAP-002G2B Constitution Amendment v1
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/capital/constitution_amendment_v1.py'
+      - 'scripts/capital/test_constitution_amendment_v1.py'
+      - 'docs/capital/evidence/myc-cap-002g2b/**'
+      - '.github/workflows/myc-cap-002g2b-constitution-amendment-v1.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Authorized non-resetting constitution amendment
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Exact subject, parent, and scope
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          test "$(git rev-parse HEAD^)" = "95dea3490a514f8e34514e626884a8978bcc4581"
+          expected="$(mktemp)"
+          actual="$(mktemp)"
+          printf '%s\n' \
+            '.github/workflows/myc-cap-002g2b-constitution-amendment-v1.yml' \
+            'docs/capital/evidence/myc-cap-002g2b/PROFILE.md' \
+            'docs/capital/evidence/myc-cap-002g2b/example_case.json' \
+            'docs/capital/evidence/myc-cap-002g2b/example_receipt.json' \
+            'scripts/capital/constitution_amendment_v1.py' \
+            'scripts/capital/test_constitution_amendment_v1.py' | sort > "$expected"
+          git diff-tree --no-commit-id --name-only -r HEAD | sort > "$actual"
+          diff -u "$expected" "$actual"
+          test -z "$(git status --porcelain)"
+
+      - name: Python environment
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 -m py_compile scripts/capital/governance_decision_currentness_v1.py
+          python3 -m py_compile scripts/capital/constitution_amendment_v1.py
+          python3 -m py_compile scripts/capital/test_constitution_amendment_v1.py
+
+      - name: Fail-closed unit suite
+        run: |
+          set -euo pipefail
+          python3 -m unittest -v scripts/capital/test_constitution_amendment_v1.py
+
+      - name: Deterministic example receipt
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp)"
+          python3 scripts/capital/constitution_amendment_v1.py docs/capital/evidence/myc-cap-002g2b/example_case.json --receipt-out "$tmp"
+          diff -u docs/capital/evidence/myc-cap-002g2b/example_receipt.json "$tmp"
+          python3 scripts/capital/constitution_amendment_v1.py docs/capital/evidence/myc-cap-002g2b/example_case.json --receipt-out "${tmp}.second"
+          cmp "$tmp" "${tmp}.second"
+
+      - name: Strong nonclaims
+        run: |
+          set -euo pipefail
+          grep -Fq '"transition_state":"ACCEPTED"' docs/capital/evidence/myc-cap-002g2b/example_receipt.json
+          grep -Fq '"successor_designation_established":false' docs/capital/evidence/myc-cap-002g2b/example_receipt.json
+          grep -Fq '"legal_validity_established":false' docs/capital/evidence/myc-cap-002g2b/example_receipt.json
+          grep -Fq '"democratic_legitimacy_established":false' docs/capital/evidence/myc-cap-002g2b/example_receipt.json
