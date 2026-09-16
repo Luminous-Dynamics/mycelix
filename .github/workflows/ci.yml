@@ -438,6 +438,7 @@ jobs:
   ci-pass:
     if: always()
     needs:
+      - changes
       - format
       - test-commons
       - test-civic
@@ -456,6 +457,7 @@ jobs:
     steps:
       - name: Check results
         run: |
+          echo "Changes: ${{ needs.changes.result }}"
           echo "Format: ${{ needs.format.result }}"
           echo "Commons: ${{ needs.test-commons.result }}"
           echo "Civic: ${{ needs.test-civic.result }}"
@@ -472,9 +474,22 @@ jobs:
           echo "Assurance: ${{ needs.test-assurance.result }}"
           echo "SDK: ${{ needs.test-sdk.result }}"
           echo "Prism: ${{ needs.test-prism.result }}"
-          if [ "${{ needs.format.result }}" = "failure" ]; then exit 1; fi
-          # Skipped jobs are OK (path filter didn't match)
+
+          if [ "${{ needs.changes.result }}" != "success" ]; then exit 1; fi
+          if [ "${{ needs.format.result }}" != "success" ]; then exit 1; fi
+
+          # If assurance was in scope (or this is a main push), its gate MUST
+          # complete successfully; a skipped/cancelled/timed-out lane is not a pass.
+          if [ "${{ github.event_name }}" = "push" ] || [ "${{ needs.changes.outputs.assurance }}" = "true" ]; then
+            if [ "${{ needs.test-assurance.result }}" != "success" ]; then exit 1; fi
+          fi
+
+          # Other path-filtered jobs may be skipped, but every job that did run
+          # must finish successfully. Cancelled/timed-out results fail closed.
           for result in "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-assurance.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
-            if [ "$result" = "failure" ]; then exit 1; fi
+            case "$result" in
+              success|skipped) ;;
+              *) exit 1 ;;
+            esac
           done
           echo "All checks passed!"
