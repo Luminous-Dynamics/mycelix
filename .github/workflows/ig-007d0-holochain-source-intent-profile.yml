@@ -1,0 +1,138 @@
+name: IG-007D0 Holochain Source Intent Profile
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-governance/profiles/deployment/governance-source-intent-20452d0c-v1.json'
+      - 'mycelix-governance/scripts/validate_ig007d0_holochain_source_intent.py'
+      - 'mycelix-governance/docs/IG_007D0_HOLOCHAIN_SOURCE_INTENT_PROFILE.md'
+      - '.github/workflows/ig-007d0-holochain-source-intent-profile.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SUBJECT_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Bind one-commit four-file tranche
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=20452d0cde9448c424d708d6307aa33a3d1901e3
+          test "$(git rev-parse HEAD)" = "${SUBJECT_SHA}"
+          test "$(git rev-parse HEAD^)" = "${BASE}"
+          test "$(git rev-list --count "${BASE}..HEAD")" -eq 1
+          test "$(git merge-base "${BASE}" HEAD)" = "${BASE}"
+          mapfile -t changed < <(git diff --name-only "${BASE}..HEAD" | sort)
+          expected=(
+            .github/workflows/ig-007d0-holochain-source-intent-profile.yml
+            mycelix-governance/docs/IG_007D0_HOLOCHAIN_SOURCE_INTENT_PROFILE.md
+            mycelix-governance/profiles/deployment/governance-source-intent-20452d0c-v1.json
+            mycelix-governance/scripts/validate_ig007d0_holochain_source_intent.py
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#changed[@]}" -eq 4
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed[@]}")
+
+      - name: Bind exact source blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          check_blob() {
+            local path="$1" expected="$2"
+            test "$(git rev-parse "HEAD:${path}")" = "${expected}"
+          }
+          check_blob mycelix-governance/dna/dna.yaml 972a9f32d43ce645aa71900eda11d1756d2e7055
+          check_blob mycelix-governance/Cargo.toml 219cbd48e02692c75a49f0b04a4130bf897aaa5c
+          check_blob mycelix-governance/Cargo.lock f872b74f13264e7345be02b64270179eed56c703
+
+      - name: Re-derive DNA manifest intent
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import re
+          from pathlib import Path
+
+          text = Path('mycelix-governance/dna/dna.yaml').read_text(encoding='utf-8')
+          assert 'manifest_version: "0"' in text
+          assert 'name: mycelix_governance_dna' in text
+          assert 'network_seed: "mycelix-governance-v1"' in text
+
+          integrity, coordinator = text.split('coordinator:', 1)
+          integrity_names = re.findall(r'^\s+- name: ([A-Za-z0-9_]+)\s*$', integrity, re.M)
+          coordinator_names = re.findall(r'^\s+- name: ([A-Za-z0-9_]+)\s*$', coordinator, re.M)
+
+          expected_integrity = [
+              'proposals_integrity','voting_integrity','execution_integrity',
+              'constitution_integrity','governance_bridge_integrity',
+              'threshold_signing_integrity','councils_integrity',
+              'jurisdiction_integrity','budgeting_integrity',
+          ]
+          expected_coordinator = [
+              'proposals','voting','execution','constitution','governance_bridge',
+              'threshold_signing','councils','jurisdiction','budgeting',
+          ]
+          assert integrity_names == expected_integrity, integrity_names
+          seen=[]
+          for name in coordinator_names:
+              if name in expected_coordinator and name not in seen:
+                  seen.append(name)
+          assert seen == expected_coordinator, seen
+          PY
+
+      - name: Re-derive dependency intent and toolchain-pin boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          CARGO=mycelix-governance/Cargo.toml
+          grep -F 'hdk = "=0.6.1"' "${CARGO}" >/dev/null
+          grep -F 'hdi = "=0.7.1"' "${CARGO}" >/dev/null
+          grep -F 'holochain_integrity_types = "=0.6.1"' "${CARGO}" >/dev/null
+          grep -F 'holochain_zome_types = "=0.6.1"' "${CARGO}" >/dev/null
+          grep -F 'holo_hash = "=0.6.1"' "${CARGO}" >/dev/null
+          if find . -type f \( -name 'rust-toolchain' -o -name 'rust-toolchain.toml' \) -print -quit | grep -q .; then
+            echo 'unexpected repository-local Rust toolchain pin observed'
+            exit 1
+          fi
+
+      - name: Validate D0 profile twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROFILE=mycelix-governance/profiles/deployment/governance-source-intent-20452d0c-v1.json
+          VALIDATOR=mycelix-governance/scripts/validate_ig007d0_holochain_source_intent.py
+          python "${VALIDATOR}" --profile "${PROFILE}" > /tmp/d0-a.json
+          python "${VALIDATOR}" --profile "${PROFILE}" > /tmp/d0-b.json
+          cmp /tmp/d0-a.json /tmp/d0-b.json
+          python - <<'PY'
+          import json
+          r=json.load(open('/tmp/d0-a.json'))
+          assert r['valid'] is True
+          assert r['profile_content_sha256']=='557282ebfdf98c14194b34db3412a6eadd97fabab06073cc5772b87101561003'
+          assert r['authority_class']=='SourceIntentBound'
+          assert r['claim_ceiling']=='SourceIntentOnly'
+          assert r['deployment_currentness_qualified'] is False
+          assert r['integrity_zome_count']==9
+          assert r['coordinator_zome_count']==9
+          assert r['unqualified_property_count']==11
+          PY
+
+      - name: Verify checkout immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=all)"
