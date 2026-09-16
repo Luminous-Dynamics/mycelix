@@ -1,0 +1,89 @@
+{
+  "authority_class": "HistoricalSourceContractEvidence",
+  "corpus_id": "ig-007u1-treasury-asset-unit-fca2c107-v1",
+  "non_claims": [
+    "LiveCrossCurrencyTransfer",
+    "StolenFunds",
+    "DeploymentExploit",
+    "DeploymentCurrentness",
+    "OverallTreasurySafety",
+    "SuccessorSapAmountCorrectness"
+  ],
+  "receipt_count": 8,
+  "receipts": [
+    {
+      "forbidden_conclusions": ["LiveCrossCurrencyTransfer","StolenFunds","DeploymentExploit","DeploymentCurrentness","OverallTreasurySafety","SuccessorSapAmountCorrectness","TreasuryUsesCanonicalFinanceCurrencyType","CanonicalFinanceQuantityTypeExists"],
+      "id": "CanonicalFinanceCurrencyEnumExists",
+      "observed_source_predicates": ["mycelix_finance_types defines Currency::{Mycel,Sap,Tend}","Currency::Mycel is non-transferable","Currency::Sap is transferable","Currency::Tend is transferable"],
+      "positive_controls": ["CanonicalFinanceCurrencyEnumExists","DistinctLaneTransferSemantics"],
+      "qualification_result": "PropertyEstablishedWithinBoundSource",
+      "required_property": "A canonical Finance currency namespace with distinct lane transfer semantics exists in the bound source."
+    },
+    {
+      "forbidden_conclusions": ["LiveCrossCurrencyTransfer","StolenFunds","DeploymentExploit","DeploymentCurrentness","OverallTreasurySafety","SuccessorSapAmountCorrectness","NoCurrencyModelExists","StringCurrencyCausedLiveLoss"],
+      "id": "TreasuryDoesNotConsumeCanonicalFinanceCurrencyType",
+      "observed_source_predicates": ["Treasury create/input/storage uses currency:String","Treasury coordinator does not reference mycelix_finance_types::Currency"],
+      "positive_controls": ["CanonicalFinanceCurrencyEnumExists","TreasuryBalanceUsesU64"],
+      "qualification_result": "PropertyEstablishedWithinBoundSource",
+      "required_property": "The bound Treasury implementation does not consume the canonical Finance Currency type."
+    },
+    {
+      "forbidden_conclusions": ["LiveCrossCurrencyTransfer","StolenFunds","DeploymentExploit","DeploymentCurrentness","OverallTreasurySafety","SuccessorSapAmountCorrectness","NoFutureQuantityTypePossible","AllCurrenciesShouldShareOneQuantityType"],
+      "id": "CanonicalFinanceQuantityTypeNotEstablished",
+      "observed_source_predicates": ["Bound Finance types defines canonical Currency enum","U0 source census observes no canonical per-currency quantity/base-unit authority consumed by Treasury"],
+      "positive_controls": ["CanonicalFinanceCurrencyEnumExists","DkgThresholdExplicitlyDocumentedAsMicroSap"],
+      "qualification_result": "PropertyEstablishedWithinBoundSource",
+      "required_property": "A canonical Finance quantity/base-unit type used by Treasury is not established within the bound source."
+    },
+    {
+      "forbidden_conclusions": ["LiveCrossCurrencyTransfer","StolenFunds","DeploymentExploit","DeploymentCurrentness","OverallTreasurySafety","SuccessorSapAmountCorrectness","TreasuryAssetIdentityIsMutableInEveryExecution","LiveAssetSubstitutionOccurred"],
+      "id": "TreasuryAssetIdentityImmutabilityNotEstablished",
+      "observed_source_predicates": ["Treasury stores free-form currency:String","Treasury create/update integrity does not reconstruct typed currency equality or immutability"],
+      "positive_controls": ["TreasuryBalanceUsesU64","CreditUsesCheckedAdd","DebitUsesCheckedSub"],
+      "qualification_result": "PropertyEstablishedWithinBoundSource",
+      "required_property": "Treasury asset/currency identity immutability is not established within the bound source."
+    },
+    {
+      "forbidden_conclusions": ["LiveCrossCurrencyTransfer","StolenFunds","DeploymentExploit","DeploymentCurrentness","OverallTreasurySafety","SuccessorSapAmountCorrectness","CrossCurrencyContributionExecuted","CheckedAddIsUnsafe"],
+      "id": "ContributionToTreasuryAssetEqualityNotEstablished",
+      "observed_source_predicates": ["ContributeInput carries currency:String","contribute records input.currency","credit_treasury mutates by treasury_id and numeric amount","No bound source-visible equality check ties contribution currency to Treasury currency before credit"],
+      "positive_controls": ["CreditUsesCheckedAdd","CanonicalFinanceCurrencyEnumExists"],
+      "qualification_result": "PropertyEstablishedWithinBoundSource",
+      "required_property": "Contribution-to-Treasury asset/currency equality is not established within the bound source."
+    },
+    {
+      "forbidden_conclusions": ["LiveCrossCurrencyTransfer","StolenFunds","DeploymentExploit","DeploymentCurrentness","OverallTreasurySafety","SuccessorSapAmountCorrectness","CrossCurrencyAllocationExecuted","CheckedSubIsUnsafe"],
+      "id": "AllocationToTreasuryAssetEqualityNotEstablished",
+      "observed_source_predicates": ["ProposeAllocationInput carries currency:String","Allocation stores caller-supplied currency","execute_allocation debits treasury_id and alloc.amount","No bound source-visible equality check ties Allocation currency to Treasury currency before debit"],
+      "positive_controls": ["DebitUsesCheckedSub","InsufficientBalanceFailsClosed"],
+      "qualification_result": "PropertyEstablishedWithinBoundSource",
+      "required_property": "Allocation-to-Treasury asset/currency equality is not established within the bound source."
+    },
+    {
+      "forbidden_conclusions": ["LiveCrossCurrencyTransfer","StolenFunds","DeploymentExploit","DeploymentCurrentness","OverallTreasurySafety","SuccessorSapAmountCorrectness","DkgThresholdNumericallyIncorrect","DkgAuthorizationIsUniversallyUnsafe"],
+      "id": "DkgThresholdAssetBindingNotEstablished",
+      "observed_source_predicates": ["DKG_THRESHOLD_AMOUNT is 10000000000","DKG threshold/input comments identify micro-SAP","Treasury currency representation remains free-form String"],
+      "positive_controls": ["DkgThresholdExplicitlyDocumentedAsMicroSap","CanonicalFinanceCurrencyEnumExists"],
+      "qualification_result": "PropertyEstablishedWithinBoundSource",
+      "required_property": "The DKG high-value threshold is not cryptographically/type-bound to canonical SAP identity and base-unit scale within the bound source."
+    },
+    {
+      "forbidden_conclusions": ["LiveCrossCurrencyTransfer","StolenFunds","DeploymentExploit","DeploymentCurrentness","OverallTreasurySafety","SuccessorSapAmountCorrectness","DKGSignatureInvalid","LiveReplayOrSubstitutionOccurred"],
+      "id": "DkgSignedSubjectAssetUnitPolicyBindingNotEstablished",
+      "observed_source_predicates": ["DKG signed subject template is treasury_allocation:{treasury_id}:{amount}:{recipient_did}","Signed subject binds treasury_id, amount, recipient_did","Signed subject does not explicitly bind canonical Currency, base-unit scale, or policy revision"],
+      "positive_controls": ["DkgSignedSubjectBindsTreasuryAmountRecipient","DkgThresholdExplicitlyDocumentedAsMicroSap"],
+      "qualification_result": "PropertyEstablishedWithinBoundSource",
+      "required_property": "Explicit canonical asset/unit/policy-revision binding in the DKG signed subject is not established within the bound source."
+    }
+  ],
+  "schema": "mycelix-treasury-asset-unit-source-contract-corpus-v1",
+  "source_binding": {
+    "finance_types_blob": "354a377c88a57e8a5612a518d8c8b8b519fb67e2",
+    "repository": "Luminous-Dynamics/mycelix",
+    "semantic_production_subject_sha": "fca2c107a1ea5108823ce617ba4111b6f7f77230",
+    "treasury_coordinator_blob": "840e66bcb6fdedb27fe2451752511d1317eb50b8",
+    "treasury_integrity_blob": "5ee9b72f7c138a5283818b873ceae36dff3305d4",
+    "u0_evidence_head": "fd801d9b46515d333eccd3f42a1664042a1b06d5",
+    "u0_profile_sha256": "58280f735acecd84071b71876c5b38d12d6776b8505016b22a020a05cca2ffb5"
+  }
+}

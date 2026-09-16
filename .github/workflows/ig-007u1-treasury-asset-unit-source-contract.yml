@@ -1,0 +1,165 @@
+name: IG-007U1 Treasury Asset Unit Source Contract
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-finance/profiles/observed/treasury-asset-unit-source-contract-fca2c107-v1.json'
+      - 'mycelix-finance/scripts/validate_ig007u1_treasury_asset_unit_corpus.py'
+      - 'mycelix-finance/docs/IG_007U1_TREASURY_ASSET_UNIT_SOURCE_CONTRACT.md'
+      - '.github/workflows/ig-007u1-treasury-asset-unit-source-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ig-007u1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXPECTED_PARENT: 'fd801d9b46515d333eccd3f42a1664042a1b06d5'
+  CORPUS: 'mycelix-finance/profiles/observed/treasury-asset-unit-source-contract-fca2c107-v1.json'
+  PROFILE: 'mycelix-finance/profiles/observed/treasury-asset-unit-fca2c107-v1.json'
+  VALIDATOR: 'mycelix-finance/scripts/validate_ig007u1_treasury_asset_unit_corpus.py'
+  DOC: 'mycelix-finance/docs/IG_007U1_TREASURY_ASSET_UNIT_SOURCE_CONTRACT.md'
+  WORKFLOW: '.github/workflows/ig-007u1-treasury-asset-unit-source-contract.yml'
+  COORDINATOR: 'mycelix-finance/zomes/treasury/coordinator/src/lib.rs'
+  INTEGRITY: 'mycelix-finance/zomes/treasury/integrity/src/lib.rs'
+  FINANCE_TYPES: 'mycelix-finance/types/src/lib.rs'
+  EXPECTED_PROFILE_BLOB: '933aec6c2c99bc6b49c3c8ba42af594e00fc52fc'
+  EXPECTED_PROFILE_CONTENT_SHA256: '58280f735acecd84071b71876c5b38d12d6776b8505016b22a020a05cca2ffb5'
+  EXPECTED_CORPUS_SHA256: 'b9212ce3da3cfed4b69335b59cf3c4a15e76d1c95819f3628bcc2a239d732190'
+
+jobs:
+  qualify:
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact U1 subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Bind exact one-commit four-file U1 tranche
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          test "$(git rev-list --count "$EXPECTED_PARENT..HEAD")" -eq 1
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PARENT" HEAD | sort)
+          expected=("$WORKFLOW" "$DOC" "$CORPUS" "$VALIDATOR")
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#changed[@]}" -eq 4
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed[@]}")
+          test "$(git ls-tree HEAD -- "$VALIDATOR" | awk '{print $1}')" = '100755'
+          python3 - <<'PY'
+          import ast, os
+          from pathlib import Path
+
+          path = Path(os.environ['VALIDATOR'])
+          tree = ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
+          asserts = [node for node in ast.walk(tree) if isinstance(node, ast.Assert)]
+          if asserts:
+              lines = ','.join(str(node.lineno) for node in asserts)
+              raise SystemExit(
+                  f'portable evidence validator contains optimization-removable assert nodes at lines: {lines}'
+              )
+          print('validator_ast_assert_free=PASS')
+          PY
+
+      - name: Bind frozen source and U0 profile
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse "HEAD:$COORDINATOR")" = '840e66bcb6fdedb27fe2451752511d1317eb50b8'
+          test "$(git rev-parse "HEAD:$INTEGRITY")" = '5ee9b72f7c138a5283818b873ceae36dff3305d4'
+          test "$(git rev-parse "HEAD:$FINANCE_TYPES")" = '354a377c88a57e8a5612a518d8c8b8b519fb67e2'
+          test "$(git rev-parse "HEAD:$PROFILE")" = "$EXPECTED_PROFILE_BLOB"
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+
+          profile = json.loads(Path(os.environ['PROFILE']).read_text(encoding='utf-8'))
+          payload = dict(profile)
+          declared = payload.pop('profile_content_sha256')
+          canonical = json.dumps(
+              payload,
+              sort_keys=True,
+              separators=(',', ':'),
+              ensure_ascii=False,
+              allow_nan=False,
+          ).encode('utf-8')
+          derived = hashlib.sha256(canonical).hexdigest()
+          expected = os.environ['EXPECTED_PROFILE_CONTENT_SHA256']
+          if declared != expected or derived != expected:
+              raise SystemExit(
+                  f'U0 profile commitment mismatch: declared={declared} derived={derived} expected={expected}'
+              )
+
+          corpus = json.loads(Path(os.environ['CORPUS']).read_text(encoding='utf-8'))
+          bound = corpus['source_binding']['u0_profile_sha256']
+          if bound != expected:
+              raise SystemExit(f'U1 corpus binds wrong U0 profile commitment: {bound}')
+          print('u0_profile_canonical_commitment=PASS')
+          PY
+          test "$(sha256sum "$CORPUS" | awk '{print $1}')" = "$EXPECTED_CORPUS_SHA256"
+
+      - name: Validate corpus deterministically and optimization-invariant
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile "$VALIDATOR"
+          python3 "$VALIDATOR" --corpus "$CORPUS" --profile "$PROFILE" --coordinator "$COORDINATOR" --integrity "$INTEGRITY" --finance-types "$FINANCE_TYPES" > /tmp/u1-a.json
+          python3 "$VALIDATOR" --corpus "$CORPUS" --profile "$PROFILE" --coordinator "$COORDINATOR" --integrity "$INTEGRITY" --finance-types "$FINANCE_TYPES" > /tmp/u1-b.json
+          python3 -O "$VALIDATOR" --corpus "$CORPUS" --profile "$PROFILE" --coordinator "$COORDINATOR" --integrity "$INTEGRITY" --finance-types "$FINANCE_TYPES" > /tmp/u1-optimized.json
+          cmp /tmp/u1-a.json /tmp/u1-b.json
+          cmp /tmp/u1-a.json /tmp/u1-optimized.json
+          python3 - <<'PY'
+          import json, os
+
+          result = json.load(open('/tmp/u1-a.json', encoding='utf-8'))
+          expected = {
+              'valid': True,
+              'receipt_count': 8,
+              'corpus_sha256': os.environ['EXPECTED_CORPUS_SHA256'],
+              'u0_profile_content_sha256': os.environ['EXPECTED_PROFILE_CONTENT_SHA256'],
+              'source_blob_binding_count': 3,
+              'authority_class': 'HistoricalSourceContractEvidence',
+              'semantic_production_subject_sha': 'fca2c107a1ea5108823ce617ba4111b6f7f77230',
+          }
+          for field, value in expected.items():
+              if result.get(field) != value:
+                  raise SystemExit(
+                      f'validator result mismatch for {field}: actual={result.get(field)!r} expected={value!r}'
+                  )
+          print('ig007u1_deterministic_corpus=PASS')
+          print('python_optimization_invariant=PASS')
+          print('assert_free_evidence_checks=PASS')
+          PY
+
+      - name: Enforce claim ceiling and immutable checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'historical evidence only / non-activating' "$DOC"
+          grep -Fq 'U1 is therefore evidence for the **problem statement**, not evidence that a successor implementation is correct.' "$DOC"
+          git diff --exit-code
+          test -z "$(git status --porcelain=v1 --untracked-files=no)"
+
+      - name: Emit evidence facts
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'status=PASS\n'
+          printf 'profile_blob=%s\n' "$EXPECTED_PROFILE_BLOB"
+          printf 'u0_profile_content_sha256=%s\n' "$EXPECTED_PROFILE_CONTENT_SHA256"
+          printf 'corpus_sha256=%s\n' "$EXPECTED_CORPUS_SHA256"
+          printf 'source_blob_binding_count=3\n'
+          printf 'validator_ast_assert_free=PASS\n'
+          printf 'python_optimization_invariant=PASS\n'
+          printf 'assert_free_evidence_checks=PASS\n'
+          printf 'receipt_count=8\n'
+          printf 'claim=deterministic historical Treasury asset/unit source-contract receipts for the frozen fca2c107 subject\n'
+          printf 'nonclaim=live exploit, deployment currentness, Treasury safety, successor SapAmount/TreasuryV2 correctness\n'
