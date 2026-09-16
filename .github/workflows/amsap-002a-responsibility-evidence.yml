@@ -1,0 +1,136 @@
+name: AMSAP-002A Responsibility Evidence
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-responsibility-evidence/**'
+      - '.github/workflows/amsap-002a-responsibility-evidence.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: amsap-002a-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
+    steps:
+      - name: Check out exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 2
+
+      - name: Prove exact Q1 parent and review surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "c8e471f810619766b30402790478878aabba7143"
+          mapfile -t changed < <(git diff --name-only HEAD^ HEAD | sort)
+          expected=(
+            ".github/workflows/amsap-002a-responsibility-evidence.yml"
+            "crates/mycelix-responsibility-evidence/Cargo.lock"
+            "crates/mycelix-responsibility-evidence/Cargo.toml"
+            "crates/mycelix-responsibility-evidence/README.md"
+            "crates/mycelix-responsibility-evidence/src/lib.rs"
+          )
+          printf '%s\n' "${changed[@]}" > /tmp/changed
+          printf '%s\n' "${expected[@]}" | sort > /tmp/expected
+          diff -u /tmp/expected /tmp/changed
+
+      - name: Audit dependency and authority boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          cargo = Path('crates/mycelix-responsibility-evidence/Cargo.toml').read_text()
+          deps = cargo.split('[dependencies]\n', 1)[1].strip().splitlines()
+          expected = ['mycelix-artificial-status = { path = "../mycelix-artificial-status" }']
+          if deps != expected:
+              raise SystemExit(f'unexpected dependency surface: {deps!r}')
+          src = Path('crates/mycelix-responsibility-evidence/src/lib.rs').read_text()
+          if '#![no_std]' not in src:
+              raise SystemExit('responsibility evidence core lost no_std')
+          for token in ('hdk','hdi','holochain','serde','reqwest','tokio','SystemTime','Instant','execute_effect','dispatch_effect'):
+              if token in src or token in cargo:
+                  raise SystemExit(f'forbidden token: {token}')
+          for guard in (
+              'establishes_scientific_truth',
+              'establishes_consciousness',
+              'establishes_valence',
+              'establishes_moral_patienthood',
+              'grants_welfare_protection',
+              'establishes_legal_responsibility',
+              'grants_liability',
+              'grants_punishment_authority',
+              'grants_legal_standing',
+              'grants_governance_authority',
+              'grants_currentness',
+              'grants_deployment_authority',
+              'grants_external_effect_authority',
+          ):
+              if guard not in src:
+                  raise SystemExit(f'missing non-authority guard: {guard}')
+          for forbidden_field in (
+              'legal_responsibility:',
+              'liability:',
+              'governance_authority:',
+              'legal_standing:',
+              'deployment_authority:',
+          ):
+              if forbidden_field in src:
+                  raise SystemExit(f'forbidden authority state field: {forbidden_field}')
+          PY
+
+      - name: Bootstrap hash-pinned Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUSTUP_VERSION="1.29.0"
+          RUSTUP_SHA256="4acc9acc76d5079515b46346a485974457b5a79893cfb01112423c89aeb5aa10"
+          HOST="x86_64-unknown-linux-gnu"
+          URL="https://static.rust-lang.org/rustup/archive/${RUSTUP_VERSION}/${HOST}/rustup-init"
+          curl --fail --location --retry 3 --silent --show-error "$URL" -o /tmp/rustup-init
+          echo "${RUSTUP_SHA256}  /tmp/rustup-init" | sha256sum --check
+          chmod 0755 /tmp/rustup-init
+          /tmp/rustup-init -y --no-modify-path --profile minimal --default-host "$HOST" --default-toolchain 1.98.1
+          "$HOME/.cargo/bin/rustup" component add --toolchain 1.98.1 rustfmt clippy
+          "$HOME/.cargo/bin/rustup" target add --toolchain 1.98.1 wasm32-unknown-unknown
+
+      - name: Rust qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          C="$HOME/.cargo/bin/cargo"
+          manifest="crates/mycelix-responsibility-evidence/Cargo.toml"
+          lock="crates/mycelix-responsibility-evidence/Cargo.lock"
+          lock_before="$(sha256sum "$lock")"
+          "$C" +1.98.1 fmt --manifest-path "$manifest" -- --check
+          "$C" +1.98.1 test --locked --offline --manifest-path "$manifest" --all-targets
+          "$C" +1.98.1 clippy --locked --offline --manifest-path "$manifest" --all-targets -- -D warnings
+          "$C" +1.98.1 check --locked --offline --manifest-path "$manifest" --target wasm32-unknown-unknown
+          test "$lock_before" = "$(sha256sum "$lock")"
+
+      - name: Immutable checkout postflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain)"
+
+      - name: Emit bounded qualification receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' \
+            'scope=responsibility-evidence structural/source qualification only' \
+            'moral_performance_equals_competence=false' \
+            'legal_responsibility_granted=false' \
+            'liability_granted=false' \
+            'deployment_authority_granted=false' \
+            'governance_authority_granted=false'
