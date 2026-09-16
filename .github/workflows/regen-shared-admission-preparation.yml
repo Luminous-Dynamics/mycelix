@@ -1,0 +1,130 @@
+name: REGEN-019C Shared Admission Preparation
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-regenerative-admission/**'
+      - '.github/workflows/regen-shared-admission-preparation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  prepare-shared-admission:
+    name: REGEN-019C shared admission preparation
+    runs-on: ubuntu-24.04
+    env:
+      TARGET_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      EXPECTED_PARENT_SHA: 34b1707802a5c780b33a2280b2b1ec18ae67817e
+      CRATE_DIR: crates/mycelix-regenerative-admission
+      PREP_DIR: /tmp/regen019-prepared
+      PINNED_TOOLCHAIN: 1.96.0
+    steps:
+      - name: Checkout exact authored subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 2
+
+      - name: Verify exact parent and authored scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT_SHA"
+          expected="$(printf '%s\n' \
+            '.github/workflows/regen-shared-admission-preparation.yml' \
+            'crates/mycelix-regenerative-admission/Cargo.toml' \
+            'crates/mycelix-regenerative-admission/src/lib.rs' \
+            'crates/mycelix-regenerative-admission/tests/admission_matrix.rs' | sort)"
+          actual="$(git diff --name-only "$EXPECTED_PARENT_SHA" HEAD | sort)"
+          printf '%s\n' '---BEGIN_AUTHORED_SCOPE---'
+          printf '%s\n' "$actual"
+          printf '%s\n' '---END_AUTHORED_SCOPE---'
+          test "$actual" = "$expected"
+          test "$(git rev-parse HEAD:crates/mycelix-core-types/src/planetary_evidence.rs)" = '2069d6e56336d05c7bc293abfc5ccdc421ab53cb'
+          test "$(git rev-parse HEAD:crates/mycelix-core-types/src/planetary_lineage.rs)" = 'e0fda7c4c9e83c46761dae1e4fff2c43e3d6d41b'
+          test "$(git rev-parse HEAD:crates/mycelix-core-types/src/planetary_product.rs)" = 'dedc20b201759883b9c58b39905dfc700c1cfb21'
+
+      - name: Install and verify pinned Rust preparation toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install "$PINNED_TOOLCHAIN" --profile minimal --component rustfmt,clippy
+          rustc +"$PINNED_TOOLCHAIN" --version --verbose
+          cargo +"$PINNED_TOOLCHAIN" --version --verbose
+          rustfmt +"$PINNED_TOOLCHAIN" --version
+          test "$(rustc +"$PINNED_TOOLCHAIN" --version | awk '{print $2}')" = "$PINNED_TOOLCHAIN"
+          test "$(cargo +"$PINNED_TOOLCHAIN" --version | awk '{print $2}')" = "$PINNED_TOOLCHAIN"
+
+      - name: Prepare exact child-owned source bytes with pinned rustfmt
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +"$PINNED_TOOLCHAIN" fmt --manifest-path "$CRATE_DIR/Cargo.toml"
+          unexpected="$(git diff --name-only | grep -vE '^crates/mycelix-regenerative-admission/(src|tests)/.*\.rs$' || true)"
+          test -z "$unexpected"
+          rm -rf "$PREP_DIR"
+          mkdir -p "$PREP_DIR/crate/src" "$PREP_DIR/crate/tests"
+          cp "$CRATE_DIR/Cargo.toml" "$PREP_DIR/crate/Cargo.toml"
+          cp "$CRATE_DIR/src/lib.rs" "$PREP_DIR/crate/src/lib.rs"
+          cp "$CRATE_DIR/tests/admission_matrix.rs" "$PREP_DIR/crate/tests/admission_matrix.rs"
+
+      - name: Resolve dependency graph with pinned Cargo
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +"$PINNED_TOOLCHAIN" generate-lockfile --manifest-path "$CRATE_DIR/Cargo.toml"
+          test -f "$CRATE_DIR/Cargo.lock"
+          cp "$CRATE_DIR/Cargo.lock" "$PREP_DIR/crate/Cargo.lock"
+          printf 'prepared_lock_sha256=%s\n' "$(sha256sum "$CRATE_DIR/Cargo.lock" | awk '{print $1}')"
+
+      - name: Record complete prepared-file and toolchain identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PREP_DIR"
+          find crate -type f -print0 | sort -z | xargs -0 sha256sum | tee PREPARED_FILES.sha256
+          cat > PREPARATION_RECEIPT.txt <<EOF
+          product_head=$TARGET_SHA
+          parent_head=$EXPECTED_PARENT_SHA
+          rustc=$(rustc +"$PINNED_TOOLCHAIN" --version | tr '\n' ' ')
+          cargo=$(cargo +"$PINNED_TOOLCHAIN" --version | tr '\n' ' ')
+          rustfmt=$(rustfmt +"$PINNED_TOOLCHAIN" --version | tr '\n' ' ')
+          host_target=$(rustc +"$PINNED_TOOLCHAIN" -vV | sed -n 's/^host: //p')
+          dependency_state=ExecutionResolved
+          system_closure=unfrozen
+          qualification_status=NOT_QUALIFIED_SOURCE_AND_DEPENDENCY_PREPARATION_ONLY
+          EOF
+          cat PREPARATION_RECEIPT.txt
+          grep -F 'rustc=rustc 1.96.0 ' PREPARATION_RECEIPT.txt
+          grep -F 'cargo=cargo 1.96.0 ' PREPARATION_RECEIPT.txt
+
+      - name: Test exact prepared graph with pinned toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +"$PINNED_TOOLCHAIN" fmt --manifest-path "$CRATE_DIR/Cargo.toml" -- --check
+          cargo +"$PINNED_TOOLCHAIN" test --manifest-path "$CRATE_DIR/Cargo.toml" --locked
+          cargo +"$PINNED_TOOLCHAIN" clippy --manifest-path "$CRATE_DIR/Cargo.toml" --all-targets --locked -- -D warnings
+
+      - name: Upload exact preparation capsule
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: regen019-shared-admission-preparation-${{ env.TARGET_SHA }}
+          path: /tmp/regen019-prepared
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Restore authored checkout and enforce hygiene
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout -- "$CRATE_DIR/src/lib.rs" "$CRATE_DIR/tests/admission_matrix.rs"
+          rm -f "$CRATE_DIR/Cargo.lock"
+          git diff --check
+          status="$(git status --short)"
+          printf 'git_status=%s\n' "$status"
+          test -z "$status"
+          printf 'NOT_QUALIFIED_SOURCE_AND_DEPENDENCY_PREPARATION_ONLY\n'

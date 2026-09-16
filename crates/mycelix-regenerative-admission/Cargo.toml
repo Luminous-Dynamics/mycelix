@@ -1,0 +1,11 @@
+[package]
+name = "mycelix-regenerative-admission"
+version = "0.1.0"
+edition = "2024"
+description = "Domain-neutral PEF evidence admission for Mycelix regenerative systems"
+license = "AGPL-3.0-or-later"
+authors = ["Luminous Dynamics <contact@luminousdynamics.org>"]
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+
+[dependencies]
+mycelix-core-types = { path = "../mycelix-core-types" }
