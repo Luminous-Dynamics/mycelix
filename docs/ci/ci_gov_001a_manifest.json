@@ -1,0 +1,40 @@
+{
+  "schema": "ci-gov-001a-manifest-v1",
+  "tranche": "CI-GOV-001A",
+  "parent_issue": 969,
+  "governing_theorems": [
+    "queue telemetry != queue authority",
+    "queued != started != executed != failed != passed"
+  ],
+  "trigger_policy": "workflow_dispatch_only",
+  "network_authority": "github_api_get_only",
+  "mutation_authority": false,
+  "cancellation_authority": false,
+  "rerun_authority": false,
+  "dispatch_authority": false,
+  "repository_write_authority": false,
+  "default_job_sample": 12,
+  "required_report_sections": [
+    "schema",
+    "repository",
+    "observed_at_utc",
+    "status_vocabulary",
+    "counts",
+    "oldest_queued",
+    "newest_queued",
+    "by_workflow",
+    "by_event",
+    "by_branch",
+    "supersession_telemetry",
+    "job_shape_sample",
+    "most_recent_success",
+    "authority",
+    "nonclaims"
+  ],
+  "required_nonclaims": [
+    "queue census does not identify the root cause of runner delay",
+    "superseded-candidate telemetry does not authorize cancellation",
+    "queued does not mean started, failed, or passed",
+    "repository telemetry does not establish account billing or hosted-runner capacity"
+  ]
+}

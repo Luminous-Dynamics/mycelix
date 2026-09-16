@@ -1,0 +1,44 @@
+name: CI-GOV-001A Queue Census
+
+on:
+  workflow_dispatch:
+    inputs:
+      job_sample:
+        description: 'Bounded queued-run job sample (0-50)'
+        required: false
+        default: '12'
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  census:
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    steps:
+      - name: Checkout census subject
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Offline self-test
+        run: python3 scripts/ci_queue_census.py --self-test
+
+      - name: Read-only live census
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          JOB_SAMPLE: ${{ inputs.job_sample }}
+        run: |
+          python3 scripts/ci_queue_census.py \
+            --repo "$GITHUB_REPOSITORY" \
+            --job-sample "$JOB_SAMPLE" \
+            --output queue-census.json
+          cat queue-census.json
+
+      - name: Verify working tree immutable
+        run: |
+          rm -f queue-census.json
+          test -z "$(git status --porcelain)"
+          git diff --exit-code
