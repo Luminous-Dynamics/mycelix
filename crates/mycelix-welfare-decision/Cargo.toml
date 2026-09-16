@@ -1,0 +1,15 @@
+[package]
+name = "mycelix-welfare-decision"
+version = "0.1.0"
+edition = "2024"
+description = "Authority-neutral welfare decision and protection-transition core for Mycelix AMSAP"
+license = "AGPL-3.0-or-later"
+authors = ["Luminous Dynamics <contact@luminousdynamics.org>"]
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+
+[lib]
+name = "mycelix_welfare_decision"
+path = "src/lib.rs"
+
+[dependencies]
+mycelix-artificial-status = { path = "../mycelix-artificial-status" }
