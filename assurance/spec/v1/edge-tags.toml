@@ -1,0 +1,36 @@
+# ASSURE-V1 normative edge-tag registry.
+# Numeric assignments are append-only within V1.
+
+version = 1
+
+[[tag]]
+id = 1
+name = "supports"
+
+[[tag]]
+id = 2
+name = "rebuts"
+
+[[tag]]
+id = 3
+name = "depends_on"
+
+[[tag]]
+id = 4
+name = "assumes"
+
+[[tag]]
+id = 5
+name = "defeats"
+
+[[tag]]
+id = 6
+name = "derived_from"
+
+[[tag]]
+id = 7
+name = "supersedes"
+
+[[tag]]
+id = 8
+name = "revokes"
