@@ -1,0 +1,251 @@
+{
+  "ballots": [
+    {
+      "action_code": "OPERATOR_RENEWAL",
+      "ballot_id": "b-u1",
+      "chamber": "USERS",
+      "decision_id": "decision-ordinary-001",
+      "evidence_ref": "evidence:b-u1",
+      "governance_profile_sha256": "945b558049d7570cd47b52d7d822b2dff142a46b3d5fa117ed24dadbcd1059cb",
+      "participant_ref": "member:u1",
+      "project_id": "fiber:jhb:test-001",
+      "registry_epoch": 7,
+      "registry_id": "registry:steward-eligibility-v1",
+      "vote": "APPROVE"
+    },
+    {
+      "action_code": "OPERATOR_RENEWAL",
+      "ballot_id": "b-u2",
+      "chamber": "USERS",
+      "decision_id": "decision-ordinary-001",
+      "evidence_ref": "evidence:b-u2",
+      "governance_profile_sha256": "945b558049d7570cd47b52d7d822b2dff142a46b3d5fa117ed24dadbcd1059cb",
+      "participant_ref": "member:u2",
+      "project_id": "fiber:jhb:test-001",
+      "registry_epoch": 7,
+      "registry_id": "registry:steward-eligibility-v1",
+      "vote": "APPROVE"
+    },
+    {
+      "action_code": "OPERATOR_RENEWAL",
+      "ballot_id": "b-u3",
+      "chamber": "USERS",
+      "decision_id": "decision-ordinary-001",
+      "evidence_ref": "evidence:b-u3",
+      "governance_profile_sha256": "945b558049d7570cd47b52d7d822b2dff142a46b3d5fa117ed24dadbcd1059cb",
+      "participant_ref": "member:u3",
+      "project_id": "fiber:jhb:test-001",
+      "registry_epoch": 7,
+      "registry_id": "registry:steward-eligibility-v1",
+      "vote": "REJECT"
+    },
+    {
+      "action_code": "OPERATOR_RENEWAL",
+      "ballot_id": "b-p1",
+      "chamber": "PUBLIC",
+      "decision_id": "decision-ordinary-001",
+      "evidence_ref": "evidence:b-p1",
+      "governance_profile_sha256": "945b558049d7570cd47b52d7d822b2dff142a46b3d5fa117ed24dadbcd1059cb",
+      "participant_ref": "member:p1",
+      "project_id": "fiber:jhb:test-001",
+      "registry_epoch": 7,
+      "registry_id": "registry:steward-eligibility-v1",
+      "vote": "APPROVE"
+    },
+    {
+      "action_code": "OPERATOR_RENEWAL",
+      "ballot_id": "b-p2",
+      "chamber": "PUBLIC",
+      "decision_id": "decision-ordinary-001",
+      "evidence_ref": "evidence:b-p2",
+      "governance_profile_sha256": "945b558049d7570cd47b52d7d822b2dff142a46b3d5fa117ed24dadbcd1059cb",
+      "participant_ref": "member:p2",
+      "project_id": "fiber:jhb:test-001",
+      "registry_epoch": 7,
+      "registry_id": "registry:steward-eligibility-v1",
+      "vote": "APPROVE"
+    }
+  ],
+  "conflicts": [
+    {
+      "chamber": "USERS",
+      "conflict_code": "OPERATOR_AFFILIATION",
+      "disclosed": true,
+      "evidence_ref": "evidence:conflict-u5",
+      "participant_ref": "member:u5"
+    }
+  ],
+  "decision_context": {
+    "action_code": "OPERATOR_RENEWAL",
+    "decision_id": "decision-ordinary-001",
+    "declared_class": "ORDINARY",
+    "governance_profile_sha256": "945b558049d7570cd47b52d7d822b2dff142a46b3d5fa117ed24dadbcd1059cb",
+    "project_id": "fiber:jhb:test-001"
+  },
+  "eligibility_snapshot": {
+    "chambers": {
+      "GUARDIAN": [
+        "member:g1",
+        "member:g2"
+      ],
+      "PUBLIC": [
+        "member:p1",
+        "member:p2",
+        "member:p3"
+      ],
+      "USERS": [
+        "member:u1",
+        "member:u2",
+        "member:u3",
+        "member:u4",
+        "member:u5"
+      ],
+      "WORKERS": [
+        "member:w1",
+        "member:w2"
+      ]
+    },
+    "evidence_ref": "evidence:eligibility-epoch-7",
+    "governance_profile_sha256": "945b558049d7570cd47b52d7d822b2dff142a46b3d5fa117ed24dadbcd1059cb",
+    "project_id": "fiber:jhb:test-001",
+    "registry_epoch": 7,
+    "registry_id": "registry:steward-eligibility-v1"
+  },
+  "governance_profile": {
+    "actions": {
+      "ASSET_LOCK_REMOVAL": {
+        "decision_class": "CONSTITUTIONAL",
+        "emergency_required": false,
+        "enforcer_required": true,
+        "prohibited": true,
+        "required_chambers": {
+          "GUARDIAN": {
+            "approval_ppm": 1000000,
+            "quorum_ppm": 1000000
+          },
+          "PUBLIC": {
+            "approval_ppm": 900000,
+            "quorum_ppm": 750000
+          },
+          "USERS": {
+            "approval_ppm": 900000,
+            "quorum_ppm": 750000
+          }
+        },
+        "required_recusal_conflicts": [
+          "INVESTOR_COMPENSATION",
+          "DIRECT_FINANCIAL_INTEREST"
+        ]
+      },
+      "CONSTITUENCY_AMENDMENT": {
+        "decision_class": "CONSTITUTIONAL",
+        "emergency_required": false,
+        "enforcer_required": true,
+        "prohibited": false,
+        "required_chambers": {
+          "GUARDIAN": {
+            "approval_ppm": 800000,
+            "quorum_ppm": 750000
+          },
+          "PUBLIC": {
+            "approval_ppm": 750000,
+            "quorum_ppm": 600000
+          },
+          "USERS": {
+            "approval_ppm": 750000,
+            "quorum_ppm": 600000
+          }
+        },
+        "required_recusal_conflicts": [
+          "DIRECT_FINANCIAL_INTEREST"
+        ]
+      },
+      "EMERGENCY_SERVICE_REROUTE": {
+        "decision_class": "EMERGENCY",
+        "emergency_required": true,
+        "enforcer_required": false,
+        "prohibited": false,
+        "required_chambers": {
+          "GUARDIAN": {
+            "approval_ppm": 600000,
+            "quorum_ppm": 500000
+          },
+          "PUBLIC": {
+            "approval_ppm": 600000,
+            "quorum_ppm": 500000
+          }
+        },
+        "required_recusal_conflicts": []
+      },
+      "OPERATOR_RENEWAL": {
+        "decision_class": "ORDINARY",
+        "emergency_required": false,
+        "enforcer_required": false,
+        "prohibited": false,
+        "required_chambers": {
+          "PUBLIC": {
+            "approval_ppm": 600000,
+            "quorum_ppm": 500000
+          },
+          "USERS": {
+            "approval_ppm": 600000,
+            "quorum_ppm": 500000
+          }
+        },
+        "required_recusal_conflicts": [
+          "OPERATOR_AFFILIATION",
+          "DIRECT_FINANCIAL_INTEREST"
+        ]
+      },
+      "STEWARD_SEAT_SALE": {
+        "decision_class": "CONSTITUTIONAL",
+        "emergency_required": false,
+        "enforcer_required": true,
+        "prohibited": true,
+        "required_chambers": {
+          "GUARDIAN": {
+            "approval_ppm": 1000000,
+            "quorum_ppm": 1000000
+          },
+          "PUBLIC": {
+            "approval_ppm": 900000,
+            "quorum_ppm": 750000
+          },
+          "USERS": {
+            "approval_ppm": 900000,
+            "quorum_ppm": 750000
+          }
+        },
+        "required_recusal_conflicts": [
+          "DIRECT_FINANCIAL_INTEREST"
+        ]
+      }
+    },
+    "chambers": [
+      "USERS",
+      "WORKERS",
+      "PUBLIC",
+      "GUARDIAN"
+    ],
+    "conflict_codes": [
+      "OPERATOR_AFFILIATION",
+      "INVESTOR_COMPENSATION",
+      "RELATED_PARTY_BENEFICIARY",
+      "DIRECT_FINANCIAL_INTEREST"
+    ],
+    "emergency_authority_ref": "authority:emergency-board",
+    "enforcer_ref": "enforcer:public-interest-guardian",
+    "max_vote_count": 1000000,
+    "profile_version": "mycelix-stewardship-decision-gate-v1",
+    "project_id": "fiber:jhb:test-001"
+  },
+  "tally_profile": {
+    "designated_registry_epoch": 7,
+    "eligibility_registry_id": "registry:steward-eligibility-v1",
+    "governance_profile_sha256": "945b558049d7570cd47b52d7d822b2dff142a46b3d5fa117ed24dadbcd1059cb",
+    "max_participants": 1000,
+    "profile_version": "mycelix-chamber-tally-v1",
+    "project_id": "fiber:jhb:test-001",
+    "recusal_semantics": "EXCLUDE_FROM_ELIGIBLE_AND_TALLY"
+  }
+}
