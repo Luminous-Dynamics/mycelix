@@ -1036,12 +1036,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "mycelix-business-core"
+version = "0.1.0"
+
+[[package]]
 name = "mycelix-finance-exact"
 version = "0.1.0"
 dependencies = [
  "proptest",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "mycelix-finance-settlement"
+version = "0.2.0"
+dependencies = [
+ "mycelix-business-core",
+ "mycelix-finance-exact",
+ "serde_json",
+ "sha2",
 ]
 
 [[package]]
