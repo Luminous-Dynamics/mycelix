@@ -1,0 +1,75 @@
+{
+  "profile": "mycelix-lex-net-semantic-translation-v1",
+  "qualified_parent_head": "4dadc07eecf8eab67d50d8526dd7e6d3015de9a7",
+  "governing_theorem": "syntactic transform != semantic equivalence != factual truth != legal equivalence != recognition != authority equivalence",
+  "relations": [
+    "Lossless",
+    "RepresentationOnly",
+    "Narrowing",
+    "Widening",
+    "Aggregation",
+    "Decomposition",
+    "Derived",
+    "Dropped",
+    "Partial",
+    "Ambiguous",
+    "ConflictPreserving",
+    "Unsupported"
+  ],
+  "dispositions": [
+    "Translated",
+    "Refused",
+    "Indeterminate"
+  ],
+  "invariants": [
+    {"id": "ST-001", "name": "unknown-is-not-false"},
+    {"id": "ST-002", "name": "syntax-validity-is-not-semantic-equivalence"},
+    {"id": "ST-003", "name": "round-trip-is-representation-evidence-only"},
+    {"id": "ST-004", "name": "contextual-dimensions-preserved-or-disclosed"},
+    {"id": "ST-005", "name": "narrowing-and-widening-differ"},
+    {"id": "ST-006", "name": "many-to-one-and-one-to-many-explicit"},
+    {"id": "ST-007", "name": "derivation-requires-provenance"},
+    {"id": "ST-008", "name": "ambiguity-and-conflicts-survive"},
+    {"id": "ST-009", "name": "profile-and-mapping-versions-are-exact"},
+    {"id": "ST-010", "name": "target-use-policy-gates-loss"},
+    {"id": "ST-011", "name": "translation-grants-no-stronger-status"},
+    {"id": "ST-012", "name": "evaluator-is-pure-over-frozen-inputs"}
+  ],
+  "reference_mapping": {
+    "mapping_id": "synthetic-crosswalk",
+    "mapping_version": "1.0.0",
+    "mapping_commitment": "sha256:synthetic-lex-net-017-v1"
+  },
+  "fixtures": [
+    {"id":"lossless-identity","fact":"identity","allowed_relations":["Lossless"],"expected":{"relation":"Lossless","disposition":"Translated","reason":"relation-permitted"}},
+    {"id":"representation-only-exact-unit-normalization","fact":"representation_only","allowed_relations":["RepresentationOnly"],"expected":{"relation":"RepresentationOnly","disposition":"Translated","reason":"relation-permitted"}},
+    {"id":"narrowing-explicitly-permitted","fact":"narrowing","allowed_relations":["Narrowing"],"expected":{"relation":"Narrowing","disposition":"Translated","reason":"relation-permitted"}},
+    {"id":"widening-not-permitted","fact":"widening","allowed_relations":["Lossless","RepresentationOnly"],"expected":{"relation":"Widening","disposition":"Refused","reason":"relation-not-permitted-for-target-use"}},
+    {"id":"aggregation-explicitly-permitted","fact":"aggregation","allowed_relations":["Aggregation"],"expected":{"relation":"Aggregation","disposition":"Translated","reason":"relation-permitted"}},
+    {"id":"decomposition-explicitly-permitted","fact":"decomposition","allowed_relations":["Decomposition"],"expected":{"relation":"Decomposition","disposition":"Translated","reason":"relation-permitted"}},
+    {"id":"derived-with-qualified-rule","fact":"derived","mapping_qualified":true,"derivation_bound":true,"allowed_relations":["Derived"],"expected":{"relation":"Derived","disposition":"Translated","reason":"relation-permitted"}},
+    {"id":"dropped-context-refused","fact":"dropped","hard_violation":"context-dropped","allowed_relations":["Dropped"],"expected":{"relation":"Dropped","disposition":"Refused","reason":"hard-semantic-invariant-violation"}},
+    {"id":"partial-explicitly-permitted","fact":"partial","allowed_relations":["Partial"],"expected":{"relation":"Partial","disposition":"Translated","reason":"relation-permitted"}},
+    {"id":"ambiguous-mapping","fact":"ambiguous","allowed_relations":["Ambiguous"],"expected":{"relation":"Ambiguous","disposition":"Indeterminate","reason":"semantic-relation-ambiguous"}},
+    {"id":"conflict-preserved","fact":"conflict_preserving","allowed_relations":["ConflictPreserving"],"expected":{"relation":"ConflictPreserving","disposition":"Translated","reason":"relation-permitted"}},
+    {"id":"unsupported-profile-version","fact":"unsupported","allowed_relations":["Unsupported"],"expected":{"relation":"Unsupported","disposition":"Refused","reason":"profile-or-mapping-unsupported"}},
+    {"id":"unknown-collapsed-to-false","fact":"widening","hard_violation":"unknown-collapsed","allowed_relations":["Widening"],"expected":{"relation":"Widening","disposition":"Refused","reason":"hard-semantic-invariant-violation"}},
+    {"id":"timezone-dropped","fact":"dropped","hard_violation":"timezone-dropped","allowed_relations":["Dropped"],"expected":{"relation":"Dropped","disposition":"Refused","reason":"hard-semantic-invariant-violation"}},
+    {"id":"identifier-scheme-dropped","fact":"dropped","hard_violation":"identifier-scheme-dropped","allowed_relations":["Dropped"],"expected":{"relation":"Dropped","disposition":"Refused","reason":"hard-semantic-invariant-violation"}},
+    {"id":"reservation-dropped","fact":"dropped","hard_violation":"reservation-dropped","allowed_relations":["Dropped"],"expected":{"relation":"Dropped","disposition":"Refused","reason":"hard-semantic-invariant-violation"}},
+    {"id":"ai-proposal-unqualified","fact":"derived","mapping_qualified":false,"derivation_bound":false,"allowed_relations":["Derived"],"expected":{"relation":"Derived","disposition":"Indeterminate","reason":"mapping-qualification-unestablished"}},
+    {"id":"roundtrip-equal-state-collapse","fact":"ambiguous","round_trip_equal":true,"allowed_relations":["Lossless","RepresentationOnly"],"expected":{"relation":"Ambiguous","disposition":"Indeterminate","reason":"semantic-relation-ambiguous"}}
+  ],
+  "mandatory_nonclaims": [
+    "factual truth of source claims",
+    "semantic equivalence beyond the exact frozen relation",
+    "legal equivalence",
+    "regulatory acceptability or compliance",
+    "treaty or convention applicability",
+    "local recognition",
+    "local authority or an AuthorityGrant",
+    "a capability lease",
+    "external-effect authority",
+    "production readiness"
+  ]
+}
