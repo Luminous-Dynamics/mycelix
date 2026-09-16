@@ -25,6 +25,7 @@ jobs:
       bridge: ${{ steps.filter.outputs.bridge }}
       sdk: ${{ steps.filter.outputs.sdk }}
       prism: ${{ steps.filter.outputs.prism }}
+      assurance: ${{ steps.filter.outputs.assurance }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -62,6 +63,10 @@ jobs:
               - 'mycelix-workspace/sdk-ts/**'
             prism:
               - 'mycelix-workspace/mycelix-prism/**'
+            assurance:
+              - 'crates/mycelix-assurance-*/**'
+              - 'assurance/**'
+              - '.github/workflows/ci.yml'
 
   # Format check (always runs)
   format:
@@ -318,6 +323,40 @@ jobs:
       - name: Test bridge-entry-types
         run: cd crates/mycelix-bridge-entry-types && cargo test --workspace
 
+  test-assurance:
+    needs: changes
+    if: needs.changes.outputs.assurance == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      RUSTUP_TOOLCHAIN: 1.98.1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned assurance toolchain
+        run: rustup toolchain install 1.98.1 --profile minimal --component rustfmt --component clippy
+      - name: Verify ASSURE-V1 specification root and registries
+        run: python3 assurance/spec/v1/check_spec.py
+      - name: Verify ASSURE-002A dependency boundary
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('crates/mycelix-assurance-core')
+          manifest = tomllib.loads((root / 'Cargo.toml').read_text())
+          assert manifest.get('dependencies') == {}, '002A must remain dependency-free'
+          assert manifest.get('features') == {'default': []}, '002A default feature set must be empty'
+          assert not (root / 'build.rs').exists(), '002A must not have build.rs'
+          PY
+      - name: Check assurance formatting
+        run: cd crates/mycelix-assurance-core && cargo fmt --all --check
+      - name: Check assurance crate
+        run: cd crates/mycelix-assurance-core && cargo check --locked --all-targets
+      - name: Test assurance crate
+        run: cd crates/mycelix-assurance-core && cargo test --locked --all-targets
+      - name: Clippy assurance crate
+        run: cd crates/mycelix-assurance-core && cargo clippy --locked --all-targets -- -D warnings
+
   test-sdk:
     needs: changes
     if: needs.changes.outputs.sdk == 'true' || github.event_name == 'push'
@@ -410,6 +449,7 @@ jobs:
       - test-personal
       - test-attribution
       - test-bridge
+      - test-assurance
       - test-sdk
       - test-prism
     runs-on: ubuntu-latest
@@ -429,11 +469,12 @@ jobs:
           echo "Personal: ${{ needs.test-personal.result }}"
           echo "Attribution: ${{ needs.test-attribution.result }}"
           echo "Bridge: ${{ needs.test-bridge.result }}"
+          echo "Assurance: ${{ needs.test-assurance.result }}"
           echo "SDK: ${{ needs.test-sdk.result }}"
           echo "Prism: ${{ needs.test-prism.result }}"
           if [ "${{ needs.format.result }}" = "failure" ]; then exit 1; fi
           # Skipped jobs are OK (path filter didn't match)
-          for result in "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
+          for result in "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-assurance.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
             if [ "$result" = "failure" ]; then exit 1; fi
           done
           echo "All checks passed!"
