@@ -1,0 +1,199 @@
+{
+  "schema": "lex-net-018-manifest-v1",
+  "tranche": "LEX-NET-018",
+  "issue": 1113,
+  "qualified_parent": "d5040517f7787541df6ebf9c33805e9a68df5bec",
+  "governing_theorem": "received foreign evidence != local canonical fact != locally recognized evidence != local authority",
+  "dispositions": [
+    "Quarantined",
+    "PromotedRecognizedProjection",
+    "PromotionRejected",
+    "PromotionIndeterminate",
+    "PromotionUnsupported"
+  ],
+  "required_nonclaims": [
+    "factual truth",
+    "legal validity",
+    "local authority",
+    "capability issuance",
+    "external-effect authority",
+    "production security"
+  ],
+  "exact_changed_paths": [
+    ".github/workflows/lex-net-018.yml",
+    "docs/lex-net/LEX_NET_FOREIGN_EVIDENCE_QUARANTINE_V1.md",
+    "docs/lex-net/lex_net_018_manifest.json",
+    "scripts/validate_lex_net_018.py"
+  ],
+  "fixtures": [
+    {
+      "id": "raw_foreign_stays_quarantined",
+      "input": {
+        "source_commitment": "src-a",
+        "quarantine_state": "ReceivedUnverified",
+        "recognition_disposition": null,
+        "purpose": "customs",
+        "requested_purpose": "customs",
+        "recognized_claims": [],
+        "source_claims": {"org_name": "ACME"}
+      },
+      "expect": {"disposition": "Quarantined", "projection": {}}
+    },
+    {
+      "id": "recognized_subset_only",
+      "input": {
+        "source_commitment": "src-b",
+        "quarantine_state": "RecognitionPending",
+        "recognition_disposition": "RecognizedEvidence",
+        "recognition_source_commitment": "src-b",
+        "purpose": "customs",
+        "requested_purpose": "customs",
+        "recognized_claims": ["org_name", "registration_status"],
+        "source_claims": {"org_name": "ACME", "registration_status": "active", "foreign_admin_capability": true}
+      },
+      "expect": {"disposition": "PromotedRecognizedProjection", "projection": {"org_name": "ACME", "registration_status": "active"}}
+    },
+    {
+      "id": "authority_field_not_promoted",
+      "input": {
+        "source_commitment": "src-c",
+        "quarantine_state": "RecognitionPending",
+        "recognition_disposition": "RecognizedEvidence",
+        "recognition_source_commitment": "src-c",
+        "purpose": "registry_lookup",
+        "requested_purpose": "registry_lookup",
+        "recognized_claims": ["org_name"],
+        "source_claims": {"org_name": "Example Org", "authority": "administrator"}
+      },
+      "expect": {"disposition": "PromotedRecognizedProjection", "projection": {"org_name": "Example Org"}}
+    },
+    {
+      "id": "purpose_replay_rejected",
+      "input": {
+        "source_commitment": "src-d",
+        "quarantine_state": "RecognitionPending",
+        "recognition_disposition": "RecognizedEvidence",
+        "recognition_source_commitment": "src-d",
+        "purpose": "customs",
+        "requested_purpose": "payment",
+        "recognized_claims": ["org_name"],
+        "source_claims": {"org_name": "ACME"}
+      },
+      "expect": {"disposition": "PromotionRejected", "projection": {}}
+    },
+    {
+      "id": "source_mismatch_rejected",
+      "input": {
+        "source_commitment": "src-e",
+        "quarantine_state": "RecognitionPending",
+        "recognition_disposition": "RecognizedEvidence",
+        "recognition_source_commitment": "src-other",
+        "purpose": "customs",
+        "requested_purpose": "customs",
+        "recognized_claims": ["org_name"],
+        "source_claims": {"org_name": "ACME"}
+      },
+      "expect": {"disposition": "PromotionRejected", "projection": {}}
+    },
+    {
+      "id": "translation_commitment_mismatch",
+      "input": {
+        "source_commitment": "src-f",
+        "quarantine_state": "TranslatedWithLossProfile",
+        "recognition_disposition": "RecognizedEvidence",
+        "recognition_source_commitment": "src-f",
+        "purpose": "customs",
+        "requested_purpose": "customs",
+        "recognized_claims": ["amount"],
+        "source_claims": {"amount": 10},
+        "translation_receipt_commitment": "tr-1",
+        "expected_translation_receipt_commitment": "tr-2"
+      },
+      "expect": {"disposition": "PromotionIndeterminate", "projection": {}}
+    },
+    {
+      "id": "namespace_collision_does_not_promote_authority",
+      "input": {
+        "source_commitment": "src-g",
+        "quarantine_state": "RecognitionPending",
+        "recognition_disposition": "RecognizedEvidence",
+        "recognition_source_commitment": "src-g",
+        "purpose": "identity_display",
+        "requested_purpose": "identity_display",
+        "recognized_claims": ["foreign_id"],
+        "source_claims": {"foreign_id": "admin", "local_namespace_collision": true}
+      },
+      "expect": {"disposition": "PromotedRecognizedProjection", "projection": {"foreign_id": "admin"}}
+    },
+    {
+      "id": "cache_copy_preserves_foreign_origin",
+      "input": {
+        "source_commitment": "src-h",
+        "quarantine_state": "VerifiedOrigin",
+        "recognition_disposition": null,
+        "purpose": "audit",
+        "requested_purpose": "audit",
+        "recognized_claims": [],
+        "source_claims": {"record": "cached"},
+        "copied_through_cache": true
+      },
+      "expect": {"disposition": "Quarantined", "projection": {}}
+    },
+    {
+      "id": "revoked_recognition_blocks_future_promotion",
+      "input": {
+        "source_commitment": "src-i",
+        "quarantine_state": "RecognitionExpiredOrRevoked",
+        "recognition_disposition": "RecognizedEvidence",
+        "recognition_source_commitment": "src-i",
+        "purpose": "customs",
+        "requested_purpose": "customs",
+        "recognized_claims": ["org_name"],
+        "source_claims": {"org_name": "ACME"}
+      },
+      "expect": {"disposition": "PromotionRejected", "projection": {}}
+    },
+    {
+      "id": "updated_source_is_new_lineage",
+      "input": {
+        "source_commitment": "src-j-v2",
+        "predecessor_source_commitment": "src-j-v1",
+        "quarantine_state": "VerifiedOrigin",
+        "recognition_disposition": null,
+        "purpose": "audit",
+        "requested_purpose": "audit",
+        "recognized_claims": [],
+        "source_claims": {"version": 2}
+      },
+      "expect": {"disposition": "Quarantined", "projection": {}}
+    },
+    {
+      "id": "unrelated_index_exposure_forbidden",
+      "input": {
+        "source_commitment": "src-k",
+        "quarantine_state": "VerifiedOrigin",
+        "recognition_disposition": null,
+        "purpose": "customs",
+        "requested_purpose": "customs",
+        "recognized_claims": [],
+        "source_claims": {"passport": "secret"},
+        "attempt_unrelated_authoritative_index": true
+      },
+      "expect": {"disposition": "PromotionRejected", "projection": {}}
+    },
+    {
+      "id": "positive_projection_never_grants_authority",
+      "input": {
+        "source_commitment": "src-l",
+        "quarantine_state": "RecognitionPending",
+        "recognition_disposition": "RecognizedEvidence",
+        "recognition_source_commitment": "src-l",
+        "purpose": "customs",
+        "requested_purpose": "customs",
+        "recognized_claims": ["org_name"],
+        "source_claims": {"org_name": "ACME"}
+      },
+      "expect": {"disposition": "PromotedRecognizedProjection", "projection": {"org_name": "ACME"}, "grants_local_authority": false, "grants_external_effect_authority": false}
+    }
+  ]
+}
