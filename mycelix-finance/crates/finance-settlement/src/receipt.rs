@@ -16,8 +16,7 @@ use crate::qualify::{
     qualify_settlement,
 };
 
-const INVALIDATION_RECEIPT_DOMAIN: &[u8] =
-    b"MYCELIX_FINANCE_SETTLEMENT_INVALIDATION_RECEIPT_V1\0";
+const INVALIDATION_RECEIPT_DOMAIN: &[u8] = b"MYCELIX_FINANCE_SETTLEMENT_INVALIDATION_RECEIPT_V1\0";
 
 /// Failure while constructing an audit-complete settlement qualification receipt.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -75,8 +74,7 @@ pub fn qualify_settlement_with_receipt(
     context: &SettlementEvaluationContext,
 ) -> Result<QualifiedSettlementReceipt, SettlementReceiptError> {
     let settlement = qualify_settlement(subject, profile, observations, context)?;
-    let selected_observation_commitments =
-        selected_current_observation_commitments(observations)?;
+    let selected_observation_commitments = selected_current_observation_commitments(observations)?;
     let reconstructed = selected_evidence_frontier_commitment(
         subject,
         profile,
@@ -200,10 +198,7 @@ pub fn canonical_settlement_invalidation_receipt_bytes(
     push_reference(&mut out, invalidation.operation_id())?;
     push_u64(&mut out, invalidation.prior_revision());
     push_reference(&mut out, invalidation.invalidating_observation())?;
-    push_digest(
-        &mut out,
-        invalidation.invalidating_observation_commitment(),
-    );
+    push_digest(&mut out, invalidation.invalidating_observation_commitment());
     push_digest(&mut out, evaluation_context_commitment);
     push_u8(&mut out, evaluation_context_class.canonical_tag());
     push_u64(&mut out, invalidation.invalidated_at_unix_ms());

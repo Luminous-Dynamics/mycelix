@@ -4,8 +4,8 @@ use mycelix_business_core::{Digest32, ExecutionAttemptRef, ReferenceId};
 use sha2::{Digest, Sha256};
 
 use crate::{
-    FinalityEvidence, FinalityProfile, SettlementEvaluationContext,
-    SettlementObservation, SettlementSubject,
+    FinalityEvidence, FinalityProfile, SettlementEvaluationContext, SettlementObservation,
+    SettlementSubject,
 };
 
 pub const SETTLEMENT_COMMITMENT_PROFILE_REVISION: u16 = 1;
@@ -13,8 +13,7 @@ pub const SETTLEMENT_COMMITMENT_PROFILE_REVISION: u16 = 1;
 const PROFILE_DOMAIN: &[u8] = b"MYCELIX_FINANCE_SETTLEMENT_FINALITY_PROFILE_V1\0";
 const EVIDENCE_DOMAIN: &[u8] = b"MYCELIX_FINANCE_SETTLEMENT_EVIDENCE_V1\0";
 const OBSERVATION_DOMAIN: &[u8] = b"MYCELIX_FINANCE_SETTLEMENT_OBSERVATION_V1\0";
-const EVALUATION_CONTEXT_DOMAIN: &[u8] =
-    b"MYCELIX_FINANCE_SETTLEMENT_EVALUATION_CONTEXT_V1\0";
+const EVALUATION_CONTEXT_DOMAIN: &[u8] = b"MYCELIX_FINANCE_SETTLEMENT_EVALUATION_CONTEXT_V1\0";
 const FRONTIER_DOMAIN: &[u8] = b"MYCELIX_FINANCE_SETTLEMENT_FRONTIER_V1\0";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
