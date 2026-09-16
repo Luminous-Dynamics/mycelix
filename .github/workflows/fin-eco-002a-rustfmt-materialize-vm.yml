@@ -1,0 +1,109 @@
+name: FIN-ECO-002A Rustfmt Materialization VM
+
+on:
+  pull_request:
+    branches:
+      - feat/fin-eco-002a-receipt-completeness-r2
+    paths:
+      - '.github/workflows/fin-eco-002a-rustfmt-materialize-vm.yml'
+
+permissions:
+  contents: write
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  EXPECTED_PARENT_SHA: '3cf6dd52fbb34fd5f5d4f2f3ea14b6edd7e66cac'
+  WORKFLOW: '.github/workflows/fin-eco-002a-rustfmt-materialize-vm.yml'
+
+jobs:
+  rustfmt-materialize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact formatter head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+
+      - name: Prove formatter-only child
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT_SHA"
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PARENT_SHA" HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$WORKFLOW"
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Install pinned rustfmt
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt
+
+      - name: Materialize exact Rust 1.96 formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustfmt --version
+          files=(
+            mycelix-finance/crates/finance-settlement/src/lib.rs
+            mycelix-finance/crates/finance-settlement/src/canonical.rs
+            mycelix-finance/crates/finance-settlement/src/model.rs
+            mycelix-finance/crates/finance-settlement/src/qualify.rs
+            mycelix-finance/crates/finance-settlement/src/receipt.rs
+            mycelix-finance/crates/finance-settlement/src/receipt_tests.rs
+            mycelix-finance/crates/finance-settlement/src/receipt_vector_tests.rs
+            mycelix-finance/crates/finance-settlement/src/tests.rs
+          )
+          rustfmt --edition 2024 "${files[@]}"
+
+          mapfile -t dirty < <(git status --porcelain=v1 --untracked-files=no | sed 's/^...//')
+          test "${#dirty[@]}" -gt 0
+          for path in "${dirty[@]}"; do
+            allowed=0
+            for candidate in "${files[@]}"; do
+              if [[ "$path" = "$candidate" ]]; then allowed=1; break; fi
+            done
+            test "$allowed" -eq 1 || { echo "unexpected rustfmt mutation: $path" >&2; exit 1; }
+          done
+
+          git diff --exit-code -- mycelix-finance/Cargo.toml mycelix-finance/Cargo.lock
+          git diff --exit-code -- mycelix-finance/crates/finance-settlement/CANONICAL_FORMAT.md
+          git diff --exit-code -- mycelix-finance/crates/finance-settlement/INVALIDATION_RECEIPT_FORMAT.md
+          git diff --exit-code -- mycelix-finance/crates/finance-settlement/test-vectors/settlement-v1.json
+          git diff --exit-code -- mycelix-finance/crates/finance-settlement/test-vectors/invalidation-receipt-v1.json
+          git diff --check
+
+      - name: Commit formatter-produced source bytes only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- \
+            mycelix-finance/crates/finance-settlement/src/lib.rs \
+            mycelix-finance/crates/finance-settlement/src/canonical.rs \
+            mycelix-finance/crates/finance-settlement/src/model.rs \
+            mycelix-finance/crates/finance-settlement/src/qualify.rs \
+            mycelix-finance/crates/finance-settlement/src/receipt.rs \
+            mycelix-finance/crates/finance-settlement/src/receipt_tests.rs \
+            mycelix-finance/crates/finance-settlement/src/receipt_vector_tests.rs \
+            mycelix-finance/crates/finance-settlement/src/tests.rs
+          test -n "$(git diff --cached --name-only)"
+          git diff --cached --check
+          git commit -m 'style(finance): materialize Rust 1.96 settlement formatting [skip ci]'
+          git push origin "HEAD:${GITHUB_HEAD_REF}"
+
+      - name: Emit formatter receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'rustfmt_materialization=PASS'
+          echo 'source_parent=3cf6dd52fbb34fd5f5d4f2f3ea14b6edd7e66cac'
+          echo 'runner=ubuntu-latest'
+          echo 'rustfmt=Rust 1.96.0 pinned component'
+          echo "formatted_head=$(git rev-parse HEAD)"
+          echo 'claim=only pinned-rustfmt-produced settlement Rust source bytes changed'
+          echo 'nonclaim=typecheck, tests, Clippy, vector semantics, settlement qualification, provider truth'
