@@ -1,0 +1,161 @@
+{
+  "decision": {
+    "action_code": "OPERATOR_RENEWAL",
+    "chamber_votes": {
+      "PUBLIC": {
+        "approval_count": 15,
+        "eligible_count": 20,
+        "participating_count": 18
+      },
+      "USERS": {
+        "approval_count": 60,
+        "eligible_count": 100,
+        "participating_count": 80
+      }
+    },
+    "conflicts": [
+      {
+        "actor_ref": "steward:user-07",
+        "conflict_code": "OPERATOR_AFFILIATION",
+        "counted_vote": false,
+        "disclosed": true,
+        "recused": true
+      }
+    ],
+    "decision_id": "decision-ordinary-001",
+    "declared_class": "ORDINARY",
+    "emergency": null,
+    "enforcer": null,
+    "evidence_ref": "evidence:decision-ordinary-001",
+    "profile_sha256": "945b558049d7570cd47b52d7d822b2dff142a46b3d5fa117ed24dadbcd1059cb",
+    "project_id": "fiber:jhb:test-001"
+  },
+  "profile": {
+    "actions": {
+      "ASSET_LOCK_REMOVAL": {
+        "decision_class": "CONSTITUTIONAL",
+        "emergency_required": false,
+        "enforcer_required": true,
+        "prohibited": true,
+        "required_chambers": {
+          "GUARDIAN": {
+            "approval_ppm": 1000000,
+            "quorum_ppm": 1000000
+          },
+          "PUBLIC": {
+            "approval_ppm": 900000,
+            "quorum_ppm": 750000
+          },
+          "USERS": {
+            "approval_ppm": 900000,
+            "quorum_ppm": 750000
+          }
+        },
+        "required_recusal_conflicts": [
+          "INVESTOR_COMPENSATION",
+          "DIRECT_FINANCIAL_INTEREST"
+        ]
+      },
+      "CONSTITUENCY_AMENDMENT": {
+        "decision_class": "CONSTITUTIONAL",
+        "emergency_required": false,
+        "enforcer_required": true,
+        "prohibited": false,
+        "required_chambers": {
+          "GUARDIAN": {
+            "approval_ppm": 800000,
+            "quorum_ppm": 750000
+          },
+          "PUBLIC": {
+            "approval_ppm": 750000,
+            "quorum_ppm": 600000
+          },
+          "USERS": {
+            "approval_ppm": 750000,
+            "quorum_ppm": 600000
+          }
+        },
+        "required_recusal_conflicts": [
+          "DIRECT_FINANCIAL_INTEREST"
+        ]
+      },
+      "EMERGENCY_SERVICE_REROUTE": {
+        "decision_class": "EMERGENCY",
+        "emergency_required": true,
+        "enforcer_required": false,
+        "prohibited": false,
+        "required_chambers": {
+          "GUARDIAN": {
+            "approval_ppm": 600000,
+            "quorum_ppm": 500000
+          },
+          "PUBLIC": {
+            "approval_ppm": 600000,
+            "quorum_ppm": 500000
+          }
+        },
+        "required_recusal_conflicts": []
+      },
+      "OPERATOR_RENEWAL": {
+        "decision_class": "ORDINARY",
+        "emergency_required": false,
+        "enforcer_required": false,
+        "prohibited": false,
+        "required_chambers": {
+          "PUBLIC": {
+            "approval_ppm": 600000,
+            "quorum_ppm": 500000
+          },
+          "USERS": {
+            "approval_ppm": 600000,
+            "quorum_ppm": 500000
+          }
+        },
+        "required_recusal_conflicts": [
+          "OPERATOR_AFFILIATION",
+          "DIRECT_FINANCIAL_INTEREST"
+        ]
+      },
+      "STEWARD_SEAT_SALE": {
+        "decision_class": "CONSTITUTIONAL",
+        "emergency_required": false,
+        "enforcer_required": true,
+        "prohibited": true,
+        "required_chambers": {
+          "GUARDIAN": {
+            "approval_ppm": 1000000,
+            "quorum_ppm": 1000000
+          },
+          "PUBLIC": {
+            "approval_ppm": 900000,
+            "quorum_ppm": 750000
+          },
+          "USERS": {
+            "approval_ppm": 900000,
+            "quorum_ppm": 750000
+          }
+        },
+        "required_recusal_conflicts": [
+          "DIRECT_FINANCIAL_INTEREST"
+        ]
+      }
+    },
+    "chambers": [
+      "USERS",
+      "WORKERS",
+      "PUBLIC",
+      "GUARDIAN"
+    ],
+    "conflict_codes": [
+      "OPERATOR_AFFILIATION",
+      "INVESTOR_COMPENSATION",
+      "RELATED_PARTY_BENEFICIARY",
+      "DIRECT_FINANCIAL_INTEREST"
+    ],
+    "emergency_authority_ref": "authority:emergency-board",
+    "enforcer_ref": "enforcer:public-interest-guardian",
+    "max_vote_count": 1000000,
+    "profile_version": "mycelix-stewardship-decision-gate-v1",
+    "project_id": "fiber:jhb:test-001"
+  }
+}
