@@ -1,0 +1,64 @@
+name: LEX-NET-018 Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'docs/lex-net/LEX_NET_FOREIGN_EVIDENCE_QUARANTINE_V1.md'
+      - 'docs/lex-net/lex_net_018_manifest.json'
+      - 'scripts/validate_lex_net_018.py'
+      - '.github/workflows/lex-net-018.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-slim
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Prove exact qualified parent and review surface
+        run: python3 scripts/validate_lex_net_018.py --scope
+
+      - name: Validate quarantine contract and golden corpus
+        run: python3 scripts/validate_lex_net_018.py --semantic
+
+      - name: Independent static non-escalation audit
+        shell: python
+        run: |
+          from pathlib import Path
+          import json
+
+          doc = Path('docs/lex-net/LEX_NET_FOREIGN_EVIDENCE_QUARANTINE_V1.md').read_text(encoding='utf-8').casefold()
+          manifest = json.loads(Path('docs/lex-net/lex_net_018_manifest.json').read_text(encoding='utf-8'))
+          script = Path('scripts/validate_lex_net_018.py').read_text(encoding='utf-8').casefold()
+
+          required = [
+              'foreign evidence stays foreign',
+              'grants_local_authority = false',
+              'grants_external_effect_authority = false',
+              'does not itself mint authority',
+          ]
+          for phrase in required:
+              if phrase not in doc:
+                  raise SystemExit(f'missing non-escalation phrase: {phrase}')
+
+          if 'trusted=true' in doc or 'trusted = true' in script:
+              raise SystemExit('generic trusted boolean is forbidden')
+          if 'requests.' in script or 'httpx' in script or 'urllib.request' in script or 'socket.' in script:
+              raise SystemExit('semantic/scope validator must not perform network I/O')
+          if len(manifest.get('fixtures', [])) != 12:
+              raise SystemExit('golden fixture census drift')
+
+          print('LEX-NET-018 independent static audit PASS')
+
+      - name: Immutable checkout postflight
+        run: |
+          python3 scripts/validate_lex_net_018.py --scope
+          test -z "$(git status --porcelain)"
+          git diff --exit-code
