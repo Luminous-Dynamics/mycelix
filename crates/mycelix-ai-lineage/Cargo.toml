@@ -1,0 +1,14 @@
+[package]
+name = "mycelix-ai-lineage"
+version = "0.1.0"
+edition = "2024"
+description = "Authority-neutral artificial model, lineage, instance, and checkpoint semantics for Mycelix AMSAP"
+license = "AGPL-3.0-or-later"
+authors = ["Luminous Dynamics <contact@luminousdynamics.org>"]
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+
+[lib]
+name = "mycelix_ai_lineage"
+path = "src/lib.rs"
+
+[dependencies]
