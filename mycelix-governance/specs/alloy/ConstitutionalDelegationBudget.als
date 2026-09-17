@@ -245,33 +245,40 @@ pred SameBudgetNameCanStillDuplicateLocalAllowance {
     a.id = b.id and some (a.locallyAvailable & b.locallyAvailable)
 }
 
-run NontrivialDelegationAndBudget for 8 Capability, 8 CapId, 5 HolderClass, 6 Power,
+/*
+Every command has an explicit overall scope. Without the leading `for 4 but`,
+Alloy 6.2.0 requires scopes for every unrelated top-level signature and refuses
+to solve the command before SAT search begins. The specific scopes below remain
+the evidence-bearing bounds; the overall 4 supplies bounded defaults only for
+otherwise-unmentioned signatures.
+*/
+run NontrivialDelegationAndBudget for 4 but 8 Capability, 8 CapId, 5 HolderClass, 6 Power,
   exactly 5 Scope, exactly 5 Time, exactly 5 Depth,
   3 RootBudget, 8 Allocation, 8 FinalizedUse, 10 UseSlot, 3 BudgetId,
-  3 RootAuthorization, 3 FinalityDomain expect 1
+  3 RootAuthorization, 3 FinalityDomain, 4 WeakLedger expect 1
 
-run SameBudgetNameCanStillDuplicateLocalAllowance for 5 WeakLedger, 4 BudgetId, 5 UseSlot expect 1
+run SameBudgetNameCanStillDuplicateLocalAllowance for 4 but 5 WeakLedger, 4 BudgetId, 5 UseSlot expect 1
 
-check DelegationNeverChangesPower for 10 Capability, 10 CapId, 6 HolderClass, 6 Power,
+check DelegationNeverChangesPower for 4 but 10 Capability, 10 CapId, 6 HolderClass, 6 Power,
   exactly 5 Scope, exactly 5 Time, exactly 5 Depth expect 0
-check DelegationNeverBroadensScope for 10 Capability, 10 CapId, 6 HolderClass, 6 Power,
+check DelegationNeverBroadensScope for 4 but 10 Capability, 10 CapId, 6 HolderClass, 6 Power,
   exactly 5 Scope, exactly 5 Time, exactly 5 Depth expect 0
-check DelegationNeverOutlivesParent for 10 Capability, 10 CapId, 6 HolderClass, 6 Power,
+check DelegationNeverOutlivesParent for 4 but 10 Capability, 10 CapId, 6 HolderClass, 6 Power,
   exactly 5 Scope, exactly 5 Time, exactly 5 Depth expect 0
-check DelegationDepthStrictlyDecreases for 10 Capability, 10 CapId, 6 HolderClass, 6 Power,
+check DelegationDepthStrictlyDecreases for 4 but 10 Capability, 10 CapId, 6 HolderClass, 6 Power,
   exactly 5 Scope, exactly 5 Time, exactly 5 Depth expect 0
-check NondelegablePowerCannotAppearBelowRoot for 10 Capability, 10 CapId, 6 HolderClass, 6 Power,
+check NondelegablePowerCannotAppearBelowRoot for 4 but 10 Capability, 10 CapId, 6 HolderClass, 6 Power,
   exactly 5 Scope, exactly 5 Time, exactly 5 Depth expect 0
-check AutomatedClassCannotReceiveCapability for 10 Capability, 10 CapId, 6 HolderClass, 6 Power,
+check AutomatedClassCannotReceiveCapability for 4 but 10 Capability, 10 CapId, 6 HolderClass, 6 Power,
   exactly 5 Scope, exactly 5 Time, exactly 5 Depth expect 0
 
-check EveryAllocationStaysInsideRootBudget for 5 RootBudget, 12 Allocation, 12 UseSlot,
+check EveryAllocationStaysInsideRootBudget for 4 but 5 RootBudget, 12 Allocation, 12 UseSlot,
   5 BudgetId, 5 RootAuthorization, 5 FinalityDomain expect 0
-check RedelegationCannotInventSlots for 5 RootBudget, 12 Allocation, 12 UseSlot,
+check RedelegationCannotInventSlots for 4 but 5 RootBudget, 12 Allocation, 12 UseSlot,
   5 BudgetId, 5 RootAuthorization, 5 FinalityDomain expect 0
-check SiblingsCannotDuplicateAllowance for 5 RootBudget, 12 Allocation, 12 UseSlot,
+check SiblingsCannotDuplicateAllowance for 4 but 5 RootBudget, 12 Allocation, 12 UseSlot,
   5 BudgetId, 5 RootAuthorization, 5 FinalityDomain expect 0
-check RootAllowanceCannotFinalizeTwice for 5 RootBudget, 12 Allocation, 12 FinalizedUse,
+check RootAllowanceCannotFinalizeTwice for 4 but 5 RootBudget, 12 Allocation, 12 FinalizedUse,
   12 UseSlot, 5 BudgetId, 5 RootAuthorization, 5 FinalityDomain expect 0
-check EveryFinalizedUseConsumesARootSlot for 5 RootBudget, 12 Allocation, 12 FinalizedUse,
+check EveryFinalizedUseConsumesARootSlot for 4 but 5 RootBudget, 12 Allocation, 12 FinalizedUse,
   12 UseSlot, 5 BudgetId, 5 RootAuthorization, 5 FinalityDomain expect 0
