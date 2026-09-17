@@ -41,10 +41,7 @@ pub struct ValidityInterval {
 
 impl ValidityInterval {
     /// Construct a validity interval, rejecting empty or reversed finite ranges.
-    pub const fn new(
-        valid_from: UnixMicros,
-        valid_until: ValidityEnd,
-    ) -> Result<Self, TimeError> {
+    pub const fn new(valid_from: UnixMicros, valid_until: ValidityEnd) -> Result<Self, TimeError> {
         if let ValidityEnd::At(end) = valid_until {
             if end.get() <= valid_from.get() {
                 return Err(TimeError::InvalidFiniteInterval);
@@ -86,11 +83,9 @@ mod tests {
 
     #[test]
     fn finite_intervals_are_half_open() {
-        let interval = ValidityInterval::new(
-            UnixMicros::new(10),
-            ValidityEnd::At(UnixMicros::new(20)),
-        )
-        .expect("valid interval");
+        let interval =
+            ValidityInterval::new(UnixMicros::new(10), ValidityEnd::At(UnixMicros::new(20)))
+                .expect("valid interval");
 
         assert!(interval.contains(UnixMicros::new(10)));
         assert!(interval.contains(UnixMicros::new(19)));
@@ -100,10 +95,7 @@ mod tests {
     #[test]
     fn finite_interval_rejects_nonpositive_width() {
         assert_eq!(
-            ValidityInterval::new(
-                UnixMicros::new(10),
-                ValidityEnd::At(UnixMicros::new(10)),
-            ),
+            ValidityInterval::new(UnixMicros::new(10), ValidityEnd::At(UnixMicros::new(10)),),
             Err(TimeError::InvalidFiniteInterval)
         );
     }
