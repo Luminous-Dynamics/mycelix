@@ -1,0 +1,85 @@
+name: Constitutional Closure Coverage Qualification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'mycelix-governance/Cargo.toml'
+      - 'mycelix-governance/crates/constitutional-closure-coverage/**'
+      - 'mycelix-governance/docs/CONSTITUTIONAL_CLOSURE_COVERAGE*'
+      - 'mycelix-governance/crates/constitutional-temporal-provenance/src/lib.rs'
+      - 'mycelix-governance/tools/formal/qualify_closure_coverage.py'
+      - '.github/workflows/constitutional-closure-coverage-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: constitutional-closure-coverage-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NIXPKGS_REV: a50bf0c1b07873c1a53892292017041a8f0a1288
+  EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EXPECTED_SEMANTIC_HEAD: f5cded2e9c54ea638f56003e4636f290b7d3cb29
+  EXPECTED_PARENT_TEMPORAL_HEAD: 14b4b98eb167589ec29167d5615c25c216b728eb
+
+jobs:
+  qualify:
+    name: Rust exact-head fault-aware closure coverage
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout exact raw head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ env.EXPECTED_HEAD }}
+
+      - name: Bind evidence to raw head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_SEMANTIC_HEAD"
+          test "$(git rev-parse HEAD^^)" = "$EXPECTED_PARENT_TEMPORAL_HEAD"
+          rm -rf closure-coverage-evidence
+          mkdir -p closure-coverage-evidence
+          printf '%s\n' "$EXPECTED_HEAD" > closure-coverage-evidence/expected-head.txt
+          printf '%s\n' "$EXPECTED_SEMANTIC_HEAD" > closure-coverage-evidence/expected-semantic-head.txt
+          printf '%s\n' "$EXPECTED_PARENT_TEMPORAL_HEAD" > closure-coverage-evidence/expected-parent-temporal-head.txt
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Qualify closure coverage
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#python312" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#coreutils" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" \
+            --command bash -euo pipefail -c '
+              python3 mycelix-governance/tools/formal/qualify_closure_coverage.py \
+                --expected-head "$EXPECTED_HEAD" \
+                --expected-semantic-head "$EXPECTED_SEMANTIC_HEAD" \
+                --expected-parent-temporal-head "$EXPECTED_PARENT_TEMPORAL_HEAD" \
+                --out "$PWD/closure-coverage-evidence"
+            '
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: constitutional-closure-coverage-${{ env.EXPECTED_HEAD }}
+          path: closure-coverage-evidence
+          if-no-files-found: error
+          retention-days: 30
