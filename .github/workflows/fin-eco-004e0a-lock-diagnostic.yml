@@ -1,0 +1,247 @@
+name: FIN-ECO-004E0A Lock and Semantic Diagnostic
+
+on:
+  push:
+    branches:
+      - diag/fin-eco-004e0a-lock-v1
+    paths:
+      - '.github/workflows/fin-eco-004e0a-lock-diagnostic.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fin-eco-004e0a-lock-diagnostic-v1
+  cancel-in-progress: true
+
+env:
+  PRODUCT_SHA: 'd3f43fa6a1b862b83dc38bd56ac0e301e179f97a'
+  PRODUCT_PARENT: 'ede8dab9a4dcae6d05bfe43474829cb0c92f9dcf'
+  DIAGNOSTIC_WORKFLOW: '.github/workflows/fin-eco-004e0a-lock-diagnostic.yml'
+  WORKSPACE_MANIFEST: 'mycelix-finance/Cargo.toml'
+  CRATE_MANIFEST: 'mycelix-finance/crates/finance-capacity-core/Cargo.toml'
+  CRATE_SOURCE: 'mycelix-finance/crates/finance-capacity-core/src/lib.rs'
+  LOCKFILE: 'mycelix-finance/Cargo.lock'
+  EXPECTED_WORKSPACE_BLOB: '82bdc0f8d68a861b67d7478be58ac3fb86ed510a'
+  EXPECTED_CRATE_MANIFEST_BLOB: '40a55efa88789f2526ef8724ebb6f779c094d120'
+  EXPECTED_CRATE_SOURCE_BLOB: 'ab1ee65fa4206fff84224bcb978aee9fd3cee672'
+  EXPECTED_PRE_LOCK_BLOB: '9faed66c9ac6c1b34c9a086ce9ed7bca6e7357af'
+  EXPECTED_PRE_LOCK_SHA256: 'd73b43314930a9e7fab4e1633988db48a0982878d69c6c158d4f661b3365b1ad'
+  RUST_TOOLCHAIN: '1.96.0'
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout exact diagnostic subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 3
+          persist-credentials: false
+
+      - name: Prove diagnostic-only lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$PRODUCT_SHA"
+          test "$(git rev-parse HEAD^^)" = "$PRODUCT_PARENT"
+          mapfile -t diagnostic_changed < <(git diff --name-only "$PRODUCT_SHA" HEAD)
+          test "${#diagnostic_changed[@]}" -eq 1
+          test "${diagnostic_changed[0]}" = "$DIAGNOSTIC_WORKFLOW"
+
+          mapfile -t product_changed < <(git diff --name-only "$PRODUCT_PARENT" "$PRODUCT_SHA")
+          test "${#product_changed[@]}" -eq 3
+          printf '%s\n' "${product_changed[@]}" | sort > /tmp/product-paths
+          cat > /tmp/expected-product-paths <<'EOF'
+          mycelix-finance/Cargo.toml
+          mycelix-finance/crates/finance-capacity-core/Cargo.toml
+          mycelix-finance/crates/finance-capacity-core/src/lib.rs
+          EOF
+          diff -u /tmp/expected-product-paths /tmp/product-paths
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Bind exact product bytes and untouched dependency capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse "$PRODUCT_SHA:$WORKSPACE_MANIFEST")" = "$EXPECTED_WORKSPACE_BLOB"
+          test "$(git rev-parse "$PRODUCT_SHA:$CRATE_MANIFEST")" = "$EXPECTED_CRATE_MANIFEST_BLOB"
+          test "$(git rev-parse "$PRODUCT_SHA:$CRATE_SOURCE")" = "$EXPECTED_CRATE_SOURCE_BLOB"
+          test "$(git rev-parse "$PRODUCT_SHA:$LOCKFILE")" = "$EXPECTED_PRE_LOCK_BLOB"
+          test "$(sha256sum "$LOCKFILE" | awk '{print $1}')" = "$EXPECTED_PRE_LOCK_SHA256"
+
+      - name: Install pinned Rust 1.96 toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
+
+      - name: Capture toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc --version --verbose
+          cargo --version
+          test "$(rustc --version | awk '{print $2}')" = "$RUST_TOOLCHAIN"
+
+      - name: Independently reconstruct V1 canonical golden vector
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import struct
+
+          def u16(value): return struct.pack(">H", value)
+          def u32(value): return struct.pack(">I", value)
+          def u64(value): return struct.pack(">Q", value)
+          def text(value):
+              raw = value.encode("utf-8")
+              return u16(len(raw)) + raw
+          def c(byte): return bytes([byte]) * 32
+          def amount(units): return text("SAP") + u64(units)
+          def optional_u64(value):
+              return b"\x00" if value is None else b"\x01" + u64(value)
+          def optional_commitment(value):
+              return b"\x00" if value is None else b"\x01" + value
+          def digest(value): return hashlib.sha256(value).digest()
+
+          source = (
+              text("treasury")
+              + text("treasury-alpha")
+              + u64(1)
+              + text("SAP")
+              + c(1)
+          )
+          source_commitment = digest(b"mycelix/finance/capacity-source/v1\x00" + source)
+          allocation_id = digest(
+              b"mycelix/finance/capacity-allocation/v1\x00"
+              + source
+              + text("reservation-a")
+              + digest(b"reservation-a")
+              + amount(80)
+              + text("reservation-v1")
+              + u16(1)
+              + optional_u64(9_999_999)
+          )
+          reserved_transition = digest(
+              b"mycelix/finance/capacity-transition/v1\x00"
+              + allocation_id
+              + b"\x00"
+              + b"\x00"
+              + optional_commitment(None)
+          )
+          record = (
+              allocation_id
+              + digest(b"reservation-a")
+              + amount(80)
+              + b"\x00"
+              + reserved_transition
+              + optional_commitment(None)
+              + optional_u64(9_999_999)
+          )
+          projection = digest(
+              b"mycelix/finance/capacity-projection/v1\x00"
+              + u16(1)
+              + source
+              + amount(100)
+              + c(9)
+              + u64(123_456)
+              + u32(1)
+              + record
+              + amount(80)
+              + amount(0)
+              + amount(20)
+          )
+
+          expected = {
+              "source": "a5defdb1013c7ced8adaefb8ec2d71e906133ca2b29688e3f4303fec3eae8dbd",
+              "allocation": "9c7b87a20bcbc74911ab24f5767c28c75c91c8934ff5edc819fcd01ecb867022",
+              "transition": "b98ac47bbc6f133dc34d1264cc554e0c7820380a5e9f4fa67fdad0f5a1c1e956",
+              "projection": "4d67b75e7e199116cedc836c0620ceb82d7c1cf9e9bdd4b41a8d290360154ae1",
+          }
+          observed = {
+              "source": source_commitment.hex(),
+              "allocation": allocation_id.hex(),
+              "transition": reserved_transition.hex(),
+              "projection": projection.hex(),
+          }
+          assert observed == expected, (observed, expected)
+          for key, value in observed.items():
+              print(f"oracle_{key}={value}")
+          PY
+
+      - name: Let Cargo derive the exact dependency-capsule delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo metadata --manifest-path "$WORKSPACE_MANIFEST" --format-version 1 > /tmp/fin-eco-004e0a-metadata.json
+
+          mapfile -t changed < <(git diff --name-only)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$LOCKFILE"
+
+          read -r additions deletions path < <(git diff --numstat -- "$LOCKFILE")
+          test "$path" = "$LOCKFILE"
+          test "$additions" -gt 0
+          test "$deletions" -eq 0
+
+          post_sha="$(sha256sum "$LOCKFILE" | awk '{print $1}')"
+          post_blob="$(git hash-object "$LOCKFILE")"
+          test "$post_sha" != "$EXPECTED_PRE_LOCK_SHA256"
+          test "$post_blob" != "$EXPECTED_PRE_LOCK_BLOB"
+
+          printf 'pre_lock_sha256=%s\n' "$EXPECTED_PRE_LOCK_SHA256"
+          printf 'post_lock_sha256=%s\n' "$post_sha"
+          printf 'post_lock_git_blob=%s\n' "$post_blob"
+          printf 'lock_additions=%s\n' "$additions"
+          printf 'lock_deletions=%s\n' "$deletions"
+          echo '--- BEGIN CARGO-GENERATED LOCK DIFF ---'
+          git diff -- "$LOCKFILE"
+          echo '--- END CARGO-GENERATED LOCK DIFF ---'
+
+          grep -Fq 'name = "mycelix-finance-capacity-core"' "$LOCKFILE"
+          grep -Fq '"mycelix-finance-exact"' "$LOCKFILE"
+          grep -Fq '"sha2"' "$LOCKFILE"
+
+      - name: Rustfmt exact capacity product
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path "$CRATE_MANIFEST" -- --check
+
+      - name: Locked compile and tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path "$WORKSPACE_MANIFEST" -p mycelix-finance-capacity-core --all-targets --locked --no-run
+          cargo test --manifest-path "$WORKSPACE_MANIFEST" -p mycelix-finance-capacity-core --all-targets --locked
+
+      - name: Strict Clippy
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo clippy --manifest-path "$WORKSPACE_MANIFEST" -p mycelix-finance-capacity-core --all-targets --locked -- -D warnings
+
+      - name: Preserve diagnostic mutation boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t dirty < <(git status --porcelain=v1 --untracked-files=no)
+          test "${#dirty[@]}" -eq 1
+          test "${dirty[0]}" = ' M mycelix-finance/Cargo.lock'
+          test "$(git hash-object "$WORKSPACE_MANIFEST")" = "$EXPECTED_WORKSPACE_BLOB"
+          test "$(git hash-object "$CRATE_MANIFEST")" = "$EXPECTED_CRATE_MANIFEST_BLOB"
+          test "$(git hash-object "$CRATE_SOURCE")" = "$EXPECTED_CRATE_SOURCE_BLOB"
+
+          printf 'diagnostic_only=PASS\n'
+          printf 'repository_authority=READ_ONLY\n'
+          printf 'product_sha=%s\n' "$PRODUCT_SHA"
+          printf 'generated_lock_sha256=%s\n' "$(sha256sum "$LOCKFILE" | awk '{print $1}')"
+          printf 'generated_lock_git_blob=%s\n' "$(git hash-object "$LOCKFILE")"
+          printf 'nonclaim=product qualification, lock publication, runtime authority, Holochain completeness, Treasury spendability\n'
