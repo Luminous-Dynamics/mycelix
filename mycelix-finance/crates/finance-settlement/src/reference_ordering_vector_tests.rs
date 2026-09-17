@@ -42,7 +42,9 @@ fn reference_sets_sort_raw_utf8_before_length_encoding() {
     let profile_fixture = &fixture["profile"];
     let profile = FinalityProfile::new(
         reference(profile_fixture["id"].as_str().expect("profile id")),
-        profile_fixture["revision"].as_u64().expect("profile revision"),
+        profile_fixture["revision"]
+            .as_u64()
+            .expect("profile revision"),
         reference(profile_fixture["rail"].as_str().expect("rail")),
         reference(profile_fixture["network"].as_str().expect("network")),
         evidence_kinds,
