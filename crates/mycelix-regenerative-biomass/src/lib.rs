@@ -134,10 +134,9 @@ impl ReasonCode {
                 max: MAX_REASON_CODE_BYTES,
             });
         }
-        if !value
-            .bytes()
-            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'-' | b'_' | b'.'))
-        {
+        if !value.bytes().all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'-' | b'_' | b'.')
+        }) {
             return Err(BiomassError::InvalidReasonCode(value));
         }
         Ok(Self(value))
@@ -220,12 +219,9 @@ impl BiomassEvidenceBinding {
         &self,
         candidate: EvidenceCandidate<'a>,
     ) -> Result<&'a EnvironmentalObservation, BiomassError> {
-        let expectation = EvidenceExpectation::new(
-            &self.observation_id,
-            &self.phenomenon,
-            self.evidence_class,
-        )
-        .map_err(BiomassError::EvidenceAdmission)?;
+        let expectation =
+            EvidenceExpectation::new(&self.observation_id, &self.phenomenon, self.evidence_class)
+                .map_err(BiomassError::EvidenceAdmission)?;
         admit_pef_evidence(&expectation, candidate).map_err(BiomassError::EvidenceAdmission)
     }
 
@@ -824,9 +820,12 @@ impl ReservationCapacity {
     }
 }
 
-/// Immutable process-input reservation. This is not a consumption or execution record.
+/// Unvalidated request to reserve process-input capacity.
+///
+/// A request is not an accepted reservation. Exact scope, basis, duplicate-reference,
+/// and capacity checks are performed by [`evaluate_reservation_requests`].
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ProcessInputReservation {
+pub struct ReservationRequest {
     reservation_ref: ExactRef,
     lot_id: BiomassLotId,
     feedstock_assessment_ref: ExactRef,
@@ -835,8 +834,8 @@ pub struct ProcessInputReservation {
     quantity: BiomassQuantity,
 }
 
-impl ProcessInputReservation {
-    /// Construct a scoped positive reservation request.
+impl ReservationRequest {
+    /// Construct an unvalidated positive reservation request.
     pub fn new(
         reservation_ref: ExactRef,
         lot_id: BiomassLotId,
@@ -858,69 +857,147 @@ impl ProcessInputReservation {
         })
     }
 
-    /// Exact reservation reference.
+    /// Exact request reference.
     pub fn reservation_ref(&self) -> &ExactRef {
         &self.reservation_ref
     }
 
-    /// Exact reserved quantity.
+    /// Requested quantity.
     pub const fn quantity(&self) -> BiomassQuantity {
         self.quantity
     }
 }
 
-/// Pure result of evaluating reservations against one scoped capacity witness.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ReservationSummary {
+/// Evaluator-minted accepted reservation.
+///
+/// This type has no public constructor. It proves only that one request survived the
+/// exact software reservation checks for the evaluated batch. It is not consumption,
+/// process execution, or physical authority.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AcceptedReservation {
+    reservation_ref: ExactRef,
+    lot_id: BiomassLotId,
+    feedstock_assessment_ref: ExactRef,
+    state_snapshot_ref: ExactRef,
+    process_profile_ref: ExactRef,
+    quantity: BiomassQuantity,
+}
+
+impl AcceptedReservation {
+    fn from_request(request: &ReservationRequest) -> Self {
+        Self {
+            reservation_ref: request.reservation_ref.clone(),
+            lot_id: request.lot_id.clone(),
+            feedstock_assessment_ref: request.feedstock_assessment_ref.clone(),
+            state_snapshot_ref: request.state_snapshot_ref.clone(),
+            process_profile_ref: request.process_profile_ref.clone(),
+            quantity: request.quantity,
+        }
+    }
+
+    /// Exact accepted reservation reference.
+    pub fn reservation_ref(&self) -> &ExactRef {
+        &self.reservation_ref
+    }
+
+    /// Exact biomass lot scope.
+    pub fn lot_id(&self) -> &BiomassLotId {
+        &self.lot_id
+    }
+
+    /// Exact eligible feedstock assessment scope.
+    pub fn feedstock_assessment_ref(&self) -> &ExactRef {
+        &self.feedstock_assessment_ref
+    }
+
+    /// Exact biomass state snapshot scope.
+    pub fn state_snapshot_ref(&self) -> &ExactRef {
+        &self.state_snapshot_ref
+    }
+
+    /// Exact target process profile scope.
+    pub fn process_profile_ref(&self) -> &ExactRef {
+        &self.process_profile_ref
+    }
+
+    /// Accepted reservation quantity.
+    pub const fn quantity(&self) -> BiomassQuantity {
+        self.quantity
+    }
+}
+
+/// Atomic result of validating one reservation-request batch against one capacity witness.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReservationAcceptance {
+    accepted: Vec<AcceptedReservation>,
     reserved: BiomassQuantity,
     remaining: BiomassQuantity,
 }
 
-impl ReservationSummary {
-    /// Total accepted reservation quantity.
-    pub const fn reserved(self) -> BiomassQuantity {
+impl ReservationAcceptance {
+    /// Evaluator-minted accepted reservations. Empty is valid for an empty request batch.
+    pub fn accepted(&self) -> &[AcceptedReservation] {
+        &self.accepted
+    }
+
+    /// Total accepted quantity.
+    pub const fn reserved(&self) -> BiomassQuantity {
         self.reserved
     }
 
     /// Remaining unreserved capacity.
-    pub const fn remaining(self) -> BiomassQuantity {
+    pub const fn remaining(&self) -> BiomassQuantity {
         self.remaining
     }
 }
 
-/// Evaluate exact reservation arithmetic without performing any physical action.
-pub fn evaluate_reservations(
+/// Validate a complete request batch and atomically mint accepted reservations.
+///
+/// The function validates the entire batch before constructing any
+/// [`AcceptedReservation`] visible to the caller. A failed batch therefore returns no
+/// partially accepted reservation state.
+pub fn evaluate_reservation_requests(
     capacity: &ReservationCapacity,
-    reservations: &[ProcessInputReservation],
-) -> Result<ReservationSummary, BiomassError> {
+    requests: &[ReservationRequest],
+) -> Result<ReservationAcceptance, BiomassError> {
     let mut seen = BTreeSet::new();
     let mut reserved = BiomassQuantity::new(MassMg::new(0), capacity.maximum.basis);
-    for reservation in reservations {
-        if !seen.insert(reservation.reservation_ref.as_str()) {
+    for request in requests {
+        if !seen.insert(request.reservation_ref.as_str()) {
             return Err(BiomassError::DuplicateReservationReference(
-                reservation.reservation_ref.as_str().to_owned(),
+                request.reservation_ref.as_str().to_owned(),
             ));
         }
-        if reservation.lot_id != capacity.lot_id {
+        if request.lot_id != capacity.lot_id {
             return Err(BiomassError::ReservationScopeMismatch("lot_id"));
         }
-        if reservation.feedstock_assessment_ref != capacity.assessment_ref {
+        if request.feedstock_assessment_ref != capacity.assessment_ref {
             return Err(BiomassError::ReservationScopeMismatch("assessment_ref"));
         }
-        if reservation.state_snapshot_ref != capacity.state_snapshot_ref {
+        if request.state_snapshot_ref != capacity.state_snapshot_ref {
             return Err(BiomassError::ReservationScopeMismatch("state_snapshot_ref"));
         }
-        if reservation.process_profile_ref != capacity.process_profile_ref {
-            return Err(BiomassError::ReservationScopeMismatch("process_profile_ref"));
+        if request.process_profile_ref != capacity.process_profile_ref {
+            return Err(BiomassError::ReservationScopeMismatch(
+                "process_profile_ref",
+            ));
         }
-        require_same_basis(capacity.maximum.basis, reservation.quantity.basis)?;
-        reserved = reserved.checked_add(reservation.quantity)?;
+        require_same_basis(capacity.maximum.basis, request.quantity.basis)?;
+        reserved = reserved.checked_add(request.quantity)?;
         if reserved.mass > capacity.maximum.mass {
             return Err(BiomassError::ReservationOverbooked);
         }
     }
     let remaining = capacity.maximum.checked_sub(reserved)?;
-    Ok(ReservationSummary { reserved, remaining })
+    let accepted = requests
+        .iter()
+        .map(AcceptedReservation::from_request)
+        .collect();
+    Ok(ReservationAcceptance {
+        accepted,
+        reserved,
+        remaining,
+    })
 }
 
 /// Biomass core validation failures.
@@ -1019,24 +1096,30 @@ impl fmt::Display for BiomassError {
             Self::MassOverflow => f.write_str("biomass mass arithmetic overflow"),
             Self::MassUnderflow => f.write_str("biomass mass arithmetic underflow"),
             Self::MassBasisMismatch { expected, actual } => {
-                write!(f, "mass basis mismatch: expected {expected:?}, got {actual:?}")
+                write!(
+                    f,
+                    "mass basis mismatch: expected {expected:?}, got {actual:?}"
+                )
             }
             Self::EmptyReference(field) => write!(f, "{field} cannot be empty"),
-            Self::ReferenceTooLong {
-                field,
-                actual,
-                max,
-            } => write!(f, "{field} is {actual} bytes; maximum is {max}"),
+            Self::ReferenceTooLong { field, actual, max } => {
+                write!(f, "{field} is {actual} bytes; maximum is {max}")
+            }
             Self::EmptyReasonCode => f.write_str("reason code cannot be empty"),
             Self::ReasonCodeTooLong { actual, max } => {
                 write!(f, "reason code is {actual} bytes; maximum is {max}")
             }
             Self::InvalidReasonCode(code) => write!(f, "invalid reason code {code:?}"),
-            Self::EvidenceAdmission(error) => write!(f, "shared evidence admission failed: {error}"),
+            Self::EvidenceAdmission(error) => {
+                write!(f, "shared evidence admission failed: {error}")
+            }
             Self::DuplicateEvidenceBinding => f.write_str("duplicate exact evidence binding"),
             Self::MissingMassEvidence => f.write_str("mass assertion requires evidence bindings"),
             Self::MissingBasisMassEvidence(basis) => {
-                write!(f, "mass assertion lacks required evidence for basis {basis:?}")
+                write!(
+                    f,
+                    "mass assertion lacks required evidence for basis {basis:?}"
+                )
             }
             Self::MaterialPartitionDoesNotClose { .. } => {
                 f.write_str("material partition does not exactly close")
@@ -1110,7 +1193,9 @@ fn validate_reason_set(reasons: &[ReasonCode]) -> Result<(), BiomassError> {
     let mut seen = BTreeSet::new();
     for reason in reasons {
         if !seen.insert(reason.as_str()) {
-            return Err(BiomassError::DuplicateReasonCode(reason.as_str().to_owned()));
+            return Err(BiomassError::DuplicateReasonCode(
+                reason.as_str().to_owned(),
+            ));
         }
     }
     Ok(())
