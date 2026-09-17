@@ -379,7 +379,7 @@ jobs:
           cargo +"$PINNED_TOOLCHAIN" clippy --manifest-path "$CRATE_DIR/Cargo.toml" --all-targets --locked -- -D warnings
           rm -f "$CRATE_DIR/Cargo.lock"
           git diff --check
-          actual="$(git diff --name-only "$BASE_SHA" | sort)"
+          actual="$( { git diff --name-only "$BASE_SHA"; git ls-files --others --exclude-standard; } | sort -u)"
           expected="$(printf '%s\n' \
             '.github/workflows/regen-biomass-reservation-typestate.yml' \
             'crates/mycelix-regenerative-biomass/src/lib.rs' \
