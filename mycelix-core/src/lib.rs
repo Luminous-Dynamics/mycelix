@@ -12,6 +12,9 @@
 //! - **federated_learning**: Byzantine-resistant federated learning
 //! - **agents**: Agent management and discovery
 
+/// Constitutional interoperability primitives for exact protocol profiles.
+pub mod protocol_commons;
+
 /// Version of the Mycelix Core library
 pub const VERSION: &str = "0.1.0";
 
