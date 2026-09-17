@@ -1,0 +1,50 @@
+name: Mycelix Core Protocol Qualification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'mycelix-core/Cargo.toml'
+      - 'mycelix-core/src/lib.rs'
+      - 'mycelix-core/src/protocol.rs'
+      - 'mycelix-core/docs/03-architecture/PROTOCOL_COMMONS.md'
+      - '.github/workflows/proto-core.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-core/Cargo.toml'
+      - 'mycelix-core/src/lib.rs'
+      - 'mycelix-core/src/protocol.rs'
+      - 'mycelix-core/docs/03-architecture/PROTOCOL_COMMONS.md'
+      - '.github/workflows/proto-core.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-proto-core:
+    name: PROTO core exact-source qualification
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-core
+
+      - name: Rust formatting
+        run: cargo fmt --manifest-path mycelix-core/Cargo.toml --all -- --check
+
+      - name: Compile library
+        run: cargo check --manifest-path mycelix-core/Cargo.toml --lib
+
+      - name: Run focused PROTO tests
+        run: cargo test --manifest-path mycelix-core/Cargo.toml --lib protocol::tests
+
+      - name: Strict Clippy
+        run: cargo clippy --manifest-path mycelix-core/Cargo.toml --lib -- -D warnings
