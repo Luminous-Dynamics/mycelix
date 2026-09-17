@@ -10,11 +10,13 @@ Keep these claims distinct:
 
 1. **Formal artifact present** — a `.tla`, `.cfg`, or `.als` file exists and is reviewable.
 2. **Parser-valid** — the pinned formal tool parsed the exact file successfully.
-3. **Bounded model-check PASS** — the pinned checker searched the recorded finite state/scope and found the declared invariant/expectation outcomes.
-4. **Executable reference conformance** — Rust tests demonstrate selected concrete semantics corresponding to the formal abstraction.
-5. **Runtime refinement evidence** — production Holochain/runtime behavior has an explicit, qualified mapping to the checked formal model.
+3. **Bounded safety PASS** — the pinned checker searched the recorded finite state/scope and found no counterexample to the declared safety invariants.
+4. **Bounded reachability demonstrated** — the pinned checker found the specifically named expected witness state in the recorded finite bound.
+5. **Negative-control sensitivity demonstrated** — intentionally weakened temporary fixtures fail in the expected named way.
+6. **Executable reference conformance** — Rust tests demonstrate selected concrete semantics corresponding to the formal abstraction.
+7. **Runtime refinement evidence** — production Holochain/runtime behavior has an explicit, qualified mapping to the checked formal model.
 
-Never collapse a lower evidence class into a higher one.
+Never collapse a lower evidence class into a higher one. In particular, safety and reachability are separate claims: an invariant can pass vacuously when the important history is unreachable.
 
 ## Division of responsibility
 
@@ -24,21 +26,34 @@ Use TLA+ for temporal/concurrent questions:
 
 - competing consumption claims;
 - finality before side effect;
-- revocation ordering;
+- revocation effective order vs observation order;
 - late contradictory evidence;
 - integrity-fault halting;
 - dependency indeterminacy;
 - idempotent redelivery;
-- explicit safety vs liveness assumptions.
+- explicit safety vs reachability vs liveness assumptions.
 
-`ConstitutionalConsumptionV2.tla` uses a monotonic logical event clock. A later observation may carry an authenticated earlier revocation effective sequence, which models delayed evidence without allowing ordinary transitions to choose arbitrary earlier event times.
+`ConstitutionalConsumptionV2.tla` uses a monotonic logical event clock. A revocation records both its authenticated effective sequence and the later model event at which that evidence was observed. This models delayed evidence without allowing ordinary transitions to move backward in logical time.
 
-The two checked-in configurations are separate constitutional profiles:
+The two canonical safety configurations are separate constitutional profiles:
 
-- `ConstitutionalConsumptionV2.finality.cfg` — finality is the commit point;
+- `ConstitutionalConsumptionV2.finality.cfg` — finality is the constitutional commit point;
 - `ConstitutionalConsumptionV2.effect.cfg` — authority must remain valid until the effect.
 
-Both profiles include `RevocationCutoffConsistentWhenFaultFree`, an independent theorem rather than merely relying on the transition guard that implements the cutoff policy. When no integrity fault is active, every accepted commit point must remain consistent with all revocation evidence currently known. Late contradictory evidence is permitted only by moving the model into the explicit fault state.
+Both canonical profiles include `RevocationCutoffConsistentWhenFaultFree` and `RevocationObservationConsistent`. The former is an independent cutoff theorem rather than merely relying on the transition guard. The latter requires every observed revocation to have one recorded observation sequence at/after its authenticated effective sequence and no future observation timestamp.
+
+### Temporal non-vacuity
+
+Four dedicated TLA+ configurations establish bounded reachability by asserting the negation of a named witness and expecting TLC to violate that exact invariant:
+
+- `ConstitutionalConsumptionV2.reach-effect-cancel.cfg` — Effect mode can finalize, later learn an earlier-effective revocation without fault, and remain unapplied;
+- `ConstitutionalConsumptionV2.reach-finality-fault.cfg` — Finality mode can finalize then fault on later-observed earlier-effective revocation;
+- `ConstitutionalConsumptionV2.reach-finality-postcommit-effect.cfg` — Finality mode can observe a revocation effective after finality and still apply the already-committed effect;
+- `ConstitutionalConsumptionV2.reach-effect-posteffect-fault.cfg` — Effect mode can apply an effect then fault if later evidence proves a revocation effective at/before that effect.
+
+A reachability case passes only when the exact named `Never...` invariant is violated while the ordinary safety invariants in the same config remain intact up to that witness. An unrelated TLC failure is not reachability evidence.
+
+Reachability within `MaxSeq = 6` is still bounded evidence. It does not establish liveness, fairness, or eventual progress in production.
 
 ### Alloy
 
@@ -62,6 +77,13 @@ Alloy results are bounded. “No counterexample” means no counterexample was f
 ### Rust
 
 Rust remains the executable reference semantics for authority, envelopes, consumption, and later runtime adapters. Formal-model evidence does not automatically prove Rust behavior.
+
+The revocation cutoff mapping is especially explicit:
+
+- Rust `RevocationCutoff::Finality` ↔ TLA+ `Cutoff = "Finality"`;
+- Rust `RevocationCutoff::Effect` ↔ TLA+ `Cutoff = "Effect"`.
+
+The Rust reference model now measures contradiction against the selected commit point: accepted finality in Finality mode and an already-applied effect in Effect mode. The TLA+ witness profiles are designed to exercise both sides of that distinction.
 
 ### Runtime
 
@@ -90,8 +112,8 @@ Initial target tools:
 - Alloy 6.2.0 (`org.alloytools.alloy.dist.jar`), Java 17+, pinned by SHA-256;
 - Sat4j as the initial explicit Alloy solver baseline.
 
-Every receipt should record tool artifact hash/version, Java runtime, command line, worker/solver settings, exact model/config hashes, exact scope/config, output/log digest, Git head, and postflight immutability.
+Every receipt should record tool artifact hash/version, Java runtime, command line, worker/solver settings, exact model/config hashes, exact scope/config, output/log digest, raw Git head, and postflight immutability.
 
 ## Refinement/drift
 
-See MYC-CONST-003CR. Rust, TLA+, Alloy and later Holochain enforcement are multiple verification views of one constitutional meaning, not independent constitutions. New Rust authority variants or formal symbols require an explicit mapping or an explicit `out_of_model` decision before formal evidence is used to justify production behavior.
+See MYC-CONST-003CR. Rust, TLA+, Alloy and later Holochain enforcement are multiple verification views of one constitutional meaning, not independent constitutions. New Rust authority variants, temporal states, cutoff semantics, or formal symbols require an explicit mapping or an explicit `out_of_model` decision before formal evidence is used to justify production behavior.
