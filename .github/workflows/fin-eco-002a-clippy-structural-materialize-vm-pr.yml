@@ -1,0 +1,182 @@
+name: FIN-ECO-002A Structural Clippy Repair Materializer VM
+
+on:
+  pull_request:
+    branches:
+      - fix/fin-eco-002a-ordering-rustfmt-r1
+    paths:
+      - '.github/workflows/fin-eco-002a-clippy-structural-materialize-vm-pr.yml'
+
+permissions:
+  contents: write
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  EXPECTED_BASE_SHA: 'cecf52c558b14b778d2228983586864da3294d82'
+  WORKFLOW: '.github/workflows/fin-eco-002a-clippy-structural-materialize-vm-pr.yml'
+
+jobs:
+  materialize:
+    if: github.event.action == 'opened'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact diagnostic branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Prove exact workflow-only diagnostic child
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_BASE_SHA"
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_BASE_SHA" HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$WORKFLOW"
+          test -z "$(git status --porcelain=v1 --untracked-files=no)"
+
+      - name: Install pinned Rust 1.96 with rustfmt and Clippy
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt,clippy
+
+      - name: Apply named invalidation-parts refactor
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          model_path = Path('mycelix-finance/crates/finance-settlement/src/model.rs')
+          qualify_path = Path('mycelix-finance/crates/finance-settlement/src/qualify.rs')
+
+          model = model_path.read_text(encoding='utf-8')
+          start_marker = 'impl SettlementQualificationInvalidation {\n    pub(crate) fn new(\n'
+          end_marker = '    pub fn subject(&self) -> &ReferenceId {\n'
+          start = model.find(start_marker)
+          if start < 0:
+              raise SystemExit('invalidation constructor start marker missing')
+          end = model.find(end_marker, start)
+          if end < 0:
+              raise SystemExit('invalidation constructor end marker missing')
+          if model.find(start_marker, start + 1) >= 0:
+              raise SystemExit('invalidation constructor start marker is ambiguous')
+          replacement = '''#[derive(Debug, Clone, PartialEq, Eq)]
+          pub(crate) struct SettlementInvalidationParts {
+              pub(crate) subject: ReferenceId,
+              pub(crate) financial_effect_commitment: Digest32,
+              pub(crate) prior_profile: FinalityProfileRef,
+              pub(crate) operation_id: ReferenceId,
+              pub(crate) prior_revision: u64,
+              pub(crate) invalidating_observation: ReferenceId,
+              pub(crate) invalidating_observation_commitment: Digest32,
+              pub(crate) invalidated_at_unix_ms: u64,
+              pub(crate) evidence_ids: BTreeSet<ReferenceId>,
+          }
+
+          impl SettlementQualificationInvalidation {
+              pub(crate) fn from_parts(parts: SettlementInvalidationParts) -> Self {
+                  Self {
+                      subject: parts.subject,
+                      financial_effect_commitment: parts.financial_effect_commitment,
+                      prior_profile: parts.prior_profile,
+                      operation_id: parts.operation_id,
+                      prior_revision: parts.prior_revision,
+                      invalidating_observation: parts.invalidating_observation,
+                      invalidating_observation_commitment: parts.invalidating_observation_commitment,
+                      invalidated_at_unix_ms: parts.invalidated_at_unix_ms,
+                      evidence_ids: parts.evidence_ids,
+                  }
+              }
+
+          '''
+          model_path.write_text(model[:start] + replacement + model[end:], encoding='utf-8')
+
+          qualify = qualify_path.read_text(encoding='utf-8')
+          old_import = '    SettlementEvaluationContext, SettlementObservation, SettlementQualificationInvalidation,\n    SettlementSubject, evidence_commitment, observation_commitment,\n'
+          new_import = '    SettlementEvaluationContext, SettlementInvalidationParts, SettlementObservation,\n    SettlementQualificationInvalidation, SettlementSubject, evidence_commitment, observation_commitment,\n'
+          if qualify.count(old_import) != 1:
+              raise SystemExit('qualify import seam missing or ambiguous')
+          qualify = qualify.replace(old_import, new_import, 1)
+
+          old_call = '''    Ok(SettlementQualificationInvalidation::new(
+              prior.subject().clone(),
+              prior.financial_effect_commitment(),
+              prior.profile().clone(),
+              observation.operation_id.clone(),
+              prior_operation.revision(),
+              observation.observation_id.clone(),
+              observation_commitment,
+              context.evaluation_time_unix_ms(),
+              evidence_ids,
+          ))
+          '''
+          new_call = '''    Ok(SettlementQualificationInvalidation::from_parts(
+              SettlementInvalidationParts {
+                  subject: prior.subject().clone(),
+                  financial_effect_commitment: prior.financial_effect_commitment(),
+                  prior_profile: prior.profile().clone(),
+                  operation_id: observation.operation_id.clone(),
+                  prior_revision: prior_operation.revision(),
+                  invalidating_observation: observation.observation_id.clone(),
+                  invalidating_observation_commitment: observation_commitment,
+                  invalidated_at_unix_ms: context.evaluation_time_unix_ms(),
+                  evidence_ids,
+              },
+          ))
+          '''
+          if qualify.count(old_call) != 1:
+              raise SystemExit('invalidation call seam missing or ambiguous')
+          qualify_path.write_text(qualify.replace(old_call, new_call, 1), encoding='utf-8')
+          PY
+
+          rustfmt --edition 2024 \
+            mycelix-finance/crates/finance-settlement/src/model.rs \
+            mycelix-finance/crates/finance-settlement/src/qualify.rs
+
+          mapfile -t changed < <(git diff --name-only)
+          printf '%s\n' "${changed[@]}" | sort > /tmp/actual
+          printf '%s\n' \
+            mycelix-finance/crates/finance-settlement/src/model.rs \
+            mycelix-finance/crates/finance-settlement/src/qualify.rs | sort > /tmp/expected
+          diff -u /tmp/expected /tmp/actual
+
+      - name: Acquire locked dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fetch --manifest-path mycelix-finance/Cargo.toml --locked
+          test "$(git diff --name-only | wc -l)" -eq 2
+
+      - name: Prove repaired product under locked offline Rust gates
+        shell: bash
+        env:
+          CARGO_NET_OFFLINE: 'true'
+        run: |
+          set -euo pipefail
+          rustfmt --edition 2024 --check \
+            mycelix-finance/crates/finance-settlement/src/model.rs \
+            mycelix-finance/crates/finance-settlement/src/qualify.rs
+          cargo check --manifest-path mycelix-finance/Cargo.toml -p mycelix-finance-settlement --all-targets --locked --offline
+          cargo test --manifest-path mycelix-finance/Cargo.toml -p mycelix-finance-settlement --locked --offline
+          cargo clippy --manifest-path mycelix-finance/Cargo.toml -p mycelix-finance-settlement --all-targets --locked --offline -- -D warnings
+          echo 'structural_clippy_repair_rust_gates=PASS'
+
+      - name: Commit exact generated repair bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git diff --name-only | wc -l)" -eq 2
+          git config user.name 'FIN-ECO qualification materializer'
+          git config user.email 'actions@users.noreply.github.com'
+          git add \
+            mycelix-finance/crates/finance-settlement/src/model.rs \
+            mycelix-finance/crates/finance-settlement/src/qualify.rs
+          git commit -m 'refactor(finance): replace positional invalidation constructor'
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
+          echo "materialized_head=$(git rev-parse HEAD)"
+          echo "model_blob=$(git rev-parse HEAD:mycelix-finance/crates/finance-settlement/src/model.rs)"
+          echo "qualify_blob=$(git rev-parse HEAD:mycelix-finance/crates/finance-settlement/src/qualify.rs)"
