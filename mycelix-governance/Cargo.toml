@@ -23,6 +23,7 @@ members = [
     "crates/constitutional-authority",
     "crates/constitutional-envelope",
     "crates/constitutional-consumption",
+    "crates/constitutional-temporal-provenance",
 ]
 exclude = ["tests"]
 
@@ -72,6 +73,7 @@ k256 = { version = "0.13", default-features = false, features = ["arithmetic", "
 constitutional-authority = { path = "crates/constitutional-authority" }
 constitutional-envelope = { path = "crates/constitutional-envelope" }
 constitutional-consumption = { path = "crates/constitutional-consumption" }
+constitutional-temporal-provenance = { path = "crates/constitutional-temporal-provenance" }
 governance-utils = { path = "crates/governance-utils" }
 
 # ZKP verification for anonymous voting
