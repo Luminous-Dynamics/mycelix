@@ -1,0 +1,135 @@
+name: LEX-NET-028 R3 Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'docs/lex-net/LEX_NET_TYPED_TRANSITION_EVIDENCE_V1.md'
+      - 'docs/lex-net/lex_net_028_manifest.json'
+      - 'scripts/validate_lex_net_028.py'
+      - '.github/workflows/lex-net-028.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-slim
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Prove exact qualified parent and review surface
+        run: python3 scripts/validate_lex_net_028.py --scope
+
+      - name: Validate bound transition-evidence contract and corpus
+        run: |
+          python3 scripts/validate_lex_net_028.py --self-test
+          python3 scripts/validate_lex_net_028.py --semantic
+
+      - name: Independent binding, horizon, universe, and non-escalation audit
+        shell: python
+        run: |
+          from pathlib import Path
+          import json
+
+          doc = Path('docs/lex-net/LEX_NET_TYPED_TRANSITION_EVIDENCE_V1.md').read_text(encoding='utf-8').casefold()
+          manifest = json.loads(Path('docs/lex-net/lex_net_028_manifest.json').read_text(encoding='utf-8'))
+          script = Path('scripts/validate_lex_net_028.py').read_text(encoding='utf-8').casefold()
+
+          required = [
+              'portable evidence != portable authority',
+              'satisfied alternative != permission to change decision scope',
+              'evaluation current at t != authority mintable after support horizon',
+              'lease validity <= evidence support horizon ∩ local authorization horizon',
+              'execution evidence != reusable authority',
+              'a requirement whose alternatives change subject, purpose, resource, or action is:',
+              'local authorization boolean != authority-domain authorization product',
+              'satisfaction_evaluation_commitment',
+              'mint_authorization_commitment',
+          ]
+          for phrase in required:
+              if phrase not in doc:
+                  raise SystemExit(f'missing normative phrase: {phrase}')
+
+          if manifest.get('candidate_revision') != 'R3':
+              raise SystemExit('candidate revision drift')
+          if manifest.get('qualified_parent') != '117aa1e9c8701589d56dc55dc581f1191a97a071':
+              raise SystemExit('qualified parent drift')
+          if manifest.get('historical_r1_head') != '1fc40cf6f6c6a0afbad5ab9bd85070623a48e63e':
+              raise SystemExit('R1 lineage drift')
+          if manifest.get('historical_r2_head') != '1aa79715c93f0fbdf2c11ed04594589d4119924f':
+              raise SystemExit('R2 lineage drift')
+
+          if manifest.get('evidence_domain') != 'LEX-NET/EVIDENCE/v3':
+              raise SystemExit('evidence domain drift')
+          if manifest.get('authority_domain') != 'LEX-NET/AUTHORITY/v3':
+              raise SystemExit('authority domain drift')
+          if manifest.get('requirement_domain') != 'LEX-NET/REQUIREMENT/v1':
+              raise SystemExit('requirement domain drift')
+
+          evidence_kinds = manifest.get('evidence_kinds')
+          authority_kinds = manifest.get('authority_kinds')
+          if not isinstance(evidence_kinds, list) or not isinstance(authority_kinds, list):
+              raise SystemExit('product universe lists missing')
+          if set(evidence_kinds) & set(authority_kinds):
+              raise SystemExit('evidence/authority product universes overlap')
+          if 'SatisfactionEvaluation' not in evidence_kinds:
+              raise SystemExit('SatisfactionEvaluation must be evidence-domain')
+          if set(authority_kinds) != {'LocalCapabilityLease', 'LocalAuthorization'}:
+              raise SystemExit('authority product set drift')
+
+          required_nonclaims = manifest.get('required_nonclaims')
+          if not isinstance(required_nonclaims, list) or not required_nonclaims:
+              raise SystemExit('manifest required_nonclaims must be non-empty')
+          if len(required_nonclaims) != len(set(required_nonclaims)):
+              raise SystemExit('manifest required_nonclaims contains duplicates')
+          for phrase in required_nonclaims:
+              if not isinstance(phrase, str) or not phrase.strip():
+                  raise SystemExit('manifest required_nonclaims entries must be non-empty strings')
+              if phrase.casefold() not in doc:
+                  raise SystemExit(f'manifest nonclaim missing from document: {phrase}')
+
+          fixtures = manifest.get('fixtures')
+          if not isinstance(fixtures, list) or len(fixtures) != 45:
+              raise SystemExit('golden fixture census drift')
+          fixture_ids = [f.get('id') for f in fixtures if isinstance(f, dict)]
+          if len(fixture_ids) != len(set(fixture_ids)):
+              raise SystemExit('duplicate fixture id')
+          for fixture_id in (
+              'alternative_selected_index_bound',
+              'alternative_scope_mismatch',
+              'mint_authorization_wrong_evaluation',
+              'mint_after_support_expiry',
+              'lease_beyond_support_horizon',
+              'lease_beyond_authorization_horizon',
+              'consume_once_append_only',
+              'execution_after_lease_expiry',
+          ):
+              if fixture_id not in fixture_ids:
+                  raise SystemExit(f'missing adversarial fixture: {fixture_id}')
+
+          for token in ('requests.', 'httpx', 'urllib.request', 'socket.'):
+              if token in script:
+                  raise SystemExit('validator must not perform network I/O')
+          for token in (
+              'selected_alternative_index',
+              'support_current_until',
+              'evaluation_commitment',
+              'mint_authorization_commitment',
+              'requested_use_budget',
+              'execution_time',
+          ):
+              if token not in script:
+                  raise SystemExit(f'validator binding primitive missing: {token}')
+
+          print('LEX-NET-028 R3 independent audit PASS')
+
+      - name: Immutable checkout postflight
+        run: |
+          python3 scripts/validate_lex_net_028.py --scope
+          test -z "$(git status --porcelain)"
+          git diff --exit-code
