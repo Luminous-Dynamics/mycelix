@@ -1,0 +1,215 @@
+name: IG-007D0P1 Governance Build Path Successor
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-governance/profiles/deployment/governance-source-intent-ee3582af-v2.json'
+      - 'mycelix-governance/scripts/validate_ig007d0p1_governance_build_path.py'
+      - 'mycelix-governance/docs/IG_007D0P1_GOVERNANCE_BUILD_PATH_SUCCESSOR.md'
+      - '.github/workflows/ig-007d0p1-governance-build-path-successor.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  QUALIFIER_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  PRODUCT_SHA: ee3582afdf7866d8cf1096cf4996e127d35a8a5e
+  HISTORICAL_SHA: 20452d0cde9448c424d708d6307aa33a3d1901e3
+
+jobs:
+  qualify:
+    runs-on: ubuntu-slim
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact evidence successor
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.QUALIFIER_SHA }}
+          path: qualifier
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Prove one-commit four-file evidence child
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd qualifier
+          test "$(git rev-parse HEAD)" = "${QUALIFIER_SHA}"
+          test "$(git rev-parse HEAD^)" = "${PRODUCT_SHA}"
+          test "$(git rev-list --count "${PRODUCT_SHA}..HEAD")" -eq 1
+          test "$(git merge-base "${PRODUCT_SHA}" HEAD)" = "${PRODUCT_SHA}"
+          mapfile -t changed < <(git diff --name-only "${PRODUCT_SHA}..HEAD" | sort)
+          expected=(
+            .github/workflows/ig-007d0p1-governance-build-path-successor.yml
+            mycelix-governance/docs/IG_007D0P1_GOVERNANCE_BUILD_PATH_SUCCESSOR.md
+            mycelix-governance/profiles/deployment/governance-source-intent-ee3582af-v2.json
+            mycelix-governance/scripts/validate_ig007d0p1_governance_build_path.py
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#changed[@]}" -eq 4
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed[@]}")
+
+      - name: Prove product successor is exactly one import-path repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd qualifier
+          test "$(git rev-parse "${PRODUCT_SHA}^")" = "${HISTORICAL_SHA}"
+          test "$(git rev-list --count "${HISTORICAL_SHA}..${PRODUCT_SHA}")" -eq 1
+          test "$(git diff --name-only "${HISTORICAL_SHA}..${PRODUCT_SHA}")" = "mycelix-governance/flake.nix"
+          python3 - <<'PY'
+          import subprocess
+          old = subprocess.check_output([
+              'git','show','20452d0cde9448c424d708d6307aa33a3d1901e3:mycelix-governance/flake.nix'
+          ], text=True)
+          new = subprocess.check_output([
+              'git','show','ee3582afdf7866d8cf1096cf4996e127d35a8a5e:mycelix-governance/flake.nix'
+          ], text=True)
+          old_line = 'import ../../nix/modules/holochain-base.nix'
+          new_line = 'import ../nix/modules/holochain-base.nix'
+          if old.count(old_line) != 1:
+              raise SystemExit('historical flake no longer has exactly one escaped import')
+          if new.count(new_line) != 1:
+              raise SystemExit('repaired flake does not have exactly one contained import')
+          if old.replace(old_line, new_line) != new:
+              raise SystemExit('product successor contains changes beyond the one import-path repair')
+          print('one_line_product_repair=PASS')
+          PY
+
+      - name: Checkout repaired product into standalone nested path
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.PRODUCT_SHA }}
+          path: standalone/deep/repo
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Bind exact repaired capsule blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPO=standalone/deep/repo
+          test "$(git -C "${REPO}" rev-parse HEAD)" = "${PRODUCT_SHA}"
+          check_blob() {
+            local path="$1" expected="$2"
+            actual="$(git -C "${REPO}" rev-parse "HEAD:${path}")"
+            test "${actual}" = "${expected}" || { echo "blob drift ${path}: ${actual}"; exit 1; }
+          }
+          check_blob mycelix-governance/flake.nix 70006c71f02a560bd873526dd8b882cbba9e639f
+          check_blob mycelix-governance/flake.lock faae625ed2fb9a7ecac236a99e342f7bdc94a644
+          check_blob nix/modules/holochain-base.nix e9015df8f82520d8c3607026de126216412727b6
+          check_blob mycelix-governance/Cargo.lock f872b74f13264e7345be02b64270179eed56c703
+          check_blob mycelix-governance/dna/dna.yaml 972a9f32d43ce645aa71900eda11d1756d2e7055
+
+      - name: Independently prove repository path containment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          repo = Path('standalone/deep/repo').resolve()
+          gov = repo / 'mycelix-governance'
+          successor = (gov / '../nix/modules/holochain-base.nix').resolve()
+          historical = (gov / '../../nix/modules/holochain-base.nix').resolve()
+          expected = (repo / 'nix/modules/holochain-base.nix').resolve()
+          checks = [
+              (successor == expected, 'successor import does not resolve to repository module'),
+              (os.path.commonpath([str(repo), str(successor)]) == str(repo), 'successor import escapes repository'),
+              (os.path.commonpath([str(repo), str(historical)]) != str(repo), 'historical import unexpectedly remains repository-contained'),
+              (successor.is_file(), 'repository-contained shared module is missing'),
+              (not (repo.parent / 'nix').exists(), 'unexpected parent compatibility shim present'),
+          ]
+          flake = (gov / 'flake.nix').read_text(encoding='utf-8')
+          checks.extend([
+              ('import ../nix/modules/holochain-base.nix' in flake, 'successor import absent'),
+              ('import ../../nix/modules/holochain-base.nix' not in flake, 'historical escaped import still present'),
+          ])
+          failed = [message for ok, message in checks if not ok]
+          if failed:
+              raise SystemExit('; '.join(failed))
+          print('repository_path_containment=PASS')
+          PY
+
+      - name: Install pinned Nix
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa
+
+      - name: Evaluate repaired governance flake standalone
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPO=standalone/deep/repo
+          LOCK="${REPO}/mycelix-governance/flake.lock"
+          before="$(sha256sum "${LOCK}" | awk '{print $1}')"
+          nix --version
+          nix flake metadata --json --no-write-lock-file "./${REPO}/mycelix-governance" > /tmp/d0p1-flake-metadata.json
+          nix flake show --no-write-lock-file "./${REPO}/mycelix-governance" > /tmp/d0p1-flake-show.txt
+          after="$(sha256sum "${LOCK}" | awk '{print $1}')"
+          test "${before}" = "${after}"
+          python3 - <<'PY'
+          import json
+          with open('/tmp/d0p1-flake-metadata.json', encoding='utf-8') as handle:
+              m=json.load(handle)
+          if not isinstance(m, dict):
+              raise SystemExit('nix flake metadata root is not an object')
+          if m.get('locks') is None and m.get('path') is None and m.get('url') is None:
+              raise SystemExit('nix flake metadata lacks expected identity fields')
+          print('standalone_flake_evaluation=PASS')
+          PY
+
+      - name: Validate successor profile deterministically and optimization-invariant
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROFILE=qualifier/mycelix-governance/profiles/deployment/governance-source-intent-ee3582af-v2.json
+          VALIDATOR=qualifier/mycelix-governance/scripts/validate_ig007d0p1_governance_build_path.py
+          python3 "${VALIDATOR}" --profile "${PROFILE}" > /tmp/d0p1-a.json
+          python3 "${VALIDATOR}" --profile "${PROFILE}" > /tmp/d0p1-b.json
+          python3 -O "${VALIDATOR}" --profile "${PROFILE}" > /tmp/d0p1-opt.json
+          cmp /tmp/d0p1-a.json /tmp/d0p1-b.json
+          cmp /tmp/d0p1-a.json /tmp/d0p1-opt.json
+          python3 - <<'PY'
+          import ast
+          import json
+          from pathlib import Path
+
+          validator = Path('qualifier/mycelix-governance/scripts/validate_ig007d0p1_governance_build_path.py')
+          tree = ast.parse(validator.read_text(encoding='utf-8'), filename=str(validator))
+          asserts = [node.lineno for node in ast.walk(tree) if isinstance(node, ast.Assert)]
+          if asserts:
+              raise SystemExit(f'validator contains optimization-removable assert nodes: {asserts}')
+
+          with open('/tmp/d0p1-a.json', encoding='utf-8') as handle:
+              r=json.load(handle)
+          expected = {
+              'valid': True,
+              'profile_content_sha256': 'd2cd07e94274ba9ce8395ab5213db656cd33aa022005de065f8ca3715c0099bd',
+              'claim_ceiling': 'RepositoryContainedGovernanceBuildPathBound',
+              'repaired_product_subject_sha': 'ee3582afdf7866d8cf1096cf4996e127d35a8a5e',
+              'repository_contained': True,
+              'unqualified_property_count': 12,
+          }
+          for field, value in expected.items():
+              if r.get(field) != value:
+                  raise SystemExit(f'validator result mismatch for {field}: actual={r.get(field)!r} expected={value!r}')
+          print('profile_determinism=PASS')
+          print('python_optimization_invariant=PASS')
+          print('validator_ast_assert_free=PASS')
+          PY
+
+      - name: Verify checkout and lock immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git -C qualifier status --porcelain --untracked-files=all)"
+          test -z "$(git -C standalone/deep/repo status --porcelain --untracked-files=all)"
+
+      - name: Emit postflight facts
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'D0P1 claim ceiling: RepositoryContainedGovernanceBuildPathBound'
+          echo 'WASM build/reproducibility: NOT QUALIFIED'
+          echo 'DnaHash: NOT QUALIFIED'
+          echo 'runtime/deployment currentness: NOT QUALIFIED'
