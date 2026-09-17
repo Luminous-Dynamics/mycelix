@@ -1,0 +1,145 @@
+{
+  "tranche": "LEX-NET-032",
+  "issue": 1254,
+  "profile_id": "lex-net-032-canonical-interpretation-v1",
+  "profile_version": 1,
+  "qualified_parent": "94d9869fd82c8708af3e08b95306586ef0d7b4fb",
+  "expected_paths": [
+    ".github/workflows/lex-net-032.yml",
+    "docs/lex-net/LEX_NET_CANONICAL_INTERPRETATION_V1.md",
+    "docs/lex-net/lex_net_032_manifest.json",
+    "scripts/validate_lex_net_032.py"
+  ],
+  "interpretation_profile": {
+    "id": "lex-net-json-interpretation-v1",
+    "version": 1,
+    "encoding": "UTF-8-strict",
+    "top_level": "object",
+    "duplicate_key_policy": "reject",
+    "float_policy": "reject",
+    "integer_domain": "signed-64",
+    "unicode_normalization": "none",
+    "object_key_order": "representation-only-canonical-sort",
+    "array_order": "preserve",
+    "critical_extension_policy": "reject-nonempty",
+    "unknown_noncritical_policy": "preserve",
+    "canonicalizer": "synthetic-python-json-sort-keys-v1",
+    "canonicalizer_external_standard_claim": false,
+    "commitment": "sha256"
+  },
+  "fixtures": [
+    {
+      "id": "canonical_whitespace_and_key_order",
+      "profile_id": "lex-net-json-interpretation-v1",
+      "raw_json": " { \"subject\" : \"org:alpha\" , \"authority\" : false , \"currency\":\"USD\" } ",
+      "expected": "InterpretationEstablished",
+      "expected_canonical": "{\"authority\":false,\"currency\":\"USD\",\"subject\":\"org:alpha\"}"
+    },
+    {
+      "id": "duplicate_authority_rejected",
+      "profile_id": "lex-net-json-interpretation-v1",
+      "raw_json": "{\"authority\":false,\"authority\":true,\"subject\":\"org:alpha\"}",
+      "expected": "DuplicateKeyRejected",
+      "naive_last_wins_field": "authority",
+      "naive_last_wins_value": true
+    },
+    {
+      "id": "float_amount_rejected",
+      "profile_id": "lex-net-json-interpretation-v1",
+      "raw_json": "{\"amount\":1.25,\"currency\":\"USD\"}",
+      "expected": "NumericDomainViolation"
+    },
+    {
+      "id": "integer_overflow_rejected",
+      "profile_id": "lex-net-json-interpretation-v1",
+      "raw_json": "{\"sequence\":9223372036854775808}",
+      "expected": "NumericDomainViolation"
+    },
+    {
+      "id": "critical_extension_rejected",
+      "profile_id": "lex-net-json-interpretation-v1",
+      "raw_json": "{\"subject\":\"org:alpha\",\"critical\":[\"future_authority_semantics\"],\"future_authority_semantics\":true}",
+      "expected": "CriticalFieldUnsupported"
+    },
+    {
+      "id": "top_level_array_rejected",
+      "profile_id": "lex-net-json-interpretation-v1",
+      "raw_json": "[\"org:alpha\",false]",
+      "expected": "MalformedEncoding"
+    },
+    {
+      "id": "malformed_json_rejected",
+      "profile_id": "lex-net-json-interpretation-v1",
+      "raw_json": "{\"subject\":\"org:alpha\",}",
+      "expected": "MalformedEncoding"
+    },
+    {
+      "id": "invalid_utf8_rejected",
+      "profile_id": "lex-net-json-interpretation-v1",
+      "raw_base64": "eyJzdWJqZWN0Ijoib3JnOv8ifQ==",
+      "expected": "MalformedEncoding"
+    },
+    {
+      "id": "unicode_composed_preserved",
+      "profile_id": "lex-net-json-interpretation-v1",
+      "raw_json": "{\"subject\":\"café\"}",
+      "expected": "InterpretationEstablished",
+      "comparison_group": "unicode_no_normalization"
+    },
+    {
+      "id": "unicode_decomposed_preserved",
+      "profile_id": "lex-net-json-interpretation-v1",
+      "raw_json": "{\"subject\":\"café\"}",
+      "expected": "InterpretationEstablished",
+      "comparison_group": "unicode_no_normalization"
+    },
+    {
+      "id": "array_order_ab",
+      "profile_id": "lex-net-json-interpretation-v1",
+      "raw_json": "{\"roles\":[\"a\",\"b\"]}",
+      "expected": "InterpretationEstablished",
+      "comparison_group": "array_order"
+    },
+    {
+      "id": "array_order_ba",
+      "profile_id": "lex-net-json-interpretation-v1",
+      "raw_json": "{\"roles\":[\"b\",\"a\"]}",
+      "expected": "InterpretationEstablished",
+      "comparison_group": "array_order"
+    },
+    {
+      "id": "noncritical_extension_preserved",
+      "profile_id": "lex-net-json-interpretation-v1",
+      "raw_json": "{\"subject\":\"org:alpha\",\"extensions\":{\"x-example\":{\"flag\":true}}}",
+      "expected": "InterpretationEstablished",
+      "expected_canonical": "{\"extensions\":{\"x-example\":{\"flag\":true}},\"subject\":\"org:alpha\"}"
+    },
+    {
+      "id": "unsupported_profile_rejected",
+      "profile_id": "lex-net-json-interpretation-v2",
+      "raw_json": "{\"subject\":\"org:alpha\"}",
+      "expected": "ProfileUnsupported"
+    },
+    {
+      "id": "claimed_projection_mismatch",
+      "profile_id": "lex-net-json-interpretation-v1",
+      "raw_json": "{\"subject\":\"org:alpha\"}",
+      "claimed_projection_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "expected": "CanonicalizationMismatch"
+    },
+    {
+      "id": "lone_surrogate_rejected",
+      "profile_id": "lex-net-json-interpretation-v1",
+      "raw_json": "{\"subject\":\"\\ud800\"}",
+      "expected": "UnicodeViolation"
+    }
+  ],
+  "required_nonclaims": [
+    "factual truth",
+    "external-standard conformance",
+    "legal validity",
+    "local recognition",
+    "authority",
+    "external-effect authority"
+  ]
+}

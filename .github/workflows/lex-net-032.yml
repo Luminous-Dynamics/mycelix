@@ -1,0 +1,68 @@
+name: LEX-NET-032 Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'docs/lex-net/LEX_NET_CANONICAL_INTERPRETATION_V1.md'
+      - 'docs/lex-net/lex_net_032_manifest.json'
+      - 'scripts/validate_lex_net_032.py'
+      - '.github/workflows/lex-net-032.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-slim
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Prove exact qualified parent and review surface
+        run: python3 scripts/validate_lex_net_032.py --scope
+
+      - name: Validate canonical interpretation contract and golden corpus
+        run: |
+          python3 scripts/validate_lex_net_032.py --self-test
+          python3 scripts/validate_lex_net_032.py --semantic
+
+      - name: Independent static non-escalation audit
+        shell: python
+        run: |
+          from pathlib import Path
+          import json
+
+          doc = Path('docs/lex-net/LEX_NET_CANONICAL_INTERPRETATION_V1.md').read_text(encoding='utf-8').casefold()
+          manifest = json.loads(Path('docs/lex-net/lex_net_032_manifest.json').read_text(encoding='utf-8'))
+          script = Path('scripts/validate_lex_net_032.py').read_text(encoding='utf-8').casefold()
+
+          required = [
+              'signature-valid bytes != parser agreement != canonical-data agreement != semantic agreement != local recognition',
+              'grants_local_authority = false',
+              'grants_external_effect_authority = false',
+              'does not claim rfc 8785',
+              'canonicalization does not establish factual truth',
+              'canonicalization does not establish local recognition',
+          ]
+          for phrase in required:
+              if phrase not in doc:
+                  raise SystemExit(f'missing non-escalation phrase: {phrase}')
+
+          if manifest.get('interpretation_profile', {}).get('canonicalizer_external_standard_claim') is not False:
+              raise SystemExit('synthetic canonicalizer must not claim external standard conformance')
+          if len(manifest.get('fixtures', [])) != 16:
+              raise SystemExit('golden fixture census drift')
+          if 'requests.' in script or 'httpx' in script or 'urllib.request' in script or 'socket.' in script:
+              raise SystemExit('validator must not perform network I/O')
+
+          print('LEX-NET-032 independent static audit PASS')
+
+      - name: Immutable checkout postflight
+        run: |
+          python3 scripts/validate_lex_net_032.py --scope
+          test -z "$(git status --porcelain)"
+          git diff --exit-code
