@@ -321,8 +321,8 @@ jobs:
 
           tests = Path('crates/mycelix-regenerative-biomass/tests/biomass_core.rs')
           t = tests.read_text()
-          if t.count('ProcessInputReservation') != 3:
-              raise SystemExit(f'expected three ProcessInputReservation references, found {t.count("ProcessInputReservation")}')
+          if t.count('ProcessInputReservation') != 4:
+              raise SystemExit(f'expected four ProcessInputReservation references, found {t.count("ProcessInputReservation")}')
           t = t.replace('ProcessInputReservation', 'ReservationRequest')
           if t.count('evaluate_reservations') != 4:
               raise SystemExit(f'expected four evaluate_reservations references, found {t.count("evaluate_reservations")}')
