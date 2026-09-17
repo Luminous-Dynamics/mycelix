@@ -1,0 +1,82 @@
+name: MYC-CAP-002H2 Service Composition v1
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/capital/public_service_distribution_composition_v1.py'
+      - 'scripts/capital/test_public_service_distribution_composition_v1.py'
+      - 'docs/capital/evidence/myc-cap-002h2/**'
+      - '.github/workflows/myc-cap-002h2-service-composition-v1.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Current public-service distribution dimension
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Exact subject, parent, and scope
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "caf653560310c9d47b036ef88a2207bff6d4b06f"
+          expected="$(mktemp)"
+          actual="$(mktemp)"
+          printf '%s\n' \
+            '.github/workflows/myc-cap-002h2-service-composition-v1.yml' \
+            'docs/capital/evidence/myc-cap-002h2/PROFILE.md' \
+            'docs/capital/evidence/myc-cap-002h2/example_case.json' \
+            'docs/capital/evidence/myc-cap-002h2/example_receipt.json' \
+            'scripts/capital/public_service_distribution_composition_v1.py' \
+            'scripts/capital/test_public_service_distribution_composition_v1.py' | sort > "$expected"
+          git diff-tree --no-commit-id --name-only -r HEAD | sort > "$actual"
+          diff -u "$expected" "$actual"
+          test -z "$(git status --porcelain)"
+
+      - name: Python environment
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 -m py_compile scripts/capital/public_service_distribution_composition_v1.py
+          python3 -m py_compile scripts/capital/test_public_service_distribution_composition_v1.py
+
+      - name: Fail-closed unit suite
+        run: |
+          set -euo pipefail
+          python3 -m unittest -v scripts/capital/test_public_service_distribution_composition_v1.py
+
+      - name: Deterministic positive receipt
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp)"
+          python3 scripts/capital/public_service_distribution_composition_v1.py docs/capital/evidence/myc-cap-002h2/example_case.json --receipt-out "$tmp"
+          diff -u docs/capital/evidence/myc-cap-002h2/example_receipt.json "$tmp"
+          cp "$tmp" "${tmp}.second"
+          python3 scripts/capital/public_service_distribution_composition_v1.py docs/capital/evidence/myc-cap-002h2/example_case.json --receipt-out "$tmp"
+          cmp "$tmp" "${tmp}.second"
+          echo '14cedf973bcfa09d7e7d2fbf1bfbcfc64649a0949f503a0f058177b0d243e410  docs/capital/evidence/myc-cap-002h2/example_case.json' | sha256sum -c -
+          echo '9b072799ca1a89a5a0098e94bfd97f0b1cb9a23d8ee3cacb28114eebb2a013ba  docs/capital/evidence/myc-cap-002h2/example_receipt.json' | sha256sum -c -
+
+      - name: Superseded-subject negative control
+        run: |
+          set -euo pipefail
+          python3 -m unittest -v scripts.capital.test_public_service_distribution_composition_v1.Tests.test_superseded_f_subject_rejected
+
+      - name: Strong nonclaims
+        run: |
+          set -euo pipefail
+          grep -Fq '"public_service_distribution_state": "ELIGIBLE_CURRENT"' docs/capital/evidence/myc-cap-002h2/example_receipt.json
+          grep -Fq '"claim_modified": false' docs/capital/evidence/myc-cap-002h2/example_receipt.json
+          grep -Fq '"execution_authority_established": false' docs/capital/evidence/myc-cap-002h2/example_receipt.json
+          grep -Fq '"payment_authority_established": false' docs/capital/evidence/myc-cap-002h2/example_receipt.json
+          grep -Fq '"legal_distribution_authority_established": false' docs/capital/evidence/myc-cap-002h2/example_receipt.json

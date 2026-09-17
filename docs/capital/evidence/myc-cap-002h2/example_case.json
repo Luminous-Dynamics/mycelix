@@ -1,0 +1,64 @@
+{
+  "service_currentness_receipt": {
+    "blockers": [],
+    "claim_modified": false,
+    "currentness_state": "CURRENT",
+    "designation_id": "designation-001",
+    "designation_registry_epoch": 7,
+    "designation_registry_id": "service-currentness-registry-v1",
+    "designation_sha256": "294a12dd3404b9c0ea0c65f8ffb756de7ad9e8ae0b157cce00d592bd19405e75",
+    "event_chain_tip_sha256": null,
+    "event_count": 0,
+    "event_history_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "measurement_id": "measure-001",
+    "nonclaims": [
+      "historical service validity is not current distribution authority",
+      "currentness does not establish truth of external service measurements",
+      "currentness does not establish authenticity of external authority or evidence references",
+      "currentness does not mutate or increase the investor claim",
+      "currentness is relative to the supplied designation lineage, not local wall-clock time",
+      "CURRENT does not itself establish distribution eligibility"
+    ],
+    "profile_sha256": "9192a4c639a3d153bed30ffae177642b9f38dc8c1b33b4b0cd2047beba1ec343",
+    "profile_version": "mycelix-service-currentness-designated-v1",
+    "project_id": "fiber:jhb:test-001",
+    "receipt_version": "mycelix-service-currentness-receipt-v1",
+    "service_distribution_eligibility": "ELIGIBLE",
+    "service_gate_profile_sha256": "18dc049978d41bfda3e2d5c48280ccaa37f7e03d5a04cbedc50af80db49e0937",
+    "service_gate_subject_sha": "92fe8408b52ce1b63808201e9f70ab5280a6f489",
+    "service_receipt_sha256": "347cf7cc038ba918cade9e1e210871ddb6039440d9af5ea78c3745594acc8969",
+    "uses_local_wall_clock": false
+  },
+  "service_gate_receipt": {
+    "blockers": [],
+    "claim_modified": false,
+    "distribution_eligibility": "ELIGIBLE",
+    "measurement_epoch": 1,
+    "measurement_id": "measure-001",
+    "nonclaims": [
+      "distribution eligibility is not a determination of legally fair tariffs",
+      "distribution eligibility is not infrastructure engineering adequacy outside the frozen metrics",
+      "blocking distribution does not itself impair or increase the investor claim",
+      "service evidence validity is not proof of external measurement authenticity",
+      "service compliance is not solvency or handback readiness",
+      "service compliance is not democratic or regulatory legitimacy"
+    ],
+    "observed": {
+      "continuity_state": "PASS",
+      "coverage_ppm": 980000,
+      "deferred_maintenance_units": 1000000,
+      "reserve_balance_units": 5000000,
+      "tariff_units": 12000,
+      "uptime_ppm": 999000
+    },
+    "parent_remaining_claim_units": 73000000,
+    "parent_subject_sha": "270b852e0ac744dfca3a2cb966bf53fce78f2ab9",
+    "parent_transition_receipt_sha256": "60b7217980c615eab453eae25b74b27e75fc67cb336ea60d140f089341d50565",
+    "profile_sha256": "18dc049978d41bfda3e2d5c48280ccaa37f7e03d5a04cbedc50af80db49e0937",
+    "profile_version": "mycelix-public-service-distribution-gate-v1",
+    "project_id": "fiber:jhb:test-001",
+    "receipt_version": "mycelix-public-service-gate-receipt-v1",
+    "snapshot_sha256": "06276fa5f8c6622355bdcb874fe43f924c2b942bdf5991a11598e4a5de8269bf",
+    "unit": "ZAR-cent"
+  }
+}
