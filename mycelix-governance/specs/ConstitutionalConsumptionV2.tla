@@ -2,24 +2,18 @@
 EXTENDS Naturals, FiniteSets
 
 (***************************************************************************
-Temporal safety model for constitutional consumption/finality.
+Temporal safety and non-vacuity model for constitutional consumption/finality.
 
-This model deliberately allows competing claims for the same use slot and
-late observation of authenticated revocation order. Safety is defined by what
-may FINALIZE and what may reach a real/public EFFECT, not by pretending
-conflicting attempts never occur.
+The model preserves two distinct revocation orders:
+- effective order: when the revocation is constitutionally effective;
+- observation order: when this state machine learned that evidence.
 
-Ordinary model events advance a single monotonic logical clock. A revocation
-observation is itself a later event, but it may carry an authenticated earlier
-effective sequence. This models late evidence without allowing normal events
-to jump backward in logical time.
+A later observation may therefore carry an earlier authenticated effective
+sequence. Ordinary model events still advance one monotonic logical clock.
 
 Cutoff is either "Finality" or "Effect":
-- Finality: finalization is the irrevocable commitment point.
-- Effect: authority must still be unrevoked at the effect sequence.
-
-The model is bounded by MaxSeq and the finite claim/use constants supplied in
-the selected configuration file.
+- Finality: accepted finalization is the irrevocable constitutional commit point.
+- Effect: authority must remain live until the side effect is applied.
 ***************************************************************************)
 
 CONSTANTS C1, C2, C3, U1, U2, MaxSeq, MaxUses, Cutoff
@@ -41,22 +35,25 @@ VARIABLES pending,
           finalAt,
           effectAt,
           revocations,
+          revocationObservedAt,
           fault,
           depsKnown,
           frozenFinalAt,
           frozenEffectAt,
           clock
 
-vars == <<pending, finalAt, effectAt, revocations, fault, depsKnown,
-          frozenFinalAt, frozenEffectAt, clock>>
+vars == <<pending, finalAt, effectAt, revocations, revocationObservedAt,
+          fault, depsKnown, frozenFinalAt, frozenEffectAt, clock>>
 
 ZeroMap == [c \in Claims |-> 0]
+ZeroRevocationObservationMap == [r \in Seqs |-> 0]
 
 Init ==
     /\ pending = {}
     /\ finalAt = ZeroMap
     /\ effectAt = ZeroMap
     /\ revocations = {}
+    /\ revocationObservedAt = ZeroRevocationObservationMap
     /\ fault = FALSE
     /\ depsKnown = TRUE
     /\ frozenFinalAt = ZeroMap
@@ -87,24 +84,24 @@ Claim(c) ==
     /\ c \notin pending
     /\ pending' = pending \cup {c}
     /\ clock' = NextSeq
-    /\ UNCHANGED <<finalAt, effectAt, revocations, fault, depsKnown,
-                   frozenFinalAt, frozenEffectAt>>
+    /\ UNCHANGED <<finalAt, effectAt, revocations, revocationObservedAt,
+                   fault, depsKnown, frozenFinalAt, frozenEffectAt>>
 
 LoseDependencies ==
     /\ Advanceable
     /\ depsKnown
     /\ depsKnown' = FALSE
     /\ clock' = NextSeq
-    /\ UNCHANGED <<pending, finalAt, effectAt, revocations, fault,
-                   frozenFinalAt, frozenEffectAt>>
+    /\ UNCHANGED <<pending, finalAt, effectAt, revocations,
+                   revocationObservedAt, fault, frozenFinalAt, frozenEffectAt>>
 
 RestoreDependencies ==
     /\ Advanceable
     /\ ~depsKnown
     /\ depsKnown' = TRUE
     /\ clock' = NextSeq
-    /\ UNCHANGED <<pending, finalAt, effectAt, revocations, fault,
-                   frozenFinalAt, frozenEffectAt>>
+    /\ UNCHANGED <<pending, finalAt, effectAt, revocations,
+                   revocationObservedAt, fault, frozenFinalAt, frozenEffectAt>>
 
 Finalize(c) ==
     /\ Advanceable
@@ -117,15 +114,16 @@ Finalize(c) ==
     /\ Cardinality(FinalizedUses) < MaxUses
     /\ finalAt' = [finalAt EXCEPT ![c] = NextSeq]
     /\ clock' = NextSeq
-    /\ UNCHANGED <<pending, effectAt, revocations, fault, depsKnown,
-                   frozenFinalAt, frozenEffectAt>>
+    /\ UNCHANGED <<pending, effectAt, revocations, revocationObservedAt,
+                   fault, depsKnown, frozenFinalAt, frozenEffectAt>>
 
 ObserveRevocation(r) ==
     /\ Advanceable
-    (* r is the authenticated EFFECTIVE sequence, not arrival sequence. *)
+    (* r is the authenticated EFFECTIVE sequence; NextSeq is observation order. *)
     /\ r \in 1..NextSeq
     /\ r \notin revocations
     /\ revocations' = revocations \cup {r}
+    /\ revocationObservedAt' = [revocationObservedAt EXCEPT ![r] = NextSeq]
     /\ IF ~fault /\ WouldContradictAcceptedHistory(r)
           THEN /\ fault' = TRUE
                /\ frozenFinalAt' = finalAt
@@ -152,8 +150,8 @@ Execute(c) ==
     /\ ExecutionStillAuthorized(NextSeq)
     /\ effectAt' = [effectAt EXCEPT ![c] = NextSeq]
     /\ clock' = NextSeq
-    /\ UNCHANGED <<pending, finalAt, revocations, fault, depsKnown,
-                   frozenFinalAt, frozenEffectAt>>
+    /\ UNCHANGED <<pending, finalAt, revocations, revocationObservedAt,
+                   fault, depsKnown, frozenFinalAt, frozenEffectAt>>
 
 (* Duplicate delivery is explicitly idempotent: it does not mutate model state. *)
 Redeliver(c) ==
@@ -177,6 +175,7 @@ TypeOK ==
     /\ finalAt \in [Claims -> (Seqs \cup {0})]
     /\ effectAt \in [Claims -> (Seqs \cup {0})]
     /\ revocations \subseteq Seqs
+    /\ revocationObservedAt \in [Seqs -> ClockValues]
     /\ fault \in BOOLEAN
     /\ depsKnown \in BOOLEAN
     /\ frozenFinalAt \in [Claims -> (Seqs \cup {0})]
@@ -187,6 +186,11 @@ RecordedEventsDoNotExceedClock ==
     /\ \A c \in Claims : finalAt[c] <= clock
     /\ \A c \in Claims : effectAt[c] <= clock
     /\ \A r \in revocations : r <= clock
+    /\ \A r \in revocations : revocationObservedAt[r] <= clock
+
+RevocationObservationConsistent ==
+    /\ \A r \in Seqs : (r \in revocations) <=> revocationObservedAt[r] # 0
+    /\ \A r \in revocations : r <= revocationObservedAt[r]
 
 AtMostOneFinalizedPerUse ==
     \A u \in UseSlots :
@@ -208,13 +212,6 @@ NoEffectForUnfinalizedCompetitor ==
         \A other \in Claims :
             (ClaimUse[other] = ClaimUse[c] /\ other # c) => finalAt[other] = 0
 
-(*
-The transition guard is not itself the theorem.  When no integrity fault has
-been raised, every accepted commit point must remain consistent with all
-revocation evidence currently known.  Late contradictory evidence is allowed,
-but it must move the model into fault rather than leave an accepted history
-silently contradictory.
-*)
 RevocationCutoffConsistentWhenFaultFree ==
     ~fault =>
         IF Cutoff = "Finality"
@@ -223,9 +220,68 @@ RevocationCutoffConsistentWhenFaultFree ==
         ELSE \A c \in Claims :
                  effectAt[c] # 0 => NoRevocationAtOrBefore(effectAt[c])
 
+(***************************************************************************
+Temporal non-vacuity witnesses. These are state predicates, not safety claims.
+Dedicated qualification configs assert their negations and expect TLC to find
+the named invariant violation, proving each constitutional history is reachable
+inside the recorded finite bound.
+***************************************************************************)
+
+EffectLateEarlierRevocationCancellationReached ==
+    /\ Cutoff = "Effect"
+    /\ ~fault
+    /\ \E c \in Claims :
+         \E r \in revocations :
+           /\ finalAt[c] # 0
+           /\ effectAt[c] = 0
+           /\ r <= finalAt[c]
+           /\ revocationObservedAt[r] > finalAt[c]
+
+FinalityLateEarlierRevocationFaultReached ==
+    /\ Cutoff = "Finality"
+    /\ fault
+    /\ \E c \in Claims :
+         \E r \in revocations :
+           /\ finalAt[c] # 0
+           /\ r <= finalAt[c]
+           /\ revocationObservedAt[r] > finalAt[c]
+
+FinalityPostCommitRevocationEffectReached ==
+    /\ Cutoff = "Finality"
+    /\ ~fault
+    /\ \E c \in Claims :
+         \E r \in revocations :
+           /\ finalAt[c] # 0
+           /\ effectAt[c] # 0
+           /\ r > finalAt[c]
+           /\ revocationObservedAt[r] > finalAt[c]
+           /\ effectAt[c] > revocationObservedAt[r]
+
+EffectPostEffectContradictionFaultReached ==
+    /\ Cutoff = "Effect"
+    /\ fault
+    /\ \E c \in Claims :
+         \E r \in revocations :
+           /\ effectAt[c] # 0
+           /\ r <= effectAt[c]
+           /\ revocationObservedAt[r] > effectAt[c]
+
+NeverEffectLateEarlierRevocationCancellation ==
+    ~EffectLateEarlierRevocationCancellationReached
+
+NeverFinalityLateEarlierRevocationFault ==
+    ~FinalityLateEarlierRevocationFaultReached
+
+NeverFinalityPostCommitRevocationEffect ==
+    ~FinalityPostCommitRevocationEffectReached
+
+NeverEffectPostEffectContradictionFault ==
+    ~EffectPostEffectContradictionFaultReached
+
 Safety ==
     /\ TypeOK
     /\ RecordedEventsDoNotExceedClock
+    /\ RevocationObservationConsistent
     /\ AtMostOneFinalizedPerUse
     /\ NoEffectWithoutFinality
     /\ EffectAfterFinality
