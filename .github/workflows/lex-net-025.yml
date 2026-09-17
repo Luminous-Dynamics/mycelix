@@ -1,0 +1,112 @@
+name: LEX-NET-025 R2 Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'docs/lex-net/LEX_NET_LOCAL_CAPABILITY_LEASE_V1.md'
+      - 'docs/lex-net/lex_net_025_manifest.json'
+      - 'scripts/validate_lex_net_025.py'
+      - '.github/workflows/lex-net-025.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-slim
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: \${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Prove exact qualified parent and review surface
+        run: python3 scripts/validate_lex_net_025.py --scope
+
+      - name: Validate local capability lease-envelope contract and corpus
+        run: |
+          python3 scripts/validate_lex_net_025.py --self-test
+          python3 scripts/validate_lex_net_025.py --semantic
+
+      - name: Independent attenuation, domain, presenter, and nonclaim audit
+        shell: python
+        run: |
+          from pathlib import Path
+          import json
+
+          doc = Path('docs/lex-net/LEX_NET_LOCAL_CAPABILITY_LEASE_V1.md').read_text(encoding='utf-8').casefold()
+          manifest = json.loads(Path('docs/lex-net/lex_net_025_manifest.json').read_text(encoding='utf-8'))
+          script = Path('scripts/validate_lex_net_025.py').read_text(encoding='utf-8').casefold()
+
+          required = [
+              'presenter possession != authority',
+              'lease envelope != authoritative consumption state',
+              'portable evidence != portable authority',
+              'lease envelope validity <= underlying lease validity',
+              'commitment-valid != structurally valid',
+              '025 envelope pass != 040 atomic consumption pass',
+              'transferability is \`false\`',
+              'redelegation is \`false\`',
+              'delegation depth is \`0\`',
+              'grants_local_authority = false',
+              'grants_external_effect_authority = false',
+          ]
+          for phrase in required:
+              if phrase not in doc:
+                  raise SystemExit(f'missing normative phrase: {phrase}')
+
+          if manifest.get('candidate_revision') != 'R2':
+              raise SystemExit('candidate revision drift')
+          if manifest.get('qualified_parent') != '10c9cbd5f3044dbd18106ca17737c24d75aa1482':
+              raise SystemExit('qualified parent drift')
+          if manifest.get('historical_r1_head') != '58fa7022bfa10bac796c32c82d3da30b1722b199':
+              raise SystemExit('R1 lineage drift')
+          if manifest.get('source_authority_domain') != 'LEX-NET/AUTHORITY/v3':
+              raise SystemExit('source authority domain drift')
+          if manifest.get('envelope_authority_domain') != 'LEX-NET/AUTHORITY/LEASE-ENVELOPE/v1':
+              raise SystemExit('envelope authority domain drift')
+          if manifest.get('evidence_domain') != 'LEX-NET/EVIDENCE/v3':
+              raise SystemExit('evidence domain drift')
+          if manifest.get('transferable_default') is not False or manifest.get('redelegation_default') is not False or manifest.get('delegation_depth') != 0:
+              raise SystemExit('default authority attenuation drift')
+
+          required_nonclaims = manifest.get('required_nonclaims')
+          if not isinstance(required_nonclaims, list) or not required_nonclaims:
+              raise SystemExit('required_nonclaims missing')
+          if len(required_nonclaims) != len(set(required_nonclaims)):
+              raise SystemExit('required_nonclaims duplicate')
+          for phrase in required_nonclaims:
+              if not isinstance(phrase, str) or not phrase.strip() or phrase.casefold() not in doc:
+                  raise SystemExit(f'nonclaim missing or invalid: {phrase}')
+
+          fixtures = manifest.get('fixtures')
+          if not isinstance(fixtures, list) or len(fixtures) != 36:
+              raise SystemExit('golden fixture census drift')
+          ids = [f.get('id') for f in fixtures if isinstance(f, dict)]
+          if len(ids) != len(set(ids)):
+              raise SystemExit('duplicate fixture id')
+          for fixture_id in (
+              'forged_source_commitment','presenter_mismatch','expiry_after_source',
+              'transfer_true','redelegation_true','revocation_mismatch',
+              'evidence_relabel_cannot_be_envelope','cross_domain_export_not_authority',
+          ):
+              if fixture_id not in ids:
+                  raise SystemExit(f'missing adversarial fixture: {fixture_id}')
+
+          for token in ('requests.', 'httpx', 'urllib.request', 'socket.'):
+              if token in script:
+                  raise SystemExit('validator must not perform network I/O')
+          for token in ('presenter_binding_commitment','replay_domain','revocation_handle_commitment',
+                        'policy_epoch_commitment','redelegation_allowed','delegation_depth','source_lease_commitment'):
+              if token not in script:
+                  raise SystemExit(f'validator binding primitive missing: {token}')
+
+          print('LEX-NET-025 R2 independent audit PASS')
+
+      - name: Immutable checkout postflight
+        run: |
+          python3 scripts/validate_lex_net_025.py --scope
+          test -z "$(git status --porcelain)"
+          git diff --exit-code
