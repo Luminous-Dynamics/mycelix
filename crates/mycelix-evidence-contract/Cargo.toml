@@ -1,0 +1,16 @@
+[package]
+name = "mycelix-evidence-contract"
+version = "0.1.0"
+edition = "2024"
+description = "Axis-bound empirical evidence contracts for Mycelix AMSAP"
+license = "AGPL-3.0-or-later"
+authors = ["Luminous Dynamics <contact@luminousdynamics.org>"]
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+
+[lib]
+name = "mycelix_evidence_contract"
+path = "src/lib.rs"
+
+[dependencies]
+mycelix-ai-lineage = { path = "../mycelix-ai-lineage" }
+mycelix-welfare-evidence = { path = "../mycelix-welfare-evidence" }
