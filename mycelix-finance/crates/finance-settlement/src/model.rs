@@ -512,28 +512,31 @@ pub struct SettlementQualificationInvalidation {
     evidence_ids: BTreeSet<ReferenceId>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SettlementInvalidationParts {
+    pub(crate) subject: ReferenceId,
+    pub(crate) financial_effect_commitment: Digest32,
+    pub(crate) prior_profile: FinalityProfileRef,
+    pub(crate) operation_id: ReferenceId,
+    pub(crate) prior_revision: u64,
+    pub(crate) invalidating_observation: ReferenceId,
+    pub(crate) invalidating_observation_commitment: Digest32,
+    pub(crate) invalidated_at_unix_ms: u64,
+    pub(crate) evidence_ids: BTreeSet<ReferenceId>,
+}
+
 impl SettlementQualificationInvalidation {
-    pub(crate) fn new(
-        subject: ReferenceId,
-        financial_effect_commitment: Digest32,
-        prior_profile: FinalityProfileRef,
-        operation_id: ReferenceId,
-        prior_revision: u64,
-        invalidating_observation: ReferenceId,
-        invalidating_observation_commitment: Digest32,
-        invalidated_at_unix_ms: u64,
-        evidence_ids: BTreeSet<ReferenceId>,
-    ) -> Self {
+    pub(crate) fn from_parts(parts: SettlementInvalidationParts) -> Self {
         Self {
-            subject,
-            financial_effect_commitment,
-            prior_profile,
-            operation_id,
-            prior_revision,
-            invalidating_observation,
-            invalidating_observation_commitment,
-            invalidated_at_unix_ms,
-            evidence_ids,
+            subject: parts.subject,
+            financial_effect_commitment: parts.financial_effect_commitment,
+            prior_profile: parts.prior_profile,
+            operation_id: parts.operation_id,
+            prior_revision: parts.prior_revision,
+            invalidating_observation: parts.invalidating_observation,
+            invalidating_observation_commitment: parts.invalidating_observation_commitment,
+            invalidated_at_unix_ms: parts.invalidated_at_unix_ms,
+            evidence_ids: parts.evidence_ids,
         }
     }
 

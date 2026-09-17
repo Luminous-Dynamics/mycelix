@@ -6,9 +6,9 @@ use mycelix_finance_exact::{AssetAmount, ExactArithmeticError};
 use crate::{
     CanonicalEncodingError, EvaluationContextError, FinalityEvidence, FinalityProfile,
     FinalityProfileError, ObservedSettlementState, QualifiedOperation, QualifiedSettlement,
-    SettlementEvaluationContext, SettlementObservation, SettlementQualificationInvalidation,
-    SettlementSubject, evidence_commitment, observation_commitment,
-    selected_evidence_frontier_commitment,
+    SettlementEvaluationContext, SettlementInvalidationParts, SettlementObservation,
+    SettlementQualificationInvalidation, SettlementSubject, evidence_commitment,
+    observation_commitment, selected_evidence_frontier_commitment,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -440,15 +440,17 @@ pub fn derive_invalidation(
         .map(|evidence| evidence.evidence_id.clone())
         .collect();
 
-    Ok(SettlementQualificationInvalidation::new(
-        prior.subject().clone(),
-        prior.financial_effect_commitment(),
-        prior.profile().clone(),
-        observation.operation_id.clone(),
-        prior_operation.revision(),
-        observation.observation_id.clone(),
-        observation_commitment,
-        context.evaluation_time_unix_ms(),
-        evidence_ids,
+    Ok(SettlementQualificationInvalidation::from_parts(
+        SettlementInvalidationParts {
+            subject: prior.subject().clone(),
+            financial_effect_commitment: prior.financial_effect_commitment(),
+            prior_profile: prior.profile().clone(),
+            operation_id: observation.operation_id.clone(),
+            prior_revision: prior_operation.revision(),
+            invalidating_observation: observation.observation_id.clone(),
+            invalidating_observation_commitment: observation_commitment,
+            invalidated_at_unix_ms: context.evaluation_time_unix_ms(),
+            evidence_ids,
+        },
     ))
 }
