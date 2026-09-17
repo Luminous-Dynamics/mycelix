@@ -20,6 +20,10 @@ members = [
     "zomes/budgeting/integrity",
     "zomes/budgeting/coordinator",
     "crates/governance-utils",
+    "crates/constitutional-authority",
+    "crates/constitutional-envelope",
+    "crates/constitutional-consumption",
+    "crates/constitutional-temporal-provenance",
 ]
 exclude = ["tests"]
 
@@ -66,6 +70,10 @@ feldman-dkg = { path = "../crates/feldman-dkg", features = ["ml-kem-768", "ml-ds
 k256 = { version = "0.13", default-features = false, features = ["arithmetic", "ecdsa"] }
 
 # Shared governance utilities
+constitutional-authority = { path = "crates/constitutional-authority" }
+constitutional-envelope = { path = "crates/constitutional-envelope" }
+constitutional-consumption = { path = "crates/constitutional-consumption" }
+constitutional-temporal-provenance = { path = "crates/constitutional-temporal-provenance" }
 governance-utils = { path = "crates/governance-utils" }
 
 # ZKP verification for anonymous voting
