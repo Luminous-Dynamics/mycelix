@@ -93,9 +93,7 @@ fn observation(
         state,
         observed_at_unix_ms: observed_at,
         evidence: vec![FinalityEvidence {
-            evidence_id: reference(
-                format!("evidence:{operation}:{revision}:provider-a").as_str(),
-            ),
+            evidence_id: reference(format!("evidence:{operation}:{revision}:provider-a").as_str()),
             subject: reference("settlement:subject:1"),
             operation_id: reference(operation),
             operation_revision: revision,
@@ -127,13 +125,9 @@ fn receipt_preserves_non_applied_current_observation_commitments() {
         1_010,
     );
 
-    let receipt = qualify_settlement_with_receipt(
-        &subject,
-        &profile,
-        &[applied, rejected],
-        &context,
-    )
-    .expect("qualification receipt");
+    let receipt =
+        qualify_settlement_with_receipt(&subject, &profile, &[applied, rejected], &context)
+            .expect("qualification receipt");
 
     assert_eq!(receipt.settlement().operations().len(), 1);
     assert_eq!(receipt.selected_observation_commitments().len(), 2);
@@ -144,13 +138,7 @@ fn exact_duplicate_observation_multiplicity_does_not_change_receipt_selection() 
     let profile = profile();
     let subject = subject(&profile);
     let context = context(EvaluationContextClass::DeterministicSupplied, 1_100);
-    let current = observation(
-        "op:1",
-        1,
-        100,
-        ObservedSettlementState::Applied,
-        1_000,
-    );
+    let current = observation("op:1", 1, 100, ObservedSettlementState::Applied, 1_000);
 
     let single = qualify_settlement_with_receipt(
         &subject,
@@ -159,13 +147,9 @@ fn exact_duplicate_observation_multiplicity_does_not_change_receipt_selection() 
         &context,
     )
     .expect("single observation");
-    let duplicate = qualify_settlement_with_receipt(
-        &subject,
-        &profile,
-        &[current.clone(), current],
-        &context,
-    )
-    .expect("exact duplicate observation");
+    let duplicate =
+        qualify_settlement_with_receipt(&subject, &profile, &[current.clone(), current], &context)
+            .expect("exact duplicate observation");
 
     assert_eq!(
         single.selected_observation_commitments(),
@@ -195,13 +179,7 @@ fn invalidation_receipt_preserves_temporal_context_class_and_commitment() {
         &prior_context,
     )
     .expect("prior settlement");
-    let reversal = observation(
-        "op:1",
-        2,
-        100,
-        ObservedSettlementState::Reversed,
-        1_200,
-    );
+    let reversal = observation("op:1", 2, 100, ObservedSettlementState::Reversed, 1_200);
     let deterministic = context(EvaluationContextClass::DeterministicSupplied, 1_250);
     let historical = context(EvaluationContextClass::HistoricalReplay, 1_250);
 
@@ -251,13 +229,7 @@ fn invalidation_receipt_commitment_reconstructs_from_sealed_fields() {
     let receipt = derive_invalidation_with_receipt(
         &prior,
         &profile,
-        &observation(
-            "op:1",
-            2,
-            100,
-            ObservedSettlementState::Reversed,
-            1_200,
-        ),
+        &observation("op:1", 2, 100, ObservedSettlementState::Reversed, 1_200),
         &later_context,
     )
     .expect("invalidation receipt");

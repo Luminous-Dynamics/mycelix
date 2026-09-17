@@ -4,8 +4,8 @@ use mycelix_business_core::{Digest32, ExecutionAttemptRef, ReferenceId};
 use mycelix_finance_exact::AssetAmount;
 
 use crate::{
-    CanonicalEncodingError, SETTLEMENT_COMMITMENT_PROFILE_REVISION,
-    evaluation_context_commitment, finality_profile_commitment,
+    CanonicalEncodingError, SETTLEMENT_COMMITMENT_PROFILE_REVISION, evaluation_context_commitment,
+    finality_profile_commitment,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
