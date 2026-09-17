@@ -1,0 +1,94 @@
+{
+  "profile_id": "ci-gov-001f-provenance-snapshot-v1",
+  "tranche": "CI-GOV-001F",
+  "issue": 1414,
+  "status": "DescriptiveSnapshotOnly",
+  "observed_on": "2026-09-17",
+  "source": {
+    "repository": "Luminous-Dynamics/mycelix",
+    "main_head": "20452d0cde9448c424d708d6307aa33a3d1901e3",
+    "workflow_path": ".github/workflows/ci.yml",
+    "workflow_blob": "aa8e18ee225e1bbd20e477230909a49da4514b38"
+  },
+  "inventory": {
+    "external_reference_count": 42,
+    "mutable_reference_count": 42,
+    "immutable_reference_count": 0
+  },
+  "entries": [
+    {
+      "uses": "actions/checkout@v4",
+      "occurrences": 14,
+      "ref_kind": "DirectTag",
+      "ref_name": "refs/tags/v4",
+      "ref_object_sha": "11d5960a326750d5838078e36cf38b85af677262",
+      "resolved_commit_sha": "11d5960a326750d5838078e36cf38b85af677262",
+      "annotated_tag_signature_verified": null
+    },
+    {
+      "uses": "dtolnay/rust-toolchain@stable",
+      "occurrences": 12,
+      "ref_kind": "Branch",
+      "ref_name": "refs/heads/stable",
+      "ref_object_sha": "6bed0761d98439e5a578e2877258200ad565ba87",
+      "resolved_commit_sha": "6bed0761d98439e5a578e2877258200ad565ba87",
+      "annotated_tag_signature_verified": null
+    },
+    {
+      "uses": "Swatinem/rust-cache@v2",
+      "occurrences": 12,
+      "ref_kind": "AnnotatedTag",
+      "ref_name": "refs/tags/v2",
+      "ref_object_sha": "49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c",
+      "resolved_commit_sha": "6323deb102c322ba6fcbdcafc7e3dddab59af2b6",
+      "annotated_tag_signature_verified": true,
+      "tag_message_hint": "2.9.2"
+    },
+    {
+      "uses": "dorny/paths-filter@v3",
+      "occurrences": 1,
+      "ref_kind": "AnnotatedTag",
+      "ref_name": "refs/tags/v3",
+      "ref_object_sha": "15192bc058cc28a13dbf6cde61f19e18988b7af6",
+      "resolved_commit_sha": "0e4a8c6effa4802afeda77dc8d303f8176d7dfad",
+      "annotated_tag_signature_verified": true,
+      "tag_message_hint": "v3.0.3"
+    },
+    {
+      "uses": "cachix/install-nix-action@v27",
+      "occurrences": 1,
+      "ref_kind": "DirectTag",
+      "ref_name": "refs/tags/v27",
+      "ref_object_sha": "ba0dd844c9180cbf77aa72a116d6fbc515d0e87b",
+      "resolved_commit_sha": "ba0dd844c9180cbf77aa72a116d6fbc515d0e87b",
+      "annotated_tag_signature_verified": null
+    },
+    {
+      "uses": "cachix/cachix-action@v15",
+      "occurrences": 1,
+      "ref_kind": "DirectTag",
+      "ref_name": "refs/tags/v15",
+      "ref_object_sha": "ad2ddac53f961de1989924296a1f236fcfbaa4fc",
+      "resolved_commit_sha": "ad2ddac53f961de1989924296a1f236fcfbaa4fc",
+      "annotated_tag_signature_verified": null
+    },
+    {
+      "uses": "actions/setup-node@v4",
+      "occurrences": 1,
+      "ref_kind": "DirectTag",
+      "ref_name": "refs/tags/v4",
+      "ref_object_sha": "49933ea5288caeca8642d1e84afbd3f7d6820020",
+      "resolved_commit_sha": "49933ea5288caeca8642d1e84afbd3f7d6820020",
+      "annotated_tag_signature_verified": null
+    }
+  ],
+  "nonclaims": [
+    "snapshot does not authorize workflow mutation",
+    "snapshot does not establish action safety",
+    "snapshot does not establish publisher trust",
+    "snapshot does not establish transitive dependency integrity",
+    "snapshot does not establish workflow semantic correctness",
+    "snapshot does not establish current upstream ref identity after the observation date",
+    "snapshot does not qualify any workflow"
+  ]
+}

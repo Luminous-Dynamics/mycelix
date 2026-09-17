@@ -1,0 +1,31 @@
+{
+  "profile_id": "ci-gov-001f-action-reference-inventory-v1",
+  "tranche": "CI-GOV-001F",
+  "issue": 1414,
+  "enforcement_enabled": false,
+  "scan_roots": [".github/workflows"],
+  "workflow_suffixes": [".yml", ".yaml"],
+  "classifications": [
+    "LocalAction",
+    "LocalReusableWorkflow",
+    "ImmutableExternalAction",
+    "MutableExternalAction",
+    "ImmutableReusableWorkflow",
+    "MutableReusableWorkflow",
+    "ImmutableDockerImage",
+    "MutableDockerImage",
+    "InvalidUsesRef"
+  ],
+  "required_nonclaims": [
+    "does not establish action safety",
+    "does not establish publisher identity",
+    "does not establish tag-to-sha provenance",
+    "does not establish github runner integrity",
+    "does not establish artifact integrity",
+    "does not establish transitive dependency integrity",
+    "does not establish workflow semantic correctness",
+    "does not establish product correctness",
+    "does not establish reproducibility",
+    "does not establish qualification of any workflow"
+  ]
+}
