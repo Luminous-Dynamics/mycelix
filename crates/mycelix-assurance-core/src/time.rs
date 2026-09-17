@@ -42,10 +42,10 @@ pub struct ValidityInterval {
 impl ValidityInterval {
     /// Construct a validity interval, rejecting empty or reversed finite ranges.
     pub const fn new(valid_from: UnixMicros, valid_until: ValidityEnd) -> Result<Self, TimeError> {
-        if let ValidityEnd::At(end) = valid_until {
-            if end.get() <= valid_from.get() {
-                return Err(TimeError::InvalidFiniteInterval);
-            }
+        if let ValidityEnd::At(end) = valid_until
+            && end.get() <= valid_from.get()
+        {
+            return Err(TimeError::InvalidFiniteInterval);
         }
 
         Ok(Self {
