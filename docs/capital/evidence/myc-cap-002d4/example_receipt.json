@@ -1,0 +1,52 @@
+{
+  "assessment_id": "physical-assessment-001",
+  "assessment_sha256": "7be1df75a3e664b5cc437070de87e3a814d382add05fa0b4dc525f090b06edaf",
+  "assessor_ref": "assessor:independent-physical",
+  "blockers": [],
+  "components": {
+    "fiber_backbone": {
+      "condition_state": "PASS",
+      "min_residual_life_units": 120,
+      "required": true,
+      "residual_life_units": 180
+    },
+    "power_system": {
+      "condition_state": "PASS",
+      "min_residual_life_units": 60,
+      "required": true,
+      "residual_life_units": 84
+    },
+    "site_facility": {
+      "condition_state": "PASS",
+      "min_residual_life_units": 60,
+      "required": true,
+      "residual_life_units": 96
+    }
+  },
+  "currency_unit": "ZAR-cent",
+  "deferred_maintenance_units": 500000,
+  "handover_accepted": false,
+  "legal_transition_complete": false,
+  "max_deferred_maintenance_units": 2000000,
+  "nonclaims": [
+    "physical handback readiness is not handover acceptance",
+    "physical handback readiness is not legal title transfer",
+    "physical handback readiness is not statutory inspection compliance",
+    "physical handback readiness is not engineering fitness outside the frozen component profile",
+    "assessor reference separation is not proof of external identity or licensure",
+    "reserve sufficiency is not itself proof of physical condition"
+  ],
+  "outgoing_operator_ref": "operator:incumbent",
+  "parent_financial_state": "CLAIM_ACTIVE",
+  "parent_remaining_claim_units": 73000000,
+  "parent_subject_sha": "270b852e0ac744dfca3a2cb966bf53fce78f2ab9",
+  "parent_transition_receipt_sha256": "60b7217980c615eab453eae25b74b27e75fc67cb336ea60d140f089341d50565",
+  "physical_state": "PHYSICAL_CONDITION_ACCEPTABLE",
+  "profile_sha256": "a318f2cf7f086779d61162301e38425d2aa8afed694884b25faa567a9ab8f5fc",
+  "profile_version": "mycelix-physical-handback-readiness-v1",
+  "project_id": "fiber:jhb:test-001",
+  "receipt_version": "mycelix-physical-handback-readiness-receipt-v1",
+  "required_handback_reserve_units": 4000000,
+  "reserve_balance_units": 5000000,
+  "residual_life_unit": "month"
+}
