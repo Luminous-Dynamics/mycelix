@@ -1,0 +1,207 @@
+name: ASSURE-002B Exact-Subject Candidate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/assure-002b-exact-subject.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: assure-002b-exact-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  qualify-candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      RUSTUP_TOOLCHAIN: 1.98.1
+      QUALIFICATION_SUBJECT_SHA: e0ec3c73ec4fc69b9a97b3465dfde21834576260
+      QUALIFICATION_SUBJECT_TREE_SHA: dd0de2572d6acf55ac9f336a982c1d9f181e69da
+      QUALIFIED_PARENT_SHA: d17a6ae19fb71159b54b266fa760c1989ffc0a63
+      QUALIFIED_PARENT_RECEIPT_SHA256: f4bdeacc8e4b38f0aad31d03788a8c105790f60667608fb43665ac321454c897
+      EXPECTED_SPEC_ROOT_SHA256: 46550610da111888f862d4bfc610f6dc41edfcbcdcd0579377e367df16486973
+      EXPECTED_COVERAGE_SHA256: 32bff983f4cdc9d3393e6e4381f8ed470ca29d08e13f8bebe7d1973a3bd0c1e1
+      EXPECTED_CORPUS_ROOT_SHA256: 784ff870e0b9815b015be1bbaa32f0dcc615cb3c22c614ba8bf9389fe4ccaef8
+
+    steps:
+      - name: Check out frozen ASSURE-002B subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.QUALIFICATION_SUBJECT_SHA }}
+          persist-credentials: false
+
+      - name: Verify exact subject before execution
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$QUALIFICATION_SUBJECT_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$QUALIFICATION_SUBJECT_TREE_SHA"
+          test -z "$(git status --porcelain --untracked-files=all)"
+          printf 'qualification_subject_sha=%s\n' "$(git rev-parse HEAD)"
+          printf 'qualification_subject_tree=%s\n' "$(git rev-parse HEAD^{tree})"
+          printf 'qualified_parent_sha=%s\n' "$QUALIFIED_PARENT_SHA"
+          printf 'qualified_parent_receipt_sha256=%s\n' "$QUALIFIED_PARENT_RECEIPT_SHA256"
+          printf 'qualifier_workflow_head=%s\n' "${{ github.event.pull_request.head.sha }}"
+
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.98.1 --profile minimal --component rustfmt --component clippy
+
+      - name: Verify pinned toolchain identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc --version --verbose
+          cargo --version
+          rustc --version | grep -F 'rustc 1.98.1 '
+
+      - name: Verify ASSURE-V1 specification root
+        run: |
+          python3 assurance/spec/v1/check_spec.py
+          grep -F "spec_root_sha256 = \"$EXPECTED_SPEC_ROOT_SHA256\"" assurance/spec/v1/SPEC.lock
+
+      - name: Verify frozen L0 corpus and coverage roots
+        run: |
+          python3 assurance/vectors/v1/l0/check_vectors.py
+          grep -F "coverage_sha256 = \"$EXPECTED_COVERAGE_SHA256\"" assurance/vectors/v1/l0/manifest.toml
+          grep -F "corpus_root_sha256 = \"$EXPECTED_CORPUS_ROOT_SHA256\"" assurance/vectors/v1/l0/manifest.toml
+
+      - name: Verify 002B manifest boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path("crates/mycelix-assurance-core")
+          manifest = tomllib.loads((root / "Cargo.toml").read_text())
+          assert manifest.get("features") == {"default": []}, "default feature set must remain empty"
+          assert not (root / "build.rs").exists(), "002B must not have build.rs"
+
+          deps = manifest.get("dependencies")
+          assert deps == {
+              "cbor2": {
+                  "version": "=1.1.5",
+                  "default-features": False,
+                  "features": ["alloc"],
+              },
+              "serde": {
+                  "version": "=1.0.229",
+                  "default-features": False,
+              },
+          }, f"unexpected 002B dependency surface: {deps!r}"
+          PY
+
+      - name: Generate exact dependency lock
+        run: cd crates/mycelix-assurance-core && cargo generate-lockfile
+
+      - name: Verify lock is the only source-tree mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$QUALIFICATION_SUBJECT_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$QUALIFICATION_SUBJECT_TREE_SHA"
+          changed="$(git diff --name-only)"
+          test "$changed" = "crates/mycelix-assurance-core/Cargo.lock"
+          test -z "$(git diff --cached --name-only)"
+          test -z "$(git ls-files --others --exclude-standard)"
+
+      - name: Print generated Cargo.lock
+        run: cat crates/mycelix-assurance-core/Cargo.lock
+
+      - name: Check formatting
+        run: cd crates/mycelix-assurance-core && cargo fmt --all --check
+
+      - name: Check crate
+        run: cd crates/mycelix-assurance-core && cargo check --locked --all-targets
+
+      - name: Test crate
+        run: cd crates/mycelix-assurance-core && cargo test --locked --all-targets
+
+      - name: Clippy crate
+        run: cd crates/mycelix-assurance-core && cargo clippy --locked --all-targets -- -D warnings
+
+      - name: Verify candidate subject boundary after execution
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$QUALIFICATION_SUBJECT_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$QUALIFICATION_SUBJECT_TREE_SHA"
+          test "$(git diff --name-only)" = "crates/mycelix-assurance-core/Cargo.lock"
+          test -z "$(git diff --cached --name-only)"
+          test -z "$(git ls-files --others --exclude-standard)"
+
+      - name: Emit candidate receipt
+        shell: bash
+        env:
+          QUALIFIER_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p qualification
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import platform
+          import subprocess
+          from pathlib import Path
+
+          lock_path = Path("crates/mycelix-assurance-core/Cargo.lock")
+          lock_bytes = lock_path.read_bytes()
+
+          def cmd(*args):
+              return subprocess.check_output(args, text=True).strip()
+
+          receipt = {
+              "schema": "mycelix.assure.002b.candidate.receipt.v0.1",
+              "qualification_subject_commit": os.environ["QUALIFICATION_SUBJECT_SHA"],
+              "qualification_subject_tree": os.environ["QUALIFICATION_SUBJECT_TREE_SHA"],
+              "qualified_parent_commit": os.environ["QUALIFIED_PARENT_SHA"],
+              "qualified_parent_receipt_sha256": os.environ["QUALIFIED_PARENT_RECEIPT_SHA256"],
+              "qualifier_workflow_head": os.environ["QUALIFIER_HEAD_SHA"],
+              "spec_root_sha256": os.environ["EXPECTED_SPEC_ROOT_SHA256"],
+              "coverage_sha256": os.environ["EXPECTED_COVERAGE_SHA256"],
+              "corpus_root_sha256": os.environ["EXPECTED_CORPUS_ROOT_SHA256"],
+              "generated_cargo_lock_sha256": hashlib.sha256(lock_bytes).hexdigest(),
+              "rustc_version": cmd("rustc", "--version"),
+              "cargo_version": cmd("cargo", "--version"),
+              "runner_os": platform.system(),
+              "runner_arch": platform.machine(),
+              "proposition": (
+                  "For the exact frozen ASSURE-002B source subject plus the generated exact Cargo.lock, "
+                  "the frozen ASSURE-V1 L0 specification/vector corpus verifies and fmt/check/test/Clippy "
+                  "complete successfully under the pinned Rust toolchain."
+              ),
+              "nonclaims": [
+                  "This is candidate evidence, not final ASSURE-002B qualification because the generated Cargo.lock is not yet committed in the product subject.",
+                  "No graph validity is qualified.",
+                  "No evidence truth or admissibility is qualified.",
+                  "No effective authority is established.",
+                  "No political legitimacy, constitutional legitimacy, or moral truth is established.",
+              ],
+          }
+
+          encoded = (json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n").encode()
+          out = Path("qualification/assure-002b-candidate-receipt.json")
+          out.write_bytes(encoded)
+          Path("qualification/assure-002b-candidate-receipt.sha256").write_text(
+              hashlib.sha256(encoded).hexdigest() + "  " + out.name + "\n"
+          )
+          print(encoded.decode(), end="")
+          print("candidate_receipt_sha256=" + hashlib.sha256(encoded).hexdigest())
+          PY
+
+      - name: Preserve generated lock and candidate receipt
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: assure-002b-candidate-${{ github.event.pull_request.head.sha }}
+          path: |
+            crates/mycelix-assurance-core/Cargo.lock
+            qualification/assure-002b-candidate-receipt.json
+            qualification/assure-002b-candidate-receipt.sha256
+          if-no-files-found: error
+          retention-days: 30
