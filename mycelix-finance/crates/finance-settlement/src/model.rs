@@ -513,6 +513,7 @@ pub struct SettlementQualificationInvalidation {
 }
 
 impl SettlementQualificationInvalidation {
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         subject: ReferenceId,
         financial_effect_commitment: Digest32,
