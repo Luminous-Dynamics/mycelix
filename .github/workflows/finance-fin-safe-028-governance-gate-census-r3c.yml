@@ -1,0 +1,83 @@
+name: Finance FIN-SAFE-028 Governance Gate Census R3c
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/finance-fin-safe-028-governance-gate-census-r3c.yml'
+      - '.github/qualification/fin_safe_028_census_r3c.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fin-safe-028-census-r3c-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  SOURCE_SHA: 'f7b43e3f9718e2dc2445376916bd4d5010fbc4ea'
+  SCRIPT_PATH: '.github/qualification/fin_safe_028_census_r3c.py'
+
+jobs:
+  census:
+    name: Census exact content identities with verified worktree bytes
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'ci-fin-safe-028-governance-gate-census-r3c-content-identity'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact R3c qualification head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Bind two-file qualification delta and retain oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          test "$(git rev-parse HEAD^)" = "$SOURCE_SHA"
+          mapfile -t changed < <(git diff --name-only "$SOURCE_SHA" HEAD | sort)
+          test "${#changed[@]}" -eq 2
+          test "${changed[0]}" = '.github/qualification/fin_safe_028_census_r3c.py'
+          test "${changed[1]}" = '.github/workflows/finance-fin-safe-028-governance-gate-census-r3c.yml'
+          cp "$SCRIPT_PATH" /tmp/fin_safe_028_census_r3c.py
+          python3 -m py_compile /tmp/fin_safe_028_census_r3c.py
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Checkout exact frozen source subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout --detach "$SOURCE_SHA"
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Produce R2-bound content-identity census
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 /tmp/fin_safe_028_census_r3c.py
+
+      - name: Prove immutable source and evidence digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          git status --porcelain=v1 --untracked-files=all > /tmp/fin-safe-028-governance-gate-census-r3c-status.txt
+          test ! -s /tmp/fin-safe-028-governance-gate-census-r3c-status.txt
+          cd /tmp
+          sha256sum -c fin-safe-028-governance-gate-census-r3c.sha256
+
+      - name: Upload R3c evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fin-safe-028-governance-gate-census-r3c-${{ env.SOURCE_SHA }}-${{ github.run_attempt }}
+          path: |
+            /tmp/fin-safe-028-governance-gate-census-r3c.json
+            /tmp/fin-safe-028-governance-gate-census-r3c.md
+            /tmp/fin-safe-028-governance-gate-census-r3c.sha256
+            /tmp/fin-safe-028-governance-gate-census-r3c-status.txt
+          if-no-files-found: warn
+          retention-days: 90
