@@ -1,0 +1,669 @@
+name: MYC-FIN-001A SapAmount Materializer
+
+on:
+  push:
+    branches:
+      - mutate/myc-fin-001a-sap-amount-v1
+    paths:
+      - '.github/workflows/myc-fin-001a-sap-amount-materialize.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: myc-fin-001a-sap-amount-materialize-v1
+  cancel-in-progress: true
+
+env:
+  MUTATOR_PARENT: '20452d0cde9448c424d708d6307aa33a3d1901e3'
+  MUTATOR_WORKFLOW: '.github/workflows/myc-fin-001a-sap-amount-materialize.yml'
+  PRODUCT_PARENT: '26482b470ce97928654a9f669d1de16757f9b65b'
+  PRODUCT_BRANCH: 'feat/myc-fin-001a-sap-amount-v1'
+  FINANCE_LIB: 'mycelix-finance/types/src/lib.rs'
+  SAP_MODULE: 'mycelix-finance/types/src/sap_amount.rs'
+  PROFILE_DOC: 'docs/finance/MYC_FIN_001A_SAP_AMOUNT_V1.md'
+  ORIGINAL_FINANCE_LIB_BLOB: '354a377c88a57e8a5612a518d8c8b8b519fb67e2'
+  ORIGINAL_FINANCE_LOCK_BLOB: 'c38d8c1fd1ae7af9fa8ecfc604112fb421fb0ce9'
+  RUST_TOOLCHAIN: '1.96.0'
+  ARTIFACT_NAME: 'myc-fin-001a-sap-amount-v1'
+
+jobs:
+  derive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
+      artifact_digest: ${{ steps.upload.outputs.artifact-digest }}
+    steps:
+      - name: Checkout exact mutator subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+          path: mutator
+
+      - name: Prove one-commit mutation-authority surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C mutator rev-parse HEAD^)" = "$MUTATOR_PARENT"
+          test "$(git -C mutator rev-list --count "$MUTATOR_PARENT..HEAD")" -eq 1
+          mapfile -t changed < <(git -C mutator diff --name-only "$MUTATOR_PARENT" HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$MUTATOR_WORKFLOW"
+          test -z "$(git -C mutator status --porcelain=v1)"
+          printf 'derive_job_repository_authority=READ_ONLY\n'
+
+      - name: Checkout exact qualified U1 parent read-only
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.PRODUCT_PARENT }}
+          fetch-depth: 2
+          persist-credentials: false
+          path: product
+
+      - name: Bind exact untouched parent bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C product rev-parse HEAD)" = "$PRODUCT_PARENT"
+          test "$(git -C product rev-parse "HEAD:$FINANCE_LIB")" = "$ORIGINAL_FINANCE_LIB_BLOB"
+          test "$(git -C product rev-parse 'HEAD:mycelix-finance/Cargo.lock')" = "$ORIGINAL_FINANCE_LOCK_BLOB"
+          test -z "$(git -C product status --porcelain=v1)"
+          test -z "$(git -C product config --local --get-regexp '^http\..*\.extraheader$' || true)"
+
+      - name: Derive exact SapAmount product candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "product/$SAP_MODULE" <<'RS'
+          use crate::Currency;
+          use serde::{Deserialize, Serialize};
+
+          /// Exact semantic-domain bytes for the V1 SAP amount authority representation.
+          pub const SAP_AMOUNT_AUTHORITY_DOMAIN: &[u8; 26] = b"mycelix/finance/sap-amount";
+          /// Canonical V1 encoding tag.
+          pub const SAP_AMOUNT_AUTHORITY_VERSION_V1: u8 = 1;
+          /// Exact byte length of a V1 SAP amount authority subject.
+          pub const SAP_AMOUNT_AUTHORITY_BYTES_LEN: usize = 36;
+          /// Exact base-unit relation: one SAP equals one million micro-SAP.
+          pub const MICRO_SAP_PER_SAP: u64 = 1_000_000;
+
+          /// A pure SAP quantity expressed exactly in micro-SAP.
+          ///
+          /// This is a value type only. A valid `SapAmount` does not establish that a
+          /// transfer, mint, reservation, allocation, or other economic action is valid
+          /// or authorized.
+          #[derive(
+              Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+          )]
+          #[serde(transparent)]
+          pub struct SapAmount(u64);
+
+          /// Exact arithmetic failures for [`SapAmount`].
+          #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+          pub enum SapAmountArithmeticError {
+              Overflow,
+              Underflow,
+          }
+
+          impl SapAmount {
+              pub const ZERO: Self = Self(0);
+              pub const MICRO_SAP_PER_SAP: u64 = crate::sap_amount::MICRO_SAP_PER_SAP;
+
+              /// Construct an exact SAP quantity from normalized micro-SAP base units.
+              pub const fn from_micro_sap(value: u64) -> Self {
+                  Self(value)
+              }
+
+              /// Return the exact normalized micro-SAP base-unit quantity.
+              pub const fn as_micro_sap(self) -> u64 {
+                  self.0
+              }
+
+              /// SAP amount identity is always the canonical Finance `Currency::Sap`.
+              pub const fn currency(self) -> Currency {
+                  let _ = self;
+                  Currency::Sap
+              }
+
+              /// Add two SAP quantities without wrap, saturation, or fallback.
+              pub fn checked_add(self, rhs: Self) -> Result<Self, SapAmountArithmeticError> {
+                  self.0
+                      .checked_add(rhs.0)
+                      .map(Self)
+                      .ok_or(SapAmountArithmeticError::Overflow)
+              }
+
+              /// Subtract two SAP quantities without wrap, saturation, or fallback.
+              pub fn checked_sub(self, rhs: Self) -> Result<Self, SapAmountArithmeticError> {
+                  self.0
+                      .checked_sub(rhs.0)
+                      .map(Self)
+                      .ok_or(SapAmountArithmeticError::Underflow)
+              }
+
+              /// Return the exact 36-byte V1 authority representation.
+              ///
+              /// Layout:
+              /// - bytes 0..26: `mycelix/finance/sap-amount`
+              /// - byte 26: zero domain terminator
+              /// - byte 27: V1 tag (`0x01`)
+              /// - bytes 28..36: unsigned micro-SAP in network/big-endian order
+              pub fn canonical_authority_bytes_v1(self) -> [u8; SAP_AMOUNT_AUTHORITY_BYTES_LEN] {
+                  let mut bytes = [0_u8; SAP_AMOUNT_AUTHORITY_BYTES_LEN];
+                  bytes[..SAP_AMOUNT_AUTHORITY_DOMAIN.len()]
+                      .copy_from_slice(SAP_AMOUNT_AUTHORITY_DOMAIN);
+                  bytes[SAP_AMOUNT_AUTHORITY_DOMAIN.len()] = 0;
+                  bytes[SAP_AMOUNT_AUTHORITY_DOMAIN.len() + 1] = SAP_AMOUNT_AUTHORITY_VERSION_V1;
+                  bytes[28..].copy_from_slice(&self.0.to_be_bytes());
+                  bytes
+              }
+          }
+
+          #[cfg(test)]
+          mod tests {
+              use super::*;
+              use proptest::prelude::*;
+              use std::fmt::Write as _;
+
+              fn hex(bytes: &[u8]) -> String {
+                  let mut out = String::with_capacity(bytes.len() * 2);
+                  for byte in bytes {
+                      write!(&mut out, "{byte:02x}").expect("writing to String cannot fail");
+                  }
+                  out
+              }
+
+              #[test]
+              fn zero_is_a_valid_quantity_not_an_action_claim() {
+                  assert_eq!(SapAmount::ZERO.as_micro_sap(), 0);
+                  assert_eq!(SapAmount::ZERO.currency(), Currency::Sap);
+              }
+
+              #[test]
+              fn exact_unit_relation_is_one_million_micro_sap() {
+                  assert_eq!(MICRO_SAP_PER_SAP, 1_000_000);
+                  assert_eq!(SapAmount::MICRO_SAP_PER_SAP, 1_000_000);
+                  assert_eq!(SapAmount::from_micro_sap(1_000_000).as_micro_sap(), 1_000_000);
+                  assert_eq!(10_000_000_000_u64 / MICRO_SAP_PER_SAP, 10_000);
+              }
+
+              #[test]
+              fn checked_arithmetic_fails_with_typed_outcomes() {
+                  assert_eq!(
+                      SapAmount::from_micro_sap(u64::MAX)
+                          .checked_add(SapAmount::from_micro_sap(1)),
+                      Err(SapAmountArithmeticError::Overflow)
+                  );
+                  assert_eq!(
+                      SapAmount::ZERO.checked_sub(SapAmount::from_micro_sap(1)),
+                      Err(SapAmountArithmeticError::Underflow)
+                  );
+                  assert_eq!(
+                      SapAmount::from_micro_sap(5)
+                          .checked_add(SapAmount::from_micro_sap(7))
+                          .expect("5 + 7 is representable")
+                          .as_micro_sap(),
+                      12
+                  );
+              }
+
+              #[test]
+              fn ordering_is_exact_base_unit_ordering() {
+                  assert!(SapAmount::from_micro_sap(9) < SapAmount::from_micro_sap(10));
+              }
+
+              #[test]
+              fn serde_roundtrip_is_not_the_authority_encoding() {
+                  let amount = SapAmount::from_micro_sap(1_000_000);
+                  let json = serde_json::to_vec(&amount).expect("serialize SapAmount");
+                  let roundtrip: SapAmount =
+                      serde_json::from_slice(&json).expect("deserialize SapAmount");
+                  assert_eq!(roundtrip, amount);
+                  assert_ne!(json.as_slice(), amount.canonical_authority_bytes_v1().as_slice());
+              }
+
+              #[test]
+              fn frozen_v1_authority_vectors_match() {
+                  let vectors = [
+                      (
+                          0_u64,
+                          "6d7963656c69782f66696e616e63652f7361702d616d6f756e7400010000000000000000",
+                      ),
+                      (
+                          1_u64,
+                          "6d7963656c69782f66696e616e63652f7361702d616d6f756e7400010000000000000001",
+                      ),
+                      (
+                          1_000_000_u64,
+                          "6d7963656c69782f66696e616e63652f7361702d616d6f756e74000100000000000f4240",
+                      ),
+                      (
+                          10_000_000_000_u64,
+                          "6d7963656c69782f66696e616e63652f7361702d616d6f756e74000100000002540be400",
+                      ),
+                      (
+                          u64::MAX,
+                          "6d7963656c69782f66696e616e63652f7361702d616d6f756e740001ffffffffffffffff",
+                      ),
+                  ];
+
+                  for (value, expected) in vectors {
+                      let bytes = SapAmount::from_micro_sap(value).canonical_authority_bytes_v1();
+                      assert_eq!(bytes.len(), SAP_AMOUNT_AUTHORITY_BYTES_LEN);
+                      assert_eq!(hex(&bytes), expected);
+                  }
+              }
+
+              proptest! {
+                  #[test]
+                  fn canonical_bytes_bind_exact_quantity(value in any::<u64>()) {
+                      let bytes = SapAmount::from_micro_sap(value).canonical_authority_bytes_v1();
+                      prop_assert_eq!(&bytes[..26], SAP_AMOUNT_AUTHORITY_DOMAIN);
+                      prop_assert_eq!(bytes[26], 0);
+                      prop_assert_eq!(bytes[27], SAP_AMOUNT_AUTHORITY_VERSION_V1);
+                      prop_assert_eq!(&bytes[28..], &value.to_be_bytes());
+                  }
+              }
+          }
+          RS
+
+          mkdir -p "product/$(dirname "$PROFILE_DOC")"
+          cat > "product/$PROFILE_DOC" <<'MD'
+          # MYC-FIN-001A — SAP Amount V1
+
+          Status: candidate pure value-semantic profile; no Treasury migration or transaction authority claimed.
+
+          Qualified evidence parent: IG-007U1 exact head `26482b470ce97928654a9f669d1de16757f9b65b`, canonical run `35137624470` PASS.
+
+          ## Semantic theorem
+
+          `SapAmount` is exactly one non-negative `u64` quantity of normalized micro-SAP base units and always denotes the existing `Currency::Sap` domain.
+
+          `1 SAP = 1_000_000 micro-SAP`.
+
+          A valid quantity is not a valid or authorized economic action.
+
+          ## Construction
+
+          V1 exposes explicit `from_micro_sap` / `as_micro_sap`, checked add/subtract, exact ordering, and `Currency::Sap` identity.
+
+          V1 deliberately exposes no implicit raw-integer conversion, ordinary Add/Sub operator semantics, decimal-string constructor, or floating-point constructor.
+
+          Zero is a valid SAP quantity. Operation-specific policy decides whether zero is valid for a transfer, mint, allocation, reservation, fee, or threshold.
+
+          ## Canonical authority representation
+
+          V1 is exactly 36 bytes:
+
+          ```text
+          [0..26]   ASCII mycelix/finance/sap-amount
+          [26]      0x00
+          [27]      0x01
+          [28..36]  micro_sap as unsigned u64 big-endian
+          ```
+
+          Frozen vectors:
+
+          ```text
+          0
+          6d7963656c69782f66696e616e63652f7361702d616d6f756e7400010000000000000000
+
+          1
+          6d7963656c69782f66696e616e63652f7361702d616d6f756e7400010000000000000001
+
+          1_000_000
+          6d7963656c69782f66696e616e63652f7361702d616d6f756e74000100000000000f4240
+
+          10_000_000_000
+          6d7963656c69782f66696e616e63652f7361702d616d6f756e74000100000002540be400
+
+          u64::MAX
+          6d7963656c69782f66696e616e63652f7361702d616d6f756e740001ffffffffffffffff
+          ```
+
+          Changing domain bytes, version, field order, integer width, or byte order requires a new canonical profile/version.
+
+          Serde/wire/display representation is explicitly not this authority representation.
+
+          `SapAmount value != canonical authority bytes != typed commitment over those bytes`.
+
+          ## Claim ceiling
+
+          This profile covers only:
+
+          - `Currency::Sap` identity;
+          - micro-SAP unit semantics;
+          - exact checked SAP arithmetic;
+          - exact ordering;
+          - the 36-byte V1 authority representation;
+          - the frozen vectors above.
+
+          It does not establish Treasury migration, Treasury safety, transfer authorization, mint policy, reserve policy, demurrage correctness, TEND/MYCEL quantity semantics, signatures, exchange rates, legal-tender status, or deployment safety.
+          MD
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('product/mycelix-finance/types/src/lib.rs')
+          text = path.read_text(encoding='utf-8')
+          anchor = 'use serde::{Deserialize, Serialize};\n'
+          addition = (
+              anchor
+              + '\npub mod sap_amount;\n'
+              + 'pub use sap_amount::{SapAmount, SapAmountArithmeticError};\n'
+          )
+          if text.count(anchor) != 1:
+              raise SystemExit('expected exactly one serde import anchor')
+          if 'pub mod sap_amount;' in text or 'pub use sap_amount::' in text:
+              raise SystemExit('SapAmount root export already present')
+          path.write_text(text.replace(anchor, addition, 1), encoding='utf-8')
+          PY
+
+          git -C product add -N "$SAP_MODULE" "$PROFILE_DOC"
+
+      - name: Static semantic-surface audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          module = Path('product/mycelix-finance/types/src/sap_amount.rs').read_text(encoding='utf-8')
+          lib = Path('product/mycelix-finance/types/src/lib.rs').read_text(encoding='utf-8')
+          doc = Path('product/docs/finance/MYC_FIN_001A_SAP_AMOUNT_V1.md').read_text(encoding='utf-8')
+
+          required_module = [
+              'pub struct SapAmount(u64);',
+              'pub const MICRO_SAP_PER_SAP: u64 = 1_000_000;',
+              'b"mycelix/finance/sap-amount"',
+              'pub const SAP_AMOUNT_AUTHORITY_VERSION_V1: u8 = 1;',
+              'pub const SAP_AMOUNT_AUTHORITY_BYTES_LEN: usize = 36;',
+              'Currency::Sap',
+              'SapAmountArithmeticError::Overflow',
+              'SapAmountArithmeticError::Underflow',
+              'canonical_authority_bytes_v1',
+          ]
+          for marker in required_module:
+              if marker not in module:
+                  raise SystemExit(f'missing SapAmount marker: {marker}')
+
+          forbidden_module = [
+              'f32',
+              'f64',
+              'impl From<u64>',
+              'impl Into<u64>',
+              'impl core::ops::Add',
+              'impl std::ops::Add',
+              'impl core::ops::Sub',
+              'impl std::ops::Sub',
+          ]
+          for marker in forbidden_module:
+              if marker in module:
+                  raise SystemExit(f'forbidden SapAmount surface: {marker}')
+
+          if 'pub struct SapAmount(pub u64)' in module:
+              raise SystemExit('SapAmount inner field became public')
+          if lib.count('pub mod sap_amount;') != 1:
+              raise SystemExit('root module export mismatch')
+          if lib.count('pub use sap_amount::{SapAmount, SapAmountArithmeticError};') != 1:
+              raise SystemExit('root type re-export mismatch')
+          if 'valid quantity is not a valid or authorized economic action' not in doc:
+              raise SystemExit('claim ceiling is missing quantity/action separation')
+          PY
+
+      - name: Independent canonical-byte oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          domain = b'mycelix/finance/sap-amount'
+          if len(domain) != 26:
+              raise SystemExit('domain length mismatch')
+          vectors = {
+              0: '6d7963656c69782f66696e616e63652f7361702d616d6f756e7400010000000000000000',
+              1: '6d7963656c69782f66696e616e63652f7361702d616d6f756e7400010000000000000001',
+              1_000_000: '6d7963656c69782f66696e616e63652f7361702d616d6f756e74000100000000000f4240',
+              10_000_000_000: '6d7963656c69782f66696e616e63652f7361702d616d6f756e74000100000002540be400',
+              (1 << 64) - 1: '6d7963656c69782f66696e616e63652f7361702d616d6f756e740001ffffffffffffffff',
+          }
+          for value, expected in vectors.items():
+              encoded = domain + b'\x00' + b'\x01' + value.to_bytes(8, 'big')
+              if len(encoded) != 36:
+                  raise SystemExit('authority length mismatch')
+              if encoded.hex() != expected:
+                  raise SystemExit(f'golden-vector mismatch for {value}')
+          if 1_000_000 != 1 * 1_000_000:
+              raise SystemExit('unit relation mismatch')
+          if 10_000_000_000 // 1_000_000 != 10_000:
+              raise SystemExit('historical threshold unit relation mismatch')
+          print('independent_sap_amount_oracle=PASS')
+          PY
+
+      - name: Install pinned Rust 1.96 toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt,clippy
+
+      - name: Execute focused SapAmount product gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path product/mycelix-finance/Cargo.toml --package mycelix_finance_types -- --check
+          cargo test --manifest-path product/mycelix-finance/Cargo.toml --package mycelix_finance_types --all-targets --locked
+          cargo clippy --manifest-path product/mycelix-finance/Cargo.toml --package mycelix_finance_types --all-targets --locked -- -D warnings
+          test "$(git -C product rev-parse 'HEAD:mycelix-finance/Cargo.lock')" = "$ORIGINAL_FINANCE_LOCK_BLOB"
+          test -z "$(git -C product diff --name-only -- mycelix-finance/Cargo.lock)"
+
+      - name: Freeze exact three-file product candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t changed < <(git -C product diff --name-only | sort)
+          test "${#changed[@]}" -eq 3
+          test "${changed[0]}" = "$PROFILE_DOC"
+          test "${changed[1]}" = "$FINANCE_LIB"
+          test "${changed[2]}" = "$SAP_MODULE"
+
+          rm -rf /tmp/sap-payload
+          mkdir -p "/tmp/sap-payload/files/$(dirname "$FINANCE_LIB")"
+          mkdir -p "/tmp/sap-payload/files/$(dirname "$PROFILE_DOC")"
+          cp -- "product/$FINANCE_LIB" "/tmp/sap-payload/files/$FINANCE_LIB"
+          cp -- "product/$SAP_MODULE" "/tmp/sap-payload/files/$SAP_MODULE"
+          cp -- "product/$PROFILE_DOC" "/tmp/sap-payload/files/$PROFILE_DOC"
+
+          lib_sha256="$(sha256sum "product/$FINANCE_LIB" | awk '{print $1}')"
+          module_sha256="$(sha256sum "product/$SAP_MODULE" | awk '{print $1}')"
+          doc_sha256="$(sha256sum "product/$PROFILE_DOC" | awk '{print $1}')"
+          lib_blob="$(git -C product hash-object "$FINANCE_LIB")"
+          module_blob="$(git -C product hash-object "$SAP_MODULE")"
+          doc_blob="$(git -C product hash-object "$PROFILE_DOC")"
+
+          cat > /tmp/sap-payload/manifest.txt <<EOF
+          schema=myc-fin-001a-sap-amount-candidate-v1
+          product_parent=$PRODUCT_PARENT
+          product_branch=$PRODUCT_BRANCH
+          original_finance_lib_blob=$ORIGINAL_FINANCE_LIB_BLOB
+          original_finance_lock_blob=$ORIGINAL_FINANCE_LOCK_BLOB
+          rust_toolchain=$RUST_TOOLCHAIN
+          changed_path_1=$PROFILE_DOC
+          changed_path_2=$FINANCE_LIB
+          changed_path_3=$SAP_MODULE
+          finance_lib_sha256=$lib_sha256
+          finance_lib_git_blob=$lib_blob
+          sap_module_sha256=$module_sha256
+          sap_module_git_blob=$module_blob
+          profile_doc_sha256=$doc_sha256
+          profile_doc_git_blob=$doc_blob
+          canonical_profile=mycelix/finance/sap-amount + 00 + 01 + u64be
+          canonical_length=36
+          EOF
+
+          test "$(find /tmp/sap-payload -type f | wc -l)" -eq 4
+          printf 'candidate_finance_lib_sha256=%s\n' "$lib_sha256"
+          printf 'candidate_sap_module_sha256=%s\n' "$module_sha256"
+          printf 'candidate_profile_doc_sha256=%s\n' "$doc_sha256"
+
+      - name: Upload exact derived candidate
+        id: upload
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: /tmp/sap-payload/
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+          overwrite: false
+
+      - name: Bind artifact stream identity
+        shell: bash
+        env:
+          ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+          ARTIFACT_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
+        run: |
+          set -euo pipefail
+          test -n "$ARTIFACT_ID"
+          test "$ARTIFACT_ID" -gt 0
+          test "${#ARTIFACT_DIGEST}" -eq 64
+          case "$ARTIFACT_DIGEST" in
+            *[!0-9a-f]*) echo 'artifact digest is not lowercase hex' >&2; exit 1 ;;
+          esac
+          printf 'artifact_id=%s\n' "$ARTIFACT_ID"
+          printf 'artifact_upload_stream_sha256=%s\n' "$ARTIFACT_DIGEST"
+          printf 'derive_job_repository_authority=READ_ONLY\n'
+
+  publish:
+    needs: derive
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Verify exact artifact and atomically publish SapAmount candidate
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ARTIFACT_ID: ${{ needs.derive.outputs.artifact_id }}
+          ARTIFACT_DIGEST: ${{ needs.derive.outputs.artifact_digest }}
+        run: |
+          set -euo pipefail
+          test -n "$GITHUB_TOKEN"
+          test -n "$ARTIFACT_ID"
+          test "$ARTIFACT_ID" -gt 0
+          test "${#ARTIFACT_DIGEST}" -eq 64
+          case "$ARTIFACT_DIGEST" in
+            *[!0-9a-f]*) echo 'artifact digest is not lowercase hex' >&2; exit 1 ;;
+          esac
+
+          artifact_url="https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip"
+          curl --fail --location --silent --show-error \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "$artifact_url" -o /tmp/sap-artifact.zip
+          test "$(sha256sum /tmp/sap-artifact.zip | awk '{print $1}')" = "$ARTIFACT_DIGEST"
+
+          rm -rf /tmp/sap-payload
+          mkdir -p /tmp/sap-payload
+          unzip -q /tmp/sap-artifact.zip -d /tmp/sap-payload
+          mapfile -t files < <(find /tmp/sap-payload -type f -printf '%P\n' | sort)
+          test "${#files[@]}" -eq 4
+          test "${files[0]}" = "files/$PROFILE_DOC"
+          test "${files[1]}" = "files/$FINANCE_LIB"
+          test "${files[2]}" = "files/$SAP_MODULE"
+          test "${files[3]}" = 'manifest.txt'
+
+          manifest=/tmp/sap-payload/manifest.txt
+          grep -Fx "schema=myc-fin-001a-sap-amount-candidate-v1" "$manifest"
+          grep -Fx "product_parent=$PRODUCT_PARENT" "$manifest"
+          grep -Fx "product_branch=$PRODUCT_BRANCH" "$manifest"
+          grep -Fx "original_finance_lib_blob=$ORIGINAL_FINANCE_LIB_BLOB" "$manifest"
+          grep -Fx "original_finance_lock_blob=$ORIGINAL_FINANCE_LOCK_BLOB" "$manifest"
+          grep -Fx "rust_toolchain=$RUST_TOOLCHAIN" "$manifest"
+          grep -Fx "changed_path_1=$PROFILE_DOC" "$manifest"
+          grep -Fx "changed_path_2=$FINANCE_LIB" "$manifest"
+          grep -Fx "changed_path_3=$SAP_MODULE" "$manifest"
+          grep -Fx 'canonical_profile=mycelix/finance/sap-amount + 00 + 01 + u64be' "$manifest"
+          grep -Fx 'canonical_length=36' "$manifest"
+
+          for spec in \
+            "finance_lib:$FINANCE_LIB" \
+            "sap_module:$SAP_MODULE" \
+            "profile_doc:$PROFILE_DOC"
+          do
+            key="${spec%%:*}"
+            path="${spec#*:}"
+            file="/tmp/sap-payload/files/$path"
+            raw_sha="$(sha256sum "$file" | awk '{print $1}')"
+            git_blob="$(git hash-object "$file")"
+            grep -Fx "${key}_sha256=$raw_sha" "$manifest"
+            grep -Fx "${key}_git_blob=$git_blob" "$manifest"
+          done
+
+          rm -rf product
+          git init -q product
+          git -C product remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          remote_before="$(git -C product ls-remote origin "refs/heads/$PRODUCT_BRANCH" | awk '{print $1}')"
+          test "$remote_before" = "$PRODUCT_PARENT"
+          git -C product fetch --no-tags --depth=1 origin "$PRODUCT_BRANCH"
+          test "$(git -C product rev-parse FETCH_HEAD)" = "$PRODUCT_PARENT"
+          test "$(git -C product rev-parse "$PRODUCT_PARENT:$FINANCE_LIB")" = "$ORIGINAL_FINANCE_LIB_BLOB"
+          test "$(git -C product rev-parse "$PRODUCT_PARENT:mycelix-finance/Cargo.lock")" = "$ORIGINAL_FINANCE_LOCK_BLOB"
+
+          export GIT_INDEX_FILE="$PWD/product/.git/sap-index"
+          rm -f "$GIT_INDEX_FILE"
+          git -C product read-tree "$PRODUCT_PARENT"
+
+          for path in "$PROFILE_DOC" "$FINANCE_LIB" "$SAP_MODULE"; do
+            file="/tmp/sap-payload/files/$path"
+            blob="$(git -C product hash-object -w "$file")"
+            git -C product update-index --add --cacheinfo "100644,$blob,$path"
+          done
+
+          candidate_tree="$(git -C product write-tree)"
+          test -n "$candidate_tree"
+          mapfile -t changed < <(git -C product diff --name-only "$PRODUCT_PARENT^{tree}" "$candidate_tree" | sort)
+          test "${#changed[@]}" -eq 3
+          test "${changed[0]}" = "$PROFILE_DOC"
+          test "${changed[1]}" = "$FINANCE_LIB"
+          test "${changed[2]}" = "$SAP_MODULE"
+          test "$(git -C product rev-parse "$candidate_tree:mycelix-finance/Cargo.lock")" = "$ORIGINAL_FINANCE_LOCK_BLOB"
+
+          git -C product config user.name 'github-actions[bot]'
+          git -C product config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          product_sha="$(printf '%s\n' 'feat(finance): add canonical SapAmount V1 semantic waist' | git -C product commit-tree "$candidate_tree" -p "$PRODUCT_PARENT")"
+          test -n "$product_sha"
+          test "$(git -C product rev-parse "$product_sha^")" = "$PRODUCT_PARENT"
+          mapfile -t committed < <(git -C product diff-tree --no-commit-id --name-only -r "$product_sha" | sort)
+          test "${#committed[@]}" -eq 3
+          test "${committed[0]}" = "$PROFILE_DOC"
+          test "${committed[1]}" = "$FINANCE_LIB"
+          test "${committed[2]}" = "$SAP_MODULE"
+
+          publish_url="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git -C product push --quiet \
+            --force-with-lease="refs/heads/$PRODUCT_BRANCH:$PRODUCT_PARENT" \
+            "$publish_url" \
+            "$product_sha:refs/heads/$PRODUCT_BRANCH"
+          unset publish_url
+          remote_after="$(git -C product ls-remote origin "refs/heads/$PRODUCT_BRANCH" | awk '{print $1}')"
+          test "$remote_after" = "$product_sha"
+
+          printf 'status=PASS\n'
+          printf 'derive_job_repository_authority=READ_ONLY\n'
+          printf 'publish_job_candidate_execution=NONE\n'
+          printf 'publish_job_toolchain_execution=NONE\n'
+          printf 'publication_precondition=FORCE_WITH_LEASE_EXACT_U1\n'
+          printf 'artifact_id=%s\n' "$ARTIFACT_ID"
+          printf 'artifact_upload_stream_sha256=%s\n' "$ARTIFACT_DIGEST"
+          printf 'product_tree=%s\n' "$candidate_tree"
+          printf 'product_sha=%s\n' "$product_sha"
+          printf 'mutation_scope=%s,%s,%s\n' "$PROFILE_DOC" "$FINANCE_LIB" "$SAP_MODULE"
+          printf 'claim=exact tested SapAmount candidate materialized as direct child of qualified U1\n'
+          printf 'nonclaim=MYC-FIN-001A semantic qualification, Treasury migration, transfer authority, TEND/MYCEL semantics, deployment readiness\n'
