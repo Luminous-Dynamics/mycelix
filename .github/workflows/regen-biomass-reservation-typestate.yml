@@ -1,0 +1,111 @@
+name: REGEN-011D1 Biomass Reservation Type-State Preparation
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-regenerative-biomass/src/lib.rs'
+      - 'crates/mycelix-regenerative-biomass/tests/biomass_core.rs'
+      - '.github/workflows/regen-biomass-reservation-typestate.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  prepare-reservation-typestate:
+    if: github.head_ref == 'feat/regen-011d1-reservation-typestate-v1'
+    name: REGEN-011D1 reservation type-state preparation
+    runs-on: ubuntu-24.04
+    env:
+      TARGET_SHA: ${{ github.event.pull_request.head.sha }}
+      EXPECTED_PARENT_SHA: 6db8008aebc28fb9d3f05dbe2a0d850b83352151
+      CRATE_DIR: crates/mycelix-regenerative-biomass
+      PREP_DIR: /tmp/regen011d1-prepared
+      PINNED_TOOLCHAIN: 1.96.0
+    steps:
+      - name: Checkout exact type-state subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 2
+
+      - name: Verify exact parent scope and inherited product bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT_SHA"
+          expected="$(printf '%s\n' \
+            '.github/workflows/regen-biomass-reservation-typestate.yml' \
+            'crates/mycelix-regenerative-biomass/src/lib.rs' \
+            'crates/mycelix-regenerative-biomass/tests/biomass_core.rs' | sort)"
+          actual="$(git diff --name-only "$EXPECTED_PARENT_SHA" HEAD | sort)"
+          test "$actual" = "$expected"
+          test "$(git rev-parse HEAD:$CRATE_DIR/Cargo.toml)" = "$(git rev-parse $EXPECTED_PARENT_SHA:$CRATE_DIR/Cargo.toml)"
+          test "$(git rev-parse HEAD:.github/workflows/regen-biomass-preparation.yml)" = "$(git rev-parse $EXPECTED_PARENT_SHA:.github/workflows/regen-biomass-preparation.yml)"
+          test "$(git rev-parse HEAD:crates/mycelix-regenerative-admission/src/lib.rs)" = '294b777c95be79a13ca7d0e1e3463d32ff25c8f0'
+          ! grep -q 'pub struct ProcessInputReservation' "$CRATE_DIR/src/lib.rs"
+          grep -F 'pub struct ReservationRequest' "$CRATE_DIR/src/lib.rs"
+          grep -F 'pub struct AcceptedReservation' "$CRATE_DIR/src/lib.rs"
+          grep -F 'pub fn evaluate_reservation_requests' "$CRATE_DIR/src/lib.rs"
+          grep -F 'fn scope_mismatched_request_is_not_an_accepted_reservation()' "$CRATE_DIR/tests/biomass_core.rs"
+          grep -F 'fn evaluator_mints_accepted_reservations_only_after_full_batch_validation()' "$CRATE_DIR/tests/biomass_core.rs"
+
+      - name: Install and prove pinned Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install "$PINNED_TOOLCHAIN" --profile minimal --component rustfmt,clippy
+          test "$(rustc +"$PINNED_TOOLCHAIN" --version | awk '{print $2}')" = "$PINNED_TOOLCHAIN"
+          test "$(cargo +"$PINNED_TOOLCHAIN" --version | awk '{print $2}')" = "$PINNED_TOOLCHAIN"
+          rustfmt +"$PINNED_TOOLCHAIN" --version
+
+      - name: Prepare exact dependency graph and receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +"$PINNED_TOOLCHAIN" fmt --manifest-path "$CRATE_DIR/Cargo.toml" -- --check
+          cargo +"$PINNED_TOOLCHAIN" generate-lockfile --manifest-path "$CRATE_DIR/Cargo.toml"
+          rm -rf "$PREP_DIR"
+          mkdir -p "$PREP_DIR/crate/src" "$PREP_DIR/crate/tests"
+          cp "$CRATE_DIR/Cargo.toml" "$PREP_DIR/crate/Cargo.toml"
+          cp "$CRATE_DIR/Cargo.lock" "$PREP_DIR/crate/Cargo.lock"
+          cp "$CRATE_DIR/src/lib.rs" "$PREP_DIR/crate/src/lib.rs"
+          cp "$CRATE_DIR/tests/biomass_core.rs" "$PREP_DIR/crate/tests/biomass_core.rs"
+          cd "$PREP_DIR"
+          find crate -type f -print0 | sort -z | xargs -0 sha256sum | tee PREPARED_FILES.sha256
+          cat > PREPARATION_RECEIPT.txt <<EOF
+          product_head=$TARGET_SHA
+          parent_head=$EXPECTED_PARENT_SHA
+          rustc=$(rustc +"$PINNED_TOOLCHAIN" --version | tr '\n' ' ')
+          cargo=$(cargo +"$PINNED_TOOLCHAIN" --version | tr '\n' ' ')
+          dependency_state=ExecutionResolved
+          system_closure=unfrozen
+          reservation_type_state=RequestToAcceptedOnly
+          qualification_status=NOT_QUALIFIED_TYPE_STATE_PREPARATION_ONLY
+          EOF
+          cat PREPARATION_RECEIPT.txt
+
+      - name: Execute exact type-state campaign
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +"$PINNED_TOOLCHAIN" test --manifest-path "$CRATE_DIR/Cargo.toml" --locked
+          cargo +"$PINNED_TOOLCHAIN" clippy --manifest-path "$CRATE_DIR/Cargo.toml" --all-targets --locked -- -D warnings
+
+      - name: Upload exact type-state preparation capsule
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: regen011d1-reservation-typestate-${{ env.TARGET_SHA }}
+          path: /tmp/regen011d1-prepared
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Restore exact subject and enforce hygiene
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f "$CRATE_DIR/Cargo.lock"
+          git diff --check
+          test -z "$(git status --short)"
+          printf 'NOT_QUALIFIED_TYPE_STATE_PREPARATION_ONLY\n'
