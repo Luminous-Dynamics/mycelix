@@ -1,0 +1,175 @@
+name: ASSURE-002A Exact-Subject Qualification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/assure-002a-exact-subject.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: assure-002a-exact-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      RUSTUP_TOOLCHAIN: 1.98.1
+      QUALIFICATION_SUBJECT_SHA: ccb5a29f324ef2cb081167602fe662a1a2b943a9
+      QUALIFICATION_SUBJECT_TREE_SHA: 62bdd45b567c48974cc22db7cf89747204e102fe
+      EXPECTED_SPEC_ROOT_SHA256: db1d00f8723872d66ca8ad3144e6c088f20549d71cf906d196b56a13d5b23e5d
+
+    steps:
+      - name: Check out frozen ASSURE-002A subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.QUALIFICATION_SUBJECT_SHA }}
+          persist-credentials: false
+
+      - name: Verify exact subject before execution
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_commit="$(git rev-parse HEAD)"
+          actual_tree="$(git rev-parse HEAD^{tree})"
+          test "$actual_commit" = "$QUALIFICATION_SUBJECT_SHA"
+          test "$actual_tree" = "$QUALIFICATION_SUBJECT_TREE_SHA"
+          test -z "$(git status --porcelain --untracked-files=all)"
+          printf 'qualification_subject_sha=%s\n' "$actual_commit"
+          printf 'qualification_subject_tree=%s\n' "$actual_tree"
+          printf 'qualifier_workflow_head=%s\n' "${{ github.event.pull_request.head.sha }}"
+
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.98.1 --profile minimal --component rustfmt --component clippy
+
+      - name: Verify pinned toolchain identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc --version --verbose
+          cargo --version
+          rustc --version | grep -F 'rustc 1.98.1 '
+
+      - name: Verify ASSURE-V1 specification root and registries
+        run: python3 assurance/spec/v1/check_spec.py
+
+      - name: Verify frozen specification identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F "spec_root_sha256 = \"$EXPECTED_SPEC_ROOT_SHA256\"" assurance/spec/v1/SPEC.lock
+
+      - name: Verify ASSURE-002A dependency and build-surface boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path("crates/mycelix-assurance-core")
+          manifest = tomllib.loads((root / "Cargo.toml").read_text())
+          lock = tomllib.loads((root / "Cargo.lock").read_text())
+
+          assert manifest.get("dependencies") == {}, "002A must remain dependency-free"
+          assert manifest.get("features") == {"default": []}, "002A default feature set must be empty"
+          assert not (root / "build.rs").exists(), "002A must not have build.rs"
+
+          packages = lock.get("package", [])
+          assert packages == [{
+              "name": "mycelix-assurance-core",
+              "version": "0.1.0",
+          }], f"unexpected Cargo.lock package set: {packages!r}"
+          PY
+
+      - name: Check assurance formatting
+        run: cd crates/mycelix-assurance-core && cargo fmt --all --check
+
+      - name: Check assurance crate
+        run: cd crates/mycelix-assurance-core && cargo check --locked --all-targets
+
+      - name: Test assurance crate
+        run: cd crates/mycelix-assurance-core && cargo test --locked --all-targets
+
+      - name: Clippy assurance crate
+        run: cd crates/mycelix-assurance-core && cargo clippy --locked --all-targets -- -D warnings
+
+      - name: Verify subject remained immutable
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$QUALIFICATION_SUBJECT_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$QUALIFICATION_SUBJECT_TREE_SHA"
+          test -z "$(git status --porcelain --untracked-files=all)"
+
+      - name: Emit narrow qualification receipt
+        shell: bash
+        env:
+          QUALIFIER_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p qualification
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import platform
+          import subprocess
+          from pathlib import Path
+
+          root = Path("crates/mycelix-assurance-core")
+          lock_bytes = (root / "Cargo.lock").read_bytes()
+
+          def cmd(*args):
+              return subprocess.check_output(args, text=True).strip()
+
+          receipt = {
+              "schema": "mycelix.assure.002a.qualification.receipt.v0.1",
+              "qualification_subject_commit": os.environ["QUALIFICATION_SUBJECT_SHA"],
+              "qualification_subject_tree": os.environ["QUALIFICATION_SUBJECT_TREE_SHA"],
+              "qualifier_workflow_head": os.environ["QUALIFIER_HEAD_SHA"],
+              "spec_root_sha256": os.environ["EXPECTED_SPEC_ROOT_SHA256"],
+              "cargo_lock_sha256": hashlib.sha256(lock_bytes).hexdigest(),
+              "rustc_version": cmd("rustc", "--version"),
+              "cargo_version": cmd("cargo", "--version"),
+              "runner_os": platform.system(),
+              "runner_arch": platform.machine(),
+              "proposition": (
+                  "For the exact frozen ASSURE-002A subject, the ASSURE-V1 specification "
+                  "root/registries verify, the assurance kernel remains dependency-free "
+                  "with the declared build-surface boundary, and fmt/check/test/Clippy "
+                  "complete successfully under the pinned Rust toolchain."
+              ),
+              "nonclaims": [
+                  "No capsule decoding is qualified.",
+                  "No graph validity is qualified.",
+                  "No evidence truth or admissibility is qualified.",
+                  "No effective authority is established.",
+                  "No political legitimacy, constitutional legitimacy, or moral truth is established.",
+                  "This receipt does not establish repository branch-protection enforcement.",
+              ],
+          }
+
+          encoded = (json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n").encode()
+          out = Path("qualification/assure-002a-receipt.json")
+          out.write_bytes(encoded)
+          Path("qualification/assure-002a-receipt.sha256").write_text(
+              hashlib.sha256(encoded).hexdigest() + "  " + out.name + "\n"
+          )
+          print(encoded.decode(), end="")
+          print("receipt_sha256=" + hashlib.sha256(encoded).hexdigest())
+          PY
+
+      - name: Preserve qualification receipt
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: assure-002a-qualification-${{ github.event.pull_request.head.sha }}
+          path: |
+            qualification/assure-002a-receipt.json
+            qualification/assure-002a-receipt.sha256
+          if-no-files-found: error
+          retention-days: 30
