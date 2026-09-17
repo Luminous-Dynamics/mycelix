@@ -1,0 +1,31 @@
+{
+  "blockers": [],
+  "currentness_established": false,
+  "digital_readiness_state": "OPERATIONAL_TRANSFER_READY",
+  "digital_receipt_sha256": "050e9db5299cc7eabe2c862fa5202c1e712e12a1a074bab784f9e35690889367",
+  "digital_subject_sha": "995d9665c6e995711315460ddfc586c4e87d9fd4",
+  "execution_authority_established": false,
+  "handback_readiness_state": "HANDOVER_READY",
+  "handover_accepted": false,
+  "legal_transition_complete": false,
+  "nonclaims": [
+    "handback readiness is not handover acceptance",
+    "handback readiness is not operational custody transfer",
+    "handback readiness is not legal title transfer",
+    "handback readiness does not establish assessment currentness",
+    "handback readiness does not establish statutory inspection or engineering fitness outside the qualified input scopes",
+    "handback readiness does not establish execution authority"
+  ],
+  "operational_custody_accepted": false,
+  "parent_financial_state": "CLAIM_ACTIVE",
+  "parent_remaining_claim_units": 73000000,
+  "parent_subject_sha": "270b852e0ac744dfca3a2cb966bf53fce78f2ab9",
+  "parent_transition_receipt_sha256": "60b7217980c615eab453eae25b74b27e75fc67cb336ea60d140f089341d50565",
+  "physical_readiness_state": "PHYSICAL_CONDITION_ACCEPTABLE",
+  "physical_receipt_sha256": "43e46ec10296c00b32a361652ca96d82009088c467941dd776f0f93113ac7332",
+  "physical_subject_sha": "0af0a8345c39598dc2db737f484e77d1c5dd9fa7",
+  "profile_sha256": "dd012673fe12b1ae2dc6752b457b86f1f2e588fafde724b8b09263b37cfa354f",
+  "profile_version": "mycelix-handback-readiness-composition-v1",
+  "project_id": "fiber:jhb:test-001",
+  "receipt_version": "mycelix-handback-readiness-composition-receipt-v1"
+}

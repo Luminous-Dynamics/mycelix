@@ -1,0 +1,99 @@
+name: MYC-CAP-002H3 Handback Readiness Composition v1
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/capital/handback_readiness_composition_v1.py'
+      - 'scripts/capital/test_handback_readiness_composition_v1.py'
+      - 'docs/capital/evidence/myc-cap-002h3/**'
+      - '.github/workflows/myc-cap-002h3-handback-readiness-composition-v1.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Digital and physical handback readiness dimension
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Exact subject, qualified D4 parent, and scope
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "0af0a8345c39598dc2db737f484e77d1c5dd9fa7"
+          expected="$(mktemp)"
+          actual="$(mktemp)"
+          printf '%s\n' \
+            '.github/workflows/myc-cap-002h3-handback-readiness-composition-v1.yml' \
+            'docs/capital/evidence/myc-cap-002h3/PROFILE.md' \
+            'docs/capital/evidence/myc-cap-002h3/example_case.json' \
+            'docs/capital/evidence/myc-cap-002h3/example_receipt.json' \
+            'scripts/capital/handback_readiness_composition_v1.py' \
+            'scripts/capital/test_handback_readiness_composition_v1.py' | sort > "$expected"
+          git diff-tree --no-commit-id --name-only -r HEAD | sort > "$actual"
+          diff -u "$expected" "$actual"
+          test -z "$(git status --porcelain)"
+
+      - name: Bind exact qualified D1 and D4 receipt bytes
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin 995d9665c6e995711315460ddfc586c4e87d9fd4
+          test "$(git rev-parse FETCH_HEAD)" = "995d9665c6e995711315460ddfc586c4e87d9fd4"
+          python3 - <<'PY'
+          import json, subprocess
+          case=json.load(open("docs/capital/evidence/myc-cap-002h3/example_case.json"))
+          d1=json.loads(subprocess.check_output([
+              "git","show","995d9665c6e995711315460ddfc586c4e87d9fd4:docs/capital/evidence/myc-cap-002d1/example_receipt.json"
+          ]))
+          d4=json.loads(subprocess.check_output([
+              "git","show","0af0a8345c39598dc2db737f484e77d1c5dd9fa7:docs/capital/evidence/myc-cap-002d4/example_receipt.json"
+          ]))
+          assert case["digital_receipt"] == d1
+          assert case["physical_receipt"] == d4
+          assert case["profile"]["digital_subject_sha"] == "995d9665c6e995711315460ddfc586c4e87d9fd4"
+          assert case["profile"]["physical_subject_sha"] == "0af0a8345c39598dc2db737f484e77d1c5dd9fa7"
+          PY
+
+      - name: Python environment
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 -m py_compile scripts/capital/handback_readiness_composition_v1.py
+          python3 -m py_compile scripts/capital/test_handback_readiness_composition_v1.py
+
+      - name: Fail-closed unit suite
+        run: |
+          set -euo pipefail
+          python3 scripts/capital/test_handback_readiness_composition_v1.py -v
+
+      - name: Deterministic example receipt
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp)"
+          python3 scripts/capital/handback_readiness_composition_v1.py \
+            docs/capital/evidence/myc-cap-002h3/example_case.json \
+            --receipt-out "$tmp"
+          diff -u docs/capital/evidence/myc-cap-002h3/example_receipt.json "$tmp"
+          python3 scripts/capital/handback_readiness_composition_v1.py \
+            docs/capital/evidence/myc-cap-002h3/example_case.json \
+            --receipt-out "${tmp}.second"
+          cmp "$tmp" "${tmp}.second"
+
+      - name: Strong nonclaims
+        run: |
+          set -euo pipefail
+          grep -Fq '"handback_readiness_state": "HANDOVER_READY"' docs/capital/evidence/myc-cap-002h3/example_receipt.json
+          grep -Fq '"currentness_established": false' docs/capital/evidence/myc-cap-002h3/example_receipt.json
+          grep -Fq '"handover_accepted": false' docs/capital/evidence/myc-cap-002h3/example_receipt.json
+          grep -Fq '"operational_custody_accepted": false' docs/capital/evidence/myc-cap-002h3/example_receipt.json
+          grep -Fq '"legal_transition_complete": false' docs/capital/evidence/myc-cap-002h3/example_receipt.json
+          grep -Fq '"execution_authority_established": false' docs/capital/evidence/myc-cap-002h3/example_receipt.json
