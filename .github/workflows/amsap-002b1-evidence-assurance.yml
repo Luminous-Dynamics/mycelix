@@ -1,0 +1,167 @@
+name: AMSAP-002B1 Evidence Assurance
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-evidence-assurance/**'
+      - '.github/workflows/amsap-002b1-evidence-assurance.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: amsap-002b1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
+    steps:
+      - name: Check out exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 2
+
+      - name: Prove exact AMSAP-002B parent and review surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "3cf1a028840bfddef3bfa91e34af828fe6e47820"
+          mapfile -t changed < <(git diff --name-only HEAD^ HEAD | sort)
+          expected=(
+            ".github/workflows/amsap-002b1-evidence-assurance.yml"
+            "crates/mycelix-evidence-assurance/Cargo.lock"
+            "crates/mycelix-evidence-assurance/Cargo.toml"
+            "crates/mycelix-evidence-assurance/README.md"
+            "crates/mycelix-evidence-assurance/src/lib.rs"
+          )
+          printf '%s\n' "${changed[@]}" > /tmp/changed
+          printf '%s\n' "${expected[@]}" | sort > /tmp/expected
+          diff -u /tmp/expected /tmp/changed
+
+      - name: Audit dependency and authority boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          cargo = Path('crates/mycelix-evidence-assurance/Cargo.toml').read_text()
+          deps = cargo.split('[dependencies]\n', 1)[1].strip().splitlines()
+          expected = [
+              'mycelix-ai-lineage = { path = "../mycelix-ai-lineage" }',
+              'mycelix-evidence-contract = { path = "../mycelix-evidence-contract" }',
+              'mycelix-welfare-evidence = { path = "../mycelix-welfare-evidence" }',
+          ]
+          if deps != expected:
+              raise SystemExit(f'unexpected dependency surface: {deps!r}')
+          src = Path('crates/mycelix-evidence-assurance/src/lib.rs').read_text()
+          if '#![no_std]' not in src:
+              raise SystemExit('evidence assurance lost no_std')
+          for token in ('hdk','hdi','holochain','serde','reqwest','tokio','SystemTime','Instant','execute_effect','dispatch_effect'):
+              if token in src or token in cargo:
+                  raise SystemExit(f'forbidden token: {token}')
+          for token in (
+              'EvidenceMagnitude', 'CounterevidenceStrength', 'Contestation',
+              'DiagnosticityReceipt', 'EarnedDiagnosticity',
+              'CounterevidenceSearchReceipt', 'MissingDiagnosticityReceipt',
+              'MissingCounterevidenceSearch', 'establishes_scientific_truth',
+              'grants_welfare_protection', 'establishes_legal_responsibility',
+              'grants_currentness', 'grants_deployment_authority',
+              'grants_governance_authority', 'grants_external_effect_authority',
+          ):
+              if token not in src:
+                  raise SystemExit(f'missing assurance/guard token: {token}')
+          PY
+
+      - name: Bootstrap hash-pinned Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUSTUP_VERSION="1.29.0"
+          RUSTUP_SHA256="4acc9acc76d5079515b46346a485974457b5a79893cfb01112423c89aeb5aa10"
+          HOST="x86_64-unknown-linux-gnu"
+          URL="https://static.rust-lang.org/rustup/archive/${RUSTUP_VERSION}/${HOST}/rustup-init"
+          curl --fail --location --retry 3 --silent --show-error "$URL" -o /tmp/rustup-init
+          echo "${RUSTUP_SHA256}  /tmp/rustup-init" | sha256sum --check
+          chmod 0755 /tmp/rustup-init
+          /tmp/rustup-init -y --no-modify-path --profile minimal --default-host "$HOST" --default-toolchain 1.98.1
+          "$HOME/.cargo/bin/rustup" component add --toolchain 1.98.1 rustfmt clippy
+          "$HOME/.cargo/bin/rustup" target add --toolchain 1.98.1 wasm32-unknown-unknown
+
+      - name: Collect Rust qualification matrix
+        shell: bash
+        run: |
+          set -uo pipefail
+          C="$HOME/.cargo/bin/cargo"
+          manifest="crates/mycelix-evidence-assurance/Cargo.toml"
+          lock="crates/mycelix-evidence-assurance/Cargo.lock"
+          lock_before="$(sha256sum "$lock")"
+          receipt=/tmp/amsap-002b1-matrix
+          : > "$receipt"
+
+          record() {
+            local name="$1"
+            shift
+            if "$@"; then
+              printf '%s=PASS\n' "$name" | tee -a "$receipt"
+            else
+              printf '%s=FAIL\n' "$name" | tee -a "$receipt"
+            fi
+          }
+
+          record rustfmt "$C" +1.98.1 fmt --manifest-path "$manifest" -- --check
+          record tests "$C" +1.98.1 test --locked --offline --manifest-path "$manifest" --all-targets
+          record clippy "$C" +1.98.1 clippy --locked --offline --manifest-path "$manifest" --all-targets -- -D warnings
+          record wasm32 "$C" +1.98.1 check --locked --offline --manifest-path "$manifest" --target wasm32-unknown-unknown
+
+          if test "$lock_before" = "$(sha256sum "$lock")"; then
+            echo 'lock_immutable=PASS' | tee -a "$receipt"
+          else
+            echo 'lock_immutable=FAIL' | tee -a "$receipt"
+          fi
+
+      - name: Record immutable checkout postflight
+        if: always()
+        shell: bash
+        run: |
+          set -uo pipefail
+          receipt=/tmp/amsap-002b1-matrix
+          if test -z "$(git status --porcelain)"; then
+            echo 'checkout_immutable=PASS' | tee -a "$receipt"
+          else
+            git status --short
+            echo 'checkout_immutable=FAIL' | tee -a "$receipt"
+          fi
+
+      - name: Emit bounded qualification receipt
+        if: always()
+        shell: bash
+        run: |
+          set -uo pipefail
+          printf '%s\n' \
+            'scope=evidence-assurance structural/source qualification only' \
+            'diagnosticity_truth_established=false' \
+            'scientific_truth_established=false' \
+            'moral_status_granted=false' \
+            'legal_responsibility_granted=false' \
+            'deployment_authority_granted=false' \
+            'governance_authority_granted=false'
+          if test -f /tmp/amsap-002b1-matrix; then
+            cat /tmp/amsap-002b1-matrix
+          fi
+
+      - name: Enforce fail-closed promotion gate
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          receipt=/tmp/amsap-002b1-matrix
+          test -f "$receipt"
+          ! grep -q '=FAIL$' "$receipt"
+          for required in rustfmt tests clippy wasm32 lock_immutable checkout_immutable; do
+            grep -qx "${required}=PASS" "$receipt"
+          done
