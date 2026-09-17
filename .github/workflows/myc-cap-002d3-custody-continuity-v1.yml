@@ -1,0 +1,103 @@
+name: MYC-CAP-002D3 Custody Continuity v1
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/capital/custody_continuity_v1.py'
+      - 'scripts/capital/test_custody_continuity_v1.py'
+      - 'docs/capital/evidence/myc-cap-002d3/**'
+      - '.github/workflows/myc-cap-002d3-custody-continuity-v1.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Current custody continuity and successor state
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Exact subject, qualified parent, and scope
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "d5a3258fb1713cf0fe95ab7434600d6240cefad7"
+          expected="$(mktemp)"
+          actual="$(mktemp)"
+          printf '%s\n' \
+            '.github/workflows/myc-cap-002d3-custody-continuity-v1.yml' \
+            'docs/capital/evidence/myc-cap-002d3/PROFILE.md' \
+            'docs/capital/evidence/myc-cap-002d3/example_case.json' \
+            'docs/capital/evidence/myc-cap-002d3/example_receipt.json' \
+            'scripts/capital/custody_continuity_v1.py' \
+            'scripts/capital/test_custody_continuity_v1.py' | sort > "$expected"
+          git diff-tree --no-commit-id --name-only -r HEAD | sort > "$actual"
+          diff -u "$expected" "$actual"
+          test -z "$(git status --porcelain)"
+
+      - name: Python environment
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 -m py_compile scripts/capital/custody_continuity_v1.py
+          python3 -m py_compile scripts/capital/test_custody_continuity_v1.py
+
+      - name: Exact D2 acceptance genesis
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+
+          def canonical_bytes(v):
+              return json.dumps(v, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")
+
+          case = json.loads(Path("docs/capital/evidence/myc-cap-002d3/example_case.json").read_text(encoding="utf-8"))
+          parent = json.loads(Path("docs/capital/evidence/myc-cap-002d2/example_receipt.json").read_text(encoding="utf-8"))
+          assert case["acceptance_receipt"] == parent
+          assert case["profile"]["acceptance_subject_sha"] == "d5a3258fb1713cf0fe95ab7434600d6240cefad7"
+          digest = hashlib.sha256(canonical_bytes(parent)).hexdigest()
+          assert digest == "7a073b1b012c60ac645c9cc98c00d78392a2adadbf2474b0cd39df7a7c03b832"
+          assert case["profile"]["acceptance_receipt_sha256"] == digest
+          PY
+
+      - name: Fail-closed unit suite
+        run: |
+          set -euo pipefail
+          python3 -m unittest -v scripts/capital/test_custody_continuity_v1.py
+
+      - name: Deterministic example receipt
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp)"
+          python3 scripts/capital/custody_continuity_v1.py \
+            docs/capital/evidence/myc-cap-002d3/example_case.json \
+            --receipt-out "$tmp"
+          diff -u docs/capital/evidence/myc-cap-002d3/example_receipt.json "$tmp"
+          cp "$tmp" "${tmp}.second"
+          python3 scripts/capital/custody_continuity_v1.py \
+            docs/capital/evidence/myc-cap-002d3/example_case.json \
+            --receipt-out "$tmp"
+          cmp "$tmp" "${tmp}.second"
+          echo '9ffcc6a9b22916beafecb1187ded59412dddfe46229bc6e8168acc55bf1ab8ea  docs/capital/evidence/myc-cap-002d3/example_case.json' | sha256sum -c -
+          echo 'f778ce32c405c5653c144ae5d3b1796d7b8f3e9d6711502c261d8599981f92c7  docs/capital/evidence/myc-cap-002d3/example_receipt.json' | sha256sum -c -
+
+      - name: Exact acceptance lineage and strong nonclaims
+        run: |
+          set -euo pipefail
+          grep -Fq '"acceptance_subject_sha": "d5a3258fb1713cf0fe95ab7434600d6240cefad7"' docs/capital/evidence/myc-cap-002d3/example_receipt.json
+          grep -Fq '"acceptance_receipt_sha256": "7a073b1b012c60ac645c9cc98c00d78392a2adadbf2474b0cd39df7a7c03b832"' docs/capital/evidence/myc-cap-002d3/example_receipt.json
+          grep -Fq '"custody_state": "CURRENT"' docs/capital/evidence/myc-cap-002d3/example_receipt.json
+          grep -Fq '"historical_handover_accepted": true' docs/capital/evidence/myc-cap-002d3/example_receipt.json
+          grep -Fq '"event_tip_currentness_established": false' docs/capital/evidence/myc-cap-002d3/example_receipt.json
+          grep -Fq '"uses_local_wall_clock": false' docs/capital/evidence/myc-cap-002d3/example_receipt.json
+          grep -Fq '"legal_title_transition_established": false' docs/capital/evidence/myc-cap-002d3/example_receipt.json
+          grep -Fq '"constitutional_stewardship_transition_established": false' docs/capital/evidence/myc-cap-002d3/example_receipt.json
