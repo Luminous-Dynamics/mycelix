@@ -1036,6 +1036,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "mycelix-finance-capacity-core"
+version = "0.1.0"
+dependencies = [
+ "mycelix-finance-exact",
+ "proptest",
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
 name = "mycelix-finance-exact"
 version = "0.1.0"
 dependencies = [
