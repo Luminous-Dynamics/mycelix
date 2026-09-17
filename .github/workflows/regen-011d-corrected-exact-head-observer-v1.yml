@@ -1,0 +1,139 @@
+name: REGEN-011D Corrected Biomass Exact-Head Observer
+
+on:
+  push:
+    branches:
+      - qual/regen-011d-corrected-exact-head-observer-v1
+    paths:
+      - '.github/workflows/regen-011d-corrected-exact-head-observer-v1.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  observe-corrected-biomass:
+    name: REGEN-011D corrected biomass exact-head preparation observer
+    runs-on: ubuntu-24.04
+    env:
+      TARGET_SHA: 6db8008aebc28fb9d3f05dbe2a0d850b83352151
+      EXPECTED_PARENT_SHA: 872151cae7bee995b6bfff7867fc40178ad4759e
+      CRATE_DIR: crates/mycelix-regenerative-biomass
+      PREP_DIR: /tmp/regen011d-corrected-prepared
+      PINNED_TOOLCHAIN: 1.96.0
+    steps:
+      - name: Checkout exact corrected biomass ProductHead
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 2
+
+      - name: Verify exact subject parent scope and qualified anchors
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT_SHA"
+          expected="$(printf '%s\n' \
+            '.github/workflows/regen-biomass-preparation.yml' \
+            'crates/mycelix-regenerative-biomass/Cargo.toml' \
+            'crates/mycelix-regenerative-biomass/src/lib.rs' \
+            'crates/mycelix-regenerative-biomass/tests/biomass_core.rs' | sort)"
+          actual="$(git diff --name-only "$EXPECTED_PARENT_SHA" HEAD | sort)"
+          printf '%s\n' '---BEGIN_CORRECTED_BIOMASS_SCOPE---'
+          printf '%s\n' "$actual"
+          printf '%s\n' '---END_CORRECTED_BIOMASS_SCOPE---'
+          test "$actual" = "$expected"
+          test "$(git rev-parse HEAD:crates/mycelix-regenerative-admission/src/lib.rs)" = '294b777c95be79a13ca7d0e1e3463d32ff25c8f0'
+          test "$(git rev-parse HEAD:crates/mycelix-regenerative-admission/Cargo.lock)" = '55ce1ba153982351cce6fd29a2c1174ce40813f1'
+          test "$(git rev-parse HEAD:crates/mycelix-regenerative-core/src/lib.rs)" = '97978da98e9c476061b3d3ce1ba605f0c628a1b6'
+          test "$(git rev-parse HEAD:crates/mycelix-core-types/src/planetary_evidence.rs)" = '2069d6e56336d05c7bc293abfc5ccdc421ab53cb'
+          test "$(git rev-parse HEAD:crates/mycelix-core-types/src/planetary_lineage.rs)" = 'e0fda7c4c9e83c46761dae1e4fff2c43e3d6d41b'
+          test "$(grep -c 'Eligible(Box<EligibleFeedstock>)' "$CRATE_DIR/src/lib.rs")" = '1'
+          grep -F 'EcologyEvidenceSnapshotMismatch' "$CRATE_DIR/src/lib.rs"
+          grep -F 'fn ecology_must_bind_the_exact_evidence_snapshot()' "$CRATE_DIR/tests/biomass_core.rs"
+
+      - name: Install and prove pinned Rust observer toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install "$PINNED_TOOLCHAIN" --profile minimal --component rustfmt,clippy
+          rustc +"$PINNED_TOOLCHAIN" --version --verbose
+          cargo +"$PINNED_TOOLCHAIN" --version --verbose
+          rustfmt +"$PINNED_TOOLCHAIN" --version
+          test "$(rustc +"$PINNED_TOOLCHAIN" --version | awk '{print $2}')" = "$PINNED_TOOLCHAIN"
+          test "$(cargo +"$PINNED_TOOLCHAIN" --version | awk '{print $2}')" = "$PINNED_TOOLCHAIN"
+
+      - name: Prepare exact corrected child-owned bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +"$PINNED_TOOLCHAIN" fmt --manifest-path "$CRATE_DIR/Cargo.toml"
+          unexpected="$(git diff --name-only | grep -vE '^crates/mycelix-regenerative-biomass/(src|tests)/.*\.rs$' || true)"
+          test -z "$unexpected"
+          rm -rf "$PREP_DIR"
+          mkdir -p "$PREP_DIR/crate/src" "$PREP_DIR/crate/tests"
+          cp "$CRATE_DIR/Cargo.toml" "$PREP_DIR/crate/Cargo.toml"
+          cp "$CRATE_DIR/src/lib.rs" "$PREP_DIR/crate/src/lib.rs"
+          cp "$CRATE_DIR/tests/biomass_core.rs" "$PREP_DIR/crate/tests/biomass_core.rs"
+
+      - name: Resolve exact corrected Cargo graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +"$PINNED_TOOLCHAIN" generate-lockfile --manifest-path "$CRATE_DIR/Cargo.toml"
+          test -f "$CRATE_DIR/Cargo.lock"
+          cp "$CRATE_DIR/Cargo.lock" "$PREP_DIR/crate/Cargo.lock"
+          printf 'prepared_lock_sha256=%s\n' "$(sha256sum "$CRATE_DIR/Cargo.lock" | awk '{print $1}')"
+
+      - name: Record corrected identities and observer receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PREP_DIR"
+          find crate -type f -print0 | sort -z | xargs -0 sha256sum | tee PREPARED_FILES.sha256
+          cat > PREPARATION_RECEIPT.txt <<EOF
+          product_head=$TARGET_SHA
+          parent_head=$EXPECTED_PARENT_SHA
+          observer_head=$GITHUB_SHA
+          shared_admission_product_head=872151cae7bee995b6bfff7867fc40178ad4759e
+          rustc=$(rustc +"$PINNED_TOOLCHAIN" --version | tr '\n' ' ')
+          cargo=$(cargo +"$PINNED_TOOLCHAIN" --version | tr '\n' ' ')
+          rustfmt=$(rustfmt +"$PINNED_TOOLCHAIN" --version | tr '\n' ' ')
+          host_target=$(rustc +"$PINNED_TOOLCHAIN" -vV | sed -n 's/^host: //p')
+          dependency_state=ExecutionResolved
+          system_closure=unfrozen
+          evidence_class=ExactHeadObserverPreparation
+          qualification_status=NOT_QUALIFIED_SOURCE_AND_DEPENDENCY_PREPARATION_ONLY
+          EOF
+          cat PREPARATION_RECEIPT.txt
+          grep -F "product_head=$TARGET_SHA" PREPARATION_RECEIPT.txt
+          grep -F "parent_head=$EXPECTED_PARENT_SHA" PREPARATION_RECEIPT.txt
+          grep -F 'rustc=rustc 1.96.0 ' PREPARATION_RECEIPT.txt
+          grep -F 'cargo=cargo 1.96.0 ' PREPARATION_RECEIPT.txt
+
+      - name: Test corrected prepared biomass graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +"$PINNED_TOOLCHAIN" fmt --manifest-path "$CRATE_DIR/Cargo.toml" -- --check
+          cargo +"$PINNED_TOOLCHAIN" test --manifest-path "$CRATE_DIR/Cargo.toml" --locked
+          cargo +"$PINNED_TOOLCHAIN" clippy --manifest-path "$CRATE_DIR/Cargo.toml" --all-targets --locked -- -D warnings
+
+      - name: Upload corrected exact-head preparation capsule
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: regen011d-corrected-exact-head-${{ env.TARGET_SHA }}
+          path: /tmp/regen011d-corrected-prepared
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Restore exact subject and enforce clean postflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          git reset --hard "$TARGET_SHA"
+          git clean -fd
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test -z "$(git status --short)"
+          printf 'NOT_QUALIFIED_SOURCE_AND_DEPENDENCY_PREPARATION_ONLY\n'
