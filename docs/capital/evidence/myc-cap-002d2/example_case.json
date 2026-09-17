@@ -1,0 +1,122 @@
+{
+  "acceptance_event": {
+    "acceptance_authority_ref": "authority:commons-acceptance-board",
+    "continuity_state": "PASS",
+    "event_id": "handover-accept-001",
+    "evidence_ref": "evidence:handover-accept-001",
+    "incoming_custodian_ref": "steward:community-trust",
+    "inventory": {
+      "administrator_recovery_material": "PRESENT",
+      "backup_restore_package": "PRESENT",
+      "continuity_plan": "PRESENT",
+      "data_schema_export_package": "PRESENT",
+      "deployment_bundle": "PRESENT",
+      "disaster_recovery_package": "PRESENT",
+      "observability_runbooks": "PRESENT",
+      "operational_documentation": "PRESENT",
+      "operator_replacement_package": "PRESENT",
+      "sbom_inventory": "PRESENT",
+      "secrets_migration_package": "PRESENT",
+      "trust_root_transition_material": "PRESENT"
+    },
+    "outgoing_custodian_ref": "operator:incumbent",
+    "profile_sha256": "3689d61db89b1467ca0d0b73b00d220c70c9f9cd3e52cd6a5329052cae7aceb5",
+    "project_id": "fiber:jhb:test-001",
+    "readiness_receipt_sha256": "050e9db5299cc7eabe2c862fa5202c1e712e12a1a074bab784f9e35690889367",
+    "waivers": []
+  },
+  "profile": {
+    "acceptance_authority_ref": "authority:commons-acceptance-board",
+    "incoming_custodian_ref": "steward:community-trust",
+    "legal_effect_mode": "CUSTODY_ONLY",
+    "outgoing_custodian_ref": "operator:incumbent",
+    "profile_version": "mycelix-handover-acceptance-v1",
+    "project_id": "fiber:jhb:test-001",
+    "readiness_designation_authority_ref": "authority:handback-readiness-registry",
+    "readiness_profile_sha256": "50a8af7e97ffa2c603d722f2ce39c51be6790116a9739a54a32e590d7554a853",
+    "readiness_registry_id": "registry:handback-readiness",
+    "required_inventory_items": [
+      "deployment_bundle",
+      "administrator_recovery_material",
+      "trust_root_transition_material",
+      "secrets_migration_package",
+      "backup_restore_package",
+      "data_schema_export_package",
+      "sbom_inventory",
+      "observability_runbooks",
+      "disaster_recovery_package",
+      "operator_replacement_package",
+      "operational_documentation",
+      "continuity_plan"
+    ],
+    "waivable_inventory_items": [
+      "operational_documentation"
+    ],
+    "waiver_authority_ref": "authority:commons-waiver-board"
+  },
+  "readiness_designation": {
+    "authority_ref": "authority:handback-readiness-registry",
+    "designated_readiness_receipt_sha256": "050e9db5299cc7eabe2c862fa5202c1e712e12a1a074bab784f9e35690889367",
+    "designation_id": "readiness-current-001",
+    "evidence_ref": "evidence:readiness-current-001",
+    "profile_sha256": "3689d61db89b1467ca0d0b73b00d220c70c9f9cd3e52cd6a5329052cae7aceb5",
+    "project_id": "fiber:jhb:test-001",
+    "registry_epoch": 1,
+    "registry_id": "registry:handback-readiness",
+    "state": "ACTIVE"
+  },
+  "readiness_receipt": {
+    "assessment_id": "assessment-001",
+    "assessment_sha256": "bc352c751d4b913a6781185f14d57dbcd47b0d2693a2e704a1ae97e5d9fcb1aa",
+    "assessor_ref": "assessor:independent",
+    "blockers": [],
+    "controls": {
+      "administrator_recovery": "PASS",
+      "backup_restore": "PASS",
+      "continuity_plan": "PASS",
+      "data_schema_export": "PASS",
+      "disaster_recovery_exercise": "PASS",
+      "observability_runbooks": "PASS",
+      "operational_documentation": "PASS",
+      "operator_replacement_exercise": "PASS",
+      "reproducible_deployment": "PASS",
+      "sbom_inventory": "PASS",
+      "secrets_migration": "PASS",
+      "trust_root_rotation": "PASS"
+    },
+    "handover_accepted": false,
+    "legal_transition_complete": false,
+    "nonclaims": [
+      "operational readiness is not handover acceptance",
+      "operational readiness is not legal title transfer",
+      "operational readiness is not democratic legitimacy",
+      "operational readiness is not physical asset-condition assurance",
+      "assessment reference separation is not proof of external identity authenticity",
+      "operational readiness does not imply future service performance or cybersecurity certification"
+    ],
+    "outgoing_operator_ref": "operator:incumbent",
+    "parent_financial_state": "CLAIM_ACTIVE",
+    "parent_remaining_claim_units": 73000000,
+    "parent_subject_sha": "270b852e0ac744dfca3a2cb966bf53fce78f2ab9",
+    "parent_transition_receipt_sha256": "60b7217980c615eab453eae25b74b27e75fc67cb336ea60d140f089341d50565",
+    "profile_sha256": "50a8af7e97ffa2c603d722f2ce39c51be6790116a9739a54a32e590d7554a853",
+    "profile_version": "mycelix-digital-operational-sovereignty-v1",
+    "project_id": "fiber:jhb:test-001",
+    "readiness_state": "OPERATIONAL_TRANSFER_READY",
+    "receipt_version": "mycelix-digital-operational-sovereignty-receipt-v1",
+    "required_dimensions": [
+      "reproducible_deployment",
+      "administrator_recovery",
+      "trust_root_rotation",
+      "secrets_migration",
+      "backup_restore",
+      "data_schema_export",
+      "sbom_inventory",
+      "observability_runbooks",
+      "disaster_recovery_exercise",
+      "operator_replacement_exercise",
+      "operational_documentation",
+      "continuity_plan"
+    ]
+  }
+}
