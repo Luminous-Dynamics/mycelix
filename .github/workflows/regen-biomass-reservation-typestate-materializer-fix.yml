@@ -1,0 +1,44 @@
+name: Fix REGEN-011D1 Materializer Census
+
+on:
+  push:
+    branches:
+      - tooling/regen-011d1-reservation-typestate-materializer-v1
+    paths:
+      - '.github/workflows/regen-biomass-reservation-typestate-materializer-fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix-census:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout tooling branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 2
+          persist-credentials: true
+
+      - name: Repair exact stale test census
+        shell: bash
+        run: |
+          set -euo pipefail
+          file='.github/workflows/regen-biomass-reservation-typestate-materializer.yml'
+          test "$(grep -c "t.count('ProcessInputReservation') != 3" "$file")" = '1'
+          test "$(grep -c 'expected three ProcessInputReservation references' "$file")" = '1'
+          sed -i "s/t.count('ProcessInputReservation') != 3/t.count('ProcessInputReservation') != 4/" "$file"
+          sed -i 's/expected three ProcessInputReservation references/expected four ProcessInputReservation references/' "$file"
+          git diff --check
+          git diff --exit-code -- . ':!/.github/workflows/regen-biomass-reservation-typestate-materializer.yml' || true
+          test "$(git diff --name-only)" = "$file"
+
+      - name: Commit tooling-only correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows/regen-biomass-reservation-typestate-materializer.yml
+          git commit -m 'ci(regenerative): correct D1 materializer test census'
+          git push origin HEAD:tooling/regen-011d1-reservation-typestate-materializer-v1
