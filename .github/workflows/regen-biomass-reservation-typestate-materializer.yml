@@ -1,0 +1,401 @@
+name: Materialize REGEN-011D1 Reservation Type-State
+
+on:
+  push:
+    branches:
+      - tooling/regen-011d1-reservation-typestate-materializer-v1
+    paths:
+      - '.github/workflows/regen-biomass-reservation-typestate-materializer.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-24.04
+    env:
+      BASE_SHA: 6db8008aebc28fb9d3f05dbe2a0d850b83352151
+      TARGET_BRANCH: feat/regen-011d1-reservation-typestate-v1
+      CRATE_DIR: crates/mycelix-regenerative-biomass
+      PINNED_TOOLCHAIN: 1.96.0
+    steps:
+      - name: Checkout tooling branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Preserve successor qualifier template
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp .github/workflows/regen-biomass-reservation-typestate.yml /tmp/regen-biomass-reservation-typestate.yml
+
+      - name: Rebuild exact successor over green preparation baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout --detach "$BASE_SHA"
+          python - <<'PY'
+          from pathlib import Path
+
+          lib = Path('crates/mycelix-regenerative-biomass/src/lib.rs')
+          text = lib.read_text()
+          old = '''/// Immutable process-input reservation. This is not a consumption or execution record.
+          #[derive(Debug, Clone, PartialEq, Eq)]
+          pub struct ProcessInputReservation {
+              reservation_ref: ExactRef,
+              lot_id: BiomassLotId,
+              feedstock_assessment_ref: ExactRef,
+              state_snapshot_ref: ExactRef,
+              process_profile_ref: ExactRef,
+              quantity: BiomassQuantity,
+          }
+
+          impl ProcessInputReservation {
+              /// Construct a scoped positive reservation request.
+              pub fn new(
+                  reservation_ref: ExactRef,
+                  lot_id: BiomassLotId,
+                  feedstock_assessment_ref: ExactRef,
+                  state_snapshot_ref: ExactRef,
+                  process_profile_ref: ExactRef,
+                  quantity: BiomassQuantity,
+              ) -> Result<Self, BiomassError> {
+                  if quantity.mass.get() == 0 {
+                      return Err(BiomassError::ZeroReservation);
+                  }
+                  Ok(Self {
+                      reservation_ref,
+                      lot_id,
+                      feedstock_assessment_ref,
+                      state_snapshot_ref,
+                      process_profile_ref,
+                      quantity,
+                  })
+              }
+
+              /// Exact reservation reference.
+              pub fn reservation_ref(&self) -> &ExactRef {
+                  &self.reservation_ref
+              }
+
+              /// Exact reserved quantity.
+              pub const fn quantity(&self) -> BiomassQuantity {
+                  self.quantity
+              }
+          }
+
+          /// Pure result of evaluating reservations against one scoped capacity witness.
+          #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+          pub struct ReservationSummary {
+              reserved: BiomassQuantity,
+              remaining: BiomassQuantity,
+          }
+
+          impl ReservationSummary {
+              /// Total accepted reservation quantity.
+              pub const fn reserved(self) -> BiomassQuantity {
+                  self.reserved
+              }
+
+              /// Remaining unreserved capacity.
+              pub const fn remaining(self) -> BiomassQuantity {
+                  self.remaining
+              }
+          }
+
+          /// Evaluate exact reservation arithmetic without performing any physical action.
+          pub fn evaluate_reservations(
+              capacity: &ReservationCapacity,
+              reservations: &[ProcessInputReservation],
+          ) -> Result<ReservationSummary, BiomassError> {
+              let mut seen = BTreeSet::new();
+              let mut reserved = BiomassQuantity::new(MassMg::new(0), capacity.maximum.basis);
+              for reservation in reservations {
+                  if !seen.insert(reservation.reservation_ref.as_str()) {
+                      return Err(BiomassError::DuplicateReservationReference(
+                          reservation.reservation_ref.as_str().to_owned(),
+                      ));
+                  }
+                  if reservation.lot_id != capacity.lot_id {
+                      return Err(BiomassError::ReservationScopeMismatch("lot_id"));
+                  }
+                  if reservation.feedstock_assessment_ref != capacity.assessment_ref {
+                      return Err(BiomassError::ReservationScopeMismatch("assessment_ref"));
+                  }
+                  if reservation.state_snapshot_ref != capacity.state_snapshot_ref {
+                      return Err(BiomassError::ReservationScopeMismatch("state_snapshot_ref"));
+                  }
+                  if reservation.process_profile_ref != capacity.process_profile_ref {
+                      return Err(BiomassError::ReservationScopeMismatch("process_profile_ref"));
+                  }
+                  require_same_basis(capacity.maximum.basis, reservation.quantity.basis)?;
+                  reserved = reserved.checked_add(reservation.quantity)?;
+                  if reserved.mass > capacity.maximum.mass {
+                      return Err(BiomassError::ReservationOverbooked);
+                  }
+              }
+              let remaining = capacity.maximum.checked_sub(reserved)?;
+              Ok(ReservationSummary { reserved, remaining })
+          }
+          '''
+          new = '''/// Unvalidated request to reserve process-input capacity.
+          ///
+          /// A request is not an accepted reservation. Exact scope, basis, duplicate-reference,
+          /// and capacity checks are performed by [`evaluate_reservation_requests`].
+          #[derive(Debug, Clone, PartialEq, Eq)]
+          pub struct ReservationRequest {
+              reservation_ref: ExactRef,
+              lot_id: BiomassLotId,
+              feedstock_assessment_ref: ExactRef,
+              state_snapshot_ref: ExactRef,
+              process_profile_ref: ExactRef,
+              quantity: BiomassQuantity,
+          }
+
+          impl ReservationRequest {
+              /// Construct an unvalidated positive reservation request.
+              pub fn new(
+                  reservation_ref: ExactRef,
+                  lot_id: BiomassLotId,
+                  feedstock_assessment_ref: ExactRef,
+                  state_snapshot_ref: ExactRef,
+                  process_profile_ref: ExactRef,
+                  quantity: BiomassQuantity,
+              ) -> Result<Self, BiomassError> {
+                  if quantity.mass.get() == 0 {
+                      return Err(BiomassError::ZeroReservation);
+                  }
+                  Ok(Self {
+                      reservation_ref,
+                      lot_id,
+                      feedstock_assessment_ref,
+                      state_snapshot_ref,
+                      process_profile_ref,
+                      quantity,
+                  })
+              }
+
+              /// Exact request reference.
+              pub fn reservation_ref(&self) -> &ExactRef {
+                  &self.reservation_ref
+              }
+
+              /// Requested quantity.
+              pub const fn quantity(&self) -> BiomassQuantity {
+                  self.quantity
+              }
+          }
+
+          /// Evaluator-minted accepted reservation.
+          ///
+          /// This type has no public constructor. It proves only that one request survived the
+          /// exact software reservation checks for the evaluated batch. It is not consumption,
+          /// process execution, or physical authority.
+          #[derive(Debug, Clone, PartialEq, Eq)]
+          pub struct AcceptedReservation {
+              reservation_ref: ExactRef,
+              lot_id: BiomassLotId,
+              feedstock_assessment_ref: ExactRef,
+              state_snapshot_ref: ExactRef,
+              process_profile_ref: ExactRef,
+              quantity: BiomassQuantity,
+          }
+
+          impl AcceptedReservation {
+              fn from_request(request: &ReservationRequest) -> Self {
+                  Self {
+                      reservation_ref: request.reservation_ref.clone(),
+                      lot_id: request.lot_id.clone(),
+                      feedstock_assessment_ref: request.feedstock_assessment_ref.clone(),
+                      state_snapshot_ref: request.state_snapshot_ref.clone(),
+                      process_profile_ref: request.process_profile_ref.clone(),
+                      quantity: request.quantity,
+                  }
+              }
+
+              /// Exact accepted reservation reference.
+              pub fn reservation_ref(&self) -> &ExactRef {
+                  &self.reservation_ref
+              }
+
+              /// Exact biomass lot scope.
+              pub fn lot_id(&self) -> &BiomassLotId {
+                  &self.lot_id
+              }
+
+              /// Exact eligible feedstock assessment scope.
+              pub fn feedstock_assessment_ref(&self) -> &ExactRef {
+                  &self.feedstock_assessment_ref
+              }
+
+              /// Exact biomass state snapshot scope.
+              pub fn state_snapshot_ref(&self) -> &ExactRef {
+                  &self.state_snapshot_ref
+              }
+
+              /// Exact target process profile scope.
+              pub fn process_profile_ref(&self) -> &ExactRef {
+                  &self.process_profile_ref
+              }
+
+              /// Accepted reservation quantity.
+              pub const fn quantity(&self) -> BiomassQuantity {
+                  self.quantity
+              }
+          }
+
+          /// Atomic result of validating one reservation-request batch against one capacity witness.
+          #[derive(Debug, Clone, PartialEq, Eq)]
+          pub struct ReservationAcceptance {
+              accepted: Vec<AcceptedReservation>,
+              reserved: BiomassQuantity,
+              remaining: BiomassQuantity,
+          }
+
+          impl ReservationAcceptance {
+              /// Evaluator-minted accepted reservations. Empty is valid for an empty request batch.
+              pub fn accepted(&self) -> &[AcceptedReservation] {
+                  &self.accepted
+              }
+
+              /// Total accepted quantity.
+              pub const fn reserved(&self) -> BiomassQuantity {
+                  self.reserved
+              }
+
+              /// Remaining unreserved capacity.
+              pub const fn remaining(&self) -> BiomassQuantity {
+                  self.remaining
+              }
+          }
+
+          /// Validate a complete request batch and atomically mint accepted reservations.
+          ///
+          /// The function validates the entire batch before constructing any
+          /// [`AcceptedReservation`] visible to the caller. A failed batch therefore returns no
+          /// partially accepted reservation state.
+          pub fn evaluate_reservation_requests(
+              capacity: &ReservationCapacity,
+              requests: &[ReservationRequest],
+          ) -> Result<ReservationAcceptance, BiomassError> {
+              let mut seen = BTreeSet::new();
+              let mut reserved = BiomassQuantity::new(MassMg::new(0), capacity.maximum.basis);
+              for request in requests {
+                  if !seen.insert(request.reservation_ref.as_str()) {
+                      return Err(BiomassError::DuplicateReservationReference(
+                          request.reservation_ref.as_str().to_owned(),
+                      ));
+                  }
+                  if request.lot_id != capacity.lot_id {
+                      return Err(BiomassError::ReservationScopeMismatch("lot_id"));
+                  }
+                  if request.feedstock_assessment_ref != capacity.assessment_ref {
+                      return Err(BiomassError::ReservationScopeMismatch("assessment_ref"));
+                  }
+                  if request.state_snapshot_ref != capacity.state_snapshot_ref {
+                      return Err(BiomassError::ReservationScopeMismatch("state_snapshot_ref"));
+                  }
+                  if request.process_profile_ref != capacity.process_profile_ref {
+                      return Err(BiomassError::ReservationScopeMismatch("process_profile_ref"));
+                  }
+                  require_same_basis(capacity.maximum.basis, request.quantity.basis)?;
+                  reserved = reserved.checked_add(request.quantity)?;
+                  if reserved.mass > capacity.maximum.mass {
+                      return Err(BiomassError::ReservationOverbooked);
+                  }
+              }
+              let remaining = capacity.maximum.checked_sub(reserved)?;
+              let accepted = requests.iter().map(AcceptedReservation::from_request).collect();
+              Ok(ReservationAcceptance {
+                  accepted,
+                  reserved,
+                  remaining,
+              })
+          }
+          '''
+          if text.count(old) != 1:
+              raise SystemExit(f'expected exact reservation block once, found {text.count(old)}')
+          lib.write_text(text.replace(old, new))
+
+          tests = Path('crates/mycelix-regenerative-biomass/tests/biomass_core.rs')
+          t = tests.read_text()
+          if t.count('ProcessInputReservation') != 3:
+              raise SystemExit(f'expected three ProcessInputReservation references, found {t.count("ProcessInputReservation")}')
+          t = t.replace('ProcessInputReservation', 'ReservationRequest')
+          if t.count('evaluate_reservations') != 4:
+              raise SystemExit(f'expected four evaluate_reservations references, found {t.count("evaluate_reservations")}')
+          t = t.replace('evaluate_reservations', 'evaluate_reservation_requests')
+          old_name = 'fn reservation_capacity_is_scoped_to_exact_assessment_snapshot_profile_and_basis() {'
+          if t.count(old_name) != 1:
+              raise SystemExit('expected scope-mismatch test name once')
+          t = t.replace(old_name, 'fn scope_mismatched_request_is_not_an_accepted_reservation() {')
+          addition = r'''
+
+          #[test]
+          fn evaluator_mints_accepted_reservations_only_after_full_batch_validation() {
+              let capacity = FeedstockAssessment::Eligible(Box::new(eligible_feedstock(500, 600)))
+                  .reservation_capacity()
+                  .unwrap();
+              let acceptance = evaluate_reservation_requests(
+                  &capacity,
+                  &[reservation("reservation/1", 200), reservation("reservation/2", 300)],
+              )
+              .unwrap();
+              assert_eq!(acceptance.accepted().len(), 2);
+              assert_eq!(acceptance.reserved().mass().get(), 500);
+              assert_eq!(acceptance.remaining().mass().get(), 0);
+              assert_eq!(
+                  acceptance.accepted()[0].state_snapshot_ref().as_str(),
+                  "snapshot/1"
+              );
+              assert_eq!(
+                  acceptance.accepted()[0].process_profile_ref().as_str(),
+                  "process/pyrolysis-profile-1"
+              );
+
+              let duplicate = [reservation("reservation/dup", 100), reservation("reservation/dup", 100)];
+              assert!(matches!(
+                  evaluate_reservation_requests(&capacity, &duplicate),
+                  Err(BiomassError::DuplicateReservationReference(_))
+              ));
+          }
+          '''
+          if 'fn evaluator_mints_accepted_reservations_only_after_full_batch_validation()' in t:
+              raise SystemExit('accepted-reservation type-state test already exists')
+          tests.write_text(t + addition)
+          PY
+          cp /tmp/regen-biomass-reservation-typestate.yml .github/workflows/regen-biomass-reservation-typestate.yml
+
+      - name: Format and verify generated successor with Rust 1.96
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install "$PINNED_TOOLCHAIN" --profile minimal --component rustfmt,clippy
+          cargo +"$PINNED_TOOLCHAIN" fmt --manifest-path "$CRATE_DIR/Cargo.toml"
+          cargo +"$PINNED_TOOLCHAIN" generate-lockfile --manifest-path "$CRATE_DIR/Cargo.toml"
+          cargo +"$PINNED_TOOLCHAIN" test --manifest-path "$CRATE_DIR/Cargo.toml" --locked
+          cargo +"$PINNED_TOOLCHAIN" clippy --manifest-path "$CRATE_DIR/Cargo.toml" --all-targets --locked -- -D warnings
+          rm -f "$CRATE_DIR/Cargo.lock"
+          git diff --check
+          actual="$(git diff --name-only "$BASE_SHA" | sort)"
+          expected="$(printf '%s\n' \
+            '.github/workflows/regen-biomass-reservation-typestate.yml' \
+            'crates/mycelix-regenerative-biomass/src/lib.rs' \
+            'crates/mycelix-regenerative-biomass/tests/biomass_core.rs' | sort)"
+          test "$actual" = "$expected"
+
+      - name: Commit one exact successor ProductHead
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c "$TARGET_BRANCH"
+          git add .github/workflows/regen-biomass-reservation-typestate.yml \
+            crates/mycelix-regenerative-biomass/src/lib.rs \
+            crates/mycelix-regenerative-biomass/tests/biomass_core.rs
+          git commit -m 'refactor(regenerative): make reservation acceptance evaluator-minted'
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          git push origin HEAD:refs/heads/$TARGET_BRANCH
