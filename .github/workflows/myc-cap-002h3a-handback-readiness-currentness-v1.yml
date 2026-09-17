@@ -1,0 +1,96 @@
+name: MYC-CAP-002H3A Handback Readiness Currentness v1
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/capital/handback_readiness_currentness_v1.py'
+      - 'scripts/capital/test_handback_readiness_currentness_v1.py'
+      - 'docs/capital/evidence/myc-cap-002h3a/**'
+      - '.github/workflows/myc-cap-002h3a-handback-readiness-currentness-v1.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Designated-current handback readiness evidence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Exact subject, qualified H3 parent, and scope
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "f9d88b41a750d2bddfa8fa2bf26727f04a4998a6"
+          expected="$(mktemp)"
+          actual="$(mktemp)"
+          printf '%s\n' \
+            '.github/workflows/myc-cap-002h3a-handback-readiness-currentness-v1.yml' \
+            'docs/capital/evidence/myc-cap-002h3a/PROFILE.md' \
+            'docs/capital/evidence/myc-cap-002h3a/example_case.json' \
+            'docs/capital/evidence/myc-cap-002h3a/example_receipt.json' \
+            'scripts/capital/handback_readiness_currentness_v1.py' \
+            'scripts/capital/test_handback_readiness_currentness_v1.py' | sort > "$expected"
+          git diff-tree --no-commit-id --name-only -r HEAD | sort > "$actual"
+          diff -u "$expected" "$actual"
+          test -z "$(git status --porcelain)"
+
+      - name: Exact H3 semantic parent
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          def canonical_bytes(v):
+              return json.dumps(v, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")
+          case = json.loads(Path("docs/capital/evidence/myc-cap-002h3a/example_case.json").read_text(encoding="utf-8"))
+          parent = json.loads(Path("docs/capital/evidence/myc-cap-002h3/example_receipt.json").read_text(encoding="utf-8"))
+          assert case["handback_receipt"] == parent
+          assert case["profile"]["handback_subject_sha"] == "f9d88b41a750d2bddfa8fa2bf26727f04a4998a6"
+          digest = hashlib.sha256(canonical_bytes(parent)).hexdigest()
+          assert digest == "be1c02a199688e8aef4c6054abfef216cfffe830730f090fdb1be1db406e3045"
+          assert case["profile"]["handback_receipt_sha256"] == digest
+          PY
+
+      - name: Python environment
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 -m py_compile scripts/capital/handback_readiness_currentness_v1.py
+          python3 -m py_compile scripts/capital/test_handback_readiness_currentness_v1.py
+
+      - name: Fail-closed unit suite
+        run: |
+          set -euo pipefail
+          python3 -m unittest -v scripts/capital/test_handback_readiness_currentness_v1.py
+
+      - name: Deterministic example receipt
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp)"
+          python3 scripts/capital/handback_readiness_currentness_v1.py docs/capital/evidence/myc-cap-002h3a/example_case.json --receipt-out "$tmp"
+          diff -u docs/capital/evidence/myc-cap-002h3a/example_receipt.json "$tmp"
+          cp "$tmp" "${tmp}.second"
+          python3 scripts/capital/handback_readiness_currentness_v1.py docs/capital/evidence/myc-cap-002h3a/example_case.json --receipt-out "$tmp"
+          cmp "$tmp" "${tmp}.second"
+          echo '2359094bf2e9f86ab9af09f72461432ad5e76344855d04bdebbe8dd5cefed506  docs/capital/evidence/myc-cap-002h3a/example_case.json' | sha256sum -c -
+          echo '2ca65cfb3abf5ab4d13735468059f35e978791dc18bba4a8aa9cb5f0999ff525  docs/capital/evidence/myc-cap-002h3a/example_receipt.json' | sha256sum -c -
+
+      - name: Strong currentness nonclaims
+        run: |
+          set -euo pipefail
+          grep -Fq '"handback_readiness_currentness_state": "CURRENT"' docs/capital/evidence/myc-cap-002h3a/example_receipt.json
+          grep -Fq '"handback_readiness_state": "HANDOVER_READY"' docs/capital/evidence/myc-cap-002h3a/example_receipt.json
+          grep -Fq '"handover_accepted": false' docs/capital/evidence/myc-cap-002h3a/example_receipt.json
+          grep -Fq '"operational_custody_accepted": false' docs/capital/evidence/myc-cap-002h3a/example_receipt.json
+          grep -Fq '"legal_transition_complete": false' docs/capital/evidence/myc-cap-002h3a/example_receipt.json
+          grep -Fq '"execution_authority_established": false' docs/capital/evidence/myc-cap-002h3a/example_receipt.json
+          grep -Fq '"uses_local_wall_clock": false' docs/capital/evidence/myc-cap-002h3a/example_receipt.json

@@ -1,0 +1,31 @@
+{
+  "blockers": [],
+  "designation_id": "handback-currentness-001",
+  "designation_registry_epoch": 1,
+  "designation_registry_id": "registry:handback-readiness-currentness",
+  "designation_sha256": "98f69742236f550201f3a8f2214713ff31231987f3f49809994d22e3ff659bac",
+  "event_chain_tip_sha256": null,
+  "event_count": 0,
+  "event_history_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "execution_authority_established": false,
+  "handback_readiness_currentness_state": "CURRENT",
+  "handback_readiness_state": "HANDOVER_READY",
+  "handback_receipt_sha256": "be1c02a199688e8aef4c6054abfef216cfffe830730f090fdb1be1db406e3045",
+  "handback_subject_sha": "f9d88b41a750d2bddfa8fa2bf26727f04a4998a6",
+  "handover_accepted": false,
+  "legal_transition_complete": false,
+  "nonclaims": [
+    "handback currentness is not handover acceptance",
+    "handback currentness is not operational custody transfer",
+    "handback currentness is not legal title transfer",
+    "CURRENT currentness does not imply HANDOVER_READY",
+    "handback currentness does not authenticate external authority or evidence references",
+    "handback currentness is relative to the supplied designation lineage and not local wall-clock time"
+  ],
+  "operational_custody_accepted": false,
+  "profile_sha256": "49f76ea9f0dbd9d1bd3772e33cd38b43c65d382f8193805c9098ed32a5a9c08d",
+  "profile_version": "mycelix-handback-readiness-currentness-v1",
+  "project_id": "fiber:jhb:test-001",
+  "receipt_version": "mycelix-handback-readiness-currentness-receipt-v1",
+  "uses_local_wall_clock": false
+}
