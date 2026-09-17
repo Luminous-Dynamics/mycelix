@@ -97,17 +97,27 @@ pub enum ProjectionError {
 impl fmt::Display for ProjectionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let message = match self {
-            Self::InvalidSemanticId => "semantic identifier is empty, too long, or contains control characters",
+            Self::InvalidSemanticId => {
+                "semantic identifier is empty, too long, or contains control characters"
+            }
             Self::TooManyObservations => "capacity projection observation bound exceeded",
             Self::SourceMismatch => "allocation observation belongs to a different capacity source",
             Self::AssetMismatch => "allocation or authorized capacity uses a different asset",
             Self::UnsupportedAllocationProfile => {
                 "allocation observation uses an unsupported semantic profile revision"
             }
-            Self::AllocationConflict => "one allocation reference presents incompatible economic facts",
-            Self::LifecycleConflict => "one allocation has incompatible semantic lifecycle transitions",
-            Self::InvalidLifecycle => "allocation lifecycle is not valid under the V1 projection profile",
-            Self::CapacityExceeded => "derived reserved plus consumed capacity exceeds authorized capacity",
+            Self::AllocationConflict => {
+                "one allocation reference presents incompatible economic facts"
+            }
+            Self::LifecycleConflict => {
+                "one allocation has incompatible semantic lifecycle transitions"
+            }
+            Self::InvalidLifecycle => {
+                "allocation lifecycle is not valid under the V1 projection profile"
+            }
+            Self::CapacityExceeded => {
+                "derived reserved plus consumed capacity exceeds authorized capacity"
+            }
             Self::ArithmeticOverflow => "exact capacity arithmetic overflow",
             Self::ArithmeticUnderflow => "exact capacity arithmetic underflow",
         };
@@ -292,7 +302,8 @@ impl AllocationDescriptorV1 {
             && self.identity.reservation_commitment == other.identity.reservation_commitment
             && self.amount == other.amount
             && self.identity.idempotency_domain == other.identity.idempotency_domain
-            && self.identity.allocation_profile_revision == other.identity.allocation_profile_revision
+            && self.identity.allocation_profile_revision
+                == other.identity.allocation_profile_revision
             && self.expires_at_unix_ms == other.expires_at_unix_ms
     }
 }
@@ -482,8 +493,7 @@ pub fn project_capacity_v1(
 
     let mut ref_to_allocation = BTreeMap::<SemanticId, Commitment32>::new();
     let mut reservation_id_to_allocation = BTreeMap::<SemanticId, Commitment32>::new();
-    let mut reservation_commitment_to_allocation =
-        BTreeMap::<Commitment32, Commitment32>::new();
+    let mut reservation_commitment_to_allocation = BTreeMap::<Commitment32, Commitment32>::new();
     let mut grouped = BTreeMap::<Commitment32, Vec<AllocationObservationV1>>::new();
 
     for observation in input.observations {
@@ -989,8 +999,7 @@ mod tests {
         let root = reserved("alloc-a", "reservation-a", 80, 2);
         let consumed = terminal(&root, AllocationStateV1::Consumed, 3);
         let duplicate = terminal(&root, AllocationStateV1::Consumed, 4);
-        let projection =
-            project(100, vec![root, consumed, duplicate]).expect("semantic duplicate");
+        let projection = project(100, vec![root, consumed, duplicate]).expect("semantic duplicate");
         assert_eq!(projection.active_reserved().atomic_units(), 0);
         assert_eq!(projection.consumed_or_drawn().atomic_units(), 80);
         assert_eq!(projection.available().atomic_units(), 20);
@@ -1062,8 +1071,7 @@ mod tests {
             b.predecessor_transition,
             commitment(89),
         );
-        let right =
-            project(100, vec![b_other_physical, a_other_physical]).expect("same economics");
+        let right = project(100, vec![b_other_physical, a_other_physical]).expect("same economics");
 
         assert_eq!(left.commitment(), right.commitment());
         assert_eq!(left.active_reserved().atomic_units(), 70);
@@ -1077,11 +1085,8 @@ mod tests {
         let expired_root = reserved("alloc-b", "reservation-b", 40, 4);
         let expired = terminal(&expired_root, AllocationStateV1::Expired, 5);
 
-        let projection = project(
-            100,
-            vec![released_root, released, expired_root, expired],
-        )
-        .expect("valid terminal lifecycles");
+        let projection = project(100, vec![released_root, released, expired_root, expired])
+            .expect("valid terminal lifecycles");
 
         assert_eq!(projection.active_reserved().atomic_units(), 0);
         assert_eq!(projection.consumed_or_drawn().atomic_units(), 0);
@@ -1128,16 +1133,10 @@ mod tests {
 
     #[test]
     fn canonical_semantic_change_changes_projection_commitment() {
-        let first = project(
-            100,
-            vec![reserved("alloc-a", "reservation-a", 10, 2)],
-        )
-        .expect("first projection");
-        let changed = project(
-            100,
-            vec![reserved("alloc-a", "reservation-a", 11, 2)],
-        )
-        .expect("changed projection");
+        let first = project(100, vec![reserved("alloc-a", "reservation-a", 10, 2)])
+            .expect("first projection");
+        let changed = project(100, vec![reserved("alloc-a", "reservation-a", 11, 2)])
+            .expect("changed projection");
 
         assert_ne!(first.commitment(), changed.commitment());
     }
