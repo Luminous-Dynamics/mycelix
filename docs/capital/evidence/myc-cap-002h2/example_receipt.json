@@ -1,0 +1,28 @@
+{
+  "blockers": [],
+  "claim_modified": false,
+  "execution_authority_established": false,
+  "legal_distribution_authority_established": false,
+  "measurement_id": "measure-001",
+  "nonclaims": [
+    "ELIGIBLE_CURRENT is not payment authorization",
+    "ELIGIBLE_CURRENT is not legal distribution entitlement",
+    "service composition does not mutate or increase the investor claim",
+    "service composition does not establish truth or authenticity of external measurements",
+    "service composition is not financial satisfaction, handback readiness, custody currentness, or governance legitimacy",
+    "service composition does not establish execution authority"
+  ],
+  "payment_authority_established": false,
+  "profile_sha256": "34f6a89cc1ea79b045a55c538b2786e6e7ecd4171978ceade6be47017906725e",
+  "profile_version": "mycelix-public-service-composition-v1",
+  "project_id": "fiber:jhb:test-001",
+  "public_service_distribution_state": "ELIGIBLE_CURRENT",
+  "receipt_version": "mycelix-public-service-composition-receipt-v1",
+  "service_currentness_receipt_sha256": "2d64bfa8fe3f0351c04c297d8ae4ef66fac930d2e193a2bfffe2072802a94bf0",
+  "service_currentness_state": "CURRENT",
+  "service_currentness_subject_sha": "caf653560310c9d47b036ef88a2207bff6d4b06f",
+  "service_distribution_eligibility": "ELIGIBLE",
+  "service_gate_profile_sha256": "18dc049978d41bfda3e2d5c48280ccaa37f7e03d5a04cbedc50af80db49e0937",
+  "service_gate_receipt_sha256": "347cf7cc038ba918cade9e1e210871ddb6039440d9af5ea78c3745594acc8969",
+  "service_gate_subject_sha": "92fe8408b52ce1b63808201e9f70ab5280a6f489"
+}
