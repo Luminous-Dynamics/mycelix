@@ -1,0 +1,126 @@
+name: LEX-NET-040 R2-Q2 Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'docs/lex-net/LEX_NET_CAPABILITY_CONSUMPTION_STATE_V1.md'
+      - 'docs/lex-net/lex_net_040_manifest.json'
+      - 'scripts/validate_lex_net_040.py'
+      - '.github/workflows/lex-net-040.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-slim
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Prove exact qualified parent and review surface
+        run: python3 scripts/validate_lex_net_040.py --scope
+
+      - name: Validate local capability consumption-state contract and corpus
+        run: |
+          python3 scripts/validate_lex_net_040.py --self-test
+          python3 scripts/validate_lex_net_040.py --semantic
+
+      - name: Independent state, CAS, idempotency, history-conservation, effect-boundary, and nonclaim audit
+        shell: python
+        run: |
+          from pathlib import Path
+          import json
+
+          doc = Path('docs/lex-net/LEX_NET_CAPABILITY_CONSUMPTION_STATE_V1.md').read_text(encoding='utf-8').casefold()
+          manifest = json.loads(Path('docs/lex-net/lex_net_040_manifest.json').read_text(encoding='utf-8'))
+          script = Path('scripts/validate_lex_net_040.py').read_text(encoding='utf-8').casefold()
+
+          required = [
+              'append-only evidence != authoritative latest consumption state',
+              'caller says current != authoritative current',
+              'same authoritative prior state + competing transitions -> at most one authoritative successor',
+              'idempotent retry != new authority consumption',
+              'authority use committed != effect attempted != effect accepted != effect committed != effect final',
+              '040 state-machine pass != backend atomicity pass',
+              'authorityusecommitted != effectattempted',
+              'replay safety != permission for unbounded invocation history',
+              'prior invocation records are immutable across successors',
+              'consumption_indices = {1, ..., uses_consumed}',
+              'effect_attempted = false',
+              'effect_confirmed = false',
+              'grants_local_authority = false',
+              'grants_external_effect_authority = false',
+          ]
+          for phrase in required:
+              if phrase not in doc:
+                  raise SystemExit(f'missing normative phrase: {phrase}')
+
+          if manifest.get('candidate_revision') != 'R2':
+              raise SystemExit('candidate revision drift')
+          if manifest.get('qualified_parent') != 'a539a2e0f5db4a1933534acc3303e2dc709c0023':
+              raise SystemExit('qualified parent drift')
+          if manifest.get('qualified_parent_run') != 35284293688 or manifest.get('qualified_parent_job') != 105413071448:
+              raise SystemExit('qualified parent evidence drift')
+          if manifest.get('historical_r1_head') != '3ecdf23608871702cda48786bc94b4656ebc58b4':
+              raise SystemExit('R1 lineage drift')
+          if manifest.get('lease_domain') != 'LEX-NET/AUTHORITY/LEASE-ENVELOPE/v1':
+              raise SystemExit('lease domain drift')
+          if manifest.get('state_domain') != 'LEX-NET/AUTHORITY/CONSUMPTION-STATE/v1':
+              raise SystemExit('state domain drift')
+          if manifest.get('invocation_domain') != 'LEX-NET/INVOCATION/v1':
+              raise SystemExit('invocation domain drift')
+          if manifest.get('evidence_domain') != 'LEX-NET/EVIDENCE/v3':
+              raise SystemExit('evidence domain drift')
+          if manifest.get('max_use_budget') != 64 or manifest.get('max_invocation_id_utf8_bytes') != 128 or manifest.get('max_payload_commitment_utf8_bytes') != 256:
+              raise SystemExit('resource-bound profile drift')
+
+          nonclaims = manifest.get('required_nonclaims')
+          if not isinstance(nonclaims, list) or not nonclaims or len(nonclaims) != len(set(nonclaims)):
+              raise SystemExit('required_nonclaims invalid')
+          for phrase in nonclaims:
+              if not isinstance(phrase, str) or not phrase.strip() or phrase.casefold() not in doc:
+                  raise SystemExit(f'nonclaim missing or invalid: {phrase}')
+
+          fixtures = manifest.get('fixtures')
+          if not isinstance(fixtures, list) or len(fixtures) != 40:
+              raise SystemExit('fixture census drift')
+          ids = [f.get('id') for f in fixtures if isinstance(f, dict)]
+          if len(ids) != len(set(ids)):
+              raise SystemExit('duplicate fixture id')
+          for fixture_id in (
+              'genesis_first_use','one_use_second_distinct','stale_state_replay',
+              'competing_distinct_one_use','concurrent_identical_resolves_idempotent',
+              'caller_claims_old_state_current','idempotent_after_expiry',
+              'same_id_conflict_after_budget','effect_unknown_does_not_restore',
+              'evidence_cannot_be_state','history_exceeds_budget',
+              'store_rejects_successor_version_jump','store_rejects_wrong_prior',
+              'store_rejects_prior_record_rewrite','state_rejects_nonmonotonic_indices',
+          ):
+              if fixture_id not in ids:
+                  raise SystemExit(f'missing adversarial fixture: {fixture_id}')
+
+          for token in ('requests.', 'httpx', 'urllib.request', 'socket.'):
+              if token in script:
+                  raise SystemExit('validator must not perform network I/O')
+
+          for token in (
+              'class authoritystatestore','compare_and_swap','state_status','inv_ok',
+              'idempotentreplay','invocationconflict','effect_attempted','effect_confirmed',
+              'transition_id','max_use_budget','max_invocation_id_bytes','max_payload_commitment_bytes',
+              'expected_tid','old=set(','new=set(','added=new-old',
+          ):
+              if token not in script:
+                  raise SystemExit(f'validator primitive missing: {token}')
+
+          print('LEX-NET-040 R2-Q2 independent audit PASS')
+
+      - name: Immutable checkout postflight
+        run: |
+          python3 scripts/validate_lex_net_040.py --scope
+          test -z "$(git status --porcelain)"
+          git diff --exit-code
