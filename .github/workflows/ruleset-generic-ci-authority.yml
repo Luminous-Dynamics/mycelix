@@ -1,0 +1,425 @@
+name: Ruleset Generic CI Authority
+
+on:
+  pull_request:
+  merge_group:
+
+# CI-GOV-001I / #1685
+#
+# This workflow is intended to be selected by a GitHub ruleset from a protected
+# authority source branch. The workflow definition/policy root is
+# github.workflow_sha; the product subject under test is github.sha.
+#
+# There is intentionally no cancel-in-progress policy. A ruleset-required
+# authority run must reach its own terminal result.
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  CARGO_TERM_COLOR: always
+  AUTHORITY_MANIFEST: docs/ci/ruleset_generic_ci_authority_v1.json
+  AUTHORITY_PROFILE: docs/ci/generic_ci_admission_v2.json
+  RUST_TOOLCHAIN: 1.96.0
+  NODE_VERSION: 20.20.2
+
+jobs:
+  changes:
+    name: Trusted admission
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      disposition: ${{ steps.route.outputs.disposition }}
+      authority_complete: ${{ steps.route.outputs.authority_complete }}
+      generic_ci_required: ${{ steps.route.outputs.generic_ci_required }}
+      format: ${{ steps.route.outputs.format }}
+      commons: ${{ steps.route.outputs.commons }}
+      civic: ${{ steps.route.outputs.civic }}
+      hearth: ${{ steps.route.outputs.hearth }}
+      finance: ${{ steps.route.outputs.finance }}
+      finance_integration: ${{ steps.route.outputs.finance_integration }}
+      governance: ${{ steps.route.outputs.governance }}
+      identity: ${{ steps.route.outputs.identity }}
+      personal: ${{ steps.route.outputs.personal }}
+      attribution: ${{ steps.route.outputs.attribution }}
+      bridge: ${{ steps.route.outputs.bridge }}
+      sdk: ${{ steps.route.outputs.sdk }}
+      prism: ${{ steps.route.outputs.prism }}
+    steps:
+      - name: Checkout trusted authority root
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .authority
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Bind authority source identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C .authority rev-parse HEAD)" = "$GITHUB_WORKFLOW_SHA"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          manifest=json.loads(Path(".authority/docs/ci/ruleset_generic_ci_authority_v1.json").read_text())
+          if manifest.get("authority_id")!="ruleset-generic-ci-authority-v1":
+              raise SystemExit("authority manifest identity drift")
+          if manifest.get("required_workflow_path")!=".github/workflows/ruleset-generic-ci-authority.yml":
+              raise SystemExit("required workflow path drift")
+          PY
+
+      - name: Self-test trusted scheduling policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd .authority
+          python3 scripts/evaluate_generic_ci_admission_v2.py --self-test
+          python3 scripts/fetch_generic_ci_pr_files.py --self-test
+          python3 scripts/run_ruleset_generic_ci_admission_v1.py --self-test
+          python3 scripts/run_ruleset_generic_ci_admission_v2.py --self-test
+
+      - name: Route required CI from trusted authority bytes
+        id: route
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cd .authority
+          python3 scripts/run_ruleset_generic_ci_admission_v2.py \
+            --receipt-output "$RUNNER_TEMP/ruleset-admission.json"
+          cat "$RUNNER_TEMP/ruleset-admission.json"
+
+  format:
+    name: Format
+    needs: changes
+    if: needs.changes.outputs.format == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout target subject
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Install exact Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.96.0
+          components: rustfmt
+      - name: Check formatting
+        shell: bash
+        run: |
+          set -u
+          status=0
+          for dir in mycelix-commons mycelix-civic mycelix-hearth mycelix-finance mycelix-governance mycelix-identity mycelix-personal mycelix-attribution; do
+            echo "=== Checking $dir ==="
+            (cd "$dir" && cargo fmt --all --check) || status=1
+          done
+          (cd crates/mycelix-bridge-common && cargo fmt --all --check) || status=1
+          (cd crates/mycelix-bridge-entry-types && cargo fmt --all --check) || status=1
+          exit "$status"
+
+  test-commons:
+    needs: changes
+    if: needs.changes.outputs.commons == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {ref: '${{ github.sha }}', submodules: recursive, fetch-depth: 1, persist-credentials: false}
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with: {toolchain: '1.96.0', targets: wasm32-unknown-unknown}
+      - name: Test commons
+        run: cd mycelix-commons && cargo test --workspace --locked
+
+  test-civic:
+    needs: changes
+    if: needs.changes.outputs.civic == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {ref: '${{ github.sha }}', submodules: recursive, fetch-depth: 1, persist-credentials: false}
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with: {toolchain: '1.96.0', targets: wasm32-unknown-unknown}
+      - name: Test civic
+        run: cd mycelix-civic && cargo test --workspace --locked
+
+  test-hearth:
+    needs: changes
+    if: needs.changes.outputs.hearth == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {ref: '${{ github.sha }}', submodules: recursive, fetch-depth: 1, persist-credentials: false}
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with: {toolchain: '1.96.0', targets: wasm32-unknown-unknown}
+      - name: Test hearth
+        run: cd mycelix-hearth && cargo test --workspace --locked
+
+  test-finance:
+    needs: changes
+    if: needs.changes.outputs.finance == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {ref: '${{ github.sha }}', submodules: recursive, fetch-depth: 1, persist-credentials: false}
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with: {toolchain: '1.96.0', targets: wasm32-unknown-unknown}
+      - name: Test finance
+        run: cd mycelix-finance && cargo test --workspace --locked
+
+  test-finance-integration:
+    name: Finance Integration (informational observation)
+    needs: changes
+    if: needs.changes.outputs.finance_integration == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    outputs:
+      observation: ${{ steps.measure.outputs.observation }}
+      failure_phase: ${{ steps.measure.outputs.failure_phase }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {ref: '${{ github.sha }}', submodules: recursive, fetch-depth: 1, persist-credentials: false}
+      - name: Install exact Determinate Nix 3.22.4
+        uses: DeterminateSystems/determinate-nix-action@58b42ef6cd91478a14253e00805ec7c79eb1566a
+        with:
+          source-tag: ''
+          source-revision: 2f5c8e53e0caa0857114853ee1d4dc8d07d96dd3
+          kvm: false
+          summarize: false
+          diagnostic-endpoint: ''
+      - name: Verify Nix version
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix --version | tee "$RUNNER_TEMP/nix-version.txt"
+          grep -Fq 'Determinate Nix 3.22.4' "$RUNNER_TEMP/nix-version.txt"
+      - name: Configure public Holochain Cachix
+        uses: cachix/cachix-action@ad2ddac53f961de1989924296a1f236fcfbaa4fc
+        with:
+          name: holochain-ci
+      - name: Measure Finance Integration
+        id: measure
+        shell: bash
+        run: |
+          set -u
+          observation=success
+          failure_phase=''
+
+          phase=build-zomes
+          if ! (cd mycelix-finance && nix develop --no-write-lock-file .#ci --impure --command \
+              cargo build --locked --release --target wasm32-unknown-unknown --workspace --exclude finance-leptos-types); then
+            observation=failure
+            failure_phase="$phase"
+          fi
+
+          if [ "$observation" = success ]; then
+            phase=pack-dna
+            if ! (cd mycelix-finance && nix develop --no-write-lock-file .#ci --impure --command hc dna pack dna/); then
+              observation=failure
+              failure_phase="$phase"
+            fi
+          fi
+
+          if [ "$observation" = success ]; then
+            phase=sweettest
+            if ! (cd mycelix-finance && nix develop --no-write-lock-file .#ci --impure --command \
+                bash -c 'cd tests && cargo test --locked -- --include-ignored --test-threads=1'); then
+              observation=failure
+              failure_phase="$phase"
+            fi
+          fi
+
+          echo "observation=$observation" >> "$GITHUB_OUTPUT"
+          echo "failure_phase=$failure_phase" >> "$GITHUB_OUTPUT"
+          printf 'Finance Integration observation=%s failure_phase=%s\n' "$observation" "$failure_phase"
+          exit 0
+
+  test-governance:
+    needs: changes
+    if: needs.changes.outputs.governance == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {ref: '${{ github.sha }}', submodules: recursive, fetch-depth: 1, persist-credentials: false}
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with: {toolchain: '1.96.0', targets: wasm32-unknown-unknown}
+      - name: Test governance
+        run: cd mycelix-governance && cargo test --workspace --locked
+
+  test-identity:
+    needs: changes
+    if: needs.changes.outputs.identity == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {ref: '${{ github.sha }}', submodules: recursive, fetch-depth: 1, persist-credentials: false}
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with: {toolchain: '1.96.0', targets: wasm32-unknown-unknown}
+      - name: Test identity
+        run: cd mycelix-identity && cargo test --workspace --locked
+
+  test-personal:
+    needs: changes
+    if: needs.changes.outputs.personal == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {ref: '${{ github.sha }}', submodules: recursive, fetch-depth: 1, persist-credentials: false}
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with: {toolchain: '1.96.0', targets: wasm32-unknown-unknown}
+      - name: Test personal
+        run: cd mycelix-personal && cargo test --workspace --locked
+
+  test-attribution:
+    needs: changes
+    if: needs.changes.outputs.attribution == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {ref: '${{ github.sha }}', submodules: recursive, fetch-depth: 1, persist-credentials: false}
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with: {toolchain: '1.96.0', targets: wasm32-unknown-unknown}
+      - name: Test attribution
+        run: cd mycelix-attribution && cargo test --workspace --locked
+
+  test-bridge:
+    needs: changes
+    if: needs.changes.outputs.bridge == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {ref: '${{ github.sha }}', submodules: recursive, fetch-depth: 1, persist-credentials: false}
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with: {toolchain: '1.96.0', targets: wasm32-unknown-unknown}
+      - name: Test bridge-common
+        run: cd crates/mycelix-bridge-common && cargo test --workspace --locked
+      - name: Test bridge-entry-types
+        run: cd crates/mycelix-bridge-entry-types && cargo test --workspace --locked
+
+  test-sdk:
+    needs: changes
+    if: needs.changes.outputs.sdk == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      typescript_observation: ${{ steps.typescript.outcome }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {ref: '${{ github.sha }}', submodules: recursive, fetch-depth: 1, persist-credentials: false}
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with: {toolchain: '1.96.0', targets: wasm32-unknown-unknown}
+      - name: Test Rust SDK
+        run: cd mycelix-workspace/sdk && cargo test --workspace --locked
+      - name: Install exact Node 20.20.2
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 20.20.2
+      - name: Verify Node runtime
+        run: test "$(node --version)" = "v20.20.2"
+      - name: Measure TypeScript SDK (informational, baseline policy)
+        id: typescript
+        continue-on-error: true
+        run: cd mycelix-workspace/sdk-ts && npm ci && npm test
+
+  test-prism:
+    needs: changes
+    if: needs.changes.outputs.prism == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {ref: '${{ github.sha }}', submodules: recursive, fetch-depth: 1, persist-credentials: false}
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libx11-dev libxcursor-dev libxi-dev libxrandr-dev libxkbcommon-dev libwayland-dev libgl1-mesa-dev \
+            libwebkit2gtk-4.1-dev libjavascriptcoregtk-4.1-dev libsoup-3.0-dev librsvg2-dev libayatana-appindicator3-dev
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with: {toolchain: '1.96.0', targets: wasm32-unknown-unknown, components: rustfmt}
+      - name: Check Prism formatting
+        run: |
+          cd mycelix-workspace/mycelix-prism
+          cargo fmt --check \
+            -p prism-common -p prism-dom -p prism-net -p prism-proxy -p prism-serve \
+            -p prism-ingest -p prism-search -p prism-layout -p prism-reflex -p prism-privacy \
+            -p prism-zkp -p prism-knowledge-bridge -p prism-bridge -p prism-shell -p prism-ui \
+            -p prism-tauri -p prism-node
+      - name: Build prism-ui for wasm32
+        run: cd mycelix-workspace/mycelix-prism/prism-ui && cargo build --locked --target wasm32-unknown-unknown
+      - name: Test Prism crates
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-workspace/mycelix-prism
+          for pkg in prism-common prism-dom prism-net prism-proxy prism-serve \
+                     prism-ingest prism-search prism-layout prism-reflex prism-privacy \
+                     prism-zkp prism-knowledge-bridge prism-bridge prism-shell prism-ui; do
+            echo "=== Testing $pkg ==="
+            cargo test --locked -p "$pkg"
+          done
+      - name: Check prism-tauri
+        run: cd mycelix-workspace/mycelix-prism && cargo check --locked -p prism-tauri
+
+  ci-pass:
+    name: Trusted generic CI authority
+    if: always()
+    needs:
+      - changes
+      - format
+      - test-commons
+      - test-civic
+      - test-hearth
+      - test-finance
+      - test-finance-integration
+      - test-governance
+      - test-identity
+      - test-personal
+      - test-attribution
+      - test-bridge
+      - test-sdk
+      - test-prism
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout trusted aggregate implementation
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .authority
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Bind aggregate authority source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C .authority rev-parse HEAD)" = "$GITHUB_WORKFLOW_SHA"
+
+      - name: Self-test trusted aggregate
+        run: |
+          set -euo pipefail
+          cd .authority
+          python3 scripts/evaluate_ruleset_generic_ci_summary_v1.py --self-test
+          python3 scripts/evaluate_ruleset_generic_ci_summary_v2.py --self-test
+
+      - name: Evaluate merge authority
+        env:
+          MYCELIX_CI_NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          set -euo pipefail
+          cd .authority
+          python3 scripts/evaluate_ruleset_generic_ci_summary_v2.py
