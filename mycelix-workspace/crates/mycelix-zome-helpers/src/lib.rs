@@ -52,10 +52,12 @@ pub fn my_custom_getrandom(buf: &mut [u8]) -> Result<(), getrandom::Error> {
     Ok(())
 }
 
-#[allow(deprecated)] // require_consciousness kept for backward compat
 use mycelix_bridge_common::{
-    GovernanceEligibility, GovernanceRequirement, gate_consciousness,
+    GovernanceEligibility,
     sovereign_gate::{CivicRequirement, gate_civic},
+};
+use mycelix_legacy_governance_v1::{
+    LegacyV1GovernanceEligibility, LegacyV1GovernanceRequirement, gate_legacy_v1,
 };
 
 // ============================================================================
@@ -275,39 +277,34 @@ macro_rules! bail_guest {
 }
 
 // ============================================================================
-// Consciousness Gating
+// Governance Gating
 // ============================================================================
 
-/// Gate an action behind consciousness-level governance.
+/// Gate an action under the explicit LegacyV1 governance contract.
 ///
-/// Delegates to [`mycelix_bridge_common::gate_consciousness`], passing the
-/// cluster-specific bridge zome name. Each cluster uses a different bridge:
+/// Delegates through the qualified `mycelix-legacy-governance-v1` façade.
+/// The façade is an exact one-hop compatibility boundary around the existing
+/// legacy gate; this helper does not translate to, intersect with, or invoke
+/// CivicV2 semantics.
+pub fn require_legacy_v1(
+    bridge_zome: &str,
+    requirement: &LegacyV1GovernanceRequirement,
+    action_name: &str,
+) -> ExternResult<LegacyV1GovernanceEligibility> {
+    gate_legacy_v1(bridge_zome, requirement, action_name)
+}
+
+/// Backward-compatible name for the LegacyV1 governance helper.
 ///
-/// - Commons: `"commons_bridge"`
-/// - Civic: `"civic_bridge"`
-/// - Hearth: `"hearth_bridge"`
-/// - Personal: `"personal_bridge"`
-///
-/// # Arguments
-///
-/// * `bridge_zome` - The bridge zome name for this cluster (e.g. `"commons_bridge"`)
-/// * `requirement` - The governance requirement level for this action
-/// * `action_name` - Human-readable name of the action being gated (for audit)
-///
-/// # Example
-///
-/// ```ignore
-/// use mycelix_zome_helpers::require_consciousness;
-/// use mycelix_bridge_common::requirement_for_basic;
-///
-/// let eligibility = require_consciousness("commons_bridge", &requirement_for_basic(), "register_source")?;
-/// ```
+/// Existing callers retain the exact LegacyV1 authority contract. This wrapper
+/// exists only for source compatibility while callers migrate to the explicit
+/// `require_legacy_v1` name; it does not route through CivicV2.
 pub fn require_consciousness(
     bridge_zome: &str,
-    requirement: &GovernanceRequirement,
+    requirement: &LegacyV1GovernanceRequirement,
     action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness(bridge_zome, requirement, action_name)
+) -> ExternResult<LegacyV1GovernanceEligibility> {
+    require_legacy_v1(bridge_zome, requirement, action_name)
 }
 
 /// Civic gating — 8D replacement for `require_consciousness`.
@@ -358,12 +355,26 @@ mod tests {
         assert_eq!(h.len(), 32);
     }
 
-    // NOTE: `records_from_links` and `require_consciousness` call HDK host
+    // NOTE: `records_from_links` and the governance helpers call HDK host
     // functions (`get`, `agent_info`, `call`, etc.) that are only available
     // inside a running Holochain conductor. They cannot be unit-tested outside
     // of a sweettest / tryorama harness. The functions are trivial wrappers,
     // so the risk of bugs is low. Integration testing should happen via
     // sweettest when migrating coordinators.
+
+    #[test]
+    fn legacy_helper_signatures_are_type_compatible() {
+        let _explicit: fn(
+            &str,
+            &LegacyV1GovernanceRequirement,
+            &str,
+        ) -> ExternResult<LegacyV1GovernanceEligibility> = require_legacy_v1;
+        let _compat: fn(
+            &str,
+            &LegacyV1GovernanceRequirement,
+            &str,
+        ) -> ExternResult<LegacyV1GovernanceEligibility> = require_consciousness;
+    }
 
     #[test]
     fn records_from_links_empty_vec() {
