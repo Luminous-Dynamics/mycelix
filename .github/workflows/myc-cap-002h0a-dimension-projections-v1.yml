@@ -1,0 +1,111 @@
+name: MYC-CAP-002H0A Dimension Projections v1
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/capital/composition_dimension_projection_v1.py'
+      - 'scripts/capital/test_composition_dimension_projection_v1.py'
+      - 'docs/capital/evidence/myc-cap-002h0a/**'
+      - '.github/workflows/myc-cap-002h0a-dimension-projections-v1.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Read-only projections of qualified H1 H2 H3
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Exact subject, qualified H3 parent, and scope
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "f9d88b41a750d2bddfa8fa2bf26727f04a4998a6"
+          expected="$(mktemp)"
+          actual="$(mktemp)"
+          printf '%s\n' \
+            '.github/workflows/myc-cap-002h0a-dimension-projections-v1.yml' \
+            'docs/capital/evidence/myc-cap-002h0a/PROFILE.md' \
+            'docs/capital/evidence/myc-cap-002h0a/example_case.json' \
+            'docs/capital/evidence/myc-cap-002h0a/example_receipt.json' \
+            'scripts/capital/composition_dimension_projection_v1.py' \
+            'scripts/capital/test_composition_dimension_projection_v1.py' | sort > "$expected"
+          git diff-tree --no-commit-id --name-only -r HEAD | sort > "$actual"
+          diff -u "$expected" "$actual"
+          test -z "$(git status --porcelain)"
+
+      - name: Fetch exact qualified H1 and H2 source objects
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin cb6f2e88d81a7ff0fb0adcf36888f44c4fe8ed69
+          git fetch --no-tags --depth=1 origin 7ba66c70be2df27b1d5deaa77a88ffdda96baa35
+          git cat-file -e cb6f2e88d81a7ff0fb0adcf36888f44c4fe8ed69^{commit}
+          git cat-file -e 7ba66c70be2df27b1d5deaa77a88ffdda96baa35^{commit}
+
+      - name: Exact source file objects and semantic bundle
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse 'cb6f2e88d81a7ff0fb0adcf36888f44c4fe8ed69:docs/capital/evidence/myc-cap-002h1/example_receipt.json')" = "d18e9dd32fa697a8f029ea012187ab1fc5ad4480"
+          test "$(git rev-parse '7ba66c70be2df27b1d5deaa77a88ffdda96baa35:docs/capital/evidence/myc-cap-002h2/example_receipt.json')" = "e6b6e3bd8b5fd97f40d097cfa25593d2a79e34ac"
+          test "$(git rev-parse 'HEAD^:docs/capital/evidence/myc-cap-002h3/example_receipt.json')" = "49bee170b765cec234d6b7d25e1290da64b7bda6"
+          python3 - <<'PY'
+          import hashlib, json, subprocess
+          from pathlib import Path
+          def canonical(v):
+              return json.dumps(v, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")
+          def show(ref, path):
+              return json.loads(subprocess.check_output(["git", "show", f"{ref}:{path}"], text=True))
+          case=json.loads(Path("docs/capital/evidence/myc-cap-002h0a/example_case.json").read_text(encoding="utf-8"))
+          sources=[
+              ("h1_receipt","cb6f2e88d81a7ff0fb0adcf36888f44c4fe8ed69","docs/capital/evidence/myc-cap-002h1/example_receipt.json","ef3e4b8772d4476fe24568cd8c503db7dec192418cd4719a052d6b941d523544"),
+              ("h2_receipt","7ba66c70be2df27b1d5deaa77a88ffdda96baa35","docs/capital/evidence/myc-cap-002h2/example_receipt.json","bd78cf22a9899d0a816de80600d8f375e1d089f07b9ba64f3146b0bd32318e83"),
+              ("h3_receipt","HEAD^","docs/capital/evidence/myc-cap-002h3/example_receipt.json","be1c02a199688e8aef4c6054abfef216cfffe830730f090fdb1be1db406e3045"),
+          ]
+          for key,ref,path,digest in sources:
+              source=show(ref,path)
+              assert case[key] == source
+              assert hashlib.sha256(canonical(source)).hexdigest() == digest
+          PY
+
+      - name: Python environment
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 -m py_compile scripts/capital/composition_dimension_projection_v1.py
+          python3 -m py_compile scripts/capital/test_composition_dimension_projection_v1.py
+
+      - name: Fail-closed unit suite
+        run: |
+          set -euo pipefail
+          python3 -m unittest -v scripts/capital/test_composition_dimension_projection_v1.py
+
+      - name: Deterministic canonical projection bundle
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp)"
+          python3 scripts/capital/composition_dimension_projection_v1.py docs/capital/evidence/myc-cap-002h0a/example_case.json --receipt-out "$tmp"
+          diff -u docs/capital/evidence/myc-cap-002h0a/example_receipt.json "$tmp"
+          cp "$tmp" "${tmp}.second"
+          python3 scripts/capital/composition_dimension_projection_v1.py docs/capital/evidence/myc-cap-002h0a/example_case.json --receipt-out "$tmp"
+          cmp "$tmp" "${tmp}.second"
+          echo 'b91a0f931bfca4b3265972487b96ce5edfcfc434d280d60f7a41ea169daf919b  docs/capital/evidence/myc-cap-002h0a/example_case.json' | sha256sum -c -
+          echo 'ad5b127cc15acafbde312b25caf482c2fcf934ab8f3c640417ca327cf7b60490  docs/capital/evidence/myc-cap-002h0a/example_receipt.json' | sha256sum -c -
+
+      - name: Strong non-amplification assertions
+        run: |
+          set -euo pipefail
+          grep -Fq '"currentness_state": "NOT_ESTABLISHED"' docs/capital/evidence/myc-cap-002h0a/example_receipt.json
+          grep -Fq '"currentness_owner": "H3A_REQUIRED"' docs/capital/evidence/myc-cap-002h0a/example_receipt.json
+          grep -Fq '"execution_authority_established": false' docs/capital/evidence/myc-cap-002h0a/example_receipt.json
+          grep -Fq '"payment_authority_established": false' docs/capital/evidence/myc-cap-002h0a/example_receipt.json
+          grep -Fq '"legal_title_authority_established": false' docs/capital/evidence/myc-cap-002h0a/example_receipt.json
+          grep -Fq '"constitutional_authority_established": false' docs/capital/evidence/myc-cap-002h0a/example_receipt.json

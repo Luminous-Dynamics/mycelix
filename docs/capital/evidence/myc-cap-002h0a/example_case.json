@@ -1,0 +1,100 @@
+{
+  "h1_receipt": {
+    "action_code": "OPERATOR_RENEWAL",
+    "active_epoch": 8,
+    "active_profile_sha256": "84cbcaff53366ab611402fc5114e9f4eafa066ef753f8e722ae9caff13b79284",
+    "blockers": [],
+    "checkpoint_sha256": "d669e1b018ddd2f2465453d8680fc702ce85544ef0ebc0780764dd0f9bb4d2d6",
+    "composition_profile_id": "mycelix-capital-to-commons-stewardship-governance-v1",
+    "decision_id": "decision-ordinary-epoch8-001",
+    "democratic_legitimacy_established": false,
+    "execution_authority_established": false,
+    "g2a_receipt_sha256": "2a6ace0ee1041fdf82d945f403c906044781bd392c1232e522b5c24430583002",
+    "g2c_receipt_sha256": "c87c5ebe735957458f9d4363abec8a67e9d37e7754fbab016d49e0e0479b6d70",
+    "governance_state": "CURRENT",
+    "legal_validity_established": false,
+    "nonclaims": [
+      "CURRENT establishes only composition of one current authorized decision with one exact active constitution checkpoint",
+      "composition does not establish execution authority",
+      "composition does not establish legal or constitutional-law validity",
+      "composition does not establish democratic legitimacy or social consensus",
+      "composition does not establish service quality, solvency, handback readiness, or operational sovereignty"
+    ],
+    "profile_version": "mycelix-stewardship-governance-composition-v1",
+    "project_id": "fiber:jhb:test-001",
+    "receipt_version": "mycelix-stewardship-governance-dimension-receipt-v1",
+    "registry_id": "registry:stewardship-constitution:fiber:jhb:test-001"
+  },
+  "h2_receipt": {
+    "blockers": [],
+    "claim_modified": false,
+    "execution_authority_established": false,
+    "f1_receipt_sha256": "2d64bfa8fe3f0351c04c297d8ae4ef66fac930d2e193a2bfffe2072802a94bf0",
+    "f_receipt_sha256": "347cf7cc038ba918cade9e1e210871ddb6039440d9af5ea78c3745594acc8969",
+    "legal_distribution_authority_established": false,
+    "measurement_id": "measure-001",
+    "nonclaims": [
+      "current service eligibility is not payment authorization",
+      "current service eligibility does not establish legal distribution entitlement",
+      "service composition does not establish measurement authenticity",
+      "service composition does not establish solvency, handback readiness, or democratic legitimacy"
+    ],
+    "payment_authority_established": false,
+    "project_id": "fiber:jhb:test-001",
+    "public_service_distribution_state": "ELIGIBLE_CURRENT",
+    "qualified_f1_subject_sha": "caf653560310c9d47b036ef88a2207bff6d4b06f",
+    "qualified_f_subject_sha": "92fe8408b52ce1b63808201e9f70ab5280a6f489",
+    "receipt_version": "mycelix-public-service-distribution-composition-receipt-v1",
+    "service_currentness_profile_sha256": "9192a4c639a3d153bed30ffae177642b9f38dc8c1b33b4b0cd2047beba1ec343",
+    "service_gate_profile_sha256": "18dc049978d41bfda3e2d5c48280ccaa37f7e03d5a04cbedc50af80db49e0937"
+  },
+  "h3_receipt": {
+    "blockers": [],
+    "currentness_established": false,
+    "digital_readiness_state": "OPERATIONAL_TRANSFER_READY",
+    "digital_receipt_sha256": "050e9db5299cc7eabe2c862fa5202c1e712e12a1a074bab784f9e35690889367",
+    "digital_subject_sha": "995d9665c6e995711315460ddfc586c4e87d9fd4",
+    "execution_authority_established": false,
+    "handback_readiness_state": "HANDOVER_READY",
+    "handover_accepted": false,
+    "legal_transition_complete": false,
+    "nonclaims": [
+      "handback readiness is not handover acceptance",
+      "handback readiness is not operational custody transfer",
+      "handback readiness is not legal title transfer",
+      "handback readiness does not establish assessment currentness",
+      "handback readiness does not establish statutory inspection or engineering fitness outside the qualified input scopes",
+      "handback readiness does not establish execution authority"
+    ],
+    "operational_custody_accepted": false,
+    "parent_financial_state": "CLAIM_ACTIVE",
+    "parent_remaining_claim_units": 73000000,
+    "parent_subject_sha": "270b852e0ac744dfca3a2cb966bf53fce78f2ab9",
+    "parent_transition_receipt_sha256": "60b7217980c615eab453eae25b74b27e75fc67cb336ea60d140f089341d50565",
+    "physical_readiness_state": "PHYSICAL_CONDITION_ACCEPTABLE",
+    "physical_receipt_sha256": "43e46ec10296c00b32a361652ca96d82009088c467941dd776f0f93113ac7332",
+    "physical_subject_sha": "0af0a8345c39598dc2db737f484e77d1c5dd9fa7",
+    "profile_sha256": "dd012673fe12b1ae2dc6752b457b86f1f2e588fafde724b8b09263b37cfa354f",
+    "profile_version": "mycelix-handback-readiness-composition-v1",
+    "project_id": "fiber:jhb:test-001",
+    "receipt_version": "mycelix-handback-readiness-composition-receipt-v1"
+  },
+  "profile": {
+    "profile_version": "mycelix-composition-dimension-projection-v1",
+    "project_id": "fiber:jhb:test-001",
+    "sources": {
+      "HANDBACK_READINESS": {
+        "receipt_sha256": "be1c02a199688e8aef4c6054abfef216cfffe830730f090fdb1be1db406e3045",
+        "subject_sha": "f9d88b41a750d2bddfa8fa2bf26727f04a4998a6"
+      },
+      "PUBLIC_SERVICE_DISTRIBUTION": {
+        "receipt_sha256": "bd78cf22a9899d0a816de80600d8f375e1d089f07b9ba64f3146b0bd32318e83",
+        "subject_sha": "7ba66c70be2df27b1d5deaa77a88ffdda96baa35"
+      },
+      "STEWARDSHIP_GOVERNANCE": {
+        "receipt_sha256": "ef3e4b8772d4476fe24568cd8c503db7dec192418cd4719a052d6b941d523544",
+        "subject_sha": "cb6f2e88d81a7ff0fb0adcf36888f44c4fe8ed69"
+      }
+    }
+  }
+}
