@@ -6,6 +6,14 @@ on:
   pull_request:
     branches: [main]
 
+# Generic branch/PR CI is supersedable: once a newer commit exists on the same
+# PR or ref, completing an older run cannot provide a current merge signal.
+# Exact qualification/evidence workflows intentionally do not inherit this
+# policy and retain their independent, immutable run histories.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
 
