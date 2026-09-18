@@ -3,20 +3,20 @@
 
 //! Evidence-bound execution contracts for Mycelix Forge.
 //!
-//! This crate describes *what* a constrained execution claims to have used:
-//! exact tools, inputs, trust material, environment, clock, filesystem policy,
-//! and network policy. It deliberately does not prove that an executor really
-//! enforced those constraints. A later qualified executor (FORGE-004D2) must
-//! provide that stronger theorem before repository replay may mint
-//! `OfflineEvidence`.
+//! FORGE-004D1R refines verification-time semantics so strong execution claims
+//! do not confuse "time is irrelevant" with an invented fixed wall clock.
+//! Exact tools, inputs, trust material, environment, network policy, time
+//! provenance, and filesystem policy remain structural claims until a qualified
+//! executor supplies independent enforcement evidence.
 
 use mycelix_forge_core::{Digest, DigestAlgorithm, ProtocolVersion};
 use serde::{de::Error as _, Deserialize, Deserializer, Serialize};
 use std::fmt;
 use thiserror::Error;
 
-const EXECUTION_SPEC_DOMAIN_V1: &[u8] = b"mycelix-forge/execution-spec/v1\0";
-const EXECUTION_OBSERVATION_DOMAIN_V1: &[u8] = b"mycelix-forge/execution-observation/v1\0";
+const EXECUTION_SPEC_DOMAIN_V2: &[u8] = b"mycelix-forge/execution-spec/v2\0";
+const EXECUTION_OBSERVATION_DOMAIN_V2: &[u8] = b"mycelix-forge/execution-observation/v2\0";
+const EXECUTION_SCHEMA_VERSION: u16 = 2;
 const MAX_ROLE_LEN: usize = 128;
 const MAX_VERSION_LEN: usize = 128;
 const MAX_MEDIA_TYPE_LEN: usize = 256;
@@ -58,10 +58,30 @@ impl NetworkPolicy {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum ClockPolicy {
+/// How verification time participates in one execution subject.
+///
+/// `EvidenceDerived` carries a commitment to authenticated time evidence rather
+/// than a wall-clock number. The later verifier-specific layer defines what
+/// evidence is sufficient (for example, transparency/timestamp evidence).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum VerificationTimePolicy {
+    NotUsed,
     FixedUnixSeconds(u64),
+    EvidenceDerived(Digest),
     HostRealtime,
+}
+
+/// Backwards-facing name retained for callers while the execution schema moves
+/// to v2 semantics.
+pub type ClockPolicy = VerificationTimePolicy;
+
+/// What the executor actually claims about verification time.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum VerificationTimeObservation {
+    NotUsed,
+    FixedUnixSeconds(u64),
+    EvidenceDerived(Digest),
+    HostRealtime(u64),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -169,7 +189,7 @@ impl<'de> Deserialize<'de> for ToolArtifact {
         D: Deserializer<'de>,
     {
         #[derive(Deserialize)]
-        struct WireToolArtifact {
+        struct Wire {
             role: String,
             semantic_version: String,
             digest: Digest,
@@ -177,7 +197,7 @@ impl<'de> Deserialize<'de> for ToolArtifact {
             derivation: Option<Digest>,
         }
 
-        let wire = WireToolArtifact::deserialize(deserializer)?;
+        let wire = Wire::deserialize(deserializer)?;
         Self::new(
             wire.role,
             wire.semantic_version,
@@ -242,14 +262,14 @@ impl<'de> Deserialize<'de> for TrustMaterial {
         D: Deserializer<'de>,
     {
         #[derive(Deserialize)]
-        struct WireTrustMaterial {
+        struct Wire {
             role: String,
             media_type: String,
             digest: Digest,
             size: u64,
         }
 
-        let wire = WireTrustMaterial::deserialize(deserializer)?;
+        let wire = Wire::deserialize(deserializer)?;
         Self::new(wire.role, wire.media_type, wire.digest, wire.size).map_err(D::Error::custom)
     }
 }
@@ -294,13 +314,13 @@ impl<'de> Deserialize<'de> for InputArtifact {
         D: Deserializer<'de>,
     {
         #[derive(Deserialize)]
-        struct WireInputArtifact {
+        struct Wire {
             role: String,
             digest: Digest,
             size: u64,
         }
 
-        let wire = WireInputArtifact::deserialize(deserializer)?;
+        let wire = Wire::deserialize(deserializer)?;
         Self::new(wire.role, wire.digest, wire.size).map_err(D::Error::custom)
     }
 }
@@ -347,12 +367,12 @@ impl<'de> Deserialize<'de> for EnvironmentBinding {
         D: Deserializer<'de>,
     {
         #[derive(Deserialize)]
-        struct WireEnvironmentBinding {
+        struct Wire {
             key: String,
             value: String,
         }
 
-        let wire = WireEnvironmentBinding::deserialize(deserializer)?;
+        let wire = Wire::deserialize(deserializer)?;
         Self::new(wire.key, wire.value).map_err(D::Error::custom)
     }
 }
@@ -367,7 +387,7 @@ pub struct ExecutionSpec {
     inputs: Vec<InputArtifact>,
     environment: Vec<EnvironmentBinding>,
     network: NetworkPolicy,
-    clock: ClockPolicy,
+    clock: VerificationTimePolicy,
     filesystem: FilesystemPolicy,
 }
 
@@ -381,7 +401,7 @@ impl ExecutionSpec {
         inputs: Vec<InputArtifact>,
         environment: Vec<EnvironmentBinding>,
         network: NetworkPolicy,
-        clock: ClockPolicy,
+        clock: VerificationTimePolicy,
         filesystem: FilesystemPolicy,
     ) -> Result<Self, ExecutionContractError> {
         if tools.is_empty() {
@@ -391,19 +411,14 @@ impl ExecutionSpec {
             return Err(ExecutionContractError::MissingInputs);
         }
 
-        let tools = canonicalize_tools(tools)?;
-        let trust_material = canonicalize_trust_material(trust_material)?;
-        let inputs = canonicalize_inputs(inputs)?;
-        let environment = canonicalize_environment(environment)?;
-
         Ok(Self {
             version: ProtocolVersion::CURRENT,
             purpose,
             subject,
-            tools,
-            trust_material,
-            inputs,
-            environment,
+            tools: canonicalize_tools(tools)?,
+            trust_material: canonicalize_trust_material(trust_material)?,
+            inputs: canonicalize_inputs(inputs)?,
+            environment: canonicalize_environment(environment)?,
             network,
             clock,
             filesystem,
@@ -438,23 +453,26 @@ impl ExecutionSpec {
         self.network
     }
 
-    pub const fn clock(&self) -> ClockPolicy {
-        self.clock
+    pub fn clock(&self) -> &VerificationTimePolicy {
+        &self.clock
     }
 
     pub const fn filesystem(&self) -> FilesystemPolicy {
         self.filesystem
     }
 
-    pub const fn is_hermetic_candidate(&self) -> bool {
+    /// Structural eligibility only. Runtime enforcement remains a separate
+    /// qualification theorem.
+    pub fn is_hermetic_candidate(&self) -> bool {
         matches!(self.network, NetworkPolicy::Denied)
-            && matches!(self.clock, ClockPolicy::FixedUnixSeconds(_))
+            && !matches!(self.clock, VerificationTimePolicy::HostRealtime)
             && self.filesystem.is_hermetic()
     }
 
     pub fn canonical_bytes(&self) -> Result<Vec<u8>, ExecutionContractError> {
         let mut out = Vec::new();
-        out.extend_from_slice(EXECUTION_SPEC_DOMAIN_V1);
+        out.extend_from_slice(EXECUTION_SPEC_DOMAIN_V2);
+        out.extend_from_slice(&EXECUTION_SCHEMA_VERSION.to_be_bytes());
         out.extend_from_slice(&self.version.get().to_be_bytes());
         out.push(self.purpose.code());
         push_digest(&mut out, &self.subject)?;
@@ -462,11 +480,7 @@ impl ExecutionSpec {
         push_count(&mut out, self.tools.len(), "tools")?;
         for tool in &self.tools {
             push_string(&mut out, &tool.role, "tool role")?;
-            push_string(
-                &mut out,
-                &tool.semantic_version,
-                "tool semantic version",
-            )?;
+            push_string(&mut out, &tool.semantic_version, "tool semantic version")?;
             push_digest(&mut out, &tool.digest)?;
             out.extend_from_slice(&tool.size.to_be_bytes());
             push_optional_digest(&mut out, tool.derivation.as_ref())?;
@@ -494,13 +508,7 @@ impl ExecutionSpec {
         }
 
         out.push(self.network.code());
-        match self.clock {
-            ClockPolicy::FixedUnixSeconds(seconds) => {
-                out.push(1);
-                out.extend_from_slice(&seconds.to_be_bytes());
-            }
-            ClockPolicy::HostRealtime => out.push(2),
-        }
+        push_time_policy(&mut out, &self.clock)?;
         out.push(u8::from(self.filesystem.read_only_inputs));
         out.push(u8::from(self.filesystem.ephemeral_workdir));
         out.push(u8::from(self.filesystem.host_home_visible));
@@ -518,7 +526,7 @@ impl<'de> Deserialize<'de> for ExecutionSpec {
         D: Deserializer<'de>,
     {
         #[derive(Deserialize)]
-        struct WireExecutionSpec {
+        struct Wire {
             version: ProtocolVersion,
             purpose: ExecutionPurpose,
             subject: Digest,
@@ -527,13 +535,13 @@ impl<'de> Deserialize<'de> for ExecutionSpec {
             inputs: Vec<InputArtifact>,
             environment: Vec<EnvironmentBinding>,
             network: NetworkPolicy,
-            clock: ClockPolicy,
+            clock: VerificationTimePolicy,
             filesystem: FilesystemPolicy,
         }
 
-        let wire = WireExecutionSpec::deserialize(deserializer)?;
+        let wire = Wire::deserialize(deserializer)?;
         if wire.version != ProtocolVersion::CURRENT {
-            return Err(D::Error::custom("unsupported execution-spec version"));
+            return Err(D::Error::custom("unsupported execution protocol version"));
         }
         Self::new(
             wire.purpose,
@@ -583,12 +591,12 @@ impl<'de> Deserialize<'de> for ExecutorIdentity {
         D: Deserializer<'de>,
     {
         #[derive(Deserialize)]
-        struct WireExecutorIdentity {
+        struct Wire {
             name: String,
             version: String,
         }
 
-        let wire = WireExecutorIdentity::deserialize(deserializer)?;
+        let wire = Wire::deserialize(deserializer)?;
         Self::new(wire.name, wire.version).map_err(D::Error::custom)
     }
 }
@@ -607,7 +615,7 @@ pub struct ExecutionObservation {
     outcome: ExecutionOutcome,
     output: Option<Digest>,
     execution_evidence: Option<Digest>,
-    observed_clock_unix_seconds: u64,
+    verification_time: VerificationTimeObservation,
 }
 
 impl ExecutionObservation {
@@ -619,7 +627,7 @@ impl ExecutionObservation {
         outcome: ExecutionOutcome,
         output: Option<Digest>,
         execution_evidence: Option<Digest>,
-        observed_clock_unix_seconds: u64,
+        verification_time: VerificationTimeObservation,
     ) -> Result<Self, ExecutionContractError> {
         if outcome == ExecutionOutcome::Succeeded && output.is_none() {
             return Err(ExecutionContractError::SuccessfulObservationMissingOutput);
@@ -631,7 +639,7 @@ impl ExecutionObservation {
             outcome,
             output,
             execution_evidence,
-            observed_clock_unix_seconds,
+            verification_time,
         })
     }
 
@@ -659,13 +667,14 @@ impl ExecutionObservation {
         self.execution_evidence.as_ref()
     }
 
-    pub const fn observed_clock_unix_seconds(&self) -> u64 {
-        self.observed_clock_unix_seconds
+    pub fn verification_time(&self) -> &VerificationTimeObservation {
+        &self.verification_time
     }
 
     pub fn canonical_bytes(&self) -> Result<Vec<u8>, ExecutionContractError> {
         let mut out = Vec::new();
-        out.extend_from_slice(EXECUTION_OBSERVATION_DOMAIN_V1);
+        out.extend_from_slice(EXECUTION_OBSERVATION_DOMAIN_V2);
+        out.extend_from_slice(&EXECUTION_SCHEMA_VERSION.to_be_bytes());
         push_string(&mut out, self.executor.name(), "executor name")?;
         push_string(&mut out, self.executor.version(), "executor version")?;
         push_digest(&mut out, &self.spec_digest)?;
@@ -676,7 +685,7 @@ impl ExecutionObservation {
         });
         push_optional_digest(&mut out, self.output.as_ref())?;
         push_optional_digest(&mut out, self.execution_evidence.as_ref())?;
-        out.extend_from_slice(&self.observed_clock_unix_seconds.to_be_bytes());
+        push_time_observation(&mut out, &self.verification_time)?;
         Ok(out)
     }
 
@@ -691,17 +700,17 @@ impl<'de> Deserialize<'de> for ExecutionObservation {
         D: Deserializer<'de>,
     {
         #[derive(Deserialize)]
-        struct WireExecutionObservation {
+        struct Wire {
             executor: ExecutorIdentity,
             spec_digest: Digest,
             subject: Digest,
             outcome: ExecutionOutcome,
             output: Option<Digest>,
             execution_evidence: Option<Digest>,
-            observed_clock_unix_seconds: u64,
+            verification_time: VerificationTimeObservation,
         }
 
-        let wire = WireExecutionObservation::deserialize(deserializer)?;
+        let wire = Wire::deserialize(deserializer)?;
         Self::new(
             wire.executor,
             wire.spec_digest,
@@ -709,7 +718,7 @@ impl<'de> Deserialize<'de> for ExecutionObservation {
             wire.outcome,
             wire.output,
             wire.execution_evidence,
-            wire.observed_clock_unix_seconds,
+            wire.verification_time,
         )
         .map_err(D::Error::custom)
     }
@@ -717,9 +726,8 @@ impl<'de> Deserialize<'de> for ExecutionObservation {
 
 /// Structurally evidence-bound execution result.
 ///
-/// This type proves that an observation matches one exact hermetic-candidate
-/// execution specification and contains an executor-evidence commitment. It
-/// does *not* independently prove that the executor enforced the sandbox.
+/// This type does not prove sandbox enforcement. It only proves exact
+/// structural agreement between one v2 execution subject and one observation.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EvidenceBoundExecution {
     spec_digest: Digest,
@@ -765,16 +773,7 @@ pub fn qualify_evidence_bound_execution(
         return Err(ExecutionContractError::ExecutionFailed);
     }
 
-    let expected_clock = match spec.clock() {
-        ClockPolicy::FixedUnixSeconds(seconds) => seconds,
-        ClockPolicy::HostRealtime => return Err(ExecutionContractError::NotHermeticCandidate),
-    };
-    if observation.observed_clock_unix_seconds != expected_clock {
-        return Err(ExecutionContractError::ClockMismatch {
-            expected: expected_clock,
-            observed: observation.observed_clock_unix_seconds,
-        });
-    }
+    verify_time_binding(spec.clock(), observation.verification_time())?;
 
     let output = observation
         .output
@@ -789,6 +788,33 @@ pub fn qualify_evidence_bound_execution(
         output,
         execution_evidence,
     })
+}
+
+fn verify_time_binding(
+    policy: &VerificationTimePolicy,
+    observation: &VerificationTimeObservation,
+) -> Result<(), ExecutionContractError> {
+    let matches = match (policy, observation) {
+        (VerificationTimePolicy::NotUsed, VerificationTimeObservation::NotUsed) => true,
+        (
+            VerificationTimePolicy::FixedUnixSeconds(expected),
+            VerificationTimeObservation::FixedUnixSeconds(observed),
+        ) => expected == observed,
+        (
+            VerificationTimePolicy::EvidenceDerived(expected),
+            VerificationTimeObservation::EvidenceDerived(observed),
+        ) => expected == observed,
+        (VerificationTimePolicy::HostRealtime, _) => {
+            return Err(ExecutionContractError::NotHermeticCandidate);
+        }
+        _ => false,
+    };
+
+    if matches {
+        Ok(())
+    } else {
+        Err(ExecutionContractError::VerificationTimeMismatch)
+    }
 }
 
 fn canonicalize_tools(
@@ -870,7 +896,8 @@ fn push_count(
     count: usize,
     field: &'static str,
 ) -> Result<(), ExecutionContractError> {
-    let count = u16::try_from(count).map_err(|_| ExecutionContractError::CanonicalFieldTooLarge(field))?;
+    let count = u16::try_from(count)
+        .map_err(|_| ExecutionContractError::CanonicalFieldTooLarge(field))?;
     out.extend_from_slice(&count.to_be_bytes());
     Ok(())
 }
@@ -911,6 +938,47 @@ fn push_optional_digest(
     Ok(())
 }
 
+fn push_time_policy(
+    out: &mut Vec<u8>,
+    policy: &VerificationTimePolicy,
+) -> Result<(), ExecutionContractError> {
+    match policy {
+        VerificationTimePolicy::NotUsed => out.push(1),
+        VerificationTimePolicy::FixedUnixSeconds(seconds) => {
+            out.push(2);
+            out.extend_from_slice(&seconds.to_be_bytes());
+        }
+        VerificationTimePolicy::EvidenceDerived(evidence) => {
+            out.push(3);
+            push_digest(out, evidence)?;
+        }
+        VerificationTimePolicy::HostRealtime => out.push(4),
+    }
+    Ok(())
+}
+
+fn push_time_observation(
+    out: &mut Vec<u8>,
+    observation: &VerificationTimeObservation,
+) -> Result<(), ExecutionContractError> {
+    match observation {
+        VerificationTimeObservation::NotUsed => out.push(1),
+        VerificationTimeObservation::FixedUnixSeconds(seconds) => {
+            out.push(2);
+            out.extend_from_slice(&seconds.to_be_bytes());
+        }
+        VerificationTimeObservation::EvidenceDerived(evidence) => {
+            out.push(3);
+            push_digest(out, evidence)?;
+        }
+        VerificationTimeObservation::HostRealtime(seconds) => {
+            out.push(4);
+            out.extend_from_slice(&seconds.to_be_bytes());
+        }
+    }
+    Ok(())
+}
+
 #[derive(Clone, Debug, Error, PartialEq, Eq)]
 pub enum ExecutionContractError {
     #[error("invalid {field}: length {len}, maximum {max}, and value must be non-empty/NUL-free")]
@@ -945,8 +1013,8 @@ pub enum ExecutionContractError {
     ExecutionFailed,
     #[error("successful hermetic-candidate execution requires executor evidence")]
     MissingExecutionEvidence,
-    #[error("fixed verification clock mismatch: expected {expected}, observed {observed}")]
-    ClockMismatch { expected: u64, observed: u64 },
+    #[error("verification-time observation does not match the execution specification")]
+    VerificationTimeMismatch,
 }
 
 impl fmt::Display for ExecutionPurpose {
@@ -975,31 +1043,28 @@ mod tests {
         InputArtifact::new(role, digest(byte), 200).unwrap()
     }
 
-    fn spec() -> ExecutionSpec {
+    fn spec_with_time(clock: VerificationTimePolicy) -> ExecutionSpec {
         ExecutionSpec::new(
             ExecutionPurpose::RepositoryVerification,
             digest(0x10),
             vec![tool("gittuf", 0x20), tool("git", 0x30)],
-            vec![TrustMaterial::new(
-                "sigstore-trusted-root",
-                "application/vnd.dev.sigstore.trustedroot+json;version=0.1",
-                digest(0x40),
-                300,
-            )
-            .unwrap()],
+            vec![],
             vec![input("repository-bundle", 0x50), input("bundle-manifest", 0x60)],
             vec![
                 EnvironmentBinding::new("LANG", "C").unwrap(),
                 EnvironmentBinding::new("GIT_NO_LAZY_FETCH", "1").unwrap(),
             ],
             NetworkPolicy::Denied,
-            ClockPolicy::FixedUnixSeconds(1_800_000_000),
+            clock,
             FilesystemPolicy::hermetic(),
         )
         .unwrap()
     }
 
-    fn observation(spec: &ExecutionSpec) -> ExecutionObservation {
+    fn observation(
+        spec: &ExecutionSpec,
+        time: VerificationTimeObservation,
+    ) -> ExecutionObservation {
         ExecutionObservation::new(
             ExecutorIdentity::new("spore-verifier", "0.1.0").unwrap(),
             spec.digest(DigestAlgorithm::Sha256).unwrap(),
@@ -1007,32 +1072,102 @@ mod tests {
             ExecutionOutcome::Succeeded,
             Some(digest(0x70)),
             Some(digest(0x80)),
-            1_800_000_000,
+            time,
         )
         .unwrap()
     }
 
     #[test]
+    fn not_used_time_qualifies_without_fake_timestamp() {
+        let spec = spec_with_time(VerificationTimePolicy::NotUsed);
+        let qualified = qualify_evidence_bound_execution(
+            &spec,
+            observation(&spec, VerificationTimeObservation::NotUsed),
+        )
+        .unwrap();
+        assert_eq!(qualified.output(), &digest(0x70));
+    }
+
+    #[test]
+    fn evidence_derived_time_requires_exact_commitment() {
+        let expected = digest(0x90);
+        let spec = spec_with_time(VerificationTimePolicy::EvidenceDerived(expected.clone()));
+        let qualified = qualify_evidence_bound_execution(
+            &spec,
+            observation(
+                &spec,
+                VerificationTimeObservation::EvidenceDerived(expected),
+            ),
+        )
+        .unwrap();
+        assert_eq!(qualified.execution_evidence(), &digest(0x80));
+
+        let wrong = observation(
+            &spec,
+            VerificationTimeObservation::EvidenceDerived(digest(0x91)),
+        );
+        assert_eq!(
+            qualify_evidence_bound_execution(&spec, wrong).unwrap_err(),
+            ExecutionContractError::VerificationTimeMismatch
+        );
+    }
+
+    #[test]
+    fn fixed_time_requires_exact_value() {
+        let spec = spec_with_time(VerificationTimePolicy::FixedUnixSeconds(1_800_000_000));
+        let wrong = observation(
+            &spec,
+            VerificationTimeObservation::FixedUnixSeconds(1_800_000_001),
+        );
+        assert_eq!(
+            qualify_evidence_bound_execution(&spec, wrong).unwrap_err(),
+            ExecutionContractError::VerificationTimeMismatch
+        );
+    }
+
+    #[test]
+    fn host_realtime_never_qualifies_as_hermetic() {
+        let spec = spec_with_time(VerificationTimePolicy::HostRealtime);
+        let observed = observation(
+            &spec,
+            VerificationTimeObservation::HostRealtime(1_800_000_000),
+        );
+        assert_eq!(
+            qualify_evidence_bound_execution(&spec, observed).unwrap_err(),
+            ExecutionContractError::NotHermeticCandidate
+        );
+    }
+
+    #[test]
+    fn time_policy_is_part_of_subject_digest() {
+        let not_used = spec_with_time(VerificationTimePolicy::NotUsed);
+        let fixed = spec_with_time(VerificationTimePolicy::FixedUnixSeconds(0));
+        let derived = spec_with_time(VerificationTimePolicy::EvidenceDerived(digest(0xa0)));
+        assert_ne!(
+            not_used.digest(DigestAlgorithm::Sha256).unwrap(),
+            fixed.digest(DigestAlgorithm::Sha256).unwrap()
+        );
+        assert_ne!(
+            fixed.digest(DigestAlgorithm::Sha256).unwrap(),
+            derived.digest(DigestAlgorithm::Sha256).unwrap()
+        );
+    }
+
+    #[test]
     fn canonical_order_does_not_depend_on_input_order() {
-        let a = spec();
+        let a = spec_with_time(VerificationTimePolicy::NotUsed);
         let b = ExecutionSpec::new(
             ExecutionPurpose::RepositoryVerification,
             digest(0x10),
             vec![tool("git", 0x30), tool("gittuf", 0x20)],
-            vec![TrustMaterial::new(
-                "sigstore-trusted-root",
-                "application/vnd.dev.sigstore.trustedroot+json;version=0.1",
-                digest(0x40),
-                300,
-            )
-            .unwrap()],
+            vec![],
             vec![input("bundle-manifest", 0x60), input("repository-bundle", 0x50)],
             vec![
                 EnvironmentBinding::new("GIT_NO_LAZY_FETCH", "1").unwrap(),
                 EnvironmentBinding::new("LANG", "C").unwrap(),
             ],
             NetworkPolicy::Denied,
-            ClockPolicy::FixedUnixSeconds(1_800_000_000),
+            VerificationTimePolicy::NotUsed,
             FilesystemPolicy::hermetic(),
         )
         .unwrap();
@@ -1052,7 +1187,7 @@ mod tests {
             vec![input("bundle", 4)],
             vec![],
             NetworkPolicy::Denied,
-            ClockPolicy::FixedUnixSeconds(10),
+            VerificationTimePolicy::NotUsed,
             FilesystemPolicy::hermetic(),
         );
         assert!(matches!(
@@ -1062,47 +1197,9 @@ mod tests {
     }
 
     #[test]
-    fn non_hermetic_spec_cannot_qualify() {
-        let non_hermetic = ExecutionSpec::new(
-            ExecutionPurpose::RepositoryVerification,
-            digest(1),
-            vec![tool("git", 2)],
-            vec![],
-            vec![input("bundle", 3)],
-            vec![],
-            NetworkPolicy::Unrestricted,
-            ClockPolicy::HostRealtime,
-            FilesystemPolicy::new(false, false, true),
-        )
-        .unwrap();
-        let observed = ExecutionObservation::new(
-            ExecutorIdentity::new("test", "1").unwrap(),
-            non_hermetic.digest(DigestAlgorithm::Sha256).unwrap(),
-            non_hermetic.subject().clone(),
-            ExecutionOutcome::Succeeded,
-            Some(digest(4)),
-            Some(digest(5)),
-            10,
-        )
-        .unwrap();
-        assert_eq!(
-            qualify_evidence_bound_execution(&non_hermetic, observed).unwrap_err(),
-            ExecutionContractError::NotHermeticCandidate
-        );
-    }
-
-    #[test]
-    fn exact_observation_qualifies_structurally() {
-        let spec = spec();
-        let qualified = qualify_evidence_bound_execution(&spec, observation(&spec)).unwrap();
-        assert_eq!(qualified.output(), &digest(0x70));
-        assert_eq!(qualified.execution_evidence(), &digest(0x80));
-    }
-
-    #[test]
     fn changed_spec_is_rejected() {
-        let spec = spec();
-        let mut observed = observation(&spec);
+        let spec = spec_with_time(VerificationTimePolicy::NotUsed);
+        let mut observed = observation(&spec, VerificationTimeObservation::NotUsed);
         observed.spec_digest = digest(0xff);
         assert_eq!(
             qualify_evidence_bound_execution(&spec, observed).unwrap_err(),
@@ -1111,19 +1208,8 @@ mod tests {
     }
 
     #[test]
-    fn wrong_fixed_clock_is_rejected() {
-        let spec = spec();
-        let mut observed = observation(&spec);
-        observed.observed_clock_unix_seconds += 1;
-        assert!(matches!(
-            qualify_evidence_bound_execution(&spec, observed),
-            Err(ExecutionContractError::ClockMismatch { .. })
-        ));
-    }
-
-    #[test]
     fn missing_executor_evidence_is_rejected() {
-        let spec = spec();
+        let spec = spec_with_time(VerificationTimePolicy::NotUsed);
         let observed = ExecutionObservation::new(
             ExecutorIdentity::new("spore-verifier", "0.1.0").unwrap(),
             spec.digest(DigestAlgorithm::Sha256).unwrap(),
@@ -1131,7 +1217,7 @@ mod tests {
             ExecutionOutcome::Succeeded,
             Some(digest(0x70)),
             None,
-            1_800_000_000,
+            VerificationTimeObservation::NotUsed,
         )
         .unwrap();
         assert_eq!(
@@ -1142,7 +1228,7 @@ mod tests {
 
     #[test]
     fn deserialization_revalidates_duplicate_environment_keys() {
-        let spec = spec();
+        let spec = spec_with_time(VerificationTimePolicy::NotUsed);
         let mut value = serde_json::to_value(&spec).unwrap();
         let env = value["environment"].as_array_mut().unwrap();
         env.push(env[0].clone());
