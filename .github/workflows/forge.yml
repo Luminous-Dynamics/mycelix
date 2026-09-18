@@ -14,6 +14,7 @@ on:
       - "adapters/forge-linux-isolation-collector/**"
       - "adapters/forge-runtime-closure-evidence/**"
       - "adapters/forge-nar-auditor/**"
+      - "adapters/forge-gittuf-trust-profile/**"
       - ".github/workflows/forge.yml"
   push:
     branches:
@@ -30,6 +31,7 @@ on:
       - "adapters/forge-linux-isolation-collector/**"
       - "adapters/forge-runtime-closure-evidence/**"
       - "adapters/forge-nar-auditor/**"
+      - "adapters/forge-gittuf-trust-profile/**"
       - ".github/workflows/forge.yml"
 
 permissions:
@@ -69,6 +71,8 @@ jobs:
             path: adapters/forge-runtime-closure-evidence
           - name: Forge NAR Auditor
             path: adapters/forge-nar-auditor
+          - name: Forge gittuf Trust Profile
+            path: adapters/forge-gittuf-trust-profile
     defaults:
       run:
         working-directory: ${{ matrix.path }}
