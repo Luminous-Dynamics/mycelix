@@ -15,6 +15,7 @@ on:
       - "adapters/forge-runtime-closure-evidence/**"
       - "adapters/forge-nar-auditor/**"
       - "adapters/forge-gittuf-trust-profile/**"
+      - "adapters/forge-gittuf-policy-inventory/**"
       - ".github/workflows/forge.yml"
   push:
     branches:
@@ -32,6 +33,7 @@ on:
       - "adapters/forge-runtime-closure-evidence/**"
       - "adapters/forge-nar-auditor/**"
       - "adapters/forge-gittuf-trust-profile/**"
+      - "adapters/forge-gittuf-policy-inventory/**"
       - ".github/workflows/forge.yml"
 
 permissions:
@@ -73,6 +75,8 @@ jobs:
             path: adapters/forge-nar-auditor
           - name: Forge gittuf Trust Profile
             path: adapters/forge-gittuf-trust-profile
+          - name: Forge gittuf Policy Inventory
+            path: adapters/forge-gittuf-policy-inventory
     defaults:
       run:
         working-directory: ${{ matrix.path }}
