@@ -26,6 +26,7 @@ members = [
     "crates/constitutional-temporal-provenance",
     "crates/constitutional-closure-coverage",
     "crates/constitutional-claim-lifecycle",
+    "crates/constitutional-effect-ledger",
 ]
 exclude = ["tests"]
 
@@ -77,6 +78,7 @@ constitutional-consumption = { path = "crates/constitutional-consumption" }
 constitutional-temporal-provenance = { path = "crates/constitutional-temporal-provenance" }
 constitutional-closure-coverage = { path = "crates/constitutional-closure-coverage" }
 constitutional-claim-lifecycle = { path = "crates/constitutional-claim-lifecycle" }
+constitutional-effect-ledger = { path = "crates/constitutional-effect-ledger" }
 governance-utils = { path = "crates/governance-utils" }
 
 # ZKP verification for anonymous voting
