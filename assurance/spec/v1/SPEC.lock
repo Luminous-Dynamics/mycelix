@@ -3,13 +3,14 @@ major = 1
 minor = 0
 hash = "sha256"
 spec_domain = "MYCELIX-ASSURE/V1/SPEC"
-spec_root_sha256 = "db1d00f8723872d66ca8ad3144e6c088f20549d71cf906d196b56a13d5b23e5d"
+spec_root_sha256 = "46550610da111888f862d4bfc610f6dc41edfcbcdcd0579377e367df16486973"
 
 # Root construction is SHA-256 over:
 # UTF8(spec_domain) || for each file in `order`:
 # UTF8(file_name) || 0x00 || SHA256(file_bytes)
 order = [
   "normative.md",
+  "codec.md",
   "node-tags.toml",
   "edge-tags.toml",
   "failure-codes.toml",
@@ -18,7 +19,8 @@ order = [
 
 [files]
 "normative.md" = "7f889d89e9f4631c55ee7cdd40b25ec0e18f0a6706f0506b598e9ff17b3e0e2d"
+"codec.md" = "e2b15bca783e9d8c26aa88ac1d128589b1be5e699f701335641a1278c778de97"
 "node-tags.toml" = "35ff127523dfcc81a372726e5f32d101489c54f84383488b255746ce5e438b70"
 "edge-tags.toml" = "a2774a9328780889f6c6b430d7a702cfe0925c6f75d917be07373e417151a999"
-"failure-codes.toml" = "ca6c328ea5a63c3138b119fddc1393c621fc44bb022abe7654a525b277019e8c"
+"failure-codes.toml" = "3fe5675cb6ca1042800eb159faa378f3aedb9613092cf73037582763cfb38f1a"
 "domain-separators.toml" = "540743a7f3024832d99808d6c056ee28dbe6143800b3787a1310b1d099d0ce96"
