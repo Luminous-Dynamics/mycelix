@@ -5,6 +5,8 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+  workflow_dispatch:
 
 # Generic branch/PR CI is supersedable: once a newer commit exists on the same
 # PR or ref, completing an older run cannot provide a current merge signal.
@@ -20,6 +22,7 @@ env:
 jobs:
   # Detect which clusters changed
   changes:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
     outputs:
       commons: ${{ steps.filter.outputs.commons }}
@@ -71,8 +74,9 @@ jobs:
             prism:
               - 'mycelix-workspace/mycelix-prism/**'
 
-  # Format check (always runs)
+  # Format check (always runs when CI is admitted)
   format:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -405,7 +409,7 @@ jobs:
 
   # Summary gate
   ci-pass:
-    if: always()
+    if: always() && !cancelled() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false))
     needs:
       - format
       - test-commons
