@@ -8,9 +8,11 @@
 //! and an explicit deterministic evaluation context.
 
 mod canonical;
+mod limits;
 mod model;
 mod qualify;
 mod receipt;
+mod receipt_limits;
 
 pub use canonical::{
     CanonicalEncodingError, SETTLEMENT_COMMITMENT_PROFILE_REVISION,
@@ -18,6 +20,11 @@ pub use canonical::{
     canonical_observation_bytes, canonical_selected_evidence_frontier_bytes,
     evaluation_context_commitment, evidence_commitment, finality_profile_commitment,
     observation_commitment, selected_evidence_frontier_commitment,
+};
+pub use limits::{
+    SettlementVerificationBudgetError, SettlementVerificationBudgetV1,
+    SettlementVerificationResource, SettlementVerificationUsage,
+    assess_settlement_verification_budget_v1,
 };
 pub use model::*;
 pub use qualify::{
@@ -30,6 +37,7 @@ pub use receipt::{
     derive_invalidation_with_receipt, qualify_settlement_with_receipt,
     settlement_invalidation_receipt_commitment,
 };
+pub use receipt_limits::assess_settlement_receipt_verification_budget_v1;
 
 #[cfg(test)]
 mod receipt_tests;
