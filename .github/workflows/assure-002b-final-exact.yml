@@ -1,0 +1,221 @@
+name: ASSURE-002B Focused Exact Qualification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/assure-002b-final-exact.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: assure-002b-final-exact-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      RUSTUP_TOOLCHAIN: 1.98.1
+      QUALIFICATION_SUBJECT_SHA: 9a2460e97f0bb0b90306e90e7c241b89e21224ec
+      QUALIFICATION_SUBJECT_TREE_SHA: 9cbb5789431ca95af5001c0015e5d2a37de18d34
+      QUALIFIED_PARENT_SHA: d17a6ae19fb71159b54b266fa760c1989ffc0a63
+      QUALIFIED_PARENT_RECEIPT_SHA256: f4bdeacc8e4b38f0aad31d03788a8c105790f60667608fb43665ac321454c897
+      EXPECTED_SPEC_ROOT_SHA256: 46550610da111888f862d4bfc610f6dc41edfcbcdcd0579377e367df16486973
+      EXPECTED_COVERAGE_SHA256: 32bff983f4cdc9d3393e6e4381f8ed470ca29d08e13f8bebe7d1973a3bd0c1e1
+      EXPECTED_CORPUS_ROOT_SHA256: 784ff870e0b9815b015be1bbaa32f0dcc615cb3c22c614ba8bf9389fe4ccaef8
+      EXPECTED_CARGO_LOCK_SHA256: 9a0babe726db931fb24087af4e1321f034e15b29a03d1b9249cd6176b3525a8b
+      QUALIFIER_WORKFLOW_PATH: .github/workflows/assure-002b-final-exact.yml
+
+    steps:
+      - name: Check out frozen ASSURE-002B subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.QUALIFICATION_SUBJECT_SHA }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Verify exact subject and qualified predecessor
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$QUALIFICATION_SUBJECT_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$QUALIFICATION_SUBJECT_TREE_SHA"
+          test "$(git rev-parse HEAD^)" = "$QUALIFIED_PARENT_SHA"
+          test -z "$(git status --porcelain --untracked-files=all)"
+          printf 'qualification_subject_sha=%s\n' "$(git rev-parse HEAD)"
+          printf 'qualification_subject_tree=%s\n' "$(git rev-parse HEAD^{tree})"
+          printf 'qualified_parent_sha=%s\n' "$QUALIFIED_PARENT_SHA"
+          printf 'qualified_parent_receipt_sha256=%s\n' "$QUALIFIED_PARENT_RECEIPT_SHA256"
+          printf 'qualifier_workflow_head=%s\n' "${{ github.event.pull_request.head.sha }}"
+
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.98.1 --profile minimal --component rustfmt --component clippy
+
+      - name: Verify pinned toolchain identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc --version --verbose
+          cargo --version
+          rustc --version | grep -F 'rustc 1.98.1 '
+
+      - name: Verify ASSURE-V1 specification identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 assurance/spec/v1/check_spec.py
+          grep -F "spec_root_sha256 = \"$EXPECTED_SPEC_ROOT_SHA256\"" assurance/spec/v1/SPEC.lock
+
+      - name: Verify frozen L0 corpus identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 assurance/vectors/v1/l0/check_vectors.py
+          grep -F "coverage_sha256 = \"$EXPECTED_COVERAGE_SHA256\"" assurance/vectors/v1/l0/manifest.toml
+          grep -F "corpus_root_sha256 = \"$EXPECTED_CORPUS_ROOT_SHA256\"" assurance/vectors/v1/l0/manifest.toml
+
+      - name: Verify exact dependency and trusted-surface boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          import tomllib
+
+          root = Path('crates/mycelix-assurance-core')
+          manifest = tomllib.loads((root / 'Cargo.toml').read_text())
+          lock_bytes = (root / 'Cargo.lock').read_bytes()
+          lock = tomllib.loads(lock_bytes.decode())
+
+          assert hashlib.sha256(lock_bytes).hexdigest() == '9a0babe726db931fb24087af4e1321f034e15b29a03d1b9249cd6176b3525a8b'
+          assert manifest.get('features') == {'default': []}, 'default feature set must remain empty'
+          assert not (root / 'build.rs').exists(), '002B must not have build.rs'
+          assert (root / 'src/lib.rs').read_text().startswith('#![forbid(unsafe_code)]'), 'unsafe-code prohibition missing'
+
+          assert manifest.get('dependencies') == {
+              'cbor2': {
+                  'version': '=1.1.5',
+                  'default-features': False,
+                  'features': ['alloc'],
+              },
+              'serde': {
+                  'version': '=1.0.229',
+                  'default-features': False,
+              },
+          }, f"unexpected direct dependency surface: {manifest.get('dependencies')!r}"
+
+          expected = {
+              ('cbor2', '1.1.5', '86756b93a81474930c7edc4e4fab45b9cd197a50bc9775ae01450d4f621788a3'),
+              ('mycelix-assurance-core', '0.1.0', None),
+              ('proc-macro2', '1.0.107', '985e7ec9bb745e6ce6535b544d84d6cd6f7ad8bd711c398938ae983b91a766d9'),
+              ('quote', '1.0.47', '1fbf4db142a473a8d80c26bbf18454ed458bf8d26c8219c331daecfdbd079001'),
+              ('serde', '1.0.229', '4148590afebada386688f18773da617792bf2ef03ffc1e4cbd2b1d45b023e0ba'),
+              ('serde_core', '1.0.229', '67dca2c9c51e58a4791a4b1ed58308b39c64224d349a935ab5039aa360942a48'),
+              ('serde_derive', '1.0.229', 'e7a5d71263a5a7d47b41f6b3f06ba276f10cc18b0931f1799f710578e2309348'),
+              ('syn', '3.0.6', '8593e8e72159ed2257d083c7a454a85cbf854f37a0966d8d483aff8c8a3ebcee'),
+              ('unicode-ident', '1.0.26', 'd245f478577f809a851594d02313b640fb437e0bb33866753cff937863096954'),
+          }
+          actual = {(p['name'], p['version'], p.get('checksum')) for p in lock.get('package', [])}
+          assert actual == expected, f'unexpected Cargo.lock package set: {actual!r}'
+          PY
+
+      - name: Check formatting
+        run: cd crates/mycelix-assurance-core && cargo fmt --all --check
+
+      - name: Check crate
+        run: cd crates/mycelix-assurance-core && cargo check --locked --all-targets
+
+      - name: Test crate
+        run: cd crates/mycelix-assurance-core && cargo test --locked --all-targets
+
+      - name: Clippy crate
+        run: cd crates/mycelix-assurance-core && cargo clippy --locked --all-targets -- -D warnings
+
+      - name: Verify subject remained immutable
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$QUALIFICATION_SUBJECT_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$QUALIFICATION_SUBJECT_TREE_SHA"
+          test "$(git rev-parse HEAD^)" = "$QUALIFIED_PARENT_SHA"
+          test -z "$(git status --porcelain --untracked-files=all)"
+
+      - name: Emit narrow exact-subject receipt
+        shell: bash
+        env:
+          QUALIFIER_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p qualification
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import subprocess
+          from pathlib import Path
+
+          lock_bytes = Path('crates/mycelix-assurance-core/Cargo.lock').read_bytes()
+
+          def cmd(*args):
+              return subprocess.check_output(args, text=True).strip()
+
+          receipt = {
+              'schema': 'mycelix.assure.002b.qualification.receipt.v0.1',
+              'qualification_subject_commit': os.environ['QUALIFICATION_SUBJECT_SHA'],
+              'qualification_subject_tree': os.environ['QUALIFICATION_SUBJECT_TREE_SHA'],
+              'qualified_parent_commit': os.environ['QUALIFIED_PARENT_SHA'],
+              'qualified_parent_receipt_sha256': os.environ['QUALIFIED_PARENT_RECEIPT_SHA256'],
+              'qualifier_workflow_head': os.environ['QUALIFIER_HEAD_SHA'],
+              'qualifier_workflow_path': os.environ['QUALIFIER_WORKFLOW_PATH'],
+              'github_run_id': os.environ.get('GITHUB_RUN_ID'),
+              'github_run_attempt': os.environ.get('GITHUB_RUN_ATTEMPT'),
+              'spec_root_sha256': os.environ['EXPECTED_SPEC_ROOT_SHA256'],
+              'coverage_sha256': os.environ['EXPECTED_COVERAGE_SHA256'],
+              'corpus_root_sha256': os.environ['EXPECTED_CORPUS_ROOT_SHA256'],
+              'cargo_lock_sha256': hashlib.sha256(lock_bytes).hexdigest(),
+              'rustc_version': cmd('rustc', '--version'),
+              'cargo_version': cmd('cargo', '--version'),
+              'runner_os': os.environ.get('RUNNER_OS'),
+              'runner_arch': os.environ.get('RUNNER_ARCH'),
+              'runner_image_os': os.environ.get('ImageOS'),
+              'runner_image_version': os.environ.get('ImageVersion'),
+              'proposition': (
+                  'For the exact frozen ASSURE-002B subject, the qualified 002A predecessor, '
+                  'ASSURE-V1 L0 specification/vector identities, committed dependency lock, '
+                  'and registered fmt/check/test/Clippy gates verify under the pinned toolchain.'
+              ),
+              'nonclaims': [
+                  'Manual CODEC review obligations are not satisfied by this automated receipt.',
+                  'Permanent repository CI integration is not qualified by this receipt.',
+                  'Repository branch-protection enforcement is not established by this receipt.',
+                  'No graph validity is qualified.',
+                  'No evidence truth or admissibility is qualified.',
+                  'No effective authority is established.',
+                  'No political legitimacy, constitutional legitimacy, or moral truth is established.',
+              ],
+          }
+
+          encoded = (json.dumps(receipt, sort_keys=True, separators=(',', ':')) + '\n').encode()
+          out = Path('qualification/assure-002b-receipt.json')
+          out.write_bytes(encoded)
+          digest = hashlib.sha256(encoded).hexdigest()
+          Path('qualification/assure-002b-receipt.sha256').write_text(
+              digest + '  ' + out.name + '\n'
+          )
+          print(encoded.decode(), end='')
+          print('receipt_sha256=' + digest)
+          PY
+
+      - name: Preserve exact-subject receipt
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: assure-002b-qualification-${{ github.event.pull_request.head.sha }}
+          path: |
+            qualification/assure-002b-receipt.json
+            qualification/assure-002b-receipt.sha256
+          if-no-files-found: error
+          retention-days: 30
