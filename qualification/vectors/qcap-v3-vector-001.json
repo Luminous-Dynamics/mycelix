@@ -1,0 +1,182 @@
+{
+  "execution_context": {
+    "environment_profile_ref": {
+      "digest": "5555555555555555555555555555555555555555555555555555555555555555",
+      "id": "environment:qcap-v3",
+      "revision": 1
+    },
+    "execution_context_format_revision": 3,
+    "execution_limits_profile_ref": {
+      "digest": "ae7a35339e1b0cc10dc5bf4db1c22acb61c88852faf3b7b7d9536f723dc11a05",
+      "id": "qcap:vector-v3",
+      "revision": 1
+    },
+    "resolved_environment_commitment": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "resolved_runner_commitment": "9999999999999999999999999999999999999999999999999999999999999999",
+    "resolved_toolchain_commitment": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "runner_profile_ref": {
+      "digest": "8888888888888888888888888888888888888888888888888888888888888888",
+      "id": "runner:qcap-v3",
+      "revision": 1
+    },
+    "toolchain_profile_ref": {
+      "digest": "4444444444444444444444444444444444444444444444444444444444444444",
+      "id": "toolchain:qcap-v3",
+      "revision": 1
+    }
+  },
+  "execution_limits": {
+    "execution_limits_format_revision": 1,
+    "max_args_per_gate": 8,
+    "max_claim_nonclaim_utf8_bytes": 2048,
+    "max_gate_count": 8,
+    "max_gate_output_bytes": 16,
+    "max_gate_script_bytes": 4096,
+    "max_manifest_canonical_bytes": 16384,
+    "max_total_arg_bytes": 1024,
+    "max_total_gate_script_bytes": 8192,
+    "profile_id": "qcap:vector-v3",
+    "profile_revision": 1
+  },
+  "expected_capsule_commitment": "e8ae4617d2c11bcd7dcee24478f4851aa87bcc656cf632018bcc7a80ba08b864",
+  "expected_execution_limits_digest": "ae7a35339e1b0cc10dc5bf4db1c22acb61c88852faf3b7b7d9536f723dc11a05",
+  "manifest": {
+    "capsule_format_revision": 1,
+    "claim": "canonical café / 雪",
+    "environment_profile_ref": {
+      "digest": "5555555555555555555555555555555555555555555555555555555555555555",
+      "id": "environment:qcap-v3",
+      "revision": 1
+    },
+    "expected_changed_paths": [
+      "a.txt",
+      "é.txt"
+    ],
+    "expected_object_blobs": {
+      "a.txt": "2222222222222222222222222222222222222222",
+      "é.txt": "3333333333333333333333333333333333333333"
+    },
+    "gates": [
+      {
+        "args": [],
+        "class": "lineage",
+        "id": "lineage",
+        "script": "lineage.sh",
+        "sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+        "timeout_seconds": 11
+      },
+      {
+        "args": [
+          "雪"
+        ],
+        "class": "oracle",
+        "id": "oracle",
+        "script": "oracle.py",
+        "sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+        "timeout_seconds": 12
+      }
+    ],
+    "nonclaims": [
+      "network",
+      "世界"
+    ],
+    "predecessor_sha": "0000000000000000000000000000000000000000",
+    "product_subject_sha": "1111111111111111111111111111111111111111",
+    "repository_identity": "Luminous-Dynamics/mycelix",
+    "theorem_id": "QCAP-V3-VECTOR-001",
+    "theorem_revision": 1,
+    "toolchain_profile_ref": {
+      "digest": "4444444444444444444444444444444444444444444444444444444444444444",
+      "id": "toolchain:qcap-v3",
+      "revision": 1
+    },
+    "verdict": {
+      "kind": "all",
+      "required_gate_ids": [
+        "lineage",
+        "oracle"
+      ]
+    }
+  },
+  "scenarios": [
+    {
+      "attempt_id": "vector-pass",
+      "expected_receipt_commitment": "b8d2de0eb2486975ffab4523b252ea0ffcbc2c7b953b798e9992c5d11dd6ef49",
+      "expected_verdict": "CompletedConjunctivePass",
+      "gate_results": [
+        {
+          "captured_output_bytes": 8,
+          "captured_output_sha256": "e0bdfc54a14a60fbad226d2bb2066cdc0a10dde951531c30130c8125fb4bcc4a",
+          "effective_exit_code": 0,
+          "id": "lineage",
+          "output_truncated": false,
+          "runner_failure_reason": null,
+          "status": "GatePass"
+        },
+        {
+          "captured_output_bytes": 7,
+          "captured_output_sha256": "3b5485dd0909db36922ecd8578f18da11954810e63582f302c10881ac5c47534",
+          "effective_exit_code": 0,
+          "id": "oracle",
+          "output_truncated": false,
+          "runner_failure_reason": null,
+          "status": "GatePass"
+        }
+      ],
+      "name": "pass"
+    },
+    {
+      "attempt_id": "vector-fail",
+      "expected_receipt_commitment": "47db3926969a5bab06bd8cdc78b89fdcb0ae88c029901539c87979a4bf07dc39",
+      "expected_verdict": "CompletedConjunctiveFail",
+      "gate_results": [
+        {
+          "captured_output_bytes": 4,
+          "captured_output_sha256": "1d7a363ce12430881ec56c9cf1409c49c491043618e598c356e2959040872f5a",
+          "effective_exit_code": 10,
+          "id": "lineage",
+          "output_truncated": false,
+          "runner_failure_reason": null,
+          "status": "GateFail"
+        },
+        {
+          "captured_output_bytes": 7,
+          "captured_output_sha256": "3b5485dd0909db36922ecd8578f18da11954810e63582f302c10881ac5c47534",
+          "effective_exit_code": 0,
+          "id": "oracle",
+          "output_truncated": false,
+          "runner_failure_reason": null,
+          "status": "GatePass"
+        }
+      ],
+      "name": "theorem-fail"
+    },
+    {
+      "attempt_id": "vector-output-limit",
+      "expected_receipt_commitment": "e2d4099c2ca2b46fd00e470084da7aa8f74f4b4e552e3a7dbe6bc7cc4317e3d9",
+      "expected_verdict": "RunnerInfrastructureFailure",
+      "gate_results": [
+        {
+          "captured_output_bytes": 16,
+          "captured_output_sha256": "9c5729595fb287cc2a2256280448bbe706c0a866f0372515c7483de2af4e6532",
+          "effective_exit_code": 20,
+          "id": "lineage",
+          "output_truncated": true,
+          "runner_failure_reason": "OutputLimitExceeded",
+          "status": "RunnerInfrastructureFailure"
+        },
+        {
+          "captured_output_bytes": 0,
+          "captured_output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "effective_exit_code": null,
+          "id": "oracle",
+          "output_truncated": false,
+          "runner_failure_reason": null,
+          "status": "GateNotRun"
+        }
+      ],
+      "name": "output-limit"
+    }
+  ],
+  "vector_format_revision": 3
+}

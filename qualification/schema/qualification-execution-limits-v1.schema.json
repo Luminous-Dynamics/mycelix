@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Mycelix QCAP Execution Limits V1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "execution_limits_format_revision": {"const": 1},
+    "profile_id": {"type": "string", "minLength": 1},
+    "profile_revision": {"type": "integer", "minimum": 1},
+    "max_gate_output_bytes": {"type": "integer", "minimum": 1},
+    "max_gate_count": {"type": "integer", "minimum": 1},
+    "max_gate_script_bytes": {"type": "integer", "minimum": 1},
+    "max_total_gate_script_bytes": {"type": "integer", "minimum": 1},
+    "max_args_per_gate": {"type": "integer", "minimum": 1},
+    "max_total_arg_bytes": {"type": "integer", "minimum": 1},
+    "max_manifest_canonical_bytes": {"type": "integer", "minimum": 1},
+    "max_claim_nonclaim_utf8_bytes": {"type": "integer", "minimum": 1}
+  },
+  "required": [
+    "execution_limits_format_revision", "profile_id", "profile_revision", "max_gate_output_bytes",
+    "max_gate_count", "max_gate_script_bytes", "max_total_gate_script_bytes", "max_args_per_gate",
+    "max_total_arg_bytes", "max_manifest_canonical_bytes", "max_claim_nonclaim_utf8_bytes"
+  ]
+}
