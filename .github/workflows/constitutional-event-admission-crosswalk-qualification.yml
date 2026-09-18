@@ -1,0 +1,176 @@
+name: Constitutional Event Admission Crosswalk Qualification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'mycelix-governance/specs/constitutional-event-admission-crosswalk.v1.json'
+      - 'mycelix-governance/specs/constitutional-event-admission-crosswalk.v1.schema.json'
+      - 'mycelix-governance/tools/formal/validate_constitutional_event_admission.py'
+      - 'mycelix-governance/docs/CONSTITUTIONAL_EVENT_ADMISSION_CROSSWALK_V0_1.md'
+      - '.github/workflows/constitutional-event-admission-crosswalk-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: constitutional-event-admission-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NIXPKGS_REV: a50bf0c1b07873c1a53892292017041a8f0a1288
+  EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EXPECTED_SEMANTIC_HEAD: 249753017c3781f7a3259061aae16d7e0075e984
+
+jobs:
+  qualify:
+    name: Exact-head constitutional event admission crosswalk
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout exact raw head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ env.EXPECTED_HEAD }}
+
+      - name: Bind exact verifier lineage and semantic surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_SEMANTIC_HEAD"
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/constitutional-event-admission-crosswalk-qualification.yml"
+
+          rm -rf event-admission-evidence
+          mkdir -p event-admission-evidence
+          printf '%s\n' "$EXPECTED_HEAD" > event-admission-evidence/expected-head.txt
+          printf '%s\n' "$EXPECTED_SEMANTIC_HEAD" > event-admission-evidence/expected-semantic-head.txt
+
+          git diff --name-only "$EXPECTED_SEMANTIC_HEAD^" "$EXPECTED_SEMANTIC_HEAD" | sort \
+            > event-admission-evidence/semantic-files-actual.txt
+          cat > event-admission-evidence/semantic-files-expected.txt <<'EOF'
+          mycelix-governance/docs/CONSTITUTIONAL_EVENT_ADMISSION_CROSSWALK_V0_1.md
+          mycelix-governance/specs/constitutional-event-admission-crosswalk.v1.json
+          mycelix-governance/specs/constitutional-event-admission-crosswalk.v1.schema.json
+          mycelix-governance/tools/formal/validate_constitutional_event_admission.py
+          EOF
+          sed -i 's/^          //' event-admission-evidence/semantic-files-expected.txt
+          diff -u \
+            event-admission-evidence/semantic-files-expected.txt \
+            event-admission-evidence/semantic-files-actual.txt
+
+          if grep -E '^mycelix-governance/zomes/' event-admission-evidence/semantic-files-actual.txt; then
+            echo "E1A semantic head must not modify Holochain zomes" >&2
+            exit 1
+          fi
+
+          git hash-object \
+            mycelix-governance/specs/constitutional-event-admission-crosswalk.v1.json \
+            mycelix-governance/specs/constitutional-event-admission-crosswalk.v1.schema.json \
+            mycelix-governance/tools/formal/validate_constitutional_event_admission.py \
+            mycelix-governance/docs/CONSTITUTIONAL_EVENT_ADMISSION_CROSSWALK_V0_1.md \
+            > event-admission-evidence/source-hashes-before.txt
+
+      - name: Materialize exact cross-lineage source objects
+        shell: bash
+        run: |
+          set -euo pipefail
+          for sha in \
+            037f61c15ff367a1518d98f7acc8ec0fa962c2f6 \
+            47d1d764323dbfaf991b5574cfde83abb7a3e4a4 \
+            36a4fcffb6ca806570ebf439f9c36cf76401e7b2 \
+            4edb56bd3c36ddc6277e2de5e0584a65e8c99b3c
+          do
+            if ! git cat-file -e "${sha}^{commit}" 2>/dev/null; then
+              git fetch --no-tags origin "$sha"
+            fi
+            git cat-file -e "${sha}^{commit}"
+          done
+
+          {
+            printf 'b4-claim-binding '
+            git rev-parse '037f61c15ff367a1518d98f7acc8ec0fa962c2f6:mycelix-governance/crates/constitutional-consumption/src/binding.rs'
+            printf 'd1c-effect-ledger '
+            git rev-parse '47d1d764323dbfaf991b5574cfde83abb7a3e4a4:mycelix-governance/crates/constitutional-effect-ledger/src/lib.rs'
+            printf 'e0-event-provider '
+            git rev-parse '36a4fcffb6ca806570ebf439f9c36cf76401e7b2:mycelix-governance/crates/constitutional-event-provider/src/lib.rs'
+            printf 'e0-d1c-identity-test '
+            git rev-parse '36a4fcffb6ca806570ebf439f9c36cf76401e7b2:mycelix-governance/crates/constitutional-event-provider/tests/effect_ledger_identity.rs'
+            printf 'cr1-crosswalk-scaffold '
+            git rev-parse '4edb56bd3c36ddc6277e2de5e0584a65e8c99b3c:mycelix-governance/specs/constitutional-refinement-crosswalk.v1.json'
+          } > event-admission-evidence/bound-source-blobs.txt
+
+          cat > event-admission-evidence/bound-source-blobs-expected.txt <<'EOF'
+          b4-claim-binding f61e327cac047824b5d561b2d865e863389dcaa6
+          d1c-effect-ledger bb3b8d6a865bbf514ff1e43a41c520b890a5515d
+          e0-event-provider 5d110f95c0d78f494b61a16d5afe5776401820bb
+          e0-d1c-identity-test 897668782e09fac5ffbc506e1e8b11f653de2950
+          cr1-crosswalk-scaffold 35476cb5b2dbacaca659b117e6dfaaacebed818d
+          EOF
+          sed -i 's/^          //' event-admission-evidence/bound-source-blobs-expected.txt
+          diff -u \
+            event-admission-evidence/bound-source-blobs-expected.txt \
+            event-admission-evidence/bound-source-blobs.txt
+
+      - name: Install pinned validation tools
+        uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Validate exact crosswalk and mutation controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#python3" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#git" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#coreutils" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" \
+            --command bash -euo pipefail -c '
+              python3 --version | tee event-admission-evidence/python-version.txt
+              git --version | tee event-admission-evidence/git-version.txt
+
+              python3 -m py_compile \
+                mycelix-governance/tools/formal/validate_constitutional_event_admission.py
+
+              python3 \
+                mycelix-governance/tools/formal/validate_constitutional_event_admission.py \
+                --self-test \
+                2>&1 | tee event-admission-evidence/validator.log
+            '
+
+      - name: Verify semantic source immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+
+          git hash-object \
+            mycelix-governance/specs/constitutional-event-admission-crosswalk.v1.json \
+            mycelix-governance/specs/constitutional-event-admission-crosswalk.v1.schema.json \
+            mycelix-governance/tools/formal/validate_constitutional_event_admission.py \
+            mycelix-governance/docs/CONSTITUTIONAL_EVENT_ADMISSION_CROSSWALK_V0_1.md \
+            > event-admission-evidence/source-hashes-after.txt
+
+          cmp \
+            event-admission-evidence/source-hashes-before.txt \
+            event-admission-evidence/source-hashes-after.txt
+
+          git diff --exit-code -- \
+            mycelix-governance/specs/constitutional-event-admission-crosswalk.v1.json \
+            mycelix-governance/specs/constitutional-event-admission-crosswalk.v1.schema.json \
+            mycelix-governance/tools/formal/validate_constitutional_event_admission.py \
+            mycelix-governance/docs/CONSTITUTIONAL_EVENT_ADMISSION_CROSSWALK_V0_1.md
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: constitutional-event-admission-${{ env.EXPECTED_HEAD }}
+          path: event-admission-evidence
+          if-no-files-found: error
+          retention-days: 30
