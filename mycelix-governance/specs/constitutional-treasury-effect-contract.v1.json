@@ -1,0 +1,183 @@
+{
+  "schema": "mycelix.constitutional-treasury-effect-contract.v1",
+  "contract_id": "MYC-CONST-003D1D-F0",
+  "contract_revision": 1,
+  "authority_class": "InertProviderEffectContractPendingQualifiedUpstreams",
+  "activation_allowed": false,
+  "source_binding": {
+    "repository": "Luminous-Dynamics/mycelix",
+    "d1d0_semantic_parent": "7bb43d0af6590f3794956d12c47d6fa376b59821",
+    "runtime_subject": "15b9c89adf0ac3c6c5a73681614d6bfcd368820a",
+    "files": [
+      {
+        "role": "legacy_execution_dispatch",
+        "path": "mycelix-governance/zomes/execution/coordinator/src/lib.rs",
+        "git_blob_sha1": "3dbb8a8f69b377e494ccf24164c94bd80f54e0ef"
+      },
+      {
+        "role": "governance_finance_bridge",
+        "path": "mycelix-governance/zomes/bridge/coordinator/src/cross_cluster.rs",
+        "git_blob_sha1": "3eb0ade8633d6e711fd266bca6eb2ebab616eac2"
+      },
+      {
+        "role": "legacy_treasury_coordinator",
+        "path": "mycelix-finance/zomes/treasury/coordinator/src/lib.rs",
+        "git_blob_sha1": "840e66bcb6fdedb27fe2451752511d1317eb50b8"
+      },
+      {
+        "role": "legacy_treasury_integrity",
+        "path": "mycelix-finance/zomes/treasury/integrity/src/lib.rs",
+        "git_blob_sha1": "5ee9b72f7c138a5283818b873ceae36dff3305d4"
+      },
+      {
+        "role": "d1c_identity_source",
+        "path": "mycelix-governance/crates/constitutional-effect-ledger/src/lib.rs",
+        "git_blob_sha1": "bb3b8d6a865bbf514ff1e43a41c520b890a5515d"
+      }
+    ]
+  },
+  "request_identity": {
+    "includes": [
+      "schema_version",
+      "operation_id",
+      "action_id",
+      "proposal_id",
+      "claim_binding_commitment",
+      "action_commitment",
+      "authorization_id",
+      "authorization_subject_commitment",
+      "treasury_descriptor_commitment",
+      "allocation_subject_commitment",
+      "approval_projection_commitment",
+      "capacity_allocation_commitment_optional",
+      "recipient_did",
+      "recipient_commitment",
+      "value_profile_id",
+      "value_authority_commitment",
+      "policy_revision_commitment",
+      "adapter_profile_id",
+      "effect_target_commitment"
+    ],
+    "upstream_subjects_are_opaque_exact_refs": true,
+    "raw_currency_string_is_authority": false,
+    "raw_u64_amount_is_authority": false
+  },
+  "execution_identity": {
+    "provider_key": "execution_id",
+    "includes": [
+      "schema_version",
+      "action_id",
+      "authorization_id",
+      "capacity_allocation_commitment_optional",
+      "adapter_profile_id",
+      "request_commitment"
+    ],
+    "excludes": [
+      "committed_at_unix_ms",
+      "attempt_id",
+      "attempt_ordinal",
+      "started_at_unix_ms",
+      "worker_id",
+      "queue_id",
+      "transport_request_id",
+      "random_retry_nonce",
+      "external_receipt_id",
+      "observed_at_unix_ms"
+    ],
+    "retry_mints_fresh_execution_id": false,
+    "physical_exactly_once_claimed": false
+  },
+  "d1c_mapping": {
+    "operation_id": "ConstitutionalOperation.operation_id",
+    "proposal_id": "ConstitutionalOperation.proposal_id",
+    "claim_binding_commitment": "ConstitutionalOperation.claim_binding",
+    "action_id": "ActionIntent.action_id",
+    "action_commitment": "ActionIntent.action_commitment",
+    "provider_identity_regenerated": false,
+    "qualification_inherited_from_D1C": false
+  },
+  "semantic_uniqueness": {
+    "same_execution_same_request": "ExistingSame",
+    "same_execution_different_request": "IntegrityConflict",
+    "same_action_different_request": "IntegrityConflictAndHalt",
+    "authorization_id_reuse_for_different_effect": "IntegrityConflictAndHalt",
+    "capacity_allocation_reuse_for_different_effect": "IntegrityConflictAndHalt",
+    "last_write_wins_allowed": false
+  },
+  "state_machine": {
+    "states": [
+      "Pending",
+      "InFlight",
+      "UnknownOutcome",
+      "KnownNoEffect",
+      "KnownSuccess",
+      "IntegrityHalted"
+    ],
+    "initial_state": "Pending",
+    "transport_failure_result": "UnknownOutcome",
+    "transport_failure_implies_known_no_effect": false,
+    "known_success_terminal_for_dispatch_retry": true,
+    "conflicting_success_effect_commitments": "IntegrityHalted",
+    "success_and_no_effect_same_or_later_horizon": "IntegrityHalted",
+    "stale_provider_observation_can_overwrite_newer_attempt": false
+  },
+  "retry_and_reconciliation": {
+    "unknown_outcome_blind_retry_allowed": false,
+    "unknown_outcome_retry_requires_qualified_provider_replay_evidence": true,
+    "known_no_effect_retry_requires_exact_reconciliation_observation": true,
+    "retry_reuses_same_execution_id": true,
+    "known_no_effect_requires_provider_evidence": true,
+    "known_success_requires_provider_receipt_evidence": true,
+    "provider_observation_binds_execution_and_request": true,
+    "provider_observation_carries_attempt_horizon": true,
+    "retry_basis_itself_qualified_here": false
+  },
+  "upstream_dependencies": {
+    "D1C_effect_identity": "StructurallyMappedQualificationNotInherited",
+    "action_bound_authorization_1247": "PendingExternalQualification",
+    "SapAmount_1268": "PendingExternalQualification",
+    "TreasuryV2_1269": "PendingExternalQualification",
+    "allocation_approval_1411": "PendingExternalQualification",
+    "reserved_capacity_1467": "PendingExternalQualificationWhereProfileRequires",
+    "provider_adapter_capability": "PendingExternalQualification"
+  },
+  "legacy_source_findings": {
+    "execution_dispatch_target": "governance_bridge::transfer_credits",
+    "execution_dispatch_shape": "{from,to,amount:f64}",
+    "newer_bridge_target": "finance/treasury::execute_governance_transfer",
+    "execute_governance_transfer_observed_in_exact_treasury": false,
+    "treasury_allocation_has_stable_id_lookup": true,
+    "treasury_debit_uses_checked_subtraction": true,
+    "legacy_treasury_currency_representation": "String",
+    "legacy_treasury_amount_representation": "u64",
+    "source_ordering_alone_establishes_local_partial_commit_bug": false,
+    "large_value_DKG_policy_owned_by_separate_lane": true
+  },
+  "f1_activation_requirements": [
+    "exact qualified D1C identity consumed",
+    "exact qualified action-bound authorization consumed",
+    "exact qualified SAP value semantics consumed for SAP execution",
+    "exact qualified Treasury/allocation/approval/capacity subjects consumed as required",
+    "one selected authoritative effect adapter",
+    "persistent intent before declared irreversible dispatch boundary",
+    "provider-origin reconciliation by execution_id",
+    "qualified replay/idempotency theorem before uncertain automatic retry",
+    "provider receipt exact-bound to execution_id and request_commitment",
+    "concurrent duplicate and conflicting-payload adversarial qualification",
+    "F1 exact-head qualification before live governance routing"
+  ],
+  "non_claims": [
+    "not_a_holochain_entry_or_link_surface",
+    "not_a_live_treasury_debit_path",
+    "not_wired_to_GovernanceAction_TransferCredits",
+    "not_public_fund_authority_qualified",
+    "not_SapAmount_qualified",
+    "not_TreasuryV2_or_capacity_qualified",
+    "not_provider_truth_qualified",
+    "not_provider_replay_evidence_authenticated_here",
+    "not_physical_exactly_once",
+    "not_external_settlement_finality",
+    "not_legal_or_accounting_finality",
+    "not_deployment_currentness_qualified"
+  ]
+}
