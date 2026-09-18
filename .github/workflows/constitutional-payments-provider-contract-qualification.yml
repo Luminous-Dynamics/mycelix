@@ -1,0 +1,254 @@
+name: Constitutional Payments Provider Contract Qualification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'mycelix-governance/Cargo.toml'
+      - 'mycelix-governance/crates/constitutional-payments-provider/**'
+      - 'mycelix-governance/specs/constitutional-payments-provider-contract.v1.json'
+      - 'mycelix-governance/specs/constitutional-payments-provider-contract.v1.schema.json'
+      - 'mycelix-governance/docs/CONSTITUTIONAL_PAYMENTS_PROVIDER_CONTRACT_V0_1.md'
+      - 'mycelix-governance/tools/formal/validate_constitutional_payments_provider_contract.py'
+      - '.github/workflows/constitutional-payments-provider-contract-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: payments-provider-contract-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NIXPKGS_REV: a50bf0c1b07873c1a53892292017041a8f0a1288
+  EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EXPECTED_SEMANTIC_HEAD: 4879c83c4ef21c15e124730a1518ec68812d1611
+
+jobs:
+  qualify:
+    name: Exact-head payments provider F1A
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout exact raw head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ env.EXPECTED_HEAD }}
+          persist-credentials: false
+
+      - name: Bind exact verifier lineage and semantic surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_SEMANTIC_HEAD"
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/constitutional-payments-provider-contract-qualification.yml"
+
+          rm -rf payments-provider-contract-evidence
+          mkdir -p payments-provider-contract-evidence
+          printf '%s\n' "$EXPECTED_HEAD" > payments-provider-contract-evidence/expected-head.txt
+          printf '%s\n' "$EXPECTED_SEMANTIC_HEAD" > payments-provider-contract-evidence/expected-semantic-head.txt
+
+          cat > payments-provider-contract-evidence/expected-semantic-files.txt <<'EOF'
+          mycelix-governance/Cargo.toml
+          mycelix-governance/crates/constitutional-payments-provider/Cargo.toml
+          mycelix-governance/crates/constitutional-payments-provider/src/lib.rs
+          mycelix-governance/docs/CONSTITUTIONAL_PAYMENTS_PROVIDER_CONTRACT_V0_1.md
+          mycelix-governance/specs/constitutional-payments-provider-contract.v1.json
+          mycelix-governance/specs/constitutional-payments-provider-contract.v1.schema.json
+          mycelix-governance/tools/formal/validate_constitutional_payments_provider_contract.py
+          EOF
+          sed -i 's/^          //' payments-provider-contract-evidence/expected-semantic-files.txt
+
+          git diff --name-only "$EXPECTED_SEMANTIC_HEAD^" "$EXPECTED_SEMANTIC_HEAD" | sort \
+            > payments-provider-contract-evidence/actual-semantic-files.txt
+          sort payments-provider-contract-evidence/expected-semantic-files.txt \
+            > payments-provider-contract-evidence/expected-semantic-files.sorted.txt
+          cmp payments-provider-contract-evidence/expected-semantic-files.sorted.txt \
+              payments-provider-contract-evidence/actual-semantic-files.txt
+
+          if grep -E '^mycelix-(finance|governance)/.*zomes/' payments-provider-contract-evidence/actual-semantic-files.txt; then
+            echo "F1A semantic head unexpectedly changes Holochain zomes" >&2
+            exit 1
+          fi
+
+          git hash-object $(cat payments-provider-contract-evidence/expected-semantic-files.txt) \
+            > payments-provider-contract-evidence/source-hashes-before.txt
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Validate closed F1A source/profile contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#python3" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" \
+            --command bash -euo pipefail -c '
+              python3 --version | tee payments-provider-contract-evidence/python-version.txt
+              python3 -m py_compile mycelix-governance/tools/formal/validate_constitutional_payments_provider_contract.py
+              python3 mycelix-governance/tools/formal/validate_constitutional_payments_provider_contract.py --self-test \
+                2>&1 | tee payments-provider-contract-evidence/source-validator.log
+            '
+
+      - name: Compile and test exact F1A subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustfmt" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#clippy" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#coreutils" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" \
+            --command bash -euo pipefail -c '
+              rustc --version | tee payments-provider-contract-evidence/rustc-version.txt
+              cargo --version | tee payments-provider-contract-evidence/cargo-version.txt
+              rustfmt --version | tee payments-provider-contract-evidence/rustfmt-version.txt
+              cargo clippy --version | tee payments-provider-contract-evidence/clippy-version.txt
+
+              cargo fmt --manifest-path mycelix-governance/Cargo.toml \
+                --package constitutional-payments-provider -- --check \
+                2>&1 | tee payments-provider-contract-evidence/cargo-fmt.log
+              cargo check --manifest-path \
+                mycelix-governance/crates/constitutional-payments-provider/Cargo.toml \
+                --all-targets 2>&1 | tee payments-provider-contract-evidence/cargo-check.log
+              cargo test --manifest-path \
+                mycelix-governance/crates/constitutional-payments-provider/Cargo.toml \
+                --all-targets 2>&1 | tee payments-provider-contract-evidence/cargo-test.log
+              cargo clippy --manifest-path \
+                mycelix-governance/crates/constitutional-payments-provider/Cargo.toml \
+                --all-targets -- -D warnings \
+                2>&1 | tee payments-provider-contract-evidence/cargo-clippy.log
+
+              cp mycelix-governance/Cargo.lock payments-provider-contract-evidence/derived-Cargo.lock
+              sha256sum payments-provider-contract-evidence/derived-Cargo.lock \
+                > payments-provider-contract-evidence/derived-Cargo.lock.sha256
+            '
+
+      - name: Compile-valid F1A semantic mutation controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#python3" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" \
+            --command bash -euo pipefail -c '
+          python3 - <<"PY"
+          from pathlib import Path
+          import subprocess
+
+          ROOT = Path.cwd()
+          SRC = ROOT / "mycelix-governance/crates/constitutional-payments-provider/src/lib.rs"
+          MANIFEST = ROOT / "mycelix-governance/crates/constitutional-payments-provider/Cargo.toml"
+          EVIDENCE = ROOT / "payments-provider-contract-evidence"
+          original = SRC.read_text()
+
+          def restore(): SRC.write_text(original)
+          def replace(old, new, start=None):
+              s = SRC.read_text(); off = s.index(start) if start else 0; pos = s.index(old, off)
+              SRC.write_text(s[:pos] + new + s[pos+len(old):])
+          def run(cmd, log):
+              p = subprocess.run(cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+              (EVIDENCE / log).write_text(p.stdout); return p.returncode
+          def mutant(name, mutate, test_filter):
+              restore(); mutate()
+              if run(["cargo","check","--manifest-path",str(MANIFEST),"--all-targets"], f"mutant-{name}-check.log") != 0:
+                  raise SystemExit(f"{name}: mutant did not compile")
+              if run(["cargo","test","--manifest-path",str(MANIFEST),test_filter], f"mutant-{name}-test.log") == 0:
+                  raise SystemExit(f"{name}: mutant survived")
+              (EVIDENCE / f"mutant-{name}.txt").write_text("PASS\n")
+
+          try:
+              mutant(
+                  "wall-clock-operation-key",
+                  lambda: replace(
+                      "        h.update(OPERATION_KEY_DOMAIN);\n",
+                      "        h.update(OPERATION_KEY_DOMAIN);\n        h.update(&self.committed_at_unix_ms.to_be_bytes());\n",
+                      "fn compute_operation_key(&self)",
+                  ),
+                  "wall_clock_is_not_provider_operation_identity",
+              )
+              mutant(
+                  "provider-profile-commitment",
+                  lambda: replace(
+                      "        push_str(&mut h, &self.provider_profile_commitment);\n",
+                      "",
+                      "fn compute_operation_key(&self)",
+                  ),
+                  "changed_provider_profile_commitment_changes_key",
+              )
+              mutant(
+                  "execution-uniqueness",
+                  lambda: replace(
+                      "        if let Some(existing_key) = self.execution_index.get(&intent.execution_id) {\n",
+                      "        if false { let existing_key: &String = unreachable!();\n",
+                      "pub fn submit(&mut self, intent: PaymentProviderIntent)",
+                  ),
+                  "same_execution_cannot_change_provider_profile_commitment",
+              )
+              mutant(
+                  "observation-request-binding",
+                  lambda: replace(
+                      "        if self.request_commitment != intent.request_commitment {\n            return Err(violation(\"provider observation request commitment mismatch\"));\n        }\n",
+                      "",
+                      "pub fn validate_against(&self, intent: &PaymentProviderIntent)",
+                  ),
+                  "observation_must_bind_exact_request_and_execution",
+              )
+              mutant(
+                  "success-no-effect-conflict",
+                  lambda: replace(
+                      "                if let Some(prior) = prior_success {\n",
+                      "                if false { let prior: &ProviderObservation = unreachable!();\n",
+                      "ProviderOutcomeEvidence::KnownNoEffect { .. } =>",
+                  ),
+                  "success_and_no_effect_conflict_halts",
+              )
+              mutant(
+                  "conflicting-success",
+                  lambda: replace(
+                      "                    if prior.outcome != observation.outcome {\n",
+                      "                    if false && prior.outcome != observation.outcome {\n",
+                      "ProviderOutcomeEvidence::KnownSuccess {",
+                  ),
+                  "conflicting_success_receipts_halt",
+              )
+          finally:
+              restore()
+          PY
+            '
+
+      - name: Verify exact semantic immutability and postflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          git hash-object $(cat payments-provider-contract-evidence/expected-semantic-files.txt) \
+            > payments-provider-contract-evidence/source-hashes-after.txt
+          cmp payments-provider-contract-evidence/source-hashes-before.txt \
+              payments-provider-contract-evidence/source-hashes-after.txt
+          git diff --exit-code -- $(cat payments-provider-contract-evidence/expected-semantic-files.txt)
+          if git ls-files --error-unmatch mycelix-governance/Cargo.lock >/dev/null 2>&1; then
+            git checkout -- mycelix-governance/Cargo.lock
+          fi
+          test -z "$(git status --porcelain --untracked-files=no)"
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: constitutional-payments-provider-contract-${{ env.EXPECTED_HEAD }}
+          path: payments-provider-contract-evidence
+          if-no-files-found: error
+          retention-days: 30
