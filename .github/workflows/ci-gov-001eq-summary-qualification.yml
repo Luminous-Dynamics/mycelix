@@ -1,0 +1,144 @@
+name: CI-GOV-001EQ Fail-Closed Summary Qualification
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - '.github/workflows/ci-gov-001eq-summary-qualification.yml'
+
+concurrency:
+  group: ci-gov-001eq-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    # Ordinary draft authoring remains reviewable without runner allocation.
+    # For this branch-local qualifier, ready-for-review is the explicit execution
+    # transition. Label-triggered admission is intentionally excluded because
+    # unrelated label events can perturb a valid PR-scoped concurrency lane.
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    env:
+      PRODUCT_SHA: b99cb8db930b96d7a7cc0ab4bc77bca7da617abe
+      PRODUCT_WORKFLOW_BLOB: 516b24f407370f669b4f6d1e7cbc9fcd7154aa69
+      EVALUATOR_BLOB: 013875f3aa8135eaf9cf7dc4915ea00c33719002
+      QUALIFIER_PATH: .github/workflows/ci-gov-001eq-summary-qualification.yml
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - name: Check out exact qualification subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Prove qualification-only review surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "${PRODUCT_SHA}"
+          test "$(git rev-list --count "${PRODUCT_SHA}..HEAD")" -eq 1
+          test "$(git merge-base "${PRODUCT_SHA}" HEAD)" = "${PRODUCT_SHA}"
+          mapfile -t changed < <(git diff --name-only "${PRODUCT_SHA}..HEAD")
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "${QUALIFIER_PATH}"
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Bind exact production workflow and evaluator bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse "HEAD:.github/workflows/ci.yml")" = "${PRODUCT_WORKFLOW_BLOB}"
+          test "$(git rev-parse "HEAD:scripts/evaluate_generic_ci_summary.py")" = "${EVALUATOR_BLOB}"
+
+      - name: Compile and execute aggregate result regression corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/evaluate_generic_ci_summary.py')
+          compile(path.read_text(encoding='utf-8'), str(path), 'exec')
+          PY
+          python3 scripts/evaluate_generic_ci_summary.py --self-test | tee /tmp/ci-gov-001eq-self-test.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          value = json.loads(Path('/tmp/ci-gov-001eq-self-test.json').read_text(encoding='utf-8'))
+          expected = {
+              'profile_id': 'generic-mycelix-ci-required-checks-v1',
+              'self_test': 'PASS',
+          }
+          if value != expected:
+              raise SystemExit(f'unexpected self-test receipt: {value!r}')
+          PY
+
+      - name: Audit fail-closed production wiring
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          workflow = Path('.github/workflows/ci.yml').read_text(encoding='utf-8')
+          evaluator = Path('scripts/evaluate_generic_ci_summary.py').read_text(encoding='utf-8')
+
+          marker = '\n  ci-pass:\n'
+          if marker not in workflow:
+              raise SystemExit('ci-pass job missing')
+          ci_pass = marker + workflow.split(marker, 1)[1]
+
+          required_needs = (
+              'changes', 'format', 'test-commons', 'test-civic', 'test-hearth',
+              'test-finance', 'test-finance-integration', 'test-governance',
+              'test-identity', 'test-personal', 'test-attribution', 'test-bridge',
+              'test-sdk', 'test-prism',
+          )
+          for job in required_needs:
+              needle = f'      - {job}\n'
+              if needle not in ci_pass:
+                  raise SystemExit(f'ci-pass needs missing {job!r}')
+
+          required_wiring = (
+              'python3 scripts/evaluate_generic_ci_summary.py --self-test',
+              'MYCELIX_CI_NEEDS_JSON: ${{ toJSON(needs) }}',
+              'run: python3 scripts/evaluate_generic_ci_summary.py',
+          )
+          for needle in required_wiring:
+              if needle not in ci_pass:
+                  raise SystemExit(f'production evaluator wiring missing {needle!r}')
+
+          if 'echo "All checks passed!"' in ci_pass:
+              raise SystemExit('legacy permissive PASS string remains in ci-pass')
+
+          dispositions = (
+              'RequiredChecksPassed',
+              'RequiredCheckFailed',
+              'RunCancelledOrSuperseded',
+              'RequiredPrerequisiteMissing',
+              'RequiredPrerequisiteIndeterminate',
+          )
+          for disposition in dispositions:
+              if disposition not in evaluator:
+                  raise SystemExit(f'evaluator disposition missing {disposition!r}')
+
+          if 'for root in ("changes", "format"):' not in evaluator:
+              raise SystemExit('changes/format root prerequisite theorem missing')
+          if 'if result != "skipped":' not in evaluator:
+              raise SystemExit('intentional unselected-job skip theorem missing')
+          if 'KNOWN_JOB_RESULTS = {"success", "failure", "cancelled", "skipped"}' not in evaluator:
+              raise SystemExit('closed known-result vocabulary missing')
+          PY
+
+      - name: Prove checkout immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "${PRODUCT_SHA}"
+          test "$(git rev-parse "HEAD:.github/workflows/ci.yml")" = "${PRODUCT_WORKFLOW_BLOB}"
+          test "$(git rev-parse "HEAD:scripts/evaluate_generic_ci_summary.py")" = "${EVALUATOR_BLOB}"
+          test -z "$(git status --porcelain=v1)"
