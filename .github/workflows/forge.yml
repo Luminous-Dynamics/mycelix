@@ -1,0 +1,47 @@
+name: Mycelix Forge CI
+
+on:
+  pull_request:
+    paths:
+      - "crates/mycelix-forge-core/**"
+      - ".github/workflows/forge.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "crates/mycelix-forge-core/**"
+      - ".github/workflows/forge.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: forge-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  forge-core:
+    name: Forge Core
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: crates/mycelix-forge-core
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pinned Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Lint
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Test
+        run: cargo test --all-features

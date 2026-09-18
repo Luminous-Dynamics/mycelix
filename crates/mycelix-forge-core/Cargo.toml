@@ -1,0 +1,18 @@
+[package]
+name = "mycelix-forge-core"
+version = "0.1.0"
+edition = "2021"
+authors = ["Luminous Dynamics"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+description = "Portable, forge-independent identity and evidence primitives for Mycelix Forge"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+sha2 = "0.10"
+blake3 = "1.5"
+thiserror = "2.0"
+hex = "0.4"
+
+[dev-dependencies]
+serde_json = "1.0"
