@@ -1,0 +1,5 @@
+CI-GOV-001DT mixed probe unknown member.
+
+This path is intentionally outside docs/lex-net/** so GitHub native paths-ignore should admit the workflow event.
+
+Probe revision: tree-change-v2.
