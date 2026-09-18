@@ -1,0 +1,234 @@
+name: CI-GOV-001I Ruleset Authority Source Qualification
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - '.github/workflows/qual-ruleset-generic-ci-authority-v1.yml'
+
+# Dormant while draft. A future executable successor may reuse the exact tree
+# with a non-skip commit after runner capacity recovers.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-gov-001i-source-qualification-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  SUBJECT_SHA: 161e950c724d0b32791c0d691c46e0717b1b7ad3
+  SUBJECT_PARENT_SHA: 6568ee149d897354ce2619e0d03853fc3d1948c5
+  VALIDATOR_SHA: 979160704924d992c4f1c1af32279615c83ae062
+  QUAL_WORKFLOW: .github/workflows/qual-ruleset-generic-ci-authority-v1.yml
+  AUTHORITY_WORKFLOW: .github/workflows/ruleset-generic-ci-authority.yml
+  AUTHORITY_MANIFEST: docs/ci/ruleset_generic_ci_authority_v1.json
+  PROFILE_PATH: docs/ci/generic_ci_admission_v2.json
+  ADMISSION_EVALUATOR: scripts/evaluate_generic_ci_admission_v2.py
+  PR_FILES_ADAPTER: scripts/fetch_generic_ci_pr_files.py
+  ROUTER_V1: scripts/run_ruleset_generic_ci_admission_v1.py
+  ROUTER_V2: scripts/run_ruleset_generic_ci_admission_v2.py
+  SUMMARY_V1: scripts/evaluate_ruleset_generic_ci_summary_v1.py
+  SUMMARY_V2: scripts/evaluate_ruleset_generic_ci_summary_v2.py
+  STATIC_VALIDATOR: scripts/validate_ruleset_generic_ci_authority_v1.py
+  AUTHORITY_WORKFLOW_BLOB: 033d982241d8a599d5254aa1ba5c19ef44f414c3
+  AUTHORITY_MANIFEST_BLOB: a57d7d0b763416ac0004d8a10faf8ceb551b6a9f
+  PROFILE_BLOB: 40b20880d7410389404847429c21c162909bfebc
+  ADMISSION_EVALUATOR_BLOB: 5ed77527720d1225dde5bcb1dab394fd006ef298
+  PR_FILES_ADAPTER_BLOB: 0e18eb3345c705f1a6a1d6d396d2b4532a4e1e06
+  ROUTER_V1_BLOB: 0e80024222c305e365cbd1a3e0a813a2e40d4d66
+  ROUTER_V2_BLOB: 89de43719ddc6249fa930e8d78e0344c2cb71df9
+  SUMMARY_V1_BLOB: 598e973b30a0585602bc85843c5f73caeb849789
+  SUMMARY_V2_BLOB: b131cd0e5375327b1e642da08ba6fd0104be0a57
+  STATIC_VALIDATOR_BLOB: ace5e2dc06ad9a36effce49b707b4a5f556448b4
+  CHECKOUT_ACTION_SHA: 3d3c42e5aac5ba805825da76410c181273ba90b1
+  UPLOAD_ARTIFACT_ACTION_SHA: ea165f8d65b6e75b540449e92b4886f43607fa02
+
+jobs:
+  qualify-source-capsule:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact qualification campaign
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: campaign
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Re-derive monotonic campaign topology
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVIDENCE_SHA='${{ github.event.pull_request.head.sha }}'
+          cd campaign
+          test "$(git rev-parse HEAD)" = "$EVIDENCE_SHA"
+          test "$(git rev-parse HEAD^)" = "$VALIDATOR_SHA"
+          test "$(git rev-list --count "$VALIDATOR_SHA..HEAD")" -eq 1
+          test "$(git merge-base "$VALIDATOR_SHA" HEAD)" = "$VALIDATOR_SHA"
+          mapfile -t changed < <(git diff --name-only "$VALIDATOR_SHA..HEAD")
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$QUAL_WORKFLOW"
+
+          test "$(git rev-parse "$VALIDATOR_SHA^")" = "$SUBJECT_SHA"
+          mapfile -t validator_delta < <(git diff --name-only "$SUBJECT_SHA..$VALIDATOR_SHA")
+          test "${#validator_delta[@]}" -eq 1
+          test "${validator_delta[0]}" = "$STATIC_VALIDATOR"
+
+          test "$(git rev-parse "$SUBJECT_SHA^")" = "$SUBJECT_PARENT_SHA"
+          mapfile -t subject_delta < <(git diff --name-only "$SUBJECT_PARENT_SHA..$SUBJECT_SHA" | sort)
+          expected=("$AUTHORITY_WORKFLOW" "$AUTHORITY_MANIFEST")
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${subject_delta[@]}")
+
+          test -z "$(git status --porcelain=v1)"
+          echo "EVIDENCE_SHA=$EVIDENCE_SHA" >> "$GITHUB_ENV"
+          echo "QUAL_WORKFLOW_BLOB=$(git rev-parse "HEAD:$QUAL_WORKFLOW")" >> "$GITHUB_ENV"
+
+      - name: Bind exact authority component blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd campaign
+          bind() {
+            commit="$1"; path="$2"; expected="$3"
+            actual="$(git rev-parse "$commit:$path")"
+            if [ "$actual" != "$expected" ]; then
+              echo "blob mismatch: $commit:$path expected=$expected actual=$actual" >&2
+              exit 1
+            fi
+          }
+          bind "$SUBJECT_SHA" "$AUTHORITY_WORKFLOW" "$AUTHORITY_WORKFLOW_BLOB"
+          bind "$SUBJECT_SHA" "$AUTHORITY_MANIFEST" "$AUTHORITY_MANIFEST_BLOB"
+          bind "$SUBJECT_SHA" "$PROFILE_PATH" "$PROFILE_BLOB"
+          bind "$SUBJECT_SHA" "$ADMISSION_EVALUATOR" "$ADMISSION_EVALUATOR_BLOB"
+          bind "$SUBJECT_SHA" "$PR_FILES_ADAPTER" "$PR_FILES_ADAPTER_BLOB"
+          bind "$SUBJECT_SHA" "$ROUTER_V1" "$ROUTER_V1_BLOB"
+          bind "$SUBJECT_SHA" "$ROUTER_V2" "$ROUTER_V2_BLOB"
+          bind "$SUBJECT_SHA" "$SUMMARY_V1" "$SUMMARY_V1_BLOB"
+          bind "$SUBJECT_SHA" "$SUMMARY_V2" "$SUMMARY_V2_BLOB"
+          bind "$VALIDATOR_SHA" "$STATIC_VALIDATOR" "$STATIC_VALIDATOR_BLOB"
+
+      - name: Checkout exact executable authority subject
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.SUBJECT_SHA }}
+          path: subject
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Re-run every pure authority oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd subject
+          python3 scripts/evaluate_generic_ci_admission_v2.py --self-test
+          python3 scripts/fetch_generic_ci_pr_files.py --self-test
+          python3 scripts/run_ruleset_generic_ci_admission_v1.py --self-test
+          python3 scripts/run_ruleset_generic_ci_admission_v2.py --self-test
+          python3 scripts/evaluate_ruleset_generic_ci_summary_v1.py --self-test
+          python3 scripts/evaluate_ruleset_generic_ci_summary_v2.py --self-test
+
+      - name: Re-run frozen static authority validator
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/evidence"
+          python3 campaign/scripts/validate_ruleset_generic_ci_authority_v1.py \
+            --manifest subject/docs/ci/ruleset_generic_ci_authority_v1.json \
+            --workflow subject/.github/workflows/ruleset-generic-ci-authority.yml \
+            | tee "$RUNNER_TEMP/evidence/static-validation.json"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          p=Path(os.environ['RUNNER_TEMP'],'evidence','static-validation.json')
+          r=json.loads(p.read_text())
+          expected={
+              'validator_id':'ruleset-generic-ci-authority-static-validator-v1',
+              'valid':True,
+              'authority_id':'ruleset-generic-ci-authority-v1',
+              'required_job_count':12,
+              'informational_job_count':1,
+              'job_count':15,
+              'action_lock_count':5,
+              'runner':'ubuntu-24.04',
+              'rust':'1.96.0',
+              'node':'20.20.2',
+              'grants_merge_authority':False,
+              'grants_product_qualification':False,
+          }
+          for k,v in expected.items():
+              if r.get(k)!=v:
+                  raise SystemExit(f'static validation mismatch {k}: {r.get(k)!r} != {v!r}')
+          PY
+
+      - name: Emit canonical source qualification receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          e=os.environ
+          receipt={
+              'schema':'ruleset-generic-ci-authority-source-qualification-v1',
+              'claim_ceiling':'RulesetAuthoritySourceCapsuleBound',
+              'claim_established':True,
+              'qualification_head_sha':e['EVIDENCE_SHA'],
+              'qualification_workflow_blob':e['QUAL_WORKFLOW_BLOB'],
+              'executable_authority_subject_sha':e['SUBJECT_SHA'],
+              'static_validator_subject_sha':e['VALIDATOR_SHA'],
+              'authority_subject_parent_sha':e['SUBJECT_PARENT_SHA'],
+              'component_blobs':{
+                  e['AUTHORITY_WORKFLOW']:e['AUTHORITY_WORKFLOW_BLOB'],
+                  e['AUTHORITY_MANIFEST']:e['AUTHORITY_MANIFEST_BLOB'],
+                  e['PROFILE_PATH']:e['PROFILE_BLOB'],
+                  e['ADMISSION_EVALUATOR']:e['ADMISSION_EVALUATOR_BLOB'],
+                  e['PR_FILES_ADAPTER']:e['PR_FILES_ADAPTER_BLOB'],
+                  e['ROUTER_V1']:e['ROUTER_V1_BLOB'],
+                  e['ROUTER_V2']:e['ROUTER_V2_BLOB'],
+                  e['SUMMARY_V1']:e['SUMMARY_V1_BLOB'],
+                  e['SUMMARY_V2']:e['SUMMARY_V2_BLOB'],
+                  e['STATIC_VALIDATOR']:e['STATIC_VALIDATOR_BLOB'],
+              },
+              'static_validation':json.loads(Path(e['RUNNER_TEMP'],'evidence','static-validation.json').read_text()),
+              'pure_oracles_reexecuted':[
+                  'generic_ci_admission_v2',
+                  'generic_ci_pr_files_adapter_v1',
+                  'ruleset_admission_router_v1',
+                  'ruleset_admission_router_v2',
+                  'ruleset_summary_v1',
+                  'ruleset_summary_v2',
+              ],
+              'nonclaims':[
+                  'GitHub organization required-workflow ruleset capability is not established.',
+                  'No ruleset is activated or evaluated by this qualification.',
+                  'The protected promotion branch ci-authority/v1 is not established by this qualification.',
+                  'The ruleset-required workflow has not executed product jobs in this qualification.',
+                  'Runner image immutability and fully reproducible product builds are not established.',
+                  'No product qualification is granted.',
+              ],
+          }
+          out=Path(e['RUNNER_TEMP'],'evidence','receipt.json')
+          out.write_text(json.dumps(receipt,sort_keys=True,separators=(',',':'))+'\n')
+          print(out.read_text(),end='')
+          PY
+
+      - name: Postflight immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C campaign rev-parse HEAD)" = "$EVIDENCE_SHA"
+          test "$(git -C subject rev-parse HEAD)" = "$SUBJECT_SHA"
+          test -z "$(git -C campaign status --porcelain=v1)"
+          test -z "$(git -C subject status --porcelain=v1)"
+
+      - name: Retain qualification receipt
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ci-gov-001i-ruleset-authority-source-qualification
+          path: ${{ runner.temp }}/evidence
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
