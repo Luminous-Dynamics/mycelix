@@ -1,0 +1,224 @@
+{
+  "capsule_manifest": {
+    "capsule_format_revision": 1,
+    "claim": "canonical café / 雪 identity",
+    "environment_profile_ref": {
+      "digest": "5555555555555555555555555555555555555555555555555555555555555555",
+      "id": "environment:qcap-vector-v2",
+      "revision": 1
+    },
+    "expected_changed_paths": [
+      "alpha.txt",
+      "zeta/β.txt"
+    ],
+    "expected_object_blobs": {
+      "alpha.txt": "2222222222222222222222222222222222222222",
+      "zeta/β.txt": "3333333333333333333333333333333333333333"
+    },
+    "gates": [
+      {
+        "args": [],
+        "class": "lineage",
+        "id": "lineage",
+        "script": "gates/lineage.sh",
+        "sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+        "timeout_seconds": 11
+      },
+      {
+        "args": [
+          "--mode",
+          "雪"
+        ],
+        "class": "oracle",
+        "id": "oracle",
+        "script": "gates/oracle.py",
+        "sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+        "timeout_seconds": 12
+      },
+      {
+        "args": [
+          "café"
+        ],
+        "class": "theorem",
+        "id": "rust",
+        "script": "gates/rust.sh",
+        "sha256": "8888888888888888888888888888888888888888888888888888888888888888",
+        "timeout_seconds": 13
+      }
+    ],
+    "nonclaims": [
+      "legal-finality",
+      "raw-世界"
+    ],
+    "predecessor_sha": "0000000000000000000000000000000000000000",
+    "product_subject_sha": "1111111111111111111111111111111111111111",
+    "repository_identity": "Luminous-Dynamics/mycelix",
+    "theorem_id": "QCAP-V2-VECTOR-001",
+    "theorem_revision": 1,
+    "toolchain_profile_ref": {
+      "digest": "4444444444444444444444444444444444444444444444444444444444444444",
+      "id": "toolchain:qcap-vector-v2",
+      "revision": 1
+    },
+    "verdict": {
+      "kind": "all",
+      "required_gate_ids": [
+        "lineage",
+        "oracle",
+        "rust"
+      ]
+    }
+  },
+  "execution_context": {
+    "environment_profile_ref": {
+      "digest": "5555555555555555555555555555555555555555555555555555555555555555",
+      "id": "environment:qcap-vector-v2",
+      "revision": 1
+    },
+    "execution_context_format_revision": 2,
+    "resolved_environment_commitment": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "resolved_runner_commitment": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "resolved_toolchain_commitment": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "runner_profile_ref": {
+      "digest": "9999999999999999999999999999999999999999999999999999999999999999",
+      "id": "runner:qcap-vector-v2",
+      "revision": 1
+    },
+    "toolchain_profile_ref": {
+      "digest": "4444444444444444444444444444444444444444444444444444444444444444",
+      "id": "toolchain:qcap-vector-v2",
+      "revision": 1
+    }
+  },
+  "expected_capsule_canonical_sha256": "e21721b9403374a366c38884e8f343aab74e5adac0f5dd7e4d9f1e214532c180",
+  "expected_capsule_commitment": "5f13439763b1d6a238a3ecd5f306faf4c5f48273e6ab6c6c1dd0e76272059e89",
+  "invalid_gate_result_sequences": [
+    {
+      "gate_results": [
+        {
+          "exit_code": null,
+          "id": "lineage",
+          "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "status": "GateNotRun"
+        },
+        {
+          "exit_code": 20,
+          "id": "oracle",
+          "output_sha256": "350a1ea0c714576aace2d8a7bec398e3ee8bb9532f78d935e780fa9b7ff1be33",
+          "status": "RunnerInfrastructureFailure"
+        },
+        {
+          "exit_code": null,
+          "id": "rust",
+          "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "status": "GateNotRun"
+        }
+      ],
+      "name": "not_run_before_failure"
+    },
+    {
+      "gate_results": [
+        {
+          "exit_code": 20,
+          "id": "lineage",
+          "output_sha256": "350a1ea0c714576aace2d8a7bec398e3ee8bb9532f78d935e780fa9b7ff1be33",
+          "status": "RunnerInfrastructureFailure"
+        },
+        {
+          "exit_code": null,
+          "id": "oracle",
+          "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "status": "GateNotRun"
+        },
+        {
+          "exit_code": 0,
+          "id": "rust",
+          "output_sha256": "8e846f6ad8540095fbbca0c858c8c3c78c2dc9cb3203134d28a542e39fa99b31",
+          "status": "GatePass"
+        }
+      ],
+      "name": "pass_after_not_run"
+    }
+  ],
+  "scenarios": [
+    {
+      "attempt_id": "vector-pass-001",
+      "expected_receipt_commitment": "d7e47ea24152bc324111353824c8a17b7bd3a6d8d200055202fef4aaa02835f8",
+      "expected_verdict": "CompletedConjunctivePass",
+      "gate_results": [
+        {
+          "exit_code": 0,
+          "id": "lineage",
+          "output_sha256": "9bdb3b2d27000f3cd9f2ad412f0bc647e76f83883202e2cb7a80e1c3098f833c",
+          "status": "GatePass"
+        },
+        {
+          "exit_code": 0,
+          "id": "oracle",
+          "output_sha256": "77d545c5193795ebd34042babd25e0f1ab960cba433aa6453bb50e19d8bf87b7",
+          "status": "GatePass"
+        },
+        {
+          "exit_code": 0,
+          "id": "rust",
+          "output_sha256": "448b0328dcca6e09c58b88bfc86c5b877993f5bb73b80eab527de5745dad1ec2",
+          "status": "GatePass"
+        }
+      ],
+      "name": "pass"
+    },
+    {
+      "attempt_id": "vector-theorem-fail-001",
+      "expected_receipt_commitment": "67808a7111f8e5f49dc80a450e94eda46b6acce60f527190594805404ddef3ac",
+      "expected_verdict": "CompletedConjunctiveFail",
+      "gate_results": [
+        {
+          "exit_code": 0,
+          "id": "lineage",
+          "output_sha256": "9bdb3b2d27000f3cd9f2ad412f0bc647e76f83883202e2cb7a80e1c3098f833c",
+          "status": "GatePass"
+        },
+        {
+          "exit_code": 10,
+          "id": "oracle",
+          "output_sha256": "c7d6119dd1070f17cb9d0c56e0ca9e8a16f212dcfb7f07ac204ddbf1753aeea8",
+          "status": "GateFail"
+        },
+        {
+          "exit_code": 0,
+          "id": "rust",
+          "output_sha256": "448b0328dcca6e09c58b88bfc86c5b877993f5bb73b80eab527de5745dad1ec2",
+          "status": "GatePass"
+        }
+      ],
+      "name": "theorem_fail"
+    },
+    {
+      "attempt_id": "vector-runner-failure-001",
+      "expected_receipt_commitment": "0752b18c2b01d0bf0dae7db1be20cfa6cb73b6e612c9c6bc171322f536edf301",
+      "expected_verdict": "RunnerInfrastructureFailure",
+      "gate_results": [
+        {
+          "exit_code": 0,
+          "id": "lineage",
+          "output_sha256": "9bdb3b2d27000f3cd9f2ad412f0bc647e76f83883202e2cb7a80e1c3098f833c",
+          "status": "GatePass"
+        },
+        {
+          "exit_code": 20,
+          "id": "oracle",
+          "output_sha256": "b8f0052bbe085b0bb6417a4137a1bd7b6f51bfb285a1a2fefbcedb2cec195abd",
+          "status": "RunnerInfrastructureFailure"
+        },
+        {
+          "exit_code": null,
+          "id": "rust",
+          "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "status": "GateNotRun"
+        }
+      ],
+      "name": "runner_failure"
+    }
+  ],
+  "vector_format_revision": 2
+}

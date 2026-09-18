@@ -1,81 +1,118 @@
 # Qualification capsules (QCAP)
 
-QCAP-001A is the runner-neutral substrate for EVIDENCE-CI-004 / #1611.
+QCAP separates an immutable qualification theorem from the runner that executes it.
 
 ```text
 qualification theorem != GitHub Actions workflow
-qualification capsule = immutable theorem definition
+qualification capsule = content-addressed theorem definition
 runner adapter = execution mechanism
+attempt receipt = one execution of the complete theorem
 ```
 
-`runner/qcap.py` is Python-stdlib-only. It validates a closed v1 manifest, computes a domain-separated capsule commitment, verifies every referenced gate script by SHA-256, materializes a fresh detached worktree at the exact frozen subject for every gate, executes one ordered gate set, and emits one same-attempt conjunctive receipt.
+## Lineage
 
-The capsule manifest, execution context, and attempt receipt each have closed v1 schemas under `schema/`.
+- **QCAP-001A**: runner-neutral capsule substrate, exact predecessor `4ab6084cbf6d11bb58ea7917b2006fb180a20908`.
+- **QCAP-001A2**: execution-state and provenance hardening tracked by issue #1657.
 
-## Evidence-plane isolation
+A2 is a successor, not a reinterpretation of A1. Historical A1 schemas and canonical vectors remain unchanged.
 
-Every gate runs in a separate temporary Git worktree at the exact `product_subject_sha`.
+## Capsule identity
+
+Capsule identity remains v1 and is domain-separated:
 
 ```text
-Gate A -> fresh exact subject worktree -> discard
-Gate B -> fresh exact subject worktree -> discard
-Gate C -> fresh exact subject worktree -> discard
+SHA-256("MYCELIX_QUALIFICATION_CAPSULE_V1\\0" || u64_be(len(canonical_json)) || canonical_json)
 ```
 
-Non-ignored untracked files, tracked modifications, or HEAD movement are gate-input mutations and convert that gate to `GateFail`. Ignored compiler/build outputs are permitted inside the isolated worktree but are discarded before the next gate. This prevents one evidence plane from contaminating another through working-tree residue or build artifacts.
+Canonical JSON forbids floats and non-string object keys, orders object keys by UTF-8 bytes, and requires semantic-set arrays to be sorted and unique where the manifest validator declares them sets. Gate scripts are referenced by SHA-256 and revalidated immediately before execution.
 
-The caller's source checkout is never reset or detached by QCAP; it is used only as the Git object store from which exact frozen worktrees are materialized.
+## A2 attempt state machine
 
-## Execution-context binding
+Gate results are one of:
 
-The capsule commits the required `toolchain_profile_ref` and `environment_profile_ref`. The runner must provide a closed `QualificationExecutionContextV1` containing:
+```text
+GatePass
+GateFail
+RunnerInfrastructureFailure
+GateNotRun
+```
+
+The receipt automaton is closed:
+
+```text
+all GatePass
+    -> CompletedConjunctivePass
+
+>=1 GateFail, no infrastructure failure
+    -> CompletedConjunctiveFail
+
+first RunnerInfrastructureFailure
++ only GateNotRun afterward
+    -> RunnerInfrastructureFailure
+```
+
+`GateNotRun` is valid only as the suffix after the first runner failure. It is not theorem RED.
+
+## Isolation
+
+Every executed gate receives a fresh detached Git worktree at the exact `product_subject_sha`.
+
+Tracked or non-ignored untracked mutation by an executed theorem gate converts that gate to `GateFail`. Mutated worktrees are discarded and never feed later evidence planes. The caller checkout is not moved.
+
+## Timeout containment
+
+On Linux, the runner enables child-subreaper semantics, starts each gate in a fresh process session/group, terminates the full group on timeout, reaps reparented descendants, cleans the isolated worktree, records `RunnerInfrastructureFailure`, and records later required gates as `GateNotRun`.
+
+Other platforms must not claim Linux-equivalent descendant reaping unless separately implemented and qualified.
+
+## Closed gate environment
+
+The runner does not pass the ambient host environment through to theorem gates. Gates receive a small controlled environment (`PATH`, controlled `HOME`/`TMPDIR`, normalized locale/timezone, and QCAP variables). Unrelated host secrets/tokens are absent by default.
+
+The resolved environment commitment remains a provenance claim bound into the attempt receipt; QCAP alone does not prove an untrusted runner told the truth about that commitment.
+
+## Execution context v2
+
+A2 uses execution-context format v2 and binds:
 
 ```text
 runner_profile_ref
-toolchain_profile_ref        # must exactly equal capsule requirement
-environment_profile_ref      # must exactly equal capsule requirement
+resolved_runner_commitment
+
+toolchain_profile_ref
 resolved_toolchain_commitment
+
+environment_profile_ref
 resolved_environment_commitment
 ```
 
-The receipt binds that whole execution context. A free-form environment hash cannot substitute for a mismatched required profile.
+The executing QCAP dispatcher verifies `resolved_runner_commitment` against its own bytes before theorem execution.
 
-A valid profile/content commitment is still not external proof that a runner honestly resolved that environment; signed/OIDC/Xenia provenance remains a separate future layer.
+## Receipt v2
 
-## Gate contract
+Attempt receipts use the domain:
 
-Each gate commits a `timeout_seconds` ceiling (1..7200 seconds) so a runner adapter has a deterministic no-hang boundary.
+```text
+MYCELIX_QUALIFICATION_ATTEMPT_RECEIPT_V2\\0
+```
+
+and bind the exact capsule, repository identity field, product SHA, theorem identity/revision, attempt ID, execution context, ordered gate results, recomputed verdict, claim, and nonclaims.
+
+Repository field equality and an observed configured GitHub origin are consistency checks, not independently authenticated repository provenance.
+
+## Exit-code contract
 
 ```text
 0   executed predicate PASS
 10  executed predicate FAIL
 20  runner/environment failure
 other nonzero -> conservatively RunnerInfrastructureFailure
-wall-clock timeout -> RunnerInfrastructureFailure
 ```
 
-If bounded runtime is itself a theorem predicate, that predicate must be implemented inside a theorem gate and deliberately return `10`; QCAP's outer wall-clock timeout is an execution-plane safety limit only.
+## Independent vectors
 
-The capsule commitment is `SHA-256(domain || u64_be(length) || canonical_json)`, with domain `MYCELIX_QUALIFICATION_CAPSULE_V1\0`. Floats are forbidden; object keys use UTF-8 byte ordering; semantic-set arrays must be sorted/unique. The manifest never contains its own digest.
+A1 vectors remain historical. A2 adds a separate v2 fixture and independent verifier under `qualification/vectors/`; the verifier deliberately does not import `qualification/runner/qcap.py`.
 
-Verdicts:
+## Claim boundary
 
-```text
-all GatePass                    -> CompletedConjunctivePass
-any RunnerInfrastructureFailure -> RunnerInfrastructureFailure
-otherwise                       -> CompletedConjunctiveFail
-```
-
-This preserves #1499 (no cross-run stitching) and #1599 (runner-plane failure is not theorem RED).
-
-## Lineage classification
-
-Runner preflight proves only that the named repository is the expected repository identity and that the frozen subject commit is available in its object store. Predecessor/scope/blob identity is a content-addressed **theorem gate**, `gates/subject_identity.py`.
-
-That gate exits `10` for an executed lineage predicate failure and `20` only when Git machinery itself cannot execute. A missing expected object is therefore theorem RED; a runner unable to materialize the frozen subject is runner-plane failure.
-
-## Receipt verification
-
-`qcap.py verify-receipt` recomputes the domain-separated receipt commitment and checks that the receipt binds the exact capsule, repository, subject, theorem, gate set, claim/nonclaims, execution-context profile refs, and both resolved toolchain/environment commitments. It recomputes the conjunctive verdict and rejects status/exit-code contradictions even if a malformed receipt was re-committed.
-
-**Status:** staged substrate only. It does not qualify or reinterpret any FIN-ECO subject. Existing queued FIN-ECO attempts remain immutable. QCAP-001B should translate FIN-ECO-002F predicate-for-predicate only after this substrate is reviewed/qualified.
+A2 is staged infrastructure only. It does **not** qualify FIN-ECO-002F or any other FIN-ECO theorem, does not permit cross-run stitching, does not establish GitHub runner availability, and does not establish independent cryptographic authenticity of runner, toolchain, environment, or repository origin.

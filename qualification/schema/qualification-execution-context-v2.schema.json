@@ -1,0 +1,32 @@
+{
+  "$defs": {
+    "profile": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+        "id": {"type": "string"},
+        "revision": {"minimum": 1, "type": "integer"}
+      },
+      "required": ["id", "revision", "digest"],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "environment_profile_ref": {"$ref": "#/$defs/profile"},
+    "execution_context_format_revision": {"const": 2},
+    "resolved_environment_commitment": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+    "resolved_runner_commitment": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+    "resolved_toolchain_commitment": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+    "runner_profile_ref": {"$ref": "#/$defs/profile"},
+    "toolchain_profile_ref": {"$ref": "#/$defs/profile"}
+  },
+  "required": [
+    "execution_context_format_revision", "runner_profile_ref", "toolchain_profile_ref",
+    "environment_profile_ref", "resolved_runner_commitment", "resolved_toolchain_commitment",
+    "resolved_environment_commitment"
+  ],
+  "title": "Mycelix Qualification Execution Context V2",
+  "type": "object"
+}
