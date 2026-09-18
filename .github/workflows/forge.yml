@@ -9,6 +9,7 @@ on:
       - "crates/mycelix-forge-execution/**"
       - "adapters/forge-gittuf/**"
       - "adapters/forge-gittuf-bundle/**"
+      - "adapters/forge-linux-isolation/**"
       - ".github/workflows/forge.yml"
   push:
     branches:
@@ -20,6 +21,7 @@ on:
       - "crates/mycelix-forge-execution/**"
       - "adapters/forge-gittuf/**"
       - "adapters/forge-gittuf-bundle/**"
+      - "adapters/forge-linux-isolation/**"
       - ".github/workflows/forge.yml"
 
 permissions:
@@ -49,6 +51,8 @@ jobs:
             path: adapters/forge-gittuf
           - name: Forge Repository Bundle
             path: adapters/forge-gittuf-bundle
+          - name: Forge Linux Isolation
+            path: adapters/forge-linux-isolation
     defaults:
       run:
         working-directory: ${{ matrix.path }}
