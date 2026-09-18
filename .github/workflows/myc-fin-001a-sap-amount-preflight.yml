@@ -1,0 +1,148 @@
+name: MYC-FIN-001A SAP Amount Preflight
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-finance/types/src/sap_amount.rs'
+      - '.github/workflows/myc-fin-001a-sap-amount-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  BASE_SHA: 20452d0cde9448c424d708d6307aa33a3d1901e3
+  U1_FINANCE_TYPES_BLOB: 354a377c88a57e8a5612a518d8c8b8b519fb67e2
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact staged subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SUBJECT_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Bind staged topology and U1 source authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${SUBJECT_SHA}"
+          test "$(git rev-parse HEAD^)" = "${BASE_SHA}"
+          test "$(git rev-list --count "${BASE_SHA}..HEAD")" -eq 1
+          test "$(git rev-parse "${BASE_SHA}:mycelix-finance/types/src/lib.rs")" = "${U1_FINANCE_TYPES_BLOB}"
+          mapfile -t changed < <(git diff --name-only "${BASE_SHA}..HEAD" | sort)
+          expected=(
+            .github/workflows/myc-fin-001a-sap-amount-preflight.yml
+            mycelix-finance/types/src/sap_amount.rs
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#changed[@]}" -eq 2
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed[@]}")
+
+      - name: Reject value-domain scope expansion
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          src = Path('mycelix-finance/types/src/sap_amount.rs').read_text(encoding='utf-8')
+          if re.search(r'\bf(?:32|64)\b', src):
+              raise SystemExit('floating-point type present in SapAmount semantic waist')
+          forbidden = [
+              'impl From<', 'impl Into<',
+              'impl core::ops::Add', 'impl std::ops::Add',
+              'impl core::ops::Sub', 'impl std::ops::Sub',
+          ]
+          present = [token for token in forbidden if token in src]
+          if present:
+              raise SystemExit(f'implicit conversion/operator surface present: {present!r}')
+          required = [
+              'pub struct SapAmount(u64);',
+              'pub const MICRO_SAP_PER_SAP: u64 = 1_000_000;',
+              'pub const AUTHORITY_DOMAIN: [u8; 26] = *b"mycelix/finance/sap-amount";',
+              'pub const AUTHORITY_VERSION: u8 = 1;',
+              'pub const AUTHORITY_BYTES_LEN: usize = 36;',
+          ]
+          missing = [token for token in required if token not in src]
+          if missing:
+              raise SystemExit(f'missing frozen semantic surface: {missing!r}')
+          print('staged_value_domain_scope=PASS')
+          PY
+
+      - name: Independently derive all frozen authority vectors
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          domain = b'mycelix/finance/sap-amount'
+          if len(domain) != 26:
+              raise SystemExit(f'domain length mismatch: {len(domain)}')
+          prefix = domain + b'\x00' + bytes([1])
+          vectors = {
+              0: '6d7963656c69782f66696e616e63652f7361702d616d6f756e7400010000000000000000',
+              1: '6d7963656c69782f66696e616e63652f7361702d616d6f756e7400010000000000000001',
+              1_000_000: '6d7963656c69782f66696e616e63652f7361702d616d6f756e74000100000000000f4240',
+              10_000_000_000: '6d7963656c69782f66696e616e63652f7361702d616d6f756e74000100000002540be400',
+              (1 << 64) - 1: '6d7963656c69782f66696e616e63652f7361702d616d6f756e740001ffffffffffffffff',
+          }
+          for amount, expected in vectors.items():
+              encoded = prefix + amount.to_bytes(8, 'big', signed=False)
+              if len(encoded) != 36:
+                  raise SystemExit(f'{amount}: length={len(encoded)}')
+              if encoded.hex() != expected:
+                  raise SystemExit(f'{amount}: independent vector mismatch')
+          print('independent_vector_oracle=PASS')
+          PY
+
+      - name: Install exact Rust 1.96 toolchain
+        uses: dtolnay/rust-toolchain@ebb3d1676050bfd0971c36c1e215b5751473994d
+        with:
+          components: rustfmt, clippy
+
+      - name: Build exact proposed root integration in an isolated copy
+        shell: bash
+        run: |
+          set -euo pipefail
+          WORK="${RUNNER_TEMP}/mycelix-finance-preflight"
+          cp -a mycelix-finance "${WORK}"
+          python3 - "${WORK}/types/src/lib.rs" <<'PY'
+          from pathlib import Path
+          import sys
+          path = Path(sys.argv[1])
+          source = path.read_text(encoding='utf-8')
+          anchor = 'use serde::{Deserialize, Serialize};\n'
+          if source.count(anchor) != 1:
+              raise SystemExit('expected exactly one serde import anchor')
+          insertion = (
+              '\nmod sap_amount;\n'
+              'pub use sap_amount::{SapAmount, SapAmountArithmeticError};\n'
+          )
+          source = source.replace(anchor, anchor + insertion, 1)
+          path.write_text(source, encoding='utf-8')
+          PY
+          cargo fmt --manifest-path "${WORK}/Cargo.toml" --all -- --check
+          cargo test --locked --manifest-path "${WORK}/Cargo.toml" -p mycelix_finance_types
+          cargo clippy --locked --manifest-path "${WORK}/Cargo.toml" -p mycelix_finance_types --all-targets -- -D warnings
+
+      - name: Prove preflight is not qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:mycelix-finance/types/src/lib.rs)" = "${U1_FINANCE_TYPES_BLOB}"
+          if grep -F 'mod sap_amount;' mycelix-finance/types/src/lib.rs >/dev/null; then
+            echo 'repository root unexpectedly integrated SapAmount' >&2
+            exit 1
+          fi
+          printf '%s\n' '{"authority_class":"UnqualifiedSapAmountImplementationStaged","candidate_integration_preflight":true,"qualified":false}'
+
+      - name: Verify checkout immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=all)"
