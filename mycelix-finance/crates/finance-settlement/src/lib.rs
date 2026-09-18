@@ -32,6 +32,8 @@ pub use receipt::{
 };
 
 #[cfg(test)]
+mod metamorphic_tests;
+#[cfg(test)]
 mod receipt_tests;
 #[cfg(test)]
 mod receipt_vector_tests;
