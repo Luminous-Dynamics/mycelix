@@ -1,0 +1,178 @@
+name: MYC-CONST-001R3 Exact Qualification
+
+on:
+  push:
+    branches:
+      - qual/myc-const-001-r3-exact-v1
+    paths:
+      - '.github/workflows/myc-const-001-r3-exact.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: myc-const-001-r3-exact-v1
+  cancel-in-progress: true
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  R2_SHA: 'd6975539331610469a347cc0bbba72b3a5c801c1'
+  R3_SHA: '3600e04b0b30a3281574220142ebe1be27833a62'
+  R2_SOURCE_BLOB: '998f7343b1e844d8d6625c2cd3478d1fc6620924'
+  R3_SOURCE_BLOB: '819e55d9f0e572825ef63e91b5e2b76f2ad24c3e'
+  R2_LOCK_BLOB: '06f19dac624b5e7b599e685d08429553957eb538'
+  LOCK_SHA256: 'cf3d5738087fc5810f94aa044c8ec8fa504c9f8123bd1b0c19f20adf1070d5db'
+  WORKFLOW: '.github/workflows/myc-const-001-r3-exact.yml'
+  SOURCE: 'mycelix-governance/crates/constitutional-authority/src/lib.rs'
+  CRATE_MANIFEST: 'mycelix-governance/crates/constitutional-authority/Cargo.toml'
+  LOCKFILE: 'mycelix-governance/Cargo.lock'
+  CARGO_INCREMENTAL: '0'
+
+jobs:
+  qualify:
+    runs-on: ubuntu-slim
+    timeout-minutes: 20
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout exact qualifier subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Prove one-workflow verifier lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$R3_SHA"
+          mapfile -t changed < <(git diff --name-only "$R3_SHA" HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$WORKFLOW"
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Checkout exact R3 product read-only
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.R3_SHA }}
+          path: product
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Bind exact R3 ancestry scope and dependency capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C product rev-parse HEAD)" = "$R3_SHA"
+          test "$(git -C product rev-parse HEAD^)" = "$R2_SHA"
+
+          mapfile -t changed < <(git -C product diff --name-only "$R2_SHA" "$R3_SHA")
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$SOURCE"
+
+          test "$(git -C product rev-parse "$R2_SHA:$SOURCE")" = "$R2_SOURCE_BLOB"
+          test "$(git -C product rev-parse "$R3_SHA:$SOURCE")" = "$R3_SOURCE_BLOB"
+          test "$(git -C product rev-parse "$R3_SHA:$LOCKFILE")" = "$R2_LOCK_BLOB"
+          test "$(sha256sum "product/$LOCKFILE" | awk '{print $1}')" = "$LOCK_SHA256"
+          test "$(git -C product diff --numstat "$R2_SHA" "$R3_SHA" -- "$SOURCE")" = $'4\t4\tmycelix-governance/crates/constitutional-authority/src/lib.rs'
+
+      - name: Independently prove whole-file transformation equivalence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import pathlib
+          import subprocess
+
+          repo = pathlib.Path('product')
+          source = pathlib.Path('mycelix-governance/crates/constitutional-authority/src/lib.rs')
+          r2 = 'd6975539331610469a347cc0bbba72b3a5c801c1'
+
+          old = subprocess.check_output(
+              ['git', '-C', str(repo), 'show', f'{r2}:{source.as_posix()}']
+          )
+          new = (repo / source).read_bytes()
+
+          before = b'''        if let Some(expires_at) = self.expires_at_us {\n            if expires_at <= self.valid_from_us {\n                return Err(ConformanceError::InvalidExpiry);\n            }\n        }\n'''
+          after = b'''        if let Some(expires_at) = self.expires_at_us\n            && expires_at <= self.valid_from_us\n        {\n            return Err(ConformanceError::InvalidExpiry);\n        }\n'''
+
+          if old.count(before) != 1:
+              raise SystemExit('R2 does not contain exactly one preregistered source block')
+          if old.count(after) != 0:
+              raise SystemExit('R2 unexpectedly already contains R3 source block')
+
+          expected = old.replace(before, after, 1)
+          if new != expected:
+              raise SystemExit('R3 source differs beyond the exact preregistered transformation')
+
+          # Independent truth-table equivalence for the affected predicate.
+          valid_from = 10
+          cases = [None, 9, 10, 11]
+          for expires_at in cases:
+              old_invalid = expires_at is not None and expires_at <= valid_from
+              new_invalid = expires_at is not None and expires_at <= valid_from
+              if old_invalid != new_invalid:
+                  raise SystemExit(f'predicate mismatch for {expires_at!r}')
+
+          print('source_transform=EXACT_R2_TO_R3_ONLY')
+          print('predicate_truth_table=PASS')
+          PY
+
+      - name: Install pinned Rust 1.96 toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
+
+      - name: Capture exact Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc --version --verbose
+          cargo --version
+          test "$(rustc --version | awk '{print $2}')" = "$RUST_TOOLCHAIN"
+
+      - name: Rustfmt exact R3 product
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path "product/$CRATE_MANIFEST" -- --check
+
+      - name: Locked metadata and compile
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo metadata --manifest-path "product/$CRATE_MANIFEST" --locked --format-version 1 > /tmp/r3-metadata.json
+          cargo test --manifest-path "product/$CRATE_MANIFEST" --all-targets --locked --no-run
+
+      - name: Execute complete foundation suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path "product/$CRATE_MANIFEST" --all-targets --locked
+
+      - name: Strict Clippy
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo clippy --manifest-path "product/$CRATE_MANIFEST" --all-targets --locked -- -D warnings
+
+      - name: Postflight immutability and bounded receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git -C product status --porcelain=v1)"
+          test "$(git -C product rev-parse HEAD)" = "$R3_SHA"
+          test "$(git -C product rev-parse "HEAD:$SOURCE")" = "$R3_SOURCE_BLOB"
+          test "$(git -C product rev-parse "HEAD:$LOCKFILE")" = "$R2_LOCK_BLOB"
+          test "$(sha256sum "product/$LOCKFILE" | awk '{print $1}')" = "$LOCK_SHA256"
+
+          printf 'status=PASS\n'
+          printf 'product_sha=%s\n' "$R3_SHA"
+          printf 'parent_r2_sha=%s\n' "$R2_SHA"
+          printf 'source_transform=EXACT_COLLAPSIBLE_IF_REPAIR_ONLY\n'
+          printf 'lock_sha256=%s\n' "$LOCK_SHA256"
+          printf 'claim=R3 exact semantics-preserving Rust 1.96 source repair passed fmt, locked compile/tests, strict Clippy and postflight immutability\n'
+          printf 'nonclaim=MYC-CONST-001B semantics, runtime authority enforcement, jurisdiction truth, legal validity, hermetic dependency acquisition\n'
