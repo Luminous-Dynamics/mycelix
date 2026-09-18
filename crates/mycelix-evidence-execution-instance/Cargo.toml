@@ -1,0 +1,13 @@
+[package]
+name = "mycelix-evidence-execution-instance"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Provider execution-instance identity for Mycelix evidence systems"
+
+[lib]
+name = "mycelix_evidence_execution_instance"
+path = "src/lib.rs"
+crate-type = ["rlib"]
+
+[dependencies]
