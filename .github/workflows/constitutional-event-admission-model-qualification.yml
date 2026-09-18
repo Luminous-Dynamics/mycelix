@@ -1,0 +1,373 @@
+name: Constitutional Event Admission Model Qualification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'mycelix-governance/Cargo.toml'
+      - 'mycelix-governance/crates/constitutional-event-admission-model/**'
+      - 'mycelix-governance/docs/CONSTITUTIONAL_EVENT_ADMISSION_MODEL_V0_1.md'
+      - '.github/workflows/constitutional-event-admission-model-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: constitutional-event-admission-model-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NIXPKGS_REV: a50bf0c1b07873c1a53892292017041a8f0a1288
+  EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EXPECTED_SEMANTIC_HEAD: 78476e662616358b6ca1aace06b67affb02d0b12
+  MANIFEST: mycelix-governance/crates/constitutional-event-admission-model/Cargo.toml
+  SRC: mycelix-governance/crates/constitutional-event-admission-model/src/lib.rs
+
+jobs:
+  qualify:
+    name: Rust exact-head adversarial event admission model
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout exact raw head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ env.EXPECTED_HEAD }}
+
+      - name: Bind exact verifier lineage and semantic surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_SEMANTIC_HEAD"
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/constitutional-event-admission-model-qualification.yml"
+
+          rm -rf event-admission-model-evidence
+          mkdir -p event-admission-model-evidence
+          printf '%s\n' "$EXPECTED_HEAD" > event-admission-model-evidence/expected-head.txt
+          printf '%s\n' "$EXPECTED_SEMANTIC_HEAD" > event-admission-model-evidence/expected-semantic-head.txt
+
+          git diff --name-only "$EXPECTED_SEMANTIC_HEAD^" "$EXPECTED_SEMANTIC_HEAD" | sort \
+            > event-admission-model-evidence/semantic-files-actual.txt
+          cat > event-admission-model-evidence/semantic-files-expected.txt <<'EOF'
+          mycelix-governance/Cargo.toml
+          mycelix-governance/crates/constitutional-event-admission-model/Cargo.toml
+          mycelix-governance/crates/constitutional-event-admission-model/src/lib.rs
+          mycelix-governance/crates/constitutional-event-admission-model/tests/evidence_binding.rs
+          mycelix-governance/docs/CONSTITUTIONAL_EVENT_ADMISSION_MODEL_V0_1.md
+          EOF
+          sed -i 's/^          //' event-admission-model-evidence/semantic-files-expected.txt
+          diff -u \
+            event-admission-model-evidence/semantic-files-expected.txt \
+            event-admission-model-evidence/semantic-files-actual.txt
+
+          if grep -E '^mycelix-governance/zomes/' event-admission-model-evidence/semantic-files-actual.txt; then
+            echo "E1B semantic head must not modify Holochain zomes" >&2
+            exit 1
+          fi
+
+          git hash-object \
+            mycelix-governance/Cargo.toml \
+            mycelix-governance/crates/constitutional-event-admission-model/Cargo.toml \
+            mycelix-governance/crates/constitutional-event-admission-model/src/lib.rs \
+            mycelix-governance/crates/constitutional-event-admission-model/tests/evidence_binding.rs \
+            mycelix-governance/docs/CONSTITUTIONAL_EVENT_ADMISSION_MODEL_V0_1.md \
+            > event-admission-model-evidence/source-hashes-before.txt
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Compile and test exact model
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustfmt" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#coreutils" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" \
+            --command bash -euo pipefail -c '
+              rustc --version | tee event-admission-model-evidence/rustc-version.txt
+              cargo --version | tee event-admission-model-evidence/cargo-version.txt
+              rustfmt --version | tee event-admission-model-evidence/rustfmt-version.txt
+
+              cargo fmt \
+                --manifest-path mycelix-governance/Cargo.toml \
+                --package constitutional-event-admission-model \
+                -- --check \
+                2>&1 | tee event-admission-model-evidence/cargo-fmt.log
+
+              cargo check \
+                --manifest-path "$MANIFEST" \
+                --all-targets \
+                2>&1 | tee event-admission-model-evidence/cargo-check.log
+
+              cargo test \
+                --manifest-path "$MANIFEST" \
+                --all-targets \
+                2>&1 | tee event-admission-model-evidence/cargo-test.log
+
+              cp mycelix-governance/Cargo.lock event-admission-model-evidence/derived-Cargo.lock
+              sha256sum event-admission-model-evidence/derived-Cargo.lock \
+                > event-admission-model-evidence/derived-Cargo.lock.sha256
+            '
+
+      - name: Mutation control — authenticated author binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp "$SRC" /tmp/e1b-lib.rs
+          trap 'cp /tmp/e1b-lib.rs "$SRC"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/crates/constitutional-event-admission-model/src/lib.rs')
+          s = p.read_text()
+          old = '        if authenticated_author_did != event.authority.publisher_did {\n'
+          new = '        if false && authenticated_author_did != event.authority.publisher_did {\n'
+          assert old in s
+          p.write_text(s.replace(old, new, 1))
+          PY
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" --command cargo check --manifest-path "$MANIFEST" --all-targets \
+            > event-admission-model-evidence/mutant-author-check.log 2>&1
+          if nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" --command cargo test --manifest-path "$MANIFEST" direct_write_with_spoofed_publisher_is_rejected_without_halting_canonical_action \
+            > event-admission-model-evidence/mutant-author-test.log 2>&1; then
+            echo "author-binding mutant survived" >&2
+            exit 1
+          fi
+          echo PASS > event-admission-model-evidence/mutant-author.txt
+
+      - name: Mutation control — pending qualification cannot admit
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp "$SRC" /tmp/e1b-lib.rs
+          trap 'cp /tmp/e1b-lib.rs "$SRC"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/crates/constitutional-event-admission-model/src/lib.rs')
+          s = p.read_text()
+          old = '''                QualificationState::Pending => {
+                    return Err(AdmissionError::QualificationPending(
+                        required_id.to_string(),
+                    ));
+                }
+'''
+          new = '                QualificationState::Pending => {}\n'
+          assert old in s
+          p.write_text(s.replace(old, new, 1))
+          PY
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" --command cargo check --manifest-path "$MANIFEST" --all-targets \
+            > event-admission-model-evidence/mutant-pending-check.log 2>&1
+          if nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" --command cargo test --manifest-path "$MANIFEST" pending_qualification_rejects_admission_fail_closed \
+            > event-admission-model-evidence/mutant-pending-test.log 2>&1; then
+            echo "pending-qualification mutant survived" >&2
+            exit 1
+          fi
+          echo PASS > event-admission-model-evidence/mutant-pending.txt
+
+      - name: Mutation control — ClaimBinding target binds exact event target
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp "$SRC" /tmp/e1b-lib.rs
+          trap 'cp /tmp/e1b-lib.rs "$SRC"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/crates/constitutional-event-admission-model/src/lib.rs')
+          s = p.read_text()
+          old = '        if self.claim_target_digest != event_target_commitment(event) {\n'
+          new = '        if false && self.claim_target_digest != event_target_commitment(event) {\n'
+          assert old in s
+          p.write_text(s.replace(old, new, 1))
+          PY
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" --command cargo check --manifest-path "$MANIFEST" --all-targets \
+            > event-admission-model-evidence/mutant-target-check.log 2>&1
+          if nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" --command cargo test --manifest-path "$MANIFEST" wrong_target_digest_is_rejected \
+            > event-admission-model-evidence/mutant-target-test.log 2>&1; then
+            echo "target-binding mutant survived" >&2
+            exit 1
+          fi
+          echo PASS > event-admission-model-evidence/mutant-target.txt
+
+      - name: Mutation control — conflicting same-action event cannot collapse to idempotent replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp "$SRC" /tmp/e1b-lib.rs
+          trap 'cp /tmp/e1b-lib.rs "$SRC"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/crates/constitutional-event-admission-model/src/lib.rs')
+          s = p.read_text()
+          old = '            if existing.event_commitment == event.event_commitment {\n'
+          new = '            if true || existing.event_commitment == event.event_commitment {\n'
+          assert old in s
+          p.write_text(s.replace(old, new, 1))
+          PY
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" --command cargo check --manifest-path "$MANIFEST" --all-targets \
+            > event-admission-model-evidence/mutant-conflict-check.log 2>&1
+          if nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" --command cargo test --manifest-path "$MANIFEST" conflicting_payload_under_same_action_preserves_original_and_halts \
+            > event-admission-model-evidence/mutant-conflict-test.log 2>&1; then
+            echo "conflict-collapse mutant survived" >&2
+            exit 1
+          fi
+          echo PASS > event-admission-model-evidence/mutant-conflict.txt
+
+      - name: Mutation control — integrity halt blocks later admission
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp "$SRC" /tmp/e1b-lib.rs
+          trap 'cp /tmp/e1b-lib.rs "$SRC"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/crates/constitutional-event-admission-model/src/lib.rs')
+          s = p.read_text()
+          old = '        if self.halted_actions.contains_key(&action_id) {\n'
+          new = '        if false && self.halted_actions.contains_key(&action_id) {\n'
+          assert old in s
+          p.write_text(s.replace(old, new, 1))
+          PY
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" --command cargo check --manifest-path "$MANIFEST" --all-targets \
+            > event-admission-model-evidence/mutant-halt-check.log 2>&1
+          if nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" --command cargo test --manifest-path "$MANIFEST" post_conflict_replay_is_blocked_until_future_recovery_protocol \
+            > event-admission-model-evidence/mutant-halt-test.log 2>&1; then
+            echo "halt-bypass mutant survived" >&2
+            exit 1
+          fi
+          echo PASS > event-admission-model-evidence/mutant-halt.txt
+
+      - name: Mutation control — admitted constitutional events stay immutable
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp "$SRC" /tmp/e1b-lib.rs
+          trap 'cp /tmp/e1b-lib.rs "$SRC"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/crates/constitutional-event-admission-model/src/lib.rs')
+          s = p.read_text()
+          old = '        Err(AdmissionError::ImmutableEvent)\n'
+          new = '        Ok(())\n'
+          assert old in s
+          p.write_text(s.replace(old, new, 1))
+          PY
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" --command cargo check --manifest-path "$MANIFEST" --all-targets \
+            > event-admission-model-evidence/mutant-update-check.log 2>&1
+          if nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" --command cargo test --manifest-path "$MANIFEST" constitutional_event_update_is_always_rejected \
+            > event-admission-model-evidence/mutant-update-test.log 2>&1; then
+            echo "event-update mutant survived" >&2
+            exit 1
+          fi
+          echo PASS > event-admission-model-evidence/mutant-update.txt
+
+      - name: Mutation control — alternate action index cannot become canonical
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp "$SRC" /tmp/e1b-lib.rs
+          trap 'cp /tmp/e1b-lib.rs "$SRC"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/crates/constitutional-event-admission-model/src/lib.rs')
+          s = p.read_text()
+          old = '        if target_event_commitment == canonical {\n'
+          new = '        if true || target_event_commitment == canonical {\n'
+          assert old in s
+          p.write_text(s.replace(old, new, 1))
+          PY
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" --command cargo check --manifest-path "$MANIFEST" --all-targets \
+            > event-admission-model-evidence/mutant-index-check.log 2>&1
+          if nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" --command cargo test --manifest-path "$MANIFEST" alternate_action_index_target_is_rejected_and_halts_action \
+            > event-admission-model-evidence/mutant-index-test.log 2>&1; then
+            echo "alternate-index mutant survived" >&2
+            exit 1
+          fi
+          echo PASS > event-admission-model-evidence/mutant-index.txt
+
+      - name: Mutation control — admission evidence binds exact event commitment
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp "$SRC" /tmp/e1b-lib.rs
+          trap 'cp /tmp/e1b-lib.rs "$SRC"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/crates/constitutional-event-admission-model/src/lib.rs')
+          s = p.read_text()
+          old = '        push_str(&mut hasher, &event.event_commitment);\n'
+          assert old in s
+          p.write_text(s.replace(old, '', 1))
+          PY
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" --command cargo check --manifest-path "$MANIFEST" --all-targets \
+            > event-admission-model-evidence/mutant-event-binding-check.log 2>&1
+          if nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" --command cargo test --manifest-path "$MANIFEST" evidence_cannot_be_transplanted_to_changed_action_commitment \
+            > event-admission-model-evidence/mutant-event-binding-test.log 2>&1; then
+            echo "event-binding mutant survived" >&2
+            exit 1
+          fi
+          echo PASS > event-admission-model-evidence/mutant-event-binding.txt
+
+      - name: Mutation control — admission evidence binds qualification receipt IDs
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp "$SRC" /tmp/e1b-lib.rs
+          trap 'cp /tmp/e1b-lib.rs "$SRC"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/crates/constitutional-event-admission-model/src/lib.rs')
+          s = p.read_text()
+          old = '                    push_str(&mut hasher, receipt_id);\n'
+          assert old in s
+          p.write_text(s.replace(old, '', 1))
+          PY
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" --command cargo check --manifest-path "$MANIFEST" --all-targets \
+            > event-admission-model-evidence/mutant-receipt-binding-check.log 2>&1
+          if nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" --command cargo test --manifest-path "$MANIFEST" qualification_receipt_mutation_breaks_admission_evidence_commitment \
+            > event-admission-model-evidence/mutant-receipt-binding-test.log 2>&1; then
+            echo "receipt-binding mutant survived" >&2
+            exit 1
+          fi
+          echo PASS > event-admission-model-evidence/mutant-receipt-binding.txt
+
+      - name: Verify semantic source immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+
+          git hash-object \
+            mycelix-governance/Cargo.toml \
+            mycelix-governance/crates/constitutional-event-admission-model/Cargo.toml \
+            mycelix-governance/crates/constitutional-event-admission-model/src/lib.rs \
+            mycelix-governance/crates/constitutional-event-admission-model/tests/evidence_binding.rs \
+            mycelix-governance/docs/CONSTITUTIONAL_EVENT_ADMISSION_MODEL_V0_1.md \
+            > event-admission-model-evidence/source-hashes-after.txt
+
+          cmp \
+            event-admission-model-evidence/source-hashes-before.txt \
+            event-admission-model-evidence/source-hashes-after.txt
+
+          git diff --exit-code -- \
+            mycelix-governance/Cargo.toml \
+            mycelix-governance/crates/constitutional-event-admission-model/Cargo.toml \
+            mycelix-governance/crates/constitutional-event-admission-model/src/lib.rs \
+            mycelix-governance/crates/constitutional-event-admission-model/tests/evidence_binding.rs \
+            mycelix-governance/docs/CONSTITUTIONAL_EVENT_ADMISSION_MODEL_V0_1.md
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: constitutional-event-admission-model-${{ env.EXPECTED_HEAD }}
+          path: event-admission-model-evidence
+          if-no-files-found: error
+          retention-days: 30
