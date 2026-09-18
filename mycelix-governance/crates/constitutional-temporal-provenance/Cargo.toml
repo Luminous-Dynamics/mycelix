@@ -1,0 +1,12 @@
+[package]
+name = "constitutional-temporal-provenance"
+version = "0.1.0"
+edition = "2021"
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+constitutional-consumption.workspace = true
+
+[dev-dependencies]
+constitutional-envelope.workspace = true
