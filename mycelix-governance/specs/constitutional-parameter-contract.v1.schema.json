@@ -1,0 +1,249 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.invalid/schemas/constitutional-parameter-contract.v1.schema.json",
+  "title": "Mycelix Constitutional Parameter Contract v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "contract_id",
+    "contract_revision",
+    "authority_class",
+    "activation_allowed",
+    "provider_key",
+    "parameter_key",
+    "source_binding",
+    "identity",
+    "effect_ledger_mapping",
+    "value_profile",
+    "revision_semantics",
+    "retry_semantics",
+    "query_contract",
+    "legacy_source_findings",
+    "p1_activation_requirements",
+    "non_claims"
+  ],
+  "properties": {
+    "schema": { "const": "mycelix.constitutional-parameter-contract.v1" },
+    "contract_id": { "const": "MYC-CONST-003D1D-P0" },
+    "contract_revision": { "const": 1 },
+    "authority_class": { "const": "InertContractPendingQualifiedAuthority" },
+    "activation_allowed": { "const": false },
+    "provider_key": { "const": "action_id" },
+    "parameter_key": { "const": "parameter_name" },
+    "source_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "d1d0_semantic_parent", "runtime_subject", "files"],
+      "properties": {
+        "repository": { "const": "Luminous-Dynamics/mycelix" },
+        "d1d0_semantic_parent": { "$ref": "#/$defs/gitSha1" },
+        "runtime_subject": { "$ref": "#/$defs/gitSha1" },
+        "files": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "git_blob_sha1", "role"],
+            "properties": {
+              "path": { "type": "string", "minLength": 1 },
+              "git_blob_sha1": { "$ref": "#/$defs/gitSha1" },
+              "role": {
+                "enum": [
+                  "legacy_update_parameter_dispatch",
+                  "legacy_parameter_coordinator",
+                  "legacy_parameter_integrity",
+                  "d1c_identity_source"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["request_includes", "revision_includes", "excludes"],
+      "properties": {
+        "request_includes": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+        "revision_includes": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+        "excludes": { "$ref": "#/$defs/nonEmptyUniqueStrings" }
+      }
+    },
+    "effect_ledger_mapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation_id",
+        "proposal_id",
+        "claim_binding_commitment",
+        "action_id",
+        "action_commitment",
+        "provider_key_regenerated",
+        "action_commitment_regenerated",
+        "qualification_inherited_from_D1C"
+      ],
+      "properties": {
+        "operation_id": { "const": "ConstitutionalOperation.operation_id" },
+        "proposal_id": { "const": "ConstitutionalOperation.proposal_id" },
+        "claim_binding_commitment": { "const": "ConstitutionalOperation.claim_binding" },
+        "action_id": { "const": "ActionIntent.action_id" },
+        "action_commitment": { "const": "ActionIntent.action_commitment" },
+        "provider_key_regenerated": { "const": false },
+        "action_commitment_regenerated": { "const": false },
+        "qualification_inherited_from_D1C": { "const": false }
+      }
+    },
+    "value_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile",
+        "types",
+        "decimal_exponent_notation_allowed",
+        "decimal_negative_zero_normalized",
+        "decimal_trailing_fraction_zeros_removed",
+        "ieee754_constitutional_identity",
+        "value_commitment",
+        "commitment_encoding"
+      ],
+      "properties": {
+        "profile": { "const": "constitutional-parameter-value-v1" },
+        "types": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "integer-i64",
+              "decimal-string-v1",
+              "percentage-decimal-string-v1",
+              "duration-millis-u64",
+              "boolean",
+              "utf8-string"
+            ]
+          }
+        },
+        "decimal_exponent_notation_allowed": { "const": false },
+        "decimal_negative_zero_normalized": { "const": true },
+        "decimal_trailing_fraction_zeros_removed": { "const": true },
+        "ieee754_constitutional_identity": { "const": false },
+        "value_commitment": { "const": "domain-separated-blake3-256" },
+        "commitment_encoding": { "const": "blake3-256:<64-lowercase-hex>" }
+      }
+    },
+    "revision_semantics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "first_revision",
+        "first_write_precondition",
+        "later_write_precondition",
+        "revisions_contiguous",
+        "predecessor_commitment_required_after_revision_one",
+        "stored_revision_reconstructs_request_commitment",
+        "wall_clock_participates_in_revision_identity",
+        "current_projection_from_timestamp"
+      ],
+      "properties": {
+        "first_revision": { "const": 1 },
+        "first_write_precondition": { "const": "CreateOnly" },
+        "later_write_precondition": { "const": "ExactCurrentRevisionAndCommitment" },
+        "revisions_contiguous": { "const": true },
+        "predecessor_commitment_required_after_revision_one": { "const": true },
+        "stored_revision_reconstructs_request_commitment": { "const": true },
+        "wall_clock_participates_in_revision_identity": { "const": false },
+        "current_projection_from_timestamp": { "const": false }
+      }
+    },
+    "retry_semantics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "historical_action_index_required",
+        "same_action_same_request",
+        "same_action_different_request",
+        "different_action_stale_predecessor",
+        "different_action_exact_current_predecessor",
+        "last_write_wins_allowed",
+        "blind_retry_after_stale_revision",
+        "recovery_from_integrity_halt_defined"
+      ],
+      "properties": {
+        "historical_action_index_required": { "const": true },
+        "same_action_same_request": { "const": "ExistingSameAtOriginalRevision" },
+        "same_action_different_request": { "const": "IntegrityConflictAndHalt" },
+        "different_action_stale_predecessor": { "const": "StaleRevisionNoMutation" },
+        "different_action_exact_current_predecessor": { "const": "CommitNextRevision" },
+        "last_write_wins_allowed": { "const": false },
+        "blind_retry_after_stale_revision": { "const": false },
+        "recovery_from_integrity_halt_defined": { "const": false }
+      }
+    },
+    "query_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "by_parameter_revision",
+        "by_action_id",
+        "current_is_highest_contiguous_revision",
+        "historical_action_lookup_survives_later_revisions"
+      ],
+      "properties": {
+        "by_parameter_revision": { "const": true },
+        "by_action_id": { "const": true },
+        "current_is_highest_contiguous_revision": { "const": true },
+        "historical_action_lookup_survives_later_revisions": { "const": true }
+      }
+    },
+    "legacy_source_findings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "execution_request_shape",
+        "provider_request_requires_optional_proposal_id",
+        "existing_parameter_change_requires_proposal_id",
+        "missing_parameter_can_enter_create_path_without_proposal_id",
+        "integrity_requires_value_valid_json",
+        "execution_value_canonicalized_before_dispatch",
+        "parameter_index_selected_by_latest_link_timestamp",
+        "parameter_writer_authority_bound_at_integrity",
+        "proposal_authority_bound_at_parameter_integrity",
+        "parameter_index_authority_bound",
+        "phi_config_is_derived_best_effort_projection"
+      ],
+      "properties": {
+        "execution_request_shape": { "const": "{parameter,value}" },
+        "provider_request_requires_optional_proposal_id": { "const": true },
+        "existing_parameter_change_requires_proposal_id": { "const": true },
+        "missing_parameter_can_enter_create_path_without_proposal_id": { "const": true },
+        "integrity_requires_value_valid_json": { "const": true },
+        "execution_value_canonicalized_before_dispatch": { "const": false },
+        "parameter_index_selected_by_latest_link_timestamp": { "const": true },
+        "parameter_writer_authority_bound_at_integrity": { "const": false },
+        "proposal_authority_bound_at_parameter_integrity": { "const": false },
+        "parameter_index_authority_bound": { "const": false },
+        "phi_config_is_derived_best_effort_projection": { "const": true }
+      }
+    },
+    "p1_activation_requirements": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+    "non_claims": { "$ref": "#/$defs/nonEmptyUniqueStrings" }
+  },
+  "$defs": {
+    "gitSha1": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "nonEmptyUniqueStrings": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}
