@@ -1,0 +1,100 @@
+name: Constitutional Lifecycle Quiescence Qualification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'mycelix-governance/specs/ConstitutionalLifecycleQuiescence*'
+      - 'mycelix-governance/specs/ConstitutionalClaimLifecycle.tla'
+      - 'mycelix-governance/docs/CONSTITUTIONAL_LIFECYCLE_QUIESCENCE_V0_1.md'
+      - 'mycelix-governance/tools/formal/pins.json'
+      - 'mycelix-governance/tools/formal/qualify_lifecycle_quiescence.py'
+      - '.github/workflows/constitutional-lifecycle-quiescence-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: constitutional-lifecycle-quiescence-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NIXPKGS_REV: a50bf0c1b07873c1a53892292017041a8f0a1288
+  TLA_URL: https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar
+  TLA_SHA256: 936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88
+  EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EXPECTED_SEMANTIC_HEAD: b9bb91353788aeb858c4e52422a87e2401d60a0e
+  EXPECTED_LIFECYCLE_HEAD: b19667a0399d46e7a21254e931c3149cfbd994fc
+  EXPECTED_CLOSURE_HEAD: f5cded2e9c54ea638f56003e4636f290b7d3cb29
+  EXPECTED_TEMPORAL_HEAD: 14b4b98eb167589ec29167d5615c25c216b728eb
+
+jobs:
+  qualify:
+    name: TLA+ bounded quiescence and stall qualification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout exact raw head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ env.EXPECTED_HEAD }}
+
+      - name: Bind evidence to exact lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_SEMANTIC_HEAD"
+          test "$(git rev-parse HEAD^^)" = "$EXPECTED_LIFECYCLE_HEAD"
+          test "$(git rev-parse HEAD^^^)" = "$EXPECTED_CLOSURE_HEAD"
+          test "$(git rev-parse HEAD^^^^)" = "$EXPECTED_TEMPORAL_HEAD"
+          rm -rf lifecycle-quiescence-evidence .lifecycle-quiescence-tools
+          mkdir -p lifecycle-quiescence-evidence .lifecycle-quiescence-tools
+          printf '%s\n' "$EXPECTED_HEAD" > lifecycle-quiescence-evidence/expected-head.txt
+          printf '%s\n' "$EXPECTED_SEMANTIC_HEAD" > lifecycle-quiescence-evidence/expected-semantic-head.txt
+          printf '%s\n' "$EXPECTED_LIFECYCLE_HEAD" > lifecycle-quiescence-evidence/expected-lifecycle-head.txt
+          printf '%s\n' "$EXPECTED_CLOSURE_HEAD" > lifecycle-quiescence-evidence/expected-closure-head.txt
+          printf '%s\n' "$EXPECTED_TEMPORAL_HEAD" > lifecycle-quiescence-evidence/expected-temporal-head.txt
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Acquire pinned TLA+ and qualify quiescence
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#jdk17_headless" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#python312" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#curl" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#coreutils" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" \
+            --command bash -euo pipefail -c '
+              curl --fail --location --retry 3 --retry-all-errors \
+                --output .lifecycle-quiescence-tools/tla2tools.jar "$TLA_URL"
+              printf "%s  %s\n" "$TLA_SHA256" .lifecycle-quiescence-tools/tla2tools.jar | sha256sum --check --strict
+
+              python3 mycelix-governance/tools/formal/qualify_lifecycle_quiescence.py \
+                --tla-jar "$PWD/.lifecycle-quiescence-tools/tla2tools.jar" \
+                --expected-head "$EXPECTED_HEAD" \
+                --expected-semantic-head "$EXPECTED_SEMANTIC_HEAD" \
+                --expected-lifecycle-head "$EXPECTED_LIFECYCLE_HEAD" \
+                --expected-closure-head "$EXPECTED_CLOSURE_HEAD" \
+                --expected-temporal-head "$EXPECTED_TEMPORAL_HEAD" \
+                --out "$PWD/lifecycle-quiescence-evidence"
+            '
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: constitutional-lifecycle-quiescence-${{ env.EXPECTED_HEAD }}
+          path: lifecycle-quiescence-evidence
+          if-no-files-found: error
+          retention-days: 30
