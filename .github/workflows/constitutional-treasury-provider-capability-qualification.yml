@@ -1,0 +1,331 @@
+name: Constitutional Treasury Provider Capability Qualification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'mycelix-governance/crates/constitutional-treasury-effect-provider/**'
+      - 'mycelix-governance/specs/constitutional-treasury-provider-capability.v1.json'
+      - 'mycelix-governance/specs/constitutional-treasury-provider-capability.v1.schema.json'
+      - 'mycelix-governance/docs/CONSTITUTIONAL_TREASURY_PROVIDER_CAPABILITY_V0_1.md'
+      - 'mycelix-governance/tools/formal/validate_constitutional_treasury_provider_capability.py'
+      - 'mycelix-governance/tools/formal/validate_constitutional_treasury_provider_capability_audit_surface.py'
+      - '.github/workflows/constitutional-treasury-provider-capability-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: treasury-provider-capability-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NIXPKGS_REV: a50bf0c1b07873c1a53892292017041a8f0a1288
+  EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EXPECTED_SEMANTIC_HEAD: 36bb486794f3e2720a2e02b3045c270b147cbacc
+
+jobs:
+  qualify:
+    name: Exact-head Treasury provider capability F0C
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout exact raw head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ env.EXPECTED_HEAD }}
+          persist-credentials: false
+
+      - name: Bind exact verifier lineage and semantic surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_SEMANTIC_HEAD"
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/constitutional-treasury-provider-capability-qualification.yml"
+
+          rm -rf treasury-provider-capability-evidence
+          mkdir -p treasury-provider-capability-evidence
+          printf '%s\n' "$EXPECTED_HEAD" > treasury-provider-capability-evidence/expected-head.txt
+          printf '%s\n' "$EXPECTED_SEMANTIC_HEAD" > treasury-provider-capability-evidence/expected-semantic-head.txt
+          printf '%s\n' "$(git rev-parse "$EXPECTED_SEMANTIC_HEAD^")" > treasury-provider-capability-evidence/semantic-parent.txt
+
+          cat > treasury-provider-capability-evidence/expected-semantic-files.txt <<'EOF'
+          mycelix-governance/crates/constitutional-treasury-effect-provider/Cargo.toml
+          mycelix-governance/crates/constitutional-treasury-effect-provider/src/capability_public.rs
+          mycelix-governance/docs/CONSTITUTIONAL_TREASURY_PROVIDER_CAPABILITY_V0_1.md
+          mycelix-governance/specs/constitutional-treasury-provider-capability.v1.json
+          mycelix-governance/specs/constitutional-treasury-provider-capability.v1.schema.json
+          mycelix-governance/tools/formal/validate_constitutional_treasury_provider_capability.py
+          mycelix-governance/tools/formal/validate_constitutional_treasury_provider_capability_audit_surface.py
+          EOF
+          sed -i 's/^          //' treasury-provider-capability-evidence/expected-semantic-files.txt
+
+          git diff --name-only "$EXPECTED_SEMANTIC_HEAD^" "$EXPECTED_SEMANTIC_HEAD" | sort \
+            > treasury-provider-capability-evidence/actual-semantic-files.txt
+          sort treasury-provider-capability-evidence/expected-semantic-files.txt \
+            > treasury-provider-capability-evidence/expected-semantic-files.sorted.txt
+          cmp treasury-provider-capability-evidence/expected-semantic-files.sorted.txt \
+              treasury-provider-capability-evidence/actual-semantic-files.txt
+
+          if grep -E '^mycelix-governance/(zomes/|.*zomes/)' treasury-provider-capability-evidence/actual-semantic-files.txt; then
+            echo "F0C semantic head unexpectedly changes Holochain zomes" >&2
+            exit 1
+          fi
+
+          git hash-object $(cat treasury-provider-capability-evidence/expected-semantic-files.txt) \
+            > treasury-provider-capability-evidence/source-hashes-before.txt
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Validate exact capability contract and public surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#python3" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#git" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" \
+            --command bash -euo pipefail -c '
+              python3 --version | tee treasury-provider-capability-evidence/python-version.txt
+              git --version | tee treasury-provider-capability-evidence/git-version.txt
+              python3 -m py_compile \
+                mycelix-governance/tools/formal/validate_constitutional_treasury_provider_capability.py \
+                mycelix-governance/tools/formal/validate_constitutional_treasury_provider_capability_audit_surface.py
+              python3 mycelix-governance/tools/formal/validate_constitutional_treasury_provider_capability.py --self-test \
+                2>&1 | tee treasury-provider-capability-evidence/capability-validator.log
+              python3 mycelix-governance/tools/formal/validate_constitutional_treasury_provider_capability_audit_surface.py --self-test \
+                2>&1 | tee treasury-provider-capability-evidence/audit-surface-validator.log
+            '
+
+      - name: Compile and test exact F0C subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustfmt" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#clippy" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#coreutils" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" \
+            --command bash -euo pipefail -c '
+              rustc --version | tee treasury-provider-capability-evidence/rustc-version.txt
+              cargo --version | tee treasury-provider-capability-evidence/cargo-version.txt
+              rustfmt --version | tee treasury-provider-capability-evidence/rustfmt-version.txt
+              cargo clippy --version | tee treasury-provider-capability-evidence/clippy-version.txt
+
+              cargo fmt --manifest-path mycelix-governance/Cargo.toml \
+                --package constitutional-treasury-effect-provider -- --check \
+                2>&1 | tee treasury-provider-capability-evidence/cargo-fmt.log
+              cargo check --manifest-path \
+                mycelix-governance/crates/constitutional-treasury-effect-provider/Cargo.toml \
+                --all-targets 2>&1 | tee treasury-provider-capability-evidence/cargo-check.log
+              cargo test --manifest-path \
+                mycelix-governance/crates/constitutional-treasury-effect-provider/Cargo.toml \
+                --all-targets 2>&1 | tee treasury-provider-capability-evidence/cargo-test.log
+              cargo clippy --manifest-path \
+                mycelix-governance/crates/constitutional-treasury-effect-provider/Cargo.toml \
+                --all-targets -- -D warnings \
+                2>&1 | tee treasury-provider-capability-evidence/cargo-clippy.log
+
+              cp mycelix-governance/Cargo.lock treasury-provider-capability-evidence/derived-Cargo.lock
+              sha256sum treasury-provider-capability-evidence/derived-Cargo.lock \
+                > treasury-provider-capability-evidence/derived-Cargo.lock.sha256
+            '
+
+      - name: Compile-valid capability bypass mutation controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#python3" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" \
+            --command bash -euo pipefail -c '
+          python3 - <<"PY"
+          from pathlib import Path
+          import subprocess
+
+          ROOT = Path.cwd()
+          SRC = ROOT / "mycelix-governance/crates/constitutional-treasury-effect-provider/src/capability_public.rs"
+          MANIFEST = ROOT / "mycelix-governance/crates/constitutional-treasury-effect-provider/Cargo.toml"
+          VALIDATOR = ROOT / "mycelix-governance/tools/formal/validate_constitutional_treasury_provider_capability.py"
+          AUDIT = ROOT / "mycelix-governance/tools/formal/validate_constitutional_treasury_provider_capability_audit_surface.py"
+          EVIDENCE = ROOT / "treasury-provider-capability-evidence"
+          originals = {SRC: SRC.read_text(), MANIFEST: MANIFEST.read_text()}
+
+          def restore():
+              for path, text in originals.items():
+                  path.write_text(text)
+
+          def replace(path, old, new, *, start=None):
+              text = path.read_text()
+              offset = text.index(start) if start else 0
+              pos = text.index(old, offset)
+              path.write_text(text[:pos] + new + text[pos + len(old):])
+
+          def run(cmd, log):
+              proc = subprocess.run(cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+              (EVIDENCE / log).write_text(proc.stdout)
+              return proc.returncode
+
+          def compile_ok(name):
+              rc = run([
+                  "cargo", "check", "--manifest-path", str(MANIFEST), "--all-targets"
+              ], f"mutant-{name}-check.log")
+              if rc != 0:
+                  raise SystemExit(f"{name}: mutant did not compile")
+
+          def validators_must_kill(name):
+              a = run(["python3", str(VALIDATOR)], f"mutant-{name}-validator.log")
+              b = run(["python3", str(AUDIT)], f"mutant-{name}-audit.log")
+              if a == 0 and b == 0:
+                  raise SystemExit(f"{name}: both validators accepted mutant")
+              (EVIDENCE / f"mutant-{name}.txt").write_text("PASS\n")
+
+          def test_must_kill(name, test_filter):
+              rc = run([
+                  "cargo", "test", "--manifest-path", str(MANIFEST), test_filter
+              ], f"mutant-{name}-test.log")
+              if rc == 0:
+                  raise SystemExit(f"{name}: semantic test did not kill mutant")
+              (EVIDENCE / f"mutant-{name}.txt").write_text("PASS\n")
+
+          try:
+              # 1. Restore the exact caller-controlled string replay seam in parallel.
+              restore()
+              replace(
+                  SRC,
+                  "    Initial,\n    ProviderReplayQualified(QualifiedProviderReplayCapability),\n",
+                  "    Initial,\n    ProviderReplayByEvidenceString { capability_evidence_id: String },\n    ProviderReplayQualified(QualifiedProviderReplayCapability),\n",
+                  start="pub enum RetryBasis",
+              )
+              replace(
+                  SRC,
+                  "            Self::Initial => Ok(f0::RetryBasis::Initial),\n",
+                  "            Self::Initial => Ok(f0::RetryBasis::Initial),\n            Self::ProviderReplayByEvidenceString { capability_evidence_id } => Ok(f0::RetryBasis::ProviderReplayQualified { capability_evidence_id }),\n",
+                  start="impl RetryBasis",
+              )
+              compile_ok("string-replay-seam")
+              validators_must_kill("string-replay-seam")
+
+              # 2. Add a public unverified capability constructor.
+              restore()
+              marker = "impl QualifiedProviderReplayCapability {\n"
+              constructor = """impl QualifiedProviderReplayCapability {\n    pub fn from_unverified(\n        provider_profile_id: String, provider_profile_commitment: String,\n        qualification_receipt_id: String, qualification_receipt_commitment: String,\n        execution_id: String, request_commitment: String, covers_through_attempt_ordinal: u32,\n    ) -> Self {\n        Self { provider_profile_id, provider_profile_commitment, qualification_receipt_id, qualification_receipt_commitment, execution_id, request_commitment, covers_through_attempt_ordinal, _sealed: () }\n    }\n"""
+              replace(SRC, marker, constructor)
+              compile_ok("public-constructor")
+              validators_must_kill("public-constructor")
+
+              # 3. Make the positive capability portable/duplicable.
+              restore()
+              replace(
+                  SRC,
+                  "#[derive(Debug, PartialEq, Eq)]\npub struct QualifiedProviderReplayCapability",
+                  "#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]\npub struct QualifiedProviderReplayCapability",
+              )
+              compile_ok("portable-capability")
+              validators_must_kill("portable-capability")
+
+              # 4. Ignore provider-profile binding.
+              restore()
+              replace(
+                  SRC,
+                  "if self.provider_profile_id != record.intent().request.subject.adapter_profile_id {",
+                  "if false && self.provider_profile_id != record.intent().request.subject.adapter_profile_id {",
+              )
+              compile_ok("profile-binding")
+              test_must_kill("profile-binding", "capability_provider_profile_must_match_effect_adapter")
+
+              # 5. Ignore exact execution binding.
+              restore()
+              replace(
+                  SRC,
+                  "if self.execution_id != record.intent().execution_id {",
+                  "if false && self.execution_id != record.intent().execution_id {",
+              )
+              compile_ok("execution-binding")
+              test_must_kill("execution-binding", "capability_is_bound_to_exact_execution_and_request")
+
+              # 6. Ignore exact request binding; source validator must catch even if another identity check also rejects.
+              restore()
+              replace(
+                  SRC,
+                  "if self.request_commitment != record.intent().request.request_commitment {",
+                  "if false && self.request_commitment != record.intent().request.request_commitment {",
+              )
+              compile_ok("request-binding")
+              validators_must_kill("request-binding")
+
+              # 7. Allow any UnknownOutcome horizon.
+              restore()
+              replace(
+                  SRC,
+                  "} if *through_attempt_ordinal == self.covers_through_attempt_ordinal => Ok(()),",
+                  "} if true => Ok(()),",
+              )
+              compile_ok("horizon-binding")
+              test_must_kill("horizon-binding", "capability_horizon_must_match_exact_unknown_outcome")
+
+              # 8. Bypass the capability facade as the crate entrypoint.
+              restore()
+              replace(MANIFEST, 'path = "src/capability_public.rs"', 'path = "src/public.rs"')
+              compile_ok("entrypoint-bypass")
+              validators_must_kill("entrypoint-bypass")
+
+              # 9. Re-export the raw F0 retry type under another name.
+              restore()
+              replace(
+                  SRC,
+                  "REQUEST_COMMITMENT_PREFIX, TREASURY_EFFECT_SCHEMA_VERSION, EffectIntegrityFault,",
+                  "REQUEST_COMMITMENT_PREFIX, TREASURY_EFFECT_SCHEMA_VERSION, RetryBasis as RawF0RetryBasis, EffectIntegrityFault,",
+              )
+              compile_ok("raw-retry-export")
+              validators_must_kill("raw-retry-export")
+
+              # 10. Re-export the raw F0 attempt type under another name.
+              restore()
+              replace(
+                  SRC,
+                  "REQUEST_COMMITMENT_PREFIX, TREASURY_EFFECT_SCHEMA_VERSION, EffectIntegrityFault,",
+                  "REQUEST_COMMITMENT_PREFIX, TREASURY_EFFECT_SCHEMA_VERSION, EffectAttempt as RawF0EffectAttempt, EffectIntegrityFault,",
+              )
+              compile_ok("raw-attempt-export")
+              validators_must_kill("raw-attempt-export")
+          finally:
+              restore()
+          PY
+            '
+
+      - name: Verify exact semantic immutability and postflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          git hash-object $(cat treasury-provider-capability-evidence/expected-semantic-files.txt) \
+            > treasury-provider-capability-evidence/source-hashes-after.txt
+          cmp treasury-provider-capability-evidence/source-hashes-before.txt \
+              treasury-provider-capability-evidence/source-hashes-after.txt
+          git diff --exit-code -- $(cat treasury-provider-capability-evidence/expected-semantic-files.txt)
+          if git ls-files --error-unmatch mycelix-governance/Cargo.lock >/dev/null 2>&1; then
+            git checkout -- mycelix-governance/Cargo.lock
+          fi
+          test -z "$(git status --porcelain --untracked-files=no)"
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: constitutional-treasury-provider-capability-${{ env.EXPECTED_HEAD }}
+          path: treasury-provider-capability-evidence
+          if-no-files-found: error
+          retention-days: 30
