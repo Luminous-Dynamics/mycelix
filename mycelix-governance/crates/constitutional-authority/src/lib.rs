@@ -339,10 +339,10 @@ impl ConstitutionalCapability {
         if !principal_can_exercise(self.holder, self.power) {
             return Err(ConformanceError::UnauthorizedPrincipalPower);
         }
-        if let Some(expires_at) = self.expires_at_us {
-            if expires_at <= self.valid_from_us {
-                return Err(ConformanceError::InvalidExpiry);
-            }
+        if let Some(expires_at) = self.expires_at_us
+            && expires_at <= self.valid_from_us
+        {
+            return Err(ConformanceError::InvalidExpiry);
         }
         if self.power.requires_hard_expiry() && self.expires_at_us.is_none() {
             return Err(ConformanceError::MissingRequiredExpiry);
