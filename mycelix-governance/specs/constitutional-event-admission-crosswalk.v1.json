@@ -1,0 +1,171 @@
+{
+  "schema": "mycelix.constitutional-event-admission-crosswalk.v1",
+  "crosswalk_id": "MYC-CONST-003D1D-E1A",
+  "version": "0.1.0",
+  "status": "PendingQualifiedCrosswalk",
+  "activation_status": "Blocked",
+  "activation_allowed": false,
+  "provider_lane": "EmitEvent",
+  "observed_at_utc": "2026-09-18T14:55:00Z",
+  "source_bindings": [
+    {
+      "id": "b4-claim-binding",
+      "commit": "037f61c15ff367a1518d98f7acc8ec0fa962c2f6",
+      "path": "mycelix-governance/crates/constitutional-consumption/src/binding.rs",
+      "git_blob_sha1": "f61e327cac047824b5d561b2d865e863389dcaa6",
+      "role": "exact_claim_binding_semantics"
+    },
+    {
+      "id": "d1c-effect-ledger",
+      "commit": "47d1d764323dbfaf991b5574cfde83abb7a3e4a4",
+      "path": "mycelix-governance/crates/constitutional-effect-ledger/src/lib.rs",
+      "git_blob_sha1": "bb3b8d6a865bbf514ff1e43a41c520b890a5515d",
+      "role": "operation_and_action_identity"
+    },
+    {
+      "id": "e0-event-provider",
+      "commit": "36a4fcffb6ca806570ebf439f9c36cf76401e7b2",
+      "path": "mycelix-governance/crates/constitutional-event-provider/src/lib.rs",
+      "git_blob_sha1": "5d110f95c0d78f494b61a16d5afe5776401820bb",
+      "role": "durable_event_semantics"
+    },
+    {
+      "id": "e0-d1c-identity-test",
+      "commit": "36a4fcffb6ca806570ebf439f9c36cf76401e7b2",
+      "path": "mycelix-governance/crates/constitutional-event-provider/tests/effect_ledger_identity.rs",
+      "git_blob_sha1": "897668782e09fac5ffbc506e1e8b11f653de2950",
+      "role": "source_visible_d1c_to_e0_identity_mapping"
+    },
+    {
+      "id": "cr1-crosswalk-scaffold",
+      "commit": "4edb56bd3c36ddc6277e2de5e0584a65e8c99b3c",
+      "path": "mycelix-governance/specs/constitutional-refinement-crosswalk.v1.json",
+      "git_blob_sha1": "35476cb5b2dbacaca659b117e6dfaaacebed818d",
+      "role": "refinement_waist_scaffold"
+    }
+  ],
+  "qualification_dependencies": [
+    {
+      "id": "MYC-CONST-003B4",
+      "semantic_head": "037f61c15ff367a1518d98f7acc8ec0fa962c2f6",
+      "verifier_head": "508e81ea93bd49692f54b234e20146dfe101afa3",
+      "qualification_run_id": 35344734164,
+      "observed_state": "queued",
+      "qualification_receipt": null
+    },
+    {
+      "id": "MYC-CONST-003CR1",
+      "semantic_head": "4edb56bd3c36ddc6277e2de5e0584a65e8c99b3c",
+      "verifier_head": "651eb0c05fa70012b7eebc4e1497cb7cacf7c641",
+      "qualification_run_id": 35319268716,
+      "observed_state": "queued",
+      "qualification_receipt": null
+    },
+    {
+      "id": "MYC-CONST-003D1C",
+      "semantic_head": "47d1d764323dbfaf991b5574cfde83abb7a3e4a4",
+      "verifier_head": "c4397f4bc9d6e016feba84d89de9f31298b55ba8",
+      "qualification_run_id": 35349600389,
+      "observed_state": "queued",
+      "qualification_receipt": null
+    },
+    {
+      "id": "MYC-CONST-003D1D-E0",
+      "semantic_head": "36a4fcffb6ca806570ebf439f9c36cf76401e7b2",
+      "verifier_head": "55c9e1d57d4cbfaa807dadefe7d1cac4f261a2e2",
+      "qualification_run_id": 35357940683,
+      "observed_state": "queued",
+      "qualification_receipt": null
+    }
+  ],
+  "identity_mapping": {
+    "operation_id": "E0.EventAuthorityBinding.operation_id == D1C.ConstitutionalOperation.operation_id",
+    "proposal_id": "E0.EventAuthorityBinding.proposal_id == D1C.ConstitutionalOperation.proposal_id",
+    "action_id": "E0.EventAuthorityBinding.action_id == D1C.ActionIntent.action_id",
+    "action_commitment": "E0.EventAuthorityBinding.action_commitment == D1C.ActionIntent.action_commitment",
+    "claim_binding_reference": "E0.EventAuthorityBinding.claim_binding_commitment == D1C.ConstitutionalOperation.claim_binding",
+    "provider_key": "E0.DurableConstitutionalEvent.provider_key == D1C.ActionIntent.action_id",
+    "provider_key_regeneration_allowed": false,
+    "operation_id_regeneration_allowed": false,
+    "action_commitment_regeneration_allowed": false,
+    "qualification_inheritance_allowed": false,
+    "status": "LocallySourceBound"
+  },
+  "claim_binding_requirements": {
+    "all_b4_security_fields_required": [
+      "claim_id",
+      "envelope_digest",
+      "nonce",
+      "use_index",
+      "jurisdiction",
+      "matter.namespace",
+      "matter.stable_id",
+      "target_digest",
+      "payload_digest",
+      "budget_id"
+    ],
+    "target_relationship": {
+      "status": "PendingQualifiedCrosswalk",
+      "required_relation": "ClaimBinding.target_digest == EventTargetDescriptorV1.commitment",
+      "descriptor": {
+        "domain_separator": "MYCELIX-CONSTITUTIONAL-EVENT-TARGET\\0V1\\0",
+        "encoding": "u64-length-prefixed-utf8-fields",
+        "digest": "blake3-256:<64-lowercase-hex>",
+        "ordered_fields": [
+          "provider_lane",
+          "operation_id",
+          "action_id",
+          "proposal_id",
+          "event_name"
+        ],
+        "provider_lane_constant": "EmitEvent"
+      }
+    },
+    "payload_relationship": {
+      "status": "PendingQualifiedCrosswalk",
+      "required_relation": "ClaimBinding.payload_digest == DurableConstitutionalEvent.payload_commitment",
+      "payload_source": "E0 canonical_payload",
+      "payload_commitment_encoding": "blake3-256:<64-lowercase-hex>"
+    },
+    "claim_binding_commitment_relationship": {
+      "status": "PendingQualifiedCrosswalk",
+      "required_relation": "D1C.ConstitutionalOperation.claim_binding identifies the exact B4 ClaimBinding canonical bytes used for this action",
+      "algorithm_selection": "must be frozen by qualified integration profile; B4 itself deliberately leaves hash/signature algorithm selection outside the crate"
+    }
+  },
+  "integrity_boundary_requirements": {
+    "publisher_must_equal_dht_action_author_did": true,
+    "coordinator_only_authorization_is_sufficient": false,
+    "event_entry_must_be_immutable": true,
+    "action_key_link_must_be_integrity_validated": true,
+    "action_key_link_delete_allowed": false,
+    "same_action_same_semantics": "ExistingSame",
+    "same_action_conflicting_semantics": "IntegrityConflict",
+    "conflicting_same_action_last_write_wins_allowed": false,
+    "signal_projection_can_define_constitutional_completion": false
+  },
+  "activation_gates": [
+    "MYC-CONST-003B4 retained exact-head PASS receipt inspected",
+    "MYC-CONST-003CR1 retained exact-head PASS receipt inspected",
+    "MYC-CONST-003D1C retained exact-head PASS receipt inspected",
+    "MYC-CONST-003D1D-E0 retained exact-head PASS receipt inspected",
+    "target/payload ClaimBinding refinement promoted by a new exact-head qualified crosswalk",
+    "DHT author-to-publisher binding enforced in integrity validation",
+    "immutable constitutional event entry validation",
+    "action-key link base/target/tag validation with delete forbidden",
+    "MYC-CONST-003D1D-E1 exact-head qualification"
+  ],
+  "non_claims": [
+    "not_a_holochain_entry_type",
+    "not_a_holochain_link_type",
+    "not_a_live_write_extern",
+    "not_wired_to_GovernanceAction_EmitEvent",
+    "not_B4_qualified",
+    "not_CR1_qualified",
+    "not_D1C_qualified",
+    "not_E0_qualified",
+    "not_target_payload_refinement_qualified",
+    "not_constitutional_event_admission_active",
+    "not_deployment_currentness_qualified"
+  ]
+}
