@@ -1,0 +1,65 @@
+{
+  "$defs": {
+    "execution_context": {
+      "additionalProperties": false,
+      "properties": {
+        "environment_profile_ref": {"$ref": "#/$defs/profile"},
+        "execution_context_format_revision": {"const": 1},
+        "resolved_environment_commitment": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+        "resolved_toolchain_commitment": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+        "runner_profile_ref": {"$ref": "#/$defs/profile"},
+        "toolchain_profile_ref": {"$ref": "#/$defs/profile"}
+      },
+      "required": [
+        "execution_context_format_revision", "runner_profile_ref", "toolchain_profile_ref",
+        "environment_profile_ref", "resolved_toolchain_commitment", "resolved_environment_commitment"
+      ],
+      "type": "object"
+    },
+    "gate_result": {
+      "additionalProperties": false,
+      "properties": {
+        "exit_code": {"type": "integer"},
+        "id": {"type": "string"},
+        "output_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+        "status": {"enum": ["GatePass", "GateFail", "RunnerInfrastructureFailure"]}
+      },
+      "required": ["id", "status", "output_sha256", "exit_code"],
+      "type": "object"
+    },
+    "profile": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+        "id": {"type": "string"},
+        "revision": {"minimum": 1, "type": "integer"}
+      },
+      "required": ["id", "revision", "digest"],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "attempt_id": {"type": "string"},
+    "capsule_commitment": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+    "claim": {"minLength": 1, "type": "string"},
+    "execution_context": {"$ref": "#/$defs/execution_context"},
+    "gate_results": {"items": {"$ref": "#/$defs/gate_result"}, "minItems": 1, "type": "array"},
+    "nonclaims": {"items": {"type": "string"}, "type": "array", "uniqueItems": true},
+    "product_subject_sha": {"pattern": "^[0-9a-f]{40}$", "type": "string"},
+    "receipt_commitment": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+    "receipt_format_revision": {"const": 1},
+    "repository_identity": {"type": "string"},
+    "theorem_id": {"type": "string"},
+    "theorem_revision": {"minimum": 1, "type": "integer"},
+    "verdict": {"enum": ["CompletedConjunctivePass", "CompletedConjunctiveFail", "RunnerInfrastructureFailure"]}
+  },
+  "required": [
+    "receipt_format_revision", "capsule_commitment", "theorem_id", "theorem_revision",
+    "repository_identity", "product_subject_sha", "attempt_id", "execution_context",
+    "gate_results", "verdict", "claim", "nonclaims", "receipt_commitment"
+  ],
+  "title": "Mycelix Qualification Attempt Receipt V1",
+  "type": "object"
+}
