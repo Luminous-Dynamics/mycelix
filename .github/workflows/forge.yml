@@ -2,9 +2,6 @@ name: Mycelix Forge CI
 
 on:
   pull_request:
-    branches:
-      - main
-      - design/forge-001-sovereign-repository
     paths:
       - "crates/mycelix-forge-core/**"
       - ".github/workflows/forge.yml"
@@ -25,7 +22,7 @@ concurrency:
 jobs:
   forge-core:
     name: Forge Core
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: crates/mycelix-forge-core
@@ -34,9 +31,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Rust
+      - name: Install pinned Rust
         uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: 1.96.0
           components: rustfmt, clippy
 
       - name: Check formatting
