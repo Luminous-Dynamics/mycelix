@@ -4,12 +4,14 @@ on:
   pull_request:
     paths:
       - "crates/mycelix-forge-core/**"
+      - "crates/mycelix-forge-authority/**"
       - ".github/workflows/forge.yml"
   push:
     branches:
       - main
     paths:
       - "crates/mycelix-forge-core/**"
+      - "crates/mycelix-forge-authority/**"
       - ".github/workflows/forge.yml"
 
 permissions:
@@ -20,12 +22,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  forge-core:
-    name: Forge Core
+  forge:
+    name: ${{ matrix.name }}
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Forge Core
+            path: crates/mycelix-forge-core
+          - name: Forge Authority
+            path: crates/mycelix-forge-authority
     defaults:
       run:
-        working-directory: crates/mycelix-forge-core
+        working-directory: ${{ matrix.path }}
 
     steps:
       - name: Checkout
