@@ -10,6 +10,7 @@ on:
       - "adapters/forge-gittuf/**"
       - "adapters/forge-gittuf-bundle/**"
       - "adapters/forge-linux-isolation/**"
+      - "adapters/forge-linux-isolation-evidence/**"
       - ".github/workflows/forge.yml"
   push:
     branches:
@@ -22,6 +23,7 @@ on:
       - "adapters/forge-gittuf/**"
       - "adapters/forge-gittuf-bundle/**"
       - "adapters/forge-linux-isolation/**"
+      - "adapters/forge-linux-isolation-evidence/**"
       - ".github/workflows/forge.yml"
 
 permissions:
@@ -53,6 +55,8 @@ jobs:
             path: adapters/forge-gittuf-bundle
           - name: Forge Linux Isolation
             path: adapters/forge-linux-isolation
+          - name: Forge Isolation Evidence
+            path: adapters/forge-linux-isolation-evidence
     defaults:
       run:
         working-directory: ${{ matrix.path }}
