@@ -9,6 +9,7 @@
 
 mod canonical;
 mod model;
+mod profile_input;
 mod qualify;
 mod receipt;
 
@@ -20,6 +21,7 @@ pub use canonical::{
     observation_commitment, selected_evidence_frontier_commitment,
 };
 pub use model::*;
+pub use profile_input::FinalityProfileDraftV1;
 pub use qualify::{
     SettlementInvalidationError, SettlementQualificationError, derive_invalidation,
     qualify_settlement,
