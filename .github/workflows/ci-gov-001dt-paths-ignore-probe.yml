@@ -1,0 +1,20 @@
+name: CI-GOV-001DT GitHub Paths Ignore Probe
+
+on:
+  pull_request:
+    branches:
+      - 'ci/ci-gov-001dt-paths-ignore-probe-base'
+    paths-ignore:
+      - 'docs/lex-net/**'
+
+permissions:
+  contents: read
+
+jobs:
+  observe-trigger-only:
+    # This probe measures only whether GitHub admits the workflow event after
+    # native path filtering. The job must never request a runner.
+    if: ${{ false }}
+    runs-on: ubuntu-slim
+    steps:
+      - run: echo 'unreachable: trigger probe must allocate no runner'
