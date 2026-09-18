@@ -1,0 +1,102 @@
+name: MYC-CAP-002A2 Return Envelope Currentness v1
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/capital/return_envelope_currentness_v1.py'
+      - 'scripts/capital/test_return_envelope_currentness_v1.py'
+      - 'docs/capital/evidence/myc-cap-002a2/**'
+      - '.github/workflows/myc-cap-002a2-return-envelope-currentness-v1.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Designated-current Return Envelope checkpoint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Exact subject, financial parent, and scope
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "270b852e0ac744dfca3a2cb966bf53fce78f2ab9"
+          expected="$(mktemp)"
+          actual="$(mktemp)"
+          printf '%s\n' \
+            '.github/workflows/myc-cap-002a2-return-envelope-currentness-v1.yml' \
+            'docs/capital/evidence/myc-cap-002a2/PROFILE.md' \
+            'docs/capital/evidence/myc-cap-002a2/example_case.json' \
+            'docs/capital/evidence/myc-cap-002a2/example_receipt.json' \
+            'scripts/capital/return_envelope_currentness_v1.py' \
+            'scripts/capital/test_return_envelope_currentness_v1.py' | sort > "$expected"
+          git diff-tree --no-commit-id --name-only -r HEAD | sort > "$actual"
+          diff -u "$expected" "$actual"
+          test -z "$(git status --porcelain)"
+
+      - name: Exact Return Envelope semantic parent
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          def canonical(v):
+              return json.dumps(v, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")
+          case=json.loads(Path("docs/capital/evidence/myc-cap-002a2/example_case.json").read_text(encoding="utf-8"))
+          parent=json.loads(Path("docs/capital/evidence/myc-cap-002a/example_receipt.json").read_text(encoding="utf-8"))
+          assert case["financial_receipt"] == parent
+          assert case["profile"]["financial_subject_sha"] == "270b852e0ac744dfca3a2cb966bf53fce78f2ab9"
+          digest=hashlib.sha256(canonical(parent)).hexdigest()
+          assert digest == "60b7217980c615eab453eae25b74b27e75fc67cb336ea60d140f089341d50565"
+          assert case["profile"]["financial_receipt_sha256"] == digest
+          assert parent["profile_sha256"] == "6929b9e089e3f7b272713f6ff8587bf429594a51a9d67d67d0d4468ba72b52e7"
+          assert parent["event_history_sha256"] == "b1e75101137bcecc60daba64aa0d232398b78d65e4e946723bd25e5ab23184b7"
+          assert parent["event_chain_tip_sha256"] == "f766650cbc8233f016ae3482f46708f395264cbc0baeb869ad7c09dd662d240d"
+          PY
+
+      - name: Python environment
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 -m py_compile scripts/capital/return_envelope_currentness_v1.py
+          python3 -m py_compile scripts/capital/test_return_envelope_currentness_v1.py
+
+      - name: Fail-closed unit suite
+        run: |
+          set -euo pipefail
+          python3 -m unittest -v scripts/capital/test_return_envelope_currentness_v1.py
+
+      - name: Deterministic example receipt
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp)"
+          python3 scripts/capital/return_envelope_currentness_v1.py docs/capital/evidence/myc-cap-002a2/example_case.json --receipt-out "$tmp"
+          diff -u docs/capital/evidence/myc-cap-002a2/example_receipt.json "$tmp"
+          cp "$tmp" "${tmp}.second"
+          python3 scripts/capital/return_envelope_currentness_v1.py docs/capital/evidence/myc-cap-002a2/example_case.json --receipt-out "$tmp"
+          cmp "$tmp" "${tmp}.second"
+          echo '979cde6c9e2282bf39dd518d3adb5218b427c0945fb6881c58f5b763e08ee9f3  docs/capital/evidence/myc-cap-002a2/example_case.json' | sha256sum -c -
+          echo '3b6ca6a3f2bfc37c3ecf412724af9013e5b2cbff47bfdf14028d71047144c7f6  docs/capital/evidence/myc-cap-002a2/example_receipt.json' | sha256sum -c -
+
+      - name: Strong authority nonclaims
+        run: |
+          set -euo pipefail
+          grep -Fq '"financial_checkpoint_currentness_state": "CURRENT"' docs/capital/evidence/myc-cap-002a2/example_receipt.json
+          grep -Fq '"financial_state": "CLAIM_ACTIVE"' docs/capital/evidence/myc-cap-002a2/example_receipt.json
+          grep -Fq '"remaining_claim_units": 73000000' docs/capital/evidence/myc-cap-002a2/example_receipt.json
+          grep -Fq '"payment_authority_established": false' docs/capital/evidence/myc-cap-002a2/example_receipt.json
+          grep -Fq '"accounting_compliance_established": false' docs/capital/evidence/myc-cap-002a2/example_receipt.json
+          grep -Fq '"tax_compliance_established": false' docs/capital/evidence/myc-cap-002a2/example_receipt.json
+          grep -Fq '"securities_law_compliance_established": false' docs/capital/evidence/myc-cap-002a2/example_receipt.json
+          grep -Fq '"legal_title_transition_established": false' docs/capital/evidence/myc-cap-002a2/example_receipt.json
+          grep -Fq '"handover_accepted": false' docs/capital/evidence/myc-cap-002a2/example_receipt.json
+          grep -Fq '"uses_local_wall_clock": false' docs/capital/evidence/myc-cap-002a2/example_receipt.json
