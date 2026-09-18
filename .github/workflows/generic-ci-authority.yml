@@ -1,0 +1,152 @@
+name: Mycelix CI Authority
+
+on:
+  workflow_run:
+    workflows: ["Mycelix CI"]
+    types: [completed]
+
+# This workflow is the trusted post-run authority plane for generic PR CI.
+# It executes from the default-branch context supplied by workflow_run and must
+# never checkout, source, execute, or download artifacts from PR-head code.
+#
+# There is intentionally no PR-scoped concurrency here. A late stale completion
+# must not cancel authority verification for a newer head. Exact-head comparison
+# suppresses stale publication instead.
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: read
+  statuses: write
+
+jobs:
+  verify-authority:
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    steps:
+      - name: Checkout trusted authority implementation
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Self-test trusted authority components
+        run: |
+          set -euo pipefail
+          python3 scripts/evaluate_generic_ci_admission_v2.py --self-test
+          python3 scripts/fetch_generic_ci_pr_files.py --self-test
+          python3 scripts/evaluate_generic_ci_authority_v1.py --self-test
+          python3 scripts/fetch_generic_ci_authority_observation.py --self-test
+          python3 scripts/publish_generic_ci_authority_status.py --self-test
+
+      - name: Observe triggering run and current PR subject
+        id: observe
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          set +e
+          python3 scripts/fetch_generic_ci_authority_observation.py \
+            --run-output "$RUNNER_TEMP/authority-run.json" \
+            --files-output "$RUNNER_TEMP/authority-files.json" \
+            --jobs-output "$RUNNER_TEMP/authority-jobs.json" \
+            --receipt-output "$RUNNER_TEMP/authority-observation.json"
+          rc=$?
+          set -e
+
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          if [ -f "$RUNNER_TEMP/authority-observation.json" ]; then
+            cat "$RUNNER_TEMP/authority-observation.json"
+            python3 - "$RUNNER_TEMP/authority-observation.json" "$GITHUB_OUTPUT" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          receipt = json.loads(pathlib.Path(sys.argv[1]).read_text())
+          out = pathlib.Path(sys.argv[2])
+          declared = receipt.get("declared_changed_files")
+          known = receipt.get("publish_subject_known") is True
+          with out.open("a", encoding="utf-8") as handle:
+              handle.write(f"subject_known={'true' if known else 'false'}\n")
+              if isinstance(declared, int) and not isinstance(declared, bool) and declared > 0:
+                  handle.write(f"declared_changed_files={declared}\n")
+          PY
+          else
+            echo "subject_known=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Recompute trusted required-job authority
+        id: authority
+        if: steps.observe.outputs.rc == '0' && steps.observe.outputs.subject_known == 'true'
+        run: |
+          set -uo pipefail
+          set +e
+          python3 scripts/evaluate_generic_ci_authority_v1.py \
+            --run-json "@$RUNNER_TEMP/authority-run.json" \
+            --declared-changed-files "${{ steps.observe.outputs.declared_changed_files }}" \
+            --files-json "@$RUNNER_TEMP/authority-files.json" \
+            --jobs-json "@$RUNNER_TEMP/authority-jobs.json" \
+            > "$RUNNER_TEMP/authority-result.json"
+          rc=$?
+          set -e
+
+          cat "$RUNNER_TEMP/authority-result.json"
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          echo "ran=true" >> "$GITHUB_OUTPUT"
+
+      - name: Publish exact-head authority status
+        id: publish
+        if: steps.authority.outputs.ran == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          set +e
+          python3 scripts/publish_generic_ci_authority_status.py \
+            --authority-receipt "$RUNNER_TEMP/authority-result.json" \
+            --observation-receipt "$RUNNER_TEMP/authority-observation.json" \
+            --receipt-output "$RUNNER_TEMP/authority-publication.json"
+          rc=$?
+          set -e
+
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          if [ -f "$RUNNER_TEMP/authority-publication.json" ]; then
+            cat "$RUNNER_TEMP/authority-publication.json"
+          fi
+
+      - name: Enforce verifier result after publication
+        if: always()
+        env:
+          OBSERVE_RC: ${{ steps.observe.outputs.rc }}
+          SUBJECT_KNOWN: ${{ steps.observe.outputs.subject_known }}
+          AUTHORITY_RAN: ${{ steps.authority.outputs.ran }}
+          AUTHORITY_RC: ${{ steps.authority.outputs.rc }}
+          PUBLISH_RC: ${{ steps.publish.outputs.rc }}
+        run: |
+          set -euo pipefail
+
+          if [ "${OBSERVE_RC:-2}" != "0" ] || [ "${SUBJECT_KNOWN:-false}" != "true" ]; then
+            echo "Trusted current-head binding was not established."
+            exit 1
+          fi
+
+          if [ "${AUTHORITY_RAN:-false}" != "true" ]; then
+            echo "Trusted authority evaluator did not run."
+            exit 1
+          fi
+
+          # Authority RED/indeterminate is published first, then the verifier
+          # workflow itself becomes red for operator visibility.
+          if [ "${AUTHORITY_RC:-2}" != "0" ]; then
+            echo "Trusted authority theorem is non-PASS (rc=${AUTHORITY_RC:-missing})."
+            exit 1
+          fi
+
+          if [ "${PUBLISH_RC:-2}" != "0" ]; then
+            echo "Exact-head authority status publication failed."
+            exit 1
+          fi
+
+          echo "Trusted authority processing completed without a current-subject error."
