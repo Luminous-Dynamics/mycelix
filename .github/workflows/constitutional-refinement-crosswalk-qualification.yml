@@ -1,0 +1,90 @@
+name: Constitutional Refinement Crosswalk Qualification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'mycelix-governance/specs/constitutional-refinement-crosswalk.v1.schema.json'
+      - 'mycelix-governance/specs/constitutional-refinement-crosswalk.v1.json'
+      - 'mycelix-governance/tools/formal/validate_refinement_crosswalk.py'
+      - 'mycelix-governance/tools/formal/qualify_refinement_crosswalk.py'
+      - 'mycelix-governance/docs/CONSTITUTIONAL_REFINEMENT_CROSSWALK_V0_1.md'
+      - 'mycelix-governance/crates/constitutional-claim-lifecycle/src/types.rs'
+      - 'mycelix-governance/crates/constitutional-claim-lifecycle/src/state.rs'
+      - 'mycelix-governance/specs/ConstitutionalClaimLifecycle.tla'
+      - '.github/workflows/constitutional-refinement-crosswalk-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: constitutional-refinement-crosswalk-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NIXPKGS_REV: a50bf0c1b07873c1a53892292017041a8f0a1288
+  EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EXPECTED_SEMANTIC_HEAD: 4edb56bd3c36ddc6277e2de5e0584a65e8c99b3c
+  EXPECTED_LIFECYCLE_HEAD: b19667a0399d46e7a21254e931c3149cfbd994fc
+  EXPECTED_CLOSURE_HEAD: f5cded2e9c54ea638f56003e4636f290b7d3cb29
+  EXPECTED_TEMPORAL_HEAD: 14b4b98eb167589ec29167d5615c25c216b728eb
+
+jobs:
+  qualify:
+    name: Exact-head constitutional refinement crosswalk
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout exact raw head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ env.EXPECTED_HEAD }}
+
+      - name: Bind evidence to exact lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_SEMANTIC_HEAD"
+          test "$(git rev-parse HEAD^^)" = "$EXPECTED_LIFECYCLE_HEAD"
+          test "$(git rev-parse HEAD^^^)" = "$EXPECTED_CLOSURE_HEAD"
+          test "$(git rev-parse HEAD^^^^)" = "$EXPECTED_TEMPORAL_HEAD"
+          rm -rf refinement-crosswalk-evidence
+          mkdir -p refinement-crosswalk-evidence
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Qualify refinement crosswalk
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#python312" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#git" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#coreutils" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" \
+            --command bash -euo pipefail -c '
+              python3 mycelix-governance/tools/formal/qualify_refinement_crosswalk.py \
+                --expected-head "$EXPECTED_HEAD" \
+                --expected-semantic-head "$EXPECTED_SEMANTIC_HEAD" \
+                --expected-lifecycle-head "$EXPECTED_LIFECYCLE_HEAD" \
+                --expected-closure-head "$EXPECTED_CLOSURE_HEAD" \
+                --expected-temporal-head "$EXPECTED_TEMPORAL_HEAD" \
+                --out "$PWD/refinement-crosswalk-evidence"
+            '
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: constitutional-refinement-crosswalk-${{ env.EXPECTED_HEAD }}
+          path: refinement-crosswalk-evidence
+          if-no-files-found: error
+          retention-days: 30
