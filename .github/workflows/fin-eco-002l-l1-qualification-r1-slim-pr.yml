@@ -1,0 +1,327 @@
+name: FIN-ECO-002L L1 Named Finality Profile Qualification R1
+
+on:
+  pull_request:
+    branches:
+      - feat/fin-eco-002l-named-finality-profile-v1-l1
+    paths:
+      - '.github/workflows/fin-eco-002l-l1-qualification-r1-slim-pr.yml'
+
+permissions:
+  contents: read
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  EXPECTED_PRODUCT_SHA: '5ec22afcbc70616e14d80d76cbda829258131ef2'
+  EXPECTED_PREDECESSOR_SHA: '0cba6a93512d4122e0c5da349dd6c2191f249834'
+  EXPECTED_LOCK_BLOB: '961eeb3c653c9c7fc9b4abcbafbb55b2b5462e02'
+  EXPECTED_VERIFIER_BLOB: '6487fc783237785fa733bd7274ea38ad00a66a8d'
+  EXPECTED_CANONICAL_BLOB: '34a68184a57af91200398df7d09e7ed215159972'
+  EXPECTED_MODEL_BLOB: 'e48fcc7df9aff372146c97af1865eb31d4d56dd8'
+  EXPECTED_QUALIFY_BLOB: '98ae2fc852928a4b1366695a104a7d5af547d120'
+  EXPECTED_RECEIPT_BLOB: '25621aaf50adc9ba5dffe1d66dfcdac9cf5e44f4'
+  EXPECTED_TESTS_BLOB: 'a5e8631b9d093067a895cae751b5ddaa8494b7dc'
+  EXPECTED_NEW_LIB_BLOB: '715279e3502d8c4bc67f773572934594a343b8ae'
+  EXPECTED_PROFILE_INPUT_BLOB: '63ed3c837cc8c1f1b66e5a87c101a34f94ef96ae'
+  WORKFLOW: '.github/workflows/fin-eco-002l-l1-qualification-r1-slim-pr.yml'
+
+jobs:
+  rust-equivalence:
+    name: Rust 1.96 named-input equivalence gates
+    runs-on: ubuntu-slim
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact qualification head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Prove exact workflow-only qualification child
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PRODUCT_SHA"
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PRODUCT_SHA" HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$WORKFLOW"
+          test -z "$(git status --porcelain=v1 --untracked-files=no)"
+
+      - name: Install pinned Rust 1.96 with rustfmt and Clippy
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt,clippy
+
+      - name: Acquire exact locked dependency graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc --version --verbose
+          cargo --version
+          rustfmt --version
+          cargo clippy --version
+          test "$(git rev-parse "${EXPECTED_PRODUCT_SHA}:mycelix-finance/Cargo.lock")" = "$EXPECTED_LOCK_BLOB"
+          cargo fetch --manifest-path mycelix-finance/Cargo.toml --locked
+          test -z "$(git status --porcelain=v1 --untracked-files=no)"
+
+      - name: Prove locked graph resolves offline
+        shell: bash
+        env:
+          CARGO_NET_OFFLINE: 'true'
+        run: |
+          set -euo pipefail
+          cargo metadata \
+            --manifest-path mycelix-finance/Cargo.toml \
+            --locked \
+            --offline \
+            --format-version 1 \
+            > /tmp/fin-eco-002l-metadata.json
+          python3 - <<'PY'
+          import json
+          with open('/tmp/fin-eco-002l-metadata.json', encoding='utf-8') as fh:
+              metadata = json.load(fh)
+          names = {package['name'] for package in metadata['packages']}
+          required = {'mycelix-finance-settlement', 'mycelix-finance-exact', 'mycelix-business-core'}
+          missing = sorted(required - names)
+          if missing:
+              raise SystemExit(f'missing expected packages from locked metadata: {missing}')
+          print('locked_offline_metadata=PASS')
+          PY
+
+      - name: Check Rust 1.96 formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(
+            mycelix-finance/crates/finance-settlement/src/lib.rs
+            mycelix-finance/crates/finance-settlement/src/canonical.rs
+            mycelix-finance/crates/finance-settlement/src/model.rs
+            mycelix-finance/crates/finance-settlement/src/profile_input.rs
+            mycelix-finance/crates/finance-settlement/src/qualify.rs
+            mycelix-finance/crates/finance-settlement/src/receipt.rs
+            mycelix-finance/crates/finance-settlement/src/receipt_tests.rs
+            mycelix-finance/crates/finance-settlement/src/receipt_vector_tests.rs
+            mycelix-finance/crates/finance-settlement/src/reference_ordering_vector_tests.rs
+            mycelix-finance/crates/finance-settlement/src/tests.rs
+          )
+          rustfmt --edition 2024 --check "${files[@]}"
+          echo 'rustfmt_1_96=PASS'
+
+      - name: Compile settlement package offline and locked
+        shell: bash
+        env:
+          CARGO_NET_OFFLINE: 'true'
+        run: |
+          set -euo pipefail
+          cargo check \
+            --manifest-path mycelix-finance/Cargo.toml \
+            -p mycelix-finance-settlement \
+            --all-targets \
+            --locked \
+            --offline
+          echo 'settlement_check=PASS'
+
+      - name: Run named-input equivalence tests explicitly
+        shell: bash
+        env:
+          CARGO_NET_OFFLINE: 'true'
+        run: |
+          set -euo pipefail
+          cargo test \
+            --manifest-path mycelix-finance/Cargo.toml \
+            -p mycelix-finance-settlement \
+            --locked \
+            --offline \
+            'profile_input::tests'
+          echo 'named_profile_equivalence_tests=PASS'
+
+      - name: Run complete settlement test suite offline and locked
+        shell: bash
+        env:
+          CARGO_NET_OFFLINE: 'true'
+        run: |
+          set -euo pipefail
+          cargo test \
+            --manifest-path mycelix-finance/Cargo.toml \
+            -p mycelix-finance-settlement \
+            --locked \
+            --offline
+          echo 'settlement_tests=PASS'
+
+      - name: Run strict Clippy offline and locked
+        shell: bash
+        env:
+          CARGO_NET_OFFLINE: 'true'
+        run: |
+          set -euo pipefail
+          cargo clippy \
+            --manifest-path mycelix-finance/Cargo.toml \
+            -p mycelix-finance-settlement \
+            --all-targets \
+            --locked \
+            --offline \
+            -- -D warnings
+          echo 'settlement_clippy_strict=PASS'
+
+      - name: Prove postflight immutability and emit Rust receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain=v1 --untracked-files=no)"
+          echo 'fin_eco_002l_l1_rust=PASS'
+          echo "qualified_product=$EXPECTED_PRODUCT_SHA"
+          echo 'claim=named v1 profile construction preserves existing validation and canonical semantics'
+          echo 'nonclaim=legacy positional constructor retired or deprecated'
+
+  canonical-oracle:
+    name: Independent v1 canonical preservation oracle
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact qualification head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+
+      - name: Prove exact child and unchanged independent verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PRODUCT_SHA"
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PRODUCT_SHA" HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$WORKFLOW"
+          test "$(git rev-parse "${EXPECTED_PRODUCT_SHA}:mycelix-finance/crates/finance-settlement/tools/verify_canonical_vectors.py")" = "$EXPECTED_VERIFIER_BLOB"
+          test "$(git rev-parse "${EXPECTED_PRODUCT_SHA}:mycelix-finance/crates/finance-settlement/src/canonical.rs")" = "$EXPECTED_CANONICAL_BLOB"
+          test -z "$(git status --porcelain=v1 --untracked-files=no)"
+
+      - name: Re-run hardened independent v1 canonical oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          verifier='mycelix-finance/crates/finance-settlement/tools/verify_canonical_vectors.py'
+          python3 --version
+          python3 "$verifier" | tee /tmp/fin-eco-002l-oracle.log
+          grep -Fx 'independent_settlement_v1_oracle=PASS' /tmp/fin-eco-002l-oracle.log
+          grep -Fx 'independent_invalidation_receipt_v1_oracle=PASS' /tmp/fin-eco-002l-oracle.log
+          grep -Fx 'independent_reference_ordering_v1_oracle=PASS' /tmp/fin-eco-002l-oracle.log
+          grep -Fx 'independent_fin_eco_002a_canonical_oracles=PASS' /tmp/fin-eco-002l-oracle.log
+
+      - name: Re-run oracle under optimized Python
+        shell: bash
+        run: |
+          set -euo pipefail
+          verifier='mycelix-finance/crates/finance-settlement/tools/verify_canonical_vectors.py'
+          PYTHONOPTIMIZE=2 python3 "$verifier" | tee /tmp/fin-eco-002l-oracle-opt.log
+          grep -Fx 'independent_fin_eco_002a_canonical_oracles=PASS' /tmp/fin-eco-002l-oracle-opt.log
+          echo 'optimized_python_oracle=PASS'
+
+      - name: Prove oracle postflight immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain=v1 --untracked-files=no)"
+          echo 'fin_eco_002l_l1_canonical_v1_unchanged=PASS'
+
+  lineage-identity:
+    name: Qualified predecessor, product scope, and object identity
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact qualification head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Prove exact L1 lineage and two-path product scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PRODUCT_SHA"
+          mapfile -t qualifier_changed < <(git diff --name-only "$EXPECTED_PRODUCT_SHA" HEAD)
+          test "${#qualifier_changed[@]}" -eq 1
+          test "${qualifier_changed[0]}" = "$WORKFLOW"
+
+          test "$(git rev-parse "${EXPECTED_PRODUCT_SHA}^")" = "$EXPECTED_PREDECESSOR_SHA"
+          mapfile -t product_changed < <(git diff --name-only "$EXPECTED_PREDECESSOR_SHA" "$EXPECTED_PRODUCT_SHA")
+          expected=(
+            'mycelix-finance/crates/finance-settlement/src/lib.rs'
+            'mycelix-finance/crates/finance-settlement/src/profile_input.rs'
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          mapfile -t actual_sorted < <(printf '%s\n' "${product_changed[@]}" | sort)
+          test "${#actual_sorted[@]}" -eq "${#expected_sorted[@]}"
+          for i in "${!expected_sorted[@]}"; do
+            test "${actual_sorted[$i]}" = "${expected_sorted[$i]}"
+          done
+          if printf '%s\n' "${product_changed[@]}" | grep -q '^\.github/'; then
+            echo 'workflow contamination in L1 product candidate' >&2
+            exit 1
+          fi
+
+          if git cat-file -e "${EXPECTED_PREDECESSOR_SHA}:mycelix-finance/crates/finance-settlement/src/profile_input.rs" 2>/dev/null; then
+            echo 'profile_input.rs unexpectedly exists in qualified predecessor' >&2
+            exit 1
+          fi
+
+          echo 'l1_exact_lineage=PASS'
+          echo 'l1_two_path_scope=PASS'
+
+      - name: Prove new and inherited object identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse "${EXPECTED_PRODUCT_SHA}:mycelix-finance/crates/finance-settlement/src/lib.rs")" = "$EXPECTED_NEW_LIB_BLOB"
+          test "$(git rev-parse "${EXPECTED_PRODUCT_SHA}:mycelix-finance/crates/finance-settlement/src/profile_input.rs")" = "$EXPECTED_PROFILE_INPUT_BLOB"
+          test "$(git rev-parse "${EXPECTED_PRODUCT_SHA}:mycelix-finance/Cargo.lock")" = "$EXPECTED_LOCK_BLOB"
+          test "$(git rev-parse "${EXPECTED_PRODUCT_SHA}:mycelix-finance/crates/finance-settlement/tools/verify_canonical_vectors.py")" = "$EXPECTED_VERIFIER_BLOB"
+          test "$(git rev-parse "${EXPECTED_PRODUCT_SHA}:mycelix-finance/crates/finance-settlement/src/canonical.rs")" = "$EXPECTED_CANONICAL_BLOB"
+          test "$(git rev-parse "${EXPECTED_PRODUCT_SHA}:mycelix-finance/crates/finance-settlement/src/model.rs")" = "$EXPECTED_MODEL_BLOB"
+          test "$(git rev-parse "${EXPECTED_PRODUCT_SHA}:mycelix-finance/crates/finance-settlement/src/qualify.rs")" = "$EXPECTED_QUALIFY_BLOB"
+          test "$(git rev-parse "${EXPECTED_PRODUCT_SHA}:mycelix-finance/crates/finance-settlement/src/receipt.rs")" = "$EXPECTED_RECEIPT_BLOB"
+          test "$(git rev-parse "${EXPECTED_PRODUCT_SHA}:mycelix-finance/crates/finance-settlement/src/tests.rs")" = "$EXPECTED_TESTS_BLOB"
+          test -z "$(git status --porcelain=v1 --untracked-files=no)"
+          echo 'l1_object_identity=PASS'
+          echo 'canonical_v1_product_blobs_unchanged=PASS'
+
+      - name: Emit L1 claim boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat <<'EOF'
+          fin_eco_002l_l1_lineage=PASS
+          claim=named typed v1 finality-profile input is additive and canonical-preserving relative to qualified FIN-ECO-002A v1
+          nonclaim=legacy positional constructor removed
+          nonclaim=source authority or per-kind quorum
+          nonclaim=legal finality or trusted-current time
+          EOF
+
+  qualification-verdict:
+    name: Conjunctive FIN-ECO-002L L1 verdict
+    if: always()
+    needs:
+      - rust-equivalence
+      - canonical-oracle
+      - lineage-identity
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    steps:
+      - name: Require every independent L1 evidence plane
+        shell: bash
+        env:
+          RUST_RESULT: ${{ needs.rust-equivalence.result }}
+          ORACLE_RESULT: ${{ needs.canonical-oracle.result }}
+          LINEAGE_RESULT: ${{ needs.lineage-identity.result }}
+        run: |
+          set -euo pipefail
+          printf 'rust=%s\noracle=%s\nlineage=%s\n' "$RUST_RESULT" "$ORACLE_RESULT" "$LINEAGE_RESULT"
+          test "$RUST_RESULT" = 'success'
+          test "$ORACLE_RESULT" = 'success'
+          test "$LINEAGE_RESULT" = 'success'
+          echo 'fin_eco_002l_l1_qualification=PASS'
+          echo "qualified_product=$EXPECTED_PRODUCT_SHA"
+          echo "qualified_predecessor=$EXPECTED_PREDECESSOR_SHA"
+          echo 'qualification_rule=rust_equivalence AND canonical_oracle AND lineage_identity'
