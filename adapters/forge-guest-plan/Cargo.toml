@@ -1,0 +1,17 @@
+[package]
+name = "mycelix-forge-guest-plan"
+version = "0.1.0"
+edition = "2021"
+authors = ["Luminous Dynamics"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+description = "Canonical in-sandbox verification plan for Mycelix Forge M0"
+
+[dependencies]
+mycelix-forge-core = { path = "../../crates/mycelix-forge-core" }
+mycelix-forge-repository = { path = "../../crates/mycelix-forge-repository" }
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "2.0"
+
+[dev-dependencies]
+serde_json = "1.0"
