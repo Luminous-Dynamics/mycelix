@@ -1,0 +1,159 @@
+name: CI-GOV-001DQ Path Admission Profile Qualification
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - '.github/workflows/ci-gov-001dq-path-profile-qualification.yml'
+
+concurrency:
+  group: ci-gov-001dq-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    # Ordinary draft authoring remains reviewable without runner allocation.
+    # Ready-for-review is the only PR execution transition for this branch-local
+    # qualifier. Generic label events are excluded so unrelated labels cannot
+    # perturb the PR-scoped concurrency lane.
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    env:
+      PRODUCT_SHA: 11863d8edd9cc0674761d2c96c3c1b1413506af4
+      PROFILE_BLOB: fc2d8cf4f6035e7af2e8344270d9a0d8523c99ba
+      EVALUATOR_BLOB: fca1e033c2013ede4fbb0e88dfcb65367d1cd230
+      GENERIC_CI_BLOB: aa8e18ee225e1bbd20e477230909a49da4514b38
+      QUALIFIER_PATH: .github/workflows/ci-gov-001dq-path-profile-qualification.yml
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - name: Check out exact qualification subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Prove qualification-only review surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "${PRODUCT_SHA}"
+          test "$(git rev-list --count "${PRODUCT_SHA}..HEAD")" -eq 1
+          test "$(git merge-base "${PRODUCT_SHA}" HEAD)" = "${PRODUCT_SHA}"
+          mapfile -t changed < <(git diff --name-only "${PRODUCT_SHA}..HEAD")
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "${QUALIFIER_PATH}"
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Bind exact profile oracle and governed workflow bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse "HEAD:docs/ci/generic_ci_path_admission_v1.json")" = "${PROFILE_BLOB}"
+          test "$(git rev-parse "HEAD:scripts/evaluate_generic_ci_path_admission.py")" = "${EVALUATOR_BLOB}"
+          test "$(git rev-parse "HEAD:.github/workflows/ci.yml")" = "${GENERIC_CI_BLOB}"
+
+      - name: Compile and execute deterministic profile corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/evaluate_generic_ci_path_admission.py')
+          compile(path.read_text(encoding='utf-8'), str(path), 'exec')
+          PY
+          python3 scripts/evaluate_generic_ci_path_admission.py --self-test | tee /tmp/ci-gov-001dq-self-test.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          value = json.loads(Path('/tmp/ci-gov-001dq-self-test.json').read_text(encoding='utf-8'))
+          expected = {
+              'authority': 'SchedulingOnly',
+              'grants_ci_pass': False,
+              'grants_product_qualification': False,
+              'profile_id': 'generic-mycelix-ci-path-admission-v1',
+              'self_test': 'PASS',
+          }
+          if value != expected:
+              raise SystemExit(f'unexpected profile self-test receipt: {value!r}')
+          PY
+
+      - name: Audit tri-state fail-closed profile theorem
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import importlib.util
+          import json
+          import sys
+          from pathlib import Path
+
+          profile_path = Path('docs/ci/generic_ci_path_admission_v1.json')
+          evaluator_path = Path('scripts/evaluate_generic_ci_path_admission.py')
+          profile = json.loads(profile_path.read_text(encoding='utf-8'))
+
+          if profile.get('profile_id') != 'generic-mycelix-ci-path-admission-v1':
+              raise SystemExit('profile id drift')
+          if profile.get('authority') != 'SchedulingOnly':
+              raise SystemExit('profile authority drift')
+          if profile.get('unknown_policy') != 'AdmitUnknown':
+              raise SystemExit('unknown must remain fail-closed admit')
+          if profile.get('decision_precedence') != [
+              'AdmitKnownRelevant', 'AdmitUnknown', 'SkipProvenIrrelevant'
+          ]:
+              raise SystemExit('decision precedence drift')
+
+          irrelevant = [entry.get('pattern') for entry in profile.get('proven_irrelevant', [])]
+          if irrelevant != ['docs/lex-net/**']:
+              raise SystemExit(f'v1 proven-irrelevant surface widened or drifted: {irrelevant!r}')
+          if 'docs/**' in irrelevant or '**' in irrelevant:
+              raise SystemExit('broad/universal skip surface forbidden')
+
+          workflow = profile.get('workflow') or {}
+          if workflow.get('path') != '.github/workflows/ci.yml':
+              raise SystemExit('governed workflow path drift')
+          if workflow.get('blob_sha') != 'aa8e18ee225e1bbd20e477230909a49da4514b38':
+              raise SystemExit('governed workflow blob drift')
+
+          spec = importlib.util.spec_from_file_location('path_admission', evaluator_path)
+          if spec is None or spec.loader is None:
+              raise SystemExit('unable to load path admission evaluator')
+          module = importlib.util.module_from_spec(spec)
+          sys.modules[spec.name] = module
+          spec.loader.exec_module(module)
+
+          fixtures = [
+              (['docs/lex-net/a.md'], 'SkipProvenIrrelevant'),
+              (['docs/lex-net/sub/a.md'], 'SkipProvenIrrelevant'),
+              (['future-shared/runtime/new.rs'], 'AdmitUnknown'),
+              (['docs/lex-net/a.md', 'future-shared/runtime/new.rs'], 'AdmitUnknown'),
+              (['mycelix-governance/Cargo.toml'], 'AdmitKnownRelevant'),
+              (['docs/lex-net/a.md', 'mycelix-governance/Cargo.toml'], 'AdmitKnownRelevant'),
+          ]
+          for paths, expected in fixtures:
+              result = module.evaluate(profile, paths)
+              if result.disposition != expected:
+                  raise SystemExit(
+                      f'fixture {paths!r}: {result.disposition!r} != {expected!r}'
+                  )
+
+          source = evaluator_path.read_text(encoding='utf-8')
+          if 'fnmatch.fnmatchcase' not in source:
+              raise SystemExit('profile matcher implementation drift')
+          print('profile_semantics_only=PASS')
+          print('github_trigger_glob_equivalence=NOT_ESTABLISHED')
+          PY
+
+      - name: Prove checkout immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "${PRODUCT_SHA}"
+          test "$(git rev-parse "HEAD:docs/ci/generic_ci_path_admission_v1.json")" = "${PROFILE_BLOB}"
+          test "$(git rev-parse "HEAD:scripts/evaluate_generic_ci_path_admission.py")" = "${EVALUATOR_BLOB}"
+          test "$(git rev-parse "HEAD:.github/workflows/ci.yml")" = "${GENERIC_CI_BLOB}"
+          test -z "$(git status --porcelain=v1)"
