@@ -1,0 +1,108 @@
+name: Constitutional Claim Binding Qualification R1
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'mycelix-governance/Cargo.toml'
+      - 'mycelix-governance/crates/constitutional-consumption/**'
+      - 'mycelix-governance/crates/constitutional-temporal-provenance/**'
+      - 'mycelix-governance/crates/constitutional-claim-lifecycle/**'
+      - 'mycelix-governance/docs/CONSTITUTIONAL_CLAIM_BINDING_V0_1.md'
+      - 'mycelix-governance/specs/ConstitutionalClaimBinding.als'
+      - 'mycelix-governance/tools/formal/pins.json'
+      - 'mycelix-governance/tools/formal/qualify_claim_binding.py'
+      - 'mycelix-governance/tools/formal/qualify_claim_binding_r1.py'
+      - '.github/workflows/constitutional-claim-binding-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: constitutional-claim-binding-r1-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NIXPKGS_REV: a50bf0c1b07873c1a53892292017041a8f0a1288
+  ALLOY_URL: https://github.com/AlloyTools/org.alloytools.alloy/releases/download/v6.2.0/org.alloytools.alloy.dist.jar
+  ALLOY_SHA256: 6b8c1cb5bc93bedfc7c61435c4e1ab6e688a242dc702a394628d9a9801edb78d
+  EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EXPECTED_SEMANTIC_HEAD: 037f61c15ff367a1518d98f7acc8ec0fa962c2f6
+  EXPECTED_LIFECYCLE_HEAD: b19667a0399d46e7a21254e931c3149cfbd994fc
+  EXPECTED_CLOSURE_HEAD: f5cded2e9c54ea638f56003e4636f290b7d3cb29
+  EXPECTED_TEMPORAL_HEAD: 14b4b98eb167589ec29167d5615c25c216b728eb
+  SUPERSEDES_FAILED_QUALIFIER_HEAD: 7a654d6cc854185dd5589ac8aab30c6699b45a3a
+
+jobs:
+  qualify:
+    name: Rust + Alloy exact-head constitutional claim binding R1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout exact raw head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ env.EXPECTED_HEAD }}
+
+      - name: Bind evidence to exact lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_SEMANTIC_HEAD"
+          test "$(git rev-parse HEAD^^)" = "$EXPECTED_LIFECYCLE_HEAD"
+          test "$(git rev-parse HEAD^^^)" = "$EXPECTED_CLOSURE_HEAD"
+          test "$(git rev-parse HEAD^^^^)" = "$EXPECTED_TEMPORAL_HEAD"
+          rm -rf claim-binding-evidence .claim-binding-tools
+          mkdir -p claim-binding-evidence .claim-binding-tools
+          printf '%s\n' "$EXPECTED_HEAD" > claim-binding-evidence/expected-head.txt
+          printf '%s\n' "$EXPECTED_SEMANTIC_HEAD" > claim-binding-evidence/expected-semantic-head.txt
+          printf '%s\n' "$EXPECTED_LIFECYCLE_HEAD" > claim-binding-evidence/expected-lifecycle-head.txt
+          printf '%s\n' "$EXPECTED_CLOSURE_HEAD" > claim-binding-evidence/expected-closure-head.txt
+          printf '%s\n' "$EXPECTED_TEMPORAL_HEAD" > claim-binding-evidence/expected-temporal-head.txt
+          printf '%s\n' "$SUPERSEDES_FAILED_QUALIFIER_HEAD" > claim-binding-evidence/supersedes-failed-qualifier-head.txt
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Acquire pinned tools and qualify binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#jdk17_headless" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#python312" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#curl" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#coreutils" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" \
+            --command bash -euo pipefail -c '
+              curl --fail --location --retry 3 --retry-all-errors \
+                --output .claim-binding-tools/alloy.jar "$ALLOY_URL"
+              printf "%s  %s\n" "$ALLOY_SHA256" .claim-binding-tools/alloy.jar | sha256sum --check --strict
+
+              python3 mycelix-governance/tools/formal/qualify_claim_binding_r1.py \
+                --alloy-jar "$PWD/.claim-binding-tools/alloy.jar" \
+                --expected-head "$EXPECTED_HEAD" \
+                --expected-semantic-head "$EXPECTED_SEMANTIC_HEAD" \
+                --expected-lifecycle-head "$EXPECTED_LIFECYCLE_HEAD" \
+                --expected-closure-head "$EXPECTED_CLOSURE_HEAD" \
+                --expected-temporal-head "$EXPECTED_TEMPORAL_HEAD" \
+                --out "$PWD/claim-binding-evidence"
+            '
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: constitutional-claim-binding-r1-${{ env.EXPECTED_HEAD }}
+          path: claim-binding-evidence
+          if-no-files-found: error
+          retention-days: 30
