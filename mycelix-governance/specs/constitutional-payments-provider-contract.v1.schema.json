@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mycelix.constitutional-payments-provider-contract.v1.schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema","profile_id","revision","authority_class","parents","provider_operation_identity","intent","outcomes","observation_binding","state_rules","registry_rules","activation","required_successor","non_claims"],
+  "properties": {
+    "schema": {"const": "mycelix.constitutional-payments-provider-contract.v1"},
+    "profile_id": {"const": "mycelix-constitutional-payments-provider-v1"},
+    "revision": {"const": 1},
+    "authority_class": {"const": "InertReferenceContract"},
+    "parents": {"type":"object"},
+    "provider_operation_identity": {"type":"object"},
+    "intent": {"type":"object"},
+    "outcomes": {"type":"array","uniqueItems":true,"minItems":3,"maxItems":3,"items":{"enum":["KnownSuccess","KnownNoEffect","UnknownOutcome"]}},
+    "observation_binding": {"type":"object"},
+    "state_rules": {"type":"object"},
+    "registry_rules": {"type":"object"},
+    "activation": {
+      "type":"object",
+      "additionalProperties": false,
+      "required":["persistent_provider_intent","payments_zome_wired","governance_route_wired","provider_query_wired","capability_minting_path","automatic_replay_enabled"],
+      "properties": {
+        "persistent_provider_intent":{"const":false},
+        "payments_zome_wired":{"const":false},
+        "governance_route_wired":{"const":false},
+        "provider_query_wired":{"const":false},
+        "capability_minting_path":{"const":false},
+        "automatic_replay_enabled":{"const":false}
+      }
+    },
+    "required_successor": {"type":"array","minItems":9,"uniqueItems":true,"items":{"type":"string"}},
+    "non_claims": {"type":"array","minItems":11,"uniqueItems":true,"items":{"type":"string"}}
+  }
+}

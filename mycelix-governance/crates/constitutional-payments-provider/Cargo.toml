@@ -1,0 +1,12 @@
+[package]
+name = "constitutional-payments-provider"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Inert deterministic provider-operation and reconciliation contract for constitutional payments"
+
+[dependencies]
+serde = { workspace = true }
+thiserror = { workspace = true }
+blake3 = "=1.8.5"
+constitutional-treasury-effect-provider = { workspace = true }
