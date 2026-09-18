@@ -19,6 +19,7 @@ on:
       - "adapters/forge-hermetic-run-evidence/**"
       - "adapters/forge-guest-plan/**"
       - "adapters/forge-guest-transcript/**"
+      - "adapters/forge-m0-offline-evidence/**"
       - ".github/workflows/forge.yml"
   push:
     branches:
@@ -40,6 +41,7 @@ on:
       - "adapters/forge-hermetic-run-evidence/**"
       - "adapters/forge-guest-plan/**"
       - "adapters/forge-guest-transcript/**"
+      - "adapters/forge-m0-offline-evidence/**"
       - ".github/workflows/forge.yml"
 
 permissions:
@@ -89,6 +91,8 @@ jobs:
             path: adapters/forge-guest-plan
           - name: Forge Guest Transcript
             path: adapters/forge-guest-transcript
+          - name: Forge M0 Offline Evidence
+            path: adapters/forge-m0-offline-evidence
     defaults:
       run:
         working-directory: ${{ matrix.path }}
