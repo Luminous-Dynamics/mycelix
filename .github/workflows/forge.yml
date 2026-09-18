@@ -6,6 +6,7 @@ on:
       - "crates/mycelix-forge-core/**"
       - "crates/mycelix-forge-authority/**"
       - "crates/mycelix-forge-repository/**"
+      - "crates/mycelix-forge-execution/**"
       - "adapters/forge-gittuf/**"
       - "adapters/forge-gittuf-bundle/**"
       - ".github/workflows/forge.yml"
@@ -16,6 +17,7 @@ on:
       - "crates/mycelix-forge-core/**"
       - "crates/mycelix-forge-authority/**"
       - "crates/mycelix-forge-repository/**"
+      - "crates/mycelix-forge-execution/**"
       - "adapters/forge-gittuf/**"
       - "adapters/forge-gittuf-bundle/**"
       - ".github/workflows/forge.yml"
@@ -41,6 +43,8 @@ jobs:
             path: crates/mycelix-forge-authority
           - name: Forge Repository Contract
             path: crates/mycelix-forge-repository
+          - name: Forge Execution Contract
+            path: crates/mycelix-forge-execution
           - name: Forge gittuf Adapter
             path: adapters/forge-gittuf
           - name: Forge Repository Bundle
