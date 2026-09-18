@@ -1,0 +1,93 @@
+{
+  "schema": "mycelix.constitutional-payments-provider-contract.v1",
+  "profile_id": "mycelix-constitutional-payments-provider-v1",
+  "revision": 1,
+  "authority_class": "InertReferenceContract",
+  "parents": {
+    "f0c_semantic_head": "36bb486794f3e2720a2e02b3045c270b147cbacc",
+    "f0p0_semantic_head": "0442bc487dc5ea3303144b3f7be8979c673d6018"
+  },
+  "provider_operation_identity": {
+    "prefix": "payments-provider-operation-v1:",
+    "inputs": [
+      "provider_profile_id",
+      "provider_profile_commitment",
+      "execution_id",
+      "request_commitment"
+    ],
+    "wall_clock_participates": false,
+    "attempt_id_participates": false,
+    "payment_id_participates": false,
+    "receipt_id_participates": false,
+    "same_f0_effect_same_profile_same_key": true,
+    "changed_f0_effect_changes_key": true,
+    "changed_provider_profile_commitment_changes_key": true
+  },
+  "intent": {
+    "derived_from_exact_f0_effect_intent": true,
+    "binds_execution_id": true,
+    "binds_request_commitment": true,
+    "binds_provider_profile": true,
+    "committed_at_is_metadata_only": true
+  },
+  "outcomes": [
+    "KnownSuccess",
+    "KnownNoEffect",
+    "UnknownOutcome"
+  ],
+  "observation_binding": {
+    "provider_operation_key": true,
+    "execution_id": true,
+    "request_commitment": true,
+    "observation_id": true,
+    "observed_at_is_metadata_only": true
+  },
+  "state_rules": {
+    "unknown_may_resolve_to_success": true,
+    "unknown_may_resolve_to_no_effect": true,
+    "success_and_no_effect_conflict_halts": true,
+    "conflicting_success_evidence_halts": true,
+    "same_observation_id_same_payload_is_idempotent": true,
+    "same_observation_id_changed_payload_halts": true,
+    "unknown_after_terminal_is_historical_only": true
+  },
+  "registry_rules": {
+    "same_exact_intent_returns_existing": true,
+    "one_provider_operation_per_execution_id": true,
+    "same_execution_changed_provider_profile_conflicts": true,
+    "operation_key_collision_conflicts": true,
+    "last_write_wins": false
+  },
+  "activation": {
+    "persistent_provider_intent": false,
+    "payments_zome_wired": false,
+    "governance_route_wired": false,
+    "provider_query_wired": false,
+    "capability_minting_path": false,
+    "automatic_replay_enabled": false
+  },
+  "required_successor": [
+    "qualified_value_and_authority_join",
+    "persistent_provider_operation_before_dispatch",
+    "payments_operation_key_index",
+    "same_key_duplicate_and_conflict_enforcement",
+    "authoritative_provider_query",
+    "verified_machine_readable_receipt",
+    "lost_ack_and_concurrent_duplicate_qualification",
+    "exact_provider_capability_qualification_before_minting",
+    "separate_live_governance_routing_tranche"
+  ],
+  "non_claims": [
+    "not_live_payments_provider",
+    "not_persistent_provider_intent",
+    "not_provider_qualified",
+    "not_provider_truth_established",
+    "not_capability_minting_authorized",
+    "not_automatic_replay_enabled",
+    "not_public_fund_authority",
+    "not_sap_amount_qualified",
+    "not_physical_exactly_once",
+    "not_external_settlement_finality",
+    "not_deployment_current"
+  ]
+}
