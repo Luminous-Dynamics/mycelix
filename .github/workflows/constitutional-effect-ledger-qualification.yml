@@ -1,0 +1,128 @@
+name: Constitutional Effect Ledger Qualification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'mycelix-governance/Cargo.toml'
+      - 'mycelix-governance/crates/constitutional-effect-ledger/**'
+      - 'mycelix-governance/docs/CONSTITUTIONAL_EFFECT_LEDGER_V0_1.md'
+      - '.github/workflows/constitutional-effect-ledger-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: constitutional-effect-ledger-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NIXPKGS_REV: a50bf0c1b07873c1a53892292017041a8f0a1288
+  EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EXPECTED_SEMANTIC_HEAD: 47d1d764323dbfaf991b5574cfde83abb7a3e4a4
+
+jobs:
+  qualify:
+    name: Rust exact-head constitutional effect ledger
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout exact raw head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ env.EXPECTED_HEAD }}
+
+      - name: Bind exact verifier lineage and source snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_SEMANTIC_HEAD"
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/constitutional-effect-ledger-qualification.yml"
+
+          rm -rf effect-ledger-evidence
+          mkdir -p effect-ledger-evidence
+          printf '%s\n' "$EXPECTED_HEAD" > effect-ledger-evidence/expected-head.txt
+          printf '%s\n' "$EXPECTED_SEMANTIC_HEAD" > effect-ledger-evidence/expected-semantic-head.txt
+
+          git hash-object \
+            mycelix-governance/Cargo.toml \
+            mycelix-governance/crates/constitutional-effect-ledger/Cargo.toml \
+            mycelix-governance/crates/constitutional-effect-ledger/src/lib.rs \
+            mycelix-governance/docs/CONSTITUTIONAL_EFFECT_LEDGER_V0_1.md \
+            > effect-ledger-evidence/source-hashes-before.txt
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Compile and test exact contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustfmt" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#coreutils" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" \
+            --command bash -euo pipefail -c '
+              rustc --version | tee effect-ledger-evidence/rustc-version.txt
+              cargo --version | tee effect-ledger-evidence/cargo-version.txt
+              rustfmt --version | tee effect-ledger-evidence/rustfmt-version.txt
+
+              cargo fmt \
+                --manifest-path mycelix-governance/Cargo.toml \
+                --package constitutional-effect-ledger \
+                -- --check \
+                2>&1 | tee effect-ledger-evidence/cargo-fmt.log
+
+              cargo check \
+                --manifest-path mycelix-governance/crates/constitutional-effect-ledger/Cargo.toml \
+                --all-targets \
+                2>&1 | tee effect-ledger-evidence/cargo-check.log
+
+              cargo test \
+                --manifest-path mycelix-governance/crates/constitutional-effect-ledger/Cargo.toml \
+                --all-targets \
+                2>&1 | tee effect-ledger-evidence/cargo-test.log
+
+              cp mycelix-governance/Cargo.lock effect-ledger-evidence/derived-Cargo.lock
+              sha256sum effect-ledger-evidence/derived-Cargo.lock \
+                > effect-ledger-evidence/derived-Cargo.lock.sha256
+            '
+
+      - name: Verify semantic source immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+
+          git hash-object \
+            mycelix-governance/Cargo.toml \
+            mycelix-governance/crates/constitutional-effect-ledger/Cargo.toml \
+            mycelix-governance/crates/constitutional-effect-ledger/src/lib.rs \
+            mycelix-governance/docs/CONSTITUTIONAL_EFFECT_LEDGER_V0_1.md \
+            > effect-ledger-evidence/source-hashes-after.txt
+
+          cmp effect-ledger-evidence/source-hashes-before.txt effect-ledger-evidence/source-hashes-after.txt
+
+          git diff --exit-code -- \
+            mycelix-governance/Cargo.toml \
+            mycelix-governance/crates/constitutional-effect-ledger/Cargo.toml \
+            mycelix-governance/crates/constitutional-effect-ledger/src/lib.rs \
+            mycelix-governance/docs/CONSTITUTIONAL_EFFECT_LEDGER_V0_1.md
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: constitutional-effect-ledger-${{ env.EXPECTED_HEAD }}
+          path: effect-ledger-evidence
+          if-no-files-found: error
+          retention-days: 30
