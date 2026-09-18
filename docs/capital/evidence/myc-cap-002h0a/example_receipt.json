@@ -1,0 +1,110 @@
+{
+  "constitutional_authority_established": false,
+  "dimensions": [
+    {
+      "adapter_nonclaims": [
+        "projection validity is not source qualification",
+        "normalization does not add currentness or authority",
+        "source subject and receipt identity remain authoritative provenance",
+        "projection does not establish execution, payment-transfer, legal-title, or constitutional authority"
+      ],
+      "authority_ceiling": "READINESS_ONLY",
+      "blockers": [],
+      "constitutional_authority_established": false,
+      "currentness_owner": "H3A_REQUIRED",
+      "currentness_state": "NOT_ESTABLISHED",
+      "dimension_id": "HANDBACK_READINESS",
+      "execution_authority_established": false,
+      "legal_title_authority_established": false,
+      "payment_authority_established": false,
+      "project_id": "fiber:jhb:test-001",
+      "projection_version": "mycelix-composition-dimension-projection-record-v1",
+      "semantic_state": "HANDOVER_READY",
+      "source_nonclaims": [
+        "handback readiness is not handover acceptance",
+        "handback readiness is not operational custody transfer",
+        "handback readiness is not legal title transfer",
+        "handback readiness does not establish assessment currentness",
+        "handback readiness does not establish statutory inspection or engineering fitness outside the qualified input scopes",
+        "handback readiness does not establish execution authority"
+      ],
+      "source_receipt_sha256": "be1c02a199688e8aef4c6054abfef216cfffe830730f090fdb1be1db406e3045",
+      "source_receipt_version": "mycelix-handback-readiness-composition-receipt-v1",
+      "source_subject_sha": "f9d88b41a750d2bddfa8fa2bf26727f04a4998a6"
+    },
+    {
+      "adapter_nonclaims": [
+        "projection validity is not source qualification",
+        "normalization does not add currentness or authority",
+        "source subject and receipt identity remain authoritative provenance",
+        "projection does not establish execution, payment-transfer, legal-title, or constitutional authority"
+      ],
+      "authority_ceiling": "SERVICE_DISTRIBUTION_STATE_ONLY",
+      "blockers": [],
+      "constitutional_authority_established": false,
+      "currentness_owner": "INTEGRATED_SOURCE_THEOREM",
+      "currentness_state": "CURRENT",
+      "dimension_id": "PUBLIC_SERVICE_DISTRIBUTION",
+      "execution_authority_established": false,
+      "legal_title_authority_established": false,
+      "payment_authority_established": false,
+      "project_id": "fiber:jhb:test-001",
+      "projection_version": "mycelix-composition-dimension-projection-record-v1",
+      "semantic_state": "ELIGIBLE",
+      "source_nonclaims": [
+        "current service eligibility is not payment authorization",
+        "current service eligibility does not establish legal distribution entitlement",
+        "service composition does not establish measurement authenticity",
+        "service composition does not establish solvency, handback readiness, or democratic legitimacy"
+      ],
+      "source_receipt_sha256": "bd78cf22a9899d0a816de80600d8f375e1d089f07b9ba64f3146b0bd32318e83",
+      "source_receipt_version": "mycelix-public-service-distribution-composition-receipt-v1",
+      "source_subject_sha": "7ba66c70be2df27b1d5deaa77a88ffdda96baa35"
+    },
+    {
+      "adapter_nonclaims": [
+        "projection validity is not source qualification",
+        "normalization does not add currentness or authority",
+        "source subject and receipt identity remain authoritative provenance",
+        "projection does not establish execution, payment-transfer, legal-title, or constitutional authority"
+      ],
+      "authority_ceiling": "GOVERNANCE_STATE_ONLY",
+      "blockers": [],
+      "constitutional_authority_established": false,
+      "currentness_owner": "INTEGRATED_SOURCE_THEOREM",
+      "currentness_state": "CURRENT",
+      "dimension_id": "STEWARDSHIP_GOVERNANCE",
+      "execution_authority_established": false,
+      "legal_title_authority_established": false,
+      "payment_authority_established": false,
+      "project_id": "fiber:jhb:test-001",
+      "projection_version": "mycelix-composition-dimension-projection-record-v1",
+      "semantic_state": "CURRENT",
+      "source_nonclaims": [
+        "CURRENT establishes only composition of one current authorized decision with one exact active constitution checkpoint",
+        "composition does not establish execution authority",
+        "composition does not establish legal or constitutional-law validity",
+        "composition does not establish democratic legitimacy or social consensus",
+        "composition does not establish service quality, solvency, handback readiness, or operational sovereignty"
+      ],
+      "source_receipt_sha256": "ef3e4b8772d4476fe24568cd8c503db7dec192418cd4719a052d6b941d523544",
+      "source_receipt_version": "mycelix-stewardship-governance-dimension-receipt-v1",
+      "source_subject_sha": "cb6f2e88d81a7ff0fb0adcf36888f44c4fe8ed69"
+    }
+  ],
+  "execution_authority_established": false,
+  "legal_title_authority_established": false,
+  "nonclaims": [
+    "dimension projection does not qualify any new source subject",
+    "dimension projection does not establish project transition readiness",
+    "H3 projection does not establish handback-readiness currentness",
+    "bundle projection does not establish custody acceptance or current custody",
+    "bundle projection does not establish payment, execution, legal-title, or constitutional authority"
+  ],
+  "payment_authority_established": false,
+  "profile_sha256": "9900b467a7f29393b30b61db85361649b5138644da323efd9b3129ebcda751e7",
+  "profile_version": "mycelix-composition-dimension-projection-v1",
+  "project_id": "fiber:jhb:test-001",
+  "receipt_version": "mycelix-composition-dimension-projection-bundle-v1",
+  "source_identity_sha256": "2ca7cc63a49f7c5dcb8f27eef780970987b79f8236b179619f04233670e3a10d"
+}
