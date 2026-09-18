@@ -1,0 +1,18 @@
+[package]
+name = "mycelix-forge-gittuf-adapter"
+version = "0.1.0"
+edition = "2021"
+authors = ["Luminous Dynamics"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+description = "Version-bound process adapter from gittuf into Mycelix Forge repository verification"
+
+[dependencies]
+hex = "0.4"
+mycelix-forge-core = { path = "../../crates/mycelix-forge-core" }
+mycelix-forge-repository = { path = "../../crates/mycelix-forge-repository" }
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "2.0"
+
+[dev-dependencies]
+serde_json = "1.0"
