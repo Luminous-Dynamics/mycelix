@@ -33,6 +33,38 @@ impl ClaimLifecycleState {
             return Err(ClaimLifecycleError::InvariantViolation);
         }
 
+        // A lifecycle-owned temporal state is strict: every retained finality
+        // record entered through the bound path and therefore has exactly one
+        // matching ClaimBinding. This rejects restored/tampered states that
+        // attempt to upgrade legacy unbound evidence into lifecycle authority.
+        let mut observed_finality_ids = BTreeSet::new();
+        for finality_map in [
+            &self.temporal.accepted_finality,
+            &self.temporal.rejected_finality,
+            &self.temporal.quarantined_finality,
+        ] {
+            for (evidence_id, evidence) in finality_map {
+                if !observed_finality_ids.insert(evidence_id.as_str()) {
+                    return Err(ClaimLifecycleError::InvariantViolation);
+                }
+                let Some(binding) = self.temporal.finality_binding(evidence_id) else {
+                    return Err(ClaimLifecycleError::InvariantViolation);
+                };
+                if binding.claim_id.as_str() != evidence.claim_id.as_str() {
+                    return Err(ClaimLifecycleError::InvariantViolation);
+                }
+            }
+        }
+        if observed_finality_ids.len() != self.temporal.finality_bindings.len()
+            || self
+                .temporal
+                .finality_bindings
+                .keys()
+                .any(|evidence_id| !observed_finality_ids.contains(evidence_id.as_str()))
+        {
+            return Err(ClaimLifecycleError::InvariantViolation);
+        }
+
         if self.halt_fault.is_none() {
             let earliest_temporal_revocation = self
                 .temporal
@@ -101,6 +133,7 @@ impl ClaimLifecycleState {
                 }
                 ClaimLifecycleStatus::Finalized {
                     use_index,
+                    claim_binding,
                     finality_evidence_id,
                     proof_id,
                     finalized_effective_seq,
@@ -114,6 +147,7 @@ impl ClaimLifecycleState {
                     if finalized.claim.claim_id != *claim_id
                         || finalized.proof.proof_id != *proof_id
                         || finalized.proof.finalized_at_seq != *finalized_effective_seq
+                        || claim_binding != &record.claim.binding()
                     {
                         return Err(ClaimLifecycleError::InvariantViolation);
                     }
@@ -122,10 +156,16 @@ impl ClaimLifecycleState {
                     else {
                         return Err(ClaimLifecycleError::InvariantViolation);
                     };
+                    let Some(temporal_binding) =
+                        self.temporal.finality_binding(finality_evidence_id)
+                    else {
+                        return Err(ClaimLifecycleError::InvariantViolation);
+                    };
                     if evidence.claim_id != *claim_id
                         || evidence.proof_id != *proof_id
                         || evidence.profile != finalized.proof.profile
                         || evidence.order.effective_seq != *finalized_effective_seq
+                        || temporal_binding != claim_binding
                     {
                         return Err(ClaimLifecycleError::InvariantViolation);
                     }
@@ -133,6 +173,7 @@ impl ClaimLifecycleState {
                 ClaimLifecycleStatus::RejectedConflict {
                     use_index,
                     winning_claim_id,
+                    winning_claim_binding,
                     winning_finality_evidence_id,
                     winning_proof_id,
                 } => {
@@ -141,6 +182,7 @@ impl ClaimLifecycleState {
                     };
                     if winner.claim.claim_id != *winning_claim_id
                         || winner.proof.proof_id != *winning_proof_id
+                        || winning_claim_binding != &winner.claim.binding()
                     {
                         return Err(ClaimLifecycleError::InvariantViolation);
                     }
@@ -151,9 +193,16 @@ impl ClaimLifecycleState {
                     else {
                         return Err(ClaimLifecycleError::InvariantViolation);
                     };
+                    let Some(temporal_binding) = self
+                        .temporal
+                        .finality_binding(winning_finality_evidence_id)
+                    else {
+                        return Err(ClaimLifecycleError::InvariantViolation);
+                    };
                     if evidence.claim_id != *winning_claim_id
                         || evidence.proof_id != *winning_proof_id
                         || evidence.order.effective_seq != winner.proof.finalized_at_seq
+                        || temporal_binding != winning_claim_binding
                     {
                         return Err(ClaimLifecycleError::InvariantViolation);
                     }
@@ -227,6 +276,7 @@ impl ClaimLifecycleState {
                     || receipt.envelope_digest != record.claim.key.envelope_digest
                     || receipt.target_digest != record.claim.target_digest
                     || receipt.payload_digest != record.claim.payload_digest
+                    || receipt.claim_binding != record.claim.binding()
                 {
                     return Err(ClaimLifecycleError::InvariantViolation);
                 }
@@ -305,5 +355,63 @@ impl ClaimLifecycleState {
         }
 
         Ok(())
+    }
+}
+
+
+#[cfg(test)]
+mod binding_recovery_tests {
+    use super::*;
+    use constitutional_consumption::{
+        FinalityRequirement, RevocationCutoff, UsageBudget,
+    };
+    use constitutional_temporal_provenance::{
+        FinalityDomainPolicy, FinalityEvidence, TemporalEvidenceState, TemporalOrder,
+    };
+
+    #[test]
+    fn restored_lifecycle_rejects_unbound_finality_record() {
+        let temporal = TemporalEvidenceState::new(FinalityDomainPolicy {
+            domain_id: "domain-a".into(),
+            profile: FinalityProfile::WitnessedSingleSpend,
+            policy_version: "policy-v1".into(),
+            min_closure_witnesses: 2,
+            min_closure_independence_domains: 2,
+        })
+        .unwrap();
+        let mut state = ClaimLifecycleState::new(
+            temporal,
+            UsageBudget {
+                budget_id: "budget-a".into(),
+                max_uses: 1,
+            },
+            FinalityRequirement {
+                minimum_profile: FinalityProfile::WitnessedSingleSpend,
+                min_witnesses: 2,
+                min_distinct_domains: 2,
+                revocation_cutoff: RevocationCutoff::Finality,
+            },
+        )
+        .unwrap();
+
+        state.temporal.accepted_finality.insert(
+            "legacy-unbound".into(),
+            FinalityEvidence {
+                evidence_id: "legacy-unbound".into(),
+                claim_id: "claim-a".into(),
+                proof_id: "proof-a".into(),
+                profile: FinalityProfile::WitnessedSingleSpend,
+                order: TemporalOrder {
+                    domain_id: "domain-a".into(),
+                    effective_seq: 1,
+                    observed_seq: 1,
+                },
+            },
+        );
+
+        assert_eq!(
+            state.validate_restored(),
+            Err(ClaimLifecycleError::InvariantViolation)
+        );
     }
 }

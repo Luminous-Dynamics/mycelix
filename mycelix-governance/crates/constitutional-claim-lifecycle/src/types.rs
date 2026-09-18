@@ -1,6 +1,7 @@
 use constitutional_closure_coverage::ClosureCoverageError;
 use constitutional_consumption::{
-    ConsumptionClaim, ConsumptionError, IntegrityFault as ConsumptionIntegrityFault,
+    ClaimBinding, ConsumptionClaim, ConsumptionError,
+    IntegrityFault as ConsumptionIntegrityFault,
 };
 use constitutional_envelope::MatterId;
 use constitutional_temporal_provenance::{
@@ -49,6 +50,7 @@ pub enum ClaimLifecycleStatus {
     },
     Finalized {
         use_index: u32,
+        claim_binding: ClaimBinding,
         finality_evidence_id: String,
         proof_id: String,
         finalized_effective_seq: u64,
@@ -56,6 +58,7 @@ pub enum ClaimLifecycleStatus {
     RejectedConflict {
         use_index: u32,
         winning_claim_id: String,
+        winning_claim_binding: ClaimBinding,
         winning_finality_evidence_id: String,
         winning_proof_id: String,
     },
@@ -93,9 +96,11 @@ pub enum ClaimTransitionReason {
     EarlierRevocationObserved,
     AcceptedFinality {
         finality_evidence_id: String,
+        claim_binding: ClaimBinding,
     },
     CompetingFinalityWon {
         winning_claim_id: String,
+        winning_claim_binding: ClaimBinding,
         winning_finality_evidence_id: String,
         winning_proof_id: String,
     },
@@ -112,6 +117,7 @@ pub struct ClaimTransitionReceipt {
     pub envelope_digest: String,
     pub target_digest: String,
     pub payload_digest: String,
+    pub claim_binding: ClaimBinding,
     pub from: ClaimLifecycleStatus,
     pub to: ClaimLifecycleStatus,
     pub reason: ClaimTransitionReason,

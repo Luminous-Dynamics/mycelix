@@ -6,7 +6,7 @@
 //! signatures, discover witnesses, query Holochain, or run consensus. Instead it
 //! defines the ordering and closure invariants those runtimes must preserve.
 
-use constitutional_consumption::FinalityProfile;
+use constitutional_consumption::{ClaimBinding, FinalityProfile};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -101,6 +101,25 @@ impl FinalityEvidence {
             return Err(TemporalProvenanceError::EmptyProofReference);
         }
         self.order.validate()
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct BoundFinalityEvidence {
+    pub evidence: FinalityEvidence,
+    pub claim_binding: ClaimBinding,
+}
+
+impl BoundFinalityEvidence {
+    pub fn validate(&self) -> Result<(), TemporalProvenanceError> {
+        self.evidence.validate()?;
+        self.claim_binding
+            .validate()
+            .map_err(|_| TemporalProvenanceError::InvalidClaimBinding)?;
+        if self.claim_binding.claim_id != self.evidence.claim_id {
+            return Err(TemporalProvenanceError::ClaimBindingIdentityMismatch);
+        }
+        Ok(())
     }
 }
 
@@ -311,6 +330,10 @@ pub enum TemporalProvenanceError {
     EmptyObservationDomainId,
     EmptyEvidenceId,
     EmptyClaimId,
+    InvalidClaimBinding,
+    ClaimBindingIdentityMismatch,
+    DuplicateFinalityBindingConflict,
+    UnboundFinalityCannotBeUpgraded,
     EmptyRevocationId,
     EmptyClosureId,
     EmptyPolicyVersion,
@@ -344,6 +367,7 @@ pub struct TemporalEvidenceState {
     pub accepted_finality: BTreeMap<String, FinalityEvidence>,
     pub rejected_finality: BTreeMap<String, FinalityEvidence>,
     pub quarantined_finality: BTreeMap<String, FinalityEvidence>,
+    pub finality_bindings: BTreeMap<String, ClaimBinding>,
     pub revocations: BTreeMap<String, RevocationEvidence>,
     pub closures: BTreeMap<String, EvidenceClosure>,
     pub latest_closure_id: Option<String>,
@@ -373,6 +397,7 @@ impl TemporalEvidenceState {
             accepted_finality: BTreeMap::new(),
             rejected_finality: BTreeMap::new(),
             quarantined_finality: BTreeMap::new(),
+            finality_bindings: BTreeMap::new(),
             revocations: BTreeMap::new(),
             closures: BTreeMap::new(),
             latest_closure_id: None,
@@ -451,6 +476,34 @@ impl TemporalEvidenceState {
         } else {
             ObserveRevocationOutcome::Accepted
         })
+    }
+
+    pub fn observe_bound_finality(
+        &mut self,
+        bound: BoundFinalityEvidence,
+    ) -> Result<ObserveFinalityOutcome, TemporalProvenanceError> {
+        bound.validate()?;
+        let evidence_id = bound.evidence.evidence_id.clone();
+
+        match self.finality_bindings.get(&evidence_id) {
+            Some(existing) if existing != &bound.claim_binding => {
+                return Err(TemporalProvenanceError::DuplicateFinalityBindingConflict);
+            }
+            Some(_) => {}
+            None if self.existing_finality(&evidence_id).is_some() => {
+                return Err(TemporalProvenanceError::UnboundFinalityCannotBeUpgraded);
+            }
+            None => {}
+        }
+
+        let binding = bound.claim_binding.clone();
+        let outcome = self.observe_finality(bound.evidence)?;
+        self.finality_bindings.entry(evidence_id).or_insert(binding);
+        Ok(outcome)
+    }
+
+    pub fn finality_binding(&self, evidence_id: &str) -> Option<&ClaimBinding> {
+        self.finality_bindings.get(evidence_id)
     }
 
     pub fn observe_finality(

@@ -62,6 +62,7 @@ impl ClaimLifecycleState {
             && temporal.accepted_finality.is_empty()
             && temporal.rejected_finality.is_empty()
             && temporal.quarantined_finality.is_empty()
+            && temporal.finality_bindings.is_empty()
             && temporal.revocations.is_empty()
             && temporal.closures.is_empty()
             && temporal.latest_closure_id.is_none()
@@ -166,6 +167,7 @@ impl ClaimLifecycleState {
             envelope_digest: record.claim.key.envelope_digest.clone(),
             target_digest: record.claim.target_digest.clone(),
             payload_digest: record.claim.payload_digest.clone(),
+            claim_binding: record.claim.binding(),
             from: current,
             to: to.clone(),
             reason,
