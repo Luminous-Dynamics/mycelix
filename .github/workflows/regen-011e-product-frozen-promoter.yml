@@ -1,0 +1,171 @@
+name: REGEN-011E Biomass ProductFrozen Promoter
+
+on:
+  push:
+    branches:
+      - 'ci/regen-011e-biomass-product-frozen-promoter-v1'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  promote-exact-preparation-capsule:
+    name: Promote exact REGEN-011D1 preparation capsule
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      EXPECTED_PARENT_SHA: 872151cae7bee995b6bfff7867fc40178ad4759e
+      TARGET_BRANCH: qual/regen-011e-biomass-product-frozen-v1
+      PREPARATION_SOURCE_HEAD: 0b78308d95a169132d9b3f6de5f11b65f7553ca7
+      ARTIFACT_ID: '10537710169'
+      EXPECTED_ARTIFACT_SHA256: 2bbc0d08130a24ea7c433c09a717b865274e05e3202691639ee09b204c7625f6
+      EXPECTED_MANIFEST_SHA256: 76be59314932609b1e2e0fe318e65be4068463c30a04daa161308495537b3d54
+      EXPECTED_LOCK_SHA256: ee5075dd6a27bc78829b04c3581ded9c84a7314368e603e6e132f62afadc9888
+      EXPECTED_SOURCE_SHA256: b0be9bf255ca63cf65475e33fab3c7702fbb86c9c62df26a2d5714d123046f26
+      EXPECTED_TEST_SHA256: 3367ab6d5bc199d4f3eef47096d1558be680878ff47d6cfa8e0443ed24d4ebc9
+      EXPECTED_MANIFEST_BLOB: 3bf62f680ee660bf02c26aa766b6743e257c4273
+      EXPECTED_LOCK_BLOB: 77b8dd1d4f05035079a69b9bab453be3e2baee02
+      EXPECTED_SOURCE_BLOB: 1ab26a628c4af05159cf30a92d84dd489d8f5a23
+      EXPECTED_TEST_BLOB: 97507f83bcb165679089b561deae6b59346e5756
+      EXPECTED_QUALIFIER_SHA256: ec0c93192f4626e2ace6da3c57fbe29560a7ac8ac3d30b4e137d2e801007c978
+      EXPECTED_QUALIFIER_BLOB: f9de93a5821947c35b3bdc9cb4c0d93f3b0b08a2
+      EXPECTED_Q001_VALIDATOR_BLOB: 653949df6a5dd6f37cb32eff57611a308846cdc7
+      EXPECTED_ADMISSION_SOURCE_BLOB: 294b777c95be79a13ca7d0e1e3463d32ff25c8f0
+
+    steps:
+      - name: Checkout promoter subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: true
+          fetch-depth: 2
+
+      - name: Preserve exact staged qualification workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          src='.github/workflows/regen-biomass-product-frozen.yml'
+          test -f "$src"
+          test "$(sha256sum "$src" | awk '{print $1}')" = "$EXPECTED_QUALIFIER_SHA256"
+          test "$(git hash-object "$src")" = "$EXPECTED_QUALIFIER_BLOB"
+          cp "$src" /tmp/regen-biomass-product-frozen.yml
+
+      - name: Refuse to overwrite existing qualification branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code --heads origin "$TARGET_BRANCH" >/dev/null 2>&1; then
+            echo "target branch already exists: $TARGET_BRANCH" >&2
+            exit 1
+          fi
+
+      - name: Download exact successful preparation artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          url="https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID/zip"
+          curl --fail --location --silent --show-error \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "$url" -o /tmp/regen011d1-prepared.zip
+          actual="$(sha256sum /tmp/regen011d1-prepared.zip | awk '{print $1}')"
+          printf 'expected_artifact_sha256=%s\nactual_artifact_sha256=%s\n' "$EXPECTED_ARTIFACT_SHA256" "$actual"
+          test "$actual" = "$EXPECTED_ARTIFACT_SHA256"
+
+      - name: Verify exact capsule census receipt and internal digests
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/regen011d1-prepared
+          mkdir -p /tmp/regen011d1-prepared
+          unzip -q /tmp/regen011d1-prepared.zip -d /tmp/regen011d1-prepared
+          cd /tmp/regen011d1-prepared
+
+          expected_members="$(printf '%s\n' \
+            'PREPARATION_RECEIPT.txt' \
+            'PREPARED_FILES.sha256' \
+            'crate/Cargo.lock' \
+            'crate/Cargo.toml' \
+            'crate/src/lib.rs' \
+            'crate/tests/biomass_core.rs' | sort)"
+          actual_members="$(find . -type f -printf '%P\n' | sort)"
+          printf '%s\n' '---BEGIN_CAPSULE_MEMBERS---' "$actual_members" '---END_CAPSULE_MEMBERS---'
+          test "$actual_members" = "$expected_members"
+
+          sha256sum -c PREPARED_FILES.sha256
+          grep -Fx "product_head=$PREPARATION_SOURCE_HEAD" PREPARATION_RECEIPT.txt
+          grep -Fx 'parent_head=6db8008aebc28fb9d3f05dbe2a0d850b83352151' PREPARATION_RECEIPT.txt
+          grep -Fx 'dependency_state=ExecutionResolved' PREPARATION_RECEIPT.txt
+          grep -Fx 'system_closure=unfrozen' PREPARATION_RECEIPT.txt
+          grep -Fx 'reservation_type_state=RequestToAcceptedOnly' PREPARATION_RECEIPT.txt
+          grep -Fx 'qualification_status=NOT_QUALIFIED_TYPE_STATE_PREPARATION_ONLY' PREPARATION_RECEIPT.txt
+
+          test "$(sha256sum crate/Cargo.toml | awk '{print $1}')" = "$EXPECTED_MANIFEST_SHA256"
+          test "$(sha256sum crate/Cargo.lock | awk '{print $1}')" = "$EXPECTED_LOCK_SHA256"
+          test "$(sha256sum crate/src/lib.rs | awk '{print $1}')" = "$EXPECTED_SOURCE_SHA256"
+          test "$(sha256sum crate/tests/biomass_core.rs | awk '{print $1}')" = "$EXPECTED_TEST_SHA256"
+          test "$(git hash-object crate/Cargo.toml)" = "$EXPECTED_MANIFEST_BLOB"
+          test "$(git hash-object crate/Cargo.lock)" = "$EXPECTED_LOCK_BLOB"
+          test "$(git hash-object crate/src/lib.rs)" = "$EXPECTED_SOURCE_BLOB"
+          test "$(git hash-object crate/tests/biomass_core.rs)" = "$EXPECTED_TEST_BLOB"
+
+      - name: Construct exact one-commit ProductFrozen subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin "$EXPECTED_PARENT_SHA"
+          git checkout --detach "$EXPECTED_PARENT_SHA"
+
+          test "$(git rev-parse HEAD:qualification/regen-019d/verify-regen-qualification-receipt.py)" = "$EXPECTED_Q001_VALIDATOR_BLOB"
+          test "$(git rev-parse HEAD:crates/mycelix-regenerative-admission/src/lib.rs)" = "$EXPECTED_ADMISSION_SOURCE_BLOB"
+          if git cat-file -e "HEAD:crates/mycelix-regenerative-biomass" 2>/dev/null; then
+            echo 'qualified parent unexpectedly already contains biomass crate' >&2
+            exit 1
+          fi
+
+          mkdir -p crates/mycelix-regenerative-biomass/src crates/mycelix-regenerative-biomass/tests .github/workflows
+          cp /tmp/regen011d1-prepared/crate/Cargo.toml crates/mycelix-regenerative-biomass/Cargo.toml
+          cp /tmp/regen011d1-prepared/crate/Cargo.lock crates/mycelix-regenerative-biomass/Cargo.lock
+          cp /tmp/regen011d1-prepared/crate/src/lib.rs crates/mycelix-regenerative-biomass/src/lib.rs
+          cp /tmp/regen011d1-prepared/crate/tests/biomass_core.rs crates/mycelix-regenerative-biomass/tests/biomass_core.rs
+          cp /tmp/regen-biomass-product-frozen.yml .github/workflows/regen-biomass-product-frozen.yml
+
+          test "$(sha256sum .github/workflows/regen-biomass-product-frozen.yml | awk '{print $1}')" = "$EXPECTED_QUALIFIER_SHA256"
+          test "$(git hash-object .github/workflows/regen-biomass-product-frozen.yml)" = "$EXPECTED_QUALIFIER_BLOB"
+          test "$(git hash-object crates/mycelix-regenerative-biomass/Cargo.toml)" = "$EXPECTED_MANIFEST_BLOB"
+          test "$(git hash-object crates/mycelix-regenerative-biomass/Cargo.lock)" = "$EXPECTED_LOCK_BLOB"
+          test "$(git hash-object crates/mycelix-regenerative-biomass/src/lib.rs)" = "$EXPECTED_SOURCE_BLOB"
+          test "$(git hash-object crates/mycelix-regenerative-biomass/tests/biomass_core.rs)" = "$EXPECTED_TEST_BLOB"
+
+          git add \
+            .github/workflows/regen-biomass-product-frozen.yml \
+            crates/mycelix-regenerative-biomass/Cargo.toml \
+            crates/mycelix-regenerative-biomass/Cargo.lock \
+            crates/mycelix-regenerative-biomass/src/lib.rs \
+            crates/mycelix-regenerative-biomass/tests/biomass_core.rs
+
+          expected="$(printf '%s\n' \
+            '.github/workflows/regen-biomass-product-frozen.yml' \
+            'crates/mycelix-regenerative-biomass/Cargo.lock' \
+            'crates/mycelix-regenerative-biomass/Cargo.toml' \
+            'crates/mycelix-regenerative-biomass/src/lib.rs' \
+            'crates/mycelix-regenerative-biomass/tests/biomass_core.rs' | sort)"
+          actual="$(git diff --cached --name-only | sort)"
+          printf '%s\n' '---BEGIN_PROMOTED_SCOPE---' "$actual" '---END_PROMOTED_SCOPE---'
+          test "$actual" = "$expected"
+          git diff --cached --check
+
+          git config user.name 'Tristan Stoltz'
+          git config user.email 'tristan.stoltz@evolvingresonantcocreationism.com'
+          git commit -m 'feat(regenerative): freeze REGEN-011E biomass product'
+
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT_SHA"
+          test "$(git rev-list --count "$EXPECTED_PARENT_SHA"..HEAD)" = '1'
+          test -z "$(git status --short)"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          printf 'promoted_product_head=%s\n' "$(git rev-parse HEAD)"
+          printf 'promoted_product_tree=%s\n' "$(git rev-parse 'HEAD^{tree}')"
+          printf 'promoted_branch=%s\n' "$TARGET_BRANCH"
