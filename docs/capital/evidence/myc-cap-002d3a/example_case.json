@@ -1,0 +1,60 @@
+{
+  "d3_receipt": {
+    "acceptance_receipt_sha256": "7a073b1b012c60ac645c9cc98c00d78392a2adadbf2474b0cd39df7a7c03b832",
+    "acceptance_subject_sha": "d5a3258fb1713cf0fe95ab7434600d6240cefad7",
+    "active_blockers": [],
+    "constitutional_stewardship_transition_established": false,
+    "current_custodian_ref": "steward:community-trust",
+    "custody_state": "CURRENT",
+    "event_chain_tip_sha256": "82b13fad92801eee7038b237b0a5e47aebb198ef4ec0e63d3f4ed139dfe28744",
+    "event_count": 3,
+    "event_history_sha256": "5ec741fe98ae16872cd1a6a954b22fa7ea679ff48075cca96a622ed8ee864807",
+    "event_tip_currentness_established": false,
+    "historical_handover_accepted": true,
+    "legal_title_transition_established": false,
+    "lineage_custodian_ref": "steward:community-trust",
+    "nonclaims": [
+      "current custody state does not alter the historical handover acceptance receipt",
+      "current custody state is not legal title",
+      "current custody state is not constitutional stewardship legitimacy",
+      "successor acceptance reference is not independently authenticated by this theorem",
+      "custody currentness is not service-quality or engineering fitness outside this profile",
+      "custody CURRENT is relative to the supplied event history and does not establish that its tip is the latest designated registry tip"
+    ],
+    "profile_sha256": "99478af7e37e6d878c42051bb88657feaf083fe9d55afa6726aa8fa78e8fca3a",
+    "profile_version": "mycelix-custody-continuity-v1",
+    "project_id": "fiber:jhb:test-001",
+    "receipt_version": "mycelix-custody-state-receipt-v1",
+    "successor_acceptance_receipt_sha256": null,
+    "successor_custodian_ref": null,
+    "suspended": false,
+    "uses_local_wall_clock": false
+  },
+  "designation": {
+    "authority_ref": "authority:custody-currentness-board",
+    "designated_d3_profile_sha256": "99478af7e37e6d878c42051bb88657feaf083fe9d55afa6726aa8fa78e8fca3a",
+    "designated_d3_receipt_sha256": "26f9f23e24d6a120c3cf210e920e6111fdefbd1355fb0069052bdfb5a68f01e1",
+    "designated_d3_subject_sha": "1fefe7a313d1cc83f3559d1d9f3223e12b2df019",
+    "designated_event_history_sha256": "5ec741fe98ae16872cd1a6a954b22fa7ea679ff48075cca96a622ed8ee864807",
+    "designated_event_tip_sha256": "82b13fad92801eee7038b237b0a5e47aebb198ef4ec0e63d3f4ed139dfe28744",
+    "designation_id": "custody-tip-currentness-001",
+    "designation_state": "ACTIVE",
+    "evidence_ref": "evidence:custody-tip-designation-001",
+    "profile_sha256": "81f0139157d99d74fb2cef0cf320bcfd9fc020faf2970776ed69361cc492ada4",
+    "project_id": "fiber:jhb:test-001",
+    "registry_epoch": 1,
+    "registry_id": "registry:custody-tip-currentness"
+  },
+  "events": [],
+  "profile": {
+    "d3_event_history_sha256": "5ec741fe98ae16872cd1a6a954b22fa7ea679ff48075cca96a622ed8ee864807",
+    "d3_event_tip_sha256": "82b13fad92801eee7038b237b0a5e47aebb198ef4ec0e63d3f4ed139dfe28744",
+    "d3_profile_sha256": "99478af7e37e6d878c42051bb88657feaf083fe9d55afa6726aa8fa78e8fca3a",
+    "d3_receipt_sha256": "26f9f23e24d6a120c3cf210e920e6111fdefbd1355fb0069052bdfb5a68f01e1",
+    "d3_subject_sha": "1fefe7a313d1cc83f3559d1d9f3223e12b2df019",
+    "designation_registry_id": "registry:custody-tip-currentness",
+    "max_events": 100,
+    "profile_version": "mycelix-custody-tip-currentness-v1",
+    "project_id": "fiber:jhb:test-001"
+  }
+}
