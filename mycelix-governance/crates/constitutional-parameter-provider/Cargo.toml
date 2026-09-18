@@ -1,0 +1,15 @@
+[package]
+name = "constitutional-parameter-provider"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Inert versioned constitutional parameter provider contract"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+blake3 = "=1.8.5"
+
+[dev-dependencies]
+constitutional-effect-ledger = { workspace = true }

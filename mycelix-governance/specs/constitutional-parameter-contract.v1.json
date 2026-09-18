@@ -1,0 +1,154 @@
+{
+  "schema": "mycelix.constitutional-parameter-contract.v1",
+  "contract_id": "MYC-CONST-003D1D-P0",
+  "contract_revision": 1,
+  "authority_class": "InertContractPendingQualifiedAuthority",
+  "activation_allowed": false,
+  "provider_key": "action_id",
+  "parameter_key": "parameter_name",
+  "source_binding": {
+    "repository": "Luminous-Dynamics/mycelix",
+    "d1d0_semantic_parent": "7bb43d0af6590f3794956d12c47d6fa376b59821",
+    "runtime_subject": "15b9c89adf0ac3c6c5a73681614d6bfcd368820a",
+    "files": [
+      {
+        "path": "mycelix-governance/zomes/execution/coordinator/src/lib.rs",
+        "git_blob_sha1": "3dbb8a8f69b377e494ccf24164c94bd80f54e0ef",
+        "role": "legacy_update_parameter_dispatch"
+      },
+      {
+        "path": "mycelix-governance/zomes/constitution/coordinator/src/lib.rs",
+        "git_blob_sha1": "923a1ce789c8319c79df7f33a9241af50804ec55",
+        "role": "legacy_parameter_coordinator"
+      },
+      {
+        "path": "mycelix-governance/zomes/constitution/integrity/src/lib.rs",
+        "git_blob_sha1": "f83a457a8ff40b0003c07dba9da598a478c5e6f6",
+        "role": "legacy_parameter_integrity"
+      },
+      {
+        "path": "mycelix-governance/crates/constitutional-effect-ledger/src/lib.rs",
+        "git_blob_sha1": "bb3b8d6a865bbf514ff1e43a41c520b890a5515d",
+        "role": "d1c_identity_source"
+      }
+    ]
+  },
+  "identity": {
+    "request_includes": [
+      "schema_version",
+      "operation_id",
+      "action_id",
+      "proposal_id",
+      "claim_binding_commitment",
+      "action_commitment",
+      "publisher_did",
+      "parameter_name",
+      "typed_canonical_value",
+      "expected_prior_revision"
+    ],
+    "revision_includes": [
+      "schema_version",
+      "parameter_name",
+      "revision",
+      "prior_revision_commitment",
+      "request_commitment",
+      "operation_id",
+      "action_id",
+      "proposal_id",
+      "claim_binding_commitment",
+      "action_commitment",
+      "publisher_did",
+      "typed_canonical_value"
+    ],
+    "excludes": ["committed_at_unix_ms", "phi_projection_status"]
+  },
+  "effect_ledger_mapping": {
+    "operation_id": "ConstitutionalOperation.operation_id",
+    "proposal_id": "ConstitutionalOperation.proposal_id",
+    "claim_binding_commitment": "ConstitutionalOperation.claim_binding",
+    "action_id": "ActionIntent.action_id",
+    "action_commitment": "ActionIntent.action_commitment",
+    "provider_key_regenerated": false,
+    "action_commitment_regenerated": false,
+    "qualification_inherited_from_D1C": false
+  },
+  "value_profile": {
+    "profile": "constitutional-parameter-value-v1",
+    "types": [
+      "integer-i64",
+      "decimal-string-v1",
+      "percentage-decimal-string-v1",
+      "duration-millis-u64",
+      "boolean",
+      "utf8-string"
+    ],
+    "decimal_exponent_notation_allowed": false,
+    "decimal_negative_zero_normalized": true,
+    "decimal_trailing_fraction_zeros_removed": true,
+    "ieee754_constitutional_identity": false,
+    "value_commitment": "domain-separated-blake3-256",
+    "commitment_encoding": "blake3-256:<64-lowercase-hex>"
+  },
+  "revision_semantics": {
+    "first_revision": 1,
+    "first_write_precondition": "CreateOnly",
+    "later_write_precondition": "ExactCurrentRevisionAndCommitment",
+    "revisions_contiguous": true,
+    "predecessor_commitment_required_after_revision_one": true,
+    "stored_revision_reconstructs_request_commitment": true,
+    "wall_clock_participates_in_revision_identity": false,
+    "current_projection_from_timestamp": false
+  },
+  "retry_semantics": {
+    "historical_action_index_required": true,
+    "same_action_same_request": "ExistingSameAtOriginalRevision",
+    "same_action_different_request": "IntegrityConflictAndHalt",
+    "different_action_stale_predecessor": "StaleRevisionNoMutation",
+    "different_action_exact_current_predecessor": "CommitNextRevision",
+    "last_write_wins_allowed": false,
+    "blind_retry_after_stale_revision": false,
+    "recovery_from_integrity_halt_defined": false
+  },
+  "query_contract": {
+    "by_parameter_revision": true,
+    "by_action_id": true,
+    "current_is_highest_contiguous_revision": true,
+    "historical_action_lookup_survives_later_revisions": true
+  },
+  "legacy_source_findings": {
+    "execution_request_shape": "{parameter,value}",
+    "provider_request_requires_optional_proposal_id": true,
+    "existing_parameter_change_requires_proposal_id": true,
+    "missing_parameter_can_enter_create_path_without_proposal_id": true,
+    "integrity_requires_value_valid_json": true,
+    "execution_value_canonicalized_before_dispatch": false,
+    "parameter_index_selected_by_latest_link_timestamp": true,
+    "parameter_writer_authority_bound_at_integrity": false,
+    "proposal_authority_bound_at_parameter_integrity": false,
+    "parameter_index_authority_bound": false,
+    "phi_config_is_derived_best_effort_projection": true
+  },
+  "p1_activation_requirements": [
+    "MYC-CONST-003B4 qualified ClaimBinding",
+    "MYC-CONST-003CR1 qualified refinement crosswalk",
+    "MYC-CONST-003D1C exact qualified effect-ledger identity",
+    "MYC-CONST-003D1D-P0 exact-head qualification",
+    "integrity-verifiable publisher-author binding",
+    "integrity-verifiable proposal-and-ClaimBinding authorization",
+    "immutable append-only parameter revision entry",
+    "integrity-validated parameter-name/revision/action indexes",
+    "stale predecessor rejection under direct DHT writes",
+    "P1 exact-head adversarial qualification"
+  ],
+  "non_claims": [
+    "not_a_holochain_entry_type",
+    "not_a_live_parameter_write_extern",
+    "not_wired_to_GovernanceAction_UpdateParameter",
+    "claim_binding_commitment_is_opaque_in_P0",
+    "not_parameter_authority_qualified",
+    "not_legacy_parameter_migration_qualified",
+    "not_phi_projection_delivery_qualified",
+    "not_deployment_currentness_qualified",
+    "not_P1_qualified"
+  ]
+}
