@@ -1,0 +1,125 @@
+{
+  "schema": "mycelix.constitutional-payments-provider-observed.v1",
+  "profile_id": "mycelix-payments-provider-observed-15b9c89a-v1",
+  "revision": 1,
+  "authority_class": "ObservedSourceBound",
+  "f0c_semantic_head": "36bb486794f3e2720a2e02b3045c270b147cbacc",
+  "runtime_subject": "15b9c89adf0ac3c6c5a73681614d6bfcd368820a",
+  "source_bindings": {
+    "payments_coordinator": {
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "blob": "7df81b5374526e4c145a4b7506e7295aa20d079c"
+    },
+    "payments_integrity": {
+      "path": "mycelix-finance/zomes/payments/integrity/src/lib.rs",
+      "blob": "b551f1ea439f6899d67c0ba55519b12cbee1fe7e"
+    },
+    "governance_finance_bridge": {
+      "path": "mycelix-governance/zomes/bridge/coordinator/src/cross_cluster.rs",
+      "blob": "3eb0ade8633d6e711fd266bca6eb2ebab616eac2"
+    }
+  },
+  "candidate": {
+    "provider": "finance::payments",
+    "operation": "send_payment",
+    "current_governance_route": false,
+    "current_governance_route_target": "finance::treasury::execute_governance_transfer",
+    "provider_operation_key": {
+      "source": "GeneratedWallClockPaymentId",
+      "format_observed": "payment:{from_did}:{now_micros}",
+      "caller_supplied": false,
+      "deterministically_bound_to_f0_execution_id": false,
+      "stable_across_transport_retry": false
+    },
+    "lookup": {
+      "payment_by_id": true,
+      "receipt_by_payment_id": true,
+      "payment_id_index": "PaymentIdToPayment"
+    },
+    "duplicate_semantics": {
+      "same_execution_same_request_converges_to_same_payment_id": false,
+      "same_key_same_request_returns_existing_effect": "NotEstablished",
+      "same_key_different_request_conflicts": "NotEstablished",
+      "concurrent_same_key_single_effect": "NotEstablished"
+    },
+    "outcome_model": {
+      "created_payment_status": "CompletedImmediately",
+      "provider_unknown_outcome_query": false,
+      "authoritative_known_no_effect_query": false,
+      "transport_failure_is_distinguished_from_no_effect": "NotEstablishedForPaymentProvider"
+    },
+    "receipt": {
+      "exists": true,
+      "immutable": true,
+      "signed_by_sender_agent": true,
+      "binds_payment_id": true,
+      "binds_from_to_amount_currency_timestamp": true,
+      "binds_f0_execution_id": false,
+      "binds_f0_request_commitment": false,
+      "integrity_cryptographically_verifies_signature": false,
+      "qualified_as_authoritative_provider_receipt": false
+    },
+    "value_surface": {
+      "amount_type": "u64",
+      "currency_type": "String",
+      "qualified_sap_amount_consumed": false
+    },
+    "positive_controls": [
+      "payment_id_index_exists",
+      "get_payment_by_id_exists",
+      "get_receipt_by_payment_id_exists",
+      "receipt_entries_are_immutable",
+      "sender_agent_signature_is_created",
+      "payment_creation_validates_sender_author_binding",
+      "sap_debit_uses_checked_or_guarded_balance_logic"
+    ]
+  },
+  "f0c_capability_eligibility": {
+    "automatic_replay_eligible": false,
+    "qualified_provider_replay_capability_may_be_minted": false,
+    "blocking_properties": [
+      "provider_operation_key_not_bound_to_execution_id",
+      "retry_mints_new_wall_clock_payment_identity",
+      "duplicate_same_key_semantics_not_established",
+      "duplicate_conflict_semantics_not_established",
+      "authoritative_known_no_effect_query_absent",
+      "provider_unknown_outcome_query_absent",
+      "receipt_not_bound_to_execution_id",
+      "receipt_not_bound_to_request_commitment",
+      "receipt_signature_not_verified_by_integrity",
+      "qualified_sap_value_subject_not_consumed",
+      "payments_not_current_governance_transfer_route"
+    ]
+  },
+  "required_successor": {
+    "operation_key": "DeterministicProviderOperationKeyDerivedFromF0ExecutionId",
+    "request_binding": "ExactF0RequestCommitment",
+    "duplicate_same_request": "ReturnSameEffectOrAuthoritativeReceipt",
+    "duplicate_changed_request": "IntegrityConflict",
+    "concurrent_duplicate": "OneSemanticEffectOrExplicitConflict",
+    "query_outcomes": ["KnownSuccess", "KnownNoEffect", "UnknownOutcome"],
+    "receipt_bindings": [
+      "provider_operation_key",
+      "execution_id",
+      "request_commitment",
+      "provider_outcome",
+      "provider_receipt_identity",
+      "provider_receipt_commitment"
+    ],
+    "receipt_verification": "PeerReproducibleOrVerifierOwnedQualifiedBoundary",
+    "value_subject": "QualifiedSapAmountOrExactQualifiedSuccessor",
+    "activation": "SeparateF1AfterExactQualification"
+  },
+  "non_claims": [
+    "not_live_duplicate_payment_demonstrated",
+    "not_exploitability_established",
+    "not_payment_system_unsafe_verdict",
+    "not_provider_qualified",
+    "not_provider_truth_established",
+    "not_physical_exactly_once",
+    "not_external_settlement_finality",
+    "not_public_fund_authority",
+    "not_live_governance_route",
+    "not_deployment_current"
+  ]
+}
