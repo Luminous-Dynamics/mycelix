@@ -93,6 +93,39 @@ impl From<CanonicalEncodingError> for SettlementInvalidationError {
     }
 }
 
+#[derive(Debug)]
+struct CurrentOperationGroup<'a> {
+    revision: u64,
+    first: &'a SettlementObservation,
+    additional: Vec<&'a SettlementObservation>,
+}
+
+impl<'a> CurrentOperationGroup<'a> {
+    fn new(observation: &'a SettlementObservation) -> Self {
+        Self {
+            revision: observation.revision,
+            first: observation,
+            additional: Vec::new(),
+        }
+    }
+
+    fn observe(&mut self, observation: &'a SettlementObservation) {
+        match observation.revision.cmp(&self.revision) {
+            std::cmp::Ordering::Greater => {
+                self.revision = observation.revision;
+                self.first = observation;
+                self.additional.clear();
+            }
+            std::cmp::Ordering::Equal => self.additional.push(observation),
+            std::cmp::Ordering::Less => {}
+        }
+    }
+
+    fn observations(&self) -> impl Iterator<Item = &'a SettlementObservation> + '_ {
+        std::iter::once(self.first).chain(self.additional.iter().copied())
+    }
+}
+
 fn validate_evidence_binding(
     observation: &SettlementObservation,
     evidence: &FinalityEvidence,
@@ -160,7 +193,7 @@ pub fn qualify_settlement(
         return Err(SettlementQualificationError::NoObservations);
     }
 
-    let mut by_operation: BTreeMap<ReferenceId, Vec<&SettlementObservation>> = BTreeMap::new();
+    let mut by_operation: BTreeMap<ReferenceId, CurrentOperationGroup<'_>> = BTreeMap::new();
     let mut observation_ids: BTreeMap<ReferenceId, Digest32> = BTreeMap::new();
     let mut evidence_ids: BTreeMap<ReferenceId, Digest32> = BTreeMap::new();
 
@@ -222,27 +255,19 @@ pub fn qualify_settlement(
 
         by_operation
             .entry(observation.operation_id.clone())
-            .or_default()
-            .push(observation);
+            .and_modify(|group| group.observe(observation))
+            .or_insert_with(|| CurrentOperationGroup::new(observation));
     }
 
     let mut settled = AssetAmount::new(0, subject.amount.asset().clone());
     let mut qualified_operations = BTreeMap::new();
     let mut selected_observation_commitments = BTreeSet::new();
 
-    for (operation_id, operation_observations) in by_operation {
-        let max_revision = operation_observations
-            .iter()
-            .map(|observation| observation.revision)
-            .max()
-            .expect("operation group is non-empty");
-        let current: Vec<&SettlementObservation> = operation_observations
-            .into_iter()
-            .filter(|observation| observation.revision == max_revision)
-            .collect();
-        let first = current[0];
+    for (operation_id, current_group) in by_operation {
+        let max_revision = current_group.revision;
+        let first = current_group.first;
 
-        for observation in &current {
+        for observation in current_group.observations() {
             if observation.state != first.state || observation.amount != first.amount {
                 return Err(SettlementQualificationError::ConflictingCurrentRevision);
             }
@@ -260,7 +285,7 @@ pub fn qualify_settlement(
 
         let mut merged_evidence = Vec::new();
         let mut operation_observation_commitments = BTreeSet::new();
-        for observation in current {
+        for observation in current_group.observations() {
             let commitment = observation_commitment(observation)?;
             selected_observation_commitments.insert(commitment);
             operation_observation_commitments.insert(commitment);
