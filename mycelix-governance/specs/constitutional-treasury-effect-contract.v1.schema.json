@@ -1,0 +1,185 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.invalid/schemas/constitutional-treasury-effect-contract.v1.schema.json",
+  "title": "MYC-CONST-003D1D-F0 Treasury Effect Contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "contract_id",
+    "contract_revision",
+    "authority_class",
+    "activation_allowed",
+    "source_binding",
+    "request_identity",
+    "execution_identity",
+    "d1c_mapping",
+    "semantic_uniqueness",
+    "state_machine",
+    "retry_and_reconciliation",
+    "upstream_dependencies",
+    "legacy_source_findings",
+    "f1_activation_requirements",
+    "non_claims"
+  ],
+  "properties": {
+    "schema": {"const": "mycelix.constitutional-treasury-effect-contract.v1"},
+    "contract_id": {"const": "MYC-CONST-003D1D-F0"},
+    "contract_revision": {"const": 1},
+    "authority_class": {"const": "InertProviderEffectContractPendingQualifiedUpstreams"},
+    "activation_allowed": {"const": false},
+    "source_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "d1d0_semantic_parent", "runtime_subject", "files"],
+      "properties": {
+        "repository": {"const": "Luminous-Dynamics/mycelix"},
+        "d1d0_semantic_parent": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "runtime_subject": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "files": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["role", "path", "git_blob_sha1"],
+            "properties": {
+              "role": {
+                "enum": [
+                  "legacy_execution_dispatch",
+                  "governance_finance_bridge",
+                  "legacy_treasury_coordinator",
+                  "legacy_treasury_integrity",
+                  "d1c_identity_source"
+                ]
+              },
+              "path": {"type": "string", "minLength": 1},
+              "git_blob_sha1": {"type": "string", "pattern": "^[0-9a-f]{40}$"}
+            }
+          }
+        }
+      }
+    },
+    "request_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["includes", "upstream_subjects_are_opaque_exact_refs", "raw_currency_string_is_authority", "raw_u64_amount_is_authority"],
+      "properties": {
+        "includes": {"type": "array", "minItems": 19, "uniqueItems": true, "items": {"type": "string"}},
+        "upstream_subjects_are_opaque_exact_refs": {"const": true},
+        "raw_currency_string_is_authority": {"const": false},
+        "raw_u64_amount_is_authority": {"const": false}
+      }
+    },
+    "execution_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider_key", "includes", "excludes", "retry_mints_fresh_execution_id", "physical_exactly_once_claimed"],
+      "properties": {
+        "provider_key": {"const": "execution_id"},
+        "includes": {"type": "array", "minItems": 6, "uniqueItems": true, "items": {"type": "string"}},
+        "excludes": {"type": "array", "minItems": 9, "uniqueItems": true, "items": {"type": "string"}},
+        "retry_mints_fresh_execution_id": {"const": false},
+        "physical_exactly_once_claimed": {"const": false}
+      }
+    },
+    "d1c_mapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operation_id", "proposal_id", "claim_binding_commitment", "action_id", "action_commitment", "provider_identity_regenerated", "qualification_inherited_from_D1C"],
+      "properties": {
+        "operation_id": {"const": "ConstitutionalOperation.operation_id"},
+        "proposal_id": {"const": "ConstitutionalOperation.proposal_id"},
+        "claim_binding_commitment": {"const": "ConstitutionalOperation.claim_binding"},
+        "action_id": {"const": "ActionIntent.action_id"},
+        "action_commitment": {"const": "ActionIntent.action_commitment"},
+        "provider_identity_regenerated": {"const": false},
+        "qualification_inherited_from_D1C": {"const": false}
+      }
+    },
+    "semantic_uniqueness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["same_execution_same_request", "same_execution_different_request", "same_action_different_request", "authorization_id_reuse_for_different_effect", "capacity_allocation_reuse_for_different_effect", "last_write_wins_allowed"],
+      "properties": {
+        "same_execution_same_request": {"const": "ExistingSame"},
+        "same_execution_different_request": {"const": "IntegrityConflict"},
+        "same_action_different_request": {"const": "IntegrityConflictAndHalt"},
+        "authorization_id_reuse_for_different_effect": {"const": "IntegrityConflictAndHalt"},
+        "capacity_allocation_reuse_for_different_effect": {"const": "IntegrityConflictAndHalt"},
+        "last_write_wins_allowed": {"const": false}
+      }
+    },
+    "state_machine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["states", "initial_state", "transport_failure_result", "transport_failure_implies_known_no_effect", "known_success_terminal_for_dispatch_retry", "conflicting_success_effect_commitments", "success_and_no_effect_same_or_later_horizon", "stale_provider_observation_can_overwrite_newer_attempt"],
+      "properties": {
+        "states": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"enum": ["Pending", "InFlight", "UnknownOutcome", "KnownNoEffect", "KnownSuccess", "IntegrityHalted"]},
+          "minItems": 6,
+          "maxItems": 6
+        },
+        "initial_state": {"const": "Pending"},
+        "transport_failure_result": {"const": "UnknownOutcome"},
+        "transport_failure_implies_known_no_effect": {"const": false},
+        "known_success_terminal_for_dispatch_retry": {"const": true},
+        "conflicting_success_effect_commitments": {"const": "IntegrityHalted"},
+        "success_and_no_effect_same_or_later_horizon": {"const": "IntegrityHalted"},
+        "stale_provider_observation_can_overwrite_newer_attempt": {"const": false}
+      }
+    },
+    "retry_and_reconciliation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unknown_outcome_blind_retry_allowed", "unknown_outcome_retry_requires_qualified_provider_replay_evidence", "known_no_effect_retry_requires_exact_reconciliation_observation", "retry_reuses_same_execution_id", "known_no_effect_requires_provider_evidence", "known_success_requires_provider_receipt_evidence", "provider_observation_binds_execution_and_request", "provider_observation_carries_attempt_horizon", "retry_basis_itself_qualified_here"],
+      "properties": {
+        "unknown_outcome_blind_retry_allowed": {"const": false},
+        "unknown_outcome_retry_requires_qualified_provider_replay_evidence": {"const": true},
+        "known_no_effect_retry_requires_exact_reconciliation_observation": {"const": true},
+        "retry_reuses_same_execution_id": {"const": true},
+        "known_no_effect_requires_provider_evidence": {"const": true},
+        "known_success_requires_provider_receipt_evidence": {"const": true},
+        "provider_observation_binds_execution_and_request": {"const": true},
+        "provider_observation_carries_attempt_horizon": {"const": true},
+        "retry_basis_itself_qualified_here": {"const": false}
+      }
+    },
+    "upstream_dependencies": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["D1C_effect_identity", "action_bound_authorization_1247", "SapAmount_1268", "TreasuryV2_1269", "allocation_approval_1411", "reserved_capacity_1467", "provider_adapter_capability"],
+      "properties": {
+        "D1C_effect_identity": {"const": "StructurallyMappedQualificationNotInherited"},
+        "action_bound_authorization_1247": {"const": "PendingExternalQualification"},
+        "SapAmount_1268": {"const": "PendingExternalQualification"},
+        "TreasuryV2_1269": {"const": "PendingExternalQualification"},
+        "allocation_approval_1411": {"const": "PendingExternalQualification"},
+        "reserved_capacity_1467": {"const": "PendingExternalQualificationWhereProfileRequires"},
+        "provider_adapter_capability": {"const": "PendingExternalQualification"}
+      }
+    },
+    "legacy_source_findings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["execution_dispatch_target", "execution_dispatch_shape", "newer_bridge_target", "execute_governance_transfer_observed_in_exact_treasury", "treasury_allocation_has_stable_id_lookup", "treasury_debit_uses_checked_subtraction", "legacy_treasury_currency_representation", "legacy_treasury_amount_representation", "source_ordering_alone_establishes_local_partial_commit_bug", "large_value_DKG_policy_owned_by_separate_lane"],
+      "properties": {
+        "execution_dispatch_target": {"const": "governance_bridge::transfer_credits"},
+        "execution_dispatch_shape": {"const": "{from,to,amount:f64}"},
+        "newer_bridge_target": {"const": "finance/treasury::execute_governance_transfer"},
+        "execute_governance_transfer_observed_in_exact_treasury": {"const": false},
+        "treasury_allocation_has_stable_id_lookup": {"const": true},
+        "treasury_debit_uses_checked_subtraction": {"const": true},
+        "legacy_treasury_currency_representation": {"const": "String"},
+        "legacy_treasury_amount_representation": {"const": "u64"},
+        "source_ordering_alone_establishes_local_partial_commit_bug": {"const": false},
+        "large_value_DKG_policy_owned_by_separate_lane": {"const": true}
+      }
+    },
+    "f1_activation_requirements": {"type": "array", "minItems": 10, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "non_claims": {"type": "array", "minItems": 11, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+  }
+}

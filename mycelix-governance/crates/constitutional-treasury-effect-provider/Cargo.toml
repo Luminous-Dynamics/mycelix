@@ -1,0 +1,17 @@
+[package]
+name = "constitutional-treasury-effect-provider"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Inert deterministic treasury effect identity and reconciliation contract"
+
+[lib]
+path = "src/public.rs"
+
+[dependencies]
+serde = { workspace = true }
+thiserror = { workspace = true }
+blake3 = "=1.8.5"
+
+[dev-dependencies]
+constitutional-effect-ledger = { workspace = true }
