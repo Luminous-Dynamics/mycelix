@@ -12,6 +12,7 @@ on:
       - "adapters/forge-linux-isolation/**"
       - "adapters/forge-linux-isolation-evidence/**"
       - "adapters/forge-linux-isolation-collector/**"
+      - "adapters/forge-runtime-closure-evidence/**"
       - ".github/workflows/forge.yml"
   push:
     branches:
@@ -26,6 +27,7 @@ on:
       - "adapters/forge-linux-isolation/**"
       - "adapters/forge-linux-isolation-evidence/**"
       - "adapters/forge-linux-isolation-collector/**"
+      - "adapters/forge-runtime-closure-evidence/**"
       - ".github/workflows/forge.yml"
 
 permissions:
@@ -61,6 +63,8 @@ jobs:
             path: adapters/forge-linux-isolation-evidence
           - name: Forge Isolation Collector
             path: adapters/forge-linux-isolation-collector
+          - name: Forge Runtime Closure Evidence
+            path: adapters/forge-runtime-closure-evidence
     defaults:
       run:
         working-directory: ${{ matrix.path }}
