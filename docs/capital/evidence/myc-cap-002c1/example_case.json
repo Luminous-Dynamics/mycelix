@@ -1,0 +1,65 @@
+{
+  "claim_registry_receipt": {
+    "active_claim_total_units": 73000000,
+    "active_slices": [
+      {
+        "face_units": 73000000,
+        "holder_ref": "investor:b",
+        "slice_id": "s6"
+      }
+    ],
+    "claim_class_id": "single-priority-bounded-economic-claim-v1",
+    "commons_asset_transferable": false,
+    "conservation_passed": true,
+    "holder_totals": [
+      {
+        "face_units": 73000000,
+        "holder_ref": "investor:b"
+      }
+    ],
+    "nonclaims": [
+      "claim ownership is not ownership of the commons asset",
+      "claim ownership is not constitutional stewardship authority",
+      "claim ownership is not operator authority",
+      "secondary transaction price does not change project liability",
+      "registry validity is not securities-law compliance or market valuation",
+      "registry validity is not proof of external holder identity or signature authenticity"
+    ],
+    "operation_chain_tip_sha256": "9a9a2c7a462f9a1b449891a63b7516f7e13460caaf1fda69d707a00938ebaa05",
+    "operation_count": 6,
+    "operation_history_sha256": "db65331686b023f8683cff201a608354c3a492d8baf483f5fa8c2b7099b92a92",
+    "parent_remaining_claim_units": 73000000,
+    "parent_subject_sha": "270b852e0ac744dfca3a2cb966bf53fce78f2ab9",
+    "parent_transition_receipt_sha256": "60b7217980c615eab453eae25b74b27e75fc67cb336ea60d140f089341d50565",
+    "profile_sha256": "6011726fcb6af452a3c8d8d8027c000e9d324a2776a7739e4f22eb76de3ceb40",
+    "project_id": "fiber:jhb:test-001",
+    "receipt_version": "mycelix-claim-registry-receipt-v1",
+    "registry_version": "mycelix-capital-claim-registry-single-class-v1",
+    "unit": "ZAR-cent"
+  },
+  "designation": {
+    "authority_ref": "authority:claim-registry-currentness-board",
+    "designated_claim_registry_receipt_sha256": "ec4431b5e4ee5ab8c91a4b2a24285d617c9c37d81d65473c997a2633a0b8b628",
+    "designated_operation_chain_tip_sha256": "9a9a2c7a462f9a1b449891a63b7516f7e13460caaf1fda69d707a00938ebaa05",
+    "designated_operation_history_sha256": "db65331686b023f8683cff201a608354c3a492d8baf483f5fa8c2b7099b92a92",
+    "designation_id": "claim-registry-currentness-001",
+    "designation_state": "ACTIVE",
+    "evidence_ref": "evidence:claim-registry-currentness-001",
+    "profile_sha256": "bf6c6ebbe015f646b2c581bb353ec4363c1f6af9965bd86796ac1de2f273fd75",
+    "project_id": "fiber:jhb:test-001",
+    "registry_epoch": 1,
+    "registry_id": "registry:capital-claim-currentness"
+  },
+  "events": [],
+  "profile": {
+    "claim_registry_profile_sha256": "6011726fcb6af452a3c8d8d8027c000e9d324a2776a7739e4f22eb76de3ceb40",
+    "claim_registry_receipt_sha256": "ec4431b5e4ee5ab8c91a4b2a24285d617c9c37d81d65473c997a2633a0b8b628",
+    "claim_registry_subject_sha": "9f940f915e6aa2bf253f859045d104e80406dd4c",
+    "designation_registry_id": "registry:capital-claim-currentness",
+    "max_events": 100,
+    "operation_chain_tip_sha256": "9a9a2c7a462f9a1b449891a63b7516f7e13460caaf1fda69d707a00938ebaa05",
+    "operation_history_sha256": "db65331686b023f8683cff201a608354c3a492d8baf483f5fa8c2b7099b92a92",
+    "profile_version": "mycelix-claim-registry-currentness-v1",
+    "project_id": "fiber:jhb:test-001"
+  }
+}
