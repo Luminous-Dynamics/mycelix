@@ -1,0 +1,15 @@
+[package]
+name = "constitutional-event-provider"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Inert durable constitutional event and signal projection contract"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+blake3 = "=1.8.5"
+
+[dev-dependencies]
+constitutional-effect-ledger = { workspace = true }

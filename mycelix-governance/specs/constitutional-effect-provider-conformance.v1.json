@@ -1,0 +1,174 @@
+{
+  "schema": "mycelix.constitutional-effect-provider-conformance.v1",
+  "profile_id": "mycelix-execution-provider-conformance-15b9c89a-v1",
+  "profile_revision": 1,
+  "authority_class": "ObservedSourceBound",
+  "source_binding": {
+    "repository": "Luminous-Dynamics/mycelix",
+    "runtime_subject_sha": "15b9c89adf0ac3c6c5a73681614d6bfcd368820a",
+    "d1c_semantic_parent": "47d1d764323dbfaf991b5574cfde83abb7a3e4a4",
+    "files": [
+      {
+        "path": "mycelix-governance/zomes/execution/coordinator/src/lib.rs",
+        "git_blob_sha1": "3dbb8a8f69b377e494ccf24164c94bd80f54e0ef",
+        "role": "execution_dispatch"
+      },
+      {
+        "path": "mycelix-governance/zomes/bridge/coordinator/src/cross_cluster.rs",
+        "git_blob_sha1": "3eb0ade8633d6e711fd266bca6eb2ebab616eac2",
+        "role": "governance_cross_cluster_finance_bridge"
+      },
+      {
+        "path": "mycelix-governance/zomes/bridge/coordinator/src/query.rs",
+        "git_blob_sha1": "5a02812880a2fdaa8f3ed767a4686afc00c566f9",
+        "role": "durable_governance_event_source"
+      },
+      {
+        "path": "mycelix-governance/zomes/bridge/integrity/src/lib.rs",
+        "git_blob_sha1": "61b20610216e2fd69c701ecaea5322c448eda119",
+        "role": "governance_event_integrity"
+      },
+      {
+        "path": "mycelix-governance/zomes/bridge/coordinator/src/validation.rs",
+        "git_blob_sha1": "9e13ba58939880738eccb997e54f729da7a11304",
+        "role": "legacy_transfer_input_validation"
+      },
+      {
+        "path": "mycelix-finance/zomes/treasury/coordinator/src/lib.rs",
+        "git_blob_sha1": "840e66bcb6fdedb27fe2451752511d1317eb50b8",
+        "role": "treasury_provider"
+      },
+      {
+        "path": "mycelix-governance/zomes/constitution/coordinator/src/lib.rs",
+        "git_blob_sha1": "923a1ce789c8319c79df7f33a9241af50804ec55",
+        "role": "constitution_parameter_provider"
+      },
+      {
+        "path": "mycelix-governance/zomes/constitution/integrity/src/lib.rs",
+        "git_blob_sha1": "f83a457a8ff40b0003c07dba9da598a478c5e6f6",
+        "role": "constitution_parameter_integrity"
+      }
+    ]
+  },
+  "provider_lanes": [
+    {
+      "action_type": "TransferCredits",
+      "lane_id": "finance-transfer",
+      "current_dispatch_target": "governance_bridge::transfer_credits",
+      "conformance": "Incompatible",
+      "request_contract": "LegacyFromToAmount",
+      "stable_effect_identity": "NotEstablished",
+      "idempotency": "NotEstablished",
+      "authoritative_outcome_query": "NotEstablished",
+      "receipt_verification": "NotEstablished",
+      "provider_atomicity": "NotEstablished",
+      "authorization_binding": "NotEstablished",
+      "observations": [
+        "execution_dispatch_uses_legacy_from_to_amount_shape",
+        "legacy_transfer_validation_is_structural_only",
+        "newer_governance_finance_bridge_calls_execute_governance_transfer",
+        "execute_governance_transfer_not_observed_in_exact_treasury_coordinator",
+        "treasury_execute_allocation_has_stable_allocation_id_and_query_path",
+        "treasury_execute_allocation_debits_before_marking_allocation_executed",
+        "treasury_execute_allocation_retry_after_post_debit_record_failure_can_repeat_debit",
+        "dkg_allocation_debits_before_creating_executed_allocation_record"
+      ],
+      "repair_prerequisites": [
+        "select_one_authoritative_finance_execution_endpoint",
+        "bind_action_identity_to_preexisting_durable_allocation_or_operation_key",
+        "persist_effect_intent_before_debit",
+        "make_repeated_same_action_identity observationally idempotent",
+        "provide_authoritative_lookup_by_action_identity",
+        "return_machine_readable_effect_receipt",
+        "qualify_authorization_binding_to_constitutional_operation"
+      ]
+    },
+    {
+      "action_type": "UpdateParameter",
+      "lane_id": "constitution-parameter",
+      "current_dispatch_target": "constitution::update_parameter",
+      "conformance": "Incompatible",
+      "request_contract": "ParameterValueWithoutProposalId",
+      "stable_effect_identity": "NotEstablished",
+      "idempotency": "NotEstablished",
+      "authoritative_outcome_query": "Partial",
+      "receipt_verification": "NotEstablished",
+      "provider_atomicity": "NotEstablished",
+      "authorization_binding": "Incompatible",
+      "observations": [
+        "execution_dispatch_omits_proposal_id",
+        "existing_parameter_change_requires_proposal_id_at_coordinator",
+        "missing_parameter_can_enter_create_path_without_proposal_id",
+        "parameter_value_must_be_valid_json_at_integrity_boundary",
+        "execution_action_value_is_not_canonicalized_as_json",
+        "set_parameter_appends_new_parameter_entry_and_index_link",
+        "get_parameter_selects_latest_parameter_index_link_by_timestamp",
+        "parameter_integrity_does_not_bind_changed_by_proposal_to_authority",
+        "parameter_integrity_does_not_bind_parameter_writer_to_governance_authority",
+        "parameter_index_link_creation_is_not_authority_bound",
+        "phi_config_sync_is_best_effort_derived_projection"
+      ],
+      "repair_prerequisites": [
+        "bind_parameter_action_to_exact_authorized_proposal_and_claim_binding",
+        "canonicalize_typed_parameter_value_before commitment and dispatch",
+        "enforce_authority_and_predecessor_binding_in_integrity_validation",
+        "define_stable_parameter_operation_identity",
+        "define_idempotent_repeat_semantics_for_same_action_identity",
+        "provide_authoritative query by action_identity and parameter revision",
+        "treat_phi_config_sync_as_derived_projection_not_constitutional_completion"
+      ]
+    },
+    {
+      "action_type": "EmitEvent",
+      "lane_id": "governance-event",
+      "current_dispatch_target": "emit_signal",
+      "conformance": "ProjectionOnly",
+      "request_contract": "EphemeralSignal",
+      "stable_effect_identity": "NotEstablished",
+      "idempotency": "NotApplicableToProjection",
+      "authoritative_outcome_query": "NotApplicableToProjection",
+      "receipt_verification": "NotApplicableToProjection",
+      "provider_atomicity": "NotApplicableToProjection",
+      "authorization_binding": "NotEstablished",
+      "observations": [
+        "execution_emit_event_discards_emit_signal_result",
+        "signal_delivery_is_not_durable_operation_evidence",
+        "governance_bridge_has_durable_broadcast_governance_event_record_path",
+        "durable_broadcast_event_id_is_timestamp_generated",
+        "governance_bridge_event_creation_only_requires_nonempty_source_happ",
+        "governance_bridge_event_updates_are_integrity_valid",
+        "recent_events_links_are_not_event_authority_bound",
+        "client_signal_should_be_projection_of_durable_event_state"
+      ],
+      "repair_prerequisites": [
+        "remove_ephemeral_signal_delivery_from_constitutional_effect_completion",
+        "make_durable_constitutional_event_records_immutable",
+        "enforce_event_authority_at_integrity_boundary",
+        "commit_durable_event_identity_before_client_projection",
+        "derive_emit_signal_from_durable_event_record",
+        "bind_durable_event_to_constitutional_operation_and_action_identity",
+        "allow_signal_redelivery_without_changing_constitutional_effect_truth"
+      ]
+    }
+  ],
+  "required_adapter_contract": {
+    "request_schema_compatible_with_provider": true,
+    "authorization_must_hold_at_integrity_boundary": true,
+    "stable_action_identity_before_effect": true,
+    "durable_intent_before_effect": true,
+    "known_no_effect_requires_authoritative_provider_evidence": true,
+    "timeout_or_transport_error_is_unknown_outcome": true,
+    "repeat_same_action_identity_cannot_repeat_physical_effect_unless_qualified_replay_safe": true,
+    "machine_readable_receipt_or_query_evidence": true,
+    "derived_projections_cannot_define_constitutional_completion": true
+  },
+  "non_claims": [
+    "not_provider_repaired",
+    "not_provider_qualified",
+    "not_deployment_currentness_qualified",
+    "not_finance_idempotency_established",
+    "not_parameter_authority_established",
+    "not_signal_delivery_receipt_established",
+    "not_physical_exactly_once_established"
+  ]
+}

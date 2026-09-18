@@ -1,0 +1,102 @@
+{
+  "actions": [
+    {
+      "action_type": "TransferCredits",
+      "compensation": "Unknown",
+      "effect_boundary": "CrossZomeCall",
+      "eligible_for_claimed_atomic_batch": false,
+      "outcome_observability": "Unknown",
+      "provider_batch_atomicity": "NoneObserved",
+      "replay_safety": "Unknown",
+      "safe_retry_without_reconciliation": false,
+      "target": "governance_bridge::transfer_credits"
+    },
+    {
+      "action_type": "UpdateParameter",
+      "compensation": "Unknown",
+      "effect_boundary": "CrossZomeCall",
+      "eligible_for_claimed_atomic_batch": false,
+      "outcome_observability": "Unknown",
+      "provider_batch_atomicity": "NoneObserved",
+      "replay_safety": "Unknown",
+      "safe_retry_without_reconciliation": false,
+      "target": "constitution::update_parameter"
+    },
+    {
+      "action_type": "EmitEvent",
+      "compensation": "Unknown",
+      "effect_boundary": "LocalSignal",
+      "eligible_for_claimed_atomic_batch": false,
+      "outcome_observability": "Opaque",
+      "provider_batch_atomicity": "NoneObserved",
+      "replay_safety": "Unknown",
+      "safe_retry_without_reconciliation": false,
+      "target": "emit_signal"
+    }
+  ],
+  "authority_class": "ObservedSourceBound",
+  "batch_observation": {
+    "dispatch_order": "Sequential",
+    "durable_execution_record_timing": "AfterDispatch",
+    "execution_identity_timing": "AfterDispatch",
+    "partial_completion_representation": "CollapsedToFailed",
+    "physical_batch_atomicity": "NoneObserved",
+    "structured_result_compatibility": "MismatchObserved"
+  },
+  "non_claims": [
+    "not_runtime_repaired",
+    "not_exactly_once_physical_delivery",
+    "not_provider_idempotency_established",
+    "not_provider_reconciliation_established",
+    "not_compensation_established",
+    "not_physical_batch_atomicity_established",
+    "not_qualified"
+  ],
+  "pending_dependencies": [
+    "MYC-CONST-003B4 qualified concrete ClaimBinding",
+    "MYC-CONST-003CR1 qualified runtime refinement crosswalk",
+    "provider-specific idempotency/reconciliation/compensation evidence"
+  ],
+  "profile_id": "mycelix-execution-effect-capabilities-15b9c89a-v1",
+  "profile_revision": 1,
+  "required_runtime_contract": {
+    "compensation_is_new_forward_effect": true,
+    "durable_operation_before_first_effect": true,
+    "durable_ordered_action_intents_before_first_effect": true,
+    "machine_readable_observations": true,
+    "non_replay_safe_retry_requires_reconciled_no_effect": true,
+    "physical_batch_atomicity_requires_explicit_provider_evidence": true,
+    "stable_action_identity_before_attempt": true,
+    "stable_operation_identity_before_first_effect": true,
+    "successful_prefix_must_not_be_plain_failed": true,
+    "unknown_outcome_blocks_later_actions": true
+  },
+  "runtime_findings": [
+    "effects_dispatched_before_execution_record",
+    "execution_identity_created_after_dispatch",
+    "sequential_dispatch_can_partially_apply",
+    "partial_success_variant_defined_but_not_selected",
+    "execution_result_integrity_requires_json",
+    "coordinator_result_is_human_text",
+    "timelock_failure_collapses_partial_execution",
+    "emit_event_delivery_error_ignored"
+  ],
+  "schema": "mycelix.constitutional-effect-capability-profile.v1",
+  "source_binding": {
+    "d1a_semantic_head": "15b9c89adf0ac3c6c5a73681614d6bfcd368820a",
+    "files": [
+      {
+        "git_blob_sha1": "3dbb8a8f69b377e494ccf24164c94bd80f54e0ef",
+        "path": "mycelix-governance/zomes/execution/coordinator/src/lib.rs",
+        "role": "execution_coordinator"
+      },
+      {
+        "git_blob_sha1": "657edaee9a314f100a0c4b1609a4596cf243e61d",
+        "path": "mycelix-governance/zomes/execution/integrity/src/lib.rs",
+        "role": "execution_integrity"
+      }
+    ],
+    "repository": "Luminous-Dynamics/mycelix",
+    "runtime_subject_sha": "15b9c89adf0ac3c6c5a73681614d6bfcd368820a"
+  }
+}
