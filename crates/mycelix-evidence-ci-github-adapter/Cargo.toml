@@ -1,0 +1,14 @@
+[package]
+name = "mycelix-evidence-ci-github-adapter"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Pure GitHub Actions observation normalization for Mycelix evidence CI"
+
+[lib]
+name = "mycelix_evidence_ci_github_adapter"
+path = "src/lib.rs"
+crate-type = ["rlib"]
+
+[dependencies]
+mycelix-evidence-ci-core = { path = "../mycelix-evidence-ci-core" }
