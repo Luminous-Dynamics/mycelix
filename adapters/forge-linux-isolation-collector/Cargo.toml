@@ -1,0 +1,18 @@
+[package]
+name = "mycelix-forge-linux-isolation-collector"
+version = "0.1.0"
+edition = "2021"
+authors = ["Luminous Dynamics"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+description = "Linux observation collectors for Mycelix Forge isolation evidence"
+
+[dependencies]
+mycelix-forge-core = { path = "../../crates/mycelix-forge-core" }
+mycelix-forge-linux-isolation = { path = "../forge-linux-isolation" }
+mycelix-forge-linux-isolation-evidence = { path = "../forge-linux-isolation-evidence" }
+blake3 = "1.5"
+libc = "0.2"
+serde_json = "1.0"
+sha2 = "0.10"
+thiserror = "2.0"
