@@ -3,13 +3,14 @@ use constitutional_claim_lifecycle::{
     LifecycleRevokeOutcome,
 };
 use constitutional_consumption::{
-    ConsumptionClaim, ConsumptionKey, EvidenceAvailability, FinalityProfile, FinalityProof,
-    FinalityRequirement, RevocationCutoff, UsageBudget, WitnessAttestation,
+    BoundFinalityProof, ConsumptionClaim, ConsumptionKey, EvidenceAvailability, FinalityProfile,
+    FinalityProof, FinalityRequirement, RevocationCutoff, UsageBudget, WitnessAttestation,
 };
 use constitutional_envelope::MatterId;
 use constitutional_temporal_provenance::{
-    ClosureProof, ClosureWitness, EvidenceClosure, FinalityDomainPolicy, FinalityEvidence,
-    ObserveFinalityOutcome, RevocationEvidence, TemporalEvidenceState, TemporalOrder,
+    BoundFinalityEvidence, ClosureProof, ClosureWitness, EvidenceClosure, FinalityDomainPolicy,
+    FinalityEvidence, ObserveFinalityOutcome, RevocationEvidence, TemporalEvidenceState,
+    TemporalOrder,
 };
 
 const DOMAIN: &str = "domain-a";
@@ -77,7 +78,7 @@ fn witnesses() -> Vec<WitnessAttestation> {
     ]
 }
 
-fn proof(claim_id: &str, proof_id: &str, effective_seq: u64) -> FinalityProof {
+fn raw_proof(claim_id: &str, proof_id: &str, effective_seq: u64) -> FinalityProof {
     FinalityProof {
         proof_id: proof_id.into(),
         claim_id: claim_id.into(),
@@ -89,23 +90,34 @@ fn proof(claim_id: &str, proof_id: &str, effective_seq: u64) -> FinalityProof {
     }
 }
 
-fn finality_evidence(
+fn bound_proof(claim: &ConsumptionClaim, proof_id: &str, effective_seq: u64) -> BoundFinalityProof {
+    BoundFinalityProof::new(
+        raw_proof(&claim.claim_id, proof_id, effective_seq),
+        claim,
+    )
+    .unwrap()
+}
+
+fn bound_finality_evidence(
     evidence_id: &str,
-    claim_id: &str,
+    claim: &ConsumptionClaim,
     proof_id: &str,
     effective_seq: u64,
     observed_seq: u64,
-) -> FinalityEvidence {
-    FinalityEvidence {
-        evidence_id: evidence_id.into(),
-        claim_id: claim_id.into(),
-        proof_id: proof_id.into(),
-        profile: FinalityProfile::WitnessedSingleSpend,
-        order: TemporalOrder {
-            domain_id: DOMAIN.into(),
-            effective_seq,
-            observed_seq,
+) -> BoundFinalityEvidence {
+    BoundFinalityEvidence {
+        evidence: FinalityEvidence {
+            evidence_id: evidence_id.into(),
+            claim_id: claim.claim_id.clone(),
+            proof_id: proof_id.into(),
+            profile: FinalityProfile::WitnessedSingleSpend,
+            order: TemporalOrder {
+                domain_id: DOMAIN.into(),
+                effective_seq,
+                observed_seq,
+            },
         },
+        claim_binding: claim.binding(),
     }
 }
 
@@ -157,39 +169,47 @@ fn closure(
 #[test]
 fn finalizing_winner_terminalizes_competitor_without_deleting_evidence() {
     let mut lifecycle = lifecycle(1);
-    lifecycle.submit_claim(claim("a", 0)).unwrap();
-    lifecycle.submit_claim(claim("b", 0)).unwrap();
+    let a = claim("a", 0);
+    let b = claim("b", 0);
+    lifecycle.submit_claim(a.clone()).unwrap();
+    lifecycle.submit_claim(b.clone()).unwrap();
 
     assert_eq!(
         lifecycle
-            .observe_finality_evidence(finality_evidence("fe-a", "a", "proof-a", 1, 1))
+            .observe_finality_evidence(bound_finality_evidence(
+                "fe-a", &a, "proof-a", 1, 1,
+            ))
             .unwrap(),
         ObserveFinalityOutcome::Accepted
     );
     lifecycle
-        .finalize("fe-a", "a", proof("a", "proof-a", 1))
+        .finalize("fe-a", "a", bound_proof(&a, "proof-a", 1))
         .unwrap();
 
     assert!(matches!(
         lifecycle.claim("a").unwrap().status,
         ClaimLifecycleStatus::Finalized {
             ref finality_evidence_id,
+            ref claim_binding,
             ..
-        } if finality_evidence_id == "fe-a"
+        } if finality_evidence_id == "fe-a" && claim_binding == &a.binding()
     ));
     assert!(matches!(
         lifecycle.claim("b").unwrap().status,
         ClaimLifecycleStatus::RejectedConflict {
             ref winning_claim_id,
+            ref winning_claim_binding,
             ref winning_finality_evidence_id,
             ..
-        } if winning_claim_id == "a" && winning_finality_evidence_id == "fe-a"
+        } if winning_claim_id == "a"
+            && winning_claim_binding == &a.binding()
+            && winning_finality_evidence_id == "fe-a"
     ));
     assert_eq!(lifecycle.remaining_uses(), 0);
     assert_eq!(lifecycle.consumption().pending.len(), 2);
 
     let err = lifecycle
-        .finalize("fe-a", "b", proof("b", "proof-b", 1))
+        .finalize("fe-a", "b", bound_proof(&b, "proof-b", 1))
         .unwrap_err();
     assert_eq!(err, ClaimLifecycleError::TerminalClaim);
 }
@@ -197,7 +217,8 @@ fn finalizing_winner_terminalizes_competitor_without_deleting_evidence() {
 #[test]
 fn blocked_claim_can_still_finalize_with_late_observed_pre_revocation_proof() {
     let mut lifecycle = lifecycle(1);
-    lifecycle.submit_claim(claim("a", 0)).unwrap();
+    let a = claim("a", 0);
+    lifecycle.submit_claim(a.clone()).unwrap();
 
     assert_eq!(
         lifecycle
@@ -212,12 +233,14 @@ fn blocked_claim_can_still_finalize_with_late_observed_pre_revocation_proof() {
 
     assert_eq!(
         lifecycle
-            .observe_finality_evidence(finality_evidence("fe-a", "a", "proof-a", 2, 4))
+            .observe_finality_evidence(bound_finality_evidence(
+                "fe-a", &a, "proof-a", 2, 4,
+            ))
             .unwrap(),
         ObserveFinalityOutcome::Accepted
     );
     lifecycle
-        .finalize("fe-a", "a", proof("a", "proof-a", 2))
+        .finalize("fe-a", "a", bound_proof(&a, "proof-a", 2))
         .unwrap();
     assert!(matches!(
         lifecycle.claim("a").unwrap().status,
@@ -268,10 +291,11 @@ fn post_closure_temporal_fault_halts_unresolved_work_but_preserves_closed_histor
     lifecycle.resolve_revocation_coverage().unwrap();
 
     lifecycle.submit_claim(claim("later", 1)).unwrap();
+    let ghost = claim("ghost", 0);
     let outcome = lifecycle
-        .observe_finality_evidence(finality_evidence(
+        .observe_finality_evidence(bound_finality_evidence(
             "contradiction",
-            "ghost",
+            &ghost,
             "ghost-proof",
             2,
             5,
@@ -293,17 +317,20 @@ fn post_closure_temporal_fault_halts_unresolved_work_but_preserves_closed_histor
 #[test]
 fn effect_requires_finalized_lifecycle_state() {
     let mut lifecycle = lifecycle(1);
-    lifecycle.submit_claim(claim("a", 0)).unwrap();
+    let a = claim("a", 0);
+    lifecycle.submit_claim(a.clone()).unwrap();
     assert_eq!(
         lifecycle.apply_effect("a", 2, "out").unwrap_err(),
         ClaimLifecycleError::ClaimNotFinalized
     );
 
     lifecycle
-        .observe_finality_evidence(finality_evidence("fe-a", "a", "proof-a", 1, 1))
+        .observe_finality_evidence(bound_finality_evidence(
+            "fe-a", &a, "proof-a", 1, 1,
+        ))
         .unwrap();
     lifecycle
-        .finalize("fe-a", "a", proof("a", "proof-a", 1))
+        .finalize("fe-a", "a", bound_proof(&a, "proof-a", 1))
         .unwrap();
     lifecycle.apply_effect("a", 2, "out").unwrap();
 }
@@ -311,20 +338,24 @@ fn effect_requires_finalized_lifecycle_state() {
 #[test]
 fn duplicate_applied_effect_remains_readable_after_later_temporal_fault() {
     let mut lifecycle = lifecycle(1);
-    lifecycle.submit_claim(claim("a", 0)).unwrap();
+    let a = claim("a", 0);
+    lifecycle.submit_claim(a.clone()).unwrap();
     lifecycle
-        .observe_finality_evidence(finality_evidence("fe-a", "a", "proof-a", 1, 1))
+        .observe_finality_evidence(bound_finality_evidence(
+            "fe-a", &a, "proof-a", 1, 1,
+        ))
         .unwrap();
     lifecycle
-        .finalize("fe-a", "a", proof("a", "proof-a", 1))
+        .finalize("fe-a", "a", bound_proof(&a, "proof-a", 1))
         .unwrap();
     lifecycle.apply_effect("a", 2, "out-a").unwrap();
 
     lifecycle.accept_closure(closure("closure-1", 1, 2)).unwrap();
+    let ghost = claim("ghost", 0);
     let outcome = lifecycle
-        .observe_finality_evidence(finality_evidence(
+        .observe_finality_evidence(bound_finality_evidence(
             "late-contradiction",
-            "ghost",
+            &ghost,
             "ghost-proof",
             1,
             3,
@@ -355,16 +386,23 @@ fn constructor_rejects_prepopulated_temporal_state() {
 #[test]
 fn owned_temporal_state_rejects_external_snapshot_substitution() {
     let mut lifecycle = lifecycle(1);
-    lifecycle.submit_claim(claim("a", 0)).unwrap();
+    let a = claim("a", 0);
+    lifecycle.submit_claim(a.clone()).unwrap();
 
     let mut external = temporal();
     external
-        .observe_finality(finality_evidence("external-fe", "a", "proof-a", 1, 1))
+        .observe_bound_finality(bound_finality_evidence(
+            "external-fe",
+            &a,
+            "proof-a",
+            1,
+            1,
+        ))
         .unwrap();
 
     assert_eq!(
         lifecycle
-            .finalize("external-fe", "a", proof("a", "proof-a", 1))
+            .finalize("external-fe", "a", bound_proof(&a, "proof-a", 1))
             .unwrap_err(),
         ClaimLifecycleError::UnknownFinalityEvidence
     );
@@ -372,24 +410,52 @@ fn owned_temporal_state_rejects_external_snapshot_substitution() {
     assert_eq!(lifecycle.remaining_uses(), 1);
 
     lifecycle
-        .observe_finality_evidence(finality_evidence("owned-fe", "a", "proof-a", 1, 1))
+        .observe_finality_evidence(bound_finality_evidence(
+            "owned-fe", &a, "proof-a", 1, 1,
+        ))
         .unwrap();
     lifecycle
-        .finalize("owned-fe", "a", proof("a", "proof-a", 1))
+        .finalize("owned-fe", "a", bound_proof(&a, "proof-a", 1))
         .unwrap();
     assert_eq!(lifecycle.remaining_uses(), 0);
 }
 
 #[test]
-fn transition_receipts_have_unique_contiguous_global_ordinals() {
+fn temporal_evidence_with_correct_ids_but_wrong_binding_cannot_authorize() {
     let mut lifecycle = lifecycle(1);
-    lifecycle.submit_claim(claim("a", 0)).unwrap();
+    let a = claim("a", 0);
+    lifecycle.submit_claim(a.clone()).unwrap();
+
+    let mut wrong = a.clone();
+    wrong.target_digest = "target-attacker".into();
+    lifecycle
+        .observe_finality_evidence(bound_finality_evidence(
+            "fe-a", &wrong, "proof-a", 1, 1,
+        ))
+        .unwrap();
+
+    assert_eq!(
+        lifecycle
+            .finalize("fe-a", "a", bound_proof(&a, "proof-a", 1))
+            .unwrap_err(),
+        ClaimLifecycleError::FinalityEvidenceMismatch
+    );
+    assert_eq!(lifecycle.remaining_uses(), 1);
+}
+
+#[test]
+fn transition_receipts_have_unique_contiguous_global_ordinals_and_exact_binding() {
+    let mut lifecycle = lifecycle(1);
+    let a = claim("a", 0);
+    lifecycle.submit_claim(a.clone()).unwrap();
     lifecycle.submit_claim(claim("b", 0)).unwrap();
     lifecycle
-        .observe_finality_evidence(finality_evidence("fe-a", "a", "proof-a", 1, 1))
+        .observe_finality_evidence(bound_finality_evidence(
+            "fe-a", &a, "proof-a", 1, 1,
+        ))
         .unwrap();
     lifecycle
-        .finalize("fe-a", "a", proof("a", "proof-a", 1))
+        .finalize("fe-a", "a", bound_proof(&a, "proof-a", 1))
         .unwrap();
 
     let mut ordinals: Vec<u64> = lifecycle
@@ -400,5 +466,11 @@ fn transition_receipts_have_unique_contiguous_global_ordinals() {
     ordinals.sort_unstable();
     assert_eq!(ordinals, vec![1, 2]);
     assert_eq!(lifecycle.next_transition_ordinal(), 2);
+    assert!(lifecycle
+        .claim("a")
+        .unwrap()
+        .transitions
+        .iter()
+        .all(|receipt| receipt.claim_binding == a.binding()));
     assert!(lifecycle.check_invariants().is_ok());
 }

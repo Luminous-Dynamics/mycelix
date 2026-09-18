@@ -7,3 +7,6 @@ license.workspace = true
 [dependencies]
 serde.workspace = true
 constitutional-consumption.workspace = true
+
+[dev-dependencies]
+constitutional-envelope.workspace = true

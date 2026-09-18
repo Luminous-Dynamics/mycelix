@@ -5,20 +5,20 @@ use crate::{
 };
 use constitutional_closure_coverage::{assess_pre_revocation_coverage, PreRevocationCoverage};
 use constitutional_consumption::{
-    ConsumptionError, EffectOutcome, FinalityProof, FinalizeOutcome, RevokeOutcome,
+    BoundFinalityProof, ConsumptionError, EffectOutcome, FinalizeOutcome, RevokeOutcome,
 };
 use constitutional_temporal_provenance::{
-    AcceptClosureOutcome, EvidenceClosure, FinalityEvidence, ObserveFinalityOutcome,
+    AcceptClosureOutcome, BoundFinalityEvidence, EvidenceClosure, ObserveFinalityOutcome,
     RevocationEvidence,
 };
 
 impl ClaimLifecycleState {
     pub fn observe_finality_evidence(
         &mut self,
-        evidence: FinalityEvidence,
+        evidence: BoundFinalityEvidence,
     ) -> Result<ObserveFinalityOutcome, ClaimLifecycleError> {
         self.transaction(|staged| {
-            let outcome = staged.temporal.observe_finality(evidence)?;
+            let outcome = staged.temporal.observe_bound_finality(evidence)?;
             staged.synchronize_temporal_fault_in_place()?;
             Ok(outcome)
         })
@@ -57,7 +57,7 @@ impl ClaimLifecycleState {
         &mut self,
         evidence_id: &str,
         claim_id: &str,
-        proof: FinalityProof,
+        proof: BoundFinalityProof,
     ) -> Result<FinalizeOutcome, ClaimLifecycleError> {
         let evidence_id = evidence_id.to_owned();
         let claim_id = claim_id.to_owned();
@@ -68,7 +68,7 @@ impl ClaimLifecycleState {
         &mut self,
         evidence_id: &str,
         claim_id: &str,
-        proof: FinalityProof,
+        proof: BoundFinalityProof,
     ) -> Result<FinalizeOutcome, ClaimLifecycleError> {
         self.synchronize_temporal_fault_in_place()?;
         self.ensure_not_halted()?;
@@ -91,24 +91,34 @@ impl ClaimLifecycleState {
             .accepted_finality
             .get(evidence_id)
             .ok_or(ClaimLifecycleError::UnknownFinalityEvidence)?;
+        let evidence_binding = self
+            .temporal
+            .finality_binding(evidence_id)
+            .ok_or(ClaimLifecycleError::FinalityEvidenceMismatch)?;
+        let expected_binding = record.claim.binding();
         if evidence.claim_id != claim_id
-            || evidence.proof_id != proof.proof_id
-            || evidence.profile != proof.profile
-            || evidence.order.effective_seq != proof.finalized_at_seq
+            || evidence.proof_id != proof.proof.proof_id
+            || evidence.profile != proof.proof.profile
+            || evidence.order.effective_seq != proof.proof.finalized_at_seq
+            || evidence_binding != &expected_binding
+            || proof.claim_binding != expected_binding
         {
             return Err(ClaimLifecycleError::FinalityEvidenceMismatch);
         }
 
         let use_index = record.claim.key.use_index;
-        let outcome = self.consumption.finalize(claim_id, proof.clone())?;
+        let claim_binding = expected_binding;
+        let proof_id = proof.proof.proof_id.clone();
+        let finalized_effective_seq = proof.proof.finalized_at_seq;
+        let outcome = self.consumption.finalize_bound(claim_id, proof.clone())?;
         if outcome == FinalizeOutcome::AlreadyFinalized {
             if !matches!(
                 self.claims.get(claim_id).map(|r| &r.status),
                 Some(ClaimLifecycleStatus::Finalized {
                     finality_evidence_id,
-                    proof_id,
+                    proof_id: finalized_proof_id,
                     ..
-                }) if finality_evidence_id == evidence_id && proof_id == &proof.proof_id
+                }) if finality_evidence_id == evidence_id && finalized_proof_id == &proof_id
             ) {
                 return Err(ClaimLifecycleError::InvariantViolation);
             }
@@ -119,12 +129,14 @@ impl ClaimLifecycleState {
             claim_id,
             ClaimLifecycleStatus::Finalized {
                 use_index,
+                claim_binding: claim_binding.clone(),
                 finality_evidence_id: evidence_id.to_owned(),
-                proof_id: proof.proof_id.clone(),
-                finalized_effective_seq: proof.finalized_at_seq,
+                proof_id: proof_id.clone(),
+                finalized_effective_seq,
             },
             ClaimTransitionReason::AcceptedFinality {
                 finality_evidence_id: evidence_id.to_owned(),
+                claim_binding: claim_binding.clone(),
             },
         )?;
 
@@ -145,13 +157,15 @@ impl ClaimLifecycleState {
                 ClaimLifecycleStatus::RejectedConflict {
                     use_index,
                     winning_claim_id: claim_id.to_owned(),
+                    winning_claim_binding: claim_binding.clone(),
                     winning_finality_evidence_id: evidence_id.to_owned(),
-                    winning_proof_id: proof.proof_id.clone(),
+                    winning_proof_id: proof_id.clone(),
                 },
                 ClaimTransitionReason::CompetingFinalityWon {
                     winning_claim_id: claim_id.to_owned(),
+                    winning_claim_binding: claim_binding.clone(),
                     winning_finality_evidence_id: evidence_id.to_owned(),
-                    winning_proof_id: proof.proof_id.clone(),
+                    winning_proof_id: proof_id.clone(),
                 },
             )?;
         }

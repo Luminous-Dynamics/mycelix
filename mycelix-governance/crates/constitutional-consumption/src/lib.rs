@@ -6,6 +6,12 @@
 //! host calls, signatures, witness discovery, consensus, or real-world effects.
 //! It defines the safety semantics those runtimes must preserve.
 
+mod binding;
+
+pub use binding::{
+    ClaimBinding, CLAIM_BINDING_DOMAIN_SEPARATOR, CLAIM_BINDING_SCHEMA_VERSION,
+};
+
 use constitutional_envelope::MatterId;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -149,6 +155,14 @@ impl ConsumptionClaim {
         }
         Ok(())
     }
+
+    pub fn binding(&self) -> ClaimBinding {
+        ClaimBinding::from_claim(self)
+    }
+
+    pub fn canonical_binding_bytes(&self) -> Result<Vec<u8>, ConsumptionError> {
+        self.binding().canonical_bytes()
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -221,6 +235,42 @@ impl FinalityProof {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct BoundFinalityProof {
+    pub proof: FinalityProof,
+    pub claim_binding: ClaimBinding,
+}
+
+impl BoundFinalityProof {
+    pub fn new(
+        proof: FinalityProof,
+        claim: &ConsumptionClaim,
+    ) -> Result<Self, ConsumptionError> {
+        claim.validate()?;
+        if proof.claim_id != claim.claim_id {
+            return Err(ConsumptionError::ProofClaimMismatch);
+        }
+        let bound = Self {
+            proof,
+            claim_binding: claim.binding(),
+        };
+        bound.claim_binding.validate()?;
+        Ok(bound)
+    }
+
+    pub fn validate_against(
+        &self,
+        claim: &ConsumptionClaim,
+        requirement: &FinalityRequirement,
+    ) -> Result<(), ConsumptionError> {
+        self.claim_binding.validate()?;
+        if self.claim_binding != claim.binding() {
+            return Err(ConsumptionError::ProofClaimBindingMismatch);
+        }
+        self.proof.validate_against(claim, requirement)
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct FinalizedUse {
     pub claim: ConsumptionClaim,
     pub proof: FinalityProof,
@@ -283,6 +333,9 @@ pub enum ConsumptionError {
     EmptyTargetDigest,
     EmptyPayloadDigest,
     EmptyFinalityProofId,
+    UnsupportedClaimBindingVersion,
+    CanonicalClaimFieldTooLarge,
+    ProofClaimBindingMismatch,
     InvalidWitness,
     MissingConsensusReference,
     UseIndexOutOfRange,
@@ -417,6 +470,21 @@ impl ConsumptionState {
                 Ok(RevokeOutcome::Revoked)
             }
         }
+    }
+
+    pub fn finalize_bound(
+        &mut self,
+        claim_id: &str,
+        bound: BoundFinalityProof,
+    ) -> Result<FinalizeOutcome, ConsumptionError> {
+        let claim = self
+            .pending
+            .iter()
+            .find(|claim| claim.claim_id == claim_id)
+            .cloned()
+            .ok_or(ConsumptionError::UnknownClaim)?;
+        bound.validate_against(&claim, &self.requirement)?;
+        self.finalize(claim_id, bound.proof)
     }
 
     pub fn finalize(
