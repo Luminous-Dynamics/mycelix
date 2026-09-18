@@ -6,7 +6,7 @@ license.workspace = true
 description = "Inert deterministic treasury effect identity and reconciliation contract"
 
 [lib]
-path = "src/public.rs"
+path = "src/capability_public.rs"
 
 [dependencies]
 serde = { workspace = true }

@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mycelix.constitutional-treasury-provider-capability.v1.schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "profile_id",
+    "revision",
+    "authority_class",
+    "parent",
+    "public_api",
+    "capability_token",
+    "retry_gate",
+    "required_provider_qualification",
+    "qualification_state",
+    "activation_allowed",
+    "minting_path",
+    "non_claims"
+  ],
+  "properties": {
+    "schema": {"const": "mycelix.constitutional-treasury-provider-capability.v1"},
+    "profile_id": {"const": "mycelix-treasury-provider-replay-capability-v1"},
+    "revision": {"const": 1},
+    "authority_class": {"const": "TypeGatedPendingProviderQualification"},
+    "parent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["f0_semantic_head", "f0_public_facade_blob", "f0_manifest_blob"],
+      "properties": {
+        "f0_semantic_head": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "f0_public_facade_blob": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "f0_manifest_blob": {"type": "string", "pattern": "^[0-9a-f]{40}$"}
+      }
+    },
+    "public_api": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "crate_entrypoint",
+        "legacy_f0_facade_private",
+        "raw_kernel_private",
+        "caller_string_replay_removed",
+        "public_mint_path",
+        "portable_positive_token"
+      ],
+      "properties": {
+        "crate_entrypoint": {"const": "src/capability_public.rs"},
+        "legacy_f0_facade_private": {"const": true},
+        "raw_kernel_private": {"const": true},
+        "caller_string_replay_removed": {"const": true},
+        "public_mint_path": {"const": false},
+        "portable_positive_token": {"const": false}
+      }
+    },
+    "capability_token": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "serializable",
+        "deserializable",
+        "cloneable",
+        "copyable",
+        "public_constructor",
+        "bindings",
+        "valid_only_when_state",
+        "horizon_must_equal_current_unknown_outcome",
+        "provider_profile_must_equal_effect_adapter_profile",
+        "consumed_by_retry_decision"
+      ],
+      "properties": {
+        "type": {"const": "QualifiedProviderReplayCapability"},
+        "serializable": {"const": false},
+        "deserializable": {"const": false},
+        "cloneable": {"const": false},
+        "copyable": {"const": false},
+        "public_constructor": {"const": false},
+        "bindings": {
+          "type": "array",
+          "uniqueItems": true,
+          "minItems": 7,
+          "maxItems": 7,
+          "items": {"type": "string"}
+        },
+        "valid_only_when_state": {"const": "UnknownOutcome"},
+        "horizon_must_equal_current_unknown_outcome": {"const": true},
+        "provider_profile_must_equal_effect_adapter_profile": {"const": true},
+        "consumed_by_retry_decision": {"const": true}
+      }
+    },
+    "retry_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "initial_attempt_requires",
+        "unknown_outcome_automatic_replay_requires",
+        "known_no_effect_retry_requires",
+        "transport_failure_is_no_effect",
+        "fresh_execution_identity_on_retry",
+        "no_effect_reconciliation_remains_available_without_replay_capability"
+      ],
+      "properties": {
+        "initial_attempt_requires": {"const": "Initial"},
+        "unknown_outcome_automatic_replay_requires": {"const": "QualifiedProviderReplayCapability"},
+        "known_no_effect_retry_requires": {"const": "ExactReconciliationObservation"},
+        "transport_failure_is_no_effect": {"const": false},
+        "fresh_execution_identity_on_retry": {"const": false},
+        "no_effect_reconciliation_remains_available_without_replay_capability": {"const": true}
+      }
+    },
+    "required_provider_qualification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operation_key", "duplicate_semantics", "authoritative_query", "receipt_schema", "replay_policy"],
+      "properties": {
+        "operation_key": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["deterministic", "bound_to_execution_id", "random_retry_nonce_forbidden", "changed_request_same_key"],
+          "properties": {
+            "deterministic": {"const": true},
+            "bound_to_execution_id": {"const": true},
+            "random_retry_nonce_forbidden": {"const": true},
+            "changed_request_same_key": {"const": "Conflict"}
+          }
+        },
+        "duplicate_semantics": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["same_key_same_request", "same_key_different_request", "concurrent_same_key"],
+          "properties": {
+            "same_key_same_request": {"const": "SameEffectOrSameAuthoritativeReceipt"},
+            "same_key_different_request": {"const": "Conflict"},
+            "concurrent_same_key": {"const": "OneSemanticEffectOrExplicitConflict"}
+          }
+        },
+        "authoritative_query": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["required", "query_key", "outcomes", "transport_error_may_establish_known_no_effect"],
+          "properties": {
+            "required": {"const": true},
+            "query_key": {"const": "ProviderOperationKeyBoundToExecutionId"},
+            "outcomes": {
+              "type": "array",
+              "uniqueItems": true,
+              "minItems": 3,
+              "maxItems": 3,
+              "items": {"enum": ["KnownSuccess", "KnownNoEffect", "UnknownOutcome"]}
+            },
+            "transport_error_may_establish_known_no_effect": {"const": false}
+          }
+        },
+        "receipt_schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["machine_readable", "must_bind"],
+          "properties": {
+            "machine_readable": {"const": true},
+            "must_bind": {
+              "type": "array",
+              "uniqueItems": true,
+              "minItems": 6,
+              "maxItems": 6,
+              "items": {"type": "string"}
+            }
+          }
+        },
+        "replay_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "automatic_replay_from_unknown_requires_provider_idempotency_theorem",
+            "authoritative_known_no_effect_allows_same_execution_retry",
+            "conflicting_provider_evidence_halts"
+          ],
+          "properties": {
+            "automatic_replay_from_unknown_requires_provider_idempotency_theorem": {"const": true},
+            "authoritative_known_no_effect_allows_same_execution_retry": {"const": true},
+            "conflicting_provider_evidence_halts": {"const": true}
+          }
+        }
+      }
+    },
+    "qualification_state": {"const": "Pending"},
+    "activation_allowed": {"const": false},
+    "minting_path": {"const": "AbsentUntilExactProviderQualification"},
+    "non_claims": {
+      "type": "array",
+      "minItems": 10,
+      "uniqueItems": true,
+      "items": {"type": "string"}
+    }
+  }
+}
