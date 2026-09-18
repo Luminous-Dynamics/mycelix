@@ -1,0 +1,102 @@
+{
+  "schema": "mycelix.constitutional-treasury-provider-capability.v1",
+  "profile_id": "mycelix-treasury-provider-replay-capability-v1",
+  "revision": 1,
+  "authority_class": "TypeGatedPendingProviderQualification",
+  "parent": {
+    "f0_semantic_head": "5e5c6097f8de8f0dc4b66695b87f6229de551bae",
+    "f0_public_facade_blob": "718d689be933103ee55c3c3d8ad0b3641cf971d4",
+    "f0_manifest_blob": "48b2b522e92459abe4f84fc31875720183e79b9e"
+  },
+  "public_api": {
+    "crate_entrypoint": "src/capability_public.rs",
+    "legacy_f0_facade_private": true,
+    "raw_kernel_private": true,
+    "caller_string_replay_removed": true,
+    "public_mint_path": false,
+    "portable_positive_token": false
+  },
+  "capability_token": {
+    "type": "QualifiedProviderReplayCapability",
+    "serializable": false,
+    "deserializable": false,
+    "cloneable": false,
+    "copyable": false,
+    "public_constructor": false,
+    "bindings": [
+      "provider_profile_id",
+      "provider_profile_commitment",
+      "qualification_receipt_id",
+      "qualification_receipt_commitment",
+      "execution_id",
+      "request_commitment",
+      "covers_through_attempt_ordinal"
+    ],
+    "valid_only_when_state": "UnknownOutcome",
+    "horizon_must_equal_current_unknown_outcome": true,
+    "provider_profile_must_equal_effect_adapter_profile": true,
+    "consumed_by_retry_decision": true
+  },
+  "retry_gate": {
+    "initial_attempt_requires": "Initial",
+    "unknown_outcome_automatic_replay_requires": "QualifiedProviderReplayCapability",
+    "known_no_effect_retry_requires": "ExactReconciliationObservation",
+    "transport_failure_is_no_effect": false,
+    "fresh_execution_identity_on_retry": false,
+    "no_effect_reconciliation_remains_available_without_replay_capability": true
+  },
+  "required_provider_qualification": {
+    "operation_key": {
+      "deterministic": true,
+      "bound_to_execution_id": true,
+      "random_retry_nonce_forbidden": true,
+      "changed_request_same_key": "Conflict"
+    },
+    "duplicate_semantics": {
+      "same_key_same_request": "SameEffectOrSameAuthoritativeReceipt",
+      "same_key_different_request": "Conflict",
+      "concurrent_same_key": "OneSemanticEffectOrExplicitConflict"
+    },
+    "authoritative_query": {
+      "required": true,
+      "query_key": "ProviderOperationKeyBoundToExecutionId",
+      "outcomes": [
+        "KnownSuccess",
+        "KnownNoEffect",
+        "UnknownOutcome"
+      ],
+      "transport_error_may_establish_known_no_effect": false
+    },
+    "receipt_schema": {
+      "machine_readable": true,
+      "must_bind": [
+        "provider_operation_key",
+        "execution_id",
+        "request_commitment",
+        "provider_outcome",
+        "provider_receipt_identity",
+        "provider_receipt_commitment"
+      ]
+    },
+    "replay_policy": {
+      "automatic_replay_from_unknown_requires_provider_idempotency_theorem": true,
+      "authoritative_known_no_effect_allows_same_execution_retry": true,
+      "conflicting_provider_evidence_halts": true
+    }
+  },
+  "qualification_state": "Pending",
+  "activation_allowed": false,
+  "minting_path": "AbsentUntilExactProviderQualification",
+  "non_claims": [
+    "not_provider_qualified",
+    "not_provider_truth_established",
+    "not_external_settlement_finality",
+    "not_physical_exactly_once",
+    "not_public_fund_authority",
+    "not_sap_amount_qualified",
+    "not_treasury_v2_qualified",
+    "not_capacity_qualified",
+    "not_live_treasury_adapter",
+    "not_deployment_current"
+  ]
+}
