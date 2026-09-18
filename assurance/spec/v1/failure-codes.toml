@@ -24,6 +24,21 @@ code = "D004_RESOURCE_LIMIT_EXCEEDED"
 stage = "decode"
 
 [[failure]]
+id = 5
+code = "D005_FORBIDDEN_VALUE_KIND"
+stage = "decode"
+
+[[failure]]
+id = 6
+code = "D006_INVALID_MAP_KEY"
+stage = "decode"
+
+[[failure]]
+id = 7
+code = "D007_DUPLICATE_MAP_KEY"
+stage = "decode"
+
+[[failure]]
 id = 1001
 code = "S001_DUPLICATE_ID"
 stage = "structure"
