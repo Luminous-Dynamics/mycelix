@@ -1,0 +1,275 @@
+name: REGEN-011E Biomass ProductFrozen Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-regenerative-biomass/**'
+      - '.github/workflows/regen-biomass-product-frozen.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  product-frozen:
+    name: REGEN-011E biomass ProductFrozen qualification
+    if: github.event_name == 'pull_request' && github.head_ref == 'qual/regen-011e-biomass-product-frozen-v1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      EXPECTED_PARENT_SHA: 872151cae7bee995b6bfff7867fc40178ad4759e
+      PREPARATION_SOURCE_HEAD: 0b78308d95a169132d9b3f6de5f11b65f7553ca7
+      PREPARATION_RUN: '35313226013'
+      PREPARATION_JOB: '105499349684'
+      PREPARATION_ARTIFACT: '10537710169'
+      PREPARATION_ARCHIVE_SHA256: 2bbc0d08130a24ea7c433c09a717b865274e05e3202691639ee09b204c7625f6
+      CRATE_DIR: crates/mycelix-regenerative-biomass
+      PINNED_TOOLCHAIN: 1.96.0
+      EXPECTED_MANIFEST_SHA256: 76be59314932609b1e2e0fe318e65be4068463c30a04daa161308495537b3d54
+      EXPECTED_LOCK_SHA256: ee5075dd6a27bc78829b04c3581ded9c84a7314368e603e6e132f62afadc9888
+      EXPECTED_SOURCE_SHA256: b0be9bf255ca63cf65475e33fab3c7702fbb86c9c62df26a2d5714d123046f26
+      EXPECTED_TEST_SHA256: 3367ab6d5bc199d4f3eef47096d1558be680878ff47d6cfa8e0443ed24d4ebc9
+      EXPECTED_Q001_VALIDATOR_BLOB: 653949df6a5dd6f37cb32eff57611a308846cdc7
+      EXPECTED_ADMISSION_SOURCE_BLOB: 294b777c95be79a13ca7d0e1e3463d32ff25c8f0
+
+    steps:
+      - name: Checkout exact ProductHead
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Verify exact ProductHead parent and promoted scope
+        shell: bash
+        env:
+          TARGET_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT_SHA"
+          test "$(git rev-list --count "$EXPECTED_PARENT_SHA"..HEAD)" = '1'
+          expected="$(printf '%s\n' \
+            '.github/workflows/regen-biomass-product-frozen.yml' \
+            'crates/mycelix-regenerative-biomass/Cargo.lock' \
+            'crates/mycelix-regenerative-biomass/Cargo.toml' \
+            'crates/mycelix-regenerative-biomass/src/lib.rs' \
+            'crates/mycelix-regenerative-biomass/tests/biomass_core.rs' | sort)"
+          actual="$(git diff --name-only "$EXPECTED_PARENT_SHA" HEAD | sort)"
+          printf '%s\n' '---BEGIN_REGEN011E_SCOPE---' "$actual" '---END_REGEN011E_SCOPE---'
+          test "$actual" = "$expected"
+
+      - name: Verify exact promoted preparation bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum "$CRATE_DIR/Cargo.toml" | awk '{print $1}')" = "$EXPECTED_MANIFEST_SHA256"
+          test "$(sha256sum "$CRATE_DIR/Cargo.lock" | awk '{print $1}')" = "$EXPECTED_LOCK_SHA256"
+          test "$(sha256sum "$CRATE_DIR/src/lib.rs" | awk '{print $1}')" = "$EXPECTED_SOURCE_SHA256"
+          test "$(sha256sum "$CRATE_DIR/tests/biomass_core.rs" | awk '{print $1}')" = "$EXPECTED_TEST_SHA256"
+
+      - name: Verify exact qualified upstream and Q001 anchors
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:qualification/regen-019d/verify-regen-qualification-receipt.py)" = "$EXPECTED_Q001_VALIDATOR_BLOB"
+          test "$(git rev-parse HEAD:crates/mycelix-regenerative-admission/src/lib.rs)" = "$EXPECTED_ADMISSION_SOURCE_BLOB"
+          test "$(git rev-parse HEAD:crates/mycelix-core-types/src/planetary_evidence.rs)" = '2069d6e56336d05c7bc293abfc5ccdc421ab53cb'
+          test "$(git rev-parse HEAD:crates/mycelix-core-types/src/planetary_lineage.rs)" = 'e0fda7c4c9e83c46761dae1e4fff2c43e3d6d41b'
+          test "$(git rev-parse HEAD:crates/mycelix-core-types/src/planetary_product.rs)" = 'dedc20b201759883b9c58b39905dfc700c1cfb21'
+          python3 qualification/regen-019d/verify-regen-qualification-receipt.py --self-test
+
+      - name: Verify reservation type-state surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("crates/mycelix-regenerative-biomass/src/lib.rs").read_text(encoding="utf-8")
+
+          def block_after(marker: str) -> str:
+              start = source.index(marker)
+              brace = source.index("{", start)
+              depth = 0
+              for index in range(brace, len(source)):
+                  if source[index] == "{":
+                      depth += 1
+                  elif source[index] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[start:index + 1]
+              raise AssertionError(f"unterminated block: {marker}")
+
+          assert "pub struct ProcessInputReservation" not in source
+          assert "pub struct ReservationRequest" in source
+          assert "pub struct AcceptedReservation" in source
+          assert "pub fn evaluate_reservation_requests" in source
+
+          accepted_struct = block_after("pub struct AcceptedReservation")
+          for field in (
+              "reservation_ref",
+              "lot_id",
+              "feedstock_assessment_ref",
+              "state_snapshot_ref",
+              "process_profile_ref",
+              "quantity",
+          ):
+              assert f"pub {field}:" not in accepted_struct
+
+          accepted_impl = block_after("impl AcceptedReservation")
+          assert "fn from_request(" in accepted_impl
+          assert "pub fn from_request(" not in accepted_impl
+          assert "pub fn new(" not in accepted_impl
+          print("reservation_type_state=RequestToAcceptedOnly")
+          PY
+          grep -F 'fn evaluator_mints_accepted_reservations_only_after_full_batch_validation()' "$CRATE_DIR/tests/biomass_core.rs"
+          grep -F 'fn scope_mismatched_request_is_not_an_accepted_reservation()' "$CRATE_DIR/tests/biomass_core.rs"
+
+      - name: Install and prove pinned Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install "$PINNED_TOOLCHAIN" --profile minimal --component rustfmt,clippy
+          test "$(rustc +"$PINNED_TOOLCHAIN" --version | awk '{print $2}')" = "$PINNED_TOOLCHAIN"
+          test "$(cargo +"$PINNED_TOOLCHAIN" --version | awk '{print $2}')" = "$PINNED_TOOLCHAIN"
+          rustc +"$PINNED_TOOLCHAIN" --version --verbose
+          cargo +"$PINNED_TOOLCHAIN" --version --verbose
+          rustfmt +"$PINNED_TOOLCHAIN" --version
+
+      - name: Format exact frozen biomass source
+        run: cargo +"$PINNED_TOOLCHAIN" fmt --manifest-path "$CRATE_DIR/Cargo.toml" -- --check
+
+      - name: Test exact ProductFrozen biomass contract
+        run: cargo +"$PINNED_TOOLCHAIN" test --manifest-path "$CRATE_DIR/Cargo.toml" --locked
+
+      - name: Strict Clippy
+        run: cargo +"$PINNED_TOOLCHAIN" clippy --manifest-path "$CRATE_DIR/Cargo.toml" --all-targets --locked -- -D warnings
+
+      - name: Verify post-execution immutability and clean checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum "$CRATE_DIR/Cargo.toml" | awk '{print $1}')" = "$EXPECTED_MANIFEST_SHA256"
+          test "$(sha256sum "$CRATE_DIR/Cargo.lock" | awk '{print $1}')" = "$EXPECTED_LOCK_SHA256"
+          test "$(sha256sum "$CRATE_DIR/src/lib.rs" | awk '{print $1}')" = "$EXPECTED_SOURCE_SHA256"
+          test "$(sha256sum "$CRATE_DIR/tests/biomass_core.rs" | awk '{print $1}')" = "$EXPECTED_TEST_SHA256"
+          git diff --check
+          status="$(git status --short)"
+          printf 'git_status=%s\n' "$status"
+          test -z "$status"
+
+      - name: Emit and validate REGEN-Q001 qualification receipt
+        shell: bash
+        env:
+          TARGET_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/regen011e-receipt
+          python3 - <<'PY'
+          import json
+          import os
+          import platform
+          import subprocess
+          from pathlib import Path
+
+          def out(*args):
+              return subprocess.check_output(args, text=True).strip()
+
+          target = os.environ["TARGET_SHA"]
+          parent = os.environ["EXPECTED_PARENT_SHA"]
+          tree = out("git", "rev-parse", "HEAD^{tree}")
+          rustc = out("rustc", "+1.96.0", "--version")
+          cargo = out("cargo", "+1.96.0", "--version")
+          rustfmt = out("rustfmt", "+1.96.0", "--version")
+          receipt = {
+              "schema": "mycelix.regen.qualification-receipt-v1",
+              "receipt_id": f"regen-011e-product-head-{target[:8]}-run-{os.environ['GITHUB_RUN_ID']}",
+              "subject": {
+                  "class": "ProductHead",
+                  "declared_identity": target,
+                  "observed_identity": target,
+                  "git": {
+                      "repository": "Luminous-Dynamics/mycelix",
+                      "commit_sha": target,
+                      "tree_sha": tree,
+                      "parent_shas": [parent],
+                  },
+              },
+              "campaign": {
+                  "provider": "github-actions",
+                  "workflow_ref": ".github/workflows/regen-biomass-product-frozen.yml",
+                  "run_ref": os.environ["GITHUB_RUN_ID"],
+                  "job_ref": os.environ["GITHUB_JOB"],
+                  "executed": True,
+              },
+              "environment": {
+                  "runner": "github-hosted:ubuntu-24.04",
+                  "operating_system": platform.platform(),
+                  "toolchains": [rustc, cargo, rustfmt],
+              },
+              "dependencies": {
+                  "state": "ProductFrozen",
+                  "identities": [
+                      {"kind": "cargo-lock", "digest": "sha256:" + os.environ["EXPECTED_LOCK_SHA256"]},
+                      {"kind": "qualified-parent", "digest": "git-sha1:" + parent},
+                      {"kind": "shared-admission-source", "digest": "git-sha1:" + os.environ["EXPECTED_ADMISSION_SOURCE_BLOB"]},
+                  ],
+              },
+              "fixtures": [
+                  {
+                      "name": "regen-011d1-preparation-capsule",
+                      "sha256": os.environ["PREPARATION_ARCHIVE_SHA256"],
+                      "git_blob": None,
+                  },
+                  {
+                      "name": "biomass-core-regression-corpus",
+                      "sha256": os.environ["EXPECTED_TEST_SHA256"],
+                      "git_blob": out("git", "rev-parse", "HEAD:crates/mycelix-regenerative-biomass/tests/biomass_core.rs"),
+                  },
+              ],
+              "assertions": [
+                  {"id": "subject.exact-head", "result": "pass"},
+                  {"id": "subject.exact-parent", "result": "pass"},
+                  {"id": "subject.exact-scope", "result": "pass"},
+                  {"id": "preparation.exact-promoted-bytes", "result": "pass"},
+                  {"id": "upstream.shared-admission-qualified-anchor", "result": "pass"},
+                  {"id": "qualification.q001-validator-exact", "result": "pass"},
+                  {"id": "typestate.request-is-not-accepted", "result": "pass"},
+                  {"id": "typestate.accepted-constructor-not-public", "result": "pass"},
+                  {"id": "typestate.batch-failure-no-partial-acceptance", "result": "pass"},
+                  {"id": "runtime.rust-1.96", "result": "pass"},
+                  {"id": "runtime.cargo-1.96", "result": "pass"},
+                  {"id": "dependencies.product-frozen-lock", "result": "pass"},
+                  {"id": "tests.biomass-core", "result": "pass", "details": "27 integration tests passed; 0 failed."},
+                  {"id": "clippy.strict-all-targets", "result": "pass"},
+                  {"id": "checkout.immutable-postflight", "result": "pass"},
+              ],
+              "result": "pass",
+              "proposition": "The exact REGEN-011E mycelix-regenerative-biomass ProductHead satisfies the frozen dependency-light biomass planning contract, including evaluator-minted reservation acceptance, under the recorded Rust 1.96.0 ProductFrozen Cargo graph and exact qualified REGEN-019D parent.",
+              "non_claims": [
+                  "No hermetic system-closure or bit-reproducible-build claim.",
+                  "No ecological truth, rights validity, contamination safety, process execution, pyrolysis safety, biochar qualification, agronomic efficacy, carbon-removal, market-value, governance-authority, or physical-actuation claim.",
+                  "Accepted reservation remains distinct from evidence-bound physical consumption and execution.",
+              ],
+              "evidence_refs": [
+                  f"github:run:{os.environ['GITHUB_RUN_ID']}",
+                  f"github:preparation-run:{os.environ['PREPARATION_RUN']}",
+                  f"github:preparation-job:{os.environ['PREPARATION_JOB']}",
+                  f"github:artifact:{os.environ['PREPARATION_ARTIFACT']}",
+                  "github:pr:1409",
+                  "github:pr:1517",
+              ],
+          }
+          path = Path("/tmp/regen011e-receipt/qualification.json")
+          path.write_text(json.dumps(receipt, sort_keys=True, separators=(",", ":")), encoding="utf-8")
+          PY
+          python3 qualification/regen-019d/verify-regen-qualification-receipt.py /tmp/regen011e-receipt/qualification.json
+          sha256sum /tmp/regen011e-receipt/qualification.json
+
+      - name: Upload validated qualification receipt
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: regen011e-product-frozen-receipt-${{ github.event.pull_request.head.sha }}
+          path: /tmp/regen011e-receipt/qualification.json
+          if-no-files-found: error
+          retention-days: 90
