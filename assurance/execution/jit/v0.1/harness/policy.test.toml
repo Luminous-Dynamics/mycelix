@@ -1,0 +1,21 @@
+version = 1
+mode = "jit-1a-test-only"
+jit0_root_sha256 = "78a8d7d525252b31ff24245514ab9288caec6bea56fba02349e4415a0a55546c"
+qualification_profile_sha256 = "9c9bea898f07a068e8d4c4be7d39adc81bf11a5b4ea9b9fc19d44b90c42a6a9b"
+runner_group_id = "1"
+max_ttl_micros = 300000000
+
+workflow_path = ".github/workflows/assure-002b-jit.yml"
+workflow_commit = "108a4505904d49f2f93924776e31e9def1c880ab"
+workflow_file_sha256 = "3d0afef27a70587b389938f6701161650ca73ae48e1cf01ed9b8c477e8c43a33"
+workflow_fixture = "fixtures/qualification-workflow.yml"
+
+network_policy_sha256 = "1b3772f14273134af68bc78467044f9b0114a20f49ccafb63478573fac900c5a"
+network_policy_fixture = "fixtures/network-policy.json"
+allowed_commands_sha256 = "ee14684dd0779110d8b1bf473d9d87e42a352bad270a50ad7c6a0cc7a1f44fe8"
+allowed_commands_fixture = "fixtures/command-plan.json"
+runner_image_sha256 = "82e4272dde32a2996a3457e33a1b8611dba1edca9154cda2998786b1d16978fb"
+runner_image_fixture = "fixtures/runner-image.json"
+operator_authorization_fixture = "fixtures/operator-authorization.json"
+
+allowed_operator_authorization_sha256 = ["8d19f6806bc80261dac5d34e460430fc5238c78d4b403d2af17c6113efdc081d"]

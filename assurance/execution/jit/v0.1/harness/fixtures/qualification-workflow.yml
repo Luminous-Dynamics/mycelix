@@ -1,0 +1,10 @@
+name: JIT-1A Offline Qualification Fixture
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  fixture:
+    runs-on: [self-hosted, jit-qualification]
+    steps:
+      - run: echo offline-fixture-only

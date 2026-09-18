@@ -1,0 +1,23 @@
+protocol = "MYCELIX-JIT-QUAL/JIT1A"
+version = 1
+status = "exact-execution-pending"
+parent_jit0_commit = "108a4505904d49f2f93924776e31e9def1c880ab"
+jit0_root_sha256 = "78a8d7d525252b31ff24245514ab9288caec6bea56fba02349e4415a0a55546c"
+qualification_profile_sha256 = "9c9bea898f07a068e8d4c4be7d39adc81bf11a5b4ea9b9fc19d44b90c42a6a9b"
+payload_manifest_domain = "MYCELIX-JIT-QUAL/V0.1/JIT1A-PAYLOAD"
+payload_manifest_sha256 = "a8646d121a73bdaf7c9c1b022f6db27dc75514e86ed29f7dc411092470cd6762"
+
+[files]
+"README.md" = "629e00e8562284f4b57df93c070a0718712e1032"
+"admit.py" = "8da90c23586527d430b2385bd78c5442396ec8b1"
+"check_harness.py" = "604acd3ac2429f9c9e326bef28562d69b70c01f8"
+"check_lock.py" = "13794f114907a51320abfc322f1d2928d24f5f0c"
+"check_policy_guard.py" = "2364d8a222b3fcd827eb8c5775e828469ea250c8"
+"controller_dry_run.py" = "f4cc6050f854a0ba6234335d1b459244c3199040"
+"fixtures/command-plan.json" = "ba5089eff6ff2ca8bab2c3f5cfee7de9bc0a707f"
+"fixtures/network-policy.json" = "6921ecc227a3b9830f999c0ecb57ad300391b3b0"
+"fixtures/operator-authorization.json" = "c9d438fb5ee692cf718ff1e9520ee8f92ca32458"
+"fixtures/qualification-workflow.yml" = "a946a65462abdfc8783e2e5ecb429fd9586e1960"
+"fixtures/runner-image.json" = "3c77e136109e601e5183367d4b95ccc3e5e590c6"
+"fixtures/valid-envelope.json" = "0b98d14f0b58509a7b618342f65e53b9efaba5a3"
+"policy.test.toml" = "ff2bedb29e19d0193d019f3331d543c82b34a031"
