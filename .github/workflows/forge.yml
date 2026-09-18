@@ -17,6 +17,7 @@ on:
       - "adapters/forge-gittuf-trust-profile/**"
       - "adapters/forge-gittuf-policy-inventory/**"
       - "adapters/forge-hermetic-run-evidence/**"
+      - "adapters/forge-guest-plan/**"
       - ".github/workflows/forge.yml"
   push:
     branches:
@@ -36,6 +37,7 @@ on:
       - "adapters/forge-gittuf-trust-profile/**"
       - "adapters/forge-gittuf-policy-inventory/**"
       - "adapters/forge-hermetic-run-evidence/**"
+      - "adapters/forge-guest-plan/**"
       - ".github/workflows/forge.yml"
 
 permissions:
@@ -81,6 +83,8 @@ jobs:
             path: adapters/forge-gittuf-policy-inventory
           - name: Forge Hermetic Run Evidence
             path: adapters/forge-hermetic-run-evidence
+          - name: Forge Guest Verification Plan
+            path: adapters/forge-guest-plan
     defaults:
       run:
         working-directory: ${{ matrix.path }}
