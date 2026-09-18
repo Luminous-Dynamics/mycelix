@@ -254,9 +254,17 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "constitutional-authority"
+version = "0.1.0"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
@@ -295,6 +303,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -603,6 +612,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "proposals_integrity",
  "serde",
  "serde_json",
@@ -1505,6 +1515,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
  "thiserror",
@@ -1783,6 +1794,8 @@ checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 [[package]]
 name = "sovereign-profile"
 version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "049f13004bc45a09549c4df44beeaca97def2fce17099de065c0051851ba2249"
 dependencies = [
  "serde",
 ]
@@ -2030,6 +2043,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "proposals_integrity",
  "serde",
  "serde_json",
