@@ -3,7 +3,7 @@ name: REGEN-011E Biomass ProductFrozen Promoter
 on:
   push:
     branches:
-      - 'ci/regen-011e-biomass-product-frozen-promoter-v1'
+      - 'ci/regen-011e-biomass-product-frozen-promoter-strict-v1'
 
 permissions:
   contents: write
@@ -16,7 +16,7 @@ jobs:
     timeout-minutes: 15
     env:
       EXPECTED_PARENT_SHA: 872151cae7bee995b6bfff7867fc40178ad4759e
-      TARGET_BRANCH: qual/regen-011e-biomass-product-frozen-v1
+      TARGET_BRANCH: qual/regen-011e-biomass-product-frozen-v1-strict
       PREPARATION_SOURCE_HEAD: 0b78308d95a169132d9b3f6de5f11b65f7553ca7
       ARTIFACT_ID: '10537710169'
       EXPECTED_ARTIFACT_SHA256: 2bbc0d08130a24ea7c433c09a717b865274e05e3202691639ee09b204c7625f6
@@ -28,8 +28,7 @@ jobs:
       EXPECTED_LOCK_BLOB: 77b8dd1d4f05035079a69b9bab453be3e2baee02
       EXPECTED_SOURCE_BLOB: 1ab26a628c4af05159cf30a92d84dd489d8f5a23
       EXPECTED_TEST_BLOB: 97507f83bcb165679089b561deae6b59346e5756
-      EXPECTED_QUALIFIER_SHA256: ec0c93192f4626e2ace6da3c57fbe29560a7ac8ac3d30b4e137d2e801007c978
-      EXPECTED_QUALIFIER_BLOB: f9de93a5821947c35b3bdc9cb4c0d93f3b0b08a2
+      EXPECTED_QUALIFIER_BLOB: 976fc677c15952829637b32afb8e8a73dd99bdd6
       EXPECTED_Q001_VALIDATOR_BLOB: 653949df6a5dd6f37cb32eff57611a308846cdc7
       EXPECTED_ADMISSION_SOURCE_BLOB: 294b777c95be79a13ca7d0e1e3463d32ff25c8f0
 
@@ -46,11 +45,10 @@ jobs:
           set -euo pipefail
           src='.github/workflows/regen-biomass-product-frozen.yml'
           test -f "$src"
-          test "$(sha256sum "$src" | awk '{print $1}')" = "$EXPECTED_QUALIFIER_SHA256"
           test "$(git hash-object "$src")" = "$EXPECTED_QUALIFIER_BLOB"
           cp "$src" /tmp/regen-biomass-product-frozen.yml
 
-      - name: Refuse to overwrite existing qualification branch
+      - name: Refuse to overwrite existing strict qualification branch
         shell: bash
         run: |
           set -euo pipefail
@@ -133,7 +131,6 @@ jobs:
           cp /tmp/regen011d1-prepared/crate/tests/biomass_core.rs crates/mycelix-regenerative-biomass/tests/biomass_core.rs
           cp /tmp/regen-biomass-product-frozen.yml .github/workflows/regen-biomass-product-frozen.yml
 
-          test "$(sha256sum .github/workflows/regen-biomass-product-frozen.yml | awk '{print $1}')" = "$EXPECTED_QUALIFIER_SHA256"
           test "$(git hash-object .github/workflows/regen-biomass-product-frozen.yml)" = "$EXPECTED_QUALIFIER_BLOB"
           test "$(git hash-object crates/mycelix-regenerative-biomass/Cargo.toml)" = "$EXPECTED_MANIFEST_BLOB"
           test "$(git hash-object crates/mycelix-regenerative-biomass/Cargo.lock)" = "$EXPECTED_LOCK_BLOB"
