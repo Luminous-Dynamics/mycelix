@@ -12,7 +12,7 @@ permissions:
 jobs:
   product-frozen:
     name: REGEN-011E biomass ProductFrozen qualification
-    if: github.event_name == 'pull_request' && github.head_ref == 'qual/regen-011e-biomass-product-frozen-v1'
+    if: github.event_name == 'pull_request' && github.head_ref == 'qual/regen-011e-biomass-product-frozen-v1-strict'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
