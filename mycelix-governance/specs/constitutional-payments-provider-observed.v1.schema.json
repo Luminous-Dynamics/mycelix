@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mycelix.constitutional-payments-provider-observed.v1.schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "profile_id",
+    "revision",
+    "authority_class",
+    "f0c_semantic_head",
+    "runtime_subject",
+    "source_bindings",
+    "candidate",
+    "f0c_capability_eligibility",
+    "required_successor",
+    "non_claims"
+  ],
+  "properties": {
+    "schema": {"const": "mycelix.constitutional-payments-provider-observed.v1"},
+    "profile_id": {"const": "mycelix-payments-provider-observed-15b9c89a-v1"},
+    "revision": {"const": 1},
+    "authority_class": {"const": "ObservedSourceBound"},
+    "f0c_semantic_head": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "runtime_subject": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "source_bindings": {
+      "type": "object",
+      "minProperties": 3,
+      "maxProperties": 3,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "blob"],
+        "properties": {
+          "path": {"type": "string", "minLength": 1},
+          "blob": {"type": "string", "pattern": "^[0-9a-f]{40}$"}
+        }
+      }
+    },
+    "candidate": {"type": "object"},
+    "f0c_capability_eligibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["automatic_replay_eligible", "qualified_provider_replay_capability_may_be_minted", "blocking_properties"],
+      "properties": {
+        "automatic_replay_eligible": {"const": false},
+        "qualified_provider_replay_capability_may_be_minted": {"const": false},
+        "blocking_properties": {
+          "type": "array",
+          "minItems": 11,
+          "uniqueItems": true,
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "required_successor": {"type": "object"},
+    "non_claims": {
+      "type": "array",
+      "minItems": 10,
+      "uniqueItems": true,
+      "items": {"type": "string"}
+    }
+  }
+}
