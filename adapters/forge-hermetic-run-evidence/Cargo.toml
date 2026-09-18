@@ -1,0 +1,16 @@
+[package]
+name = "mycelix-forge-hermetic-run-evidence"
+version = "0.1.0"
+edition = "2021"
+authors = ["Luminous Dynamics"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+description = "Same-run orchestration evidence contract for Mycelix Forge hermetic verification"
+
+[dependencies]
+mycelix-forge-core = { path = "../../crates/mycelix-forge-core" }
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "2.0"
+
+[dev-dependencies]
+serde_json = "1.0"

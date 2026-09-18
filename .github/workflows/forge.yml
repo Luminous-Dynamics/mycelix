@@ -16,6 +16,7 @@ on:
       - "adapters/forge-nar-auditor/**"
       - "adapters/forge-gittuf-trust-profile/**"
       - "adapters/forge-gittuf-policy-inventory/**"
+      - "adapters/forge-hermetic-run-evidence/**"
       - ".github/workflows/forge.yml"
   push:
     branches:
@@ -34,6 +35,7 @@ on:
       - "adapters/forge-nar-auditor/**"
       - "adapters/forge-gittuf-trust-profile/**"
       - "adapters/forge-gittuf-policy-inventory/**"
+      - "adapters/forge-hermetic-run-evidence/**"
       - ".github/workflows/forge.yml"
 
 permissions:
@@ -77,6 +79,8 @@ jobs:
             path: adapters/forge-gittuf-trust-profile
           - name: Forge gittuf Policy Inventory
             path: adapters/forge-gittuf-policy-inventory
+          - name: Forge Hermetic Run Evidence
+            path: adapters/forge-hermetic-run-evidence
     defaults:
       run:
         working-directory: ${{ matrix.path }}
