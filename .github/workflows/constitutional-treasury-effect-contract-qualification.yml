@@ -1,0 +1,347 @@
+name: Constitutional Treasury Effect Contract Qualification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'mycelix-governance/Cargo.toml'
+      - 'mycelix-governance/crates/constitutional-treasury-effect-provider/**'
+      - 'mycelix-governance/specs/constitutional-treasury-effect-contract.v1.json'
+      - 'mycelix-governance/specs/constitutional-treasury-effect-contract.v1.schema.json'
+      - 'mycelix-governance/docs/CONSTITUTIONAL_TREASURY_EFFECT_CONTRACT_V0_1.md'
+      - 'mycelix-governance/tools/formal/validate_constitutional_treasury_effect_contract.py'
+      - 'mycelix-governance/tools/formal/validate_constitutional_treasury_effect_public_api.py'
+      - '.github/workflows/constitutional-treasury-effect-contract-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: constitutional-treasury-effect-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NIXPKGS_REV: a50bf0c1b07873c1a53892292017041a8f0a1288
+  EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EXPECTED_SEMANTIC_HEAD: 5e5c6097f8de8f0dc4b66695b87f6229de551bae
+
+jobs:
+  qualify:
+    name: Exact-head treasury effect F0
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout exact raw head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ env.EXPECTED_HEAD }}
+
+      - name: Bind verifier lineage and exact semantic surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_SEMANTIC_HEAD"
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/constitutional-treasury-effect-contract-qualification.yml"
+
+          rm -rf treasury-effect-evidence
+          mkdir -p treasury-effect-evidence
+          printf '%s\n' "$EXPECTED_HEAD" > treasury-effect-evidence/expected-head.txt
+          printf '%s\n' "$EXPECTED_SEMANTIC_HEAD" > treasury-effect-evidence/expected-semantic-head.txt
+          printf '%s\n' "$(git rev-parse "$EXPECTED_SEMANTIC_HEAD^")" > treasury-effect-evidence/semantic-parent.txt
+
+          cat > treasury-effect-evidence/expected-semantic-files.txt <<'EOF'
+          mycelix-governance/Cargo.toml
+          mycelix-governance/crates/constitutional-treasury-effect-provider/Cargo.toml
+          mycelix-governance/crates/constitutional-treasury-effect-provider/src/lib.rs
+          mycelix-governance/crates/constitutional-treasury-effect-provider/src/public.rs
+          mycelix-governance/crates/constitutional-treasury-effect-provider/tests/effect_ledger_identity.rs
+          mycelix-governance/crates/constitutional-treasury-effect-provider/tests/reconciliation_history.rs
+          mycelix-governance/docs/CONSTITUTIONAL_TREASURY_EFFECT_CONTRACT_V0_1.md
+          mycelix-governance/specs/constitutional-treasury-effect-contract.v1.json
+          mycelix-governance/specs/constitutional-treasury-effect-contract.v1.schema.json
+          mycelix-governance/tools/formal/validate_constitutional_treasury_effect_contract.py
+          mycelix-governance/tools/formal/validate_constitutional_treasury_effect_public_api.py
+          EOF
+          sed -i 's/^          //' treasury-effect-evidence/expected-semantic-files.txt
+
+          git diff --name-only "$EXPECTED_SEMANTIC_HEAD^" "$EXPECTED_SEMANTIC_HEAD" | sort \
+            > treasury-effect-evidence/actual-semantic-files.txt
+          sort treasury-effect-evidence/expected-semantic-files.txt \
+            > treasury-effect-evidence/expected-semantic-files.sorted.txt
+          cmp treasury-effect-evidence/expected-semantic-files.sorted.txt \
+              treasury-effect-evidence/actual-semantic-files.txt
+
+          if grep -E '^(mycelix-governance/zomes/|mycelix-finance/zomes/)' \
+              treasury-effect-evidence/actual-semantic-files.txt; then
+            echo "F0 semantic head unexpectedly changes a live Holochain zome" >&2
+            exit 1
+          fi
+
+          git hash-object $(cat treasury-effect-evidence/expected-semantic-files.txt) \
+            > treasury-effect-evidence/source-hashes-before.txt
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Validate exact source-bound contract and guarded public surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#python3" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#git" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" \
+            --command bash -euo pipefail -c '
+              python3 --version | tee treasury-effect-evidence/python-version.txt
+              git --version | tee treasury-effect-evidence/git-version.txt
+              python3 -m py_compile \
+                mycelix-governance/tools/formal/validate_constitutional_treasury_effect_contract.py \
+                mycelix-governance/tools/formal/validate_constitutional_treasury_effect_public_api.py
+              python3 mycelix-governance/tools/formal/validate_constitutional_treasury_effect_contract.py \
+                2>&1 | tee treasury-effect-evidence/source-contract-validator.log
+              python3 mycelix-governance/tools/formal/validate_constitutional_treasury_effect_public_api.py \
+                2>&1 | tee treasury-effect-evidence/public-facade-validator.log
+            '
+
+      - name: Compile, test and lint exact F0 contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustfmt" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#clippy" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#coreutils" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" \
+            --command bash -euo pipefail -c '
+              rustc --version | tee treasury-effect-evidence/rustc-version.txt
+              cargo --version | tee treasury-effect-evidence/cargo-version.txt
+              rustfmt --version | tee treasury-effect-evidence/rustfmt-version.txt
+              cargo clippy --version | tee treasury-effect-evidence/clippy-version.txt
+
+              cargo fmt --manifest-path mycelix-governance/Cargo.toml \
+                --package constitutional-treasury-effect-provider -- --check \
+                2>&1 | tee treasury-effect-evidence/cargo-fmt.log
+              cargo check --manifest-path \
+                mycelix-governance/crates/constitutional-treasury-effect-provider/Cargo.toml \
+                --all-targets 2>&1 | tee treasury-effect-evidence/cargo-check.log
+              cargo test --manifest-path \
+                mycelix-governance/crates/constitutional-treasury-effect-provider/Cargo.toml \
+                --all-targets 2>&1 | tee treasury-effect-evidence/cargo-test.log
+              cargo clippy --manifest-path \
+                mycelix-governance/crates/constitutional-treasury-effect-provider/Cargo.toml \
+                --all-targets -- -D warnings \
+                2>&1 | tee treasury-effect-evidence/cargo-clippy.log
+
+              cp mycelix-governance/Cargo.lock treasury-effect-evidence/derived-Cargo.lock
+              sha256sum treasury-effect-evidence/derived-Cargo.lock \
+                > treasury-effect-evidence/derived-Cargo.lock.sha256
+            '
+
+      - name: Run compile-valid semantic mutation controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#python3" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" \
+            --command bash -euo pipefail -c '
+          python3 - <<"PY"
+          from pathlib import Path
+          import subprocess
+
+          ROOT = Path.cwd()
+          LIB = ROOT / "mycelix-governance/crates/constitutional-treasury-effect-provider/src/lib.rs"
+          PUB = ROOT / "mycelix-governance/crates/constitutional-treasury-effect-provider/src/public.rs"
+          MANIFEST = ROOT / "mycelix-governance/crates/constitutional-treasury-effect-provider/Cargo.toml"
+          API_VALIDATOR = ROOT / "mycelix-governance/tools/formal/validate_constitutional_treasury_effect_public_api.py"
+          EVIDENCE = ROOT / "treasury-effect-evidence"
+          CARGO = ["cargo", "--quiet"]
+          manifest_arg = ["--manifest-path", str(MANIFEST), "--all-targets"]
+
+          originals = {p: p.read_text() for p in (LIB, PUB, MANIFEST)}
+
+          def restore():
+              for path, text in originals.items():
+                  path.write_text(text)
+
+          def replace(path, old, new, *, start=None):
+              text = path.read_text()
+              offset = text.index(start) if start else 0
+              pos = text.index(old, offset)
+              path.write_text(text[:pos] + new + text[pos + len(old):])
+
+          def run(cmd, log):
+              proc = subprocess.run(cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+              (EVIDENCE / log).write_text(proc.stdout)
+              return proc.returncode
+
+          def rust_mutant(name, mutate, test_filter):
+              restore()
+              mutate()
+              if run(["cargo", "check", *manifest_arg], f"mutant-{name}-check.log") != 0:
+                  raise SystemExit(f"{name}: mutant did not compile")
+              rc = run(
+                  ["cargo", "test", "--manifest-path", str(MANIFEST), test_filter],
+                  f"mutant-{name}-test.log",
+              )
+              if rc == 0:
+                  raise SystemExit(f"{name}: mutant survived")
+              (EVIDENCE / f"mutant-{name}.txt").write_text("PASS\n")
+
+          try:
+              rust_mutant(
+                  "transport-no-effect",
+                  lambda: replace(
+                      LIB,
+                      """                self.state = EffectState::UnknownOutcome {\n                    through_attempt_ordinal: *attempt_ordinal,\n                    evidence_ref: transport_error_ref,\n                };\n""",
+                      """                self.state = EffectState::KnownNoEffect {\n                    through_attempt_ordinal: *attempt_ordinal,\n                    observation_id: transport_error_ref,\n                };\n""",
+                      start="pub fn record_transport_failure(",
+                  ),
+                  "transport_failure_is_unknown_not_no_effect",
+              )
+
+              rust_mutant(
+                  "blind-unknown-retry",
+                  lambda: replace(
+                      LIB,
+                      """            (EffectState::UnknownOutcome { .. }, _) => {\n                return Err(violation(\n                    \"UnknownOutcome cannot be retried without qualified replay evidence\",\n                ));\n            }\n""",
+                      """            (EffectState::UnknownOutcome { .. }, _) => {}\n""",
+                      start="pub fn begin_attempt(",
+                  ),
+                  "unknown_outcome_cannot_blind_retry",
+              )
+
+              rust_mutant(
+                  "wall-clock-identity",
+                  lambda: replace(
+                      LIB,
+                      "        hasher.update(INTENT_DOMAIN);\n",
+                      "        hasher.update(INTENT_DOMAIN);\n        hasher.update(&self.committed_at_unix_ms.to_be_bytes());\n",
+                      start="fn compute_intent_commitment(",
+                  ),
+                  "wall_clock_does_not_change_execution_or_intent_identity",
+              )
+
+              rust_mutant(
+                  "observation-request-binding",
+                  lambda: replace(
+                      LIB,
+                      """        if observation.request_commitment != self.intent.request.request_commitment {\n            return Err(violation(\n                \"provider observation request_commitment mismatch\",\n            ));\n        }\n""",
+                      "",
+                      start="pub fn apply_observation(",
+                  ),
+                  "observation_must_bind_exact_request",
+              )
+
+              rust_mutant(
+                  "authorization-reuse",
+                  lambda: replace(
+                      LIB,
+                      """        if let Some(existing_execution_id) =\n            self.authorization_index.get(&authorization_id).cloned()\n        {\n            return Ok(self.halt(RegistryIntegrityFault::AuthorizationReuseConflict {\n                authorization_id,\n                existing_execution_id,\n                candidate_execution_id: execution_id,\n            }));\n        }\n\n""",
+                      "",
+                      start="pub fn submit(",
+                  ),
+                  "one_shot_authorization_cannot_mint_second_execution",
+              )
+
+              rust_mutant(
+                  "capacity-reuse",
+                  lambda: replace(
+                      LIB,
+                      """        if let Some(capacity_commitment) = capacity.as_ref() {\n            if let Some(existing_execution_id) =\n                self.capacity_index.get(capacity_commitment).cloned()\n            {\n                return Ok(self.halt(RegistryIntegrityFault::CapacityReuseConflict {\n                    capacity_allocation_commitment: capacity_commitment.clone(),\n                    existing_execution_id,\n                    candidate_execution_id: execution_id,\n                }));\n            }\n        }\n\n""",
+                      "",
+                      start="pub fn submit(",
+                  ),
+                  "exact_capacity_allocation_cannot_back_two_effects",
+              )
+
+              rust_mutant(
+                  "stale-observation-horizon",
+                  lambda: replace(
+                      LIB,
+                      "if observation.covers_through_attempt_ordinal < attempt_ordinal",
+                      "if false && observation.covers_through_attempt_ordinal < attempt_ordinal",
+                      start="fn apply_no_effect_observation(",
+                  ),
+                  "stale_provider_observation_cannot_overwrite_later_inflight_attempt",
+              )
+
+              rust_mutant(
+                  "history-contradiction-guard",
+                  lambda: replace(
+                      PUB,
+                      "    if let Some(fault) = historical_contradiction(record, &observation) {\n",
+                      "    if let Some(fault) = None::<EffectIntegrityFault> {\n",
+                      start="fn apply_observation_guarded(",
+                  ),
+                  "late_success_cannot_overwrite_prior_no_effect_reconciliation",
+              )
+
+              restore()
+              replace(PUB, "mod kernel {\n", "pub mod kernel {\n")
+              if run(["cargo", "check", *manifest_arg], "mutant-public-kernel-check.log") != 0:
+                  raise SystemExit("public-kernel mutant did not compile")
+              if run(["python3", str(API_VALIDATOR)], "mutant-public-kernel-validator.log") == 0:
+                  raise SystemExit("public-kernel mutant survived facade validator")
+              (EVIDENCE / "mutant-public-kernel.txt").write_text("PASS\n")
+
+              restore()
+              replace(
+                  PUB,
+                  "pub struct EffectRecord {\n    inner: kernel::EffectRecord,\n",
+                  "pub struct EffectRecord {\n    pub inner: kernel::EffectRecord,\n",
+              )
+              if run(["cargo", "check", *manifest_arg], "mutant-public-inner-check.log") != 0:
+                  raise SystemExit("public-inner mutant did not compile")
+              if run(["python3", str(API_VALIDATOR)], "mutant-public-inner-validator.log") == 0:
+                  raise SystemExit("public-inner mutant survived facade validator")
+              (EVIDENCE / "mutant-public-inner.txt").write_text("PASS\n")
+
+          finally:
+              restore()
+          PY
+            '
+
+      - name: Verify exact semantic immutability and postflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+
+          git hash-object $(cat treasury-effect-evidence/expected-semantic-files.txt) \
+            > treasury-effect-evidence/source-hashes-after.txt
+          cmp treasury-effect-evidence/source-hashes-before.txt \
+              treasury-effect-evidence/source-hashes-after.txt
+
+          git diff --exit-code -- $(cat treasury-effect-evidence/expected-semantic-files.txt)
+
+          if git ls-files --error-unmatch mycelix-governance/Cargo.lock >/dev/null 2>&1; then
+            git checkout -- mycelix-governance/Cargo.lock
+          fi
+
+          git status --porcelain=v1 > treasury-effect-evidence/git-status-postflight.txt
+          if grep -E '^[ MARCUD?!]{1,2} (mycelix-governance/Cargo.toml|mycelix-governance/crates/constitutional-treasury-effect-provider/|mycelix-governance/specs/constitutional-treasury-effect-contract|mycelix-governance/docs/CONSTITUTIONAL_TREASURY_EFFECT_CONTRACT|mycelix-governance/tools/formal/validate_constitutional_treasury_effect_)' \
+              treasury-effect-evidence/git-status-postflight.txt; then
+            echo "semantic source mutation survived postflight" >&2
+            exit 1
+          fi
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: constitutional-treasury-effect-${{ env.EXPECTED_HEAD }}
+          path: treasury-effect-evidence
+          if-no-files-found: error
+          retention-days: 30
