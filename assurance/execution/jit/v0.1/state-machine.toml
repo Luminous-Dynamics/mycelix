@@ -1,0 +1,72 @@
+version = 1
+
+initial = "Prepared"
+terminal = ["Destroyed"]
+
+[[transition]]
+from = "Prepared"
+to = "AuthorizationValidated"
+
+[[transition]]
+from = "AuthorizationValidated"
+to = "JitRegistered"
+
+[[transition]]
+from = "JitRegistered"
+to = "BootedClean"
+
+[[transition]]
+from = "BootedClean"
+to = "SubjectBound"
+
+[[transition]]
+from = "SubjectBound"
+to = "Executing"
+
+[[transition]]
+from = "Executing"
+to = "ResultSealed"
+
+[[transition]]
+from = "ResultSealed"
+to = "LogsExported"
+
+[[transition]]
+from = "LogsExported"
+to = "Destroyed"
+
+[[transition]]
+from = "Prepared"
+to = "Quarantined"
+
+[[transition]]
+from = "AuthorizationValidated"
+to = "Quarantined"
+
+[[transition]]
+from = "JitRegistered"
+to = "Quarantined"
+
+[[transition]]
+from = "BootedClean"
+to = "Quarantined"
+
+[[transition]]
+from = "SubjectBound"
+to = "Quarantined"
+
+[[transition]]
+from = "Executing"
+to = "Quarantined"
+
+[[transition]]
+from = "ResultSealed"
+to = "Quarantined"
+
+[[transition]]
+from = "LogsExported"
+to = "Quarantined"
+
+[[transition]]
+from = "Quarantined"
+to = "Destroyed"

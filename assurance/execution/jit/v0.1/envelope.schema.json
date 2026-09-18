@@ -1,0 +1,161 @@
+{
+  "$defs": {
+    "gitSha1": {
+      "pattern": "^[0-9a-f]{40}$",
+      "type": "string"
+    },
+    "sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    }
+  },
+  "$id": "https://mycelix.net/assurance/execution/jit/v0.1/envelope.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "allowed_commands_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "containment_receipt_schema": {
+      "const": "mycelix.jit.execution-containment.receipt.v0.1"
+    },
+    "controller_policy_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "corpus_root_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "coverage_root_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "dependency_lock_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "expected_parent_commit": {
+      "$ref": "#/$defs/gitSha1"
+    },
+    "expires_at_unix_micros": {
+      "maximum": 9007199254740991,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "network_policy_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "nonce_hex": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "operator_authorization_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "qualification_profile": {
+      "enum": [
+        "assure-002b-l0-v1"
+      ],
+      "type": "string"
+    },
+    "qualification_profile_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "qualified_parent_receipt_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "receipt_schema": {
+      "const": "mycelix.assure.002b.qualification.receipt.v0.1"
+    },
+    "repository": {
+      "const": "Luminous-Dynamics/mycelix"
+    },
+    "runner_group_id": {
+      "pattern": "^[1-9][0-9]{0,19}$",
+      "type": "string"
+    },
+    "runner_image_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "schema": {
+      "const": "mycelix.qualification-execution-envelope.v0.1"
+    },
+    "spec_root_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "subject_commit": {
+      "$ref": "#/$defs/gitSha1"
+    },
+    "subject_tree": {
+      "$ref": "#/$defs/gitSha1"
+    },
+    "toolchain": {
+      "additionalProperties": false,
+      "properties": {
+        "cargo": {
+          "const": "cargo 1.98.1 (797e8a9bc 2026-08-05)"
+        },
+        "rustc": {
+          "const": "rustc 1.98.1 (48a229cea 2026-09-01)"
+        },
+        "target": {
+          "const": "x86_64-unknown-linux-gnu"
+        }
+      },
+      "required": [
+        "rustc",
+        "cargo",
+        "target"
+      ],
+      "type": "object"
+    },
+    "workflow": {
+      "additionalProperties": false,
+      "properties": {
+        "commit": {
+          "$ref": "#/$defs/gitSha1"
+        },
+        "file_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "path": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^\\.github/workflows/(?!\\.\\.?/)(?!.*(?:/\\.\\.?/|//))[A-Za-z0-9._/-]+\\.ya?ml$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "commit",
+        "file_sha256"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema",
+    "repository",
+    "subject_commit",
+    "subject_tree",
+    "expected_parent_commit",
+    "qualified_parent_receipt_sha256",
+    "workflow",
+    "qualification_profile",
+    "qualification_profile_sha256",
+    "spec_root_sha256",
+    "coverage_root_sha256",
+    "corpus_root_sha256",
+    "dependency_lock_sha256",
+    "toolchain",
+    "runner_image_sha256",
+    "controller_policy_sha256",
+    "runner_group_id",
+    "network_policy_sha256",
+    "allowed_commands_sha256",
+    "receipt_schema",
+    "containment_receipt_schema",
+    "expires_at_unix_micros",
+    "nonce_hex",
+    "operator_authorization_sha256"
+  ],
+  "title": "QualificationExecutionEnvelope v0.1",
+  "type": "object"
+}

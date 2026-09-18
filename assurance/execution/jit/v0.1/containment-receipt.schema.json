@@ -1,0 +1,175 @@
+{
+  "$defs": {
+    "gitSha1": {
+      "pattern": "^[0-9a-f]{40}$",
+      "type": "string"
+    },
+    "sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    }
+  },
+  "$id": "https://mycelix.net/assurance/execution/jit/v0.1/containment-receipt.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "containment_result": {
+            "const": "PASS"
+          }
+        },
+        "required": [
+          "containment_result"
+        ]
+      },
+      "then": {
+        "properties": {
+          "failure_codes": {
+            "maxItems": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "containment_result": {
+            "const": "FAIL"
+          }
+        },
+        "required": [
+          "containment_result"
+        ]
+      },
+      "then": {
+        "properties": {
+          "failure_codes": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "allowed_commands_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "containment_result": {
+      "enum": [
+        "PASS",
+        "FAIL"
+      ],
+      "type": "string"
+    },
+    "controller_policy_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "destroyed_at_unix_micros": {
+      "maximum": 9007199254740991,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "destruction_evidence_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "execution_envelope_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "failure_codes": {
+      "items": {
+        "pattern": "^J0(?:0[1-9]|1[0-9]|2[0-3])_[A-Z0-9_]+$",
+        "type": "string"
+      },
+      "maxItems": 23,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "github_run_attempt": {
+      "pattern": "^[1-9][0-9]{0,9}$",
+      "type": "string"
+    },
+    "github_run_id": {
+      "pattern": "^[1-9][0-9]{0,19}$",
+      "type": "string"
+    },
+    "log_bundle_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "network_policy_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "nonce_hex": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "qualification_receipt_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "qualification_result": {
+      "enum": [
+        "PASS",
+        "FAIL"
+      ],
+      "type": "string"
+    },
+    "runner_application_version": {
+      "maxLength": 128,
+      "minLength": 1,
+      "type": "string"
+    },
+    "runner_group_id": {
+      "pattern": "^[1-9][0-9]{0,19}$",
+      "type": "string"
+    },
+    "runner_image_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "runner_registration_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema": {
+      "const": "mycelix.jit.execution-containment.receipt.v0.1"
+    },
+    "started_at_unix_micros": {
+      "maximum": 9007199254740991,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "subject_commit": {
+      "$ref": "#/$defs/gitSha1"
+    },
+    "subject_tree": {
+      "$ref": "#/$defs/gitSha1"
+    }
+  },
+  "required": [
+    "schema",
+    "subject_commit",
+    "subject_tree",
+    "execution_envelope_sha256",
+    "qualification_receipt_sha256",
+    "qualification_result",
+    "containment_result",
+    "runner_group_id",
+    "runner_registration_id",
+    "runner_application_version",
+    "runner_image_sha256",
+    "controller_policy_sha256",
+    "network_policy_sha256",
+    "allowed_commands_sha256",
+    "github_run_id",
+    "github_run_attempt",
+    "nonce_hex",
+    "started_at_unix_micros",
+    "destroyed_at_unix_micros",
+    "log_bundle_sha256",
+    "destruction_evidence_sha256",
+    "failure_codes"
+  ],
+  "title": "JIT ExecutionContainmentReceipt v0.1",
+  "type": "object"
+}

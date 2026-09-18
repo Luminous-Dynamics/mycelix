@@ -1,0 +1,17 @@
+protocol = "MYCELIX-JIT-QUAL"
+major = 0
+minor = 1
+status = "design-freeze-candidate"
+hash = "sha256"
+spec_domain = "MYCELIX-JIT-QUAL/V0.1/SPEC"
+spec_root_sha256 = "78a8d7d525252b31ff24245514ab9288caec6bea56fba02349e4415a0a55546c"
+order = ["normative.md", "envelope.schema.json", "state-machine.toml", "failure-codes.toml", "conformance.md", "containment-receipt.schema.json", "profiles/assure-002b-l0-v1.toml"]
+
+[file_hashes]
+normative_md = "42181508378ea886b2fe9cda5e86732a2109fcca51a45092d35af7777412fd27"
+envelope_schema_json = "dccb6cf0f676aa2c770e2e181986bcee614dc84875de82b76d394743a901eb94"
+state_machine_toml = "e94d3a762f07593b592708da5d9f814c9030de65026b93fb995cc085912221f0"
+failure_codes_toml = "2729f6d9239f58315da602e16db33d683c2cff9c5ddc72c6c7326f3e3b2b09f5"
+conformance_md = "ccd81ddde544d49dee1f6af35b08e779bda9d9005980add999da7e153bab155f"
+containment_receipt_schema_json = "247aa4486db52b903cdbdf9803f357169ef7e04a4c5429c4508fb8bbb607ca77"
+profile_assure_002b_l0_v1_toml = "9c9bea898f07a068e8d4c4be7d39adc81bf11a5b4ea9b9fc19d44b90c42a6a9b"

@@ -1,0 +1,116 @@
+version = 1
+
+[[failure]]
+id = 1
+code = "J001_MALFORMED_ENVELOPE"
+stage = "admission"
+
+[[failure]]
+id = 2
+code = "J002_NON_CANONICAL_ENVELOPE"
+stage = "admission"
+
+[[failure]]
+id = 3
+code = "J003_EXPIRED_ENVELOPE"
+stage = "admission"
+
+[[failure]]
+id = 4
+code = "J004_REPLAYED_NONCE"
+stage = "admission"
+
+[[failure]]
+id = 5
+code = "J005_UNAUTHORIZED_OPERATOR"
+stage = "admission"
+
+[[failure]]
+id = 6
+code = "J006_SUBJECT_MISMATCH"
+stage = "binding"
+
+[[failure]]
+id = 7
+code = "J007_WORKFLOW_MISMATCH"
+stage = "binding"
+
+[[failure]]
+id = 8
+code = "J008_SPEC_OR_LOCK_MISMATCH"
+stage = "binding"
+
+[[failure]]
+id = 9
+code = "J009_TOOLCHAIN_MISMATCH"
+stage = "binding"
+
+[[failure]]
+id = 10
+code = "J010_RUNNER_IMAGE_MISMATCH"
+stage = "containment"
+
+[[failure]]
+id = 11
+code = "J011_NETWORK_POLICY_MISMATCH"
+stage = "containment"
+
+[[failure]]
+id = 12
+code = "J012_COMMAND_PLAN_MISMATCH"
+stage = "containment"
+
+[[failure]]
+id = 13
+code = "J013_UNEXPECTED_WRITE_AUTHORITY"
+stage = "containment"
+
+[[failure]]
+id = 14
+code = "J014_UNEXPECTED_SECRET_OR_OIDC"
+stage = "containment"
+
+[[failure]]
+id = 15
+code = "J015_RUNNER_REGISTRATION_MISMATCH"
+stage = "registration"
+
+[[failure]]
+id = 16
+code = "J016_RUNNER_REUSE_DETECTED"
+stage = "containment"
+
+[[failure]]
+id = 17
+code = "J017_LOG_EXPORT_MISSING"
+stage = "containment"
+
+[[failure]]
+id = 18
+code = "J018_DESTRUCTION_FAILURE"
+stage = "containment"
+
+[[failure]]
+id = 19
+code = "J019_EXECUTION_TIMEOUT"
+stage = "execution"
+
+[[failure]]
+id = 20
+code = "J020_QUALIFICATION_GATE_FAILED"
+stage = "execution"
+
+[[failure]]
+id = 21
+code = "J021_CONTROLLER_POLICY_MISMATCH"
+stage = "binding"
+
+[[failure]]
+id = 22
+code = "J022_RUNNER_GROUP_MISMATCH"
+stage = "registration"
+
+[[failure]]
+id = 23
+code = "J023_PROFILE_MISMATCH"
+stage = "binding"

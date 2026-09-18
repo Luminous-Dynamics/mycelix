@@ -1,0 +1,30 @@
+version = 1
+name = "assure-002b-l0-v1"
+repository = "Luminous-Dynamics/mycelix"
+
+subject_commit = "9a2460e97f0bb0b90306e90e7c241b89e21224ec"
+subject_tree = "9cbb5789431ca95af5001c0015e5d2a37de18d34"
+
+expected_parent_commit = "d17a6ae19fb71159b54b266fa760c1989ffc0a63"
+qualified_parent_receipt_sha256 = "f4bdeacc8e4b38f0aad31d03788a8c105790f60667608fb43665ac321454c897"
+
+spec_root_sha256 = "46550610da111888f862d4bfc610f6dc41edfcbcdcd0579377e367df16486973"
+coverage_root_sha256 = "32bff983f4cdc9d3393e6e4381f8ed470ca29d08e13f8bebe7d1973a3bd0c1e1"
+corpus_root_sha256 = "784ff870e0b9815b015be1bbaa32f0dcc615cb3c22c614ba8bf9389fe4ccaef8"
+dependency_lock_sha256 = "9a0babe726db931fb24087af4e1321f034e15b29a03d1b9249cd6176b3525a8b"
+
+rustc = "rustc 1.98.1 (48a229cea 2026-09-01)"
+cargo = "cargo 1.98.1 (797e8a9bc 2026-08-05)"
+target = "x86_64-unknown-linux-gnu"
+
+receipt_schema = "mycelix.assure.002b.qualification.receipt.v0.1"
+containment_receipt_schema = "mycelix.jit.execution-containment.receipt.v0.1"
+
+manual_obligations = [
+  "CODEC-001",
+  "CODEC-011",
+  "CODEC-012",
+  "CODEC-013",
+  "CODEC-014",
+  "CODEC-015",
+]
