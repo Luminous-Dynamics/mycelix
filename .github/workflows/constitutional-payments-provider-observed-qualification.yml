@@ -1,0 +1,133 @@
+name: Constitutional Payments Provider Observed Qualification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'mycelix-governance/specs/constitutional-payments-provider-observed.v1.json'
+      - 'mycelix-governance/specs/constitutional-payments-provider-observed.v1.schema.json'
+      - 'mycelix-governance/docs/CONSTITUTIONAL_PAYMENTS_PROVIDER_OBSERVED_V0_1.md'
+      - 'mycelix-governance/tools/formal/validate_constitutional_payments_provider_observed.py'
+      - '.github/workflows/constitutional-payments-provider-observed-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: payments-provider-observed-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NIXPKGS_REV: a50bf0c1b07873c1a53892292017041a8f0a1288
+  EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EXPECTED_SEMANTIC_HEAD: 0442bc487dc5ea3303144b3f7be8979c673d6018
+
+jobs:
+  qualify:
+    name: Exact-head payments provider observed profile
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout exact raw head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ env.EXPECTED_HEAD }}
+          persist-credentials: false
+
+      - name: Bind verifier lineage and exact evidence-only surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_SEMANTIC_HEAD"
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/constitutional-payments-provider-observed-qualification.yml"
+
+          rm -rf payments-provider-observed-evidence
+          mkdir -p payments-provider-observed-evidence
+          printf '%s\n' "$EXPECTED_HEAD" > payments-provider-observed-evidence/expected-head.txt
+          printf '%s\n' "$EXPECTED_SEMANTIC_HEAD" > payments-provider-observed-evidence/expected-semantic-head.txt
+
+          cat > payments-provider-observed-evidence/expected-semantic-files.txt <<'EOF'
+          mycelix-governance/docs/CONSTITUTIONAL_PAYMENTS_PROVIDER_OBSERVED_V0_1.md
+          mycelix-governance/specs/constitutional-payments-provider-observed.v1.json
+          mycelix-governance/specs/constitutional-payments-provider-observed.v1.schema.json
+          mycelix-governance/tools/formal/validate_constitutional_payments_provider_observed.py
+          EOF
+          sed -i 's/^          //' payments-provider-observed-evidence/expected-semantic-files.txt
+
+          git diff --name-only "$EXPECTED_SEMANTIC_HEAD^" "$EXPECTED_SEMANTIC_HEAD" | sort \
+            > payments-provider-observed-evidence/actual-semantic-files.txt
+          sort payments-provider-observed-evidence/expected-semantic-files.txt \
+            > payments-provider-observed-evidence/expected-semantic-files.sorted.txt
+          cmp payments-provider-observed-evidence/expected-semantic-files.sorted.txt \
+              payments-provider-observed-evidence/actual-semantic-files.txt
+
+          if grep -E '^mycelix-(finance|governance)/.*(zomes|crates)/' payments-provider-observed-evidence/actual-semantic-files.txt; then
+            echo "F0P0 evidence subject unexpectedly changes implementation source" >&2
+            exit 1
+          fi
+
+          git hash-object $(cat payments-provider-observed-evidence/expected-semantic-files.txt) \
+            > payments-provider-observed-evidence/source-hashes-before.txt
+
+      - name: Re-derive exact payments provider observations
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#python3" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#git" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" \
+            --command bash -euo pipefail -c '
+              python3 --version | tee payments-provider-observed-evidence/python-version.txt
+              git --version | tee payments-provider-observed-evidence/git-version.txt
+              python3 -m py_compile mycelix-governance/tools/formal/validate_constitutional_payments_provider_observed.py
+              python3 mycelix-governance/tools/formal/validate_constitutional_payments_provider_observed.py --self-test \
+                2>&1 | tee payments-provider-observed-evidence/validator.log
+
+              printf "%s\n" "$(git rev-parse 15b9c89adf0ac3c6c5a73681614d6bfcd368820a:mycelix-finance/zomes/payments/coordinator/src/lib.rs)" \
+                > payments-provider-observed-evidence/payments-coordinator-blob.txt
+              printf "%s\n" "$(git rev-parse 15b9c89adf0ac3c6c5a73681614d6bfcd368820a:mycelix-finance/zomes/payments/integrity/src/lib.rs)" \
+                > payments-provider-observed-evidence/payments-integrity-blob.txt
+              printf "%s\n" "$(git rev-parse 15b9c89adf0ac3c6c5a73681614d6bfcd368820a:mycelix-governance/zomes/bridge/coordinator/src/cross_cluster.rs)" \
+                > payments-provider-observed-evidence/governance-finance-bridge-blob.txt
+            '
+
+      - name: Assert fail-closed eligibility result
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = json.loads(Path('mycelix-governance/specs/constitutional-payments-provider-observed.v1.json').read_text())
+          e = p['f0c_capability_eligibility']
+          assert e['automatic_replay_eligible'] is False
+          assert e['qualified_provider_replay_capability_may_be_minted'] is False
+          assert len(e['blocking_properties']) == 11
+          assert p['authority_class'] == 'ObservedSourceBound'
+          PY
+
+      - name: Verify exact semantic immutability and postflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          git hash-object $(cat payments-provider-observed-evidence/expected-semantic-files.txt) \
+            > payments-provider-observed-evidence/source-hashes-after.txt
+          cmp payments-provider-observed-evidence/source-hashes-before.txt \
+              payments-provider-observed-evidence/source-hashes-after.txt
+          git diff --exit-code -- $(cat payments-provider-observed-evidence/expected-semantic-files.txt)
+          test -z "$(git status --porcelain --untracked-files=no)"
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: constitutional-payments-provider-observed-${{ env.EXPECTED_HEAD }}
+          path: payments-provider-observed-evidence
+          if-no-files-found: error
+          retention-days: 30
