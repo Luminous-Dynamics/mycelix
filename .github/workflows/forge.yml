@@ -13,6 +13,7 @@ on:
       - "adapters/forge-linux-isolation-evidence/**"
       - "adapters/forge-linux-isolation-collector/**"
       - "adapters/forge-runtime-closure-evidence/**"
+      - "adapters/forge-nar-auditor/**"
       - ".github/workflows/forge.yml"
   push:
     branches:
@@ -28,6 +29,7 @@ on:
       - "adapters/forge-linux-isolation-evidence/**"
       - "adapters/forge-linux-isolation-collector/**"
       - "adapters/forge-runtime-closure-evidence/**"
+      - "adapters/forge-nar-auditor/**"
       - ".github/workflows/forge.yml"
 
 permissions:
@@ -65,6 +67,8 @@ jobs:
             path: adapters/forge-linux-isolation-collector
           - name: Forge Runtime Closure Evidence
             path: adapters/forge-runtime-closure-evidence
+          - name: Forge NAR Auditor
+            path: adapters/forge-nar-auditor
     defaults:
       run:
         working-directory: ${{ matrix.path }}

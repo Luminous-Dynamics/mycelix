@@ -1,0 +1,18 @@
+[package]
+name = "mycelix-forge-nar-auditor"
+version = "0.1.0"
+edition = "2021"
+authors = ["Luminous Dynamics"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+description = "Independent canonical NAR runtime-closure auditor for Mycelix Forge"
+
+[dependencies]
+mycelix-forge-core = { path = "../../crates/mycelix-forge-core" }
+mycelix-forge-linux-isolation = { path = "../forge-linux-isolation" }
+mycelix-forge-runtime-closure-evidence = { path = "../forge-runtime-closure-evidence" }
+nix-archive = "=0.6.0"
+thiserror = "2.0"
+
+[dev-dependencies]
+tempfile = "3.23"
