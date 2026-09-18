@@ -5,6 +5,7 @@ on:
     paths:
       - "crates/mycelix-forge-core/**"
       - "crates/mycelix-forge-authority/**"
+      - "crates/mycelix-forge-repository/**"
       - ".github/workflows/forge.yml"
   push:
     branches:
@@ -12,6 +13,7 @@ on:
     paths:
       - "crates/mycelix-forge-core/**"
       - "crates/mycelix-forge-authority/**"
+      - "crates/mycelix-forge-repository/**"
       - ".github/workflows/forge.yml"
 
 permissions:
@@ -33,6 +35,8 @@ jobs:
             path: crates/mycelix-forge-core
           - name: Forge Authority
             path: crates/mycelix-forge-authority
+          - name: Forge Repository Contract
+            path: crates/mycelix-forge-repository
     defaults:
       run:
         working-directory: ${{ matrix.path }}
