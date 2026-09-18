@@ -1,0 +1,442 @@
+name: FIN-ECO-004E0A Repair Materializer
+
+on:
+  push:
+    branches:
+      - mutate/fin-eco-004e0a-repair-v1
+    paths:
+      - '.github/workflows/fin-eco-004e0a-repair-materialize.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fin-eco-004e0a-repair-materialize-v1
+  cancel-in-progress: true
+
+env:
+  MUTATOR_PARENT: '20452d0cde9448c424d708d6307aa33a3d1901e3'
+  MUTATOR_WORKFLOW: '.github/workflows/fin-eco-004e0a-repair-materialize.yml'
+  PRODUCT_SHA: 'd3f43fa6a1b862b83dc38bd56ac0e301e179f97a'
+  PRODUCT_BRANCH: 'fix/fin-eco-004e0a-repair-r2'
+  WORKSPACE_MANIFEST: 'mycelix-finance/Cargo.toml'
+  CRATE_MANIFEST: 'mycelix-finance/crates/finance-capacity-core/Cargo.toml'
+  CRATE_SOURCE: 'mycelix-finance/crates/finance-capacity-core/src/lib.rs'
+  LOCKFILE: 'mycelix-finance/Cargo.lock'
+  EXPECTED_SOURCE_BLOB: 'ab1ee65fa4206fff84224bcb978aee9fd3cee672'
+  EXPECTED_PRE_LOCK_BLOB: '9faed66c9ac6c1b34c9a086ce9ed7bca6e7357af'
+  EXPECTED_PRE_LOCK_SHA256: 'd73b43314930a9e7fab4e1633988db48a0982878d69c6c158d4f661b3365b1ad'
+  EXPECTED_POST_LOCK_BLOB: '8871ba37ac72fc38e1a338209ebc2a0bbfdbc2c3'
+  EXPECTED_POST_LOCK_SHA256: '7f0686f07c9469549719461872a32a1d64a07c9b52b438ca5ae303c1a6b82744'
+  RUST_TOOLCHAIN: '1.96.0'
+  ARTIFACT_NAME: 'fin-eco-004e0a-rustfmt-lock-repair-v1'
+
+jobs:
+  derive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
+      artifact_digest: ${{ steps.upload.outputs.artifact-digest }}
+    steps:
+      - name: Checkout exact mutator subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+          path: mutator
+
+      - name: Prove one-commit mutation-authority surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C mutator rev-parse HEAD^)" = "$MUTATOR_PARENT"
+          test "$(git -C mutator rev-list --count "$MUTATOR_PARENT..HEAD")" -eq 1
+          mapfile -t changed < <(git -C mutator diff --name-only "$MUTATOR_PARENT" HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$MUTATOR_WORKFLOW"
+          test -z "$(git -C mutator status --porcelain=v1)"
+          printf 'derive_job_repository_authority=READ_ONLY\n'
+
+      - name: Checkout exact source product read-only
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.PRODUCT_SHA }}
+          fetch-depth: 2
+          persist-credentials: false
+          path: product
+
+      - name: Bind exact pre-repair product bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C product rev-parse HEAD)" = "$PRODUCT_SHA"
+          test "$(git -C product rev-parse "HEAD:$CRATE_SOURCE")" = "$EXPECTED_SOURCE_BLOB"
+          test "$(git -C product rev-parse "HEAD:$LOCKFILE")" = "$EXPECTED_PRE_LOCK_BLOB"
+          test "$(sha256sum "product/$LOCKFILE" | awk '{print $1}')" = "$EXPECTED_PRE_LOCK_SHA256"
+          test -z "$(git -C product status --porcelain=v1)"
+          test -z "$(git -C product config --local --get-regexp '^http\..*\.extraheader$' || true)"
+
+      - name: Install pinned Rust 1.96 toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
+
+      - name: Materialize exact Rust 1.96 formatting
+        shell: bash
+        working-directory: product
+        run: |
+          set -euo pipefail
+          rustfmt --version
+          cargo fmt --manifest-path "$CRATE_MANIFEST"
+          mapfile -t changed < <(git diff --name-only)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$CRATE_SOURCE"
+          formatted_source_blob="$(git hash-object "$CRATE_SOURCE")"
+          test -n "$formatted_source_blob"
+          test "$formatted_source_blob" != "$EXPECTED_SOURCE_BLOB"
+          printf 'formatted_source_blob=%s\n' "$formatted_source_blob"
+          echo '--- BEGIN EXACT RUSTFMT DIFF ---'
+          git diff -- "$CRATE_SOURCE"
+          echo '--- END EXACT RUSTFMT DIFF ---'
+
+      - name: Derive exact Cargo dependency capsule
+        shell: bash
+        working-directory: product
+        run: |
+          set -euo pipefail
+          cargo metadata --manifest-path "$WORKSPACE_MANIFEST" --format-version 1 > /tmp/fin-eco-004e0a-repair-metadata.json
+          mapfile -t changed < <(git diff --name-only)
+          test "${#changed[@]}" -eq 2
+          printf '%s\n' "${changed[@]}" | sort > /tmp/repair-paths
+          cat > /tmp/expected-repair-paths <<'EOF'
+          mycelix-finance/Cargo.lock
+          mycelix-finance/crates/finance-capacity-core/src/lib.rs
+          EOF
+          diff -u /tmp/expected-repair-paths /tmp/repair-paths
+          test "$(sha256sum "$LOCKFILE" | awk '{print $1}')" = "$EXPECTED_POST_LOCK_SHA256"
+          test "$(git hash-object "$LOCKFILE")" = "$EXPECTED_POST_LOCK_BLOB"
+          test "$(git diff --numstat "$PRODUCT_SHA" -- "$LOCKFILE")" = $'11\t0\tmycelix-finance/Cargo.lock'
+
+      - name: Independently reconstruct frozen canonical vector
+        shell: bash
+        working-directory: product
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import struct
+
+          def u16(value): return struct.pack('>H', value)
+          def u32(value): return struct.pack('>I', value)
+          def u64(value): return struct.pack('>Q', value)
+          def text(value):
+              raw = value.encode('utf-8')
+              return u16(len(raw)) + raw
+          def c(byte): return bytes([byte]) * 32
+          def amount(units): return text('SAP') + u64(units)
+          def optional_u64(value): return b'\x00' if value is None else b'\x01' + u64(value)
+          def optional_commitment(value): return b'\x00' if value is None else b'\x01' + value
+          def digest(value): return hashlib.sha256(value).digest()
+
+          source = text('treasury') + text('treasury-alpha') + u64(1) + text('SAP') + c(1)
+          source_commitment = digest(b'mycelix/finance/capacity-source/v1\x00' + source)
+          reservation_commitment = digest(b'reservation-a')
+          allocation_id = digest(
+              b'mycelix/finance/capacity-allocation/v1\x00'
+              + source
+              + text('reservation-a')
+              + reservation_commitment
+              + amount(80)
+              + text('reservation-v1')
+              + u16(1)
+              + optional_u64(9_999_999)
+          )
+          reserved_transition = digest(
+              b'mycelix/finance/capacity-transition/v1\x00'
+              + allocation_id
+              + b'\x00'
+              + b'\x00'
+              + optional_commitment(None)
+          )
+          record = (
+              allocation_id
+              + reservation_commitment
+              + amount(80)
+              + b'\x00'
+              + reserved_transition
+              + optional_commitment(None)
+              + optional_u64(9_999_999)
+          )
+          projection = digest(
+              b'mycelix/finance/capacity-projection/v1\x00'
+              + u16(1)
+              + source
+              + amount(100)
+              + c(9)
+              + u64(123_456)
+              + u32(1)
+              + record
+              + amount(80)
+              + amount(0)
+              + amount(20)
+          )
+          observed = {
+              'source': source_commitment.hex(),
+              'allocation': allocation_id.hex(),
+              'transition': reserved_transition.hex(),
+              'projection': projection.hex(),
+          }
+          expected = {
+              'source': 'a5defdb1013c7ced8adaefb8ec2d71e906133ca2b29688e3f4303fec3eae8dbd',
+              'allocation': '9c7b87a20bcbc74911ab24f5767c28c75c91c8934ff5edc819fcd01ecb867022',
+              'transition': 'b98ac47bbc6f133dc34d1264cc554e0c7820380a5e9f4fa67fdad0f5a1c1e956',
+              'projection': '4d67b75e7e199116cedc836c0620ceb82d7c1cf9e9bdd4b41a8d290360154ae1',
+          }
+          if observed != expected:
+              raise SystemExit((observed, expected))
+          for key, value in observed.items():
+              print(f'oracle_{key}={value}')
+          PY
+
+      - name: Prove combined repaired candidate
+        shell: bash
+        working-directory: product
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path "$CRATE_MANIFEST" -- --check
+          cargo metadata --manifest-path "$WORKSPACE_MANIFEST" --locked --format-version 1 > /tmp/fin-eco-004e0a-locked-metadata.json
+          cargo test --manifest-path "$WORKSPACE_MANIFEST" -p mycelix-finance-capacity-core --all-targets --locked --no-run
+          cargo test --manifest-path "$WORKSPACE_MANIFEST" -p mycelix-finance-capacity-core --all-targets --locked
+          cargo clippy --manifest-path "$WORKSPACE_MANIFEST" -p mycelix-finance-capacity-core --all-targets --locked -- -D warnings
+
+      - name: Freeze exact repair payload
+        shell: bash
+        working-directory: product
+        run: |
+          set -euo pipefail
+          mapfile -t changed < <(git diff --name-only)
+          test "${#changed[@]}" -eq 2
+          formatted_source_blob="$(git hash-object "$CRATE_SOURCE")"
+          test "$formatted_source_blob" != "$EXPECTED_SOURCE_BLOB"
+          test "$(sha256sum "$LOCKFILE" | awk '{print $1}')" = "$EXPECTED_POST_LOCK_SHA256"
+          test "$(git hash-object "$LOCKFILE")" = "$EXPECTED_POST_LOCK_BLOB"
+          git diff --check
+
+          rm -rf /tmp/repair-payload
+          mkdir -p /tmp/repair-payload
+          cp -- "$CRATE_SOURCE" /tmp/repair-payload/lib.rs
+          cp -- "$LOCKFILE" /tmp/repair-payload/Cargo.lock
+          cat > /tmp/repair-payload/manifest.txt <<EOF
+          schema=fin-eco-004e0a-rustfmt-lock-repair-v1
+          product_sha=$PRODUCT_SHA
+          original_source_blob=$EXPECTED_SOURCE_BLOB
+          formatted_source_blob=$formatted_source_blob
+          pre_lock_blob=$EXPECTED_PRE_LOCK_BLOB
+          pre_lock_sha256=$EXPECTED_PRE_LOCK_SHA256
+          post_lock_blob=$EXPECTED_POST_LOCK_BLOB
+          post_lock_sha256=$EXPECTED_POST_LOCK_SHA256
+          lock_additions=11
+          lock_deletions=0
+          source_path=$CRATE_SOURCE
+          lock_path=$LOCKFILE
+          rust_toolchain=$RUST_TOOLCHAIN
+          EOF
+          test "$(git hash-object /tmp/repair-payload/lib.rs)" = "$formatted_source_blob"
+          test "$(git hash-object /tmp/repair-payload/Cargo.lock)" = "$EXPECTED_POST_LOCK_BLOB"
+          test "$(sha256sum /tmp/repair-payload/Cargo.lock | awk '{print $1}')" = "$EXPECTED_POST_LOCK_SHA256"
+          test "$(find /tmp/repair-payload -maxdepth 1 -type f -printf '%f\n' | sort | paste -sd ' ' -)" = 'Cargo.lock lib.rs manifest.txt'
+          printf 'derive_job_repository_authority=READ_ONLY\n'
+          printf 'formatted_source_blob=%s\n' "$formatted_source_blob"
+          printf 'generated_lock_sha256=%s\n' "$EXPECTED_POST_LOCK_SHA256"
+          printf 'generated_lock_git_blob=%s\n' "$EXPECTED_POST_LOCK_BLOB"
+
+      - name: Upload exact repair payload
+        id: upload
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: /tmp/repair-payload/
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+          overwrite: false
+
+      - name: Bind artifact identity
+        shell: bash
+        env:
+          ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+          ARTIFACT_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
+        run: |
+          set -euo pipefail
+          test -n "$ARTIFACT_ID"
+          test "$ARTIFACT_ID" -gt 0
+          test "${#ARTIFACT_DIGEST}" -eq 64
+          case "$ARTIFACT_DIGEST" in
+            *[!0-9a-f]*) echo 'artifact digest is not lowercase hex' >&2; exit 1 ;;
+          esac
+          printf 'artifact_id=%s\n' "$ARTIFACT_ID"
+          printf 'artifact_digest_sha256=%s\n' "$ARTIFACT_DIGEST"
+
+  publish:
+    needs: derive
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Verify exact artifact and atomically publish R1 plus R2
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ARTIFACT_ID: ${{ needs.derive.outputs.artifact_id }}
+          ARTIFACT_DIGEST: ${{ needs.derive.outputs.artifact_digest }}
+        run: |
+          set -euo pipefail
+          test -n "$GITHUB_TOKEN"
+          test -n "$ARTIFACT_ID"
+          test "$ARTIFACT_ID" -gt 0
+          test "${#ARTIFACT_DIGEST}" -eq 64
+          case "$ARTIFACT_DIGEST" in
+            *[!0-9a-f]*) echo 'artifact digest is not lowercase hex' >&2; exit 1 ;;
+          esac
+
+          artifact_url="https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip"
+          curl --fail --location --silent --show-error \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "$artifact_url" -o /tmp/repair-artifact.zip
+          test "$(sha256sum /tmp/repair-artifact.zip | awk '{print $1}')" = "$ARTIFACT_DIGEST"
+
+          mapfile -t zip_entries < <(unzip -Z1 /tmp/repair-artifact.zip | sort)
+          test "${#zip_entries[@]}" -eq 3
+          test "${zip_entries[0]}" = 'Cargo.lock'
+          test "${zip_entries[1]}" = 'lib.rs'
+          test "${zip_entries[2]}" = 'manifest.txt'
+          rm -rf /tmp/repair-payload
+          mkdir -p /tmp/repair-payload
+          unzip -q /tmp/repair-artifact.zip -d /tmp/repair-payload
+
+          formatted_source_blob="$(git hash-object /tmp/repair-payload/lib.rs)"
+          test -n "$formatted_source_blob"
+          test "$formatted_source_blob" != "$EXPECTED_SOURCE_BLOB"
+          test "$(git hash-object /tmp/repair-payload/Cargo.lock)" = "$EXPECTED_POST_LOCK_BLOB"
+          test "$(sha256sum /tmp/repair-payload/Cargo.lock | awk '{print $1}')" = "$EXPECTED_POST_LOCK_SHA256"
+
+          cat > /tmp/expected-manifest.txt <<EOF
+          schema=fin-eco-004e0a-rustfmt-lock-repair-v1
+          product_sha=$PRODUCT_SHA
+          original_source_blob=$EXPECTED_SOURCE_BLOB
+          formatted_source_blob=$formatted_source_blob
+          pre_lock_blob=$EXPECTED_PRE_LOCK_BLOB
+          pre_lock_sha256=$EXPECTED_PRE_LOCK_SHA256
+          post_lock_blob=$EXPECTED_POST_LOCK_BLOB
+          post_lock_sha256=$EXPECTED_POST_LOCK_SHA256
+          lock_additions=11
+          lock_deletions=0
+          source_path=$CRATE_SOURCE
+          lock_path=$LOCKFILE
+          rust_toolchain=$RUST_TOOLCHAIN
+          EOF
+          cmp /tmp/expected-manifest.txt /tmp/repair-payload/manifest.txt
+
+          rm -rf product
+          git init -q product
+          git -C product remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          remote_before="$(git -C product ls-remote origin "refs/heads/$PRODUCT_BRANCH" | awk '{print $1}')"
+          test "$remote_before" = "$PRODUCT_SHA"
+          git -C product fetch --no-tags --depth=1 origin "$PRODUCT_BRANCH"
+          test "$(git -C product rev-parse FETCH_HEAD)" = "$PRODUCT_SHA"
+          test "$(git -C product rev-parse "$PRODUCT_SHA:$CRATE_SOURCE")" = "$EXPECTED_SOURCE_BLOB"
+          test "$(git -C product rev-parse "$PRODUCT_SHA:$LOCKFILE")" = "$EXPECTED_PRE_LOCK_BLOB"
+
+          product_date="$(git -C product show -s --format=%aI "$PRODUCT_SHA")"
+          export GIT_AUTHOR_DATE="$product_date"
+          export GIT_COMMITTER_DATE="$product_date"
+          git -C product config user.name 'github-actions[bot]'
+          git -C product config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          export GIT_INDEX_FILE="$PWD/product/.git/repair-index"
+          rm -f "$GIT_INDEX_FILE"
+          git -C product read-tree "$PRODUCT_SHA"
+
+          written_source_blob="$(git -C product hash-object -w /tmp/repair-payload/lib.rs)"
+          test "$written_source_blob" = "$formatted_source_blob"
+          git -C product update-index --add --cacheinfo "100644,$written_source_blob,$CRATE_SOURCE"
+          r1_tree="$(git -C product write-tree)"
+          mapfile -t r1_changed < <(git -C product diff --name-only "$PRODUCT_SHA^{tree}" "$r1_tree")
+          test "${#r1_changed[@]}" -eq 1
+          test "${r1_changed[0]}" = "$CRATE_SOURCE"
+          r1_sha="$(printf '%s\n' 'style(finance): materialize Rust 1.96 capacity formatting' | git -C product commit-tree "$r1_tree" -p "$PRODUCT_SHA")"
+          test "$(git -C product rev-parse "$r1_sha^")" = "$PRODUCT_SHA"
+
+          written_lock_blob="$(git -C product hash-object -w /tmp/repair-payload/Cargo.lock)"
+          test "$written_lock_blob" = "$EXPECTED_POST_LOCK_BLOB"
+          git -C product update-index --add --cacheinfo "100644,$written_lock_blob,$LOCKFILE"
+          r2_tree="$(git -C product write-tree)"
+          mapfile -t r2_changed < <(git -C product diff --name-only "$r1_tree" "$r2_tree")
+          test "${#r2_changed[@]}" -eq 1
+          test "${r2_changed[0]}" = "$LOCKFILE"
+          test "$(git -C product diff --numstat "$r1_tree" "$r2_tree" -- "$LOCKFILE")" = $'11\t0\tmycelix-finance/Cargo.lock'
+          r2_sha="$(printf '%s\n' 'chore(finance): commit exact 004E0A Cargo 1.96 lock repair' | git -C product commit-tree "$r2_tree" -p "$r1_sha")"
+          test "$(git -C product rev-parse "$r2_sha^")" = "$r1_sha"
+
+          mapfile -t cumulative < <(git -C product diff --name-only "$PRODUCT_SHA" "$r2_sha")
+          test "${#cumulative[@]}" -eq 2
+          printf '%s\n' "${cumulative[@]}" | sort > /tmp/cumulative-paths
+          cat > /tmp/expected-cumulative-paths <<'EOF'
+          mycelix-finance/Cargo.lock
+          mycelix-finance/crates/finance-capacity-core/src/lib.rs
+          EOF
+          diff -u /tmp/expected-cumulative-paths /tmp/cumulative-paths
+          test "$(git -C product rev-parse "$r2_sha:$CRATE_SOURCE")" = "$formatted_source_blob"
+          test "$(git -C product rev-parse "$r2_sha:$LOCKFILE")" = "$EXPECTED_POST_LOCK_BLOB"
+
+          publish_url="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          set +e
+          git -C product push --quiet \
+            --force-with-lease="refs/heads/$PRODUCT_BRANCH:$PRODUCT_SHA" \
+            "$publish_url" \
+            "$r2_sha:refs/heads/$PRODUCT_BRANCH"
+          push_rc=$?
+          set -e
+          unset publish_url
+
+          remote_after="$(git -C product ls-remote origin "refs/heads/$PRODUCT_BRANCH" | awk '{print $1}')"
+          if [[ "$remote_after" = "$r2_sha" ]]; then
+            publication='Published'
+          elif [[ "$remote_after" = "$PRODUCT_SHA" && "$push_rc" -ne 0 ]]; then
+            publication='DefinitelyNotPublished'
+            echo "publication=$publication" >&2
+            exit 1
+          elif [[ "$remote_after" != "$PRODUCT_SHA" && "$remote_after" != "$r2_sha" ]]; then
+            publication='Conflict'
+            echo "publication=$publication remote_after=$remote_after" >&2
+            exit 1
+          else
+            publication='IndeterminatePublication'
+            echo "publication=$publication remote_after=$remote_after push_rc=$push_rc" >&2
+            exit 1
+          fi
+
+          printf 'status=PASS\n'
+          printf 'publication=%s\n' "$publication"
+          printf 'derive_job_repository_authority=READ_ONLY\n'
+          printf 'publish_job_product_checkout=NONE\n'
+          printf 'publish_job_rust_execution=NONE\n'
+          printf 'publish_precondition=FORCE_WITH_LEASE_EXACT_PRODUCT\n'
+          printf 'artifact_id=%s\n' "$ARTIFACT_ID"
+          printf 'artifact_digest_sha256=%s\n' "$ARTIFACT_DIGEST"
+          printf 'formatted_source_blob=%s\n' "$formatted_source_blob"
+          printf 'generated_lock_sha256=%s\n' "$EXPECTED_POST_LOCK_SHA256"
+          printf 'generated_lock_git_blob=%s\n' "$EXPECTED_POST_LOCK_BLOB"
+          printf 'r1_product_sha=%s\n' "$r1_sha"
+          printf 'r2_product_sha=%s\n' "$r2_sha"
+          printf 'claim=exact Rust 1.96 formatting and exact Cargo-generated lock metadata materialized as two direct repair commits over frozen semantic product\n'
+          printf 'nonclaim=independent semantic qualification, Holochain completeness, runtime authority, Treasury spendability, deployment readiness\n'
