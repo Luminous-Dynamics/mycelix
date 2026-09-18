@@ -1,0 +1,247 @@
+name: FIN-SAFE-028A1a LegacyV1 Facade Exact-Subject Qualification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/fin-safe-028a1a-legacy-v1-facade.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fin-safe-028a1a-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  SUBJECT_SHA: '18b2bd8651ad46339c2fa9f418f76e7496582e1e'
+  SUBJECT_PARENT_SHA: 'f7b43e3f9718e2dc2445376916bd4d5010fbc4ea'
+  QUALIFIER_BASE_SHA: '20452d0cde9448c424d708d6307aa33a3d1901e3'
+  RUST_VERSION: '1.96.0'
+  ROOT_FACADE: 'crates/mycelix-bridge-common/legacy-v1-facade'
+  MIRROR_FACADE: 'mycelix-workspace/crates/mycelix-bridge-common/legacy-v1-facade'
+
+jobs:
+  qualify:
+    name: Qualify exact LegacyV1 facade subject
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'qualify-fin-safe-028a1a-main-trigger'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact qualifier head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Bind one-file qualification plane
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          test "$(git rev-parse HEAD^)" = "$QUALIFIER_BASE_SHA"
+          mapfile -t changed < <(git diff --name-only "$QUALIFIER_BASE_SHA" HEAD | sort)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = '.github/workflows/fin-safe-028a1a-legacy-v1-facade.yml'
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Checkout exact product subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SUBJECT_SHA }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Bind product lineage and additive scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SUBJECT_SHA"
+          test "$(git rev-parse HEAD^)" = "$SUBJECT_PARENT_SHA"
+          mapfile -t changed < <(git diff --name-only "$SUBJECT_PARENT_SHA" "$SUBJECT_SHA" | sort)
+          test "${#changed[@]}" -eq 6
+          expected=(
+            'crates/mycelix-bridge-common/legacy-v1-facade/Cargo.toml'
+            'crates/mycelix-bridge-common/legacy-v1-facade/src/lib.rs'
+            'crates/mycelix-bridge-common/legacy-v1-facade/tests/public_api.rs'
+            'mycelix-workspace/crates/mycelix-bridge-common/legacy-v1-facade/Cargo.toml'
+            'mycelix-workspace/crates/mycelix-bridge-common/legacy-v1-facade/src/lib.rs'
+            'mycelix-workspace/crates/mycelix-bridge-common/legacy-v1-facade/tests/public_api.rs'
+          )
+          for i in "${!expected[@]}"; do
+            test "${changed[$i]}" = "${expected[$i]}"
+          done
+          for path in "${expected[@]}"; do
+            test "$(git diff --diff-filter=A --name-only "$SUBJECT_PARENT_SHA" "$SUBJECT_SHA" -- "$path")" = "$path"
+          done
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Prove mirror identity and authority boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmp "$ROOT_FACADE/Cargo.toml" "$MIRROR_FACADE/Cargo.toml"
+          cmp "$ROOT_FACADE/src/lib.rs" "$MIRROR_FACADE/src/lib.rs"
+          cmp "$ROOT_FACADE/tests/public_api.rs" "$MIRROR_FACADE/tests/public_api.rs"
+          for src in "$ROOT_FACADE/src/lib.rs" "$MIRROR_FACADE/src/lib.rs"; do
+            grep -Fq 'mycelix:governance:legacy-v1' "$src"
+            test "$(grep -Fc 'mycelix_bridge_common::gate_consciousness' "$src")" -eq 1
+            ! grep -Eq 'gate_civic[[:space:]]*\(' "$src"
+            ! grep -Eq 'mycelix_bridge_common::CivicRequirement' "$src"
+            grep -Fq '#![deny(deprecated)]' "$src"
+          done
+          for test_src in "$ROOT_FACADE/tests/public_api.rs" "$MIRROR_FACADE/tests/public_api.rs"; do
+            grep -Fq '#![deny(deprecated)]' "$test_src"
+            grep -Fq 'gate_legacy_v1' "$test_src"
+            grep -Fq 'LegacyV1GovernanceRequirement' "$test_src"
+          done
+          sha256sum \
+            "$ROOT_FACADE/Cargo.toml" "$ROOT_FACADE/src/lib.rs" "$ROOT_FACADE/tests/public_api.rs" \
+            "$MIRROR_FACADE/Cargo.toml" "$MIRROR_FACADE/src/lib.rs" "$MIRROR_FACADE/tests/public_api.rs" \
+            > /tmp/fin-safe-028a1a-product-files.sha256
+
+      - name: Install pinned Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install "$RUST_VERSION" --profile default
+          rustc "+$RUST_VERSION" --version --verbose
+          cargo "+$RUST_VERSION" --version
+
+      - name: Generate independent locks and bind deployment graphs
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo "+$RUST_VERSION" generate-lockfile --manifest-path "$ROOT_FACADE/Cargo.toml"
+          cargo "+$RUST_VERSION" generate-lockfile --manifest-path "$MIRROR_FACADE/Cargo.toml"
+
+          cp "$ROOT_FACADE/Cargo.lock" /tmp/fin-safe-028a1a-root-Cargo.lock
+          cp "$MIRROR_FACADE/Cargo.lock" /tmp/fin-safe-028a1a-mirror-Cargo.lock
+          sha256sum /tmp/fin-safe-028a1a-root-Cargo.lock > /tmp/fin-safe-028a1a-root-lock.sha256
+          sha256sum /tmp/fin-safe-028a1a-mirror-Cargo.lock > /tmp/fin-safe-028a1a-mirror-lock.sha256
+
+          sha256sum crates/mycelix-bridge-common/Cargo.toml > /tmp/fin-safe-028a1a-root-parent-manifest.sha256
+          sha256sum mycelix-workspace/crates/mycelix-bridge-common/Cargo.toml > /tmp/fin-safe-028a1a-mirror-parent-manifest.sha256
+          ! cmp -s crates/mycelix-bridge-common/Cargo.toml mycelix-workspace/crates/mycelix-bridge-common/Cargo.toml
+
+          cargo "+$RUST_VERSION" metadata --manifest-path "$ROOT_FACADE/Cargo.toml" --locked --no-deps --format-version 1 > /tmp/root-metadata.json
+          cargo "+$RUST_VERSION" metadata --manifest-path "$MIRROR_FACADE/Cargo.toml" --locked --no-deps --format-version 1 > /tmp/mirror-metadata.json
+          cargo "+$RUST_VERSION" tree --manifest-path "$ROOT_FACADE/Cargo.toml" --locked > /tmp/fin-safe-028a1a-root-dependency-tree.txt
+          cargo "+$RUST_VERSION" tree --manifest-path "$MIRROR_FACADE/Cargo.toml" --locked > /tmp/fin-safe-028a1a-mirror-dependency-tree.txt
+          sha256sum /tmp/fin-safe-028a1a-root-dependency-tree.txt > /tmp/fin-safe-028a1a-root-tree.sha256
+          sha256sum /tmp/fin-safe-028a1a-mirror-dependency-tree.txt > /tmp/fin-safe-028a1a-mirror-tree.sha256
+
+          python3 - <<'PY'
+          import json, pathlib
+          root = json.load(open('/tmp/root-metadata.json'))
+          mirror = json.load(open('/tmp/mirror-metadata.json'))
+          cwd = pathlib.Path.cwd().resolve()
+          assert pathlib.Path(root['workspace_root']).resolve() == (cwd / 'crates/mycelix-bridge-common/legacy-v1-facade').resolve()
+          assert pathlib.Path(mirror['workspace_root']).resolve() == (cwd / 'mycelix-workspace/crates/mycelix-bridge-common/legacy-v1-facade').resolve()
+          assert root['packages'][0]['name'] == 'mycelix-legacy-governance-v1'
+          assert mirror['packages'][0]['name'] == 'mycelix-legacy-governance-v1'
+          PY
+
+      - name: Format and compile both mirrored facades
+        shell: bash
+        run: |
+          set -euo pipefail
+          for manifest in "$ROOT_FACADE/Cargo.toml" "$MIRROR_FACADE/Cargo.toml"; do
+            cargo "+$RUST_VERSION" fmt --manifest-path "$manifest" --check
+            cargo "+$RUST_VERSION" check --manifest-path "$manifest" --no-default-features --locked
+            cargo "+$RUST_VERSION" check --manifest-path "$manifest" --locked
+            cargo "+$RUST_VERSION" test --manifest-path "$manifest" --locked
+            cargo "+$RUST_VERSION" clippy --manifest-path "$manifest" --all-targets --locked -- -D warnings
+          done
+
+      - name: Emit qualification receipt and prove immutable product
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$ROOT_FACADE/target" "$MIRROR_FACADE/target"
+          rm -f "$ROOT_FACADE/Cargo.lock" "$MIRROR_FACADE/Cargo.lock"
+          test "$(git rev-parse HEAD)" = "$SUBJECT_SHA"
+          git status --porcelain=v1 --untracked-files=all > /tmp/fin-safe-028a1a-status.txt
+          test ! -s /tmp/fin-safe-028a1a-status.txt
+          export ROOT_LOCK_SHA="$(awk '{print $1}' /tmp/fin-safe-028a1a-root-lock.sha256)"
+          export MIRROR_LOCK_SHA="$(awk '{print $1}' /tmp/fin-safe-028a1a-mirror-lock.sha256)"
+          export ROOT_PARENT_MANIFEST_SHA="$(awk '{print $1}' /tmp/fin-safe-028a1a-root-parent-manifest.sha256)"
+          export MIRROR_PARENT_MANIFEST_SHA="$(awk '{print $1}' /tmp/fin-safe-028a1a-mirror-parent-manifest.sha256)"
+          export ROOT_TREE_SHA="$(awk '{print $1}' /tmp/fin-safe-028a1a-root-tree.sha256)"
+          export MIRROR_TREE_SHA="$(awk '{print $1}' /tmp/fin-safe-028a1a-mirror-tree.sha256)"
+          export RUSTC_VERSION="$(rustc "+$RUST_VERSION" --version)"
+          export CARGO_VERSION="$(cargo "+$RUST_VERSION" --version)"
+          export QUALIFIER_SHA='${{ github.event.pull_request.head.sha }}'
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib
+          receipt = {
+              'schema': 'mycelix.finance.fin-safe-028a1a.qualification.v1',
+              'subject_sha': os.environ['SUBJECT_SHA'],
+              'subject_parent_sha': os.environ['SUBJECT_PARENT_SHA'],
+              'qualifier_sha': os.environ['QUALIFIER_SHA'],
+              'rustc': os.environ['RUSTC_VERSION'],
+              'cargo': os.environ['CARGO_VERSION'],
+              'root_generated_lock_sha256': os.environ['ROOT_LOCK_SHA'],
+              'mirror_generated_lock_sha256': os.environ['MIRROR_LOCK_SHA'],
+              'root_parent_manifest_sha256': os.environ['ROOT_PARENT_MANIFEST_SHA'],
+              'mirror_parent_manifest_sha256': os.environ['MIRROR_PARENT_MANIFEST_SHA'],
+              'root_dependency_tree_sha256': os.environ['ROOT_TREE_SHA'],
+              'mirror_dependency_tree_sha256': os.environ['MIRROR_TREE_SHA'],
+              'product_file_sha256': pathlib.Path('/tmp/fin-safe-028a1a-product-files.sha256').read_text().splitlines(),
+              'assertions': {
+                  'six_additive_files_only': True,
+                  'root_and_workspace_facades_byte_identical': True,
+                  'downstream_api_probe_denies_deprecated': True,
+                  'independent_workspace_roots': True,
+                  'deployment_graphs_qualified_independently': True,
+                  'parent_bridge_manifests_distinct': True,
+                  'no_default_features_compile': True,
+                  'hdk_default_compile': True,
+                  'tests_pass': True,
+                  'clippy_warning_fatal_pass': True,
+                  'one_hop_legacy_delegate_only': True,
+                  'no_gate_civic_call': True,
+                  'postflight_immutable': True,
+              },
+              'proposition': 'FIN-SAFE-028A1a is an additive, source-identical LegacyV1 compatibility facade whose downstream public API is non-deprecated and whose HDK gate delegates directly to the existing legacy gate in each independently qualified deployment graph.',
+              'nonclaims': [
+                  'No existing runtime caller uses the facade yet.',
+                  'No LegacyV1-to-CivicV2 equivalence is claimed.',
+                  'No deployment or caller migration is qualified by this receipt.',
+              ],
+          }
+          raw = (json.dumps(receipt, sort_keys=True, separators=(',', ':')) + '\n').encode()
+          pathlib.Path('/tmp/fin-safe-028a1a-receipt.json').write_bytes(raw)
+          pathlib.Path('/tmp/fin-safe-028a1a-receipt.sha256').write_text(hashlib.sha256(raw).hexdigest() + '  fin-safe-028a1a-receipt.json\n')
+          print(raw.decode(), end='')
+          PY
+          cd /tmp
+          sha256sum -c fin-safe-028a1a-receipt.sha256
+          sha256sum -c fin-safe-028a1a-root-lock.sha256
+          sha256sum -c fin-safe-028a1a-mirror-lock.sha256
+          sha256sum -c fin-safe-028a1a-root-tree.sha256
+          sha256sum -c fin-safe-028a1a-mirror-tree.sha256
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fin-safe-028a1a-${{ env.SUBJECT_SHA }}-${{ github.run_attempt }}
+          path: |
+            /tmp/fin-safe-028a1a-receipt.json
+            /tmp/fin-safe-028a1a-receipt.sha256
+            /tmp/fin-safe-028a1a-root-Cargo.lock
+            /tmp/fin-safe-028a1a-mirror-Cargo.lock
+            /tmp/fin-safe-028a1a-root-lock.sha256
+            /tmp/fin-safe-028a1a-mirror-lock.sha256
+            /tmp/fin-safe-028a1a-root-parent-manifest.sha256
+            /tmp/fin-safe-028a1a-mirror-parent-manifest.sha256
+            /tmp/fin-safe-028a1a-root-dependency-tree.txt
+            /tmp/fin-safe-028a1a-mirror-dependency-tree.txt
+            /tmp/fin-safe-028a1a-root-tree.sha256
+            /tmp/fin-safe-028a1a-mirror-tree.sha256
+            /tmp/fin-safe-028a1a-product-files.sha256
+            /tmp/fin-safe-028a1a-status.txt
+          if-no-files-found: warn
+          retention-days: 90
