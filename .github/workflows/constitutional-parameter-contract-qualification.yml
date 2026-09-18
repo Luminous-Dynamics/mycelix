@@ -1,0 +1,400 @@
+name: Constitutional Parameter Contract Qualification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'mycelix-governance/Cargo.toml'
+      - 'mycelix-governance/crates/constitutional-parameter-provider/**'
+      - 'mycelix-governance/specs/constitutional-parameter-contract.v1.json'
+      - 'mycelix-governance/specs/constitutional-parameter-contract.v1.schema.json'
+      - 'mycelix-governance/docs/CONSTITUTIONAL_PARAMETER_CONTRACT_V0_1.md'
+      - 'mycelix-governance/tools/formal/validate_constitutional_parameter_contract.py'
+      - '.github/workflows/constitutional-parameter-contract-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: constitutional-parameter-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NIXPKGS_REV: a50bf0c1b07873c1a53892292017041a8f0a1288
+  EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EXPECTED_SEMANTIC_HEAD: ad64b5b2e91090c21ca1d222d445203265dc788c
+
+jobs:
+  qualify:
+    name: Exact-head constitutional parameter P0
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout exact raw head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ env.EXPECTED_HEAD }}
+
+      - name: Bind exact verifier lineage and semantic surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_SEMANTIC_HEAD"
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/constitutional-parameter-contract-qualification.yml"
+
+          rm -rf parameter-contract-evidence
+          mkdir -p parameter-contract-evidence
+          printf '%s\n' "$EXPECTED_HEAD" > parameter-contract-evidence/expected-head.txt
+          printf '%s\n' "$EXPECTED_SEMANTIC_HEAD" > parameter-contract-evidence/expected-semantic-head.txt
+          printf '%s\n' "$(git rev-parse "$EXPECTED_SEMANTIC_HEAD^")" > parameter-contract-evidence/semantic-parent.txt
+
+          cat > parameter-contract-evidence/expected-semantic-files.txt <<'EOF'
+          mycelix-governance/Cargo.toml
+          mycelix-governance/crates/constitutional-parameter-provider/Cargo.toml
+          mycelix-governance/crates/constitutional-parameter-provider/src/lib.rs
+          mycelix-governance/crates/constitutional-parameter-provider/tests/effect_ledger_identity.rs
+          mycelix-governance/docs/CONSTITUTIONAL_PARAMETER_CONTRACT_V0_1.md
+          mycelix-governance/specs/constitutional-parameter-contract.v1.json
+          mycelix-governance/specs/constitutional-parameter-contract.v1.schema.json
+          mycelix-governance/tools/formal/validate_constitutional_parameter_contract.py
+          EOF
+          sed -i 's/^          //' parameter-contract-evidence/expected-semantic-files.txt
+
+          git diff --name-only "$EXPECTED_SEMANTIC_HEAD^" "$EXPECTED_SEMANTIC_HEAD" | sort \
+            > parameter-contract-evidence/actual-semantic-files.txt
+          sort parameter-contract-evidence/expected-semantic-files.txt \
+            > parameter-contract-evidence/expected-semantic-files.sorted.txt
+          cmp parameter-contract-evidence/expected-semantic-files.sorted.txt \
+              parameter-contract-evidence/actual-semantic-files.txt
+
+          if grep -E '^mycelix-governance/zomes/' parameter-contract-evidence/actual-semantic-files.txt; then
+            echo "P0 semantic head unexpectedly changes Holochain zomes" >&2
+            exit 1
+          fi
+
+          git hash-object \
+            mycelix-governance/Cargo.toml \
+            mycelix-governance/crates/constitutional-parameter-provider/Cargo.toml \
+            mycelix-governance/crates/constitutional-parameter-provider/src/lib.rs \
+            mycelix-governance/crates/constitutional-parameter-provider/tests/effect_ledger_identity.rs \
+            mycelix-governance/docs/CONSTITUTIONAL_PARAMETER_CONTRACT_V0_1.md \
+            mycelix-governance/specs/constitutional-parameter-contract.v1.json \
+            mycelix-governance/specs/constitutional-parameter-contract.v1.schema.json \
+            mycelix-governance/tools/formal/validate_constitutional_parameter_contract.py \
+            > parameter-contract-evidence/source-hashes-before.txt
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Validate exact source-bound contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#python3" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#git" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" \
+            --command bash -euo pipefail -c '
+              python3 --version | tee parameter-contract-evidence/python-version.txt
+              git --version | tee parameter-contract-evidence/git-version.txt
+              python3 -m py_compile mycelix-governance/tools/formal/validate_constitutional_parameter_contract.py
+              python3 mycelix-governance/tools/formal/validate_constitutional_parameter_contract.py --self-test \
+                2>&1 | tee parameter-contract-evidence/source-validator.log
+            '
+
+      - name: Compile and test exact P0 contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustfmt" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#coreutils" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" \
+            --command bash -euo pipefail -c '
+              rustc --version | tee parameter-contract-evidence/rustc-version.txt
+              cargo --version | tee parameter-contract-evidence/cargo-version.txt
+              rustfmt --version | tee parameter-contract-evidence/rustfmt-version.txt
+
+              cargo fmt --manifest-path mycelix-governance/Cargo.toml --package constitutional-parameter-provider -- --check \
+                2>&1 | tee parameter-contract-evidence/cargo-fmt.log
+              cargo check --manifest-path mycelix-governance/crates/constitutional-parameter-provider/Cargo.toml --all-targets \
+                2>&1 | tee parameter-contract-evidence/cargo-check.log
+              cargo test --manifest-path mycelix-governance/crates/constitutional-parameter-provider/Cargo.toml --all-targets \
+                2>&1 | tee parameter-contract-evidence/cargo-test.log
+
+              cp mycelix-governance/Cargo.lock parameter-contract-evidence/derived-Cargo.lock
+              sha256sum parameter-contract-evidence/derived-Cargo.lock \
+                > parameter-contract-evidence/derived-Cargo.lock.sha256
+            '
+
+      - name: Mutation control — proposal identity participates in request commitment
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=mycelix-governance/crates/constitutional-parameter-provider/src/lib.rs
+          cp "$SRC" /tmp/parameter-provider-lib.rs
+          trap 'cp /tmp/parameter-provider-lib.rs "$SRC"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/crates/constitutional-parameter-provider/src/lib.rs')
+          s = p.read_text()
+          fn = s.index('fn compute_request_commitment(')
+          needle = '    push_str(&mut hasher, &authority.proposal_id);\n'
+          pos = s.index(needle, fn)
+          p.write_text(s[:pos] + s[pos + len(needle):])
+          PY
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" --command bash -euo pipefail -c '
+            cargo check --manifest-path mycelix-governance/crates/constitutional-parameter-provider/Cargo.toml --all-targets > parameter-contract-evidence/mutant-proposal-check.log 2>&1
+            if cargo test --manifest-path mycelix-governance/crates/constitutional-parameter-provider/Cargo.toml proposal_and_claim_binding_participate_in_request_identity > parameter-contract-evidence/mutant-proposal-test.log 2>&1; then
+              echo "proposal-identity mutant survived" >&2; exit 1
+            fi
+          '
+          cp /tmp/parameter-provider-lib.rs "$SRC"; trap - EXIT
+          echo PASS > parameter-contract-evidence/mutant-proposal.txt
+
+      - name: Mutation control — ClaimBinding participates in request commitment
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=mycelix-governance/crates/constitutional-parameter-provider/src/lib.rs
+          cp "$SRC" /tmp/parameter-provider-lib.rs
+          trap 'cp /tmp/parameter-provider-lib.rs "$SRC"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/crates/constitutional-parameter-provider/src/lib.rs')
+          s = p.read_text()
+          fn = s.index('fn compute_request_commitment(')
+          needle = '    push_str(&mut hasher, &authority.claim_binding_commitment);\n'
+          pos = s.index(needle, fn)
+          p.write_text(s[:pos] + s[pos + len(needle):])
+          PY
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" --command bash -euo pipefail -c '
+            cargo check --manifest-path mycelix-governance/crates/constitutional-parameter-provider/Cargo.toml --all-targets > parameter-contract-evidence/mutant-claim-check.log 2>&1
+            if cargo test --manifest-path mycelix-governance/crates/constitutional-parameter-provider/Cargo.toml proposal_and_claim_binding_participate_in_request_identity > parameter-contract-evidence/mutant-claim-test.log 2>&1; then
+              echo "ClaimBinding-identity mutant survived" >&2; exit 1
+            fi
+          '
+          cp /tmp/parameter-provider-lib.rs "$SRC"; trap - EXIT
+          echo PASS > parameter-contract-evidence/mutant-claim.txt
+
+      - name: Mutation control — predecessor participates in request commitment
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=mycelix-governance/crates/constitutional-parameter-provider/src/lib.rs
+          cp "$SRC" /tmp/parameter-provider-lib.rs
+          trap 'cp /tmp/parameter-provider-lib.rs "$SRC"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/crates/constitutional-parameter-provider/src/lib.rs')
+          s = p.read_text()
+          fn = s.index('fn compute_request_commitment(')
+          anchor = '    authority.validate()?;\n'
+          pos = s.index(anchor, fn) + len(anchor)
+          injected = '    let ignored_expected_prior = PriorRevisionExpectation::CreateOnly;\n    let expected_prior = &ignored_expected_prior;\n'
+          p.write_text(s[:pos] + injected + s[pos:])
+          PY
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" --command bash -euo pipefail -c '
+            cargo check --manifest-path mycelix-governance/crates/constitutional-parameter-provider/Cargo.toml --all-targets > parameter-contract-evidence/mutant-prior-check.log 2>&1
+            if cargo test --manifest-path mycelix-governance/crates/constitutional-parameter-provider/Cargo.toml prior_revision_precondition_participates_in_request_identity > parameter-contract-evidence/mutant-prior-test.log 2>&1; then
+              echo "predecessor-identity mutant survived" >&2; exit 1
+            fi
+          '
+          cp /tmp/parameter-provider-lib.rs "$SRC"; trap - EXIT
+          echo PASS > parameter-contract-evidence/mutant-prior.txt
+
+      - name: Mutation control — historical action index survives later revisions
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=mycelix-governance/crates/constitutional-parameter-provider/src/lib.rs
+          cp "$SRC" /tmp/parameter-provider-lib.rs
+          trap 'cp /tmp/parameter-provider-lib.rs "$SRC"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/crates/constitutional-parameter-provider/src/lib.rs')
+          s = p.read_text()
+          needle = '        self.action_index\n            .insert(request.authority.action_id.clone(), next_revision);\n'
+          replacement = '        self.action_index.clear();\n' + needle
+          assert needle in s
+          p.write_text(s.replace(needle, replacement, 1))
+          PY
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" --command bash -euo pipefail -c '
+            cargo check --manifest-path mycelix-governance/crates/constitutional-parameter-provider/Cargo.toml --all-targets > parameter-contract-evidence/mutant-history-check.log 2>&1
+            if cargo test --manifest-path mycelix-governance/crates/constitutional-parameter-provider/Cargo.toml delayed_retry_still_resolves_after_later_revisions > parameter-contract-evidence/mutant-history-test.log 2>&1; then
+              echo "historical-action-index mutant survived" >&2; exit 1
+            fi
+          '
+          cp /tmp/parameter-provider-lib.rs "$SRC"; trap - EXIT
+          echo PASS > parameter-contract-evidence/mutant-history.txt
+
+      - name: Mutation control — action collisions cannot collapse to ExistingSame
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=mycelix-governance/crates/constitutional-parameter-provider/src/lib.rs
+          cp "$SRC" /tmp/parameter-provider-lib.rs
+          trap 'cp /tmp/parameter-provider-lib.rs "$SRC"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/crates/constitutional-parameter-provider/src/lib.rs')
+          s = p.read_text()
+          old = '            if existing_request_commitment == request.request_commitment {\n'
+          new = '            if true || existing_request_commitment == request.request_commitment {\n'
+          assert old in s
+          p.write_text(s.replace(old, new, 1))
+          PY
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" --command bash -euo pipefail -c '
+            cargo check --manifest-path mycelix-governance/crates/constitutional-parameter-provider/Cargo.toml --all-targets > parameter-contract-evidence/mutant-conflict-check.log 2>&1
+            if cargo test --manifest-path mycelix-governance/crates/constitutional-parameter-provider/Cargo.toml same_action_different_payload_is_integrity_conflict_and_halts > parameter-contract-evidence/mutant-conflict-test.log 2>&1; then
+              echo "action-conflict mutant survived" >&2; exit 1
+            fi
+          '
+          cp /tmp/parameter-provider-lib.rs "$SRC"; trap - EXIT
+          echo PASS > parameter-contract-evidence/mutant-conflict.txt
+
+      - name: Mutation control — stale compare-and-set cannot commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=mycelix-governance/crates/constitutional-parameter-provider/src/lib.rs
+          cp "$SRC" /tmp/parameter-provider-lib.rs
+          trap 'cp /tmp/parameter-provider-lib.rs "$SRC"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/crates/constitutional-parameter-provider/src/lib.rs')
+          s = p.read_text()
+          old = '        if !predecessor_matches {\n'
+          new = '        if false && !predecessor_matches {\n'
+          assert old in s
+          p.write_text(s.replace(old, new, 1))
+          PY
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" --command bash -euo pipefail -c '
+            cargo check --manifest-path mycelix-governance/crates/constitutional-parameter-provider/Cargo.toml --all-targets > parameter-contract-evidence/mutant-stale-check.log 2>&1
+            if cargo test --manifest-path mycelix-governance/crates/constitutional-parameter-provider/Cargo.toml stale_compare_and_set_does_not_mutate_history > parameter-contract-evidence/mutant-stale-test.log 2>&1; then
+              echo "stale-CAS mutant survived" >&2; exit 1
+            fi
+          '
+          cp /tmp/parameter-provider-lib.rs "$SRC"; trap - EXIT
+          echo PASS > parameter-contract-evidence/mutant-stale.txt
+
+      - name: Mutation control — wall-clock time cannot define revision identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=mycelix-governance/crates/constitutional-parameter-provider/src/lib.rs
+          cp "$SRC" /tmp/parameter-provider-lib.rs
+          trap 'cp /tmp/parameter-provider-lib.rs "$SRC"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/crates/constitutional-parameter-provider/src/lib.rs')
+          s = p.read_text()
+          old = '        hasher.update(REVISION_DOMAIN);\n'
+          new = old + '        hasher.update(&self.committed_at_unix_ms.to_be_bytes());\n'
+          assert old in s
+          p.write_text(s.replace(old, new, 1))
+          PY
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" --command bash -euo pipefail -c '
+            cargo check --manifest-path mycelix-governance/crates/constitutional-parameter-provider/Cargo.toml --all-targets > parameter-contract-evidence/mutant-time-check.log 2>&1
+            if cargo test --manifest-path mycelix-governance/crates/constitutional-parameter-provider/Cargo.toml wall_clock_commit_time_is_not_revision_identity > parameter-contract-evidence/mutant-time-test.log 2>&1; then
+              echo "wall-clock-identity mutant survived" >&2; exit 1
+            fi
+          '
+          cp /tmp/parameter-provider-lib.rs "$SRC"; trap - EXIT
+          echo PASS > parameter-contract-evidence/mutant-time.txt
+
+      - name: Mutation control — stored revision reconstructs inner request
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=mycelix-governance/crates/constitutional-parameter-provider/src/lib.rs
+          cp "$SRC" /tmp/parameter-provider-lib.rs
+          trap 'cp /tmp/parameter-provider-lib.rs "$SRC"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/crates/constitutional-parameter-provider/src/lib.rs')
+          s = p.read_text()
+          old = '        if reconstructed_request != self.request_commitment {\n'
+          new = '        if false && reconstructed_request != self.request_commitment {\n'
+          assert old in s
+          p.write_text(s.replace(old, new, 1))
+          PY
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" --command bash -euo pipefail -c '
+            cargo check --manifest-path mycelix-governance/crates/constitutional-parameter-provider/Cargo.toml --all-targets > parameter-contract-evidence/mutant-inner-check.log 2>&1
+            if cargo test --manifest-path mycelix-governance/crates/constitutional-parameter-provider/Cargo.toml revision_reconstructs_request_commitment > parameter-contract-evidence/mutant-inner-test.log 2>&1; then
+              echo "inner-request-reconstruction mutant survived" >&2; exit 1
+            fi
+          '
+          cp /tmp/parameter-provider-lib.rs "$SRC"; trap - EXIT
+          echo PASS > parameter-contract-evidence/mutant-inner.txt
+
+      - name: Mutation control — decimal exponent notation remains rejected
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=mycelix-governance/crates/constitutional-parameter-provider/src/lib.rs
+          cp "$SRC" /tmp/parameter-provider-lib.rs
+          trap 'cp /tmp/parameter-provider-lib.rs "$SRC"' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('mycelix-governance/crates/constitutional-parameter-provider/src/lib.rs')
+          s = p.read_text()
+          fn = s.index('fn normalize_decimal(')
+          needle = '    let trimmed = input.trim();\n'
+          pos = s.index(needle, fn) + len(needle)
+          p.write_text(s[:pos] + '    if trimmed == "1e3" { return Ok("1000".into()); }\n' + s[pos:])
+          PY
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" --command bash -euo pipefail -c '
+            cargo check --manifest-path mycelix-governance/crates/constitutional-parameter-provider/Cargo.toml --all-targets > parameter-contract-evidence/mutant-decimal-check.log 2>&1
+            if cargo test --manifest-path mycelix-governance/crates/constitutional-parameter-provider/Cargo.toml decimal_input_has_one_canonical_spelling > parameter-contract-evidence/mutant-decimal-test.log 2>&1; then
+              echo "decimal-exponent mutant survived" >&2; exit 1
+            fi
+          '
+          cp /tmp/parameter-provider-lib.rs "$SRC"; trap - EXIT
+          echo PASS > parameter-contract-evidence/mutant-decimal.txt
+
+      - name: Verify semantic source immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+
+          git hash-object \
+            mycelix-governance/Cargo.toml \
+            mycelix-governance/crates/constitutional-parameter-provider/Cargo.toml \
+            mycelix-governance/crates/constitutional-parameter-provider/src/lib.rs \
+            mycelix-governance/crates/constitutional-parameter-provider/tests/effect_ledger_identity.rs \
+            mycelix-governance/docs/CONSTITUTIONAL_PARAMETER_CONTRACT_V0_1.md \
+            mycelix-governance/specs/constitutional-parameter-contract.v1.json \
+            mycelix-governance/specs/constitutional-parameter-contract.v1.schema.json \
+            mycelix-governance/tools/formal/validate_constitutional_parameter_contract.py \
+            > parameter-contract-evidence/source-hashes-after.txt
+
+          cmp parameter-contract-evidence/source-hashes-before.txt parameter-contract-evidence/source-hashes-after.txt
+          git diff --exit-code -- \
+            mycelix-governance/Cargo.toml \
+            mycelix-governance/crates/constitutional-parameter-provider/Cargo.toml \
+            mycelix-governance/crates/constitutional-parameter-provider/src/lib.rs \
+            mycelix-governance/crates/constitutional-parameter-provider/tests/effect_ledger_identity.rs \
+            mycelix-governance/docs/CONSTITUTIONAL_PARAMETER_CONTRACT_V0_1.md \
+            mycelix-governance/specs/constitutional-parameter-contract.v1.json \
+            mycelix-governance/specs/constitutional-parameter-contract.v1.schema.json \
+            mycelix-governance/tools/formal/validate_constitutional_parameter_contract.py
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: constitutional-parameter-${{ env.EXPECTED_HEAD }}
+          path: parameter-contract-evidence
+          if-no-files-found: error
+          retention-days: 30
