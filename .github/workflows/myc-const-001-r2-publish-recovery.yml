@@ -1,0 +1,245 @@
+name: MYC-CONST-001 R2 Publication Recovery
+
+on:
+  push:
+    branches:
+      - recover/myc-const-001-r2-publish-v1
+    paths:
+      - '.github/workflows/myc-const-001-r2-publish-recovery.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: myc-const-001-r2-publication-recovery-v1
+  cancel-in-progress: true
+
+env:
+  RECOVERY_PARENT: '20452d0cde9448c424d708d6307aa33a3d1901e3'
+  RECOVERY_WORKFLOW: '.github/workflows/myc-const-001-r2-publish-recovery.yml'
+  R1_SHA: 'd15ea01f428f7bc0a17d35eca73de5910768ec84'
+  R2_BRANCH: 'fix/myc-const-001-lock-r2'
+  LOCKFILE: 'mycelix-governance/Cargo.lock'
+  R1_LOCK_BLOB: 'f872b74f13264e7345be02b64270179eed56c703'
+  R2_LOCK_SHA256: 'cf3d5738087fc5810f94aa044c8ec8fa504c9f8123bd1b0c19f20adf1070d5db'
+  R2_LOCK_GIT_BLOB: '06f19dac624b5e7b599e685d08429553957eb538'
+  ARTIFACT_ID: '10519305582'
+  ARTIFACT_DIGEST: '55b54a024d6b18db22e68a67104061e518528359c4200ce5080ac7a63a8cffad'
+  ORIGINAL_DERIVE_RUN: '35149773609'
+
+jobs:
+  recover-publication:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Verify recovery authority surface and exact artifact
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$GITHUB_TOKEN"
+
+          # Verify this mutation-authority subject without checking out repository code.
+          commit_json=/tmp/recovery-commit.json
+          curl --fail --silent --show-error \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}" \
+            -o "$commit_json"
+          python3 - "$commit_json" "$RECOVERY_PARENT" "$RECOVERY_WORKFLOW" <<'PY'
+          import json, sys
+          path, parent, workflow = sys.argv[1:]
+          data = json.load(open(path, encoding='utf-8'))
+          parents = [item['sha'] for item in data.get('parents', [])]
+          files = [item['filename'] for item in data.get('files', [])]
+          if parents != [parent]:
+              raise SystemExit(f'unexpected recovery parent: {parents!r}')
+          if files != [workflow]:
+              raise SystemExit(f'unexpected recovery mutation surface: {files!r}')
+          print('recovery_authority_surface=PASS')
+          PY
+
+          # Download exactly the immutable artifact emitted by the successful read-only derive job.
+          artifact_url="https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip"
+          set +e
+          http_code="$(curl --location --silent --show-error \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            --output /tmp/r2-artifact.zip \
+            --write-out '%{http_code}' \
+            "$artifact_url")"
+          curl_rc=$?
+          set -e
+          if [[ "$curl_rc" -ne 0 || "$http_code" != '200' ]]; then
+            printf 'publication=CandidateUnavailable\n' >&2
+            printf 'artifact_id=%s\n' "$ARTIFACT_ID" >&2
+            printf 'artifact_http_code=%s\n' "$http_code" >&2
+            printf 'artifact_curl_rc=%s\n' "$curl_rc" >&2
+            exit 1
+          fi
+          test "$(sha256sum /tmp/r2-artifact.zip | awk '{print $1}')" = "$ARTIFACT_DIGEST"
+
+          mapfile -t zip_entries < <(unzip -Z1 /tmp/r2-artifact.zip | sort)
+          test "${#zip_entries[@]}" -eq 2
+          test "${zip_entries[0]}" = 'Cargo.lock'
+          test "${zip_entries[1]}" = 'manifest.txt'
+          rm -rf /tmp/r2-payload
+          mkdir -p /tmp/r2-payload
+          unzip -q /tmp/r2-artifact.zip -d /tmp/r2-payload
+          test "$(sha256sum /tmp/r2-payload/Cargo.lock | awk '{print $1}')" = "$R2_LOCK_SHA256"
+          test "$(git hash-object /tmp/r2-payload/Cargo.lock)" = "$R2_LOCK_GIT_BLOB"
+
+          cat > /tmp/expected-manifest.txt <<EOF
+          schema=myc-const-001-r2-derived-lock-v1
+          r1_sha=$R1_SHA
+          r1_lock_blob=$R1_LOCK_BLOB
+          r2_lock_sha256=$R2_LOCK_SHA256
+          r2_lock_git_blob=$R2_LOCK_GIT_BLOB
+          additions=14
+          deletions=0
+          changed_path=$LOCKFILE
+          rust_toolchain=1.96.0
+          EOF
+          cmp /tmp/expected-manifest.txt /tmp/r2-payload/manifest.txt
+          printf 'artifact_integrity=PASS\n'
+          printf 'artifact_id=%s\n' "$ARTIFACT_ID"
+          printf 'artifact_digest_sha256=%s\n' "$ARTIFACT_DIGEST"
+          printf 'original_derive_run=%s\n' "$ORIGINAL_DERIVE_RUN"
+
+      - name: Publish or recover exact equivalent R2 state
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$GITHUB_TOKEN"
+
+          rm -rf /tmp/product
+          git init -q /tmp/product
+          git -C /tmp/product remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+
+          remote_head() {
+            local output rc
+            set +e
+            output="$(git -C /tmp/product ls-remote origin "refs/heads/$R2_BRANCH" 2>/tmp/ls-remote.err)"
+            rc=$?
+            set -e
+            if [[ "$rc" -ne 0 ]]; then
+              printf 'publication=IndeterminatePublication\n' >&2
+              cat /tmp/ls-remote.err >&2 || true
+              exit 1
+            fi
+            awk '{print $1}' <<<"$output"
+          }
+
+          equivalent_remote() {
+            local sha="$1"
+            [[ -n "$sha" ]] || return 1
+            rm -f /tmp/product/.git/shallow.lock || true
+            git -C /tmp/product fetch --quiet --no-tags --depth=2 origin "$sha" || return 1
+            [[ "$(git -C /tmp/product rev-parse "$sha^")" = "$R1_SHA" ]] || return 1
+            mapfile -t changed < <(git -C /tmp/product diff-tree --no-commit-id --name-only -r "$sha")
+            [[ "${#changed[@]}" -eq 1 ]] || return 1
+            [[ "${changed[0]}" = "$LOCKFILE" ]] || return 1
+            [[ "$(git -C /tmp/product rev-parse "$sha:$LOCKFILE")" = "$R2_LOCK_GIT_BLOB" ]] || return 1
+            [[ "$(git -C /tmp/product diff --numstat "$R1_SHA" "$sha" -- "$LOCKFILE")" = $'14\t0\tmycelix-governance/Cargo.lock' ]] || return 1
+            return 0
+          }
+
+          before="$(remote_head)"
+          if [[ "$before" != "$R1_SHA" ]]; then
+            if equivalent_remote "$before"; then
+              printf 'status=PASS\n'
+              printf 'publication=PublishedEquivalent\n'
+              printf 'remote_r2_sha=%s\n' "$before"
+              printf 'claim=an exact semantically equivalent lock-only direct child of frozen R1 was already published; no overwrite performed\n'
+              printf 'nonclaim=semantic foundation qualification, strict-Clippy PASS, R3, MYC-CONST-001B, hermetic derivation\n'
+              exit 0
+            fi
+            printf 'publication=Conflict\n' >&2
+            printf 'remote_before=%s\n' "$before" >&2
+            exit 1
+          fi
+
+          git -C /tmp/product fetch --quiet --no-tags --depth=2 origin "$R1_SHA"
+          test "$(git -C /tmp/product rev-parse FETCH_HEAD)" = "$R1_SHA"
+          test "$(git -C /tmp/product rev-parse "$R1_SHA:$LOCKFILE")" = "$R1_LOCK_BLOB"
+
+          export GIT_INDEX_FILE=/tmp/product/.git/r2-index
+          rm -f "$GIT_INDEX_FILE"
+          git -C /tmp/product read-tree "$R1_SHA"
+          written_lock_blob="$(git -C /tmp/product hash-object -w /tmp/r2-payload/Cargo.lock)"
+          test "$written_lock_blob" = "$R2_LOCK_GIT_BLOB"
+          git -C /tmp/product update-index --add --cacheinfo "100644,$written_lock_blob,$LOCKFILE"
+          r2_tree="$(git -C /tmp/product write-tree)"
+          mapfile -t changed < <(git -C /tmp/product diff --name-only "$R1_SHA^{tree}" "$r2_tree")
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$LOCKFILE"
+          test "$(git -C /tmp/product diff --numstat "$R1_SHA^{tree}" "$r2_tree" -- "$LOCKFILE")" = $'14\t0\tmycelix-governance/Cargo.lock'
+          test "$(git -C /tmp/product rev-parse "$r2_tree:$LOCKFILE")" = "$R2_LOCK_GIT_BLOB"
+
+          # Deterministic recovery commit metadata. Physical SHA may differ from the original
+          # queued publisher, so semantic equivalence is also checked during reconciliation.
+          r1_date="$(git -C /tmp/product show -s --format=%aI "$R1_SHA")"
+          export GIT_AUTHOR_DATE="$r1_date"
+          export GIT_COMMITTER_DATE="$r1_date"
+          git -C /tmp/product config user.name 'github-actions[bot]'
+          git -C /tmp/product config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          intended="$(printf '%s\n' 'chore(governance): commit exact Cargo 1.96 R2 lock repair' | git -C /tmp/product commit-tree "$r2_tree" -p "$R1_SHA")"
+          test "$(git -C /tmp/product rev-parse "$intended^")" = "$R1_SHA"
+          test "$(git -C /tmp/product rev-parse "$intended:$LOCKFILE")" = "$R2_LOCK_GIT_BLOB"
+
+          publish_url="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          set +e
+          git -C /tmp/product push --quiet \
+            --force-with-lease="refs/heads/$R2_BRANCH:$R1_SHA" \
+            "$publish_url" \
+            "$intended:refs/heads/$R2_BRANCH"
+          push_rc=$?
+          set -e
+          unset publish_url
+
+          after="$(remote_head)"
+          if [[ "$after" = "$intended" ]]; then
+            if [[ "$push_rc" -eq 0 ]]; then
+              publication='Published'
+            else
+              publication='PublishedRecovered'
+            fi
+          elif [[ "$after" = "$R1_SHA" && "$push_rc" -ne 0 ]]; then
+            publication='DefinitelyNotPublished'
+            printf 'publication=%s\n' "$publication" >&2
+            exit 1
+          elif equivalent_remote "$after"; then
+            if [[ "$push_rc" -eq 0 ]]; then
+              publication='PublishedEquivalent'
+            else
+              publication='PublishedRecoveredEquivalent'
+            fi
+          elif [[ -n "$after" ]]; then
+            publication='Conflict'
+            printf 'publication=%s\nremote_after=%s\n' "$publication" "$after" >&2
+            exit 1
+          else
+            publication='IndeterminatePublication'
+            printf 'publication=%s\n' "$publication" >&2
+            exit 1
+          fi
+
+          printf 'status=PASS\n'
+          printf 'publication=%s\n' "$publication"
+          printf 'intended_r2_sha=%s\n' "$intended"
+          printf 'remote_r2_sha=%s\n' "$after"
+          printf 'generated_lock_sha256=%s\n' "$R2_LOCK_SHA256"
+          printf 'generated_lock_git_blob=%s\n' "$R2_LOCK_GIT_BLOB"
+          printf 'publish_precondition=EXACT_R1_OR_ALREADY_EQUIVALENT\n'
+          printf 'runtime_candidate_execution=NONE\n'
+          printf 'claim=exact previously-derived R2 lock bytes are published, or an exact semantically equivalent lock-only direct child already exists\n'
+          printf 'nonclaim=semantic foundation qualification, strict-Clippy PASS, R3, MYC-CONST-001B, hermetic derivation\n'
