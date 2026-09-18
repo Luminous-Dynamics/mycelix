@@ -1,0 +1,18 @@
+[package]
+name = "mycelix-forge-gittuf-policy-inventory"
+version = "0.1.0"
+edition = "2021"
+authors = ["Luminous Dynamics"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+description = "Complete active gittuf policy trust-method inventory collector for Mycelix Forge"
+
+[dependencies]
+base64 = "0.22"
+hex = "0.4"
+mycelix-forge-core = { path = "../../crates/mycelix-forge-core" }
+mycelix-forge-gittuf = { path = "../forge-gittuf" }
+mycelix-forge-gittuf-trust-profile = { path = "../forge-gittuf-trust-profile" }
+mycelix-forge-repository = { path = "../../crates/mycelix-forge-repository" }
+serde_json = "1.0"
+thiserror = "2.0"
