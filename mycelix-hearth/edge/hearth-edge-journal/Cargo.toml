@@ -1,0 +1,12 @@
+[package]
+name = "hearth-edge-journal"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Crash-safe execution journal and adapter wrapper for Mycelix Hearth edge automation"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+hearth-automation-types = { workspace = true }
+hearth-edge = { path = "../hearth-edge" }
