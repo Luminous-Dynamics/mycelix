@@ -1,0 +1,15 @@
+[package]
+name = "constitutional-payments-provider-admission"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Pre-registration adversarial admission oracle for constitutional payments provider DHT refinement"
+
+[dependencies]
+thiserror = { workspace = true }
+constitutional-payments-provider = { workspace = true }
+constitutional-payments-provider-journal = { workspace = true }
+constitutional-payments-provider-hdi = { workspace = true }
+
+[dev-dependencies]
+constitutional-treasury-effect-provider = { workspace = true }
