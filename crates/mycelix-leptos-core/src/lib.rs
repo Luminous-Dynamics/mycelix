@@ -76,6 +76,7 @@ pub mod indlela;
 pub use mycelix_leptos_ui::loading;
 pub mod local_identity;
 pub mod me;
+pub mod me_identity;
 pub mod modal;
 pub mod provenance;
 pub use mycelix_leptos_ui::progress_bar;
@@ -121,6 +122,9 @@ pub use error_boundary::AppErrorBoundary;
 pub use evidence::{EvidenceAvailability, EvidenceDisclosure};
 pub use loading::LoadingSkeleton;
 pub use me::{MeBatch, MeFactState, MeItem, MeProviderState, MeSection, MeTarget};
+pub use me_identity::{
+    LocalIdentityMeSnapshot, current_local_identity_me_batch, project_local_identity_me,
+};
 pub use progress_bar::ProgressBar;
 pub use stat_card::StatCard;
 pub use telemetry_line::TelemetryLine;
