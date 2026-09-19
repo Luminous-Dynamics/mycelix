@@ -33,6 +33,7 @@ on:
       - "adapters/forge-m0-offline-evidence-v6/**"
       - "adapters/forge-m0-capsule-builder/**"
       - "adapters/forge-m0-capsule-materializer/**"
+      - "adapters/forge-m0-receipt-bound-launch/**"
       - ".github/workflows/forge.yml"
   push:
     branches:
@@ -67,6 +68,7 @@ on:
       - "adapters/forge-m0-offline-evidence-v6/**"
       - "adapters/forge-m0-capsule-builder/**"
       - "adapters/forge-m0-capsule-materializer/**"
+      - "adapters/forge-m0-receipt-bound-launch/**"
       - ".github/workflows/forge.yml"
 
 permissions:
@@ -143,6 +145,8 @@ jobs:
             path: adapters/forge-m0-capsule-builder
           - name: Forge M0 Capsule Materializer
             path: adapters/forge-m0-capsule-materializer
+          - name: Forge M0 Receipt-Bound Launch
+            path: adapters/forge-m0-receipt-bound-launch
     defaults:
       run:
         working-directory: ${{ matrix.path }}
