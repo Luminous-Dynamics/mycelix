@@ -26,18 +26,26 @@ impl ModalSize {
 
 /// Modal dialog with backdrop.
 ///
-/// Closes on backdrop click or Escape key. Uses display toggling
-/// instead of `<Show>` to avoid FnOnce/Fn issues with children.
+/// Closes on backdrop click or Escape key. Uses display toggling instead of
+/// `<Show>` to avoid FnOnce/Fn issues with children.
+///
+/// `aria_label` is optional when a visible `title` is supplied because the
+/// title itself becomes the accessible name. Callers rendering an untitled
+/// dialog should supply a concise `aria_label` describing its purpose.
 #[component]
 pub fn Modal(
     open: ReadSignal<bool>,
     on_close: Callback<()>,
     #[prop(optional, into)] title: Option<String>,
+    #[prop(optional, into)] aria_label: Option<String>,
     #[prop(optional)] size: ModalSize,
     children: Children,
 ) -> impl IntoView {
     let size_class = size.css_class();
     let rendered = children();
+    let accessible_name = aria_label
+        .or_else(|| title.clone())
+        .unwrap_or_else(|| "Dialog".to_string());
 
     view! {
         <div
@@ -52,6 +60,7 @@ pub fn Modal(
             tabindex="-1"
             role="dialog"
             aria-modal="true"
+            aria-label=accessible_name
         >
             <div
                 class=format!("modal-content {size_class}")

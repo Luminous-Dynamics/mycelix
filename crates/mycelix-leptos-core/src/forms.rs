@@ -8,22 +8,49 @@
 
 use leptos::prelude::*;
 
+/// Stable semantic IDs shared by a field wrapper and its form control.
+///
+/// Passing the same value to [`FormField`] and a child control associates the
+/// visible label with the control and reserves a stable ID for inline error
+/// description. Existing call sites remain valid because this contract is
+/// additive.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FormFieldIds {
+    pub control: String,
+    pub error: String,
+}
+
+impl FormFieldIds {
+    pub fn new(control_id: impl Into<String>) -> Self {
+        let control = control_id.into();
+        let error = format!("{control}-error");
+        Self { control, error }
+    }
+}
+
 /// A labeled form field with optional error message.
 #[component]
 pub fn FormField(
     #[prop(into)] label: String,
     #[prop(optional, into)] error: Option<String>,
     #[prop(optional)] required: bool,
+    #[prop(optional)] ids: Option<FormFieldIds>,
     children: Children,
 ) -> impl IntoView {
+    let label_for = ids.as_ref().map(|ids| ids.control.clone());
+    let error_id = ids.as_ref().map(|ids| ids.error.clone());
+
     view! {
         <div class="form-field">
-            <label class="form-label">
+            <label class="form-label" for=label_for>
                 {label}
-                {required.then(|| view! { <span class="form-required">" *"</span> })}
+                {required.then(|| view! { <span class="form-required" aria-hidden="true">" *"</span> })}
+                {required.then(|| view! { <span class="sr-only">" Required"</span> })}
             </label>
             {children()}
-            {error.map(|e| view! { <span class="form-error">{e}</span> })}
+            {error.map(|e| view! {
+                <span class="form-error" id=error_id role="alert">{e}</span>
+            })}
         </div>
     }
 }
@@ -45,15 +72,25 @@ pub fn TextInput(
     #[prop(optional)] disabled: bool,
     #[prop(optional)] required: bool,
     #[prop(optional)] invalid: bool,
+    #[prop(optional)] ids: Option<FormFieldIds>,
 ) -> impl IntoView {
+    let control_id = ids.as_ref().map(|ids| ids.control.clone());
+    let described_by = if invalid {
+        ids.as_ref().map(|ids| ids.error.clone())
+    } else {
+        None
+    };
+
     view! {
         <input
             class="form-input"
+            id=control_id
             type=input_type
             placeholder=placeholder
             disabled=disabled
             aria-required=required.to_string()
             aria-invalid=invalid.to_string()
+            aria-describedby=described_by
             prop:value=move || value.get()
             on:input=move |ev| {
                 on_change.run(event_target_value(&ev));
@@ -69,14 +106,28 @@ pub fn TextArea(
     on_change: Callback<String>,
     #[prop(optional, default = 4)] rows: u32,
     #[prop(optional)] placeholder: &'static str,
+    #[prop(optional)] disabled: bool,
     #[prop(optional)] required: bool,
+    #[prop(optional)] invalid: bool,
+    #[prop(optional)] ids: Option<FormFieldIds>,
 ) -> impl IntoView {
+    let control_id = ids.as_ref().map(|ids| ids.control.clone());
+    let described_by = if invalid {
+        ids.as_ref().map(|ids| ids.error.clone())
+    } else {
+        None
+    };
+
     view! {
         <textarea
             class="form-textarea"
+            id=control_id
             rows=rows
             placeholder=placeholder
+            disabled=disabled
             aria-required=required.to_string()
+            aria-invalid=invalid.to_string()
+            aria-describedby=described_by
             prop:value=move || value.get()
             on:input=move |ev| {
                 on_change.run(event_target_value(&ev));
@@ -91,10 +142,26 @@ pub fn Select(
     value: ReadSignal<String>,
     on_change: Callback<String>,
     #[prop(into)] options: Vec<SelectOption>,
+    #[prop(optional)] disabled: bool,
+    #[prop(optional)] required: bool,
+    #[prop(optional)] invalid: bool,
+    #[prop(optional)] ids: Option<FormFieldIds>,
 ) -> impl IntoView {
+    let control_id = ids.as_ref().map(|ids| ids.control.clone());
+    let described_by = if invalid {
+        ids.as_ref().map(|ids| ids.error.clone())
+    } else {
+        None
+    };
+
     view! {
         <select
             class="form-select"
+            id=control_id
+            disabled=disabled
+            aria-required=required.to_string()
+            aria-invalid=invalid.to_string()
+            aria-describedby=described_by
             prop:value=move || value.get()
             on:change=move |ev| {
                 on_change.run(event_target_value(&ev));
@@ -137,4 +204,16 @@ fn event_target_checked(ev: &leptos::ev::Event) -> bool {
         .and_then(|t| t.dyn_into::<web_sys::HtmlInputElement>().ok())
         .map(|el| el.checked())
         .unwrap_or(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::FormFieldIds;
+
+    #[test]
+    fn field_ids_bind_control_and_error_names_deterministically() {
+        let ids = FormFieldIds::new("profile-name");
+        assert_eq!(ids.control, "profile-name");
+        assert_eq!(ids.error, "profile-name-error");
+    }
 }
