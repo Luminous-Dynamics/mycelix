@@ -1,0 +1,13 @@
+[package]
+name = "mycelix-regenerative-biomass"
+version = "0.1.0"
+edition = "2024"
+description = "Dependency-light biomass planning invariants for Mycelix regenerative systems"
+license = "AGPL-3.0-or-later"
+authors = ["Luminous Dynamics <contact@luminousdynamics.org>"]
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+
+[dependencies]
+mycelix-core-types = { path = "../mycelix-core-types" }
+mycelix-regenerative-core = { path = "../mycelix-regenerative-core" }
+mycelix-regenerative-admission = { path = "../mycelix-regenerative-admission" }
