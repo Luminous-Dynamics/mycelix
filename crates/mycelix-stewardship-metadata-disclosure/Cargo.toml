@@ -1,0 +1,13 @@
+[package]
+name = "mycelix-stewardship-metadata-disclosure"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+description = "Fail-closed public metadata disclosure candidates for Mycelix stewardship"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+mycelix-stewardship-core = { path = "../mycelix-stewardship-core" }
+mycelix-stewardship-envelope = { path = "../mycelix-stewardship-envelope" }
