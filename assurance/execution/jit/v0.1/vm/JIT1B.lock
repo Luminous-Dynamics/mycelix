@@ -1,0 +1,17 @@
+protocol = "MYCELIX-JIT-QUAL/JIT1B"
+version = 1
+status = "nix-execution-pending"
+payload_domain = "MYCELIX-JIT-QUAL/V0.1/JIT1B-PAYLOAD"
+payload_manifest_sha256 = "4938ea1d94ea6712379eff5756c657b979e78af01a8cbf7f4228852796bbf8f4"
+parent_jit1a_commit = "4f54129e03228c01662d201fb433bce763205921"
+parent_jit1a_tree = "707b8ef28fa0bd588e29120ca9614558379dd165"
+jit1a_payload_manifest_sha256 = "a8646d121a73bdaf7c9c1b022f6db27dc75514e86ed29f7dc411092470cd6762"
+nixpkgs_rev = "9ae611a455b90cf061d8f332b977e387bda8e1ca"
+nixpkgs_nar_hash = "sha256-md8WlXOlfnIeHeOScMTTHFyf2d6iaTwPl2apR5EQ3P4="
+
+[files]
+"flake.lock" = "6769406b0f3ffd1d3bebdf1ae619c297e0baf2fc"
+"flake.nix" = "ea9423af9625294ab18d6c97f3cfa6443b26c554"
+"vm/README.md" = "e7c17c7631f69533848bab5eee1e5d22ad841bad"
+"vm/check_lock.py" = "95fe50e3e30e639cbee6f3fb9fd9622f9ec0293d"
+"vm/jit-1b-vm.nix" = "c4083f5a492d0d0562894deb8391645bdc205c56"
