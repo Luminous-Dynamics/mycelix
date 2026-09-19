@@ -1,0 +1,136 @@
+{
+  "schema": "mycelix.civic-resilience.composition-boundary.v1",
+  "program": "CIV-RES-000A",
+  "source_base": "a85369699099d4c7524e502e531735eed4ab36f4",
+  "authority": "architecture_only",
+  "runtime_changes": false,
+  "planes": [
+    "Legitimacy",
+    "Authority",
+    "Evidence",
+    "Procedure",
+    "Effect"
+  ],
+  "semantic_owners": [
+    {
+      "concern": "institutional_legitimacy",
+      "owner": "GOVSYS-002",
+      "reference": "PR #784",
+      "dependency_state": "architectural_reference_only"
+    },
+    {
+      "concern": "administrative_procedure_review_finality",
+      "owner": "ADMIN-001/002/003",
+      "reference": "administrative procedure line",
+      "dependency_state": "architectural_reference_only"
+    },
+    {
+      "concern": "anti_capture_civic_standing",
+      "owner": "AC-*",
+      "reference": "PR #870 and descendants",
+      "dependency_state": "architectural_reference_only"
+    },
+    {
+      "concern": "person_linked_access_accountability",
+      "owner": "mycelix-accountability-core",
+      "reference": "PR #28",
+      "dependency_state": "architectural_reference_only"
+    },
+    {
+      "concern": "governance_authority_provenance_conservation",
+      "owner": "GOV-AUTH/GOV-CONS",
+      "reference": "PR #329",
+      "dependency_state": "architectural_reference_only"
+    },
+    {
+      "concern": "municipal_public_institution_integration",
+      "owner": "municipal/public-institution lines",
+      "reference": "municipal foundations and GOVSYS program",
+      "dependency_state": "architectural_reference_only"
+    },
+    {
+      "concern": "mycelix_symthaea_state_model_ownership",
+      "owner": "REGEN Phase-E ownership theorem",
+      "reference": "PR #1523",
+      "dependency_state": "architectural_reference_only"
+    },
+    {
+      "concern": "evidence_currentness_qualification",
+      "owner": "shared evidence/qualification lines",
+      "reference": "repository qualification infrastructure",
+      "dependency_state": "architectural_reference_only"
+    }
+  ],
+  "required_non_equivalences": [
+    "CivicObservation != AdministrativeDecision",
+    "CivicSignal != AdjudicatedFinding",
+    "ServiceRequest != Entitlement",
+    "Commitment != CompletionEvidence",
+    "CompletionEvidence != IndependentVerification",
+    "IndependentVerification != OutcomeEffect",
+    "ModelEstimate != Observation",
+    "ModelRecommendation != CivicAuthority",
+    "ProcurementOpportunity != AwardAuthority",
+    "Award != Contract",
+    "Contract != Payment",
+    "ReportedCrime != TrueCrimeIncidence",
+    "LowReportedCrime != ImprovedSafety",
+    "AggregateTrend != IndividualRisk",
+    "AccessReceipt != PermissionGrant",
+    "SoftwareCapability != InstitutionalLegitimacy",
+    "QualifiedUpstream != QualifiedComposition",
+    "CrossRepoSchema != SharedMutableTruth",
+    "HistoricalPass != CurrentQualifiedEvidence",
+    "EmergencyContext != PermanentRetentionAuthority"
+  ],
+  "composition_rules": [
+    "composition_must_not_widen_scope",
+    "composition_must_not_extend_validity",
+    "composition_must_not_strengthen_consequence_class",
+    "composition_must_not_create_disclosure_authority",
+    "composition_must_not_create_redelegation_rights",
+    "composition_must_not_create_external_effect_authority",
+    "upstream_qualification_does_not_qualify_composition",
+    "draft_reference_does_not_create_executable_dependency",
+    "symthaea_output_is_model_evidence_not_adopted_state"
+  ],
+  "forbidden_redefinitions": [
+    "civic_sovereign",
+    "universal_government_superuser",
+    "master_resident_database",
+    "universal_reputation_score",
+    "individual_criminality_score",
+    "autonomous_rights_affecting_ai",
+    "police_targeting_authority",
+    "procurement_award_authority",
+    "payment_authority",
+    "entitlement_authority",
+    "generic_person_level_cross_domain_join",
+    "generic_emergency_bypass",
+    "permanent_emergency_data_retention",
+    "symthaea_civic_state_mutation_authority",
+    "parallel_administrative_procedure_system",
+    "implicit_qualification_inheritance"
+  ],
+  "continuation": [
+    "CIV-RES-000B",
+    "CIV-RES-001A",
+    "CIV-RES-001B",
+    "CIV-RES-001C"
+  ],
+  "nonclaims": [
+    "runtime_enforcement",
+    "upstream_dependency_qualification",
+    "legal_validity",
+    "popia_compliance",
+    "johannesburg_adoption",
+    "municipal_legitimacy",
+    "public_sector_readiness",
+    "privacy_or_security_adequacy",
+    "causal_effectiveness",
+    "crime_reduction",
+    "procurement_authority",
+    "law_enforcement_authority",
+    "deployment_readiness"
+  ]
+}
