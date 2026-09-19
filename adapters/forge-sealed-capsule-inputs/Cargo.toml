@@ -1,0 +1,20 @@
+[package]
+name = "mycelix-forge-sealed-capsule-inputs"
+version = "0.1.0"
+edition = "2021"
+authors = ["Luminous Dynamics"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+description = "Acyclic sealed capsule-control transport for Mycelix Forge M0"
+
+[dependencies]
+mycelix-forge-core = { path = "../../crates/mycelix-forge-core" }
+mycelix-forge-execution = { path = "../../crates/mycelix-forge-execution" }
+mycelix-forge-guest-plan = { path = "../forge-guest-plan" }
+mycelix-forge-linux-isolation = { path = "../forge-linux-isolation" }
+mycelix-forge-sealed-inputs = { path = "../forge-sealed-inputs" }
+blake3 = "1.5"
+libc = "0.2"
+serde = { version = "1.0", features = ["derive"] }
+sha2 = "0.10"
+thiserror = "2.0"
