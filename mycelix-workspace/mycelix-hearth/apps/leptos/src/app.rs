@@ -7,6 +7,7 @@ use leptos_router::{
     path,
 };
 
+use crate::care_attention::provide_care_attention;
 use crate::components::{DevPanel, Nav};
 use crate::decision_outcomes::{DecisionOutcomeSummary, provide_decision_outcomes};
 use crate::hearth_boundary::{HearthDataBoundary, HearthDataDomain};
@@ -54,6 +55,7 @@ fn AppInner() -> impl IntoView {
     provide_decision_outcomes();
     provide_vote_history();
     provide_unvoted_decisions();
+    provide_care_attention();
     crate::hearth_prefs::provide_hearth_prefs();
 
     crate::hearth_actions::provide_hearth_actions();

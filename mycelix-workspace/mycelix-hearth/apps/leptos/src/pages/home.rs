@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 
+use crate::care_attention::{
+    CareHomeAttention, care_attention_is_established_empty, use_care_attention,
+};
 use crate::components::MemberAvatar;
 use crate::hearth_context::{member_name, use_hearth};
 use crate::pending_votes::{
@@ -15,6 +18,7 @@ use mycelix_leptos_core::AvailabilityStateKind;
 #[component]
 pub fn HomePage() -> impl IntoView {
     let hearth = use_hearth();
+    let care_attention = use_care_attention();
     let decision_attention = use_unvoted_decisions();
 
     let neglected_bonds = move || {
@@ -26,24 +30,29 @@ pub fn HomePage() -> impl IntoView {
             .count()
     };
 
-    // A reassuring calm state is a positive presentation claim. In live mode
-    // it is allowed only when the personal Decision-attention source is
-    // established empty *and* independently aligned with the loaded
-    // Decisions/Votes snapshot. Unknown, unavailable, locked or degraded
-    // attention therefore cannot collapse into "all is well".
+    // Home's calm surface is deliberately scoped to the personal attention
+    // sources it can actually establish. In live mode, both Care and Decision
+    // attention must be established Empty and independently aligned with their
+    // corresponding loaded snapshots. Unknown/unavailable/degraded evidence can
+    // never collapse into a reassuring empty claim.
     //
-    // Mock mode remains explicitly local/demo-only and derives its own
-    // attention state from the mock Decisions/Votes already on screen.
-    let decision_attention_for_homeostasis = decision_attention.clone();
-    let in_homeostasis = move || {
-        let active_care = hearth
-            .care_schedules
-            .get()
-            .iter()
-            .any(|care| care.status == CareScheduleStatus::Active);
+    // Mock mode remains explicitly local/demo-only and derives the same narrow
+    // personal projection from the mock records already visible on screen.
+    let care_attention_for_calm = care_attention.clone();
+    let decision_attention_for_calm = decision_attention.clone();
+    let in_attention_calm = move || {
+        let care = care_attention_for_calm.snapshot.get();
+        let no_care_attention = if care.availability == AvailabilityStateKind::Mock {
+            let my_agent = hearth.my_agent.get();
+            !hearth.care_schedules.get().iter().any(|schedule| {
+                schedule.status == CareScheduleStatus::Active && schedule.assigned_to == my_agent
+            })
+        } else {
+            care_attention_is_established_empty(&care)
+        };
 
-        let attention = decision_attention_for_homeostasis.snapshot.get();
-        let no_decision_attention = if attention.availability == AvailabilityStateKind::Mock {
+        let decisions = decision_attention_for_calm.snapshot.get();
+        let no_decision_attention = if decisions.availability == AvailabilityStateKind::Mock {
             let my_agent = hearth.my_agent.get();
             let votes = hearth.votes.get();
             !hearth.decisions.get().iter().any(|decision| {
@@ -53,20 +62,22 @@ pub fn HomePage() -> impl IntoView {
                     })
             })
         } else {
-            attention_is_established_empty(&attention)
+            attention_is_established_empty(&decisions)
         };
 
-        !active_care && no_decision_attention
+        no_care_attention && no_decision_attention
     };
 
     view! {
         <div class="page home-page">
             {move || {
-                if in_homeostasis() {
+                if in_attention_calm() {
                     view! {
                         <div class="homeostatic-void">
-                            <p class="void-message">"all is well"</p>
-                            <p class="void-sub">"the hearth glows steady. rest here."</p>
+                            <p class="void-message">"a quiet moment"</p>
+                            <p class="void-sub">
+                                "no Care or Decision attention is currently surfaced for you in this Hearth."
+                            </p>
                         </div>
                     }
                         .into_any()
@@ -102,6 +113,7 @@ pub fn HomePage() -> impl IntoView {
                                 }}
                             </header>
 
+                            <CareHomeAttention />
                             <UnvotedDecisionHomeAttention />
 
                             <div class="home-web">
