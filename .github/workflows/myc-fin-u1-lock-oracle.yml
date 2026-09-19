@@ -1,0 +1,175 @@
+name: MYC-FIN U1 Lock Oracle
+
+on:
+  push:
+    branches:
+      - diag/myc-fin-u1-lock-oracle
+    paths:
+      - '.github/workflows/myc-fin-u1-lock-oracle.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: myc-fin-u1-lock-oracle-v1
+  cancel-in-progress: true
+
+env:
+  U1_SHA: '26482b470ce97928654a9f669d1de16757f9b65b'
+  U1_PARENT: 'fd801d9b46515d333eccd3f42a1664042a1b06d5'
+  DIAGNOSTIC_WORKFLOW: '.github/workflows/myc-fin-u1-lock-oracle.yml'
+  WORKSPACE_MANIFEST: 'mycelix-finance/Cargo.toml'
+  TYPES_MANIFEST: 'mycelix-finance/types/Cargo.toml'
+  TYPES_LIB: 'mycelix-finance/types/src/lib.rs'
+  LOCKFILE: 'mycelix-finance/Cargo.lock'
+  EXPECTED_WORKSPACE_MANIFEST_BLOB: '5732f2de0040c52ec0de325dbcfde94431d390aa'
+  EXPECTED_TYPES_MANIFEST_BLOB: '5b4327c27bf464634e115b84d7b2d05986a5d4b8'
+  EXPECTED_TYPES_LIB_BLOB: '354a377c88a57e8a5612a518d8c8b8b519fb67e2'
+  EXPECTED_PRE_LOCK_BLOB: 'c38d8c1fd1ae7af9fa8ecfc604112fb421fb0ce9'
+  RUST_TOOLCHAIN: '1.96.0'
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout exact diagnostic subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 3
+          persist-credentials: false
+
+      - name: Prove one-workflow diagnostic lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$U1_SHA"
+          test "$(git rev-parse HEAD^^)" = "$U1_PARENT"
+          mapfile -t changed < <(git diff --name-only "$U1_SHA" HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$DIAGNOSTIC_WORKFLOW"
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Checkout exact U1 product read-only
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.U1_SHA }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Bind exact U1 dependency-capsule inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$U1_SHA"
+          test "$(git rev-parse HEAD^)" = "$U1_PARENT"
+          test "$(git rev-parse "HEAD:$WORKSPACE_MANIFEST")" = "$EXPECTED_WORKSPACE_MANIFEST_BLOB"
+          test "$(git rev-parse "HEAD:$TYPES_MANIFEST")" = "$EXPECTED_TYPES_MANIFEST_BLOB"
+          test "$(git rev-parse "HEAD:$TYPES_LIB")" = "$EXPECTED_TYPES_LIB_BLOB"
+          test "$(git rev-parse "HEAD:$LOCKFILE")" = "$EXPECTED_PRE_LOCK_BLOB"
+          printf 'pre_lock_sha256=%s\n' "$(sha256sum "$LOCKFILE" | awk '{print $1}')"
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Install pinned Rust 1.96 toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
+
+      - name: Capture exact toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc --version --verbose
+          cargo --version --verbose
+          test "$(rustc --version | awk '{print $2}')" = "$RUST_TOOLCHAIN"
+
+      - name: Derive exact U1 Cargo lock reconciliation
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp "$LOCKFILE" /tmp/u1-pre.lock
+          cargo metadata --manifest-path "$WORKSPACE_MANIFEST" --format-version 1 > /tmp/u1-metadata.json
+
+          mapfile -t changed < <(git diff --name-only)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$LOCKFILE"
+
+          read -r additions deletions path < <(git diff --numstat -- "$LOCKFILE")
+          test "$path" = "$LOCKFILE"
+
+          post_sha="$(sha256sum "$LOCKFILE" | awk '{print $1}')"
+          post_blob="$(git hash-object "$LOCKFILE")"
+          printf 'post_lock_sha256=%s\n' "$post_sha"
+          printf 'post_lock_git_blob=%s\n' "$post_blob"
+          printf 'lock_additions=%s\n' "$additions"
+          printf 'lock_deletions=%s\n' "$deletions"
+          echo '--- BEGIN CARGO-GENERATED U1 LOCK DIFF ---'
+          git diff -- "$LOCKFILE"
+          echo '--- END CARGO-GENERATED U1 LOCK DIFF ---'
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          before = Path('/tmp/u1-pre.lock').read_text(encoding='utf-8')
+          after = Path('mycelix-finance/Cargo.lock').read_text(encoding='utf-8')
+
+          pkg = re.compile(r'(?ms)^\[\[package\]\]\n(.*?)(?=^\[\[package\]\]|\Z)')
+          def records(text):
+              result = {}
+              for body in pkg.findall(text):
+                  name = re.search(r'^name = "([^"]+)"$', body, re.M)
+                  version = re.search(r'^version = "([^"]+)"$', body, re.M)
+                  source = re.search(r'^source = "([^"]+)"$', body, re.M)
+                  checksum = re.search(r'^checksum = "([^"]+)"$', body, re.M)
+                  if name and version:
+                      key = (name.group(1), version.group(1), source.group(1) if source else None)
+                      result[key] = checksum.group(1) if checksum else None
+              return result
+
+          pre = records(before)
+          post = records(after)
+          added = sorted(set(post) - set(pre))
+          removed = sorted(set(pre) - set(post))
+          checksum_changed = sorted(k for k in set(pre) & set(post) if pre[k] != post[k])
+
+          print('added_packages=', added)
+          print('removed_packages=', removed)
+          print('checksum_changes=', checksum_changed)
+
+          if removed:
+              raise SystemExit(f'unexpected package removals: {removed!r}')
+          if checksum_changed:
+              raise SystemExit(f'unexpected checksum movement: {checksum_changed!r}')
+          PY
+
+      - name: Validate repaired capsule under locked package gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo metadata --manifest-path "$WORKSPACE_MANIFEST" --format-version 1 --locked > /tmp/u1-metadata-locked.json
+          cargo test --manifest-path "$WORKSPACE_MANIFEST" --package mycelix_finance_types --all-targets --locked --no-run
+          cargo test --manifest-path "$WORKSPACE_MANIFEST" --package mycelix_finance_types --all-targets --locked
+          cargo clippy --manifest-path "$WORKSPACE_MANIFEST" --package mycelix_finance_types --all-targets --locked -- -D warnings
+
+      - name: Postflight mutation boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t changed < <(git diff --name-only)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$LOCKFILE"
+          test "$(git hash-object "$WORKSPACE_MANIFEST")" = "$EXPECTED_WORKSPACE_MANIFEST_BLOB"
+          test "$(git hash-object "$TYPES_MANIFEST")" = "$EXPECTED_TYPES_MANIFEST_BLOB"
+          test "$(git hash-object "$TYPES_LIB")" = "$EXPECTED_TYPES_LIB_BLOB"
+          printf 'diagnostic_status=PASS\n'
+          printf 'u1_sha=%s\n' "$U1_SHA"
+          printf 'generated_lock_sha256=%s\n' "$(sha256sum "$LOCKFILE" | awk '{print $1}')"
+          printf 'generated_lock_git_blob=%s\n' "$(git hash-object "$LOCKFILE")"
+          printf 'claim=exact Cargo-1.96 dependency-capsule reconciliation and existing mycelix_finance_types package health under ephemeral repaired lock\n'
+          printf 'nonclaim=SapAmount correctness, lock publication, FIN-ECO product qualification, deployment readiness\n'
