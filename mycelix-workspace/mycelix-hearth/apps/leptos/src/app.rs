@@ -8,6 +8,7 @@ use leptos_router::{
 };
 
 use crate::components::{DevPanel, Nav};
+use crate::decision_outcomes::{DecisionOutcomeSummary, provide_decision_outcomes};
 use crate::hearth_boundary::{HearthDataBoundary, HearthDataDomain};
 use crate::hearth_context::provide_hearth_context;
 use crate::hearth_truth::{
@@ -48,6 +49,7 @@ fn AppInner() -> impl IntoView {
     provide_homeostasis_context(2, "--homeostasis");
     provide_hearth_context();
     provide_hearth_truth();
+    provide_decision_outcomes();
     crate::hearth_prefs::provide_hearth_prefs();
 
     crate::hearth_actions::provide_hearth_actions();
@@ -127,6 +129,7 @@ fn DecisionsRoute() -> impl IntoView {
     view! {
         <HearthDataBoundary domain=HearthDataDomain::Decisions title="Decisions">
             <DecisionsPage />
+            <DecisionOutcomeSummary />
         </HearthDataBoundary>
     }
 }
