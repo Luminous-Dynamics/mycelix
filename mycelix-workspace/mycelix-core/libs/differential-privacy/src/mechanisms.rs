@@ -22,7 +22,7 @@ struct LaplaceDistribution {
 
 impl LaplaceDistribution {
     fn new(location: f64, scale: f64) -> Option<Self> {
-        if scale <= 0.0 {
+        if !location.is_finite() || !scale.is_finite() || scale <= 0.0 {
             None
         } else {
             Some(Self { location, scale })
@@ -92,18 +92,22 @@ impl GaussianMechanism {
     /// A new GaussianMechanism or error if parameters are invalid
     #[instrument(skip_all, fields(eps = epsilon, delta = delta, sens = sensitivity))]
     pub fn new(sensitivity: f64, epsilon: f64, delta: f64) -> DpResult<Self> {
-        if epsilon <= 0.0 {
+        if !epsilon.is_finite() || epsilon <= 0.0 {
             return Err(DpError::InvalidEpsilon(epsilon));
         }
-        if delta <= 0.0 || delta >= 1.0 {
+        if !delta.is_finite() || delta <= 0.0 || delta >= 1.0 {
             return Err(DpError::InvalidDelta(delta));
         }
-        if sensitivity <= 0.0 {
+        if !sensitivity.is_finite() || sensitivity <= 0.0 {
             return Err(DpError::InvalidSensitivity(sensitivity));
         }
 
         // σ = Δ * √(2 ln(1.25/δ)) / ε
         let sigma = sensitivity * (2.0 * (1.25_f64 / delta).ln()).sqrt() / epsilon;
+
+        if !sigma.is_finite() || sigma <= 0.0 {
+            return Err(DpError::InvalidSensitivity(sensitivity));
+        }
 
         debug!(sigma = sigma, "Created Gaussian mechanism");
 
@@ -117,18 +121,22 @@ impl GaussianMechanism {
 
     /// Create from a specific sigma value (advanced usage)
     pub fn from_sigma(sigma: f64, epsilon: f64, delta: f64) -> DpResult<Self> {
-        if epsilon <= 0.0 {
+        if !epsilon.is_finite() || epsilon <= 0.0 {
             return Err(DpError::InvalidEpsilon(epsilon));
         }
-        if delta <= 0.0 || delta >= 1.0 {
+        if !delta.is_finite() || delta <= 0.0 || delta >= 1.0 {
             return Err(DpError::InvalidDelta(delta));
         }
-        if sigma <= 0.0 {
+        if !sigma.is_finite() || sigma <= 0.0 {
             return Err(DpError::InvalidSensitivity(sigma));
         }
 
         // Back-calculate sensitivity
         let sensitivity = sigma * epsilon / (2.0 * (1.25_f64 / delta).ln()).sqrt();
+
+        if !sensitivity.is_finite() || sensitivity <= 0.0 {
+            return Err(DpError::InvalidSensitivity(sensitivity));
+        }
 
         Ok(Self {
             epsilon,
@@ -194,14 +202,17 @@ impl LaplaceMechanism {
     /// A new LaplaceMechanism or error if parameters are invalid
     #[instrument(skip_all, fields(eps = epsilon, sens = sensitivity))]
     pub fn new(sensitivity: f64, epsilon: f64) -> DpResult<Self> {
-        if epsilon <= 0.0 {
+        if !epsilon.is_finite() || epsilon <= 0.0 {
             return Err(DpError::InvalidEpsilon(epsilon));
         }
-        if sensitivity <= 0.0 {
+        if !sensitivity.is_finite() || sensitivity <= 0.0 {
             return Err(DpError::InvalidSensitivity(sensitivity));
         }
 
         let scale = sensitivity / epsilon;
+        if !scale.is_finite() || scale <= 0.0 {
+            return Err(DpError::InvalidSensitivity(sensitivity));
+        }
 
         debug!(scale = scale, "Created Laplace mechanism");
 
@@ -255,10 +266,10 @@ pub struct ExponentialMechanism {
 impl ExponentialMechanism {
     /// Create a new Exponential mechanism
     pub fn new(sensitivity: f64, epsilon: f64) -> DpResult<Self> {
-        if epsilon <= 0.0 {
+        if !epsilon.is_finite() || epsilon <= 0.0 {
             return Err(DpError::InvalidEpsilon(epsilon));
         }
-        if sensitivity <= 0.0 {
+        if !sensitivity.is_finite() || sensitivity <= 0.0 {
             return Err(DpError::InvalidSensitivity(sensitivity));
         }
 
@@ -325,6 +336,20 @@ mod tests {
         assert!(GaussianMechanism::new(1.0, 1.0, 0.0).is_err());
         assert!(GaussianMechanism::new(1.0, 1.0, 1.0).is_err());
         assert!(GaussianMechanism::new(-1.0, 1.0, 1e-5).is_err());
+        assert!(GaussianMechanism::new(1.0, f64::NAN, 1e-5).is_err());
+        assert!(GaussianMechanism::new(1.0, f64::INFINITY, 1e-5).is_err());
+        assert!(GaussianMechanism::new(1.0, 1.0, f64::NAN).is_err());
+        assert!(GaussianMechanism::new(1.0, 1.0, f64::INFINITY).is_err());
+        assert!(GaussianMechanism::new(f64::NAN, 1.0, 1e-5).is_err());
+        assert!(GaussianMechanism::new(f64::INFINITY, 1.0, 1e-5).is_err());
+    }
+
+    #[test]
+    fn test_gaussian_from_sigma_rejects_non_finite_params() {
+        assert!(GaussianMechanism::from_sigma(f64::NAN, 1.0, 1e-5).is_err());
+        assert!(GaussianMechanism::from_sigma(f64::INFINITY, 1.0, 1e-5).is_err());
+        assert!(GaussianMechanism::from_sigma(1.0, f64::NAN, 1e-5).is_err());
+        assert!(GaussianMechanism::from_sigma(1.0, 1.0, f64::NAN).is_err());
     }
 
     #[test]
@@ -358,6 +383,18 @@ mod tests {
     fn test_laplace_invalid_params() {
         assert!(LaplaceMechanism::new(1.0, -1.0).is_err());
         assert!(LaplaceMechanism::new(-1.0, 1.0).is_err());
+        assert!(LaplaceMechanism::new(1.0, f64::NAN).is_err());
+        assert!(LaplaceMechanism::new(1.0, f64::INFINITY).is_err());
+        assert!(LaplaceMechanism::new(f64::NAN, 1.0).is_err());
+        assert!(LaplaceMechanism::new(f64::INFINITY, 1.0).is_err());
+    }
+
+    #[test]
+    fn test_exponential_invalid_params() {
+        assert!(ExponentialMechanism::new(1.0, f64::NAN).is_err());
+        assert!(ExponentialMechanism::new(1.0, f64::INFINITY).is_err());
+        assert!(ExponentialMechanism::new(f64::NAN, 1.0).is_err());
+        assert!(ExponentialMechanism::new(f64::INFINITY, 1.0).is_err());
     }
 
     #[test]
