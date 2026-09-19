@@ -1,0 +1,188 @@
+name: Mycelix Hearth Core
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-hearth/Cargo.toml'
+      - 'mycelix-workspace/mycelix-hearth/crates/hearth-types/**'
+      - 'mycelix-workspace/mycelix-hearth/crates/hearth-coordinator-common/**'
+      - 'mycelix-workspace/mycelix-hearth/zomes/**'
+      - 'mycelix-workspace/crates/mycelix-bridge-common/**'
+      - 'mycelix-workspace/crates/mycelix-bridge-entry-types/**'
+      - 'mycelix-workspace/crates/mycelix-zkp-core/**'
+      - 'mycelix-workspace/crates/mycelix-zome-helpers/**'
+      - '.github/workflows/hearth-core.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-hearth/Cargo.toml'
+      - 'mycelix-workspace/mycelix-hearth/crates/hearth-types/**'
+      - 'mycelix-workspace/mycelix-hearth/crates/hearth-coordinator-common/**'
+      - 'mycelix-workspace/mycelix-hearth/zomes/**'
+      - 'mycelix-workspace/crates/mycelix-bridge-common/**'
+      - 'mycelix-workspace/crates/mycelix-bridge-entry-types/**'
+      - 'mycelix-workspace/crates/mycelix-zkp-core/**'
+      - 'mycelix-workspace/crates/mycelix-zome-helpers/**'
+      - '.github/workflows/hearth-core.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hearth-core-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  HEARTH_ROOT: mycelix-workspace/mycelix-hearth
+  HEARTH_MANIFEST: mycelix-workspace/mycelix-hearth/Cargo.toml
+
+jobs:
+  hearth-core:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+          submodules: recursive
+
+      - name: Verify exact subject checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ github.event.pull_request.head.sha || github.sha }}'
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$expected" || {
+            echo "::error::Expected exact subject $expected, got $actual"
+            exit 1
+          }
+
+      - name: Verify Hearth core source closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          for manifest in \
+            "$HEARTH_MANIFEST" \
+            "$HEARTH_ROOT/crates/hearth-types/Cargo.toml" \
+            "$HEARTH_ROOT/crates/hearth-coordinator-common/Cargo.toml" \
+            mycelix-workspace/crates/mycelix-bridge-common/Cargo.toml \
+            mycelix-workspace/crates/mycelix-bridge-entry-types/Cargo.toml \
+            mycelix-workspace/crates/mycelix-zkp-core/Cargo.toml \
+            mycelix-workspace/crates/mycelix-zome-helpers/Cargo.toml; do
+            test -f "$manifest" || {
+              echo "::error file=$manifest::Required Hearth core dependency source is missing from this repository."
+              exit 1
+            }
+          done
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87b
+        with:
+          toolchain: 1.96.0
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          workspaces: |
+            mycelix-workspace/mycelix-hearth
+            mycelix-workspace/crates
+
+      - name: Check changed Hearth core formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          head='${{ github.event.pull_request.head.sha || github.sha }}'
+          if [ '${{ github.event_name }}' = 'pull_request' ]; then
+            base='${{ github.event.pull_request.base.sha }}'
+          else
+            base='${{ github.event.before }}'
+          fi
+
+          if [ -z "$base" ] || [[ "$base" =~ ^0+$ ]]; then
+            echo "::error::Cannot establish comparison base for scoped rustfmt qualification."
+            exit 1
+          fi
+
+          mapfile -t rust_files < <(
+            git diff --diff-filter=ACMR --name-only "$base" "$head" -- \
+              'mycelix-workspace/mycelix-hearth/crates/**/*.rs' \
+              'mycelix-workspace/mycelix-hearth/zomes/**/*.rs' \
+              'mycelix-workspace/crates/mycelix-bridge-common/**/*.rs' \
+              'mycelix-workspace/crates/mycelix-bridge-entry-types/**/*.rs' \
+              'mycelix-workspace/crates/mycelix-zkp-core/**/*.rs' \
+              'mycelix-workspace/crates/mycelix-zome-helpers/**/*.rs' \
+              | sort -u
+          )
+
+          if [ "${#rust_files[@]}" -eq 0 ]; then
+            echo "No changed Hearth core Rust files to format-check."
+          else
+            printf 'rustfmt subject file: %s\n' "${rust_files[@]}"
+            rustfmt --edition 2024 --check "${rust_files[@]}"
+          fi
+
+      - name: Resolve Hearth core dependency graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo metadata --manifest-path "$HEARTH_MANIFEST" --format-version 1 >/dev/null
+          test -f "$HEARTH_ROOT/Cargo.lock" || {
+            echo "::error::Cargo did not materialize the expected Hearth workspace lock."
+            exit 1
+          }
+          sha256sum "$HEARTH_ROOT/Cargo.lock" | tee "$RUNNER_TEMP/hearth-core-lock.sha256"
+
+      - name: Test Hearth core workspace
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path "$HEARTH_MANIFEST" --workspace
+
+      - name: Check Hearth core for wasm32
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path "$HEARTH_MANIFEST" --workspace --target wasm32-unknown-unknown
+
+      - name: Upload resolved dependency evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: hearth-core-dependency-evidence-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            ${{ env.HEARTH_ROOT }}/Cargo.lock
+            ${{ runner.temp }}/hearth-core-lock.sha256
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Prove source checkout immutability
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Cargo is expected to materialize exactly one untracked dependency
+          # lock because this workspace does not currently commit Cargo.lock.
+          # Build outputs are ignored by the repository. No tracked source may
+          # change and no other untracked path is accepted.
+          git diff --exit-code
+
+          mapfile -t unexpected < <(
+            git status --porcelain --untracked-files=all \
+              | grep -v '^?? mycelix-workspace/mycelix-hearth/Cargo.lock$' \
+              || true
+          )
+
+          if [ "${#unexpected[@]}" -ne 0 ]; then
+            printf '::error::Unexpected checkout mutation: %s\n' "${unexpected[@]}"
+            exit 1
+          fi
+
+          test -f "$HEARTH_ROOT/Cargo.lock" || {
+            echo "::error::Expected generated Hearth Cargo.lock is missing."
+            exit 1
+          }
