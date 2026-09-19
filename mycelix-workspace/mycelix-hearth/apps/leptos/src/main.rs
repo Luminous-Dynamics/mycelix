@@ -17,6 +17,7 @@ mod hearth_truth;
 pub mod mock_data;
 mod onboarding;
 mod pages;
+mod pending_votes;
 pub mod record_bridge;
 mod signal_listener;
 mod simulated_life;
