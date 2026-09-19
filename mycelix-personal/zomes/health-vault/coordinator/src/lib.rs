@@ -19,7 +19,7 @@ pub fn my_custom_getrandom(buf: &mut [u8]) -> Result<(), getrandom::Error> {
 }
 
 use personal_leptos_types::{
-    BiometricView, ConsentGrantInputView, ConsentGrantView, HealthRecordView,
+    BiometricView, ConsentGrantInputView, ConsentGrantView, HealthRecordView, MutationReceiptView,
 };
 
 fn decode_agent_pubkey(pubkey: &str) -> ExternResult<AgentPubKey> {
@@ -91,14 +91,17 @@ pub fn grant_consent(consent: ConsentGrant) -> ExternResult<Record> {
 }
 
 #[hdk_extern]
-pub fn grant_consent_view(input: ConsentGrantInputView) -> ExternResult<Record> {
+pub fn grant_consent_view(input: ConsentGrantInputView) -> ExternResult<MutationReceiptView> {
     let grantee = decode_agent_pubkey(&input.grantee)?;
-    grant_consent(ConsentGrant {
+    let record = grant_consent(ConsentGrant {
         grantee,
         record_types: input.record_types,
         expires_at: input.expires_at.map(Timestamp::from_micros),
         active: input.active,
         created_at: sys_time()?,
+    })?;
+    Ok(MutationReceiptView {
+        action_hash: record.action_address().to_string(),
     })
 }
 

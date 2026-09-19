@@ -167,6 +167,16 @@ pub struct PresentationRequest {
     pub context: Option<String>,
 }
 
+/// Minimal source-chain receipt for a Personal mutation.
+///
+/// The action hash establishes the identity returned by the committing zome.
+/// It does not, by itself, claim network propagation, current read-model
+/// reconciliation, verification, or authorization for any later operation.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MutationReceiptView {
+    pub action_hash: String,
+}
+
 // ============================================================================
 // View Types (UI-facing structs with String IDs)
 // ============================================================================
@@ -370,6 +380,16 @@ mod tests {
         let json = serde_json::to_string(&view).unwrap();
         let back: ProfileView = serde_json::from_str(&json).unwrap();
         assert_eq!(back.display_name, "Alice");
+    }
+
+    #[test]
+    fn mutation_receipt_serde_roundtrip_preserves_action_identity() {
+        let receipt = MutationReceiptView {
+            action_hash: "uhCkk-example-action".into(),
+        };
+        let json = serde_json::to_string(&receipt).unwrap();
+        let back: MutationReceiptView = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, receipt);
     }
 
     #[test]

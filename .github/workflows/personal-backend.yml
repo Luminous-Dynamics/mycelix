@@ -1,0 +1,212 @@
+name: Mycelix Personal Backend
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'mycelix-personal/zomes/**'
+      - 'mycelix-personal/crates/personal-leptos-types/**'
+      - 'mycelix-workspace/mycelix-personal/zomes/**'
+      - 'mycelix-workspace/mycelix-personal/crates/personal-leptos-types/**'
+      - '.github/workflows/personal-backend.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-personal/zomes/**'
+      - 'mycelix-personal/crates/personal-leptos-types/**'
+      - 'mycelix-workspace/mycelix-personal/zomes/**'
+      - 'mycelix-workspace/mycelix-personal/crates/personal-leptos-types/**'
+      - '.github/workflows/personal-backend.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: personal-backend-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  PERSONAL_WORKSPACE: mycelix-personal/Cargo.toml
+  PERSONAL_MIRROR_WORKSPACE: mycelix-workspace/mycelix-personal/Cargo.toml
+
+jobs:
+  personal-backend:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+
+    steps:
+      - name: Check out exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+          submodules: recursive
+
+      - name: Verify exact subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ github.event.pull_request.head.sha || github.sha }}'
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$expected" || {
+            echo "::error::Expected exact Personal backend subject $expected, got $actual"
+            exit 1
+          }
+
+      - name: Verify Personal backend source closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          for path in \
+            "$PERSONAL_WORKSPACE" \
+            "$PERSONAL_MIRROR_WORKSPACE" \
+            mycelix-personal/crates/personal-leptos-types/Cargo.toml \
+            mycelix-workspace/mycelix-personal/crates/personal-leptos-types/Cargo.toml \
+            mycelix-personal/zomes/identity-vault/coordinator/Cargo.toml \
+            mycelix-personal/zomes/health-vault/coordinator/Cargo.toml \
+            mycelix-personal/zomes/data_preferences/coordinator/Cargo.toml \
+            mycelix-workspace/mycelix-personal/zomes/identity-vault/coordinator/Cargo.toml \
+            mycelix-workspace/mycelix-personal/zomes/health-vault/coordinator/Cargo.toml \
+            mycelix-workspace/mycelix-personal/zomes/data_preferences/coordinator/Cargo.toml; do
+            test -f "$path" || {
+              echo "::error file=$path::Required Personal backend source is missing."
+              exit 1
+            }
+          done
+
+      - name: Verify changed Personal mirrors
+        shell: bash
+        run: |
+          set -euo pipefail
+          diff -u \
+            mycelix-personal/crates/personal-leptos-types/src/lib.rs \
+            mycelix-workspace/mycelix-personal/crates/personal-leptos-types/src/lib.rs
+          for path in \
+            zomes/identity-vault/coordinator/src/lib.rs \
+            zomes/health-vault/coordinator/src/lib.rs \
+            zomes/data_preferences/coordinator/src/lib.rs; do
+            diff -u "mycelix-personal/$path" "mycelix-workspace/mycelix-personal/$path"
+          done
+
+      - name: Install pinned Rust
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87b
+        with:
+          toolchain: 1.96.0
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          workspaces: |
+            mycelix-personal
+            mycelix-workspace/mycelix-personal
+
+      - name: Resolve both Personal workspaces
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo metadata --manifest-path "$PERSONAL_WORKSPACE" --no-deps --format-version 1 >/dev/null
+          cargo metadata --manifest-path "$PERSONAL_MIRROR_WORKSPACE" --no-deps --format-version 1 >/dev/null
+
+      - name: Check Personal formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path "$PERSONAL_WORKSPACE" --all -- --check
+          cargo fmt --manifest-path "$PERSONAL_MIRROR_WORKSPACE" --all -- --check
+
+      - name: Run Personal host tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path "$PERSONAL_WORKSPACE" --workspace
+
+      - name: Check receipt-bearing coordinator zomes for wasm32
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path "$PERSONAL_WORKSPACE" \
+            --target wasm32-unknown-unknown \
+            -p identity_vault -p health_vault -p data_preferences
+          cargo check --manifest-path "$PERSONAL_MIRROR_WORKSPACE" \
+            --target wasm32-unknown-unknown \
+            -p identity_vault -p health_vault -p data_preferences
+
+      - name: Clippy receipt-bearing coordinator zomes
+        id: clippy
+        shell: bash
+        run: |
+          set -uo pipefail
+          log="$RUNNER_TEMP/personal-backend-clippy.log"
+          : > "$log"
+          cargo clippy --manifest-path "$PERSONAL_WORKSPACE" \
+            --target wasm32-unknown-unknown \
+            -p identity_vault -p health_vault -p data_preferences \
+            --message-format short -- -D warnings 2>&1 | tee "$log"
+          exit ${PIPESTATUS[0]}
+
+      - name: Upload exact Clippy diagnostics
+        if: ${{ always() && steps.clippy.outcome == 'failure' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: personal-backend-clippy-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/personal-backend-clippy.log
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Prove checkout immutability
+        id: immutability
+        if: always()
+        shell: bash
+        run: |
+          set -uo pipefail
+          log="$RUNNER_TEMP/personal-backend-immutability.log"
+          : > "$log"
+          {
+            echo '=== git status --short ==='
+            git status --short
+            echo '=== untracked paths ==='
+            git ls-files --others --exclude-standard
+            echo '=== git diff --stat ==='
+            git diff --stat
+            echo '=== git diff ==='
+            git diff
+          } 2>&1 | tee "$log"
+
+          status=${PIPESTATUS[0]}
+          if ! git diff --exit-code >>"$log" 2>&1; then
+            status=1
+          fi
+          if [ -n "$(git status --porcelain)" ]; then
+            status=1
+          fi
+          exit "$status"
+
+      - name: Preserve generated Personal backend lock candidates
+        if: ${{ always() && steps.immutability.outcome == 'failure' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/personal-backend-lock-candidates"
+          mkdir -p "$out/top-level" "$out/workspace-mirror"
+          if [ -f mycelix-personal/Cargo.lock ]; then
+            cp mycelix-personal/Cargo.lock "$out/top-level/Cargo.lock"
+          fi
+          if [ -f mycelix-workspace/mycelix-personal/Cargo.lock ]; then
+            cp mycelix-workspace/mycelix-personal/Cargo.lock "$out/workspace-mirror/Cargo.lock"
+          fi
+
+      - name: Upload exact immutability diagnostics
+        if: ${{ always() && steps.immutability.outcome == 'failure' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: personal-backend-immutability-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            ${{ runner.temp }}/personal-backend-immutability.log
+            ${{ runner.temp }}/personal-backend-lock-candidates
+          if-no-files-found: warn
+          retention-days: 7

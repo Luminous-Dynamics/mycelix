@@ -19,7 +19,9 @@ pub fn my_custom_getrandom(buf: &mut [u8]) -> Result<(), getrandom::Error> {
     Ok(())
 }
 
-use personal_leptos_types::{DataSharingPreferenceView, PreferenceChangeLogView};
+use personal_leptos_types::{
+    DataSharingPreferenceView, MutationReceiptView, PreferenceChangeLogView,
+};
 
 /// Set a data sharing preference for a cluster pair.
 ///
@@ -59,14 +61,17 @@ pub fn set_preference(pref: DataSharingPreference) -> ExternResult<ActionHash> {
 }
 
 #[hdk_extern]
-pub fn set_preference_view(pref: DataSharingPreferenceView) -> ExternResult<ActionHash> {
-    set_preference(DataSharingPreference {
+pub fn set_preference_view(pref: DataSharingPreferenceView) -> ExternResult<MutationReceiptView> {
+    let action_hash = set_preference(DataSharingPreference {
         source_cluster: pref.source_cluster,
         target_cluster: pref.target_cluster,
         allowed: pref.allowed,
         blocked_zomes: pref.blocked_zomes,
         reason: pref.reason,
         updated_at: sys_time()?,
+    })?;
+    Ok(MutationReceiptView {
+        action_hash: action_hash.to_string(),
     })
 }
 
