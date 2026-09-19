@@ -46,10 +46,16 @@ jobs:
           set -euo pipefail
           test -z "$(git status --porcelain=v1)"
 
-      - name: Static syntax check
+      - name: Static syntax check without writing bytecode
         run: |
           set -euo pipefail
-          python3 -m py_compile .github/scripts/holochain07_migration_census.py
+          python3 - <<'PY'
+          import ast
+          import pathlib
+
+          path = pathlib.Path('.github/scripts/holochain07_migration_census.py')
+          ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
+          PY
           test -z "$(git status --porcelain=v1)"
 
       - name: Run independent tree census twice
