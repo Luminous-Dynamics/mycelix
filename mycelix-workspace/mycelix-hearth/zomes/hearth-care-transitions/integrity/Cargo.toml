@@ -1,0 +1,16 @@
+[package]
+name = "hearth_care_transitions_integrity"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "hearth_care_transitions_integrity"
+
+[dependencies]
+hdi = { workspace = true }
+serde = { workspace = true }
+hearth-types = { workspace = true }
+hearth-authority-hdi = { workspace = true }
+hearth_care_integrity = { path = "../../hearth-care/integrity" }
