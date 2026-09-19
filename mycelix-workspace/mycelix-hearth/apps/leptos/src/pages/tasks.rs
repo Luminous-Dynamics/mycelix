@@ -32,12 +32,17 @@ pub fn FindPage() -> impl IntoView {
             </p>
 
             <div class="task-directory" role="list" aria-label="Hearth destinations">
-                {FIND_DESTINATIONS.into_iter().map(|(href, label, description)| view! {
-                    <A href=href attr:class="task-directory-item" attr:role="listitem">
-                        <strong>{label}</strong>
-                        <span>{description}</span>
-                    </A>
-                }).collect_view()}
+                {FIND_DESTINATIONS
+                    .into_iter()
+                    .map(|(href, label, description)| {
+                        view! {
+                            <A href=href attr:class="task-directory-item" attr:role="listitem">
+                                <strong>{label}</strong>
+                                <span>{description}</span>
+                            </A>
+                        }
+                    })
+                    .collect_view()}
             </div>
 
             <p class="task-surface-note">
@@ -55,29 +60,29 @@ pub fn CreatePage() -> impl IntoView {
             <p class="page-subtitle">"Start something meaningful, then finish it in the Hearth area that owns it."</p>
 
             <section aria-labelledby="create-available-heading">
-                <h2 id="create-available-heading">"Available now"</h2>
+                <h2 id="create-available-heading">"Live-capable now"</h2>
                 <div class="task-directory" role="list">
                     <A href="/gratitude" attr:class="task-directory-item" attr:role="listitem">
                         <strong>"Express gratitude"</strong>
-                        <span>"Open the Gratitude area and compose an appreciation."</span>
-                    </A>
-                    <A href="/stories" attr:class="task-directory-item" attr:role="listitem">
-                        <strong>"Share a story"</strong>
-                        <span>"Open Stories and add a memory, tradition, recipe, wisdom, or origin story."</span>
+                        <span>"Open the Gratitude area. The route boundary will verify whether its live source is available before showing the composer."</span>
                     </A>
                 </div>
             </section>
 
             <section aria-labelledby="create-not-ready-heading">
-                <h2 id="create-not-ready-heading">"Not wired yet"</h2>
+                <h2 id="create-not-ready-heading">"Demo-only or not live-wired yet"</h2>
                 <div class="task-directory" role="list">
                     <div class="task-directory-item task-directory-unavailable" role="listitem">
+                        <strong>"Share a story"</strong>
+                        <span>"Story composition currently mutates only the frontend signal; live story loading/submission is not established yet."</span>
+                    </div>
+                    <div class="task-directory-item task-directory-unavailable" role="listitem">
                         <strong>"New care task"</strong>
-                        <span>"The Care page shows this affordance today, but its creation action is not connected yet."</span>
+                        <span>"The care zome has a creation API, but the frontend composer/action bridge is not wired yet."</span>
                     </div>
                     <div class="task-directory-item task-directory-unavailable" role="listitem">
                         <strong>"New decision"</strong>
-                        <span>"The Decisions page shows this affordance today, but its creation action is not connected yet."</span>
+                        <span>"The decisions zome has a creation API, but the frontend composer/action bridge is not wired yet."</span>
                     </div>
                 </div>
             </section>
@@ -104,11 +109,11 @@ pub fn InboxPage() -> impl IntoView {
             <div class="task-directory" role="list" aria-label="Current attention areas">
                 <A href="/care" attr:class="task-directory-item" attr:role="listitem">
                     <strong>"Care"</strong>
-                    <span>"Review active care schedules directly."</span>
+                    <span>"Inspect Care directly; its route will disclose if live care data is unavailable."</span>
                 </A>
                 <A href="/decisions" attr:class="task-directory-item" attr:role="listitem">
                     <strong>"Decisions"</strong>
-                    <span>"Review open household decisions directly."</span>
+                    <span>"Inspect Decisions directly; its route will disclose if live decision data is unavailable."</span>
                 </A>
             </div>
 
@@ -126,8 +131,20 @@ mod tests {
     #[test]
     fn local_find_directory_contains_only_explicit_routes() {
         assert!(!FIND_DESTINATIONS.is_empty());
-        assert!(FIND_DESTINATIONS.iter().all(|(href, _, _)| href.starts_with('/')));
-        assert!(FIND_DESTINATIONS.iter().any(|(href, _, _)| *href == "/care"));
-        assert!(FIND_DESTINATIONS.iter().any(|(href, _, _)| *href == "/personal/profile"));
+        assert!(
+            FIND_DESTINATIONS
+                .iter()
+                .all(|(href, _, _)| href.starts_with('/'))
+        );
+        assert!(
+            FIND_DESTINATIONS
+                .iter()
+                .any(|(href, _, _)| *href == "/care")
+        );
+        assert!(
+            FIND_DESTINATIONS
+                .iter()
+                .any(|(href, _, _)| *href == "/personal/profile")
+        );
     }
 }
