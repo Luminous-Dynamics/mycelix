@@ -227,6 +227,81 @@ fn publish_preferences_source(ctx: &PersonalCtx, snapshot: PreferencesSourceSnap
     });
 }
 
+#[derive(Debug)]
+struct HealthSourceSnapshot {
+    biometrics: Vec<BiometricView>,
+    consents: Vec<ConsentGrantView>,
+    record_count: usize,
+    state: PersonalSourceState,
+}
+
+fn stage_health_source<BiometricsError, ConsentsError, RecordsError>(
+    biometrics_result: Result<Vec<BiometricView>, BiometricsError>,
+    consents_result: Result<Vec<ConsentGrantView>, ConsentsError>,
+    records_result: Result<Vec<HealthRecordView>, RecordsError>,
+) -> Result<HealthSourceSnapshot, PersonalSourceState> {
+    let mut successes = 0;
+    let mut failures = 0;
+    let mut present_items = 0;
+
+    let biometrics = match biometrics_result {
+        Ok(biometrics) => {
+            successes += 1;
+            present_items += biometrics.len();
+            biometrics
+        }
+        Err(_) => {
+            failures += 1;
+            Vec::new()
+        }
+    };
+
+    let consents = match consents_result {
+        Ok(consents) => {
+            successes += 1;
+            present_items += consents.len();
+            consents
+        }
+        Err(_) => {
+            failures += 1;
+            Vec::new()
+        }
+    };
+
+    let record_count = match records_result {
+        Ok(records) => {
+            successes += 1;
+            present_items += records.len();
+            records.len()
+        }
+        Err(_) => {
+            failures += 1;
+            0
+        }
+    };
+
+    let state = classify_source(successes, failures, present_items);
+    if failures > 0 {
+        Err(state)
+    } else {
+        Ok(HealthSourceSnapshot {
+            biometrics,
+            consents,
+            record_count,
+            state,
+        })
+    }
+}
+
+fn publish_health_source(ctx: &PersonalCtx, snapshot: HealthSourceSnapshot) {
+    batch(move || {
+        ctx.biometrics.set(snapshot.biometrics);
+        ctx.consents.set(snapshot.consents);
+        ctx.health_record_count.set(snapshot.record_count);
+        ctx.health_state.set(snapshot.state);
+    });
+}
+
 #[derive(Clone)]
 pub struct PersonalCtx {
     pub runtime_mode: PersonalRuntimeMode,
@@ -559,10 +634,6 @@ async fn load_wallet_source(ctx: &PersonalCtx, hc: &HolochainCtx, epoch: u64) ->
 }
 
 async fn load_health_source(ctx: &PersonalCtx, hc: &HolochainCtx, epoch: u64) -> bool {
-    let mut successes = 0;
-    let mut failures = 0;
-    let mut present_items = 0;
-
     let biometrics_result = hc
         .call_zome_default::<(), Vec<BiometricView>>(
             "health_vault",
@@ -572,14 +643,6 @@ async fn load_health_source(ctx: &PersonalCtx, hc: &HolochainCtx, epoch: u64) ->
         .await;
     if !ctx.accepts_epoch(epoch) {
         return false;
-    }
-    match biometrics_result {
-        Ok(biometrics) => {
-            successes += 1;
-            present_items += biometrics.len();
-            ctx.biometrics.set(biometrics);
-        }
-        Err(_) => failures += 1,
     }
 
     let consents_result = hc
@@ -592,14 +655,6 @@ async fn load_health_source(ctx: &PersonalCtx, hc: &HolochainCtx, epoch: u64) ->
     if !ctx.accepts_epoch(epoch) {
         return false;
     }
-    match consents_result {
-        Ok(consents) => {
-            successes += 1;
-            present_items += consents.len();
-            ctx.consents.set(consents);
-        }
-        Err(_) => failures += 1,
-    }
 
     let records_result = hc
         .call_zome_default::<(), Vec<HealthRecordView>>(
@@ -611,20 +666,16 @@ async fn load_health_source(ctx: &PersonalCtx, hc: &HolochainCtx, epoch: u64) ->
     if !ctx.accepts_epoch(epoch) {
         return false;
     }
-    match records_result {
-        Ok(records) => {
-            successes += 1;
-            present_items += records.len();
-            ctx.health_record_count.set(records.len());
-        }
-        Err(_) => failures += 1,
-    }
 
+    let staged = stage_health_source(biometrics_result, consents_result, records_result);
     if !ctx.accepts_epoch(epoch) {
         return false;
     }
-    ctx.health_state
-        .set(classify_source(successes, failures, present_items));
+
+    match staged {
+        Ok(snapshot) => publish_health_source(ctx, snapshot),
+        Err(state) => ctx.health_state.set(state),
+    }
     true
 }
 
@@ -708,7 +759,6 @@ pub async fn refresh_health_state(ctx: PersonalCtx, hc: HolochainCtx) {
     let Some(epoch) = ctx.current_usable_epoch() else {
         return;
     };
-    ctx.health_state.set(PersonalSourceState::LoadingLive);
     let _ = load_health_source(&ctx, &hc, epoch).await;
 }
 
@@ -777,5 +827,22 @@ mod tests {
         assert_eq!(snapshot.state, PersonalSourceState::Empty);
         assert!(snapshot.preferences.is_empty());
         assert!(snapshot.change_log.is_empty());
+    }
+
+    #[test]
+    fn health_stage_requires_all_three_queries_before_publication() {
+        let state = stage_health_source::<(), (), ()>(Ok(Vec::new()), Ok(Vec::new()), Err(()))
+            .expect_err("a partial Health source must not produce a publishable snapshot");
+        assert_eq!(state, PersonalSourceState::Degraded);
+    }
+
+    #[test]
+    fn health_stage_commits_complete_empty_results_atomically() {
+        let snapshot = stage_health_source::<(), (), ()>(Ok(Vec::new()), Ok(Vec::new()), Ok(Vec::new()))
+            .expect("complete empty Health results are authoritative");
+        assert_eq!(snapshot.state, PersonalSourceState::Empty);
+        assert!(snapshot.biometrics.is_empty());
+        assert!(snapshot.consents.is_empty());
+        assert_eq!(snapshot.record_count, 0);
     }
 }
