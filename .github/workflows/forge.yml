@@ -21,6 +21,7 @@ on:
       - "adapters/forge-guest-transcript/**"
       - "adapters/forge-guest-tool-map/**"
       - "adapters/forge-guest-envelope/**"
+      - "adapters/forge-hermetic-guest/**"
       - ".github/workflows/forge.yml"
   push:
     branches:
@@ -44,6 +45,7 @@ on:
       - "adapters/forge-guest-transcript/**"
       - "adapters/forge-guest-tool-map/**"
       - "adapters/forge-guest-envelope/**"
+      - "adapters/forge-hermetic-guest/**"
       - ".github/workflows/forge.yml"
 
 permissions:
@@ -97,6 +99,8 @@ jobs:
             path: adapters/forge-guest-tool-map
           - name: Forge Guest Evidence Envelope
             path: adapters/forge-guest-envelope
+          - name: Forge Hermetic Guest
+            path: adapters/forge-hermetic-guest
     defaults:
       run:
         working-directory: ${{ matrix.path }}
