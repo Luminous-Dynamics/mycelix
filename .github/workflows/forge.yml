@@ -36,6 +36,8 @@ on:
       - "adapters/forge-m0-capsule-materializer/**"
       - "adapters/forge-m0-receipt-bound-launch/**"
       - "adapters/forge-m0-expectation/**"
+      - "tools/forge-qualify.sh"
+      - "tools/forge-qualification-paths.txt"
       - ".github/workflows/forge.yml"
   push:
     branches:
@@ -73,6 +75,8 @@ on:
       - "adapters/forge-m0-capsule-materializer/**"
       - "adapters/forge-m0-receipt-bound-launch/**"
       - "adapters/forge-m0-expectation/**"
+      - "tools/forge-qualify.sh"
+      - "tools/forge-qualification-paths.txt"
       - ".github/workflows/forge.yml"
 
 permissions:
@@ -162,6 +166,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Verify qualification matrix manifest
+        run: bash ../../tools/forge-qualify.sh --check-only
 
       - name: Install pinned Rust
         uses: dtolnay/rust-toolchain@stable
