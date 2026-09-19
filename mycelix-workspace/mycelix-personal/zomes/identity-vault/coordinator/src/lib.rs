@@ -112,25 +112,47 @@ pub fn set_profile_view(profile: ProfileView) -> ExternResult<MutationReceiptVie
     })
 }
 
-/// Get the agent's current profile.
-#[hdk_extern]
-pub fn get_my_profile(_: ()) -> ExternResult<Option<Record>> {
-    let agent = agent_info()?.agent_initial_pubkey;
-    let links = get_links(
-        LinkQuery::try_new(agent, LinkTypes::AgentToProfile)?,
-        GetStrategy::Local,
-    )?;
-    if let Some(link) = links.last() {
-        let target = ActionHash::try_from(link.target.clone()).map_err(|e| {
+fn should_replace_action_seq(current: Option<u32>, candidate: u32) -> bool {
+    current.map(|seq| candidate > seq).unwrap_or(true)
+}
+
+fn latest_linked_record(links: Vec<Link>) -> ExternResult<Option<Record>> {
+    let mut latest: Option<Record> = None;
+
+    for link in links {
+        let target = ActionHash::try_from(link.target).map_err(|e| {
             wasm_error!(WasmErrorInner::Guest(format!(
                 "Invalid link target: {:?}",
                 e
             )))
         })?;
-        get(target, GetOptions::default())
-    } else {
-        Ok(None)
+        let Some(record) = get(target, GetOptions::default())? else {
+            continue;
+        };
+
+        let current_seq = latest.as_ref().map(|record| record.action().action_seq());
+        let candidate_seq = record.action().action_seq();
+        if should_replace_action_seq(current_seq, candidate_seq) {
+            latest = Some(record);
+        }
     }
+
+    Ok(latest)
+}
+
+/// Get the agent's current profile.
+///
+/// `get_links` is treated as an unordered candidate set. Current state is
+/// selected from self-authored links by the target Record's source-chain action
+/// sequence, not by vector position.
+#[hdk_extern]
+pub fn get_my_profile(_: ()) -> ExternResult<Option<Record>> {
+    let agent = agent_info()?.agent_initial_pubkey;
+    let links = get_links(
+        LinkQuery::try_new(agent.clone(), LinkTypes::AgentToProfile)?.author(agent),
+        GetStrategy::Local,
+    )?;
+    latest_linked_record(links)
 }
 
 fn profile_view_from_record(record: &Record) -> ExternResult<ProfileView> {
@@ -194,12 +216,12 @@ pub fn register_key(key: MasterKey) -> ExternResult<Record> {
 pub fn get_my_keys(_: ()) -> ExternResult<Vec<Record>> {
     let agent = agent_info()?.agent_initial_pubkey;
     let links = get_links(
-        LinkQuery::try_new(agent, LinkTypes::AgentToKeys)?,
+        LinkQuery::try_new(agent.clone(), LinkTypes::AgentToKeys)?.author(agent),
         GetStrategy::Local,
     )?;
     let mut records = Vec::new();
     for link in links {
-        let target = ActionHash::try_from(link.target.clone()).map_err(|e| {
+        let target = ActionHash::try_from(link.target).map_err(|e| {
             wasm_error!(WasmErrorInner::Guest(format!(
                 "Invalid link target: {:?}",
                 e
@@ -300,5 +322,13 @@ mod tests {
     fn link_types_exist() {
         let _profile = LinkTypes::AgentToProfile;
         let _keys = LinkTypes::AgentToKeys;
+    }
+
+    #[test]
+    fn source_chain_sequence_is_the_current_record_order() {
+        assert!(should_replace_action_seq(None, 4));
+        assert!(should_replace_action_seq(Some(4), 5));
+        assert!(!should_replace_action_seq(Some(5), 5));
+        assert!(!should_replace_action_seq(Some(6), 5));
     }
 }

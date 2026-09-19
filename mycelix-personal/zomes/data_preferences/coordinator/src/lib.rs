@@ -8,6 +8,8 @@
 //! cross-cluster calls. If a user has blocked a flow, the bridge returns
 //! BRG-011 (UserBlocked) instead of executing the call.
 
+use std::collections::BTreeMap;
+
 use data_preferences_integrity::*;
 use hdk::prelude::*;
 
@@ -76,40 +78,69 @@ pub fn set_preference_view(pref: DataSharingPreferenceView) -> ExternResult<Muta
     })
 }
 
-fn get_my_preference_records() -> ExternResult<Vec<Record>> {
+fn should_replace_action_seq(current: Option<u32>, candidate: u32) -> bool {
+    current.map(|seq| candidate > seq).unwrap_or(true)
+}
+
+fn preference_from_record(record: &Record) -> ExternResult<Option<DataSharingPreference>> {
+    record
+        .entry()
+        .to_app_option::<DataSharingPreference>()
+        .map_err(|e| wasm_error!("Deserialize: {}", e))
+}
+
+/// Load exactly one current preference Record per cluster pair.
+///
+/// `get_links` is treated as an unordered candidate set. Only links authored by
+/// this agent are admitted into self-state, and the target Record with the
+/// highest source-chain action sequence wins for each pair.
+fn get_my_preference_records() -> ExternResult<Vec<(Record, DataSharingPreference)>> {
     let agent = agent_info()?.agent_initial_pubkey;
     let links = get_links(
-        LinkQuery::new(agent, LinkTypes::AgentToPreferences.try_into_filter()?),
+        LinkQuery::new(
+            agent.clone(),
+            LinkTypes::AgentToPreferences.try_into_filter()?,
+        )
+        .author(agent),
         GetStrategy::Network,
     )?;
 
-    let mut records = Vec::new();
+    let mut latest: BTreeMap<(String, String), (u32, Record, DataSharingPreference)> =
+        BTreeMap::new();
+
     for link in links {
         let hash: ActionHash = link
             .target
             .into_action_hash()
             .ok_or(wasm_error!("Invalid link target"))?;
-        if let Some(record) = get(hash, GetOptions::default())? {
-            records.push(record);
+        let Some(record) = get(hash, GetOptions::default())? else {
+            continue;
+        };
+        let Some(pref) = preference_from_record(&record)? else {
+            continue;
+        };
+
+        let key = (pref.source_cluster.clone(), pref.target_cluster.clone());
+        let candidate_seq = record.action().action_seq();
+        let current_seq = latest.get(&key).map(|(seq, _, _)| *seq);
+        if should_replace_action_seq(current_seq, candidate_seq) {
+            latest.insert(key, (candidate_seq, record, pref));
         }
     }
-    Ok(records)
+
+    Ok(latest
+        .into_values()
+        .map(|(_, record, pref)| (record, pref))
+        .collect())
 }
 
-/// Get all data sharing preferences for the current agent.
+/// Get the current data sharing preference for each cluster pair.
 #[hdk_extern]
 pub fn get_my_preferences(_: ()) -> ExternResult<Vec<DataSharingPreference>> {
-    let mut prefs = Vec::new();
-    for record in get_my_preference_records()? {
-        if let Some(pref) = record
-            .entry()
-            .to_app_option::<DataSharingPreference>()
-            .map_err(|e| wasm_error!("Deserialize: {}", e))?
-        {
-            prefs.push(pref);
-        }
-    }
-    Ok(prefs)
+    Ok(get_my_preference_records()?
+        .into_iter()
+        .map(|(_, pref)| pref)
+        .collect())
 }
 
 #[hdk_extern]
@@ -127,37 +158,30 @@ pub fn get_my_preferences_view(_: ()) -> ExternResult<Vec<DataSharingPreferenceV
         .collect())
 }
 
-/// Get data-sharing preference values together with the exact source-chain
+/// Get current data-sharing preference values together with the exact source-chain
 /// action from which each returned row was decoded.
 ///
-/// This is additive to `get_my_preferences_view`; existing callers keep the
-/// current payload while evidence-aware callers can correlate mutation receipts
-/// without inferring identity from payload equality.
+/// Exactly one current Record per cluster pair is returned. The action identity
+/// therefore describes the same deterministic current row that the legacy view
+/// endpoint exposes.
 #[hdk_extern]
 pub fn get_my_preferences_evidence_view(
     _: (),
 ) -> ExternResult<Vec<DataSharingPreferenceEvidenceView>> {
-    let mut evidence = Vec::new();
-    for record in get_my_preference_records()? {
-        if let Some(pref) = record
-            .entry()
-            .to_app_option::<DataSharingPreference>()
-            .map_err(|e| wasm_error!("Deserialize: {}", e))?
-        {
-            evidence.push(DataSharingPreferenceEvidenceView {
-                action_hash: record.action_address().to_string(),
-                preference: DataSharingPreferenceView {
-                    source_cluster: pref.source_cluster,
-                    target_cluster: pref.target_cluster,
-                    allowed: pref.allowed,
-                    blocked_zomes: pref.blocked_zomes,
-                    reason: pref.reason,
-                    updated_at: pref.updated_at.as_micros(),
-                },
-            });
-        }
-    }
-    Ok(evidence)
+    Ok(get_my_preference_records()?
+        .into_iter()
+        .map(|(record, pref)| DataSharingPreferenceEvidenceView {
+            action_hash: record.action_address().to_string(),
+            preference: DataSharingPreferenceView {
+                source_cluster: pref.source_cluster,
+                target_cluster: pref.target_cluster,
+                allowed: pref.allowed,
+                blocked_zomes: pref.blocked_zomes,
+                reason: pref.reason,
+                updated_at: pref.updated_at.as_micros(),
+            },
+        })
+        .collect())
 }
 
 /// Check if a specific flow is allowed for the current agent.
@@ -187,7 +211,7 @@ pub fn is_flow_allowed(input: FlowCheckInput) -> ExternResult<bool> {
 pub fn get_change_log(_: ()) -> ExternResult<Vec<PreferenceChangeLog>> {
     let agent = agent_info()?.agent_initial_pubkey;
     let links = get_links(
-        LinkQuery::new(agent, LinkTypes::AgentToChangeLog.try_into_filter()?),
+        LinkQuery::new(agent.clone(), LinkTypes::AgentToChangeLog.try_into_filter()?).author(agent),
         GetStrategy::Network,
     )?;
 
@@ -232,7 +256,7 @@ pub struct FlowCheckInput {
     pub zome_name: String,
 }
 
-/// Internal: find existing preference for a cluster pair.
+/// Internal: find the current self-authored preference for a cluster pair.
 fn get_preference_for_pair(
     source: &str,
     target: &str,
@@ -240,24 +264,47 @@ fn get_preference_for_pair(
     let agent = agent_info()?.agent_initial_pubkey;
     let tag = LinkTag::new(format!("{source}→{target}"));
     let links = get_links(
-        LinkQuery::new(agent, LinkTypes::AgentToPreferences.try_into_filter()?).tag_prefix(tag),
+        LinkQuery::new(
+            agent.clone(),
+            LinkTypes::AgentToPreferences.try_into_filter()?,
+        )
+        .tag_prefix(tag)
+        .author(agent),
         GetStrategy::Network,
     )?;
 
-    // Return the most recent preference (last link)
-    if let Some(link) = links.last() {
+    let mut latest: Option<(u32, DataSharingPreference)> = None;
+    for link in links {
         let hash: ActionHash = link
             .target
-            .clone()
             .into_action_hash()
             .ok_or(wasm_error!("Invalid link target"))?;
-        if let Some(record) = get(hash, GetOptions::default())? {
-            return record
-                .entry()
-                .to_app_option::<DataSharingPreference>()
-                .map_err(|e| wasm_error!("Deserialize: {}", e));
+        let Some(record) = get(hash, GetOptions::default())? else {
+            continue;
+        };
+        let Some(pref) = preference_from_record(&record)? else {
+            continue;
+        };
+
+        let candidate_seq = record.action().action_seq();
+        let current_seq = latest.as_ref().map(|(seq, _)| *seq);
+        if should_replace_action_seq(current_seq, candidate_seq) {
+            latest = Some((candidate_seq, pref));
         }
     }
 
-    Ok(None)
+    Ok(latest.map(|(_, pref)| pref))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn source_chain_sequence_is_the_current_preference_order() {
+        assert!(should_replace_action_seq(None, 4));
+        assert!(should_replace_action_seq(Some(4), 5));
+        assert!(!should_replace_action_seq(Some(5), 5));
+        assert!(!should_replace_action_seq(Some(6), 5));
+    }
 }
