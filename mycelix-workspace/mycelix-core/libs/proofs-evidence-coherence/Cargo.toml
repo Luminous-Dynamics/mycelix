@@ -1,0 +1,12 @@
+[package]
+name = "proofs-evidence-coherence"
+version = "0.1.0"
+edition = "2024"
+authors = ["Mycelix Network"]
+description = "Structural coherence checks for Mycelix proof-security and theorem evidence"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/luminous-dynamics/Mycelix-Core"
+
+[dependencies]
+proofs-config = { path = "../proofs-config" }
+serde = { version = "1.0", features = ["derive"] }
