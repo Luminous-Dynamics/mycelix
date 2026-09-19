@@ -22,6 +22,7 @@ members = [
     # Care
     "zomes/hearth-care/integrity",
     "zomes/hearth-care/coordinator",
+    "zomes/hearth-care-transitions/integrity",
 
     # Autonomy
     "zomes/hearth-autonomy/integrity",
