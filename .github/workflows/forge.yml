@@ -22,6 +22,7 @@ on:
       - "adapters/forge-guest-transcript/**"
       - "adapters/forge-guest-tool-map/**"
       - "adapters/forge-guest-envelope/**"
+      - "adapters/forge-guest-output-frame/**"
       - "adapters/forge-hermetic-guest/**"
       - "adapters/forge-sealed-inputs/**"
       - ".github/workflows/forge.yml"
@@ -47,6 +48,7 @@ on:
       - "adapters/forge-guest-transcript/**"
       - "adapters/forge-guest-tool-map/**"
       - "adapters/forge-guest-envelope/**"
+      - "adapters/forge-guest-output-frame/**"
       - "adapters/forge-hermetic-guest/**"
       - "adapters/forge-sealed-inputs/**"
       - ".github/workflows/forge.yml"
@@ -103,6 +105,8 @@ jobs:
             path: adapters/forge-guest-tool-map
           - name: Forge Guest Evidence Envelope
             path: adapters/forge-guest-envelope
+          - name: Forge Guest Output Frame
+            path: adapters/forge-guest-output-frame
           - name: Forge Hermetic Guest
             path: adapters/forge-hermetic-guest
           - name: Forge Sealed Inputs
