@@ -1,0 +1,460 @@
+name: Mycelix Proof Security Config Exact-Head
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'mycelix-workspace/mycelix-core/libs/proofs-config/**'
+      - '.github/workflows/proofs-config-security-exact-head.yml'
+  workflow_dispatch:
+    inputs:
+      subject_sha:
+        description: 'Exact 40-hex commit SHA to qualify'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: proofs-config-security-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Exact-head proofs-config security qualification
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Resolve exact subject
+        id: subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            subject='${{ github.event.pull_request.head.sha }}'
+          else
+            subject='${{ inputs.subject_sha }}'
+          fi
+          if [[ ! "$subject" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "invalid subject SHA: $subject" >&2
+            exit 1
+          fi
+          echo "sha=$subject" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ steps.subject.outputs.sha }}
+          fetch-depth: 1
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+
+      - name: Preflight identity and source evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          test -z "$(git status --porcelain)"
+          evidence="$RUNNER_TEMP/proofs-config-security-evidence"
+          mkdir -p "$evidence"
+          {
+            echo "subject_sha=${{ steps.subject.outputs.sha }}"
+            echo "runner_os=${RUNNER_OS}"
+            echo "runner_arch=${RUNNER_ARCH}"
+            rustc -Vv
+            cargo -V
+          } > "$evidence/execution-capsule.txt"
+          find mycelix-workspace/mycelix-core/libs/proofs-config \
+               -type f -not -path '*/target/*' -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            > "$evidence/source-sha256.txt"
+
+      - name: Check formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-core/libs/proofs-config/Cargo.toml \
+            --all -- --check
+
+      - name: Prepare isolated resolved graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/proofs-config-security-qual"
+          evidence="$RUNNER_TEMP/proofs-config-security-evidence"
+          mkdir -p "$root"
+          cp -a mycelix-workspace/mycelix-core/libs/proofs-config "$root/proofs-config"
+          cd "$root/proofs-config"
+          cargo generate-lockfile
+          sha256sum Cargo.lock > "$evidence/Cargo.lock.sha256"
+          cp Cargo.lock "$evidence/Cargo.lock"
+          cargo metadata --locked --format-version 1 > "$evidence/cargo-metadata.json"
+          cargo tree --locked > "$evidence/cargo-tree-default.txt"
+          cargo tree --locked --all-features > "$evidence/cargo-tree-all-features.txt"
+
+      - name: Execute committed unit corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/proofs-config-security-qual/proofs-config"
+          evidence="$RUNNER_TEMP/proofs-config-security-evidence"
+          cd "$crate"
+          cargo test --locked -- --nocapture \
+            | tee "$evidence/tests-default.txt"
+          cargo test --locked --all-features -- --nocapture \
+            | tee "$evidence/tests-all-features.txt"
+          cargo test --locked -- --list > "$evidence/test-list-default.txt"
+          cargo test --locked --all-features -- --list > "$evidence/test-list-all-features.txt"
+
+      - name: Install public-API adversarial qualification probes
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/proofs-config-security-qual/proofs-config"
+          mkdir -p "$crate/tests"
+          cat > "$crate/tests/security_evidence_public_probe.rs" <<'RS'
+          use proofs_config::{
+              evaluate_security_target_v1, MeasuredProofSecurityV1,
+              ProofSecurityProfileIdentityV1, ProofSecurityTargetV1, SecurityLevel,
+              SecurityTargetFailureV1,
+          };
+
+          fn profile_a() -> ProofSecurityProfileIdentityV1 {
+              ProofSecurityProfileIdentityV1 {
+                  statement_profile: "range-membership-v1".into(),
+                  backend_profile: "winterfell".into(),
+                  backend_version: "0.13.1".into(),
+                  proof_options_profile: "candidate-v1".into(),
+                  hash_profile: "blake3-256".into(),
+                  field_profile: "winterfell-f128".into(),
+              }
+          }
+
+          fn profile_b() -> ProofSecurityProfileIdentityV1 {
+              ProofSecurityProfileIdentityV1 {
+                  statement_profile: "other-statement".into(),
+                  backend_profile: "winterfell".into(),
+                  backend_version: "0.13.2".into(),
+                  proof_options_profile: "other-options".into(),
+                  hash_profile: "other-hash".into(),
+                  field_profile: "other-field".into(),
+              }
+          }
+
+          fn target() -> ProofSecurityTargetV1 {
+              ProofSecurityTargetV1 {
+                  profile_id: "qual-target-v1".into(),
+                  policy_tier: SecurityLevel::Standard,
+                  required_evidence_version: Some(1),
+                  min_conjectured_bits: Some(96),
+                  min_proven_udr_bits: Some(80),
+                  min_proven_ldr_bits: Some(72),
+                  min_hash_collision_bits: 96,
+                  allowed_profiles: vec![profile_a()],
+              }
+          }
+
+          fn evidence() -> MeasuredProofSecurityV1 {
+              let p = profile_a();
+              MeasuredProofSecurityV1 {
+                  evidence_version: 1,
+                  statement_profile: p.statement_profile,
+                  backend_profile: p.backend_profile,
+                  backend_version: p.backend_version,
+                  proof_options_profile: p.proof_options_profile,
+                  hash_profile: p.hash_profile,
+                  field_profile: p.field_profile,
+                  conjectured_bits: Some(110),
+                  proven_udr_bits: Some(90),
+                  proven_ldr_bits: Some(82),
+                  hash_collision_bits: Some(128),
+                  subject_sha: "subject".into(),
+                  dependency_graph_digest: "deps".into(),
+                  measurement_receipt_digest: "receipt".into(),
+              }
+          }
+
+          fn assert_profile_rejected(e: MeasuredProofSecurityV1) {
+              let result = evaluate_security_target_v1(&target(), &e);
+              assert!(!result.meets_target());
+              assert!(result.failures.iter().any(|failure| matches!(
+                  failure,
+                  SecurityTargetFailureV1::SecurityProfileNotAllowed { .. }
+              )));
+          }
+
+          #[test]
+          fn exact_public_profile_meets_target() {
+              let result = evaluate_security_target_v1(&target(), &evidence());
+              assert!(result.meets_target());
+              assert_eq!(result.evaluated_profile, profile_a());
+          }
+
+          #[test]
+          fn every_profile_identity_dimension_is_bound() {
+              let mut e = evidence();
+              e.statement_profile = "substituted".into();
+              assert_profile_rejected(e);
+
+              let mut e = evidence();
+              e.backend_profile = "substituted".into();
+              assert_profile_rejected(e);
+
+              let mut e = evidence();
+              e.backend_version = "0.13.2".into();
+              assert_profile_rejected(e);
+
+              let mut e = evidence();
+              e.proof_options_profile = "substituted".into();
+              assert_profile_rejected(e);
+
+              let mut e = evidence();
+              e.hash_profile = "substituted".into();
+              assert_profile_rejected(e);
+
+              let mut e = evidence();
+              e.field_profile = "substituted".into();
+              assert_profile_rejected(e);
+          }
+
+          #[test]
+          fn frankenstein_profile_cannot_mix_two_allowed_tuples() {
+              let mut policy = target();
+              policy.allowed_profiles = vec![profile_a(), profile_b()];
+
+              let mut mixed = evidence();
+              mixed.backend_version = profile_b().backend_version;
+              mixed.hash_profile = profile_b().hash_profile;
+
+              let result = evaluate_security_target_v1(&policy, &mixed);
+              assert!(!result.meets_target());
+              assert!(result.failures.iter().any(|failure| matches!(
+                  failure,
+                  SecurityTargetFailureV1::SecurityProfileNotAllowed { .. }
+              )));
+          }
+
+          #[test]
+          fn empty_profile_allowlist_fails_closed() {
+              let mut policy = target();
+              policy.allowed_profiles.clear();
+              let result = evaluate_security_target_v1(&policy, &evidence());
+              assert!(!result.meets_target());
+              assert!(result
+                  .failures
+                  .contains(&SecurityTargetFailureV1::NoAllowedSecurityProfiles));
+          }
+
+          #[test]
+          fn evidence_schema_version_substitution_fails() {
+              let mut e = evidence();
+              e.evidence_version = 2;
+              let result = evaluate_security_target_v1(&target(), &e);
+              assert!(!result.meets_target());
+              assert!(result.failures.contains(
+                  &SecurityTargetFailureV1::EvidenceVersionMismatch {
+                      required: 1,
+                      actual: 2,
+                  }
+              ));
+          }
+
+          #[test]
+          fn all_required_missing_measurements_fail_closed() {
+              let mut e = evidence();
+              e.conjectured_bits = None;
+              let result = evaluate_security_target_v1(&target(), &e);
+              assert!(result
+                  .failures
+                  .contains(&SecurityTargetFailureV1::MissingConjecturedMeasurement));
+
+              let mut e = evidence();
+              e.proven_udr_bits = None;
+              let result = evaluate_security_target_v1(&target(), &e);
+              assert!(result
+                  .failures
+                  .contains(&SecurityTargetFailureV1::MissingProvenUdrMeasurement));
+
+              let mut e = evidence();
+              e.proven_ldr_bits = None;
+              let result = evaluate_security_target_v1(&target(), &e);
+              assert!(result
+                  .failures
+                  .contains(&SecurityTargetFailureV1::MissingProvenLdrMeasurement));
+
+              let mut e = evidence();
+              e.hash_collision_bits = None;
+              let result = evaluate_security_target_v1(&target(), &e);
+              assert!(result
+                  .failures
+                  .contains(&SecurityTargetFailureV1::MissingHashCollisionMeasurement));
+          }
+
+          #[test]
+          fn hash_collision_ceiling_caps_every_estimator() {
+              let mut e = evidence();
+              e.conjectured_bits = Some(250);
+              e.proven_udr_bits = Some(220);
+              e.proven_ldr_bits = Some(210);
+              e.hash_collision_bits = Some(100);
+              let result = evaluate_security_target_v1(&target(), &e);
+              assert_eq!(result.effective_conjectured_bits, Some(100));
+              assert_eq!(result.effective_proven_udr_bits, Some(100));
+              assert_eq!(result.effective_proven_ldr_bits, Some(100));
+          }
+
+          #[test]
+          fn low_hash_ceiling_fails_even_with_large_estimators() {
+              let mut e = evidence();
+              e.conjectured_bits = Some(250);
+              e.proven_udr_bits = Some(220);
+              e.proven_ldr_bits = Some(210);
+              e.hash_collision_bits = Some(64);
+              let result = evaluate_security_target_v1(&target(), &e);
+              assert!(!result.meets_target());
+              assert!(result.failures.contains(
+                  &SecurityTargetFailureV1::HashCollisionBelowTarget {
+                      required: 96,
+                      measured: 64,
+                  }
+              ));
+          }
+
+          #[test]
+          fn policy_tiers_never_claim_more_than_128_generic_bits() {
+              let levels = [
+                  SecurityLevel::Fast,
+                  SecurityLevel::Optimized,
+                  SecurityLevel::Standard,
+                  SecurityLevel::High,
+              ];
+              assert!(levels
+                  .iter()
+                  .all(|level| level.policy_target_bits() <= 128));
+              assert_eq!(SecurityLevel::High.policy_target_bits(), 128);
+              assert_eq!(SecurityLevel::High.estimated_security_bits(), 128);
+              assert_eq!(SecurityLevel::minimum_level_for_bits(129), None);
+              assert!(!SecurityLevel::High.meets_minimum(200));
+          }
+
+          #[test]
+          fn security_level_wire_names_remain_compatible() {
+              let cases = [
+                  (SecurityLevel::Fast, "\"Fast\""),
+                  (SecurityLevel::Optimized, "\"Optimized\""),
+                  (SecurityLevel::Standard, "\"Standard\""),
+                  (SecurityLevel::High, "\"High\""),
+              ];
+              for (level, expected) in cases {
+                  let encoded = serde_json::to_string(&level).expect("serialize level");
+                  assert_eq!(encoded, expected);
+                  let decoded: SecurityLevel =
+                      serde_json::from_str(expected).expect("deserialize level");
+                  assert_eq!(decoded, level);
+              }
+          }
+          RS
+
+          cat > "$crate/tests/winterfell_policy_preset_probe.rs" <<'RS'
+          #[cfg(feature = "winterfell")]
+          #[test]
+          fn historical_policy_presets_remain_structurally_unchanged() {
+              use proofs_config::{SecurityLevel, winterfell_options::proof_options_for_level};
+
+              let fast = proof_options_for_level(SecurityLevel::Fast);
+              assert_eq!(fast.num_queries(), 28);
+              assert_eq!(fast.blowup_factor(), 8);
+              assert_eq!(fast.grinding_factor(), 0);
+
+              let optimized = proof_options_for_level(SecurityLevel::Optimized);
+              assert_eq!(optimized.num_queries(), 40);
+              assert_eq!(optimized.blowup_factor(), 8);
+              assert_eq!(optimized.grinding_factor(), 16);
+
+              let standard = proof_options_for_level(SecurityLevel::Standard);
+              assert_eq!(standard.num_queries(), 50);
+              assert_eq!(standard.blowup_factor(), 8);
+              assert_eq!(standard.grinding_factor(), 20);
+
+              let high = proof_options_for_level(SecurityLevel::High);
+              assert_eq!(high.num_queries(), 100);
+              assert_eq!(high.blowup_factor(), 16);
+              assert_eq!(high.grinding_factor(), 24);
+          }
+          RS
+
+      - name: Execute public-API adversarial probes
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/proofs-config-security-qual/proofs-config"
+          evidence="$RUNNER_TEMP/proofs-config-security-evidence"
+          cd "$crate"
+          cargo test --locked --test security_evidence_public_probe -- --nocapture \
+            | tee "$evidence/public-security-probe.txt"
+          cargo test --locked --all-features --test security_evidence_public_probe -- --nocapture \
+            | tee "$evidence/public-security-probe-all-features.txt"
+          cargo test --locked --all-features --test winterfell_policy_preset_probe -- --nocapture \
+            | tee "$evidence/winterfell-policy-preset-probe.txt"
+
+      - name: Warnings-denied Clippy
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/proofs-config-security-qual/proofs-config"
+          cd "$crate"
+          cargo clippy --locked --all-targets -- -D warnings
+          cargo clippy --locked --all-targets --all-features -- -D warnings
+
+      - name: Postflight checkout immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          test -z "$(git status --porcelain)"
+
+      - name: Write qualification receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/proofs-config-security-evidence"
+          lock_sha="$(cut -d' ' -f1 "$evidence/Cargo.lock.sha256")"
+          cat > "$evidence/QUALIFICATION_RECEIPT.txt" <<EOF
+          MYC-ZKP-CONFIG-001AQ PASS
+          subject_sha=${{ steps.subject.outputs.sha }}
+          rust_toolchain=1.96.0
+          resolved_lock_sha256=${lock_sha}
+          isolated_crate=proofs-config
+          default_features_tests=PASS
+          all_features_tests=PASS
+          public_api_adversarial_probe=PASS
+          exact_profile_tuple_binding=PASS
+          frankenstein_profile_rejection=PASS
+          evidence_version_binding=PASS
+          required_missing_measurements_fail_closed=PASS
+          hash_collision_ceiling_enforced=PASS
+          security_level_wire_compatibility=PASS
+          historical_winterfell_policy_presets_structurally_preserved=PASS
+          clippy_warnings_denied=PASS
+          qualification_scope=exact source identity + isolated resolved graph + fmt + default/all-feature tests + public API adversarial target evaluation + policy/wire compatibility + warnings-denied clippy + checkout immutability
+          nonclaims=any concrete proof meets 96/128 bits, production proof admission, theorem/AIR soundness, authenticated measurement receipt, dependency/theorem receipt binding, revocation handling, witness privacy or zero knowledge, governance/finance/FL authority
+          EOF
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: myc-zkp-config-001aq-${{ steps.subject.outputs.sha }}
+          path: ${{ runner.temp }}/proofs-config-security-evidence
+          if-no-files-found: warn
+          retention-days: 30
