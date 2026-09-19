@@ -61,7 +61,7 @@ pub struct FinalityProfile {
 
 impl FinalityProfile {
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
+    pub(crate) fn new(
         id: ReferenceId,
         revision: u64,
         rail: ReferenceId,
