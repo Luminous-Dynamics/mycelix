@@ -33,11 +33,19 @@ backend-miden = [                # Miden VM ZK-STARK (actual zero-knowledge)
 # replacement theorem is implemented and adversarially qualified.
 legacy-unqualified-range-proof = ["backend-winterfell"]
 
+# CANDIDATE ONLY: soundness replacement for the historical range AIR. This is
+# intentionally excluded from `full` until MYC-ZKP-RANGE-001AQ executes and
+# passes. Winterfell 0.13.1 also carries no witness-privacy / zero-knowledge
+# claim for this profile; see #1899 and ZKP_RANGE_WITNESS_PRIVACY_BOUNDARY.md.
+candidate-range-membership-v1 = ["backend-winterfell"]
+
 # PQ authentication (adds ~2.6KB to WASM)
 dilithium = ["dep:pqcrypto-dilithium", "dep:pqcrypto-traits"]
 
 # Full stack for native testing (never enable in zomes). Deliberately excludes
-# legacy-unqualified-range-proof so `full` cannot accidentally restore authority.
+# legacy-unqualified-range-proof and candidate-range-membership-v1 so `full`
+# cannot accidentally restore historical authority or promote an unqualified
+# replacement candidate.
 full = ["backend-dual", "dilithium"]
 
 [dependencies]
