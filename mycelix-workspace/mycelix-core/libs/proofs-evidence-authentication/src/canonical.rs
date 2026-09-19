@@ -6,6 +6,9 @@ use sha2::{Digest, Sha256};
 
 pub const QUALIFICATION_RECEIPT_CANONICALIZATION_PROFILE_V1: &str =
     "mycelix-qualification-receipt-canonical-v1";
+pub const MAX_RECEIPT_IDENTIFIER_BYTES_V1: usize = 1024;
+pub const MAX_RECEIPT_NONCLAIMS_V1: usize = 64;
+pub const MAX_RECEIPT_NONCLAIM_BYTES_V1: usize = 4096;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum QualificationReceiptCanonicalizationV1 {
@@ -222,10 +225,19 @@ pub struct QualificationReceiptV1 {
 pub enum ReceiptCanonicalizationErrorV1 {
     UnsupportedReceiptVersion { actual: u32 },
     EmptyField { field: &'static str },
+    IdentifierTooLong {
+        field: &'static str,
+        max_bytes: usize,
+        actual_bytes: usize,
+    },
     MissingNonclaims,
-    EmptyNonclaim,
-    FieldTooLong { field: &'static str },
-    TooManyNonclaims,
+    EmptyNonclaim { index: usize },
+    TooManyNonclaims { max: usize, actual: usize },
+    NonclaimTooLong {
+        index: usize,
+        max_bytes: usize,
+        actual_bytes: usize,
+    },
 }
 
 impl QualificationReceiptV1 {
@@ -235,13 +247,13 @@ impl QualificationReceiptV1 {
         let mut out = Vec::with_capacity(512);
         out.extend_from_slice(QUALIFICATION_RECEIPT_DOMAIN_V1);
         put_u32(&mut out, self.receipt_version);
-        put_str(&mut out, "qualification_profile", &self.qualification_profile)?;
-        put_str(&mut out, "statement_profile", &self.statement_profile)?;
-        put_str(&mut out, "theorem_profile", &self.theorem_profile)?;
+        put_str(&mut out, &self.qualification_profile);
+        put_str(&mut out, &self.statement_profile);
+        put_str(&mut out, &self.theorem_profile);
         put_git_object_id(&mut out, self.subject);
         put_digest(&mut out, self.dependency_graph_digest);
         put_digest(&mut out, self.measured_security_receipt_digest);
-        put_str(&mut out, "coherence_policy_id", &self.coherence_policy_id)?;
+        put_str(&mut out, &self.coherence_policy_id);
         put_digest(&mut out, self.coherence_result_digest);
         put_digest(&mut out, self.qualification_corpus_digest);
         put_digest(&mut out, self.execution_capsule_digest);
@@ -252,11 +264,9 @@ impl QualificationReceiptV1 {
         });
 
         let nonclaims = self.normalized_nonclaims()?;
-        let count = u32::try_from(nonclaims.len())
-            .map_err(|_| ReceiptCanonicalizationErrorV1::TooManyNonclaims)?;
-        put_u32(&mut out, count);
+        put_u32(&mut out, nonclaims.len() as u32);
         for nonclaim in nonclaims {
-            put_str(&mut out, "nonclaim", &nonclaim)?;
+            put_str(&mut out, &nonclaim);
         }
 
         Ok(out)
@@ -287,6 +297,13 @@ impl QualificationReceiptV1 {
             if value.trim().is_empty() {
                 return Err(ReceiptCanonicalizationErrorV1::EmptyField { field });
             }
+            if value.len() > MAX_RECEIPT_IDENTIFIER_BYTES_V1 {
+                return Err(ReceiptCanonicalizationErrorV1::IdentifierTooLong {
+                    field,
+                    max_bytes: MAX_RECEIPT_IDENTIFIER_BYTES_V1,
+                    actual_bytes: value.len(),
+                });
+            }
         }
 
         let _ = self.normalized_nonclaims()?;
@@ -297,8 +314,23 @@ impl QualificationReceiptV1 {
         if self.nonclaims.is_empty() {
             return Err(ReceiptCanonicalizationErrorV1::MissingNonclaims);
         }
-        if self.nonclaims.iter().any(|value| value.trim().is_empty()) {
-            return Err(ReceiptCanonicalizationErrorV1::EmptyNonclaim);
+        if self.nonclaims.len() > MAX_RECEIPT_NONCLAIMS_V1 {
+            return Err(ReceiptCanonicalizationErrorV1::TooManyNonclaims {
+                max: MAX_RECEIPT_NONCLAIMS_V1,
+                actual: self.nonclaims.len(),
+            });
+        }
+        for (index, value) in self.nonclaims.iter().enumerate() {
+            if value.trim().is_empty() {
+                return Err(ReceiptCanonicalizationErrorV1::EmptyNonclaim { index });
+            }
+            if value.len() > MAX_RECEIPT_NONCLAIM_BYTES_V1 {
+                return Err(ReceiptCanonicalizationErrorV1::NonclaimTooLong {
+                    index,
+                    max_bytes: MAX_RECEIPT_NONCLAIM_BYTES_V1,
+                    actual_bytes: value.len(),
+                });
+            }
         }
         let mut nonclaims = self.nonclaims.clone();
         nonclaims.sort_unstable();
@@ -311,16 +343,10 @@ fn put_u32(out: &mut Vec<u8>, value: u32) {
     out.extend_from_slice(&value.to_be_bytes());
 }
 
-fn put_str(
-    out: &mut Vec<u8>,
-    field: &'static str,
-    value: &str,
-) -> Result<(), ReceiptCanonicalizationErrorV1> {
-    let len = u32::try_from(value.len())
-        .map_err(|_| ReceiptCanonicalizationErrorV1::FieldTooLong { field })?;
-    put_u32(out, len);
+fn put_str(out: &mut Vec<u8>, value: &str) {
+    // v1 validation bounds all strings far below u32::MAX.
+    put_u32(out, value.len() as u32);
     out.extend_from_slice(value.as_bytes());
-    Ok(())
 }
 
 fn put_digest(out: &mut Vec<u8>, digest: Sha256DigestV1) {
@@ -433,6 +459,28 @@ mod tests {
             r.digest(),
             Err(ReceiptCanonicalizationErrorV1::MissingNonclaims)
         );
+    }
+
+    #[test]
+    fn resource_bounds_fail_closed() {
+        let mut r = receipt();
+        r.qualification_profile = "x".repeat(MAX_RECEIPT_IDENTIFIER_BYTES_V1 + 1);
+        assert!(matches!(
+            r.digest(),
+            Err(ReceiptCanonicalizationErrorV1::IdentifierTooLong {
+                field: "qualification_profile",
+                ..
+            })
+        ));
+
+        let mut r = receipt();
+        r.nonclaims = (0..=MAX_RECEIPT_NONCLAIMS_V1)
+            .map(|index| format!("nonclaim-{index}"))
+            .collect();
+        assert!(matches!(
+            r.digest(),
+            Err(ReceiptCanonicalizationErrorV1::TooManyNonclaims { .. })
+        ));
     }
 
     #[test]
