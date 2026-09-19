@@ -1,0 +1,253 @@
+name: Constitutional Payments Provider HDI Refinement Qualification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'mycelix-governance/Cargo.toml'
+      - 'mycelix-governance/crates/constitutional-payments-provider-hdi/**'
+      - 'mycelix-governance/specs/constitutional-payments-provider-hdi-refinement.v1.json'
+      - 'mycelix-governance/specs/constitutional-payments-provider-hdi-refinement.v1.schema.json'
+      - 'mycelix-governance/docs/CONSTITUTIONAL_PAYMENTS_PROVIDER_HDI_REFINEMENT_V0_1.md'
+      - 'mycelix-governance/tools/formal/validate_constitutional_payments_provider_hdi_refinement.py'
+      - '.github/workflows/constitutional-payments-provider-hdi-refinement-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: payments-provider-hdi-refinement-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NIXPKGS_REV: a50bf0c1b07873c1a53892292017041a8f0a1288
+  EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EXPECTED_SEMANTIC_HEAD: c3ab0cad027ad3a3d8da0cb05390f3fb47ca3c08
+
+jobs:
+  qualify:
+    name: Exact-head payments provider F1B1 HDI refinement
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout exact raw head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ env.EXPECTED_HEAD }}
+          persist-credentials: false
+
+      - name: Bind exact verifier lineage and semantic surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_SEMANTIC_HEAD"
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/constitutional-payments-provider-hdi-refinement-qualification.yml"
+
+          rm -rf payments-provider-hdi-refinement-evidence
+          mkdir -p payments-provider-hdi-refinement-evidence
+          printf '%s\n' "$EXPECTED_HEAD" > payments-provider-hdi-refinement-evidence/expected-head.txt
+          printf '%s\n' "$EXPECTED_SEMANTIC_HEAD" > payments-provider-hdi-refinement-evidence/expected-semantic-head.txt
+
+          cat > payments-provider-hdi-refinement-evidence/expected-semantic-files.txt <<'EOF'
+          mycelix-governance/Cargo.toml
+          mycelix-governance/crates/constitutional-payments-provider-hdi/Cargo.toml
+          mycelix-governance/crates/constitutional-payments-provider-hdi/src/lib.rs
+          mycelix-governance/docs/CONSTITUTIONAL_PAYMENTS_PROVIDER_HDI_REFINEMENT_V0_1.md
+          mycelix-governance/specs/constitutional-payments-provider-hdi-refinement.v1.json
+          mycelix-governance/specs/constitutional-payments-provider-hdi-refinement.v1.schema.json
+          mycelix-governance/tools/formal/validate_constitutional_payments_provider_hdi_refinement.py
+          EOF
+          sed -i 's/^          //' payments-provider-hdi-refinement-evidence/expected-semantic-files.txt
+
+          git diff --name-only "$EXPECTED_SEMANTIC_HEAD^" "$EXPECTED_SEMANTIC_HEAD" | sort \
+            > payments-provider-hdi-refinement-evidence/actual-semantic-files.txt
+          sort payments-provider-hdi-refinement-evidence/expected-semantic-files.txt \
+            > payments-provider-hdi-refinement-evidence/expected-semantic-files.sorted.txt
+          cmp payments-provider-hdi-refinement-evidence/expected-semantic-files.sorted.txt \
+              payments-provider-hdi-refinement-evidence/actual-semantic-files.txt
+
+          if grep -E '^mycelix-(finance|governance)/.*zomes/' payments-provider-hdi-refinement-evidence/actual-semantic-files.txt; then
+            echo "F1B1 semantic head unexpectedly changes Holochain zomes" >&2
+            exit 1
+          fi
+
+          git hash-object $(cat payments-provider-hdi-refinement-evidence/expected-semantic-files.txt) \
+            > payments-provider-hdi-refinement-evidence/source-hashes-before.txt
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Validate closed F1B1 source/profile boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#python3" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#git" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" \
+            --command bash -euo pipefail -c '
+              python3 --version | tee payments-provider-hdi-refinement-evidence/python-version.txt
+              git --version | tee payments-provider-hdi-refinement-evidence/git-version.txt
+              python3 -m py_compile mycelix-governance/tools/formal/validate_constitutional_payments_provider_hdi_refinement.py
+              python3 mycelix-governance/tools/formal/validate_constitutional_payments_provider_hdi_refinement.py --self-test \
+                2>&1 | tee payments-provider-hdi-refinement-evidence/source-validator.log
+            '
+
+      - name: Compile and test exact F1B1 subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustfmt" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#clippy" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#coreutils" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" \
+            --command bash -euo pipefail -c '
+              rustc --version | tee payments-provider-hdi-refinement-evidence/rustc-version.txt
+              cargo --version | tee payments-provider-hdi-refinement-evidence/cargo-version.txt
+              rustfmt --version | tee payments-provider-hdi-refinement-evidence/rustfmt-version.txt
+              cargo clippy --version | tee payments-provider-hdi-refinement-evidence/clippy-version.txt
+
+              cargo fmt --manifest-path mycelix-governance/Cargo.toml \
+                --package constitutional-payments-provider-hdi -- --check \
+                2>&1 | tee payments-provider-hdi-refinement-evidence/cargo-fmt.log
+              cargo check --manifest-path \
+                mycelix-governance/crates/constitutional-payments-provider-hdi/Cargo.toml \
+                --all-targets 2>&1 | tee payments-provider-hdi-refinement-evidence/cargo-check.log
+              cargo test --manifest-path \
+                mycelix-governance/crates/constitutional-payments-provider-hdi/Cargo.toml \
+                --all-targets 2>&1 | tee payments-provider-hdi-refinement-evidence/cargo-test.log
+              cargo clippy --manifest-path \
+                mycelix-governance/crates/constitutional-payments-provider-hdi/Cargo.toml \
+                --all-targets -- -D warnings \
+                2>&1 | tee payments-provider-hdi-refinement-evidence/cargo-clippy.log
+
+              cp mycelix-governance/Cargo.lock payments-provider-hdi-refinement-evidence/derived-Cargo.lock
+              sha256sum payments-provider-hdi-refinement-evidence/derived-Cargo.lock \
+                > payments-provider-hdi-refinement-evidence/derived-Cargo.lock.sha256
+            '
+
+      - name: Compile-valid F1B1 refinement mutation controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#python3" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" \
+            --command bash -euo pipefail -c '
+          python3 - <<"PY"
+          from pathlib import Path
+          import subprocess
+
+          ROOT = Path.cwd()
+          SRC = ROOT / "mycelix-governance/crates/constitutional-payments-provider-hdi/src/lib.rs"
+          MANIFEST = ROOT / "mycelix-governance/crates/constitutional-payments-provider-hdi/Cargo.toml"
+          VALIDATOR = ROOT / "mycelix-governance/tools/formal/validate_constitutional_payments_provider_hdi_refinement.py"
+          EVIDENCE = ROOT / "payments-provider-hdi-refinement-evidence"
+          original = SRC.read_text()
+
+          def restore(): SRC.write_text(original)
+          def replace_once(old, new):
+              s = SRC.read_text(); pos = s.index(old); SRC.write_text(s[:pos] + new + s[pos+len(old):])
+          def run(cmd, log):
+              p = subprocess.run(cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+              (EVIDENCE / log).write_text(p.stdout); return p.returncode
+          def semantic_mutant(name, mutate, test_filter):
+              restore(); mutate()
+              if run(["cargo","check","--manifest-path",str(MANIFEST),"--all-targets"], f"mutant-{name}-check.log") != 0:
+                  raise SystemExit(f"{name}: mutant did not compile")
+              if run(["cargo","test","--manifest-path",str(MANIFEST),test_filter], f"mutant-{name}-test.log") == 0:
+                  raise SystemExit(f"{name}: mutant survived")
+              (EVIDENCE / f"mutant-{name}.txt").write_text("PASS\n")
+          def surface_mutant(name, mutate):
+              restore(); mutate()
+              if run(["cargo","check","--manifest-path",str(MANIFEST),"--all-targets"], f"mutant-{name}-check.log") != 0:
+                  raise SystemExit(f"{name}: surface mutant did not compile")
+              if run(["python3",str(VALIDATOR)], f"mutant-{name}-validator.log") == 0:
+                  raise SystemExit(f"{name}: surface mutant survived validator")
+              (EVIDENCE / f"mutant-{name}.txt").write_text("PASS\n")
+
+          try:
+              semantic_mutant(
+                  "drop-predecessor-projection",
+                  lambda: replace_once(
+                      "            previous_record_commitment: record.previous_record_commitment.clone(),\n",
+                      "            previous_record_commitment: None,\n",
+                  ),
+                  "every_journal_record_has_exact_hdi_projection",
+              )
+              semantic_mutant(
+                  "corrupt-record-commitment",
+                  lambda: replace_once(
+                      "            journal_record_commitment: record.record_commitment.clone(),\n",
+                      "            journal_record_commitment: record.provider_operation_key.clone(),\n",
+                  ),
+                  "every_journal_record_has_exact_hdi_projection",
+              )
+              semantic_mutant(
+                  "weaken-exact-refinement",
+                  lambda: replace_once(
+                      "        if self != &canonical {\n",
+                      "        if false && self != &canonical {\n",
+                  ),
+                  "changed_projection_field_is_rejected",
+              )
+              semantic_mutant(
+                  "collapse-index-operation-key",
+                  lambda: replace_once(
+                      "            provider_operation_key: journal.intent().provider_operation_key.clone(),\n",
+                      "            provider_operation_key: journal.intent().execution_id.clone(),\n",
+                  ),
+                  "index_projection_is_exact_and_separate_from_payment_id",
+              )
+              semantic_mutant(
+                  "provider-authority-inflation",
+                  lambda: replace_once(
+                      "pub fn provider_authority_is_qualified() -> bool {\n    false\n}\n",
+                      "pub fn provider_authority_is_qualified() -> bool {\n    true\n}\n",
+                  ),
+                  "provider_authority_remains_fail_closed",
+              )
+              surface_mutant(
+                  "remove-hdk-entry-helper",
+                  lambda: replace_once("#[hdk_entry_helper]\n", ""),
+              )
+          finally:
+              restore()
+          PY
+            '
+
+      - name: Verify exact semantic immutability and postflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          git hash-object $(cat payments-provider-hdi-refinement-evidence/expected-semantic-files.txt) \
+            > payments-provider-hdi-refinement-evidence/source-hashes-after.txt
+          cmp payments-provider-hdi-refinement-evidence/source-hashes-before.txt \
+              payments-provider-hdi-refinement-evidence/source-hashes-after.txt
+          git diff --exit-code -- $(cat payments-provider-hdi-refinement-evidence/expected-semantic-files.txt)
+          if git ls-files --error-unmatch mycelix-governance/Cargo.lock >/dev/null 2>&1; then
+            git checkout -- mycelix-governance/Cargo.lock
+          fi
+          test -z "$(git status --porcelain --untracked-files=no)"
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: constitutional-payments-provider-hdi-refinement-${{ env.EXPECTED_HEAD }}
+          path: payments-provider-hdi-refinement-evidence
+          if-no-files-found: error
+          retention-days: 30
