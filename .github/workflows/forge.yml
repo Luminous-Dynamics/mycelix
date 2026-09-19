@@ -14,6 +14,7 @@ on:
       - "adapters/forge-linux-isolation-evidence/**"
       - "adapters/forge-linux-isolation-collector/**"
       - "adapters/forge-runtime-closure-evidence/**"
+      - "adapters/forge-runtime-tool-evidence/**"
       - "adapters/forge-nar-auditor/**"
       - "adapters/forge-gittuf-trust-profile/**"
       - "adapters/forge-gittuf-policy-inventory/**"
@@ -41,6 +42,7 @@ on:
       - "adapters/forge-linux-isolation-evidence/**"
       - "adapters/forge-linux-isolation-collector/**"
       - "adapters/forge-runtime-closure-evidence/**"
+      - "adapters/forge-runtime-tool-evidence/**"
       - "adapters/forge-nar-auditor/**"
       - "adapters/forge-gittuf-trust-profile/**"
       - "adapters/forge-gittuf-policy-inventory/**"
@@ -91,6 +93,8 @@ jobs:
             path: adapters/forge-linux-isolation-collector
           - name: Forge Runtime Closure Evidence
             path: adapters/forge-runtime-closure-evidence
+          - name: Forge Runtime Tool Evidence
+            path: adapters/forge-runtime-tool-evidence
           - name: Forge NAR Auditor
             path: adapters/forge-nar-auditor
           - name: Forge gittuf Trust Profile
