@@ -1,0 +1,205 @@
+name: Mycelix Hearth Frontend
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-hearth/apps/leptos/**'
+      - 'mycelix-workspace/mycelix-hearth/crates/hearth-leptos-types/**'
+      - 'mycelix-workspace/mycelix-personal/crates/personal-leptos-types/**'
+      - 'crates/mycelix-leptos-core/**'
+      - 'crates/mycelix-leptos-client/**'
+      - '.github/workflows/hearth-frontend.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-hearth/apps/leptos/**'
+      - 'mycelix-workspace/mycelix-hearth/crates/hearth-leptos-types/**'
+      - 'mycelix-workspace/mycelix-personal/crates/personal-leptos-types/**'
+      - 'crates/mycelix-leptos-core/**'
+      - 'crates/mycelix-leptos-client/**'
+      - '.github/workflows/hearth-frontend.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hearth-frontend-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  HEARTH_MANIFEST: mycelix-workspace/mycelix-hearth/apps/leptos/Cargo.toml
+
+jobs:
+  hearth-frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+          submodules: recursive
+
+      - name: Verify exact subject checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ github.event.pull_request.head.sha || github.sha }}'
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$expected" || {
+            echo "::error::Expected exact subject $expected, got $actual"
+            exit 1
+          }
+
+      - name: Verify Hearth frontend source closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          for manifest in \
+            "$HEARTH_MANIFEST" \
+            mycelix-workspace/mycelix-hearth/crates/hearth-leptos-types/Cargo.toml \
+            mycelix-workspace/mycelix-personal/crates/personal-leptos-types/Cargo.toml \
+            crates/mycelix-leptos-core/Cargo.toml \
+            crates/mycelix-leptos-client/Cargo.toml; do
+            test -f "$manifest" || {
+              echo "::error file=$manifest::Required Hearth frontend dependency source is missing from this repository."
+              exit 1
+            }
+          done
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87b
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+          targets: wasm32-unknown-unknown
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          workspaces: |
+            mycelix-workspace/mycelix-hearth/apps/leptos
+            crates/mycelix-leptos-core
+            crates/mycelix-leptos-client
+
+      - name: Resolve Hearth frontend manifest
+        run: |
+          set -euo pipefail
+          cargo metadata --manifest-path "$HEARTH_MANIFEST" --no-deps --format-version 1 >/dev/null
+
+      - name: Check changed Hearth Rust formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          head='${{ github.event.pull_request.head.sha || github.sha }}'
+          if [ '${{ github.event_name }}' = 'pull_request' ]; then
+            base='${{ github.event.pull_request.base.sha }}'
+          else
+            base='${{ github.event.before }}'
+          fi
+
+          if [ -z "$base" ] || [[ "$base" =~ ^0+$ ]]; then
+            echo "::error::Cannot establish comparison base for scoped rustfmt qualification."
+            exit 1
+          fi
+
+          mapfile -t rust_files < <(
+            git diff --diff-filter=ACMR --name-only "$base" "$head" -- \
+              'mycelix-workspace/mycelix-hearth/apps/leptos/**/*.rs' \
+              'mycelix-workspace/mycelix-hearth/crates/hearth-leptos-types/**/*.rs' \
+              | sort -u
+          )
+
+          if [ "${#rust_files[@]}" -eq 0 ]; then
+            echo "No changed Hearth Rust files to format-check."
+            exit 0
+          fi
+
+          printf 'rustfmt subject file: %s\n' "${rust_files[@]}"
+          rustfmt --edition 2024 --check "${rust_files[@]}"
+
+      - name: Check Hearth for wasm32
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path "$HEARTH_MANIFEST" --target wasm32-unknown-unknown
+
+      - name: Run Hearth unit tests
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path "$HEARTH_MANIFEST"
+
+      - name: Clippy Hearth for wasm32
+        id: clippy
+        shell: bash
+        run: |
+          set -uo pipefail
+          log="$RUNNER_TEMP/hearth-frontend-clippy.log"
+          : > "$log"
+          cargo clippy \
+            --manifest-path "$HEARTH_MANIFEST" \
+            --target wasm32-unknown-unknown \
+            --message-format short -- -D warnings 2>&1 | tee "$log"
+          exit ${PIPESTATUS[0]}
+
+      - name: Upload exact Clippy diagnostics
+        if: ${{ always() && steps.clippy.outcome == 'failure' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: hearth-frontend-clippy-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/hearth-frontend-clippy.log
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Prove checkout immutability
+        id: immutability
+        if: always()
+        shell: bash
+        run: |
+          set -uo pipefail
+          log="$RUNNER_TEMP/hearth-frontend-immutability.log"
+          : > "$log"
+          {
+            echo '=== git status --short ==='
+            git status --short
+            echo '=== untracked paths ==='
+            git ls-files --others --exclude-standard
+            echo '=== git diff --stat ==='
+            git diff --stat
+            echo '=== git diff ==='
+            git diff
+          } 2>&1 | tee "$log"
+
+          status=${PIPESTATUS[0]}
+          if ! git diff --exit-code >>"$log" 2>&1; then
+            status=1
+          fi
+          if [ -n "$(git status --porcelain)" ]; then
+            status=1
+          fi
+          exit "$status"
+
+      - name: Preserve generated Hearth lock candidate
+        if: ${{ always() && steps.immutability.outcome == 'failure' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/hearth-lock-candidate"
+          mkdir -p "$out"
+          lock='mycelix-workspace/mycelix-hearth/apps/leptos/Cargo.lock'
+          if [ -f "$lock" ]; then
+            cp "$lock" "$out/Cargo.lock"
+          fi
+
+      - name: Upload exact immutability diagnostics
+        if: ${{ always() && steps.immutability.outcome == 'failure' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: hearth-frontend-immutability-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            ${{ runner.temp }}/hearth-frontend-immutability.log
+            ${{ runner.temp }}/hearth-lock-candidate
+          if-no-files-found: warn
+          retention-days: 7
