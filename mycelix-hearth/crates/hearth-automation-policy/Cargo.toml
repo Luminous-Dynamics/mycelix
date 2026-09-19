@@ -1,0 +1,10 @@
+[package]
+name = "hearth-automation-policy"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Deterministic authority policy for Mycelix Hearth household automation"
+
+[dependencies]
+serde = { workspace = true }
+hearth-automation-types = { workspace = true }
