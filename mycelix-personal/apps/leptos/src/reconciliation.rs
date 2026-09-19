@@ -73,13 +73,28 @@ impl ReconciliationEpoch {
         self.usable && self.epoch == epoch
     }
 
-    /// Mark a reconciliation complete only if it still belongs to this epoch.
+    /// Mark a reconciliation as successfully published only if it still belongs
+    /// to this epoch. Successful publication is the only operation that may set
+    /// `completed_once`.
     pub fn finish(&mut self, epoch: u64) -> bool {
         if !self.accepts(epoch) || !self.in_flight {
             return false;
         }
         self.in_flight = false;
         self.completed_once = true;
+        true
+    }
+
+    /// End an admitted reconciliation attempt without claiming publication.
+    ///
+    /// This is used when the epoch remained valid but the query/staging work did
+    /// not produce an admissible replacement snapshot. It clears the in-flight
+    /// reservation while preserving whether some earlier snapshot ever completed.
+    pub fn abort(&mut self, epoch: u64) -> bool {
+        if !self.accepts(epoch) || !self.in_flight {
+            return false;
+        }
+        self.in_flight = false;
         true
     }
 
@@ -218,6 +233,49 @@ mod tests {
         assert_eq!(gate.begin_refresh(), None);
         assert!(gate.finish(epoch));
         assert_eq!(gate.begin_refresh(), Some(epoch));
+    }
+
+    #[test]
+    fn aborting_first_attempt_does_not_manufacture_completed_history() {
+        let mut gate = ReconciliationEpoch::default();
+        let ReconciliationTransition::Start { epoch } = gate.observe_usable(true) else {
+            panic!("session must start");
+        };
+        assert!(gate.abort(epoch));
+        assert!(!gate.is_in_flight());
+        assert!(!gate.has_completed());
+        assert!(gate.accepts(epoch));
+    }
+
+    #[test]
+    fn aborting_later_refresh_preserves_real_completed_history() {
+        let mut gate = ReconciliationEpoch::default();
+        let ReconciliationTransition::Start { epoch } = gate.observe_usable(true) else {
+            panic!("session must start");
+        };
+        assert!(gate.finish(epoch));
+        assert!(gate.has_completed());
+
+        assert_eq!(gate.begin_refresh(), Some(epoch));
+        assert!(gate.abort(epoch));
+        assert!(!gate.is_in_flight());
+        assert!(gate.has_completed());
+    }
+
+    #[test]
+    fn stale_abort_cannot_cancel_newer_epoch_work() {
+        let mut gate = ReconciliationEpoch::default();
+        let ReconciliationTransition::Start { epoch: first } = gate.observe_usable(true) else {
+            panic!("first session must start");
+        };
+        gate.observe_usable(false);
+        let ReconciliationTransition::Start { epoch: second } = gate.observe_usable(true) else {
+            panic!("second session must start");
+        };
+
+        assert!(!gate.abort(first));
+        assert!(gate.is_in_flight());
+        assert!(gate.finish(second));
     }
 
     #[test]
