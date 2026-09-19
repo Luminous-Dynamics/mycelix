@@ -7,15 +7,14 @@ use leptos_router::{
     path,
 };
 
-use crate::components::{Nav, DevPanel};
+use crate::components::{DevPanel, Nav};
 use crate::hearth_context::provide_hearth_context;
-use crate::pages::*;
 use crate::pages::personal;
+use crate::pages::*;
 use mycelix_leptos_core::{
-    HolochainProviderAuto, HolochainProviderConfig, ConnectStrategy,
-    provide_consciousness_context, init_consciousness_ui,
-    provide_thermodynamic_context, provide_homeostasis_context,
-    provide_toast_context, ToastContainer,
+    ConnectStrategy, HolochainProviderAuto, HolochainProviderConfig, ToastContainer,
+    init_consciousness_ui, provide_consciousness_context, provide_homeostasis_context,
+    provide_thermodynamic_context, provide_toast_context,
 };
 
 #[component]
@@ -68,7 +67,13 @@ fn AppInner() -> impl IntoView {
             <crate::components::HearthFlame mode=crate::components::FlameMode::Ambient />
             <main id="main-content" class="main-content heartbeat" role="main" aria-label="hearth content">
                 <Routes fallback=|| view! { <p class="not-found">"you’ve wandered off the path"</p> }>
+                    // Task-first primary shell
                     <Route path=path!("/") view=HomePage />
+                    <Route path=path!("/find") view=FindPage />
+                    <Route path=path!("/create") view=CreatePage />
+                    <Route path=path!("/inbox") view=InboxPage />
+
+                    // Existing Hearth/domain routes remain stable and directly linkable.
                     <Route path=path!("/found") view=crate::pages::found::FoundingCeremony />
                     <Route path=path!("/settings") view=crate::pages::settings::SettingsPage />
                     <Route path=path!("/kinship") view=KinshipPage />
