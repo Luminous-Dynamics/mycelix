@@ -30,8 +30,11 @@ def add_worktree(repo,subject):
  if git(repo,"worktree","add","--detach","--force",str(w),subject,check=False).returncode:shutil.rmtree(p,ignore_errors=True);raise CapsuleError("worktree materialization failed")
  return p,w
 def remove_worktree(repo,p,w):
- r=git(repo,"worktree","remove","--force",str(w),check=False);shutil.rmtree(p,ignore_errors=True)
- if r.returncode:raise CapsuleError("worktree cleanup failed")
+ r=git(repo,"worktree","remove","--force",str(w),check=False);cleanup_error=False
+ try:
+  if os.path.lexists(p):shutil.rmtree(p)
+ except OSError:cleanup_error=True
+ if r.returncode or cleanup_error or os.path.lexists(p):raise CapsuleError("worktree cleanup failed")
 def enable_linux_subreaper():
  if not sys.platform.startswith("linux"):return
  try:
