@@ -1,0 +1,20 @@
+{
+  "files": {
+    "ci-governance/README.md": "a3504ce4573fed9e25826e46ec52642a997c632caf416a486598253716f6cf01",
+    "ci-governance/check_payload_lock.py": "54a38ef61f737f1c38520cb9e20b0dc01cbcd818593845d8a00cac37502e8a3a",
+    "ci-governance/check_workflow_trust.py": "73e703afd89967e07c380a126989a1447f72f010a00f793b0af4cafa05031166",
+    "ci-governance/fixtures/fail-anchor.yml": "5d2436e8c8624127fab394f8a1bddf4e3a9a54e353cd54a775d13b00eb12b951",
+    "ci-governance/fixtures/fail-missing-default-permissions.yml": "3992a399b29258d7ce423a231bdb733cdde6b761fb6807b4113dc2d7682052e9",
+    "ci-governance/fixtures/fail-mutable-action.yml": "5c6f7bd85f83faf223f3c7f4c5965da0621a4303222b6f97cf2aa84e87300508",
+    "ci-governance/fixtures/fail-persisted-credentials.yml": "7ab1da2fd35548034b0947eb575a9477798f54633d57f5965d9c0ad8bbb88076",
+    "ci-governance/fixtures/fail-write-permission.yml": "62a321f9ad06930cc77e65a818db06ece163f5ca694df055b5b5400fde55b3a0",
+    "ci-governance/fixtures/pass.yml": "b88a55c89b97562d9e60d1f3b339e9ccd3cc00f4edc7092e091c06e7fd9a946f",
+    "ci-governance/test_check_workflow_trust.py": "1f0c3f8263d1001295c18c09ae10ed87561e3ddaec4c994f052698bb4a7f1040",
+    "ci-governance/trust-policy-v0.1.json": "965cd83ff98297e7651f16f8679d01d2b65b1671cce6e66b53049cc872299771"
+  },
+  "parent_commit": "a85369699099d4c7524e502e531735eed4ab36f4",
+  "payload_canonicalization": "domain UTF-8 + LF + compact sort_keys JSON array of sorted {path,sha256} objects + LF",
+  "payload_domain": "mycelix.ci-gov.001e-a.payload.v0.1",
+  "payload_manifest_sha256": "cd00438eb6a0cc699bb980742c989fdee6335254a61db9137107fd5719fdffc0",
+  "schema": "mycelix.ci-gov.001e-a.lock.v0.1"
+}
