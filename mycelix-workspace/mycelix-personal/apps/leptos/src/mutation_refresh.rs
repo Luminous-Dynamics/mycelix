@@ -3,16 +3,17 @@
 
 //! Mutation-triggered Personal refresh admission.
 //!
-//! A successful source-chain write and a current Personal snapshot are separate
-//! facts. This module serializes explicit post-mutation refreshes against the
-//! connection-epoch reconciliation gate and reports whether the refresh actually
-//! published into the epoch that admitted it.
+//! A successful source-chain write, a completed refresh attempt, and a newly
+//! published Personal source snapshot are separate facts. This module serializes
+//! explicit post-mutation refreshes against the connection-epoch reconciliation
+//! gate and reports which of those facts was actually established.
 
 use leptos::prelude::*;
 use mycelix_leptos_core::holochain_provider::HolochainCtx;
 
 use crate::context::{
     refresh_health_state, refresh_identity_state, refresh_preferences_state, PersonalCtx,
+    PersonalSourceState,
 };
 use crate::mutation_state::MutationRefreshOutcome;
 use crate::reconciliation::ReconciliationEpoch;
@@ -43,9 +44,14 @@ fn begin_mutation_refresh(
     Ok(started_epoch)
 }
 
+fn source_state_has_published_snapshot(state: PersonalSourceState) -> bool {
+    matches!(state, PersonalSourceState::Live | PersonalSourceState::Empty)
+}
+
 fn finish_mutation_refresh(
     gate: &mut ReconciliationEpoch,
     started_epoch: u64,
+    source_published: bool,
 ) -> MutationRefreshOutcome {
     if !gate.accepts(started_epoch) {
         return MutationRefreshOutcome::EpochChanged {
@@ -54,14 +60,20 @@ fn finish_mutation_refresh(
         };
     }
 
-    if gate.finish(started_epoch) {
+    if !gate.finish(started_epoch) {
+        return MutationRefreshOutcome::EpochChanged {
+            started_epoch,
+            current_epoch: gate.current_epoch(),
+        };
+    }
+
+    if source_published {
         MutationRefreshOutcome::Published {
             epoch: started_epoch,
         }
     } else {
-        MutationRefreshOutcome::EpochChanged {
-            started_epoch,
-            current_epoch: gate.current_epoch(),
+        MutationRefreshOutcome::SourceNotPublished {
+            epoch: started_epoch,
         }
     }
 }
@@ -78,15 +90,28 @@ async fn run_mutation_refresh(
     };
     ctx.reconciliation.set(gate);
 
-    match target {
-        MutationRefreshTarget::Identity => refresh_identity_state(ctx.clone(), hc).await,
-        MutationRefreshTarget::Health => refresh_health_state(ctx.clone(), hc).await,
-        MutationRefreshTarget::Preferences => refresh_preferences_state(ctx.clone(), hc).await,
-    }
+    let source_published = match target {
+        MutationRefreshTarget::Identity => {
+            refresh_identity_state(ctx.clone(), hc).await;
+            source_state_has_published_snapshot(ctx.identity_state.get_untracked())
+        }
+        MutationRefreshTarget::Health => {
+            refresh_health_state(ctx.clone(), hc).await;
+            source_state_has_published_snapshot(ctx.health_state.get_untracked())
+        }
+        MutationRefreshTarget::Preferences => {
+            refresh_preferences_state(ctx.clone(), hc).await;
+            source_state_has_published_snapshot(ctx.preferences_state.get_untracked())
+        }
+    };
 
     let mut current_gate = ctx.reconciliation.get_untracked();
-    let outcome = finish_mutation_refresh(&mut current_gate, started_epoch);
-    if matches!(outcome, MutationRefreshOutcome::Published { .. }) {
+    let outcome = finish_mutation_refresh(&mut current_gate, started_epoch, source_published);
+    if matches!(
+        outcome,
+        MutationRefreshOutcome::Published { .. }
+            | MutationRefreshOutcome::SourceNotPublished { .. }
+    ) {
         ctx.reconciliation.set(current_gate);
     }
     outcome
@@ -141,7 +166,7 @@ mod tests {
     }
 
     #[test]
-    fn completed_epoch_admits_and_finishes_explicit_refresh() {
+    fn completed_epoch_reports_published_only_for_a_new_source_snapshot() {
         let mut gate = ReconciliationEpoch::default();
         let ReconciliationTransition::Start { epoch } = gate.observe_usable(true) else {
             panic!("usable session must start initial reconciliation");
@@ -152,10 +177,38 @@ mod tests {
         assert_eq!(started, epoch);
         assert!(gate.is_in_flight());
         assert_eq!(
-            finish_mutation_refresh(&mut gate, started),
+            finish_mutation_refresh(&mut gate, started, true),
             MutationRefreshOutcome::Published { epoch }
         );
         assert!(!gate.is_in_flight());
+    }
+
+    #[test]
+    fn completed_refresh_without_source_commit_is_not_published() {
+        let mut gate = ReconciliationEpoch::default();
+        let ReconciliationTransition::Start { epoch } = gate.observe_usable(true) else {
+            panic!("usable session must start initial reconciliation");
+        };
+        assert!(gate.finish(epoch));
+
+        let started = begin_mutation_refresh(&mut gate).expect("refresh should be admitted");
+        assert_eq!(
+            finish_mutation_refresh(&mut gate, started, false),
+            MutationRefreshOutcome::SourceNotPublished { epoch }
+        );
+        assert!(!gate.is_in_flight());
+    }
+
+    #[test]
+    fn degraded_and_unavailable_states_are_not_publication_evidence() {
+        assert!(!source_state_has_published_snapshot(
+            PersonalSourceState::Degraded
+        ));
+        assert!(!source_state_has_published_snapshot(
+            PersonalSourceState::Unavailable
+        ));
+        assert!(source_state_has_published_snapshot(PersonalSourceState::Live));
+        assert!(source_state_has_published_snapshot(PersonalSourceState::Empty));
     }
 
     #[test]
@@ -176,7 +229,7 @@ mod tests {
         };
 
         assert_eq!(
-            finish_mutation_refresh(&mut gate, started),
+            finish_mutation_refresh(&mut gate, started, true),
             MutationRefreshOutcome::EpochChanged {
                 started_epoch: started,
                 current_epoch,

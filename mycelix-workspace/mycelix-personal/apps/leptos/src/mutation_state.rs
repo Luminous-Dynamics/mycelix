@@ -5,11 +5,13 @@
 //!
 //! Source-chain action receipts outlive page components and read-model epochs.
 //! This module deliberately separates refresh progress from action observation:
-//! a refresh can publish without proving that it contains a particular action.
+//! a refresh can complete without publishing a replacement source snapshot, and
+//! a published source snapshot can still fail to contain a particular action.
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MutationRefreshOutcome {
     Published { epoch: u64 },
+    SourceNotPublished { epoch: u64 },
     NoUsableEpoch,
     Busy { epoch: u64 },
     EpochChanged {
@@ -87,6 +89,10 @@ impl PendingMutationReceipt {
             MutationObservationState::RefreshInProgress =>
                 "The source-chain action receipt is established. Personal is attempting an epoch-safe read-model refresh before making any stronger presentation claim."
                     .into(),
+            MutationObservationState::RefreshDeferred(MutationRefreshOutcome::SourceNotPublished { epoch }) =>
+                format!(
+                    "The write committed and its refresh completed in Personal epoch {epoch}, but the source query set did not produce an admissible replacement snapshot. The previous source values remain visible and this receipt remains pending."
+                ),
             MutationObservationState::RefreshDeferred(MutationRefreshOutcome::NoUsableEpoch) =>
                 "The write committed, but there is no usable conductor/signer epoch in which to establish a current Personal read-model refresh."
                     .into(),
@@ -105,7 +111,7 @@ impl PendingMutationReceipt {
                 epoch,
             })
             | MutationObservationState::RefreshPublishedUncorrelated { epoch } => format!(
-                "A Personal source refresh published in epoch {epoch}, but the atomically published read evidence did not contain this exact committed action hash. The receipt remains pending."
+                "A Personal source snapshot published in epoch {epoch}, but the atomically published read evidence did not contain this exact committed action hash. The receipt remains pending."
             ),
         }
     }
@@ -141,6 +147,23 @@ mod tests {
             MutationObservationState::RefreshPublishedUncorrelated { epoch: 7 }
         );
         assert!(receipt.description().contains("exact committed action hash"));
+    }
+
+    #[test]
+    fn completed_refresh_without_source_publication_stays_deferred() {
+        let receipt = PendingMutationReceipt::new(
+            PersonalMutationTarget::Profile,
+            "uhCkk-action".into(),
+        )
+        .with_refresh_outcome(MutationRefreshOutcome::SourceNotPublished { epoch: 7 });
+
+        assert_eq!(
+            receipt.observation,
+            MutationObservationState::RefreshDeferred(
+                MutationRefreshOutcome::SourceNotPublished { epoch: 7 }
+            )
+        );
+        assert!(receipt.description().contains("did not produce"));
     }
 
     #[test]
