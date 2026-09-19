@@ -1,0 +1,37 @@
+import importlib.util, pathlib, sys, unittest
+HERE=pathlib.Path(__file__).parent
+S=importlib.util.spec_from_file_location("v",str(HERE/"ci_gov_001k_pilot_fixture_verify.py"))
+v=importlib.util.module_from_spec(S);sys.modules[S.name]=v;S.loader.exec_module(v)
+FIX=(HERE/"ci_gov_001k_live_pilot.yml.fixture").read_text()
+
+class T(unittest.TestCase):
+    def ok(self,text=FIX): return v.inspect_fixture(text,enforce_digest=False)
+    def bad(self,text):
+        with self.assertRaises(v.VerificationError): v.inspect_fixture(text,enforce_digest=False)
+    def test_exact(self):
+        r=v.inspect_fixture(FIX);self.assertEqual(r["queue"],"max");self.assertFalse(r["cancel_in_progress"])
+    def test_sha(self):self.assertEqual(v.sha256(FIX.encode()),v.EXPECTED_SHA256)
+    def test_group(self):self.bad(FIX.replace("mycelix-heavy-qualification-v1","other-group"))
+    def test_single_queue_rejected(self):self.bad(FIX.replace("queue: max","queue: single"))
+    def test_cancel_rejected(self):self.bad(FIX.replace("queue: max","queue: max\n  cancel-in-progress: true"))
+    def test_push_rejected(self):self.bad(FIX.replace("pull_request:\n    types: [labeled]","push:"))
+    def test_dispatch_rejected(self):self.bad(FIX.replace("pull_request:\n    types: [labeled]","workflow_dispatch:"))
+    def test_target_rejected(self):self.bad(FIX.replace("pull_request:","pull_request_target:"))
+    def test_wrong_activity(self):self.bad(FIX.replace("types: [labeled]","types: [opened]"))
+    def test_wrong_label(self):self.bad(FIX.replace("ci:qualify-pilot","ci:qualify"))
+    def test_draft_guard_required(self):self.bad(FIX.replace("      && github.event.pull_request.draft == true\n",""))
+    def test_write_permission_rejected(self):self.bad(FIX.replace("contents: read","contents: write"))
+    def test_checkout_rejected(self):self.bad(FIX.replace("steps:\n","steps:\n      - uses: actions/checkout@deadbeef\n"))
+    def test_any_uses_rejected(self):self.bad(FIX.replace("steps:\n","steps:\n      - uses: owner/action@deadbeef\n"))
+    def test_runner_exact(self):self.bad(FIX.replace("ubuntu-24.04","ubuntu-latest"))
+    def test_timeout_exact(self):self.bad(FIX.replace("timeout-minutes: 5","timeout-minutes: 10"))
+    def test_hold_exact(self):self.bad(FIX.replace("sleep 90","sleep 10"))
+    def test_extra_job_rejected(self):self.bad(FIX.replace("  pilot:\n","  extra:\n    runs-on: ubuntu-24.04\n  pilot:\n"))
+    def test_continue_rejected(self):self.bad(FIX.replace("shell: bash","continue-on-error: true\n        shell: bash"))
+    def test_secret_rejected(self):self.bad(FIX.replace("PILOT_PR:", "TOKEN: ${{ secrets.X }}\n          PILOT_PR:"))
+    def test_token_rejected(self):self.bad(FIX.replace("PILOT_PR:", "TOKEN: ${{ github.token }}\n          PILOT_PR:"))
+    def test_curl_rejected(self):self.bad(FIX.replace("sleep 90","curl https://example.com\n          sleep 90"))
+    def test_canonical_newline(self):self.bad(FIX.rstrip("\n"))
+    def test_evidence_env_exact(self):self.bad(FIX.replace("PILOT_RUN_ATTEMPT:", "OTHER:\n          PILOT_RUN_ATTEMPT:"))
+    def test_one_run_step(self):self.bad(FIX.replace("run: |","run: |\n          echo x\n      - name: second\n        shell: bash\n        run: |"))
+if __name__=="__main__":unittest.main()
