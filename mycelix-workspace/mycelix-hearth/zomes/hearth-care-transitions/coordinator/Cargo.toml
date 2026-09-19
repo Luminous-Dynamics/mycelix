@@ -1,0 +1,19 @@
+[package]
+name = "hearth_care_transitions"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "hearth_care_transitions"
+
+[dependencies]
+hdk = { workspace = true }
+serde = { workspace = true }
+hearth_care_transitions_integrity = { path = "../integrity" }
+hearth_care_integrity = { path = "../../hearth-care/integrity" }
+hearth_kinship_integrity = { path = "../../hearth-kinship/integrity" }
+hearth-coordinator-common = { workspace = true }
+mycelix-bridge-common = { workspace = true }
+mycelix-zome-helpers = { workspace = true }
