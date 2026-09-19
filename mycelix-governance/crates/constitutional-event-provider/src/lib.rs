@@ -290,10 +290,7 @@ impl SignalProjectionAttempt {
         )?;
         require_opaque("projection operation_id", &self.operation_id, MAX_ID_LEN)?;
         require_opaque("projection action_id", &self.action_id, MAX_ID_LEN)?;
-        require_commitment(
-            "durable_event_commitment",
-            &self.durable_event_commitment,
-        )?;
+        require_commitment("durable_event_commitment", &self.durable_event_commitment)?;
         if self.attempt_ordinal == 0 {
             return Err(violation("projection attempt_ordinal must be >= 1"));
         }
@@ -489,14 +486,20 @@ mod tests {
     fn canonical_json_sorts_object_keys_recursively() {
         let left = json!({"z": 2, "a": {"second": true, "first": 1}});
         let right = json!({"a": {"first": 1, "second": true}, "z": 2});
-        assert_eq!(canonical_json(&left).unwrap(), canonical_json(&right).unwrap());
+        assert_eq!(
+            canonical_json(&left).unwrap(),
+            canonical_json(&right).unwrap()
+        );
     }
 
     #[test]
     fn canonical_json_preserves_array_order() {
         let left = json!([1, 2, 3]);
         let right = json!([3, 2, 1]);
-        assert_ne!(canonical_json(&left).unwrap(), canonical_json(&right).unwrap());
+        assert_ne!(
+            canonical_json(&left).unwrap(),
+            canonical_json(&right).unwrap()
+        );
     }
 
     #[test]
@@ -513,7 +516,10 @@ mod tests {
     fn wall_clock_time_does_not_define_event_identity() {
         let first = event_at(1_000);
         let retried_later = event_at(9_000);
-        assert_ne!(first.committed_at_unix_ms, retried_later.committed_at_unix_ms);
+        assert_ne!(
+            first.committed_at_unix_ms,
+            retried_later.committed_at_unix_ms
+        );
         assert_eq!(first.event_commitment, retried_later.event_commitment);
     }
 
