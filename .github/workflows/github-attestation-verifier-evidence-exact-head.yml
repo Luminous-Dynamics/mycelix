@@ -1,0 +1,319 @@
+name: Mycelix GitHub Attestation Verifier Evidence Exact-Head
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication/**'
+      - '.github/workflows/github-attestation-verifier-evidence-exact-head.yml'
+  workflow_dispatch:
+    inputs:
+      subject_sha:
+        description: 'Exact 40-hex commit SHA to qualify'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-attestation-verifier-evidence-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Exact-head verifier execution evidence qualification
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Resolve exact subject
+        id: subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            subject='${{ github.event.pull_request.head.sha }}'
+          else
+            subject='${{ inputs.subject_sha }}'
+          fi
+          [[ "$subject" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid subject SHA: $subject" >&2; exit 1; }
+          echo "sha=$subject" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ steps.subject.outputs.sha }}
+          fetch-depth: 1
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+
+      - name: Preflight exact source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          test -z "$(git status --porcelain)"
+          evidence="$RUNNER_TEMP/github-attestation-verifier-evidence"
+          mkdir -p "$evidence"
+          rustc -Vv > "$evidence/rustc.txt"
+          cargo -V > "$evidence/cargo.txt"
+          find mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication \
+            -type f -not -path '*/target/*' -print0 | sort -z | xargs -0 sha256sum \
+            > "$evidence/source-sha256.txt"
+
+      - name: Check formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path \
+            mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication/Cargo.toml \
+            --all -- --check
+
+      - name: Prepare isolated resolved graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/verifier-evidence-qual"
+          evidence="$RUNNER_TEMP/github-attestation-verifier-evidence"
+          cp -a mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication "$crate"
+          cd "$crate"
+          cargo generate-lockfile
+          cp Cargo.lock "$evidence/Cargo.lock"
+          sha256sum Cargo.lock > "$evidence/Cargo.lock.sha256"
+          cargo metadata --locked --format-version 1 > "$evidence/cargo-metadata.json"
+          cargo tree --locked > "$evidence/cargo-tree.txt"
+
+      - name: Execute committed corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/verifier-evidence-qual"
+          evidence="$RUNNER_TEMP/github-attestation-verifier-evidence"
+          cd "$crate"
+          cargo test --locked --all-targets -- --nocapture | tee "$evidence/committed-tests.txt"
+
+      - name: Install external evidence probes
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/verifier-evidence-qual"
+          mkdir -p "$crate/tests"
+          cat > "$crate/tests/verifier_execution_public_probe.rs" <<'RS'
+          use proofs_evidence_authentication::{
+              MAX_VERIFIED_RESULTS_V1, NixVerifierClosureIdentityV1,
+              QualificationReceiptCanonicalizationV1, QualificationReceiptDigestV1,
+              Sha256DigestV1, VERIFIER_EXECUTION_EVIDENCE_VERSION_V1,
+              VerifierExecutableIdentityV1, VerifierExecutionAuthorityV1,
+              VerifierExecutionEvidenceErrorV1, VerifierExecutionReceiptV1,
+              VerifierProcessOutcomeV1, VerifierTrustRootModeV1,
+          };
+
+          fn digest(byte: u8) -> Sha256DigestV1 {
+              Sha256DigestV1::from_bytes([byte; 32])
+          }
+
+          fn verifier() -> VerifierExecutableIdentityV1 {
+              VerifierExecutableIdentityV1 {
+                  profile_id: "gh-v1".into(),
+                  backend_family: "github-cli-attestation".into(),
+                  semantic_version: "2.101.0".into(),
+                  executable_sha256: digest(1),
+                  platform_profile: "linux-x86_64".into(),
+                  command_profile_id: "github-public-v1".into(),
+                  nix_closure: Some(NixVerifierClosureIdentityV1 {
+                      store_path: "/nix/store/example-gh/bin/gh".into(),
+                      closure_digest: digest(2),
+                  }),
+              }
+          }
+
+          fn evidence(mode: VerifierTrustRootModeV1) -> VerifierExecutionReceiptV1 {
+              let acquired = match mode {
+                  VerifierTrustRootModeV1::OnlineFetchThenRetainedVerifyV1 => 1_010,
+                  VerifierTrustRootModeV1::OfflinePinnedRootV1 => 900,
+              };
+              VerifierExecutionReceiptV1 {
+                  evidence_version: VERIFIER_EXECUTION_EVIDENCE_VERSION_V1,
+                  verifier: verifier(),
+                  canonical_receipt_digest: QualificationReceiptDigestV1 {
+                      canonicalization: QualificationReceiptCanonicalizationV1::BinaryV1,
+                      sha256: digest(3),
+                  },
+                  attestation_bundle_digest: digest(4),
+                  trust_root_mode: mode,
+                  trusted_root_material_digest: digest(5),
+                  trusted_root_acquired_at_unix_seconds: acquired,
+                  command_arguments_digest: digest(6),
+                  environment_profile_digest: digest(7),
+                  verifier_stdout_digest: digest(8),
+                  verifier_stderr_digest: digest(9),
+                  execution_started_at_unix_seconds: 1_000,
+                  execution_completed_at_unix_seconds: 1_020,
+                  process_outcome: VerifierProcessOutcomeV1::ExitCode(0),
+                  parsed_result_count: 1,
+              }
+          }
+
+          #[test]
+          fn valid_online_and_offline_evidence_are_structural_only() {
+              for mode in [
+                  VerifierTrustRootModeV1::OnlineFetchThenRetainedVerifyV1,
+                  VerifierTrustRootModeV1::OfflinePinnedRootV1,
+              ] {
+                  let e = evidence(mode);
+                  assert_eq!(e.validate(), Ok(()));
+                  assert_eq!(e.authority_scope(), VerifierExecutionAuthorityV1::ExecutionEvidenceOnly);
+                  assert!(!e.establishes_receipt_authentication());
+                  assert!(!e.grants_production_authority());
+                  assert!(!e.grants_application_authority());
+              }
+          }
+
+          #[test]
+          fn signal_timeout_and_nonzero_exit_are_not_success() {
+              let mut e = evidence(VerifierTrustRootModeV1::OnlineFetchThenRetainedVerifyV1);
+              e.process_outcome = VerifierProcessOutcomeV1::TerminatedBySignal(9);
+              assert!(!e.process_exited_successfully());
+              e.process_outcome = VerifierProcessOutcomeV1::TimedOut;
+              assert!(!e.process_exited_successfully());
+              e.process_outcome = VerifierProcessOutcomeV1::ExitCode(1);
+              assert!(!e.process_exited_successfully());
+              e.process_outcome = VerifierProcessOutcomeV1::ExitCode(0);
+              assert!(e.process_exited_successfully());
+          }
+
+          #[test]
+          fn trust_root_timing_modes_are_not_interchangeable() {
+              let mut online = evidence(VerifierTrustRootModeV1::OnlineFetchThenRetainedVerifyV1);
+              online.trusted_root_acquired_at_unix_seconds = 999;
+              assert!(matches!(
+                  online.validate(),
+                  Err(VerifierExecutionEvidenceErrorV1::TrustRootAcquiredBeforeExecutionWindow)
+              ));
+
+              let mut offline = evidence(VerifierTrustRootModeV1::OfflinePinnedRootV1);
+              offline.trusted_root_acquired_at_unix_seconds = 1_001;
+              assert!(matches!(
+                  offline.validate(),
+                  Err(VerifierExecutionEvidenceErrorV1::TrustRootAcquiredAfterExecution)
+              ));
+          }
+
+          #[test]
+          fn nix_identity_and_result_bounds_fail_closed() {
+              let mut e = evidence(VerifierTrustRootModeV1::OnlineFetchThenRetainedVerifyV1);
+              e.verifier.nix_closure.as_mut().unwrap().store_path = "/tmp/gh".into();
+              assert_eq!(e.validate(), Err(VerifierExecutionEvidenceErrorV1::InvalidNixStorePath));
+
+              let mut e = evidence(VerifierTrustRootModeV1::OnlineFetchThenRetainedVerifyV1);
+              e.parsed_result_count = MAX_VERIFIED_RESULTS_V1 + 1;
+              assert!(matches!(
+                  e.validate(),
+                  Err(VerifierExecutionEvidenceErrorV1::TooManyVerifiedResults { .. })
+              ));
+          }
+
+          #[test]
+          fn unknown_execution_receipt_fields_fail_closed() {
+              let e = evidence(VerifierTrustRootModeV1::OnlineFetchThenRetainedVerifyV1);
+              let mut value = serde_json::to_value(e).unwrap();
+              value.as_object_mut().unwrap().insert(
+                  "receipt_authenticated".into(), serde_json::Value::Bool(true)
+              );
+              assert!(serde_json::from_value::<VerifierExecutionReceiptV1>(value).is_err());
+          }
+          RS
+
+      - name: Execute external evidence probes
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/verifier-evidence-qual"
+          evidence="$RUNNER_TEMP/github-attestation-verifier-evidence"
+          cd "$crate"
+          cargo test --locked --test verifier_execution_public_probe -- --nocapture \
+            | tee "$evidence/public-probes.txt"
+
+      - name: Prove execution evidence cannot convert into authenticated receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/verifier-evidence-qual"
+          evidence="$RUNNER_TEMP/github-attestation-verifier-evidence"
+          cat > "$crate/tests/no_execution_to_authentication.rs" <<'RS'
+          use proofs_evidence_authentication::{
+              AuthenticatedQualificationReceiptV1, VerifierExecutionReceiptV1,
+          };
+          fn require_into<T: Into<AuthenticatedQualificationReceiptV1>>() {}
+          #[test] fn probe() { require_into::<VerifierExecutionReceiptV1>(); }
+          RS
+          set +e
+          (
+            cd "$crate"
+            CARGO_TERM_COLOR=never cargo check --locked --test no_execution_to_authentication
+          ) > "$evidence/no-execution-to-authentication.stdout.txt" \
+            2> "$evidence/no-execution-to-authentication.stderr.txt"
+          status=$?
+          set -e
+          if [[ $status -eq 0 ]]; then
+            echo "execution evidence unexpectedly converts into authenticated capability" >&2
+            exit 1
+          fi
+          grep -Fq "AuthenticatedQualificationReceiptV1" "$evidence/no-execution-to-authentication.stderr.txt"
+          grep -Fq "trait bound" "$evidence/no-execution-to-authentication.stderr.txt"
+
+      - name: Remove qualification-only probes
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/verifier-evidence-qual/tests"
+
+      - name: Warnings-denied Clippy
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/verifier-evidence-qual"
+          evidence="$RUNNER_TEMP/github-attestation-verifier-evidence"
+          cd "$crate"
+          cargo clippy --locked --all-targets -- -D warnings | tee "$evidence/clippy.txt"
+
+      - name: Verify checkout immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          test -z "$(git status --porcelain)"
+          evidence="$RUNNER_TEMP/github-attestation-verifier-evidence"
+          find mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication \
+            -type f -not -path '*/target/*' -print0 | sort -z | xargs -0 sha256sum \
+            > "$evidence/source-sha256-post.txt"
+          cmp "$evidence/source-sha256.txt" "$evidence/source-sha256-post.txt"
+
+      - name: Write qualification receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/github-attestation-verifier-evidence"
+          cat > "$evidence/QUALIFICATION.txt" <<EOF
+          MYC-ZKP-GH-EXEC-001AQ PASS
+          subject_sha=${{ steps.subject.outputs.sha }}
+          authority_scope=ExecutionEvidenceOnly
+          github_cli_backend_qualified=false
+          receipt_authentication=false
+          production_admission=false
+          application_authority=false
+          EOF
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: myc-zkp-gh-exec-001aq-${{ steps.subject.outputs.sha }}
+          path: ${{ runner.temp }}/github-attestation-verifier-evidence
+          if-no-files-found: warn
+          retention-days: 30
