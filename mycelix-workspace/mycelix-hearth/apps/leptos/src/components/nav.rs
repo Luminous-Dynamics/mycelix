@@ -1,39 +1,52 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use crate::themes::use_theme;
 use leptos::prelude::*;
 use leptos_router::components::A;
-use mycelix_leptos_core::ConnectionBadge;
-use mycelix_leptos_core::use_consciousness;
-use crate::themes::use_theme;
-use personal_leptos_types::TrustTier;
+use mycelix_leptos_core::{ConnectionBadge, TaskShellRoutes};
+
+const HEARTH_AREAS: [(&str, &str); 12] = [
+    ("/kinship", "Bonds"),
+    ("/care", "Care"),
+    ("/gratitude", "Gratitude"),
+    ("/stories", "Stories"),
+    ("/milestones", "Milestones"),
+    ("/rhythms", "Rhythms"),
+    ("/decisions", "Decisions"),
+    ("/emergency", "Emergency"),
+    ("/resources", "Resources"),
+    ("/autonomy", "Autonomy"),
+    ("/found", "Founding"),
+    ("/settings", "Settings"),
+];
+
+pub const fn hearth_task_routes() -> TaskShellRoutes {
+    TaskShellRoutes::new("/", "/find", "/create", "/inbox", "/personal/profile")
+}
 
 #[component]
 pub fn Nav() -> impl IntoView {
-    let consciousness = use_consciousness();
     let _theme_state = use_theme();
-
-    let show_governance = move || consciousness.tier.get() >= TrustTier::Basic;
-    let show_emergency = move || consciousness.tier.get() >= TrustTier::Observer;
+    let task_links = hearth_task_routes().desktop_nav();
 
     view! {
         <nav class="navbar" role="navigation" aria-label="main navigation">
             <A href="/" attr:class="logo" attr:aria-label="hearth home">"hearth"</A>
 
             <div class="nav-links">
-                <A href="/kinship">"bonds"</A>
-                <A href="/care">"care"</A>
-                <A href="/gratitude">"gratitude"</A>
-                <A href="/stories">"stories"</A>
-                <A href="/rhythms">"rhythms"</A>
-                {move || show_governance().then(|| view! {
-                    <A href="/decisions">"decisions"</A>
-                })}
-                {move || show_emergency().then(|| view! {
-                    <A href="/emergency">"emergency"</A>
-                })}
-                <span class="nav-divider">"|"</span>
-                <A href="/personal/profile">"vault"</A>
+                {task_links.into_iter().map(|link| view! {
+                    <A href=link.href>{link.label}</A>
+                }).collect_view()}
+
+                <details class="hearth-area-disclosure">
+                    <summary>"Explore Hearth"</summary>
+                    <nav class="hearth-area-links" aria-label="Hearth areas">
+                        {HEARTH_AREAS.into_iter().map(|(href, label)| view! {
+                            <A href=href>{label}</A>
+                        }).collect_view()}
+                    </nav>
+                </details>
             </div>
 
             <div class="nav-actions">
@@ -95,9 +108,12 @@ fn SoundToggle() -> impl IntoView {
         <button
             class="sound-toggle"
             title=move || if sound.enabled.get() { "mute ambient" } else { "ambient sound" }
+            aria-label=move || if sound.enabled.get() { "mute ambient sound" } else { "enable ambient sound" }
             on:click=move |_| sound.enabled.set(!sound.enabled.get())
         >
-            {move || if sound.enabled.get() { "\u{266b}" } else { "\u{266a}" }}
+            <span aria-hidden="true">
+                {move || if sound.enabled.get() { "\u{266b}" } else { "\u{266a}" }}
+            </span>
         </button>
     }
 }
@@ -114,13 +130,42 @@ fn ThemeSwitcher() -> impl IntoView {
                 let t = theme_state.current.get();
                 format!("{} — click to change", t.description())
             }
+            aria-label=move || {
+                let t = theme_state.current.get();
+                format!("Theme: {}. Change theme", t.label())
+            }
             on:click=move |_| {
                 let next = theme_state.current.get().next();
                 theme_state.current.set(next);
             }
         >
-            <span class="theme-cycle-dot"></span>
+            <span class="theme-cycle-dot" aria-hidden="true"></span>
             <span class="theme-cycle-label">{move || theme_state.current.get().label()}</span>
         </button>
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{hearth_task_routes, HEARTH_AREAS};
+
+    #[test]
+    fn hearth_binds_all_five_task_surfaces_explicitly() {
+        let routes = hearth_task_routes();
+        let labels = routes
+            .desktop_nav()
+            .into_iter()
+            .map(|link| link.label)
+            .collect::<Vec<_>>();
+
+        assert_eq!(labels, vec!["Home", "Find", "Create", "Inbox", "Me"]);
+        assert_eq!(routes.me, "/personal/profile");
+    }
+
+    #[test]
+    fn domain_discoverability_is_not_conditioned_on_trust_tier() {
+        let areas = HEARTH_AREAS.into_iter().collect::<Vec<_>>();
+        assert!(areas.contains(&("/decisions", "Decisions")));
+        assert!(areas.contains(&("/emergency", "Emergency")));
     }
 }

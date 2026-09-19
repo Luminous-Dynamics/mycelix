@@ -14,6 +14,7 @@ mod rhythms;
 mod emergency;
 mod resources;
 mod autonomy;
+mod tasks;
 pub mod personal;
 
 pub use home::*;
@@ -27,3 +28,4 @@ pub use rhythms::*;
 pub use emergency::*;
 pub use resources::*;
 pub use autonomy::*;
+pub use tasks::*;
