@@ -7,3 +7,6 @@ pub use legacy::*;
 
 mod assignment_binding;
 pub use assignment_binding::*;
+
+mod qualified_completion;
+pub use qualified_completion::*;
