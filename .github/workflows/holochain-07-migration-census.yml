@@ -1,0 +1,123 @@
+name: Holochain 0.7 Migration Census
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - '.github/workflows/holochain-07-migration-census.yml'
+      - '.github/scripts/holochain07_migration_census.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: holochain-07-migration-census-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: false
+
+env:
+  PYTHONDONTWRITEBYTECODE: '1'
+
+jobs:
+  census:
+    name: Exact-head measurement-only census
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout exact event subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact PR head
+        if: github.event_name == 'pull_request'
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${EXPECTED_HEAD}"
+
+      - name: Record clean source baseline
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Static syntax check without writing bytecode
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import ast
+          import pathlib
+
+          path = pathlib.Path('.github/scripts/holochain07_migration_census.py')
+          ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
+          PY
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Run independent tree census twice
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/holochain07_migration_census.py \
+            --output "${RUNNER_TEMP}/census-a.json"
+          python3 .github/scripts/holochain07_migration_census.py \
+            --output "${RUNNER_TEMP}/census-b.json"
+          cmp "${RUNNER_TEMP}/census-a.json" "${RUNNER_TEMP}/census-b.json"
+
+      - name: Validate measurement ceiling and exact head
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          python3 - "${RUNNER_TEMP}/census-a.json" "${EXPECTED_HEAD}" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          path = pathlib.Path(sys.argv[1])
+          expected_head = sys.argv[2]
+          data = json.loads(path.read_text())
+          assert data["schema"] == "mycelix.holochain07-migration-census.v1"
+          assert data["evidence_authority"] == "measurement-only"
+          assert data["product_materialization_authorized"] is False
+          assert data["repository_head"] == expected_head
+          assert data["canary"]["name"] == "mesh-time"
+          assert len(data["canary"]["files"]) == 4
+          assert data["summary"]["cargo_manifest_count"] > 0
+          assert data["summary"]["rust_file_count"] > 0
+          PY
+
+      - name: Seal evidence
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/holochain07-census-evidence"
+          cp "${RUNNER_TEMP}/census-a.json" \
+            "${RUNNER_TEMP}/holochain07-census-evidence/holochain07-migration-census.json"
+          cat > "${RUNNER_TEMP}/holochain07-census-evidence/qualification-metadata.txt" <<EOF
+          evidence_authority=measurement-only
+          product_materialization_authorized=false
+          repository_head=$(git rev-parse HEAD)
+          workflow=Holochain 0.7 Migration Census
+          candidate_profile=holochain-0.7.0
+          canary=mesh-time
+          EOF
+          (
+            cd "${RUNNER_TEMP}/holochain07-census-evidence"
+            sha256sum holochain07-migration-census.json qualification-metadata.txt > evidence-sha256.txt
+          )
+
+      - name: Prove census did not mutate source
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Upload sealed census evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: holochain07-migration-census-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/holochain07-census-evidence
+          if-no-files-found: error
+          retention-days: 30
