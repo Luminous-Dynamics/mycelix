@@ -33,7 +33,7 @@ impl LaplaceDistribution {
 impl Distribution<f64> for LaplaceDistribution {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> f64 {
         // Sample U ~ Uniform(-0.5, 0.5)
-        let u: f64 = rng.random::<f64>() - 0.5;
+        let u: f64 = rng.r#gen::<f64>() - 0.5;
         // Inverse CDF: X = μ - b * sign(U) * ln(1 - 2|U|)
         self.location - self.scale * u.signum() * (1.0 - 2.0 * u.abs()).ln()
     }
@@ -151,7 +151,7 @@ impl GaussianMechanism {
 
 impl Mechanism for GaussianMechanism {
     fn add_noise(&self, value: f64) -> f64 {
-        let mut rng = rand::rng();
+        let mut rng = rand::thread_rng();
         let normal = Normal::new(0.0, self.sigma).expect("Invalid sigma");
         value + normal.sample(&mut rng)
     }
@@ -225,7 +225,7 @@ impl LaplaceMechanism {
 
 impl Mechanism for LaplaceMechanism {
     fn add_noise(&self, value: f64) -> f64 {
-        let mut rng = rand::rng();
+        let mut rng = rand::thread_rng();
         let laplace = LaplaceDistribution::new(0.0, self.scale).expect("Invalid scale");
         value + laplace.sample(&mut rng)
     }
@@ -279,7 +279,7 @@ impl ExponentialMechanism {
             return 0;
         }
 
-        let mut rng = rand::rng();
+        let mut rng = rand::thread_rng();
 
         // Compute unnormalized probabilities: exp(ε * score / (2Δ))
         let factor = self.epsilon / (2.0 * self.sensitivity);
@@ -294,7 +294,7 @@ impl ExponentialMechanism {
 
         // Sample from the distribution
         let mut cumulative = 0.0;
-        let threshold: f64 = rng.random::<f64>() * total;
+        let threshold: f64 = rng.r#gen::<f64>() * total;
 
         for (i, &w) in weights.iter().enumerate() {
             cumulative += w;
