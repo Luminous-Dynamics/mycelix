@@ -1,0 +1,21 @@
+[package]
+name = "mycelix-forge-m0-capsule-materializer"
+version = "0.1.0"
+edition = "2021"
+authors = ["Luminous Dynamics"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+description = "Atomic filesystem materialization for Mycelix Forge M0 capsules"
+
+[dependencies]
+mycelix-forge-core = { path = "../../crates/mycelix-forge-core" }
+mycelix-forge-execution = { path = "../../crates/mycelix-forge-execution" }
+mycelix-forge-m0-capsule-builder = { path = "../forge-m0-capsule-builder" }
+mycelix-forge-hermetic-run-evidence = { path = "../forge-hermetic-run-evidence" }
+mycelix-forge-sealed-capsule-inputs = { path = "../forge-sealed-capsule-inputs" }
+blake3 = "1.5"
+libc = "0.2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+thiserror = "2.0"

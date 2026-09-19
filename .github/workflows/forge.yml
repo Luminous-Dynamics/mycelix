@@ -32,6 +32,7 @@ on:
       - "adapters/forge-m0-offline-evidence/**"
       - "adapters/forge-m0-offline-evidence-v6/**"
       - "adapters/forge-m0-capsule-builder/**"
+      - "adapters/forge-m0-capsule-materializer/**"
       - ".github/workflows/forge.yml"
   push:
     branches:
@@ -65,6 +66,7 @@ on:
       - "adapters/forge-m0-offline-evidence/**"
       - "adapters/forge-m0-offline-evidence-v6/**"
       - "adapters/forge-m0-capsule-builder/**"
+      - "adapters/forge-m0-capsule-materializer/**"
       - ".github/workflows/forge.yml"
 
 permissions:
@@ -139,6 +141,8 @@ jobs:
             path: adapters/forge-m0-offline-evidence-v6
           - name: Forge M0 Capsule Builder
             path: adapters/forge-m0-capsule-builder
+          - name: Forge M0 Capsule Materializer
+            path: adapters/forge-m0-capsule-materializer
     defaults:
       run:
         working-directory: ${{ matrix.path }}
