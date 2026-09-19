@@ -1,0 +1,20 @@
+[package]
+name = "mycelix-forge-cli"
+version = "0.1.0"
+edition = "2021"
+authors = ["Luminous Dynamics"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+description = "Operator CLI for Mycelix Forge M0 verification and launch"
+
+[[bin]]
+name = "mycelix-forge"
+path = "src/main.rs"
+
+[dependencies]
+mycelix-forge-core = { path = "../mycelix-forge-core" }
+mycelix-forge-m0-receipt-bound-launch = { path = "../../adapters/forge-m0-receipt-bound-launch" }
+libc = "0.2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
