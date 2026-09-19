@@ -12,4 +12,6 @@ name = "hearth_automation_integrity"
 hdi = { workspace = true }
 serde = { workspace = true }
 hearth-work-proposal = { workspace = true }
+hearth-assignment-transition = { workspace = true }
+hearth-assignment-endorsement = { workspace = true }
 hearth_care_integrity = { path = "../../hearth-care/integrity" }

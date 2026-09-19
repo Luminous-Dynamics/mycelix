@@ -7,13 +7,17 @@ license.workspace = true
 [lib]
 crate-type = ["cdylib", "rlib"]
 name = "hearth_automation"
+path = "src/root.rs"
 
 [dependencies]
 hdk = { workspace = true }
 serde = { workspace = true }
 hearth_automation_integrity = { path = "../integrity" }
 hearth_care_integrity = { path = "../../hearth-care/integrity" }
+hearth_kinship_integrity = { path = "../../hearth-kinship/integrity" }
 hearth-work-proposal = { workspace = true }
+hearth-assignment-transition = { workspace = true }
+hearth-assignment-endorsement = { workspace = true }
 hearth-household-planner = { workspace = true }
 hearth-types = { workspace = true }
 hearth-coordinator-common = { workspace = true }
