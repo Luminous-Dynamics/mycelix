@@ -1,0 +1,183 @@
+name: MYC-CONST-001B S0 Restack Diagnostic
+
+on:
+  push:
+    branches:
+      - diag/myc-const-001b-restack-r3-s0
+    paths:
+      - '.github/workflows/myc-const-001b-s0-restack-diagnostic.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: myc-const-001b-s0-restack-diagnostic-v1
+  cancel-in-progress: true
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  CARGO_INCREMENTAL: '0'
+  DIAGNOSTIC_WORKFLOW: '.github/workflows/myc-const-001b-s0-restack-diagnostic.yml'
+  PRODUCT_SHA: '9ca73134123869fdcf9efc47fe3d811180ea89c8'
+  PRODUCT_PARENT: '3600e04b0b30a3281574220142ebe1be27833a62'
+  WORKSPACE_MANIFEST: 'mycelix-governance/Cargo.toml'
+  CRATE_MANIFEST: 'mycelix-governance/crates/constitutional-authority/Cargo.toml'
+  LOCKFILE: 'mycelix-governance/Cargo.lock'
+  SOURCE: 'mycelix-governance/crates/constitutional-authority/src/lib.rs'
+  SEPARATION_TEST: 'mycelix-governance/crates/constitutional-authority/tests/separation.rs'
+  DELEGATION_TEST: 'mycelix-governance/crates/constitutional-authority/tests/delegation.rs'
+  ENTITLEMENT_TEST: 'mycelix-governance/crates/constitutional-authority/tests/entitlements.rs'
+  PROFILE: 'mycelix-governance/docs/CONSTITUTIONAL_AUTHORITY_V0_1B.md'
+  EXPECTED_SOURCE_BLOB: '2eb0781f205bff1aaeded87632734b1abd4ca596'
+  EXPECTED_DELEGATION_BLOB: 'e0d207053c11d4b13fc155c9921d3a1e195af318'
+  EXPECTED_ENTITLEMENT_BLOB: '11af240b348db90b73e2d33e7d805a9f3ee5a034'
+  EXPECTED_PROFILE_BLOB: 'a384215d16d2f7055c05540390d064e7191e5247'
+  EXPECTED_CRATE_MANIFEST_BLOB: 'cdc855da0ddddf57eae595bc14c1ec1907437e4f'
+  EXPECTED_LOCK_BLOB: '06f19dac624b5e7b599e685d08429553957eb538'
+  EXPECTED_SEPARATION_BLOB: '0eafd5a9b11d59a59c6c6466226a97541eee9f1d'
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout exact diagnostic subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 3
+          persist-credentials: false
+
+      - name: Prove one-workflow diagnostic lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$PRODUCT_SHA"
+          mapfile -t changed < <(git diff --name-only "$PRODUCT_SHA" HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$DIAGNOSTIC_WORKFLOW"
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Checkout exact S0 product read-only
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.PRODUCT_SHA }}
+          fetch-depth: 3
+          persist-credentials: false
+
+      - name: Bind exact R3 parent, four-file scope, and foundation anchors
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$PRODUCT_SHA"
+          test "$(git rev-parse HEAD^)" = "$PRODUCT_PARENT"
+
+          python3 - <<'PY'
+          import os, subprocess
+          expected = sorted([
+              os.environ['SOURCE'],
+              os.environ['DELEGATION_TEST'],
+              os.environ['ENTITLEMENT_TEST'],
+              os.environ['PROFILE'],
+          ])
+          actual = subprocess.run(
+              ['git', 'diff', '--name-only', os.environ['PRODUCT_PARENT'], os.environ['PRODUCT_SHA']],
+              check=True, capture_output=True, text=True,
+          ).stdout.splitlines()
+          if sorted(actual) != expected:
+              raise SystemExit(f'S0 scope mismatch: expected={expected!r} actual={sorted(actual)!r}')
+          PY
+
+          test "$(git rev-parse "HEAD:$SOURCE")" = "$EXPECTED_SOURCE_BLOB"
+          test "$(git rev-parse "HEAD:$DELEGATION_TEST")" = "$EXPECTED_DELEGATION_BLOB"
+          test "$(git rev-parse "HEAD:$ENTITLEMENT_TEST")" = "$EXPECTED_ENTITLEMENT_BLOB"
+          test "$(git rev-parse "HEAD:$PROFILE")" = "$EXPECTED_PROFILE_BLOB"
+          test "$(git rev-parse "HEAD:$CRATE_MANIFEST")" = "$EXPECTED_CRATE_MANIFEST_BLOB"
+          test "$(git rev-parse "HEAD:$LOCKFILE")" = "$EXPECTED_LOCK_BLOB"
+          test "$(git rev-parse "HEAD:$SEPARATION_TEST")" = "$EXPECTED_SEPARATION_BLOB"
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Independent semantic-presence audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          source = Path(os.environ['SOURCE']).read_text(encoding='utf-8')
+          profile = Path(os.environ['PROFILE']).read_text(encoding='utf-8').casefold()
+          manifest = Path(os.environ['CRATE_MANIFEST']).read_text(encoding='utf-8')
+
+          required_source = [
+              'pub enum ConstitutionalEntitlement',
+              'pub struct ConstitutionalEntitlementGrant',
+              'pub enum JurisdictionRelation',
+              'pub fn validate_delegation(',
+              'DelegationRequiresParentValidation',
+              'AutomatedAgentCannotHoldConstitutionalEntitlement',
+              'is_intrinsically_nondelegable',
+              'pub holder_id: String',
+          ]
+          for token in required_source:
+              if token not in source:
+                  raise SystemExit(f'missing 001B semantic token: {token}')
+
+          required_profile = [
+              'entitlement',
+              'delegation',
+              'jurisdiction',
+              'automated agent',
+              'semantic',
+          ]
+          for token in required_profile:
+              if token not in profile:
+                  raise SystemExit(f'missing 001B profile concept: {token}')
+
+          if 'hdk =' in manifest or 'hdi =' in manifest:
+              raise SystemExit('pure constitutional-authority crate unexpectedly gained HDK/HDI')
+          print('semantic_presence_audit=PASS')
+          PY
+
+      - name: Install pinned Rust 1.96 toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
+
+      - name: Capture exact toolchain and input capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc --version --verbose
+          cargo --version --verbose
+          python3 --version
+          git --version
+          sha256sum "$SOURCE" "$DELEGATION_TEST" "$ENTITLEMENT_TEST" "$PROFILE" "$CRATE_MANIFEST" "$WORKSPACE_MANIFEST" "$LOCKFILE" "$SEPARATION_TEST"
+
+      - name: Rustfmt exact S0 product
+        run: cargo fmt --manifest-path "$CRATE_MANIFEST" -- --check
+
+      - name: Locked compile
+        run: cargo test --manifest-path "$CRATE_MANIFEST" --all-targets --locked --no-run
+
+      - name: Execute full constitutional-authority suite
+        run: cargo test --manifest-path "$CRATE_MANIFEST" --all-targets --locked
+
+      - name: Strict Clippy
+        run: cargo clippy --manifest-path "$CRATE_MANIFEST" --all-targets --locked -- -D warnings
+
+      - name: Postflight immutability and diagnostic receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          test -z "$(git status --porcelain=v1 --untracked-files=no)"
+          test "$(git rev-parse "HEAD:$SOURCE")" = "$EXPECTED_SOURCE_BLOB"
+          test "$(git rev-parse "HEAD:$LOCKFILE")" = "$EXPECTED_LOCK_BLOB"
+          test "$(git rev-parse "HEAD:$SEPARATION_TEST")" = "$EXPECTED_SEPARATION_BLOB"
+          printf 'diagnostic_status=PASS\n'
+          printf 'product_sha=%s\n' "$PRODUCT_SHA"
+          printf 'product_parent=%s\n' "$PRODUCT_PARENT"
+          printf 'claim=mechanical Rust-1.96 status of exact MYC-CONST-001B S0 restack only\n'
+          printf 'nonclaim=final 001B qualification, runtime authority enforcement, jurisdiction truth, source signature/currentness, legal validity\n'
