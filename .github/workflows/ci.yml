@@ -36,6 +36,7 @@ jobs:
       bridge: ${{ steps.filter.outputs.bridge }}
       sdk: ${{ steps.filter.outputs.sdk }}
       prism: ${{ steps.filter.outputs.prism }}
+      assurance: ${{ steps.filter.outputs.assurance }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -73,6 +74,10 @@ jobs:
               - 'mycelix-workspace/sdk-ts/**'
             prism:
               - 'mycelix-workspace/mycelix-prism/**'
+            assurance:
+              - 'assurance/**'
+              - 'crates/mycelix-assurance-core/**'
+              - '.github/workflows/ci.yml'
 
   # Format check (always runs when CI is admitted)
   format:
@@ -85,17 +90,6 @@ jobs:
           components: rustfmt
       - name: Check formatting
         run: |
-          # Each check runs in a subshell `(cd "$dir" && ...)` rather than
-          # `cd "$dir" && ... && cd ..` -- the latter never runs the trailing
-          # `cd ..` when the fmt check itself fails (short-circuits on the
-          # first `&&`), leaving the script's cwd stuck inside that
-          # directory for every subsequent iteration and turning one real
-          # violation into a cascade of unrelated "No such file or
-          # directory" errors for every cluster checked after it. The
-          # subshell keeps cwd untouched regardless of outcome, and we keep
-          # checking every directory (not stop at the first failure) so a
-          # single CI run surfaces every cluster's violations at once,
-          # exiting non-zero at the end if any were found.
           status=0
           for dir in mycelix-commons mycelix-civic mycelix-hearth mycelix-finance mycelix-governance mycelix-identity mycelix-personal mycelix-attribution; do
             echo "=== Checking $dir ==="
@@ -105,7 +99,6 @@ jobs:
           (cd crates/mycelix-bridge-entry-types && cargo fmt --all --check) || status=1
           exit $status
 
-  # Per-cluster test jobs
   test-commons:
     needs: changes
     if: needs.changes.outputs.commons == 'true' || github.event_name == 'push'
@@ -178,20 +171,7 @@ jobs:
       - name: Test finance
         run: cd mycelix-finance && cargo test --workspace
 
-  # Separate from test-finance on purpose: this needs nix (for `hc`) and a much
-  # longer timeout (a cold `holochain` crate compile alone takes ~1h without a
-  # warm rust-cache), so it shouldn't share test-finance's fast 20-minute budget.
-  # `tests/` is excluded from the finance Cargo workspace and every sweettest is
-  # #[ignore]-gated, so `cargo test --workspace` in test-finance never runs them —
-  # this job is what actually packs the DNA and exercises the SweetConductor
-  # fail-closed-gate checks end to end.
-  #
-  # NOT yet in ci-pass's required job list: the finance zomes/types/tests this
-  # job needs (e.g. tests/sweettest_sap_finality_adversarial.rs) haven't been
-  # synced from the monorepo to this repo yet, so it is EXPECTED to fail until
-  # that sync lands. It still runs and reports for visibility — once the
-  # finance sync lands, add `test-finance-integration` to ci-pass's `needs`
-  # and failure-check loop below to make it a real merge gate.
+  # Informational until its separately documented finance sync blocker clears.
   test-finance-integration:
     name: Finance Integration (SweetConductor)
     needs: changes
@@ -214,23 +194,10 @@ jobs:
             mycelix-finance
             mycelix-finance/tests
       - name: Build finance zomes (wasm32)
-        # hc dna pack reads dna.yaml's zome paths, which point at
-        # ../target/wasm32-unknown-unknown/release/*.wasm relative to dna/ —
-        # nothing builds those files on its own. Skipping this step is what
-        # made "Pack finance DNA" fail with "Failed to canonicalize resource
-        # path: .../recognition.wasm: No such file or directory" after a
-        # real ~25-minute nix toolchain build that otherwise succeeded.
         run: |
           cd mycelix-finance && nix develop .#ci --impure --command \
             cargo build --release --target wasm32-unknown-unknown --workspace --exclude finance-leptos-types
       - name: Pack finance DNA
-        # --impure: the flake's .#ci shell imports ../../nix/modules/
-        # holochain-base.nix, a relative path outside mycelix-finance's own
-        # flake root — flakes evaluate purely by default, so without this
-        # flag `nix develop` fails immediately with "access to absolute
-        # path '/nix/store/nix' is forbidden in pure evaluation mode",
-        # before ever reaching `hc`. Confirmed locally: the same command
-        # fails identically without --impure and proceeds to build with it.
         run: cd mycelix-finance && nix develop .#ci --impure --command hc dna pack dna/
       - name: Run SweetConductor integration tests
         run: |
@@ -375,10 +342,6 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: mycelix-workspace
-      # `cargo fmt --all` needs full-workspace `cargo metadata`, which
-      # currently fails workspace-wide (mycelix-personal/crates/stress-tester
-      # depends on a missing crates/luminous-sim-core -- unrelated to Prism).
-      # Per-package `-p` flags avoid that full-graph walk.
       - name: Check formatting
         run: |
           cd mycelix-workspace/mycelix-prism
@@ -389,12 +352,6 @@ jobs:
             -p prism-tauri -p prism-node
       - name: Build prism-ui for wasm32 (Trunk target)
         run: cd mycelix-workspace/mycelix-prism/prism-ui && cargo build --target wasm32-unknown-unknown
-      # Each package is tested in its own `cargo test` invocation, not one
-      # combined `-p a -p b -p c` command: combining prism-shell and
-      # prism-ui in a single invocation triggers cross-package feature
-      # unification that pulls in an incompatible naga/termcolor pairing
-      # (naga 28.0.0 fails to compile against the resolved termcolor
-      # version) even though each crate builds and tests cleanly alone.
       - name: Test Prism crates
         run: |
           cd mycelix-workspace/mycelix-prism
@@ -407,10 +364,227 @@ jobs:
       - name: Check prism-tauri (desktop shell, compile-only)
         run: cd mycelix-workspace/mycelix-prism && cargo check -p prism-tauri
 
+  # Permanent ASSURE-002B merge gate and exact-head evidence lane. On PRs this
+  # deliberately checks out the immutable PR head, while the surrounding CI jobs
+  # continue to exercise GitHub's merge ref against the current base.
+  test-assurance:
+    name: Assurance Core
+    needs: changes
+    if: needs.changes.outputs.assurance == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      RUSTUP_TOOLCHAIN: 1.98.1
+      EXPECTED_SPEC_ROOT_SHA256: 46550610da111888f862d4bfc610f6dc41edfcbcdcd0579377e367df16486973
+      EXPECTED_COVERAGE_SHA256: 32bff983f4cdc9d3393e6e4381f8ed470ca29d08e13f8bebe7d1973a3bd0c1e1
+      EXPECTED_CORPUS_ROOT_SHA256: 784ff870e0b9815b015be1bbaa32f0dcc615cb3c22c614ba8bf9389fe4ccaef8
+      EXPECTED_CARGO_LOCK_SHA256: 9a0babe726db931fb24087af4e1321f034e15b29a03d1b9249cd6176b3525a8b
+    steps:
+      - name: Check out exact assurance subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 2
+
+      - name: Verify exact checkout and permanent-CI lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          else
+            test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          fi
+          test -z "$(git status --porcelain --untracked-files=all)"
+          python3 assurance/qualification/002b/check_permanent_ci.py
+
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.98.1 --profile minimal --component rustfmt --component clippy
+
+      - name: Verify pinned toolchain identity
+        run: |
+          set -euo pipefail
+          rustc --version --verbose
+          cargo --version
+          rustc --version | grep -F 'rustc 1.98.1 '
+
+      - name: Verify ASSURE-V1 specification root
+        run: |
+          set -euo pipefail
+          python3 assurance/spec/v1/check_spec.py
+          grep -F "spec_root_sha256 = \"$EXPECTED_SPEC_ROOT_SHA256\"" assurance/spec/v1/SPEC.lock
+
+      - name: Verify frozen L0 corpus and coverage roots
+        run: |
+          set -euo pipefail
+          python3 assurance/vectors/v1/l0/check_vectors.py
+          grep -F "coverage_sha256 = \"$EXPECTED_COVERAGE_SHA256\"" assurance/vectors/v1/l0/manifest.toml
+          grep -F "corpus_root_sha256 = \"$EXPECTED_CORPUS_ROOT_SHA256\"" assurance/vectors/v1/l0/manifest.toml
+
+      - name: Verify dependency and trusted-surface boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_lock_sha="$(sha256sum crates/mycelix-assurance-core/Cargo.lock | awk '{print $1}')"
+          test "$actual_lock_sha" = "$EXPECTED_CARGO_LOCK_SHA256"
+          python3 - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path("crates/mycelix-assurance-core")
+          manifest = tomllib.loads((root / "Cargo.toml").read_text())
+          lock = tomllib.loads((root / "Cargo.lock").read_text())
+          lib = (root / "src/lib.rs").read_text()
+
+          assert manifest.get("features") == {"default": []}, "default feature set must remain empty"
+          assert not (root / "build.rs").exists(), "002B must not have build.rs"
+          assert "#![forbid(unsafe_code)]" in lib, "crate must continue to forbid unsafe code"
+          assert manifest.get("dependencies") == {
+              "cbor2": {
+                  "version": "=1.1.5",
+                  "default-features": False,
+                  "features": ["alloc"],
+              },
+              "serde": {
+                  "version": "=1.0.229",
+                  "default-features": False,
+              },
+          }, "unexpected direct dependency surface"
+
+          expected = {
+              "cbor2": ("1.1.5", "86756b93a81474930c7edc4e4fab45b9cd197a50bc9775ae01450d4f621788a3"),
+              "mycelix-assurance-core": ("0.1.0", None),
+              "proc-macro2": ("1.0.107", "985e7ec9bb745e6ce6535b544d84d6cd6f7ad8bd711c398938ae983b91a766d9"),
+              "quote": ("1.0.47", "1fbf4db142a473a8d80c26bbf18454ed458bf8d26c8219c331daecfdbd079001"),
+              "serde": ("1.0.229", "4148590afebada386688f18773da617792bf2ef03ffc1e4cbd2b1d45b023e0ba"),
+              "serde_core": ("1.0.229", "67dca2c9c51e58a4791a4b1ed58308b39c64224d349a935ab5039aa360942a48"),
+              "serde_derive": ("1.0.229", "e7a5d71263a5a7d47b41f6b3f06ba276f10cc18b0931f1799f710578e2309348"),
+              "syn": ("3.0.6", "8593e8e72159ed2257d083c7a454a85cbf854f37a0966d8d483aff8c8a3ebcee"),
+              "unicode-ident": ("1.0.26", "d245f478577f809a851594d02313b640fb437e0bb33866753cff937863096954"),
+          }
+          observed = {p["name"]: (p["version"], p.get("checksum")) for p in lock.get("package", [])}
+          assert observed == expected, f"unexpected Cargo.lock package set: {observed!r}"
+          PY
+
+      - name: Check assurance formatting
+        run: cd crates/mycelix-assurance-core && cargo fmt --all --check
+
+      - name: Check assurance crate
+        run: cd crates/mycelix-assurance-core && cargo check --locked --all-targets
+
+      - name: Test assurance crate
+        run: cd crates/mycelix-assurance-core && cargo test --locked --all-targets
+
+      - name: Clippy assurance crate
+        run: cd crates/mycelix-assurance-core && cargo clippy --locked --all-targets -- -D warnings
+
+      - name: Verify exact subject remained immutable
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=all)"
+
+      - name: Emit canonical permanent qualification receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import platform
+          import subprocess
+          import tomllib
+          from pathlib import Path
+
+          root = Path.cwd()
+          lineage = tomllib.loads((root / "assurance/qualification/002b/lineage.toml").read_text())
+          event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
+
+          def cmd(*args):
+              return subprocess.check_output(args, text=True).strip()
+
+          subject = cmd("git", "rev-parse", "HEAD")
+          tree = cmd("git", "rev-parse", "HEAD^{tree}")
+          if event.get("pull_request"):
+              assert subject == event["pull_request"]["head"]["sha"]
+              base_sha = event["pull_request"]["base"]["sha"]
+          else:
+              assert subject == os.environ["GITHUB_SHA"]
+              base_sha = None
+
+          workflow = root / ".github/workflows/ci.yml"
+          workflow_sha256 = hashlib.sha256(workflow.read_bytes()).hexdigest()
+          cargo_lock = root / "crates/mycelix-assurance-core/Cargo.lock"
+          cargo_lock_sha256 = hashlib.sha256(cargo_lock.read_bytes()).hexdigest()
+          assert cargo_lock_sha256 == lineage["cargo_lock_sha256"]
+
+          receipt = {
+              "schema": "mycelix.assure.002b.permanent-ci.receipt.v0.1",
+              "qualification_subject_commit": subject,
+              "qualification_subject_tree": tree,
+              "event_base_commit": base_sha,
+              "scheduler_main_ancestor": lineage["scheduler_main_ancestor"],
+              "qualified_002a_commit": lineage["qualified_002a_commit"],
+              "qualified_002a_receipt_sha256": lineage["qualified_002a_receipt_sha256"],
+              "temporary_002b_subject_commit": lineage["temporary_002b_subject_commit"],
+              "temporary_002b_subject_tree": lineage["temporary_002b_subject_tree"],
+              "temporary_002b_receipt_sha256": lineage["temporary_002b_receipt_sha256"],
+              "temporary_002b_artifact_digest": lineage["temporary_002b_artifact_digest"],
+              "spec_root_sha256": lineage["spec_root_sha256"],
+              "coverage_sha256": lineage["coverage_sha256"],
+              "corpus_root_sha256": lineage["corpus_root_sha256"],
+              "cargo_lock_sha256": cargo_lock_sha256,
+              "workflow_path": ".github/workflows/ci.yml",
+              "workflow_sha256": workflow_sha256,
+              "rustc_version": cmd("rustc", "--version"),
+              "cargo_version": cmd("cargo", "--version"),
+              "github_run_id": os.environ["GITHUB_RUN_ID"],
+              "github_run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
+              "github_event_name": os.environ["GITHUB_EVENT_NAME"],
+              "runner_os": platform.system(),
+              "runner_arch": platform.machine(),
+              "proposition": (
+                  "For the exact recorded ASSURE-002B permanent-CI subject, predecessor lineage, "
+                  "specification/vector/dependency identities verify and fmt/check/test/Clippy "
+                  "complete successfully under the pinned toolchain."
+              ),
+              "nonclaims": [
+                  "L0 success establishes canonical syntax conformance only.",
+                  "This receipt does not establish graph validity or evidence truth/admissibility.",
+                  "This receipt establishes no effective authority or political/constitutional/moral legitimacy.",
+                  "This receipt does not establish overall system safety or repository merge enforcement."
+              ],
+          }
+          encoded = (json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n").encode()
+          out_dir = Path(os.environ["RUNNER_TEMP"]) / "assure-002b"
+          out_dir.mkdir(parents=True, exist_ok=True)
+          out = out_dir / "assure-002b-permanent-receipt.json"
+          out.write_bytes(encoded)
+          digest = hashlib.sha256(encoded).hexdigest()
+          (out_dir / "assure-002b-permanent-receipt.sha256").write_text(
+              f"{digest}  {out.name}\n"
+          )
+          print(encoded.decode(), end="")
+          print(f"receipt_sha256={digest}")
+          PY
+
+      - name: Preserve permanent qualification evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: assure-002b-permanent-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/assure-002b/assure-002b-permanent-receipt.json
+            ${{ runner.temp }}/assure-002b/assure-002b-permanent-receipt.sha256
+            crates/mycelix-assurance-core/Cargo.lock
+          if-no-files-found: error
+          retention-days: 30
+
   # Summary gate
   ci-pass:
     if: always() && !cancelled() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false))
     needs:
+      - changes
       - format
       - test-commons
       - test-civic
@@ -424,17 +598,20 @@ jobs:
       - test-bridge
       - test-sdk
       - test-prism
+      - test-assurance
     runs-on: ubuntu-latest
     steps:
       - name: Check results
+        shell: bash
         run: |
+          set -euo pipefail
+
+          echo "Changes: ${{ needs.changes.result }}"
           echo "Format: ${{ needs.format.result }}"
           echo "Commons: ${{ needs.test-commons.result }}"
           echo "Civic: ${{ needs.test-civic.result }}"
           echo "Hearth: ${{ needs.test-hearth.result }}"
           echo "Finance: ${{ needs.test-finance.result }}"
-          # Reported but not gated below — expected red until the finance
-          # zomes/tests are synced from the monorepo. See the job's own comment.
           echo "Finance Integration (informational): ${{ needs.test-finance-integration.result }}"
           echo "Governance: ${{ needs.test-governance.result }}"
           echo "Identity: ${{ needs.test-identity.result }}"
@@ -443,9 +620,56 @@ jobs:
           echo "Bridge: ${{ needs.test-bridge.result }}"
           echo "SDK: ${{ needs.test-sdk.result }}"
           echo "Prism: ${{ needs.test-prism.result }}"
-          if [ "${{ needs.format.result }}" = "failure" ]; then exit 1; fi
-          # Skipped jobs are OK (path filter didn't match)
-          for result in "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
-            if [ "$result" = "failure" ]; then exit 1; fi
-          done
-          echo "All checks passed!"
+          echo "Assurance: ${{ needs.test-assurance.result }}"
+
+          require_result() {
+            local name="$1"
+            local result="$2"
+            if [ "$result" != "success" ]; then
+              echo "Required job $name did not succeed: $result" >&2
+              exit 1
+            fi
+          }
+
+          require_conditional() {
+            local name="$1"
+            local result="$2"
+            local changed="$3"
+            local always_required="$4"
+            if [ "$always_required" = "true" ] || [ "$changed" = "true" ]; then
+              require_result "$name" "$result"
+            elif [ "$result" != "skipped" ] && [ "$result" != "success" ]; then
+              echo "Optional job $name had unexpected terminal result: $result" >&2
+              exit 1
+            fi
+          }
+
+          require_result "changes" "${{ needs.changes.result }}"
+          require_result "format" "${{ needs.format.result }}"
+
+          if [ "${{ github.event_name }}" = "push" ]; then
+            push_required=true
+          else
+            push_required=false
+          fi
+
+          require_conditional "commons" "${{ needs.test-commons.result }}" "${{ needs.changes.outputs.commons }}" "$push_required"
+          require_conditional "civic" "${{ needs.test-civic.result }}" "${{ needs.changes.outputs.civic }}" "$push_required"
+          require_conditional "hearth" "${{ needs.test-hearth.result }}" "${{ needs.changes.outputs.hearth }}" "$push_required"
+          require_conditional "finance" "${{ needs.test-finance.result }}" "${{ needs.changes.outputs.finance }}" "$push_required"
+          require_conditional "governance" "${{ needs.test-governance.result }}" "${{ needs.changes.outputs.governance }}" "$push_required"
+          require_conditional "identity" "${{ needs.test-identity.result }}" "${{ needs.changes.outputs.identity }}" "$push_required"
+          require_conditional "personal" "${{ needs.test-personal.result }}" "${{ needs.changes.outputs.personal }}" "$push_required"
+          require_conditional "attribution" "${{ needs.test-attribution.result }}" "${{ needs.changes.outputs.attribution }}" "$push_required"
+          require_conditional "bridge" "${{ needs.test-bridge.result }}" "${{ needs.changes.outputs.bridge }}" "$push_required"
+          require_conditional "sdk" "${{ needs.test-sdk.result }}" "${{ needs.changes.outputs.sdk }}" "$push_required"
+          require_conditional "prism" "${{ needs.test-prism.result }}" "${{ needs.changes.outputs.prism }}" "$push_required"
+
+          if [ "${{ github.event_name }}" = "push" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            assurance_always_required=true
+          else
+            assurance_always_required=false
+          fi
+          require_conditional "assurance" "${{ needs.test-assurance.result }}" "${{ needs.changes.outputs.assurance }}" "$assurance_always_required"
+
+          echo "All required checks passed!"
