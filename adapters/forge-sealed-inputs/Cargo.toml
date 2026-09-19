@@ -1,0 +1,17 @@
+[package]
+name = "mycelix-forge-sealed-inputs"
+version = "0.1.0"
+edition = "2021"
+authors = ["Luminous Dynamics"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+description = "Sealed memfd input transport for Mycelix Forge hermetic verification"
+
+[dependencies]
+mycelix-forge-core = { path = "../../crates/mycelix-forge-core" }
+mycelix-forge-linux-isolation = { path = "../forge-linux-isolation" }
+blake3 = "1.5"
+libc = "0.2"
+serde = { version = "1.0", features = ["derive"] }
+sha2 = "0.10"
+thiserror = "2.0"
