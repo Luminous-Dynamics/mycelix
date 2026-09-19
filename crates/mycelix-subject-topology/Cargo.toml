@@ -1,0 +1,15 @@
+[package]
+name = "mycelix-subject-topology"
+version = "0.1.0"
+edition = "2024"
+description = "Candidate-subject topology and individuation boundaries for Mycelix AMSAP"
+license = "AGPL-3.0-or-later"
+authors = ["Luminous Dynamics <contact@luminousdynamics.org>"]
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+
+[lib]
+name = "mycelix_subject_topology"
+path = "src/lib.rs"
+
+[dependencies]
+mycelix-ai-lineage = { path = "../mycelix-ai-lineage" }
