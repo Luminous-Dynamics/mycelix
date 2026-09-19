@@ -5,8 +5,9 @@
 //!
 //! Runtime provenance is explicit: Demo owns illustrative fixture data; Live
 //! starts empty and only publishes values returned by typed conductor view
-//! endpoints. An authoritative empty result therefore remains empty rather
-//! than preserving demo records.
+//! endpoints. Reconciliation is additionally bound to a local connection epoch
+//! so an asynchronous result from an obsolete conductor/signer session cannot
+//! publish into a later one.
 
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -19,6 +20,7 @@ use personal_leptos_types::{
 };
 
 use crate::mock_data;
+use crate::reconciliation::{ReconciliationEpoch, ReconciliationTransition};
 use crate::runtime_mode::PersonalRuntimeMode;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -54,6 +56,10 @@ pub fn use_cultural() -> CulturalContext {
     use_context::<CulturalContext>().expect("CulturalContext not provided")
 }
 
+/// What the most recent completed query set established for one Personal source.
+///
+/// This deliberately does not encode whether the result is still fresh for the
+/// current conductor/signer session. See [`PersonalSnapshotFreshness`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PersonalSourceState {
     Demo,
@@ -63,6 +69,19 @@ pub enum PersonalSourceState {
     Empty,
     Degraded,
     Unavailable,
+}
+
+/// Freshness/provenance of the aggregate Personal snapshot.
+///
+/// A previously loaded snapshot can remain visible while `Stale`; callers must
+/// not present it as evidence from the current connection epoch.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PersonalSnapshotFreshness {
+    Illustrative,
+    AwaitingLive,
+    Refreshing,
+    Current,
+    Stale,
 }
 
 fn classify_source(successes: usize, failures: usize, present_items: usize) -> PersonalSourceState {
@@ -107,6 +126,8 @@ pub struct PersonalCtx {
     pub health_state: RwSignal<PersonalSourceState>,
     pub preferences_state: RwSignal<PersonalSourceState>,
     pub activity_state: RwSignal<PersonalSourceState>,
+    pub snapshot_freshness: RwSignal<PersonalSnapshotFreshness>,
+    pub reconciliation: RwSignal<ReconciliationEpoch>,
     pub loading: RwSignal<bool>,
     pub status_note: RwSignal<String>,
 }
@@ -130,6 +151,15 @@ impl PersonalCtx {
             self.preferences_state.get_untracked(),
             self.activity_state.get_untracked(),
         ]
+    }
+
+    fn accepts_epoch(&self, epoch: u64) -> bool {
+        self.reconciliation.get_untracked().accepts(epoch)
+    }
+
+    fn current_usable_epoch(&self) -> Option<u64> {
+        let gate = self.reconciliation.get_untracked();
+        gate.is_usable().then(|| gate.current_epoch())
     }
 }
 
@@ -195,6 +225,12 @@ pub fn provide_personal_context(runtime_mode: PersonalRuntimeMode) {
         health_state: RwSignal::new(source_state),
         preferences_state: RwSignal::new(source_state),
         activity_state: RwSignal::new(source_state),
+        snapshot_freshness: RwSignal::new(if runtime_mode.is_demo() {
+            PersonalSnapshotFreshness::Illustrative
+        } else {
+            PersonalSnapshotFreshness::AwaitingLive
+        }),
+        reconciliation: RwSignal::new(ReconciliationEpoch::default()),
         loading: RwSignal::new(false),
         status_note: RwSignal::new(if runtime_mode.is_demo() {
             "Explicit Demo mode. Personal records shown here are illustrative and are not conductor-backed evidence."
@@ -212,23 +248,63 @@ pub fn provide_personal_context(runtime_mode: PersonalRuntimeMode) {
     }
 
     let hc = use_holochain();
-    let hydration_started = RwSignal::new(false);
     let ctx_for_effect = ctx.clone();
 
     Effect::new(move |_| {
-        if !hc.zome_calls_ready() || hydration_started.get() {
+        let usable = hc.zome_calls_ready();
+        let mut gate = ctx_for_effect.reconciliation.get_untracked();
+        let transition = gate.observe_usable(usable);
+        let had_snapshot = gate.has_completed();
+
+        if transition == ReconciliationTransition::None {
             return;
         }
 
-        hydration_started.set(true);
-        ctx_for_effect.loading.set(true);
-        set_all_source_states(&ctx_for_effect, PersonalSourceState::LoadingLive);
+        ctx_for_effect.reconciliation.set(gate);
 
-        let ctx = ctx_for_effect.clone();
-        let hc = hc.clone();
-        spawn_local(async move {
-            hydrate_live(ctx, hc).await;
-        });
+        match transition {
+            ReconciliationTransition::None => {}
+            ReconciliationTransition::Start { epoch } => {
+                ctx_for_effect.loading.set(true);
+                ctx_for_effect
+                    .snapshot_freshness
+                    .set(PersonalSnapshotFreshness::Refreshing);
+                if !had_snapshot {
+                    set_all_source_states(&ctx_for_effect, PersonalSourceState::LoadingLive);
+                }
+                ctx_for_effect.status_note.set(format!(
+                    "Reconciling Personal state from live conductor epoch {epoch}. Previously cached values remain non-authoritative until this epoch completes."
+                ));
+
+                let ctx = ctx_for_effect.clone();
+                let hc = hc.clone();
+                spawn_local(async move {
+                    hydrate_live(ctx, hc, epoch).await;
+                });
+            }
+            ReconciliationTransition::Invalidated { had_completed, .. } => {
+                ctx_for_effect.loading.set(false);
+                if had_completed {
+                    ctx_for_effect
+                        .snapshot_freshness
+                        .set(PersonalSnapshotFreshness::Stale);
+                    ctx_for_effect.status_note.set(
+                        "The live conductor/signer epoch ended. Previously loaded Personal values remain visible as a stale local snapshot and are not current source evidence."
+                            .into(),
+                    );
+                } else {
+                    clear_uncommitted_live_snapshot(&ctx_for_effect);
+                    ctx_for_effect
+                        .snapshot_freshness
+                        .set(PersonalSnapshotFreshness::AwaitingLive);
+                    set_all_source_states(&ctx_for_effect, PersonalSourceState::AwaitingLive);
+                    ctx_for_effect.status_note.set(
+                        "Live Personal reconciliation was interrupted before an authoritative snapshot completed. Partial results were discarded; waiting for a usable conductor and signer."
+                            .into(),
+                    );
+                }
+            }
+        }
     });
 }
 
@@ -240,14 +316,46 @@ fn set_all_source_states(ctx: &PersonalCtx, state: PersonalSourceState) {
     ctx.activity_state.set(state);
 }
 
-async fn hydrate_live(ctx: PersonalCtx, hc: HolochainCtx) {
-    load_identity_source(&ctx, &hc).await;
-    load_wallet_source(&ctx, &hc).await;
-    load_health_source(&ctx, &hc).await;
-    load_preferences_source(&ctx, &hc).await;
-    load_activity_source(&ctx, &hc).await;
+fn clear_uncommitted_live_snapshot(ctx: &PersonalCtx) {
+    let profile = blank_profile();
+    ctx.profile.set(profile.clone());
+    ctx.draft_profile.set(profile);
+    ctx.keys.set(Vec::new());
+    ctx.credentials.set(Vec::new());
+    ctx.biometrics.set(Vec::new());
+    ctx.consents.set(Vec::new());
+    ctx.preferences.set(Vec::new());
+    ctx.preference_log.set(Vec::new());
+    ctx.health_record_count.set(0);
+    ctx.activity.set(Vec::new());
+}
 
+async fn hydrate_live(ctx: PersonalCtx, hc: HolochainCtx, epoch: u64) {
+    if !load_identity_source(&ctx, &hc, epoch).await {
+        return;
+    }
+    if !load_wallet_source(&ctx, &hc, epoch).await {
+        return;
+    }
+    if !load_health_source(&ctx, &hc, epoch).await {
+        return;
+    }
+    if !load_preferences_source(&ctx, &hc, epoch).await {
+        return;
+    }
+    if !load_activity_source(&ctx, &hc, epoch).await {
+        return;
+    }
+
+    let mut gate = ctx.reconciliation.get_untracked();
+    if !gate.finish(epoch) {
+        return;
+    }
+    ctx.reconciliation.set(gate);
     ctx.loading.set(false);
+    ctx.snapshot_freshness
+        .set(PersonalSnapshotFreshness::Current);
+
     let states = ctx.source_states_untracked();
 
     if states.iter().any(|state| {
@@ -256,39 +364,39 @@ async fn hydrate_live(ctx: PersonalCtx, hc: HolochainCtx) {
             PersonalSourceState::Degraded | PersonalSourceState::Unavailable
         )
     }) {
-        ctx.status_note.set(
-            "Live conductor reached, but one or more Personal sources could not be established. Unavailable sources remain explicit; demo records are not substituted."
-                .into(),
-        );
+        ctx.status_note.set(format!(
+            "Personal epoch {epoch} completed, but one or more sources could not be fully established. Available results are current for this epoch; missing sources remain explicit."
+        ));
     } else if states
         .iter()
         .all(|state| *state == PersonalSourceState::Empty)
     {
-        ctx.status_note.set(
-            "Live conductor returned no Personal records. This empty state is authoritative for the completed view queries."
-                .into(),
-        );
+        ctx.status_note.set(format!(
+            "Personal epoch {epoch} completed with no records. This empty snapshot is authoritative for the completed view queries."
+        ));
     } else {
-        ctx.status_note.set(
-            "Live Personal state loaded from typed conductor view endpoints. Empty source results remain empty and are not replaced with fixtures."
-                .into(),
-        );
+        ctx.status_note.set(format!(
+            "Personal epoch {epoch} loaded from typed conductor view endpoints. Successful empty results remain empty and no demo records are substituted."
+        ));
     }
 }
 
-async fn load_identity_source(ctx: &PersonalCtx, hc: &HolochainCtx) {
+async fn load_identity_source(ctx: &PersonalCtx, hc: &HolochainCtx, epoch: u64) -> bool {
     let mut successes = 0;
     let mut failures = 0;
     let mut present_items = 0;
 
-    match hc
+    let profile_result = hc
         .call_zome_default::<(), Option<ProfileView>>(
             "identity_vault",
             "get_my_profile_view",
             &(),
         )
-        .await
-    {
+        .await;
+    if !ctx.accepts_epoch(epoch) {
+        return false;
+    }
+    match profile_result {
         Ok(profile) => {
             successes += 1;
             if profile.is_some() {
@@ -301,14 +409,17 @@ async fn load_identity_source(ctx: &PersonalCtx, hc: &HolochainCtx) {
         Err(_) => failures += 1,
     }
 
-    match hc
+    let keys_result = hc
         .call_zome_default::<(), Vec<MasterKeyView>>(
             "identity_vault",
             "get_my_keys_view",
             &(),
         )
-        .await
-    {
+        .await;
+    if !ctx.accepts_epoch(epoch) {
+        return false;
+    }
+    match keys_result {
         Ok(keys) => {
             successes += 1;
             present_items += keys.len();
@@ -317,19 +428,27 @@ async fn load_identity_source(ctx: &PersonalCtx, hc: &HolochainCtx) {
         Err(_) => failures += 1,
     }
 
+    if !ctx.accepts_epoch(epoch) {
+        return false;
+    }
     ctx.identity_state
         .set(classify_source(successes, failures, present_items));
+    true
 }
 
-async fn load_wallet_source(ctx: &PersonalCtx, hc: &HolochainCtx) {
-    match hc
+async fn load_wallet_source(ctx: &PersonalCtx, hc: &HolochainCtx, epoch: u64) -> bool {
+    let result = hc
         .call_zome_default::<(), Vec<StoredCredentialView>>(
             "credential_wallet",
             "get_my_credentials_view",
             &(),
         )
-        .await
-    {
+        .await;
+    if !ctx.accepts_epoch(epoch) {
+        return false;
+    }
+
+    match result {
         Ok(credentials) => {
             let count = credentials.len();
             ctx.credentials.set(credentials);
@@ -337,21 +456,25 @@ async fn load_wallet_source(ctx: &PersonalCtx, hc: &HolochainCtx) {
         }
         Err(_) => ctx.wallet_state.set(PersonalSourceState::Unavailable),
     }
+    true
 }
 
-async fn load_health_source(ctx: &PersonalCtx, hc: &HolochainCtx) {
+async fn load_health_source(ctx: &PersonalCtx, hc: &HolochainCtx, epoch: u64) -> bool {
     let mut successes = 0;
     let mut failures = 0;
     let mut present_items = 0;
 
-    match hc
+    let biometrics_result = hc
         .call_zome_default::<(), Vec<BiometricView>>(
             "health_vault",
             "get_my_biometrics_view",
             &(),
         )
-        .await
-    {
+        .await;
+    if !ctx.accepts_epoch(epoch) {
+        return false;
+    }
+    match biometrics_result {
         Ok(biometrics) => {
             successes += 1;
             present_items += biometrics.len();
@@ -360,14 +483,17 @@ async fn load_health_source(ctx: &PersonalCtx, hc: &HolochainCtx) {
         Err(_) => failures += 1,
     }
 
-    match hc
+    let consents_result = hc
         .call_zome_default::<(), Vec<ConsentGrantView>>(
             "health_vault",
             "get_my_consents_view",
             &(),
         )
-        .await
-    {
+        .await;
+    if !ctx.accepts_epoch(epoch) {
+        return false;
+    }
+    match consents_result {
         Ok(consents) => {
             successes += 1;
             present_items += consents.len();
@@ -376,14 +502,17 @@ async fn load_health_source(ctx: &PersonalCtx, hc: &HolochainCtx) {
         Err(_) => failures += 1,
     }
 
-    match hc
+    let records_result = hc
         .call_zome_default::<(), Vec<HealthRecordView>>(
             "health_vault",
             "get_my_records_view",
             &(),
         )
-        .await
-    {
+        .await;
+    if !ctx.accepts_epoch(epoch) {
+        return false;
+    }
+    match records_result {
         Ok(records) => {
             successes += 1;
             present_items += records.len();
@@ -392,23 +521,30 @@ async fn load_health_source(ctx: &PersonalCtx, hc: &HolochainCtx) {
         Err(_) => failures += 1,
     }
 
+    if !ctx.accepts_epoch(epoch) {
+        return false;
+    }
     ctx.health_state
         .set(classify_source(successes, failures, present_items));
+    true
 }
 
-async fn load_preferences_source(ctx: &PersonalCtx, hc: &HolochainCtx) {
+async fn load_preferences_source(ctx: &PersonalCtx, hc: &HolochainCtx, epoch: u64) -> bool {
     let mut successes = 0;
     let mut failures = 0;
     let mut present_items = 0;
 
-    match hc
+    let preferences_result = hc
         .call_zome_default::<(), Vec<DataSharingPreferenceView>>(
             "data_preferences",
             "get_my_preferences_view",
             &(),
         )
-        .await
-    {
+        .await;
+    if !ctx.accepts_epoch(epoch) {
+        return false;
+    }
+    match preferences_result {
         Ok(preferences) => {
             successes += 1;
             present_items += preferences.len();
@@ -417,14 +553,17 @@ async fn load_preferences_source(ctx: &PersonalCtx, hc: &HolochainCtx) {
         Err(_) => failures += 1,
     }
 
-    match hc
+    let log_result = hc
         .call_zome_default::<(), Vec<PreferenceChangeLogView>>(
             "data_preferences",
             "get_change_log_view",
             &(),
         )
-        .await
-    {
+        .await;
+    if !ctx.accepts_epoch(epoch) {
+        return false;
+    }
+    match log_result {
         Ok(log) => {
             successes += 1;
             present_items += log.len();
@@ -433,19 +572,27 @@ async fn load_preferences_source(ctx: &PersonalCtx, hc: &HolochainCtx) {
         Err(_) => failures += 1,
     }
 
+    if !ctx.accepts_epoch(epoch) {
+        return false;
+    }
     ctx.preferences_state
         .set(classify_source(successes, failures, present_items));
+    true
 }
 
-async fn load_activity_source(ctx: &PersonalCtx, hc: &HolochainCtx) {
-    match hc
+async fn load_activity_source(ctx: &PersonalCtx, hc: &HolochainCtx, epoch: u64) -> bool {
+    let result = hc
         .call_zome_default::<(), Vec<ActivityItemView>>(
             "personal_bridge",
             "get_recent_activity_view",
             &(),
         )
-        .await
-    {
+        .await;
+    if !ctx.accepts_epoch(epoch) {
+        return false;
+    }
+
+    match result {
         Ok(activity) => {
             let count = activity.len();
             ctx.activity.set(activity);
@@ -453,6 +600,7 @@ async fn load_activity_source(ctx: &PersonalCtx, hc: &HolochainCtx) {
         }
         Err(_) => ctx.activity_state.set(PersonalSourceState::Unavailable),
     }
+    true
 }
 
 pub fn use_personal() -> PersonalCtx {
@@ -460,19 +608,28 @@ pub fn use_personal() -> PersonalCtx {
 }
 
 pub async fn refresh_identity_state(ctx: PersonalCtx, hc: HolochainCtx) {
+    let Some(epoch) = ctx.current_usable_epoch() else {
+        return;
+    };
     ctx.identity_state.set(PersonalSourceState::LoadingLive);
-    load_identity_source(&ctx, &hc).await;
+    let _ = load_identity_source(&ctx, &hc, epoch).await;
 }
 
 pub async fn refresh_preferences_state(ctx: PersonalCtx, hc: HolochainCtx) {
+    let Some(epoch) = ctx.current_usable_epoch() else {
+        return;
+    };
     ctx.preferences_state
         .set(PersonalSourceState::LoadingLive);
-    load_preferences_source(&ctx, &hc).await;
+    let _ = load_preferences_source(&ctx, &hc, epoch).await;
 }
 
 pub async fn refresh_health_state(ctx: PersonalCtx, hc: HolochainCtx) {
+    let Some(epoch) = ctx.current_usable_epoch() else {
+        return;
+    };
     ctx.health_state.set(PersonalSourceState::LoadingLive);
-    load_health_source(&ctx, &hc).await;
+    let _ = load_health_source(&ctx, &hc, epoch).await;
 }
 
 #[cfg(test)]
@@ -500,5 +657,13 @@ mod tests {
     #[test]
     fn successful_nonempty_source_is_live() {
         assert_eq!(classify_source(2, 0, 3), PersonalSourceState::Live);
+    }
+
+    #[test]
+    fn source_disposition_and_snapshot_freshness_are_independent() {
+        let source = PersonalSourceState::Live;
+        let freshness = PersonalSnapshotFreshness::Stale;
+        assert_eq!(source, PersonalSourceState::Live);
+        assert_eq!(freshness, PersonalSnapshotFreshness::Stale);
     }
 }
