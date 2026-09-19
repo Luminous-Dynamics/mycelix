@@ -25,6 +25,7 @@ on:
       - "adapters/forge-guest-output-frame/**"
       - "adapters/forge-hermetic-guest/**"
       - "adapters/forge-sealed-inputs/**"
+      - "adapters/forge-hermetic-host/**"
       - ".github/workflows/forge.yml"
   push:
     branches:
@@ -51,6 +52,7 @@ on:
       - "adapters/forge-guest-output-frame/**"
       - "adapters/forge-hermetic-guest/**"
       - "adapters/forge-sealed-inputs/**"
+      - "adapters/forge-hermetic-host/**"
       - ".github/workflows/forge.yml"
 
 permissions:
@@ -111,6 +113,8 @@ jobs:
             path: adapters/forge-hermetic-guest
           - name: Forge Sealed Inputs
             path: adapters/forge-sealed-inputs
+          - name: Forge Hermetic Host
+            path: adapters/forge-hermetic-host
     defaults:
       run:
         working-directory: ${{ matrix.path }}
