@@ -25,14 +25,14 @@ pub struct SourceRevisionPolicyV1 {
     pub exact_git_ref: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TransparencyPolicyV1 {
     PublicTransparencyRequired,
     TimestampRequired,
     PublicTransparencyAndTimestampRequired,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AuthenticationFreshnessPolicyV1 {
     CurrentAtVerification,
     MaximumAgeSeconds(u64),
@@ -153,7 +153,7 @@ mod tests {
                 verification_profile: "public-sigstore-qualification-v1".into(),
             },
             expected_predicate_type: "https://mycelix.org/attestations/qualification/v1".into(),
-            expected_predicate_schema: "mycelix-qualification-v1".into(),
+            expected_predicate_schema: "mycelix-qualification-attestation-predicate-v1".into(),
             trusted_root_profile: "sigstore-public-good-v1".into(),
             trusted_root_digest: digest(9),
             oidc_issuer: "https://token.actions.githubusercontent.com".into(),
