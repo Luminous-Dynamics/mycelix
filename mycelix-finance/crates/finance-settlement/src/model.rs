@@ -61,7 +61,7 @@ pub struct FinalityProfile {
 
 impl FinalityProfile {
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
+    pub(crate) fn new(
         id: ReferenceId,
         revision: u64,
         rail: ReferenceId,
@@ -297,7 +297,6 @@ pub struct SettlementSubject {
     pub amount: AssetAmount,
     pub required_profile: FinalityProfileRef,
 }
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ObservedSettlementState {
     Applied,
