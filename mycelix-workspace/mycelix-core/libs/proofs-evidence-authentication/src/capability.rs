@@ -57,6 +57,7 @@ impl VerifiedSignerIdentityV1 {
 pub struct VerifiedQualificationPredicateV1 {
     pub(crate) predicate_type: String,
     pub(crate) predicate_schema: String,
+    pub(crate) attestation_subject_name: String,
     /// SHA-256 digest carried by the outer in-toto subject.
     pub(crate) attestation_subject_sha256: Sha256DigestV1,
     /// Canonical receipt digest carried inside the Mycelix predicate.
@@ -74,6 +75,10 @@ impl VerifiedQualificationPredicateV1 {
 
     pub fn predicate_schema(&self) -> &str {
         &self.predicate_schema
+    }
+
+    pub fn attestation_subject_name(&self) -> &str {
+        &self.attestation_subject_name
     }
 
     pub fn attestation_subject_sha256(&self) -> Sha256DigestV1 {
@@ -159,7 +164,7 @@ impl VerifiedAuthenticationContextV1 {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum AuthenticatedReceiptAuthorityV1 {
     ReceiptAuthenticationOnly,
 }
@@ -168,6 +173,7 @@ pub enum AuthenticatedReceiptAuthorityV1 {
 pub enum AuthenticatedCapabilityConstructionErrorV1 {
     InvalidPolicy(AuthenticationPolicyErrorV1),
     InvalidReceipt(ReceiptCanonicalizationErrorV1),
+    AttestationSubjectNameMismatch,
     AttestationSubjectDigestMismatch,
     ReceiptDigestMismatch,
     QualificationProfileMismatch,
@@ -192,8 +198,10 @@ pub enum AuthenticatedCapabilityConstructionErrorV1 {
 /// Serializable observability data. Deserializing this type never creates authority.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AuthenticationEvidenceSummaryV1 {
+    pub authority_scope: AuthenticatedReceiptAuthorityV1,
     pub verifier_profile_id: String,
     pub authentication_policy_id: String,
+    pub attestation_subject_name: String,
     pub receipt_digest: QualificationReceiptDigestV1,
     pub source_repository: String,
     pub source_repository_owner: String,
@@ -211,6 +219,16 @@ pub struct AuthenticationEvidenceSummaryV1 {
     pub current_at_verification: bool,
     pub age_seconds: Option<u64>,
     pub authentication_evidence_digest: Sha256DigestV1,
+}
+
+impl AuthenticationEvidenceSummaryV1 {
+    pub const fn grants_production_authority(&self) -> bool {
+        false
+    }
+
+    pub const fn grants_application_authority(&self) -> bool {
+        false
+    }
 }
 
 /// Opaque proof that one exact canonical qualification receipt passed one exact
@@ -275,8 +293,10 @@ impl AuthenticatedQualificationReceiptV1 {
 
     pub fn evidence_summary(&self) -> AuthenticationEvidenceSummaryV1 {
         AuthenticationEvidenceSummaryV1 {
+            authority_scope: self.authority,
             verifier_profile_id: self.authentication_policy.verifier_profile.profile_id.clone(),
             authentication_policy_id: self.authentication_policy.profile_id.clone(),
+            attestation_subject_name: self.verified_predicate.attestation_subject_name.clone(),
             receipt_digest: self.receipt_digest,
             source_repository: self.verified_identity.source_repository.clone(),
             source_repository_owner: self.verified_identity.source_repository_owner.clone(),
@@ -323,6 +343,9 @@ impl AuthenticatedQualificationReceiptV1 {
             .digest()
             .map_err(AuthenticatedCapabilityConstructionErrorV1::InvalidReceipt)?;
 
+        if verified_predicate.attestation_subject_name != policy.expected_attestation_subject_name {
+            return Err(AuthenticatedCapabilityConstructionErrorV1::AttestationSubjectNameMismatch);
+        }
         if verified_predicate.attestation_subject_sha256 != receipt_digest.sha256 {
             return Err(
                 AuthenticatedCapabilityConstructionErrorV1::AttestationSubjectDigestMismatch,
@@ -478,6 +501,7 @@ mod tests {
                 backend_version: "unqualified-placeholder".into(),
                 verification_profile: "public-sigstore-qualification-v1".into(),
             },
+            expected_attestation_subject_name: "mycelix-qualification-receipt".into(),
             expected_predicate_type: "https://mycelix.org/attestations/qualification/v1".into(),
             expected_predicate_schema: "mycelix-qualification-attestation-predicate-v1".into(),
             trusted_root_profile: "sigstore-public-good-v1".into(),
@@ -515,6 +539,7 @@ mod tests {
         VerifiedQualificationPredicateV1 {
             predicate_type: "https://mycelix.org/attestations/qualification/v1".into(),
             predicate_schema: "mycelix-qualification-attestation-predicate-v1".into(),
+            attestation_subject_name: "mycelix-qualification-receipt".into(),
             attestation_subject_sha256: receipt_digest.sha256,
             receipt_digest,
             qualification_profile: receipt.qualification_profile.clone(),
@@ -560,11 +585,30 @@ mod tests {
         assert!(!capability.grants_application_authority());
         assert_eq!(capability.receipt_digest(), receipt.digest().unwrap());
         assert_eq!(capability.authentication_policy(), &policy());
+
+        let summary = capability.evidence_summary();
+        assert_eq!(summary.authority_scope, AuthenticatedReceiptAuthorityV1::ReceiptAuthenticationOnly);
+        assert!(!summary.grants_production_authority());
+        assert!(!summary.grants_application_authority());
     }
 
     #[test]
-    fn outer_subject_and_predicate_digest_substitution_fail() {
+    fn outer_subject_name_digest_and_predicate_digest_substitution_fail() {
         let receipt = receipt();
+
+        let mut wrong = predicate(&receipt);
+        wrong.attestation_subject_name = "other-subject".into();
+        assert_eq!(
+            AuthenticatedQualificationReceiptV1::from_verified_parts(
+                &policy(),
+                &receipt,
+                identity(),
+                wrong,
+                context(),
+                digest(7),
+            ),
+            Err(AuthenticatedCapabilityConstructionErrorV1::AttestationSubjectNameMismatch)
+        );
 
         let mut wrong = predicate(&receipt);
         wrong.attestation_subject_sha256 = digest(8);
