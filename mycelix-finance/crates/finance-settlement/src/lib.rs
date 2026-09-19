@@ -1,4 +1,4 @@
-#![deny(unsafe_code)]
+#![forbid(unsafe_code)]
 
 //! Rail-neutral settlement qualification contracts for Mycelix Finance.
 //!
@@ -31,6 +31,8 @@ pub use receipt::{
     settlement_invalidation_receipt_commitment,
 };
 
+#[cfg(test)]
+mod panic_safety_tests;
 #[cfg(test)]
 mod receipt_tests;
 #[cfg(test)]
