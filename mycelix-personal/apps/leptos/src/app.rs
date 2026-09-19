@@ -17,16 +17,21 @@ use mycelix_leptos_core::{
     AvailabilityStateKind, EmptyState, FreshnessBadge, FreshnessLevel, HolochainProviderAuto,
     HolochainProviderConfig, NavLink, NavTab, ToastContainer, ToastKind,
 };
+use personal_leptos_types::MutationReceiptView;
 
 use crate::components::{
     format_relative_micros, freshness_from_micros, ConsentCard, KeyCard, PageHeader, SectionTitle,
     VaultStat,
 };
 use crate::context::{
-    provide_cultural_context, provide_personal_context, refresh_health_state,
-    refresh_identity_state, refresh_preferences_state, use_cultural, use_personal,
+    provide_cultural_context, provide_personal_context, use_cultural, use_personal,
     PersonalSourceState, SymbolRegistry,
 };
+use crate::mutation_refresh::{
+    refresh_health_after_mutation, refresh_identity_after_mutation,
+    refresh_preferences_after_mutation, MutationRefreshOutcome,
+};
+use crate::mutation_truth::{MutationPendingNotice, PendingMutationReceipt};
 use crate::pages::{ActivityPage, UnlockPage, WalletPage};
 use crate::runtime_mode::{detect_runtime_mode, provide_runtime_mode, PersonalRuntimeMode};
 use crate::telemetry::ConstellationTelemetry;
@@ -58,6 +63,23 @@ impl mycelix_leptos_core::AppTheme for PersonalTheme {
 
     fn is_light(&self) -> bool {
         matches!(self, Self::Dawn)
+    }
+}
+
+fn record_mutation_refresh(
+    pending: RwSignal<Option<PendingMutationReceipt>>,
+    receipt: MutationReceiptView,
+    outcome: MutationRefreshOutcome,
+) -> Option<u64> {
+    match outcome {
+        MutationRefreshOutcome::Published { epoch } => {
+            pending.set(None);
+            Some(epoch)
+        }
+        other => {
+            pending.set(PendingMutationReceipt::new(receipt.action_hash, other));
+            None
+        }
     }
 }
 
@@ -415,7 +437,7 @@ fn VaultPage() -> impl IntoView {
                     <span class="hero-kicker">"Vault state"</span>
                     <h2>"Source-backed when Live, illustrative only when Demo"</h2>
                     <p>
-                        "Personal now keeps runtime provenance explicit. Empty and unavailable source states remain visible instead of being replaced by example records."
+                        "Personal keeps runtime provenance explicit. Empty and unavailable source states remain visible instead of being replaced by example records."
                     </p>
                     <div class="hero-actions">
                         <A href="/wallet" attr:class="btn btn-primary">"Open wallet"</A>
@@ -423,9 +445,9 @@ fn VaultPage() -> impl IntoView {
                     </div>
                 </div>
                 <div class="hero-panel hero-panel-accent">
-                    <span class="hero-kicker">"Next infrastructure step"</span>
+                    <span class="hero-kicker">"Mutation truth"</span>
                     <p>
-                        "Add reconnect-epoch reconciliation so stale asynchronous results cannot publish into a later conductor session."
+                        "A source-chain write receipt remains distinct from whether its source refresh published into the current Personal reconciliation epoch."
                     </p>
                 </div>
             </div>
@@ -465,34 +487,42 @@ fn IdentityPage() -> impl IntoView {
     let location = use_location();
     let hc = mycelix_leptos_core::holochain_provider::use_holochain();
     let toasts = use_toasts();
+    let pending_profile = RwSignal::new(None::<PendingMutationReceipt>);
     let ctx_for_save = ctx.clone();
 
     let save_profile = move |ev: SubmitEvent| {
         ev.prevent_default();
         let draft = ctx_for_save.draft_profile.get();
-        let previous = ctx_for_save.profile.get();
-        ctx_for_save.profile.set(draft.clone());
 
         let hc = hc.clone();
         let toasts = toasts.clone();
         let ctx = ctx_for_save.clone();
+        let pending = pending_profile;
         spawn_local(async move {
             match hc
-                .call_zome_default::<_, serde_json::Value>(
+                .call_zome_default::<_, MutationReceiptView>(
                     "identity_vault",
                     "set_profile_view",
                     &draft,
                 )
                 .await
             {
-                Ok(_) => {
-                    refresh_identity_state(ctx.clone(), hc.clone()).await;
-                    toasts.push("Profile saved to Personal vault", ToastKind::Success);
+                Ok(receipt) => {
+                    let outcome = refresh_identity_after_mutation(ctx.clone(), hc.clone()).await;
+                    if let Some(epoch) = record_mutation_refresh(pending, receipt, outcome) {
+                        toasts.push(
+                            format!(
+                                "Profile write committed; Identity refresh published in Personal epoch {epoch}."
+                            ),
+                            ToastKind::Success,
+                        );
+                    }
                 }
                 Err(err) => {
-                    ctx.profile.set(previous.clone());
-                    ctx.draft_profile.set(previous);
-                    toasts.push(format!("Profile save failed: {err}"), ToastKind::Error);
+                    toasts.push(
+                        format!("Profile write failed; local draft retained: {err}"),
+                        ToastKind::Error,
+                    );
                 }
             }
         });
@@ -508,7 +538,7 @@ fn IdentityPage() -> impl IntoView {
                         "Profile route aliases into the identity vault until deeper Personal profile pages are split."
                             .to_string()
                     } else {
-                        "Live profile edits use typed Personal view endpoints. An empty live profile remains empty rather than being replaced with example identity data."
+                        "Profile drafts stay local until a typed source-chain write succeeds. A write receipt is kept separate from current read-model reconciliation."
                             .to_string()
                     }
                 }
@@ -543,10 +573,11 @@ fn IdentityPage() -> impl IntoView {
                             />
                         </label>
                         <div class="form-actions">
-                            <button class="btn btn-primary" type="submit">"Apply local draft"</button>
+                            <button class="btn btn-primary" type="submit">"Commit profile draft"</button>
                             <a class="btn" href="/wallet">"Open wallet"</a>
                         </div>
                     </form>
+                    <MutationPendingNotice pending=pending_profile />
                 </section>
 
                 <section class="vault-card">
@@ -571,6 +602,7 @@ fn HealthPage() -> impl IntoView {
     let toasts = use_toasts();
     let consent_grantee = RwSignal::new(String::new());
     let consent_types = RwSignal::new("allergy, medication".to_string());
+    let pending_consent = RwSignal::new(None::<PendingMutationReceipt>);
     let ctx_for_consent = ctx.clone();
 
     let create_consent = move |ev: SubmitEvent| {
@@ -596,20 +628,28 @@ fn HealthPage() -> impl IntoView {
         let ctx = ctx_for_consent.clone();
         let consent_grantee_signal = consent_grantee;
         let consent_types_signal = consent_types;
+        let pending = pending_consent;
         spawn_local(async move {
             match hc
-                .call_zome_default::<_, serde_json::Value>(
+                .call_zome_default::<_, MutationReceiptView>(
                     "health_vault",
                     "grant_consent_view",
                     &input,
                 )
                 .await
             {
-                Ok(_) => {
-                    refresh_health_state(ctx.clone(), hc.clone()).await;
+                Ok(receipt) => {
                     consent_grantee_signal.set(String::new());
                     consent_types_signal.set("allergy, medication".to_string());
-                    toasts.push("Consent grant created", ToastKind::Success);
+                    let outcome = refresh_health_after_mutation(ctx.clone(), hc.clone()).await;
+                    if let Some(epoch) = record_mutation_refresh(pending, receipt, outcome) {
+                        toasts.push(
+                            format!(
+                                "Consent write committed; Health refresh published in Personal epoch {epoch}."
+                            ),
+                            ToastKind::Success,
+                        );
+                    }
                 }
                 Err(err) => toasts.push(format!("Consent grant failed: {err}"), ToastKind::Error),
             }
@@ -664,6 +704,7 @@ fn HealthPage() -> impl IntoView {
                             <button class="btn btn-primary" type="submit">"Create Consent"</button>
                         </div>
                     </form>
+                    <MutationPendingNotice pending=pending_consent />
                     <div class="consent-list">
                         <For
                             each=move || ctx.consents.get()
@@ -735,6 +776,7 @@ fn PreferenceCard(pref: personal_leptos_types::DataSharingPreferenceView) -> imp
     let toasts = use_toasts();
     let local_pref = RwSignal::new(pref);
     let blocked_zomes_text = RwSignal::new(local_pref.get_untracked().blocked_zomes.join(", "));
+    let pending_receipt = RwSignal::new(None::<PendingMutationReceipt>);
     let toggle_ctx = ctx.clone();
     let toggle_hc = hc.clone();
     let toggle_toasts = toasts.clone();
@@ -754,21 +796,28 @@ fn PreferenceCard(pref: personal_leptos_types::DataSharingPreferenceView) -> imp
         let ctx = toggle_ctx.clone();
         let local_pref_signal = local_pref;
         let blocked_zomes_signal = blocked_zomes_text;
+        let pending = pending_receipt;
         spawn_local(async move {
             match hc
-                .call_zome_default::<_, String>("data_preferences", "set_preference_view", &next)
+                .call_zome_default::<_, MutationReceiptView>(
+                    "data_preferences",
+                    "set_preference_view",
+                    &next,
+                )
                 .await
             {
-                Ok(_) => {
-                    refresh_preferences_state(ctx.clone(), hc.clone()).await;
-                    let state = if next.allowed { "allowed" } else { "blocked" };
-                    toasts.push(
-                        format!(
-                            "{} -> {} now {}",
-                            next.source_cluster, next.target_cluster, state
-                        ),
-                        ToastKind::Success,
-                    );
+                Ok(receipt) => {
+                    let outcome = refresh_preferences_after_mutation(ctx.clone(), hc.clone()).await;
+                    if let Some(epoch) = record_mutation_refresh(pending, receipt, outcome) {
+                        let state = if next.allowed { "allowed" } else { "blocked" };
+                        toasts.push(
+                            format!(
+                                "{} -> {} committed as {}; Preferences refresh published in Personal epoch {epoch}.",
+                                next.source_cluster, next.target_cluster, state
+                            ),
+                            ToastKind::Success,
+                        );
+                    }
                 }
                 Err(err) => {
                     local_pref_signal.set(previous.clone());
@@ -796,21 +845,28 @@ fn PreferenceCard(pref: personal_leptos_types::DataSharingPreferenceView) -> imp
         let ctx = save_ctx.clone();
         let local_pref_signal = local_pref;
         let blocked_zomes_signal = blocked_zomes_text;
+        let pending = pending_receipt;
         spawn_local(async move {
             match hc
-                .call_zome_default::<_, String>("data_preferences", "set_preference_view", &next)
+                .call_zome_default::<_, MutationReceiptView>(
+                    "data_preferences",
+                    "set_preference_view",
+                    &next,
+                )
                 .await
             {
-                Ok(_) => {
-                    refresh_preferences_state(ctx.clone(), hc.clone()).await;
-                    let state = if next.allowed { "allowed" } else { "blocked" };
-                    toasts.push(
-                        format!(
-                            "{} -> {} now {}",
-                            next.source_cluster, next.target_cluster, state
-                        ),
-                        ToastKind::Success,
-                    );
+                Ok(receipt) => {
+                    let outcome = refresh_preferences_after_mutation(ctx.clone(), hc.clone()).await;
+                    if let Some(epoch) = record_mutation_refresh(pending, receipt, outcome) {
+                        let state = if next.allowed { "allowed" } else { "blocked" };
+                        toasts.push(
+                            format!(
+                                "{} -> {} committed as {}; Preferences refresh published in Personal epoch {epoch}.",
+                                next.source_cluster, next.target_cluster, state
+                            ),
+                            ToastKind::Success,
+                        );
+                    }
                 }
                 Err(err) => {
                     local_pref_signal.set(previous.clone());
@@ -863,6 +919,7 @@ fn PreferenceCard(pref: personal_leptos_types::DataSharingPreferenceView) -> imp
                     "Save Details"
                 </button>
             </div>
+            <MutationPendingNotice pending=pending_receipt />
         </article>
     }
 }
