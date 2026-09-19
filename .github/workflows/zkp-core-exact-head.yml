@@ -1,0 +1,231 @@
+name: Mycelix ZKP Core Exact-Head
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'mycelix-workspace/crates/mycelix-zkp-core/**'
+      - 'mycelix-workspace/mycelix-core/libs/proofs-config/**'
+      - 'mycelix-workspace/mycelix-core/libs/proofs-commitment/**'
+      - '.github/workflows/zkp-core-exact-head.yml'
+  workflow_dispatch:
+    inputs:
+      subject_sha:
+        description: 'Exact 40-hex commit SHA to qualify'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Exact-head ZKP core qualification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Resolve exact subject
+        id: subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            subject='${{ github.event.pull_request.head.sha }}'
+          else
+            subject='${{ inputs.subject_sha }}'
+          fi
+          if [[ ! "$subject" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "invalid subject SHA: $subject" >&2
+            exit 1
+          fi
+          echo "sha=$subject" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ steps.subject.outputs.sha }}
+          fetch-depth: 1
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+
+      - name: Preflight identity and source evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          test -z "$(git status --porcelain)"
+          mkdir -p "$RUNNER_TEMP/zkp-evidence"
+          {
+            echo "subject_sha=${{ steps.subject.outputs.sha }}"
+            echo "runner_os=${RUNNER_OS}"
+            echo "runner_arch=${RUNNER_ARCH}"
+            rustc -Vv
+            cargo -V
+          } > "$RUNNER_TEMP/zkp-evidence/execution-capsule.txt"
+          find mycelix-workspace/crates/mycelix-zkp-core \
+               mycelix-workspace/mycelix-core/libs/proofs-config \
+               mycelix-workspace/mycelix-core/libs/proofs-commitment \
+               -type f -not -path '*/target/*' -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            > "$RUNNER_TEMP/zkp-evidence/source-sha256.txt"
+
+      - name: Check formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-workspace/crates/mycelix-zkp-core
+          cargo fmt --all -- --check
+
+      - name: Prepare isolated resolved graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/zkp-qual/mycelix-workspace"
+          mkdir -p "$root/crates" "$root/mycelix-core/libs"
+          cp -a mycelix-workspace/crates/mycelix-zkp-core "$root/crates/"
+          cp -a mycelix-workspace/mycelix-core/libs/proofs-config "$root/mycelix-core/libs/"
+          cp -a mycelix-workspace/mycelix-core/libs/proofs-commitment "$root/mycelix-core/libs/"
+          cd "$root/crates/mycelix-zkp-core"
+          cargo generate-lockfile
+          sha256sum Cargo.lock > "$RUNNER_TEMP/zkp-evidence/Cargo.lock.sha256"
+          cp Cargo.lock "$RUNNER_TEMP/zkp-evidence/Cargo.lock"
+          cargo metadata --locked --format-version 1 \
+            > "$RUNNER_TEMP/zkp-evidence/cargo-metadata.json"
+          cargo tree --locked \
+            > "$RUNNER_TEMP/zkp-evidence/cargo-tree-default.txt"
+
+      - name: Verify feature manifest invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/zkp-qual/mycelix-workspace/crates/mycelix-zkp-core"
+          python3 - <<'PY'
+          import pathlib, tomllib
+          data = tomllib.loads(pathlib.Path('Cargo.toml').read_text())
+          features = data['features']
+          required = {
+              'backend-winterfell',
+              'full',
+              'legacy-unqualified-range-proof',
+              'legacy-unqualified-winterfell-authority',
+              'experimental-winterfell-baselines',
+          }
+          missing = required - features.keys()
+          assert not missing, f'missing required features: {sorted(missing)}'
+          forbidden = {
+              'legacy-unqualified-range-proof',
+              'legacy-unqualified-winterfell-authority',
+              'experimental-winterfell-baselines',
+          }
+          full = set(features['full'])
+          assert not (full & forbidden), f'full restores quarantined features: {sorted(full & forbidden)}'
+          assert 'backend-winterfell' in features['legacy-unqualified-range-proof']
+          assert 'backend-winterfell' in features['legacy-unqualified-winterfell-authority']
+          assert 'legacy-unqualified-range-proof' in features['experimental-winterfell-baselines']
+          PY
+
+      - name: Test ordinary feature surfaces
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/zkp-qual/mycelix-workspace/crates/mycelix-zkp-core"
+          cargo test --locked --all-targets --no-default-features
+          cargo test --locked --all-targets --no-default-features --features backend-winterfell
+          cargo check --locked --all-targets --no-default-features --features full
+          cargo clippy --locked --all-targets --no-default-features --features backend-winterfell -- -D warnings
+
+      - name: Prove quarantined modules are absent from ordinary Winterfell
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/zkp-qual/mycelix-workspace/crates/mycelix-zkp-core"
+          evidence="$RUNNER_TEMP/zkp-evidence"
+          mkdir -p "$crate/tests"
+
+          probe_absent() {
+            local label="$1"
+            local import_path="$2"
+            cat > "$crate/tests/quarantine_probe.rs" <<EOF
+          use ${import_path} as quarantined_module;
+          #[test]
+          fn quarantine_probe() {
+              let _ = stringify!(quarantined_module);
+          }
+          EOF
+            set +e
+            (
+              cd "$crate"
+              cargo check --locked --no-default-features --features backend-winterfell --test quarantine_probe
+            ) >"$evidence/probe-${label}.stdout.txt" 2>"$evidence/probe-${label}.stderr.txt"
+            status=$?
+            set -e
+            if [[ $status -eq 0 ]]; then
+              echo "quarantine probe unexpectedly compiled: $label" >&2
+              exit 1
+            fi
+            if ! grep -Eq 'unresolved import|could not find|no .* in' "$evidence/probe-${label}.stderr.txt"; then
+              echo "probe failed for an unexpected reason: $label" >&2
+              cat "$evidence/probe-${label}.stderr.txt" >&2
+              exit 1
+            fi
+            rm -f "$crate/tests/quarantine_probe.rs"
+          }
+
+          probe_absent range_proof 'mycelix_zkp_core::circuits::range_proof'
+          probe_absent jurisdiction_proof 'mycelix_zkp_core::circuits::jurisdiction_proof'
+          probe_absent jurisdiction_registry 'mycelix_zkp_core::jurisdiction_registry'
+          probe_absent review_integrity 'mycelix_zkp_core::circuits::review_integrity'
+          probe_absent recursive_aggregation 'mycelix_zkp_core::circuits::recursive_aggregation'
+          probe_absent winterfell_xor 'mycelix_zkp_core::circuits::winterfell_xor'
+          probe_absent winterfell_bench 'mycelix_zkp_core::circuits::winterfell_bench'
+
+      - name: Verify explicit legacy and experimental opt-ins still build
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/zkp-qual/mycelix-workspace/crates/mycelix-zkp-core"
+          cargo check --locked --all-targets --no-default-features --features legacy-unqualified-range-proof
+          cargo check --locked --all-targets --no-default-features --features legacy-unqualified-winterfell-authority
+          cargo check --locked --all-targets --no-default-features --features experimental-winterfell-baselines
+
+      - name: Postflight checkout immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          test -z "$(git status --porcelain)"
+
+      - name: Write qualification receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          lock_sha="$(cut -d' ' -f1 "$RUNNER_TEMP/zkp-evidence/Cargo.lock.sha256")"
+          cat > "$RUNNER_TEMP/zkp-evidence/QUALIFICATION_RECEIPT.txt" <<EOF
+          MYC-ZKP-CORE-Q PASS
+          subject_sha=${{ steps.subject.outputs.sha }}
+          rust_toolchain=1.96.0
+          resolved_lock_sha256=${lock_sha}
+          ordinary_backend_winterfell=build/test/clippy
+          ordinary_full=build
+          quarantine_negative_import_probes=PASS
+          explicit_legacy_experimental_builds=PASS
+          qualification_scope=source identity + feature-boundary invariants + rustfmt + isolated locked dependency graph + ordinary feature builds/tests + negative import probes + explicit legacy/experimental buildability + checkout immutability
+          dependency_reproducibility=limited to retained generated Cargo.lock; no committed zkp-core lock is claimed
+          nonclaims=range-proof soundness, review-integrity soundness, recursive-aggregation soundness, XOR theorem soundness, cryptographic backend security, application proof authority, production readiness
+          EOF
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: myc-zkp-core-q-${{ steps.subject.outputs.sha }}
+          path: ${{ runner.temp }}/zkp-evidence
+          if-no-files-found: warn
+          retention-days: 30
