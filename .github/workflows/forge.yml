@@ -30,6 +30,7 @@ on:
       - "adapters/forge-hermetic-host/**"
       - "adapters/forge-hermetic-host-v2/**"
       - "adapters/forge-m0-offline-evidence/**"
+      - "adapters/forge-m0-offline-evidence-v6/**"
       - ".github/workflows/forge.yml"
   push:
     branches:
@@ -61,6 +62,7 @@ on:
       - "adapters/forge-hermetic-host/**"
       - "adapters/forge-hermetic-host-v2/**"
       - "adapters/forge-m0-offline-evidence/**"
+      - "adapters/forge-m0-offline-evidence-v6/**"
       - ".github/workflows/forge.yml"
 
 permissions:
@@ -131,6 +133,8 @@ jobs:
             path: adapters/forge-hermetic-host-v2
           - name: Forge M0 Offline Evidence
             path: adapters/forge-m0-offline-evidence
+          - name: Forge M0 Offline Evidence v6
+            path: adapters/forge-m0-offline-evidence-v6
     defaults:
       run:
         working-directory: ${{ matrix.path }}
