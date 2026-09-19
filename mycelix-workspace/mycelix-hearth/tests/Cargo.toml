@@ -54,6 +54,10 @@ name = "sweettest_care_revocation"
 path = "sweettest_care_revocation.rs"
 
 [[test]]
+name = "sweettest_care_transitions_v2"
+path = "sweettest_care_transitions_v2.rs"
+
+[[test]]
 name = "sweettest_emergency"
 path = "sweettest_emergency.rs"
 
