@@ -8,8 +8,11 @@
 //! returned source-chain action receipt remains evidence of that committed
 //! action. Snapshot lifetime must therefore not own receipt lifetime.
 
+use std::collections::HashSet;
+
 use leptos::prelude::*;
 
+use crate::context::use_personal;
 use crate::mutation_state::{
     MutationObservationState, MutationRefreshOutcome, PendingMutationReceipt,
     PersonalMutationTarget,
@@ -83,11 +86,59 @@ impl MutationLedger {
     }
 }
 
+fn receipt_is_observed(
+    receipt: &PendingMutationReceipt,
+    profile_action_hash: Option<&str>,
+    preference_action_hashes: &HashSet<String>,
+    consent_action_hashes: &HashSet<String>,
+) -> bool {
+    match &receipt.target {
+        PersonalMutationTarget::Profile => {
+            profile_action_hash == Some(receipt.action_hash.as_str())
+        }
+        PersonalMutationTarget::HealthConsent => {
+            consent_action_hashes.contains(&receipt.action_hash)
+        }
+        PersonalMutationTarget::Preference { .. } => {
+            preference_action_hashes.contains(&receipt.action_hash)
+        }
+    }
+}
+
 pub fn provide_mutation_ledger() -> MutationLedger {
     let ledger = MutationLedger {
         pending: RwSignal::new(Vec::new()),
     };
     provide_context(ledger);
+
+    // Read-model observation is derived from action identity, never payload
+    // equality. These evidence signals are committed in the same source-level
+    // batch as the values they describe, so an epoch-invalidated staging run
+    // cannot accidentally retire a receipt.
+    let ctx = use_personal();
+    let ledger_for_effect = ledger;
+    Effect::new(move |_| {
+        let profile_action_hash = ctx.profile_action_hash.get();
+        let preference_action_hashes = ctx.preference_action_hashes.get();
+        let consent_action_hashes = ctx
+            .consents
+            .get()
+            .into_iter()
+            .map(|consent| consent.hash)
+            .collect::<HashSet<_>>();
+
+        ledger_for_effect.pending.update(|items| {
+            items.retain(|receipt| {
+                !receipt_is_observed(
+                    receipt,
+                    profile_action_hash.as_deref(),
+                    &preference_action_hashes,
+                    &consent_action_hashes,
+                )
+            });
+        });
+    });
+
     ledger
 }
 
@@ -105,5 +156,63 @@ mod tests {
         // evidence directly and has no Personal read-model field to clear.
         let _target = PersonalMutationTarget::Profile;
         let _state = MutationObservationState::RefreshInProgress;
+    }
+
+    #[test]
+    fn profile_observation_requires_exact_action_hash() {
+        let receipt = PendingMutationReceipt::new(
+            PersonalMutationTarget::Profile,
+            "uhCkk-profile-new".into(),
+        );
+        assert!(!receipt_is_observed(
+            &receipt,
+            Some("uhCkk-profile-old"),
+            &HashSet::new(),
+            &HashSet::new(),
+        ));
+        assert!(receipt_is_observed(
+            &receipt,
+            Some("uhCkk-profile-new"),
+            &HashSet::new(),
+            &HashSet::new(),
+        ));
+    }
+
+    #[test]
+    fn preference_observation_requires_exact_evidence_membership() {
+        let receipt = PendingMutationReceipt::new(
+            PersonalMutationTarget::preference("personal", "health"),
+            "uhCkk-preference-new".into(),
+        );
+        let mut evidence = HashSet::new();
+        evidence.insert("uhCkk-preference-old".into());
+        assert!(!receipt_is_observed(
+            &receipt,
+            None,
+            &evidence,
+            &HashSet::new(),
+        ));
+        evidence.insert("uhCkk-preference-new".into());
+        assert!(receipt_is_observed(
+            &receipt,
+            None,
+            &evidence,
+            &HashSet::new(),
+        ));
+    }
+
+    #[test]
+    fn consent_observation_uses_the_same_exact_hash_rule() {
+        let receipt = PendingMutationReceipt::new(
+            PersonalMutationTarget::HealthConsent,
+            "uhCkk-consent".into(),
+        );
+        let evidence = HashSet::from(["uhCkk-consent".to_string()]);
+        assert!(receipt_is_observed(
+            &receipt,
+            None,
+            &HashSet::new(),
+            &evidence,
+        ));
     }
 }

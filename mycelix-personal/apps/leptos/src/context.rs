@@ -9,14 +9,17 @@
 //! so an asynchronous result from an obsolete conductor/signer session cannot
 //! publish into a later one.
 
+use std::collections::HashSet;
+
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
 use wasm_bindgen_futures::spawn_local;
 
 use mycelix_leptos_core::holochain_provider::{use_holochain, HolochainCtx};
 use personal_leptos_types::{
-    ActivityItemView, BiometricView, ConsentGrantView, DataSharingPreferenceView, HealthRecordView,
-    MasterKeyView, PreferenceChangeLogView, ProfileView, StoredCredentialView,
+    ActivityItemView, BiometricView, ConsentGrantView, DataSharingPreferenceEvidenceView,
+    DataSharingPreferenceView, HealthRecordView, MasterKeyView, PreferenceChangeLogView,
+    ProfileEvidenceView, ProfileView, StoredCredentialView,
 };
 
 use crate::mock_data;
@@ -111,27 +114,30 @@ fn blank_profile() -> ProfileView {
 #[derive(Debug)]
 struct IdentitySourceSnapshot {
     profile: ProfileView,
+    profile_action_hash: Option<String>,
     keys: Vec<MasterKeyView>,
     state: PersonalSourceState,
 }
 
 fn stage_identity_source<ProfileError, KeysError>(
-    profile_result: Result<Option<ProfileView>, ProfileError>,
+    profile_result: Result<Option<ProfileEvidenceView>, ProfileError>,
     keys_result: Result<Vec<MasterKeyView>, KeysError>,
 ) -> Result<IdentitySourceSnapshot, PersonalSourceState> {
     let mut successes = 0;
     let mut failures = 0;
     let mut present_items = 0;
 
-    let profile = match profile_result {
+    let (profile, profile_action_hash) = match profile_result {
         Ok(profile) => {
             successes += 1;
             present_items += usize::from(profile.is_some());
-            profile.unwrap_or_else(blank_profile)
+            profile
+                .map(|evidence| (evidence.profile, Some(evidence.action_hash)))
+                .unwrap_or_else(|| (blank_profile(), None))
         }
         Err(_) => {
             failures += 1;
-            blank_profile()
+            (blank_profile(), None)
         }
     };
 
@@ -153,6 +159,7 @@ fn stage_identity_source<ProfileError, KeysError>(
     } else {
         Ok(IdentitySourceSnapshot {
             profile,
+            profile_action_hash,
             keys,
             state,
         })
@@ -163,6 +170,7 @@ fn publish_identity_source(ctx: &PersonalCtx, snapshot: IdentitySourceSnapshot) 
     batch(move || {
         ctx.profile.set(snapshot.profile.clone());
         ctx.draft_profile.set(snapshot.profile);
+        ctx.profile_action_hash.set(snapshot.profile_action_hash);
         ctx.keys.set(snapshot.keys);
         ctx.identity_state.set(snapshot.state);
     });
@@ -171,27 +179,36 @@ fn publish_identity_source(ctx: &PersonalCtx, snapshot: IdentitySourceSnapshot) 
 #[derive(Debug)]
 struct PreferencesSourceSnapshot {
     preferences: Vec<DataSharingPreferenceView>,
+    action_hashes: HashSet<String>,
     change_log: Vec<PreferenceChangeLogView>,
     state: PersonalSourceState,
 }
 
 fn stage_preferences_source<PreferencesError, LogError>(
-    preferences_result: Result<Vec<DataSharingPreferenceView>, PreferencesError>,
+    preferences_result: Result<Vec<DataSharingPreferenceEvidenceView>, PreferencesError>,
     log_result: Result<Vec<PreferenceChangeLogView>, LogError>,
 ) -> Result<PreferencesSourceSnapshot, PersonalSourceState> {
     let mut successes = 0;
     let mut failures = 0;
     let mut present_items = 0;
 
-    let preferences = match preferences_result {
-        Ok(preferences) => {
+    let (preferences, action_hashes) = match preferences_result {
+        Ok(evidence) => {
             successes += 1;
-            present_items += preferences.len();
-            preferences
+            present_items += evidence.len();
+            let mut action_hashes = HashSet::with_capacity(evidence.len());
+            let preferences = evidence
+                .into_iter()
+                .map(|item| {
+                    action_hashes.insert(item.action_hash);
+                    item.preference
+                })
+                .collect();
+            (preferences, action_hashes)
         }
         Err(_) => {
             failures += 1;
-            Vec::new()
+            (Vec::new(), HashSet::new())
         }
     };
 
@@ -213,6 +230,7 @@ fn stage_preferences_source<PreferencesError, LogError>(
     } else {
         Ok(PreferencesSourceSnapshot {
             preferences,
+            action_hashes,
             change_log,
             state,
         })
@@ -222,6 +240,7 @@ fn stage_preferences_source<PreferencesError, LogError>(
 fn publish_preferences_source(ctx: &PersonalCtx, snapshot: PreferencesSourceSnapshot) {
     batch(move || {
         ctx.preferences.set(snapshot.preferences);
+        ctx.preference_action_hashes.set(snapshot.action_hashes);
         ctx.preference_log.set(snapshot.change_log);
         ctx.preferences_state.set(snapshot.state);
     });
@@ -307,11 +326,13 @@ pub struct PersonalCtx {
     pub runtime_mode: PersonalRuntimeMode,
     pub profile: RwSignal<ProfileView>,
     pub draft_profile: RwSignal<ProfileView>,
+    pub profile_action_hash: RwSignal<Option<String>>,
     pub keys: RwSignal<Vec<MasterKeyView>>,
     pub credentials: RwSignal<Vec<StoredCredentialView>>,
     pub biometrics: RwSignal<Vec<BiometricView>>,
     pub consents: RwSignal<Vec<ConsentGrantView>>,
     pub preferences: RwSignal<Vec<DataSharingPreferenceView>>,
+    pub preference_action_hashes: RwSignal<HashSet<String>>,
     pub preference_log: RwSignal<Vec<PreferenceChangeLogView>>,
     pub health_record_count: RwSignal<usize>,
     pub activity: RwSignal<Vec<ActivityItemView>>,
@@ -374,6 +395,7 @@ pub fn provide_personal_context(runtime_mode: PersonalRuntimeMode) {
         runtime_mode,
         draft_profile: RwSignal::new(profile.clone()),
         profile: RwSignal::new(profile),
+        profile_action_hash: RwSignal::new(None),
         keys: RwSignal::new(if runtime_mode.is_demo() {
             mock_data::mock_keys()
         } else {
@@ -399,6 +421,7 @@ pub fn provide_personal_context(runtime_mode: PersonalRuntimeMode) {
         } else {
             Vec::new()
         }),
+        preference_action_hashes: RwSignal::new(HashSet::new()),
         preference_log: RwSignal::new(if runtime_mode.is_demo() {
             mock_data::mock_preference_log()
         } else {
@@ -514,11 +537,13 @@ fn clear_uncommitted_live_snapshot(ctx: &PersonalCtx) {
     let profile = blank_profile();
     ctx.profile.set(profile.clone());
     ctx.draft_profile.set(profile);
+    ctx.profile_action_hash.set(None);
     ctx.keys.set(Vec::new());
     ctx.credentials.set(Vec::new());
     ctx.biometrics.set(Vec::new());
     ctx.consents.set(Vec::new());
     ctx.preferences.set(Vec::new());
+    ctx.preference_action_hashes.set(HashSet::new());
     ctx.preference_log.set(Vec::new());
     ctx.health_record_count.set(0);
     ctx.activity.set(Vec::new());
@@ -577,9 +602,9 @@ async fn hydrate_live(ctx: PersonalCtx, hc: HolochainCtx, epoch: u64) {
 
 async fn load_identity_source(ctx: &PersonalCtx, hc: &HolochainCtx, epoch: u64) -> bool {
     let profile_result = hc
-        .call_zome_default::<(), Option<ProfileView>>(
+        .call_zome_default::<(), Option<ProfileEvidenceView>>(
             "identity_vault",
-            "get_my_profile_view",
+            "get_my_profile_evidence_view",
             &(),
         )
         .await;
@@ -681,9 +706,9 @@ async fn load_health_source(ctx: &PersonalCtx, hc: &HolochainCtx, epoch: u64) ->
 
 async fn load_preferences_source(ctx: &PersonalCtx, hc: &HolochainCtx, epoch: u64) -> bool {
     let preferences_result = hc
-        .call_zome_default::<(), Vec<DataSharingPreferenceView>>(
+        .call_zome_default::<(), Vec<DataSharingPreferenceEvidenceView>>(
             "data_preferences",
-            "get_my_preferences_view",
+            "get_my_preferences_evidence_view",
             &(),
         )
         .await;
@@ -799,7 +824,11 @@ mod tests {
 
     #[test]
     fn identity_stage_requires_every_query_before_publication() {
-        let state = stage_identity_source::<(), ()>(Ok(Some(blank_profile())), Err(()))
+        let evidence = ProfileEvidenceView {
+            action_hash: "uhCkk-profile".into(),
+            profile: blank_profile(),
+        };
+        let state = stage_identity_source::<(), ()>(Ok(Some(evidence)), Err(()))
             .expect_err("a partial Identity source must not produce a publishable snapshot");
         assert_eq!(state, PersonalSourceState::Degraded);
     }
@@ -810,7 +839,19 @@ mod tests {
             .expect("complete empty Identity results are authoritative");
         assert_eq!(snapshot.state, PersonalSourceState::Empty);
         assert!(snapshot.profile.display_name.is_empty());
+        assert!(snapshot.profile_action_hash.is_none());
         assert!(snapshot.keys.is_empty());
+    }
+
+    #[test]
+    fn identity_stage_preserves_exact_profile_action_identity() {
+        let evidence = ProfileEvidenceView {
+            action_hash: "uhCkk-profile".into(),
+            profile: blank_profile(),
+        };
+        let snapshot = stage_identity_source::<(), ()>(Ok(Some(evidence)), Ok(Vec::new()))
+            .expect("complete Identity evidence should stage");
+        assert_eq!(snapshot.profile_action_hash.as_deref(), Some("uhCkk-profile"));
     }
 
     #[test]
@@ -826,7 +867,27 @@ mod tests {
             .expect("complete empty Preferences results are authoritative");
         assert_eq!(snapshot.state, PersonalSourceState::Empty);
         assert!(snapshot.preferences.is_empty());
+        assert!(snapshot.action_hashes.is_empty());
         assert!(snapshot.change_log.is_empty());
+    }
+
+    #[test]
+    fn preferences_stage_preserves_every_observed_action_identity() {
+        let evidence = DataSharingPreferenceEvidenceView {
+            action_hash: "uhCkk-preference".into(),
+            preference: DataSharingPreferenceView {
+                source_cluster: "personal".into(),
+                target_cluster: "health".into(),
+                allowed: true,
+                blocked_zomes: Vec::new(),
+                reason: "test".into(),
+                updated_at: 1,
+            },
+        };
+        let snapshot = stage_preferences_source::<(), ()>(Ok(vec![evidence]), Ok(Vec::new()))
+            .expect("complete Preferences evidence should stage");
+        assert!(snapshot.action_hashes.contains("uhCkk-preference"));
+        assert_eq!(snapshot.preferences.len(), 1);
     }
 
     #[test]

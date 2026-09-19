@@ -105,7 +105,7 @@ impl PendingMutationReceipt {
                 epoch,
             })
             | MutationObservationState::RefreshPublishedUncorrelated { epoch } => format!(
-                "A Personal source refresh published in epoch {epoch}, but the current read model does not yet carry enough action identity to prove that it contains this committed action."
+                "A Personal source refresh published in epoch {epoch}, but the atomically published read evidence did not contain this exact committed action hash. The receipt remains pending."
             ),
         }
     }
@@ -140,7 +140,7 @@ mod tests {
             receipt.observation,
             MutationObservationState::RefreshPublishedUncorrelated { epoch: 7 }
         );
-        assert!(receipt.description().contains("does not yet carry enough action identity"));
+        assert!(receipt.description().contains("exact committed action hash"));
     }
 
     #[test]
