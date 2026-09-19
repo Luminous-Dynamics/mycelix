@@ -1,0 +1,21 @@
+[package]
+name = "mycelix-stewardship-policy-set"
+version = "0.1.0"
+edition = "2024"
+description = "Cross-policy candidate assessment for Mycelix stewardship"
+license = "AGPL-3.0-or-later"
+authors = ["Luminous Dynamics <contact@luminousdynamics.org>"]
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+
+[lib]
+name = "mycelix_stewardship_policy_set"
+crate-type = ["rlib"]
+
+[dependencies]
+mycelix-stewardship-core = { path = "../mycelix-stewardship-core" }
+mycelix-stewardship-policy = { path = "../mycelix-stewardship-policy" }
+mycelix-stewardship-policy-authority = { path = "../mycelix-stewardship-policy-authority" }
+
+[dev-dependencies]
+mycelix-stewardship-admission = { path = "../mycelix-stewardship-admission" }
+mycelix-stewardship-claims = { path = "../mycelix-stewardship-claims" }
