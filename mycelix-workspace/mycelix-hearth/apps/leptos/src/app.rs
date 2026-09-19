@@ -8,6 +8,7 @@ use leptos_router::{
 };
 
 use crate::components::{DevPanel, Nav};
+use crate::hearth_boundary::{HearthDataBoundary, HearthDataDomain};
 use crate::hearth_context::provide_hearth_context;
 use crate::hearth_truth::{
     HearthDataStatus, provide_hearth_truth, start_mock_simulation_when_resolved,
@@ -38,7 +39,6 @@ pub fn App() -> impl IntoView {
 
 #[component]
 fn AppInner() -> impl IntoView {
-    // Initialize providers in dependency order.
     crate::themes::provide_theme_context();
     crate::circadian::provide_circadian_context();
     crate::ambient_sound::provide_ambient_sound_context();
@@ -50,17 +50,9 @@ fn AppInner() -> impl IntoView {
     provide_hearth_truth();
     crate::hearth_prefs::provide_hearth_prefs();
 
-    // Action dispatch layer (real zome calls when connected, mock when not).
     crate::hearth_actions::provide_hearth_actions();
-
-    // Wire consciousness + circadian → CSS custom properties.
     init_consciousness_ui();
-
-    // Real-time signals from conductor (when connected).
     crate::signal_listener::start_signal_listener();
-
-    // Simulated family life is installed only after the provider resolves to
-    // mock mode. A connecting/live session never receives simulation timers.
     start_mock_simulation_when_resolved();
 
     view! {
@@ -69,12 +61,11 @@ fn AppInner() -> impl IntoView {
             <Nav />
             <HearthDataStatus />
             <DevPanel />
-            // Ambient campfire — persistent warmth from the founding ceremony
             <crate::components::HearthFlame mode=crate::components::FlameMode::Ambient />
             <main id="main-content" class="main-content heartbeat" role="main" aria-label="hearth content">
                 <Routes fallback=|| view! { <p class="not-found">"you’ve wandered off the path"</p> }>
                     // Task-first primary shell
-                    <Route path=path!("/") view=HomePage />
+                    <Route path=path!("/") view=HomeRoute />
                     <Route path=path!("/find") view=FindPage />
                     <Route path=path!("/create") view=CreatePage />
                     <Route path=path!("/inbox") view=InboxPage />
@@ -82,16 +73,16 @@ fn AppInner() -> impl IntoView {
                     // Existing Hearth/domain routes remain stable and directly linkable.
                     <Route path=path!("/found") view=crate::pages::found::FoundingCeremony />
                     <Route path=path!("/settings") view=crate::pages::settings::SettingsPage />
-                    <Route path=path!("/kinship") view=KinshipPage />
-                    <Route path=path!("/care") view=CarePage />
-                    <Route path=path!("/decisions") view=DecisionsPage />
-                    <Route path=path!("/gratitude") view=GratitudePage />
-                    <Route path=path!("/stories") view=StoriesPage />
-                    <Route path=path!("/milestones") view=MilestonesPage />
-                    <Route path=path!("/rhythms") view=RhythmsPage />
-                    <Route path=path!("/emergency") view=EmergencyPage />
-                    <Route path=path!("/resources") view=ResourcesPage />
-                    <Route path=path!("/autonomy") view=AutonomyPage />
+                    <Route path=path!("/kinship") view=KinshipRoute />
+                    <Route path=path!("/care") view=CareRoute />
+                    <Route path=path!("/decisions") view=DecisionsRoute />
+                    <Route path=path!("/gratitude") view=GratitudeRoute />
+                    <Route path=path!("/stories") view=StoriesRoute />
+                    <Route path=path!("/milestones") view=MilestonesRoute />
+                    <Route path=path!("/rhythms") view=RhythmsRoute />
+                    <Route path=path!("/emergency") view=EmergencyRoute />
+                    <Route path=path!("/resources") view=ResourcesRoute />
+                    <Route path=path!("/autonomy") view=AutonomyRoute />
                     <Route path=path!("/personal/profile") view=personal::ProfilePage />
                     <Route path=path!("/personal/health") view=personal::HealthPage />
                     <Route path=path!("/personal/credentials") view=personal::CredentialsPage />
@@ -101,5 +92,104 @@ fn AppInner() -> impl IntoView {
             <ToastContainer />
             <crate::onboarding::OnboardingOverlay />
         </Router>
+    }
+}
+
+#[component]
+fn HomeRoute() -> impl IntoView {
+    view! {
+        <HearthDataBoundary domain=HearthDataDomain::Home title="Home">
+            <HomePage />
+        </HearthDataBoundary>
+    }
+}
+
+#[component]
+fn KinshipRoute() -> impl IntoView {
+    view! {
+        <HearthDataBoundary domain=HearthDataDomain::Kinship title="Bonds">
+            <KinshipPage />
+        </HearthDataBoundary>
+    }
+}
+
+#[component]
+fn CareRoute() -> impl IntoView {
+    view! {
+        <HearthDataBoundary domain=HearthDataDomain::Care title="Care">
+            <CarePage />
+        </HearthDataBoundary>
+    }
+}
+
+#[component]
+fn DecisionsRoute() -> impl IntoView {
+    view! {
+        <HearthDataBoundary domain=HearthDataDomain::Decisions title="Decisions">
+            <DecisionsPage />
+        </HearthDataBoundary>
+    }
+}
+
+#[component]
+fn GratitudeRoute() -> impl IntoView {
+    view! {
+        <HearthDataBoundary domain=HearthDataDomain::Gratitude title="Gratitude">
+            <GratitudePage />
+        </HearthDataBoundary>
+    }
+}
+
+#[component]
+fn StoriesRoute() -> impl IntoView {
+    view! {
+        <HearthDataBoundary domain=HearthDataDomain::Stories title="Stories">
+            <StoriesPage />
+        </HearthDataBoundary>
+    }
+}
+
+#[component]
+fn MilestonesRoute() -> impl IntoView {
+    view! {
+        <HearthDataBoundary domain=HearthDataDomain::Milestones title="Milestones">
+            <MilestonesPage />
+        </HearthDataBoundary>
+    }
+}
+
+#[component]
+fn RhythmsRoute() -> impl IntoView {
+    view! {
+        <HearthDataBoundary domain=HearthDataDomain::Rhythms title="Rhythms">
+            <RhythmsPage />
+        </HearthDataBoundary>
+    }
+}
+
+#[component]
+fn EmergencyRoute() -> impl IntoView {
+    view! {
+        <HearthDataBoundary domain=HearthDataDomain::Emergency title="Emergency">
+            <EmergencyPage />
+        </HearthDataBoundary>
+    }
+}
+
+#[component]
+fn ResourcesRoute() -> impl IntoView {
+    view! {
+        <HearthDataBoundary domain=HearthDataDomain::Resources title="Resources">
+            <ResourcesPage />
+        </HearthDataBoundary>
+    }
+}
+
+#[component]
+fn AutonomyRoute() -> impl IntoView {
+    view! {
+        <HearthDataBoundary domain=HearthDataDomain::Autonomy title="Autonomy">
+            <AutonomyPage />
+        </HearthDataBoundary>
     }
 }

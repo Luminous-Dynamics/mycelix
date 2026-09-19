@@ -8,6 +8,7 @@ mod app;
 mod circadian;
 mod components;
 pub mod hearth_actions;
+mod hearth_boundary;
 mod hearth_context;
 pub mod hearth_prefs;
 mod hearth_truth;
