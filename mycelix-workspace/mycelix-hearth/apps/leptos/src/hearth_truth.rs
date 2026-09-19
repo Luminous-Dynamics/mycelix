@@ -13,6 +13,7 @@ use crate::hearth_context::{HearthCtx, use_hearth};
 use crate::record_bridge::{self, WireRecord};
 use hearth_leptos_types::*;
 use leptos::prelude::*;
+use mycelix_leptos_client::HoloHashBytes;
 use mycelix_leptos_core::holochain_provider::use_holochain;
 use mycelix_leptos_core::{AvailabilityStateKind, ConnectionStatus};
 use std::cell::Cell;
@@ -314,6 +315,11 @@ fn record_to_hearth(record: &WireRecord) -> Option<HearthView> {
     })
 }
 
+fn parse_source_hash(label: &str, raw_base64: &str) -> Result<HoloHashBytes, String> {
+    HoloHashBytes::from_raw_base64(raw_base64)
+        .map_err(|error| format!("{label} is not a valid 39-byte HoloHash: {error}"))
+}
+
 async fn load_live_data(
     hearth: HearthCtx,
     truth: HearthTruthState,
@@ -340,7 +346,27 @@ async fn load_live_data(
         return;
     };
 
-    let hearth_hash = first_hearth.action_hash_b64();
+    let hearth_hash_text = first_hearth.action_hash_b64();
+    let hearth_hash = match parse_source_hash("current Hearth action hash", &hearth_hash_text) {
+        Ok(hash) => hash,
+        Err(error) => {
+            truth.availability.update(|availability| {
+                availability.current_hearth = AvailabilityStateKind::Degraded;
+                availability.caller_role = AvailabilityStateKind::Unavailable;
+                availability.members = AvailabilityStateKind::Unavailable;
+                availability.bonds = AvailabilityStateKind::Unavailable;
+                availability.care_schedules = AvailabilityStateKind::Unavailable;
+                availability.decisions = AvailabilityStateKind::Unavailable;
+                availability.votes = AvailabilityStateKind::Unavailable;
+                availability.gratitude = AvailabilityStateKind::Unavailable;
+                availability.rhythms = AvailabilityStateKind::Unavailable;
+                availability.presence = AvailabilityStateKind::Unavailable;
+            });
+            web_sys::console::log_1(&format!("[Hearth] {error}").into());
+            return;
+        }
+    };
+
     match record_to_hearth(first_hearth) {
         Some(view) => {
             hearth.current_hearth.set(Some(view));
@@ -356,7 +382,7 @@ async fn load_live_data(
     }
 
     match hc
-        .call_zome_default::<String, Option<MemberRole>>(
+        .call_zome_default::<HoloHashBytes, Option<MemberRole>>(
             "hearth_kinship",
             "get_caller_role",
             &hearth_hash,
@@ -385,7 +411,7 @@ async fn load_live_data(
     }
 
     match hc
-        .call_zome_default::<String, Vec<WireRecord>>(
+        .call_zome_default::<HoloHashBytes, Vec<WireRecord>>(
             "hearth_kinship",
             "get_hearth_members",
             &hearth_hash,
@@ -412,7 +438,7 @@ async fn load_live_data(
     }
 
     match hc
-        .call_zome_default::<String, Vec<WireRecord>>(
+        .call_zome_default::<HoloHashBytes, Vec<WireRecord>>(
             "hearth_kinship",
             "get_kinship_graph",
             &hearth_hash,
@@ -439,7 +465,7 @@ async fn load_live_data(
     }
 
     match hc
-        .call_zome_default::<String, Vec<WireRecord>>(
+        .call_zome_default::<HoloHashBytes, Vec<WireRecord>>(
             "hearth_gratitude",
             "get_gratitude_stream",
             &hearth_hash,
@@ -466,7 +492,7 @@ async fn load_live_data(
     }
 
     match hc
-        .call_zome_default::<String, Vec<WireRecord>>(
+        .call_zome_default::<HoloHashBytes, Vec<WireRecord>>(
             "hearth_care",
             "get_hearth_schedule",
             &hearth_hash,
@@ -493,7 +519,7 @@ async fn load_live_data(
     }
 
     match hc
-        .call_zome_default::<String, Vec<WireRecord>>(
+        .call_zome_default::<HoloHashBytes, Vec<WireRecord>>(
             "hearth_rhythms",
             "get_hearth_rhythms",
             &hearth_hash,
@@ -520,7 +546,7 @@ async fn load_live_data(
     }
 
     match hc
-        .call_zome_default::<String, Vec<WireRecord>>(
+        .call_zome_default::<HoloHashBytes, Vec<WireRecord>>(
             "hearth_rhythms",
             "get_hearth_presence",
             &hearth_hash,
@@ -553,10 +579,10 @@ async fn load_decisions_and_votes(
     hearth: &HearthCtx,
     truth: &HearthTruthState,
     hc: &mycelix_leptos_core::HolochainCtx,
-    hearth_hash: &String,
+    hearth_hash: &HoloHashBytes,
 ) {
     let decision_records = match hc
-        .call_zome_default::<String, Vec<WireRecord>>(
+        .call_zome_default::<HoloHashBytes, Vec<WireRecord>>(
             "hearth_decisions",
             "get_hearth_decisions",
             hearth_hash,
@@ -604,11 +630,20 @@ async fn load_decisions_and_votes(
     let mut failed_queries = 0usize;
 
     for decision in &decisions {
+        let decision_hash = match parse_source_hash("decision action hash", &decision.hash) {
+            Ok(hash) => hash,
+            Err(error) => {
+                failed_queries += 1;
+                web_sys::console::log_1(&format!("[Hearth] {error}").into());
+                continue;
+            }
+        };
+
         match hc
-            .call_zome_default::<String, Vec<WireRecord>>(
+            .call_zome_default::<HoloHashBytes, Vec<WireRecord>>(
                 "hearth_decisions",
                 "get_decision_votes",
-                &decision.hash,
+                &decision_hash,
             )
             .await
         {
@@ -645,109 +680,116 @@ async fn load_decisions_and_votes(
         .update(|availability| availability.votes = vote_state);
 }
 
+fn status_message(
+    hc: &mycelix_leptos_core::HolochainCtx,
+    truth: &HearthTruthState,
+) -> Option<String> {
+    let status = hc.status.get();
+    let signer_ready = hc.zome_call_signing_ready.get();
+    let loading = truth.loading.get();
+    let availability = truth.availability.get();
+
+    match status {
+        ConnectionStatus::Connecting => Some(
+            "Connecting to Hearth. Data shown during connection setup is sample data until a source-backed snapshot is established."
+                .to_string(),
+        ),
+        ConnectionStatus::Connected if !signer_ready => Some(
+            "Connected to the conductor, but browser zome-call signing is unavailable. Demo records are hidden; Hearth snapshots cannot be loaded through this client yet."
+                .to_string(),
+        ),
+        ConnectionStatus::Connected if loading => Some(format!(
+            "Refreshing Hearth snapshot — hearth: {}, role: {}, members: {}, bonds: {}, care: {}, decisions: {}, votes: {}, gratitude: {}, rhythms: {}, presence: {}. Domain pages remain guarded until each required source is established.",
+            availability.current_hearth.label(),
+            availability.caller_role.label(),
+            availability.members.label(),
+            availability.bonds.label(),
+            availability.care_schedules.label(),
+            availability.decisions.label(),
+            availability.votes.label(),
+            availability.gratitude.label(),
+            availability.rhythms.label(),
+            availability.presence.label(),
+        )),
+        ConnectionStatus::Connected => Some(format!(
+            "Source-backed Hearth snapshot — hearth: {}, role: {}, members: {}, bonds: {}, care: {}, decisions: {}, votes: {}, gratitude: {}, rhythms: {}, presence: {}. Real-time conductor signal callbacks are not wired yet, so refresh/reconnect reconciliation is the freshness mechanism. Unsupported domains remain unavailable instead of falling back to demo records.",
+            availability.current_hearth.label(),
+            availability.caller_role.label(),
+            availability.members.label(),
+            availability.bonds.label(),
+            availability.care_schedules.label(),
+            availability.decisions.label(),
+            availability.votes.label(),
+            availability.gratitude.label(),
+            availability.rhythms.label(),
+            availability.presence.label(),
+        )),
+        ConnectionStatus::Disconnected | ConnectionStatus::Reconnecting
+            if availability.current_hearth != AvailabilityStateKind::Mock =>
+        {
+            Some(
+                "Hearth's source connection is interrupted. Previously loaded source-backed records are retained only as degraded data. A fresh snapshot will be requested after the authorized connection is re-established."
+                    .to_string(),
+            )
+        }
+        _ => None,
+    }
+}
+
 #[component]
 pub fn HearthDataStatus() -> impl IntoView {
     let hearth = use_hearth();
     let truth = use_hearth_truth();
     let hc = use_holochain();
 
-    let hc_for_button_style = hc.clone();
-    let truth_for_button_disabled = truth.clone();
+    let truth_for_show = truth.clone();
+    let hc_for_show = hc.clone();
+    let truth_for_message = truth.clone();
+    let hc_for_message = hc.clone();
+    let truth_for_button = truth.clone();
+    let hc_for_button = hc.clone();
+    let truth_for_label = truth.clone();
     let hearth_for_click = hearth.clone();
     let truth_for_click = truth.clone();
     let hc_for_click = hc.clone();
-    let truth_for_button_label = truth.clone();
 
     view! {
-        {move || {
-            let status = hc.status.get();
-            let signer_ready = hc.zome_call_signing_ready.get();
-            let loading = truth.loading.get();
-            let availability = truth.availability.get();
-
-            let message = match status {
-                ConnectionStatus::Connecting => Some(
-                    "Connecting to Hearth. Data shown during connection setup is sample data until a source-backed snapshot is established."
-                        .to_string(),
-                ),
-                ConnectionStatus::Connected if !signer_ready => Some(
-                    "Connected to the conductor, but browser zome-call signing is unavailable. Demo records are hidden; Hearth snapshots cannot be loaded through this client yet."
-                        .to_string(),
-                ),
-                ConnectionStatus::Connected if loading => Some(format!(
-                    "Refreshing Hearth snapshot — hearth: {}, role: {}, members: {}, bonds: {}, care: {}, decisions: {}, votes: {}, gratitude: {}, rhythms: {}, presence: {}. Domain pages remain guarded until each required source is established.",
-                    availability.current_hearth.label(),
-                    availability.caller_role.label(),
-                    availability.members.label(),
-                    availability.bonds.label(),
-                    availability.care_schedules.label(),
-                    availability.decisions.label(),
-                    availability.votes.label(),
-                    availability.gratitude.label(),
-                    availability.rhythms.label(),
-                    availability.presence.label(),
-                )),
-                ConnectionStatus::Connected => Some(format!(
-                    "Source-backed Hearth snapshot — hearth: {}, role: {}, members: {}, bonds: {}, care: {}, decisions: {}, votes: {}, gratitude: {}, rhythms: {}, presence: {}. Real-time conductor signal callbacks are not wired yet, so refresh/reconnect reconciliation is the freshness mechanism. Unsupported domains remain unavailable instead of falling back to demo records.",
-                    availability.current_hearth.label(),
-                    availability.caller_role.label(),
-                    availability.members.label(),
-                    availability.bonds.label(),
-                    availability.care_schedules.label(),
-                    availability.decisions.label(),
-                    availability.votes.label(),
-                    availability.gratitude.label(),
-                    availability.rhythms.label(),
-                    availability.presence.label(),
-                )),
-                ConnectionStatus::Disconnected | ConnectionStatus::Reconnecting
-                    if availability.current_hearth != AvailabilityStateKind::Mock =>
-                {
-                    Some(
-                        "Hearth's source connection is interrupted. Previously loaded source-backed records are retained only as degraded data. A fresh snapshot will be requested after the authorized connection is re-established."
-                            .to_string(),
-                    )
-                }
-                _ => None,
-            };
-
-            message.map(|message| {
-                view! {
-                    <div class="hearth-data-status" role="status">
-                        <span>{message}</span>
-                        <button
-                            class="hearth-refresh-snapshot"
-                            type="button"
-                            style=move || {
-                                if hc_for_button_style.status.get() == ConnectionStatus::Connected
-                                    && hc_for_button_style.zome_call_signing_ready.get()
-                                {
-                                    "display: inline-flex"
-                                } else {
-                                    "display: none"
-                                }
-                            }
-                            disabled=move || truth_for_button_disabled.loading.get()
-                            on:click=move |_| {
-                                start_live_load(
-                                    hearth_for_click.clone(),
-                                    truth_for_click.clone(),
-                                    hc_for_click.clone(),
-                                );
-                            }
-                        >
-                            {move || {
-                                if truth_for_button_label.loading.get() {
-                                    "Refreshing snapshot…"
-                                } else {
-                                    "Refresh snapshot"
-                                }
-                            }}
-                        </button>
-                    </div>
-                }
-            })
-        }}
+        <Show when=move || status_message(&hc_for_show, &truth_for_show).is_some()>
+            <div class="hearth-data-status" role="status">
+                <span>
+                    {move || status_message(&hc_for_message, &truth_for_message).unwrap_or_default()}
+                </span>
+                <button
+                    class="hearth-refresh-snapshot"
+                    type="button"
+                    style=move || {
+                        if hc_for_button.status.get() == ConnectionStatus::Connected
+                            && hc_for_button.zome_call_signing_ready.get()
+                        {
+                            "display: inline-flex"
+                        } else {
+                            "display: none"
+                        }
+                    }
+                    disabled=move || truth_for_button.loading.get()
+                    on:click=move |_| {
+                        start_live_load(
+                            hearth_for_click.clone(),
+                            truth_for_click.clone(),
+                            hc_for_click.clone(),
+                        );
+                    }
+                >
+                    {move || {
+                        if truth_for_label.loading.get() {
+                            "Refreshing snapshot…"
+                        } else {
+                            "Refresh snapshot"
+                        }
+                    }}
+                </button>
+            </div>
+        </Show>
     }
 }
 
