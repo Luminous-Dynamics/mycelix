@@ -1,0 +1,184 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.dev/schemas/constitutional-provider-activation-waist.v1.schema.json",
+  "title": "Mycelix Constitutional Provider Activation Waist v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "profile_id",
+    "version",
+    "status",
+    "authority_class",
+    "activation_allowed",
+    "parent_cr2",
+    "qualified_inputs",
+    "blocking_prerequisites",
+    "identity_rules",
+    "c3_activation_contract",
+    "d1a_activation_contract",
+    "provider_activation_obligations",
+    "non_claims"
+  ],
+  "properties": {
+    "schema": {"const": "mycelix.constitutional-provider-activation-waist.v1"},
+    "profile_id": {"type": "string", "minLength": 1},
+    "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "status": {"enum": ["draft", "qualified"]},
+    "authority_class": {"const": "InertCrossLineageActivationContract"},
+    "activation_allowed": {"type": "boolean"},
+    "parent_cr2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["semantic_head", "manifest_path", "manifest_git_blob_sha", "verifier_head", "qualification_status", "execution_pr", "parked_run_id", "parked_run_conclusion"],
+      "properties": {
+        "semantic_head": {"$ref": "#/$defs/sha"},
+        "manifest_path": {"type": "string", "minLength": 1},
+        "manifest_git_blob_sha": {"$ref": "#/$defs/sha"},
+        "verifier_head": {"$ref": "#/$defs/sha"},
+        "qualification_status": {"type": "string", "minLength": 1},
+        "execution_pr": {"type": "integer", "minimum": 1},
+        "parked_run_id": {"type": "integer", "minimum": 1},
+        "parked_run_conclusion": {"type": "string", "minLength": 1}
+      }
+    },
+    "qualified_inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["c3", "d1a"],
+      "properties": {
+        "c3": {"$ref": "#/$defs/qualifiedInput"},
+        "d1a": {"$ref": "#/$defs/qualifiedInput"}
+      }
+    },
+    "blocking_prerequisites": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "semantic_head", "verifier_head", "status"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "semantic_head": {"$ref": "#/$defs/sha"},
+          "verifier_head": {"$ref": "#/$defs/sha"},
+          "status": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "identity_rules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["claim_binding_source", "operation_identity_source", "action_identity_source", "provider_key_regeneration_allowed", "action_id_regeneration_allowed", "target_rebinding_allowed", "payload_rebinding_allowed"],
+      "properties": {
+        "claim_binding_source": {"type": "string"},
+        "operation_identity_source": {"type": "string"},
+        "action_identity_source": {"type": "string"},
+        "provider_key_regeneration_allowed": {"type": "boolean"},
+        "action_id_regeneration_allowed": {"type": "boolean"},
+        "target_rebinding_allowed": {"type": "boolean"},
+        "payload_rebinding_allowed": {"type": "boolean"}
+      }
+    },
+    "c3_activation_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runtime_refinement_status", "quiescence_classes", "effect_dispatch", "source_assertions"],
+      "properties": {
+        "runtime_refinement_status": {"type": "string"},
+        "quiescence_classes": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "effect_dispatch": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["required_state_class", "required_predicates", "required_internal_action", "blocked_state_classes", "horizon_is_bounded_model_artifact"],
+          "properties": {
+            "required_state_class": {"type": "string"},
+            "required_predicates": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+            "required_internal_action": {"type": "string"},
+            "blocked_state_classes": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+            "horizon_is_bounded_model_artifact": {"type": "boolean"}
+          }
+        },
+        "source_assertions": {
+          "type": "object",
+          "additionalProperties": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "d1a_activation_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runtime_refinement_status", "phases", "dispatch", "unknown_outcome", "identity"],
+      "properties": {
+        "runtime_refinement_status": {"type": "string"},
+        "phases": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "dispatch": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["claim_work_phase", "start_request_phase", "delivery_identity_fields"],
+          "properties": {
+            "claim_work_phase": {"type": "string"},
+            "start_request_phase": {"type": "string"},
+            "delivery_identity_fields": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+          }
+        },
+        "unknown_outcome": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["blind_retry_allowed", "completion_allowed", "resolution_actions", "retry_reenable_action", "retry_reenable_phase"],
+          "properties": {
+            "blind_retry_allowed": {"type": "boolean"},
+            "completion_allowed": {"type": "boolean"},
+            "resolution_actions": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+            "retry_reenable_action": {"type": "string"},
+            "retry_reenable_phase": {"type": "string"}
+          }
+        },
+        "identity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["delivery_action", "stable_operation_identity_required", "logical_exactly_once_is_provider_assumption_not_physical_claim"],
+          "properties": {
+            "delivery_action": {"type": "string"},
+            "stable_operation_identity_required": {"type": "boolean"},
+            "logical_exactly_once_is_provider_assumption_not_physical_claim": {"type": "boolean"}
+          }
+        }
+      }
+    },
+    "provider_activation_obligations": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "required"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "required": {"type": "boolean"}
+        }
+      }
+    },
+    "non_claims": {"type": "array", "minItems": 1, "items": {"type": "string"}, "uniqueItems": true}
+  },
+  "$defs": {
+    "sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "qualifiedInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "semantic_head", "verifier_head", "qualification_run_id", "artifact_digest", "model_path", "model_git_blob_sha"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "semantic_head": {"$ref": "#/$defs/sha"},
+        "verifier_head": {"$ref": "#/$defs/sha"},
+        "qualification_run_id": {"type": "integer", "minimum": 1},
+        "artifact_digest": {"$ref": "#/$defs/digest"},
+        "model_path": {"type": "string", "minLength": 1},
+        "model_git_blob_sha": {"$ref": "#/$defs/sha"}
+      }
+    }
+  }
+}
