@@ -1,0 +1,29 @@
+protocol = "MYCELIX-ASSURE/002B-PERMANENT-CI"
+version = 1
+status = "permanent-ci-candidate"
+
+qualified_002a_commit = "d17a6ae19fb71159b54b266fa760c1989ffc0a63"
+qualified_002a_receipt_sha256 = "f4bdeacc8e4b38f0aad31d03788a8c105790f60667608fb43665ac321454c897"
+
+temporary_002b_subject_commit = "9a2460e97f0bb0b90306e90e7c241b89e21224ec"
+temporary_002b_subject_tree = "9cbb5789431ca95af5001c0015e5d2a37de18d34"
+temporary_002b_run_id = 35323729046
+temporary_002b_job_id = 105531857097
+temporary_002b_receipt_sha256 = "d643f34328e9e862ce50038b8166c93399e9c1a078c75f4cb36f56eb02c5a454"
+temporary_002b_artifact_id = 10579669658
+temporary_002b_artifact_digest = "sha256:0fabfb8a6f26f51246c9217bfcf0a28dd4d4ab36f9d33e57df639d3459dd5294"
+
+scheduler_main_ancestor = "a85369699099d4c7524e502e531735eed4ab36f4"
+
+spec_root_sha256 = "46550610da111888f862d4bfc610f6dc41edfcbcdcd0579377e367df16486973"
+coverage_sha256 = "32bff983f4cdc9d3393e6e4381f8ed470ca29d08e13f8bebe7d1973a3bd0c1e1"
+corpus_root_sha256 = "784ff870e0b9815b015be1bbaa32f0dcc615cb3c22c614ba8bf9389fe4ccaef8"
+cargo_lock_sha256 = "9a0babe726db931fb24087af4e1321f034e15b29a03d1b9249cd6176b3525a8b"
+rust_toolchain = "1.98.1"
+
+claim = "Permanent CI candidate preserves the qualified ASSURE-002B L0 subject while composing it onto the qualified merged-main scheduler lineage."
+nonclaims = [
+  "This file is lineage metadata, not a qualification receipt.",
+  "No final-tree PASS is established until the exact permanent-CI subject executes its registered gates.",
+  "No graph validity, evidence truth, authority, legitimacy, or overall system safety is established."
+]
