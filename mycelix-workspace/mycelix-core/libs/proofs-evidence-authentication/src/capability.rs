@@ -2,11 +2,15 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     AuthenticationFreshnessPolicyV1, AuthenticationPolicyErrorV1, GitObjectIdV1,
-    QualificationReceiptDigestV1, ReceiptAuthenticationPolicyV1, Sha256DigestV1,
+    QualificationReceiptDigestV1, QualificationReceiptV1, QualificationResultV1,
+    ReceiptAuthenticationPolicyV1, ReceiptCanonicalizationErrorV1, Sha256DigestV1,
     TransparencyPolicyV1, WorkflowRevisionPolicyV1,
 };
 
 /// Facts established by a concrete cryptographic verifier before policy binding.
+///
+/// These structures are deliberately **not capabilities**. They are data passed by a
+/// crate-controlled verifier backend into the sealed minting boundary below.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VerifiedSignerIdentityV1 {
     pub oidc_issuer: String,
@@ -18,11 +22,19 @@ pub struct VerifiedSignerIdentityV1 {
     pub source_ref: Option<String>,
 }
 
+/// Cryptographically verified in-toto subject + Mycelix predicate facts.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VerifiedQualificationPredicateV1 {
     pub predicate_type: String,
     pub predicate_schema: String,
+    /// SHA-256 digest carried by the outer in-toto subject.
+    pub attestation_subject_sha256: Sha256DigestV1,
+    /// Canonical receipt digest carried inside the Mycelix predicate.
     pub receipt_digest: QualificationReceiptDigestV1,
+    pub qualification_profile: String,
+    pub subject: GitObjectIdV1,
+    pub coherence_result_digest: Sha256DigestV1,
+    pub result: QualificationResultV1,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -53,7 +65,13 @@ pub enum AuthenticatedReceiptAuthorityV1 {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AuthenticatedCapabilityConstructionErrorV1 {
     InvalidPolicy(AuthenticationPolicyErrorV1),
+    InvalidReceipt(ReceiptCanonicalizationErrorV1),
+    AttestationSubjectDigestMismatch,
     ReceiptDigestMismatch,
+    QualificationProfileMismatch,
+    ReceiptSubjectMismatch,
+    CoherenceResultDigestMismatch,
+    QualificationResultMismatch,
     OidcIssuerMismatch,
     SourceRepositoryMismatch,
     SourceRepositoryOwnerMismatch,
@@ -182,11 +200,14 @@ impl AuthenticatedQualificationReceiptV1 {
 
     /// Crate-internal minting boundary used only by concrete qualified backends.
     ///
-    /// It re-checks all policy-bindable facts after cryptographic verification so a
-    /// backend cannot accidentally mint a capability for a different policy/receipt.
+    /// The canonical receipt digest is recomputed here. The outer in-toto subject and
+    /// every redundant theorem-bearing predicate field must agree with the canonical
+    /// receipt before policy facts are checked. Thus a backend cannot accidentally mint
+    /// a capability for a detached predicate, detached digest, or different policy.
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn from_verified_parts(
         policy: &ReceiptAuthenticationPolicyV1,
-        receipt_digest: QualificationReceiptDigestV1,
+        receipt: &QualificationReceiptV1,
         verified_identity: VerifiedSignerIdentityV1,
         verified_predicate: VerifiedQualificationPredicateV1,
         verified_context: VerifiedAuthenticationContextV1,
@@ -196,9 +217,33 @@ impl AuthenticatedQualificationReceiptV1 {
             .validate()
             .map_err(AuthenticatedCapabilityConstructionErrorV1::InvalidPolicy)?;
 
+        let receipt_digest = receipt
+            .digest()
+            .map_err(AuthenticatedCapabilityConstructionErrorV1::InvalidReceipt)?;
+
+        if verified_predicate.attestation_subject_sha256 != receipt_digest.sha256 {
+            return Err(
+                AuthenticatedCapabilityConstructionErrorV1::AttestationSubjectDigestMismatch,
+            );
+        }
         if verified_predicate.receipt_digest != receipt_digest {
             return Err(AuthenticatedCapabilityConstructionErrorV1::ReceiptDigestMismatch);
         }
+        if verified_predicate.qualification_profile != receipt.qualification_profile {
+            return Err(AuthenticatedCapabilityConstructionErrorV1::QualificationProfileMismatch);
+        }
+        if verified_predicate.subject != receipt.subject {
+            return Err(AuthenticatedCapabilityConstructionErrorV1::ReceiptSubjectMismatch);
+        }
+        if verified_predicate.coherence_result_digest != receipt.coherence_result_digest {
+            return Err(
+                AuthenticatedCapabilityConstructionErrorV1::CoherenceResultDigestMismatch,
+            );
+        }
+        if verified_predicate.result != receipt.result {
+            return Err(AuthenticatedCapabilityConstructionErrorV1::QualificationResultMismatch);
+        }
+
         if verified_identity.oidc_issuer != policy.oidc_issuer {
             return Err(AuthenticatedCapabilityConstructionErrorV1::OidcIssuerMismatch);
         }
@@ -304,6 +349,24 @@ mod tests {
         Sha256DigestV1::from_bytes([byte; 32])
     }
 
+    fn receipt() -> QualificationReceiptV1 {
+        QualificationReceiptV1 {
+            receipt_version: 1,
+            qualification_profile: "myc-zkp-range-001aq".into(),
+            statement_profile: "range-membership-v1".into(),
+            theorem_profile: "range-membership-v1-air".into(),
+            subject: GitObjectIdV1::sha1([0xaa; 20]),
+            dependency_graph_digest: digest(1),
+            measured_security_receipt_digest: digest(2),
+            coherence_policy_id: "coherence-v1".into(),
+            coherence_result_digest: digest(3),
+            qualification_corpus_digest: digest(4),
+            execution_capsule_digest: digest(5),
+            result: QualificationResultV1::Pass,
+            nonclaims: vec!["application authority not granted".into()],
+        }
+    }
+
     fn policy() -> ReceiptAuthenticationPolicyV1 {
         ReceiptAuthenticationPolicyV1 {
             profile_id: "github-public-v1".into(),
@@ -314,7 +377,7 @@ mod tests {
                 verification_profile: "public-sigstore-qualification-v1".into(),
             },
             expected_predicate_type: "https://mycelix.org/attestations/qualification/v1".into(),
-            expected_predicate_schema: "mycelix-qualification-v1".into(),
+            expected_predicate_schema: "mycelix-qualification-attestation-predicate-v1".into(),
             trusted_root_profile: "sigstore-public-good-v1".into(),
             trusted_root_digest: digest(9),
             oidc_issuer: "https://token.actions.githubusercontent.com".into(),
@@ -322,10 +385,10 @@ mod tests {
             source_repository_owner: "Luminous-Dynamics".into(),
             signer_workflow: ".github/workflows/proofs.yml".into(),
             signer_workflow_revision: WorkflowRevisionPolicyV1::Exact(GitObjectIdV1::sha1([
-                0xbb; 20
+                0xbb; 20,
             ])),
             source_revision: SourceRevisionPolicyV1 {
-                exact_commit: GitObjectIdV1::sha1([0xaa; 20]),
+                exact_commit: GitObjectIdV1::sha1([0xcc; 20]),
                 exact_git_ref: Some("refs/heads/main".into()),
             },
             transparency_policy: TransparencyPolicyV1::PublicTransparencyRequired,
@@ -340,23 +403,22 @@ mod tests {
             source_repository_owner: "Luminous-Dynamics".into(),
             signer_workflow: ".github/workflows/proofs.yml".into(),
             signer_workflow_revision: GitObjectIdV1::sha1([0xbb; 20]),
-            source_revision: GitObjectIdV1::sha1([0xaa; 20]),
+            source_revision: GitObjectIdV1::sha1([0xcc; 20]),
             source_ref: Some("refs/heads/main".into()),
         }
     }
 
-    fn receipt_digest(byte: u8) -> QualificationReceiptDigestV1 {
-        QualificationReceiptDigestV1 {
-            canonicalization: QualificationReceiptCanonicalizationV1::BinaryV1,
-            sha256: digest(byte),
-        }
-    }
-
-    fn predicate(receipt_digest: QualificationReceiptDigestV1) -> VerifiedQualificationPredicateV1 {
+    fn predicate(receipt: &QualificationReceiptV1) -> VerifiedQualificationPredicateV1 {
+        let receipt_digest = receipt.digest().unwrap();
         VerifiedQualificationPredicateV1 {
             predicate_type: "https://mycelix.org/attestations/qualification/v1".into(),
-            predicate_schema: "mycelix-qualification-v1".into(),
+            predicate_schema: "mycelix-qualification-attestation-predicate-v1".into(),
+            attestation_subject_sha256: receipt_digest.sha256,
             receipt_digest,
+            qualification_profile: receipt.qualification_profile.clone(),
+            subject: receipt.subject,
+            coherence_result_digest: receipt.coherence_result_digest,
+            result: receipt.result,
         }
     }
 
@@ -377,12 +439,12 @@ mod tests {
 
     #[test]
     fn matching_verified_facts_can_mint_only_receipt_authentication_capability() {
-        let receipt_digest = receipt_digest(1);
+        let receipt = receipt();
         let capability = AuthenticatedQualificationReceiptV1::from_verified_parts(
             &policy(),
-            receipt_digest,
+            &receipt,
             identity(),
-            predicate(receipt_digest),
+            predicate(&receipt),
             context(),
             digest(7),
         )
@@ -394,34 +456,120 @@ mod tests {
         );
         assert!(!capability.grants_production_authority());
         assert!(!capability.grants_application_authority());
-        assert_eq!(capability.receipt_digest(), receipt_digest);
+        assert_eq!(capability.receipt_digest(), receipt.digest().unwrap());
         assert_eq!(capability.authentication_policy(), &policy());
     }
 
     #[test]
-    fn receipt_and_identity_substitutions_fail() {
-        let exact_receipt = receipt_digest(1);
-        let wrong_receipt = receipt_digest(2);
+    fn outer_subject_and_predicate_digest_substitution_fail() {
+        let receipt = receipt();
+
+        let mut wrong = predicate(&receipt);
+        wrong.attestation_subject_sha256 = digest(8);
         assert_eq!(
             AuthenticatedQualificationReceiptV1::from_verified_parts(
                 &policy(),
-                exact_receipt,
+                &receipt,
                 identity(),
-                predicate(wrong_receipt),
+                wrong,
+                context(),
+                digest(7),
+            ),
+            Err(
+                AuthenticatedCapabilityConstructionErrorV1::AttestationSubjectDigestMismatch
+            )
+        );
+
+        let mut wrong = predicate(&receipt);
+        wrong.receipt_digest = QualificationReceiptDigestV1 {
+            canonicalization: QualificationReceiptCanonicalizationV1::BinaryV1,
+            sha256: digest(8),
+        };
+        assert_eq!(
+            AuthenticatedQualificationReceiptV1::from_verified_parts(
+                &policy(),
+                &receipt,
+                identity(),
+                wrong,
                 context(),
                 digest(7),
             ),
             Err(AuthenticatedCapabilityConstructionErrorV1::ReceiptDigestMismatch)
         );
+    }
 
+    #[test]
+    fn redundant_predicate_metadata_is_bound_to_canonical_receipt() {
+        let receipt = receipt();
+
+        let mut wrong = predicate(&receipt);
+        wrong.qualification_profile = "other-profile".into();
+        assert_eq!(
+            AuthenticatedQualificationReceiptV1::from_verified_parts(
+                &policy(),
+                &receipt,
+                identity(),
+                wrong,
+                context(),
+                digest(7),
+            ),
+            Err(AuthenticatedCapabilityConstructionErrorV1::QualificationProfileMismatch)
+        );
+
+        let mut wrong = predicate(&receipt);
+        wrong.subject = GitObjectIdV1::sha1([0xdd; 20]);
+        assert_eq!(
+            AuthenticatedQualificationReceiptV1::from_verified_parts(
+                &policy(),
+                &receipt,
+                identity(),
+                wrong,
+                context(),
+                digest(7),
+            ),
+            Err(AuthenticatedCapabilityConstructionErrorV1::ReceiptSubjectMismatch)
+        );
+
+        let mut wrong = predicate(&receipt);
+        wrong.coherence_result_digest = digest(8);
+        assert_eq!(
+            AuthenticatedQualificationReceiptV1::from_verified_parts(
+                &policy(),
+                &receipt,
+                identity(),
+                wrong,
+                context(),
+                digest(7),
+            ),
+            Err(AuthenticatedCapabilityConstructionErrorV1::CoherenceResultDigestMismatch)
+        );
+
+        let mut wrong = predicate(&receipt);
+        wrong.result = QualificationResultV1::RecordedOnly;
+        assert_eq!(
+            AuthenticatedQualificationReceiptV1::from_verified_parts(
+                &policy(),
+                &receipt,
+                identity(),
+                wrong,
+                context(),
+                digest(7),
+            ),
+            Err(AuthenticatedCapabilityConstructionErrorV1::QualificationResultMismatch)
+        );
+    }
+
+    #[test]
+    fn identity_substitution_fails() {
+        let receipt = receipt();
         let mut wrong = identity();
         wrong.source_repository = "attacker/repo".into();
         assert_eq!(
             AuthenticatedQualificationReceiptV1::from_verified_parts(
                 &policy(),
-                exact_receipt,
+                &receipt,
                 wrong,
-                predicate(exact_receipt),
+                predicate(&receipt),
                 context(),
                 digest(7),
             ),
@@ -431,16 +579,16 @@ mod tests {
 
     #[test]
     fn trusted_root_transparency_and_freshness_are_policy_bound() {
-        let exact_receipt = receipt_digest(1);
+        let receipt = receipt();
 
         let mut wrong_root = context();
         wrong_root.trusted_root_digest = digest(8);
         assert_eq!(
             AuthenticatedQualificationReceiptV1::from_verified_parts(
                 &policy(),
-                exact_receipt,
+                &receipt,
                 identity(),
-                predicate(exact_receipt),
+                predicate(&receipt),
                 wrong_root,
                 digest(7),
             ),
@@ -452,9 +600,9 @@ mod tests {
         assert_eq!(
             AuthenticatedQualificationReceiptV1::from_verified_parts(
                 &policy(),
-                exact_receipt,
+                &receipt,
                 identity(),
-                predicate(exact_receipt),
+                predicate(&receipt),
                 no_log,
                 digest(7),
             ),
@@ -466,9 +614,9 @@ mod tests {
         assert_eq!(
             AuthenticatedQualificationReceiptV1::from_verified_parts(
                 &policy(),
-                exact_receipt,
+                &receipt,
                 identity(),
-                predicate(exact_receipt),
+                predicate(&receipt),
                 stale,
                 digest(7),
             ),
