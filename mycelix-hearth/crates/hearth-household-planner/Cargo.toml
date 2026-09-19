@@ -1,0 +1,10 @@
+[package]
+name = "hearth-household-planner"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Deterministic Care + Rhythms household work planner for Mycelix Hearth"
+
+[dependencies]
+serde = { workspace = true }
+hearth-automation-types = { workspace = true }
