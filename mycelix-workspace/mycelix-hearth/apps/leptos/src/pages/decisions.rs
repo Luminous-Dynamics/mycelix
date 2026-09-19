@@ -11,6 +11,70 @@ use mycelix_leptos_core::consciousness::DimensionWeights;
 use mycelix_leptos_core::holochain_provider::use_holochain;
 use mycelix_leptos_core::{ConnectionStatus, use_consciousness};
 
+fn decision_type_label(decision_type: &DecisionType) -> &'static str {
+    match decision_type {
+        DecisionType::Consensus => "Consensus",
+        DecisionType::MajorityVote => "Majority vote",
+        DecisionType::ElderDecision => "Elder decision",
+        DecisionType::GuardianDecision => "Guardian decision",
+    }
+}
+
+fn eligible_roles_label(roles: &[MemberRole]) -> String {
+    if roles.is_empty() {
+        return "No eligible roles recorded".to_string();
+    }
+    roles
+        .iter()
+        .map(MemberRole::label)
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn quorum_label(quorum_bp: Option<u32>) -> String {
+    match quorum_bp {
+        None => "No quorum requirement".to_string(),
+        Some(bp) => format!("Participation quorum: {:.2}%", bp as f64 / 100.0),
+    }
+}
+
+fn deadline_orientation(deadline_seconds: i64, now_seconds: i64) -> String {
+    if deadline_seconds <= now_seconds {
+        return "Configured voting deadline has passed according to this device clock".to_string();
+    }
+
+    let remaining = deadline_seconds.saturating_sub(now_seconds);
+    if remaining < 3_600 {
+        let minutes = (remaining + 59) / 60;
+        format!("Configured voting deadline is in about {minutes} minute(s) by this device clock")
+    } else if remaining < 86_400 {
+        let hours = (remaining + 3_599) / 3_600;
+        format!("Configured voting deadline is in about {hours} hour(s) by this device clock")
+    } else {
+        let days = (remaining + 86_399) / 86_400;
+        format!("Configured voting deadline is in about {days} day(s) by this device clock")
+    }
+}
+
+fn browser_deadline_orientation(deadline_seconds: i64) -> String {
+    let now_seconds = (js_sys::Date::now() / 1_000.0) as i64;
+    deadline_orientation(deadline_seconds, now_seconds)
+}
+
+fn lifecycle_explanation(status: &DecisionStatus) -> &'static str {
+    match status {
+        DecisionStatus::Open => {
+            "Open does not itself prove that a vote will be accepted. The decisions zome still checks the authoritative deadline, caller role, duplicate-vote state, and civic eligibility."
+        }
+        DecisionStatus::Closed => {
+            "Closed blocks further voting. If votes existed when it was closed, the zome may also have recorded a closing outcome; this client does not load DecisionOutcome records yet."
+        }
+        DecisionStatus::Finalized => {
+            "Finalized means the decisions zome recorded a DecisionOutcome after applying its deadline, role, quorum, and decision-type rules. This client does not load that outcome record yet."
+        }
+    }
+}
+
 #[component]
 fn DecisionComposer() -> impl IntoView {
     let (open, set_open) = signal(false);
@@ -244,7 +308,7 @@ fn DecisionComposer() -> impl IntoView {
                                 }
                             }
                         ></textarea>
-                        <small id="decision-options-help">"Use 2–20 non-empty options. Each option may be up to 1024 characters."</small>
+                        <small id="decision-options-help">"Use 2–20 non-empty options. Each option may be up to 1024 UTF-8 bytes under the current integrity contract."</small>
                     </div>
 
                     <div class="form-row">
@@ -411,7 +475,6 @@ pub fn DecisionsPage() -> impl IntoView {
                             .my_role
                             .get()
                             .unwrap_or(MemberRole::Guest);
-                        let role_bp = role.default_vote_weight_bp();
                         let tier = consciousness_for_meta.tier.get();
                         let tier_bp = ((consciousness_for_meta
                             .profile
@@ -485,7 +548,11 @@ pub fn DecisionsPage() -> impl IntoView {
                                         DecisionStatus::Closed => "decision-closed",
                                         DecisionStatus::Finalized => "decision-finalized",
                                     };
-                                    let decision_type = format!("{:?}", decision.decision_type);
+                                    let decision_type = decision_type_label(&decision.decision_type).to_string();
+                                    let eligible_roles = eligible_roles_label(&decision.eligible_roles);
+                                    let quorum = quorum_label(decision.quorum_bp);
+                                    let deadline = browser_deadline_orientation(decision.deadline);
+                                    let lifecycle = lifecycle_explanation(&decision.status).to_string();
                                     let options = decision.options.clone();
                                     let hash = decision.hash.clone();
                                     let is_open = decision.status == DecisionStatus::Open;
@@ -518,6 +585,12 @@ pub fn DecisionsPage() -> impl IntoView {
                                             </div>
                                             <p class="decision-desc">{description}</p>
                                             <p class="decision-proposer">"Proposed by " {proposer}</p>
+                                            <div class="decision-contract" role="group" aria-label="Decision rules and lifecycle">
+                                                <span>{format!("Eligible roles: {eligible_roles}")}</span>
+                                                <span>{quorum}</span>
+                                                <span>{deadline}</span>
+                                            </div>
+                                            <p class="decision-lifecycle-note">{lifecycle}</p>
 
                                             <div
                                                 class="decision-options"
@@ -699,5 +772,41 @@ pub fn DecisionsPage() -> impl IntoView {
                 }
             }}
         </div>
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{deadline_orientation, decision_type_label, eligible_roles_label, lifecycle_explanation, quorum_label};
+    use hearth_leptos_types::{DecisionStatus, DecisionType, MemberRole};
+
+    #[test]
+    fn governance_contract_labels_are_human_readable() {
+        assert_eq!(decision_type_label(&DecisionType::MajorityVote), "Majority vote");
+        assert_eq!(
+            eligible_roles_label(&[MemberRole::Founder, MemberRole::Adult]),
+            "Founder, Adult"
+        );
+        assert_eq!(quorum_label(None), "No quorum requirement");
+        assert_eq!(quorum_label(Some(5_050)), "Participation quorum: 50.50%");
+    }
+
+    #[test]
+    fn deadline_orientation_is_explicitly_device_relative() {
+        assert!(deadline_orientation(1_000, 1_000).contains("device clock"));
+        assert!(deadline_orientation(1_060, 1_000).contains("minute"));
+        assert!(deadline_orientation(8_200, 1_000).contains("hour"));
+        assert!(deadline_orientation(200_000, 1_000).contains("day"));
+    }
+
+    #[test]
+    fn lifecycle_copy_does_not_strengthen_open_into_votable() {
+        let open = lifecycle_explanation(&DecisionStatus::Open);
+        assert!(open.contains("does not itself prove"));
+        assert!(open.contains("zome"));
+
+        let finalized = lifecycle_explanation(&DecisionStatus::Finalized);
+        assert!(finalized.contains("DecisionOutcome"));
+        assert!(finalized.contains("does not load"));
     }
 }
