@@ -15,6 +15,7 @@ use crate::hearth_context::{member_name, mock_now, use_hearth};
 use crate::hearth_truth::use_hearth_truth;
 use crate::record_bridge::{self, WireRecord};
 use hearth_leptos_types::*;
+use mycelix_leptos_client::HoloHashBytes;
 use mycelix_leptos_core::holochain_provider::use_holochain;
 use mycelix_leptos_core::{AvailabilityStateKind, ToastKind, use_toasts};
 
@@ -35,6 +36,16 @@ pub fn provide_hearth_actions() -> HearthActions {
 
 pub fn use_hearth_actions() -> HearthActions {
     expect_context::<HearthActions>()
+}
+
+fn action_hash(label: &str, value: &str) -> Result<HoloHashBytes, String> {
+    HoloHashBytes::from_raw_base64(value)
+        .map_err(|error| format!("{label} is not a valid ActionHash carrier: {error}"))
+}
+
+fn agent_key(label: &str, value: &str) -> Result<HoloHashBytes, String> {
+    HoloHashBytes::from_holochain_display(value)
+        .map_err(|error| format!("{label} is not a valid AgentPubKey display value: {error}"))
 }
 
 // ============================================================================
@@ -72,10 +83,25 @@ pub fn tend_bond(bond_hash: String) {
         return;
     }
 
+    let bond_hash_wire = match action_hash("bond hash", &bond_hash) {
+        Ok(hash) => hash,
+        Err(error) => {
+            truth.availability.update(|availability| {
+                availability.bonds = AvailabilityStateKind::Degraded;
+            });
+            web_sys::console::log_1(&format!("tend_bond blocked: {error}").into());
+            toasts.push(
+                "bond target is malformed in the local snapshot; refresh before retrying",
+                ToastKind::Custom("bond".into()),
+            );
+            return;
+        }
+    };
+
     spawn_local(async move {
         #[derive(serde::Serialize)]
         struct TendBondInput {
-            bond_hash: String,
+            bond_hash: HoloHashBytes,
             description: String,
             quality_bp: u32,
         }
@@ -86,7 +112,7 @@ pub fn tend_bond(bond_hash: String) {
                 "hearth_kinship",
                 "tend_bond",
                 &TendBondInput {
-                    bond_hash,
+                    bond_hash: bond_hash_wire,
                     description: "tended with care".into(),
                     quality_bp: 500,
                 },
@@ -175,21 +201,57 @@ pub fn express_gratitude(to_agent: String, message: String) {
         return;
     }
 
+    let Some(hearth_hash_text) = hearth.current_hearth.get_untracked().map(|value| value.hash) else {
+        truth.availability.update(|availability| {
+            availability.current_hearth = AvailabilityStateKind::Unknown;
+            availability.gratitude = AvailabilityStateKind::Unknown;
+        });
+        toasts.push(
+            "current Hearth is not established; refresh before expressing gratitude",
+            ToastKind::Custom("gratitude".into()),
+        );
+        return;
+    };
+    let hearth_hash = match action_hash("current Hearth hash", &hearth_hash_text) {
+        Ok(hash) => hash,
+        Err(error) => {
+            truth.availability.update(|availability| {
+                availability.current_hearth = AvailabilityStateKind::Degraded;
+                availability.gratitude = AvailabilityStateKind::Degraded;
+            });
+            web_sys::console::log_1(&format!("express_gratitude blocked: {error}").into());
+            toasts.push(
+                "current Hearth hash is malformed; refresh before retrying",
+                ToastKind::Custom("gratitude".into()),
+            );
+            return;
+        }
+    };
+    let to_agent = match agent_key("gratitude recipient", &to_agent) {
+        Ok(agent) => agent,
+        Err(error) => {
+            truth.availability.update(|availability| {
+                availability.members = AvailabilityStateKind::Degraded;
+                availability.gratitude = AvailabilityStateKind::Degraded;
+            });
+            web_sys::console::log_1(&format!("express_gratitude blocked: {error}").into());
+            toasts.push(
+                "gratitude recipient identity is malformed in the local snapshot; refresh before retrying",
+                ToastKind::Custom("gratitude".into()),
+            );
+            return;
+        }
+    };
+
     spawn_local(async move {
         #[derive(serde::Serialize)]
         struct ExpressGratitudeInput {
-            hearth_hash: String,
-            to_agent: String,
+            hearth_hash: HoloHashBytes,
+            to_agent: HoloHashBytes,
             message: String,
             gratitude_type: GratitudeType,
             visibility: HearthVisibility,
         }
-
-        let hearth_hash = hearth
-            .current_hearth
-            .get_untracked()
-            .map(|hearth| hearth.hash)
-            .unwrap_or_default();
 
         match hc
             .call_zome_default::<ExpressGratitudeInput, WireRecord>(
@@ -278,10 +340,26 @@ pub fn cast_vote(decision_hash: String, choice: u32, reasoning: Option<String>, 
         return;
     }
 
+    let decision_hash_wire = match action_hash("decision hash", &decision_hash) {
+        Ok(hash) => hash,
+        Err(error) => {
+            truth.availability.update(|availability| {
+                availability.decisions = AvailabilityStateKind::Degraded;
+                availability.votes = AvailabilityStateKind::Degraded;
+            });
+            web_sys::console::log_1(&format!("cast_vote blocked: {error}").into());
+            toasts.push(
+                "decision target is malformed in the local snapshot; refresh before retrying",
+                ToastKind::Custom("decision".into()),
+            );
+            return;
+        }
+    };
+
     spawn_local(async move {
         #[derive(serde::Serialize)]
         struct CastVoteInput {
-            decision_hash: String,
+            decision_hash: HoloHashBytes,
             choice: u32,
             reasoning: Option<String>,
         }
@@ -291,7 +369,7 @@ pub fn cast_vote(decision_hash: String, choice: u32, reasoning: Option<String>, 
                 "hearth_decisions",
                 "cast_vote",
                 &CastVoteInput {
-                    decision_hash,
+                    decision_hash: decision_hash_wire,
                     choice,
                     reasoning,
                 },
@@ -362,19 +440,40 @@ pub fn change_presence(new_status: PresenceStatusType) {
         return;
     }
 
+    let Some(hearth_hash_text) = hearth.current_hearth.get_untracked().map(|value| value.hash) else {
+        truth.availability.update(|availability| {
+            availability.current_hearth = AvailabilityStateKind::Unknown;
+            availability.presence = AvailabilityStateKind::Unknown;
+        });
+        toasts.push(
+            "current Hearth is not established; refresh before changing presence",
+            ToastKind::Custom("presence".into()),
+        );
+        return;
+    };
+    let hearth_hash = match action_hash("current Hearth hash", &hearth_hash_text) {
+        Ok(hash) => hash,
+        Err(error) => {
+            truth.availability.update(|availability| {
+                availability.current_hearth = AvailabilityStateKind::Degraded;
+                availability.presence = AvailabilityStateKind::Degraded;
+            });
+            web_sys::console::log_1(&format!("change_presence blocked: {error}").into());
+            toasts.push(
+                "current Hearth hash is malformed; refresh before retrying",
+                ToastKind::Custom("presence".into()),
+            );
+            return;
+        }
+    };
+
     spawn_local(async move {
         #[derive(serde::Serialize)]
         struct SetPresenceInput {
-            hearth_hash: String,
+            hearth_hash: HoloHashBytes,
             status: PresenceStatusType,
             expected_return: Option<i64>,
         }
-
-        let hearth_hash = hearth
-            .current_hearth
-            .get_untracked()
-            .map(|hearth| hearth.hash)
-            .unwrap_or_default();
 
         match hc
             .call_zome_default::<SetPresenceInput, WireRecord>(
@@ -460,10 +559,25 @@ pub fn complete_care_task(task_hash: String) {
         return;
     }
 
+    let task_hash_wire = match action_hash("care schedule hash", &task_hash) {
+        Ok(hash) => hash,
+        Err(error) => {
+            truth.availability.update(|availability| {
+                availability.care_schedules = AvailabilityStateKind::Degraded;
+            });
+            web_sys::console::log_1(&format!("complete_care_task blocked: {error}").into());
+            toasts.push(
+                "care task target is malformed in the local snapshot; refresh before retrying",
+                ToastKind::Custom("care".into()),
+            );
+            return;
+        }
+    };
+
     spawn_local(async move {
         #[derive(serde::Serialize)]
         struct CompleteTaskInput {
-            schedule_hash: String,
+            schedule_hash: HoloHashBytes,
         }
 
         let original_hash = task_hash.clone();
@@ -472,7 +586,7 @@ pub fn complete_care_task(task_hash: String) {
                 "hearth_care",
                 "complete_task",
                 &CompleteTaskInput {
-                    schedule_hash: task_hash,
+                    schedule_hash: task_hash_wire,
                 },
             )
             .await

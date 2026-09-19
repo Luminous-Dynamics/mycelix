@@ -11,6 +11,7 @@ use crate::hearth_context::{mock_now, use_hearth};
 use crate::hearth_truth::use_hearth_truth;
 use crate::record_bridge::{self, WireRecord};
 use hearth_leptos_types::VoteView;
+use mycelix_leptos_client::HoloHashBytes;
 use mycelix_leptos_core::holochain_provider::use_holochain;
 use mycelix_leptos_core::{AvailabilityStateKind, ToastKind, use_toasts};
 use wasm_bindgen_futures::spawn_local;
@@ -56,10 +57,28 @@ pub fn amend_vote(
         return;
     }
 
+    let decision_hash = match HoloHashBytes::from_raw_base64(&decision_hash) {
+        Ok(hash) => hash,
+        Err(error) => {
+            truth.availability.update(|availability| {
+                availability.decisions = AvailabilityStateKind::Degraded;
+                availability.votes = AvailabilityStateKind::Degraded;
+            });
+            web_sys::console::log_1(
+                &format!("amend_vote blocked by malformed decision hash: {error}").into(),
+            );
+            toasts.push(
+                "decision target is malformed in the local snapshot; refresh before retrying",
+                ToastKind::Custom("decision".into()),
+            );
+            return;
+        }
+    };
+
     spawn_local(async move {
         #[derive(serde::Serialize)]
         struct AmendVoteInput {
-            decision_hash: String,
+            decision_hash: HoloHashBytes,
             choice: u32,
             reasoning: Option<String>,
         }
