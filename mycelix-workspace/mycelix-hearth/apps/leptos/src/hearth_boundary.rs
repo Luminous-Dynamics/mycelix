@@ -200,11 +200,22 @@ mod tests {
     use mycelix_leptos_core::AvailabilityStateKind;
 
     #[test]
-    fn care_is_unavailable_when_live_care_bridge_is_unwired() {
+    fn care_is_unknown_while_live_care_snapshot_is_pending() {
         let availability = HearthAvailability::live_pending();
         assert_eq!(
             domain_state(&availability, HearthDataDomain::Care),
-            AvailabilityStateKind::Unavailable
+            AvailabilityStateKind::Unknown
+        );
+    }
+
+    #[test]
+    fn successful_empty_care_snapshot_can_render_as_established() {
+        let mut availability = HearthAvailability::live_pending();
+        availability.members = AvailabilityStateKind::Live;
+        availability.care_schedules = AvailabilityStateKind::Empty;
+        assert_eq!(
+            domain_state(&availability, HearthDataDomain::Care),
+            AvailabilityStateKind::Live
         );
     }
 
