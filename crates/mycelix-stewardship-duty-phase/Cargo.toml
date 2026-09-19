@@ -1,0 +1,16 @@
+[package]
+name = "mycelix-stewardship-duty-phase"
+version = "0.1.0"
+edition = "2024"
+description = "Execution-phase profile for Mycelix stewardship reciprocity duties"
+license = "AGPL-3.0-or-later"
+authors = ["Luminous Dynamics <contact@luminousdynamics.org>"]
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+
+[lib]
+name = "mycelix_stewardship_duty_phase"
+crate-type = ["rlib"]
+
+[dependencies]
+mycelix-stewardship-core = { path = "../mycelix-stewardship-core" }
+mycelix-stewardship-reciprocity = { path = "../mycelix-stewardship-reciprocity" }
