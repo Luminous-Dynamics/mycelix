@@ -1,0 +1,27 @@
+{
+  "schema_version": "myc-fl-robustness-fixture-v1",
+  "fixture_id": "krum-v1-infeasible-boundary",
+  "evidence_class": "theorem_boundary",
+  "algorithm_profile": {
+    "name": "KrumV1",
+    "f": 1,
+    "distance": "squared_euclidean",
+    "coordinate_type": "f32",
+    "distance_accumulator": "f64"
+  },
+  "model_version": 7,
+  "updates": [
+    {"participant_id":"p1","gradients":[0.0],"batch_size":1,"loss":0.0},
+    {"participant_id":"p2","gradients":[0.1],"batch_size":1,"loss":0.0},
+    {"participant_id":"p3","gradients":[-0.1],"batch_size":1,"loss":0.0},
+    {"participant_id":"p4","gradients":[0.05],"batch_size":1,"loss":0.0}
+  ],
+  "expected": {
+    "disposition": "reject",
+    "reason": "infeasible_byzantine_bound",
+    "relation": "2*f + 2 < n",
+    "evaluated": "4 < 4",
+    "must_score_candidates": false
+  },
+  "derivation": "For n=4 and f=1, the KrumV1 feasibility condition 2f+2<n is false. Rejection must occur before any candidate score is treated as authoritative."
+}

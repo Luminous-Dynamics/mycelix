@@ -1,0 +1,44 @@
+{
+  "schema_version": "myc-fl-robustness-fixture-v1",
+  "fixture_id": "krum-v1-exact-score-tie",
+  "evidence_class": "algorithm_semantics",
+  "algorithm_profile": {
+    "name": "KrumV1",
+    "f": 1,
+    "neighbor_count": 2,
+    "distance": "squared_euclidean",
+    "coordinate_type": "f32",
+    "distance_accumulator": "f64",
+    "tie_break": ["participant_id", "stable_input_index"]
+  },
+  "model_version": 7,
+  "permutations": [
+    [
+      {"participant_id":"a","gradients":[-1.0],"batch_size":1,"loss":0.0},
+      {"participant_id":"b","gradients":[1.0],"batch_size":1,"loss":0.0},
+      {"participant_id":"c","gradients":[0.0],"batch_size":1,"loss":0.0},
+      {"participant_id":"d","gradients":[0.0],"batch_size":1,"loss":0.0},
+      {"participant_id":"e","gradients":[0.0],"batch_size":1,"loss":0.0}
+    ],
+    [
+      {"participant_id":"e","gradients":[0.0],"batch_size":1,"loss":0.0},
+      {"participant_id":"b","gradients":[1.0],"batch_size":1,"loss":0.0},
+      {"participant_id":"d","gradients":[0.0],"batch_size":1,"loss":0.0},
+      {"participant_id":"a","gradients":[-1.0],"batch_size":1,"loss":0.0},
+      {"participant_id":"c","gradients":[0.0],"batch_size":1,"loss":0.0}
+    ]
+  ],
+  "expected": {
+    "disposition": "selected",
+    "participant_id": "c",
+    "candidate_scores": {
+      "a": 2.0,
+      "b": 2.0,
+      "c": 0.0,
+      "d": 0.0,
+      "e": 0.0
+    },
+    "same_selection_for_all_permutations": true
+  },
+  "derivation": "c, d and e each have two zero-distance neighbors, so all score 0. Canonical tie-break by participant_id selects c regardless of input order."
+}
