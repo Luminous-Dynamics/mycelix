@@ -1,0 +1,391 @@
+name: Mycelix Proof Evidence Coherence Exact-Head
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'mycelix-workspace/mycelix-core/libs/proofs-evidence-coherence/**'
+      - 'mycelix-workspace/mycelix-core/libs/proofs-config/**'
+      - '.github/workflows/proofs-evidence-coherence-exact-head.yml'
+  workflow_dispatch:
+    inputs:
+      subject_sha:
+        description: 'Exact 40-hex commit SHA to qualify'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: proofs-evidence-coherence-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Exact-head proof evidence coherence qualification
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Resolve exact subject
+        id: subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            subject='${{ github.event.pull_request.head.sha }}'
+          else
+            subject='${{ inputs.subject_sha }}'
+          fi
+          if [[ ! "$subject" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "invalid subject SHA: $subject" >&2
+            exit 1
+          fi
+          echo "sha=$subject" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ steps.subject.outputs.sha }}
+          fetch-depth: 1
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+
+      - name: Preflight identity and source evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          test -z "$(git status --porcelain)"
+          evidence="$RUNNER_TEMP/proofs-evidence-coherence-evidence"
+          mkdir -p "$evidence"
+          {
+            echo "subject_sha=${{ steps.subject.outputs.sha }}"
+            echo "runner_os=${RUNNER_OS}"
+            echo "runner_arch=${RUNNER_ARCH}"
+            rustc -Vv
+            cargo -V
+          } > "$evidence/execution-capsule.txt"
+          find mycelix-workspace/mycelix-core/libs/proofs-evidence-coherence \
+               mycelix-workspace/mycelix-core/libs/proofs-config \
+               -type f -not -path '*/target/*' -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            > "$evidence/source-sha256.txt"
+
+      - name: Check formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-core/libs/proofs-evidence-coherence/Cargo.toml \
+            --all -- --check
+
+      - name: Prepare isolated resolved graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/proofs-evidence-coherence-qual/libs"
+          evidence="$RUNNER_TEMP/proofs-evidence-coherence-evidence"
+          mkdir -p "$root"
+          cp -a mycelix-workspace/mycelix-core/libs/proofs-config "$root/proofs-config"
+          cp -a mycelix-workspace/mycelix-core/libs/proofs-evidence-coherence "$root/proofs-evidence-coherence"
+          cd "$root/proofs-evidence-coherence"
+          cargo generate-lockfile
+          sha256sum Cargo.lock > "$evidence/Cargo.lock.sha256"
+          cp Cargo.lock "$evidence/Cargo.lock"
+          cargo metadata --locked --format-version 1 > "$evidence/cargo-metadata.json"
+          cargo tree --locked > "$evidence/cargo-tree.txt"
+
+      - name: Execute committed coherence corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/proofs-evidence-coherence-qual/libs/proofs-evidence-coherence"
+          evidence="$RUNNER_TEMP/proofs-evidence-coherence-evidence"
+          cd "$crate"
+          cargo test --locked -- --nocapture | tee "$evidence/committed-tests.txt"
+          cargo test --locked -- --list > "$evidence/committed-test-list.txt"
+
+      - name: Install public API adversarial probes
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/proofs-evidence-coherence-qual/libs/proofs-evidence-coherence"
+          mkdir -p "$crate/tests"
+          cat > "$crate/tests/coherence_public_probe.rs" <<'RS'
+          use proofs_config::{
+              MeasuredProofSecurityV1, ProofSecurityProfileIdentityV1,
+              ProofSecurityTargetV1, SecurityLevel,
+          };
+          use proofs_evidence_coherence::{
+              evaluate_evidence_coherence_v1, EvidenceCoherenceAuthorityV1,
+              EvidenceCoherenceFailureV1, EvidenceCoherencePolicyV1,
+              ProofSecurityDispositionV1, TheoremQualificationEvidenceV1,
+          };
+
+          fn profile() -> ProofSecurityProfileIdentityV1 {
+              ProofSecurityProfileIdentityV1 {
+                  statement_profile: "range-membership-v1".into(),
+                  backend_profile: "winterfell".into(),
+                  backend_version: "0.13.1".into(),
+                  proof_options_profile: "candidate-v1".into(),
+                  hash_profile: "blake3-256".into(),
+                  field_profile: "winterfell-f128".into(),
+              }
+          }
+
+          fn measured() -> MeasuredProofSecurityV1 {
+              let p = profile();
+              MeasuredProofSecurityV1 {
+                  evidence_version: 1,
+                  statement_profile: p.statement_profile,
+                  backend_profile: p.backend_profile,
+                  backend_version: p.backend_version,
+                  proof_options_profile: p.proof_options_profile,
+                  hash_profile: p.hash_profile,
+                  field_profile: p.field_profile,
+                  conjectured_bits: Some(110),
+                  proven_udr_bits: Some(90),
+                  proven_ldr_bits: Some(82),
+                  hash_collision_bits: Some(128),
+                  subject_sha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
+                  dependency_graph_digest: "deps-v1".into(),
+                  measurement_receipt_digest: "measurement-receipt-v1".into(),
+              }
+          }
+
+          fn theorem() -> TheoremQualificationEvidenceV1 {
+              TheoremQualificationEvidenceV1 {
+                  evidence_version: 1,
+                  statement_profile: "range-membership-v1".into(),
+                  theorem_profile: "range-membership-v1-air".into(),
+                  subject_sha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
+                  dependency_graph_digest: "deps-v1".into(),
+                  qualification_profile: "myc-zkp-range-001aq".into(),
+                  qualification_receipt_digest: "qualification-receipt-v1".into(),
+                  disposition: ProofSecurityDispositionV1::Qualified,
+                  superseded_by: None,
+              }
+          }
+
+          fn policy() -> EvidenceCoherencePolicyV1 {
+              EvidenceCoherencePolicyV1 {
+                  profile_id: "coherence-v1".into(),
+                  security_target: ProofSecurityTargetV1 {
+                      profile_id: "security-target-v1".into(),
+                      policy_tier: SecurityLevel::Standard,
+                      required_evidence_version: Some(1),
+                      min_conjectured_bits: Some(96),
+                      min_proven_udr_bits: Some(80),
+                      min_proven_ldr_bits: Some(72),
+                      min_hash_collision_bits: 96,
+                      allowed_profiles: vec![profile()],
+                  },
+                  required_theorem_profile: "range-membership-v1-air".into(),
+                  required_qualification_profile: "myc-zkp-range-001aq".into(),
+                  required_theorem_evidence_version: Some(1),
+                  require_current_evidence: true,
+              }
+          }
+
+          #[test]
+          fn coherent_public_surface_is_structural_only() {
+              let result = evaluate_evidence_coherence_v1(&policy(), &measured(), &theorem());
+              assert!(result.is_coherent());
+              assert_eq!(result.authority, EvidenceCoherenceAuthorityV1::StructuralOnly);
+              assert!(!result.establishes_receipt_authenticity());
+              assert!(!result.grants_production_authority());
+          }
+
+          #[test]
+          fn security_is_recomputed_from_embedded_policy_target() {
+              let mut strict = policy();
+              strict.security_target.min_conjectured_bits = Some(120);
+              let result = evaluate_evidence_coherence_v1(&strict, &measured(), &theorem());
+              assert!(!result.is_coherent());
+              assert!(result
+                  .failures
+                  .contains(&EvidenceCoherenceFailureV1::SecurityTargetNotMet));
+              assert!(!result.security_failures.is_empty());
+          }
+
+          #[test]
+          fn theorem_identity_substitutions_fail() {
+              let m = measured();
+
+              let mut t = theorem();
+              t.statement_profile = "other-statement".into();
+              assert!(!evaluate_evidence_coherence_v1(&policy(), &m, &t).is_coherent());
+
+              let mut t = theorem();
+              t.theorem_profile = "other-theorem".into();
+              assert!(!evaluate_evidence_coherence_v1(&policy(), &m, &t).is_coherent());
+
+              let mut t = theorem();
+              t.subject_sha = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".into();
+              assert!(!evaluate_evidence_coherence_v1(&policy(), &m, &t).is_coherent());
+
+              let mut t = theorem();
+              t.dependency_graph_digest = "other-deps".into();
+              assert!(!evaluate_evidence_coherence_v1(&policy(), &m, &t).is_coherent());
+
+              let mut t = theorem();
+              t.qualification_profile = "other-qualifier".into();
+              assert!(!evaluate_evidence_coherence_v1(&policy(), &m, &t).is_coherent());
+          }
+
+          #[test]
+          fn missing_receipt_identifiers_fail_closed() {
+              let mut m = measured();
+              m.measurement_receipt_digest.clear();
+              assert!(!evaluate_evidence_coherence_v1(&policy(), &m, &theorem()).is_coherent());
+
+              let mut t = theorem();
+              t.qualification_receipt_digest.clear();
+              assert!(!evaluate_evidence_coherence_v1(&policy(), &measured(), &t).is_coherent());
+          }
+
+          #[test]
+          fn theorem_evidence_version_mismatch_fails() {
+              let mut t = theorem();
+              t.evidence_version = 2;
+              assert!(!evaluate_evidence_coherence_v1(&policy(), &measured(), &t).is_coherent());
+          }
+
+          #[test]
+          fn revoked_and_nonqualified_states_fail() {
+              for disposition in [
+                  ProofSecurityDispositionV1::Candidate,
+                  ProofSecurityDispositionV1::Measured,
+                  ProofSecurityDispositionV1::HistoricalUnqualified,
+                  ProofSecurityDispositionV1::Revoked,
+                  ProofSecurityDispositionV1::ProductionAdmitted,
+              ] {
+                  let mut t = theorem();
+                  t.disposition = disposition;
+                  let result = evaluate_evidence_coherence_v1(&policy(), &measured(), &t);
+                  assert!(!result.is_coherent(), "{disposition:?} unexpectedly coherent");
+              }
+          }
+
+          #[test]
+          fn raw_production_admitted_is_explicitly_untrusted() {
+              let mut t = theorem();
+              t.disposition = ProofSecurityDispositionV1::ProductionAdmitted;
+              let result = evaluate_evidence_coherence_v1(&policy(), &measured(), &t);
+              assert!(result
+                  .failures
+                  .contains(&EvidenceCoherenceFailureV1::UntrustedProductionDisposition));
+              assert!(!result.grants_production_authority());
+          }
+
+          #[test]
+          fn supersession_obeys_explicit_current_evidence_policy() {
+              let mut t = theorem();
+              t.superseded_by = Some("newer-receipt".into());
+              assert!(!evaluate_evidence_coherence_v1(&policy(), &measured(), &t).is_coherent());
+
+              let mut historical_ok = policy();
+              historical_ok.require_current_evidence = false;
+              assert!(evaluate_evidence_coherence_v1(&historical_ok, &measured(), &t).is_coherent());
+          }
+          RS
+
+      - name: Execute public API adversarial probes
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/proofs-evidence-coherence-qual/libs/proofs-evidence-coherence"
+          evidence="$RUNNER_TEMP/proofs-evidence-coherence-evidence"
+          cd "$crate"
+          cargo test --locked --test coherence_public_probe -- --nocapture \
+            | tee "$evidence/public-coherence-probe.txt"
+
+      - name: Prove production admission capability is absent
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/proofs-evidence-coherence-qual/libs/proofs-evidence-coherence"
+          evidence="$RUNNER_TEMP/proofs-evidence-coherence-evidence"
+          cat > "$crate/tests/production_admission_absence_probe.rs" <<'RS'
+          use proofs_evidence_coherence::ProductionAdmissionV1;
+          #[test]
+          fn probe() { let _ = core::mem::size_of::<ProductionAdmissionV1>(); }
+          RS
+          set +e
+          (
+            cd "$crate"
+            cargo check --locked --test production_admission_absence_probe
+          ) > "$evidence/production-admission-absence.stdout.txt" \
+            2> "$evidence/production-admission-absence.stderr.txt"
+          status=$?
+          set -e
+          if [[ $status -eq 0 ]]; then
+            echo "unexpected public ProductionAdmissionV1 capability" >&2
+            exit 1
+          fi
+          if ! grep -Eq 'unresolved import|no .* in the root' \
+              "$evidence/production-admission-absence.stderr.txt"; then
+            echo "negative capability probe failed for an unexpected reason" >&2
+            cat "$evidence/production-admission-absence.stderr.txt" >&2
+            exit 1
+          fi
+          rm -f "$crate/tests/production_admission_absence_probe.rs"
+
+      - name: Warnings-denied Clippy
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/proofs-evidence-coherence-qual/libs/proofs-evidence-coherence"
+          cd "$crate"
+          cargo clippy --locked --all-targets -- -D warnings
+
+      - name: Postflight checkout immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          test -z "$(git status --porcelain)"
+
+      - name: Write qualification receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/proofs-evidence-coherence-evidence"
+          lock_sha="$(cut -d' ' -f1 "$evidence/Cargo.lock.sha256")"
+          cat > "$evidence/QUALIFICATION_RECEIPT.txt" <<EOF
+          MYC-ZKP-COHERENCE-001AQ PASS
+          subject_sha=${{ steps.subject.outputs.sha }}
+          rust_toolchain=1.96.0
+          resolved_lock_sha256=${lock_sha}
+          isolated_crates=proofs-evidence-coherence + proofs-config
+          committed_tests=PASS
+          public_api_adversarial_probe=PASS
+          embedded_security_target_recomputation=PASS
+          theorem_identity_binding=PASS
+          receipt_identifier_presence=PASS
+          revocation_and_supersession_semantics=PASS
+          raw_production_disposition_rejected=PASS
+          production_admission_capability_absent=PASS
+          machine_readable_authority_scope=StructuralOnly
+          clippy_warnings_denied=PASS
+          qualification_scope=exact source identity + isolated resolved graph + fmt + committed/public tests + negative production-capability probe + warnings-denied clippy + checkout immutability
+          nonclaims=receipt authenticity, authenticated revocation registry, ProductionAdmitted capability, theorem/AIR soundness beyond supplied qualification evidence, witness privacy or zero knowledge, governance/finance/health/FL application authority
+          EOF
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: myc-zkp-coherence-001aq-${{ steps.subject.outputs.sha }}
+          path: ${{ runner.temp }}/proofs-evidence-coherence-evidence
+          if-no-files-found: warn
+          retention-days: 30
