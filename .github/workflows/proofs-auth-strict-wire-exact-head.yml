@@ -1,0 +1,365 @@
+name: Mycelix Proof Auth Strict Wire Exact-Head
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication/**'
+      - '.github/workflows/proofs-auth-strict-wire-exact-head.yml'
+  workflow_dispatch:
+    inputs:
+      subject_sha:
+        description: 'Exact 40-hex commit SHA to qualify'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: proofs-auth-strict-wire-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Exact-head strict untrusted-wire qualification
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Resolve exact subject
+        id: subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            subject='${{ github.event.pull_request.head.sha }}'
+          else
+            subject='${{ inputs.subject_sha }}'
+          fi
+          [[ "$subject" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid subject SHA: $subject" >&2; exit 1; }
+          echo "sha=$subject" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ steps.subject.outputs.sha }}
+          fetch-depth: 1
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+
+      - name: Preflight identity and source evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          test -z "$(git status --porcelain)"
+          evidence="$RUNNER_TEMP/proofs-auth-strict-wire-evidence"
+          mkdir -p "$evidence"
+          {
+            echo "subject_sha=${{ steps.subject.outputs.sha }}"
+            echo "runner_os=${RUNNER_OS}"
+            echo "runner_arch=${RUNNER_ARCH}"
+            rustc -Vv
+            cargo -V
+          } > "$evidence/execution-capsule.txt"
+          find mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication \
+               -type f -not -path '*/target/*' -print0 \
+            | sort -z | xargs -0 sha256sum > "$evidence/source-sha256.txt"
+
+      - name: Check formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path \
+            mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication/Cargo.toml \
+            --all -- --check
+
+      - name: Prepare isolated resolved graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/proofs-auth-strict-wire-qual"
+          evidence="$RUNNER_TEMP/proofs-auth-strict-wire-evidence"
+          cp -a mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication "$crate"
+          cd "$crate"
+          cargo generate-lockfile
+          sha256sum Cargo.lock > "$evidence/Cargo.lock.sha256"
+          cp Cargo.lock "$evidence/Cargo.lock"
+          cargo metadata --locked --format-version 1 > "$evidence/cargo-metadata.json"
+          cargo tree --locked > "$evidence/cargo-tree.txt"
+
+      - name: Execute committed strict-wire corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/proofs-auth-strict-wire-qual"
+          evidence="$RUNNER_TEMP/proofs-auth-strict-wire-evidence"
+          cd "$crate"
+          cargo test --locked --all-targets -- --nocapture | tee "$evidence/committed-tests.txt"
+          cargo test --locked --all-targets -- --list > "$evidence/committed-test-list.txt"
+
+      - name: Install external strict-wire probes
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/proofs-auth-strict-wire-qual"
+          mkdir -p "$crate/tests"
+          cat > "$crate/tests/strict_wire_public_probe.rs" <<'RS'
+          use proofs_evidence_authentication::{
+              AuthenticationFreshnessPolicyV1, GitObjectIdV1,
+              MAX_UNTRUSTED_WIRE_JSON_BYTES_V1, MAX_UNTRUSTED_WIRE_STRING_BYTES_V1,
+              MAX_UNTRUSTED_WORKFLOW_REVISIONS_V1,
+              QUALIFICATION_ATTESTATION_PREDICATE_SCHEMA_V1,
+              QualificationAttestationPredicateV1, QualificationReceiptCanonicalizationV1,
+              QualificationReceiptDigestV1, QualificationResultV1,
+              ReceiptAuthenticationPolicyV1, Sha256DigestV1, SourceRevisionPolicyV1,
+              TransparencyPolicyV1, UntrustedWireParseErrorV1, VerifierProfileV1,
+              WorkflowRevisionPolicyV1, parse_untrusted_authentication_policy_json_v1,
+              parse_untrusted_qualification_predicate_json_v1,
+          };
+
+          fn digest(byte: u8) -> Sha256DigestV1 {
+              Sha256DigestV1::from_bytes([byte; 32])
+          }
+
+          fn policy() -> ReceiptAuthenticationPolicyV1 {
+              ReceiptAuthenticationPolicyV1 {
+                  profile_id: "github-public-v1".into(),
+                  verifier_profile: VerifierProfileV1 {
+                      profile_id: "github-verifier-v1".into(),
+                      backend_family: "github-artifact-attestation".into(),
+                      backend_version: "v1".into(),
+                      verification_profile: "public-sigstore-v1".into(),
+                  },
+                  expected_attestation_subject_name: "mycelix-qualification-receipt".into(),
+                  expected_predicate_type: "https://mycelix.org/attestations/qualification/v1".into(),
+                  expected_predicate_schema: QUALIFICATION_ATTESTATION_PREDICATE_SCHEMA_V1.into(),
+                  trusted_root_profile: "sigstore-public-good-v1".into(),
+                  trusted_root_digest: digest(9),
+                  oidc_issuer: "https://token.actions.githubusercontent.com".into(),
+                  source_repository: "Luminous-Dynamics/mycelix".into(),
+                  source_repository_owner: "Luminous-Dynamics".into(),
+                  signer_workflow: ".github/workflows/proofs.yml".into(),
+                  signer_workflow_revision: WorkflowRevisionPolicyV1::Exact(
+                      GitObjectIdV1::sha1([0xbb; 20]),
+                  ),
+                  source_revision: SourceRevisionPolicyV1 {
+                      exact_commit: GitObjectIdV1::sha1([0xcc; 20]),
+                      exact_git_ref: Some("refs/heads/main".into()),
+                  },
+                  transparency_policy: TransparencyPolicyV1::PublicTransparencyRequired,
+                  freshness_policy: AuthenticationFreshnessPolicyV1::CurrentAtVerification,
+              }
+          }
+
+          fn predicate() -> QualificationAttestationPredicateV1 {
+              QualificationAttestationPredicateV1 {
+                  predicate_version: 1,
+                  predicate_schema: QUALIFICATION_ATTESTATION_PREDICATE_SCHEMA_V1.into(),
+                  receipt_digest: QualificationReceiptDigestV1 {
+                      canonicalization: QualificationReceiptCanonicalizationV1::BinaryV1,
+                      sha256: digest(1),
+                  },
+                  qualification_profile: "myc-zkp-range-001aq".into(),
+                  subject: GitObjectIdV1::sha1([0xaa; 20]),
+                  coherence_result_digest: digest(2),
+                  result: QualificationResultV1::Pass,
+              }
+          }
+
+          #[test]
+          fn exact_inputs_return_only_canonical_structural_types() {
+              let p = serde_json::to_vec(&policy()).unwrap();
+              let parsed_policy: ReceiptAuthenticationPolicyV1 =
+                  parse_untrusted_authentication_policy_json_v1(&p).unwrap();
+              assert_eq!(parsed_policy, policy());
+
+              let p = serde_json::to_vec(&predicate()).unwrap();
+              let parsed_predicate: QualificationAttestationPredicateV1 =
+                  parse_untrusted_qualification_predicate_json_v1(&p).unwrap();
+              assert_eq!(parsed_predicate, predicate());
+          }
+
+          #[test]
+          fn total_input_and_semantic_bounds_fail_closed() {
+              let oversized = vec![b' '; MAX_UNTRUSTED_WIRE_JSON_BYTES_V1 + 1];
+              assert!(matches!(
+                  parse_untrusted_authentication_policy_json_v1(&oversized),
+                  Err(UntrustedWireParseErrorV1::InputTooLarge { .. })
+              ));
+
+              let mut p = policy();
+              p.source_repository = "x".repeat(MAX_UNTRUSTED_WIRE_STRING_BYTES_V1 + 1);
+              assert!(matches!(
+                  parse_untrusted_authentication_policy_json_v1(&serde_json::to_vec(&p).unwrap()),
+                  Err(UntrustedWireParseErrorV1::FieldTooLong { .. })
+              ));
+
+              let mut p = policy();
+              p.signer_workflow_revision = WorkflowRevisionPolicyV1::Allowed(
+                  (0..=MAX_UNTRUSTED_WORKFLOW_REVISIONS_V1)
+                      .map(|i| {
+                          let mut bytes = [0u8; 20];
+                          bytes[0] = i as u8;
+                          GitObjectIdV1::sha1(bytes)
+                      })
+                      .collect(),
+              );
+              assert!(matches!(
+                  parse_untrusted_authentication_policy_json_v1(&serde_json::to_vec(&p).unwrap()),
+                  Err(UntrustedWireParseErrorV1::TooManyWorkflowRevisions { .. })
+              ));
+          }
+
+          #[test]
+          fn unknown_and_duplicate_policy_fields_fail() {
+              let mut value = serde_json::to_value(policy()).unwrap();
+              value.as_object_mut().unwrap().insert(
+                  "production_authority".into(), serde_json::Value::Bool(true)
+              );
+              assert_eq!(
+                  parse_untrusted_authentication_policy_json_v1(&serde_json::to_vec(&value).unwrap()),
+                  Err(UntrustedWireParseErrorV1::InvalidJson)
+              );
+
+              let mut value = serde_json::to_value(policy()).unwrap();
+              value["verifier_profile"].as_object_mut().unwrap().insert(
+                  "trust_me".into(), serde_json::Value::Bool(true)
+              );
+              assert_eq!(
+                  parse_untrusted_authentication_policy_json_v1(&serde_json::to_vec(&value).unwrap()),
+                  Err(UntrustedWireParseErrorV1::InvalidJson)
+              );
+
+              let json = serde_json::to_string(&policy()).unwrap();
+              let duplicate = format!(r#"{{"profile_id":"duplicate",{}"#, &json[1..]);
+              assert_eq!(
+                  parse_untrusted_authentication_policy_json_v1(duplicate.as_bytes()),
+                  Err(UntrustedWireParseErrorV1::InvalidJson)
+              );
+          }
+
+          #[test]
+          fn predicate_unknown_schema_version_and_identity_fail() {
+              let mut value = serde_json::to_value(predicate()).unwrap();
+              value.as_object_mut().unwrap().insert(
+                  "production_authority".into(), serde_json::Value::Bool(true)
+              );
+              assert_eq!(
+                  parse_untrusted_qualification_predicate_json_v1(&serde_json::to_vec(&value).unwrap()),
+                  Err(UntrustedWireParseErrorV1::InvalidJson)
+              );
+
+              let mut p = predicate();
+              p.predicate_version = 2;
+              assert!(matches!(
+                  parse_untrusted_qualification_predicate_json_v1(&serde_json::to_vec(&p).unwrap()),
+                  Err(UntrustedWireParseErrorV1::InvalidPredicate(_))
+              ));
+
+              let mut value = serde_json::to_value(policy()).unwrap();
+              value["source_revision"]["exact_commit"] =
+                  serde_json::Value::String("sha1:nothex".into());
+              assert_eq!(
+                  parse_untrusted_authentication_policy_json_v1(&serde_json::to_vec(&value).unwrap()),
+                  Err(UntrustedWireParseErrorV1::InvalidJson)
+              );
+          }
+          RS
+
+      - name: Execute external strict-wire probes
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/proofs-auth-strict-wire-qual"
+          evidence="$RUNNER_TEMP/proofs-auth-strict-wire-evidence"
+          cd "$crate"
+          cargo test --locked --test strict_wire_public_probe -- --nocapture \
+            | tee "$evidence/public-strict-wire-probe.txt"
+
+      - name: Prove parser cannot mint authenticated capability
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/proofs-auth-strict-wire-qual"
+          evidence="$RUNNER_TEMP/proofs-auth-strict-wire-evidence"
+          cat > "$crate/tests/no_parser_to_capability.rs" <<'RS'
+          use proofs_evidence_authentication::{
+              AuthenticatedQualificationReceiptV1, ReceiptAuthenticationPolicyV1,
+          };
+          fn require_into<T: Into<AuthenticatedQualificationReceiptV1>>() {}
+          #[test]
+          fn probe() { require_into::<ReceiptAuthenticationPolicyV1>(); }
+          RS
+          set +e
+          (
+            cd "$crate"
+            CARGO_TERM_COLOR=never cargo check --locked --test no_parser_to_capability
+          ) > "$evidence/no-parser-to-capability.stdout.txt" \
+            2> "$evidence/no-parser-to-capability.stderr.txt"
+          status=$?
+          set -e
+          if [[ $status -eq 0 ]]; then
+            echo "policy unexpectedly converts into authenticated capability" >&2
+            exit 1
+          fi
+          grep -Fq "AuthenticatedQualificationReceiptV1" "$evidence/no-parser-to-capability.stderr.txt"
+          grep -Fq "trait bound" "$evidence/no-parser-to-capability.stderr.txt"
+
+      - name: Remove qualification-only probes
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$RUNNER_TEMP/proofs-auth-strict-wire-qual/tests"
+
+      - name: Warnings-denied Clippy
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/proofs-auth-strict-wire-qual"
+          evidence="$RUNNER_TEMP/proofs-auth-strict-wire-evidence"
+          cd "$crate"
+          cargo clippy --locked --all-targets -- -D warnings | tee "$evidence/clippy.txt"
+
+      - name: Verify checkout immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          test -z "$(git status --porcelain)"
+          evidence="$RUNNER_TEMP/proofs-auth-strict-wire-evidence"
+          find mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication \
+               -type f -not -path '*/target/*' -print0 \
+            | sort -z | xargs -0 sha256sum > "$evidence/source-sha256-post.txt"
+          cmp "$evidence/source-sha256.txt" "$evidence/source-sha256-post.txt"
+
+      - name: Write qualification receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/proofs-auth-strict-wire-evidence"
+          cat > "$evidence/QUALIFICATION.txt" <<EOF
+          MYC-ZKP-AUTH-WIRE-001AQ PASS
+          subject_sha=${{ steps.subject.outputs.sha }}
+          theorem=strict-untrusted-wire-v1
+          cryptographic_verification=false
+          authenticated_capability=false
+          production_admission=false
+          application_authority=false
+          EOF
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: myc-zkp-auth-wire-001aq-${{ steps.subject.outputs.sha }}
+          path: ${{ runner.temp }}/proofs-auth-strict-wire-evidence
+          if-no-files-found: warn
+          retention-days: 30
