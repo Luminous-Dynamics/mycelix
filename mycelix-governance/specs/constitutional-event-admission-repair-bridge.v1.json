@@ -1,0 +1,86 @@
+{
+  "schema": "mycelix.constitutional-event-admission-repair-bridge.v1",
+  "bridge_id": "MYC-CONST-003D1D-E1AR1",
+  "version": "0.1.0",
+  "status": "PendingRepairQualification",
+  "activation_allowed": false,
+  "provider_lane": "EmitEvent",
+  "upstream_e1a": {
+    "semantic_head": "249753017c3781f7a3259061aae16d7e0075e984",
+    "verifier_head": "ebe85798557a04c75d0bb9ce6c02349576e12b4f",
+    "qualification_run_id": 35360097507,
+    "qualification_job_id": 105648954365,
+    "artifact_id": 10583687692,
+    "artifact_digest": "sha256:4edc41c9172ee221332fe1501cb05291b4f6f9eadaf9d4af84d39ab71810cd2f",
+    "conclusion": "success",
+    "receipt_inspected": true
+  },
+  "repair_edges": [
+    {
+      "dependency_id": "MYC-CONST-003D1C",
+      "old_semantic_head": "47d1d764323dbfaf991b5574cfde83abb7a3e4a4",
+      "r1_semantic_head": "90ff00c371d2dd875b9bb7f23f1c5ee4b293f39c",
+      "r1_verifier_head": "a03273ecdc095cd60c5ebfa9a10e9e88bc64dd40",
+      "relation": "PinnedRustfmtExactBytesRequired",
+      "qualification_state": "PreparedNotHostedQualified",
+      "qualification_receipt": null,
+      "files": [
+        {
+          "path": "mycelix-governance/crates/constitutional-effect-ledger/src/lib.rs",
+          "old_blob": "bb3b8d6a865bbf514ff1e43a41c520b890a5515d",
+          "r1_blob": "6f5d6c2a3e8f27cace3b37c23c82b8b4c64c1f0e"
+        }
+      ]
+    },
+    {
+      "dependency_id": "MYC-CONST-003D1D-E0",
+      "old_semantic_head": "36a4fcffb6ca806570ebf439f9c36cf76401e7b2",
+      "r1_semantic_head": "ac3f71e37c480a9c6f99578fe2106285fe567a5b",
+      "r1_verifier_head": "42cbfaa5cfb043e124db84f7762e1ca7142a6f08",
+      "relation": "PinnedRustfmtExactBytesRequired",
+      "qualification_state": "PreparedNotHostedQualified",
+      "qualification_receipt": null,
+      "files": [
+        {
+          "path": "mycelix-governance/crates/constitutional-event-provider/src/lib.rs",
+          "old_blob": "5d110f95c0d78f494b61a16d5afe5776401820bb",
+          "r1_blob": "8c57b38e1c304fdfb042485c666bac5dc8d40960"
+        },
+        {
+          "path": "mycelix-governance/crates/constitutional-event-provider/tests/effect_ledger_identity.rs",
+          "old_blob": "897668782e09fac5ffbc506e1e8b11f653de2950",
+          "r1_blob": "77dff6764b329c6ba3ce263dbfd34956efb8eac0"
+        }
+      ]
+    }
+  ],
+  "carried_forward_invariants": {
+    "d1c_to_e0_identity_reused_not_regenerated": true,
+    "claim_binding_target_must_bind_exact_event_target": true,
+    "claim_binding_payload_must_bind_exact_canonical_payload": true,
+    "publisher_must_equal_authenticated_dht_author_did": true,
+    "event_entry_must_be_immutable": true,
+    "action_key_index_must_be_integrity_validated": true,
+    "same_action_same_semantics": "ExistingSame",
+    "same_action_conflicting_semantics": "IntegrityConflict",
+    "last_write_wins_allowed": false,
+    "signal_projection_can_define_constitutional_completion": false
+  },
+  "migration_rule": {
+    "all_r1_receipts_must_be_exact_head_pass_and_inspected": true,
+    "qualification_inheritance_from_old_subjects_allowed": false,
+    "git_sha_substitution_allowed": false,
+    "e1b_requires_new_revision_for_r1_subjects": true,
+    "bridge_can_activate_runtime": false
+  },
+  "non_claims": [
+    "not_D1C_R1_qualified",
+    "not_E0_R1_qualified",
+    "not_Git_SHA_interchangeability",
+    "not_retroactive_E1A_mutation",
+    "not_E1B_subject_migration",
+    "not_Holochain_event_admission_active",
+    "not_live_EmitEvent_routing",
+    "not_deployment_currentness_qualified"
+  ]
+}
