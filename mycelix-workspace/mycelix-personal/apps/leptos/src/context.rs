@@ -108,6 +108,125 @@ fn blank_profile() -> ProfileView {
     }
 }
 
+#[derive(Debug)]
+struct IdentitySourceSnapshot {
+    profile: ProfileView,
+    keys: Vec<MasterKeyView>,
+    state: PersonalSourceState,
+}
+
+fn stage_identity_source<ProfileError, KeysError>(
+    profile_result: Result<Option<ProfileView>, ProfileError>,
+    keys_result: Result<Vec<MasterKeyView>, KeysError>,
+) -> Result<IdentitySourceSnapshot, PersonalSourceState> {
+    let mut successes = 0;
+    let mut failures = 0;
+    let mut present_items = 0;
+
+    let profile = match profile_result {
+        Ok(profile) => {
+            successes += 1;
+            present_items += usize::from(profile.is_some());
+            profile.unwrap_or_else(blank_profile)
+        }
+        Err(_) => {
+            failures += 1;
+            blank_profile()
+        }
+    };
+
+    let keys = match keys_result {
+        Ok(keys) => {
+            successes += 1;
+            present_items += keys.len();
+            keys
+        }
+        Err(_) => {
+            failures += 1;
+            Vec::new()
+        }
+    };
+
+    let state = classify_source(successes, failures, present_items);
+    if failures > 0 {
+        Err(state)
+    } else {
+        Ok(IdentitySourceSnapshot {
+            profile,
+            keys,
+            state,
+        })
+    }
+}
+
+fn publish_identity_source(ctx: &PersonalCtx, snapshot: IdentitySourceSnapshot) {
+    batch(move || {
+        ctx.profile.set(snapshot.profile.clone());
+        ctx.draft_profile.set(snapshot.profile);
+        ctx.keys.set(snapshot.keys);
+        ctx.identity_state.set(snapshot.state);
+    });
+}
+
+#[derive(Debug)]
+struct PreferencesSourceSnapshot {
+    preferences: Vec<DataSharingPreferenceView>,
+    change_log: Vec<PreferenceChangeLogView>,
+    state: PersonalSourceState,
+}
+
+fn stage_preferences_source<PreferencesError, LogError>(
+    preferences_result: Result<Vec<DataSharingPreferenceView>, PreferencesError>,
+    log_result: Result<Vec<PreferenceChangeLogView>, LogError>,
+) -> Result<PreferencesSourceSnapshot, PersonalSourceState> {
+    let mut successes = 0;
+    let mut failures = 0;
+    let mut present_items = 0;
+
+    let preferences = match preferences_result {
+        Ok(preferences) => {
+            successes += 1;
+            present_items += preferences.len();
+            preferences
+        }
+        Err(_) => {
+            failures += 1;
+            Vec::new()
+        }
+    };
+
+    let change_log = match log_result {
+        Ok(log) => {
+            successes += 1;
+            present_items += log.len();
+            log
+        }
+        Err(_) => {
+            failures += 1;
+            Vec::new()
+        }
+    };
+
+    let state = classify_source(successes, failures, present_items);
+    if failures > 0 {
+        Err(state)
+    } else {
+        Ok(PreferencesSourceSnapshot {
+            preferences,
+            change_log,
+            state,
+        })
+    }
+}
+
+fn publish_preferences_source(ctx: &PersonalCtx, snapshot: PreferencesSourceSnapshot) {
+    batch(move || {
+        ctx.preferences.set(snapshot.preferences);
+        ctx.preference_log.set(snapshot.change_log);
+        ctx.preferences_state.set(snapshot.state);
+    });
+}
+
 #[derive(Clone)]
 pub struct PersonalCtx {
     pub runtime_mode: PersonalRuntimeMode,
@@ -382,10 +501,6 @@ async fn hydrate_live(ctx: PersonalCtx, hc: HolochainCtx, epoch: u64) {
 }
 
 async fn load_identity_source(ctx: &PersonalCtx, hc: &HolochainCtx, epoch: u64) -> bool {
-    let mut successes = 0;
-    let mut failures = 0;
-    let mut present_items = 0;
-
     let profile_result = hc
         .call_zome_default::<(), Option<ProfileView>>(
             "identity_vault",
@@ -395,18 +510,6 @@ async fn load_identity_source(ctx: &PersonalCtx, hc: &HolochainCtx, epoch: u64) 
         .await;
     if !ctx.accepts_epoch(epoch) {
         return false;
-    }
-    match profile_result {
-        Ok(profile) => {
-            successes += 1;
-            if profile.is_some() {
-                present_items += 1;
-            }
-            let profile = profile.unwrap_or_else(blank_profile);
-            ctx.profile.set(profile.clone());
-            ctx.draft_profile.set(profile);
-        }
-        Err(_) => failures += 1,
     }
 
     let keys_result = hc
@@ -419,20 +522,16 @@ async fn load_identity_source(ctx: &PersonalCtx, hc: &HolochainCtx, epoch: u64) 
     if !ctx.accepts_epoch(epoch) {
         return false;
     }
-    match keys_result {
-        Ok(keys) => {
-            successes += 1;
-            present_items += keys.len();
-            ctx.keys.set(keys);
-        }
-        Err(_) => failures += 1,
-    }
 
+    let staged = stage_identity_source(profile_result, keys_result);
     if !ctx.accepts_epoch(epoch) {
         return false;
     }
-    ctx.identity_state
-        .set(classify_source(successes, failures, present_items));
+
+    match staged {
+        Ok(snapshot) => publish_identity_source(ctx, snapshot),
+        Err(state) => ctx.identity_state.set(state),
+    }
     true
 }
 
@@ -530,10 +629,6 @@ async fn load_health_source(ctx: &PersonalCtx, hc: &HolochainCtx, epoch: u64) ->
 }
 
 async fn load_preferences_source(ctx: &PersonalCtx, hc: &HolochainCtx, epoch: u64) -> bool {
-    let mut successes = 0;
-    let mut failures = 0;
-    let mut present_items = 0;
-
     let preferences_result = hc
         .call_zome_default::<(), Vec<DataSharingPreferenceView>>(
             "data_preferences",
@@ -543,14 +638,6 @@ async fn load_preferences_source(ctx: &PersonalCtx, hc: &HolochainCtx, epoch: u6
         .await;
     if !ctx.accepts_epoch(epoch) {
         return false;
-    }
-    match preferences_result {
-        Ok(preferences) => {
-            successes += 1;
-            present_items += preferences.len();
-            ctx.preferences.set(preferences);
-        }
-        Err(_) => failures += 1,
     }
 
     let log_result = hc
@@ -563,20 +650,16 @@ async fn load_preferences_source(ctx: &PersonalCtx, hc: &HolochainCtx, epoch: u6
     if !ctx.accepts_epoch(epoch) {
         return false;
     }
-    match log_result {
-        Ok(log) => {
-            successes += 1;
-            present_items += log.len();
-            ctx.preference_log.set(log);
-        }
-        Err(_) => failures += 1,
-    }
 
+    let staged = stage_preferences_source(preferences_result, log_result);
     if !ctx.accepts_epoch(epoch) {
         return false;
     }
-    ctx.preferences_state
-        .set(classify_source(successes, failures, present_items));
+
+    match staged {
+        Ok(snapshot) => publish_preferences_source(ctx, snapshot),
+        Err(state) => ctx.preferences_state.set(state),
+    }
     true
 }
 
@@ -611,7 +694,6 @@ pub async fn refresh_identity_state(ctx: PersonalCtx, hc: HolochainCtx) {
     let Some(epoch) = ctx.current_usable_epoch() else {
         return;
     };
-    ctx.identity_state.set(PersonalSourceState::LoadingLive);
     let _ = load_identity_source(&ctx, &hc, epoch).await;
 }
 
@@ -619,8 +701,6 @@ pub async fn refresh_preferences_state(ctx: PersonalCtx, hc: HolochainCtx) {
     let Some(epoch) = ctx.current_usable_epoch() else {
         return;
     };
-    ctx.preferences_state
-        .set(PersonalSourceState::LoadingLive);
     let _ = load_preferences_source(&ctx, &hc, epoch).await;
 }
 
@@ -665,5 +745,37 @@ mod tests {
         let freshness = PersonalSnapshotFreshness::Stale;
         assert_eq!(source, PersonalSourceState::Live);
         assert_eq!(freshness, PersonalSnapshotFreshness::Stale);
+    }
+
+    #[test]
+    fn identity_stage_requires_every_query_before_publication() {
+        let state = stage_identity_source::<(), ()>(Ok(Some(blank_profile())), Err(()))
+            .expect_err("a partial Identity source must not produce a publishable snapshot");
+        assert_eq!(state, PersonalSourceState::Degraded);
+    }
+
+    #[test]
+    fn identity_stage_commits_empty_results_as_one_empty_snapshot() {
+        let snapshot = stage_identity_source::<(), ()>(Ok(None), Ok(Vec::new()))
+            .expect("complete empty Identity results are authoritative");
+        assert_eq!(snapshot.state, PersonalSourceState::Empty);
+        assert!(snapshot.profile.display_name.is_empty());
+        assert!(snapshot.keys.is_empty());
+    }
+
+    #[test]
+    fn preferences_stage_requires_every_query_before_publication() {
+        let state = stage_preferences_source::<(), ()>(Ok(Vec::new()), Err(()))
+            .expect_err("a partial Preferences source must not produce a publishable snapshot");
+        assert_eq!(state, PersonalSourceState::Degraded);
+    }
+
+    #[test]
+    fn preferences_stage_commits_complete_empty_results_atomically() {
+        let snapshot = stage_preferences_source::<(), ()>(Ok(Vec::new()), Ok(Vec::new()))
+            .expect("complete empty Preferences results are authoritative");
+        assert_eq!(snapshot.state, PersonalSourceState::Empty);
+        assert!(snapshot.preferences.is_empty());
+        assert!(snapshot.change_log.is_empty());
     }
 }
