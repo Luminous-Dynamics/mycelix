@@ -202,6 +202,11 @@ pub fn create_decision(input: CreateDecisionInput) -> ExternResult<Record> {
     require_membership(&input.hearth_hash)?;
 
     let now = sys_time()?;
+    if input.deadline <= now {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Decision deadline must be in the future".into()
+        )));
+    }
     let agent = agent_info()?.agent_initial_pubkey;
 
     let decision = Decision {
