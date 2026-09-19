@@ -23,6 +23,7 @@
 //! - 45% does NOT converge when all nodes have equal reputation
 
 pub mod adaptive_defense;
+pub mod admission;
 pub mod aggregation;
 pub mod byzantine;
 pub mod consciousness_plugin;
@@ -50,6 +51,7 @@ pub mod compression;
 pub mod holochain_bridge;
 
 pub use adaptive_defense::*;
+pub use admission::*;
 pub use aggregation::*;
 pub use byzantine::*;
 pub use consciousness_plugin::*;
