@@ -1,0 +1,20 @@
+[package]
+name = "mycelix-forge-review-quorum"
+version = "0.1.0"
+edition = "2021"
+authors = ["Luminous Dynamics"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+description = "Distinct structurally authorized approval quorum for Mycelix Forge"
+
+[dependencies]
+mycelix-forge-core = { path = "../mycelix-forge-core" }
+mycelix-forge-authority = { path = "../mycelix-forge-authority" }
+mycelix-forge-proposal = { path = "../mycelix-forge-proposal" }
+mycelix-forge-review = { path = "../mycelix-forge-review" }
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "2.0"
+
+[dev-dependencies]
+mycelix-forge-authentication = { path = "../mycelix-forge-authentication" }
+mycelix-forge-repository = { path = "../mycelix-forge-repository" }
