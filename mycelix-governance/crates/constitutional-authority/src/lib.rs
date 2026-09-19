@@ -14,8 +14,12 @@
 //! - guardians are constitutionally protected but are not sovereign branches;
 //! - automated agents do not hold constitutional sovereignty;
 //! - foundational civic decisions require equal civic vote weight;
-//! - branch powers are allow-listed rather than inferred from role names;
-//! - extraordinary emergency powers require explicit expiry.
+//! - sovereign powers are allow-listed and exclusive by constitutional owner;
+//! - due-process and oversight entitlements are separate from sovereign power;
+//! - extraordinary emergency powers require explicit expiry;
+//! - delegated constitutional authority may narrow but never amplify its parent;
+//! - delegated authority fails closed unless validated with its parent;
+//! - issued authority is bound to a concrete holder identity, not only a class.
 
 use serde::{Deserialize, Serialize};
 
@@ -66,7 +70,13 @@ impl Guardian {
     ];
 }
 
-/// A principal that may appear in a constitutional authorization record.
+/// Constitutional class of a concrete authority holder.
+///
+/// This answers "what kind of constitutional actor is this?". Actual issued
+/// capabilities and entitlement grants additionally carry a non-empty
+/// `holder_id` so signatures, revocation, conflicts, and audit trails can bind
+/// authority to a specific office/institution/constituent process rather than
+/// to every member of the class.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AuthorityPrincipal {
     /// Citizens and constituent communities acting through a valid constituent
@@ -76,17 +86,18 @@ pub enum AuthorityPrincipal {
     Branch(Branch),
     /// An independent guardian with narrowly enumerated authority.
     Guardian(Guardian),
-    /// Software/AI acting as an automated principal.
+    /// Software/AI acting as an automated principal class.
     ///
     /// Automated agents may receive bounded operational capabilities elsewhere,
-    /// but they do not directly hold any constitutional power enumerated here.
+    /// but they do not directly hold constitutional powers or entitlements here.
     AutomatedAgent,
 }
 
-/// Constitutional powers that require explicit allocation.
+/// Sovereign or constituted powers that require explicit constitutional
+/// allocation to one owner class.
 ///
-/// This is intentionally narrower than all actions an implementation may take.
-/// Routine internal administration should remain ordinary application logic.
+/// Due-process and oversight access rights are intentionally represented by
+/// [`ConstitutionalEntitlement`] instead of being hidden inside this enum.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ConstitutionalPower {
     // Deliberative branch
@@ -132,7 +143,6 @@ pub enum ConstitutionalPower {
 
     // Guardian powers
     InitiateRightsChallenge,
-    RequestProtectedPublicRecord,
     PublishEvidenceAssessment,
     InitiateFutureGenerationsReview,
     PublishFiscalAssessment,
@@ -142,7 +152,7 @@ pub enum ConstitutionalPower {
 
 impl ConstitutionalPower {
     /// Exhaustive list used by conformance tests.
-    pub const ALL: [Self; 36] = [
+    pub const ALL: [Self; 35] = [
         Self::ProposeOrdinaryLaw,
         Self::EnactOrdinaryLaw,
         Self::AppropriatePublicFunds,
@@ -173,7 +183,6 @@ impl ConstitutionalPower {
         Self::RatifyFoundationalCovenant,
         Self::WithdrawConstituentDelegation,
         Self::InitiateRightsChallenge,
-        Self::RequestProtectedPublicRecord,
         Self::PublishEvidenceAssessment,
         Self::InitiateFutureGenerationsReview,
         Self::PublishFiscalAssessment,
@@ -181,17 +190,35 @@ impl ConstitutionalPower {
         Self::InitiatePublicProsecution,
     ];
 
-    /// Powers that represent extraordinary emergency authority must never be
-    /// issued without a hard expiry.
     pub fn requires_hard_expiry(self) -> bool {
         matches!(
             self,
             Self::AuthorizeEmergency | Self::DeclareProvisionalEmergency
         )
     }
+
+    /// Powers whose constitutional owner must exercise them directly rather
+    /// than creating a delegated constitutional chain.
+    ///
+    /// This does not prohibit ordinary staff from assisting the lawful owner;
+    /// it prohibits transforming the constitutional source of authority into a
+    /// transferable sovereign capability.
+    pub fn is_intrinsically_nondelegable(self) -> bool {
+        matches!(
+            self,
+            Self::AuthorizeEmergency
+                | Self::DeclareProvisionalEmergency
+                | Self::ConductConstitutionalReview
+                | Self::IssueJudicialRemedy
+                | Self::CertifyMandate
+                | Self::CallConstitutionalConvention
+                | Self::RatifyStructuralConstitution
+                | Self::RatifyFoundationalCovenant
+                | Self::WithdrawConstituentDelegation
+        )
+    }
 }
 
-/// Return whether a branch may directly exercise a constitutional power.
 pub fn branch_can_exercise(branch: Branch, power: ConstitutionalPower) -> bool {
     match branch {
         Branch::Deliberative => matches!(
@@ -237,7 +264,6 @@ pub fn branch_can_exercise(branch: Branch, power: ConstitutionalPower) -> bool {
     }
 }
 
-/// Return whether constituent sovereignty may exercise a constitutional power.
 pub fn constituent_can_exercise(power: ConstitutionalPower) -> bool {
     matches!(
         power,
@@ -248,14 +274,11 @@ pub fn constituent_can_exercise(power: ConstitutionalPower) -> bool {
     )
 }
 
-/// Return whether a guardian may directly exercise a constitutional power.
 pub fn guardian_can_exercise(guardian: Guardian, power: ConstitutionalPower) -> bool {
     match guardian {
-        Guardian::RightsDefender => matches!(
-            power,
-            ConstitutionalPower::InitiateRightsChallenge
-                | ConstitutionalPower::RequestProtectedPublicRecord
-        ),
+        Guardian::RightsDefender => {
+            matches!(power, ConstitutionalPower::InitiateRightsChallenge)
+        }
         Guardian::PublicEvidence => {
             matches!(power, ConstitutionalPower::PublishEvidenceAssessment)
         }
@@ -266,10 +289,7 @@ pub fn guardian_can_exercise(guardian: Guardian, power: ConstitutionalPower) -> 
             matches!(power, ConstitutionalPower::PublishFiscalAssessment)
         }
         Guardian::PublicService => {
-            matches!(
-                power,
-                ConstitutionalPower::CertifyPublicServiceQualification
-            )
+            matches!(power, ConstitutionalPower::CertifyPublicServiceQualification)
         }
         Guardian::ProsecutionService => {
             matches!(power, ConstitutionalPower::InitiatePublicProsecution)
@@ -277,8 +297,10 @@ pub fn guardian_can_exercise(guardian: Guardian, power: ConstitutionalPower) -> 
     }
 }
 
-/// Deny-by-default constitutional authorization check.
-pub fn principal_can_exercise(principal: AuthorityPrincipal, power: ConstitutionalPower) -> bool {
+pub fn principal_can_exercise(
+    principal: AuthorityPrincipal,
+    power: ConstitutionalPower,
+) -> bool {
     match principal {
         AuthorityPrincipal::ConstituentSovereignty => constituent_can_exercise(power),
         AuthorityPrincipal::Branch(branch) => branch_can_exercise(branch, power),
@@ -287,95 +309,345 @@ pub fn principal_can_exercise(principal: AuthorityPrincipal, power: Constitution
     }
 }
 
-/// Source from which a capability derives its authority.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub enum CapabilitySource {
-    Charter { charter_id: String, version: u32 },
-    ConstituentRatification { event_id: String },
-    Statute { proposal_id: String },
-    JudicialOrder { case_id: String },
-    EmergencyProtocol { declaration_id: String },
-    Delegation { parent_capability_id: String },
+/// Shared constitutional entitlements used for due process, oversight, and
+/// contestability. Unlike sovereign powers, an entitlement may lawfully be
+/// granted to more than one independent principal.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ConstitutionalEntitlement {
+    RequestLawfulRecord,
+    AccessSubmittedEvidence,
+    ReceiveDecisionNotice,
+    ObtainDecisionReasons,
+    SubmitEvidence,
+    ChallengePublicAction,
+    SeekJudicialReview,
+    PublishProtectedOversightReport,
+    ReceiveProtectedDisclosure,
 }
 
-/// A typed constitutional capability.
-///
-/// This structure is transport-neutral. Individual zomes may wrap it in their
-/// own Holochain entry helpers once the authority model is integrated.
+impl ConstitutionalEntitlement {
+    pub const ALL: [Self; 9] = [
+        Self::RequestLawfulRecord,
+        Self::AccessSubmittedEvidence,
+        Self::ReceiveDecisionNotice,
+        Self::ObtainDecisionReasons,
+        Self::SubmitEvidence,
+        Self::ChallengePublicAction,
+        Self::SeekJudicialReview,
+        Self::PublishProtectedOversightReport,
+        Self::ReceiveProtectedDisclosure,
+    ];
+}
+
+/// Source from which a constitutional power or entitlement derives authority.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum CapabilitySource {
+    Charter {
+        charter_id: String,
+        version: u32,
+    },
+    ConstituentRatification {
+        event_id: String,
+    },
+    Statute {
+        proposal_id: String,
+    },
+    JudicialOrder {
+        case_id: String,
+    },
+    EmergencyProtocol {
+        declaration_id: String,
+    },
+    Delegation {
+        parent_capability_id: String,
+    },
+}
+
+impl CapabilitySource {
+    pub fn is_well_formed(&self) -> bool {
+        match self {
+            Self::Charter { charter_id, .. } => !charter_id.trim().is_empty(),
+            Self::ConstituentRatification { event_id } => !event_id.trim().is_empty(),
+            Self::Statute { proposal_id } => !proposal_id.trim().is_empty(),
+            Self::JudicialOrder { case_id } => !case_id.trim().is_empty(),
+            Self::EmergencyProtocol { declaration_id } => !declaration_id.trim().is_empty(),
+            Self::Delegation {
+                parent_capability_id,
+            } => !parent_capability_id.trim().is_empty(),
+        }
+    }
+
+    pub fn is_delegation(&self) -> bool {
+        matches!(self, Self::Delegation { .. })
+    }
+}
+
+/// A typed sovereign constitutional capability.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct ConstitutionalCapability {
     pub id: String,
+    /// Stable identifier of the concrete institution/office/constituent process
+    /// that holds this capability.
+    pub holder_id: String,
+    /// Constitutional class of `holder_id`.
     pub holder: AuthorityPrincipal,
     pub power: ConstitutionalPower,
     pub jurisdiction: String,
     pub source: CapabilitySource,
-    /// Microseconds since Unix epoch. Kept as a primitive to avoid HDK coupling.
     pub valid_from_us: i64,
-    /// Hard expiry when applicable.
     pub expires_at_us: Option<i64>,
     pub delegable: bool,
     pub delegation_depth_remaining: u8,
 }
 
+pub type SovereignCapability = ConstitutionalCapability;
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum ConformanceError {
     EmptyCapabilityId,
+    EmptyHolderId,
     EmptyJurisdiction,
+    InvalidSource,
     UnauthorizedPrincipalPower,
     InvalidExpiry,
     MissingRequiredExpiry,
+    DelegationRequiresParentValidation,
+    IntrinsicPowerCannotBeDelegated,
     NonDelegableCapabilityHasDelegationDepth,
+    DelegableCapabilityHasNoDelegationDepth,
 }
 
 impl ConstitutionalCapability {
-    /// Validate constitutional shape and branch/guardian authority.
-    pub fn validate(&self) -> Result<(), ConformanceError> {
+    fn validate_inner(&self, allow_delegation_source: bool) -> Result<(), ConformanceError> {
         if self.id.trim().is_empty() {
             return Err(ConformanceError::EmptyCapabilityId);
+        }
+        if self.holder_id.trim().is_empty() {
+            return Err(ConformanceError::EmptyHolderId);
         }
         if self.jurisdiction.trim().is_empty() {
             return Err(ConformanceError::EmptyJurisdiction);
         }
+        if !self.source.is_well_formed() {
+            return Err(ConformanceError::InvalidSource);
+        }
+        if self.source.is_delegation() && !allow_delegation_source {
+            return Err(ConformanceError::DelegationRequiresParentValidation);
+        }
         if !principal_can_exercise(self.holder, self.power) {
             return Err(ConformanceError::UnauthorizedPrincipalPower);
         }
-        if let Some(expires_at) = self.expires_at_us
-            && expires_at <= self.valid_from_us
-        {
-            return Err(ConformanceError::InvalidExpiry);
+        if let Some(expires_at) = self.expires_at_us {
+            if expires_at <= self.valid_from_us {
+                return Err(ConformanceError::InvalidExpiry);
+            }
         }
         if self.power.requires_hard_expiry() && self.expires_at_us.is_none() {
             return Err(ConformanceError::MissingRequiredExpiry);
         }
+        if self.power.is_intrinsically_nondelegable()
+            && (self.delegable
+                || self.delegation_depth_remaining != 0
+                || self.source.is_delegation())
+        {
+            return Err(ConformanceError::IntrinsicPowerCannotBeDelegated);
+        }
         if !self.delegable && self.delegation_depth_remaining != 0 {
             return Err(ConformanceError::NonDelegableCapabilityHasDelegationDepth);
+        }
+        if self.delegable && self.delegation_depth_remaining == 0 {
+            return Err(ConformanceError::DelegableCapabilityHasNoDelegationDepth);
+        }
+        Ok(())
+    }
+
+    /// Validate a root/non-delegated constitutional capability.
+    /// A delegated source fails closed here and must use [`validate_delegation`].
+    pub fn validate(&self) -> Result<(), ConformanceError> {
+        self.validate_inner(false)
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum InformationSensitivity {
+    Public,
+    Protected,
+    Confidential,
+    Restricted,
+}
+
+/// A scoped grant of a due-process or oversight entitlement.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct ConstitutionalEntitlementGrant {
+    pub id: String,
+    pub holder_id: String,
+    pub holder: AuthorityPrincipal,
+    pub entitlement: ConstitutionalEntitlement,
+    pub jurisdiction: String,
+    pub source: CapabilitySource,
+    pub purpose: String,
+    pub scope: String,
+    pub sensitivity: InformationSensitivity,
+    pub valid_from_us: i64,
+    pub expires_at_us: Option<i64>,
+    pub review_path: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum EntitlementError {
+    EmptyGrantId,
+    EmptyHolderId,
+    EmptyJurisdiction,
+    EmptyPurpose,
+    EmptyScope,
+    EmptyReviewPath,
+    InvalidSource,
+    DelegatedEntitlementUnsupported,
+    AutomatedAgentCannotHoldConstitutionalEntitlement,
+    InvalidExpiry,
+}
+
+impl ConstitutionalEntitlementGrant {
+    pub fn validate(&self) -> Result<(), EntitlementError> {
+        if self.id.trim().is_empty() {
+            return Err(EntitlementError::EmptyGrantId);
+        }
+        if self.holder_id.trim().is_empty() {
+            return Err(EntitlementError::EmptyHolderId);
+        }
+        if self.jurisdiction.trim().is_empty() {
+            return Err(EntitlementError::EmptyJurisdiction);
+        }
+        if self.purpose.trim().is_empty() {
+            return Err(EntitlementError::EmptyPurpose);
+        }
+        if self.scope.trim().is_empty() {
+            return Err(EntitlementError::EmptyScope);
+        }
+        if self.review_path.trim().is_empty() {
+            return Err(EntitlementError::EmptyReviewPath);
+        }
+        if !self.source.is_well_formed() {
+            return Err(EntitlementError::InvalidSource);
+        }
+        if self.source.is_delegation() {
+            return Err(EntitlementError::DelegatedEntitlementUnsupported);
+        }
+        if matches!(self.holder, AuthorityPrincipal::AutomatedAgent) {
+            return Err(EntitlementError::AutomatedAgentCannotHoldConstitutionalEntitlement);
+        }
+        if let Some(expires_at) = self.expires_at_us {
+            if expires_at <= self.valid_from_us {
+                return Err(EntitlementError::InvalidExpiry);
+            }
         }
         Ok(())
     }
 }
 
-/// Constitutional class of a collective decision.
+/// Result from the trusted jurisdiction resolver used by delegation validation.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum JurisdictionRelation {
+    Same,
+    ChildWithinParent,
+    BroaderOrUnrelated,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ParentCapabilityState {
+    Active,
+    Expired,
+    Revoked,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum DelegationError {
+    InvalidParent(ConformanceError),
+    InvalidChild(ConformanceError),
+    ParentNotActive(ParentCapabilityState),
+    ParentNotDelegable,
+    ChildReusesParentCapabilityId,
+    WrongParentReference,
+    PowerChanged,
+    JurisdictionExpandedOrUnresolved,
+    ChildStartsBeforeParent,
+    ChildOutlivesParent,
+    DelegationDepthNotReduced,
+}
+
+/// Validate that `child` is a strict attenuation of `parent`.
+///
+/// The caller supplies the jurisdiction relation from a trusted jurisdiction
+/// graph. If `parent` is itself delegated, its own edge must also be validated;
+/// pairwise validation composes from delegation root to leaf.
+pub fn validate_delegation(
+    parent: &ConstitutionalCapability,
+    child: &ConstitutionalCapability,
+    jurisdiction_relation: JurisdictionRelation,
+    parent_state: ParentCapabilityState,
+) -> Result<(), DelegationError> {
+    parent
+        .validate_inner(true)
+        .map_err(DelegationError::InvalidParent)?;
+    child
+        .validate_inner(true)
+        .map_err(DelegationError::InvalidChild)?;
+
+    if parent_state != ParentCapabilityState::Active {
+        return Err(DelegationError::ParentNotActive(parent_state));
+    }
+    if !parent.delegable || parent.delegation_depth_remaining == 0 {
+        return Err(DelegationError::ParentNotDelegable);
+    }
+    if child.id == parent.id {
+        return Err(DelegationError::ChildReusesParentCapabilityId);
+    }
+    match &child.source {
+        CapabilitySource::Delegation {
+            parent_capability_id,
+        } if parent_capability_id == &parent.id => {}
+        _ => return Err(DelegationError::WrongParentReference),
+    }
+    if child.power != parent.power {
+        return Err(DelegationError::PowerChanged);
+    }
+    match jurisdiction_relation {
+        JurisdictionRelation::Same if child.jurisdiction != parent.jurisdiction => {
+            return Err(DelegationError::JurisdictionExpandedOrUnresolved);
+        }
+        JurisdictionRelation::BroaderOrUnrelated => {
+            return Err(DelegationError::JurisdictionExpandedOrUnresolved);
+        }
+        JurisdictionRelation::Same | JurisdictionRelation::ChildWithinParent => {}
+    }
+    if child.valid_from_us < parent.valid_from_us {
+        return Err(DelegationError::ChildStartsBeforeParent);
+    }
+    if let Some(parent_expiry) = parent.expires_at_us {
+        match child.expires_at_us {
+            Some(child_expiry) if child_expiry <= parent_expiry => {}
+            _ => return Err(DelegationError::ChildOutlivesParent),
+        }
+    }
+    if child.delegation_depth_remaining >= parent.delegation_depth_remaining {
+        return Err(DelegationError::DelegationDepthNotReduced);
+    }
+
+    Ok(())
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DecisionClass {
-    /// Fundamental dignity/rights guarantees.
     FundamentalRights,
-    /// Foundational covenant or replacement constitution.
     FoundationalCovenant,
-    /// Branch structure, election architecture, amendment rules, etc.
     StructuralConstitution,
-    /// Elections, recalls, initiatives, and other civic mandate decisions.
     CivicMandate,
-    /// Ordinary public policy and governance.
     OrdinaryGovernance,
-    /// Cooperative or organizational economic decisions where participants may
-    /// explicitly choose bounded economic weighting.
     CooperativeEconomic,
-    /// Narrow technical/operational decisions delegated by a lawful authority.
     TechnicalOperation,
 }
 
 impl DecisionClass {
-    /// Whether the decision must preserve equal base civic standing.
     pub fn requires_equal_civic_weight(self) -> bool {
         matches!(
             self,
@@ -387,10 +659,8 @@ impl DecisionClass {
     }
 }
 
-/// Basis used to weight an eligible participant's vote.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum VoteWeightBasis {
-    /// One equal base vote per eligible civic participant.
     EqualCivic,
     Matl,
     Stake,
@@ -409,12 +679,6 @@ pub enum VoteWeightError {
     },
 }
 
-/// Validate only the constitutional equality constraint on vote weighting.
-///
-/// This does not decide whether a weighting system is otherwise wise or valid.
-/// It establishes a narrow invariant: MATL, stake, Phi, reputation,
-/// participation, quadratic credits, or composite merit must not change the
-/// base weight of a person's vote in fundamental civic/constituent decisions.
 pub fn validate_vote_weight_basis(
     decision_class: DecisionClass,
     basis: VoteWeightBasis,
@@ -438,6 +702,7 @@ mod tests {
     ) -> ConstitutionalCapability {
         ConstitutionalCapability {
             id: "cap-1".into(),
+            holder_id: "subject-1".into(),
             holder,
             power,
             jurisdiction: "test-jurisdiction".into(),
@@ -526,7 +791,7 @@ mod tests {
     }
 
     #[test]
-    fn automated_agents_hold_no_constitutional_power() {
+    fn automated_agents_hold_no_sovereign_constitutional_power() {
         for power in ConstitutionalPower::ALL {
             assert!(!principal_can_exercise(
                 AuthorityPrincipal::AutomatedAgent,
@@ -563,17 +828,15 @@ mod tests {
 
     #[test]
     fn ordinary_governance_may_choose_non_constituent_weighting() {
-        assert!(
-            validate_vote_weight_basis(
-                DecisionClass::OrdinaryGovernance,
-                VoteWeightBasis::CompositeMerit
-            )
-            .is_ok()
-        );
+        assert!(validate_vote_weight_basis(
+            DecisionClass::OrdinaryGovernance,
+            VoteWeightBasis::CompositeMerit
+        )
+        .is_ok());
     }
 
     #[test]
-    fn emergency_authority_requires_hard_expiry() {
+    fn emergency_authority_requires_hard_expiry_and_is_nondelegable() {
         let mut cap = capability(
             AuthorityPrincipal::Branch(Branch::Stewardship),
             ConstitutionalPower::DeclareProvisionalEmergency,
@@ -582,6 +845,13 @@ mod tests {
 
         cap.expires_at_us = Some(10);
         assert!(cap.validate().is_ok());
+
+        cap.delegable = true;
+        cap.delegation_depth_remaining = 1;
+        assert_eq!(
+            cap.validate(),
+            Err(ConformanceError::IntrinsicPowerCannotBeDelegated)
+        );
     }
 
     #[test]
@@ -599,13 +869,36 @@ mod tests {
     #[test]
     fn nondelegable_capability_cannot_claim_delegation_depth() {
         let mut cap = capability(
-            AuthorityPrincipal::Branch(Branch::Justice),
-            ConstitutionalPower::AdjudicateDispute,
+            AuthorityPrincipal::Branch(Branch::Integrity),
+            ConstitutionalPower::AuditAuthorityUse,
         );
         cap.delegation_depth_remaining = 1;
         assert_eq!(
             cap.validate(),
             Err(ConformanceError::NonDelegableCapabilityHasDelegationDepth)
         );
+    }
+
+    #[test]
+    fn empty_provenance_identifier_is_rejected() {
+        let mut cap = capability(
+            AuthorityPrincipal::Branch(Branch::Integrity),
+            ConstitutionalPower::AuditAuthorityUse,
+        );
+        cap.source = CapabilitySource::Charter {
+            charter_id: "".into(),
+            version: 1,
+        };
+        assert_eq!(cap.validate(), Err(ConformanceError::InvalidSource));
+    }
+
+    #[test]
+    fn concrete_holder_identity_is_required() {
+        let mut cap = capability(
+            AuthorityPrincipal::Branch(Branch::Integrity),
+            ConstitutionalPower::AuditAuthorityUse,
+        );
+        cap.holder_id.clear();
+        assert_eq!(cap.validate(), Err(ConformanceError::EmptyHolderId));
     }
 }
