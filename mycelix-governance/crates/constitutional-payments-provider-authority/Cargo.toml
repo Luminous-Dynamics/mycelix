@@ -1,0 +1,13 @@
+[package]
+name = "constitutional-payments-provider-authority"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Inert role-aware authority and rotation theorem for constitutional payment provider facts"
+
+[dependencies]
+serde = { workspace = true }
+thiserror = { workspace = true }
+blake3 = "=1.8.5"
+constitutional-authority = { workspace = true }
+constitutional-payments-provider-journal = { workspace = true }
