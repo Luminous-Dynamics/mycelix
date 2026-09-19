@@ -10,7 +10,7 @@
 //! browser build.
 
 use base64::Engine;
-use base64::engine::general_purpose::STANDARD;
+use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
 use serde::de::{SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
@@ -44,6 +44,21 @@ impl HoloHashBytes {
         Self::from_raw_39(bytes)
     }
 
+    /// Parse Holochain's human/display representation (`u` + base64url/no-pad).
+    ///
+    /// This is intentionally separate from [`Self::from_raw_base64`] so callers
+    /// cannot silently mix the UI display form with the repository's internal
+    /// reversible carrier used for ActionHash round-tripping.
+    pub fn from_holochain_display(value: &str) -> Result<Self, String> {
+        let encoded = value
+            .strip_prefix('u')
+            .ok_or_else(|| "HoloHash display value must start with 'u'".to_string())?;
+        let bytes = URL_SAFE_NO_PAD
+            .decode(encoded)
+            .map_err(|error| format!("invalid HoloHash display base64url: {error}"))?;
+        Self::from_raw_39(bytes)
+    }
+
     pub fn as_raw_39(&self) -> &[u8] {
         &self.0
     }
@@ -54,6 +69,11 @@ impl HoloHashBytes {
 
     pub fn to_raw_base64(&self) -> String {
         STANDARD.encode(&self.0)
+    }
+
+    /// Render Holochain's canonical user/display form (`u` + base64url/no-pad).
+    pub fn to_holochain_display(&self) -> String {
+        format!("u{}", URL_SAFE_NO_PAD.encode(&self.0))
     }
 }
 
@@ -130,6 +150,17 @@ mod tests {
         let encoded = hash.to_raw_base64();
         let decoded = HoloHashBytes::from_raw_base64(&encoded).unwrap();
         assert_eq!(decoded, hash);
+    }
+
+    #[test]
+    fn holochain_display_roundtrips_exact_wire_bytes() {
+        let hash = HoloHashBytes::from_raw_39((0u8..39).collect()).unwrap();
+        let display = hash.to_holochain_display();
+        assert!(display.starts_with('u'));
+        assert!(!display.contains('='));
+        let decoded = HoloHashBytes::from_holochain_display(&display).unwrap();
+        assert_eq!(decoded, hash);
+        assert!(HoloHashBytes::from_holochain_display(&hash.to_raw_base64()).is_err());
     }
 
     #[test]

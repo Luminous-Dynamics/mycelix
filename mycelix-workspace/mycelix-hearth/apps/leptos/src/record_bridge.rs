@@ -11,6 +11,7 @@
 //! decoded records to distinguish complete, empty, and degraded snapshots.
 
 use hearth_leptos_types::*;
+use mycelix_leptos_client::HoloHashBytes;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -58,6 +59,7 @@ impl WireRecord {
         hex_encode(self.hashed_hash())
     }
 
+    /// Internal reversible carrier for an ActionHash's exact 39 wire bytes.
     pub fn action_hash_b64(&self) -> String {
         base64_encode(self.hashed_hash())
     }
@@ -66,18 +68,19 @@ impl WireRecord {
         &self.signed_action.hashed.hash
     }
 
+    /// Action author in Holochain's canonical `u...` display form.
     pub fn author_b64(&self) -> Option<String> {
         self.signed_action
             .hashed
             .content
             .get("author")
             .and_then(|value| value.as_array())
-            .map(|bytes| {
+            .and_then(|bytes| {
                 let raw = bytes
                     .iter()
                     .filter_map(|byte| byte.as_u64().map(|value| value as u8))
                     .collect::<Vec<_>>();
-                base64_encode(&raw)
+                agent_display(&raw)
             })
     }
 
@@ -201,7 +204,7 @@ pub fn records_to_members(records: &[WireRecord]) -> Vec<MemberView> {
         .filter_map(|record| {
             let member: WireMembership = record.decode_entry()?;
             Some(MemberView {
-                agent: base64_encode(&member.agent),
+                agent: agent_display(&member.agent)?,
                 display_name: member.display_name,
                 role: member.role,
                 status: member.status,
@@ -218,8 +221,8 @@ pub fn records_to_bonds(records: &[WireRecord]) -> Vec<BondView> {
             let bond: WireBond = record.decode_entry()?;
             Some(BondView {
                 hash: record.action_hash_b64(),
-                member_a: base64_encode(&bond.member_a),
-                member_b: base64_encode(&bond.member_b),
+                member_a: agent_display(&bond.member_a)?,
+                member_b: agent_display(&bond.member_b)?,
                 bond_type: bond.bond_type,
                 strength_bp: bond.strength_bp,
                 last_tended: bond.last_tended / 1_000_000,
@@ -236,8 +239,8 @@ pub fn records_to_gratitude(records: &[WireRecord]) -> Vec<GratitudeExpressionVi
             let gratitude: WireGratitude = record.decode_entry()?;
             Some(GratitudeExpressionView {
                 hash: record.action_hash_b64(),
-                from_agent: base64_encode(&gratitude.from_agent),
-                to_agent: base64_encode(&gratitude.to_agent),
+                from_agent: agent_display(&gratitude.from_agent)?,
+                to_agent: agent_display(&gratitude.to_agent)?,
                 message: gratitude.message,
                 gratitude_type: gratitude.gratitude_type,
                 visibility: gratitude.visibility,
@@ -258,7 +261,7 @@ pub fn records_to_care_schedules(records: &[WireRecord]) -> Vec<CareScheduleView
                 care_type: schedule.care_type,
                 title: schedule.title,
                 description: schedule.description,
-                assigned_to: base64_encode(&schedule.assigned_to),
+                assigned_to: agent_display(&schedule.assigned_to)?,
                 recurrence: schedule.recurrence,
                 status: schedule.status,
                 completed_at: schedule.completed_at.map(|value| value / 1_000_000),
@@ -283,7 +286,7 @@ pub fn records_to_decisions(records: &[WireRecord]) -> Vec<DecisionView> {
                 deadline: decision.deadline / 1_000_000,
                 quorum_bp: decision.quorum_bp,
                 status: decision.status,
-                created_by: base64_encode(&decision.created_by),
+                created_by: agent_display(&decision.created_by)?,
                 created_at: decision.created_at / 1_000_000,
             })
         })
@@ -297,7 +300,7 @@ pub fn records_to_votes(records: &[WireRecord]) -> Vec<VoteView> {
             let vote: WireVote = record.decode_entry()?;
             Some(VoteView {
                 decision_hash: base64_encode(&vote.decision_hash),
-                voter: base64_encode(&vote.voter),
+                voter: agent_display(&vote.voter)?,
                 choice: vote.choice,
                 weight_bp: vote.weight_bp,
                 reasoning: vote.reasoning,
@@ -312,17 +315,18 @@ pub fn records_to_rhythms(records: &[WireRecord]) -> Vec<RhythmView> {
         .iter()
         .filter_map(|record| {
             let rhythm: WireRhythm = record.decode_entry()?;
+            let participants = rhythm
+                .participants
+                .iter()
+                .map(|agent| agent_display(agent))
+                .collect::<Option<Vec<_>>>()?;
             Some(RhythmView {
                 hash: record.action_hash_b64(),
                 hearth_hash: base64_encode(&rhythm.hearth_hash),
                 name: rhythm.name,
                 rhythm_type: rhythm.rhythm_type,
                 description: rhythm.description,
-                participants: rhythm
-                    .participants
-                    .iter()
-                    .map(|agent| base64_encode(agent))
-                    .collect(),
+                participants,
             })
         })
         .collect()
@@ -345,9 +349,11 @@ pub fn records_to_presence(records: &[WireRecord]) -> PresenceDecode {
         let Some(presence) = record.decode_entry::<WirePresence>() else {
             continue;
         };
+        let Some(agent) = agent_display(&presence.agent) else {
+            continue;
+        };
         decoded_records += 1;
 
-        let agent = base64_encode(&presence.agent);
         let action_hash = record.action_hash_b64();
         let view = PresenceView {
             agent: agent.clone(),
@@ -380,6 +386,12 @@ pub fn records_to_presence(records: &[WireRecord]) -> PresenceDecode {
 // Helpers
 // ============================================================================
 
+fn agent_display(bytes: &[u8]) -> Option<String> {
+    HoloHashBytes::from_raw_39(bytes.to_vec())
+        .ok()
+        .map(|hash| hash.to_holochain_display())
+}
+
 fn base64_encode(bytes: &[u8]) -> String {
     const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut result = String::with_capacity(bytes.len() * 4 / 3 + 4);
@@ -410,12 +422,20 @@ fn hex_encode(bytes: &[u8]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::base64_encode;
+    use super::{agent_display, base64_encode};
 
     #[test]
     fn base64_encodes_correctly() {
         assert_eq!(base64_encode(b"hello"), "aGVsbG8=");
         assert_eq!(base64_encode(b""), "");
         assert_eq!(base64_encode(b"a"), "YQ==");
+    }
+
+    #[test]
+    fn agent_display_rejects_non_holohash_lengths() {
+        assert!(agent_display(&[0u8; 38]).is_none());
+        let display = agent_display(&[7u8; 39]).unwrap();
+        assert!(display.starts_with('u'));
+        assert!(!display.contains('='));
     }
 }
