@@ -4,8 +4,7 @@ use mycelix_business_core::{Digest32, ReferenceId};
 use sha2::{Digest, Sha256};
 
 use crate::canonical::{
-    CanonicalEncodingError, SETTLEMENT_COMMITMENT_PROFILE_REVISION, observation_commitment,
-    selected_evidence_frontier_commitment,
+    CanonicalEncodingError, observation_commitment, selected_evidence_frontier_commitment,
 };
 use crate::model::{
     EvaluationContextClass, FinalityProfile, QualifiedSettlement, SettlementEvaluationContext,
@@ -15,6 +14,8 @@ use crate::qualify::{
     SettlementInvalidationError, SettlementQualificationError, derive_invalidation,
     qualify_settlement,
 };
+
+pub const SETTLEMENT_INVALIDATION_RECEIPT_PROFILE_REVISION: u16 = 1;
 
 const INVALIDATION_RECEIPT_DOMAIN: &[u8] = b"MYCELIX_FINANCE_SETTLEMENT_INVALIDATION_RECEIPT_V1\0";
 
@@ -189,7 +190,7 @@ pub fn canonical_settlement_invalidation_receipt_bytes(
 ) -> Result<Vec<u8>, CanonicalEncodingError> {
     let mut out = Vec::with_capacity(384);
     out.extend_from_slice(INVALIDATION_RECEIPT_DOMAIN);
-    push_u16(&mut out, SETTLEMENT_COMMITMENT_PROFILE_REVISION);
+    push_u16(&mut out, SETTLEMENT_INVALIDATION_RECEIPT_PROFILE_REVISION);
     push_reference(&mut out, invalidation.subject())?;
     push_digest(&mut out, invalidation.financial_effect_commitment());
     push_reference(&mut out, &invalidation.prior_profile().id)?;

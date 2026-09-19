@@ -8,7 +8,16 @@ use crate::{
     SettlementSubject,
 };
 
-pub const SETTLEMENT_COMMITMENT_PROFILE_REVISION: u16 = 1;
+/// Revision of the core settlement canonical formats: finality profiles,
+/// evaluation contexts, evidence, observations, and selected-evidence frontiers.
+pub const SETTLEMENT_CANONICAL_PROFILE_REVISION: u16 = 1;
+
+/// Backward-compatible name for the core settlement canonical revision.
+///
+/// New code should prefer `SETTLEMENT_CANONICAL_PROFILE_REVISION`. Receipt and
+/// portable-envelope formats must use their own independently versioned
+/// namespaces rather than this compatibility alias.
+pub const SETTLEMENT_COMMITMENT_PROFILE_REVISION: u16 = SETTLEMENT_CANONICAL_PROFILE_REVISION;
 
 const PROFILE_DOMAIN: &[u8] = b"MYCELIX_FINANCE_SETTLEMENT_FINALITY_PROFILE_V1\0";
 const EVIDENCE_DOMAIN: &[u8] = b"MYCELIX_FINANCE_SETTLEMENT_EVIDENCE_V1\0";
@@ -69,7 +78,7 @@ pub fn canonical_evidence_bytes(
 ) -> Result<Vec<u8>, CanonicalEncodingError> {
     let mut out = Vec::with_capacity(256);
     out.extend_from_slice(EVIDENCE_DOMAIN);
-    push_u16(&mut out, SETTLEMENT_COMMITMENT_PROFILE_REVISION);
+    push_u16(&mut out, SETTLEMENT_CANONICAL_PROFILE_REVISION);
     push_reference(&mut out, &evidence.evidence_id)?;
     push_reference(&mut out, &evidence.subject)?;
     push_reference(&mut out, &evidence.operation_id)?;
@@ -97,7 +106,7 @@ pub fn canonical_observation_bytes(
 
     let mut out = Vec::with_capacity(512);
     out.extend_from_slice(OBSERVATION_DOMAIN);
-    push_u16(&mut out, SETTLEMENT_COMMITMENT_PROFILE_REVISION);
+    push_u16(&mut out, SETTLEMENT_CANONICAL_PROFILE_REVISION);
     push_reference(&mut out, &observation.observation_id)?;
     push_reference(&mut out, &observation.subject)?;
     push_digest(&mut out, observation.financial_effect_commitment);
@@ -128,7 +137,7 @@ pub fn canonical_selected_evidence_frontier_bytes(
 ) -> Result<Vec<u8>, CanonicalEncodingError> {
     let mut out = Vec::with_capacity(512);
     out.extend_from_slice(FRONTIER_DOMAIN);
-    push_u16(&mut out, SETTLEMENT_COMMITMENT_PROFILE_REVISION);
+    push_u16(&mut out, SETTLEMENT_CANONICAL_PROFILE_REVISION);
     push_reference(&mut out, &subject.id)?;
     push_digest(&mut out, subject.financial_effect_commitment);
     push_attempt(&mut out, &subject.attempt)?;
