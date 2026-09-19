@@ -12,6 +12,12 @@
 //! `jurisdiction_proof` composes two instances of that same range circuit and is
 //! therefore quarantined under the same explicit legacy feature. A host-side
 //! jurisdiction commitment does not repair the underlying range theorem.
+//!
+//! `range_membership_v1` is the replacement **candidate** defined by
+//! MYC-ZKP-RANGE-001R. It is feature-gated separately from backend availability
+//! and from `full` until exact-head adversarial qualification executes. Its
+//! Winterfell 0.13.1 profile makes no witness-privacy / zero-knowledge claim;
+//! see issue #1899 and `ZKP_RANGE_WITNESS_PRIVACY_BOUNDARY.md`.
 
 #[cfg(feature = "legacy-unqualified-range-proof")]
 #[deprecated(
@@ -24,6 +30,9 @@ pub mod range_proof;
     note = "UNQUALIFIED: jurisdiction proof depends on quarantined HealthRangeAir (issue #227)"
 )]
 pub mod jurisdiction_proof;
+
+#[cfg(feature = "candidate-range-membership-v1")]
+pub mod range_membership_v1;
 
 #[cfg(feature = "backend-winterfell")]
 pub mod review_integrity;
