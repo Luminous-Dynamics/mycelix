@@ -8,9 +8,12 @@
 //! zome remains the durable template source. Concrete recurring work lives here.
 
 use hdi::prelude::*;
+use hearth_automation_integrity::AssignmentTransitionEntry;
+use hearth_care_integrity::CareSchedule;
 use hearth_care_ledger::{
     CareCompletion as LedgerCompletion, CareOccurrence as LedgerOccurrence, MemberId,
-    OccurrenceId, OccurrenceWindow, ScheduleId, CARE_LEDGER_SCHEMA_VERSION,
+    OccurrenceAssignmentBinding, OccurrenceId, OccurrenceWindow, ScheduleId,
+    CARE_LEDGER_SCHEMA_VERSION,
 };
 
 #[hdk_entry_helper]
@@ -58,6 +61,8 @@ pub enum LinkTypes {
     HearthToOccurrences,
     OccurrenceToCompletions,
     HearthToCompletions,
+    /// Immutable authority binding: CareOccurrence EntryHash -> exact assignment state ActionHash.
+    OccurrenceToAssignmentState,
 }
 
 #[hdk_extern]
@@ -78,13 +83,24 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::StoreEntry(_) | FlatOp::StoreRecord(_) | FlatOp::RegisterAgentActivity(_) => {
             Ok(ValidateCallbackResult::Valid)
         }
-        FlatOp::RegisterCreateLink { tag, .. } => {
+        FlatOp::RegisterCreateLink {
+            link_type,
+            base_address,
+            target_address,
+            tag,
+            ..
+        } => {
             if tag.0.len() > 256 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Care ledger link tag too long (max 256 bytes)".into(),
                 ));
             }
-            Ok(ValidateCallbackResult::Valid)
+            match link_type {
+                LinkTypes::OccurrenceToAssignmentState => {
+                    validate_occurrence_assignment_state_link(base_address, target_address)
+                }
+                _ => Ok(ValidateCallbackResult::Valid),
+            }
         }
         FlatOp::RegisterDeleteLink { .. } => Ok(ValidateCallbackResult::Invalid(
             "Care ledger evidence links are append-only".into(),
@@ -98,8 +114,8 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     }
 }
 
-fn validate_occurrence(entry: &CareOccurrenceEntry) -> ExternResult<ValidateCallbackResult> {
-    let ledger = LedgerOccurrence {
+fn occurrence_to_ledger(entry: &CareOccurrenceEntry) -> LedgerOccurrence {
+    LedgerOccurrence {
         schema_version: CARE_LEDGER_SCHEMA_VERSION,
         id: OccurrenceId(entry.occurrence_id.clone()),
         schedule_id: ScheduleId(entry.schedule_hash.to_string()),
@@ -109,13 +125,103 @@ fn validate_occurrence(entry: &CareOccurrenceEntry) -> ExternResult<ValidateCall
             end_micros: entry.window_end.as_micros(),
         },
         estimated_minutes: entry.estimated_minutes,
-    };
-    match ledger.validate() {
+    }
+}
+
+fn validate_occurrence(entry: &CareOccurrenceEntry) -> ExternResult<ValidateCallbackResult> {
+    match occurrence_to_ledger(entry).validate() {
         Ok(()) => Ok(ValidateCallbackResult::Valid),
         Err(error) => Ok(ValidateCallbackResult::Invalid(format!(
             "Invalid CareOccurrence: {error:?}"
         ))),
     }
+}
+
+fn validate_occurrence_assignment_state_link(
+    base: AnyLinkableHash,
+    target: AnyLinkableHash,
+) -> ExternResult<ValidateCallbackResult> {
+    let occurrence_entry_hash = EntryHash::try_from(base).map_err(|_| {
+        wasm_error!(WasmErrorInner::Guest(
+            "OccurrenceToAssignmentState base must be a CareOccurrence EntryHash".into(),
+        ))
+    })?;
+    let assignment_state_hash = ActionHash::try_from(target).map_err(|_| {
+        wasm_error!(WasmErrorInner::Guest(
+            "OccurrenceToAssignmentState target must be an assignment-state ActionHash".into(),
+        ))
+    })?;
+
+    let occurrence_hashed = must_get_entry(occurrence_entry_hash)?;
+    let app_bytes = occurrence_hashed
+        .content
+        .as_app_entry()
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
+            "OccurrenceToAssignmentState base is not an app entry".into()
+        )))?;
+    let occurrence = CareOccurrenceEntry::try_from(app_bytes.as_ref().clone())
+        .map_err(|error| wasm_error!(WasmErrorInner::Guest(format!(
+            "OccurrenceToAssignmentState base is not a CareOccurrence: {error}"
+        ))))?;
+    let ledger_occurrence = occurrence_to_ledger(&occurrence);
+    if let Err(error) = ledger_occurrence.validate() {
+        return invalid(format!("Invalid bound CareOccurrence: {error:?}"));
+    }
+    if let Err(error) = OccurrenceAssignmentBinding::from_occurrence(
+        &ledger_occurrence,
+        assignment_state_hash.to_string(),
+    ) {
+        return invalid(format!("Invalid occurrence assignment binding: {error}"));
+    }
+
+    let state_record = must_get_valid_record(assignment_state_hash.clone())?;
+    let schedule_decode: Result<Option<CareSchedule>, SerializedBytesError> =
+        state_record.entry().to_app_option();
+    if let Ok(Some(schedule)) = schedule_decode {
+        if schedule.hearth_hash != occurrence.hearth_hash {
+            return invalid("Bound CareSchedule state belongs to a different hearth");
+        }
+        if schedule.assigned_to != occurrence.assigned_to {
+            return invalid("Bound CareSchedule state names a different assignee");
+        }
+        return validate_schedule_lineage(&assignment_state_hash, &occurrence.schedule_hash);
+    }
+
+    let transition_decode: Result<Option<AssignmentTransitionEntry>, SerializedBytesError> =
+        state_record.entry().to_app_option();
+    if let Ok(Some(transition)) = transition_decode {
+        if transition.hearth_hash != occurrence.hearth_hash
+            || transition.schedule_root_hash != occurrence.schedule_hash
+        {
+            return invalid("Bound AssignmentTransition belongs to another hearth/schedule");
+        }
+        if transition.to_assignee != occurrence.assigned_to
+            || transition.transition.to_assignee != occurrence.assigned_to.to_string()
+        {
+            return invalid("Bound AssignmentTransition names a different assignee");
+        }
+        return Ok(ValidateCallbackResult::Valid);
+    }
+
+    invalid("Occurrence assignment state must reference CareSchedule or AssignmentTransition evidence")
+}
+
+fn validate_schedule_lineage(
+    state_hash: &ActionHash,
+    root_hash: &ActionHash,
+) -> ExternResult<ValidateCallbackResult> {
+    let mut current = state_hash.clone();
+    for _ in 0..64 {
+        if &current == root_hash {
+            return Ok(ValidateCallbackResult::Valid);
+        }
+        let signed = must_get_action(current)?;
+        match signed.action() {
+            Action::Update(update) => current = update.original_action_address.clone(),
+            _ => return invalid("Bound CareSchedule state is not descended from claimed schedule root"),
+        }
+    }
+    invalid("CareSchedule assignment-state lineage exceeds safety bound")
 }
 
 fn validate_completion(
@@ -135,7 +241,7 @@ fn validate_completion(
         .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?
         .ok_or_else(|| {
             wasm_error!(WasmErrorInner::Guest(
-                "CareCompletion must reference a CareOccurrence entry".into()
+                "CareCompletion must reference a CareOccurrence entry".into(),
             ))
         })?;
     let expected_entry_hash = hash_entry(&EntryTypes::CareOccurrence(occurrence.clone()))?;
@@ -175,6 +281,10 @@ fn validate_completion(
             "Invalid CareCompletion: {error:?}"
         ))),
     }
+}
+
+fn invalid(message: impl Into<String>) -> ExternResult<ValidateCallbackResult> {
+    Ok(ValidateCallbackResult::Invalid(message.into()))
 }
 
 #[cfg(test)]

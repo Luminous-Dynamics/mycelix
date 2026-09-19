@@ -12,3 +12,5 @@ name = "hearth_care_ledger_integrity"
 hdi = { workspace = true }
 serde = { workspace = true }
 hearth-care-ledger = { package = "hearth-care-ledger-contract", path = "../../../crates/hearth-care-ledger" }
+hearth_care_integrity = { path = "../../hearth-care/integrity" }
+hearth_automation_integrity = { path = "../../hearth-automation/integrity" }
