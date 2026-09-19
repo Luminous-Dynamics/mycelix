@@ -20,7 +20,7 @@ use personal_leptos_types::{ConsentGrantView, CredentialType, StoredCredentialVi
 
 use crate::context::{
     provide_cultural_context, provide_personal_context, refresh_health_state,
-    refresh_identity_state, refresh_preferences_state, use_cultural, use_personal,
+    refresh_identity_state, refresh_preferences_state, use_cultural, use_personal, SymbolRegistry,
 };
 use crate::telemetry::ConstellationTelemetry;
 
@@ -241,13 +241,6 @@ fn VaultPage() -> impl IntoView {
             .get()
             .into_iter()
             .filter(|grant| grant.active)
-            .count()
-    });
-    let revoked_credentials = Memo::new(move |_| {
-        ctx.credentials
-            .get()
-            .into_iter()
-            .filter(|cred| cred.revoked)
             .count()
     });
     let latest_activity_at = Memo::new(move |_| {
@@ -744,12 +737,16 @@ fn UnlockPage() -> impl IntoView {
 }
 
 #[component]
-fn PageHeader(eyebrow: &'static str, title: &'static str, summary: String) -> impl IntoView {
+fn PageHeader(
+    eyebrow: &'static str,
+    #[prop(into)] title: TextProp,
+    #[prop(into)] summary: TextProp,
+) -> impl IntoView {
     view! {
         <header class="page-header">
             <span class="page-eyebrow">{eyebrow}</span>
-            <h1>{title}</h1>
-            <p>{summary}</p>
+            <h1>{move || title.get()}</h1>
+            <p>{move || summary.get()}</p>
         </header>
     }
 }
@@ -760,13 +757,13 @@ fn SectionTitle(title: &'static str) -> impl IntoView {
 }
 
 #[component]
-fn VaultStat<F>(label: &'static str, value: F) -> impl IntoView
+fn VaultStat<F>(#[prop(into)] label: TextProp, value: F) -> impl IntoView
 where
     F: Fn() -> String + 'static,
 {
     view! {
         <div class="vault-stat">
-            <span class="vault-stat-label">{label}</span>
+            <span class="vault-stat-label">{move || label.get()}</span>
             <strong class="vault-stat-value">{value()}</strong>
         </div>
     }
