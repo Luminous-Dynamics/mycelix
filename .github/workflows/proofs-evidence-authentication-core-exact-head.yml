@@ -1,0 +1,437 @@
+name: Mycelix Proof Evidence Authentication Core Exact-Head
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication/**'
+      - '.github/workflows/proofs-evidence-authentication-core-exact-head.yml'
+  workflow_dispatch:
+    inputs:
+      subject_sha:
+        description: 'Exact 40-hex commit SHA to qualify'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: proofs-evidence-authentication-core-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Exact-head proof evidence authentication-core qualification
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Resolve exact subject
+        id: subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            subject='${{ github.event.pull_request.head.sha }}'
+          else
+            subject='${{ inputs.subject_sha }}'
+          fi
+          if [[ ! "$subject" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "invalid subject SHA: $subject" >&2
+            exit 1
+          fi
+          echo "sha=$subject" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ steps.subject.outputs.sha }}
+          fetch-depth: 1
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+
+      - name: Preflight identity and source evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          test -z "$(git status --porcelain)"
+          evidence="$RUNNER_TEMP/proofs-evidence-authentication-core-evidence"
+          mkdir -p "$evidence"
+          {
+            echo "subject_sha=${{ steps.subject.outputs.sha }}"
+            echo "runner_os=${RUNNER_OS}"
+            echo "runner_arch=${RUNNER_ARCH}"
+            rustc -Vv
+            cargo -V
+          } > "$evidence/execution-capsule.txt"
+          find mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication \
+               -type f -not -path '*/target/*' -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            > "$evidence/source-sha256.txt"
+
+      - name: Check formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication/Cargo.toml \
+            --all -- --check
+
+      - name: Prepare isolated resolved graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/proofs-evidence-authentication-core-qual"
+          evidence="$RUNNER_TEMP/proofs-evidence-authentication-core-evidence"
+          cp -a mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication "$crate"
+          cd "$crate"
+          cargo generate-lockfile
+          sha256sum Cargo.lock > "$evidence/Cargo.lock.sha256"
+          cp Cargo.lock "$evidence/Cargo.lock"
+          cargo metadata --locked --format-version 1 > "$evidence/cargo-metadata.json"
+          cargo tree --locked > "$evidence/cargo-tree.txt"
+
+      - name: Execute committed corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/proofs-evidence-authentication-core-qual"
+          evidence="$RUNNER_TEMP/proofs-evidence-authentication-core-evidence"
+          cd "$crate"
+          cargo test --locked --all-targets -- --nocapture | tee "$evidence/committed-tests.txt"
+          cargo test --locked --all-targets -- --list > "$evidence/committed-test-list.txt"
+
+      - name: Install public API positive probes
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/proofs-evidence-authentication-core-qual"
+          mkdir -p "$crate/tests"
+          cat > "$crate/tests/authentication_public_probe.rs" <<'RS'
+          use proofs_evidence_authentication::{
+              AuthenticationFreshnessPolicyV1, GitObjectIdV1,
+              MAX_RECEIPT_IDENTIFIER_BYTES_V1, MAX_RECEIPT_NONCLAIM_BYTES_V1,
+              MAX_RECEIPT_NONCLAIMS_V1, QualificationAttestationPredicateV1,
+              QualificationReceiptV1, QualificationResultV1,
+              ReceiptAuthenticationPolicyV1, Sha256DigestV1,
+              SourceRevisionPolicyV1, TransparencyPolicyV1, VerifierProfileV1,
+              WorkflowRevisionPolicyV1, QUALIFICATION_ATTESTATION_PREDICATE_SCHEMA_V1,
+          };
+
+          fn digest(byte: u8) -> Sha256DigestV1 {
+              Sha256DigestV1::from_bytes([byte; 32])
+          }
+
+          fn receipt() -> QualificationReceiptV1 {
+              QualificationReceiptV1 {
+                  receipt_version: 1,
+                  qualification_profile: "myc-zkp-range-001aq".into(),
+                  statement_profile: "range-membership-v1".into(),
+                  theorem_profile: "range-membership-v1-air".into(),
+                  subject: GitObjectIdV1::sha1([0xaa; 20]),
+                  dependency_graph_digest: digest(1),
+                  measured_security_receipt_digest: digest(2),
+                  coherence_policy_id: "coherence-v1".into(),
+                  coherence_result_digest: digest(3),
+                  qualification_corpus_digest: digest(4),
+                  execution_capsule_digest: digest(5),
+                  result: QualificationResultV1::Pass,
+                  nonclaims: vec!["application authority not granted".into()],
+              }
+          }
+
+          fn policy() -> ReceiptAuthenticationPolicyV1 {
+              ReceiptAuthenticationPolicyV1 {
+                  profile_id: "github-public-v1".into(),
+                  verifier_profile: VerifierProfileV1 {
+                      profile_id: "github-attestation-verifier-v1".into(),
+                      backend_family: "github-artifact-attestation".into(),
+                      backend_version: "unqualified-placeholder".into(),
+                      verification_profile: "public-sigstore-qualification-v1".into(),
+                  },
+                  expected_attestation_subject_name: "mycelix-qualification-receipt".into(),
+                  expected_predicate_type: "https://mycelix.org/attestations/qualification/v1".into(),
+                  expected_predicate_schema: QUALIFICATION_ATTESTATION_PREDICATE_SCHEMA_V1.into(),
+                  trusted_root_profile: "sigstore-public-good-v1".into(),
+                  trusted_root_digest: digest(9),
+                  oidc_issuer: "https://token.actions.githubusercontent.com".into(),
+                  source_repository: "Luminous-Dynamics/mycelix".into(),
+                  source_repository_owner: "Luminous-Dynamics".into(),
+                  signer_workflow: ".github/workflows/proofs.yml".into(),
+                  signer_workflow_revision: WorkflowRevisionPolicyV1::Exact(
+                      GitObjectIdV1::sha1([0xbb; 20]),
+                  ),
+                  source_revision: SourceRevisionPolicyV1 {
+                      exact_commit: GitObjectIdV1::sha1([0xcc; 20]),
+                      exact_git_ref: Some("refs/heads/main".into()),
+                  },
+                  transparency_policy: TransparencyPolicyV1::PublicTransparencyRequired,
+                  freshness_policy: AuthenticationFreshnessPolicyV1::CurrentAtVerification,
+              }
+          }
+
+          #[test]
+          fn canonical_digest_is_stable_and_theorem_mutations_change_it() {
+              let a = receipt();
+              let mut reordered = receipt();
+              reordered.nonclaims = vec![
+                  "application authority not granted".into(),
+                  "application authority not granted".into(),
+              ];
+              assert_eq!(a.digest().unwrap(), reordered.digest().unwrap());
+
+              let mut changed = receipt();
+              changed.subject = GitObjectIdV1::sha1([0xdd; 20]);
+              assert_ne!(a.digest().unwrap(), changed.digest().unwrap());
+          }
+
+          #[test]
+          fn wire_identity_is_language_neutral_and_typed() {
+              let d = digest(0xab);
+              assert_eq!(serde_json::to_string(&d).unwrap(), format!("\"{}\"", "ab".repeat(32)));
+              let git = GitObjectIdV1::sha1([0xcd; 20]);
+              assert_eq!(serde_json::to_string(&git).unwrap(), format!("\"sha1:{}\"", "cd".repeat(20)));
+          }
+
+          #[test]
+          fn receipt_unknown_fields_fail_closed() {
+              let mut value = serde_json::to_value(receipt()).unwrap();
+              value.as_object_mut().unwrap().insert(
+                  "production_authority".into(),
+                  serde_json::Value::Bool(true),
+              );
+              assert!(serde_json::from_value::<QualificationReceiptV1>(value).is_err());
+          }
+
+          #[test]
+          fn predicate_schema_substitution_fails() {
+              let receipt = receipt();
+              let mut predicate = QualificationAttestationPredicateV1 {
+                  predicate_version: 1,
+                  predicate_schema: QUALIFICATION_ATTESTATION_PREDICATE_SCHEMA_V1.into(),
+                  receipt_digest: receipt.digest().unwrap(),
+                  qualification_profile: receipt.qualification_profile.clone(),
+                  subject: receipt.subject,
+                  coherence_result_digest: receipt.coherence_result_digest,
+                  result: receipt.result,
+              };
+              assert_eq!(predicate.validate(), Ok(()));
+              predicate.predicate_schema = "other-schema".into();
+              assert!(predicate.validate().is_err());
+          }
+
+          #[test]
+          fn policy_is_exact_and_resource_bounds_are_public() {
+              assert_eq!(policy().validate(), Ok(()));
+              assert_eq!(MAX_RECEIPT_IDENTIFIER_BYTES_V1, 1024);
+              assert_eq!(MAX_RECEIPT_NONCLAIMS_V1, 64);
+              assert_eq!(MAX_RECEIPT_NONCLAIM_BYTES_V1, 4096);
+
+              let mut too_long = receipt();
+              too_long.qualification_profile = "x".repeat(MAX_RECEIPT_IDENTIFIER_BYTES_V1 + 1);
+              assert!(too_long.digest().is_err());
+
+              let mut too_many = receipt();
+              too_many.nonclaims = (0..=MAX_RECEIPT_NONCLAIMS_V1)
+                  .map(|i| format!("nonclaim-{i}"))
+                  .collect();
+              assert!(too_many.digest().is_err());
+          }
+          RS
+
+      - name: Execute public API positive probes
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/proofs-evidence-authentication-core-qual"
+          evidence="$RUNNER_TEMP/proofs-evidence-authentication-core-evidence"
+          cd "$crate"
+          cargo test --locked --test authentication_public_probe -- --nocapture \
+            | tee "$evidence/public-api-positive-probe.txt"
+
+      - name: Prove authority-bearing public constructors are absent
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/proofs-evidence-authentication-core-qual"
+          evidence="$RUNNER_TEMP/proofs-evidence-authentication-core-evidence"
+
+          cat > "$crate/tests/no_production_capability.rs" <<'RS'
+          use proofs_evidence_authentication::ProductionAdmissionV1;
+          #[test] fn probe() { let _ = core::mem::size_of::<ProductionAdmissionV1>(); }
+          RS
+
+          cat > "$crate/tests/no_receipt_verifier_trait.rs" <<'RS'
+          use proofs_evidence_authentication::ReceiptVerifier;
+          #[test] fn probe() { let _ = core::mem::size_of::<&dyn ReceiptVerifier>(); }
+          RS
+
+          cat > "$crate/tests/no_capability_default.rs" <<'RS'
+          use proofs_evidence_authentication::AuthenticatedQualificationReceiptV1;
+          #[test] fn probe() { let _ = AuthenticatedQualificationReceiptV1::default(); }
+          RS
+
+          cat > "$crate/tests/no_capability_deserialize.rs" <<'RS'
+          use proofs_evidence_authentication::AuthenticatedQualificationReceiptV1;
+          #[test]
+          fn probe() {
+              let _: AuthenticatedQualificationReceiptV1 = serde_json::from_str("{}").unwrap();
+          }
+          RS
+
+          cat > "$crate/tests/no_capability_serialize.rs" <<'RS'
+          use proofs_evidence_authentication::AuthenticatedQualificationReceiptV1;
+          fn require_serialize<T: serde::Serialize>() {}
+          #[test] fn probe() { require_serialize::<AuthenticatedQualificationReceiptV1>(); }
+          RS
+
+          check_negative() {
+            probe="$1"
+            shift
+            set +e
+            (
+              cd "$crate"
+              CARGO_TERM_COLOR=never cargo check --locked --test "$probe"
+            ) > "$evidence/${probe}.stdout.txt" 2> "$evidence/${probe}.stderr.txt"
+            status=$?
+            set -e
+            if [[ $status -eq 0 ]]; then
+              echo "negative capability probe unexpectedly compiled: $probe" >&2
+              exit 1
+            fi
+            for pattern in "$@"; do
+              if ! grep -Fq -- "$pattern" "$evidence/${probe}.stderr.txt"; then
+                echo "negative probe $probe failed for an unexpected reason; missing diagnostic: $pattern" >&2
+                cat "$evidence/${probe}.stderr.txt" >&2
+                exit 1
+              fi
+            done
+          }
+
+          check_negative no_production_capability "unresolved import" "ProductionAdmissionV1"
+          check_negative no_receipt_verifier_trait "unresolved import" "ReceiptVerifier"
+          check_negative no_capability_default "AuthenticatedQualificationReceiptV1" "default" "no function or associated item"
+          check_negative no_capability_deserialize "AuthenticatedQualificationReceiptV1" "Deserialize" "trait bound"
+          check_negative no_capability_serialize "AuthenticatedQualificationReceiptV1" "Serialize" "trait bound"
+
+      - name: Prove verified facts and minting boundary are crate-private
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/proofs-evidence-authentication-core-qual"
+          evidence="$RUNNER_TEMP/proofs-evidence-authentication-core-evidence"
+
+          cat > "$crate/tests/no_verified_fact_construction.rs" <<'RS'
+          use proofs_evidence_authentication::{GitObjectIdV1, VerifiedSignerIdentityV1};
+          #[test]
+          fn probe() {
+              let _ = VerifiedSignerIdentityV1 {
+                  oidc_issuer: String::new(),
+                  source_repository: String::new(),
+                  source_repository_owner: String::new(),
+                  signer_workflow: String::new(),
+                  signer_workflow_revision: GitObjectIdV1::sha1([0; 20]),
+                  source_revision: GitObjectIdV1::sha1([0; 20]),
+                  source_ref: None,
+              };
+          }
+          RS
+
+          cat > "$crate/tests/no_public_mint.rs" <<'RS'
+          use proofs_evidence_authentication::AuthenticatedQualificationReceiptV1;
+          #[test]
+          fn probe() {
+              let _ = AuthenticatedQualificationReceiptV1::from_verified_parts(
+                  todo!(), todo!(), todo!(), todo!(), todo!(), todo!()
+              );
+          }
+          RS
+
+          check_private() {
+            probe="$1"
+            shift
+            set +e
+            (
+              cd "$crate"
+              CARGO_TERM_COLOR=never cargo check --locked --test "$probe"
+            ) > "$evidence/${probe}.stdout.txt" 2> "$evidence/${probe}.stderr.txt"
+            status=$?
+            set -e
+            if [[ $status -eq 0 ]]; then
+              echo "private authority boundary unexpectedly compiled: $probe" >&2
+              exit 1
+            fi
+            for pattern in "$@"; do
+              if ! grep -Fq -- "$pattern" "$evidence/${probe}.stderr.txt"; then
+                echo "private probe $probe failed for an unexpected reason; missing diagnostic: $pattern" >&2
+                cat "$evidence/${probe}.stderr.txt" >&2
+                exit 1
+              fi
+            done
+          }
+
+          check_private no_verified_fact_construction "VerifiedSignerIdentityV1" "private"
+          check_private no_public_mint "from_verified_parts" "private"
+
+      - name: Remove qualification-only probes
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$RUNNER_TEMP/proofs-evidence-authentication-core-qual/tests"
+
+      - name: Warnings-denied Clippy
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/proofs-evidence-authentication-core-qual"
+          evidence="$RUNNER_TEMP/proofs-evidence-authentication-core-evidence"
+          cd "$crate"
+          cargo clippy --locked --all-targets -- -D warnings \
+            | tee "$evidence/clippy.txt"
+
+      - name: Verify checkout immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          test -z "$(git status --porcelain)"
+          evidence="$RUNNER_TEMP/proofs-evidence-authentication-core-evidence"
+          find mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication \
+               -type f -not -path '*/target/*' -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            > "$evidence/source-sha256-post.txt"
+          cmp "$evidence/source-sha256.txt" "$evidence/source-sha256-post.txt"
+
+      - name: Write qualification receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/proofs-evidence-authentication-core-evidence"
+          cat > "$evidence/QUALIFICATION.txt" <<EOF
+          MYC-ZKP-ATTEST-001AQ PASS
+          subject_sha=${{ steps.subject.outputs.sha }}
+          authority_scope=ReceiptAuthenticationCoreOnly
+          cryptographic_backend_qualified=false
+          production_admission=false
+          application_authority=false
+          nonclaims=existing attestations authenticated, Sigstore/GitHub/Xenia verifier qualified, receipt revocation service established, production proof admission, governance/finance/health/FL application authority
+          EOF
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: myc-zkp-attest-001aq-${{ steps.subject.outputs.sha }}
+          path: ${{ runner.temp }}/proofs-evidence-authentication-core-evidence
+          if-no-files-found: warn
+          retention-days: 30
