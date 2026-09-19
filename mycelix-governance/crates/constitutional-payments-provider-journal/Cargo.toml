@@ -1,0 +1,15 @@
+[package]
+name = "constitutional-payments-provider-journal"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Inert append-only durable journal semantics for constitutional payment provider operations"
+
+[dependencies]
+serde = { workspace = true }
+thiserror = { workspace = true }
+blake3 = "=1.8.5"
+constitutional-payments-provider = { workspace = true }
+
+[dev-dependencies]
+constitutional-treasury-effect-provider = { workspace = true }

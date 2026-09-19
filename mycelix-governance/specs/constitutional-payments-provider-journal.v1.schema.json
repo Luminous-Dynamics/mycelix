@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mycelix.constitutional-payments-provider-journal.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "profile_id", "authority_class", "lineage", "journal", "operation_identity", "dispatch", "observations", "query", "activation", "next_tranche", "non_claims"],
+  "properties": {
+    "schema": {"const": "mycelix.constitutional-payments-provider-journal.v1"},
+    "profile_id": {"const": "mycelix-payments-provider-journal-f1b0-v1"},
+    "authority_class": {"const": "InertSemanticContract"},
+    "lineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["f0c_semantic_head", "f0p0_semantic_head", "f1a_semantic_head", "f1a_source"],
+      "properties": {
+        "f0c_semantic_head": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "f0p0_semantic_head": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "f1a_semantic_head": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "f1a_source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "git_blob_sha"],
+          "properties": {
+            "path": {"const": "mycelix-governance/crates/constitutional-payments-provider/src/lib.rs"},
+            "git_blob_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"}
+          }
+        }
+      }
+    },
+    "journal": {"$ref": "#/$defs/journal"},
+    "operation_identity": {"$ref": "#/$defs/operationIdentity"},
+    "dispatch": {"$ref": "#/$defs/dispatch"},
+    "observations": {"$ref": "#/$defs/observations"},
+    "query": {"$ref": "#/$defs/query"},
+    "activation": {"$ref": "#/$defs/activation"},
+    "next_tranche": {"$ref": "#/$defs/nextTranche"},
+    "non_claims": {
+      "type": "array",
+      "uniqueItems": true,
+      "minItems": 10,
+      "items": {"type": "string"}
+    }
+  },
+  "$defs": {
+    "journal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["record_types", "append_only", "hash_linked_per_operation", "contiguous_sequence_required", "wall_clock_in_semantic_record_identity", "mutable_authoritative_status_stored", "query_state_derived_by_replay", "integrity_halt_sticky"],
+      "properties": {
+        "record_types": {"const": ["OperationIntent", "DispatchAttempt", "Observation"]},
+        "append_only": {"const": true},
+        "hash_linked_per_operation": {"const": true},
+        "contiguous_sequence_required": {"const": true},
+        "wall_clock_in_semantic_record_identity": {"const": false},
+        "mutable_authoritative_status_stored": {"const": false},
+        "query_state_derived_by_replay": {"const": true},
+        "integrity_halt_sticky": {"const": true}
+      }
+    },
+    "operationIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider_operation_key_reused_from_f1a", "execution_id_bound", "request_commitment_bound", "provider_profile_id_bound", "provider_profile_commitment_bound", "historical_payment_id_is_operation_key"],
+      "properties": {
+        "provider_operation_key_reused_from_f1a": {"const": true},
+        "execution_id_bound": {"const": true},
+        "request_commitment_bound": {"const": true},
+        "provider_profile_id_bound": {"const": true},
+        "provider_profile_commitment_bound": {"const": true},
+        "historical_payment_id_is_operation_key": {"const": false}
+      }
+    },
+    "dispatch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["attempt_ids_unique", "attempt_ordinals_contiguous", "unknown_outcome_blocks_blind_redispatch", "known_no_effect_through_current_horizon_permits_next_attempt", "dispatch_after_integrity_halt_forbidden", "qualified_replay_capability_consumption_present", "automatic_replay_enabled"],
+      "properties": {
+        "attempt_ids_unique": {"const": true},
+        "attempt_ordinals_contiguous": {"const": true},
+        "unknown_outcome_blocks_blind_redispatch": {"const": true},
+        "known_no_effect_through_current_horizon_permits_next_attempt": {"const": true},
+        "dispatch_after_integrity_halt_forbidden": {"const": true},
+        "qualified_replay_capability_consumption_present": {"const": false},
+        "automatic_replay_enabled": {"const": false}
+      }
+    },
+    "observations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcomes", "attempt_horizon_bound", "exact_operation_key_bound", "exact_execution_id_bound", "exact_request_commitment_bound", "observation_id_collision_halts", "same_horizon_success_no_effect_contradiction_halts", "later_attempt_success_after_earlier_no_effect_allowed", "stale_no_effect_cannot_demote_newer_inflight", "stale_unknown_cannot_demote_newer_inflight", "conflicting_success_receipts_halt", "later_unknown_cannot_demote_terminal_success", "forensic_observations_after_halt_cannot_clear_halt"],
+      "properties": {
+        "outcomes": {"const": ["KnownSuccess", "KnownNoEffect", "UnknownOutcome"]},
+        "attempt_horizon_bound": {"const": true},
+        "exact_operation_key_bound": {"const": true},
+        "exact_execution_id_bound": {"const": true},
+        "exact_request_commitment_bound": {"const": true},
+        "observation_id_collision_halts": {"const": true},
+        "same_horizon_success_no_effect_contradiction_halts": {"const": true},
+        "later_attempt_success_after_earlier_no_effect_allowed": {"const": true},
+        "stale_no_effect_cannot_demote_newer_inflight": {"const": true},
+        "stale_unknown_cannot_demote_newer_inflight": {"const": true},
+        "conflicting_success_receipts_halt": {"const": true},
+        "later_unknown_cannot_demote_terminal_success": {"const": true},
+        "forensic_observations_after_halt_cannot_clear_halt": {"const": true}
+      }
+    },
+    "query": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["results", "journal_head_commitment_returned", "query_by_provider_operation_key", "query_by_execution_id", "lost_ack_success_recoverable_by_query"],
+      "properties": {
+        "results": {"const": ["NotFound", "IntentCommitted", "InFlight", "UnknownOutcome", "KnownNoEffect", "KnownSuccess", "IntegrityHalted"]},
+        "journal_head_commitment_returned": {"const": true},
+        "query_by_provider_operation_key": {"const": true},
+        "query_by_execution_id": {"const": true},
+        "lost_ack_success_recoverable_by_query": {"const": true}
+      }
+    },
+    "activation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["persistent_holochain_entries", "persistent_holochain_links", "payments_zome_wired", "governance_routing_changed", "treasury_routing_changed", "provider_query_endpoint_live", "provider_replay_capability_minting", "automatic_replay"],
+      "properties": {
+        "persistent_holochain_entries": {"const": false},
+        "persistent_holochain_links": {"const": false},
+        "payments_zome_wired": {"const": false},
+        "governance_routing_changed": {"const": false},
+        "treasury_routing_changed": {"const": false},
+        "provider_query_endpoint_live": {"const": false},
+        "provider_replay_capability_minting": {"const": false},
+        "automatic_replay": {"const": false}
+      }
+    },
+    "nextTranche": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "purpose", "must_not_activate_live_payment_dispatch", "must_preserve_separate_historical_payment_id", "must_bind_receipts_to_provider_operation_key_and_f0_request", "must_preserve_unknown_outcome", "must_preserve_stale_evidence_monotonicity", "must_preserve_sticky_integrity_halt"],
+      "properties": {
+        "id": {"const": "MYC-CONST-003D1D-F1B1"},
+        "purpose": {"type": "string"},
+        "must_not_activate_live_payment_dispatch": {"const": true},
+        "must_preserve_separate_historical_payment_id": {"const": true},
+        "must_bind_receipts_to_provider_operation_key_and_f0_request": {"const": true},
+        "must_preserve_unknown_outcome": {"const": true},
+        "must_preserve_stale_evidence_monotonicity": {"const": true},
+        "must_preserve_sticky_integrity_halt": {"const": true}
+      }
+    }
+  }
+}
