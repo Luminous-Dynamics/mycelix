@@ -18,7 +18,9 @@ pub fn my_custom_getrandom(buf: &mut [u8]) -> Result<(), getrandom::Error> {
 }
 
 use mycelix_zkp_core::consciousness::{CivicTier, verify_consciousness_tier};
-use personal_leptos_types::{MasterKeyView, MutationReceiptView, ProfileView};
+use personal_leptos_types::{
+    MasterKeyView, MutationReceiptView, ProfileEvidenceView, ProfileView,
+};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SubmitTierProofInput {
@@ -131,29 +133,49 @@ pub fn get_my_profile(_: ()) -> ExternResult<Option<Record>> {
     }
 }
 
+fn profile_view_from_record(record: &Record) -> ExternResult<ProfileView> {
+    let profile: Profile = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid profile entry".into()
+        )))?;
+
+    Ok(ProfileView {
+        display_name: profile.display_name,
+        avatar: profile.avatar,
+        bio: profile.bio,
+        metadata: profile.metadata,
+        updated_at: profile.updated_at.as_micros(),
+    })
+}
+
 #[hdk_extern]
 pub fn get_my_profile_view(_: ()) -> ExternResult<Option<ProfileView>> {
-    let profile_record = get_my_profile(())?;
-    match profile_record {
-        Some(record) => {
-            let profile: Profile = record
-                .entry()
-                .to_app_option()
-                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-                .ok_or(wasm_error!(WasmErrorInner::Guest(
-                    "Invalid profile entry".into()
-                )))?;
+    get_my_profile(())?
+        .as_ref()
+        .map(profile_view_from_record)
+        .transpose()
+}
 
-            Ok(Some(ProfileView {
-                display_name: profile.display_name,
-                avatar: profile.avatar,
-                bio: profile.bio,
-                metadata: profile.metadata,
-                updated_at: profile.updated_at.as_micros(),
-            }))
-        }
-        None => Ok(None),
-    }
+/// Get the current profile together with the exact source-chain action that
+/// produced the returned read-model value.
+///
+/// This is additive to `get_my_profile_view`: existing callers retain the old
+/// payload contract while evidence-aware callers can correlate a mutation
+/// receipt with the action actually observed by the read model.
+#[hdk_extern]
+pub fn get_my_profile_evidence_view(_: ()) -> ExternResult<Option<ProfileEvidenceView>> {
+    get_my_profile(())?
+        .map(|record| {
+            let profile = profile_view_from_record(&record)?;
+            Ok(ProfileEvidenceView {
+                action_hash: record.action_address().to_string(),
+                profile,
+            })
+        })
+        .transpose()
 }
 
 /// Register a master key for this agent.

@@ -190,6 +190,17 @@ pub struct ProfileView {
     pub updated_at: i64,
 }
 
+/// Evidence-bearing wrapper for the current profile read model.
+///
+/// `action_hash` identifies the exact source-chain action whose entry was
+/// decoded into `profile`. It allows a frontend to distinguish a merely
+/// published refresh from observation of a specific committed mutation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileEvidenceView {
+    pub action_hash: String,
+    pub profile: ProfileView,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MasterKeyView {
     pub label: String,
@@ -244,6 +255,17 @@ pub struct DataSharingPreferenceView {
     pub blocked_zomes: Vec<String>,
     pub reason: String,
     pub updated_at: i64,
+}
+
+/// Evidence-bearing wrapper for a data-sharing preference read-model row.
+///
+/// `action_hash` identifies the exact source-chain action from which the
+/// preference value was decoded. The wrapper is read-only evidence; the
+/// existing `DataSharingPreferenceView` remains the write payload contract.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DataSharingPreferenceEvidenceView {
+    pub action_hash: String,
+    pub preference: DataSharingPreferenceView,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -390,6 +412,43 @@ mod tests {
         let json = serde_json::to_string(&receipt).unwrap();
         let back: MutationReceiptView = serde_json::from_str(&json).unwrap();
         assert_eq!(back, receipt);
+    }
+
+    #[test]
+    fn profile_evidence_serde_roundtrip_preserves_action_identity() {
+        let evidence = ProfileEvidenceView {
+            action_hash: "uhCkk-profile-action".into(),
+            profile: ProfileView {
+                display_name: "Alice".into(),
+                avatar: None,
+                bio: Some("Profile".into()),
+                metadata: Default::default(),
+                updated_at: 42,
+            },
+        };
+        let json = serde_json::to_string(&evidence).unwrap();
+        let back: ProfileEvidenceView = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.action_hash, evidence.action_hash);
+        assert_eq!(back.profile.display_name, "Alice");
+    }
+
+    #[test]
+    fn preference_evidence_serde_roundtrip_preserves_action_identity() {
+        let evidence = DataSharingPreferenceEvidenceView {
+            action_hash: "uhCkk-preference-action".into(),
+            preference: DataSharingPreferenceView {
+                source_cluster: "health".into(),
+                target_cluster: "finance".into(),
+                allowed: false,
+                blocked_zomes: vec!["records".into()],
+                reason: "private".into(),
+                updated_at: 43,
+            },
+        };
+        let json = serde_json::to_string(&evidence).unwrap();
+        let back: DataSharingPreferenceEvidenceView = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.action_hash, evidence.action_hash);
+        assert_eq!(back.preference.source_cluster, "health");
     }
 
     #[test]

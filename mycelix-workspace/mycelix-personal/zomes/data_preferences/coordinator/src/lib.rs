@@ -20,7 +20,8 @@ pub fn my_custom_getrandom(buf: &mut [u8]) -> Result<(), getrandom::Error> {
 }
 
 use personal_leptos_types::{
-    DataSharingPreferenceView, MutationReceiptView, PreferenceChangeLogView,
+    DataSharingPreferenceEvidenceView, DataSharingPreferenceView, MutationReceiptView,
+    PreferenceChangeLogView,
 };
 
 /// Set a data sharing preference for a cluster pair.
@@ -75,32 +76,39 @@ pub fn set_preference_view(pref: DataSharingPreferenceView) -> ExternResult<Muta
     })
 }
 
-/// Get all data sharing preferences for the current agent.
-#[hdk_extern]
-pub fn get_my_preferences(_: ()) -> ExternResult<Vec<DataSharingPreference>> {
+fn get_my_preference_records() -> ExternResult<Vec<Record>> {
     let agent = agent_info()?.agent_initial_pubkey;
     let links = get_links(
         LinkQuery::new(agent, LinkTypes::AgentToPreferences.try_into_filter()?),
         GetStrategy::Network,
     )?;
 
-    let mut prefs = Vec::new();
+    let mut records = Vec::new();
     for link in links {
         let hash: ActionHash = link
             .target
             .into_action_hash()
             .ok_or(wasm_error!("Invalid link target"))?;
         if let Some(record) = get(hash, GetOptions::default())? {
-            if let Some(p) = record
-                .entry()
-                .to_app_option::<DataSharingPreference>()
-                .map_err(|e| wasm_error!("Deserialize: {}", e))?
-            {
-                prefs.push(p);
-            }
+            records.push(record);
         }
     }
+    Ok(records)
+}
 
+/// Get all data sharing preferences for the current agent.
+#[hdk_extern]
+pub fn get_my_preferences(_: ()) -> ExternResult<Vec<DataSharingPreference>> {
+    let mut prefs = Vec::new();
+    for record in get_my_preference_records()? {
+        if let Some(pref) = record
+            .entry()
+            .to_app_option::<DataSharingPreference>()
+            .map_err(|e| wasm_error!("Deserialize: {}", e))?
+        {
+            prefs.push(pref);
+        }
+    }
     Ok(prefs)
 }
 
@@ -117,6 +125,39 @@ pub fn get_my_preferences_view(_: ()) -> ExternResult<Vec<DataSharingPreferenceV
             updated_at: pref.updated_at.as_micros(),
         })
         .collect())
+}
+
+/// Get data-sharing preference values together with the exact source-chain
+/// action from which each returned row was decoded.
+///
+/// This is additive to `get_my_preferences_view`; existing callers keep the
+/// current payload while evidence-aware callers can correlate mutation receipts
+/// without inferring identity from payload equality.
+#[hdk_extern]
+pub fn get_my_preferences_evidence_view(
+    _: (),
+) -> ExternResult<Vec<DataSharingPreferenceEvidenceView>> {
+    let mut evidence = Vec::new();
+    for record in get_my_preference_records()? {
+        if let Some(pref) = record
+            .entry()
+            .to_app_option::<DataSharingPreference>()
+            .map_err(|e| wasm_error!("Deserialize: {}", e))?
+        {
+            evidence.push(DataSharingPreferenceEvidenceView {
+                action_hash: record.action_address().to_string(),
+                preference: DataSharingPreferenceView {
+                    source_cluster: pref.source_cluster,
+                    target_cluster: pref.target_cluster,
+                    allowed: pref.allowed,
+                    blocked_zomes: pref.blocked_zomes,
+                    reason: pref.reason,
+                    updated_at: pref.updated_at.as_micros(),
+                },
+            });
+        }
+    }
+    Ok(evidence)
 }
 
 /// Check if a specific flow is allowed for the current agent.
