@@ -4,13 +4,15 @@
 //! Canonical qualification receipts and the receipt-authentication capability boundary.
 //!
 //! This crate intentionally contains no cryptographic verifier backend yet. It freezes
-//! the canonical receipt identity, exact authentication policy, and opaque capability
-//! shape that future separately-qualified backends may construct after full verification.
+//! the canonical receipt identity, exact authentication policy, opaque capability, and
+//! strict untrusted-wire parsing boundary that future separately-qualified backends may
+//! use after full verification.
 
 mod canonical;
 mod capability;
 mod policy;
 mod predicate;
+mod wire;
 
 pub use canonical::{
     GitObjectIdParseErrorV1, GitObjectIdV1, MAX_RECEIPT_IDENTIFIER_BYTES_V1,
@@ -34,4 +36,10 @@ pub use policy::{
 pub use predicate::{
     QUALIFICATION_ATTESTATION_PREDICATE_SCHEMA_V1,
     QualificationAttestationPredicateErrorV1, QualificationAttestationPredicateV1,
+};
+pub use wire::{
+    MAX_UNTRUSTED_WIRE_JSON_BYTES_V1, MAX_UNTRUSTED_WIRE_STRING_BYTES_V1,
+    MAX_UNTRUSTED_WORKFLOW_REVISIONS_V1, UntrustedWireParseErrorV1,
+    parse_untrusted_authentication_policy_json_v1,
+    parse_untrusted_qualification_predicate_json_v1,
 };
