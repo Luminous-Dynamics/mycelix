@@ -5,6 +5,7 @@ use leptos::prelude::*;
 
 mod ambient_sound;
 mod app;
+mod care_actions;
 mod circadian;
 mod components;
 mod governance_actions;
