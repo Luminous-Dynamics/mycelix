@@ -57,7 +57,7 @@ pub fn amend_vote(
         return;
     }
 
-    let decision_hash = match HoloHashBytes::from_raw_base64(&decision_hash) {
+    let decision_hash = match HoloHashBytes::from_action_raw_base64(&decision_hash) {
         Ok(hash) => hash,
         Err(error) => {
             truth.availability.update(|availability| {
@@ -65,10 +65,10 @@ pub fn amend_vote(
                 availability.votes = AvailabilityStateKind::Degraded;
             });
             web_sys::console::log_1(
-                &format!("amend_vote blocked by malformed decision hash: {error}").into(),
+                &format!("amend_vote blocked by invalid ActionHash: {error}").into(),
             );
             toasts.push(
-                "decision target is malformed in the local snapshot; refresh before retrying",
+                "decision target is malformed or is not an ActionHash; refresh before retrying",
                 ToastKind::Custom("decision".into()),
             );
             return;

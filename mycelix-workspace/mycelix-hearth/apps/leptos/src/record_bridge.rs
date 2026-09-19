@@ -11,7 +11,7 @@
 //! decoded records to distinguish complete, empty, and degraded snapshots.
 
 use hearth_leptos_types::*;
-use mycelix_leptos_client::HoloHashBytes;
+use mycelix_leptos_client::{HoloHashBytes, HoloHashKind};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -68,8 +68,8 @@ impl WireRecord {
         &self.signed_action.hashed.hash
     }
 
-    /// Action author in Holochain's canonical `u...` display form.
-    pub fn author_b64(&self) -> Option<String> {
+    /// Action author in Holochain's canonical `u...` AgentPubKey display form.
+    pub fn author_display(&self) -> Option<String> {
         self.signed_action
             .hashed
             .content
@@ -386,8 +386,10 @@ pub fn records_to_presence(records: &[WireRecord]) -> PresenceDecode {
 // Helpers
 // ============================================================================
 
-fn agent_display(bytes: &[u8]) -> Option<String> {
+pub(crate) fn agent_display(bytes: &[u8]) -> Option<String> {
     HoloHashBytes::from_raw_39(bytes.to_vec())
+        .ok()?
+        .require_kind(HoloHashKind::Agent)
         .ok()
         .map(|hash| hash.to_holochain_display())
 }
@@ -423,6 +425,7 @@ fn hex_encode(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::{agent_display, base64_encode};
+    use mycelix_leptos_client::{HoloHashBytes, HoloHashKind};
 
     #[test]
     fn base64_encodes_correctly() {
@@ -432,10 +435,17 @@ mod tests {
     }
 
     #[test]
-    fn agent_display_rejects_non_holohash_lengths() {
+    fn agent_display_requires_agent_prefix() {
         assert!(agent_display(&[0u8; 38]).is_none());
-        let display = agent_display(&[7u8; 39]).unwrap();
-        assert!(display.starts_with('u'));
-        assert!(!display.contains('='));
+
+        let mut agent = vec![0u8; 39];
+        agent[..3].copy_from_slice(&HoloHashKind::Agent.prefix());
+        let display = agent_display(&agent).unwrap();
+        assert!(display.starts_with("uhCAk"));
+
+        let mut action = vec![0u8; 39];
+        action[..3].copy_from_slice(&HoloHashKind::Action.prefix());
+        assert!(agent_display(&action).is_none());
+        assert!(HoloHashBytes::from_raw_39(action).is_ok());
     }
 }

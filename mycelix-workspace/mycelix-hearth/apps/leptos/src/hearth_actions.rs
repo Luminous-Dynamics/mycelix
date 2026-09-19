@@ -39,12 +39,12 @@ pub fn use_hearth_actions() -> HearthActions {
 }
 
 fn action_hash(label: &str, value: &str) -> Result<HoloHashBytes, String> {
-    HoloHashBytes::from_raw_base64(value)
+    HoloHashBytes::from_action_raw_base64(value)
         .map_err(|error| format!("{label} is not a valid ActionHash carrier: {error}"))
 }
 
 fn agent_key(label: &str, value: &str) -> Result<HoloHashBytes, String> {
-    HoloHashBytes::from_holochain_display(value)
+    HoloHashBytes::from_agent_display(value)
         .map_err(|error| format!("{label} is not a valid AgentPubKey display value: {error}"))
 }
 
@@ -91,7 +91,7 @@ pub fn tend_bond(bond_hash: String) {
             });
             web_sys::console::log_1(&format!("tend_bond blocked: {error}").into());
             toasts.push(
-                "bond target is malformed in the local snapshot; refresh before retrying",
+                "bond target is malformed or is not an ActionHash; refresh before retrying",
                 ToastKind::Custom("bond".into()),
             );
             return;
@@ -221,7 +221,7 @@ pub fn express_gratitude(to_agent: String, message: String) {
             });
             web_sys::console::log_1(&format!("express_gratitude blocked: {error}").into());
             toasts.push(
-                "current Hearth hash is malformed; refresh before retrying",
+                "current Hearth hash is malformed or is not an ActionHash; refresh before retrying",
                 ToastKind::Custom("gratitude".into()),
             );
             return;
@@ -236,7 +236,7 @@ pub fn express_gratitude(to_agent: String, message: String) {
             });
             web_sys::console::log_1(&format!("express_gratitude blocked: {error}").into());
             toasts.push(
-                "gratitude recipient identity is malformed in the local snapshot; refresh before retrying",
+                "gratitude recipient identity is malformed or is not an AgentPubKey; refresh before retrying",
                 ToastKind::Custom("gratitude".into()),
             );
             return;
@@ -349,7 +349,7 @@ pub fn cast_vote(decision_hash: String, choice: u32, reasoning: Option<String>, 
             });
             web_sys::console::log_1(&format!("cast_vote blocked: {error}").into());
             toasts.push(
-                "decision target is malformed in the local snapshot; refresh before retrying",
+                "decision target is malformed or is not an ActionHash; refresh before retrying",
                 ToastKind::Custom("decision".into()),
             );
             return;
@@ -460,7 +460,7 @@ pub fn change_presence(new_status: PresenceStatusType) {
             });
             web_sys::console::log_1(&format!("change_presence blocked: {error}").into());
             toasts.push(
-                "current Hearth hash is malformed; refresh before retrying",
+                "current Hearth hash is malformed or is not an ActionHash; refresh before retrying",
                 ToastKind::Custom("presence".into()),
             );
             return;
@@ -567,7 +567,7 @@ pub fn complete_care_task(task_hash: String) {
             });
             web_sys::console::log_1(&format!("complete_care_task blocked: {error}").into());
             toasts.push(
-                "care task target is malformed in the local snapshot; refresh before retrying",
+                "care task target is malformed or is not an ActionHash; refresh before retrying",
                 ToastKind::Custom("care".into()),
             );
             return;
