@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mycelix.constitutional-payments-provider-hdi-refinement.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "profile_id", "authority_class", "lineage", "entry_projection", "semantic_namespaces", "index_projection", "authority", "activation", "future_active_integrity_requirements", "non_claims"],
+  "properties": {
+    "schema": {"const": "mycelix.constitutional-payments-provider-hdi-refinement.v1"},
+    "profile_id": {"const": "mycelix-payments-provider-hdi-f1b1-v1"},
+    "authority_class": {"const": "InactiveHdiRefinement"},
+    "lineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["f1b0_semantic_head", "f1b0_source"],
+      "properties": {
+        "f1b0_semantic_head": {"const": "1d0dc3f07ac29dccba9f33b45aef13380ecdb870"},
+        "f1b0_source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "git_blob_sha"],
+          "properties": {
+            "path": {"const": "mycelix-governance/crates/constitutional-payments-provider-journal/src/lib.rs"},
+            "git_blob_sha": {"const": "96abe9b514074904c33d7ef85fcdf008e4320932"}
+          }
+        }
+      }
+    },
+    "entry_projection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hdk_entry_helper_derived", "registered_in_hdk_entry_types", "exact_projection_from_f1b0_record", "second_record_hash_algorithm", "second_state_reducer", "journal_record_commitment_preserved", "previous_record_commitment_preserved", "sequence_preserved", "provider_operation_key_preserved", "audit_timestamp_preserved_as_metadata"],
+      "properties": {
+        "hdk_entry_helper_derived": {"const": true},
+        "registered_in_hdk_entry_types": {"const": false},
+        "exact_projection_from_f1b0_record": {"const": true},
+        "second_record_hash_algorithm": {"const": false},
+        "second_state_reducer": {"const": false},
+        "journal_record_commitment_preserved": {"const": true},
+        "previous_record_commitment_preserved": {"const": true},
+        "sequence_preserved": {"const": true},
+        "provider_operation_key_preserved": {"const": true},
+        "audit_timestamp_preserved_as_metadata": {"const": true}
+      }
+    },
+    "semantic_namespaces": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["execution_id_distinct", "provider_operation_key_distinct", "historical_payment_id_distinct", "attempt_id_distinct", "receipt_id_distinct"],
+      "properties": {
+        "execution_id_distinct": {"const": true},
+        "provider_operation_key_distinct": {"const": true},
+        "historical_payment_id_distinct": {"const": true},
+        "attempt_id_distinct": {"const": true},
+        "receipt_id_distinct": {"const": true}
+      }
+    },
+    "index_projection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["execution_id_to_provider_operation_key", "genesis_record_commitment_bound", "registered_in_hdk_link_types", "live_link_creation"],
+      "properties": {
+        "execution_id_to_provider_operation_key": {"const": true},
+        "genesis_record_commitment_bound": {"const": true},
+        "registered_in_hdk_link_types": {"const": false},
+        "live_link_creation": {"const": false}
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider_author_binding", "provider_authority_is_qualified", "entry_write_authority_established", "observation_write_authority_established"],
+      "properties": {
+        "provider_author_binding": {"const": "PendingQualifiedProviderAuthority"},
+        "provider_authority_is_qualified": {"const": false},
+        "entry_write_authority_established": {"const": false},
+        "observation_write_authority_established": {"const": false}
+      }
+    },
+    "activation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hdk_entry_types_registered", "hdk_link_types_registered", "validate_extern_present", "coordinator_extern_present", "dht_write_surface_open", "payments_zome_modified", "payments_dna_modified", "provider_query_endpoint_live", "provider_replay_capability_minting", "automatic_replay", "governance_routing_changed"],
+      "properties": {
+        "hdk_entry_types_registered": {"const": false},
+        "hdk_link_types_registered": {"const": false},
+        "validate_extern_present": {"const": false},
+        "coordinator_extern_present": {"const": false},
+        "dht_write_surface_open": {"const": false},
+        "payments_zome_modified": {"const": false},
+        "payments_dna_modified": {"const": false},
+        "provider_query_endpoint_live": {"const": false},
+        "provider_replay_capability_minting": {"const": false},
+        "automatic_replay": {"const": false},
+        "governance_routing_changed": {"const": false}
+      }
+    },
+    "future_active_integrity_requirements": {"type": "array", "minItems": 9, "uniqueItems": true, "items": {"type": "string"}},
+    "non_claims": {"type": "array", "minItems": 11, "uniqueItems": true, "items": {"type": "string"}}
+  }
+}
