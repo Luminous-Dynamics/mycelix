@@ -1,0 +1,196 @@
+{
+  "schema": "mycelix-forge-matrix-profile-v1",
+  "profile_version": 1,
+  "audited_frontier": "1af145717945c85bd07fb381c6b2ee4bd45015c8",
+  "workflow_path": ".github/workflows/forge.yml",
+  "workflow_blob_sha": "9885d3a6079195591c3e6e297682f4b9ee9fb4b0",
+  "forge_prefixes": [
+    "crates/mycelix-forge-",
+    "adapters/forge-"
+  ],
+  "full_matrix_paths": [
+    ".github/workflows/forge.yml",
+    ".github/ci/forge_matrix_profile_v1.json",
+    ".github/scripts/forge_matrix_selector.py",
+    ".github/scripts/test_forge_matrix_selector.py"
+  ],
+  "lanes": [
+    {
+      "id": "core",
+      "name": "Forge Core",
+      "path": "crates/mycelix-forge-core",
+      "cargo_dependencies": [],
+      "semantic_dependencies": [],
+      "cargo_manifest_blob_sha": "cbc46f66127b696e3eb8c54e99a3dcb21b6193ec"
+    },
+    {
+      "id": "authority",
+      "name": "Forge Authority",
+      "path": "crates/mycelix-forge-authority",
+      "cargo_dependencies": ["core"],
+      "semantic_dependencies": [],
+      "cargo_manifest_blob_sha": "0064c4f6a69e723b0247e05fcb5a99f4a64a1d24"
+    },
+    {
+      "id": "repository",
+      "name": "Forge Repository Contract",
+      "path": "crates/mycelix-forge-repository",
+      "cargo_dependencies": ["core"],
+      "semantic_dependencies": [],
+      "cargo_manifest_blob_sha": "2b2a07e5ad0bd13d32e2dfb8868a5e0d7b320cf6"
+    },
+    {
+      "id": "execution",
+      "name": "Forge Execution Contract",
+      "path": "crates/mycelix-forge-execution",
+      "cargo_dependencies": ["core"],
+      "semantic_dependencies": [],
+      "cargo_manifest_blob_sha": "79ca97fd533191f70392e3a957715973bf881c60"
+    },
+    {
+      "id": "gittuf",
+      "name": "Forge gittuf Adapter",
+      "path": "adapters/forge-gittuf",
+      "cargo_dependencies": ["core", "repository"],
+      "semantic_dependencies": [],
+      "cargo_manifest_blob_sha": "e6f85f3a30d40cf58374d151c05fb1978cbeeabe"
+    },
+    {
+      "id": "bundle",
+      "name": "Forge Repository Bundle",
+      "path": "adapters/forge-gittuf-bundle",
+      "cargo_dependencies": ["core", "repository", "gittuf"],
+      "semantic_dependencies": [],
+      "cargo_manifest_blob_sha": "2635aba8069364c2d674763194ba2d5337b03dda"
+    },
+    {
+      "id": "linux-isolation",
+      "name": "Forge Linux Isolation",
+      "path": "adapters/forge-linux-isolation",
+      "cargo_dependencies": ["core"],
+      "semantic_dependencies": [],
+      "cargo_manifest_blob_sha": "d344ca25ab08d3d67d337fe9805b96bfd7c9afc1"
+    },
+    {
+      "id": "isolation-evidence",
+      "name": "Forge Isolation Evidence",
+      "path": "adapters/forge-linux-isolation-evidence",
+      "cargo_dependencies": ["core", "linux-isolation"],
+      "semantic_dependencies": [],
+      "cargo_manifest_blob_sha": "2969c4bfc5d1381c8b270ef86500736d463accb6"
+    },
+    {
+      "id": "isolation-collector",
+      "name": "Forge Isolation Collector",
+      "path": "adapters/forge-linux-isolation-collector",
+      "cargo_dependencies": ["core", "linux-isolation", "isolation-evidence"],
+      "semantic_dependencies": [],
+      "cargo_manifest_blob_sha": "ec075a854d4e7d67b5f6dedaaa22f3e6d7e1bcfd"
+    },
+    {
+      "id": "runtime-closure",
+      "name": "Forge Runtime Closure Evidence",
+      "path": "adapters/forge-runtime-closure-evidence",
+      "cargo_dependencies": ["core", "linux-isolation"],
+      "semantic_dependencies": [],
+      "cargo_manifest_blob_sha": "c294b0d524fbd24779c01d26cc458a60e3019650"
+    },
+    {
+      "id": "nar-auditor",
+      "name": "Forge NAR Auditor",
+      "path": "adapters/forge-nar-auditor",
+      "cargo_dependencies": ["core", "linux-isolation", "runtime-closure"],
+      "semantic_dependencies": [],
+      "cargo_manifest_blob_sha": "db0619e9900245c52b3f9fec83158a4df162ea71"
+    },
+    {
+      "id": "trust-profile",
+      "name": "Forge gittuf Trust Profile",
+      "path": "adapters/forge-gittuf-trust-profile",
+      "cargo_dependencies": ["core"],
+      "semantic_dependencies": [],
+      "cargo_manifest_blob_sha": "6e8af232bc18498fb8d3a59e6672a8fbc1e38ffb"
+    },
+    {
+      "id": "policy-inventory",
+      "name": "Forge gittuf Policy Inventory",
+      "path": "adapters/forge-gittuf-policy-inventory",
+      "cargo_dependencies": ["core", "gittuf", "trust-profile", "repository"],
+      "semantic_dependencies": [],
+      "cargo_manifest_blob_sha": "ac11d544193ca76edc062281b936b67cf20a9a11"
+    },
+    {
+      "id": "hermetic-run-evidence",
+      "name": "Forge Hermetic Run Evidence",
+      "path": "adapters/forge-hermetic-run-evidence",
+      "cargo_dependencies": ["core"],
+      "semantic_dependencies": [],
+      "cargo_manifest_blob_sha": "5681144af3dc5cc8127afd176803f64c3f29db09"
+    },
+    {
+      "id": "guest-plan",
+      "name": "Forge Guest Verification Plan",
+      "path": "adapters/forge-guest-plan",
+      "cargo_dependencies": ["core", "repository"],
+      "semantic_dependencies": [],
+      "cargo_manifest_blob_sha": "cbbe47e19b4d80dfcfaef7a6fb412af77a02f3da"
+    },
+    {
+      "id": "guest-transcript",
+      "name": "Forge Guest Transcript",
+      "path": "adapters/forge-guest-transcript",
+      "cargo_dependencies": ["core", "guest-plan"],
+      "semantic_dependencies": [],
+      "cargo_manifest_blob_sha": "d9f6c99468100b6d5d73835e7b12114137c52761"
+    },
+    {
+      "id": "guest-tool-map",
+      "name": "Forge Guest Tool Map",
+      "path": "adapters/forge-guest-tool-map",
+      "cargo_dependencies": ["core", "execution", "guest-plan", "linux-isolation"],
+      "semantic_dependencies": [],
+      "cargo_manifest_blob_sha": "bf889adfaa81bf02985db14e752163c2f23db6d1"
+    },
+    {
+      "id": "guest-envelope",
+      "name": "Forge Guest Evidence Envelope",
+      "path": "adapters/forge-guest-envelope",
+      "cargo_dependencies": ["core", "gittuf", "trust-profile", "guest-plan", "guest-tool-map", "guest-transcript", "isolation-evidence"],
+      "semantic_dependencies": [],
+      "cargo_manifest_blob_sha": "7c2bbe01a0442334cc109a551e0c1eac707d7cd5"
+    },
+    {
+      "id": "guest-output-frame",
+      "name": "Forge Guest Output Frame",
+      "path": "adapters/forge-guest-output-frame",
+      "cargo_dependencies": ["guest-envelope"],
+      "semantic_dependencies": [],
+      "cargo_manifest_blob_sha": "4d5d604ea128d9929711fb20906bc582f01a8bdf"
+    },
+    {
+      "id": "hermetic-guest",
+      "name": "Forge Hermetic Guest",
+      "path": "adapters/forge-hermetic-guest",
+      "cargo_dependencies": ["core", "gittuf", "bundle", "policy-inventory", "trust-profile", "guest-envelope", "guest-output-frame", "guest-plan", "guest-tool-map", "guest-transcript", "linux-isolation", "isolation-collector", "isolation-evidence", "repository"],
+      "semantic_dependencies": [],
+      "cargo_manifest_blob_sha": "52855ed3faab57ad1006ac1cd2898da1182e9fad"
+    },
+    {
+      "id": "sealed-inputs",
+      "name": "Forge Sealed Inputs",
+      "path": "adapters/forge-sealed-inputs",
+      "cargo_dependencies": ["core", "linux-isolation"],
+      "semantic_dependencies": [],
+      "cargo_manifest_blob_sha": "5396994625d059f9bfb6ecce9f6e819b3ef37e57"
+    },
+    {
+      "id": "hermetic-host",
+      "name": "Forge Hermetic Host",
+      "path": "adapters/forge-hermetic-host",
+      "cargo_dependencies": ["core", "execution", "guest-envelope", "guest-output-frame", "guest-plan", "guest-tool-map", "hermetic-run-evidence", "linux-isolation", "isolation-collector", "isolation-evidence", "nar-auditor", "runtime-closure", "sealed-inputs"],
+      "semantic_dependencies": ["hermetic-guest"],
+      "cargo_manifest_blob_sha": "ec68cae803ff5ed3d9e8fe55968fff1b5c5b0e7a"
+    }
+  ],
+  "git_object_format": "sha1"
+}
