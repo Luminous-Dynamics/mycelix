@@ -1,0 +1,26 @@
+{
+  "schema": "mycelix.ci-gov.001d-b.lock.v0.1",
+  "parent_001d_a_commit": "4fc54eee4bc8a590d8cbe348bfa81ba649ddd1a0",
+  "parent_001d_a_tree": "b63d2443205e0488b2b796c0b058fc42495d281d",
+  "parent_planner_blob_oid": "d8b3f8d8a1311832c4f691157ce10b85d427d04b",
+  "parent_readonly_client_blob_oid": "3782de74d3b67f9e4a234a53d76c3d6eca3f84a0",
+  "payload_git_blobs": {
+    ".github/scripts/CI_GOV_001D_B.md": "1f6184a731fc717be8377c0702e956495ac58fc1",
+    ".github/scripts/ci_superseded_run_execute.py": "05c04120ec09908421dcf9d3599c90216805378c",
+    ".github/scripts/test_ci_superseded_run_execute.py": "4affe2aff58ecf1b30d416ed8884824034b7937e"
+  },
+  "expected_added_paths": [
+    ".github/scripts/CI_GOV_001D_B.lock.json",
+    ".github/scripts/CI_GOV_001D_B.md",
+    ".github/scripts/ci_superseded_run_execute.py",
+    ".github/scripts/test_ci_superseded_run_execute.py"
+  ],
+  "mutation_contract": {
+    "allowed_http_methods": ["POST"],
+    "allowed_endpoint_template": "/repos/{repository}/actions/runs/{run_id}/cancel",
+    "max_selected_runs": 5,
+    "dry_run_default": true,
+    "apply_requires_receipt_output": true,
+    "pr_advanced_since_plan_policy": "refuse-and-replan"
+  }
+}
