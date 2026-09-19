@@ -2,59 +2,22 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use mycelix_forge_core::{Digest, DigestAlgorithm};
+use mycelix_forge_m0_expectation::{load_expectation_file, ExpectationError};
 use mycelix_forge_m0_receipt_bound_launch::{
     execute_receipt_bound_m0_capsule, verify_materialized_m0_capsule,
     MaterializedCapsuleExpectation, ReceiptBoundLaunchError,
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::{
     env,
     ffi::OsString,
-    fs::{self, OpenOptions},
-    io::{Read, Write},
-    os::unix::fs::{OpenOptionsExt, PermissionsExt},
+    io::Write,
     path::{Path, PathBuf},
     process::ExitCode,
 };
 use thiserror::Error;
 
-const EXPECTATION_SCHEMA_VERSION: u16 = 1;
 const RESULT_SCHEMA_VERSION: u16 = 1;
-const MAX_EXPECTATION_BYTES: usize = 64 * 1024;
-
-#[derive(Clone, Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ExpectationFileV1 {
-    schema_version: u16,
-    construction_commitment: Digest,
-    execution_subject: Digest,
-    execution_spec: Digest,
-    run_plan: Digest,
-}
-
-impl ExpectationFileV1 {
-    fn validate(self) -> Result<MaterializedCapsuleExpectation, CliError> {
-        if self.schema_version != EXPECTATION_SCHEMA_VERSION {
-            return Err(CliError::UnsupportedExpectationVersion(self.schema_version));
-        }
-        for (field, digest) in [
-            ("construction_commitment", &self.construction_commitment),
-            ("execution_subject", &self.execution_subject),
-            ("execution_spec", &self.execution_spec),
-            ("run_plan", &self.run_plan),
-        ] {
-            if digest.algorithm() != DigestAlgorithm::Sha256 {
-                return Err(CliError::UnexpectedDigestAlgorithm(field));
-            }
-        }
-        Ok(MaterializedCapsuleExpectation::new(
-            self.construction_commitment,
-            self.execution_subject,
-            self.execution_spec,
-            self.run_plan,
-        ))
-    }
-}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum Command {
@@ -75,6 +38,7 @@ struct VerifyResult {
     operation: &'static str,
     status: &'static str,
     root: String,
+    expectation_semantic_digest: Digest,
     expectation_file_digest: Digest,
     construction_commitment: Digest,
     execution_subject: Digest,
@@ -92,6 +56,7 @@ struct RunResult {
     operation: &'static str,
     status: &'static str,
     root: String,
+    expectation_semantic_digest: Digest,
     expectation_file_digest: Digest,
     construction_commitment: Digest,
     execution_subject: Digest,
@@ -125,14 +90,15 @@ fn run(args: impl IntoIterator<Item = OsString>) -> Result<(), CliError> {
             Ok(())
         }
         Command::VerifyMaterialized { root, expectation } => {
-            let (expected, expectation_file_digest) = load_expectation(&expectation)?;
+            let (expected, semantic_digest, file_digest) = load_expectation(&expectation)?;
             let verified = verify_materialized_m0_capsule(&root, &expected)?;
             let output = VerifyResult {
                 schema_version: RESULT_SCHEMA_VERSION,
                 operation: "m0.verify-materialized",
                 status: "verified",
                 root: path_string(verified.root())?,
-                expectation_file_digest,
+                expectation_semantic_digest: semantic_digest,
+                expectation_file_digest: file_digest,
                 construction_commitment: expected.construction_commitment().clone(),
                 execution_subject: expected.execution_subject().clone(),
                 execution_spec: expected.execution_spec().clone(),
@@ -145,14 +111,15 @@ fn run(args: impl IntoIterator<Item = OsString>) -> Result<(), CliError> {
             write_json(&output)
         }
         Command::RunMaterialized { root, expectation } => {
-            let (expected, expectation_file_digest) = load_expectation(&expectation)?;
+            let (expected, semantic_digest, file_digest) = load_expectation(&expectation)?;
             let completed = execute_receipt_bound_m0_capsule(&root, &expected)?;
             let output = RunResult {
                 schema_version: RESULT_SCHEMA_VERSION,
                 operation: "m0.run-materialized",
                 status: "executed",
                 root: path_string(completed.materialized().root())?,
-                expectation_file_digest,
+                expectation_semantic_digest: semantic_digest,
+                expectation_file_digest: file_digest,
                 construction_commitment: expected.construction_commitment().clone(),
                 execution_subject: expected.execution_subject().clone(),
                 execution_spec: expected.execution_spec().clone(),
@@ -242,33 +209,16 @@ fn parse_required_paths(
 
 fn load_expectation(
     path: &Path,
-) -> Result<(MaterializedCapsuleExpectation, Digest), CliError> {
-    let metadata = fs::symlink_metadata(path)?;
-    if metadata.file_type().is_symlink() || !metadata.is_file() {
-        return Err(CliError::InvalidExpectationFile(path.to_path_buf()));
-    }
-    let mode = metadata.permissions().mode() & 0o777;
-    if mode & 0o022 != 0 {
-        return Err(CliError::ExpectationFileWritableByOthers {
-            path: path.to_path_buf(),
-            mode,
-        });
-    }
-    let mut file = OpenOptions::new()
-        .read(true)
-        .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
-        .open(path)?;
-    let limit = u64::try_from(MAX_EXPECTATION_BYTES)
-        .map_err(|_| CliError::ExpectationTooLarge(path.to_path_buf()))?
-        .saturating_add(1);
-    let mut bytes = Vec::new();
-    file.by_ref().take(limit).read_to_end(&mut bytes)?;
-    if bytes.len() > MAX_EXPECTATION_BYTES {
-        return Err(CliError::ExpectationTooLarge(path.to_path_buf()));
-    }
-    let transport_digest = Digest::of_bytes(DigestAlgorithm::Sha256, &bytes);
-    let expectation: ExpectationFileV1 = serde_json::from_slice(&bytes)?;
-    Ok((expectation.validate()?, transport_digest))
+) -> Result<(MaterializedCapsuleExpectation, Digest, Digest), CliError> {
+    let (expectation, file_digest) = load_expectation_file(path)?;
+    let semantic_digest = expectation.digest(DigestAlgorithm::Sha256)?;
+    let expected = MaterializedCapsuleExpectation::new(
+        expectation.construction_commitment().clone(),
+        expectation.execution_subject().clone(),
+        expectation.execution_spec().clone(),
+        expectation.run_plan().clone(),
+    );
+    Ok((expected, semantic_digest, file_digest))
 }
 
 fn write_json(value: &impl Serialize) -> Result<(), CliError> {
@@ -294,7 +244,7 @@ fn token(value: &OsString) -> Result<String, CliError> {
 }
 
 fn usage() -> &'static str {
-    "Usage:\n  mycelix-forge m0 verify-materialized --root <capsule-dir> --expectation <expectation.json>\n  mycelix-forge m0 run-materialized    --root <capsule-dir> --expectation <expectation.json>\n\nExpectation v1 JSON fields:\n  schema_version, construction_commitment, execution_subject, execution_spec, run_plan\n\nThe expectation file is an external trust input. It is never inferred from the materialization receipt."
+    "Usage:\n  mycelix-forge m0 verify-materialized --root <capsule-dir> --expectation <expectation.json>\n  mycelix-forge m0 run-materialized    --root <capsule-dir> --expectation <expectation.json>\n\nExpectation files use the canonical mycelix-forge-m0-expectation v1 schema and should be retained/transferred separately from the capsule they authenticate.\n\nThe expectation file is an external trust input. It is never inferred from the materialization receipt."
 }
 
 #[derive(Debug, Error)]
@@ -302,21 +252,13 @@ enum CliError {
     #[error(transparent)]
     Launch(#[from] ReceiptBoundLaunchError),
     #[error(transparent)]
+    Expectation(#[from] ExpectationError),
+    #[error(transparent)]
     Json(#[from] serde_json::Error),
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error("invalid arguments: {0}")]
     InvalidArguments(String),
-    #[error("invalid expectation file: {0:?}")]
-    InvalidExpectationFile(PathBuf),
-    #[error("expectation file is writable by group/other: {path:?} mode={mode:o}")]
-    ExpectationFileWritableByOthers { path: PathBuf, mode: u32 },
-    #[error("expectation file exceeds 64 KiB: {0:?}")]
-    ExpectationTooLarge(PathBuf),
-    #[error("unsupported expectation schema version: {0}")]
-    UnsupportedExpectationVersion(u16),
-    #[error("expectation field {0} does not use the exact M0 SHA-256 profile")]
-    UnexpectedDigestAlgorithm(&'static str),
     #[error("path is not UTF-8: {0:?}")]
     NonUtf8Path(PathBuf),
 }
