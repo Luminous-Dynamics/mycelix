@@ -1,0 +1,12 @@
+[package]
+name = "hearth-automation-replay"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Deterministic replay and simulation harness for Mycelix Hearth automation"
+
+[dependencies]
+serde = { workspace = true }
+hearth-automation-types = { workspace = true }
+hearth-automation-policy = { workspace = true }
+hearth-edge = { path = "../../edge/hearth-edge" }
