@@ -7,6 +7,7 @@ members = [
     "crates/hearth-automation-policy",
     "crates/hearth-automation-replay",
     "crates/hearth-household-planner",
+    "crates/hearth-care-ledger",
     "edge/hearth-edge",
     "edge/hearth-edge-journal",
     "crates/hearth-coordinator-common",
@@ -86,6 +87,7 @@ hearth-types = { path = "crates/hearth-types" }
 hearth-automation-types = { path = "crates/hearth-automation-types" }
 hearth-automation-policy = { path = "crates/hearth-automation-policy" }
 hearth-household-planner = { path = "crates/hearth-household-planner" }
+hearth-care-ledger-contract = { path = "crates/hearth-care-ledger" }
 hearth-coordinator-common = { path = "crates/hearth-coordinator-common" }
 mycelix-bridge-common = { path = "../crates/mycelix-bridge-common" }
 mycelix-bridge-entry-types = { path = "../crates/mycelix-bridge-entry-types" }

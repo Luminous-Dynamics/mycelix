@@ -1,0 +1,8 @@
+[package]
+name = "hearth-care-ledger-contract"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
