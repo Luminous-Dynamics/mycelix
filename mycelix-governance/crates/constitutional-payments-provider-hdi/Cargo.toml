@@ -1,0 +1,16 @@
+[package]
+name = "constitutional-payments-provider-hdi"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Inactive HDI-shaped refinement of constitutional payments provider journal records"
+
+[dependencies]
+hdi = { workspace = true }
+holochain_serialized_bytes = { workspace = true }
+serde = { workspace = true }
+constitutional-payments-provider-journal = { workspace = true }
+constitutional-payments-provider = { workspace = true }
+
+[dev-dependencies]
+constitutional-treasury-effect-provider = { workspace = true }

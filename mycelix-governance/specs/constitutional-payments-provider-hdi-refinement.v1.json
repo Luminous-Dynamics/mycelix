@@ -1,0 +1,80 @@
+{
+  "schema": "mycelix.constitutional-payments-provider-hdi-refinement.v1",
+  "profile_id": "mycelix-payments-provider-hdi-f1b1-v1",
+  "authority_class": "InactiveHdiRefinement",
+  "lineage": {
+    "f1b0_semantic_head": "1d0dc3f07ac29dccba9f33b45aef13380ecdb870",
+    "f1b0_source": {
+      "path": "mycelix-governance/crates/constitutional-payments-provider-journal/src/lib.rs",
+      "git_blob_sha": "96abe9b514074904c33d7ef85fcdf008e4320932"
+    }
+  },
+  "entry_projection": {
+    "hdk_entry_helper_derived": true,
+    "registered_in_hdk_entry_types": false,
+    "exact_projection_from_f1b0_record": true,
+    "second_record_hash_algorithm": false,
+    "second_state_reducer": false,
+    "journal_record_commitment_preserved": true,
+    "previous_record_commitment_preserved": true,
+    "sequence_preserved": true,
+    "provider_operation_key_preserved": true,
+    "audit_timestamp_preserved_as_metadata": true
+  },
+  "semantic_namespaces": {
+    "execution_id_distinct": true,
+    "provider_operation_key_distinct": true,
+    "historical_payment_id_distinct": true,
+    "attempt_id_distinct": true,
+    "receipt_id_distinct": true
+  },
+  "index_projection": {
+    "execution_id_to_provider_operation_key": true,
+    "genesis_record_commitment_bound": true,
+    "registered_in_hdk_link_types": false,
+    "live_link_creation": false
+  },
+  "authority": {
+    "provider_author_binding": "PendingQualifiedProviderAuthority",
+    "provider_authority_is_qualified": false,
+    "entry_write_authority_established": false,
+    "observation_write_authority_established": false
+  },
+  "activation": {
+    "hdk_entry_types_registered": false,
+    "hdk_link_types_registered": false,
+    "validate_extern_present": false,
+    "coordinator_extern_present": false,
+    "dht_write_surface_open": false,
+    "payments_zome_modified": false,
+    "payments_dna_modified": false,
+    "provider_query_endpoint_live": false,
+    "provider_replay_capability_minting": false,
+    "automatic_replay": false,
+    "governance_routing_changed": false
+  },
+  "future_active_integrity_requirements": [
+    "register exact frozen entry envelope without changing semantic fields",
+    "bind every non-genesis record to exact predecessor record commitment",
+    "bind operation index to exact execution_id, provider_operation_key, and genesis commitment",
+    "prove provider author authority for intent, dispatch, and observation writers",
+    "preserve F1B0 stale-evidence monotonicity and sticky integrity halt",
+    "bind KnownSuccess receipt evidence to exact provider operation and F0 request",
+    "forbid update/delete of constitutional journal facts",
+    "keep historical Payment.id separate from provider operation key",
+    "do not expose live payment dispatch while integrity refinement is unqualified"
+  ],
+  "non_claims": [
+    "not_dht_registered",
+    "not_dht_persistent",
+    "not_provider_authorized",
+    "not_payments_zome_wired",
+    "not_provider_truth_established",
+    "not_provider_replay_qualified",
+    "not_capability_minting_enabled",
+    "not_public_fund_authority_established",
+    "not_exactly_once_physical_settlement",
+    "not_governance_routing_active",
+    "not_qualified"
+  ]
+}

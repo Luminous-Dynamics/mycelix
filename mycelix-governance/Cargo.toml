@@ -30,6 +30,7 @@ members = [
     "crates/constitutional-treasury-effect-provider",
     "crates/constitutional-payments-provider",
     "crates/constitutional-payments-provider-journal",
+    "crates/constitutional-payments-provider-hdi",
 ]
 exclude = ["tests"]
 
@@ -85,6 +86,7 @@ constitutional-effect-ledger = { path = "crates/constitutional-effect-ledger" }
 constitutional-treasury-effect-provider = { path = "crates/constitutional-treasury-effect-provider" }
 constitutional-payments-provider = { path = "crates/constitutional-payments-provider" }
 constitutional-payments-provider-journal = { path = "crates/constitutional-payments-provider-journal" }
+constitutional-payments-provider-hdi = { path = "crates/constitutional-payments-provider-hdi" }
 governance-utils = { path = "crates/governance-utils" }
 
 # ZKP verification for anonymous voting
