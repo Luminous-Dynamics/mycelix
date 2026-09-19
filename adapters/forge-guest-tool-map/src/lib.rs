@@ -146,26 +146,35 @@ pub struct GuestToolMapV1 {
 }
 
 impl GuestToolMapV1 {
-    /// Build the exact guest-tool map from the already-committed execution spec.
+    /// Build the exact guest-tool map directly from the intended execution tool
+    /// artifacts. This is the acyclic construction entry point: the final
+    /// ExecutionSpec may not exist yet because it must commit the resulting map
+    /// bytes as one of its inputs.
     ///
-    /// `paths` must contain exactly the three M0 guest roles. The caller chooses
-    /// paths, but qualification proves those paths are in the committed closure
-    /// and that every artifact identity equals the corresponding ExecutionSpec
-    /// tool entry.
-    pub fn from_execution_spec(
+    /// Only the three guest roles participate in this map. Additional host-side
+    /// tool artifacts may be present. Duplicate artifact roles are rejected.
+    /// Final qualification still cross-checks every binding against the finished
+    /// ExecutionSpec through [`qualify_guest_tool_map`].
+    pub fn from_tool_artifacts(
         plan: &GuestVerificationPlanV1,
         closure: &NixClosureManifest,
-        spec: &ExecutionSpec,
+        tool_artifacts: &[ToolArtifact],
         paths: BTreeMap<String, String>,
     ) -> Result<Self, GuestToolMapError> {
         require_exact_path_roles(&paths)?;
-        if spec.subject() != plan.execution_subject() {
-            return Err(GuestToolMapError::ExecutionSubjectMismatch);
-        }
 
         let closure_digest = closure.digest(DigestAlgorithm::Sha256)?;
         if plan.nix_closure() != &closure_digest {
             return Err(GuestToolMapError::ClosureDigestMismatch);
+        }
+
+        let mut by_role = BTreeMap::new();
+        for tool in tool_artifacts {
+            if by_role.insert(tool.role(), tool).is_some() {
+                return Err(GuestToolMapError::DuplicateToolArtifactRole(
+                    tool.role().to_owned(),
+                ));
+            }
         }
 
         let mut tools = Vec::with_capacity(GUEST_TOOL_ROLES.len());
@@ -174,10 +183,9 @@ impl GuestToolMapV1 {
                 .get(*role)
                 .expect("exact path-role set checked")
                 .clone();
-            let tool = spec
-                .tools()
-                .iter()
-                .find(|candidate| candidate.role() == *role)
+            let tool = by_role
+                .get(*role)
+                .copied()
                 .ok_or_else(|| GuestToolMapError::MissingExecutionTool((*role).to_owned()))?;
             tools.push(GuestToolBinding::from_tool(
                 role,
@@ -194,6 +202,21 @@ impl GuestToolMapV1 {
             nix_closure: closure_digest,
             tools,
         })
+    }
+
+    /// Backwards-compatible constructor from a completed execution spec.
+    /// Delegates artifact construction to [`Self::from_tool_artifacts`] and
+    /// retains the exact execution-subject check.
+    pub fn from_execution_spec(
+        plan: &GuestVerificationPlanV1,
+        closure: &NixClosureManifest,
+        spec: &ExecutionSpec,
+        paths: BTreeMap<String, String>,
+    ) -> Result<Self, GuestToolMapError> {
+        if spec.subject() != plan.execution_subject() {
+            return Err(GuestToolMapError::ExecutionSubjectMismatch);
+        }
+        Self::from_tool_artifacts(plan, closure, spec.tools(), paths)
     }
 
     pub fn plan_digest(&self) -> &Digest {
@@ -516,6 +539,8 @@ pub enum GuestToolMapError {
     ToolsNotCanonical,
     #[error("guest tool bindings contain a duplicate role or executable")]
     DuplicateToolBinding,
+    #[error("duplicate execution tool artifact role during construction: {0}")]
+    DuplicateToolArtifactRole(String),
     #[error("unknown guest tool role: {0}")]
     UnknownToolRole(String),
     #[error("tool artifact is empty: {0}")]
@@ -603,5 +628,19 @@ mod tests {
             require_exact_path_roles(&paths).unwrap_err().to_string(),
             "guest tool path set differs from the exact M0 inner-tool set"
         );
+    }
+
+    #[test]
+    fn duplicate_tool_artifact_roles_are_rejected_during_construction() {
+        let closure = closure();
+        let tools = vec![
+            ToolArtifact::new("git", "1", digest(10), 1, None).unwrap(),
+            ToolArtifact::new("git", "2", digest(11), 1, None).unwrap(),
+        ];
+        let mut by_role = BTreeMap::new();
+        let duplicate = tools
+            .iter()
+            .any(|tool| by_role.insert(tool.role(), tool).is_some());
+        assert!(duplicate);
     }
 }
