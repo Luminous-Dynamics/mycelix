@@ -1,0 +1,263 @@
+name: Constitutional Payments Provider Author Authority Qualification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'mycelix-governance/Cargo.toml'
+      - 'mycelix-governance/crates/constitutional-payments-provider-authority/**'
+      - 'mycelix-governance/specs/constitutional-payments-provider-authority.v1.json'
+      - 'mycelix-governance/specs/constitutional-payments-provider-authority.v1.schema.json'
+      - 'mycelix-governance/docs/CONSTITUTIONAL_PAYMENTS_PROVIDER_AUTHORITY_V0_1.md'
+      - 'mycelix-governance/tools/formal/validate_constitutional_payments_provider_authority.py'
+      - '.github/workflows/constitutional-payments-provider-authority-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: payments-provider-authority-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NIXPKGS_REV: a50bf0c1b07873c1a53892292017041a8f0a1288
+  EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EXPECTED_SEMANTIC_HEAD: d9f1ad518e2943eb64c9991b2589cf9a221fc047
+
+jobs:
+  qualify:
+    name: Exact-head payments provider authority F1B2A
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout exact raw head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ env.EXPECTED_HEAD }}
+          persist-credentials: false
+
+      - name: Bind verifier lineage and semantic surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_SEMANTIC_HEAD"
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/constitutional-payments-provider-authority-qualification.yml"
+
+          rm -rf payments-provider-authority-evidence
+          mkdir -p payments-provider-authority-evidence
+          printf '%s\n' "$EXPECTED_HEAD" > payments-provider-authority-evidence/expected-head.txt
+          printf '%s\n' "$EXPECTED_SEMANTIC_HEAD" > payments-provider-authority-evidence/expected-semantic-head.txt
+
+          cat > payments-provider-authority-evidence/expected-semantic-files.txt <<'EOF'
+          mycelix-governance/Cargo.toml
+          mycelix-governance/crates/constitutional-payments-provider-authority/Cargo.toml
+          mycelix-governance/crates/constitutional-payments-provider-authority/src/lib.rs
+          mycelix-governance/docs/CONSTITUTIONAL_PAYMENTS_PROVIDER_AUTHORITY_V0_1.md
+          mycelix-governance/specs/constitutional-payments-provider-authority.v1.json
+          mycelix-governance/specs/constitutional-payments-provider-authority.v1.schema.json
+          mycelix-governance/tools/formal/validate_constitutional_payments_provider_authority.py
+          EOF
+          sed -i 's/^          //' payments-provider-authority-evidence/expected-semantic-files.txt
+
+          git diff --name-only "$EXPECTED_SEMANTIC_HEAD^" "$EXPECTED_SEMANTIC_HEAD" | sort \
+            > payments-provider-authority-evidence/actual-semantic-files.txt
+          sort payments-provider-authority-evidence/expected-semantic-files.txt \
+            > payments-provider-authority-evidence/expected-semantic-files.sorted.txt
+          cmp payments-provider-authority-evidence/expected-semantic-files.sorted.txt \
+              payments-provider-authority-evidence/actual-semantic-files.txt
+
+          if grep -E '(^|/)zomes/|(^|/)dnas/' payments-provider-authority-evidence/actual-semantic-files.txt; then
+            echo "F1B2A unexpectedly changes a zome or DNA surface" >&2
+            exit 1
+          fi
+
+          git hash-object $(cat payments-provider-authority-evidence/expected-semantic-files.txt) \
+            > payments-provider-authority-evidence/source-hashes-before.txt
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Validate closed source/profile/schema contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#python3" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#check-jsonschema" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" \
+            --command bash -euo pipefail -c '
+              python3 --version | tee payments-provider-authority-evidence/python-version.txt
+              python3 -m py_compile mycelix-governance/tools/formal/validate_constitutional_payments_provider_authority.py
+              python3 -m json.tool mycelix-governance/specs/constitutional-payments-provider-authority.v1.json >/dev/null
+              python3 -m json.tool mycelix-governance/specs/constitutional-payments-provider-authority.v1.schema.json >/dev/null
+              check-jsonschema \
+                --schemafile mycelix-governance/specs/constitutional-payments-provider-authority.v1.schema.json \
+                mycelix-governance/specs/constitutional-payments-provider-authority.v1.json \
+                2>&1 | tee payments-provider-authority-evidence/json-schema.log
+              python3 mycelix-governance/tools/formal/validate_constitutional_payments_provider_authority.py --self-test \
+                2>&1 | tee payments-provider-authority-evidence/source-validator.log
+            '
+
+      - name: Compile and test exact F1B2A subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustfmt" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#clippy" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#coreutils" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" \
+            --command bash -euo pipefail -c '
+              rustc --version | tee payments-provider-authority-evidence/rustc-version.txt
+              cargo --version | tee payments-provider-authority-evidence/cargo-version.txt
+              rustfmt --version | tee payments-provider-authority-evidence/rustfmt-version.txt
+              cargo clippy --version | tee payments-provider-authority-evidence/clippy-version.txt
+
+              cargo fmt --manifest-path mycelix-governance/Cargo.toml \
+                --package constitutional-payments-provider-authority -- --check \
+                2>&1 | tee payments-provider-authority-evidence/cargo-fmt.log
+              cargo check --manifest-path \
+                mycelix-governance/crates/constitutional-payments-provider-authority/Cargo.toml \
+                --all-targets 2>&1 | tee payments-provider-authority-evidence/cargo-check.log
+              cargo test --manifest-path \
+                mycelix-governance/crates/constitutional-payments-provider-authority/Cargo.toml \
+                --all-targets 2>&1 | tee payments-provider-authority-evidence/cargo-test.log
+              cargo clippy --manifest-path \
+                mycelix-governance/crates/constitutional-payments-provider-authority/Cargo.toml \
+                --all-targets -- -D warnings \
+                2>&1 | tee payments-provider-authority-evidence/cargo-clippy.log
+
+              cp mycelix-governance/Cargo.lock payments-provider-authority-evidence/derived-Cargo.lock
+              sha256sum payments-provider-authority-evidence/derived-Cargo.lock \
+                > payments-provider-authority-evidence/derived-Cargo.lock.sha256
+            '
+
+      - name: Compile-valid F1B2A theorem mutation controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#python3" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" \
+            --command bash -euo pipefail -c '
+          python3 - <<"PY"
+          from pathlib import Path
+          import subprocess
+
+          ROOT = Path.cwd()
+          SRC = ROOT / "mycelix-governance/crates/constitutional-payments-provider-authority/src/lib.rs"
+          MANIFEST = ROOT / "mycelix-governance/crates/constitutional-payments-provider-authority/Cargo.toml"
+          EVIDENCE = ROOT / "payments-provider-authority-evidence"
+          original = SRC.read_text()
+
+          def restore():
+              SRC.write_text(original)
+
+          def replace_once(old, new):
+              text = SRC.read_text()
+              if text.count(old) != 1:
+                  raise SystemExit(f"expected exactly one mutation target, found {text.count(old)}: {old}")
+              SRC.write_text(text.replace(old, new, 1))
+
+          def run(cmd, log):
+              p = subprocess.run(cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+              (EVIDENCE / log).write_text(p.stdout)
+              return p.returncode
+
+          def mutant(name, mutate, test_filter):
+              restore()
+              mutate()
+              if run(["cargo", "check", "--manifest-path", str(MANIFEST), "--all-targets"], f"mutant-{name}-check.log") != 0:
+                  raise SystemExit(f"{name}: mutant did not compile")
+              if run(["cargo", "test", "--manifest-path", str(MANIFEST), test_filter], f"mutant-{name}-test.log") == 0:
+                  raise SystemExit(f"{name}: mutant survived")
+              (EVIDENCE / f"mutant-{name}.txt").write_text("PASS\n")
+
+          try:
+              mutant(
+                  "automated-sovereignty",
+                  lambda: replace_once(
+                      "        if capability.holder != AuthorityPrincipal::Branch(Branch::Stewardship) {",
+                      "        if false {",
+                  ),
+                  "automated_provider_does_not_become_constitutional_sovereign",
+              )
+              mutant(
+                  "role-separation",
+                  lambda: replace_once(
+                      "    if !grant.permits(evidence.role) {",
+                      "    if false {",
+                  ),
+                  "orchestrator_grant_cannot_author_provider_observation",
+              )
+              mutant(
+                  "revocation-time",
+                  lambda: replace_once(
+                      "    if !status.permits_time(evidence.action_time_us)? {",
+                      "    if false {",
+                  ),
+                  "revocation_is_time_relative_and_not_retroactive",
+              )
+              mutant(
+                  "rotation-role-amplification",
+                  lambda: replace_once(
+                      "    if successor.roles.iter().any(|role| !predecessor_roles.contains(role)) {",
+                      "    if false {",
+                  ),
+                  "rotation_is_monotone_and_non_amplifying",
+              )
+              mutant(
+                  "threshold-record-transplant",
+                  lambda: replace_once(
+                      "            if signed_record_commitment != &evidence.record_commitment {",
+                      "            if false {",
+                  ),
+                  "threshold_proof_binds_exact_record_commitment",
+              )
+              mutant(
+                  "supersession-time",
+                  lambda: replace_once(
+                      "            Self::Superseded { successor_grant_commitment, effective_at_us } => {\n                require_opaque(\"successor grant commitment\", successor_grant_commitment)?;\n                Ok(action_time_us < *effective_at_us)\n            }",
+                      "            Self::Superseded { successor_grant_commitment, effective_at_us: _ } => {\n                require_opaque(\"successor grant commitment\", successor_grant_commitment)?;\n                Ok(true)\n            }",
+                  ),
+                  "supersession_preserves_pre_cutover_history",
+              )
+          finally:
+              restore()
+          PY
+            '
+
+      - name: Verify semantic immutability and postflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          git hash-object $(cat payments-provider-authority-evidence/expected-semantic-files.txt) \
+            > payments-provider-authority-evidence/source-hashes-after.txt
+          cmp payments-provider-authority-evidence/source-hashes-before.txt \
+              payments-provider-authority-evidence/source-hashes-after.txt
+          git diff --exit-code -- $(cat payments-provider-authority-evidence/expected-semantic-files.txt)
+          if git ls-files --error-unmatch mycelix-governance/Cargo.lock >/dev/null 2>&1; then
+            git checkout -- mycelix-governance/Cargo.lock
+          fi
+          test -z "$(git status --porcelain --untracked-files=no)"
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: constitutional-payments-provider-authority-${{ env.EXPECTED_HEAD }}
+          path: payments-provider-authority-evidence
+          if-no-files-found: error
+          retention-days: 30
