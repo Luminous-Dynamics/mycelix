@@ -1,0 +1,48 @@
+{
+  "schema": "mycelix.ci-gov.001k.live-pilot-fixture-lock.v0.1",
+  "parent_policy_commit": "bf07e3fa9701e947cb7ac5c03e43052661e8a155",
+  "parent_policy_tree": "e486d2d74d696b92577c52ab5d4e534ed2c36890",
+  "tracking_issue": 2067,
+  "review_payload": {
+    ".github/scripts/CI_GOV_001K_LIVE_PILOT.md": "a974e4efd1f47e4ecd109ee048448caa7161bd88",
+    ".github/scripts/ci_gov_001k_live_pilot.yml.fixture": "f3b27460f724d4a2e16b2859e7d79d44a8084158",
+    ".github/scripts/ci_gov_001k_pilot_fixture_verify.py": "024cde0be25f2f9e2ad4ad841f8c1595af05063d",
+    ".github/scripts/test_ci_gov_001k_pilot_fixture_verify.py": "dfafbffbc8910ddca8fdbaa38764f1ffc727cb7b"
+  },
+  "fixture_sha256": "c1479745b168901f67931ff392b7c3e70ec4959a3841328943380719e9117cfe",
+  "future_workflow_path": ".github/workflows/ci-gov-001k-live-pilot.yml",
+  "pilot_contract": {
+    "trigger": "pull_request:labeled",
+    "label": "ci:qualify-pilot",
+    "draft_only": true,
+    "group": "mycelix-heavy-qualification-v1",
+    "queue": "max",
+    "cancel_in_progress": false,
+    "jobs": 1,
+    "runner": "ubuntu-24.04",
+    "timeout_minutes": 5,
+    "hold_seconds": 90,
+    "third_party_actions": 0,
+    "repository_mutation": false
+  },
+  "bounded_protocol": {
+    "subjects": 3,
+    "admit_canary_first": true,
+    "admit_followers_only_after_canary_in_progress": true,
+    "max_new_runs_when_runner_unavailable": 1,
+    "natural_completion_required": true,
+    "pilot_cleanup_cancellation": false,
+    "fairness_claim": false
+  },
+  "evidence_states": ["PASS", "RUNNER_UNAVAILABLE", "INCONCLUSIVE", "FAIL"],
+  "authority_ceiling": {
+    "workflow_activation": false,
+    "label_mutation": false,
+    "actions_mutation": false,
+    "cancellation_authority": false,
+    "merge_authority": false,
+    "product_pass_authority": false,
+    "scientific_pass_authority": false
+  },
+  "local_verifier_preflight_cases": 25
+}

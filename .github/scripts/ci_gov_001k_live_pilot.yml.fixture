@@ -1,0 +1,36 @@
+name: CI-GOV-001K live queue:max pilot
+run-name: >-
+  CI-GOV-001K pilot PR #${{ github.event.pull_request.number }}
+  @ ${{ github.event.pull_request.head.sha }}
+
+on:
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mycelix-heavy-qualification-v1
+  queue: max
+
+jobs:
+  pilot:
+    if: >-
+      github.event.label.name == 'ci:qualify-pilot'
+      && github.event.pull_request.draft == true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Hold concurrency slot
+        shell: bash
+        env:
+          PILOT_PR: ${{ github.event.pull_request.number }}
+          PILOT_HEAD: ${{ github.event.pull_request.head.sha }}
+          PILOT_RUN_ID: ${{ github.run_id }}
+          PILOT_RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          printf 'pilot_begin pr=%s head=%s run=%s attempt=%s ts=%s\n' "$PILOT_PR" "$PILOT_HEAD" "$PILOT_RUN_ID" "$PILOT_RUN_ATTEMPT" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          sleep 90
+          printf 'pilot_end pr=%s head=%s run=%s attempt=%s ts=%s\n' "$PILOT_PR" "$PILOT_HEAD" "$PILOT_RUN_ID" "$PILOT_RUN_ATTEMPT" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
