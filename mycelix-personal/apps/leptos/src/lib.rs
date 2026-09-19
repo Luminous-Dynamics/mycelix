@@ -7,3 +7,6 @@ pub mod mock_data;
 pub mod reconciliation;
 pub mod runtime_mode;
 pub mod telemetry;
+
+#[cfg(test)]
+mod route_contract;
