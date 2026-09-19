@@ -1,0 +1,13 @@
+[package]
+name = "mycelix-creative-lineage"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+description = "Creative lineage profile over Mycelix stewardship provenance"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+mycelix-stewardship-core = { path = "../mycelix-stewardship-core" }
+mycelix-stewardship-provenance = { path = "../mycelix-stewardship-provenance" }
