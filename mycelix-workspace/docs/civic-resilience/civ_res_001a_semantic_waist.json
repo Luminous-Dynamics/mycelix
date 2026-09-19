@@ -1,0 +1,98 @@
+{
+  "schema": "mycelix.civic-resilience.semantic-waist.v1",
+  "program": "CIV-RES-001A",
+  "parent_subject": "c6a96d40895e71642292b0e2c433b13cc58ecd4d",
+  "topology": "sibling_of_civ_res_000b",
+  "runtime_owner": "Deferred",
+  "subject_classes": [
+    "Place",
+    "Service",
+    "InfrastructureAsset",
+    "InstitutionalProcess",
+    "Programme",
+    "Resource",
+    "Aggregate"
+  ],
+  "artifact_kinds": [
+    "CivicObservation",
+    "CivicNeedStatement",
+    "CivicInterventionProposal",
+    "OutcomeTarget",
+    "OutcomeObservation"
+  ],
+  "opaque_reference_kinds": [
+    "EvidenceRef",
+    "MeasurementRef",
+    "MethodRef",
+    "TimeEvidenceRef",
+    "AuthorityDecisionRef",
+    "ExternalEffectRef",
+    "VerificationRef",
+    "StudyRef"
+  ],
+  "required_non_equivalences": [
+    "Observation != Need",
+    "Need != Priority",
+    "Need != Entitlement",
+    "NeedStatement != AdministrativeFinding",
+    "InterventionProposal != AdoptedIntervention",
+    "AdoptedIntervention != ExternalEffect",
+    "OutcomeTarget != OutcomeObservation",
+    "OutcomeObservation != CausalEffect",
+    "CausalEffectEstimate != OutcomeObservation",
+    "ReportedCondition != VerifiedCondition",
+    "Verification != CausalAttribution",
+    "CommunityPreference != InstitutionalAuthority",
+    "ModelRecommendation != InterventionAuthority",
+    "CommunityInput != RepresentativeMandate",
+    "PlatformActivity != PriorityAuthority"
+  ],
+  "forbidden_universal_subjects": [
+    "Person",
+    "HouseholdRisk",
+    "Suspect",
+    "Offender",
+    "VictimScore",
+    "CitizenScore",
+    "TrustScore"
+  ],
+  "forbidden_authority_states": [
+    "Approved",
+    "Official",
+    "Authorised",
+    "Funded",
+    "Awarded",
+    "Entitled",
+    "Sanctioned",
+    "Executed",
+    "Paid"
+  ],
+  "evidence_primitive_policy": "opaque_refs_until_shared_evidence_convergence",
+  "candidate_runtime_owners": [
+    "civic-types-module-after-convergence",
+    "dependency-light-civic-resilience-types",
+    "shared-cross-domain-evidence-core"
+  ],
+  "continuation": [
+    "CIV-RES-001B",
+    "CIV-RES-001C",
+    "CIV-RES-002A",
+    "SYM-CIVIC-000A"
+  ],
+  "nonclaims": [
+    "runtime_api",
+    "evidence_validity",
+    "observation_truth",
+    "need_validity",
+    "representative_mandate",
+    "priority_authority",
+    "entitlement",
+    "intervention_authority",
+    "external_effect",
+    "outcome_improvement",
+    "causal_effect",
+    "municipal_legitimacy",
+    "johannesburg_deployment",
+    "deployment_readiness"
+  ]
+}

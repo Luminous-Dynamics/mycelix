@@ -1,0 +1,89 @@
+name: CIV-RES-001A Semantic Waist
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/docs/civic-resilience/CIV_RES_001A_SEMANTIC_WAIST_V1.md'
+      - 'mycelix-workspace/docs/civic-resilience/civ_res_001a_semantic_waist.json'
+      - 'scripts/qualification/civ_res_001a_semantic_waist_v1.py'
+      - '.github/workflows/civ-res-001a-semantic-waist.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: civ-res-001a-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Domain-neutral civic semantic waist
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Exact parent and clean subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='c6a96d40895e71642292b0e2c433b13cc58ecd4d'
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          printf 'head=%s\nparent=%s\ntree=%s\n' \
+            "$(git rev-parse HEAD)" \
+            "$(git rev-parse HEAD^)" \
+            "$(git rev-parse HEAD^{tree})"
+          test -z "$(git status --short)"
+
+      - name: Exact tranche scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='c6a96d40895e71642292b0e2c433b13cc58ecd4d'
+          test "$(git rev-list --count "$EXPECTED_PARENT"..HEAD)" = '1'
+          git diff --check "$EXPECTED_PARENT" HEAD
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PARENT" HEAD | sort)
+          expected=(
+            '.github/workflows/civ-res-001a-semantic-waist.yml'
+            'mycelix-workspace/docs/civic-resilience/CIV_RES_001A_SEMANTIC_WAIST_V1.md'
+            'mycelix-workspace/docs/civic-resilience/civ_res_001a_semantic_waist.json'
+            'scripts/qualification/civ_res_001a_semantic_waist_v1.py'
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed[@]}")
+
+      - name: Validate semantic contract
+        run: python3 scripts/qualification/civ_res_001a_semantic_waist_v1.py
+
+      - name: Static no-runtime audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='c6a96d40895e71642292b0e2c433b13cc58ecd4d'
+          changed="$(git diff --name-only "$EXPECTED_PARENT" HEAD)"
+          if printf '%s\n' "$changed" | grep -E '\.(rs|toml|lock)$'; then
+            echo 'CIV-RES-001A must remain semantic-contract/manifest/validator/workflow only' >&2
+            exit 1
+          fi
+
+      - name: Prove deferred runtime ownership
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('mycelix-workspace/docs/civic-resilience/civ_res_001a_semantic_waist.json')
+          d = json.loads(p.read_text())
+          assert d['runtime_owner'] == 'Deferred'
+          assert d['evidence_primitive_policy'] == 'opaque_refs_until_shared_evidence_convergence'
+          assert 'Person' not in d['subject_classes']
+          assert not set(d['subject_classes']) & set(d['forbidden_universal_subjects'])
+          PY
+
+      - name: Immutable checkout postflight
+        run: test -z "$(git status --short)"
