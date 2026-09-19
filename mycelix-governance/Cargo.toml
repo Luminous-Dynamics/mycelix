@@ -19,6 +19,7 @@ members = [
     "zomes/jurisdiction/coordinator",
     "zomes/budgeting/integrity",
     "zomes/budgeting/coordinator",
+    "crates/constitutional-qualification-receipt",
     "crates/governance-utils",
 ]
 exclude = ["tests"]
