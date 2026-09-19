@@ -42,6 +42,7 @@ pub enum AuthenticationFreshnessPolicyV1 {
 pub struct ReceiptAuthenticationPolicyV1 {
     pub profile_id: String,
     pub verifier_profile: VerifierProfileV1,
+    pub expected_attestation_subject_name: String,
     pub expected_predicate_type: String,
     pub expected_predicate_schema: String,
     pub trusted_root_profile: String,
@@ -83,6 +84,10 @@ impl ReceiptAuthenticationPolicyV1 {
             (
                 "verifier_profile.verification_profile",
                 self.verifier_profile.verification_profile.as_str(),
+            ),
+            (
+                "expected_attestation_subject_name",
+                self.expected_attestation_subject_name.as_str(),
             ),
             ("expected_predicate_type", self.expected_predicate_type.as_str()),
             (
@@ -152,6 +157,7 @@ mod tests {
                 backend_version: "unqualified-placeholder".into(),
                 verification_profile: "public-sigstore-qualification-v1".into(),
             },
+            expected_attestation_subject_name: "mycelix-qualification-receipt".into(),
             expected_predicate_type: "https://mycelix.org/attestations/qualification/v1".into(),
             expected_predicate_schema: "mycelix-qualification-attestation-predicate-v1".into(),
             trusted_root_profile: "sigstore-public-good-v1".into(),
