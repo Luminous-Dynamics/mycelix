@@ -1,6 +1,5 @@
 use serde::{
-    Deserialize, Deserializer, Serialize, Serializer,
-    de::Error as DeError,
+    de::Error as DeError, Deserialize, Deserializer, Serialize, Serializer,
 };
 use sha2::{Digest, Sha256};
 
@@ -40,7 +39,9 @@ impl<'de> Deserialize<'de> for QualificationReceiptCanonicalizationV1 {
         let value = String::deserialize(deserializer)?;
         match value.as_str() {
             QUALIFICATION_RECEIPT_CANONICALIZATION_PROFILE_V1 => Ok(Self::BinaryV1),
-            _ => Err(D::Error::custom("unsupported qualification receipt canonicalization")),
+            _ => Err(D::Error::custom(
+                "unsupported qualification receipt canonicalization",
+            )),
         }
     }
 }
@@ -183,6 +184,7 @@ impl<'de> Deserialize<'de> for GitObjectIdV1 {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct QualificationReceiptDigestV1 {
     pub canonicalization: QualificationReceiptCanonicalizationV1,
     pub sha256: Sha256DigestV1,
@@ -204,6 +206,7 @@ pub enum QualificationResultV1 {
 
 /// Backend-neutral qualification claim whose canonical bytes are authenticated later.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct QualificationReceiptV1 {
     pub receipt_version: u32,
     pub qualification_profile: String,
@@ -497,12 +500,18 @@ mod tests {
         let digest = digest(0xab);
         let digest_json = serde_json::to_string(&digest).unwrap();
         assert_eq!(digest_json, format!("\"{}\"", "ab".repeat(32)));
-        assert_eq!(serde_json::from_str::<Sha256DigestV1>(&digest_json).unwrap(), digest);
+        assert_eq!(
+            serde_json::from_str::<Sha256DigestV1>(&digest_json).unwrap(),
+            digest
+        );
 
         let git = GitObjectIdV1::sha1([0xcd; 20]);
         let git_json = serde_json::to_string(&git).unwrap();
         assert_eq!(git_json, format!("\"sha1:{}\"", "cd".repeat(20)));
-        assert_eq!(serde_json::from_str::<GitObjectIdV1>(&git_json).unwrap(), git);
+        assert_eq!(
+            serde_json::from_str::<GitObjectIdV1>(&git_json).unwrap(),
+            git
+        );
 
         let profile = QualificationReceiptCanonicalizationV1::BinaryV1;
         let profile_json = serde_json::to_string(&profile).unwrap();
@@ -517,5 +526,15 @@ mod tests {
             serde_json::from_str::<QualificationReceiptCanonicalizationV1>(&profile_json).unwrap(),
             profile
         );
+    }
+
+    #[test]
+    fn receipt_json_rejects_unknown_fields() {
+        let mut value = serde_json::to_value(receipt()).unwrap();
+        value
+            .as_object_mut()
+            .unwrap()
+            .insert("production_authority".into(), serde_json::Value::Bool(true));
+        assert!(serde_json::from_value::<QualificationReceiptV1>(value).is_err());
     }
 }
