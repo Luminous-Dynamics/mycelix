@@ -11,6 +11,7 @@ on:
       - 'mycelix-workspace/mycelix-hearth/tests/Cargo.toml'
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_gratitude_rhythms.rs'
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_authority.rs'
+      - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_revocation.rs'
       - 'mycelix-workspace/mycelix-hearth/dna/**'
       - 'mycelix-workspace/mycelix-hearth/flake.nix'
       - 'mycelix-workspace/mycelix-hearth/flake.lock'
@@ -31,6 +32,7 @@ on:
       - 'mycelix-workspace/mycelix-hearth/tests/Cargo.toml'
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_gratitude_rhythms.rs'
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_authority.rs'
+      - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_revocation.rs'
       - 'mycelix-workspace/mycelix-hearth/dna/**'
       - 'mycelix-workspace/mycelix-hearth/flake.nix'
       - 'mycelix-workspace/mycelix-hearth/flake.lock'
@@ -89,6 +91,7 @@ jobs:
             "$HEARTH_ROOT/tests/Cargo.toml" \
             "$HEARTH_ROOT/tests/sweettest_care_gratitude_rhythms.rs" \
             "$HEARTH_ROOT/tests/sweettest_care_authority.rs" \
+            "$HEARTH_ROOT/tests/sweettest_care_revocation.rs" \
             "$HEARTH_ROOT/zomes/hearth-care/coordinator/Cargo.toml" \
             "$HEARTH_ROOT/zomes/hearth-kinship/coordinator/Cargo.toml" \
             "$HEARTH_ROOT/zomes/hearth-bridge/coordinator/Cargo.toml"; do
@@ -158,6 +161,44 @@ jobs:
               -- --ignored --test-threads=1
           '
 
+      - name: Compile Care revocation regression target
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$HEARTH_ROOT"
+          nix develop .#ci --impure --command bash -lc '
+            cd tests
+            cargo test --release --test sweettest_care_revocation --no-run
+          '
+
+      - name: Demonstrate departed-assignee revocation regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$HEARTH_ROOT"
+          set +e
+          nix develop .#ci --impure --command bash -lc '
+            cd tests
+            cargo test --release \
+              --test sweettest_care_revocation \
+              departed_member_loses_care_transition_authority \
+              -- --ignored --exact --test-threads=1 --nocapture
+          ' 2>&1 | tee "$RUNNER_TEMP/hearth-care-revocation-red.log"
+          status=${PIPESTATUS[0]}
+          set -e
+
+          if [ "$status" -eq 0 ]; then
+            echo "::error::Expected-red revocation subject unexpectedly passed on the unfixed parent."
+            exit 1
+          fi
+
+          if ! grep -Fq 'departed assignee must lose Care completion authority' "$RUNNER_TEMP/hearth-care-revocation-red.log"; then
+            echo "::error::Revocation test failed for an unexpected reason; refusing to count it as defect evidence."
+            exit 1
+          fi
+
+          echo "::notice::Expected-red departed-assignee revocation defect reproduced at the intended assertion."
+
       - name: Upload exact integration evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -166,6 +207,7 @@ jobs:
           path: |
             ${{ env.DNA_BUNDLE }}
             ${{ runner.temp }}/hearth-care-dna.sha256
+            ${{ runner.temp }}/hearth-care-revocation-red.log
           if-no-files-found: error
           retention-days: 7
 
