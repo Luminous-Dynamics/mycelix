@@ -13,64 +13,57 @@ repository = "https://github.com/luminous-dynamics/mycelix"
 [features]
 default = []
 
-# Backend selection — each zome enables only what it needs
-# This keeps WASM size within Holochain's ~5MB practical limit
-backend-risc0 = []          # Structural adapter only; no RISC Zero dependency is linked
-backend-winterfell = [       # Winterfell STARK verifier (~200-400KB WASM)
+# Backend selection — each zome enables only what it needs.
+backend-risc0 = []
+backend-winterfell = [
     "dep:winterfell",
     "dep:winter-math",
     "dep:winter-crypto",
 ]
-backend-dual = ["backend-risc0", "backend-winterfell"] # Compatibility feature; RISC0 remains structural-only
-backend-miden = [                # Miden VM ZK-STARK (actual zero-knowledge)
+backend-dual = ["backend-risc0", "backend-winterfell"]
+backend-miden = [
     "dep:miden-vm",
     "dep:miden-core",
 ]
 
-# SECURITY QUARANTINE: the historical HealthRangeAir circuit is underconstrained
-# (tracked in #227) and must not be compiled as ordinary backend-winterfell
-# authority. Enable only for legacy/unqualified evidence inspection until a
-# replacement theorem is implemented and adversarially qualified.
+# SECURITY QUARANTINE: historical HealthRangeAir and its jurisdiction composition
+# are underconstrained (issue #227). Historical/unqualified inspection only.
 legacy-unqualified-range-proof = ["backend-winterfell"]
+
+# SECURITY QUARANTINE: application-authority Winterfell AIRs identified by the
+# authority census (#1873) as underconstrained. This is intentionally separate
+# from backend-winterfell so enabling a verifier backend never implies authority.
+legacy-unqualified-winterfell-authority = ["backend-winterfell"]
+
+# Experimental measurement surfaces. The current benchmark depends on the
+# quarantined historical range circuit; enabling this feature is therefore an
+# explicit research/measurement opt-in, not a proof-authority profile.
+experimental-winterfell-baselines = ["legacy-unqualified-range-proof"]
 
 # PQ authentication (adds ~2.6KB to WASM)
 dilithium = ["dep:pqcrypto-dilithium", "dep:pqcrypto-traits"]
 
-# Full stack for native testing (never enable in zomes). Deliberately excludes
-# legacy-unqualified-range-proof so `full` cannot accidentally restore authority.
+# Full stack for ordinary native testing. Deliberately excludes every legacy or
+# experimental Winterfell feature above so `full` cannot restore proof authority.
 full = ["backend-dual", "dilithium"]
 
 [dependencies]
-# Serialization (always needed)
 serde = { version = "1.0", features = ["derive"] }
-
-# Hashing (always needed — domain tags, commitments)
 sha2 = "0.10"
-
-# JSON serialization for public inputs
 serde_json = "1.0"
-
-# Error handling
 thiserror = "2.0"
-
-# Shared proof config + commitment schemes
 proofs-config = { path = "../../mycelix-core/libs/proofs-config" }
 proofs-commitment = { path = "../../mycelix-core/libs/proofs-commitment" }
 
-# --- Backend: Winterfell STARK ---
 winterfell = { version = "0.13.1", optional = true }
 winter-math = { version = "0.13.1", optional = true }
 winter-crypto = { version = "0.13.1", optional = true }
 
-# --- Backend: Miden VM ZK-STARK ---
 miden-vm = { version = "=0.23.5", optional = true, features = ["std"] }
 miden-core = { version = "=0.23.5", optional = true }
 
-# --- Backend: Dilithium5 PQ Signatures ---
 pqcrypto-dilithium = { version = "0.5", optional = true }
 pqcrypto-traits = { version = "0.3", optional = true }
-
-# Random number generation (needed for benchmarks and STARK witness generation)
 rand = "0.8"
 
 [dev-dependencies]

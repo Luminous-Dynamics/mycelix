@@ -2,16 +2,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! Shared ZKP circuits for the Mycelix ecosystem.
 //!
-//! SECURITY: the historical `range_proof` / `HealthRangeAir` circuit is
-//! underconstrained and tracked by issue #227. It is excluded from ordinary
-//! `backend-winterfell` builds and may only be compiled with the explicit
-//! `legacy-unqualified-range-proof` feature for historical/unqualified evidence
-//! inspection. It must not be used as authority for Health, Finance, FL, or any
-//! other range claim until a replacement theorem is adversarially qualified.
-//!
-//! `jurisdiction_proof` composes two instances of that same range circuit and is
-//! therefore quarantined under the same explicit legacy feature. A host-side
-//! jurisdiction commitment does not repair the underlying range theorem.
+//! Winterfell backend availability is not proof authority. Application-facing
+//! AIRs with demonstrated theorem gaps are available only through explicit
+//! legacy/unqualified features; measurement-only circuits are separately marked
+//! experimental. See issues #227 and #1873.
 
 #[cfg(feature = "legacy-unqualified-range-proof")]
 #[deprecated(
@@ -25,17 +19,29 @@ pub mod range_proof;
 )]
 pub mod jurisdiction_proof;
 
-#[cfg(feature = "backend-winterfell")]
+#[cfg(feature = "legacy-unqualified-winterfell-authority")]
+#[deprecated(
+    note = "UNQUALIFIED: ReviewIntegrityAir does not bind its documented public-input/COI theorem (issue #1873)"
+)]
 pub mod review_integrity;
 
-#[cfg(feature = "backend-winterfell")]
+#[cfg(feature = "legacy-unqualified-winterfell-authority")]
+#[deprecated(
+    note = "UNQUALIFIED: RecursiveAggregationAir leaves documented aggregation/budget relations unconstrained (issue #1873)"
+)]
 pub mod recursive_aggregation;
 
 pub mod merkle_membership;
 pub mod nullifier;
 
-#[cfg(feature = "backend-winterfell")]
+#[cfg(feature = "experimental-winterfell-baselines")]
+#[deprecated(
+    note = "EXPERIMENTAL ONLY: benchmark depends on quarantined historical range AIR (issues #227/#1873)"
+)]
 pub mod winterfell_bench;
 
-#[cfg(feature = "backend-winterfell")]
+#[cfg(feature = "experimental-winterfell-baselines")]
+#[deprecated(
+    note = "EXPERIMENTAL ONLY: PrimeFieldXorAir is an unqualified measurement baseline (issue #1873)"
+)]
 pub mod winterfell_xor;
