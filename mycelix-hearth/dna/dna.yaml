@@ -1,9 +1,9 @@
 ---
 # Mycelix Hearth DNA
 # Family/Household/Kinship Coordination — HEARTH Tier
-# 11 domain zomes + 1 unified bridge = 12 zome pairs (24 WASM crates)
+# 12 domain zomes + 1 unified bridge = 13 zome pairs (26 WASM crates)
 # Care templates remain in hearth_care; recurring occurrence evidence lives in
-# the append-only hearth_care_ledger pair.
+# hearth_care_ledger; durable automation proposals/consent live in hearth_automation.
 
 manifest_version: "0"
 name: mycelix_hearth
@@ -34,6 +34,10 @@ integrity:
     # Care occurrence/completion ledger
     - name: hearth_care_ledger_integrity
       path: ../target/wasm32-unknown-unknown/release/hearth_care_ledger_integrity.wasm
+
+    # Automation proposals / consent evidence
+    - name: hearth_automation_integrity
+      path: ../target/wasm32-unknown-unknown/release/hearth_automation_integrity.wasm
 
     # Autonomy
     - name: hearth_autonomy_integrity
@@ -94,6 +98,13 @@ coordinator:
       path: ../target/wasm32-unknown-unknown/release/hearth_care_ledger.wasm
       dependencies:
         - name: hearth_care_ledger_integrity
+        - name: hearth_care_integrity
+
+    # Automation proposals / consent evidence
+    - name: hearth_automation
+      path: ../target/wasm32-unknown-unknown/release/hearth_automation.wasm
+      dependencies:
+        - name: hearth_automation_integrity
         - name: hearth_care_integrity
 
     # Autonomy

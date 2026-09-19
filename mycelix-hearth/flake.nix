@@ -55,6 +55,7 @@
               echo "  hearth-stories/     - Family stories + traditions"
               echo "  hearth-care/        - Care schedule templates + legacy compatibility"
               echo "  hearth-care-ledger/ - Immutable recurring occurrences + completions"
+              echo "  hearth-automation/  - Durable automation proposals + consent evidence"
               echo "  hearth-autonomy/    - Graduated autonomy for minors"
               echo "  hearth-emergency/   - Emergency plans + alerts"
               echo "  hearth-decisions/   - Family decisions + voting"
