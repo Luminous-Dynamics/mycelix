@@ -1,0 +1,12 @@
+[package]
+name = "mycelix-assurance-core"
+version = "0.1.0"
+edition = "2024"
+description = "Minimal normative kernel types for Mycelix constitutional assurance"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+
+[features]
+default = []
+
+[dependencies]
