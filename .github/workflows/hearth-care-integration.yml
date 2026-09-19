@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'mycelix-workspace/mycelix-hearth/zomes/hearth-care/**'
+      - 'mycelix-workspace/mycelix-hearth/zomes/hearth-care-transitions/**'
       - 'mycelix-workspace/mycelix-hearth/zomes/hearth-kinship/**'
       - 'mycelix-workspace/mycelix-hearth/zomes/hearth-bridge/**'
       - 'mycelix-workspace/mycelix-hearth/crates/hearth-types/**'
@@ -25,6 +26,7 @@ on:
     branches: [main]
     paths:
       - 'mycelix-workspace/mycelix-hearth/zomes/hearth-care/**'
+      - 'mycelix-workspace/mycelix-hearth/zomes/hearth-care-transitions/**'
       - 'mycelix-workspace/mycelix-hearth/zomes/hearth-kinship/**'
       - 'mycelix-workspace/mycelix-hearth/zomes/hearth-bridge/**'
       - 'mycelix-workspace/mycelix-hearth/crates/hearth-types/**'
@@ -93,6 +95,8 @@ jobs:
             "$HEARTH_ROOT/tests/sweettest_care_authority.rs" \
             "$HEARTH_ROOT/tests/sweettest_care_revocation.rs" \
             "$HEARTH_ROOT/zomes/hearth-care/coordinator/Cargo.toml" \
+            "$HEARTH_ROOT/zomes/hearth-care-transitions/integrity/Cargo.toml" \
+            "$HEARTH_ROOT/zomes/hearth-care-transitions/coordinator/Cargo.toml" \
             "$HEARTH_ROOT/zomes/hearth-kinship/coordinator/Cargo.toml" \
             "$HEARTH_ROOT/zomes/hearth-bridge/coordinator/Cargo.toml"; do
             test -f "$required" || {
