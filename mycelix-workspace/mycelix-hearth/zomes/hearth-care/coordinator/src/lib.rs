@@ -183,7 +183,8 @@ pub fn create_care_schedule(input: CreateCareScheduleInput) -> ExternResult<Reco
 /// Mark a care task as completed. Sets completed_at timestamp on the entry,
 /// emits a CareTaskCompleted signal, and returns the updated record.
 ///
-/// Auth: only the assignee or a guardian can complete a task.
+/// Auth: only an active Hearth member who is the assignee or a guardian can
+/// complete a task. Historical assignment does not survive membership loss.
 /// Status: only Active schedules can be completed.
 #[hdk_extern]
 pub fn complete_task(input: CompleteTaskInput) -> ExternResult<Record> {
@@ -215,29 +216,15 @@ pub fn complete_task(input: CompleteTaskInput) -> ExternResult<Record> {
     }
 
     let caller = agent_info()?.agent_initial_pubkey;
+    let caller_role = require_membership(&schedule.hearth_hash)?;
 
-    // 2. Auth: caller must be the assignee OR a guardian
-    if caller != schedule.assigned_to {
-        let caller_role: Option<MemberRole> = decode_zome_response(
-            call(
-                CallTargetCell::Local,
-                ZomeName::new("hearth_kinship"),
-                FunctionName::new("get_caller_role"),
-                None,
-                schedule.hearth_hash.clone(),
-            )?,
-            "get_caller_role",
-        )?;
-
-        let role = caller_role.ok_or(wasm_error!(WasmErrorInner::Guest(
-            "You are not an active member of this hearth".into()
-        )))?;
-
-        if !role.is_guardian() {
-            return Err(wasm_error!(WasmErrorInner::Guest(
-                "Only the assignee or a guardian can complete a care task".into()
-            )));
-        }
+    // 2. Auth: every caller must still be an active member. Within that
+    // current membership, the caller must be the assignee OR a guardian.
+    // Integrity's cross-author update model remains separately tracked in #1987.
+    if caller != schedule.assigned_to && !caller_role.is_guardian() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only the assignee or a guardian can complete a care task".into()
+        )));
     }
 
     // Update the entry with completed_at timestamp
@@ -291,6 +278,9 @@ pub fn propose_swap(input: ProposeSwapInput) -> ExternResult<Record> {
             "Cannot propose a Care swap using a schedule from another Hearth".into()
         )));
     }
+
+    let active_members = active_member_agents(&input.hearth_hash)?;
+    require_active_target(&active_members, &schedule.assigned_to, "swap responder")?;
 
     let caller = agent_info()?.agent_initial_pubkey;
 
@@ -662,7 +652,7 @@ mod tests {
             hearth_hash: action_hash_1(),
             care_type: CareType::Custom("Tutoring".to_string()),
             title: "Math tutoring".to_string(),
-            description: "Help with algebra".to_string(),
+            description: "".to_string(),
             assigned_to: agent_a(),
             recurrence: Recurrence::Weekly,
             notes: "".to_string(),
