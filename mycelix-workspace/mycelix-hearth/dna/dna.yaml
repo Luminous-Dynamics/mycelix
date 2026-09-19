@@ -58,6 +58,10 @@ integrity:
     - name: hearth_bridge_integrity
       path: ../target/wasm32-unknown-unknown/release/hearth_bridge_integrity.wasm
 
+    # Immutable Care transitions — append-only after all historical integrity zomes.
+    - name: hearth_care_transitions_integrity
+      path: ../target/wasm32-unknown-unknown/release/hearth_care_transitions_integrity.wasm
+
 coordinator:
   zomes:
     # Kinship
@@ -125,3 +129,9 @@ coordinator:
       path: ../target/wasm32-unknown-unknown/release/hearth_bridge.wasm
       dependencies:
         - name: hearth_bridge_integrity
+
+    # Immutable Care transitions — append-only after all historical coordinator zomes.
+    - name: hearth_care_transitions
+      path: ../target/wasm32-unknown-unknown/release/hearth_care_transitions.wasm
+      dependencies:
+        - name: hearth_care_transitions_integrity
