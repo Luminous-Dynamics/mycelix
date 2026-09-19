@@ -1,0 +1,15 @@
+[package]
+name = "mycelix-forge-guest-output-frame"
+version = "0.1.0"
+edition = "2021"
+authors = ["Luminous Dynamics"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+description = "Bounded framed stdout transport for Mycelix Forge guest evidence"
+
+[dependencies]
+mycelix-forge-guest-envelope = { path = "../forge-guest-envelope" }
+serde = "1.0"
+serde_json = "1.0"
+sha2 = "0.10"
+thiserror = "2.0"

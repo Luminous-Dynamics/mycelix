@@ -14,6 +14,7 @@ mycelix-forge-gittuf-bundle = { path = "../forge-gittuf-bundle" }
 mycelix-forge-gittuf-policy-inventory = { path = "../forge-gittuf-policy-inventory" }
 mycelix-forge-gittuf-trust-profile = { path = "../forge-gittuf-trust-profile" }
 mycelix-forge-guest-envelope = { path = "../forge-guest-envelope" }
+mycelix-forge-guest-output-frame = { path = "../forge-guest-output-frame" }
 mycelix-forge-guest-plan = { path = "../forge-guest-plan" }
 mycelix-forge-guest-tool-map = { path = "../forge-guest-tool-map" }
 mycelix-forge-guest-transcript = { path = "../forge-guest-transcript" }
