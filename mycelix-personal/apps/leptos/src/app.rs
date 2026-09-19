@@ -19,14 +19,15 @@ use mycelix_leptos_core::{
 };
 
 use crate::components::{
-    format_relative_micros, freshness_from_micros, ActivityItemCard, ConsentCard, CredentialCard,
-    KeyCard, PageHeader, SectionTitle, VaultStat,
+    format_relative_micros, freshness_from_micros, ConsentCard, KeyCard, PageHeader, SectionTitle,
+    VaultStat,
 };
 use crate::context::{
     provide_cultural_context, provide_personal_context, refresh_health_state,
     refresh_identity_state, refresh_preferences_state, use_cultural, use_personal,
     PersonalSourceState, SymbolRegistry,
 };
+use crate::pages::{ActivityPage, UnlockPage, WalletPage};
 use crate::runtime_mode::{detect_runtime_mode, provide_runtime_mode, PersonalRuntimeMode};
 use crate::telemetry::ConstellationTelemetry;
 
@@ -564,32 +565,6 @@ fn IdentityPage() -> impl IntoView {
 }
 
 #[component]
-fn WalletPage() -> impl IntoView {
-    let ctx = use_personal();
-
-    view! {
-        <div class="stack-page">
-            <PageHeader
-                eyebrow="Credential Wallet"
-                title="Portable proof inventory"
-                summary="Stored credentials, proof posture, and trust-bearing materials live here.".to_string()
-            />
-
-            <section class="vault-card">
-                <SectionTitle title="Credentials" />
-                <div class="credential-grid">
-                    <For
-                        each=move || ctx.credentials.get()
-                        key=|cred| cred.hash.clone()
-                        children=move |cred| view! { <CredentialCard credential=cred /> }
-                    />
-                </div>
-            </section>
-        </div>
-    }
-}
-
-#[component]
 fn HealthPage() -> impl IntoView {
     let ctx = use_personal();
     let hc = mycelix_leptos_core::holochain_provider::use_holochain();
@@ -749,50 +724,6 @@ fn PreferencesPage() -> impl IntoView {
                     </div>
                 </section>
             </div>
-        </div>
-    }
-}
-
-#[component]
-fn ActivityPage() -> impl IntoView {
-    let ctx = use_personal();
-
-    view! {
-        <div class="stack-page">
-            <PageHeader
-                eyebrow="Activity"
-                title="What left the vault, and why"
-                summary="This page will eventually reflect bridge queries, events, and disclosures directly.".to_string()
-            />
-            <section class="vault-card">
-                <SectionTitle title="Disclosure and handoff log" />
-                <ul class="activity-list">
-                    <For
-                        each=move || ctx.activity.get()
-                        key=|entry| entry.id.clone()
-                        children=move |entry| view! { <ActivityItemCard item=entry wide=true /> }
-                    />
-                </ul>
-            </section>
-        </div>
-    }
-}
-
-#[component]
-fn UnlockPage() -> impl IntoView {
-    view! {
-        <div class="stack-page">
-            <PageHeader
-                eyebrow="Unlock"
-                title="Vault entry surface"
-                summary="Biometric and passphrase unlock belongs here once Personal runtime security flows are wired.".to_string()
-            />
-            <section class="vault-card narrow-card">
-                <p class="supporting-copy">
-                    "The route now exists so portal and mobile wrappers have a stable unlock target. "
-                    "Secure unlock implementation should follow after the conductor-facing Personal view layer."
-                </p>
-            </section>
         </div>
     }
 }

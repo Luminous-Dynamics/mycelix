@@ -5,6 +5,7 @@ pub mod app;
 pub mod components;
 pub mod context;
 pub mod mock_data;
+pub mod pages;
 pub mod reconciliation;
 pub mod runtime_mode;
 pub mod telemetry;
