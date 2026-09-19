@@ -6,7 +6,7 @@
 //! Provides CRUD operations for decisions, voting, tallying, and finalization.
 
 use hdk::prelude::*;
-use hearth_coordinator_common::{decode_zome_response, get_latest_record};
+use hearth_coordinator_common::{decode_zome_response, get_latest_record, require_membership};
 use hearth_decisions_integrity::*;
 use hearth_types::*;
 use mycelix_bridge_common::{
@@ -199,6 +199,7 @@ pub fn create_decision(input: CreateDecisionInput) -> ExternResult<Record> {
         &requirement_for_decision_type(&input.decision_type),
         "create_decision",
     )?;
+    require_membership(&input.hearth_hash)?;
 
     let now = sys_time()?;
     let agent = agent_info()?.agent_initial_pubkey;
