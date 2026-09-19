@@ -10,10 +10,12 @@ use std::{fs, path::PathBuf};
 /// `--block-fd` after namespace/mount construction but before probe execution.
 #[derive(Clone, Debug)]
 pub struct PendingParentObservation {
+    child_pid: u32,
     host_namespaces: NamespaceSnapshot,
     child_namespaces: NamespaceSnapshot,
     child_mountinfo_digest: Digest,
     start_status: Vec<u8>,
+    start_status_commitment: Digest,
 }
 
 /// Parse bubblewrap JSON status output and independently inspect the reported
@@ -29,16 +31,33 @@ pub fn observe_parent_start(
     let child_root = PathBuf::from(format!("/proc/{child_pid}"));
     let child_namespaces = namespace_snapshot(&child_root)?;
     let mountinfo = fs::read(child_root.join("mountinfo"))?;
+    let start_status_commitment = Digest::of_bytes(DigestAlgorithm::Sha256, status_stream);
 
     Ok(PendingParentObservation {
+        child_pid,
         host_namespaces,
         child_namespaces,
         child_mountinfo_digest: Digest::of_bytes(DigestAlgorithm::Sha256, &mountinfo),
         start_status: status_stream.to_vec(),
+        start_status_commitment,
     })
 }
 
 impl PendingParentObservation {
+    /// Exact child PID reported by bubblewrap while the child is still held.
+    ///
+    /// The PID is diagnostic/correlation material, not a stable security
+    /// identity. D3B2 must acquire a pidfd before releasing the block FD.
+    pub const fn child_pid(&self) -> u32 {
+        self.child_pid
+    }
+
+    /// Commitment to the exact bubblewrap status bytes that identified the
+    /// blocked child before it was released.
+    pub fn start_status_commitment(&self) -> &Digest {
+        &self.start_status_commitment
+    }
+
     /// Complete the parent channel after bubblewrap emits its exit status.
     pub fn finish(
         self,
