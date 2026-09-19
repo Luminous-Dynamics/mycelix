@@ -24,6 +24,7 @@ mod soma_bridge;
 mod themes;
 mod types;
 pub mod visualization;
+mod vote_history;
 
 fn main() {
     console_error_panic_hook::set_once();
