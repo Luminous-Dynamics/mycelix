@@ -10,6 +10,7 @@
 mod canonical;
 mod capability;
 mod policy;
+mod predicate;
 
 pub use canonical::{
     GitObjectIdParseErrorV1, GitObjectIdV1, QualificationReceiptCanonicalizationV1,
@@ -27,4 +28,8 @@ pub use policy::{
     AuthenticationFreshnessPolicyV1, AuthenticationPolicyErrorV1,
     ReceiptAuthenticationPolicyV1, SourceRevisionPolicyV1, TransparencyPolicyV1,
     VerifierProfileV1, WorkflowRevisionPolicyV1,
+};
+pub use predicate::{
+    QualificationAttestationPredicateErrorV1, QualificationAttestationPredicateV1,
+    QUALIFICATION_ATTESTATION_PREDICATE_SCHEMA_V1,
 };
