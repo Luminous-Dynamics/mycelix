@@ -3,41 +3,61 @@
 //! Nullifier utilities and a portable nullifier-proof envelope.
 //!
 //! This module does not itself verify zero-knowledge membership. A complete
-//! backend-specific circuit may prove the following statement without revealing:
-//! - Which specific member I am
-//! - Who else is in the group
-//! - How many members there are
-//!
-//! Additionally prevents double-use: the nullifier is deterministic
-//! (hash of secret + group_id), so using the same proof twice is detectable.
-//!
-//! Used for:
-//! - Care circle membership (prove "I'm in a support circle" anonymously)
-//! - Anonymous voting (prove eligibility, prevent double-voting)
-//! - Credential presentation (prove "I hold a credential" without revealing which)
+//! backend-specific circuit must prove membership and nullifier derivation.
+//! Structural envelope validation is not cryptographic verification.
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use thiserror::Error;
 
-/// A nullifier-based membership proof.
+/// Stable nullifier derivation profiles.
+///
+/// New authority-bearing protocols should bind the exact profile instead of
+/// interpreting 32 nullifier bytes without derivation provenance.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum NullifierDerivationProfile {
+    /// Historical delimiter-framed derivation. Ambiguous for arbitrary byte
+    /// inputs and retained only for compatibility with existing values.
+    LegacyDelimiterV1,
+    /// Domain-separated, field-tagged, length-prefixed tuple encoding.
+    LengthPrefixedV2,
+}
+
+/// Errors from fail-closed v2 nullifier derivation.
+#[derive(Clone, Debug, Error, PartialEq, Eq)]
+pub enum NullifierDerivationError {
+    #[error("member secret must not be empty")]
+    EmptyMemberSecret,
+    #[error("group id must not be empty")]
+    EmptyGroupId,
+    #[error("input length cannot be represented by the v2 framing")]
+    InputTooLong,
+}
+
+/// A nullifier-based membership proof envelope.
+///
+/// This type predates explicit derivation-profile binding. It is a portable
+/// envelope only; it does not prove membership, nullifier derivation, or
+/// double-use prevention by itself.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NullifierProof {
-    /// Deterministic nullifier: hash(member_secret, group_id)
-    /// Reveals nothing about identity, but prevents double-use
     pub nullifier: [u8; 32],
-    /// Membership Merkle root (commitment to the group member set)
     pub group_root: [u8; 32],
-    /// Proof bytes (STARK/Binius proof)
     pub proof_bytes: Vec<u8>,
-    /// Domain tag
     pub domain_tag: String,
 }
 
-/// Compute a nullifier from a secret and group identifier.
+/// Historical v1 nullifier derivation.
 ///
-/// The nullifier is deterministic: same (secret, group_id) always produces
-/// the same nullifier. This prevents double-use (voting twice, claiming twice)
-/// while hiding the member's identity.
+/// Encoding:
+///
+/// ```text
+/// SHA256("ZTML:nullifier:v1:" || member_secret || ":" || group_id)
+/// ```
+///
+/// Because both fields are arbitrary bytes, delimiter framing is ambiguous.
+/// For example `(a, b:c)` and `(a:b, c)` hash the same preimage. New protocols
+/// must use [`compute_nullifier_v2`] instead.
 pub fn compute_nullifier(member_secret: &[u8], group_id: &[u8]) -> [u8; 32] {
     let mut hasher = Sha256::new();
     hasher.update(b"ZTML:nullifier:v1:");
@@ -48,6 +68,65 @@ pub fn compute_nullifier(member_secret: &[u8], group_id: &[u8]) -> [u8; 32] {
     let mut nullifier = [0u8; 32];
     nullifier.copy_from_slice(&result);
     nullifier
+}
+
+/// Canonical v2 nullifier derivation with unambiguous tuple framing.
+///
+/// Exact byte preimage:
+///
+/// ```text
+/// "MYCELIX-NULLIFIER:v2\0"
+/// "member_secret\0" || u64_le(len(member_secret)) || member_secret
+/// "group_id\0"      || u64_le(len(group_id))      || group_id
+/// ```
+///
+/// Empty member secrets and empty group identifiers are rejected. This function
+/// establishes only deterministic derivation semantics; a proof system must
+/// separately prove that an authenticated hidden witness opens the claimed
+/// membership leaf/nullifier relation.
+pub fn compute_nullifier_v2(
+    member_secret: &[u8],
+    group_id: &[u8],
+) -> Result<[u8; 32], NullifierDerivationError> {
+    if member_secret.is_empty() {
+        return Err(NullifierDerivationError::EmptyMemberSecret);
+    }
+    if group_id.is_empty() {
+        return Err(NullifierDerivationError::EmptyGroupId);
+    }
+
+    let member_len =
+        u64::try_from(member_secret.len()).map_err(|_| NullifierDerivationError::InputTooLong)?;
+    let group_len =
+        u64::try_from(group_id.len()).map_err(|_| NullifierDerivationError::InputTooLong)?;
+
+    let mut hasher = Sha256::new();
+    hasher.update(b"MYCELIX-NULLIFIER:v2\0");
+    hasher.update(b"member_secret\0");
+    hasher.update(member_len.to_le_bytes());
+    hasher.update(member_secret);
+    hasher.update(b"group_id\0");
+    hasher.update(group_len.to_le_bytes());
+    hasher.update(group_id);
+
+    let result = hasher.finalize();
+    let mut nullifier = [0u8; 32];
+    nullifier.copy_from_slice(&result);
+    Ok(nullifier)
+}
+
+/// Derive a nullifier under an explicit profile.
+pub fn compute_nullifier_with_profile(
+    profile: NullifierDerivationProfile,
+    member_secret: &[u8],
+    group_id: &[u8],
+) -> Result<[u8; 32], NullifierDerivationError> {
+    match profile {
+        NullifierDerivationProfile::LegacyDelimiterV1 => Ok(compute_nullifier(member_secret, group_id)),
+        NullifierDerivationProfile::LengthPrefixedV2 => {
+            compute_nullifier_v2(member_secret, group_id)
+        }
+    }
 }
 
 /// Compute a member's leaf hash for the group Merkle tree.
@@ -61,7 +140,7 @@ pub fn compute_member_leaf(member_secret: &[u8]) -> [u8; 32] {
     leaf
 }
 
-/// Validate nullifier proof structure.
+/// Validate nullifier proof structure only.
 pub fn validate_nullifier_proof_structure(proof: &NullifierProof) -> Result<(), String> {
     if proof.proof_bytes.is_empty() {
         return Err("Empty proof bytes".to_string());
@@ -79,9 +158,6 @@ pub fn validate_nullifier_proof_structure(proof: &NullifierProof) -> Result<(), 
 }
 
 /// Backward-compatible alias for structural validation only.
-///
-/// This function does **not** verify membership, nullifier derivation, or a STARK.
-/// New callers should use [`validate_nullifier_proof_structure`].
 #[deprecated(
     since = "0.1.0",
     note = "structural validation only; use validate_nullifier_proof_structure"
@@ -90,8 +166,10 @@ pub fn validate_nullifier_proof(proof: &NullifierProof) -> Result<(), String> {
     validate_nullifier_proof_structure(proof)
 }
 
-/// Check if a nullifier has been used before (simple in-memory set).
-/// Production: check against DHT-stored nullifier set.
+/// In-memory used-nullifier set.
+///
+/// Production protocols must use an appropriate durable/consensus-backed store;
+/// this helper alone is not distributed double-use prevention.
 pub struct NullifierSet {
     used: std::collections::HashSet<[u8; 32]>,
 }
@@ -109,12 +187,11 @@ impl NullifierSet {
         }
     }
 
-    /// Check if nullifier was already used. Returns true if NEW (first use).
+    /// Returns true on first insertion and false if already present.
     pub fn check_and_mark(&mut self, nullifier: &[u8; 32]) -> bool {
         self.used.insert(*nullifier)
     }
 
-    /// Check without marking.
     pub fn is_used(&self, nullifier: &[u8; 32]) -> bool {
         self.used.contains(nullifier)
     }
@@ -127,33 +204,88 @@ mod tests {
         compute_merkle_root, generate_merkle_path, verify_merkle_path,
     };
 
+    fn hex(bytes: &[u8]) -> String {
+        bytes.iter().map(|b| format!("{b:02x}")).collect()
+    }
+
     #[test]
-    fn test_nullifier_deterministic() {
+    fn v1_is_deterministic() {
         let n1 = compute_nullifier(b"alice_secret", b"care_circle_42");
         let n2 = compute_nullifier(b"alice_secret", b"care_circle_42");
-        assert_eq!(n1, n2, "same inputs must produce same nullifier");
+        assert_eq!(n1, n2);
     }
 
     #[test]
-    fn test_different_secrets_different_nullifiers() {
-        let n1 = compute_nullifier(b"alice_secret", b"circle_1");
-        let n2 = compute_nullifier(b"bob_secret", b"circle_1");
-        assert_ne!(n1, n2, "different members must have different nullifiers");
+    fn demonstrates_legacy_delimiter_ambiguity() {
+        let one = compute_nullifier(b"a", b"b:c");
+        let two = compute_nullifier(b"a:b", b"c");
+        assert_eq!(one, two, "v1 compatibility behavior must remain explicit");
     }
 
     #[test]
-    fn test_different_groups_different_nullifiers() {
-        let n1 = compute_nullifier(b"alice_secret", b"circle_1");
-        let n2 = compute_nullifier(b"alice_secret", b"circle_2");
-        assert_ne!(
-            n1, n2,
-            "same member in different groups must have different nullifiers"
+    fn v2_separates_the_legacy_ambiguity_pair() {
+        let one = compute_nullifier_v2(b"a", b"b:c").expect("v2 one");
+        let two = compute_nullifier_v2(b"a:b", b"c").expect("v2 two");
+        assert_ne!(one, two);
+        assert_eq!(
+            hex(&one),
+            "76ed9b950567fa0a6cf0d3d0baa29385ee422c343a7f124105d996560bea137a"
+        );
+        assert_eq!(
+            hex(&two),
+            "c9f37d7caecc134105c72380883089a2520d005ec0b54680b78534c632ce95b4"
         );
     }
 
     #[test]
-    fn test_nullifier_with_merkle_membership() {
-        // 4 members in a care circle
+    fn v2_reference_vector_is_frozen() {
+        let n = compute_nullifier_v2(b"alice_secret", b"care_circle_42").expect("v2");
+        assert_eq!(
+            hex(&n),
+            "47a4c042a23419670f53a641cab9ee6bd1c13b5490b4f8129b9bcbbe32159bfc"
+        );
+    }
+
+    #[test]
+    fn v2_rejects_empty_identity_fields() {
+        assert_eq!(
+            compute_nullifier_v2(b"", b"group"),
+            Err(NullifierDerivationError::EmptyMemberSecret)
+        );
+        assert_eq!(
+            compute_nullifier_v2(b"secret", b""),
+            Err(NullifierDerivationError::EmptyGroupId)
+        );
+    }
+
+    #[test]
+    fn explicit_profile_never_silently_equates_v1_and_v2() {
+        let v1 = compute_nullifier_with_profile(
+            NullifierDerivationProfile::LegacyDelimiterV1,
+            b"alice_secret",
+            b"care_circle_42",
+        )
+        .expect("v1");
+        let v2 = compute_nullifier_with_profile(
+            NullifierDerivationProfile::LengthPrefixedV2,
+            b"alice_secret",
+            b"care_circle_42",
+        )
+        .expect("v2");
+        assert_ne!(v1, v2);
+    }
+
+    #[test]
+    fn different_secrets_and_groups_change_v2_nullifier() {
+        let alice = compute_nullifier_v2(b"alice_secret", b"circle_1").unwrap();
+        let bob = compute_nullifier_v2(b"bob_secret", b"circle_1").unwrap();
+        let other_group = compute_nullifier_v2(b"alice_secret", b"circle_2").unwrap();
+        assert_ne!(alice, bob);
+        assert_ne!(alice, other_group);
+    }
+
+    #[test]
+    fn nullifier_with_merkle_membership_is_structural_only() {
         let members: Vec<&[u8]> = vec![
             b"alice_secret",
             b"bob_secret",
@@ -163,63 +295,41 @@ mod tests {
         let leaves: Vec<[u8; 32]> = members.iter().map(|s| compute_member_leaf(*s)).collect();
         let root = compute_merkle_root(&leaves);
 
-        // Alice proves membership
         let alice_leaf = compute_member_leaf(b"alice_secret");
         let alice_path = generate_merkle_path(&leaves, 0);
         assert!(verify_merkle_path(&alice_leaf, &alice_path, &root));
 
-        // Alice generates nullifier for this circle
-        let nullifier = compute_nullifier(b"alice_secret", b"care_circle_42");
-        assert_ne!(nullifier, [0u8; 32]);
-
-        // Combined proof: Merkle path + nullifier
+        let nullifier = compute_nullifier_v2(b"alice_secret", b"care_circle_42").unwrap();
         let proof = NullifierProof {
             nullifier,
             group_root: root,
-            proof_bytes: vec![1, 2, 3], // Placeholder
+            proof_bytes: vec![1, 2, 3],
             domain_tag: "ZTML:Hearth:CircleMembership:v1".to_string(),
         };
         assert!(validate_nullifier_proof_structure(&proof).is_ok());
     }
 
     #[test]
-    fn test_double_use_prevention() {
+    fn in_memory_double_use_helper_marks_once() {
         let mut nullifier_set = NullifierSet::new();
-        let n = compute_nullifier(b"alice", b"vote_proposal_1");
-
-        // First use: accepted
-        assert!(
-            nullifier_set.check_and_mark(&n),
-            "first use should be accepted"
-        );
-
-        // Second use: rejected
-        assert!(
-            !nullifier_set.check_and_mark(&n),
-            "second use should be rejected"
-        );
+        let n = compute_nullifier_v2(b"alice", b"vote_proposal_1").unwrap();
+        assert!(nullifier_set.check_and_mark(&n));
+        assert!(!nullifier_set.check_and_mark(&n));
         assert!(nullifier_set.is_used(&n));
     }
 
     #[test]
-    fn test_non_member_cannot_generate_valid_path() {
+    fn non_member_cannot_reuse_another_leaf_path() {
         let members: Vec<&[u8]> = vec![b"alice", b"bob", b"carol"];
         let leaves: Vec<[u8; 32]> = members.iter().map(|s| compute_member_leaf(*s)).collect();
         let root = compute_merkle_root(&leaves);
-
-        // Eve (not a member) tries to forge a path
         let eve_leaf = compute_member_leaf(b"eve_secret");
         let alice_path = generate_merkle_path(&leaves, 0);
-
-        // Eve's leaf with Alice's path should fail
-        assert!(
-            !verify_merkle_path(&eve_leaf, &alice_path, &root),
-            "non-member must not verify"
-        );
+        assert!(!verify_merkle_path(&eve_leaf, &alice_path, &root));
     }
 
     #[test]
-    fn test_proof_structure_validation() {
+    fn proof_structure_validation_rejects_obvious_malformed_envelopes() {
         let valid = NullifierProof {
             nullifier: [0xAA; 32],
             group_root: [0xBB; 32],
