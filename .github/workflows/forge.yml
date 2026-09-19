@@ -8,6 +8,7 @@ on:
       - "crates/mycelix-forge-authentication/**"
       - "crates/mycelix-forge-proposal/**"
       - "crates/mycelix-forge-review/**"
+      - "crates/mycelix-forge-review-quorum/**"
       - "crates/mycelix-forge-repository/**"
       - "adapters/forge-gittuf/**"
       - ".github/workflows/forge.yml"
@@ -20,6 +21,7 @@ on:
       - "crates/mycelix-forge-authentication/**"
       - "crates/mycelix-forge-proposal/**"
       - "crates/mycelix-forge-review/**"
+      - "crates/mycelix-forge-review-quorum/**"
       - "crates/mycelix-forge-repository/**"
       - "adapters/forge-gittuf/**"
       - ".github/workflows/forge.yml"
@@ -49,6 +51,8 @@ jobs:
             path: crates/mycelix-forge-proposal
           - name: Forge Review Contract
             path: crates/mycelix-forge-review
+          - name: Forge Review Quorum
+            path: crates/mycelix-forge-review-quorum
           - name: Forge Repository Contract
             path: crates/mycelix-forge-repository
           - name: Forge gittuf Adapter
