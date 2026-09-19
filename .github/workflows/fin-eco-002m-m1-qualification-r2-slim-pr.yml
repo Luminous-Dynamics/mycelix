@@ -1,0 +1,260 @@
+name: FIN-ECO-002M M1 Metamorphic Qualification R2
+
+on:
+  pull_request:
+    branches:
+      - test/fin-eco-002m-metamorphic-m1-r2
+    paths:
+      - '.github/workflows/fin-eco-002m-m1-qualification-r2-slim-pr.yml'
+
+permissions:
+  contents: read
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  EXPECTED_PRODUCT_SHA: '4173ad5dfdd5b4e536535f6665892d52e49fff19'
+  EXPECTED_PREDECESSOR_SHA: '0cba6a93512d4122e0c5da349dd6c2191f249834'
+  EXPECTED_LOCK_BLOB: '961eeb3c653c9c7fc9b4abcbafbb55b2b5462e02'
+  EXPECTED_VERIFIER_BLOB: '6487fc783237785fa733bd7274ea38ad00a66a8d'
+  EXPECTED_CANONICAL_BLOB: '34a68184a57af91200398df7d09e7ed215159972'
+  EXPECTED_MODEL_BLOB: 'e48fcc7df9aff372146c97af1865eb31d4d56dd8'
+  EXPECTED_QUALIFY_BLOB: '98ae2fc852928a4b1366695a104a7d5af547d120'
+  EXPECTED_RECEIPT_BLOB: '25621aaf50adc9ba5dffe1d66dfcdac9cf5e44f4'
+  EXPECTED_LIB_BLOB: '8f03b15d14e70a25a3654b8e401b51d169a43973'
+  EXPECTED_METAMORPHIC_BLOB: '465b15f3415c260980dfe3ef1013494fdd12a3d5'
+  WORKFLOW: '.github/workflows/fin-eco-002m-m1-qualification-r2-slim-pr.yml'
+
+jobs:
+  rust-metamorphic:
+    name: Rust 1.96 bounded metamorphic gates
+    runs-on: ubuntu-slim
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact qualification head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Prove exact one-workflow qualification child
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PRODUCT_SHA"
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PRODUCT_SHA" HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$WORKFLOW"
+          test -z "$(git status --porcelain=v1 --untracked-files=no)"
+
+      - name: Install pinned Rust 1.96
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt,clippy
+
+      - name: Acquire locked dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc --version --verbose
+          cargo --version
+          rustfmt --version
+          cargo clippy --version
+          test "$(git rev-parse "${EXPECTED_PRODUCT_SHA}:mycelix-finance/Cargo.lock")" = "$EXPECTED_LOCK_BLOB"
+          cargo fetch --manifest-path mycelix-finance/Cargo.toml --locked
+          test -z "$(git status --porcelain=v1 --untracked-files=no)"
+
+      - name: Prove locked graph resolves offline
+        shell: bash
+        env:
+          CARGO_NET_OFFLINE: 'true'
+        run: |
+          set -euo pipefail
+          cargo metadata --manifest-path mycelix-finance/Cargo.toml --locked --offline --format-version 1 > /tmp/metadata.json
+          python3 - <<'PY'
+          import json
+          with open('/tmp/metadata.json', encoding='utf-8') as fh:
+              metadata = json.load(fh)
+          names = {p['name'] for p in metadata['packages']}
+          required = {'mycelix-finance-settlement', 'mycelix-finance-exact', 'mycelix-business-core'}
+          missing = sorted(required - names)
+          if missing:
+              raise SystemExit(f'missing expected packages: {missing}')
+          print('locked_offline_metadata=PASS')
+          PY
+
+      - name: Check Rust 1.96 formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustfmt --edition 2024 --check \
+            mycelix-finance/crates/finance-settlement/src/lib.rs \
+            mycelix-finance/crates/finance-settlement/src/metamorphic_tests.rs
+          echo 'rustfmt_1_96=PASS'
+
+      - name: Compile settlement package offline and locked
+        shell: bash
+        env:
+          CARGO_NET_OFFLINE: 'true'
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path mycelix-finance/Cargo.toml -p mycelix-finance-settlement --all-targets --locked --offline
+          echo 'settlement_check=PASS'
+
+      - name: Run bounded metamorphic suite explicitly
+        shell: bash
+        env:
+          CARGO_NET_OFFLINE: 'true'
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path mycelix-finance/Cargo.toml -p mycelix-finance-settlement metamorphic_tests --locked --offline
+          echo 'metamorphic_m1_tests=PASS'
+
+      - name: Run complete settlement tests
+        shell: bash
+        env:
+          CARGO_NET_OFFLINE: 'true'
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path mycelix-finance/Cargo.toml -p mycelix-finance-settlement --locked --offline
+          echo 'settlement_tests=PASS'
+
+      - name: Run strict Clippy offline and locked
+        shell: bash
+        env:
+          CARGO_NET_OFFLINE: 'true'
+        run: |
+          set -euo pipefail
+          cargo clippy --manifest-path mycelix-finance/Cargo.toml -p mycelix-finance-settlement --all-targets --locked --offline -- -D warnings
+          echo 'settlement_clippy_strict=PASS'
+
+      - name: Prove product immutability and emit M1 Rust receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain=v1 --untracked-files=no)"
+          echo 'fin_eco_002m_m1_rust=PASS'
+          echo "qualified_product=$EXPECTED_PRODUCT_SHA"
+          echo 'nonclaim=randomized exhaustive space, resource exhaustion, provider/source/revision/time/legal authority'
+
+  canonical-oracle:
+    name: Independent canonical-v1 preservation oracle
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact qualification head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+
+      - name: Prove exact child and inherited canonical identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PRODUCT_SHA"
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PRODUCT_SHA" HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$WORKFLOW"
+          test "$(git rev-parse "${EXPECTED_PRODUCT_SHA}:mycelix-finance/crates/finance-settlement/src/canonical.rs")" = "$EXPECTED_CANONICAL_BLOB"
+          test "$(git rev-parse "${EXPECTED_PRODUCT_SHA}:mycelix-finance/crates/finance-settlement/tools/verify_canonical_vectors.py")" = "$EXPECTED_VERIFIER_BLOB"
+
+      - name: Run hardened independent canonical oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          verifier='mycelix-finance/crates/finance-settlement/tools/verify_canonical_vectors.py'
+          python3 "$verifier" | tee /tmp/oracle.log
+          grep -Fx 'independent_fin_eco_002a_canonical_oracles=PASS' /tmp/oracle.log
+          PYTHONOPTIMIZE=2 python3 "$verifier" | tee /tmp/oracle-opt.log
+          grep -Fx 'independent_fin_eco_002a_canonical_oracles=PASS' /tmp/oracle-opt.log
+          echo 'independent_canonical_oracle=PASS'
+
+      - name: Prove oracle immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain=v1 --untracked-files=no)"
+
+  lineage-immutability:
+    name: Qualified predecessor, tests-only scope, and object identity
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact qualification head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Prove exact M1 lineage and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PRODUCT_SHA"
+          test "$(git rev-parse "${EXPECTED_PRODUCT_SHA}^")" = "$EXPECTED_PREDECESSOR_SHA"
+
+          mapfile -t child_changed < <(git diff --name-only "$EXPECTED_PRODUCT_SHA" HEAD)
+          test "${#child_changed[@]}" -eq 1
+          test "${child_changed[0]}" = "$WORKFLOW"
+
+          mapfile -t product_changed < <(git diff --name-only "$EXPECTED_PREDECESSOR_SHA" "$EXPECTED_PRODUCT_SHA")
+          expected=(
+            'mycelix-finance/crates/finance-settlement/src/lib.rs'
+            'mycelix-finance/crates/finance-settlement/src/metamorphic_tests.rs'
+          )
+          mapfile -t actual_sorted < <(printf '%s\n' "${product_changed[@]}" | sort)
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#actual_sorted[@]}" -eq 2
+          for i in "${!expected_sorted[@]}"; do
+            test "${actual_sorted[$i]}" = "${expected_sorted[$i]}"
+          done
+          if printf '%s\n' "${product_changed[@]}" | grep -q '^\.github/'; then
+            echo 'workflow contamination in product' >&2
+            exit 1
+          fi
+          echo 'tests_only_product_scope=PASS'
+
+      - name: Prove exact new and inherited object identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse "${EXPECTED_PRODUCT_SHA}:mycelix-finance/crates/finance-settlement/src/lib.rs")" = "$EXPECTED_LIB_BLOB"
+          test "$(git rev-parse "${EXPECTED_PRODUCT_SHA}:mycelix-finance/crates/finance-settlement/src/metamorphic_tests.rs")" = "$EXPECTED_METAMORPHIC_BLOB"
+          test "$(git rev-parse "${EXPECTED_PRODUCT_SHA}:mycelix-finance/Cargo.lock")" = "$EXPECTED_LOCK_BLOB"
+          test "$(git rev-parse "${EXPECTED_PRODUCT_SHA}:mycelix-finance/crates/finance-settlement/src/canonical.rs")" = "$EXPECTED_CANONICAL_BLOB"
+          test "$(git rev-parse "${EXPECTED_PRODUCT_SHA}:mycelix-finance/crates/finance-settlement/src/model.rs")" = "$EXPECTED_MODEL_BLOB"
+          test "$(git rev-parse "${EXPECTED_PRODUCT_SHA}:mycelix-finance/crates/finance-settlement/src/qualify.rs")" = "$EXPECTED_QUALIFY_BLOB"
+          test "$(git rev-parse "${EXPECTED_PRODUCT_SHA}:mycelix-finance/crates/finance-settlement/src/receipt.rs")" = "$EXPECTED_RECEIPT_BLOB"
+          test "$(git rev-parse "${EXPECTED_PRODUCT_SHA}:mycelix-finance/crates/finance-settlement/tools/verify_canonical_vectors.py")" = "$EXPECTED_VERIFIER_BLOB"
+          echo 'object_identity=PASS'
+
+      - name: Prove postflight immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain=v1 --untracked-files=no)"
+          echo 'lineage_immutability=PASS'
+
+  qualification-verdict:
+    name: FIN-ECO-002M M1 conjunctive qualification verdict
+    if: always()
+    needs: [rust-metamorphic, canonical-oracle, lineage-immutability]
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    steps:
+      - name: Require all independent evidence planes
+        shell: bash
+        env:
+          RUST_RESULT: ${{ needs.rust-metamorphic.result }}
+          ORACLE_RESULT: ${{ needs.canonical-oracle.result }}
+          LINEAGE_RESULT: ${{ needs.lineage-immutability.result }}
+        run: |
+          set -euo pipefail
+          printf 'rust=%s\noracle=%s\nlineage=%s\n' "$RUST_RESULT" "$ORACLE_RESULT" "$LINEAGE_RESULT"
+          test "$RUST_RESULT" = success
+          test "$ORACLE_RESULT" = success
+          test "$LINEAGE_RESULT" = success
+          echo 'fin_eco_002m_m1_qualification=PASS'
+          echo "qualified_product=$EXPECTED_PRODUCT_SHA"
+          echo 'qualification_rule=rust_metamorphic AND canonical_oracle AND lineage_immutability'
