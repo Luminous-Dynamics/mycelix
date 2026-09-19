@@ -28,6 +28,7 @@ on:
       - "adapters/forge-sealed-inputs/**"
       - "adapters/forge-sealed-capsule-inputs/**"
       - "adapters/forge-hermetic-host/**"
+      - "adapters/forge-hermetic-host-v2/**"
       - "adapters/forge-m0-offline-evidence/**"
       - ".github/workflows/forge.yml"
   push:
@@ -58,6 +59,7 @@ on:
       - "adapters/forge-sealed-inputs/**"
       - "adapters/forge-sealed-capsule-inputs/**"
       - "adapters/forge-hermetic-host/**"
+      - "adapters/forge-hermetic-host-v2/**"
       - "adapters/forge-m0-offline-evidence/**"
       - ".github/workflows/forge.yml"
 
@@ -125,6 +127,8 @@ jobs:
             path: adapters/forge-sealed-capsule-inputs
           - name: Forge Hermetic Host
             path: adapters/forge-hermetic-host
+          - name: Forge Hermetic Host v2
+            path: adapters/forge-hermetic-host-v2
           - name: Forge M0 Offline Evidence
             path: adapters/forge-m0-offline-evidence
     defaults:
