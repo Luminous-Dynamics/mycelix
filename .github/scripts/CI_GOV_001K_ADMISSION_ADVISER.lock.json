@@ -1,0 +1,47 @@
+{
+  "schema": "mycelix.ci-gov.001k.admission-adviser-lock.v0.1",
+  "parent_observer_commit": "d3de3a4d24c7459b80f939fee5c3c2bb4843ad71",
+  "parent_observer_tree": "3ef12424861acf5a1ee63d216b71805561bed977",
+  "policy_source": {
+    "commit": "bf07e3fa9701e947cb7ac5c03e43052661e8a155",
+    "tree": "e486d2d74d696b92577c52ab5d4e534ed2c36890",
+    "oracle_blob": "1b2b2f4862c910a2c013432172d74b5213c42c41",
+    "policy_lock_blob": "44caaaa35ed882c5f6c4d411e6ffc7a3f65777a6"
+  },
+  "observer_source": {
+    "commit": "d3de3a4d24c7459b80f939fee5c3c2bb4843ad71",
+    "tree": "3ef12424861acf5a1ee63d216b71805561bed977",
+    "observer_blob": "7af073d89f1b9db5be87b3c84fa07341a5adb722",
+    "observer_lock_blob": "04323683ae394748836ec75e2692c73063259085"
+  },
+  "review_payload": {
+    ".github/scripts/CI_GOV_001K_ADMISSION_ADVISER.md": "35dbe2df25f4ac25d1a8c1fe65a7df73437b9853",
+    ".github/scripts/ci_qualification_admission_adviser.py": "5efc958db919147607f6fdda05fdbaf30ddd3ba4",
+    ".github/scripts/test_ci_qualification_admission_adviser.py": "337bdab4bd8cc39afaf08fb9a28d393960e0fb93"
+  },
+  "read_contract": {
+    "max_reads": 3,
+    "pr_endpoint_template": "https://api.github.com/repos/Luminous-Dynamics/mycelix/pulls/{pr_number}",
+    "capacity_endpoint": "https://api.github.com/repos/Luminous-Dynamics/mycelix/actions/concurrency_groups/mycelix-heavy-qualification-v1",
+    "api_version": "2026-03-10",
+    "max_body_bytes": 1048576,
+    "max_timeout_seconds": 10
+  },
+  "decision_contract": {
+    "explicit_label": "ci:qualify",
+    "max_observation_age_seconds": 30,
+    "soft_pending_budget": 8,
+    "pre_post_pr_snapshot_required": true,
+    "live_scheduler_qualification_required": true
+  },
+  "authority_ceiling": {
+    "github_read": true,
+    "label_mutation": false,
+    "actions_mutation": false,
+    "cancellation_authority": false,
+    "merge_authority": false,
+    "product_pass_authority": false,
+    "scientific_pass_authority": false
+  },
+  "local_logic_preflight_cases": 28
+}
