@@ -1,0 +1,143 @@
+name: Constitutional Effect Ledger D1C-R1 Qualification
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'mycelix-governance/crates/constitutional-effect-ledger/**'
+      - '.github/workflows/constitutional-effect-ledger-rustfmt-r1-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: d1c-rustfmt-r1-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NIXPKGS_REV: a50bf0c1b07873c1a53892292017041a8f0a1288
+  EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EXPECTED_R1_SEMANTIC: 90ff00c371d2dd875b9bb7f23f1c5ee4b293f39c
+  EXPECTED_OLD_SEMANTIC: 47d1d764323dbfaf991b5574cfde83abb7a3e4a4
+  EXPECTED_OLD_SOURCE_BLOB: bb3b8d6a865bbf514ff1e43a41c520b890a5515d
+  EXPECTED_R1_SOURCE_BLOB: 6f5d6c2a3e8f27cace3b37c23c82b8b4c64c1f0e
+  SOURCE: mycelix-governance/crates/constitutional-effect-ledger/src/lib.rs
+
+jobs:
+  qualify:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    name: Exact-head D1C-R1 format repair + ledger tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout exact verifier head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 3
+          ref: ${{ env.EXPECTED_HEAD }}
+          persist-credentials: false
+
+      - name: Bind verifier and repair lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_R1_SEMANTIC"
+          test "$(git rev-parse HEAD^^)" = "$EXPECTED_OLD_SEMANTIC"
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/constitutional-effect-ledger-rustfmt-r1-qualification.yml"
+          test "$(git diff --name-only "$EXPECTED_OLD_SEMANTIC" "$EXPECTED_R1_SEMANTIC")" = "$SOURCE"
+          test "$(git rev-parse "$EXPECTED_OLD_SEMANTIC:$SOURCE")" = "$EXPECTED_OLD_SOURCE_BLOB"
+          test "$(git rev-parse "$EXPECTED_R1_SEMANTIC:$SOURCE")" = "$EXPECTED_R1_SOURCE_BLOB"
+
+          rm -rf d1c-r1-evidence
+          mkdir -p d1c-r1-evidence
+          printf '%s\n' "$EXPECTED_HEAD" > d1c-r1-evidence/verifier-head.txt
+          printf '%s\n' "$EXPECTED_R1_SEMANTIC" > d1c-r1-evidence/r1-semantic-head.txt
+          printf '%s\n' "$EXPECTED_OLD_SEMANTIC" > d1c-r1-evidence/old-semantic-head.txt
+          git diff "$EXPECTED_OLD_SEMANTIC" "$EXPECTED_R1_SEMANTIC" -- "$SOURCE" > d1c-r1-evidence/r1-format-only.patch
+          git hash-object "$SOURCE" > d1c-r1-evidence/r1-source-hash-before.txt
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Prove R1 equals pinned rustfmt of old exact source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show "$EXPECTED_OLD_SEMANTIC:$SOURCE" > d1c-r1-evidence/old-exact-lib.rs
+          cp d1c-r1-evidence/old-exact-lib.rs d1c-r1-evidence/old-pinned-rustfmt-lib.rs
+
+          nix shell \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustfmt" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#coreutils" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" \
+            --command bash -euo pipefail -c '
+              rustfmt --version | tee d1c-r1-evidence/rustfmt-version.txt
+              rustfmt --edition 2024 d1c-r1-evidence/old-pinned-rustfmt-lib.rs
+              cmp d1c-r1-evidence/old-pinned-rustfmt-lib.rs "$SOURCE"
+              sha256sum d1c-r1-evidence/old-exact-lib.rs \
+                        d1c-r1-evidence/old-pinned-rustfmt-lib.rs \
+                        "$SOURCE" \
+                > d1c-r1-evidence/format-provenance.sha256
+            '
+
+      - name: Compile and test exact repaired ledger
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustfmt" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#coreutils" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" \
+            --command bash -euo pipefail -c '
+              rustc --version | tee d1c-r1-evidence/rustc-version.txt
+              cargo --version | tee d1c-r1-evidence/cargo-version.txt
+              rustfmt --version | tee -a d1c-r1-evidence/rustfmt-version.txt
+
+              cargo fmt --manifest-path mycelix-governance/Cargo.toml \
+                --package constitutional-effect-ledger -- --check \
+                2>&1 | tee d1c-r1-evidence/cargo-fmt.log
+              cargo check --manifest-path \
+                mycelix-governance/crates/constitutional-effect-ledger/Cargo.toml \
+                --all-targets 2>&1 | tee d1c-r1-evidence/cargo-check.log
+              cargo test --manifest-path \
+                mycelix-governance/crates/constitutional-effect-ledger/Cargo.toml \
+                --all-targets 2>&1 | tee d1c-r1-evidence/cargo-test.log
+
+              if test -f mycelix-governance/Cargo.lock; then
+                cp mycelix-governance/Cargo.lock d1c-r1-evidence/derived-Cargo.lock
+                sha256sum d1c-r1-evidence/derived-Cargo.lock \
+                  > d1c-r1-evidence/derived-Cargo.lock.sha256
+              fi
+            '
+
+      - name: Verify semantic immutability and postflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse "$EXPECTED_R1_SEMANTIC:$SOURCE")" = "$EXPECTED_R1_SOURCE_BLOB"
+          git hash-object "$SOURCE" > d1c-r1-evidence/r1-source-hash-after.txt
+          cmp d1c-r1-evidence/r1-source-hash-before.txt d1c-r1-evidence/r1-source-hash-after.txt
+          git diff --exit-code -- "$SOURCE"
+          if git ls-files --error-unmatch mycelix-governance/Cargo.lock >/dev/null 2>&1; then
+            git checkout -- mycelix-governance/Cargo.lock
+          fi
+          test -z "$(git status --porcelain --untracked-files=no)"
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: constitutional-effect-ledger-r1-${{ env.EXPECTED_HEAD }}
+          path: d1c-r1-evidence
+          if-no-files-found: error
+          retention-days: 30
