@@ -1,0 +1,14 @@
+[package]
+name = "constitutional-payments-provider-authority-timeline"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Pure append-only provider-author grant issuance, rotation, and revocation timeline"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+serde = { workspace = true }
+thiserror = { workspace = true }
+constitutional-payments-provider-authority = { workspace = true }

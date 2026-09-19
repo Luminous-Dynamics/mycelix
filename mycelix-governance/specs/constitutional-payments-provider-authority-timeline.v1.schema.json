@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.dev/schemas/constitutional-payments-provider-authority-timeline.v1.schema.json",
+  "title": "Constitutional Payments Provider Author Authority Timeline v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "profile_id", "authority_class", "lineage", "timeline", "issuance", "rotation", "revocation", "historical_authorization", "threshold", "activation", "next_tranche", "non_claims"],
+  "properties": {
+    "schema": {"const": "mycelix.constitutional-payments-provider-authority-timeline.v1"},
+    "profile_id": {"const": "mycelix-payments-provider-authority-timeline-f1b2b0-v1"},
+    "authority_class": {"const": "InertStatefulTimeline"},
+    "lineage": {
+      "type": "object", "additionalProperties": false,
+      "required": ["f1b2a_semantic_head", "f1b2a_source_path", "f1b2a_source_git_blob_sha"],
+      "properties": {
+        "f1b2a_semantic_head": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "f1b2a_source_path": {"type": "string", "minLength": 1},
+        "f1b2a_source_git_blob_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"}
+      }
+    },
+    "timeline": {"$ref": "#/$defs/timeline"},
+    "issuance": {"$ref": "#/$defs/issuance"},
+    "rotation": {"$ref": "#/$defs/rotation"},
+    "revocation": {"$ref": "#/$defs/revocation"},
+    "historical_authorization": {"$ref": "#/$defs/historicalAuthorization"},
+    "threshold": {"$ref": "#/$defs/threshold"},
+    "activation": {"$ref": "#/$defs/activation"},
+    "next_tranche": {"$ref": "#/$defs/nextTranche"},
+    "non_claims": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+  },
+  "$defs": {
+    "timeline": {
+      "type": "object", "additionalProperties": false,
+      "required": ["append_only_events", "contiguous_event_sequence", "stable_event_identity", "exact_event_replay_is_idempotent", "same_sequence_conflict_halts", "event_id_reuse_halts", "integrity_halt_is_sticky", "wall_clock_is_not_authority_ordering"],
+      "properties": {
+        "append_only_events": {"const": true},
+        "contiguous_event_sequence": {"const": true},
+        "stable_event_identity": {"const": true},
+        "exact_event_replay_is_idempotent": {"const": true},
+        "same_sequence_conflict_halts": {"const": true},
+        "event_id_reuse_halts": {"const": true},
+        "integrity_halt_is_sticky": {"const": true},
+        "wall_clock_is_not_authority_ordering": {"const": true}
+      }
+    },
+    "issuance": {
+      "type": "object", "additionalProperties": false,
+      "required": ["binds_exact_grant_commitment", "binds_upstream_capability_id", "binds_upstream_holder_id", "binds_upstream_jurisdiction", "binds_upstream_authority_commitment", "binds_issuance_time", "binds_external_proof_commitment", "issuance_not_after_grant_valid_from", "upstream_authority_valid_at_issuance", "conflicting_issuance_halts", "cryptographic_issuance_proof_verified"],
+      "properties": {
+        "binds_exact_grant_commitment": {"const": true},
+        "binds_upstream_capability_id": {"const": true},
+        "binds_upstream_holder_id": {"const": true},
+        "binds_upstream_jurisdiction": {"const": true},
+        "binds_upstream_authority_commitment": {"const": true},
+        "binds_issuance_time": {"const": true},
+        "binds_external_proof_commitment": {"const": true},
+        "issuance_not_after_grant_valid_from": {"const": true},
+        "upstream_authority_valid_at_issuance": {"const": true},
+        "conflicting_issuance_halts": {"const": true},
+        "cryptographic_issuance_proof_verified": {"const": false}
+      }
+    },
+    "rotation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["uses_f1b2a_validate_rotation", "exact_predecessor_binding_required", "successor_epoch_monotone", "profile_jurisdiction_upstream_continuity_required", "role_amplification_forbidden", "successor_valid_from_equals_cutover", "one_canonical_successor_per_predecessor", "competing_successor_halts", "same_successor_different_cutover_halts", "cutover_not_after_predecessor_expiry"],
+      "properties": {
+        "uses_f1b2a_validate_rotation": {"const": true},
+        "exact_predecessor_binding_required": {"const": true},
+        "successor_epoch_monotone": {"const": true},
+        "profile_jurisdiction_upstream_continuity_required": {"const": true},
+        "role_amplification_forbidden": {"const": true},
+        "successor_valid_from_equals_cutover": {"const": true},
+        "one_canonical_successor_per_predecessor": {"const": true},
+        "competing_successor_halts": {"const": true},
+        "same_successor_different_cutover_halts": {"const": true},
+        "cutover_not_after_predecessor_expiry": {"const": true}
+      }
+    },
+    "revocation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["binds_exact_grant_commitment", "binds_exact_upstream_authority", "authorization_not_after_effective_time", "upstream_authority_valid_at_authorization_and_effective_time", "effective_time_not_before_grant_validity", "effective_time_not_after_grant_expiry", "one_terminal_event_per_grant", "conflicting_terminal_history_halts", "cryptographic_revocation_proof_verified"],
+      "properties": {
+        "binds_exact_grant_commitment": {"const": true},
+        "binds_exact_upstream_authority": {"const": true},
+        "authorization_not_after_effective_time": {"const": true},
+        "upstream_authority_valid_at_authorization_and_effective_time": {"const": true},
+        "effective_time_not_before_grant_validity": {"const": true},
+        "effective_time_not_after_grant_expiry": {"const": true},
+        "one_terminal_event_per_grant": {"const": true},
+        "conflicting_terminal_history_halts": {"const": true},
+        "cryptographic_revocation_proof_verified": {"const": false}
+      }
+    },
+    "historicalAuthorization": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status_reconstructed_at_candidate_action_time", "pre_revocation_history_preserved", "pre_cutover_history_preserved", "expiry_is_time_relative", "composes_f1b2a_authorize_record", "role_profile_jurisdiction_checks_preserved", "integrity_halt_blocks_authorization", "current_wall_clock_used_for_status"],
+      "properties": {
+        "status_reconstructed_at_candidate_action_time": {"const": true},
+        "pre_revocation_history_preserved": {"const": true},
+        "pre_cutover_history_preserved": {"const": true},
+        "expiry_is_time_relative": {"const": true},
+        "composes_f1b2a_authorize_record": {"const": true},
+        "role_profile_jurisdiction_checks_preserved": {"const": true},
+        "integrity_halt_blocks_authorization": {"const": true},
+        "current_wall_clock_used_for_status": {"const": false}
+      }
+    },
+    "threshold": {
+      "type": "object", "additionalProperties": false,
+      "required": ["f1b2a_threshold_descriptor_preserved", "cryptographic_threshold_attestation_verified", "threshold_committee_state_reconstructed"],
+      "properties": {
+        "f1b2a_threshold_descriptor_preserved": {"const": true},
+        "cryptographic_threshold_attestation_verified": {"const": false},
+        "threshold_committee_state_reconstructed": {"const": false}
+      }
+    },
+    "activation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["provider_authority_timeline_qualified", "grant_issuance_cryptographically_qualified", "threshold_provider_authority_qualified", "entry_types_registered", "link_types_registered", "validate_extern_active", "dht_write_surface_active", "live_admission_composed", "payments_zome_wired", "governance_routing_active", "replay_capability_minting"],
+      "properties": {
+        "provider_authority_timeline_qualified": {"const": false},
+        "grant_issuance_cryptographically_qualified": {"const": false},
+        "threshold_provider_authority_qualified": {"const": false},
+        "entry_types_registered": {"const": false},
+        "link_types_registered": {"const": false},
+        "validate_extern_active": {"const": false},
+        "dht_write_surface_active": {"const": false},
+        "live_admission_composed": {"const": false},
+        "payments_zome_wired": {"const": false},
+        "governance_routing_active": {"const": false},
+        "replay_capability_minting": {"const": false}
+      }
+    },
+    "nextTranche": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "must_compose_timeline_with_f1b2_admission", "must_bind_actual_holochain_action_author", "must_verify_issuance_proof_before_live_authority", "must_verify_threshold_attestation_cryptographically", "must_reconstruct_threshold_committee_state_at_action_time", "must_not_activate_live_payment_dispatch"],
+      "properties": {
+        "id": {"const": "MYC-CONST-003D1D-F1B2B1"},
+        "must_compose_timeline_with_f1b2_admission": {"const": true},
+        "must_bind_actual_holochain_action_author": {"const": true},
+        "must_verify_issuance_proof_before_live_authority": {"const": true},
+        "must_verify_threshold_attestation_cryptographically": {"const": true},
+        "must_reconstruct_threshold_committee_state_at_action_time": {"const": true},
+        "must_not_activate_live_payment_dispatch": {"const": true}
+      }
+    }
+  }
+}
