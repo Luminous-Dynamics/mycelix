@@ -8,6 +8,7 @@ on:
       - "crates/mycelix-forge-authority/**"
       - "crates/mycelix-forge-repository/**"
       - "crates/mycelix-forge-execution/**"
+      - "crates/mycelix-forge-cli/**"
       - "adapters/forge-gittuf/**"
       - "adapters/forge-gittuf-bundle/**"
       - "adapters/forge-linux-isolation/**"
@@ -43,6 +44,7 @@ on:
       - "crates/mycelix-forge-authority/**"
       - "crates/mycelix-forge-repository/**"
       - "crates/mycelix-forge-execution/**"
+      - "crates/mycelix-forge-cli/**"
       - "adapters/forge-gittuf/**"
       - "adapters/forge-gittuf-bundle/**"
       - "adapters/forge-linux-isolation/**"
@@ -95,6 +97,8 @@ jobs:
             path: crates/mycelix-forge-repository
           - name: Forge Execution Contract
             path: crates/mycelix-forge-execution
+          - name: Forge M0 Operator CLI
+            path: crates/mycelix-forge-cli
           - name: Forge gittuf Adapter
             path: adapters/forge-gittuf
           - name: Forge Repository Bundle
