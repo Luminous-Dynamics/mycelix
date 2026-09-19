@@ -3,25 +3,28 @@
 
 use leptos::ev::SubmitEvent;
 use leptos::prelude::*;
-use leptos_router::components::{Route, Router, Routes, A};
+use leptos_router::components::{A, Route, Router, Routes};
 use leptos_router::hooks::use_location;
 use leptos_router::path;
 use wasm_bindgen_futures::spawn_local;
 
 use mycelix_leptos_core::consciousness::refresh_consciousness_from_conductor;
+use mycelix_leptos_core::holochain_provider::ConnectionStatus;
 use mycelix_leptos_core::{
     init_consciousness_ui, provide_consciousness_context, provide_homeostasis_context,
     provide_local_identity, provide_theme_context, provide_thermodynamic_context,
     provide_toast_context, use_toasts, ActivityFeed, ActivityFeedItem, AppShell, AvailabilityState,
-    AvailabilityStateKind, ConnectStrategy, EmptyState, FreshnessBadge, FreshnessLevel,
-    HolochainProviderAuto, HolochainProviderConfig, NavLink, NavTab, ToastContainer, ToastKind,
+    AvailabilityStateKind, EmptyState, FreshnessBadge, FreshnessLevel, HolochainProviderAuto,
+    HolochainProviderConfig, NavLink, NavTab, ToastContainer, ToastKind,
 };
 use personal_leptos_types::{ConsentGrantView, CredentialType, StoredCredentialView};
 
 use crate::context::{
     provide_cultural_context, provide_personal_context, refresh_health_state,
-    refresh_identity_state, refresh_preferences_state, use_cultural, use_personal, SymbolRegistry,
+    refresh_identity_state, refresh_preferences_state, use_cultural, use_personal,
+    PersonalSourceState, SymbolRegistry,
 };
+use crate::runtime_mode::{detect_runtime_mode, provide_runtime_mode, PersonalRuntimeMode};
 use crate::telemetry::ConstellationTelemetry;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -56,30 +59,32 @@ impl mycelix_leptos_core::AppTheme for PersonalTheme {
 
 #[component]
 pub fn App() -> impl IntoView {
+    let runtime_mode = detect_runtime_mode();
     let config = HolochainProviderConfig {
         app_id: "mycelix-unified".into(),
         default_role: Some("personal".into()),
         log_prefix: "[Personal]",
-        connect_strategy: ConnectStrategy::WebSocket,
+        connect_strategy: runtime_mode.connect_strategy(),
         status_labels: None,
     };
 
     view! {
         <HolochainProviderAuto config=config>
-            <AppInner />
+            <AppInner runtime_mode />
         </HolochainProviderAuto>
     }
 }
 
 #[component]
-fn AppInner() -> impl IntoView {
+fn AppInner(runtime_mode: PersonalRuntimeMode) -> impl IntoView {
+    provide_runtime_mode(runtime_mode);
     provide_theme_context("personal-theme", PersonalTheme::Vault);
     provide_thermodynamic_context();
     let consciousness = provide_consciousness_context();
     provide_toast_context();
     provide_homeostasis_context(1, "--personal-homeostasis");
     provide_local_identity();
-    provide_personal_context();
+    provide_personal_context(runtime_mode);
     provide_cultural_context();
     init_consciousness_ui();
 
@@ -236,6 +241,16 @@ fn VaultPage() -> impl IntoView {
     let symbols = cultural.symbols;
 
     let hc = mycelix_leptos_core::holochain_provider::use_holochain();
+    let runtime_mode = ctx.runtime_mode;
+    let loading = ctx.loading;
+    let identity_state = ctx.identity_state;
+    let wallet_state = ctx.wallet_state;
+    let health_state = ctx.health_state;
+    let preferences_state = ctx.preferences_state;
+    let activity_state = ctx.activity_state;
+    let connection_status = hc.status;
+    let signer_ready = hc.zome_call_signing_ready;
+
     let active_consents = Memo::new(move |_| {
         ctx.consents
             .get()
@@ -292,32 +307,97 @@ fn VaultPage() -> impl IntoView {
             </div>
 
             {move || {
-                if ctx.loading.get() {
+                if runtime_mode.is_demo() {
+                    return view! {
+                        <AvailabilityState
+                            kind=AvailabilityStateKind::Mock
+                            title="Explicit Demo Vault"
+                            description="Personal is intentionally running with illustrative fixtures. These records are not conductor-backed evidence."
+                            action={None}
+                        />
+                    }.into_any();
+                }
+
+                if loading.get() {
+                    return view! {
+                        <AvailabilityState
+                            kind=AvailabilityStateKind::Degraded
+                            title="Reconciling Live Personal State"
+                            description="Personal is loading typed view endpoints. Demo records cannot enter this Live session."
+                            action={None}
+                        />
+                    }.into_any();
+                }
+
+                if connection_status.get() != ConnectionStatus::Connected {
+                    return view! {
+                        <AvailabilityState
+                            kind=AvailabilityStateKind::Unavailable
+                            title="Live Conductor Unavailable"
+                            description="Personal remains in Live mode. Connection failure does not fall back to demo data."
+                            action={None}
+                        />
+                    }.into_any();
+                }
+
+                if !signer_ready.get() {
+                    return view! {
+                        <AvailabilityState
+                            kind=AvailabilityStateKind::Locked
+                            title="Signer Required"
+                            description="The conductor is connected, but Personal cannot make authorized zome calls until a browser signer is available."
+                            action={None}
+                        />
+                    }.into_any();
+                }
+
+                let states = [
+                    identity_state.get(),
+                    wallet_state.get(),
+                    health_state.get(),
+                    preferences_state.get(),
+                    activity_state.get(),
+                ];
+
+                if states.iter().any(|state| {
+                    matches!(
+                        state,
+                        PersonalSourceState::Degraded | PersonalSourceState::Unavailable
+                    )
+                }) {
                     view! {
                         <AvailabilityState
                             kind=AvailabilityStateKind::Degraded
-                            title="Vault Sync In Progress"
-                            description="Personal is establishing posture from the conductor and reconciling typed view endpoints."
+                            title="Partial Live Personal State"
+                            description="One or more Personal sources could not be established. Available source data remains visible without substituting fixtures for missing sources."
                             action={None}
                         />
                     }.into_any()
-                } else if hc.is_mock() {
+                } else if states.iter().any(|state| {
+                    matches!(
+                        state,
+                        PersonalSourceState::AwaitingLive | PersonalSourceState::LoadingLive
+                    )
+                }) {
                     view! {
                         <AvailabilityState
-                            kind=AvailabilityStateKind::Mock
-                            title="Mock Vault Posture"
-                            description="This Personal shell is running without a live conductor. Typed vault flows are visible, but the current records are illustrative."
+                            kind=AvailabilityStateKind::Degraded
+                            title="Awaiting Live Personal Sources"
+                            description="The runtime is ready, but one or more Personal source queries have not completed yet."
                             action={None}
                         />
                     }.into_any()
-                } else if !ctx.live_sync_ready.get() {
+                } else if states
+                    .iter()
+                    .all(|state| *state == PersonalSourceState::Empty)
+                {
                     view! {
                         <AvailabilityState
                             kind=AvailabilityStateKind::Empty
-                            title="Live Vault, Empty Summary"
-                            description="Connected to a live conductor, but Personal view endpoints have not returned records yet."
+                            title="Live Personal Vault Is Empty"
+                            description="Authoritative Personal view queries completed without records. No illustrative records are inserted into this Live session."
                             action={Some(view! {
-                                <A href="/identity" attr:class="btn btn-primary">"Review Identity"</A>
+                                <A href="/identity" attr:class="btn btn-primary">"Create Profile"</A>
                             }.into_any())}
                         />
                     }.into_any()
@@ -329,10 +409,9 @@ fn VaultPage() -> impl IntoView {
             <div class="hero-strip">
                 <div class="hero-panel">
                     <span class="hero-kicker">"Vault state"</span>
-                    <h2>"Unlocked architecture, guarded disclosure"</h2>
+                    <h2>"Source-backed when Live, illustrative only when Demo"</h2>
                     <p>
-                        "This shell is now live as the canonical Personal frontend scaffold. "
-                        "It is intentionally typed and stable while the zome adapters are normalized."
+                        "Personal now keeps runtime provenance explicit. Empty and unavailable source states remain visible instead of being replaced by example records."
                     </p>
                     <div class="hero-actions">
                         <A href="/wallet" attr:class="btn btn-primary">"Open wallet"</A>
@@ -342,7 +421,7 @@ fn VaultPage() -> impl IntoView {
                 <div class="hero-panel hero-panel-accent">
                     <span class="hero-kicker">"Next infrastructure step"</span>
                     <p>
-                        "Expose frontend-facing Personal view endpoints so this app can replace scaffolded vault models with live conductor data."
+                        "Add reconnect-epoch reconciliation so stale asynchronous results cannot publish into a later conductor session."
                     </p>
                 </div>
             </div>
@@ -353,7 +432,7 @@ fn VaultPage() -> impl IntoView {
                 <VaultStat label="Credentials" value=move || ctx.credentials.get().len().to_string() />
                 <VaultStat label=move || format!("Active {} consents", symbols.get().hearth_alias.to_lowercase()) value=move || active_consents.get().to_string() />
                 <VaultStat label="Health records" value=move || ctx.health_record_count.get().to_string() />
-                <VaultStat label=move || format!("{} status", symbols.get().mycel_alias) value=move || "Resonant".to_string() />
+                <VaultStat label="Runtime" value=move || runtime_mode.label().to_string() />
             </div>
 
             <div class="vault-columns">
@@ -446,7 +525,7 @@ fn IdentityPage() -> impl IntoView {
                         "Profile route aliases into the identity vault until deeper Personal profile pages are split."
                             .to_string()
                     } else {
-                        "Profile editing is scaffolded locally; live mutation will plug into Personal view adapters once exposed."
+                        "Live profile edits use typed Personal view endpoints. An empty live profile remains empty rather than being replaced with example identity data."
                             .to_string()
                     }
                 }

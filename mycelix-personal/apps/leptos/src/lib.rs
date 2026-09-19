@@ -4,4 +4,5 @@
 pub mod app;
 pub mod context;
 pub mod mock_data;
+pub mod runtime_mode;
 pub mod telemetry;

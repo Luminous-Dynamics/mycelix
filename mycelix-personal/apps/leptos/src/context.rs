@@ -1,14 +1,15 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Personal context.
+//! Personal frontend context.
 //!
-//! This scaffold keeps the data boundary explicit: the current Personal zomes
-//! largely return raw Holochain `Record` values rather than dedicated
-//! frontend-facing views. The app therefore renders stable typed mock data now
-//! and centralizes future live adapters here.
+//! Runtime provenance is explicit: Demo owns illustrative fixture data; Live
+//! starts empty and only publishes values returned by typed conductor view
+//! endpoints. An authoritative empty result therefore remains empty rather
+//! than preserving demo records.
 
 use leptos::prelude::*;
+use serde::{Deserialize, Serialize};
 use wasm_bindgen_futures::spawn_local;
 
 use mycelix_leptos_core::holochain_provider::{use_holochain, HolochainCtx};
@@ -18,14 +19,14 @@ use personal_leptos_types::{
 };
 
 use crate::mock_data;
-use serde::{Deserialize, Serialize};
+use crate::runtime_mode::PersonalRuntimeMode;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SymbolRegistry {
-    pub hearth_alias: String,  // e.g. "Campfire", "Well", "Plaza"
-    pub mycel_alias: String,   // e.g. "Spark", "Ember", "Leaf"
-    pub genesis_alias: String, // e.g. "The Ignition", "Sun-Rise"
-    pub orientation: String,   // Cultural context description
+    pub hearth_alias: String,
+    pub mycel_alias: String,
+    pub genesis_alias: String,
+    pub orientation: String,
 }
 
 impl Default for SymbolRegistry {
@@ -53,8 +54,44 @@ pub fn use_cultural() -> CulturalContext {
     use_context::<CulturalContext>().expect("CulturalContext not provided")
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PersonalSourceState {
+    Demo,
+    AwaitingLive,
+    LoadingLive,
+    Live,
+    Empty,
+    Degraded,
+    Unavailable,
+}
+
+fn classify_source(successes: usize, failures: usize, present_items: usize) -> PersonalSourceState {
+    if successes == 0 && failures > 0 {
+        PersonalSourceState::Unavailable
+    } else if failures > 0 {
+        PersonalSourceState::Degraded
+    } else if successes == 0 {
+        PersonalSourceState::AwaitingLive
+    } else if present_items == 0 {
+        PersonalSourceState::Empty
+    } else {
+        PersonalSourceState::Live
+    }
+}
+
+fn blank_profile() -> ProfileView {
+    ProfileView {
+        display_name: String::new(),
+        avatar: None,
+        bio: None,
+        metadata: Default::default(),
+        updated_at: 0,
+    }
+}
+
 #[derive(Clone)]
 pub struct PersonalCtx {
+    pub runtime_mode: PersonalRuntimeMode,
     pub profile: RwSignal<ProfileView>,
     pub draft_profile: RwSignal<ProfileView>,
     pub keys: RwSignal<Vec<MasterKeyView>>,
@@ -65,213 +102,306 @@ pub struct PersonalCtx {
     pub preference_log: RwSignal<Vec<PreferenceChangeLogView>>,
     pub health_record_count: RwSignal<usize>,
     pub activity: RwSignal<Vec<ActivityItemView>>,
+    pub identity_state: RwSignal<PersonalSourceState>,
+    pub wallet_state: RwSignal<PersonalSourceState>,
+    pub health_state: RwSignal<PersonalSourceState>,
+    pub preferences_state: RwSignal<PersonalSourceState>,
+    pub activity_state: RwSignal<PersonalSourceState>,
     pub loading: RwSignal<bool>,
-    pub live_sync_ready: RwSignal<bool>,
     pub status_note: RwSignal<String>,
 }
 
-pub fn provide_personal_context() {
-    let profile = mock_data::mock_profile();
+impl PersonalCtx {
+    pub fn source_states(&self) -> [PersonalSourceState; 5] {
+        [
+            self.identity_state.get(),
+            self.wallet_state.get(),
+            self.health_state.get(),
+            self.preferences_state.get(),
+            self.activity_state.get(),
+        ]
+    }
+
+    fn source_states_untracked(&self) -> [PersonalSourceState; 5] {
+        [
+            self.identity_state.get_untracked(),
+            self.wallet_state.get_untracked(),
+            self.health_state.get_untracked(),
+            self.preferences_state.get_untracked(),
+            self.activity_state.get_untracked(),
+        ]
+    }
+}
+
+pub fn provide_personal_context(runtime_mode: PersonalRuntimeMode) {
+    let source_state = if runtime_mode.is_demo() {
+        PersonalSourceState::Demo
+    } else {
+        PersonalSourceState::AwaitingLive
+    };
+
+    let profile = if runtime_mode.is_demo() {
+        mock_data::mock_profile()
+    } else {
+        blank_profile()
+    };
+
     let ctx = PersonalCtx {
+        runtime_mode,
         draft_profile: RwSignal::new(profile.clone()),
         profile: RwSignal::new(profile),
-        keys: RwSignal::new(mock_data::mock_keys()),
-        credentials: RwSignal::new(mock_data::mock_credentials()),
-        biometrics: RwSignal::new(mock_data::mock_biometrics()),
-        consents: RwSignal::new(mock_data::mock_consents()),
-        preferences: RwSignal::new(mock_data::mock_preferences()),
-        preference_log: RwSignal::new(mock_data::mock_preference_log()),
-        health_record_count: RwSignal::new(mock_data::mock_health_records()),
-        activity: RwSignal::new(mock_data::mock_activity()),
-        loading: RwSignal::new(true),
-        live_sync_ready: RwSignal::new(false),
-        status_note: RwSignal::new(
-            "Using stable local vault models while Personal zome view adapters are still being standardized.".into(),
-        ),
+        keys: RwSignal::new(if runtime_mode.is_demo() {
+            mock_data::mock_keys()
+        } else {
+            Vec::new()
+        }),
+        credentials: RwSignal::new(if runtime_mode.is_demo() {
+            mock_data::mock_credentials()
+        } else {
+            Vec::new()
+        }),
+        biometrics: RwSignal::new(if runtime_mode.is_demo() {
+            mock_data::mock_biometrics()
+        } else {
+            Vec::new()
+        }),
+        consents: RwSignal::new(if runtime_mode.is_demo() {
+            mock_data::mock_consents()
+        } else {
+            Vec::new()
+        }),
+        preferences: RwSignal::new(if runtime_mode.is_demo() {
+            mock_data::mock_preferences()
+        } else {
+            Vec::new()
+        }),
+        preference_log: RwSignal::new(if runtime_mode.is_demo() {
+            mock_data::mock_preference_log()
+        } else {
+            Vec::new()
+        }),
+        health_record_count: RwSignal::new(if runtime_mode.is_demo() {
+            mock_data::mock_health_records()
+        } else {
+            0
+        }),
+        activity: RwSignal::new(if runtime_mode.is_demo() {
+            mock_data::mock_activity()
+        } else {
+            Vec::new()
+        }),
+        identity_state: RwSignal::new(source_state),
+        wallet_state: RwSignal::new(source_state),
+        health_state: RwSignal::new(source_state),
+        preferences_state: RwSignal::new(source_state),
+        activity_state: RwSignal::new(source_state),
+        loading: RwSignal::new(false),
+        status_note: RwSignal::new(if runtime_mode.is_demo() {
+            "Explicit Demo mode. Personal records shown here are illustrative and are not conductor-backed evidence."
+                .into()
+        } else {
+            "Live mode. Waiting for an authenticated conductor and authorized zome-call signer; no demo records are substituted."
+                .into()
+        }),
     };
 
     provide_context(ctx.clone());
 
-    spawn_local(async move {
-        gloo_timers::future::sleep(std::time::Duration::from_millis(300)).await;
-        let hc = use_holochain();
+    if runtime_mode.is_demo() {
+        return;
+    }
 
-        if hc.is_mock() {
-            ctx.status_note.set(
-                "Running in mock mode. The vault shell is ready; conductor-backed Personal adapters come next."
-                    .into(),
-            );
-        } else {
-            let mut loaded_any = false;
+    let hc = use_holochain();
+    let hydration_started = RwSignal::new(false);
+    let ctx_for_effect = ctx.clone();
 
-            if let Ok(Some(profile)) = hc
-                .call_zome_default::<(), Option<ProfileView>>(
-                    "identity_vault",
-                    "get_my_profile_view",
-                    &(),
-                )
-                .await
-            {
-                ctx.profile.set(profile.clone());
-                ctx.draft_profile.set(profile);
-                loaded_any = true;
-            }
-
-            if let Ok(keys) = hc
-                .call_zome_default::<(), Vec<MasterKeyView>>(
-                    "identity_vault",
-                    "get_my_keys_view",
-                    &(),
-                )
-                .await
-            {
-                if !keys.is_empty() {
-                    ctx.keys.set(keys);
-                    loaded_any = true;
-                }
-            }
-
-            if let Ok(credentials) = hc
-                .call_zome_default::<(), Vec<StoredCredentialView>>(
-                    "credential_wallet",
-                    "get_my_credentials_view",
-                    &(),
-                )
-                .await
-            {
-                if !credentials.is_empty() {
-                    ctx.credentials.set(credentials);
-                    loaded_any = true;
-                }
-            }
-
-            if let Ok(biometrics) = hc
-                .call_zome_default::<(), Vec<BiometricView>>(
-                    "health_vault",
-                    "get_my_biometrics_view",
-                    &(),
-                )
-                .await
-            {
-                if !biometrics.is_empty() {
-                    ctx.biometrics.set(biometrics);
-                    loaded_any = true;
-                }
-            }
-
-            if let Ok(consents) = hc
-                .call_zome_default::<(), Vec<ConsentGrantView>>(
-                    "health_vault",
-                    "get_my_consents_view",
-                    &(),
-                )
-                .await
-            {
-                if !consents.is_empty() {
-                    ctx.consents.set(consents);
-                    loaded_any = true;
-                }
-            }
-
-            if let Ok(preferences) = hc
-                .call_zome_default::<(), Vec<DataSharingPreferenceView>>(
-                    "data_preferences",
-                    "get_my_preferences_view",
-                    &(),
-                )
-                .await
-            {
-                if !preferences.is_empty() {
-                    ctx.preferences.set(preferences);
-                    loaded_any = true;
-                }
-            }
-
-            if let Ok(log) = hc
-                .call_zome_default::<(), Vec<PreferenceChangeLogView>>(
-                    "data_preferences",
-                    "get_change_log_view",
-                    &(),
-                )
-                .await
-            {
-                if !log.is_empty() {
-                    ctx.preference_log.set(log);
-                    loaded_any = true;
-                }
-            }
-
-            if let Ok(records) = hc
-                .call_zome_default::<(), Vec<HealthRecordView>>(
-                    "health_vault",
-                    "get_my_records_view",
-                    &(),
-                )
-                .await
-            {
-                if !records.is_empty() {
-                    ctx.health_record_count.set(records.len());
-                    loaded_any = true;
-                }
-            }
-
-            if let Ok(activity) = hc
-                .call_zome_default::<(), Vec<ActivityItemView>>(
-                    "personal_bridge",
-                    "get_recent_activity_view",
-                    &(),
-                )
-                .await
-            {
-                if !activity.is_empty() {
-                    ctx.activity.set(activity);
-                    loaded_any = true;
-                }
-            }
-
-            if loaded_any {
-                ctx.live_sync_ready.set(true);
-                ctx.status_note.set(
-                    "Connected to a live conductor. Personal profile, wallet, and health summary are now loading through typed view endpoints."
-                        .into(),
-                );
-            } else {
-                ctx.status_note.set(
-                    "Connected to a live conductor, but Personal view endpoints returned no records yet. The vault shell remains available."
-                        .into(),
-                );
-            }
+    Effect::new(move |_| {
+        if !hc.zome_calls_ready() || hydration_started.get() {
+            return;
         }
 
-        ctx.loading.set(false);
+        hydration_started.set(true);
+        ctx_for_effect.loading.set(true);
+        set_all_source_states(&ctx_for_effect, PersonalSourceState::LoadingLive);
+
+        let ctx = ctx_for_effect.clone();
+        let hc = hc.clone();
+        spawn_local(async move {
+            hydrate_live(ctx, hc).await;
+        });
     });
 }
 
-pub fn use_personal() -> PersonalCtx {
-    expect_context::<PersonalCtx>()
+fn set_all_source_states(ctx: &PersonalCtx, state: PersonalSourceState) {
+    ctx.identity_state.set(state);
+    ctx.wallet_state.set(state);
+    ctx.health_state.set(state);
+    ctx.preferences_state.set(state);
+    ctx.activity_state.set(state);
 }
 
-pub async fn refresh_identity_state(ctx: PersonalCtx, hc: HolochainCtx) {
-    if let Ok(Some(profile)) = hc
-        .call_zome_default::<(), Option<ProfileView>>("identity_vault", "get_my_profile_view", &())
+async fn hydrate_live(ctx: PersonalCtx, hc: HolochainCtx) {
+    load_identity_source(&ctx, &hc).await;
+    load_wallet_source(&ctx, &hc).await;
+    load_health_source(&ctx, &hc).await;
+    load_preferences_source(&ctx, &hc).await;
+    load_activity_source(&ctx, &hc).await;
+
+    ctx.loading.set(false);
+    let states = ctx.source_states_untracked();
+
+    if states.iter().any(|state| {
+        matches!(
+            state,
+            PersonalSourceState::Degraded | PersonalSourceState::Unavailable
+        )
+    }) {
+        ctx.status_note.set(
+            "Live conductor reached, but one or more Personal sources could not be established. Unavailable sources remain explicit; demo records are not substituted."
+                .into(),
+        );
+    } else if states
+        .iter()
+        .all(|state| *state == PersonalSourceState::Empty)
+    {
+        ctx.status_note.set(
+            "Live conductor returned no Personal records. This empty state is authoritative for the completed view queries."
+                .into(),
+        );
+    } else {
+        ctx.status_note.set(
+            "Live Personal state loaded from typed conductor view endpoints. Empty source results remain empty and are not replaced with fixtures."
+                .into(),
+        );
+    }
+}
+
+async fn load_identity_source(ctx: &PersonalCtx, hc: &HolochainCtx) {
+    let mut successes = 0;
+    let mut failures = 0;
+    let mut present_items = 0;
+
+    match hc
+        .call_zome_default::<(), Option<ProfileView>>(
+            "identity_vault",
+            "get_my_profile_view",
+            &(),
+        )
         .await
     {
-        ctx.profile.set(profile.clone());
-        ctx.draft_profile.set(profile);
+        Ok(profile) => {
+            successes += 1;
+            if profile.is_some() {
+                present_items += 1;
+            }
+            let profile = profile.unwrap_or_else(blank_profile);
+            ctx.profile.set(profile.clone());
+            ctx.draft_profile.set(profile);
+        }
+        Err(_) => failures += 1,
     }
 
-    if let Ok(keys) = hc
-        .call_zome_default::<(), Vec<MasterKeyView>>("identity_vault", "get_my_keys_view", &())
+    match hc
+        .call_zome_default::<(), Vec<MasterKeyView>>(
+            "identity_vault",
+            "get_my_keys_view",
+            &(),
+        )
         .await
     {
-        if !keys.is_empty() {
+        Ok(keys) => {
+            successes += 1;
+            present_items += keys.len();
             ctx.keys.set(keys);
         }
+        Err(_) => failures += 1,
+    }
+
+    ctx.identity_state
+        .set(classify_source(successes, failures, present_items));
+}
+
+async fn load_wallet_source(ctx: &PersonalCtx, hc: &HolochainCtx) {
+    match hc
+        .call_zome_default::<(), Vec<StoredCredentialView>>(
+            "credential_wallet",
+            "get_my_credentials_view",
+            &(),
+        )
+        .await
+    {
+        Ok(credentials) => {
+            let count = credentials.len();
+            ctx.credentials.set(credentials);
+            ctx.wallet_state.set(classify_source(1, 0, count));
+        }
+        Err(_) => ctx.wallet_state.set(PersonalSourceState::Unavailable),
     }
 }
 
-pub async fn refresh_preferences_state(ctx: PersonalCtx, hc: HolochainCtx) {
-    if let Ok(preferences) = hc
+async fn load_health_source(ctx: &PersonalCtx, hc: &HolochainCtx) {
+    let mut successes = 0;
+    let mut failures = 0;
+    let mut present_items = 0;
+
+    match hc
+        .call_zome_default::<(), Vec<BiometricView>>(
+            "health_vault",
+            "get_my_biometrics_view",
+            &(),
+        )
+        .await
+    {
+        Ok(biometrics) => {
+            successes += 1;
+            present_items += biometrics.len();
+            ctx.biometrics.set(biometrics);
+        }
+        Err(_) => failures += 1,
+    }
+
+    match hc
+        .call_zome_default::<(), Vec<ConsentGrantView>>(
+            "health_vault",
+            "get_my_consents_view",
+            &(),
+        )
+        .await
+    {
+        Ok(consents) => {
+            successes += 1;
+            present_items += consents.len();
+            ctx.consents.set(consents);
+        }
+        Err(_) => failures += 1,
+    }
+
+    match hc
+        .call_zome_default::<(), Vec<HealthRecordView>>(
+            "health_vault",
+            "get_my_records_view",
+            &(),
+        )
+        .await
+    {
+        Ok(records) => {
+            successes += 1;
+            present_items += records.len();
+            ctx.health_record_count.set(records.len());
+        }
+        Err(_) => failures += 1,
+    }
+
+    ctx.health_state
+        .set(classify_source(successes, failures, present_items));
+}
+
+async fn load_preferences_source(ctx: &PersonalCtx, hc: &HolochainCtx) {
+    let mut successes = 0;
+    let mut failures = 0;
+    let mut present_items = 0;
+
+    match hc
         .call_zome_default::<(), Vec<DataSharingPreferenceView>>(
             "data_preferences",
             "get_my_preferences_view",
@@ -279,12 +409,15 @@ pub async fn refresh_preferences_state(ctx: PersonalCtx, hc: HolochainCtx) {
         )
         .await
     {
-        if !preferences.is_empty() {
+        Ok(preferences) => {
+            successes += 1;
+            present_items += preferences.len();
             ctx.preferences.set(preferences);
         }
+        Err(_) => failures += 1,
     }
 
-    if let Ok(log) = hc
+    match hc
         .call_zome_default::<(), Vec<PreferenceChangeLogView>>(
             "data_preferences",
             "get_change_log_view",
@@ -292,37 +425,80 @@ pub async fn refresh_preferences_state(ctx: PersonalCtx, hc: HolochainCtx) {
         )
         .await
     {
-        if !log.is_empty() {
+        Ok(log) => {
+            successes += 1;
+            present_items += log.len();
             ctx.preference_log.set(log);
         }
+        Err(_) => failures += 1,
+    }
+
+    ctx.preferences_state
+        .set(classify_source(successes, failures, present_items));
+}
+
+async fn load_activity_source(ctx: &PersonalCtx, hc: &HolochainCtx) {
+    match hc
+        .call_zome_default::<(), Vec<ActivityItemView>>(
+            "personal_bridge",
+            "get_recent_activity_view",
+            &(),
+        )
+        .await
+    {
+        Ok(activity) => {
+            let count = activity.len();
+            ctx.activity.set(activity);
+            ctx.activity_state.set(classify_source(1, 0, count));
+        }
+        Err(_) => ctx.activity_state.set(PersonalSourceState::Unavailable),
     }
 }
 
+pub fn use_personal() -> PersonalCtx {
+    expect_context::<PersonalCtx>()
+}
+
+pub async fn refresh_identity_state(ctx: PersonalCtx, hc: HolochainCtx) {
+    ctx.identity_state.set(PersonalSourceState::LoadingLive);
+    load_identity_source(&ctx, &hc).await;
+}
+
+pub async fn refresh_preferences_state(ctx: PersonalCtx, hc: HolochainCtx) {
+    ctx.preferences_state
+        .set(PersonalSourceState::LoadingLive);
+    load_preferences_source(&ctx, &hc).await;
+}
+
 pub async fn refresh_health_state(ctx: PersonalCtx, hc: HolochainCtx) {
-    if let Ok(biometrics) = hc
-        .call_zome_default::<(), Vec<BiometricView>>("health_vault", "get_my_biometrics_view", &())
-        .await
-    {
-        if !biometrics.is_empty() {
-            ctx.biometrics.set(biometrics);
-        }
+    ctx.health_state.set(PersonalSourceState::LoadingLive);
+    load_health_source(&ctx, &hc).await;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn complete_empty_source_is_empty_not_unavailable() {
+        assert_eq!(classify_source(2, 0, 0), PersonalSourceState::Empty);
     }
 
-    if let Ok(consents) = hc
-        .call_zome_default::<(), Vec<ConsentGrantView>>("health_vault", "get_my_consents_view", &())
-        .await
-    {
-        if !consents.is_empty() {
-            ctx.consents.set(consents);
-        }
+    #[test]
+    fn partial_failure_is_degraded_even_with_data() {
+        assert_eq!(classify_source(1, 1, 4), PersonalSourceState::Degraded);
     }
 
-    if let Ok(records) = hc
-        .call_zome_default::<(), Vec<HealthRecordView>>("health_vault", "get_my_records_view", &())
-        .await
-    {
-        if !records.is_empty() {
-            ctx.health_record_count.set(records.len());
-        }
+    #[test]
+    fn total_failure_is_unavailable() {
+        assert_eq!(
+            classify_source(0, 2, 0),
+            PersonalSourceState::Unavailable
+        );
+    }
+
+    #[test]
+    fn successful_nonempty_source_is_live() {
+        assert_eq!(classify_source(2, 0, 3), PersonalSourceState::Live);
     }
 }
