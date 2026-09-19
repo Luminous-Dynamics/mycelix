@@ -1,0 +1,109 @@
+# ASSURE-V1 normative failure-code registry.
+# Codes are stable and append-only. Human-readable messages are non-normative.
+
+version = 1
+
+[[failure]]
+id = 1
+code = "D001_MALFORMED_ENCODING"
+stage = "decode"
+
+[[failure]]
+id = 2
+code = "D002_NON_CANONICAL_ENCODING"
+stage = "decode"
+
+[[failure]]
+id = 3
+code = "D003_UNSUPPORTED_SCHEMA"
+stage = "decode"
+
+[[failure]]
+id = 4
+code = "D004_RESOURCE_LIMIT_EXCEEDED"
+stage = "decode"
+
+[[failure]]
+id = 5
+code = "D005_FORBIDDEN_VALUE_KIND"
+stage = "decode"
+
+[[failure]]
+id = 6
+code = "D006_INVALID_MAP_KEY"
+stage = "decode"
+
+[[failure]]
+id = 7
+code = "D007_DUPLICATE_MAP_KEY"
+stage = "decode"
+
+[[failure]]
+id = 1001
+code = "S001_DUPLICATE_ID"
+stage = "structure"
+
+[[failure]]
+id = 1002
+code = "S002_DANGLING_REFERENCE"
+stage = "structure"
+
+[[failure]]
+id = 1003
+code = "S003_SUPPORT_CYCLE"
+stage = "structure"
+
+[[failure]]
+id = 1004
+code = "S004_SELF_SUPPORT"
+stage = "structure"
+
+[[failure]]
+id = 1005
+code = "S005_INVALID_INTERVAL"
+stage = "structure"
+
+[[failure]]
+id = 1006
+code = "S006_BROKEN_EPOCH_CHAIN"
+stage = "structure"
+
+[[failure]]
+id = 1007
+code = "S007_AUTHORITY_FORK"
+stage = "structure"
+
+[[failure]]
+id = 2001
+code = "A001_ADAPTER_CAPABILITY_EXCEEDED"
+stage = "admission"
+
+[[failure]]
+id = 2002
+code = "A002_EVIDENCE_CAPABILITY_EXCEEDED"
+stage = "admission"
+
+[[failure]]
+id = 2003
+code = "A003_PRIVILEGE_AMPLIFICATION"
+stage = "admission"
+
+[[failure]]
+id = 2004
+code = "A004_AUTHORITY_SMUGGLING"
+stage = "admission"
+
+[[failure]]
+id = 2005
+code = "A005_UNKNOWN_SEMANTIC_DEFAULT"
+stage = "admission"
+
+[[failure]]
+id = 2006
+code = "A006_UNSAFE_MIGRATION"
+stage = "admission"
+
+[[failure]]
+id = 2007
+code = "A007_AUTHORITY_RESURRECTION"
+stage = "admission"
