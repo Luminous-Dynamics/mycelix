@@ -1,0 +1,110 @@
+{
+  "authority": "PrequalificationToolingOnly",
+  "claim_ceiling": "NoQualificationAuthority",
+  "coordinator_dependencies": [
+    {"dependencies": ["proposals_integrity"], "manifest_name": "proposals"},
+    {"dependencies": ["voting_integrity", "proposals_integrity"], "manifest_name": "voting"},
+    {"dependencies": ["execution_integrity", "proposals_integrity"], "manifest_name": "execution"},
+    {"dependencies": ["constitution_integrity"], "manifest_name": "constitution"},
+    {"dependencies": ["governance_bridge_integrity", "proposals_integrity", "voting_integrity"], "manifest_name": "governance_bridge"},
+    {"dependencies": ["threshold_signing_integrity", "voting_integrity"], "manifest_name": "threshold_signing"},
+    {"dependencies": ["councils_integrity", "proposals_integrity"], "manifest_name": "councils"},
+    {"dependencies": ["jurisdiction_integrity"], "manifest_name": "jurisdiction"},
+    {"dependencies": ["budgeting_integrity", "governance_bridge_integrity"], "manifest_name": "budgeting"}
+  ],
+  "explicitly_unqualified": [
+    "HolochainZomeIdentityCensusBound",
+    "BuiltHolochainArtifactBound",
+    "InstalledHolochainIdentityBound",
+    "RuntimeProcessAssociationBound",
+    "AuthorizedDeploymentCurrentness",
+    "FleetDeploymentCurrentness",
+    "DeploymentSafety"
+  ],
+  "golden_vectors": [
+    {
+      "core32_hex": "0e5751c026e543b2e8ab2eb06099daa1d1e5df47778f7787faab45cdf12fe3a8",
+      "display": "uhCokDldRwCblQ7Loqy6wYJnaodHl30d3j3eH-qtFzfEv46jxLgHc",
+      "input_hex": "",
+      "loc4_hex": "f12e01dc",
+      "name": "empty",
+      "raw39_hex": "842a240e5751c026e543b2e8ab2eb06099daa1d1e5df47778f7787faab45cdf12fe3a8f12e01dc"
+    },
+    {
+      "core32_hex": "f6a5dbf080e9c9d7834145653bce4c8cded62e664d7ddcdb5c526f5877006d74",
+      "display": "uhCok9qXb8IDpydeDQUVlO85MjN7WLmZNfdzbXFJvWHcAbXS0NX0i",
+      "input_hex": "0061736d01000000",
+      "loc4_hex": "b4357d22",
+      "name": "minimal_wasm_header",
+      "raw39_hex": "842a24f6a5dbf080e9c9d7834145653bce4c8cded62e664d7ddcdb5c526f5877006d74b4357d22"
+    }
+  ],
+  "grants_d1b_claim": false,
+  "grants_product_qualification": false,
+  "identity_layers": {
+    "CoordinatorCodeIdentityV1": "ordered coordinator manifest names + WasmHash raw39 + dependency edges",
+    "DnaDisplayMetadataV1": "friendly DNA name; display metadata only",
+    "DnaHashIdentityV1": "modifiers + ordered integrity zome definitions under pinned Holochain hashing"
+  },
+  "independent_oracle": {
+    "content": "exact_raw_wasm_bytes",
+    "core_hash": "BLAKE2b-256",
+    "display": "u + URL_SAFE_BASE64_NO_PAD(raw39)",
+    "implementation": "python-stdlib-v1",
+    "location_fold": "loc[i]=h16[i]^h16[i+4]^h16[i+8]^h16[i+12] for i=0..3",
+    "location_hash": "BLAKE2b-128(core32)",
+    "primary_authority_representation": "raw39_hex",
+    "raw_length_bytes": 39,
+    "shared_holochain_hash_crate_dependency": false,
+    "type_prefix_hex": "842a24"
+  },
+  "negative_controls": [
+    "single_wasm_byte_flip_changes_only_corresponding_wasmhash",
+    "same_manifest_name_different_bytes_rejected",
+    "zome_order_change_detected",
+    "dependency_edge_change_detected",
+    "coordinator_wasmhash_change_can_leave_dnahash_unchanged_but_changes_coordinator_identity",
+    "friendly_name_change_can_leave_dnahash_unchanged_and_remains_display_metadata",
+    "oracle_profile_or_source_commit_drift_requires_requalification"
+  ],
+  "pinned_holochain": {
+    "commit": "a6d4e805a0971ccbc0dcb3f3ed6a9e2fac980a3b",
+    "dna_wasm_source_git_blob_sha1": "8678f5e3b093921ce2c4acd0bcaca375f8c6691e",
+    "dna_wasm_source_path": "crates/holochain_types/src/dna/wasm.rs",
+    "repository": "holochain/holochain",
+    "source_observation": "DnaWasm hashable content is its exact code bytes"
+  },
+  "required_future_input": {
+    "d1a_claim": "ReproducibleGovernanceBuildBytesBound",
+    "d1a_corpus_commitment": null,
+    "d1a_exact_head": null,
+    "d1a_run_id": null,
+    "state": "UNBOUND_UNTIL_D1A_EXACT_HEAD_PASS"
+  },
+  "required_future_oracle_agreement": {
+    "independent": "this stdlib oracle over exact same D1A bytes",
+    "native": "pinned Holochain WasmHash derivation over exact D1A bytes",
+    "require_all_18_raw39_equal": true
+  },
+  "schema": "ig-007d1b-wasmhash-oracle-profile-v1",
+  "semantic_census": [
+    {"artifact_filename": "proposals_integrity.wasm", "class": "Integrity", "manifest_name": "proposals_integrity", "ordinal": 1},
+    {"artifact_filename": "voting_integrity.wasm", "class": "Integrity", "manifest_name": "voting_integrity", "ordinal": 2},
+    {"artifact_filename": "execution_integrity.wasm", "class": "Integrity", "manifest_name": "execution_integrity", "ordinal": 3},
+    {"artifact_filename": "constitution_integrity.wasm", "class": "Integrity", "manifest_name": "constitution_integrity", "ordinal": 4},
+    {"artifact_filename": "governance_bridge_integrity.wasm", "class": "Integrity", "manifest_name": "governance_bridge_integrity", "ordinal": 5},
+    {"artifact_filename": "threshold_signing_integrity.wasm", "class": "Integrity", "manifest_name": "threshold_signing_integrity", "ordinal": 6},
+    {"artifact_filename": "councils_integrity.wasm", "class": "Integrity", "manifest_name": "councils_integrity", "ordinal": 7},
+    {"artifact_filename": "jurisdiction_integrity.wasm", "class": "Integrity", "manifest_name": "jurisdiction_integrity", "ordinal": 8},
+    {"artifact_filename": "budgeting_integrity.wasm", "class": "Integrity", "manifest_name": "budgeting_integrity", "ordinal": 9},
+    {"artifact_filename": "proposals.wasm", "class": "Coordinator", "manifest_name": "proposals", "ordinal": 10},
+    {"artifact_filename": "voting.wasm", "class": "Coordinator", "manifest_name": "voting", "ordinal": 11},
+    {"artifact_filename": "execution.wasm", "class": "Coordinator", "manifest_name": "execution", "ordinal": 12},
+    {"artifact_filename": "constitution.wasm", "class": "Coordinator", "manifest_name": "constitution", "ordinal": 13},
+    {"artifact_filename": "governance_bridge.wasm", "class": "Coordinator", "manifest_name": "governance_bridge", "ordinal": 14},
+    {"artifact_filename": "threshold_signing_coordinator.wasm", "class": "Coordinator", "manifest_name": "threshold_signing", "ordinal": 15},
+    {"artifact_filename": "councils.wasm", "class": "Coordinator", "manifest_name": "councils", "ordinal": 16},
+    {"artifact_filename": "jurisdiction.wasm", "class": "Coordinator", "manifest_name": "jurisdiction", "ordinal": 17},
+    {"artifact_filename": "budgeting.wasm", "class": "Coordinator", "manifest_name": "budgeting", "ordinal": 18}
+  ]
+}
