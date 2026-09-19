@@ -1,0 +1,139 @@
+{
+  "schema": "mycelix.constitutional-refinement-crosswalk.v2",
+  "crosswalk_id": "mycelix.constitutional-refinement-evidence.v2",
+  "version": "0.2.0",
+  "status": "draft",
+  "parent_crosswalk": {
+    "semantic_head": "4edb56bd3c36ddc6277e2de5e0584a65e8c99b3c",
+    "verifier_head": "651eb0c05fa70012b7eebc4e1497cb7cacf7c641",
+    "qualification_run_id": 35319268716,
+    "artifact_digest": "sha256:b8bacbf0467e23fe033042691acdeee732f532c5e6774715d26dadaecad415b1",
+    "manifest_path": "mycelix-governance/specs/constitutional-refinement-crosswalk.v1.json",
+    "manifest_git_blob_sha": "35476cb5b2dbacaca659b117e6dfaaacebed818d"
+  },
+  "subjects": [
+    {
+      "id": "MYC-CONST-003B2",
+      "semantic_head": "b19667a0399d46e7a21254e931c3149cfbd994fc",
+      "verifier_head": "aaf1a97546b7cf33802d363f94567481ebeb8217",
+      "qualification_run_id": 35283271597,
+      "artifact_digest": "sha256:a0bc243f4c9efc20c2fd7b5482ad30c880c14ae8782da5c8a6a04ad2bf61a4b4",
+      "evidence_status": "qualified",
+      "mapping_status": "inherited_qualified",
+      "reason": "CR1 already qualified the lifecycle status projection slice for this exact subject."
+    },
+    {
+      "id": "MYC-CONST-003B4",
+      "semantic_head": "037f61c15ff367a1518d98f7acc8ec0fa962c2f6",
+      "verifier_head": "508e81ea93bd49692f54b234e20146dfe101afa3",
+      "qualification_run_id": 35344734164,
+      "artifact_digest": "sha256:d0cf0a406f22cae5d8b7ff9a66a9c3a0610c073e1c84f1cd38d1255367b2c6f2",
+      "evidence_status": "qualified",
+      "mapping_status": "candidate",
+      "reason": "Rust ClaimBinding and Alloy Binding are both frozen on the exact qualified semantic subject; CR2 validates their field-level semantic projection."
+    },
+    {
+      "id": "MYC-CONST-003C3",
+      "semantic_head": "b9bb91353788aeb858c4e52422a87e2401d60a0e",
+      "verifier_head": "18309d680a5d630bbb7f5443ab103ade9239a557",
+      "qualification_run_id": 35314384788,
+      "artifact_digest": "sha256:d26e566503fc1223d879d69ecdb4cf6978fc62664576ed04973067393c8feaab",
+      "evidence_status": "qualified",
+      "mapping_status": "unmapped",
+      "reason": "The bounded quiescence/stall model is qualified, but no concrete Rust/runtime quiescence classifier correspondence has yet been demonstrated."
+    },
+    {
+      "id": "MYC-CONST-003D1A",
+      "semantic_head": "15b9c89adf0ac3c6c5a73681614d6bfcd368820a",
+      "verifier_head": "70fbe906834fdef1ba69a80066dbbbaef200156f",
+      "qualification_run_id": 35320314578,
+      "artifact_digest": "sha256:ce9d7176bd1040ef552fa587e44ae8801a13b0363c0013d5428e5f95ff60430c",
+      "evidence_status": "qualified",
+      "mapping_status": "unmapped",
+      "reason": "The abstract crash-consistent outbox model is qualified; the audited execution coordinator is not yet demonstrated to refine it."
+    }
+  ],
+  "inherited_relationships": {
+    "source_subject_id": "MYC-CONST-003B2",
+    "source_crosswalk_semantic_head": "4edb56bd3c36ddc6277e2de5e0584a65e8c99b3c",
+    "relationship_ids": [
+      "lifecycle.absent",
+      "lifecycle.pending",
+      "lifecycle.blocked",
+      "lifecycle.finalized",
+      "lifecycle.rejected",
+      "lifecycle.revoked_closed",
+      "lifecycle.halted"
+    ]
+  },
+  "relationships": [
+    {
+      "id": "claim-binding.semantic-fields",
+      "subject_id": "MYC-CONST-003B4",
+      "mapping_status": "candidate",
+      "kind": "projection",
+      "concrete": {
+        "semantic_head": "037f61c15ff367a1518d98f7acc8ec0fa962c2f6",
+        "path": "mycelix-governance/crates/constitutional-consumption/src/binding.rs",
+        "git_blob_sha": "f61e327cac047824b5d561b2d865e863389dcaa6",
+        "symbol": "ClaimBinding",
+        "metadata_fields": ["schema_version"]
+      },
+      "formal": {
+        "semantic_head": "037f61c15ff367a1518d98f7acc8ec0fa962c2f6",
+        "path": "mycelix-governance/specs/ConstitutionalClaimBinding.als",
+        "git_blob_sha": "1299bef40967802dc5e6efdb26a62e2768243782",
+        "symbol": "Binding"
+      },
+      "field_map": [
+        {"concrete": "claim_id", "formal": "claimId"},
+        {"concrete": "envelope_digest", "formal": "envelope"},
+        {"concrete": "nonce", "formal": "nonce"},
+        {"concrete": "use_index", "formal": "useIndex"},
+        {"concrete": "jurisdiction", "formal": "jurisdiction"},
+        {"concrete": "matter", "formal": "matter"},
+        {"concrete": "target_digest", "formal": "target"},
+        {"concrete": "payload_digest", "formal": "payload"},
+        {"concrete": "budget_id", "formal": "budget"}
+      ],
+      "rationale": "ClaimBinding schema_version is serialization/profile metadata; the remaining nine semantic Rust fields project one-for-one to the Alloy Binding relation. The CR2 validator independently parses both exact Git objects and requires complete, duplicate-free censuses."
+    }
+  ],
+  "pending_subjects": [
+    {
+      "id": "MYC-CONST-003D1C",
+      "semantic_head": "47d1d764323dbfaf991b5574cfde83abb7a3e4a4",
+      "verifier_head": "c4397f4bc9d6e016feba84d89de9f31298b55ba8",
+      "qualification_run_id": 35349600389,
+      "status": "queued",
+      "reason": "Effect-ledger hosted qualification has not completed."
+    },
+    {
+      "id": "MYC-CONST-003D1D-E0",
+      "semantic_head": "36a4fcffb6ca806570ebf439f9c36cf76401e7b2",
+      "verifier_head": "55c9e1d57d4cbfaa807dadefe7d1cac4f261a2e2",
+      "qualification_run_id": 35357940683,
+      "status": "queued",
+      "reason": "Durable-event contract hosted qualification has not completed."
+    },
+    {
+      "id": "MYC-CONST-003D1D-E1A",
+      "semantic_head": "249753017c3781f7a3259061aae16d7e0075e984",
+      "verifier_head": "ebe85798557a04c75d0bb9ce6c02349576e12b4f",
+      "qualification_run_id": 35360097507,
+      "status": "queued",
+      "reason": "Event-admission crosswalk hosted qualification has not completed."
+    }
+  ],
+  "non_claims": [
+    "not_whole_program_refinement",
+    "not_c3_concrete_refinement",
+    "not_d1a_runtime_refinement",
+    "not_d1c_qualified",
+    "not_event_persistence_qualified",
+    "not_runtime_crash_consistency_refinement",
+    "not_holochain_persistence",
+    "not_deployment_currentness_qualified",
+    "not_qualified"
+  ]
+}
