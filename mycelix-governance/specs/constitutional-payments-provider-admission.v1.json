@@ -1,0 +1,93 @@
+{
+  "schema": "mycelix.constitutional-payments-provider-admission.v1",
+  "profile_id": "mycelix-payments-provider-admission-f1b2-v1",
+  "authority_class": "PreRegistrationThreatModel",
+  "lineage": {
+    "f1b0_semantic_head": "1d0dc3f07ac29dccba9f33b45aef13380ecdb870",
+    "f1b0_source_blob": "96abe9b514074904c33d7ef85fcdf008e4320932",
+    "f1b1_semantic_head": "c3ab0cad027ad3a3d8da0cb05390f3fb47ca3c08",
+    "f1b1_source_blob": "92aa8dd3205feb20f25c7e6b2cc40291ab63e4ca"
+  },
+  "authority": {
+    "provider_authority_live": false,
+    "reference_qualified_authority_is_serializable": false,
+    "candidate_supplies_expected_authority": false,
+    "author_must_match_expected_provider": true,
+    "provider_profile_commitment_bound": true
+  },
+  "record_admission": {
+    "exact_f1b1_projection_required": true,
+    "genesis_sequence_zero_required": true,
+    "non_genesis_predecessor_required": true,
+    "contiguous_sequence_required": true,
+    "same_slot_exact_duplicate_is_idempotent": true,
+    "same_slot_changed_content_halts": true,
+    "updates_forbidden": true,
+    "deletes_forbidden": true,
+    "post_halt_writes_forbidden": true
+  },
+  "index_admission": {
+    "genesis_must_be_admitted_first": true,
+    "execution_to_operation_to_genesis_binding": true,
+    "exact_duplicate_is_idempotent": true,
+    "conflicting_index_halts": true,
+    "last_write_wins": false,
+    "delete_forbidden": true
+  },
+  "transplant_defenses": {
+    "operation_key_bound": true,
+    "execution_id_bound": true,
+    "request_commitment_bound": true,
+    "receipt_evidence_bound": true,
+    "attempt_horizon_bound": true,
+    "historical_payment_id_is_operation_authority": false
+  },
+  "attacks": [
+    "direct_dht_spoofed_author",
+    "orphan_non_genesis_record",
+    "forged_predecessor",
+    "same_sequence_changed_content",
+    "duplicate_operation_index_race",
+    "conflicting_operation_index_race",
+    "receipt_transplant",
+    "request_transplant",
+    "attempt_horizon_transplant",
+    "record_update",
+    "record_delete",
+    "index_delete",
+    "post_halt_write"
+  ],
+  "activation": {
+    "entry_types_registered": false,
+    "link_types_registered": false,
+    "validate_extern_live": false,
+    "coordinator_extern_live": false,
+    "dht_write_surface_live": false,
+    "payments_zome_modified": false,
+    "dna_modified": false,
+    "provider_query_endpoint_live": false,
+    "capability_minting_live": false,
+    "automatic_replay_live": false,
+    "governance_routing_changed": false
+  },
+  "next_tranche": {
+    "id": "MYC-CONST-003D1D-F1B3",
+    "purpose": "qualified active integrity registration only after F1B0/F1B1/F1B2 evidence and provider-author authority are available",
+    "must_reconstruct_oracle_from_dht_facts": true,
+    "must_not_trust_candidate_supplied_authority": true,
+    "must_keep_payment_id_non_authoritative": true
+  },
+  "non_claims": [
+    "not_holochain_persistent",
+    "not_provider_authority_established",
+    "not_provider_truth_established",
+    "not_payments_zome_wired",
+    "not_replay_qualified",
+    "not_capability_minting_enabled",
+    "not_public_fund_authority_established",
+    "not_exactly_once_physical_settlement",
+    "not_external_finality_established",
+    "not_governance_routing_active",
+    "not_qualified"
+  ]
+}

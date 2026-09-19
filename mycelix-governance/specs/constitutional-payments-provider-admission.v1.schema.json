@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mycelix.constitutional-payments-provider-admission.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema","profile_id","authority_class","lineage","authority","record_admission","index_admission","transplant_defenses","attacks","activation","next_tranche","non_claims"],
+  "properties": {
+    "schema": {"const":"mycelix.constitutional-payments-provider-admission.v1"},
+    "profile_id": {"const":"mycelix-payments-provider-admission-f1b2-v1"},
+    "authority_class": {"const":"PreRegistrationThreatModel"},
+    "lineage": {
+      "type":"object","additionalProperties":false,
+      "required":["f1b0_semantic_head","f1b0_source_blob","f1b1_semantic_head","f1b1_source_blob"],
+      "properties": {
+        "f1b0_semantic_head":{"type":"string","pattern":"^[0-9a-f]{40}$"},
+        "f1b0_source_blob":{"type":"string","pattern":"^[0-9a-f]{40}$"},
+        "f1b1_semantic_head":{"type":"string","pattern":"^[0-9a-f]{40}$"},
+        "f1b1_source_blob":{"type":"string","pattern":"^[0-9a-f]{40}$"}
+      }
+    },
+    "authority": {"$ref":"#/$defs/authority"},
+    "record_admission": {"$ref":"#/$defs/recordAdmission"},
+    "index_admission": {"$ref":"#/$defs/indexAdmission"},
+    "transplant_defenses": {"$ref":"#/$defs/transplants"},
+    "attacks": {"type":"array","uniqueItems":true,"minItems":13,"items":{"type":"string"}},
+    "activation": {"$ref":"#/$defs/activation"},
+    "next_tranche": {"$ref":"#/$defs/nextTranche"},
+    "non_claims": {"type":"array","uniqueItems":true,"minItems":11,"items":{"type":"string"}}
+  },
+  "$defs": {
+    "authority": {
+      "type":"object","additionalProperties":false,
+      "required":["provider_authority_live","reference_qualified_authority_is_serializable","candidate_supplies_expected_authority","author_must_match_expected_provider","provider_profile_commitment_bound"],
+      "properties": {
+        "provider_authority_live":{"const":false},
+        "reference_qualified_authority_is_serializable":{"const":false},
+        "candidate_supplies_expected_authority":{"const":false},
+        "author_must_match_expected_provider":{"const":true},
+        "provider_profile_commitment_bound":{"const":true}
+      }
+    },
+    "recordAdmission": {
+      "type":"object","additionalProperties":false,
+      "required":["exact_f1b1_projection_required","genesis_sequence_zero_required","non_genesis_predecessor_required","contiguous_sequence_required","same_slot_exact_duplicate_is_idempotent","same_slot_changed_content_halts","updates_forbidden","deletes_forbidden","post_halt_writes_forbidden"],
+      "properties": {
+        "exact_f1b1_projection_required":{"const":true},
+        "genesis_sequence_zero_required":{"const":true},
+        "non_genesis_predecessor_required":{"const":true},
+        "contiguous_sequence_required":{"const":true},
+        "same_slot_exact_duplicate_is_idempotent":{"const":true},
+        "same_slot_changed_content_halts":{"const":true},
+        "updates_forbidden":{"const":true},
+        "deletes_forbidden":{"const":true},
+        "post_halt_writes_forbidden":{"const":true}
+      }
+    },
+    "indexAdmission": {
+      "type":"object","additionalProperties":false,
+      "required":["genesis_must_be_admitted_first","execution_to_operation_to_genesis_binding","exact_duplicate_is_idempotent","conflicting_index_halts","last_write_wins","delete_forbidden"],
+      "properties": {
+        "genesis_must_be_admitted_first":{"const":true},
+        "execution_to_operation_to_genesis_binding":{"const":true},
+        "exact_duplicate_is_idempotent":{"const":true},
+        "conflicting_index_halts":{"const":true},
+        "last_write_wins":{"const":false},
+        "delete_forbidden":{"const":true}
+      }
+    },
+    "transplants": {
+      "type":"object","additionalProperties":false,
+      "required":["operation_key_bound","execution_id_bound","request_commitment_bound","receipt_evidence_bound","attempt_horizon_bound","historical_payment_id_is_operation_authority"],
+      "properties": {
+        "operation_key_bound":{"const":true},
+        "execution_id_bound":{"const":true},
+        "request_commitment_bound":{"const":true},
+        "receipt_evidence_bound":{"const":true},
+        "attempt_horizon_bound":{"const":true},
+        "historical_payment_id_is_operation_authority":{"const":false}
+      }
+    },
+    "activation": {
+      "type":"object","additionalProperties":false,
+      "required":["entry_types_registered","link_types_registered","validate_extern_live","coordinator_extern_live","dht_write_surface_live","payments_zome_modified","dna_modified","provider_query_endpoint_live","capability_minting_live","automatic_replay_live","governance_routing_changed"],
+      "properties": {
+        "entry_types_registered":{"const":false},"link_types_registered":{"const":false},"validate_extern_live":{"const":false},"coordinator_extern_live":{"const":false},"dht_write_surface_live":{"const":false},"payments_zome_modified":{"const":false},"dna_modified":{"const":false},"provider_query_endpoint_live":{"const":false},"capability_minting_live":{"const":false},"automatic_replay_live":{"const":false},"governance_routing_changed":{"const":false}
+      }
+    },
+    "nextTranche": {
+      "type":"object","additionalProperties":false,
+      "required":["id","purpose","must_reconstruct_oracle_from_dht_facts","must_not_trust_candidate_supplied_authority","must_keep_payment_id_non_authoritative"],
+      "properties": {
+        "id":{"const":"MYC-CONST-003D1D-F1B3"},
+        "purpose":{"type":"string"},
+        "must_reconstruct_oracle_from_dht_facts":{"const":true},
+        "must_not_trust_candidate_supplied_authority":{"const":true},
+        "must_keep_payment_id_non_authoritative":{"const":true}
+      }
+    }
+  }
+}
