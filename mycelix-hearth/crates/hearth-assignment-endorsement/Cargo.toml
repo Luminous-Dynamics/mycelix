@@ -1,0 +1,11 @@
+[package]
+name = "hearth-assignment-endorsement"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Final transition endorsement contract for Mycelix Hearth household work"
+
+[dependencies]
+serde = { workspace = true }
+hearth-assignment-transition = { workspace = true }
+hearth-work-proposal = { workspace = true }
