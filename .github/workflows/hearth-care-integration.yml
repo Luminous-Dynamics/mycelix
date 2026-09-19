@@ -13,6 +13,7 @@ on:
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_gratitude_rhythms.rs'
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_authority.rs'
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_revocation.rs'
+      - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_transitions_v2.rs'
       - 'mycelix-workspace/mycelix-hearth/dna/**'
       - 'mycelix-workspace/mycelix-hearth/flake.nix'
       - 'mycelix-workspace/mycelix-hearth/flake.lock'
@@ -35,6 +36,7 @@ on:
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_gratitude_rhythms.rs'
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_authority.rs'
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_revocation.rs'
+      - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_transitions_v2.rs'
       - 'mycelix-workspace/mycelix-hearth/dna/**'
       - 'mycelix-workspace/mycelix-hearth/flake.nix'
       - 'mycelix-workspace/mycelix-hearth/flake.lock'
@@ -94,6 +96,7 @@ jobs:
             "$HEARTH_ROOT/tests/sweettest_care_gratitude_rhythms.rs" \
             "$HEARTH_ROOT/tests/sweettest_care_authority.rs" \
             "$HEARTH_ROOT/tests/sweettest_care_revocation.rs" \
+            "$HEARTH_ROOT/tests/sweettest_care_transitions_v2.rs" \
             "$HEARTH_ROOT/zomes/hearth-care/coordinator/Cargo.toml" \
             "$HEARTH_ROOT/zomes/hearth-care-transitions/integrity/Cargo.toml" \
             "$HEARTH_ROOT/zomes/hearth-care-transitions/coordinator/Cargo.toml" \
@@ -175,6 +178,19 @@ jobs:
             cargo test --release \
               --test sweettest_care_revocation \
               departed_member_loses_care_transition_authority \
+              -- --ignored --exact --test-threads=1
+          '
+
+      - name: Run immutable Care v2 transition qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$HEARTH_ROOT"
+          nix develop .#ci --impure --command bash -lc '
+            cd tests
+            cargo test --release \
+              --test sweettest_care_transitions_v2 \
+              immutable_completion_preserves_authority_and_provenance \
               -- --ignored --exact --test-threads=1
           '
 
