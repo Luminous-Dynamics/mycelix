@@ -1,0 +1,162 @@
+name: Mycelix Hearth Care Integration
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-hearth/zomes/hearth-care/**'
+      - 'mycelix-workspace/mycelix-hearth/zomes/hearth-kinship/**'
+      - 'mycelix-workspace/mycelix-hearth/zomes/hearth-bridge/**'
+      - 'mycelix-workspace/mycelix-hearth/crates/hearth-types/**'
+      - 'mycelix-workspace/mycelix-hearth/crates/hearth-coordinator-common/**'
+      - 'mycelix-workspace/mycelix-hearth/tests/Cargo.toml'
+      - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_gratitude_rhythms.rs'
+      - 'mycelix-workspace/mycelix-hearth/dna/**'
+      - 'mycelix-workspace/mycelix-hearth/flake.nix'
+      - 'mycelix-workspace/mycelix-hearth/flake.lock'
+      - 'mycelix-workspace/nix/modules/**'
+      - 'mycelix-workspace/crates/mycelix-bridge-common/**'
+      - 'mycelix-workspace/crates/mycelix-bridge-entry-types/**'
+      - 'mycelix-workspace/crates/mycelix-zkp-core/**'
+      - 'mycelix-workspace/crates/mycelix-zome-helpers/**'
+      - '.github/workflows/hearth-care-integration.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-hearth/zomes/hearth-care/**'
+      - 'mycelix-workspace/mycelix-hearth/zomes/hearth-kinship/**'
+      - 'mycelix-workspace/mycelix-hearth/zomes/hearth-bridge/**'
+      - 'mycelix-workspace/mycelix-hearth/crates/hearth-types/**'
+      - 'mycelix-workspace/mycelix-hearth/crates/hearth-coordinator-common/**'
+      - 'mycelix-workspace/mycelix-hearth/tests/Cargo.toml'
+      - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_gratitude_rhythms.rs'
+      - 'mycelix-workspace/mycelix-hearth/dna/**'
+      - 'mycelix-workspace/mycelix-hearth/flake.nix'
+      - 'mycelix-workspace/mycelix-hearth/flake.lock'
+      - 'mycelix-workspace/nix/modules/**'
+      - 'mycelix-workspace/crates/mycelix-bridge-common/**'
+      - 'mycelix-workspace/crates/mycelix-bridge-entry-types/**'
+      - 'mycelix-workspace/crates/mycelix-zkp-core/**'
+      - 'mycelix-workspace/crates/mycelix-zome-helpers/**'
+      - '.github/workflows/hearth-care-integration.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hearth-care-integration-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  HEARTH_ROOT: mycelix-workspace/mycelix-hearth
+  DNA_BUNDLE: mycelix-workspace/mycelix-hearth/dna/mycelix_hearth.dna
+
+jobs:
+  hearth-care-integration:
+    name: Care SweetConductor
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+          submodules: recursive
+
+      - name: Verify exact subject checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ github.event.pull_request.head.sha || github.sha }}'
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$expected" || {
+            echo "::error::Expected exact subject $expected, got $actual"
+            exit 1
+          }
+
+      - name: Verify Care integration source closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          for required in \
+            "$HEARTH_ROOT/Cargo.toml" \
+            "$HEARTH_ROOT/flake.nix" \
+            "$HEARTH_ROOT/dna/dna.yaml" \
+            "$HEARTH_ROOT/tests/Cargo.toml" \
+            "$HEARTH_ROOT/tests/sweettest_care_gratitude_rhythms.rs" \
+            "$HEARTH_ROOT/zomes/hearth-care/coordinator/Cargo.toml" \
+            "$HEARTH_ROOT/zomes/hearth-kinship/coordinator/Cargo.toml" \
+            "$HEARTH_ROOT/zomes/hearth-bridge/coordinator/Cargo.toml"; do
+            test -f "$required" || {
+              echo "::error file=$required::Required Hearth Care integration source is missing."
+              exit 1
+            }
+          done
+
+      - uses: cachix/install-nix-action@v27
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - uses: cachix/cachix-action@v15
+        with:
+          name: holochain-ci
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          workspaces: |
+            mycelix-workspace/mycelix-hearth
+            mycelix-workspace/mycelix-hearth/tests
+            mycelix-workspace/crates
+
+      - name: Build Hearth zomes for wasm32
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$HEARTH_ROOT"
+          nix develop .#ci --impure --command \
+            cargo build --release --target wasm32-unknown-unknown --workspace
+
+      - name: Pack exact Hearth DNA
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$HEARTH_ROOT"
+          nix develop .#ci --impure --command hc dna pack dna/
+          test -f dna/mycelix_hearth.dna || {
+            echo "::error::hc dna pack did not produce dna/mycelix_hearth.dna"
+            exit 1
+          }
+          sha256sum dna/mycelix_hearth.dna | tee "$RUNNER_TEMP/hearth-care-dna.sha256"
+
+      - name: Run positive Care SweetConductor lifecycle
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$HEARTH_ROOT"
+          nix develop .#ci --impure --command bash -lc '
+            cd tests
+            cargo test --release \
+              --test sweettest_care_gratitude_rhythms \
+              test_care_create_and_complete \
+              -- --ignored --exact --test-threads=1
+          '
+
+      - name: Upload exact integration evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: hearth-care-integration-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            ${{ env.DNA_BUNDLE }}
+            ${{ runner.temp }}/hearth-care-dna.sha256
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Prove tracked source immutability
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
