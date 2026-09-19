@@ -7,6 +7,7 @@ mod ambient_sound;
 mod app;
 mod circadian;
 mod components;
+mod decision_outcomes;
 mod governance_actions;
 pub mod hearth_actions;
 mod hearth_boundary;
