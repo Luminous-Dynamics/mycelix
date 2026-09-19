@@ -1,6 +1,6 @@
 use constitutional_effect_ledger::{
     ActionIntent, CapabilitySnapshot, CompensationCapability, ConstitutionalOperation,
-    OutcomeObservability, ProviderBatchAtomicity, ReplaySafety, EFFECT_LEDGER_SCHEMA_VERSION,
+    EFFECT_LEDGER_SCHEMA_VERSION, OutcomeObservability, ProviderBatchAtomicity, ReplaySafety,
 };
 use constitutional_event_provider::{
     DurableConstitutionalEvent, EventAuthorityBinding, PublishDecision, decide_publish,
