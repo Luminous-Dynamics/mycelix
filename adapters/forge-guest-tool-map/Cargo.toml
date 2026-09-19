@@ -1,0 +1,19 @@
+[package]
+name = "mycelix-forge-guest-tool-map"
+version = "0.1.0"
+edition = "2021"
+authors = ["Luminous Dynamics"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+description = "Exact in-sandbox tool-path binding for Mycelix Forge guest verification"
+
+[dependencies]
+mycelix-forge-core = { path = "../../crates/mycelix-forge-core" }
+mycelix-forge-execution = { path = "../../crates/mycelix-forge-execution" }
+mycelix-forge-guest-plan = { path = "../forge-guest-plan" }
+mycelix-forge-linux-isolation = { path = "../forge-linux-isolation" }
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "2.0"
+
+[dev-dependencies]
+serde_json = "1.0"
