@@ -1,0 +1,441 @@
+name: IG-007D1A Governance Build Reproducibility
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths: ['.github/workflows/ig-007d1a-governance-build-repro.yml']
+
+concurrency:
+  group: ig-007d1a-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  PRODUCT_SHA: ee3582afdf7866d8cf1096cf4996e127d35a8a5e
+  D0P1_SHA: baf052fd0c5c7aade31b3e7dd96fe5c7734cb9d9
+  D0P1_RUN_ID: '35272784387'
+  D0P1_JOB_ID: '105375957519'
+  D0P1_PROFILE_SHA256: d2cd07e94274ba9ce8395ab5213db656cd33aa022005de065f8ca3715c0099bd
+  D0P1_PROFILE_BLOB: 155ece9c75a5c1b129d67f2609f33b41623e62e3
+  D0P1_WORKFLOW_BLOB: f948858787919ce6cd3d72b9fdbb3024b298ed54
+  PREDECESSOR_D1A_V4_SHA: aa441035b890a0c1712b7218f92ac4dcec69a88d
+  PREDECESSOR_D1A_V4_RUN_ID: '35337836947'
+  SUPERSEDED_D1A_V5_SHA: 71d3d16077f072e616301f9a062a00cc5524e085
+  SUPERSEDED_D1A_V5_RUN_ID: '35446091531'
+  SUPERSEDED_D1A_V5_WORKFLOW_BLOB: 9be2f87726079011da6fc57cb31101fc9267afa8
+  SUPERSEDED_D1A_V6_SHA: 3d53143bb9bdfe8d10f344dfe428d5cb1fcfe0e5
+  SUPERSEDED_D1A_V6_WORKFLOW_BLOB: 14c71a3b00622425002ebd8ae634cce061fc5b4b
+  WORKFLOW_PATH: .github/workflows/ig-007d1a-governance-build-repro.yml
+  NIX_INSTALLER_ACTION_SHA: 3138316df39ed29be04236d7ffc686fa525866aa
+  NIX_INSTALLER_RELEASE: v3.22.4
+  NIX_INSTALLER_REV: 2f5c8e53e0caa0857114853ee1d4dc8d07d96dd3
+  NIX_INSTALLER_ASSET_ID: '568614864'
+  NIX_INSTALLER_ASSET_URL: https://github.com/DeterminateSystems/nix-installer/releases/download/v3.22.4/nix-installer-x86_64-linux
+  NIX_INSTALLER_ASSET_SHA256: 0ad36562538bd2c475abfae90bd65709ae79d25896e5c99bf33f5e199ee9994a
+  NIX_INSTALLER_ASSET_SIZE: '75127120'
+  EXPECTED_NIX_VERSION_FRAGMENT: Determinate Nix 3.22.4
+
+jobs:
+  build:
+    if: github.event.pull_request.draft == false
+    name: Independent rebuild ${{ matrix.replica }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: {replica: [a, b]}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {ref: '${{ github.event.pull_request.head.sha }}', path: campaign, fetch-depth: 0, persist-credentials: false}
+
+      - name: Bind campaign topology
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVIDENCE_SHA='${{ github.event.pull_request.head.sha }}'
+          cd campaign
+          test "$(git rev-parse HEAD)" = "$EVIDENCE_SHA"
+          test "$(git rev-parse HEAD^)" = "$PRODUCT_SHA"
+          test "$(git rev-list --count "$PRODUCT_SHA..HEAD")" -eq 1
+          test "$(git merge-base "$PRODUCT_SHA" HEAD)" = "$PRODUCT_SHA"
+          test "$(git diff --name-only "$PRODUCT_SHA..HEAD")" = "$WORKFLOW_PATH"
+          test -z "$(git status --porcelain=v1)"
+          echo "EVIDENCE_SHA=$EVIDENCE_SHA" >> "$GITHUB_ENV"
+          echo "WORKFLOW_BLOB=$(git rev-parse "HEAD:$WORKFLOW_PATH")" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/evidence/diagnostic"
+          echo "EVIDENCE_DIR=$RUNNER_TEMP/evidence" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {ref: '${{ env.D0P1_SHA }}', path: predecessor, fetch-depth: 0, persist-credentials: false}
+
+      - name: Re-derive qualified predecessor
+        shell: bash
+        env: {GH_TOKEN: '${{ github.token }}'}
+        run: |
+          set -euo pipefail
+          cd predecessor
+          test "$(git rev-parse HEAD)" = "$D0P1_SHA"
+          test "$(git rev-parse HEAD^)" = "$PRODUCT_SHA"
+          test "$(git rev-parse HEAD:.github/workflows/ig-007d0p1-governance-build-path-successor.yml)" = "$D0P1_WORKFLOW_BLOB"
+          test "$(git rev-parse HEAD:mycelix-governance/profiles/deployment/governance-source-intent-ee3582af-v2.json)" = "$D0P1_PROFILE_BLOB"
+          python3 mycelix-governance/scripts/validate_ig007d0p1_governance_build_path.py \
+            --profile mycelix-governance/profiles/deployment/governance-source-intent-ee3582af-v2.json > "$RUNNER_TEMP/d0p1.json"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          r=json.loads(Path(os.environ['RUNNER_TEMP'],'d0p1.json').read_text())
+          for k,v in {'valid':True,'profile_content_sha256':os.environ['D0P1_PROFILE_SHA256'],'claim_ceiling':'RepositoryContainedGovernanceBuildPathBound','repaired_product_subject_sha':os.environ['PRODUCT_SHA']}.items():
+              if r.get(k)!=v: raise SystemExit(f'D0P1 profile mismatch {k}: {r.get(k)!r}')
+          PY
+          cd ..
+          api="https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs/$D0P1_RUN_ID"
+          curl -fsS --retry 3 -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "$api" > "$RUNNER_TEMP/run.json"
+          curl -fsS --retry 3 -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "$api/jobs" > "$RUNNER_TEMP/jobs.json"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          t=Path(os.environ['RUNNER_TEMP']); r=json.loads((t/'run.json').read_text()); js=json.loads((t/'jobs.json').read_text()).get('jobs') or []
+          e={'id':int(os.environ['D0P1_RUN_ID']),'head_sha':os.environ['D0P1_SHA'],'status':'completed','conclusion':'success','run_attempt':1,'name':'IG-007D0P1 Governance Build Path Successor'}
+          for k,v in e.items():
+              if r.get(k)!=v: raise SystemExit(f'D0P1 run mismatch {k}')
+          m=[j for j in js if j.get('id')==int(os.environ['D0P1_JOB_ID'])]
+          if len(m)!=1 or m[0].get('head_sha')!=os.environ['D0P1_SHA'] or m[0].get('conclusion')!='success': raise SystemExit('D0P1 job binding mismatch')
+          steps=m[0].get('steps') or []
+          if not steps or any(s.get('status')!='completed' or s.get('conclusion')!='success' for s in steps): raise SystemExit('D0P1 executed-step evidence invalid')
+          PY
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {ref: '${{ env.PRODUCT_SHA }}', path: source, fetch-depth: 0, persist-credentials: false}
+
+      - name: Bind exact product capsule and manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd source
+          test "$(git rev-parse HEAD)" = "$PRODUCT_SHA"
+          while read -r path blob; do test "$(git rev-parse "HEAD:$path")" = "$blob" || { echo "blob drift $path"; exit 1; }; done <<'BLOBS'
+          mycelix-governance/flake.nix 70006c71f02a560bd873526dd8b882cbba9e639f
+          mycelix-governance/flake.lock faae625ed2fb9a7ecac236a99e342f7bdc94a644
+          mycelix-governance/Cargo.toml 219cbd48e02692c75a49f0b04a4130bf897aaa5c
+          mycelix-governance/Cargo.lock f872b74f13264e7345be02b64270179eed56c703
+          mycelix-governance/dna/dna.yaml 972a9f32d43ce645aa71900eda11d1756d2e7055
+          nix/modules/holochain-base.nix e9015df8f82520d8c3607026de126216412727b6
+          BLOBS
+          python3 - <<'PY'
+          from pathlib import Path
+          expected='''integrity proposals_integrity proposals_integrity.wasm
+          integrity voting_integrity voting_integrity.wasm
+          integrity execution_integrity execution_integrity.wasm
+          integrity constitution_integrity constitution_integrity.wasm
+          integrity governance_bridge_integrity governance_bridge_integrity.wasm
+          integrity threshold_signing_integrity threshold_signing_integrity.wasm
+          integrity councils_integrity councils_integrity.wasm
+          integrity jurisdiction_integrity jurisdiction_integrity.wasm
+          integrity budgeting_integrity budgeting_integrity.wasm
+          coordinator proposals proposals.wasm
+          coordinator voting voting.wasm
+          coordinator execution execution.wasm
+          coordinator constitution constitution.wasm
+          coordinator governance_bridge governance_bridge.wasm
+          coordinator threshold_signing threshold_signing_coordinator.wasm
+          coordinator councils councils.wasm
+          coordinator jurisdiction jurisdiction.wasm
+          coordinator budgeting budgeting.wasm'''.splitlines()
+          expected=[tuple(x.strip().split()) for x in expected]
+          lines=Path('mycelix-governance/dna/dna.yaml').read_text().splitlines(); section=None; got=[]; seed=None
+          for i,line in enumerate(lines):
+              if line=='integrity:': section='integrity'
+              elif line=='coordinator:': section='coordinator'
+              elif line.startswith('  network_seed: '): seed=line.split(':',1)[1].strip().strip('"')
+              elif section and line.startswith('    - name: '):
+                  name=line.split(':',1)[1].strip(); p=None
+                  for c in lines[i+1:]:
+                      if c.startswith('    - name: ') or c in ('integrity:','coordinator:'): break
+                      if c.startswith('      path: '): p=Path(c.split(':',1)[1].strip().strip('"')).name; break
+                  got.append((section,name,p))
+          if seed!='mycelix-governance-v1' or got!=expected: raise SystemExit(f'manifest drift: seed={seed!r} got={got!r}')
+          PY
+          test -z "$(git status --porcelain=v1)"
+          echo "SOURCE_TREE=$(git rev-parse HEAD^{tree})" >> "$GITHUB_ENV"
+
+      - name: Fetch and verify pinned Nix installer asset
+        id: installer_asset
+        shell: bash
+        run: |
+          set -u
+          path="$RUNNER_TEMP/nix-installer"
+          rm -f "$path"
+          set +e
+          curl --proto '=https' --tlsv1.2 --fail --location --silent --show-error --retry 3 --retry-all-errors "$NIX_INSTALLER_ASSET_URL" -o "$path"
+          curl_status=$?
+          set -e
+          observed_sha=''; observed_size='0'
+          if [ -f "$path" ]; then
+            observed_sha="$(sha256sum "$path" | awk '{print $1}')"
+            observed_size="$(stat -c '%s' "$path")"
+          fi
+          printf 'path=%s\nsha256=%s\nsize=%s\ncurl_exit=%s\n' "$path" "$observed_sha" "$observed_size" "$curl_status" >> "$GITHUB_OUTPUT"
+          test "$curl_status" -eq 0
+          test "$observed_sha" = "$NIX_INSTALLER_ASSET_SHA256"
+          test "$observed_size" = "$NIX_INSTALLER_ASSET_SIZE"
+          chmod 0755 "$path"
+
+      - name: Install verified Determinate Nix
+        id: install_nix
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa
+        with:
+          source-binary: '${{ steps.installer_asset.outputs.path }}'
+          determinate: true
+          extra-conf: |
+            accept-flake-config = false
+            allow-import-from-derivation = false
+            sandbox = true
+
+      - name: Emit bootstrap receipt
+        if: always()
+        shell: bash
+        env:
+          REPLICA: '${{ matrix.replica }}'
+          FETCH_OUTCOME: '${{ steps.installer_asset.outcome }}'
+          INSTALL_OUTCOME: '${{ steps.install_nix.outcome }}'
+          FETCH_SHA256: '${{ steps.installer_asset.outputs.sha256 }}'
+          FETCH_SIZE: '${{ steps.installer_asset.outputs.size }}'
+          FETCH_CURL_EXIT: '${{ steps.installer_asset.outputs.curl_exit }}'
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/evidence"
+          nix_version=''
+          if command -v nix >/dev/null 2>&1; then nix_version="$(nix --version 2>/dev/null || true)"; fi
+          export NIX_VERSION_OBSERVED="$nix_version"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          lineage={'failed_experiment':{'head_sha':os.environ['PREDECESSOR_D1A_V4_SHA'],'run_id':int(os.environ['PREDECESSOR_D1A_V4_RUN_ID'])},'superseded_candidates':[{'head_sha':os.environ['SUPERSEDED_D1A_V5_SHA'],'workflow_git_blob_sha1':os.environ['SUPERSEDED_D1A_V5_WORKFLOW_BLOB'],'run_id':int(os.environ['SUPERSEDED_D1A_V5_RUN_ID']),'disposition':'DraftAdmissionSkipped'},{'head_sha':os.environ['SUPERSEDED_D1A_V6_SHA'],'workflow_git_blob_sha1':os.environ['SUPERSEDED_D1A_V6_WORKFLOW_BLOB'],'run_id':None,'disposition':'SupersededBeforeExecutionStaticAudit'}]}
+          d={'schema':'ig-007d1a-bootstrap-v7','replica':os.environ['REPLICA'],'lineage':lineage,'installer':{'action_commit':os.environ['NIX_INSTALLER_ACTION_SHA'],'release':os.environ['NIX_INSTALLER_RELEASE'],'release_target_revision':os.environ['NIX_INSTALLER_REV'],'source_revision_binding':'release_target_metadata_only','binary_source_reproducibility_established':False,'asset_id':int(os.environ['NIX_INSTALLER_ASSET_ID']),'asset_url':os.environ['NIX_INSTALLER_ASSET_URL'],'expected_sha256':os.environ['NIX_INSTALLER_ASSET_SHA256'],'observed_sha256':os.environ.get('FETCH_SHA256',''),'expected_size':int(os.environ['NIX_INSTALLER_ASSET_SIZE']),'observed_size':int(os.environ.get('FETCH_SIZE') or 0),'curl_exit':int(os.environ.get('FETCH_CURL_EXIT') or -1),'fetch_outcome':os.environ['FETCH_OUTCOME'],'install_outcome':os.environ['INSTALL_OUTCOME'],'nix_version':os.environ.get('NIX_VERSION_OBSERVED','')},'product_source_sha':os.environ['PRODUCT_SHA'],'qualified_predecessor_sha':os.environ['D0P1_SHA'],'grants_reproducibility_claim':False,'grants_product_qualification':False}
+          Path(os.environ['RUNNER_TEMP'],'evidence','bootstrap.json').write_text(json.dumps(d,sort_keys=True,separators=(',',':'))+'\n')
+          PY
+
+      - name: Bind derivation and force local rebuild
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix --version | tee "$RUNNER_TEMP/nix-version.txt"
+          grep -Fq "$EXPECTED_NIX_VERSION_FRAGMENT" "$RUNNER_TEMP/nix-version.txt"
+          DRV="$(nix path-info --derivation ./source/mycelix-governance#zomes)"; test -n "$DRV"
+          export ZOMES_DRV="$DRV"
+          echo "ZOMES_DRV=$DRV" >> "$GITHUB_ENV"
+          nix derivation show "$DRV" > "$RUNNER_TEMP/drv.raw.json"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          r=Path(os.environ['RUNNER_TEMP'],'drv.raw.json'); o=Path(os.environ['EVIDENCE_DIR'],'derivation.json')
+          o.write_text(json.dumps(json.loads(r.read_text()),sort_keys=True,separators=(',',':'))+'\n')
+          PY
+          OUT="$RUNNER_TEMP/zomes"
+          build() { stage="$1"; shift; set +e; "$@" 2>&1 | tee "$EVIDENCE_DIR/diagnostic/$stage.log"; s="${PIPESTATUS[0]}"; set -e; if [ "$s" -ne 0 ]; then STAGE="$stage" STATUS="$s" python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          classification='AuthoritativeRealizationCommandFailed' if os.environ['STAGE']=='realize' else 'ForcedRebuildCommandFailed'
+          d={'schema':'ig-007d1a-build-failure-v7','classification':classification,'stage':os.environ['STAGE'],'exit_code':int(os.environ['STATUS']),'claim_established':False,'product_build_failure_established':False,'reproducibility_failure_established':False,'requires_evidence_interpretation':True,'campaign_head_sha':os.environ['EVIDENCE_SHA'],'product_source_sha':os.environ['PRODUCT_SHA'],'zomes_drv_path':os.environ['ZOMES_DRV'],'nix_installer_action_commit':os.environ['NIX_INSTALLER_ACTION_SHA'],'nix_installer_release_target_revision':os.environ['NIX_INSTALLER_REV'],'nix_installer_asset_sha256':os.environ['NIX_INSTALLER_ASSET_SHA256']}
+          Path(os.environ['EVIDENCE_DIR'],'diagnostic','failure.json').write_text(json.dumps(d,sort_keys=True,separators=(',',':'))+'\n')
+          PY
+          exit "$s"; fi; }
+          build realize nix build --no-write-lock-file --print-build-logs ./source/mycelix-governance#zomes --out-link "$OUT"
+          test "$(nix path-info --derivation ./source/mycelix-governance#zomes)" = "$DRV"
+          build rebuild nix build --rebuild --no-write-lock-file --print-build-logs ./source/mycelix-governance#zomes --out-link "$OUT"
+          echo "ZOMES_OUT=$(readlink -f "$OUT")" >> "$GITHUB_ENV"
+
+      - name: Retain exact WASMs and pack DNA
+        shell: bash
+        run: |
+          set -euo pipefail
+          W="$RUNNER_TEMP/dna-work"; mkdir -p "$EVIDENCE_DIR/wasm" "$EVIDENCE_DIR/bundle" "$W/dna" "$W/target/wasm32-unknown-unknown/release"
+          cp source/mycelix-governance/dna/dna.yaml "$W/dna/dna.yaml"
+          expected=(budgeting.wasm budgeting_integrity.wasm constitution.wasm constitution_integrity.wasm councils.wasm councils_integrity.wasm execution.wasm execution_integrity.wasm governance_bridge.wasm governance_bridge_integrity.wasm jurisdiction.wasm jurisdiction_integrity.wasm proposals.wasm proposals_integrity.wasm threshold_signing_coordinator.wasm threshold_signing_integrity.wasm voting.wasm voting_integrity.wasm)
+          mapfile -t got < <(find "$ZOMES_OUT/lib" -maxdepth 1 -type f -name '*.wasm' -printf '%f\n' | sort); mapfile -t exp < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#got[@]}" -eq 18; diff -u <(printf '%s\n' "${exp[@]}") <(printf '%s\n' "${got[@]}")
+          for x in "${expected[@]}"; do cp --no-preserve=mode,ownership,timestamps "$ZOMES_OUT/lib/$x" "$EVIDENCE_DIR/wasm/$x"; cp --no-preserve=mode,ownership,timestamps "$ZOMES_OUT/lib/$x" "$W/target/wasm32-unknown-unknown/release/$x"; done
+          B="$EVIDENCE_DIR/bundle/mycelix_governance_dna.dna"
+          nix develop --no-write-lock-file ./source/mycelix-governance#ci --command bash -lc '
+            set -euo pipefail
+            rustc -Vv > "'"$RUNNER_TEMP"'/rustc.txt"; cargo --version --verbose > "'"$RUNNER_TEMP"'/cargo.txt"; hc --version > "'"$RUNNER_TEMP"'/hc.txt"; holochain --version > "'"$RUNNER_TEMP"'/holochain.txt"
+            hc dna pack "'"$W"'/dna" -o "'"$B"'"; hc dna hash "'"$B"'" > "'"$RUNNER_TEMP"'/dna-hash.txt"
+          '
+          test -s "$B"; echo "DNA_HASH=$(tr -d '\r\n' < "$RUNNER_TEMP/dna-hash.txt")" >> "$GITHUB_ENV"
+
+      - name: Emit canonical producer receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,json,os,subprocess
+          from pathlib import Path
+          S=Path('source'); E=Path(os.environ['EVIDENCE_DIR']); B=E/'bundle/mycelix_governance_dna.dna'
+          def h(p): return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+          def ident(p): p=Path(p); return {'sha256':h(p),'size':p.stat().st_size}
+          def txt(n): return Path(os.environ['RUNNER_TEMP'],n).read_text().strip()
+          cap={}
+          for n,p in {'flake':'mycelix-governance/flake.nix','flake_lock':'mycelix-governance/flake.lock','cargo_workspace':'mycelix-governance/Cargo.toml','cargo_lock':'mycelix-governance/Cargo.lock','dna_manifest':'mycelix-governance/dna/dna.yaml','holochain_base':'nix/modules/holochain-base.nix'}.items(): cap[n]={'path':p,'git_blob_sha1':subprocess.check_output(['git','-C',str(S),'rev-parse',f'HEAD:{p}'],text=True).strip(),**ident(S/p)}
+          lock=json.loads((S/'mycelix-governance/flake.lock').read_text()); locked={n:{k:v for k,v in x.get('locked',{}).items() if k in ('type','owner','repo','rev','ref','narHash','lastModified')} for n,x in sorted(lock.get('nodes',{}).items()) if isinstance(x.get('locked'),dict)}
+          mapping=[('integrity','proposals_integrity','proposals_integrity.wasm'),('integrity','voting_integrity','voting_integrity.wasm'),('integrity','execution_integrity','execution_integrity.wasm'),('integrity','constitution_integrity','constitution_integrity.wasm'),('integrity','governance_bridge_integrity','governance_bridge_integrity.wasm'),('integrity','threshold_signing_integrity','threshold_signing_integrity.wasm'),('integrity','councils_integrity','councils_integrity.wasm'),('integrity','jurisdiction_integrity','jurisdiction_integrity.wasm'),('integrity','budgeting_integrity','budgeting_integrity.wasm'),('coordinator','proposals','proposals.wasm'),('coordinator','voting','voting.wasm'),('coordinator','execution','execution.wasm'),('coordinator','constitution','constitution.wasm'),('coordinator','governance_bridge','governance_bridge.wasm'),('coordinator','threshold_signing','threshold_signing_coordinator.wasm'),('coordinator','councils','councils.wasm'),('coordinator','jurisdiction','jurisdiction.wasm'),('coordinator','budgeting','budgeting.wasm')]
+          wasms=[{'class':klass,'manifest_name':manifest_name,'artifact_filename':artifact,**ident(E/'wasm'/artifact)} for klass,manifest_name,artifact in mapping]
+          campaign={'evidence_head_sha':os.environ['EVIDENCE_SHA'],'workflow_git_blob_sha1':os.environ['WORKFLOW_BLOB'],'failed_experiment':{'head_sha':os.environ['PREDECESSOR_D1A_V4_SHA'],'run_id':int(os.environ['PREDECESSOR_D1A_V4_RUN_ID'])},'superseded_candidates':[{'head_sha':os.environ['SUPERSEDED_D1A_V5_SHA'],'workflow_git_blob_sha1':os.environ['SUPERSEDED_D1A_V5_WORKFLOW_BLOB'],'run_id':int(os.environ['SUPERSEDED_D1A_V5_RUN_ID']),'disposition':'DraftAdmissionSkipped'},{'head_sha':os.environ['SUPERSEDED_D1A_V6_SHA'],'workflow_git_blob_sha1':os.environ['SUPERSEDED_D1A_V6_WORKFLOW_BLOB'],'run_id':None,'disposition':'SupersededBeforeExecutionStaticAudit'}]}
+          bootstrap={'installer_action_commit':os.environ['NIX_INSTALLER_ACTION_SHA'],'installer_release':os.environ['NIX_INSTALLER_RELEASE'],'release_target_revision':os.environ['NIX_INSTALLER_REV'],'source_revision_binding':'release_target_metadata_only','binary_source_reproducibility_established':False,'installer_asset_id':int(os.environ['NIX_INSTALLER_ASSET_ID']),'installer_asset_url':os.environ['NIX_INSTALLER_ASSET_URL'],'installer_asset_sha256':os.environ['NIX_INSTALLER_ASSET_SHA256'],'installer_asset_size':int(os.environ['NIX_INSTALLER_ASSET_SIZE'])}
+          r={'schema':'ig-007d1a-receipt-v7','claim_ceiling':'ReproducibleGovernanceBuildBytesBound','campaign':campaign,'qualified_predecessor':{'head_sha':os.environ['D0P1_SHA'],'run_id':int(os.environ['D0P1_RUN_ID']),'job_id':int(os.environ['D0P1_JOB_ID']),'profile_content_sha256':os.environ['D0P1_PROFILE_SHA256'],'profile_git_blob_sha1':os.environ['D0P1_PROFILE_BLOB'],'workflow_git_blob_sha1':os.environ['D0P1_WORKFLOW_BLOB']},'product':{'source_sha':os.environ['PRODUCT_SHA'],'tree_sha1':os.environ['SOURCE_TREE'],'capsule':cap,'locked_inputs':locked},'bootstrap':bootstrap,'build':{'execution_mode':'realize_then_forced_local_rebuild_compare','runner_os_label':'ubuntu-24.04','nix_version':txt('nix-version.txt'),'rustc_version':txt('rustc.txt'),'cargo_version':txt('cargo.txt'),'hc_version':txt('hc.txt'),'holochain_version':txt('holochain.txt'),'zomes_drv_path':os.environ['ZOMES_DRV'],'zomes_output_path':os.environ['ZOMES_OUT'],'derivation_json_sha256':h(E/'derivation.json')},'wasm_census':wasms,'dna':{'manifest_zome_count':18,'network_seed':'mycelix-governance-v1','bundle_filename':B.name,**ident(B),'dna_hash':os.environ['DNA_HASH']},'explicitly_unqualified':['HolochainZomeIdentityCensusBound','BuiltHolochainArtifactBound','InstalledHolochainIdentityBound','RuntimeProcessAssociationBound','AuthorizedDeploymentCurrentness','FleetDeploymentCurrentness','DeploymentSafety']}
+          (E/'receipt.json').write_text(json.dumps(r,sort_keys=True,separators=(',',':'))+'\n')
+          PY
+
+      - name: Postflight immutability
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          [ ! -d campaign/.git ] || test -z "$(git -C campaign status --porcelain=v1)"
+          [ ! -d predecessor/.git ] || { test "$(git -C predecessor rev-parse HEAD)" = "$D0P1_SHA"; test -z "$(git -C predecessor status --porcelain=v1)"; }
+          [ ! -d source/.git ] || { test "$(git -C source rev-parse HEAD)" = "$PRODUCT_SHA"; test -z "$(git -C source status --porcelain=v1)"; }
+
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with: {name: 'ig007d1a-build-${{ matrix.replica }}', path: '${{ runner.temp }}/evidence', if-no-files-found: warn, retention-days: 30, compression-level: 0}
+
+  compare:
+    if: github.event.pull_request.draft == false
+    name: Independent retained-byte comparison
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {ref: '${{ github.event.pull_request.head.sha }}', path: campaign, fetch-depth: 0, persist-credentials: false}
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {ref: '${{ env.PRODUCT_SHA }}', path: source, fetch-depth: 0, persist-credentials: false}
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with: {name: ig007d1a-build-a, path: retained/a}
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with: {name: ig007d1a-build-b, path: retained/b}
+
+      - name: Compare retained evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          export EVIDENCE_SHA='${{ github.event.pull_request.head.sha }}'
+          export WORKFLOW_BLOB="$(git -C campaign rev-parse "HEAD:$WORKFLOW_PATH")"
+          echo "EVIDENCE_SHA=$EVIDENCE_SHA" >> "$GITHUB_ENV"; echo "WORKFLOW_BLOB=$WORKFLOW_BLOB" >> "$GITHUB_ENV"
+          test "$(git -C campaign rev-parse HEAD)" = "$EVIDENCE_SHA"; test "$(git -C campaign rev-parse HEAD^)" = "$PRODUCT_SHA"
+          test "$(git -C source rev-parse HEAD)" = "$PRODUCT_SHA"
+          cmp retained/a/receipt.json retained/b/receipt.json; cmp retained/a/derivation.json retained/b/derivation.json
+          for f in retained/a/wasm/*.wasm; do cmp "$f" "retained/b/wasm/$(basename "$f")"; done
+          cmp retained/a/bundle/mycelix_governance_dna.dna retained/b/bundle/mycelix_governance_dna.dna
+          python3 - <<'PY'
+          import hashlib,json,os,subprocess
+          from pathlib import Path
+          A=Path('retained/a'); B=Path('retained/b'); S=Path('source'); r=json.loads((A/'receipt.json').read_text())
+          if r['schema']!='ig-007d1a-receipt-v7' or r['claim_ceiling']!='ReproducibleGovernanceBuildBytesBound': raise SystemExit('receipt schema/claim mismatch')
+          expected_failed={'head_sha':os.environ['PREDECESSOR_D1A_V4_SHA'],'run_id':int(os.environ['PREDECESSOR_D1A_V4_RUN_ID'])}
+          expected_superseded=[{'head_sha':os.environ['SUPERSEDED_D1A_V5_SHA'],'workflow_git_blob_sha1':os.environ['SUPERSEDED_D1A_V5_WORKFLOW_BLOB'],'run_id':int(os.environ['SUPERSEDED_D1A_V5_RUN_ID']),'disposition':'DraftAdmissionSkipped'},{'head_sha':os.environ['SUPERSEDED_D1A_V6_SHA'],'workflow_git_blob_sha1':os.environ['SUPERSEDED_D1A_V6_WORKFLOW_BLOB'],'run_id':None,'disposition':'SupersededBeforeExecutionStaticAudit'}]
+          c=r['campaign']
+          if c.get('evidence_head_sha')!=os.environ['EVIDENCE_SHA'] or c.get('workflow_git_blob_sha1')!=os.environ['WORKFLOW_BLOB'] or c.get('failed_experiment')!=expected_failed or c.get('superseded_candidates')!=expected_superseded: raise SystemExit('campaign lineage mismatch')
+          q=r['qualified_predecessor']
+          if (q['head_sha'],q['run_id'],q['job_id'],q['profile_content_sha256'],q['profile_git_blob_sha1'],q['workflow_git_blob_sha1'])!=(os.environ['D0P1_SHA'],int(os.environ['D0P1_RUN_ID']),int(os.environ['D0P1_JOB_ID']),os.environ['D0P1_PROFILE_SHA256'],os.environ['D0P1_PROFILE_BLOB'],os.environ['D0P1_WORKFLOW_BLOB']): raise SystemExit('predecessor binding mismatch')
+          if r['product']['source_sha']!=os.environ['PRODUCT_SHA'] or r['product']['tree_sha1']!=subprocess.check_output(['git','-C',str(S),'rev-parse','HEAD^{tree}'],text=True).strip(): raise SystemExit('source tree binding mismatch')
+          def obj_ident(p):
+              p=Path(p); return {'sha256':hashlib.sha256(p.read_bytes()).hexdigest(),'size':p.stat().st_size}
+          capsule_specs={'flake':'mycelix-governance/flake.nix','flake_lock':'mycelix-governance/flake.lock','cargo_workspace':'mycelix-governance/Cargo.toml','cargo_lock':'mycelix-governance/Cargo.lock','dna_manifest':'mycelix-governance/dna/dna.yaml','holochain_base':'nix/modules/holochain-base.nix'}
+          capsule={}
+          for n,p in capsule_specs.items(): capsule[n]={'path':p,'git_blob_sha1':subprocess.check_output(['git','-C',str(S),'rev-parse',f'HEAD:{p}'],text=True).strip(),**obj_ident(S/p)}
+          if r['product'].get('capsule')!=capsule: raise SystemExit('source capsule mismatch')
+          lock=json.loads((S/'mycelix-governance/flake.lock').read_text()); locked={n:{k:v for k,v in x.get('locked',{}).items() if k in ('type','owner','repo','rev','ref','narHash','lastModified')} for n,x in sorted(lock.get('nodes',{}).items()) if isinstance(x.get('locked'),dict)}
+          if r['product'].get('locked_inputs')!=locked: raise SystemExit('locked input projection mismatch')
+          expected_bootstrap={'installer_action_commit':os.environ['NIX_INSTALLER_ACTION_SHA'],'installer_release':os.environ['NIX_INSTALLER_RELEASE'],'release_target_revision':os.environ['NIX_INSTALLER_REV'],'source_revision_binding':'release_target_metadata_only','binary_source_reproducibility_established':False,'installer_asset_id':int(os.environ['NIX_INSTALLER_ASSET_ID']),'installer_asset_url':os.environ['NIX_INSTALLER_ASSET_URL'],'installer_asset_sha256':os.environ['NIX_INSTALLER_ASSET_SHA256'],'installer_asset_size':int(os.environ['NIX_INSTALLER_ASSET_SIZE'])}
+          if r['bootstrap']!=expected_bootstrap: raise SystemExit('bootstrap binding mismatch')
+          bootstrap_hashes={}
+          for lane in ('a','b'):
+              p=Path('retained')/lane/'bootstrap.json'; bootstrap_hashes[lane]=hashlib.sha256(p.read_bytes()).hexdigest(); b=json.loads(p.read_text()); i=b['installer']
+              if b['schema']!='ig-007d1a-bootstrap-v7' or b['replica']!=lane or b.get('lineage')!={'failed_experiment':expected_failed,'superseded_candidates':expected_superseded} or b['product_source_sha']!=os.environ['PRODUCT_SHA'] or b['qualified_predecessor_sha']!=os.environ['D0P1_SHA'] or b['grants_reproducibility_claim'] or b['grants_product_qualification']: raise SystemExit(f'bootstrap receipt contract mismatch {lane}')
+              expected_i={'action_commit':os.environ['NIX_INSTALLER_ACTION_SHA'],'release':os.environ['NIX_INSTALLER_RELEASE'],'release_target_revision':os.environ['NIX_INSTALLER_REV'],'source_revision_binding':'release_target_metadata_only','binary_source_reproducibility_established':False,'asset_id':int(os.environ['NIX_INSTALLER_ASSET_ID']),'asset_url':os.environ['NIX_INSTALLER_ASSET_URL'],'expected_sha256':os.environ['NIX_INSTALLER_ASSET_SHA256'],'observed_sha256':os.environ['NIX_INSTALLER_ASSET_SHA256'],'expected_size':int(os.environ['NIX_INSTALLER_ASSET_SIZE']),'observed_size':int(os.environ['NIX_INSTALLER_ASSET_SIZE']),'curl_exit':0,'fetch_outcome':'success','install_outcome':'success'}
+              for k,v in expected_i.items():
+                  if i.get(k)!=v: raise SystemExit(f'bootstrap verification mismatch {lane} {k}')
+              if os.environ['EXPECTED_NIX_VERSION_FRAGMENT'] not in i.get('nix_version',''): raise SystemExit(f'bootstrap nix version mismatch {lane}')
+              for log_name in ('realize.log','rebuild.log'):
+                  if not (Path('retained')/lane/'diagnostic'/log_name).is_file(): raise SystemExit(f'missing producer command log {lane}/{log_name}')
+          bld=r['build']
+          if bld['execution_mode']!='realize_then_forced_local_rebuild_compare' or bld['runner_os_label']!='ubuntu-24.04' or os.environ['EXPECTED_NIX_VERSION_FRAGMENT'] not in bld['nix_version']: raise SystemExit('build environment mismatch')
+          expected_mapping=[('integrity','proposals_integrity','proposals_integrity.wasm'),('integrity','voting_integrity','voting_integrity.wasm'),('integrity','execution_integrity','execution_integrity.wasm'),('integrity','constitution_integrity','constitution_integrity.wasm'),('integrity','governance_bridge_integrity','governance_bridge_integrity.wasm'),('integrity','threshold_signing_integrity','threshold_signing_integrity.wasm'),('integrity','councils_integrity','councils_integrity.wasm'),('integrity','jurisdiction_integrity','jurisdiction_integrity.wasm'),('integrity','budgeting_integrity','budgeting_integrity.wasm'),('coordinator','proposals','proposals.wasm'),('coordinator','voting','voting.wasm'),('coordinator','execution','execution.wasm'),('coordinator','constitution','constitution.wasm'),('coordinator','governance_bridge','governance_bridge.wasm'),('coordinator','threshold_signing','threshold_signing_coordinator.wasm'),('coordinator','councils','councils.wasm'),('coordinator','jurisdiction','jurisdiction.wasm'),('coordinator','budgeting','budgeting.wasm')]
+          if [(x['class'],x['manifest_name'],x['artifact_filename']) for x in r['wasm_census']]!=expected_mapping or r['dna'].get('network_seed')!='mycelix-governance-v1' or r['dna'].get('manifest_zome_count')!=18: raise SystemExit('semantic zome/DNA receipt drift')
+          def ident(p): p=Path(p); return hashlib.sha256(p.read_bytes()).hexdigest(),p.stat().st_size
+          if ident(A/'derivation.json')[0]!=bld['derivation_json_sha256'] or ident(B/'derivation.json')[0]!=bld['derivation_json_sha256']: raise SystemExit('derivation mismatch')
+          for w in r['wasm_census']:
+              for root in (A,B):
+                  if ident(root/'wasm'/w['artifact_filename'])!=(w['sha256'],w['size']): raise SystemExit(f'WASM receipt mismatch {w["artifact_filename"]}')
+          for root in (A,B):
+              d=r['dna']
+              if ident(root/'bundle'/d['bundle_filename'])!=(d['sha256'],d['size']): raise SystemExit('DNA receipt mismatch')
+          Path('comparison').mkdir(exist_ok=True)
+          Path('comparison/bootstrap-hashes.json').write_text(json.dumps(bootstrap_hashes,sort_keys=True,separators=(',',':'))+'\n')
+          PY
+
+      - name: Fetch and verify pinned Nix installer asset
+        id: installer_asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p comparison
+          path="$RUNNER_TEMP/nix-installer"
+          curl --proto '=https' --tlsv1.2 --fail --location --silent --show-error --retry 3 --retry-all-errors "$NIX_INSTALLER_ASSET_URL" -o "$path"
+          observed_sha="$(sha256sum "$path" | awk '{print $1}')"; observed_size="$(stat -c '%s' "$path")"
+          test "$observed_sha" = "$NIX_INSTALLER_ASSET_SHA256"; test "$observed_size" = "$NIX_INSTALLER_ASSET_SIZE"; chmod 0755 "$path"
+          printf 'path=%s\nsha256=%s\nsize=%s\n' "$path" "$observed_sha" "$observed_size" >> "$GITHUB_OUTPUT"
+
+      - name: Install independently verified Determinate Nix
+        id: install_nix
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa
+        with:
+          source-binary: '${{ steps.installer_asset.outputs.path }}'
+          determinate: true
+          extra-conf: |
+            accept-flake-config = false
+            allow-import-from-derivation = false
+            sandbox = true
+
+      - name: Recompute derivation and DnaHash
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix --version | grep -Fq "$EXPECTED_NIX_VERSION_FRAGMENT"
+          DRV="$(nix path-info --derivation ./source/mycelix-governance#zomes)"
+          nix derivation show "$DRV" > "$RUNNER_TEMP/drv.raw.json"
+          python3 - "$DRV" <<'PY'
+          import hashlib,json,os,sys
+          from pathlib import Path
+          r=json.loads(Path('retained/a/receipt.json').read_text())
+          if sys.argv[1]!=r['build']['zomes_drv_path']: raise SystemExit('third-job drv path mismatch')
+          c=(json.dumps(json.loads(Path(os.environ['RUNNER_TEMP'],'drv.raw.json').read_text()),sort_keys=True,separators=(',',':'))+'\n').encode()
+          if hashlib.sha256(c).hexdigest()!=r['build']['derivation_json_sha256']: raise SystemExit('third-job derivation JSON mismatch')
+          PY
+          HA="$(nix develop --no-write-lock-file ./source/mycelix-governance#ci --command hc dna hash retained/a/bundle/mycelix_governance_dna.dna | tr -d '\r\n')"
+          HB="$(nix develop --no-write-lock-file ./source/mycelix-governance#ci --command hc dna hash retained/b/bundle/mycelix_governance_dna.dna | tr -d '\r\n')"
+          test -n "$HA"; test "$HA" = "$HB"
+          EXPECT="$(python3 -c 'import json; print(json.load(open("retained/a/receipt.json"))["dna"]["dna_hash"])')"; test "$HA" = "$EXPECT"
+          echo "COMPARE_DNA_HASH=$HA" >> "$GITHUB_ENV"; echo "COMPARE_DRV=$DRV" >> "$GITHUB_ENV"
+
+      - name: Emit comparison receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p comparison
+          python3 - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          p=Path('retained/a/receipt.json'); r=json.loads(p.read_text())
+          bh=json.loads(Path('comparison/bootstrap-hashes.json').read_text())
+          out={'schema':'ig-007d1a-comparison-v7','claim_ceiling':'ReproducibleGovernanceBuildBytesBound','campaign':r['campaign'],'qualified_predecessor':r['qualified_predecessor'],'product_source_sha':r['product']['source_sha'],'bootstrap':r['bootstrap'],'producer_bootstrap_receipt_sha256':bh,'build_receipt_sha256':hashlib.sha256(p.read_bytes()).hexdigest(),'derivation_json_sha256':hashlib.sha256(Path('retained/a/derivation.json').read_bytes()).hexdigest(),'zomes_drv_path':os.environ['COMPARE_DRV'],'wasm_count':18,'dna_bundle_sha256':r['dna']['sha256'],'dna_hash':os.environ['COMPARE_DNA_HASH'],'predicates':{'two_forced_local_rebuilds':True,'producer_command_logs_retained':True,'installer_asset_digest_verified_in_both_producers':True,'installer_asset_digest_independently_verified_in_comparator':True,'bootstrap_receipts_fully_validated':True,'superseded_lineage_bound':True,'d0p1_profile_blob_bound':True,'semantic_zome_mapping_bound':True,'derivation_identity_recomputed':True,'derivation_json_recomputed':True,'source_capsule_rederived':True,'locked_inputs_rederived':True,'receipts_byte_identical':True,'all_18_wasm_bytes_identical':True,'dna_bundle_bytes_identical':True,'retained_hashes_recomputed':True,'third_job_dna_hash_recomputed':True},'explicitly_unqualified':r['explicitly_unqualified']}
+          Path('comparison/receipt.json').write_text(json.dumps(out,sort_keys=True,separators=(',',':'))+'\n')
+          PY
+          test "$(git -C campaign rev-parse HEAD)" = "$EVIDENCE_SHA"; test "$(git -C source rev-parse HEAD)" = "$PRODUCT_SHA"; test -z "$(git -C campaign status --porcelain=v1)$(git -C source status --porcelain=v1)"
+
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with: {name: ig007d1a-comparison, path: comparison, if-no-files-found: warn, retention-days: 30, compression-level: 0}
