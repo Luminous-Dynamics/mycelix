@@ -297,6 +297,7 @@ pub struct SettlementSubject {
     pub amount: AssetAmount,
     pub required_profile: FinalityProfileRef,
 }
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ObservedSettlementState {
     Applied,
