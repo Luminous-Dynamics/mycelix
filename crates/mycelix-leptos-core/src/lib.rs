@@ -62,6 +62,7 @@ pub mod app_shell;
 pub mod availability_state;
 pub use mycelix_leptos_ui::badge;
 pub mod cluster_launcher;
+pub mod create_registry;
 pub use mycelix_leptos_ui::data_table;
 pub use mycelix_leptos_ui::empty_state;
 pub mod did_registry;
@@ -116,6 +117,7 @@ pub use personal_leptos_types::TrustTier;
 
 // Re-exports — UI components
 pub use connection_status::ConnectionStatusIndicator;
+pub use create_registry::{CreateBatch, CreateEntry, CreateProviderState, CreateTarget};
 pub use error_boundary::AppErrorBoundary;
 pub use evidence::{EvidenceAvailability, EvidenceDisclosure};
 pub use loading::LoadingSkeleton;
