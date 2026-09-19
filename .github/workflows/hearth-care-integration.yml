@@ -14,6 +14,8 @@ on:
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_authority.rs'
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_revocation.rs'
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_transitions_v2.rs'
+      - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_transitions_adversarial.rs'
+      - 'mycelix-workspace/mycelix-hearth/tests/fixtures/care-transition-adversarial/**'
       - 'mycelix-workspace/mycelix-hearth/dna/**'
       - 'mycelix-workspace/mycelix-hearth/flake.nix'
       - 'mycelix-workspace/mycelix-hearth/flake.lock'
@@ -37,6 +39,8 @@ on:
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_authority.rs'
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_revocation.rs'
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_transitions_v2.rs'
+      - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_transitions_adversarial.rs'
+      - 'mycelix-workspace/mycelix-hearth/tests/fixtures/care-transition-adversarial/**'
       - 'mycelix-workspace/mycelix-hearth/dna/**'
       - 'mycelix-workspace/mycelix-hearth/flake.nix'
       - 'mycelix-workspace/mycelix-hearth/flake.lock'
@@ -57,6 +61,7 @@ concurrency:
 env:
   HEARTH_ROOT: mycelix-workspace/mycelix-hearth
   DNA_BUNDLE: mycelix-workspace/mycelix-hearth/dna/mycelix_hearth.dna
+  ADVERSARIAL_DNA_BUNDLE: mycelix-workspace/mycelix-hearth/dna-adversarial/mycelix_hearth.dna
 
 jobs:
   hearth-care-integration:
@@ -97,6 +102,11 @@ jobs:
             "$HEARTH_ROOT/tests/sweettest_care_authority.rs" \
             "$HEARTH_ROOT/tests/sweettest_care_revocation.rs" \
             "$HEARTH_ROOT/tests/sweettest_care_transitions_v2.rs" \
+            "$HEARTH_ROOT/tests/sweettest_care_transitions_adversarial.rs" \
+            "$HEARTH_ROOT/tests/fixtures/care-transition-adversarial/fake-integrity/Cargo.toml" \
+            "$HEARTH_ROOT/tests/fixtures/care-transition-adversarial/fake-integrity/src/lib.rs" \
+            "$HEARTH_ROOT/tests/fixtures/care-transition-adversarial/harness-coordinator/Cargo.toml" \
+            "$HEARTH_ROOT/tests/fixtures/care-transition-adversarial/harness-coordinator/src/lib.rs" \
             "$HEARTH_ROOT/zomes/hearth-care/coordinator/Cargo.toml" \
             "$HEARTH_ROOT/zomes/hearth-care-transitions/integrity/Cargo.toml" \
             "$HEARTH_ROOT/zomes/hearth-care-transitions/coordinator/Cargo.toml" \
@@ -107,6 +117,15 @@ jobs:
               exit 1
             }
           done
+
+      - name: Prove adversarial zomes are absent from production DNA
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -q 'hearth_care_transition_fake_integrity' "$HEARTH_ROOT/dna/dna.yaml"
+          ! grep -q 'hearth_care_transition_test_harness' "$HEARTH_ROOT/dna/dna.yaml"
+          ! grep -q 'hearth_care_transition_fake_integrity' "$HEARTH_ROOT/happ.yaml"
+          ! grep -q 'hearth_care_transition_test_harness' "$HEARTH_ROOT/happ.yaml"
 
       - uses: cachix/install-nix-action@v27
         with:
@@ -131,6 +150,26 @@ jobs:
           nix develop .#ci --impure --command \
             cargo build --release --target wasm32-unknown-unknown --workspace
 
+      - name: Build qualification-only adversarial fixture zomes
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$HEARTH_ROOT"
+          nix develop .#ci --impure --command bash -lc '
+            set -euo pipefail
+            fixture_target="target/adversarial-fixtures"
+            cargo build --release --target wasm32-unknown-unknown \
+              --target-dir "$fixture_target" \
+              --manifest-path tests/fixtures/care-transition-adversarial/fake-integrity/Cargo.toml
+            cargo build --release --target wasm32-unknown-unknown \
+              --target-dir "$fixture_target" \
+              --manifest-path tests/fixtures/care-transition-adversarial/harness-coordinator/Cargo.toml
+            cp "$fixture_target/wasm32-unknown-unknown/release/hearth_care_transition_fake_integrity.wasm" \
+              target/wasm32-unknown-unknown/release/
+            cp "$fixture_target/wasm32-unknown-unknown/release/hearth_care_transition_test_harness.wasm" \
+              target/wasm32-unknown-unknown/release/
+          '
+
       - name: Pack exact Hearth DNA
         shell: bash
         run: |
@@ -142,6 +181,40 @@ jobs:
             exit 1
           }
           sha256sum dna/mycelix_hearth.dna | tee "$RUNNER_TEMP/hearth-care-dna.sha256"
+
+      - name: Pack qualification-only adversarial Hearth DNA
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$HEARTH_ROOT"
+          rm -rf dna-adversarial
+          mkdir -p dna-adversarial
+          awk '
+            BEGIN { inserted = 0 }
+            /^coordinator:/ && inserted == 0 {
+              print "    # QUALIFICATION-ONLY Serde-lookalike integrity zome."
+              print "    - name: hearth_care_transition_fake_integrity"
+              print "      path: ../target/wasm32-unknown-unknown/release/hearth_care_transition_fake_integrity.wasm"
+              print ""
+              inserted = 1
+            }
+            { print }
+            END {
+              print ""
+              print "    # QUALIFICATION-ONLY raw transition publisher."
+              print "    - name: hearth_care_transition_test_harness"
+              print "      path: ../target/wasm32-unknown-unknown/release/hearth_care_transition_test_harness.wasm"
+              print "      dependencies:"
+              print "        - name: hearth_care_transitions_integrity"
+              print "        - name: hearth_care_transition_fake_integrity"
+            }
+          ' dna/dna.yaml > dna-adversarial/dna.yaml
+          nix develop .#ci --impure --command hc dna pack dna-adversarial/
+          test -f dna-adversarial/mycelix_hearth.dna || {
+            echo "::error::hc dna pack did not produce adversarial Hearth DNA"
+            exit 1
+          }
+          sha256sum dna-adversarial/mycelix_hearth.dna | tee "$RUNNER_TEMP/hearth-care-adversarial-dna.sha256"
 
       - name: Run positive Care SweetConductor lifecycle
         shell: bash
@@ -194,6 +267,19 @@ jobs:
               -- --ignored --exact --test-threads=1
           '
 
+      - name: Run direct Care transition-integrity adversarial qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$HEARTH_ROOT"
+          nix develop .#ci --impure --command bash -lc '
+            cd tests
+            cargo test --release \
+              --test sweettest_care_transitions_adversarial \
+              forged_transition_evidence_fails_closed \
+              -- --ignored --exact --test-threads=1
+          '
+
       - name: Upload exact integration evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -201,7 +287,9 @@ jobs:
           name: hearth-care-integration-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
             ${{ env.DNA_BUNDLE }}
+            ${{ env.ADVERSARIAL_DNA_BUNDLE }}
             ${{ runner.temp }}/hearth-care-dna.sha256
+            ${{ runner.temp }}/hearth-care-adversarial-dna.sha256
           if-no-files-found: error
           retention-days: 7
 

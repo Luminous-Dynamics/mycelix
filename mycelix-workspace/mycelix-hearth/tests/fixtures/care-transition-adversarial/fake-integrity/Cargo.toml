@@ -1,0 +1,15 @@
+[package]
+name = "hearth_care_transition_fake_integrity"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "hearth_care_transition_fake_integrity"
+
+[dependencies]
+hdi = "0.7.0"
+hearth_care_integrity = { path = "../../../../zomes/hearth-care/integrity" }
+hearth_kinship_integrity = { path = "../../../../zomes/hearth-kinship/integrity" }
