@@ -1,0 +1,11 @@
+[package]
+name = "hearth-care-timezone-jiff"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Pinned bundled-tzdb civil-time resolver for Hearth Care recurrence"
+
+[dependencies]
+hearth-care-recurrence = { workspace = true }
+jiff = { version = "=0.2.37", default-features = false, features = ["std", "tzdb-bundle-always"] }
+jiff-tzdb = "=0.1.8"
