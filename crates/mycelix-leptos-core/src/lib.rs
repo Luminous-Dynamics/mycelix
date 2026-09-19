@@ -16,6 +16,7 @@
 //! - [`TrustBadge`] — Consciousness-gated trust tier badge
 //! - [`EvidenceDisclosure`] — Evidence availability/freshness disclosure without verification claims
 //! - [`ProvenanceTrail`] — Ordered, gap-preserving explanation of consequential records/events
+//! - [`LocalSyncDisclosure`] — Independent local durability + remote synchronization disclosure
 //! - [`TierGate`] — Gating component that shows/hides children by tier
 //! - [`LoadingSkeleton`] — Pulsing skeleton placeholder for loading states
 //! - [`AppErrorBoundary`] — Styled error boundary with retry
@@ -75,6 +76,7 @@ pub mod identity_crypto;
 pub mod indlela;
 pub use mycelix_leptos_ui::loading;
 pub mod local_identity;
+pub mod local_sync;
 pub mod modal;
 pub mod provenance;
 pub use mycelix_leptos_ui::progress_bar;
@@ -119,6 +121,7 @@ pub use connection_status::ConnectionStatusIndicator;
 pub use error_boundary::AppErrorBoundary;
 pub use evidence::{EvidenceAvailability, EvidenceDisclosure};
 pub use loading::LoadingSkeleton;
+pub use local_sync::{LocalDurability, LocalSyncDisclosure, LocalSyncState, RemoteSyncState};
 pub use progress_bar::ProgressBar;
 pub use stat_card::StatCard;
 pub use telemetry_line::TelemetryLine;
