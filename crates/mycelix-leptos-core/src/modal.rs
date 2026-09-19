@@ -24,14 +24,14 @@ impl ModalSize {
     }
 }
 
-/// Modal dialog with backdrop.
+/// Modal dialog using the native HTML `<dialog>` top-layer primitive.
 ///
-/// Closes on backdrop click or Escape key. Uses display toggling instead of
-/// `<Show>` to avoid FnOnce/Fn issues with children.
+/// Opening with `showModal()` delegates focus containment, outside-page
+/// inertness, Escape behavior, and normal invoker focus restoration to the
+/// browser instead of reimplementing those semantics in Rust/JavaScript.
 ///
-/// `aria_label` is optional when a visible `title` is supplied because the
-/// title itself becomes the accessible name. Callers rendering an untitled
-/// dialog should supply a concise `aria_label` describing its purpose.
+/// Backdrop click still requests closure through `on_close`; inner content
+/// stops propagation so normal interaction does not dismiss the dialog.
 #[component]
 pub fn Modal(
     open: ReadSignal<bool>,
@@ -46,21 +46,37 @@ pub fn Modal(
     let accessible_name = aria_label
         .or_else(|| title.clone())
         .unwrap_or_else(|| "Dialog".to_string());
+    let dialog_ref = NodeRef::<leptos::html::Dialog>::new();
 
-    view! {
-        <div
-            class="modal-backdrop"
-            style=move || if open.get() { "display: flex" } else { "display: none" }
-            on:click=move |_| on_close.run(())
-            on:keydown=move |ev| {
-                if ev.key() == "Escape" {
-                    on_close.run(());
+    Effect::new(move |_| {
+        let should_be_open = open.get();
+        let Some(dialog) = dialog_ref.get() else {
+            return;
+        };
+
+        if should_be_open {
+            if !dialog.open() {
+                if let Err(error) = dialog.show_modal() {
+                    web_sys::console::error_1(&error);
                 }
             }
-            tabindex="-1"
-            role="dialog"
-            aria-modal="true"
+        } else if dialog.open() {
+            dialog.close();
+        }
+    });
+
+    view! {
+        <dialog
+            node_ref=dialog_ref
+            class="modal-backdrop"
             aria-label=accessible_name
+            on:cancel=move |ev| {
+                // Keep the reactive `open` signal authoritative. Prevent the
+                // browser from closing independently, then request closure.
+                ev.prevent_default();
+                on_close.run(());
+            }
+            on:click=move |_| on_close.run(())
         >
             <div
                 class=format!("modal-content {size_class}")
@@ -75,7 +91,7 @@ pub fn Modal(
                     {rendered}
                 </div>
             </div>
-        </div>
+        </dialog>
     }
 }
 

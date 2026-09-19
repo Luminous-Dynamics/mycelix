@@ -27,6 +27,7 @@ web-sys = { version = "0.3", features = [
     "Crypto",
     "CssStyleDeclaration",
     "HtmlElement",
+    "HtmlDialogElement",
     "Element",
     "BatteryManager",
     # identity_crypto.rs: passphrase-based encryption via SubtleCrypto
