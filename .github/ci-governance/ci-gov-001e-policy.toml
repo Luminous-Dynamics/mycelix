@@ -1,0 +1,17 @@
+schema = "mycelix.ci-gov.001e.policy.v0.1"
+workflow_path = ".github/workflows/ci.yml"
+
+[top_level_permissions]
+contents = "read"
+
+[critical_jobs.changes]
+contents = "read"
+pull_requests = "read"
+require_checkout_no_persist = true
+immutable_actions = [
+  "actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+  "dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad",
+]
+
+[critical_jobs.ci_pass]
+forbid_external_actions = true
