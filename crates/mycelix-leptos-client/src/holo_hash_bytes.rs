@@ -16,12 +16,49 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 
 pub const HOLO_HASH_WIRE_LEN: usize = 39;
+pub const HOLO_HASH_PREFIX_LEN: usize = 3;
+
+/// Primitive HoloHash kinds currently required by browser application inputs.
+///
+/// The byte prefixes are the raw 3-byte values represented by Holochain 0.6's
+/// published display prefixes:
+///
+/// - Agent / AgentPubKey: `uhCAk` -> `[0x84, 0x20, 0x24]`
+/// - Action / ActionHash: `uhCkk` -> `[0x84, 0x29, 0x24]`
+///
+/// We intentionally model only kinds that browser call sites currently need.
+/// Other valid 39-byte HoloHashes can still use [`HoloHashBytes`] generically.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum HoloHashKind {
+    Agent,
+    Action,
+}
+
+impl HoloHashKind {
+    pub const fn prefix(self) -> [u8; HOLO_HASH_PREFIX_LEN] {
+        match self {
+            Self::Agent => [0x84, 0x20, 0x24],
+            Self::Action => [0x84, 0x29, 0x24],
+        }
+    }
+
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Agent => "AgentPubKey",
+            Self::Action => "ActionHash",
+        }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct HoloHashBytes(Vec<u8>);
 
 impl HoloHashBytes {
     /// Construct from the exact 39-byte HoloHash wire representation.
+    ///
+    /// This validates length only. Use [`Self::require_kind`] or one of the
+    /// typed carrier constructors before sending a value to a zome parameter
+    /// whose concrete HoloHash type is known.
     pub fn from_raw_39(bytes: Vec<u8>) -> Result<Self, String> {
         if bytes.len() != HOLO_HASH_WIRE_LEN {
             return Err(format!(
@@ -44,6 +81,12 @@ impl HoloHashBytes {
         Self::from_raw_39(bytes)
     }
 
+    /// Parse a raw-base64 carrier and require that its 3-byte prefix is the
+    /// Holochain ActionHash prefix.
+    pub fn from_action_raw_base64(value: &str) -> Result<Self, String> {
+        Self::from_raw_base64(value)?.require_kind(HoloHashKind::Action)
+    }
+
     /// Parse Holochain's human/display representation (`u` + base64url/no-pad).
     ///
     /// This is intentionally separate from [`Self::from_raw_base64`] so callers
@@ -57,6 +100,42 @@ impl HoloHashBytes {
             .decode(encoded)
             .map_err(|error| format!("invalid HoloHash display base64url: {error}"))?;
         Self::from_raw_39(bytes)
+    }
+
+    /// Parse a Holochain display value and require an AgentPubKey prefix.
+    pub fn from_agent_display(value: &str) -> Result<Self, String> {
+        Self::from_holochain_display(value)?.require_kind(HoloHashKind::Agent)
+    }
+
+    /// Return the browser-relevant primitive kind when its prefix is recognized.
+    pub fn kind(&self) -> Option<HoloHashKind> {
+        let prefix = self.0.get(..HOLO_HASH_PREFIX_LEN)?;
+        if prefix == HoloHashKind::Agent.prefix() {
+            Some(HoloHashKind::Agent)
+        } else if prefix == HoloHashKind::Action.prefix() {
+            Some(HoloHashKind::Action)
+        } else {
+            None
+        }
+    }
+
+    /// Require this value to carry the expected HoloHash type prefix.
+    pub fn require_kind(self, expected: HoloHashKind) -> Result<Self, String> {
+        let expected_prefix = expected.prefix();
+        if self.0[..HOLO_HASH_PREFIX_LEN] == expected_prefix {
+            return Ok(self);
+        }
+
+        let actual = self
+            .kind()
+            .map(HoloHashKind::label)
+            .unwrap_or("another HoloHash kind");
+        Err(format!(
+            "expected {}, but value carries {} prefix {:02x?}",
+            expected.label(),
+            actual,
+            &self.0[..HOLO_HASH_PREFIX_LEN]
+        ))
     }
 
     pub fn as_raw_39(&self) -> &[u8] {
@@ -137,6 +216,12 @@ mod tests {
     use super::*;
     use crate::types::{decode, encode};
 
+    fn hash_of_kind(kind: HoloHashKind) -> HoloHashBytes {
+        let mut bytes = vec![0u8; HOLO_HASH_WIRE_LEN];
+        bytes[..HOLO_HASH_PREFIX_LEN].copy_from_slice(&kind.prefix());
+        HoloHashBytes::from_raw_39(bytes).unwrap()
+    }
+
     #[test]
     fn strict_length_is_enforced() {
         assert!(HoloHashBytes::from_raw_39(vec![0; 38]).is_err());
@@ -145,8 +230,29 @@ mod tests {
     }
 
     #[test]
+    fn published_agent_and_action_prefixes_match_display_forms() {
+        let agent = hash_of_kind(HoloHashKind::Agent);
+        let action = hash_of_kind(HoloHashKind::Action);
+        assert!(agent.to_holochain_display().starts_with("uhCAk"));
+        assert!(action.to_holochain_display().starts_with("uhCkk"));
+        assert_eq!(agent.kind(), Some(HoloHashKind::Agent));
+        assert_eq!(action.kind(), Some(HoloHashKind::Action));
+    }
+
+    #[test]
+    fn typed_constructors_reject_cross_kind_values() {
+        let agent = hash_of_kind(HoloHashKind::Agent);
+        let action = hash_of_kind(HoloHashKind::Action);
+
+        assert!(HoloHashBytes::from_agent_display(&agent.to_holochain_display()).is_ok());
+        assert!(HoloHashBytes::from_agent_display(&action.to_holochain_display()).is_err());
+        assert!(HoloHashBytes::from_action_raw_base64(&action.to_raw_base64()).is_ok());
+        assert!(HoloHashBytes::from_action_raw_base64(&agent.to_raw_base64()).is_err());
+    }
+
+    #[test]
     fn raw_base64_roundtrips_exact_wire_bytes() {
-        let hash = HoloHashBytes::from_raw_39((0u8..39).collect()).unwrap();
+        let hash = hash_of_kind(HoloHashKind::Action);
         let encoded = hash.to_raw_base64();
         let decoded = HoloHashBytes::from_raw_base64(&encoded).unwrap();
         assert_eq!(decoded, hash);
@@ -154,7 +260,7 @@ mod tests {
 
     #[test]
     fn holochain_display_roundtrips_exact_wire_bytes() {
-        let hash = HoloHashBytes::from_raw_39((0u8..39).collect()).unwrap();
+        let hash = hash_of_kind(HoloHashKind::Agent);
         let display = hash.to_holochain_display();
         assert!(display.starts_with('u'));
         assert!(!display.contains('='));
@@ -165,7 +271,7 @@ mod tests {
 
     #[test]
     fn messagepack_serialization_is_binary_not_string() {
-        let hash = HoloHashBytes::from_raw_39(vec![0xab; 39]).unwrap();
+        let hash = hash_of_kind(HoloHashKind::Action);
         let raw_base64 = hash.to_raw_base64();
 
         let hash_wire = encode(&hash).unwrap();
