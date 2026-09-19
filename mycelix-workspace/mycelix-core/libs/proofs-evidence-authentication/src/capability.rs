@@ -9,52 +9,154 @@ use crate::{
 
 /// Facts established by a concrete cryptographic verifier before policy binding.
 ///
-/// These structures are deliberately **not capabilities**. They are data passed by a
-/// crate-controlled verifier backend into the sealed minting boundary below.
+/// Fields are crate-private so external callers cannot manufacture values whose type
+/// name says `Verified`. Public access remains read-only through accessors.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VerifiedSignerIdentityV1 {
-    pub oidc_issuer: String,
-    pub source_repository: String,
-    pub source_repository_owner: String,
-    pub signer_workflow: String,
-    pub signer_workflow_revision: GitObjectIdV1,
-    pub source_revision: GitObjectIdV1,
-    pub source_ref: Option<String>,
+    pub(crate) oidc_issuer: String,
+    pub(crate) source_repository: String,
+    pub(crate) source_repository_owner: String,
+    pub(crate) signer_workflow: String,
+    pub(crate) signer_workflow_revision: GitObjectIdV1,
+    pub(crate) source_revision: GitObjectIdV1,
+    pub(crate) source_ref: Option<String>,
+}
+
+impl VerifiedSignerIdentityV1 {
+    pub fn oidc_issuer(&self) -> &str {
+        &self.oidc_issuer
+    }
+
+    pub fn source_repository(&self) -> &str {
+        &self.source_repository
+    }
+
+    pub fn source_repository_owner(&self) -> &str {
+        &self.source_repository_owner
+    }
+
+    pub fn signer_workflow(&self) -> &str {
+        &self.signer_workflow
+    }
+
+    pub fn signer_workflow_revision(&self) -> GitObjectIdV1 {
+        self.signer_workflow_revision
+    }
+
+    pub fn source_revision(&self) -> GitObjectIdV1 {
+        self.source_revision
+    }
+
+    pub fn source_ref(&self) -> Option<&str> {
+        self.source_ref.as_deref()
+    }
 }
 
 /// Cryptographically verified in-toto subject + Mycelix predicate facts.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VerifiedQualificationPredicateV1 {
-    pub predicate_type: String,
-    pub predicate_schema: String,
+    pub(crate) predicate_type: String,
+    pub(crate) predicate_schema: String,
     /// SHA-256 digest carried by the outer in-toto subject.
-    pub attestation_subject_sha256: Sha256DigestV1,
+    pub(crate) attestation_subject_sha256: Sha256DigestV1,
     /// Canonical receipt digest carried inside the Mycelix predicate.
-    pub receipt_digest: QualificationReceiptDigestV1,
-    pub qualification_profile: String,
-    pub subject: GitObjectIdV1,
-    pub coherence_result_digest: Sha256DigestV1,
-    pub result: QualificationResultV1,
+    pub(crate) receipt_digest: QualificationReceiptDigestV1,
+    pub(crate) qualification_profile: String,
+    pub(crate) subject: GitObjectIdV1,
+    pub(crate) coherence_result_digest: Sha256DigestV1,
+    pub(crate) result: QualificationResultV1,
+}
+
+impl VerifiedQualificationPredicateV1 {
+    pub fn predicate_type(&self) -> &str {
+        &self.predicate_type
+    }
+
+    pub fn predicate_schema(&self) -> &str {
+        &self.predicate_schema
+    }
+
+    pub fn attestation_subject_sha256(&self) -> Sha256DigestV1 {
+        self.attestation_subject_sha256
+    }
+
+    pub fn receipt_digest(&self) -> QualificationReceiptDigestV1 {
+        self.receipt_digest
+    }
+
+    pub fn qualification_profile(&self) -> &str {
+        &self.qualification_profile
+    }
+
+    pub fn subject(&self) -> GitObjectIdV1 {
+        self.subject
+    }
+
+    pub fn coherence_result_digest(&self) -> Sha256DigestV1 {
+        self.coherence_result_digest
+    }
+
+    pub fn result(&self) -> QualificationResultV1 {
+        self.result
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct VerifiedTransparencyV1 {
-    pub public_transparency_verified: bool,
-    pub timestamp_verified: bool,
+    pub(crate) public_transparency_verified: bool,
+    pub(crate) timestamp_verified: bool,
+}
+
+impl VerifiedTransparencyV1 {
+    pub const fn public_transparency_verified(&self) -> bool {
+        self.public_transparency_verified
+    }
+
+    pub const fn timestamp_verified(&self) -> bool {
+        self.timestamp_verified
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct VerifiedFreshnessV1 {
-    pub current_at_verification: bool,
-    pub age_seconds: Option<u64>,
+    pub(crate) current_at_verification: bool,
+    pub(crate) age_seconds: Option<u64>,
+}
+
+impl VerifiedFreshnessV1 {
+    pub const fn current_at_verification(&self) -> bool {
+        self.current_at_verification
+    }
+
+    pub const fn age_seconds(&self) -> Option<u64> {
+        self.age_seconds
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VerifiedAuthenticationContextV1 {
-    pub trusted_root_profile: String,
-    pub trusted_root_digest: Sha256DigestV1,
-    pub transparency: VerifiedTransparencyV1,
-    pub freshness: VerifiedFreshnessV1,
+    pub(crate) trusted_root_profile: String,
+    pub(crate) trusted_root_digest: Sha256DigestV1,
+    pub(crate) transparency: VerifiedTransparencyV1,
+    pub(crate) freshness: VerifiedFreshnessV1,
+}
+
+impl VerifiedAuthenticationContextV1 {
+    pub fn trusted_root_profile(&self) -> &str {
+        &self.trusted_root_profile
+    }
+
+    pub fn trusted_root_digest(&self) -> Sha256DigestV1 {
+        self.trusted_root_digest
+    }
+
+    pub const fn transparency(&self) -> VerifiedTransparencyV1 {
+        self.transparency
+    }
+
+    pub const fn freshness(&self) -> VerifiedFreshnessV1 {
+        self.freshness
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -385,7 +487,7 @@ mod tests {
             source_repository_owner: "Luminous-Dynamics".into(),
             signer_workflow: ".github/workflows/proofs.yml".into(),
             signer_workflow_revision: WorkflowRevisionPolicyV1::Exact(GitObjectIdV1::sha1([
-                0xbb; 20,
+                0xbb; 20
             ])),
             source_revision: SourceRevisionPolicyV1 {
                 exact_commit: GitObjectIdV1::sha1([0xcc; 20]),
