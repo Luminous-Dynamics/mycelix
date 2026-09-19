@@ -16,6 +16,7 @@ use crate::hearth_truth::{
 };
 use crate::pages::personal;
 use crate::pages::*;
+use crate::pending_votes::provide_unvoted_decisions;
 use crate::vote_history::{VoteHistorySummary, provide_vote_history};
 use mycelix_leptos_core::{
     ConnectStrategy, HolochainProviderAuto, HolochainProviderConfig, ToastContainer,
@@ -52,6 +53,7 @@ fn AppInner() -> impl IntoView {
     provide_hearth_truth();
     provide_decision_outcomes();
     provide_vote_history();
+    provide_unvoted_decisions();
     crate::hearth_prefs::provide_hearth_prefs();
 
     crate::hearth_actions::provide_hearth_actions();

@@ -4,13 +4,18 @@
 
 use crate::components::MemberAvatar;
 use crate::hearth_context::{member_name, use_hearth};
+use crate::pending_votes::{
+    UnvotedDecisionHomeAttention, attention_is_established_empty, use_unvoted_decisions,
+};
 use crate::visualization::KinshipCanvas;
 use hearth_leptos_types::*;
 use leptos::prelude::*;
+use mycelix_leptos_core::AvailabilityStateKind;
 
 #[component]
 pub fn HomePage() -> impl IntoView {
     let hearth = use_hearth();
+    let decision_attention = use_unvoted_decisions();
 
     let neglected_bonds = move || {
         hearth
@@ -21,22 +26,37 @@ pub fn HomePage() -> impl IntoView {
             .count()
     };
 
-    // Hearth-specific homeostasis is derived from the same domain state the
-    // page presents. The previous shared writer path never received Hearth's
-    // counters, so a default-zero signal could incorrectly collapse Home into
-    // "all is well" even while active work existed.
+    // A reassuring calm state is a positive presentation claim. In live mode
+    // it is allowed only when the personal Decision-attention source is
+    // established empty *and* independently aligned with the loaded
+    // Decisions/Votes snapshot. Unknown, unavailable, locked or degraded
+    // attention therefore cannot collapse into "all is well".
+    //
+    // Mock mode remains explicitly local/demo-only and derives its own
+    // attention state from the mock Decisions/Votes already on screen.
+    let decision_attention_for_homeostasis = decision_attention.clone();
     let in_homeostasis = move || {
         let active_care = hearth
             .care_schedules
             .get()
             .iter()
             .any(|care| care.status == CareScheduleStatus::Active);
-        let open_decisions = hearth
-            .decisions
-            .get()
-            .iter()
-            .any(|decision| decision.status == DecisionStatus::Open);
-        !active_care && !open_decisions
+
+        let attention = decision_attention_for_homeostasis.snapshot.get();
+        let no_decision_attention = if attention.availability == AvailabilityStateKind::Mock {
+            let my_agent = hearth.my_agent.get();
+            let votes = hearth.votes.get();
+            !hearth.decisions.get().iter().any(|decision| {
+                decision.status == DecisionStatus::Open
+                    && !votes.iter().any(|vote| {
+                        vote.decision_hash == decision.hash && vote.voter == my_agent
+                    })
+            })
+        } else {
+            attention_is_established_empty(&attention)
+        };
+
+        !active_care && no_decision_attention
     };
 
     view! {
@@ -81,6 +101,8 @@ pub fn HomePage() -> impl IntoView {
                                     }
                                 }}
                             </header>
+
+                            <UnvotedDecisionHomeAttention />
 
                             <div class="home-web">
                                 <KinshipCanvas />
