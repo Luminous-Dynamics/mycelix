@@ -309,15 +309,15 @@ fn record_to_hearth(record: &WireRecord) -> Option<HearthView> {
         name: hearth.name,
         description: hearth.description,
         hearth_type: hearth.hearth_type,
-        created_by: base64_encode(&hearth.created_by),
+        created_by: record_bridge::agent_display(&hearth.created_by)?,
         created_at: hearth.created_at / 1_000_000,
         max_members: hearth.max_members,
     })
 }
 
 fn parse_source_hash(label: &str, raw_base64: &str) -> Result<HoloHashBytes, String> {
-    HoloHashBytes::from_raw_base64(raw_base64)
-        .map_err(|error| format!("{label} is not a valid 39-byte HoloHash: {error}"))
+    HoloHashBytes::from_action_raw_base64(raw_base64)
+        .map_err(|error| format!("{label} is not a valid ActionHash: {error}"))
 }
 
 async fn load_live_data(
@@ -791,30 +791,6 @@ pub fn HearthDataStatus() -> impl IntoView {
             </div>
         </Show>
     }
-}
-
-fn base64_encode(bytes: &[u8]) -> String {
-    const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut result = String::with_capacity(bytes.len() * 4 / 3 + 4);
-    for chunk in bytes.chunks(3) {
-        let b0 = chunk[0] as u32;
-        let b1 = chunk.get(1).copied().unwrap_or(0) as u32;
-        let b2 = chunk.get(2).copied().unwrap_or(0) as u32;
-        let n = (b0 << 16) | (b1 << 8) | b2;
-        result.push(CHARS[((n >> 18) & 0x3f) as usize] as char);
-        result.push(CHARS[((n >> 12) & 0x3f) as usize] as char);
-        if chunk.len() > 1 {
-            result.push(CHARS[((n >> 6) & 0x3f) as usize] as char);
-        } else {
-            result.push('=');
-        }
-        if chunk.len() > 2 {
-            result.push(CHARS[(n & 0x3f) as usize] as char);
-        } else {
-            result.push('=');
-        }
-    }
-    result
 }
 
 #[cfg(test)]
