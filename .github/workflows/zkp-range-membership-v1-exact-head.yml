@@ -1,0 +1,439 @@
+name: Mycelix RangeMembershipV1 Exact-Head
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'mycelix-workspace/crates/mycelix-zkp-core/**'
+      - 'mycelix-workspace/mycelix-core/libs/proofs-config/**'
+      - 'mycelix-workspace/mycelix-core/libs/proofs-commitment/**'
+      - '.github/workflows/zkp-range-membership-v1-exact-head.yml'
+  workflow_dispatch:
+    inputs:
+      subject_sha:
+        description: 'Exact 40-hex commit SHA to qualify'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zkp-range-membership-v1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Exact-head RangeMembershipV1 qualification
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Resolve exact subject
+        id: subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            subject='${{ github.event.pull_request.head.sha }}'
+          else
+            subject='${{ inputs.subject_sha }}'
+          fi
+          if [[ ! "$subject" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "invalid subject SHA: $subject" >&2
+            exit 1
+          fi
+          echo "sha=$subject" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ steps.subject.outputs.sha }}
+          fetch-depth: 1
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+
+      - name: Preflight identity and source evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          test -z "$(git status --porcelain)"
+          mkdir -p "$RUNNER_TEMP/range-v1-evidence"
+          {
+            echo "subject_sha=${{ steps.subject.outputs.sha }}"
+            echo "runner_os=${RUNNER_OS}"
+            echo "runner_arch=${RUNNER_ARCH}"
+            rustc -Vv
+            cargo -V
+          } > "$RUNNER_TEMP/range-v1-evidence/execution-capsule.txt"
+          find mycelix-workspace/crates/mycelix-zkp-core \
+               mycelix-workspace/mycelix-core/libs/proofs-config \
+               mycelix-workspace/mycelix-core/libs/proofs-commitment \
+               -type f -not -path '*/target/*' -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            > "$RUNNER_TEMP/range-v1-evidence/source-sha256.txt"
+
+      - name: Check formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-workspace/crates/mycelix-zkp-core
+          cargo fmt --all -- --check
+
+      - name: Prepare isolated resolved graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/range-v1-qual/mycelix-workspace"
+          mkdir -p "$root/crates" "$root/mycelix-core/libs"
+          cp -a mycelix-workspace/crates/mycelix-zkp-core "$root/crates/"
+          cp -a mycelix-workspace/mycelix-core/libs/proofs-config "$root/mycelix-core/libs/"
+          cp -a mycelix-workspace/mycelix-core/libs/proofs-commitment "$root/mycelix-core/libs/"
+          cd "$root/crates/mycelix-zkp-core"
+          cargo generate-lockfile
+          sha256sum Cargo.lock > "$RUNNER_TEMP/range-v1-evidence/Cargo.lock.sha256"
+          cp Cargo.lock "$RUNNER_TEMP/range-v1-evidence/Cargo.lock"
+          cargo metadata --locked --format-version 1 \
+            > "$RUNNER_TEMP/range-v1-evidence/cargo-metadata.json"
+          cargo tree --locked --no-default-features --features candidate-range-membership-v1 \
+            > "$RUNNER_TEMP/range-v1-evidence/cargo-tree-candidate.txt"
+
+      - name: Verify candidate feature isolation
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/range-v1-qual/mycelix-workspace/crates/mycelix-zkp-core"
+          python3 - <<'PY'
+          import pathlib, tomllib
+          data = tomllib.loads(pathlib.Path('Cargo.toml').read_text())
+          features = data['features']
+          candidate = features.get('candidate-range-membership-v1')
+          assert candidate is not None, 'candidate-range-membership-v1 missing'
+          assert set(candidate) == {'backend-winterfell'}, candidate
+          full = set(features['full'])
+          assert 'candidate-range-membership-v1' not in full, full
+          assert 'legacy-unqualified-range-proof' not in full, full
+          PY
+
+      - name: Execute candidate adversarial corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/range-v1-qual/mycelix-workspace/crates/mycelix-zkp-core"
+          cargo test --locked --lib --no-default-features --features candidate-range-membership-v1 \
+            -- --nocapture \
+            | tee "$RUNNER_TEMP/range-v1-evidence/candidate-tests.txt"
+          cargo test --locked --lib --no-default-features --features candidate-range-membership-v1 \
+            -- --list \
+            > "$RUNNER_TEMP/range-v1-evidence/candidate-test-list.txt"
+
+      - name: Qualification-only malicious trace and weak-option probes
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/range-v1-qual/mycelix-workspace/crates/mycelix-zkp-core"
+          source="$crate/src/circuits/range_membership_v1.rs"
+          cp "$source" "$RUNNER_TEMP/range_membership_v1.original.rs"
+          cat >> "$source" <<'RS'
+
+          #[cfg(test)]
+          mod qualification_adversarial_probes {
+              use super::*;
+              use std::panic::{AssertUnwindSafe, catch_unwind};
+
+              fn assert_trace_rejected(
+                  trace: TraceTable<BaseElement>,
+                  pub_inputs: RangeMembershipPublicInputsV1,
+              ) {
+                  let prover = RangeMembershipProverV1 {
+                      options: candidate_range_membership_v1_options(),
+                      pub_inputs: pub_inputs.clone(),
+                  };
+                  let proving = catch_unwind(AssertUnwindSafe(|| prover.prove(trace)));
+                  match proving {
+                      Err(_) | Ok(Err(_)) => {}
+                      Ok(Ok(proof)) => {
+                          let acceptable = AcceptableOptions::OptionSet(vec![
+                              candidate_range_membership_v1_options(),
+                          ]);
+                          assert!(
+                              winterfell::verify::<RangeMembershipAirV1, Hasher, RandCoin, VC>(
+                                  proof,
+                                  pub_inputs,
+                                  &acceptable,
+                              )
+                              .is_err(),
+                              "malicious trace unexpectedly verified"
+                          );
+                      }
+                  }
+              }
+
+              #[test]
+              fn canonical_verifier_rejects_valid_proof_with_weaker_options() {
+                  let pub_inputs = RangeMembershipPublicInputsV1::new(-10, 10).unwrap();
+                  let trace = build_trace(-3, -10, 10).unwrap();
+                  let weaker = ProofOptions::new(
+                      16,
+                      8,
+                      0,
+                      winterfell::FieldExtension::None,
+                      8,
+                      31,
+                      BatchingMethod::Linear,
+                      BatchingMethod::Linear,
+                  );
+                  let prover = RangeMembershipProverV1 {
+                      options: weaker,
+                      pub_inputs: pub_inputs.clone(),
+                  };
+                  let weak_proof = prover.prove(trace).expect("weaker profile must still produce a proof");
+                  assert!(
+                      verify_range_membership_v1(weak_proof, -10, 10).is_err(),
+                      "canonical verifier accepted a noncanonical weaker proof profile"
+                  );
+              }
+
+              #[test]
+              fn seed_mutation_is_rejected() {
+                  let mut trace = build_trace(35, 18, 65).unwrap();
+                  trace.set(col::LOW_ACC, 0, BaseElement::ONE);
+                  assert_trace_rejected(trace, RangeMembershipPublicInputsV1::new(18, 65).unwrap());
+              }
+
+              #[test]
+              fn forced_zero_prefix_mutation_is_rejected() {
+                  let mut trace = build_trace(35, 18, 65).unwrap();
+                  trace.set(col::LOW_BIT, FIRST_DATA_ROW - 1, BaseElement::ONE);
+                  assert_trace_rejected(trace, RangeMembershipPublicInputsV1::new(18, 65).unwrap());
+              }
+
+              #[test]
+              fn high_accumulator_mutation_is_rejected() {
+                  let mut trace = build_trace(35, 18, 65).unwrap();
+                  let row = 100;
+                  trace.set(col::HIGH_ACC, row, trace.get(col::HIGH_ACC, row) + BaseElement::ONE);
+                  assert_trace_rejected(trace, RangeMembershipPublicInputsV1::new(18, 65).unwrap());
+              }
+
+              #[test]
+              fn derived_min_check_mutation_is_rejected() {
+                  let mut trace = build_trace(35, 18, 65).unwrap();
+                  let row = 100;
+                  trace.set(col::MIN_CHECK, row, trace.get(col::MIN_CHECK, row) + BaseElement::ONE);
+                  assert_trace_rejected(trace, RangeMembershipPublicInputsV1::new(18, 65).unwrap());
+              }
+
+              #[test]
+              fn derived_max_check_mutation_is_rejected() {
+                  let mut trace = build_trace(35, 18, 65).unwrap();
+                  let row = 100;
+                  trace.set(col::MAX_CHECK, row, trace.get(col::MAX_CHECK, row) + BaseElement::ONE);
+                  assert_trace_rejected(trace, RangeMembershipPublicInputsV1::new(18, 65).unwrap());
+              }
+
+              #[test]
+              fn trace_statement_profile_mutation_is_rejected() {
+                  let mut trace = build_trace(35, 18, 65).unwrap();
+                  let row = 100;
+                  trace.set(
+                      col::STATEMENT_TAG,
+                      row,
+                      trace.get(col::STATEMENT_TAG, row) + BaseElement::ONE,
+                  );
+                  assert_trace_rejected(trace, RangeMembershipPublicInputsV1::new(18, 65).unwrap());
+              }
+          }
+          RS
+          cd "$crate"
+          cargo test --locked --lib --no-default-features --features candidate-range-membership-v1 \
+            qualification_adversarial_probes -- --nocapture \
+            | tee "$RUNNER_TEMP/range-v1-evidence/qualification-adversarial-probes.txt"
+          cp "$RUNNER_TEMP/range_membership_v1.original.rs" "$source"
+          cmp -s "$source" "$RUNNER_TEMP/range_membership_v1.original.rs"
+
+      - name: Clippy candidate surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/range-v1-qual/mycelix-workspace/crates/mycelix-zkp-core"
+          cargo clippy --locked --lib --tests --no-default-features \
+            --features candidate-range-membership-v1 -- -D warnings
+
+      - name: Public API round-trip under candidate feature
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/range-v1-qual/mycelix-workspace/crates/mycelix-zkp-core"
+          mkdir -p "$crate/tests"
+          cat > "$crate/tests/range_v1_public_probe.rs" <<'RS'
+          use mycelix_zkp_core::circuits::range_membership_v1::{
+              prove_range_membership_v1,
+              verify_range_membership_v1,
+              RangeMembershipPublicInputsV1,
+              RANGE_MEMBERSHIP_V1_STATEMENT_TAG,
+          };
+
+          #[test]
+          fn candidate_public_surface_round_trips() {
+              let inputs = RangeMembershipPublicInputsV1::new(-10, 10).expect("public inputs");
+              assert_eq!(inputs.statement_tag(), RANGE_MEMBERSHIP_V1_STATEMENT_TAG);
+              let proof = prove_range_membership_v1(-3, -10, 10).expect("prove");
+              verify_range_membership_v1(proof, -10, 10).expect("verify");
+          }
+          RS
+          cd "$crate"
+          cargo test --locked --no-default-features --features candidate-range-membership-v1 \
+            --test range_v1_public_probe
+          rm -f tests/range_v1_public_probe.rs
+
+      - name: Measure candidate STARK security estimates
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/range-v1-qual/mycelix-workspace/crates/mycelix-zkp-core"
+          evidence="$RUNNER_TEMP/range-v1-evidence"
+          mkdir -p "$crate/tests"
+          cat > "$crate/tests/range_v1_security_probe.rs" <<'RS'
+          use mycelix_zkp_core::circuits::range_membership_v1::{
+              prove_range_membership_v1,
+              verify_range_membership_v1,
+          };
+          use winterfell::{
+              crypto::hashers::Blake3_256,
+              math::fields::f128::BaseElement,
+          };
+
+          type CandidateHasher = Blake3_256<BaseElement>;
+
+          #[test]
+          fn report_exact_candidate_security_estimates() {
+              let proof = prove_range_membership_v1(i64::MIN, i64::MIN, i64::MAX)
+                  .expect("generate full-domain candidate proof");
+
+              let conjectured = proof.conjectured_security::<CandidateHasher>().bits();
+              let proven = proof.proven_security::<CandidateHasher>();
+              let proof_bytes = proof.to_bytes().len();
+              let options = proof.options();
+
+              println!("RANGE_V1_SECURITY conjectured_bits={conjectured}");
+              println!("RANGE_V1_SECURITY proven_udr_bits={}", proven.udr_bits());
+              println!("RANGE_V1_SECURITY proven_ldr_bits={}", proven.ldr_bits());
+              println!("RANGE_V1_SECURITY proof_bytes={proof_bytes}");
+              println!("RANGE_V1_SECURITY trace_length={}", proof.trace_info().length());
+              println!("RANGE_V1_SECURITY lde_domain_size={}", proof.lde_domain_size());
+              println!("RANGE_V1_SECURITY num_queries={}", options.num_queries());
+              println!("RANGE_V1_SECURITY blowup_factor={}", options.blowup_factor());
+              println!("RANGE_V1_SECURITY grinding_factor={}", options.grinding_factor());
+              println!("RANGE_V1_SECURITY field_extension={:?}", options.field_extension());
+
+              // This probe intentionally records rather than blesses these values.
+              // Production security policy is a separate qualification (#1905).
+              verify_range_membership_v1(proof, i64::MIN, i64::MAX)
+                  .expect("candidate proof must still verify under exact options");
+          }
+          RS
+          cd "$crate"
+          cargo test --locked --no-default-features --features candidate-range-membership-v1 \
+            --test range_v1_security_probe -- --nocapture \
+            | tee "$evidence/security-probe.txt"
+          grep 'RANGE_V1_SECURITY' "$evidence/security-probe.txt" \
+            > "$evidence/security-estimates.txt"
+          test -s "$evidence/security-estimates.txt"
+          rm -f tests/range_v1_security_probe.rs
+
+      - name: Prove ordinary backend does not expose candidate theorem
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/range-v1-qual/mycelix-workspace/crates/mycelix-zkp-core"
+          evidence="$RUNNER_TEMP/range-v1-evidence"
+          mkdir -p "$crate/tests"
+          cat > "$crate/tests/range_v1_absence_probe.rs" <<'RS'
+          use mycelix_zkp_core::circuits::range_membership_v1;
+          #[test]
+          fn probe() { let _ = stringify!(range_membership_v1); }
+          RS
+
+          probe_absent() {
+            local label="$1"
+            local features="$2"
+            set +e
+            (
+              cd "$crate"
+              cargo check --locked --no-default-features --features "$features" \
+                --test range_v1_absence_probe
+            ) >"$evidence/${label}.stdout.txt" 2>"$evidence/${label}.stderr.txt"
+            status=$?
+            set -e
+            if [[ $status -eq 0 ]]; then
+              echo "candidate range theorem unexpectedly exposed by $features" >&2
+              exit 1
+            fi
+            if ! grep -Eq 'unresolved import|could not find|no .* in' "$evidence/${label}.stderr.txt"; then
+              echo "negative probe failed for an unexpected reason: $features" >&2
+              cat "$evidence/${label}.stderr.txt" >&2
+              exit 1
+            fi
+          }
+
+          probe_absent ordinary-winterfell backend-winterfell
+          probe_absent ordinary-full full
+          rm -f "$crate/tests/range_v1_absence_probe.rs"
+
+      - name: Verify historical and candidate features remain distinct
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/range-v1-qual/mycelix-workspace/crates/mycelix-zkp-core"
+          cargo check --locked --lib --no-default-features --features legacy-unqualified-range-proof
+          cargo check --locked --lib --no-default-features --features candidate-range-membership-v1
+
+      - name: Postflight checkout immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          test -z "$(git status --porcelain)"
+
+      - name: Write qualification receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          lock_sha="$(cut -d' ' -f1 "$RUNNER_TEMP/range-v1-evidence/Cargo.lock.sha256")"
+          cat > "$RUNNER_TEMP/range-v1-evidence/QUALIFICATION_RECEIPT.txt" <<EOF
+          MYC-ZKP-RANGE-001AQ PASS
+          subject_sha=${{ steps.subject.outputs.sha }}
+          rust_toolchain=1.96.0
+          resolved_lock_sha256=${lock_sha}
+          statement_profile=RangeMembershipV1 candidate
+          candidate_feature_isolated=PASS
+          candidate_unit_adversarial_corpus=PASS
+          qualification_only_malicious_trace_probes=PASS
+          weaker_noncanonical_proof_options_rejected=PASS
+          candidate_public_api_roundtrip=PASS
+          candidate_security_estimates=RECORDED_ONLY; see security-estimates.txt; no production floor claimed
+          ordinary_backend_candidate_absence=PASS
+          ordinary_full_candidate_absence=PASS
+          legacy_candidate_feature_separation=PASS
+          qualification_scope=exact source identity + isolated resolved graph + format + candidate compile/tests/clippy + adversarial AIR tests + qualification-only malicious-trace/weak-option probes + public API roundtrip + measured conjectured/proven security evidence + negative feature-boundary probes + checkout immutability
+          dependency_reproducibility=limited to retained generated Cargo.lock; no committed range-v1 lock is claimed
+          nonclaims=witness privacy or zero knowledge, commitment opening, production STARK security level, FL contribution validity, Health/Finance/jurisdiction authority, production readiness
+          EOF
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: myc-zkp-range-001aq-${{ steps.subject.outputs.sha }}
+          path: ${{ runner.temp }}/range-v1-evidence
+          if-no-files-found: warn
+          retention-days: 30
