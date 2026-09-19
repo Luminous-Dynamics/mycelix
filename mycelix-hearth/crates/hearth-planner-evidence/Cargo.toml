@@ -1,0 +1,11 @@
+[package]
+name = "hearth-planner-evidence"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Evidence-qualified Care history adapter for the Hearth household planner"
+
+[dependencies]
+serde = { workspace = true }
+hearth-household-planner = { workspace = true }
+hearth-care-ledger-contract = { workspace = true }
