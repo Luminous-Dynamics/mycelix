@@ -1,0 +1,24 @@
+{
+  "schema_version": "myc-fl-robustness-manifest-v1",
+  "corpus_id": "myc-fl-001a3q-krum-v1-initial",
+  "algorithm_profile": "KrumV1",
+  "fixtures": [
+    "krum-v1-gross-outlier.json",
+    "krum-v1-exact-score-tie.json",
+    "krum-v1-infeasible-boundary.json"
+  ],
+  "claim_boundary": "algorithm semantics and theorem-boundary fixtures only; no universal robustness claim",
+  "derivation_policy": "expected results must be independently derived from frozen equations or external reference evidence, not copied from the Mycelix implementation under test",
+  "future_required_profiles": [
+    "iid-honest",
+    "non-iid-honest",
+    "sign-flip",
+    "scaling",
+    "alie-style",
+    "min-max-min-sum-style",
+    "collusion",
+    "sybil-duplication",
+    "history-adaptive",
+    "selection-aware"
+  ]
+}
