@@ -1,0 +1,84 @@
+name: Stewardship Protected Content Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-stewardship-core/**'
+      - 'crates/mycelix-stewardship-envelope/**'
+      - 'crates/mycelix-stewardship-protected-content/**'
+      - '.github/workflows/stewardship-protected-content.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stewardship-protected-content-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact proposed head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Bind qualification subject
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Install stable Rust and wasm target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+
+      - name: Verify narrow dependency closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import pathlib
+          import tomllib
+
+          manifest = pathlib.Path('crates/mycelix-stewardship-protected-content/Cargo.toml')
+          data = tomllib.loads(manifest.read_text())
+          expected = {
+              'mycelix-stewardship-core': {
+                  'path': '../mycelix-stewardship-core',
+              },
+              'mycelix-stewardship-envelope': {
+                  'path': '../mycelix-stewardship-envelope',
+              },
+          }
+          dependencies = data.get('dependencies', {})
+          if dependencies != expected:
+              raise SystemExit(f'unexpected STEW-020 dependency closure: {dependencies!r}')
+          PY
+
+      - name: rustfmt
+        run: cargo fmt --manifest-path crates/mycelix-stewardship-protected-content/Cargo.toml -- --check
+
+      - name: Host tests
+        run: cargo test --manifest-path crates/mycelix-stewardship-protected-content/Cargo.toml --all-targets
+
+      - name: wasm32 check
+        run: cargo check --manifest-path crates/mycelix-stewardship-protected-content/Cargo.toml --target wasm32-unknown-unknown
+
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-stewardship-protected-content/Cargo.toml --all-targets -- -D warnings
+
+      - name: rustdoc
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --manifest-path crates/mycelix-stewardship-protected-content/Cargo.toml --no-deps
+
+      - name: Postflight exact-head verification
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
