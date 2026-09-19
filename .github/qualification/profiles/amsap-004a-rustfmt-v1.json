@@ -1,0 +1,17 @@
+{
+  "schema": "mycelix-qualification-preflight-v1",
+  "profile_id": "amsap-004a-rustfmt-v1",
+  "repository": "Luminous-Dynamics/mycelix",
+  "required_parent_sha": "2da5f4923a8aa6833fcb507f15409e151aa01c0d",
+  "expected_changed_paths": [
+    ".github/workflows/amsap-004a-subject-topology.yml",
+    "crates/mycelix-subject-topology/Cargo.lock",
+    "crates/mycelix-subject-topology/Cargo.toml",
+    "crates/mycelix-subject-topology/README.md",
+    "crates/mycelix-subject-topology/src/lib.rs"
+  ],
+  "toolchain": "1.98.1",
+  "manifest_path": "crates/mycelix-subject-topology/Cargo.toml",
+  "probe_timeout_seconds": 60,
+  "rustfmt_timeout_seconds": 120
+}
