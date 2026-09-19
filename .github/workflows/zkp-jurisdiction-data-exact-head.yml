@@ -1,0 +1,183 @@
+name: Mycelix ZKP Jurisdiction Data Exact-Head
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'mycelix-workspace/crates/mycelix-zkp-core/**'
+      - 'mycelix-workspace/mycelix-core/libs/proofs-config/**'
+      - 'mycelix-workspace/mycelix-core/libs/proofs-commitment/**'
+      - '.github/workflows/zkp-jurisdiction-data-exact-head.yml'
+  workflow_dispatch:
+    inputs:
+      subject_sha:
+        description: 'Exact 40-hex commit SHA to qualify'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Exact-head jurisdiction data/proof separation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Resolve exact subject
+        id: subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            subject='${{ github.event.pull_request.head.sha }}'
+          else
+            subject='${{ inputs.subject_sha }}'
+          fi
+          [[ "$subject" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid subject SHA: $subject" >&2; exit 1; }
+          echo "sha=$subject" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ steps.subject.outputs.sha }}
+          fetch-depth: 1
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+
+      - name: Preflight identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          test -z "$(git status --porcelain)"
+          mkdir -p "$RUNNER_TEMP/jurisdiction-evidence"
+          {
+            echo "subject_sha=${{ steps.subject.outputs.sha }}"
+            rustc -Vv
+            cargo -V
+          } > "$RUNNER_TEMP/jurisdiction-evidence/execution-capsule.txt"
+
+      - name: Prepare isolated resolved graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/jurisdiction-qual/mycelix-workspace"
+          mkdir -p "$root/crates" "$root/mycelix-core/libs"
+          cp -a mycelix-workspace/crates/mycelix-zkp-core "$root/crates/"
+          cp -a mycelix-workspace/mycelix-core/libs/proofs-config "$root/mycelix-core/libs/"
+          cp -a mycelix-workspace/mycelix-core/libs/proofs-commitment "$root/mycelix-core/libs/"
+          cd "$root/crates/mycelix-zkp-core"
+          cargo generate-lockfile
+          sha256sum Cargo.lock > "$RUNNER_TEMP/jurisdiction-evidence/Cargo.lock.sha256"
+          cp Cargo.lock "$RUNNER_TEMP/jurisdiction-evidence/Cargo.lock"
+          cargo metadata --locked --format-version 1 > "$RUNNER_TEMP/jurisdiction-evidence/cargo-metadata.json"
+
+      - name: Formatting and focused tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-workspace/crates/mycelix-zkp-core
+          cargo fmt --all -- --check
+          cd "$RUNNER_TEMP/jurisdiction-qual/mycelix-workspace/crates/mycelix-zkp-core"
+          cargo test --locked --no-default-features jurisdiction_types
+          cargo test --locked --no-default-features jurisdiction_registry
+          cargo test --locked --no-default-features location_attestation
+          cargo clippy --locked --no-default-features -- -D warnings
+
+      - name: Prove safe data APIs require no proof backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/jurisdiction-qual/mycelix-workspace/crates/mycelix-zkp-core"
+          cat > "$crate/tests/jurisdiction_data_probe.rs" <<'RS'
+          use mycelix_zkp_core::{AttestationTier, JurisdictionBox};
+          use mycelix_zkp_core::jurisdiction_registry::seed_registry_sa_sars;
+
+          #[test]
+          fn safe_metadata_is_available_without_a_proof_backend() {
+              let box_ = JurisdictionBox::from_degrees(
+                  "ZA-test", -35.0, -22.0, 16.0, 33.0
+              ).expect("valid geometry");
+              assert!(box_.contains_degrees(-26.1625, 27.8725));
+              let registry = seed_registry_sa_sars();
+              assert!(!registry.is_empty());
+              assert_eq!(AttestationTier::T0SelfAttested as u8, 0);
+          }
+          RS
+          cd "$crate"
+          cargo test --locked --no-default-features --test jurisdiction_data_probe
+          rm -f tests/jurisdiction_data_probe.rs
+
+      - name: Prove historical jurisdiction proof remains unavailable ordinarily
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/jurisdiction-qual/mycelix-workspace/crates/mycelix-zkp-core"
+          evidence="$RUNNER_TEMP/jurisdiction-evidence"
+          cat > "$crate/tests/jurisdiction_proof_probe.rs" <<'RS'
+          use mycelix_zkp_core::circuits::jurisdiction_proof;
+          #[test]
+          fn probe() { let _ = stringify!(jurisdiction_proof); }
+          RS
+          set +e
+          (
+            cd "$crate"
+            cargo check --locked --no-default-features --features backend-winterfell --test jurisdiction_proof_probe
+          ) >"$evidence/jurisdiction-proof-probe.stdout.txt" 2>"$evidence/jurisdiction-proof-probe.stderr.txt"
+          status=$?
+          set -e
+          if [[ $status -eq 0 ]]; then
+            echo "historical jurisdiction proof unexpectedly available" >&2
+            exit 1
+          fi
+          grep -Eq 'unresolved import|could not find|no .* in' "$evidence/jurisdiction-proof-probe.stderr.txt" || {
+            cat "$evidence/jurisdiction-proof-probe.stderr.txt" >&2
+            exit 1
+          }
+          rm -f "$crate/tests/jurisdiction_proof_probe.rs"
+
+      - name: Prove explicit legacy opt-in remains historical-only surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/jurisdiction-qual/mycelix-workspace/crates/mycelix-zkp-core"
+          cargo check --locked --all-targets --no-default-features --features legacy-unqualified-range-proof
+
+      - name: Postflight checkout immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          test -z "$(git status --porcelain)"
+
+      - name: Write receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          lock_sha="$(cut -d' ' -f1 "$RUNNER_TEMP/jurisdiction-evidence/Cargo.lock.sha256")"
+          cat > "$RUNNER_TEMP/jurisdiction-evidence/QUALIFICATION_RECEIPT.txt" <<EOF
+          MYC-ZKP-JURISDICTION-DATA-Q PASS
+          subject_sha=${{ steps.subject.outputs.sha }}
+          rust_toolchain=1.96.0
+          resolved_lock_sha256=${lock_sha}
+          safe_metadata_without_backend=PASS
+          historical_jurisdiction_proof_absent_under_ordinary_winterfell=PASS
+          explicit_legacy_surface_buildable=PASS
+          nonclaims=location truth, jurisdiction-proof soundness, legal residency, tax residency, application authority
+          EOF
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: myc-zkp-jurisdiction-data-q-${{ steps.subject.outputs.sha }}
+          path: ${{ runner.temp }}/jurisdiction-evidence
+          if-no-files-found: warn
+          retention-days: 30
