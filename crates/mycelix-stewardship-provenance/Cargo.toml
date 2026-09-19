@@ -1,0 +1,15 @@
+[package]
+name = "mycelix-stewardship-provenance"
+version = "0.1.0"
+edition = "2024"
+description = "Evidence-bearing typed provenance theorem for Mycelix stewardship"
+license = "AGPL-3.0-or-later"
+authors = ["Luminous Dynamics <contact@luminousdynamics.org>"]
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+
+[lib]
+name = "mycelix_stewardship_provenance"
+crate-type = ["rlib"]
+
+[dependencies]
+mycelix-stewardship-core = { path = "../mycelix-stewardship-core" }

@@ -1,0 +1,78 @@
+name: Stewardship Provenance Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-stewardship-core/**'
+      - 'crates/mycelix-stewardship-provenance/**'
+      - '.github/workflows/stewardship-provenance.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: stewardship-provenance-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact proposed head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Bind qualification subject
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Install stable Rust and wasm target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+
+      - name: Verify narrow dependency closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import pathlib
+          import tomllib
+
+          data = tomllib.loads(
+              pathlib.Path('crates/mycelix-stewardship-provenance/Cargo.toml').read_text()
+          )
+          expected = {
+              'mycelix-stewardship-core': {'path': '../mycelix-stewardship-core'}
+          }
+          if data.get('dependencies', {}) != expected:
+              raise SystemExit(f"unexpected STEW-006 dependencies: {data.get('dependencies', {})!r}")
+          PY
+
+      - name: rustfmt
+        run: cargo fmt --manifest-path crates/mycelix-stewardship-provenance/Cargo.toml -- --check
+
+      - name: Host tests
+        run: cargo test --manifest-path crates/mycelix-stewardship-provenance/Cargo.toml --all-targets
+
+      - name: wasm32 check
+        run: cargo check --manifest-path crates/mycelix-stewardship-provenance/Cargo.toml --target wasm32-unknown-unknown
+
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-stewardship-provenance/Cargo.toml --all-targets -- -D warnings
+
+      - name: rustdoc
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --manifest-path crates/mycelix-stewardship-provenance/Cargo.toml --no-deps
+
+      - name: Postflight exact-head verification
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
