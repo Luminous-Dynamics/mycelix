@@ -1,0 +1,98 @@
+name: Mycelix Frontend Browser
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-leptos-core/src/**'
+      - 'crates/mycelix-leptos-core/Cargo.toml'
+      - 'crates/mycelix-leptos-core/Cargo.lock'
+      - '.github/workflows/frontend-browser.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/mycelix-leptos-core/src/**'
+      - 'crates/mycelix-leptos-core/Cargo.toml'
+      - 'crates/mycelix-leptos-core/Cargo.lock'
+      - '.github/workflows/frontend-browser.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-browser-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  wasm-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+          submodules: recursive
+
+      - name: Verify exact subject checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ github.event.pull_request.head.sha || github.sha }}'
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$expected" || {
+            echo "::error::Expected exact subject $expected, got $actual"
+            exit 1
+          }
+
+      - name: Verify browser-test source closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f crates/mycelix-leptos-core/Cargo.toml
+          test -f crates/mycelix-leptos-core/Cargo.lock
+          test -f crates/mycelix-leptos-core/src/identity_crypto.rs
+          command -v google-chrome >/dev/null 2>&1 || {
+            echo '::error::google-chrome is unavailable on the selected runner image'
+            exit 1
+          }
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87b
+        with:
+          toolchain: 1.96.0
+          targets: wasm32-unknown-unknown
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          workspaces: crates/mycelix-leptos-core
+
+      - name: Install pinned wasm-pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo install wasm-pack --version 0.15.0 --locked
+          test "$(wasm-pack --version)" = 'wasm-pack 0.15.0'
+
+      - name: Run shared-core browser tests in headless Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          wasm-pack test crates/mycelix-leptos-core --headless --chrome --lib
+
+      - name: Prove checkout immutability
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+            echo '::error::Tracked worktree state changed during browser qualification'
+            git status --short
+            exit 1
+          fi
