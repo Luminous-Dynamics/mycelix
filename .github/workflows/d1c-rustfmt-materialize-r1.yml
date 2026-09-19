@@ -1,0 +1,65 @@
+name: TEMP D1C Rustfmt Materializer R1
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/d1c-rustfmt-materialize-r1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  NIXPKGS_REV: a50bf0c1b07873c1a53892292017041a8f0a1288
+  EXPECTED_PARENT: 47d1d764323dbfaf991b5574cfde83abb7a3e4a4
+
+jobs:
+  materialize:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout materializer branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: true
+
+      - name: Bind materializer lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/d1c-rustfmt-materialize-r1.yml"
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Materialize pinned rustfmt bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustfmt" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#git" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#bash" \
+            --command bash -euo pipefail -c '
+              cargo fmt --manifest-path mycelix-governance/Cargo.toml \
+                --package constitutional-effect-ledger
+              mapfile -t changed < <(git diff --name-only)
+              test "${#changed[@]}" -eq 1
+              test "${changed[0]}" = "mycelix-governance/crates/constitutional-effect-ledger/src/lib.rs"
+              cargo fmt --manifest-path mycelix-governance/Cargo.toml \
+                --package constitutional-effect-ledger -- --check
+              git config user.name "github-actions[bot]"
+              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+              git add mycelix-governance/crates/constitutional-effect-ledger/src/lib.rs
+              git commit -m "style(governance): rustfmt D1C effect ledger subject"
+              git push origin HEAD:${GITHUB_HEAD_REF}
+            '
