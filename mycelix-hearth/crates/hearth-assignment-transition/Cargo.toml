@@ -1,0 +1,9 @@
+[package]
+name = "hearth-assignment-transition"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Append-only household responsibility transition contract for Mycelix Hearth"
+
+[dependencies]
+serde = { workspace = true }
