@@ -1,0 +1,10 @@
+[package]
+name = "hearth-work-proposal"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Append-only household work proposal and consent contract for Mycelix Hearth"
+
+[dependencies]
+serde = { workspace = true }
+hearth-household-planner = { workspace = true }
