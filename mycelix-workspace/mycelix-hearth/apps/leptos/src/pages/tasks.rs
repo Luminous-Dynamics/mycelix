@@ -60,11 +60,15 @@ pub fn CreatePage() -> impl IntoView {
             <p class="page-subtitle">"Start something meaningful, then finish it in the Hearth area that owns it."</p>
 
             <section aria-labelledby="create-available-heading">
-                <h2 id="create-available-heading">"Live-capable now"</h2>
+                <h2 id="create-available-heading">"Source-backed creation paths"</h2>
                 <div class="task-directory" role="list">
                     <A href="/gratitude" attr:class="task-directory-item" attr:role="listitem">
                         <strong>"Express gratitude"</strong>
-                        <span>"Open the Gratitude area. The route boundary will verify whether its live source is available before showing the composer."</span>
+                        <span>"Open the Gratitude area. Its route boundary verifies whether the source is established before showing live-backed content."</span>
+                    </A>
+                    <A href="/care" attr:class="task-directory-item" attr:role="listitem">
+                        <strong>"New care task"</strong>
+                        <span>"Open Care’s typed composer. The frontend prepares the draft; the care zome independently decides whether creation is authorized."</span>
                     </A>
                 </div>
             </section>
@@ -77,10 +81,6 @@ pub fn CreatePage() -> impl IntoView {
                         <span>"Story composition currently mutates only the frontend signal; live story loading/submission is not established yet."</span>
                     </div>
                     <div class="task-directory-item task-directory-unavailable" role="listitem">
-                        <strong>"New care task"</strong>
-                        <span>"The care zome has a creation API, but the frontend composer/action bridge is not wired yet."</span>
-                    </div>
-                    <div class="task-directory-item task-directory-unavailable" role="listitem">
                         <strong>"New decision"</strong>
                         <span>"The decisions zome has a creation API, but the frontend composer/action bridge is not wired yet."</span>
                     </div>
@@ -88,7 +88,7 @@ pub fn CreatePage() -> impl IntoView {
             </section>
 
             <p class="task-surface-note">
-                "Create only hands you into domain-owned workflows. This page does not grant permission, submit records, or execute actions."
+                "Create only hands you into domain-owned workflows. This page does not grant permission, submit records, or execute actions itself."
             </p>
         </div>
     }
