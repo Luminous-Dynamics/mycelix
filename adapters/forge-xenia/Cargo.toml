@@ -1,0 +1,18 @@
+[package]
+name = "mycelix-forge-xenia"
+version = "0.1.0"
+edition = "2021"
+authors = ["Luminous Dynamics"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+description = "Receipt adapter from Xenia hybrid operator authentication into Mycelix Forge"
+
+[dependencies]
+mycelix-forge-authentication = { path = "../../crates/mycelix-forge-authentication" }
+mycelix-forge-core = { path = "../../crates/mycelix-forge-core" }
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "2.0"
+
+[dev-dependencies]
+mycelix-forge-authority = { path = "../../crates/mycelix-forge-authority" }
+serde_json = "1.0"

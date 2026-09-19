@@ -8,6 +8,7 @@ on:
       - "crates/mycelix-forge-authentication/**"
       - "crates/mycelix-forge-repository/**"
       - "adapters/forge-gittuf/**"
+      - "adapters/forge-xenia/**"
       - ".github/workflows/forge.yml"
   push:
     branches:
@@ -18,6 +19,7 @@ on:
       - "crates/mycelix-forge-authentication/**"
       - "crates/mycelix-forge-repository/**"
       - "adapters/forge-gittuf/**"
+      - "adapters/forge-xenia/**"
       - ".github/workflows/forge.yml"
 
 permissions:
@@ -45,6 +47,8 @@ jobs:
             path: crates/mycelix-forge-repository
           - name: Forge gittuf Adapter
             path: adapters/forge-gittuf
+          - name: Forge Xenia Receipt Adapter
+            path: adapters/forge-xenia
     defaults:
       run:
         working-directory: ${{ matrix.path }}
