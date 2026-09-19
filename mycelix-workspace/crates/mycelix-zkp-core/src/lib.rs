@@ -9,27 +9,22 @@
 //! currently structural-only and must not be treated as an operational verifier.
 //! Dilithium5 provides optional post-quantum envelope authentication.
 //!
-//! ## Architecture
-//!
-//! ```text
-//! Client (native)                    Zome (WASM)
-//! ┌──────────────┐                  ┌──────────────────┐
-//! │ ZKBackend    │  proof bytes     │ verify_proof()   │
-//! │  .prove()    │ ──────────────>  │  (300-500KB)     │
-//! │ Dilithium5   │  + signature     │ verify_dilithium │
-//! │  .sign()     │                  │  (<1ms)          │
-//! └──────────────┘                  └──────────────────┘
-//! ```
+//! Backend availability is not circuit authority. Proof-independent data models
+//! such as jurisdiction geometry, registries, and attestation tiers remain usable
+//! without enabling a proof backend; quarantined proof lineages remain behind
+//! explicit legacy features.
 //!
 //! ## Feature Flags
 //!
-//! - `backend-winterfell`: Winterfell STARK verifier (~200-400KB WASM)
+//! - `backend-winterfell`: Winterfell backend availability only
 //! - `backend-risc0`: structural compatibility adapter; no verifier is linked
-//! - `backend-dual`: Both backends
-//! - `dilithium`: CRYSTALS-Dilithium5 PQ signatures (~2.6KB WASM)
-//! - `full`: All ordinary backends + Dilithium (native testing only)
-//! - `legacy-unqualified-range-proof`: explicitly opts into the quarantined
-//!   historical range/jurisdiction proof lineage tracked by issue #227
+//! - `backend-dual`: ordinary backend compatibility feature
+//! - `backend-miden`: Miden VM ZK-STARK backend
+//! - `dilithium`: CRYSTALS-Dilithium5 PQ signatures
+//! - `full`: ordinary backends + Dilithium; excludes quarantined features
+//! - `legacy-unqualified-range-proof`: historical range/jurisdiction proof lineage
+//! - `legacy-unqualified-winterfell-authority`: other known-underconstrained AIRs
+//! - `experimental-winterfell-baselines`: measurement-only Winterfell baselines
 
 pub mod backend;
 pub mod circuits;
@@ -39,15 +34,8 @@ pub mod dilithium;
 pub mod domain;
 pub mod error;
 pub mod fixed_point;
-// The registry type currently imports JurisdictionBox from the quarantined proof
-// module, so it follows the same legacy feature until those data types are
-// decoupled from proof authority.
-#[cfg(feature = "legacy-unqualified-range-proof")]
-#[deprecated(
-    note = "UNQUALIFIED: registry types are coupled to quarantined jurisdiction/range proof lineage (issue #227)"
-)]
 pub mod jurisdiction_registry;
-#[cfg(feature = "backend-winterfell")]
+pub mod jurisdiction_types;
 pub mod location_attestation;
 #[cfg(feature = "backend-miden")]
 pub mod miden_consciousness;
@@ -63,15 +51,15 @@ pub mod validation;
 pub use winterfell;
 
 // Re-exports
-pub use backend::{
-    BackendCapability, ProofBackend, backend_capability, select_backend,
-};
+pub use backend::{BackendCapability, ProofBackend, backend_capability, select_backend};
 pub use consciousness::{CivicTier, ConsciousnessProofRequest, ConsciousnessProofResult};
 #[cfg(feature = "dilithium")]
 pub use dilithium::DilithiumKeypair;
 pub use domain::DomainTag;
 pub use error::{ZkpError, ZkpResult};
 pub use fixed_point::{FixedPoint, Q16_16_SCALE};
+pub use jurisdiction_types::{COORD_BIAS, JurisdictionBox, MICRODEG_SCALE, biased_microdegrees};
+pub use location_attestation::AttestationTier;
 pub use pogq::{DualBackendComparison, PoGQPublicInputs, PoGQResult, PoGQWitness, simulate_pogq};
 pub use supply::{
     SUPPLY_PROOF_STATEMENT_VERSION, SupplyProofKind, SupplyProofStatement,
@@ -85,9 +73,7 @@ pub use types::{
     AUTHENTICATED_PROOF_PROTOCOL_VERSION, AuthenticatedProof, ProofBytes, ProofMetadata,
     ProofResult, VerificationResult,
 };
-pub use validation::{
-    EnvelopeValidationPolicy, validate_authenticated_proof_envelope,
-};
+pub use validation::{EnvelopeValidationPolicy, validate_authenticated_proof_envelope};
 
 // Re-export shared ecosystem types
 pub use proofs_commitment::{CommitmentHash, CommitmentScheme, Sha3Commitment};
