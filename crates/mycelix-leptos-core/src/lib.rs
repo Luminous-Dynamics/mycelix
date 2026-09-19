@@ -72,6 +72,7 @@ pub mod forms;
 pub mod freshness;
 pub mod graph_node;
 pub mod identity_crypto;
+pub mod inbox;
 pub mod indlela;
 pub use mycelix_leptos_ui::loading;
 pub mod local_identity;
@@ -118,6 +119,9 @@ pub use personal_leptos_types::TrustTier;
 pub use connection_status::ConnectionStatusIndicator;
 pub use error_boundary::AppErrorBoundary;
 pub use evidence::{EvidenceAvailability, EvidenceDisclosure};
+pub use inbox::{
+    InboxBatch, InboxItem, InboxProviderState, InboxResponseCue, InboxSeenState, InboxTarget,
+};
 pub use loading::LoadingSkeleton;
 pub use progress_bar::ProgressBar;
 pub use stat_card::StatCard;
