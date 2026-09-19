@@ -64,7 +64,9 @@ pub mod types;
 pub use admin_granted_signer::{AdminGrantedSigner, SigningCredentials};
 pub use client::HolochainClient;
 pub use error::ClientError;
-pub use holo_hash_bytes::{HOLO_HASH_WIRE_LEN, HoloHashBytes};
+pub use holo_hash_bytes::{
+    HOLO_HASH_PREFIX_LEN, HOLO_HASH_WIRE_LEN, HoloHashBytes, HoloHashKind,
+};
 pub use mock::MockTransport;
 #[cfg(feature = "native")]
 pub use native::NativeWsTransport;
