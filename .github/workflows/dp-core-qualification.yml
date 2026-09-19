@@ -1,0 +1,157 @@
+name: Mycelix Differential Privacy Core
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-core/libs/differential-privacy/**'
+      - '.github/workflows/dp-core-qualification.yml'
+  workflow_dispatch:
+    inputs:
+      subject_sha:
+        description: 'Exact commit SHA to qualify'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  DP_CRATE: mycelix-workspace/mycelix-core/libs/differential-privacy
+
+jobs:
+  qualify-dp-core:
+    name: Exact-head DP core qualification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    steps:
+      - name: Resolve exact qualification subject
+        id: subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            subject='${{ github.event.pull_request.head.sha }}'
+          else
+            subject='${{ inputs.subject_sha }}'
+          fi
+          if [[ ! "$subject" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Invalid exact subject SHA: $subject" >&2
+            exit 1
+          fi
+          echo "sha=$subject" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ steps.subject.outputs.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify exact subject and clean checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          expected='${{ steps.subject.outputs.sha }}'
+          test "$actual" = "$expected"
+          test -z "$(git status --porcelain)"
+          test -f "$DP_CRATE/Cargo.toml"
+          test -f mycelix-workspace/rust-toolchain.toml
+
+      - name: Install frozen Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+
+      - name: Capture execution capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/dp-core-evidence"
+          mkdir -p "$evidence"
+          {
+            echo "subject_sha=${{ steps.subject.outputs.sha }}"
+            echo "runner_os=$RUNNER_OS"
+            echo "runner_arch=$RUNNER_ARCH"
+            echo "workflow_sha=${{ github.workflow_sha }}"
+          } > "$evidence/subject.env"
+          rustc -vV > "$evidence/rustc.txt"
+          cargo -vV > "$evidence/cargo.txt"
+          rustup -V > "$evidence/rustup.txt"
+          sha256sum mycelix-workspace/rust-toolchain.toml > "$evidence/rust-toolchain.sha256"
+          find "$DP_CRATE" -type f \
+            \( -name '*.rs' -o -name 'Cargo.toml' \) -print0 \
+            | sort -z \
+            | xargs -0 sha256sum > "$evidence/source-files.sha256"
+
+      - name: Check source formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path "$DP_CRATE/Cargo.toml" --all -- --check
+
+      - name: Materialize resolved dependency graph outside checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/dp-core-work"
+          evidence="$RUNNER_TEMP/dp-core-evidence"
+          rm -rf "$work"
+          cp -a "$DP_CRATE" "$work"
+          cd "$work"
+          cargo generate-lockfile
+          sha256sum Cargo.lock > "$evidence/generated-Cargo.lock.sha256"
+          cp Cargo.lock "$evidence/Cargo.lock"
+          cargo metadata --locked --format-version 1 > "$evidence/cargo-metadata.json"
+          cargo tree --locked > "$evidence/cargo-tree.txt"
+
+      - name: Test exact resolved graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/dp-core-work"
+          cargo test --locked --all-targets
+
+      - name: Clippy with warnings denied
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/dp-core-work"
+          cargo clippy --locked --all-targets -- -D warnings
+
+      - name: Verify checkout immutability
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
+          test "$(git rev-parse HEAD)" = '${{ steps.subject.outputs.sha }}'
+
+      - name: Write successful qualification receipt
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/dp-core-evidence"
+          cat > "$evidence/qualification.txt" <<EOF
+          disposition=PASS
+          claim=DP_CORE_SOURCE_BUILD_TEST_CLIPPY_QUALIFIED_FOR_THIS_RESOLVED_GRAPH_ONLY
+          subject_sha=${{ steps.subject.outputs.sha }}
+          rust_toolchain=1.96.0
+          lock_provenance=generated_in_runner_temp_not_committed_source
+          nonclaim=differential_privacy_theorem_not_established
+          nonclaim=dependency_reproducibility_not_established_without_retained_lock
+          EOF
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: dp-core-${{ steps.subject.outputs.sha }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/dp-core-evidence
+          if-no-files-found: error
+          retention-days: 30
