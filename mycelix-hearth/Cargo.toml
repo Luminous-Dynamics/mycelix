@@ -12,6 +12,7 @@ members = [
     "crates/hearth-assignment-transition",
     "crates/hearth-assignment-endorsement",
     "crates/hearth-care-ledger",
+    "crates/hearth-care-recurrence",
     "edge/hearth-edge",
     "edge/hearth-edge-journal",
     "crates/hearth-coordinator-common",
@@ -104,6 +105,7 @@ hearth-work-proposal = { path = "crates/hearth-work-proposal" }
 hearth-assignment-transition = { path = "crates/hearth-assignment-transition" }
 hearth-assignment-endorsement = { path = "crates/hearth-assignment-endorsement" }
 hearth-care-ledger-contract = { path = "crates/hearth-care-ledger" }
+hearth-care-recurrence = { path = "crates/hearth-care-recurrence" }
 hearth-coordinator-common = { path = "crates/hearth-coordinator-common" }
 mycelix-bridge-common = { path = "../crates/mycelix-bridge-common" }
 mycelix-bridge-entry-types = { path = "../crates/mycelix-bridge-entry-types" }
