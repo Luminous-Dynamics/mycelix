@@ -1,0 +1,416 @@
+name: MYC-CONST-001B R3 Semantic Restack Materializer
+
+on:
+  push:
+    branches:
+      - materialize/myc-const-001b-r3-v1
+    paths:
+      - '.github/workflows/myc-const-001b-r3-materialize.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: myc-const-001b-r3-materialize-v1
+  cancel-in-progress: true
+
+env:
+  MUTATOR_PARENT: '3600e04b0b30a3281574220142ebe1be27833a62'
+  MUTATOR_WORKFLOW: '.github/workflows/myc-const-001b-r3-materialize.yml'
+  R3_SHA: '3600e04b0b30a3281574220142ebe1be27833a62'
+  R3_SOURCE_BLOB: '819e55d9f0e572825ef63e91b5e2b76f2ad24c3e'
+  R3_LOCK_BLOB: '06f19dac624b5e7b599e685d08429553957eb538'
+  R3_LOCK_SHA256: 'cf3d5738087fc5810f94aa044c8ec8fa504c9f8123bd1b0c19f20adf1070d5db'
+  LEGACY_BASE_SHA: '26b0ac1c6dbd1ba28f75371e40a623876d107536'
+  LEGACY_001B_SHA: '848d34b380e1ea7ba981a1af08d3e9822d6d5a63'
+  LEGACY_SOURCE_BLOB: '2eb0781f205bff1aaeded87632734b1abd4ca596'
+  LEGACY_DELEGATION_BLOB: 'e0d207053c11d4b13fc155c9921d3a1e195af318'
+  LEGACY_ENTITLEMENTS_BLOB: '11af240b348db90b73e2d33e7d805a9f3ee5a034'
+  LEGACY_DOC_BLOB: 'a384215d16d2f7055c05540390d064e7191e5247'
+  PRODUCT_BRANCH: 'feat/myc-const-001b-r3-v1'
+  SOURCE: 'mycelix-governance/crates/constitutional-authority/src/lib.rs'
+  DELEGATION_TEST: 'mycelix-governance/crates/constitutional-authority/tests/delegation.rs'
+  ENTITLEMENTS_TEST: 'mycelix-governance/crates/constitutional-authority/tests/entitlements.rs'
+  DOC: 'mycelix-governance/docs/CONSTITUTIONAL_AUTHORITY_V0_1B.md'
+  CRATE_MANIFEST: 'mycelix-governance/crates/constitutional-authority/Cargo.toml'
+  LOCKFILE: 'mycelix-governance/Cargo.lock'
+  RUST_TOOLCHAIN: '1.96.0'
+  ARTIFACT_NAME: 'myc-const-001b-r3-semantic-restack-v1'
+
+jobs:
+  derive:
+    runs-on: ubuntu-slim
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
+      artifact_digest: ${{ steps.upload.outputs.artifact-digest }}
+    steps:
+      - name: Checkout exact materializer subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+          path: mutator
+
+      - name: Prove one-workflow mutation surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C mutator rev-parse HEAD^)" = "$MUTATOR_PARENT"
+          test "$(git -C mutator rev-list --count "$MUTATOR_PARENT..HEAD")" -eq 1
+          mapfile -t changed < <(git -C mutator diff --name-only "$MUTATOR_PARENT" HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$MUTATOR_WORKFLOW"
+          test -z "$(git -C mutator status --porcelain=v1)"
+          printf 'derive_job_repository_authority=READ_ONLY\n'
+
+      - name: Checkout exact qualified R3 product read-only
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.R3_SHA }}
+          fetch-depth: 2
+          persist-credentials: false
+          path: product
+
+      - name: Checkout exact historical 001B subject read-only
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.LEGACY_001B_SHA }}
+          fetch-depth: 2
+          persist-credentials: false
+          path: legacy
+
+      - name: Bind exact R3 and historical semantic subjects
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C product rev-parse HEAD)" = "$R3_SHA"
+          test "$(git -C product rev-parse "HEAD:$SOURCE")" = "$R3_SOURCE_BLOB"
+          test "$(git -C product rev-parse "HEAD:$LOCKFILE")" = "$R3_LOCK_BLOB"
+          test "$(sha256sum "product/$LOCKFILE" | awk '{print $1}')" = "$R3_LOCK_SHA256"
+          test "$(git -C legacy rev-parse HEAD)" = "$LEGACY_001B_SHA"
+          test "$(git -C legacy rev-parse HEAD^)" = "$LEGACY_BASE_SHA"
+          test "$(git -C legacy rev-parse "HEAD:$SOURCE")" = "$LEGACY_SOURCE_BLOB"
+          test "$(git -C legacy rev-parse "HEAD:$DELEGATION_TEST")" = "$LEGACY_DELEGATION_BLOB"
+          test "$(git -C legacy rev-parse "HEAD:$ENTITLEMENTS_TEST")" = "$LEGACY_ENTITLEMENTS_BLOB"
+          test "$(git -C legacy rev-parse "HEAD:$DOC")" = "$LEGACY_DOC_BLOB"
+          mapfile -t legacy_changed < <(git -C legacy diff --name-only "$LEGACY_BASE_SHA" HEAD)
+          test "${#legacy_changed[@]}" -eq 4
+          printf '%s\n' "${legacy_changed[@]}" | sort > /tmp/legacy-changed
+          cat > /tmp/expected-semantic-paths <<'EOF'
+          mycelix-governance/crates/constitutional-authority/src/lib.rs
+          mycelix-governance/crates/constitutional-authority/tests/delegation.rs
+          mycelix-governance/crates/constitutional-authority/tests/entitlements.rs
+          mycelix-governance/docs/CONSTITUTIONAL_AUTHORITY_V0_1B.md
+          EOF
+          diff -u /tmp/expected-semantic-paths /tmp/legacy-changed
+          test -z "$(git -C product status --porcelain=v1)"
+          test -z "$(git -C legacy status --porcelain=v1)"
+
+      - name: Materialize historical 001B semantics over qualified R3
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp -- "legacy/$SOURCE" "product/$SOURCE"
+          cp -- "legacy/$DELEGATION_TEST" "product/$DELEGATION_TEST"
+          cp -- "legacy/$ENTITLEMENTS_TEST" "product/$ENTITLEMENTS_TEST"
+          cp -- "legacy/$DOC" "product/$DOC"
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path('product/mycelix-governance/crates/constitutional-authority/src/lib.rs')
+          data = source.read_text()
+          before = '''        if let Some(expires_at) = self.expires_at_us {\n            if expires_at <= self.valid_from_us {\n                return Err(ConformanceError::InvalidExpiry);\n            }\n        }\n'''
+          after = '''        if let Some(expires_at) = self.expires_at_us\n            && expires_at <= self.valid_from_us\n        {\n            return Err(ConformanceError::InvalidExpiry);\n        }\n'''
+          if data.count(before) != 1:
+              raise SystemExit('historical 001B source does not contain exactly one R3 repair target')
+          if data.count(after) != 0:
+              raise SystemExit('historical 001B unexpectedly already contains R3 repair')
+          source.write_text(data.replace(before, after, 1))
+          PY
+
+          mapfile -t changed < <(git -C product diff --name-only)
+          test "${#changed[@]}" -eq 4
+          printf '%s\n' "${changed[@]}" | sort > /tmp/preformat-paths
+          diff -u /tmp/expected-semantic-paths /tmp/preformat-paths
+          test "$(git -C product rev-parse "HEAD:$LOCKFILE")" = "$R3_LOCK_BLOB"
+          test "$(sha256sum "product/$LOCKFILE" | awk '{print $1}')" = "$R3_LOCK_SHA256"
+
+      - name: Install pinned Rust 1.96 toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
+
+      - name: Apply exact Rust 1.96 formatting
+        shell: bash
+        working-directory: product
+        run: |
+          set -euo pipefail
+          rustc --version --verbose
+          cargo --version
+          test "$(rustc --version | awk '{print $2}')" = "$RUST_TOOLCHAIN"
+          cargo fmt --manifest-path "$CRATE_MANIFEST"
+          mapfile -t changed < <(git diff --name-only)
+          test "${#changed[@]}" -eq 4
+          printf '%s\n' "${changed[@]}" | sort > /tmp/postformat-paths
+          diff -u /tmp/expected-semantic-paths /tmp/postformat-paths
+          test "$(git rev-parse "HEAD:$LOCKFILE")" = "$R3_LOCK_BLOB"
+          test "$(sha256sum "$LOCKFILE" | awk '{print $1}')" = "$R3_LOCK_SHA256"
+          git diff --check
+
+      - name: Independent semantic-boundary audit
+        shell: bash
+        working-directory: product
+        run: |
+          set -euo pipefail
+          grep -Fq 'pub enum ConstitutionalEntitlement' "$SOURCE"
+          grep -Fq 'pub struct ConstitutionalEntitlementGrant' "$SOURCE"
+          grep -Fq 'pub fn validate_delegation(' "$SOURCE"
+          grep -Fq 'pub holder_id: String' "$SOURCE"
+          grep -Fq 'DelegationRequiresParentValidation' "$SOURCE"
+          grep -Fq 'IntrinsicPowerCannotBeDelegated' "$SOURCE"
+          grep -Fq 'AutomatedAgentCannotHoldConstitutionalEntitlement' "$SOURCE"
+          grep -Fq 'pub enum JurisdictionRelation' "$SOURCE"
+          ! grep -Fq 'RequestProtectedPublicRecord' "$SOURCE"
+          python3 - <<'PY'
+          from pathlib import Path
+          data = Path('mycelix-governance/crates/constitutional-authority/src/lib.rs').read_text()
+          repaired = '''        if let Some(expires_at) = self.expires_at_us\n            && expires_at <= self.valid_from_us\n        {\n            return Err(ConformanceError::InvalidExpiry);\n        }\n'''
+          if data.count(repaired) != 1:
+              raise SystemExit('qualified R3 expiry semantics not preserved exactly once')
+          if 'pub const ALL: [Self; 35]' not in data:
+              raise SystemExit('001B sovereign-power cardinality not present')
+          PY
+
+      - name: Prove locked semantic candidate
+        shell: bash
+        working-directory: product
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path "$CRATE_MANIFEST" -- --check
+          cargo metadata --manifest-path "$CRATE_MANIFEST" --locked --format-version 1 > /tmp/myc-const-001b-metadata.json
+          cargo test --manifest-path "$CRATE_MANIFEST" --all-targets --locked --no-run
+          cargo test --manifest-path "$CRATE_MANIFEST" --all-targets --locked
+          cargo clippy --manifest-path "$CRATE_MANIFEST" --all-targets --locked -- -D warnings
+          test "$(git rev-parse "HEAD:$LOCKFILE")" = "$R3_LOCK_BLOB"
+          test "$(sha256sum "$LOCKFILE" | awk '{print $1}')" = "$R3_LOCK_SHA256"
+
+      - name: Freeze exact semantic payload
+        shell: bash
+        working-directory: product
+        run: |
+          set -euo pipefail
+          mapfile -t changed < <(git diff --name-only)
+          test "${#changed[@]}" -eq 4
+          printf '%s\n' "${changed[@]}" | sort > /tmp/final-paths
+          diff -u /tmp/expected-semantic-paths /tmp/final-paths
+          test "$(git rev-parse "HEAD:$LOCKFILE")" = "$R3_LOCK_BLOB"
+          test "$(sha256sum "$LOCKFILE" | awk '{print $1}')" = "$R3_LOCK_SHA256"
+          git diff --check
+
+          source_blob="$(git hash-object "$SOURCE")"
+          delegation_blob="$(git hash-object "$DELEGATION_TEST")"
+          entitlements_blob="$(git hash-object "$ENTITLEMENTS_TEST")"
+          doc_blob="$(git hash-object "$DOC")"
+
+          rm -rf /tmp/001b-payload
+          mkdir -p /tmp/001b-payload
+          cp -- "$SOURCE" /tmp/001b-payload/lib.rs
+          cp -- "$DELEGATION_TEST" /tmp/001b-payload/delegation.rs
+          cp -- "$ENTITLEMENTS_TEST" /tmp/001b-payload/entitlements.rs
+          cp -- "$DOC" /tmp/001b-payload/CONSTITUTIONAL_AUTHORITY_V0_1B.md
+          cat > /tmp/001b-payload/manifest.txt <<EOF
+          schema=myc-const-001b-r3-semantic-restack-v1
+          r3_sha=$R3_SHA
+          legacy_001b_sha=$LEGACY_001B_SHA
+          source_blob=$source_blob
+          delegation_blob=$delegation_blob
+          entitlements_blob=$entitlements_blob
+          doc_blob=$doc_blob
+          lock_blob=$R3_LOCK_BLOB
+          lock_sha256=$R3_LOCK_SHA256
+          rust_toolchain=$RUST_TOOLCHAIN
+          EOF
+          test "$(find /tmp/001b-payload -maxdepth 1 -type f -printf '%f\n' | sort | paste -sd ' ' -)" = 'CONSTITUTIONAL_AUTHORITY_V0_1B.md delegation.rs entitlements.rs lib.rs manifest.txt'
+          printf 'derive_job_repository_authority=READ_ONLY\n'
+          printf 'source_blob=%s\n' "$source_blob"
+          printf 'delegation_blob=%s\n' "$delegation_blob"
+          printf 'entitlements_blob=%s\n' "$entitlements_blob"
+          printf 'doc_blob=%s\n' "$doc_blob"
+
+      - name: Upload exact semantic payload
+        id: upload
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: /tmp/001b-payload/
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+          overwrite: false
+
+      - name: Bind artifact identity
+        shell: bash
+        env:
+          ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+          ARTIFACT_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
+        run: |
+          set -euo pipefail
+          test -n "$ARTIFACT_ID"
+          test "$ARTIFACT_ID" -gt 0
+          test "${#ARTIFACT_DIGEST}" -eq 64
+          case "$ARTIFACT_DIGEST" in
+            *[!0-9a-f]*) echo 'artifact digest is not lowercase hex' >&2; exit 1 ;;
+          esac
+          printf 'artifact_id=%s\n' "$ARTIFACT_ID"
+          printf 'artifact_digest_sha256=%s\n' "$ARTIFACT_DIGEST"
+
+  publish:
+    needs: derive
+    runs-on: ubuntu-slim
+    timeout-minutes: 8
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Verify artifact and atomically publish semantic child
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ARTIFACT_ID: ${{ needs.derive.outputs.artifact_id }}
+          ARTIFACT_DIGEST: ${{ needs.derive.outputs.artifact_digest }}
+        run: |
+          set -euo pipefail
+          test -n "$GITHUB_TOKEN"
+          test -n "$ARTIFACT_ID"
+          test "$ARTIFACT_ID" -gt 0
+          test "${#ARTIFACT_DIGEST}" -eq 64
+
+          artifact_url="https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip"
+          curl --fail --location --silent --show-error \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "$artifact_url" -o /tmp/001b-artifact.zip
+          test "$(sha256sum /tmp/001b-artifact.zip | awk '{print $1}')" = "$ARTIFACT_DIGEST"
+
+          mapfile -t entries < <(unzip -Z1 /tmp/001b-artifact.zip | sort)
+          test "${#entries[@]}" -eq 5
+          test "${entries[0]}" = 'CONSTITUTIONAL_AUTHORITY_V0_1B.md'
+          test "${entries[1]}" = 'delegation.rs'
+          test "${entries[2]}" = 'entitlements.rs'
+          test "${entries[3]}" = 'lib.rs'
+          test "${entries[4]}" = 'manifest.txt'
+          rm -rf /tmp/001b-payload
+          mkdir -p /tmp/001b-payload
+          unzip -q /tmp/001b-artifact.zip -d /tmp/001b-payload
+
+          source_blob="$(git hash-object /tmp/001b-payload/lib.rs)"
+          delegation_blob="$(git hash-object /tmp/001b-payload/delegation.rs)"
+          entitlements_blob="$(git hash-object /tmp/001b-payload/entitlements.rs)"
+          doc_blob="$(git hash-object /tmp/001b-payload/CONSTITUTIONAL_AUTHORITY_V0_1B.md)"
+          cat > /tmp/expected-manifest.txt <<EOF
+          schema=myc-const-001b-r3-semantic-restack-v1
+          r3_sha=$R3_SHA
+          legacy_001b_sha=$LEGACY_001B_SHA
+          source_blob=$source_blob
+          delegation_blob=$delegation_blob
+          entitlements_blob=$entitlements_blob
+          doc_blob=$doc_blob
+          lock_blob=$R3_LOCK_BLOB
+          lock_sha256=$R3_LOCK_SHA256
+          rust_toolchain=$RUST_TOOLCHAIN
+          EOF
+          cmp /tmp/expected-manifest.txt /tmp/001b-payload/manifest.txt
+
+          rm -rf repo
+          git init -q repo
+          git -C repo remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          remote_before="$(git -C repo ls-remote origin "refs/heads/$PRODUCT_BRANCH" | awk '{print $1}')"
+          test "$remote_before" = "$R3_SHA"
+          git -C repo fetch --no-tags --depth=1 origin "$PRODUCT_BRANCH"
+          test "$(git -C repo rev-parse FETCH_HEAD)" = "$R3_SHA"
+          test "$(git -C repo rev-parse "$R3_SHA:$SOURCE")" = "$R3_SOURCE_BLOB"
+          test "$(git -C repo rev-parse "$R3_SHA:$LOCKFILE")" = "$R3_LOCK_BLOB"
+
+          export GIT_INDEX_FILE="$PWD/repo/.git/001b-index"
+          rm -f "$GIT_INDEX_FILE"
+          git -C repo read-tree "$R3_SHA"
+
+          written_source="$(git -C repo hash-object -w /tmp/001b-payload/lib.rs)"
+          written_delegation="$(git -C repo hash-object -w /tmp/001b-payload/delegation.rs)"
+          written_entitlements="$(git -C repo hash-object -w /tmp/001b-payload/entitlements.rs)"
+          written_doc="$(git -C repo hash-object -w /tmp/001b-payload/CONSTITUTIONAL_AUTHORITY_V0_1B.md)"
+          test "$written_source" = "$source_blob"
+          test "$written_delegation" = "$delegation_blob"
+          test "$written_entitlements" = "$entitlements_blob"
+          test "$written_doc" = "$doc_blob"
+
+          git -C repo update-index --add --cacheinfo "100644,$written_source,$SOURCE"
+          git -C repo update-index --add --cacheinfo "100644,$written_delegation,$DELEGATION_TEST"
+          git -C repo update-index --add --cacheinfo "100644,$written_entitlements,$ENTITLEMENTS_TEST"
+          git -C repo update-index --add --cacheinfo "100644,$written_doc,$DOC"
+          tree="$(git -C repo write-tree)"
+
+          mapfile -t changed < <(git -C repo diff --name-only "$R3_SHA^{tree}" "$tree")
+          test "${#changed[@]}" -eq 4
+          printf '%s\n' "${changed[@]}" | sort > /tmp/published-paths
+          cat > /tmp/expected-paths <<'EOF'
+          mycelix-governance/crates/constitutional-authority/src/lib.rs
+          mycelix-governance/crates/constitutional-authority/tests/delegation.rs
+          mycelix-governance/crates/constitutional-authority/tests/entitlements.rs
+          mycelix-governance/docs/CONSTITUTIONAL_AUTHORITY_V0_1B.md
+          EOF
+          diff -u /tmp/expected-paths /tmp/published-paths
+          test "$(git -C repo rev-parse "$R3_SHA:$LOCKFILE")" = "$R3_LOCK_BLOB"
+
+          parent_date="$(git -C repo show -s --format=%aI "$R3_SHA")"
+          export GIT_AUTHOR_DATE="$parent_date"
+          export GIT_COMMITTER_DATE="$parent_date"
+          git -C repo config user.name 'github-actions[bot]'
+          git -C repo config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          candidate_sha="$(printf '%s\n' 'feat(governance): restack constitutional entitlements on qualified R3' | git -C repo commit-tree "$tree" -p "$R3_SHA")"
+          test "$(git -C repo rev-parse "$candidate_sha^")" = "$R3_SHA"
+          test "$(git -C repo rev-parse "$candidate_sha:$LOCKFILE")" = "$R3_LOCK_BLOB"
+
+          publish_url="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          set +e
+          git -C repo push --quiet \
+            --force-with-lease="refs/heads/$PRODUCT_BRANCH:$R3_SHA" \
+            "$publish_url" \
+            "$candidate_sha:refs/heads/$PRODUCT_BRANCH"
+          push_rc=$?
+          set -e
+          unset publish_url
+
+          remote_after="$(git -C repo ls-remote origin "refs/heads/$PRODUCT_BRANCH" | awk '{print $1}')"
+          if [[ "$remote_after" = "$candidate_sha" ]]; then
+            publication='Published'
+          elif [[ "$remote_after" = "$R3_SHA" && "$push_rc" -ne 0 ]]; then
+            publication='DefinitelyNotPublished'
+            echo "publication=$publication" >&2
+            exit 1
+          elif [[ "$remote_after" != "$R3_SHA" && "$remote_after" != "$candidate_sha" ]]; then
+            publication='Conflict'
+            echo "publication=$publication remote_after=$remote_after" >&2
+            exit 1
+          else
+            publication='IndeterminatePublication'
+            echo "publication=$publication remote_after=$remote_after push_rc=$push_rc" >&2
+            exit 1
+          fi
+
+          printf 'status=PASS\n'
+          printf 'publication=%s\n' "$publication"
+          printf 'product_sha=%s\n' "$candidate_sha"
+          printf 'parent_r3_sha=%s\n' "$R3_SHA"
+          printf 'changed_paths=4\n'
+          printf 'lock_blob=%s\n' "$R3_LOCK_BLOB"
+          printf 'lock_sha256=%s\n' "$R3_LOCK_SHA256"
+          printf 'claim=four-file MYC-CONST-001B semantic restack materialized as one direct child of independently qualified R3 after Rust 1.96 fmt/tests/strict Clippy\n'
+          printf 'nonclaim=independent 001B qualification, runtime authority enforcement, authenticated jurisdiction graph, holder identity truth, legal validity, hermetic dependency acquisition\n'
