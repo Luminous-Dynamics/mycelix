@@ -13,9 +13,11 @@ mod policy;
 mod predicate;
 
 pub use canonical::{
-    GitObjectIdParseErrorV1, GitObjectIdV1, QualificationReceiptCanonicalizationV1,
-    QualificationReceiptDigestV1, QualificationReceiptV1, QualificationResultV1,
-    QUALIFICATION_RECEIPT_CANONICALIZATION_PROFILE_V1, ReceiptCanonicalizationErrorV1,
+    GitObjectIdParseErrorV1, GitObjectIdV1, MAX_RECEIPT_IDENTIFIER_BYTES_V1,
+    MAX_RECEIPT_NONCLAIMS_V1, MAX_RECEIPT_NONCLAIM_BYTES_V1,
+    QUALIFICATION_RECEIPT_CANONICALIZATION_PROFILE_V1,
+    QualificationReceiptCanonicalizationV1, QualificationReceiptDigestV1,
+    QualificationReceiptV1, QualificationResultV1, ReceiptCanonicalizationErrorV1,
     Sha256DigestParseErrorV1, Sha256DigestV1,
 };
 pub use capability::{
@@ -30,6 +32,6 @@ pub use policy::{
     VerifierProfileV1, WorkflowRevisionPolicyV1,
 };
 pub use predicate::{
-    QualificationAttestationPredicateErrorV1, QualificationAttestationPredicateV1,
     QUALIFICATION_ATTESTATION_PREDICATE_SCHEMA_V1,
+    QualificationAttestationPredicateErrorV1, QualificationAttestationPredicateV1,
 };
