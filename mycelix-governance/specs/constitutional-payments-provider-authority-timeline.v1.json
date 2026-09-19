@@ -1,0 +1,109 @@
+{
+  "schema": "mycelix.constitutional-payments-provider-authority-timeline.v1",
+  "profile_id": "mycelix-payments-provider-authority-timeline-f1b2b0-v1",
+  "authority_class": "InertStatefulTimeline",
+  "lineage": {
+    "f1b2a_semantic_head": "d9f1ad518e2943eb64c9991b2589cf9a221fc047",
+    "f1b2a_source_path": "mycelix-governance/crates/constitutional-payments-provider-authority/src/lib.rs",
+    "f1b2a_source_git_blob_sha": "be010d8e63805ce7b788fd3ca554aa2d6a555f1c"
+  },
+  "timeline": {
+    "append_only_events": true,
+    "contiguous_event_sequence": true,
+    "stable_event_identity": true,
+    "exact_event_replay_is_idempotent": true,
+    "same_sequence_conflict_halts": true,
+    "event_id_reuse_halts": true,
+    "integrity_halt_is_sticky": true,
+    "wall_clock_is_not_authority_ordering": true
+  },
+  "issuance": {
+    "binds_exact_grant_commitment": true,
+    "binds_upstream_capability_id": true,
+    "binds_upstream_holder_id": true,
+    "binds_upstream_jurisdiction": true,
+    "binds_upstream_authority_commitment": true,
+    "binds_issuance_time": true,
+    "binds_external_proof_commitment": true,
+    "issuance_not_after_grant_valid_from": true,
+    "upstream_authority_valid_at_issuance": true,
+    "conflicting_issuance_halts": true,
+    "cryptographic_issuance_proof_verified": false
+  },
+  "rotation": {
+    "uses_f1b2a_validate_rotation": true,
+    "exact_predecessor_binding_required": true,
+    "successor_epoch_monotone": true,
+    "profile_jurisdiction_upstream_continuity_required": true,
+    "role_amplification_forbidden": true,
+    "successor_valid_from_equals_cutover": true,
+    "one_canonical_successor_per_predecessor": true,
+    "competing_successor_halts": true,
+    "same_successor_different_cutover_halts": true,
+    "cutover_not_after_predecessor_expiry": true
+  },
+  "revocation": {
+    "binds_exact_grant_commitment": true,
+    "binds_exact_upstream_authority": true,
+    "authorization_not_after_effective_time": true,
+    "upstream_authority_valid_at_authorization_and_effective_time": true,
+    "effective_time_not_before_grant_validity": true,
+    "effective_time_not_after_grant_expiry": true,
+    "one_terminal_event_per_grant": true,
+    "conflicting_terminal_history_halts": true,
+    "cryptographic_revocation_proof_verified": false
+  },
+  "historical_authorization": {
+    "status_reconstructed_at_candidate_action_time": true,
+    "pre_revocation_history_preserved": true,
+    "pre_cutover_history_preserved": true,
+    "expiry_is_time_relative": true,
+    "composes_f1b2a_authorize_record": true,
+    "role_profile_jurisdiction_checks_preserved": true,
+    "integrity_halt_blocks_authorization": true,
+    "current_wall_clock_used_for_status": false
+  },
+  "threshold": {
+    "f1b2a_threshold_descriptor_preserved": true,
+    "cryptographic_threshold_attestation_verified": false,
+    "threshold_committee_state_reconstructed": false
+  },
+  "activation": {
+    "provider_authority_timeline_qualified": false,
+    "grant_issuance_cryptographically_qualified": false,
+    "threshold_provider_authority_qualified": false,
+    "entry_types_registered": false,
+    "link_types_registered": false,
+    "validate_extern_active": false,
+    "dht_write_surface_active": false,
+    "live_admission_composed": false,
+    "payments_zome_wired": false,
+    "governance_routing_active": false,
+    "replay_capability_minting": false
+  },
+  "next_tranche": {
+    "id": "MYC-CONST-003D1D-F1B2B1",
+    "must_compose_timeline_with_f1b2_admission": true,
+    "must_bind_actual_holochain_action_author": true,
+    "must_verify_issuance_proof_before_live_authority": true,
+    "must_verify_threshold_attestation_cryptographically": true,
+    "must_reconstruct_threshold_committee_state_at_action_time": true,
+    "must_not_activate_live_payment_dispatch": true
+  },
+  "non_claims": [
+    "not_provider_authority_timeline_qualified",
+    "not_cryptographic_grant_issuance_verified",
+    "not_cryptographic_revocation_verified",
+    "not_threshold_attestation_verified",
+    "not_threshold_committee_state_reconstructed",
+    "not_holochain_persistent",
+    "not_live_admission_composed",
+    "not_payments_zome_correctness_established",
+    "not_replay_qualified",
+    "not_capability_minting_enabled",
+    "not_exactly_once_physical_settlement",
+    "not_governance_routing_active",
+    "not_deployment_currentness_qualified",
+    "not_qualified"
+  ]
+}
