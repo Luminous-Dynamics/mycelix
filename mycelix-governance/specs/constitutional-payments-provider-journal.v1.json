@@ -1,0 +1,111 @@
+{
+  "schema": "mycelix.constitutional-payments-provider-journal.v1",
+  "profile_id": "mycelix-payments-provider-journal-f1b0-v1",
+  "authority_class": "InertSemanticContract",
+  "lineage": {
+    "f0c_semantic_head": "36bb486794f3e2720a2e02b3045c270b147cbacc",
+    "f0p0_semantic_head": "0442bc487dc5ea3303144b3f7be8979c673d6018",
+    "f1a_semantic_head": "4879c83c4ef21c15e124730a1518ec68812d1611",
+    "f1a_source": {
+      "path": "mycelix-governance/crates/constitutional-payments-provider/src/lib.rs",
+      "git_blob_sha": "6e4df936446b40db09b2f3fee0565051b3fac747"
+    }
+  },
+  "journal": {
+    "record_types": [
+      "OperationIntent",
+      "DispatchAttempt",
+      "Observation"
+    ],
+    "append_only": true,
+    "hash_linked_per_operation": true,
+    "contiguous_sequence_required": true,
+    "wall_clock_in_semantic_record_identity": false,
+    "mutable_authoritative_status_stored": false,
+    "query_state_derived_by_replay": true,
+    "integrity_halt_sticky": true
+  },
+  "operation_identity": {
+    "provider_operation_key_reused_from_f1a": true,
+    "execution_id_bound": true,
+    "request_commitment_bound": true,
+    "provider_profile_id_bound": true,
+    "provider_profile_commitment_bound": true,
+    "historical_payment_id_is_operation_key": false
+  },
+  "dispatch": {
+    "attempt_ids_unique": true,
+    "attempt_ordinals_contiguous": true,
+    "unknown_outcome_blocks_blind_redispatch": true,
+    "known_no_effect_through_current_horizon_permits_next_attempt": true,
+    "dispatch_after_integrity_halt_forbidden": true,
+    "qualified_replay_capability_consumption_present": false,
+    "automatic_replay_enabled": false
+  },
+  "observations": {
+    "outcomes": [
+      "KnownSuccess",
+      "KnownNoEffect",
+      "UnknownOutcome"
+    ],
+    "attempt_horizon_bound": true,
+    "exact_operation_key_bound": true,
+    "exact_execution_id_bound": true,
+    "exact_request_commitment_bound": true,
+    "observation_id_collision_halts": true,
+    "same_horizon_success_no_effect_contradiction_halts": true,
+    "later_attempt_success_after_earlier_no_effect_allowed": true,
+    "stale_no_effect_cannot_demote_newer_inflight": true,
+    "stale_unknown_cannot_demote_newer_inflight": true,
+    "conflicting_success_receipts_halt": true,
+    "later_unknown_cannot_demote_terminal_success": true,
+    "forensic_observations_after_halt_cannot_clear_halt": true
+  },
+  "query": {
+    "results": [
+      "NotFound",
+      "IntentCommitted",
+      "InFlight",
+      "UnknownOutcome",
+      "KnownNoEffect",
+      "KnownSuccess",
+      "IntegrityHalted"
+    ],
+    "journal_head_commitment_returned": true,
+    "query_by_provider_operation_key": true,
+    "query_by_execution_id": true,
+    "lost_ack_success_recoverable_by_query": true
+  },
+  "activation": {
+    "persistent_holochain_entries": false,
+    "persistent_holochain_links": false,
+    "payments_zome_wired": false,
+    "governance_routing_changed": false,
+    "treasury_routing_changed": false,
+    "provider_query_endpoint_live": false,
+    "provider_replay_capability_minting": false,
+    "automatic_replay": false
+  },
+  "next_tranche": {
+    "id": "MYC-CONST-003D1D-F1B1",
+    "purpose": "inactive HDI/DHT refinement of the frozen append-only provider journal",
+    "must_not_activate_live_payment_dispatch": true,
+    "must_preserve_separate_historical_payment_id": true,
+    "must_bind_receipts_to_provider_operation_key_and_f0_request": true,
+    "must_preserve_unknown_outcome": true,
+    "must_preserve_stale_evidence_monotonicity": true,
+    "must_preserve_sticky_integrity_halt": true
+  },
+  "non_claims": [
+    "not_holochain_persistent",
+    "not_payments_zome_wired",
+    "not_provider_truth_established",
+    "not_provider_replay_qualified",
+    "not_capability_minting_enabled",
+    "not_public_fund_authority_established",
+    "not_exactly_once_physical_settlement",
+    "not_external_finality_established",
+    "not_governance_routing_active",
+    "not_qualified"
+  ]
+}
