@@ -2,6 +2,7 @@ name: Mycelix Forge CI
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft, labeled, unlabeled]
     paths:
       - "crates/mycelix-forge-core/**"
       - "crates/mycelix-forge-authority/**"
@@ -59,6 +60,7 @@ concurrency:
 
 jobs:
   forge:
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && (github.event.pull_request.draft == false || contains(github.event.pull_request.labels.*.name, 'ci:qualify')))
     name: ${{ matrix.name }}
     runs-on: ubuntu-24.04
     strategy:
