@@ -8,10 +8,12 @@
 //! occurrence and completion evidence. No HDK/HDI dependency is used here so
 //! zomes, clients, replay qualification, and planners can share one contract.
 
+mod assignment_binding;
 mod canonical;
 mod digest;
 mod model;
 
+pub use assignment_binding::*;
 pub use canonical::*;
 pub use digest::*;
 pub use model::*;
