@@ -31,6 +31,7 @@ on:
       - "adapters/forge-hermetic-host-v2/**"
       - "adapters/forge-m0-offline-evidence/**"
       - "adapters/forge-m0-offline-evidence-v6/**"
+      - "adapters/forge-m0-capsule-builder/**"
       - ".github/workflows/forge.yml"
   push:
     branches:
@@ -63,6 +64,7 @@ on:
       - "adapters/forge-hermetic-host-v2/**"
       - "adapters/forge-m0-offline-evidence/**"
       - "adapters/forge-m0-offline-evidence-v6/**"
+      - "adapters/forge-m0-capsule-builder/**"
       - ".github/workflows/forge.yml"
 
 permissions:
@@ -135,6 +137,8 @@ jobs:
             path: adapters/forge-m0-offline-evidence
           - name: Forge M0 Offline Evidence v6
             path: adapters/forge-m0-offline-evidence-v6
+          - name: Forge M0 Capsule Builder
+            path: adapters/forge-m0-capsule-builder
     defaults:
       run:
         working-directory: ${{ matrix.path }}

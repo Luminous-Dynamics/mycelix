@@ -1,0 +1,27 @@
+[package]
+name = "mycelix-forge-m0-capsule-builder"
+version = "0.1.0"
+edition = "2021"
+authors = ["Luminous Dynamics"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+description = "Deterministic acyclic M0 capsule construction for Mycelix Forge"
+
+[dependencies]
+mycelix-forge-core = { path = "../../crates/mycelix-forge-core" }
+mycelix-forge-execution = { path = "../../crates/mycelix-forge-execution" }
+mycelix-forge-repository = { path = "../../crates/mycelix-forge-repository" }
+mycelix-forge-gittuf-adapter = { path = "../forge-gittuf" }
+mycelix-forge-gittuf-bundle = { path = "../forge-gittuf-bundle" }
+mycelix-forge-gittuf-trust-profile = { path = "../forge-gittuf-trust-profile" }
+mycelix-forge-guest-plan = { path = "../forge-guest-plan" }
+mycelix-forge-guest-tool-map = { path = "../forge-guest-tool-map" }
+mycelix-forge-hermetic-run-evidence = { path = "../forge-hermetic-run-evidence" }
+mycelix-forge-linux-isolation = { path = "../forge-linux-isolation" }
+mycelix-forge-linux-isolation-evidence = { path = "../forge-linux-isolation-evidence" }
+mycelix-forge-m0-offline-evidence-v6 = { path = "../forge-m0-offline-evidence-v6" }
+mycelix-forge-nar-auditor = { path = "../forge-nar-auditor" }
+mycelix-forge-sealed-capsule-inputs = { path = "../forge-sealed-capsule-inputs" }
+serde = "1.0"
+serde_json = "1.0"
+thiserror = "2.0"
