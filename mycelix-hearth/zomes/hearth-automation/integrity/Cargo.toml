@@ -1,0 +1,15 @@
+[package]
+name = "hearth_automation_integrity"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "hearth_automation_integrity"
+
+[dependencies]
+hdi = { workspace = true }
+serde = { workspace = true }
+hearth-work-proposal = { workspace = true }
+hearth_care_integrity = { path = "../../hearth-care/integrity" }

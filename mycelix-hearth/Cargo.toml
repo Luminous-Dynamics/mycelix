@@ -33,6 +33,10 @@ members = [
     "zomes/hearth-care-ledger/integrity",
     "zomes/hearth-care-ledger/coordinator",
 
+    # Automation (durable proposals/consent evidence)
+    "zomes/hearth-automation/integrity",
+    "zomes/hearth-automation/coordinator",
+
     # Autonomy
     "zomes/hearth-autonomy/integrity",
     "zomes/hearth-autonomy/coordinator",
