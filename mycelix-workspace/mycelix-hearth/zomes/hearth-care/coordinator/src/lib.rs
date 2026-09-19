@@ -10,6 +10,7 @@ use hearth_care_integrity::*;
 use hearth_coordinator_common::{
     decode_zome_response, get_latest_record, records_from_links, require_membership,
 };
+use hearth_kinship_integrity::HearthMembership;
 use hearth_types::*;
 use mycelix_bridge_common::{GovernanceEligibility, civic_requirement_basic};
 use mycelix_zome_helpers as _;
@@ -69,6 +70,65 @@ fn is_swap_pending(status: &SwapStatus) -> bool {
     *status == SwapStatus::Proposed
 }
 
+/// Resolve the canonical active-membership set for a Hearth through Kinship.
+///
+/// Target assignment is an authority decision, not a browser filtering rule.
+/// Any undecodable or cross-Hearth membership record fails closed so Care does
+/// not silently strengthen a partial Kinship response into membership proof.
+fn active_member_agents(hearth_hash: &ActionHash) -> ExternResult<Vec<AgentPubKey>> {
+    let response = call(
+        CallTargetCell::Local,
+        ZomeName::new("hearth_kinship"),
+        FunctionName::new("get_hearth_members"),
+        None,
+        hearth_hash.clone(),
+    )?;
+    let records: Vec<Record> = decode_zome_response(response, "get_hearth_members")?;
+    let mut agents = Vec::new();
+
+    for record in records {
+        let membership: HearthMembership = record
+            .entry()
+            .to_app_option()
+            .map_err(|error| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Failed to decode HearthMembership while validating Care target: {error}"
+                )))
+            })?
+            .ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "Membership record is missing its HearthMembership entry".into()
+                ))
+            })?;
+
+        if membership.hearth_hash != *hearth_hash {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Kinship returned a membership whose embedded Hearth does not match the requested Hearth"
+                    .into()
+            )));
+        }
+        if membership.status == MembershipStatus::Active {
+            agents.push(membership.agent);
+        }
+    }
+
+    Ok(agents)
+}
+
+fn require_active_target(
+    active_members: &[AgentPubKey],
+    target: &AgentPubKey,
+    field: &str,
+) -> ExternResult<()> {
+    if active_members.iter().any(|member| member == target) {
+        return Ok(());
+    }
+
+    Err(wasm_error!(WasmErrorInner::Guest(format!(
+        "{field} must be an active member of this Hearth"
+    ))))
+}
+
 // ============================================================================
 // Extern Functions
 // ============================================================================
@@ -82,6 +142,9 @@ pub fn create_care_schedule(input: CreateCareScheduleInput) -> ExternResult<Reco
         "create_care_schedule",
     )?;
     require_membership(&input.hearth_hash)?;
+    let active_members = active_member_agents(&input.hearth_hash)?;
+    require_active_target(&active_members, &input.assigned_to, "assigned_to")?;
+
     let schedule = CareSchedule {
         hearth_hash: input.hearth_hash.clone(),
         care_type: input.care_type,
@@ -223,6 +286,12 @@ pub fn propose_swap(input: ProposeSwapInput) -> ExternResult<Record> {
             "Invalid care schedule entry".into()
         )))?;
 
+    if schedule.hearth_hash != input.hearth_hash {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Cannot propose a Care swap using a schedule from another Hearth".into()
+        )));
+    }
+
     let caller = agent_info()?.agent_initial_pubkey;
 
     let swap = CareSwap {
@@ -294,6 +363,10 @@ pub fn create_meal_plan(input: CreateMealPlanInput) -> ExternResult<Record> {
         "create_meal_plan",
     )?;
     require_membership(&input.hearth_hash)?;
+    let active_members = active_member_agents(&input.hearth_hash)?;
+    require_active_target(&active_members, &input.shopper, "shopper")?;
+    require_active_target(&active_members, &input.cook, "cook")?;
+
     let plan = MealPlan {
         hearth_hash: input.hearth_hash.clone(),
         week_start: input.week_start,
@@ -850,7 +923,7 @@ mod tests {
 
     #[test]
     fn scenario_full_swap_lifecycle_decline() {
-        // Propose -> Proposed -> Decline -> Declined (terminal)
+        // Propose -> Proposed -> Decline -> Declined
         let proposed = SwapStatus::Proposed;
         assert!(is_swap_pending(&proposed));
 
@@ -860,7 +933,6 @@ mod tests {
 
     #[test]
     fn scenario_guardian_auth_roles() {
-        // Verify which roles count as guardian (used for auth fallback)
         assert!(MemberRole::Founder.is_guardian());
         assert!(MemberRole::Elder.is_guardian());
         assert!(MemberRole::Adult.is_guardian());
@@ -878,31 +950,23 @@ mod tests {
     /// Verify that Accepted, Declined, and Completed are all terminal.
     #[test]
     fn scenario_swap_lifecycle_complete() {
-        // Proposed: can accept or decline
         assert!(
             is_swap_pending(&SwapStatus::Proposed),
             "Proposed swap should be actionable"
         );
-
-        // After acceptance: terminal
         assert!(
             !is_swap_pending(&SwapStatus::Accepted),
             "Accepted swap must not be re-actionable"
         );
-
-        // After decline: terminal
         assert!(
             !is_swap_pending(&SwapStatus::Declined),
             "Declined swap must not be re-actionable"
         );
-
-        // Completed: also terminal
         assert!(
             !is_swap_pending(&SwapStatus::Completed),
             "Completed swap must not be re-actionable"
         );
 
-        // Verify exhaustive: only Proposed is actionable
         let all_statuses = [
             SwapStatus::Proposed,
             SwapStatus::Accepted,
@@ -920,25 +984,19 @@ mod tests {
     /// Paused -> not completable (must reactivate), Completed -> not completable again.
     #[test]
     fn scenario_schedule_lifecycle_with_pause() {
-        // Active: can be completed
         assert!(
             is_schedule_completable(&CareScheduleStatus::Active),
             "Active schedule should be completable"
         );
-
-        // Paused: cannot be completed (must reactivate first)
         assert!(
             !is_schedule_completable(&CareScheduleStatus::Paused),
             "Paused schedule must be reactivated before completion"
         );
-
-        // Completed: cannot be completed again (idempotency)
         assert!(
             !is_schedule_completable(&CareScheduleStatus::Completed),
             "Completed schedule must not be re-completed"
         );
 
-        // Verify exhaustive: only Active is completable
         let all_statuses = [
             CareScheduleStatus::Active,
             CareScheduleStatus::Paused,
@@ -992,18 +1050,15 @@ mod tests {
             dietary_notes: "Vegetarian, nut-free".to_string(),
         };
 
-        // Serialize and deserialize roundtrip
         let json = serde_json::to_string(&input).unwrap();
         let back: CreateMealPlanInput = serde_json::from_str(&json).unwrap();
 
-        // Verify all fields roundtrip correctly
         assert_eq!(back.meals.len(), 21);
         assert_eq!(back.hearth_hash, action_hash_1());
         assert_eq!(back.shopper, agent_a());
         assert_eq!(back.cook, agent_b());
         assert_eq!(back.dietary_notes, "Vegetarian, nut-free");
 
-        // Verify each meal has the expected structure
         for meal in &back.meals {
             assert!(
                 days.contains(&meal.day.as_str()),
@@ -1019,7 +1074,6 @@ mod tests {
             assert!(!meal.recipe.is_empty());
         }
 
-        // Verify we have exactly 3 meals per day
         for day in &days {
             let day_meals: Vec<_> = back.meals.iter().filter(|m| m.day == *day).collect();
             assert_eq!(day_meals.len(), 3, "{} should have exactly 3 meals", day);
@@ -1030,8 +1084,6 @@ mod tests {
     /// roles can manage care operations and which cannot.
     #[test]
     fn scenario_guardian_role_eligibility_for_care_ops() {
-        // Guardian roles: can create schedules, complete tasks on behalf,
-        // accept/decline swaps for others
         let guardian_roles = [MemberRole::Founder, MemberRole::Elder, MemberRole::Adult];
         for role in &guardian_roles {
             assert!(
@@ -1041,7 +1093,6 @@ mod tests {
             );
         }
 
-        // Non-guardian roles: can only manage their own tasks
         let non_guardian_roles = [
             MemberRole::Youth,
             MemberRole::Child,
@@ -1056,7 +1107,6 @@ mod tests {
             );
         }
 
-        // Verify the split is exhaustive: 3 guardians + 4 non-guardians = 7 total
         assert_eq!(guardian_roles.len() + non_guardian_roles.len(), 7);
     }
 }
