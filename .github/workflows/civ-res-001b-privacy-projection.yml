@@ -1,0 +1,90 @@
+name: CIV-RES-001B Privacy Projection
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/docs/civic-resilience/CIV_RES_001B_PRIVACY_PROJECTION_V1.md'
+      - 'mycelix-workspace/docs/civic-resilience/civ_res_001b_privacy_projection.json'
+      - 'scripts/qualification/civ_res_001b_privacy_projection_v1.py'
+      - '.github/workflows/civ-res-001b-privacy-projection.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: civ-res-001b-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Privacy projection composition boundary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Exact parent and clean subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='bf4f63099e68bd67c02dc741ac4eff340d321b0b'
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          printf 'head=%s\nparent=%s\ntree=%s\n' \
+            "$(git rev-parse HEAD)" \
+            "$(git rev-parse HEAD^)" \
+            "$(git rev-parse HEAD^{tree})"
+          test -z "$(git status --short)"
+
+      - name: Exact tranche scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='bf4f63099e68bd67c02dc741ac4eff340d321b0b'
+          test "$(git rev-list --count "$EXPECTED_PARENT"..HEAD)" = '1'
+          git diff --check "$EXPECTED_PARENT" HEAD
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PARENT" HEAD | sort)
+          expected=(
+            '.github/workflows/civ-res-001b-privacy-projection.yml'
+            'mycelix-workspace/docs/civic-resilience/CIV_RES_001B_PRIVACY_PROJECTION_V1.md'
+            'mycelix-workspace/docs/civic-resilience/civ_res_001b_privacy_projection.json'
+            'scripts/qualification/civ_res_001b_privacy_projection_v1.py'
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed[@]}")
+
+      - name: Validate projection contract
+        run: python3 scripts/qualification/civ_res_001b_privacy_projection_v1.py
+
+      - name: Static no-runtime audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='bf4f63099e68bd67c02dc741ac4eff340d321b0b'
+          changed="$(git diff --name-only "$EXPECTED_PARENT" HEAD)"
+          if printf '%s\n' "$changed" | grep -E '\.(rs|toml|lock)$'; then
+            echo 'CIV-RES-001B must remain semantic-contract/manifest/validator/workflow only' >&2
+            exit 1
+          fi
+
+      - name: Prove non-duplication and deferred ownership
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('mycelix-workspace/docs/civic-resilience/civ_res_001b_privacy_projection.json')
+          d = json.loads(p.read_text())
+          assert d['runtime_owner'] == 'Deferred'
+          assert d['architectural_dependencies'][0]['dependency_state'] == 'architectural_reference_only'
+          assert 'SubjectNotice' in d['existing_external_owners']
+          assert 'SubjectNotice' not in d['projection_classes']
+          assert not set(d['projection_classes']) & set(d['forbidden_projection_classes'])
+          PY
+
+      - name: Immutable checkout postflight
+        run: test -z "$(git status --short)"
