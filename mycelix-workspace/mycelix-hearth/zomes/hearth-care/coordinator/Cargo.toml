@@ -14,6 +14,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 holochain_serialized_bytes = { workspace = true }
 hearth_care_integrity = { path = "../integrity" }
+hearth_kinship_integrity = { path = "../../hearth-kinship/integrity" }
 hearth-types = { workspace = true }
 hearth-coordinator-common = { workspace = true }
 mycelix-bridge-common = { workspace = true }
