@@ -1,0 +1,28 @@
+[package]
+name = "mycelix-forge-hermetic-host"
+version = "0.1.0"
+edition = "2021"
+authors = ["Luminous Dynamics"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+description = "Concrete host-side hermetic orchestration for Mycelix Forge M0"
+
+[dependencies]
+mycelix-forge-core = { path = "../../crates/mycelix-forge-core" }
+mycelix-forge-execution = { path = "../../crates/mycelix-forge-execution" }
+mycelix-forge-guest-envelope = { path = "../forge-guest-envelope" }
+mycelix-forge-guest-output-frame = { path = "../forge-guest-output-frame" }
+mycelix-forge-guest-plan = { path = "../forge-guest-plan" }
+mycelix-forge-guest-tool-map = { path = "../forge-guest-tool-map" }
+mycelix-forge-hermetic-run-evidence = { path = "../forge-hermetic-run-evidence" }
+mycelix-forge-linux-isolation = { path = "../forge-linux-isolation" }
+mycelix-forge-linux-isolation-collector = { path = "../forge-linux-isolation-collector" }
+mycelix-forge-linux-isolation-evidence = { path = "../forge-linux-isolation-evidence" }
+mycelix-forge-nar-auditor = { path = "../forge-nar-auditor" }
+mycelix-forge-runtime-closure-evidence = { path = "../forge-runtime-closure-evidence" }
+mycelix-forge-sealed-inputs = { path = "../forge-sealed-inputs" }
+libc = "0.2"
+semver = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
