@@ -6,6 +6,7 @@
 //! These pages improve orientation without inventing cross-domain authority or
 //! lifecycle state. Domain pages remain authoritative for their own actions.
 
+use crate::pending_votes::UnvotedOpenDecisionsInbox;
 use leptos::prelude::*;
 use leptos_router::components::A;
 
@@ -101,24 +102,24 @@ pub fn InboxPage() -> impl IntoView {
             <h1 class="page-title">"inbox"</h1>
             <p class="page-subtitle">"Things that arrive for you to inspect, revisit, or respond to."</p>
 
-            <div class="empty-state">
-                <p>"Hearth does not yet expose unified Inbox envelopes."</p>
-                <p>"For now, care work and household decisions remain in their own areas rather than being guessed into one notification stream."</p>
-            </div>
+            <UnvotedOpenDecisionsInbox />
 
-            <div class="task-directory" role="list" aria-label="Current attention areas">
-                <A href="/care" attr:class="task-directory-item" attr:role="listitem">
-                    <strong>"Care"</strong>
-                    <span>"Inspect Care directly; its route will disclose if live care data is unavailable."</span>
-                </A>
-                <A href="/decisions" attr:class="task-directory-item" attr:role="listitem">
-                    <strong>"Decisions"</strong>
-                    <span>"Inspect Decisions directly; its route will disclose if live decision data is unavailable."</span>
-                </A>
-            </div>
+            <section aria-labelledby="inbox-other-heading">
+                <h2 id="inbox-other-heading">"Other attention areas"</h2>
+                <div class="task-directory" role="list" aria-label="Current attention areas">
+                    <A href="/care" attr:class="task-directory-item" attr:role="listitem">
+                        <strong>"Care"</strong>
+                        <span>"Inspect Care directly; its route will disclose if live care data is unavailable."</span>
+                    </A>
+                    <A href="/decisions" attr:class="task-directory-item" attr:role="listitem">
+                        <strong>"Decisions"</strong>
+                        <span>"Inspect the full Decision lifecycle, recorded outcomes, and vote-history provenance."</span>
+                    </A>
+                </div>
+            </section>
 
             <p class="task-surface-note">
-                "Opening Inbox does not mark any provider record seen, acknowledged, accepted, or resolved."
+                "Opening Inbox does not mark any provider record seen, acknowledged, accepted, voted, or resolved."
             </p>
         </div>
     }
