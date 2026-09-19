@@ -1,0 +1,93 @@
+name: CIV-RES-000B Johannesburg Profile
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/docs/civic-resilience/CIV_RES_000B_JOHANNESBURG_PROFILE_V1.md'
+      - 'mycelix-workspace/docs/civic-resilience/civ_res_000b_johannesburg_profile.json'
+      - 'scripts/qualification/civ_res_000b_johannesburg_profile_v1.py'
+      - '.github/workflows/civ-res-000b-johannesburg-profile.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: civ-res-000b-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Johannesburg deployment profile boundary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Exact parent and clean subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='c6a96d40895e71642292b0e2c433b13cc58ecd4d'
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          printf 'head=%s\nparent=%s\ntree=%s\n' \
+            "$(git rev-parse HEAD)" \
+            "$(git rev-parse HEAD^)" \
+            "$(git rev-parse HEAD^{tree})"
+          test -z "$(git status --short)"
+
+      - name: Exact tranche scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='c6a96d40895e71642292b0e2c433b13cc58ecd4d'
+          test "$(git rev-list --count "$EXPECTED_PARENT"..HEAD)" = '1'
+          git diff --check "$EXPECTED_PARENT" HEAD
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PARENT" HEAD | sort)
+          expected=(
+            '.github/workflows/civ-res-000b-johannesburg-profile.yml'
+            'mycelix-workspace/docs/civic-resilience/CIV_RES_000B_JOHANNESBURG_PROFILE_V1.md'
+            'mycelix-workspace/docs/civic-resilience/civ_res_000b_johannesburg_profile.json'
+            'scripts/qualification/civ_res_000b_johannesburg_profile_v1.py'
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed[@]}")
+
+      - name: Validate Johannesburg profile
+        run: python3 scripts/qualification/civ_res_000b_johannesburg_profile_v1.py
+
+      - name: Static no-runtime and no-secret audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='c6a96d40895e71642292b0e2c433b13cc58ecd4d'
+          changed="$(git diff --name-only "$EXPECTED_PARENT" HEAD)"
+          if printf '%s\n' "$changed" | grep -E '\.(rs|toml|lock)$'; then
+            echo 'CIV-RES-000B must remain profile/docs/validator/workflow only' >&2
+            exit 1
+          fi
+          if git grep -nEi '(api[_ -]?key|secret[_ -]?key|password|bearer token)[[:space:]]*[:=][[:space:]]*[^<[:space:]]+' -- \
+              mycelix-workspace/docs/civic-resilience/CIV_RES_000B_JOHANNESBURG_PROFILE_V1.md \
+              mycelix-workspace/docs/civic-resilience/civ_res_000b_johannesburg_profile.json; then
+            echo 'CIV-RES-000B must not embed deployment credentials/secrets' >&2
+            exit 1
+          fi
+
+      - name: Block deployment-authority overclaim
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('mycelix-workspace/docs/civic-resilience/civ_res_000b_johannesburg_profile.json')
+          d = json.loads(p.read_text())
+          print(str(d['real_world_processing_authorized']).lower())
+          PY
+          )" = 'false'
+
+      - name: Immutable checkout postflight
+        run: test -z "$(git status --short)"

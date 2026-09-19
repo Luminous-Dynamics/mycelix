@@ -1,0 +1,179 @@
+{
+  "schema": "mycelix.civic-resilience.johannesburg-profile.v1",
+  "program": "CIV-RES-000B",
+  "parent_subject": "c6a96d40895e71642292b0e2c433b13cc58ecd4d",
+  "deployment_profile": "JohannesburgGautengSouthAfrica",
+  "deployment_readiness": "ProfileTemplateOnly",
+  "real_world_processing_authorized": false,
+  "official_source_anchors": [
+    {
+      "id": "POPIA_ACT_4_2013",
+      "url": "https://www.justice.gov.za/legislation/acts/2013-004.pdf",
+      "authority": "statutory_reference",
+      "grants_deployment_authority": false
+    },
+    {
+      "id": "COJ_2026_27_IDP_INDEX",
+      "url": "https://joburg.org.za/documents_/Pages/Key%20Documents/SDBIP%20IDP%20and%20Budget/SDBIP-IDP-And-Budget.aspx",
+      "authority": "city_context_reference",
+      "grants_deployment_authority": false
+    },
+    {
+      "id": "COJ_2026_27_IDP_FAQ",
+      "url": "https://joburg.org.za/documents_/Documents/FAQ_IDP_26-27.pdf",
+      "authority": "city_context_reference",
+      "grants_deployment_authority": false
+    },
+    {
+      "id": "COJ_JOBURG_CONNECT",
+      "url": "https://joburg.org.za/services_/JoburgCares/Pages/call-centre.aspx",
+      "authority": "service_channel_reference",
+      "grants_deployment_authority": false
+    }
+  ],
+  "city_context_domains": [
+    "service_delivery_and_infrastructure",
+    "safety",
+    "economic_opportunity",
+    "digital_governance",
+    "resident_participation"
+  ],
+  "service_channel_references": [
+    "JoburgConnect",
+    "CsdMobileApp",
+    "eJoburg",
+    "EServices",
+    "CityPower",
+    "JoburgWater",
+    "Pikitup",
+    "JohannesburgRoadsAgency",
+    "Metrobus"
+  ],
+  "data_planes": [
+    "PublicProjection",
+    "ProtectedOperations",
+    "ResearchEnclave",
+    "EmergencyEphemeral"
+  ],
+  "sensitivity_classes": [
+    "PublicCivic",
+    "CommunitySensitive",
+    "Restricted",
+    "EmergencyEphemeral"
+  ],
+  "geographic_precision": [
+    "City",
+    "Region",
+    "Ward",
+    "CoarseCell",
+    "ExactProtected"
+  ],
+  "temporal_precision": [
+    "HistoricalAggregate",
+    "DelayedAggregate",
+    "OperationalCurrentProtected",
+    "EmergencyCurrentProtected"
+  ],
+  "legal_review_flags": [
+    "POPIA_S13_SPECIFIC_PURPOSE",
+    "POPIA_S14_RETENTION_RESTRICTION",
+    "POPIA_S15_FURTHER_PROCESSING_COMPATIBILITY",
+    "POPIA_S18_NOTIFICATION_OPENNESS",
+    "POPIA_S19_SECURITY_SAFEGUARDS",
+    "POPIA_S20_21_OPERATOR_SECURITY",
+    "POPIA_S22_SECURITY_COMPROMISE_NOTIFICATION",
+    "POPIA_S26_35_SPECIAL_AND_CHILD_INFORMATION",
+    "POPIA_S57_59_PRIOR_AUTHORISATION",
+    "POPIA_S71_AUTOMATED_DECISION_MAKING",
+    "POPIA_S72_TRANSBORDER_FLOW"
+  ],
+  "required_unbound_deployment_bindings": [
+    "responsible_party",
+    "operators",
+    "information_officer_or_accountable_privacy_role",
+    "data_stewards",
+    "purpose_and_legal_policy_basis",
+    "retention_restriction_deletion_schedule",
+    "disclosure_release_policy",
+    "cross_border_transfer_policy",
+    "security_safeguard_risk_review_plan",
+    "compromise_incident_response_plan",
+    "independent_legal_privacy_review",
+    "pilot_governance_oversight_authority",
+    "accessibility_language_profile",
+    "exit_rollback_plan"
+  ],
+  "default_denials": [
+    "biometric_processing",
+    "facial_recognition_identification_or_search",
+    "criminal_behaviour_personal_information_processing",
+    "child_personal_information_processing",
+    "solely_automated_rights_affecting_decisions",
+    "law_enforcement_target_generation",
+    "public_exact_person_location",
+    "routine_person_level_cross_domain_join",
+    "cross_border_personal_information_transfer",
+    "permanent_emergency_context_retention"
+  ],
+  "threat_coverage_classes": [
+    "future_executable_attack",
+    "deployment_control_required",
+    "external_review_blocker",
+    "residual_research_gap"
+  ],
+  "threat_census": [
+    {"id":"JHB-T-001","name":"insider_person_linked_query_abuse","coverage":"future_executable_attack"},
+    {"id":"JHB-T-002","name":"lost_or_stolen_device","coverage":"future_executable_attack"},
+    {"id":"JHB-T-003","name":"abusive_household_location_lookup","coverage":"future_executable_attack"},
+    {"id":"JHB-T-004","name":"reporter_or_witness_coercion","coverage":"deployment_control_required"},
+    {"id":"JHB-T-005","name":"sybil_or_brigading_demand_signal","coverage":"future_executable_attack"},
+    {"id":"JHB-T-006","name":"false_report_or_data_poisoning","coverage":"future_executable_attack"},
+    {"id":"JHB-T-007","name":"public_aggregate_mosaic_reconstruction","coverage":"future_executable_attack"},
+    {"id":"JHB-T-008","name":"unauthorised_cross_domain_linkage","coverage":"future_executable_attack"},
+    {"id":"JHB-T-009","name":"offline_duplicate_replay_reordering","coverage":"future_executable_attack"},
+    {"id":"JHB-T-010","name":"power_or_network_partition","coverage":"future_executable_attack"},
+    {"id":"JHB-T-011","name":"emergency_data_outlives_authority","coverage":"future_executable_attack"},
+    {"id":"JHB-T-012","name":"fabricated_completion_evidence","coverage":"future_executable_attack"},
+    {"id":"JHB-T-013","name":"procurement_signal_promoted_to_accusation","coverage":"future_executable_attack"},
+    {"id":"JHB-T-014","name":"captured_local_governance_or_oversight_group","coverage":"deployment_control_required"},
+    {"id":"JHB-T-015","name":"unequal_digital_uptake","coverage":"residual_research_gap"},
+    {"id":"JHB-T-016","name":"language_or_accessibility_exclusion","coverage":"deployment_control_required"},
+    {"id":"JHB-T-017","name":"confidently_wrong_or_ood_model","coverage":"future_executable_attack"},
+    {"id":"JHB-T-018","name":"stale_model_or_input_snapshot","coverage":"future_executable_attack"},
+    {"id":"JHB-T-019","name":"geographic_displacement","coverage":"residual_research_gap"},
+    {"id":"JHB-T-020","name":"reporting_rate_or_measurement_shift","coverage":"residual_research_gap"},
+    {"id":"JHB-T-021","name":"unintended_cross_border_processing_path","coverage":"external_review_blocker"},
+    {"id":"JHB-T-022","name":"compromise_response_failure","coverage":"future_executable_attack"}
+  ],
+  "threats_mitigated": false,
+  "pilot_stages": [
+    "J0_SyntheticProfileOnly",
+    "J1_PublicReferenceInteroperability",
+    "J2_ProtectedServiceOperations",
+    "J3_ResearchEnclaveShadowEvaluation",
+    "J4_SensitiveSafetyOperations"
+  ],
+  "current_max_stage": "J0_SyntheticProfileOnly",
+  "continuation": [
+    "CIV-RES-001A",
+    "CIV-RES-001B",
+    "CIV-RES-001C",
+    "CIV-RES-002A",
+    "CIV-SAFE-001A",
+    "SYM-CIVIC-000A"
+  ],
+  "nonclaims": [
+    "legal_advice",
+    "popia_compliance",
+    "municipal_adoption",
+    "city_endorsement",
+    "live_service_channel_integration",
+    "privacy_security_adequacy",
+    "prior_authorisation_determination",
+    "cross_border_transfer_legality",
+    "law_enforcement_authority",
+    "crime_reduction",
+    "safety_effectiveness",
+    "deployment_readiness"
+  ]
+}
