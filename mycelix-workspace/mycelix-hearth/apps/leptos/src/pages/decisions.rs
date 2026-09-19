@@ -12,6 +12,333 @@ use mycelix_leptos_core::holochain_provider::use_holochain;
 use mycelix_leptos_core::{ConnectionStatus, use_consciousness};
 
 #[component]
+fn DecisionComposer() -> impl IntoView {
+    let (open, set_open) = signal(false);
+    let (title, set_title) = signal(String::new());
+    let (description, set_description) = signal(String::new());
+    let (decision_type, set_decision_type) = signal(String::new());
+    let (options_text, set_options_text) = signal(String::new());
+    let (voting_window_days, set_voting_window_days) = signal(0u32);
+    let (quorum_mode, set_quorum_mode) = signal(String::new());
+    let (quorum_percent, set_quorum_percent) = signal(String::new());
+    let (founder, set_founder) = signal(false);
+    let (elder, set_elder) = signal(false);
+    let (adult, set_adult) = signal(false);
+    let (youth, set_youth) = signal(false);
+    let (child, set_child) = signal(false);
+    let (guest, set_guest) = signal(false);
+    let (ancestor, set_ancestor) = signal(false);
+    let (form_error, set_form_error) = signal::<Option<String>>(None);
+
+    let submit = move |_| {
+        set_form_error.set(None);
+
+        let decision_type = match decision_type.get().as_str() {
+            "consensus" => DecisionType::Consensus,
+            "majority" => DecisionType::MajorityVote,
+            "elder" => DecisionType::ElderDecision,
+            "guardian" => DecisionType::GuardianDecision,
+            _ => {
+                set_form_error.set(Some("Choose a decision type.".to_string()));
+                return;
+            }
+        };
+
+        let mut eligible_roles = Vec::new();
+        if founder.get() {
+            eligible_roles.push(MemberRole::Founder);
+        }
+        if elder.get() {
+            eligible_roles.push(MemberRole::Elder);
+        }
+        if adult.get() {
+            eligible_roles.push(MemberRole::Adult);
+        }
+        if youth.get() {
+            eligible_roles.push(MemberRole::Youth);
+        }
+        if child.get() {
+            eligible_roles.push(MemberRole::Child);
+        }
+        if guest.get() {
+            eligible_roles.push(MemberRole::Guest);
+        }
+        if ancestor.get() {
+            eligible_roles.push(MemberRole::Ancestor);
+        }
+
+        if eligible_roles.is_empty() {
+            set_form_error.set(Some("Choose at least one eligible Hearth role.".to_string()));
+            return;
+        }
+
+        let window_days = voting_window_days.get();
+        if window_days == 0 {
+            set_form_error.set(Some("Choose a voting window.".to_string()));
+            return;
+        }
+
+        let quorum_bp = match quorum_mode.get().as_str() {
+            "none" => None,
+            "percent" => {
+                let percent = match quorum_percent.get().trim().parse::<u32>() {
+                    Ok(value) if value <= 100 => value,
+                    _ => {
+                        set_form_error.set(Some(
+                            "Quorum must be a whole percentage from 0 to 100.".to_string(),
+                        ));
+                        return;
+                    }
+                };
+                Some(percent * 100)
+            }
+            _ => {
+                set_form_error.set(Some("Choose whether this decision requires quorum.".to_string()));
+                return;
+            }
+        };
+
+        let options = options_text
+            .get()
+            .lines()
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+
+        let scheduled = governance_actions::create_decision(
+            governance_actions::CreateDecisionDraft {
+                title: title.get(),
+                description: description.get(),
+                decision_type,
+                eligible_roles,
+                options,
+                voting_window_days: window_days,
+                quorum_bp,
+            },
+        );
+
+        // Closing after a scheduled live attempt prevents accidental duplicate
+        // dispatch. A later unknown outcome must be reconciled before retrying.
+        if scheduled {
+            set_open.set(false);
+        }
+    };
+
+    view! {
+        <div class="decision-create">
+            <button
+                class="action-btn"
+                type="button"
+                aria-expanded=move || if open.get() { "true" } else { "false" }
+                aria-controls="decision-composer"
+                on:click=move |_| set_open.update(|value| *value = !*value)
+            >
+                {move || if open.get() { "Close New Decision" } else { "+ New Decision" }}
+            </button>
+
+            <Show when=move || open.get()>
+                <form
+                    id="decision-composer"
+                    class="decision-composer"
+                    aria-describedby="decision-composer-authority"
+                    on:submit=move |event| {
+                        event.prevent_default();
+                        submit(());
+                    }
+                >
+                    <h2>"Create a household decision"</h2>
+                    <p id="decision-composer-authority" class="task-surface-note">
+                        "This form prepares a request. The Hearth decisions and civic zomes independently decide whether creation is authorized and whether the caller is an active member."
+                    </p>
+
+                    <div class="form-row">
+                        <label for="decision-title">"Title"</label>
+                        <input
+                            id="decision-title"
+                            type="text"
+                            maxlength="256"
+                            required=true
+                            prop:value=move || title.get()
+                            on:input=move |event| {
+                                use wasm_bindgen::JsCast;
+                                if let Some(input) = event
+                                    .target()
+                                    .and_then(|target| target.dyn_ref::<web_sys::HtmlInputElement>().cloned())
+                                {
+                                    set_title.set(input.value());
+                                }
+                            }
+                        />
+                    </div>
+
+                    <div class="form-row">
+                        <label for="decision-description">"Description"</label>
+                        <textarea
+                            id="decision-description"
+                            maxlength="4096"
+                            prop:value=move || description.get()
+                            on:input=move |event| {
+                                use wasm_bindgen::JsCast;
+                                if let Some(input) = event
+                                    .target()
+                                    .and_then(|target| target.dyn_ref::<web_sys::HtmlTextAreaElement>().cloned())
+                                {
+                                    set_description.set(input.value());
+                                }
+                            }
+                        ></textarea>
+                    </div>
+
+                    <div class="form-row">
+                        <label for="decision-type">"Decision type"</label>
+                        <select
+                            id="decision-type"
+                            required=true
+                            prop:value=move || decision_type.get()
+                            on:change=move |event| {
+                                use wasm_bindgen::JsCast;
+                                if let Some(input) = event
+                                    .target()
+                                    .and_then(|target| target.dyn_ref::<web_sys::HtmlSelectElement>().cloned())
+                                {
+                                    set_decision_type.set(input.value());
+                                }
+                            }
+                        >
+                            <option value="">"Choose a decision type"</option>
+                            <option value="consensus">"Consensus"</option>
+                            <option value="majority">"Majority vote"</option>
+                            <option value="elder">"Elder decision"</option>
+                            <option value="guardian">"Guardian decision"</option>
+                        </select>
+                    </div>
+
+                    <fieldset class="decision-role-fieldset">
+                        <legend>"Eligible Hearth roles"</legend>
+                        <p class="task-surface-note">
+                            "Choose explicitly. Role eligibility is recorded on the Decision; effective live vote authority and weight are still determined by the zomes."
+                        </p>
+                        <label><input type="checkbox" prop:checked=move || founder.get() on:change=move |event| { use wasm_bindgen::JsCast; if let Some(input) = event.target().and_then(|target| target.dyn_ref::<web_sys::HtmlInputElement>().cloned()) { set_founder.set(input.checked()); } } /> "Founder"</label>
+                        <label><input type="checkbox" prop:checked=move || elder.get() on:change=move |event| { use wasm_bindgen::JsCast; if let Some(input) = event.target().and_then(|target| target.dyn_ref::<web_sys::HtmlInputElement>().cloned()) { set_elder.set(input.checked()); } } /> "Elder"</label>
+                        <label><input type="checkbox" prop:checked=move || adult.get() on:change=move |event| { use wasm_bindgen::JsCast; if let Some(input) = event.target().and_then(|target| target.dyn_ref::<web_sys::HtmlInputElement>().cloned()) { set_adult.set(input.checked()); } } /> "Adult"</label>
+                        <label><input type="checkbox" prop:checked=move || youth.get() on:change=move |event| { use wasm_bindgen::JsCast; if let Some(input) = event.target().and_then(|target| target.dyn_ref::<web_sys::HtmlInputElement>().cloned()) { set_youth.set(input.checked()); } } /> "Youth"</label>
+                        <label><input type="checkbox" prop:checked=move || child.get() on:change=move |event| { use wasm_bindgen::JsCast; if let Some(input) = event.target().and_then(|target| target.dyn_ref::<web_sys::HtmlInputElement>().cloned()) { set_child.set(input.checked()); } } /> "Child"</label>
+                        <label><input type="checkbox" prop:checked=move || guest.get() on:change=move |event| { use wasm_bindgen::JsCast; if let Some(input) = event.target().and_then(|target| target.dyn_ref::<web_sys::HtmlInputElement>().cloned()) { set_guest.set(input.checked()); } } /> "Guest"</label>
+                        <label><input type="checkbox" prop:checked=move || ancestor.get() on:change=move |event| { use wasm_bindgen::JsCast; if let Some(input) = event.target().and_then(|target| target.dyn_ref::<web_sys::HtmlInputElement>().cloned()) { set_ancestor.set(input.checked()); } } /> "Ancestor"</label>
+                    </fieldset>
+
+                    <div class="form-row">
+                        <label for="decision-options">"Options — one per line"</label>
+                        <textarea
+                            id="decision-options"
+                            rows="5"
+                            required=true
+                            aria-describedby="decision-options-help"
+                            prop:value=move || options_text.get()
+                            on:input=move |event| {
+                                use wasm_bindgen::JsCast;
+                                if let Some(input) = event
+                                    .target()
+                                    .and_then(|target| target.dyn_ref::<web_sys::HtmlTextAreaElement>().cloned())
+                                {
+                                    set_options_text.set(input.value());
+                                }
+                            }
+                        ></textarea>
+                        <small id="decision-options-help">"Use 2–20 non-empty options. Each option may be up to 1024 characters."</small>
+                    </div>
+
+                    <div class="form-row">
+                        <label for="decision-window">"Voting window"</label>
+                        <select
+                            id="decision-window"
+                            required=true
+                            prop:value=move || voting_window_days.get().to_string()
+                            on:change=move |event| {
+                                use wasm_bindgen::JsCast;
+                                if let Some(input) = event
+                                    .target()
+                                    .and_then(|target| target.dyn_ref::<web_sys::HtmlSelectElement>().cloned())
+                                {
+                                    set_voting_window_days.set(input.value().parse::<u32>().unwrap_or(0));
+                                }
+                            }
+                        >
+                            <option value="0">"Choose a voting window"</option>
+                            <option value="1">"1 day"</option>
+                            <option value="3">"3 days"</option>
+                            <option value="7">"7 days"</option>
+                            <option value="14">"14 days"</option>
+                            <option value="30">"30 days"</option>
+                        </select>
+                        <small>"The browser computes the requested absolute deadline; the conductor independently requires it to still be in the future when creation is processed."</small>
+                    </div>
+
+                    <div class="form-row">
+                        <label for="decision-quorum-mode">"Quorum rule"</label>
+                        <select
+                            id="decision-quorum-mode"
+                            required=true
+                            prop:value=move || quorum_mode.get()
+                            on:change=move |event| {
+                                use wasm_bindgen::JsCast;
+                                if let Some(input) = event
+                                    .target()
+                                    .and_then(|target| target.dyn_ref::<web_sys::HtmlSelectElement>().cloned())
+                                {
+                                    set_quorum_mode.set(input.value());
+                                }
+                            }
+                        >
+                            <option value="">"Choose a quorum rule"</option>
+                            <option value="none">"No quorum requirement"</option>
+                            <option value="percent">"Require participation percentage"</option>
+                        </select>
+                    </div>
+
+                    <Show when=move || quorum_mode.get() == "percent">
+                        <div class="form-row">
+                            <label for="decision-quorum-percent">"Required participation (%)"</label>
+                            <input
+                                id="decision-quorum-percent"
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="1"
+                                required=true
+                                prop:value=move || quorum_percent.get()
+                                on:input=move |event| {
+                                    use wasm_bindgen::JsCast;
+                                    if let Some(input) = event
+                                        .target()
+                                        .and_then(|target| target.dyn_ref::<web_sys::HtmlInputElement>().cloned())
+                                    {
+                                        set_quorum_percent.set(input.value());
+                                    }
+                                }
+                            />
+                            <small>"This first composer exposes whole percentages; the zome stores quorum in basis points."</small>
+                        </div>
+                    </Show>
+
+                    <Show when=move || form_error.get().is_some()>
+                        <p class="form-error" role="alert">
+                            {move || form_error.get().unwrap_or_default()}
+                        </p>
+                    </Show>
+
+                    <div class="vote-actions">
+                        <button class="action-btn" type="submit">"Submit Decision Request"</button>
+                        <button class="cancel-btn" type="button" on:click=move |_| set_open.set(false)>
+                            "Cancel"
+                        </button>
+                    </div>
+                </form>
+            </Show>
+        </div>
+    }
+}
+
+#[component]
 pub fn DecisionsPage() -> impl IntoView {
     let hearth = use_hearth();
     let consciousness = use_consciousness();
@@ -122,15 +449,7 @@ pub fn DecisionsPage() -> impl IntoView {
                 }}
             </div>
 
-            <button
-                class="action-btn"
-                type="button"
-                disabled=true
-                aria-disabled="true"
-                title="Decision creation is supported by the zome, but the frontend composer is not wired yet"
-            >
-                "+ New Decision — composer not wired"
-            </button>
+            <DecisionComposer />
 
             {move || {
                 let members = hearth_for_list.members.get();
