@@ -24,9 +24,13 @@ members = [
     "zomes/hearth-stories/integrity",
     "zomes/hearth-stories/coordinator",
 
-    # Care
+    # Care (legacy schedule/templates + compatibility)
     "zomes/hearth-care/integrity",
     "zomes/hearth-care/coordinator",
+
+    # Care ledger (append-only occurrences/completions)
+    "zomes/hearth-care-ledger/integrity",
+    "zomes/hearth-care-ledger/coordinator",
 
     # Autonomy
     "zomes/hearth-autonomy/integrity",

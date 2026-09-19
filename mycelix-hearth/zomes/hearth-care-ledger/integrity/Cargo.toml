@@ -1,0 +1,14 @@
+[package]
+name = "hearth_care_ledger_integrity"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "hearth_care_ledger_integrity"
+
+[dependencies]
+hdi = { workspace = true }
+serde = { workspace = true }
+hearth-care-ledger = { package = "hearth-care-ledger-contract", path = "../../../crates/hearth-care-ledger" }
