@@ -1,0 +1,29 @@
+{
+  "schema": "mycelix.ci-gov.001k.source-lock.v0.2",
+  "qualified_base_commit": "884a14e14758a91d3c1d370d49648946dc8b89ef",
+  "qualified_base_tree": "1a3190fef7ce9fc4ea9fba05aa20f3c277ec030f",
+  "review_payload": {
+    ".github/scripts/CI_GOV_001K.md": "b478fa78e6b6085fedb28dd52d45d8943258a07e",
+    ".github/scripts/ci_qualification_capacity_oracle.py": "1b2b2f4862c910a2c013432172d74b5213c42c41",
+    ".github/scripts/test_ci_qualification_capacity_oracle.py": "0ef296066505bc88d65e2e354edb59856cad5127"
+  },
+  "policy": {
+    "shared_group": "mycelix-heavy-qualification-v1",
+    "queue": "max",
+    "cancel_in_progress": false,
+    "max_active": 1,
+    "max_pending": 8,
+    "platform_pending_cap": 100,
+    "explicit_label": "ci:qualify",
+    "ready_admits": false,
+    "max_snapshot_age_seconds": 30
+  },
+  "authority_ceiling": {
+    "network_client": false,
+    "actions_mutation": false,
+    "cancellation_authority": false,
+    "merge_authority": false,
+    "product_pass_authority": false,
+    "scientific_pass_authority": false
+  }
+}
