@@ -46,6 +46,10 @@ name = "sweettest_care_gratitude_rhythms"
 path = "sweettest_care_gratitude_rhythms.rs"
 
 [[test]]
+name = "sweettest_care_authority"
+path = "sweettest_care_authority.rs"
+
+[[test]]
 name = "sweettest_emergency"
 path = "sweettest_emergency.rs"
 

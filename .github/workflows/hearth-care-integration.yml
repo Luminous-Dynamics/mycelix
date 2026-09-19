@@ -10,6 +10,7 @@ on:
       - 'mycelix-workspace/mycelix-hearth/crates/hearth-coordinator-common/**'
       - 'mycelix-workspace/mycelix-hearth/tests/Cargo.toml'
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_gratitude_rhythms.rs'
+      - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_authority.rs'
       - 'mycelix-workspace/mycelix-hearth/dna/**'
       - 'mycelix-workspace/mycelix-hearth/flake.nix'
       - 'mycelix-workspace/mycelix-hearth/flake.lock'
@@ -29,6 +30,7 @@ on:
       - 'mycelix-workspace/mycelix-hearth/crates/hearth-coordinator-common/**'
       - 'mycelix-workspace/mycelix-hearth/tests/Cargo.toml'
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_gratitude_rhythms.rs'
+      - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_authority.rs'
       - 'mycelix-workspace/mycelix-hearth/dna/**'
       - 'mycelix-workspace/mycelix-hearth/flake.nix'
       - 'mycelix-workspace/mycelix-hearth/flake.lock'
@@ -86,6 +88,7 @@ jobs:
             "$HEARTH_ROOT/dna/dna.yaml" \
             "$HEARTH_ROOT/tests/Cargo.toml" \
             "$HEARTH_ROOT/tests/sweettest_care_gratitude_rhythms.rs" \
+            "$HEARTH_ROOT/tests/sweettest_care_authority.rs" \
             "$HEARTH_ROOT/zomes/hearth-care/coordinator/Cargo.toml" \
             "$HEARTH_ROOT/zomes/hearth-kinship/coordinator/Cargo.toml" \
             "$HEARTH_ROOT/zomes/hearth-bridge/coordinator/Cargo.toml"; do
@@ -141,6 +144,18 @@ jobs:
               --test sweettest_care_gratitude_rhythms \
               test_care_create_and_complete \
               -- --ignored --exact --test-threads=1
+          '
+
+      - name: Run Care authority SweetConductor regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$HEARTH_ROOT"
+          nix develop .#ci --impure --command bash -lc '
+            cd tests
+            cargo test --release \
+              --test sweettest_care_authority \
+              -- --ignored --test-threads=1
           '
 
       - name: Upload exact integration evidence
