@@ -1,0 +1,94 @@
+name: SUP-CIV-001A Stable Ticket Identity
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/docs/civic-resilience/SUP_CIV_001A_STABLE_TICKET_IDENTITY_V1.md'
+      - 'mycelix-workspace/docs/civic-resilience/sup_civ_001a_stable_ticket_identity.json'
+      - 'scripts/qualification/sup_civ_001a_stable_ticket_identity_v1.py'
+      - '.github/workflows/sup-civ-001a-stable-ticket-identity.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sup-civ-001a-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Stable support-ticket identity boundary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Exact parent and clean subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='a85369699099d4c7524e502e531735eed4ab36f4'
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          printf 'head=%s\nparent=%s\ntree=%s\n' \
+            "$(git rev-parse HEAD)" \
+            "$(git rev-parse HEAD^)" \
+            "$(git rev-parse HEAD^{tree})"
+          test -z "$(git status --short)"
+
+      - name: Exact tranche scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='a85369699099d4c7524e502e531735eed4ab36f4'
+          test "$(git rev-list --count "$EXPECTED_PARENT"..HEAD)" = '1'
+          git diff --check "$EXPECTED_PARENT" HEAD
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PARENT" HEAD | sort)
+          expected=(
+            '.github/workflows/sup-civ-001a-stable-ticket-identity.yml'
+            'mycelix-workspace/docs/civic-resilience/SUP_CIV_001A_STABLE_TICKET_IDENTITY_V1.md'
+            'mycelix-workspace/docs/civic-resilience/sup_civ_001a_stable_ticket_identity.json'
+            'scripts/qualification/sup_civ_001a_stable_ticket_identity_v1.py'
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed[@]}")
+
+      - name: Validate stable identity contract
+        run: python3 scripts/qualification/sup_civ_001a_stable_ticket_identity_v1.py
+
+      - name: Static no-runtime audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='a85369699099d4c7524e502e531735eed4ab36f4'
+          changed="$(git diff --name-only "$EXPECTED_PARENT" HEAD)"
+          if printf '%s\n' "$changed" | grep -E '\.(rs|toml|lock)$'; then
+            echo 'SUP-CIV-001A must remain semantic-contract/manifest/validator/workflow only' >&2
+            exit 1
+          fi
+
+      - name: Prove migration-safe identity constraints
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          p = Path('mycelix-workspace/docs/civic-resilience/sup_civ_001a_stable_ticket_identity.json')
+          d = json.loads(p.read_text())
+          stable = d['stable_id_definition']
+          assert d['runtime_owner'] == 'Deferred'
+          assert stable['representation'] == 'EntryHash(CanonicalSupportTicketIdentity)'
+          assert stable['action_hash_is_stable_id'] is False
+          assert stable['legacy_support_ticket_schema_change_required'] is False
+          assert 'LegacyTicketWithoutIdentity != MigratedTicket' in d['non_equivalences']
+          assert 'LinkToIdentity != ValidatedLineage' in d['non_equivalences']
+          assert 'status_transition_algebra' in d['deferred_theorems']
+          PY
+
+      - name: Immutable checkout postflight
+        run: test -z "$(git status --short)"
