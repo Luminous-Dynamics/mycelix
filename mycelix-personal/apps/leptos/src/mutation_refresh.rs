@@ -60,20 +60,25 @@ fn finish_mutation_refresh(
         };
     }
 
-    if !gate.finish(started_epoch) {
-        return MutationRefreshOutcome::EpochChanged {
-            started_epoch,
-            current_epoch: gate.current_epoch(),
-        };
-    }
-
     if source_published {
-        MutationRefreshOutcome::Published {
+        if gate.finish(started_epoch) {
+            MutationRefreshOutcome::Published {
+                epoch: started_epoch,
+            }
+        } else {
+            MutationRefreshOutcome::EpochChanged {
+                started_epoch,
+                current_epoch: gate.current_epoch(),
+            }
+        }
+    } else if gate.abort(started_epoch) {
+        MutationRefreshOutcome::SourceNotPublished {
             epoch: started_epoch,
         }
     } else {
-        MutationRefreshOutcome::SourceNotPublished {
-            epoch: started_epoch,
+        MutationRefreshOutcome::EpochChanged {
+            started_epoch,
+            current_epoch: gate.current_epoch(),
         }
     }
 }
@@ -181,15 +186,17 @@ mod tests {
             MutationRefreshOutcome::Published { epoch }
         );
         assert!(!gate.is_in_flight());
+        assert!(gate.has_completed());
     }
 
     #[test]
-    fn completed_refresh_without_source_commit_is_not_published() {
+    fn completed_refresh_without_source_commit_aborts_without_new_completion_claim() {
         let mut gate = ReconciliationEpoch::default();
         let ReconciliationTransition::Start { epoch } = gate.observe_usable(true) else {
             panic!("usable session must start initial reconciliation");
         };
         assert!(gate.finish(epoch));
+        assert!(gate.has_completed());
 
         let started = begin_mutation_refresh(&mut gate).expect("refresh should be admitted");
         assert_eq!(
@@ -197,6 +204,7 @@ mod tests {
             MutationRefreshOutcome::SourceNotPublished { epoch }
         );
         assert!(!gate.is_in_flight());
+        assert!(gate.has_completed());
     }
 
     #[test]
