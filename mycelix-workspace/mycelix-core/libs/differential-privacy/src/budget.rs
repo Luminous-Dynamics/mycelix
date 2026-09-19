@@ -78,8 +78,22 @@ impl PrivacyBudget {
 
     /// Consume privacy budget with an operation label
     pub fn consume_with_label(&mut self, epsilon: f64, delta: f64, operation: &str) -> DpResult<()> {
+        if !epsilon.is_finite() || epsilon < 0.0 {
+            return Err(DpError::InvalidEpsilon(epsilon));
+        }
+        if !delta.is_finite() || delta < 0.0 || delta >= 1.0 {
+            return Err(DpError::InvalidDelta(delta));
+        }
+
         let new_epsilon = self.current_epsilon + epsilon;
         let new_delta = self.current_delta + delta;
+
+        if !new_epsilon.is_finite() {
+            return Err(DpError::InvalidEpsilon(new_epsilon));
+        }
+        if !new_delta.is_finite() {
+            return Err(DpError::InvalidDelta(new_delta));
+        }
 
         if new_epsilon > self.max_epsilon {
             warn!(
@@ -130,8 +144,20 @@ impl PrivacyBudget {
 
     /// Check if an operation would exceed the budget
     pub fn can_afford(&self, epsilon: f64, delta: f64) -> bool {
-        self.current_epsilon + epsilon <= self.max_epsilon
-            && self.current_delta + delta <= self.max_delta
+        if !epsilon.is_finite() || epsilon < 0.0 {
+            return false;
+        }
+        if !delta.is_finite() || delta < 0.0 || delta >= 1.0 {
+            return false;
+        }
+
+        let new_epsilon = self.current_epsilon + epsilon;
+        let new_delta = self.current_delta + delta;
+
+        new_epsilon.is_finite()
+            && new_delta.is_finite()
+            && new_epsilon <= self.max_epsilon
+            && new_delta <= self.max_delta
     }
 
     /// Get remaining epsilon budget
@@ -311,6 +337,46 @@ mod tests {
             }
             _ => panic!("Expected BudgetExhausted error"),
         }
+    }
+
+    #[test]
+    fn test_budget_rejects_invalid_expenditure_without_mutation() {
+        let mut budget = PrivacyBudget::new(1.0, 1e-5);
+        budget.consume(0.2, 1e-6).unwrap();
+
+        let epsilon_before = budget.spent_epsilon();
+        let delta_before = budget.spent_delta();
+        let count_before = budget.query_count();
+        let history_before = budget.history().len();
+
+        for invalid_epsilon in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -0.1] {
+            assert!(budget.consume(invalid_epsilon, 0.0).is_err());
+            assert_eq!(budget.spent_epsilon(), epsilon_before);
+            assert_eq!(budget.spent_delta(), delta_before);
+            assert_eq!(budget.query_count(), count_before);
+            assert_eq!(budget.history().len(), history_before);
+        }
+
+        for invalid_delta in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -1e-6, 1.0] {
+            assert!(budget.consume(0.0, invalid_delta).is_err());
+            assert_eq!(budget.spent_epsilon(), epsilon_before);
+            assert_eq!(budget.spent_delta(), delta_before);
+            assert_eq!(budget.query_count(), count_before);
+            assert_eq!(budget.history().len(), history_before);
+        }
+    }
+
+    #[test]
+    fn test_can_afford_rejects_invalid_expenditure() {
+        let budget = PrivacyBudget::new(1.0, 1e-5);
+
+        assert!(!budget.can_afford(f64::NAN, 0.0));
+        assert!(!budget.can_afford(f64::INFINITY, 0.0));
+        assert!(!budget.can_afford(-0.1, 0.0));
+        assert!(!budget.can_afford(0.0, f64::NAN));
+        assert!(!budget.can_afford(0.0, f64::INFINITY));
+        assert!(!budget.can_afford(0.0, -1e-6));
+        assert!(!budget.can_afford(0.0, 1.0));
     }
 
     #[test]
