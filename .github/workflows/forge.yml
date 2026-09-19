@@ -27,6 +27,7 @@ on:
       - "adapters/forge-hermetic-guest/**"
       - "adapters/forge-sealed-inputs/**"
       - "adapters/forge-hermetic-host/**"
+      - "adapters/forge-m0-offline-evidence/**"
       - ".github/workflows/forge.yml"
   push:
     branches:
@@ -55,6 +56,7 @@ on:
       - "adapters/forge-hermetic-guest/**"
       - "adapters/forge-sealed-inputs/**"
       - "adapters/forge-hermetic-host/**"
+      - "adapters/forge-m0-offline-evidence/**"
       - ".github/workflows/forge.yml"
 
 permissions:
@@ -119,6 +121,8 @@ jobs:
             path: adapters/forge-sealed-inputs
           - name: Forge Hermetic Host
             path: adapters/forge-hermetic-host
+          - name: Forge M0 Offline Evidence
+            path: adapters/forge-m0-offline-evidence
     defaults:
       run:
         working-directory: ${{ matrix.path }}
