@@ -1,13 +1,12 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Source-backed Inbox projection for `get_my_pending_votes`.
+//! Shared source-backed projection for `get_my_pending_votes`.
 //!
 //! Despite the zome function's historical name, the demonstrated contract is
-//! narrower: it returns Open Decisions for which the calling agent has no
-//! current AgentToVotes link. It does not establish that the deadline is still
-//! open, that the caller's role is eligible, or that the civic gate will accept
-//! a vote. The UI therefore names this source by what it proves.
+//! narrower: Open Decisions for which the caller has no current AgentToVotes
+//! link. Deadline, role eligibility and civic authority are still established
+//! only by the vote transition itself.
 
 use crate::hearth_context::use_hearth;
 use crate::hearth_truth::use_hearth_truth;
@@ -24,10 +23,10 @@ use std::rc::Rc;
 use wasm_bindgen_futures::spawn_local;
 
 #[derive(Clone, Debug)]
-struct UnvotedDecisionSnapshot {
-    availability: AvailabilityStateKind,
-    snapshot_alignment: AvailabilityStateKind,
-    decisions: Vec<DecisionView>,
+pub struct UnvotedDecisionSnapshot {
+    pub availability: AvailabilityStateKind,
+    pub snapshot_alignment: AvailabilityStateKind,
+    pub decisions: Vec<DecisionView>,
 }
 
 impl UnvotedDecisionSnapshot {
@@ -38,6 +37,12 @@ impl UnvotedDecisionSnapshot {
             decisions: Vec::new(),
         }
     }
+}
+
+#[derive(Clone)]
+pub struct UnvotedDecisionState {
+    pub snapshot: RwSignal<UnvotedDecisionSnapshot>,
+    pub loading: RwSignal<bool>,
 }
 
 fn validate_source_records(
@@ -126,7 +131,42 @@ fn snapshot_alignment(
     }
 }
 
-fn inbox_key(
+/// Derive the personal-attention presentation state from both the direct
+/// source read and its independent alignment with the loaded Decisions/Votes
+/// snapshot. A successful empty query is not enough for a calm-state claim
+/// unless the cross-source alignment is also established.
+pub fn attention_state(snapshot: &UnvotedDecisionSnapshot) -> AvailabilityStateKind {
+    match snapshot.availability {
+        AvailabilityStateKind::Mock => AvailabilityStateKind::Mock,
+        AvailabilityStateKind::Unknown => AvailabilityStateKind::Unknown,
+        AvailabilityStateKind::Unavailable => AvailabilityStateKind::Unavailable,
+        AvailabilityStateKind::Locked => AvailabilityStateKind::Locked,
+        AvailabilityStateKind::Degraded => AvailabilityStateKind::Degraded,
+        AvailabilityStateKind::Live | AvailabilityStateKind::Empty => {
+            match snapshot.snapshot_alignment {
+                AvailabilityStateKind::Live => {
+                    if snapshot.decisions.is_empty() {
+                        AvailabilityStateKind::Empty
+                    } else {
+                        AvailabilityStateKind::Live
+                    }
+                }
+                AvailabilityStateKind::Unknown => AvailabilityStateKind::Unknown,
+                AvailabilityStateKind::Unavailable => AvailabilityStateKind::Unavailable,
+                AvailabilityStateKind::Locked => AvailabilityStateKind::Locked,
+                AvailabilityStateKind::Degraded
+                | AvailabilityStateKind::Empty
+                | AvailabilityStateKind::Mock => AvailabilityStateKind::Degraded,
+            }
+        }
+    }
+}
+
+pub fn attention_is_established_empty(snapshot: &UnvotedDecisionSnapshot) -> bool {
+    attention_state(snapshot) == AvailabilityStateKind::Empty
+}
+
+fn source_key(
     hearth_hash: &str,
     decisions: &[DecisionView],
     votes: &[VoteView],
@@ -149,16 +189,24 @@ fn inbox_key(
     )
 }
 
-#[component]
-pub fn UnvotedOpenDecisionsInbox() -> impl IntoView {
+fn invalidate(generation: &Rc<Cell<u64>>) {
+    generation.set(generation.get().wrapping_add(1));
+}
+
+pub fn provide_unvoted_decisions() -> UnvotedDecisionState {
+    let state = UnvotedDecisionState {
+        snapshot: RwSignal::new(UnvotedDecisionSnapshot::unknown()),
+        loading: RwSignal::new(false),
+    };
+    provide_context(state.clone());
+
     let hearth = use_hearth();
     let truth = use_hearth_truth();
     let hc = use_holochain();
-    let snapshot = RwSignal::new(UnvotedDecisionSnapshot::unknown());
-    let loading = RwSignal::new(false);
     let last_key = Rc::new(RefCell::new(None::<String>));
     let generation = Rc::new(Cell::new(0u64));
 
+    let state_effect = state.clone();
     let hearth_effect = hearth.clone();
     let truth_effect = truth.clone();
     let hc_effect = hc.clone();
@@ -172,53 +220,57 @@ pub fn UnvotedOpenDecisionsInbox() -> impl IntoView {
         let availability = truth_effect.availability.get();
 
         if status == ConnectionStatus::Mock {
-            generation_effect.set(generation_effect.get().wrapping_add(1));
+            invalidate(&generation_effect);
             *key_effect.borrow_mut() = None;
-            loading.set(false);
-            snapshot.set(UnvotedDecisionSnapshot {
+            state_effect.loading.set(false);
+            state_effect.snapshot.set(UnvotedDecisionSnapshot {
                 availability: AvailabilityStateKind::Mock,
                 snapshot_alignment: AvailabilityStateKind::Mock,
                 decisions: Vec::new(),
             });
             return;
         }
+
         if status != ConnectionStatus::Connected || !signer_ready || truth_loading {
-            generation_effect.set(generation_effect.get().wrapping_add(1));
+            invalidate(&generation_effect);
             *key_effect.borrow_mut() = None;
-            loading.set(false);
-            let state = if status == ConnectionStatus::Connected && !signer_ready {
+            state_effect.loading.set(false);
+            let source_state = if status == ConnectionStatus::Connected && !signer_ready {
                 AvailabilityStateKind::Unavailable
-            } else if matches!(status, ConnectionStatus::Disconnected | ConnectionStatus::Reconnecting)
-            {
+            } else if matches!(
+                status,
+                ConnectionStatus::Disconnected | ConnectionStatus::Reconnecting
+            ) {
                 AvailabilityStateKind::Degraded
             } else {
                 AvailabilityStateKind::Unknown
             };
-            snapshot.update(|value| {
-                value.availability = state.clone();
-                value.snapshot_alignment = state;
+            state_effect.snapshot.update(|value| {
+                value.availability = source_state.clone();
+                value.snapshot_alignment = source_state;
             });
             return;
         }
 
         let Some(current_hearth) = hearth_effect.current_hearth.get() else {
             *key_effect.borrow_mut() = None;
-            snapshot.set(UnvotedDecisionSnapshot::unknown());
+            state_effect.snapshot.set(UnvotedDecisionSnapshot::unknown());
             return;
         };
+
         if !matches!(
             availability.current_hearth,
             AvailabilityStateKind::Live | AvailabilityStateKind::Degraded
         ) {
             *key_effect.borrow_mut() = None;
-            snapshot.set(UnvotedDecisionSnapshot::unknown());
+            state_effect.snapshot.set(UnvotedDecisionSnapshot::unknown());
             return;
         }
 
         let decisions = hearth_effect.decisions.get();
         let votes = hearth_effect.votes.get();
         let my_agent = hearth_effect.my_agent.get();
-        let key = inbox_key(&current_hearth.hash, &decisions, &votes, &my_agent);
+        let key = source_key(&current_hearth.hash, &decisions, &votes, &my_agent);
         if key_effect.borrow().as_deref() == Some(&key) {
             return;
         }
@@ -228,9 +280,12 @@ pub fn UnvotedOpenDecisionsInbox() -> impl IntoView {
             Ok(hash) => hash,
             Err(error) => {
                 web_sys::console::log_1(
-                    &format!("[Hearth] Inbox query blocked by invalid Hearth ActionHash: {error}").into(),
+                    &format!(
+                        "[Hearth] unvoted-Decision query blocked by invalid Hearth ActionHash: {error}"
+                    )
+                    .into(),
                 );
-                snapshot.set(UnvotedDecisionSnapshot {
+                state_effect.snapshot.set(UnvotedDecisionSnapshot {
                     availability: AvailabilityStateKind::Degraded,
                     snapshot_alignment: AvailabilityStateKind::Degraded,
                     decisions: Vec::new(),
@@ -239,11 +294,12 @@ pub fn UnvotedOpenDecisionsInbox() -> impl IntoView {
             }
         };
 
-        generation_effect.set(generation_effect.get().wrapping_add(1));
+        invalidate(&generation_effect);
         let token = generation_effect.get();
-        loading.set(true);
-        snapshot.set(UnvotedDecisionSnapshot::unknown());
+        state_effect.loading.set(true);
+        state_effect.snapshot.set(UnvotedDecisionSnapshot::unknown());
 
+        let state_load = state_effect.clone();
         let hc_load = hc_effect.clone();
         let generation_load = generation_effect.clone();
         let hearth_hash_text = current_hearth.hash;
@@ -274,7 +330,7 @@ pub fn UnvotedOpenDecisionsInbox() -> impl IntoView {
                         &my_agent,
                         &returned,
                     );
-                    snapshot.set(UnvotedDecisionSnapshot {
+                    state_load.snapshot.set(UnvotedDecisionSnapshot {
                         availability: source_state,
                         snapshot_alignment: alignment,
                         decisions: returned,
@@ -284,16 +340,29 @@ pub fn UnvotedOpenDecisionsInbox() -> impl IntoView {
                     web_sys::console::log_1(
                         &format!("[Hearth] get_my_pending_votes failed: {error}").into(),
                     );
-                    snapshot.set(UnvotedDecisionSnapshot {
+                    state_load.snapshot.set(UnvotedDecisionSnapshot {
                         availability: AvailabilityStateKind::Unavailable,
                         snapshot_alignment: AvailabilityStateKind::Unavailable,
                         decisions: Vec::new(),
                     });
                 }
             }
-            loading.set(false);
+            state_load.loading.set(false);
         });
     });
+
+    state
+}
+
+pub fn use_unvoted_decisions() -> UnvotedDecisionState {
+    expect_context::<UnvotedDecisionState>()
+}
+
+#[component]
+pub fn UnvotedOpenDecisionsInbox() -> impl IntoView {
+    let state = use_unvoted_decisions();
+    let state_status = state.clone();
+    let state_view = state.clone();
 
     view! {
         <section class="inbox-unvoted-decisions" aria-labelledby="inbox-unvoted-heading">
@@ -303,19 +372,20 @@ pub fn UnvotedOpenDecisionsInbox() -> impl IntoView {
             </p>
             <p class="inbox-source-state" role="status">
                 {move || {
-                    let value = snapshot.get();
+                    let value = state_status.snapshot.get();
                     format!(
                         "Source: {}{} · alignment with the loaded Decisions/Votes snapshot: {}",
                         value.availability.label(),
-                        if loading.get() { " (loading)" } else { "" },
+                        if state_status.loading.get() { " (loading)" } else { "" },
                         value.snapshot_alignment.label(),
                     )
                 }}
             </p>
             {move || {
-                let value = snapshot.get();
-                match value.availability {
-                    AvailabilityStateKind::Live if !value.decisions.is_empty() => view! {
+                let value = state_view.snapshot.get();
+                let presentation_state = attention_state(&value);
+                match presentation_state {
+                    AvailabilityStateKind::Live => view! {
                         <div class="task-directory" role="list">
                             {value.decisions.into_iter().map(|decision| view! {
                                 <A href="/decisions" attr:class="task-directory-item" attr:role="listitem">
@@ -326,23 +396,26 @@ pub fn UnvotedOpenDecisionsInbox() -> impl IntoView {
                         </div>
                     }.into_any(),
                     AvailabilityStateKind::Empty => view! {
-                        <p class="empty-state">"The source returned no Open Decisions without a current vote for you."</p>
+                        <p class="empty-state">"The source and loaded snapshot agree that there are no Open Decisions without a current vote for you."</p>
                     }.into_any(),
                     AvailabilityStateKind::Degraded => view! {
                         <div class="empty-state" role="alert">
-                            <p>"This Inbox source is only partially established. It is not being presented as a complete action list."</p>
+                            <p>"This Inbox attention projection is only partially established or disagrees with the loaded Decisions/Votes snapshot. It is not being presented as a complete action list."</p>
                             {(value.decisions.len() > 0).then(|| view! {
-                                <p>{format!("{} validated record(s) were retained for reconciliation.", value.decisions.len())}</p>
+                                <p>{format!("{} validated source record(s) were retained for reconciliation.", value.decisions.len())}</p>
                             })}
                         </div>
                     }.into_any(),
                     AvailabilityStateKind::Unavailable => view! {
-                        <p class="empty-state" role="alert">"The source-backed unvoted-Decision query is unavailable in this snapshot."</p>
+                        <p class="empty-state" role="alert">"The source-backed unvoted-Decision projection is unavailable in this snapshot."</p>
+                    }.into_any(),
+                    AvailabilityStateKind::Locked => view! {
+                        <p class="empty-state" role="status">"The source-backed unvoted-Decision projection is locked."</p>
                     }.into_any(),
                     AvailabilityStateKind::Mock => view! {
                         <p class="empty-state">"Demo mode does not fabricate a source-backed governance Inbox."</p>
                     }.into_any(),
-                    _ => view! {
+                    AvailabilityStateKind::Unknown => view! {
                         <p class="empty-state">"This Inbox source has not been established yet."</p>
                     }.into_any(),
                 }
@@ -351,9 +424,54 @@ pub fn UnvotedOpenDecisionsInbox() -> impl IntoView {
     }
 }
 
+#[component]
+pub fn UnvotedDecisionHomeAttention() -> impl IntoView {
+    let state = use_unvoted_decisions();
+    view! {
+        {move || {
+            let value = state.snapshot.get();
+            match attention_state(&value) {
+                AvailabilityStateKind::Live => view! {
+                    <section class="home-attention" aria-labelledby="home-decision-attention-heading">
+                        <h2 id="home-decision-attention-heading">"needs attention"</h2>
+                        <A href="/inbox" attr:class="nudge">
+                            {format!(
+                                "{} open decision{} without a current vote · inspect Inbox",
+                                value.decisions.len(),
+                                if value.decisions.len() == 1 { "" } else { "s" },
+                            )}
+                        </A>
+                        <p class="task-surface-note">
+                            "This is an attention cue, not proof that a vote is currently authorized or required."
+                        </p>
+                    </section>
+                }.into_any(),
+                AvailabilityStateKind::Degraded | AvailabilityStateKind::Unavailable => view! {
+                    <section class="home-attention" role="status">
+                        <h2>"attention source"</h2>
+                        <p>"Personal Decision attention is not fully established, so Home is not claiming there is nothing to do."</p>
+                    </section>
+                }.into_any(),
+                AvailabilityStateKind::Unknown | AvailabilityStateKind::Locked => view! {
+                    <section class="home-attention" role="status">
+                        <h2>"attention source"</h2>
+                        <p>"Personal Decision attention is still being established or is not currently readable."</p>
+                    </section>
+                }.into_any(),
+                AvailabilityStateKind::Empty | AvailabilityStateKind::Mock => {
+                    view! { <></> }.into_any()
+                }
+            }
+        }}
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{expected_unvoted_hashes, snapshot_alignment};
+    use super::{
+        attention_is_established_empty, attention_state, expected_unvoted_hashes,
+        snapshot_alignment, UnvotedDecisionSnapshot,
+    };
     use hearth_leptos_types::{DecisionStatus, DecisionType, DecisionView, MemberRole, VoteView};
     use mycelix_leptos_core::AvailabilityStateKind;
 
@@ -382,6 +500,18 @@ mod tests {
             weight_bp: 10_000,
             reasoning: None,
             created_at: 10,
+        }
+    }
+
+    fn snapshot(
+        availability: AvailabilityStateKind,
+        alignment: AvailabilityStateKind,
+        decisions: Vec<DecisionView>,
+    ) -> UnvotedDecisionSnapshot {
+        UnvotedDecisionSnapshot {
+            availability,
+            snapshot_alignment: alignment,
+            decisions,
         }
     }
 
@@ -428,6 +558,45 @@ mod tests {
                 &[],
             ),
             AvailabilityStateKind::Degraded
+        );
+    }
+
+    #[test]
+    fn empty_attention_requires_both_source_and_alignment() {
+        let clean = snapshot(
+            AvailabilityStateKind::Empty,
+            AvailabilityStateKind::Live,
+            Vec::new(),
+        );
+        assert!(attention_is_established_empty(&clean));
+        assert_eq!(attention_state(&clean), AvailabilityStateKind::Empty);
+
+        let misaligned = snapshot(
+            AvailabilityStateKind::Empty,
+            AvailabilityStateKind::Degraded,
+            Vec::new(),
+        );
+        assert!(!attention_is_established_empty(&misaligned));
+        assert_eq!(attention_state(&misaligned), AvailabilityStateKind::Degraded);
+    }
+
+    #[test]
+    fn live_attention_requires_aligned_nonempty_source() {
+        let aligned = snapshot(
+            AvailabilityStateKind::Live,
+            AvailabilityStateKind::Live,
+            vec![decision("a", DecisionStatus::Open)],
+        );
+        assert_eq!(attention_state(&aligned), AvailabilityStateKind::Live);
+
+        let unavailable_alignment = snapshot(
+            AvailabilityStateKind::Live,
+            AvailabilityStateKind::Unavailable,
+            vec![decision("a", DecisionStatus::Open)],
+        );
+        assert_eq!(
+            attention_state(&unavailable_alignment),
+            AvailabilityStateKind::Unavailable
         );
     }
 }
