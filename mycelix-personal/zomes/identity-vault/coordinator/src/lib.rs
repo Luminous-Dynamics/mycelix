@@ -18,7 +18,7 @@ pub fn my_custom_getrandom(buf: &mut [u8]) -> Result<(), getrandom::Error> {
 }
 
 use mycelix_zkp_core::consciousness::{CivicTier, verify_consciousness_tier};
-use personal_leptos_types::{MasterKeyView, ProfileView};
+use personal_leptos_types::{MasterKeyView, MutationReceiptView, ProfileView};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SubmitTierProofInput {
@@ -96,14 +96,17 @@ pub fn set_profile(profile: Profile) -> ExternResult<Record> {
 }
 
 #[hdk_extern]
-pub fn set_profile_view(profile: ProfileView) -> ExternResult<Record> {
-    set_profile(Profile {
+pub fn set_profile_view(profile: ProfileView) -> ExternResult<MutationReceiptView> {
+    let record = set_profile(Profile {
         display_name: profile.display_name,
         avatar: profile.avatar,
         bio: profile.bio,
         metadata: profile.metadata,
         updated_at: sys_time()?,
         mineralized_at: None,
+    })?;
+    Ok(MutationReceiptView {
+        action_hash: record.action_address().to_string(),
     })
 }
 
@@ -249,7 +252,7 @@ pub fn disclose_profile(fields: Vec<String>) -> ExternResult<String> {
                     disclosed.insert("avatar".into(), serde_json::Value::String(avatar.clone()));
                 }
             }
-            _ => {} // Unknown fields are silently ignored
+            _ => {}
         }
     }
 
@@ -263,7 +266,6 @@ mod tests {
 
     #[test]
     fn profile_entry_type_exists() {
-        // Verify the entry type enum compiles and matches
         let _variant = UnitEntryTypes::Profile;
     }
 
