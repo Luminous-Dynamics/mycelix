@@ -17,8 +17,11 @@ use mycelix_leptos_core::{
     AvailabilityStateKind, EmptyState, FreshnessBadge, FreshnessLevel, HolochainProviderAuto,
     HolochainProviderConfig, NavLink, NavTab, ToastContainer, ToastKind,
 };
-use personal_leptos_types::{ConsentGrantView, CredentialType, StoredCredentialView};
 
+use crate::components::{
+    format_relative_micros, freshness_from_micros, ActivityItemCard, ConsentCard, CredentialCard,
+    KeyCard, PageHeader, SectionTitle, VaultStat,
+};
 use crate::context::{
     provide_cultural_context, provide_personal_context, refresh_health_state,
     refresh_identity_state, refresh_preferences_state, use_cultural, use_personal,
@@ -455,27 +458,6 @@ fn VaultPage() -> impl IntoView {
     }
 }
 
-fn freshness_from_micros(timestamp_micros: i64) -> FreshnessLevel {
-    let now_micros = (js_sys::Date::now() * 1000.0) as i64;
-    let age_minutes = now_micros.saturating_sub(timestamp_micros) / 60_000_000;
-    if age_minutes <= 5 {
-        FreshnessLevel::Fresh
-    } else if age_minutes <= 60 {
-        FreshnessLevel::Aging
-    } else {
-        FreshnessLevel::Stale
-    }
-}
-
-fn format_relative_micros(timestamp_micros: i64) -> String {
-    let date = js_sys::Date::new(&wasm_bindgen::JsValue::from_f64(
-        (timestamp_micros / 1000) as f64,
-    ));
-    date.to_locale_string("en-US", &wasm_bindgen::JsValue::UNDEFINED)
-        .as_string()
-        .unwrap_or_else(|| "recently".into())
-}
-
 #[component]
 fn IdentityPage() -> impl IntoView {
     let ctx = use_personal();
@@ -816,101 +798,6 @@ fn UnlockPage() -> impl IntoView {
 }
 
 #[component]
-fn PageHeader(
-    eyebrow: &'static str,
-    #[prop(into)] title: TextProp,
-    #[prop(into)] summary: TextProp,
-) -> impl IntoView {
-    view! {
-        <header class="page-header">
-            <span class="page-eyebrow">{eyebrow}</span>
-            <h1>{move || title.get()}</h1>
-            <p>{move || summary.get()}</p>
-        </header>
-    }
-}
-
-#[component]
-fn SectionTitle(title: &'static str) -> impl IntoView {
-    view! { <h2 class="section-title">{title}</h2> }
-}
-
-#[component]
-fn VaultStat<F>(#[prop(into)] label: TextProp, value: F) -> impl IntoView
-where
-    F: Fn() -> String + 'static,
-{
-    view! {
-        <div class="vault-stat">
-            <span class="vault-stat-label">{move || label.get()}</span>
-            <strong class="vault-stat-value">{value()}</strong>
-        </div>
-    }
-}
-
-#[component]
-fn KeyCard(key_data: personal_leptos_types::MasterKeyView) -> impl IntoView {
-    view! {
-        <div class="mini-card">
-            <div class="mini-card-header">
-                <strong>{key_data.label}</strong>
-                <span class="status-pill" class:status-pill-active=key_data.active>
-                    {if key_data.active { "Active" } else { "Inactive" }}
-                </span>
-            </div>
-            <p class="mini-card-meta">{format!("Purpose: {}", key_data.purpose)}</p>
-            <code class="hash-line">{key_data.public_key_hex}</code>
-        </div>
-    }
-}
-
-#[component]
-fn CredentialCard(credential: StoredCredentialView) -> impl IntoView {
-    let kind_label = credential.credential_type.label().to_string();
-    let tone = match credential.credential_type {
-        CredentialType::Identity => "tone-identity",
-        CredentialType::Health => "tone-health",
-        CredentialType::FederatedLearning => "tone-learning",
-        CredentialType::Governance => "tone-governance",
-        CredentialType::Domain(_) => "tone-domain",
-    };
-
-    view! {
-        <article class=format!("credential-card {}", tone)>
-            <div class="credential-topline">
-                <span class="credential-kind">{kind_label}</span>
-                <span class="status-pill" class:status-pill-active=!credential.revoked>
-                    {if credential.revoked { "Revoked" } else { "Active" }}
-                </span>
-            </div>
-            <strong class="credential-issuer">{credential.issuer}</strong>
-            <p class="supporting-copy">
-                {match credential.expires_at {
-                    Some(_) => "Portable credential with an explicit expiry window.",
-                    None => "Portable credential with no current expiry recorded.",
-                }}
-            </p>
-            <code class="hash-line">{credential.hash}</code>
-        </article>
-    }
-}
-
-#[component]
-fn ConsentCard(grant: ConsentGrantView) -> impl IntoView {
-    view! {
-        <article class="mini-card">
-            <div class="mini-card-header">
-                <strong>{grant.grantee}</strong>
-                <span class="status-pill" class:status-pill-active=grant.active>
-                    {if grant.active { "Active" } else { "Inactive" }}
-                </span>
-            </div>
-            <p class="mini-card-meta">{format!("Types: {}", grant.record_types.join(", "))}</p>
-        </article>
-    }
-}
-
-#[component]
 fn PreferenceCard(pref: personal_leptos_types::DataSharingPreferenceView) -> impl IntoView {
     let ctx = use_personal();
     let hc = mycelix_leptos_core::holochain_provider::use_holochain();
@@ -1066,30 +953,5 @@ fn EmbeddedSatellite(name: &'static str, port: u16) -> impl IntoView {
                 style="width: 100%; height: calc(100vh - 120px); border: none; background: var(--bg-surface);"
             ></iframe>
         </div>
-    }
-}
-
-#[component]
-fn ActivityItemCard(item: personal_leptos_types::ActivityItemView, wide: bool) -> impl IntoView {
-    let class_name = if wide {
-        "activity-item activity-item-wide"
-    } else {
-        "activity-item"
-    };
-
-    view! {
-        <li class=class_name>
-            <div class="mini-card-header">
-                <strong>{format!("{} · {}", item.domain, item.title)}</strong>
-                {item.success.map(|ok| {
-                    view! {
-                        <span class="status-pill" class:status-pill-active=ok>
-                            {if ok { "Success" } else { "Blocked" }}
-                        </span>
-                    }
-                })}
-            </div>
-            <p class="mini-card-meta">{item.detail}</p>
-        </li>
     }
 }
