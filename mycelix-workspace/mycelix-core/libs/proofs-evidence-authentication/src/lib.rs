@@ -5,11 +5,15 @@
 //!
 //! This crate intentionally contains no cryptographic verifier backend yet. It freezes
 //! the canonical receipt identity, exact authentication policy, opaque capability,
-//! strict untrusted-wire parsing boundary, and non-authoritative verifier-execution
-//! evidence that future separately-qualified backends may use after full verification.
+//! strict untrusted-wire parsing boundary, non-authoritative verifier-execution
+//! evidence, and deterministic GitHub verifier command/I/O planning that future
+//! separately-qualified backends may use after full verification.
 
 mod canonical;
 mod capability;
+mod github_cli_execution_policy;
+mod github_cli_plan;
+mod github_cli_steps;
 mod policy;
 mod predicate;
 mod verifier_execution;
@@ -28,6 +32,26 @@ pub use capability::{
     AuthenticatedReceiptAuthorityV1, AuthenticationEvidenceSummaryV1,
     VerifiedAuthenticationContextV1, VerifiedFreshnessV1, VerifiedQualificationPredicateV1,
     VerifiedSignerIdentityV1, VerifiedTransparencyV1,
+};
+pub use github_cli_execution_policy::{
+    GitHubPublicVerifierExecutionPolicyV1, GitHubVerifierExecutionPolicyAuthorityV1,
+    GitHubVerifierExecutionPolicyErrorV1, MAX_GITHUB_EXECUTION_POLICY_TEXT_BYTES_V1,
+    build_github_public_command_plan_with_execution_policy_v1,
+};
+pub use github_cli_plan::{
+    FixedEnvironmentVariableV1, GITHUB_ACTIONS_OIDC_ISSUER_V1,
+    GITHUB_PUBLIC_BACKEND_FAMILY_V1, GITHUB_PUBLIC_COMMAND_PROFILE_ID_V1,
+    GITHUB_PUBLIC_HOSTNAME_V1, GITHUB_PUBLIC_MAX_ATTESTATIONS_V1,
+    GITHUB_PUBLIC_MAX_STDERR_BYTES_V1, GITHUB_PUBLIC_MAX_STDOUT_BYTES_V1,
+    GITHUB_PUBLIC_PLATFORM_PROFILE_V1, GITHUB_PUBLIC_PROCESS_TIMEOUT_SECONDS_V1,
+    GitHubCommandPlanAuthorityV1, GitHubCommandPlanErrorV1, GitHubPublicCommandPlanV1,
+    MYCELIX_QUALIFICATION_PREDICATE_TYPE_V1, MYCELIX_QUALIFICATION_SUBJECT_NAME_V1,
+    MYCELIX_REPOSITORY_OWNER_V1, MYCELIX_REPOSITORY_V1,
+};
+pub use github_cli_steps::{
+    GitHubExecutionStepAuthorityV1, GitHubVerifierExecutionStepV1,
+    GitHubVerifierStdoutDispositionV1, GitHubVerifierStepPurposeV1,
+    github_public_verifier_execution_steps_v1,
 };
 pub use policy::{
     AuthenticationFreshnessPolicyV1, AuthenticationPolicyErrorV1,
