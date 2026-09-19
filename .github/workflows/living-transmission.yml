@@ -1,0 +1,70 @@
+name: Living Transmission Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-stewardship-core/**'
+      - 'crates/mycelix-living-transmission/**'
+      - '.github/workflows/living-transmission.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: living-transmission-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Check out exact proposed head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_SHA }}
+          persist-credentials: false
+
+      - name: Verify exact-head checkout
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Install stable Rust with wasm target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+
+      - name: Verify narrow dependency closure
+        run: |
+          python - <<'PY'
+          import pathlib
+          import tomllib
+          data = tomllib.loads(pathlib.Path('crates/mycelix-living-transmission/Cargo.toml').read_text())
+          expected = {'mycelix-stewardship-core': {'path': '../mycelix-stewardship-core'}}
+          if data.get('dependencies', {}) != expected:
+              raise SystemExit(f"unexpected STEW-041 dependency closure: {data.get('dependencies', {})!r}")
+          PY
+
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-living-transmission/Cargo.toml -- --check
+
+      - name: Host tests
+        run: cargo test --manifest-path crates/mycelix-living-transmission/Cargo.toml --all-targets
+
+      - name: wasm32 check
+        run: cargo check --manifest-path crates/mycelix-living-transmission/Cargo.toml --target wasm32-unknown-unknown
+
+      - name: Strict Clippy
+        run: cargo clippy --manifest-path crates/mycelix-living-transmission/Cargo.toml --all-targets -- -D warnings
+
+      - name: Rustdoc
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --manifest-path crates/mycelix-living-transmission/Cargo.toml --no-deps
+
+      - name: Postflight exact-head verification
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"

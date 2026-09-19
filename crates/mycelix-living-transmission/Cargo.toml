@@ -1,0 +1,12 @@
+[package]
+name = "mycelix-living-transmission"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+description = "Living heritage transmission records for Mycelix stewardship"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+mycelix-stewardship-core = { path = "../mycelix-stewardship-core" }
