@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.org/schemas/constitutional-payments-provider-authority.v1.schema.json",
+  "title": "Constitutional Payments Provider Authority v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "profile_id", "authority_class", "lineage", "role_model", "constitutional_anchor", "grant", "direct_author", "threshold_author", "rotation", "revocation_and_history", "activation", "next_tranche", "non_claims"],
+  "properties": {
+    "schema": {"const": "mycelix.constitutional-payments-provider-authority.v1"},
+    "profile_id": {"const": "mycelix-payments-provider-authority-f1b2a-v1"},
+    "authority_class": {"const": "InertSemanticContract"},
+    "lineage": {
+      "type": "object", "additionalProperties": false,
+      "required": ["f1b2_semantic_head", "constitutional_authority", "threshold_signing_integrity", "threshold_signing_coordinator"],
+      "properties": {
+        "f1b2_semantic_head": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "constitutional_authority": {"$ref": "#/$defs/source"},
+        "threshold_signing_integrity": {"$ref": "#/$defs/source"},
+        "threshold_signing_coordinator": {"$ref": "#/$defs/source"}
+      }
+    },
+    "role_model": {
+      "type": "object", "additionalProperties": false,
+      "required": ["OperationIntent", "DispatchAttempt", "OperationIndex", "Observation", "single_expected_author_is_sufficient_for_live_activation", "cross_role_substitution_allowed"],
+      "properties": {
+        "OperationIntent": {"const": "OrchestratorIntent"},
+        "DispatchAttempt": {"const": "OrchestratorDispatch"},
+        "OperationIndex": {"const": "OperationIndex"},
+        "Observation": {"const": "ProviderObservation"},
+        "single_expected_author_is_sufficient_for_live_activation": {"const": false},
+        "cross_role_substitution_allowed": {"const": false}
+      }
+    },
+    "constitutional_anchor": {
+      "type": "object", "additionalProperties": false,
+      "required": ["required_holder", "required_power", "automated_provider_becomes_constitutional_principal", "operational_grant_can_transfer_value", "root_capability_validation_required", "delegated_constitutional_parent_supported_in_v1"],
+      "properties": {
+        "required_holder": {"const": "Branch::Stewardship"},
+        "required_power": {"const": "ExecuteAppropriation"},
+        "automated_provider_becomes_constitutional_principal": {"const": false},
+        "operational_grant_can_transfer_value": {"const": false},
+        "root_capability_validation_required": {"const": true},
+        "delegated_constitutional_parent_supported_in_v1": {"const": false}
+      }
+    },
+    "grant": {
+      "type": "object", "additionalProperties": false,
+      "required": ["binds_provider_profile_id", "binds_provider_profile_commitment", "binds_jurisdiction", "binds_upstream_authority_commitment", "binds_record_roles", "binds_author_mode", "binds_validity_interval", "binds_epoch", "binds_predecessor_on_rotation", "domain_separated_commitment", "wall_clock_is_authority_identity", "issuance_proof_is_qualified"],
+      "properties": {
+        "binds_provider_profile_id": {"const": true},
+        "binds_provider_profile_commitment": {"const": true},
+        "binds_jurisdiction": {"const": true},
+        "binds_upstream_authority_commitment": {"const": true},
+        "binds_record_roles": {"const": true},
+        "binds_author_mode": {"const": true},
+        "binds_validity_interval": {"const": true},
+        "binds_epoch": {"const": true},
+        "binds_predecessor_on_rotation": {"const": true},
+        "domain_separated_commitment": {"const": "MYCELIX-PAYMENTS-PROVIDER-AUTHOR-GRANT\\0V1\\0"},
+        "wall_clock_is_authority_identity": {"const": false},
+        "issuance_proof_is_qualified": {"const": false}
+      }
+    },
+    "direct_author": {
+      "type": "object", "additionalProperties": false,
+      "required": ["exact_action_author_required", "author_id_is_opaque_nonempty"],
+      "properties": {
+        "exact_action_author_required": {"const": true},
+        "author_id_is_opaque_nonempty": {"const": true}
+      }
+    },
+    "threshold_author": {
+      "type": "object", "additionalProperties": false,
+      "required": ["descriptor_binds_committee_id", "descriptor_binds_epoch", "descriptor_binds_threshold_and_member_count", "descriptor_binds_committee_commitment", "descriptor_binds_public_key_commitment", "descriptor_binds_scope_commitment", "proof_must_bind_exact_record_commitment", "existing_threshold_zome_qualifies_provider_authority", "existing_threshold_signature_create_verifies_cryptographic_signature_against_committee_key", "existing_threshold_entry_create_binds_action_author_to_committee_membership", "existing_threshold_link_validation_is_authority_sufficient"],
+      "properties": {
+        "descriptor_binds_committee_id": {"const": true},
+        "descriptor_binds_epoch": {"const": true},
+        "descriptor_binds_threshold_and_member_count": {"const": true},
+        "descriptor_binds_committee_commitment": {"const": true},
+        "descriptor_binds_public_key_commitment": {"const": true},
+        "descriptor_binds_scope_commitment": {"const": true},
+        "proof_must_bind_exact_record_commitment": {"const": true},
+        "existing_threshold_zome_qualifies_provider_authority": {"const": false},
+        "existing_threshold_signature_create_verifies_cryptographic_signature_against_committee_key": {"const": false},
+        "existing_threshold_entry_create_binds_action_author_to_committee_membership": {"const": false},
+        "existing_threshold_link_validation_is_authority_sufficient": {"const": false}
+      }
+    },
+    "rotation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["successor_epoch_must_equal_predecessor_plus_one", "successor_binds_exact_predecessor_commitment", "provider_profile_continuity_required", "jurisdiction_continuity_required", "upstream_authority_continuity_required", "role_amplification_forbidden", "successor_valid_from_equals_cutover", "same_epoch_competing_successor_allowed", "stateful_unique_successor_enforced_in_f1b2a"],
+      "properties": {
+        "successor_epoch_must_equal_predecessor_plus_one": {"const": true},
+        "successor_binds_exact_predecessor_commitment": {"const": true},
+        "provider_profile_continuity_required": {"const": true},
+        "jurisdiction_continuity_required": {"const": true},
+        "upstream_authority_continuity_required": {"const": true},
+        "role_amplification_forbidden": {"const": true},
+        "successor_valid_from_equals_cutover": {"const": true},
+        "same_epoch_competing_successor_allowed": {"const": false},
+        "stateful_unique_successor_enforced_in_f1b2a": {"const": false}
+      }
+    },
+    "revocation_and_history": {
+      "type": "object", "additionalProperties": false,
+      "required": ["revocation_effective_at_candidate_action_time", "supersession_effective_at_candidate_action_time", "historical_pre_revocation_evidence_remains_valid", "historical_pre_cutover_evidence_remains_valid", "later_current_time_must_not_retroactively_invalidate_history", "historical_evidence_binds_grant_commitment_epoch_role_record_and_action_time"],
+      "properties": {
+        "revocation_effective_at_candidate_action_time": {"const": true},
+        "supersession_effective_at_candidate_action_time": {"const": true},
+        "historical_pre_revocation_evidence_remains_valid": {"const": true},
+        "historical_pre_cutover_evidence_remains_valid": {"const": true},
+        "later_current_time_must_not_retroactively_invalidate_history": {"const": true},
+        "historical_evidence_binds_grant_commitment_epoch_role_record_and_action_time": {"const": true}
+      }
+    },
+    "activation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["provider_authority_qualified", "threshold_provider_authority_qualified", "entry_types_registered", "link_types_registered", "validate_extern_active", "dht_write_surface_active", "provider_query_active", "replay_capability_minting", "automatic_replay", "payments_zome_wired", "governance_routing_active"],
+      "properties": {
+        "provider_authority_qualified": {"const": false},
+        "threshold_provider_authority_qualified": {"const": false},
+        "entry_types_registered": {"const": false},
+        "link_types_registered": {"const": false},
+        "validate_extern_active": {"const": false},
+        "dht_write_surface_active": {"const": false},
+        "provider_query_active": {"const": false},
+        "replay_capability_minting": {"const": false},
+        "automatic_replay": {"const": false},
+        "payments_zome_wired": {"const": false},
+        "governance_routing_active": {"const": false}
+      }
+    },
+    "next_tranche": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "must_refine_f1b2_admission_to_role_aware_authority", "must_verify_grant_issuance_against_upstream_capability", "must_cryptographically_verify_threshold_attestation", "must_reconstruct_threshold_committee_state_at_candidate_action_time", "must_reconstruct_grant_status_at_candidate_action_time", "must_enforce_stateful_unique_successor_epoch", "must_preserve_historical_author_evidence", "must_not_activate_live_payment_dispatch"],
+      "properties": {
+        "id": {"const": "MYC-CONST-003D1D-F1B2B"},
+        "must_refine_f1b2_admission_to_role_aware_authority": {"const": true},
+        "must_verify_grant_issuance_against_upstream_capability": {"const": true},
+        "must_cryptographically_verify_threshold_attestation": {"const": true},
+        "must_reconstruct_threshold_committee_state_at_candidate_action_time": {"const": true},
+        "must_reconstruct_grant_status_at_candidate_action_time": {"const": true},
+        "must_enforce_stateful_unique_successor_epoch": {"const": true},
+        "must_preserve_historical_author_evidence": {"const": true},
+        "must_not_activate_live_payment_dispatch": {"const": true}
+      }
+    },
+    "non_claims": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+  },
+  "$defs": {
+    "source": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "git_blob_sha"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "git_blob_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"}
+      }
+    }
+  }
+}

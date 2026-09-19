@@ -1,0 +1,126 @@
+{
+  "schema": "mycelix.constitutional-payments-provider-authority.v1",
+  "profile_id": "mycelix-payments-provider-authority-f1b2a-v1",
+  "authority_class": "InertSemanticContract",
+  "lineage": {
+    "f1b2_semantic_head": "1ded163920ef7ea2829a807cf61c89f224751714",
+    "constitutional_authority": {
+      "path": "mycelix-governance/crates/constitutional-authority/src/lib.rs",
+      "git_blob_sha": "2eb0781f205bff1aaeded87632734b1abd4ca596"
+    },
+    "threshold_signing_integrity": {
+      "path": "mycelix-governance/zomes/threshold-signing/integrity/src/lib.rs",
+      "git_blob_sha": "3fec8344635600c044a494fa72bbbfe408fbe5ec"
+    },
+    "threshold_signing_coordinator": {
+      "path": "mycelix-governance/zomes/threshold-signing/coordinator/src/lib.rs",
+      "git_blob_sha": "3449df8b03a4dd1774a5f22756d06931c72855b2"
+    }
+  },
+  "role_model": {
+    "OperationIntent": "OrchestratorIntent",
+    "DispatchAttempt": "OrchestratorDispatch",
+    "OperationIndex": "OperationIndex",
+    "Observation": "ProviderObservation",
+    "single_expected_author_is_sufficient_for_live_activation": false,
+    "cross_role_substitution_allowed": false
+  },
+  "constitutional_anchor": {
+    "required_holder": "Branch::Stewardship",
+    "required_power": "ExecuteAppropriation",
+    "automated_provider_becomes_constitutional_principal": false,
+    "operational_grant_can_transfer_value": false,
+    "root_capability_validation_required": true,
+    "delegated_constitutional_parent_supported_in_v1": false
+  },
+  "grant": {
+    "binds_provider_profile_id": true,
+    "binds_provider_profile_commitment": true,
+    "binds_jurisdiction": true,
+    "binds_upstream_authority_commitment": true,
+    "binds_record_roles": true,
+    "binds_author_mode": true,
+    "binds_validity_interval": true,
+    "binds_epoch": true,
+    "binds_predecessor_on_rotation": true,
+    "domain_separated_commitment": "MYCELIX-PAYMENTS-PROVIDER-AUTHOR-GRANT\\0V1\\0",
+    "wall_clock_is_authority_identity": false,
+    "issuance_proof_is_qualified": false
+  },
+  "direct_author": {
+    "exact_action_author_required": true,
+    "author_id_is_opaque_nonempty": true
+  },
+  "threshold_author": {
+    "descriptor_binds_committee_id": true,
+    "descriptor_binds_epoch": true,
+    "descriptor_binds_threshold_and_member_count": true,
+    "descriptor_binds_committee_commitment": true,
+    "descriptor_binds_public_key_commitment": true,
+    "descriptor_binds_scope_commitment": true,
+    "proof_must_bind_exact_record_commitment": true,
+    "existing_threshold_zome_qualifies_provider_authority": false,
+    "existing_threshold_signature_create_verifies_cryptographic_signature_against_committee_key": false,
+    "existing_threshold_entry_create_binds_action_author_to_committee_membership": false,
+    "existing_threshold_link_validation_is_authority_sufficient": false
+  },
+  "rotation": {
+    "successor_epoch_must_equal_predecessor_plus_one": true,
+    "successor_binds_exact_predecessor_commitment": true,
+    "provider_profile_continuity_required": true,
+    "jurisdiction_continuity_required": true,
+    "upstream_authority_continuity_required": true,
+    "role_amplification_forbidden": true,
+    "successor_valid_from_equals_cutover": true,
+    "same_epoch_competing_successor_allowed": false,
+    "stateful_unique_successor_enforced_in_f1b2a": false
+  },
+  "revocation_and_history": {
+    "revocation_effective_at_candidate_action_time": true,
+    "supersession_effective_at_candidate_action_time": true,
+    "historical_pre_revocation_evidence_remains_valid": true,
+    "historical_pre_cutover_evidence_remains_valid": true,
+    "later_current_time_must_not_retroactively_invalidate_history": true,
+    "historical_evidence_binds_grant_commitment_epoch_role_record_and_action_time": true
+  },
+  "activation": {
+    "provider_authority_qualified": false,
+    "threshold_provider_authority_qualified": false,
+    "entry_types_registered": false,
+    "link_types_registered": false,
+    "validate_extern_active": false,
+    "dht_write_surface_active": false,
+    "provider_query_active": false,
+    "replay_capability_minting": false,
+    "automatic_replay": false,
+    "payments_zome_wired": false,
+    "governance_routing_active": false
+  },
+  "next_tranche": {
+    "id": "MYC-CONST-003D1D-F1B2B",
+    "must_refine_f1b2_admission_to_role_aware_authority": true,
+    "must_verify_grant_issuance_against_upstream_capability": true,
+    "must_cryptographically_verify_threshold_attestation": true,
+    "must_reconstruct_threshold_committee_state_at_candidate_action_time": true,
+    "must_reconstruct_grant_status_at_candidate_action_time": true,
+    "must_enforce_stateful_unique_successor_epoch": true,
+    "must_preserve_historical_author_evidence": true,
+    "must_not_activate_live_payment_dispatch": true
+  },
+  "non_claims": [
+    "not_provider_authority_qualified",
+    "not_grant_issuance_qualified",
+    "not_stateful_authority_timeline_established",
+    "not_threshold_signing_qualified_for_provider_authority",
+    "not_holochain_persistent",
+    "not_payments_zome_correctness_established",
+    "not_public_fund_authority_delegated_to_automated_agent",
+    "not_replay_qualified",
+    "not_capability_minting_enabled",
+    "not_exactly_once_physical_settlement",
+    "not_external_finality_established",
+    "not_governance_routing_active",
+    "not_deployment_currentness_qualified",
+    "not_qualified"
+  ]
+}
