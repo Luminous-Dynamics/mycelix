@@ -27,11 +27,13 @@ use crate::context::{
     provide_cultural_context, provide_personal_context, use_cultural, use_personal,
     PersonalSourceState, SymbolRegistry,
 };
+use crate::mutation_ledger::{provide_mutation_ledger, use_mutation_ledger};
 use crate::mutation_refresh::{
     refresh_health_after_mutation, refresh_identity_after_mutation,
-    refresh_preferences_after_mutation, MutationRefreshOutcome,
+    refresh_preferences_after_mutation,
 };
-use crate::mutation_truth::{MutationPendingNotice, PendingMutationReceipt};
+use crate::mutation_state::{MutationRefreshOutcome, PersonalMutationTarget};
+use crate::mutation_truth::MutationPendingNotice;
 use crate::pages::{ActivityPage, UnlockPage, WalletPage};
 use crate::runtime_mode::{detect_runtime_mode, provide_runtime_mode, PersonalRuntimeMode};
 use crate::telemetry::ConstellationTelemetry;
@@ -66,23 +68,6 @@ impl mycelix_leptos_core::AppTheme for PersonalTheme {
     }
 }
 
-fn record_mutation_refresh(
-    pending: RwSignal<Option<PendingMutationReceipt>>,
-    receipt: MutationReceiptView,
-    outcome: MutationRefreshOutcome,
-) -> Option<u64> {
-    match outcome {
-        MutationRefreshOutcome::Published { epoch } => {
-            pending.set(None);
-            Some(epoch)
-        }
-        other => {
-            pending.set(PendingMutationReceipt::new(receipt.action_hash, other));
-            None
-        }
-    }
-}
-
 #[component]
 pub fn App() -> impl IntoView {
     let runtime_mode = detect_runtime_mode();
@@ -111,6 +96,7 @@ fn AppInner(runtime_mode: PersonalRuntimeMode) -> impl IntoView {
     provide_homeostasis_context(1, "--personal-homeostasis");
     provide_local_identity();
     provide_personal_context(runtime_mode);
+    provide_mutation_ledger();
     provide_cultural_context();
     init_consciousness_ui();
 
@@ -484,10 +470,10 @@ fn VaultPage() -> impl IntoView {
 #[component]
 fn IdentityPage() -> impl IntoView {
     let ctx = use_personal();
+    let ledger = use_mutation_ledger();
     let location = use_location();
     let hc = mycelix_leptos_core::holochain_provider::use_holochain();
     let toasts = use_toasts();
-    let pending_profile = RwSignal::new(None::<PendingMutationReceipt>);
     let ctx_for_save = ctx.clone();
 
     let save_profile = move |ev: SubmitEvent| {
@@ -497,7 +483,7 @@ fn IdentityPage() -> impl IntoView {
         let hc = hc.clone();
         let toasts = toasts.clone();
         let ctx = ctx_for_save.clone();
-        let pending = pending_profile;
+        let ledger = ledger;
         spawn_local(async move {
             match hc
                 .call_zome_default::<_, MutationReceiptView>(
@@ -508,11 +494,14 @@ fn IdentityPage() -> impl IntoView {
                 .await
             {
                 Ok(receipt) => {
+                    let action_hash = receipt.action_hash;
+                    ledger.record_committed(PersonalMutationTarget::Profile, action_hash.clone());
                     let outcome = refresh_identity_after_mutation(ctx.clone(), hc.clone()).await;
-                    if let Some(epoch) = record_mutation_refresh(pending, receipt, outcome) {
+                    ledger.record_refresh_outcome(&action_hash, outcome);
+                    if let MutationRefreshOutcome::Published { epoch } = outcome {
                         toasts.push(
                             format!(
-                                "Profile write committed; Identity refresh published in Personal epoch {epoch}."
+                                "Profile write committed; Identity refresh published in Personal epoch {epoch}, but action observation remains unconfirmed."
                             ),
                             ToastKind::Success,
                         );
@@ -538,7 +527,7 @@ fn IdentityPage() -> impl IntoView {
                         "Profile route aliases into the identity vault until deeper Personal profile pages are split."
                             .to_string()
                     } else {
-                        "Profile drafts stay local until a typed source-chain write succeeds. A write receipt is kept separate from current read-model reconciliation."
+                        "Profile drafts stay local until a typed source-chain write succeeds. A write receipt is kept separate from current read-model reconciliation and action observation."
                             .to_string()
                     }
                 }
@@ -577,7 +566,7 @@ fn IdentityPage() -> impl IntoView {
                             <a class="btn" href="/wallet">"Open wallet"</a>
                         </div>
                     </form>
-                    <MutationPendingNotice pending=pending_profile />
+                    <MutationPendingNotice target=PersonalMutationTarget::Profile />
                 </section>
 
                 <section class="vault-card">
@@ -598,11 +587,11 @@ fn IdentityPage() -> impl IntoView {
 #[component]
 fn HealthPage() -> impl IntoView {
     let ctx = use_personal();
+    let ledger = use_mutation_ledger();
     let hc = mycelix_leptos_core::holochain_provider::use_holochain();
     let toasts = use_toasts();
     let consent_grantee = RwSignal::new(String::new());
     let consent_types = RwSignal::new("allergy, medication".to_string());
-    let pending_consent = RwSignal::new(None::<PendingMutationReceipt>);
     let ctx_for_consent = ctx.clone();
 
     let create_consent = move |ev: SubmitEvent| {
@@ -626,9 +615,9 @@ fn HealthPage() -> impl IntoView {
         let hc = hc.clone();
         let toasts = toasts.clone();
         let ctx = ctx_for_consent.clone();
+        let ledger = ledger;
         let consent_grantee_signal = consent_grantee;
         let consent_types_signal = consent_types;
-        let pending = pending_consent;
         spawn_local(async move {
             match hc
                 .call_zome_default::<_, MutationReceiptView>(
@@ -639,16 +628,31 @@ fn HealthPage() -> impl IntoView {
                 .await
             {
                 Ok(receipt) => {
+                    let action_hash = receipt.action_hash;
+                    ledger.record_committed(
+                        PersonalMutationTarget::HealthConsent,
+                        action_hash.clone(),
+                    );
                     consent_grantee_signal.set(String::new());
                     consent_types_signal.set("allergy, medication".to_string());
                     let outcome = refresh_health_after_mutation(ctx.clone(), hc.clone()).await;
-                    if let Some(epoch) = record_mutation_refresh(pending, receipt, outcome) {
-                        toasts.push(
-                            format!(
-                                "Consent write committed; Health refresh published in Personal epoch {epoch}."
-                            ),
-                            ToastKind::Success,
-                        );
+                    ledger.record_refresh_outcome(&action_hash, outcome);
+
+                    if let MutationRefreshOutcome::Published { epoch } = outcome {
+                        let observed = ctx
+                            .consents
+                            .get_untracked()
+                            .iter()
+                            .any(|consent| consent.hash == action_hash);
+                        if observed {
+                            ledger.mark_observed(&action_hash);
+                            toasts.push(
+                                format!(
+                                    "Consent write committed and observed in the Health read model for Personal epoch {epoch}."
+                                ),
+                                ToastKind::Success,
+                            );
+                        }
                     }
                 }
                 Err(err) => toasts.push(format!("Consent grant failed: {err}"), ToastKind::Error),
@@ -704,7 +708,7 @@ fn HealthPage() -> impl IntoView {
                             <button class="btn btn-primary" type="submit">"Create Consent"</button>
                         </div>
                     </form>
-                    <MutationPendingNotice pending=pending_consent />
+                    <MutationPendingNotice target=PersonalMutationTarget::HealthConsent />
                     <div class="consent-list">
                         <For
                             each=move || ctx.consents.get()
@@ -772,11 +776,18 @@ fn PreferencesPage() -> impl IntoView {
 #[component]
 fn PreferenceCard(pref: personal_leptos_types::DataSharingPreferenceView) -> impl IntoView {
     let ctx = use_personal();
+    let ledger = use_mutation_ledger();
     let hc = mycelix_leptos_core::holochain_provider::use_holochain();
     let toasts = use_toasts();
     let local_pref = RwSignal::new(pref);
     let blocked_zomes_text = RwSignal::new(local_pref.get_untracked().blocked_zomes.join(", "));
-    let pending_receipt = RwSignal::new(None::<PendingMutationReceipt>);
+    let mutation_target = PersonalMutationTarget::preference(
+        local_pref.get_untracked().source_cluster.clone(),
+        local_pref.get_untracked().target_cluster.clone(),
+    );
+    let toggle_target = mutation_target.clone();
+    let save_target = mutation_target.clone();
+    let view_target = mutation_target;
     let toggle_ctx = ctx.clone();
     let toggle_hc = hc.clone();
     let toggle_toasts = toasts.clone();
@@ -794,9 +805,10 @@ fn PreferenceCard(pref: personal_leptos_types::DataSharingPreferenceView) -> imp
         let hc = toggle_hc.clone();
         let toasts = toggle_toasts.clone();
         let ctx = toggle_ctx.clone();
+        let ledger = ledger;
+        let target = toggle_target.clone();
         let local_pref_signal = local_pref;
         let blocked_zomes_signal = blocked_zomes_text;
-        let pending = pending_receipt;
         spawn_local(async move {
             match hc
                 .call_zome_default::<_, MutationReceiptView>(
@@ -807,12 +819,15 @@ fn PreferenceCard(pref: personal_leptos_types::DataSharingPreferenceView) -> imp
                 .await
             {
                 Ok(receipt) => {
+                    let action_hash = receipt.action_hash;
+                    ledger.record_committed(target, action_hash.clone());
                     let outcome = refresh_preferences_after_mutation(ctx.clone(), hc.clone()).await;
-                    if let Some(epoch) = record_mutation_refresh(pending, receipt, outcome) {
+                    ledger.record_refresh_outcome(&action_hash, outcome);
+                    if let MutationRefreshOutcome::Published { epoch } = outcome {
                         let state = if next.allowed { "allowed" } else { "blocked" };
                         toasts.push(
                             format!(
-                                "{} -> {} committed as {}; Preferences refresh published in Personal epoch {epoch}.",
+                                "{} -> {} committed as {}; Preferences refresh published in Personal epoch {epoch}, but action observation remains unconfirmed.",
                                 next.source_cluster, next.target_cluster, state
                             ),
                             ToastKind::Success,
@@ -843,9 +858,10 @@ fn PreferenceCard(pref: personal_leptos_types::DataSharingPreferenceView) -> imp
         let hc = save_hc.clone();
         let toasts = save_toasts.clone();
         let ctx = save_ctx.clone();
+        let ledger = ledger;
+        let target = save_target.clone();
         let local_pref_signal = local_pref;
         let blocked_zomes_signal = blocked_zomes_text;
-        let pending = pending_receipt;
         spawn_local(async move {
             match hc
                 .call_zome_default::<_, MutationReceiptView>(
@@ -856,12 +872,15 @@ fn PreferenceCard(pref: personal_leptos_types::DataSharingPreferenceView) -> imp
                 .await
             {
                 Ok(receipt) => {
+                    let action_hash = receipt.action_hash;
+                    ledger.record_committed(target, action_hash.clone());
                     let outcome = refresh_preferences_after_mutation(ctx.clone(), hc.clone()).await;
-                    if let Some(epoch) = record_mutation_refresh(pending, receipt, outcome) {
+                    ledger.record_refresh_outcome(&action_hash, outcome);
+                    if let MutationRefreshOutcome::Published { epoch } = outcome {
                         let state = if next.allowed { "allowed" } else { "blocked" };
                         toasts.push(
                             format!(
-                                "{} -> {} committed as {}; Preferences refresh published in Personal epoch {epoch}.",
+                                "{} -> {} committed as {}; Preferences refresh published in Personal epoch {epoch}, but action observation remains unconfirmed.",
                                 next.source_cluster, next.target_cluster, state
                             ),
                             ToastKind::Success,
@@ -919,7 +938,7 @@ fn PreferenceCard(pref: personal_leptos_types::DataSharingPreferenceView) -> imp
                     "Save Details"
                 </button>
             </div>
-            <MutationPendingNotice pending=pending_receipt />
+            <MutationPendingNotice target=view_target />
         </article>
     }
 }

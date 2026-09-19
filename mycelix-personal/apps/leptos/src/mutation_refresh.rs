@@ -14,18 +14,8 @@ use mycelix_leptos_core::holochain_provider::HolochainCtx;
 use crate::context::{
     refresh_health_state, refresh_identity_state, refresh_preferences_state, PersonalCtx,
 };
+use crate::mutation_state::MutationRefreshOutcome;
 use crate::reconciliation::ReconciliationEpoch;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum MutationRefreshOutcome {
-    Published { epoch: u64 },
-    NoUsableEpoch,
-    Busy { epoch: u64 },
-    EpochChanged {
-        started_epoch: u64,
-        current_epoch: u64,
-    },
-}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum MutationRefreshTarget {
