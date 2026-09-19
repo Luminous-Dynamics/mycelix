@@ -1,0 +1,13 @@
+[package]
+name = "mycelix-stewardship-admission"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+description = "Profile-relative stewardship claim admission records for Mycelix"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+mycelix-stewardship-core = { path = "../mycelix-stewardship-core" }
+mycelix-stewardship-claims = { path = "../mycelix-stewardship-claims" }
