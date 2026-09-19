@@ -182,7 +182,11 @@ fn localhost_clusters() -> Vec<ClusterLink> {
     ]
 }
 
-/// Floating cluster launcher button + dropdown.
+/// Floating app-switcher disclosure containing ordinary navigation links.
+///
+/// This intentionally uses disclosure/navigation semantics rather than ARIA
+/// `menu`/`menuitem`: the contents are links, and the component does not
+/// implement the composite keyboard behavior required of an application menu.
 #[component]
 pub fn ClusterLauncher(
     #[prop(into)] current: String,
@@ -198,15 +202,15 @@ pub fn ClusterLauncher(
             <button
                 class="cluster-launcher-btn"
                 on:click=move |_| set_open.update(|o| *o = !*o)
-                aria-label="Switch cluster"
+                aria-label="Switch Mycelix app"
                 aria-expanded=move || open.get().to_string()
             >
                 "🌐"
             </button>
-            <div
+            <nav
                 class="cluster-launcher-menu"
                 style=move || if open.get() { "display: flex" } else { "display: none" }
-                role="menu"
+                aria-label="Mycelix apps"
             >
                 {filtered.into_iter().map(|cluster| {
                     let href = cluster.href.clone();
@@ -214,15 +218,14 @@ pub fn ClusterLauncher(
                         <a
                             class="cluster-launcher-item"
                             href=href
-                            role="menuitem"
                             on:click=move |_| set_open.set(false)
                         >
-                            <span class="cluster-launcher-icon">{cluster.icon}</span>
+                            <span class="cluster-launcher-icon" aria-hidden="true">{cluster.icon}</span>
                             <span class="cluster-launcher-name">{cluster.name}</span>
                         </a>
                     }
                 }).collect_view()}
-            </div>
+            </nav>
         </div>
     }
 }
