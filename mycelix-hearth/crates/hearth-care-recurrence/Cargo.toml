@@ -1,0 +1,9 @@
+[package]
+name = "hearth-care-recurrence"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Deterministic recurrence contract for Mycelix Hearth Care"
+
+[dependencies]
+serde = { workspace = true }
