@@ -5,6 +5,7 @@ on:
     paths:
       - "crates/mycelix-forge-core/**"
       - "crates/mycelix-forge-authority/**"
+      - "crates/mycelix-forge-authentication/**"
       - "crates/mycelix-forge-repository/**"
       - "adapters/forge-gittuf/**"
       - ".github/workflows/forge.yml"
@@ -14,6 +15,7 @@ on:
     paths:
       - "crates/mycelix-forge-core/**"
       - "crates/mycelix-forge-authority/**"
+      - "crates/mycelix-forge-authentication/**"
       - "crates/mycelix-forge-repository/**"
       - "adapters/forge-gittuf/**"
       - ".github/workflows/forge.yml"
@@ -37,6 +39,8 @@ jobs:
             path: crates/mycelix-forge-core
           - name: Forge Authority
             path: crates/mycelix-forge-authority
+          - name: Forge Authentication Contract
+            path: crates/mycelix-forge-authentication
           - name: Forge Repository Contract
             path: crates/mycelix-forge-repository
           - name: Forge gittuf Adapter
