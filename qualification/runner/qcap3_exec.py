@@ -6,11 +6,31 @@ from qcap_manifest import validate_manifest
 from qcap3_limits import account_manifest_resources,limits_ref,validate_execution_context_v3,validate_limits
 from qcap3_receipt import compose_receipt_v3,gate_result,not_run_result
 from qcap3_isolation import *
-def verify_gate_artifact(root,g):
- root=Path(root).resolve();p=(root/g["script"]).resolve()
- try:p.relative_to(root)
+def verified_gate_bytes(root,g):
+ root=Path(root).resolve();p=root
+ for part in Path(g["script"]).parts:
+  p=p/part
+  if p.is_symlink():raise CapsuleError("gate script symlink forbidden")
+ rp=p.resolve()
+ try:rp.relative_to(root)
  except ValueError as e:raise CapsuleError("gate script escapes capsule root")from e
- if not p.is_file()or hashlib.sha256(p.read_bytes()).hexdigest()!=g["sha256"]:raise CapsuleError("gate script digest changed before execution")
+ if not rp.is_file():raise CapsuleError("gate script unavailable")
+ b=rp.read_bytes()
+ if hashlib.sha256(b).hexdigest()!=g["sha256"]:raise CapsuleError("gate script digest changed before execution")
+ return b
+def snapshot_gate(parent,g,b):
+ d=parent/"gate-snapshots";d.mkdir(mode=0o700)
+ token=hashlib.sha256(g["id"].encode()+b"\0"+g["sha256"].encode()).hexdigest();p=d/(token+".gate")
+ try:fd=os.open(p,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o700)
+ except OSError as e:raise CapsuleError("gate snapshot creation failed")from e
+ try:
+  with os.fdopen(fd,"wb")as f:f.write(b);f.flush();os.fsync(f.fileno())
+  os.chmod(p,0o700)
+ except OSError as e:
+  try:p.unlink()
+  except OSError:pass
+  raise CapsuleError("gate snapshot write failed")from e
+ if p.is_symlink()or hashlib.sha256(p.read_bytes()).hexdigest()!=g["sha256"]:raise CapsuleError("gate snapshot integrity failure")
  return p
 def controlled_env(m,c,l,a,w,scratch):
  (scratch/"home").mkdir();(scratch/"tmp").mkdir()
@@ -18,9 +38,9 @@ def controlled_env(m,c,l,a,w,scratch):
 def execute_gate(m,root,repo,g,a,c,l):
  parent=w=None;captured=b"";code=20;reason="RunnerInternalFailure";truncated=False
  try:
-  script=verify_gate_artifact(root,g);parent,w=add_worktree(repo,m["product_subject_sha"]);h,d=state(w)
+  gate_bytes=verified_gate_bytes(root,g);parent,w=add_worktree(repo,m["product_subject_sha"]);h,d=state(w)
   if h!=m["product_subject_sha"]or d:raise CapsuleError("fresh worktree not exact")
-  scratch=parent/"scratch";scratch.mkdir();env=controlled_env(m,c,l,a,w,scratch);captured,code,reason,truncated=execute_bounded([str(script),*g["args"]],w,env,g["timeout_seconds"],l["max_gate_output_bytes"])
+  scratch=parent/"scratch";scratch.mkdir();script=snapshot_gate(parent,g,gate_bytes);env=controlled_env(m,c,l,a,w,scratch);captured,code,reason,truncated=execute_bounded([str(script),*g["args"]],w,env,g["timeout_seconds"],l["max_gate_output_bytes"])
   if code!=20:
    h,d=state(w)
    if h!=m["product_subject_sha"]or d:
