@@ -9,6 +9,9 @@ use leptos_router::{
 
 use crate::components::{DevPanel, Nav};
 use crate::hearth_context::provide_hearth_context;
+use crate::hearth_truth::{
+    HearthDataStatus, provide_hearth_truth, start_mock_simulation_when_resolved,
+};
 use crate::pages::personal;
 use crate::pages::*;
 use mycelix_leptos_core::{
@@ -35,7 +38,7 @@ pub fn App() -> impl IntoView {
 
 #[component]
 fn AppInner() -> impl IntoView {
-    // Initialize providers in dependency order
+    // Initialize providers in dependency order.
     crate::themes::provide_theme_context();
     crate::circadian::provide_circadian_context();
     crate::ambient_sound::provide_ambient_sound_context();
@@ -44,24 +47,27 @@ fn AppInner() -> impl IntoView {
     provide_toast_context();
     provide_homeostasis_context(2, "--homeostasis");
     provide_hearth_context();
+    provide_hearth_truth();
     crate::hearth_prefs::provide_hearth_prefs();
 
-    // Action dispatch layer (real zome calls when connected, mock when not)
+    // Action dispatch layer (real zome calls when connected, mock when not).
     crate::hearth_actions::provide_hearth_actions();
 
-    // Wire consciousness + circadian → CSS custom properties
+    // Wire consciousness + circadian → CSS custom properties.
     init_consciousness_ui();
 
-    // Real-time signals from conductor (when connected)
+    // Real-time signals from conductor (when connected).
     crate::signal_listener::start_signal_listener();
 
-    // Simulated family life (only activates in mock mode)
-    crate::simulated_life::start_simulated_life();
+    // Simulated family life is installed only after the provider resolves to
+    // mock mode. A connecting/live session never receives simulation timers.
+    start_mock_simulation_when_resolved();
 
     view! {
         <Router>
             <a href="#main-content" class="skip-to-content">"skip to content"</a>
             <Nav />
+            <HearthDataStatus />
             <DevPanel />
             // Ambient campfire — persistent warmth from the founding ceremony
             <crate::components::HearthFlame mode=crate::components::FlameMode::Ambient />
