@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 
+use crate::governance_actions;
 use crate::hearth_actions;
 use crate::hearth_context::{member_name, use_hearth};
 use hearth_leptos_types::*;
@@ -23,15 +24,14 @@ pub fn DecisionsPage() -> impl IntoView {
     let hearth_for_vote = hearth.clone();
     let consciousness_for_vote = consciousness.clone();
     let hc_for_vote = hc.clone();
-    let do_cast_vote = move |decision_hash: String| {
+    let do_submit_vote = move |decision_hash: String, amend: bool| {
         let choice = match selected_choice.get() {
             Some(choice) => choice,
             None => return,
         };
 
-        // The browser-side weight exists only to keep demo-mode behavior useful.
-        // Live voting ignores this value: the decisions zome derives the
-        // authoritative weight from role + civic eligibility when accepting the vote.
+        // Browser-side weight exists only for demo-mode behavior. Live cast and
+        // amendment calls derive authoritative weight in the decisions/civic zomes.
         let demo_weight = if hc_for_vote.is_mock() {
             let role = hearth_for_vote
                 .my_role
@@ -55,7 +55,11 @@ pub fn DecisionsPage() -> impl IntoView {
             Some(reasoning)
         };
 
-        hearth_actions::cast_vote(decision_hash, choice, reasoning, demo_weight);
+        if amend {
+            governance_actions::amend_vote(decision_hash, choice, reasoning, demo_weight);
+        } else {
+            hearth_actions::cast_vote(decision_hash, choice, reasoning, demo_weight);
+        }
 
         set_voting_for.set(None);
         set_selected_choice.set(None);
@@ -279,10 +283,10 @@ pub fn DecisionsPage() -> impl IntoView {
 
                                             {if is_open {
                                                 let hash_for_button = hash.clone();
-                                                let hash_for_cast = hash.clone();
+                                                let hash_for_submit = hash.clone();
                                                 if is_voting {
-                                                    let submit_label = if already_voted && demo_mode {
-                                                        "Update Demo Vote"
+                                                    let submit_label = if already_voted {
+                                                        if demo_mode { "Update Demo Vote" } else { "Amend Vote" }
                                                     } else {
                                                         "Cast Vote"
                                                     };
@@ -311,7 +315,9 @@ pub fn DecisionsPage() -> impl IntoView {
                                                                     class="action-btn"
                                                                     type="button"
                                                                     disabled=move || selected_choice.get().is_none()
-                                                                    on:click=move |_| do_cast_vote(hash_for_cast.clone())
+                                                                    on:click=move |_| {
+                                                                        do_submit_vote(hash_for_submit.clone(), already_voted)
+                                                                    }
                                                                 >
                                                                     {submit_label}
                                                                 </button>
@@ -329,15 +335,13 @@ pub fn DecisionsPage() -> impl IntoView {
                                                         </div>
                                                     }
                                                         .into_any()
-                                                } else if already_voted && !demo_mode {
-                                                    view! {
-                                                        <div class="vote-recorded" role="status">
-                                                            "Vote recorded. Amendment is a distinct governance transition and is not wired in this frontend yet."
-                                                        </div>
-                                                    }
-                                                        .into_any()
                                                 } else {
                                                     let initial_choice = existing_vote.as_ref().map(|vote| vote.choice);
+                                                    let button_label = if already_voted {
+                                                        if demo_mode { "Change Demo Vote" } else { "Amend Vote" }
+                                                    } else {
+                                                        "Vote"
+                                                    };
                                                     view! {
                                                         <button
                                                             class=format!(
@@ -350,11 +354,7 @@ pub fn DecisionsPage() -> impl IntoView {
                                                                 set_selected_choice.set(initial_choice);
                                                             }
                                                         >
-                                                            {if already_voted {
-                                                                "Change Demo Vote"
-                                                            } else {
-                                                                "Vote"
-                                                            }}
+                                                            {button_label}
                                                         </button>
                                                     }
                                                         .into_any()
