@@ -1,0 +1,105 @@
+{
+  "schema": "mycelix.civic-resilience.completion-verification.v1",
+  "program": "CIV-RES-001C",
+  "parent_subject": "c7b6f3ac3113d2eba83b01eeb12ab66c3598ee9f",
+  "runtime_owner": "Deferred",
+  "architectural_dependencies": [
+    {"owner":"planetary_response","reference":"PR #483","dependency_state":"architectural_reference_only"},
+    {"owner":"planetary_outcome","reference":"PR #484","dependency_state":"architectural_reference_only"},
+    {"owner":"mycelix-business-core","reference":"PR #165","dependency_state":"architectural_reference_only"}
+  ],
+  "artifact_kinds": [
+    "CompletionClaim",
+    "CompletionEvidenceBundle",
+    "CompletionVerificationEvidence"
+  ],
+  "required_reference_kinds": [
+    "ExternalCommitmentRef",
+    "EvidenceRef",
+    "CollectionSourceRef",
+    "TimeEvidenceRef",
+    "LocationScopeRef",
+    "MethodRef",
+    "VerificationPredicateRef",
+    "VerificationMethodRef",
+    "VerifierQualificationRef",
+    "VerifierIndependenceProfileRef",
+    "InputEvidenceCutRef",
+    "VerificationResultRef",
+    "OutcomeObservationRef",
+    "ExecutionReceiptRef",
+    "AuthorityDecisionRef"
+  ],
+  "required_non_equivalences": [
+    "Commitment != AuthorityToExecute",
+    "Commitment != CompletionClaim",
+    "CompletionClaim != CompletionEvidence",
+    "CompletionEvidence != CompletionVerification",
+    "CompletionVerification != OutcomeObservation",
+    "VerifiedCompletion != OutcomeImprovement",
+    "OutcomeObservation != CausalEffect",
+    "ExecutionReceipt != CompletionVerification",
+    "ProviderAcknowledgement != Completion",
+    "Payment != Completion",
+    "PhotoOrDocument != Completion",
+    "DifferentVerifierId != IndependentVerification",
+    "Verification != BeneficiaryAcceptance",
+    "Verification != QualityBeyondVerifiedPredicate",
+    "CompletionVerification != PaymentAuthority",
+    "VerifiedCompletion != PaymentDue"
+  ],
+  "forbidden_caller_selected_positive_fields": [
+    "verified",
+    "official",
+    "paid",
+    "accepted",
+    "successful",
+    "outcome_improved",
+    "independent"
+  ],
+  "verification_scope_rules": [
+    "verification_establishes_only_exact_predicate",
+    "verifier_identity_difference_does_not_establish_independence",
+    "execution_receipt_may_be_evidence_but_not_completion_verification",
+    "payment_may_be_evidence_but_not_completion",
+    "outcome_observation_remains_separate_from_completion_verification",
+    "causal_attribution_remains_external"
+  ],
+  "adversarial_case_ids": [
+    "CIV-COMP-T-001_WRONG_COMMITMENT_REVISION",
+    "CIV-COMP-T-002_REUSED_EVIDENCE",
+    "CIV-COMP-T-003_OUT_OF_SCOPE_EVIDENCE",
+    "CIV-COMP-T-004_PROVIDER_ACK_WITHOUT_RESULT",
+    "CIV-COMP-T-005_PAYMENT_WITHOUT_COMPLETION",
+    "CIV-COMP-T-006_EXECUTION_RECEIPT_PREDICATE_MISMATCH",
+    "CIV-COMP-T-007_CLAIMANT_VERIFIER_CONFLICT",
+    "CIV-COMP-T-008_SHARED_VERIFIER_FAULT_DOMAIN",
+    "CIV-COMP-T-009_PREDICATE_UI_OVERCLAIM",
+    "CIV-COMP-T-010_LATER_CONTRADICTORY_EVIDENCE",
+    "CIV-COMP-T-011_COMPLETED_BUT_OUTCOME_WORSE",
+    "CIV-COMP-T-012_OUTCOME_IMPROVES_WITHOUT_ATTRIBUTION",
+    "CIV-COMP-T-013_STALE_VERIFICATION_PRESENTED_CURRENT"
+  ],
+  "continuation": [
+    "CIV-RES-002A",
+    "CIV-RES-002B",
+    "CIV-RES-002C",
+    "SYM-CIVIC-000A"
+  ],
+  "nonclaims": [
+    "runtime_commitment_registry",
+    "obligation_engine",
+    "execution_authority",
+    "evidence_authenticity",
+    "completion_truth",
+    "verifier_independence",
+    "service_quality",
+    "beneficiary_acceptance",
+    "payment_authority",
+    "outcome_improvement",
+    "causal_effect",
+    "municipal_legitimacy",
+    "johannesburg_deployment",
+    "deployment_readiness"
+  ]
+}
