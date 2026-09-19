@@ -1,0 +1,239 @@
+name: Constitutional Payments Provider Authority Timeline Qualification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'mycelix-governance/Cargo.toml'
+      - 'mycelix-governance/crates/constitutional-payments-provider-authority-timeline/**'
+      - 'mycelix-governance/docs/CONSTITUTIONAL_PAYMENTS_PROVIDER_AUTHORITY_TIMELINE_V0_1.md'
+      - 'mycelix-governance/specs/constitutional-payments-provider-authority-timeline.v1.json'
+      - 'mycelix-governance/specs/constitutional-payments-provider-authority-timeline.v1.schema.json'
+      - 'mycelix-governance/tools/formal/validate_constitutional_payments_provider_authority_timeline.py'
+      - '.github/workflows/constitutional-payments-provider-authority-timeline-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: constitutional-provider-authority-timeline-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NIXPKGS_REV: a50bf0c1b07873c1a53892292017041a8f0a1288
+  EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EXPECTED_SEMANTIC_HEAD: c8a3f7b675eecc1754428e098c7cf55f63c17fa8
+  EXPECTED_PARENT_F1B2A: d9f1ad518e2943eb64c9991b2589cf9a221fc047
+  CRATE_MANIFEST: mycelix-governance/crates/constitutional-payments-provider-authority-timeline/Cargo.toml
+  TIMELINE_SOURCE: mycelix-governance/crates/constitutional-payments-provider-authority-timeline/src/lib.rs
+
+jobs:
+  qualify:
+    name: Exact-head provider-author authority timeline
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout exact raw head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ env.EXPECTED_HEAD }}
+
+      - name: Bind exact lineage and semantic surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_SEMANTIC_HEAD"
+          test "$(git rev-parse HEAD^^)" = "$EXPECTED_PARENT_F1B2A"
+
+          mapfile -t verifier_files < <(git diff --name-only HEAD^ HEAD | sort)
+          test "${#verifier_files[@]}" -eq 1
+          test "${verifier_files[0]}" = ".github/workflows/constitutional-payments-provider-authority-timeline-qualification.yml"
+
+          expected=(
+            "mycelix-governance/Cargo.toml"
+            "mycelix-governance/crates/constitutional-payments-provider-authority-timeline/Cargo.toml"
+            "mycelix-governance/crates/constitutional-payments-provider-authority-timeline/src/lib.rs"
+            "mycelix-governance/docs/CONSTITUTIONAL_PAYMENTS_PROVIDER_AUTHORITY_TIMELINE_V0_1.md"
+            "mycelix-governance/specs/constitutional-payments-provider-authority-timeline.v1.json"
+            "mycelix-governance/specs/constitutional-payments-provider-authority-timeline.v1.schema.json"
+            "mycelix-governance/tools/formal/validate_constitutional_payments_provider_authority_timeline.py"
+          )
+          mapfile -t semantic_files < <(git diff --name-only HEAD^^ HEAD^ | sort)
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${semantic_files[*]}" = "${expected_sorted[*]}"
+          test -z "$(git diff --name-only HEAD^^ HEAD^ | grep -E '^mycelix-governance/(zomes|dna|happs)/' || true)"
+
+          rm -rf provider-authority-timeline-evidence
+          mkdir -p provider-authority-timeline-evidence/mutants
+          printf '%s\n' "$EXPECTED_HEAD" > provider-authority-timeline-evidence/expected-head.txt
+          printf '%s\n' "$EXPECTED_SEMANTIC_HEAD" > provider-authority-timeline-evidence/expected-semantic-head.txt
+          printf '%s\n' "$EXPECTED_PARENT_F1B2A" > provider-authority-timeline-evidence/expected-parent.txt
+          git diff --name-status HEAD^^ HEAD^ > provider-authority-timeline-evidence/semantic-diff.txt
+          sha256sum "${expected[@]}" > provider-authority-timeline-evidence/preflight-sha256.txt
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Validate profile and compile canonical subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#python312" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#check-jsonschema" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustfmt" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#clippy" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#git" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#coreutils" \
+            --command bash -euo pipefail -c '
+              check-jsonschema \
+                --schemafile mycelix-governance/specs/constitutional-payments-provider-authority-timeline.v1.schema.json \
+                mycelix-governance/specs/constitutional-payments-provider-authority-timeline.v1.json \
+                | tee provider-authority-timeline-evidence/schema-validation.log
+
+              python3 mycelix-governance/tools/formal/validate_constitutional_payments_provider_authority_timeline.py --self-test \
+                | tee provider-authority-timeline-evidence/validator-receipt.json
+
+              cargo fmt \
+                --manifest-path mycelix-governance/Cargo.toml \
+                --package constitutional-payments-provider-authority-timeline \
+                -- --check \
+                |& tee provider-authority-timeline-evidence/cargo-fmt.log
+
+              cargo check --manifest-path "$CRATE_MANIFEST" --all-targets \
+                |& tee provider-authority-timeline-evidence/cargo-check.log
+              cargo test --manifest-path "$CRATE_MANIFEST" --all-targets \
+                |& tee provider-authority-timeline-evidence/cargo-test.log
+              cargo clippy --manifest-path "$CRATE_MANIFEST" --all-targets -- -D warnings \
+                |& tee provider-authority-timeline-evidence/cargo-clippy.log
+
+              if test -f mycelix-governance/Cargo.lock; then
+                cp mycelix-governance/Cargo.lock provider-authority-timeline-evidence/derived-Cargo.lock
+                sha256sum mycelix-governance/Cargo.lock > provider-authority-timeline-evidence/derived-Cargo.lock.sha256
+              fi
+            '
+
+      - name: Kill compile-valid Rust theorem mutants
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#python312" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#cargo" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#rustc" \
+            "github:NixOS/nixpkgs/${NIXPKGS_REV}#coreutils" \
+            --command bash -euo pipefail -c '
+              cp "$TIMELINE_SOURCE" provider-authority-timeline-evidence/canonical-timeline-lib.rs
+              trap "cp provider-authority-timeline-evidence/canonical-timeline-lib.rs \"$TIMELINE_SOURCE\"" EXIT
+
+              apply_mutant() {
+                local name="$1"
+                NAME="$name" python3 - <<"PY"
+          import os
+          from pathlib import Path
+
+          path = Path(os.environ["TIMELINE_SOURCE"])
+          name = os.environ["NAME"]
+          text = path.read_text()
+          mutations = {
+              "late-issuance": (
+                  "if self.issued_at_us > grant.valid_from_us {",
+                  "if false && self.issued_at_us > grant.valid_from_us {",
+              ),
+              "competing-successor": (
+                  "if existing_successor != successor.grant_commitment {",
+                  "if false && existing_successor != successor.grant_commitment {",
+              ),
+              "cutover-identity": (
+                  "&& *effective_at_us == cutover_us",
+                  "&& true",
+              ),
+              "revocation-boundary": (
+                  "if action_time_us >= evidence.effective_at_us =>",
+                  "if action_time_us > evidence.effective_at_us =>",
+              ),
+              "rotation-amplification": (
+                  "if let Err(error) = validate_rotation(&predecessor, &successor, cutover_us) {",
+                  "if let Err(error) = Ok::<(), ProviderAuthorityError>(()) {",
+              ),
+              "authorize-after-halt": (
+                  "        if let Some(fault) = &self.integrity_fault {\n            return Err(TimelineAuthorizationError::IntegrityHalted(fault.clone()));\n        }\n",
+                  "",
+              ),
+          }
+          before, after = mutations[name]
+          count = text.count(before)
+          if count != 1:
+              raise SystemExit(f"mutation {name}: expected one source match, found {count}")
+          path.write_text(text.replace(before, after, 1))
+          PY
+              }
+
+              run_mutant() {
+                local name="$1"
+                local test_name="$2"
+                cp provider-authority-timeline-evidence/canonical-timeline-lib.rs "$TIMELINE_SOURCE"
+                apply_mutant "$name"
+
+                if ! cargo check --manifest-path "$CRATE_MANIFEST" --all-targets \
+                    >"provider-authority-timeline-evidence/mutants/${name}.compile.log" 2>&1; then
+                  cat "provider-authority-timeline-evidence/mutants/${name}.compile.log"
+                  echo "mutation $name did not compile; not valid evidence" >&2
+                  exit 1
+                fi
+
+                if cargo test --manifest-path "$CRATE_MANIFEST" "$test_name" -- --nocapture \
+                    >"provider-authority-timeline-evidence/mutants/${name}.test.log" 2>&1; then
+                  cat "provider-authority-timeline-evidence/mutants/${name}.test.log"
+                  echo "mutation survived focused test: $name" >&2
+                  exit 1
+                fi
+                printf "%s\n" "killed" > "provider-authority-timeline-evidence/mutants/${name}.result.txt"
+              }
+
+              run_mutant late-issuance issuance_after_validity_start_is_rejected
+              run_mutant competing-successor rotation_has_one_canonical_successor
+              run_mutant cutover-identity same_successor_with_different_cutover_halts
+              run_mutant revocation-boundary revocation_is_historical_not_retroactive
+              run_mutant rotation-amplification rotation_cannot_amplify_roles
+              run_mutant authorize-after-halt integrity_halt_is_sticky_and_blocks_authorization
+
+              cp provider-authority-timeline-evidence/canonical-timeline-lib.rs "$TIMELINE_SOURCE"
+            '
+
+      - name: Postflight semantic immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=(
+            "mycelix-governance/Cargo.toml"
+            "mycelix-governance/crates/constitutional-payments-provider-authority-timeline/Cargo.toml"
+            "mycelix-governance/crates/constitutional-payments-provider-authority-timeline/src/lib.rs"
+            "mycelix-governance/docs/CONSTITUTIONAL_PAYMENTS_PROVIDER_AUTHORITY_TIMELINE_V0_1.md"
+            "mycelix-governance/specs/constitutional-payments-provider-authority-timeline.v1.json"
+            "mycelix-governance/specs/constitutional-payments-provider-authority-timeline.v1.schema.json"
+            "mycelix-governance/tools/formal/validate_constitutional_payments_provider_authority_timeline.py"
+          )
+          sha256sum "${expected[@]}" > provider-authority-timeline-evidence/postflight-sha256.txt
+          diff -u provider-authority-timeline-evidence/preflight-sha256.txt provider-authority-timeline-evidence/postflight-sha256.txt
+          git diff --exit-code -- "${expected[@]}"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_SEMANTIC_HEAD"
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: constitutional-provider-authority-timeline-${{ env.EXPECTED_HEAD }}
+          path: provider-authority-timeline-evidence
+          if-no-files-found: error
+          retention-days: 30
