@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminous-dynamics.org/schemas/mycelix/qualification-receipt.v1.schema.json",
+  "title": "Mycelix Qualification Receipt V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "dependency_id",
+    "issuer_id",
+    "semantic_head",
+    "verifier_head",
+    "run_id",
+    "run_attempt",
+    "artifact_digest",
+    "receipt_commitment",
+    "navigation"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "dependency_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "issuer_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "semantic_head": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "verifier_head": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "run_id": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "run_attempt": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "artifact_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "receipt_commitment": {
+      "type": "string",
+      "pattern": "^blake3-256:[0-9a-f]{64}$"
+    },
+    "navigation": {
+      "$ref": "#/$defs/navigation"
+    }
+  },
+  "$defs": {
+    "navigation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "job_id",
+        "artifact_id",
+        "workflow_name",
+        "evidence_label"
+      ],
+      "properties": {
+        "job_id": {
+          "anyOf": [
+            { "type": "null" },
+            { "type": "integer", "minimum": 1 }
+          ]
+        },
+        "artifact_id": {
+          "anyOf": [
+            { "type": "null" },
+            { "type": "integer", "minimum": 1 }
+          ]
+        },
+        "workflow_name": {
+          "anyOf": [
+            { "type": "null" },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512,
+              "pattern": "^\\S(?:.*\\S)?$"
+            }
+          ]
+        },
+        "evidence_label": {
+          "anyOf": [
+            { "type": "null" },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512,
+              "pattern": "^\\S(?:.*\\S)?$"
+            }
+          ]
+        }
+      }
+    }
+  }
+}
