@@ -1,0 +1,314 @@
+name: MYC-FIN-001A SapAmount Lock Diagnostic
+
+on:
+  push:
+    branches:
+      - diag/myc-fin-001a-sap-lock-v1
+    paths:
+      - '.github/workflows/myc-fin-001a-sap-lock-diagnostic.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: myc-fin-001a-sap-lock-diagnostic-v1
+  cancel-in-progress: true
+
+env:
+  DIAGNOSTIC_PARENT: '771806c38dc9f77065799fdffe11b09ff5c4b217'
+  DIAGNOSTIC_WORKFLOW: '.github/workflows/myc-fin-001a-sap-lock-diagnostic.yml'
+  V2_WORKFLOW: '.github/workflows/myc-fin-001a-sap-amount-materialize-v2.yml'
+  V2_WORKFLOW_BLOB: 'b1f6e5284e15bbd5e87fdd9d5a993975aeec6c78'
+  TEMPLATE_GENERATOR_SHA: '450f46e501fba1815824cb4e9f4b67fff3f847cd'
+  TEMPLATE_WORKFLOW: '.github/workflows/myc-fin-001a-sap-amount-materialize.yml'
+  TEMPLATE_WORKFLOW_BLOB: 'f5189bd4ab75c485626ce44d69cebbd467031dbc'
+  PRODUCT_PARENT: '26482b470ce97928654a9f669d1de16757f9b65b'
+  FINANCE_LIB: 'mycelix-finance/types/src/lib.rs'
+  SAP_MODULE: 'mycelix-finance/types/src/sap_amount.rs'
+  PROFILE_DOC: 'docs/finance/MYC_FIN_001A_SAP_AMOUNT_V1.md'
+  LOCKFILE: 'mycelix-finance/Cargo.lock'
+  ORIGINAL_FINANCE_LIB_BLOB: '354a377c88a57e8a5612a518d8c8b8b519fb67e2'
+  ORIGINAL_FINANCE_LOCK_BLOB: 'c38d8c1fd1ae7af9fa8ecfc604112fb421fb0ce9'
+  EXPECTED_FORMATTED_MODULE_BLOB: 'c248871f7c28d135c46e5ce4078677997ef34953'
+  RUST_TOOLCHAIN: '1.96.0'
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout exact diagnostic subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+          path: diagnostic
+
+      - name: Prove one-commit read-only diagnostic surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C diagnostic rev-parse HEAD^)" = "$DIAGNOSTIC_PARENT"
+          test "$(git -C diagnostic rev-list --count "$DIAGNOSTIC_PARENT..HEAD")" -eq 1
+          mapfile -t changed < <(git -C diagnostic diff --name-only "$DIAGNOSTIC_PARENT" HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$DIAGNOSTIC_WORKFLOW"
+          test "$(git -C diagnostic rev-parse "$DIAGNOSTIC_PARENT:$V2_WORKFLOW")" = "$V2_WORKFLOW_BLOB"
+          test -z "$(git -C diagnostic status --porcelain=v1)"
+          printf 'repository_authority=READ_ONLY\n'
+
+      - name: Checkout two exact U1 copies and immutable template source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.PRODUCT_PARENT }}
+          fetch-depth: 2
+          persist-credentials: false
+          path: baseline
+
+      - name: Checkout exact U1 candidate copy
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.PRODUCT_PARENT }}
+          fetch-depth: 2
+          persist-credentials: false
+          path: candidate
+
+      - name: Checkout exact failed V1 generator as template data
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.TEMPLATE_GENERATOR_SHA }}
+          fetch-depth: 2
+          persist-credentials: false
+          path: generator
+
+      - name: Bind exact immutable inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          for tree in baseline candidate; do
+            test "$(git -C "$tree" rev-parse HEAD)" = "$PRODUCT_PARENT"
+            test "$(git -C "$tree" rev-parse "HEAD:$FINANCE_LIB")" = "$ORIGINAL_FINANCE_LIB_BLOB"
+            test "$(git -C "$tree" rev-parse "HEAD:$LOCKFILE")" = "$ORIGINAL_FINANCE_LOCK_BLOB"
+            test -z "$(git -C "$tree" status --porcelain=v1)"
+          done
+          test "$(git -C generator rev-parse HEAD)" = "$TEMPLATE_GENERATOR_SHA"
+          test "$(git -C generator rev-parse "HEAD:$TEMPLATE_WORKFLOW")" = "$TEMPLATE_WORKFLOW_BLOB"
+          test -z "$(git -C generator status --porcelain=v1)"
+
+      - name: Reconstruct exact V1 SapAmount candidate as data
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - "$TEMPLATE_WORKFLOW" "$SAP_MODULE" "$PROFILE_DOC" <<'PY'
+          from pathlib import Path
+          import sys, textwrap
+
+          workflow_path, sap_path, doc_path = sys.argv[1:]
+          lines = Path('generator', workflow_path).read_text(encoding='utf-8').splitlines()
+
+          def extract(marker, terminator):
+              starts = [i for i, line in enumerate(lines) if line.strip() == marker]
+              if len(starts) != 1:
+                  raise SystemExit(f'expected one marker {marker!r}, found {len(starts)}')
+              body = []
+              for line in lines[starts[0] + 1:]:
+                  if line.strip() == terminator:
+                      break
+                  body.append(line)
+              else:
+                  raise SystemExit(f'missing terminator {terminator!r}')
+              value = textwrap.dedent('\n'.join(body)) + '\n'
+              if not value.strip():
+                  raise SystemExit(f'empty extracted template for {marker!r}')
+              return value
+
+          sap = extract('cat > "product/$SAP_MODULE" <<\'RS\'', 'RS')
+          doc = extract('cat > "product/$PROFILE_DOC" <<\'MD\'', 'MD')
+          Path('candidate', sap_path).write_text(sap, encoding='utf-8')
+          target_doc = Path('candidate', doc_path)
+          target_doc.parent.mkdir(parents=True, exist_ok=True)
+          target_doc.write_text(doc, encoding='utf-8')
+
+          lib_path = Path('candidate/mycelix-finance/types/src/lib.rs')
+          lib = lib_path.read_text(encoding='utf-8')
+          anchor = 'use serde::{Deserialize, Serialize};\n'
+          addition = anchor + '\npub mod sap_amount;\n' + 'pub use sap_amount::{SapAmount, SapAmountArithmeticError};\n'
+          if lib.count(anchor) != 1:
+              raise SystemExit('expected exactly one serde import anchor')
+          if 'pub mod sap_amount;' in lib or 'pub use sap_amount::' in lib:
+              raise SystemExit('SapAmount root export already present')
+          lib_path.write_text(lib.replace(anchor, addition, 1), encoding='utf-8')
+          PY
+          git -C candidate add -N "$SAP_MODULE" "$PROFILE_DOC"
+          mapfile -t changed < <(git -C candidate diff --name-only | sort)
+          test "${#changed[@]}" -eq 3
+          test "${changed[0]}" = "$PROFILE_DOC"
+          test "${changed[1]}" = "$FINANCE_LIB"
+          test "${changed[2]}" = "$SAP_MODULE"
+
+      - name: Independent canonical-byte oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          domain = b'mycelix/finance/sap-amount'
+          vectors = {
+              0: '6d7963656c69782f66696e616e63652f7361702d616d6f756e7400010000000000000000',
+              1: '6d7963656c69782f66696e616e63652f7361702d616d6f756e7400010000000000000001',
+              1_000_000: '6d7963656c69782f66696e616e63652f7361702d616d6f756e74000100000000000f4240',
+              10_000_000_000: '6d7963656c69782f66696e616e63652f7361702d616d6f756e74000100000002540be400',
+              (1 << 64) - 1: '6d7963656c69782f66696e616e63652f7361702d616d6f756e740001ffffffffffffffff',
+          }
+          if len(domain) != 26:
+              raise SystemExit('domain length mismatch')
+          for value, expected in vectors.items():
+              encoded = domain + b'\x00' + b'\x01' + value.to_bytes(8, 'big')
+              if len(encoded) != 36 or encoded.hex() != expected:
+                  raise SystemExit(f'golden-vector mismatch for {value}')
+          print('independent_sap_amount_oracle=PASS')
+          PY
+
+      - name: Install pinned Rust 1.96 toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt,clippy
+
+      - name: Materialize exact rustfmt repair and bind candidate bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustfmt --edition 2024 "candidate/$SAP_MODULE"
+          test "$(git -C candidate hash-object "$SAP_MODULE")" = "$EXPECTED_FORMATTED_MODULE_BLOB"
+          cargo fmt --manifest-path candidate/mycelix-finance/Cargo.toml --package mycelix_finance_types -- --check
+          mapfile -t changed < <(git -C candidate diff --name-only | sort)
+          test "${#changed[@]}" -eq 3
+          test "${changed[0]}" = "$PROFILE_DOC"
+          test "${changed[1]}" = "$FINANCE_LIB"
+          test "${changed[2]}" = "$SAP_MODULE"
+          printf 'formatted_module_blob=%s\n' "$(git -C candidate hash-object "$SAP_MODULE")"
+          printf 'formatted_module_sha256=%s\n' "$(sha256sum "candidate/$SAP_MODULE" | awk '{print $1}')"
+          printf 'candidate_lib_blob=%s\n' "$(git -C candidate hash-object "$FINANCE_LIB")"
+          printf 'candidate_doc_blob=%s\n' "$(git -C candidate hash-object "$PROFILE_DOC")"
+
+      - name: Audit formatted semantic surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          module = Path('candidate/mycelix-finance/types/src/sap_amount.rs').read_text(encoding='utf-8')
+          lib = Path('candidate/mycelix-finance/types/src/lib.rs').read_text(encoding='utf-8')
+          doc = Path('candidate/docs/finance/MYC_FIN_001A_SAP_AMOUNT_V1.md').read_text(encoding='utf-8')
+          required = [
+              'pub struct SapAmount(u64);',
+              'pub const MICRO_SAP_PER_SAP: u64 = 1_000_000;',
+              'b"mycelix/finance/sap-amount"',
+              'pub const SAP_AMOUNT_AUTHORITY_VERSION_V1: u8 = 1;',
+              'pub const SAP_AMOUNT_AUTHORITY_BYTES_LEN: usize = 36;',
+              'Currency::Sap',
+              'SapAmountArithmeticError::Overflow',
+              'SapAmountArithmeticError::Underflow',
+              'canonical_authority_bytes_v1',
+          ]
+          for marker in required:
+              if marker not in module:
+                  raise SystemExit(f'missing SapAmount marker: {marker}')
+          forbidden = ['f32', 'f64', 'impl From<u64>', 'impl Into<u64>',
+                       'impl core::ops::Add', 'impl std::ops::Add',
+                       'impl core::ops::Sub', 'impl std::ops::Sub']
+          for marker in forbidden:
+              if marker in module:
+                  raise SystemExit(f'forbidden SapAmount surface: {marker}')
+          if 'pub struct SapAmount(pub u64)' in module:
+              raise SystemExit('SapAmount inner field became public')
+          if lib.count('pub mod sap_amount;') != 1:
+              raise SystemExit('root module export mismatch')
+          if lib.count('pub use sap_amount::{SapAmount, SapAmountArithmeticError};') != 1:
+              raise SystemExit('root type re-export mismatch')
+          if 'valid quantity is not a valid or authorized economic action' not in doc:
+              raise SystemExit('claim ceiling is missing quantity/action separation')
+          PY
+
+      - name: Prove inherited U1 dependency-capsule debt
+        shell: bash
+        run: |
+          set -euo pipefail
+          if cargo metadata --manifest-path baseline/mycelix-finance/Cargo.toml --format-version 1 --locked >/tmp/baseline-locked.json 2>/tmp/baseline-locked.err; then
+            echo 'baseline_locked_state=UNEXPECTEDLY_CLEAN'
+            exit 1
+          fi
+          grep -Fq 'cannot update the lock file' /tmp/baseline-locked.err
+          printf 'baseline_locked_state=STALE_BEFORE_SAP_AMOUNT\n'
+
+          cargo metadata --manifest-path baseline/mycelix-finance/Cargo.toml --format-version 1 >/tmp/baseline-metadata.json
+          mapfile -t baseline_dirty < <(git -C baseline diff --name-only)
+          test "${#baseline_dirty[@]}" -eq 1
+          test "${baseline_dirty[0]}" = "$LOCKFILE"
+          baseline_lock_sha="$(sha256sum "baseline/$LOCKFILE" | awk '{print $1}')"
+          baseline_lock_blob="$(git -C baseline hash-object "$LOCKFILE")"
+          printf 'baseline_reconciled_lock_sha256=%s\n' "$baseline_lock_sha"
+          printf 'baseline_reconciled_lock_git_blob=%s\n' "$baseline_lock_blob"
+          echo '--- BEGIN BASELINE CARGO LOCK DIFF ---'
+          git -C baseline diff -- "$LOCKFILE"
+          echo '--- END BASELINE CARGO LOCK DIFF ---'
+
+      - name: Reconcile candidate dependency capsule and prove equality with baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo metadata --manifest-path candidate/mycelix-finance/Cargo.toml --format-version 1 >/tmp/candidate-metadata.json
+          mapfile -t candidate_dirty < <(git -C candidate diff --name-only | sort)
+          test "${#candidate_dirty[@]}" -eq 4
+          test "${candidate_dirty[0]}" = "$PROFILE_DOC"
+          test "${candidate_dirty[1]}" = "$LOCKFILE"
+          test "${candidate_dirty[2]}" = "$FINANCE_LIB"
+          test "${candidate_dirty[3]}" = "$SAP_MODULE"
+
+          candidate_lock_sha="$(sha256sum "candidate/$LOCKFILE" | awk '{print $1}')"
+          candidate_lock_blob="$(git -C candidate hash-object "$LOCKFILE")"
+          baseline_lock_sha="$(sha256sum "baseline/$LOCKFILE" | awk '{print $1}')"
+          baseline_lock_blob="$(git -C baseline hash-object "$LOCKFILE")"
+          test "$candidate_lock_sha" = "$baseline_lock_sha"
+          test "$candidate_lock_blob" = "$baseline_lock_blob"
+          cmp --silent "candidate/$LOCKFILE" "baseline/$LOCKFILE"
+
+          read -r additions deletions path < <(git -C candidate diff --numstat -- "$LOCKFILE")
+          test "$path" = "$LOCKFILE"
+          printf 'candidate_reconciled_lock_sha256=%s\n' "$candidate_lock_sha"
+          printf 'candidate_reconciled_lock_git_blob=%s\n' "$candidate_lock_blob"
+          printf 'lock_additions=%s\n' "$additions"
+          printf 'lock_deletions=%s\n' "$deletions"
+          printf 'sap_amount_dependency_delta=NONE_BEYOND_INHERITED_U1_LOCK_DEBT\n'
+          echo '--- BEGIN CANDIDATE CARGO LOCK DIFF ---'
+          git -C candidate diff -- "$LOCKFILE"
+          echo '--- END CANDIDATE CARGO LOCK DIFF ---'
+
+      - name: Execute SapAmount gates with reconciled capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo metadata --manifest-path candidate/mycelix-finance/Cargo.toml --format-version 1 --locked >/tmp/candidate-locked-metadata.json
+          cargo test --manifest-path candidate/mycelix-finance/Cargo.toml --package mycelix_finance_types --all-targets --locked --no-run
+          cargo test --manifest-path candidate/mycelix-finance/Cargo.toml --package mycelix_finance_types --all-targets --locked
+          cargo clippy --manifest-path candidate/mycelix-finance/Cargo.toml --package mycelix_finance_types --all-targets --locked -- -D warnings
+
+      - name: Final read-only diagnostic receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git -C diagnostic status --porcelain=v1)"
+          test -z "$(git -C generator status --porcelain=v1)"
+          test "$(git -C candidate hash-object "$SAP_MODULE")" = "$EXPECTED_FORMATTED_MODULE_BLOB"
+          printf 'diagnostic=PASS\n'
+          printf 'repository_authority=READ_ONLY\n'
+          printf 'product_parent=%s\n' "$PRODUCT_PARENT"
+          printf 'formatted_module_blob=%s\n' "$EXPECTED_FORMATTED_MODULE_BLOB"
+          printf 'reconciled_lock_sha256=%s\n' "$(sha256sum "candidate/$LOCKFILE" | awk '{print $1}')"
+          printf 'reconciled_lock_git_blob=%s\n' "$(git -C candidate hash-object "$LOCKFILE")"
+          printf 'claim=SapAmount candidate semantics tested against exact inherited U1 lock reconciliation\n'
+          printf 'nonclaim=product publication, independent qualification, Treasury runtime safety, hermetic dependency acquisition\n'
