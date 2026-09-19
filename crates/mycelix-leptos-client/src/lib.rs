@@ -51,6 +51,7 @@ pub mod admin_granted_signer;
 pub mod browser;
 pub mod client;
 pub mod error;
+pub mod holo_hash_bytes;
 pub mod mock;
 #[cfg(feature = "native")]
 pub mod native;
@@ -63,6 +64,7 @@ pub mod types;
 pub use admin_granted_signer::{AdminGrantedSigner, SigningCredentials};
 pub use client::HolochainClient;
 pub use error::ClientError;
+pub use holo_hash_bytes::{HOLO_HASH_WIRE_LEN, HoloHashBytes};
 pub use mock::MockTransport;
 #[cfg(feature = "native")]
 pub use native::NativeWsTransport;
