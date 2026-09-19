@@ -67,6 +67,10 @@ pub fn CreatePage() -> impl IntoView {
                         <strong>"Express gratitude"</strong>
                         <span>"Open the Gratitude area. The route boundary will verify whether its live source is available before showing the composer."</span>
                     </A>
+                    <A href="/decisions" attr:class="task-directory-item" attr:role="listitem">
+                        <strong>"New decision"</strong>
+                        <span>"Open Decisions to shape a proposal. The composer does not grant authority: the decisions/civic zomes independently enforce civic eligibility, active Hearth membership, and the authoritative deadline before writing anything."</span>
+                    </A>
                 </div>
             </section>
 
@@ -79,11 +83,7 @@ pub fn CreatePage() -> impl IntoView {
                     </div>
                     <div class="task-directory-item task-directory-unavailable" role="listitem">
                         <strong>"New care task"</strong>
-                        <span>"The care zome has a creation API, but the frontend composer/action bridge is not wired yet."</span>
-                    </div>
-                    <div class="task-directory-item task-directory-unavailable" role="listitem">
-                        <strong>"New decision"</strong>
-                        <span>"The decisions zome has a creation API, but the frontend composer/action bridge is not wired yet."</span>
+                        <span>"The care zome has a creation API, but the frontend composer/action bridge is not wired in this exact ancestry yet."</span>
                     </div>
                 </div>
             </section>
