@@ -1,0 +1,32 @@
+{
+  "schema": "mycelix.ci-gov.001k.capacity-observer-lock.v0.1",
+  "parent_source_commit": "bf07e3fa9701e947cb7ac5c03e43052661e8a155",
+  "parent_source_tree": "e486d2d74d696b92577c52ab5d4e534ed2c36890",
+  "review_payload": {
+    ".github/scripts/CI_GOV_001K_OBSERVER.md": "ee47917ebcd00f8af0d5a0d149102428139f637d",
+    ".github/scripts/ci_qualification_capacity_observer.py": "7af073d89f1b9db5be87b3c84fa07341a5adb722",
+    ".github/scripts/test_ci_qualification_capacity_observer.py": "0cafbccbe1a147c6d81029cd9c78928d5f75d0eb"
+  },
+  "endpoint": {
+    "method": "GET",
+    "url": "https://api.github.com/repos/Luminous-Dynamics/mycelix/actions/concurrency_groups/mycelix-heavy-qualification-v1",
+    "api_version": "2026-03-10",
+    "group_name": "mycelix-heavy-qualification-v1",
+    "max_body_bytes": 1048576,
+    "max_timeout_seconds": 10
+  },
+  "platform_bounds": {
+    "max_active": 1,
+    "max_pending": 100,
+    "allowed_member_statuses": ["in_progress", "pending"]
+  },
+  "authority_ceiling": {
+    "actions_read": true,
+    "actions_mutation": false,
+    "queue_admission_authority": false,
+    "cancellation_authority": false,
+    "merge_authority": false,
+    "product_pass_authority": false,
+    "scientific_pass_authority": false
+  }
+}
