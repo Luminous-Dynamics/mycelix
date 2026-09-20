@@ -1,23 +1,36 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
-//! Coordinator for immutable Care lifecycle transition evidence.
+//! Coordinator for immutable Care lifecycle transition evidence and admission.
 //!
-//! This crate is intentionally workspace-only until the integrity and
-//! coordinator halves are independently qualified. No DNA manifest currently
-//! exposes these externs.
+//! Coordinator derivation is an early-failure/construction boundary only.
+//! `hearth_care_transitions_integrity` independently proves every authority
+//! statement before completion evidence or admission becomes valid DHT state.
 
 use hdk::prelude::*;
 use hearth_care_integrity::CareSchedule;
-use hearth_care_transitions_integrity::{CareCompletion, EntryTypes, LinkTypes};
+use hearth_care_transitions_integrity::{
+    CareCompletion, CareCompletionAdmissionProfileV1, CareCompletionAdmissionV1, EntryTypes,
+    LinkTypes,
+};
 use hearth_coordinator_common::decode_zome_response;
 use hearth_kinship_integrity::HearthMembership;
 use hearth_types::MembershipStatus;
 use mycelix_bridge_common::civic_requirement_basic;
 
+const ADMISSION_SCHEMA_V1: u8 = 1;
+const MAX_ADMISSION_EVIDENCE: usize = 32;
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CompleteTaskV2Input {
     pub schedule_hash: ActionHash,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AdmitCompletionV1Input {
+    pub schedule_root_hash: ActionHash,
+    pub evidence_hashes: Vec<ActionHash>,
+    pub profile: CareCompletionAdmissionProfileV1,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -91,7 +104,86 @@ pub fn complete_task_v2(input: CompleteTaskV2Input) -> ExternResult<Record> {
     })
 }
 
-/// Return raw immutable completion evidence for a CareSchedule.
+/// Create one immutable positive lifecycle admission under an explicit v1
+/// profile.
+///
+/// The caller supplies references and the profile selection only. Actor,
+/// Hearth, and membership evidence are derived. This coordinator check is not
+/// authority: transition integrity independently normalizes the stable root,
+/// validates every evidence reference, re-proves fresh membership, and proves
+/// root-creator/current-guardian authority.
+#[hdk_extern]
+pub fn admit_completion_v1(input: AdmitCompletionV1Input) -> ExternResult<Record> {
+    mycelix_zome_helpers::require_civic(
+        "hearth_bridge",
+        &civic_requirement_basic(),
+        "admit_completion_v1",
+    )?;
+
+    let actor = agent_info()?.agent_initial_pubkey;
+    let root_record = get(
+        input.schedule_root_hash.clone(),
+        GetOptions::default(),
+    )?
+    .ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Referenced CareSchedule root was not found".into()
+        ))
+    })?;
+
+    // Early feedback only. Integrity independently proves canonical legacy Care
+    // type provenance and that this exact hash is the original Create/root.
+    if !matches!(root_record.action(), Action::Create(_)) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "schedule_root_hash must reference a CareSchedule Create action".into()
+        )));
+    }
+    let root_schedule: CareSchedule = root_record
+        .entry()
+        .to_app_option()
+        .map_err(|error| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to decode referenced CareSchedule root: {error}"
+            )))
+        })?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Referenced CareSchedule root is missing its entry".into()
+            ))
+        })?;
+
+    let evidence_hashes = canonicalize_admission_evidence(input.evidence_hashes)
+        .map_err(|message| wasm_error!(WasmErrorInner::Guest(message.into())))?;
+    let actor_membership_hash = latest_active_membership_hash(
+        &root_schedule.hearth_hash,
+        &actor,
+    )?;
+
+    let admission = CareCompletionAdmissionV1 {
+        schema_version: ADMISSION_SCHEMA_V1,
+        profile: input.profile,
+        hearth_hash: root_schedule.hearth_hash,
+        schedule_root_hash: input.schedule_root_hash.clone(),
+        evidence_hashes,
+        actor_membership_hash,
+    };
+
+    let admission_hash = create_entry(&EntryTypes::CareCompletionAdmissionV1(admission))?;
+    create_link(
+        input.schedule_root_hash,
+        admission_hash.clone(),
+        LinkTypes::ScheduleRootToCompletionAdmissions,
+        (),
+    )?;
+
+    get(admission_hash, GetOptions::default())?.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Could not retrieve created CareCompletionAdmissionV1".into()
+        ))
+    })
+}
+
+/// Return raw immutable completion evidence for a CareSchedule revision.
 ///
 /// This intentionally does not claim a complete lifecycle projection while
 /// legacy CareSchedule status remains mutable. #2016 owns legacy/v2
@@ -142,20 +234,95 @@ pub fn get_schedule_completion_evidence(
         evidence.push(record);
     }
 
-    // Evidence order must not depend on DHT link-return order. Signed action
-    // timestamp is the canonical transition time; ActionHash breaks ties.
-    evidence.sort_by(|left, right| {
+    sort_records_canonically(&mut evidence);
+    Ok(evidence)
+}
+
+/// Return raw immutable admission records indexed by the stable CareSchedule
+/// root. A returned record is admission evidence under its declared profile;
+/// this query does not compute lifecycle agreement/disagreement with legacy
+/// state and does not imply universal completion or obligation discharge.
+#[hdk_extern]
+pub fn get_schedule_completion_admissions(
+    schedule_root_hash: ActionHash,
+) -> ExternResult<Vec<Record>> {
+    let links = get_links(
+        LinkQuery::try_new(
+            schedule_root_hash.clone(),
+            LinkTypes::ScheduleRootToCompletionAdmissions,
+        )?,
+        GetStrategy::default(),
+    )?;
+
+    let mut admissions = Vec::with_capacity(links.len());
+    for link in links {
+        let admission_hash = ActionHash::try_from(link.target).map_err(|_| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Invalid ScheduleRootToCompletionAdmissions link target".into()
+            ))
+        })?;
+        let record = get(admission_hash, GetOptions::default())?.ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "CareCompletionAdmission link target was not found".into()
+            ))
+        })?;
+        let admission: CareCompletionAdmissionV1 = record
+            .entry()
+            .to_app_option()
+            .map_err(|error| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Failed to decode CareCompletionAdmissionV1: {error}"
+                )))
+            })?
+            .ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "CareCompletionAdmission record is missing its entry".into()
+                ))
+            })?;
+
+        if admission.schedule_root_hash != schedule_root_hash {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "CareCompletionAdmission is indexed under a different schedule root".into()
+            )));
+        }
+        admissions.push(record);
+    }
+
+    sort_records_canonically(&mut admissions);
+    Ok(admissions)
+}
+
+fn sort_records_canonically(records: &mut [Record]) {
+    records.sort_by(|left, right| {
         left.action()
             .timestamp()
             .cmp(right.action().timestamp())
             .then_with(|| left.action_address().cmp(right.action_address()))
     });
+}
 
-    Ok(evidence)
+fn canonicalize_admission_evidence(
+    mut evidence_hashes: Vec<ActionHash>,
+) -> Result<Vec<ActionHash>, &'static str> {
+    if evidence_hashes.is_empty() {
+        return Err("Completion admission requires at least one evidence hash");
+    }
+    if evidence_hashes.len() > MAX_ADMISSION_EVIDENCE {
+        return Err("Completion admission supports at most 32 evidence hashes");
+    }
+
+    evidence_hashes.sort_by(|left, right| left.get_raw_39().cmp(right.get_raw_39()));
+    if evidence_hashes
+        .windows(2)
+        .any(|pair| pair[0] == pair[1])
+    {
+        return Err("Completion admission evidence hashes must be unique");
+    }
+    Ok(evidence_hashes)
 }
 
 /// Resolve the caller's latest known Kinship membership revision for a Hearth
-/// and require it to be Active before attempting to author evidence.
+/// and require it to be Active before attempting to author evidence/admission.
 ///
 /// This is a UX/early-failure guard, not the authority boundary. The transition
 /// integrity zome replays deterministic source-chain evidence and rejects stale
@@ -180,7 +347,7 @@ fn latest_active_membership_hash(
             .to_app_option()
             .map_err(|error| {
                 wasm_error!(WasmErrorInner::Guest(format!(
-                    "Failed to decode HearthMembership while preparing CareCompletion: {error}"
+                    "Failed to decode HearthMembership while preparing Care transition: {error}"
                 )))
             })?
             .ok_or_else(|| {
@@ -205,9 +372,8 @@ fn latest_active_membership_hash(
         });
     }
 
-    select_latest_active_membership(&candidates).map_err(|message| {
-        wasm_error!(WasmErrorInner::Guest(message.into()))
-    })
+    select_latest_active_membership(&candidates)
+        .map_err(|message| wasm_error!(WasmErrorInner::Guest(message.into())))
 }
 
 /// Pure fail-closed selector used only as coordinator-side early feedback.
@@ -287,6 +453,35 @@ mod tests {
         assert_eq!(
             select_latest_active_membership(&[]),
             Err("Caller has no Hearth membership record")
+        );
+    }
+
+    #[test]
+    fn admission_evidence_is_sorted_canonically() {
+        assert_eq!(
+            canonicalize_admission_evidence(vec![hash(0x33), hash(0x11), hash(0x22)]),
+            Ok(vec![hash(0x11), hash(0x22), hash(0x33)])
+        );
+    }
+
+    #[test]
+    fn admission_evidence_rejects_duplicates_and_empty_sets() {
+        assert_eq!(
+            canonicalize_admission_evidence(vec![]),
+            Err("Completion admission requires at least one evidence hash")
+        );
+        assert_eq!(
+            canonicalize_admission_evidence(vec![hash(0x11), hash(0x11)]),
+            Err("Completion admission evidence hashes must be unique")
+        );
+    }
+
+    #[test]
+    fn admission_evidence_rejects_more_than_32_references() {
+        let hashes = (0u8..33).map(hash).collect();
+        assert_eq!(
+            canonicalize_admission_evidence(hashes),
+            Err("Completion admission supports at most 32 evidence hashes")
         );
     }
 }
