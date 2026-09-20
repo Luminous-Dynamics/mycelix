@@ -21,6 +21,7 @@ members = [
     "crates/hearth-care-occurrence-time-evidence",
     "crates/hearth-care-occurrence-authority",
     "crates/hearth-care-completion-authority",
+    "crates/hearth-care-digest-v4",
     "edge/hearth-edge",
     "edge/hearth-edge-journal",
     "crates/hearth-coordinator-common",
@@ -122,6 +123,7 @@ hearth-care-occurrence-admission = { path = "crates/hearth-care-occurrence-admis
 hearth-care-occurrence-time-evidence = { path = "crates/hearth-care-occurrence-time-evidence" }
 hearth-care-occurrence-authority = { path = "crates/hearth-care-occurrence-authority" }
 hearth-care-completion-authority = { path = "crates/hearth-care-completion-authority" }
+hearth-care-digest-v4 = { path = "crates/hearth-care-digest-v4" }
 hearth-coordinator-common = { path = "crates/hearth-coordinator-common" }
 mycelix-bridge-common = { path = "../crates/mycelix-bridge-common" }
 mycelix-bridge-entry-types = { path = "../crates/mycelix-bridge-entry-types" }
