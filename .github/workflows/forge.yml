@@ -7,6 +7,7 @@ on:
       - "crates/mycelix-forge-authority/**"
       - "crates/mycelix-forge-authentication/**"
       - "crates/mycelix-forge-proposal/**"
+      - "crates/mycelix-forge-proposal-source/**"
       - "crates/mycelix-forge-review/**"
       - "crates/mycelix-forge-review-quorum/**"
       - "crates/mycelix-forge-review-census/**"
@@ -21,6 +22,7 @@ on:
       - "crates/mycelix-forge-authority/**"
       - "crates/mycelix-forge-authentication/**"
       - "crates/mycelix-forge-proposal/**"
+      - "crates/mycelix-forge-proposal-source/**"
       - "crates/mycelix-forge-review/**"
       - "crates/mycelix-forge-review-quorum/**"
       - "crates/mycelix-forge-review-census/**"
@@ -51,6 +53,8 @@ jobs:
             path: crates/mycelix-forge-authentication
           - name: Forge Proposal Contract
             path: crates/mycelix-forge-proposal
+          - name: Forge Proposal Source
+            path: crates/mycelix-forge-proposal-source
           - name: Forge Review Contract
             path: crates/mycelix-forge-review
           - name: Forge Review Quorum

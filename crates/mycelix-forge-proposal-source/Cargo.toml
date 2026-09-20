@@ -1,0 +1,18 @@
+[package]
+name = "mycelix-forge-proposal-source"
+version = "0.1.0"
+edition = "2021"
+authors = ["Luminous Dynamics"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+description = "Repository- and Git-evidence binding for exact Mycelix Forge change proposals"
+
+[dependencies]
+mycelix-forge-core = { path = "../mycelix-forge-core" }
+mycelix-forge-proposal = { path = "../mycelix-forge-proposal" }
+mycelix-forge-repository = { path = "../mycelix-forge-repository" }
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "2.0"
+
+[dev-dependencies]
+mycelix-forge-authority = { path = "../mycelix-forge-authority" }
