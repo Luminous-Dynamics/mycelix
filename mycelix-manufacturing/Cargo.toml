@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/manufacturing_common",
     "crates/hardware_projection",
+    "crates/facility_capability",
     "zomes/workorders/coordinator",
     "zomes/workorders/integrity",
     "zomes/bom/coordinator",
