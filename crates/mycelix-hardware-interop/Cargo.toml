@@ -1,0 +1,18 @@
+[package]
+name = "mycelix-hardware-interop"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Loss-aware standards airlock for Mycelix open hardware"
+
+[features]
+default = []
+experimental-spdx-3-1-dev = []
+
+[dependencies]
+mycelix-hardware-core = { path = "../mycelix-hardware-core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[lints.clippy]
+all = "warn"
