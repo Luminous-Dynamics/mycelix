@@ -1,0 +1,12 @@
+[package]
+name = "hearth-home-assistant-protocol"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Pure read-only Home Assistant WebSocket protocol state machine for Mycelix Hearth"
+
+[dependencies]
+hearth-home-assistant-observation = { path = "../hearth-home-assistant-observation" }
+
+[dev-dependencies]
+hearth-automation-types = { workspace = true }
