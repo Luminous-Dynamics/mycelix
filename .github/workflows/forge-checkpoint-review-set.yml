@@ -1,0 +1,36 @@
+name: Forge Checkpoint Review Set
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-forge-checkpoint-review-set/**'
+      - 'crates/mycelix-forge-review-head-snapshot/**'
+      - 'crates/mycelix-forge-review-head-witness/**'
+      - 'crates/mycelix-forge-review-state-auth/**'
+      - '.github/workflows/forge-checkpoint-review-set.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+      - name: rustfmt
+        working-directory: crates/mycelix-forge-checkpoint-review-set
+        run: cargo fmt --all -- --check
+      - name: clippy
+        working-directory: crates/mycelix-forge-checkpoint-review-set
+        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: tests
+        working-directory: crates/mycelix-forge-checkpoint-review-set
+        run: cargo test --all-features
