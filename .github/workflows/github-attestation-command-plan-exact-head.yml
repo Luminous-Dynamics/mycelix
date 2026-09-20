@@ -1,0 +1,472 @@
+name: Mycelix GitHub Attestation Command Plan Exact-Head
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication/**'
+      - '.github/workflows/github-attestation-command-plan-exact-head.yml'
+  workflow_dispatch:
+    inputs:
+      subject_sha:
+        description: 'Exact 40-hex commit SHA to qualify'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-attestation-command-plan-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Exact-head GitHub attestation command-plan qualification
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Resolve exact subject
+        id: subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            subject='${{ github.event.pull_request.head.sha }}'
+          else
+            subject='${{ inputs.subject_sha }}'
+          fi
+          [[ "$subject" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid subject SHA: $subject" >&2; exit 1; }
+          echo "sha=$subject" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ steps.subject.outputs.sha }}
+          fetch-depth: 1
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+
+      - name: Preflight exact source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          test -z "$(git status --porcelain)"
+          evidence="$RUNNER_TEMP/github-attestation-command-plan-evidence"
+          mkdir -p "$evidence"
+          {
+            echo "subject_sha=${{ steps.subject.outputs.sha }}"
+            echo "runner_os=${RUNNER_OS}"
+            echo "runner_arch=${RUNNER_ARCH}"
+            rustc -Vv
+            cargo -V
+          } > "$evidence/execution-capsule.txt"
+          find mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication \
+            -type f -not -path '*/target/*' -print0 | sort -z | xargs -0 sha256sum \
+            > "$evidence/source-sha256.txt"
+
+      - name: Check formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path \
+            mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication/Cargo.toml \
+            --all -- --check
+
+      - name: Prepare isolated resolved graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/github-command-plan-qual"
+          evidence="$RUNNER_TEMP/github-attestation-command-plan-evidence"
+          cp -a mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication "$crate"
+          cd "$crate"
+          cargo generate-lockfile
+          cp Cargo.lock "$evidence/Cargo.lock"
+          sha256sum Cargo.lock > "$evidence/Cargo.lock.sha256"
+          cargo metadata --locked --format-version 1 > "$evidence/cargo-metadata.json"
+          cargo tree --locked > "$evidence/cargo-tree.txt"
+
+      - name: Execute committed corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/github-command-plan-qual"
+          evidence="$RUNNER_TEMP/github-attestation-command-plan-evidence"
+          cd "$crate"
+          cargo test --locked --all-targets -- --nocapture | tee "$evidence/committed-tests.txt"
+          cargo test --locked --all-targets -- --list > "$evidence/committed-test-list.txt"
+
+      - name: Install external command-plan probes
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/github-command-plan-qual"
+          mkdir -p "$crate/tests"
+          cat > "$crate/tests/github_command_plan_public_probe.rs" <<'RS'
+          use proofs_evidence_authentication::{
+              AuthenticationFreshnessPolicyV1, GitObjectIdV1,
+              GitHubCommandPlanAuthorityV1, GitHubCommandPlanErrorV1,
+              GitHubExecutionStepAuthorityV1, GitHubPublicVerifierExecutionPolicyV1,
+              GitHubVerifierExecutionPolicyAuthorityV1, GitHubVerifierExecutionPolicyErrorV1,
+              GitHubVerifierStdoutDispositionV1, GitHubVerifierStepPurposeV1,
+              NixVerifierClosureIdentityV1, QualificationReceiptV1, QualificationResultV1,
+              ReceiptAuthenticationPolicyV1, Sha256DigestV1, SourceRevisionPolicyV1,
+              TransparencyPolicyV1, VerifierExecutableIdentityV1, VerifierProfileV1,
+              WorkflowRevisionPolicyV1, GITHUB_ACTIONS_OIDC_ISSUER_V1,
+              GITHUB_PUBLIC_BACKEND_FAMILY_V1, GITHUB_PUBLIC_COMMAND_PROFILE_ID_V1,
+              GITHUB_PUBLIC_PLATFORM_PROFILE_V1, MYCELIX_QUALIFICATION_PREDICATE_TYPE_V1,
+              MYCELIX_QUALIFICATION_SUBJECT_NAME_V1, MYCELIX_REPOSITORY_OWNER_V1,
+              MYCELIX_REPOSITORY_V1,
+              build_github_public_command_plan_with_execution_policy_v1,
+              github_public_verifier_execution_steps_v1,
+          };
+
+          fn digest(byte: u8) -> Sha256DigestV1 {
+              Sha256DigestV1::from_bytes([byte; 32])
+          }
+
+          fn verifier() -> VerifierExecutableIdentityV1 {
+              VerifierExecutableIdentityV1 {
+                  profile_id: "gh-exact-v1".into(),
+                  backend_family: GITHUB_PUBLIC_BACKEND_FAMILY_V1.into(),
+                  semantic_version: "2.101.0".into(),
+                  executable_sha256: digest(7),
+                  platform_profile: GITHUB_PUBLIC_PLATFORM_PROFILE_V1.into(),
+                  command_profile_id: GITHUB_PUBLIC_COMMAND_PROFILE_ID_V1.into(),
+                  nix_closure: Some(NixVerifierClosureIdentityV1 {
+                      store_path: "/nix/store/example-gh/bin/gh".into(),
+                      closure_digest: digest(8),
+                  }),
+              }
+          }
+
+          fn execution_policy() -> GitHubPublicVerifierExecutionPolicyV1 {
+              GitHubPublicVerifierExecutionPolicyV1::new(
+                  "github-public-exact-executable-v1",
+                  "github-public-v1",
+                  "github-attestation-verifier-v1",
+                  "public-sigstore-qualification-v1",
+                  verifier(),
+                  "/nix/store/example-gh/bin/gh",
+              ).unwrap()
+          }
+
+          fn authentication_policy() -> ReceiptAuthenticationPolicyV1 {
+              ReceiptAuthenticationPolicyV1 {
+                  profile_id: "github-public-v1".into(),
+                  verifier_profile: VerifierProfileV1 {
+                      profile_id: "github-attestation-verifier-v1".into(),
+                      backend_family: GITHUB_PUBLIC_BACKEND_FAMILY_V1.into(),
+                      backend_version: "2.101.0".into(),
+                      verification_profile: "public-sigstore-qualification-v1".into(),
+                  },
+                  expected_attestation_subject_name: MYCELIX_QUALIFICATION_SUBJECT_NAME_V1.into(),
+                  expected_predicate_type: MYCELIX_QUALIFICATION_PREDICATE_TYPE_V1.into(),
+                  expected_predicate_schema: "mycelix-qualification-attestation-predicate-v1".into(),
+                  trusted_root_profile: "sigstore-public-good-v1".into(),
+                  trusted_root_digest: digest(9),
+                  oidc_issuer: GITHUB_ACTIONS_OIDC_ISSUER_V1.into(),
+                  source_repository: MYCELIX_REPOSITORY_V1.into(),
+                  source_repository_owner: MYCELIX_REPOSITORY_OWNER_V1.into(),
+                  signer_workflow: ".github/workflows/qualify.yml".into(),
+                  signer_workflow_revision: WorkflowRevisionPolicyV1::Exact(
+                      GitObjectIdV1::sha1([0xbb; 20]),
+                  ),
+                  source_revision: SourceRevisionPolicyV1 {
+                      exact_commit: GitObjectIdV1::sha1([0xaa; 20]),
+                      exact_git_ref: Some("refs/heads/main".into()),
+                  },
+                  transparency_policy: TransparencyPolicyV1::PublicTransparencyRequired,
+                  freshness_policy: AuthenticationFreshnessPolicyV1::CurrentAtVerification,
+              }
+          }
+
+          fn receipt() -> QualificationReceiptV1 {
+              QualificationReceiptV1 {
+                  receipt_version: 1,
+                  qualification_profile: "myc-zkp-range-001aq".into(),
+                  statement_profile: "range-membership-v1".into(),
+                  theorem_profile: "range-membership-v1-air".into(),
+                  subject: GitObjectIdV1::sha1([0xaa; 20]),
+                  dependency_graph_digest: digest(1),
+                  measured_security_receipt_digest: digest(2),
+                  coherence_policy_id: "coherence-v1".into(),
+                  coherence_result_digest: digest(3),
+                  qualification_corpus_digest: digest(4),
+                  execution_capsule_digest: digest(5),
+                  result: QualificationResultV1::Pass,
+                  nonclaims: vec!["application authority not granted".into()],
+              }
+          }
+
+          fn plan() -> proofs_evidence_authentication::GitHubPublicCommandPlanV1 {
+              build_github_public_command_plan_with_execution_policy_v1(
+                  &execution_policy(),
+                  &authentication_policy(),
+                  &receipt(),
+                  &verifier(),
+                  GitObjectIdV1::sha1([0xbb; 20]),
+                  "/tmp/mycelix-gh-verify",
+              ).unwrap()
+          }
+
+          fn flag_value<'a>(args: &'a [String], flag: &str) -> &'a str {
+              let index = args.iter().position(|arg| arg == flag).expect("missing flag");
+              args.get(index + 1).expect("missing flag value")
+          }
+
+          #[test]
+          fn deterministic_plan_is_structural_only_and_fully_explicit() {
+              let a = plan();
+              let b = plan();
+              assert_eq!(a.authority_scope(), GitHubCommandPlanAuthorityV1::CommandPlanOnly);
+              assert!(!a.executes_processes());
+              assert!(!a.establishes_receipt_authentication());
+              assert!(!a.grants_production_authority());
+              assert_eq!(a.command_arguments_digest(), b.command_arguments_digest());
+              assert_eq!(a.environment_profile_digest(), b.environment_profile_digest());
+              assert_eq!(flag_value(a.verify_args(), "--repo"), MYCELIX_REPOSITORY_V1);
+              assert_eq!(flag_value(a.verify_args(), "--predicate-type"), MYCELIX_QUALIFICATION_PREDICATE_TYPE_V1);
+              assert_eq!(flag_value(a.verify_args(), "--cert-oidc-issuer"), GITHUB_ACTIONS_OIDC_ISSUER_V1);
+              assert_eq!(flag_value(a.verify_args(), "--source-ref"), "refs/heads/main");
+              assert!(a.verify_args().iter().any(|arg| arg == "--deny-self-hosted-runners"));
+              assert_eq!(flag_value(a.verify_args(), "--format"), "json");
+          }
+
+          #[test]
+          fn exact_executable_identity_rejects_same_version_different_binary() {
+              let mut observed = verifier();
+              observed.executable_sha256 = digest(0xee);
+              assert_eq!(
+                  build_github_public_command_plan_with_execution_policy_v1(
+                      &execution_policy(), &authentication_policy(), &receipt(), &observed,
+                      GitObjectIdV1::sha1([0xbb; 20]), "/tmp/mycelix-gh-verify",
+                  ),
+                  Err(GitHubVerifierExecutionPolicyErrorV1::ObservedVerifierIdentityMismatch)
+              );
+          }
+
+          #[test]
+          fn authentication_and_source_substitutions_fail_closed() {
+              let mut authentication = authentication_policy();
+              authentication.verifier_profile.backend_version = "2.102.0".into();
+              assert_eq!(
+                  build_github_public_command_plan_with_execution_policy_v1(
+                      &execution_policy(), &authentication, &receipt(), &verifier(),
+                      GitObjectIdV1::sha1([0xbb; 20]), "/tmp/mycelix-gh-verify",
+                  ),
+                  Err(GitHubVerifierExecutionPolicyErrorV1::AuthenticationBackendVersionMismatch)
+              );
+
+              let mut authentication = authentication_policy();
+              authentication.source_repository = "attacker/repo".into();
+              assert_eq!(
+                  build_github_public_command_plan_with_execution_policy_v1(
+                      &execution_policy(), &authentication, &receipt(), &verifier(),
+                      GitObjectIdV1::sha1([0xbb; 20]), "/tmp/mycelix-gh-verify",
+                  ),
+                  Err(GitHubVerifierExecutionPolicyErrorV1::CommandPlan(
+                      GitHubCommandPlanErrorV1::WrongRepository,
+                  ))
+              );
+
+              let mut wrong_receipt = receipt();
+              wrong_receipt.subject = GitObjectIdV1::sha1([0xcc; 20]);
+              assert_eq!(
+                  build_github_public_command_plan_with_execution_policy_v1(
+                      &execution_policy(), &authentication_policy(), &wrong_receipt, &verifier(),
+                      GitObjectIdV1::sha1([0xbb; 20]), "/tmp/mycelix-gh-verify",
+                  ),
+                  Err(GitHubVerifierExecutionPolicyErrorV1::CommandPlan(
+                      GitHubCommandPlanErrorV1::ReceiptSubjectDoesNotMatchSourceRevision,
+                  ))
+              );
+
+              assert_eq!(
+                  build_github_public_command_plan_with_execution_policy_v1(
+                      &execution_policy(), &authentication_policy(), &receipt(), &verifier(),
+                      GitObjectIdV1::sha1([0xcc; 20]), "/tmp/mycelix-gh-verify",
+                  ),
+                  Err(GitHubVerifierExecutionPolicyErrorV1::CommandPlan(
+                      GitHubCommandPlanErrorV1::SignerRevisionNotAllowed,
+                  ))
+              );
+          }
+
+          #[test]
+          fn execution_graph_binds_cwd_outputs_and_stdout_routing() {
+              let plan = plan();
+              let steps = github_public_verifier_execution_steps_v1(&plan);
+              assert_eq!(steps.len(), 3);
+              assert_eq!(steps[0].purpose(), GitHubVerifierStepPurposeV1::DownloadAttestations);
+              assert_eq!(steps[1].purpose(), GitHubVerifierStepPurposeV1::FetchTrustedRoot);
+              assert_eq!(steps[2].purpose(), GitHubVerifierStepPurposeV1::VerifyAttestation);
+              assert_eq!(steps[0].working_directory(), plan.working_directory());
+              assert_eq!(steps[0].expected_output_files()[0], plan.bundle_path());
+              assert_eq!(steps[1].expected_output_files()[0], plan.trusted_root_path());
+              assert!(matches!(
+                  steps[1].stdout_disposition(),
+                  GitHubVerifierStdoutDispositionV1::WriteFileBounded { path, .. }
+                      if path == plan.trusted_root_path()
+              ));
+              assert!(matches!(
+                  steps[2].stdout_disposition(),
+                  GitHubVerifierStdoutDispositionV1::CaptureBounded { .. }
+              ));
+              for step in &steps {
+                  assert_eq!(step.authority_scope(), GitHubExecutionStepAuthorityV1::ExecutionPlanOnly);
+                  assert!(!step.executes_process());
+                  assert!(!step.establishes_receipt_authentication());
+                  assert!(!step.grants_production_authority());
+                  assert!(!step.grants_application_authority());
+              }
+          }
+
+          #[test]
+          fn environment_policy_binds_names_but_never_secret_values() {
+              let plan = plan();
+              assert!(plan.clear_environment());
+              assert_eq!(plan.inherited_secret_environment_keys(), &["GH_TOKEN"]);
+              let keys: Vec<_> = plan.fixed_environment().iter().map(|v| v.key()).collect();
+              assert!(keys.contains(&"GH_CONFIG_DIR"));
+              assert!(keys.contains(&"GH_HOST"));
+              assert!(keys.contains(&"GH_PROMPT_DISABLED"));
+              assert!(keys.contains(&"HOME"));
+              assert!(keys.contains(&"NO_COLOR"));
+              assert!(!keys.contains(&"GH_TOKEN"));
+          }
+
+          #[test]
+          fn execution_policy_is_structural_only() {
+              let policy = execution_policy();
+              assert_eq!(
+                  policy.authority_scope(),
+                  GitHubVerifierExecutionPolicyAuthorityV1::StructuralPolicyOnly,
+              );
+              assert!(!policy.establishes_verifier_authenticity());
+              assert!(!policy.establishes_receipt_authentication());
+              assert!(!policy.grants_production_authority());
+          }
+          RS
+
+      - name: Execute external command-plan probes
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/github-command-plan-qual"
+          evidence="$RUNNER_TEMP/github-attestation-command-plan-evidence"
+          cd "$crate"
+          cargo test --locked --test github_command_plan_public_probe -- --nocapture \
+            | tee "$evidence/public-command-plan-probes.txt"
+
+      - name: Prove unadmitted low-level builder is not public
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/github-command-plan-qual"
+          evidence="$RUNNER_TEMP/github-attestation-command-plan-evidence"
+          cat > "$crate/tests/no_low_level_builder.rs" <<'RS'
+          use proofs_evidence_authentication::build_github_public_command_plan_v1;
+          #[test] fn probe() { let _ = build_github_public_command_plan_v1; }
+          RS
+          set +e
+          (
+            cd "$crate"
+            CARGO_TERM_COLOR=never cargo check --locked --test no_low_level_builder
+          ) > "$evidence/no-low-level-builder.stdout.txt" \
+            2> "$evidence/no-low-level-builder.stderr.txt"
+          status=$?
+          set -e
+          if [[ $status -eq 0 ]]; then
+            echo "low-level builder unexpectedly exported" >&2
+            exit 1
+          fi
+          grep -Fq "build_github_public_command_plan_v1" "$evidence/no-low-level-builder.stderr.txt"
+          grep -Fq "unresolved import" "$evidence/no-low-level-builder.stderr.txt"
+
+      - name: Prove command plan cannot convert into authenticated receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/github-command-plan-qual"
+          evidence="$RUNNER_TEMP/github-attestation-command-plan-evidence"
+          cat > "$crate/tests/no_plan_to_authentication.rs" <<'RS'
+          use proofs_evidence_authentication::{
+              AuthenticatedQualificationReceiptV1, GitHubPublicCommandPlanV1,
+          };
+          fn require_into<T: Into<AuthenticatedQualificationReceiptV1>>() {}
+          #[test] fn probe() { require_into::<GitHubPublicCommandPlanV1>(); }
+          RS
+          set +e
+          (
+            cd "$crate"
+            CARGO_TERM_COLOR=never cargo check --locked --test no_plan_to_authentication
+          ) > "$evidence/no-plan-to-authentication.stdout.txt" \
+            2> "$evidence/no-plan-to-authentication.stderr.txt"
+          status=$?
+          set -e
+          if [[ $status -eq 0 ]]; then
+            echo "command plan unexpectedly converts into authenticated capability" >&2
+            exit 1
+          fi
+          grep -Fq "AuthenticatedQualificationReceiptV1" "$evidence/no-plan-to-authentication.stderr.txt"
+          grep -Fq "trait bound" "$evidence/no-plan-to-authentication.stderr.txt"
+
+      - name: Remove qualification-only probes
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/github-command-plan-qual/tests"
+
+      - name: Warnings-denied Clippy
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/github-command-plan-qual"
+          evidence="$RUNNER_TEMP/github-attestation-command-plan-evidence"
+          cd "$crate"
+          cargo clippy --locked --all-targets -- -D warnings | tee "$evidence/clippy.txt"
+
+      - name: Verify checkout immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          test -z "$(git status --porcelain)"
+          evidence="$RUNNER_TEMP/github-attestation-command-plan-evidence"
+          find mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication \
+            -type f -not -path '*/target/*' -print0 | sort -z | xargs -0 sha256sum \
+            > "$evidence/source-sha256-post.txt"
+          cmp "$evidence/source-sha256.txt" "$evidence/source-sha256-post.txt"
+
+      - name: Write qualification receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/github-attestation-command-plan-evidence"
+          cat > "$evidence/QUALIFICATION.txt" <<EOF
+          MYC-ZKP-GH-PLAN-001AQ PASS
+          subject_sha=${{ steps.subject.outputs.sha }}
+          authority_scope=CommandPlanOnly
+          process_execution=false
+          cryptographic_verification=false
+          receipt_authentication=false
+          production_admission=false
+          application_authority=false
+          EOF
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: myc-zkp-gh-plan-001aq-${{ steps.subject.outputs.sha }}
+          path: ${{ runner.temp }}/github-attestation-command-plan-evidence
+          if-no-files-found: warn
+          retention-days: 30
