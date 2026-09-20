@@ -1,0 +1,19 @@
+[package]
+name = "psi-query-credit-spend-core"
+version = "0.1.0"
+edition = "2024"
+authors = ["Mycelix Network"]
+description = "Process-local atomic spend reference semantics for Mycelix Privacy Pass query credits"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+publish = false
+
+[dependencies]
+psi-privacy-pass-credit-core = { path = "../psi-privacy-pass-credit-core" }
+serde = { version = "1.0", features = ["derive"] }
+sha2 = "0.10"
+
+[dev-dependencies]
+serde_json = "1.0"
+
+[workspace]
