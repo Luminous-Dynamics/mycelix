@@ -21,6 +21,7 @@ members = [
     "edge/hearth-edge",
     "edge/hearth-edge-journal",
     "crates/hearth-coordinator-common",
+    "tools/hearth-recurrence-wasm-probe",
 
     # Kinship (core membership + relationships)
     "zomes/hearth-kinship/integrity",
