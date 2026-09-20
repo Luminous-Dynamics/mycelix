@@ -1,0 +1,46 @@
+name: Forge Provider-Verified Review
+
+on:
+  pull_request:
+    paths:
+      - "crates/mycelix-forge-review-provider/**"
+      - ".github/workflows/forge-review-provider.yml"
+  push:
+    branches: [main]
+    paths:
+      - "crates/mycelix-forge-review-provider/**"
+      - ".github/workflows/forge-review-provider.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: forge-provider-verified-review-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  review-provider:
+    name: Provider-verified review boundary
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: crates/mycelix-forge-review-provider
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned Rust 1.96
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+
+      - name: Format
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Test provider-verified review boundary
+        run: cargo test --all-features
