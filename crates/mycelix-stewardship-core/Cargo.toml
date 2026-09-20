@@ -1,0 +1,15 @@
+[package]
+name = "mycelix-stewardship-core"
+version = "0.1.0"
+edition = "2024"
+description = "Dependency-free stewardship identity theorems for Mycelix"
+license = "AGPL-3.0-or-later"
+authors = ["Luminous Dynamics <contact@luminousdynamics.org>"]
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+readme = "README.md"
+
+[lib]
+name = "mycelix_stewardship_core"
+path = "src/lib.rs"
+
+[dependencies]
