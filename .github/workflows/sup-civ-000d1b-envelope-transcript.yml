@@ -1,0 +1,178 @@
+name: SUP-CIV-000D1B Protected Envelope Canonical Transcript
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/docs/civic-resilience/SUP_CIV_000D1B_PROTECTED_ENVELOPE_TRANSCRIPT_V1.md'
+      - 'mycelix-workspace/docs/civic-resilience/sup_civ_000d1b_vectors.json'
+      - 'mycelix-workspace/scripts/sup_civ_protected_envelope_codec_v1.py'
+      - '.github/workflows/sup-civ-000d1b-envelope-transcript.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prove exact stacked subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='3e2d22b711311d91b3fbde8844817f932d5f8226'
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          test "$(git rev-list --count "$EXPECTED_PARENT"..HEAD)" = '1'
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PARENT" HEAD | sort)
+          expected=(
+            '.github/workflows/sup-civ-000d1b-envelope-transcript.yml'
+            'mycelix-workspace/docs/civic-resilience/SUP_CIV_000D1B_PROTECTED_ENVELOPE_TRANSCRIPT_V1.md'
+            'mycelix-workspace/docs/civic-resilience/sup_civ_000d1b_vectors.json'
+            'mycelix-workspace/scripts/sup_civ_protected_envelope_codec_v1.py'
+          )
+          test "${#changed[@]}" = "${#expected[@]}"
+          for i in "${!expected[@]}"; do
+            test "${changed[$i]}" = "${expected[$i]}"
+          done
+
+      - name: Prove exact vector corpus identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED='f4054846997465f2d3f577d97f834a4fa4235bd3893b7debfd1425ac49d82027'
+          ACTUAL="$(sha256sum mycelix-workspace/docs/civic-resilience/sup_civ_000d1b_vectors.json | awk '{print $1}')"
+          test "$ACTUAL" = "$EXPECTED"
+
+      - name: Syntax-check independent codec
+        run: python3 -m py_compile mycelix-workspace/scripts/sup_civ_protected_envelope_codec_v1.py
+
+      - name: Execute exact byte and rejection corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 mycelix-workspace/scripts/sup_civ_protected_envelope_codec_v1.py --vectors mycelix-workspace/docs/civic-resilience/sup_civ_000d1b_vectors.json --receipt /tmp/sup-civ-000d1b-receipt.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          vectors = json.loads(Path(
+              'mycelix-workspace/docs/civic-resilience/sup_civ_000d1b_vectors.json'
+          ).read_text())
+          receipt = json.loads(Path('/tmp/sup-civ-000d1b-receipt.json').read_text())
+
+          assert vectors['schema'] == 'sup-civ-000d1b-vectors-v1'
+          assert vectors['authority'] == 'canonical-byte-transcript-only'
+          assert vectors['parent_exact_head'] == '3e2d22b711311d91b3fbde8844817f932d5f8226'
+          assert vectors['bounds'] == {
+              'max_ciphertext_len': 9223372036854775807,
+              'max_metadata_bytes': 524288,
+              'max_recipients': 64,
+              'max_wrapped_dek_len': 4096,
+          }
+          assert vectors['reference_profile_range'] == {
+              'max': 65535,
+              'min': 61440,
+              'production_meaning': 'forbidden-until-000D1C',
+          }
+          assert len(vectors['positive_vectors']) == 12
+          assert len(vectors['negative_vectors']) == 22
+          assert len({v['id'] for v in vectors['positive_vectors']}) == 12
+          assert len({v['id'] for v in vectors['negative_vectors']}) == 22
+
+          assert receipt['positive_count'] == 12
+          assert receipt['negative_count'] == 22
+          assert receipt['all_vectors_passed'] is True
+          assert receipt['canonical_bytes_authority'] == 'normative-v1-transcript'
+          assert receipt['fixture_sha256_authority'] == 'fixture-integrity-only-not-runtime-envelope-id'
+          assert receipt['vector_file_sha256'] == 'f4054846997465f2d3f577d97f834a4fa4235bd3893b7debfd1425ac49d82027'
+
+          by_id = {v['id']: v for v in vectors['positive_vectors']}
+          assert by_id['full-two-recipients']['expected_hex'] == by_id['full-two-recipients-reversed-input']['expected_hex']
+          assert by_id['aad-base']['expected_hex'] == by_id['aad-revision-only-unchanged']['expected_hex']
+          assert by_id['aad-base']['expected_hex'] != by_id['aad-fresh-key-epoch']['expected_hex']
+          assert by_id['wrap-r1']['expected_hex'] != by_id['wrap-r1-fresh-epoch']['expected_hex']
+
+          assert set(vectors['required_non_equivalences']) == {
+              'CanonicalEnvelopeBytes != RustSerdeBytes',
+              'CanonicalEnvelopeBytes != EnvelopeHash',
+              'CanonicalEnvelopeBytes != CryptographicValidity',
+              'PayloadAadV1 != FullEnvelopeV1',
+              'PayloadVersion != EnvelopeRevision',
+              'EnvelopeRevision != KeyEpoch',
+              'TestProfileId != ProductionCryptoProfile',
+              'VectorSHA256 != RuntimeEnvelopeId',
+              'CanonicalDecode != NormalizeAndAccept',
+          }
+          print('PASS_SUP_CIV_000D1B_CANONICAL_TRANSCRIPT')
+          PY
+
+      - name: Prove all reference profile IDs stay test-reserved
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          vectors = json.loads(Path(
+              'mycelix-workspace/docs/civic-resilience/sup_civ_000d1b_vectors.json'
+          ).read_text())
+
+          ids = []
+          for fixture in vectors['fixtures'].values():
+              if 'commitment_profile_id' in fixture:
+                  ids.append(fixture['commitment_profile_id'])
+              if 'aead_profile_id' in fixture:
+                  ids.append(fixture['aead_profile_id'])
+              for r in fixture.get('recipients', []):
+                  ids.extend([r['key_profile'], r['wrap_profile']])
+
+          assert ids
+          assert all(0xF000 <= i <= 0xFFFF for i in ids), sorted(set(ids))
+          print('test-reserved profile ids only:', sorted(set(ids)))
+          PY
+
+      - name: Prove stdlib-only reference implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import ast
+          from pathlib import Path
+
+          path = Path('mycelix-workspace/scripts/sup_civ_protected_envelope_codec_v1.py')
+          tree = ast.parse(path.read_text())
+          allowed = {
+              '__future__', 'argparse', 'dataclasses', 'hashlib', 'json',
+              'pathlib', 'struct', 'typing'
+          }
+          imports = set()
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Import):
+                  imports.update(alias.name.split('.')[0] for alias in node.names)
+              elif isinstance(node, ast.ImportFrom) and node.module:
+                  imports.add(node.module.split('.')[0])
+          unexpected = imports - allowed
+          assert not unexpected, unexpected
+          print('stdlib-only codec imports:', sorted(imports))
+          PY
+
+      - name: Refuse production/build/runtime changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='3e2d22b711311d91b3fbde8844817f932d5f8226'
+          if git diff --name-only "$EXPECTED_PARENT" HEAD | grep -E '\.(rs|toml|lock|nix)$'; then
+            echo 'production/build file entered canonical-transcript tranche' >&2
+            exit 1
+          fi
+
+      - name: Prove checkout remained immutable
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf mycelix-workspace/scripts/__pycache__
+          test -z "$(git status --porcelain)"
