@@ -6,15 +6,16 @@
 //! This crate intentionally contains no cryptographic verifier backend yet. It freezes
 //! the canonical receipt identity, exact authentication policy, opaque capability,
 //! strict untrusted-wire parsing boundary, non-authoritative verifier-execution
-//! evidence, deterministic GitHub verifier command/I/O planning, and strict parsed
-//! verifier-output evidence that future separately-qualified backends may use after
-//! full verification.
+//! evidence, deterministic GitHub verifier command/I/O planning, strict parsed
+//! verifier-output evidence, and retained-root trust-domain classification that future
+//! separately-qualified backends may use after full verification.
 
 mod canonical;
 mod capability;
 mod github_cli_execution_policy;
 mod github_cli_plan;
 mod github_cli_steps;
+mod github_trusted_root;
 mod github_verification_result;
 mod policy;
 mod predicate;
@@ -54,6 +55,18 @@ pub use github_cli_steps::{
     GitHubExecutionStepAuthorityV1, GitHubVerifierExecutionStepV1,
     GitHubVerifierStdoutDispositionV1, GitHubVerifierStepPurposeV1,
     github_public_verifier_execution_steps_v1,
+};
+pub use github_trusted_root::{
+    GITHUB_DEFAULT_DUAL_TRUSTED_ROOT_PROFILE_V1,
+    GITHUB_DEFAULT_DUAL_TRUSTED_ROOT_RECORDS_V1, MAX_GITHUB_TRUSTED_ROOT_CAS_V1,
+    MAX_GITHUB_TRUSTED_ROOT_JSONL_BYTES_V1, MAX_GITHUB_TRUSTED_ROOT_TLOGS_V1,
+    MAX_GITHUB_TRUSTED_ROOT_URI_BYTES_V1, RETAINED_TRUSTED_ROOT_DIGEST_PROFILE_V1,
+    SIGSTORE_PUBLIC_GOOD_FULCIO_URI_V1, SIGSTORE_TRUSTED_ROOT_MEDIA_TYPE_V1,
+    GitHubResolvedTrustInstanceStatusV1, GitHubTransparencyResolutionAuthorityV1,
+    GitHubTransparencyResolutionV1, GitHubTrustedRootClassificationAuthorityV1,
+    GitHubTrustedRootClassificationErrorV1, GitHubTrustedRootClassificationV1,
+    classify_github_default_dual_trusted_root_v1,
+    resolve_github_candidate_transparency_v1,
 };
 pub use github_verification_result::{
     GITHUB_VERIFICATION_RESULT_PARSER_PROFILE_V1, MAX_GITHUB_CERTIFICATE_JSON_BYTES_V1,
