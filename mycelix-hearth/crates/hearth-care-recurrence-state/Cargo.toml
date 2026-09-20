@@ -1,0 +1,10 @@
+[package]
+name = "hearth-care-recurrence-state"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Append-only recurrence revision theorem for Mycelix Hearth Care"
+
+[dependencies]
+hearth-care-recurrence = { workspace = true }
+serde = { workspace = true }
