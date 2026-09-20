@@ -22,6 +22,7 @@ pub fn my_custom_getrandom(buf: &mut [u8]) -> Result<(), getrandom::Error> {
 }
 
 use personal_leptos_types::{
+    ConditionalMutationResultView, ConditionalPreferenceMutationInputView,
     DataSharingPreferenceEvidenceView, DataSharingPreferenceView, MutationReceiptView,
     PreferenceChangeLogView,
 };
@@ -76,6 +77,40 @@ pub fn set_preference_view(pref: DataSharingPreferenceView) -> ExternResult<Muta
     Ok(MutationReceiptView {
         action_hash: action_hash.to_string(),
     })
+}
+
+fn expected_action_matches(expected: Option<&str>, current: Option<&str>) -> bool {
+    expected == current
+}
+
+/// Conditionally replace one cluster-pair preference only when the exact
+/// source-chain action observed by the caller is still current for that pair.
+///
+/// `expected_action_hash=None` means the caller observed authoritative absence
+/// for the pair. A mismatch returns a typed conflict and creates no preference
+/// or change-log action.
+#[hdk_extern]
+pub fn set_preference_view_if_current(
+    input: ConditionalPreferenceMutationInputView,
+) -> ExternResult<ConditionalMutationResultView> {
+    let source = input.preference.source_cluster.clone();
+    let target = input.preference.target_cluster.clone();
+    let current = get_preference_record_for_pair(&source, &target)?;
+    let current_action_hash = current
+        .as_ref()
+        .map(|(record, _)| record.action_address().to_string());
+
+    if !expected_action_matches(
+        input.expected_action_hash.as_deref(),
+        current_action_hash.as_deref(),
+    ) {
+        return Ok(ConditionalMutationResultView::Conflict {
+            current_action_hash,
+        });
+    }
+
+    let receipt = set_preference_view(input.preference)?;
+    Ok(ConditionalMutationResultView::Committed { receipt })
 }
 
 fn should_replace_action_seq(current: Option<u32>, candidate: u32) -> bool {
@@ -256,11 +291,12 @@ pub struct FlowCheckInput {
     pub zome_name: String,
 }
 
-/// Internal: find the current self-authored preference for a cluster pair.
-fn get_preference_for_pair(
+/// Internal: find the current self-authored preference Record and decoded value
+/// for one cluster pair.
+fn get_preference_record_for_pair(
     source: &str,
     target: &str,
-) -> ExternResult<Option<DataSharingPreference>> {
+) -> ExternResult<Option<(Record, DataSharingPreference)>> {
     let agent = agent_info()?.agent_initial_pubkey;
     let tag = LinkTag::new(format!("{source}→{target}"));
     let links = get_links(
@@ -273,7 +309,7 @@ fn get_preference_for_pair(
         GetStrategy::Network,
     )?;
 
-    let mut latest: Option<(u32, DataSharingPreference)> = None;
+    let mut latest: Option<(u32, Record, DataSharingPreference)> = None;
     for link in links {
         let hash: ActionHash = link
             .target
@@ -287,13 +323,21 @@ fn get_preference_for_pair(
         };
 
         let candidate_seq = record.action().action_seq();
-        let current_seq = latest.as_ref().map(|(seq, _)| *seq);
+        let current_seq = latest.as_ref().map(|(seq, _, _)| *seq);
         if should_replace_action_seq(current_seq, candidate_seq) {
-            latest = Some((candidate_seq, pref));
+            latest = Some((candidate_seq, record, pref));
         }
     }
 
-    Ok(latest.map(|(_, pref)| pref))
+    Ok(latest.map(|(_, record, pref)| (record, pref)))
+}
+
+/// Internal: find the current self-authored preference value for a cluster pair.
+fn get_preference_for_pair(
+    source: &str,
+    target: &str,
+) -> ExternResult<Option<DataSharingPreference>> {
+    Ok(get_preference_record_for_pair(source, target)?.map(|(_, pref)| pref))
 }
 
 #[cfg(test)]
@@ -306,5 +350,14 @@ mod tests {
         assert!(should_replace_action_seq(Some(4), 5));
         assert!(!should_replace_action_seq(Some(5), 5));
         assert!(!should_replace_action_seq(Some(6), 5));
+    }
+
+    #[test]
+    fn conditional_preference_precondition_requires_exact_action_identity() {
+        assert!(expected_action_matches(None, None));
+        assert!(expected_action_matches(Some("A"), Some("A")));
+        assert!(!expected_action_matches(None, Some("A")));
+        assert!(!expected_action_matches(Some("A"), None));
+        assert!(!expected_action_matches(Some("A"), Some("B")));
     }
 }

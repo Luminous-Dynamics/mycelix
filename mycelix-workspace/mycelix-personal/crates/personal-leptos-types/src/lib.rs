@@ -177,6 +177,16 @@ pub struct MutationReceiptView {
     pub action_hash: String,
 }
 
+/// Result of a conditional Personal mutation.
+///
+/// A conflict is an expected concurrency result, not a transport/zome failure.
+/// `current_action_hash=None` means the current authoritative read is empty.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ConditionalMutationResultView {
+    Committed { receipt: MutationReceiptView },
+    Conflict { current_action_hash: Option<String> },
+}
+
 // ============================================================================
 // View Types (UI-facing structs with String IDs)
 // ============================================================================
@@ -188,6 +198,17 @@ pub struct ProfileView {
     pub bio: Option<String>,
     pub metadata: std::collections::HashMap<String, String>,
     pub updated_at: i64,
+}
+
+/// Conditional Profile replacement using the exact Profile action observed by
+/// the caller as its compare-and-set precondition.
+///
+/// `expected_action_hash=None` means the caller observed authoritative empty
+/// Profile state and expects there still to be no current Profile.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConditionalProfileMutationInputView {
+    pub expected_action_hash: Option<String>,
+    pub profile: ProfileView,
 }
 
 /// Evidence-bearing wrapper for the current profile read model.
@@ -255,6 +276,17 @@ pub struct DataSharingPreferenceView {
     pub blocked_zomes: Vec<String>,
     pub reason: String,
     pub updated_at: i64,
+}
+
+/// Conditional Preference replacement for one cluster pair.
+///
+/// `expected_action_hash` is the exact current action the caller observed for
+/// this pair. `None` means the caller observed no preference for the pair and
+/// expects the pair still to be absent.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConditionalPreferenceMutationInputView {
+    pub expected_action_hash: Option<String>,
+    pub preference: DataSharingPreferenceView,
 }
 
 /// Evidence-bearing wrapper for a data-sharing preference read-model row.
@@ -412,6 +444,26 @@ mod tests {
         let json = serde_json::to_string(&receipt).unwrap();
         let back: MutationReceiptView = serde_json::from_str(&json).unwrap();
         assert_eq!(back, receipt);
+    }
+
+    #[test]
+    fn conditional_mutation_result_roundtrip_preserves_conflict_identity() {
+        let result = ConditionalMutationResultView::Conflict {
+            current_action_hash: Some("uhCkk-current-action".into()),
+        };
+        let json = serde_json::to_string(&result).unwrap();
+        let back: ConditionalMutationResultView = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, result);
+    }
+
+    #[test]
+    fn conditional_mutation_result_roundtrip_preserves_empty_conflict() {
+        let result = ConditionalMutationResultView::Conflict {
+            current_action_hash: None,
+        };
+        let json = serde_json::to_string(&result).unwrap();
+        let back: ConditionalMutationResultView = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, result);
     }
 
     #[test]
