@@ -1,0 +1,22 @@
+[package]
+name = "mycelix-forge-checkpoint-review-set"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.96"
+authors = ["Luminous Dynamics"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+description = "Exact authenticated review state projected from witnessed Forge checkpoints"
+publish = false
+
+[dependencies]
+mycelix-forge-core = { path = "../mycelix-forge-core" }
+mycelix-forge-proposal = { path = "../mycelix-forge-proposal" }
+mycelix-forge-review-head-snapshot = { path = "../mycelix-forge-review-head-snapshot" }
+mycelix-forge-review-head-witness = { path = "../mycelix-forge-review-head-witness" }
+mycelix-forge-review-state = { path = "../mycelix-forge-review-state" }
+mycelix-forge-review-state-auth = { path = "../mycelix-forge-review-state-auth" }
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "2.0"
+
+[workspace]
