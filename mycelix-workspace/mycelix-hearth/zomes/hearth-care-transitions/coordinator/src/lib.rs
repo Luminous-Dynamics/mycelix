@@ -9,7 +9,9 @@
 
 use hdk::prelude::*;
 use hearth_care_integrity::CareSchedule;
-use hearth_care_transitions_integrity::{CareCompletion, EntryTypes, LinkTypes};
+use hearth_care_transitions_integrity::{
+    CareCompletion, EntryTypes, LinkTypes, is_canonical_care_completion_entry_def,
+};
 use hearth_coordinator_common::decode_zome_response;
 use hearth_kinship_integrity::HearthMembership;
 use hearth_types::MembershipStatus;
@@ -107,6 +109,7 @@ pub fn get_schedule_completion_evidence(
         )?,
         GetStrategy::default(),
     )?;
+    let dna = dna_info()?;
 
     let mut evidence = Vec::with_capacity(links.len());
     for link in links {
@@ -120,6 +123,18 @@ pub fn get_schedule_completion_evidence(
                 "CareCompletion link target was not found".into()
             ))
         })?;
+        let completion_entry_def = record.action().app_entry_def().ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "CareCompletion evidence link target is not an application entry".into()
+            ))
+        })?;
+        if !is_canonical_care_completion_entry_def(completion_entry_def, &dna.zome_names) {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "CareCompletion evidence link target is not canonical hearth_care_transitions_integrity::CareCompletion"
+                    .into()
+            )));
+        }
+
         let completion: CareCompletion = record
             .entry()
             .to_app_option()
