@@ -6,7 +6,7 @@
 use crate::conductor_error::{ConductorError, ConductorErrorKind};
 
 /// Errors that can occur during Holochain client operations.
-#[derive(Debug, thiserror::Error)]
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum ClientError {
     /// No active connection to the conductor.
     #[error("Not connected to conductor")]
@@ -106,6 +106,18 @@ mod tests {
             error.to_string(),
             "Conductor ZomeCallUnauthorized error: cap grant rejected"
         );
+    }
+
+    #[test]
+    fn client_errors_are_cloneable_value_evidence() {
+        let original = ClientError::Conductor(ConductorError {
+            kind: ConductorErrorKind::Ribosome,
+            message: "validation failed".into(),
+        });
+        let cloned = original.clone();
+
+        assert_eq!(cloned, original);
+        assert_eq!(cloned.conductor_kind(), Some(ConductorErrorKind::Ribosome));
     }
 
     #[test]

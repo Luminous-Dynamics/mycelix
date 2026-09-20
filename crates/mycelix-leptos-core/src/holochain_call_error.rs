@@ -42,7 +42,7 @@ impl HolochainCallPhase {
 
 /// A failed Holochain zome call with the exact call target and provider phase
 /// retained alongside the structured shared-client error.
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HolochainCallError {
     phase: HolochainCallPhase,
     role: String,
@@ -140,6 +140,25 @@ mod tests {
         assert_eq!(error.zome(), "identity_vault");
         assert_eq!(error.function(), "set_profile_view_if_current");
         assert!(matches!(error.client_error(), ClientError::Timeout(30_000)));
+    }
+
+    #[test]
+    fn typed_call_errors_are_cloneable_value_evidence() {
+        let original = HolochainCallError::new(
+            HolochainCallPhase::Transport,
+            "personal",
+            "identity_vault",
+            "set_profile_view_if_current",
+            ClientError::Conductor(ConductorError {
+                kind: ConductorErrorKind::Ribosome,
+                message: "validation failed".into(),
+            }),
+        );
+        let cloned = original.clone();
+
+        assert_eq!(cloned, original);
+        assert_eq!(cloned.phase(), HolochainCallPhase::Transport);
+        assert_eq!(cloned.conductor_kind(), Some(ConductorErrorKind::Ribosome));
     }
 
     #[test]
