@@ -1,0 +1,46 @@
+name: Forge Authenticated Review Revisions
+
+on:
+  pull_request:
+    paths:
+      - "crates/mycelix-forge-review-state-auth/**"
+      - ".github/workflows/forge-review-state-auth.yml"
+  push:
+    branches: [main]
+    paths:
+      - "crates/mycelix-forge-review-state-auth/**"
+      - ".github/workflows/forge-review-state-auth.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: forge-authenticated-review-revisions-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  review-state-auth:
+    name: Authenticated review revision boundary
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: crates/mycelix-forge-review-state-auth
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned Rust 1.96
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+
+      - name: Format
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Test authenticated review revision boundary
+        run: cargo test --all-features
