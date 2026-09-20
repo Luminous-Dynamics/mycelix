@@ -1,0 +1,115 @@
+{
+  "input": {
+    "economic_effect_commitment": "1111111111111111111111111111111111111111111111111111111111111111",
+    "graph_profile": {
+      "id": "fin-sync:pvp:v1",
+      "revision": 1,
+      "digest": "2222222222222222222222222222222222222222222222222222222222222222"
+    },
+    "temporal_profile": {
+      "id": "fin-time:execution-window:v1",
+      "revision": 1,
+      "digest": "3333333333333333333333333333333333333333333333333333333333333333"
+    },
+    "legs": [
+      {
+        "alias": "usd-leg",
+        "adapter_profile": {
+          "id": "adapter:synthetic-usd:v1",
+          "revision": 1,
+          "digest": "4444444444444444444444444444444444444444444444444444444444444444"
+        },
+        "rail": "SYNTHETIC_RTGS",
+        "network": "test-usd",
+        "source_subject": "org:bank-a:usd",
+        "destination_subject": "org:bank-b:usd",
+        "amount": {
+          "atomic_units": 1250000,
+          "asset": "USD:bank-a"
+        },
+        "asset_unit_profile": {
+          "id": "asset:usd-bank-a:v1",
+          "revision": 1,
+          "digest": "5555555555555555555555555555555555555555555555555555555555555555"
+        },
+        "required_finality_profile": {
+          "id": "finality:synthetic-usd:v1",
+          "revision": 1,
+          "digest": "6666666666666666666666666666666666666666666666666666666666666666"
+        },
+        "semantic_idempotency_ref": "effect-001:usd",
+        "purpose_profile": {
+          "id": "purpose:pvp-payment:v1",
+          "revision": 1,
+          "digest": "7777777777777777777777777777777777777777777777777777777777777777"
+        },
+        "delivery_asset_subject": null
+      },
+      {
+        "alias": "eur-leg",
+        "adapter_profile": {
+          "id": "adapter:synthetic-eur:v1",
+          "revision": 1,
+          "digest": "8888888888888888888888888888888888888888888888888888888888888888"
+        },
+        "rail": "SYNTHETIC_RTGS",
+        "network": "test-eur",
+        "source_subject": "org:bank-b:eur",
+        "destination_subject": "org:bank-a:eur",
+        "amount": {
+          "atomic_units": 1100000,
+          "asset": "EUR:bank-b"
+        },
+        "asset_unit_profile": {
+          "id": "asset:eur-bank-b:v1",
+          "revision": 1,
+          "digest": "9999999999999999999999999999999999999999999999999999999999999999"
+        },
+        "required_finality_profile": {
+          "id": "finality:synthetic-eur:v1",
+          "revision": 1,
+          "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "semantic_idempotency_ref": "effect-001:eur",
+        "purpose_profile": {
+          "id": "purpose:pvp-payment:v1",
+          "revision": 1,
+          "digest": "7777777777777777777777777777777777777777777777777777777777777777"
+        },
+        "delivery_asset_subject": null
+      }
+    ],
+    "dependencies": [
+      {
+        "kind": "conditional_on_evidence",
+        "leg_alias": "usd-leg",
+        "predicate_profile": {
+          "id": "compliance:synthetic:v1",
+          "revision": 1,
+          "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      }
+    ],
+    "coordination_groups": [
+      {
+        "alias": "fx-pvp",
+        "class": "pvp",
+        "coordination_profile": {
+          "id": "sync:pvp:synthetic:v1",
+          "revision": 1,
+          "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "member_aliases": [
+          "eur-leg",
+          "usd-leg"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "usd_leg_id": "59ecbd931e2d2d4fbb49708dda90e630ad2c0b41e1adbfb23b905b3310fb1e3d",
+    "eur_leg_id": "dc97fa0902800488dc6b2a256fd24808ceafa7cb0998778bf60dce4f168638e1",
+    "group_id": "eb83cae7a1017a5a147512563df0d12c336c7c0550e34d30c53ec49880e4149c",
+    "graph_commitment": "041bcb420a4f263b05b014db7ab785bfa5e01f19047ee4953595e89eb15c9537"
+  }
+}
