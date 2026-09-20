@@ -1,11 +1,10 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
-//! Coordinator for immutable Care lifecycle transition evidence.
+//! Coordinator for immutable Care completion evidence.
 //!
-//! This crate is intentionally workspace-only until the integrity and
-//! coordinator halves are independently qualified. No DNA manifest currently
-//! exposes these externs.
+//! These externs author/query evidence only. They do not admit lifecycle
+//! completion, discharge an obligation, or resolve legacy/v2 coexistence.
 
 use hdk::prelude::*;
 use hearth_care_integrity::CareSchedule;
@@ -16,7 +15,7 @@ use hearth_types::MembershipStatus;
 use mycelix_bridge_common::civic_requirement_basic;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct CompleteTaskV2Input {
+pub struct AttestCompletionV2Input {
     pub schedule_hash: ActionHash,
 }
 
@@ -27,17 +26,21 @@ struct MembershipCandidate {
     status: MembershipStatus,
 }
 
-/// Create immutable actor-authored completion evidence.
+/// Author immutable completion evidence concerning one CareSchedule revision.
+///
+/// Acceptance of this call establishes evidence only. It does not establish
+/// admitted lifecycle completion or current assignment. #2016/#2089 own
+/// coexistence and lifecycle admission.
 ///
 /// The caller does not supply actor identity, Hearth, assignee, or membership
 /// proof. Those values are derived from signed/local state and canonical
 /// Kinship records. Integrity independently re-proves every authority claim.
 #[hdk_extern]
-pub fn complete_task_v2(input: CompleteTaskV2Input) -> ExternResult<Record> {
+pub fn attest_completion_v2(input: AttestCompletionV2Input) -> ExternResult<Record> {
     mycelix_zome_helpers::require_civic(
         "hearth_bridge",
         &civic_requirement_basic(),
-        "complete_task_v2",
+        "attest_completion_v2",
     )?;
 
     let actor = agent_info()?.agent_initial_pubkey;
@@ -62,11 +65,8 @@ pub fn complete_task_v2(input: CompleteTaskV2Input) -> ExternResult<Record> {
 
     // Coordinator-side type decoding is only fast feedback. Transition
     // integrity independently proves the referenced action's actual zome and
-    // entry index before accepting the CareCompletion.
-    let actor_membership_hash = latest_active_membership_hash(
-        &schedule.hearth_hash,
-        &actor,
-    )?;
+    // entry index before accepting the CareCompletion evidence.
+    let actor_membership_hash = latest_active_membership_hash(&schedule.hearth_hash, &actor)?;
 
     let completion = CareCompletion {
         hearth_hash: schedule.hearth_hash,
@@ -86,16 +86,15 @@ pub fn complete_task_v2(input: CompleteTaskV2Input) -> ExternResult<Record> {
 
     get(completion_hash, GetOptions::default())?.ok_or_else(|| {
         wasm_error!(WasmErrorInner::Guest(
-            "Could not retrieve created CareCompletion".into()
+            "Could not retrieve created CareCompletion evidence".into()
         ))
     })
 }
 
-/// Return raw immutable completion evidence for a CareSchedule.
+/// Return raw immutable completion evidence for a CareSchedule revision.
 ///
-/// This intentionally does not claim a complete lifecycle projection while
-/// legacy CareSchedule status remains mutable. #2016 owns legacy/v2
-/// reconciliation before broad client rollout.
+/// This intentionally does not claim current assignment or a complete
+/// lifecycle projection. #2016/#2089 own legacy/v2 coexistence and admission.
 #[hdk_extern]
 pub fn get_schedule_completion_evidence(
     schedule_hash: ActionHash,
@@ -143,7 +142,7 @@ pub fn get_schedule_completion_evidence(
     }
 
     // Evidence order must not depend on DHT link-return order. Signed action
-    // timestamp is the canonical transition time; ActionHash breaks ties.
+    // timestamp is the canonical attestation time; ActionHash breaks ties.
     evidence.sort_by(|left, right| {
         left.action()
             .timestamp()
@@ -180,7 +179,7 @@ fn latest_active_membership_hash(
             .to_app_option()
             .map_err(|error| {
                 wasm_error!(WasmErrorInner::Guest(format!(
-                    "Failed to decode HearthMembership while preparing CareCompletion: {error}"
+                    "Failed to decode HearthMembership while preparing completion evidence: {error}"
                 )))
             })?
             .ok_or_else(|| {
@@ -205,9 +204,8 @@ fn latest_active_membership_hash(
         });
     }
 
-    select_latest_active_membership(&candidates).map_err(|message| {
-        wasm_error!(WasmErrorInner::Guest(message.into()))
-    })
+    select_latest_active_membership(&candidates)
+        .map_err(|message| wasm_error!(WasmErrorInner::Guest(message.into())))
 }
 
 /// Pure fail-closed selector used only as coordinator-side early feedback.
