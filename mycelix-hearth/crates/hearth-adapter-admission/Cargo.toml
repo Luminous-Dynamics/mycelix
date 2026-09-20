@@ -1,0 +1,10 @@
+[package]
+name = "hearth-adapter-admission"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Pure adapter admission profiles for Mycelix Hearth household automation"
+
+[dependencies]
+serde = { workspace = true }
+hearth-automation-types = { workspace = true }
