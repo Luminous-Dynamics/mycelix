@@ -1,0 +1,13 @@
+[package]
+name = "mycelix-evidence-ci-core"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Pure qualification liveness and conjunctive evidence semantics for Mycelix"
+
+[lib]
+name = "mycelix_evidence_ci_core"
+path = "src/lib.rs"
+crate-type = ["rlib"]
+
+[dependencies]
