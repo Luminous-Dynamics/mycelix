@@ -793,10 +793,7 @@ impl HolochainTransport for BrowserWsTransport {
                         )));
                     }
                     AppResponse::Error(e) => {
-                        return Err(ClientError::ConnectionFailed(format!(
-                            "app_info failed: {}",
-                            e.message()
-                        )));
+                        return Err(ClientError::from(e));
                     }
                     _ => {
                         return Err(ClientError::InvalidResponse(
@@ -918,9 +915,7 @@ impl HolochainTransport for BrowserWsTransport {
             // Try to decode as AppResponse for proper error handling
             match decode_tagged::<AppResponse>(&response_bytes) {
                 Ok(AppResponse::ZomeCalled(data)) => Ok(data),
-                Ok(AppResponse::Error(e)) => {
-                    Err(ClientError::ZomeCallFailed(e.message().to_string()))
-                }
+                Ok(AppResponse::Error(e)) => Err(ClientError::from(e)),
                 Ok(other) => Err(ClientError::InvalidResponse(format!(
                     "Unexpected response type for call_zome: {other:?}"
                 ))),
