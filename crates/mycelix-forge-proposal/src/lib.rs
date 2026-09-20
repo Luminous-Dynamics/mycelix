@@ -4,10 +4,10 @@
 //! Portable exact-subject change proposals for Mycelix Forge.
 //!
 //! A proposal is the immutable review subject for one source transition. It
-//! binds the exact project, claimed proposer, typed authority/repository-policy
-//! context, target ref, base/proposed commits, claimed resulting tree,
-//! project-policy commitment, immutable change intent, and typed proposal
-//! dependencies. Mutable discussion/UI metadata is deliberately excluded.
+//! binds the exact project, claimed proposer, typed authority/project-policy/
+//! repository-policy context, target ref, base/proposed commits, claimed
+//! resulting tree, immutable change intent, and typed proposal dependencies.
+//! Mutable discussion/UI metadata is deliberately excluded.
 //!
 //! This crate does **not** prove that the proposed commit has the claimed tree,
 //! authenticate the proposer, establish repository-policy compliance, or grant
@@ -20,6 +20,7 @@ use mycelix_forge_authority::{AuthorityEpoch, AuthorityError, PrincipalId};
 use mycelix_forge_core::{
     Digest, DigestAlgorithm, ProjectIdentity, ProtocolVersion, CURRENT_PROTOCOL_VERSION,
 };
+use mycelix_forge_project_policy::{ProjectPolicyError, ProjectPolicyStateV1};
 use mycelix_forge_repository::{
     GitObjectAlgorithm, GitObjectId, RepositoryPolicyState, RepositoryRef,
     RepositoryVerificationError,
@@ -65,17 +66,17 @@ pub struct ChangeProposal {
 }
 
 impl ChangeProposal {
-    /// Construct a v1 proposal from live typed authority and repository-policy
-    /// context.
+    /// Construct a v1 proposal from live typed authority, project-policy, and
+    /// repository-policy context.
     ///
-    /// Construction proves only that both supplied context objects belong to
-    /// the same project and that their exact commitments are embedded in the
-    /// proposal. It does not authenticate or authorize `proposer`.
+    /// Construction proves only that all three supplied context objects belong
+    /// to the same project and that their exact commitments are embedded in
+    /// the proposal. It does not authenticate or authorize `proposer`.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         proposer: PrincipalId,
         authority_epoch: &AuthorityEpoch,
-        project_policy: Digest,
+        project_policy: &ProjectPolicyStateV1,
         repository_policy_state: &RepositoryPolicyState,
         target_ref: RepositoryRef,
         base_revision: GitObjectId,
@@ -86,11 +87,15 @@ impl ChangeProposal {
         commitment_algorithm: DigestAlgorithm,
     ) -> Result<Self, ProposalError> {
         let project = authority_epoch.project().clone();
+        if project_policy.project() != &project {
+            return Err(ProposalError::ProjectPolicyProjectMismatch);
+        }
         if repository_policy_state.project() != &project {
             return Err(ProposalError::RepositoryPolicyProjectMismatch);
         }
 
         let authority_epoch = authority_epoch.digest(commitment_algorithm)?;
+        let project_policy = project_policy.digest(commitment_algorithm)?;
         let repository_policy_state = repository_policy_state.digest(commitment_algorithm)?;
         let dependencies = normalize_dependencies(dependencies)?;
 
@@ -187,7 +192,7 @@ impl ChangeProposal {
         &self.authority_epoch
     }
 
-    /// Exact project-policy context relevant to review/acceptance.
+    /// Exact typed project-policy-state context relevant to review/acceptance.
     pub fn project_policy(&self) -> &Digest {
         &self.project_policy
     }
@@ -320,6 +325,9 @@ pub enum ProposalError {
     /// Unsupported proposal protocol version.
     #[error("unsupported Forge change-proposal protocol version: {0}")]
     UnsupportedProtocolVersion(u16),
+    /// Typed project-policy state belongs to a different project than the authority epoch.
+    #[error("project-policy state project does not match authority-epoch project")]
+    ProjectPolicyProjectMismatch,
     /// Typed repository-policy state belongs to a different project than the authority epoch.
     #[error("repository-policy state project does not match authority-epoch project")]
     RepositoryPolicyProjectMismatch,
@@ -360,6 +368,9 @@ pub enum ProposalError {
     /// Authority-state validation/canonicalization failed.
     #[error(transparent)]
     Authority(#[from] AuthorityError),
+    /// Project-policy-state validation/canonicalization failed.
+    #[error(transparent)]
+    ProjectPolicy(#[from] ProjectPolicyError),
     /// Repository-policy-state validation/canonicalization failed.
     #[error(transparent)]
     Repository(#[from] RepositoryVerificationError),
@@ -424,6 +435,9 @@ mod tests {
     use super::*;
     use mycelix_forge_authority::{AuthorityEpochParts, Capability, CapabilityRule, PrincipalGrant};
     use mycelix_forge_core::{ProjectIdentitySeed, GENESIS_NONCE_LEN};
+    use mycelix_forge_project_policy::{
+        AuthenticationProviderTrustPolicyV1, TrustedProviderVerifierV1,
+    };
 
     fn digest(byte: u8) -> Digest {
         Digest::new(DigestAlgorithm::Sha256, vec![byte; 32]).unwrap()
@@ -455,8 +469,27 @@ mod tests {
         .unwrap()
     }
 
-    fn policy(project: ProjectIdentity) -> RepositoryPolicyState {
+    fn repository_policy(project: ProjectIdentity) -> RepositoryPolicyState {
         RepositoryPolicyState::new(project, 0, None, digest(0x31)).unwrap()
+    }
+
+    fn project_policy(project: ProjectIdentity, verifier_marker: u8) -> ProjectPolicyStateV1 {
+        let trust = AuthenticationProviderTrustPolicyV1::new(
+            project.clone(),
+            vec![TrustedProviderVerifierV1::new(
+                digest(0x90),
+                digest(verifier_marker),
+            )],
+        )
+        .unwrap();
+        ProjectPolicyStateV1::new(
+            project,
+            0,
+            None,
+            &trust,
+            DigestAlgorithm::Sha256,
+        )
+        .unwrap()
     }
 
     fn git(byte: u8) -> GitObjectId {
@@ -470,12 +503,13 @@ mod tests {
     fn proposal() -> ChangeProposal {
         let project = project(0x11);
         let authority = authority(project.clone(), principal(0x20), 1_000);
-        let policy = policy(project);
+        let project_policy = project_policy(project.clone(), 0x91);
+        let repository_policy = repository_policy(project);
         ChangeProposal::new(
             principal(0x21),
             &authority,
-            digest(0x32),
-            &policy,
+            &project_policy,
+            &repository_policy,
             RepositoryRef::new("refs/heads/main").unwrap(),
             git(0x40),
             git(0x41),
@@ -512,14 +546,15 @@ mod tests {
     fn proposed_revision_and_resulting_tree_mutations_change_identity() {
         let project = project(0x11);
         let authority = authority(project.clone(), principal(0x20), 1_000);
-        let policy = policy(project);
+        let project_policy = project_policy(project.clone(), 0x91);
+        let repository_policy = repository_policy(project);
         let baseline = proposal();
         for (proposed_revision, resulting_tree) in [(git(0x43), git(0x42)), (git(0x41), git(0x44))] {
             let mutated = ChangeProposal::new(
                 baseline.proposer().clone(),
                 &authority,
-                baseline.project_policy().clone(),
-                &policy,
+                &project_policy,
+                &repository_policy,
                 baseline.target_ref().clone(),
                 baseline.base_revision().clone(),
                 proposed_revision,
@@ -540,38 +575,41 @@ mod tests {
     fn policy_authority_intent_ref_author_and_dependency_changes_change_identity() {
         let baseline = proposal();
         let project = project(0x11);
-        let base_policy = policy(project.clone());
+        let base_repository_policy = repository_policy(project.clone());
+        let base_project_policy = project_policy(project.clone(), 0x91);
         let base_authority = authority(project.clone(), principal(0x20), 1_000);
         let changed_authority = authority(project.clone(), principal(0x20), 1_001);
-        let changed_repo_policy = RepositoryPolicyState::new(project.clone(), 0, None, digest(0x39)).unwrap();
+        let changed_project_policy = project_policy(project.clone(), 0x92);
+        let changed_repository_policy =
+            RepositoryPolicyState::new(project.clone(), 0, None, digest(0x39)).unwrap();
 
         let cases = vec![
             ChangeProposal::new(
-                principal(0x29), &base_authority, baseline.project_policy().clone(), &base_policy,
+                principal(0x29), &base_authority, &base_project_policy, &base_repository_policy,
                 baseline.target_ref().clone(), baseline.base_revision().clone(), baseline.proposed_revision().clone(), baseline.resulting_tree().clone(), baseline.change_intent().clone(), baseline.dependencies().to_vec(), DigestAlgorithm::Sha256,
             ).unwrap(),
             ChangeProposal::new(
-                baseline.proposer().clone(), &changed_authority, baseline.project_policy().clone(), &base_policy,
+                baseline.proposer().clone(), &changed_authority, &base_project_policy, &base_repository_policy,
                 baseline.target_ref().clone(), baseline.base_revision().clone(), baseline.proposed_revision().clone(), baseline.resulting_tree().clone(), baseline.change_intent().clone(), baseline.dependencies().to_vec(), DigestAlgorithm::Sha256,
             ).unwrap(),
             ChangeProposal::new(
-                baseline.proposer().clone(), &base_authority, digest(0x3a), &base_policy,
+                baseline.proposer().clone(), &base_authority, &changed_project_policy, &base_repository_policy,
                 baseline.target_ref().clone(), baseline.base_revision().clone(), baseline.proposed_revision().clone(), baseline.resulting_tree().clone(), baseline.change_intent().clone(), baseline.dependencies().to_vec(), DigestAlgorithm::Sha256,
             ).unwrap(),
             ChangeProposal::new(
-                baseline.proposer().clone(), &base_authority, baseline.project_policy().clone(), &changed_repo_policy,
+                baseline.proposer().clone(), &base_authority, &base_project_policy, &changed_repository_policy,
                 baseline.target_ref().clone(), baseline.base_revision().clone(), baseline.proposed_revision().clone(), baseline.resulting_tree().clone(), baseline.change_intent().clone(), baseline.dependencies().to_vec(), DigestAlgorithm::Sha256,
             ).unwrap(),
             ChangeProposal::new(
-                baseline.proposer().clone(), &base_authority, baseline.project_policy().clone(), &base_policy,
+                baseline.proposer().clone(), &base_authority, &base_project_policy, &base_repository_policy,
                 RepositoryRef::new("refs/heads/release").unwrap(), baseline.base_revision().clone(), baseline.proposed_revision().clone(), baseline.resulting_tree().clone(), baseline.change_intent().clone(), baseline.dependencies().to_vec(), DigestAlgorithm::Sha256,
             ).unwrap(),
             ChangeProposal::new(
-                baseline.proposer().clone(), &base_authority, baseline.project_policy().clone(), &base_policy,
+                baseline.proposer().clone(), &base_authority, &base_project_policy, &base_repository_policy,
                 baseline.target_ref().clone(), baseline.base_revision().clone(), baseline.proposed_revision().clone(), baseline.resulting_tree().clone(), digest(0x5a), baseline.dependencies().to_vec(), DigestAlgorithm::Sha256,
             ).unwrap(),
             ChangeProposal::new(
-                baseline.proposer().clone(), &base_authority, baseline.project_policy().clone(), &base_policy,
+                baseline.proposer().clone(), &base_authority, &base_project_policy, &base_repository_policy,
                 baseline.target_ref().clone(), baseline.base_revision().clone(), baseline.proposed_revision().clone(), baseline.resulting_tree().clone(), baseline.change_intent().clone(), vec![dep(0x60), dep(0x62)], DigestAlgorithm::Sha256,
             ).unwrap(),
         ];
@@ -588,14 +626,15 @@ mod tests {
     fn no_op_and_mixed_object_formats_fail_closed() {
         let project = project(0x11);
         let authority = authority(project.clone(), principal(0x20), 1_000);
-        let policy = policy(project);
+        let project_policy = project_policy(project.clone(), 0x91);
+        let repository_policy = repository_policy(project);
         let base = git(0x40);
         let common = |proposed_revision: GitObjectId, resulting_tree: GitObjectId| {
             ChangeProposal::new(
                 principal(0x21),
                 &authority,
-                digest(0x32),
-                &policy,
+                &project_policy,
+                &repository_policy,
                 RepositoryRef::new("refs/heads/main").unwrap(),
                 base.clone(),
                 proposed_revision,
@@ -614,16 +653,20 @@ mod tests {
     }
 
     #[test]
-    fn typed_context_rejects_cross_project_repository_policy() {
+    fn typed_context_rejects_cross_project_project_and_repository_policy() {
         let project_a = project(0x11);
         let project_b = project(0x13);
-        let authority = authority(project_a, principal(0x20), 1_000);
-        let policy_b = policy(project_b);
-        let error = ChangeProposal::new(
+        let authority = authority(project_a.clone(), principal(0x20), 1_000);
+        let project_policy_a = project_policy(project_a.clone(), 0x91);
+        let project_policy_b = project_policy(project_b.clone(), 0x91);
+        let repository_policy_a = repository_policy(project_a);
+        let repository_policy_b = repository_policy(project_b);
+
+        let project_policy_error = ChangeProposal::new(
             principal(0x21),
             &authority,
-            digest(0x32),
-            &policy_b,
+            &project_policy_b,
+            &repository_policy_a,
             RepositoryRef::new("refs/heads/main").unwrap(),
             git(0x40),
             git(0x41),
@@ -633,20 +676,37 @@ mod tests {
             DigestAlgorithm::Sha256,
         )
         .unwrap_err();
-        assert_eq!(error, ProposalError::RepositoryPolicyProjectMismatch);
+        assert_eq!(project_policy_error, ProposalError::ProjectPolicyProjectMismatch);
+
+        let repository_policy_error = ChangeProposal::new(
+            principal(0x21),
+            &authority,
+            &project_policy_a,
+            &repository_policy_b,
+            RepositoryRef::new("refs/heads/main").unwrap(),
+            git(0x40),
+            git(0x41),
+            git(0x42),
+            digest(0x50),
+            vec![],
+            DigestAlgorithm::Sha256,
+        )
+        .unwrap_err();
+        assert_eq!(repository_policy_error, ProposalError::RepositoryPolicyProjectMismatch);
     }
 
     #[test]
     fn duplicate_dependencies_fail_instead_of_silent_deduplication() {
         let project = project(0x11);
         let authority = authority(project.clone(), principal(0x20), 1_000);
-        let policy = policy(project);
+        let project_policy = project_policy(project.clone(), 0x91);
+        let repository_policy = repository_policy(project);
         let dependency = dep(0x60);
         let error = ChangeProposal::new(
             principal(0x21),
             &authority,
-            digest(0x32),
-            &policy,
+            &project_policy,
+            &repository_policy,
             RepositoryRef::new("refs/heads/main").unwrap(),
             git(0x40),
             git(0x41),
@@ -665,6 +725,10 @@ mod tests {
         let project = p.project().clone();
         let manager = principal(0x20);
         let authority = authority(project, manager, 1_000);
-        assert!(!authority.is_principal_eligible(p.proposer(), mycelix_forge_authority::Capability::ReviewSource, 1_000));
+        assert!(!authority.is_principal_eligible(
+            p.proposer(),
+            mycelix_forge_authority::Capability::ReviewSource,
+            1_000
+        ));
     }
 }

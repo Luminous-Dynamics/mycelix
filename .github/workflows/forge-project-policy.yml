@@ -1,0 +1,107 @@
+name: Forge Project Policy
+
+on:
+  pull_request:
+    paths:
+      - "crates/mycelix-forge-project-policy/**"
+      - "crates/mycelix-forge-proposal/**"
+      - "crates/mycelix-forge-review/**"
+      - "crates/mycelix-forge-review-provider/**"
+      - ".github/workflows/forge-project-policy.yml"
+  push:
+    branches: [main]
+    paths:
+      - "crates/mycelix-forge-project-policy/**"
+      - "crates/mycelix-forge-proposal/**"
+      - "crates/mycelix-forge-review/**"
+      - "crates/mycelix-forge-review-provider/**"
+      - ".github/workflows/forge-project-policy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: forge-project-policy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  project-policy:
+    name: Typed project policy
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: crates/mycelix-forge-project-policy
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust 1.96
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Test
+        run: cargo test --all-features
+
+  proposal:
+    name: Typed proposal integration
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: crates/mycelix-forge-proposal
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust 1.96
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Test
+        run: cargo test --all-features
+
+  downstream-review:
+    name: Review compatibility
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: crates/mycelix-forge-review
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust 1.96
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Test
+        run: cargo test --all-features
+
+  downstream-provider-review:
+    name: Provider-review compatibility
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: crates/mycelix-forge-review-provider
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust 1.96
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Test
+        run: cargo test --all-features

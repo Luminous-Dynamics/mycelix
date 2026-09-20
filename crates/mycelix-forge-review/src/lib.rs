@@ -220,10 +220,6 @@ impl EvidenceBoundReviewAttestation {
 }
 
 /// Bind FORGE-005A principal-authentication evidence to one exact review.
-///
-/// The authentication request must name `ReviewSource` and its action subject
-/// must be the exact `ReviewStatementId`, so changing either the decision or
-/// review context invalidates the authentication binding.
 pub fn bind_review_evidence(
     proposal: &ChangeProposal,
     statement: ReviewStatement,
@@ -283,9 +279,6 @@ pub fn bind_review_evidence(
 
 /// Positive structural result that the named reviewer is eligible for
 /// `ReviewSource` at one caller-supplied observation time.
-///
-/// This does not prove trusted time, provider cryptography, quorum, or merge
-/// authorization.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct StructurallyEligibleReview {
     review: EvidenceBoundReviewAttestation,
@@ -433,6 +426,9 @@ mod tests {
     };
     use mycelix_forge_authority::{AuthorityEpochParts, CapabilityRule, PrincipalGrant};
     use mycelix_forge_core::{ProjectIdentitySeed, GENESIS_NONCE_LEN};
+    use mycelix_forge_project_policy::{
+        AuthenticationProviderTrustPolicyV1, ProjectPolicyStateV1, TrustedProviderVerifierV1,
+    };
     use mycelix_forge_repository::{
         GitObjectAlgorithm, GitObjectId, RepositoryPolicyState, RepositoryRef,
     };
@@ -474,17 +470,36 @@ mod tests {
         .unwrap()
     }
 
+    fn project_policy() -> ProjectPolicyStateV1 {
+        let project = project();
+        let trust = AuthenticationProviderTrustPolicyV1::new(
+            project.clone(),
+            vec![TrustedProviderVerifierV1::new(digest(0x90), digest(0x91))],
+        )
+        .unwrap();
+        ProjectPolicyStateV1::new(
+            project,
+            0,
+            None,
+            &trust,
+            DigestAlgorithm::Sha256,
+        )
+        .unwrap()
+    }
+
     fn git(byte: u8) -> GitObjectId {
         GitObjectId::new(GitObjectAlgorithm::Sha1, vec![byte; 20]).unwrap()
     }
 
     fn proposal(authority: &AuthorityEpoch) -> ChangeProposal {
-        let policy = RepositoryPolicyState::new(project(), 0, None, digest(0x31)).unwrap();
+        let repository_policy =
+            RepositoryPolicyState::new(project(), 0, None, digest(0x31)).unwrap();
+        let project_policy = project_policy();
         ChangeProposal::new(
             principal(0x30),
             authority,
-            digest(0x32),
-            &policy,
+            &project_policy,
+            &repository_policy,
             RepositoryRef::new("refs/heads/main").unwrap(),
             git(0x40),
             git(0x41),
@@ -556,14 +571,8 @@ mod tests {
         )
         .unwrap();
 
-        assert_ne!(
-            approve.statement_id(DigestAlgorithm::Sha256).unwrap(),
-            changes.statement_id(DigestAlgorithm::Sha256).unwrap()
-        );
-        assert_ne!(
-            approve.statement_id(DigestAlgorithm::Sha256).unwrap(),
-            context_changed.statement_id(DigestAlgorithm::Sha256).unwrap()
-        );
+        assert_ne!(approve.statement_id(DigestAlgorithm::Sha256).unwrap(), changes.statement_id(DigestAlgorithm::Sha256).unwrap());
+        assert_ne!(approve.statement_id(DigestAlgorithm::Sha256).unwrap(), context_changed.statement_id(DigestAlgorithm::Sha256).unwrap());
     }
 
     #[test]
@@ -571,27 +580,10 @@ mod tests {
         let reviewer = principal(0x20);
         let authority = authority(reviewer.clone(), None);
         let proposal = proposal(&authority);
-        let statement = ReviewStatement::new(
-            &proposal,
-            reviewer.clone(),
-            ReviewDecision::Approve,
-            digest(0x60),
-            DigestAlgorithm::Sha256,
-        )
-        .unwrap();
+        let statement = ReviewStatement::new(&proposal, reviewer.clone(), ReviewDecision::Approve, digest(0x60), DigestAlgorithm::Sha256).unwrap();
         let statement_id = statement.statement_id(DigestAlgorithm::Sha256).unwrap();
-        let authentication = evidence_for(
-            &authority,
-            &statement,
-            reviewer,
-            Capability::ReviewSource,
-            statement_id.commitment().clone(),
-        );
-
+        let authentication = evidence_for(&authority, &statement, reviewer, Capability::ReviewSource, statement_id.commitment().clone());
         assert!(bind_review_evidence(&proposal, statement, &authentication, &authority).is_ok());
-        // The observation above used arbitrary opaque provider/freshness
-        // commitments. Success therefore proves structural cross-linking only,
-        // never that a provider signature actually verified.
     }
 
     #[test]
@@ -599,25 +591,9 @@ mod tests {
         let reviewer = principal(0x20);
         let authority = authority(reviewer.clone(), None);
         let proposal = proposal(&authority);
-        let statement = ReviewStatement::new(
-            &proposal,
-            reviewer.clone(),
-            ReviewDecision::Approve,
-            digest(0x60),
-            DigestAlgorithm::Sha256,
-        )
-        .unwrap();
-        let authentication = evidence_for(
-            &authority,
-            &statement,
-            reviewer,
-            Capability::ReviewSource,
-            digest(0x99),
-        );
-        assert_eq!(
-            bind_review_evidence(&proposal, statement, &authentication, &authority).unwrap_err(),
-            ReviewError::AuthenticationSubjectMismatch
-        );
+        let statement = ReviewStatement::new(&proposal, reviewer.clone(), ReviewDecision::Approve, digest(0x60), DigestAlgorithm::Sha256).unwrap();
+        let authentication = evidence_for(&authority, &statement, reviewer, Capability::ReviewSource, digest(0x99));
+        assert_eq!(bind_review_evidence(&proposal, statement, &authentication, &authority).unwrap_err(), ReviewError::AuthenticationSubjectMismatch);
     }
 
     #[test]
@@ -625,40 +601,13 @@ mod tests {
         let reviewer = principal(0x20);
         let authority = authority(reviewer.clone(), None);
         let proposal = proposal(&authority);
-        let statement = ReviewStatement::new(
-            &proposal,
-            reviewer.clone(),
-            ReviewDecision::Approve,
-            digest(0x60),
-            DigestAlgorithm::Sha256,
-        )
-        .unwrap();
+        let statement = ReviewStatement::new(&proposal, reviewer.clone(), ReviewDecision::Approve, digest(0x60), DigestAlgorithm::Sha256).unwrap();
         let statement_id = statement.statement_id(DigestAlgorithm::Sha256).unwrap();
-
-        let wrong_cap = evidence_for(
-            &authority,
-            &statement,
-            reviewer.clone(),
-            Capability::ManageAuthority,
-            statement_id.commitment().clone(),
-        );
-        assert_eq!(
-            bind_review_evidence(&proposal, statement.clone(), &wrong_cap, &authority).unwrap_err(),
-            ReviewError::WrongAuthenticationCapability
-        );
-
+        let wrong_cap = evidence_for(&authority, &statement, reviewer.clone(), Capability::ManageAuthority, statement_id.commitment().clone());
+        assert_eq!(bind_review_evidence(&proposal, statement.clone(), &wrong_cap, &authority).unwrap_err(), ReviewError::WrongAuthenticationCapability);
         let other = principal(0x29);
-        let wrong_reviewer = evidence_for(
-            &authority,
-            &statement,
-            other,
-            Capability::ReviewSource,
-            statement_id.commitment().clone(),
-        );
-        assert_eq!(
-            bind_review_evidence(&proposal, statement, &wrong_reviewer, &authority).unwrap_err(),
-            ReviewError::ReviewerMismatch
-        );
+        let wrong_reviewer = evidence_for(&authority, &statement, other, Capability::ReviewSource, statement_id.commitment().clone());
+        assert_eq!(bind_review_evidence(&proposal, statement, &wrong_reviewer, &authority).unwrap_err(), ReviewError::ReviewerMismatch);
     }
 
     #[test]
@@ -666,43 +615,17 @@ mod tests {
         let reviewer = principal(0x20);
         let authority = authority(reviewer.clone(), None);
         let original = proposal(&authority);
-        let statement = ReviewStatement::new(
-            &original,
-            reviewer.clone(),
-            ReviewDecision::Approve,
-            digest(0x60),
-            DigestAlgorithm::Sha256,
-        )
-        .unwrap();
+        let statement = ReviewStatement::new(&original, reviewer.clone(), ReviewDecision::Approve, digest(0x60), DigestAlgorithm::Sha256).unwrap();
         let statement_id = statement.statement_id(DigestAlgorithm::Sha256).unwrap();
-        let authentication = evidence_for(
-            &authority,
-            &statement,
-            reviewer,
-            Capability::ReviewSource,
-            statement_id.commitment().clone(),
-        );
-
-        let policy = RepositoryPolicyState::new(project(), 0, None, digest(0x31)).unwrap();
+        let authentication = evidence_for(&authority, &statement, reviewer, Capability::ReviewSource, statement_id.commitment().clone());
+        let repository_policy = RepositoryPolicyState::new(project(), 0, None, digest(0x31)).unwrap();
+        let project_policy = project_policy();
         let mutated = ChangeProposal::new(
-            principal(0x30),
-            &authority,
-            digest(0x32),
-            &policy,
-            RepositoryRef::new("refs/heads/main").unwrap(),
-            git(0x40),
-            git(0x43),
-            git(0x42),
-            digest(0x50),
-            vec![],
-            DigestAlgorithm::Sha256,
-        )
-        .unwrap();
-
-        assert_eq!(
-            bind_review_evidence(&mutated, statement, &authentication, &authority).unwrap_err(),
-            ReviewError::ProposalMismatch
-        );
+            principal(0x30), &authority, &project_policy, &repository_policy,
+            RepositoryRef::new("refs/heads/main").unwrap(), git(0x40), git(0x43), git(0x42),
+            digest(0x50), vec![], DigestAlgorithm::Sha256,
+        ).unwrap();
+        assert_eq!(bind_review_evidence(&mutated, statement, &authentication, &authority).unwrap_err(), ReviewError::ProposalMismatch);
     }
 
     #[test]
@@ -710,28 +633,12 @@ mod tests {
         let reviewer = principal(0x20);
         let authority = authority(reviewer.clone(), Some(2_000));
         let proposal = proposal(&authority);
-        let statement = ReviewStatement::new(
-            &proposal,
-            reviewer.clone(),
-            ReviewDecision::Approve,
-            digest(0x60),
-            DigestAlgorithm::Sha256,
-        )
-        .unwrap();
+        let statement = ReviewStatement::new(&proposal, reviewer.clone(), ReviewDecision::Approve, digest(0x60), DigestAlgorithm::Sha256).unwrap();
         let statement_id = statement.statement_id(DigestAlgorithm::Sha256).unwrap();
-        let authentication = evidence_for(
-            &authority,
-            &statement,
-            reviewer,
-            Capability::ReviewSource,
-            statement_id.commitment().clone(),
-        );
+        let authentication = evidence_for(&authority, &statement, reviewer, Capability::ReviewSource, statement_id.commitment().clone());
         let bound = bind_review_evidence(&proposal, statement, &authentication, &authority).unwrap();
         assert!(qualify_review_eligibility(bound.clone(), &authority, 1_500).is_ok());
-        assert_eq!(
-            qualify_review_eligibility(bound, &authority, 2_000).unwrap_err(),
-            ReviewError::ReviewerNotEligible
-        );
+        assert_eq!(qualify_review_eligibility(bound, &authority, 2_000).unwrap_err(), ReviewError::ReviewerNotEligible);
     }
 
     #[test]
@@ -740,27 +647,11 @@ mod tests {
         let outsider = principal(0x2a);
         let authority = authority(eligible, None);
         let proposal = proposal(&authority);
-        let statement = ReviewStatement::new(
-            &proposal,
-            outsider.clone(),
-            ReviewDecision::Approve,
-            digest(0x60),
-            DigestAlgorithm::Sha256,
-        )
-        .unwrap();
+        let statement = ReviewStatement::new(&proposal, outsider.clone(), ReviewDecision::Approve, digest(0x60), DigestAlgorithm::Sha256).unwrap();
         let statement_id = statement.statement_id(DigestAlgorithm::Sha256).unwrap();
-        let authentication = evidence_for(
-            &authority,
-            &statement,
-            outsider,
-            Capability::ReviewSource,
-            statement_id.commitment().clone(),
-        );
+        let authentication = evidence_for(&authority, &statement, outsider, Capability::ReviewSource, statement_id.commitment().clone());
         let bound = bind_review_evidence(&proposal, statement, &authentication, &authority).unwrap();
-        assert_eq!(
-            qualify_review_eligibility(bound, &authority, 1_500).unwrap_err(),
-            ReviewError::ReviewerNotEligible
-        );
+        assert_eq!(qualify_review_eligibility(bound, &authority, 1_500).unwrap_err(), ReviewError::ReviewerNotEligible);
     }
 
     #[test]
@@ -768,20 +659,10 @@ mod tests {
         let reviewer = principal(0x20);
         let authority = authority(reviewer.clone(), None);
         let proposal = proposal(&authority);
-        let statement = ReviewStatement::new(
-            &proposal,
-            reviewer,
-            ReviewDecision::RequestChanges,
-            digest(0x60),
-            DigestAlgorithm::Sha256,
-        )
-        .unwrap();
+        let statement = ReviewStatement::new(&proposal, reviewer, ReviewDecision::RequestChanges, digest(0x60), DigestAlgorithm::Sha256).unwrap();
         let json = serde_json::to_vec(&statement).unwrap();
         let decoded: ReviewStatement = serde_json::from_slice(&json).unwrap();
         assert_eq!(decoded, statement);
-        assert_eq!(
-            decoded.statement_id(DigestAlgorithm::Sha256).unwrap(),
-            statement.statement_id(DigestAlgorithm::Sha256).unwrap()
-        );
+        assert_eq!(decoded.statement_id(DigestAlgorithm::Sha256).unwrap(), statement.statement_id(DigestAlgorithm::Sha256).unwrap());
     }
 }
