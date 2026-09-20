@@ -18,7 +18,8 @@ use mycelix_leptos_core::{
     HolochainProviderConfig, NavLink, NavTab, ToastContainer, ToastKind,
 };
 use personal_leptos_types::{
-    ConditionalMutationResultView, ConditionalProfileMutationInputView, MutationReceiptView,
+    ConditionalMutationResultView, ConditionalPreferenceMutationInputView,
+    ConditionalProfileMutationInputView, MutationReceiptView,
 };
 
 use crate::components::{
@@ -741,6 +742,7 @@ fn HealthPage() -> impl IntoView {
 #[component]
 fn PreferencesPage() -> impl IntoView {
     let ctx = use_personal();
+    let pair_actions = ctx.preference_action_hash_by_pair;
 
     view! {
         <div class="stack-page">
@@ -756,7 +758,21 @@ fn PreferencesPage() -> impl IntoView {
                     <div class="preference-list">
                         <For
                             each=move || ctx.preferences.get()
-                            key=|pref| format!("{}-{}", pref.source_cluster, pref.target_cluster)
+                            key=move |pref| {
+                                let pair = (
+                                    pref.source_cluster.clone(),
+                                    pref.target_cluster.clone(),
+                                );
+                                let action_hash = pair_actions
+                                    .get_untracked()
+                                    .get(&pair)
+                                    .cloned()
+                                    .unwrap_or_else(|| "unbound".into());
+                                format!(
+                                    "{}-{}-{action_hash}",
+                                    pref.source_cluster, pref.target_cluster
+                                )
+                            }
                             children=move |pref| view! { <PreferenceCard pref=pref /> }
                         />
                     </div>
@@ -789,12 +805,29 @@ fn PreferencesPage() -> impl IntoView {
     }
 }
 
+fn preference_conflict_copy(current_action_hash: Option<String>) -> String {
+    current_action_hash
+        .map(|hash| format!("current action {hash}"))
+        .unwrap_or_else(|| "the pair is now authoritatively absent".into())
+}
+
 #[component]
 fn PreferenceCard(pref: personal_leptos_types::DataSharingPreferenceView) -> impl IntoView {
     let ctx = use_personal();
     let ledger = use_mutation_ledger();
     let hc = mycelix_leptos_core::holochain_provider::use_holochain();
     let toasts = use_toasts();
+    let pair = (
+        pref.source_cluster.clone(),
+        pref.target_cluster.clone(),
+    );
+    let expected_action_hash = ctx
+        .preference_action_hash_by_pair
+        .get_untracked()
+        .get(&pair)
+        .cloned();
+    let toggle_expected_action_hash = expected_action_hash.clone();
+    let save_expected_action_hash = expected_action_hash;
     let local_pref = RwSignal::new(pref);
     let blocked_zomes_text = RwSignal::new(local_pref.get_untracked().blocked_zomes.join(", "));
     let mutation_target = PersonalMutationTarget::preference(
@@ -812,11 +845,23 @@ fn PreferenceCard(pref: personal_leptos_types::DataSharingPreferenceView) -> imp
     let save_toasts = toasts.clone();
 
     let toggle = move |_| {
+        let Some(expected_action_hash) = toggle_expected_action_hash.clone() else {
+            toggle_toasts.push(
+                "Preference was not written because this displayed pair has no source-chain action evidence. Reconcile Personal state before editing it."
+                    .into(),
+                ToastKind::Error,
+            );
+            return;
+        };
         let previous = local_pref.get();
         let mut next = local_pref.get();
         next.allowed = !next.allowed;
         local_pref.set(next.clone());
         blocked_zomes_text.set(next.blocked_zomes.join(", "));
+        let input = ConditionalPreferenceMutationInputView {
+            expected_action_hash: Some(expected_action_hash),
+            preference: next.clone(),
+        };
 
         let hc = toggle_hc.clone();
         let toasts = toggle_toasts.clone();
@@ -827,14 +872,14 @@ fn PreferenceCard(pref: personal_leptos_types::DataSharingPreferenceView) -> imp
         let blocked_zomes_signal = blocked_zomes_text;
         spawn_local(async move {
             match hc
-                .call_zome_default::<_, MutationReceiptView>(
+                .call_zome_default::<_, ConditionalMutationResultView>(
                     "data_preferences",
-                    "set_preference_view",
-                    &next,
+                    "set_preference_view_if_current",
+                    &input,
                 )
                 .await
             {
-                Ok(receipt) => {
+                Ok(ConditionalMutationResultView::Committed { receipt }) => {
                     let action_hash = receipt.action_hash;
                     ledger.record_committed(target, action_hash.clone());
                     let outcome = refresh_preferences_after_mutation(ctx.clone(), hc.clone()).await;
@@ -843,12 +888,23 @@ fn PreferenceCard(pref: personal_leptos_types::DataSharingPreferenceView) -> imp
                         let state = if next.allowed { "allowed" } else { "blocked" };
                         toasts.push(
                             format!(
-                                "{} -> {} committed as {}; Preferences refresh published in Personal epoch {epoch}, but action observation remains unconfirmed.",
+                                "{} -> {} committed as {}; Preferences refresh published in Personal epoch {epoch}, with action observation tracked separately.",
                                 next.source_cluster, next.target_cluster, state
                             ),
                             ToastKind::Success,
                         );
                     }
+                }
+                Ok(ConditionalMutationResultView::Conflict { current_action_hash }) => {
+                    local_pref_signal.set(previous.clone());
+                    blocked_zomes_signal.set(previous.blocked_zomes.join(", "));
+                    let current = preference_conflict_copy(current_action_hash);
+                    toasts.push(
+                        format!(
+                            "Preference was not written because the displayed pair baseline is no longer current ({current}). The optimistic local toggle was rolled back; reconcile before retrying."
+                        ),
+                        ToastKind::Error,
+                    );
                 }
                 Err(err) => {
                     local_pref_signal.set(previous.clone());
@@ -860,6 +916,14 @@ fn PreferenceCard(pref: personal_leptos_types::DataSharingPreferenceView) -> imp
     };
 
     let save_details = move |_| {
+        let Some(expected_action_hash) = save_expected_action_hash.clone() else {
+            save_toasts.push(
+                "Preference was not written because this displayed pair has no source-chain action evidence. Reconcile Personal state before editing it."
+                    .into(),
+                ToastKind::Error,
+            );
+            return;
+        };
         let previous = local_pref.get();
         let mut next = local_pref.get();
         next.blocked_zomes = blocked_zomes_text
@@ -870,6 +934,10 @@ fn PreferenceCard(pref: personal_leptos_types::DataSharingPreferenceView) -> imp
             .map(ToString::to_string)
             .collect();
         local_pref.set(next.clone());
+        let input = ConditionalPreferenceMutationInputView {
+            expected_action_hash: Some(expected_action_hash),
+            preference: next.clone(),
+        };
 
         let hc = save_hc.clone();
         let toasts = save_toasts.clone();
@@ -880,14 +948,14 @@ fn PreferenceCard(pref: personal_leptos_types::DataSharingPreferenceView) -> imp
         let blocked_zomes_signal = blocked_zomes_text;
         spawn_local(async move {
             match hc
-                .call_zome_default::<_, MutationReceiptView>(
+                .call_zome_default::<_, ConditionalMutationResultView>(
                     "data_preferences",
-                    "set_preference_view",
-                    &next,
+                    "set_preference_view_if_current",
+                    &input,
                 )
                 .await
             {
-                Ok(receipt) => {
+                Ok(ConditionalMutationResultView::Committed { receipt }) => {
                     let action_hash = receipt.action_hash;
                     ledger.record_committed(target, action_hash.clone());
                     let outcome = refresh_preferences_after_mutation(ctx.clone(), hc.clone()).await;
@@ -896,12 +964,23 @@ fn PreferenceCard(pref: personal_leptos_types::DataSharingPreferenceView) -> imp
                         let state = if next.allowed { "allowed" } else { "blocked" };
                         toasts.push(
                             format!(
-                                "{} -> {} committed as {}; Preferences refresh published in Personal epoch {epoch}, but action observation remains unconfirmed.",
+                                "{} -> {} committed as {}; Preferences refresh published in Personal epoch {epoch}, with action observation tracked separately.",
                                 next.source_cluster, next.target_cluster, state
                             ),
                             ToastKind::Success,
                         );
                     }
+                }
+                Ok(ConditionalMutationResultView::Conflict { current_action_hash }) => {
+                    local_pref_signal.set(previous.clone());
+                    blocked_zomes_signal.set(previous.blocked_zomes.join(", "));
+                    let current = preference_conflict_copy(current_action_hash);
+                    toasts.push(
+                        format!(
+                            "Preference details were not written because the displayed pair baseline is no longer current ({current}). Local state was restored to the pre-submit value; reconcile before retrying."
+                        ),
+                        ToastKind::Error,
+                    );
                 }
                 Err(err) => {
                     local_pref_signal.set(previous.clone());
