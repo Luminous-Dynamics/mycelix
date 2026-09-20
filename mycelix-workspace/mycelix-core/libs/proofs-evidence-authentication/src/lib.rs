@@ -7,15 +7,16 @@
 //! the canonical receipt identity, exact authentication policy, opaque capability,
 //! strict untrusted-wire parsing boundary, non-authoritative verifier-execution
 //! evidence, deterministic GitHub verifier command/I/O planning, strict parsed
-//! verifier-output evidence, retained-root trust-domain classification, and trusted
-//! builder candidate binding that future separately-qualified backends may use before
-//! authenticated capability minting.
+//! verifier-output evidence, retained-root trust-domain classification, trusted
+//! builder candidate binding, and currentness/freshness evidence that future
+//! separately-qualified backends may use before authenticated capability minting.
 
 mod canonical;
 mod capability;
 mod github_cli_execution_policy;
 mod github_cli_plan;
 mod github_cli_steps;
+mod github_currentness;
 mod github_trusted_builder;
 mod github_trusted_root;
 mod github_verification_result;
@@ -57,6 +58,16 @@ pub use github_cli_steps::{
     GitHubExecutionStepAuthorityV1, GitHubVerifierExecutionStepV1,
     GitHubVerifierStdoutDispositionV1, GitHubVerifierStepPurposeV1,
     github_public_verifier_execution_steps_v1,
+};
+pub use github_currentness::{
+    GITHUB_AUTHENTICATION_CURRENTNESS_PROFILE_V1,
+    GITHUB_AUTHENTICATION_EVIDENCE_DIGEST_PROFILE_V1,
+    GITHUB_TRUSTED_BUILDER_POLICY_DIGEST_PROFILE_V1,
+    RECEIPT_AUTHENTICATION_POLICY_DIGEST_PROFILE_V1,
+    GitHubAuthenticationCurrentnessAuthorityV1, GitHubAuthenticationCurrentnessErrorV1,
+    GitHubAuthenticationCurrentnessV1, GitHubQualifiedWitnessTimeV1,
+    establish_github_authentication_currentness_v1,
+    github_trusted_builder_policy_digest_v1, receipt_authentication_policy_digest_v1,
 };
 pub use github_trusted_builder::{
     GITHUB_HOSTED_RUNNER_ENVIRONMENT_V1, GITHUB_PUBLIC_REPOSITORY_VISIBILITY_V1,
