@@ -1,0 +1,17 @@
+[package]
+name = "mycelix-hardware-core"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Transport-independent semantic core for Mycelix open hardware"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+
+[dev-dependencies]
+pretty_assertions = "1"
+
+[lints.clippy]
+all = "warn"
