@@ -16,9 +16,14 @@ use wasm_bindgen::JsCast;
 use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::spawn_local;
 
+use crate::holochain_call_error::HolochainCallPhase;
+use crate::holochain_call_observation::{
+    HolochainCallAttemptSequence, HolochainCallInvocationError,
+};
 use mycelix_leptos_client::{
-    BrowserWsTransport, ConnectConfig, ConnectionStatus as TransportConnectionStatus,
-    HolochainTransport, HostZomeCallSigner, ReconnectConfig, decode, encode,
+    BrowserWsTransport, ClientError, ConnectConfig,
+    ConnectionStatus as TransportConnectionStatus, HolochainTransport, HostZomeCallSigner,
+    ReconnectConfig, decode, encode,
 };
 
 // ---------------------------------------------------------------------------
@@ -107,6 +112,7 @@ pub struct StatusLabels {
 // ---------------------------------------------------------------------------
 
 type TransportCell = SendWrapper<Rc<RefCell<Option<BrowserWsTransport>>>>;
+type AttemptSequenceCell = SendWrapper<Rc<RefCell<HolochainCallAttemptSequence>>>;
 
 /// The Holochain client context shared across the app via Leptos context.
 #[derive(Clone)]
@@ -123,6 +129,7 @@ pub struct HolochainCtx {
     set_zome_call_signing_ready: WriteSignal<bool>,
     set_last_error: WriteSignal<Option<String>>,
     transport: TransportCell,
+    call_attempt_sequence: AttemptSequenceCell,
     default_role: Option<String>,
     status_labels: Option<StatusLabels>,
 }
@@ -177,6 +184,72 @@ impl HolochainCtx {
         Ok(decoded)
     }
 
+    /// Additive typed zome-call path preserving provider attempt identity,
+    /// exact failure phase, call target, and the underlying [`ClientError`].
+    ///
+    /// This method deliberately does not publish to `last_error`; reactive typed
+    /// failure publication is a separate migration step so concurrent call
+    /// ordering can be handled explicitly rather than by last-writer-wins.
+    pub async fn call_zome_typed<I: Serialize, O: DeserializeOwned>(
+        &self,
+        role: &str,
+        zome: &str,
+        fn_name: &str,
+        input: &I,
+    ) -> Result<O, HolochainCallInvocationError> {
+        let attempt = self
+            .call_attempt_sequence
+            .borrow_mut()
+            .admit(role, zome, fn_name)
+            .ok_or_else(|| {
+                HolochainCallInvocationError::attempt_sequence_exhausted(role, zome, fn_name)
+            })?;
+
+        let transport = {
+            let slot = self.transport.borrow();
+            match slot.as_ref() {
+                Some(transport) => transport.clone(),
+                None => {
+                    return Err(attempt
+                        .fail(HolochainCallPhase::Admission, ClientError::NotConnected)
+                        .into());
+                }
+            }
+        };
+
+        if !transport.zome_call_signer_available() {
+            self.set_zome_call_signing_ready.set(false);
+            let source = ClientError::SigningUnavailable(format!(
+                "no authorized browser signer; provide window.{} or install a Rust signer",
+                HostZomeCallSigner::GLOBAL_NAME
+            ));
+            return Err(attempt.fail(HolochainCallPhase::Admission, source).into());
+        }
+        self.set_zome_call_signing_ready.set(true);
+
+        let payload = match encode(input) {
+            Ok(payload) => payload,
+            Err(error) => {
+                return Err(attempt.fail(HolochainCallPhase::Encode, error).into());
+            }
+        };
+
+        let response_bytes = match transport
+            .call_zome(attempt.role(), attempt.zome(), attempt.function(), payload)
+            .await
+        {
+            Ok(response) => response,
+            Err(error) => {
+                return Err(attempt.fail(HolochainCallPhase::Transport, error).into());
+            }
+        };
+
+        match decode(&response_bytes) {
+            Ok(decoded) => Ok(decoded),
+            Err(error) => Err(attempt.fail(HolochainCallPhase::Decode, error).into()),
+        }
+    }
+
     /// Call a zome function using the default role.
     ///
     /// # Panics
@@ -192,6 +265,23 @@ impl HolochainCtx {
             .as_deref()
             .expect("call_zome_default requires a default_role in HolochainProviderConfig");
         self.call_zome(role, zome, fn_name, input).await
+    }
+
+    /// Typed equivalent of [`Self::call_zome_default`].
+    ///
+    /// # Panics
+    /// Panics if no `default_role` was configured.
+    pub async fn call_zome_default_typed<I: Serialize, O: DeserializeOwned>(
+        &self,
+        zome: &str,
+        fn_name: &str,
+        input: &I,
+    ) -> Result<O, HolochainCallInvocationError> {
+        let role = self
+            .default_role
+            .as_deref()
+            .expect("call_zome_default_typed requires a default_role in HolochainProviderConfig");
+        self.call_zome_typed(role, zome, fn_name, input).await
     }
 
     pub fn is_mock(&self) -> bool {
@@ -378,6 +468,8 @@ pub fn HolochainProviderAuto(config: HolochainProviderConfig, children: Children
     // Only the former warrants shouting at the user -- see the banner below.
     let (degraded_to_mock, set_degraded_to_mock) = signal(false);
     let transport: TransportCell = SendWrapper::new(Rc::new(RefCell::new(None)));
+    let call_attempt_sequence: AttemptSequenceCell =
+        SendWrapper::new(Rc::new(RefCell::new(HolochainCallAttemptSequence::default())));
 
     let ctx = HolochainCtx {
         status,
@@ -387,6 +479,7 @@ pub fn HolochainProviderAuto(config: HolochainProviderConfig, children: Children
         set_zome_call_signing_ready,
         set_last_error,
         transport: transport.clone(),
+        call_attempt_sequence,
         default_role: config.default_role.clone(),
         status_labels: config.status_labels.clone(),
     };
