@@ -1,0 +1,10 @@
+[package]
+name = "stew-runtime-store-preflight-harness"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.98"
+publish = false
+
+[dependencies]
+mycelix-stewardship-runtime-store = { path = "../../../product/crates/mycelix-stewardship-runtime-store" }
+rusqlite = { version = "=0.40.2", default-features = false, features = ["bundled"] }
