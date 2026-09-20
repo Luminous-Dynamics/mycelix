@@ -3,13 +3,13 @@
 
 //! Canonical qualification receipts and the receipt-authentication capability boundary.
 //!
-//! This crate intentionally contains no cryptographic verifier backend yet. It freezes
-//! the canonical receipt identity, exact authentication policy, opaque capability,
-//! strict untrusted-wire parsing boundary, non-authoritative verifier-execution
-//! evidence, deterministic GitHub verifier command/I/O planning, strict parsed
-//! verifier-output evidence, retained-root trust-domain classification, trusted-builder
-//! candidate binding, and currentness/evidence-digest semantics that future
-//! separately-qualified backends may use before authenticated capability minting.
+//! This crate freezes the canonical receipt identity, exact authentication policy,
+//! opaque capability, strict untrusted-wire parsing boundary, exportable structural
+//! verifier-execution evidence, deterministic GitHub verifier command/I/O planning,
+//! sealed process-local GitHub verifier execution origin, strict parsed verifier-output
+//! evidence, retained-root trust-domain classification, trusted-builder candidate
+//! binding, and currentness/evidence-digest semantics. Receipt authentication and
+//! production/application authority remain separate later theorems.
 
 mod canonical;
 mod capability;
@@ -20,6 +20,8 @@ mod github_cli_steps;
 mod github_trusted_builder;
 mod github_trusted_root;
 mod github_verification_result;
+mod github_verifier_execution_backend;
+mod github_verifier_executor;
 mod policy;
 mod predicate;
 mod verifier_execution;
@@ -102,6 +104,16 @@ pub use github_verification_result::{
     ParsedGitHubAttestationVerifierOutputV1, github_verifier_stdout_digest_v1,
     parse_github_attestation_verifier_output_v1,
 };
+pub use github_verifier_execution_backend::{
+    GitHubBoundVerifierExecutionErrorV1, execute_github_public_verifier_v1,
+};
+pub use github_verifier_executor::{
+    GITHUB_VERIFIER_EXECUTOR_CLOCK_PROFILE_V1, GITHUB_VERIFIER_EXECUTOR_PROFILE_V1,
+    MAX_GITHUB_EXECUTOR_RETAINED_FILE_BYTES_V1, ExecutedGitHubVerificationAuthorityV1,
+    ExecutedGitHubVerificationParseErrorV1, ExecutedGitHubVerificationV1,
+    GitHubExecutedStepEvidenceV1, GitHubVerifierExecutorErrorV1,
+    parse_executed_github_attestation_verifier_output_v1,
+};
 pub use policy::{
     AuthenticationFreshnessPolicyV1, AuthenticationPolicyErrorV1,
     ReceiptAuthenticationPolicyV1, SourceRevisionPolicyV1, TransparencyPolicyV1,
@@ -116,7 +128,7 @@ pub use verifier_execution::{
     VERIFIER_EXECUTION_EVIDENCE_VERSION_V1, NixVerifierClosureIdentityV1,
     VerifierExecutableIdentityV1, VerifierExecutionAuthorityV1,
     VerifierExecutionEvidenceErrorV1, VerifierExecutionReceiptV1,
-    VerifierProcessOutcomeV1, VerifierTrustRootModeV1,
+    VerifierProcessExecutionReceiptV1, VerifierProcessOutcomeV1, VerifierTrustRootModeV1,
 };
 pub use wire::{
     MAX_UNTRUSTED_WIRE_JSON_BYTES_V1, MAX_UNTRUSTED_WIRE_STRING_BYTES_V1,
