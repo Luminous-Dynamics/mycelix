@@ -1,0 +1,47 @@
+{
+  "schema": "mycelix.psi.002a.backend-lock.v0.2",
+  "construction": "voprf-tagged-set-v2",
+  "backend": {
+    "crate": "voprf",
+    "crate_version": "0.5.0",
+    "crates_io_checksum_sha256": "28f59c30c76e2fea54cdece6a054e2662feffa7ab19658a7887524265ee39470",
+    "repository": "https://github.com/facebook/voprf",
+    "tag": "v0.5.0",
+    "commit": "f0531f0812387cd6be01923b21e2157399a9b295",
+    "cargo_metadata_license": "MIT",
+    "minimum_rust_version": "1.65",
+    "default_features": false,
+    "features": [
+      "ristretto255-ciphersuite"
+    ],
+    "ciphersuite": "ristretto255-SHA512",
+    "specification": "RFC 9497"
+  },
+  "dependency_profile": {
+    "rand_core": "=0.6.4",
+    "sha2": "=0.10.9",
+    "rand_chacha_dev": "=0.3.1",
+    "serde": "1.0 with derive; exact resolved version must be bound by qualification Cargo.lock"
+  },
+  "data_profile": {
+    "synthetic_only": true,
+    "canonicalization": "synthetic-ascii-lowercase-v1",
+    "maximum_identifiers": 1024,
+    "maximum_identifier_bytes": 96,
+    "real_personal_identifiers_permitted": false
+  },
+  "authority_ceiling": {
+    "qualification": "Experimental",
+    "generic_psi_security_established": false,
+    "enumeration_resistance_established": false,
+    "client_anonymity_established": false,
+    "transport_privacy_established": false,
+    "registry_authenticity_established": false,
+    "registry_freshness_established": false,
+    "key_lifecycle_qualified": false,
+    "wire_format_qualified": false,
+    "real_data_admitted": false,
+    "production_admitted": false,
+    "application_authority_granted": false
+  }
+}

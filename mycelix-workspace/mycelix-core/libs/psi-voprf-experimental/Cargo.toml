@@ -1,0 +1,20 @@
+[package]
+name = "psi-voprf-experimental"
+version = "0.1.0"
+edition = "2024"
+authors = ["Mycelix Network"]
+description = "Synthetic-only RFC 9497 VOPRF-assisted contact-discovery experiment"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+publish = false
+
+[dependencies]
+privacy-computation-core = { path = "../privacy-computation-core" }
+privacy-protocol-profiles = { path = "../privacy-protocol-profiles" }
+rand_core = { version = "=0.6.4", default-features = false }
+serde = { version = "1.0", features = ["derive"] }
+sha2 = "=0.10.9"
+voprf = { version = "=0.5.0", default-features = false, features = ["ristretto255-ciphersuite"] }
+
+[dev-dependencies]
+rand_chacha = "=0.3.1"
