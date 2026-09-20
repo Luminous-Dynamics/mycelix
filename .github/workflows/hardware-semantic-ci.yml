@@ -7,6 +7,8 @@ on:
       - 'crates/mycelix-hardware-core/**'
       - 'crates/mycelix-hardware-interop/**'
       - 'crates/mycelix-hardware-release/**'
+      - 'mycelix-manufacturing/crates/hardware_projection/**'
+      - 'mycelix-manufacturing/Cargo.toml'
       - '.github/workflows/hardware-semantic-ci.yml'
   pull_request:
     branches: ['**']
@@ -14,6 +16,8 @@ on:
       - 'crates/mycelix-hardware-core/**'
       - 'crates/mycelix-hardware-interop/**'
       - 'crates/mycelix-hardware-release/**'
+      - 'mycelix-manufacturing/crates/hardware_projection/**'
+      - 'mycelix-manufacturing/Cargo.toml'
       - '.github/workflows/hardware-semantic-ci.yml'
   workflow_dispatch:
 
@@ -28,7 +32,7 @@ jobs:
   qualify:
     name: Qualify hardware Rust crates
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -44,6 +48,10 @@ jobs:
               found=1
             fi
           done
+          if [ -f mycelix-manufacturing/crates/hardware_projection/Cargo.toml ]; then
+            echo "Found mycelix-manufacturing/crates/hardware_projection"
+            found=1
+          fi
           if [ "$found" -eq 0 ]; then
             echo "No hardware Rust crate exists on this branch yet; workflow infrastructure only."
           fi
@@ -54,6 +62,9 @@ jobs:
               cargo fmt --manifest-path "crates/$crate/Cargo.toml" --all --check
             fi
           done
+          if [ -f mycelix-manufacturing/crates/hardware_projection/Cargo.toml ]; then
+            cargo fmt --manifest-path mycelix-manufacturing/Cargo.toml --package hardware_projection --check
+          fi
       - name: Compile all targets
         run: |
           for crate in mycelix-hardware-core mycelix-hardware-interop mycelix-hardware-release; do
@@ -61,6 +72,9 @@ jobs:
               cargo check --manifest-path "crates/$crate/Cargo.toml" --all-targets
             fi
           done
+          if [ -f mycelix-manufacturing/crates/hardware_projection/Cargo.toml ]; then
+            cargo check --manifest-path mycelix-manufacturing/Cargo.toml -p hardware_projection --all-targets
+          fi
       - name: Run tests
         run: |
           for crate in mycelix-hardware-core mycelix-hardware-interop mycelix-hardware-release; do
@@ -68,6 +82,9 @@ jobs:
               cargo test --manifest-path "crates/$crate/Cargo.toml" --all-targets
             fi
           done
+          if [ -f mycelix-manufacturing/crates/hardware_projection/Cargo.toml ]; then
+            cargo test --manifest-path mycelix-manufacturing/Cargo.toml -p hardware_projection --all-targets
+          fi
       - name: Compile experimental SPDX adapter
         if: ${{ hashFiles('crates/mycelix-hardware-interop/Cargo.toml') != '' }}
         run: cargo check --manifest-path crates/mycelix-hardware-interop/Cargo.toml --all-targets --features experimental-spdx-3-1-dev
@@ -78,3 +95,6 @@ jobs:
               cargo clippy --manifest-path "crates/$crate/Cargo.toml" --all-targets -- -D warnings
             fi
           done
+          if [ -f mycelix-manufacturing/crates/hardware_projection/Cargo.toml ]; then
+            cargo clippy --manifest-path mycelix-manufacturing/Cargo.toml -p hardware_projection --all-targets -- -D warnings
+          fi
