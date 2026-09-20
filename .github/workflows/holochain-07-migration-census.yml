@@ -61,18 +61,21 @@ jobs:
       - name: Run independent tree census twice
         run: |
           set -euo pipefail
+          # The census prints its output path relative to the repository root.
+          # Keep temporary outputs inside Git metadata so that relative-path
+          # reporting succeeds without introducing untracked source files.
           python3 .github/scripts/holochain07_migration_census.py \
-            --output "${RUNNER_TEMP}/census-a.json"
+            --output ".git/holochain07-census-a.json"
           python3 .github/scripts/holochain07_migration_census.py \
-            --output "${RUNNER_TEMP}/census-b.json"
-          cmp "${RUNNER_TEMP}/census-a.json" "${RUNNER_TEMP}/census-b.json"
+            --output ".git/holochain07-census-b.json"
+          cmp ".git/holochain07-census-a.json" ".git/holochain07-census-b.json"
 
       - name: Validate measurement ceiling and exact head
         env:
           EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
-          python3 - "${RUNNER_TEMP}/census-a.json" "${EXPECTED_HEAD}" <<'PY'
+          python3 - ".git/holochain07-census-a.json" "${EXPECTED_HEAD}" <<'PY'
           import json
           import pathlib
           import sys
@@ -94,7 +97,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "${RUNNER_TEMP}/holochain07-census-evidence"
-          cp "${RUNNER_TEMP}/census-a.json" \
+          cp ".git/holochain07-census-a.json" \
             "${RUNNER_TEMP}/holochain07-census-evidence/holochain07-migration-census.json"
           cat > "${RUNNER_TEMP}/holochain07-census-evidence/qualification-metadata.txt" <<EOF
           evidence_authority=measurement-only
