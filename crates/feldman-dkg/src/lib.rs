@@ -5,13 +5,39 @@
 //!
 //! This library implements Feldman's VSS scheme for threshold cryptography.
 //! It enables a group of n participants to jointly generate a shared secret
-//! key where any t participants can reconstruct it, but fewer than t cannot.
+//! key where any t participants can reconstruct it, while fewer than t shares
+//! are insufficient to reconstruct the secret under the sharing model.
 //!
-//! ## Security Properties
+//! ## Security-property boundary
 //!
-//! - **Verifiable**: Each participant can verify their share is consistent
-//! - **Secure**: Requires t-of-n participants to reconstruct
-//! - **Information-theoretic**: Security based on discrete log assumption
+//! These properties must not be collapsed into one generic `secure` claim:
+//!
+//! - **Threshold secrecy**: the underlying Shamir-style polynomial sharing can
+//!   provide information-theoretic secrecy against coalitions holding fewer
+//!   than the threshold number of valid shares, subject to the protocol's
+//!   share-generation, delivery, erasure, and adversary assumptions.
+//! - **Share verifiability**: Feldman commitments let participants check share
+//!   consistency using a computational commitment relation. That verifiability
+//!   relies on the hardness assumptions of the selected group (including the
+//!   discrete-log assumption); it is not information-theoretic.
+//! - **Distributed key generation**: a successful DKG ceremony additionally
+//!   depends on participant identity, authenticated transport, transcript and
+//!   session binding, complaint/violation handling, dropout behavior, refresh
+//!   semantics, and the configured corruption model.
+//!
+//! Therefore:
+//!
+//! ```text
+//! Shamir threshold secrecy
+//!     != Feldman verifiability
+//!     != DKG security
+//!     != threshold signing/decryption security
+//!     != general MPC
+//!     != application authority
+//! ```
+//!
+//! This crate must not be treated as a general-purpose MPC engine merely
+//! because it uses secret sharing and distributed participants.
 //!
 //! ## Usage
 //!
