@@ -1,0 +1,246 @@
+name: FIN-SYNC-001 Source Diagnostic R1
+
+on:
+  pull_request:
+    branches:
+      - feat/fin-sync-001-settlement-graph-v1
+    paths:
+      - '.github/workflows/fin-sync-001-source-diagnostic.yml'
+      - 'mycelix-finance/Cargo.toml'
+      - 'mycelix-finance/Cargo.lock'
+      - 'mycelix-finance/crates/finance-sync-graph/**'
+      - 'mycelix-finance/crates/finance-exact/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  EXPECTED_PRODUCT_SHA: 'a6db7b6074ef1056f36acd0bd39c736b09deb47b'
+  EXPECTED_PARENT_SHA: 'ede8dab9a4dcae6d05bfe43474829cb0c92f9dcf'
+  WORKSPACE_MANIFEST: 'mycelix-finance/Cargo.toml'
+  LOCKFILE: 'mycelix-finance/Cargo.lock'
+  CRATE_DIR: 'mycelix-finance/crates/finance-sync-graph'
+  CRATE_MANIFEST: 'mycelix-finance/crates/finance-sync-graph/Cargo.toml'
+  VECTOR: 'mycelix-finance/crates/finance-sync-graph/test-vectors/settlement-graph-v1.json'
+  WORKFLOW: '.github/workflows/fin-sync-001-source-diagnostic.yml'
+
+concurrency:
+  group: fin-sync-001-source-diagnostic-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  diagnose:
+    name: diagnose-fin-sync-001-source
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact diagnostic subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 3
+          persist-credentials: false
+
+      - name: Prove exact diagnostic child and product ancestry
+        shell: bash
+        run: |
+          set -euo pipefail
+          SUBJECT_SHA="$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PRODUCT_SHA"
+          test "$(git rev-parse HEAD^^)" = "$EXPECTED_PARENT_SHA"
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PRODUCT_SHA" HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$WORKFLOW"
+          test -z "$(git status --porcelain=v1)"
+          printf 'diagnostic_subject=%s\nproduct=%s\nproduct_parent=%s\n' \
+            "$SUBJECT_SHA" "$EXPECTED_PRODUCT_SHA" "$EXPECTED_PARENT_SHA"
+
+      - name: Capture immutable source identities before execution
+        shell: bash
+        run: |
+          set -euo pipefail
+          find "$CRATE_DIR" -type f -print0 | sort -z | xargs -0 sha256sum
+          sha256sum "$WORKSPACE_MANIFEST" "$LOCKFILE" "$WORKFLOW"
+          git diff --name-status "$EXPECTED_PARENT_SHA" "$EXPECTED_PRODUCT_SHA"
+
+      - name: Independently reproduce FIN-SYNC canonical vector
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          vector = json.loads(Path('mycelix-finance/crates/finance-sync-graph/test-vectors/settlement-graph-v1.json').read_text())
+          source = vector['input']
+          expected = vector['expected']
+
+          def u8(value): return bytes([value])
+          def u16(value): return value.to_bytes(2, 'big')
+          def u32(value): return value.to_bytes(4, 'big')
+          def u64(value): return value.to_bytes(8, 'big')
+          def text(value):
+              data = value.encode('utf-8')
+              return u32(len(data)) + data
+          def digest(value): return bytes.fromhex(value)
+          def profile(value):
+              return text(value['id']) + u64(value['revision']) + digest(value['digest'])
+          def optional_profile(value):
+              return b'\x00' if value is None else b'\x01' + profile(value)
+          def optional_text(value):
+              return b'\x00' if value is None else b'\x01' + text(value)
+
+          leg_domain = b'MYCELIX_FIN_SYNC_LEG_V1\x00'
+          group_domain = b'MYCELIX_FIN_SYNC_GROUP_V1\x00'
+          graph_domain = b'MYCELIX_FIN_SYNC_GRAPH_V1\x00'
+          effect = digest(source['economic_effect_commitment'])
+          graph_profile = source['graph_profile']
+
+          leg_ids = {}
+          for leg in source['legs']:
+              amount = leg['amount']
+              payload = (
+                  leg_domain + u16(1) + effect + profile(graph_profile)
+                  + profile(leg['adapter_profile'])
+                  + text(leg['rail']) + text(leg['network'])
+                  + text(leg['source_subject']) + text(leg['destination_subject'])
+                  + text(amount['asset']) + u64(amount['atomic_units'])
+                  + profile(leg['asset_unit_profile'])
+                  + profile(leg['required_finality_profile'])
+                  + text(leg['semantic_idempotency_ref'])
+                  + optional_profile(leg['purpose_profile'])
+                  + optional_text(leg['delivery_asset_subject'])
+              )
+              leg_ids[leg['alias']] = hashlib.sha256(payload).digest()
+
+          group = source['coordination_groups'][0]
+          member_ids = sorted(leg_ids[name] for name in group['member_aliases'])
+          class_tag = {'pvp': 1, 'dvp': 2, 'all_or_none': 3, 'saga': 4}[group['class']]
+          group_payload = (
+              group_domain + u16(1) + profile(graph_profile) + u8(class_tag)
+              + u32(len(member_ids)) + b''.join(member_ids)
+              + profile(group['coordination_profile'])
+          )
+          group_id = hashlib.sha256(group_payload).digest()
+
+          dependencies = []
+          for dependency in source['dependencies']:
+              kind = dependency['kind']
+              if kind == 'requires':
+                  dependencies.append(
+                      (0, leg_ids[dependency['leg_alias']], leg_ids[dependency['prerequisite_alias']],
+                       u8(1) + leg_ids[dependency['leg_alias']] + leg_ids[dependency['prerequisite_alias']])
+                  )
+              elif kind == 'before':
+                  dependencies.append(
+                      (1, leg_ids[dependency['before_alias']], leg_ids[dependency['after_alias']],
+                       u8(2) + leg_ids[dependency['before_alias']] + leg_ids[dependency['after_alias']])
+                  )
+              elif kind == 'conditional_on_evidence':
+                  predicate = dependency['predicate_profile']
+                  dependencies.append(
+                      (2, leg_ids[dependency['leg_alias']], predicate['id'],
+                       u8(3) + leg_ids[dependency['leg_alias']] + profile(predicate))
+                  )
+              else:
+                  raise AssertionError(f'unknown dependency kind: {kind}')
+
+          dependencies.sort(key=lambda item: item[:3])
+          dependency_bytes = [item[3] for item in dependencies]
+          sorted_legs = sorted(leg_ids.values())
+          graph_payload = (
+              graph_domain + u16(1) + effect + profile(graph_profile)
+              + optional_profile(source['temporal_profile'])
+              + u32(len(sorted_legs)) + b''.join(sorted_legs)
+              + u32(len(dependency_bytes)) + b''.join(dependency_bytes)
+              + u32(1) + group_id
+          )
+          graph_id = hashlib.sha256(graph_payload).digest()
+
+          actual = {
+              'usd_leg_id': leg_ids['usd-leg'].hex(),
+              'eur_leg_id': leg_ids['eur-leg'].hex(),
+              'group_id': group_id.hex(),
+              'graph_commitment': graph_id.hex(),
+          }
+          assert actual == expected, (actual, expected)
+          print(json.dumps(actual, indent=2, sort_keys=True))
+          print('independent_fin_sync_001_vector=PASS')
+          PY
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
+
+      - name: Capture runner and toolchain capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'runner_profile=ubuntu-slim\nrunner_os=%s\nrunner_arch=%s\n' "$RUNNER_OS" "$RUNNER_ARCH"
+          python3 --version
+          git --version
+          rustc --version --verbose
+          cargo --version --verbose
+
+      - name: Check source formatting before dependency materialization
+        run: cargo fmt --manifest-path "$WORKSPACE_MANIFEST" --package mycelix-finance-sync-graph -- --check
+
+      - name: Materialize dependency capsule ephemerally
+        shell: bash
+        run: |
+          set -euo pipefail
+          PRE_LOCK_SHA256="$(sha256sum "$LOCKFILE" | awk '{print $1}')"
+          cargo metadata --manifest-path "$WORKSPACE_MANIFEST" --format-version 1 >/dev/null
+          printf 'pre_lock_sha256=%s\n' "$PRE_LOCK_SHA256"
+          printf 'post_lock_sha256=%s\n' "$(sha256sum "$LOCKFILE" | awk '{print $1}')"
+          mapfile -t dirty < <(git status --porcelain=v1 --untracked-files=no | sed 's/^...//')
+          test "${#dirty[@]}" -eq 1
+          test "${dirty[0]}" = "$LOCKFILE"
+          git diff -- "$LOCKFILE"
+
+      - name: Compile graph tests against materialized locked capsule
+        run: cargo test --manifest-path "$WORKSPACE_MANIFEST" -p mycelix-finance-sync-graph --all-targets --locked --no-run
+
+      - name: Execute graph tests against materialized locked capsule
+        run: cargo test --manifest-path "$WORKSPACE_MANIFEST" -p mycelix-finance-sync-graph --all-targets --locked
+
+      - name: Strict Clippy against materialized locked capsule
+        run: cargo clippy --manifest-path "$WORKSPACE_MANIFEST" -p mycelix-finance-sync-graph --all-targets --locked -- -D warnings
+
+      - name: Enforce source authority boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq '#![forbid(unsafe_code)]' "$CRATE_DIR/src/lib.rs"
+          ! grep -R --line-number -E 'reqwest|tokio|hdk|hdi|stripe|web3|ethers' "$CRATE_DIR/src" "$CRATE_MANIFEST"
+          grep -Fq 'pub fn build_settlement_graph_v1' "$CRATE_DIR/src/build.rs"
+          grep -Fq 'pub fn graph_id(&self) -> Commitment32' "$CRATE_DIR/src/model.rs"
+          grep -Fq 'graph_id = graph_commitment' "$CRATE_DIR/CANONICAL_FORMAT.md"
+          grep -Fq 'single-leg settlement' "$CRATE_DIR/CANONICAL_FORMAT.md"
+          grep -Fq '!= profile currently supported' "$CRATE_DIR/CANONICAL_FORMAT.md"
+
+      - name: Prove source bytes remained immutable
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t dirty < <(git status --porcelain=v1 --untracked-files=no | sed 's/^...//')
+          test "${#dirty[@]}" -eq 1
+          test "${dirty[0]}" = "$LOCKFILE"
+          git diff --exit-code -- "$CRATE_DIR" "$WORKSPACE_MANIFEST" "$WORKFLOW"
+
+      - name: Emit diagnostic facts
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'diagnostic_status=PASS\n'
+          printf 'product_sha=%s\n' "$EXPECTED_PRODUCT_SHA"
+          printf 'diagnostic_subject_sha=%s\n' "$(git rev-parse HEAD)"
+          printf 'post_lock_sha256=%s\n' "$(sha256sum "$LOCKFILE" | awk '{print $1}')"
+          printf 'rust_toolchain=%s\n' "$RUST_TOOLCHAIN"
+          printf 'claim=source formatting, independent canonical vector, compile, tests, strict clippy, and exact ephemeral Cargo lock delta executed successfully\n'
+          printf 'nonclaim=qualified product, committed lock repair, rail capability, settlement synchronization, authority, external finality\n'
