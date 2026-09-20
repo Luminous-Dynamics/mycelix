@@ -1,0 +1,9 @@
+[package]
+name = "hearth-care-lifecycle-proof"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "hearth_care_lifecycle_proof"
+path = "src/lib.rs"
