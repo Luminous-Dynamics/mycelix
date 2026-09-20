@@ -18,8 +18,7 @@ use mycelix_leptos_core::{
     HolochainProviderConfig, NavLink, NavTab, ToastContainer, ToastKind,
 };
 use personal_leptos_types::{
-    ConditionalMutationResultView, ConditionalPreferenceMutationInputView,
-    ConditionalProfileMutationInputView, MutationReceiptView,
+    ConditionalMutationResultView, ConditionalPreferenceMutationInputView, MutationReceiptView,
 };
 
 use crate::components::{
@@ -38,6 +37,7 @@ use crate::mutation_refresh::{
 use crate::mutation_state::{MutationRefreshOutcome, PersonalMutationTarget};
 use crate::mutation_truth::MutationPendingNotice;
 use crate::pages::{ActivityPage, UnlockPage, WalletPage};
+use crate::profile_mutation::admit_profile_mutation;
 use crate::runtime_mode::{detect_runtime_mode, provide_runtime_mode, PersonalRuntimeMode};
 use crate::telemetry::ConstellationTelemetry;
 
@@ -481,9 +481,20 @@ fn IdentityPage() -> impl IntoView {
 
     let save_profile = move |ev: SubmitEvent| {
         ev.prevent_default();
-        let input = ConditionalProfileMutationInputView {
-            expected_action_hash: ctx_for_save.profile_action_hash.get_untracked(),
-            profile: ctx_for_save.draft_profile.get(),
+        let input = match admit_profile_mutation(
+            ctx_for_save.identity_state.get_untracked(),
+            ctx_for_save.profile_action_hash.get_untracked(),
+            ctx_for_save.draft_profile.get(),
+        ) {
+            Ok(input) => input,
+            Err(_) => {
+                toasts.push(
+                    "Profile was not written because the live Identity baseline is not established. Your local draft was retained; reconcile the current Personal snapshot before retrying."
+                        .into(),
+                    ToastKind::Error,
+                );
+                return;
+            }
         };
 
         let hc = hc.clone();
