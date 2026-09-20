@@ -1,0 +1,70 @@
+{
+  "schema": "mycelix.ci-gov.001k.evidence-chain-lock.v0.1",
+  "parent_policy_commit": "bf07e3fa9701e947cb7ac5c03e43052661e8a155",
+  "parent_policy_tree": "e486d2d74d696b92577c52ab5d4e534ed2c36890",
+  "tracking_issue": 2117,
+  "review_payload": {
+    ".github/scripts/CI_GOV_001K_EVIDENCE_CHAIN.md": "77db0b2a7330d22fbaa95970885b93f9b7e7893f",
+    ".github/scripts/ci_gov_001k_evidence_chain_verify.py": "a64c4d66aa227ec639a3b3332f34694ccc877c22",
+    ".github/scripts/test_ci_gov_001k_evidence_chain_verify.py": "ff008bbd7259a069ba969734c5395d4e23c50676"
+  },
+  "components": {
+    "A": {
+      "schema": "mycelix.ci-gov.001k.source-qualification.receipt.v0.2",
+      "subject": "bf07e3fa9701e947cb7ac5c03e43052661e8a155",
+      "subject_tree": "e486d2d74d696b92577c52ab5d4e534ed2c36890",
+      "qualifier_commit": "2b0d268ad40ab46357a4d256c727cd3ae432cf76",
+      "qualifier_tree": "eb7d914c9df2a3217b28fd70d008e454d1c7585d",
+      "source_lock_sha256": "55b83c77e91bbab9cdbcf7ee4089bbec0116c1a4cf7f37a3fec40bb6599f23e9"
+    },
+    "B": {
+      "schema": "mycelix.ci-gov.001k.capacity-observer-qualification.receipt.v0.1",
+      "subject": "d3de3a4d24c7459b80f939fee5c3c2bb4843ad71",
+      "subject_tree": "3ef12424861acf5a1ee63d216b71805561bed977",
+      "qualifier_commit": "936633584dc99bc917d341788dbc9b7aabd01722",
+      "qualifier_tree": "26f071f4922b6a592bf277e19a0e02ea138b8488",
+      "source_lock_sha256": "7c29e73c525947d91025d80b9b1c37bc062b8f2bb1e236323c39ac5563d40bfc"
+    },
+    "C": {
+      "schema": "mycelix.ci-gov.001k.admission-adviser-qualification.receipt.v0.1",
+      "subject": "8ee69ad386e4189fb4b1d549dc95ea649c282c1d",
+      "subject_tree": "d44049d174976b2450e090a702f036a090acdb48",
+      "qualifier_commit": "ba1e01ab3bb51f3b40aa2d8c88399f4d227eedec",
+      "qualifier_tree": "0e38c46cd331adc81beeb67fa979864b782699ce",
+      "source_lock_sha256": "52f8498909aa02ed7f27d123b6854ee0b3597232496f7f77d002df8450f7ab22"
+    },
+    "D": {
+      "schema": "mycelix.ci-gov.001k.live-pilot-fixture-qualification.receipt.v0.1",
+      "subject": "55b6de9f8e39ea9c639b890730f4f48b9889267c",
+      "subject_tree": "d8fc9c0f8f03840a1114d02c24cd3881820b2d6e",
+      "qualifier_commit": "498fa8d487b9a7b8b65be4dcff9ab76cb24e2910",
+      "qualifier_tree": "bbcbd63187c3926c43208aabd73d6f9343268329",
+      "source_lock_sha256": "dea22ebd5e38002adba1da3ffbb25dfb0559b9ab8adc55d2d19d6d6bad86ec7d",
+      "fixture_sha256": "c1479745b168901f67931ff392b7c3e70ec4959a3841328943380719e9117cfe"
+    }
+  },
+  "parser_contract": {
+    "max_receipt_bytes": 1048576,
+    "utf8_only": true,
+    "reject_duplicate_json_keys": true,
+    "reject_nonfinite_numbers": true,
+    "reject_unknown_or_extra_fields": true
+  },
+  "aggregate_contract": {
+    "schema": "mycelix.ci-gov.001k.evidence-root.receipt.v0.1",
+    "canonical_component_order": ["A", "B", "C", "D"],
+    "bind_component_receipt_commitments": true,
+    "bind_raw_receipt_file_sha256": true
+  },
+  "authority_ceiling": {
+    "workflow_activation": false,
+    "label_mutation": false,
+    "actions_mutation": false,
+    "live_scheduler_qualification": false,
+    "cancellation_authority": false,
+    "merge_authority": false,
+    "product_pass_authority": false,
+    "scientific_pass_authority": false
+  },
+  "local_verifier_preflight_cases": 34
+}
