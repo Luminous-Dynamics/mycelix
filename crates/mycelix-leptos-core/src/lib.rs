@@ -47,6 +47,7 @@ pub mod connection_status;
 pub mod holochain_call_error;
 pub mod holochain_call_failure;
 pub mod holochain_call_observation;
+pub mod holochain_call_target_diagnostics;
 pub mod holochain_provider;
 pub mod provider;
 // bridge_finance: unfinished proof-of-concept, never wired to any consumer —
@@ -106,6 +107,9 @@ pub use holochain_call_failure::HolochainCallFailureKind;
 pub use holochain_call_observation::{
     HolochainCallAdmissionExhaustion, HolochainCallAttemptId, HolochainCallAttemptSequence,
     HolochainCallDiagnosticState, HolochainCallFailureObservation, HolochainCallInvocationError,
+};
+pub use holochain_call_target_diagnostics::{
+    HolochainCallDiagnosticLedger, HolochainCallTarget, HolochainCallTargetDiagnostic,
 };
 pub use holochain_provider::{
     ConnectStrategy, ConnectionBadge, ConnectionStatus, HolochainCtx, HolochainProviderAuto,
