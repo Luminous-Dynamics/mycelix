@@ -1,0 +1,12 @@
+[package]
+name = "hearth-care-digest-v4"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Planner-grade Care digest over qualified occurrence and completion authority"
+
+[dependencies]
+serde = { workspace = true }
+hearth-care-ledger-contract = { workspace = true }
+hearth-care-occurrence-authority = { workspace = true }
+hearth-care-completion-authority = { workspace = true }
