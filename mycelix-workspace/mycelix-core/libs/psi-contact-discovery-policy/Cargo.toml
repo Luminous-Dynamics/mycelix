@@ -1,0 +1,15 @@
+[package]
+name = "psi-contact-discovery-policy"
+version = "0.1.0"
+edition = "2024"
+authors = ["Mycelix Network"]
+description = "Authority-neutral contact-discovery composition semantics above PSI-002A"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+
+[dependencies]
+privacy-computation-core = { path = "../privacy-computation-core" }
+serde = { version = "1.0", features = ["derive"] }
+
+[dev-dependencies]
+serde_json = "1.0"
