@@ -443,6 +443,30 @@ enum PersonalSnapshotStageOutcome {
     EpochChanged,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PersonalRetryAdmission {
+    Started { epoch: u64 },
+    NoUsableEpoch,
+    Busy { epoch: u64 },
+}
+
+fn begin_personal_retry(gate: &mut ReconciliationEpoch) -> PersonalRetryAdmission {
+    if !gate.is_usable() {
+        return PersonalRetryAdmission::NoUsableEpoch;
+    }
+
+    let epoch = gate.current_epoch();
+    if gate.is_in_flight() {
+        return PersonalRetryAdmission::Busy { epoch };
+    }
+
+    let started_epoch = gate
+        .begin_refresh()
+        .expect("usable non-busy Personal epoch must admit an explicit full retry");
+    debug_assert_eq!(started_epoch, epoch);
+    PersonalRetryAdmission::Started { epoch }
+}
+
 #[derive(Clone)]
 pub struct PersonalCtx {
     pub runtime_mode: PersonalRuntimeMode,
@@ -896,6 +920,34 @@ async fn hydrate_live(ctx: PersonalCtx, hc: HolochainCtx, epoch: u64) {
     }
 }
 
+pub async fn retry_full_reconciliation(
+    ctx: PersonalCtx,
+    hc: HolochainCtx,
+) -> PersonalRetryAdmission {
+    let mut gate = ctx.reconciliation.get_untracked();
+    let had_snapshot = gate.has_completed();
+    let admission = begin_personal_retry(&mut gate);
+    let PersonalRetryAdmission::Started { epoch } = admission else {
+        return admission;
+    };
+
+    batch(|| {
+        ctx.reconciliation.set(gate);
+        ctx.loading.set(true);
+        ctx.snapshot_freshness
+            .set(PersonalSnapshotFreshness::Refreshing);
+        if !had_snapshot {
+            set_all_source_states(&ctx, PersonalSourceState::LoadingLive);
+        }
+        ctx.status_note.set(format!(
+            "Retrying one coherent Personal snapshot inside live conductor epoch {epoch}. No visible source values will change unless all five source stages complete and the epoch remains admissible."
+        ));
+    });
+
+    hydrate_live(ctx, hc, epoch).await;
+    admission
+}
+
 async fn load_identity_source(ctx: &PersonalCtx, hc: &HolochainCtx, epoch: u64) -> bool {
     let profile_result = hc
         .call_zome_default::<(), Option<ProfileEvidenceView>>(
@@ -1210,5 +1262,43 @@ mod tests {
             .states()
             .iter()
             .all(|state| *state == PersonalSourceState::Empty));
+    }
+
+    #[test]
+    fn retry_requires_a_usable_epoch() {
+        let mut gate = ReconciliationEpoch::default();
+        assert_eq!(
+            begin_personal_retry(&mut gate),
+            PersonalRetryAdmission::NoUsableEpoch
+        );
+    }
+
+    #[test]
+    fn retry_is_busy_while_reconciliation_is_in_flight() {
+        let mut gate = ReconciliationEpoch::default();
+        let ReconciliationTransition::Start { epoch } = gate.observe_usable(true) else {
+            panic!("usable session must start reconciliation");
+        };
+        assert_eq!(
+            begin_personal_retry(&mut gate),
+            PersonalRetryAdmission::Busy { epoch }
+        );
+    }
+
+    #[test]
+    fn aborted_first_attempt_can_retry_inside_same_usable_epoch() {
+        let mut gate = ReconciliationEpoch::default();
+        let ReconciliationTransition::Start { epoch } = gate.observe_usable(true) else {
+            panic!("usable session must start reconciliation");
+        };
+        assert!(gate.abort(epoch));
+        assert!(!gate.has_completed());
+
+        assert_eq!(
+            begin_personal_retry(&mut gate),
+            PersonalRetryAdmission::Started { epoch }
+        );
+        assert!(gate.is_in_flight());
+        assert!(!gate.has_completed());
     }
 }
