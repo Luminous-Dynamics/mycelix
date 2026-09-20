@@ -1,0 +1,118 @@
+name: Mycelix PEC-003B Leakage Evidence Core Exact-Head
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'mycelix-workspace/mycelix-core/libs/privacy-leakage-core/**'
+      - 'mycelix-workspace/mycelix-core/libs/privacy-computation-core/**'
+      - '.github/workflows/pec-003b-leakage-core-exact-head.yml'
+  workflow_dispatch:
+    inputs:
+      subject_sha:
+        description: 'Exact 40-hex qualifier subject'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pec-003bq-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Exact-head PEC-003B leakage-evidence qualification
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      PRODUCT_PARENT: 0f7618b1c6cd03ec60f84b5c169e016fce90291b
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Resolve exact subject
+        id: subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            subject='${{ github.event.pull_request.head.sha }}'
+          else
+            subject='${{ inputs.subject_sha }}'
+          fi
+          [[ "$subject" =~ ^[0-9a-f]{40}$ ]]
+          echo "sha=$subject" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ steps.subject.outputs.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Verify exact qualifier shape
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$PRODUCT_PARENT"
+          test "$(git rev-list --count "$PRODUCT_PARENT"..HEAD)" = 1
+          mapfile -t changed < <(git diff --name-only "$PRODUCT_PARENT" HEAD)
+          test "${#changed[@]}" = 1
+          test "${changed[0]}" = '.github/workflows/pec-003b-leakage-core-exact-head.yml'
+          test -z "$(git status --porcelain)"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+
+      - name: Check formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-core/libs/privacy-leakage-core/Cargo.toml \
+            --all -- --check
+
+      - name: Prepare isolated dependency graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/pec-003bq-graph"
+          mkdir -p "$root"
+          cp -a mycelix-workspace/mycelix-core/libs/privacy-computation-core "$root/privacy-computation-core"
+          cp -a mycelix-workspace/mycelix-core/libs/privacy-leakage-core "$root/privacy-leakage-core"
+          cd "$root/privacy-leakage-core"
+          cargo generate-lockfile
+          cargo metadata --locked --format-version 1 > "$RUNNER_TEMP/cargo-metadata.json"
+          cargo tree --locked > "$RUNNER_TEMP/cargo-tree.txt"
+
+      - name: Execute committed corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/pec-003bq-graph/privacy-leakage-core"
+          cargo test --locked --all-targets -- --nocapture
+
+      - name: Warnings-denied Clippy
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/pec-003bq-graph/privacy-leakage-core"
+          cargo clippy --locked --all-targets -- -D warnings
+
+      - name: Postflight receipt ceiling
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          test -z "$(git status --porcelain)"
+          echo 'PEC-003BQ PASS'
+          echo 'authority_scope=StructuralOnly'
+          echo 'privacy_established=false'
+          echo 'leakage_exhaustively_measured=false'
+          echo 'cryptographic_theorem_proven=false'
+          echo 'production_admission=false'
+          echo 'application_authority=false'
