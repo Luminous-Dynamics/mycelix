@@ -45,6 +45,7 @@
 // --- Core transport ---
 pub mod connection_status;
 pub mod holochain_call_error;
+pub mod holochain_call_failure;
 pub mod holochain_provider;
 pub mod provider;
 // bridge_finance: unfinished proof-of-concept, never wired to any consumer —
@@ -100,6 +101,7 @@ pub mod util;
 
 // Re-exports for convenience — transport
 pub use holochain_call_error::{HolochainCallError, HolochainCallPhase};
+pub use holochain_call_failure::HolochainCallFailureKind;
 pub use holochain_provider::{
     ConnectStrategy, ConnectionBadge, ConnectionStatus, HolochainCtx, HolochainProviderAuto,
     HolochainProviderConfig,
