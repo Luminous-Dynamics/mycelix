@@ -1,0 +1,226 @@
+name: FIN-SYNC-001 Source Diagnostic R4
+
+on:
+  pull_request:
+    branches:
+      - feat/fin-sync-001-settlement-graph-v1
+    paths:
+      - '.github/workflows/fin-sync-001-source-diagnostic-r4.yml'
+      - 'mycelix-finance/Cargo.toml'
+      - 'mycelix-finance/Cargo.lock'
+      - 'mycelix-finance/crates/finance-sync-graph/**'
+      - 'mycelix-finance/crates/finance-exact/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  RUST_TOOLCHAIN: '1.96.0'
+  EXPECTED_PRODUCT_SHA: 'ddca2e04d404f7e3ce44b9d3f76ca732b1e54f92'
+  EXPECTED_PARENT_SHA: 'ede8dab9a4dcae6d05bfe43474829cb0c92f9dcf'
+  WORKSPACE_MANIFEST: 'mycelix-finance/Cargo.toml'
+  LOCKFILE: 'mycelix-finance/Cargo.lock'
+  CRATE_DIR: 'mycelix-finance/crates/finance-sync-graph'
+  WORKFLOW: '.github/workflows/fin-sync-001-source-diagnostic-r4.yml'
+
+concurrency:
+  group: fin-sync-001-source-diagnostic-r4-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  diagnose:
+    name: diagnose-fin-sync-001-source-r4
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact diagnostic subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 3
+          persist-credentials: false
+
+      - name: Prove exact diagnostic child and product ancestry
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PRODUCT_SHA"
+          test "$(git rev-parse HEAD^^)" = "$EXPECTED_PARENT_SHA"
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PRODUCT_SHA" HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$WORKFLOW"
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Independent canonical-byte oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+
+          vector = json.loads(Path('mycelix-finance/crates/finance-sync-graph/test-vectors/settlement-graph-v1.json').read_text())
+          source = vector['input']
+          expected = vector['expected']
+
+          def u8(v): return bytes([v])
+          def u16(v): return v.to_bytes(2, 'big')
+          def u32(v): return v.to_bytes(4, 'big')
+          def u64(v): return v.to_bytes(8, 'big')
+          def text(v):
+              b = v.encode('utf-8')
+              return u32(len(b)) + b
+          def digest(v): return bytes.fromhex(v)
+          def profile(v): return text(v['id']) + u64(v['revision']) + digest(v['digest'])
+          def optional_profile(v): return b'\x00' if v is None else b'\x01' + profile(v)
+          def optional_text(v): return b'\x00' if v is None else b'\x01' + text(v)
+
+          role_tag = {'payment': 1, 'delivery': 2, 'auxiliary': 3}
+          class_tag = {'pvp': 1, 'dvp': 2, 'all_or_none': 3, 'saga': 4}
+          leg_domain = b'MYCELIX_FIN_SYNC_LEG_V1\x00'
+          group_domain = b'MYCELIX_FIN_SYNC_GROUP_V1\x00'
+          graph_domain = b'MYCELIX_FIN_SYNC_GRAPH_V1\x00'
+          effect = digest(source['economic_effect_commitment'])
+          graph_profile = source['graph_profile']
+
+          leg_ids = {}
+          for leg in source['legs']:
+              amount = leg['amount']
+              payload = (
+                  leg_domain + u16(1) + effect + profile(graph_profile)
+                  + profile(leg['adapter_profile'])
+                  + text(leg['rail']) + text(leg['network']) + u8(role_tag[leg['role']])
+                  + text(leg['source_subject']) + text(leg['destination_subject'])
+                  + text(amount['asset']) + u64(amount['atomic_units'])
+                  + profile(leg['asset_unit_profile'])
+                  + profile(leg['required_finality_profile'])
+                  + text(leg['semantic_idempotency_ref'])
+                  + optional_profile(leg['purpose_profile'])
+                  + optional_text(leg['delivery_asset_subject'])
+              )
+              leg_ids[leg['alias']] = hashlib.sha256(payload).digest()
+
+          group_ids = []
+          for group in source['coordination_groups']:
+              members = sorted(leg_ids[name] for name in group['member_aliases'])
+              payload = (
+                  group_domain + u16(1) + profile(graph_profile)
+                  + u8(class_tag[group['class']]) + u32(len(members)) + b''.join(members)
+                  + profile(group['coordination_profile'])
+              )
+              group_ids.append(hashlib.sha256(payload).digest())
+
+          dependency_bytes = []
+          for dep in source['dependencies']:
+              if dep['kind'] == 'requires':
+                  payload = u8(1) + leg_ids[dep['leg_alias']] + leg_ids[dep['prerequisite_alias']]
+              elif dep['kind'] == 'before':
+                  payload = u8(2) + leg_ids[dep['before_alias']] + leg_ids[dep['after_alias']]
+              elif dep['kind'] == 'conditional_on_evidence':
+                  payload = u8(3) + leg_ids[dep['leg_alias']] + profile(dep['predicate_profile'])
+              else:
+                  raise AssertionError(dep['kind'])
+              dependency_bytes.append(payload)
+
+          graph_payload = (
+              graph_domain + u16(1) + effect + profile(graph_profile)
+              + optional_profile(source['temporal_profile'])
+              + u32(len(leg_ids)) + b''.join(sorted(leg_ids.values()))
+              + u32(len(dependency_bytes)) + b''.join(sorted(dependency_bytes))
+              + u32(len(group_ids)) + b''.join(sorted(group_ids))
+          )
+          graph = hashlib.sha256(graph_payload).digest()
+
+          actual = {
+              'usd_leg_id': leg_ids['usd-leg'].hex(),
+              'eur_leg_id': leg_ids['eur-leg'].hex(),
+              'group_id': group_ids[0].hex(),
+              'graph_commitment': graph.hex(),
+          }
+          assert actual == expected, (actual, expected)
+          print(json.dumps(actual, indent=2, sort_keys=True))
+          print('independent_fin_sync_001_vector=PASS')
+          PY
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
+
+      - name: Capture exact environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'runner_profile=ubuntu-slim\nrunner_os=%s\nrunner_arch=%s\n' "$RUNNER_OS" "$RUNNER_ARCH"
+          python3 --version
+          git --version
+          rustc --version --verbose
+          cargo --version --verbose
+          find "$CRATE_DIR" -type f -print0 | sort -z | xargs -0 sha256sum
+          sha256sum "$WORKSPACE_MANIFEST" "$LOCKFILE" "$WORKFLOW"
+
+      - name: Check formatting before lock materialization
+        run: cargo fmt --manifest-path "$WORKSPACE_MANIFEST" --package mycelix-finance-sync-graph -- --check
+
+      - name: Materialize exact dependency capsule ephemerally
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'pre_lock_sha256=%s\n' "$(sha256sum "$LOCKFILE" | awk '{print $1}')"
+          cargo metadata --manifest-path "$WORKSPACE_MANIFEST" --format-version 1 >/dev/null
+          printf 'post_lock_sha256=%s\n' "$(sha256sum "$LOCKFILE" | awk '{print $1}')"
+          mapfile -t dirty < <(git status --porcelain=v1 --untracked-files=no | sed 's/^...//')
+          test "${#dirty[@]}" -eq 1
+          test "${dirty[0]}" = "$LOCKFILE"
+          git diff -- "$LOCKFILE"
+
+      - name: Compile tests under materialized locked graph
+        run: cargo test --manifest-path "$WORKSPACE_MANIFEST" -p mycelix-finance-sync-graph --all-targets --locked --no-run
+
+      - name: Execute tests under materialized locked graph
+        run: cargo test --manifest-path "$WORKSPACE_MANIFEST" -p mycelix-finance-sync-graph --all-targets --locked
+
+      - name: Strict Clippy under materialized locked graph
+        run: cargo clippy --manifest-path "$WORKSPACE_MANIFEST" -p mycelix-finance-sync-graph --all-targets --locked -- -D warnings
+
+      - name: Enforce authority, schema and dependency boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq '#![forbid(unsafe_code)]' "$CRATE_DIR/src/lib.rs"
+          ! grep -R --line-number -E 'reqwest|tokio|hdk|hdi|stripe|web3|ethers' "$CRATE_DIR/src" "$CRATE_DIR/Cargo.toml"
+          grep -Fq 'SettlementLegRoleV1' "$CRATE_DIR/src/model.rs"
+          grep -Fq 'InvalidCoordinationRoleComposition' "$CRATE_DIR/src/build.rs"
+          grep -Fq 'canonical_dependency_bytes' "$CRATE_DIR/src/canonical.rs"
+          grep -Fq '#[serde(deny_unknown_fields, tag = "kind", rename_all = "snake_case")]' "$CRATE_DIR/src/model.rs"
+          grep -Fq 'deserialize_closed_asset_amount' "$CRATE_DIR/src/model.rs"
+          test -f "$CRATE_DIR/tests/schema_closure.rs"
+          grep -Fq 'dependency_unknown_fields_fail_closed' "$CRATE_DIR/tests/schema_closure.rs"
+          grep -Fq 'amount_unknown_fields_fail_closed_at_graph_schema_boundary' "$CRATE_DIR/tests/schema_closure.rs"
+          grep -Fq 'pre-deserialization allocation bound' "$CRATE_DIR/INGRESS_BOUNDARY.md"
+          grep -Fq 'FIN-SYNC-001A / #2498' "$CRATE_DIR/INGRESS_BOUNDARY.md"
+          grep -Fq 'dependency byte strings sorted lexicographically' "$CRATE_DIR/CANONICAL_FORMAT.md"
+          grep -Fq 'graph_id = graph_commitment' "$CRATE_DIR/CANONICAL_FORMAT.md"
+
+      - name: Prove product source remained immutable
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t dirty < <(git status --porcelain=v1 --untracked-files=no | sed 's/^...//')
+          test "${#dirty[@]}" -eq 1
+          test "${dirty[0]}" = "$LOCKFILE"
+          git diff --exit-code -- "$CRATE_DIR" "$WORKSPACE_MANIFEST" "$WORKFLOW"
+
+      - name: Emit diagnostic facts
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'diagnostic_status=PASS\n'
+          printf 'product_sha=%s\n' "$EXPECTED_PRODUCT_SHA"
+          printf 'subject_sha=%s\n' "$(git rev-parse HEAD)"
+          printf 'post_lock_sha256=%s\n' "$(sha256sum "$LOCKFILE" | awk '{print $1}')"
+          printf 'rust_toolchain=%s\n' "$RUST_TOOLCHAIN"
+          printf 'claim=independent vector, schema-closed dependency/amount tests, rustfmt, exact ephemeral Cargo lock delta, compile, tests, and strict clippy executed successfully\n'
+          printf 'nonclaim=qualified product, committed lock repair, bounded raw parser ingress, rail capability, authority, settlement synchronization, external finality\n'
