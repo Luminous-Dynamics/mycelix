@@ -1,0 +1,139 @@
+name: Stewardship Reciprocity Satisfaction Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-stewardship-core/**'
+      - 'crates/mycelix-stewardship-reciprocity/**'
+      - 'crates/mycelix-stewardship-reciprocity-receipts/**'
+      - 'crates/mycelix-stewardship-reciprocity-satisfaction/**'
+      - '.github/workflows/stewardship-reciprocity-satisfaction.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: stewardship-reciprocity-satisfaction-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      EXPECTED_PARENT: 839371fe1f1db4719a2932800b6d06fbbf975de2
+    steps:
+      - name: Checkout exact proposed head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_SHA }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Bind qualification subject and lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+
+      - name: Verify exact four-file subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git diff --name-only "$EXPECTED_PARENT" "$EXPECTED_SHA" | LC_ALL=C sort)"
+          expected="$(printf '%s\n' \
+            '.github/workflows/stewardship-reciprocity-satisfaction.yml' \
+            'crates/mycelix-stewardship-reciprocity-satisfaction/Cargo.toml' \
+            'crates/mycelix-stewardship-reciprocity-satisfaction/README.md' \
+            'crates/mycelix-stewardship-reciprocity-satisfaction/src/lib.rs' \
+            | LC_ALL=C sort)"
+          test "$actual" = "$expected"
+
+      - name: Install stable Rust and wasm target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+
+      - name: Verify narrow dependency closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import pathlib
+          import tomllib
+
+          manifest = pathlib.Path('crates/mycelix-stewardship-reciprocity-satisfaction/Cargo.toml')
+          data = tomllib.loads(manifest.read_text())
+          dependencies = data.get('dependencies', {})
+          expected = {
+              'mycelix-stewardship-core': {'path': '../mycelix-stewardship-core'},
+              'mycelix-stewardship-reciprocity': {'path': '../mycelix-stewardship-reciprocity'},
+              'mycelix-stewardship-reciprocity-receipts': {'path': '../mycelix-stewardship-reciprocity-receipts'},
+          }
+          if dependencies != expected:
+              raise SystemExit(f'unexpected STEW-011A dependency closure: {dependencies!r}')
+          PY
+
+      - name: Verify frozen theorem surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          source = Path(
+              'crates/mycelix-stewardship-reciprocity-satisfaction/src/lib.rs'
+          ).read_text()
+
+          required = (
+              'AdmittedSatisfiedUnderProfile',
+              'RejectedUnderProfile',
+              'DisputedUnderProfile',
+              'AssertedCurrent',
+              'AssertedRevoked',
+              'AssertedSuperseded',
+              'AssertedExpired',
+              'PositiveAdmissionHasUnresolvedReceiptConflict',
+              'PositiveAdmissionLacksFulfilledReport',
+              'conflict_resolution_evidence_refs',
+              'divergent_receipts_block_positive_admission_without_resolution_evidence',
+              'partial_report_alone_cannot_be_promoted_to_satisfied',
+          )
+          forbidden = (
+              'AdmittedPartiallySatisfiedUnderProfile',
+              'PositiveAdmissionLacksSupportingReport',
+          )
+
+          missing = [token for token in required if token not in source]
+          present_forbidden = [token for token in forbidden if token in source]
+          if missing or present_forbidden:
+              raise SystemExit(
+                  f'STEW-011A theorem-surface mismatch: '
+                  f'missing={missing!r}, forbidden={present_forbidden!r}'
+              )
+          PY
+
+      - name: rustfmt
+        run: cargo fmt --manifest-path crates/mycelix-stewardship-reciprocity-satisfaction/Cargo.toml -- --check
+
+      - name: Host tests
+        run: cargo test --manifest-path crates/mycelix-stewardship-reciprocity-satisfaction/Cargo.toml --all-targets
+
+      - name: wasm32 check
+        run: cargo check --manifest-path crates/mycelix-stewardship-reciprocity-satisfaction/Cargo.toml --target wasm32-unknown-unknown
+
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-stewardship-reciprocity-satisfaction/Cargo.toml --all-targets -- -D warnings
+
+      - name: rustdoc
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --manifest-path crates/mycelix-stewardship-reciprocity-satisfaction/Cargo.toml --no-deps
+
+      - name: Postflight exact-head verification
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"

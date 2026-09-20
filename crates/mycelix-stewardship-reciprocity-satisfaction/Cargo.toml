@@ -1,0 +1,14 @@
+[package]
+name = "mycelix-stewardship-reciprocity-satisfaction"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Profile-relative reciprocity satisfaction admission for Mycelix stewardship"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+mycelix-stewardship-core = { path = "../mycelix-stewardship-core" }
+mycelix-stewardship-reciprocity = { path = "../mycelix-stewardship-reciprocity" }
+mycelix-stewardship-reciprocity-receipts = { path = "../mycelix-stewardship-reciprocity-receipts" }
