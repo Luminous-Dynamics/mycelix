@@ -1,0 +1,22 @@
+[package]
+name = "psi-xenia-registry-provider"
+version = "0.1.0"
+edition = "2024"
+authors = ["Mycelix Network"]
+description = "Hybrid Xenia provider verification and trust-policy join for PSI registry snapshots"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+publish = false
+
+[dependencies]
+ed25519-dalek = "2"
+ml-dsa = { version = "0.1.1", default-features = true }
+psi-registry-evidence-core = { path = "../psi-registry-evidence-core" }
+serde = { version = "1.0", features = ["derive"] }
+sha2 = "0.10"
+thiserror = "2.0"
+
+[dev-dependencies]
+serde_json = "1.0"
+
+[workspace]
