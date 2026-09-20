@@ -1,0 +1,222 @@
+name: Exact Subject Qualification Preflight
+description: Resolve and prove an immutable semantic qualification subject without making a gate PASS claim.
+
+inputs:
+  expected_subject_sha:
+    description: Exact lowercase 40-hex semantic subject SHA admitted by the caller.
+    required: true
+  subject_mode:
+    description: One of pull-request-base, pull-request-head, or manual-input.
+    required: true
+  manual_subject_sha:
+    description: Exact semantic subject for manual-input mode; ignored otherwise.
+    required: false
+    default: ''
+  source_roots:
+    description: Newline-separated repository-relative source roots to commit deterministically from the exact Git tree.
+    required: true
+  evidence_name:
+    description: Safe basename for the preflight evidence directory beneath RUNNER_TEMP.
+    required: true
+  semantic_checkout_path:
+    description: Dedicated repository-relative workspace path for the semantic checkout.
+    required: false
+    default: .qualification-subject
+
+outputs:
+  subject_sha:
+    description: Resolved immutable semantic subject SHA.
+    value: ${{ steps.resolve.outputs.subject_sha }}
+  semantic_workspace:
+    description: Absolute semantic checkout workspace.
+    value: ${{ steps.preflight.outputs.semantic_workspace }}
+  evidence_dir:
+    description: Absolute preflight evidence directory.
+    value: ${{ steps.preflight.outputs.evidence_dir }}
+  source_hash_manifest:
+    description: Absolute deterministic domain-separated Git-tree source manifest path.
+    value: ${{ steps.preflight.outputs.source_hash_manifest }}
+  execution_capsule:
+    description: Absolute common preflight execution capsule path.
+    value: ${{ steps.preflight.outputs.execution_capsule }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve immutable semantic subject
+      id: resolve
+      shell: bash
+      env:
+        EXPECTED_SUBJECT_SHA: ${{ inputs.expected_subject_sha }}
+        SUBJECT_MODE: ${{ inputs.subject_mode }}
+        MANUAL_SUBJECT_SHA: ${{ inputs.manual_subject_sha }}
+        EVENT_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        EVENT_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        CHECKOUT_PATH: ${{ inputs.semantic_checkout_path }}
+        EVIDENCE_NAME: ${{ inputs.evidence_name }}
+      run: |
+        set -euo pipefail
+
+        sha_re='^[0-9a-f]{40}$'
+        [[ "$EXPECTED_SUBJECT_SHA" =~ $sha_re ]] || {
+          echo "expected_subject_sha must be exact lowercase 40-hex" >&2
+          exit 1
+        }
+
+        case "$SUBJECT_MODE" in
+          pull-request-base)
+            resolved="$EVENT_PR_BASE_SHA"
+            ;;
+          pull-request-head)
+            resolved="$EVENT_PR_HEAD_SHA"
+            ;;
+          manual-input)
+            resolved="$MANUAL_SUBJECT_SHA"
+            ;;
+          *)
+            echo "unsupported subject_mode: $SUBJECT_MODE" >&2
+            exit 1
+            ;;
+        esac
+
+        [[ "$resolved" =~ $sha_re ]] || {
+          echo "resolved semantic subject must be exact lowercase 40-hex" >&2
+          exit 1
+        }
+        [[ "$resolved" == "$EXPECTED_SUBJECT_SHA" ]] || {
+          echo "resolved semantic subject does not equal expected_subject_sha" >&2
+          exit 1
+        }
+
+        [[ "$CHECKOUT_PATH" =~ ^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$ ]] || {
+          echo "semantic_checkout_path contains unsupported syntax" >&2
+          exit 1
+        }
+        [[ "$CHECKOUT_PATH" != '.' && "$CHECKOUT_PATH" != '..' ]] || {
+          echo "semantic_checkout_path may not alias the workspace root" >&2
+          exit 1
+        }
+        [[ "$CHECKOUT_PATH" != .github && "$CHECKOUT_PATH" != .github/* ]] || {
+          echo "semantic_checkout_path may not alias the workflow/action mechanism tree" >&2
+          exit 1
+        }
+
+        [[ "$EVIDENCE_NAME" =~ ^[A-Za-z0-9._-]{1,128}$ ]] || {
+          echo "evidence_name contains unsupported syntax or exceeds 128 bytes" >&2
+          exit 1
+        }
+        [[ "$EVIDENCE_NAME" != '.' && "$EVIDENCE_NAME" != '..' ]] || {
+          echo "evidence_name may not be a traversal token" >&2
+          exit 1
+        }
+
+        echo "subject_sha=$resolved" >> "$GITHUB_OUTPUT"
+
+    - name: Checkout exact semantic subject
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        ref: ${{ steps.resolve.outputs.subject_sha }}
+        path: ${{ inputs.semantic_checkout_path }}
+        fetch-depth: 1
+        persist-credentials: false
+
+    - name: Prove semantic workspace and write common evidence
+      id: preflight
+      shell: bash
+      env:
+        SUBJECT_SHA: ${{ steps.resolve.outputs.subject_sha }}
+        SUBJECT_MODE: ${{ inputs.subject_mode }}
+        CHECKOUT_PATH: ${{ inputs.semantic_checkout_path }}
+        EVIDENCE_NAME: ${{ inputs.evidence_name }}
+        SOURCE_ROOTS: ${{ inputs.source_roots }}
+      run: |
+        set -euo pipefail
+
+        semantic_workspace="$GITHUB_WORKSPACE/$CHECKOUT_PATH"
+        evidence_dir="$RUNNER_TEMP/$EVIDENCE_NAME"
+        manifest="$evidence_dir/source-tree-manifest-v1.bin"
+        capsule="$evidence_dir/execution-capsule.txt"
+        roots_file="$evidence_dir/source-roots.txt"
+
+        semantic_workspace="$(realpath "$semantic_workspace")"
+        expected_workspace="$(realpath "$GITHUB_WORKSPACE")/$CHECKOUT_PATH"
+        [[ "$semantic_workspace" == "$expected_workspace" ]] || {
+          echo "semantic checkout resolved outside the admitted workspace path" >&2
+          exit 1
+        }
+
+        cd "$semantic_workspace"
+        [[ "$(git rev-parse HEAD)" == "$SUBJECT_SHA" ]] || {
+          echo "semantic checkout HEAD mismatch" >&2
+          exit 1
+        }
+        [[ -z "$(git status --porcelain)" ]] || {
+          echo "semantic checkout is dirty before qualification" >&2
+          exit 1
+        }
+
+        rm -rf "$evidence_dir"
+        mkdir -p "$evidence_dir"
+        : > "$roots_file"
+
+        while IFS= read -r raw || [[ -n "$raw" ]]; do
+          [[ -n "$raw" ]] || continue
+          trimmed="$(printf '%s' "$raw" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+          [[ "$raw" == "$trimmed" ]] || {
+            echo "source_roots entries may not contain leading/trailing whitespace: $raw" >&2
+            exit 1
+          }
+          [[ "$raw" =~ ^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$ ]] || {
+            echo "invalid source root syntax: $raw" >&2
+            exit 1
+          }
+          [[ "$raw" != '.' && "$raw" != '..' && "$raw" != .git && "$raw" != .git/* ]] || {
+            echo "source root may not name workspace/.git traversal: $raw" >&2
+            exit 1
+          }
+          git cat-file -e "$SUBJECT_SHA:$raw" 2>/dev/null || {
+            echo "requested source root does not exist in semantic Git tree: $raw" >&2
+            exit 1
+          }
+          printf '%s\n' "$raw" >> "$roots_file"
+        done <<< "$SOURCE_ROOTS"
+
+        [[ -s "$roots_file" ]] || {
+          echo "source_roots resolved to an empty set" >&2
+          exit 1
+        }
+        LC_ALL=C sort -u "$roots_file" -o "$roots_file"
+
+        printf 'MYCELIX_EXACT_SUBJECT_SOURCE_MANIFEST_V1\0' > "$manifest"
+        while IFS= read -r root; do
+          printf 'ROOT\0%s\0' "$root" >> "$manifest"
+          git ls-tree -r -z --full-tree "$SUBJECT_SHA" -- "$root" >> "$manifest"
+        done < "$roots_file"
+
+        manifest_digest="$(sha256sum "$manifest" | awk '{print $1}')"
+        action_yml_sha256="$(sha256sum "$GITHUB_ACTION_PATH/action.yml" | awk '{print $1}')"
+        {
+          echo "semantic_subject_sha=$SUBJECT_SHA"
+          echo "mechanism_workflow_sha=$GITHUB_WORKFLOW_SHA"
+          echo "mechanism_action_profile=exact-subject-preflight-v1"
+          echo "mechanism_action_yml_sha256=$action_yml_sha256"
+          echo "event_execution_sha=$GITHUB_SHA"
+          echo "event_name=$GITHUB_EVENT_NAME"
+          echo "subject_mode=$SUBJECT_MODE"
+          echo "runner_os=${RUNNER_OS:-unknown}"
+          echo "runner_arch=${RUNNER_ARCH:-unknown}"
+          echo "semantic_checkout_path=$CHECKOUT_PATH"
+          echo "source_manifest_profile=MYCELIX_EXACT_SUBJECT_SOURCE_MANIFEST_V1"
+          echo "source_manifest_sha256=$manifest_digest"
+          git --version
+        } > "$capsule"
+
+        [[ "$(git rev-parse HEAD)" == "$SUBJECT_SHA" ]]
+        [[ -z "$(git status --porcelain)" ]]
+
+        {
+          echo "semantic_workspace=$semantic_workspace"
+          echo "evidence_dir=$evidence_dir"
+          echo "source_hash_manifest=$manifest"
+          echo "execution_capsule=$capsule"
+        } >> "$GITHUB_OUTPUT"
