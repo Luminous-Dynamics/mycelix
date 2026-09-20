@@ -1,0 +1,106 @@
+name: SUP-CIV-000D2 Storage Topology Profiles
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/docs/civic-resilience/SUP_CIV_000D2_STORAGE_TOPOLOGY_PROFILES_V1.md'
+      - 'mycelix-workspace/docs/civic-resilience/sup_civ_000d2_storage_profiles.json'
+      - '.github/workflows/sup-civ-000d2-storage-topology.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prove exact sibling subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='f4f48ef45bbaff7ae9e7668fc1820fdfadd1375f'
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          test "$(git rev-list --count "$EXPECTED_PARENT"..HEAD)" = '1'
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PARENT" HEAD | sort)
+          expected=(
+            '.github/workflows/sup-civ-000d2-storage-topology.yml'
+            'mycelix-workspace/docs/civic-resilience/SUP_CIV_000D2_STORAGE_TOPOLOGY_PROFILES_V1.md'
+            'mycelix-workspace/docs/civic-resilience/sup_civ_000d2_storage_profiles.json'
+          )
+          test "${#changed[@]}" = "${#expected[@]}"
+          for i in "${!expected[@]}"; do
+            test "${changed[$i]}" = "${expected[$i]}"
+          done
+
+      - name: Prove exact manifest artifact and closed profile matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum mycelix-workspace/docs/civic-resilience/sup_civ_000d2_storage_profiles.json | cut -d' ' -f1)" = '7299716e602390396e9075b0665a6ae95b5d6f8f9de7040b26c6c57022bf5a32'
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          m = json.loads(Path('mycelix-workspace/docs/civic-resilience/sup_civ_000d2_storage_profiles.json').read_text())
+          assert m['schema'] == 'sup-civ-000d2-storage-topology-profiles-v1'
+          assert m['authority'] == 'storage-topology-selection-only'
+          assert m['parent_contract'] == 'SUP-CIV-000D0'
+          assert m['parent_exact_head'] == 'f4f48ef45bbaff7ae9e7668fc1820fdfadd1375f'
+          assert m['fallback_policy'] == 'refuse-no-weaker-silent-fallback'
+          ids = [p['id'] for p in m['profiles']]
+          assert ids == [
+              'author-private-source-chain-v1',
+              'encrypted-public-dht-v1',
+              'restricted-dna-encrypted-v1',
+              'external-protected-store-v1',
+              'civic-hybrid-institutional-pilot-v1',
+          ]
+          assert len(set(ids)) == 5
+          hybrid = m['profiles'][-1]
+          assert hybrid['candidate_for_johannesburg_profile'] is True
+          assert 'claiming-decentralized-protected-storage-qualified' in hybrid['refuses_as_default_for']
+          assert set(m['selection_rules']) == {
+              'sensitive-free-text-or-precise-location -> refuse-public-plaintext-dht',
+              'strong-erasure-or-retention-control -> prefer-store-profile-that-explicitly-owns-it',
+              'offline-multi-reader-plus-decentralized-availability -> encrypted-dht-or-restricted-dna-only-after-envelope-qualification',
+              'single-author-private-state -> author-private-may-be-admissible',
+              'institutional-interoperability -> external-or-hybrid-may-be-admissible',
+              'metadata-unlinkability-required -> dht-topology-alone-is-insufficient',
+              'protected-store-unavailable -> never-fallback-to-public-plaintext',
+              'profile-mismatch-or-unknown -> refuse',
+          }
+          assert set(m['required_non_equivalences']) == {
+              'PrivateEntry != MultiPartyProtectedDatabase',
+              'EncryptedDhtCiphertext != MetadataPrivacy',
+              'RestrictedDnaMembership != PerRecordLeastPrivilege',
+              'ExternalProtectedStore != MycelixVerifiedTruth',
+              'HybridProfile != DuplicateSensitivePlaintextEverywhere',
+              'OfflineCache != SystemOfRecord',
+              'DeleteAction != GuaranteedGlobalErasure',
+              'StorageAvailability != RecipientAuthorization',
+              'StorageProfileSelected != LegalCompliance',
+              'JohannesburgCandidateProfile != JohannesburgDeploymentReady',
+          }
+          assert set(m['forbidden_claims']) == {
+              'legal-compliance','metadata-anonymity','recipient-authorization',
+              'retroactive-knowledge-revocation','global-erasure','municipal-authority',
+              'johannesburg-deployment-readiness','universal-best-topology'
+          }
+          print('PASS_SUP_CIV_000D2_STORAGE_TOPOLOGY')
+          PY
+
+      - name: Refuse runtime/build changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='f4f48ef45bbaff7ae9e7668fc1820fdfadd1375f'
+          if git diff --name-only "$EXPECTED_PARENT" HEAD | grep -E '\.(rs|toml|lock|nix)$'; then
+            echo 'runtime/build file entered storage-topology contract' >&2
+            exit 1
+          fi
+
+      - name: Prove checkout remained immutable
+        run: test -z "$(git status --porcelain)"
