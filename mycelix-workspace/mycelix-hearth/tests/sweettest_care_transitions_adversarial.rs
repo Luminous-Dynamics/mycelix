@@ -420,6 +420,87 @@ async fn forged_transition_evidence_fails_closed() {
         "another actor's canonical Kinship membership must not authorize Bob"
     );
 
+    // Missing/unresolved membership evidence must fail closed rather than being
+    // normalized into authority or a successful raw transition.
+    let unresolved_membership_attack = bob_conductor
+        .call_fallible::<_, Record>(
+            &bob.zome("hearth_care_transition_test_harness"),
+            "publish_completion_unchecked",
+            raw_completion(
+                hearth_a_hash.clone(),
+                schedule_hash.clone(),
+                bob.agent_pubkey().clone(),
+                bob.agent_pubkey().clone(),
+                ActionHash::from_raw_36(vec![0x77; 36]),
+            ),
+        )
+        .await;
+    assert!(
+        unresolved_membership_attack.is_err(),
+        "unresolved membership evidence must fail closed"
+    );
+
+    // The signed Create author is Bob because Bob calls the harness. A payload
+    // that merely claims Alice as `actor` must therefore be rejected before any
+    // claimed membership can strengthen the transition.
+    let actor_field_mismatch = bob_conductor
+        .call_fallible::<_, Record>(
+            &bob.zome("hearth_care_transition_test_harness"),
+            "publish_completion_unchecked",
+            raw_completion(
+                hearth_a_hash.clone(),
+                schedule_hash.clone(),
+                bob.agent_pubkey().clone(),
+                alice.agent_pubkey().clone(),
+                bob_membership_record.action_address().clone(),
+            ),
+        )
+        .await;
+    assert!(
+        actor_field_mismatch.is_err(),
+        "CareCompletion.actor must equal the signed Create action author"
+    );
+
+    // The referenced canonical schedule is assigned to Bob. Copying Alice into
+    // the completion's assignee field must not rewrite that immutable binding.
+    let assignee_field_mismatch = bob_conductor
+        .call_fallible::<_, Record>(
+            &bob.zome("hearth_care_transition_test_harness"),
+            "publish_completion_unchecked",
+            raw_completion(
+                hearth_a_hash.clone(),
+                schedule_hash.clone(),
+                alice.agent_pubkey().clone(),
+                bob.agent_pubkey().clone(),
+                bob_membership_record.action_address().clone(),
+            ),
+        )
+        .await;
+    assert!(
+        assignee_field_mismatch.is_err(),
+        "CareCompletion.assignee must equal the referenced CareSchedule assignee"
+    );
+
+    // An unresolved schedule reference must fail closed at the real integrity
+    // boundary; malformed reference state is never equivalent to a valid task.
+    let unresolved_schedule_attack = bob_conductor
+        .call_fallible::<_, Record>(
+            &bob.zome("hearth_care_transition_test_harness"),
+            "publish_completion_unchecked",
+            raw_completion(
+                hearth_a_hash.clone(),
+                ActionHash::from_raw_36(vec![0x66; 36]),
+                bob.agent_pubkey().clone(),
+                bob.agent_pubkey().clone(),
+                bob_membership_record.action_address().clone(),
+            ),
+        )
+        .await;
+    assert!(
+        unresolved_schedule_attack.is_err(),
+        "unresolved CareSchedule reference must fail closed"
+    );
+
     // A canonical Bob membership in a different Hearth is real evidence, but it
     // is not authority for Hearth A.
     let hearth_b: Record = bob_conductor
@@ -438,7 +519,7 @@ async fn forged_transition_evidence_fails_closed() {
     let (bob_hearth_b_membership, _) = find_membership(
         &bob_conductor,
         &bob,
-        hearth_b_hash,
+        hearth_b_hash.clone(),
         bob.agent_pubkey(),
     )
     .await;
@@ -459,6 +540,27 @@ async fn forged_transition_evidence_fails_closed() {
     assert!(
         wrong_hearth_attack.is_err(),
         "canonical membership from another Hearth must not authorize Hearth A"
+    );
+
+    // The schedule belongs to Hearth A. Claiming Hearth B in otherwise
+    // canonical completion evidence must be rejected independently of the
+    // membership-Hearth check above.
+    let hearth_field_mismatch = bob_conductor
+        .call_fallible::<_, Record>(
+            &bob.zome("hearth_care_transition_test_harness"),
+            "publish_completion_unchecked",
+            raw_completion(
+                hearth_b_hash,
+                schedule_hash.clone(),
+                bob.agent_pubkey().clone(),
+                bob.agent_pubkey().clone(),
+                bob_membership_record.action_address().clone(),
+            ),
+        )
+        .await;
+    assert!(
+        hearth_field_mismatch.is_err(),
+        "CareCompletion.hearth_hash must equal the referenced CareSchedule Hearth"
     );
 
     // Finally prove revocation at the integrity boundary itself: bypassing the
