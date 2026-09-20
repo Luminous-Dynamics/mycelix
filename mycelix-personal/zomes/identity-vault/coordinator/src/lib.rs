@@ -17,9 +17,10 @@ pub fn my_custom_getrandom(buf: &mut [u8]) -> Result<(), getrandom::Error> {
     Ok(())
 }
 
-use mycelix_zkp_core::consciousness::{CivicTier, verify_consciousness_tier};
+use mycelix_zkp_core::consciousness::{verify_consciousness_tier, CivicTier};
 use personal_leptos_types::{
-    MasterKeyView, MutationReceiptView, ProfileEvidenceView, ProfileView,
+    ConditionalMutationResultView, ConditionalProfileMutationInputView, MasterKeyView,
+    MutationReceiptView, ProfileEvidenceView, ProfileView,
 };
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -110,6 +111,35 @@ pub fn set_profile_view(profile: ProfileView) -> ExternResult<MutationReceiptVie
     Ok(MutationReceiptView {
         action_hash: record.action_address().to_string(),
     })
+}
+
+fn expected_action_matches(expected: Option<&str>, current: Option<&str>) -> bool {
+    expected == current
+}
+
+/// Conditionally replace the current Profile only when the exact source-chain
+/// action observed by the caller is still current.
+///
+/// `expected_action_hash=None` means the caller observed authoritative empty
+/// Profile state. A mismatch is returned as a typed conflict and does not create
+/// a new Profile action.
+#[hdk_extern]
+pub fn set_profile_view_if_current(
+    input: ConditionalProfileMutationInputView,
+) -> ExternResult<ConditionalMutationResultView> {
+    let current_action_hash = get_my_profile_evidence_view(())?.map(|evidence| evidence.action_hash);
+
+    if !expected_action_matches(
+        input.expected_action_hash.as_deref(),
+        current_action_hash.as_deref(),
+    ) {
+        return Ok(ConditionalMutationResultView::Conflict {
+            current_action_hash,
+        });
+    }
+
+    let receipt = set_profile_view(input.profile)?;
+    Ok(ConditionalMutationResultView::Committed { receipt })
 }
 
 fn should_replace_action_seq(current: Option<u32>, candidate: u32) -> bool {
@@ -330,5 +360,14 @@ mod tests {
         assert!(should_replace_action_seq(Some(4), 5));
         assert!(!should_replace_action_seq(Some(5), 5));
         assert!(!should_replace_action_seq(Some(6), 5));
+    }
+
+    #[test]
+    fn conditional_profile_precondition_requires_exact_action_identity() {
+        assert!(expected_action_matches(None, None));
+        assert!(expected_action_matches(Some("A"), Some("A")));
+        assert!(!expected_action_matches(None, Some("A")));
+        assert!(!expected_action_matches(Some("A"), None));
+        assert!(!expected_action_matches(Some("A"), Some("B")));
     }
 }
