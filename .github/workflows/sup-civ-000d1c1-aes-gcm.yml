@@ -1,0 +1,110 @@
+name: SUP-CIV-000D1C1 AES-GCM Payload Reference
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/docs/civic-resilience/SUP_CIV_000D1C1_AES_GCM_PAYLOAD_V1.md'
+      - 'mycelix-workspace/docs/civic-resilience/sup_civ_000d1c1_aes_gcm_vectors.json'
+      - 'mycelix-workspace/scripts/sup_civ_aes_gcm_reference_v1.mjs'
+      - '.github/workflows/sup-civ-000d1c1-aes-gcm.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prove exact stacked subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='1152251e1b8d09bf69cc2497164a0fc1d58da320'
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          test "$(git rev-list --count "$EXPECTED_PARENT"..HEAD)" = '1'
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PARENT" HEAD | sort)
+          expected=(
+            '.github/workflows/sup-civ-000d1c1-aes-gcm.yml'
+            'mycelix-workspace/docs/civic-resilience/SUP_CIV_000D1C1_AES_GCM_PAYLOAD_V1.md'
+            'mycelix-workspace/docs/civic-resilience/sup_civ_000d1c1_aes_gcm_vectors.json'
+            'mycelix-workspace/scripts/sup_civ_aes_gcm_reference_v1.mjs'
+          )
+          test "${#changed[@]}" = "${#expected[@]}"
+          for i in "${!expected[@]}"; do
+            test "${changed[$i]}" = "${expected[$i]}"
+          done
+
+      - name: Prove exact vector artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum mycelix-workspace/docs/civic-resilience/sup_civ_000d1c1_aes_gcm_vectors.json | cut -d' ' -f1)" = 'a05b86b6d5419f86e97ceb203d72e3823dbb0e9a0f6cc3013c751d75541147e0'
+
+      - name: Syntax-check reference verifier
+        run: node --check mycelix-workspace/scripts/sup_civ_aes_gcm_reference_v1.mjs
+
+      - name: Execute exact known-answer and hostile corpus
+        run: |
+          node mycelix-workspace/scripts/sup_civ_aes_gcm_reference_v1.mjs \
+            mycelix-workspace/docs/civic-resilience/sup_civ_000d1c1_aes_gcm_vectors.json
+
+      - name: Prove manifest claim ceiling
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('mycelix-workspace/docs/civic-resilience/sup_civ_000d1c1_aes_gcm_vectors.json')
+          m = json.loads(p.read_text())
+          assert m['schema'] == 'sup-civ-000d1c1-aes-gcm-vectors-v1'
+          assert m['authority'] == 'payload-aead-reference-vectors-only'
+          assert m['parent_exact_head'] == '1152251e1b8d09bf69cc2497164a0fc1d58da320'
+          assert m['profile'] == {
+              'aad_domain':'PayloadAadV1',
+              'algorithm':'AES-256-GCM',
+              'fresh_dek_per_ciphertext_required':True,
+              'key_bytes':32,
+              'name':'AES-256-GCM-FRESH-DEK-V1',
+              'nonce_bytes':12,
+              'profile_id':1,
+              'tag_bytes':16,
+              'test_vector_keys_are_entropy_evidence':False,
+          }
+          assert len(m['positive_vectors']) == 4
+          assert len(m['negative_cases']) == 11
+          assert len({v['id'] for v in m['positive_vectors']}) == 4
+          assert len({v['id'] for v in m['negative_cases']}) == 11
+          assert set(m['required_non_equivalences']) == {
+              'VectorKey != ProductionEntropyEvidence',
+              'AESGCMValid != RecipientAuthorized',
+              'AESGCMValid != StorageQualified',
+              'NoncePresent != NonceRandomnessProven',
+              'PayloadVersionChanged != SameDEK',
+              'CiphertextChanged != SameKeyEpoch',
+              'PayloadAadV1 != FullEnvelopeV1',
+          }
+          assert set(m['forbidden_claims']) == {
+              'production-entropy-quality','recipient-authorization',
+              'storage-availability','metadata-privacy','legal-compliance',
+              'retroactive-knowledge-revocation','municipal-authority',
+              'deployment-readiness'
+          }
+          print('PASS_SUP_CIV_000D1C1_MANIFEST')
+          PY
+
+      - name: Refuse product/runtime changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='1152251e1b8d09bf69cc2497164a0fc1d58da320'
+          if git diff --name-only "$EXPECTED_PARENT" HEAD | grep -E '\.(rs|toml|lock|nix)$'; then
+            echo 'product/build file entered reference-vector tranche' >&2
+            exit 1
+          fi
+
+      - name: Prove checkout remained immutable
+        run: test -z "$(git status --porcelain)"
