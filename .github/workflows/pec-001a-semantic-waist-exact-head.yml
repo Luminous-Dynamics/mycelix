@@ -1,0 +1,255 @@
+name: Mycelix PEC Semantic Waist Exact-Head
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'mycelix-workspace/mycelix-core/libs/privacy-computation-core/**'
+      - '.github/workflows/pec-001a-semantic-waist-exact-head.yml'
+  workflow_dispatch:
+    inputs:
+      subject_sha:
+        description: 'Exact 40-hex qualifier commit SHA to qualify'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pec-001a-semantic-waist-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Exact-head PEC semantic-waist qualification
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CARGO_TERM_COLOR: always
+      PRODUCT_HEAD: 46d3410d0a69aa382b9bbd0e8e30769770314f32
+      CRATE_PATH: mycelix-workspace/mycelix-core/libs/privacy-computation-core
+    steps:
+      - name: Resolve exact subject
+        id: subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            subject='${{ github.event.pull_request.head.sha }}'
+          else
+            subject='${{ inputs.subject_sha }}'
+          fi
+          if [[ ! "$subject" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "invalid subject SHA: $subject" >&2
+            exit 1
+          fi
+          echo "sha=$subject" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ steps.subject.outputs.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+
+      - name: Prove exact qualifier shape
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          test "$(git rev-parse HEAD^)" = "$PRODUCT_HEAD"
+          test "$(git rev-list --count "$PRODUCT_HEAD"..HEAD)" = "1"
+          mapfile -t changed < <(git diff --name-only "$PRODUCT_HEAD"..HEAD)
+          test "${#changed[@]}" = "1"
+          test "${changed[0]}" = ".github/workflows/pec-001a-semantic-waist-exact-head.yml"
+          test -z "$(git status --porcelain)"
+
+      - name: Capture preflight evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/pec-001a-evidence"
+          mkdir -p "$evidence"
+          {
+            echo "qualifier_subject=${{ steps.subject.outputs.sha }}"
+            echo "product_head=$PRODUCT_HEAD"
+            echo "authority_scope=StructuralOnly"
+            echo "cryptographic_backend_qualified=false"
+            echo "privacy_established=false"
+            echo "production_admission=false"
+            echo "application_authority=false"
+            rustc -Vv
+            cargo -V
+          } > "$evidence/execution-capsule.txt"
+          find "$CRATE_PATH" -type f -not -path '*/target/*' -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            > "$evidence/source-sha256.txt"
+
+      - name: Check formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path "$CRATE_PATH/Cargo.toml" --all -- --check
+
+      - name: Prepare isolated resolved graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/privacy-computation-core-qual"
+          evidence="$RUNNER_TEMP/pec-001a-evidence"
+          cp -a "$CRATE_PATH" "$crate"
+          cd "$crate"
+          cargo generate-lockfile
+          sha256sum Cargo.lock > "$evidence/Cargo.lock.sha256"
+          cp Cargo.lock "$evidence/Cargo.lock"
+          cargo metadata --locked --format-version 1 > "$evidence/cargo-metadata.json"
+          cargo tree --locked > "$evidence/cargo-tree.txt"
+
+      - name: Execute committed corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/privacy-computation-core-qual"
+          evidence="$RUNNER_TEMP/pec-001a-evidence"
+          cd "$crate"
+          cargo test --locked --all-targets -- --nocapture | tee "$evidence/committed-tests.txt"
+          cargo test --locked --all-targets -- --list > "$evidence/committed-test-list.txt"
+          cargo clippy --locked --all-targets -- -D warnings \
+            | tee "$evidence/clippy.txt"
+
+      - name: Execute external structural probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/privacy-computation-core-qual"
+          evidence="$RUNNER_TEMP/pec-001a-evidence"
+          mkdir -p "$crate/tests"
+          cat > "$crate/tests/pec_public_probe.rs" <<'RS'
+          use privacy_computation_core::{
+              evaluate_capability, AdversaryModel, BackendIdentity, CompositionDisposition,
+              DisclosureRequirement, InteractionModel, LeakageDeclaration, LeakageProfile,
+              LeakageRequirements, ParticipantModel, PrimitiveCapability, PrivacyObjective,
+              PrivacyPrimitive, PrivacyRequirement, QualificationState, SemanticAuthority,
+          };
+
+          #[test]
+          fn simulation_cannot_become_production_by_name() {
+              assert!(!QualificationState::SimulationOnly.is_production_admitted());
+              assert!(QualificationState::ProductionAdmitted.is_production_admitted());
+          }
+
+          #[test]
+          fn structural_match_remains_non_authoritative() {
+              let requirement = PrivacyRequirement {
+                  objective: PrivacyObjective::QueryIndexPrivacy,
+                  participant_model: ParticipantModel::TwoParty,
+                  adversary_model: AdversaryModel::HonestButCurious,
+                  interaction_model: InteractionModel::Interactive { rounds: 1 },
+                  leakage: LeakageRequirements {
+                      query_index: DisclosureRequirement::MustHide,
+                      ..LeakageRequirements::default()
+                  },
+                  required_qualification: Some(QualificationState::Experimental),
+              };
+              let capability = PrimitiveCapability {
+                  backend: BackendIdentity {
+                      primitive: PrivacyPrimitive::PrivateInformationRetrieval,
+                      backend: "qualification-fixture".into(),
+                      version: "1".into(),
+                      profile: "synthetic".into(),
+                  },
+                  supported_objectives: vec![PrivacyObjective::QueryIndexPrivacy],
+                  participant_model: ParticipantModel::TwoParty,
+                  adversary_model: AdversaryModel::HonestButCurious,
+                  interaction_model: InteractionModel::Interactive { rounds: 1 },
+                  leakage: LeakageProfile {
+                      query_index: LeakageDeclaration::DeclaredHidden,
+                      ..LeakageProfile::default()
+                  },
+                  qualification: QualificationState::Experimental,
+              };
+              let evaluation = evaluate_capability(&requirement, &capability);
+              assert_eq!(evaluation.disposition, CompositionDisposition::Compatible);
+              assert_eq!(evaluation.authority, SemanticAuthority::StructuralOnly);
+              assert!(!evaluation.privacy_established());
+              assert!(!evaluation.production_admission_granted());
+              assert!(!evaluation.application_authority_granted());
+          }
+          RS
+          cd "$crate"
+          cargo test --locked --test pec_public_probe -- --nocapture \
+            | tee "$evidence/public-probe.txt"
+
+      - name: Prove qualification state is not ordinal
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/privacy-computation-core-qual"
+          evidence="$RUNNER_TEMP/pec-001a-evidence"
+          cat > "$crate/tests/no_qualification_order.rs" <<'RS'
+          use privacy_computation_core::QualificationState;
+          #[test]
+          fn probe() {
+              let _ = QualificationState::SimulationOnly < QualificationState::Experimental;
+          }
+          RS
+          set +e
+          (
+            cd "$crate"
+            CARGO_TERM_COLOR=never cargo check --locked --test no_qualification_order
+          ) > "$evidence/no-qualification-order.stdout.txt" \
+            2> "$evidence/no-qualification-order.stderr.txt"
+          status=$?
+          set -e
+          if [[ $status -eq 0 ]]; then
+            echo "QualificationState unexpectedly supports ordering" >&2
+            exit 1
+          fi
+          grep -Eq 'binary operation `<` cannot be applied|PartialOrd' \
+            "$evidence/no-qualification-order.stderr.txt"
+          rm "$crate/tests/no_qualification_order.rs"
+
+      - name: Prove source checkout remained immutable
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain)"
+          evidence="$RUNNER_TEMP/pec-001a-evidence"
+          find "$CRATE_PATH" -type f -not -path '*/target/*' -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            > "$evidence/source-sha256-post.txt"
+          cmp "$evidence/source-sha256.txt" "$evidence/source-sha256-post.txt"
+
+      - name: Write qualification receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/pec-001a-evidence"
+          cat > "$evidence/PEC-001AQ.txt" <<EOF
+          PEC-001AQ PASS
+          qualifier_subject=${{ steps.subject.outputs.sha }}
+          product_head=$PRODUCT_HEAD
+          authority_scope=StructuralOnly
+          cryptographic_backend_qualified=false
+          privacy_established=false
+          production_admission=false
+          application_authority=false
+          EOF
+
+      - name: Upload qualification evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: pec-001a-${{ steps.subject.outputs.sha }}
+          path: ${{ runner.temp }}/pec-001a-evidence
+          if-no-files-found: error
+          retention-days: 30
