@@ -71,6 +71,7 @@ pub mod scientific_credentials;
 pub mod scientific_events;
 pub mod scientific_governance;
 pub mod scientific_governance_quorum;
+pub mod scientific_registration;
 pub mod semantic;
 
 // Advanced epistemic modules (Phase 2 - v0.4.0)
@@ -225,6 +226,17 @@ pub use scientific_events::{
     SCIENTIFIC_EVENT_CODEC, SCIENTIFIC_EVENT_PROTOCOL, SCIENTIFIC_EVENT_PROTOCOL_VERSION,
     SCIENTIFIC_EVENT_SCHEMA_VERSION, ScientificEventEnvelope, ScientificEventId,
     ScientificEventLog, ScientificEventPayload, SignedScientificEvent, StreamHead,
+};
+
+// Claim-independent scientific registration/preregistration authority
+pub use scientific_registration::{
+    MemoryScientificRegistrationLog, RecordedProtocolDeviation, RegistrationAppendReceipt,
+    RegistrationKind, RegistrationProtocolDocument, RegistrationReference, RegistrationStatus,
+    RegistrationVersionRecord, ResearchRegistrationId, SCIENTIFIC_REGISTRATION_CODEC,
+    SCIENTIFIC_REGISTRATION_PROTOCOL, SCIENTIFIC_REGISTRATION_PROTOCOL_VERSION,
+    SCIENTIFIC_REGISTRATION_SCHEMA_VERSION, ScientificRegistrationEnvelope,
+    ScientificRegistrationEventId, ScientificRegistrationPayload,
+    ScientificRegistrationProjection, SignedScientificRegistrationEvent,
 };
 
 pub use legacy_migration::{
