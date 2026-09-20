@@ -99,7 +99,7 @@ pub use mycelix_leptos_ui::toasts;
 pub mod util;
 
 // Re-exports for convenience — transport
-pub use holochain_call_error::HolochainCallError;
+pub use holochain_call_error::{HolochainCallError, HolochainCallPhase};
 pub use holochain_provider::{
     ConnectStrategy, ConnectionBadge, ConnectionStatus, HolochainCtx, HolochainProviderAuto,
     HolochainProviderConfig,
