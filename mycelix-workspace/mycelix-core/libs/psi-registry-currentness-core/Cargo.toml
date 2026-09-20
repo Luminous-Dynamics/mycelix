@@ -1,0 +1,16 @@
+[package]
+name = "psi-registry-currentness-core"
+version = "0.1.0"
+edition = "2024"
+authors = ["Mycelix Network"]
+description = "Provider-neutral structural currentness and completeness evidence semantics for PSI registries"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+publish = false
+
+[dependencies]
+psi-registry-evidence-core = { path = "../psi-registry-evidence-core" }
+serde = { version = "1.0", features = ["derive"] }
+sha2 = "0.10"
+
+[workspace]
