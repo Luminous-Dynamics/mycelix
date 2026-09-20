@@ -1,0 +1,135 @@
+{
+  "schema": "mycelix.support-civic.typed-ticket-mutation.v1",
+  "program": "SUP-CIV-002A",
+  "tracking_issue": 2049,
+  "parent_subject": "9a5148b9927c630d4073d486f464824fb429d8c6",
+  "parent_program": "SUP-CIV-001A",
+  "parent_qualification_required": true,
+  "runtime_owner": "Deferred",
+  "command_vocabulary": [
+    "StartWork",
+    "RequestUserInput",
+    "ResumeWork",
+    "MarkOperationallyResolved",
+    "CloseOperationalTicket",
+    "ReopenOperationalTicket",
+    "AssignTicket",
+    "ChangeOperationalPriority",
+    "ChangeSupportCategory",
+    "AmendDescriptiveMetadata"
+  ],
+  "forbidden_generic_commands": [
+    "SetStatus",
+    "ReplaceTicket",
+    "PatchArbitraryFields",
+    "CallerSelectedToStatus"
+  ],
+  "status_vocabulary": [
+    "Open",
+    "InProgress",
+    "AwaitingUser",
+    "Resolved",
+    "Closed"
+  ],
+  "transition_relation": [
+    ["Open", "StartWork", "InProgress"],
+    ["Open", "RequestUserInput", "AwaitingUser"],
+    ["InProgress", "RequestUserInput", "AwaitingUser"],
+    ["AwaitingUser", "ResumeWork", "InProgress"],
+    ["Open", "MarkOperationallyResolved", "Resolved"],
+    ["InProgress", "MarkOperationallyResolved", "Resolved"],
+    ["AwaitingUser", "MarkOperationallyResolved", "Resolved"],
+    ["Resolved", "CloseOperationalTicket", "Closed"],
+    ["Resolved", "ReopenOperationalTicket", "InProgress"],
+    ["Closed", "ReopenOperationalTicket", "InProgress"]
+  ],
+  "default_transition_policy": "deny_unlisted",
+  "immutable_identity_bound_fields": [
+    "requester",
+    "created_at"
+  ],
+  "historical_provenance_fields": [
+    "title",
+    "description",
+    "category"
+  ],
+  "required_mutation_refs": [
+    "stable_support_ticket_id",
+    "expected_revision_ref",
+    "actor_or_requester_ref",
+    "authority_or_policy_ref",
+    "reason_or_provenance_ref"
+  ],
+  "currentness_policy": {
+    "last_write_wins_admitted": false,
+    "stale_base_must_refuse": true,
+    "unrelated_revision_identity_pair_must_refuse": true,
+    "caller_supplied_updated_at_is_currentness_proof": false
+  },
+  "legacy_api_policy": {
+    "whole_record_update_is_civic_safe_surface": false,
+    "civ_res_must_use_typed_surface": true,
+    "legacy_api_retroactively_qualified": false
+  },
+  "missing_closure_meanings": [
+    "Cancelled",
+    "Duplicate",
+    "Rejected",
+    "Transferred"
+  ],
+  "non_equivalences": [
+    "WholeRecordReplacement != AuthorizedSemanticTransition",
+    "CallerSelectedToStatus != LifecycleAuthority",
+    "StableSupportTicketId != ExpectedRevisionRef",
+    "LatestSeenRevision != ProvenCurrentState",
+    "TicketStatus::Resolved != CompletionVerification",
+    "TicketStatus::Resolved != BeneficiaryAcceptance",
+    "TicketStatus::Resolved != ExternalMunicipalClosure",
+    "TicketStatus::Resolved != OutcomeImprovement",
+    "TicketStatus::Closed != CompletionVerification",
+    "TicketStatus::Closed != AdministrativeFinality",
+    "TicketStatus::Closed != ExternalMunicipalClosure",
+    "TicketStatus::Closed != PaymentAuthority",
+    "TicketStatus::Closed != OutcomeImprovement",
+    "TicketPriority != CivicPriorityAuthority",
+    "SupportCategory != UniversalCivicTaxonomy",
+    "Assignee != ExecutionAuthority",
+    "Assignee != InstitutionalAuthority",
+    "TypedCommand != AuthorityToMutate",
+    "SupportCapability != MunicipalAuthority",
+    "Closed != Cancelled",
+    "Closed != Duplicate",
+    "Closed != Rejected",
+    "Closed != Transferred",
+    "CurrentDescription != OriginalIntakeDescription",
+    "CurrentCategory != OriginalIntakeCategory",
+    "CallerSuppliedUpdatedAt != TrustedCurrentness"
+  ],
+  "required_runtime_refusals": [
+    "arbitrary_open_to_closed",
+    "caller_selected_to_status",
+    "requester_rewrite",
+    "created_at_rewrite",
+    "combined_untyped_status_priority_patch",
+    "caller_timestamp_as_currentness",
+    "stale_expected_revision",
+    "unrelated_revision_identity_pair",
+    "resolved_as_completion_verification",
+    "closed_as_administrative_finality",
+    "critical_priority_as_civic_priority_authority",
+    "assignment_as_execution_authority",
+    "reopen_erases_prior_resolution_history"
+  ],
+  "deferred_theorems": [
+    "runtime_typed_command_implementation",
+    "runtime_stable_identity_implementation",
+    "revision_lineage_current_state",
+    "current_index_projection",
+    "closure_reason_migration",
+    "autonomy_effect_authority_split",
+    "civic_resilience_adapter",
+    "completion_verification_runtime",
+    "municipal_administrative_procedure_binding"
+  ],
+  "claim_ceiling": "semantic typed-mutation and operational-transition contract only"
+}
