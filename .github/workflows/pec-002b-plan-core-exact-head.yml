@@ -1,0 +1,186 @@
+name: Mycelix PEC-002B Privacy Plan Core Exact-Head
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'mycelix-workspace/mycelix-core/libs/privacy-plan-core/**'
+      - 'mycelix-workspace/mycelix-core/libs/privacy-computation-core/**'
+      - '.github/workflows/pec-002b-plan-core-exact-head.yml'
+  workflow_dispatch:
+    inputs:
+      subject_sha:
+        description: 'Exact 40-hex qualifier subject'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pec-002bq-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Exact-head PEC-002B privacy-plan qualification
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      PRODUCT_PARENT: c468710141f71cf05bb5da4cbca933b6990b3092
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Resolve exact subject
+        id: subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            subject='${{ github.event.pull_request.head.sha }}'
+          else
+            subject='${{ inputs.subject_sha }}'
+          fi
+          [[ "$subject" =~ ^[0-9a-f]{40}$ ]]
+          echo "sha=$subject" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ steps.subject.outputs.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Verify exact qualifier shape
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$PRODUCT_PARENT"
+          test "$(git rev-list --count "$PRODUCT_PARENT"..HEAD)" = 1
+          mapfile -t changed < <(git diff --name-only "$PRODUCT_PARENT" HEAD)
+          test "${#changed[@]}" = 1
+          test "${changed[0]}" = '.github/workflows/pec-002b-plan-core-exact-head.yml'
+          test -z "$(git status --porcelain)"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+
+      - name: Capture source evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/pec-002bq-evidence"
+          mkdir -p "$evidence"
+          {
+            echo "subject_sha=${{ steps.subject.outputs.sha }}"
+            echo 'authority_scope=StructuralOnly'
+            echo 'privacy_established=false'
+            echo 'evidence_authenticated=false'
+            echo 'composition_qualified=false'
+            echo 'application_authority=false'
+            rustc -Vv
+            cargo -V
+          } > "$evidence/execution-capsule.txt"
+          find mycelix-workspace/mycelix-core/libs/privacy-plan-core \
+               mycelix-workspace/mycelix-core/libs/privacy-computation-core \
+               -type f -not -path '*/target/*' -print0 \
+            | sort -z | xargs -0 sha256sum > "$evidence/source-sha256.txt"
+
+      - name: Check formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-core/libs/privacy-plan-core/Cargo.toml \
+            --all -- --check
+
+      - name: Prepare isolated dependency graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/pec-002bq-graph"
+          evidence="$RUNNER_TEMP/pec-002bq-evidence"
+          mkdir -p "$root"
+          cp -a mycelix-workspace/mycelix-core/libs/privacy-computation-core "$root/privacy-computation-core"
+          cp -a mycelix-workspace/mycelix-core/libs/privacy-plan-core "$root/privacy-plan-core"
+          cd "$root/privacy-plan-core"
+          cargo generate-lockfile
+          sha256sum Cargo.lock > "$evidence/Cargo.lock.sha256"
+          cp Cargo.lock "$evidence/Cargo.lock"
+          cargo metadata --locked --format-version 1 > "$evidence/cargo-metadata.json"
+          cargo tree --locked > "$evidence/cargo-tree.txt"
+
+      - name: Execute committed corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/pec-002bq-graph/privacy-plan-core"
+          cargo test --locked --all-targets -- --nocapture
+
+      - name: Warnings-denied Clippy
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/pec-002bq-graph/privacy-plan-core"
+          cargo clippy --locked --all-targets -- -D warnings
+
+      - name: External no-authority probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/pec-002bq-graph/privacy-plan-core"
+          mkdir -p "$crate/tests"
+          cat > "$crate/tests/no_authority_probe.rs" <<'RS'
+          use mycelix_privacy_plan_core::{
+              evaluate_plan, ArtifactClass, NoQualifiedPlan, PlanDisposition, PlanIntent,
+              PlanStep, PlanStepId, PlanStepKind, PrivacyPlan,
+          };
+          use privacy_computation_core::SemanticAuthority;
+
+          #[test]
+          fn structurally_valid_local_plan_mints_no_authority() {
+              let plan = PrivacyPlan {
+                  requirement_profile: "probe-v1".into(),
+                  intent: PlanIntent::Exploratory,
+                  steps: vec![PlanStep {
+                      id: PlanStepId(1),
+                      kind: PlanStepKind::LocalOnlyComputation {
+                          computation_id: "local-probe-v1".into(),
+                      },
+                      accepts: vec![ArtifactClass::LocalValue],
+                      produces: vec![ArtifactClass::LocalValue],
+                  }],
+                  edges: vec![],
+                  composition_evidence: None,
+              };
+              let result = evaluate_plan(&plan);
+              assert_eq!(result.disposition, PlanDisposition::StructurallyCompatible);
+              assert_eq!(result.authority, SemanticAuthority::StructuralOnly);
+              assert!(!result.privacy_established());
+              assert!(!result.evidence_authenticated());
+              assert!(!result.composition_qualified());
+              assert!(!result.application_authority_granted());
+
+              let none = NoQualifiedPlan::new("probe-v1");
+              assert!(!none.permission_to_weaken_requirement());
+              assert!(!none.application_authority_granted());
+          }
+          RS
+          cd "$crate"
+          cargo test --locked --test no_authority_probe -- --nocapture
+
+      - name: Postflight immutability and receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          test -z "$(git status --porcelain)"
+          echo 'PEC-002BQ PASS'
+          echo 'authority_scope=StructuralOnly'
+          echo 'privacy_established=false'
+          echo 'evidence_authenticated=false'
+          echo 'composition_qualified=false'
+          echo 'application_authority=false'
