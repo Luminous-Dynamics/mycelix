@@ -1,0 +1,46 @@
+name: Forge Review-Head Snapshot
+
+on:
+  pull_request:
+    paths:
+      - "crates/mycelix-forge-review-head-snapshot/**"
+      - ".github/workflows/forge-review-head-snapshot.yml"
+  push:
+    branches: [main]
+    paths:
+      - "crates/mycelix-forge-review-head-snapshot/**"
+      - ".github/workflows/forge-review-head-snapshot.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: forge-review-head-snapshot-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  review-head-snapshot:
+    name: Review-head snapshot structural boundary
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: crates/mycelix-forge-review-head-snapshot
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned Rust 1.96
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+
+      - name: Format
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Test review-head snapshot boundary
+        run: cargo test --all-features
