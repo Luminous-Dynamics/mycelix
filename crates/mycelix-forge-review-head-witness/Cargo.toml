@@ -1,0 +1,31 @@
+[package]
+name = "mycelix-forge-review-head-witness"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.96"
+authors = ["Luminous Dynamics"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+description = "Witness-qualified review-head checkpoints for Mycelix Forge"
+publish = false
+
+[dependencies]
+mycelix-forge-authentication-policy = { path = "../mycelix-forge-authentication-policy" }
+mycelix-forge-authority = { path = "../mycelix-forge-authority" }
+mycelix-forge-core = { path = "../mycelix-forge-core" }
+mycelix-forge-proposal = { path = "../mycelix-forge-proposal" }
+mycelix-forge-review-head-snapshot = { path = "../mycelix-forge-review-head-snapshot" }
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "2.0"
+
+[dev-dependencies]
+ed25519-dalek = "2"
+ml-dsa = { version = "0.1.1", default-features = true }
+mycelix-forge-authentication = { path = "../mycelix-forge-authentication" }
+mycelix-forge-project-policy = { path = "../mycelix-forge-project-policy" }
+mycelix-forge-repository = { path = "../mycelix-forge-repository" }
+mycelix-forge-xenia = { path = "../../adapters/forge-xenia" }
+mycelix-forge-xenia-provider = { path = "../../adapters/forge-xenia-provider" }
+serde_json = "1.0"
+
+[workspace]
