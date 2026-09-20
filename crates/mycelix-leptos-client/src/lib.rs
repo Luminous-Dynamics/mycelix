@@ -50,6 +50,7 @@ pub mod admin_granted_signer;
 #[cfg(feature = "browser")]
 pub mod browser;
 pub mod client;
+pub mod conductor_error;
 pub mod error;
 pub mod mock;
 #[cfg(feature = "native")]
@@ -62,6 +63,7 @@ pub mod types;
 // Re-exports for convenience
 pub use admin_granted_signer::{AdminGrantedSigner, SigningCredentials};
 pub use client::HolochainClient;
+pub use conductor_error::{ConductorError, ConductorErrorKind};
 pub use error::ClientError;
 pub use mock::MockTransport;
 #[cfg(feature = "native")]
