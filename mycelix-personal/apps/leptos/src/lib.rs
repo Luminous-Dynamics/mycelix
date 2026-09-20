@@ -10,6 +10,7 @@ pub mod mutation_refresh;
 pub mod mutation_state;
 pub mod mutation_truth;
 pub mod pages;
+pub mod profile_baseline;
 pub mod reconciliation;
 pub mod runtime_mode;
 pub mod telemetry;
