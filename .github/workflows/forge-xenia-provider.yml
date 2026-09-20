@@ -1,0 +1,48 @@
+name: Forge Xenia Provider Verifier
+
+on:
+  pull_request:
+    paths:
+      - "adapters/forge-xenia-provider/**"
+      - "adapters/forge-xenia/**"
+      - ".github/workflows/forge-xenia-provider.yml"
+  push:
+    branches: [main]
+    paths:
+      - "adapters/forge-xenia-provider/**"
+      - "adapters/forge-xenia/**"
+      - ".github/workflows/forge-xenia-provider.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: forge-xenia-provider-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  xenia-provider-verifier:
+    name: Xenia provider crypto boundary
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: adapters/forge-xenia-provider
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned Rust 1.96
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+
+      - name: Format
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Test provider verification boundary
+        run: cargo test --all-features
