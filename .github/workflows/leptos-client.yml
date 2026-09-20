@@ -1,0 +1,190 @@
+name: Mycelix Leptos Client
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'crates/mycelix-leptos-client/**'
+      - '.github/workflows/leptos-client.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/mycelix-leptos-client/**'
+      - '.github/workflows/leptos-client.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: leptos-client-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  leptos-client:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+          submodules: recursive
+
+      - name: Verify exact subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ github.event.pull_request.head.sha || github.sha }}'
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$expected" || {
+            echo "::error::Expected exact Leptos client subject $expected, got $actual"
+            exit 1
+          }
+
+      - name: Verify client source closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f crates/mycelix-leptos-client/Cargo.toml
+          test -f crates/mycelix-leptos-client/src/lib.rs
+          test -f crates/mycelix-leptos-client/src/transport.rs
+          test -f crates/mycelix-leptos-client/src/error.rs
+
+      - name: Install pinned Rust
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87b
+        with:
+          toolchain: 1.96.0
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+
+      - name: Prepare isolated exact-source qualification copy
+        shell: bash
+        run: |
+          set -euo pipefail
+          src="$GITHUB_WORKSPACE/crates/mycelix-leptos-client"
+          dst="$RUNNER_TEMP/mycelix-leptos-client"
+          rm -rf "$dst"
+          cp -a "$src" "$dst"
+          diff -ru "$src" "$dst"
+          echo "CLIENT_QUAL_DIR=$dst" >> "$GITHUB_ENV"
+          echo "CARGO_TARGET_DIR=$RUNNER_TEMP/mycelix-leptos-client-target" >> "$GITHUB_ENV"
+
+      - name: Resolve exact client dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo metadata --format-version 1 \
+            --manifest-path "$CLIENT_QUAL_DIR/Cargo.toml" >/dev/null
+          test -f "$CLIENT_QUAL_DIR/Cargo.lock" || {
+            echo "::error::Client dependency resolution did not produce Cargo.lock evidence."
+            exit 1
+          }
+
+      - name: Check client formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path "$CLIENT_QUAL_DIR/Cargo.toml" -- --check
+
+      - name: Run client host tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path "$CLIENT_QUAL_DIR/Cargo.toml" --lib
+
+      - name: Check client WASM build
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo check \
+            --manifest-path "$CLIENT_QUAL_DIR/Cargo.toml" \
+            --target wasm32-unknown-unknown
+
+      - name: Clippy client host targets
+        id: clippy_host
+        shell: bash
+        run: |
+          set -uo pipefail
+          log="$RUNNER_TEMP/leptos-client-clippy-host.log"
+          : > "$log"
+          cargo clippy \
+            --manifest-path "$CLIENT_QUAL_DIR/Cargo.toml" \
+            --all-targets \
+            --message-format short -- -D warnings 2>&1 | tee "$log"
+          exit ${PIPESTATUS[0]}
+
+      - name: Clippy client WASM library
+        id: clippy_wasm
+        shell: bash
+        run: |
+          set -uo pipefail
+          log="$RUNNER_TEMP/leptos-client-clippy-wasm.log"
+          : > "$log"
+          cargo clippy \
+            --manifest-path "$CLIENT_QUAL_DIR/Cargo.toml" \
+            --target wasm32-unknown-unknown \
+            --lib \
+            --message-format short -- -D warnings 2>&1 | tee "$log"
+          exit ${PIPESTATUS[0]}
+
+      - name: Upload exact client Clippy diagnostics
+        if: ${{ always() && (steps.clippy_host.outcome == 'failure' || steps.clippy_wasm.outcome == 'failure') }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: leptos-client-clippy-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            ${{ runner.temp }}/leptos-client-clippy-host.log
+            ${{ runner.temp }}/leptos-client-clippy-wasm.log
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload resolved client lock evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: leptos-client-lock-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/mycelix-leptos-client/Cargo.lock
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Prove checkout immutability
+        id: immutability
+        if: always()
+        shell: bash
+        run: |
+          set -uo pipefail
+          log="$RUNNER_TEMP/leptos-client-immutability.log"
+          : > "$log"
+          {
+            echo '=== git status --short ==='
+            git status --short
+            echo '=== untracked paths ==='
+            git ls-files --others --exclude-standard
+            echo '=== git diff --stat ==='
+            git diff --stat
+            echo '=== git diff ==='
+            git diff
+          } 2>&1 | tee "$log"
+
+          status=${PIPESTATUS[0]}
+          if ! git diff --exit-code >>"$log" 2>&1; then
+            status=1
+          fi
+          if [ -n "$(git status --porcelain)" ]; then
+            status=1
+          fi
+          exit "$status"
+
+      - name: Upload exact immutability diagnostics
+        if: ${{ always() && steps.immutability.outcome == 'failure' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: leptos-client-immutability-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/leptos-client-immutability.log
+          if-no-files-found: error
+          retention-days: 7
