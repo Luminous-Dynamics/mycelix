@@ -82,9 +82,7 @@ impl CapabilitySnapshot {
             return Err(violation("capability profile_revision must be > 0"));
         }
 
-        if self.safe_retry_without_reconciliation
-            && self.replay_safety == ReplaySafety::Unknown
-        {
+        if self.safe_retry_without_reconciliation && self.replay_safety == ReplaySafety::Unknown {
             return Err(violation(
                 "safe retry cannot be granted when replay safety is Unknown",
             ));
@@ -270,7 +268,9 @@ impl ActionAttempt {
         match (&self.retry_authorization, self.attempt_ordinal) {
             (RetryAuthorization::Initial, 1) => {}
             (RetryAuthorization::Initial, _) => {
-                return Err(violation("only the first attempt may use Initial authorization"));
+                return Err(violation(
+                    "only the first attempt may use Initial authorization",
+                ));
             }
             (RetryAuthorization::ReplaySafe, 1)
             | (RetryAuthorization::ReconciledNoEffect { .. }, 1) => {
@@ -372,17 +372,9 @@ impl EffectObservation {
             let receipt = self.provider_receipt_commitment.as_deref().ok_or_else(|| {
                 violation("ProviderReceipt observation requires provider_receipt_commitment")
             })?;
-            require_opaque(
-                "provider_receipt_commitment",
-                receipt,
-                MAX_COMMITMENT_LEN,
-            )?;
+            require_opaque("provider_receipt_commitment", receipt, MAX_COMMITMENT_LEN)?;
         } else if let Some(receipt) = &self.provider_receipt_commitment {
-            require_opaque(
-                "provider_receipt_commitment",
-                receipt,
-                MAX_COMMITMENT_LEN,
-            )?;
+            require_opaque("provider_receipt_commitment", receipt, MAX_COMMITMENT_LEN)?;
         }
 
         match self.basis {
@@ -900,8 +892,7 @@ fn validate_resolution(
             if state.integrity_halted
                 || state.successful_ordinals.is_empty()
                 || !state.unknown_ordinals.is_empty()
-                || (state.pending_ordinals.is_empty()
-                    && state.known_no_effect_ordinals.is_empty())
+                || (state.pending_ordinals.is_empty() && state.known_no_effect_ordinals.is_empty())
             {
                 return Err(violation(
                     "PartiallyCompleted requires a successful prefix plus incomplete/known-no-effect remainder",
@@ -960,8 +951,7 @@ mod tests {
             compensation: CompensationCapability::Unknown,
             provider_batch_atomicity: ProviderBatchAtomicity::NoneObserved,
             safe_retry_without_reconciliation: replay_safe,
-            qualification_evidence_id: replay_safe
-                .then(|| "qualified-provider-evidence".into()),
+            qualification_evidence_id: replay_safe.then(|| "qualified-provider-evidence".into()),
         }
     }
 
