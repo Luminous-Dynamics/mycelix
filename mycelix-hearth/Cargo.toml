@@ -15,6 +15,7 @@ members = [
     "crates/hearth-care-recurrence",
     "crates/hearth-care-timezone-jiff",
     "crates/hearth-care-recurrence-enumerator",
+    "crates/hearth-care-recurrence-composer",
     "edge/hearth-edge",
     "edge/hearth-edge-journal",
     "crates/hearth-coordinator-common",
@@ -110,6 +111,7 @@ hearth-care-ledger-contract = { path = "crates/hearth-care-ledger" }
 hearth-care-recurrence = { path = "crates/hearth-care-recurrence" }
 hearth-care-timezone-jiff = { path = "crates/hearth-care-timezone-jiff" }
 hearth-care-recurrence-enumerator = { path = "crates/hearth-care-recurrence-enumerator" }
+hearth-care-recurrence-composer = { path = "crates/hearth-care-recurrence-composer" }
 hearth-coordinator-common = { path = "crates/hearth-coordinator-common" }
 mycelix-bridge-common = { path = "../crates/mycelix-bridge-common" }
 mycelix-bridge-entry-types = { path = "../crates/mycelix-bridge-entry-types" }
