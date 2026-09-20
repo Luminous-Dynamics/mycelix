@@ -1,0 +1,88 @@
+name: SUP-CIV-000D1C2A OpenSSL ML-KEM/CMS Preflight
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/docs/civic-resilience/SUP_CIV_000D1C2A_OPENSSL_364_PREFLIGHT_V1.md'
+      - 'mycelix-workspace/docs/civic-resilience/sup_civ_000d1c2a_openssl_364_manifest.json'
+      - 'mycelix-workspace/scripts/sup_civ_openssl_364_mlkem_preflight_v1.sh'
+      - '.github/workflows/sup-civ-000d1c2a-openssl-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sup-civ-000d1c2a-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Pinned OpenSSL 3.6.4 ML-KEM/CMS toolchain preflight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 2
+
+      - name: Exact parent and tranche scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='1152251e1b8d09bf69cc2497164a0fc1d58da320'
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          test "$(git rev-list --count "$EXPECTED_PARENT"..HEAD)" = '1'
+          git diff --check "$EXPECTED_PARENT" HEAD
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PARENT" HEAD | sort)
+          expected=(
+            '.github/workflows/sup-civ-000d1c2a-openssl-preflight.yml'
+            'mycelix-workspace/docs/civic-resilience/SUP_CIV_000D1C2A_OPENSSL_364_PREFLIGHT_V1.md'
+            'mycelix-workspace/docs/civic-resilience/sup_civ_000d1c2a_openssl_364_manifest.json'
+            'mycelix-workspace/scripts/sup_civ_openssl_364_mlkem_preflight_v1.sh'
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed[@]}")
+          test -z "$(git status --short)"
+
+      - name: Closed manifest and claim ceiling
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object mycelix-workspace/docs/civic-resilience/sup_civ_000d1c2a_openssl_364_manifest.json)" = 'c0bccf7bb0901f4880f97cad5fa8f8df9658ccd2'
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('mycelix-workspace/docs/civic-resilience/sup_civ_000d1c2a_openssl_364_manifest.json')
+          d = json.loads(p.read_text())
+          assert d['program'] == 'SUP-CIV-000D1C2A'
+          assert d['parent_subject'] == '1152251e1b8d09bf69cc2497164a0fc1d58da320'
+          assert d['authority'] == 'external_toolchain_preflight_only'
+          assert d['openssl']['version'] == '3.6.4'
+          assert d['openssl']['source_sha256'] == '9bffaa1ad1e07b354c21bd3324ec02fa15579f45a7d0494b3e74bc449b7333ef'
+          assert d['fixture']['expected_kem_ciphertext_bytes'] == 1088
+          assert d['fixture']['expected_shared_secret_bytes'] == 32
+          assert d['fixture']['fixture_is_production_entropy_evidence'] is False
+          assert d['continuation'] == ['SUP-CIV-000D1C2B']
+          PY
+
+      - name: No product dependency or runtime changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='1152251e1b8d09bf69cc2497164a0fc1d58da320'
+          changed="$(git diff --name-only "$EXPECTED_PARENT" HEAD)"
+          if printf '%s\n' "$changed" | grep -E '(^|/)(Cargo\.toml|Cargo\.lock|flake\.nix|flake\.lock)$|\.rs$'; then
+            echo 'C2A must not modify product Rust/Cargo/Nix surfaces' >&2
+            exit 1
+          fi
+          bash -n mycelix-workspace/scripts/sup_civ_openssl_364_mlkem_preflight_v1.sh
+
+      - name: Execute pinned toolchain preflight
+        shell: bash
+        run: bash mycelix-workspace/scripts/sup_civ_openssl_364_mlkem_preflight_v1.sh
+
+      - name: Immutable checkout postflight
+        run: test -z "$(git status --short)"
