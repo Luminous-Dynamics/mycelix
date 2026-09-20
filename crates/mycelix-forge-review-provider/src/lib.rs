@@ -17,10 +17,11 @@
 //! ProviderVerifiedEligibleReviewV1
 //! ```
 //!
-//! The result still does **not** establish trusted time, approval quorum,
-//! repository correctness, CI qualification, protected-history compliance, or
-//! merge authorization. In particular, a provider-verified `RequestChanges`
-//! statement remains `RequestChanges`; provider cryptography is not approval.
+//! The result still does **not** establish project-policy trust in the
+//! verifier identity, trusted time, approval quorum, repository correctness,
+//! CI qualification, protected-history compliance, or merge authorization.
+//! In particular, a provider-verified `RequestChanges` statement remains
+//! `RequestChanges`; provider cryptography is not approval.
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
@@ -42,7 +43,8 @@ const PROVIDER_VERIFIED_REVIEW_DOMAIN_V1: &[u8] =
 ///
 /// This type is serializable for evidence export but intentionally not
 /// deserializable: callers must construct it by re-running
-/// [`bind_xenia_provider_verified_review_v1`].
+/// [`bind_xenia_provider_verified_review_v1`]. It deliberately does not claim
+/// that the verifier identity is authorized by project policy.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct ProviderVerifiedEligibleReviewV1 {
     review: StructurallyEligibleReview,
@@ -63,12 +65,14 @@ impl ProviderVerifiedEligibleReviewV1 {
         &self.authentication_evidence
     }
 
-    /// Exact Xenia receipt whose trusted-provider provenance passed.
+    /// Exact Xenia receipt whose provider provenance passed.
     pub fn provider_receipt(&self) -> &Digest {
         &self.provider_receipt
     }
 
-    /// Exact trusted Xenia verifier identity that authenticated the receipt.
+    /// Exact Xenia verifier identity that authenticated the receipt.
+    ///
+    /// Project-policy trust in this identity is a later theorem.
     pub fn verifier_identity(&self) -> &Digest {
         &self.verifier_identity
     }
@@ -237,6 +241,9 @@ mod tests {
     use mycelix_forge_core::{
         DigestAlgorithm, ProjectIdentity, ProjectIdentitySeed, GENESIS_NONCE_LEN,
     };
+    use mycelix_forge_project_policy::{
+        AuthenticationProviderTrustPolicyV1, ProjectPolicyStateV1, TrustedProviderVerifierV1,
+    };
     use mycelix_forge_proposal::ChangeProposal;
     use mycelix_forge_repository::{
         GitObjectAlgorithm, GitObjectId, RepositoryPolicyState, RepositoryRef,
@@ -290,17 +297,36 @@ mod tests {
         .unwrap()
     }
 
+    fn project_policy() -> ProjectPolicyStateV1 {
+        let project = project();
+        let trust = AuthenticationProviderTrustPolicyV1::new(
+            project.clone(),
+            vec![TrustedProviderVerifierV1::new(digest(0x90), digest(0x91))],
+        )
+        .unwrap();
+        ProjectPolicyStateV1::new(
+            project,
+            0,
+            None,
+            &trust,
+            DigestAlgorithm::Sha256,
+        )
+        .unwrap()
+    }
+
     fn git(byte: u8) -> GitObjectId {
         GitObjectId::new(GitObjectAlgorithm::Sha1, vec![byte; 20]).unwrap()
     }
 
     fn proposal(authority: &AuthorityEpoch) -> ChangeProposal {
-        let policy = RepositoryPolicyState::new(project(), 0, None, digest(0x31)).unwrap();
+        let repository_policy =
+            RepositoryPolicyState::new(project(), 0, None, digest(0x31)).unwrap();
+        let project_policy = project_policy();
         ChangeProposal::new(
             principal(0x30),
             authority,
-            digest(0x32),
-            &policy,
+            &project_policy,
+            &repository_policy,
             RepositoryRef::new("refs/heads/main").unwrap(),
             git(0x40),
             git(0x41),
@@ -450,18 +476,9 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(
-            positive.authentication_evidence(),
-            fixture.authentication.evidence_commitment()
-        );
-        assert_eq!(
-            positive.provider_receipt(),
-            fixture.provider_verified.receipt_digest()
-        );
-        assert_eq!(
-            positive.verifier_identity(),
-            fixture.provider_verified.verifier_identity_commitment()
-        );
+        assert_eq!(positive.authentication_evidence(), fixture.authentication.evidence_commitment());
+        assert_eq!(positive.provider_receipt(), fixture.provider_verified.receipt_digest());
+        assert_eq!(positive.verifier_identity(), fixture.provider_verified.verifier_identity_commitment());
     }
 
     #[test]
@@ -469,15 +486,8 @@ mod tests {
         let provider = ProviderIdentity::from_seeds([0x83; 32], [0x84; 32]);
         let a = full_review_fixture(&provider, ReviewDecision::Approve, 0x80);
         let b = full_review_fixture(&provider, ReviewDecision::Approve, 0x81);
-
         assert_eq!(
-            bind_xenia_provider_verified_review_v1(
-                b.eligible,
-                &b.authentication,
-                &a.provider_verified,
-            )
-            .err()
-            .unwrap(),
+            bind_xenia_provider_verified_review_v1(b.eligible, &b.authentication, &a.provider_verified).err().unwrap(),
             ProviderVerifiedReviewError::ProviderObservationMismatch
         );
     }
@@ -487,15 +497,8 @@ mod tests {
         let provider = ProviderIdentity::from_seeds([0x85; 32], [0x86; 32]);
         let a = full_review_fixture(&provider, ReviewDecision::Approve, 0x82);
         let b = full_review_fixture(&provider, ReviewDecision::Approve, 0x83);
-
         assert_eq!(
-            bind_xenia_provider_verified_review_v1(
-                a.eligible,
-                &b.authentication,
-                &b.provider_verified,
-            )
-            .err()
-            .unwrap(),
+            bind_xenia_provider_verified_review_v1(a.eligible, &b.authentication, &b.provider_verified).err().unwrap(),
             ProviderVerifiedReviewError::AuthenticationEvidenceMismatch
         );
     }
@@ -510,10 +513,6 @@ mod tests {
             &fixture.provider_verified,
         )
         .unwrap();
-
-        assert_eq!(
-            positive.review().review().statement().decision(),
-            ReviewDecision::RequestChanges
-        );
+        assert_eq!(positive.review().review().statement().decision(), ReviewDecision::RequestChanges);
     }
 }
