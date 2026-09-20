@@ -1,0 +1,16 @@
+[package]
+name = "forge-git-source"
+version = "0.1.0"
+edition = "2021"
+authors = ["Luminous Dynamics"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+description = "Pinned Git plumbing adapter for Mycelix Forge proposal-source verification"
+
+[dependencies]
+mycelix-forge-core = { path = "../../crates/mycelix-forge-core" }
+mycelix-forge-proposal = { path = "../../crates/mycelix-forge-proposal" }
+mycelix-forge-proposal-source = { path = "../../crates/mycelix-forge-proposal-source" }
+mycelix-forge-repository = { path = "../../crates/mycelix-forge-repository" }
+hex = "0.4"
+thiserror = "2.0"
