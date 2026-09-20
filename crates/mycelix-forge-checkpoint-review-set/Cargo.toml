@@ -10,6 +10,7 @@ description = "Exact authenticated review state projected from witnessed Forge c
 publish = false
 
 [dependencies]
+mycelix-forge-authority = { path = "../mycelix-forge-authority" }
 mycelix-forge-core = { path = "../mycelix-forge-core" }
 mycelix-forge-proposal = { path = "../mycelix-forge-proposal" }
 mycelix-forge-review-head-snapshot = { path = "../mycelix-forge-review-head-snapshot" }
