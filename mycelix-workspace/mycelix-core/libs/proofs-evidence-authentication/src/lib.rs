@@ -7,14 +7,16 @@
 //! the canonical receipt identity, exact authentication policy, opaque capability,
 //! strict untrusted-wire parsing boundary, non-authoritative verifier-execution
 //! evidence, deterministic GitHub verifier command/I/O planning, strict parsed
-//! verifier-output evidence, and retained-root trust-domain classification that future
-//! separately-qualified backends may use after full verification.
+//! verifier-output evidence, retained-root trust-domain classification, and trusted
+//! builder candidate binding that future separately-qualified backends may use before
+//! authenticated capability minting.
 
 mod canonical;
 mod capability;
 mod github_cli_execution_policy;
 mod github_cli_plan;
 mod github_cli_steps;
+mod github_trusted_builder;
 mod github_trusted_root;
 mod github_verification_result;
 mod policy;
@@ -55,6 +57,15 @@ pub use github_cli_steps::{
     GitHubExecutionStepAuthorityV1, GitHubVerifierExecutionStepV1,
     GitHubVerifierStdoutDispositionV1, GitHubVerifierStepPurposeV1,
     github_public_verifier_execution_steps_v1,
+};
+pub use github_trusted_builder::{
+    GITHUB_HOSTED_RUNNER_ENVIRONMENT_V1, GITHUB_PUBLIC_REPOSITORY_VISIBILITY_V1,
+    MAX_GITHUB_TRUSTED_BUILDER_POLICY_TEXT_BYTES_V1, GitHubActionsRunIdentityV1,
+    GitHubTrustedBuilderBindingAuthorityV1, GitHubTrustedBuilderBindingErrorV1,
+    GitHubTrustedBuilderBindingV1, GitHubTrustedBuilderCandidateMismatchV1,
+    GitHubTrustedBuilderCandidateRejectionV1, GitHubTrustedBuilderPolicyAuthorityV1,
+    GitHubTrustedBuilderPolicyErrorV1, GitHubTrustedBuilderPolicyV1,
+    bind_unique_github_trusted_builder_candidate_v1,
 };
 pub use github_trusted_root::{
     GITHUB_DEFAULT_DUAL_TRUSTED_ROOT_PROFILE_V1,
