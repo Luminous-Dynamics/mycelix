@@ -104,8 +104,8 @@ pub mod util;
 pub use holochain_call_error::{HolochainCallError, HolochainCallPhase};
 pub use holochain_call_failure::HolochainCallFailureKind;
 pub use holochain_call_observation::{
-    HolochainCallAttemptId, HolochainCallAttemptSequence, HolochainCallFailureObservation,
-    HolochainCallInvocationError,
+    HolochainCallAdmissionExhaustion, HolochainCallAttemptId, HolochainCallAttemptSequence,
+    HolochainCallDiagnosticState, HolochainCallFailureObservation, HolochainCallInvocationError,
 };
 pub use holochain_provider::{
     ConnectStrategy, ConnectionBadge, ConnectionStatus, HolochainCtx, HolochainProviderAuto,

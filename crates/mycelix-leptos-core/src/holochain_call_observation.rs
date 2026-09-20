@@ -283,6 +283,121 @@ impl Error for HolochainCallInvocationError {
     }
 }
 
+/// Sticky provider-admission evidence that no further typed call attempt IDs
+/// can be allocated in this provider lifetime.
+///
+/// This condition has no attempt ID because the rejected call was never
+/// admitted. It is tracked separately from terminal call completions so an
+/// in-flight final admitted call may still publish its own success/failure
+/// ordering evidence afterward.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HolochainCallAdmissionExhaustion {
+    role: String,
+    zome: String,
+    function: String,
+}
+
+impl HolochainCallAdmissionExhaustion {
+    pub fn new(
+        role: impl Into<String>,
+        zome: impl Into<String>,
+        function: impl Into<String>,
+    ) -> Self {
+        Self {
+            role: role.into(),
+            zome: zome.into(),
+            function: function.into(),
+        }
+    }
+
+    pub fn role(&self) -> &str {
+        &self.role
+    }
+
+    pub fn zome(&self) -> &str {
+        &self.zome
+    }
+
+    pub fn function(&self) -> &str {
+        &self.function
+    }
+}
+
+/// Ordered provider-local diagnostic state for completed typed calls.
+///
+/// A newer completed attempt supersedes older diagnostic state. A newer
+/// success clears an older failure; a late older success/failure is ignored.
+/// Sequence exhaustion is sticky and independent because the rejected call has
+/// no attempt ID and the final admitted attempt may still be in flight.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct HolochainCallDiagnosticState {
+    latest_completed_attempt: Option<HolochainCallAttemptId>,
+    latest_failure: Option<HolochainCallFailureObservation>,
+    attempt_sequence_exhaustion: Option<HolochainCallAdmissionExhaustion>,
+}
+
+impl HolochainCallDiagnosticState {
+    pub const fn latest_completed_attempt(&self) -> Option<HolochainCallAttemptId> {
+        self.latest_completed_attempt
+    }
+
+    pub const fn latest_failure(&self) -> Option<&HolochainCallFailureObservation> {
+        self.latest_failure.as_ref()
+    }
+
+    pub const fn attempt_sequence_exhaustion(&self) -> Option<&HolochainCallAdmissionExhaustion> {
+        self.attempt_sequence_exhaustion.as_ref()
+    }
+
+    pub const fn is_attempt_sequence_exhausted(&self) -> bool {
+        self.attempt_sequence_exhaustion.is_some()
+    }
+
+    fn accepts_completion(&self, attempt_id: HolochainCallAttemptId) -> bool {
+        self.latest_completed_attempt
+            .is_none_or(|current| attempt_id > current)
+    }
+
+    /// Publish a successful completion if it is newer than every completion
+    /// already observed. Returns whether the diagnostic state changed.
+    pub fn observe_success(&mut self, attempt_id: HolochainCallAttemptId) -> bool {
+        if !self.accepts_completion(attempt_id) {
+            return false;
+        }
+        self.latest_completed_attempt = Some(attempt_id);
+        self.latest_failure = None;
+        true
+    }
+
+    /// Publish a failed completion if it is newer than every completion
+    /// already observed. Returns whether the diagnostic state changed.
+    pub fn observe_failure(&mut self, observation: HolochainCallFailureObservation) -> bool {
+        let attempt_id = observation.attempt_id();
+        if !self.accepts_completion(attempt_id) {
+            return false;
+        }
+        self.latest_completed_attempt = Some(attempt_id);
+        self.latest_failure = Some(observation);
+        true
+    }
+
+    /// Record the first sequence-exhaustion observation for this provider.
+    ///
+    /// Later rejected calls carry no stronger ordering evidence, so they do not
+    /// replace the first exhaustion target. This marker never clears because a
+    /// provider whose monotonic sequence is exhausted cannot admit future IDs.
+    pub fn observe_attempt_sequence_exhaustion(
+        &mut self,
+        exhaustion: HolochainCallAdmissionExhaustion,
+    ) -> bool {
+        if self.attempt_sequence_exhaustion.is_some() {
+            return false;
+        }
+        self.attempt_sequence_exhaustion = Some(exhaustion);
+        true
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -404,6 +519,65 @@ mod tests {
         assert_eq!(error.attempt_id(), Some(HolochainCallAttemptId(5)));
         assert_eq!(error.failure_observation(), Some(&observation));
         assert!(error.source().is_some());
+    }
+
+    #[test]
+    fn newer_success_clears_an_older_failure() {
+        let mut state = HolochainCallDiagnosticState::default();
+        assert!(state.observe_failure(failure(HolochainCallAttemptId(4), "older failure")));
+        assert!(state.observe_success(HolochainCallAttemptId(5)));
+
+        assert_eq!(state.latest_completed_attempt(), Some(HolochainCallAttemptId(5)));
+        assert_eq!(state.latest_failure(), None);
+    }
+
+    #[test]
+    fn late_older_success_cannot_clear_a_newer_failure() {
+        let mut state = HolochainCallDiagnosticState::default();
+        let newer = failure(HolochainCallAttemptId(8), "newer failure");
+        assert!(state.observe_failure(newer.clone()));
+        assert!(!state.observe_success(HolochainCallAttemptId(7)));
+
+        assert_eq!(state.latest_completed_attempt(), Some(HolochainCallAttemptId(8)));
+        assert_eq!(state.latest_failure(), Some(&newer));
+    }
+
+    #[test]
+    fn late_older_failure_cannot_replace_newer_completion() {
+        let mut state = HolochainCallDiagnosticState::default();
+        assert!(state.observe_success(HolochainCallAttemptId(9)));
+        assert!(!state.observe_failure(failure(
+            HolochainCallAttemptId(8),
+            "late older failure"
+        )));
+
+        assert_eq!(state.latest_completed_attempt(), Some(HolochainCallAttemptId(9)));
+        assert_eq!(state.latest_failure(), None);
+    }
+
+    #[test]
+    fn sequence_exhaustion_is_sticky_and_independent_of_final_inflight_completion() {
+        let mut state = HolochainCallDiagnosticState::default();
+        let first = HolochainCallAdmissionExhaustion::new(
+            "personal",
+            "identity_vault",
+            "get_my_profile_view",
+        );
+        assert!(state.observe_attempt_sequence_exhaustion(first.clone()));
+        assert!(!state.observe_attempt_sequence_exhaustion(
+            HolochainCallAdmissionExhaustion::new(
+                "personal",
+                "data_preferences",
+                "get_my_preferences_view",
+            )
+        ));
+
+        assert!(state.observe_success(HolochainCallAttemptId(u64::MAX)));
+        assert_eq!(state.attempt_sequence_exhaustion(), Some(&first));
+        assert_eq!(
+            state.latest_completed_attempt(),
+            Some(HolochainCallAttemptId(u64::MAX))
+        );
     }
 
     #[test]
