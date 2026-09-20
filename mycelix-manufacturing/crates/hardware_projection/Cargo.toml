@@ -1,0 +1,15 @@
+[package]
+name = "hardware_projection"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "One-way Mycelix hardware design to manufacturing BOM projection"
+
+[dependencies]
+hdi = { workspace = true }
+serde = { workspace = true }
+manufacturing_common = { path = "../manufacturing_common" }
+mycelix-hardware-core = { path = "../../../crates/mycelix-hardware-core" }
+
+[lints]
+workspace = true
