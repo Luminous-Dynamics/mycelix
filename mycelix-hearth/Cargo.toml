@@ -8,6 +8,7 @@ members = [
     "crates/hearth-automation-replay",
     "edge/hearth-edge",
     "edge/hearth-edge-journal",
+    "edge/hearth-edge-lease",
     "crates/hearth-coordinator-common",
 
     # Kinship (core membership + relationships)
