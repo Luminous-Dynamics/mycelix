@@ -1,0 +1,46 @@
+name: Hardware Semantic CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'crates/mycelix-hardware-core/**'
+      - '.github/workflows/hardware-semantic-ci.yml'
+  pull_request:
+    branches: ['**']
+    paths:
+      - 'crates/mycelix-hardware-core/**'
+      - '.github/workflows/hardware-semantic-ci.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: hardware-semantic-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Qualify hardware semantic core
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: crates/mycelix-hardware-core
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/mycelix-hardware-core
+      - name: Check formatting
+        run: cargo fmt --all --check
+      - name: Compile all targets
+        run: cargo check --all-targets
+      - name: Run tests
+        run: cargo test --all-targets
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
