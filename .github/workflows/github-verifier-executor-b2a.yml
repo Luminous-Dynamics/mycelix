@@ -1,0 +1,389 @@
+name: Mycelix GitHub Verifier Executor Gate B2a
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - '.github/workflows/github-verifier-executor-b2a.yml'
+  workflow_dispatch:
+    inputs:
+      subject_sha:
+        description: 'Exact implementation subject SHA'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-verifier-executor-b2a-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Pre-spawn denial gate
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      EXPECTED_SUBJECT_SHA: e4359f5c556d1a51cb053978f0f96fe8abed65ce
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Resolve exact implementation subject
+        id: subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            subject='${{ github.event.pull_request.base.sha }}'
+          else
+            subject='${{ inputs.subject_sha }}'
+          fi
+          [[ "$subject" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid subject SHA: $subject" >&2; exit 1; }
+          test "$subject" = "$EXPECTED_SUBJECT_SHA"
+          echo "sha=$subject" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact implementation subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ steps.subject.outputs.sha }}
+          fetch-depth: 1
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.96.0
+
+      - name: Preflight exact source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          test -z "$(git status --porcelain)"
+          evidence="$RUNNER_TEMP/github-verifier-executor-b2a-evidence"
+          mkdir -p "$evidence"
+          find mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication \
+            -type f -not -path '*/target/*' -print0 | sort -z | xargs -0 sha256sum \
+            > "$evidence/source-sha256.txt"
+          {
+            echo "subject_sha=${{ steps.subject.outputs.sha }}"
+            echo "runner_os=${RUNNER_OS}"
+            echo "runner_arch=${RUNNER_ARCH}"
+            rustc -Vv
+            cargo -V
+          } > "$evidence/execution-capsule.txt"
+
+      - name: Build never-should-run verifier fixture
+        id: fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          marker="$RUNNER_TEMP/github-verifier-b2a-SPAWNED"
+          fake="$RUNNER_TEMP/mycelix-fake-gh-b2a"
+          rm -f "$marker"
+          cat > "$fake" <<PY
+          #!/usr/bin/python3
+          import pathlib
+          pathlib.Path(${marker@Q}).write_text("spawned\n", encoding="utf-8")
+          raise SystemExit(88)
+          PY
+          chmod 0755 "$fake"
+          fake="$(realpath "$fake")"
+          printf 'path=%s\n' "$fake" >> "$GITHUB_OUTPUT"
+          printf 'sha256=%s\n' "$(sha256sum "$fake" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+          printf 'marker=%s\n' "$marker" >> "$GITHUB_OUTPUT"
+
+      - name: Prove exact pre-spawn denials
+        shell: bash
+        env:
+          FAKE_GH: ${{ steps.fixture.outputs.path }}
+          FAKE_GH_SHA256: ${{ steps.fixture.outputs.sha256 }}
+          SPAWN_MARKER: ${{ steps.fixture.outputs.marker }}
+        run: |
+          set -euo pipefail
+          crate_path="$(realpath mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication)"
+          probe="$RUNNER_TEMP/github-verifier-b2a-probe"
+          cases="$RUNNER_TEMP/github-verifier-b2a-cases"
+          evidence="$RUNNER_TEMP/github-verifier-executor-b2a-evidence"
+          rm -rf "$probe" "$cases"
+          mkdir -p "$probe/src" "$cases"
+
+          cat > "$probe/Cargo.toml" <<EOF
+          [package]
+          name = "github-verifier-b2a-probe"
+          version = "0.1.0"
+          edition = "2024"
+
+          [dependencies]
+          proofs-evidence-authentication = { path = "$crate_path" }
+          EOF
+
+          cat > "$probe/src/main.rs" <<'RS'
+          use std::{env, fs, path::{Path, PathBuf}};
+          use std::os::unix::fs::symlink;
+          use proofs_evidence_authentication::{
+              AuthenticationFreshnessPolicyV1, GitHubBoundVerifierExecutionErrorV1,
+              GITHUB_ACTIONS_OIDC_ISSUER_V1, GITHUB_PUBLIC_BACKEND_FAMILY_V1,
+              GITHUB_PUBLIC_COMMAND_PROFILE_ID_V1, GITHUB_PUBLIC_PLATFORM_PROFILE_V1,
+              GitObjectIdV1, GitHubPublicVerifierExecutionPolicyV1,
+              GitHubVerifierExecutorErrorV1, MYCELIX_QUALIFICATION_PREDICATE_TYPE_V1,
+              MYCELIX_QUALIFICATION_SUBJECT_NAME_V1, MYCELIX_REPOSITORY_OWNER_V1,
+              MYCELIX_REPOSITORY_V1, NixVerifierClosureIdentityV1,
+              QualificationReceiptV1, QualificationResultV1, ReceiptAuthenticationPolicyV1,
+              Sha256DigestV1, SourceRevisionPolicyV1, TransparencyPolicyV1,
+              VerifierExecutableIdentityV1, VerifierProfileV1, WorkflowRevisionPolicyV1,
+              execute_github_public_verifier_v1,
+          };
+
+          fn digest(byte: u8) -> Sha256DigestV1 {
+              Sha256DigestV1::from_bytes([byte; 32])
+          }
+
+          fn source() -> GitObjectIdV1 { GitObjectIdV1::sha1([0xaa; 20]) }
+          fn signer() -> GitObjectIdV1 { GitObjectIdV1::sha1([0xbb; 20]) }
+
+          fn receipt() -> QualificationReceiptV1 {
+              QualificationReceiptV1 {
+                  receipt_version: 1,
+                  qualification_profile: "myc-zkp-gh-executor-b2a".into(),
+                  statement_profile: "github-verifier-execution-v1".into(),
+                  theorem_profile: "github-verifier-pre-spawn-denial-b2a".into(),
+                  subject: source(),
+                  dependency_graph_digest: digest(1),
+                  measured_security_receipt_digest: digest(2),
+                  coherence_policy_id: "coherence-v1".into(),
+                  coherence_result_digest: digest(3),
+                  qualification_corpus_digest: digest(4),
+                  execution_capsule_digest: digest(5),
+                  result: QualificationResultV1::Pass,
+                  nonclaims: vec!["child process must not run in B2a cases".into()],
+              }
+          }
+
+          fn auth() -> ReceiptAuthenticationPolicyV1 {
+              ReceiptAuthenticationPolicyV1 {
+                  profile_id: "github-public-v1".into(),
+                  verifier_profile: VerifierProfileV1 {
+                      profile_id: "github-attestation-verifier-v1".into(),
+                      backend_family: GITHUB_PUBLIC_BACKEND_FAMILY_V1.into(),
+                      backend_version: "2.101.0".into(),
+                      verification_profile: "public-sigstore-qualification-v1".into(),
+                  },
+                  expected_attestation_subject_name: MYCELIX_QUALIFICATION_SUBJECT_NAME_V1.into(),
+                  expected_predicate_type: MYCELIX_QUALIFICATION_PREDICATE_TYPE_V1.into(),
+                  expected_predicate_schema: "mycelix-qualification-attestation-predicate-v1".into(),
+                  trusted_root_profile: "sigstore-public-good-v1".into(),
+                  trusted_root_digest: digest(9),
+                  oidc_issuer: GITHUB_ACTIONS_OIDC_ISSUER_V1.into(),
+                  source_repository: MYCELIX_REPOSITORY_V1.into(),
+                  source_repository_owner: MYCELIX_REPOSITORY_OWNER_V1.into(),
+                  signer_workflow: ".github/workflows/qualify.yml".into(),
+                  signer_workflow_revision: WorkflowRevisionPolicyV1::Exact(signer()),
+                  source_revision: SourceRevisionPolicyV1 {
+                      exact_commit: source(),
+                      exact_git_ref: Some("refs/heads/main".into()),
+                  },
+                  transparency_policy: TransparencyPolicyV1::PublicTransparencyRequired,
+                  freshness_policy: AuthenticationFreshnessPolicyV1::CurrentAtVerification,
+              }
+          }
+
+          fn verifier(path: &str, sha: Sha256DigestV1) -> VerifierExecutableIdentityV1 {
+              VerifierExecutableIdentityV1 {
+                  profile_id: "gate-b2a-fake-gh-v1".into(),
+                  backend_family: GITHUB_PUBLIC_BACKEND_FAMILY_V1.into(),
+                  semantic_version: "2.101.0".into(),
+                  executable_sha256: sha,
+                  platform_profile: GITHUB_PUBLIC_PLATFORM_PROFILE_V1.into(),
+                  command_profile_id: GITHUB_PUBLIC_COMMAND_PROFILE_ID_V1.into(),
+                  nix_closure: None,
+              }
+          }
+
+          fn policy(path: &str, sha: Sha256DigestV1) -> GitHubPublicVerifierExecutionPolicyV1 {
+              GitHubPublicVerifierExecutionPolicyV1::new(
+                  "github-public-exact-executable-v1",
+                  "github-public-v1",
+                  "github-attestation-verifier-v1",
+                  "public-sigstore-qualification-v1",
+                  verifier(path, sha),
+                  path,
+              ).unwrap()
+          }
+
+          fn case_dir(base: &Path, name: &str) -> PathBuf {
+              let path = base.join(name);
+              fs::create_dir(&path).unwrap();
+              path
+          }
+
+          fn run(policy: &GitHubPublicVerifierExecutionPolicyV1, work: &Path) -> GitHubBoundVerifierExecutionErrorV1 {
+              execute_github_public_verifier_v1(policy, &auth(), &receipt(), signer(), work.to_str().unwrap())
+                  .expect_err("B2a case unexpectedly succeeded")
+          }
+
+          fn assert_no_spawn(marker: &Path) {
+              assert!(!marker.exists(), "verifier child unexpectedly executed");
+          }
+
+          fn main() {
+              let mode = env::args().nth(1).unwrap();
+              let base = PathBuf::from(env::args().nth(2).unwrap());
+              let fake = env::args().nth(3).unwrap();
+              let fake_sha = Sha256DigestV1::from_hex(&env::args().nth(4).unwrap()).unwrap();
+              let marker = PathBuf::from(env::args().nth(5).unwrap());
+
+              if mode == "missing-secret" {
+                  let work = case_dir(&base, "missing-secret");
+                  let err = run(&policy(&fake, fake_sha), &work);
+                  assert!(matches!(err,
+                      GitHubBoundVerifierExecutionErrorV1::Executor(
+                          GitHubVerifierExecutorErrorV1::MissingInheritedSecret { ref key }
+                      ) if key == "GH_TOKEN"
+                  ));
+                  assert_no_spawn(&marker);
+                  println!("B2A_MISSING_SECRET_OK");
+                  return;
+              }
+
+              let work = case_dir(&base, "digest-mismatch");
+              let err = run(&policy(&fake, digest(0x44)), &work);
+              assert!(matches!(err,
+                  GitHubBoundVerifierExecutionErrorV1::Executor(
+                      GitHubVerifierExecutorErrorV1::ExecutableDigestMismatch
+                  )
+              ));
+              assert_no_spawn(&marker);
+
+              let symlink_exec = base.join("fake-gh-link");
+              symlink(&fake, &symlink_exec).unwrap();
+              let work = case_dir(&base, "symlink-executable");
+              let err = run(&policy(symlink_exec.to_str().unwrap(), fake_sha), &work);
+              assert!(matches!(err,
+                  GitHubBoundVerifierExecutionErrorV1::Executor(
+                      GitHubVerifierExecutorErrorV1::ExecutablePathNotCanonical
+                  )
+              ));
+              assert_no_spawn(&marker);
+
+              let nix_path = "/nix/store/mycelix-gate-b2a-gh";
+              let mut nix_verifier = verifier(nix_path, fake_sha);
+              nix_verifier.nix_closure = Some(NixVerifierClosureIdentityV1 {
+                  store_path: nix_path.into(),
+                  closure_digest: digest(0x55),
+              });
+              let nix_policy = GitHubPublicVerifierExecutionPolicyV1::new(
+                  "github-public-exact-executable-v1",
+                  "github-public-v1",
+                  "github-attestation-verifier-v1",
+                  "public-sigstore-qualification-v1",
+                  nix_verifier,
+                  nix_path,
+              ).unwrap();
+              let work = case_dir(&base, "nix-closure");
+              let err = run(&nix_policy, &work);
+              assert!(matches!(err,
+                  GitHubBoundVerifierExecutionErrorV1::Executor(
+                      GitHubVerifierExecutorErrorV1::UnsupportedUnverifiedNixClosureIdentity
+                  )
+              ));
+              assert_no_spawn(&marker);
+
+              let real_work = case_dir(&base, "real-work");
+              let linked_work = base.join("linked-work");
+              symlink(&real_work, &linked_work).unwrap();
+              let err = run(&policy(&fake, fake_sha), &linked_work);
+              assert!(matches!(err,
+                  GitHubBoundVerifierExecutionErrorV1::Executor(
+                      GitHubVerifierExecutorErrorV1::WorkingDirectoryPathNotCanonical
+                  )
+              ));
+              assert_no_spawn(&marker);
+
+              let r = receipt();
+              let receipt_hex = r.digest().unwrap().sha256.to_hex();
+              for (name, relative, expected_field) in [
+                  ("pre-subject", "qualification-receipt.bin".to_string(), "subject_path"),
+                  ("pre-bundle", format!("sha256:{receipt_hex}.jsonl"), "bundle_path"),
+                  ("pre-root", "trusted_root.jsonl".to_string(), "trusted_root_path"),
+                  ("pre-config", "gh-config".to_string(), "GH_CONFIG_DIR"),
+                  ("pre-home", "home".to_string(), "HOME"),
+              ] {
+                  let work = case_dir(&base, name);
+                  let target = work.join(relative);
+                  if expected_field == "GH_CONFIG_DIR" || expected_field == "HOME" {
+                      fs::create_dir(&target).unwrap();
+                  } else {
+                      fs::write(&target, b"pre-existing").unwrap();
+                  }
+                  let err = run(&policy(&fake, fake_sha), &work);
+                  assert!(matches!(err,
+                      GitHubBoundVerifierExecutionErrorV1::Executor(
+                          GitHubVerifierExecutorErrorV1::PreExistingPath { field }
+                      ) if field == expected_field
+                  ));
+                  assert_no_spawn(&marker);
+              }
+
+              println!("B2A_NORMAL_OK");
+          }
+          RS
+
+          cd "$probe"
+          cargo generate-lockfile
+          GH_TOKEN=synthetic-gate-b2a-token cargo run --locked -- \
+            normal "$cases" "$FAKE_GH" "$FAKE_GH_SHA256" "$SPAWN_MARKER" \
+            | tee "$evidence/b2a-normal.txt"
+          test ! -e "$SPAWN_MARKER"
+          env -u GH_TOKEN cargo run --locked -- \
+            missing-secret "$cases" "$FAKE_GH" "$FAKE_GH_SHA256" "$SPAWN_MARKER" \
+            | tee "$evidence/b2a-missing-secret.txt"
+          test ! -e "$SPAWN_MARKER"
+          grep -Fq B2A_NORMAL_OK "$evidence/b2a-normal.txt"
+          grep -Fq B2A_MISSING_SECRET_OK "$evidence/b2a-missing-secret.txt"
+          sha256sum "$FAKE_GH" > "$evidence/fake-verifier.sha256"
+          cp Cargo.lock "$evidence/probe-Cargo.lock"
+
+      - name: Verify implementation checkout immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          test -z "$(git status --porcelain)"
+          evidence="$RUNNER_TEMP/github-verifier-executor-b2a-evidence"
+          find mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication \
+            -type f -not -path '*/target/*' -print0 | sort -z | xargs -0 sha256sum \
+            > "$evidence/source-sha256-post.txt"
+          cmp "$evidence/source-sha256.txt" "$evidence/source-sha256-post.txt"
+
+      - name: Write Gate B2a result
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/github-verifier-executor-b2a-evidence"
+          cat > "$evidence/QUALIFICATION.txt" <<EOF
+          MYC-ZKP-GH-EXECUTOR-001AQ-B2A PASS
+          subject_sha=${{ steps.subject.outputs.sha }}
+          gate=pre-spawn-denial
+          executable_digest_mismatch_denied_before_spawn=true
+          noncanonical_executable_denied_before_spawn=true
+          unverified_nix_closure_denied_before_spawn=true
+          noncanonical_work_root_denied_before_spawn=true
+          preexisting_outputs_denied_before_spawn=true
+          missing_inherited_secret_denied_before_spawn=true
+          child_spawn_marker=false
+          post_spawn_failure_behavior=NOT_ESTABLISHED_BY_GATE_B2A
+          trusted_clock=false
+          receipt_authentication=false
+          production_admission=false
+          application_authority=false
+          EOF
+
+      - name: Upload Gate B2a evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: myc-zkp-gh-executor-001aq-b2a-${{ steps.subject.outputs.sha }}
+          path: ${{ runner.temp }}/github-verifier-executor-b2a-evidence
+          if-no-files-found: warn
+          retention-days: 30
