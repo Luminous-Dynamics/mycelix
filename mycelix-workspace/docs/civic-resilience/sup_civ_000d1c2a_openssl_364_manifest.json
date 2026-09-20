@@ -1,0 +1,75 @@
+{
+  "schema": "mycelix.sup-civ.openssl-mlkem-cms-preflight.v1",
+  "program": "SUP-CIV-000D1C2A",
+  "tracking_issue": 2476,
+  "recipient_wrap_issue": 2417,
+  "parent_subject": "1152251e1b8d09bf69cc2497164a0fc1d58da320",
+  "authority": "external_toolchain_preflight_only",
+  "openssl": {
+    "version": "3.6.4",
+    "tag": "openssl-3.6.4",
+    "source_url": "https://github.com/openssl/openssl/releases/download/openssl-3.6.4/openssl-3.6.4.tar.gz",
+    "source_sha256": "9bffaa1ad1e07b354c21bd3324ec02fa15579f45a7d0494b3e74bc449b7333ef",
+    "build_profile": "isolated_no_shared_no_tests"
+  },
+  "fixture": {
+    "mlkem_profile": "ML-KEM-768",
+    "hexseed_rule": "bytes_00_through_3f",
+    "hexseed_bytes": 64,
+    "hexikme_rule": "bytes_00_through_1f",
+    "hexikme_bytes": 32,
+    "expected_kem_ciphertext_bytes": 1088,
+    "expected_shared_secret_bytes": 32,
+    "fixture_is_production_entropy_evidence": false
+  },
+  "required_capabilities": [
+    "version_3_6_4",
+    "ml_kem_768_key_generation",
+    "ml_kem_encapsulation",
+    "ml_kem_decapsulation",
+    "cms_recip_kdf_option",
+    "cms_recip_ukm_option",
+    "hkdf_available",
+    "aes_256_wrap_available",
+    "deterministic_test_key_reproducible",
+    "deterministic_test_encapsulation_reproducible",
+    "decapsulation_matches_encapsulation_secret",
+    "kem_ciphertext_length_1088",
+    "shared_secret_length_32"
+  ],
+  "required_non_equivalences": [
+    "ToolchainAvailable != ProtocolQualified",
+    "DeterministicTestVector != ProductionEntropy",
+    "MLKEMRoundTrip != RecipientAuthorized",
+    "MLKEMSharedSecret != PayloadDEK",
+    "CmsOptionPresent != KEMRecipientInfoCorrect",
+    "OpenSSLVersionPinned != LibraryBugFree",
+    "OpenSSLBuildPass != MycelixRuntimeIntegrated",
+    "C2APass != C2BPass"
+  ],
+  "forbidden_changes": [
+    "Cargo.toml",
+    "Cargo.lock",
+    "flake.nix",
+    "flake.lock",
+    "rust_source",
+    "holochain_runtime"
+  ],
+  "continuation": [
+    "SUP-CIV-000D1C2B"
+  ],
+  "nonclaims": [
+    "rfc9629_vector_correctness",
+    "rfc9936_profile_correctness",
+    "recipient_authorization",
+    "production_entropy_quality",
+    "production_key_custody",
+    "mycelix_runtime_integration",
+    "protected_storage",
+    "endpoint_security",
+    "legal_compliance",
+    "municipal_authority",
+    "johannesburg_readiness",
+    "deployment_readiness"
+  ]
+}
