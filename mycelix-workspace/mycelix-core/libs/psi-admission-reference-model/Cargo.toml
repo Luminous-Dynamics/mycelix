@@ -1,0 +1,15 @@
+[package]
+name = "psi-admission-reference-model"
+version = "0.1.0"
+edition = "2024"
+authors = ["Mycelix Network"]
+description = "Deterministic reference transition model for PSI-002C admission accounting"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+publish = false
+
+[dependencies]
+psi-abuse-control-profiles = { path = "../psi-abuse-control-profile" }
+
+[dev-dependencies]
+privacy-computation-core = { path = "../privacy-computation-core" }
