@@ -19,9 +19,10 @@
 //!
 //! `HolochainCallAttemptId != commit evidence`
 
-use crate::{
-    HolochainCallError, HolochainCallFailureKind, HolochainCallPhase,
-};
+use std::error::Error;
+use std::fmt;
+
+use crate::{HolochainCallError, HolochainCallFailureKind, HolochainCallPhase};
 use mycelix_leptos_client::ClientError;
 
 /// Provider-instance-local identity assigned when a shared-provider zome-call
@@ -186,6 +187,102 @@ impl HolochainCallFailureObservation {
     }
 }
 
+/// Failure returned by the additive typed provider call path.
+///
+/// Sequence exhaustion is separate because no new call attempt exists and no
+/// attempt id may be invented. Every other variant contains one exact terminal
+/// observation from an admitted call attempt.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum HolochainCallInvocationError {
+    AttemptSequenceExhausted {
+        role: String,
+        zome: String,
+        function: String,
+    },
+    Failure(HolochainCallFailureObservation),
+}
+
+impl HolochainCallInvocationError {
+    pub fn attempt_sequence_exhausted(
+        role: impl Into<String>,
+        zome: impl Into<String>,
+        function: impl Into<String>,
+    ) -> Self {
+        Self::AttemptSequenceExhausted {
+            role: role.into(),
+            zome: zome.into(),
+            function: function.into(),
+        }
+    }
+
+    pub fn failure(observation: HolochainCallFailureObservation) -> Self {
+        Self::Failure(observation)
+    }
+
+    pub fn failure_observation(&self) -> Option<&HolochainCallFailureObservation> {
+        match self {
+            Self::Failure(observation) => Some(observation),
+            Self::AttemptSequenceExhausted { .. } => None,
+        }
+    }
+
+    pub fn attempt_id(&self) -> Option<HolochainCallAttemptId> {
+        self.failure_observation().map(|observation| observation.attempt_id())
+    }
+
+    pub fn role(&self) -> &str {
+        match self {
+            Self::AttemptSequenceExhausted { role, .. } => role,
+            Self::Failure(observation) => observation.error().role(),
+        }
+    }
+
+    pub fn zome(&self) -> &str {
+        match self {
+            Self::AttemptSequenceExhausted { zome, .. } => zome,
+            Self::Failure(observation) => observation.error().zome(),
+        }
+    }
+
+    pub fn function(&self) -> &str {
+        match self {
+            Self::AttemptSequenceExhausted { function, .. } => function,
+            Self::Failure(observation) => observation.error().function(),
+        }
+    }
+}
+
+impl From<HolochainCallFailureObservation> for HolochainCallInvocationError {
+    fn from(observation: HolochainCallFailureObservation) -> Self {
+        Self::Failure(observation)
+    }
+}
+
+impl fmt::Display for HolochainCallInvocationError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::AttemptSequenceExhausted {
+                role,
+                zome,
+                function,
+            } => write!(
+                formatter,
+                "Zome call {role}.{zome}.{function} could not be admitted: provider call-attempt sequence exhausted"
+            ),
+            Self::Failure(observation) => fmt::Display::fmt(observation.error(), formatter),
+        }
+    }
+}
+
+impl Error for HolochainCallInvocationError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::Failure(observation) => Some(observation.error()),
+            Self::AttemptSequenceExhausted { .. } => None,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -284,6 +381,32 @@ mod tests {
     }
 
     #[test]
+    fn sequence_exhaustion_has_no_invented_attempt_identity() {
+        let error = HolochainCallInvocationError::attempt_sequence_exhausted(
+            "personal",
+            "identity_vault",
+            "set_profile_view_if_current",
+        );
+
+        assert_eq!(error.attempt_id(), None);
+        assert_eq!(error.role(), "personal");
+        assert_eq!(error.zome(), "identity_vault");
+        assert_eq!(error.function(), "set_profile_view_if_current");
+        assert!(error.failure_observation().is_none());
+        assert!(error.source().is_none());
+    }
+
+    #[test]
+    fn admitted_failure_retains_attempt_identity_and_source() {
+        let observation = failure(HolochainCallAttemptId(5), "validation failed");
+        let error = HolochainCallInvocationError::failure(observation.clone());
+
+        assert_eq!(error.attempt_id(), Some(HolochainCallAttemptId(5)));
+        assert_eq!(error.failure_observation(), Some(&observation));
+        assert!(error.source().is_some());
+    }
+
+    #[test]
     fn late_older_failure_does_not_supersede_newer_attempt_evidence() {
         let newer = failure(HolochainCallAttemptId(8), "newer failure");
         let older_finishing_late = failure(HolochainCallAttemptId(7), "older late failure");
@@ -294,10 +417,7 @@ mod tests {
 
     #[test]
     fn correlation_preserves_typed_failure_without_strengthening_it() {
-        let observation = failure(
-            HolochainCallAttemptId(11),
-            "source chain head moved",
-        );
+        let observation = failure(HolochainCallAttemptId(11), "source chain head moved");
 
         assert_eq!(observation.attempt_id().get(), 11);
         assert_eq!(
