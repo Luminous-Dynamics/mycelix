@@ -9,7 +9,7 @@
 //! so an asynchronous result from an obsolete conductor/signer session cannot
 //! publish into a later one.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -198,6 +198,7 @@ fn stage_wallet_source<WalletError>(
 struct PreferencesSourceSnapshot {
     preferences: Vec<DataSharingPreferenceView>,
     action_hashes: HashSet<String>,
+    action_hash_by_pair: HashMap<(String, String), String>,
     change_log: Vec<PreferenceChangeLogView>,
     state: PersonalSourceState,
 }
@@ -210,23 +211,29 @@ fn stage_preferences_source<PreferencesError, LogError>(
     let mut failures = 0;
     let mut present_items = 0;
 
-    let (preferences, action_hashes) = match preferences_result {
+    let (preferences, action_hashes, action_hash_by_pair) = match preferences_result {
         Ok(evidence) => {
             successes += 1;
             present_items += evidence.len();
             let mut action_hashes = HashSet::with_capacity(evidence.len());
+            let mut action_hash_by_pair = HashMap::with_capacity(evidence.len());
             let preferences = evidence
                 .into_iter()
                 .map(|item| {
-                    action_hashes.insert(item.action_hash);
+                    let key = (
+                        item.preference.source_cluster.clone(),
+                        item.preference.target_cluster.clone(),
+                    );
+                    action_hashes.insert(item.action_hash.clone());
+                    action_hash_by_pair.insert(key, item.action_hash);
                     item.preference
                 })
                 .collect();
-            (preferences, action_hashes)
+            (preferences, action_hashes, action_hash_by_pair)
         }
         Err(_) => {
             failures += 1;
-            (Vec::new(), HashSet::new())
+            (Vec::new(), HashSet::new(), HashMap::new())
         }
     };
 
@@ -249,6 +256,7 @@ fn stage_preferences_source<PreferencesError, LogError>(
         Ok(PreferencesSourceSnapshot {
             preferences,
             action_hashes,
+            action_hash_by_pair,
             change_log,
             state,
         })
@@ -259,6 +267,8 @@ fn publish_preferences_source(ctx: &PersonalCtx, snapshot: PreferencesSourceSnap
     batch(move || {
         ctx.preferences.set(snapshot.preferences);
         ctx.preference_action_hashes.set(snapshot.action_hashes);
+        ctx.preference_action_hash_by_pair
+            .set(snapshot.action_hash_by_pair);
         ctx.preference_log.set(snapshot.change_log);
         ctx.preferences_state.set(snapshot.state);
     });
@@ -479,6 +489,7 @@ pub struct PersonalCtx {
     pub consents: RwSignal<Vec<ConsentGrantView>>,
     pub preferences: RwSignal<Vec<DataSharingPreferenceView>>,
     pub preference_action_hashes: RwSignal<HashSet<String>>,
+    pub preference_action_hash_by_pair: RwSignal<HashMap<(String, String), String>>,
     pub preference_log: RwSignal<Vec<PreferenceChangeLogView>>,
     pub health_record_count: RwSignal<usize>,
     pub activity: RwSignal<Vec<ActivityItemView>>,
@@ -559,6 +570,7 @@ pub fn provide_personal_context(runtime_mode: PersonalRuntimeMode) {
             Vec::new()
         }),
         preference_action_hashes: RwSignal::new(HashSet::new()),
+        preference_action_hash_by_pair: RwSignal::new(HashMap::new()),
         preference_log: RwSignal::new(if runtime_mode.is_demo() {
             mock_data::mock_preference_log()
         } else {
@@ -685,6 +697,7 @@ fn clear_uncommitted_live_snapshot(ctx: &PersonalCtx) {
     ctx.consents.set(Vec::new());
     ctx.preferences.set(Vec::new());
     ctx.preference_action_hashes.set(HashSet::new());
+    ctx.preference_action_hash_by_pair.set(HashMap::new());
     ctx.preference_log.set(Vec::new());
     ctx.health_record_count.set(0);
     ctx.activity.set(Vec::new());
@@ -849,6 +862,8 @@ fn publish_personal_snapshot(
         ctx.preferences.set(snapshot.preferences.preferences);
         ctx.preference_action_hashes
             .set(snapshot.preferences.action_hashes);
+        ctx.preference_action_hash_by_pair
+            .set(snapshot.preferences.action_hash_by_pair);
         ctx.preference_log.set(snapshot.preferences.change_log);
         ctx.preferences_state.set(snapshot.preferences.state);
 
@@ -1178,11 +1193,12 @@ mod tests {
         assert_eq!(snapshot.state, PersonalSourceState::Empty);
         assert!(snapshot.preferences.is_empty());
         assert!(snapshot.action_hashes.is_empty());
+        assert!(snapshot.action_hash_by_pair.is_empty());
         assert!(snapshot.change_log.is_empty());
     }
 
     #[test]
-    fn preferences_stage_preserves_every_observed_action_identity() {
+    fn preferences_stage_preserves_pair_bound_action_identity() {
         let evidence = DataSharingPreferenceEvidenceView {
             action_hash: "uhCkk-preference".into(),
             preference: DataSharingPreferenceView {
@@ -1197,6 +1213,13 @@ mod tests {
         let snapshot = stage_preferences_source::<(), ()>(Ok(vec![evidence]), Ok(Vec::new()))
             .expect("complete Preferences evidence should stage");
         assert!(snapshot.action_hashes.contains("uhCkk-preference"));
+        assert_eq!(
+            snapshot
+                .action_hash_by_pair
+                .get(&("personal".to_string(), "health".to_string()))
+                .map(String::as_str),
+            Some("uhCkk-preference")
+        );
         assert_eq!(snapshot.preferences.len(), 1);
     }
 
