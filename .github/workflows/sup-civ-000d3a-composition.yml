@@ -1,0 +1,99 @@
+name: SUP-CIV-000D3A Protected Access Composition Contract
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/docs/civic-resilience/SUP_CIV_000D3A_PROTECTED_ACCESS_COMPOSITION_V1.md'
+      - 'mycelix-workspace/docs/civic-resilience/sup_civ_000d3a_composition_manifest.json'
+      - '.github/workflows/sup-civ-000d3a-composition.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Prove exact join-contract subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='f4f48ef45bbaff7ae9e7668fc1820fdfadd1375f'
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          test "$(git rev-list --count "$EXPECTED_PARENT"..HEAD)" = '1'
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PARENT" HEAD | sort)
+          expected=(
+            '.github/workflows/sup-civ-000d3a-composition.yml'
+            'mycelix-workspace/docs/civic-resilience/SUP_CIV_000D3A_PROTECTED_ACCESS_COMPOSITION_V1.md'
+            'mycelix-workspace/docs/civic-resilience/sup_civ_000d3a_composition_manifest.json'
+          )
+          test "${#changed[@]}" = "${#expected[@]}"
+          for i in "${!expected[@]}"; do
+            test "${changed[$i]}" = "${expected[$i]}"
+          done
+
+      - name: Prove exact manifest blob and closed registry
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object mycelix-workspace/docs/civic-resilience/sup_civ_000d3a_composition_manifest.json)" = 'af43d67dc953b708f321d1ee8af17a2f7a268bd0'
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          m = json.loads(Path('mycelix-workspace/docs/civic-resilience/sup_civ_000d3a_composition_manifest.json').read_text())
+          assert m['schema'] == 'sup-civ-000d3a-composition-contract-v1'
+          assert m['authority'] == 'composition-contract-only'
+          assert m['parent_contract'] == 'SUP-CIV-000D0'
+          assert m['parent_exact_head'] == 'f4f48ef45bbaff7ae9e7668fc1820fdfadd1375f'
+          assert m['runtime_promotion'] == 'blocked-until-all-profile-load-bearing-dependencies-have-exact-qualified-evidence'
+          allowed_status = {'ReferencePendingQualification','NoExactSubjectYet','ExternallyOwned'}
+          assert len(m['dependencies']) == 9
+          assert len({d['id'] for d in m['dependencies']}) == 9
+          assert all(d['status'] in allowed_status for d in m['dependencies'])
+          assert all(d['status'] != 'Qualified' for d in m['dependencies'])
+          c2 = next(d for d in m['dependencies'] if d['id'] == 'SUP-CIV-000D1C2')
+          assert c2['status'] == 'NoExactSubjectYet'
+          assert c2['exact_head'] is None
+          release = next(d for d in m['dependencies'] if d['id'] == 'CIV-RES-001B')
+          assert release['pr'] == 2468
+          assert release['exact_head'] == '306aee19526c4e88130372152d64365e509f79eb'
+          assert release['status'] == 'ReferencePendingQualification'
+          assert m['admission_dispositions'] == [
+              'AdmittedProtectedReadUnderProfile','Refused','AuthorizationUnproven',
+              'PurposeExpiredOrOutOfScope','StorageUnavailable','ObjectAbsent',
+              'ObjectStale','ObjectConflict','EnvelopeInvalid',
+              'RecipientKeyStateInvalidOrStale','AccountabilityCommitFailed',
+              'RequiredAttestationMissing','OfflineLeaseExpiredOrUnproven',
+              'BreakGlassAuthorityUnproven','ReleaseProjectionRequired'
+          ]
+          assert len(m['ordering']) == 9
+          assert m['ordering'][-1] == 'disclose-admitted-minimum-output'
+          assert m['ordering'].index('commit-receipt-or-qualified-escrow') < m['ordering'].index('disclose-admitted-minimum-output')
+          assert set(m['linearization_bindings']) == {
+              'object-currentness-token','storage-profile-version',
+              'crypto-envelope-or-key-epoch-when-required',
+              'recipient-key-state-when-required','authorization-or-lease-version',
+              'access-policy-version','purpose-expiry','accountability-commitment'
+          }
+          assert 'public-release-safety' in m['forbidden_claims']
+          assert 'johannesburg-deployment-readiness' in m['forbidden_claims']
+          print('PASS_SUP_CIV_000D3A_COMPOSITION_CONTRACT_R2')
+          PY
+
+      - name: Refuse runtime/build changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='f4f48ef45bbaff7ae9e7668fc1820fdfadd1375f'
+          if git diff --name-only "$EXPECTED_PARENT" HEAD | grep -E '\.(rs|toml|lock|nix)$'; then
+            echo 'runtime/build file entered D3A join contract' >&2
+            exit 1
+          fi
+
+      - name: Prove checkout remained immutable
+        run: test -z "$(git status --porcelain)"
