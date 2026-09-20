@@ -10,8 +10,10 @@
 //! - Common data structures used across zomes
 //! - Cryptographic primitives (hashing, signatures)
 //! - Provenance tracking for models and credentials
+//! - Authority-safe learning evidence and advisory capability-estimate contracts
 //! - Validation utilities
-//! - Proof of Learning (PoL) for verifying genuine learning
+//! - Experimental Proof of Learning (PoL) analytics; PoL output is not, by itself,
+//!   proof of mastery, cheating, identity, credential eligibility, or authorization
 //! - Structured error handling with descriptive messages
 
 mod benchmarks;
@@ -19,6 +21,7 @@ pub mod contracts;
 pub mod crypto;
 pub mod errors;
 pub mod export_formats;
+pub mod learning_evidence;
 pub mod proof_of_learning;
 pub mod provenance;
 pub mod types;
@@ -27,6 +30,7 @@ pub mod validation;
 pub use contracts::*;
 pub use crypto::*;
 pub use errors::*;
+pub use learning_evidence::*;
 pub use proof_of_learning::*;
 pub use provenance::*;
 pub use types::*;
