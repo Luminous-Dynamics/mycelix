@@ -7,6 +7,7 @@ on:
       - 'crates/mycelix-hardware-core/**'
       - 'crates/mycelix-hardware-interop/**'
       - 'crates/mycelix-hardware-release/**'
+      - 'crates/mycelix-hardware-kicad-gateway/**'
       - 'mycelix-manufacturing/crates/hardware_projection/**'
       - 'mycelix-manufacturing/crates/facility_capability/**'
       - 'mycelix-manufacturing/Cargo.toml'
@@ -17,6 +18,7 @@ on:
       - 'crates/mycelix-hardware-core/**'
       - 'crates/mycelix-hardware-interop/**'
       - 'crates/mycelix-hardware-release/**'
+      - 'crates/mycelix-hardware-kicad-gateway/**'
       - 'mycelix-manufacturing/crates/hardware_projection/**'
       - 'mycelix-manufacturing/crates/facility_capability/**'
       - 'mycelix-manufacturing/Cargo.toml'
@@ -44,7 +46,7 @@ jobs:
         run: |
           test -f .github/workflows/hardware-semantic-ci.yml
           found=0
-          for crate in mycelix-hardware-core mycelix-hardware-interop mycelix-hardware-release; do
+          for crate in mycelix-hardware-core mycelix-hardware-interop mycelix-hardware-release mycelix-hardware-kicad-gateway; do
             if [ -f "crates/$crate/Cargo.toml" ]; then
               echo "Found crates/$crate"
               found=1
@@ -61,7 +63,7 @@ jobs:
           fi
       - name: Check formatting
         run: |
-          for crate in mycelix-hardware-core mycelix-hardware-interop mycelix-hardware-release; do
+          for crate in mycelix-hardware-core mycelix-hardware-interop mycelix-hardware-release mycelix-hardware-kicad-gateway; do
             if [ -f "crates/$crate/Cargo.toml" ]; then
               cargo fmt --manifest-path "crates/$crate/Cargo.toml" --all --check
             fi
@@ -73,7 +75,7 @@ jobs:
           done
       - name: Compile all targets
         run: |
-          for crate in mycelix-hardware-core mycelix-hardware-interop mycelix-hardware-release; do
+          for crate in mycelix-hardware-core mycelix-hardware-interop mycelix-hardware-release mycelix-hardware-kicad-gateway; do
             if [ -f "crates/$crate/Cargo.toml" ]; then
               cargo check --manifest-path "crates/$crate/Cargo.toml" --all-targets
             fi
@@ -85,7 +87,7 @@ jobs:
           done
       - name: Run tests
         run: |
-          for crate in mycelix-hardware-core mycelix-hardware-interop mycelix-hardware-release; do
+          for crate in mycelix-hardware-core mycelix-hardware-interop mycelix-hardware-release mycelix-hardware-kicad-gateway; do
             if [ -f "crates/$crate/Cargo.toml" ]; then
               cargo test --manifest-path "crates/$crate/Cargo.toml" --all-targets
             fi
@@ -100,7 +102,7 @@ jobs:
         run: cargo check --manifest-path crates/mycelix-hardware-interop/Cargo.toml --all-targets --features experimental-spdx-3-1-dev
       - name: Clippy
         run: |
-          for crate in mycelix-hardware-core mycelix-hardware-interop mycelix-hardware-release; do
+          for crate in mycelix-hardware-core mycelix-hardware-interop mycelix-hardware-release mycelix-hardware-kicad-gateway; do
             if [ -f "crates/$crate/Cargo.toml" ]; then
               cargo clippy --manifest-path "crates/$crate/Cargo.toml" --all-targets -- -D warnings
             fi
