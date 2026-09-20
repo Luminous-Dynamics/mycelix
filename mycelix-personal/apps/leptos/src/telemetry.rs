@@ -2,9 +2,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use leptos::prelude::*;
-use mycelix_leptos_core::TelemetryLine;
+use mycelix_leptos_core::{AvailabilityState, AvailabilityStateKind, TelemetryLine};
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
+use wasm_bindgen_futures::spawn_local;
+
+use crate::context::{
+    retry_full_reconciliation, use_personal, PersonalRetryAdmission, PersonalSnapshotFreshness,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BridgeMetricsSnapshot {
@@ -25,6 +30,125 @@ pub struct ConstellationVitals {
 extern "C" {
     #[wasm_bindgen(js_namespace = ["window", "__TAURI__", "event"])]
     async fn listen(event: &str, handler: &js_sys::Function) -> JsValue;
+}
+
+fn retained_epoch_label(epoch: Option<u64>) -> String {
+    epoch
+        .map(|epoch| format!("Personal epoch {epoch}"))
+        .unwrap_or_else(|| "no completed Personal epoch".into())
+}
+
+#[component]
+fn RetryPersonalSnapshot() -> impl IntoView {
+    let ctx = use_personal();
+    let hc = mycelix_leptos_core::holochain_provider::use_holochain();
+    let loading = ctx.loading;
+    let retry_note = RwSignal::new(None::<String>);
+
+    let click_ctx = ctx.clone();
+    let click_hc = hc.clone();
+    let retry = move |_| {
+        let ctx = click_ctx.clone();
+        let hc = click_hc.clone();
+        spawn_local(async move {
+            match retry_full_reconciliation(ctx, hc).await {
+                PersonalRetryAdmission::Started { epoch } => retry_note.set(Some(format!(
+                    "Retry admitted inside Personal epoch {epoch}. Five source groups are staging off-screen."
+                ))),
+                PersonalRetryAdmission::NoUsableEpoch => retry_note.set(Some(
+                    "Retry was not admitted because there is no usable conductor + signer epoch."
+                        .into(),
+                )),
+                PersonalRetryAdmission::Busy { epoch } => retry_note.set(Some(format!(
+                    "Personal epoch {epoch} is already reconciling; the duplicate retry was coalesced."
+                ))),
+            }
+        });
+    };
+
+    let disabled_hc = hc.clone();
+    let readiness_hc = hc;
+    view! {
+        <div style="display: flex; flex-direction: column; gap: 0.55rem; align-items: flex-start;">
+            <button
+                class="btn btn-primary"
+                type="button"
+                disabled=move || loading.get() || !disabled_hc.zome_calls_ready()
+                on:click=retry
+            >
+                {move || if loading.get() { "Reconciling..." } else { "Retry live snapshot" }}
+            </button>
+            <Show when=move || !readiness_hc.zome_calls_ready()>
+                <p class="mini-card-meta" style="margin: 0;">
+                    "Retry requires both a connected conductor and an authorized zome-call signer."
+                </p>
+            </Show>
+            <Show when=move || retry_note.get().is_some()>
+                <p class="mini-card-meta" style="margin: 0;">
+                    {move || retry_note.get().unwrap_or_default()}
+                </p>
+            </Show>
+        </div>
+    }
+}
+
+#[component]
+fn PersonalSnapshotProvenance() -> impl IntoView {
+    let ctx = use_personal();
+
+    view! {
+        {move || {
+            let retained_epoch = retained_epoch_label(ctx.snapshot_epoch.get());
+            match ctx.snapshot_freshness.get() {
+                PersonalSnapshotFreshness::Illustrative => view! {
+                    <AvailabilityState
+                        kind=AvailabilityStateKind::Mock
+                        title="Illustrative Personal Snapshot"
+                        description="Personal is intentionally in Demo mode. These values are fixtures, not conductor-backed evidence."
+                        action={None}
+                    />
+                }.into_any(),
+                PersonalSnapshotFreshness::AwaitingLive => view! {
+                    <AvailabilityState
+                        kind=AvailabilityStateKind::Degraded
+                        title="No Completed Live Personal Snapshot"
+                        description="No coherent five-source Live snapshot has committed yet. Retry attempts Identity, Wallet, Health, Preferences, and Activity as one frontend publication transaction."
+                        action={Some(view! { <RetryPersonalSnapshot /> }.into_any())}
+                    />
+                }.into_any(),
+                PersonalSnapshotFreshness::Refreshing => view! {
+                    <AvailabilityState
+                        kind=AvailabilityStateKind::Degraded
+                        title="Reconciling Personal Snapshot"
+                        description=format!(
+                            "A coherent five-source snapshot is staging off-screen. Visible values remain tied to {retained_epoch} until every source stage completes and the admitted epoch commits."
+                        )
+                        action={None}
+                    />
+                }.into_any(),
+                PersonalSnapshotFreshness::Current => view! {
+                    <AvailabilityState
+                        kind=AvailabilityStateKind::Live
+                        title="Current Coherent Personal Snapshot"
+                        description=format!(
+                            "All visible aggregate Personal source values were published together from {retained_epoch}. Mutation receipts and later source-level refreshes remain separately evidenced."
+                        )
+                        action={None}
+                    />
+                }.into_any(),
+                PersonalSnapshotFreshness::Stale => view! {
+                    <AvailabilityState
+                        kind=AvailabilityStateKind::Degraded
+                        title="Stale Personal Snapshot"
+                        description=format!(
+                            "Visible values are retained from {retained_epoch}. They remain useful cached state, but they are not current conductor evidence for the active session."
+                        )
+                        action={Some(view! { <RetryPersonalSnapshot /> }.into_any())}
+                    />
+                }.into_any(),
+            }
+        }}
+    }
 }
 
 #[component]
@@ -113,7 +237,11 @@ pub fn ConstellationTelemetry() -> impl IntoView {
             </div>
         </Show>
 
-        <section class="vault-card" style="margin-top: 2rem;">
+        <div style="margin-top: 2rem;">
+            <PersonalSnapshotProvenance />
+        </div>
+
+        <section class="vault-card" style="margin-top: 1rem;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
                 <h3 style="margin: 0; font-size: 0.9rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--md-fg-muted);">
                     {move || format!("{} Liveness", symbols.get().hearth_alias)}
@@ -174,5 +302,16 @@ pub fn ConstellationTelemetry() -> impl IntoView {
                 </div>
             </div>
         </section>
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn retained_epoch_copy_never_invents_an_epoch() {
+        assert_eq!(retained_epoch_label(None), "no completed Personal epoch");
+        assert_eq!(retained_epoch_label(Some(7)), "Personal epoch 7");
     }
 }
