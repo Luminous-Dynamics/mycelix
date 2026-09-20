@@ -10,7 +10,7 @@
 
 use mycelix_hardware_core::{
     ArtifactRole, ConstraintEvaluation, DesignRevision, DigestRef, DocumentationProfile,
-    HardwareProject, LicenseRef, SemanticId,
+    HardwareProject, LicenseRef, RevisionState, SemanticId,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -49,13 +49,15 @@ pub struct HardwareReleaseManifest {
     /// artifact subsystem (for example Symthaea's ReleaseArtifactSet).
     pub artifact_set: ExternalReceiptRef,
     /// Optional provenance statement/quorum reference. Presence is not proof
-    /// that provenance has been verified.
+    /// that provenance has been verified or that it covers this artifact set.
     pub artifact_provenance: Option<ExternalReceiptRef>,
     /// Canonical digest of the design composition under the producer's named
     /// digest scheme. Verification of this digest is external to this crate.
     pub composition_digest: DigestRef,
     pub environment_digest: Option<DigestRef>,
-    /// Exact design-artifact identities included in this release.
+    /// Exact design-artifact identities intended to be represented by the
+    /// external artifact set. A separate artifact-binding verification proves
+    /// that intent actually matches the bytes in the set.
     pub included_artifact_ids: Vec<SemanticId>,
     /// Exact design-revision evidence identities carried into the release.
     pub evidence_ids: Vec<SemanticId>,
@@ -63,7 +65,7 @@ pub struct HardwareReleaseManifest {
     pub license_snapshot: Vec<LicenseRef>,
     pub release_authority: SemanticId,
     /// Optional authorization receipt (for example a Xenia-bound action
-    /// authorization). Presence alone does not establish validity.
+    /// authorization). Presence alone does not establish validity or binding.
     pub release_authorization: Option<ExternalReceiptRef>,
     pub issued_at_unix_s: u64,
 }
@@ -149,22 +151,49 @@ impl HardwareReleaseProfile {
     }
 }
 
-/// Exact subject that an external verification result applies to.
+/// Exact subject/binding that an external verification result applies to.
+/// Compound variants prevent a verifier from proving one valid object and
+/// replaying that verdict onto another release or artifact set.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum VerificationSubject {
-    Release(SemanticId),
     DesignRevision(SemanticId),
     Digest(DigestRef),
+    ArtifactBinding {
+        release_id: SemanticId,
+        design_revision_id: SemanticId,
+        artifact_set_digest: DigestRef,
+    },
+    ArtifactProvenance {
+        artifact_set_digest: DigestRef,
+        provenance_digest: DigestRef,
+    },
+    ReleaseAuthorization {
+        release_id: SemanticId,
+        authorization_digest: DigestRef,
+    },
 }
 
 impl VerificationSubject {
     fn validate(&self) -> Result<(), ReleaseModelError> {
-        if let Self::Digest(digest) = self {
-            digest
-                .validate()
-                .map_err(|error| ReleaseModelError::InvalidDigest(error.to_string()))?;
+        match self {
+            Self::DesignRevision(_) => Ok(()),
+            Self::Digest(digest) => validate_digest(digest),
+            Self::ArtifactBinding {
+                artifact_set_digest,
+                ..
+            } => validate_digest(artifact_set_digest),
+            Self::ArtifactProvenance {
+                artifact_set_digest,
+                provenance_digest,
+            } => {
+                validate_digest(artifact_set_digest)?;
+                validate_digest(provenance_digest)
+            }
+            Self::ReleaseAuthorization {
+                authorization_digest,
+                ..
+            } => validate_digest(authorization_digest),
         }
-        Ok(())
     }
 }
 
@@ -173,8 +202,8 @@ pub struct ExternalVerification {
     pub subject: VerificationSubject,
     pub evaluation: ConstraintEvaluation,
     /// A Satisfied/Unsatisfied external verdict is not accepted without the
-    /// exact receipt that produced that verdict. Unknown may legitimately have
-    /// no receipt because the verifier has not run.
+    /// exact verifier receipt that produced that verdict. Unknown may have no
+    /// receipt because the verifier legitimately has not run.
     pub receipt: Option<ExternalReceiptRef>,
 }
 
@@ -198,6 +227,7 @@ impl ExternalVerification {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReleaseVerificationInputs {
     pub artifact_inventory: Option<ExternalVerification>,
+    pub artifact_binding: Option<ExternalVerification>,
     pub artifact_provenance: Option<ExternalVerification>,
     pub composition: Option<ExternalVerification>,
     pub environment: Option<ExternalVerification>,
@@ -213,6 +243,7 @@ pub enum ReleaseViolation {
     InvalidRevision(String),
     ProjectMismatch,
     RevisionProjectMismatch,
+    RevisionNotReleased,
     LicenseSnapshotMismatch,
     UnknownArtifact(SemanticId),
     UnknownEvidence(SemanticId),
@@ -231,6 +262,7 @@ pub enum ReleaseViolation {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum VerificationCheck {
     ArtifactInventory,
+    ArtifactBinding,
     ArtifactProvenance,
     Composition,
     Environment,
@@ -246,6 +278,7 @@ pub struct HardwareReleaseVerification {
     pub artifact_roles_status: ConstraintEvaluation,
     pub documentation_status: ConstraintEvaluation,
     pub artifact_inventory_status: ConstraintEvaluation,
+    pub artifact_binding_status: ConstraintEvaluation,
     pub provenance_status: ConstraintEvaluation,
     pub composition_status: ConstraintEvaluation,
     pub environment_status: ConstraintEvaluation,
@@ -267,6 +300,7 @@ impl HardwareReleaseVerification {
                 self.artifact_roles_status,
                 self.documentation_status,
                 self.artifact_inventory_status,
+                self.artifact_binding_status,
                 self.provenance_status,
                 self.composition_status,
                 self.environment_status,
@@ -305,6 +339,7 @@ pub fn verify_hardware_release(
             ConstraintEvaluation::Satisfied
         },
         artifact_inventory_status: ConstraintEvaluation::Unknown,
+        artifact_binding_status: ConstraintEvaluation::Unknown,
         provenance_status: if profile.require_artifact_provenance {
             ConstraintEvaluation::Unknown
         } else {
@@ -369,6 +404,10 @@ pub fn verify_hardware_release(
             .violations
             .push(ReleaseViolation::RevisionProjectMismatch);
     }
+    if revision.state != RevisionState::Released {
+        report.semantic_integrity = ConstraintEvaluation::Unsatisfied;
+        report.violations.push(ReleaseViolation::RevisionNotReleased);
+    }
     if manifest.license_snapshot != project.license_refs {
         report.semantic_integrity = ConstraintEvaluation::Unsatisfied;
         report
@@ -389,12 +428,27 @@ pub fn verify_hardware_release(
         &mut report.violations,
     );
 
+    report.artifact_binding_status = evaluate_external_check(
+        VerificationCheck::ArtifactBinding,
+        VerificationSubject::ArtifactBinding {
+            release_id: manifest.id.clone(),
+            design_revision_id: revision.id.clone(),
+            artifact_set_digest: manifest.artifact_set.digest.clone(),
+        },
+        external.artifact_binding.as_ref(),
+        true,
+        &mut report.violations,
+    );
+
     if profile.require_artifact_provenance {
         match &manifest.artifact_provenance {
             Some(provenance) => {
                 report.provenance_status = evaluate_external_check(
                     VerificationCheck::ArtifactProvenance,
-                    VerificationSubject::Digest(provenance.digest.clone()),
+                    VerificationSubject::ArtifactProvenance {
+                        artifact_set_digest: manifest.artifact_set.digest.clone(),
+                        provenance_digest: provenance.digest.clone(),
+                    },
                     external.artifact_provenance.as_ref(),
                     true,
                     &mut report.violations,
@@ -440,19 +494,25 @@ pub fn verify_hardware_release(
     }
 
     if profile.require_release_authorization {
-        if manifest.release_authorization.is_none() {
-            report.authorization_status = ConstraintEvaluation::Unsatisfied;
-            report
-                .violations
-                .push(ReleaseViolation::MissingRequiredAuthorizationReference);
-        } else {
-            report.authorization_status = evaluate_external_check(
-                VerificationCheck::ReleaseAuthorization,
-                VerificationSubject::Release(manifest.id.clone()),
-                external.release_authorization.as_ref(),
-                true,
-                &mut report.violations,
-            );
+        match &manifest.release_authorization {
+            Some(authorization) => {
+                report.authorization_status = evaluate_external_check(
+                    VerificationCheck::ReleaseAuthorization,
+                    VerificationSubject::ReleaseAuthorization {
+                        release_id: manifest.id.clone(),
+                        authorization_digest: authorization.digest.clone(),
+                    },
+                    external.release_authorization.as_ref(),
+                    true,
+                    &mut report.violations,
+                );
+            }
+            None => {
+                report.authorization_status = ConstraintEvaluation::Unsatisfied;
+                report
+                    .violations
+                    .push(ReleaseViolation::MissingRequiredAuthorizationReference);
+            }
         }
     }
 
@@ -626,6 +686,12 @@ impl fmt::Display for ReleaseModelError {
 
 impl std::error::Error for ReleaseModelError {}
 
+fn validate_digest(digest: &DigestRef) -> Result<(), ReleaseModelError> {
+    digest
+        .validate()
+        .map_err(|error| ReleaseModelError::InvalidDigest(error.to_string()))
+}
+
 fn validate_text(value: &str, field: &'static str) -> Result<(), ReleaseModelError> {
     if value.trim().is_empty() || value != value.trim() || value.chars().any(char::is_control) {
         return Err(ReleaseModelError::EmptyField(field));
@@ -689,7 +755,7 @@ mod tests {
     use super::*;
     use mycelix_hardware_core::{
         ArtifactRole, DesignArtifactRef, DesignComposition, DocumentationProfileRef,
-        HardwareRequirement, RequirementCriticality, RevisionState, VerificationMethod,
+        HardwareRequirement, RequirementCriticality, VerificationMethod,
         HARDWARE_SEMANTIC_SCHEMA,
     };
 
@@ -809,27 +875,39 @@ mod tests {
                 VerificationSubject::Digest(manifest.artifact_set.digest.clone()),
                 '1',
             )),
-            artifact_provenance: Some(verified(
-                VerificationSubject::Digest(
-                    manifest.artifact_provenance.as_ref().unwrap().digest.clone(),
-                ),
+            artifact_binding: Some(verified(
+                VerificationSubject::ArtifactBinding {
+                    release_id: manifest.id.clone(),
+                    design_revision_id: manifest.design_revision_id.clone(),
+                    artifact_set_digest: manifest.artifact_set.digest.clone(),
+                },
                 '2',
+            )),
+            artifact_provenance: Some(verified(
+                VerificationSubject::ArtifactProvenance {
+                    artifact_set_digest: manifest.artifact_set.digest.clone(),
+                    provenance_digest: manifest.artifact_provenance.as_ref().unwrap().digest.clone(),
+                },
+                '3',
             )),
             composition: Some(verified(
                 VerificationSubject::Digest(manifest.composition_digest.clone()),
-                '3',
+                '4',
             )),
             environment: Some(verified(
                 VerificationSubject::Digest(manifest.environment_digest.clone().unwrap()),
-                '4',
+                '5',
             )),
             release_authorization: Some(verified(
-                VerificationSubject::Release(manifest.id.clone()),
-                '5',
+                VerificationSubject::ReleaseAuthorization {
+                    release_id: manifest.id.clone(),
+                    authorization_digest: manifest.release_authorization.as_ref().unwrap().digest.clone(),
+                },
+                '6',
             )),
             blocking_claims: Some(verified(
                 VerificationSubject::DesignRevision(manifest.design_revision_id.clone()),
-                '6',
+                '7',
             )),
         }
     }
@@ -867,12 +945,32 @@ mod tests {
     }
 
     #[test]
-    fn valid_receipt_for_wrong_subject_is_rejected() {
+    fn artifact_binding_unknown_blocks_admission() {
         let manifest = manifest();
         let mut inputs = fully_verified_inputs(&manifest);
-        inputs.artifact_inventory = Some(verified(
-            VerificationSubject::Digest(digest('f')),
-            '7',
+        inputs.artifact_binding = None;
+        let report = verify_hardware_release(
+            &manifest,
+            &profile(),
+            &project(),
+            &revision(),
+            &inputs,
+        );
+        assert_eq!(report.artifact_binding_status, ConstraintEvaluation::Unknown);
+        assert!(!report.is_admissible_under_profile());
+    }
+
+    #[test]
+    fn valid_receipt_for_wrong_artifact_binding_is_rejected() {
+        let manifest = manifest();
+        let mut inputs = fully_verified_inputs(&manifest);
+        inputs.artifact_binding = Some(verified(
+            VerificationSubject::ArtifactBinding {
+                release_id: manifest.id.clone(),
+                design_revision_id: manifest.design_revision_id.clone(),
+                artifact_set_digest: digest('f'),
+            },
+            '8',
         ));
         let report = verify_hardware_release(
             &manifest,
@@ -881,16 +979,33 @@ mod tests {
             &revision(),
             &inputs,
         );
-        assert_eq!(
-            report.artifact_inventory_status,
-            ConstraintEvaluation::Unknown
-        );
+        assert_eq!(report.artifact_binding_status, ConstraintEvaluation::Unknown);
         assert!(report.violations.iter().any(|violation| matches!(
             violation,
-            ReleaseViolation::VerificationSubjectMismatch(
-                VerificationCheck::ArtifactInventory
-            )
+            ReleaseViolation::VerificationSubjectMismatch(VerificationCheck::ArtifactBinding)
         )));
+    }
+
+    #[test]
+    fn provenance_for_another_artifact_set_is_rejected() {
+        let manifest = manifest();
+        let mut inputs = fully_verified_inputs(&manifest);
+        inputs.artifact_provenance = Some(verified(
+            VerificationSubject::ArtifactProvenance {
+                artifact_set_digest: digest('f'),
+                provenance_digest: manifest.artifact_provenance.as_ref().unwrap().digest.clone(),
+            },
+            '8',
+        ));
+        let report = verify_hardware_release(
+            &manifest,
+            &profile(),
+            &project(),
+            &revision(),
+            &inputs,
+        );
+        assert_eq!(report.provenance_status, ConstraintEvaluation::Unknown);
+        assert!(!report.is_admissible_under_profile());
     }
 
     #[test]
@@ -948,6 +1063,44 @@ mod tests {
     }
 
     #[test]
+    fn authorization_verification_binds_exact_authorization_receipt() {
+        let manifest = manifest();
+        let mut inputs = fully_verified_inputs(&manifest);
+        inputs.release_authorization = Some(verified(
+            VerificationSubject::ReleaseAuthorization {
+                release_id: manifest.id.clone(),
+                authorization_digest: digest('f'),
+            },
+            '9',
+        ));
+        let report = verify_hardware_release(
+            &manifest,
+            &profile(),
+            &project(),
+            &revision(),
+            &inputs,
+        );
+        assert_eq!(report.authorization_status, ConstraintEvaluation::Unknown);
+        assert!(!report.is_admissible_under_profile());
+    }
+
+    #[test]
+    fn unreleased_revision_cannot_be_admitted() {
+        let manifest = manifest();
+        let mut revision = revision();
+        revision.state = RevisionState::Review;
+        let report = verify_hardware_release(
+            &manifest,
+            &profile(),
+            &project(),
+            &revision,
+            &fully_verified_inputs(&manifest),
+        );
+        assert_eq!(report.semantic_integrity, ConstraintEvaluation::Unsatisfied);
+        assert!(report.violations.contains(&ReleaseViolation::RevisionNotReleased));
+    }
+
+    #[test]
     fn release_report_has_no_physical_conformance_shortcut() {
         let report = HardwareReleaseVerification {
             semantic_integrity: ConstraintEvaluation::Satisfied,
@@ -956,6 +1109,7 @@ mod tests {
             artifact_roles_status: ConstraintEvaluation::NotApplicable,
             documentation_status: ConstraintEvaluation::NotApplicable,
             artifact_inventory_status: ConstraintEvaluation::Unknown,
+            artifact_binding_status: ConstraintEvaluation::Unknown,
             provenance_status: ConstraintEvaluation::NotApplicable,
             composition_status: ConstraintEvaluation::NotApplicable,
             environment_status: ConstraintEvaluation::NotApplicable,
