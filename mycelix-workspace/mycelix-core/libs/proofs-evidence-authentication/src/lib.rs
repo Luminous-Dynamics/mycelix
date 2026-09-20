@@ -6,14 +6,16 @@
 //! This crate intentionally contains no cryptographic verifier backend yet. It freezes
 //! the canonical receipt identity, exact authentication policy, opaque capability,
 //! strict untrusted-wire parsing boundary, non-authoritative verifier-execution
-//! evidence, and deterministic GitHub verifier command/I/O planning that future
-//! separately-qualified backends may use after full verification.
+//! evidence, deterministic GitHub verifier command/I/O planning, and strict parsed
+//! verifier-output evidence that future separately-qualified backends may use after
+//! full verification.
 
 mod canonical;
 mod capability;
 mod github_cli_execution_policy;
 mod github_cli_plan;
 mod github_cli_steps;
+mod github_verification_result;
 mod policy;
 mod predicate;
 mod verifier_execution;
@@ -52,6 +54,20 @@ pub use github_cli_steps::{
     GitHubExecutionStepAuthorityV1, GitHubVerifierExecutionStepV1,
     GitHubVerifierStdoutDispositionV1, GitHubVerifierStepPurposeV1,
     github_public_verifier_execution_steps_v1,
+};
+pub use github_verification_result::{
+    GITHUB_VERIFICATION_RESULT_PARSER_PROFILE_V1, MAX_GITHUB_CERTIFICATE_JSON_BYTES_V1,
+    MAX_GITHUB_PREDICATE_JSON_BYTES_V1, MAX_GITHUB_RESULT_TEXT_BYTES_V1,
+    MAX_GITHUB_STATEMENT_SUBJECTS_V1, MAX_GITHUB_VERIFICATION_RESULTS_V1,
+    MAX_GITHUB_VERIFICATION_STDOUT_BYTES_V1, MAX_GITHUB_VERIFIED_TIMESTAMPS_V1,
+    SIGSTORE_VERIFICATION_RESULT_MEDIA_TYPE_V1, VERIFIER_STDOUT_DIGEST_PROFILE_V1,
+    GitHubAttestationFactProvenanceV1, GitHubCertificateIdentityFactsV1,
+    GitHubParsedVerificationCandidateV1, GitHubParsedVerifierOutputAuthorityV1,
+    GitHubSignedPredicateClaimV1, GitHubSignedStatementSubjectV1,
+    GitHubTrustInstanceStatusV1, GitHubVerificationResultParseErrorV1,
+    GitHubVerifiedTimestampEvidenceV1, GitHubVerifiedTimestampWitnessKindV1,
+    ParsedGitHubAttestationVerifierOutputV1, github_verifier_stdout_digest_v1,
+    parse_github_attestation_verifier_output_v1,
 };
 pub use policy::{
     AuthenticationFreshnessPolicyV1, AuthenticationPolicyErrorV1,
