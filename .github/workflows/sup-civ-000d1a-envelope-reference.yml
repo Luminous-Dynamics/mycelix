@@ -1,0 +1,139 @@
+name: SUP-CIV-000D1A Protected Envelope Reference Model
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/docs/civic-resilience/SUP_CIV_000D1A_PROTECTED_ENVELOPE_REFERENCE_V1.md'
+      - 'mycelix-workspace/docs/civic-resilience/sup_civ_000d1a_reference_manifest.json'
+      - 'mycelix-workspace/scripts/sup_civ_protected_envelope_reference_v1.py'
+      - '.github/workflows/sup-civ-000d1a-envelope-reference.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prove exact stacked subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='f4f48ef45bbaff7ae9e7668fc1820fdfadd1375f'
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          test "$(git rev-list --count "$EXPECTED_PARENT"..HEAD)" = '1'
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PARENT" HEAD | sort)
+          expected=(
+            '.github/workflows/sup-civ-000d1a-envelope-reference.yml'
+            'mycelix-workspace/docs/civic-resilience/SUP_CIV_000D1A_PROTECTED_ENVELOPE_REFERENCE_V1.md'
+            'mycelix-workspace/docs/civic-resilience/sup_civ_000d1a_reference_manifest.json'
+            'mycelix-workspace/scripts/sup_civ_protected_envelope_reference_v1.py'
+          )
+          test "${#changed[@]}" = "${#expected[@]}"
+          for i in "${!expected[@]}"; do
+            test "${changed[$i]}" = "${expected[$i]}"
+          done
+
+      - name: Syntax-check independent oracle
+        run: python3 -m py_compile mycelix-workspace/scripts/sup_civ_protected_envelope_reference_v1.py
+
+      - name: Execute closed 30-case reference corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 mycelix-workspace/scripts/sup_civ_protected_envelope_reference_v1.py \
+            --manifest mycelix-workspace/docs/civic-resilience/sup_civ_000d1a_reference_manifest.json \
+            --receipt /tmp/sup-civ-000d1a-receipt.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          manifest = json.loads(Path('mycelix-workspace/docs/civic-resilience/sup_civ_000d1a_reference_manifest.json').read_text())
+          receipt = json.loads(Path('/tmp/sup-civ-000d1a-receipt.json').read_text())
+
+          assert set(manifest) == {
+              'authority', 'cases', 'digest_authority', 'forbidden_claims',
+              'model_schema', 'parent_contract', 'parent_exact_head',
+              'required_non_equivalences', 'schema'
+          }
+          assert manifest['schema'] == 'sup-civ-000d1a-reference-manifest-v1'
+          assert manifest['authority'] == 'semantic-reference-model-only'
+          assert manifest['parent_contract'] == 'SUP-CIV-000D0'
+          assert manifest['parent_exact_head'] == 'f4f48ef45bbaff7ae9e7668fc1820fdfadd1375f'
+          assert manifest['model_schema'] == 'protected-envelope-semantic-v1'
+          assert manifest['digest_authority'] == 'fixture-only-not-runtime-envelope-id'
+          assert len(manifest['cases']) == 30
+          assert len({row['id'] for row in manifest['cases']}) == 30
+
+          assert receipt['schema'] == 'sup-civ-000d1a-reference-receipt-v1'
+          assert receipt['model_schema'] == 'protected-envelope-semantic-v1'
+          assert receipt['digest_authority'] == 'fixture-only-not-runtime-envelope-id'
+          assert receipt['case_count'] == 30
+          assert receipt['admit_count'] == 8
+          assert receipt['refuse_count'] == 22
+
+          assert set(manifest['required_non_equivalences']) == {
+              'PayloadVersion != EnvelopeRevision',
+              'EnvelopeRevision != KeyEpoch',
+              'AddRecipientCurrentEpoch != FutureOnlyAccess',
+              'RewrapRecipientKey != CompromiseRecovery',
+              'KeyRotation != KnowledgeRevocation',
+              'RecipientListed != RecipientCurrentlyAuthorized',
+              'SemanticAdmission != CryptographicValidity',
+              'ReferenceModelDigest != RuntimeEnvelopeId',
+              'RetirementReceipt != RetroactiveErasure',
+          }
+          assert set(manifest['forbidden_claims']) == {
+              'cryptographic-correctness', 'entropy-quality',
+              'recipient-authorization', 'storage-availability',
+              'metadata-privacy', 'legal-compliance',
+              'municipal-authority', 'deployment-readiness'
+          }
+          print('PASS_SUP_CIV_000D1A_REFERENCE_MODEL')
+          PY
+
+      - name: Refuse production/runtime changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='f4f48ef45bbaff7ae9e7668fc1820fdfadd1375f'
+          if git diff --name-only "$EXPECTED_PARENT" HEAD | grep -E '\.(rs|toml|lock|nix)$'; then
+            echo 'production/build file entered semantic reference tranche' >&2
+            exit 1
+          fi
+
+      - name: Prove no product crypto dependency entered oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import ast
+          from pathlib import Path
+
+          path = Path('mycelix-workspace/scripts/sup_civ_protected_envelope_reference_v1.py')
+          tree = ast.parse(path.read_text())
+          allowed = {
+              '__future__', 'argparse', 'dataclasses', 'hashlib', 'json',
+              'pathlib', 're', 'sys', 'typing'
+          }
+          imports = set()
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Import):
+                  imports.update(alias.name.split('.')[0] for alias in node.names)
+              elif isinstance(node, ast.ImportFrom) and node.module:
+                  imports.add(node.module.split('.')[0])
+          unexpected = imports - allowed
+          assert not unexpected, unexpected
+          print('stdlib-only oracle imports:', sorted(imports))
+          PY
+
+      - name: Prove checkout remained immutable
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf mycelix-workspace/scripts/__pycache__
+          test -z "$(git status --porcelain)"
