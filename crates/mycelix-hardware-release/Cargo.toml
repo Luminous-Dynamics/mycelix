@@ -1,0 +1,13 @@
+[package]
+name = "mycelix-hardware-release"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Evidence-scoped hardware release manifests and verification profiles for Mycelix"
+
+[dependencies]
+mycelix-hardware-core = { path = "../mycelix-hardware-core" }
+serde = { version = "1", features = ["derive"] }
+
+[lints.clippy]
+all = "warn"
