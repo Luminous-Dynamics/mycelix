@@ -6,6 +6,7 @@ members = [
     "crates/hearth-automation-types",
     "crates/hearth-automation-policy",
     "crates/hearth-automation-replay",
+    "crates/hearth-adapter-admission",
     "edge/hearth-edge",
     "edge/hearth-edge-journal",
     "edge/hearth-edge-lease",
