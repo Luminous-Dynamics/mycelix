@@ -1,0 +1,17 @@
+[package]
+name = "mycelix-forge-review-policy-satisfied-checkpoint"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+publish = false
+
+[dependencies]
+mycelix-forge-authority = { path = "../mycelix-forge-authority" }
+mycelix-forge-core = { path = "../mycelix-forge-core" }
+mycelix-forge-policy-bound-checkpoint = { path = "../mycelix-forge-policy-bound-checkpoint" }
+mycelix-forge-proposal = { path = "../mycelix-forge-proposal" }
+mycelix-forge-review-acceptance-policy = { path = "../mycelix-forge-review-acceptance-policy" }
+mycelix-forge-review-policy-adoption = { path = "../mycelix-forge-review-policy-adoption" }
+mycelix-forge-review-state = { path = "../mycelix-forge-review-state" }
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
