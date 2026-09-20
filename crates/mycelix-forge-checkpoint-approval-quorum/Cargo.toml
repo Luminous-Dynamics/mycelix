@@ -1,0 +1,21 @@
+[package]
+name = "mycelix-forge-checkpoint-approval-quorum"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.96"
+authors = ["Luminous Dynamics"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+description = "Checkpoint-relative approval threshold over exact witnessed Forge review heads"
+publish = false
+
+[dependencies]
+mycelix-forge-authority = { path = "../mycelix-forge-authority" }
+mycelix-forge-core = { path = "../mycelix-forge-core" }
+mycelix-forge-proposal = { path = "../mycelix-forge-proposal" }
+mycelix-forge-review-state = { path = "../mycelix-forge-review-state" }
+mycelix-forge-witness-checkpoint-review-set = { path = "../mycelix-forge-witness-checkpoint-review-set" }
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "2.0"
+
+[workspace]
