@@ -189,20 +189,43 @@ pub fn hash_sharded_anchor(domain: &str, entity: &str, entry_hash: &EntryHash) -
     format!("{}:{}:{}", domain, entity, hex)
 }
 
-/// Extract (year, month) from a Holochain `Timestamp`.
+/// Extract the exact proleptic-Gregorian UTC `(year, month)` for a Holochain
+/// `Timestamp`.
 ///
-/// Timestamps are microseconds since the Unix epoch.
+/// Holochain timestamps are signed microseconds since the Unix epoch.  The
+/// conversion intentionally uses integer arithmetic only: no host/local
+/// timezone, libc clock, floating point, or average-year/month approximation.
+/// `div_euclid` gives correct floor semantics for pre-1970 timestamps too.
 fn year_month_from_timestamp(ts: &Timestamp) -> (i32, u32) {
-    let micros = ts.as_micros();
-    let secs = micros / 1_000_000;
-    // Simple conversion: days since epoch → year/month
-    let days = secs / 86400;
-    // Approximate: 365.25 days/year, then derive month
-    let year = 1970 + (days / 365) as i32;
-    let day_of_year = days % 365;
-    // Approximate month (30.44 days/month average)
-    let month = ((day_of_year as f64 / 30.44) as u32).min(11) + 1;
-    (year, month)
+    let seconds = ts.as_micros().div_euclid(1_000_000);
+    let days_since_epoch = seconds.div_euclid(86_400);
+    civil_year_month_from_days(days_since_epoch)
+}
+
+/// Convert whole UTC days relative to 1970-01-01 into a Gregorian year/month.
+///
+/// This is the integer civil-date decomposition described by Howard Hinnant's
+/// `civil_from_days` algorithm, expressed with Euclidean division so the same
+/// relation remains valid for negative epoch offsets.  The supported range is
+/// far wider than any practical Holochain timestamp while all intermediate
+/// values remain inside `i64`.
+fn civil_year_month_from_days(days_since_epoch: i64) -> (i32, u32) {
+    // Shift the epoch so March is month zero.  That makes leap-day handling a
+    // property of complete 400-year Gregorian eras rather than a special case.
+    let z = days_since_epoch + 719_468;
+    let era = z.div_euclid(146_097);
+    let day_of_era = z - era * 146_097; // [0, 146096]
+    let year_of_era =
+        (day_of_era - day_of_era / 1_460 + day_of_era / 36_524 - day_of_era / 146_096)
+            / 365; // [0, 399]
+    let year = year_of_era + era * 400;
+    let day_of_year =
+        day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
+    let march_month = (5 * day_of_year + 2) / 153; // [0, 11]
+    let month = march_month + if march_month < 10 { 3 } else { -9 }; // [1, 12]
+    let year = year + if month <= 2 { 1 } else { 0 };
+
+    (year as i32, month as u32)
 }
 
 // ============================================================================
@@ -445,15 +468,13 @@ mod tests {
         // 2026-02-15 00:00:00 UTC → 1_771_113_600 seconds → microseconds
         let ts = Timestamp::from_micros(1_771_113_600_000_000);
         let anchor = sharded_anchor("support", "tickets", &ts);
-        assert!(anchor.starts_with("support:tickets:"));
-        // Should contain year and month
-        assert!(anchor.contains("2026"));
+        assert_eq!(anchor, "support:tickets:2026:02");
     }
 
     #[test]
     fn sharded_anchor_different_months_differ() {
-        let ts_jan = Timestamp::from_micros(1_704_067_200_000_000); // 2024-01-01
-        let ts_jun = Timestamp::from_micros(1_717_200_000_000_000); // ~2024-06-01
+        let ts_jan = Timestamp::from_micros(1_704_067_200_000_000); // 2024-01-01 UTC
+        let ts_jun = Timestamp::from_micros(1_717_200_000_000_000); // 2024-06-01 UTC
         let a1 = sharded_anchor("support", "tickets", &ts_jan);
         let a2 = sharded_anchor("support", "tickets", &ts_jun);
         assert_ne!(a1, a2);
@@ -509,22 +530,62 @@ mod tests {
 
     // ── year_month_from_timestamp tests ─────────────────────────────────
 
-    #[test]
-    fn year_month_epoch_is_1970_01() {
-        let ts = Timestamp::from_micros(0);
-        let (year, month) = year_month_from_timestamp(&ts);
-        assert_eq!(year, 1970);
-        assert_eq!(month, 1);
+    fn assert_year_month(micros: i64, expected: (i32, u32)) {
+        let ts = Timestamp::from_micros(micros);
+        assert_eq!(year_month_from_timestamp(&ts), expected);
     }
 
     #[test]
-    fn year_month_month_range_1_to_12() {
-        // Test across a full year
-        for m in 0..12 {
-            let secs = 1_704_067_200 + (m * 30 * 86400); // 2024-01-01 + m months approx
-            let ts = Timestamp::from_micros(secs as i64 * 1_000_000);
-            let (_, month) = year_month_from_timestamp(&ts);
-            assert!(month >= 1 && month <= 12, "month {} out of range", month);
-        }
+    fn year_month_epoch_is_1970_01() {
+        assert_year_month(0, (1970, 1));
+    }
+
+    #[test]
+    fn year_month_pre_epoch_uses_floor_day_semantics() {
+        assert_year_month(-1, (1969, 12));
+        assert_year_month(-1_000_000, (1969, 12));
+    }
+
+    #[test]
+    fn year_month_handles_leap_day_boundaries() {
+        assert_year_month(1_709_164_799_000_000, (2024, 2)); // 2024-02-28 23:59:59Z
+        assert_year_month(1_709_164_800_000_000, (2024, 2)); // 2024-02-29 00:00:00Z
+        assert_year_month(1_709_251_199_000_000, (2024, 2)); // 2024-02-29 23:59:59Z
+        assert_year_month(1_709_251_200_000_000, (2024, 3)); // 2024-03-01 00:00:00Z
+    }
+
+    #[test]
+    fn year_month_handles_year_boundary() {
+        assert_year_month(1_735_689_599_000_000, (2024, 12)); // 2024-12-31 23:59:59Z
+        assert_year_month(1_735_689_600_000_000, (2025, 1)); // 2025-01-01 00:00:00Z
+    }
+
+    #[test]
+    fn year_month_known_regression_2026_09_19() {
+        assert_year_month(1_789_776_000_000_000, (2026, 9));
+        assert_eq!(
+            sharded_anchor(
+                "support",
+                "tickets",
+                &Timestamp::from_micros(1_789_776_000_000_000),
+            ),
+            "support:tickets:2026:09"
+        );
+    }
+
+    #[test]
+    fn year_month_gregorian_century_rules() {
+        // 1900 is not a Gregorian leap year; 2000 is.
+        assert_year_month(-2_203_934_400_000_000, (1900, 2)); // 1900-02-28 12:00:00Z
+        assert_year_month(-2_203_848_000_000_000, (1900, 3)); // 1900-03-01 12:00:00Z
+        assert_year_month(951_825_600_000_000, (2000, 2)); // 2000-02-29 12:00:00Z
+    }
+
+    #[test]
+    fn civil_year_month_reference_days() {
+        assert_eq!(civil_year_month_from_days(0), (1970, 1));
+        assert_eq!(civil_year_month_from_days(-1), (1969, 12));
+        assert_eq!(civil_year_month_from_days(19_782), (2024, 2)); // 2024-02-29
+        assert_eq!(civil_year_month_from_days(20_350), (2025, 9)); // sanity away from boundaries
     }
 }
