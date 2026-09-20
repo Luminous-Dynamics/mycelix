@@ -1,0 +1,130 @@
+name: Mycelix MPC-001B RED Exact-Head
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'crates/feldman-dkg/**'
+      - '.github/workflows/mpc-001br-red-exact.yml'
+  workflow_dispatch:
+    inputs:
+      subject_sha:
+        description: 'Exact 40-hex RED qualifier subject'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mpc-001br-red-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  classify-red:
+    name: Exact-head MPC-001B RED classification
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      PRODUCT_PARENT: ddcfba73330981946085c8891bb3007a98b9209a
+      CARGO_TERM_COLOR: never
+    steps:
+      - name: Resolve exact subject
+        id: subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            subject='${{ github.event.pull_request.head.sha }}'
+          else
+            subject='${{ inputs.subject_sha }}'
+          fi
+          [[ "$subject" =~ ^[0-9a-f]{40}$ ]]
+          echo "sha=$subject" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ steps.subject.outputs.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Verify qualifier shape
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$PRODUCT_PARENT"
+          test "$(git rev-list --count "$PRODUCT_PARENT"..HEAD)" = 1
+          mapfile -t changed < <(git diff --name-only "$PRODUCT_PARENT" HEAD)
+          test "${#changed[@]}" = 1
+          test "${changed[0]}" = '.github/workflows/mpc-001br-red-exact.yml'
+          test -z "$(git status --porcelain)"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+
+      - name: Prove RED corpus compiles
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test \
+            --manifest-path crates/feldman-dkg/Cargo.toml \
+            --test mpc_001b_admission_red \
+            --no-run
+
+      - name: Execute RED corpus and require semantic failures
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          cargo test \
+            --manifest-path crates/feldman-dkg/Cargo.toml \
+            --test mpc_001b_admission_red \
+            -- --nocapture > "$RUNNER_TEMP/red.stdout" 2> "$RUNNER_TEMP/red.stderr"
+          status=$?
+          set -e
+
+          if [[ $status -eq 0 ]]; then
+            echo 'RED corpus unexpectedly passed; parent defects may have changed.' >&2
+            cat "$RUNNER_TEMP/red.stdout" >&2
+            exit 1
+          fi
+
+          cat "$RUNNER_TEMP/red.stdout"
+          cat "$RUNNER_TEMP/red.stderr" >&2
+
+          # Require multiple audited property failures so a single incidental
+          # panic/compile problem cannot masquerade as the expected RED state.
+          required=(
+            red_rejects_caller_dealer_substitution
+            red_rejects_missing_recipient_share
+            red_duplicate_complaint_does_not_mint_independent_complainants
+            red_rejects_hash_reveal_before_commitment_collection_closes
+            red_hash_profile_cannot_finalize_without_reveal_verification
+          )
+          for name in "${required[@]}"; do
+            grep -Fq "$name" "$RUNNER_TEMP/red.stdout"
+          done
+
+          failures=$(grep -Ec '^test .* \.\.\. FAILED$' "$RUNNER_TEMP/red.stdout" || true)
+          if (( failures < 5 )); then
+            echo "expected at least five semantic RED failures, observed $failures" >&2
+            exit 1
+          fi
+
+          echo 'MPC-001BR EXPECTED-RED'
+          echo 'claim_scope=demonstrated admission/state-machine defects only'
+          echo 'product_repaired=false'
+          echo 'dkg_security_established=false'
+          echo 'general_mpc_established=false'
+
+      - name: Postflight exactness
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          test -z "$(git status --porcelain)"
