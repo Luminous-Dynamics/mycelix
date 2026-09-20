@@ -10,3 +10,6 @@ pub use assignment_binding::*;
 
 mod qualified_completion;
 pub use qualified_completion::*;
+
+mod recurrence_state;
+pub use recurrence_state::*;

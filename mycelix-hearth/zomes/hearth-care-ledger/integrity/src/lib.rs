@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 
-//! Append-only Care occurrence/completion evidence for Hearth.
+//! Append-only Care occurrence/completion/recurrence evidence for Hearth.
 //!
 //! This zome intentionally does not redefine `CareSchedule`; the legacy Care
-//! zome remains the durable template source. Concrete recurring work lives here.
+//! zome remains the durable template source. Concrete recurring work and
+//! recurrence revisions live here as append-only evidence.
 
 use hdi::prelude::*;
 use hearth_automation_integrity::AssignmentTransitionEntry;
@@ -14,6 +15,9 @@ use hearth_care_ledger::{
     CareCompletion as LedgerCompletion, CareOccurrence as LedgerOccurrence, MemberId,
     OccurrenceAssignmentBinding, OccurrenceId, OccurrenceWindow, ScheduleId,
     CARE_LEDGER_SCHEMA_VERSION,
+};
+use hearth_care_recurrence_state::{
+    CareRecurrenceDefinition, RecurrenceRevision, RECURRENCE_REVISION_SCHEMA_VERSION,
 };
 
 #[hdk_entry_helper]
@@ -48,11 +52,26 @@ pub struct CareCompletionEntry {
     pub evidence_refs: Vec<String>,
 }
 
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct CareRecurrenceRevisionEntry {
+    pub schema_version: u16,
+    pub hearth_hash: ActionHash,
+    /// Stable root ActionHash of the source CareSchedule template.
+    pub schedule_hash: ActionHash,
+    /// Content identity (EntryHash) of the previous recurrence revision.
+    pub parent_state_hash: Option<EntryHash>,
+    /// Pure recurrence definition. Authorship remains in the Holochain action envelope
+    /// so identical semantic revisions authored by different members share one EntryHash.
+    pub definition: CareRecurrenceDefinition,
+}
+
 #[hdk_entry_types]
 #[unit_enum(UnitEntryTypes)]
 pub enum EntryTypes {
     CareOccurrence(CareOccurrenceEntry),
     CareCompletion(CareCompletionEntry),
+    CareRecurrenceRevision(CareRecurrenceRevisionEntry),
 }
 
 #[hdk_link_types]
@@ -63,6 +82,8 @@ pub enum LinkTypes {
     HearthToCompletions,
     /// Immutable authority binding: CareOccurrence EntryHash -> exact assignment state ActionHash.
     OccurrenceToAssignmentState,
+    /// Stable CareSchedule root ActionHash -> recurrence revision EntryHash.
+    ScheduleToRecurrenceRevisions,
 }
 
 #[hdk_extern]
@@ -76,9 +97,10 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, action }) => match app_entry {
             EntryTypes::CareOccurrence(entry) => validate_occurrence(&entry),
             EntryTypes::CareCompletion(entry) => validate_completion(&entry, &action.author),
+            EntryTypes::CareRecurrenceRevision(entry) => validate_recurrence_revision(&entry),
         },
         FlatOp::StoreEntry(OpEntry::UpdateEntry { .. }) => Ok(ValidateCallbackResult::Invalid(
-            "Care ledger occurrence/completion evidence is immutable".into(),
+            "Care ledger evidence is immutable".into(),
         )),
         FlatOp::StoreEntry(_) | FlatOp::StoreRecord(_) | FlatOp::RegisterAgentActivity(_) => {
             Ok(ValidateCallbackResult::Valid)
@@ -99,6 +121,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 LinkTypes::OccurrenceToAssignmentState => {
                     validate_occurrence_assignment_state_link(base_address, target_address)
                 }
+                LinkTypes::ScheduleToRecurrenceRevisions => {
+                    validate_schedule_recurrence_revision_link(base_address, target_address)
+                }
                 _ => Ok(ValidateCallbackResult::Valid),
             }
         }
@@ -112,6 +137,113 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             "Care ledger entries cannot be deleted".into(),
         )),
     }
+}
+
+fn recurrence_revision_to_pure(entry: &CareRecurrenceRevisionEntry) -> RecurrenceRevision {
+    RecurrenceRevision {
+        schema_version: entry.schema_version,
+        schedule_ref: entry.schedule_hash.to_string(),
+        parent_state_ref: entry.parent_state_hash.as_ref().map(ToString::to_string),
+        definition: entry.definition.clone(),
+    }
+}
+
+fn validate_recurrence_revision(
+    entry: &CareRecurrenceRevisionEntry,
+) -> ExternResult<ValidateCallbackResult> {
+    if entry.schema_version != RECURRENCE_REVISION_SCHEMA_VERSION {
+        return invalid("Unsupported Care recurrence revision schema version");
+    }
+    if let Err(error) = recurrence_revision_to_pure(entry).validate() {
+        return invalid(format!("Invalid Care recurrence revision: {error:?}"));
+    }
+
+    let schedule_record = must_get_valid_record(entry.schedule_hash.clone())?;
+    let schedule: CareSchedule = schedule_record
+        .entry()
+        .to_app_option()
+        .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Care recurrence revision must reference a CareSchedule root".into(),
+            ))
+        })?;
+    if schedule.hearth_hash != entry.hearth_hash {
+        return invalid("Care recurrence revision hearth does not match source schedule");
+    }
+
+    if let Some(parent_hash) = &entry.parent_state_hash {
+        let self_hash = hash_entry(&EntryTypes::CareRecurrenceRevision(entry.clone()))?;
+        if parent_hash == &self_hash {
+            return invalid("Care recurrence revision cannot parent itself");
+        }
+        let parent_hashed = must_get_entry(parent_hash.clone())?;
+        let app_bytes = parent_hashed
+            .content
+            .as_app_entry()
+            .ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "Care recurrence parent is not an app entry".into(),
+                ))
+            })?;
+        let parent = CareRecurrenceRevisionEntry::try_from(app_bytes.as_ref().clone())
+            .map_err(|error| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Care recurrence parent is not a recurrence revision: {error}"
+                )))
+            })?;
+        if parent.hearth_hash != entry.hearth_hash || parent.schedule_hash != entry.schedule_hash {
+            return invalid("Care recurrence parent belongs to another hearth/schedule");
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_schedule_recurrence_revision_link(
+    base: AnyLinkableHash,
+    target: AnyLinkableHash,
+) -> ExternResult<ValidateCallbackResult> {
+    let schedule_hash = ActionHash::try_from(base).map_err(|_| {
+        wasm_error!(WasmErrorInner::Guest(
+            "ScheduleToRecurrenceRevisions base must be a CareSchedule ActionHash".into(),
+        ))
+    })?;
+    let revision_hash = EntryHash::try_from(target).map_err(|_| {
+        wasm_error!(WasmErrorInner::Guest(
+            "ScheduleToRecurrenceRevisions target must be a recurrence revision EntryHash".into(),
+        ))
+    })?;
+
+    let revision_hashed = must_get_entry(revision_hash)?;
+    let app_bytes = revision_hashed
+        .content
+        .as_app_entry()
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
+            "ScheduleToRecurrenceRevisions target is not an app entry".into()
+        )))?;
+    let revision = CareRecurrenceRevisionEntry::try_from(app_bytes.as_ref().clone())
+        .map_err(|error| wasm_error!(WasmErrorInner::Guest(format!(
+            "ScheduleToRecurrenceRevisions target is not a recurrence revision: {error}"
+        ))))?;
+    if revision.schedule_hash != schedule_hash {
+        return invalid("Recurrence revision link points to a different Care schedule");
+    }
+
+    let schedule_record = must_get_valid_record(schedule_hash)?;
+    let schedule: CareSchedule = schedule_record
+        .entry()
+        .to_app_option()
+        .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Recurrence revision link base is not a CareSchedule".into(),
+            ))
+        })?;
+    if schedule.hearth_hash != revision.hearth_hash {
+        return invalid("Recurrence revision link crosses Hearth boundaries");
+    }
+    Ok(ValidateCallbackResult::Valid)
 }
 
 fn occurrence_to_ledger(entry: &CareOccurrenceEntry) -> LedgerOccurrence {
