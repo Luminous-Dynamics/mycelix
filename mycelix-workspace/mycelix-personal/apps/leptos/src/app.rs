@@ -17,7 +17,9 @@ use mycelix_leptos_core::{
     AvailabilityStateKind, EmptyState, FreshnessBadge, FreshnessLevel, HolochainProviderAuto,
     HolochainProviderConfig, NavLink, NavTab, ToastContainer, ToastKind,
 };
-use personal_leptos_types::MutationReceiptView;
+use personal_leptos_types::{
+    ConditionalMutationResultView, ConditionalProfileMutationInputView, MutationReceiptView,
+};
 
 use crate::components::{
     format_relative_micros, freshness_from_micros, ConsentCard, KeyCard, PageHeader, SectionTitle,
@@ -478,7 +480,10 @@ fn IdentityPage() -> impl IntoView {
 
     let save_profile = move |ev: SubmitEvent| {
         ev.prevent_default();
-        let draft = ctx_for_save.draft_profile.get();
+        let input = ConditionalProfileMutationInputView {
+            expected_action_hash: ctx_for_save.profile_action_hash.get_untracked(),
+            profile: ctx_for_save.draft_profile.get(),
+        };
 
         let hc = hc.clone();
         let toasts = toasts.clone();
@@ -486,14 +491,14 @@ fn IdentityPage() -> impl IntoView {
         let ledger = ledger;
         spawn_local(async move {
             match hc
-                .call_zome_default::<_, MutationReceiptView>(
+                .call_zome_default::<_, ConditionalMutationResultView>(
                     "identity_vault",
-                    "set_profile_view",
-                    &draft,
+                    "set_profile_view_if_current",
+                    &input,
                 )
                 .await
             {
-                Ok(receipt) => {
+                Ok(ConditionalMutationResultView::Committed { receipt }) => {
                     let action_hash = receipt.action_hash;
                     ledger.record_committed(PersonalMutationTarget::Profile, action_hash.clone());
                     let outcome = refresh_identity_after_mutation(ctx.clone(), hc.clone()).await;
@@ -501,11 +506,22 @@ fn IdentityPage() -> impl IntoView {
                     if let MutationRefreshOutcome::Published { epoch } = outcome {
                         toasts.push(
                             format!(
-                                "Profile write committed; Identity refresh published in Personal epoch {epoch}, but action observation remains unconfirmed."
+                                "Profile write committed; Identity refresh published in Personal epoch {epoch}, but action observation remains separately evidenced."
                             ),
                             ToastKind::Success,
                         );
                     }
+                }
+                Ok(ConditionalMutationResultView::Conflict { current_action_hash }) => {
+                    let current = current_action_hash
+                        .map(|hash| format!("current action {hash}"))
+                        .unwrap_or_else(|| "current authoritative Profile is empty".into());
+                    toasts.push(
+                        format!(
+                            "Profile was not written because the displayed baseline is no longer current ({current}). Your local draft was retained; reconcile Personal state before retrying."
+                        ),
+                        ToastKind::Error,
+                    );
                 }
                 Err(err) => {
                     toasts.push(
@@ -527,7 +543,7 @@ fn IdentityPage() -> impl IntoView {
                         "Profile route aliases into the identity vault until deeper Personal profile pages are split."
                             .to_string()
                     } else {
-                        "Profile drafts stay local until a typed source-chain write succeeds. A write receipt is kept separate from current read-model reconciliation and action observation."
+                        "Profile drafts stay local until a conditional source-chain write succeeds against the exact Profile action that produced the displayed baseline."
                             .to_string()
                     }
                 }
