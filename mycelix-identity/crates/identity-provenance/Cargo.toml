@@ -1,0 +1,14 @@
+[package]
+name = "mycelix-identity-provenance"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Canonical, non-authoritative provenance bindings between Mycelix DIDs and external evidence-signing keys"
+publish = false
+
+[dependencies]
+serde = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
