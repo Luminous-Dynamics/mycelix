@@ -1,0 +1,230 @@
+name: Mycelix PIR-001B Semantic Core Exact-Head
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'mycelix-workspace/mycelix-core/libs/pir-core/**'
+      - 'mycelix-workspace/mycelix-core/libs/privacy-computation-core/**'
+      - '.github/workflows/pir-001b-semantic-core-exact-head.yml'
+  workflow_dispatch:
+    inputs:
+      subject_sha:
+        description: 'Exact 40-hex qualifier subject'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pir-001bq-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Exact-head PIR-001B semantic-core qualification
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      PRODUCT_PARENT: 07f4b8a8ec4d199066385210316a6ef5094124a0
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Resolve exact subject
+        id: subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            subject='${{ github.event.pull_request.head.sha }}'
+          else
+            subject='${{ inputs.subject_sha }}'
+          fi
+          [[ "$subject" =~ ^[0-9a-f]{40}$ ]]
+          echo "sha=$subject" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ steps.subject.outputs.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Verify exact qualifier shape
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$PRODUCT_PARENT"
+          test "$(git rev-list --count "$PRODUCT_PARENT"..HEAD)" = 1
+          mapfile -t changed < <(git diff --name-only "$PRODUCT_PARENT" HEAD)
+          test "${#changed[@]}" = 1
+          test "${changed[0]}" = '.github/workflows/pir-001b-semantic-core-exact-head.yml'
+          test -z "$(git status --porcelain)"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+
+      - name: Capture source evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/pir-001bq-evidence"
+          mkdir -p "$evidence"
+          {
+            echo "subject_sha=${{ steps.subject.outputs.sha }}"
+            echo 'authority_scope=StructuralOnly'
+            echo 'pir_backend_qualified=false'
+            echo 'query_privacy_established=false'
+            echo 'client_anonymity_established=false'
+            echo 'access_pattern_privacy_established=false'
+            echo 'response_integrity_established=false'
+            echo 'snapshot_freshness_established=false'
+            echo 'retrieval_authorized=false'
+            rustc -Vv
+            cargo -V
+          } > "$evidence/execution-capsule.txt"
+          find mycelix-workspace/mycelix-core/libs/pir-core \
+               mycelix-workspace/mycelix-core/libs/privacy-computation-core \
+               -type f -not -path '*/target/*' -print0 \
+            | sort -z | xargs -0 sha256sum > "$evidence/source-sha256.txt"
+
+      - name: Check formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-core/libs/pir-core/Cargo.toml \
+            --all -- --check
+
+      - name: Prepare isolated dependency graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/pir-001bq-graph"
+          evidence="$RUNNER_TEMP/pir-001bq-evidence"
+          mkdir -p "$root"
+          cp -a mycelix-workspace/mycelix-core/libs/privacy-computation-core "$root/privacy-computation-core"
+          cp -a mycelix-workspace/mycelix-core/libs/pir-core "$root/pir-core"
+          cd "$root/pir-core"
+          cargo generate-lockfile
+          sha256sum Cargo.lock > "$evidence/Cargo.lock.sha256"
+          cp Cargo.lock "$evidence/Cargo.lock"
+          cargo metadata --locked --format-version 1 > "$evidence/cargo-metadata.json"
+          cargo tree --locked > "$evidence/cargo-tree.txt"
+
+      - name: Execute committed corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/pir-001bq-graph/pir-core"
+          cargo test --locked --all-targets -- --nocapture
+
+      - name: Warnings-denied Clippy
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/pir-001bq-graph/pir-core"
+          cargo clippy --locked --all-targets -- -D warnings
+
+      - name: External authority-ceiling probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/pir-001bq-graph/pir-core"
+          mkdir -p "$crate/tests"
+          cat > "$crate/tests/authority_ceiling_probe.rs" <<'RS'
+          use mycelix_pir_core::{
+              evaluate_pir, PirCapability, PirDisposition, PirRequirement, PirServerModel,
+              QueryDomain, RecordLayout, ResponseIntegrityDeclaration,
+              ResponseIntegrityRequirement, SequencePrivacyDeclaration,
+              SequencePrivacyRequirement, SnapshotFreshnessDeclaration,
+              SnapshotFreshnessRequirement,
+          };
+          use privacy_computation_core::{
+              AdversaryModel, BackendIdentity, DisclosureRequirement, InteractionModel,
+              LeakageDeclaration, LeakageProfile, LeakageRequirements, ParticipantModel,
+              PrimitiveCapability, PrivacyObjective, PrivacyPrimitive, PrivacyRequirement,
+              QualificationState, SemanticAuthority,
+          };
+
+          #[test]
+          fn compatible_remains_structural_only() {
+              let requirement = PirRequirement {
+                  pec: PrivacyRequirement {
+                      objective: PrivacyObjective::QueryIndexPrivacy,
+                      participant_model: ParticipantModel::TwoParty,
+                      adversary_model: AdversaryModel::HonestButCurious,
+                      interaction_model: InteractionModel::Interactive { rounds: 1 },
+                      leakage: LeakageRequirements {
+                          query_index: DisclosureRequirement::MustHide,
+                          ..LeakageRequirements::default()
+                      },
+                      required_qualification: Some(QualificationState::Experimental),
+                  },
+                  server_model: PirServerModel::SingleServer,
+                  query_domain: QueryDomain::RecordIndex,
+                  record_layout: RecordLayout::FixedSize { bytes: 1024 },
+                  sequence_privacy: SequencePrivacyRequirement::SingleQueryOnly,
+                  response_integrity: ResponseIntegrityRequirement::Unspecified,
+                  snapshot_freshness: SnapshotFreshnessRequirement::Unspecified,
+              };
+
+              let capability = PirCapability {
+                  pec: PrimitiveCapability {
+                      backend: BackendIdentity {
+                          primitive: PrivacyPrimitive::PrivateInformationRetrieval,
+                          backend: "external-probe".into(),
+                          version: "0".into(),
+                          profile: "structural-only".into(),
+                      },
+                      supported_objectives: vec![PrivacyObjective::QueryIndexPrivacy],
+                      participant_model: ParticipantModel::TwoParty,
+                      adversary_model: AdversaryModel::HonestButCurious,
+                      interaction_model: InteractionModel::Interactive { rounds: 1 },
+                      leakage: LeakageProfile {
+                          query_index: LeakageDeclaration::DeclaredHidden,
+                          ..LeakageProfile::default()
+                      },
+                      qualification: QualificationState::Experimental,
+                  },
+                  server_model: PirServerModel::SingleServer,
+                  query_domains: vec![QueryDomain::RecordIndex],
+                  record_layouts: vec![RecordLayout::FixedSize { bytes: 1024 }],
+                  sequence_privacy: SequencePrivacyDeclaration::SingleQueryOnly,
+                  response_integrity: ResponseIntegrityDeclaration::NotProvided,
+                  snapshot_freshness: SnapshotFreshnessDeclaration::Unspecified,
+              };
+
+              let result = evaluate_pir(&requirement, &capability);
+              assert_eq!(result.disposition, PirDisposition::Compatible);
+              assert_eq!(result.authority, SemanticAuthority::StructuralOnly);
+              assert!(!result.query_privacy_established());
+              assert!(!result.client_anonymity_established());
+              assert!(!result.access_pattern_privacy_established());
+              assert!(!result.response_integrity_established());
+              assert!(!result.snapshot_freshness_established());
+              assert!(!result.retrieval_authorized());
+          }
+          RS
+          cd "$crate"
+          cargo test --locked --test authority_ceiling_probe -- --nocapture
+
+      - name: Postflight immutability and receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          test -z "$(git status --porcelain)"
+          echo 'PIR-001BQ PASS'
+          echo 'authority_scope=StructuralOnly'
+          echo 'pir_backend_qualified=false'
+          echo 'query_privacy_established=false'
+          echo 'client_anonymity_established=false'
+          echo 'access_pattern_privacy_established=false'
+          echo 'response_integrity_established=false'
+          echo 'snapshot_freshness_established=false'
+          echo 'retrieval_authorized=false'
