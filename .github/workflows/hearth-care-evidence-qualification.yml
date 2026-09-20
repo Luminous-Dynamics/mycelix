@@ -1,0 +1,60 @@
+name: Hearth Care Evidence Qualification
+
+on:
+  push:
+    branches:
+      - hth-auto-006q2-care-evidence-qualification
+  workflow_dispatch:
+
+# Exact qualification runs are immutable evidence for one subject commit.
+# Deliberately no superseding/cancellation concurrency group.
+permissions:
+  contents: read
+
+jobs:
+  qualify-care-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Check out exact subject
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Record subject
+        id: subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          if [ "$actual" != "${GITHUB_SHA}" ]; then
+            echo "checkout mismatch: $actual != ${GITHUB_SHA}" >&2
+            exit 1
+          fi
+          echo "sha=$actual" >> "$GITHUB_OUTPUT"
+
+      - name: Qualify Care evidence stack
+        env:
+          EXPECTED_SUBJECT_SHA: ${{ steps.subject.outputs.sha }}
+        run: |
+          nix develop ./mycelix-hearth#ci --impure --command bash -lc '
+            set -euo pipefail
+            cd mycelix-hearth
+            ./scripts/qualify-care-evidence.sh
+          '
+
+      - name: Upload immutable qualification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hearth-care-evidence-qualification-${{ steps.subject.outputs.sha }}
+          path: mycelix-hearth/qualification-evidence/care-evidence/
+          if-no-files-found: error
+          retention-days: 90
