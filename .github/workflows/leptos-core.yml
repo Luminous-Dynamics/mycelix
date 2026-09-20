@@ -1,0 +1,216 @@
+name: Mycelix Leptos Core
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'crates/mycelix-leptos-core/**'
+      - 'crates/mycelix-leptos-client/**'
+      - 'crates/mycelix-leptos-ui/**'
+      - 'mycelix-workspace/mycelix-personal/crates/personal-leptos-types/**'
+      - 'mycelix-workspace/mycelix-identity/crates/mycelix-crypto/**'
+      - '.github/workflows/leptos-core.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/mycelix-leptos-core/**'
+      - 'crates/mycelix-leptos-client/**'
+      - 'crates/mycelix-leptos-ui/**'
+      - 'mycelix-workspace/mycelix-personal/crates/personal-leptos-types/**'
+      - 'mycelix-workspace/mycelix-identity/crates/mycelix-crypto/**'
+      - '.github/workflows/leptos-core.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: leptos-core-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  leptos-core:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+          submodules: recursive
+
+      - name: Verify exact subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ github.event.pull_request.head.sha || github.sha }}'
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$expected" || {
+            echo "::error::Expected exact Leptos core subject $expected, got $actual"
+            exit 1
+          }
+
+      - name: Verify core source closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          for path in \
+            crates/mycelix-leptos-core/Cargo.toml \
+            crates/mycelix-leptos-core/src/lib.rs \
+            crates/mycelix-leptos-client/Cargo.toml \
+            crates/mycelix-leptos-ui/Cargo.toml \
+            mycelix-workspace/mycelix-personal/crates/personal-leptos-types/Cargo.toml \
+            mycelix-workspace/mycelix-identity/crates/mycelix-crypto/Cargo.toml; do
+            test -f "$path" || {
+              echo "::error file=$path::Required Leptos core dependency source is missing."
+              exit 1
+            }
+          done
+
+      - name: Install pinned Rust
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87b
+        with:
+          toolchain: 1.96.0
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+
+      - name: Prepare isolated exact-source qualification copy
+        shell: bash
+        run: |
+          set -euo pipefail
+          dst="$RUNNER_TEMP/mycelix-core-qual"
+          rm -rf "$dst"
+          mkdir -p "$dst"
+          rsync -a --delete --exclude='.git' "$GITHUB_WORKSPACE/" "$dst/"
+
+          for path in \
+            crates/mycelix-leptos-core \
+            crates/mycelix-leptos-client \
+            crates/mycelix-leptos-ui \
+            mycelix-workspace/mycelix-personal/crates/personal-leptos-types \
+            mycelix-workspace/mycelix-identity/crates/mycelix-crypto; do
+            diff -ru --exclude='.git' "$GITHUB_WORKSPACE/$path" "$dst/$path"
+          done
+
+          echo "CORE_QUAL_REPO=$dst" >> "$GITHUB_ENV"
+          echo "CORE_MANIFEST=$dst/crates/mycelix-leptos-core/Cargo.toml" >> "$GITHUB_ENV"
+          echo "CARGO_TARGET_DIR=$RUNNER_TEMP/mycelix-leptos-core-target" >> "$GITHUB_ENV"
+
+      - name: Resolve exact core dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo metadata --format-version 1 \
+            --manifest-path "$CORE_MANIFEST" >/dev/null
+          test -f "$CORE_QUAL_REPO/crates/mycelix-leptos-core/Cargo.lock" || {
+            echo "::error::Core dependency resolution did not produce Cargo.lock evidence."
+            exit 1
+          }
+
+      - name: Check core formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path "$CORE_MANIFEST" -- --check
+
+      - name: Run core host tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path "$CORE_MANIFEST" --lib
+
+      - name: Check core WASM build
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo check \
+            --manifest-path "$CORE_MANIFEST" \
+            --target wasm32-unknown-unknown
+
+      - name: Clippy core host targets
+        id: clippy_host
+        shell: bash
+        run: |
+          set -uo pipefail
+          log="$RUNNER_TEMP/leptos-core-clippy-host.log"
+          : > "$log"
+          cargo clippy \
+            --manifest-path "$CORE_MANIFEST" \
+            --all-targets \
+            --message-format short -- -D warnings 2>&1 | tee "$log"
+          exit ${PIPESTATUS[0]}
+
+      - name: Clippy core WASM library
+        id: clippy_wasm
+        shell: bash
+        run: |
+          set -uo pipefail
+          log="$RUNNER_TEMP/leptos-core-clippy-wasm.log"
+          : > "$log"
+          cargo clippy \
+            --manifest-path "$CORE_MANIFEST" \
+            --target wasm32-unknown-unknown \
+            --lib \
+            --message-format short -- -D warnings 2>&1 | tee "$log"
+          exit ${PIPESTATUS[0]}
+
+      - name: Upload exact core Clippy diagnostics
+        if: ${{ always() && (steps.clippy_host.outcome == 'failure' || steps.clippy_wasm.outcome == 'failure') }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: leptos-core-clippy-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            ${{ runner.temp }}/leptos-core-clippy-host.log
+            ${{ runner.temp }}/leptos-core-clippy-wasm.log
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload resolved core lock evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: leptos-core-lock-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/mycelix-core-qual/crates/mycelix-leptos-core/Cargo.lock
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Prove checkout immutability
+        id: immutability
+        if: always()
+        shell: bash
+        run: |
+          set -uo pipefail
+          log="$RUNNER_TEMP/leptos-core-immutability.log"
+          : > "$log"
+          {
+            echo '=== git status --short ==='
+            git status --short
+            echo '=== untracked paths ==='
+            git ls-files --others --exclude-standard
+            echo '=== git diff --stat ==='
+            git diff --stat
+            echo '=== git diff ==='
+            git diff
+          } 2>&1 | tee "$log"
+
+          status=${PIPESTATUS[0]}
+          if ! git diff --exit-code >>"$log" 2>&1; then
+            status=1
+          fi
+          if [ -n "$(git status --porcelain)" ]; then
+            status=1
+          fi
+          exit "$status"
+
+      - name: Upload exact core immutability diagnostics
+        if: ${{ always() && steps.immutability.outcome == 'failure' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: leptos-core-immutability-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/leptos-core-immutability.log
+          if-no-files-found: error
+          retention-days: 7
