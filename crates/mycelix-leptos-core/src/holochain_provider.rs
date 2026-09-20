@@ -21,6 +21,9 @@ use crate::holochain_call_observation::{
     HolochainCallAdmissionExhaustion, HolochainCallAttemptId, HolochainCallAttemptSequence,
     HolochainCallDiagnosticState, HolochainCallFailureObservation, HolochainCallInvocationError,
 };
+use crate::holochain_call_target_diagnostics::{
+    HolochainCallDiagnosticLedger, HolochainCallTarget,
+};
 use mycelix_leptos_client::{
     BrowserWsTransport, ClientError, ConnectConfig,
     ConnectionStatus as TransportConnectionStatus, HolochainTransport, HostZomeCallSigner,
@@ -127,16 +130,25 @@ pub struct HolochainCtx {
     /// Most recent transport, serialization, or zome-call failure from the
     /// legacy string-returning provider path.
     pub last_error: ReadSignal<Option<String>>,
-    /// Ordered typed diagnostic evidence produced only by the additive typed
-    /// provider call path.
+    /// Provider-wide ordered typed diagnostic evidence produced only by the
+    /// additive typed provider call path.
     ///
-    /// This signal is observational. It does not grant authorization, establish
-    /// commit/rollback, or imply that retry is safe.
+    /// This coarse signal is retained for compatibility and telemetry. A newer
+    /// completion on any target may supersede older provider-wide evidence.
     pub call_diagnostics: ReadSignal<HolochainCallDiagnosticState>,
+    /// Target-scoped ordered typed diagnostic evidence produced only by the
+    /// additive typed provider call path.
+    ///
+    /// Each exact `(role, zome, function)` target has its own completion lane,
+    /// so success on one target cannot erase failure evidence from another.
+    /// This signal is observational only: it does not grant authorization,
+    /// establish commit/rollback, or imply that retry is safe.
+    pub target_call_diagnostics: ReadSignal<HolochainCallDiagnosticLedger>,
     set_status: WriteSignal<ConnectionStatus>,
     set_zome_call_signing_ready: WriteSignal<bool>,
     set_last_error: WriteSignal<Option<String>>,
     set_call_diagnostics: WriteSignal<HolochainCallDiagnosticState>,
+    set_target_call_diagnostics: WriteSignal<HolochainCallDiagnosticLedger>,
     transport: TransportCell,
     call_attempt_sequence: AttemptSequenceCell,
     default_role: Option<String>,
@@ -153,17 +165,32 @@ impl HolochainCtx {
         &self,
         observation: HolochainCallFailureObservation,
     ) -> HolochainCallInvocationError {
-        let mut next = self.call_diagnostics.get_untracked();
-        if next.observe_failure(observation.clone()) {
-            self.set_call_diagnostics.set(next);
+        let mut global = self.call_diagnostics.get_untracked();
+        if global.observe_failure(observation.clone()) {
+            self.set_call_diagnostics.set(global);
         }
+
+        let mut targeted = self.target_call_diagnostics.get_untracked();
+        if targeted.observe_failure(observation.clone()) {
+            self.set_target_call_diagnostics.set(targeted);
+        }
+
         observation.into()
     }
 
-    fn observe_typed_success(&self, attempt_id: HolochainCallAttemptId) {
-        let mut next = self.call_diagnostics.get_untracked();
-        if next.observe_success(attempt_id) {
-            self.set_call_diagnostics.set(next);
+    fn observe_typed_success(
+        &self,
+        target: HolochainCallTarget,
+        attempt_id: HolochainCallAttemptId,
+    ) {
+        let mut global = self.call_diagnostics.get_untracked();
+        if global.observe_success(attempt_id) {
+            self.set_call_diagnostics.set(global);
+        }
+
+        let mut targeted = self.target_call_diagnostics.get_untracked();
+        if targeted.observe_success(target, attempt_id) {
+            self.set_target_call_diagnostics.set(targeted);
         }
     }
 
@@ -173,12 +200,18 @@ impl HolochainCtx {
         zome: &str,
         fn_name: &str,
     ) -> HolochainCallInvocationError {
-        let mut next = self.call_diagnostics.get_untracked();
-        if next.observe_attempt_sequence_exhaustion(HolochainCallAdmissionExhaustion::new(
-            role, zome, fn_name,
-        )) {
-            self.set_call_diagnostics.set(next);
+        let exhaustion = HolochainCallAdmissionExhaustion::new(role, zome, fn_name);
+
+        let mut global = self.call_diagnostics.get_untracked();
+        if global.observe_attempt_sequence_exhaustion(exhaustion.clone()) {
+            self.set_call_diagnostics.set(global);
         }
+
+        let mut targeted = self.target_call_diagnostics.get_untracked();
+        if targeted.observe_attempt_sequence_exhaustion(exhaustion) {
+            self.set_target_call_diagnostics.set(targeted);
+        }
+
         HolochainCallInvocationError::attempt_sequence_exhausted(role, zome, fn_name)
     }
 
@@ -229,9 +262,12 @@ impl HolochainCtx {
     /// Additive typed zome-call path preserving provider attempt identity,
     /// exact failure phase, call target, and the underlying [`ClientError`].
     ///
-    /// Typed terminal observations are published through [`Self::call_diagnostics`]
-    /// using provider-attempt ordering. The legacy [`Self::last_error`] signal
-    /// remains owned by the legacy string-returning call path.
+    /// Typed terminal observations are published through both
+    /// [`Self::call_diagnostics`] and [`Self::target_call_diagnostics`]. The
+    /// provider-wide signal keeps coarse completion ordering while the target
+    /// ledger preserves independent ordering for each exact call target. The
+    /// legacy [`Self::last_error`] signal remains owned by the legacy
+    /// string-returning call path.
     pub async fn call_zome_typed<I: Serialize, O: DeserializeOwned>(
         &self,
         role: &str,
@@ -250,6 +286,8 @@ impl HolochainCtx {
             }
         };
         let attempt_id = attempt.id();
+        let attempt_target =
+            HolochainCallTarget::new(attempt.role(), attempt.zome(), attempt.function());
 
         let transport = {
             let slot = self.transport.borrow();
@@ -295,7 +333,7 @@ impl HolochainCtx {
 
         match decode(&response_bytes) {
             Ok(decoded) => {
-                self.observe_typed_success(attempt_id);
+                self.observe_typed_success(attempt_target, attempt_id);
                 Ok(decoded)
             }
             Err(error) => {
@@ -519,6 +557,8 @@ pub fn HolochainProviderAuto(config: HolochainProviderConfig, children: Children
     let (zome_call_signing_ready, set_zome_call_signing_ready) = signal(false);
     let (last_error, set_last_error) = signal(None::<String>);
     let (call_diagnostics, set_call_diagnostics) = signal(HolochainCallDiagnosticState::default());
+    let (target_call_diagnostics, set_target_call_diagnostics) =
+        signal(HolochainCallDiagnosticLedger::default());
     // Distinguishes an ACCIDENTAL degrade (a Live strategy that failed to connect
     // and fell back to mock data) from a DELIBERATE demo (ConnectStrategy::MockOnly).
     // Only the former warrants shouting at the user -- see the banner below.
@@ -532,10 +572,12 @@ pub fn HolochainProviderAuto(config: HolochainProviderConfig, children: Children
         zome_call_signing_ready,
         last_error,
         call_diagnostics,
+        target_call_diagnostics,
         set_status,
         set_zome_call_signing_ready,
         set_last_error,
         set_call_diagnostics,
+        set_target_call_diagnostics,
         transport: transport.clone(),
         call_attempt_sequence,
         default_role: config.default_role.clone(),
