@@ -13,4 +13,5 @@ hdi = { workspace = true }
 serde = { workspace = true }
 hearth-types = { workspace = true }
 hearth-authority-hdi = { workspace = true }
+hearth-care-admission-proof = { workspace = true }
 hearth_care_integrity = { path = "../../hearth-care/integrity" }
