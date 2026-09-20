@@ -1,0 +1,74 @@
+{
+  "schema": "mycelix-evidence-ci-core-adapter-vectors-v1",
+  "supported_core_head": "4190f855eb0f3c03a7a6b0decee84dd7edba07b4",
+  "vectors": [
+    {
+      "core_manifest_v1": {
+        "qualification_head": "4fa9a8597152f404ec922afdabd113fd6d305e49",
+        "repository_id": 1176351975,
+        "required_jobs": [
+          {
+            "job_key": "qualify"
+          }
+        ],
+        "theorem_id": "AMSAP-004A",
+        "workflow_path": ".github/workflows/amsap-004a-subject-topology.yml"
+      },
+      "core_observation_v1": {
+        "jobs": [
+          {
+            "conclusion": "Cancelled",
+            "dependency_state": "EligibleForRunner",
+            "failure_class": "RunnerInfrastructureBeforeTheoremGate",
+            "gate_execution": "NoTheoremStepExecuted",
+            "job_id": 105898874637,
+            "job_key": "qualify",
+            "queue_age_seconds": null,
+            "status": "Completed"
+          }
+        ],
+        "qualification_head": "4fa9a8597152f404ec922afdabd113fd6d305e49",
+        "repository_id": 1176351975,
+        "workflow_path": ".github/workflows/amsap-004a-subject-topology.yml",
+        "workflow_run_id": 35443692878
+      },
+      "expected_core_liveness": "InfrastructureInterrupted",
+      "expected_provider_state": "TerminalCancelledNoStart",
+      "id": "amsap-r1-terminal-cancelled-no-start"
+    },
+    {
+      "core_manifest_v1": {
+        "qualification_head": "7936a7d3f4cc13283aa94229f7f24aacec8c0105",
+        "repository_id": 1176351975,
+        "required_jobs": [
+          {
+            "job_key": "qualify"
+          }
+        ],
+        "theorem_id": "AMSAP-004A",
+        "workflow_path": ".github/workflows/amsap-004a-subject-topology.yml"
+      },
+      "core_observation_v1": {
+        "jobs": [
+          {
+            "conclusion": null,
+            "dependency_state": "EligibleForRunner",
+            "failure_class": "NotApplicable",
+            "gate_execution": "NoTheoremStepExecuted",
+            "job_id": 106090286562,
+            "job_key": "qualify",
+            "queue_age_seconds": 60,
+            "status": "Queued"
+          }
+        ],
+        "qualification_head": "7936a7d3f4cc13283aa94229f7f24aacec8c0105",
+        "repository_id": 1176351975,
+        "workflow_path": ".github/workflows/amsap-004a-subject-topology.yml",
+        "workflow_run_id": 35515367251
+      },
+      "expected_core_liveness": "AllRequiredJobsNoStart",
+      "expected_provider_state": "QueuedNoTheoremStart",
+      "id": "amsap-r2-queued-no-start"
+    }
+  ]
+}
