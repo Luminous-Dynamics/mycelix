@@ -1,0 +1,262 @@
+name: Mycelix GitHub Verifier Executor Exact-Head Gate A
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - '.github/workflows/github-verifier-executor-exact-head.yml'
+  workflow_dispatch:
+    inputs:
+      subject_sha:
+        description: 'Exact implementation subject SHA'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-verifier-executor-a-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Exact-head executor compile/API gate
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CARGO_TERM_COLOR: always
+      EXPECTED_SUBJECT_SHA: a294b54356059cccbf02971670a171caa92b7de6
+    steps:
+      - name: Resolve exact implementation subject
+        id: subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            subject='${{ github.event.pull_request.base.sha }}'
+          else
+            subject='${{ inputs.subject_sha }}'
+          fi
+          [[ "$subject" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid subject SHA: $subject" >&2; exit 1; }
+          test "$subject" = "$EXPECTED_SUBJECT_SHA"
+          echo "sha=$subject" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ steps.subject.outputs.sha }}
+          fetch-depth: 1
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+
+      - name: Preflight exact source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          test -z "$(git status --porcelain)"
+          evidence="$RUNNER_TEMP/github-verifier-executor-a-evidence"
+          mkdir -p "$evidence"
+          {
+            echo "subject_sha=${{ steps.subject.outputs.sha }}"
+            echo "runner_os=${RUNNER_OS}"
+            echo "runner_arch=${RUNNER_ARCH}"
+            rustc -Vv
+            cargo -V
+          } > "$evidence/execution-capsule.txt"
+          find mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication \
+            -type f -not -path '*/target/*' -print0 | sort -z | xargs -0 sha256sum \
+            > "$evidence/source-sha256.txt"
+
+      - name: Check formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication/Cargo.toml -- --check
+
+      - name: Prepare isolated exact crate
+        shell: bash
+        run: |
+          set -euo pipefail
+          src="mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication"
+          dst="$RUNNER_TEMP/github-verifier-executor-a-crate"
+          evidence="$RUNNER_TEMP/github-verifier-executor-a-evidence"
+          cp -a "$src" "$dst"
+          cd "$dst"
+          cargo generate-lockfile
+          cargo metadata --locked --format-version 1 > "$evidence/cargo-metadata.json"
+          cargo tree --locked > "$evidence/cargo-tree.txt"
+          sha256sum Cargo.lock > "$evidence/cargo-lock.sha256"
+          grep -Fq 'time v0.3.55' "$evidence/cargo-tree.txt"
+
+      - name: Compile and test
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/github-verifier-executor-a-crate"
+          evidence="$RUNNER_TEMP/github-verifier-executor-a-evidence"
+          cd "$crate"
+          cargo check --locked --all-targets 2>&1 | tee "$evidence/cargo-check.txt"
+          cargo test --locked 2>&1 | tee "$evidence/cargo-test.txt"
+
+      - name: Prove public executor API shape
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/github-verifier-executor-a-crate"
+          evidence="$RUNNER_TEMP/github-verifier-executor-a-evidence"
+          mkdir -p "$crate/tests"
+          cat > "$crate/tests/executor_public_shape.rs" <<'RS'
+          use proofs_evidence_authentication::{
+              ExecutedGitHubVerificationV1, GitHubBoundVerifierExecutionErrorV1,
+              GitHubPublicVerifierExecutionPolicyV1, GitObjectIdV1,
+              QualificationReceiptV1, ReceiptAuthenticationPolicyV1,
+              execute_github_public_verifier_v1,
+          };
+
+          #[test]
+          fn public_executor_requires_exact_policy_tuple() {
+              let _: fn(
+                  &GitHubPublicVerifierExecutionPolicyV1,
+                  &ReceiptAuthenticationPolicyV1,
+                  &QualificationReceiptV1,
+                  GitObjectIdV1,
+                  &str,
+              ) -> Result<ExecutedGitHubVerificationV1, GitHubBoundVerifierExecutionErrorV1>
+                  = execute_github_public_verifier_v1;
+          }
+          RS
+          cd "$crate"
+          cargo test --locked --test executor_public_shape -- --nocapture 2>&1 | tee "$evidence/public-shape.txt"
+          rm tests/executor_public_shape.rs
+
+      - name: Prove sealed capability traits stay unavailable
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/github-verifier-executor-a-crate"
+          evidence="$RUNNER_TEMP/github-verifier-executor-a-evidence"
+          cat > "$crate/tests/no_sealed_traits.rs" <<'RS'
+          use proofs_evidence_authentication::ExecutedGitHubVerificationV1;
+          use serde::de::DeserializeOwned;
+          fn require_clone<T: Clone>() {}
+          fn require_default<T: Default>() {}
+          fn require_deserialize<T: DeserializeOwned>() {}
+          #[test]
+          fn probe() {
+              require_clone::<ExecutedGitHubVerificationV1>();
+              require_default::<ExecutedGitHubVerificationV1>();
+              require_deserialize::<ExecutedGitHubVerificationV1>();
+          }
+          RS
+          set +e
+          (cd "$crate" && CARGO_TERM_COLOR=never cargo check --locked --test no_sealed_traits) \
+            > "$evidence/no-sealed-traits.stdout.txt" 2> "$evidence/no-sealed-traits.stderr.txt"
+          status=$?
+          set -e
+          test $status -ne 0
+          grep -Fq 'ExecutedGitHubVerificationV1' "$evidence/no-sealed-traits.stderr.txt"
+          grep -Fq 'Clone' "$evidence/no-sealed-traits.stderr.txt"
+          grep -Fq 'Default' "$evidence/no-sealed-traits.stderr.txt"
+          grep -Eq 'Deserialize|DeserializeOwned' "$evidence/no-sealed-traits.stderr.txt"
+          rm "$crate/tests/no_sealed_traits.rs"
+
+      - name: Prove process receipt cannot upgrade into sealed execution
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/github-verifier-executor-a-crate"
+          evidence="$RUNNER_TEMP/github-verifier-executor-a-evidence"
+          cat > "$crate/tests/no_process_receipt_upgrade.rs" <<'RS'
+          use proofs_evidence_authentication::{ExecutedGitHubVerificationV1, VerifierProcessExecutionReceiptV1};
+          fn require_into<T: Into<ExecutedGitHubVerificationV1>>() {}
+          #[test]
+          fn probe() { require_into::<VerifierProcessExecutionReceiptV1>(); }
+          RS
+          set +e
+          (cd "$crate" && CARGO_TERM_COLOR=never cargo check --locked --test no_process_receipt_upgrade) \
+            > "$evidence/no-process-receipt-upgrade.stdout.txt" 2> "$evidence/no-process-receipt-upgrade.stderr.txt"
+          status=$?
+          set -e
+          test $status -ne 0
+          grep -Fq 'VerifierProcessExecutionReceiptV1' "$evidence/no-process-receipt-upgrade.stderr.txt"
+          grep -Fq 'ExecutedGitHubVerificationV1' "$evidence/no-process-receipt-upgrade.stderr.txt"
+          rm "$crate/tests/no_process_receipt_upgrade.rs"
+
+      - name: Prove caller plan cannot be injected
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/github-verifier-executor-a-crate"
+          evidence="$RUNNER_TEMP/github-verifier-executor-a-evidence"
+          cat > "$crate/tests/no_plan_injection.rs" <<'RS'
+          use proofs_evidence_authentication::{
+              GitHubPublicCommandPlanV1, GitHubPublicVerifierExecutionPolicyV1,
+              QualificationReceiptV1, execute_github_public_verifier_v1,
+          };
+          fn probe(policy: &GitHubPublicVerifierExecutionPolicyV1, plan: &GitHubPublicCommandPlanV1, receipt: &QualificationReceiptV1) {
+              let _ = execute_github_public_verifier_v1(policy, plan, receipt);
+          }
+          RS
+          set +e
+          (cd "$crate" && CARGO_TERM_COLOR=never cargo check --locked --test no_plan_injection) \
+            > "$evidence/no-plan-injection.stdout.txt" 2> "$evidence/no-plan-injection.stderr.txt"
+          status=$?
+          set -e
+          test $status -ne 0
+          grep -Fq 'E0061' "$evidence/no-plan-injection.stderr.txt"
+          rm "$crate/tests/no_plan_injection.rs"
+
+      - name: Warnings-denied Clippy
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/github-verifier-executor-a-crate"
+          evidence="$RUNNER_TEMP/github-verifier-executor-a-evidence"
+          cd "$crate"
+          cargo clippy --locked --all-targets -- -D warnings 2>&1 | tee "$evidence/clippy.txt"
+
+      - name: Verify checkout immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          test -z "$(git status --porcelain)"
+          evidence="$RUNNER_TEMP/github-verifier-executor-a-evidence"
+          find mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication \
+            -type f -not -path '*/target/*' -print0 | sort -z | xargs -0 sha256sum \
+            > "$evidence/source-sha256-post.txt"
+          cmp "$evidence/source-sha256.txt" "$evidence/source-sha256-post.txt"
+
+      - name: Write Gate A result
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/github-verifier-executor-a-evidence"
+          cat > "$evidence/QUALIFICATION.txt" <<EOF
+          MYC-ZKP-GH-EXECUTOR-001AQ-A PASS
+          subject_sha=${{ steps.subject.outputs.sha }}
+          gate=compile-api-nonforgeability
+          process_group_repair_subject=true
+          policy_bound_public_api=true
+          process_runtime_behavior=NOT_ESTABLISHED_BY_GATE_A
+          trusted_clock=false
+          receipt_authentication=false
+          production_admission=false
+          application_authority=false
+          EOF
+
+      - name: Upload Gate A evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: myc-zkp-gh-executor-001aq-a-${{ steps.subject.outputs.sha }}
+          path: ${{ runner.temp }}/github-verifier-executor-a-evidence
+          if-no-files-found: warn
+          retention-days: 30
