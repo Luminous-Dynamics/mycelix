@@ -1,0 +1,11 @@
+[package]
+name = "hearth-edge-lease"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Exclusive local executor lease for physical Mycelix Hearth edge automation"
+
+[dependencies]
+hearth-automation-types = { workspace = true }
+hearth-edge = { path = "../hearth-edge" }
+hearth-edge-journal = { path = "../hearth-edge-journal" }
