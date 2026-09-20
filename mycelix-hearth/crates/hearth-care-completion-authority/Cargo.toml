@@ -1,0 +1,11 @@
+[package]
+name = "hearth-care-completion-authority"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Pure completion authority theorem over fully qualified Care occurrences"
+
+[dependencies]
+serde = { workspace = true }
+hearth-care-ledger-contract = { workspace = true }
+hearth-care-occurrence-authority = { workspace = true }
