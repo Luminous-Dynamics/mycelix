@@ -62,6 +62,10 @@ name = "sweettest_care_transitions_adversarial"
 path = "sweettest_care_transitions_adversarial.rs"
 
 [[test]]
+name = "sweettest_care_transitions_immutability"
+path = "sweettest_care_transitions_immutability.rs"
+
+[[test]]
 name = "sweettest_emergency"
 path = "sweettest_emergency.rs"
 
