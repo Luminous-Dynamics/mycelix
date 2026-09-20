@@ -1,0 +1,122 @@
+name: SUP-CIV-000D0 Protected Storage Reuse Census
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/docs/civic-resilience/SUP_CIV_000D0_PROTECTED_STORAGE_REUSE_CENSUS_V1.md'
+      - 'mycelix-workspace/docs/civic-resilience/sup_civ_000d0_manifest.json'
+      - '.github/workflows/sup-civ-000d0-reuse-census.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prove exact semantic topology
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='a85369699099d4c7524e502e531735eed4ab36f4'
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          test "$(git rev-list --count "$EXPECTED_PARENT"..HEAD)" = '1'
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PARENT" HEAD | sort)
+          expected=(
+            '.github/workflows/sup-civ-000d0-reuse-census.yml'
+            'mycelix-workspace/docs/civic-resilience/SUP_CIV_000D0_PROTECTED_STORAGE_REUSE_CENSUS_V1.md'
+            'mycelix-workspace/docs/civic-resilience/sup_civ_000d0_manifest.json'
+          )
+          test "${#changed[@]}" = "${#expected[@]}"
+          for i in "${!expected[@]}"; do
+            test "${changed[$i]}" = "${expected[$i]}"
+          done
+
+      - name: Validate closed reuse census
+        shell: python
+        run: |
+          import json
+          from pathlib import Path
+
+          path = Path('mycelix-workspace/docs/civic-resilience/sup_civ_000d0_manifest.json')
+          data = json.loads(path.read_text())
+
+          assert set(data) == {
+              'schema', 'authority', 'audited_sources', 'ownership_classes',
+              'census', 'non_equivalences', 'required_next', 'forbidden_in_this_tranche'
+          }
+          assert data['schema'] == 'sup-civ-000d0-protected-storage-reuse-census-v1'
+          assert data['authority'] == 'semantic-ownership-only'
+          assert data['audited_sources'] == {
+              'mycelix': 'a85369699099d4c7524e502e531735eed4ab36f4',
+              'xenia_peer': 'af4fcefc6d4cc7c3f74a3ca48f26abcd97d1e930',
+              'xenia_wire': '057dd03043b8863d8f8280abf333331cc9ddf317',
+          }
+          classes = {'Owns', 'CandidateAdapter', 'ExplicitlyDoesNotOwn'}
+          assert set(data['ownership_classes']) == classes
+          assert len(data['census']) == 21
+          seen = set()
+          for row in data['census']:
+              assert set(row) == {'owner', 'property', 'classification'}
+              assert row['classification'] in classes
+              key = (row['owner'], row['property'])
+              assert key not in seen
+              seen.add(key)
+
+          required_refusals = {
+              ('xenia-handshake', 'durable_multi_recipient_case_dek_wrapping'),
+              ('xenia-handshake', 'case_recipient_authorization'),
+              ('xenia-wire', 'multi_recipient_envelope_lifecycle'),
+              ('xenia-secure-file', 'multi_party_protected_case_sharing'),
+              ('holochain-private-entry', 'multi_party_protected_database'),
+              ('holochain-capability', 'data_at_rest_encryption'),
+              ('holochain-restricted-dna', 'per_record_least_privilege'),
+          }
+          by_key = {(r['owner'], r['property']): r['classification'] for r in data['census']}
+          for key in required_refusals:
+              assert by_key[key] == 'ExplicitlyDoesNotOwn'
+
+          required_non_equivalences = {
+              'SecureTransport != ProtectedAtRestStorage',
+              'SessionKey != DurableCaseDEK',
+              'AuthenticatedPeer != AuthorizedCaseRecipient',
+              'HasDecryptionKey != CurrentPolicyAuthorization',
+              'CapabilityGrant != DataAtRestEncryption',
+              'PrivateEntry != MultiPartyProtectedDatabase',
+              'RestrictedDNA != PerRecordLeastPrivilege',
+              'LocalSecureFile != DistributedProtectedStore',
+              'AEADAvailable != KeyLifecycleQualified',
+              'KeyRotation != KnowledgeRevocation',
+              'WireEnvelopeAEAD != ProtectedCaseEnvelope',
+              'WireEpochRotation != CaseRecipientRotation',
+              'FilesystemOwnerOnly != CasePurposeAuthorization',
+              'CryptoPrimitiveAvailable != ProtectedStorageProfileQualified',
+          }
+          assert set(data['non_equivalences']) == required_non_equivalences
+          assert data['required_next'] == ['SUP-CIV-000D1', 'SUP-CIV-000D2', 'SUP-CIV-000D3']
+          assert set(data['forbidden_in_this_tranche']) == {
+              'runtime_crypto_changes', 'storage_profile_selection',
+              'recipient_authorization_claim', 'legal_compliance_claim',
+              'municipal_authority_claim', 'johannesburg_readiness_claim'
+          }
+          print('PASS_SUP_CIV_000D0_REUSE_CENSUS')
+
+      - name: Refuse runtime changes in semantic census
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='a85369699099d4c7524e502e531735eed4ab36f4'
+          if git diff --name-only "$EXPECTED_PARENT" HEAD | grep -E '\.(rs|toml|lock|nix)$'; then
+            echo 'runtime/build file entered semantic-only census' >&2
+            exit 1
+          fi
+
+      - name: Prove checkout remained immutable
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain)"

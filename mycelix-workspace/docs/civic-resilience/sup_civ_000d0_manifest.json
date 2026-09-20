@@ -1,0 +1,66 @@
+{
+  "schema": "sup-civ-000d0-protected-storage-reuse-census-v1",
+  "authority": "semantic-ownership-only",
+  "audited_sources": {
+    "mycelix": "a85369699099d4c7524e502e531735eed4ab36f4",
+    "xenia_peer": "af4fcefc6d4cc7c3f74a3ca48f26abcd97d1e930",
+    "xenia_wire": "057dd03043b8863d8f8280abf333331cc9ddf317"
+  },
+  "ownership_classes": [
+    "Owns",
+    "CandidateAdapter",
+    "ExplicitlyDoesNotOwn"
+  ],
+  "census": [
+    {"owner":"xenia-handshake","property":"session_key_establishment","classification":"Owns"},
+    {"owner":"xenia-handshake","property":"hybrid_transcript_authentication","classification":"Owns"},
+    {"owner":"xenia-handshake","property":"transcript_bound_session_key_schedule","classification":"Owns"},
+    {"owner":"xenia-handshake","property":"durable_multi_recipient_case_dek_wrapping","classification":"ExplicitlyDoesNotOwn"},
+    {"owner":"xenia-handshake","property":"case_recipient_authorization","classification":"ExplicitlyDoesNotOwn"},
+    {"owner":"xenia-handshake","property":"case_retention_or_erasure","classification":"ExplicitlyDoesNotOwn"},
+    {"owner":"xenia-wire","property":"in_session_aead_wire_sealing","classification":"Owns"},
+    {"owner":"xenia-wire","property":"wire_replay_and_epoch_semantics","classification":"Owns"},
+    {"owner":"xenia-wire","property":"protected_case_envelope_adapter","classification":"CandidateAdapter"},
+    {"owner":"xenia-wire","property":"multi_recipient_envelope_lifecycle","classification":"ExplicitlyDoesNotOwn"},
+    {"owner":"xenia-secure-file","property":"local_secret_file_hardening","classification":"Owns"},
+    {"owner":"xenia-secure-file","property":"atomic_single_host_secret_persistence","classification":"Owns"},
+    {"owner":"xenia-secure-file","property":"multi_party_protected_case_sharing","classification":"ExplicitlyDoesNotOwn"},
+    {"owner":"xenia-secure-file","property":"recipient_cryptographic_authorization","classification":"ExplicitlyDoesNotOwn"},
+    {"owner":"mycelix-crypto-primitives","property":"protected_case_envelope_adapter","classification":"CandidateAdapter"},
+    {"owner":"holochain-private-entry","property":"author_local_content_confidentiality_primitive","classification":"Owns"},
+    {"owner":"holochain-private-entry","property":"multi_party_protected_database","classification":"ExplicitlyDoesNotOwn"},
+    {"owner":"holochain-capability","property":"callable_function_access_primitive","classification":"Owns"},
+    {"owner":"holochain-capability","property":"data_at_rest_encryption","classification":"ExplicitlyDoesNotOwn"},
+    {"owner":"holochain-restricted-dna","property":"participant_network_isolation_primitive","classification":"Owns"},
+    {"owner":"holochain-restricted-dna","property":"per_record_least_privilege","classification":"ExplicitlyDoesNotOwn"}
+  ],
+  "non_equivalences": [
+    "SecureTransport != ProtectedAtRestStorage",
+    "SessionKey != DurableCaseDEK",
+    "AuthenticatedPeer != AuthorizedCaseRecipient",
+    "HasDecryptionKey != CurrentPolicyAuthorization",
+    "CapabilityGrant != DataAtRestEncryption",
+    "PrivateEntry != MultiPartyProtectedDatabase",
+    "RestrictedDNA != PerRecordLeastPrivilege",
+    "LocalSecureFile != DistributedProtectedStore",
+    "AEADAvailable != KeyLifecycleQualified",
+    "KeyRotation != KnowledgeRevocation",
+    "WireEnvelopeAEAD != ProtectedCaseEnvelope",
+    "WireEpochRotation != CaseRecipientRotation",
+    "FilesystemOwnerOnly != CasePurposeAuthorization",
+    "CryptoPrimitiveAvailable != ProtectedStorageProfileQualified"
+  ],
+  "required_next": [
+    "SUP-CIV-000D1",
+    "SUP-CIV-000D2",
+    "SUP-CIV-000D3"
+  ],
+  "forbidden_in_this_tranche": [
+    "runtime_crypto_changes",
+    "storage_profile_selection",
+    "recipient_authorization_claim",
+    "legal_compliance_claim",
+    "municipal_authority_claim",
+    "johannesburg_readiness_claim"
+  ]
+}
