@@ -1,0 +1,21 @@
+[package]
+name = "psi-query-credit-sqlite-spend"
+version = "0.1.0"
+edition = "2024"
+authors = ["Mycelix Network"]
+description = "SQLite WAL/FULL atomic spend backend for Mycelix Privacy Pass query tokens"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+publish = false
+
+[dependencies]
+psi-query-credit-spend-core = { path = "../psi-query-credit-spend-core" }
+rusqlite = { version = "=0.39.0", default-features = false, features = ["bundled"] }
+serde = { version = "1.0", features = ["derive"] }
+
+[dev-dependencies]
+psi-privacy-pass-credit-core = { path = "../psi-privacy-pass-credit-core" }
+serde_json = "1.0"
+tempfile = "3"
+
+[workspace]
