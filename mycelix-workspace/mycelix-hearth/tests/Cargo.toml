@@ -66,6 +66,10 @@ name = "sweettest_care_transition_immutability"
 path = "sweettest_care_transition_immutability.rs"
 
 [[test]]
+name = "sweettest_care_transition_payload_binding"
+path = "sweettest_care_transition_payload_binding.rs"
+
+[[test]]
 name = "sweettest_emergency"
 path = "sweettest_emergency.rs"
 

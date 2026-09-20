@@ -16,6 +16,7 @@ on:
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_transitions_v2.rs'
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_transitions_adversarial.rs'
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_transition_immutability.rs'
+      - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_transition_payload_binding.rs'
       - 'mycelix-workspace/mycelix-hearth/tests/fixtures/care-transition-adversarial/**'
       - 'mycelix-workspace/mycelix-hearth/dna/**'
       - 'mycelix-workspace/mycelix-hearth/flake.nix'
@@ -42,6 +43,7 @@ on:
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_transitions_v2.rs'
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_transitions_adversarial.rs'
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_transition_immutability.rs'
+      - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_transition_payload_binding.rs'
       - 'mycelix-workspace/mycelix-hearth/tests/fixtures/care-transition-adversarial/**'
       - 'mycelix-workspace/mycelix-hearth/dna/**'
       - 'mycelix-workspace/mycelix-hearth/flake.nix'
@@ -106,6 +108,7 @@ jobs:
             "$HEARTH_ROOT/tests/sweettest_care_transitions_v2.rs" \
             "$HEARTH_ROOT/tests/sweettest_care_transitions_adversarial.rs" \
             "$HEARTH_ROOT/tests/sweettest_care_transition_immutability.rs" \
+            "$HEARTH_ROOT/tests/sweettest_care_transition_payload_binding.rs" \
             "$HEARTH_ROOT/tests/fixtures/care-transition-adversarial/Cargo.toml" \
             "$HEARTH_ROOT/tests/fixtures/care-transition-adversarial/fake-integrity/Cargo.toml" \
             "$HEARTH_ROOT/tests/fixtures/care-transition-adversarial/fake-integrity/src/lib.rs" \
@@ -306,6 +309,19 @@ jobs:
             cargo test --release \
               --test sweettest_care_transition_immutability \
               completion_evidence_and_index_links_are_immutable_and_bound \
+              -- --ignored --exact --test-threads=1
+          '
+
+      - name: Run Care completion payload-binding qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$HEARTH_ROOT"
+          nix develop .#ci --impure --command bash -lc '
+            cd tests
+            cargo test --release \
+              --test sweettest_care_transition_payload_binding \
+              completion_payload_is_bound_to_signed_actor_and_schedule_identity \
               -- --ignored --exact --test-threads=1
           '
 
