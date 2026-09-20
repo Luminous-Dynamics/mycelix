@@ -1,0 +1,109 @@
+{
+  "schema": "mycelix.support-civic.revision-current-state.v1",
+  "program": "SUP-CIV-002C",
+  "tracking_issue": 2148,
+  "parent_subject": "1733cb6d6e281e16530335c118d951ad939d45d7",
+  "parent_program": "SUP-CIV-002A",
+  "parent_qualification_required": true,
+  "runtime_owner": "Deferred",
+  "current_state_results": [
+    "Absent",
+    "LegacyUnmigrated",
+    "UniqueAdmittedHead",
+    "Conflict",
+    "InsufficientLineageEvidence",
+    "InvalidLineage",
+    "RetiredOrDeletedUnderProfile"
+  ],
+  "revision_node_refs": [
+    "stable_support_ticket_id",
+    "revision_action_ref",
+    "parent_revision_action_ref_or_genesis",
+    "mutation_event_ref_or_genesis",
+    "resulting_ticket_state_ref",
+    "actor_ref",
+    "policy_or_authority_ref",
+    "authored_time_evidence_ref"
+  ],
+  "lineage_edge_requirements": [
+    "same_stable_ticket_identity",
+    "actual_valid_holochain_update_of_declared_parent",
+    "admitted_typed_mutation",
+    "qualified_write_set_and_transition",
+    "immutable_identity_fields_preserved",
+    "mutation_provenance_bound",
+    "declared_expected_parent_matches"
+  ],
+  "evidence_cut_refs": [
+    "lineage_evidence_cut_ref",
+    "observed_at_ref",
+    "retrieval_strategy_ref",
+    "visible_revision_refs",
+    "visible_head_refs",
+    "missing_or_partition_limitations"
+  ],
+  "head_policy": {
+    "derive_from_admitted_graph": true,
+    "unique_head_result": "UniqueAdmittedHead",
+    "multiple_heads_result": "Conflict",
+    "timestamp_auto_winner": false,
+    "action_sequence_auto_winner": false,
+    "hash_order_auto_winner": false,
+    "index_membership_auto_winner": false
+  },
+  "conflict_resolution_refs": [
+    "stable_support_ticket_id",
+    "conflicting_head_refs",
+    "selected_or_merged_parent_refs",
+    "resolution_policy_ref",
+    "resolver_authority_ref",
+    "resolution_reason_ref",
+    "new_revision_ref"
+  ],
+  "conflict_history_preserved": true,
+  "index_is_source_of_truth": false,
+  "delete_is_closed": false,
+  "delete_is_administrative_finality": false,
+  "non_equivalences": [
+    "ActionHash != StableSupportTicketId",
+    "HolochainUpdate != AdmittedSemanticRevision",
+    "LatestRecord != ProvenCurrentState",
+    "GetEntryResult != ProvenCurrentState",
+    "NewestTimestamp != CurrentRevisionAuthority",
+    "HighestActionSequence != CurrentRevisionAuthority",
+    "NoVisibleCompetingHead != NoCompetingHeadExistsAnywhere",
+    "UniqueAdmittedHead != UniversalRealWorldCurrentTruth",
+    "ConcurrentAdmittedHeads != AutomaticWinner",
+    "ConflictResolution != DeleteHistory",
+    "ConflictResolution != ProveOtherBranchFraudulent",
+    "IndexMembership != AdmittedOperationalTicketState",
+    "StatusLink != CurrentStatusProof",
+    "DeleteAction != TicketStatus::Closed",
+    "TicketStatus::Closed != DeleteAction",
+    "DeleteAction != AdministrativeFinality"
+  ],
+  "required_runtime_cases": [
+    "concurrent_children_yield_conflict",
+    "newest_timestamp_does_not_auto_win",
+    "highest_action_sequence_does_not_auto_win",
+    "cross_ticket_lineage_invalid",
+    "legacy_whole_record_update_not_auto_admitted",
+    "identity_field_mutation_invalid",
+    "forbidden_transition_invalid",
+    "missing_parent_insufficient_evidence",
+    "incomplete_cut_not_global_no_conflict_claim",
+    "conflict_resolution_retains_heads",
+    "stale_index_does_not_override_lineage",
+    "delete_not_closed_or_admin_finality"
+  ],
+  "deferred_theorems": [
+    "runtime_stable_identity",
+    "runtime_typed_mutations",
+    "runtime_revision_current_state",
+    "exact_utc_sharding_and_legacy_compatibility",
+    "current_index_projection",
+    "autonomy_effect_authority_split",
+    "civic_resilience_adapter"
+  ],
+  "claim_ceiling": "semantic revision-lineage conflict and evidence-cut-relative current-state contract only"
+}
