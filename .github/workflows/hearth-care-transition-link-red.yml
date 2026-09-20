@@ -1,4 +1,6 @@
-name: Hearth Care Transition Link Red
+# Filename retained intentionally so the red -> green review is one exact
+# workflow modification; the Actions-visible name and semantics are now green.
+name: Hearth Care Transition Link Green
 
 on:
   pull_request:
@@ -16,15 +18,15 @@ permissions:
   contents: read
 
 concurrency:
-  group: hearth-care-transition-link-red-${{ github.event.pull_request.head.repo.full_name }}-${{ github.event.pull_request.head.ref }}
+  group: hearth-care-transition-link-green-${{ github.event.pull_request.head.repo.full_name }}-${{ github.event.pull_request.head.ref }}
   cancel-in-progress: true
 
 env:
   HEARTH_ROOT: mycelix-workspace/mycelix-hearth
 
 jobs:
-  expected-red:
-    name: Expected red — fake completion link
+  green:
+    name: Green — canonical completion link
     runs-on: ubuntu-24.04
     timeout-minutes: 90
 
@@ -80,7 +82,7 @@ jobs:
           nix develop .#ci --impure --command bash -lc '
             set -euo pipefail
             cargo build --release --target wasm32-unknown-unknown --workspace
-            fixture_target="target/link-provenance-red-fixtures"
+            fixture_target="target/link-provenance-green-fixtures"
             cargo build --release --target wasm32-unknown-unknown \
               --target-dir "$fixture_target" \
               --manifest-path tests/fixtures/care-transition-adversarial/Cargo.toml \
@@ -95,7 +97,7 @@ jobs:
             done
           '
 
-      - name: Generate exact expected-red adversarial DNA
+      - name: Generate exact green adversarial DNA
         shell: bash
         run: |
           set -euo pipefail
@@ -135,42 +137,29 @@ jobs:
           nix develop .#ci --impure --command hc dna pack dna-link-provenance-red/
           test -f dna-link-provenance-red/mycelix_hearth.dna
           sha256sum dna-link-provenance-red/mycelix_hearth.dna \
-            | tee "$RUNNER_TEMP/hearth-care-link-red-dna.sha256"
+            | tee "$RUNNER_TEMP/hearth-care-link-green-dna.sha256"
 
-      - name: Prove expected-red completion-link provenance defect
+      - name: Prove non-canonical completion links are rejected
         shell: bash
         run: |
           set -euo pipefail
           cd "$HEARTH_ROOT"
-          set +e
-          output="$(nix develop .#ci --impure --command bash -lc '
+          nix develop .#ci --impure --command bash -lc '
             cd tests
             cargo test --release \
               --test sweettest_care_transition_link_provenance \
               fake_completion_link_target_is_rejected \
-              -- --ignored --exact --nocapture --test-threads=1
-          ' 2>&1)"
-          status=$?
-          set -e
-          printf '%s\n' "$output"
-          if [ "$status" -eq 0 ]; then
-            echo "::error::Expected vulnerable parent to accept fake completion link, but rejection test passed."
-            exit 1
-          fi
-          printf '%s\n' "$output" \
-            | grep -F 'NON_CANONICAL_COMPLETION_LINK_TARGET_MUST_BE_REJECTED' >/dev/null || {
-              echo "::error::Test failed, but not at the expected completion-link provenance assertion."
-              exit 1
-            }
+              -- --ignored --exact --test-threads=1
+          '
 
-      - name: Upload expected-red evidence
+      - name: Upload green evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: hearth-care-transition-link-red-${{ github.event.pull_request.head.sha }}
+          name: hearth-care-transition-link-green-${{ github.event.pull_request.head.sha }}
           path: |
             ${{ env.HEARTH_ROOT }}/dna-link-provenance-red/mycelix_hearth.dna
-            ${{ runner.temp }}/hearth-care-link-red-dna.sha256
+            ${{ runner.temp }}/hearth-care-link-green-dna.sha256
           if-no-files-found: error
           retention-days: 7
 

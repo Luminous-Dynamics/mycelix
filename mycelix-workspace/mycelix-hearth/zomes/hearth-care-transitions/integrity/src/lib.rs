@@ -13,6 +13,8 @@ use hearth_care_integrity::CareSchedule;
 
 const LEGACY_CARE_INTEGRITY_ZOME: &str = "hearth_care_integrity";
 const LEGACY_CARE_SCHEDULE_ENTRY_INDEX: u8 = 0;
+const CARE_TRANSITIONS_INTEGRITY_ZOME: &str = "hearth_care_transitions_integrity";
+const CARE_COMPLETION_ENTRY_INDEX: u8 = 0;
 
 /// Immutable evidence that a CareSchedule was completed by `actor`.
 ///
@@ -196,6 +198,22 @@ fn validate_schedule_completion_link(
     };
 
     let completion_record = must_get_valid_record(completion_hash)?;
+    let completion_entry_def = match completion_record.action().app_entry_def() {
+        Some(entry_def) => entry_def,
+        None => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "ScheduleToCompletions target must reference an application entry".into(),
+            ));
+        }
+    };
+    let dna = dna_info()?;
+    if !is_canonical_care_completion_entry_def(completion_entry_def, &dna.zome_names) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "ScheduleToCompletions target must reference hearth_care_transitions_integrity::CareCompletion"
+                .into(),
+        ));
+    }
+
     if completion_record.action().author() != link_author {
         return Ok(ValidateCallbackResult::Invalid(
             "ScheduleToCompletions link must be authored by the CareCompletion actor".into(),
@@ -230,6 +248,21 @@ fn validate_schedule_completion_link(
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Bind a referenced AppEntryDef to the canonical immutable CareCompletion type.
+///
+/// The transition zome position is discovered from deterministic DNA metadata
+/// rather than hard-coded. Entry index 0 is the published CareCompletion index.
+/// Both zome identity and entry index are required so a Serde-compatible entry
+/// from another integrity zome cannot become completion evidence by shape alone.
+pub fn is_canonical_care_completion_entry_def(
+    entry_def: &AppEntryDef,
+    integrity_zome_names: &[ZomeName],
+) -> bool {
+    let zome_name = integrity_zome_names.get(entry_def.zome_index.0 as usize);
+    zome_name == Some(&ZomeName::new(CARE_TRANSITIONS_INTEGRITY_ZOME))
+        && entry_def.entry_index.0 == CARE_COMPLETION_ENTRY_INDEX
+}
+
 /// Bind a referenced AppEntryDef to the historical legacy CareSchedule type.
 ///
 /// The zome position is discovered from deterministic DNA metadata rather than
@@ -262,8 +295,40 @@ mod tests {
         vec![
             ZomeName::new("hearth_kinship_integrity"),
             ZomeName::new(LEGACY_CARE_INTEGRITY_ZOME),
-            ZomeName::new("hearth_care_transitions_integrity"),
+            ZomeName::new(CARE_TRANSITIONS_INTEGRITY_ZOME),
         ]
+    }
+
+    #[test]
+    fn completion_type_provenance_accepts_exact_zome_and_entry() {
+        assert!(is_canonical_care_completion_entry_def(
+            &app_entry_def(2, CARE_COMPLETION_ENTRY_INDEX),
+            &zomes(),
+        ));
+    }
+
+    #[test]
+    fn completion_type_provenance_rejects_same_entry_index_from_other_zome() {
+        assert!(!is_canonical_care_completion_entry_def(
+            &app_entry_def(1, CARE_COMPLETION_ENTRY_INDEX),
+            &zomes(),
+        ));
+    }
+
+    #[test]
+    fn completion_type_provenance_rejects_other_entry_in_transition_zome() {
+        assert!(!is_canonical_care_completion_entry_def(
+            &app_entry_def(2, 1),
+            &zomes(),
+        ));
+    }
+
+    #[test]
+    fn completion_type_provenance_rejects_out_of_range_zome_index() {
+        assert!(!is_canonical_care_completion_entry_def(
+            &app_entry_def(9, CARE_COMPLETION_ENTRY_INDEX),
+            &zomes(),
+        ));
     }
 
     #[test]
