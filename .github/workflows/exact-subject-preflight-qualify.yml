@@ -1,0 +1,231 @@
+name: Exact Subject Preflight Qualification
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - '.github/actions/exact-subject-preflight/**'
+      - '.github/workflows/exact-subject-preflight-qualify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: exact-subject-preflight-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Subject identity and workspace separation
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      ACTION_SUBJECT_SHA: 8f186f30b43e3f931be1e2ed9f426aa19ad4885e
+      OLDER_SEMANTIC_SUBJECT_SHA: a85369699099d4c7524e502e531735eed4ab36f4
+    steps:
+      - name: Prove pull-request base mode resolves the implementation subject
+        id: base
+        uses: $/.github/actions/exact-subject-preflight
+        with:
+          expected_subject_sha: ${{ env.ACTION_SUBJECT_SHA }}
+          subject_mode: pull-request-base
+          source_roots: |
+            .github/actions/exact-subject-preflight/action.yml
+          evidence_name: exact-subject-preflight-base
+          semantic_checkout_path: .qualification-base
+
+      - name: Check base-mode outputs and action-byte binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          semantic='${{ steps.base.outputs.semantic_workspace }}'
+          capsule='${{ steps.base.outputs.execution_capsule }}'
+          expected_action_sha="$(sha256sum "$semantic/.github/actions/exact-subject-preflight/action.yml" | awk '{print $1}')"
+          test '${{ steps.base.outputs.subject_sha }}' = "$ACTION_SUBJECT_SHA"
+          test -d "$semantic/.git"
+          test -s '${{ steps.base.outputs.source_hash_manifest }}'
+          test -s "$capsule"
+          grep -Fq "semantic_subject_sha=$ACTION_SUBJECT_SHA" "$capsule"
+          grep -Fq "mechanism_workflow_sha=$GITHUB_WORKFLOW_SHA" "$capsule"
+          grep -Fq 'mechanism_action_profile=exact-subject-preflight-v1' "$capsule"
+          grep -Fq "mechanism_action_yml_sha256=$expected_action_sha" "$capsule"
+          grep -Fq "event_execution_sha=$GITHUB_SHA" "$capsule"
+          grep -Fq 'subject_mode=pull-request-base' "$capsule"
+          grep -Fq 'source_manifest_profile=MYCELIX_EXACT_SUBJECT_SOURCE_MANIFEST_V1' "$capsule"
+          test -z "$(git -C "$semantic" status --porcelain)"
+
+      - name: Prove head/base modes cannot be confused
+        id: wrong_head
+        continue-on-error: true
+        uses: $/.github/actions/exact-subject-preflight
+        with:
+          expected_subject_sha: ${{ env.ACTION_SUBJECT_SHA }}
+          subject_mode: pull-request-head
+          source_roots: |
+            .github/actions/exact-subject-preflight/action.yml
+          evidence_name: exact-subject-preflight-wrong-head
+          semantic_checkout_path: .qualification-wrong-head
+
+      - name: Require head/base confusion to fail
+        shell: bash
+        run: |
+          set -euo pipefail
+          test '${{ steps.wrong_head.outcome }}' = failure
+          test ! -e "$GITHUB_WORKSPACE/.qualification-wrong-head"
+
+      - name: Prove malformed expected SHA fails before checkout
+        id: malformed_sha
+        continue-on-error: true
+        uses: $/.github/actions/exact-subject-preflight
+        with:
+          expected_subject_sha: not-a-sha
+          subject_mode: manual-input
+          manual_subject_sha: not-a-sha
+          source_roots: |
+            .github/workflows
+          evidence_name: exact-subject-preflight-malformed
+          semantic_checkout_path: .qualification-malformed
+
+      - name: Require malformed SHA denial
+        shell: bash
+        run: |
+          set -euo pipefail
+          test '${{ steps.malformed_sha.outcome }}' = failure
+          test ! -e "$GITHUB_WORKSPACE/.qualification-malformed"
+
+      - name: Prove checkout traversal fails before checkout
+        id: traversal
+        continue-on-error: true
+        uses: $/.github/actions/exact-subject-preflight
+        with:
+          expected_subject_sha: ${{ env.OLDER_SEMANTIC_SUBJECT_SHA }}
+          subject_mode: manual-input
+          manual_subject_sha: ${{ env.OLDER_SEMANTIC_SUBJECT_SHA }}
+          source_roots: |
+            .github/workflows
+          evidence_name: exact-subject-preflight-traversal
+          semantic_checkout_path: ../qualification-escape
+
+      - name: Require traversal denial
+        shell: bash
+        run: |
+          set -euo pipefail
+          test '${{ steps.traversal.outcome }}' = failure
+          test ! -e "$(dirname "$GITHUB_WORKSPACE")/qualification-escape"
+
+      - name: Prove absent semantic source root fails
+        id: missing_root
+        continue-on-error: true
+        uses: $/.github/actions/exact-subject-preflight
+        with:
+          expected_subject_sha: ${{ env.OLDER_SEMANTIC_SUBJECT_SHA }}
+          subject_mode: manual-input
+          manual_subject_sha: ${{ env.OLDER_SEMANTIC_SUBJECT_SHA }}
+          source_roots: |
+            definitely-not-a-real-source-root
+          evidence_name: exact-subject-preflight-missing-root
+          semantic_checkout_path: .qualification-missing-root
+
+      - name: Require missing-root denial
+        shell: bash
+        run: |
+          set -euo pipefail
+          test '${{ steps.missing_root.outcome }}' = failure
+
+      - name: Prove mechanism can qualify an older subject that lacks the action
+        id: old_one
+        uses: $/.github/actions/exact-subject-preflight
+        with:
+          expected_subject_sha: ${{ env.OLDER_SEMANTIC_SUBJECT_SHA }}
+          subject_mode: manual-input
+          manual_subject_sha: ${{ env.OLDER_SEMANTIC_SUBJECT_SHA }}
+          source_roots: |
+            .github/workflows
+          evidence_name: exact-subject-preflight-old-one
+          semantic_checkout_path: .qualification-old-one
+
+      - name: Repeat older-subject preflight independently
+        id: old_two
+        uses: $/.github/actions/exact-subject-preflight
+        with:
+          expected_subject_sha: ${{ env.OLDER_SEMANTIC_SUBJECT_SHA }}
+          subject_mode: manual-input
+          manual_subject_sha: ${{ env.OLDER_SEMANTIC_SUBJECT_SHA }}
+          source_roots: |
+            .github/workflows
+          evidence_name: exact-subject-preflight-old-two
+          semantic_checkout_path: .qualification-old-two
+
+      - name: Prove workspace separation, mechanism-byte stability, and deterministic Git-tree manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          one='${{ steps.old_one.outputs.semantic_workspace }}'
+          two='${{ steps.old_two.outputs.semantic_workspace }}'
+          implementation='${{ steps.base.outputs.semantic_workspace }}'
+          expected_action_sha="$(sha256sum "$implementation/.github/actions/exact-subject-preflight/action.yml" | awk '{print $1}')"
+          test "$one" != "$two"
+          test "$(git -C "$one" rev-parse HEAD)" = "$OLDER_SEMANTIC_SUBJECT_SHA"
+          test "$(git -C "$two" rev-parse HEAD)" = "$OLDER_SEMANTIC_SUBJECT_SHA"
+          test ! -e "$one/.github/actions/exact-subject-preflight/action.yml"
+          test ! -e "$two/.github/actions/exact-subject-preflight/action.yml"
+          cmp '${{ steps.old_one.outputs.source_hash_manifest }}' '${{ steps.old_two.outputs.source_hash_manifest }}'
+          test -z "$(git -C "$one" status --porcelain)"
+          test -z "$(git -C "$two" status --porcelain)"
+          for capsule in '${{ steps.old_one.outputs.execution_capsule }}' '${{ steps.old_two.outputs.execution_capsule }}'; do
+            grep -Fq "mechanism_workflow_sha=$GITHUB_WORKFLOW_SHA" "$capsule"
+            grep -Fq 'mechanism_action_profile=exact-subject-preflight-v1' "$capsule"
+            grep -Fq "mechanism_action_yml_sha256=$expected_action_sha" "$capsule"
+            grep -Fq "event_execution_sha=$GITHUB_SHA" "$capsule"
+            grep -Fq "semantic_subject_sha=$OLDER_SEMANTIC_SUBJECT_SHA" "$capsule"
+            grep -Fq 'source_manifest_profile=MYCELIX_EXACT_SUBJECT_SOURCE_MANIFEST_V1' "$capsule"
+          done
+
+      - name: Prove common action does not emit a qualification verdict
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e '${{ steps.base.outputs.evidence_dir }}/QUALIFICATION.txt'
+          test ! -e '${{ steps.old_one.outputs.evidence_dir }}/QUALIFICATION.txt'
+          test ! -e '${{ steps.old_two.outputs.evidence_dir }}/QUALIFICATION.txt'
+
+      - name: Write preflight qualification result
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/exact-subject-preflight-qualification"
+          mkdir -p "$evidence"
+          cat > "$evidence/QUALIFICATION.txt" <<EOF
+          CI-GOV-EXACT-SUBJECT-PREFLIGHT-001 PASS
+          action_subject=$ACTION_SUBJECT_SHA
+          qualifier_workflow_sha=$GITHUB_WORKFLOW_SHA
+          event_execution_sha=$GITHUB_SHA
+          older_semantic_subject=$OLDER_SEMANTIC_SUBJECT_SHA
+          base_head_mode_separation=true
+          malformed_sha_denial=true
+          checkout_traversal_denial=true
+          absent_source_root_denial=true
+          mechanism_semantic_workspace_separation=true
+          mechanism_action_byte_binding=true
+          git_tree_manifest_profile=true
+          deterministic_source_manifest=true
+          workflow_event_identity_separation=true
+          common_action_writes_gate_pass=false
+          proof_security_authority=false
+          product_authority=false
+          EOF
+          cp '${{ steps.base.outputs.execution_capsule }}' "$evidence/base-execution-capsule.txt"
+          cp '${{ steps.base.outputs.source_hash_manifest }}' "$evidence/base-source-tree-manifest.bin"
+          cp '${{ steps.old_one.outputs.execution_capsule }}' "$evidence/older-execution-capsule.txt"
+          cp '${{ steps.old_one.outputs.source_hash_manifest }}' "$evidence/older-source-tree-manifest.bin"
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ci-gov-exact-subject-preflight-${{ env.ACTION_SUBJECT_SHA }}
+          path: ${{ runner.temp }}/exact-subject-preflight-qualification
+          if-no-files-found: warn
+          retention-days: 30
