@@ -15,6 +15,7 @@ on:
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_revocation.rs'
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_transitions_v2.rs'
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_transitions_adversarial.rs'
+      - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_transitions_immutability.rs'
       - 'mycelix-workspace/mycelix-hearth/tests/fixtures/care-transition-adversarial/**'
       - 'mycelix-workspace/mycelix-hearth/dna/**'
       - 'mycelix-workspace/mycelix-hearth/flake.nix'
@@ -40,6 +41,7 @@ on:
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_revocation.rs'
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_transitions_v2.rs'
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_transitions_adversarial.rs'
+      - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_transitions_immutability.rs'
       - 'mycelix-workspace/mycelix-hearth/tests/fixtures/care-transition-adversarial/**'
       - 'mycelix-workspace/mycelix-hearth/dna/**'
       - 'mycelix-workspace/mycelix-hearth/flake.nix'
@@ -103,6 +105,7 @@ jobs:
             "$HEARTH_ROOT/tests/sweettest_care_revocation.rs" \
             "$HEARTH_ROOT/tests/sweettest_care_transitions_v2.rs" \
             "$HEARTH_ROOT/tests/sweettest_care_transitions_adversarial.rs" \
+            "$HEARTH_ROOT/tests/sweettest_care_transitions_immutability.rs" \
             "$HEARTH_ROOT/tests/fixtures/care-transition-adversarial/fake-integrity/Cargo.toml" \
             "$HEARTH_ROOT/tests/fixtures/care-transition-adversarial/fake-integrity/src/lib.rs" \
             "$HEARTH_ROOT/tests/fixtures/care-transition-adversarial/harness-coordinator/Cargo.toml" \
@@ -277,6 +280,19 @@ jobs:
             cargo test --release \
               --test sweettest_care_transitions_adversarial \
               forged_transition_evidence_fails_closed \
+              -- --ignored --exact --test-threads=1
+          '
+
+      - name: Run Care transition immutability and append-only link qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$HEARTH_ROOT"
+          nix develop .#ci --impure --command bash -lc '
+            cd tests
+            cargo test --release \
+              --test sweettest_care_transitions_immutability \
+              completion_evidence_is_immutable_and_index_links_are_append_only \
               -- --ignored --exact --test-threads=1
           '
 
