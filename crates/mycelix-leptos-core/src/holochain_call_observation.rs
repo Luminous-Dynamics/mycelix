@@ -19,7 +19,10 @@
 //!
 //! `HolochainCallAttemptId != commit evidence`
 
-use crate::{HolochainCallError, HolochainCallFailureKind};
+use crate::{
+    HolochainCallError, HolochainCallFailureKind, HolochainCallPhase,
+};
+use mycelix_leptos_client::ClientError;
 
 /// Provider-instance-local identity assigned when a shared-provider zome-call
 /// attempt is admitted.
@@ -35,6 +38,71 @@ impl HolochainCallAttemptId {
 
     pub const fn get(self) -> u64 {
         self.0
+    }
+}
+
+/// One provider-admitted zome-call attempt with call identity bound exactly
+/// once before any phase-specific work begins.
+///
+/// This value is intentionally not `Clone`: consuming it into a terminal
+/// failure observation prevents one admitted attempt from manufacturing
+/// multiple independent terminal failure snapshots through ordinary API use.
+#[derive(Debug, PartialEq, Eq)]
+pub struct HolochainCallAttempt {
+    id: HolochainCallAttemptId,
+    role: String,
+    zome: String,
+    function: String,
+}
+
+impl HolochainCallAttempt {
+    fn new(
+        id: HolochainCallAttemptId,
+        role: impl Into<String>,
+        zome: impl Into<String>,
+        function: impl Into<String>,
+    ) -> Self {
+        Self {
+            id,
+            role: role.into(),
+            zome: zome.into(),
+            function: function.into(),
+        }
+    }
+
+    pub const fn id(&self) -> HolochainCallAttemptId {
+        self.id
+    }
+
+    pub fn role(&self) -> &str {
+        &self.role
+    }
+
+    pub fn zome(&self) -> &str {
+        &self.zome
+    }
+
+    pub fn function(&self) -> &str {
+        &self.function
+    }
+
+    /// Consume this admitted attempt into one terminal typed failure
+    /// observation while retaining the exact bound call target.
+    pub fn fail(
+        self,
+        phase: HolochainCallPhase,
+        source: ClientError,
+    ) -> HolochainCallFailureObservation {
+        HolochainCallFailureObservation::new(
+            self.id,
+            HolochainCallError::new(
+                phase,
+                self.role,
+                self.zome,
+                self.function,
+                source,
+            ),
+        )
     }
 }
 
@@ -63,6 +131,20 @@ impl HolochainCallAttemptSequence {
         let current = self.next?;
         self.next = current.checked_add(1);
         Some(HolochainCallAttemptId(current))
+    }
+
+    /// Admit one call attempt and bind its target identity exactly once.
+    ///
+    /// Sequence exhaustion returns `None`; callers must not reset the sequence
+    /// or invent an uncorrelated attempt id.
+    pub fn admit(
+        &mut self,
+        role: impl Into<String>,
+        zome: impl Into<String>,
+        function: impl Into<String>,
+    ) -> Option<HolochainCallAttempt> {
+        let id = self.allocate()?;
+        Some(HolochainCallAttempt::new(id, role, zome, function))
     }
 
     pub const fn is_exhausted(&self) -> bool {
@@ -107,8 +189,7 @@ impl HolochainCallFailureObservation {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{HolochainCallPhase, HolochainCallFailureKind};
-    use mycelix_leptos_client::{ClientError, ConductorError, ConductorErrorKind};
+    use mycelix_leptos_client::{ConductorError, ConductorErrorKind};
 
     fn failure(id: HolochainCallAttemptId, message: &str) -> HolochainCallFailureObservation {
         HolochainCallFailureObservation::new(
@@ -152,6 +233,54 @@ mod tests {
         assert_eq!(last.get(), u64::MAX);
         assert!(sequence.is_exhausted());
         assert_eq!(sequence.allocate(), None);
+        assert_eq!(
+            sequence.admit("personal", "identity_vault", "get_my_profile_view"),
+            None
+        );
+    }
+
+    #[test]
+    fn admitted_attempt_binds_call_identity_once() {
+        let mut sequence = HolochainCallAttemptSequence::default();
+        let attempt = sequence
+            .admit(
+                "personal",
+                "identity_vault",
+                "set_profile_view_if_current",
+            )
+            .expect("attempt");
+
+        assert_eq!(attempt.id(), HolochainCallAttemptId::FIRST);
+        assert_eq!(attempt.role(), "personal");
+        assert_eq!(attempt.zome(), "identity_vault");
+        assert_eq!(attempt.function(), "set_profile_view_if_current");
+    }
+
+    #[test]
+    fn terminal_failure_consumes_bound_identity_and_phase() {
+        let mut sequence = HolochainCallAttemptSequence::default();
+        let attempt = sequence
+            .admit(
+                "personal",
+                "data_preferences",
+                "set_preference_view_if_current",
+            )
+            .expect("attempt");
+
+        let observation = attempt.fail(
+            HolochainCallPhase::Encode,
+            ClientError::SerializationError("invalid input".into()),
+        );
+
+        assert_eq!(observation.attempt_id(), HolochainCallAttemptId::FIRST);
+        assert_eq!(observation.error().phase(), HolochainCallPhase::Encode);
+        assert_eq!(observation.error().role(), "personal");
+        assert_eq!(observation.error().zome(), "data_preferences");
+        assert_eq!(
+            observation.error().function(),
+            "set_preference_view_if_current"
+        );
+        assert_eq!(observation.failure_kind(), HolochainCallFailureKind::Serialization);
     }
 
     #[test]
