@@ -1,0 +1,9 @@
+[package]
+name = "hearth-care-recurrence-enumerator"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Pure local recurrence enumeration for Mycelix Hearth Care"
+
+[dependencies]
+hearth-care-recurrence = { workspace = true }
