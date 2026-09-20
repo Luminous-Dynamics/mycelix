@@ -23,6 +23,7 @@ members = [
     "crates/hearth-care-occurrence-authority",
     "crates/hearth-care-completion-authority",
     "crates/hearth-care-digest-v4",
+    "tools/hearth-care-evidence-wasm-probe",
     "edge/hearth-edge",
     "edge/hearth-edge-journal",
     "crates/hearth-coordinator-common",
