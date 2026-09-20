@@ -1,0 +1,182 @@
+name: Hearth Care Transition Link Red
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-hearth/zomes/hearth-care-transitions/**'
+      - 'mycelix-workspace/mycelix-hearth/tests/Cargo.toml'
+      - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_transition_link_provenance.rs'
+      - 'mycelix-workspace/mycelix-hearth/tests/fixtures/care-transition-adversarial/**'
+      - 'mycelix-workspace/mycelix-hearth/dna/**'
+      - 'mycelix-workspace/mycelix-hearth/flake.nix'
+      - 'mycelix-workspace/mycelix-hearth/flake.lock'
+      - '.github/workflows/hearth-care-transition-link-red.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hearth-care-transition-link-red-${{ github.event.pull_request.head.repo.full_name }}-${{ github.event.pull_request.head.ref }}
+  cancel-in-progress: true
+
+env:
+  HEARTH_ROOT: mycelix-workspace/mycelix-hearth
+
+jobs:
+  expected-red:
+    name: Expected red — fake completion link
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+          submodules: recursive
+
+      - name: Verify exact subject checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '${{ github.event.pull_request.head.sha }}'
+
+      - name: Prove fixtures are absent from production manifests
+        shell: bash
+        run: |
+          set -euo pipefail
+          for forbidden in \
+            hearth_care_transition_fake_integrity \
+            hearth_care_transition_fake_completion_integrity \
+            hearth_care_transition_fake_cloner \
+            hearth_care_transition_test_harness; do
+            ! grep -q "$forbidden" "$HEARTH_ROOT/dna/dna.yaml"
+            ! grep -q "$forbidden" "$HEARTH_ROOT/happ.yaml"
+          done
+
+      - uses: cachix/install-nix-action@v27
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - uses: cachix/cachix-action@v15
+        with:
+          name: holochain-ci
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          workspaces: |
+            mycelix-workspace/mycelix-hearth
+            mycelix-workspace/mycelix-hearth/tests
+            mycelix-workspace/mycelix-hearth/tests/fixtures/care-transition-adversarial
+            mycelix-workspace/crates
+
+      - name: Build canonical and qualification fixture zomes
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$HEARTH_ROOT"
+          nix develop .#ci --impure --command bash -lc '
+            set -euo pipefail
+            cargo build --release --target wasm32-unknown-unknown --workspace
+            fixture_target="target/link-provenance-red-fixtures"
+            cargo build --release --target wasm32-unknown-unknown \
+              --target-dir "$fixture_target" \
+              --manifest-path tests/fixtures/care-transition-adversarial/Cargo.toml \
+              --workspace
+            for wasm in \
+              hearth_care_transition_fake_integrity \
+              hearth_care_transition_fake_completion_integrity \
+              hearth_care_transition_fake_cloner \
+              hearth_care_transition_test_harness; do
+              cp "$fixture_target/wasm32-unknown-unknown/release/${wasm}.wasm" \
+                target/wasm32-unknown-unknown/release/
+            done
+          '
+
+      - name: Generate exact expected-red adversarial DNA
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$HEARTH_ROOT"
+          rm -rf dna-link-provenance-red
+          mkdir -p dna-link-provenance-red
+          awk '
+            BEGIN { inserted = 0 }
+            /^coordinator:/ && inserted == 0 {
+              print "    # QUALIFICATION ONLY: fake membership/schedule provenance."
+              print "    - name: hearth_care_transition_fake_integrity"
+              print "      path: ../target/wasm32-unknown-unknown/release/hearth_care_transition_fake_integrity.wasm"
+              print ""
+              print "    # QUALIFICATION ONLY: same-index fake CareCompletion provenance."
+              print "    - name: hearth_care_transition_fake_completion_integrity"
+              print "      path: ../target/wasm32-unknown-unknown/release/hearth_care_transition_fake_completion_integrity.wasm"
+              print ""
+              inserted = 1
+            }
+            { print }
+            END {
+              print ""
+              print "    # QUALIFICATION ONLY: authors fake entries; no real transition dependency."
+              print "    - name: hearth_care_transition_fake_cloner"
+              print "      path: ../target/wasm32-unknown-unknown/release/hearth_care_transition_fake_cloner.wasm"
+              print "      dependencies:"
+              print "        - name: hearth_care_transition_fake_integrity"
+              print "        - name: hearth_care_transition_fake_completion_integrity"
+              print ""
+              print "    # QUALIFICATION ONLY: real transition link/raw publisher."
+              print "    - name: hearth_care_transition_test_harness"
+              print "      path: ../target/wasm32-unknown-unknown/release/hearth_care_transition_test_harness.wasm"
+              print "      dependencies:"
+              print "        - name: hearth_care_transitions_integrity"
+            }
+          ' dna/dna.yaml > dna-link-provenance-red/dna.yaml
+          nix develop .#ci --impure --command hc dna pack dna-link-provenance-red/
+          test -f dna-link-provenance-red/mycelix_hearth.dna
+          sha256sum dna-link-provenance-red/mycelix_hearth.dna \
+            | tee "$RUNNER_TEMP/hearth-care-link-red-dna.sha256"
+
+      - name: Prove expected-red completion-link provenance defect
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$HEARTH_ROOT"
+          set +e
+          output="$(nix develop .#ci --impure --command bash -lc '
+            cd tests
+            cargo test --release \
+              --test sweettest_care_transition_link_provenance \
+              fake_completion_link_target_is_rejected \
+              -- --ignored --exact --nocapture --test-threads=1
+          ' 2>&1)"
+          status=$?
+          set -e
+          printf '%s\n' "$output"
+          if [ "$status" -eq 0 ]; then
+            echo "::error::Expected vulnerable parent to accept fake completion link, but rejection test passed."
+            exit 1
+          fi
+          printf '%s\n' "$output" \
+            | grep -F 'NON_CANONICAL_COMPLETION_LINK_TARGET_MUST_BE_REJECTED' >/dev/null || {
+              echo "::error::Test failed, but not at the expected completion-link provenance assertion."
+              exit 1
+            }
+
+      - name: Upload expected-red evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: hearth-care-transition-link-red-${{ github.event.pull_request.head.sha }}
+          path: |
+            ${{ env.HEARTH_ROOT }}/dna-link-provenance-red/mycelix_hearth.dna
+            ${{ runner.temp }}/hearth-care-link-red-dna.sha256
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Prove tracked source immutability
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code

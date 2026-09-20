@@ -9,7 +9,7 @@
 
 use hdk::prelude::*;
 use hearth_care_integrity::CareSchedule;
-use hearth_care_transitions_integrity::{CareCompletion, EntryTypes};
+use hearth_care_transitions_integrity::{CareCompletion, EntryTypes, LinkTypes};
 use hearth_kinship_integrity::HearthMembership;
 
 fn call_fake_cloner<I, O>(function: &str, input: I) -> ExternResult<O>
@@ -45,6 +45,29 @@ pub fn create_fake_membership(input: HearthMembership) -> ExternResult<ActionHas
 #[hdk_extern]
 pub fn create_fake_schedule(input: CareSchedule) -> ExternResult<ActionHash> {
     call_fake_cloner("create_fake_schedule", input)
+}
+
+#[hdk_extern]
+pub fn create_fake_completion(input: CareCompletion) -> ExternResult<ActionHash> {
+    call_fake_cloner("create_fake_completion", input)
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RawCompletionLinkInput {
+    pub schedule_hash: ActionHash,
+    pub completion_hash: ActionHash,
+}
+
+/// Attempt to index an arbitrary target through the real transition link type.
+/// The real transition integrity validator decides whether the target is valid.
+#[hdk_extern]
+pub fn create_completion_link_unchecked(input: RawCompletionLinkInput) -> ExternResult<ActionHash> {
+    create_link(
+        input.schedule_hash,
+        input.completion_hash,
+        LinkTypes::ScheduleToCompletions,
+        (),
+    )
 }
 
 #[hdk_extern]
