@@ -8,6 +8,7 @@ members = [
     "crates/hearth-automation-replay",
     "crates/hearth-adapter-admission",
     "crates/hearth-home-assistant-observation",
+    "crates/hearth-home-assistant-protocol",
     "edge/hearth-edge",
     "edge/hearth-edge-journal",
     "edge/hearth-edge-lease",
