@@ -1,0 +1,15 @@
+[package]
+name = "psi-privacy-pass-credit-core"
+version = "0.2.0"
+edition = "2024"
+authors = ["Mycelix Network"]
+description = "RFC 9577/9578 structural query-credit semantics for Mycelix private contact discovery"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+publish = false
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+sha2 = "0.10"
+
+[workspace]
