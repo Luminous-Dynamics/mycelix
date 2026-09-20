@@ -13,7 +13,7 @@ use mycelix_hardware_core::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 pub const INTEROP_SCHEMA: &str = "mycelix.hardware.interop.v1";
@@ -139,6 +139,7 @@ pub enum InteropError {
     MissingRequiredField(&'static str),
     AmbiguousLicense,
     ReservedPassthroughKey(String),
+    DuplicateSourceField(String),
     InvalidSemanticId(String),
     InvalidCoreModel(String),
     InvalidCycloneDxFormat,
@@ -156,6 +157,7 @@ impl fmt::Display for InteropError {
             Self::ReservedPassthroughKey(key) => {
                 write!(f, "passthrough contains reserved target key: {key}")
             }
+            Self::DuplicateSourceField(path) => write!(f, "duplicate source field: {path}"),
             Self::InvalidSemanticId(reason) => write!(f, "invalid semantic id: {reason}"),
             Self::InvalidCoreModel(reason) => write!(f, "invalid core model: {reason}"),
             Self::InvalidCycloneDxFormat => write!(f, "invalid CycloneDX format marker"),
@@ -297,7 +299,7 @@ pub fn import_open_know_how_24(
     }
     for key in manifest.extra.keys() {
         report.record(
-            key,
+            key.clone(),
             Some(format!("passthrough.{key}")),
             InteropDisposition::PreservedOpaque,
             "field preserved opaquely because the first adapter slice does not interpret it",
@@ -355,6 +357,30 @@ pub fn export_open_know_how_24(
         InteropDisposition::Preserved,
         "single license expression maps directly",
     );
+    if license.text_or_url.is_some() {
+        report.record(
+            "HardwareProject.license_refs[0].text_or_url",
+            None::<String>,
+            InteropDisposition::Omitted,
+            "the first OKH slice exports the license expression but not a separate license-text reference",
+        );
+    }
+    if project.description.is_some() {
+        report.record(
+            "HardwareProject.description",
+            None::<String>,
+            InteropDisposition::Omitted,
+            "generic project description is not reused as OKH's required functional claim",
+        );
+    }
+    if !project.maintainers.is_empty() {
+        report.record(
+            "HardwareProject.maintainers",
+            None::<String>,
+            InteropDisposition::Unsupported,
+            "maintainers are not exported as licensors because the roles are not equivalent",
+        );
+    }
     report.record(
         "OpenKnowHowExternalContext.repo",
         Some("repo"),
@@ -454,11 +480,18 @@ pub fn export_cyclonedx_17_components(
         AdapterVersion::stable(CYCLONEDX_17_VERSION),
     );
     let mut exported = Vec::new();
+    let mut seen_ids = BTreeSet::new();
 
     for component in components {
         component
             .validate()
             .map_err(|error| InteropError::InvalidCoreModel(error.to_string()))?;
+        if !seen_ids.insert(component.id.to_string()) {
+            return Err(InteropError::DuplicateSourceField(format!(
+                "ComponentIdentity[{}].id",
+                component.id
+            )));
+        }
 
         let Some(component_type) = cyclonedx_type_for_component(&component.kind) else {
             report.record(
@@ -503,6 +536,14 @@ pub fn export_cyclonedx_17_components(
                 "the first CycloneDX slice does not convert digest-only datasheet references into URLs",
             );
         }
+        if component.open_hardware_project.is_some() {
+            report.record(
+                format!("ComponentIdentity[{}].open_hardware_project", component.id),
+                None::<String>,
+                InteropDisposition::Omitted,
+                "the first CycloneDX slice does not project the Mycelix project relationship",
+            );
+        }
 
         exported.push(CycloneDx17Component {
             component_type: component_type.into(),
@@ -516,6 +557,12 @@ pub fn export_cyclonedx_17_components(
             extra: BTreeMap::new(),
         });
 
+        report.record(
+            format!("ComponentIdentity[{}].id", component.id),
+            Some(format!("components[{}].bom-ref", component.id)),
+            InteropDisposition::Preserved,
+            "semantic component id is retained as the local BOM reference",
+        );
         report.record(
             format!("ComponentIdentity[{}].name", component.id),
             Some(format!("components[{}].name", component.id)),
@@ -543,9 +590,9 @@ pub fn export_cyclonedx_17_components(
             bom_format: "CycloneDX".into(),
             spec_version: CYCLONEDX_17_VERSION.into(),
             version: 1,
-            metadata: Some(serde_json::json!({
-                "lifecycles": [{ "phase": "design" }]
-            })),
+            // Do not invent a lifecycle/timestamp/tool identity. Callers may enrich
+            // metadata in a later, explicitly scoped adapter.
+            metadata: None,
             components: exported,
             extra: BTreeMap::new(),
         },
@@ -570,8 +617,22 @@ pub fn import_cyclonedx_17_components(
     );
     let mut components = Vec::new();
     let mut opaque_components = Vec::new();
+    let mut seen_refs = BTreeSet::new();
 
     for source in bom.components {
+        if !seen_refs.insert(source.bom_ref.clone()) {
+            return Err(InteropError::DuplicateSourceField(format!(
+                "components[{}].bom-ref",
+                source.bom_ref
+            )));
+        }
+        reject_duplicate_property(&source.properties, CDX_MPN_PROPERTY, &source.bom_ref)?;
+        reject_duplicate_property(
+            &source.properties,
+            CDX_LIFECYCLE_PROPERTY,
+            &source.bom_ref,
+        )?;
+
         if source.component_type != "device" {
             report.record(
                 format!("components[{}].type", source.bom_ref),
@@ -617,6 +678,12 @@ pub fn import_cyclonedx_17_components(
             .map_err(|error| InteropError::InvalidCoreModel(error.to_string()))?;
 
         report.record(
+            format!("components[{}].bom-ref", source.bom_ref),
+            Some(format!("ComponentIdentity[{}].id", source.bom_ref)),
+            InteropDisposition::Preserved,
+            "local BOM reference becomes the semantic component id",
+        );
+        report.record(
             format!("components[{}].name", source.bom_ref),
             Some(format!("ComponentIdentity[{}].name", source.bom_ref)),
             InteropDisposition::Preserved,
@@ -640,8 +707,8 @@ pub fn import_cyclonedx_17_components(
             report.record(
                 format!("components[{}].*", source.bom_ref),
                 None::<String>,
-                InteropDisposition::PreservedOpaque,
-                "unmodeled component fields remain inside the opaque source component representation only when the whole component is unsupported",
+                InteropDisposition::Omitted,
+                "unmodeled fields on an otherwise supported device are reported as loss rather than falsely marked preserved",
             );
         }
 
@@ -708,6 +775,19 @@ fn property_value<'a>(properties: &'a [CycloneDxProperty], name: &str) -> Option
         .map(|property| property.value.as_str())
 }
 
+fn reject_duplicate_property(
+    properties: &[CycloneDxProperty],
+    name: &str,
+    bom_ref: &str,
+) -> Result<(), InteropError> {
+    if properties.iter().filter(|property| property.name == name).count() > 1 {
+        return Err(InteropError::DuplicateSourceField(format!(
+            "components[{bom_ref}].properties[{name}]"
+        )));
+    }
+    Ok(())
+}
+
 fn validate_okh_passthrough(values: &BTreeMap<String, Value>) -> Result<(), InteropError> {
     const RESERVED: [&str; 7] = [
         "okhv",
@@ -745,13 +825,21 @@ fn validate_licensor(value: &Value) -> Result<(), InteropError> {
     match value {
         Value::String(text) => validate_nonempty(text, "licensor"),
         Value::Array(values) if !values.is_empty() => {
-            if values.iter().any(Value::is_null) {
+            if values.iter().any(|entry| !valid_licensor_entry(entry)) {
                 return Err(InteropError::InvalidRequiredField("licensor"));
             }
             Ok(())
         }
         Value::Object(map) if !map.is_empty() => Ok(()),
         _ => Err(InteropError::InvalidRequiredField("licensor")),
+    }
+}
+
+fn valid_licensor_entry(value: &Value) -> bool {
+    match value {
+        Value::String(text) => !text.trim().is_empty() && text == text.trim(),
+        Value::Object(map) => !map.is_empty(),
+        _ => false,
     }
 }
 
@@ -909,6 +997,37 @@ mod tests {
     }
 
     #[test]
+    fn cyclonedx_export_does_not_invent_metadata_lifecycle() {
+        let (bom, _) = export_cyclonedx_17_components(&[component(ComponentKind::Electronic)])
+            .unwrap();
+        assert_eq!(bom.metadata, None);
+    }
+
+    #[test]
+    fn cyclonedx_duplicate_bom_refs_are_rejected() {
+        let duplicate = CycloneDx17Component {
+            component_type: "device".into(),
+            bom_ref: "component:external".into(),
+            name: "External Device".into(),
+            manufacturer: None,
+            properties: Vec::new(),
+            extra: BTreeMap::new(),
+        };
+        let source = CycloneDx17Bom {
+            bom_format: "CycloneDX".into(),
+            spec_version: CYCLONEDX_17_VERSION.into(),
+            version: 1,
+            metadata: None,
+            components: vec![duplicate.clone(), duplicate],
+            extra: BTreeMap::new(),
+        };
+        assert!(matches!(
+            import_cyclonedx_17_components(source),
+            Err(InteropError::DuplicateSourceField(_))
+        ));
+    }
+
+    #[test]
     fn cyclonedx_device_import_does_not_guess_mycelix_subtype() {
         let source = CycloneDx17Bom {
             bom_format: "CycloneDX".into(),
@@ -959,6 +1078,38 @@ mod tests {
         assert!(imported.report.findings.iter().any(|finding| {
             finding.disposition == InteropDisposition::UnknownSourceValue
         }));
+    }
+
+    #[test]
+    fn duplicate_namespaced_properties_are_rejected() {
+        let source = CycloneDx17Bom {
+            bom_format: "CycloneDX".into(),
+            spec_version: CYCLONEDX_17_VERSION.into(),
+            version: 1,
+            metadata: None,
+            components: vec![CycloneDx17Component {
+                component_type: "device".into(),
+                bom_ref: "component:external".into(),
+                name: "External Device".into(),
+                manufacturer: None,
+                properties: vec![
+                    CycloneDxProperty {
+                        name: CDX_MPN_PROPERTY.into(),
+                        value: "A".into(),
+                    },
+                    CycloneDxProperty {
+                        name: CDX_MPN_PROPERTY.into(),
+                        value: "B".into(),
+                    },
+                ],
+                extra: BTreeMap::new(),
+            }],
+            extra: BTreeMap::new(),
+        };
+        assert!(matches!(
+            import_cyclonedx_17_components(source),
+            Err(InteropError::DuplicateSourceField(_))
+        ));
     }
 
     #[test]
