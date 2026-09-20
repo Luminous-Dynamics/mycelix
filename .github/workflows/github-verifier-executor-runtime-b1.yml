@@ -1,0 +1,424 @@
+name: Mycelix GitHub Verifier Executor Runtime Gate B1
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - '.github/workflows/github-verifier-executor-runtime-b1.yml'
+  workflow_dispatch:
+    inputs:
+      subject_sha:
+        description: 'Exact implementation subject SHA'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-verifier-executor-b1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Runtime positive execution/composition gate
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      EXPECTED_SUBJECT_SHA: e4359f5c556d1a51cb053978f0f96fe8abed65ce
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Resolve exact implementation subject
+        id: subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            subject='${{ github.event.pull_request.base.sha }}'
+          else
+            subject='${{ inputs.subject_sha }}'
+          fi
+          [[ "$subject" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid subject SHA: $subject" >&2; exit 1; }
+          test "$subject" = "$EXPECTED_SUBJECT_SHA"
+          echo "sha=$subject" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact implementation subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ steps.subject.outputs.sha }}
+          fetch-depth: 1
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.96.0
+
+      - name: Preflight exact source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          test -z "$(git status --porcelain)"
+          evidence="$RUNNER_TEMP/github-verifier-executor-b1-evidence"
+          mkdir -p "$evidence"
+          {
+            echo "subject_sha=${{ steps.subject.outputs.sha }}"
+            echo "runner_os=${RUNNER_OS}"
+            echo "runner_arch=${RUNNER_ARCH}"
+            rustc -Vv
+            cargo -V
+          } > "$evidence/execution-capsule.txt"
+          find mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication \
+            -type f -not -path '*/target/*' -print0 | sort -z | xargs -0 sha256sum \
+            > "$evidence/source-sha256.txt"
+
+      - name: Build deterministic local verifier fixture
+        id: fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          fake="$RUNNER_TEMP/mycelix-fake-gh-b1"
+          cat > "$fake" <<'PY'
+          #!/usr/bin/python3
+          import hashlib
+          import json
+          import os
+          import pathlib
+          import sys
+
+          args = sys.argv[1:]
+          cwd = pathlib.Path.cwd()
+
+          if "PATH" in os.environ or "MYCELIX_AMBIENT_SENTINEL" in os.environ:
+              raise SystemExit(91)
+          if os.environ.get("GH_TOKEN") != "synthetic-gate-b1-token":
+              raise SystemExit(92)
+          if os.environ.get("GH_HOST") != "github.com":
+              raise SystemExit(93)
+          if os.environ.get("GH_PROMPT_DISABLED") != "1" or os.environ.get("NO_COLOR") != "1":
+              raise SystemExit(94)
+
+          home = pathlib.Path(os.environ["HOME"])
+          config = pathlib.Path(os.environ["GH_CONFIG_DIR"])
+          if home.parent != cwd or config.parent != cwd:
+              raise SystemExit(95)
+          log = home / "invocations.log"
+
+          def record(name):
+              with log.open("a", encoding="utf-8") as handle:
+                  handle.write(name + "\n")
+
+          if args[:2] == ["attestation", "download"]:
+              record("download")
+              subject = pathlib.Path(args[2])
+              digest = hashlib.sha256(subject.read_bytes()).hexdigest()
+              bundle = cwd / ("sha256:" + digest + ".jsonl")
+              with bundle.open("x", encoding="utf-8") as handle:
+                  handle.write('{"bundle":"gate-b1"}\n')
+              print("download-ok")
+          elif args[:2] == ["attestation", "trusted-root"]:
+              record("trusted-root")
+              media = "application/vnd.dev.sigstore.trustedroot+json;version=0.1"
+              public = {
+                  "mediaType": media,
+                  "tlogs": [{"baseUrl": "https://rekor.sigstore.dev"}],
+                  "certificateAuthorities": [{"uri": "https://fulcio.sigstore.dev"}],
+              }
+              private = {
+                  "mediaType": media,
+                  "tlogs": [{"baseUrl": "https://rekor.github.test"}],
+                  "certificateAuthorities": [{"uri": "https://fulcio.github.test"}],
+              }
+              sys.stdout.write(json.dumps(public, separators=(",", ":")) + "\n")
+              sys.stdout.write(json.dumps(private, separators=(",", ":")) + "\n")
+          elif args[:2] == ["attestation", "verify"]:
+              record("verify")
+              subject = pathlib.Path(args[2])
+              digest = hashlib.sha256(subject.read_bytes()).hexdigest()
+              bundle = pathlib.Path(args[args.index("--bundle") + 1])
+              root = pathlib.Path(args[args.index("--custom-trusted-root") + 1])
+              if bundle.read_text(encoding="utf-8") != '{"bundle":"gate-b1"}\n':
+                  raise SystemExit(96)
+              if len(root.read_text(encoding="utf-8").splitlines()) != 2:
+                  raise SystemExit(97)
+              result = [{
+                  "attestation": {"bundle": "retained-elsewhere"},
+                  "verificationResult": {
+                      "mediaType": "application/vnd.dev.sigstore.verificationresult+json;version=0.1",
+                      "statement": {
+                          "_type": "https://in-toto.io/Statement/v1",
+                          "subject": [{
+                              "name": "mycelix-qualification-receipt",
+                              "digest": {"sha256": digest},
+                          }],
+                          "predicateType": "https://mycelix.org/attestations/qualification/v1",
+                          "predicate": {
+                              "predicate_version": 1,
+                              "predicate_schema": "mycelix-qualification-attestation-predicate-v1",
+                          },
+                      },
+                      "signature": {
+                          "certificate": {
+                              "certificateIssuer": "CN=sigstore-intermediate,O=sigstore.dev",
+                              "subjectAlternativeName": "https://github.com/Luminous-Dynamics/mycelix/.github/workflows/qualify.yml@refs/heads/main",
+                              "issuer": "https://token.actions.githubusercontent.com",
+                              "buildSignerURI": "https://github.com/Luminous-Dynamics/mycelix/.github/workflows/qualify.yml@refs/heads/main",
+                              "buildSignerDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                              "runnerEnvironment": "github-hosted",
+                              "sourceRepositoryURI": "https://github.com/Luminous-Dynamics/mycelix",
+                              "sourceRepositoryDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                              "sourceRepositoryRef": "refs/heads/main",
+                              "sourceRepositoryIdentifier": "123456789",
+                              "sourceRepositoryOwnerURI": "https://github.com/Luminous-Dynamics",
+                              "sourceRepositoryOwnerIdentifier": "987654321",
+                              "buildConfigURI": "https://github.com/Luminous-Dynamics/mycelix/.github/workflows/qualify.yml@refs/heads/main",
+                              "buildConfigDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                              "buildTrigger": "workflow_dispatch",
+                              "runInvocationURI": "https://github.com/Luminous-Dynamics/mycelix/actions/runs/123/attempts/1",
+                              "sourceRepositoryVisibilityAtSigning": "public",
+                          }
+                      },
+                      "verifiedTimestamps": [{
+                          "type": "Tlog",
+                          "uri": "https://rekor.sigstore.dev",
+                          "timestamp": "2026-09-20T00:00:00Z",
+                      }],
+                  },
+              }]
+              sys.stdout.write(json.dumps(result, separators=(",", ":")))
+              sys.stderr.write("verify-stderr\n")
+          else:
+              raise SystemExit(98)
+          PY
+          chmod 0755 "$fake"
+          fake="$(realpath "$fake")"
+          printf 'path=%s\n' "$fake" >> "$GITHUB_OUTPUT"
+          printf 'sha256=%s\n' "$(sha256sum "$fake" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+
+      - name: Execute sealed verifier and compose strict evidence
+        shell: bash
+        env:
+          GH_TOKEN: synthetic-gate-b1-token
+          MYCELIX_AMBIENT_SENTINEL: must-not-reach-child
+          FAKE_GH: ${{ steps.fixture.outputs.path }}
+          FAKE_GH_SHA256: ${{ steps.fixture.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+          crate_path="$(realpath mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication)"
+          probe="$RUNNER_TEMP/github-verifier-b1-probe"
+          work="$(mktemp -d "$RUNNER_TEMP/github-verifier-b1-work.XXXXXX")"
+          work="$(realpath "$work")"
+          evidence="$RUNNER_TEMP/github-verifier-executor-b1-evidence"
+          mkdir -p "$probe/src"
+
+          cat > "$probe/Cargo.toml" <<EOF
+          [package]
+          name = "github-verifier-b1-probe"
+          version = "0.1.0"
+          edition = "2024"
+
+          [dependencies]
+          proofs-evidence-authentication = { path = "$crate_path" }
+          EOF
+
+          cat > "$probe/src/main.rs" <<'RS'
+          use std::{env, fs};
+          use proofs_evidence_authentication::{
+              AuthenticationFreshnessPolicyV1, ExecutedGitHubVerificationAuthorityV1,
+              GITHUB_ACTIONS_OIDC_ISSUER_V1, GITHUB_PUBLIC_BACKEND_FAMILY_V1,
+              GITHUB_PUBLIC_COMMAND_PROFILE_ID_V1, GITHUB_PUBLIC_PLATFORM_PROFILE_V1,
+              GitObjectIdV1, GitHubResolvedTrustInstanceStatusV1,
+              GitHubPublicVerifierExecutionPolicyV1, GitHubVerifierStepPurposeV1,
+              MYCELIX_QUALIFICATION_PREDICATE_TYPE_V1, MYCELIX_QUALIFICATION_SUBJECT_NAME_V1,
+              MYCELIX_REPOSITORY_OWNER_V1, MYCELIX_REPOSITORY_V1,
+              QualificationReceiptV1, QualificationResultV1, ReceiptAuthenticationPolicyV1,
+              Sha256DigestV1, SourceRevisionPolicyV1, TransparencyPolicyV1,
+              VerifierExecutableIdentityV1, VerifierProfileV1, WorkflowRevisionPolicyV1,
+              classify_github_default_dual_trusted_root_v1, execute_github_public_verifier_v1,
+              parse_executed_github_attestation_verifier_output_v1,
+              resolve_github_candidate_transparency_v1,
+          };
+
+          fn digest(byte: u8) -> Sha256DigestV1 {
+              Sha256DigestV1::from_bytes([byte; 32])
+          }
+
+          fn main() {
+              let fake = env::var("FAKE_GH").unwrap();
+              let fake_sha = Sha256DigestV1::from_hex(&env::var("FAKE_GH_SHA256").unwrap()).unwrap();
+              let work = env::args().nth(1).expect("work dir");
+              let source = GitObjectIdV1::sha1([0xaa; 20]);
+              let signer = GitObjectIdV1::sha1([0xbb; 20]);
+
+              let verifier = VerifierExecutableIdentityV1 {
+                  profile_id: "gate-b1-fake-gh-v1".into(),
+                  backend_family: GITHUB_PUBLIC_BACKEND_FAMILY_V1.into(),
+                  semantic_version: "2.101.0".into(),
+                  executable_sha256: fake_sha,
+                  platform_profile: GITHUB_PUBLIC_PLATFORM_PROFILE_V1.into(),
+                  command_profile_id: GITHUB_PUBLIC_COMMAND_PROFILE_ID_V1.into(),
+                  nix_closure: None,
+              };
+
+              let auth = ReceiptAuthenticationPolicyV1 {
+                  profile_id: "github-public-v1".into(),
+                  verifier_profile: VerifierProfileV1 {
+                      profile_id: "github-attestation-verifier-v1".into(),
+                      backend_family: GITHUB_PUBLIC_BACKEND_FAMILY_V1.into(),
+                      backend_version: "2.101.0".into(),
+                      verification_profile: "public-sigstore-qualification-v1".into(),
+                  },
+                  expected_attestation_subject_name: MYCELIX_QUALIFICATION_SUBJECT_NAME_V1.into(),
+                  expected_predicate_type: MYCELIX_QUALIFICATION_PREDICATE_TYPE_V1.into(),
+                  expected_predicate_schema: "mycelix-qualification-attestation-predicate-v1".into(),
+                  trusted_root_profile: "sigstore-public-good-v1".into(),
+                  trusted_root_digest: digest(9),
+                  oidc_issuer: GITHUB_ACTIONS_OIDC_ISSUER_V1.into(),
+                  source_repository: MYCELIX_REPOSITORY_V1.into(),
+                  source_repository_owner: MYCELIX_REPOSITORY_OWNER_V1.into(),
+                  signer_workflow: ".github/workflows/qualify.yml".into(),
+                  signer_workflow_revision: WorkflowRevisionPolicyV1::Exact(signer),
+                  source_revision: SourceRevisionPolicyV1 {
+                      exact_commit: source,
+                      exact_git_ref: Some("refs/heads/main".into()),
+                  },
+                  transparency_policy: TransparencyPolicyV1::PublicTransparencyRequired,
+                  freshness_policy: AuthenticationFreshnessPolicyV1::CurrentAtVerification,
+              };
+
+              let execution = GitHubPublicVerifierExecutionPolicyV1::new(
+                  "github-public-exact-executable-v1",
+                  "github-public-v1",
+                  "github-attestation-verifier-v1",
+                  "public-sigstore-qualification-v1",
+                  verifier,
+                  fake,
+              ).unwrap();
+
+              let receipt = QualificationReceiptV1 {
+                  receipt_version: 1,
+                  qualification_profile: "myc-zkp-gh-executor-b1".into(),
+                  statement_profile: "github-verifier-execution-v1".into(),
+                  theorem_profile: "github-verifier-execution-runtime-b1".into(),
+                  subject: source,
+                  dependency_graph_digest: digest(1),
+                  measured_security_receipt_digest: digest(2),
+                  coherence_policy_id: "coherence-v1".into(),
+                  coherence_result_digest: digest(3),
+                  qualification_corpus_digest: digest(4),
+                  execution_capsule_digest: digest(5),
+                  result: QualificationResultV1::Pass,
+                  nonclaims: vec!["receipt authentication not granted".into()],
+              };
+
+              let executed = execute_github_public_verifier_v1(
+                  &execution,
+                  &auth,
+                  &receipt,
+                  signer,
+                  &work,
+              ).expect("sealed execution");
+
+              assert_eq!(executed.authority_scope(), ExecutedGitHubVerificationAuthorityV1::ActualVerifierExecutionOnly);
+              assert!(executed.establishes_actual_process_execution());
+              assert!(!executed.establishes_trusted_clock());
+              assert!(!executed.establishes_parsed_verifier_result());
+              assert!(!executed.establishes_receipt_authentication());
+              assert!(!executed.grants_production_authority());
+              assert!(!executed.grants_application_authority());
+              assert!(executed.process_receipt().process_exited_successfully());
+              assert!(!executed.process_receipt().establishes_parsed_result_count());
+
+              let purposes: Vec<_> = executed.step_evidence().iter().map(|step| step.purpose()).collect();
+              assert_eq!(purposes, vec![
+                  GitHubVerifierStepPurposeV1::DownloadAttestations,
+                  GitHubVerifierStepPurposeV1::FetchTrustedRoot,
+                  GitHubVerifierStepPurposeV1::VerifyAttestation,
+              ]);
+              assert_eq!(executed.attestation_bundle_bytes(), b"{\"bundle\":\"gate-b1\"}\n");
+              assert_eq!(executed.download_stdout_bytes(), b"download-ok\n");
+              assert_eq!(executed.verifier_stderr_bytes(), b"verify-stderr\n");
+              assert_eq!(fs::read(format!("{work}/qualification-receipt.bin")).unwrap(), receipt.canonical_bytes().unwrap());
+              assert_eq!(fs::read(format!("{work}/trusted_root.jsonl")).unwrap(), executed.retained_root_bytes());
+              assert_eq!(fs::read_to_string(format!("{work}/home/invocations.log")).unwrap(), "download\ntrusted-root\nverify\n");
+
+              let parsed = parse_executed_github_attestation_verifier_output_v1(&executed)
+                  .expect("strict parser composition");
+              assert_eq!(parsed.candidates().len(), 1);
+              assert_eq!(parsed.execution_receipt().parsed_result_count, 1);
+
+              let roots = classify_github_default_dual_trusted_root_v1(
+                  executed.retained_root_bytes(),
+                  parsed.execution_receipt(),
+                  executed.execution_policy(),
+                  executed.command_plan(),
+              ).expect("retained root classification");
+              let transparency = resolve_github_candidate_transparency_v1(&roots, &parsed.candidates()[0]);
+              assert_eq!(transparency.status(), GitHubResolvedTrustInstanceStatusV1::PublicGoodTransparencyConfirmed);
+              assert!(!transparency.establishes_receipt_authentication());
+              assert!(!transparency.grants_production_authority());
+              assert!(!transparency.grants_application_authority());
+
+              println!("B1_OK candidate_count={} root_bytes={} clock_profile={}",
+                  parsed.candidates().len(),
+                  executed.retained_root_bytes().len(),
+                  executed.clock_profile_id(),
+              );
+          }
+          RS
+
+          cd "$probe"
+          cargo generate-lockfile
+          cargo run --locked -- "$work" | tee "$evidence/runtime-probe.txt"
+          cp Cargo.lock "$evidence/probe-Cargo.lock"
+          sha256sum "$FAKE_GH" > "$evidence/fake-verifier.sha256"
+          sha256sum "$work/qualification-receipt.bin" "$work"/sha256:*.jsonl "$work/trusted_root.jsonl" \
+            > "$evidence/retained-files.sha256"
+          cp "$work/home/invocations.log" "$evidence/invocations.log"
+          grep -Fq 'B1_OK candidate_count=1' "$evidence/runtime-probe.txt"
+          test "$(cat "$evidence/invocations.log")" = $'download\ntrusted-root\nverify'
+
+      - name: Verify implementation checkout immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          test -z "$(git status --porcelain)"
+          evidence="$RUNNER_TEMP/github-verifier-executor-b1-evidence"
+          find mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication \
+            -type f -not -path '*/target/*' -print0 | sort -z | xargs -0 sha256sum \
+            > "$evidence/source-sha256-post.txt"
+          cmp "$evidence/source-sha256.txt" "$evidence/source-sha256-post.txt"
+
+      - name: Write Gate B1 result
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/github-verifier-executor-b1-evidence"
+          cat > "$evidence/QUALIFICATION.txt" <<EOF
+          MYC-ZKP-GH-EXECUTOR-001AQ-B1 PASS
+          subject_sha=${{ steps.subject.outputs.sha }}
+          gate=runtime-positive-execution-composition
+          actual_process_execution=true
+          internally_rebuilt_command_plan=true
+          environment_isolation=true
+          exact_retained_bytes=true
+          strict_parser_composition=true
+          retained_root_classification=true
+          public_good_transparency_resolution=true
+          adversarial_runtime_limits=NOT_ESTABLISHED_BY_GATE_B1
+          trusted_clock=false
+          receipt_authentication=false
+          production_admission=false
+          application_authority=false
+          EOF
+
+      - name: Upload Gate B1 evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: myc-zkp-gh-executor-001aq-b1-${{ steps.subject.outputs.sha }}
+          path: ${{ runner.temp }}/github-verifier-executor-b1-evidence
+          if-no-files-found: warn
+          retention-days: 30
