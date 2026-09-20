@@ -1,0 +1,370 @@
+name: Mycelix GitHub Attestation Result Parser Exact-Head
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication/**'
+      - '.github/workflows/github-attestation-result-parser-exact-head.yml'
+  workflow_dispatch:
+    inputs:
+      subject_sha:
+        description: 'Exact 40-hex commit SHA to qualify'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-attestation-result-parser-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Exact-head GitHub attestation result-parser qualification
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Resolve exact subject
+        id: subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            subject='${{ github.event.pull_request.head.sha }}'
+          else
+            subject='${{ inputs.subject_sha }}'
+          fi
+          [[ "$subject" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid subject SHA: $subject" >&2; exit 1; }
+          echo "sha=$subject" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ steps.subject.outputs.sha }}
+          fetch-depth: 1
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+
+      - name: Preflight exact source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          test -z "$(git status --porcelain)"
+          evidence="$RUNNER_TEMP/github-attestation-result-parser-evidence"
+          mkdir -p "$evidence"
+          {
+            echo "subject_sha=${{ steps.subject.outputs.sha }}"
+            echo "runner_os=${RUNNER_OS}"
+            echo "runner_arch=${RUNNER_ARCH}"
+            rustc -Vv
+            cargo -V
+          } > "$evidence/execution-capsule.txt"
+          find mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication \
+            -type f -not -path '*/target/*' -print0 | sort -z | xargs -0 sha256sum \
+            > "$evidence/source-sha256.txt"
+
+      - name: Check formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path \
+            mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication/Cargo.toml \
+            --all -- --check
+
+      - name: Prepare isolated resolved graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/github-result-parser-qual"
+          evidence="$RUNNER_TEMP/github-attestation-result-parser-evidence"
+          cp -a mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication "$crate"
+          cd "$crate"
+          cargo generate-lockfile
+          cp Cargo.lock "$evidence/Cargo.lock"
+          sha256sum Cargo.lock > "$evidence/Cargo.lock.sha256"
+          cargo metadata --locked --format-version 1 > "$evidence/cargo-metadata.json"
+          cargo tree --locked > "$evidence/cargo-tree.txt"
+
+      - name: Execute committed corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/github-result-parser-qual"
+          evidence="$RUNNER_TEMP/github-attestation-result-parser-evidence"
+          cd "$crate"
+          cargo test --locked --all-targets -- --nocapture | tee "$evidence/committed-tests.txt"
+          cargo test --locked --all-targets -- --list > "$evidence/committed-test-list.txt"
+
+      - name: Install external parser probes
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/github-result-parser-qual"
+          mkdir -p "$crate/tests"
+          cat > "$crate/tests/github_result_parser_public_probe.rs" <<'RS'
+          use proofs_evidence_authentication::{
+              GitHubAttestationFactProvenanceV1, GitHubParsedVerifierOutputAuthorityV1,
+              GitHubTrustInstanceStatusV1, GitHubVerifiedTimestampWitnessKindV1,
+              NixVerifierClosureIdentityV1, QualificationReceiptCanonicalizationV1,
+              QualificationReceiptDigestV1, Sha256DigestV1,
+              VerifierExecutableIdentityV1, VerifierExecutionReceiptV1,
+              VerifierProcessOutcomeV1, VerifierTrustRootModeV1,
+              GITHUB_VERIFICATION_RESULT_PARSER_PROFILE_V1,
+              SIGSTORE_VERIFICATION_RESULT_MEDIA_TYPE_V1,
+              VERIFIER_EXECUTION_EVIDENCE_VERSION_V1, VERIFIER_STDOUT_DIGEST_PROFILE_V1,
+              github_verifier_stdout_digest_v1, parse_github_attestation_verifier_output_v1,
+          };
+
+          fn digest(byte: u8) -> Sha256DigestV1 {
+              Sha256DigestV1::from_bytes([byte; 32])
+          }
+
+          fn candidate() -> serde_json::Value {
+              serde_json::json!({
+                  "attestation": {"bundle": "retained-elsewhere"},
+                  "verificationResult": {
+                      "mediaType": SIGSTORE_VERIFICATION_RESULT_MEDIA_TYPE_V1,
+                      "statement": {
+                          "_type": "https://in-toto.io/Statement/v1",
+                          "subject": [{
+                              "name": "mycelix-qualification-receipt",
+                              "digest": {"sha256": "11".repeat(32)}
+                          }],
+                          "predicateType": "https://mycelix.org/attestations/qualification/v1",
+                          "predicate": {
+                              "predicate_version": 1,
+                              "predicate_schema": "mycelix-qualification-attestation-predicate-v1"
+                          }
+                      },
+                      "signature": {
+                          "certificate": {
+                              "certificateIssuer": "CN=sigstore-intermediate,O=sigstore.dev",
+                              "subjectAlternativeName": "https://github.com/Luminous-Dynamics/mycelix/.github/workflows/qualify.yml@refs/heads/main",
+                              "issuer": "https://token.actions.githubusercontent.com",
+                              "buildSignerURI": "https://github.com/Luminous-Dynamics/mycelix/.github/workflows/qualify.yml@refs/heads/main",
+                              "buildSignerDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                              "runnerEnvironment": "github-hosted",
+                              "sourceRepositoryURI": "https://github.com/Luminous-Dynamics/mycelix",
+                              "sourceRepositoryDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                              "sourceRepositoryRef": "refs/heads/main",
+                              "sourceRepositoryIdentifier": "1176351975",
+                              "sourceRepositoryOwnerURI": "https://github.com/Luminous-Dynamics",
+                              "sourceRepositoryOwnerIdentifier": "owner-id",
+                              "buildConfigURI": "https://github.com/Luminous-Dynamics/mycelix/.github/workflows/qualify.yml@refs/heads/main",
+                              "buildConfigDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                              "buildTrigger": "pull_request",
+                              "runInvocationURI": "https://github.com/Luminous-Dynamics/mycelix/actions/runs/1",
+                              "sourceRepositoryVisibilityAtSigning": "public"
+                          }
+                      },
+                      "verifiedTimestamps": [{
+                          "type": "Tlog",
+                          "uri": "https://rekor.sigstore.dev",
+                          "timestamp": "2026-09-20T00:00:00Z"
+                      }],
+                      "futureNestedField": {"mustRemainTolerated": true}
+                  }
+              })
+          }
+
+          fn receipt(stdout: &[u8], count: u32) -> VerifierExecutionReceiptV1 {
+              VerifierExecutionReceiptV1 {
+                  evidence_version: VERIFIER_EXECUTION_EVIDENCE_VERSION_V1,
+                  verifier: VerifierExecutableIdentityV1 {
+                      profile_id: "gh-exact-v1".into(),
+                      backend_family: "github-cli-attestation".into(),
+                      semantic_version: "2.101.0".into(),
+                      executable_sha256: digest(1),
+                      platform_profile: "linux-x86_64".into(),
+                      command_profile_id: "mycelix-github-public-qualification-verifier-command-v1".into(),
+                      nix_closure: Some(NixVerifierClosureIdentityV1 {
+                          store_path: "/nix/store/example-gh/bin/gh".into(),
+                          closure_digest: digest(2),
+                      }),
+                  },
+                  canonical_receipt_digest: QualificationReceiptDigestV1 {
+                      canonicalization: QualificationReceiptCanonicalizationV1::BinaryV1,
+                      sha256: digest(3),
+                  },
+                  attestation_bundle_digest: digest(4),
+                  trust_root_mode: VerifierTrustRootModeV1::OnlineFetchThenRetainedVerifyV1,
+                  trusted_root_material_digest: digest(5),
+                  trusted_root_acquired_at_unix_seconds: 1_010,
+                  command_arguments_digest: digest(6),
+                  environment_profile_digest: digest(7),
+                  verifier_stdout_digest: github_verifier_stdout_digest_v1(stdout),
+                  verifier_stderr_digest: digest(9),
+                  execution_started_at_unix_seconds: 1_000,
+                  execution_completed_at_unix_seconds: 1_020,
+                  process_outcome: VerifierProcessOutcomeV1::ExitCode(0),
+                  parsed_result_count: count,
+              }
+          }
+
+          #[test]
+          fn exact_output_preserves_provenance_and_acronym_fields() {
+              let raw = serde_json::to_vec(&vec![candidate()]).unwrap();
+              let parsed = parse_github_attestation_verifier_output_v1(&raw, &receipt(&raw, 1)).unwrap();
+              assert_eq!(parsed.parser_profile_id(), GITHUB_VERIFICATION_RESULT_PARSER_PROFILE_V1);
+              assert_eq!(parsed.stdout_digest_profile_id(), VERIFIER_STDOUT_DIGEST_PROFILE_V1);
+              assert_eq!(parsed.authority_scope(), GitHubParsedVerifierOutputAuthorityV1::ParsedVerifierOutputOnly);
+              let candidate = &parsed.candidates()[0];
+              assert_eq!(candidate.certificate().build_signer_uri(), Some("https://github.com/Luminous-Dynamics/mycelix/.github/workflows/qualify.yml@refs/heads/main"));
+              assert_eq!(candidate.certificate().source_repository_uri(), Some("https://github.com/Luminous-Dynamics/mycelix"));
+              assert_eq!(candidate.certificate().provenance(), GitHubAttestationFactProvenanceV1::CertificateDerived);
+              assert_eq!(candidate.verified_timestamps()[0].kind(), GitHubVerifiedTimestampWitnessKindV1::TransparencyLog);
+              assert_eq!(candidate.trust_instance_status(), GitHubTrustInstanceStatusV1::UnresolvedTrustInstance);
+              assert_eq!(candidate.predicate().provenance(), GitHubAttestationFactProvenanceV1::WorkflowControlledSignedClaim);
+              assert!(!parsed.establishes_trusted_builder_identity());
+              assert!(!parsed.establishes_public_good_transparency());
+              assert!(!parsed.establishes_receipt_authentication());
+              assert!(!parsed.grants_production_authority());
+              assert!(!parsed.grants_application_authority());
+          }
+
+          #[test]
+          fn detached_stdout_and_result_count_substitution_fail() {
+              let raw = serde_json::to_vec(&vec![candidate()]).unwrap();
+              let evidence = receipt(&raw, 1);
+              let mut changed = raw.clone();
+              changed.push(b' ');
+              assert!(parse_github_attestation_verifier_output_v1(&changed, &evidence).is_err());
+              assert!(parse_github_attestation_verifier_output_v1(&raw, &receipt(&raw, 2)).is_err());
+          }
+
+          #[test]
+          fn outer_unknown_field_fails_while_nested_extension_survives() {
+              let raw = serde_json::to_vec(&vec![candidate()]).unwrap();
+              assert!(parse_github_attestation_verifier_output_v1(&raw, &receipt(&raw, 1)).is_ok());
+              let mut changed = candidate();
+              changed.as_object_mut().unwrap().insert("productionAuthority".into(), serde_json::Value::Bool(true));
+              let raw = serde_json::to_vec(&vec![changed]).unwrap();
+              assert!(parse_github_attestation_verifier_output_v1(&raw, &receipt(&raw, 1)).is_err());
+          }
+          RS
+
+      - name: Execute external parser probes
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/github-result-parser-qual"
+          evidence="$RUNNER_TEMP/github-attestation-result-parser-evidence"
+          cd "$crate"
+          cargo test --locked --test github_result_parser_public_probe -- --nocapture \
+            | tee "$evidence/public-parser-probes.txt"
+
+      - name: Prove Public Good confirmation is absent from parser trust status
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/github-result-parser-qual"
+          evidence="$RUNNER_TEMP/github-attestation-result-parser-evidence"
+          cat > "$crate/tests/no_public_good_confirmation.rs" <<'RS'
+          use proofs_evidence_authentication::GitHubTrustInstanceStatusV1;
+          #[test]
+          fn probe() {
+              let _ = GitHubTrustInstanceStatusV1::PublicGoodTransparencyConfirmed;
+          }
+          RS
+          set +e
+          (
+            cd "$crate"
+            CARGO_TERM_COLOR=never cargo check --locked --test no_public_good_confirmation
+          ) > "$evidence/no-public-good-confirmation.stdout.txt" \
+            2> "$evidence/no-public-good-confirmation.stderr.txt"
+          status=$?
+          set -e
+          if [[ $status -eq 0 ]]; then
+            echo "parser unexpectedly exposes Public Good confirmation" >&2
+            exit 1
+          fi
+          grep -Fq "PublicGoodTransparencyConfirmed" "$evidence/no-public-good-confirmation.stderr.txt"
+          grep -Eq "no variant|associated item" "$evidence/no-public-good-confirmation.stderr.txt"
+
+      - name: Prove parsed output cannot convert into authenticated receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/github-result-parser-qual"
+          evidence="$RUNNER_TEMP/github-attestation-result-parser-evidence"
+          cat > "$crate/tests/no_parser_to_authentication.rs" <<'RS'
+          use proofs_evidence_authentication::{
+              AuthenticatedQualificationReceiptV1, ParsedGitHubAttestationVerifierOutputV1,
+          };
+          fn require_into<T: Into<AuthenticatedQualificationReceiptV1>>() {}
+          #[test] fn probe() { require_into::<ParsedGitHubAttestationVerifierOutputV1>(); }
+          RS
+          set +e
+          (
+            cd "$crate"
+            CARGO_TERM_COLOR=never cargo check --locked --test no_parser_to_authentication
+          ) > "$evidence/no-parser-to-authentication.stdout.txt" \
+            2> "$evidence/no-parser-to-authentication.stderr.txt"
+          status=$?
+          set -e
+          if [[ $status -eq 0 ]]; then
+            echo "parsed verifier output unexpectedly converts into authenticated capability" >&2
+            exit 1
+          fi
+          grep -Fq "AuthenticatedQualificationReceiptV1" "$evidence/no-parser-to-authentication.stderr.txt"
+          grep -Fq "trait bound" "$evidence/no-parser-to-authentication.stderr.txt"
+
+      - name: Remove qualification-only probes
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/github-result-parser-qual/tests"
+
+      - name: Warnings-denied Clippy
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/github-result-parser-qual"
+          evidence="$RUNNER_TEMP/github-attestation-result-parser-evidence"
+          cd "$crate"
+          cargo clippy --locked --all-targets -- -D warnings | tee "$evidence/clippy.txt"
+
+      - name: Verify checkout immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          test -z "$(git status --porcelain)"
+          evidence="$RUNNER_TEMP/github-attestation-result-parser-evidence"
+          find mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication \
+            -type f -not -path '*/target/*' -print0 | sort -z | xargs -0 sha256sum \
+            > "$evidence/source-sha256-post.txt"
+          cmp "$evidence/source-sha256.txt" "$evidence/source-sha256-post.txt"
+
+      - name: Write qualification receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/github-attestation-result-parser-evidence"
+          cat > "$evidence/QUALIFICATION.txt" <<EOF
+          MYC-ZKP-GH-RESULT-PARSE-001AQ PASS
+          subject_sha=${{ steps.subject.outputs.sha }}
+          authority_scope=ParsedVerifierOutputOnly
+          trusted_builder_identity=false
+          public_good_transparency=false
+          receipt_authentication=false
+          production_admission=false
+          application_authority=false
+          EOF
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: myc-zkp-gh-result-parse-001aq-${{ steps.subject.outputs.sha }}
+          path: ${{ runner.temp }}/github-attestation-result-parser-evidence
+          if-no-files-found: warn
+          retention-days: 30
