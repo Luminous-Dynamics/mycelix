@@ -4,7 +4,7 @@
 //! Structured conductor error classes preserved from the Holochain app wire.
 //!
 //! Holochain 0.6 exposes [`ExternalApiWireError`](https://docs.rs/holochain_conductor_api/0.6)
-//! as a small tagged enum whose payloads are human-readable strings.  This
+//! as a small tagged enum whose payloads are human-readable strings. This
 //! module preserves the enum tag as machine-readable evidence without claiming
 //! that details hidden inside those strings (for example a specific source-chain
 //! head movement) have a structured protocol representation.
@@ -14,7 +14,7 @@ use crate::types::AppError;
 /// Stable, machine-readable class of an error returned by the conductor app API.
 ///
 /// These variants intentionally mirror the broad classes on Holochain 0.6's
-/// `ExternalApiWireError`.  They are not a taxonomy of every underlying
+/// `ExternalApiWireError`. They are not a taxonomy of every underlying
 /// Holochain error and must not be strengthened into one by inspecting the
 /// human-readable message payload.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -44,7 +44,8 @@ impl ConductorErrorKind {
 
 /// Structured conductor failure retaining both the wire class and its display
 /// message.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+#[error("Conductor {kind:?} error: {message}")]
 pub struct ConductorError {
     pub kind: ConductorErrorKind,
     pub message: String,
@@ -128,6 +129,10 @@ mod tests {
 
         assert_eq!(structured.kind, ConductorErrorKind::Ribosome);
         assert_eq!(structured.message, "source chain head moved");
+        assert_eq!(
+            structured.to_string(),
+            "Conductor Ribosome error: source chain head moved"
+        );
     }
 
     #[test]

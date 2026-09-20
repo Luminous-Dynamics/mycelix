@@ -3,6 +3,8 @@
 
 //! Error types for the Holochain browser client.
 
+use crate::conductor_error::{ConductorError, ConductorErrorKind};
+
 /// Errors that can occur during Holochain client operations.
 #[derive(Debug, thiserror::Error)]
 pub enum ClientError {
@@ -18,7 +20,12 @@ pub enum ClientError {
     #[error("Serialization error: {0}")]
     SerializationError(String),
 
-    /// The conductor returned an error for the zome call.
+    /// Structured error returned by the conductor application API.
+    #[error(transparent)]
+    Conductor(#[from] ConductorError),
+
+    /// Legacy unstructured zome-call error retained while transports migrate
+    /// to [`ClientError::Conductor`].
     #[error("Zome call failed: {0}")]
     ZomeCallFailed(String),
 
@@ -57,4 +64,67 @@ pub enum ClientError {
     /// The requested role name was not found in the app info.
     #[error("Unknown role: {0}")]
     UnknownRole(String),
+}
+
+impl ClientError {
+    /// Return the structured conductor error when this client failure came
+    /// directly from the conductor application API.
+    pub fn conductor_error(&self) -> Option<&ConductorError> {
+        match self {
+            Self::Conductor(error) => Some(error),
+            _ => None,
+        }
+    }
+
+    /// Return only the broad machine-readable conductor error class.
+    ///
+    /// This never derives a more specific class from the human-readable error
+    /// payload.
+    pub fn conductor_kind(&self) -> Option<ConductorErrorKind> {
+        self.conductor_error().map(|error| error.kind)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn structured_conductor_error_roundtrips_through_client_error() {
+        let conductor = ConductorError {
+            kind: ConductorErrorKind::ZomeCallUnauthorized,
+            message: "cap grant rejected".into(),
+        };
+        let error: ClientError = conductor.clone().into();
+
+        assert_eq!(
+            error.conductor_kind(),
+            Some(ConductorErrorKind::ZomeCallUnauthorized)
+        );
+        assert_eq!(error.conductor_error(), Some(&conductor));
+        assert_eq!(
+            error.to_string(),
+            "Conductor ZomeCallUnauthorized error: cap grant rejected"
+        );
+    }
+
+    #[test]
+    fn unstructured_errors_do_not_claim_a_conductor_class() {
+        let legacy = ClientError::ZomeCallFailed("legacy text".into());
+        let transport = ClientError::WebSocketError("closed".into());
+
+        assert_eq!(legacy.conductor_kind(), None);
+        assert_eq!(transport.conductor_kind(), None);
+    }
+
+    #[test]
+    fn ribosome_class_does_not_strengthen_message_into_head_moved() {
+        let error: ClientError = ConductorError {
+            kind: ConductorErrorKind::Ribosome,
+            message: "source chain head moved".into(),
+        }
+        .into();
+
+        assert_eq!(error.conductor_kind(), Some(ConductorErrorKind::Ribosome));
+    }
 }
