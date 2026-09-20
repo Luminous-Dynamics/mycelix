@@ -1,0 +1,92 @@
+name: SUP-CIV-002A Typed Ticket Mutation
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/docs/civic-resilience/SUP_CIV_002A_TYPED_TICKET_MUTATION_V1.md'
+      - 'mycelix-workspace/docs/civic-resilience/sup_civ_002a_typed_ticket_mutation.json'
+      - 'scripts/qualification/sup_civ_002a_typed_ticket_mutation_v1.py'
+      - '.github/workflows/sup-civ-002a-typed-ticket-mutation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sup-civ-002a-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Typed ticket mutation boundary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Exact parent and clean subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='9a5148b9927c630d4073d486f464824fb429d8c6'
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          printf 'head=%s\nparent=%s\ntree=%s\n' \
+            "$(git rev-parse HEAD)" \
+            "$(git rev-parse HEAD^)" \
+            "$(git rev-parse HEAD^{tree})"
+          test -z "$(git status --short)"
+
+      - name: Exact tranche scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='9a5148b9927c630d4073d486f464824fb429d8c6'
+          test "$(git rev-list --count "$EXPECTED_PARENT"..HEAD)" = '1'
+          git diff --check "$EXPECTED_PARENT" HEAD
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PARENT" HEAD | sort)
+          expected=(
+            '.github/workflows/sup-civ-002a-typed-ticket-mutation.yml'
+            'mycelix-workspace/docs/civic-resilience/SUP_CIV_002A_TYPED_TICKET_MUTATION_V1.md'
+            'mycelix-workspace/docs/civic-resilience/sup_civ_002a_typed_ticket_mutation.json'
+            'scripts/qualification/sup_civ_002a_typed_ticket_mutation_v1.py'
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed[@]}")
+
+      - name: Validate typed mutation contract
+        run: python3 scripts/qualification/sup_civ_002a_typed_ticket_mutation_v1.py
+
+      - name: Static no-runtime audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='9a5148b9927c630d4073d486f464824fb429d8c6'
+          changed="$(git diff --name-only "$EXPECTED_PARENT" HEAD)"
+          if printf '%s\n' "$changed" | grep -E '\.(rs|toml|lock)$'; then
+            echo 'SUP-CIV-002A must remain semantic-contract/manifest/validator/workflow only' >&2
+            exit 1
+          fi
+
+      - name: Prove closed transition and legacy boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d = json.loads(Path('mycelix-workspace/docs/civic-resilience/sup_civ_002a_typed_ticket_mutation.json').read_text())
+          assert d['runtime_owner'] == 'Deferred'
+          assert d['parent_qualification_required'] is True
+          assert d['default_transition_policy'] == 'deny_unlisted'
+          assert 'SetStatus' in d['forbidden_generic_commands']
+          assert 'ReplaceTicket' in d['forbidden_generic_commands']
+          assert d['legacy_api_policy']['whole_record_update_is_civic_safe_surface'] is False
+          assert d['currentness_policy']['last_write_wins_admitted'] is False
+          assert d['immutable_identity_bound_fields'] == ['requester', 'created_at']
+          PY
+
+      - name: Immutable checkout postflight
+        run: test -z "$(git status --short)"
