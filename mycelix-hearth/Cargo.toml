@@ -8,6 +8,7 @@ members = [
     "crates/hearth-automation-replay",
     "crates/hearth-household-planner",
     "crates/hearth-planner-evidence",
+    "crates/hearth-planner-evidence-v4",
     "crates/hearth-work-proposal",
     "crates/hearth-assignment-transition",
     "crates/hearth-assignment-endorsement",
@@ -110,6 +111,7 @@ hearth-automation-types = { path = "crates/hearth-automation-types" }
 hearth-automation-policy = { path = "crates/hearth-automation-policy" }
 hearth-household-planner = { path = "crates/hearth-household-planner" }
 hearth-planner-evidence = { path = "crates/hearth-planner-evidence" }
+hearth-planner-evidence-v4 = { path = "crates/hearth-planner-evidence-v4" }
 hearth-work-proposal = { path = "crates/hearth-work-proposal" }
 hearth-assignment-transition = { path = "crates/hearth-assignment-transition" }
 hearth-assignment-endorsement = { path = "crates/hearth-assignment-endorsement" }

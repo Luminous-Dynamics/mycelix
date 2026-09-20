@@ -1,0 +1,13 @@
+[package]
+name = "hearth-planner-evidence-v4"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Digest-v4-qualified history adapter for the Hearth household planner"
+
+[dependencies]
+serde = { workspace = true }
+hearth-household-planner = { workspace = true }
+hearth-planner-evidence = { workspace = true }
+hearth-care-ledger-contract = { workspace = true }
+hearth-care-digest-v4 = { workspace = true }
