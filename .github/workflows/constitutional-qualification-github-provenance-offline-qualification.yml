@@ -1,0 +1,176 @@
+name: Constitutional Offline GitHub QREC Provenance Qualification
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'mycelix-governance/tools/qrec/qualification_evidence_capsule.py'
+      - 'mycelix-governance/tools/qrec/verify_github_qualification_provenance.py'
+      - '.github/workflows/constitutional-qualification-github-provenance-offline-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: constitutional-qrec-github-offline-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NIXPKGS_REV: a50bf0c1b07873c1a53892292017041a8f0a1288
+  EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EXPECTED_SEMANTIC_HEAD: 37f6754f1511eb7a1c89f35bb5f32125a26c3a9f
+  EXPECTED_PARENT: 7eec9d95b95ddf685d521b3ef3265d12c0be4cc7
+  QREC_A: mycelix-governance/tools/qrec/qualification_evidence_capsule.py
+  QREC_B: mycelix-governance/tools/qrec/verify_github_qualification_provenance.py
+  EXPECTED_A_BLOB: 8036bb43064fdac50349bcc71b3ee5086100aa25
+  EXPECTED_B_BLOB: af7d5fee06c8f0404413c363313163e29345c83e
+
+jobs:
+  qualify:
+    name: Exact offline GitHub QREC provenance contract
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout exact verifier head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 3
+          ref: ${{ env.EXPECTED_HEAD }}
+          persist-credentials: false
+
+      - name: Bind exact lineage and source blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_SEMANTIC_HEAD"
+          test "$(git rev-parse HEAD^^)" = "$EXPECTED_PARENT"
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/constitutional-qualification-github-provenance-offline-qualification.yml"
+          test "$(git diff --name-only "$EXPECTED_PARENT" "$EXPECTED_SEMANTIC_HEAD")" = "$QREC_B"
+          test "$(git hash-object "$QREC_A")" = "$EXPECTED_A_BLOB"
+          test "$(git hash-object "$QREC_B")" = "$EXPECTED_B_BLOB"
+          rm -rf qrec-github-offline-evidence
+          mkdir -p qrec-github-offline-evidence
+          printf '%s\n' "$EXPECTED_HEAD" > qrec-github-offline-evidence/expected-head.txt
+          printf '%s\n' "$EXPECTED_SEMANTIC_HEAD" > qrec-github-offline-evidence/expected-semantic-head.txt
+          printf '%s\n' "$EXPECTED_PARENT" > qrec-github-offline-evidence/expected-parent.txt
+          git hash-object "$QREC_A" "$QREC_B" > qrec-github-offline-evidence/source-hashes-before.txt
+          sha256sum "$QREC_A" "$QREC_B" > qrec-github-offline-evidence/source-sha256-before.txt
+
+      - name: Source authority and result ceiling
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import ast
+          from pathlib import Path
+          p = Path('mycelix-governance/tools/qrec/verify_github_qualification_provenance.py')
+          source = p.read_text()
+          tree = ast.parse(source)
+          imports = set()
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Import):
+                  imports.update(alias.name.split('.')[0] for alias in node.names)
+              elif isinstance(node, ast.ImportFrom) and node.module:
+                  imports.add(node.module.split('.')[0])
+          allowed = {'__future__','argparse','copy','hashlib','importlib','io','json','re','shutil','stat','sys','tempfile','typing','zipfile','pathlib'}
+          assert imports <= allowed, sorted(imports-allowed)
+          for marker in ('requests','urllib','socket','VerifiedQualificationReceiptV1','actions/attest','hdk','hdi'):
+              assert marker not in source, marker
+          required_false = (
+              '"provider_metadata_retrieval_authenticated":False',
+              '"provider_artifact_retrievability_authenticated":False',
+              '"github_sigstore_attestation_verified":False',
+              '"xenia_attestation_verified":False',
+              '"issuer_authorization_verified":False',
+              '"verified_receipt_minted":False',
+              '"hosted_qualification_authenticity_established":False',
+              '"provider_runtime_authority_granted":False',
+          )
+          for marker in required_false:
+              assert marker in source, marker
+          print('offline provenance authority ceiling: PASS')
+          PY
+
+      - name: Install pinned Python
+        uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Syntax and adversarial self-test
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#python312" --command bash -euo pipefail -c '
+            python --version | tee qrec-github-offline-evidence/python-version.txt
+            python - <<"PY"
+          from pathlib import Path
+          for raw in (
+              "mycelix-governance/tools/qrec/qualification_evidence_capsule.py",
+              "mycelix-governance/tools/qrec/verify_github_qualification_provenance.py",
+          ):
+              p = Path(raw)
+              compile(p.read_text(), str(p), "exec")
+          print("syntax compile: PASS")
+          PY
+            python "$QREC_B" --qrec-tool "$QREC_A" --self-test 2>&1 | tee qrec-github-offline-evidence/self-test.log
+          '
+
+      - name: Mutation controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix shell "github:NixOS/nixpkgs/${NIXPKGS_REV}#python312" --command python - <<'PY'
+          from pathlib import Path
+          import subprocess, sys
+          p = Path('mycelix-governance/tools/qrec/verify_github_qualification_provenance.py')
+          original = p.read_text()
+          mutants = [
+              ('allow-empty-steps', 'if not isinstance(steps,list) or not steps:', 'if not isinstance(steps,list) or False:'),
+              ('ignore-zip-digest', 'if "sha256:"+sha(z)!=expected_digest:', 'if False and "sha256:"+sha(z)!=expected_digest:'),
+              ('ignore-receipt-tuple', 'if r.get(k)!=v: fail(f"QREC receipt {k} mismatch")', 'if False and r.get(k)!=v: fail(f"QREC receipt {k} mismatch")'),
+              ('ignore-parent-tool-identity', 'if git_blob(data)!=QREC_BLOB or sha(data)!=QREC_SHA256: fail("QREC-002A source identity mismatch")', 'if False and (git_blob(data)!=QREC_BLOB or sha(data)!=QREC_SHA256): fail("QREC-002A source identity mismatch")'),
+          ]
+          try:
+              for name, old, new in mutants:
+                  if original.count(old) != 1:
+                      raise SystemExit(f'{name}: expected one target, got {original.count(old)}')
+                  mutated = original.replace(old,new,1)
+                  p.write_text(mutated)
+                  compile(mutated,str(p),'exec')
+                  r = subprocess.run([sys.executable,str(p),'--qrec-tool','mycelix-governance/tools/qrec/qualification_evidence_capsule.py','--self-test'],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True)
+                  Path(f'qrec-github-offline-evidence/mutant-{name}.log').write_text(r.stdout)
+                  if r.returncode == 0:
+                      raise SystemExit(f'{name}: compile-valid mutant survived')
+                  p.write_text(original)
+              print('mutation controls: PASS')
+          finally:
+              p.write_text(original)
+          PY
+
+      - name: Postflight source immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git hash-object "$QREC_A")" = "$EXPECTED_A_BLOB"
+          test "$(git hash-object "$QREC_B")" = "$EXPECTED_B_BLOB"
+          git diff --exit-code -- "$QREC_A" "$QREC_B"
+          git hash-object "$QREC_A" "$QREC_B" > qrec-github-offline-evidence/source-hashes-after.txt
+          sha256sum "$QREC_A" "$QREC_B" > qrec-github-offline-evidence/source-sha256-after.txt
+          cmp qrec-github-offline-evidence/source-hashes-before.txt qrec-github-offline-evidence/source-hashes-after.txt
+          cmp qrec-github-offline-evidence/source-sha256-before.txt qrec-github-offline-evidence/source-sha256-after.txt
+
+      - name: Upload qualification evidence
+        if: always() && (github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: constitutional-qrec-github-offline-${{ github.run_id }}-${{ github.run_attempt }}
+          path: qrec-github-offline-evidence
+          if-no-files-found: error
+          retention-days: 30
