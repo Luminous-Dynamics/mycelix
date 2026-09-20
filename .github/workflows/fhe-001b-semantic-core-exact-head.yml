@@ -1,0 +1,147 @@
+name: Mycelix FHE-001B Semantic Core Exact-Head
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'mycelix-workspace/mycelix-core/libs/fhe-core/**'
+      - 'mycelix-workspace/mycelix-core/libs/privacy-computation-core/**'
+      - '.github/workflows/fhe-001b-semantic-core-exact-head.yml'
+  workflow_dispatch:
+    inputs:
+      subject_sha:
+        description: 'Exact 40-hex qualifier subject'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fhe-001bq-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Exact-head FHE-001B semantic-core qualification
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      PRODUCT_PARENT: 4bdcb0148b3f69d1e5f3974493c2a929f1860e64
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Resolve exact subject
+        id: subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            subject='${{ github.event.pull_request.head.sha }}'
+          else
+            subject='${{ inputs.subject_sha }}'
+          fi
+          [[ "$subject" =~ ^[0-9a-f]{40}$ ]]
+          echo "sha=$subject" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ steps.subject.outputs.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Verify exact qualifier shape
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$PRODUCT_PARENT"
+          test "$(git rev-list --count "$PRODUCT_PARENT"..HEAD)" = 1
+          mapfile -t changed < <(git diff --name-only "$PRODUCT_PARENT" HEAD)
+          test "${#changed[@]}" = 1
+          test "${changed[0]}" = '.github/workflows/fhe-001b-semantic-core-exact-head.yml'
+          test -z "$(git status --porcelain)"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+
+      - name: Capture source evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/fhe-001bq-evidence"
+          mkdir -p "$evidence"
+          {
+            echo "subject_sha=${{ steps.subject.outputs.sha }}"
+            echo 'authority_scope=StructuralOnly'
+            echo 'fhe_backend_qualified=false'
+            echo 'ciphertext_confidentiality_established=false'
+            echo 'parameter_security_established=false'
+            echo 'numeric_correctness_established=false'
+            echo 'threshold_security_established=false'
+            echo 'evaluation_integrity_established=false'
+            echo 'production_admission=false'
+            rustc -Vv
+            cargo -V
+          } > "$evidence/execution-capsule.txt"
+          find mycelix-workspace/mycelix-core/libs/fhe-core \
+               mycelix-workspace/mycelix-core/libs/privacy-computation-core \
+               -type f -not -path '*/target/*' -print0 \
+            | sort -z | xargs -0 sha256sum > "$evidence/source-sha256.txt"
+
+      - name: Check formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-core/libs/fhe-core/Cargo.toml \
+            --all -- --check
+
+      - name: Prepare isolated dependency graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/fhe-001bq-graph"
+          evidence="$RUNNER_TEMP/fhe-001bq-evidence"
+          mkdir -p "$root"
+          cp -a mycelix-workspace/mycelix-core/libs/privacy-computation-core "$root/privacy-computation-core"
+          cp -a mycelix-workspace/mycelix-core/libs/fhe-core "$root/fhe-core"
+          cd "$root/fhe-core"
+          cargo generate-lockfile
+          sha256sum Cargo.lock > "$evidence/Cargo.lock.sha256"
+          cp Cargo.lock "$evidence/Cargo.lock"
+          cargo metadata --locked --format-version 1 > "$evidence/cargo-metadata.json"
+          cargo tree --locked > "$evidence/cargo-tree.txt"
+
+      - name: Execute committed corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/fhe-001bq-graph/fhe-core"
+          cargo test --locked --all-targets -- --nocapture
+
+      - name: Warnings-denied Clippy
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/fhe-001bq-graph/fhe-core"
+          cargo clippy --locked --all-targets -- -D warnings
+
+      - name: Postflight immutability and receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          test -z "$(git status --porcelain)"
+          echo 'FHE-001BQ PASS'
+          echo 'authority_scope=StructuralOnly'
+          echo 'fhe_backend_qualified=false'
+          echo 'ciphertext_confidentiality_established=false'
+          echo 'parameter_security_established=false'
+          echo 'numeric_correctness_established=false'
+          echo 'threshold_security_established=false'
+          echo 'evaluation_integrity_established=false'
+          echo 'production_admission=false'
