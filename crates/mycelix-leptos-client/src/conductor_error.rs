@@ -9,6 +9,7 @@
 //! that details hidden inside those strings (for example a specific source-chain
 //! head movement) have a structured protocol representation.
 
+use crate::error::ClientError;
 use crate::types::AppError;
 
 /// Stable, machine-readable class of an error returned by the conductor app API.
@@ -79,6 +80,12 @@ impl ConductorError {
     }
 }
 
+impl From<AppError> for ClientError {
+    fn from(error: AppError) -> Self {
+        ConductorError::from_app_error(&error).into()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -123,6 +130,20 @@ mod tests {
     }
 
     #[test]
+    fn wire_error_converts_directly_to_typed_client_error() {
+        let error = ClientError::from(AppError::ZomeCallUnauthorized("denied".into()));
+
+        assert_eq!(
+            error.conductor_kind(),
+            Some(ConductorErrorKind::ZomeCallUnauthorized)
+        );
+        assert_eq!(
+            error.conductor_error().map(|error| error.message.as_str()),
+            Some("denied")
+        );
+    }
+
+    #[test]
     fn display_message_is_retained_without_becoming_protocol_authority() {
         let wire = AppError::RibosomeError("source chain head moved".into());
         let structured = ConductorError::from_app_error(&wire);
@@ -132,6 +153,19 @@ mod tests {
         assert_eq!(
             structured.to_string(),
             "Conductor Ribosome error: source chain head moved"
+        );
+    }
+
+    #[test]
+    fn ribosome_wire_error_remains_only_ribosome_through_client_error() {
+        let error = ClientError::from(AppError::RibosomeError(
+            "source chain head moved".into(),
+        ));
+
+        assert_eq!(error.conductor_kind(), Some(ConductorErrorKind::Ribosome));
+        assert_eq!(
+            error.conductor_error().map(|error| error.message.as_str()),
+            Some("source chain head moved")
         );
     }
 
