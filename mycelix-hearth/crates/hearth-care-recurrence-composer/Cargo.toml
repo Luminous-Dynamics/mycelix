@@ -1,0 +1,11 @@
+[package]
+name = "hearth-care-recurrence-composer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Authoritative bounded recurrence composition for Mycelix Hearth Care"
+
+[dependencies]
+hearth-care-recurrence = { workspace = true }
+hearth-care-recurrence-enumerator = { workspace = true }
+hearth-care-timezone-jiff = { workspace = true }
