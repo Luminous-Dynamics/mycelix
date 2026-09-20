@@ -1,0 +1,19 @@
+[package]
+name = "mycelix-forge-review"
+version = "0.1.0"
+edition = "2021"
+authors = ["Luminous Dynamics"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+description = "Portable evidence-bound and structurally eligible review attestations for Mycelix Forge"
+
+[dependencies]
+mycelix-forge-core = { path = "../mycelix-forge-core" }
+mycelix-forge-authority = { path = "../mycelix-forge-authority" }
+mycelix-forge-authentication = { path = "../mycelix-forge-authentication" }
+mycelix-forge-proposal = { path = "../mycelix-forge-proposal" }
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "2.0"
+
+[dev-dependencies]
+serde_json = "1.0"
