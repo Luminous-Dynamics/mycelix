@@ -1,0 +1,10 @@
+[package]
+name = "hearth-care-occurrence-admission"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Pure stale-safe Care occurrence materialization admission theorem"
+
+[dependencies]
+hearth-care-recurrence = { workspace = true }
+serde = { workspace = true }
