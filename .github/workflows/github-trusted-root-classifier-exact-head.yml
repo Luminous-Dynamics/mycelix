@@ -1,0 +1,671 @@
+name: Mycelix GitHub Trusted Root Classifier Exact-Head
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication/**'
+      - '.github/workflows/github-trusted-root-classifier-exact-head.yml'
+  workflow_dispatch:
+    inputs:
+      subject_sha:
+        description: 'Exact 40-hex commit SHA to qualify'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-trusted-root-classifier-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Exact-head GitHub trusted-root classifier qualification
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Resolve exact subject
+        id: subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            subject='${{ github.event.pull_request.head.sha }}'
+          else
+            subject='${{ inputs.subject_sha }}'
+          fi
+          [[ "$subject" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid subject SHA: $subject" >&2; exit 1; }
+          echo "sha=$subject" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ steps.subject.outputs.sha }}
+          fetch-depth: 1
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+
+      - name: Preflight exact source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          test -z "$(git status --porcelain)"
+          evidence="$RUNNER_TEMP/github-trusted-root-classifier-evidence"
+          mkdir -p "$evidence"
+          {
+            echo "subject_sha=${{ steps.subject.outputs.sha }}"
+            echo "runner_os=${RUNNER_OS}"
+            echo "runner_arch=${RUNNER_ARCH}"
+            rustc -Vv
+            cargo -V
+          } > "$evidence/execution-capsule.txt"
+          find mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication \
+            -type f -not -path '*/target/*' -print0 | sort -z | xargs -0 sha256sum \
+            > "$evidence/source-sha256.txt"
+
+      - name: Check formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path \
+            mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication/Cargo.toml \
+            --all -- --check
+
+      - name: Prepare isolated resolved graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/github-trusted-root-qual"
+          evidence="$RUNNER_TEMP/github-trusted-root-classifier-evidence"
+          cp -a mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication "$crate"
+          cd "$crate"
+          cargo generate-lockfile
+          cp Cargo.lock "$evidence/Cargo.lock"
+          sha256sum Cargo.lock > "$evidence/Cargo.lock.sha256"
+          cargo metadata --locked --format-version 1 > "$evidence/cargo-metadata.json"
+          cargo tree --locked > "$evidence/cargo-tree.txt"
+
+      - name: Execute committed corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/github-trusted-root-qual"
+          evidence="$RUNNER_TEMP/github-trusted-root-classifier-evidence"
+          cd "$crate"
+          cargo test --locked --all-targets -- --nocapture | tee "$evidence/committed-tests.txt"
+          cargo test --locked --all-targets -- --list > "$evidence/committed-test-list.txt"
+
+      - name: Install external retained-root probes
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/github-trusted-root-qual"
+          mkdir -p "$crate/tests"
+          cat > "$crate/tests/github_trusted_root_public_probe.rs" <<'RS'
+          use proofs_evidence_authentication::{
+              AuthenticationFreshnessPolicyV1, GitObjectIdV1,
+              GitHubPublicCommandPlanV1, GitHubPublicVerifierExecutionPolicyV1,
+              GitHubResolvedTrustInstanceStatusV1,
+              GitHubTransparencyResolutionAuthorityV1,
+              GitHubTrustedRootClassificationAuthorityV1,
+              GitHubTrustedRootClassificationErrorV1,
+              NixVerifierClosureIdentityV1, QualificationReceiptCanonicalizationV1,
+              QualificationReceiptDigestV1, QualificationReceiptV1, QualificationResultV1,
+              ReceiptAuthenticationPolicyV1, Sha256DigestV1, SourceRevisionPolicyV1,
+              TransparencyPolicyV1, VerifierExecutableIdentityV1,
+              VerifierExecutionReceiptV1, VerifierProcessOutcomeV1, VerifierProfileV1,
+              VerifierTrustRootModeV1, WorkflowRevisionPolicyV1,
+              GITHUB_ACTIONS_OIDC_ISSUER_V1, GITHUB_PUBLIC_BACKEND_FAMILY_V1,
+              GITHUB_PUBLIC_COMMAND_PROFILE_ID_V1, GITHUB_PUBLIC_PLATFORM_PROFILE_V1,
+              MYCELIX_QUALIFICATION_PREDICATE_TYPE_V1,
+              MYCELIX_QUALIFICATION_SUBJECT_NAME_V1, MYCELIX_REPOSITORY_OWNER_V1,
+              MYCELIX_REPOSITORY_V1, RETAINED_TRUSTED_ROOT_DIGEST_PROFILE_V1,
+              SIGSTORE_PUBLIC_GOOD_FULCIO_URI_V1,
+              SIGSTORE_TRUSTED_ROOT_MEDIA_TYPE_V1,
+              SIGSTORE_VERIFICATION_RESULT_MEDIA_TYPE_V1,
+              VERIFIER_EXECUTION_EVIDENCE_VERSION_V1,
+              build_github_public_command_plan_with_execution_policy_v1,
+              classify_github_default_dual_trusted_root_v1,
+              github_verifier_stdout_digest_v1,
+              parse_github_attestation_verifier_output_v1,
+              resolve_github_candidate_transparency_v1,
+          };
+          use sha2::{Digest, Sha256};
+
+          const PUBLIC_TLOG_A: &str = "https://rekor.sigstore.dev";
+          const PUBLIC_TLOG_B: &str = "https://log2025-1.rekor.sigstore.dev";
+          const PRIVATE_TLOG: &str = "https://rekor.private.github.example";
+          const UNKNOWN_TLOG: &str = "https://unknown.example/tlog";
+
+          fn digest(byte: u8) -> Sha256DigestV1 {
+              Sha256DigestV1::from_bytes([byte; 32])
+          }
+
+          fn raw_sha256(bytes: &[u8]) -> Sha256DigestV1 {
+              let mut hasher = Sha256::new();
+              hasher.update(bytes);
+              Sha256DigestV1::from_bytes(hasher.finalize().into())
+          }
+
+          fn verifier() -> VerifierExecutableIdentityV1 {
+              VerifierExecutableIdentityV1 {
+                  profile_id: "gh-exact-v1".into(),
+                  backend_family: GITHUB_PUBLIC_BACKEND_FAMILY_V1.into(),
+                  semantic_version: "2.101.0".into(),
+                  executable_sha256: digest(7),
+                  platform_profile: GITHUB_PUBLIC_PLATFORM_PROFILE_V1.into(),
+                  command_profile_id: GITHUB_PUBLIC_COMMAND_PROFILE_ID_V1.into(),
+                  nix_closure: Some(NixVerifierClosureIdentityV1 {
+                      store_path: "/nix/store/example-gh/bin/gh".into(),
+                      closure_digest: digest(8),
+                  }),
+              }
+          }
+
+          fn execution_policy() -> GitHubPublicVerifierExecutionPolicyV1 {
+              GitHubPublicVerifierExecutionPolicyV1::new(
+                  "github-public-exact-executable-v1",
+                  "github-public-v1",
+                  "github-attestation-verifier-v1",
+                  "public-sigstore-qualification-v1",
+                  verifier(),
+                  "/nix/store/example-gh/bin/gh",
+              )
+              .unwrap()
+          }
+
+          fn authentication_policy() -> ReceiptAuthenticationPolicyV1 {
+              ReceiptAuthenticationPolicyV1 {
+                  profile_id: "github-public-v1".into(),
+                  verifier_profile: VerifierProfileV1 {
+                      profile_id: "github-attestation-verifier-v1".into(),
+                      backend_family: GITHUB_PUBLIC_BACKEND_FAMILY_V1.into(),
+                      backend_version: "2.101.0".into(),
+                      verification_profile: "public-sigstore-qualification-v1".into(),
+                  },
+                  expected_attestation_subject_name: MYCELIX_QUALIFICATION_SUBJECT_NAME_V1.into(),
+                  expected_predicate_type: MYCELIX_QUALIFICATION_PREDICATE_TYPE_V1.into(),
+                  expected_predicate_schema: "mycelix-qualification-attestation-predicate-v1".into(),
+                  trusted_root_profile: "sigstore-public-good-v1".into(),
+                  trusted_root_digest: digest(9),
+                  oidc_issuer: GITHUB_ACTIONS_OIDC_ISSUER_V1.into(),
+                  source_repository: MYCELIX_REPOSITORY_V1.into(),
+                  source_repository_owner: MYCELIX_REPOSITORY_OWNER_V1.into(),
+                  signer_workflow: ".github/workflows/qualify.yml".into(),
+                  signer_workflow_revision: WorkflowRevisionPolicyV1::Exact(
+                      GitObjectIdV1::sha1([0xbb; 20]),
+                  ),
+                  source_revision: SourceRevisionPolicyV1 {
+                      exact_commit: GitObjectIdV1::sha1([0xaa; 20]),
+                      exact_git_ref: Some("refs/heads/main".into()),
+                  },
+                  transparency_policy: TransparencyPolicyV1::PublicTransparencyRequired,
+                  freshness_policy: AuthenticationFreshnessPolicyV1::CurrentAtVerification,
+              }
+          }
+
+          fn claim() -> QualificationReceiptV1 {
+              QualificationReceiptV1 {
+                  receipt_version: 1,
+                  qualification_profile: "myc-zkp-range-001aq".into(),
+                  statement_profile: "range-membership-v1".into(),
+                  theorem_profile: "range-membership-v1-air".into(),
+                  subject: GitObjectIdV1::sha1([0xaa; 20]),
+                  dependency_graph_digest: digest(1),
+                  measured_security_receipt_digest: digest(2),
+                  coherence_policy_id: "coherence-v1".into(),
+                  coherence_result_digest: digest(3),
+                  qualification_corpus_digest: digest(4),
+                  execution_capsule_digest: digest(5),
+                  result: QualificationResultV1::Pass,
+                  nonclaims: vec!["application authority not granted".into()],
+              }
+          }
+
+          fn plan() -> (GitHubPublicVerifierExecutionPolicyV1, GitHubPublicCommandPlanV1) {
+              let execution_policy = execution_policy();
+              let plan = build_github_public_command_plan_with_execution_policy_v1(
+                  &execution_policy,
+                  &authentication_policy(),
+                  &claim(),
+                  &verifier(),
+                  GitObjectIdV1::sha1([0xbb; 20]),
+                  "/tmp/mycelix-gh-verify",
+              )
+              .unwrap();
+              (execution_policy, plan)
+          }
+
+          fn root_line(tlogs: &[&str], cas: &[&str]) -> String {
+              serde_json::to_string(&serde_json::json!({
+                  "mediaType": SIGSTORE_TRUSTED_ROOT_MEDIA_TYPE_V1,
+                  "tlogs": tlogs.iter().map(|uri| serde_json::json!({"baseUrl": uri})).collect::<Vec<_>>(),
+                  "certificateAuthorities": cas.iter().map(|uri| serde_json::json!({"uri": uri})).collect::<Vec<_>>(),
+                  "futureRootField": {"ignoredByRequiredPathParser": true}
+              }))
+              .unwrap()
+          }
+
+          fn roots(
+              public_tlogs: &[&str],
+              public_cas: &[&str],
+              private_tlogs: &[&str],
+              private_cas: &[&str],
+          ) -> Vec<u8> {
+              format!(
+                  "{}\n{}\n",
+                  root_line(public_tlogs, public_cas),
+                  root_line(private_tlogs, private_cas)
+              )
+              .into_bytes()
+          }
+
+          fn default_roots() -> Vec<u8> {
+              roots(
+                  &[PUBLIC_TLOG_A, PUBLIC_TLOG_B],
+                  &[SIGSTORE_PUBLIC_GOOD_FULCIO_URI_V1],
+                  &[PRIVATE_TLOG],
+                  &["https://fulcio.private.github.example"],
+              )
+          }
+
+          fn verifier_stdout(witnesses: serde_json::Value) -> Vec<u8> {
+              serde_json::to_vec(&vec![serde_json::json!({
+                  "attestation": {"bundle": "retained-elsewhere"},
+                  "verificationResult": {
+                      "mediaType": SIGSTORE_VERIFICATION_RESULT_MEDIA_TYPE_V1,
+                      "statement": {
+                          "_type": "https://in-toto.io/Statement/v1",
+                          "subject": [{
+                              "name": MYCELIX_QUALIFICATION_SUBJECT_NAME_V1,
+                              "digest": {"sha256": "11".repeat(32)}
+                          }],
+                          "predicateType": MYCELIX_QUALIFICATION_PREDICATE_TYPE_V1,
+                          "predicate": {
+                              "predicate_version": 1,
+                              "predicate_schema": "mycelix-qualification-attestation-predicate-v1"
+                          }
+                      },
+                      "signature": {
+                          "certificate": {
+                              "certificateIssuer": "CN=sigstore-intermediate,O=sigstore.dev",
+                              "subjectAlternativeName": "https://github.com/Luminous-Dynamics/mycelix/.github/workflows/qualify.yml@refs/heads/main",
+                              "issuer": GITHUB_ACTIONS_OIDC_ISSUER_V1,
+                              "buildSignerURI": "https://github.com/Luminous-Dynamics/mycelix/.github/workflows/qualify.yml@refs/heads/main",
+                              "buildSignerDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                              "runnerEnvironment": "github-hosted",
+                              "sourceRepositoryURI": "https://github.com/Luminous-Dynamics/mycelix",
+                              "sourceRepositoryDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                              "sourceRepositoryRef": "refs/heads/main"
+                          }
+                      },
+                      "verifiedTimestamps": witnesses
+                  }
+              })])
+              .unwrap()
+          }
+
+          fn execution_receipt(
+              root_bytes: &[u8],
+              stdout: &[u8],
+              plan: &GitHubPublicCommandPlanV1,
+          ) -> VerifierExecutionReceiptV1 {
+              VerifierExecutionReceiptV1 {
+                  evidence_version: VERIFIER_EXECUTION_EVIDENCE_VERSION_V1,
+                  verifier: verifier(),
+                  canonical_receipt_digest: plan.canonical_receipt_digest(),
+                  attestation_bundle_digest: digest(4),
+                  trust_root_mode: VerifierTrustRootModeV1::OnlineFetchThenRetainedVerifyV1,
+                  trusted_root_material_digest: raw_sha256(root_bytes),
+                  trusted_root_acquired_at_unix_seconds: 1_010,
+                  command_arguments_digest: plan.command_arguments_digest(),
+                  environment_profile_digest: plan.environment_profile_digest(),
+                  verifier_stdout_digest: github_verifier_stdout_digest_v1(stdout),
+                  verifier_stderr_digest: digest(9),
+                  execution_started_at_unix_seconds: 1_000,
+                  execution_completed_at_unix_seconds: 1_020,
+                  process_outcome: VerifierProcessOutcomeV1::ExitCode(0),
+                  parsed_result_count: 1,
+              }
+          }
+
+          fn tlog(uri: &str) -> serde_json::Value {
+              serde_json::json!({
+                  "type": "Tlog",
+                  "uri": uri,
+                  "timestamp": "2026-09-20T00:00:00Z"
+              })
+          }
+
+          fn tsa() -> serde_json::Value {
+              serde_json::json!({
+                  "type": "TimestampAuthority",
+                  "uri": "https://tsa.example",
+                  "timestamp": "2026-09-20T00:00:00Z"
+              })
+          }
+
+          fn classify_with(
+              root_bytes: &[u8],
+              witnesses: Vec<serde_json::Value>,
+          ) -> (
+              GitHubPublicVerifierExecutionPolicyV1,
+              GitHubPublicCommandPlanV1,
+              VerifierExecutionReceiptV1,
+              proofs_evidence_authentication::ParsedGitHubAttestationVerifierOutputV1,
+          ) {
+              let (policy, plan) = plan();
+              let stdout = verifier_stdout(serde_json::Value::Array(witnesses));
+              let receipt = execution_receipt(root_bytes, &stdout, &plan);
+              let parsed = parse_github_attestation_verifier_output_v1(&stdout, &receipt).unwrap();
+              (policy, plan, receipt, parsed)
+          }
+
+          #[test]
+          fn exact_public_good_root_and_rotating_logs_resolve() {
+              for uri in [PUBLIC_TLOG_A, PUBLIC_TLOG_B] {
+                  let root_bytes = default_roots();
+                  let (policy, plan, receipt, parsed) = classify_with(&root_bytes, vec![tlog(uri)]);
+                  let classification = classify_github_default_dual_trusted_root_v1(
+                      &root_bytes, &receipt, &policy, &plan,
+                  )
+                  .unwrap();
+                  assert_eq!(classification.retained_root_digest_profile_id(), RETAINED_TRUSTED_ROOT_DIGEST_PROFILE_V1);
+                  assert_eq!(classification.authority_scope(), GitHubTrustedRootClassificationAuthorityV1::TrustRootClassificationOnly);
+                  assert_eq!(classification.public_good_tlog_uris().len(), 2);
+                  assert!(!classification.establishes_receipt_authentication());
+                  assert!(!classification.grants_production_authority());
+                  assert!(!classification.grants_application_authority());
+
+                  let resolution = resolve_github_candidate_transparency_v1(
+                      &classification, &parsed.candidates()[0],
+                  );
+                  assert_eq!(resolution.status(), GitHubResolvedTrustInstanceStatusV1::PublicGoodTransparencyConfirmed);
+                  assert_eq!(resolution.authority_scope(), GitHubTransparencyResolutionAuthorityV1::TransparencyResolutionOnly);
+                  assert_eq!(resolution.matched_public_good_tlog_uris(), &[uri.to_string()]);
+                  assert!(!resolution.establishes_receipt_authentication());
+                  assert!(!resolution.grants_production_authority());
+                  assert!(!resolution.grants_application_authority());
+              }
+          }
+
+          #[test]
+          fn private_unknown_tsa_and_empty_witnesses_remain_distinct() {
+              let cases = [
+                  (vec![tlog(PRIVATE_TLOG)], GitHubResolvedTrustInstanceStatusV1::GitHubPrivateTransparencyOnly),
+                  (vec![tlog(UNKNOWN_TLOG)], GitHubResolvedTrustInstanceStatusV1::UnresolvedTrustInstance),
+                  (vec![tsa()], GitHubResolvedTrustInstanceStatusV1::TimestampAuthorityOnly),
+                  (vec![], GitHubResolvedTrustInstanceStatusV1::NoVerifiedTimestamps),
+              ];
+              for (witnesses, expected) in cases {
+                  let root_bytes = default_roots();
+                  let (policy, plan, receipt, parsed) = classify_with(&root_bytes, witnesses);
+                  let classification = classify_github_default_dual_trusted_root_v1(
+                      &root_bytes, &receipt, &policy, &plan,
+                  )
+                  .unwrap();
+                  let resolution = resolve_github_candidate_transparency_v1(
+                      &classification, &parsed.candidates()[0],
+                  );
+                  assert_eq!(resolution.status(), expected);
+              }
+          }
+
+          #[test]
+          fn mixed_public_and_private_tlogs_never_strengthen_to_public_good() {
+              let root_bytes = default_roots();
+              let (policy, plan, receipt, parsed) = classify_with(
+                  &root_bytes,
+                  vec![tlog(PUBLIC_TLOG_A), tlog(PRIVATE_TLOG)],
+              );
+              let classification = classify_github_default_dual_trusted_root_v1(
+                  &root_bytes, &receipt, &policy, &plan,
+              )
+              .unwrap();
+              let resolution = resolve_github_candidate_transparency_v1(
+                  &classification, &parsed.candidates()[0],
+              );
+              assert_eq!(resolution.status(), GitHubResolvedTrustInstanceStatusV1::MixedTrustDomains);
+          }
+
+          #[test]
+          fn execution_lineage_and_root_digest_substitution_fail_closed() {
+              let root_bytes = default_roots();
+              let (policy, plan, mut receipt, _) = classify_with(&root_bytes, vec![tlog(PUBLIC_TLOG_A)]);
+
+              receipt.trusted_root_material_digest = digest(0xee);
+              assert_eq!(
+                  classify_github_default_dual_trusted_root_v1(&root_bytes, &receipt, &policy, &plan),
+                  Err(GitHubTrustedRootClassificationErrorV1::TrustedRootDigestMismatch)
+              );
+
+              let (_, _, mut receipt, _) = classify_with(&root_bytes, vec![tlog(PUBLIC_TLOG_A)]);
+              receipt.process_outcome = VerifierProcessOutcomeV1::ExitCode(1);
+              assert_eq!(
+                  classify_github_default_dual_trusted_root_v1(&root_bytes, &receipt, &policy, &plan),
+                  Err(GitHubTrustedRootClassificationErrorV1::ProcessDidNotSucceed)
+              );
+
+              let (_, _, mut receipt, _) = classify_with(&root_bytes, vec![tlog(PUBLIC_TLOG_A)]);
+              receipt.trust_root_mode = VerifierTrustRootModeV1::OfflinePinnedRootV1;
+              receipt.trusted_root_acquired_at_unix_seconds = 900;
+              assert_eq!(
+                  classify_github_default_dual_trusted_root_v1(&root_bytes, &receipt, &policy, &plan),
+                  Err(GitHubTrustedRootClassificationErrorV1::WrongTrustRootMode)
+              );
+          }
+
+          #[test]
+          fn command_environment_and_verifier_substitution_fail_closed() {
+              let root_bytes = default_roots();
+              let (policy, plan, mut receipt, _) = classify_with(&root_bytes, vec![tlog(PUBLIC_TLOG_A)]);
+              receipt.command_arguments_digest = digest(0xd1);
+              assert_eq!(
+                  classify_github_default_dual_trusted_root_v1(&root_bytes, &receipt, &policy, &plan),
+                  Err(GitHubTrustedRootClassificationErrorV1::CommandArgumentsDigestMismatch)
+              );
+
+              let (_, _, mut receipt, _) = classify_with(&root_bytes, vec![tlog(PUBLIC_TLOG_A)]);
+              receipt.environment_profile_digest = digest(0xd2);
+              assert_eq!(
+                  classify_github_default_dual_trusted_root_v1(&root_bytes, &receipt, &policy, &plan),
+                  Err(GitHubTrustedRootClassificationErrorV1::EnvironmentProfileDigestMismatch)
+              );
+
+              let (_, _, mut receipt, _) = classify_with(&root_bytes, vec![tlog(PUBLIC_TLOG_A)]);
+              receipt.verifier.executable_sha256 = digest(0xd3);
+              assert_eq!(
+                  classify_github_default_dual_trusted_root_v1(&root_bytes, &receipt, &policy, &plan),
+                  Err(GitHubTrustedRootClassificationErrorV1::VerifierIdentityMismatch)
+              );
+          }
+
+          #[test]
+          fn root_structure_reversal_duplication_and_overlap_fail_closed() {
+              let reversed = roots(
+                  &[PRIVATE_TLOG],
+                  &["https://fulcio.private.github.example"],
+                  &[PUBLIC_TLOG_A],
+                  &[SIGSTORE_PUBLIC_GOOD_FULCIO_URI_V1],
+              );
+              let (policy, plan, receipt, _) = classify_with(&reversed, vec![tlog(PUBLIC_TLOG_A)]);
+              assert_eq!(
+                  classify_github_default_dual_trusted_root_v1(&reversed, &receipt, &policy, &plan),
+                  Err(GitHubTrustedRootClassificationErrorV1::MissingPublicGoodFulcio)
+              );
+
+              let duplicated = roots(
+                  &[PUBLIC_TLOG_A],
+                  &[SIGSTORE_PUBLIC_GOOD_FULCIO_URI_V1],
+                  &[PUBLIC_TLOG_A],
+                  &[SIGSTORE_PUBLIC_GOOD_FULCIO_URI_V1],
+              );
+              let (policy, plan, receipt, _) = classify_with(&duplicated, vec![tlog(PUBLIC_TLOG_A)]);
+              assert_eq!(
+                  classify_github_default_dual_trusted_root_v1(&duplicated, &receipt, &policy, &plan),
+                  Err(GitHubTrustedRootClassificationErrorV1::DuplicateSemanticRoots)
+              );
+
+              let overlapping = roots(
+                  &[PUBLIC_TLOG_A],
+                  &[SIGSTORE_PUBLIC_GOOD_FULCIO_URI_V1],
+                  &[PUBLIC_TLOG_A],
+                  &["https://fulcio.private.github.example"],
+              );
+              let (policy, plan, receipt, _) = classify_with(&overlapping, vec![tlog(PUBLIC_TLOG_A)]);
+              assert!(matches!(
+                  classify_github_default_dual_trusted_root_v1(&overlapping, &receipt, &policy, &plan),
+                  Err(GitHubTrustedRootClassificationErrorV1::AmbiguousTransparencyLogAcrossTrustDomains { .. })
+              ));
+          }
+
+          #[test]
+          fn malformed_counts_and_duplicate_service_uris_fail_closed() {
+              let one_record = format!(
+                  "{}\n",
+                  root_line(&[PUBLIC_TLOG_A], &[SIGSTORE_PUBLIC_GOOD_FULCIO_URI_V1])
+              ).into_bytes();
+              let (policy, plan, receipt, _) = classify_with(&one_record, vec![tlog(PUBLIC_TLOG_A)]);
+              assert!(matches!(
+                  classify_github_default_dual_trusted_root_v1(&one_record, &receipt, &policy, &plan),
+                  Err(GitHubTrustedRootClassificationErrorV1::WrongRootRecordCount { .. })
+              ));
+
+              let duplicate_tlog = roots(
+                  &[PUBLIC_TLOG_A, PUBLIC_TLOG_A],
+                  &[SIGSTORE_PUBLIC_GOOD_FULCIO_URI_V1],
+                  &[PRIVATE_TLOG],
+                  &["https://fulcio.private.github.example"],
+              );
+              let (policy, plan, receipt, _) = classify_with(&duplicate_tlog, vec![tlog(PUBLIC_TLOG_A)]);
+              assert!(matches!(
+                  classify_github_default_dual_trusted_root_v1(&duplicate_tlog, &receipt, &policy, &plan),
+                  Err(GitHubTrustedRootClassificationErrorV1::DuplicateTransparencyLogUri { .. })
+              ));
+          }
+          RS
+
+      - name: Execute external retained-root probes
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/github-trusted-root-qual"
+          evidence="$RUNNER_TEMP/github-trusted-root-classifier-evidence"
+          cd "$crate"
+          cargo test --locked --test github_trusted_root_public_probe -- --nocapture \
+            | tee "$evidence/public-root-probes.txt"
+
+      - name: Prove root classification cannot become authenticated receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/github-trusted-root-qual"
+          evidence="$RUNNER_TEMP/github-trusted-root-classifier-evidence"
+          cat > "$crate/tests/no_root_to_authentication.rs" <<'RS'
+          use proofs_evidence_authentication::{
+              AuthenticatedQualificationReceiptV1, GitHubTrustedRootClassificationV1,
+          };
+          fn require_into<T: Into<AuthenticatedQualificationReceiptV1>>() {}
+          #[test] fn probe() { require_into::<GitHubTrustedRootClassificationV1>(); }
+          RS
+          set +e
+          (
+            cd "$crate"
+            CARGO_TERM_COLOR=never cargo check --locked --test no_root_to_authentication
+          ) > "$evidence/no-root-to-authentication.stdout.txt" \
+            2> "$evidence/no-root-to-authentication.stderr.txt"
+          status=$?
+          set -e
+          if [[ $status -eq 0 ]]; then
+            echo "root classification unexpectedly converts into authenticated capability" >&2
+            exit 1
+          fi
+          grep -Fq "AuthenticatedQualificationReceiptV1" "$evidence/no-root-to-authentication.stderr.txt"
+          grep -Fq "trait bound" "$evidence/no-root-to-authentication.stderr.txt"
+
+      - name: Prove transparency resolution cannot become authenticated receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/github-trusted-root-qual"
+          evidence="$RUNNER_TEMP/github-trusted-root-classifier-evidence"
+          cat > "$crate/tests/no_resolution_to_authentication.rs" <<'RS'
+          use proofs_evidence_authentication::{
+              AuthenticatedQualificationReceiptV1, GitHubTransparencyResolutionV1,
+          };
+          fn require_into<T: Into<AuthenticatedQualificationReceiptV1>>() {}
+          #[test] fn probe() { require_into::<GitHubTransparencyResolutionV1>(); }
+          RS
+          set +e
+          (
+            cd "$crate"
+            CARGO_TERM_COLOR=never cargo check --locked --test no_resolution_to_authentication
+          ) > "$evidence/no-resolution-to-authentication.stdout.txt" \
+            2> "$evidence/no-resolution-to-authentication.stderr.txt"
+          status=$?
+          set -e
+          if [[ $status -eq 0 ]]; then
+            echo "transparency resolution unexpectedly converts into authenticated capability" >&2
+            exit 1
+          fi
+          grep -Fq "AuthenticatedQualificationReceiptV1" "$evidence/no-resolution-to-authentication.stderr.txt"
+          grep -Fq "trait bound" "$evidence/no-resolution-to-authentication.stderr.txt"
+
+      - name: Remove qualification-only probes
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/github-trusted-root-qual/tests"
+
+      - name: Warnings-denied Clippy
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/github-trusted-root-qual"
+          evidence="$RUNNER_TEMP/github-trusted-root-classifier-evidence"
+          cd "$crate"
+          cargo clippy --locked --all-targets -- -D warnings | tee "$evidence/clippy.txt"
+
+      - name: Verify checkout immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          test -z "$(git status --porcelain)"
+          evidence="$RUNNER_TEMP/github-trusted-root-classifier-evidence"
+          find mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication \
+            -type f -not -path '*/target/*' -print0 | sort -z | xargs -0 sha256sum \
+            > "$evidence/source-sha256-post.txt"
+          cmp "$evidence/source-sha256.txt" "$evidence/source-sha256-post.txt"
+
+      - name: Write qualification receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/github-trusted-root-classifier-evidence"
+          cat > "$evidence/QUALIFICATION.txt" <<EOF
+          MYC-ZKP-GH-ROOT-001AQ PASS
+          subject_sha=${{ steps.subject.outputs.sha }}
+          authority_scope=TrustRootClassificationOnly+TransparencyResolutionOnly
+          public_good_resolution_profile=github-default-dual-trusted-root-jsonl-v1
+          receipt_authentication=false
+          production_admission=false
+          application_authority=false
+          EOF
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: myc-zkp-gh-root-001aq-${{ steps.subject.outputs.sha }}
+          path: ${{ runner.temp }}/github-trusted-root-classifier-evidence
+          if-no-files-found: warn
+          retention-days: 30
