@@ -1,0 +1,717 @@
+name: Mycelix GitHub Trusted Builder Binding Exact-Head
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication/**'
+      - '.github/workflows/github-trusted-builder-binding-exact-head.yml'
+  workflow_dispatch:
+    inputs:
+      subject_sha:
+        description: 'Exact 40-hex commit SHA to qualify'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-trusted-builder-binding-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Exact-head GitHub trusted-builder binding qualification
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Resolve exact subject
+        id: subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            subject='${{ github.event.pull_request.head.sha }}'
+          else
+            subject='${{ inputs.subject_sha }}'
+          fi
+          [[ "$subject" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid subject SHA: $subject" >&2; exit 1; }
+          echo "sha=$subject" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ steps.subject.outputs.sha }}
+          fetch-depth: 1
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+
+      - name: Preflight exact source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          test -z "$(git status --porcelain)"
+          evidence="$RUNNER_TEMP/github-trusted-builder-binding-evidence"
+          mkdir -p "$evidence"
+          {
+            echo "subject_sha=${{ steps.subject.outputs.sha }}"
+            echo "runner_os=${RUNNER_OS}"
+            echo "runner_arch=${RUNNER_ARCH}"
+            rustc -Vv
+            cargo -V
+          } > "$evidence/execution-capsule.txt"
+          find mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication \
+            -type f -not -path '*/target/*' -print0 | sort -z | xargs -0 sha256sum \
+            > "$evidence/source-sha256.txt"
+
+      - name: Check formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path \
+            mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication/Cargo.toml \
+            --all -- --check
+
+      - name: Prepare isolated resolved graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/github-trusted-builder-binding-qual"
+          evidence="$RUNNER_TEMP/github-trusted-builder-binding-evidence"
+          cp -a mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication "$crate"
+          cd "$crate"
+          cargo generate-lockfile
+          cp Cargo.lock "$evidence/Cargo.lock"
+          sha256sum Cargo.lock > "$evidence/Cargo.lock.sha256"
+          cargo metadata --locked --format-version 1 > "$evidence/cargo-metadata.json"
+          cargo tree --locked > "$evidence/cargo-tree.txt"
+
+      - name: Execute committed corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/github-trusted-builder-binding-qual"
+          evidence="$RUNNER_TEMP/github-trusted-builder-binding-evidence"
+          cd "$crate"
+          cargo test --locked --all-targets -- --nocapture | tee "$evidence/committed-tests.txt"
+          cargo test --locked --all-targets -- --list > "$evidence/committed-test-list.txt"
+
+      - name: Install external trusted-builder probes
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/github-trusted-builder-binding-qual"
+          mkdir -p "$crate/tests"
+          cat > "$crate/tests/github_trusted_builder_binding_public_probe.rs" <<'RS'
+          use proofs_evidence_authentication::{
+              AuthenticationFreshnessPolicyV1, GitObjectIdV1,
+              GitHubPublicCommandPlanV1, GitHubPublicVerifierExecutionPolicyV1,
+              GitHubTrustedBuilderBindingAuthorityV1, GitHubTrustedBuilderBindingErrorV1,
+              GitHubTrustedBuilderCandidateMismatchV1, GitHubTrustedBuilderPolicyErrorV1,
+              GitHubTrustedBuilderPolicyV1, GitHubTrustedRootClassificationV1,
+              NixVerifierClosureIdentityV1, ParsedGitHubAttestationVerifierOutputV1,
+              QualificationAttestationPredicateV1, QualificationReceiptV1,
+              QualificationResultV1, ReceiptAuthenticationPolicyV1, Sha256DigestV1,
+              SourceRevisionPolicyV1, TransparencyPolicyV1, VerifierExecutableIdentityV1,
+              VerifierExecutionReceiptV1, VerifierProcessOutcomeV1, VerifierProfileV1,
+              VerifierTrustRootModeV1, WorkflowRevisionPolicyV1,
+              GITHUB_ACTIONS_OIDC_ISSUER_V1, GITHUB_HOSTED_RUNNER_ENVIRONMENT_V1,
+              GITHUB_PUBLIC_BACKEND_FAMILY_V1, GITHUB_PUBLIC_COMMAND_PROFILE_ID_V1,
+              GITHUB_PUBLIC_PLATFORM_PROFILE_V1, GITHUB_PUBLIC_REPOSITORY_VISIBILITY_V1,
+              MYCELIX_QUALIFICATION_PREDICATE_TYPE_V1,
+              MYCELIX_QUALIFICATION_SUBJECT_NAME_V1, MYCELIX_REPOSITORY_OWNER_V1,
+              MYCELIX_REPOSITORY_V1, QUALIFICATION_ATTESTATION_PREDICATE_SCHEMA_V1,
+              SIGSTORE_PUBLIC_GOOD_FULCIO_URI_V1, SIGSTORE_TRUSTED_ROOT_MEDIA_TYPE_V1,
+              SIGSTORE_VERIFICATION_RESULT_MEDIA_TYPE_V1,
+              VERIFIER_EXECUTION_EVIDENCE_VERSION_V1,
+              bind_unique_github_trusted_builder_candidate_v1,
+              build_github_public_command_plan_with_execution_policy_v1,
+              classify_github_default_dual_trusted_root_v1,
+              github_verifier_stdout_digest_v1,
+              parse_github_attestation_verifier_output_v1,
+          };
+          use sha2::{Digest, Sha256};
+
+          const REPOSITORY_ID: &str = "1176351975";
+          const OWNER_ID: &str = "216969177";
+          const STATEMENT_TYPE: &str = "https://in-toto.io/Statement/v1";
+          const PUBLIC_TLOG: &str = "https://rekor.sigstore.dev";
+          const PRIVATE_TLOG: &str = "https://rekor.private.github.example";
+          const RUN_ID: u64 = 4_735_384_265;
+          const RUN_ATTEMPT: u64 = 2;
+
+          fn digest(byte: u8) -> Sha256DigestV1 {
+              Sha256DigestV1::from_bytes([byte; 32])
+          }
+
+          fn raw_sha256(bytes: &[u8]) -> Sha256DigestV1 {
+              let mut hasher = Sha256::new();
+              hasher.update(bytes);
+              Sha256DigestV1::from_bytes(hasher.finalize().into())
+          }
+
+          fn receipt() -> QualificationReceiptV1 {
+              QualificationReceiptV1 {
+                  receipt_version: 1,
+                  qualification_profile: "myc-zkp-range-001aq".into(),
+                  statement_profile: "range-membership-v1".into(),
+                  theorem_profile: "range-membership-v1-air".into(),
+                  subject: GitObjectIdV1::sha1([0xaa; 20]),
+                  dependency_graph_digest: digest(1),
+                  measured_security_receipt_digest: digest(2),
+                  coherence_policy_id: "coherence-v1".into(),
+                  coherence_result_digest: digest(3),
+                  qualification_corpus_digest: digest(4),
+                  execution_capsule_digest: digest(5),
+                  result: QualificationResultV1::Pass,
+                  nonclaims: vec!["application authority not granted".into()],
+              }
+          }
+
+          fn root_line(tlogs: &[&str], cas: &[&str]) -> String {
+              serde_json::to_string(&serde_json::json!({
+                  "mediaType": SIGSTORE_TRUSTED_ROOT_MEDIA_TYPE_V1,
+                  "tlogs": tlogs.iter().map(|uri| serde_json::json!({"baseUrl": uri})).collect::<Vec<_>>(),
+                  "certificateAuthorities": cas.iter().map(|uri| serde_json::json!({"uri": uri})).collect::<Vec<_>>()
+              })).unwrap()
+          }
+
+          fn roots() -> Vec<u8> {
+              format!(
+                  "{}\n{}\n",
+                  root_line(&[PUBLIC_TLOG], &[SIGSTORE_PUBLIC_GOOD_FULCIO_URI_V1]),
+                  root_line(&[PRIVATE_TLOG], &["https://fulcio.private.github.example"]),
+              ).into_bytes()
+          }
+
+          fn authentication_policy(root_digest: Sha256DigestV1) -> ReceiptAuthenticationPolicyV1 {
+              ReceiptAuthenticationPolicyV1 {
+                  profile_id: "github-public-v1".into(),
+                  verifier_profile: VerifierProfileV1 {
+                      profile_id: "github-attestation-verifier-v1".into(),
+                      backend_family: GITHUB_PUBLIC_BACKEND_FAMILY_V1.into(),
+                      backend_version: "2.101.0".into(),
+                      verification_profile: "public-sigstore-qualification-v1".into(),
+                  },
+                  expected_attestation_subject_name: MYCELIX_QUALIFICATION_SUBJECT_NAME_V1.into(),
+                  expected_predicate_type: MYCELIX_QUALIFICATION_PREDICATE_TYPE_V1.into(),
+                  expected_predicate_schema: QUALIFICATION_ATTESTATION_PREDICATE_SCHEMA_V1.into(),
+                  trusted_root_profile: "sigstore-public-good-v1".into(),
+                  trusted_root_digest: root_digest,
+                  oidc_issuer: GITHUB_ACTIONS_OIDC_ISSUER_V1.into(),
+                  source_repository: MYCELIX_REPOSITORY_V1.into(),
+                  source_repository_owner: MYCELIX_REPOSITORY_OWNER_V1.into(),
+                  signer_workflow: ".github/workflows/qualify.yml".into(),
+                  signer_workflow_revision: WorkflowRevisionPolicyV1::Exact(
+                      GitObjectIdV1::sha1([0xbb; 20]),
+                  ),
+                  source_revision: SourceRevisionPolicyV1 {
+                      exact_commit: GitObjectIdV1::sha1([0xaa; 20]),
+                      exact_git_ref: Some("refs/heads/main".into()),
+                  },
+                  transparency_policy: TransparencyPolicyV1::PublicTransparencyRequired,
+                  freshness_policy: AuthenticationFreshnessPolicyV1::CurrentAtVerification,
+              }
+          }
+
+          fn verifier() -> VerifierExecutableIdentityV1 {
+              VerifierExecutableIdentityV1 {
+                  profile_id: "gh-exact-v1".into(),
+                  backend_family: GITHUB_PUBLIC_BACKEND_FAMILY_V1.into(),
+                  semantic_version: "2.101.0".into(),
+                  executable_sha256: digest(7),
+                  platform_profile: GITHUB_PUBLIC_PLATFORM_PROFILE_V1.into(),
+                  command_profile_id: GITHUB_PUBLIC_COMMAND_PROFILE_ID_V1.into(),
+                  nix_closure: Some(NixVerifierClosureIdentityV1 {
+                      store_path: "/nix/store/example-gh/bin/gh".into(),
+                      closure_digest: digest(8),
+                  }),
+              }
+          }
+
+          fn execution_policy() -> GitHubPublicVerifierExecutionPolicyV1 {
+              GitHubPublicVerifierExecutionPolicyV1::new(
+                  "github-public-exact-executable-v1",
+                  "github-public-v1",
+                  "github-attestation-verifier-v1",
+                  "public-sigstore-qualification-v1",
+                  verifier(),
+                  "/nix/store/example-gh/bin/gh",
+              ).unwrap()
+          }
+
+          fn trusted_builder_policy() -> GitHubTrustedBuilderPolicyV1 {
+              GitHubTrustedBuilderPolicyV1::new(
+                  "mycelix-github-trusted-builder-v1",
+                  REPOSITORY_ID,
+                  OWNER_ID,
+                  STATEMENT_TYPE,
+                  GITHUB_HOSTED_RUNNER_ENVIRONMENT_V1,
+                  GITHUB_PUBLIC_REPOSITORY_VISIBILITY_V1,
+                  true,
+                  true,
+              ).unwrap()
+          }
+
+          fn strict_predicate(receipt: &QualificationReceiptV1) -> QualificationAttestationPredicateV1 {
+              QualificationAttestationPredicateV1 {
+                  predicate_version: 1,
+                  predicate_schema: QUALIFICATION_ATTESTATION_PREDICATE_SCHEMA_V1.into(),
+                  receipt_digest: receipt.digest().unwrap(),
+                  qualification_profile: receipt.qualification_profile.clone(),
+                  subject: receipt.subject,
+                  coherence_result_digest: receipt.coherence_result_digest,
+                  result: receipt.result,
+              }
+          }
+
+          fn exact_candidate(receipt: &QualificationReceiptV1) -> serde_json::Value {
+              let receipt_digest = receipt.digest().unwrap();
+              let signer_uri = "https://github.com/Luminous-Dynamics/mycelix/.github/workflows/qualify.yml@refs/heads/main";
+              serde_json::json!({
+                  "attestation": {"bundle": "retained-elsewhere"},
+                  "verificationResult": {
+                      "mediaType": SIGSTORE_VERIFICATION_RESULT_MEDIA_TYPE_V1,
+                      "statement": {
+                          "_type": STATEMENT_TYPE,
+                          "subject": [{
+                              "name": MYCELIX_QUALIFICATION_SUBJECT_NAME_V1,
+                              "digest": {"sha256": receipt_digest.sha256.to_hex()}
+                          }],
+                          "predicateType": MYCELIX_QUALIFICATION_PREDICATE_TYPE_V1,
+                          "predicate": serde_json::to_value(strict_predicate(receipt)).unwrap()
+                      },
+                      "signature": {"certificate": {
+                          "certificateIssuer": "CN=sigstore-intermediate,O=sigstore.dev",
+                          "subjectAlternativeName": signer_uri,
+                          "issuer": GITHUB_ACTIONS_OIDC_ISSUER_V1,
+                          "buildSignerURI": signer_uri,
+                          "buildSignerDigest": "bb".repeat(20),
+                          "runnerEnvironment": GITHUB_HOSTED_RUNNER_ENVIRONMENT_V1,
+                          "sourceRepositoryURI": "https://github.com/Luminous-Dynamics/mycelix",
+                          "sourceRepositoryDigest": "aa".repeat(20),
+                          "sourceRepositoryRef": "refs/heads/main",
+                          "sourceRepositoryIdentifier": REPOSITORY_ID,
+                          "sourceRepositoryOwnerURI": "https://github.com/Luminous-Dynamics",
+                          "sourceRepositoryOwnerIdentifier": OWNER_ID,
+                          "buildConfigURI": signer_uri,
+                          "buildConfigDigest": "bb".repeat(20),
+                          "buildTrigger": "pull_request",
+                          "runInvocationURI": format!(
+                              "https://github.com/Luminous-Dynamics/mycelix/actions/runs/{RUN_ID}/attempts/{RUN_ATTEMPT}"
+                          ),
+                          "sourceRepositoryVisibilityAtSigning": GITHUB_PUBLIC_REPOSITORY_VISIBILITY_V1
+                      }},
+                      "verifiedTimestamps": [{
+                          "type": "Tlog",
+                          "uri": PUBLIC_TLOG,
+                          "timestamp": "2026-09-20T00:00:00Z"
+                      }]
+                  }
+              })
+          }
+
+          struct Built {
+              receipt: QualificationReceiptV1,
+              auth: ReceiptAuthenticationPolicyV1,
+              builder_policy: GitHubTrustedBuilderPolicyV1,
+              stdout: Vec<u8>,
+              execution_receipt: VerifierExecutionReceiptV1,
+              parsed: ParsedGitHubAttestationVerifierOutputV1,
+              classification: GitHubTrustedRootClassificationV1,
+          }
+
+          fn build(receipt: QualificationReceiptV1, candidates: Vec<serde_json::Value>) -> Built {
+              let root_bytes = roots();
+              let auth = authentication_policy(raw_sha256(&root_bytes));
+              let builder_policy = trusted_builder_policy();
+              let execution_policy = execution_policy();
+              let plan: GitHubPublicCommandPlanV1 =
+                  build_github_public_command_plan_with_execution_policy_v1(
+                      &execution_policy,
+                      &auth,
+                      &receipt,
+                      &verifier(),
+                      GitObjectIdV1::sha1([0xbb; 20]),
+                      "/tmp/mycelix-gh-verify",
+                  ).unwrap();
+              let stdout = serde_json::to_vec(&candidates).unwrap();
+              let execution_receipt = VerifierExecutionReceiptV1 {
+                  evidence_version: VERIFIER_EXECUTION_EVIDENCE_VERSION_V1,
+                  verifier: verifier(),
+                  canonical_receipt_digest: plan.canonical_receipt_digest(),
+                  attestation_bundle_digest: digest(4),
+                  trust_root_mode: VerifierTrustRootModeV1::OnlineFetchThenRetainedVerifyV1,
+                  trusted_root_material_digest: raw_sha256(&root_bytes),
+                  trusted_root_acquired_at_unix_seconds: 1_010,
+                  command_arguments_digest: plan.command_arguments_digest(),
+                  environment_profile_digest: plan.environment_profile_digest(),
+                  verifier_stdout_digest: github_verifier_stdout_digest_v1(&stdout),
+                  verifier_stderr_digest: digest(9),
+                  execution_started_at_unix_seconds: 1_000,
+                  execution_completed_at_unix_seconds: 1_020,
+                  process_outcome: VerifierProcessOutcomeV1::ExitCode(0),
+                  parsed_result_count: candidates.len() as u32,
+              };
+              let parsed = parse_github_attestation_verifier_output_v1(&stdout, &execution_receipt).unwrap();
+              let classification = classify_github_default_dual_trusted_root_v1(
+                  &root_bytes,
+                  &execution_receipt,
+                  &execution_policy,
+                  &plan,
+              ).unwrap();
+              Built {
+                  receipt,
+                  auth,
+                  builder_policy,
+                  stdout,
+                  execution_receipt,
+                  parsed,
+                  classification,
+              }
+          }
+
+          fn bind(
+              built: &Built,
+              parsed: &ParsedGitHubAttestationVerifierOutputV1,
+          ) -> Result<proofs_evidence_authentication::GitHubTrustedBuilderBindingV1, GitHubTrustedBuilderBindingErrorV1> {
+              bind_unique_github_trusted_builder_candidate_v1(
+                  &built.receipt,
+                  &built.auth,
+                  &built.builder_policy,
+                  parsed,
+                  &built.classification,
+              )
+          }
+
+          #[test]
+          fn unique_candidate_binds_exact_run_attempt_without_upgrading_authority() {
+              let receipt = receipt();
+              let built = build(receipt.clone(), vec![exact_candidate(&receipt)]);
+              let binding = bind(&built, &built.parsed).unwrap();
+              let run = binding.selected_run_identity().expect("required run identity");
+              assert_eq!(run.run_id(), RUN_ID);
+              assert_eq!(run.run_attempt(), RUN_ATTEMPT);
+              assert_eq!(binding.selected_signer_revision(), GitObjectIdV1::sha1([0xbb; 20]));
+              assert_eq!(binding.selected_source_revision(), GitObjectIdV1::sha1([0xaa; 20]));
+              assert_eq!(binding.authority_scope(), GitHubTrustedBuilderBindingAuthorityV1::TrustedBuilderBindingOnly);
+              assert!(binding.establishes_trusted_builder_binding());
+              assert!(!binding.establishes_receipt_authentication());
+              assert!(!binding.grants_production_authority());
+              assert!(!binding.grants_application_authority());
+              assert_eq!(binding.parsed_output().execution_receipt(), built.classification.execution_receipt());
+              assert_eq!(binding.root_classification(), &built.classification);
+          }
+
+          #[test]
+          fn canonical_run_attempt_grammar_fails_closed() {
+              let receipt = receipt();
+              let invalid = [
+                  "https://github.com/Luminous-Dynamics/mycelix/actions/runs/4735384265",
+                  "https://github.com/Luminous-Dynamics/mycelix/actions/runs/0/attempts/1",
+                  "https://github.com/Luminous-Dynamics/mycelix/actions/runs/4735384265/attempts/0",
+                  "https://github.com/Luminous-Dynamics/mycelix/actions/runs/4735384265/attempts/1/extra",
+                  "https://github.com/Luminous-Dynamics/other/actions/runs/4735384265/attempts/1",
+              ];
+              for uri in invalid {
+                  let mut candidate = exact_candidate(&receipt);
+                  candidate["verificationResult"]["signature"]["certificate"]["runInvocationURI"] =
+                      serde_json::Value::String(uri.into());
+                  let built = build(receipt.clone(), vec![candidate]);
+                  match bind(&built, &built.parsed).unwrap_err() {
+                      GitHubTrustedBuilderBindingErrorV1::NoMatchingCandidate { rejections } => {
+                          assert_eq!(rejections.len(), 1);
+                          assert_eq!(
+                              rejections[0].reason(),
+                              &GitHubTrustedBuilderCandidateMismatchV1::InvalidRunInvocationIdentity
+                          );
+                      }
+                      other => panic!("unexpected error: {other:?}"),
+                  }
+              }
+          }
+
+          #[test]
+          fn zero_one_and_multiple_full_matches_are_order_independent() {
+              let receipt = receipt();
+              let mut wrong = exact_candidate(&receipt);
+              wrong["verificationResult"]["signature"]["certificate"]["runnerEnvironment"] =
+                  serde_json::Value::String("self-hosted".into());
+
+              let built = build(receipt.clone(), vec![wrong.clone()]);
+              match bind(&built, &built.parsed).unwrap_err() {
+                  GitHubTrustedBuilderBindingErrorV1::NoMatchingCandidate { rejections } => {
+                      assert_eq!(rejections.len(), 1);
+                      assert_eq!(rejections[0].candidate_index(), 0);
+                      assert_eq!(
+                          rejections[0].reason(),
+                          &GitHubTrustedBuilderCandidateMismatchV1::CertificateFieldMismatch {
+                              field: "runnerEnvironment"
+                          }
+                      );
+                  }
+                  other => panic!("unexpected error: {other:?}"),
+              }
+
+              let built = build(receipt.clone(), vec![wrong, exact_candidate(&receipt)]);
+              assert_eq!(bind(&built, &built.parsed).unwrap().selected_candidate_index(), 1);
+
+              let built = build(
+                  receipt.clone(),
+                  vec![exact_candidate(&receipt), exact_candidate(&receipt)],
+              );
+              assert_eq!(
+                  bind(&built, &built.parsed),
+                  Err(GitHubTrustedBuilderBindingErrorV1::AmbiguousMatchingCandidates { count: 2 })
+              );
+          }
+
+          #[test]
+          fn strict_predicate_and_public_transparency_are_independent_gates() {
+              let receipt = receipt();
+              let mut unknown = exact_candidate(&receipt);
+              unknown["verificationResult"]["statement"]["predicate"]
+                  .as_object_mut().unwrap()
+                  .insert("production_authority".into(), serde_json::Value::Bool(true));
+              let built = build(receipt.clone(), vec![unknown]);
+              match bind(&built, &built.parsed).unwrap_err() {
+                  GitHubTrustedBuilderBindingErrorV1::NoMatchingCandidate { rejections } => {
+                      assert_eq!(
+                          rejections[0].reason(),
+                          &GitHubTrustedBuilderCandidateMismatchV1::PredicateStrictParseFailed
+                      );
+                  }
+                  other => panic!("unexpected error: {other:?}"),
+              }
+
+              let mut private = exact_candidate(&receipt);
+              private["verificationResult"]["verifiedTimestamps"] = serde_json::json!([{
+                  "type": "Tlog",
+                  "uri": PRIVATE_TLOG,
+                  "timestamp": "2026-09-20T00:00:00Z"
+              }]);
+              let built = build(receipt.clone(), vec![private]);
+              match bind(&built, &built.parsed).unwrap_err() {
+                  GitHubTrustedBuilderBindingErrorV1::NoMatchingCandidate { rejections } => {
+                      assert_eq!(
+                          rejections[0].reason(),
+                          &GitHubTrustedBuilderCandidateMismatchV1::TransparencyPolicyNotMet
+                      );
+                  }
+                  other => panic!("unexpected error: {other:?}"),
+              }
+          }
+
+          #[test]
+          fn immutable_identity_substitution_fails_closed() {
+              let receipt = receipt();
+              for (field, replacement) in [
+                  ("sourceRepositoryIdentifier", "999".to_string()),
+                  ("sourceRepositoryOwnerIdentifier", "998".to_string()),
+                  ("sourceRepositoryDigest", "cc".repeat(20)),
+                  ("sourceRepositoryRef", "refs/heads/other".to_string()),
+                  ("buildSignerDigest", "cc".repeat(20)),
+              ] {
+                  let mut candidate = exact_candidate(&receipt);
+                  candidate["verificationResult"]["signature"]["certificate"][field] =
+                      serde_json::Value::String(replacement);
+                  let built = build(receipt.clone(), vec![candidate]);
+                  assert!(matches!(
+                      bind(&built, &built.parsed),
+                      Err(GitHubTrustedBuilderBindingErrorV1::NoMatchingCandidate { .. })
+                  ));
+              }
+          }
+
+          #[test]
+          fn cross_execution_saved_report_replay_is_rejected() {
+              let receipt = receipt();
+              let candidate = exact_candidate(&receipt);
+              let built = build(receipt, vec![candidate]);
+              let mut replay_receipt = built.execution_receipt.clone();
+              replay_receipt.verifier_stderr_digest = digest(0xfe);
+              let replay = parse_github_attestation_verifier_output_v1(
+                  &built.stdout,
+                  &replay_receipt,
+              ).unwrap();
+              assert_eq!(
+                  bind(&built, &replay),
+                  Err(GitHubTrustedBuilderBindingErrorV1::ExecutionLineageMismatch)
+              );
+          }
+
+          #[test]
+          fn trusted_builder_numeric_ids_must_be_positive() {
+              assert_eq!(
+                  GitHubTrustedBuilderPolicyV1::new(
+                      "p", "0", OWNER_ID, STATEMENT_TYPE,
+                      GITHUB_HOSTED_RUNNER_ENVIRONMENT_V1,
+                      GITHUB_PUBLIC_REPOSITORY_VISIBILITY_V1, true, true,
+                  ),
+                  Err(GitHubTrustedBuilderPolicyErrorV1::InvalidRepositoryIdentifier)
+              );
+              assert_eq!(
+                  GitHubTrustedBuilderPolicyV1::new(
+                      "p", REPOSITORY_ID, "not-a-number", STATEMENT_TYPE,
+                      GITHUB_HOSTED_RUNNER_ENVIRONMENT_V1,
+                      GITHUB_PUBLIC_REPOSITORY_VISIBILITY_V1, true, true,
+                  ),
+                  Err(GitHubTrustedBuilderPolicyErrorV1::InvalidOwnerIdentifier)
+              );
+          }
+          RS
+
+      - name: Execute external trusted-builder probes
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/github-trusted-builder-binding-qual"
+          evidence="$RUNNER_TEMP/github-trusted-builder-binding-evidence"
+          cd "$crate"
+          cargo test --locked --test github_trusted_builder_binding_public_probe -- --nocapture \
+            | tee "$evidence/public-binding-probes.txt"
+
+      - name: Prove binding cannot convert into authenticated receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/github-trusted-builder-binding-qual"
+          evidence="$RUNNER_TEMP/github-trusted-builder-binding-evidence"
+          cat > "$crate/tests/no_binding_to_authentication.rs" <<'RS'
+          use proofs_evidence_authentication::{
+              AuthenticatedQualificationReceiptV1, GitHubTrustedBuilderBindingV1,
+          };
+          fn require_into<T: Into<AuthenticatedQualificationReceiptV1>>() {}
+          #[test] fn probe() { require_into::<GitHubTrustedBuilderBindingV1>(); }
+          RS
+          set +e
+          (
+            cd "$crate"
+            CARGO_TERM_COLOR=never cargo check --locked --test no_binding_to_authentication
+          ) > "$evidence/no-binding-to-authentication.stdout.txt" \
+            2> "$evidence/no-binding-to-authentication.stderr.txt"
+          status=$?
+          set -e
+          if [[ $status -eq 0 ]]; then
+            echo "trusted-builder binding unexpectedly converts into authenticated capability" >&2
+            exit 1
+          fi
+          grep -Fq "AuthenticatedQualificationReceiptV1" "$evidence/no-binding-to-authentication.stderr.txt"
+          grep -Fq "trait bound" "$evidence/no-binding-to-authentication.stderr.txt"
+
+      - name: Prove binding cannot be deserialized into authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/github-trusted-builder-binding-qual"
+          evidence="$RUNNER_TEMP/github-trusted-builder-binding-evidence"
+          cat > "$crate/tests/no_binding_deserialize.rs" <<'RS'
+          use proofs_evidence_authentication::GitHubTrustedBuilderBindingV1;
+          #[test]
+          fn probe() {
+              let _: GitHubTrustedBuilderBindingV1 = serde_json::from_str("{}").unwrap();
+          }
+          RS
+          set +e
+          (
+            cd "$crate"
+            CARGO_TERM_COLOR=never cargo check --locked --test no_binding_deserialize
+          ) > "$evidence/no-binding-deserialize.stdout.txt" \
+            2> "$evidence/no-binding-deserialize.stderr.txt"
+          status=$?
+          set -e
+          if [[ $status -eq 0 ]]; then
+            echo "trusted-builder binding unexpectedly implements Deserialize" >&2
+            exit 1
+          fi
+          grep -Fq "GitHubTrustedBuilderBindingV1" "$evidence/no-binding-deserialize.stderr.txt"
+          grep -Fq "Deserialize" "$evidence/no-binding-deserialize.stderr.txt"
+          grep -Fq "trait bound" "$evidence/no-binding-deserialize.stderr.txt"
+
+      - name: Prove typed run identity cannot be forged externally
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/github-trusted-builder-binding-qual"
+          evidence="$RUNNER_TEMP/github-trusted-builder-binding-evidence"
+          cat > "$crate/tests/no_run_identity_forgery.rs" <<'RS'
+          use proofs_evidence_authentication::GitHubActionsRunIdentityV1;
+          #[test]
+          fn probe() {
+              let _ = GitHubActionsRunIdentityV1 { run_id: 1, run_attempt: 1 };
+          }
+          RS
+          set +e
+          (
+            cd "$crate"
+            CARGO_TERM_COLOR=never cargo check --locked --test no_run_identity_forgery
+          ) > "$evidence/no-run-identity-forgery.stdout.txt" \
+            2> "$evidence/no-run-identity-forgery.stderr.txt"
+          status=$?
+          set -e
+          if [[ $status -eq 0 ]]; then
+            echo "GitHubActionsRunIdentityV1 unexpectedly has public fields" >&2
+            exit 1
+          fi
+          grep -Fq "private field" "$evidence/no-run-identity-forgery.stderr.txt"
+          grep -Fq "run_id" "$evidence/no-run-identity-forgery.stderr.txt"
+          grep -Fq "run_attempt" "$evidence/no-run-identity-forgery.stderr.txt"
+
+      - name: Remove qualification-only probes
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/github-trusted-builder-binding-qual/tests"
+
+      - name: Warnings-denied Clippy
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="$RUNNER_TEMP/github-trusted-builder-binding-qual"
+          evidence="$RUNNER_TEMP/github-trusted-builder-binding-evidence"
+          cd "$crate"
+          cargo clippy --locked --all-targets -- -D warnings | tee "$evidence/clippy.txt"
+
+      - name: Verify checkout immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.subject.outputs.sha }}"
+          test -z "$(git status --porcelain)"
+          evidence="$RUNNER_TEMP/github-trusted-builder-binding-evidence"
+          find mycelix-workspace/mycelix-core/libs/proofs-evidence-authentication \
+            -type f -not -path '*/target/*' -print0 | sort -z | xargs -0 sha256sum \
+            > "$evidence/source-sha256-post.txt"
+          cmp "$evidence/source-sha256.txt" "$evidence/source-sha256-post.txt"
+
+      - name: Write qualification receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/github-trusted-builder-binding-evidence"
+          cat > "$evidence/QUALIFICATION.txt" <<EOF
+          MYC-ZKP-GH-BUILDER-001AQ PASS
+          subject_sha=${{ steps.subject.outputs.sha }}
+          authority_scope=TrustedBuilderBindingOnly
+          canonical_run_attempt_bound=true
+          unique_full_candidate_required=true
+          receipt_authentication=false
+          production_admission=false
+          application_authority=false
+          EOF
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: myc-zkp-gh-builder-001aq-${{ steps.subject.outputs.sha }}
+          path: ${{ runner.temp }}/github-trusted-builder-binding-evidence
+          if-no-files-found: warn
+          retention-days: 30
