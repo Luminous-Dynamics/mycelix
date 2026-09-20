@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "fake-integrity",
+    "fake-completion-integrity",
     "harness-coordinator",
     "raw-coordinator",
 ]
