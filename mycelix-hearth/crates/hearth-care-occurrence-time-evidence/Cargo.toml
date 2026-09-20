@@ -1,0 +1,11 @@
+[package]
+name = "hearth-care-occurrence-time-evidence"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Pure content-addressed recurrence/time evidence theorem for Hearth Care occurrences"
+
+[dependencies]
+serde = { workspace = true }
+hearth-care-recurrence = { workspace = true }
+hearth-care-occurrence-admission = { workspace = true }

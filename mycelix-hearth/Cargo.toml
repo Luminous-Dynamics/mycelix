@@ -18,6 +18,7 @@ members = [
     "crates/hearth-care-recurrence-composer",
     "crates/hearth-care-recurrence-state",
     "crates/hearth-care-occurrence-admission",
+    "crates/hearth-care-occurrence-time-evidence",
     "edge/hearth-edge",
     "edge/hearth-edge-journal",
     "crates/hearth-coordinator-common",
@@ -116,6 +117,7 @@ hearth-care-recurrence-enumerator = { path = "crates/hearth-care-recurrence-enum
 hearth-care-recurrence-composer = { path = "crates/hearth-care-recurrence-composer" }
 hearth-care-recurrence-state = { path = "crates/hearth-care-recurrence-state" }
 hearth-care-occurrence-admission = { path = "crates/hearth-care-occurrence-admission" }
+hearth-care-occurrence-time-evidence = { path = "crates/hearth-care-occurrence-time-evidence" }
 hearth-coordinator-common = { path = "crates/hearth-coordinator-common" }
 mycelix-bridge-common = { path = "../crates/mycelix-bridge-common" }
 mycelix-bridge-entry-types = { path = "../crates/mycelix-bridge-entry-types" }
