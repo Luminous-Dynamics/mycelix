@@ -1,0 +1,237 @@
+name: Hearth Home Assistant Read-Only Stack Qualification
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - '.github/workflows/hearth-ha-readonly-qualify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SUBJECT_SHA: 79d15de04682c74304941f128729b8d747eab16f
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-ha-readonly-stack:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Verify registered subject relation
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual='${{ github.event.pull_request.base.sha }}'
+          test "$actual" = "$SUBJECT_SHA" || {
+            echo "::error::Qualifier base moved: expected $SUBJECT_SHA, got $actual"
+            exit 1
+          }
+
+      - name: Check out exact semantic subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 79d15de04682c74304941f128729b8d747eab16f
+          fetch-depth: 1
+          persist-credentials: false
+          submodules: false
+
+      - name: Verify exact source closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SUBJECT_SHA"
+          test -z "$(git status --porcelain)"
+          for crate in \
+            hearth-automation-types \
+            hearth-home-assistant-observation \
+            hearth-home-assistant-protocol \
+            hearth-home-assistant-wire
+          do
+            test -f "mycelix-hearth/crates/$crate/Cargo.toml"
+            test -f "mycelix-hearth/crates/$crate/src/lib.rs"
+          done
+
+      - name: Install pinned Rust
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87b
+        with:
+          toolchain: 1.96.0
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+
+      - name: Prepare isolated exact-source workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          qual="$RUNNER_TEMP/hearth-ha-readonly"
+          evidence="$RUNNER_TEMP/hearth-ha-evidence"
+          rm -rf "$qual" "$evidence"
+          mkdir -p "$qual/crates" "$evidence"
+
+          for crate in \
+            hearth-automation-types \
+            hearth-home-assistant-observation \
+            hearth-home-assistant-protocol \
+            hearth-home-assistant-wire
+          do
+            src="$GITHUB_WORKSPACE/mycelix-hearth/crates/$crate"
+            dst="$qual/crates/$crate"
+            cp -a "$src" "$dst"
+            diff -ru "$src" "$dst"
+          done
+
+          cat > "$qual/Cargo.toml" <<'EOF'
+          [workspace]
+          resolver = "2"
+          members = [
+              "crates/hearth-automation-types",
+              "crates/hearth-home-assistant-observation",
+              "crates/hearth-home-assistant-protocol",
+              "crates/hearth-home-assistant-wire",
+          ]
+
+          [workspace.package]
+          version = "0.1.0"
+          edition = "2024"
+          license = "AGPL-3.0-or-later"
+
+          [workspace.dependencies]
+          serde = { version = "1.0", features = ["derive"] }
+          serde_json = "1.0"
+          EOF
+
+          echo "HA_QUAL_DIR=$qual" >> "$GITHUB_ENV"
+          echo "HA_EVIDENCE_DIR=$evidence" >> "$GITHUB_ENV"
+          echo "CARGO_TARGET_DIR=$RUNNER_TEMP/hearth-ha-target" >> "$GITHUB_ENV"
+
+          find mycelix-hearth/crates/hearth-automation-types \
+               mycelix-hearth/crates/hearth-home-assistant-observation \
+               mycelix-hearth/crates/hearth-home-assistant-protocol \
+               mycelix-hearth/crates/hearth-home-assistant-wire \
+               -type f -print0 \
+            | sort -z | xargs -0 sha256sum > "$evidence/source-sha256.txt"
+
+      - name: Audit direct dependency ceiling
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          import tomllib
+
+          root = Path(os.environ["HA_QUAL_DIR"])
+          expected = {
+              "hearth-automation-types": ({"serde"}, {"serde_json"}),
+              "hearth-home-assistant-observation": ({"serde", "hearth-automation-types"}, set()),
+              "hearth-home-assistant-protocol": ({"hearth-home-assistant-observation"}, {"hearth-automation-types"}),
+              "hearth-home-assistant-wire": (
+                  {"serde", "serde_json", "hearth-home-assistant-observation", "hearth-home-assistant-protocol"},
+                  set(),
+              ),
+          }
+          for crate, (want_deps, want_dev) in expected.items():
+              data = tomllib.loads((root / "crates" / crate / "Cargo.toml").read_text())
+              assert set(data.get("dependencies", {})) == want_deps
+              assert set(data.get("dev-dependencies", {})) == want_dev
+              assert not data.get("build-dependencies", {})
+          PY
+
+      - name: Resolve exact dependency capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo metadata --manifest-path "$HA_QUAL_DIR/Cargo.toml" --format-version 1 \
+            > "$HA_EVIDENCE_DIR/cargo-metadata.json"
+          test -f "$HA_QUAL_DIR/Cargo.lock"
+          cp "$HA_QUAL_DIR/Cargo.lock" "$HA_EVIDENCE_DIR/Cargo.lock"
+          sha256sum "$HA_EVIDENCE_DIR/Cargo.lock" > "$HA_EVIDENCE_DIR/Cargo.lock.sha256"
+          cargo fetch --manifest-path "$HA_QUAL_DIR/Cargo.toml" --locked
+          {
+            echo "semantic_subject=$SUBJECT_SHA"
+            echo "qualifier_mechanism=${{ github.event.pull_request.head.sha || github.sha }}"
+            rustc --version
+            cargo --version
+            rustfmt --version
+            cargo clippy --version
+          } > "$HA_EVIDENCE_DIR/toolchain.txt"
+          echo 'CARGO_NET_OFFLINE=true' >> "$GITHUB_ENV"
+
+      - name: Check exact-source formatting
+        shell: bash
+        run: cargo fmt --manifest-path "$HA_QUAL_DIR/Cargo.toml" --all -- --check
+
+      - name: Run whole read-only test suite
+        shell: bash
+        run: cargo test --manifest-path "$HA_QUAL_DIR/Cargo.toml" --workspace --locked
+
+      - name: Clippy whole read-only stack
+        id: clippy
+        shell: bash
+        run: |
+          set -uo pipefail
+          cargo clippy \
+            --manifest-path "$HA_QUAL_DIR/Cargo.toml" \
+            --workspace --all-targets --locked --message-format short \
+            -- -D warnings 2>&1 | tee "$HA_EVIDENCE_DIR/clippy.log"
+          exit ${PIPESTATUS[0]}
+
+      - name: Check whole stack for bare WASM
+        shell: bash
+        run: |
+          cargo check \
+            --manifest-path "$HA_QUAL_DIR/Cargo.toml" \
+            --workspace --locked --target wasm32-unknown-unknown
+
+      - name: Prove exact semantic checkout immutability
+        id: immutability
+        if: always()
+        shell: bash
+        run: |
+          set -uo pipefail
+          log="$RUNNER_TEMP/hearth-ha-immutability.log"
+          {
+            git rev-parse HEAD
+            git status --short
+            git ls-files --others --exclude-standard
+            git diff --stat
+            git diff
+          } 2>&1 | tee "$log"
+          status=${PIPESTATUS[0]}
+          test "$(git rev-parse HEAD)" = "$SUBJECT_SHA" || status=1
+          git diff --exit-code >>"$log" 2>&1 || status=1
+          test -z "$(git status --porcelain)" || status=1
+          exit "$status"
+
+      - name: Emit exact PASS receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$HA_EVIDENCE_DIR/QUALIFICATION.txt" <<EOF
+          HTH-AUTO-HA0Q=PASS
+          semantic_subject=$SUBJECT_SHA
+          qualifier_mechanism=${{ github.event.pull_request.head.sha || github.sha }}
+          theorem_ceiling=read-only-source-contract-only
+          network_transport_qualified=false
+          tls_qualified=false
+          token_handling_qualified=false
+          home_assistant_trusted=false
+          household_authority_granted=false
+          device_control_granted=false
+          physical_outcome_verified=false
+          EOF
+
+      - name: Upload exact qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: hearth-ha-readonly-qualification-${{ env.SUBJECT_SHA }}
+          path: |
+            ${{ runner.temp }}/hearth-ha-evidence/
+            ${{ runner.temp }}/hearth-ha-immutability.log
+          if-no-files-found: error
+          retention-days: 14
