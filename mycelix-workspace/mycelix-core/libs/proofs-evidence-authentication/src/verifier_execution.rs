@@ -60,7 +60,33 @@ pub enum VerifierExecutionEvidenceErrorV1 {
     TooManyVerifiedResults { maximum: u32, actual: u32 },
 }
 
-/// Non-authoritative evidence describing one exact verifier execution.
+/// Non-authoritative structural evidence for an exact verifier process sequence
+/// before strict verifier-output parsing establishes a result count.
+///
+/// This record is intentionally serializable provenance. It is not proof that the
+/// process actually ran; only the separately sealed executor capability can establish
+/// process-local execution origin.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct VerifierProcessExecutionReceiptV1 {
+    pub evidence_version: u32,
+    pub verifier: VerifierExecutableIdentityV1,
+    pub canonical_receipt_digest: QualificationReceiptDigestV1,
+    pub attestation_bundle_digest: Sha256DigestV1,
+    pub trust_root_mode: VerifierTrustRootModeV1,
+    pub trusted_root_material_digest: Sha256DigestV1,
+    pub trusted_root_acquired_at_unix_seconds: u64,
+    pub command_arguments_digest: Sha256DigestV1,
+    pub environment_profile_digest: Sha256DigestV1,
+    pub verifier_stdout_digest: Sha256DigestV1,
+    pub verifier_stderr_digest: Sha256DigestV1,
+    pub execution_started_at_unix_seconds: u64,
+    pub execution_completed_at_unix_seconds: u64,
+    pub process_outcome: VerifierProcessOutcomeV1,
+}
+
+/// Non-authoritative evidence describing one exact verifier execution after strict
+/// output parsing has also established the exact candidate count.
 ///
 /// This record can be serialized/deserialized for provenance. It is not a
 /// cryptographic capability and cannot establish receipt authentication by itself.
@@ -98,6 +124,61 @@ impl VerifierExecutableIdentityV1 {
             }
         }
         Ok(())
+    }
+}
+
+impl VerifierProcessExecutionReceiptV1 {
+    pub fn validate(&self) -> Result<(), VerifierExecutionEvidenceErrorV1> {
+        self.clone().into_parsed_receipt(0)?.validate()
+    }
+
+    pub const fn authority_scope(&self) -> VerifierExecutionAuthorityV1 {
+        VerifierExecutionAuthorityV1::ExecutionEvidenceOnly
+    }
+
+    pub const fn process_exited_successfully(&self) -> bool {
+        matches!(self.process_outcome, VerifierProcessOutcomeV1::ExitCode(0))
+    }
+
+    pub const fn establishes_parsed_result_count(&self) -> bool {
+        false
+    }
+
+    pub const fn establishes_receipt_authentication(&self) -> bool {
+        false
+    }
+
+    pub const fn grants_production_authority(&self) -> bool {
+        false
+    }
+
+    pub const fn grants_application_authority(&self) -> bool {
+        false
+    }
+
+    pub(crate) fn into_parsed_receipt(
+        self,
+        parsed_result_count: u32,
+    ) -> Result<VerifierExecutionReceiptV1, VerifierExecutionEvidenceErrorV1> {
+        let receipt = VerifierExecutionReceiptV1 {
+            evidence_version: self.evidence_version,
+            verifier: self.verifier,
+            canonical_receipt_digest: self.canonical_receipt_digest,
+            attestation_bundle_digest: self.attestation_bundle_digest,
+            trust_root_mode: self.trust_root_mode,
+            trusted_root_material_digest: self.trusted_root_material_digest,
+            trusted_root_acquired_at_unix_seconds: self.trusted_root_acquired_at_unix_seconds,
+            command_arguments_digest: self.command_arguments_digest,
+            environment_profile_digest: self.environment_profile_digest,
+            verifier_stdout_digest: self.verifier_stdout_digest,
+            verifier_stderr_digest: self.verifier_stderr_digest,
+            execution_started_at_unix_seconds: self.execution_started_at_unix_seconds,
+            execution_completed_at_unix_seconds: self.execution_completed_at_unix_seconds,
+            process_outcome: self.process_outcome,
+            parsed_result_count,
+        };
+        receipt.validate()?;
+        Ok(receipt)
     }
 }
 
@@ -215,13 +296,13 @@ mod tests {
         }
     }
 
-    fn receipt(mode: VerifierTrustRootModeV1) -> VerifierExecutionReceiptV1 {
+    fn process_receipt(mode: VerifierTrustRootModeV1) -> VerifierProcessExecutionReceiptV1 {
         let started = 1_000;
         let acquired = match mode {
             VerifierTrustRootModeV1::OnlineFetchThenRetainedVerifyV1 => 1_010,
             VerifierTrustRootModeV1::OfflinePinnedRootV1 => 900,
         };
-        VerifierExecutionReceiptV1 {
+        VerifierProcessExecutionReceiptV1 {
             evidence_version: VERIFIER_EXECUTION_EVIDENCE_VERSION_V1,
             verifier: verifier(),
             canonical_receipt_digest: QualificationReceiptDigestV1 {
@@ -239,8 +320,37 @@ mod tests {
             execution_started_at_unix_seconds: started,
             execution_completed_at_unix_seconds: 1_020,
             process_outcome: VerifierProcessOutcomeV1::ExitCode(0),
-            parsed_result_count: 1,
         }
+    }
+
+    fn receipt(mode: VerifierTrustRootModeV1) -> VerifierExecutionReceiptV1 {
+        process_receipt(mode).into_parsed_receipt(1).unwrap()
+    }
+
+    #[test]
+    fn preparse_process_receipt_preserves_execution_invariants_without_count_claim() {
+        let evidence = process_receipt(VerifierTrustRootModeV1::OnlineFetchThenRetainedVerifyV1);
+        assert_eq!(evidence.validate(), Ok(()));
+        assert!(evidence.process_exited_successfully());
+        assert!(!evidence.establishes_parsed_result_count());
+        assert!(!evidence.establishes_receipt_authentication());
+    }
+
+    #[test]
+    fn parser_owned_promotion_adds_only_the_exact_result_count() {
+        let process = process_receipt(VerifierTrustRootModeV1::OnlineFetchThenRetainedVerifyV1);
+        let full = process.clone().into_parsed_receipt(2).unwrap();
+        assert_eq!(full.parsed_result_count, 2);
+        assert_eq!(full.verifier, process.verifier);
+        assert_eq!(full.verifier_stdout_digest, process.verifier_stdout_digest);
+        assert_eq!(full.execution_completed_at_unix_seconds, process.execution_completed_at_unix_seconds);
+        assert_eq!(
+            process.into_parsed_receipt(MAX_VERIFIED_RESULTS_V1 + 1),
+            Err(VerifierExecutionEvidenceErrorV1::TooManyVerifiedResults {
+                maximum: MAX_VERIFIED_RESULTS_V1,
+                actual: MAX_VERIFIED_RESULTS_V1 + 1,
+            })
+        );
     }
 
     #[test]
