@@ -177,6 +177,24 @@ fn publish_identity_source(ctx: &PersonalCtx, snapshot: IdentitySourceSnapshot) 
 }
 
 #[derive(Debug)]
+struct WalletSourceSnapshot {
+    credentials: Vec<StoredCredentialView>,
+    state: PersonalSourceState,
+}
+
+fn stage_wallet_source<WalletError>(
+    result: Result<Vec<StoredCredentialView>, WalletError>,
+) -> Result<WalletSourceSnapshot, PersonalSourceState> {
+    match result {
+        Ok(credentials) => {
+            let state = classify_source(1, 0, credentials.len());
+            Ok(WalletSourceSnapshot { credentials, state })
+        }
+        Err(_) => Err(PersonalSourceState::Unavailable),
+    }
+}
+
+#[derive(Debug)]
 struct PreferencesSourceSnapshot {
     preferences: Vec<DataSharingPreferenceView>,
     action_hashes: HashSet<String>,
@@ -321,6 +339,110 @@ fn publish_health_source(ctx: &PersonalCtx, snapshot: HealthSourceSnapshot) {
     });
 }
 
+#[derive(Debug)]
+struct ActivitySourceSnapshot {
+    activity: Vec<ActivityItemView>,
+    state: PersonalSourceState,
+}
+
+fn stage_activity_source<ActivityError>(
+    result: Result<Vec<ActivityItemView>, ActivityError>,
+) -> Result<ActivitySourceSnapshot, PersonalSourceState> {
+    match result {
+        Ok(activity) => {
+            let state = classify_source(1, 0, activity.len());
+            Ok(ActivitySourceSnapshot { activity, state })
+        }
+        Err(_) => Err(PersonalSourceState::Unavailable),
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum PersonalSourceKind {
+    Identity,
+    Wallet,
+    Health,
+    Preferences,
+    Activity,
+}
+
+impl PersonalSourceKind {
+    fn label(self) -> &'static str {
+        match self {
+            Self::Identity => "Identity",
+            Self::Wallet => "Wallet",
+            Self::Health => "Health",
+            Self::Preferences => "Preferences",
+            Self::Activity => "Activity",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct PersonalSnapshotFailure {
+    source: PersonalSourceKind,
+    state: PersonalSourceState,
+}
+
+#[derive(Debug)]
+struct PersonalSnapshot {
+    identity: IdentitySourceSnapshot,
+    wallet: WalletSourceSnapshot,
+    health: HealthSourceSnapshot,
+    preferences: PreferencesSourceSnapshot,
+    activity: ActivitySourceSnapshot,
+}
+
+impl PersonalSnapshot {
+    fn states(&self) -> [PersonalSourceState; 5] {
+        [
+            self.identity.state,
+            self.wallet.state,
+            self.health.state,
+            self.preferences.state,
+            self.activity.state,
+        ]
+    }
+}
+
+fn assemble_personal_snapshot(
+    identity: Result<IdentitySourceSnapshot, PersonalSourceState>,
+    wallet: Result<WalletSourceSnapshot, PersonalSourceState>,
+    health: Result<HealthSourceSnapshot, PersonalSourceState>,
+    preferences: Result<PreferencesSourceSnapshot, PersonalSourceState>,
+    activity: Result<ActivitySourceSnapshot, PersonalSourceState>,
+) -> Result<PersonalSnapshot, PersonalSnapshotFailure> {
+    Ok(PersonalSnapshot {
+        identity: identity.map_err(|state| PersonalSnapshotFailure {
+            source: PersonalSourceKind::Identity,
+            state,
+        })?,
+        wallet: wallet.map_err(|state| PersonalSnapshotFailure {
+            source: PersonalSourceKind::Wallet,
+            state,
+        })?,
+        health: health.map_err(|state| PersonalSnapshotFailure {
+            source: PersonalSourceKind::Health,
+            state,
+        })?,
+        preferences: preferences.map_err(|state| PersonalSnapshotFailure {
+            source: PersonalSourceKind::Preferences,
+            state,
+        })?,
+        activity: activity.map_err(|state| PersonalSnapshotFailure {
+            source: PersonalSourceKind::Activity,
+            state,
+        })?,
+    })
+}
+
+#[derive(Debug)]
+enum PersonalSnapshotStageOutcome {
+    Ready(PersonalSnapshot),
+    SourceFailed(PersonalSnapshotFailure),
+    EpochChanged,
+}
+
 #[derive(Clone)]
 pub struct PersonalCtx {
     pub runtime_mode: PersonalRuntimeMode,
@@ -342,6 +464,7 @@ pub struct PersonalCtx {
     pub preferences_state: RwSignal<PersonalSourceState>,
     pub activity_state: RwSignal<PersonalSourceState>,
     pub snapshot_freshness: RwSignal<PersonalSnapshotFreshness>,
+    pub snapshot_epoch: RwSignal<Option<u64>>,
     pub reconciliation: RwSignal<ReconciliationEpoch>,
     pub loading: RwSignal<bool>,
     pub status_note: RwSignal<String>,
@@ -355,16 +478,6 @@ impl PersonalCtx {
             self.health_state.get(),
             self.preferences_state.get(),
             self.activity_state.get(),
-        ]
-    }
-
-    fn source_states_untracked(&self) -> [PersonalSourceState; 5] {
-        [
-            self.identity_state.get_untracked(),
-            self.wallet_state.get_untracked(),
-            self.health_state.get_untracked(),
-            self.preferences_state.get_untracked(),
-            self.activity_state.get_untracked(),
         ]
     }
 
@@ -447,6 +560,7 @@ pub fn provide_personal_context(runtime_mode: PersonalRuntimeMode) {
         } else {
             PersonalSnapshotFreshness::AwaitingLive
         }),
+        snapshot_epoch: RwSignal::new(None),
         reconciliation: RwSignal::new(ReconciliationEpoch::default()),
         loading: RwSignal::new(false),
         status_note: RwSignal::new(if runtime_mode.is_demo() {
@@ -490,7 +604,7 @@ pub fn provide_personal_context(runtime_mode: PersonalRuntimeMode) {
                     set_all_source_states(&ctx_for_effect, PersonalSourceState::LoadingLive);
                 }
                 ctx_for_effect.status_note.set(format!(
-                    "Reconciling Personal state from live conductor epoch {epoch}. Previously cached values remain non-authoritative until this epoch completes."
+                    "Staging a coherent Personal snapshot from live conductor epoch {epoch}. Previously cached values remain non-authoritative until all five sources commit together."
                 ));
 
                 let ctx = ctx_for_effect.clone();
@@ -505,10 +619,13 @@ pub fn provide_personal_context(runtime_mode: PersonalRuntimeMode) {
                     ctx_for_effect
                         .snapshot_freshness
                         .set(PersonalSnapshotFreshness::Stale);
-                    ctx_for_effect.status_note.set(
-                        "The live conductor/signer epoch ended. Previously loaded Personal values remain visible as a stale local snapshot and are not current source evidence."
-                            .into(),
-                    );
+                    let snapshot_epoch = ctx_for_effect.snapshot_epoch.get_untracked();
+                    ctx_for_effect.status_note.set(format!(
+                        "The live conductor/signer epoch ended. The last completed Personal snapshot from epoch {} remains visible as stale local evidence and is not current source evidence.",
+                        snapshot_epoch
+                            .map(|epoch| epoch.to_string())
+                            .unwrap_or_else(|| "unknown".into())
+                    ));
                 } else {
                     clear_uncommitted_live_snapshot(&ctx_for_effect);
                     ctx_for_effect
@@ -516,7 +633,7 @@ pub fn provide_personal_context(runtime_mode: PersonalRuntimeMode) {
                         .set(PersonalSnapshotFreshness::AwaitingLive);
                     set_all_source_states(&ctx_for_effect, PersonalSourceState::AwaitingLive);
                     ctx_for_effect.status_note.set(
-                        "Live Personal reconciliation was interrupted before an authoritative snapshot completed. Partial results were discarded; waiting for a usable conductor and signer."
+                        "Live Personal reconciliation was interrupted before a coherent snapshot completed. All staged results were discarded; waiting for a usable conductor and signer."
                             .into(),
                     );
                 }
@@ -547,56 +664,235 @@ fn clear_uncommitted_live_snapshot(ctx: &PersonalCtx) {
     ctx.preference_log.set(Vec::new());
     ctx.health_record_count.set(0);
     ctx.activity.set(Vec::new());
+    ctx.snapshot_epoch.set(None);
 }
 
-async fn hydrate_live(ctx: PersonalCtx, hc: HolochainCtx, epoch: u64) {
-    if !load_identity_source(&ctx, &hc, epoch).await {
-        return;
-    }
-    if !load_wallet_source(&ctx, &hc, epoch).await {
-        return;
-    }
-    if !load_health_source(&ctx, &hc, epoch).await {
-        return;
-    }
-    if !load_preferences_source(&ctx, &hc, epoch).await {
-        return;
-    }
-    if !load_activity_source(&ctx, &hc, epoch).await {
-        return;
-    }
-
-    let mut gate = ctx.reconciliation.get_untracked();
-    if !gate.finish(epoch) {
-        return;
-    }
-    ctx.reconciliation.set(gate);
-    ctx.loading.set(false);
-    ctx.snapshot_freshness
-        .set(PersonalSnapshotFreshness::Current);
-
-    let states = ctx.source_states_untracked();
-
-    if states.iter().any(|state| {
-        matches!(
-            state,
-            PersonalSourceState::Degraded | PersonalSourceState::Unavailable
+async fn stage_live_personal_snapshot(
+    ctx: &PersonalCtx,
+    hc: &HolochainCtx,
+    epoch: u64,
+) -> PersonalSnapshotStageOutcome {
+    let profile_result = hc
+        .call_zome_default::<(), Option<ProfileEvidenceView>>(
+            "identity_vault",
+            "get_my_profile_evidence_view",
+            &(),
         )
-    }) {
-        ctx.status_note.set(format!(
-            "Personal epoch {epoch} completed, but one or more sources could not be fully established. Available results are current for this epoch; missing sources remain explicit."
-        ));
-    } else if states
+        .await;
+    if !ctx.accepts_epoch(epoch) {
+        return PersonalSnapshotStageOutcome::EpochChanged;
+    }
+
+    let keys_result = hc
+        .call_zome_default::<(), Vec<MasterKeyView>>(
+            "identity_vault",
+            "get_my_keys_view",
+            &(),
+        )
+        .await;
+    if !ctx.accepts_epoch(epoch) {
+        return PersonalSnapshotStageOutcome::EpochChanged;
+    }
+    let identity = stage_identity_source(profile_result, keys_result);
+
+    let wallet_result = hc
+        .call_zome_default::<(), Vec<StoredCredentialView>>(
+            "credential_wallet",
+            "get_my_credentials_view",
+            &(),
+        )
+        .await;
+    if !ctx.accepts_epoch(epoch) {
+        return PersonalSnapshotStageOutcome::EpochChanged;
+    }
+    let wallet = stage_wallet_source(wallet_result);
+
+    let biometrics_result = hc
+        .call_zome_default::<(), Vec<BiometricView>>(
+            "health_vault",
+            "get_my_biometrics_view",
+            &(),
+        )
+        .await;
+    if !ctx.accepts_epoch(epoch) {
+        return PersonalSnapshotStageOutcome::EpochChanged;
+    }
+
+    let consents_result = hc
+        .call_zome_default::<(), Vec<ConsentGrantView>>(
+            "health_vault",
+            "get_my_consents_view",
+            &(),
+        )
+        .await;
+    if !ctx.accepts_epoch(epoch) {
+        return PersonalSnapshotStageOutcome::EpochChanged;
+    }
+
+    let records_result = hc
+        .call_zome_default::<(), Vec<HealthRecordView>>(
+            "health_vault",
+            "get_my_records_view",
+            &(),
+        )
+        .await;
+    if !ctx.accepts_epoch(epoch) {
+        return PersonalSnapshotStageOutcome::EpochChanged;
+    }
+    let health = stage_health_source(biometrics_result, consents_result, records_result);
+
+    let preferences_result = hc
+        .call_zome_default::<(), Vec<DataSharingPreferenceEvidenceView>>(
+            "data_preferences",
+            "get_my_preferences_evidence_view",
+            &(),
+        )
+        .await;
+    if !ctx.accepts_epoch(epoch) {
+        return PersonalSnapshotStageOutcome::EpochChanged;
+    }
+
+    let log_result = hc
+        .call_zome_default::<(), Vec<PreferenceChangeLogView>>(
+            "data_preferences",
+            "get_change_log_view",
+            &(),
+        )
+        .await;
+    if !ctx.accepts_epoch(epoch) {
+        return PersonalSnapshotStageOutcome::EpochChanged;
+    }
+    let preferences = stage_preferences_source(preferences_result, log_result);
+
+    let activity_result = hc
+        .call_zome_default::<(), Vec<ActivityItemView>>(
+            "personal_bridge",
+            "get_recent_activity_view",
+            &(),
+        )
+        .await;
+    if !ctx.accepts_epoch(epoch) {
+        return PersonalSnapshotStageOutcome::EpochChanged;
+    }
+    let activity = stage_activity_source(activity_result);
+
+    if !ctx.accepts_epoch(epoch) {
+        return PersonalSnapshotStageOutcome::EpochChanged;
+    }
+
+    match assemble_personal_snapshot(identity, wallet, health, preferences, activity) {
+        Ok(snapshot) => PersonalSnapshotStageOutcome::Ready(snapshot),
+        Err(failure) => PersonalSnapshotStageOutcome::SourceFailed(failure),
+    }
+}
+
+fn publish_personal_snapshot(
+    ctx: &PersonalCtx,
+    snapshot: PersonalSnapshot,
+    epoch: u64,
+    gate: ReconciliationEpoch,
+) {
+    let states = snapshot.states();
+    let status_note = if states
         .iter()
         .all(|state| *state == PersonalSourceState::Empty)
     {
-        ctx.status_note.set(format!(
-            "Personal epoch {epoch} completed with no records. This empty snapshot is authoritative for the completed view queries."
-        ));
+        format!(
+            "Personal epoch {epoch} committed one coherent empty snapshot across Identity, Wallet, Health, Preferences, and Activity. No demo records were substituted."
+        )
     } else {
-        ctx.status_note.set(format!(
-            "Personal epoch {epoch} loaded from typed conductor view endpoints. Successful empty results remain empty and no demo records are substituted."
-        ));
+        format!(
+            "Personal epoch {epoch} committed one coherent snapshot across all five typed source groups. Every visible aggregate source value belongs to this completed epoch."
+        )
+    };
+
+    batch(move || {
+        ctx.profile.set(snapshot.identity.profile.clone());
+        ctx.draft_profile.set(snapshot.identity.profile);
+        ctx.profile_action_hash
+            .set(snapshot.identity.profile_action_hash);
+        ctx.keys.set(snapshot.identity.keys);
+        ctx.identity_state.set(snapshot.identity.state);
+
+        ctx.credentials.set(snapshot.wallet.credentials);
+        ctx.wallet_state.set(snapshot.wallet.state);
+
+        ctx.biometrics.set(snapshot.health.biometrics);
+        ctx.consents.set(snapshot.health.consents);
+        ctx.health_record_count.set(snapshot.health.record_count);
+        ctx.health_state.set(snapshot.health.state);
+
+        ctx.preferences.set(snapshot.preferences.preferences);
+        ctx.preference_action_hashes
+            .set(snapshot.preferences.action_hashes);
+        ctx.preference_log.set(snapshot.preferences.change_log);
+        ctx.preferences_state.set(snapshot.preferences.state);
+
+        ctx.activity.set(snapshot.activity.activity);
+        ctx.activity_state.set(snapshot.activity.state);
+
+        ctx.snapshot_epoch.set(Some(epoch));
+        ctx.reconciliation.set(gate);
+        ctx.loading.set(false);
+        ctx.snapshot_freshness
+            .set(PersonalSnapshotFreshness::Current);
+        ctx.status_note.set(status_note);
+    });
+}
+
+fn abort_personal_snapshot(
+    ctx: &PersonalCtx,
+    epoch: u64,
+    failure: PersonalSnapshotFailure,
+) {
+    let mut gate = ctx.reconciliation.get_untracked();
+    if !gate.abort(epoch) {
+        return;
+    }
+    let had_completed = gate.has_completed();
+    let retained_epoch = ctx.snapshot_epoch.get_untracked();
+
+    batch(move || {
+        ctx.reconciliation.set(gate);
+        ctx.loading.set(false);
+
+        if had_completed {
+            ctx.snapshot_freshness
+                .set(PersonalSnapshotFreshness::Stale);
+            ctx.status_note.set(format!(
+                "Personal epoch {epoch} did not publish because {} staging ended {:?}. The exact previous completed snapshot from epoch {} remains visible and stale; no partial values from the failed attempt were published.",
+                failure.source.label(),
+                failure.state,
+                retained_epoch
+                    .map(|epoch| epoch.to_string())
+                    .unwrap_or_else(|| "unknown".into())
+            ));
+        } else {
+            clear_uncommitted_live_snapshot(ctx);
+            set_all_source_states(ctx, PersonalSourceState::AwaitingLive);
+            ctx.snapshot_freshness
+                .set(PersonalSnapshotFreshness::AwaitingLive);
+            ctx.status_note.set(format!(
+                "Personal epoch {epoch} did not publish because {} staging ended {:?}. No completed snapshot exists, so every staged value was discarded and Personal is waiting for a new admissible reconciliation.",
+                failure.source.label(), failure.state
+            ));
+        }
+    });
+}
+
+async fn hydrate_live(ctx: PersonalCtx, hc: HolochainCtx, epoch: u64) {
+    match stage_live_personal_snapshot(&ctx, &hc, epoch).await {
+        PersonalSnapshotStageOutcome::EpochChanged => {}
+        PersonalSnapshotStageOutcome::SourceFailed(failure) => {
+            abort_personal_snapshot(&ctx, epoch, failure);
+        }
+        PersonalSnapshotStageOutcome::Ready(snapshot) => {
+            let mut gate = ctx.reconciliation.get_untracked();
+            if !gate.finish(epoch) {
+                return;
+            }
+            publish_personal_snapshot(&ctx, snapshot, epoch, gate);
+        }
     }
 }
 
@@ -631,29 +927,6 @@ async fn load_identity_source(ctx: &PersonalCtx, hc: &HolochainCtx, epoch: u64) 
     match staged {
         Ok(snapshot) => publish_identity_source(ctx, snapshot),
         Err(state) => ctx.identity_state.set(state),
-    }
-    true
-}
-
-async fn load_wallet_source(ctx: &PersonalCtx, hc: &HolochainCtx, epoch: u64) -> bool {
-    let result = hc
-        .call_zome_default::<(), Vec<StoredCredentialView>>(
-            "credential_wallet",
-            "get_my_credentials_view",
-            &(),
-        )
-        .await;
-    if !ctx.accepts_epoch(epoch) {
-        return false;
-    }
-
-    match result {
-        Ok(credentials) => {
-            let count = credentials.len();
-            ctx.credentials.set(credentials);
-            ctx.wallet_state.set(classify_source(1, 0, count));
-        }
-        Err(_) => ctx.wallet_state.set(PersonalSourceState::Unavailable),
     }
     true
 }
@@ -735,29 +1008,6 @@ async fn load_preferences_source(ctx: &PersonalCtx, hc: &HolochainCtx, epoch: u6
     match staged {
         Ok(snapshot) => publish_preferences_source(ctx, snapshot),
         Err(state) => ctx.preferences_state.set(state),
-    }
-    true
-}
-
-async fn load_activity_source(ctx: &PersonalCtx, hc: &HolochainCtx, epoch: u64) -> bool {
-    let result = hc
-        .call_zome_default::<(), Vec<ActivityItemView>>(
-            "personal_bridge",
-            "get_recent_activity_view",
-            &(),
-        )
-        .await;
-    if !ctx.accepts_epoch(epoch) {
-        return false;
-    }
-
-    match result {
-        Ok(activity) => {
-            let count = activity.len();
-            ctx.activity.set(activity);
-            ctx.activity_state.set(classify_source(1, 0, count));
-        }
-        Err(_) => ctx.activity_state.set(PersonalSourceState::Unavailable),
     }
     true
 }
@@ -855,6 +1105,14 @@ mod tests {
     }
 
     #[test]
+    fn wallet_stage_treats_complete_empty_as_authoritative() {
+        let snapshot = stage_wallet_source::<()>(Ok(Vec::new()))
+            .expect("complete empty Wallet results are authoritative");
+        assert_eq!(snapshot.state, PersonalSourceState::Empty);
+        assert!(snapshot.credentials.is_empty());
+    }
+
+    #[test]
     fn preferences_stage_requires_every_query_before_publication() {
         let state = stage_preferences_source::<(), ()>(Ok(Vec::new()), Err(()))
             .expect_err("a partial Preferences source must not produce a publishable snapshot");
@@ -899,11 +1157,58 @@ mod tests {
 
     #[test]
     fn health_stage_commits_complete_empty_results_atomically() {
-        let snapshot = stage_health_source::<(), (), ()>(Ok(Vec::new()), Ok(Vec::new()), Ok(Vec::new()))
-            .expect("complete empty Health results are authoritative");
+        let snapshot =
+            stage_health_source::<(), (), ()>(Ok(Vec::new()), Ok(Vec::new()), Ok(Vec::new()))
+                .expect("complete empty Health results are authoritative");
         assert_eq!(snapshot.state, PersonalSourceState::Empty);
         assert!(snapshot.biometrics.is_empty());
         assert!(snapshot.consents.is_empty());
         assert_eq!(snapshot.record_count, 0);
+    }
+
+    #[test]
+    fn activity_stage_treats_complete_empty_as_authoritative() {
+        let snapshot = stage_activity_source::<()>(Ok(Vec::new()))
+            .expect("complete empty Activity results are authoritative");
+        assert_eq!(snapshot.state, PersonalSourceState::Empty);
+        assert!(snapshot.activity.is_empty());
+    }
+
+    #[test]
+    fn aggregate_snapshot_rejects_one_failed_source() {
+        let identity = stage_identity_source::<(), ()>(Ok(None), Ok(Vec::new()));
+        let wallet = stage_wallet_source::<()>(Ok(Vec::new()));
+        let health = stage_health_source::<(), (), ()>(
+            Ok(Vec::new()),
+            Ok(Vec::new()),
+            Ok(Vec::new()),
+        );
+        let preferences = stage_preferences_source::<(), ()>(Ok(Vec::new()), Ok(Vec::new()));
+        let activity = Err(PersonalSourceState::Unavailable);
+
+        let failure = assemble_personal_snapshot(identity, wallet, health, preferences, activity)
+            .expect_err("one failed source must reject the aggregate snapshot");
+        assert_eq!(failure.source, PersonalSourceKind::Activity);
+        assert_eq!(failure.state, PersonalSourceState::Unavailable);
+    }
+
+    #[test]
+    fn aggregate_snapshot_accepts_five_complete_empty_sources() {
+        let identity = stage_identity_source::<(), ()>(Ok(None), Ok(Vec::new()));
+        let wallet = stage_wallet_source::<()>(Ok(Vec::new()));
+        let health = stage_health_source::<(), (), ()>(
+            Ok(Vec::new()),
+            Ok(Vec::new()),
+            Ok(Vec::new()),
+        );
+        let preferences = stage_preferences_source::<(), ()>(Ok(Vec::new()), Ok(Vec::new()));
+        let activity = stage_activity_source::<()>(Ok(Vec::new()));
+
+        let snapshot = assemble_personal_snapshot(identity, wallet, health, preferences, activity)
+            .expect("five complete source stages must assemble");
+        assert!(snapshot
+            .states()
+            .iter()
+            .all(|state| *state == PersonalSourceState::Empty));
     }
 }
