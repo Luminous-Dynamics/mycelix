@@ -1,0 +1,11 @@
+[package]
+name = "hearth-care-admission-proof"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "hearth_care_admission_proof"
+path = "src/lib.rs"
+
+[dependencies]
