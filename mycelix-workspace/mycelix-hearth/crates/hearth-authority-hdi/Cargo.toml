@@ -1,0 +1,15 @@
+[package]
+name = "hearth-authority-hdi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+hdi = { workspace = true }
+hdk = { workspace = true }
+hearth-types = { workspace = true }
+hearth-authority-proof = { workspace = true }
+hearth_kinship_integrity = { path = "../../zomes/hearth-kinship/integrity" }
