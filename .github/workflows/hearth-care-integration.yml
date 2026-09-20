@@ -10,10 +10,12 @@ on:
       - 'mycelix-workspace/mycelix-hearth/crates/hearth-types/**'
       - 'mycelix-workspace/mycelix-hearth/crates/hearth-coordinator-common/**'
       - 'mycelix-workspace/mycelix-hearth/tests/Cargo.toml'
+      - 'mycelix-workspace/mycelix-hearth/tests/adversarial/**'
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_gratitude_rhythms.rs'
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_authority.rs'
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_revocation.rs'
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_transitions_v2.rs'
+      - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_transitions_adversarial.rs'
       - 'mycelix-workspace/mycelix-hearth/dna/**'
       - 'mycelix-workspace/mycelix-hearth/flake.nix'
       - 'mycelix-workspace/mycelix-hearth/flake.lock'
@@ -33,10 +35,12 @@ on:
       - 'mycelix-workspace/mycelix-hearth/crates/hearth-types/**'
       - 'mycelix-workspace/mycelix-hearth/crates/hearth-coordinator-common/**'
       - 'mycelix-workspace/mycelix-hearth/tests/Cargo.toml'
+      - 'mycelix-workspace/mycelix-hearth/tests/adversarial/**'
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_gratitude_rhythms.rs'
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_authority.rs'
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_revocation.rs'
       - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_transitions_v2.rs'
+      - 'mycelix-workspace/mycelix-hearth/tests/sweettest_care_transitions_adversarial.rs'
       - 'mycelix-workspace/mycelix-hearth/dna/**'
       - 'mycelix-workspace/mycelix-hearth/flake.nix'
       - 'mycelix-workspace/mycelix-hearth/flake.lock'
@@ -57,6 +61,7 @@ concurrency:
 env:
   HEARTH_ROOT: mycelix-workspace/mycelix-hearth
   DNA_BUNDLE: mycelix-workspace/mycelix-hearth/dna/mycelix_hearth.dna
+  ADVERSARIAL_DNA_BUNDLE: mycelix-workspace/mycelix-hearth/tests/.generated-care-transition-adversarial-dna/mycelix_hearth_care_adversarial.dna
 
 jobs:
   hearth-care-integration:
@@ -93,10 +98,19 @@ jobs:
             "$HEARTH_ROOT/flake.nix" \
             "$HEARTH_ROOT/dna/dna.yaml" \
             "$HEARTH_ROOT/tests/Cargo.toml" \
+            "$HEARTH_ROOT/tests/adversarial/Cargo.toml" \
+            "$HEARTH_ROOT/tests/adversarial/make_dna.py" \
+            "$HEARTH_ROOT/tests/adversarial/fake-integrity/Cargo.toml" \
+            "$HEARTH_ROOT/tests/adversarial/fake-integrity/src/lib.rs" \
+            "$HEARTH_ROOT/tests/adversarial/fake-coordinator/Cargo.toml" \
+            "$HEARTH_ROOT/tests/adversarial/fake-coordinator/src/lib.rs" \
+            "$HEARTH_ROOT/tests/adversarial/raw-completion-coordinator/Cargo.toml" \
+            "$HEARTH_ROOT/tests/adversarial/raw-completion-coordinator/src/lib.rs" \
             "$HEARTH_ROOT/tests/sweettest_care_gratitude_rhythms.rs" \
             "$HEARTH_ROOT/tests/sweettest_care_authority.rs" \
             "$HEARTH_ROOT/tests/sweettest_care_revocation.rs" \
             "$HEARTH_ROOT/tests/sweettest_care_transitions_v2.rs" \
+            "$HEARTH_ROOT/tests/sweettest_care_transitions_adversarial.rs" \
             "$HEARTH_ROOT/zomes/hearth-care/coordinator/Cargo.toml" \
             "$HEARTH_ROOT/zomes/hearth-care-transitions/integrity/Cargo.toml" \
             "$HEARTH_ROOT/zomes/hearth-care-transitions/coordinator/Cargo.toml" \
@@ -121,6 +135,7 @@ jobs:
           workspaces: |
             mycelix-workspace/mycelix-hearth
             mycelix-workspace/mycelix-hearth/tests
+            mycelix-workspace/mycelix-hearth/tests/adversarial
             mycelix-workspace/crates
 
       - name: Build Hearth zomes for wasm32
@@ -130,6 +145,17 @@ jobs:
           cd "$HEARTH_ROOT"
           nix develop .#ci --impure --command \
             cargo build --release --target wasm32-unknown-unknown --workspace
+
+      - name: Build qualification-only adversarial zomes for wasm32
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$HEARTH_ROOT"
+          nix develop .#ci --impure --command \
+            cargo build \
+              --manifest-path tests/adversarial/Cargo.toml \
+              --release \
+              --target wasm32-unknown-unknown
 
       - name: Pack exact Hearth DNA
         shell: bash
@@ -142,6 +168,36 @@ jobs:
             exit 1
           }
           sha256sum dna/mycelix_hearth.dna | tee "$RUNNER_TEMP/hearth-care-dna.sha256"
+
+      - name: Generate and pack qualification-only adversarial DNA
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$HEARTH_ROOT"
+          rm -rf tests/.generated-care-transition-adversarial-dna
+          python3 tests/adversarial/make_dna.py
+          generated=tests/.generated-care-transition-adversarial-dna/dna.yaml
+          test -f "$generated" || {
+            echo "::error::adversarial DNA generator did not produce dna.yaml"
+            exit 1
+          }
+          grep -q 'hearth_care_adversarial_fake_integrity' "$generated"
+          grep -q 'hearth_care_adversarial_fake' "$generated"
+          grep -q 'hearth_care_adversarial_raw_completion' "$generated"
+          ! grep -q 'hearth_care_adversarial_' dna/dna.yaml || {
+            echo "::error::qualification fixture leaked into production dna/dna.yaml"
+            exit 1
+          }
+          nix develop .#ci --impure --command bash -lc '
+            cd tests/.generated-care-transition-adversarial-dna
+            hc dna pack
+          '
+          test -f "$ADVERSARIAL_DNA_BUNDLE" || {
+            echo "::error::hc dna pack did not produce adversarial Hearth DNA"
+            exit 1
+          }
+          sha256sum "$ADVERSARIAL_DNA_BUNDLE" \
+            | tee "$RUNNER_TEMP/hearth-care-adversarial-dna.sha256"
 
       - name: Run positive Care SweetConductor lifecycle
         shell: bash
@@ -194,6 +250,32 @@ jobs:
               -- --ignored --exact --test-threads=1
           '
 
+      - name: Run direct Care transition integrity adversarial qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$HEARTH_ROOT"
+          nix develop .#ci --impure --command bash -lc '
+            cd tests
+            cargo test --release \
+              --test sweettest_care_transitions_adversarial \
+              transition_integrity_rejects_forged_or_stale_authority_evidence \
+              -- --ignored --exact --test-threads=1
+          '
+
+      - name: Record generated dependency locks
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$HEARTH_ROOT"
+          : > "$RUNNER_TEMP/hearth-care-generated-locks.sha256"
+          for lock in Cargo.lock tests/Cargo.lock tests/adversarial/Cargo.lock; do
+            if test -f "$lock"; then
+              sha256sum "$lock" >> "$RUNNER_TEMP/hearth-care-generated-locks.sha256"
+            fi
+          done
+
       - name: Upload exact integration evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -201,13 +283,35 @@ jobs:
           name: hearth-care-integration-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
             ${{ env.DNA_BUNDLE }}
+            ${{ env.ADVERSARIAL_DNA_BUNDLE }}
             ${{ runner.temp }}/hearth-care-dna.sha256
+            ${{ runner.temp }}/hearth-care-adversarial-dna.sha256
+            ${{ runner.temp }}/hearth-care-generated-locks.sha256
           if-no-files-found: error
           retention-days: 7
 
-      - name: Prove tracked source immutability
+      - name: Remove generated qualification state
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$HEARTH_ROOT"
+          rm -rf tests/.generated-care-transition-adversarial-dna
+          for generated in Cargo.lock tests/Cargo.lock tests/adversarial/Cargo.lock; do
+            if test -f "$generated" && ! git ls-files --error-unmatch "$generated" >/dev/null 2>&1; then
+              rm -f "$generated"
+            fi
+          done
+
+      - name: Prove checkout immutability
         if: always()
         shell: bash
         run: |
           set -euo pipefail
           git diff --exit-code
+          dirty="$(git status --porcelain --untracked-files=all)"
+          test -z "$dirty" || {
+            echo "::error::Integration qualification mutated or created repository files"
+            printf '%s\n' "$dirty"
+            exit 1
+          }

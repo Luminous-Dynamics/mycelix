@@ -1,0 +1,28 @@
+[workspace]
+resolver = "2"
+members = [
+    "fake-integrity",
+    "fake-coordinator",
+    "raw-completion-coordinator",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+
+[workspace.dependencies]
+hdk = "0.6.0"
+hdi = "0.7.0"
+serde = { version = "1.0", features = ["derive"] }
+hearth_kinship_integrity = { path = "../../zomes/hearth-kinship/integrity" }
+hearth_care_integrity = { path = "../../zomes/hearth-care/integrity" }
+hearth_care_transitions_integrity = { path = "../../zomes/hearth-care-transitions/integrity" }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+debug = false
