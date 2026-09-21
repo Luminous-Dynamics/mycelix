@@ -3,6 +3,7 @@
 
 use leptos::prelude::*;
 
+pub mod active_hearth_catalog;
 mod ambient_sound;
 mod app;
 mod care_attention;
