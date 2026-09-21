@@ -7,6 +7,7 @@ use leptos_router::{
     path,
 };
 
+use crate::active_hearth_catalog::provide_active_hearth_catalog;
 use crate::care_attention::provide_care_attention;
 use crate::components::{DevPanel, Nav};
 use crate::decision_outcomes::{DecisionOutcomeSummary, provide_decision_outcomes};
@@ -57,6 +58,12 @@ fn AppInner(runtime_mode: HearthRuntimeMode) -> impl IntoView {
     if !runtime_mode.is_demo() {
         clear_demo_backed_state(&hearth);
     }
+
+    // Establish the connected agent's current Active Hearth catalog separately
+    // from the legacy primary snapshot. This provider is read-only and is not
+    // yet allowed to replace current-Hearth selection until atomic publication
+    // and explicit multi-Hearth selection are wired.
+    provide_active_hearth_catalog();
 
     let truth = provide_hearth_truth();
     if !runtime_mode.is_demo() {
