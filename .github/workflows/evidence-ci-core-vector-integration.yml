@@ -1,0 +1,225 @@
+name: EVIDENCE-CI Core Vector Integration
+
+on:
+  pull_request:
+    paths:
+      - '.github/ci-liveness/generate_core_vector_harness.py'
+      - '.github/ci-liveness/test_generate_core_vector_harness.py'
+      - '.github/workflows/evidence-ci-core-vector-integration.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: evidence-ci-core-vector-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out exact vector wrapper
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 2
+
+      - name: Prove exact three-file wrapper over frozen provider adapter
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent="5d4c075d088d989a1d49da9fc6500d9aa5a23125"
+          test "$(git rev-list --parents -n 1 HEAD | awk '{print NF}')" -eq 2
+          test "$(git rev-parse HEAD^)" = "$parent"
+          test "$(git rev-list --count "${parent}..HEAD")" -eq 1
+          mapfile -t changed < <(git diff --name-only HEAD^ HEAD | sort)
+          expected=(
+            ".github/ci-liveness/generate_core_vector_harness.py"
+            ".github/ci-liveness/test_generate_core_vector_harness.py"
+            ".github/workflows/evidence-ci-core-vector-integration.yml"
+          )
+          printf '%s\n' "${changed[@]}" > /tmp/changed
+          printf '%s\n' "${expected[@]}" | sort > /tmp/expected
+          diff -u /tmp/expected /tmp/changed
+          git diff --quiet HEAD^ HEAD -- .github/ci-liveness/frozen_vectors.json
+          git diff --quiet HEAD^ HEAD -- crates/mycelix-evidence-ci-core
+
+      - name: Bind exact provider vectors, generator, and semantic core
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent="5d4c075d088d989a1d49da9fc6500d9aa5a23125"
+          core="4190f855eb0f3c03a7a6b0decee84dd7edba07b4"
+          test "$(git rev-parse "${parent}:.github/ci-liveness/frozen_vectors.json")" = "4174c9b53db828b108196778fb1585a0988a91ed"
+          test "$(git rev-parse "HEAD:.github/ci-liveness/generate_core_vector_harness.py")" = "2046dd3b0b63b220845a41d6cb139bf6303aea01"
+          test "$(git rev-parse "HEAD:.github/ci-liveness/test_generate_core_vector_harness.py")" = "5d0b091b4a2d267668ec1e16e78d8b9d8d929f73"
+          test "$(git rev-parse "${core}:crates/mycelix-evidence-ci-core/Cargo.toml")" = "b033f4fd7cf0c70d2b5a8642630cec2e26da99e3"
+          test "$(git rev-parse "${core}:crates/mycelix-evidence-ci-core/INVARIANTS.md")" = "56adc026c8d510dc3ee82e1b81d8f2989a8cc6b2"
+          test "$(git rev-parse "${core}:crates/mycelix-evidence-ci-core/src/lib.rs")" = "b8b2baced6328ad9df6c7bead4467b5c5085d07e"
+
+      - name: Test deterministic vector generator
+        shell: bash
+        run: |
+          set -uo pipefail
+          receipt=/tmp/evidence-ci-core-vector-matrix
+          : > "$receipt"
+          if python3 .github/ci-liveness/test_generate_core_vector_harness.py; then
+            echo 'generator_tests=PASS' | tee -a "$receipt"
+          else
+            echo 'generator_tests=FAIL' | tee -a "$receipt"
+            exit 1
+          fi
+
+      - name: Bootstrap verified installer and exact Rust release
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUSTUP_VERSION="1.29.0"
+          RUSTUP_SHA256="4acc9acc76d5079515b46346a485974457b5a79893cfb01112423c89aeb5aa10"
+          HOST="x86_64-unknown-linux-gnu"
+          URL="https://static.rust-lang.org/rustup/archive/${RUSTUP_VERSION}/${HOST}/rustup-init"
+          curl --fail --location --retry 3 --silent --show-error "$URL" -o /tmp/rustup-init
+          echo "${RUSTUP_SHA256}  /tmp/rustup-init" | sha256sum --check
+          chmod 0755 /tmp/rustup-init
+          /tmp/rustup-init -y --no-modify-path --profile minimal --default-host "$HOST" --default-toolchain 1.98.1
+          rustc_version="$("$HOME/.cargo/bin/rustc" +1.98.1 --version)"
+          cargo_version="$("$HOME/.cargo/bin/cargo" +1.98.1 --version)"
+          case "$rustc_version" in "rustc 1.98.1 "*) ;; *) echo "unexpected rustc: $rustc_version"; exit 1;; esac
+          case "$cargo_version" in "cargo 1.98.1 "*) ;; *) echo "unexpected cargo: $cargo_version"; exit 1;; esac
+
+      - name: Materialize exact core and frozen vector bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          core="4190f855eb0f3c03a7a6b0decee84dd7edba07b4"
+          core_root=/tmp/mycelix-evidence-ci-core
+          rm -rf "$core_root"
+          mkdir -p "$core_root/src"
+          git show "${core}:crates/mycelix-evidence-ci-core/Cargo.toml" > "$core_root/Cargo.toml"
+          git show "${core}:crates/mycelix-evidence-ci-core/INVARIANTS.md" > "$core_root/INVARIANTS.md"
+          git show "${core}:crates/mycelix-evidence-ci-core/src/lib.rs" > "$core_root/src/lib.rs"
+          test "$(git hash-object "$core_root/Cargo.toml")" = "b033f4fd7cf0c70d2b5a8642630cec2e26da99e3"
+          test "$(git hash-object "$core_root/INVARIANTS.md")" = "56adc026c8d510dc3ee82e1b81d8f2989a8cc6b2"
+          test "$(git hash-object "$core_root/src/lib.rs")" = "b8b2baced6328ad9df6c7bead4467b5c5085d07e"
+          cp .github/ci-liveness/frozen_vectors.json /tmp/frozen_vectors.json
+          test "$(git hash-object /tmp/frozen_vectors.json)" = "4174c9b53db828b108196778fb1585a0988a91ed"
+
+      - name: Generate exact Rust vector harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=/tmp/mycelix-evidence-ci-vector-harness
+          rm -rf "$root"
+          mkdir -p "$root/src"
+          cat > "$root/Cargo.toml" <<'EOF'
+          [package]
+          name = "mycelix-evidence-ci-vector-harness"
+          version = "0.0.0"
+          edition = "2024"
+          publish = false
+
+          [dependencies]
+          mycelix-evidence-ci-core = { path = "../mycelix-evidence-ci-core" }
+          EOF
+          python3 .github/ci-liveness/generate_core_vector_harness.py /tmp/frozen_vectors.json > "$root/src/main.rs"
+          python3 .github/ci-liveness/generate_core_vector_harness.py /tmp/frozen_vectors.json > /tmp/vector-harness-replay.rs
+          cmp "$root/src/main.rs" /tmp/vector-harness-replay.rs
+          sha256sum "$root/src/main.rs" > /tmp/vector-harness.sha256
+          echo 'harness_generation=PASS' | tee -a /tmp/evidence-ci-core-vector-matrix
+
+      - name: Execute exact cross-language vector theorem
+        shell: bash
+        run: |
+          set -uo pipefail
+          C="$HOME/.cargo/bin/cargo"
+          manifest=/tmp/mycelix-evidence-ci-vector-harness/Cargo.toml
+          receipt=/tmp/evidence-ci-core-vector-matrix
+          test -f "$receipt"
+
+          record() {
+            local name="$1"
+            shift
+            if "$@"; then
+              printf '%s=PASS\n' "$name" | tee -a "$receipt"
+            else
+              printf '%s=FAIL\n' "$name" | tee -a "$receipt"
+            fi
+          }
+
+          record lockfile "$C" +1.98.1 generate-lockfile --offline --manifest-path "$manifest"
+          if test -f /tmp/mycelix-evidence-ci-vector-harness/Cargo.lock; then
+            sha256sum /tmp/mycelix-evidence-ci-vector-harness/Cargo.lock > /tmp/vector-lock.sha256
+          else
+            echo 'lockfile_missing=FAIL' | tee -a "$receipt"
+          fi
+          record integration "$C" +1.98.1 run --locked --offline --manifest-path "$manifest"
+
+      - name: Prove post-execution immutability
+        if: always()
+        shell: bash
+        run: |
+          set -uo pipefail
+          receipt=/tmp/evidence-ci-core-vector-matrix
+          core_root=/tmp/mycelix-evidence-ci-core
+          ok=true
+          test "$(git hash-object "$core_root/Cargo.toml")" = "b033f4fd7cf0c70d2b5a8642630cec2e26da99e3" || ok=false
+          test "$(git hash-object "$core_root/INVARIANTS.md")" = "56adc026c8d510dc3ee82e1b81d8f2989a8cc6b2" || ok=false
+          test "$(git hash-object "$core_root/src/lib.rs")" = "b8b2baced6328ad9df6c7bead4467b5c5085d07e" || ok=false
+          if $ok; then echo 'core_materialization_immutable=PASS' | tee -a "$receipt"; else echo 'core_materialization_immutable=FAIL' | tee -a "$receipt"; fi
+
+          if test "$(git hash-object /tmp/frozen_vectors.json)" = "4174c9b53db828b108196778fb1585a0988a91ed"; then
+            echo 'vectors_immutable=PASS' | tee -a "$receipt"
+          else
+            echo 'vectors_immutable=FAIL' | tee -a "$receipt"
+          fi
+
+          if test -f /tmp/vector-harness.sha256 && sha256sum --check /tmp/vector-harness.sha256; then
+            echo 'generated_harness_immutable=PASS' | tee -a "$receipt"
+          else
+            echo 'generated_harness_immutable=FAIL' | tee -a "$receipt"
+          fi
+
+          if test -f /tmp/vector-lock.sha256 && sha256sum --check /tmp/vector-lock.sha256; then
+            echo 'generated_lock_immutable=PASS' | tee -a "$receipt"
+          else
+            echo 'generated_lock_immutable=FAIL' | tee -a "$receipt"
+          fi
+
+          if test -z "$(git status --porcelain)"; then
+            echo 'checkout_immutable=PASS' | tee -a "$receipt"
+          else
+            git status --short
+            echo 'checkout_immutable=FAIL' | tee -a "$receipt"
+          fi
+
+      - name: Emit bounded integration receipt
+        if: always()
+        shell: bash
+        run: |
+          set -uo pipefail
+          printf '%s\n' \
+            'scope=exact provider-vector to EVIDENCE-CI Rust semantic-core integration only' \
+            'provider_vector_blob=4174c9b53db828b108196778fb1585a0988a91ed' \
+            'semantic_core_head=4190f855eb0f3c03a7a6b0decee84dd7edba07b4' \
+            'raw_provider_authenticity_established=false' \
+            'underlying_scientific_theorem_qualified=false' \
+            'runner_availability_guaranteed=false' \
+            'repository_mutation_authority=false' \
+            'failover_dispatch_authority=false' \
+            'cross_run_stitching_authorized=false'
+          test -f /tmp/evidence-ci-core-vector-matrix && cat /tmp/evidence-ci-core-vector-matrix || true
+
+      - name: Enforce fail-closed integration gate
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          receipt=/tmp/evidence-ci-core-vector-matrix
+          test -f "$receipt"
+          ! grep -q '=FAIL$' "$receipt"
+          for required in generator_tests harness_generation lockfile integration core_materialization_immutable vectors_immutable generated_harness_immutable generated_lock_immutable checkout_immutable; do
+            grep -qx "${required}=PASS" "$receipt"
+          done
