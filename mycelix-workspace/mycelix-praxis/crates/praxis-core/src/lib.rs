@@ -13,6 +13,7 @@
 //! - Authority-safe learning evidence and advisory capability-estimate contracts
 //! - Provenance-complete attempt observations with explicit legacy incompleteness
 //! - Deterministic, evidence-bound BKT advisory projections
+//! - Deterministic model-relative retention forecasts over exact BKT receipts
 //! - Validation utilities
 //! - Experimental Proof of Learning (PoL) analytics; PoL output is not, by itself,
 //!   proof of mastery, cheating, identity, credential eligibility, or authorization
@@ -28,6 +29,7 @@ pub mod export_formats;
 pub mod learning_evidence;
 pub mod proof_of_learning;
 pub mod provenance;
+pub mod retention_projection;
 pub mod types;
 pub mod validation;
 
@@ -39,6 +41,7 @@ pub use errors::*;
 pub use learning_evidence::*;
 pub use proof_of_learning::*;
 pub use provenance::*;
+pub use retention_projection::*;
 pub use types::*;
 
 /// Current protocol version
