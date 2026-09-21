@@ -1,0 +1,70 @@
+{
+  "intent_subject": {
+    "subject_profile": {
+      "profile_id": "mycelix.market.intent",
+      "revision": 1,
+      "digest": "1010101010101010101010101010101010101010101010101010101010101010"
+    },
+    "subject_id": "intent:demo:001"
+  },
+  "account_subject": {
+    "subject_profile": {
+      "profile_id": "mycelix.finance.account",
+      "revision": 1,
+      "digest": "1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    "subject_id": "account:demo:001"
+  },
+  "instrument": {
+    "instrument_profile": {
+      "profile_id": "instrument.listed-equity.us",
+      "revision": 1,
+      "digest": "2222222222222222222222222222222222222222222222222222222222222222"
+    },
+    "instrument_id": "instrument:demo:AAPL"
+  },
+  "side": "AcquireLong",
+  "quantity": {
+    "Units": {
+      "unit_profile": {
+        "profile_id": "quantity.micro-share-demo",
+        "revision": 1,
+        "digest": "3333333333333333333333333333333333333333333333333333333333333333"
+      },
+      "amount": {
+        "atomic_units": 10000000,
+        "asset": "AAPL.share.micro.demo"
+      }
+    }
+  },
+  "order_terms": {
+    "Limit": {
+      "price": {
+        "pricing_profile": {
+          "profile_id": "price.usd-cents-per-share-demo",
+          "revision": 1,
+          "digest": "4444444444444444444444444444444444444444444444444444444444444444"
+        },
+        "quote_amount": {
+          "atomic_units": 18750,
+          "asset": "USD.cent.demo"
+        }
+      }
+    }
+  },
+  "time_in_force": "Day",
+  "execution_profile": {
+    "profile_id": "execution.market-order-demo",
+    "revision": 1,
+    "digest": "5555555555555555555555555555555555555555555555555555555555555555"
+  },
+  "semantic_idempotency": {
+    "idempotency_profile": {
+      "profile_id": "idempotency.market-order-v1",
+      "revision": 1,
+      "digest": "6666666666666666666666666666666666666666666666666666666666666666"
+    },
+    "semantic_id": "idem:demo:001"
+  },
+  "upstream_economic_effect_commitment": "7777777777777777777777777777777777777777777777777777777777777777"
+}
