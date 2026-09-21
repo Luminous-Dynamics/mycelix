@@ -1,0 +1,168 @@
+{
+  "event": {
+    "subject": {
+      "intent_commitment": "37d7854bb7012da68bf12cbd76f9a8ca46d3e8364140a6d275168da2f0721f71",
+      "account_subject": {
+        "subject_profile": {
+          "profile_id": "mycelix.finance.account",
+          "revision": 1,
+          "digest": "1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "subject_id": "account:demo:001"
+      },
+      "instrument": {
+        "instrument_profile": {
+          "profile_id": "instrument.listed-equity.us",
+          "revision": 1,
+          "digest": "2222222222222222222222222222222222222222222222222222222222222222"
+        },
+        "instrument_id": "instrument:demo:AAPL"
+      },
+      "provider_profile": {
+        "profile_id": "provider.robinhood.synthetic-v1",
+        "revision": 1,
+        "digest": "8888888888888888888888888888888888888888888888888888888888888888"
+      },
+      "provider_order_ref": "rh-order-demo-001"
+    },
+    "observation_ref": {
+      "observation_profile": {
+        "profile_id": "provider.event.synthetic-v1",
+        "revision": 1,
+        "digest": "9999999999999999999999999999999999999999999999999999999999999999"
+      },
+      "observation_id": "rh-event-demo-001"
+    },
+    "event_kind": "WorkingObserved",
+    "chronology": {
+      "chronology_profile": {
+        "profile_id": "provider.sequence.synthetic-v1",
+        "revision": 1,
+        "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "sequence": 7,
+      "provider_time": "2026-09-21T18:00:00Z"
+    },
+    "source_evidence_commitment": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "fill": {
+    "subject": {
+      "intent_commitment": "37d7854bb7012da68bf12cbd76f9a8ca46d3e8364140a6d275168da2f0721f71",
+      "account_subject": {
+        "subject_profile": {
+          "profile_id": "mycelix.finance.account",
+          "revision": 1,
+          "digest": "1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "subject_id": "account:demo:001"
+      },
+      "instrument": {
+        "instrument_profile": {
+          "profile_id": "instrument.listed-equity.us",
+          "revision": 1,
+          "digest": "2222222222222222222222222222222222222222222222222222222222222222"
+        },
+        "instrument_id": "instrument:demo:AAPL"
+      },
+      "provider_profile": {
+        "profile_id": "provider.robinhood.synthetic-v1",
+        "revision": 1,
+        "digest": "8888888888888888888888888888888888888888888888888888888888888888"
+      },
+      "provider_order_ref": "rh-order-demo-001"
+    },
+    "observation_ref": {
+      "observation_profile": {
+        "profile_id": "provider.fill.synthetic-v1",
+        "revision": 1,
+        "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "observation_id": "rh-fill-event-demo-001"
+    },
+    "provider_execution_ref": "rh-execution-demo-001",
+    "executed_quantity": {
+      "unit_profile": {
+        "profile_id": "quantity.micro-share-demo",
+        "revision": 1,
+        "digest": "3333333333333333333333333333333333333333333333333333333333333333"
+      },
+      "amount": {
+        "atomic_units": 2500000,
+        "asset": "AAPL.share.micro.demo"
+      }
+    },
+    "execution_price": {
+      "pricing_profile": {
+        "profile_id": "price.usd-cents-per-share-demo",
+        "revision": 1,
+        "digest": "4444444444444444444444444444444444444444444444444444444444444444"
+      },
+      "quote_amount": {
+        "atomic_units": 18725,
+        "asset": "USD.cent.demo"
+      }
+    },
+    "venue_ref": "venue:synthetic:1",
+    "chronology": {
+      "chronology_profile": {
+        "profile_id": "provider.sequence.synthetic-v1",
+        "revision": 1,
+        "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "sequence": 8,
+      "provider_time": "2026-09-21T18:00:01Z"
+    },
+    "source_evidence_commitment": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  },
+  "correction": {
+    "subject": {
+      "intent_commitment": "37d7854bb7012da68bf12cbd76f9a8ca46d3e8364140a6d275168da2f0721f71",
+      "account_subject": {
+        "subject_profile": {
+          "profile_id": "mycelix.finance.account",
+          "revision": 1,
+          "digest": "1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "subject_id": "account:demo:001"
+      },
+      "instrument": {
+        "instrument_profile": {
+          "profile_id": "instrument.listed-equity.us",
+          "revision": 1,
+          "digest": "2222222222222222222222222222222222222222222222222222222222222222"
+        },
+        "instrument_id": "instrument:demo:AAPL"
+      },
+      "provider_profile": {
+        "profile_id": "provider.robinhood.synthetic-v1",
+        "revision": 1,
+        "digest": "8888888888888888888888888888888888888888888888888888888888888888"
+      },
+      "provider_order_ref": "rh-order-demo-001"
+    },
+    "observation_ref": {
+      "observation_profile": {
+        "profile_id": "provider.adjust.synthetic-v1",
+        "revision": 1,
+        "digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      },
+      "observation_id": "rh-correct-event-demo-001"
+    },
+    "adjustment_kind": {
+      "Correction": {
+        "prior_fill_commitment": "23121d3de29ccc6f5dce122a7b7475c6ebd86670a063e5ea54ff9901e82ee196",
+        "replacement_fill_commitment": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      }
+    },
+    "chronology": {
+      "chronology_profile": {
+        "profile_id": "provider.sequence.synthetic-v1",
+        "revision": 1,
+        "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "sequence": 9,
+      "provider_time": "2026-09-21T18:00:02Z"
+    },
+    "source_evidence_commitment": "1212121212121212121212121212121212121212121212121212121212121212"
+  }
+}
