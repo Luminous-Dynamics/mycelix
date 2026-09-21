@@ -1,0 +1,28 @@
+{
+  "profile": "mycelix:epistemic-identity:v1",
+  "framing": "u16be-name-len || name || u32be-value-len || value",
+  "vectors": [
+    {
+      "role": "artifact",
+      "namespace": "web",
+      "local_id": "example.org/report:v1",
+      "canonical_hex": "000770726f66696c650000001d6d7963656c69783a6570697374656d69632d6964656e746974793a76310004726f6c6500000008617274696661637400096e616d6573706163650000000377656200086c6f63616c2d6964000000156578616d706c652e6f72672f7265706f72743a7631",
+      "sha256": "bde8c523cf8daa4201a28c49a84f09830579b0072e78a892ecc7f78976d727f7"
+    },
+    {
+      "role": "claim",
+      "namespace": "web",
+      "local_id": "example.org/report:v1",
+      "canonical_hex": "000770726f66696c650000001d6d7963656c69783a6570697374656d69632d6964656e746974793a76310004726f6c6500000005636c61696d00096e616d6573706163650000000377656200086c6f63616c2d6964000000156578616d706c652e6f72672f7265706f72743a7631",
+      "sha256": "fc8b830da362c54f7fd05f8457c85a74187970890d558ba9c2743d4f7f371683"
+    }
+  ],
+  "authority_ceiling": {
+    "identity_only": true,
+    "truth_established": false,
+    "source_authenticity_established": false,
+    "evidence_validity_established": false,
+    "independence_established": false,
+    "application_authority_granted": false
+  }
+}
