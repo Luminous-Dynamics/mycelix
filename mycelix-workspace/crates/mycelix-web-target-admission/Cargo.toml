@@ -1,0 +1,11 @@
+[package]
+name = "mycelix-web-target-admission"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Zero-network one-shot target admission composition for public-web acquisition"
+
+[dev-dependencies]
+serde_json.workspace = true
