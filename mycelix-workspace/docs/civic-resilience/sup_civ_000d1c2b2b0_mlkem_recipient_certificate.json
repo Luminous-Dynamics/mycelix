@@ -1,0 +1,74 @@
+{
+  "schema": "sup-civ-000d1c2b2b0-mlkem-recipient-certificate-v1",
+  "program": "SUP-CIV-000D1C2B2B0-r2",
+  "structural_parent": "27852e1eadc831fc3957758769031ef8855cd62f",
+  "standards": ["RFC9935", "RFC9936", "RFC5280"],
+  "verification_time": {
+    "unix_seconds": 1790812800,
+    "utc": "2026-10-01T00:00:00Z",
+    "purpose": "reproducible certificate-chain validation independent of runner wall clock"
+  },
+  "recipient_certificate": {
+    "path": "mycelix-workspace/docs/civic-resilience/vectors/sup_civ_000d1c2b2b0_recipient.der",
+    "git_blob": "1fa21ea9b37c8dfc68298d1bdf2b6ec3d15b85e4",
+    "length": 1517,
+    "sha256": "6639c042c6e263aab522652b744f4620ce22d4749156cfc21ed657146fb3804b",
+    "subject_rfc2253": "CN=SUP-CIV ML-KEM-768 Recipient Fixture",
+    "issuer_rfc2253": "CN=SUP-CIV C2B2B Test CA",
+    "serial_hex": "2329",
+    "not_before": "Sep 21 08:38:22 2026 GMT",
+    "not_after": "Sep 18 08:38:22 2036 GMT"
+  },
+  "ca_certificate": {
+    "path": "mycelix-workspace/docs/civic-resilience/vectors/sup_civ_000d1c2b2b0_ca.der",
+    "git_blob": "7d10e90b1a9a4ea26531712b84ef8c87befa0e66",
+    "length": 343,
+    "sha256": "4a1a2154e1936fa7ff888ad369dacde6eabd65dea3e3a451eee669e03cf36e0b"
+  },
+  "recipient_spki": {
+    "algorithm": "ML-KEM-768",
+    "sha256": "c23e23dd3d485a9256cda09358a4a286e00b373db10761eadf99f710649ca31c",
+    "c2a1_fixture_match_required": true,
+    "private_key_committed": false
+  },
+  "recipient_identifier": {
+    "kind": "subjectKeyIdentifier",
+    "hex": "f61e8bc9b896925256cce487facf27a108eb5b04",
+    "b2a_test_rid_match_required": true,
+    "authorization_proven": false
+  },
+  "extensions": {
+    "basic_constraints": {
+      "critical": true,
+      "value": "CA:FALSE"
+    },
+    "key_usage": {
+      "critical": true,
+      "only": ["Key Encipherment"]
+    },
+    "subject_key_identifier": {
+      "critical": false,
+      "hex": "f61e8bc9b896925256cce487facf27a108eb5b04"
+    }
+  },
+  "required_non_equivalences": [
+    "CertificateFixtureValid != CMSKEMRecipientInteroperable",
+    "RIDMatchesCertificate != RecipientAuthorized",
+    "CertificateChainValid != CurrentAuthorization",
+    "SPKIMatchesC2A1 != PrivateKeyCustodyProven",
+    "TestCAValidatesFixture != ProductionTrustAnchor",
+    "FixedVerificationTime != CurrentCertificateValidity",
+    "B2B0Pass != B2B1Pass"
+  ],
+  "nonclaims": [
+    "recipient_authorization",
+    "recipient_currentness",
+    "production_certificate_trust",
+    "private_key_custody",
+    "cms_interoperability",
+    "runtime_integration",
+    "protected_read_authority",
+    "legal_compliance",
+    "deployment_readiness"
+  ]
+}
