@@ -13,9 +13,11 @@
 //! - Authority-safe learning evidence and advisory capability-estimate contracts
 //! - Provenance-complete attempt observations with explicit legacy incompleteness
 //! - Evidence-bound descriptive learning analysis without trust/credential authority
+//! - Explicit quarantine receipts for legacy PoL and PoL->MATL arithmetic
 //! - Validation utilities
-//! - Experimental Proof of Learning (PoL) analytics; PoL output is not, by itself,
-//!   proof of mastery, cheating, identity, credential eligibility, or authorization
+//! - Experimental Proof of Learning (PoL) analytics; historical PoL output is
+//!   preserved for reproducibility but is not, by itself, proof of mastery,
+//!   authenticity, cheating, identity, trust, credential eligibility, or authorization
 //! - Structured error handling with descriptive messages
 
 mod benchmarks;
@@ -26,6 +28,7 @@ pub mod errors;
 pub mod export_formats;
 pub mod learning_analysis;
 pub mod learning_evidence;
+pub mod legacy_pol_quarantine;
 pub mod proof_of_learning;
 pub mod provenance;
 pub mod types;
@@ -37,6 +40,7 @@ pub use crypto::*;
 pub use errors::*;
 pub use learning_analysis::*;
 pub use learning_evidence::*;
+pub use legacy_pol_quarantine::*;
 pub use proof_of_learning::*;
 pub use provenance::*;
 pub use types::*;
