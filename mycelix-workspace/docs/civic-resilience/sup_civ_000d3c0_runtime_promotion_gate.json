@@ -1,0 +1,177 @@
+{
+  "schema": "mycelix.support-civic.d3c-runtime-promotion-gate.v1",
+  "program": "SUP-CIV-000D3C0",
+  "tracking_issue": 2505,
+  "parent_subject": "e356226ed2d0b3b2eeea4f8aeb854656d5d2788c",
+  "selected_profile": "EncryptedMultiRecipientProtectedReadV1",
+  "profile_options": {
+    "offline_mode_enabled": false,
+    "break_glass_enabled": false,
+    "public_publication_enabled": false
+  },
+  "frozen_evidence_cut": true,
+  "live_ci_auto_promotion": false,
+  "future_promotion_requires_new_subject": true,
+  "required_roles": [
+    {
+      "role": "protected_public_classification_boundary",
+      "owner": "SUP-CIV-000C-r2",
+      "pr": 2504,
+      "subject_exact_head": "5abbbb19c644924738b1de45d28758bd45209533",
+      "observed_evidence_state": "queued_at_freeze",
+      "qualification_evidence_ref": null,
+      "satisfied": false
+    },
+    {
+      "role": "protected_storage_reuse_boundary",
+      "owner": "SUP-CIV-000D0",
+      "pr": 2314,
+      "subject_exact_head": "f4f48ef45bbaff7ae9e7668fc1820fdfadd1375f",
+      "observed_evidence_state": "queued_at_freeze",
+      "qualification_evidence_ref": null,
+      "satisfied": false
+    },
+    {
+      "role": "protected_envelope_lifecycle",
+      "owner": "SUP-CIV-000D1A",
+      "pr": 2322,
+      "subject_exact_head": "3e2d22b711311d91b3fbde8844817f932d5f8226",
+      "observed_evidence_state": "queued_at_freeze",
+      "qualification_evidence_ref": null,
+      "satisfied": false
+    },
+    {
+      "role": "canonical_envelope_transcript",
+      "owner": "SUP-CIV-000D1B",
+      "pr": 2348,
+      "subject_exact_head": "1152251e1b8d09bf69cc2497164a0fc1d58da320",
+      "observed_evidence_state": "queued_at_freeze_duplicate_attempts_present",
+      "qualification_evidence_ref": null,
+      "satisfied": false
+    },
+    {
+      "role": "payload_aead_profile",
+      "owner": "SUP-CIV-000D1C1",
+      "pr": 2416,
+      "subject_exact_head": "afdad857f39e2b989b2218d2a0982cc13cb05948",
+      "observed_evidence_state": "queued_at_freeze",
+      "qualification_evidence_ref": null,
+      "satisfied": false
+    },
+    {
+      "role": "pq_multi_recipient_wrap_capability",
+      "owner": "SUP-CIV-000D1C2",
+      "issue": 2417,
+      "subject_exact_head": null,
+      "observed_evidence_state": "no_exact_capability_subject",
+      "qualification_evidence_ref": null,
+      "satisfied": false,
+      "non_satisfying_preflight": {
+        "id": "SUP-CIV-000D1C2A",
+        "pr": 2481,
+        "subject_exact_head": "805f68b6c9151bc390896b77bf108c00e33bfc93",
+        "observed_evidence_state": "queued_at_freeze",
+        "reason": "toolchain_preflight_is_not_recipient_wrap_capability"
+      }
+    },
+    {
+      "role": "storage_topology_profile",
+      "owner": "SUP-CIV-000D2",
+      "pr": 2420,
+      "subject_exact_head": "25ed69f863bbbfc0dfe3b3f49387964d1dcbc1e0",
+      "observed_evidence_state": "queued_at_freeze",
+      "qualification_evidence_ref": null,
+      "satisfied": false
+    },
+    {
+      "role": "protected_access_composition_theorem",
+      "owner": "SUP-CIV-000D3A-r2",
+      "pr": 2488,
+      "subject_exact_head": "2ccb30692fb56ec555528860fcffb9421053d547",
+      "observed_evidence_state": "queued_at_freeze",
+      "qualification_evidence_ref": null,
+      "satisfied": false
+    },
+    {
+      "role": "protected_read_admission_oracle",
+      "owner": "SUP-CIV-000D3B-r2",
+      "pr": 2503,
+      "subject_exact_head": "e356226ed2d0b3b2eeea4f8aeb854656d5d2788c",
+      "observed_evidence_state": "queued_at_freeze",
+      "qualification_evidence_ref": null,
+      "satisfied": false
+    },
+    {
+      "role": "current_authorization_source",
+      "owner": "Deferred",
+      "subject_exact_head": null,
+      "observed_evidence_state": "no_exact_binding",
+      "qualification_evidence_ref": null,
+      "satisfied": false
+    },
+    {
+      "role": "purpose_scope_currentness_source",
+      "owner": "Deferred",
+      "subject_exact_head": null,
+      "observed_evidence_state": "no_exact_binding",
+      "qualification_evidence_ref": null,
+      "satisfied": false
+    },
+    {
+      "role": "reciprocal_accountability_semantics",
+      "owner": "mycelix-accountability-core",
+      "pr": 28,
+      "subject_exact_head": "165997366ec47fe9b9e5863649766f9b913dcc2c",
+      "observed_evidence_state": "format_gate_failed_before_tests_and_clippy",
+      "qualification_evidence_ref": null,
+      "satisfied": false
+    },
+    {
+      "role": "durable_accountability_commit_or_escrow",
+      "owner": "Deferred",
+      "subject_exact_head": null,
+      "observed_evidence_state": "no_exact_qualified_persistence_adapter",
+      "qualification_evidence_ref": null,
+      "satisfied": false
+    },
+    {
+      "role": "public_release_projection_owner",
+      "owner": "CIV-RES-001B-r2",
+      "pr": 2468,
+      "subject_exact_head": "306aee19526c4e88130372152d64365e509f79eb",
+      "observed_evidence_state": "queued_at_freeze",
+      "qualification_evidence_ref": null,
+      "satisfied": false
+    }
+  ],
+  "required_non_equivalences": [
+    "ReviewSubjectExists != DependencySatisfied",
+    "QueuedQualification != QualifiedEvidence",
+    "HarnessFailure != SemanticFailure",
+    "FormatGateFailure != SemanticFailure",
+    "ToolchainPreflight != ProtocolCapabilityQualified",
+    "D3APassPlusD3BPass != RuntimeDependenciesSatisfied",
+    "AuthorizationEvidenceShape != CurrentAuthorizationSource",
+    "AccessReceiptSchema != DurableAccountabilityCommit",
+    "LaterExternalPass != FrozenManifestChanged",
+    "BaseProtectedReadQualified != OfflineLeaseQualified",
+    "BaseProtectedReadQualified != BreakGlassAuthorityQualified"
+  ],
+  "all_required_roles_satisfied": false,
+  "runtime_promotion": "Refused",
+  "claim_ceiling": "blocked runtime-promotion evidence cut only",
+  "nonclaims": [
+    "dependency_qualification",
+    "runtime_implementation",
+    "real_authorization",
+    "protected_data_read_or_write",
+    "cryptographic_correctness",
+    "storage_correctness",
+    "public_release_safety",
+    "legal_compliance",
+    "endpoint_security",
+    "municipal_legitimacy",
+    "johannesburg_deployment_readiness",
+    "deployment_readiness"
+  ]
+}

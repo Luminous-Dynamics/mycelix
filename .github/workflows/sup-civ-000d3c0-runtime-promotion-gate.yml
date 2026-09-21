@@ -1,0 +1,95 @@
+name: SUP-CIV-000D3C0 Runtime Promotion Gate
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/docs/civic-resilience/SUP_CIV_000D3C0_RUNTIME_PROMOTION_GATE_V1.md'
+      - 'mycelix-workspace/docs/civic-resilience/sup_civ_000d3c0_runtime_promotion_gate.json'
+      - 'scripts/qualification/sup_civ_000d3c0_runtime_promotion_gate_v1.py'
+      - '.github/workflows/sup-civ-000d3c0-runtime-promotion-gate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sup-civ-000d3c0-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Blocked protected-read runtime promotion gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Prove exact gate subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='e356226ed2d0b3b2eeea4f8aeb854656d5d2788c'
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          test "$(git rev-list --count "$EXPECTED_PARENT"..HEAD)" = '1'
+          git diff --check "$EXPECTED_PARENT" HEAD
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PARENT" HEAD | sort)
+          expected=(
+            '.github/workflows/sup-civ-000d3c0-runtime-promotion-gate.yml'
+            'mycelix-workspace/docs/civic-resilience/SUP_CIV_000D3C0_RUNTIME_PROMOTION_GATE_V1.md'
+            'mycelix-workspace/docs/civic-resilience/sup_civ_000d3c0_runtime_promotion_gate.json'
+            'scripts/qualification/sup_civ_000d3c0_runtime_promotion_gate_v1.py'
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed[@]}")
+
+      - name: Prove exact closed manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object mycelix-workspace/docs/civic-resilience/sup_civ_000d3c0_runtime_promotion_gate.json)" = '3215cdfe8d84ea43f0a0740719ec4c8222b0bd7d'
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d = json.loads(Path('mycelix-workspace/docs/civic-resilience/sup_civ_000d3c0_runtime_promotion_gate.json').read_text())
+          assert d['selected_profile'] == 'EncryptedMultiRecipientProtectedReadV1'
+          assert len(d['required_roles']) == 14
+          assert all(r['satisfied'] is False for r in d['required_roles'])
+          assert all(r['qualification_evidence_ref'] is None for r in d['required_roles'])
+          assert d['all_required_roles_satisfied'] is False
+          assert d['runtime_promotion'] == 'Refused'
+          assert d['live_ci_auto_promotion'] is False
+          assert d['future_promotion_requires_new_subject'] is True
+          PY
+
+      - name: Validate promotion contract
+        run: python3 scripts/qualification/sup_civ_000d3c0_runtime_promotion_gate_v1.py
+
+      - name: Refuse runtime or build changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='e356226ed2d0b3b2eeea4f8aeb854656d5d2788c'
+          changed="$(git diff --name-only "$EXPECTED_PARENT" HEAD)"
+          if printf '%s\n' "$changed" | grep -E '\.(rs|toml|lock|nix)$'; then
+            echo 'D3C0 is a promotion gate only; runtime/build source is forbidden' >&2
+            exit 1
+          fi
+
+      - name: Prove no accidental promotion token
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d = json.loads(Path('mycelix-workspace/docs/civic-resilience/sup_civ_000d3c0_runtime_promotion_gate.json').read_text())
+          assert not any(r['satisfied'] for r in d['required_roles'])
+          assert d['runtime_promotion'] != 'Allowed'
+          PY
+
+      - name: Immutable checkout postflight
+        run: test -z "$(git status --short)"
