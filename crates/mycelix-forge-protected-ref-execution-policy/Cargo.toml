@@ -1,0 +1,13 @@
+[package]
+name = "mycelix-forge-protected-ref-execution-policy"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+publish = false
+
+[dependencies]
+forge-git-ref-transaction = { path = "../../adapters/forge-git-ref-transaction" }
+mycelix-forge-core = { path = "../mycelix-forge-core" }
+mycelix-forge-repository = { path = "../mycelix-forge-repository" }
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
