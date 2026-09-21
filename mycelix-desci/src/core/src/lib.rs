@@ -65,6 +65,7 @@ pub mod evolution;
 pub mod legacy_migration;
 pub mod prediction;
 pub mod reproducibility;
+pub mod scientific_authority;
 pub mod scientific_authority_audit;
 pub mod scientific_credential_governance;
 pub mod scientific_credentials;
