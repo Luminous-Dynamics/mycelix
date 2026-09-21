@@ -1,0 +1,284 @@
+{
+  "profile": "mycelix:web-target-admission-test:v0.2",
+  "admission_profile": {
+    "id": "mycelix:ordinary-public-target-admission:v2",
+    "scheme": "https_only",
+    "http_upgrade": "disabled",
+    "allowed_effective_ports": [443],
+    "userinfo": "refuse",
+    "proxy": "direct_only_ambient_disabled",
+    "resolution_completeness": "complete_only",
+    "mixed_endpoint_set": "refuse",
+    "cname_policy": "all_observed_names_must_be_eligible",
+    "https_svcb": "disabled",
+    "alt_svc": "disabled",
+    "connection_coalescing": "disabled",
+    "post_admission_dns": "forbidden",
+    "redirects": "fresh_full_admission_required",
+    "one_shot": true,
+    "connected_peer": "must_be_member_of_admitted_set"
+  },
+  "candidate_dependencies": {
+    "web_locator_test_001": {
+      "pr": 2652,
+      "head": "113c72bd2bbe5f6c3c7b76f80605682081ac8033"
+    },
+    "web_domain_policy_test_001": {
+      "pr": 2663,
+      "head": "d118567508c5f3cc6dba9c544756438c6a0a63d4"
+    },
+    "web_net_registry_test_001": {
+      "pr": 2664,
+      "head": "18d3d1f81de8f29dccb96e24fef787b4f90588e2"
+    },
+    "web_dns_test_001": {
+      "pr": 2666,
+      "head": "417e5fd3f3f9c442083e0a029dd89eb049ffa717",
+      "resolver_profile": "mycelix:synthetic-resolution:v1"
+    },
+    "web_net_alloc_001": {
+      "pr": 2678,
+      "head": "2c25ad533256a4523788d9bf0df8d5db28c2dc31",
+      "ipv6_envelope": "2000::/3"
+    }
+  },
+  "cases": [
+    {
+      "id": "domain-single-complete-admit",
+      "origin": {"scheme":"https","host":"www.public-synthetic.invalidtld","port":443,"target":"/report"},
+      "domain_policy": "eligible",
+      "resolution": {"profile":"mycelix:synthetic-resolution:v1","lineage":"R1","status":"complete","cname_chain":[],"a":["8.8.8.8"],"aaaa":[]},
+      "endpoint_policy": [{"address":"8.8.8.8","state":"eligible"}],
+      "attempt": "A1",
+      "expected": "admit_single_attempt",
+      "admitted_endpoints": ["8.8.8.8:443"]
+    },
+    {
+      "id": "domain-dual-complete-admit",
+      "origin": {"scheme":"https","host":"dual.public-synthetic.invalidtld","port":443,"target":"/"},
+      "domain_policy": "eligible",
+      "resolution": {"profile":"mycelix:synthetic-resolution:v1","lineage":"R2","status":"complete","cname_chain":[],"a":["8.8.8.8"],"aaaa":["2001:4860:4860::8888"]},
+      "endpoint_policy": [{"address":"8.8.8.8","state":"eligible"},{"address":"2001:4860:4860::8888","state":"eligible","ipv6_envelope":"2000::/3"}],
+      "attempt": "A2",
+      "expected": "admit_single_attempt"
+    },
+    {
+      "id": "domain-mixed-endpoint-refuse",
+      "origin": {"scheme":"https","host":"mixed.public-synthetic.invalidtld","port":443,"target":"/"},
+      "domain_policy": "eligible",
+      "resolution": {"profile":"mycelix:synthetic-resolution:v1","lineage":"R3","status":"complete","cname_chain":[],"a":["8.8.8.8","127.0.0.1"],"aaaa":[]},
+      "endpoint_policy": [{"address":"8.8.8.8","state":"eligible"},{"address":"127.0.0.1","state":"refuse"}],
+      "expected": "refuse_mixed_endpoint_set"
+    },
+    {
+      "id": "initial-special-use-domain-refuse",
+      "origin": {"scheme":"https","host":"foo.localhost","port":443,"target":"/"},
+      "domain_policy": "refuse_special_use",
+      "resolution": null,
+      "expected": "refuse_domain_policy_before_dns"
+    },
+    {
+      "id": "cname-to-special-use-refuse",
+      "origin": {"scheme":"https","host":"alias.public-synthetic.invalidtld","port":443,"target":"/"},
+      "domain_policy": "eligible",
+      "resolution": {"profile":"mycelix:synthetic-resolution:v1","lineage":"R4","status":"complete","cname_chain":["alias.public-synthetic.invalidtld.","foo.localhost."],"a":["127.0.0.1"],"aaaa":[]},
+      "cname_domain_policy": [{"name":"alias.public-synthetic.invalidtld.","state":"eligible"},{"name":"foo.localhost.","state":"refuse_special_use"}],
+      "expected": "refuse_cname_domain_policy"
+    },
+    {
+      "id": "cname-all-eligible-proceeds",
+      "origin": {"scheme":"https","host":"alias.public-synthetic.invalidtld","port":443,"target":"/"},
+      "domain_policy": "eligible",
+      "resolution": {"profile":"mycelix:synthetic-resolution:v1","lineage":"R5","status":"complete","cname_chain":["alias.public-synthetic.invalidtld.","origin.public-synthetic.invalidtld."],"a":["8.8.8.8"],"aaaa":[]},
+      "cname_domain_policy": [{"name":"alias.public-synthetic.invalidtld.","state":"eligible"},{"name":"origin.public-synthetic.invalidtld.","state":"eligible"}],
+      "endpoint_policy": [{"address":"8.8.8.8","state":"eligible"}],
+      "expected": "admit_single_attempt"
+    },
+    {
+      "id": "userinfo-refuse-unambiguous",
+      "origin": {"scheme":"https","host":"www.public-synthetic.invalidtld","port":443,"target":"/","userinfo_present":true},
+      "expected": "refuse_userinfo_before_dns"
+    },
+    {
+      "id": "http-scheme-refuse-no-hsts-upgrade",
+      "origin": {"scheme":"http","host":"www.public-synthetic.invalidtld","port":80,"target":"/"},
+      "ambient_hsts": true,
+      "expected": "refuse_scheme_no_implicit_upgrade"
+    },
+    {
+      "id": "port-refuse-before-dns",
+      "origin": {"scheme":"https","host":"www.public-synthetic.invalidtld","port":8443,"target":"/"},
+      "expected": "refuse_port_before_dns"
+    },
+    {
+      "id": "direct-ipv4-special-refuse",
+      "origin": {"scheme":"https","host":"127.0.0.1","host_kind":"ipv4","port":443,"target":"/"},
+      "endpoint_policy": [{"address":"127.0.0.1","state":"refuse","matched":"127.0.0.0/8"}],
+      "expected": "refuse_endpoint_policy"
+    },
+    {
+      "id": "direct-ipv4-ordinary-value-admit",
+      "origin": {"scheme":"https","host":"8.8.8.8","host_kind":"ipv4","port":443,"target":"/"},
+      "endpoint_policy": [{"address":"8.8.8.8","state":"eligible"}],
+      "expected": "admit_single_attempt",
+      "network_io": false
+    },
+    {
+      "id": "direct-ipv6-ordinary-value-admit",
+      "origin": {"scheme":"https","host":"2001:4860:4860::8888","host_kind":"ipv6","port":443,"target":"/"},
+      "endpoint_policy": [{"address":"2001:4860:4860::8888","state":"eligible","ipv6_envelope":"2000::/3"}],
+      "expected": "admit_single_attempt",
+      "network_io": false
+    },
+    {
+      "id": "direct-ipv6-outside-envelope-refuse",
+      "origin": {"scheme":"https","host":"4000::1","host_kind":"ipv6","port":443,"target":"/"},
+      "endpoint_policy": [{"address":"4000::1","state":"refuse_outside_current_iana_global_unicast_envelope"}],
+      "expected": "refuse_endpoint_policy"
+    },
+    {
+      "id": "nxdomain-refuse",
+      "origin": {"scheme":"https","host":"missing.public-synthetic.invalidtld","port":443,"target":"/"},
+      "domain_policy": "eligible",
+      "resolution": {"profile":"mycelix:synthetic-resolution:v1","lineage":"R6","status":"name_error"},
+      "expected": "refuse_resolution"
+    },
+    {
+      "id": "nodata-refuse",
+      "origin": {"scheme":"https","host":"nodata.public-synthetic.invalidtld","port":443,"target":"/"},
+      "domain_policy": "eligible",
+      "resolution": {"profile":"mycelix:synthetic-resolution:v1","lineage":"R7","status":"no_data"},
+      "expected": "refuse_resolution"
+    },
+    {
+      "id": "partial-family-refuse",
+      "origin": {"scheme":"https","host":"partial.public-synthetic.invalidtld","port":443,"target":"/"},
+      "domain_policy": "eligible",
+      "resolution": {"profile":"mycelix:synthetic-resolution:v1","lineage":"R8","status":"partial_family_result","a":["8.8.8.8"],"aaaa_status":"timeout"},
+      "expected": "refuse_incomplete_resolution"
+    },
+    {
+      "id": "truncated-refuse",
+      "origin": {"scheme":"https","host":"truncated.public-synthetic.invalidtld","port":443,"target":"/"},
+      "domain_policy": "eligible",
+      "resolution": {"profile":"mycelix:synthetic-resolution:v1","lineage":"R9","status":"truncated_without_qualified_retry"},
+      "expected": "refuse_incomplete_resolution"
+    },
+    {
+      "id": "resolver-profile-mismatch-refuse",
+      "origin": {"scheme":"https","host":"www.public-synthetic.invalidtld","port":443,"target":"/"},
+      "domain_policy": "eligible",
+      "resolution": {"profile":"mycelix:other-resolution:v1","lineage":"R10","status":"complete","a":["8.8.8.8"],"aaaa":[]},
+      "expected": "refuse_resolver_profile_mismatch"
+    },
+    {
+      "id": "endpoint-profile-mismatch-refuse",
+      "origin": {"scheme":"https","host":"www.public-synthetic.invalidtld","port":443,"target":"/"},
+      "domain_policy": "eligible",
+      "resolution": {"profile":"mycelix:synthetic-resolution:v1","lineage":"R11","status":"complete","a":["8.8.8.8"],"aaaa":[]},
+      "endpoint_policy_profile": "mycelix:web-endpoint-policy:unexpected:v9",
+      "expected": "refuse_endpoint_profile_mismatch"
+    },
+    {
+      "id": "allocation-profile-mismatch-refuse",
+      "origin": {"scheme":"https","host":"v6.public-synthetic.invalidtld","port":443,"target":"/"},
+      "domain_policy": "eligible",
+      "resolution": {"profile":"mycelix:synthetic-resolution:v1","lineage":"R12","status":"complete","a":[],"aaaa":["2001:4860:4860::8888"]},
+      "allocation_profile": "mycelix:iana-ipv6-allocation:unexpected:v9",
+      "expected": "refuse_allocation_profile_mismatch"
+    },
+    {
+      "id": "r1-admission-cannot-use-r2",
+      "origin": {"scheme":"https","host":"rebind.public-synthetic.invalidtld","port":443,"target":"/"},
+      "admission_resolution_lineage": "R13",
+      "connection_resolution_lineage": "R14",
+      "r1_endpoints": ["8.8.8.8:443"],
+      "r2_endpoints": ["127.0.0.1:443"],
+      "expected": "refuse_resolution_lineage_substitution"
+    },
+    {
+      "id": "one-shot-replay-refuse",
+      "admission_ref": "A1-admission",
+      "attempt": "A1",
+      "consumption": 2,
+      "expected": "refuse_replay"
+    },
+    {
+      "id": "redirect-fresh-full-admission",
+      "source_admission": "A1-admission",
+      "location": "https://next.public-synthetic.invalidtld/new",
+      "expected": "fresh_full_admission_required"
+    },
+    {
+      "id": "https-svcb-targetname-disabled",
+      "origin": {"scheme":"https","host":"www.public-synthetic.invalidtld","port":443,"target":"/"},
+      "https_svcb": {"target_name":"alternate.public-synthetic.invalidtld.","port":443},
+      "expected": "svc_binding_has_no_authority_under_v2"
+    },
+    {
+      "id": "https-svcb-hints-disabled",
+      "origin": {"scheme":"https","host":"www.public-synthetic.invalidtld","port":443,"target":"/"},
+      "https_svcb": {"port":8443,"ipv4hint":["127.0.0.1"],"ipv6hint":["fc00::1"],"alpn":["h3"]},
+      "expected": "svc_binding_has_no_authority_under_v2"
+    },
+    {
+      "id": "ambient-proxy-disabled",
+      "origin": {"scheme":"https","host":"www.public-synthetic.invalidtld","port":443,"target":"/"},
+      "environment": {"HTTPS_PROXY":"http://127.0.0.1:8080"},
+      "expected": "ambient_proxy_has_no_authority"
+    },
+    {
+      "id": "alt-svc-disabled",
+      "admission_ref": "A1-admission",
+      "alt_svc": "h3=\":8443\"",
+      "expected": "alt_svc_requires_new_separately_qualified_profile"
+    },
+    {
+      "id": "connection-coalescing-disabled",
+      "admission_ref": "A1-admission",
+      "existing_connection_origin": "other.public-synthetic.invalidtld",
+      "expected": "cannot_reuse_connection_under_v2"
+    },
+    {
+      "id": "origin-endpoint-split",
+      "origin": {"scheme":"https","host":"www.public-synthetic.invalidtld","port":443,"target":"/"},
+      "transport_endpoint": "8.8.8.8:443",
+      "expected_tls_server_name": "www.public-synthetic.invalidtld",
+      "expected_http_authority": "www.public-synthetic.invalidtld",
+      "expected": "preserve_origin_transport_split"
+    },
+    {
+      "id": "peer-match-only",
+      "admission_ref": "A1-admission",
+      "selected_endpoint": "8.8.8.8:443",
+      "observed_peer": "8.8.8.8:443",
+      "expected": "connected_peer_matches_only"
+    },
+    {
+      "id": "peer-mismatch-invalidates",
+      "admission_ref": "A1-admission",
+      "selected_endpoint": "8.8.8.8:443",
+      "observed_peer": "127.0.0.1:443",
+      "expected": "connection_invalid"
+    }
+  ],
+  "invariants": [
+    "profile_identity_changes_when_semantics_change",
+    "origin_authority_is_not_transport_endpoint",
+    "complete_resolution_required",
+    "every_cname_name_rechecks_domain_policy",
+    "every_endpoint_is_classified",
+    "mixed_endpoint_set_refuses",
+    "ipv6_allocation_envelope_is_profile_bound",
+    "resolver_profile_is_bound",
+    "resolution_lineage_is_bound",
+    "https_svcb_has_no_authority_in_v2",
+    "hsts_alt_svc_and_coalescing_have_no_ambient_authority",
+    "redirect_requires_fresh_full_admission",
+    "admission_is_one_shot",
+    "post_admission_dns_reresolution_is_forbidden",
+    "ambient_proxy_has_no_authority",
+    "peer_match_is_not_tls_authentication",
+    "no_network_io"
+  ]
+}
