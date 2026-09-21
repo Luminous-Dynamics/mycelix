@@ -107,16 +107,52 @@ impl HearthAvailability {
     }
 }
 
+/// Shared monotonic generation gate for the primary Hearth snapshot loader.
+///
+/// Every accepted load receives a token. Any later load or invalidation advances
+/// the generation, making all earlier tokens permanently stale. A stale async
+/// task may finish its transport call, but it must not publish state or clear the
+/// loading flag owned by a newer task.
+#[derive(Clone, Default)]
+struct LoadGeneration {
+    current: Rc<Cell<u64>>,
+}
+
+impl LoadGeneration {
+    fn advance(&self) -> u64 {
+        let next = self.current.get().wrapping_add(1);
+        self.current.set(next);
+        next
+    }
+
+    fn invalidate(&self) {
+        self.advance();
+    }
+
+    fn is_current(&self, token: u64) -> bool {
+        self.current.get() == token
+    }
+}
+
 #[derive(Clone)]
 pub struct HearthTruthState {
     pub availability: RwSignal<HearthAvailability>,
     pub loading: RwSignal<bool>,
+    generation: LoadGeneration,
+}
+
+impl HearthTruthState {
+    fn invalidate_active_load(&self) {
+        self.generation.invalidate();
+        self.loading.set(false);
+    }
 }
 
 pub fn provide_hearth_truth() -> HearthTruthState {
     let truth = HearthTruthState {
         availability: RwSignal::new(HearthAvailability::mock_mode()),
         loading: RwSignal::new(false),
+        generation: LoadGeneration::default(),
     };
     provide_context(truth.clone());
 
@@ -142,17 +178,31 @@ pub fn provide_hearth_truth() -> HearthTruthState {
                         .set(HearthAvailability::live_pending());
                 }
 
-                if signer_ready && !loading && !loaded_for_connection.get() {
-                    loaded_for_connection.set(true);
-                    start_live_load(
-                        hearth_for_status.clone(),
-                        truth_for_status.clone(),
-                        hc_for_status.clone(),
-                    );
+                if signer_ready {
+                    if !loading && !loaded_for_connection.get()
+                        && start_live_load(
+                            hearth_for_status.clone(),
+                            truth_for_status.clone(),
+                            hc_for_status.clone(),
+                        )
+                    {
+                        loaded_for_connection.set(true);
+                    }
+                } else {
+                    // Signer loss means the current read session can no longer
+                    // establish source-backed state. Invalidate any in-flight
+                    // load and force a fresh snapshot if signing returns.
+                    loaded_for_connection.set(false);
+                    if loading {
+                        truth_for_status.invalidate_active_load();
+                    }
                 }
             }
             ConnectionStatus::Mock => {
                 loaded_for_connection.set(false);
+                if loading {
+                    truth_for_status.invalidate_active_load();
+                }
                 if !prepared_live.get() {
                     truth_for_status
                         .availability
@@ -161,13 +211,26 @@ pub fn provide_hearth_truth() -> HearthTruthState {
             }
             ConnectionStatus::Disconnected | ConnectionStatus::Reconnecting => {
                 loaded_for_connection.set(false);
+                if loading {
+                    truth_for_status.invalidate_active_load();
+                }
                 if prepared_live.get() {
                     truth_for_status
                         .availability
                         .update(HearthAvailability::mark_loaded_data_degraded);
                 }
             }
-            ConnectionStatus::Connecting => {}
+            ConnectionStatus::Connecting => {
+                loaded_for_connection.set(false);
+                if loading {
+                    truth_for_status.invalidate_active_load();
+                }
+                if prepared_live.get() {
+                    truth_for_status
+                        .availability
+                        .update(HearthAvailability::mark_loaded_data_degraded);
+                }
+            }
         }
     });
 
@@ -216,21 +279,36 @@ fn start_live_load(
     hearth: HearthCtx,
     truth: HearthTruthState,
     hc: mycelix_leptos_core::HolochainCtx,
-) {
+) -> bool {
     if truth.loading.get_untracked() || !hc.zome_calls_ready_untracked() {
-        return;
+        return false;
     }
 
+    let token = truth.generation.advance();
     truth.loading.set(true);
     truth
         .availability
         .update(reset_live_readable_to_unknown);
 
     let truth_for_load = truth.clone();
+    let generation = truth.generation.clone();
     spawn_local(async move {
-        load_live_data(hearth, truth_for_load.clone(), hc).await;
-        truth_for_load.loading.set(false);
+        load_live_data(
+            hearth,
+            truth_for_load.clone(),
+            hc,
+            generation.clone(),
+            token,
+        )
+        .await;
+
+        // A stale task must never clear a newer task's loading state.
+        if generation.is_current(token) {
+            truth_for_load.loading.set(false);
+        }
     });
+
+    true
 }
 
 fn reset_live_readable_to_unknown(availability: &mut HearthAvailability) {
@@ -324,13 +402,23 @@ async fn load_live_data(
     hearth: HearthCtx,
     truth: HearthTruthState,
     hc: mycelix_leptos_core::HolochainCtx,
+    generation: LoadGeneration,
+    token: u64,
 ) {
     let hearth_records = match hc
         .call_zome_default::<(), Vec<WireRecord>>("hearth_kinship", "get_my_hearths", &())
         .await
     {
-        Ok(records) => records,
+        Ok(records) => {
+            if !generation.is_current(token) {
+                return;
+            }
+            records
+        }
         Err(error) => {
+            if !generation.is_current(token) {
+                return;
+            }
             truth
                 .availability
                 .update(mark_live_readable_unavailable);
@@ -390,6 +478,9 @@ async fn load_live_data(
         .await
     {
         Ok(role) => {
+            if !generation.is_current(token) {
+                return;
+            }
             let state = if role.is_some() {
                 AvailabilityStateKind::Live
             } else {
@@ -401,6 +492,9 @@ async fn load_live_data(
                 .update(|availability| availability.caller_role = state);
         }
         Err(error) => {
+            if !generation.is_current(token) {
+                return;
+            }
             truth.availability.update(|availability| {
                 availability.caller_role = AvailabilityStateKind::Unavailable;
             });
@@ -419,6 +513,9 @@ async fn load_live_data(
         .await
     {
         Ok(records) => {
+            if !generation.is_current(token) {
+                return;
+            }
             let record_count = records.len();
             let views = record_bridge::records_to_members(&records);
             let state = record_set_availability(record_count, views.len());
@@ -428,6 +525,9 @@ async fn load_live_data(
                 .update(|availability| availability.members = state);
         }
         Err(error) => {
+            if !generation.is_current(token) {
+                return;
+            }
             truth
                 .availability
                 .update(|availability| availability.members = AvailabilityStateKind::Unavailable);
@@ -446,6 +546,9 @@ async fn load_live_data(
         .await
     {
         Ok(records) => {
+            if !generation.is_current(token) {
+                return;
+            }
             let record_count = records.len();
             let views = record_bridge::records_to_bonds(&records);
             let state = record_set_availability(record_count, views.len());
@@ -455,6 +558,9 @@ async fn load_live_data(
                 .update(|availability| availability.bonds = state);
         }
         Err(error) => {
+            if !generation.is_current(token) {
+                return;
+            }
             truth
                 .availability
                 .update(|availability| availability.bonds = AvailabilityStateKind::Unavailable);
@@ -473,6 +579,9 @@ async fn load_live_data(
         .await
     {
         Ok(records) => {
+            if !generation.is_current(token) {
+                return;
+            }
             let record_count = records.len();
             let views = record_bridge::records_to_gratitude(&records);
             let state = record_set_availability(record_count, views.len());
@@ -482,6 +591,9 @@ async fn load_live_data(
                 .update(|availability| availability.gratitude = state);
         }
         Err(error) => {
+            if !generation.is_current(token) {
+                return;
+            }
             truth.availability.update(|availability| {
                 availability.gratitude = AvailabilityStateKind::Unavailable;
             });
@@ -500,6 +612,9 @@ async fn load_live_data(
         .await
     {
         Ok(records) => {
+            if !generation.is_current(token) {
+                return;
+            }
             let record_count = records.len();
             let views = record_bridge::records_to_care_schedules(&records);
             let state = record_set_availability(record_count, views.len());
@@ -509,6 +624,9 @@ async fn load_live_data(
                 .update(|availability| availability.care_schedules = state);
         }
         Err(error) => {
+            if !generation.is_current(token) {
+                return;
+            }
             truth.availability.update(|availability| {
                 availability.care_schedules = AvailabilityStateKind::Unavailable;
             });
@@ -527,6 +645,9 @@ async fn load_live_data(
         .await
     {
         Ok(records) => {
+            if !generation.is_current(token) {
+                return;
+            }
             let record_count = records.len();
             let views = record_bridge::records_to_rhythms(&records);
             let state = record_set_availability(record_count, views.len());
@@ -536,6 +657,9 @@ async fn load_live_data(
                 .update(|availability| availability.rhythms = state);
         }
         Err(error) => {
+            if !generation.is_current(token) {
+                return;
+            }
             truth.availability.update(|availability| {
                 availability.rhythms = AvailabilityStateKind::Unavailable;
             });
@@ -554,6 +678,9 @@ async fn load_live_data(
         .await
     {
         Ok(records) => {
+            if !generation.is_current(token) {
+                return;
+            }
             let record_count = records.len();
             let decoded = record_bridge::records_to_presence(&records);
             let state = record_set_availability(record_count, decoded.decoded_records);
@@ -563,6 +690,9 @@ async fn load_live_data(
                 .update(|availability| availability.presence = state);
         }
         Err(error) => {
+            if !generation.is_current(token) {
+                return;
+            }
             truth.availability.update(|availability| {
                 availability.presence = AvailabilityStateKind::Unavailable;
             });
@@ -572,7 +702,15 @@ async fn load_live_data(
         }
     }
 
-    load_decisions_and_votes(&hearth, &truth, &hc, &hearth_hash).await;
+    load_decisions_and_votes(
+        &hearth,
+        &truth,
+        &hc,
+        &hearth_hash,
+        &generation,
+        token,
+    )
+    .await;
 }
 
 async fn load_decisions_and_votes(
@@ -580,6 +718,8 @@ async fn load_decisions_and_votes(
     truth: &HearthTruthState,
     hc: &mycelix_leptos_core::HolochainCtx,
     hearth_hash: &HoloHashBytes,
+    generation: &LoadGeneration,
+    token: u64,
 ) {
     let decision_records = match hc
         .call_zome_default::<HoloHashBytes, Vec<WireRecord>>(
@@ -589,8 +729,16 @@ async fn load_decisions_and_votes(
         )
         .await
     {
-        Ok(records) => records,
+        Ok(records) => {
+            if !generation.is_current(token) {
+                return;
+            }
+            records
+        }
         Err(error) => {
+            if !generation.is_current(token) {
+                return;
+            }
             truth.availability.update(|availability| {
                 availability.decisions = AvailabilityStateKind::Unavailable;
                 availability.votes = AvailabilityStateKind::Unavailable;
@@ -648,6 +796,9 @@ async fn load_decisions_and_votes(
             .await
         {
             Ok(records) => {
+                if !generation.is_current(token) {
+                    return;
+                }
                 successful_queries += 1;
                 vote_record_count += records.len();
                 let decoded = record_bridge::records_to_votes(&records);
@@ -655,6 +806,9 @@ async fn load_decisions_and_votes(
                 votes.extend(decoded);
             }
             Err(error) => {
+                if !generation.is_current(token) {
+                    return;
+                }
                 failed_queries += 1;
                 web_sys::console::log_1(
                     &format!(
@@ -691,7 +845,7 @@ fn status_message(
 
     match status {
         ConnectionStatus::Connecting => Some(
-            "Connecting to Hearth. Data shown during connection setup is sample data until a source-backed snapshot is established."
+            "Connecting to Hearth. Live data remains unavailable until a source-backed snapshot is established."
                 .to_string(),
         ),
         ConnectionStatus::Connected if !signer_ready => Some(
@@ -795,7 +949,7 @@ pub fn HearthDataStatus() -> impl IntoView {
 
 #[cfg(test)]
 mod tests {
-    use super::{HearthAvailability, record_set_availability};
+    use super::{HearthAvailability, LoadGeneration, record_set_availability};
     use mycelix_leptos_core::AvailabilityStateKind;
 
     #[test]
@@ -828,5 +982,24 @@ mod tests {
             record_set_availability(2, 2),
             AvailabilityStateKind::Live
         );
+    }
+
+    #[test]
+    fn newer_generation_makes_prior_load_stale() {
+        let generation = LoadGeneration::default();
+        let first = generation.advance();
+        assert!(generation.is_current(first));
+
+        let second = generation.advance();
+        assert!(!generation.is_current(first));
+        assert!(generation.is_current(second));
+    }
+
+    #[test]
+    fn invalidation_rejects_in_flight_token() {
+        let generation = LoadGeneration::default();
+        let token = generation.advance();
+        generation.invalidate();
+        assert!(!generation.is_current(token));
     }
 }
