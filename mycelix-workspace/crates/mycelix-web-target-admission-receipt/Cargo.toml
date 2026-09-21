@@ -1,0 +1,11 @@
+[package]
+name = "mycelix-web-target-admission-receipt"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Canonical audit receipts and SHA-256 commitments for V2 web target admission"
+
+[dependencies]
+sha2.workspace = true
