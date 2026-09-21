@@ -16,6 +16,7 @@
 //! - Expiring recommendations bound to exact goal/evidence/projection dependencies
 //! - Versioned adaptive-path plans separated from evidence-derived execution progress
 //! - Descriptive session summaries and evidence-bound analytics projections
+//! - Learner-authored preferences separated from private inferred profile projections
 //! - Validation utilities
 //! - Experimental Proof of Learning (PoL) analytics; PoL output is not, by itself,
 //!   proof of mastery, cheating, identity, credential eligibility, or authorization
@@ -30,6 +31,7 @@ pub mod crypto;
 pub mod errors;
 pub mod export_formats;
 pub mod goal_state;
+pub mod learner_profile_state;
 pub mod learning_evidence;
 pub mod proof_of_learning;
 pub mod provenance;
@@ -44,6 +46,7 @@ pub use contracts::*;
 pub use crypto::*;
 pub use errors::*;
 pub use goal_state::*;
+pub use learner_profile_state::*;
 pub use learning_evidence::*;
 pub use proof_of_learning::*;
 pub use provenance::*;
