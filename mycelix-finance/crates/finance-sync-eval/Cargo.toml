@@ -1,0 +1,18 @@
+[package]
+name = "mycelix-finance-sync-eval"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Observation-only partial-effect and uncertainty lattice for Mycelix FIN-SYNC"
+
+[lib]
+crate-type = ["rlib"]
+name = "mycelix_finance_sync_eval"
+
+[dependencies]
+mycelix-finance-sync-graph = { path = "../finance-sync-graph" }
+serde = { workspace = true }
+sha2 = "0.10"
+
+[dev-dependencies]
+serde_json = { workspace = true }

@@ -1,0 +1,45 @@
+{
+  "input": {
+    "graph_commitment": "3cac9d88d535025a357b2cbfc18d48606e726dec7fa3ccd57b81b11f345a662d",
+    "evaluation_profile": {
+      "id": "fin-sync:observation-eval:v1",
+      "revision": 1,
+      "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    "evaluation_context_commitment": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "observations": [
+      {
+        "leg_id": "a0fca8a0301e14743716ec3c280c0179dca915310e90818b40db69f38930cd86",
+        "observation_stream_ref": "stream:synthetic-usd:primary",
+        "evidence_id": "evidence:usd:1",
+        "evidence_commitment": "1212121212121212121212121212121212121212121212121212121212121212",
+        "observation_revision": 1,
+        "class": "reported_applied_unqualified",
+        "observation_profile": {
+          "id": "observation:synthetic:v1",
+          "revision": 1,
+          "digest": "abababababababababababababababababababababababababababababababab"
+        }
+      },
+      {
+        "leg_id": "3c00858264be8a13449bea08c8ca2ba592b799d490795300b264e7f1b4c7b709",
+        "observation_stream_ref": "stream:synthetic-eur:primary",
+        "evidence_id": "evidence:eur:1",
+        "evidence_commitment": "3434343434343434343434343434343434343434343434343434343434343434",
+        "observation_revision": 1,
+        "class": "reported_outcome_unknown",
+        "observation_profile": {
+          "id": "observation:synthetic:v1",
+          "revision": 1,
+          "digest": "abababababababababababababababababababababababababababababababab"
+        }
+      }
+    ]
+  },
+  "expected": {
+    "usd_observation_commitment": "be4da4668876add8de9c6082ef0cbf09a293043074932f61d93945f5bd98963f",
+    "eur_observation_commitment": "513416d303c78fb8b3ca8d4ed27e17d79f3e388ac858961133b2dc2e05efaebf",
+    "disposition": "unknown_effect_possible",
+    "receipt_commitment": "6c18d39564d417c747dcabbb02ae1a3fcab6d2772162d3f1f2fb8f15e13305ee"
+  }
+}
