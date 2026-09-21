@@ -1,0 +1,18 @@
+[package]
+name = "mycelix-finance-market-execution-frontier"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Provider-neutral economic execution de-duplication and adjustment resolution for Mycelix Finance"
+
+[lib]
+crate-type = ["rlib"]
+name = "mycelix_finance_market_execution_frontier"
+
+[dependencies]
+mycelix-finance-market-core = { path = "../finance-market-core" }
+mycelix-finance-market-observation = { path = "../finance-market-observation" }
+serde = { workspace = true }
+
+[dev-dependencies]
+mycelix-finance-exact = { path = "../finance-exact" }
