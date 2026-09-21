@@ -1,0 +1,117 @@
+{
+  "schema": "mycelix-amsap-004a-rest-replay-v1",
+  "fixture_kind": "deterministic-rest-shaped-replay",
+  "source_authenticity_claimed": false,
+  "cases": [
+    {
+      "id": "amsap-r1-terminal-cancelled-no-start",
+      "observed_at_utc": "2026-09-20T12:43:50Z",
+      "profile": {
+        "schema": "mycelix-github-rest-evidence-ci-core-adapter-v1",
+        "profile_id": "amsap-004a-r1-liveness-v1",
+        "repository": "Luminous-Dynamics/mycelix",
+        "repository_id": 1176351975,
+        "theorem_id": "AMSAP-004A",
+        "qualification_head": "4fa9a8597152f404ec922afdabd113fd6d305e49",
+        "workflow_path": ".github/workflows/amsap-004a-subject-topology.yml",
+        "required_jobs": [
+          {
+            "job_key": "qualify",
+            "observed_name": "qualify",
+            "required_gate_names": [
+              "Prove exact single-parent AMSAP-002B1 ancestry and review surface",
+              "Audit dependency and authority boundary",
+              "Collect Rust qualification matrix",
+              "Record immutable checkout postflight",
+              "Enforce fail-closed promotion gate"
+            ],
+            "depends_on": []
+          }
+        ]
+      },
+      "run": {
+        "id": 35443692878,
+        "head_sha": "4fa9a8597152f404ec922afdabd113fd6d305e49",
+        "path": ".github/workflows/amsap-004a-subject-topology.yml",
+        "status": "completed",
+        "conclusion": "cancelled",
+        "repository": {
+          "id": 1176351975,
+          "full_name": "Luminous-Dynamics/mycelix"
+        }
+      },
+      "jobs": {
+        "jobs": [
+          {
+            "id": 105898874637,
+            "run_id": 35443692878,
+            "head_sha": "4fa9a8597152f404ec922afdabd113fd6d305e49",
+            "name": "qualify",
+            "status": "completed",
+            "conclusion": "cancelled",
+            "steps": [],
+            "runner_id": 0,
+            "runner_name": "",
+            "created_at": "2026-09-19T12:43:49Z"
+          }
+        ]
+      },
+      "expected_vector_id": "amsap-r1-terminal-cancelled-no-start"
+    },
+    {
+      "id": "amsap-r2-queued-no-start",
+      "observed_at_utc": "2026-09-20T14:05:24Z",
+      "profile": {
+        "schema": "mycelix-github-rest-evidence-ci-core-adapter-v1",
+        "profile_id": "amsap-004a-r2-liveness-v1",
+        "repository": "Luminous-Dynamics/mycelix",
+        "repository_id": 1176351975,
+        "theorem_id": "AMSAP-004A",
+        "qualification_head": "7936a7d3f4cc13283aa94229f7f24aacec8c0105",
+        "workflow_path": ".github/workflows/amsap-004a-subject-topology.yml",
+        "required_jobs": [
+          {
+            "job_key": "qualify",
+            "observed_name": "qualify",
+            "required_gate_names": [
+              "Prove exact single-parent AMSAP-002B1 ancestry and review surface",
+              "Audit dependency and authority boundary",
+              "Collect Rust qualification matrix",
+              "Record immutable checkout postflight",
+              "Enforce fail-closed promotion gate"
+            ],
+            "depends_on": []
+          }
+        ]
+      },
+      "run": {
+        "id": 35515367251,
+        "head_sha": "7936a7d3f4cc13283aa94229f7f24aacec8c0105",
+        "path": ".github/workflows/amsap-004a-subject-topology.yml",
+        "status": "queued",
+        "conclusion": null,
+        "repository": {
+          "id": 1176351975,
+          "full_name": "Luminous-Dynamics/mycelix"
+        }
+      },
+      "jobs": {
+        "jobs": [
+          {
+            "id": 106090286562,
+            "run_id": 35515367251,
+            "head_sha": "7936a7d3f4cc13283aa94229f7f24aacec8c0105",
+            "name": "qualify",
+            "status": "queued",
+            "conclusion": null,
+            "steps": [],
+            "runner_id": 0,
+            "runner_name": "",
+            "created_at": "2026-09-20T14:04:24Z"
+          }
+        ]
+      },
+      "expected_vector_id": "amsap-r2-queued-no-start"
+    }
+  ]
+}

@@ -1,0 +1,236 @@
+name: EVIDENCE-CI Raw REST Core Integration
+
+on:
+  pull_request:
+    paths:
+      - '.github/ci-liveness/amsap_raw_rest_replay.json'
+      - '.github/ci-liveness/run_raw_rest_core_integration.py'
+      - '.github/ci-liveness/test_run_raw_rest_core_integration.py'
+      - '.github/workflows/evidence-ci-raw-rest-core-integration.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: evidence-ci-raw-rest-core-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - name: Check out exact integration wrapper
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 2
+
+      - name: Prove exact wrapper over frozen provider stack
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent="3f3baf8f50891b6ec9e3a3caa3c6072e3fb48caf"
+          test "$(git rev-list --parents -n 1 HEAD | awk '{print NF}')" -eq 2
+          test "$(git rev-parse HEAD^)" = "$parent"
+          test "$(git rev-list --count "${parent}..HEAD")" -eq 1
+          mapfile -t changed < <(git diff --name-only HEAD^ HEAD | sort)
+          expected=(
+            ".github/ci-liveness/amsap_raw_rest_replay.json"
+            ".github/ci-liveness/run_raw_rest_core_integration.py"
+            ".github/ci-liveness/test_run_raw_rest_core_integration.py"
+            ".github/workflows/evidence-ci-raw-rest-core-integration.yml"
+          )
+          printf '%s\n' "${changed[@]}" > /tmp/changed
+          printf '%s\n' "${expected[@]}" | sort > /tmp/expected
+          diff -u /tmp/expected /tmp/changed
+
+      - name: Bind exact provider, vector, generator, and fixture objects
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object .github/ci-liveness/github_rest_adapter.py)" = "603fd2b77bc588701dbcdae376ae31f5b49ce13b"
+          test "$(git hash-object .github/ci-liveness/github_rest_adapter_policy.py)" = "2bfbaba7696347cce016cd2344b7127af873c9d8"
+          test "$(git hash-object .github/ci-liveness/github_rest_adapter_integrity.py)" = "1e063f678e19574d796d22ecc1eb6d7805700edd"
+          test "$(git hash-object .github/ci-liveness/frozen_vectors.json)" = "4174c9b53db828b108196778fb1585a0988a91ed"
+          test "$(git hash-object .github/ci-liveness/generate_core_vector_harness.py)" = "2046dd3b0b63b220845a41d6cb139bf6303aea01"
+          test "$(git hash-object .github/ci-liveness/amsap_raw_rest_replay.json)" = "98d121a7ede197150e2996229a7278241b700bdd"
+          test "$(git hash-object .github/ci-liveness/run_raw_rest_core_integration.py)" = "1b6c4351153dd671e1102b19b1d763b2f3655533"
+          test "$(git hash-object .github/ci-liveness/test_run_raw_rest_core_integration.py)" = "4bd3bddebe3be3c501842f45ece8413607667b60"
+
+      - name: Exercise deterministic REST replay through canonical integrity adapter
+        shell: bash
+        run: |
+          set -euo pipefail
+          receipt=/tmp/raw-rest-core-matrix
+          : > "$receipt"
+          if PYTHONPATH=.github/ci-liveness python3 -m unittest .github/ci-liveness/test_run_raw_rest_core_integration.py; then
+            echo 'python_tests=PASS' | tee -a "$receipt"
+          else
+            echo 'python_tests=FAIL' | tee -a "$receipt"
+          fi
+          if python3 .github/ci-liveness/run_raw_rest_core_integration.py \
+              .github/ci-liveness/amsap_raw_rest_replay.json \
+              .github/ci-liveness/frozen_vectors.json \
+              .github/ci-liveness/github_rest_adapter_integrity.py; then
+            echo 'provider_replay=PASS' | tee -a "$receipt"
+          else
+            echo 'provider_replay=FAIL' | tee -a "$receipt"
+          fi
+
+      - name: Generate exact Rust vector harness deterministically
+        shell: bash
+        run: |
+          set -euo pipefail
+          receipt=/tmp/raw-rest-core-matrix
+          root=/tmp/raw-rest-core-integration
+          rm -rf "$root"
+          mkdir -p "$root/src"
+          python3 .github/ci-liveness/generate_core_vector_harness.py \
+            .github/ci-liveness/frozen_vectors.json > "$root/src/main.rs.a"
+          python3 .github/ci-liveness/generate_core_vector_harness.py \
+            .github/ci-liveness/frozen_vectors.json > "$root/src/main.rs.b"
+          if cmp -s "$root/src/main.rs.a" "$root/src/main.rs.b"; then
+            echo 'generator_deterministic=PASS' | tee -a "$receipt"
+          else
+            echo 'generator_deterministic=FAIL' | tee -a "$receipt"
+          fi
+          mv "$root/src/main.rs.a" "$root/src/main.rs"
+          rm -f "$root/src/main.rs.b"
+          sha256sum "$root/src/main.rs" > /tmp/raw-rest-harness.sha256
+
+      - name: Bootstrap exact Rust release selector
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUSTUP_VERSION="1.29.0"
+          RUSTUP_SHA256="4acc9acc76d5079515b46346a485974457b5a79893cfb01112423c89aeb5aa10"
+          HOST="x86_64-unknown-linux-gnu"
+          URL="https://static.rust-lang.org/rustup/archive/${RUSTUP_VERSION}/${HOST}/rustup-init"
+          curl --fail --location --retry 3 --silent --show-error "$URL" -o /tmp/rustup-init
+          echo "${RUSTUP_SHA256}  /tmp/rustup-init" | sha256sum --check
+          chmod 0755 /tmp/rustup-init
+          /tmp/rustup-init -y --no-modify-path --profile minimal --default-host "$HOST" --default-toolchain 1.98.1
+          test "$("$HOME/.cargo/bin/rustc" +1.98.1 --version)" = "rustc 1.98.1 (unknown 2026-09-16)" || \
+            "$HOME/.cargo/bin/rustc" +1.98.1 --version | grep -q '^rustc 1\.98\.1 '
+          "$HOME/.cargo/bin/cargo" +1.98.1 --version | grep -q '^cargo 1\.98\.1 '
+
+      - name: Materialize exact semantic core and integration crate
+        shell: bash
+        run: |
+          set -euo pipefail
+          core="4190f855eb0f3c03a7a6b0decee84dd7edba07b4"
+          core_root=/tmp/mycelix-evidence-ci-core
+          int_root=/tmp/raw-rest-core-integration
+          rm -rf "$core_root"
+          mkdir -p "$core_root/src"
+          git show "${core}:crates/mycelix-evidence-ci-core/Cargo.toml" > "$core_root/Cargo.toml"
+          git show "${core}:crates/mycelix-evidence-ci-core/INVARIANTS.md" > "$core_root/INVARIANTS.md"
+          git show "${core}:crates/mycelix-evidence-ci-core/src/lib.rs" > "$core_root/src/lib.rs"
+          test "$(git hash-object "$core_root/Cargo.toml")" = "b033f4fd7cf0c70d2b5a8642630cec2e26da99e3"
+          test "$(git hash-object "$core_root/INVARIANTS.md")" = "56adc026c8d510dc3ee82e1b81d8f2989a8cc6b2"
+          test "$(git hash-object "$core_root/src/lib.rs")" = "b8b2baced6328ad9df6c7bead4467b5c5085d07e"
+          cat > "$int_root/Cargo.toml" <<'TOML'
+          [package]
+          name = "mycelix-evidence-ci-raw-rest-core-integration"
+          version = "0.0.0"
+          edition = "2024"
+          publish = false
+
+          [dependencies]
+          mycelix-evidence-ci-core = { path = "/tmp/mycelix-evidence-ci-core" }
+          TOML
+
+      - name: Execute exact Rust liveness vectors
+        shell: bash
+        run: |
+          set -uo pipefail
+          C="$HOME/.cargo/bin/cargo"
+          manifest=/tmp/raw-rest-core-integration/Cargo.toml
+          receipt=/tmp/raw-rest-core-matrix
+          record() {
+            local name="$1"
+            shift
+            if "$@"; then
+              printf '%s=PASS\n' "$name" | tee -a "$receipt"
+            else
+              printf '%s=FAIL\n' "$name" | tee -a "$receipt"
+            fi
+          }
+          record lockfile "$C" +1.98.1 generate-lockfile --offline --manifest-path "$manifest"
+          if test -f /tmp/raw-rest-core-integration/Cargo.lock; then
+            sha256sum /tmp/raw-rest-core-integration/Cargo.lock > /tmp/raw-rest-lock.sha256
+          else
+            echo 'lockfile_missing=FAIL' | tee -a "$receipt"
+          fi
+          record rust_vector_execution "$C" +1.98.1 run --locked --offline --quiet --manifest-path "$manifest"
+
+      - name: Record exact postflight immutability
+        if: always()
+        shell: bash
+        run: |
+          set -uo pipefail
+          receipt=/tmp/raw-rest-core-matrix
+          core_root=/tmp/mycelix-evidence-ci-core
+          int_root=/tmp/raw-rest-core-integration
+          check() {
+            local name="$1"
+            shift
+            if "$@"; then
+              printf '%s=PASS\n' "$name" | tee -a "$receipt"
+            else
+              printf '%s=FAIL\n' "$name" | tee -a "$receipt"
+            fi
+          }
+          check core_materialization_immutable test \
+            "$(git hash-object "$core_root/Cargo.toml") $(git hash-object "$core_root/INVARIANTS.md") $(git hash-object "$core_root/src/lib.rs")" = \
+            "b033f4fd7cf0c70d2b5a8642630cec2e26da99e3 56adc026c8d510dc3ee82e1b81d8f2989a8cc6b2 b8b2baced6328ad9df6c7bead4467b5c5085d07e"
+          check fixture_immutable test "$(git hash-object .github/ci-liveness/amsap_raw_rest_replay.json)" = "98d121a7ede197150e2996229a7278241b700bdd"
+          check vectors_immutable test "$(git hash-object .github/ci-liveness/frozen_vectors.json)" = "4174c9b53db828b108196778fb1585a0988a91ed"
+          check generated_harness_immutable sha256sum --check /tmp/raw-rest-harness.sha256
+          check generated_lock_immutable sha256sum --check /tmp/raw-rest-lock.sha256
+          if test -z "$(git status --porcelain)"; then
+            echo 'checkout_immutable=PASS' | tee -a "$receipt"
+          else
+            git status --short
+            echo 'checkout_immutable=FAIL' | tee -a "$receipt"
+          fi
+
+      - name: Emit bounded integration receipt
+        if: always()
+        shell: bash
+        run: |
+          set -uo pipefail
+          printf '%s\n' \
+            'scope=deterministic REST-shaped replay -> canonical provider adapter -> exact Rust liveness core only' \
+            'fixture_source_authenticity_established=false' \
+            'github_api_response_authenticity_established=false' \
+            'runner_identity_attested=false' \
+            'underlying_AMSAP_theorem_qualified=false' \
+            'registration_authority=false' \
+            'rerun_authority=false' \
+            'failover_dispatch_authority=false' \
+            'cross_run_stitching_authorized=false' \
+            'full_rust_toolchain_content_hash_attested=false'
+          if test -f /tmp/raw-rest-core-matrix; then
+            cat /tmp/raw-rest-core-matrix
+          fi
+
+      - name: Enforce fail-closed integration promotion gate
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          receipt=/tmp/raw-rest-core-matrix
+          test -f "$receipt"
+          ! grep -q '=FAIL$' "$receipt"
+          for required in \
+            python_tests provider_replay generator_deterministic lockfile rust_vector_execution \
+            core_materialization_immutable fixture_immutable vectors_immutable \
+            generated_harness_immutable generated_lock_immutable checkout_immutable; do
+            grep -qx "${required}=PASS" "$receipt"
+          done
