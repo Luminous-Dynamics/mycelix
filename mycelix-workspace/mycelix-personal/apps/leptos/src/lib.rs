@@ -15,6 +15,7 @@ pub mod mutation_state;
 pub mod mutation_truth;
 pub mod pages;
 pub mod preference_mutation;
+pub mod preference_mutation_service;
 pub mod profile_baseline;
 pub mod profile_mutation;
 pub mod profile_mutation_service;
