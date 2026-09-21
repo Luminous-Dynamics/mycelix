@@ -1,0 +1,13 @@
+[package]
+name = "mycelix-evidence-core"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Dependency-light epistemic evidence identity primitives for Mycelix"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+sha2 = "0.10"
+
+[lib]
+crate-type = ["rlib"]
