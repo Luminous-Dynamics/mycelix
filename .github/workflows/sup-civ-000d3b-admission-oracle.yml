@@ -1,0 +1,131 @@
+name: SUP-CIV-000D3B r2 Protected Read Admission Oracle
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/docs/civic-resilience/SUP_CIV_000D3B_PROTECTED_READ_ORACLE_V1.md'
+      - 'mycelix-workspace/docs/civic-resilience/sup_civ_000d3b_admission_cases.json'
+      - 'mycelix-workspace/docs/civic-resilience/sup_civ_000d3b_repaired_lineage.json'
+      - 'mycelix-workspace/scripts/sup_civ_protected_read_admission_oracle_v1.py'
+      - '.github/workflows/sup-civ-000d3b-admission-oracle.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Prove exact repaired stacked subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='2ccb30692fb56ec555528860fcffb9421053d547'
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          test "$(git rev-list --count "$EXPECTED_PARENT"..HEAD)" = '1'
+          git diff --check "$EXPECTED_PARENT" HEAD
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PARENT" HEAD | sort)
+          expected=(
+            '.github/workflows/sup-civ-000d3b-admission-oracle.yml'
+            'mycelix-workspace/docs/civic-resilience/SUP_CIV_000D3B_PROTECTED_READ_ORACLE_V1.md'
+            'mycelix-workspace/docs/civic-resilience/sup_civ_000d3b_admission_cases.json'
+            'mycelix-workspace/docs/civic-resilience/sup_civ_000d3b_repaired_lineage.json'
+            'mycelix-workspace/scripts/sup_civ_protected_read_admission_oracle_v1.py'
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed[@]}")
+
+      - name: Prove byte-identical semantic fixtures and repaired lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object mycelix-workspace/docs/civic-resilience/sup_civ_000d3b_admission_cases.json)" = '81579a1cfa6bd843c7430733492524df186f86db'
+          test "$(git hash-object mycelix-workspace/scripts/sup_civ_protected_read_admission_oracle_v1.py)" = '4837e14b0e0d15beedfd7e7764e69b0f28221d20'
+          test "$(git hash-object mycelix-workspace/docs/civic-resilience/sup_civ_000d3b_repaired_lineage.json)" = 'bd7e30182729d39fa905f8c26ada75735c68f6aa'
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          lineage = json.loads(Path('mycelix-workspace/docs/civic-resilience/sup_civ_000d3b_repaired_lineage.json').read_text())
+          corpus = json.loads(Path('mycelix-workspace/docs/civic-resilience/sup_civ_000d3b_admission_cases.json').read_text())
+          assert lineage['schema'] == 'sup-civ-000d3b-repaired-lineage-v1'
+          assert lineage['execution_parent']['exact_head'] == '2ccb30692fb56ec555528860fcffb9421053d547'
+          assert lineage['execution_parent']['pr'] == 2488
+          assert lineage['semantic_origin']['old_parent_head'] == '4ebb8389c1f3a11492ec417a0f1f49ec7a6f8d75'
+          assert lineage['reused_exact_blobs']['admission_cases'] == '81579a1cfa6bd843c7430733492524df186f86db'
+          assert lineage['reused_exact_blobs']['oracle'] == '4837e14b0e0d15beedfd7e7764e69b0f28221d20'
+          assert lineage['semantic_delta'] == 'none'
+          assert lineage['qualification_inheritance'] is False
+          assert corpus['parent_exact_head'] == lineage['semantic_origin']['old_parent_head']
+          assert len(corpus['cases']) == lineage['case_count'] == 36
+          PY
+
+      - name: Syntax-check stdlib oracle
+        run: python3 -m py_compile mycelix-workspace/scripts/sup_civ_protected_read_admission_oracle_v1.py
+
+      - name: Prove stdlib-only imports
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import ast
+          from pathlib import Path
+          path = Path('mycelix-workspace/scripts/sup_civ_protected_read_admission_oracle_v1.py')
+          tree = ast.parse(path.read_text())
+          allowed = {'__future__','argparse','json','pathlib','typing'}
+          imports = set()
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Import):
+                  imports.update(alias.name.split('.')[0] for alias in node.names)
+              elif isinstance(node, ast.ImportFrom) and node.module:
+                  imports.add(node.module.split('.')[0])
+          unexpected = imports - allowed
+          assert not unexpected, unexpected
+          PY
+
+      - name: Execute byte-identical closed admission corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 mycelix-workspace/scripts/sup_civ_protected_read_admission_oracle_v1.py \
+            --manifest mycelix-workspace/docs/civic-resilience/sup_civ_000d3b_admission_cases.json \
+            --receipt /tmp/sup-civ-000d3b-r2-receipt.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          m = json.loads(Path('mycelix-workspace/docs/civic-resilience/sup_civ_000d3b_admission_cases.json').read_text())
+          r = json.loads(Path('/tmp/sup-civ-000d3b-r2-receipt.json').read_text())
+          l = json.loads(Path('mycelix-workspace/docs/civic-resilience/sup_civ_000d3b_repaired_lineage.json').read_text())
+          assert m['parent_exact_head'] == l['semantic_origin']['old_parent_head']
+          assert r['parent_exact_head'] == l['semantic_origin']['old_parent_head']
+          assert r['case_count'] == 36
+          assert r['admit_count'] == 4
+          assert r['non_admit_count'] == 32
+          by_id = {x['id']: x['disposition'] for x in r['results']}
+          assert by_id['receipt-allowed-does-not-authorize'] == 'AuthorizationUnproven'
+          assert by_id['offline-unproven-cache-present'] == 'OfflineLeaseExpiredOrUnproven'
+          assert by_id['emergency-need-without-authority'] == 'BreakGlassAuthorityUnproven'
+          assert by_id['public-destination-requires-release'] == 'ReleaseProjectionRequired'
+          assert by_id['storage-unavailable-no-public-fallback'] == 'StorageUnavailable'
+          print('PASS_SUP_CIV_000D3B_R2_BYTE_IDENTICAL_CORPUS')
+          PY
+
+      - name: Refuse runtime/build changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='2ccb30692fb56ec555528860fcffb9421053d547'
+          if git diff --name-only "$EXPECTED_PARENT" HEAD | grep -E '\.(rs|toml|lock|nix)$'; then
+            echo 'runtime/build file entered D3B r2 reference-model tranche' >&2
+            exit 1
+          fi
+
+      - name: Prove checkout remained immutable
+        shell: bash
+        run: |
+          rm -rf mycelix-workspace/scripts/__pycache__
+          test -z "$(git status --porcelain)"
