@@ -1,0 +1,52 @@
+schema = 1
+state = "measurement-only"
+
+# This policy names only authority that already exists in the current migration
+# architecture. It intentionally does NOT contain a catch-all for other Holochain
+# workspaces. Any Holochain-bearing Cargo workspace that cannot be reached from one
+# of these reviewed anchors is unclassified until a later explicit policy update.
+
+[[binding]]
+authority = "root_fanout_243"
+anchor = "mycelix-workspace/Cargo.toml"
+reason = "canonical root Cargo workspace is qualified by PR #243"
+
+[[binding]]
+authority = "pulse_canary_224"
+anchor = "mycelix-workspace/mycelix-pulse/holochain/Cargo.toml"
+reason = "active Pulse zome workspace is an explicit PR #224 surface"
+
+[[binding]]
+authority = "pulse_canary_224"
+anchor = "mycelix-workspace/mycelix-pulse/tests/Cargo.toml"
+reason = "Pulse SweetConductor workspace is an explicit PR #224 surface"
+
+[[binding]]
+authority = "pulse_canary_224"
+anchor = "mycelix-workspace/mycelix-pulse/happ/dna/integrity/Cargo.toml"
+reason = "standalone Pulse hApp integrity workspace is an explicit PR #224 surface"
+
+[[binding]]
+authority = "pulse_canary_224"
+anchor = "mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.toml"
+reason = "Pulse backend API workspace is an explicit PR #224 surface"
+
+[[binding]]
+authority = "pulse_canary_224"
+anchor = "mycelix-workspace/mycelix-pulse/happ/cli/Cargo.toml"
+reason = "Pulse CLI API workspace is an explicit PR #224 surface"
+
+[[binding]]
+authority = "pulse_canary_224"
+anchor = "mycelix-workspace/mycelix-pulse/happ/dna/dna/integrity/Cargo.toml"
+reason = "simplified Pulse integrity workspace is an explicit PR #224 surface"
+
+[[binding]]
+authority = "pulse_canary_224"
+anchor = "mycelix-workspace/mycelix-pulse/happ/dna/dna/zomes/mail_messages/Cargo.toml"
+reason = "simplified Pulse mail_messages workspace is an explicit PR #224 surface"
+
+[[binding]]
+authority = "pulse_canary_224"
+anchor = "mycelix-workspace/mycelix-pulse/happ/dna/dna/zomes/trust_filter/Cargo.toml"
+reason = "simplified Pulse trust_filter workspace is an explicit PR #224 surface"
