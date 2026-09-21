@@ -1,0 +1,162 @@
+name: MYC-SEM-001 exact qualification
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'mycelix-workspace/crates/mycelix-semantic-core/**'
+      - 'mycelix-workspace/docs/architecture/MYCELIX_SEMANTIC_KERNEL_V1.md'
+      - '.github/workflows/myc-sem-001-qualification.yml'
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_PRODUCT_SHA: 27368c4c161e2b06b76d68763675b03fb74a6bd0
+  QUALIFIER_ONLY_PATH: .github/workflows/myc-sem-001-qualification.yml
+
+jobs:
+  qualify-semantic-core:
+    name: Qualify exact MYC-SEM-001C subject
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact qualifier head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Prove qualifier is one machinery-only child
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_parent="$(git rev-parse HEAD^)"
+          test "$actual_parent" = "$EXPECTED_PRODUCT_SHA"
+
+          mapfile -t changed < <(git diff --name-only HEAD^ HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$QUALIFIER_ONLY_PATH"
+
+          echo "Qualified product subject: $actual_parent"
+          echo "Qualifier head: $(git rev-parse HEAD)"
+
+      - name: Install exact Rust qualification toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+
+      - name: Build isolated source capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          QUAL_DIR="$RUNNER_TEMP/mycelix-semantic-core-qual"
+          rm -rf "$QUAL_DIR"
+          mkdir -p "$QUAL_DIR"
+          cp -R mycelix-workspace/crates/mycelix-semantic-core/src "$QUAL_DIR/src"
+          cat > "$QUAL_DIR/Cargo.toml" <<'EOF'
+          [package]
+          name = "mycelix-semantic-core-qualification"
+          version = "0.1.0"
+          edition = "2024"
+          publish = false
+
+          [dependencies]
+          serde = { version = "1.0", features = ["derive"] }
+          sha2 = "0.10"
+
+          [dev-dependencies]
+          serde_json = "1.0"
+
+          [lints.rust]
+          unsafe_code = "forbid"
+          EOF
+          echo "QUAL_DIR=$QUAL_DIR" >> "$GITHUB_ENV"
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path "$QUAL_DIR/Cargo.toml" --all -- --check
+
+      - name: Check all targets
+        run: cargo check --manifest-path "$QUAL_DIR/Cargo.toml" --all-targets
+
+      - name: Run authored tests
+        run: cargo test --manifest-path "$QUAL_DIR/Cargo.toml" --all-targets
+
+      - name: Run clippy fail-closed
+        run: cargo clippy --manifest-path "$QUAL_DIR/Cargo.toml" --all-targets -- -D warnings
+
+      - name: Independently reconstruct frozen commitments
+        shell: python
+        run: |
+          import hashlib
+          import struct
+
+          def text(value: str) -> bytes:
+              raw = value.encode("utf-8")
+              return struct.pack(">I", len(raw)) + raw
+
+          def profile(profile_id: str, revision: int, digest_byte: int) -> bytes:
+              return (
+                  text(profile_id)
+                  + struct.pack(">Q", revision)
+                  + bytes([digest_byte]) * 32
+              )
+
+          env_bytes = (
+              b"MYCELIX_SEMANTIC_ENVIRONMENT_V1\0"
+              + struct.pack(">H", 1)
+              + profile("schema/base", 1, 1)
+              + profile("interpretation/base", 2, 2)
+              + profile("identity/base", 3, 3)
+              + profile("authority/base", 4, 4)
+              + profile("temporal/base", 5, 5)
+              + profile("canonical/domain-v1", 1, 6)
+          )
+          environment = hashlib.sha256(env_bytes).hexdigest()
+          expected_environment = "72cc14b9f38fc9cb917da7e98d777443d980ad28ca12231cfec0c92919d09d03"
+          assert environment == expected_environment, (environment, expected_environment)
+
+          subject_bytes = (
+              b"MYCELIX_SEMANTIC_SUBJECT_V1\0"
+              + struct.pack(">H", 1)
+              + struct.pack(">H", 1)
+              + bytes.fromhex(environment)
+              + text("personal")
+              + profile("schema/base", 1, 1)
+              + text("did:mycelix:test/profile")
+          )
+          subject = hashlib.sha256(subject_bytes).hexdigest()
+          expected_subject = "d78cf4c70f6dffef2285188f98a556c232c67f689300a0acd3d8df21a8c647bf"
+          assert subject == expected_subject, (subject, expected_subject)
+
+          print(f"environment={environment}")
+          print(f"subject={subject}")
+
+      - name: Emit qualification receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/myc-sem-receipt"
+          {
+            echo "subject_sha=$EXPECTED_PRODUCT_SHA"
+            echo "qualifier_sha=$(git rev-parse HEAD)"
+            echo "rustc=$(rustc --version)"
+            echo "cargo=$(cargo --version)"
+            echo "environment_vector=72cc14b9f38fc9cb917da7e98d777443d980ad28ca12231cfec0c92919d09d03"
+            echo "subject_vector=d78cf4c70f6dffef2285188f98a556c232c67f689300a0acd3d8df21a8c647bf"
+            echo "source_sha256:"
+            find mycelix-workspace/crates/mycelix-semantic-core -type f -print0 \
+              | sort -z \
+              | xargs -0 sha256sum
+          } > "$RUNNER_TEMP/myc-sem-receipt/receipt.txt"
+          cat "$RUNNER_TEMP/myc-sem-receipt/receipt.txt"
+
+      - name: Upload immutable qualification receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: myc-sem-001c-qualification-${{ github.run_id }}
+          path: ${{ runner.temp }}/myc-sem-receipt/receipt.txt
+          if-no-files-found: error
+          retention-days: 90
