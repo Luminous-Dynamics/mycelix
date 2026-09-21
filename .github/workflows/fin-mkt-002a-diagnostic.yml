@@ -1,0 +1,222 @@
+name: FIN-MKT-002A exact source diagnostic
+
+on:
+  pull_request:
+    branches:
+      - feat/fin-mkt-002a-market-observations-v3
+    paths:
+      - .github/workflows/fin-mkt-002a-diagnostic.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fin-mkt-002a-diagnostic-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  PRODUCT_SHA: 339d507be77ddb8ad0e1ce2006b4b367449d4027
+  MARKET_INTENT_PARENT_SHA: 350a3914d2d1e28fa30fc2c522c930c43273b22e
+  QUALIFIED_ARITHMETIC_BASE_SHA: ede8dab9a4dcae6d05bfe43474829cb0c92f9dcf
+  RUSTUP_TOOLCHAIN: 1.96.0
+  CARGO_TERM_COLOR: always
+
+jobs:
+  diagnose:
+    name: Diagnose exact FIN-MKT-002A r3 source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout diagnostic head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Prove exact lineage and source scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$PRODUCT_SHA"
+          test "$(git rev-parse "$PRODUCT_SHA^")" = "$MARKET_INTENT_PARENT_SHA"
+          test "$(git rev-parse "$MARKET_INTENT_PARENT_SHA^")" = "$QUALIFIED_ARITHMETIC_BASE_SHA"
+
+          mapfile -t diag_paths < <(git diff --name-only "$PRODUCT_SHA" HEAD)
+          test "${#diag_paths[@]}" -eq 1
+          test "${diag_paths[0]}" = ".github/workflows/fin-mkt-002a-diagnostic.yml"
+
+          mapfile -t product_paths < <(git diff --name-only "$MARKET_INTENT_PARENT_SHA" "$PRODUCT_SHA")
+          printf '%s\n' "${product_paths[@]}" | tee /tmp/fin-mkt-002a-product-paths.txt
+          test "${#product_paths[@]}" -eq 8
+          for p in \
+            mycelix-finance/Cargo.toml \
+            mycelix-finance/crates/finance-market-observation/Cargo.toml \
+            mycelix-finance/crates/finance-market-observation/OBSERVATION_PROFILE_V1.md \
+            mycelix-finance/crates/finance-market-observation/EVIDENCE_CONTEXT_BOUNDARY_V1.md \
+            mycelix-finance/crates/finance-market-observation/REFERENCE_RESOLUTION_BOUNDARY_V1.md \
+            mycelix-finance/crates/finance-market-observation/src/lib.rs \
+            mycelix-finance/crates/finance-market-observation/test-vectors/observations-v1.json \
+            mycelix-finance/crates/finance-market-observation/tests/reference/order_observation_v1_reference.py
+          do
+            grep -Fxq "$p" /tmp/fin-mkt-002a-product-paths.txt
+          done
+          ! grep -Fxq 'mycelix-finance/Cargo.lock' /tmp/fin-mkt-002a-product-paths.txt
+
+          grep -Fq 'source_evidence_commitment' mycelix-finance/crates/finance-market-observation/EVIDENCE_CONTEXT_BOUNDARY_V1.md
+          grep -Fq 'referenced fill exists' mycelix-finance/crates/finance-market-observation/REFERENCE_RESOLUTION_BOUNDARY_V1.md
+
+      - name: Independent observation-vector oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/fin-mkt-002a-evidence
+          python3 mycelix-finance/crates/finance-market-observation/tests/reference/order_observation_v1_reference.py \
+            | tee /tmp/fin-mkt-002a-evidence/python-oracle.txt
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+
+      - name: Record preflight capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/fin-mkt-002a-evidence
+          {
+            echo "diagnostic_head=$(git rev-parse HEAD)"
+            echo "product_sha=$PRODUCT_SHA"
+            echo "market_intent_parent_sha=$MARKET_INTENT_PARENT_SHA"
+            echo "qualified_arithmetic_base_sha=$QUALIFIED_ARITHMETIC_BASE_SHA"
+            echo "rustc=$(rustc --version)"
+            echo "cargo=$(cargo --version)"
+            echo "rustfmt=$(rustfmt --version)"
+            echo "runner_os=${RUNNER_OS:-unknown}"
+            echo "runner_arch=${RUNNER_ARCH:-unknown}"
+            echo "workspace_manifest_sha256=$(sha256sum mycelix-finance/Cargo.toml | awk '{print $1}')"
+            echo "market_core_sha256=$(sha256sum mycelix-finance/crates/finance-market-core/src/lib.rs | awk '{print $1}')"
+            echo "observation_source_sha256=$(sha256sum mycelix-finance/crates/finance-market-observation/src/lib.rs | awk '{print $1}')"
+            echo "observation_profile_sha256=$(sha256sum mycelix-finance/crates/finance-market-observation/OBSERVATION_PROFILE_V1.md | awk '{print $1}')"
+            echo "evidence_boundary_sha256=$(sha256sum mycelix-finance/crates/finance-market-observation/EVIDENCE_CONTEXT_BOUNDARY_V1.md | awk '{print $1}')"
+            echo "reference_boundary_sha256=$(sha256sum mycelix-finance/crates/finance-market-observation/REFERENCE_RESOLUTION_BOUNDARY_V1.md | awk '{print $1}')"
+            echo "fixture_sha256=$(sha256sum mycelix-finance/crates/finance-market-observation/test-vectors/observations-v1.json | awk '{print $1}')"
+            echo "oracle_sha256=$(sha256sum mycelix-finance/crates/finance-market-observation/tests/reference/order_observation_v1_reference.py | awk '{print $1}')"
+            echo "lock_before_sha256=$(sha256sum mycelix-finance/Cargo.lock | awk '{print $1}')"
+          } | tee /tmp/fin-mkt-002a-evidence/preflight.txt
+
+      - name: Rustfmt market semantic crates
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path mycelix-finance/crates/finance-market-core/Cargo.toml -- --check
+          cargo fmt --manifest-path mycelix-finance/crates/finance-market-observation/Cargo.toml -- --check
+
+      - name: Derive dependency capsule ephemerally
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp mycelix-finance/Cargo.lock /tmp/fin-mkt-002a-lock-before
+
+          cargo check \
+            --manifest-path mycelix-finance/Cargo.toml \
+            -p mycelix-finance-market-observation
+
+          mapfile -t dirty < <(git status --porcelain=v1 | sed -E 's/^.. //')
+          printf '%s\n' "${dirty[@]}" | tee /tmp/fin-mkt-002a-evidence/dirty-paths.txt
+          test "${#dirty[@]}" -eq 1
+          test "${dirty[0]}" = "mycelix-finance/Cargo.lock"
+
+          git diff -- mycelix-finance/Cargo.lock \
+            | tee /tmp/fin-mkt-002a-evidence/cargo-lock.patch
+          sha256sum mycelix-finance/Cargo.lock \
+            | tee /tmp/fin-mkt-002a-evidence/lock-after.sha256
+
+      - name: Locked metadata, checks, tests, docs and strict Clippy
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo metadata \
+            --manifest-path mycelix-finance/Cargo.toml \
+            --locked \
+            --format-version 1 \
+            > /tmp/fin-mkt-002a-evidence/cargo-metadata.json
+
+          cargo check \
+            --manifest-path mycelix-finance/Cargo.toml \
+            --locked \
+            -p mycelix-finance-market-core \
+            -p mycelix-finance-market-observation \
+            --all-targets
+
+          cargo test \
+            --manifest-path mycelix-finance/Cargo.toml \
+            --locked \
+            -p mycelix-finance-market-core \
+            -p mycelix-finance-market-observation \
+            --all-targets
+
+          cargo test \
+            --manifest-path mycelix-finance/Cargo.toml \
+            --locked \
+            -p mycelix-finance-market-core \
+            -p mycelix-finance-market-observation \
+            --doc
+
+          cargo clippy \
+            --manifest-path mycelix-finance/Cargo.toml \
+            --locked \
+            -p mycelix-finance-market-core \
+            -p mycelix-finance-market-observation \
+            --all-targets \
+            -- -D warnings
+
+      - name: Prove dependency boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo tree \
+            --manifest-path mycelix-finance/Cargo.toml \
+            --locked \
+            -p mycelix-finance-market-observation \
+            --edges normal \
+            | tee /tmp/fin-mkt-002a-evidence/cargo-tree.txt
+
+          ! grep -Eiq '(^|[[:space:]├└│])((hdk|hdi|holochain|reqwest|hyper|axum|tokio|rusqlite|sqlx|diesel|web3|ethers)([[:space:]-]|$))' \
+            /tmp/fin-mkt-002a-evidence/cargo-tree.txt
+
+      - name: Postflight immutability and receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$PRODUCT_SHA"
+          git diff --exit-code "$PRODUCT_SHA" HEAD -- mycelix-finance
+
+          mapfile -t dirty < <(git status --porcelain=v1 | sed -E 's/^.. //')
+          test "${#dirty[@]}" -eq 1
+          test "${dirty[0]}" = "mycelix-finance/Cargo.lock"
+
+          python3 mycelix-finance/crates/finance-market-observation/tests/reference/order_observation_v1_reference.py \
+            | tee /tmp/fin-mkt-002a-evidence/python-oracle-postflight.txt
+
+          {
+            echo "verdict=DIAGNOSTIC_PASS"
+            echo "diagnostic_head=$(git rev-parse HEAD)"
+            echo "product_sha=$PRODUCT_SHA"
+            echo "product_parent=$MARKET_INTENT_PARENT_SHA"
+            echo "qualified_arithmetic_base=$QUALIFIED_ARITHMETIC_BASE_SHA"
+            echo "lock_after_sha256=$(sha256sum mycelix-finance/Cargo.lock | awk '{print $1}')"
+            echo "product_source_mutated=false"
+            echo "claim=source diagnostic only; not FIN-MKT-001 or FIN-MKT-002A qualification"
+          } | tee /tmp/fin-mkt-002a-evidence/receipt.txt
+
+      - name: Upload diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fin-mkt-002a-diagnostic-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp/fin-mkt-002a-evidence
+          if-no-files-found: warn
+          retention-days: 30
