@@ -1,0 +1,14 @@
+[package]
+name = "forge-git-ref-transaction"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+publish = false
+
+[dependencies]
+mycelix-forge-core = { path = "../../crates/mycelix-forge-core" }
+mycelix-forge-protected-ref-consumption = { path = "../../crates/mycelix-forge-protected-ref-consumption" }
+mycelix-forge-repository = { path = "../../crates/mycelix-forge-repository" }
+hex = "0.4"
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
