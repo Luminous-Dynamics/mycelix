@@ -1,0 +1,52 @@
+{
+  "static_profile_commitment": "9b7e2d1f6976f85a568c78cd2be92013e3ab8776119c0477f46aa91348280c0d",
+  "evidence_profile": {
+    "id": "fin-sync:capability-evidence:v1",
+    "revision": 1,
+    "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  },
+  "evidence_context_commitment": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "items": [
+    {
+      "dimension": "adapter_artifact",
+      "evidence_id": "evidence:adapter:artifact:1",
+      "evidence_commitment": "1111111111111111111111111111111111111111111111111111111111111111",
+      "source_profile": {
+        "id": "evidence:artifact:synthetic:v1",
+        "revision": 1,
+        "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "claim": "supports_declared_static_semantics",
+      "claim_subject_commitment": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "source_revision": 7,
+      "chronology": {
+        "chronology_profile": {
+          "id": "chronology:source-signed:v1",
+          "revision": 1,
+          "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "chronology_commitment": "2222222222222222222222222222222222222222222222222222222222222222"
+      }
+    },
+    {
+      "dimension": "provider_api_profile",
+      "evidence_id": "evidence:provider:api:1",
+      "evidence_commitment": "3333333333333333333333333333333333333333333333333333333333333333",
+      "source_profile": {
+        "id": "evidence:provider:synthetic:v1",
+        "revision": 1,
+        "digest": "acacacacacacacacacacacacacacacacacacacacacacacacacacacacacacacac"
+      },
+      "claim": "supports_declared_static_semantics",
+      "claim_subject_commitment": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+      "source_revision": 4,
+      "chronology": null
+    }
+  ],
+  "expected": {
+    "adapter_item_commitment": "fad252e445eefdc1a63a86697f0a271ef57b8806bcc4aa22b29de8089853a8b4",
+    "provider_item_commitment": "a27525fbcd3ac7e94560bc5336e57ed7a0c59bc69edc5d3820ce98e639f94da4",
+    "disposition": "no_detected_conflict",
+    "bundle_commitment": "3493d337413c6efa6d372f67ce45bf2c9072d2269f1edbb1e78c0063207816d4"
+  }
+}
