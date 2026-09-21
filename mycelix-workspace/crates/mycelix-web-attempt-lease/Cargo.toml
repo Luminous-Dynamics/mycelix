@@ -1,0 +1,8 @@
+[package]
+name = "mycelix-web-attempt-lease"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Pure zero-I/O persistent-attempt lease state-machine semantics"
