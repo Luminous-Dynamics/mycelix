@@ -1,0 +1,127 @@
+name: SUP-CIV-000D1C2B2B0 ML-KEM Recipient Certificate Fixture
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/docs/civic-resilience/SUP_CIV_000D1C2B2B0_MLKEM_RECIPIENT_CERTIFICATE_V1.md'
+      - 'mycelix-workspace/docs/civic-resilience/sup_civ_000d1c2b2b0_mlkem_recipient_certificate.json'
+      - 'mycelix-workspace/docs/civic-resilience/vectors/sup_civ_000d1c2b2b0_recipient.der'
+      - 'mycelix-workspace/docs/civic-resilience/vectors/sup_civ_000d1c2b2b0_ca.der'
+      - 'mycelix-workspace/scripts/sup_civ_mlkem_recipient_certificate_v1.py'
+      - '.github/workflows/sup-civ-000d1c2b2b0-recipient-certificate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sup-civ-000d1c2b2b0-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: ML-KEM recipient certificate and RID binding fixture
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Exact parent and tranche scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='27852e1eadc831fc3957758769031ef8855cd62f'
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          test "$(git rev-list --count "$EXPECTED_PARENT"..HEAD)" = '1'
+          git diff --check "$EXPECTED_PARENT" HEAD
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PARENT" HEAD | sort)
+          expected=(
+            '.github/workflows/sup-civ-000d1c2b2b0-recipient-certificate.yml'
+            'mycelix-workspace/docs/civic-resilience/SUP_CIV_000D1C2B2B0_MLKEM_RECIPIENT_CERTIFICATE_V1.md'
+            'mycelix-workspace/docs/civic-resilience/sup_civ_000d1c2b2b0_mlkem_recipient_certificate.json'
+            'mycelix-workspace/docs/civic-resilience/vectors/sup_civ_000d1c2b2b0_ca.der'
+            'mycelix-workspace/docs/civic-resilience/vectors/sup_civ_000d1c2b2b0_recipient.der'
+            'mycelix-workspace/scripts/sup_civ_mlkem_recipient_certificate_v1.py'
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed[@]}")
+
+      - name: Prove exact fixture blobs and closed manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object mycelix-workspace/docs/civic-resilience/vectors/sup_civ_000d1c2b2b0_recipient.der)" = '1fa21ea9b37c8dfc68298d1bdf2b6ec3d15b85e4'
+          test "$(git hash-object mycelix-workspace/docs/civic-resilience/vectors/sup_civ_000d1c2b2b0_ca.der)" = '7d10e90b1a9a4ea26531712b84ef8c87befa0e66'
+          test "$(git hash-object mycelix-workspace/docs/civic-resilience/sup_civ_000d1c2b2b0_mlkem_recipient_certificate.json)" = 'c4a1abc5741fb797f06ac527eb1ff77f1370d19e'
+          test "$(git hash-object mycelix-workspace/scripts/sup_civ_mlkem_recipient_certificate_v1.py)" = '88405271730b7ea2200b308f2acae53f5cc772a4'
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          m = json.loads(Path('mycelix-workspace/docs/civic-resilience/sup_civ_000d1c2b2b0_mlkem_recipient_certificate.json').read_text())
+          assert m['schema'] == 'sup-civ-000d1c2b2b0-mlkem-recipient-certificate-v1'
+          assert m['structural_parent'] == '27852e1eadc831fc3957758769031ef8855cd62f'
+          assert m['recipient_spki']['sha256'] == 'c23e23dd3d485a9256cda09358a4a286e00b373db10761eadf99f710649ca31c'
+          assert m['recipient_spki']['private_key_committed'] is False
+          assert m['recipient_identifier']['hex'] == 'f61e8bc9b896925256cce487facf27a108eb5b04'
+          assert m['recipient_identifier']['authorization_proven'] is False
+          assert m['extensions']['basic_constraints'] == {'critical': True, 'value': 'CA:FALSE'}
+          assert m['extensions']['key_usage'] == {'critical': True, 'only': ['Key Encipherment']}
+          PY
+
+      - name: Syntax-check stdlib certificate verifier
+        run: python3 -m py_compile mycelix-workspace/scripts/sup_civ_mlkem_recipient_certificate_v1.py
+
+      - name: Prove stdlib-only Python imports
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import ast
+          from pathlib import Path
+          path = Path('mycelix-workspace/scripts/sup_civ_mlkem_recipient_certificate_v1.py')
+          tree = ast.parse(path.read_text())
+          allowed = {'__future__','argparse','hashlib','json','pathlib','subprocess','tempfile'}
+          imports = set()
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Import):
+                  imports.update(alias.name.split('.')[0] for alias in node.names)
+              elif isinstance(node, ast.ImportFrom) and node.module:
+                  imports.add(node.module.split('.')[0])
+          unexpected = imports - allowed
+          assert not unexpected, unexpected
+          print('stdlib-only:', sorted(imports))
+          PY
+
+      - name: Execute exact certificate and RID binding verifier
+        run: >-
+          python3 mycelix-workspace/scripts/sup_civ_mlkem_recipient_certificate_v1.py
+          --manifest mycelix-workspace/docs/civic-resilience/sup_civ_000d1c2b2b0_mlkem_recipient_certificate.json
+
+      - name: Prove no private-key fixture entered tranche
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='27852e1eadc831fc3957758769031ef8855cd62f'
+          if git diff --name-only "$EXPECTED_PARENT" HEAD | grep -Ei '(private|secret|key\.pem|\.p8$|\.pk8$|\.key$)'; then
+            echo 'private/secret key material path entered B2B0 certificate fixture tranche' >&2
+            exit 1
+          fi
+
+      - name: Refuse runtime and dependency changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='27852e1eadc831fc3957758769031ef8855cd62f'
+          if git diff --name-only "$EXPECTED_PARENT" HEAD | grep -E '\.(rs|toml|lock|nix)$'; then
+            echo 'runtime/dependency file entered B2B0 certificate fixture tranche' >&2
+            exit 1
+          fi
+
+      - name: Immutable checkout postflight
+        shell: bash
+        run: |
+          rm -rf mycelix-workspace/scripts/__pycache__
+          test -z "$(git status --porcelain)"
