@@ -189,9 +189,6 @@ pub fn provide_hearth_truth() -> HearthTruthState {
                         loaded_for_connection.set(true);
                     }
                 } else {
-                    // Signer loss means the current read session can no longer
-                    // establish source-backed state. Invalidate any in-flight
-                    // load and force a fresh snapshot if signing returns.
                     loaded_for_connection.set(false);
                     if loading {
                         truth_for_status.invalidate_active_load();
@@ -286,21 +283,17 @@ fn start_live_load(
 
     let token = truth.generation.advance();
     truth.loading.set(true);
-    truth
-        .availability
-        .update(reset_live_readable_to_unknown);
 
     let truth_for_load = truth.clone();
     let generation = truth.generation.clone();
     spawn_local(async move {
-        load_live_data(
-            hearth,
-            truth_for_load.clone(),
-            hc,
-            generation.clone(),
-            token,
-        )
-        .await;
+        let staged = load_live_snapshot(&hc, &generation, token).await;
+
+        if generation.is_current(token) && hc.zome_calls_ready_untracked() {
+            if let Some(snapshot) = staged {
+                snapshot.publish(&hearth, &truth_for_load);
+            }
+        }
 
         // A stale task must never clear a newer task's loading state.
         if generation.is_current(token) {
@@ -309,23 +302,6 @@ fn start_live_load(
     });
 
     true
-}
-
-fn reset_live_readable_to_unknown(availability: &mut HearthAvailability) {
-    for state in [
-        &mut availability.current_hearth,
-        &mut availability.caller_role,
-        &mut availability.members,
-        &mut availability.bonds,
-        &mut availability.care_schedules,
-        &mut availability.decisions,
-        &mut availability.votes,
-        &mut availability.gratitude,
-        &mut availability.rhythms,
-        &mut availability.presence,
-    ] {
-        *state = AvailabilityStateKind::Unknown;
-    }
 }
 
 fn mark_live_readable_unavailable(availability: &mut HearthAvailability) {
@@ -398,74 +374,130 @@ fn parse_source_hash(label: &str, raw_base64: &str) -> Result<HoloHashBytes, Str
         .map_err(|error| format!("{label} is not a valid ActionHash: {error}"))
 }
 
-async fn load_live_data(
-    hearth: HearthCtx,
-    truth: HearthTruthState,
-    hc: mycelix_leptos_core::HolochainCtx,
-    generation: LoadGeneration,
+/// One generation's complete supported source snapshot. Nothing in this value
+/// is visible to the UI until `publish` is called after the full read sequence
+/// has finished and the generation token is still current.
+struct StagedHearthSnapshot {
+    current_hearth: Option<HearthView>,
+    my_role: Option<MemberRole>,
+    members: Vec<MemberView>,
+    bonds: Vec<BondView>,
+    care_schedules: Vec<CareScheduleView>,
+    decisions: Vec<DecisionView>,
+    votes: Vec<VoteView>,
+    gratitude: Vec<GratitudeExpressionView>,
+    rhythms: Vec<RhythmView>,
+    presence: Vec<PresenceView>,
+    my_agent: String,
+    availability: HearthAvailability,
+}
+
+impl StagedHearthSnapshot {
+    fn pending(my_agent: String) -> Self {
+        Self {
+            current_hearth: None,
+            my_role: None,
+            members: Vec::new(),
+            bonds: Vec::new(),
+            care_schedules: Vec::new(),
+            decisions: Vec::new(),
+            votes: Vec::new(),
+            gratitude: Vec::new(),
+            rhythms: Vec::new(),
+            presence: Vec::new(),
+            my_agent,
+            availability: HearthAvailability::live_pending(),
+        }
+    }
+
+    fn publish(self, hearth: &HearthCtx, truth: &HearthTruthState) {
+        // These writes occur synchronously after the complete generation has
+        // been staged. Reactive consumers therefore never observe source-A from
+        // the new generation while source-B is still awaiting transport.
+        hearth.current_hearth.set(self.current_hearth);
+        hearth.my_role.set(self.my_role);
+        hearth.members.set(self.members);
+        hearth.bonds.set(self.bonds);
+        hearth.care_schedules.set(self.care_schedules);
+        hearth.decisions.set(self.decisions);
+        hearth.votes.set(self.votes);
+        hearth.gratitude.set(self.gratitude);
+        hearth.rhythms.set(self.rhythms);
+        hearth.presence.set(self.presence);
+        hearth.my_agent.set(self.my_agent);
+        truth.availability.set(self.availability);
+    }
+}
+
+struct DecisionStage {
+    decisions: Vec<DecisionView>,
+    votes: Vec<VoteView>,
+    decision_state: AvailabilityStateKind,
+    vote_state: AvailabilityStateKind,
+}
+
+async fn load_live_snapshot(
+    hc: &mycelix_leptos_core::HolochainCtx,
+    generation: &LoadGeneration,
     token: u64,
-) {
+) -> Option<StagedHearthSnapshot> {
+    let mut snapshot = StagedHearthSnapshot::pending(
+        hc.connected_agent_pub_key_b64().unwrap_or_default(),
+    );
+
     let hearth_records = match hc
         .call_zome_default::<(), Vec<WireRecord>>("hearth_kinship", "get_my_hearths", &())
         .await
     {
         Ok(records) => {
             if !generation.is_current(token) {
-                return;
+                return None;
             }
             records
         }
         Err(error) => {
             if !generation.is_current(token) {
-                return;
+                return None;
             }
-            truth
-                .availability
-                .update(mark_live_readable_unavailable);
+            mark_live_readable_unavailable(&mut snapshot.availability);
             web_sys::console::log_1(
                 &format!("[Hearth] get_my_hearths failed: {error}").into(),
             );
-            return;
+            return Some(snapshot);
         }
     };
 
     let Some(first_hearth) = hearth_records.first() else {
-        truth.availability.update(mark_live_readable_empty);
-        return;
+        mark_live_readable_empty(&mut snapshot.availability);
+        return Some(snapshot);
     };
 
     let hearth_hash_text = first_hearth.action_hash_b64();
     let hearth_hash = match parse_source_hash("current Hearth action hash", &hearth_hash_text) {
         Ok(hash) => hash,
         Err(error) => {
-            truth.availability.update(|availability| {
-                availability.current_hearth = AvailabilityStateKind::Degraded;
-                availability.caller_role = AvailabilityStateKind::Unavailable;
-                availability.members = AvailabilityStateKind::Unavailable;
-                availability.bonds = AvailabilityStateKind::Unavailable;
-                availability.care_schedules = AvailabilityStateKind::Unavailable;
-                availability.decisions = AvailabilityStateKind::Unavailable;
-                availability.votes = AvailabilityStateKind::Unavailable;
-                availability.gratitude = AvailabilityStateKind::Unavailable;
-                availability.rhythms = AvailabilityStateKind::Unavailable;
-                availability.presence = AvailabilityStateKind::Unavailable;
-            });
+            snapshot.availability.current_hearth = AvailabilityStateKind::Degraded;
+            snapshot.availability.caller_role = AvailabilityStateKind::Unavailable;
+            snapshot.availability.members = AvailabilityStateKind::Unavailable;
+            snapshot.availability.bonds = AvailabilityStateKind::Unavailable;
+            snapshot.availability.care_schedules = AvailabilityStateKind::Unavailable;
+            snapshot.availability.decisions = AvailabilityStateKind::Unavailable;
+            snapshot.availability.votes = AvailabilityStateKind::Unavailable;
+            snapshot.availability.gratitude = AvailabilityStateKind::Unavailable;
+            snapshot.availability.rhythms = AvailabilityStateKind::Unavailable;
+            snapshot.availability.presence = AvailabilityStateKind::Unavailable;
             web_sys::console::log_1(&format!("[Hearth] {error}").into());
-            return;
+            return Some(snapshot);
         }
     };
 
     match record_to_hearth(first_hearth) {
         Some(view) => {
-            hearth.current_hearth.set(Some(view));
-            truth.availability.update(|availability| {
-                availability.current_hearth = AvailabilityStateKind::Live;
-            });
+            snapshot.current_hearth = Some(view);
+            snapshot.availability.current_hearth = AvailabilityStateKind::Live;
         }
         None => {
-            truth.availability.update(|availability| {
-                availability.current_hearth = AvailabilityStateKind::Degraded;
-            });
+            snapshot.availability.current_hearth = AvailabilityStateKind::Degraded;
         }
     }
 
@@ -479,25 +511,20 @@ async fn load_live_data(
     {
         Ok(role) => {
             if !generation.is_current(token) {
-                return;
+                return None;
             }
-            let state = if role.is_some() {
+            snapshot.availability.caller_role = if role.is_some() {
                 AvailabilityStateKind::Live
             } else {
                 AvailabilityStateKind::Empty
             };
-            hearth.my_role.set(role);
-            truth
-                .availability
-                .update(|availability| availability.caller_role = state);
+            snapshot.my_role = role;
         }
         Err(error) => {
             if !generation.is_current(token) {
-                return;
+                return None;
             }
-            truth.availability.update(|availability| {
-                availability.caller_role = AvailabilityStateKind::Unavailable;
-            });
+            snapshot.availability.caller_role = AvailabilityStateKind::Unavailable;
             web_sys::console::log_1(
                 &format!("[Hearth] get_caller_role failed: {error}").into(),
             );
@@ -514,23 +541,17 @@ async fn load_live_data(
     {
         Ok(records) => {
             if !generation.is_current(token) {
-                return;
+                return None;
             }
-            let record_count = records.len();
-            let views = record_bridge::records_to_members(&records);
-            let state = record_set_availability(record_count, views.len());
-            hearth.members.set(views);
-            truth
-                .availability
-                .update(|availability| availability.members = state);
+            snapshot.members = record_bridge::records_to_members(&records);
+            snapshot.availability.members =
+                record_set_availability(records.len(), snapshot.members.len());
         }
         Err(error) => {
             if !generation.is_current(token) {
-                return;
+                return None;
             }
-            truth
-                .availability
-                .update(|availability| availability.members = AvailabilityStateKind::Unavailable);
+            snapshot.availability.members = AvailabilityStateKind::Unavailable;
             web_sys::console::log_1(
                 &format!("[Hearth] get_hearth_members failed: {error}").into(),
             );
@@ -547,23 +568,17 @@ async fn load_live_data(
     {
         Ok(records) => {
             if !generation.is_current(token) {
-                return;
+                return None;
             }
-            let record_count = records.len();
-            let views = record_bridge::records_to_bonds(&records);
-            let state = record_set_availability(record_count, views.len());
-            hearth.bonds.set(views);
-            truth
-                .availability
-                .update(|availability| availability.bonds = state);
+            snapshot.bonds = record_bridge::records_to_bonds(&records);
+            snapshot.availability.bonds =
+                record_set_availability(records.len(), snapshot.bonds.len());
         }
         Err(error) => {
             if !generation.is_current(token) {
-                return;
+                return None;
             }
-            truth
-                .availability
-                .update(|availability| availability.bonds = AvailabilityStateKind::Unavailable);
+            snapshot.availability.bonds = AvailabilityStateKind::Unavailable;
             web_sys::console::log_1(
                 &format!("[Hearth] get_kinship_graph failed: {error}").into(),
             );
@@ -580,23 +595,17 @@ async fn load_live_data(
     {
         Ok(records) => {
             if !generation.is_current(token) {
-                return;
+                return None;
             }
-            let record_count = records.len();
-            let views = record_bridge::records_to_gratitude(&records);
-            let state = record_set_availability(record_count, views.len());
-            hearth.gratitude.set(views);
-            truth
-                .availability
-                .update(|availability| availability.gratitude = state);
+            snapshot.gratitude = record_bridge::records_to_gratitude(&records);
+            snapshot.availability.gratitude =
+                record_set_availability(records.len(), snapshot.gratitude.len());
         }
         Err(error) => {
             if !generation.is_current(token) {
-                return;
+                return None;
             }
-            truth.availability.update(|availability| {
-                availability.gratitude = AvailabilityStateKind::Unavailable;
-            });
+            snapshot.availability.gratitude = AvailabilityStateKind::Unavailable;
             web_sys::console::log_1(
                 &format!("[Hearth] get_gratitude_stream failed: {error}").into(),
             );
@@ -613,23 +622,17 @@ async fn load_live_data(
     {
         Ok(records) => {
             if !generation.is_current(token) {
-                return;
+                return None;
             }
-            let record_count = records.len();
-            let views = record_bridge::records_to_care_schedules(&records);
-            let state = record_set_availability(record_count, views.len());
-            hearth.care_schedules.set(views);
-            truth
-                .availability
-                .update(|availability| availability.care_schedules = state);
+            snapshot.care_schedules = record_bridge::records_to_care_schedules(&records);
+            snapshot.availability.care_schedules =
+                record_set_availability(records.len(), snapshot.care_schedules.len());
         }
         Err(error) => {
             if !generation.is_current(token) {
-                return;
+                return None;
             }
-            truth.availability.update(|availability| {
-                availability.care_schedules = AvailabilityStateKind::Unavailable;
-            });
+            snapshot.availability.care_schedules = AvailabilityStateKind::Unavailable;
             web_sys::console::log_1(
                 &format!("[Hearth] get_hearth_schedule failed: {error}").into(),
             );
@@ -646,23 +649,17 @@ async fn load_live_data(
     {
         Ok(records) => {
             if !generation.is_current(token) {
-                return;
+                return None;
             }
-            let record_count = records.len();
-            let views = record_bridge::records_to_rhythms(&records);
-            let state = record_set_availability(record_count, views.len());
-            hearth.rhythms.set(views);
-            truth
-                .availability
-                .update(|availability| availability.rhythms = state);
+            snapshot.rhythms = record_bridge::records_to_rhythms(&records);
+            snapshot.availability.rhythms =
+                record_set_availability(records.len(), snapshot.rhythms.len());
         }
         Err(error) => {
             if !generation.is_current(token) {
-                return;
+                return None;
             }
-            truth.availability.update(|availability| {
-                availability.rhythms = AvailabilityStateKind::Unavailable;
-            });
+            snapshot.availability.rhythms = AvailabilityStateKind::Unavailable;
             web_sys::console::log_1(
                 &format!("[Hearth] get_hearth_rhythms failed: {error}").into(),
             );
@@ -679,48 +676,39 @@ async fn load_live_data(
     {
         Ok(records) => {
             if !generation.is_current(token) {
-                return;
+                return None;
             }
-            let record_count = records.len();
             let decoded = record_bridge::records_to_presence(&records);
-            let state = record_set_availability(record_count, decoded.decoded_records);
-            hearth.presence.set(decoded.views);
-            truth
-                .availability
-                .update(|availability| availability.presence = state);
+            snapshot.availability.presence =
+                record_set_availability(records.len(), decoded.decoded_records);
+            snapshot.presence = decoded.views;
         }
         Err(error) => {
             if !generation.is_current(token) {
-                return;
+                return None;
             }
-            truth.availability.update(|availability| {
-                availability.presence = AvailabilityStateKind::Unavailable;
-            });
+            snapshot.availability.presence = AvailabilityStateKind::Unavailable;
             web_sys::console::log_1(
                 &format!("[Hearth] get_hearth_presence failed: {error}").into(),
             );
         }
     }
 
-    load_decisions_and_votes(
-        &hearth,
-        &truth,
-        &hc,
-        &hearth_hash,
-        &generation,
-        token,
-    )
-    .await;
+    let decisions = load_decisions_and_votes(hc, &hearth_hash, generation, token).await?;
+    snapshot.decisions = decisions.decisions;
+    snapshot.votes = decisions.votes;
+    snapshot.availability.decisions = decisions.decision_state;
+    snapshot.availability.votes = decisions.vote_state;
+
+    Some(snapshot)
 }
 
 async fn load_decisions_and_votes(
-    hearth: &HearthCtx,
-    truth: &HearthTruthState,
     hc: &mycelix_leptos_core::HolochainCtx,
     hearth_hash: &HoloHashBytes,
     generation: &LoadGeneration,
     token: u64,
-) {
+) -> Option<DecisionStage> {
     let decision_records = match hc
         .call_zome_default::<HoloHashBytes, Vec<WireRecord>>(
             "hearth_decisions",
@@ -731,32 +719,28 @@ async fn load_decisions_and_votes(
     {
         Ok(records) => {
             if !generation.is_current(token) {
-                return;
+                return None;
             }
             records
         }
         Err(error) => {
             if !generation.is_current(token) {
-                return;
+                return None;
             }
-            truth.availability.update(|availability| {
-                availability.decisions = AvailabilityStateKind::Unavailable;
-                availability.votes = AvailabilityStateKind::Unavailable;
-            });
             web_sys::console::log_1(
                 &format!("[Hearth] get_hearth_decisions failed: {error}").into(),
             );
-            return;
+            return Some(DecisionStage {
+                decisions: Vec::new(),
+                votes: Vec::new(),
+                decision_state: AvailabilityStateKind::Unavailable,
+                vote_state: AvailabilityStateKind::Unavailable,
+            });
         }
     };
 
-    let decision_record_count = decision_records.len();
     let decisions = record_bridge::records_to_decisions(&decision_records);
-    let decision_state = record_set_availability(decision_record_count, decisions.len());
-    hearth.decisions.set(decisions.clone());
-    truth
-        .availability
-        .update(|availability| availability.decisions = decision_state);
+    let decision_state = record_set_availability(decision_records.len(), decisions.len());
 
     if decisions.is_empty() {
         let vote_state = if decision_state == AvailabilityStateKind::Empty {
@@ -764,11 +748,12 @@ async fn load_decisions_and_votes(
         } else {
             AvailabilityStateKind::Degraded
         };
-        hearth.votes.set(Vec::new());
-        truth
-            .availability
-            .update(|availability| availability.votes = vote_state);
-        return;
+        return Some(DecisionStage {
+            decisions,
+            votes: Vec::new(),
+            decision_state,
+            vote_state,
+        });
     }
 
     let mut vote_record_count = 0usize;
@@ -797,7 +782,7 @@ async fn load_decisions_and_votes(
         {
             Ok(records) => {
                 if !generation.is_current(token) {
-                    return;
+                    return None;
                 }
                 successful_queries += 1;
                 vote_record_count += records.len();
@@ -807,7 +792,7 @@ async fn load_decisions_and_votes(
             }
             Err(error) => {
                 if !generation.is_current(token) {
-                    return;
+                    return None;
                 }
                 failed_queries += 1;
                 web_sys::console::log_1(
@@ -821,7 +806,6 @@ async fn load_decisions_and_votes(
         }
     }
 
-    hearth.votes.set(votes);
     let vote_state = if successful_queries == 0 && failed_queries > 0 {
         AvailabilityStateKind::Unavailable
     } else if failed_queries > 0 || decision_state == AvailabilityStateKind::Degraded {
@@ -829,9 +813,13 @@ async fn load_decisions_and_votes(
     } else {
         record_set_availability(vote_record_count, decoded_vote_count)
     };
-    truth
-        .availability
-        .update(|availability| availability.votes = vote_state);
+
+    Some(DecisionStage {
+        decisions,
+        votes,
+        decision_state,
+        vote_state,
+    })
 }
 
 fn status_message(
@@ -853,7 +841,7 @@ fn status_message(
                 .to_string(),
         ),
         ConnectionStatus::Connected if loading => Some(format!(
-            "Refreshing Hearth snapshot — hearth: {}, role: {}, members: {}, bonds: {}, care: {}, decisions: {}, votes: {}, gratitude: {}, rhythms: {}, presence: {}. Domain pages remain guarded until each required source is established.",
+            "Refreshing Hearth snapshot — hearth: {}, role: {}, members: {}, bonds: {}, care: {}, decisions: {}, votes: {}, gratitude: {}, rhythms: {}, presence: {}. The currently established snapshot remains visible until this generation finishes.",
             availability.current_hearth.label(),
             availability.caller_role.label(),
             availability.members.label(),
@@ -882,7 +870,7 @@ fn status_message(
             if availability.current_hearth != AvailabilityStateKind::Mock =>
         {
             Some(
-                "Hearth's source connection is interrupted. Previously loaded source-backed records are retained only as degraded data. A fresh snapshot will be requested after the authorized connection is re-established."
+                "Hearth's source connection is interrupted. Source-backed state is unavailable; any previously loaded records are retained only with degraded provenance. A fresh snapshot will be requested after the authorized connection is re-established."
                     .to_string(),
             )
         }
@@ -949,7 +937,9 @@ pub fn HearthDataStatus() -> impl IntoView {
 
 #[cfg(test)]
 mod tests {
-    use super::{HearthAvailability, LoadGeneration, record_set_availability};
+    use super::{
+        HearthAvailability, LoadGeneration, StagedHearthSnapshot, record_set_availability,
+    };
     use mycelix_leptos_core::AvailabilityStateKind;
 
     #[test]
@@ -1001,5 +991,21 @@ mod tests {
         let token = generation.advance();
         generation.invalidate();
         assert!(!generation.is_current(token));
+    }
+
+    #[test]
+    fn staged_snapshot_starts_unpublished_and_source_pending() {
+        let snapshot = StagedHearthSnapshot::pending(String::new());
+        assert!(snapshot.current_hearth.is_none());
+        assert!(snapshot.members.is_empty());
+        assert!(snapshot.care_schedules.is_empty());
+        assert_eq!(
+            snapshot.availability.current_hearth,
+            AvailabilityStateKind::Unknown
+        );
+        assert_eq!(
+            snapshot.availability.stories,
+            AvailabilityStateKind::Unavailable
+        );
     }
 }
