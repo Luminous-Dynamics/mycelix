@@ -14,6 +14,7 @@ pub mod hearth_actions;
 mod hearth_boundary;
 mod hearth_context;
 pub mod hearth_prefs;
+pub mod hearth_selection;
 mod hearth_truth;
 pub mod mock_data;
 mod onboarding;
