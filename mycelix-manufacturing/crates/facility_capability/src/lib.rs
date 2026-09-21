@@ -4,14 +4,15 @@
 //!
 //! This crate deliberately does not mutate manufacturing state. It evaluates
 //! exact manufacturing requirements against an explicit facility capability
-//! record under an evidence policy. Missing or stale information remains
-//! `Unknown`; legacy free-form capability strings never become verified facts.
+//! record under an evidence policy. Missing, stale, future-dated, or otherwise
+//! inadmissible information remains `Unknown`; legacy free-form capability
+//! strings never become verified facts.
 
 #![deny(unsafe_code)]
 
 use mycelix_hardware_core::{ConstraintEvaluation, DigestRef, SemanticId};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 pub const FACILITY_CAPABILITY_SCHEMA: &str = "mycelix.manufacturing.facility-capability.v1";
@@ -25,6 +26,46 @@ pub enum CapabilityEvidenceClass {
     Calibrated,
     ObservedProduction,
     IndependentInspection,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum EvidenceFreshnessStatus {
+    CurrentWithinExplicitWindow,
+    OpenEndedAccepted,
+    OpenEndedRejected,
+    Expired,
+    FutureDated,
+    TooOldUnderPolicy,
+    MissingObservationTime,
+}
+
+impl EvidenceFreshnessStatus {
+    pub fn usable(self) -> bool {
+        matches!(
+            self,
+            Self::CurrentWithinExplicitWindow | Self::OpenEndedAccepted
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EvidenceFreshnessPolicy {
+    /// Whether evidence without an explicit `valid_until` may be admitted.
+    pub accept_open_ended: bool,
+    /// Stronger than `accept_open_ended`: when true an explicit expiry is
+    /// mandatory for admission.
+    pub require_explicit_valid_until: bool,
+    /// Optional maximum age from `observed_at` to evaluation time.
+    pub max_age_s: Option<u64>,
+}
+
+impl EvidenceFreshnessPolicy {
+    fn validate(&self) -> Result<(), ValidationError> {
+        if self.accept_open_ended && self.require_explicit_valid_until {
+            return Err(ValidationError::ConflictingFreshnessPolicy);
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -55,23 +96,42 @@ impl CapabilityEvidence {
         Ok(())
     }
 
-    fn usable_under(&self, policy: &EvidencePolicy, evaluated_at_unix_s: i64) -> bool {
-        if !policy.accepted_classes.contains(&self.class) {
-            return false;
+    pub fn freshness_status(
+        &self,
+        policy: &EvidenceFreshnessPolicy,
+        evaluated_at_unix_s: i64,
+    ) -> EvidenceFreshnessStatus {
+        if self
+            .observed_at_unix_s
+            .is_some_and(|observed| observed > evaluated_at_unix_s)
+        {
+            return EvidenceFreshnessStatus::FutureDated;
         }
-        if let Some(observed) = self.observed_at_unix_s {
-            if observed > evaluated_at_unix_s {
-                return false;
+        if self
+            .valid_until_unix_s
+            .is_some_and(|valid_until| valid_until < evaluated_at_unix_s)
+        {
+            return EvidenceFreshnessStatus::Expired;
+        }
+
+        if let Some(max_age_s) = policy.max_age_s {
+            let Some(observed) = self.observed_at_unix_s else {
+                return EvidenceFreshnessStatus::MissingObservationTime;
+            };
+            let age = evaluated_at_unix_s.saturating_sub(observed) as u64;
+            if age > max_age_s {
+                return EvidenceFreshnessStatus::TooOldUnderPolicy;
             }
         }
-        if policy.require_current {
-            if let Some(valid_until) = self.valid_until_unix_s {
-                if valid_until < evaluated_at_unix_s {
-                    return false;
-                }
+
+        match self.valid_until_unix_s {
+            Some(_) => EvidenceFreshnessStatus::CurrentWithinExplicitWindow,
+            None if policy.require_explicit_valid_until => {
+                EvidenceFreshnessStatus::OpenEndedRejected
             }
+            None if policy.accept_open_ended => EvidenceFreshnessStatus::OpenEndedAccepted,
+            None => EvidenceFreshnessStatus::OpenEndedRejected,
         }
-        true
     }
 }
 
@@ -79,7 +139,7 @@ impl CapabilityEvidence {
 pub struct EvidencePolicy {
     pub id: SemanticId,
     pub accepted_classes: Vec<CapabilityEvidenceClass>,
-    pub require_current: bool,
+    pub freshness: EvidenceFreshnessPolicy,
 }
 
 impl EvidencePolicy {
@@ -87,7 +147,8 @@ impl EvidencePolicy {
         if self.accepted_classes.is_empty() {
             return Err(ValidationError::EmptyCollection("accepted evidence classes"));
         }
-        ensure_unique(self.accepted_classes.iter(), "accepted evidence class")
+        ensure_unique(self.accepted_classes.iter(), "accepted evidence class")?;
+        self.freshness.validate()
     }
 }
 
@@ -266,7 +327,9 @@ impl FacilityCapabilityRecord {
         Ok(())
     }
 
-    pub fn legacy_tags_from_strings(values: &[String]) -> Result<Vec<LegacyCapabilityTag>, ValidationError> {
+    pub fn legacy_tags_from_strings(
+        values: &[String],
+    ) -> Result<Vec<LegacyCapabilityTag>, ValidationError> {
         ensure_bounded(values.len())?;
         let mut seen = BTreeSet::new();
         let mut tags = Vec::new();
@@ -315,7 +378,9 @@ impl ManufacturingRequirement {
             ManufacturingConstraint::MaxDimensionalDeviationAtMost { um }
             | ManufacturingConstraint::MinimumFeatureAtMost { um } => {
                 if *um == 0 {
-                    Err(ValidationError::ZeroRequirementValue("numeric manufacturing constraint"))
+                    Err(ValidationError::ZeroRequirementValue(
+                        "numeric manufacturing constraint",
+                    ))
                 } else {
                     Ok(())
                 }
@@ -338,7 +403,10 @@ impl ManufacturabilityRequest {
     pub fn validate(&self) -> Result<(), ValidationError> {
         self.evidence_policy.validate()?;
         ensure_bounded(self.requirements.len())?;
-        ensure_unique(self.requirements.iter().map(|item| &item.id), "requirement id")?;
+        ensure_unique(
+            self.requirements.iter().map(|item| &item.id),
+            "requirement id",
+        )?;
         for requirement in &self.requirements {
             requirement.validate()?;
         }
@@ -347,10 +415,19 @@ impl ManufacturabilityRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EvidenceAssessment {
+    pub evidence_id: SemanticId,
+    pub class_accepted: bool,
+    pub freshness: EvidenceFreshnessStatus,
+    pub usable: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RequirementMatch {
     pub requirement_id: SemanticId,
     pub evaluation: ConstraintEvaluation,
     pub evidence_refs: Vec<SemanticId>,
+    pub evidence_assessments: Vec<EvidenceAssessment>,
     pub reason: MatchReason,
 }
 
@@ -390,7 +467,9 @@ pub fn match_requirements(
     record: &FacilityCapabilityRecord,
     request: &ManufacturabilityRequest,
 ) -> Result<ManufacturabilityMatch, MatchError> {
-    record.validate().map_err(MatchError::InvalidCapabilityRecord)?;
+    record
+        .validate()
+        .map_err(MatchError::InvalidCapabilityRecord)?;
     request.validate().map_err(MatchError::InvalidRequest)?;
     if record.facility_id != request.facility_id {
         return Err(MatchError::FacilityMismatch);
@@ -420,7 +499,9 @@ fn evaluate_requirement(
     requirement: &ManufacturingRequirement,
 ) -> RequirementMatch {
     match &requirement.constraint {
-        ManufacturingConstraint::Process(process) => evaluate_process(record, request, requirement, process),
+        ManufacturingConstraint::Process(process) => {
+            evaluate_process(record, request, requirement, process)
+        }
         ManufacturingConstraint::Material(material_id) => {
             evaluate_material(record, request, requirement, material_id)
         }
@@ -429,36 +510,70 @@ fn evaluate_requirement(
         }
         ManufacturingConstraint::WorkEnvelopeAtLeast { x_um, y_um, z_um } => {
             let Some(capability) = &record.work_envelope else {
-                return unknown(requirement, MatchReason::CapabilityNotDeclared);
+                return unknown(
+                    requirement,
+                    Vec::new(),
+                    MatchReason::CapabilityNotDeclared,
+                );
             };
-            let usable = usable_refs(record, &capability.evidence_refs, request);
+            let (usable, assessments) = assess_refs(record, &capability.evidence_refs, request);
             if usable.is_empty() {
-                return unknown(requirement, MatchReason::EvidenceMissingOrUnacceptable);
+                return unknown(
+                    requirement,
+                    assessments,
+                    MatchReason::EvidenceMissingOrUnacceptable,
+                );
             }
             let passes = capability.x_um >= *x_um
                 && capability.y_um >= *y_um
                 && capability.z_um >= *z_um;
-            numeric_match(requirement, usable, passes)
+            numeric_match(requirement, usable, assessments, passes)
         }
         ManufacturingConstraint::MaxDimensionalDeviationAtMost { um } => {
             let Some(capability) = &record.max_dimensional_deviation else {
-                return unknown(requirement, MatchReason::CapabilityNotDeclared);
+                return unknown(
+                    requirement,
+                    Vec::new(),
+                    MatchReason::CapabilityNotDeclared,
+                );
             };
-            let usable = usable_refs(record, &capability.evidence_refs, request);
+            let (usable, assessments) = assess_refs(record, &capability.evidence_refs, request);
             if usable.is_empty() {
-                return unknown(requirement, MatchReason::EvidenceMissingOrUnacceptable);
+                return unknown(
+                    requirement,
+                    assessments,
+                    MatchReason::EvidenceMissingOrUnacceptable,
+                );
             }
-            numeric_match(requirement, usable, capability.max_abs_um <= *um)
+            numeric_match(
+                requirement,
+                usable,
+                assessments,
+                capability.max_abs_um <= *um,
+            )
         }
         ManufacturingConstraint::MinimumFeatureAtMost { um } => {
             let Some(capability) = &record.minimum_feature else {
-                return unknown(requirement, MatchReason::CapabilityNotDeclared);
+                return unknown(
+                    requirement,
+                    Vec::new(),
+                    MatchReason::CapabilityNotDeclared,
+                );
             };
-            let usable = usable_refs(record, &capability.evidence_refs, request);
+            let (usable, assessments) = assess_refs(record, &capability.evidence_refs, request);
             if usable.is_empty() {
-                return unknown(requirement, MatchReason::EvidenceMissingOrUnacceptable);
+                return unknown(
+                    requirement,
+                    assessments,
+                    MatchReason::EvidenceMissingOrUnacceptable,
+                );
             }
-            numeric_match(requirement, usable, capability.min_feature_um <= *um)
+            numeric_match(
+                requirement,
+                usable,
+                assessments,
+                capability.min_feature_um <= *um,
+            )
         }
     }
 }
@@ -478,7 +593,9 @@ fn evaluate_process(
         record,
         request,
         requirement,
-        assertions.iter().map(|item| (item.disposition, &item.evidence_refs)),
+        assertions
+            .iter()
+            .map(|item| (item.disposition, item.evidence_refs.as_slice())),
     )
 }
 
@@ -497,7 +614,9 @@ fn evaluate_material(
         record,
         request,
         requirement,
-        assertions.iter().map(|item| (item.disposition, &item.evidence_refs)),
+        assertions
+            .iter()
+            .map(|item| (item.disposition, item.evidence_refs.as_slice())),
     )
 }
 
@@ -516,7 +635,9 @@ fn evaluate_inspection(
         record,
         request,
         requirement,
-        assertions.iter().map(|item| (item.disposition, &item.evidence_refs)),
+        assertions
+            .iter()
+            .map(|item| (item.disposition, item.evidence_refs.as_slice())),
     )
 }
 
@@ -527,17 +648,26 @@ fn evaluate_categorical<'a, I>(
     assertions: I,
 ) -> RequirementMatch
 where
-    I: IntoIterator<Item = (SupportDisposition, &'a Vec<SemanticId>)>,
+    I: IntoIterator<Item = (SupportDisposition, &'a [SemanticId])>,
 {
     let assertions: Vec<_> = assertions.into_iter().collect();
     if assertions.is_empty() {
-        return unknown(requirement, MatchReason::CapabilityNotDeclared);
+        return unknown(
+            requirement,
+            Vec::new(),
+            MatchReason::CapabilityNotDeclared,
+        );
     }
 
     let mut supported_refs = BTreeSet::new();
     let mut unsupported_refs = BTreeSet::new();
+    let mut assessment_map = BTreeMap::new();
     for (disposition, refs) in assertions {
-        for evidence_id in usable_refs(record, refs, request) {
+        let (usable, assessments) = assess_refs(record, refs, request);
+        for assessment in assessments {
+            assessment_map.insert(assessment.evidence_id.clone(), assessment);
+        }
+        for evidence_id in usable {
             match disposition {
                 SupportDisposition::Supported => {
                     supported_refs.insert(evidence_id);
@@ -548,6 +678,7 @@ where
             }
         }
     }
+    let evidence_assessments = assessment_map.into_values().collect();
 
     if !supported_refs.is_empty() && !unsupported_refs.is_empty() {
         let mut refs: Vec<_> = supported_refs.into_iter().collect();
@@ -558,6 +689,7 @@ where
             requirement_id: requirement.id.clone(),
             evaluation: ConstraintEvaluation::Unknown,
             evidence_refs: refs,
+            evidence_assessments,
             reason: MatchReason::ConflictingAssertions,
         };
     }
@@ -566,6 +698,7 @@ where
             requirement_id: requirement.id.clone(),
             evaluation: ConstraintEvaluation::Satisfied,
             evidence_refs: supported_refs.into_iter().collect(),
+            evidence_assessments,
             reason: MatchReason::SupportedByAcceptedEvidence,
         };
     }
@@ -574,15 +707,21 @@ where
             requirement_id: requirement.id.clone(),
             evaluation: ConstraintEvaluation::Unsatisfied,
             evidence_refs: unsupported_refs.into_iter().collect(),
+            evidence_assessments,
             reason: MatchReason::ExplicitlyUnsupportedByAcceptedEvidence,
         };
     }
-    unknown(requirement, MatchReason::EvidenceMissingOrUnacceptable)
+    unknown(
+        requirement,
+        evidence_assessments,
+        MatchReason::EvidenceMissingOrUnacceptable,
+    )
 }
 
 fn numeric_match(
     requirement: &ManufacturingRequirement,
     evidence_refs: Vec<SemanticId>,
+    evidence_assessments: Vec<EvidenceAssessment>,
     passes: bool,
 ) -> RequirementMatch {
     RequirementMatch {
@@ -593,6 +732,7 @@ fn numeric_match(
             ConstraintEvaluation::Unsatisfied
         },
         evidence_refs,
+        evidence_assessments,
         reason: if passes {
             MatchReason::NumericCapabilityMeetsRequirement
         } else {
@@ -601,28 +741,50 @@ fn numeric_match(
     }
 }
 
-fn unknown(requirement: &ManufacturingRequirement, reason: MatchReason) -> RequirementMatch {
+fn unknown(
+    requirement: &ManufacturingRequirement,
+    evidence_assessments: Vec<EvidenceAssessment>,
+    reason: MatchReason,
+) -> RequirementMatch {
     RequirementMatch {
         requirement_id: requirement.id.clone(),
         evaluation: ConstraintEvaluation::Unknown,
         evidence_refs: Vec::new(),
+        evidence_assessments,
         reason,
     }
 }
 
-fn usable_refs(
+fn assess_refs(
     record: &FacilityCapabilityRecord,
     refs: &[SemanticId],
     request: &ManufacturabilityRequest,
-) -> Vec<SemanticId> {
-    refs.iter()
-        .filter_map(|id| {
-            let evidence = record.evidence.iter().find(|item| &item.id == id)?;
-            evidence
-                .usable_under(&request.evidence_policy, request.evaluated_at_unix_s)
-                .then(|| id.clone())
-        })
-        .collect()
+) -> (Vec<SemanticId>, Vec<EvidenceAssessment>) {
+    let mut usable = Vec::new();
+    let mut assessments = Vec::new();
+    for id in refs {
+        let Some(evidence) = record.evidence.iter().find(|item| &item.id == id) else {
+            continue;
+        };
+        let class_accepted = request.evidence_policy.accepted_classes.contains(&evidence.class);
+        let freshness = evidence.freshness_status(
+            &request.evidence_policy.freshness,
+            request.evaluated_at_unix_s,
+        );
+        let is_usable = class_accepted && freshness.usable();
+        if is_usable {
+            usable.push(id.clone());
+        }
+        assessments.push(EvidenceAssessment {
+            evidence_id: id.clone(),
+            class_accepted,
+            freshness,
+            usable: is_usable,
+        });
+    }
+    usable.sort();
+    assessments.sort_by(|left, right| left.evidence_id.cmp(&right.evidence_id));
+    (usable, assessments)
 }
 
 fn validate_evidence_refs(
@@ -631,7 +793,10 @@ fn validate_evidence_refs(
 ) -> Result<(), ValidationError> {
     ensure_bounded(refs.len())?;
     ensure_unique(refs.iter(), "evidence reference")?;
-    if refs.iter().any(|id| !evidence.iter().any(|item| &item.id == id)) {
+    if refs
+        .iter()
+        .any(|id| !evidence.iter().any(|item| &item.id == id))
+    {
         return Err(ValidationError::UnknownEvidenceReference);
     }
     Ok(())
@@ -674,6 +839,7 @@ pub enum ValidationError {
     UnsupportedSchema,
     InvalidDigest,
     InvalidEvidenceWindow,
+    ConflictingFreshnessPolicy,
     EmptyCollection(&'static str),
     TooManyItems,
     Duplicate(&'static str),
@@ -690,14 +856,28 @@ impl fmt::Display for ValidationError {
         match self {
             Self::UnsupportedSchema => write!(f, "unsupported facility capability schema"),
             Self::InvalidDigest => write!(f, "invalid evidence digest"),
-            Self::InvalidEvidenceWindow => write!(f, "evidence validity ends before observation"),
+            Self::InvalidEvidenceWindow => {
+                write!(f, "evidence validity ends before observation")
+            }
+            Self::ConflictingFreshnessPolicy => write!(
+                f,
+                "freshness policy cannot accept open-ended evidence while requiring explicit expiry"
+            ),
             Self::EmptyCollection(kind) => write!(f, "{kind} must not be empty"),
             Self::TooManyItems => write!(f, "collection exceeds maximum item count"),
             Self::Duplicate(kind) => write!(f, "duplicate {kind}"),
-            Self::UnknownEvidenceReference => write!(f, "capability references unknown evidence"),
-            Self::ZeroCapabilityValue(kind) => write!(f, "{kind} capability must be greater than zero"),
-            Self::ZeroRequirementValue(kind) => write!(f, "{kind} requirement must be greater than zero"),
-            Self::LegacyTagMustRemainUnknown => write!(f, "legacy capability tags must remain Unknown"),
+            Self::UnknownEvidenceReference => {
+                write!(f, "capability references unknown evidence")
+            }
+            Self::ZeroCapabilityValue(kind) => {
+                write!(f, "{kind} capability must be greater than zero")
+            }
+            Self::ZeroRequirementValue(kind) => {
+                write!(f, "{kind} requirement must be greater than zero")
+            }
+            Self::LegacyTagMustRemainUnknown => {
+                write!(f, "legacy capability tags must remain Unknown")
+            }
             Self::InvalidText(field) => write!(f, "invalid {field}"),
             Self::FieldTooLong(field) => write!(f, "{field} exceeds maximum length"),
         }
@@ -717,10 +897,18 @@ pub enum MatchError {
 impl fmt::Display for MatchError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::InvalidCapabilityRecord(error) => write!(f, "invalid facility capability record: {error}"),
-            Self::InvalidRequest(error) => write!(f, "invalid manufacturability request: {error}"),
-            Self::FacilityMismatch => write!(f, "request facility does not match capability record"),
-            Self::CapabilityProfileMismatch => write!(f, "request capability profile does not match record"),
+            Self::InvalidCapabilityRecord(error) => {
+                write!(f, "invalid facility capability record: {error}")
+            }
+            Self::InvalidRequest(error) => {
+                write!(f, "invalid manufacturability request: {error}")
+            }
+            Self::FacilityMismatch => {
+                write!(f, "request facility does not match capability record")
+            }
+            Self::CapabilityProfileMismatch => {
+                write!(f, "request capability profile does not match record")
+            }
         }
     }
 }
@@ -735,12 +923,17 @@ mod tests {
         SemanticId::new(value).unwrap()
     }
 
-    fn evidence(id_value: &str, class: CapabilityEvidenceClass, valid_until: Option<i64>) -> CapabilityEvidence {
+    fn evidence(
+        id_value: &str,
+        class: CapabilityEvidenceClass,
+        observed_at: Option<i64>,
+        valid_until: Option<i64>,
+    ) -> CapabilityEvidence {
         CapabilityEvidence {
             id: id(id_value),
             class,
             artifact_digest: None,
-            observed_at_unix_s: Some(100),
+            observed_at_unix_s: observed_at,
             valid_until_unix_s: valid_until,
             note: None,
         }
@@ -753,7 +946,11 @@ mod tests {
                 CapabilityEvidenceClass::Calibrated,
                 CapabilityEvidenceClass::IndependentInspection,
             ],
-            require_current: true,
+            freshness: EvidenceFreshnessPolicy {
+                accept_open_ended: false,
+                require_explicit_valid_until: true,
+                max_age_s: Some(200),
+            },
         }
     }
 
@@ -764,8 +961,18 @@ mod tests {
             machine_id: Some(id("machine:cnc-5")),
             capability_profile_id: id("profile:standard"),
             evidence: vec![
-                evidence("evidence:inspection", CapabilityEvidenceClass::IndependentInspection, Some(500)),
-                evidence("evidence:calibration", CapabilityEvidenceClass::Calibrated, Some(500)),
+                evidence(
+                    "evidence:inspection",
+                    CapabilityEvidenceClass::IndependentInspection,
+                    Some(100),
+                    Some(500),
+                ),
+                evidence(
+                    "evidence:calibration",
+                    CapabilityEvidenceClass::Calibrated,
+                    Some(100),
+                    Some(500),
+                ),
             ],
             processes: vec![ProcessAssertion {
                 process: ProcessKind::CncMilling5Axis,
@@ -811,52 +1018,47 @@ mod tests {
         }
     }
 
+    fn tolerance_requirement() -> ManufacturingRequirement {
+        ManufacturingRequirement {
+            id: id("req:tolerance"),
+            constraint: ManufacturingConstraint::MaxDimensionalDeviationAtMost { um: 50 },
+        }
+    }
+
     #[test]
     fn missing_tolerance_is_unknown() {
         let mut record = record();
         record.max_dimensional_deviation = None;
-        let report = match_requirements(
-            &record,
-            &request(ManufacturingRequirement {
-                id: id("req:tolerance"),
-                constraint: ManufacturingConstraint::MaxDimensionalDeviationAtMost { um: 50 },
-            }),
-        )
-        .unwrap();
+        let report = match_requirements(&record, &request(tolerance_requirement())).unwrap();
         assert_eq!(report.matches[0].evaluation, ConstraintEvaluation::Unknown);
         assert_eq!(report.matches[0].reason, MatchReason::CapabilityNotDeclared);
     }
 
     #[test]
     fn sufficient_current_calibrated_tolerance_is_satisfied() {
-        let report = match_requirements(
-            &record(),
-            &request(ManufacturingRequirement {
-                id: id("req:tolerance"),
-                constraint: ManufacturingConstraint::MaxDimensionalDeviationAtMost { um: 50 },
-            }),
-        )
-        .unwrap();
+        let report = match_requirements(&record(), &request(tolerance_requirement())).unwrap();
         assert_eq!(report.matches[0].evaluation, ConstraintEvaluation::Satisfied);
+        assert!(report.matches[0].evidence_assessments[0].usable);
+        assert_eq!(
+            report.matches[0].evidence_assessments[0].freshness,
+            EvidenceFreshnessStatus::CurrentWithinExplicitWindow
+        );
     }
 
     #[test]
     fn insufficient_tolerance_is_unsatisfied_when_evidence_is_acceptable() {
         let mut record = record();
-        record.max_dimensional_deviation.as_mut().unwrap().max_abs_um = 75;
-        let report = match_requirements(
-            &record,
-            &request(ManufacturingRequirement {
-                id: id("req:tolerance"),
-                constraint: ManufacturingConstraint::MaxDimensionalDeviationAtMost { um: 50 },
-            }),
-        )
-        .unwrap();
+        record
+            .max_dimensional_deviation
+            .as_mut()
+            .unwrap()
+            .max_abs_um = 75;
+        let report = match_requirements(&record, &request(tolerance_requirement())).unwrap();
         assert_eq!(report.matches[0].evaluation, ConstraintEvaluation::Unsatisfied);
     }
 
     #[test]
-    fn expired_calibration_downgrades_to_unknown() {
+    fn expired_calibration_downgrades_to_unknown_with_explicit_reason() {
         let mut record = record();
         let calibration = record
             .evidence
@@ -864,28 +1066,135 @@ mod tests {
             .find(|item| item.id == id("evidence:calibration"))
             .unwrap();
         calibration.valid_until_unix_s = Some(150);
-        let report = match_requirements(
-            &record,
-            &request(ManufacturingRequirement {
-                id: id("req:tolerance"),
-                constraint: ManufacturingConstraint::MaxDimensionalDeviationAtMost { um: 50 },
-            }),
-        )
-        .unwrap();
+        let report = match_requirements(&record, &request(tolerance_requirement())).unwrap();
         assert_eq!(report.matches[0].evaluation, ConstraintEvaluation::Unknown);
         assert_eq!(
-            report.matches[0].reason,
-            MatchReason::EvidenceMissingOrUnacceptable
+            report.matches[0].evidence_assessments[0].freshness,
+            EvidenceFreshnessStatus::Expired
         );
+    }
+
+    #[test]
+    fn open_ended_evidence_is_rejected_when_expiry_is_required() {
+        let mut record = record();
+        let calibration = record
+            .evidence
+            .iter_mut()
+            .find(|item| item.id == id("evidence:calibration"))
+            .unwrap();
+        calibration.valid_until_unix_s = None;
+        let report = match_requirements(&record, &request(tolerance_requirement())).unwrap();
+        assert_eq!(report.matches[0].evaluation, ConstraintEvaluation::Unknown);
+        assert_eq!(
+            report.matches[0].evidence_assessments[0].freshness,
+            EvidenceFreshnessStatus::OpenEndedRejected
+        );
+    }
+
+    #[test]
+    fn open_ended_evidence_is_accepted_only_when_policy_says_so() {
+        let mut record = record();
+        let calibration = record
+            .evidence
+            .iter_mut()
+            .find(|item| item.id == id("evidence:calibration"))
+            .unwrap();
+        calibration.valid_until_unix_s = None;
+        let mut request = request(tolerance_requirement());
+        request.evidence_policy.freshness = EvidenceFreshnessPolicy {
+            accept_open_ended: true,
+            require_explicit_valid_until: false,
+            max_age_s: Some(200),
+        };
+        let report = match_requirements(&record, &request).unwrap();
+        assert_eq!(report.matches[0].evaluation, ConstraintEvaluation::Satisfied);
+        assert_eq!(
+            report.matches[0].evidence_assessments[0].freshness,
+            EvidenceFreshnessStatus::OpenEndedAccepted
+        );
+    }
+
+    #[test]
+    fn max_age_boundary_is_deterministic() {
+        let evidence = evidence(
+            "evidence:age",
+            CapabilityEvidenceClass::Calibrated,
+            Some(100),
+            Some(1000),
+        );
+        let freshness = EvidenceFreshnessPolicy {
+            accept_open_ended: false,
+            require_explicit_valid_until: true,
+            max_age_s: Some(100),
+        };
+        assert_eq!(
+            evidence.freshness_status(&freshness, 200),
+            EvidenceFreshnessStatus::CurrentWithinExplicitWindow
+        );
+        assert_eq!(
+            evidence.freshness_status(&freshness, 201),
+            EvidenceFreshnessStatus::TooOldUnderPolicy
+        );
+    }
+
+    #[test]
+    fn max_age_requires_observation_time() {
+        let mut record = record();
+        let calibration = record
+            .evidence
+            .iter_mut()
+            .find(|item| item.id == id("evidence:calibration"))
+            .unwrap();
+        calibration.observed_at_unix_s = None;
+        let report = match_requirements(&record, &request(tolerance_requirement())).unwrap();
+        assert_eq!(report.matches[0].evaluation, ConstraintEvaluation::Unknown);
+        assert_eq!(
+            report.matches[0].evidence_assessments[0].freshness,
+            EvidenceFreshnessStatus::MissingObservationTime
+        );
+    }
+
+    #[test]
+    fn future_dated_evidence_is_unusable() {
+        let mut record = record();
+        let calibration = record
+            .evidence
+            .iter_mut()
+            .find(|item| item.id == id("evidence:calibration"))
+            .unwrap();
+        calibration.observed_at_unix_s = Some(300);
+        calibration.valid_until_unix_s = Some(500);
+        let report = match_requirements(&record, &request(tolerance_requirement())).unwrap();
+        assert_eq!(report.matches[0].evaluation, ConstraintEvaluation::Unknown);
+        assert_eq!(
+            report.matches[0].evidence_assessments[0].freshness,
+            EvidenceFreshnessStatus::FutureDated
+        );
+    }
+
+    #[test]
+    fn accepted_class_and_freshness_are_both_required() {
+        let mut record = record();
+        let calibration = record
+            .evidence
+            .iter_mut()
+            .find(|item| item.id == id("evidence:calibration"))
+            .unwrap();
+        calibration.class = CapabilityEvidenceClass::SelfDeclared;
+        let report = match_requirements(&record, &request(tolerance_requirement())).unwrap();
+        assert_eq!(report.matches[0].evaluation, ConstraintEvaluation::Unknown);
+        assert!(!report.matches[0].evidence_assessments[0].class_accepted);
+        assert!(!report.matches[0].evidence_assessments[0].usable);
     }
 
     #[test]
     fn legacy_strings_never_become_verified_capabilities() {
         let strings = vec!["high precision CNC".to_string(), "5-axis".to_string()];
         let tags = FacilityCapabilityRecord::legacy_tags_from_strings(&strings).unwrap();
-        assert!(tags
-            .iter()
-            .all(|tag| tag.evaluation == ConstraintEvaluation::Unknown));
+        assert!(
+            tags.iter()
+                .all(|tag| tag.evaluation == ConstraintEvaluation::Unknown)
+        );
     }
 
     #[test]
