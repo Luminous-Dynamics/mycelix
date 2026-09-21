@@ -1,0 +1,86 @@
+diff --git a/mycelix-workspace/crates/mycelix-evidence-core/src/lib.rs b/mycelix-workspace/crates/mycelix-evidence-core/src/lib.rs
+--- a/mycelix-workspace/crates/mycelix-evidence-core/src/lib.rs
++++ b/mycelix-workspace/crates/mycelix-evidence-core/src/lib.rs
+@@ -177,17 +177,50 @@ impl<R: EvidenceRole> EvidenceId<R> {
+         }
+         Ok(id)
+     }
++
++    fn from_unchecked_wire(
++        wire: UncheckedEvidenceIdWireV1,
++    ) -> Result<Self, EvidenceIdentityError> {
++        Self::from_wire(EvidenceIdWireV1 {
++            profile: wire.profile,
++            role: wire.role,
++            namespace: wire.namespace,
++            local_id: wire.local_id,
++            commitment_sha256_hex: wire.commitment_sha256_hex,
++        })
++    }
+ }
+ 
+-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+-#[serde(deny_unknown_fields)]
++/// Validated transport view emitted by a typed [`EvidenceId`].
++///
++/// This type is intentionally serialize-only. Wire input must deserialize
++/// through the private `UncheckedEvidenceIdWireV1` and then pass typed
++/// `EvidenceId<R>` admission. Parsing a transport object is not itself
++/// epistemic identity admission.
++#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+ pub struct EvidenceIdWireV1 {
+-    pub profile: String,
+-    pub role: String,
+-    pub namespace: String,
+-    pub local_id: String,
+-    pub commitment_sha256_hex: String,
++    profile: String,
++    role: String,
++    namespace: String,
++    local_id: String,
++    commitment_sha256_hex: String,
++}
++
++impl EvidenceIdWireV1 {
++    pub fn profile(&self) -> &str {
++        &self.profile
++    }
++
++    pub fn role(&self) -> &str {
++        &self.role
++    }
++
++    pub fn namespace(&self) -> &str {
++        &self.namespace
++    }
++
++    pub fn local_id(&self) -> &str {
++        &self.local_id
++    }
++
++    pub fn commitment_sha256_hex(&self) -> &str {
++        &self.commitment_sha256_hex
++    }
++}
++
++#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
++#[serde(deny_unknown_fields)]
++struct UncheckedEvidenceIdWireV1 {
++    profile: String,
++    role: String,
++    namespace: String,
++    local_id: String,
++    commitment_sha256_hex: String,
+ }
+ 
+ impl<R: EvidenceRole> Serialize for EvidenceId<R> {
+@@ -204,8 +237,8 @@ impl<'de, R: EvidenceRole> Deserialize<'de> for EvidenceId<R> {
+     where
+         D: Deserializer<'de>,
+     {
+-        let wire = EvidenceIdWireV1::deserialize(deserializer)?;
+-        Self::from_wire(wire).map_err(de::Error::custom)
++        let wire = UncheckedEvidenceIdWireV1::deserialize(deserializer)?;
++        Self::from_unchecked_wire(wire).map_err(de::Error::custom)
+     }
+ }

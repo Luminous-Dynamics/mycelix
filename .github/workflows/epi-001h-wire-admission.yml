@@ -1,0 +1,134 @@
+name: EPI-001H Wire Admission Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/patches/epistemic/epi-001h-wire-admission-v0-1.patch'
+      - '.github/workflows/epi-001h-wire-admission.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust 1.96
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+
+      - name: Freeze exact bootstrap parent and qualification-only scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_parent=fe24a541be4fcc2292bdfc6779e054b498454e59
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            test "${{ github.event.pull_request.base.sha }}" = "$expected_parent"
+          fi
+          test "$(git rev-parse HEAD^)" = "$expected_parent"
+          changed="$(git diff --name-only "$expected_parent"...HEAD)"
+          printf '%s\n' "$changed"
+          unexpected="$(printf '%s\n' "$changed" | grep -Ev '^(mycelix-workspace/patches/epistemic/epi-001h-wire-admission-v0-1\.patch|\.github/workflows/epi-001h-wire-admission\.yml)$' || true)"
+          test -z "$unexpected" || {
+            echo 'unexpected EPI-001H qualification scope:'
+            printf '%s\n' "$unexpected"
+            exit 1
+          }
+
+      - name: Freeze current unchecked public-wire boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          file=mycelix-workspace/crates/mycelix-evidence-core/src/lib.rs
+          grep -F '#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]' "$file"
+          grep -F 'pub struct EvidenceIdWireV1' "$file"
+          grep -F 'let wire = EvidenceIdWireV1::deserialize(deserializer)?;' "$file"
+          echo 'negative control: public EvidenceIdWireV1 is currently a direct deserialization target'
+
+      - name: Apply exact wire-admission candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          patch=mycelix-workspace/patches/epistemic/epi-001h-wire-admission-v0-1.patch
+          git apply --check "$patch"
+          git apply "$patch"
+          git diff --check
+
+      - name: Ratchet checked transport admission
+        shell: bash
+        run: |
+          set -euo pipefail
+          file=mycelix-workspace/crates/mycelix-evidence-core/src/lib.rs
+          grep -F 'pub struct EvidenceIdWireV1' "$file"
+          grep -F 'struct UncheckedEvidenceIdWireV1' "$file"
+          grep -F 'let wire = UncheckedEvidenceIdWireV1::deserialize(deserializer)?;' "$file"
+          grep -F 'Self::from_unchecked_wire(wire).map_err(de::Error::custom)' "$file"
+          grep -F '#[derive(Debug, Clone, PartialEq, Eq, Serialize)]' "$file"
+          ! grep -Fq 'let wire = EvidenceIdWireV1::deserialize(deserializer)?;' "$file"
+          python3 - <<'PY'
+          from pathlib import Path
+          text = Path('mycelix-workspace/crates/mycelix-evidence-core/src/lib.rs').read_text()
+          pub_at = text.index('pub struct EvidenceIdWireV1')
+          prefix = text[max(0, pub_at - 180):pub_at]
+          assert 'Deserialize' not in prefix, prefix
+          unchecked_at = text.index('struct UncheckedEvidenceIdWireV1')
+          unchecked_prefix = text[max(0, unchecked_at - 180):unchecked_at]
+          assert 'Deserialize' in unchecked_prefix, unchecked_prefix
+          PY
+
+      - name: Materialize bootstrap lock if required
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp mycelix-workspace/Cargo.lock /tmp/Cargo.lock.before
+          cargo +1.96.0 check --manifest-path mycelix-workspace/crates/mycelix-evidence-core/Cargo.toml
+          cp mycelix-workspace/Cargo.lock /tmp/Cargo.lock.after
+          git diff -- mycelix-workspace/Cargo.lock > /tmp/epi-001h-Cargo.lock.patch
+
+      - name: Require candidate plus lock-only runtime mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          changed="$(git status --porcelain=v1 | awk '{print $2}')"
+          printf '%s\n' "$changed"
+          unexpected="$(printf '%s\n' "$changed" | grep -Ev '^(mycelix-workspace/crates/mycelix-evidence-core/src/lib\.rs|mycelix-workspace/Cargo\.lock)$' || true)"
+          test -z "$unexpected" || {
+            echo 'unexpected runtime mutation:'
+            printf '%s\n' "$unexpected"
+            exit 1
+          }
+
+      - name: Formatting
+        run: cargo +1.96.0 fmt --manifest-path mycelix-workspace/crates/mycelix-evidence-core/Cargo.toml -- --check
+
+      - name: Tests
+        run: cargo +1.96.0 test --manifest-path mycelix-workspace/crates/mycelix-evidence-core/Cargo.toml --all-targets
+
+      - name: Strict Clippy
+        run: cargo +1.96.0 clippy --manifest-path mycelix-workspace/crates/mycelix-evidence-core/Cargo.toml --all-targets -- -D warnings
+
+      - name: Preserve canonical transcript identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +1.96.0 test --manifest-path mycelix-workspace/crates/mycelix-evidence-core/Cargo.toml --test identity_vectors
+
+      - name: Restore product tree and prove qualification-only subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout -- mycelix-workspace/crates/mycelix-evidence-core/src/lib.rs
+          cp /tmp/Cargo.lock.before mycelix-workspace/Cargo.lock
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Qualification statement
+        run: |
+          echo 'PASS establishes only that the candidate closes direct public wire deserialization while preserving typed identity vectors on this exact bootstrap parent.'
+          echo 'PASS does not establish final EPI-001 locked qualification, evidence validity, source authenticity, truth, independence, or application authority.'
