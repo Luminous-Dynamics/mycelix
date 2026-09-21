@@ -1,0 +1,149 @@
+name: Accountability v0.1A Exact Subject
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: accountability-v0-1a-exact-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Exact reciprocal-accountability subject
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          components: rustfmt
+
+      - name: Prove exact squashed subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='a85369699099d4c7524e502e531735eed4ab36f4'
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          test "$(git rev-list --count "$EXPECTED_PARENT"..HEAD)" = '1'
+          git diff --check "$EXPECTED_PARENT" HEAD
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PARENT" HEAD | sort)
+          expected=(
+            '.github/workflows/accountability-core.yml'
+            '.github/workflows/accountability-v0-1a-exact-subject.yml'
+            '.github/workflows/accountability-verifier.yml'
+            'crates/mycelix-accountability-core/Cargo.toml'
+            'crates/mycelix-accountability-core/src/canonical.rs'
+            'crates/mycelix-accountability-core/src/lib.rs'
+            'crates/mycelix-accountability-core/src/protocol.rs'
+            'crates/mycelix-accountability-verifier/Cargo.toml'
+            'crates/mycelix-accountability-verifier/src/lib.rs'
+            'docs/architecture/SIF_CANONICAL_COMMITMENTS_V0_1.md'
+            'docs/architecture/SIF_CROSS_STACK_PROOF_COMPOSITION_V0_1.md'
+            'docs/architecture/SIF_EVIDENCE_COMPOSITION_TEST_PLAN_V0_1.md'
+            'docs/architecture/SIF_EVIDENCE_TRUST_POLICY_V0_1.md'
+            'docs/architecture/SIF_HARDENING_GATE_V0_1.md'
+            'docs/architecture/SIF_INTEROPERABILITY_VECTOR_PROFILE_V0_1.md'
+            'docs/architecture/SIF_PRIVACY_BOUNDARY_CHECKLIST_V0_1.md'
+            'docs/architecture/SIF_QUALIFICATION_NOTE_V0_1.md'
+            'docs/architecture/SIF_SCOPE_BOUNDARY_V0_1.md'
+            'docs/architecture/SIF_VERIFICATION_BOUNDARY_V0_1.md'
+            'docs/architecture/SOVEREIGN_INTELLIGENCE_FABRIC_V0_1.md'
+            'mycelix-civic/Cargo.toml'
+            'mycelix-civic/crates/civic-types/Cargo.toml'
+            'mycelix-civic/crates/civic-types/src/lib.rs'
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed[@]}")
+
+      - name: Prove old semantic blobs are byte-identical
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import subprocess
+          from pathlib import Path
+
+          expected = {
+              'crates/mycelix-accountability-core/Cargo.toml': 'd59d14c78937cf6aa0a42e8f1b0ef2744b9318a9',
+              'crates/mycelix-accountability-core/src/canonical.rs': '3c1e302d0dea73a2cbac88596124cf5d8d591b3b',
+              'crates/mycelix-accountability-core/src/protocol.rs': 'ec99e53f0cda7a330bdeda81920512a309c951f7',
+              'crates/mycelix-accountability-verifier/Cargo.toml': '696538f8d4ec41588cdf749d7b1c647165ae4703',
+              'crates/mycelix-accountability-verifier/src/lib.rs': '6eea9d1cac92780706c1390801a84cc242e50221',
+              'docs/architecture/SIF_CANONICAL_COMMITMENTS_V0_1.md': '65bfe857ffeda9978424c1b119558772b63b4654',
+              'docs/architecture/SIF_CROSS_STACK_PROOF_COMPOSITION_V0_1.md': '4b27fb124eff6d75e483e85844d1c22a4f00ed9f',
+              'docs/architecture/SIF_EVIDENCE_COMPOSITION_TEST_PLAN_V0_1.md': '7c6e5b7214b06381b79f85f0e43a1df96a29ab27',
+              'docs/architecture/SIF_EVIDENCE_TRUST_POLICY_V0_1.md': '99d5c9828d91e2e92db598ae1966a81f4a402ed5',
+              'docs/architecture/SIF_HARDENING_GATE_V0_1.md': '2cd2e49d496b694ffa540119880739c900f6f126',
+              'docs/architecture/SIF_INTEROPERABILITY_VECTOR_PROFILE_V0_1.md': '89fb0bb1fcf3e10ddde0b9a3714f3287bf276b59',
+              'docs/architecture/SIF_PRIVACY_BOUNDARY_CHECKLIST_V0_1.md': '345469959ab69771f9bffb9d8b91e399c7eb24d9',
+              'docs/architecture/SIF_QUALIFICATION_NOTE_V0_1.md': 'c0c6e0059e15f0d5a108f5a941f6fb02d8bf2846',
+              'docs/architecture/SIF_SCOPE_BOUNDARY_V0_1.md': '215aa95126ecf9e85969aa4c94b81540fce7a41e',
+              'docs/architecture/SIF_VERIFICATION_BOUNDARY_V0_1.md': '2550ddbbf534c7b45a3d55d00c5aa1199fea4e17',
+              'docs/architecture/SOVEREIGN_INTELLIGENCE_FABRIC_V0_1.md': '285f0fda1dc1ef3a072243b25e29b10af5724918',
+              'mycelix-civic/Cargo.toml': 'e4e842d14ce4e4655cc50d1ff940136bf9eb807c',
+              'mycelix-civic/crates/civic-types/Cargo.toml': '536bef26de83011a9f089032b86693d5e584e9c3',
+              'mycelix-civic/crates/civic-types/src/lib.rs': '563c7d7b3504310d540e57ef1cb6730ed8f194da',
+          }
+          for path, blob in expected.items():
+              assert Path(path).is_file(), path
+              got = subprocess.check_output(['git', 'hash-object', path], text=True).strip()
+              assert got == blob, (path, got, blob)
+          print(f'preserved-old-blobs={len(expected)}')
+          PY
+
+      - name: Prove lib.rs delta is exactly rustfmt 1.98.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object crates/mycelix-accountability-core/src/lib.rs)" = 'f68720c9580d17fd3ae59e375c6a46e16edf2132'
+          rustc --version --verbose | tee /tmp/rustc-version.txt
+          grep -Fx 'release: 1.98.1' /tmp/rustc-version.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('crates/mycelix-accountability-core/src/lib.rs')
+          current = p.read_text()
+          new = '''    canonical_pre_attestation_receipt_bytes, policy_commitment, pre_attestation_receipt_commitment,\n    purpose_commitment,\n'''
+          old = '''    canonical_pre_attestation_receipt_bytes, policy_commitment,\n    pre_attestation_receipt_commitment, purpose_commitment,\n'''
+          assert current.count(new) == 1
+          assert old not in current
+          reconstructed = current.replace(new, old)
+          Path('/tmp/accountability-lib-before-rustfmt.rs').write_text(reconstructed)
+          Path('/tmp/accountability-lib-rustfmt.rs').write_text(reconstructed)
+          PY
+          test "$(git hash-object /tmp/accountability-lib-before-rustfmt.rs)" = '629a6c9c10431c4a288a76d1c87aa45c48949518'
+          rustfmt --version
+          rustfmt --edition 2024 /tmp/accountability-lib-rustfmt.rs
+          cmp /tmp/accountability-lib-rustfmt.rs crates/mycelix-accountability-core/src/lib.rs
+
+      - name: Prove hardened CI definitions
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object .github/workflows/accountability-core.yml)" = 'adeb851f215ef58b3ee24b68f94fba27953db2b9'
+          test "$(git hash-object .github/workflows/accountability-verifier.yml)" = '0670973e0a8a12d4d2a8bba804a095634340f742'
+          grep -F 'toolchain: 1.98.1' .github/workflows/accountability-core.yml
+          grep -F 'toolchain: 1.98.1' .github/workflows/accountability-verifier.yml
+          ! grep -F 'actions/checkout@v4' .github/workflows/accountability-core.yml
+          ! grep -F 'dtolnay/rust-toolchain@stable' .github/workflows/accountability-core.yml
+          ! grep -F 'Swatinem/rust-cache@v2' .github/workflows/accountability-core.yml
+
+      - name: Qualification claim ceiling
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'Exact subject + preservation + formatting/toolchain identity only.'
+          echo 'A green exact-subject run does not by itself establish runtime authorization, durable receipt persistence, legal compliance, or production readiness.'
+
+      - name: Immutable checkout postflight
+        run: test -z "$(git status --short)"

@@ -1,0 +1,46 @@
+name: Accountability Verifier
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'crates/mycelix-accountability-core/**'
+      - 'crates/mycelix-accountability-verifier/**'
+      - '.github/workflows/accountability-verifier.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'crates/mycelix-accountability-core/**'
+      - 'crates/mycelix-accountability-verifier/**'
+      - '.github/workflows/accountability-verifier.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verifier:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          workspaces: crates/mycelix-accountability-verifier
+      - name: Toolchain identity
+        run: |
+          rustc --version --verbose
+          cargo --version
+          rustfmt --version
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-accountability-verifier/Cargo.toml --all --check
+      - name: Test verifier
+        run: cargo test --manifest-path crates/mycelix-accountability-verifier/Cargo.toml --all-targets
+      - name: Clippy verifier
+        run: cargo clippy --manifest-path crates/mycelix-accountability-verifier/Cargo.toml --all-targets -- -D warnings

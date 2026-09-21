@@ -14,5 +14,6 @@ holo_hash = { workspace = true }
 hdk_derive = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+mycelix-accountability-core = { workspace = true }
 mycelix-bridge-entry-types = { workspace = true }
 mycelix-bridge-common = { workspace = true }
