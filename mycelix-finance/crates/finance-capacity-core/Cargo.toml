@@ -1,0 +1,19 @@
+[package]
+name = "mycelix-finance-capacity-core"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Pure conserved-capacity projection semantics for Mycelix Finance"
+
+[lib]
+crate-type = ["rlib"]
+name = "mycelix_finance_capacity_core"
+
+[dependencies]
+mycelix-finance-exact = { path = "../finance-exact" }
+serde = { workspace = true }
+sha2 = "=0.10.9"
+
+[dev-dependencies]
+proptest = "1"
+serde_json = { workspace = true }

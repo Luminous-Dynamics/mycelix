@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "types",
     "crates/finance-exact",
+    "crates/finance-capacity-core",
     "crates/finance-wire-types",
     "crates/finance-leptos-types",
     "zomes/shared",
