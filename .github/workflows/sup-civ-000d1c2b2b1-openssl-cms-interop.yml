@@ -1,0 +1,111 @@
+name: SUP-CIV-000D1C2B2B1 OpenSSL CMS ML-KEM Interoperability
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/docs/civic-resilience/SUP_CIV_000D1C2B2B1_OPENSSL_CMS_INTEROP_V1.md'
+      - 'mycelix-workspace/docs/civic-resilience/sup_civ_000d1c2b2b1_openssl_cms_interop.json'
+      - 'mycelix-workspace/docs/civic-resilience/vectors/sup_civ_000d1c2b2b1_plaintext.bin'
+      - 'mycelix-workspace/scripts/sup_civ_openssl_364_cms_mlkem_interop_v1.sh'
+      - '.github/workflows/sup-civ-000d1c2b2b1-openssl-cms-interop.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sup-civ-000d1c2b2b1-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Pinned OpenSSL CMS ML-KEM interoperability
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Exact parent and tranche scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='c3599c9c73e3cec5da6c1352227981859563f61c'
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          test "$(git rev-list --count "$EXPECTED_PARENT"..HEAD)" = '1'
+          git diff --check "$EXPECTED_PARENT" HEAD
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PARENT" HEAD | sort)
+          expected=(
+            '.github/workflows/sup-civ-000d1c2b2b1-openssl-cms-interop.yml'
+            'mycelix-workspace/docs/civic-resilience/SUP_CIV_000D1C2B2B1_OPENSSL_CMS_INTEROP_V1.md'
+            'mycelix-workspace/docs/civic-resilience/sup_civ_000d1c2b2b1_openssl_cms_interop.json'
+            'mycelix-workspace/docs/civic-resilience/vectors/sup_civ_000d1c2b2b1_plaintext.bin'
+            'mycelix-workspace/scripts/sup_civ_openssl_364_cms_mlkem_interop_v1.sh'
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed[@]}")
+
+      - name: Prove exact manifest and fixture blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object mycelix-workspace/docs/civic-resilience/sup_civ_000d1c2b2b1_openssl_cms_interop.json)" = '031790ae088b5cf8720545e585fafc51532f7dff'
+          test "$(git hash-object mycelix-workspace/scripts/sup_civ_openssl_364_cms_mlkem_interop_v1.sh)" = '7d3c66c1a53b8419eb32e6c25b723b790ca45331'
+          test "$(git hash-object mycelix-workspace/docs/civic-resilience/vectors/sup_civ_000d1c2b2b1_plaintext.bin)" = '679d8083e7c6ef96427f633f43a02ba035fe4a30'
+          test "$(git hash-object mycelix-workspace/docs/civic-resilience/vectors/sup_civ_000d1c2b2b0_recipient.der)" = '1fa21ea9b37c8dfc68298d1bdf2b6ec3d15b85e4'
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          m=json.loads(Path('mycelix-workspace/docs/civic-resilience/sup_civ_000d1c2b2b1_openssl_cms_interop.json').read_text())
+          assert m['schema']=='sup-civ-000d1c2b2b1-openssl-cms-interop-v1'
+          assert m['structural_parent']=='c3599c9c73e3cec5da6c1352227981859563f61c'
+          assert m['openssl']['version']=='3.6.4'
+          assert m['openssl']['source_sha256']=='9bffaa1ad1e07b354c21bd3324ec02fa15579f45a7d0494b3e74bc449b7333ef'
+          assert m['cms_profile']['content_cipher']=='AES-256-GCM'
+          assert m['cms_profile']['recipient_identifier']=='subjectKeyIdentifier'
+          assert m['cms_profile']['kem']=='ML-KEM-768'
+          assert m['cms_profile']['kdf']=='HKDF-SHA256'
+          assert m['cms_profile']['wrap']=='AES-256-WRAP'
+          assert m['cms_profile']['ukm_length']==165
+          assert m['plaintext']['length']==52
+          assert m['negative_cases']==[
+              'wrong-deterministic-mlkem-private-key-refused',
+              'post-encryption-ukm-byte-mutation-refused'
+          ]
+          PY
+
+      - name: Syntax-check interoperability harness
+        run: bash -n mycelix-workspace/scripts/sup_civ_openssl_364_cms_mlkem_interop_v1.sh
+
+      - name: Execute pinned OpenSSL CMS interoperability qualifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          mycelix-workspace/scripts/sup_civ_openssl_364_cms_mlkem_interop_v1.sh \
+            mycelix-workspace/docs/civic-resilience/sup_civ_000d1c2b2b1_openssl_cms_interop.json
+
+      - name: Refuse runtime and dependency changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='c3599c9c73e3cec5da6c1352227981859563f61c'
+          if git diff --name-only "$EXPECTED_PARENT" HEAD | grep -E '\.(rs|toml|lock|nix)$'; then
+            echo 'runtime/dependency file entered B2B1 interoperability tranche' >&2
+            exit 1
+          fi
+
+      - name: Prove no private-key fixture entered subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='c3599c9c73e3cec5da6c1352227981859563f61c'
+          if git diff --name-only "$EXPECTED_PARENT" HEAD | grep -Ei '(private|secret|key\.pem|\.p8$|\.pk8$|\.key$)'; then
+            echo 'private/secret key material path entered B2B1 subject' >&2
+            exit 1
+          fi
+
+      - name: Immutable checkout postflight
+        run: test -z "$(git status --porcelain)"
