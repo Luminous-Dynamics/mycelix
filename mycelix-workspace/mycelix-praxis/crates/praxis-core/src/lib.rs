@@ -12,6 +12,7 @@
 //! - Provenance tracking for models and credentials
 //! - Authority-safe learning evidence and advisory capability-estimate contracts
 //! - Provenance-complete attempt observations with explicit legacy incompleteness
+//! - Deterministic, evidence-bound BKT advisory projections
 //! - Validation utilities
 //! - Experimental Proof of Learning (PoL) analytics; PoL output is not, by itself,
 //!   proof of mastery, cheating, identity, credential eligibility, or authorization
@@ -19,6 +20,7 @@
 
 mod benchmarks;
 pub mod attempt_evidence;
+pub mod bkt_projection;
 pub mod contracts;
 pub mod crypto;
 pub mod errors;
@@ -30,6 +32,7 @@ pub mod types;
 pub mod validation;
 
 pub use attempt_evidence::*;
+pub use bkt_projection::*;
 pub use contracts::*;
 pub use crypto::*;
 pub use errors::*;
