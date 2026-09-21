@@ -1,0 +1,13 @@
+[package]
+name = "mycelix-web-domain-policy"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Zero-network special-use domain classification for bounded public-web target policy"
+
+[dependencies]
+
+[dev-dependencies]
+serde_json.workspace = true
