@@ -1,0 +1,146 @@
+name: EPI-001 Evidence Identity Bootstrap
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/crates/mycelix-evidence-core/**'
+      - '.github/workflows/epi-001-evidence-identities.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bootstrap-qualify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust 1.96
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+
+      - name: Freeze exact EPI-000 parent and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_parent=3449d3ddf73507c24f1b18801059abbf099c5d67
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            test "${{ github.event.pull_request.base.sha }}" = "$expected_parent"
+          fi
+          git merge-base --is-ancestor "$expected_parent" HEAD
+          changed="$(git diff --name-only "$expected_parent"...HEAD)"
+          printf '%s\n' "$changed"
+          unexpected="$(printf '%s\n' "$changed" | grep -Ev '^(mycelix-workspace/crates/mycelix-evidence-core/|\.github/workflows/epi-001-evidence-identities\.yml$)' || true)"
+          test -z "$unexpected" || {
+            echo 'unexpected EPI-001 scope:'
+            printf '%s\n' "$unexpected"
+            exit 1
+          }
+
+      - name: Independently rederive canonical vectors
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, struct
+
+          PROFILE = b"mycelix:epistemic-identity:v1"
+
+          def field(name: bytes, value: bytes) -> bytes:
+              return struct.pack(">H", len(name)) + name + struct.pack(">I", len(value)) + value
+
+          def digest(role: bytes) -> str:
+              preimage = b"".join([
+                  field(b"profile", PROFILE),
+                  field(b"role", role),
+                  field(b"namespace", b"web"),
+                  field(b"local-id", b"example.org/report:v1"),
+              ])
+              return hashlib.sha256(preimage).hexdigest()
+
+          expected = {
+              b"artifact": "bde8c523cf8daa4201a28c49a84f09830579b0072e78a892ecc7f78976d727f7",
+              b"claim": "fc8b830da362c54f7fd05f8457c85a74187970890d558ba9c2743d4f7f371683",
+          }
+          actual = {role: digest(role) for role in expected}
+          assert actual == expected, (actual, expected)
+          PY
+
+      - name: Freeze pre-bootstrap source identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD > /tmp/epi001-head-before
+          git status --porcelain=v1
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Bootstrap Cargo lock delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-workspace
+          cp Cargo.lock /tmp/Cargo.lock.before
+          cargo +1.96.0 check -p mycelix-evidence-core
+          git diff -- Cargo.lock > /tmp/epi-001-Cargo.lock.patch
+          cp Cargo.lock /tmp/Cargo.lock.after
+          test -s /tmp/epi-001-Cargo.lock.patch || {
+            echo 'No Cargo.lock delta was required.'
+            : > /tmp/epi-001-Cargo.lock.patch
+          }
+
+      - name: Require lock-only bootstrap mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          changed="$(git status --porcelain=v1 | awk '{print $2}' | grep -v '^mycelix-workspace/Cargo.lock$' || true)"
+          test -z "$changed" || {
+            echo 'cargo changed source-controlled files other than Cargo.lock:'
+            printf '%s\n' "$changed"
+            exit 1
+          }
+
+      - name: Formatting
+        run: cargo +1.96.0 fmt --manifest-path mycelix-workspace/crates/mycelix-evidence-core/Cargo.toml -- --check
+
+      - name: Host tests
+        run: cargo +1.96.0 test --manifest-path mycelix-workspace/crates/mycelix-evidence-core/Cargo.toml --all-targets
+
+      - name: WASM check
+        run: cargo +1.96.0 check --manifest-path mycelix-workspace/crates/mycelix-evidence-core/Cargo.toml --target wasm32-unknown-unknown
+
+      - name: Strict Clippy
+        run: cargo +1.96.0 clippy --manifest-path mycelix-workspace/crates/mycelix-evidence-core/Cargo.toml --all-targets -- -D warnings
+
+      - name: Authority ceiling ratchet
+        shell: bash
+        run: |
+          set -euo pipefail
+          file=mycelix-workspace/crates/mycelix-evidence-core/src/lib.rs
+          grep -F 'EvidenceAuthorityScopeV1::IdentityOnly' "$file"
+          grep -F 'pub const fn establishes_truth' "$file"
+          grep -F 'pub const fn establishes_independence' "$file"
+          grep -F 'pub const fn grants_application_authority' "$file"
+          ! grep -Eq 'TruthScore|truth_score|is_true|VerifiedClaim|ProductionAdmitted' "$file"
+
+      - name: Restore bootstrap lock and prove source immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp /tmp/Cargo.lock.before mycelix-workspace/Cargo.lock
+          test "$(git rev-parse HEAD)" = "$(cat /tmp/epi001-head-before)"
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Upload generated lock evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: epi-001-bootstrap-lock-${{ github.sha }}
+          path: |
+            /tmp/Cargo.lock.before
+            /tmp/Cargo.lock.after
+            /tmp/epi-001-Cargo.lock.patch
