@@ -6,6 +6,7 @@ pub mod components;
 pub mod context;
 pub mod diagnostic_copy;
 pub mod mock_data;
+pub mod mutation_diagnostic_runtime;
 pub mod mutation_diagnostics;
 pub mod mutation_ledger;
 pub mod mutation_refresh;

@@ -13,6 +13,7 @@ use std::collections::HashSet;
 use leptos::prelude::*;
 
 use crate::context::use_personal;
+use crate::mutation_diagnostic_runtime::provide_mutation_diagnostic_runtime;
 use crate::mutation_state::{
     MutationObservationState, MutationRefreshOutcome, PendingMutationReceipt,
     PersonalMutationTarget,
@@ -106,6 +107,11 @@ fn receipt_is_observed(
 }
 
 pub fn provide_mutation_ledger() -> MutationLedger {
+    // Mutation diagnostics share the receipt ledger's app lifetime but remain
+    // a separate evidence plane: call diagnostics never become commit/receipt
+    // authority, and reloading either context proves no mutation outcome.
+    provide_mutation_diagnostic_runtime();
+
     let ledger = MutationLedger {
         pending: RwSignal::new(Vec::new()),
     };
