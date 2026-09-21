@@ -1,0 +1,18 @@
+[package]
+name = "mycelix-semantic-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Dependency-light semantic identity primitives for the Mycelix ecosystem"
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+sha2 = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
