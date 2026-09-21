@@ -14,12 +14,14 @@
 //! - Provenance-complete attempt observations with explicit legacy incompleteness
 //! - Learner-authored goal intent separated from evidence-derived progress projections
 //! - Expiring recommendations bound to exact goal/evidence/projection dependencies
+//! - Versioned adaptive-path plans separated from evidence-derived execution progress
 //! - Validation utilities
 //! - Experimental Proof of Learning (PoL) analytics; PoL output is not, by itself,
 //!   proof of mastery, cheating, identity, credential eligibility, or authorization
 //! - Structured error handling with descriptive messages
 
 mod benchmarks;
+pub mod adaptive_path_state;
 pub mod attempt_evidence;
 pub mod contracts;
 pub mod crypto;
@@ -33,6 +35,7 @@ pub mod recommendation_state;
 pub mod types;
 pub mod validation;
 
+pub use adaptive_path_state::*;
 pub use attempt_evidence::*;
 pub use contracts::*;
 pub use crypto::*;
