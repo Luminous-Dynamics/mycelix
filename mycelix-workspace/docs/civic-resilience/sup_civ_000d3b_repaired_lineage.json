@@ -1,0 +1,40 @@
+{
+  "schema": "sup-civ-000d3b-repaired-lineage-v1",
+  "program": "SUP-CIV-000D3B-r2",
+  "execution_parent": {
+    "id": "SUP-CIV-000D3A-r2",
+    "pr": 2488,
+    "exact_head": "2ccb30692fb56ec555528860fcffb9421053d547"
+  },
+  "semantic_origin": {
+    "id": "SUP-CIV-000D3B-r1",
+    "pr": 2436,
+    "old_parent_head": "4ebb8389c1f3a11492ec417a0f1f49ec7a6f8d75"
+  },
+  "reused_exact_blobs": {
+    "admission_cases": "81579a1cfa6bd843c7430733492524df186f86db",
+    "oracle": "4837e14b0e0d15beedfd7e7764e69b0f28221d20"
+  },
+  "semantic_delta": "none",
+  "case_count": 36,
+  "expected_admit_count": 4,
+  "expected_non_admit_count": 32,
+  "qualification_inheritance": false,
+  "required_non_equivalences": [
+    "CorpusSemanticOrigin != CurrentGitParent",
+    "ByteIdenticalCorpus != ParentQualification",
+    "ByteIdenticalOracle != RuntimeAuthorization",
+    "RepairedLineageBinding != SemanticBehaviorChange"
+  ],
+  "nonclaims": [
+    "d3a_qualification",
+    "dependency_qualification",
+    "real_authorization",
+    "protected_data_release",
+    "cryptographic_correctness",
+    "storage_correctness",
+    "public_release_safety",
+    "legal_compliance",
+    "johannesburg_deployment_readiness"
+  ]
+}
