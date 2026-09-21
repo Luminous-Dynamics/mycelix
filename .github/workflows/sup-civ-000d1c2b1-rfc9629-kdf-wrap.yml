@@ -1,0 +1,114 @@
+name: SUP-CIV-000D1C2B1 RFC9629 KDF and AES-KW Vector
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/docs/civic-resilience/SUP_CIV_000D1C2B1_RFC9629_KDF_WRAP_V1.md'
+      - 'mycelix-workspace/docs/civic-resilience/sup_civ_000d1c2b1_rfc9629_kdf_wrap.json'
+      - 'mycelix-workspace/scripts/sup_civ_rfc9629_kdf_wrap_vector_v1.py'
+      - '.github/workflows/sup-civ-000d1c2b1-rfc9629-kdf-wrap.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sup-civ-000d1c2b1-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: RFC9629 OtherInfo HKDF AES-KW core vector
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Exact parent and tranche scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='9775d9217db44c1c1ba12edbeef9a5aeaff3478e'
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          test "$(git rev-list --count "$EXPECTED_PARENT"..HEAD)" = '1'
+          git diff --check "$EXPECTED_PARENT" HEAD
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PARENT" HEAD | sort)
+          expected=(
+            '.github/workflows/sup-civ-000d1c2b1-rfc9629-kdf-wrap.yml'
+            'mycelix-workspace/docs/civic-resilience/SUP_CIV_000D1C2B1_RFC9629_KDF_WRAP_V1.md'
+            'mycelix-workspace/docs/civic-resilience/sup_civ_000d1c2b1_rfc9629_kdf_wrap.json'
+            'mycelix-workspace/scripts/sup_civ_rfc9629_kdf_wrap_vector_v1.py'
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed[@]}")
+
+      - name: Prove exact manifest and canonical transcript dependency
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object mycelix-workspace/docs/civic-resilience/sup_civ_000d1c2b1_rfc9629_kdf_wrap.json)" = 'ad47072725c3d70c91a9a05bba1990295f6badc4'
+          test "$(git hash-object mycelix-workspace/scripts/sup_civ_protected_envelope_codec_v1.py)" = '8620603ed33cd4be576c88f479bb35f796a615a5'
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          m = json.loads(Path('mycelix-workspace/docs/civic-resilience/sup_civ_000d1c2b1_rfc9629_kdf_wrap.json').read_text())
+          assert m['schema'] == 'sup-civ-000d1c2b1-rfc9629-kdf-wrap-v1'
+          assert m['structural_parent'] == '9775d9217db44c1c1ba12edbeef9a5aeaff3478e'
+          assert m['canonical_transcript_dependency'] == '1152251e1b8d09bf69cc2497164a0fc1d58da320'
+          assert m['ukm']['length'] == 165
+          assert m['ukm']['sha256'] == '4a6bbfc2baa973f7bf098f730fb1554d677a0c814ba178269571f1044cf8b53d'
+          assert m['algorithms']['kdf'] == 'HKDF-SHA256'
+          assert m['algorithms']['hkdf_salt'] == 'zero-length-string'
+          assert m['algorithms']['wrap'] == 'AES-256-WRAP'
+          assert m['algorithms']['kek_length'] == 32
+          assert m['cmsori_for_kem_other_info']['length'] == 190
+          assert m['wrapped_dek']['length'] == 40
+          PY
+
+      - name: Syntax-check stdlib vector oracle
+        run: python3 -m py_compile mycelix-workspace/scripts/sup_civ_rfc9629_kdf_wrap_vector_v1.py
+
+      - name: Prove stdlib-only Python imports
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import ast
+          from pathlib import Path
+          path = Path('mycelix-workspace/scripts/sup_civ_rfc9629_kdf_wrap_vector_v1.py')
+          tree = ast.parse(path.read_text())
+          allowed = {'__future__','argparse','hashlib','hmac','json','pathlib','subprocess','tempfile'}
+          imports = set()
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Import):
+                  imports.update(alias.name.split('.')[0] for alias in node.names)
+              elif isinstance(node, ast.ImportFrom) and node.module:
+                  imports.add(node.module.split('.')[0])
+          unexpected = imports - allowed
+          assert not unexpected, unexpected
+          print('stdlib-only:', sorted(imports))
+          PY
+
+      - name: Execute RFC9629 KDF and AES-KW core vector
+        run: >-
+          python3 mycelix-workspace/scripts/sup_civ_rfc9629_kdf_wrap_vector_v1.py
+          --manifest mycelix-workspace/docs/civic-resilience/sup_civ_000d1c2b1_rfc9629_kdf_wrap.json
+
+      - name: Refuse runtime and dependency changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='9775d9217db44c1c1ba12edbeef9a5aeaff3478e'
+          if git diff --name-only "$EXPECTED_PARENT" HEAD | grep -E '\.(rs|toml|lock|nix)$'; then
+            echo 'runtime/dependency file entered C2B1 vector tranche' >&2
+            exit 1
+          fi
+
+      - name: Immutable checkout postflight
+        shell: bash
+        run: |
+          rm -rf mycelix-workspace/scripts/__pycache__
+          test -z "$(git status --porcelain)"
