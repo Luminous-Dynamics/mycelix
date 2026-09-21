@@ -12,6 +12,7 @@
 //! - Provenance tracking for models and credentials
 //! - Authority-safe learning evidence and advisory capability-estimate contracts
 //! - Provenance-complete attempt observations with explicit legacy incompleteness
+//! - Learner-authored goal intent separated from evidence-derived progress projections
 //! - Validation utilities
 //! - Experimental Proof of Learning (PoL) analytics; PoL output is not, by itself,
 //!   proof of mastery, cheating, identity, credential eligibility, or authorization
@@ -23,6 +24,7 @@ pub mod contracts;
 pub mod crypto;
 pub mod errors;
 pub mod export_formats;
+pub mod goal_state;
 pub mod learning_evidence;
 pub mod proof_of_learning;
 pub mod provenance;
@@ -33,6 +35,7 @@ pub use attempt_evidence::*;
 pub use contracts::*;
 pub use crypto::*;
 pub use errors::*;
+pub use goal_state::*;
 pub use learning_evidence::*;
 pub use proof_of_learning::*;
 pub use provenance::*;
