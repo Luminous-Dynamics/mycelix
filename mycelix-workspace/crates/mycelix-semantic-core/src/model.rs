@@ -240,6 +240,76 @@ impl SchemaRefV1 {
     }
 }
 
+/// Exact semantic environment used to interpret later semantic objects.
+///
+/// The environment binds profiles; it does not claim that any profile is trusted,
+/// current, compatible with another environment, or authoritative for a caller.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SemanticEnvironmentV1 {
+    schema: SchemaRefV1,
+    interpretation_profile: SemanticProfileRefV1,
+    identity_profile: SemanticProfileRefV1,
+    authority_profile: SemanticProfileRefV1,
+    temporal_profile: SemanticProfileRefV1,
+    canonicalization_profile: SemanticProfileRefV1,
+}
+
+impl SemanticEnvironmentV1 {
+    /// Construct an exact semantic environment.
+    pub const fn new(
+        schema: SchemaRefV1,
+        interpretation_profile: SemanticProfileRefV1,
+        identity_profile: SemanticProfileRefV1,
+        authority_profile: SemanticProfileRefV1,
+        temporal_profile: SemanticProfileRefV1,
+        canonicalization_profile: SemanticProfileRefV1,
+    ) -> Self {
+        Self {
+            schema,
+            interpretation_profile,
+            identity_profile,
+            authority_profile,
+            temporal_profile,
+            canonicalization_profile,
+        }
+    }
+
+    /// Exact schema profile.
+    pub const fn schema(&self) -> &SchemaRefV1 {
+        &self.schema
+    }
+
+    /// Exact interpretation profile.
+    pub const fn interpretation_profile(&self) -> &SemanticProfileRefV1 {
+        &self.interpretation_profile
+    }
+
+    /// Exact identity-semantics profile.
+    pub const fn identity_profile(&self) -> &SemanticProfileRefV1 {
+        &self.identity_profile
+    }
+
+    /// Exact authority-semantics profile.
+    pub const fn authority_profile(&self) -> &SemanticProfileRefV1 {
+        &self.authority_profile
+    }
+
+    /// Exact temporal-semantics profile.
+    pub const fn temporal_profile(&self) -> &SemanticProfileRefV1 {
+        &self.temporal_profile
+    }
+
+    /// Exact canonicalization profile for semantic values interpreted in this
+    /// environment.
+    ///
+    /// This field does not define how `SemanticEnvironmentV1` itself is committed;
+    /// that envelope commitment profile is introduced separately in MYC-SEM-001C.
+    pub const fn canonicalization_profile(&self) -> &SemanticProfileRefV1 {
+        &self.canonicalization_profile
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -308,5 +378,56 @@ mod tests {
         assert_eq!(schema.profile(), &profile);
         assert_eq!(schema.profile().revision(), 7);
         assert_eq!(schema.profile().digest(), digest(9));
+    }
+
+    fn profile(id: &str, revision: u64, byte: u8) -> SemanticProfileRefV1 {
+        SemanticProfileRefV1::new(id, revision, digest(byte)).unwrap()
+    }
+
+    fn environment() -> SemanticEnvironmentV1 {
+        SemanticEnvironmentV1::new(
+            SchemaRefV1::new(profile("schema/base", 1, 1)),
+            profile("interpretation/base", 2, 2),
+            profile("identity/base", 3, 3),
+            profile("authority/base", 4, 4),
+            profile("temporal/base", 5, 5),
+            profile("canonical/domain-v1", 1, 6),
+        )
+    }
+
+    #[test]
+    fn environment_preserves_profile_roles_exactly() {
+        let environment = environment();
+        assert_eq!(environment.schema().profile().id().as_str(), "schema/base");
+        assert_eq!(
+            environment.interpretation_profile().id().as_str(),
+            "interpretation/base"
+        );
+        assert_eq!(environment.identity_profile().id().as_str(), "identity/base");
+        assert_eq!(environment.authority_profile().id().as_str(), "authority/base");
+        assert_eq!(environment.temporal_profile().id().as_str(), "temporal/base");
+        assert_eq!(
+            environment.canonicalization_profile().id().as_str(),
+            "canonical/domain-v1"
+        );
+    }
+
+    #[test]
+    fn environment_wire_shape_is_closed() {
+        let mut value = serde_json::to_value(environment()).unwrap();
+        value
+            .as_object_mut()
+            .unwrap()
+            .insert("current".into(), serde_json::Value::Bool(true));
+        let decoded: Result<SemanticEnvironmentV1, _> = serde_json::from_value(value);
+        assert!(decoded.is_err());
+    }
+
+    #[test]
+    fn environment_round_trip_preserves_exact_profiles() {
+        let environment = environment();
+        let encoded = serde_json::to_string(&environment).unwrap();
+        let decoded: SemanticEnvironmentV1 = serde_json::from_str(&encoded).unwrap();
+        assert_eq!(decoded, environment);
     }
 }
