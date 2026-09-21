@@ -1,0 +1,14 @@
+[package]
+name = "mycelix-web-locator"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Bounded WHATWG web-locator parsing and projection without network authority"
+
+[dependencies]
+url.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
