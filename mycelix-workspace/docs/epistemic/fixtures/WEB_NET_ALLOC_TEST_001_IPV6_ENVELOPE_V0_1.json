@@ -1,0 +1,52 @@
+{
+  "profile": "mycelix:web-net-alloc-test:v1",
+  "registry": {
+    "authority": "IANA IPv6 Address Space",
+    "registry_updated": "2025-10-23",
+    "authoring_mirror_repository": "larseggert/iana-assignments",
+    "authoring_mirror_commit": "ea3e987980dbdb643d60445cd971c1baa78c8c80",
+    "xml_path": "ipv6-address-space/ipv6-address-space.xml",
+    "xml_blob_sha1": "c4d137e88ef40a6b03dcff7e88c08d14b4e94977",
+    "txt_blob_sha1": "1061c404100a734dd180f601336fc47d226f9029"
+  },
+  "policy": {
+    "name": "OrdinaryPublicEndpointV1",
+    "ipv6_current_iana_global_unicast_envelope": "2000::/3",
+    "special_purpose_and_multicast_precedence": true,
+    "outside_envelope": "refuse",
+    "future_registry_expansion_requires_new_profile": true
+  },
+  "top_level_entries": [
+    {"prefix":"::/8","allocation":"Reserved by IETF","policy_v1":"outside_current_iana_global_unicast_envelope"},
+    {"prefix":"100::/8","allocation":"Reserved by IETF","policy_v1":"outside_current_iana_global_unicast_envelope"},
+    {"prefix":"200::/7","allocation":"Reserved by IETF","policy_v1":"outside_current_iana_global_unicast_envelope"},
+    {"prefix":"400::/6","allocation":"Reserved by IETF","policy_v1":"outside_current_iana_global_unicast_envelope"},
+    {"prefix":"800::/5","allocation":"Reserved by IETF","policy_v1":"outside_current_iana_global_unicast_envelope"},
+    {"prefix":"1000::/4","allocation":"Reserved by IETF","policy_v1":"outside_current_iana_global_unicast_envelope"},
+    {"prefix":"2000::/3","allocation":"Global Unicast","policy_v1":"current_iana_global_unicast_envelope"},
+    {"prefix":"4000::/3","allocation":"Reserved by IETF","policy_v1":"outside_current_iana_global_unicast_envelope"},
+    {"prefix":"6000::/3","allocation":"Reserved by IETF","policy_v1":"outside_current_iana_global_unicast_envelope"},
+    {"prefix":"8000::/3","allocation":"Reserved by IETF","policy_v1":"outside_current_iana_global_unicast_envelope"},
+    {"prefix":"a000::/3","allocation":"Reserved by IETF","policy_v1":"outside_current_iana_global_unicast_envelope"},
+    {"prefix":"c000::/3","allocation":"Reserved by IETF","policy_v1":"outside_current_iana_global_unicast_envelope"},
+    {"prefix":"e000::/4","allocation":"Reserved by IETF","policy_v1":"outside_current_iana_global_unicast_envelope"},
+    {"prefix":"f000::/5","allocation":"Reserved by IETF","policy_v1":"outside_current_iana_global_unicast_envelope"},
+    {"prefix":"f800::/6","allocation":"Reserved by IETF","policy_v1":"outside_current_iana_global_unicast_envelope"},
+    {"prefix":"fc00::/7","allocation":"Unique Local Unicast","policy_v1":"outside_current_iana_global_unicast_envelope"},
+    {"prefix":"fe00::/9","allocation":"Reserved by IETF","policy_v1":"outside_current_iana_global_unicast_envelope"},
+    {"prefix":"fe80::/10","allocation":"Link-Scoped Unicast","policy_v1":"outside_current_iana_global_unicast_envelope"},
+    {"prefix":"fec0::/10","allocation":"Reserved by IETF","policy_v1":"outside_current_iana_global_unicast_envelope","note":"Deprecated former Site-Local prefix"},
+    {"prefix":"ff00::/8","allocation":"Multicast","policy_v1":"outside_current_iana_global_unicast_envelope"}
+  ],
+  "vectors": [
+    {"id":"ipv6-ordinary-global-value-only","address":"2606:4700:4700::1111","expected":"ordinary_public_endpoint_eligible","network_io":false},
+    {"id":"ipv6-reserved-4000","address":"4000::1","expected":"refuse_outside_current_iana_global_unicast_envelope"},
+    {"id":"ipv6-deprecated-site-local","address":"fec0::1","expected":"refuse_outside_current_iana_global_unicast_envelope"},
+    {"id":"ipv6-compatible-shaped","address":"::808:808","expected":"refuse_outside_current_iana_global_unicast_envelope"},
+    {"id":"ipv6-documentation-precedence","address":"2001:db8::1","expected":"refuse_special_purpose","matched":"2001:db8::/32"},
+    {"id":"ipv6-multicast-precedence","address":"ff02::1","expected":"refuse_multicast","matched":"ff00::/8"},
+    {"id":"ipv6-ula-precedence","address":"fc00::1","expected":"refuse_special_purpose","matched":"fc00::/7"},
+    {"id":"ipv6-link-local-precedence","address":"fe80::1","expected":"refuse_special_purpose","matched":"fe80::/10"},
+    {"id":"ipv6-translation-precedence","address":"64:ff9b::808:808","expected":"refuse_special_purpose","matched":"64:ff9b::/96"}
+  ]
+}
