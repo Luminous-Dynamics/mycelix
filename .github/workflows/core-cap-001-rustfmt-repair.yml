@@ -1,0 +1,162 @@
+name: CORE-CAP-001 Exact Rustfmt Repair
+
+on:
+  push:
+    branches:
+      - ci/core-cap-001-rustfmt-repair
+
+permissions:
+  contents: write
+
+concurrency:
+  group: core-cap-001-rustfmt-repair
+  cancel-in-progress: true
+
+env:
+  FAILED_PRODUCT_SHA: 97e4aaea25c59787dd594ed99f34da92242bb44d
+  FAILED_PRODUCT_TREE: 50b52fceda6eb754fc4472f198f0f095d47f2ee3
+  PRODUCT_PARENT: 9fa9104ff2e1a26a51abb54bf2dd98c566b7a9f2
+  EXPECTED_CARGO_BLOB: b2c4e2408d7d05f1a8e9e90b5bee94c86d6d5f2b
+  EXPECTED_INVARIANTS_BLOB: 045122d35b8d2ed9529205cb59194d5fd9844592
+  EXPECTED_OLD_LIB_BLOB: 0941ce7d6b7a9586dd7f1cd44cf2ac6732001279
+  EXPECTED_OLD_TEST_BLOB: f79be4695990b61579f3575cc721a2d9e79c3d2c
+  TARGET_BRANCH: audit/core-cap-001-rustfmt-r2
+  RUST_TOOLCHAIN: 1.98.1
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact failed product
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.FAILED_PRODUCT_SHA }}
+          path: source
+          fetch-depth: 3
+          persist-credentials: false
+
+      - name: Prove failed product identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C source rev-parse HEAD)" = "$FAILED_PRODUCT_SHA"
+          test "$(git -C source rev-parse 'HEAD^{tree}')" = "$FAILED_PRODUCT_TREE"
+          test "$(git -C source show -s --format=%P HEAD)" = "$PRODUCT_PARENT"
+          test "$(git -C source hash-object crates/mycelix-capability-core/Cargo.toml)" = "$EXPECTED_CARGO_BLOB"
+          test "$(git -C source hash-object crates/mycelix-capability-core/INVARIANTS.md)" = "$EXPECTED_INVARIANTS_BLOB"
+          test "$(git -C source hash-object crates/mycelix-capability-core/src/lib.rs)" = "$EXPECTED_OLD_LIB_BLOB"
+          test "$(git -C source hash-object crates/mycelix-capability-core/tests/conformance.rs)" = "$EXPECTED_OLD_TEST_BLOB"
+
+      - name: Install exact formatter
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt
+
+      - name: Apply only demonstrated rustfmt transformation
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p receipt
+          rustc -vV | tee receipt/rustc.txt
+          rustfmt -V | tee receipt/rustfmt.txt
+          cargo fmt --manifest-path source/crates/mycelix-capability-core/Cargo.toml
+          cargo fmt --manifest-path source/crates/mycelix-capability-core/Cargo.toml -- --check
+
+          mapfile -t changed < <(git -C source diff --name-only | LC_ALL=C sort)
+          expected=(
+            'crates/mycelix-capability-core/src/lib.rs'
+            'crates/mycelix-capability-core/tests/conformance.rs'
+          )
+          test "${#changed[@]}" -eq "${#expected[@]}"
+          for i in "${!expected[@]}"; do
+            test "${changed[$i]}" = "${expected[$i]}"
+          done
+
+          lib_blob="$(git -C source hash-object crates/mycelix-capability-core/src/lib.rs)"
+          test_blob="$(git -C source hash-object crates/mycelix-capability-core/tests/conformance.rs)"
+          test "$lib_blob" != "$EXPECTED_OLD_LIB_BLOB"
+          test "$test_blob" != "$EXPECTED_OLD_TEST_BLOB"
+          echo "FORMATTED_LIB_BLOB=$lib_blob" >> "$GITHUB_ENV"
+          echo "FORMATTED_TEST_BLOB=$test_blob" >> "$GITHUB_ENV"
+          git -C source diff -- crates/mycelix-capability-core/src/lib.rs crates/mycelix-capability-core/tests/conformance.rs > receipt/rustfmt.patch
+          test -s receipt/rustfmt.patch
+
+      - name: Checkout exact convergence parent
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.PRODUCT_PARENT }}
+          path: repaired
+          fetch-depth: 3
+          persist-credentials: true
+
+      - name: Construct fresh direct sibling
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p repaired/crates/mycelix-capability-core/src repaired/crates/mycelix-capability-core/tests
+          cp source/crates/mycelix-capability-core/Cargo.toml repaired/crates/mycelix-capability-core/Cargo.toml
+          cp source/crates/mycelix-capability-core/INVARIANTS.md repaired/crates/mycelix-capability-core/INVARIANTS.md
+          cp source/crates/mycelix-capability-core/src/lib.rs repaired/crates/mycelix-capability-core/src/lib.rs
+          cp source/crates/mycelix-capability-core/tests/conformance.rs repaired/crates/mycelix-capability-core/tests/conformance.rs
+
+          test "$(git -C repaired hash-object crates/mycelix-capability-core/Cargo.toml)" = "$EXPECTED_CARGO_BLOB"
+          test "$(git -C repaired hash-object crates/mycelix-capability-core/INVARIANTS.md)" = "$EXPECTED_INVARIANTS_BLOB"
+          test "$(git -C repaired hash-object crates/mycelix-capability-core/src/lib.rs)" = "$FORMATTED_LIB_BLOB"
+          test "$(git -C repaired hash-object crates/mycelix-capability-core/tests/conformance.rs)" = "$FORMATTED_TEST_BLOB"
+
+          cd repaired
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add crates/mycelix-capability-core
+
+          mapfile -t staged < <(git diff --cached --name-only | LC_ALL=C sort)
+          expected=(
+            'crates/mycelix-capability-core/Cargo.toml'
+            'crates/mycelix-capability-core/INVARIANTS.md'
+            'crates/mycelix-capability-core/src/lib.rs'
+            'crates/mycelix-capability-core/tests/conformance.rs'
+          )
+          test "${#staged[@]}" -eq "${#expected[@]}"
+          for i in "${!expected[@]}"; do
+            test "${staged[$i]}" = "${expected[$i]}"
+          done
+
+          git commit -m 'fix(core-cap): apply Rust 1.98.1 rustfmt only'
+          new_sha="$(git rev-parse HEAD)"
+          new_tree="$(git rev-parse 'HEAD^{tree}')"
+          test "$(git show -s --format=%P HEAD)" = "$PRODUCT_PARENT"
+
+          git fetch --no-tags --depth=1 origin "$FAILED_PRODUCT_SHA"
+          mapfile -t semantic_delta < <(git diff --name-only "$FAILED_PRODUCT_SHA" HEAD -- crates/mycelix-capability-core | LC_ALL=C sort)
+          expected_delta=(
+            'crates/mycelix-capability-core/src/lib.rs'
+            'crates/mycelix-capability-core/tests/conformance.rs'
+          )
+          test "${#semantic_delta[@]}" -eq "${#expected_delta[@]}"
+          for i in "${!expected_delta[@]}"; do
+            test "${semantic_delta[$i]}" = "${expected_delta[$i]}"
+          done
+
+          git diff "$FAILED_PRODUCT_SHA" HEAD -- crates/mycelix-capability-core/src/lib.rs crates/mycelix-capability-core/tests/conformance.rs > ../receipt/sibling.patch
+          cmp ../receipt/rustfmt.patch ../receipt/sibling.patch
+
+          {
+            echo "failed_product_sha=$FAILED_PRODUCT_SHA"
+            echo "parent=$PRODUCT_PARENT"
+            echo "repaired_sha=$new_sha"
+            echo "repaired_tree=$new_tree"
+            echo "cargo_blob=$EXPECTED_CARGO_BLOB"
+            echo "invariants_blob=$EXPECTED_INVARIANTS_BLOB"
+            echo "formatted_lib_blob=$FORMATTED_LIB_BLOB"
+            echo "formatted_test_blob=$FORMATTED_TEST_BLOB"
+          } | tee ../receipt/repair-subject.txt
+
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH" --force
+
+      - name: Upload exact repair receipt
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: core-cap-001-rustfmt-repair
+          path: receipt/
+          retention-days: 30
