@@ -1,0 +1,188 @@
+name: Stewardship Delegation Qualification
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+    paths:
+      - 'crates/mycelix-stewardship-core/**'
+      - 'crates/mycelix-stewardship-delegation/**'
+      - '.github/workflows/stewardship-delegation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: stewardship-delegation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      EXPECTED_PARENT_SHA: 5ee5d2476401ea85312c61be8c1f9bc7f57f8c47
+      EXPECTED_PARENT_TREE: 92ee39c8ef7f8808a9bd0c497c5063a1984ae4d9
+      EXPECTED_PARENT_RUN_ID: '35499256994'
+      EXPECTED_PARENT_RUN_ATTEMPT: '1'
+      EXPECTED_PARENT_JOB_ID: '106047949046'
+      EXPECTED_PARENT_WORKFLOW_PATH: .github/workflows/stewardship-core.yml
+      EXPECTED_PARENT_PR: '1759'
+      CARGO_NET_OFFLINE: 'true'
+    steps:
+      - name: Checkout exact proposed head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.EXPECTED_SHA }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Bind exact child and parent geometry
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT_SHA"
+          test "$(git show -s --format=%T "$EXPECTED_PARENT_SHA")" = "$EXPECTED_PARENT_TREE"
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PARENT_SHA"..HEAD | sort)
+          expected=(
+            '.github/workflows/stewardship-delegation.yml'
+            'crates/mycelix-stewardship-delegation/Cargo.toml'
+            'crates/mycelix-stewardship-delegation/README.md'
+            'crates/mycelix-stewardship-delegation/src/lib.rs'
+          )
+          test "${#changed[@]}" -eq "${#expected[@]}"
+          for i in "${!expected[@]}"; do test "${changed[$i]}" = "${expected[$i]}"; done
+
+      - name: Verify exact successful STEW-001 parent qualification
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          repo = os.environ['GITHUB_REPOSITORY']
+          run_id = os.environ['EXPECTED_PARENT_RUN_ID']
+          attempt = int(os.environ['EXPECTED_PARENT_RUN_ATTEMPT'])
+          job_id = int(os.environ['EXPECTED_PARENT_JOB_ID'])
+          parent_sha = os.environ['EXPECTED_PARENT_SHA']
+          parent_tree = os.environ['EXPECTED_PARENT_TREE']
+          workflow_path = os.environ['EXPECTED_PARENT_WORKFLOW_PATH']
+          pr_number = int(os.environ['EXPECTED_PARENT_PR'])
+          token = os.environ['GH_TOKEN']
+
+          def get(url):
+              req = urllib.request.Request(
+                  url,
+                  headers={
+                      'Accept': 'application/vnd.github+json',
+                      'Authorization': f'Bearer {token}',
+                      'X-GitHub-Api-Version': '2022-11-28',
+                  },
+              )
+              with urllib.request.urlopen(req) as response:
+                  return json.load(response)
+
+          run = get(f'https://api.github.com/repos/{repo}/actions/runs/{run_id}')
+          assert run['id'] == int(run_id)
+          assert run['status'] == 'completed'
+          assert run['conclusion'] == 'success'
+          assert run['run_attempt'] == attempt
+          assert run['head_sha'] == parent_sha
+          assert run['path'] == workflow_path
+          assert run['event'] == 'pull_request'
+          assert run['head_commit']['tree_id'] == parent_tree
+          prs = {item['number'] for item in run.get('pull_requests', [])}
+          assert pr_number in prs
+
+          jobs = get(f'https://api.github.com/repos/{repo}/actions/runs/{run_id}/jobs?filter=latest&per_page=100')
+          matches = [job for job in jobs['jobs'] if job['id'] == job_id]
+          assert len(matches) == 1
+          assert matches[0]['status'] == 'completed'
+          assert matches[0]['conclusion'] == 'success'
+          print('parent qualification binding verified')
+          PY
+
+      - name: Install exact Rust toolchain and wasm target
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+
+      - name: Record exact Rust environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc --version --verbose
+          cargo --version --verbose
+          rustfmt --version
+          cargo clippy --version
+          test "$(rustc --version | awk '{print $2}')" = '1.98.1'
+
+      - name: Verify narrow dependency closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import pathlib
+          import tomllib
+
+          manifest = pathlib.Path('crates/mycelix-stewardship-delegation/Cargo.toml')
+          data = tomllib.loads(manifest.read_text())
+          expected = {
+              'mycelix-stewardship-core': {
+                  'path': '../mycelix-stewardship-core',
+              }
+          }
+          dependencies = data.get('dependencies', {})
+          if dependencies != expected:
+              raise SystemExit(f'unexpected STEW-013A dependency closure: {dependencies!r}')
+          PY
+
+      - name: Verify canonical scope-conservation hardening
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-stewardship-delegation/src/lib.rs'
+          grep -Fq 'refs.sort();' "$source"
+          grep -Fq 'refs.windows(2).any' "$source"
+          grep -Fq 'self.domains.len() < parent.domains.len()' "$source"
+          grep -Fq 'self.actions.len() < parent.actions.len()' "$source"
+          grep -Fq 'self.purposes.len() < parent.purposes.len()' "$source"
+          grep -Fq 'fn scope_lists_canonicalize_permutations()' "$source"
+          grep -Fq 'fn permutation_cannot_masquerade_as_strict_narrowing()' "$source"
+
+      - name: rustfmt
+        run: CARGO_TARGET_DIR="$RUNNER_TEMP/stew-013a-target" cargo fmt --manifest-path crates/mycelix-stewardship-delegation/Cargo.toml -- --check
+
+      - name: Host tests
+        run: CARGO_TARGET_DIR="$RUNNER_TEMP/stew-013a-target" cargo test --manifest-path crates/mycelix-stewardship-delegation/Cargo.toml --all-targets
+
+      - name: wasm32 check
+        run: CARGO_TARGET_DIR="$RUNNER_TEMP/stew-013a-target" cargo check --manifest-path crates/mycelix-stewardship-delegation/Cargo.toml --target wasm32-unknown-unknown
+
+      - name: Strict Clippy
+        run: CARGO_TARGET_DIR="$RUNNER_TEMP/stew-013a-target" cargo clippy --manifest-path crates/mycelix-stewardship-delegation/Cargo.toml --all-targets -- -D warnings
+
+      - name: rustdoc
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: CARGO_TARGET_DIR="$RUNNER_TEMP/stew-013a-target" cargo doc --manifest-path crates/mycelix-stewardship-delegation/Cargo.toml --no-deps
+
+      - name: Immutable postflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f crates/mycelix-stewardship-delegation/Cargo.lock
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT_SHA"
+          test "$(git show -s --format=%T "$EXPECTED_PARENT_SHA")" = "$EXPECTED_PARENT_TREE"
+          test -z "$(git status --porcelain --untracked-files=all)"
