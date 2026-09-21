@@ -17,7 +17,8 @@ on:
       - 'mycelix-workspace/mycelix-hearth/dna/**'
       - 'mycelix-workspace/mycelix-hearth/flake.nix'
       - 'mycelix-workspace/mycelix-hearth/flake.lock'
-      - 'mycelix-workspace/nix/modules/**'
+      - 'mycelix-workspace/rust-toolchain.toml'
+      - 'nix/modules/**'
       - 'mycelix-workspace/crates/mycelix-bridge-common/**'
       - 'mycelix-workspace/crates/mycelix-bridge-entry-types/**'
       - 'mycelix-workspace/crates/mycelix-zkp-core/**'
@@ -40,7 +41,8 @@ on:
       - 'mycelix-workspace/mycelix-hearth/dna/**'
       - 'mycelix-workspace/mycelix-hearth/flake.nix'
       - 'mycelix-workspace/mycelix-hearth/flake.lock'
-      - 'mycelix-workspace/nix/modules/**'
+      - 'mycelix-workspace/rust-toolchain.toml'
+      - 'nix/modules/**'
       - 'mycelix-workspace/crates/mycelix-bridge-common/**'
       - 'mycelix-workspace/crates/mycelix-bridge-entry-types/**'
       - 'mycelix-workspace/crates/mycelix-zkp-core/**'
@@ -101,7 +103,9 @@ jobs:
             "$HEARTH_ROOT/zomes/hearth-care-transitions/integrity/Cargo.toml" \
             "$HEARTH_ROOT/zomes/hearth-care-transitions/coordinator/Cargo.toml" \
             "$HEARTH_ROOT/zomes/hearth-kinship/coordinator/Cargo.toml" \
-            "$HEARTH_ROOT/zomes/hearth-bridge/coordinator/Cargo.toml"; do
+            "$HEARTH_ROOT/zomes/hearth-bridge/coordinator/Cargo.toml" \
+            "mycelix-workspace/rust-toolchain.toml" \
+            "nix/modules/holochain-base.nix"; do
             test -f "$required" || {
               echo "::error file=$required::Required Hearth Care integration source is missing."
               exit 1
@@ -121,7 +125,21 @@ jobs:
           workspaces: |
             mycelix-workspace/mycelix-hearth
             mycelix-workspace/mycelix-hearth/tests
-            mycelix-workspace/crates
+
+      - name: Verify canonical Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="$(sed -n 's/^channel = "\([^"]*\)"/\1/p' mycelix-workspace/rust-toolchain.toml)"
+          test -n "$expected" || {
+            echo "::error::Could not read canonical Rust channel"
+            exit 1
+          }
+          actual="$(cd "$HEARTH_ROOT" && nix develop .#ci --impure --command rustc --version | awk '{print $2}')"
+          test "$actual" = "$expected" || {
+            echo "::error::Expected Rust $expected from rust-toolchain.toml, got $actual"
+            exit 1
+          }
 
       - name: Build Hearth zomes for wasm32
         shell: bash

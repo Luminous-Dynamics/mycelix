@@ -41,6 +41,12 @@
           holochainPackages = holochainPackages;
         };
 
+        # Qualification must use the same canonical Rust pin as the workspace.
+        # Reading the rustup-format toolchain file avoids depending on whether
+        # this rust-overlay revision exposes that release as a named stable attr.
+        workspaceRustToolchain =
+          pkgs.rust-bin.fromRustupToolchainFile ../rust-toolchain.toml;
+
       in {
         devShells = {
           default = holochainBase.mkHolochainShell {
@@ -75,7 +81,7 @@
             buildInputs = with pkgs; [
               holochainPackages.holochain
               holochainPackages.hc
-              holochainBase.rustToolchain
+              workspaceRustToolchain
               pkg-config
               openssl
               openssl.dev
@@ -91,7 +97,7 @@
           zomes = pkgs.stdenv.mkDerivation {
             name = "mycelix-hearth-zomes";
             src = ./.;
-            nativeBuildInputs = [ holochainBase.rustToolchain pkgs.pkg-config ];
+            nativeBuildInputs = [ workspaceRustToolchain pkgs.pkg-config ];
             buildInputs = [ pkgs.openssl ];
             buildPhase = ''
               export HOME=$TMPDIR
