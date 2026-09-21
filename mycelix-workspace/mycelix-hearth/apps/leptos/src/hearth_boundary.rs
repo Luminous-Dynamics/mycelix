@@ -6,7 +6,10 @@
 //! A domain page may render its own empty state only when the source was
 //! actually established. `Unknown` and `Unavailable` hide the domain page so
 //! legacy "nothing here" copy cannot strengthen an unperformed/failed query
-//! into an authoritative empty result.
+//! into an authoritative empty result. During a primary snapshot refresh, an
+//! otherwise established source is also presented as `Unknown` until the staged
+//! generation commits, so retained previous-generation payloads are never
+//! presented as if they were the newly established snapshot.
 
 use crate::hearth_truth::{HearthAvailability, use_hearth_truth};
 use leptos::prelude::*;
@@ -76,6 +79,34 @@ pub fn domain_state(
     }
 }
 
+/// Presentation state for a domain at the route boundary.
+///
+/// `HearthTruthState::loading` means a newer primary snapshot generation is
+/// being assembled privately. Previously established payloads may remain stored
+/// while that happens, but they must not be presented as the newly established
+/// result. Only states that would otherwise render source-backed content are
+/// downgraded to `Unknown`; fail-closed `Unknown`, `Unavailable`, and `Locked`
+/// states remain exact, and mock mode is not reinterpreted as a live refresh.
+pub fn domain_presentation_state(
+    availability: &HearthAvailability,
+    loading: bool,
+    domain: HearthDataDomain,
+) -> AvailabilityStateKind {
+    let state = domain_state(availability, domain);
+    if loading
+        && matches!(
+            state,
+            AvailabilityStateKind::Live
+                | AvailabilityStateKind::Empty
+                | AvailabilityStateKind::Degraded
+        )
+    {
+        AvailabilityStateKind::Unknown
+    } else {
+        state
+    }
+}
+
 pub fn can_render_domain(kind: AvailabilityStateKind) -> bool {
     matches!(
         kind,
@@ -120,7 +151,11 @@ pub fn HearthDataBoundary(
 
     let truth_for_content = truth.clone();
     let content_style = move || {
-        let kind = domain_state(&truth_for_content.availability.get(), domain);
+        let kind = domain_presentation_state(
+            &truth_for_content.availability.get(),
+            truth_for_content.loading.get(),
+            domain,
+        );
         if can_render_domain(kind) {
             "display: block"
         } else {
@@ -130,7 +165,11 @@ pub fn HearthDataBoundary(
 
     let truth_for_blocked = truth.clone();
     let blocked_style = move || {
-        let kind = domain_state(&truth_for_blocked.availability.get(), domain);
+        let kind = domain_presentation_state(
+            &truth_for_blocked.availability.get(),
+            truth_for_blocked.loading.get(),
+            domain,
+        );
         if can_render_domain(kind) {
             "display: none"
         } else {
@@ -152,23 +191,39 @@ pub fn HearthDataBoundary(
                 <div class="availability-state-meta">
                     <span class="availability-state-title">{title}</span>
                     <span class="status-pill availability-unavailable">
-                        {move || domain_state(&truth_for_kind.availability.get(), domain).label()}
+                        {move || {
+                            domain_presentation_state(
+                                &truth_for_kind.availability.get(),
+                                truth_for_kind.loading.get(),
+                                domain,
+                            )
+                            .label()
+                        }}
                     </span>
                 </div>
                 <p class="availability-state-description">
                     {move || {
-                        let kind = domain_state(&truth_for_description.availability.get(), domain);
-                        match kind {
-                            AvailabilityStateKind::Unknown => {
-                                "This data source has not been established yet. No empty-result claim is being made."
+                        let loading = truth_for_description.loading.get();
+                        let kind = domain_presentation_state(
+                            &truth_for_description.availability.get(),
+                            loading,
+                            domain,
+                        );
+                        if loading && kind == AvailabilityStateKind::Unknown {
+                            "Refreshing this Hearth area. The previous snapshot may remain stored locally, but it is not treated as current until the new snapshot commits."
+                        } else {
+                            match kind {
+                                AvailabilityStateKind::Unknown => {
+                                    "This data source has not been established yet. No empty-result claim is being made."
+                                }
+                                AvailabilityStateKind::Unavailable => {
+                                    "This Hearth area is not live-backed in the current frontend. Demo records are hidden in live mode."
+                                }
+                                AvailabilityStateKind::Locked => {
+                                    "This Hearth area is currently locked."
+                                }
+                                _ => "This Hearth area is not currently available.",
                             }
-                            AvailabilityStateKind::Unavailable => {
-                                "This Hearth area is not live-backed in the current frontend. Demo records are hidden in live mode."
-                            }
-                            AvailabilityStateKind::Locked => {
-                                "This Hearth area is currently locked."
-                            }
-                            _ => "This Hearth area is not currently available.",
                         }
                     }}
                 </p>
@@ -179,8 +234,11 @@ pub fn HearthDataBoundary(
             class="hearth-domain-degraded"
             role="status"
             style=move || {
-                if domain_state(&truth_for_degraded.availability.get(), domain)
-                    == AvailabilityStateKind::Degraded
+                if domain_presentation_state(
+                    &truth_for_degraded.availability.get(),
+                    truth_for_degraded.loading.get(),
+                    domain,
+                ) == AvailabilityStateKind::Degraded
                 {
                     "display: block"
                 } else {
@@ -195,7 +253,7 @@ pub fn HearthDataBoundary(
 
 #[cfg(test)]
 mod tests {
-    use super::{HearthDataDomain, domain_state};
+    use super::{HearthDataDomain, domain_presentation_state, domain_state};
     use crate::hearth_truth::HearthAvailability;
     use mycelix_leptos_core::AvailabilityStateKind;
 
@@ -235,6 +293,42 @@ mod tests {
         let availability = HearthAvailability::mock_mode();
         assert_eq!(
             domain_state(&availability, HearthDataDomain::Home),
+            AvailabilityStateKind::Mock
+        );
+    }
+
+    #[test]
+    fn refresh_hides_previously_established_domain_until_snapshot_commit() {
+        let mut availability = HearthAvailability::live_pending();
+        availability.members = AvailabilityStateKind::Live;
+        availability.care_schedules = AvailabilityStateKind::Empty;
+
+        assert_eq!(
+            domain_presentation_state(&availability, false, HearthDataDomain::Care),
+            AvailabilityStateKind::Live
+        );
+        assert_eq!(
+            domain_presentation_state(&availability, true, HearthDataDomain::Care),
+            AvailabilityStateKind::Unknown
+        );
+    }
+
+    #[test]
+    fn refresh_preserves_fail_closed_unavailable_state() {
+        let availability = HearthAvailability::live_pending();
+
+        assert_eq!(
+            domain_presentation_state(&availability, true, HearthDataDomain::Stories),
+            AvailabilityStateKind::Unavailable
+        );
+    }
+
+    #[test]
+    fn refresh_does_not_reinterpret_mock_state() {
+        let availability = HearthAvailability::mock_mode();
+
+        assert_eq!(
+            domain_presentation_state(&availability, true, HearthDataDomain::Home),
             AvailabilityStateKind::Mock
         );
     }
