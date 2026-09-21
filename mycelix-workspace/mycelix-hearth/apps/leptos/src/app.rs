@@ -11,38 +11,40 @@ use crate::care_attention::provide_care_attention;
 use crate::components::{DevPanel, Nav};
 use crate::decision_outcomes::{DecisionOutcomeSummary, provide_decision_outcomes};
 use crate::hearth_boundary::{HearthDataBoundary, HearthDataDomain};
-use crate::hearth_context::provide_hearth_context;
+use crate::hearth_context::{HearthCtx, provide_hearth_context};
 use crate::hearth_truth::{
-    HearthDataStatus, provide_hearth_truth, start_mock_simulation_when_resolved,
+    HearthAvailability, HearthDataStatus, provide_hearth_truth, start_mock_simulation_when_resolved,
 };
 use crate::pages::personal;
 use crate::pages::*;
 use crate::pending_votes::provide_unvoted_decisions;
+use crate::runtime_mode::{HearthRuntimeMode, detect_runtime_mode};
 use crate::vote_history::{VoteHistorySummary, provide_vote_history};
 use mycelix_leptos_core::{
-    ConnectStrategy, HolochainProviderAuto, HolochainProviderConfig, ToastContainer,
-    init_consciousness_ui, provide_consciousness_context, provide_homeostasis_context,
-    provide_thermodynamic_context, provide_toast_context,
+    HolochainProviderAuto, HolochainProviderConfig, ToastContainer, init_consciousness_ui,
+    provide_consciousness_context, provide_homeostasis_context, provide_thermodynamic_context,
+    provide_toast_context,
 };
 
 #[component]
 pub fn App() -> impl IntoView {
+    let runtime_mode = detect_runtime_mode();
     let config = HolochainProviderConfig {
         app_id: "mycelix-unified".into(),
         default_role: Some("hearth".into()),
         log_prefix: "[Hearth]",
-        connect_strategy: ConnectStrategy::WebSocket,
+        connect_strategy: runtime_mode.connect_strategy(),
         status_labels: None,
     };
     view! {
         <HolochainProviderAuto config=config>
-            <AppInner />
+            <AppInner runtime_mode />
         </HolochainProviderAuto>
     }
 }
 
 #[component]
-fn AppInner() -> impl IntoView {
+fn AppInner(runtime_mode: HearthRuntimeMode) -> impl IntoView {
     crate::themes::provide_theme_context();
     crate::circadian::provide_circadian_context();
     crate::ambient_sound::provide_ambient_sound_context();
@@ -50,8 +52,21 @@ fn AppInner() -> impl IntoView {
     provide_consciousness_context();
     provide_toast_context();
     provide_homeostasis_context(2, "--homeostasis");
-    provide_hearth_context();
-    provide_hearth_truth();
+
+    let hearth = provide_hearth_context();
+    if !runtime_mode.is_demo() {
+        clear_demo_backed_state(&hearth);
+    }
+
+    let truth = provide_hearth_truth();
+    if !runtime_mode.is_demo() {
+        // Live provenance is fail-closed from first render, not only after the
+        // first successful conductor connection. This keeps empty Live signals
+        // from being interpreted as established Mock/demo state while a
+        // required connection is pending or has failed.
+        truth.availability.set(HearthAvailability::live_pending());
+    }
+
     provide_decision_outcomes();
     provide_vote_history();
     provide_unvoted_decisions();
@@ -101,6 +116,29 @@ fn AppInner() -> impl IntoView {
             <crate::onboarding::OnboardingOverlay />
         </Router>
     }
+}
+
+/// Live mode is empty from first render. It must never expose demo-backed
+/// household records while a real conductor connection is still pending or has
+/// failed. Source-backed state is published later by `hearth_truth` only after
+/// the corresponding reads are established.
+fn clear_demo_backed_state(hearth: &HearthCtx) {
+    hearth.current_hearth.set(None);
+    hearth.members.set(Vec::new());
+    hearth.my_role.set(None);
+    hearth.bonds.set(Vec::new());
+    hearth.care_schedules.set(Vec::new());
+    hearth.decisions.set(Vec::new());
+    hearth.votes.set(Vec::new());
+    hearth.gratitude.set(Vec::new());
+    hearth.stories.set(Vec::new());
+    hearth.rhythms.set(Vec::new());
+    hearth.presence.set(Vec::new());
+    hearth.emergency_alerts.set(Vec::new());
+    hearth.resources.set(Vec::new());
+    hearth.milestones.set(Vec::new());
+    hearth.autonomy_profiles.set(Vec::new());
+    hearth.my_agent.set(String::new());
 }
 
 #[component]

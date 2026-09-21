@@ -20,6 +20,7 @@ mod onboarding;
 mod pages;
 mod pending_votes;
 pub mod record_bridge;
+mod runtime_mode;
 mod signal_listener;
 mod simulated_life;
 mod soma_bridge;
