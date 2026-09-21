@@ -15,6 +15,7 @@
 //! - Learner-authored goal intent separated from evidence-derived progress projections
 //! - Expiring recommendations bound to exact goal/evidence/projection dependencies
 //! - Versioned adaptive-path plans separated from evidence-derived execution progress
+//! - Descriptive session summaries and evidence-bound analytics projections
 //! - Validation utilities
 //! - Experimental Proof of Learning (PoL) analytics; PoL output is not, by itself,
 //!   proof of mastery, cheating, identity, credential eligibility, or authorization
@@ -22,6 +23,7 @@
 
 mod benchmarks;
 pub mod adaptive_path_state;
+pub mod analytics_state;
 pub mod attempt_evidence;
 pub mod contracts;
 pub mod crypto;
@@ -36,6 +38,7 @@ pub mod types;
 pub mod validation;
 
 pub use adaptive_path_state::*;
+pub use analytics_state::*;
 pub use attempt_evidence::*;
 pub use contracts::*;
 pub use crypto::*;
