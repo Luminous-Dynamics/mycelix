@@ -15,18 +15,42 @@ use hearth_leptos_types::*;
 use leptos::prelude::*;
 use mycelix_leptos_core::AvailabilityStateKind;
 
+/// Presentation-only threshold for surfacing a neutral relationship-tending cue.
+///
+/// `BondView::strength_bp` is a recorded coordination signal. Crossing this
+/// threshold does not establish neglect, relationship quality, affection, risk,
+/// or an obligation to act.
+const BOND_TENDING_CUE_THRESHOLD_BP: u32 = 4000;
+
+fn should_surface_tending_cue(strength_bp: u32) -> bool {
+    strength_bp < BOND_TENDING_CUE_THRESHOLD_BP
+}
+
+fn tending_cue_copy(count: usize) -> Option<String> {
+    match count {
+        0 => None,
+        1 => Some(
+            "1 bond has a low recorded tending signal. Consider checking in if that feels useful — this is a coordination cue, not a measure of relationship quality."
+                .to_string(),
+        ),
+        count => Some(format!(
+            "{count} bonds have low recorded tending signals. Consider checking in if that feels useful — these are coordination cues, not measures of relationship quality."
+        )),
+    }
+}
+
 #[component]
 pub fn HomePage() -> impl IntoView {
     let hearth = use_hearth();
     let care_attention = use_care_attention();
     let decision_attention = use_unvoted_decisions();
 
-    let neglected_bonds = move || {
+    let low_tending_signal_count = move || {
         hearth
             .bonds
             .get()
             .iter()
-            .filter(|b| b.strength_bp < 4000)
+            .filter(|bond| should_surface_tending_cue(bond.strength_bp))
             .count()
     };
 
@@ -121,16 +145,9 @@ pub fn HomePage() -> impl IntoView {
                             </div>
 
                             {move || {
-                                let n = neglected_bonds();
-                                (n > 0).then(|| {
+                                tending_cue_copy(low_tending_signal_count()).map(|message| {
                                     view! {
-                                        <div class="nudge">
-                                            {format!(
-                                                "{} bond{} could use some warmth",
-                                                n,
-                                                if n > 1 { "s" } else { "" },
-                                            )}
-                                        </div>
+                                        <div class="nudge">{message}</div>
                                     }
                                 })
                             }}
@@ -198,5 +215,33 @@ pub fn HomePage() -> impl IntoView {
                 }
             }}
         </div>
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{BOND_TENDING_CUE_THRESHOLD_BP, should_surface_tending_cue, tending_cue_copy};
+
+    #[test]
+    fn tending_threshold_is_a_presentation_cue_only() {
+        assert!(should_surface_tending_cue(BOND_TENDING_CUE_THRESHOLD_BP - 1));
+        assert!(!should_surface_tending_cue(BOND_TENDING_CUE_THRESHOLD_BP));
+        assert!(!should_surface_tending_cue(BOND_TENDING_CUE_THRESHOLD_BP + 1));
+    }
+
+    #[test]
+    fn zero_low_signals_produces_no_nudge() {
+        assert_eq!(tending_cue_copy(0), None);
+    }
+
+    #[test]
+    fn tending_copy_disclaims_relationship_judgment() {
+        let single = tending_cue_copy(1).expect("one cue should render");
+        let plural = tending_cue_copy(2).expect("multiple cues should render");
+
+        assert!(single.contains("not a measure of relationship quality"));
+        assert!(plural.contains("not measures of relationship quality"));
+        assert!(!single.to_ascii_lowercase().contains("neglect"));
+        assert!(!plural.to_ascii_lowercase().contains("neglect"));
     }
 }
