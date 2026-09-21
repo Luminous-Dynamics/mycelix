@@ -1,0 +1,218 @@
+name: MYC-SEM-001 exact qualification r2
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'mycelix-workspace/crates/mycelix-semantic-core/**'
+      - 'mycelix-workspace/docs/architecture/MYCELIX_SEMANTIC_KERNEL_V1.md'
+      - '.github/workflows/myc-sem-001-qualification-r2.yml'
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_PRODUCT_SHA: 27368c4c161e2b06b76d68763675b03fb74a6bd0
+  QUALIFIER_ONLY_PATH: .github/workflows/myc-sem-001-qualification-r2.yml
+  RUSTUP_TOOLCHAIN: 1.96.0
+  CHECKOUT_ACTION_SHA: 11d5960a326750d5838078e36cf38b85af677262
+  UPLOAD_ARTIFACT_ACTION_SHA: ea165f8d65b6e75b540449e92b4886f43607fa02
+
+jobs:
+  qualify-semantic-core:
+    name: Qualify exact MYC-SEM-001C subject r2
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact qualifier head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Prove qualifier is one machinery-only child
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_parent="$(git rev-parse HEAD^)"
+          test "$actual_parent" = "$EXPECTED_PRODUCT_SHA"
+
+          mapfile -t changed < <(git diff --name-only HEAD^ HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$QUALIFIER_ONLY_PATH"
+
+          echo "Qualified product subject: $actual_parent"
+          echo "Qualifier head: $(git rev-parse HEAD)"
+
+      - name: Install exact Rust qualification toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.96.0 --profile minimal --component rustfmt --component clippy
+          rustc --version --verbose
+          cargo --version --verbose
+
+      - name: Prove product manifest and workspace dependency contract
+        shell: python
+        run: |
+          import pathlib
+          import tomllib
+
+          crate_path = pathlib.Path('mycelix-workspace/crates/mycelix-semantic-core/Cargo.toml')
+          workspace_path = pathlib.Path('mycelix-workspace/Cargo.toml')
+          crate = tomllib.loads(crate_path.read_text())
+          workspace = tomllib.loads(workspace_path.read_text())
+
+          assert crate['package']['name'] == 'mycelix-semantic-core'
+          for inherited in ('version', 'edition', 'authors', 'license', 'repository'):
+              assert crate['package'][inherited] == {'workspace': True}, (inherited, crate['package'][inherited])
+          assert crate['lints'] == {'workspace': True}
+          assert crate['dependencies'] == {
+              'serde': {'workspace': True},
+              'sha2': {'workspace': True},
+          }
+          assert crate['dev-dependencies'] == {
+              'serde_json': {'workspace': True},
+          }
+
+          deps = workspace['workspace']['dependencies']
+          assert deps['serde']['version'] == '1.0'
+          assert sorted(deps['serde']['features']) == ['derive']
+          assert deps['sha2'] == '0.10'
+          assert deps['serde_json'] == '1.0'
+
+          package = workspace['workspace']['package']
+          assert package['edition'] == '2024'
+          assert package['version'] == '0.1.0'
+          assert package['license'] == 'AGPL-3.0-or-later'
+
+          print('product manifest/workspace dependency contract verified')
+
+      - name: Build isolated source capsule and freeze resolution
+        shell: bash
+        run: |
+          set -euo pipefail
+          QUAL_DIR="$RUNNER_TEMP/mycelix-semantic-core-qual-r2"
+          rm -rf "$QUAL_DIR"
+          mkdir -p "$QUAL_DIR"
+          cp -R mycelix-workspace/crates/mycelix-semantic-core/src "$QUAL_DIR/src"
+          cat > "$QUAL_DIR/Cargo.toml" <<'EOF'
+          [package]
+          name = "mycelix-semantic-core-qualification"
+          version = "0.1.0"
+          edition = "2024"
+          publish = false
+
+          [dependencies]
+          serde = { version = "1.0", features = ["derive"] }
+          sha2 = "0.10"
+
+          [dev-dependencies]
+          serde_json = "1.0"
+
+          [lints.rust]
+          unsafe_code = "forbid"
+          EOF
+          echo "QUAL_DIR=$QUAL_DIR" >> "$GITHUB_ENV"
+          cargo generate-lockfile --manifest-path "$QUAL_DIR/Cargo.toml"
+          cargo metadata --manifest-path "$QUAL_DIR/Cargo.toml" --locked --format-version 1 > "$QUAL_DIR/cargo-metadata.json"
+          sha256sum "$QUAL_DIR/Cargo.toml" "$QUAL_DIR/Cargo.lock" "$QUAL_DIR/cargo-metadata.json"
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path "$QUAL_DIR/Cargo.toml" --all -- --check
+
+      - name: Check all targets against frozen resolution
+        run: cargo check --manifest-path "$QUAL_DIR/Cargo.toml" --locked --all-targets
+
+      - name: Run authored tests against frozen resolution
+        run: cargo test --manifest-path "$QUAL_DIR/Cargo.toml" --locked --all-targets
+
+      - name: Run clippy fail-closed against frozen resolution
+        run: cargo clippy --manifest-path "$QUAL_DIR/Cargo.toml" --locked --all-targets -- -D warnings
+
+      - name: Independently reconstruct frozen commitments
+        shell: python
+        run: |
+          import hashlib
+          import struct
+
+          def text(value: str) -> bytes:
+              raw = value.encode('utf-8')
+              return struct.pack('>I', len(raw)) + raw
+
+          def profile(profile_id: str, revision: int, digest_byte: int) -> bytes:
+              return text(profile_id) + struct.pack('>Q', revision) + bytes([digest_byte]) * 32
+
+          env_bytes = (
+              b'MYCELIX_SEMANTIC_ENVIRONMENT_V1\0'
+              + struct.pack('>H', 1)
+              + profile('schema/base', 1, 1)
+              + profile('interpretation/base', 2, 2)
+              + profile('identity/base', 3, 3)
+              + profile('authority/base', 4, 4)
+              + profile('temporal/base', 5, 5)
+              + profile('canonical/domain-v1', 1, 6)
+          )
+          environment = hashlib.sha256(env_bytes).hexdigest()
+          expected_environment = '72cc14b9f38fc9cb917da7e98d777443d980ad28ca12231cfec0c92919d09d03'
+          assert environment == expected_environment, (environment, expected_environment)
+
+          subject_bytes = (
+              b'MYCELIX_SEMANTIC_SUBJECT_V1\0'
+              + struct.pack('>H', 1)
+              + struct.pack('>H', 1)
+              + bytes.fromhex(environment)
+              + text('personal')
+              + profile('schema/base', 1, 1)
+              + text('did:mycelix:test/profile')
+          )
+          subject = hashlib.sha256(subject_bytes).hexdigest()
+          expected_subject = 'd78cf4c70f6dffef2285188f98a556c232c67f689300a0acd3d8df21a8c647bf'
+          assert subject == expected_subject, (subject, expected_subject)
+
+          print(f'environment={environment}')
+          print(f'subject={subject}')
+
+      - name: Emit qualification capsule and receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          RECEIPT_DIR="$RUNNER_TEMP/myc-sem-receipt-r2"
+          mkdir -p "$RECEIPT_DIR"
+          cp "$QUAL_DIR/Cargo.lock" "$RECEIPT_DIR/Cargo.lock"
+          cp "$QUAL_DIR/cargo-metadata.json" "$RECEIPT_DIR/cargo-metadata.json"
+          {
+            echo "subject_sha=$EXPECTED_PRODUCT_SHA"
+            echo "qualifier_sha=$(git rev-parse HEAD)"
+            echo "checkout_action_sha=$CHECKOUT_ACTION_SHA"
+            echo "upload_artifact_action_sha=$UPLOAD_ARTIFACT_ACTION_SHA"
+            echo "rustc=$(rustc --version)"
+            rustc --version --verbose | sed 's/^/rustc_verbose=/'
+            echo "cargo=$(cargo --version)"
+            echo "python=$(python --version 2>&1)"
+            echo "uname=$(uname -a)"
+            echo "runner_image_os=${ImageOS:-unknown}"
+            echo "runner_image_version=${ImageVersion:-unknown}"
+            echo "environment_vector=72cc14b9f38fc9cb917da7e98d777443d980ad28ca12231cfec0c92919d09d03"
+            echo "subject_vector=d78cf4c70f6dffef2285188f98a556c232c67f689300a0acd3d8df21a8c647bf"
+            echo "product_manifest_sha256=$(sha256sum mycelix-workspace/crates/mycelix-semantic-core/Cargo.toml | cut -d' ' -f1)"
+            echo "workspace_manifest_sha256=$(sha256sum mycelix-workspace/Cargo.toml | cut -d' ' -f1)"
+            echo "capsule_manifest_sha256=$(sha256sum "$QUAL_DIR/Cargo.toml" | cut -d' ' -f1)"
+            echo "cargo_lock_sha256=$(sha256sum "$QUAL_DIR/Cargo.lock" | cut -d' ' -f1)"
+            echo "cargo_metadata_sha256=$(sha256sum "$QUAL_DIR/cargo-metadata.json" | cut -d' ' -f1)"
+            echo "source_sha256:"
+            find mycelix-workspace/crates/mycelix-semantic-core -type f -print0 \
+              | sort -z \
+              | xargs -0 sha256sum
+          } > "$RECEIPT_DIR/receipt.txt"
+          cat "$RECEIPT_DIR/receipt.txt"
+          echo "RECEIPT_DIR=$RECEIPT_DIR" >> "$GITHUB_ENV"
+
+      - name: Upload immutable qualification capsule
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: myc-sem-001c-qualification-r2-${{ github.run_id }}
+          path: ${{ env.RECEIPT_DIR }}
+          if-no-files-found: error
+          retention-days: 90
