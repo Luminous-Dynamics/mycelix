@@ -1,0 +1,43 @@
+{
+  "schema": "sup-civ-000d1c2a1-mlkem-primitive-vectors-v1",
+  "program": "SUP-CIV-000D1C2A1",
+  "parent_subject": "805f68b6c9151bc390896b77bf108c00e33bfc93",
+  "parent_script_blob": "081c0bd43cfabd171ff33d570a16cd323fc054c9",
+  "algorithm": "ML-KEM-768",
+  "test_only_inputs": {
+    "hexseed": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+    "hexikme": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+  },
+  "expected_outputs": {
+    "public_der_sha256": "c23e23dd3d485a9256cda09358a4a286e00b373db10761eadf99f710649ca31c",
+    "kem_ciphertext_length": 1088,
+    "kem_ciphertext_sha256": "39826fe40dc54a3fef68b7c228ed8fb22931012b6fa3bd3e7f204d54db0ac1e1",
+    "shared_secret_length": 32,
+    "shared_secret_sha256": "0118707cb4fee1ea9004263262448f62d25696336983f298091637c25f1a12dd"
+  },
+  "independent_reference_observation": {
+    "toolchain": "OpenSSL 3.5.5",
+    "status": "reference_only_not_qualification",
+    "repeat_count": 2,
+    "byte_identical_repeats": true,
+    "observed_public_der_length": 1206
+  },
+  "required_non_equivalences": [
+    "DeterministicPrimitiveVector != ProductionEntropy",
+    "PrimitiveVectorMatch != RFC9629RecipientArtifactQualified",
+    "OpenSSL35ReferenceMatch != OpenSSL364Qualification",
+    "MLKEMSharedSecret != PayloadDEK",
+    "C2A1Pass != C2BPass"
+  ],
+  "nonclaims": [
+    "production_entropy",
+    "production_key_custody",
+    "recipient_authorization",
+    "cms_kemrecipientinfo_correctness",
+    "rfc9629_recipient_wrap_qualification",
+    "runtime_integration",
+    "protected_storage",
+    "legal_compliance",
+    "deployment_readiness"
+  ]
+}
