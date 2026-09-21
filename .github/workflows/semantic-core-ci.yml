@@ -1,0 +1,189 @@
+name: Semantic Core CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/crates/mycelix-semantic-core/**'
+      - '.github/workflows/semantic-core-ci.yml'
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'mycelix-workspace/crates/mycelix-semantic-core/**'
+      - '.github/workflows/semantic-core-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Regression CI is supersedable. A newer commit or a converted-to-draft event
+# cancels stale work for the same PR/ref. Exact evidence qualifiers deliberately
+# remain separate and immutable.
+concurrency:
+  group: semantic-core-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  RUSTUP_TOOLCHAIN: 1.96.0
+  CHECKOUT_ACTION_SHA: 11d5960a326750d5838078e36cf38b85af677262
+
+jobs:
+  semantic-core:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+
+      - name: Install exact Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal --component rustfmt --component clippy
+          rustc --version --verbose
+          cargo --version --verbose
+          python --version
+
+      - name: Verify semantic-core manifest contract
+        shell: python
+        run: |
+          import pathlib
+          import tomllib
+
+          crate_path = pathlib.Path('mycelix-workspace/crates/mycelix-semantic-core/Cargo.toml')
+          workspace_path = pathlib.Path('mycelix-workspace/Cargo.toml')
+          crate = tomllib.loads(crate_path.read_text())
+          workspace = tomllib.loads(workspace_path.read_text())
+
+          assert crate['package']['name'] == 'mycelix-semantic-core'
+          for inherited in ('version', 'edition', 'authors', 'license', 'repository'):
+              assert crate['package'][inherited] == {'workspace': True}
+          assert crate['lints'] == {'workspace': True}
+          assert crate['dependencies'] == {
+              'serde': {'workspace': True},
+              'sha2': {'workspace': True},
+          }
+          assert crate['dev-dependencies'] == {'serde_json': {'workspace': True}}
+
+          deps = workspace['workspace']['dependencies']
+          assert deps['serde']['version'] == '1.0'
+          assert sorted(deps['serde']['features']) == ['derive']
+          assert deps['sha2'] == '0.10'
+          assert deps['serde_json'] == '1.0'
+
+      - name: Build isolated semantic-core capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_DIR='mycelix-workspace/crates/mycelix-semantic-core'
+          QUAL_DIR="$RUNNER_TEMP/mycelix-semantic-core-ci"
+          rm -rf "$QUAL_DIR"
+          mkdir -p "$QUAL_DIR"
+
+          # Copy the full crate rather than src/ alone so integration tests,
+          # fixtures, reference oracles, examples, and future benches cannot be
+          # silently omitted from regression CI.
+          cp -R "$SOURCE_DIR"/. "$QUAL_DIR"/
+          rm -f "$QUAL_DIR/Cargo.lock"
+
+          # Isolate from unrelated workspace graph failures while preserving the
+          # exact semantic-core source/tests. Dependency ranges mirror the
+          # workspace contract checked immediately above.
+          cat > "$QUAL_DIR/Cargo.toml" <<'EOF'
+          [package]
+          name = "mycelix-semantic-core-ci"
+          version = "0.1.0"
+          edition = "2024"
+          publish = false
+
+          [dependencies]
+          serde = { version = "1.0", features = ["derive"] }
+          sha2 = "0.10"
+
+          [dev-dependencies]
+          serde_json = "1.0"
+
+          [lints.rust]
+          unsafe_code = "forbid"
+          EOF
+
+          echo "QUAL_DIR=$QUAL_DIR" >> "$GITHUB_ENV"
+          cargo generate-lockfile --manifest-path "$QUAL_DIR/Cargo.toml"
+          cargo metadata --manifest-path "$QUAL_DIR/Cargo.toml" --locked --format-version 1 > "$QUAL_DIR/cargo-metadata.json"
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path "$QUAL_DIR/Cargo.toml" --all -- --check
+
+      - name: Check all targets
+        run: cargo check --manifest-path "$QUAL_DIR/Cargo.toml" --locked --all-targets
+
+      - name: Run unit and integration tests
+        run: cargo test --manifest-path "$QUAL_DIR/Cargo.toml" --locked --all-targets
+
+      - name: Run doctests
+        run: cargo test --manifest-path "$QUAL_DIR/Cargo.toml" --locked --doc
+
+      - name: Run clippy fail-closed
+        run: cargo clippy --manifest-path "$QUAL_DIR/Cargo.toml" --locked --all-targets -- -D warnings
+
+      - name: Independently reconstruct semantic commitment vectors
+        shell: python
+        run: |
+          import hashlib
+          import struct
+
+          def text(value: str) -> bytes:
+              raw = value.encode('utf-8')
+              return struct.pack('>I', len(raw)) + raw
+
+          def profile(profile_id: str, revision: int, digest_byte: int) -> bytes:
+              return text(profile_id) + struct.pack('>Q', revision) + bytes([digest_byte]) * 32
+
+          env_bytes = (
+              b'MYCELIX_SEMANTIC_ENVIRONMENT_V1\0'
+              + struct.pack('>H', 1)
+              + profile('schema/base', 1, 1)
+              + profile('interpretation/base', 2, 2)
+              + profile('identity/base', 3, 3)
+              + profile('authority/base', 4, 4)
+              + profile('temporal/base', 5, 5)
+              + profile('canonical/domain-v1', 1, 6)
+          )
+          assert len(env_bytes) == 387
+          environment = hashlib.sha256(env_bytes).hexdigest()
+          assert environment == '283f04d533916528a7054f9afe8958526cd3fdd94e29d9e990828af18dd12343'
+
+          subject_bytes = (
+              b'MYCELIX_SEMANTIC_SUBJECT_V1\0'
+              + struct.pack('>H', 1)
+              + struct.pack('>H', 1)
+              + bytes.fromhex(environment)
+              + text('personal')
+              + profile('schema/base', 1, 1)
+              + text('did:mycelix:test/profile')
+          )
+          assert len(subject_bytes) == 159
+          subject = hashlib.sha256(subject_bytes).hexdigest()
+          assert subject == '5a88314b454bf23478c91af6adeff8a03bef0b8d4bd2f0c031b27321a50eb323'
+
+          print(f'environment={environment}')
+          print(f'subject={subject}')
+
+      - name: Run semantic-id reference oracle when present
+        shell: bash
+        run: |
+          set -euo pipefail
+          oracle="$QUAL_DIR/tests/reference/semantic_id_v1_reference.py"
+          fixture="$QUAL_DIR/tests/fixtures/semantic_id_v1.json"
+          if [ -f "$oracle" ] || [ -f "$fixture" ]; then
+            test -f "$oracle"
+            test -f "$fixture"
+            python -m json.tool "$fixture" > /dev/null
+            python "$oracle"
+          else
+            echo 'semantic-id reference oracle not present in this revision; skipping'
+          fi
