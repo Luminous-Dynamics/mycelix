@@ -11,12 +11,14 @@
 //! - Cryptographic primitives (hashing, signatures)
 //! - Provenance tracking for models and credentials
 //! - Authority-safe learning evidence and advisory capability-estimate contracts
+//! - Provenance-complete attempt observations with explicit legacy incompleteness
 //! - Validation utilities
 //! - Experimental Proof of Learning (PoL) analytics; PoL output is not, by itself,
 //!   proof of mastery, cheating, identity, credential eligibility, or authorization
 //! - Structured error handling with descriptive messages
 
 mod benchmarks;
+pub mod attempt_evidence;
 pub mod contracts;
 pub mod crypto;
 pub mod errors;
@@ -27,6 +29,7 @@ pub mod provenance;
 pub mod types;
 pub mod validation;
 
+pub use attempt_evidence::*;
 pub use contracts::*;
 pub use crypto::*;
 pub use errors::*;
