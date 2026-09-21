@@ -13,6 +13,7 @@
 //! - Authority-safe learning evidence and advisory capability-estimate contracts
 //! - Provenance-complete attempt observations with explicit legacy incompleteness
 //! - Learner-authored goal intent separated from evidence-derived progress projections
+//! - Expiring recommendations bound to exact goal/evidence/projection dependencies
 //! - Validation utilities
 //! - Experimental Proof of Learning (PoL) analytics; PoL output is not, by itself,
 //!   proof of mastery, cheating, identity, credential eligibility, or authorization
@@ -28,6 +29,7 @@ pub mod goal_state;
 pub mod learning_evidence;
 pub mod proof_of_learning;
 pub mod provenance;
+pub mod recommendation_state;
 pub mod types;
 pub mod validation;
 
@@ -39,6 +41,7 @@ pub use goal_state::*;
 pub use learning_evidence::*;
 pub use proof_of_learning::*;
 pub use provenance::*;
+pub use recommendation_state::*;
 pub use types::*;
 
 /// Current protocol version
