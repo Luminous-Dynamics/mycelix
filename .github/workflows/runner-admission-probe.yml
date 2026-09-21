@@ -1,0 +1,28 @@
+name: Runner Admission Probe
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/runner-admission-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: runner-admission-probe-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Prove hosted runner admission
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "runner admitted"
+          echo "os=$RUNNER_OS"
+          echo "arch=$RUNNER_ARCH"
