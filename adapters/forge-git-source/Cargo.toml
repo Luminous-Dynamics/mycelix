@@ -1,0 +1,18 @@
+[package]
+name = "forge-git-source"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+publish = false
+
+[dependencies]
+mycelix-forge-core = { path = "../../crates/mycelix-forge-core" }
+mycelix-forge-proposal = { path = "../../crates/mycelix-forge-proposal" }
+mycelix-forge-protected-merge-source = { path = "../../crates/mycelix-forge-protected-merge-source" }
+mycelix-forge-repository = { path = "../../crates/mycelix-forge-repository" }
+hex = "0.4"
+thiserror = "2"
+
+[dev-dependencies]
+mycelix-forge-authority = { path = "../../crates/mycelix-forge-authority" }
+mycelix-forge-project-policy = { path = "../../crates/mycelix-forge-project-policy" }
