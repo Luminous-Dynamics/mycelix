@@ -1,0 +1,76 @@
+{
+  "schema": "sup-civ-000d1c2b2a-kemrecipientinfo-der-v1",
+  "program": "SUP-CIV-000D1C2B2A",
+  "structural_parent": "dfeff416fa0d3c8be722ac481b31fa361fd7fd5f",
+  "standards": ["RFC9629", "RFC9936", "RFC9935"],
+  "version": 0,
+  "recipient_identifier": {
+    "kind": "subjectKeyIdentifier-test-fixture",
+    "hex": "f61e8bc9b896925256cce487facf27a108eb5b04",
+    "length": 20,
+    "reference_origin": "local deterministic ML-KEM-768 subjectPublicKey SHA-1 method from RFC5280",
+    "certificate_binding_proven": false,
+    "authorization_proven": false
+  },
+  "kem": {
+    "name": "ML-KEM-768",
+    "oid": "2.16.840.1.101.3.4.4.2",
+    "algorithm_identifier_der_hex": "300b0609608648016503040402",
+    "parameters": "absent"
+  },
+  "kem_ciphertext": {
+    "fixture_path": "mycelix-workspace/docs/civic-resilience/vectors/sup_civ_000d1c2b2a_mlkem768_kemct.bin",
+    "git_blob": "47b67c0882f4c2a9ce51c4df8a25627bdc040172",
+    "length": 1088,
+    "sha256": "39826fe40dc54a3fef68b7c228ed8fb22931012b6fa3bd3e7f204d54db0ac1e1"
+  },
+  "kdf": {
+    "name": "HKDF-SHA256",
+    "oid": "1.2.840.113549.1.9.16.3.28",
+    "algorithm_identifier_der_hex": "300d060b2a864886f70d010910031c",
+    "parameters": "absent"
+  },
+  "kek_length": 32,
+  "ukm": {
+    "source": "D1B RecipientWrapContextV1 wrap-r1",
+    "length": 165,
+    "sha256": "4a6bbfc2baa973f7bf098f730fb1554d677a0c814ba178269571f1044cf8b53d",
+    "hex": "6d7963656c69782f70726f7465637465642d656e76656c6f70652f726563697069656e742d777261702f7631000001f101f111f21111111111111111111111111111111111111111111111111111111111111111110000000000000001000000000000000131313131313131313131313131313131313131313131313131313131313131314141414141414141414141414141414141414141414141414141414141414141"
+  },
+  "wrap": {
+    "name": "AES-256-WRAP",
+    "oid": "2.16.840.1.101.3.4.1.45",
+    "algorithm_identifier_der_hex": "300b060960864801650304012d",
+    "parameters": "absent"
+  },
+  "encrypted_key": {
+    "source": "C2B1 fixed test-DEK wrap",
+    "length": 40,
+    "hex": "bfa650d41df4cef6f7e84acefe5c7d25867970f3d8fa03ef8b1172b1155fa2db178ae3ffae1bdbc0",
+    "sha256": "27899fd049714b7a03ce5af1506c708e099b8663e031495553c1fdce78bfe25b"
+  },
+  "expected_kemrecipientinfo": {
+    "length": 1378,
+    "sha256": "2f9b7c9c293fdf4592bd98856f312b7ed2cbc054535e2f5ec1d8a76a299aef02"
+  },
+  "required_non_equivalences": [
+    "DERWellFormed != CMSInteroperable",
+    "KEMRecipientInfoVector != RecipientCertificateValid",
+    "TestRID != RecipientAuthorized",
+    "SKIMatchesPublicKey != CurrentRecipientAuthorization",
+    "AlgorithmIdentifierCorrect != CryptographicExecutionCorrect",
+    "B2APass != B2BPass",
+    "B2BPass != ProtectedReadAuthorized"
+  ],
+  "nonclaims": [
+    "recipient_certificate_validity",
+    "recipient_authorization",
+    "certificate_binding",
+    "cms_interoperability",
+    "production_key_custody",
+    "protected_read_authority",
+    "runtime_integration",
+    "legal_compliance",
+    "deployment_readiness"
+  ]
+}
