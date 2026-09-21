@@ -17,6 +17,7 @@
 //! - Versioned adaptive-path plans separated from evidence-derived execution progress
 //! - Descriptive session summaries and evidence-bound analytics projections
 //! - Learner-authored preferences separated from private inferred profile projections
+//! - Privacy-aware content difficulty calibration with explicit release policy
 //! - Validation utilities
 //! - Experimental Proof of Learning (PoL) analytics; PoL output is not, by itself,
 //!   proof of mastery, cheating, identity, credential eligibility, or authorization
@@ -26,6 +27,7 @@ mod benchmarks;
 pub mod adaptive_path_state;
 pub mod analytics_state;
 pub mod attempt_evidence;
+pub mod content_calibration_state;
 pub mod contracts;
 pub mod crypto;
 pub mod errors;
@@ -42,6 +44,7 @@ pub mod validation;
 pub use adaptive_path_state::*;
 pub use analytics_state::*;
 pub use attempt_evidence::*;
+pub use content_calibration_state::*;
 pub use contracts::*;
 pub use crypto::*;
 pub use errors::*;
