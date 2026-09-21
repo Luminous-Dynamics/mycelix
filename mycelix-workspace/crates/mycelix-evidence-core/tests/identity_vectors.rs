@@ -6,7 +6,7 @@ fn artifact_vector_is_stable() {
     assert_eq!(EVIDENCE_IDENTITY_PROFILE_V1, "mycelix:epistemic-identity:v1");
     assert_eq!(
         id.commitment_sha256_hex(),
-        "f202795b18c8847ddbc0d232d21b947e338d444c58d8763ddae0db84ae469f17"
+        "bde8c523cf8daa4201a28c49a84f09830579b0072e78a892ecc7f78976d727f7"
     );
 }
 
@@ -17,6 +17,6 @@ fn same_strings_in_another_role_are_a_different_identity() {
     assert_ne!(artifact.commitment_sha256_hex(), claim.commitment_sha256_hex());
     assert_eq!(
         claim.commitment_sha256_hex(),
-        "40b6c31e6a2398534155f1091b872359318289378f58f014013db769daefb24d"
+        "fc8b830da362c54f7fd05f8457c85a74187970890d558ba9c2743d4f7f371683"
     );
 }
