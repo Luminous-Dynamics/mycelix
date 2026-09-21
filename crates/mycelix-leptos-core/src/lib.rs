@@ -47,6 +47,7 @@ pub mod connection_status;
 pub mod holochain_call_error;
 pub mod holochain_call_failure;
 pub mod holochain_call_observation;
+pub mod holochain_call_success;
 pub mod holochain_call_target_diagnostics;
 pub mod holochain_provider;
 pub mod provider;
@@ -108,6 +109,7 @@ pub use holochain_call_observation::{
     HolochainCallAdmissionExhaustion, HolochainCallAttemptId, HolochainCallAttemptSequence,
     HolochainCallDiagnosticState, HolochainCallFailureObservation, HolochainCallInvocationError,
 };
+pub use holochain_call_success::HolochainCallSuccess;
 pub use holochain_call_target_diagnostics::{
     HolochainCallDiagnosticLedger, HolochainCallTarget, HolochainCallTargetDiagnostic,
 };
