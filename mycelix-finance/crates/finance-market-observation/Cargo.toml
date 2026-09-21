@@ -1,0 +1,18 @@
+[package]
+name = "mycelix-finance-market-observation"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Append-only market order event and fill observations for Mycelix Finance"
+
+[lib]
+crate-type = ["rlib"]
+name = "mycelix_finance_market_observation"
+
+[dependencies]
+mycelix-finance-market-core = { path = "../finance-market-core" }
+serde = { workspace = true }
+sha2 = "0.10"
+
+[dev-dependencies]
+serde_json = { workspace = true }

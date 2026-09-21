@@ -4,6 +4,7 @@ members = [
     "types",
     "crates/finance-exact",
     "crates/finance-market-core",
+    "crates/finance-market-observation",
     "crates/finance-wire-types",
     "crates/finance-leptos-types",
     "zomes/shared",
