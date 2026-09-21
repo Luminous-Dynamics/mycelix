@@ -48,28 +48,47 @@ jobs:
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import hashlib, struct
+          import hashlib, json, struct
+          from pathlib import Path
 
-          PROFILE = b"mycelix:epistemic-identity:v1"
+          fixture_path = Path('mycelix-workspace/crates/mycelix-evidence-core/vectors/epi_001_identity_v1.json')
+          fixture = json.loads(fixture_path.read_text())
+          assert fixture['profile'] == 'mycelix:epistemic-identity:v1'
+          assert fixture['framing'] == 'u16be-name-len || name || u32be-value-len || value'
+
+          ceiling = fixture['authority_ceiling']
+          assert ceiling == {
+              'identity_only': True,
+              'truth_established': False,
+              'source_authenticity_established': False,
+              'evidence_validity_established': False,
+              'independence_established': False,
+              'application_authority_granted': False,
+          }
 
           def field(name: bytes, value: bytes) -> bytes:
-              return struct.pack(">H", len(name)) + name + struct.pack(">I", len(value)) + value
+              return struct.pack('>H', len(name)) + name + struct.pack('>I', len(value)) + value
 
-          def digest(role: bytes) -> str:
-              preimage = b"".join([
-                  field(b"profile", PROFILE),
-                  field(b"role", role),
-                  field(b"namespace", b"web"),
-                  field(b"local-id", b"example.org/report:v1"),
+          def canonical_bytes(role: str, namespace: str, local_id: str) -> bytes:
+              return b''.join([
+                  field(b'profile', fixture['profile'].encode()),
+                  field(b'role', role.encode()),
+                  field(b'namespace', namespace.encode()),
+                  field(b'local-id', local_id.encode()),
               ])
-              return hashlib.sha256(preimage).hexdigest()
 
-          expected = {
-              b"artifact": "bde8c523cf8daa4201a28c49a84f09830579b0072e78a892ecc7f78976d727f7",
-              b"claim": "fc8b830da362c54f7fd05f8457c85a74187970890d558ba9c2743d4f7f371683",
-          }
-          actual = {role: digest(role) for role in expected}
-          assert actual == expected, (actual, expected)
+          seen = set()
+          for vector in fixture['vectors']:
+              key = (vector['role'], vector['namespace'], vector['local_id'])
+              assert key not in seen
+              seen.add(key)
+              encoded = canonical_bytes(*key)
+              assert encoded.hex() == vector['canonical_hex'], key
+              assert hashlib.sha256(encoded).hexdigest() == vector['sha256'], key
+
+          by_role = {v['role']: v for v in fixture['vectors']}
+          assert set(by_role) == {'artifact', 'claim'}
+          assert by_role['artifact']['sha256'] != by_role['claim']['sha256']
           PY
 
       - name: Freeze pre-bootstrap source identity
