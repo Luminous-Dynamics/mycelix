@@ -1,0 +1,85 @@
+name: SUP-CIV-000D1C2A1 Exact ML-KEM Primitive Vectors
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/docs/civic-resilience/SUP_CIV_000D1C2A1_MLKEM_PRIMITIVE_VECTORS_V1.md'
+      - 'mycelix-workspace/docs/civic-resilience/sup_civ_000d1c2a1_mlkem_vectors.json'
+      - 'mycelix-workspace/scripts/sup_civ_mlkem_primitive_vectors_v1.sh'
+      - '.github/workflows/sup-civ-000d1c2a1-mlkem-vectors.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sup-civ-000d1c2a1-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Exact deterministic ML-KEM-768 primitive vectors
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Exact parent and tranche scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='805f68b6c9151bc390896b77bf108c00e33bfc93'
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          test "$(git rev-list --count "$EXPECTED_PARENT"..HEAD)" = '1'
+          git diff --check "$EXPECTED_PARENT" HEAD
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PARENT" HEAD | sort)
+          expected=(
+            '.github/workflows/sup-civ-000d1c2a1-mlkem-vectors.yml'
+            'mycelix-workspace/docs/civic-resilience/SUP_CIV_000D1C2A1_MLKEM_PRIMITIVE_VECTORS_V1.md'
+            'mycelix-workspace/docs/civic-resilience/sup_civ_000d1c2a1_mlkem_vectors.json'
+            'mycelix-workspace/scripts/sup_civ_mlkem_primitive_vectors_v1.sh'
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed[@]}")
+
+      - name: Prove parent preflight script and vector manifest identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object mycelix-workspace/scripts/sup_civ_openssl_364_mlkem_preflight_v1.sh)" = '081c0bd43cfabd171ff33d570a16cd323fc054c9'
+          test "$(git hash-object mycelix-workspace/docs/civic-resilience/sup_civ_000d1c2a1_mlkem_vectors.json)" = '83137cfcb4eaa7619401c162ae43bfde1c49e199'
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          m = json.loads(Path('mycelix-workspace/docs/civic-resilience/sup_civ_000d1c2a1_mlkem_vectors.json').read_text())
+          assert m['schema'] == 'sup-civ-000d1c2a1-mlkem-primitive-vectors-v1'
+          assert m['parent_subject'] == '805f68b6c9151bc390896b77bf108c00e33bfc93'
+          assert m['parent_script_blob'] == '081c0bd43cfabd171ff33d570a16cd323fc054c9'
+          assert m['algorithm'] == 'ML-KEM-768'
+          assert m['expected_outputs']['kem_ciphertext_length'] == 1088
+          assert m['expected_outputs']['shared_secret_length'] == 32
+          assert m['independent_reference_observation']['status'] == 'reference_only_not_qualification'
+          PY
+
+      - name: Syntax-check vector wrapper
+        run: bash -n mycelix-workspace/scripts/sup_civ_mlkem_primitive_vectors_v1.sh
+
+      - name: Execute pinned 3.6.4 preflight and exact vector assertions
+        run: bash mycelix-workspace/scripts/sup_civ_mlkem_primitive_vectors_v1.sh
+
+      - name: Refuse runtime/dependency changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='805f68b6c9151bc390896b77bf108c00e33bfc93'
+          if git diff --name-only "$EXPECTED_PARENT" HEAD | grep -E '\.(rs|toml|lock|nix)$'; then
+            echo 'runtime/dependency file entered C2A1 primitive-vector tranche' >&2
+            exit 1
+          fi
+
+      - name: Immutable checkout postflight
+        run: test -z "$(git status --porcelain)"
