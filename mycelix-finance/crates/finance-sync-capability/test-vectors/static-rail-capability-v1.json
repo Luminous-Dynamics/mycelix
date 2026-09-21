@@ -1,0 +1,84 @@
+{
+  "profile": {
+    "adapter_profile": {
+      "id": "adapter:synthetic:pvp",
+      "revision": 1,
+      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "adapter_build_profile": {
+      "id": "adapter-build:synthetic:v1",
+      "revision": 1,
+      "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "provider_profile": {
+      "id": "provider:synthetic:v1",
+      "revision": 1,
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "rail": "synthetic-rtgs",
+    "network": "testnet-a",
+    "operation_profile": {
+      "id": "operation:pvp-payment:v1",
+      "revision": 1,
+      "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    "capacity_lock_capabilities": ["provider_reserve", "funds_lock"],
+    "prepare_capabilities": ["prepared_operation_handle"],
+    "commit_capabilities": ["commit_against_prepared_state", "externally_synchronized_commit"],
+    "cancel_capabilities": ["cancelable_while_prepared", "guaranteed_abort_of_prepared_state"],
+    "query_capabilities": [
+      "exact_operation_state",
+      "operation_by_semantic_identity",
+      "durable_commit_classification_query",
+      "finality_query"
+    ],
+    "evidence_capabilities": [
+      "provider_acknowledgement",
+      "definitely_not_committed_classifier",
+      "definitely_committed_classifier",
+      "finality_evidence_production"
+    ],
+    "reversal_capabilities": ["explicit_compensating_transfer_only"],
+    "atomicity_capabilities": ["external_synchronization_protocol"],
+    "idempotency": {
+      "mechanism": "provider_key_dedup_window",
+      "key_scope": "rail_network",
+      "semantic_scope": "exact_leg",
+      "retention": { "kind": "bounded_seconds", "seconds": 86400 },
+      "retry_after_unknown": "query_before_replay",
+      "collision_behavior": "provider_rejects_semantic_mismatch"
+    },
+    "producible_finality_profiles": [
+      {
+        "id": "finality:synthetic:v2",
+        "revision": 2,
+        "digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      }
+    ],
+    "synchronization_profiles": [
+      {
+        "id": "sync:pvp:synthetic:v1",
+        "revision": 1,
+        "digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      }
+    ],
+    "disclosure_profile": {
+      "id": "disclosure:minimal:v1",
+      "revision": 1,
+      "digest": "1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    "timing": {
+      "max_provider_deadline_ms": 30000,
+      "max_prepare_lifetime_seconds": 120,
+      "min_query_poll_interval_ms": 250,
+      "max_query_attempts_per_window": 20
+    },
+    "resources": {
+      "max_request_bytes": 65536,
+      "max_batch_items": 32,
+      "max_inflight_per_subject": 8
+    },
+    "profile_revision": 1
+  },
+  "expected_profile_commitment": "9b7e2d1f6976f85a568c78cd2be92013e3ab8776119c0477f46aa91348280c0d"
+}
