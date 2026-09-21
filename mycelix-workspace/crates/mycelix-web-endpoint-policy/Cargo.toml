@@ -1,0 +1,11 @@
+[package]
+name = "mycelix-web-endpoint-policy"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Zero-network IPv4/IPv6 endpoint classification for public-web acquisition"
+
+[dev-dependencies]
+serde_json.workspace = true
