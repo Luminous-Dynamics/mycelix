@@ -20,7 +20,8 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # Detect which clusters changed
+  # Detect which clusters changed. These two actions are part of the assurance
+  # admission boundary, so they are pinned to immutable commits rather than tags.
   changes:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
@@ -36,9 +37,10 @@ jobs:
       bridge: ${{ steps.filter.outputs.bridge }}
       sdk: ${{ steps.filter.outputs.sdk }}
       prism: ${{ steps.filter.outputs.prism }}
+      assurance: ${{ steps.filter.outputs.assurance }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad
         id: filter
         with:
           filters: |
@@ -73,6 +75,10 @@ jobs:
               - 'mycelix-workspace/sdk-ts/**'
             prism:
               - 'mycelix-workspace/mycelix-prism/**'
+            assurance:
+              - 'crates/mycelix-assurance-*/**'
+              - 'assurance/**'
+              - '.github/workflows/ci.yml'
 
   # Format check (always runs when CI is admitted)
   format:
@@ -330,6 +336,116 @@ jobs:
       - name: Test bridge-entry-types
         run: cd crates/mycelix-bridge-entry-types && cargo test --workspace
 
+  test-assurance:
+    needs: changes
+    if: needs.changes.outputs.assurance == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      RUSTUP_TOOLCHAIN: 1.98.1
+      EXPECTED_SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      EXPECTED_SPEC_ROOT_SHA256: 46550610da111888f862d4bfc610f6dc41edfcbcd0579377e367df16486973
+      EXPECTED_COVERAGE_SHA256: 32bff983f4cdc9d3393e6e4381f8ed470ca29d08e13f8bebe7d1973a3bd0c1e1
+      EXPECTED_CORPUS_ROOT_SHA256: 784ff870e0b9815b015be1bbaa32f0dcc615cb3c22c614ba8bf9389fe4ccaef8
+      EXPECTED_CARGO_LOCK_SHA256: 9a0babe726db931fb24087af4e1321f034e15b29a03d1b9249cd6176b3525a8b
+    steps:
+      - name: Check out exact assurance subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Verify exact subject and clean preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT_SHA"
+          test -z "$(git status --porcelain --untracked-files=all)"
+          printf 'assurance_subject_sha=%s\n' "$(git rev-parse HEAD)"
+          printf 'assurance_subject_tree=%s\n' "$(git rev-parse HEAD^{tree})"
+      - name: Install pinned assurance toolchain
+        run: rustup toolchain install 1.98.1 --profile minimal --component rustfmt --component clippy
+      - name: Verify pinned toolchain identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc --version --verbose
+          cargo --version
+          rustc --version | grep -F 'rustc 1.98.1 '
+      - name: Verify ASSURE-V1 specification root
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 assurance/spec/v1/check_spec.py
+          grep -F "spec_root_sha256 = \"$EXPECTED_SPEC_ROOT_SHA256\"" assurance/spec/v1/SPEC.lock
+      - name: Verify frozen L0 corpus and coverage roots
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 assurance/vectors/v1/l0/check_vectors.py
+          grep -F "coverage_sha256 = \"$EXPECTED_COVERAGE_SHA256\"" assurance/vectors/v1/l0/manifest.toml
+          grep -F "corpus_root_sha256 = \"$EXPECTED_CORPUS_ROOT_SHA256\"" assurance/vectors/v1/l0/manifest.toml
+      - name: Verify dependency, lock, and trusted-surface boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_lock_sha="$(sha256sum crates/mycelix-assurance-core/Cargo.lock | awk '{print $1}')"
+          test "$actual_lock_sha" = "$EXPECTED_CARGO_LOCK_SHA256"
+          python3 - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path("crates/mycelix-assurance-core")
+          manifest = tomllib.loads((root / "Cargo.toml").read_text())
+          lock = tomllib.loads((root / "Cargo.lock").read_text())
+          lib = (root / "src/lib.rs").read_text()
+
+          assert manifest.get("features") == {"default": []}, "default feature set must remain empty"
+          assert not (root / "build.rs").exists(), "002B must not have build.rs"
+          assert "#![forbid(unsafe_code)]" in lib, "unsafe-code prohibition missing"
+          assert manifest.get("dependencies") == {
+              "cbor2": {
+                  "version": "=1.1.5",
+                  "default-features": False,
+                  "features": ["alloc"],
+              },
+              "serde": {
+                  "version": "=1.0.229",
+                  "default-features": False,
+              },
+          }, "unexpected direct dependency surface"
+
+          expected = {
+              "cbor2": ("1.1.5", "86756b93a81474930c7edc4e4fab45b9cd197a50bc9775ae01450d4f621788a3"),
+              "mycelix-assurance-core": ("0.1.0", None),
+              "proc-macro2": ("1.0.107", "985e7ec9bb745e6ce6535b544d84d6cd6f7ad8bd711c398938ae983b91a766d9"),
+              "quote": ("1.0.47", "1fbf4db142a473a8d80c26bbf18454ed458bf8d26c8219c331daecfdbd079001"),
+              "serde": ("1.0.229", "4148590afebada386688f18773da617792bf2ef03ffc1e4cbd2b1d45b023e0ba"),
+              "serde_core": ("1.0.229", "67dca2c9c51e58a4791a4b1ed58308b39c64224d349a935ab5039aa360942a48"),
+              "serde_derive": ("1.0.229", "e7a5d71263a5a7d47b41f6b3f06ba276f10cc18b0931f1799f710578e2309348"),
+              "syn": ("3.0.6", "8593e8e72159ed2257d083c7a454a85cbf854f37a0966d8d483aff8c8a3ebcee"),
+              "unicode-ident": ("1.0.26", "d245f478577f809a851594d02313b640fb437e0bb33866753cff937863096954"),
+          }
+          packages = lock.get("package", [])
+          observed = {p["name"]: (p["version"], p.get("checksum")) for p in packages}
+          assert observed == expected, f"unexpected Cargo.lock package set: {observed!r}"
+          PY
+      - name: Check assurance formatting
+        run: cd crates/mycelix-assurance-core && cargo fmt --all --check
+      - name: Check assurance crate
+        run: cd crates/mycelix-assurance-core && cargo check --locked --all-targets
+      - name: Test assurance crate
+        run: cd crates/mycelix-assurance-core && cargo test --locked --all-targets
+      - name: Clippy assurance crate
+        run: cd crates/mycelix-assurance-core && cargo clippy --locked --all-targets -- -D warnings
+      - name: Verify exact subject and clean postflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT_SHA"
+          test -z "$(git status --porcelain --untracked-files=all)"
+
   test-sdk:
     needs: changes
     if: needs.changes.outputs.sdk == 'true' || github.event_name == 'push'
@@ -411,6 +527,7 @@ jobs:
   ci-pass:
     if: always() && !cancelled() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false))
     needs:
+      - changes
       - format
       - test-commons
       - test-civic
@@ -422,12 +539,14 @@ jobs:
       - test-personal
       - test-attribution
       - test-bridge
+      - test-assurance
       - test-sdk
       - test-prism
     runs-on: ubuntu-latest
     steps:
       - name: Check results
         run: |
+          echo "Changes: ${{ needs.changes.result }}"
           echo "Format: ${{ needs.format.result }}"
           echo "Commons: ${{ needs.test-commons.result }}"
           echo "Civic: ${{ needs.test-civic.result }}"
@@ -441,10 +560,21 @@ jobs:
           echo "Personal: ${{ needs.test-personal.result }}"
           echo "Attribution: ${{ needs.test-attribution.result }}"
           echo "Bridge: ${{ needs.test-bridge.result }}"
+          echo "Assurance: ${{ needs.test-assurance.result }}"
           echo "SDK: ${{ needs.test-sdk.result }}"
           echo "Prism: ${{ needs.test-prism.result }}"
-          if [ "${{ needs.format.result }}" = "failure" ]; then exit 1; fi
-          # Skipped jobs are OK (path filter didn't match)
+
+          if [ "${{ needs.changes.result }}" != "success" ]; then exit 1; fi
+          if [ "${{ needs.format.result }}" != "success" ]; then exit 1; fi
+
+          # If assurance was in scope (or this is a main push), its gate MUST
+          # complete successfully; skipped/cancelled/timed-out is not a PASS.
+          if [ "${{ github.event_name }}" = "push" ] || [ "${{ needs.changes.outputs.assurance }}" = "true" ]; then
+            if [ "${{ needs.test-assurance.result }}" != "success" ]; then exit 1; fi
+          fi
+
+          # Other path-filtered jobs retain current main semantics: skipped is OK,
+          # and an executed failure fails the summary gate.
           for result in "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
             if [ "$result" = "failure" ]; then exit 1; fi
           done

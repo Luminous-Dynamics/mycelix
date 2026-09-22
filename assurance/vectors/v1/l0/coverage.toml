@@ -1,0 +1,81 @@
+version = 1
+spec = "MYCELIX-ASSURE/V1/L0"
+
+# Every normative CODEC-* requirement must appear exactly once. Automated
+# evidence is machine-resolved by check_vectors.py. Manual entries remain
+# explicitly visible and MUST NOT be described as automated coverage.
+
+[[coverage]]
+id = "CODEC-001"
+automated = ["rust-test:every_declared_resource_limit_is_enforced"]
+manual = ["review decode_canonical input-size check ordering before parser materialization"]
+
+[[coverage]]
+id = "CODEC-002"
+automated = ["vector:V109_TRAILING_DATA", "vector:V110_INVALID_UTF8", "vector:V113_EMPTY_INPUT", "vector:V114_TRUNCATED_ARRAY", "rust-test:parser_safety_ceiling_has_nesting_resource_precedence", "rust-test:trailing_payload_is_not_parsed_for_exact_one_check"]
+manual = []
+
+[[coverage]]
+id = "CODEC-003"
+automated = ["vector:V002_CANONICAL_MAP", "vector:V101_NON_SHORTEST_INTEGER", "vector:V103_UNSORTED_MAP"]
+manual = []
+
+[[coverage]]
+id = "CODEC-004"
+automated = ["vector:V001_CANONICAL_ARRAY", "vector:V101_NON_SHORTEST_INTEGER", "vector:V102_INDEFINITE_ARRAY", "vector:V103_UNSORTED_MAP"]
+manual = []
+
+[[coverage]]
+id = "CODEC-005"
+automated = ["vector:V001_CANONICAL_ARRAY", "vector:V002_CANONICAL_MAP", "vector:V003_CANONICAL_BYTES", "vector:V004_CANONICAL_TEXT", "vector:V005_CANONICAL_TRUE"]
+manual = []
+
+[[coverage]]
+id = "CODEC-006"
+automated = ["vector:V106_FLOAT", "vector:V107_TAG", "vector:V108_NULL", "vector:V112_SIMPLE_VALUE", "vector:V115_UNDEFINED"]
+manual = []
+
+[[coverage]]
+id = "CODEC-007"
+automated = ["vector:V105_TEXT_MAP_KEY", "vector:V111_NEGATIVE_MAP_KEY"]
+manual = []
+
+[[coverage]]
+id = "CODEC-008"
+automated = ["vector:V104_DUPLICATE_MAP_KEY"]
+manual = []
+
+[[coverage]]
+id = "CODEC-009"
+automated = ["vector:V006_TEXT_NFC", "vector:V007_TEXT_NFD", "rust-test:distinct_unicode_wire_forms_are_preserved"]
+manual = []
+
+[[coverage]]
+id = "CODEC-010"
+automated = ["vector:V102_INDEFINITE_ARRAY"]
+manual = []
+
+[[coverage]]
+id = "CODEC-011"
+automated = []
+manual = ["review DecodeLimits/resource-policy separation from constitutional semantics"]
+
+[[coverage]]
+id = "CODEC-012"
+automated = ["rust-test:every_declared_resource_limit_is_enforced", "rust-test:parser_safety_ceiling_has_nesting_resource_precedence"]
+manual = ["do not infer pre-allocation guarantees beyond the encoded input-size check"]
+
+[[coverage]]
+id = "CODEC-013"
+automated = []
+manual = ["review public API to ensure cbor2::Value does not escape the codec boundary"]
+
+[[coverage]]
+id = "CODEC-014"
+automated = []
+manual = ["review public API and claim ceiling: L0 success means canonical syntax only"]
+
+[[coverage]]
+id = "CODEC-015"
+automated = []
+manual = ["review crate surface for absence of graph validity, truth, authority, or legitimacy outputs"]

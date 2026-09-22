@@ -1,0 +1,40 @@
+# ASSURE-V1 normative node-tag registry.
+# Numeric assignments are append-only within V1.
+
+version = 1
+
+[[tag]]
+id = 1
+name = "subject"
+
+[[tag]]
+id = 2
+name = "claim_descriptor"
+
+[[tag]]
+id = 3
+name = "evidence_descriptor"
+
+[[tag]]
+id = 4
+name = "evidence_requirement"
+
+[[tag]]
+id = 5
+name = "assumption_descriptor"
+
+[[tag]]
+id = 6
+name = "defeater_descriptor"
+
+[[tag]]
+id = 7
+name = "fault_domain"
+
+[[tag]]
+id = 8
+name = "authority_record"
+
+[[tag]]
+id = 9
+name = "authority_epoch"

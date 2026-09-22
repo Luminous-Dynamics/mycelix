@@ -1,0 +1,176 @@
+version = 1
+root_format = 3
+corpus = "MYCELIX-ASSURE/V1/L0"
+corpus_domain = "MYCELIX-ASSURE/V1/VECTORS/L0"
+spec_root_sha256 = "46550610da111888f862d4bfc610f6dc41edfcbcdcd0579377e367df16486973"
+coverage_sha256 = "32bff983f4cdc9d3393e6e4381f8ed470ca29d08e13f8bebe7d1973a3bd0c1e1"
+corpus_root_sha256 = "784ff870e0b9815b015be1bbaa32f0dcc615cb3c22c614ba8bf9389fe4ccaef8"
+
+[[vector]]
+id = "V001_CANONICAL_ARRAY"
+file = "v001-canonical-array.cbor"
+sha256 = "4abc31137ce738d9aceb8a1d1d51f15cad42c2b08dcb7ed179f737a194b355e7"
+requirement = "CODEC-004"
+expect = "accept"
+
+[[vector]]
+id = "V002_CANONICAL_MAP"
+file = "v002-canonical-map.cbor"
+sha256 = "6ac5d337d39820d297107c6b18fbb99ca472638c20524a095943811e68b19662"
+requirement = "CODEC-003"
+expect = "accept"
+
+[[vector]]
+id = "V003_CANONICAL_BYTES"
+file = "v003-canonical-bytes.cbor"
+sha256 = "f72268eb44c0e802ea3e5fcbd816899e4a2fc99f7000d49e3de22cf4c971b09e"
+requirement = "CODEC-005"
+expect = "accept"
+
+[[vector]]
+id = "V004_CANONICAL_TEXT"
+file = "v004-canonical-text.cbor"
+sha256 = "393e806553e469ba810883d19de96e2fe118a0146beed80905a2eee10ccc7e3a"
+requirement = "CODEC-005"
+expect = "accept"
+
+[[vector]]
+id = "V005_CANONICAL_TRUE"
+file = "v005-canonical-true.cbor"
+sha256 = "27abdeddfe8503496adeb623466caa47da5f63abd2bc6fa19f6cfcb73ecfed70"
+requirement = "CODEC-005"
+expect = "accept"
+
+[[vector]]
+id = "V006_TEXT_NFC"
+file = "v006-text-nfc.cbor"
+sha256 = "701813d6d5ac9e087e4b469881bd4bf116fee5027a3b7ea436d513b0d8049737"
+requirement = "CODEC-009"
+expect = "accept"
+
+[[vector]]
+id = "V007_TEXT_NFD"
+file = "v007-text-nfd.cbor"
+sha256 = "daf8719f463a8018c94c6e70fdef01d6358ca282c10e781a52be5923beaa8a8a"
+requirement = "CODEC-009"
+expect = "accept"
+
+[[vector]]
+id = "V101_NON_SHORTEST_INTEGER"
+file = "v101-non-shortest-integer.cbor"
+sha256 = "d8ffb41f9785cc166ba6d923dd209402959c6dcdf797a4fd526a4cf77aec289d"
+requirement = "CODEC-003"
+expect = "reject"
+failure = "D002_NON_CANONICAL_ENCODING"
+
+[[vector]]
+id = "V102_INDEFINITE_ARRAY"
+file = "v102-indefinite-array.cbor"
+sha256 = "d9470ee95b15b9d9ab663359a2544ef21b23c8db07a505897019fb76348e7ef8"
+requirement = "CODEC-010"
+expect = "reject"
+failure = "D002_NON_CANONICAL_ENCODING"
+
+[[vector]]
+id = "V103_UNSORTED_MAP"
+file = "v103-unsorted-map.cbor"
+sha256 = "e46ac75752367a5949ea7ea6283f63d6cbdaaf90668af9000d8a1908b7443434"
+requirement = "CODEC-003"
+expect = "reject"
+failure = "D002_NON_CANONICAL_ENCODING"
+
+[[vector]]
+id = "V104_DUPLICATE_MAP_KEY"
+file = "v104-duplicate-map-key.cbor"
+sha256 = "a3db7ccede7c9c9509d650308bcfd4fbb929f71e40a9e92299023b040395128a"
+requirement = "CODEC-008"
+expect = "reject"
+failure = "D007_DUPLICATE_MAP_KEY"
+
+[[vector]]
+id = "V105_TEXT_MAP_KEY"
+file = "v105-text-map-key.cbor"
+sha256 = "eb989b4a620fd259ae02181bdab4fc3eb6dc6b45eb7322999bb1416bce318926"
+requirement = "CODEC-007"
+expect = "reject"
+failure = "D006_INVALID_MAP_KEY"
+
+[[vector]]
+id = "V106_FLOAT"
+file = "v106-float.cbor"
+sha256 = "b68bb45ecab0329ab815daf44f5a02d2a11a8ab87fbbdf4b08bcae00cada0324"
+requirement = "CODEC-006"
+expect = "reject"
+failure = "D005_FORBIDDEN_VALUE_KIND"
+
+[[vector]]
+id = "V107_TAG"
+file = "v107-tag.cbor"
+sha256 = "e9aff84fdb699ca706c0a1fed47bb095cb25e3c95aa5d1c5d216ff2cfbcd4998"
+requirement = "CODEC-006"
+expect = "reject"
+failure = "D005_FORBIDDEN_VALUE_KIND"
+
+[[vector]]
+id = "V108_NULL"
+file = "v108-null.cbor"
+sha256 = "b0b2988b6bbe724bacda5e9e524736de0bc7dae41c46b4213c50e1d35d4e5f13"
+requirement = "CODEC-006"
+expect = "reject"
+failure = "D005_FORBIDDEN_VALUE_KIND"
+
+[[vector]]
+id = "V109_TRAILING_DATA"
+file = "v109-trailing-data.cbor"
+sha256 = "a12871fee210fb8619291eaea194581cbd2531e4b23759d225f6806923f63222"
+requirement = "CODEC-002"
+expect = "reject"
+failure = "D001_MALFORMED_ENCODING"
+
+[[vector]]
+id = "V110_INVALID_UTF8"
+file = "v110-invalid-utf8.cbor"
+sha256 = "a1e572db6f261cf955f50e5f238ff2b1d1499b9be33ef6afa9dfcbe2042f9383"
+requirement = "CODEC-002"
+expect = "reject"
+failure = "D001_MALFORMED_ENCODING"
+
+[[vector]]
+id = "V111_NEGATIVE_MAP_KEY"
+file = "v111-negative-map-key.cbor"
+sha256 = "6ba309e4a6f6084c12d90b2e2df519b21f2a60658cf21ece7da03c7eb6b5ea3f"
+requirement = "CODEC-007"
+expect = "reject"
+failure = "D006_INVALID_MAP_KEY"
+
+[[vector]]
+id = "V112_SIMPLE_VALUE"
+file = "v112-simple-value.cbor"
+sha256 = "184aeb6e09e2b1399d7adbf444b5beb6f53cb6c25752342fa6a25acaf55c817a"
+requirement = "CODEC-006"
+expect = "reject"
+failure = "D005_FORBIDDEN_VALUE_KIND"
+
+[[vector]]
+id = "V113_EMPTY_INPUT"
+file = "v113-empty-input.cbor"
+sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+requirement = "CODEC-002"
+expect = "reject"
+failure = "D001_MALFORMED_ENCODING"
+
+[[vector]]
+id = "V114_TRUNCATED_ARRAY"
+file = "v114-truncated-array.cbor"
+sha256 = "f5731b12fea535238ca271633140e41f462d9389b9fa656aea196bd6f3c5ca1a"
+requirement = "CODEC-002"
+expect = "reject"
+failure = "D001_MALFORMED_ENCODING"
+
+[[vector]]
+id = "V115_UNDEFINED"
+file = "v115-undefined.cbor"
+sha256 = "50868f20258bbc9cce0da2719e8654c108733dd2f663b8737c574ec0ead93eb3"
+requirement = "CODEC-006"
+expect = "reject"
+failure = "D005_FORBIDDEN_VALUE_KIND"

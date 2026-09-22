@@ -1,0 +1,12 @@
+# ASSURE-V1 normative SHA-256 domain separators.
+# Separator bytes are the UTF-8 bytes of the exact value strings below.
+
+version = 1
+
+[separator]
+spec = "MYCELIX-ASSURE/V1/SPEC"
+capsule = "MYCELIX-ASSURE/V1/CAPSULE"
+node = "MYCELIX-ASSURE/V1/NODE"
+subject = "MYCELIX-ASSURE/V1/SUBJECT"
+evidence = "MYCELIX-ASSURE/V1/EVIDENCE"
+epoch = "MYCELIX-ASSURE/V1/EPOCH"
