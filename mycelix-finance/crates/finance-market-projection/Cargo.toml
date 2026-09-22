@@ -1,0 +1,16 @@
+[package]
+name = "mycelix-finance-market-projection"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Observed-frontier market-order control and execution-progress projection for Mycelix Finance"
+
+[lib]
+crate-type = ["rlib"]
+name = "mycelix_finance_market_projection"
+
+[dependencies]
+mycelix-finance-market-core = { path = "../finance-market-core" }
+mycelix-finance-market-observation = { path = "../finance-market-observation" }
+mycelix-finance-market-execution-frontier = { path = "../finance-market-execution-frontier" }
+serde = { workspace = true }
