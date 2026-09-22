@@ -1,0 +1,265 @@
+name: EMB-DATA-001TQ r3 exact registry static qualifier
+
+on:
+  pull_request:
+    types: [ready_for_review]
+    paths:
+      - '.github/workflows/emb-data-registry-v0-1-qualifier.yml'
+
+permissions:
+  contents: read
+
+env:
+  PRODUCT_SHA: 76bc53d894163fb936d02ede7c26e111e6b4fbf7
+  PRODUCT_PARENT_SHA: ce7acdbd2afa6d40bcd669e14ba468b3214466c3
+  PRODUCT_TREE_SHA: 926b7ec9994384dda91129aaf14dd0070c407b48
+  PROFILE_PATH: docs/embodied/EMBODIED_DATA_REGISTRY_V0_1.md
+  FIXTURE_PATH: docs/embodied/fixtures/EMB_DATA_REGISTRY_V0_1.json
+
+jobs:
+  qualify-static-corpus:
+    name: Exact embodied registry static corpus
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout literal product subject
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PRODUCT_SHA }}
+          fetch-depth: 2
+
+      - name: Prove exact lineage and shape
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$PRODUCT_SHA"
+          test "$(git rev-parse HEAD^)" = "$PRODUCT_PARENT_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$PRODUCT_TREE_SHA"
+          mapfile -t paths < <(git diff --name-only "$PRODUCT_PARENT_SHA" "$PRODUCT_SHA" | sort)
+          test "${#paths[@]}" -eq 2
+          test "${paths[0]}" = "$PROFILE_PATH"
+          test "${paths[1]}" = "$FIXTURE_PATH"
+          git diff --check "$PRODUCT_PARENT_SHA" "$PRODUCT_SHA"
+          test -z "$(git status --porcelain)"
+
+      - name: Independently validate registry and hostile mutations
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVIDENCE_DIR="$RUNNER_TEMP/emb-data-registry-v0-1-evidence"
+          mkdir -p "$EVIDENCE_DIR"
+          python3 - <<'PY' | tee "$EVIDENCE_DIR/registry-verifier.txt"
+          import copy, hashlib, json, pathlib, re
+
+          profile_path = pathlib.Path('docs/embodied/EMBODIED_DATA_REGISTRY_V0_1.md')
+          fixture_path = pathlib.Path('docs/embodied/fixtures/EMB_DATA_REGISTRY_V0_1.json')
+          profile = profile_path.read_bytes()
+          raw = fixture_path.read_bytes()
+          doc = json.loads(raw)
+
+          EXPECTED_RIGHTS = {
+              'RequiresExactTermsReview',
+              'NonCommercialRestrictionObserved',
+              'AttributionLicenseObserved',
+              'DatasetSpecificAgreementObserved',
+              'PerComponentTermsObserved',
+              'SourceDatasetTermsInherited',
+              'UserGeneratedCapture',
+              'SyntheticFirstParty',
+              'Unknown',
+          }
+          EXPECTED_IDS = {
+              'meta:nymeria-family',
+              'meta:hot3d',
+              'ego4d:ego4d-v2-family',
+              'ego4d:ego-exo4d-family',
+              'google:open-x-embodiment',
+              'google:scanned-objects',
+              'huggingface:lerobot-dataset-v3',
+              'ros2:rosbag2',
+              'symtropy:synthetic-episode',
+          }
+          REQUIRED_FIELDS = {
+              'id', 'provider_family', 'resource_family', 'resource_kind',
+              'source_profile', 'modalities', 'rights_observations',
+              'access_observation', 'split_concern', 'first_use',
+              'owner_issue', 'nonclaims',
+          }
+          EXPECTED_GLOBAL_NONCLAIMS = {
+              'DatasetAdmitted', 'DownloadAuthorized', 'TrainingAuthorized',
+              'RedistributionAuthorized', 'CommercialUseAuthorized',
+              'PrivacyComplianceEstablished', 'ConsentComplianceEstablished',
+              'ParserQualified', 'SkillLearned', 'HumanoidCapabilityEstablished',
+              'PhysicalExecutionAuthorized',
+          }
+
+          def validate(d):
+              if d.get('schema') != 'mycelix:emb-data-registry:v0.1':
+                  raise ValueError('schema')
+              if d.get('review_date') != '2026-09-22':
+                  raise ValueError('review_date')
+              if d.get('authority') != 'ReviewedSourceObservationsOnly':
+                  raise ValueError('authority')
+              if d.get('training_authority') is not False:
+                  raise ValueError('training_authority')
+              if d.get('redistribution_authority') is not False:
+                  raise ValueError('redistribution_authority')
+              if d.get('physical_execution_authority') is not False:
+                  raise ValueError('physical_execution_authority')
+              rights = d.get('rights_states')
+              if not isinstance(rights, list) or len(rights) != len(EXPECTED_RIGHTS) or set(rights) != EXPECTED_RIGHTS:
+                  raise ValueError('rights_states')
+              entries = d.get('entries')
+              if not isinstance(entries, list) or len(entries) != 9:
+                  raise ValueError('entry_count')
+              ids = [e.get('id') for e in entries]
+              if len(set(ids)) != len(ids) or set(ids) != EXPECTED_IDS:
+                  raise ValueError('entry_ids')
+              for e in entries:
+                  if not REQUIRED_FIELDS <= set(e):
+                      raise ValueError('required_fields:' + str(e.get('id')))
+                  if not e['modalities'] or not e['rights_observations'] or not e['nonclaims'] or not e['split_concern']:
+                      raise ValueError('empty_required:' + e['id'])
+                  if not set(e['rights_observations']) <= EXPECTED_RIGHTS:
+                      raise ValueError('unknown_rights:' + e['id'])
+              by_id = {e['id']: e for e in entries}
+              exact_required = {
+                  'meta:nymeria-family': {'NonCommercialRestrictionObserved', 'RequiresExactTermsReview'},
+                  'meta:hot3d': {'PerComponentTermsObserved', 'RequiresExactTermsReview'},
+                  'ego4d:ego4d-v2-family': {'DatasetSpecificAgreementObserved', 'RequiresExactTermsReview'},
+                  'ego4d:ego-exo4d-family': {'DatasetSpecificAgreementObserved', 'RequiresExactTermsReview'},
+                  'google:open-x-embodiment': {'SourceDatasetTermsInherited', 'RequiresExactTermsReview'},
+                  'google:scanned-objects': {'AttributionLicenseObserved', 'RequiresExactTermsReview'},
+                  'huggingface:lerobot-dataset-v3': {'SourceDatasetTermsInherited', 'RequiresExactTermsReview'},
+                  'ros2:rosbag2': {'UserGeneratedCapture', 'RequiresExactTermsReview'},
+                  'symtropy:synthetic-episode': {'SyntheticFirstParty', 'SourceDatasetTermsInherited'},
+              }
+              for entry_id, required in exact_required.items():
+                  if set(by_id[entry_id]['rights_observations']) != required:
+                      raise ValueError('rights_profile:' + entry_id)
+              if not EXPECTED_GLOBAL_NONCLAIMS <= set(d.get('global_nonclaims', [])):
+                  raise ValueError('global_nonclaims')
+              return True
+
+          def expect_reject(label, mutator):
+              bad = copy.deepcopy(doc)
+              mutator(bad)
+              try:
+                  validate(bad)
+              except (ValueError, KeyError, TypeError):
+                  print('hostile_reject=' + label)
+                  return
+              raise AssertionError('hostile mutation admitted: ' + label)
+
+          assert validate(doc)
+
+          expect_reject('permission_state_training', lambda d: d['rights_states'].append('TrainingAllowed'))
+          expect_reject('permission_state_commercial', lambda d: d['rights_states'].append('CommercialUseAllowed'))
+          expect_reject('schema_substitution', lambda d: d.__setitem__('schema', 'mycelix:emb-data-registry:v0.2'))
+          expect_reject('training_authority_true', lambda d: d.__setitem__('training_authority', True))
+          expect_reject('execution_authority_true', lambda d: d.__setitem__('physical_execution_authority', True))
+          expect_reject(
+              'synthetic_rights_wash',
+              lambda d: next(e for e in d['entries'] if e['id'] == 'symtropy:synthetic-episode')
+                  .__setitem__('rights_observations', ['SyntheticFirstParty'])
+          )
+          expect_reject(
+              'hot3d_component_terms_erased',
+              lambda d: next(e for e in d['entries'] if e['id'] == 'meta:hot3d')
+                  .__setitem__('rights_observations', ['RequiresExactTermsReview'])
+          )
+          expect_reject(
+              'openx_source_terms_erased',
+              lambda d: next(e for e in d['entries'] if e['id'] == 'google:open-x-embodiment')
+                  .__setitem__('rights_observations', ['RequiresExactTermsReview'])
+          )
+          expect_reject(
+              'gso_attribution_erased',
+              lambda d: next(e for e in d['entries'] if e['id'] == 'google:scanned-objects')
+                  .__setitem__('rights_observations', ['RequiresExactTermsReview'])
+          )
+          expect_reject(
+              'split_concern_erased',
+              lambda d: next(e for e in d['entries'] if e['id'] == 'ego4d:ego4d-v2-family')
+                  .__setitem__('split_concern', '')
+          )
+          expect_reject('entry_removed', lambda d: d['entries'].pop())
+
+          text = raw.decode('utf-8')
+          secret_patterns = [
+              r'ghp_[A-Za-z0-9]{30,}',
+              r'github_pat_[A-Za-z0-9_]{20,}',
+              r'AKIA[0-9A-Z]{16}',
+              r'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----',
+          ]
+          for pattern in secret_patterns:
+              if re.search(pattern, text):
+                  raise ValueError('secret_pattern')
+
+          print('schema=' + doc['schema'])
+          print('entries=' + str(len(doc['entries'])))
+          print('entry_ids=' + ','.join(sorted(EXPECTED_IDS)))
+          print('rights_states=' + ','.join(sorted(EXPECTED_RIGHTS)))
+          print('profile_sha256=' + hashlib.sha256(profile).hexdigest())
+          print('fixture_sha256=' + hashlib.sha256(raw).hexdigest())
+          print('authority=ReviewedSourceObservationsOnly')
+          print('hostile_mutations_all_rejected=true')
+          print('STATIC_CORPUS_ORACLE_PASS')
+          PY
+          test -z "$(git status --porcelain)"
+
+      - name: Authority and terminology audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVIDENCE_DIR="$RUNNER_TEMP/emb-data-registry-v0-1-evidence"
+          python3 - <<'PY' | tee "$EVIDENCE_DIR/authority-audit.txt"
+          from pathlib import Path
+          text = (Path('docs/embodied/EMBODIED_DATA_REGISTRY_V0_1.md').read_text() + '\n' +
+                  Path('docs/embodied/fixtures/EMB_DATA_REGISTRY_V0_1.json').read_text())
+          required = [
+              'rights evidence is not legal permission',
+              'human motion is not humanoid actuator command',
+              'synthetic evidence is not physical evidence',
+              'no registry state grants robot execution authority',
+          ]
+          lower = text.lower()
+          for phrase in required:
+              assert phrase.lower() in lower, phrase
+          for token in ['is_authorized(', 'training_allowed(', 'execute_robot(', 'motor_permit(']:
+              assert token not in text
+          print('authority_ceiling_text=PASS')
+          PY
+          test -z "$(git status --porcelain)"
+
+      - name: Write exact static receipt and prove postflight immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVIDENCE_DIR="$RUNNER_TEMP/emb-data-registry-v0-1-evidence"
+          test -z "$(git status --porcelain)"
+          {
+            echo "product_sha=$PRODUCT_SHA"
+            echo "product_parent_sha=$PRODUCT_PARENT_SHA"
+            echo "product_tree_sha=$PRODUCT_TREE_SHA"
+            echo "profile_blob=$(git rev-parse HEAD:$PROFILE_PATH)"
+            echo "fixture_blob=$(git rev-parse HEAD:$FIXTURE_PATH)"
+            sha256sum "$PROFILE_PATH" "$FIXTURE_PATH"
+            echo "postflight_head=$(git rev-parse HEAD)"
+            echo "postflight_tree=$(git rev-parse HEAD^{tree})"
+            echo "source_immutable=true"
+            echo "external_provider_currentness=OUTSIDE_STATIC_ORACLE"
+            echo "claim_ceiling=StaticQualifiedEmbodiedDatasetRegistryCorpusV0_1_only"
+            echo "STATIC_QUALIFIER_PASS"
+          } | tee "$EVIDENCE_DIR/receipt.txt"
+          test "$(git rev-parse HEAD)" = "$PRODUCT_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$PRODUCT_TREE_SHA"
+          test -z "$(git status --porcelain)"
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: emb-data-registry-v0-1-static-qualification-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/emb-data-registry-v0-1-evidence/
+          if-no-files-found: warn
