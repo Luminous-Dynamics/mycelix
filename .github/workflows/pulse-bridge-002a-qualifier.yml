@@ -1,0 +1,191 @@
+name: PULSE-BRIDGE-002A exact qualifier
+
+on:
+  pull_request:
+    branches:
+      - feat/pulse-external-bridge-002a
+    types: [ready_for_review]
+    paths:
+      - .github/workflows/pulse-bridge-002a-qualifier.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pulse-bridge-002a-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  SOURCE_SHA: 843805bb278dfdd52b3158f626cce926f1338dfb
+  PROFILE_SHA: aec9dd64f19a9944dc107628d294e766380b274e
+  SOURCE_TREE: efac4cdc60f85b6ce3d57e1497bcc11a349c5328
+  MANIFEST: mycelix-workspace/mycelix-pulse/crates/pulse-external-bridge-types/Cargo.toml
+  SOURCE: mycelix-workspace/mycelix-pulse/crates/pulse-external-bridge-types/src/lib.rs
+  FIXTURE: mycelix-workspace/mycelix-pulse/docs/bridges/fixtures/PULSE_BRIDGE_001_V0_1.json
+  LOCK: mycelix-workspace/mycelix-pulse/crates/pulse-external-bridge-types/Cargo.lock
+  RUSTUP_TOOLCHAIN: 1.96.0
+  CARGO_TERM_COLOR: never
+
+jobs:
+  qualify:
+    name: Qualify exact external bridge kernel
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout literal source subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 843805bb278dfdd52b3158f626cce926f1338dfb
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Prove exact source topology
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(git rev-parse HEAD^)" = "$PROFILE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$SOURCE_TREE"
+          mapfile -t paths < <(git diff --name-only "$PROFILE_SHA" "$SOURCE_SHA")
+          printf '%s\n' "${paths[@]}"
+          test "${#paths[@]}" -eq 2
+          printf '%s\n' "${paths[@]}" | grep -Fxq 'mycelix-workspace/mycelix-pulse/crates/pulse-external-bridge-types/Cargo.toml'
+          printf '%s\n' "${paths[@]}" | grep -Fxq 'mycelix-workspace/mycelix-pulse/crates/pulse-external-bridge-types/src/lib.rs'
+          test ! -e "$LOCK"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+
+      - name: Independently validate frozen bridge corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('mycelix-workspace/mycelix-pulse/docs/bridges/fixtures/PULSE_BRIDGE_001_V0_1.json')
+          d=json.loads(p.read_text())
+          assert d['profile']=='mycelix:pulse:matrix-discord-bridge-corpus:v0.1'
+          assert d['schema_version']==1
+          assert d['reviewed_at']=='2026-09-22'
+          assert d['authority']=='external-observation-fixture-only'
+          assert d['provider_profiles']=={
+            'matrix':'mycelix:pulse:matrix-appservice:review-2026-09-22:v0.1',
+            'discord':'mycelix:pulse:discord-bot-oauth-gateway-webhook:review-2026-09-22:v0.1',
+          }
+          expected=[
+            'matrix-retry-same','matrix-retry-conflict','matrix-event-redelivery',
+            'matrix-state-key','matrix-ephemeral','discord-bot-authored',
+            'discord-webhook-authorship','discord-content-withheld','edit-is-revision',
+            'delete-preserves-lineage','reply-relation','unsupported-relation',
+            'linked-accounts-remain-distinct','bridge-loop','attachment-not-fetched',
+            'audience-mismatch','role-not-authority','future-event-type',
+            'profile-substitution','same-text-distinct-events'
+          ]
+          cases=d['cases']
+          assert [c['id'] for c in cases]==expected
+          assert len({c['id'] for c in cases})==20
+          by={c['id']:c for c in cases}
+          assert by['matrix-retry-same']['expect']=='IdempotentDeliveryObservation'
+          assert by['matrix-retry-conflict']['expect']=='Conflict'
+          assert by['discord-webhook-authorship']['author_kind']=='Webhook'
+          assert by['discord-content-withheld']['expect']=='ContentUnavailableUnderProviderAccessProfile'
+          assert by['attachment-not-fetched']['attachment_ref']=='provider-attachment-1'
+          assert by['role-not-authority']['expect']=='ProviderModerationStateOnly'
+          assert by['future-event-type']['expect']=='UnknownProviderExtension'
+          assert by['profile-substitution']['expect_error']=='ProviderProfileMismatch'
+          assert 'no native Pulse admission' in d['claim_ceiling']
+          print('fixture_oracle=PASS cases=20')
+          PY
+
+      - name: Audit dependency and authority surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import re, tomllib
+          from pathlib import Path
+          manifest=tomllib.loads(Path('mycelix-workspace/mycelix-pulse/crates/pulse-external-bridge-types/Cargo.toml').read_text())
+          assert set(manifest.get('dependencies',{}))=={'serde'}
+          assert set(manifest.get('dev-dependencies',{}))=={'serde_json'}
+          src=Path('mycelix-workspace/mycelix-pulse/crates/pulse-external-bridge-types/src/lib.rs').read_text()
+          assert '#![forbid(unsafe_code)]' in src
+          imports=[line.strip() for line in src.splitlines() if line.strip().startswith('use ')]
+          assert set(imports) <= {'use serde::{Deserialize, Serialize};','use std::fmt;','use super::*;'}
+          code='\n'.join(line for line in src.splitlines() if not line.lstrip().startswith('//'))
+          for forbidden in ('MessageId','EncryptedEnvelopeV2HybridPqc','RecipientReceipt','DerivedDeliveryState','hdk::','holochain','reqwest','tokio','axum','std::net','std::fs','std::process'):
+              assert forbidden not in code, forbidden
+          assert 'pub struct AdmittedExternalBridgeObservationV1' in src
+          assert 'pub fn admit_external_bridge_observation_v1' in src
+          assert 'pub fn same_provider_event_as' in src
+          assert 'pub fn same_bridge_origin_as' in src
+          assert 'container_id' not in src
+          print('authority_audit=PASS')
+          PY
+
+      - name: Record immutable preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "source_sha=$(git rev-parse HEAD)"
+            echo "source_tree=$(git rev-parse HEAD^{tree})"
+            echo "profile_sha=$PROFILE_SHA"
+            echo "rustc=$(rustc --version)"
+            echo "cargo=$(cargo --version)"
+            echo "rustfmt=$(rustfmt --version)"
+            echo "manifest_sha256=$(sha256sum "$MANIFEST" | awk '{print $1}')"
+            echo "source_sha256=$(sha256sum "$SOURCE" | awk '{print $1}')"
+            echo "fixture_sha256=$(sha256sum "$FIXTURE" | awk '{print $1}')"
+          } | tee /tmp/pulse-bridge-preflight.txt
+
+      - name: Rustfmt check
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path "$MANIFEST" -- --check
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Derive ephemeral lock and execute complete Rust gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo generate-lockfile --manifest-path "$MANIFEST"
+          test -f "$LOCK"
+          mapfile -t dirty < <(git status --porcelain=v1 | sed -E 's/^.. //')
+          printf '%s\n' "${dirty[@]}"
+          test "${#dirty[@]}" -eq 1
+          test "${dirty[0]}" = "$LOCK"
+          lock_sha=$(sha256sum "$LOCK" | awk '{print $1}')
+          echo "lock_sha256=$lock_sha" | tee /tmp/pulse-bridge-lock.txt
+          cargo check --manifest-path "$MANIFEST" --locked --all-targets
+          cargo test --manifest-path "$MANIFEST" --locked
+          cargo test --manifest-path "$MANIFEST" --locked --doc
+          cargo clippy --manifest-path "$MANIFEST" --locked --all-targets -- -D warnings
+
+      - name: Postflight immutability and receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f "$LOCK"
+          test -z "$(git status --porcelain=v1)"
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$SOURCE_TREE"
+          {
+            cat /tmp/pulse-bridge-preflight.txt
+            cat /tmp/pulse-bridge-lock.txt
+            echo 'fixture_oracle=PASS'
+            echo 'authority_audit=PASS'
+            echo 'rustfmt=PASS'
+            echo 'cargo_check=PASS'
+            echo 'cargo_test=PASS'
+            echo 'doc_test=PASS'
+            echo 'clippy_D_warnings=PASS'
+            echo 'postflight_immutable=PASS'
+            echo 'result=QUALIFIER_PASS_FOR_EXACT_SOURCE'
+          } | tee /tmp/pulse-bridge-qualification-receipt.txt
