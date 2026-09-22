@@ -1,0 +1,374 @@
+name: CORE-CAP-001P Preparation
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-capability-core/**'
+      - '.github/workflows/core-cap-001-preflight.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: core-cap-001p-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  PRODUCT_SHA: f54119d439d6a74c68f0921ea96ed0a3a093c2f8
+  PRODUCT_TREE: 990804fdfc87749aeec97ad88d131f0462fe662e
+  PRODUCT_PARENT: 9fa9104ff2e1a26a51abb54bf2dd98c566b7a9f2
+  CONVERGENCE_PARENT_1: f5614e6d9c9e2ddb9d6690880b77dffdf6bf8b39
+  CONVERGENCE_PARENT_2: 58fa357e53d7e529362c5f766965498ee557d6ce
+  PRODUCT_CARGO_BLOB: b2c4e2408d7d05f1a8e9e90b5bee94c86d6d5f2b
+  PRODUCT_INVARIANTS_BLOB: 045122d35b8d2ed9529205cb59194d5fd9844592
+  PRODUCT_LIB_BLOB: d4a709feccdeabae5eb22bd5e70bb44cb5953046
+  PRODUCT_TEST_BLOB: 49798d70398acb6d1e97908b5ba4f36599abee08
+  RUST_TOOLCHAIN: 1.98.1
+  CARGO_TERM_COLOR: always
+
+jobs:
+  prepare:
+    name: Prepare exact CORE-CAP dependency capsule
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout verifier subject
+        id: verifier_checkout
+        continue-on-error: true
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: verifier
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Checkout exact repaired product subject
+        id: product_checkout
+        continue-on-error: true
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: f54119d439d6a74c68f0921ea96ed0a3a093c2f8
+          path: product
+          fetch-depth: 3
+          persist-credentials: false
+
+      - name: Prove exact product and convergence geometry
+        id: geometry
+        if: ${{ always() && steps.verifier_checkout.outcome == 'success' && steps.product_checkout.outcome == 'success' }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p receipt
+          cd product
+
+          test "$(git rev-parse HEAD)" = "$PRODUCT_SHA"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$PRODUCT_TREE"
+          test "$(git show -s --format=%P HEAD)" = "$PRODUCT_PARENT"
+          test "$(git show -s --format=%P "$PRODUCT_PARENT")" = "$CONVERGENCE_PARENT_1 $CONVERGENCE_PARENT_2"
+
+          mapfile -t changed < <(git diff --name-only "$PRODUCT_PARENT" "$PRODUCT_SHA" | LC_ALL=C sort)
+          expected=(
+            'crates/mycelix-capability-core/Cargo.toml'
+            'crates/mycelix-capability-core/INVARIANTS.md'
+            'crates/mycelix-capability-core/src/lib.rs'
+            'crates/mycelix-capability-core/tests/conformance.rs'
+          )
+          test "${#changed[@]}" -eq "${#expected[@]}"
+          for i in "${!expected[@]}"; do
+            test "${changed[$i]}" = "${expected[$i]}"
+          done
+
+          test "$(git hash-object crates/mycelix-capability-core/Cargo.toml)" = "$PRODUCT_CARGO_BLOB"
+          test "$(git hash-object crates/mycelix-capability-core/INVARIANTS.md)" = "$PRODUCT_INVARIANTS_BLOB"
+          test "$(git hash-object crates/mycelix-capability-core/src/lib.rs)" = "$PRODUCT_LIB_BLOB"
+          test "$(git hash-object crates/mycelix-capability-core/tests/conformance.rs)" = "$PRODUCT_TEST_BLOB"
+
+          test "$(git hash-object crates/mycelix-authority-evidence-lease/Cargo.toml)" = '4d367cf31df51b9f6e53a2c56bf4db7f774a15d0'
+          test "$(git hash-object crates/mycelix-authority-evidence-lease/INVARIANTS.md)" = '1357b91b37d9bf58b1b70d098e8511bb31142822'
+          test "$(git hash-object crates/mycelix-authority-evidence-lease/src/lib.rs)" = '2da6f4a2fb421ba46bd6c16354efa216e3885056'
+
+          {
+            echo "product_sha=$PRODUCT_SHA"
+            echo "product_tree=$PRODUCT_TREE"
+            echo "product_parent=$PRODUCT_PARENT"
+            echo "product_cargo_blob=$PRODUCT_CARGO_BLOB"
+            echo "product_invariants_blob=$PRODUCT_INVARIANTS_BLOB"
+            echo "product_lib_blob=$PRODUCT_LIB_BLOB"
+            echo "product_test_blob=$PRODUCT_TEST_BLOB"
+            echo "convergence_parents=$CONVERGENCE_PARENT_1 $CONVERGENCE_PARENT_2"
+          } > ../receipt/product-subject.txt
+
+      - name: Independent static boundary audit
+        id: static_audit
+        if: ${{ always() && steps.geometry.outcome == 'success' }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          src = Path('product/crates/mycelix-capability-core/src/lib.rs').read_text()
+          inv = Path('product/crates/mycelix-capability-core/INVARIANTS.md').read_text()
+
+          assert 'pub struct BoundedCapabilityLeaseWireV1 {' in src
+          assert 'pub struct BoundedCapabilityLeaseV1(BoundedCapabilityLeaseWireV1);' in src
+          assert 'pub fn try_from_wire(' in src
+          assert 'wire.minted_at_ms < wire.support_lease.verified_at_ms' in src
+          assert 'deserialize_evidence_lease_strict' in src
+          assert 'value.chars().any(char::is_control)' in src
+          assert 'validated structural lease != domain-qualified executable capability' in inv
+          assert 'adee00934208e3675266d1830e577bfc21e595c9bc5c0a27d16424dac6e20e55' in inv
+
+          positive_decl = src.split('pub struct BoundedCapabilityLeaseV1', 1)[0].rsplit('#[derive(', 1)[-1]
+          assert 'Deserialize' not in positive_decl, positive_decl
+
+          forbidden = [
+              'hdk::', '#[hdk_extern]', 'create_entry(', 'call_remote(',
+              'reqwest::', 'tokio::net', 'std::process::Command', 'is_authorized(',
+              'permit(', 'execute_effect(',
+          ]
+          lowered = src.lower()
+          for token in forbidden:
+              assert token.lower() not in lowered, token
+          print('PASS: static typestate/time/no-effect boundary audit')
+          PY
+
+      - name: Install exact Rust qualification toolchain
+        id: rust
+        if: ${{ always() && steps.static_audit.outcome == 'success' }}
+        continue-on-error: true
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+
+      - name: Capture verifier and environment identity
+        id: environment
+        if: ${{ always() && steps.rust.outcome == 'success' }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p receipt
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, platform, subprocess
+
+          def output(*args):
+              return subprocess.check_output(args, text=True).strip()
+
+          workflow = pathlib.Path('verifier/.github/workflows/core-cap-001-preflight.yml').read_bytes()
+          data = {
+              'schema': 'mycelix-core-cap-001p-environment-v1',
+              'product_sha': os.environ['PRODUCT_SHA'],
+              'product_tree': os.environ['PRODUCT_TREE'],
+              'verifier_head': output('git', '-C', 'verifier', 'rev-parse', 'HEAD'),
+              'workflow_sha256': hashlib.sha256(workflow).hexdigest(),
+              'workflow_git_blob': output('git', '-C', 'verifier', 'hash-object', '.github/workflows/core-cap-001-preflight.yml'),
+              'runner_os': os.environ.get('RUNNER_OS'),
+              'runner_arch': os.environ.get('RUNNER_ARCH'),
+              'image_os': os.environ.get('ImageOS'),
+              'image_version': os.environ.get('ImageVersion'),
+              'platform': platform.platform(),
+              'rustc_vV': output('rustc', '-vV'),
+              'cargo_V': output('cargo', '-V'),
+              'rustfmt_V': output('rustfmt', '-V'),
+              'clippy_driver_V': output('clippy-driver', '-V'),
+              'python_V': output('python3', '--version'),
+              'git_V': output('git', '--version'),
+              'os_release_sha256': hashlib.sha256(pathlib.Path('/etc/os-release').read_bytes()).hexdigest(),
+          }
+          canonical = json.dumps(data, sort_keys=True, separators=(',', ':')).encode()
+          data['environment_fingerprint_sha256'] = hashlib.sha256(canonical).hexdigest()
+          pathlib.Path('receipt/environment.json').write_text(json.dumps(data, sort_keys=True, indent=2) + '\n')
+          pathlib.Path('receipt/environment-fingerprint.txt').write_text(data['environment_fingerprint_sha256'] + '\n')
+          print(json.dumps(data, sort_keys=True, indent=2))
+          PY
+
+      - name: Materialize isolated exact source graph
+        id: isolate
+        if: ${{ always() && steps.environment.outcome == 'success' }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/core-cap-001p"
+          rm -rf "$root"
+          mkdir -p "$root"
+          cp -a product/crates/mycelix-capability-core "$root/mycelix-capability-core"
+          cp -a product/crates/mycelix-authority-evidence-lease "$root/mycelix-authority-evidence-lease"
+          printf '%s\n' "$root" > receipt/isolation-root.txt
+
+      - name: Generate fresh Cargo dependency capsule
+        id: lock
+        if: ${{ always() && steps.isolate.outcome == 'success' }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/core-cap-001p"
+          manifest="$root/mycelix-capability-core/Cargo.toml"
+          lock="$root/mycelix-capability-core/Cargo.lock"
+          test ! -e "$lock"
+          cargo generate-lockfile --manifest-path "$manifest"
+          test -s "$lock"
+          cp "$lock" receipt/Cargo.lock
+          sha256sum "$lock" | tee receipt/cargo-lock.sha256
+          git hash-object "$lock" | tee receipt/cargo-lock.git-blob
+          python3 - <<'PY'
+          import json, os, pathlib, tomllib
+          lock = pathlib.Path(os.environ['RUNNER_TEMP']) / 'core-cap-001p/mycelix-capability-core/Cargo.lock'
+          data = tomllib.loads(lock.read_text())
+          packages = []
+          for package in data.get('package', []):
+              packages.append({
+                  'name': package.get('name'),
+                  'version': package.get('version'),
+                  'source': package.get('source'),
+                  'checksum': package.get('checksum'),
+                  'dependencies': package.get('dependencies', []),
+              })
+          pathlib.Path('receipt/resolved-packages.json').write_text(
+              json.dumps(packages, sort_keys=True, indent=2) + '\n'
+          )
+          PY
+
+      - name: Fetch exact locked dependency closure
+        id: fetch
+        if: ${{ always() && steps.lock.outcome == 'success' }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest="$RUNNER_TEMP/core-cap-001p/mycelix-capability-core/Cargo.toml"
+          cargo fetch --manifest-path "$manifest" --locked
+          cargo fetch --manifest-path "$manifest" --locked --target wasm32-unknown-unknown
+
+      - name: Record locked metadata and feature graph offline
+        id: metadata
+        if: ${{ always() && steps.fetch.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          CARGO_NET_OFFLINE: 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest="$RUNNER_TEMP/core-cap-001p/mycelix-capability-core/Cargo.toml"
+          cargo metadata --manifest-path "$manifest" --locked --format-version 1 > receipt/cargo-metadata.json
+          cargo tree --manifest-path "$manifest" --locked -e features > receipt/cargo-tree-features.txt
+          sha256sum receipt/cargo-metadata.json > receipt/cargo-metadata.sha256
+          sha256sum receipt/cargo-tree-features.txt > receipt/cargo-tree-features.sha256
+
+      - name: Rustfmt exact source
+        id: fmt
+        if: ${{ always() && steps.fetch.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          CARGO_NET_OFFLINE: 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path "$RUNNER_TEMP/core-cap-001p/mycelix-capability-core/Cargo.toml" -- --check
+
+      - name: Execute all target tests offline and locked
+        id: tests
+        if: ${{ always() && steps.fetch.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          CARGO_NET_OFFLINE: 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path "$RUNNER_TEMP/core-cap-001p/mycelix-capability-core/Cargo.toml" --all-targets --locked
+
+      - name: Warnings-denied Clippy offline and locked
+        id: clippy
+        if: ${{ always() && steps.fetch.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          CARGO_NET_OFFLINE: 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo clippy --manifest-path "$RUNNER_TEMP/core-cap-001p/mycelix-capability-core/Cargo.toml" --all-targets --locked -- -D warnings
+
+      - name: Warnings-denied rustdoc offline and locked
+        id: rustdoc
+        if: ${{ always() && steps.fetch.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          CARGO_NET_OFFLINE: 'true'
+          RUSTDOCFLAGS: '-D warnings'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo doc --manifest-path "$RUNNER_TEMP/core-cap-001p/mycelix-capability-core/Cargo.toml" --no-deps --locked
+
+      - name: Bare WASM library check offline and locked
+        id: wasm
+        if: ${{ always() && steps.fetch.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          CARGO_NET_OFFLINE: 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path "$RUNNER_TEMP/core-cap-001p/mycelix-capability-core/Cargo.toml" --lib --target wasm32-unknown-unknown --locked
+
+      - name: Immutable product and lock postflight
+        id: postflight
+        if: ${{ always() && steps.lock.outcome == 'success' }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C product rev-parse HEAD)" = "$PRODUCT_SHA"
+          test "$(git -C product rev-parse 'HEAD^{tree}')" = "$PRODUCT_TREE"
+          test -z "$(git -C product status --porcelain)"
+          test -z "$(git -C verifier status --porcelain)"
+          current="$(sha256sum "$RUNNER_TEMP/core-cap-001p/mycelix-capability-core/Cargo.lock" | awk '{print $1}')"
+          recorded="$(awk '{print $1}' receipt/cargo-lock.sha256)"
+          test "$current" = "$recorded"
+
+      - name: Classify preparation result
+        id: classify
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          classification='PREPARED'
+          if [[ '${{ steps.verifier_checkout.outcome }}' != 'success' || '${{ steps.product_checkout.outcome }}' != 'success' || '${{ steps.geometry.outcome }}' != 'success' || '${{ steps.static_audit.outcome }}' != 'success' ]]; then
+            classification='VERIFIER_FAILURE'
+          elif [[ '${{ steps.rust.outcome }}' != 'success' || '${{ steps.environment.outcome }}' != 'success' || '${{ steps.isolate.outcome }}' != 'success' ]]; then
+            classification='ENVIRONMENT_UNAVAILABLE'
+          elif [[ '${{ steps.lock.outcome }}' != 'success' || '${{ steps.fetch.outcome }}' != 'success' || '${{ steps.metadata.outcome }}' != 'success' ]]; then
+            classification='DEPENDENCY_RESOLUTION_FAILURE'
+          elif [[ '${{ steps.fmt.outcome }}' != 'success' || '${{ steps.tests.outcome }}' != 'success' || '${{ steps.clippy.outcome }}' != 'success' || '${{ steps.rustdoc.outcome }}' != 'success' || '${{ steps.wasm.outcome }}' != 'success' ]]; then
+            classification='PRODUCT_SOURCE_FAILURE'
+          elif [[ '${{ steps.postflight.outcome }}' != 'success' ]]; then
+            classification='VERIFIER_FAILURE'
+          fi
+
+          mkdir -p receipt
+          printf '%s\n' "$classification" | tee receipt/classification.txt
+          cat > receipt/nonclaims.txt <<'EOF'
+          PREPARED != CORE-CAP-001 QUALIFIED
+          PREPARED != mint authority
+          PREPARED != runtime capability authority
+          PREPARED != hermetic/reproducible binary proof
+          PREPARED != GitHub runner supply-chain proof
+          EOF
+
+          if [[ "$classification" != 'PREPARED' ]]; then
+            exit 1
+          fi
+
+      - name: Upload diagnostic preparation capsule
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: core-cap-001p-f54119d4-preparation
+          path: receipt/
+          if-no-files-found: warn
+          retention-days: 30
