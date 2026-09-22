@@ -1,0 +1,179 @@
+name: GAME-STEAM-002A exact qualifier
+
+on:
+  pull_request:
+    branches:
+      - feat/game-steam-capability-002a
+    types: [ready_for_review]
+    paths:
+      - .github/workflows/game-steam-capability-002a-qualifier.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: game-steam-capability-002a-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  SOURCE_SHA: 9edf34602fc9dff1a29cd1b7a7485eb585c363f1
+  PROFILE_SHA: 586ad99435a94f8036479d562a30e3e780f11a36
+  SOURCE_TREE: 94ea5d69b14daa2889b48d7400b5f8b16d4f01a3
+  SOURCE_MANIFEST: mycelix-workspace/crates/mycelix-steam-capability/Cargo.toml
+  SOURCE_LIB: mycelix-workspace/crates/mycelix-steam-capability/src/lib.rs
+  SOURCE_FIXTURE: docs/integrations/providers/steam/fixtures/GAME_STEAM_001_V0_1.json
+  RUSTUP_TOOLCHAIN: 1.96.0
+  CARGO_TERM_COLOR: never
+
+jobs:
+  qualify:
+    name: Qualify isolated exact Steam capability kernel
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout literal source subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 9edf34602fc9dff1a29cd1b7a7485eb585c363f1
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Prove exact topology
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(git rev-parse HEAD^)" = "$PROFILE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$SOURCE_TREE"
+          mapfile -t paths < <(git diff --name-only "$PROFILE_SHA" "$SOURCE_SHA")
+          test "${#paths[@]}" -eq 2
+          printf '%s\n' "${paths[@]}" | grep -Fxq "$SOURCE_MANIFEST"
+          printf '%s\n' "${paths[@]}" | grep -Fxq "$SOURCE_LIB"
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Install pinned Rust
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+
+      - name: Independently validate exact Steam corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/game-steam-002a
+          python3 - <<'PY' | tee /tmp/game-steam-002a/fixture-oracle.txt
+          import json
+          from pathlib import Path
+          d=json.loads(Path('docs/integrations/providers/steam/fixtures/GAME_STEAM_001_V0_1.json').read_text())
+          assert d['profile']=='mycelix:game-steam:capability-profile:v0.1'
+          assert d['schema_version']==1
+          assert d['authority']=='fixture-classification-only'
+          expected=['runtime-unavailable','wrong-appid','runtime-only','local-steamid-not-auth','backend-ticket-valid','backend-ticket-invalid','ownership-true','input-independent','lobby-not-session-authority','workshop-locator-not-content-id','cloud-locator-not-save-id','achievement-not-credential','inventory-separate','conflicting-runtime-observations','future-capability']
+          assert [c['id'] for c in d['cases']]==expected
+          assert len(set(expected))==15
+          assert d['forbidden_fixture_fields']==['publisher_web_api_key','encrypted_ticket_private_key','backend_secret']
+          by={c['id']:c for c in d['cases']}
+          assert by['runtime-only']['expect']['RuntimeInitialized']=='ObservedAvailable'
+          assert by['runtime-only']['expect']['AuthenticatedSteamId']=='Unknown'
+          assert by['local-steamid-not-auth']['expect']['AuthenticatedSteamId']=='Unknown'
+          assert by['backend-ticket-valid']['expect']['AuthenticatedSteamId']=='ObservedUnderBackendVerificationProfile'
+          assert by['backend-ticket-invalid']['expect']['AuthenticatedSteamId']=='Unavailable'
+          assert by['ownership-true']['expect']['AppOwnershipObservation']=='ObservedOwned'
+          assert by['ownership-true']['expect']['WorkshopUGCAvailable']=='Unknown'
+          assert by['future-capability']['expect_error']=='UnknownCapability'
+          assert by['conflicting-runtime-observations']['expect_error']=='Conflict'
+          print('fixture_oracle=PASS cases=15')
+          PY
+
+      - name: Audit authority and dependency surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' | tee /tmp/game-steam-002a/authority-audit.txt
+          import re,tomllib
+          from pathlib import Path
+          m=tomllib.loads(Path('mycelix-workspace/crates/mycelix-steam-capability/Cargo.toml').read_text())
+          assert set(m.get('dependencies',{}))=={'serde'}
+          assert set(m.get('dev-dependencies',{}))=={'serde_json'}
+          src=Path('mycelix-workspace/crates/mycelix-steam-capability/src/lib.rs').read_text()
+          assert '#![forbid(unsafe_code)]' in src
+          code=re.sub(r'/\*.*?\*/',' ',src,flags=re.S)
+          code='\n'.join(line.split('//',1)[0] for line in code.splitlines())
+          for forbidden in ('steamworks::','bevy::','hdk::','holochain','reqwest','tokio','axum','std::net','std::fs','std::process'):
+              assert forbidden not in code, forbidden
+          for fn in ('publish','upload','trade','purchase','join_lobby','open_session','dispatch','delete'):
+              assert not re.search(rf'\b(?:pub\s+)?fn\s+{fn}\b',code), fn
+          assert 'pub struct SteamCapabilityAssessmentV1' in src
+          assert 'pub fn assess_steam_capabilities_v1' in src
+          print('authority_audit=PASS')
+          PY
+
+      - name: Record exact source hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "source_sha=$(git rev-parse HEAD)"
+            echo "source_tree=$(git rev-parse HEAD^{tree})"
+            echo "profile_sha=$PROFILE_SHA"
+            echo "rustc=$(rustc --version)"
+            echo "cargo=$(cargo --version)"
+            echo "manifest_sha256=$(sha256sum "$SOURCE_MANIFEST" | awk '{print $1}')"
+            echo "source_sha256=$(sha256sum "$SOURCE_LIB" | awk '{print $1}')"
+            echo "fixture_sha256=$(sha256sum "$SOURCE_FIXTURE" | awk '{print $1}')"
+          } | tee /tmp/game-steam-002a/preflight.txt
+
+      - name: Construct isolated exact-source crate
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=/tmp/game-steam-002a/isolated
+          mkdir -p "$root/mycelix-workspace/crates/mycelix-steam-capability/src" "$root/docs/integrations/providers/steam/fixtures"
+          cp "$SOURCE_MANIFEST" "$root/mycelix-workspace/crates/mycelix-steam-capability/Cargo.toml"
+          cp "$SOURCE_LIB" "$root/mycelix-workspace/crates/mycelix-steam-capability/src/lib.rs"
+          cp "$SOURCE_FIXTURE" "$root/docs/integrations/providers/steam/fixtures/GAME_STEAM_001_V0_1.json"
+          cmp -s "$SOURCE_LIB" "$root/mycelix-workspace/crates/mycelix-steam-capability/src/lib.rs"
+
+      - name: Execute isolated Rust 1.96 gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest=/tmp/game-steam-002a/isolated/mycelix-workspace/crates/mycelix-steam-capability/Cargo.toml
+          cargo fmt --manifest-path "$manifest" -- --check
+          cargo generate-lockfile --manifest-path "$manifest"
+          lock=/tmp/game-steam-002a/isolated/mycelix-workspace/crates/mycelix-steam-capability/Cargo.lock
+          echo "isolated_lock_sha256=$(sha256sum "$lock" | awk '{print $1}')" | tee /tmp/game-steam-002a/lock.txt
+          cargo check --manifest-path "$manifest" --locked --all-targets
+          cargo test --manifest-path "$manifest" --locked
+          cargo test --manifest-path "$manifest" --locked --doc
+          cargo clippy --manifest-path "$manifest" --locked --all-targets -- -D warnings
+          cargo tree --manifest-path "$manifest" --locked --edges normal | tee /tmp/game-steam-002a/cargo-tree.txt
+
+      - name: Postflight source immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$SOURCE_TREE"
+          test -z "$(git status --porcelain=v1)"
+          {
+            cat /tmp/game-steam-002a/preflight.txt
+            cat /tmp/game-steam-002a/lock.txt
+            echo 'fixture_oracle=PASS'
+            echo 'authority_audit=PASS'
+            echo 'rust_gate=PASS'
+            echo 'postflight_immutable=PASS'
+            echo 'result=QUALIFIER_PASS_FOR_EXACT_SOURCE'
+          } | tee /tmp/game-steam-002a/receipt.txt
+
+      - name: Upload exact qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: game-steam-002a-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp/game-steam-002a
+          if-no-files-found: warn
+          retention-days: 30
