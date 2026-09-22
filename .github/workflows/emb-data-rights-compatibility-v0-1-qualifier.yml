@@ -1,0 +1,274 @@
+name: EMB-DATA-RIGHTS-001TQ r2 exact synthetic corpus qualifier
+
+on:
+  pull_request:
+    types: [ready_for_review]
+    paths:
+      - '.github/workflows/emb-data-rights-compatibility-v0-1-qualifier.yml'
+
+permissions:
+  contents: read
+
+env:
+  PRODUCT_SHA: 6e793c5a818755cce80623bd5cb602885ca00ff0
+  PRODUCT_PARENT_SHA: ce7acdbd2afa6d40bcd669e14ba468b3214466c3
+  PRODUCT_TREE_SHA: 4ca1a311341a82581b266de1be9398e17d3b6a7d
+  PROFILE_PATH: docs/embodied/EMBODIED_DATA_RIGHTS_COMPATIBILITY_V0_1.md
+  FIXTURE_PATH: docs/embodied/fixtures/EMB_DATA_RIGHTS_COMPATIBILITY_V0_1.json
+
+jobs:
+  qualify:
+    name: Exact synthetic terms-compatibility corpus
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout literal product subject
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PRODUCT_SHA }}
+          fetch-depth: 2
+
+      - name: Prove exact lineage and source shape
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$PRODUCT_SHA"
+          test "$(git rev-parse HEAD^)" = "$PRODUCT_PARENT_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$PRODUCT_TREE_SHA"
+          mapfile -t paths < <(git diff --name-only "$PRODUCT_PARENT_SHA" "$PRODUCT_SHA" | sort)
+          test "${#paths[@]}" -eq 2
+          test "${paths[0]}" = "$PROFILE_PATH"
+          test "${paths[1]}" = "$FIXTURE_PATH"
+          git diff --check "$PRODUCT_PARENT_SHA" "$PRODUCT_SHA"
+          test -z "$(git status --porcelain)"
+
+      - name: Independently reconstruct all 17 outcomes
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVIDENCE_DIR="$RUNNER_TEMP/emb-data-rights-001tq-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          mkdir -p "$EVIDENCE_DIR"
+          python3 - <<'PY' | tee "$EVIDENCE_DIR/oracle.txt"
+          import copy, hashlib, json, pathlib, re
+
+          profile_path = pathlib.Path('docs/embodied/EMBODIED_DATA_RIGHTS_COMPATIBILITY_V0_1.md')
+          fixture_path = pathlib.Path('docs/embodied/fixtures/EMB_DATA_RIGHTS_COMPATIBILITY_V0_1.json')
+          profile = profile_path.read_bytes()
+          raw = fixture_path.read_bytes()
+          doc = json.loads(raw)
+
+          STATES = {
+              'CompatibleWithReviewedTermsProfile', 'IncompatibleWithReviewedTermsProfile',
+              'HumanReviewRequired', 'TermsEvidenceConflict',
+              'TermsProfileExpiredOrSuperseded', 'IntendedUseOutOfProfile'
+          }
+          DIMS = {
+              'LocalStorage', 'ResearchAnalysis', 'Training', 'Evaluation',
+              'CommercialResearch', 'CommercialProductDevelopment', 'DerivedModelUse',
+              'DerivedModelDistribution', 'DerivedDatasetCreation',
+              'DerivedDatasetRedistribution', 'RawRedistribution', 'PublicationExcerpt',
+              'PublicDemo', 'RemoteProcessing'
+          }
+          OBLIGATIONS = {
+              'Attribution', 'NoticeRetention', 'NonCommercialUseOnly', 'NoRawRedistribution',
+              'SourceLineageRetention', 'ReviewOnTermsChange', 'DeletionOnRevocation',
+              'NoDerivedDatasetRedistribution'
+          }
+          SPLITS = {'Training', 'Validation', 'EvaluationOnly', 'BenchmarkHoldout', 'Unspecified'}
+          DISPOSITIONS = {'Compatible', 'Incompatible', 'Unknown', 'OutOfScope'}
+          CASE_IDS = {
+              'C01-research-compatible-commercial-prohibited',
+              'C02-training-compatible-raw-redistribution-prohibited',
+              'C03-attribution-retained', 'C04-evaluation-only-blocks-training',
+              'C05-public-url-terms-unknown', 'C06-ambiguous-clause',
+              'C07-expired-terms-profile', 'C08-profile-subject-mismatch',
+              'C09-two-compatible-sources-obligations-union',
+              'C10-noncommercial-source-blocks-commercial-composite',
+              'C11-one-unknown-source-withholds-composite',
+              'C12-caller-request-cannot-rewrite-evidence',
+              'C13-privacy-prerequisite-remains-external',
+              'C14-benchmark-holdout-blocks-training',
+              'C15-derived-model-distribution-out-of-scope',
+              'C16-compatibility-never-grants-robot-actuation',
+              'C17-conflicting-reviewed-evidence'
+          }
+
+          def obligations(rows):
+              out = set()
+              for row in rows:
+                  vals = row.get('obligations', [])
+                  assert isinstance(vals, list) and set(vals) <= OBLIGATIONS
+                  out.update(vals)
+              return tuple(sorted(out))
+
+          def finish(dispositions, obs):
+              if 'Incompatible' in dispositions:
+                  return ('IncompatibleWithReviewedTermsProfile', obs)
+              if 'Unknown' in dispositions:
+                  return ('HumanReviewRequired', obs)
+              if 'OutOfScope' in dispositions:
+                  return ('IntendedUseOutOfProfile', obs)
+              assert dispositions and all(v == 'Compatible' for v in dispositions)
+              return ('CompatibleWithReviewedTermsProfile', obs)
+
+          def assess(case):
+              subjects = case['subjects']
+              intended = case['intended_use']
+              split = case['split_role']
+              ev = case['reviewed_terms_evidence']
+              assert subjects and len(subjects) == len(set(subjects))
+              assert intended and set(intended) <= DIMS
+              assert split in SPLITS
+
+              currentness = ev.get('currentness')
+              if currentness in {'Expired', 'Superseded'}:
+                  return ('TermsProfileExpiredOrSuperseded', obligations([ev]))
+              if currentness == 'Unknown':
+                  return ('HumanReviewRequired', obligations([ev]))
+              assert currentness == 'Current'
+
+              if 'Training' in intended and split in {'EvaluationOnly', 'BenchmarkHoldout'}:
+                  return ('IncompatibleWithReviewedTermsProfile', obligations([ev]))
+
+              if ev.get('subject') is not None and (len(subjects) != 1 or ev['subject'] != subjects[0]):
+                  return ('IntendedUseOutOfProfile', obligations([ev]))
+
+              if 'per_source' not in ev:
+                  dims = ev['dimensions']
+                  assert set(dims) <= DIMS and set(dims.values()) <= DISPOSITIONS
+                  return finish([dims.get(dim, 'OutOfScope') for dim in intended], obligations([ev]))
+
+              rows = ev['per_source']
+              assert rows
+              row_subjects = [row['subject'] for row in rows]
+              if set(row_subjects) != set(subjects):
+                  return ('IntendedUseOutOfProfile', obligations(rows))
+
+              grouped = {}
+              for row in rows:
+                  dims = row['dimensions']
+                  assert set(dims) <= DIMS and set(dims.values()) <= DISPOSITIONS
+                  for dim in intended:
+                      grouped.setdefault((row['subject'], dim), set()).add(dims.get(dim, 'OutOfScope'))
+              if any(len(vals) > 1 for vals in grouped.values()):
+                  return ('TermsEvidenceConflict', obligations(rows))
+
+              dispositions = []
+              for subject in subjects:
+                  matching = [r for r in rows if r['subject'] == subject]
+                  assert matching
+                  for dim in intended:
+                      vals = {r['dimensions'].get(dim, 'OutOfScope') for r in matching}
+                      assert len(vals) == 1
+                      dispositions.append(next(iter(vals)))
+              return finish(dispositions, obligations(rows))
+
+          assert doc['schema'] == 'mycelix:emb-data-rights-compatibility-corpus:v0.1'
+          assert doc['authority'] == 'SyntheticCompatibilitySemanticsOnly'
+          assert doc['review_date'] == '2026-09-22'
+          for key in ['legal_permission_authority', 'access_authority', 'training_execution_authority', 'physical_execution_authority']:
+              assert doc[key] is False
+          assert set(doc['states']) == STATES and len(doc['states']) == len(STATES)
+          assert set(doc['dimensions']) == DIMS and len(doc['dimensions']) == len(DIMS)
+          assert set(doc['obligations']) == OBLIGATIONS and len(doc['obligations']) == len(OBLIGATIONS)
+          assert set(doc['split_roles']) == SPLITS and len(doc['split_roles']) == len(SPLITS)
+
+          cases = doc['cases']
+          assert len(cases) == 17
+          assert {c['id'] for c in cases} == CASE_IDS
+          by_id = {c['id']: c for c in cases}
+          for case in cases:
+              state, obs = assess(case)
+              assert state == case['expected_state'], (case['id'], state, case['expected_state'])
+              assert obs == tuple(sorted(case['expected_obligations'])), case['id']
+              assert isinstance(case.get('external_prerequisites'), list)
+              print('case=' + case['id'] + ' state=' + state)
+
+          # The oracle does not derive its answer from fixture expected_state.
+          tampered = copy.deepcopy(by_id['C01-research-compatible-commercial-prohibited'])
+          tampered['expected_state'] = 'IncompatibleWithReviewedTermsProfile'
+          assert assess(tampered)[0] == 'CompatibleWithReviewedTermsProfile'
+
+          # Source order cannot change composite or conflict semantics.
+          for cid in ['C09-two-compatible-sources-obligations-union',
+                      'C10-noncommercial-source-blocks-commercial-composite',
+                      'C11-one-unknown-source-withholds-composite',
+                      'C17-conflicting-reviewed-evidence']:
+              rev = copy.deepcopy(by_id[cid])
+              rev['reviewed_terms_evidence']['per_source'].reverse()
+              assert assess(rev) == assess(by_id[cid]), cid
+
+          # Same-subject contradiction is conflict; provenance refs must be distinct.
+          c17 = by_id['C17-conflicting-reviewed-evidence']
+          rows17 = c17['reviewed_terms_evidence']['per_source']
+          refs17 = [row.get('evidence_ref') for row in rows17]
+          assert len(rows17) == 2 and all(refs17) and len(set(refs17)) == 2
+          assert rows17[0]['subject'] == rows17[1]['subject'] == c17['subjects'][0]
+          assert assess(c17)[0] == 'TermsEvidenceConflict'
+
+          # Moving the second record to another exact subject changes the theorem to
+          # restrictive multi-source composition, not evidence conflict.
+          nonconflict = copy.deepcopy(c17)
+          nonconflict['subjects'] = ['synthetic:dataset:t:v1', 'synthetic:dataset:u:v1']
+          nonconflict['reviewed_terms_evidence']['per_source'][1]['subject'] = 'synthetic:dataset:u:v1'
+          assert assess(nonconflict)[0] == 'IncompatibleWithReviewedTermsProfile'
+
+          # Terms-only compatibility leaves privacy/consent as an external prerequisite.
+          c13 = by_id['C13-privacy-prerequisite-remains-external']
+          assert assess(c13)[0] == 'CompatibleWithReviewedTermsProfile'
+          assert c13['external_prerequisites'] == ['PrivacyConsentAssessment']
+
+          text = raw.decode('utf-8')
+          for forbidden in ['TrainingAllowed', 'LegallyPermitted', 'CanTrain', 'PhysicalExecutionAllowed']:
+              assert forbidden not in STATES
+          for pattern in [r'ghp_[A-Za-z0-9]{30,}', r'github_pat_[A-Za-z0-9_]{20,}',
+                          r'AKIA[0-9A-Z]{16}', r'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----']:
+              assert re.search(pattern, text) is None
+
+          lower = profile.decode('utf-8').lower()
+          for phrase in ['legal permission', 'robot actuation authority', 'privacy/consent', 'termsevidenceconflict']:
+              assert phrase in lower, phrase
+          for token in ['is_allowed(', 'license_ok(', 'can_train(', 'can_publish(', 'execute_robot(', 'motor_permit(']:
+              assert token not in lower
+
+          print('case_count=17')
+          print('all_fixture_states_independently_reconstructed=true')
+          print('ordering_invariance=PASS')
+          print('distinct_conflict_evidence_refs=PASS')
+          print('conflict_vs_composition=PASS')
+          print('privacy_prerequisite_separation=PASS')
+          print('profile_sha256=' + hashlib.sha256(profile).hexdigest())
+          print('fixture_sha256=' + hashlib.sha256(raw).hexdigest())
+          print('SYNTHETIC_CORPUS_ORACLE_PASS')
+          PY
+
+      - name: Write exact receipt and prove postflight immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVIDENCE_DIR="$RUNNER_TEMP/emb-data-rights-001tq-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          test -z "$(git status --porcelain)"
+          {
+            echo "product_sha=$PRODUCT_SHA"
+            echo "product_parent_sha=$PRODUCT_PARENT_SHA"
+            echo "product_tree_sha=$PRODUCT_TREE_SHA"
+            echo "profile_blob=$(git rev-parse HEAD:$PROFILE_PATH)"
+            echo "fixture_blob=$(git rev-parse HEAD:$FIXTURE_PATH)"
+            sha256sum "$PROFILE_PATH" "$FIXTURE_PATH"
+            echo "case_count=17"
+            echo "oracle_independent_of_product_code=true"
+            echo "source_immutable=true"
+            echo "claim_ceiling=QualifiedSyntheticDatasetTermsCompatibilityCorpusV0_1_only"
+            echo "QUALIFIER_PASS"
+          } | tee "$EVIDENCE_DIR/receipt.txt"
+          test "$(git rev-parse HEAD)" = "$PRODUCT_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$PRODUCT_TREE_SHA"
+          test -z "$(git status --porcelain)"
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: emb-data-rights-v0-1-qualification-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/emb-data-rights-001tq-${{ github.run_id }}-${{ github.run_attempt }}/
+          if-no-files-found: warn
