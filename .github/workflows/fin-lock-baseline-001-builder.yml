@@ -1,0 +1,145 @@
+name: FIN-LOCK-BASELINE-001 generated author
+
+on:
+  pull_request:
+    types: [ready_for_review]
+
+permissions:
+  contents: write
+
+jobs:
+  author-lock-baseline:
+    if: >-
+      github.event.pull_request.head.ref == 'diag/fin-lock-baseline-001-builder' &&
+      github.event.pull_request.base.ref == 'docs/fin-alpaca-execid-profile-v0-1'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact target baseline branch
+        uses: actions/checkout@v4
+        with:
+          ref: chore/fin-lock-baseline-001
+          fetch-depth: 0
+
+      - name: Prove exact starting point
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "bf6faa46f531aed8d8f6bf8129c5156588228520"
+          test "$(sha256sum mycelix-finance/Cargo.lock | awk '{print $1}')" = "fd60c09265aa579598d1fcaa001cf2668f309430986ec2ec76af5fe8504959a2"
+          git status --porcelain=v1 | test ! -s /dev/stdin
+
+      - name: Install pinned Rust 1.96.0
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.96.0 --profile minimal
+          rustup override set 1.96.0
+          rustc --version | grep -F 'rustc 1.96.0'
+          cargo --version | grep -F 'cargo 1.96.0'
+
+      - name: Generate lock baseline mechanically
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show HEAD:mycelix-finance/Cargo.lock > /tmp/Cargo.lock.before
+          cd mycelix-finance
+          cargo generate-lockfile
+          test "$(sha256sum Cargo.lock | awk '{print $1}')" = "70fd05e28f514c8a872f9124de855542c05a708885c788e2caf6bb239deca139"
+          cd ..
+          test "$(git status --porcelain=v1 | cut -c4-)" = "mycelix-finance/Cargo.lock"
+          git diff --check
+
+      - name: Prove exact inherited lock reconciliation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          before = tomllib.loads(Path('/tmp/Cargo.lock.before').read_text())
+          after = tomllib.loads(Path('mycelix-finance/Cargo.lock').read_text())
+
+          def keyed(doc):
+              rows = {}
+              for p in doc['package']:
+                  key = (p['name'], p['version'])
+                  if key in rows:
+                      raise SystemExit(f'duplicate package key not handled: {key}')
+                  rows[key] = p
+              return rows
+
+          b = keyed(before)
+          a = keyed(after)
+          if set(a) != set(b):
+              raise SystemExit('package identity set changed during baseline reconciliation')
+
+          changed = {k for k in a if a[k] != b[k]}
+          expected = {
+              ('cgc_integrity', '0.1.0'),
+              ('credit_scoring_integrity', '0.1.0'),
+              ('hearth_integrity', '0.1.0'),
+              ('lending_integrity', '0.1.0'),
+              ('payments_integrity', '0.1.0'),
+              ('recognition_integrity', '0.1.0'),
+              ('sovereign-profile', '0.1.2'),
+              ('staking_integrity', '0.1.0'),
+              ('tend_integrity', '0.1.0'),
+              ('treasury_integrity', '0.1.0'),
+          }
+          if changed != expected:
+              raise SystemExit(f'unexpected changed packages: {sorted(changed ^ expected)}')
+
+          bridge = 'mycelix-bridge-entry-types'
+          integrity = expected - {('sovereign-profile', '0.1.2')}
+          for key in integrity:
+              old = b[key]
+              new = a[key]
+              if set(old) - {'dependencies'} != set(new) - {'dependencies'}:
+                  raise SystemExit(f'non-dependency field set changed for {key}')
+              for field in set(old) - {'dependencies'}:
+                  if old[field] != new[field]:
+                      raise SystemExit(f'non-dependency field changed for {key}: {field}')
+              old_deps = old.get('dependencies', [])
+              new_deps = new.get('dependencies', [])
+              if bridge in old_deps or new_deps != sorted(old_deps + [bridge]):
+                  raise SystemExit(f'non-exact bridge dependency reconciliation for {key}')
+
+          key = ('sovereign-profile', '0.1.2')
+          old = b[key]
+          new = a[key]
+          for field in old:
+              if field not in {'source', 'checksum'} and old[field] != new[field]:
+                  raise SystemExit(f'unexpected sovereign-profile field change: {field}')
+          if old.get('source') is not None or old.get('checksum') is not None:
+              raise SystemExit('sovereign-profile baseline unexpectedly already had registry provenance')
+          if new.get('source') != 'registry+https://github.com/rust-lang/crates.io-index':
+              raise SystemExit('unexpected sovereign-profile registry source')
+          if new.get('checksum') != '049f13004bc45a09549c4df44beeaca97def2fce17099de065c0051851ba2249':
+              raise SystemExit('unexpected sovereign-profile checksum')
+
+          print('LOCK_BASELINE_DELTA_EXACT')
+          PY
+
+      - name: Prove generated baseline is locked-resolvable
+        shell: bash
+        working-directory: mycelix-finance
+        run: |
+          set -euo pipefail
+          cargo metadata --locked --no-deps > /tmp/fin-lock-baseline-metadata.json
+          test -s /tmp/fin-lock-baseline-metadata.json
+
+      - name: Commit generated bytes to baseline branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add mycelix-finance/Cargo.lock
+          git diff --cached --quiet && { echo 'expected generated lock delta'; exit 1; }
+          git commit -m 'chore(finance): reconcile generated Cargo lock baseline'
+          test "$(git diff HEAD^ HEAD --name-only)" = "mycelix-finance/Cargo.lock"
+          git push origin HEAD:chore/fin-lock-baseline-001
+          echo "baseline_sha=$(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
+          echo "baseline_tree=$(git rev-parse HEAD^{tree})" >> "$GITHUB_STEP_SUMMARY"
+          echo 'FIN_LOCK_BASELINE_AUTHORED' >> "$GITHUB_STEP_SUMMARY"
