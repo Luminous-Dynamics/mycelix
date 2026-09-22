@@ -1,0 +1,289 @@
+name: PULSE-BRIDGE-002A mechanical repair derivation
+
+on:
+  pull_request:
+    branches:
+      - feat/pulse-external-bridge-types-v0-1
+    types: [ready_for_review]
+    paths:
+      - .github/workflows/pulse-bridge-002a-repair-derivation.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pulse-bridge-002a-repair-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  PRODUCT_SHA: 329ad3faa456388d5fa8ab947bde464a34a55f80
+  PROFILE_PARENT_SHA: aec9dd64f19a9944dc107628d294e766380b274e
+  PRODUCT_TREE: 97823f83d47834a3d5492110e666823e9392db8b
+  WORKSPACE: mycelix-workspace
+  CRATE: mycelix-workspace/mycelix-pulse/crates/pulse-external-bridge-types
+  PACKAGE: pulse-external-bridge-types
+  RUSTUP_TOOLCHAIN: 1.96.0
+  CARGO_TERM_COLOR: never
+
+jobs:
+  derive:
+    name: Derive exact Pulse bridge repair and dependency capsule
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout literal product subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 329ad3faa456388d5fa8ab947bde464a34a55f80
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Prove exact topology and source shape
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/pulse-bridge-002a/parent /tmp/pulse-bridge-002a/repaired
+          test "$(git rev-parse HEAD)" = "$PRODUCT_SHA"
+          test "$(git rev-parse HEAD^)" = "$PROFILE_PARENT_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$PRODUCT_TREE"
+          mapfile -t paths < <(git diff --name-only "$PROFILE_PARENT_SHA" "$PRODUCT_SHA")
+          printf '%s\n' "${paths[@]}" | tee /tmp/pulse-bridge-002a/product-paths.txt
+          test "${#paths[@]}" -eq 3
+          for p in \
+            "$CRATE/Cargo.toml" \
+            "$CRATE/src/lib.rs" \
+            "$CRATE/tests/adversarial.rs"
+          do
+            grep -Fxq "$p" /tmp/pulse-bridge-002a/product-paths.txt
+          done
+          ! grep -Fxq "$WORKSPACE/Cargo.lock" /tmp/pulse-bridge-002a/product-paths.txt
+          grep -Fq '"mycelix-pulse/crates/*"' "$WORKSPACE/Cargo.toml"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+
+      - name: Independently validate frozen profile and corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' | tee /tmp/pulse-bridge-002a/corpus-oracle.txt
+          import json
+          from pathlib import Path
+          root=Path('mycelix-workspace/mycelix-pulse/docs/bridges')
+          profile=(root/'PULSE_MATRIX_DISCORD_BRIDGE_PROFILE_V0_1.md').read_text()
+          fixture=json.loads((root/'fixtures/PULSE_BRIDGE_001_V0_1.json').read_text())
+          assert fixture['profile']=='mycelix:pulse:matrix-discord-bridge-corpus:v0.1'
+          assert fixture['schema_version']==1
+          assert fixture['reviewed_at']=='2026-09-22'
+          assert fixture['authority']=='external-observation-fixture-only'
+          assert fixture['provider_profiles']=={
+            'matrix':'mycelix:pulse:matrix-appservice:review-2026-09-22:v0.1',
+            'discord':'mycelix:pulse:discord-bot-oauth-gateway-webhook:review-2026-09-22:v0.1',
+          }
+          cases=fixture['cases']; ids=[c['id'] for c in cases]
+          assert len(cases)==20 and len(ids)==len(set(ids))
+          assert 'Matrix event ID != Discord message ID != native Pulse MessageId.' in profile
+          assert 'provider delivery observation != native Pulse RecipientReceipt.' in profile
+          print('corpus_oracle=PASS')
+          print('case_count=20')
+          PY
+
+      - name: Record immutable preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "product_sha=$(git rev-parse HEAD)"
+            echo "product_tree=$(git rev-parse HEAD^{tree})"
+            echo "profile_parent_sha=$PROFILE_PARENT_SHA"
+            echo "workflow_source_sha=${{ github.event.pull_request.head.sha || github.sha }}"
+            echo "rustc=$(rustc --version)"
+            echo "cargo=$(cargo --version)"
+            echo "rustfmt=$(rustfmt --version)"
+            echo "workspace_lock_before_sha256=$(sha256sum "$WORKSPACE/Cargo.lock" | awk '{print $1}')"
+            echo "manifest_before_sha256=$(sha256sum "$CRATE/Cargo.toml" | awk '{print $1}')"
+            echo "lib_before_sha256=$(sha256sum "$CRATE/src/lib.rs" | awk '{print $1}')"
+            echo "tests_before_sha256=$(sha256sum "$CRATE/tests/adversarial.rs" | awk '{print $1}')"
+          } | tee /tmp/pulse-bridge-002a/preflight.txt
+
+      - name: Derive parent workspace lock baseline independently
+        shell: bash
+        run: |
+          set -euo pipefail
+          git worktree add --detach /tmp/pulse-bridge-parent "$PROFILE_PARENT_SHA"
+          parent=/tmp/pulse-bridge-parent/$WORKSPACE
+          cp "$parent/Cargo.lock" /tmp/pulse-bridge-002a/parent/Cargo.lock.before
+
+          if cargo metadata --manifest-path "$parent/Cargo.toml" --locked --no-deps --format-version 1 \
+             >/tmp/pulse-bridge-002a/parent/metadata.locked.json \
+             2>/tmp/pulse-bridge-002a/parent/metadata.locked.stderr; then
+            echo 'parent_locked_metadata=PASS' | tee /tmp/pulse-bridge-002a/parent/locked-state.txt
+          else
+            echo 'parent_locked_metadata=FAIL' | tee /tmp/pulse-bridge-002a/parent/locked-state.txt
+          fi
+
+          cargo metadata --manifest-path "$parent/Cargo.toml" --no-deps --format-version 1 \
+            >/tmp/pulse-bridge-002a/parent/metadata.generated.json
+          mapfile -t dirty < <(git -C /tmp/pulse-bridge-parent status --porcelain=v1 | sed -E 's/^.. //')
+          printf '%s\n' "${dirty[@]}" | tee /tmp/pulse-bridge-002a/parent/dirty.txt
+          for p in "${dirty[@]}"; do
+            test "$p" = "$WORKSPACE/Cargo.lock"
+          done
+          cp "$parent/Cargo.lock" /tmp/pulse-bridge-002a/parent/Cargo.lock.generated
+          git -C /tmp/pulse-bridge-parent diff -- "$WORKSPACE/Cargo.lock" \
+            > /tmp/pulse-bridge-002a/parent/lock-baseline.patch
+          {
+            echo "parent_lock_before_sha256=$(sha256sum /tmp/pulse-bridge-002a/parent/Cargo.lock.before | awk '{print $1}')"
+            echo "parent_lock_generated_sha256=$(sha256sum /tmp/pulse-bridge-002a/parent/Cargo.lock.generated | awk '{print $1}')"
+          } | tee /tmp/pulse-bridge-002a/parent/receipt.txt
+
+      - name: Mechanically derive Rustfmt repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path "$WORKSPACE/Cargo.toml" -p "$PACKAGE"
+          mapfile -t dirty < <(git status --porcelain=v1 | sed -E 's/^.. //')
+          printf '%s\n' "${dirty[@]}" | tee /tmp/pulse-bridge-002a/dirty-after-rustfmt.txt
+          for p in "${dirty[@]}"; do
+            case "$p" in
+              "$CRATE/src/lib.rs"|"$CRATE/tests/adversarial.rs") ;;
+              *) echo "unexpected rustfmt path: $p" >&2; exit 1 ;;
+            esac
+          done
+          git diff -- "$CRATE/src/lib.rs" "$CRATE/tests/adversarial.rs" \
+            | tee /tmp/pulse-bridge-002a/rustfmt.patch
+          cargo fmt --manifest-path "$WORKSPACE/Cargo.toml" -p "$PACKAGE" -- --check
+          cp "$CRATE/src/lib.rs" /tmp/pulse-bridge-002a/repaired/lib.rs
+          cp "$CRATE/tests/adversarial.rs" /tmp/pulse-bridge-002a/repaired/adversarial.rs
+
+      - name: Mechanically derive workspace lock delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo metadata --manifest-path "$WORKSPACE/Cargo.toml" --no-deps --format-version 1 \
+            >/tmp/pulse-bridge-002a/product-metadata.generated.json
+          mapfile -t dirty < <(git status --porcelain=v1 | sed -E 's/^.. //')
+          printf '%s\n' "${dirty[@]}" | tee /tmp/pulse-bridge-002a/dirty-after-lock.txt
+          for p in "${dirty[@]}"; do
+            case "$p" in
+              "$WORKSPACE/Cargo.lock"|"$CRATE/src/lib.rs"|"$CRATE/tests/adversarial.rs") ;;
+              *) echo "unexpected generated path: $p" >&2; exit 1 ;;
+            esac
+          done
+          grep -Fxq "$WORKSPACE/Cargo.lock" /tmp/pulse-bridge-002a/dirty-after-lock.txt
+          cp "$WORKSPACE/Cargo.lock" /tmp/pulse-bridge-002a/repaired/Cargo.lock
+          git diff -- "$WORKSPACE/Cargo.lock" > /tmp/pulse-bridge-002a/product-lock.patch
+          git diff -- "$WORKSPACE/Cargo.lock" "$CRATE/src/lib.rs" "$CRATE/tests/adversarial.rs" \
+            > /tmp/pulse-bridge-002a/combined-repair.patch
+
+      - name: Classify product-specific lock delta against generated parent
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' | tee /tmp/pulse-bridge-002a/lock-classification.txt
+          import tomllib
+          def load(path):
+            with open(path,'rb') as f: return tomllib.load(f)['package']
+          def key(p): return (p['name'],p['version'],p.get('source',''))
+          a={key(p):p for p in load('/tmp/pulse-bridge-002a/parent/Cargo.lock.generated')}
+          b={key(p):p for p in load('mycelix-workspace/Cargo.lock')}
+          added=sorted(set(b)-set(a))
+          removed=sorted(set(a)-set(b))
+          changed=sorted(k for k in set(a)&set(b) if a[k]!=b[k])
+          print('added=',added)
+          print('removed=',removed)
+          print('changed=',changed)
+          assert added == [('pulse-external-bridge-types','0.1.0','')]
+          assert removed == []
+          assert changed == []
+          pkg=b[added[0]]
+          assert set(pkg.get('dependencies',[])) == {'serde','serde_json'}
+          print('product_specific_lock_delta=EXACT_ONE_LOCAL_PACKAGE')
+          PY
+
+      - name: Execute complete repaired Rust gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo metadata --manifest-path "$WORKSPACE/Cargo.toml" --locked --no-deps --format-version 1 \
+            > /tmp/pulse-bridge-002a/cargo-metadata.locked.json
+          cargo check --manifest-path "$WORKSPACE/Cargo.toml" --locked -p "$PACKAGE" --all-targets
+          cargo test --manifest-path "$WORKSPACE/Cargo.toml" --locked -p "$PACKAGE" --all-targets
+          cargo test --manifest-path "$WORKSPACE/Cargo.toml" --locked -p "$PACKAGE" --doc
+          cargo clippy --manifest-path "$WORKSPACE/Cargo.toml" --locked -p "$PACKAGE" --all-targets -- -D warnings
+
+      - name: Audit dependency and authority boundary structurally
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo tree --manifest-path "$WORKSPACE/Cargo.toml" --locked -p "$PACKAGE" --edges normal \
+            | tee /tmp/pulse-bridge-002a/cargo-tree.txt
+          python3 - <<'PY' | tee /tmp/pulse-bridge-002a/authority-audit.txt
+          import re, tomllib
+          from pathlib import Path
+          crate=Path('mycelix-workspace/mycelix-pulse/crates/pulse-external-bridge-types')
+          manifest=tomllib.loads((crate/'Cargo.toml').read_text())
+          assert set(manifest.get('dependencies',{}))=={'serde'}
+          assert set(manifest.get('dev-dependencies',{}))=={'serde_json'}
+          tree=Path('/tmp/pulse-bridge-002a/cargo-tree.txt').read_text()
+          forbidden={'hdk','hdi','holochain','reqwest','hyper','axum','tokio','matrix-sdk','serenity','twilight-gateway','twilight-http','ureq','curl','keyring'}
+          names=set()
+          for line in tree.splitlines():
+            m=re.search(r'(?:^|[ ├└│]+)([A-Za-z0-9_.-]+) v[0-9]',line)
+            if m: names.add(m.group(1))
+          assert not (names & forbidden), sorted(names & forbidden)
+          src=(crate/'src/lib.rs').read_text()
+          assert '#![forbid(unsafe_code)]' in src
+          code=re.sub(r'/\*.*?\*/',' ',src,flags=re.S)
+          code='\n'.join(line.split('//',1)[0] for line in code.splitlines())
+          for path in ('std::net','std::fs','std::process','reqwest','tokio','matrix_sdk','serenity','mail_leptos_types'):
+            assert path not in code
+          m=re.search(r'#\[derive\((.*?)\)\]\s*pub struct AdmittedExternalBridgeObservationV1',src,re.S)
+          assert m and 'Deserialize' not in m.group(1)
+          body=re.search(r'pub struct AdmittedExternalBridgeObservationV1\s*\{(.*?)\n\}',src,re.S)
+          assert body
+          for line in body.group(1).splitlines():
+            line=line.strip()
+            if line and ':' in line:
+              assert not line.startswith('pub '), line
+          print('authority_audit=PASS')
+          print('runtime_dependencies=serde-only')
+          print('positive_wrapper=private-field-serialize-only')
+          PY
+
+      - name: Record exact repair hashes and postflight product immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "formatted_lib_sha256=$(sha256sum "$CRATE/src/lib.rs" | awk '{print $1}')"
+            echo "formatted_tests_sha256=$(sha256sum "$CRATE/tests/adversarial.rs" | awk '{print $1}')"
+            echo "generated_workspace_lock_sha256=$(sha256sum "$WORKSPACE/Cargo.lock" | awk '{print $1}')"
+            echo "rustfmt_patch_sha256=$(sha256sum /tmp/pulse-bridge-002a/rustfmt.patch | awk '{print $1}')"
+            echo "combined_repair_patch_sha256=$(sha256sum /tmp/pulse-bridge-002a/combined-repair.patch | awk '{print $1}')"
+          } | tee /tmp/pulse-bridge-002a/repair-hashes.txt
+
+          test "$(git rev-parse HEAD)" = "$PRODUCT_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$PRODUCT_TREE"
+          test "$(sha256sum "$CRATE/Cargo.toml" | awk '{print $1}')" = "$(grep '^manifest_before_sha256=' /tmp/pulse-bridge-002a/preflight.txt | cut -d= -f2)"
+          {
+            echo "repair_derivation=PASS"
+            echo "product_sha=$PRODUCT_SHA"
+            echo "product_tree=$PRODUCT_TREE"
+            echo "profile_parent_sha=$PROFILE_PARENT_SHA"
+            echo "claim=mechanical repair/dependency derivation only; source remains NOT QUALIFIED"
+          } | tee /tmp/pulse-bridge-002a/receipt.txt
+
+      - name: Upload exact derivation evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: pulse-bridge-002a-repair-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp/pulse-bridge-002a
+          if-no-files-found: warn
+          retention-days: 30
