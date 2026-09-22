@@ -1,0 +1,17 @@
+[package]
+name = "finance-provider-alpaca-activity"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+publish = false
+description = "Pure Alpaca Activity SSE provider-identity admission for Mycelix Finance"
+
+[lib]
+name = "finance_provider_alpaca_activity"
+crate-type = ["rlib"]
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

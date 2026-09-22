@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "types",
+    "crates/finance-provider-alpaca-activity",
     "crates/finance-wire-types",
     "crates/finance-leptos-types",
     "zomes/shared",
