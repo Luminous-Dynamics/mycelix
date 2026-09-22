@@ -6,6 +6,7 @@ members = [
     "crates/finance-market-core",
     "crates/finance-market-observation",
     "crates/finance-market-execution-frontier",
+    "crates/finance-market-projection",
     "crates/finance-wire-types",
     "crates/finance-leptos-types",
     "zomes/shared",
