@@ -1,0 +1,301 @@
+name: FIN-ALPACA-EXECID-001A mechanical repair derivation r2
+
+on:
+  pull_request:
+    branches:
+      - feat/fin-alpaca-execid-001a
+    types: [ready_for_review]
+    paths:
+      - .github/workflows/fin-alpaca-execid-001a-repair-derivation-r2.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fin-alpaca-execid-001a-repair-r2-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  PRODUCT_SHA: 84636a5afe1518f7b8f477747b6e4e53fb4f52b1
+  PROFILE_PARENT_SHA: bf6faa46f531aed8d8f6bf8129c5156588228520
+  RUSTUP_TOOLCHAIN: 1.96.0
+  CARGO_TERM_COLOR: never
+
+jobs:
+  derive:
+    name: Derive and classify exact mechanical repair r2
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout literal product subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 84636a5afe1518f7b8f477747b6e4e53fb4f52b1
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Prove exact product topology
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/fin-alpaca-r2/repaired /tmp/fin-alpaca-r2/parent
+          test "$(git rev-parse HEAD)" = "$PRODUCT_SHA"
+          test "$(git rev-parse HEAD^)" = "$PROFILE_PARENT_SHA"
+          mapfile -t paths < <(git diff --name-only "$PROFILE_PARENT_SHA" "$PRODUCT_SHA")
+          printf '%s\n' "${paths[@]}" | tee /tmp/fin-alpaca-r2/product-paths.txt
+          test "${#paths[@]}" -eq 4
+          for p in \
+            mycelix-finance/Cargo.toml \
+            mycelix-finance/crates/finance-provider-alpaca-activity/Cargo.toml \
+            mycelix-finance/crates/finance-provider-alpaca-activity/src/lib.rs \
+            mycelix-finance/crates/finance-provider-alpaca-activity/tests/adversarial.rs
+          do
+            grep -Fxq "$p" /tmp/fin-alpaca-r2/product-paths.txt
+          done
+          ! grep -Fxq 'mycelix-finance/Cargo.lock' /tmp/fin-alpaca-r2/product-paths.txt
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+
+      - name: Independently reconstruct frozen identity corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' | tee /tmp/fin-alpaca-r2/python-oracle.txt
+          import json, uuid
+          from pathlib import Path
+          d = json.loads(Path('mycelix-finance/docs/providers/fixtures/FIN_ALPACA_EXECID_001_V0_1.json').read_text())
+          assert d['schema'] == 'mycelix:fin-alpaca-execid-corpus:v0.1'
+          assert d['profile']['endpoint_path'] == '/v2beta1/events/activities'
+          assert set(d['profile']['deployment_profiles']) == {'trading-paper','trading-live','broker-sandbox','broker-production'}
+          def cu(v):
+              if not isinstance(v,str) or len(v)!=36 or any(v[i]!='-' for i in (8,13,18,23)): raise ValueError
+              return str(uuid.UUID(v))
+          def outcome(c):
+              e=c['event']; x=e.get('details',{}).get('execution_type')
+              if e['activity_type']!='TRD': return ('NotMarketExecution',None,None)
+              if x not in {'fill','trade_correct','trade_bust'}: return ('ExecutionIdentityAmbiguous',None,None)
+              if e.get('ref_id') is None: return ('ExecutionIdentityUnavailable',None,None)
+              try: r=cu(e['ref_id'])
+              except Exception: return ('MalformedIdentityEvidence',None,None)
+              p=e.get('previous_id')
+              if x=='fill': return ('MalformedIdentityEvidence',None,None) if p is not None else ('StableFillExecutionIdentityAdmitted',r,None)
+              if p is None: return ('AdjustmentLineageUnavailable',None,None)
+              try: p=cu(p)
+              except Exception: return ('MalformedIdentityEvidence',None,None)
+              if p==r: return ('MalformedIdentityEvidence',None,None)
+              return (('StableCorrectionActivityIdentityAdmitted' if x=='trade_correct' else 'StableBustActivityIdentityAdmitted'),r,p)
+          n=s=0
+          for c in d['cases']:
+              if c['layer']=='stream-control': s+=1; continue
+              assert c['layer']=='identity-mapper'; n+=1
+              got=outcome(c); exp=c['expect']; assert got[0]==exp['outcome'], (c['id'],got,exp)
+              if got[0]=='StableFillExecutionIdentityAdmitted': assert got[1]==exp['provider_execution_ref']
+              if got[0] in {'StableCorrectionActivityIdentityAdmitted','StableBustActivityIdentityAdmitted'}:
+                  assert got[1]==exp['provider_activity_ref'] and got[2]==exp['previous_activity_ref']
+          assert (n,s)==(14,1)
+          print('oracle=PASS\nidentity_cases=14\nstream_control_cases=1')
+          PY
+
+      - name: Record immutable preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "product_sha=$(git rev-parse HEAD)"
+            echo "product_tree=$(git rev-parse HEAD^{tree})"
+            echo "profile_parent_sha=$PROFILE_PARENT_SHA"
+            echo "workflow_source_sha=${{ github.event.pull_request.head.sha || github.sha }}"
+            echo "rustc=$(rustc --version)"
+            echo "cargo=$(cargo --version)"
+            echo "rustfmt=$(rustfmt --version)"
+            echo "source_before_sha256=$(sha256sum mycelix-finance/crates/finance-provider-alpaca-activity/src/lib.rs | awk '{print $1}')"
+            echo "adversarial_before_sha256=$(sha256sum mycelix-finance/crates/finance-provider-alpaca-activity/tests/adversarial.rs | awk '{print $1}')"
+            echo "lock_before_sha256=$(sha256sum mycelix-finance/Cargo.lock | awk '{print $1}')"
+            echo "corpus_sha256=$(sha256sum mycelix-finance/docs/providers/fixtures/FIN_ALPACA_EXECID_001_V0_1.json | awk '{print $1}')"
+          } | tee /tmp/fin-alpaca-r2/preflight.txt
+
+      - name: Derive parent workspace lock baseline independently
+        shell: bash
+        run: |
+          set -euo pipefail
+          git worktree add --detach /tmp/fin-alpaca-parent "$PROFILE_PARENT_SHA"
+          parent=/tmp/fin-alpaca-parent/mycelix-finance
+          cp "$parent/Cargo.lock" /tmp/fin-alpaca-r2/parent/Cargo.lock.before
+
+          if cargo metadata --manifest-path "$parent/Cargo.toml" --locked --format-version 1 >/tmp/fin-alpaca-r2/parent/metadata.locked.json 2>/tmp/fin-alpaca-r2/parent/metadata.locked.stderr; then
+            echo 'parent_locked_metadata=PASS' | tee /tmp/fin-alpaca-r2/parent/locked-state.txt
+          else
+            echo 'parent_locked_metadata=FAIL' | tee /tmp/fin-alpaca-r2/parent/locked-state.txt
+          fi
+
+          cargo metadata --manifest-path "$parent/Cargo.toml" --format-version 1 >/tmp/fin-alpaca-r2/parent/metadata.generated.json
+          mapfile -t dirty < <(git -C /tmp/fin-alpaca-parent status --porcelain=v1 | sed -E 's/^.. //')
+          printf '%s\n' "${dirty[@]}" | tee /tmp/fin-alpaca-r2/parent/dirty.txt
+          for p in "${dirty[@]}"; do
+            test "$p" = 'mycelix-finance/Cargo.lock'
+          done
+          git -C /tmp/fin-alpaca-parent diff -- mycelix-finance/Cargo.lock | tee /tmp/fin-alpaca-r2/parent/lock-baseline.patch
+          cp "$parent/Cargo.lock" /tmp/fin-alpaca-r2/parent/Cargo.lock.generated
+          {
+            echo "parent_lock_before_sha256=$(sha256sum /tmp/fin-alpaca-r2/parent/Cargo.lock.before | awk '{print $1}')"
+            echo "parent_lock_generated_sha256=$(sha256sum /tmp/fin-alpaca-r2/parent/Cargo.lock.generated | awk '{print $1}')"
+          } | tee /tmp/fin-alpaca-r2/parent/receipt.txt
+
+      - name: Mechanically derive Rustfmt repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path mycelix-finance/Cargo.toml -p finance-provider-alpaca-activity
+          mapfile -t dirty < <(git status --porcelain=v1 | sed -E 's/^.. //')
+          printf '%s\n' "${dirty[@]}" | tee /tmp/fin-alpaca-r2/dirty-after-rustfmt.txt
+          test "${#dirty[@]}" -eq 2
+          printf '%s\n' "${dirty[@]}" | grep -Fxq 'mycelix-finance/crates/finance-provider-alpaca-activity/src/lib.rs'
+          printf '%s\n' "${dirty[@]}" | grep -Fxq 'mycelix-finance/crates/finance-provider-alpaca-activity/tests/adversarial.rs'
+          git diff -- mycelix-finance/crates/finance-provider-alpaca-activity/src/lib.rs mycelix-finance/crates/finance-provider-alpaca-activity/tests/adversarial.rs | tee /tmp/fin-alpaca-r2/rustfmt.patch
+          test -s /tmp/fin-alpaca-r2/rustfmt.patch
+          cargo fmt --manifest-path mycelix-finance/Cargo.toml -p finance-provider-alpaca-activity -- --check
+          cp mycelix-finance/crates/finance-provider-alpaca-activity/src/lib.rs /tmp/fin-alpaca-r2/repaired/lib.rs
+          cp mycelix-finance/crates/finance-provider-alpaca-activity/tests/adversarial.rs /tmp/fin-alpaca-r2/repaired/adversarial.rs
+
+      - name: Mechanically derive product dependency capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path mycelix-finance/Cargo.toml -p finance-provider-alpaca-activity
+          mapfile -t dirty < <(git status --porcelain=v1 | sed -E 's/^.. //')
+          printf '%s\n' "${dirty[@]}" | tee /tmp/fin-alpaca-r2/dirty-after-cargo.txt
+          test "${#dirty[@]}" -eq 3
+          for p in "${dirty[@]}"; do
+            case "$p" in
+              mycelix-finance/Cargo.lock|mycelix-finance/crates/finance-provider-alpaca-activity/src/lib.rs|mycelix-finance/crates/finance-provider-alpaca-activity/tests/adversarial.rs) ;;
+              *) echo "unexpected dirty path: $p" >&2; exit 1 ;;
+            esac
+          done
+          git diff -- mycelix-finance/Cargo.lock | tee /tmp/fin-alpaca-r2/product-lock.patch
+          cp mycelix-finance/Cargo.lock /tmp/fin-alpaca-r2/repaired/Cargo.lock
+          git diff -- mycelix-finance/Cargo.lock mycelix-finance/crates/finance-provider-alpaca-activity/src/lib.rs mycelix-finance/crates/finance-provider-alpaca-activity/tests/adversarial.rs | tee /tmp/fin-alpaca-r2/combined-repair.patch
+
+      - name: Classify provider-specific lock delta against generated parent baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          diff -u /tmp/fin-alpaca-r2/parent/Cargo.lock.generated mycelix-finance/Cargo.lock > /tmp/fin-alpaca-r2/provider-lock-isolated.diff || true
+          python3 - <<'PY' | tee /tmp/fin-alpaca-r2/lock-classification.txt
+          import tomllib
+          from pathlib import Path
+          def load(p):
+              with open(p,'rb') as f: return tomllib.load(f)['package']
+          def key(x): return (x['name'],x['version'],x.get('source',''))
+          a={key(x):x for x in load('/tmp/fin-alpaca-r2/parent/Cargo.lock.generated')}
+          b={key(x):x for x in load('mycelix-finance/Cargo.lock')}
+          added=sorted(set(b)-set(a)); removed=sorted(set(a)-set(b)); changed=sorted(k for k in set(a)&set(b) if a[k]!=b[k])
+          print('added=',added); print('removed=',removed); print('changed=',changed)
+          assert added == [('finance-provider-alpaca-activity','0.1.0','')]
+          assert removed == []
+          assert changed == []
+          p=b[added[0]]
+          assert set(p.get('dependencies',[])) == {'serde','serde_json'}
+          print('provider_specific_lock_delta=EXACT_ONE_PACKAGE')
+          PY
+
+      - name: Execute complete repaired Rust gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo metadata --manifest-path mycelix-finance/Cargo.toml --locked --format-version 1 > /tmp/fin-alpaca-r2/cargo-metadata.json
+          cargo check --manifest-path mycelix-finance/Cargo.toml --locked -p finance-provider-alpaca-activity --all-targets
+          cargo test --manifest-path mycelix-finance/Cargo.toml --locked -p finance-provider-alpaca-activity --all-targets
+          cargo test --manifest-path mycelix-finance/Cargo.toml --locked -p finance-provider-alpaca-activity --doc
+          cargo clippy --manifest-path mycelix-finance/Cargo.toml --locked -p finance-provider-alpaca-activity --all-targets -- -D warnings
+
+      - name: Prove dependency and authority boundary structurally
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo tree --manifest-path mycelix-finance/Cargo.toml --locked -p finance-provider-alpaca-activity --edges normal | tee /tmp/fin-alpaca-r2/cargo-tree.txt
+          python3 - <<'PY' | tee /tmp/fin-alpaca-r2/authority-audit.txt
+          import re, tomllib
+          from pathlib import Path
+          manifest=tomllib.loads(Path('mycelix-finance/crates/finance-provider-alpaca-activity/Cargo.toml').read_text())
+          assert set(manifest.get('dependencies',{})) == {'serde'}
+          assert set(manifest.get('dev-dependencies',{})) == {'serde_json'}
+          tree=Path('/tmp/fin-alpaca-r2/cargo-tree.txt').read_text()
+          forbidden={'hdk','hdi','holochain','reqwest','hyper','axum','tokio','rusqlite','sqlx','diesel','web3','ethers','ureq','curl','oauth','keyring'}
+          names=set()
+          for line in tree.splitlines():
+              m=re.search(r'(?:^|[ ├└│]+)([A-Za-z0-9_.-]+) v[0-9]', line)
+              if m: names.add(m.group(1))
+          assert not (names & forbidden), sorted(names & forbidden)
+          src=Path('mycelix-finance/crates/finance-provider-alpaca-activity/src/lib.rs').read_text()
+          assert '#![forbid(unsafe_code)]' in src
+          code=re.sub(r'/\*.*?\*/',' ',src,flags=re.S)
+          code='\n'.join(line.split('//',1)[0] for line in code.splitlines())
+          for path in ('std::net','std::fs','std::process','std::os::unix::net'):
+              assert path not in code
+          fn_names=set(re.findall(r'\b(?:pub\s+)?fn\s+([A-Za-z_][A-Za-z0-9_]*)',code))
+          forbidden_fns={'submit_order','place_order','cancel_order','replace_order','send_request','open_socket','connect'}
+          assert not (fn_names & forbidden_fns), sorted(fn_names & forbidden_fns)
+          print('runtime_dependencies=serde_only')
+          print('dev_dependencies=serde_json_only')
+          print('forbidden_runtime_packages=none')
+          print('effectful_function_declarations=none')
+          PY
+
+      - name: Re-prove type firewall and repaired diff hygiene
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' | tee /tmp/fin-alpaca-r2/api-boundary.txt
+          from pathlib import Path
+          import re
+          t=Path('mycelix-finance/crates/finance-provider-alpaca-activity/src/lib.rs').read_text()
+          m=re.search(r'pub struct AlpacaActivityIdentityEvidenceV1\s*\{(?P<body>.*?)\n\}',t,re.S); assert m
+          fields=re.findall(r'pub\s+(\w+)\s*:',m.group('body'))
+          assert fields==['deployment_profile','provider_schema_profile','account_id','activity_type','ref_id','previous_id','execution_type']
+          assert '#[serde(deny_unknown_fields)]' in t[:m.start()]
+          forbidden={'event_id','order_id','source_evidence_commitment','qty','price','asset_id','symbol','side'}
+          assert not (set(fields)&forbidden)
+          print('api_boundary=PASS')
+          print('fields='+','.join(fields))
+          PY
+          git diff --check
+
+      - name: Emit derivation receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo 'verdict=REPAIR_DERIVATION_PASS'
+            echo "product_sha=$PRODUCT_SHA"
+            echo "product_tree=$(git rev-parse HEAD^{tree})"
+            echo "profile_parent_sha=$PROFILE_PARENT_SHA"
+            echo "workflow_source_sha=${{ github.event.pull_request.head.sha || github.sha }}"
+            cat /tmp/fin-alpaca-r2/parent/locked-state.txt
+            echo "source_before_sha256=$(grep '^source_before_sha256=' /tmp/fin-alpaca-r2/preflight.txt | cut -d= -f2)"
+            echo "source_after_sha256=$(sha256sum mycelix-finance/crates/finance-provider-alpaca-activity/src/lib.rs | awk '{print $1}')"
+            echo "adversarial_before_sha256=$(grep '^adversarial_before_sha256=' /tmp/fin-alpaca-r2/preflight.txt | cut -d= -f2)"
+            echo "adversarial_after_sha256=$(sha256sum mycelix-finance/crates/finance-provider-alpaca-activity/tests/adversarial.rs | awk '{print $1}')"
+            echo "parent_generated_lock_sha256=$(sha256sum /tmp/fin-alpaca-r2/parent/Cargo.lock.generated | awk '{print $1}')"
+            echo "product_generated_lock_sha256=$(sha256sum mycelix-finance/Cargo.lock | awk '{print $1}')"
+            echo "rustfmt_patch_sha256=$(sha256sum /tmp/fin-alpaca-r2/rustfmt.patch | awk '{print $1}')"
+            echo "product_lock_patch_sha256=$(sha256sum /tmp/fin-alpaca-r2/product-lock.patch | awk '{print $1}')"
+            echo "combined_repair_patch_sha256=$(sha256sum /tmp/fin-alpaca-r2/combined-repair.patch | awk '{print $1}')"
+            echo 'provider_specific_lock_delta=exactly finance-provider-alpaca-activity package'
+            echo 'product_git_bytes_mutated=false'
+            echo 'claim=mechanical repair derivation only; not source qualification or provider interoperability'
+          } | tee /tmp/fin-alpaca-r2/receipt.txt
+
+      - name: Upload r2 derivation evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fin-alpaca-execid-001a-repair-r2-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp/fin-alpaca-r2
+          if-no-files-found: warn
+          retention-days: 30
