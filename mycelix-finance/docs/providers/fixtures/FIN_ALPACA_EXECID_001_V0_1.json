@@ -1,0 +1,313 @@
+{
+  "schema": "mycelix:fin-alpaca-execid-corpus:v0.1",
+  "profile": {
+    "provider": "alpaca",
+    "region": "us",
+    "surface_family": "activity-sse-v2beta1",
+    "endpoint_path": "/v2beta1/events/activities",
+    "deployment_profiles": {
+      "trading-paper": "paper-api.alpaca.markets",
+      "trading-live": "api.alpaca.markets",
+      "broker-sandbox": "broker-api.sandbox.alpaca.markets",
+      "broker-production": "broker-api.alpaca.markets"
+    },
+    "activity_identity_field": "ref_id",
+    "fill_execution_identity_field": "ref_id",
+    "replay_cursor_field": "event_id",
+    "order_correlation_field": "details.order_id",
+    "predecessor_field": "previous_id",
+    "activity_type": "TRD",
+    "execution_types": ["fill", "trade_correct", "trade_bust"],
+    "authority": "ProviderMappingProfileOnly"
+  },
+  "cases": [
+    {
+      "id": "fill-admitted",
+      "layer": "identity-mapper",
+      "deployment_profile": "trading-paper",
+      "event": {
+        "account_id": "11111111-1111-4111-8111-111111111111",
+        "event_id": "01K9AAAA000000000000000001",
+        "activity_type": "TRD",
+        "ref_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1",
+        "previous_id": null,
+        "qty": "40",
+        "price": "125.00",
+        "executed_at": "2026-09-22T05:00:00Z",
+        "details": {
+          "execution_type": "fill",
+          "order_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1",
+          "symbol": "XYZ"
+        }
+      },
+      "expect": {
+        "outcome": "StableFillExecutionIdentityAdmitted",
+        "provider_execution_ref": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1"
+      }
+    },
+    {
+      "id": "replay-new-event-id-same-ref",
+      "layer": "identity-mapper",
+      "deployment_profile": "trading-paper",
+      "event": {
+        "account_id": "11111111-1111-4111-8111-111111111111",
+        "event_id": "01K9AAAA000000000000000002",
+        "activity_type": "TRD",
+        "ref_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1",
+        "previous_id": null,
+        "qty": "40",
+        "price": "125.00",
+        "executed_at": "2026-09-22T05:00:00Z",
+        "details": {
+          "execution_type": "fill",
+          "order_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1",
+          "symbol": "XYZ"
+        }
+      },
+      "expect": {
+        "outcome": "StableFillExecutionIdentityAdmitted",
+        "provider_execution_ref": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1",
+        "same_execution_as": "fill-admitted"
+      }
+    },
+    {
+      "id": "distinct-ref-same-economics",
+      "layer": "identity-mapper",
+      "deployment_profile": "trading-paper",
+      "event": {
+        "account_id": "11111111-1111-4111-8111-111111111111",
+        "event_id": "01K9AAAA000000000000000003",
+        "activity_type": "TRD",
+        "ref_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2",
+        "previous_id": null,
+        "qty": "40",
+        "price": "125.00",
+        "executed_at": "2026-09-22T05:00:00Z",
+        "details": {
+          "execution_type": "fill",
+          "order_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1",
+          "symbol": "XYZ"
+        }
+      },
+      "expect": {
+        "outcome": "StableFillExecutionIdentityAdmitted",
+        "provider_execution_ref": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2",
+        "different_execution_from": "fill-admitted"
+      }
+    },
+    {
+      "id": "trade-correct",
+      "layer": "identity-mapper",
+      "deployment_profile": "trading-paper",
+      "event": {
+        "account_id": "11111111-1111-4111-8111-111111111111",
+        "event_id": "01K9AAAA000000000000000004",
+        "activity_type": "TRD",
+        "ref_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa3",
+        "previous_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1",
+        "qty": "40",
+        "price": "124.50",
+        "executed_at": "2026-09-22T05:01:00Z",
+        "details": {
+          "execution_type": "trade_correct",
+          "order_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1",
+          "symbol": "XYZ"
+        }
+      },
+      "expect": {
+        "outcome": "StableCorrectionActivityIdentityAdmitted",
+        "provider_activity_ref": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa3",
+        "previous_activity_ref": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1"
+      }
+    },
+    {
+      "id": "trade-bust",
+      "layer": "identity-mapper",
+      "deployment_profile": "trading-paper",
+      "event": {
+        "account_id": "11111111-1111-4111-8111-111111111111",
+        "event_id": "01K9AAAA000000000000000005",
+        "activity_type": "TRD",
+        "ref_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4",
+        "previous_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2",
+        "qty": "40",
+        "price": "125.00",
+        "executed_at": "2026-09-22T05:02:00Z",
+        "details": {
+          "execution_type": "trade_bust",
+          "order_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1",
+          "symbol": "XYZ"
+        }
+      },
+      "expect": {
+        "outcome": "StableBustActivityIdentityAdmitted",
+        "provider_activity_ref": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4",
+        "previous_activity_ref": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2"
+      }
+    },
+    {
+      "id": "missing-ref-id",
+      "layer": "identity-mapper",
+      "deployment_profile": "trading-paper",
+      "event": {
+        "account_id": "11111111-1111-4111-8111-111111111111",
+        "event_id": "01K9AAAA000000000000000006",
+        "activity_type": "TRD",
+        "qty": "40",
+        "price": "125.00",
+        "details": {
+          "execution_type": "fill",
+          "order_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1"
+        }
+      },
+      "expect": {"outcome": "ExecutionIdentityUnavailable"}
+    },
+    {
+      "id": "order-id-is-not-execution-id",
+      "layer": "identity-mapper",
+      "deployment_profile": "trading-paper",
+      "event": {
+        "account_id": "11111111-1111-4111-8111-111111111111",
+        "event_id": "01K9AAAA000000000000000007",
+        "activity_type": "TRD",
+        "details": {
+          "execution_type": "fill",
+          "order_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb9"
+        }
+      },
+      "expect": {"outcome": "ExecutionIdentityUnavailable"}
+    },
+    {
+      "id": "unknown-execution-type",
+      "layer": "identity-mapper",
+      "deployment_profile": "trading-paper",
+      "event": {
+        "account_id": "11111111-1111-4111-8111-111111111111",
+        "event_id": "01K9AAAA000000000000000008",
+        "activity_type": "TRD",
+        "ref_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa8",
+        "details": {
+          "execution_type": "future_unknown",
+          "order_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1"
+        }
+      },
+      "expect": {"outcome": "ExecutionIdentityAmbiguous"}
+    },
+    {
+      "id": "non-trd-ref-not-market-execution",
+      "layer": "identity-mapper",
+      "deployment_profile": "trading-paper",
+      "event": {
+        "account_id": "11111111-1111-4111-8111-111111111111",
+        "event_id": "01K9AAAA000000000000000009",
+        "activity_type": "FEE",
+        "ref_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa9",
+        "details": {}
+      },
+      "expect": {"outcome": "NotMarketExecution"}
+    },
+    {
+      "id": "correction-missing-previous",
+      "layer": "identity-mapper",
+      "deployment_profile": "trading-paper",
+      "event": {
+        "account_id": "11111111-1111-4111-8111-111111111111",
+        "event_id": "01K9AAAA00000000000000000A",
+        "activity_type": "TRD",
+        "ref_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa10",
+        "details": {
+          "execution_type": "trade_correct",
+          "order_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1"
+        }
+      },
+      "expect": {"outcome": "AdjustmentLineageUnavailable"}
+    },
+    {
+      "id": "same-ref-trading-live-scope-distinct",
+      "layer": "identity-mapper",
+      "deployment_profile": "trading-live",
+      "event": {
+        "account_id": "11111111-1111-4111-8111-111111111111",
+        "event_id": "01K9AAAA00000000000000000B",
+        "activity_type": "TRD",
+        "ref_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1",
+        "details": {
+          "execution_type": "fill",
+          "order_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1"
+        }
+      },
+      "expect": {
+        "outcome": "StableFillExecutionIdentityAdmitted",
+        "provider_execution_ref": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1",
+        "different_scope_from": "fill-admitted"
+      }
+    },
+    {
+      "id": "same-ref-broker-sandbox-scope-distinct",
+      "layer": "identity-mapper",
+      "deployment_profile": "broker-sandbox",
+      "event": {
+        "account_id": "11111111-1111-4111-8111-111111111111",
+        "event_id": "01K9AAAA00000000000000000C",
+        "activity_type": "TRD",
+        "ref_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1",
+        "details": {
+          "execution_type": "fill",
+          "order_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1"
+        }
+      },
+      "expect": {
+        "outcome": "StableFillExecutionIdentityAdmitted",
+        "provider_execution_ref": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1",
+        "different_scope_from": "fill-admitted"
+      }
+    },
+    {
+      "id": "same-ref-different-account",
+      "layer": "identity-mapper",
+      "deployment_profile": "trading-paper",
+      "event": {
+        "account_id": "22222222-2222-4222-8222-222222222222",
+        "event_id": "01K9AAAA00000000000000000D",
+        "activity_type": "TRD",
+        "ref_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1",
+        "details": {
+          "execution_type": "fill",
+          "order_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1"
+        }
+      },
+      "expect": {
+        "outcome": "StableFillExecutionIdentityAdmitted",
+        "provider_execution_ref": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1",
+        "different_scope_from": "fill-admitted"
+      }
+    },
+    {
+      "id": "malformed-ref-id",
+      "layer": "identity-mapper",
+      "deployment_profile": "trading-paper",
+      "event": {
+        "account_id": "11111111-1111-4111-8111-111111111111",
+        "event_id": "01K9AAAA00000000000000000E",
+        "activity_type": "TRD",
+        "ref_id": "not-a-uuid",
+        "details": {
+          "execution_type": "fill",
+          "order_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1"
+        }
+      },
+      "expect": {"outcome": "MalformedIdentityEvidence"}
+    },
+    {
+      "id": "slow-consumer-gap",
+      "layer": "stream-control",
+      "deployment_profile": "trading-paper",
+      "stream_comment": ": you are reading too slowly, dropped 10000 messages",
+      "expect": {
+        "outcome": "StreamCompletenessWithheld",
+        "execution_identity_effect": "None",
+        "owned_by_identity_mapper": false
+      }
+    }
+  ]
+}
