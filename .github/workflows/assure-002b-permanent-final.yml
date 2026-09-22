@@ -1,0 +1,341 @@
+name: ASSURE-002B Permanent Final-Tree Qualification
+
+on:
+  push:
+    branches: [qual/assure-002b-permanent-final-r1]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: assure-002b-permanent-final-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify-final-tree:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      RUSTUP_TOOLCHAIN: 1.98.1
+      FINAL_SUBJECT_SHA: d9dcef5122f3ff18601690e678bdaf3265bca5a8
+      FINAL_SUBJECT_TREE: 76ed0dad42196f433607bde230240c07de689f5e
+      FINAL_PARENT_SHA: a85369699099d4c7524e502e531735eed4ab36f4
+      FINAL_CI_BLOB_OID: 987e82c5d4b629de9907b5a3605c24c4b8f84424
+      EXPECTED_ASSURANCE_TREE: 660f6f514aa13436e2da0c1e828547ba7c7709a5
+      EXPECTED_CORE_TREE: 6a93a413674fc69403dd8705c41346dfd48e4b88
+      TEMP_002B_SUBJECT_SHA: 9a2460e97f0bb0b90306e90e7c241b89e21224ec
+      TEMP_002B_RECEIPT_SHA256: d643f34328e9e862ce50038b8166c93399e9c1a078c75f4cb36f56eb02c5a454
+      QUALIFIED_002A_SHA: d17a6ae19fb71159b54b266fa760c1989ffc0a63
+      QUALIFIED_002A_RECEIPT_SHA256: f4bdeacc8e4b38f0aad31d03788a8c105790f60667608fb43665ac321454c897
+      EXPECTED_SPEC_ROOT_SHA256: 46550610da111888f862d4bfc610f6dc41edfcbcd0579377e367df16486973
+      EXPECTED_COVERAGE_SHA256: 32bff983f4cdc9d3393e6e4381f8ed470ca29d08e13f8bebe7d1973a3bd0c1e1
+      EXPECTED_CORPUS_ROOT_SHA256: 784ff870e0b9815b015be1bbaa32f0dcc615cb3c22c614ba8bf9389fe4ccaef8
+      EXPECTED_CARGO_LOCK_SHA256: 9a0babe726db931fb24087af4e1321f034e15b29a03d1b9249cd6176b3525a8b
+      EXPECTED_RESOLVED_DEP_SET_SHA256: b77e2e78872381f317402a204ba8e326c68acd578647abcbc6771224728f0c97
+
+    steps:
+      - name: Check out exact final product subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.FINAL_SUBJECT_SHA }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Verify exact final subject lineage and qualified subtree identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$FINAL_SUBJECT_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$FINAL_SUBJECT_TREE"
+          test "$(git rev-parse HEAD^)" = "$FINAL_PARENT_SHA"
+          test "$(git rev-parse HEAD:assurance)" = "$EXPECTED_ASSURANCE_TREE"
+          test "$(git rev-parse HEAD:crates/mycelix-assurance-core)" = "$EXPECTED_CORE_TREE"
+          test -z "$(git status --porcelain --untracked-files=all)"
+          test ! -e .github/workflows/assure-002b-probe.yml
+          printf 'final_subject_sha=%s\n' "$(git rev-parse HEAD)"
+          printf 'final_subject_tree=%s\n' "$(git rev-parse HEAD^{tree})"
+          printf 'final_parent_sha=%s\n' "$(git rev-parse HEAD^)"
+          printf 'assurance_tree=%s\n' "$(git rev-parse HEAD:assurance)"
+          printf 'assurance_core_tree=%s\n' "$(git rev-parse HEAD:crates/mycelix-assurance-core)"
+
+      - name: Verify permanent CI workflow identity and scheduler contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_ci_blob="$(git rev-parse HEAD:.github/workflows/ci.yml)"
+          test "$actual_ci_blob" = "$FINAL_CI_BLOB_OID"
+          python3 - <<'PY'
+          from pathlib import Path
+
+          text = Path('.github/workflows/ci.yml').read_text()
+          admission = "if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)"
+          summary_admission = "if: always() && !cancelled() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false))"
+          exact_subject_expr = "github.event.pull_request.head.sha || github.sha"
+          required = [
+              "types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]",
+              "group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}",
+              "cancel-in-progress: true",
+              admission,
+              summary_admission,
+              "assurance: ${{ steps.filter.outputs.assurance }}",
+              "actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+              "dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad",
+              "'crates/mycelix-assurance-*/**'",
+              "'assurance/**'",
+              "test-assurance:",
+              "if: needs.changes.outputs.assurance == 'true' || github.event_name == 'push'",
+              "runs-on: ubuntu-24.04",
+              "RUSTUP_TOOLCHAIN: 1.98.1",
+              "EXPECTED_SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}",
+              "ref: ${{ github.event.pull_request.head.sha || github.sha }}",
+              "test \"$(git rev-parse HEAD)\" = \"$EXPECTED_SUBJECT_SHA\"",
+              "EXPECTED_SPEC_ROOT_SHA256: 46550610da111888f862d4bfc610f6dc41edfcbcd0579377e367df16486973",
+              "EXPECTED_COVERAGE_SHA256: 32bff983f4cdc9d3393e6e4381f8ed470ca29d08e13f8bebe7d1973a3bd0c1e1",
+              "EXPECTED_CORPUS_ROOT_SHA256: 784ff870e0b9815b015be1bbaa32f0dcc615cb3c22c614ba8bf9389fe4ccaef8",
+              "EXPECTED_CARGO_LOCK_SHA256: 9a0babe726db931fb24087af4e1321f034e15b29a03d1b9249cd6176b3525a8b",
+              "#![forbid(unsafe_code)]",
+              "cargo fmt --all --check",
+              "cargo check --locked --all-targets",
+              "cargo test --locked --all-targets",
+              "cargo clippy --locked --all-targets -- -D warnings",
+              "- changes",
+              "- test-assurance",
+              "needs.test-assurance.result",
+              "needs.changes.outputs.assurance",
+          ]
+          for needle in required:
+              assert needle in text, f"missing permanent CI contract text: {needle}"
+          assert text.count("test-assurance:") == 1
+          assert text.count(admission) >= 2, "changes/format admission predicate missing"
+          assert text.count(exact_subject_expr) >= 2, "permanent assurance lane is not bound to the exact event subject"
+          assert text.count('test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT_SHA"') >= 2, "pre/postflight exact-subject checks missing"
+          assert "ASSURE-002A dependency boundary" not in text
+          PY
+          printf 'ci_workflow_blob_oid=%s\n' "$actual_ci_blob"
+          sha256sum .github/workflows/ci.yml
+
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.98.1 --profile minimal --component rustfmt --component clippy
+
+      - name: Verify pinned toolchain identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc --version --verbose
+          cargo --version
+          rustc --version | grep -F 'rustc 1.98.1 '
+
+      - name: Verify ASSURE-V1 specification root
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 assurance/spec/v1/check_spec.py
+          grep -F "spec_root_sha256 = \"$EXPECTED_SPEC_ROOT_SHA256\"" assurance/spec/v1/SPEC.lock
+
+      - name: Verify frozen L0 corpus and coverage roots
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 assurance/vectors/v1/l0/check_vectors.py
+          grep -F "coverage_sha256 = \"$EXPECTED_COVERAGE_SHA256\"" assurance/vectors/v1/l0/manifest.toml
+          grep -F "corpus_root_sha256 = \"$EXPECTED_CORPUS_ROOT_SHA256\"" assurance/vectors/v1/l0/manifest.toml
+
+      - name: Verify dependency, lock, and trusted-surface boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_lock_sha="$(sha256sum crates/mycelix-assurance-core/Cargo.lock | awk '{print $1}')"
+          test "$actual_lock_sha" = "$EXPECTED_CARGO_LOCK_SHA256"
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          import json
+          import os
+          import tomllib
+
+          root = Path("crates/mycelix-assurance-core")
+          manifest = tomllib.loads((root / "Cargo.toml").read_text())
+          lock = tomllib.loads((root / "Cargo.lock").read_text())
+          lib = (root / "src/lib.rs").read_text()
+
+          assert manifest.get("features") == {"default": []}
+          assert not (root / "build.rs").exists()
+          assert "#![forbid(unsafe_code)]" in lib
+          assert manifest.get("dependencies") == {
+              "cbor2": {
+                  "version": "=1.1.5",
+                  "default-features": False,
+                  "features": ["alloc"],
+              },
+              "serde": {
+                  "version": "=1.0.229",
+                  "default-features": False,
+              },
+          }
+          expected = {
+              "cbor2": ("1.1.5", "86756b93a81474930c7edc4e4fab45b9cd197a50bc9775ae01450d4f621788a3"),
+              "mycelix-assurance-core": ("0.1.0", None),
+              "proc-macro2": ("1.0.107", "985e7ec9bb745e6ce6535b544d84d6cd6f7ad8bd711c398938ae983b91a766d9"),
+              "quote": ("1.0.47", "1fbf4db142a473a8d80c26bbf18454ed458bf8d26c8219c331daecfdbd079001"),
+              "serde": ("1.0.229", "4148590afebada386688f18773da617792bf2ef03ffc1e4cbd2b1d45b023e0ba"),
+              "serde_core": ("1.0.229", "67dca2c9c51e58a4791a4b1ed58308b39c64224d349a935ab5039aa360942a48"),
+              "serde_derive": ("1.0.229", "e7a5d71263a5a7d47b41f6b3f06ba276f10cc18b0931f1799f710578e2309348"),
+              "syn": ("3.0.6", "8593e8e72159ed2257d083c7a454a85cbf854f37a0966d8d483aff8c8a3ebcee"),
+              "unicode-ident": ("1.0.26", "d245f478577f809a851594d02313b640fb437e0bb33866753cff937863096954"),
+          }
+          observed = {p["name"]: (p["version"], p.get("checksum")) for p in lock.get("package", [])}
+          assert observed == expected, f"unexpected Cargo.lock package set: {observed!r}"
+          canonical = [
+              {"name": name, "version": version, "checksum": checksum}
+              for name, (version, checksum) in sorted(observed.items())
+          ]
+          encoded = (json.dumps(canonical, sort_keys=True, separators=(",", ":")) + "\n").encode()
+          digest = hashlib.sha256(encoded).hexdigest()
+          assert digest == os.environ["EXPECTED_RESOLVED_DEP_SET_SHA256"], digest
+          print("resolved_dependency_set_sha256=" + digest)
+          PY
+
+      - name: Check assurance formatting
+        run: cd crates/mycelix-assurance-core && cargo fmt --all --check
+
+      - name: Check assurance crate
+        run: cd crates/mycelix-assurance-core && cargo check --locked --all-targets
+
+      - name: Test assurance crate
+        run: cd crates/mycelix-assurance-core && cargo test --locked --all-targets
+
+      - name: Clippy assurance crate
+        run: cd crates/mycelix-assurance-core && cargo clippy --locked --all-targets -- -D warnings
+
+      - name: Verify final subject remained immutable
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$FINAL_SUBJECT_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$FINAL_SUBJECT_TREE"
+          test "$(git rev-parse HEAD^)" = "$FINAL_PARENT_SHA"
+          test "$(git rev-parse HEAD:assurance)" = "$EXPECTED_ASSURANCE_TREE"
+          test "$(git rev-parse HEAD:crates/mycelix-assurance-core)" = "$EXPECTED_CORE_TREE"
+          test -z "$(git status --porcelain --untracked-files=all)"
+
+      - name: Emit final-tree qualification receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p qualification
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import platform
+          import subprocess
+          import tomllib
+          from pathlib import Path
+
+          def cmd(*args):
+              return subprocess.check_output(args, text=True).strip()
+
+          workflow = Path('.github/workflows/ci.yml')
+          workflow_sha256 = hashlib.sha256(workflow.read_bytes()).hexdigest()
+          lock = tomllib.loads(Path('crates/mycelix-assurance-core/Cargo.lock').read_text())
+          resolved = sorted(
+              (p["name"], p["version"], p.get("checksum"))
+              for p in lock.get("package", [])
+          )
+          canonical_deps = [
+              {"name": name, "version": version, "checksum": checksum}
+              for name, version, checksum in resolved
+          ]
+          dep_bytes = (json.dumps(canonical_deps, sort_keys=True, separators=(",", ":")) + "\n").encode()
+          dep_digest = hashlib.sha256(dep_bytes).hexdigest()
+          assert dep_digest == os.environ["EXPECTED_RESOLVED_DEP_SET_SHA256"]
+          receipt = {
+              "schema": "mycelix.assure.002b.permanent-final.receipt.v0.4",
+              "final_subject_commit": cmd("git", "rev-parse", "HEAD"),
+              "final_subject_tree": cmd("git", "rev-parse", "HEAD^{tree}"),
+              "final_parent_commit": cmd("git", "rev-parse", "HEAD^"),
+              "qualified_assurance_tree": cmd("git", "rev-parse", "HEAD:assurance"),
+              "qualified_assurance_core_tree": cmd("git", "rev-parse", "HEAD:crates/mycelix-assurance-core"),
+              "temporary_002b_subject_commit": os.environ["TEMP_002B_SUBJECT_SHA"],
+              "temporary_002b_receipt_sha256": os.environ["TEMP_002B_RECEIPT_SHA256"],
+              "qualified_002a_commit": os.environ["QUALIFIED_002A_SHA"],
+              "qualified_002a_receipt_sha256": os.environ["QUALIFIED_002A_RECEIPT_SHA256"],
+              "spec_root_sha256": os.environ["EXPECTED_SPEC_ROOT_SHA256"],
+              "coverage_sha256": os.environ["EXPECTED_COVERAGE_SHA256"],
+              "corpus_root_sha256": os.environ["EXPECTED_CORPUS_ROOT_SHA256"],
+              "cargo_lock_sha256": os.environ["EXPECTED_CARGO_LOCK_SHA256"],
+              "resolved_dependency_set_sha256": dep_digest,
+              "resolved_dependency_set_canonicalization": "JSON array sorted by package name; objects have name/version/checksum; sort_keys=true; compact separators; trailing LF",
+              "permanent_ci_path": ".github/workflows/ci.yml",
+              "permanent_ci_blob_oid": os.environ["FINAL_CI_BLOB_OID"],
+              "permanent_ci_sha256": workflow_sha256,
+              "permanent_ci_subject_ref_expression": "github.event.pull_request.head.sha || github.sha",
+              "scheduler_admission_actions": {
+                  "checkout": "11d5960a326750d5838078e36cf38b85af677262",
+                  "paths_filter": "0e4a8c6effa4802afeda77dc8d303f8176d7dfad",
+              },
+              "qualifier_workflow_commit": os.environ.get("GITHUB_SHA", ""),
+              "github_run_id": os.environ.get("GITHUB_RUN_ID", ""),
+              "github_run_attempt": os.environ.get("GITHUB_RUN_ATTEMPT", ""),
+              "runner_os": os.environ.get("RUNNER_OS", platform.system()),
+              "runner_arch": os.environ.get("RUNNER_ARCH", platform.machine()),
+              "runner_image_os": os.environ.get("ImageOS", ""),
+              "runner_image_version": os.environ.get("ImageVersion", ""),
+              "rustc_version": cmd("rustc", "--version"),
+              "cargo_version": cmd("cargo", "--version"),
+              "immutable_actions": {
+                  "checkout": "11d5960a326750d5838078e36cf38b85af677262",
+                  "upload_artifact": "ea165f8d65b6e75b540449e92b4886f43607fa02",
+              },
+              "gates": [
+                  "exact-final-subject-lineage",
+                  "qualified-subtree-identity",
+                  "permanent-ci-identity-and-scheduler-contract",
+                  "permanent-ci-exact-subject-binding",
+                  "immutable-assurance-admission-actions",
+                  "pinned-toolchain-identity",
+                  "spec-root",
+                  "l0-coverage-and-corpus-roots",
+                  "dependency-lock-trusted-surface-and-canonical-resolved-set",
+                  "rustfmt",
+                  "cargo-check-locked-all-targets",
+                  "cargo-test-locked-all-targets",
+                  "clippy-deny-warnings",
+                  "postflight-immutability",
+              ],
+              "proposition": (
+                  "For this exact permanent-CI ASSURE-002B subject, the qualified ASSURE subtrees are byte-identical, "
+                  "the frozen L0 specification, coverage/corpus, dependency lock, canonical resolved dependency set, trusted surface, and registered Rust gates verify, "
+                  "and the permanent CI workflow binds assurance execution to the exact PR-head/push subject while preserving the bound scheduler, immutable assurance-admission actions, and fail-closed assurance contract."
+              ),
+              "nonclaims": [
+                  "No graph validity is qualified.",
+                  "No evidence truth or admissibility is qualified.",
+                  "No effective authority is established.",
+                  "No political or constitutional legitimacy is established.",
+                  "No moral truth or overall system safety is established.",
+                  "Repository branch-protection enforcement is separate evidence.",
+              ],
+          }
+          encoded = (json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n").encode()
+          out = Path("qualification/assure-002b-permanent-final-receipt.json")
+          out.write_bytes(encoded)
+          digest = hashlib.sha256(encoded).hexdigest()
+          Path("qualification/assure-002b-permanent-final-receipt.sha256").write_text(
+              digest + "  " + out.name + "\n"
+          )
+          print(encoded.decode(), end="")
+          print("receipt_sha256=" + digest)
+          PY
+
+      - name: Preserve final-tree qualification receipt
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: assure-002b-permanent-final-${{ env.FINAL_SUBJECT_SHA }}
+          path: |
+            qualification/assure-002b-permanent-final-receipt.json
+            qualification/assure-002b-permanent-final-receipt.sha256
+            crates/mycelix-assurance-core/Cargo.lock
+            .github/workflows/ci.yml
+          if-no-files-found: error
+          retention-days: 30
