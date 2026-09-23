@@ -1,0 +1,228 @@
+name: EMB-DATA-VIEW-001TQ r2 exact qualifier
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/emb-data-view-v0-1-qualifier.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout literal product subject
+        uses: actions/checkout@v4
+        with:
+          ref: 56ede1b7a13e951e5ca9413e29f67603b9c358be
+          fetch-depth: 2
+
+      - name: Prove exact product topology
+        shell: bash
+        run: |
+          set -euo pipefail
+          PRODUCT=56ede1b7a13e951e5ca9413e29f67603b9c358be
+          PARENT=ce7acdbd2afa6d40bcd669e14ba468b3214466c3
+          TREE=1c32f3dbcc4e205d7694e8cb8d1f60a76cc54f55
+          test "$(git rev-parse HEAD)" = "$PRODUCT"
+          test "$(git rev-parse HEAD^)" = "$PARENT"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$TREE"
+          test "$(git rev-list --count "$PARENT..$PRODUCT")" = "1"
+          python3 - <<'PY'
+          import subprocess
+          expected = [
+              'docs/embodied/EMBODIED_DATA_VIEW_V0_1.md',
+              'docs/embodied/fixtures/EMB_DATA_VIEW_V0_1.json',
+          ]
+          got = subprocess.check_output([
+              'git','diff','--name-only',
+              'ce7acdbd2afa6d40bcd669e14ba468b3214466c3',
+              '56ede1b7a13e951e5ca9413e29f67603b9c358be'
+          ], text=True).splitlines()
+          assert got == expected, (got, expected)
+          PY
+          test "$(git rev-parse HEAD:docs/embodied/EMBODIED_DATA_VIEW_V0_1.md)" = "e37fd9b509b2f018273d8417ca36dd0c0751f438"
+          test "$(git rev-parse HEAD:docs/embodied/fixtures/EMB_DATA_VIEW_V0_1.json)" = "93b48d06f6f6b8c4f47041b5b91d5c5c1422b239"
+          git diff --check "$PARENT" "$PRODUCT"
+
+      - name: Independently qualify synthetic view algebra
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVIDENCE="${RUNNER_TEMP}/emb-data-view-qualifier"
+          mkdir -p "$EVIDENCE"
+          python3 - <<'PY' | tee "${RUNNER_TEMP}/emb-data-view-qualifier/oracle.txt"
+          import copy, hashlib, json
+          from pathlib import Path
+
+          p = Path('docs/embodied/fixtures/EMB_DATA_VIEW_V0_1.json')
+          d = json.loads(p.read_text())
+
+          MODALITIES = [
+              'RgbVideo','Audio','Gaze','HeadPose','BodyPose','HandPose',
+              'ObjectPose','Depth','Imu','SpatialMap','DerivedEmbedding','DerivedPoseOnly'
+          ]
+          STATES = [
+              'ViewPlanAdmittedUnderSyntheticPrerequisites',
+              'PrerequisiteUnavailable',
+              'RequestedModalityOutsideReviewedScope',
+              'SplitRoleConflict',
+              'RequiredTransformationUnavailable',
+              'EvidenceConflict',
+              'PurposeChangeRequiresNewView',
+          ]
+          IDS = [f'V{i:02d}-' for i in range(1,17)]
+          EXPECTED_OBLIGATIONS = {
+              'V01-minimize-gaze-affordance': {'SourceLineageRetention'},
+              'V03-rgb-via-required-redaction': {'RedactionLineageRetention','SourceLineageRetention'},
+              'V08-purpose-binds-identity': {'SourceLineageRetention'},
+              'V10-equivalent-content-different-obligations': {'Attribution','NoRawRedistribution','SourceLineageRetention'},
+              'V11-include-all-cannot-broaden': {'SourceLineageRetention'},
+              'V13-conversion-preserves-exclusion': {'SourceLineageRetention'},
+              'V14-retain-split-and-obligations': {'Attribution','NoRawRedistribution','SourceLineageRetention'},
+          }
+
+          def derive(c):
+              available = set(c['available'])
+              requested = set(c['requested'])
+              if not requested <= available:
+                  return 'RequestedModalityOutsideReviewedScope'
+              if c['rights'] == 'ConflictSynthetic' or c['privacy'] == 'ConflictSynthetic':
+                  return 'EvidenceConflict'
+              if c['rights'] == 'Unavailable' or c['privacy'] == 'Unavailable':
+                  return 'PrerequisiteUnavailable'
+              if c.get('prior_view_purpose') is not None and c['prior_view_purpose'] != c['purpose']:
+                  return 'PurposeChangeRequiresNewView'
+              if c['split_role'] in {'EvaluationOnly','BenchmarkHoldout'} and c['purpose'] in {'RobotPolicyTraining','ImitationLearning'}:
+                  return 'SplitRoleConflict'
+              if c['privacy'] == 'AudioOutOfScope' and 'Audio' in requested:
+                  return 'RequestedModalityOutsideReviewedScope'
+              if c['privacy'] == 'CompatibleIfTransformed' and not c['required_transforms']:
+                  raise AssertionError('transform-required privacy state without exact required transform')
+              if not set(c['required_transforms']) <= set(c['available_transforms']):
+                  return 'RequiredTransformationUnavailable'
+              return 'ViewPlanAdmittedUnderSyntheticPrerequisites'
+
+          def identity(c):
+              semantic = {
+                  'source': c['source'],
+                  'purpose': c['purpose'],
+                  'split_role': c['split_role'],
+                  'requested': sorted(c['requested']),
+                  'required_transforms': sorted(c['required_transforms']),
+                  'rights': c['rights'],
+                  'privacy': c['privacy'],
+                  'obligations': sorted(c['obligations']),
+              }
+              return hashlib.sha256(json.dumps(semantic, sort_keys=True, separators=(',',':')).encode()).hexdigest()
+
+          def validate(doc):
+              assert doc['schema'] == 'mycelix:emb-data-view-corpus:v0.1'
+              assert doc['authority'] == 'SyntheticViewPlanningSemanticsOnly'
+              for k in ['source_access_authority','data_materialization_authority','training_authority','publication_authority','physical_execution_authority']:
+                  assert doc[k] is False, k
+              assert doc['modalities'] == MODALITIES
+              assert doc['states'] == STATES
+              assert len(doc['cases']) == 16
+              assert len({c['id'] for c in doc['cases']}) == 16
+              for prefix in IDS:
+                  assert sum(c['id'].startswith(prefix) for c in doc['cases']) == 1, prefix
+
+              for c in doc['cases']:
+                  assert set(c['available']) <= set(MODALITIES)
+                  assert set(c['requested']) <= set(MODALITIES)
+                  actual = derive(c)
+                  assert actual == c['expected_state'], (c['id'], actual, c['expected_state'])
+                  expected_ob = EXPECTED_OBLIGATIONS.get(c['id'], set())
+                  assert set(c['obligations']) == expected_ob, (c['id'], c['obligations'], expected_ob)
+                  if actual == 'ViewPlanAdmittedUnderSyntheticPrerequisites':
+                      assert set(c['expected_exposed']) == set(c['requested']), c['id']
+                      assert set(c['expected_excluded']) == set(c['available']) - set(c['requested']), c['id']
+                  else:
+                      assert c['expected_exposed'] == [], c['id']
+                      assert set(c['expected_excluded']) == set(c['available']), c['id']
+              return True
+
+          validate(d)
+          by_id = {c['id']: c for c in d['cases']}
+
+          # Identity theorem: storage metadata is non-semantic; purpose/obligations are semantic.
+          base = copy.deepcopy(by_id['V08-purpose-binds-identity'])
+          h0 = identity(base)
+          storage_mut = copy.deepcopy(base); storage_mut['storage_path'] = '/tmp/other-layout'
+          assert identity(storage_mut) == h0
+          purpose_mut = copy.deepcopy(base); purpose_mut['purpose'] = 'PublicVisualization'
+          assert identity(purpose_mut) != h0
+          obligation_mut = copy.deepcopy(base); obligation_mut['obligations'].append('Attribution')
+          assert identity(obligation_mut) != h0
+
+          # Hostile mutations must be rejected by the same validator.
+          mutations = []
+          x = copy.deepcopy(d); x['training_authority'] = True; mutations.append(x)
+          x = copy.deepcopy(d); next(c for c in x['cases'] if c['id'].startswith('V11-'))['expected_exposed'].append('Audio'); mutations.append(x)
+          x = copy.deepcopy(d); next(c for c in x['cases'] if c['id'].startswith('V03-'))['required_transforms'] = []; mutations.append(x)
+          x = copy.deepcopy(d); next(c for c in x['cases'] if c['id'].startswith('V07-'))['split_role'] = 'Training'; mutations.append(x)
+          x = copy.deepcopy(d); next(c for c in x['cases'] if c['id'].startswith('V10-'))['obligations'] = []; mutations.append(x)
+          x = copy.deepcopy(d); next(c for c in x['cases'] if c['id'].startswith('V12-'))['expected_state'] = 'ViewPlanAdmittedUnderSyntheticPrerequisites'; mutations.append(x)
+          x = copy.deepcopy(d); next(c for c in x['cases'] if c['id'].startswith('V09-'))['prior_view_purpose'] = 'PublicVisualization'; mutations.append(x)
+
+          for i, m in enumerate(mutations, 1):
+              try:
+                  validate(m)
+              except (AssertionError, KeyError, TypeError, ValueError):
+                  continue
+              raise AssertionError(f'hostile mutation {i} was accepted')
+
+          assert by_id['V11-include-all-cannot-broaden']['caller_include_all_available'] is True
+          assert set(by_id['V11-include-all-cannot-broaden']['expected_exposed']) == set(by_id['V11-include-all-cannot-broaden']['requested'])
+          assert by_id['V14-retain-split-and-obligations']['expected_retained_split_role'] == 'BenchmarkHoldout'
+          assert by_id['V15-no-training-publication-authority']['training_authority'] is False
+          assert by_id['V15-no-training-publication-authority']['publication_authority'] is False
+          assert by_id['V16-no-actuation-authority']['physical_execution_authority'] is False
+
+          print('QUALIFIED_SYNTHETIC_VIEW_CORPUS_V0_1')
+          print('cases=16')
+          print('authority=SyntheticViewPlanningSemanticsOnly')
+          print('source_access_authority=false')
+          print('data_materialization_authority=false')
+          print('training_authority=false')
+          print('publication_authority=false')
+          print('physical_execution_authority=false')
+          PY
+          sha256sum docs/embodied/EMBODIED_DATA_VIEW_V0_1.md > "${RUNNER_TEMP}/emb-data-view-qualifier/sha256.txt"
+          sha256sum docs/embodied/fixtures/EMB_DATA_VIEW_V0_1.json >> "${RUNNER_TEMP}/emb-data-view-qualifier/sha256.txt"
+          git rev-parse HEAD > "${RUNNER_TEMP}/emb-data-view-qualifier/product-head.txt"
+          git rev-parse 'HEAD^{tree}' > "${RUNNER_TEMP}/emb-data-view-qualifier/product-tree.txt"
+
+      - name: Authority and secret firewall
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, re
+          from pathlib import Path
+          d = json.loads(Path('docs/embodied/fixtures/EMB_DATA_VIEW_V0_1.json').read_text())
+          banned_states = {'Allowed','Legal','LicenseOK','CanTrain','TrainingAllowed','PhysicalExecutionAllowed','PublicationAllowed'}
+          assert not (set(d['states']) & banned_states)
+          text = Path('docs/embodied/fixtures/EMB_DATA_VIEW_V0_1.json').read_text() + Path('docs/embodied/EMBODIED_DATA_VIEW_V0_1.md').read_text()
+          patterns = [r'-----BEGIN [A-Z ]*PRIVATE KEY-----', r'gh[pousr]_[A-Za-z0-9_]{20,}', r'AKIA[0-9A-Z]{16}']
+          for pat in patterns:
+              assert re.search(pat, text) is None, pat
+          PY
+
+      - name: Prove postflight product immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain)"
+          test "$(git rev-parse HEAD)" = "56ede1b7a13e951e5ca9413e29f67603b9c358be"
+          test "$(git rev-parse 'HEAD^{tree}')" = "1c32f3dbcc4e205d7694e8cb8d1f60a76cc54f55"
+
+      - name: Upload exact qualification receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: emb-data-view-v0-1-qualification-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/emb-data-view-qualifier
+          if-no-files-found: error
