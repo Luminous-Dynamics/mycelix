@@ -1,0 +1,14 @@
+[package]
+name = "mycelix-data-rights"
+version = "0.1.0"
+edition = "2024"
+description = "Pure dataset terms-compatibility assessment for Mycelix embodied-data evidence"
+license = "AGPL-3.0-or-later"
+authors = ["Luminous Dynamics <contact@luminousdynamics.org>"]
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+
+[dev-dependencies]
+serde_json = "1.0"
