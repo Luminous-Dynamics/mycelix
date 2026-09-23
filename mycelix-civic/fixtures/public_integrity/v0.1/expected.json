@@ -1,0 +1,44 @@
+{
+  "expected": [
+    {"case_id":"PI-001","disposition":"NoConflictSupportedUnderProfile","causal_claim":"NotEstablished"},
+    {"case_id":"PI-002","disposition":"PotentialConflict","causal_claim":"NotEstablished"},
+    {"case_id":"PI-003","disposition":"ConflictManagedCandidate","causal_claim":"NotEstablished"},
+    {"case_id":"PI-004","disposition":"OwnershipRelationUnresolved","causal_claim":"NotEstablished"},
+    {"case_id":"PI-005","disposition":"CausalInfluenceNotEstablished","causal_claim":"NotEstablished"},
+    {"case_id":"PI-006","disposition":"DisclosureNotObservedInFrontier","causal_claim":"NotApplicable"},
+    {"case_id":"PI-007A","disposition":"CurrentProjectionUnchanged","causal_claim":"NotApplicable"},
+    {"case_id":"PI-007B","disposition":"CurrentProjectionUnchanged","causal_claim":"NotApplicable"},
+    {"case_id":"PI-008A","disposition":"PotentialConflict","causal_claim":"NotEstablished"},
+    {"case_id":"PI-008B","disposition":"PotentialConflict","causal_claim":"NotEstablished"},
+    {"case_id":"PI-009A","disposition":"ConflictManagedCandidate","causal_claim":"NotEstablished"},
+    {"case_id":"PI-009B","disposition":"PotentialConflict","causal_claim":"NotEstablished"},
+    {"case_id":"PI-010","disposition":"HistoricalObservationSupersededByCorrection","causal_claim":"NotApplicable"}
+  ],
+  "metamorphic_relations": [
+    {
+      "kind":"ProtectedPayloadNoninterference",
+      "left":"PI-007A",
+      "right":"PI-007B",
+      "expect_same_semantics":true,
+      "allowed_visible_differences":["case_id"],
+      "required_hidden_differences":["protected_payload"]
+    },
+    {
+      "kind":"PoliticalLabelInvariance",
+      "left":"PI-008A",
+      "right":"PI-008B",
+      "expect_same_semantics":true,
+      "allowed_visible_differences":["case_id","party_label","office_holder"],
+      "required_hidden_differences":["irrelevant_label_class"]
+    },
+    {
+      "kind":"PositiveSensitivity",
+      "left":"PI-009A",
+      "right":"PI-009B",
+      "expect_same_semantics":false,
+      "allowed_visible_differences":["case_id","participation"],
+      "load_bearing_change":"participation_after_recusal",
+      "required_hidden_differences":["sensitivity_truth"]
+    }
+  ]
+}
