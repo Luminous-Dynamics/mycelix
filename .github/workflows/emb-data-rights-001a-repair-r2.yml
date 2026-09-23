@@ -1,0 +1,238 @@
+name: EMB-DATA-RIGHTS-001AR exact repair derivation r2
+
+on:
+  pull_request:
+    types: [ready_for_review]
+
+permissions:
+  contents: read
+
+env:
+  PRODUCT_SHA: 15f1069a3963e00546f8700a609b3a644180d959
+  PRODUCT_PARENT_SHA: 6e793c5a818755cce80623bd5cb602885ca00ff0
+  PRODUCT_TREE_SHA: ffa628b6012ee73ae4f16c7be73c99de572fa61c
+  EXPECTED_FORMATTED_LIB_SHA256: 4aaf435f457ebc5f70ed035793a7f7d5b728c0e837c9c9b2173899693f0acdd2
+  EXPECTED_FORMATTED_CORPUS_SHA256: a458b91e4aeb09f5a7fdf7a588402bf08b3ead12acc06cdffa306c15b7df85f4
+  EXPECTED_LOCK_SHA256: c54b563dea6f8da5e12f31fcb060936a0893d6e21f9d4adb790a2ca8bdac8d01
+  RUST_TOOLCHAIN: 1.96.0
+
+jobs:
+  derive:
+    name: Mechanical repair capsule
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout literal failed source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PRODUCT_SHA }}
+          fetch-depth: 2
+
+      - name: Verify immutable input
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$PRODUCT_SHA"
+          test "$(git rev-parse HEAD^)" = "$PRODUCT_PARENT_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$PRODUCT_TREE_SHA"
+          mapfile -t paths < <(git diff --name-only "$PRODUCT_PARENT_SHA" "$PRODUCT_SHA" | sort)
+          test "${#paths[@]}" -eq 3
+          test "${paths[0]}" = "crates/mycelix-data-rights/Cargo.toml"
+          test "${paths[1]}" = "crates/mycelix-data-rights/src/lib.rs"
+          test "${paths[2]}" = "crates/mycelix-data-rights/tests/corpus.rs"
+          test -z "$(git status --porcelain)"
+
+      - name: Install exact Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal --component rustfmt --component clippy
+          rustc +"$RUST_TOOLCHAIN" --version
+          cargo +"$RUST_TOOLCHAIN" --version
+          rustfmt +"$RUST_TOOLCHAIN" --version
+          cargo +"$RUST_TOOLCHAIN" clippy --version
+
+      - name: Reproduce exact formatting and lock capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          WORK="$RUNNER_TEMP/emb-data-rights-001ar-work"
+          EVIDENCE="$RUNNER_TEMP/emb-data-rights-001ar-evidence"
+          rm -rf "$WORK" "$EVIDENCE"
+          mkdir -p "$WORK/crates" "$WORK/docs/embodied/fixtures" "$EVIDENCE/formatted"
+          cp -a crates/mycelix-data-rights "$WORK/crates/"
+          cp docs/embodied/fixtures/EMB_DATA_RIGHTS_COMPATIBILITY_V0_1.json "$WORK/docs/embodied/fixtures/"
+          cp docs/embodied/EMBODIED_DATA_RIGHTS_COMPATIBILITY_V0_1.md "$WORK/docs/embodied/"
+
+          sha256sum crates/mycelix-data-rights/Cargo.toml crates/mycelix-data-rights/src/lib.rs crates/mycelix-data-rights/tests/corpus.rs \
+            | tee "$EVIDENCE/original-sha256.txt"
+          : > "$EVIDENCE/rustfmt.patch"
+          cargo +"$RUST_TOOLCHAIN" fmt --manifest-path "$WORK/crates/mycelix-data-rights/Cargo.toml"
+          diff -u crates/mycelix-data-rights/src/lib.rs "$WORK/crates/mycelix-data-rights/src/lib.rs" >> "$EVIDENCE/rustfmt.patch" || true
+          diff -u crates/mycelix-data-rights/tests/corpus.rs "$WORK/crates/mycelix-data-rights/tests/corpus.rs" >> "$EVIDENCE/rustfmt.patch" || true
+
+          LIB_SHA=$(sha256sum "$WORK/crates/mycelix-data-rights/src/lib.rs" | awk '{print $1}')
+          CORPUS_SHA=$(sha256sum "$WORK/crates/mycelix-data-rights/tests/corpus.rs" | awk '{print $1}')
+          test "$LIB_SHA" = "$EXPECTED_FORMATTED_LIB_SHA256"
+          test "$CORPUS_SHA" = "$EXPECTED_FORMATTED_CORPUS_SHA256"
+          printf 'formatted_lib_sha256=%s\nformatted_corpus_sha256=%s\n' "$LIB_SHA" "$CORPUS_SHA" \
+            | tee "$EVIDENCE/formatted-sha256.txt"
+
+          cargo +"$RUST_TOOLCHAIN" generate-lockfile --manifest-path "$WORK/crates/mycelix-data-rights/Cargo.toml"
+          LOCK_SHA=$(sha256sum "$WORK/crates/mycelix-data-rights/Cargo.lock" | awk '{print $1}')
+          test "$LOCK_SHA" = "$EXPECTED_LOCK_SHA256"
+          echo "generated_lock_sha256=$LOCK_SHA" | tee "$EVIDENCE/generated-lock-sha256.txt"
+          cargo +"$RUST_TOOLCHAIN" tree --locked --manifest-path "$WORK/crates/mycelix-data-rights/Cargo.toml" \
+            | tee "$EVIDENCE/dependency-tree.txt"
+          cargo +"$RUST_TOOLCHAIN" tree --locked --edges normal --depth 1 --manifest-path "$WORK/crates/mycelix-data-rights/Cargo.toml" \
+            | tee "$EVIDENCE/runtime-dependency-depth1.txt"
+
+          cp "$WORK/crates/mycelix-data-rights/src/lib.rs" "$EVIDENCE/formatted/lib.rs"
+          cp "$WORK/crates/mycelix-data-rights/tests/corpus.rs" "$EVIDENCE/formatted/corpus.rs"
+          cp "$WORK/crates/mycelix-data-rights/Cargo.lock" "$EVIDENCE/formatted/Cargo.lock"
+          cp crates/mycelix-data-rights/Cargo.toml "$EVIDENCE/formatted/Cargo.toml"
+          echo "WORK=$WORK" >> "$GITHUB_ENV"
+          echo "EVIDENCE=$EVIDENCE" >> "$GITHUB_ENV"
+
+      - name: Add Clippy-clean independent adversarial test
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$WORK/crates/mycelix-data-rights/tests/qualifier_adversarial.rs" <<'RS'
+          use mycelix_data_rights::*;
+          use std::collections::{BTreeMap, BTreeSet};
+
+          fn ev(
+              subject: &str,
+              evidence_ref: &str,
+              currentness: TermsCurrentness,
+              dims: &[(IntendedUseDimension, DimensionDisposition)],
+              obligations: &[RetainedObligation],
+          ) -> ReviewedTermsEvidenceV1 {
+              ReviewedTermsEvidenceV1 {
+                  subject: subject.to_owned(),
+                  evidence_ref: evidence_ref.to_owned(),
+                  currentness,
+                  dimensions: dims.iter().copied().collect::<BTreeMap<_, _>>(),
+                  obligations: obligations.iter().copied().collect::<BTreeSet<_>>(),
+              }
+          }
+
+          fn req(
+              subjects: &[&str],
+              split: DatasetSplitRole,
+              dims: &[IntendedUseDimension],
+              prerequisites: &[ExternalPrerequisite],
+          ) -> IntendedDatasetUseV1 {
+              IntendedDatasetUseV1 {
+                  subjects: subjects.iter().map(|subject| (*subject).to_owned()).collect(),
+                  dataset_split_role: split,
+                  dimensions: dims.iter().copied().collect(),
+                  external_prerequisites: prerequisites.iter().copied().collect(),
+              }
+          }
+
+          #[test]
+          fn independent_hostile_vectors() {
+              let compatible = [(IntendedUseDimension::Training, DimensionDisposition::Compatible)];
+              let incompatible = [(IntendedUseDimension::Training, DimensionDisposition::Incompatible)];
+              let unknown = [(IntendedUseDimension::Training, DimensionDisposition::Unknown)];
+              let training = req(&["a"], DatasetSplitRole::Training, &[IntendedUseDimension::Training], &[]);
+              let a = ev("a", "r1", TermsCurrentness::Current, &compatible, &[RetainedObligation::Attribution]);
+
+              let mut ordered = vec![a.clone(), ev("a", "r2", TermsCurrentness::Current, &compatible, &[])];
+              let forward = assess_terms_compatibility(&ordered, &training).unwrap();
+              ordered.reverse();
+              assert_eq!(forward, assess_terms_compatibility(&ordered, &training).unwrap());
+
+              let dims_a = req(&["a"], DatasetSplitRole::Training, &[IntendedUseDimension::Training, IntendedUseDimension::DerivedModelUse], &[]);
+              let dims_b = req(&["a"], DatasetSplitRole::Training, &[IntendedUseDimension::DerivedModelUse, IntendedUseDimension::Training], &[]);
+              assert_eq!(dims_a, dims_b);
+              assert_eq!(assess_terms_compatibility(std::slice::from_ref(&a), &dims_a).unwrap().state(), AssessmentState::IntendedUseOutOfProfile);
+
+              let duplicate = assess_terms_compatibility(&[a.clone(), a.clone()], &training).unwrap();
+              assert_eq!(duplicate.state(), AssessmentState::CompatibleWithReviewedTermsProfile);
+              assert_eq!(duplicate.dimension_evidence()[0].evidence_refs().len(), 1);
+
+              let same_ref_conflict = ev("a", "r1", TermsCurrentness::Current, &incompatible, &[]);
+              assert_eq!(assess_terms_compatibility(&[a.clone(), same_ref_conflict], &training), Err(EvidenceError::ConflictingReuseOfEvidenceRef("r1".to_owned())));
+
+              let other_review = ev("a", "r2", TermsCurrentness::Current, &incompatible, &[RetainedObligation::NoRawRedistribution]);
+              let conflict = assess_terms_compatibility(&[a.clone(), other_review], &training).unwrap();
+              assert_eq!(conflict.state(), AssessmentState::TermsEvidenceConflict);
+              assert!(conflict.retained_obligations().iter().any(|item| item.evidence_ref() == "r1"));
+              assert!(conflict.retained_obligations().iter().any(|item| item.evidence_ref() == "r2"));
+
+              let ab = req(&["a", "b"], DatasetSplitRole::Training, &[IntendedUseDimension::Training], &[]);
+              let b = ev("b", "r3", TermsCurrentness::Current, &incompatible, &[RetainedObligation::NonCommercialUseOnly]);
+              let restrictive = assess_terms_compatibility(&[a.clone(), b], &ab).unwrap();
+              assert_eq!(restrictive.state(), AssessmentState::IncompatibleWithReviewedTermsProfile);
+
+              let expired = ev("a", "r4", TermsCurrentness::Expired, &compatible, &[]);
+              assert_eq!(assess_terms_compatibility(&[a.clone(), expired], &training).unwrap().state(), AssessmentState::TermsEvidenceConflict);
+
+              let unknown_row = ev("a", "r5", TermsCurrentness::Current, &unknown, &[RetainedObligation::SourceLineageRetention]);
+              let unknown_result = assess_terms_compatibility(&[unknown_row], &training).unwrap();
+              assert_eq!(unknown_result.state(), AssessmentState::HumanReviewRequired);
+              assert_eq!(unknown_result.retained_obligations().len(), 1);
+
+              assert_eq!(assess_terms_compatibility(std::slice::from_ref(&a), &req(&[], DatasetSplitRole::Training, &[IntendedUseDimension::Training], &[])), Err(EvidenceError::EmptyRequestedSubjects));
+              assert_eq!(assess_terms_compatibility(std::slice::from_ref(&a), &req(&["a"], DatasetSplitRole::Training, &[], &[])), Err(EvidenceError::EmptyRequestedDimensions));
+              assert_eq!(assess_terms_compatibility(std::slice::from_ref(&a), &req(&[""], DatasetSplitRole::Training, &[IntendedUseDimension::Training], &[])), Err(EvidenceError::EmptySubject));
+              let empty_ref = ev("a", "", TermsCurrentness::Current, &compatible, &[]);
+              assert_eq!(assess_terms_compatibility(&[empty_ref], &training), Err(EvidenceError::EmptyEvidenceRef));
+
+              for split in [DatasetSplitRole::EvaluationOnly, DatasetSplitRole::BenchmarkHoldout] {
+                  let split_req = req(&["a"], split, &[IntendedUseDimension::Training], &[]);
+                  assert_eq!(assess_terms_compatibility(std::slice::from_ref(&a), &split_req).unwrap().state(), AssessmentState::IncompatibleWithReviewedTermsProfile);
+              }
+
+              let privacy_req = req(&["a"], DatasetSplitRole::Training, &[IntendedUseDimension::Training], &[ExternalPrerequisite::PrivacyConsentAssessment]);
+              let privacy = assess_terms_compatibility(std::slice::from_ref(&a), &privacy_req).unwrap();
+              assert_eq!(privacy.state(), AssessmentState::CompatibleWithReviewedTermsProfile);
+              assert!(privacy.external_prerequisites().contains(&ExternalPrerequisite::PrivacyConsentAssessment));
+          }
+          RS
+          rustfmt +"$RUST_TOOLCHAIN" --edition 2024 "$WORK/crates/mycelix-data-rights/tests/qualifier_adversarial.rs"
+
+      - name: Prove derived bytes through full Rust gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +"$RUST_TOOLCHAIN" fmt --check --manifest-path "$WORK/crates/mycelix-data-rights/Cargo.toml"
+          cargo +"$RUST_TOOLCHAIN" metadata --locked --format-version 1 --manifest-path "$WORK/crates/mycelix-data-rights/Cargo.toml" > "$EVIDENCE/metadata.json"
+          cargo +"$RUST_TOOLCHAIN" check --locked --all-targets --manifest-path "$WORK/crates/mycelix-data-rights/Cargo.toml" 2>&1 | tee "$EVIDENCE/cargo-check.txt"
+          cargo +"$RUST_TOOLCHAIN" test --locked --all-targets --manifest-path "$WORK/crates/mycelix-data-rights/Cargo.toml" 2>&1 | tee "$EVIDENCE/cargo-test.txt"
+          cargo +"$RUST_TOOLCHAIN" test --locked --doc --manifest-path "$WORK/crates/mycelix-data-rights/Cargo.toml" 2>&1 | tee "$EVIDENCE/doc-test.txt"
+          cargo +"$RUST_TOOLCHAIN" clippy --locked --all-targets --manifest-path "$WORK/crates/mycelix-data-rights/Cargo.toml" -- -D warnings 2>&1 | tee "$EVIDENCE/clippy.txt"
+
+      - name: Write derivation-only receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$PRODUCT_SHA"
+          test "$(git rev-parse HEAD^)" = "$PRODUCT_PARENT_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$PRODUCT_TREE_SHA"
+          test -z "$(git status --porcelain)"
+          {
+            echo "input_product_sha=$PRODUCT_SHA"
+            echo "input_product_parent_sha=$PRODUCT_PARENT_SHA"
+            echo "input_product_tree_sha=$PRODUCT_TREE_SHA"
+            echo "formatted_lib_sha256=$EXPECTED_FORMATTED_LIB_SHA256"
+            echo "formatted_corpus_sha256=$EXPECTED_FORMATTED_CORPUS_SHA256"
+            echo "generated_lock_sha256=$EXPECTED_LOCK_SHA256"
+            rustc +"$RUST_TOOLCHAIN" --version
+            cargo +"$RUST_TOOLCHAIN" --version
+            rustfmt +"$RUST_TOOLCHAIN" --version
+            echo "source_immutable=true"
+            echo "claim_ceiling=REPAIR_DERIVATION_ONLY"
+            echo "REPAIR_DERIVATION_PASS"
+          } | tee "$EVIDENCE/receipt.txt"
+
+      - name: Upload exact repair capsule
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: emb-data-rights-001ar-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/emb-data-rights-001ar-evidence/
+          if-no-files-found: error
