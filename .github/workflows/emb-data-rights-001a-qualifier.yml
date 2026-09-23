@@ -1,0 +1,279 @@
+name: EMB-DATA-RIGHTS-001AQ exact product qualifier
+
+on:
+  pull_request:
+    types: [ready_for_review]
+
+permissions:
+  contents: read
+
+env:
+  PRODUCT_SHA: 15f1069a3963e00546f8700a609b3a644180d959
+  PRODUCT_PARENT_SHA: 6e793c5a818755cce80623bd5cb602885ca00ff0
+  PRODUCT_TREE_SHA: ffa628b6012ee73ae4f16c7be73c99de572fa61c
+  CRATE_MANIFEST: crates/mycelix-data-rights/Cargo.toml
+  SOURCE_PATH: crates/mycelix-data-rights/src/lib.rs
+  TEST_PATH: crates/mycelix-data-rights/tests/corpus.rs
+  FIXTURE_PATH: docs/embodied/fixtures/EMB_DATA_RIGHTS_COMPATIBILITY_V0_1.json
+  PROFILE_PATH: docs/embodied/EMBODIED_DATA_RIGHTS_COMPATIBILITY_V0_1.md
+  RUST_TOOLCHAIN: 1.96.0
+
+jobs:
+  qualify:
+    name: Exact pure dataset-rights evaluator
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout literal product subject
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PRODUCT_SHA }}
+          fetch-depth: 2
+
+      - name: Prove exact lineage and source shape
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$PRODUCT_SHA"
+          test "$(git rev-parse HEAD^)" = "$PRODUCT_PARENT_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$PRODUCT_TREE_SHA"
+          mapfile -t paths < <(git diff --name-only "$PRODUCT_PARENT_SHA" "$PRODUCT_SHA" | sort)
+          test "${#paths[@]}" -eq 3
+          test "${paths[0]}" = "$CRATE_MANIFEST"
+          test "${paths[1]}" = "$SOURCE_PATH"
+          test "${paths[2]}" = "$TEST_PATH"
+          git diff --check "$PRODUCT_PARENT_SHA" "$PRODUCT_SHA"
+          test -z "$(git status --porcelain)"
+
+      - name: Install exact Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal --component rustfmt --component clippy
+          rustc +"$RUST_TOOLCHAIN" --version
+          cargo +"$RUST_TOOLCHAIN" --version
+          rustfmt +"$RUST_TOOLCHAIN" --version
+          cargo +"$RUST_TOOLCHAIN" clippy --version
+
+      - name: Static dependency and authority audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVIDENCE_DIR="$RUNNER_TEMP/emb-data-rights-001aq-evidence"
+          mkdir -p "$EVIDENCE_DIR"
+          python3 - <<'PY' | tee "$EVIDENCE_DIR/static-audit.txt"
+          import pathlib, re, tomllib
+          manifest = tomllib.loads(pathlib.Path('crates/mycelix-data-rights/Cargo.toml').read_text())
+          source = pathlib.Path('crates/mycelix-data-rights/src/lib.rs').read_text()
+          tests = pathlib.Path('crates/mycelix-data-rights/tests/corpus.rs').read_text()
+          assert manifest['package']['name'] == 'mycelix-data-rights'
+          assert manifest['package']['edition'] == '2024'
+          assert set(manifest.get('dependencies', {})) == {'serde'}
+          assert set(manifest.get('dev-dependencies', {})) == {'serde_json'}
+          assert '#![forbid(unsafe_code)]' in source
+          assert 'pub struct ReviewedTermsEvidenceV1' in source
+          assert 'pub struct IntendedDatasetUseV1' in source
+          assert 'pub struct DatasetTermsCompatibilityAssessmentV1' in source
+          assert '#[derive(Debug, Clone, PartialEq, Eq, Serialize)]\npub struct DatasetTermsCompatibilityAssessmentV1' in source
+          assert 'compile_fail' in source
+          assert 'PrivacyConsentAssessment' in source
+          assert 'TermsEvidenceConflict' in source
+          for pattern in [r'\bstd::net\b', r'\bstd::fs\b', r'\bstd::process\b', r'\breqwest\b', r'\bhyper\b', r'\btokio\b', r'\bhdk\b', r'\bholochain\b', r'\bsqlx\b', r'\bdiesel\b', r'\bbevy\b']:
+              assert re.search(pattern, source) is None, pattern
+          for name in ['is_allowed', 'license_ok', 'can_train', 'can_publish', 'execute_robot', 'motor_permit']:
+              assert re.search(r'\bfn\s+' + re.escape(name) + r'\b', source) is None, name
+          assert 'qualified_synthetic_corpus_v0_1_is_reproduced_exactly' in tests
+          assert 'conflict_and_restrictive_composition_remain_distinct' in tests
+          print('runtime_dependencies=serde')
+          print('dev_dependencies=serde_json')
+          print('constructor_firewall_static=PASS')
+          print('purity_static=PASS')
+          print('authority_api_firewall=PASS')
+          PY
+          test -z "$(git status --porcelain)"
+
+      - name: Build isolated formatting and dependency capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          WORK="$RUNNER_TEMP/emb-data-rights-001aq-work"
+          EVIDENCE_DIR="$RUNNER_TEMP/emb-data-rights-001aq-evidence"
+          rm -rf "$WORK"
+          mkdir -p "$WORK/crates" "$WORK/docs/embodied/fixtures"
+          cp -a crates/mycelix-data-rights "$WORK/crates/"
+          cp "$FIXTURE_PATH" "$WORK/docs/embodied/fixtures/"
+          cp "$PROFILE_PATH" "$WORK/docs/embodied/"
+          sha256sum "$CRATE_MANIFEST" "$SOURCE_PATH" "$TEST_PATH" "$FIXTURE_PATH" "$PROFILE_PATH" | tee "$EVIDENCE_DIR/source-sha256.txt"
+          : > "$EVIDENCE_DIR/rustfmt.patch"
+          FORMAT_DELTA=false
+          cargo +"$RUST_TOOLCHAIN" fmt --manifest-path "$WORK/$CRATE_MANIFEST"
+          for path in "$SOURCE_PATH" "$TEST_PATH"; do
+            if ! diff -u "$path" "$WORK/$path" >> "$EVIDENCE_DIR/rustfmt.patch"; then
+              FORMAT_DELTA=true
+            fi
+          done
+          echo "format_delta=$FORMAT_DELTA" | tee "$EVIDENCE_DIR/format-status.txt"
+          sha256sum "$WORK/$SOURCE_PATH" "$WORK/$TEST_PATH" | tee "$EVIDENCE_DIR/formatted-sha256.txt"
+          cargo +"$RUST_TOOLCHAIN" generate-lockfile --manifest-path "$WORK/$CRATE_MANIFEST"
+          sha256sum "$WORK/crates/mycelix-data-rights/Cargo.lock" | tee "$EVIDENCE_DIR/generated-lock-sha256.txt"
+          cargo +"$RUST_TOOLCHAIN" tree --locked --manifest-path "$WORK/$CRATE_MANIFEST" | tee "$EVIDENCE_DIR/dependency-tree.txt"
+          cargo +"$RUST_TOOLCHAIN" tree --locked --edges normal --depth 1 --manifest-path "$WORK/$CRATE_MANIFEST" | tee "$EVIDENCE_DIR/runtime-dependency-depth1.txt"
+          echo "WORK=$WORK" >> "$GITHUB_ENV"
+          echo "FORMAT_DELTA=$FORMAT_DELTA" >> "$GITHUB_ENV"
+
+      - name: Add independent adversarial qualifier tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$WORK/crates/mycelix-data-rights/tests/qualifier_adversarial.rs" <<'RS'
+          use mycelix_data_rights::*;
+          use std::collections::{BTreeMap, BTreeSet};
+
+          fn evidence(
+              subject: &str,
+              evidence_ref: &str,
+              currentness: TermsCurrentness,
+              dims: &[(IntendedUseDimension, DimensionDisposition)],
+              obligations: &[RetainedObligation],
+          ) -> ReviewedTermsEvidenceV1 {
+              ReviewedTermsEvidenceV1 {
+                  subject: subject.to_owned(),
+                  evidence_ref: evidence_ref.to_owned(),
+                  currentness,
+                  dimensions: dims.iter().copied().collect::<BTreeMap<_, _>>(),
+                  obligations: obligations.iter().copied().collect::<BTreeSet<_>>(),
+              }
+          }
+
+          fn request(
+              subjects: &[&str],
+              split: DatasetSplitRole,
+              dims: &[IntendedUseDimension],
+              prerequisites: &[ExternalPrerequisite],
+          ) -> IntendedDatasetUseV1 {
+              IntendedDatasetUseV1 {
+                  subjects: subjects.iter().map(|s| (*s).to_owned()).collect(),
+                  dataset_split_role: split,
+                  dimensions: dims.iter().copied().collect(),
+                  external_prerequisites: prerequisites.iter().copied().collect(),
+              }
+          }
+
+          #[test]
+          fn independent_adversarial_semantics() {
+              let train = [(IntendedUseDimension::Training, DimensionDisposition::Compatible)];
+              let denied = [(IntendedUseDimension::Training, DimensionDisposition::Incompatible)];
+              let unknown = [(IntendedUseDimension::Training, DimensionDisposition::Unknown)];
+              let req = request(&["a"], DatasetSplitRole::Training, &[IntendedUseDimension::Training], &[]);
+              let a = evidence("a", "r1", TermsCurrentness::Current, &train, &[RetainedObligation::Attribution]);
+
+              let mut rows = vec![a.clone(), evidence("a", "r2", TermsCurrentness::Current, &train, &[])];
+              let forward = assess_terms_compatibility(&rows, &req).unwrap();
+              rows.reverse();
+              assert_eq!(forward, assess_terms_compatibility(&rows, &req).unwrap());
+
+              let req_dims_a = request(&["a"], DatasetSplitRole::Training, &[IntendedUseDimension::Training, IntendedUseDimension::DerivedModelUse], &[]);
+              let req_dims_b = request(&["a"], DatasetSplitRole::Training, &[IntendedUseDimension::DerivedModelUse, IntendedUseDimension::Training], &[]);
+              assert_eq!(req_dims_a, req_dims_b);
+              assert_eq!(assess_terms_compatibility(&[a.clone()], &req_dims_a).unwrap().state(), AssessmentState::IntendedUseOutOfProfile);
+
+              let duplicate = assess_terms_compatibility(&[a.clone(), a.clone()], &req).unwrap();
+              assert_eq!(duplicate.state(), AssessmentState::CompatibleWithReviewedTermsProfile);
+              assert_eq!(duplicate.dimension_evidence()[0].evidence_refs().len(), 1);
+
+              let same_ref_conflict = evidence("a", "r1", TermsCurrentness::Current, &denied, &[]);
+              assert_eq!(assess_terms_compatibility(&[a.clone(), same_ref_conflict], &req), Err(EvidenceError::ConflictingReuseOfEvidenceRef("r1".to_owned())));
+
+              let distinct_ref_conflict = evidence("a", "r2", TermsCurrentness::Current, &denied, &[RetainedObligation::NoRawRedistribution]);
+              let conflict = assess_terms_compatibility(&[a.clone(), distinct_ref_conflict], &req).unwrap();
+              assert_eq!(conflict.state(), AssessmentState::TermsEvidenceConflict);
+              assert!(conflict.retained_obligations().iter().any(|o| o.subject() == "a" && o.evidence_ref() == "r1"));
+              assert!(conflict.retained_obligations().iter().any(|o| o.subject() == "a" && o.evidence_ref() == "r2"));
+
+              let req_ab = request(&["a", "b"], DatasetSplitRole::Training, &[IntendedUseDimension::Training], &[]);
+              let b_denied = evidence("b", "r3", TermsCurrentness::Current, &denied, &[RetainedObligation::NonCommercialUseOnly]);
+              let restrictive = assess_terms_compatibility(&[a.clone(), b_denied], &req_ab).unwrap();
+              assert_eq!(restrictive.state(), AssessmentState::IncompatibleWithReviewedTermsProfile);
+              assert!(restrictive.retained_obligations().iter().any(|o| o.obligation() == RetainedObligation::NonCommercialUseOnly));
+
+              let currentness_conflict = evidence("a", "r4", TermsCurrentness::Expired, &train, &[]);
+              assert_eq!(assess_terms_compatibility(&[a.clone(), currentness_conflict], &req).unwrap().state(), AssessmentState::TermsEvidenceConflict);
+
+              let unknown_row = evidence("a", "r5", TermsCurrentness::Current, &unknown, &[RetainedObligation::SourceLineageRetention]);
+              let unknown_result = assess_terms_compatibility(&[unknown_row], &req).unwrap();
+              assert_eq!(unknown_result.state(), AssessmentState::HumanReviewRequired);
+              assert_eq!(unknown_result.retained_obligations().len(), 1);
+
+              assert_eq!(assess_terms_compatibility(&[a.clone()], &request(&[], DatasetSplitRole::Training, &[IntendedUseDimension::Training], &[])), Err(EvidenceError::EmptyRequestedSubjects));
+              assert_eq!(assess_terms_compatibility(&[a.clone()], &request(&["a"], DatasetSplitRole::Training, &[], &[])), Err(EvidenceError::EmptyRequestedDimensions));
+              assert_eq!(assess_terms_compatibility(&[a.clone()], &request(&[""], DatasetSplitRole::Training, &[IntendedUseDimension::Training], &[])), Err(EvidenceError::EmptySubject));
+              let bad_ref = evidence("a", "", TermsCurrentness::Current, &train, &[]);
+              assert_eq!(assess_terms_compatibility(&[bad_ref], &req), Err(EvidenceError::EmptyEvidenceRef));
+
+              for split in [DatasetSplitRole::EvaluationOnly, DatasetSplitRole::BenchmarkHoldout] {
+                  let split_req = request(&["a"], split, &[IntendedUseDimension::Training], &[]);
+                  assert_eq!(assess_terms_compatibility(&[a.clone()], &split_req).unwrap().state(), AssessmentState::IncompatibleWithReviewedTermsProfile);
+              }
+
+              let privacy_req = request(&["a"], DatasetSplitRole::Training, &[IntendedUseDimension::Training], &[ExternalPrerequisite::PrivacyConsentAssessment]);
+              let privacy = assess_terms_compatibility(&[a], &privacy_req).unwrap();
+              assert_eq!(privacy.state(), AssessmentState::CompatibleWithReviewedTermsProfile);
+              assert!(privacy.external_prerequisites().contains(&ExternalPrerequisite::PrivacyConsentAssessment));
+          }
+          RS
+          rustfmt +"$RUST_TOOLCHAIN" --edition 2024 "$WORK/crates/mycelix-data-rights/tests/qualifier_adversarial.rs"
+
+      - name: Run exact Rust gate on isolated derived bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVIDENCE_DIR="$RUNNER_TEMP/emb-data-rights-001aq-evidence"
+          cargo +"$RUST_TOOLCHAIN" fmt --check --manifest-path "$WORK/$CRATE_MANIFEST"
+          cargo +"$RUST_TOOLCHAIN" metadata --locked --format-version 1 --manifest-path "$WORK/$CRATE_MANIFEST" > "$EVIDENCE_DIR/metadata.json"
+          cargo +"$RUST_TOOLCHAIN" check --locked --all-targets --manifest-path "$WORK/$CRATE_MANIFEST" 2>&1 | tee "$EVIDENCE_DIR/cargo-check.txt"
+          cargo +"$RUST_TOOLCHAIN" test --locked --all-targets --manifest-path "$WORK/$CRATE_MANIFEST" 2>&1 | tee "$EVIDENCE_DIR/cargo-test.txt"
+          cargo +"$RUST_TOOLCHAIN" test --locked --doc --manifest-path "$WORK/$CRATE_MANIFEST" 2>&1 | tee "$EVIDENCE_DIR/doc-test.txt"
+          cargo +"$RUST_TOOLCHAIN" clippy --locked --all-targets --manifest-path "$WORK/$CRATE_MANIFEST" -- -D warnings 2>&1 | tee "$EVIDENCE_DIR/clippy.txt"
+
+      - name: Write receipt and enforce exact-product qualification boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVIDENCE_DIR="$RUNNER_TEMP/emb-data-rights-001aq-evidence"
+          test "$(git rev-parse HEAD)" = "$PRODUCT_SHA"
+          test "$(git rev-parse HEAD^)" = "$PRODUCT_PARENT_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$PRODUCT_TREE_SHA"
+          test -z "$(git status --porcelain)"
+          {
+            echo "product_sha=$PRODUCT_SHA"
+            echo "product_parent_sha=$PRODUCT_PARENT_SHA"
+            echo "product_tree_sha=$PRODUCT_TREE_SHA"
+            echo "manifest_blob=$(git rev-parse HEAD:$CRATE_MANIFEST)"
+            echo "source_blob=$(git rev-parse HEAD:$SOURCE_PATH)"
+            echo "test_blob=$(git rev-parse HEAD:$TEST_PATH)"
+            rustc +"$RUST_TOOLCHAIN" --version
+            cargo +"$RUST_TOOLCHAIN" --version
+            rustfmt +"$RUST_TOOLCHAIN" --version
+            cat "$EVIDENCE_DIR/generated-lock-sha256.txt"
+            echo "format_delta=$FORMAT_DELTA"
+            echo "source_immutable=true"
+            if [ "$FORMAT_DELTA" = "true" ]; then
+              echo "claim_ceiling=REPAIR_DERIVATION_ONLY"
+              echo "REPAIR_DERIVATION_PASS"
+            else
+              echo "claim_ceiling=QualifiedDatasetTermsCompatibilityEvaluatorV1_only"
+              echo "PRODUCT_QUALIFIER_PASS"
+            fi
+          } | tee "$EVIDENCE_DIR/receipt.txt"
+          if [ "$FORMAT_DELTA" = "true" ]; then
+            echo "Exact product requires mechanical rustfmt replacement; refusing product PASS." >&2
+            exit 1
+          fi
+
+      - name: Upload qualification or derivation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: emb-data-rights-001aq-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/emb-data-rights-001aq-evidence/
+          if-no-files-found: warn
