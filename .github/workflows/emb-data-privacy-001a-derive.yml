@@ -1,0 +1,242 @@
+name: EMB-DATA-PRIVACY-001A exact derivation and fresh author
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: write
+
+env:
+  PRODUCT_SHA: 40a7061fd7d99f7bdef4445b459bccd76d877a42
+  PRODUCT_PARENT_SHA: 2cf00911ba886e75e2d4178d107e885001b0c87b
+  PRODUCT_TREE_SHA: d61aabd93bf0a6106414e7127543bae10ec74d11
+  RUST_TOOLCHAIN: 1.96.0
+  FRESH_BRANCH: feat/emb-data-privacy-001a-r2
+  MANIFEST: crates/mycelix-data-privacy/Cargo.toml
+  LIB: crates/mycelix-data-privacy/src/lib.rs
+  CORPUS: crates/mycelix-data-privacy/tests/corpus.rs
+  FIXTURE: docs/embodied/fixtures/EMB_DATA_PRIVACY_PURPOSE_V0_1.json
+
+jobs:
+  derive-and-author:
+    if: github.event.pull_request.draft == false
+    name: Mechanical privacy evaluator derivation and fresh author
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout literal source candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PRODUCT_SHA }}
+          fetch-depth: 2
+          persist-credentials: true
+
+      - name: Prove exact immutable input
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$PRODUCT_SHA"
+          test "$(git rev-parse HEAD^)" = "$PRODUCT_PARENT_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$PRODUCT_TREE_SHA"
+          mapfile -t paths < <(git diff --name-only "$PRODUCT_PARENT_SHA" "$PRODUCT_SHA" | sort)
+          test "${#paths[@]}" -eq 3
+          test "${paths[0]}" = "$MANIFEST"
+          test "${paths[1]}" = "$LIB"
+          test "${paths[2]}" = "$CORPUS"
+          git diff --check "$PRODUCT_PARENT_SHA" "$PRODUCT_SHA"
+          test -z "$(git status --porcelain)"
+
+      - name: Install exact Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal --component rustfmt --component clippy
+          rustc +"$RUST_TOOLCHAIN" --version
+          cargo +"$RUST_TOOLCHAIN" --version
+          rustfmt +"$RUST_TOOLCHAIN" --version
+          cargo +"$RUST_TOOLCHAIN" clippy --version
+
+      - name: Derive formatted source and standalone lock capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          WORK="$RUNNER_TEMP/emb-data-privacy-001a-work"
+          EVIDENCE="$RUNNER_TEMP/emb-data-privacy-001a-evidence"
+          rm -rf "$WORK" "$EVIDENCE"
+          mkdir -p "$WORK/crates" "$WORK/docs/embodied/fixtures" "$EVIDENCE/formatted"
+          cp -a crates/mycelix-data-privacy "$WORK/crates/"
+          cp "$FIXTURE" "$WORK/$FIXTURE"
+
+          sha256sum "$MANIFEST" "$LIB" "$CORPUS" "$FIXTURE" | tee "$EVIDENCE/original-sha256.txt"
+          : > "$EVIDENCE/rustfmt.patch"
+          cargo +"$RUST_TOOLCHAIN" fmt --manifest-path "$WORK/$MANIFEST"
+          diff -u "$LIB" "$WORK/$LIB" >> "$EVIDENCE/rustfmt.patch" || true
+          diff -u "$CORPUS" "$WORK/$CORPUS" >> "$EVIDENCE/rustfmt.patch" || true
+
+          FORMATTED_LIB_SHA=$(sha256sum "$WORK/$LIB" | awk '{print $1}')
+          FORMATTED_CORPUS_SHA=$(sha256sum "$WORK/$CORPUS" | awk '{print $1}')
+          MANIFEST_SHA=$(sha256sum "$WORK/$MANIFEST" | awk '{print $1}')
+          FIXTURE_SHA=$(sha256sum "$WORK/$FIXTURE" | awk '{print $1}')
+          printf 'manifest_sha256=%s\nformatted_lib_sha256=%s\nformatted_corpus_sha256=%s\nfixture_sha256=%s\n' \
+            "$MANIFEST_SHA" "$FORMATTED_LIB_SHA" "$FORMATTED_CORPUS_SHA" "$FIXTURE_SHA" \
+            | tee "$EVIDENCE/derived-sha256.txt"
+
+          cargo +"$RUST_TOOLCHAIN" generate-lockfile --manifest-path "$WORK/$MANIFEST"
+          LOCK="$WORK/crates/mycelix-data-privacy/Cargo.lock"
+          LOCK_SHA=$(sha256sum "$LOCK" | awk '{print $1}')
+          echo "generated_lock_sha256=$LOCK_SHA" | tee "$EVIDENCE/generated-lock-sha256.txt"
+          cargo +"$RUST_TOOLCHAIN" tree --locked --manifest-path "$WORK/$MANIFEST" \
+            | tee "$EVIDENCE/dependency-tree.txt"
+          cargo +"$RUST_TOOLCHAIN" tree --locked --edges normal --depth 1 --manifest-path "$WORK/$MANIFEST" \
+            | tee "$EVIDENCE/runtime-dependency-depth1.txt"
+
+          cp "$WORK/$MANIFEST" "$EVIDENCE/formatted/Cargo.toml"
+          cp "$WORK/$LIB" "$EVIDENCE/formatted/lib.rs"
+          cp "$WORK/$CORPUS" "$EVIDENCE/formatted/corpus.rs"
+          cp "$LOCK" "$EVIDENCE/formatted/Cargo.lock"
+          echo "WORK=$WORK" >> "$GITHUB_ENV"
+          echo "EVIDENCE=$EVIDENCE" >> "$GITHUB_ENV"
+          echo "FORMATTED_LIB_SHA=$FORMATTED_LIB_SHA" >> "$GITHUB_ENV"
+          echo "FORMATTED_CORPUS_SHA=$FORMATTED_CORPUS_SHA" >> "$GITHUB_ENV"
+          echo "MANIFEST_SHA=$MANIFEST_SHA" >> "$GITHUB_ENV"
+          echo "FIXTURE_SHA=$FIXTURE_SHA" >> "$GITHUB_ENV"
+          echo "LOCK_SHA=$LOCK_SHA" >> "$GITHUB_ENV"
+
+      - name: Prove dependency and authority boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' | tee "$EVIDENCE/authority-audit.txt"
+          import pathlib, re, tomllib
+
+          work = pathlib.Path(__import__('os').environ['WORK'])
+          cargo = tomllib.loads((work / 'crates/mycelix-data-privacy/Cargo.toml').read_text())
+          assert set(cargo.get('dependencies', {})) == {'serde'}
+          assert set(cargo.get('dev-dependencies', {})) == {'serde_json'}
+
+          text = (work / 'crates/mycelix-data-privacy/src/lib.rs').read_text()
+          assert '#![forbid(unsafe_code)]' in text
+          m = re.search(r'#\[derive\(([^)]*)\)\]\s*pub struct PrivacyPurposeCompatibilityAssessmentV1', text)
+          assert m, 'positive assessment derive not found'
+          derives = {part.strip() for part in m.group(1).split(',')}
+          assert 'Serialize' in derives
+          assert 'Deserialize' not in derives
+          assert '```compile_fail' in text
+          assert 'PrivacyPurposeCompatibilityAssessmentV1' in text
+          assert 'serde_json::from_str' in text
+
+          code = re.sub(r'//.*', '', text)
+          for forbidden in ['std::net', 'std::fs', 'std::process', 'std::os::unix::net']:
+              assert forbidden not in code, forbidden
+          for forbidden_fn in ['submit', 'publish', 'train', 'execute_robot', 'motor_permit', 'control_actuator']:
+              assert not re.search(rf'pub\s+fn\s+{forbidden_fn}\s*\(', code), forbidden_fn
+          print('runtime_dependency_authority=SERDE_ONLY')
+          print('dev_dependency_authority=SERDE_JSON_ONLY')
+          print('assessment_deserialize_authority=ABSENT')
+          print('effectful_api_surface=ABSENT')
+          print('AUTHORITY_AUDIT_PASS')
+          PY
+
+      - name: Run complete Rust 1.96 gate on derived bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +"$RUST_TOOLCHAIN" fmt --check --manifest-path "$WORK/$MANIFEST"
+          cargo +"$RUST_TOOLCHAIN" metadata --locked --format-version 1 --manifest-path "$WORK/$MANIFEST" \
+            > "$EVIDENCE/metadata.json"
+          cargo +"$RUST_TOOLCHAIN" check --locked --all-targets --manifest-path "$WORK/$MANIFEST" 2>&1 \
+            | tee "$EVIDENCE/cargo-check.txt"
+          cargo +"$RUST_TOOLCHAIN" test --locked --all-targets --manifest-path "$WORK/$MANIFEST" 2>&1 \
+            | tee "$EVIDENCE/cargo-test.txt"
+          cargo +"$RUST_TOOLCHAIN" test --locked --doc --manifest-path "$WORK/$MANIFEST" 2>&1 \
+            | tee "$EVIDENCE/doc-test.txt"
+          cargo +"$RUST_TOOLCHAIN" clippy --locked --all-targets --manifest-path "$WORK/$MANIFEST" -- -D warnings 2>&1 \
+            | tee "$EVIDENCE/clippy.txt"
+
+      - name: Author fresh one-commit replacement from qualified parent
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code --heads origin "refs/heads/$FRESH_BRANCH" >/dev/null 2>&1; then
+            echo "refusing to overwrite existing branch $FRESH_BRANCH" >&2
+            exit 1
+          fi
+
+          AUTHOR="$RUNNER_TEMP/emb-data-privacy-001a-author"
+          rm -rf "$AUTHOR"
+          git worktree add --detach "$AUTHOR" "$PRODUCT_PARENT_SHA"
+          mkdir -p "$AUTHOR/crates/mycelix-data-privacy/src" "$AUTHOR/crates/mycelix-data-privacy/tests"
+          cp "$WORK/$MANIFEST" "$AUTHOR/$MANIFEST"
+          cp "$WORK/$LIB" "$AUTHOR/$LIB"
+          cp "$WORK/$CORPUS" "$AUTHOR/$CORPUS"
+
+          git -C "$AUTHOR" add "$MANIFEST" "$LIB" "$CORPUS"
+          mapfile -t staged < <(git -C "$AUTHOR" diff --cached --name-only | sort)
+          test "${#staged[@]}" -eq 3
+          test "${staged[0]}" = "$MANIFEST"
+          test "${staged[1]}" = "$LIB"
+          test "${staged[2]}" = "$CORPUS"
+          git -C "$AUTHOR" diff --cached --check
+
+          git -C "$AUTHOR" config user.name "github-actions[bot]"
+          git -C "$AUTHOR" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C "$AUTHOR" commit -m "EMB-DATA-PRIVACY-001A r2: apply exact Rust 1.96 derivation"
+
+          FRESH_SHA=$(git -C "$AUTHOR" rev-parse HEAD)
+          FRESH_PARENT=$(git -C "$AUTHOR" rev-parse HEAD^)
+          FRESH_TREE=$(git -C "$AUTHOR" rev-parse HEAD^{tree})
+          test "$FRESH_PARENT" = "$PRODUCT_PARENT_SHA"
+          mapfile -t authored < <(git -C "$AUTHOR" diff --name-only "$PRODUCT_PARENT_SHA" "$FRESH_SHA" | sort)
+          test "${#authored[@]}" -eq 3
+          test "${authored[0]}" = "$MANIFEST"
+          test "${authored[1]}" = "$LIB"
+          test "${authored[2]}" = "$CORPUS"
+
+          git -C "$AUTHOR" push origin "HEAD:refs/heads/$FRESH_BRANCH"
+          REMOTE_SHA=$(git ls-remote origin "refs/heads/$FRESH_BRANCH" | awk '{print $1}')
+          test "$REMOTE_SHA" = "$FRESH_SHA"
+
+          printf 'fresh_branch=%s\nfresh_product_sha=%s\nfresh_parent_sha=%s\nfresh_tree_sha=%s\n' \
+            "$FRESH_BRANCH" "$FRESH_SHA" "$FRESH_PARENT" "$FRESH_TREE" \
+            | tee "$EVIDENCE/fresh-product.txt"
+          echo "FRESH_SHA=$FRESH_SHA" >> "$GITHUB_ENV"
+          echo "FRESH_TREE=$FRESH_TREE" >> "$GITHUB_ENV"
+
+      - name: Write derivation and author receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$PRODUCT_SHA"
+          test "$(git rev-parse HEAD^)" = "$PRODUCT_PARENT_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$PRODUCT_TREE_SHA"
+          test -z "$(git status --porcelain)"
+          {
+            echo "input_product_sha=$PRODUCT_SHA"
+            echo "input_product_parent_sha=$PRODUCT_PARENT_SHA"
+            echo "input_product_tree_sha=$PRODUCT_TREE_SHA"
+            echo "manifest_sha256=$MANIFEST_SHA"
+            echo "formatted_lib_sha256=$FORMATTED_LIB_SHA"
+            echo "formatted_corpus_sha256=$FORMATTED_CORPUS_SHA"
+            echo "fixture_sha256=$FIXTURE_SHA"
+            echo "generated_lock_sha256=$LOCK_SHA"
+            echo "fresh_branch=$FRESH_BRANCH"
+            echo "fresh_product_sha=$FRESH_SHA"
+            echo "fresh_product_tree_sha=$FRESH_TREE"
+            rustc +"$RUST_TOOLCHAIN" --version
+            cargo +"$RUST_TOOLCHAIN" --version
+            rustfmt +"$RUST_TOOLCHAIN" --version
+            echo "source_checkout_immutable=true"
+            echo "fresh_direct_child_of_qualified_parent=true"
+            echo "cargo_lock_committed=false"
+            echo "claim_ceiling=DERIVATION_AND_FRESH_AUTHOR_ONLY"
+            echo "DERIVATION_AND_FRESH_AUTHOR_PASS"
+          } | tee "$EVIDENCE/receipt.txt"
+
+      - name: Upload exact derivation capsule
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: emb-data-privacy-001a-derive-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/emb-data-privacy-001a-evidence/
+          if-no-files-found: error
