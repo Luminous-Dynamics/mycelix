@@ -18,6 +18,7 @@
 //! display label != entity identity
 //! unqualified term != cross-source semantic identity
 //! historical time != post-1970-only time
+//! unknown temporal bound != unbounded temporal validity
 //! ```
 
 #[cfg(feature = "serde")]
@@ -36,21 +37,62 @@ use crate::epistemic::EpistemicClassification;
 /// the original timestamp text in source metadata when necessary.
 pub type UnixMillis = i64;
 
-/// A half-open real-world validity interval `[start, end)`.
+/// One endpoint of a temporal validity interval.
 ///
-/// `None` means the bound is unknown/open, not that it is infinite with certainty.
-/// When both bounds are known, `end` must be strictly later than `start`; point
-/// observations should use `observed_at` rather than an empty `[t, t)` interval.
+/// `Unknown` means the evidence does not establish the bound. `Unbounded` means
+/// the source/model explicitly represents no finite bound in that direction.
+/// They are intentionally different epistemic states.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub enum TemporalBound {
+    Known(UnixMillis),
+    Unbounded,
+    #[default]
+    Unknown,
+}
+
+impl From<Option<UnixMillis>> for TemporalBound {
+    fn from(value: Option<UnixMillis>) -> Self {
+        match value {
+            Some(timestamp) => Self::Known(timestamp),
+            None => Self::Unknown,
+        }
+    }
+}
+
+/// Result of asking whether an instant belongs to a validity interval.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub enum TemporalContainment {
+    Inside,
+    Outside,
+    Indeterminate,
+}
+
+/// A half-open real-world validity interval `[start, end)` when both endpoints
+/// are known or explicitly unbounded.
+///
+/// Compatibility constructor `new(Some(t), None)` maps the missing endpoint to
+/// `Unknown`, never to infinity. Use `from_bounds()` when an adapter has explicit
+/// evidence that an endpoint is genuinely unbounded.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ValidityInterval {
-    pub start: Option<UnixMillis>,
-    pub end: Option<UnixMillis>,
+    pub start: TemporalBound,
+    pub end: TemporalBound,
 }
 
 impl ValidityInterval {
+    /// Construct from legacy optional timestamps.
+    ///
+    /// `None` is conservatively interpreted as `Unknown`.
     pub fn new(start: Option<UnixMillis>, end: Option<UnixMillis>) -> Result<Self, &'static str> {
-        if let (Some(start), Some(end)) = (start, end) {
+        Self::from_bounds(start.into(), end.into())
+    }
+
+    /// Construct from explicit temporal-bound semantics.
+    pub fn from_bounds(start: TemporalBound, end: TemporalBound) -> Result<Self, &'static str> {
+        if let (TemporalBound::Known(start), TemporalBound::Known(end)) = (start, end) {
             if end <= start {
                 return Err("validity interval end must be after start");
             }
@@ -58,11 +100,50 @@ impl ValidityInterval {
         Ok(Self { start, end })
     }
 
-    /// Whether a timestamp is inside the known interval.
+    /// Construct an explicitly unbounded interval `(-infinity, +infinity)`.
+    ///
+    /// This is stronger than `Default`, which means both bounds are unknown.
+    pub fn unbounded() -> Self {
+        Self {
+            start: TemporalBound::Unbounded,
+            end: TemporalBound::Unbounded,
+        }
+    }
+
+    /// Classify whether `timestamp` is inside the interval without collapsing
+    /// unknown evidence into an infinite bound.
+    pub fn classify(&self, timestamp: UnixMillis) -> TemporalContainment {
+        if let TemporalBound::Known(start) = self.start {
+            if timestamp < start {
+                return TemporalContainment::Outside;
+            }
+        }
+        if let TemporalBound::Known(end) = self.end {
+            if timestamp >= end {
+                return TemporalContainment::Outside;
+            }
+        }
+
+        let start_established = matches!(
+            self.start,
+            TemporalBound::Known(_) | TemporalBound::Unbounded
+        );
+        let end_established = matches!(self.end, TemporalBound::Known(_) | TemporalBound::Unbounded);
+
+        if start_established && end_established {
+            TemporalContainment::Inside
+        } else {
+            TemporalContainment::Indeterminate
+        }
+    }
+
+    /// Conservative convenience predicate.
+    ///
+    /// Returns true only when membership is definitely established. Callers
+    /// that need to distinguish `Outside` from `Indeterminate` should use
+    /// `classify()` directly.
     pub fn contains(&self, timestamp: UnixMillis) -> bool {
-        let after_start = self.start.is_none_or(|start| timestamp >= start);
-        let before_end = self.end.is_none_or(|end| timestamp < end);
-        after_start && before_end
+        self.classify(timestamp) == TemporalContainment::Inside
     }
 }
 
@@ -391,6 +472,28 @@ mod tests {
         assert!(ValidityInterval::new(Some(20), Some(10)).is_err());
         assert!(ValidityInterval::new(Some(10), Some(10)).is_err());
         assert!(ValidityInterval::new(Some(10), Some(20)).is_ok());
+    }
+
+    #[test]
+    fn unknown_and_unbounded_time_are_distinct() {
+        let unknown = ValidityInterval::default();
+        let unbounded = ValidityInterval::unbounded();
+
+        assert_eq!(unknown.classify(0), TemporalContainment::Indeterminate);
+        assert_eq!(unbounded.classify(0), TemporalContainment::Inside);
+        assert!(!unknown.contains(0));
+        assert!(unbounded.contains(0));
+    }
+
+    #[test]
+    fn known_opposite_bound_can_still_prove_outside() {
+        let unknown_start = ValidityInterval::new(None, Some(100)).unwrap();
+        assert_eq!(unknown_start.classify(50), TemporalContainment::Indeterminate);
+        assert_eq!(unknown_start.classify(100), TemporalContainment::Outside);
+
+        let unknown_end = ValidityInterval::new(Some(-100), None).unwrap();
+        assert_eq!(unknown_end.classify(50), TemporalContainment::Indeterminate);
+        assert_eq!(unknown_end.classify(-101), TemporalContainment::Outside);
     }
 
     #[test]
