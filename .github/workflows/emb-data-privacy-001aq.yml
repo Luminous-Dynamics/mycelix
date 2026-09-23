@@ -1,0 +1,359 @@
+name: EMB-DATA-PRIVACY-001AQ exact product qualifier
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+
+env:
+  PRODUCT_SHA: b9690e3e152e8474d46dd29adfb7dda22c12e772
+  PRODUCT_PARENT_SHA: 2cf00911ba886e75e2d4178d107e885001b0c87b
+  PRODUCT_TREE_SHA: f8e1fd989a45ae646525df3cd9aaeaa9c4058b92
+  RUST_TOOLCHAIN: 1.96.0
+  MANIFEST: crates/mycelix-data-privacy/Cargo.toml
+  LIB: crates/mycelix-data-privacy/src/lib.rs
+  CORPUS: crates/mycelix-data-privacy/tests/corpus.rs
+  FIXTURE: docs/embodied/fixtures/EMB_DATA_PRIVACY_PURPOSE_V0_1.json
+  EXPECTED_MANIFEST_SHA256: 68967c14e83877422cb4cacbd11a31b7ad6077924e1b511e12f2ce38316289a8
+  EXPECTED_LIB_SHA256: 5f1bf044d42aa18e1ccaab6b9f7ca680d8951848e5d2788d803af935f72f21bf
+  EXPECTED_CORPUS_SHA256: be347116d125ca234ffe7a6910ee2c8ac41f476a96d77cd35428a502277bd3dd
+  EXPECTED_FIXTURE_SHA256: 6ba346f5dbe5f58f4878980bd87cd3e97f8218995fd9d5ee760382136931b033
+  EXPECTED_LOCK_SHA256: 7287d81a797649646f4008262d567fd870c051e09da66c3e300d25e3ce6ea0be
+
+jobs:
+  qualify:
+    if: github.event.pull_request.draft == false
+    name: Exact privacy-purpose evaluator qualification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout literal product
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PRODUCT_SHA }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Prove exact subject shape and hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVIDENCE="$RUNNER_TEMP/emb-data-privacy-001aq-evidence"
+          mkdir -p "$EVIDENCE"
+          test "$(git rev-parse HEAD)" = "$PRODUCT_SHA"
+          test "$(git rev-parse HEAD^)" = "$PRODUCT_PARENT_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$PRODUCT_TREE_SHA"
+          mapfile -t paths < <(git diff --name-only "$PRODUCT_PARENT_SHA" "$PRODUCT_SHA" | sort)
+          test "${#paths[@]}" -eq 3
+          test "${paths[0]}" = "$MANIFEST"
+          test "${paths[1]}" = "$LIB"
+          test "${paths[2]}" = "$CORPUS"
+          ! git diff --name-only "$PRODUCT_PARENT_SHA" "$PRODUCT_SHA" | grep -Eq '(^|/)Cargo\.lock$'
+          git diff --check "$PRODUCT_PARENT_SHA" "$PRODUCT_SHA"
+          test -z "$(git status --porcelain)"
+
+          MANIFEST_SHA=$(sha256sum "$MANIFEST" | awk '{print $1}')
+          LIB_SHA=$(sha256sum "$LIB" | awk '{print $1}')
+          CORPUS_SHA=$(sha256sum "$CORPUS" | awk '{print $1}')
+          FIXTURE_SHA=$(sha256sum "$FIXTURE" | awk '{print $1}')
+          test "$MANIFEST_SHA" = "$EXPECTED_MANIFEST_SHA256"
+          test "$LIB_SHA" = "$EXPECTED_LIB_SHA256"
+          test "$CORPUS_SHA" = "$EXPECTED_CORPUS_SHA256"
+          test "$FIXTURE_SHA" = "$EXPECTED_FIXTURE_SHA256"
+          {
+            echo "manifest_blob=$(git rev-parse "$PRODUCT_SHA:$MANIFEST")"
+            echo "lib_blob=$(git rev-parse "$PRODUCT_SHA:$LIB")"
+            echo "corpus_blob=$(git rev-parse "$PRODUCT_SHA:$CORPUS")"
+            echo "fixture_blob=$(git rev-parse "$PRODUCT_SHA:$FIXTURE")"
+            echo "manifest_sha256=$MANIFEST_SHA"
+            echo "lib_sha256=$LIB_SHA"
+            echo "corpus_sha256=$CORPUS_SHA"
+            echo "fixture_sha256=$FIXTURE_SHA"
+          } | tee "$EVIDENCE/subject.txt"
+          echo "EVIDENCE=$EVIDENCE" >> "$GITHUB_ENV"
+
+      - name: Install exact Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal --component rustfmt --component clippy
+          rustc +"$RUST_TOOLCHAIN" --version
+          cargo +"$RUST_TOOLCHAIN" --version
+          rustfmt +"$RUST_TOOLCHAIN" --version
+          cargo +"$RUST_TOOLCHAIN" clippy --version
+
+      - name: Build isolated product image and exact lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          WORK="$RUNNER_TEMP/emb-data-privacy-001aq-work"
+          rm -rf "$WORK"
+          mkdir -p "$WORK/crates" "$WORK/docs/embodied/fixtures"
+          cp -a crates/mycelix-data-privacy "$WORK/crates/"
+          cp "$FIXTURE" "$WORK/$FIXTURE"
+          cargo +"$RUST_TOOLCHAIN" generate-lockfile --manifest-path "$WORK/$MANIFEST"
+          LOCK="$WORK/crates/mycelix-data-privacy/Cargo.lock"
+          LOCK_SHA=$(sha256sum "$LOCK" | awk '{print $1}')
+          test "$LOCK_SHA" = "$EXPECTED_LOCK_SHA256"
+          cargo +"$RUST_TOOLCHAIN" tree --locked --manifest-path "$WORK/$MANIFEST" | tee "$EVIDENCE/dependency-tree.txt"
+          cargo +"$RUST_TOOLCHAIN" tree --locked --edges normal --depth 1 --manifest-path "$WORK/$MANIFEST" | tee "$EVIDENCE/runtime-dependency-depth1.txt"
+          echo "generated_lock_sha256=$LOCK_SHA" | tee "$EVIDENCE/lock.txt"
+          echo "WORK=$WORK" >> "$GITHUB_ENV"
+          echo "LOCK_SHA=$LOCK_SHA" >> "$GITHUB_ENV"
+
+      - name: Independent construction and authority audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' | tee "$EVIDENCE/authority-audit.txt"
+          import pathlib, re, tomllib, os
+          work = pathlib.Path(os.environ['WORK'])
+          cargo = tomllib.loads((work / 'crates/mycelix-data-privacy/Cargo.toml').read_text())
+          assert set(cargo.get('dependencies', {})) == {'serde'}
+          assert set(cargo.get('dev-dependencies', {})) == {'serde_json'}
+          text = (work / 'crates/mycelix-data-privacy/src/lib.rs').read_text()
+          assert '#![forbid(unsafe_code)]' in text
+          m = re.search(r'#\[derive\(([^)]*)\)\]\s*pub struct PrivacyPurposeCompatibilityAssessmentV1', text)
+          assert m, 'positive assessment struct missing'
+          derives = {x.strip() for x in m.group(1).split(',')}
+          assert 'Serialize' in derives and 'Deserialize' not in derives
+          body = text[m.end():]
+          assert body.lstrip().startswith('{')
+          fields = body.split('}', 1)[0]
+          assert not re.search(r'\bpub\s+[A-Za-z_][A-Za-z0-9_]*\s*:', fields), 'positive fields must remain private'
+          assert '```compile_fail' in text and 'serde_json::from_str' in text
+          code = re.sub(r'//.*', '', text)
+          for forbidden in ['std::net', 'std::fs', 'std::process', 'std::os::unix::net', 'hdk::', 'holochain', 'reqwest', 'tokio::net']:
+              assert forbidden not in code, forbidden
+          for fn in ['submit', 'publish', 'train', 'execute_robot', 'motor_permit', 'control_actuator', 'allow_use', 'grant_permission']:
+              assert not re.search(rf'pub\s+fn\s+{fn}\s*\(', code), fn
+          print('runtime_dependency_authority=SERDE_ONLY')
+          print('dev_dependency_authority=SERDE_JSON_ONLY')
+          print('positive_deserialize_authority=ABSENT')
+          print('positive_fields=PRIVATE')
+          print('effectful_api_surface=ABSENT')
+          print('AUTHORITY_AUDIT_PASS')
+          PY
+
+      - name: Run exact product Rust 1.96 gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +"$RUST_TOOLCHAIN" fmt --check --manifest-path "$WORK/$MANIFEST"
+          cargo +"$RUST_TOOLCHAIN" metadata --locked --format-version 1 --manifest-path "$WORK/$MANIFEST" > "$EVIDENCE/metadata.json"
+          cargo +"$RUST_TOOLCHAIN" check --locked --all-targets --manifest-path "$WORK/$MANIFEST" 2>&1 | tee "$EVIDENCE/cargo-check.txt"
+          cargo +"$RUST_TOOLCHAIN" test --locked --all-targets --manifest-path "$WORK/$MANIFEST" 2>&1 | tee "$EVIDENCE/product-tests.txt"
+          cargo +"$RUST_TOOLCHAIN" test --locked --doc --manifest-path "$WORK/$MANIFEST" 2>&1 | tee "$EVIDENCE/doc-tests.txt"
+          cargo +"$RUST_TOOLCHAIN" clippy --locked --all-targets --manifest-path "$WORK/$MANIFEST" -- -D warnings 2>&1 | tee "$EVIDENCE/clippy.txt"
+
+      - name: Install independent hostile qualifier harness in runner temp
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$WORK/crates/mycelix-data-privacy/tests/qualifier.rs" <<'RS'
+          use mycelix_data_privacy::*;
+          use std::collections::{BTreeMap, BTreeSet};
+
+          fn modalities(values: &[Modality]) -> BTreeSet<Modality> {
+              values.iter().copied().collect()
+          }
+          fn subjects(values: &[&str]) -> BTreeSet<String> {
+              values.iter().map(|v| (*v).to_owned()).collect()
+          }
+          fn request(subject_rows: &[&str], purpose: PrivacyPurpose) -> IntendedPrivacyPurposeUseV1 {
+              IntendedPrivacyPurposeUseV1 {
+                  subjects: subjects(subject_rows),
+                  dataset_split_role: DatasetSplitRole::Training,
+                  source_modalities: modalities(&[Modality::Gaze, Modality::HandPose]),
+                  requested_purpose: purpose,
+                  requested_modalities: modalities(&[Modality::Gaze, Modality::HandPose]),
+                  excluded_modalities: BTreeSet::new(),
+                  reviewed_transformations: Vec::new(),
+                  external_prerequisites: BTreeSet::new(),
+              }
+          }
+          fn evidence(subject: &str, reference: &str, purpose: PrivacyPurpose, disposition: PurposeDisposition) -> ReviewedPrivacyPurposeEvidenceV1 {
+              ReviewedPrivacyPurposeEvidenceV1 {
+                  subject: subject.to_owned(),
+                  evidence_ref: reference.to_owned(),
+                  currentness: PrivacyPurposeCurrentness::Current,
+                  participant_evidence: ParticipantEvidenceState::Supported,
+                  bystander_evidence: BystanderEvidenceState::NotApplicable,
+                  purpose_dispositions: BTreeMap::from([(purpose, disposition)]),
+                  obligations: BTreeSet::new(),
+                  nonclaims: BTreeSet::new(),
+                  transformation_refs: BTreeSet::new(),
+              }
+          }
+
+          #[test]
+          fn defaults_withhold_and_subject_mismatch_is_out_of_scope() {
+              let req = request(&["a"], PrivacyPurpose::GazeAffordanceResearch);
+              let empty = assess_privacy_purpose_compatibility(&[], &req).unwrap();
+              assert_eq!(empty.state(), PrivacyPurposeAssessmentState::HumanReviewRequired);
+              let row = evidence("b", "review:b", PrivacyPurpose::GazeAffordanceResearch, PurposeDisposition::Compatible);
+              let mismatch = assess_privacy_purpose_compatibility(&[row], &req).unwrap();
+              assert_eq!(mismatch.state(), PrivacyPurposeAssessmentState::PurposeOutOfReviewedScope);
+          }
+
+          #[test]
+          fn duplicate_ref_semantics_are_exact_and_conflict_is_not_composition() {
+              let req = request(&["a"], PrivacyPurpose::GazeAffordanceResearch);
+              let compatible = evidence("a", "review:a", PrivacyPurpose::GazeAffordanceResearch, PurposeDisposition::Compatible);
+              let duplicate = assess_privacy_purpose_compatibility(&[compatible.clone(), compatible.clone()], &req).unwrap();
+              assert_eq!(duplicate.state(), PrivacyPurposeAssessmentState::CompatibleWithReviewedPrivacyPurposeProfile);
+              assert_eq!(duplicate.purpose_evidence()[0].evidence_refs().len(), 1);
+
+              let mut reused = compatible.clone();
+              reused.purpose_dispositions.insert(PrivacyPurpose::GazeAffordanceResearch, PurposeDisposition::Incompatible);
+              assert_eq!(
+                  assess_privacy_purpose_compatibility(&[compatible.clone(), reused], &req),
+                  Err(PrivacyEvidenceError::ConflictingReuseOfEvidenceRef("review:a".to_owned()))
+              );
+
+              let incompatible = evidence("a", "review:b", PrivacyPurpose::GazeAffordanceResearch, PurposeDisposition::Incompatible);
+              let contradiction = assess_privacy_purpose_compatibility(&[compatible, incompatible], &req).unwrap();
+              assert_eq!(contradiction.state(), PrivacyPurposeAssessmentState::EvidenceConflict);
+
+              let req_two = request(&["a", "b"], PrivacyPurpose::GazeAffordanceResearch);
+              let a = evidence("a", "review:a2", PrivacyPurpose::GazeAffordanceResearch, PurposeDisposition::Compatible);
+              let b = evidence("b", "review:b2", PrivacyPurpose::GazeAffordanceResearch, PurposeDisposition::Incompatible);
+              let composition = assess_privacy_purpose_compatibility(&[a, b], &req_two).unwrap();
+              assert_eq!(composition.state(), PrivacyPurposeAssessmentState::IncompatibleWithReviewedPrivacyPurposeProfile);
+          }
+
+          #[test]
+          fn currentness_and_human_evidence_fail_closed() {
+              let req = request(&["a"], PrivacyPurpose::GazeAffordanceResearch);
+              let mut row = evidence("a", "review:a", PrivacyPurpose::GazeAffordanceResearch, PurposeDisposition::Compatible);
+              row.currentness = PrivacyPurposeCurrentness::Expired;
+              assert_eq!(assess_privacy_purpose_compatibility(&[row.clone()], &req).unwrap().state(), PrivacyPurposeAssessmentState::ConsentOrPurposeProfileExpiredOrSuperseded);
+              row.currentness = PrivacyPurposeCurrentness::Current;
+              row.participant_evidence = ParticipantEvidenceState::Unavailable;
+              assert_eq!(assess_privacy_purpose_compatibility(&[row.clone()], &req).unwrap().state(), PrivacyPurposeAssessmentState::ConsentEvidenceUnavailable);
+              row.participant_evidence = ParticipantEvidenceState::Supported;
+              row.bystander_evidence = BystanderEvidenceState::Unknown;
+              assert_eq!(assess_privacy_purpose_compatibility(&[row], &req).unwrap().state(), PrivacyPurposeAssessmentState::HumanReviewRequired);
+          }
+
+          #[test]
+          fn held_out_split_cannot_become_robot_policy_training() {
+              for split in [DatasetSplitRole::EvaluationOnly, DatasetSplitRole::BenchmarkHoldout] {
+                  let mut req = request(&["a"], PrivacyPurpose::RobotPolicyTraining);
+                  req.dataset_split_role = split;
+                  let row = evidence("a", "review:a", PrivacyPurpose::RobotPolicyTraining, PurposeDisposition::Compatible);
+                  assert_eq!(assess_privacy_purpose_compatibility(&[row], &req).unwrap().state(), PrivacyPurposeAssessmentState::IncompatibleWithReviewedPrivacyPurposeProfile);
+              }
+          }
+
+          #[test]
+          fn modality_validation_and_transform_binding_are_typed() {
+              let row = evidence("a", "review:a", PrivacyPurpose::GazeAffordanceResearch, PurposeDisposition::Compatible);
+              let mut unavailable = request(&["a"], PrivacyPurpose::GazeAffordanceResearch);
+              unavailable.requested_modalities.insert(Modality::Audio);
+              assert_eq!(assess_privacy_purpose_compatibility(&[row.clone()], &unavailable), Err(PrivacyEvidenceError::RequestedModalityUnavailable(Modality::Audio)));
+
+              let mut overlap = request(&["a"], PrivacyPurpose::GazeAffordanceResearch);
+              overlap.excluded_modalities.insert(Modality::Gaze);
+              assert_eq!(assess_privacy_purpose_compatibility(&[row.clone()], &overlap), Err(PrivacyEvidenceError::RequestedAndExcludedOverlap(Modality::Gaze)));
+
+              let mut transformed = row;
+              transformed.bystander_evidence = BystanderEvidenceState::HandledByReviewedTransformation;
+              transformed.transformation_refs.insert("redact:1".to_owned());
+              let req = request(&["a"], PrivacyPurpose::GazeAffordanceResearch);
+              assert_eq!(assess_privacy_purpose_compatibility(&[transformed.clone()], &req), Err(PrivacyEvidenceError::MissingReviewedTransformation("redact:1".to_owned())));
+
+              let mut bounded = req;
+              bounded.reviewed_transformations.push(ReviewedTransformationV1 {
+                  transform_ref: "redact:1".to_owned(),
+                  review_state: TransformReviewState::ReviewedForDeclaredDerivedOutput,
+                  output_modalities: modalities(&[Modality::Gaze]),
+              });
+              assert_eq!(assess_privacy_purpose_compatibility(&[transformed], &bounded), Err(PrivacyEvidenceError::RequestedModalityOutsideReviewedTransformation(Modality::HandPose)));
+          }
+
+          #[test]
+          fn minimization_obligations_nonclaims_and_prerequisites_are_retained_not_promoted() {
+              let purpose = PrivacyPurpose::GazeAffordanceResearch;
+              let mut row = evidence("a", "review:a", purpose, PurposeDisposition::Compatible);
+              row.obligations.extend([PrivacyObligation::SourcePrivacyLineageRetention, PrivacyObligation::DeleteOnRevocation]);
+              row.nonclaims.insert(PrivacyNonclaim::ReidentificationImpossible);
+
+              let mut req = request(&["a"], purpose);
+              req.source_modalities.extend([Modality::RgbVideo, Modality::Audio]);
+              req.excluded_modalities.extend([Modality::RgbVideo, Modality::Audio]);
+              req.external_prerequisites.extend([ExternalPrivacyPrerequisite::SeparatePublicationAdmission, ExternalPrivacyPrerequisite::SeparatePhysicalExecutionAdmission]);
+
+              let out = assess_privacy_purpose_compatibility(&[row], &req).unwrap();
+              assert_eq!(out.state(), PrivacyPurposeAssessmentState::CompatibleWithReviewedPrivacyPurposeProfile);
+              assert!(out.source_modalities().contains(&Modality::Audio));
+              assert!(!out.requested_modalities().contains(&Modality::Audio));
+              assert!(out.excluded_modalities().contains(&Modality::Audio));
+              assert_eq!(out.retained_obligations().len(), 2);
+              assert_eq!(out.retained_nonclaims().len(), 1);
+              assert!(out.external_prerequisites().contains(&ExternalPrivacyPrerequisite::SeparatePublicationAdmission));
+              assert!(out.external_prerequisites().contains(&ExternalPrivacyPrerequisite::SeparatePhysicalExecutionAdmission));
+
+              let value = serde_json::to_value(&out).unwrap();
+              fn walk(value: &serde_json::Value) {
+                  match value {
+                      serde_json::Value::Object(map) => {
+                          for (key, child) in map {
+                              let k = key.to_ascii_lowercase();
+                              for forbidden in ["allowed", "permission", "authority", "execute", "train"] {
+                                  assert!(!k.contains(forbidden), "authority-like serialized key: {key}");
+                              }
+                              walk(child);
+                          }
+                      }
+                      serde_json::Value::Array(rows) => rows.iter().for_each(walk),
+                      _ => {}
+                  }
+              }
+              walk(&value);
+          }
+          RS
+          sha256sum "$WORK/crates/mycelix-data-privacy/tests/qualifier.rs" | tee "$EVIDENCE/qualifier-harness-sha256.txt"
+
+      - name: Run independent hostile qualifier harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +"$RUST_TOOLCHAIN" test --locked --manifest-path "$WORK/$MANIFEST" --test qualifier 2>&1 | tee "$EVIDENCE/hostile-tests.txt"
+
+      - name: Postflight immutable product and write receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$PRODUCT_SHA"
+          test "$(git rev-parse HEAD^)" = "$PRODUCT_PARENT_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$PRODUCT_TREE_SHA"
+          test -z "$(git status --porcelain)"
+          {
+            echo "product_sha=$PRODUCT_SHA"
+            echo "product_parent_sha=$PRODUCT_PARENT_SHA"
+            echo "product_tree_sha=$PRODUCT_TREE_SHA"
+            echo "manifest_sha256=$EXPECTED_MANIFEST_SHA256"
+            echo "lib_sha256=$EXPECTED_LIB_SHA256"
+            echo "corpus_sha256=$EXPECTED_CORPUS_SHA256"
+            echo "fixture_sha256=$EXPECTED_FIXTURE_SHA256"
+            echo "generated_lock_sha256=$LOCK_SHA"
+            rustc +"$RUST_TOOLCHAIN" --version
+            cargo +"$RUST_TOOLCHAIN" --version
+            rustfmt +"$RUST_TOOLCHAIN" --version
+            echo "independent_hostile_harness=true"
+            echo "source_immutable=true"
+            echo "product_qualified_under_synthetic_profile=true"
+            echo "claim_ceiling=QualifiedPrivacyPurposeCompatibilityEvaluatorV1_only"
+            echo "PRIVACY_PURPOSE_PRODUCT_QUALIFIER_PASS"
+          } | tee "$EVIDENCE/receipt.txt"
+
+      - name: Upload exact qualification capsule
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: emb-data-privacy-001aq-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/emb-data-privacy-001aq-evidence/
+          if-no-files-found: error
