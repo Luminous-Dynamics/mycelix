@@ -1,0 +1,63 @@
+name: qualify CONCEAL-001T concealed-information corpus v0.1
+
+on:
+  push:
+    branches:
+      - qualify/conceal-001t-v0-1
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact qualifier subject
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Bind exact product parent and qualifier-only scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          PRODUCT='2522b6d375db0358c68bf09b02f37d0ce79a04d5'
+          test "$(git rev-parse HEAD^)" = "$PRODUCT"
+          mapfile -t changed < <(git diff --name-only HEAD^ HEAD | sort)
+          expected=(
+            '.github/workflows/qualify-conceal-001t-v0-1.yml'
+            'tools/qualify_conceal_001t_v0_1.py'
+          )
+          printf '%s\n' "${changed[@]}" > /tmp/changed
+          printf '%s\n' "${expected[@]}" | sort > /tmp/expected
+          diff -u /tmp/expected /tmp/changed
+
+      - name: Prove product fixture bytes unchanged by qualifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          for p in \
+            fixtures/epi/concealed_information/v0.1/manifest.json \
+            fixtures/epi/concealed_information/v0.1/visible_cases.json \
+            fixtures/epi/concealed_information/v0.1/expected.json \
+            fixtures/epi/concealed_information/v0.1/hidden_evaluator.json
+          do
+            test "$(git rev-parse HEAD:"$p")" = "$(git rev-parse HEAD^:"$p")"
+          done
+
+      - name: Run independent dependency-free semantic oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/qualify_conceal_001t_v0_1.py | tee /tmp/conceal-001t-receipt.txt
+
+      - name: Postflight immutable identity receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "qualifier_head=$(git rev-parse HEAD)"
+          echo "product_head=$(git rev-parse HEAD^)"
+          echo "qualifier_tree=$(git rev-parse 'HEAD^{tree}')"
+          echo "product_tree=$(git rev-parse 'HEAD^^{tree}')"
+          cat /tmp/conceal-001t-receipt.txt
+          test -z "$(git status --porcelain)"
