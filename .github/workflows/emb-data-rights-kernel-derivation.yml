@@ -1,0 +1,323 @@
+name: EMB-DATA-RIGHTS-001AD mechanical source derivation
+
+on:
+  pull_request:
+    branches:
+      - feat/emb-data-rights-kernel-v0-1
+    types: [ready_for_review]
+    paths:
+      - .github/workflows/emb-data-rights-kernel-derivation.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: emb-data-rights-001ad-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  PRODUCT_SHA: 2d48b0ec8e0da311b020d17af68fb3a10b140fb6
+  QUALIFIED_CORPUS_SHA: 6e793c5a818755cce80623bd5cb602885ca00ff0
+  PRODUCT_TREE_SHA: f7a8f7891384545a6b129c607f3ea9bd5f551698
+  CRATE_PATH: crates/mycelix-data-rights
+  FIXTURE_PATH: docs/embodied/fixtures/EMB_DATA_RIGHTS_COMPATIBILITY_V0_1.json
+  RUSTUP_TOOLCHAIN: 1.96.0
+  CARGO_TERM_COLOR: never
+
+jobs:
+  derive:
+    name: Derive exact formatted and compiled rights kernel
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout literal product subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 2d48b0ec8e0da311b020d17af68fb3a10b140fb6
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Prove exact source topology
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$PRODUCT_SHA"
+          test "$(git rev-parse HEAD^)" = "$QUALIFIED_CORPUS_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$PRODUCT_TREE_SHA"
+          mapfile -t paths < <(git diff --name-only "$QUALIFIED_CORPUS_SHA" "$PRODUCT_SHA" | sort)
+          test "${#paths[@]}" -eq 3
+          test "${paths[0]}" = "$CRATE_PATH/Cargo.toml"
+          test "${paths[1]}" = "$CRATE_PATH/src/lib.rs"
+          test "${paths[2]}" = "$CRATE_PATH/tests/adversarial.rs"
+          git diff --check "$QUALIFIED_CORPUS_SHA" "$PRODUCT_SHA"
+          test -z "$(git status --porcelain)"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+
+      - name: Record immutable preflight and copy temporary product
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVIDENCE=/tmp/rights-kernel-001ad
+          DERIVED="$RUNNER_TEMP/mycelix-data-rights-derived"
+          mkdir -p "$EVIDENCE/original" "$EVIDENCE/formatted/src" "$EVIDENCE/formatted/tests"
+          cp -a "$CRATE_PATH" "$DERIVED"
+          cp "$CRATE_PATH/Cargo.toml" "$EVIDENCE/original/Cargo.toml"
+          cp "$CRATE_PATH/src/lib.rs" "$EVIDENCE/original/lib.rs"
+          cp "$CRATE_PATH/tests/adversarial.rs" "$EVIDENCE/original/adversarial.rs"
+          {
+            echo "product_sha=$(git rev-parse HEAD)"
+            echo "product_parent_sha=$(git rev-parse HEAD^)"
+            echo "product_tree_sha=$(git rev-parse HEAD^{tree})"
+            echo "workflow_source_sha=${{ github.event.pull_request.head.sha }}"
+            echo "rustc=$(rustc --version)"
+            echo "cargo=$(cargo --version)"
+            echo "rustfmt=$(rustfmt --version)"
+            echo "clippy=$(cargo clippy --version)"
+            echo "manifest_sha256=$(sha256sum "$CRATE_PATH/Cargo.toml" | awk '{print $1}')"
+            echo "lib_sha256=$(sha256sum "$CRATE_PATH/src/lib.rs" | awk '{print $1}')"
+            echo "adversarial_sha256=$(sha256sum "$CRATE_PATH/tests/adversarial.rs" | awk '{print $1}')"
+            echo "fixture_sha256=$(sha256sum "$FIXTURE_PATH" | awk '{print $1}')"
+          } | tee "$EVIDENCE/preflight.txt"
+
+      - name: Mechanically derive rustfmt bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVIDENCE=/tmp/rights-kernel-001ad
+          DERIVED="$RUNNER_TEMP/mycelix-data-rights-derived"
+          cargo fmt --manifest-path "$DERIVED/Cargo.toml"
+          cargo fmt --manifest-path "$DERIVED/Cargo.toml" -- --check
+
+          set +e
+          diff -u "$CRATE_PATH/src/lib.rs" "$DERIVED/src/lib.rs" > "$EVIDENCE/lib.rustfmt.diff"
+          lib_rc=$?
+          diff -u "$CRATE_PATH/tests/adversarial.rs" "$DERIVED/tests/adversarial.rs" > "$EVIDENCE/adversarial.rustfmt.diff"
+          tests_rc=$?
+          set -e
+          test "$lib_rc" -le 1
+          test "$tests_rc" -le 1
+
+          cp "$DERIVED/Cargo.toml" "$EVIDENCE/formatted/Cargo.toml"
+          cp "$DERIVED/src/lib.rs" "$EVIDENCE/formatted/src/lib.rs"
+          cp "$DERIVED/tests/adversarial.rs" "$EVIDENCE/formatted/tests/adversarial.rs"
+          {
+            if cmp -s "$CRATE_PATH/src/lib.rs" "$DERIVED/src/lib.rs"; then echo "lib_rustfmt_delta=false"; else echo "lib_rustfmt_delta=true"; fi
+            if cmp -s "$CRATE_PATH/tests/adversarial.rs" "$DERIVED/tests/adversarial.rs"; then echo "tests_rustfmt_delta=false"; else echo "tests_rustfmt_delta=true"; fi
+            echo "formatted_lib_sha256=$(sha256sum "$DERIVED/src/lib.rs" | awk '{print $1}')"
+            echo "formatted_adversarial_sha256=$(sha256sum "$DERIVED/tests/adversarial.rs" | awk '{print $1}')"
+          } | tee "$EVIDENCE/rustfmt-receipt.txt"
+
+      - name: Generate Rust tests from qualified C01-C17 fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          DERIVED="$RUNNER_TEMP/mycelix-data-rights-derived"
+          python3 - "$FIXTURE_PATH" "$DERIVED/tests/frozen_corpus.rs" <<'PY'
+          import json, re, sys
+          from pathlib import Path
+
+          fixture = json.loads(Path(sys.argv[1]).read_text())
+          out = Path(sys.argv[2])
+          assert fixture['schema'] == 'mycelix:emb-data-rights-compatibility-corpus:v0.1'
+          assert fixture['authority'] == 'SyntheticCompatibilitySemanticsOnly'
+          assert len(fixture['cases']) == 17
+
+          dims = set(fixture['dimensions'])
+          obligations = set(fixture['obligations'])
+          splits = set(fixture['split_roles'])
+          states = set(fixture['states'])
+          dispositions = {'Compatible', 'Incompatible', 'Unknown', 'OutOfScope'}
+          currentness = {'Current', 'Unknown', 'Expired', 'Superseded'}
+          prereqs = {'PrivacyConsentAssessment'}
+
+          def q(value):
+              return json.dumps(value)
+
+          def arr(items):
+              return '[' + ', '.join(items) + ']'
+
+          def enum(name, value, allowed):
+              assert value in allowed, (name, value)
+              return f'{name}::{value}'
+
+          def test_name(case_id):
+              return 'frozen_' + re.sub(r'[^A-Za-z0-9_]', '_', case_id).lower()
+
+          lines = [
+              'use std::collections::BTreeSet;',
+              'use mycelix_data_rights::*;',
+              '',
+          ]
+
+          for case in fixture['cases']:
+              ev = case['reviewed_terms_evidence']
+              assert case['split_role'] in splits
+              assert case['expected_state'] in states
+              assert set(case['intended_use']) <= dims
+              assert set(case['expected_obligations']) <= obligations
+              assert set(case['external_prerequisites']) <= prereqs
+              assert ev['currentness'] in currentness
+
+              rows = ev.get('per_source')
+              if rows is None:
+                  row_subject = ev.get('subject', case['subjects'][0])
+                  rows = [{
+                      'subject': row_subject,
+                      'evidence_ref': ev.get('evidence_ref'),
+                      'dimensions': ev['dimensions'],
+                      'obligations': ev.get('obligations', []),
+                  }]
+
+              rust_rows = []
+              for row in rows:
+                  assert set(row['dimensions'].values()) <= dispositions
+                  assert set(row.get('obligations', [])) <= obligations
+                  ref = row.get('evidence_ref')
+                  ref_expr = 'None' if ref is None else f'Some(EvidenceRef::new({q(ref)}).unwrap())'
+                  dim_expr = arr([
+                      f'({enum("UseDimension", key, dims)}, {enum("EvidenceDisposition", value, dispositions)})'
+                      for key, value in row['dimensions'].items()
+                  ])
+                  obl_expr = arr([enum('Obligation', value, obligations) for value in row.get('obligations', [])])
+                  rust_rows.append(
+                      'SourceTermsEvidenceV1::new('
+                      f'SubjectId::new({q(row["subject"])}).unwrap(), '
+                      f'{ref_expr}, {dim_expr}, {obl_expr}).unwrap()'
+                  )
+
+              subject_expr = arr([f'SubjectId::new({q(value)}).unwrap()' for value in case['subjects']])
+              use_expr = arr([enum('UseDimension', value, dims) for value in case['intended_use']])
+              prereq_expr = arr([enum('ExternalPrerequisite', value, prereqs) for value in case['external_prerequisites']])
+              expected_obl = arr([enum('Obligation', value, obligations) for value in case['expected_obligations']])
+
+              lines += [
+                  '#[test]',
+                  f'fn {test_name(case["id"])}() {{',
+                  '    let intended = IntendedUseProfileV1::new(',
+                  f'        vec!{subject_expr},',
+                  f'        {enum("SplitRole", case["split_role"], splits)},',
+                  f'        {use_expr},',
+                  f'        {prereq_expr},',
+                  '    ).unwrap();',
+                  '    let evidence = ReviewedTermsEvidenceV1::new(',
+                  f'        {enum("TermsProfileCurrentness", ev["currentness"], currentness)},',
+                  f'        vec!{arr(rust_rows)},',
+                  '    ).unwrap();',
+                  '    let result = assess_terms_compatibility(&intended, &evidence).unwrap();',
+                  f'    assert_eq!(result.state(), {enum("AssessmentState", case["expected_state"], states)});',
+                  f'    let expected_obligations: BTreeSet<Obligation> = {expected_obl}.into_iter().collect();',
+                  '    assert_eq!(result.context().obligations(), &expected_obligations);',
+                  f'    let expected_prerequisites: BTreeSet<ExternalPrerequisite> = {prereq_expr}.into_iter().collect();',
+                  '    assert_eq!(result.context().external_prerequisites(), &expected_prerequisites);',
+              ]
+
+              if case['id'] == 'C17-conflicting-reviewed-evidence':
+                  lines += [
+                      '    let TermsAssessmentV1::TermsEvidenceConflict(conflict) = &result else { panic!("expected conflict"); };',
+                      '    assert_eq!(conflict.conflicts().len(), 1);',
+                      f'    assert_eq!(conflict.conflicts()[0].subject().as_str(), {q(case["subjects"][0])});',
+                      '    assert_eq!(conflict.conflicts()[0].dimension(), UseDimension::Training);',
+                      '    let refs: BTreeSet<&str> = conflict.conflicts()[0].evidence_refs().iter().map(EvidenceRef::as_str).collect();',
+                      '    assert_eq!(refs, BTreeSet::from(["review-a", "review-b"]));',
+                  ]
+              if case['id'] == 'C13-privacy-prerequisite-remains-external':
+                  lines += [
+                      '    assert!(result.context().external_prerequisites().contains(&ExternalPrerequisite::PrivacyConsentAssessment));',
+                  ]
+              lines += ['}', '']
+
+          out.write_text('\n'.join(lines))
+          print('generated_case_count=17')
+          print('generator_role=translation_only')
+          print('generated_path=' + str(out))
+          PY
+          cargo fmt --manifest-path "$DERIVED/Cargo.toml"
+          cargo fmt --manifest-path "$DERIVED/Cargo.toml" -- --check
+          cp "$DERIVED/tests/frozen_corpus.rs" /tmp/rights-kernel-001ad/generated-frozen-corpus.rs
+
+      - name: Derive temporary lock and execute complete Rust gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVIDENCE=/tmp/rights-kernel-001ad
+          DERIVED="$RUNNER_TEMP/mycelix-data-rights-derived"
+          cargo generate-lockfile --manifest-path "$DERIVED/Cargo.toml"
+          cp "$DERIVED/Cargo.lock" "$EVIDENCE/Cargo.lock"
+          cargo metadata --manifest-path "$DERIVED/Cargo.toml" --locked --no-deps --format-version 1 > "$EVIDENCE/cargo-metadata.json"
+          cargo check --manifest-path "$DERIVED/Cargo.toml" --locked --all-targets
+          cargo test --manifest-path "$DERIVED/Cargo.toml" --locked --all-targets
+          cargo test --manifest-path "$DERIVED/Cargo.toml" --locked --doc
+          cargo clippy --manifest-path "$DERIVED/Cargo.toml" --locked --all-targets -- -D warnings
+          cargo tree --manifest-path "$DERIVED/Cargo.toml" --locked --edges normal | tee "$EVIDENCE/cargo-tree.txt"
+
+      - name: Audit zero-dependency authority boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' | tee /tmp/rights-kernel-001ad/authority-audit.txt
+          import re, tomllib
+          from pathlib import Path
+          crate = Path('crates/mycelix-data-rights')
+          manifest = tomllib.loads((crate / 'Cargo.toml').read_text())
+          assert manifest['package']['edition'] == '2024'
+          assert manifest['package']['rust-version'] == '1.96'
+          assert manifest.get('dependencies', {}) == {}
+          src = (crate / 'src/lib.rs').read_text()
+          assert '#![forbid(unsafe_code)]' in src
+          for forbidden in ['serde', 'hdk', 'hdi', 'holochain', 'reqwest', 'tokio', 'std::net', 'std::fs', 'std::process']:
+              assert forbidden not in src, forbidden
+          m = re.search(r'pub struct CompatibleTermsAssessmentV1\s*\{(.*?)\n\}', src, re.S)
+          assert m
+          fields = [line.strip() for line in m.group(1).splitlines() if ':' in line]
+          assert fields and all(not line.startswith('pub ') for line in fields)
+          impl = re.search(r'impl CompatibleTermsAssessmentV1\s*\{(.*?)\n\}', src, re.S)
+          assert impl and 'pub fn new' not in impl.group(1)
+          assert 'Deserialize' not in src
+          assert 'TrainingAllowed' not in src
+          assert 'LegallyPermitted' not in src
+          assert 'PhysicalExecutionAllowed' not in src
+          print('runtime_dependencies=ZERO')
+          print('positive_type_private_fields=true')
+          print('positive_public_constructor=false')
+          print('deserialization_surface=false')
+          print('authority_audit=PASS')
+          PY
+
+      - name: Record derivation receipt and prove source immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVIDENCE=/tmp/rights-kernel-001ad
+          DERIVED="$RUNNER_TEMP/mycelix-data-rights-derived"
+          test "$(git rev-parse HEAD)" = "$PRODUCT_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$PRODUCT_TREE_SHA"
+          test -z "$(git status --porcelain)"
+          {
+            echo "product_sha=$PRODUCT_SHA"
+            echo "qualified_corpus_sha=$QUALIFIED_CORPUS_SHA"
+            echo "product_tree_sha=$PRODUCT_TREE_SHA"
+            echo "formatted_manifest_sha256=$(sha256sum "$DERIVED/Cargo.toml" | awk '{print $1}')"
+            echo "formatted_lib_sha256=$(sha256sum "$DERIVED/src/lib.rs" | awk '{print $1}')"
+            echo "formatted_adversarial_sha256=$(sha256sum "$DERIVED/tests/adversarial.rs" | awk '{print $1}')"
+            echo "generated_corpus_test_sha256=$(sha256sum "$DERIVED/tests/frozen_corpus.rs" | awk '{print $1}')"
+            echo "derived_lock_sha256=$(sha256sum "$DERIVED/Cargo.lock" | awk '{print $1}')"
+            echo "source_immutable=true"
+            echo "corpus_cases_executed=17"
+            echo "claim_ceiling=mechanical_format_compile_and_frozen_corpus_derivation_only"
+            echo "RIGHTS_KERNEL_REPAIR_DERIVATION_PASS"
+          } | tee "$EVIDENCE/receipt.txt"
+
+      - name: Upload exact derivation evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: emb-data-rights-kernel-derivation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp/rights-kernel-001ad
+          if-no-files-found: warn
+          retention-days: 30
