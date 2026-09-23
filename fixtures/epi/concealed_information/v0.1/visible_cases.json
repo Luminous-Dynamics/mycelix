@@ -1,0 +1,135 @@
+{
+  "cases": [
+    {
+      "case_id": "CI-001",
+      "friendly_name": "synthetic-high-entropy.bin",
+      "carrier_ref": "CARRIER-001",
+      "observations": [
+        {"kind": "StatisticalObservation", "profile": "entropy.synthetic.v1", "class": "HighUnderProfile"},
+        {"kind": "StructureObservation", "class": "WellFormedSyntheticCarrier"}
+      ],
+      "direct_examination_evidence": "None"
+    },
+    {
+      "case_id": "CI-002",
+      "friendly_name": "synthetic-metadata.car",
+      "carrier_ref": "CARRIER-002",
+      "observations": [
+        {"kind": "MetadataObservation", "class": "ProfileValidApplicationMetadata"},
+        {"kind": "StructureObservation", "class": "WellFormedSyntheticCarrier"}
+      ]
+    },
+    {
+      "case_id": "CI-003",
+      "friendly_name": "synthetic-trailer.car",
+      "carrier_ref": "CARRIER-003",
+      "observations": [
+        {"kind": "TrailingDataObservation", "logical_end": 128, "physical_end": 160, "class": "UnreferencedBytesObserved"}
+      ],
+      "benign_alternative": "ApplicationSpecificTrailerOrPaddingPossible"
+    },
+    {
+      "case_id": "CI-004",
+      "friendly_name": "synthetic-thumbnail.car",
+      "carrier_ref": "CARRIER-004",
+      "observations": [
+        {"kind": "EmbeddedObjectObservation", "class": "ReferencedThumbnail", "object_ref": "OBJECT-THUMB-1"}
+      ]
+    },
+    {
+      "case_id": "CI-005",
+      "friendly_name": "synthetic-type-mismatch.car",
+      "carrier_ref": "CARRIER-005",
+      "declared_media_type": "application/x-synthetic-a",
+      "parsed_media_type": "application/x-synthetic-b",
+      "parser_profile": "parser.synthetic.v1"
+    },
+    {
+      "case_id": "CI-006",
+      "friendly_name": "synthetic-parser-divergence.car",
+      "carrier_ref": "CARRIER-006",
+      "parser_observations": [
+        {"parser": "parser-A.synthetic.v1", "result": "OptionalSegmentAccepted"},
+        {"parser": "parser-B.synthetic.v1", "result": "OptionalSegmentRejected"}
+      ]
+    },
+    {
+      "case_id": "CI-007A",
+      "friendly_name": "synthetic-hidden-evaluator-A.car",
+      "carrier_ref": "CARRIER-007",
+      "observations": [
+        {"kind": "StructureObservation", "class": "AmbiguousNonRenderedRegion"}
+      ],
+      "direct_examination_evidence": "None"
+    },
+    {
+      "case_id": "CI-007B",
+      "friendly_name": "synthetic-hidden-evaluator-B.car",
+      "carrier_ref": "CARRIER-007",
+      "observations": [
+        {"kind": "StructureObservation", "class": "AmbiguousNonRenderedRegion"}
+      ],
+      "direct_examination_evidence": "None"
+    },
+    {
+      "case_id": "CI-008",
+      "friendly_name": "synthetic-normalization.car",
+      "carrier_ref": "CARRIER-008",
+      "normalization": {
+        "profile": "normalize.synthetic.v1",
+        "derived_artifact_ref": "DERIVED-008",
+        "omissions": ["NonRenderedSyntheticExtension"]
+      }
+    },
+    {
+      "case_id": "CI-009",
+      "friendly_name": "synthetic-format-controls.txt",
+      "carrier_ref": "CARRIER-009",
+      "observations": [
+        {"kind": "UnicodeFormatControlObservation", "profile": "unicode-defensive.synthetic.v1", "count": 3}
+      ],
+      "benign_alternative": "LegitimateFormattingPossible"
+    },
+    {
+      "case_id": "CI-010",
+      "friendly_name": "synthetic-duplicate-lineage.car",
+      "carrier_ref": "CARRIER-010",
+      "content_commitment": "sha256:synthetic-equal-content-010",
+      "acquisition_refs": ["ACQ-010-A", "ACQ-010-B"]
+    },
+    {
+      "case_id": "CI-011",
+      "friendly_name": "synthetic-unsupported.car",
+      "carrier_ref": "CARRIER-011",
+      "analysis_profile": "parser.synthetic.v1",
+      "analysis_outcome": "UnsupportedFeature"
+    },
+    {
+      "case_id": "CI-012A",
+      "friendly_name": "synthetic-correlation.car",
+      "carrier_ref": "CARRIER-012",
+      "carrier_observations": ["AmbiguousNonRenderedRegion"],
+      "behavior_observations": ["ArtifactRead", "DecoderActivity", "ScriptProcessObserved", "OutboundConnectionObserved"]
+    },
+    {
+      "case_id": "CI-012B",
+      "friendly_name": "synthetic-correlation.car",
+      "carrier_ref": "CARRIER-012",
+      "carrier_observations": ["AmbiguousNonRenderedRegion"],
+      "behavior_observations": ["ArtifactRead", "DecoderActivity"]
+    },
+    {
+      "case_id": "CI-013",
+      "friendly_name": "synthetic-direct-proof.car",
+      "carrier_ref": "CARRIER-013",
+      "observations": [
+        {"kind": "StructureObservation", "class": "AmbiguousNonRenderedRegion"}
+      ],
+      "direct_examination_evidence": {
+        "profile": "synthetic-direct-proof.v1",
+        "receipt_ref": "EXAM-013",
+        "establishes": "ConcealmentWithinSyntheticFixtureOnly"
+      }
+    }
+  ]
+}
