@@ -1,0 +1,527 @@
+{
+  "schema": "mycelix:emb-data-privacy-purpose-corpus:v0.1",
+  "authority": "SyntheticPrivacyPurposeSemanticsOnly",
+  "review_date": "2026-09-23",
+  "legal_compliance_authority": false,
+  "consent_validity_authority": false,
+  "training_execution_authority": false,
+  "publication_authority": false,
+  "physical_execution_authority": false,
+  "reidentification_impossible_authority": false,
+  "states": [
+    "CompatibleWithReviewedPrivacyPurposeProfile",
+    "IncompatibleWithReviewedPrivacyPurposeProfile",
+    "HumanReviewRequired",
+    "ConsentEvidenceUnavailable",
+    "ConsentOrPurposeProfileExpiredOrSuperseded",
+    "PurposeOutOfReviewedScope",
+    "EvidenceConflict"
+  ],
+  "modalities": [
+    "RgbVideo",
+    "Audio",
+    "Gaze",
+    "HeadPose",
+    "BodyPose",
+    "HandPose",
+    "ObjectPose",
+    "Depth",
+    "Imu",
+    "SpatialMap",
+    "DerivedEmbedding",
+    "DerivedPoseOnly"
+  ],
+  "purposes": [
+    "PerceptionResearch",
+    "ActionForecasting",
+    "GazeAffordanceResearch",
+    "ImitationLearning",
+    "RobotPolicyTraining",
+    "BenchmarkEvaluation",
+    "HumanBehaviorResearch",
+    "PublicVisualization",
+    "RawDataSharing",
+    "DerivedRepresentationSharing",
+    "IdentityRecognition",
+    "BiometricIdentification",
+    "SensitiveAttributeInference"
+  ],
+  "obligations": [
+    "SourcePrivacyLineageRetention",
+    "DeleteOnRevocation",
+    "ReviewOnProfileChange",
+    "NoRawHumanMediaExport",
+    "RetainTransformationProvenance",
+    "NoIdentityInference",
+    "NoSensitiveAttributeInference",
+    "NoPublicVisualization"
+  ],
+  "split_roles": [
+    "Training",
+    "Validation",
+    "EvaluationOnly",
+    "BenchmarkHoldout",
+    "Unspecified"
+  ],
+  "cases": [
+    {
+      "id": "C01-wearer-supported-bystander-unknown-raw-video",
+      "subjects": ["synthetic:smartglass:a:v1"],
+      "split_role": "Training",
+      "source_modalities": ["RgbVideo", "Gaze", "HandPose", "ObjectPose"],
+      "requested_purpose": "GazeAffordanceResearch",
+      "requested_modalities": ["RgbVideo", "Gaze", "HandPose", "ObjectPose"],
+      "reviewed_privacy_purpose_evidence": {
+        "currentness": "Current",
+        "subject": "synthetic:smartglass:a:v1",
+        "participant_evidence": "Supported",
+        "bystander_evidence": "Unknown",
+        "purpose_dimensions": {"GazeAffordanceResearch": "Compatible"},
+        "obligations": ["SourcePrivacyLineageRetention"]
+      },
+      "expected_state": "HumanReviewRequired",
+      "expected_obligations": ["SourcePrivacyLineageRetention"],
+      "excluded_modalities": [],
+      "external_prerequisites": [],
+      "transformations": []
+    },
+    {
+      "id": "C02-reviewed-bystander-transform-derived-gaze-hand",
+      "subjects": ["synthetic:smartglass:a:v1"],
+      "split_role": "Training",
+      "source_modalities": ["RgbVideo", "Gaze", "HandPose", "ObjectPose"],
+      "requested_purpose": "GazeAffordanceResearch",
+      "requested_modalities": ["Gaze", "HandPose", "ObjectPose"],
+      "reviewed_privacy_purpose_evidence": {
+        "currentness": "Current",
+        "subject": "synthetic:smartglass:a:v1",
+        "participant_evidence": "Supported",
+        "bystander_evidence": "HandledByReviewedTransformation",
+        "purpose_dimensions": {"GazeAffordanceResearch": "Compatible"},
+        "obligations": ["SourcePrivacyLineageRetention", "RetainTransformationProvenance", "NoRawHumanMediaExport"]
+      },
+      "expected_state": "CompatibleWithReviewedPrivacyPurposeProfile",
+      "expected_obligations": ["SourcePrivacyLineageRetention", "RetainTransformationProvenance", "NoRawHumanMediaExport"],
+      "excluded_modalities": ["RgbVideo"],
+      "external_prerequisites": [],
+      "transformations": [
+        {
+          "id": "synthetic:redact-bystander-rgb:v1",
+          "review_state": "ReviewedForDeclaredDerivedOutput",
+          "output_modalities": ["Gaze", "HandPose", "ObjectPose"]
+        }
+      ]
+    },
+    {
+      "id": "C03-unneeded-audio-explicitly-excluded",
+      "subjects": ["synthetic:smartglass:b:v1"],
+      "split_role": "Training",
+      "source_modalities": ["RgbVideo", "Audio", "Gaze", "HandPose", "ObjectPose", "Imu"],
+      "requested_purpose": "GazeAffordanceResearch",
+      "requested_modalities": ["Gaze", "HandPose", "ObjectPose"],
+      "reviewed_privacy_purpose_evidence": {
+        "currentness": "Current",
+        "subject": "synthetic:smartglass:b:v1",
+        "participant_evidence": "Supported",
+        "bystander_evidence": "NotPresentInRequestedRepresentation",
+        "purpose_dimensions": {"GazeAffordanceResearch": "Compatible"},
+        "obligations": ["SourcePrivacyLineageRetention", "NoRawHumanMediaExport"]
+      },
+      "expected_state": "CompatibleWithReviewedPrivacyPurposeProfile",
+      "expected_obligations": ["SourcePrivacyLineageRetention", "NoRawHumanMediaExport"],
+      "excluded_modalities": ["RgbVideo", "Audio", "Imu"],
+      "external_prerequisites": [],
+      "transformations": []
+    },
+    {
+      "id": "C04-public-visualization-out-of-scope",
+      "subjects": ["synthetic:smartglass:c:v1"],
+      "split_role": "Training",
+      "source_modalities": ["RgbVideo", "Gaze"],
+      "requested_purpose": "PublicVisualization",
+      "requested_modalities": ["RgbVideo"],
+      "reviewed_privacy_purpose_evidence": {
+        "currentness": "Current",
+        "subject": "synthetic:smartglass:c:v1",
+        "participant_evidence": "Supported",
+        "bystander_evidence": "Supported",
+        "purpose_dimensions": {"GazeAffordanceResearch": "Compatible", "PublicVisualization": "OutOfScope"},
+        "obligations": ["NoPublicVisualization"]
+      },
+      "expected_state": "PurposeOutOfReviewedScope",
+      "expected_obligations": ["NoPublicVisualization"],
+      "excluded_modalities": [],
+      "external_prerequisites": [],
+      "transformations": []
+    },
+    {
+      "id": "C05-robot-policy-training-out-of-scope",
+      "subjects": ["synthetic:smartglass:d:v1"],
+      "split_role": "Training",
+      "source_modalities": ["Gaze", "HandPose", "ObjectPose"],
+      "requested_purpose": "RobotPolicyTraining",
+      "requested_modalities": ["Gaze", "HandPose", "ObjectPose"],
+      "reviewed_privacy_purpose_evidence": {
+        "currentness": "Current",
+        "subject": "synthetic:smartglass:d:v1",
+        "participant_evidence": "Supported",
+        "bystander_evidence": "NotApplicable",
+        "purpose_dimensions": {"GazeAffordanceResearch": "Compatible", "ImitationLearning": "Compatible", "RobotPolicyTraining": "OutOfScope"},
+        "obligations": ["SourcePrivacyLineageRetention"]
+      },
+      "expected_state": "PurposeOutOfReviewedScope",
+      "expected_obligations": ["SourcePrivacyLineageRetention"],
+      "excluded_modalities": [],
+      "external_prerequisites": [],
+      "transformations": []
+    },
+    {
+      "id": "C06-participant-consent-evidence-unavailable",
+      "subjects": ["synthetic:smartglass:e:v1"],
+      "split_role": "Training",
+      "source_modalities": ["RgbVideo", "Gaze"],
+      "requested_purpose": "PerceptionResearch",
+      "requested_modalities": ["RgbVideo"],
+      "reviewed_privacy_purpose_evidence": {
+        "currentness": "Current",
+        "subject": "synthetic:smartglass:e:v1",
+        "participant_evidence": "Unavailable",
+        "bystander_evidence": "NotApplicable",
+        "purpose_dimensions": {"PerceptionResearch": "Compatible"},
+        "obligations": []
+      },
+      "expected_state": "ConsentEvidenceUnavailable",
+      "expected_obligations": [],
+      "excluded_modalities": [],
+      "external_prerequisites": [],
+      "transformations": []
+    },
+    {
+      "id": "C07-expired-purpose-profile",
+      "subjects": ["synthetic:smartglass:f:v1"],
+      "split_role": "Training",
+      "source_modalities": ["Gaze", "HandPose"],
+      "requested_purpose": "GazeAffordanceResearch",
+      "requested_modalities": ["Gaze", "HandPose"],
+      "reviewed_privacy_purpose_evidence": {
+        "currentness": "Expired",
+        "subject": "synthetic:smartglass:f:v1",
+        "participant_evidence": "Supported",
+        "bystander_evidence": "NotApplicable",
+        "purpose_dimensions": {"GazeAffordanceResearch": "Compatible"},
+        "obligations": ["ReviewOnProfileChange"]
+      },
+      "expected_state": "ConsentOrPurposeProfileExpiredOrSuperseded",
+      "expected_obligations": ["ReviewOnProfileChange"],
+      "excluded_modalities": [],
+      "external_prerequisites": [],
+      "transformations": []
+    },
+    {
+      "id": "C08-subject-profile-mismatch",
+      "subjects": ["synthetic:smartglass:g:v2"],
+      "split_role": "Training",
+      "source_modalities": ["Gaze", "HandPose"],
+      "requested_purpose": "GazeAffordanceResearch",
+      "requested_modalities": ["Gaze", "HandPose"],
+      "reviewed_privacy_purpose_evidence": {
+        "currentness": "Current",
+        "subject": "synthetic:smartglass:g:v1",
+        "participant_evidence": "Supported",
+        "bystander_evidence": "NotApplicable",
+        "purpose_dimensions": {"GazeAffordanceResearch": "Compatible"},
+        "obligations": []
+      },
+      "expected_state": "PurposeOutOfReviewedScope",
+      "expected_obligations": [],
+      "excluded_modalities": [],
+      "external_prerequisites": [],
+      "transformations": []
+    },
+    {
+      "id": "C09-contradictory-purpose-evidence",
+      "subjects": ["synthetic:smartglass:h:v1"],
+      "split_role": "Training",
+      "source_modalities": ["Gaze", "HandPose"],
+      "requested_purpose": "GazeAffordanceResearch",
+      "requested_modalities": ["Gaze", "HandPose"],
+      "reviewed_privacy_purpose_evidence": {
+        "currentness": "Current",
+        "subject": "synthetic:smartglass:h:v1",
+        "participant_evidence": "Supported",
+        "bystander_evidence": "NotApplicable",
+        "purpose_evidence_records": [
+          {"evidence_ref": "synthetic:review:h:a", "purpose": "GazeAffordanceResearch", "disposition": "Compatible"},
+          {"evidence_ref": "synthetic:review:h:b", "purpose": "GazeAffordanceResearch", "disposition": "Incompatible"}
+        ],
+        "obligations": []
+      },
+      "expected_state": "EvidenceConflict",
+      "expected_obligations": [],
+      "excluded_modalities": [],
+      "external_prerequisites": [],
+      "transformations": []
+    },
+    {
+      "id": "C10-wearer-evidence-cannot-cover-bystander-audio",
+      "subjects": ["synthetic:smartglass:i:v1"],
+      "split_role": "Training",
+      "source_modalities": ["Audio", "Gaze"],
+      "requested_purpose": "HumanBehaviorResearch",
+      "requested_modalities": ["Audio", "Gaze"],
+      "reviewed_privacy_purpose_evidence": {
+        "currentness": "Current",
+        "subject": "synthetic:smartglass:i:v1",
+        "participant_evidence": "Supported",
+        "bystander_evidence": "Unknown",
+        "purpose_dimensions": {"HumanBehaviorResearch": "Compatible"},
+        "obligations": ["SourcePrivacyLineageRetention"]
+      },
+      "expected_state": "HumanReviewRequired",
+      "expected_obligations": ["SourcePrivacyLineageRetention"],
+      "excluded_modalities": [],
+      "external_prerequisites": [],
+      "transformations": []
+    },
+    {
+      "id": "C11-deidentification-transform-retains-nonclaim",
+      "subjects": ["synthetic:smartglass:j:v1"],
+      "split_role": "Training",
+      "source_modalities": ["RgbVideo", "BodyPose", "Gaze"],
+      "requested_purpose": "PerceptionResearch",
+      "requested_modalities": ["DerivedPoseOnly", "Gaze"],
+      "reviewed_privacy_purpose_evidence": {
+        "currentness": "Current",
+        "subject": "synthetic:smartglass:j:v1",
+        "participant_evidence": "Supported",
+        "bystander_evidence": "HandledByReviewedTransformation",
+        "purpose_dimensions": {"PerceptionResearch": "Compatible"},
+        "obligations": ["SourcePrivacyLineageRetention", "RetainTransformationProvenance"],
+        "nonclaims": ["ReidentificationImpossible"]
+      },
+      "expected_state": "CompatibleWithReviewedPrivacyPurposeProfile",
+      "expected_obligations": ["SourcePrivacyLineageRetention", "RetainTransformationProvenance"],
+      "excluded_modalities": ["RgbVideo", "BodyPose"],
+      "external_prerequisites": [],
+      "transformations": [
+        {
+          "id": "synthetic:deidentify-pose:v1",
+          "review_state": "ReviewedForDeclaredDerivedOutput",
+          "output_modalities": ["DerivedPoseOnly", "Gaze"]
+        }
+      ]
+    },
+    {
+      "id": "C12-derived-pose-retains-deletion-obligation",
+      "subjects": ["synthetic:smartglass:k:v1"],
+      "split_role": "Training",
+      "source_modalities": ["RgbVideo", "BodyPose"],
+      "requested_purpose": "ActionForecasting",
+      "requested_modalities": ["DerivedPoseOnly"],
+      "reviewed_privacy_purpose_evidence": {
+        "currentness": "Current",
+        "subject": "synthetic:smartglass:k:v1",
+        "participant_evidence": "Supported",
+        "bystander_evidence": "HandledByReviewedTransformation",
+        "purpose_dimensions": {"ActionForecasting": "Compatible"},
+        "obligations": ["SourcePrivacyLineageRetention", "DeleteOnRevocation", "RetainTransformationProvenance"]
+      },
+      "expected_state": "CompatibleWithReviewedPrivacyPurposeProfile",
+      "expected_obligations": ["SourcePrivacyLineageRetention", "DeleteOnRevocation", "RetainTransformationProvenance"],
+      "excluded_modalities": ["RgbVideo", "BodyPose"],
+      "external_prerequisites": [],
+      "transformations": [
+        {
+          "id": "synthetic:pose-only:v1",
+          "review_state": "ReviewedForDeclaredDerivedOutput",
+          "output_modalities": ["DerivedPoseOnly"]
+        }
+      ]
+    },
+    {
+      "id": "C13-benchmark-split-blocks-policy-training",
+      "subjects": ["synthetic:smartglass:l:v1"],
+      "split_role": "BenchmarkHoldout",
+      "source_modalities": ["Gaze", "HandPose", "ObjectPose"],
+      "requested_purpose": "RobotPolicyTraining",
+      "requested_modalities": ["Gaze", "HandPose", "ObjectPose"],
+      "reviewed_privacy_purpose_evidence": {
+        "currentness": "Current",
+        "subject": "synthetic:smartglass:l:v1",
+        "participant_evidence": "Supported",
+        "bystander_evidence": "NotApplicable",
+        "purpose_dimensions": {"RobotPolicyTraining": "Compatible", "BenchmarkEvaluation": "Compatible"},
+        "obligations": []
+      },
+      "expected_state": "IncompatibleWithReviewedPrivacyPurposeProfile",
+      "expected_obligations": [],
+      "excluded_modalities": [],
+      "external_prerequisites": [],
+      "transformations": []
+    },
+    {
+      "id": "C14-caller-identity-request-cannot-rewrite-evidence",
+      "subjects": ["synthetic:smartglass:m:v1"],
+      "split_role": "Training",
+      "source_modalities": ["RgbVideo"],
+      "requested_purpose": "IdentityRecognition",
+      "requested_modalities": ["RgbVideo"],
+      "reviewed_privacy_purpose_evidence": {
+        "currentness": "Current",
+        "subject": "synthetic:smartglass:m:v1",
+        "participant_evidence": "Supported",
+        "bystander_evidence": "Supported",
+        "purpose_dimensions": {"IdentityRecognition": "Incompatible", "PerceptionResearch": "Compatible"},
+        "obligations": ["NoIdentityInference"]
+      },
+      "expected_state": "IncompatibleWithReviewedPrivacyPurposeProfile",
+      "expected_obligations": ["NoIdentityInference"],
+      "excluded_modalities": [],
+      "external_prerequisites": [],
+      "transformations": []
+    },
+    {
+      "id": "C15-biometric-identification-unknown",
+      "subjects": ["synthetic:smartglass:n:v1"],
+      "split_role": "Training",
+      "source_modalities": ["RgbVideo"],
+      "requested_purpose": "BiometricIdentification",
+      "requested_modalities": ["RgbVideo"],
+      "reviewed_privacy_purpose_evidence": {
+        "currentness": "Current",
+        "subject": "synthetic:smartglass:n:v1",
+        "participant_evidence": "Supported",
+        "bystander_evidence": "Supported",
+        "purpose_dimensions": {"BiometricIdentification": "Unknown"},
+        "obligations": ["NoIdentityInference"]
+      },
+      "expected_state": "HumanReviewRequired",
+      "expected_obligations": ["NoIdentityInference"],
+      "excluded_modalities": [],
+      "external_prerequisites": [],
+      "transformations": []
+    },
+    {
+      "id": "C16-sensitive-attribute-inference-restricted",
+      "subjects": ["synthetic:smartglass:o:v1"],
+      "split_role": "Training",
+      "source_modalities": ["RgbVideo", "Audio"],
+      "requested_purpose": "SensitiveAttributeInference",
+      "requested_modalities": ["RgbVideo", "Audio"],
+      "reviewed_privacy_purpose_evidence": {
+        "currentness": "Current",
+        "subject": "synthetic:smartglass:o:v1",
+        "participant_evidence": "Supported",
+        "bystander_evidence": "Supported",
+        "purpose_dimensions": {"SensitiveAttributeInference": "Incompatible"},
+        "obligations": ["NoSensitiveAttributeInference"]
+      },
+      "expected_state": "IncompatibleWithReviewedPrivacyPurposeProfile",
+      "expected_obligations": ["NoSensitiveAttributeInference"],
+      "excluded_modalities": [],
+      "external_prerequisites": [],
+      "transformations": []
+    },
+    {
+      "id": "C17-derived-sharing-compatible-raw-sharing-incompatible",
+      "subjects": ["synthetic:smartglass:p:v1"],
+      "split_role": "Training",
+      "source_modalities": ["RgbVideo", "BodyPose"],
+      "requested_purpose": "DerivedRepresentationSharing",
+      "requested_modalities": ["DerivedPoseOnly"],
+      "reviewed_privacy_purpose_evidence": {
+        "currentness": "Current",
+        "subject": "synthetic:smartglass:p:v1",
+        "participant_evidence": "Supported",
+        "bystander_evidence": "HandledByReviewedTransformation",
+        "purpose_dimensions": {"RawDataSharing": "Incompatible", "DerivedRepresentationSharing": "Compatible"},
+        "obligations": ["NoRawHumanMediaExport", "SourcePrivacyLineageRetention", "RetainTransformationProvenance"]
+      },
+      "expected_state": "CompatibleWithReviewedPrivacyPurposeProfile",
+      "expected_obligations": ["NoRawHumanMediaExport", "SourcePrivacyLineageRetention", "RetainTransformationProvenance"],
+      "excluded_modalities": ["RgbVideo", "BodyPose"],
+      "external_prerequisites": [],
+      "transformations": [
+        {
+          "id": "synthetic:share-derived-pose:v1",
+          "review_state": "ReviewedForDeclaredDerivedOutput",
+          "output_modalities": ["DerivedPoseOnly"]
+        }
+      ]
+    },
+    {
+      "id": "C18-multisource-deletion-obligation-union",
+      "subjects": ["synthetic:smartglass:q:v1", "synthetic:smartglass:r:v1"],
+      "split_role": "Training",
+      "source_modalities": ["DerivedPoseOnly"],
+      "requested_purpose": "ActionForecasting",
+      "requested_modalities": ["DerivedPoseOnly"],
+      "reviewed_privacy_purpose_evidence": {
+        "currentness": "Current",
+        "participant_evidence": "Supported",
+        "bystander_evidence": "NotApplicable",
+        "per_source": [
+          {
+            "subject": "synthetic:smartglass:q:v1",
+            "purpose_dimensions": {"ActionForecasting": "Compatible"},
+            "obligations": ["DeleteOnRevocation", "SourcePrivacyLineageRetention"]
+          },
+          {
+            "subject": "synthetic:smartglass:r:v1",
+            "purpose_dimensions": {"ActionForecasting": "Compatible"},
+            "obligations": ["ReviewOnProfileChange", "SourcePrivacyLineageRetention"]
+          }
+        ],
+        "obligations": []
+      },
+      "expected_state": "CompatibleWithReviewedPrivacyPurposeProfile",
+      "expected_obligations": ["DeleteOnRevocation", "ReviewOnProfileChange", "SourcePrivacyLineageRetention"],
+      "excluded_modalities": [],
+      "external_prerequisites": [],
+      "transformations": []
+    },
+    {
+      "id": "C19-terms-compatibility-cannot-manufacture-privacy",
+      "subjects": ["synthetic:smartglass:s:v1"],
+      "split_role": "Training",
+      "source_modalities": ["Gaze", "HandPose"],
+      "requested_purpose": "ImitationLearning",
+      "requested_modalities": ["Gaze", "HandPose"],
+      "reviewed_privacy_purpose_evidence": {
+        "currentness": "Current",
+        "subject": "synthetic:smartglass:s:v1",
+        "participant_evidence": "Unknown",
+        "bystander_evidence": "NotApplicable",
+        "purpose_dimensions": {"ImitationLearning": "Compatible"},
+        "terms_compatibility_ref": "synthetic:terms-compatible:s:v1",
+        "obligations": []
+      },
+      "expected_state": "HumanReviewRequired",
+      "expected_obligations": [],
+      "excluded_modalities": [],
+      "external_prerequisites": ["ReviewedPrivacyConsentEvidence"],
+      "transformations": []
+    },
+    {
+      "id": "C20-compatible-never-creates-publication-or-actuation-authority",
+      "subjects": ["synthetic:smartglass:t:v1"],
+      "split_role": "Training",
+      "source_modalities": ["Gaze", "HandPose", "ObjectPose"],
+      "requested_purpose": "GazeAffordanceResearch",
+      "requested_modalities": ["Gaze", "HandPose", "ObjectPose"],
+      "reviewed_privacy_purpose_evidence": {
+        "currentness": "Current",
+        "subject": "synthetic:smartglass:t:v1",
+        "participant_evidence": "Supported",
+        "bystander_evidence": "NotApplicable",
+        "purpose_dimensions": {"GazeAffordanceResearch": "Compatible"},
+        "obligations": ["SourcePrivacyLineageRetention"]
+      },
+      "expected_state": "CompatibleWithReviewedPrivacyPurposeProfile",
+      "expected_obligations": ["SourcePrivacyLineageRetention"],
+      "excluded_modalities": [],
+      "external_prerequisites": ["SeparatePublicationAdmission", "SeparatePhysicalExecutionAdmission"],
+      "transformations": []
+    }
+  ]
+}
