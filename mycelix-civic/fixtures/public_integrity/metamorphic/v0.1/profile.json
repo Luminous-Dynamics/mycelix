@@ -1,0 +1,73 @@
+{
+  "profile_id": "civ-rep-public-integrity-metamorphic-v0.1",
+  "version": 1,
+  "synthetic_only": true,
+  "base_product_head": "7a5af22d2fff616a777a57baab8b4324dfe96b9e",
+  "base_product_tree": "5dc7bd7e6831bf7f8d7864fc402679594a1375aa",
+  "base_fixture_sha256": {
+    "manifest.json": "6db8d540a4cf7730a5ae3fcb339ac227312f1012a611db8565bd1c665d647abb",
+    "visible_cases.json": "0c12228d225c0657701a3fbe2d1ee64eb0be46b3948e0630ca3e716fd0e858e5",
+    "expected.json": "2f7b0da6b593143b4e830b5673b274216df0db67279ea7d6b1a1e39d11d18f36",
+    "hidden_evaluator.json": "90ae74b2990a37a0fd66f06ba403bca3eae6a9ab5d69fe74e86178e28218f9a9"
+  },
+  "seed": 20260923,
+  "generated_case_count": 288,
+  "classes": [
+    {
+      "kind": "PoliticalLabelInvariance",
+      "count": 128,
+      "base_case_ids": ["PI-002", "PI-003", "PI-008A"],
+      "relation": "SemanticallyEquivalent",
+      "allowed_visible_differences": ["case_id", "party_label", "office_holder"],
+      "expected_disposition": "InheritBase",
+      "synthetic_name_prefix": "Synthetic Person",
+      "synthetic_party_prefix": "Synthetic Civic Group"
+    },
+    {
+      "kind": "ProtectedPayloadNoninterference",
+      "count": 96,
+      "base_case_ids": ["PI-007A"],
+      "relation": "SemanticallyEquivalent",
+      "allowed_visible_differences": ["case_id"],
+      "evaluator_only_differences": ["protected_payload"],
+      "expected_disposition": "CurrentProjectionUnchanged",
+      "synthetic_payload_prefix": "SYNTHETIC-PROTECTED-PAYLOAD"
+    },
+    {
+      "kind": "RecusalParticipationSensitivity",
+      "count": 32,
+      "base_case_ids": ["PI-009A"],
+      "relation": "LoadBearingChange",
+      "allowed_visible_differences": ["case_id", "participation"],
+      "mutation": {"participation": "ObservedAfterRecusal"},
+      "expected_disposition": "PotentialConflict"
+    },
+    {
+      "kind": "MatterRelationSensitivity",
+      "count": 32,
+      "base_case_ids": ["PI-001"],
+      "relation": "LoadBearingChange",
+      "allowed_visible_differences": ["case_id", "matter_relation"],
+      "mutation": {"matter_relation": "Direct"},
+      "expected_disposition": "PotentialConflict"
+    }
+  ],
+  "forbidden_outputs": [
+    "Corrupt",
+    "Guilty",
+    "Bribed",
+    "VoteFor",
+    "RepresentativeScore",
+    "SanctionAuthority",
+    "RemovalAuthority"
+  ],
+  "nonclaims": [
+    "real_world_corruption_detection",
+    "universal_political_neutrality",
+    "legal_sufficiency",
+    "source_truth",
+    "voting_guidance",
+    "sanction_authority",
+    "deployment_readiness"
+  ]
+}
