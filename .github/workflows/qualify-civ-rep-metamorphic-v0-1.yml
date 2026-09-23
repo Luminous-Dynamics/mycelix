@@ -1,0 +1,64 @@
+name: qualify CIV-REP-005M1 metamorphic public-integrity profile v0.1
+
+on:
+  push:
+    branches:
+      - qualify/civ-rep-metamorphic-v0-1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact qualifier subject
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Bind exact product parent and qualifier-only scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          PRODUCT='9e3d4c7d55f297baa7549374a56b532c36374fff'
+          test "$(git rev-parse HEAD^)" = "$PRODUCT"
+          mapfile -t changed < <(git diff --name-only HEAD^ HEAD | sort)
+          expected=(
+            '.github/workflows/qualify-civ-rep-metamorphic-v0-1.yml'
+            'mycelix-civic/tools/qualify_public_integrity_metamorphic_v0_1.py'
+          )
+          printf '%s\n' "${changed[@]}" > /tmp/changed
+          printf '%s\n' "${expected[@]}" | sort > /tmp/expected
+          diff -u /tmp/expected /tmp/changed
+
+      - name: Prove product profile and qualified base fixtures unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          for p in \
+            mycelix-civic/fixtures/public_integrity/metamorphic/v0.1/profile.json \
+            mycelix-civic/fixtures/public_integrity/v0.1/manifest.json \
+            mycelix-civic/fixtures/public_integrity/v0.1/visible_cases.json \
+            mycelix-civic/fixtures/public_integrity/v0.1/expected.json \
+            mycelix-civic/fixtures/public_integrity/v0.1/hidden_evaluator.json
+          do
+            test "$(git rev-parse HEAD:"$p")" = "$(git rev-parse HEAD^:"$p")"
+          done
+
+      - name: Run independent deterministic metamorphic generator oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 mycelix-civic/tools/qualify_public_integrity_metamorphic_v0_1.py | tee /tmp/civ-rep-005m1-receipt.txt
+
+      - name: Postflight immutable identity receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "qualifier_head=$(git rev-parse HEAD)"
+          echo "product_head=$(git rev-parse HEAD^)"
+          echo "qualifier_tree=$(git rev-parse 'HEAD^{tree}')"
+          echo "product_tree=$(git rev-parse 'HEAD^^{tree}')"
+          cat /tmp/civ-rep-005m1-receipt.txt
