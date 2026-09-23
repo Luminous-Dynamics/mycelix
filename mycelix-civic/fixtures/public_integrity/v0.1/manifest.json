@@ -1,0 +1,40 @@
+{
+  "corpus_id": "civ-rep-public-integrity-v0.1",
+  "version": 1,
+  "synthetic_only": true,
+  "real_person_data": false,
+  "authority": "EvaluationOnly",
+  "solver_visible_files": [
+    "visible_cases.json"
+  ],
+  "evaluator_only_files": [
+    "expected.json",
+    "hidden_evaluator.json"
+  ],
+  "case_ids": [
+    "PI-001",
+    "PI-002",
+    "PI-003",
+    "PI-004",
+    "PI-005",
+    "PI-006",
+    "PI-007A",
+    "PI-007B",
+    "PI-008A",
+    "PI-008B",
+    "PI-009A",
+    "PI-009B",
+    "PI-010"
+  ],
+  "nonclaims": [
+    "corruption",
+    "bribery",
+    "guilt",
+    "political_merit",
+    "voting_recommendation",
+    "sanction_authority",
+    "removal_authority",
+    "legal_adjudication",
+    "real_world_detection_accuracy"
+  ]
+}
