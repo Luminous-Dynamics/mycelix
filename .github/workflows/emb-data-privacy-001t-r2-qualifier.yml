@@ -1,0 +1,451 @@
+name: EMB-DATA-PRIVACY-001TQ r2 exact corpus qualifier
+
+on:
+  pull_request:
+    types: [ready_for_review]
+
+permissions:
+  contents: read
+
+env:
+  PRODUCT_SHA: 2cf00911ba886e75e2d4178d107e885001b0c87b
+  PRODUCT_PARENT_SHA: ce7acdbd2afa6d40bcd669e14ba468b3214466c3
+  PRODUCT_TREE_SHA: a54499df930cb9edc2d61b649984e5e84012ff85
+
+jobs:
+  qualify:
+    name: Exact synthetic smart-glasses privacy corpus
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout literal source subject
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PRODUCT_SHA }}
+          fetch-depth: 2
+
+      - name: Prove exact lineage and source shape
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$PRODUCT_SHA"
+          test "$(git rev-parse HEAD^)" = "$PRODUCT_PARENT_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$PRODUCT_TREE_SHA"
+          mapfile -t paths < <(git diff --name-only "$PRODUCT_PARENT_SHA" "$PRODUCT_SHA" | sort)
+          test "${#paths[@]}" -eq 2
+          test "${paths[0]}" = "docs/embodied/EMBODIED_DATA_PRIVACY_PURPOSE_V0_1.md"
+          test "${paths[1]}" = "docs/embodied/fixtures/EMB_DATA_PRIVACY_PURPOSE_V0_1.json"
+          git diff --check "$PRODUCT_PARENT_SHA" "$PRODUCT_SHA"
+          test -z "$(git status --porcelain)"
+
+      - name: Independently qualify closed vocabularies and C01-C20 semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVIDENCE="$RUNNER_TEMP/emb-data-privacy-001tq-evidence"
+          rm -rf "$EVIDENCE"
+          mkdir -p "$EVIDENCE"
+          export EVIDENCE
+
+          python3 - <<'PY' | tee "$EVIDENCE/oracle.txt"
+          import copy
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          fixture_path = Path('docs/embodied/fixtures/EMB_DATA_PRIVACY_PURPOSE_V0_1.json')
+          profile_path = Path('docs/embodied/EMBODIED_DATA_PRIVACY_PURPOSE_V0_1.md')
+          doc = json.loads(fixture_path.read_text())
+          profile = profile_path.read_text()
+
+          STATES = {
+              'CompatibleWithReviewedPrivacyPurposeProfile',
+              'IncompatibleWithReviewedPrivacyPurposeProfile',
+              'HumanReviewRequired',
+              'ConsentEvidenceUnavailable',
+              'ConsentOrPurposeProfileExpiredOrSuperseded',
+              'PurposeOutOfReviewedScope',
+              'EvidenceConflict',
+          }
+          MODALITIES = {
+              'RgbVideo','Audio','Gaze','HeadPose','BodyPose','HandPose','ObjectPose',
+              'Depth','Imu','SpatialMap','DerivedEmbedding','DerivedPoseOnly',
+          }
+          PURPOSES = {
+              'PerceptionResearch','ActionForecasting','GazeAffordanceResearch',
+              'ImitationLearning','RobotPolicyTraining','BenchmarkEvaluation',
+              'HumanBehaviorResearch','PublicVisualization','RawDataSharing',
+              'DerivedRepresentationSharing','IdentityRecognition',
+              'BiometricIdentification','SensitiveAttributeInference',
+          }
+          OBLIGATIONS = {
+              'SourcePrivacyLineageRetention','DeleteOnRevocation','ReviewOnProfileChange',
+              'NoRawHumanMediaExport','RetainTransformationProvenance','NoIdentityInference',
+              'NoSensitiveAttributeInference','NoPublicVisualization',
+          }
+          SPLITS = {'Training','Validation','EvaluationOnly','BenchmarkHoldout','Unspecified'}
+          PARTICIPANT = {'Supported','Unknown','Unavailable'}
+          BYSTANDER = {
+              'Supported','Unknown','NotApplicable','HandledByReviewedTransformation',
+              'NotPresentInRequestedRepresentation',
+          }
+          CURRENTNESS = {'Current','Expired','Superseded'}
+          DISPOSITIONS = {'Compatible','Incompatible','Unknown','OutOfScope'}
+          TRANSFORM_REVIEW = {'ReviewedForDeclaredDerivedOutput'}
+          PREREQUISITES = {
+              'ReviewedPrivacyConsentEvidence','SeparatePublicationAdmission',
+              'SeparatePhysicalExecutionAdmission',
+          }
+          AUTHORITY_FIELDS = [
+              'legal_compliance_authority','consent_validity_authority',
+              'training_execution_authority','publication_authority',
+              'physical_execution_authority','reidentification_impossible_authority',
+          ]
+
+          EXPECTED_STATES = {
+              'C01-wearer-supported-bystander-unknown-raw-video': 'HumanReviewRequired',
+              'C02-reviewed-bystander-transform-derived-gaze-hand': 'CompatibleWithReviewedPrivacyPurposeProfile',
+              'C03-unneeded-audio-explicitly-excluded': 'CompatibleWithReviewedPrivacyPurposeProfile',
+              'C04-public-visualization-out-of-scope': 'PurposeOutOfReviewedScope',
+              'C05-robot-policy-training-out-of-scope': 'PurposeOutOfReviewedScope',
+              'C06-participant-consent-evidence-unavailable': 'ConsentEvidenceUnavailable',
+              'C07-expired-purpose-profile': 'ConsentOrPurposeProfileExpiredOrSuperseded',
+              'C08-subject-profile-mismatch': 'PurposeOutOfReviewedScope',
+              'C09-contradictory-purpose-evidence': 'EvidenceConflict',
+              'C10-wearer-evidence-cannot-cover-bystander-audio': 'HumanReviewRequired',
+              'C11-deidentification-transform-retains-nonclaim': 'CompatibleWithReviewedPrivacyPurposeProfile',
+              'C12-derived-pose-retains-deletion-obligation': 'CompatibleWithReviewedPrivacyPurposeProfile',
+              'C13-benchmark-split-blocks-policy-training': 'IncompatibleWithReviewedPrivacyPurposeProfile',
+              'C14-caller-identity-request-cannot-rewrite-evidence': 'IncompatibleWithReviewedPrivacyPurposeProfile',
+              'C15-biometric-identification-unknown': 'HumanReviewRequired',
+              'C16-sensitive-attribute-inference-restricted': 'IncompatibleWithReviewedPrivacyPurposeProfile',
+              'C17-derived-sharing-compatible-raw-sharing-incompatible': 'CompatibleWithReviewedPrivacyPurposeProfile',
+              'C18-multisource-deletion-obligation-union': 'CompatibleWithReviewedPrivacyPurposeProfile',
+              'C19-terms-compatibility-cannot-manufacture-privacy': 'HumanReviewRequired',
+              'C20-compatible-never-creates-publication-or-actuation-authority': 'CompatibleWithReviewedPrivacyPurposeProfile',
+          }
+          EXPECTED_OBLIGATIONS = {
+              'C01-wearer-supported-bystander-unknown-raw-video': {'SourcePrivacyLineageRetention'},
+              'C02-reviewed-bystander-transform-derived-gaze-hand': {'SourcePrivacyLineageRetention','RetainTransformationProvenance','NoRawHumanMediaExport'},
+              'C03-unneeded-audio-explicitly-excluded': {'SourcePrivacyLineageRetention','NoRawHumanMediaExport'},
+              'C04-public-visualization-out-of-scope': {'NoPublicVisualization'},
+              'C05-robot-policy-training-out-of-scope': {'SourcePrivacyLineageRetention'},
+              'C06-participant-consent-evidence-unavailable': set(),
+              'C07-expired-purpose-profile': {'ReviewOnProfileChange'},
+              'C08-subject-profile-mismatch': set(),
+              'C09-contradictory-purpose-evidence': set(),
+              'C10-wearer-evidence-cannot-cover-bystander-audio': {'SourcePrivacyLineageRetention'},
+              'C11-deidentification-transform-retains-nonclaim': {'SourcePrivacyLineageRetention','RetainTransformationProvenance'},
+              'C12-derived-pose-retains-deletion-obligation': {'SourcePrivacyLineageRetention','DeleteOnRevocation','RetainTransformationProvenance'},
+              'C13-benchmark-split-blocks-policy-training': set(),
+              'C14-caller-identity-request-cannot-rewrite-evidence': {'NoIdentityInference'},
+              'C15-biometric-identification-unknown': {'NoIdentityInference'},
+              'C16-sensitive-attribute-inference-restricted': {'NoSensitiveAttributeInference'},
+              'C17-derived-sharing-compatible-raw-sharing-incompatible': {'NoRawHumanMediaExport','SourcePrivacyLineageRetention','RetainTransformationProvenance'},
+              'C18-multisource-deletion-obligation-union': {'DeleteOnRevocation','ReviewOnProfileChange','SourcePrivacyLineageRetention'},
+              'C19-terms-compatibility-cannot-manufacture-privacy': set(),
+              'C20-compatible-never-creates-publication-or-actuation-authority': {'SourcePrivacyLineageRetention'},
+          }
+          EXPECTED_EXCLUDED = {
+              'C02-reviewed-bystander-transform-derived-gaze-hand': {'RgbVideo'},
+              'C03-unneeded-audio-explicitly-excluded': {'RgbVideo','Audio','Imu'},
+              'C11-deidentification-transform-retains-nonclaim': {'RgbVideo','BodyPose'},
+              'C12-derived-pose-retains-deletion-obligation': {'RgbVideo','BodyPose'},
+              'C17-derived-sharing-compatible-raw-sharing-incompatible': {'RgbVideo','BodyPose'},
+          }
+          EXPECTED_PREREQS = {
+              'C19-terms-compatibility-cannot-manufacture-privacy': {'ReviewedPrivacyConsentEvidence'},
+              'C20-compatible-never-creates-publication-or-actuation-authority': {'SeparatePublicationAdmission','SeparatePhysicalExecutionAdmission'},
+          }
+
+          def require_closed(name, actual, expected):
+              assert set(actual) == set(expected), (name, actual, expected)
+
+          def validate_structure(d):
+              assert d['schema'] == 'mycelix:emb-data-privacy-purpose-corpus:v0.1'
+              assert d['authority'] == 'SyntheticPrivacyPurposeSemanticsOnly'
+              assert d['review_date'] == '2026-09-23'
+              for field in AUTHORITY_FIELDS:
+                  assert d[field] is False, field
+              require_closed('states', d['states'], STATES)
+              require_closed('modalities', d['modalities'], MODALITIES)
+              require_closed('purposes', d['purposes'], PURPOSES)
+              require_closed('obligations', d['obligations'], OBLIGATIONS)
+              require_closed('split_roles', d['split_roles'], SPLITS)
+              require_closed('participant_evidence_states', d['participant_evidence_states'], PARTICIPANT)
+              require_closed('bystander_evidence_states', d['bystander_evidence_states'], BYSTANDER)
+              require_closed('currentness_states', d['currentness_states'], CURRENTNESS)
+              require_closed('purpose_dispositions', d['purpose_dispositions'], DISPOSITIONS)
+              require_closed('transform_review_states', d['transform_review_states'], TRANSFORM_REVIEW)
+
+              cases = d['cases']
+              assert len(cases) == 20
+              ids = [case['id'] for case in cases]
+              assert len(ids) == len(set(ids))
+              assert set(ids) == set(EXPECTED_STATES)
+
+              for case in cases:
+                  cid = case['id']
+                  assert case['split_role'] in SPLITS
+                  assert case['requested_purpose'] in PURPOSES
+                  source = set(case['source_modalities'])
+                  requested = set(case['requested_modalities'])
+                  excluded = set(case['excluded_modalities'])
+                  assert source <= MODALITIES and requested <= MODALITIES and excluded <= MODALITIES
+                  assert requested.isdisjoint(excluded)
+                  assert excluded <= source
+                  assert set(case.get('external_prerequisites', [])) <= PREREQUISITES
+                  assert all(subject.startswith('synthetic:') for subject in case['subjects'])
+                  assert case['subjects']
+
+                  evidence = case['reviewed_privacy_purpose_evidence']
+                  assert evidence['currentness'] in CURRENTNESS
+                  assert evidence['participant_evidence'] in PARTICIPANT
+                  assert evidence['bystander_evidence'] in BYSTANDER
+                  assert set(evidence.get('obligations', [])) <= OBLIGATIONS
+                  if 'subject' in evidence:
+                      assert evidence['subject'].startswith('synthetic:')
+                  if 'purpose_dimensions' in evidence:
+                      assert set(evidence['purpose_dimensions']) <= PURPOSES
+                      assert set(evidence['purpose_dimensions'].values()) <= DISPOSITIONS
+                  for row in evidence.get('per_source', []):
+                      assert row['subject'].startswith('synthetic:')
+                      assert set(row['purpose_dimensions']) <= PURPOSES
+                      assert set(row['purpose_dimensions'].values()) <= DISPOSITIONS
+                      assert set(row.get('obligations', [])) <= OBLIGATIONS
+                  for row in evidence.get('purpose_evidence_records', []):
+                      assert row['evidence_ref'].startswith('synthetic:')
+                      assert row['subject'].startswith('synthetic:')
+                      assert row['purpose'] in PURPOSES
+                      assert row['currentness'] in CURRENTNESS
+                      assert row['disposition'] in DISPOSITIONS
+                      assert row.get('supersedes') is None or str(row['supersedes']).startswith('synthetic:')
+
+                  outputs = set()
+                  for transform in case.get('transformations', []):
+                      assert transform['id'].startswith('synthetic:')
+                      assert transform['review_state'] in TRANSFORM_REVIEW
+                      assert set(transform['output_modalities']) <= MODALITIES
+                      outputs |= set(transform['output_modalities'])
+                  assert requested <= (source | outputs)
+                  if evidence['bystander_evidence'] == 'HandledByReviewedTransformation':
+                      assert case.get('transformations')
+                      assert 'RetainTransformationProvenance' in evidence.get('obligations', [])
+                  if evidence['bystander_evidence'] == 'NotPresentInRequestedRepresentation':
+                      assert not ({'RgbVideo','Audio'} & requested)
+
+                  if cid in EXPECTED_EXCLUDED:
+                      assert excluded == EXPECTED_EXCLUDED[cid]
+
+              return cases
+
+          def retained_obligations(case):
+              evidence = case['reviewed_privacy_purpose_evidence']
+              out = set(evidence.get('obligations', []))
+              for row in evidence.get('per_source', []):
+                  out |= set(row.get('obligations', []))
+              return out
+
+          def independent_state(case):
+              evidence = case['reviewed_privacy_purpose_evidence']
+              purpose = case['requested_purpose']
+              subjects = set(case['subjects'])
+
+              if evidence['currentness'] in {'Expired','Superseded'}:
+                  return 'ConsentOrPurposeProfileExpiredOrSuperseded'
+
+              records = evidence.get('purpose_evidence_records', [])
+              if records:
+                  refs = [row['evidence_ref'] for row in records]
+                  if len(refs) != len(set(refs)):
+                      return 'HumanReviewRequired'
+                  if set(row['subject'] for row in records) != subjects:
+                      return 'PurposeOutOfReviewedScope'
+                  if any(row['purpose'] != purpose for row in records):
+                      return 'PurposeOutOfReviewedScope'
+                  if any(row['currentness'] != 'Current' for row in records):
+                      return 'HumanReviewRequired'
+                  active = [row for row in records if row.get('supersedes') is None]
+                  dispositions = {row['disposition'] for row in active}
+                  if len(dispositions) > 1:
+                      return 'EvidenceConflict'
+                  if not dispositions:
+                      return 'HumanReviewRequired'
+                  disposition = next(iter(dispositions))
+              else:
+                  if 'subject' in evidence and {evidence['subject']} != subjects:
+                      return 'PurposeOutOfReviewedScope'
+                  if 'per_source' in evidence:
+                      rows = evidence['per_source']
+                      if {row['subject'] for row in rows} != subjects:
+                          return 'PurposeOutOfReviewedScope'
+                      dispositions = [row.get('purpose_dimensions', {}).get(purpose, 'OutOfScope') for row in rows]
+                      if 'Incompatible' in dispositions:
+                          disposition = 'Incompatible'
+                      elif 'Unknown' in dispositions:
+                          disposition = 'Unknown'
+                      elif 'OutOfScope' in dispositions:
+                          disposition = 'OutOfScope'
+                      else:
+                          disposition = 'Compatible'
+                  else:
+                      disposition = evidence.get('purpose_dimensions', {}).get(purpose, 'OutOfScope')
+
+              if case['split_role'] in {'EvaluationOnly','BenchmarkHoldout'} and purpose == 'RobotPolicyTraining':
+                  return 'IncompatibleWithReviewedPrivacyPurposeProfile'
+              if evidence['participant_evidence'] == 'Unavailable':
+                  return 'ConsentEvidenceUnavailable'
+              if evidence['participant_evidence'] == 'Unknown':
+                  return 'HumanReviewRequired'
+              if evidence['bystander_evidence'] == 'Unknown':
+                  return 'HumanReviewRequired'
+              if evidence['bystander_evidence'] == 'NotPresentInRequestedRepresentation' and ({'RgbVideo','Audio'} & set(case['requested_modalities'])):
+                  return 'HumanReviewRequired'
+
+              if disposition == 'Incompatible':
+                  return 'IncompatibleWithReviewedPrivacyPurposeProfile'
+              if disposition == 'Unknown':
+                  return 'HumanReviewRequired'
+              if disposition == 'OutOfScope':
+                  return 'PurposeOutOfReviewedScope'
+              assert disposition == 'Compatible'
+              return 'CompatibleWithReviewedPrivacyPurposeProfile'
+
+          cases = validate_structure(doc)
+          actual = {}
+          for case in cases:
+              cid = case['id']
+              state = independent_state(case)
+              actual[cid] = state
+              assert state == EXPECTED_STATES[cid], (cid, state, EXPECTED_STATES[cid])
+              assert case['expected_state'] == EXPECTED_STATES[cid]
+              obligations = retained_obligations(case)
+              assert obligations == EXPECTED_OBLIGATIONS[cid], (cid, obligations, EXPECTED_OBLIGATIONS[cid])
+              assert set(case['expected_obligations']) == EXPECTED_OBLIGATIONS[cid]
+              assert set(case.get('external_prerequisites', [])) == EXPECTED_PREREQS.get(cid, set())
+
+          by_id = {case['id']: case for case in cases}
+
+          c09 = by_id['C09-contradictory-purpose-evidence']
+          recs = c09['reviewed_privacy_purpose_evidence']['purpose_evidence_records']
+          assert len({row['evidence_ref'] for row in recs}) == 2
+          assert {row['subject'] for row in recs} == set(c09['subjects'])
+          assert {row['purpose'] for row in recs} == {c09['requested_purpose']}
+          assert {row['disposition'] for row in recs} == {'Compatible','Incompatible'}
+          assert all(row['currentness'] == 'Current' and row.get('supersedes') is None for row in recs)
+          mutated = copy.deepcopy(c09)
+          mutated['reviewed_privacy_purpose_evidence']['purpose_evidence_records'][1]['subject'] = 'synthetic:smartglass:other:v1'
+          assert independent_state(mutated) != 'EvidenceConflict'
+
+          c03 = copy.deepcopy(by_id['C03-unneeded-audio-explicitly-excluded'])
+          c03['requested_modalities'].append('Audio')
+          try:
+              validate_structure({**doc, 'cases': [c03] + [case for case in cases if case['id'] != c03['id']]})
+          except AssertionError:
+              pass
+          else:
+              raise AssertionError('requesting an explicitly excluded Audio modality must fail corpus structure')
+
+          c11 = copy.deepcopy(by_id['C11-deidentification-transform-retains-nonclaim'])
+          assert 'ReidentificationImpossible' in c11['reviewed_privacy_purpose_evidence'].get('nonclaims', [])
+          assert doc['reidentification_impossible_authority'] is False
+          c11['transformations'] = []
+          try:
+              validate_structure({**doc, 'cases': [c11] + [case for case in cases if case['id'] != c11['id']]})
+          except AssertionError:
+              pass
+          else:
+              raise AssertionError('handled-by-transform without transform provenance must fail')
+
+          c19 = by_id['C19-terms-compatibility-cannot-manufacture-privacy']
+          assert 'terms_compatibility_ref' in c19['reviewed_privacy_purpose_evidence']
+          c19_mut = copy.deepcopy(c19)
+          c19_mut['reviewed_privacy_purpose_evidence']['terms_compatibility_ref'] = 'synthetic:terms-super-permissive'
+          assert independent_state(c19_mut) == 'HumanReviewRequired'
+
+          c20 = by_id['C20-compatible-never-creates-publication-or-actuation-authority']
+          assert set(c20['external_prerequisites']) == {'SeparatePublicationAdmission','SeparatePhysicalExecutionAdmission'}
+          assert independent_state(c20) == 'CompatibleWithReviewedPrivacyPurposeProfile'
+          assert doc['publication_authority'] is False and doc['physical_execution_authority'] is False
+
+          mutation = copy.deepcopy(doc)
+          mutation['modalities'].append('SecretBiometricVector')
+          try:
+              validate_structure(mutation)
+          except AssertionError:
+              pass
+          else:
+              raise AssertionError('unknown modality vocabulary was accepted')
+
+          mutation = copy.deepcopy(doc)
+          mutation['legal_compliance_authority'] = True
+          try:
+              validate_structure(mutation)
+          except AssertionError:
+              pass
+          else:
+              raise AssertionError('positive legal authority mutation was accepted')
+
+          for heading in [
+              '## Data-minimization theorem',
+              '## Participant/bystander theorem',
+              '## Transformation theorem',
+              '## Authority ceiling',
+              '## Claim ceiling',
+          ]:
+              assert heading in profile, heading
+
+          fixture_sha = hashlib.sha256(fixture_path.read_bytes()).hexdigest()
+          profile_sha = hashlib.sha256(profile_path.read_bytes()).hexdigest()
+          evidence_dir = Path(os.environ['EVIDENCE'])
+          (evidence_dir / 'case-states.json').write_text(json.dumps(actual, sort_keys=True, indent=2) + '\n')
+          (evidence_dir / 'hashes.txt').write_text(f'fixture_sha256={fixture_sha}\nprofile_sha256={profile_sha}\n')
+          print('case_count=20')
+          print('closed_vocabularies=PASS')
+          print('independent_case_oracle=PASS')
+          print('wearer_bystander_separation=PASS')
+          print('data_minimization=PASS')
+          print('conflict_provenance=PASS')
+          print('reidentification_nonclaim=PASS')
+          print('terms_privacy_independence=PASS')
+          print('publication_actuation_authority=ABSENT')
+          PY
+
+          test -z "$(git status --porcelain)"
+
+      - name: Write exact static qualification receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVIDENCE="$RUNNER_TEMP/emb-data-privacy-001tq-evidence"
+          test "$(git rev-parse HEAD)" = "$PRODUCT_SHA"
+          test "$(git rev-parse HEAD^)" = "$PRODUCT_PARENT_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$PRODUCT_TREE_SHA"
+          test -z "$(git status --porcelain)"
+          {
+            echo "product_sha=$PRODUCT_SHA"
+            echo "product_parent_sha=$PRODUCT_PARENT_SHA"
+            echo "product_tree_sha=$PRODUCT_TREE_SHA"
+            echo "profile_blob=$(git rev-parse HEAD:docs/embodied/EMBODIED_DATA_PRIVACY_PURPOSE_V0_1.md)"
+            echo "fixture_blob=$(git rev-parse HEAD:docs/embodied/fixtures/EMB_DATA_PRIVACY_PURPOSE_V0_1.json)"
+            cat "$EVIDENCE/hashes.txt"
+            echo "case_count=20"
+            echo "authority=SyntheticPrivacyPurposeSemanticsOnly"
+            echo "real_consent_authority=ABSENT"
+            echo "legal_compliance_authority=ABSENT"
+            echo "publication_authority=ABSENT"
+            echo "physical_execution_authority=ABSENT"
+            echo "reidentification_impossible_authority=ABSENT"
+            echo "source_immutable=true"
+            echo "claim_ceiling=QualifiedSyntheticEmbodiedPrivacyPurposeCorpusV0_1_only"
+            echo "STATIC_PRIVACY_PURPOSE_QUALIFIER_PASS"
+          } | tee "$EVIDENCE/receipt.txt"
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: emb-data-privacy-001tq-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/emb-data-privacy-001tq-evidence/
+          if-no-files-found: error
