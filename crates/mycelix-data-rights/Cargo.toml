@@ -1,0 +1,18 @@
+[package]
+name = "mycelix-data-rights"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.96"
+description = "Pure deterministic intended-use compatibility kernel for Mycelix dataset rights evidence"
+license = "AGPL-3.0-or-later"
+authors = ["Luminous Dynamics <contact@luminousdynamics.org>"]
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+
+[lib]
+name = "mycelix_data_rights"
+path = "src/lib.rs"
+
+[dependencies]
+
+[lints.rust]
+unsafe_code = "forbid"
