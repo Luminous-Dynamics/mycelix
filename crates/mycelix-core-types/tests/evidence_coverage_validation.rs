@@ -1,9 +1,13 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use mycelix_core_types::{
-    AssuranceStatus, CoverageAssessment, EvidenceAssessmentStatus, EvidenceSupportProfile,
-};
+//! Never-merge regression qualifier for evidence-coverage structural invariants.
+//!
+//! This fixture deliberately targets only impossible count relationships. It
+//! does not infer representativeness, factual support, or confidence from
+//! coverage counts.
+
+use mycelix_core_types::{CoverageAssessment, EvidenceSupportProfile};
 
 #[test]
 fn rejects_partial_coverage_when_observed_exceeds_known_total() {
@@ -27,7 +31,7 @@ fn rejects_sample_when_sample_size_exceeds_known_population() {
         coverage: CoverageAssessment::Sampled {
             sample_size: 500,
             population_size: Some(100),
-            representativeness: AssuranceStatus::Unassessed,
+            representativeness: Default::default(),
         },
         ..Default::default()
     };
@@ -42,16 +46,12 @@ fn rejects_sample_when_sample_size_exceeds_known_population() {
 fn valid_counts_do_not_promote_factual_status() {
     let profile = EvidenceSupportProfile {
         coverage: CoverageAssessment::Partial {
-            observed: 7,
+            observed: 8,
             total: Some(10),
         },
-        assessment_status: EvidenceAssessmentStatus::Indeterminate,
         ..Default::default()
     };
 
     assert!(profile.validate().is_ok());
-    assert_eq!(
-        profile.assessment_status,
-        EvidenceAssessmentStatus::Indeterminate
-    );
+    assert_eq!(profile.assessment_status, Default::default());
 }
