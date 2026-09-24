@@ -153,6 +153,7 @@ pub mod harmonic;
 pub mod k_vector;
 pub mod moral;
 pub mod systemic;
+mod systemic_validation;
 pub mod trust;
 pub mod wisdom_engine;
 
