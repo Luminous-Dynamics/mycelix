@@ -152,7 +152,7 @@ impl BisDsrSeriesKey {
         if !dataset.is_dsr_v1() {
             return Err(BisParseError::WrongDataset {
                 expected: BisDatasetRef::dsr_v1(),
-                actual: dataset.clone(),
+                actual: Box::new(dataset.clone()),
             });
         }
 
@@ -243,7 +243,7 @@ impl BisSourceArtifactRef {
 pub enum BisParseError {
     WrongDataset {
         expected: BisDatasetRef,
-        actual: BisDatasetRef,
+        actual: Box<BisDatasetRef>,
     },
     WrongDimensionCount,
     UnsupportedFrequency(String),
