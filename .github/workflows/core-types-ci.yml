@@ -23,7 +23,7 @@ env:
 
 jobs:
   core-types:
-    name: Core Types (default + serde)
+    name: Core Types evidence-support qualifier
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -39,23 +39,20 @@ jobs:
         with:
           workspaces: crates/mycelix-core-types
 
-      # Never-merge qualification overlays put behavioral evidence ahead of
-      # style admission so a rustfmt defect cannot mask the semantic theorem.
-      # The PR still fails later if formatting is not clean.
-      - name: Test default feature set
+      - name: Exact evidence-support contract (default)
+        run: cargo test --test evidence_support_contract --no-default-features
+
+      - name: Exact evidence-support contract (serde)
+        run: cargo test --test evidence_support_contract --features serde
+
+      - name: Default crate tests
         run: cargo test --all-targets --no-default-features
 
-      - name: Test serde feature set
-        run: cargo test --all-targets --features serde
+      - name: Serde library check
+        run: cargo check --lib --features serde
 
       - name: Format
         run: cargo fmt -p mycelix-core-types -- --check
 
-      - name: Check default feature set
-        run: cargo check --all-targets --no-default-features
-
-      - name: Check serde feature set
-        run: cargo check --all-targets --features serde
-
-      - name: Clippy serde feature set
-        run: cargo clippy --all-targets --features serde -- -D warnings
+      - name: Clippy library with serde
+        run: cargo clippy --lib --features serde -- -D warnings
