@@ -1,0 +1,52 @@
+name: Core Types CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'crates/mycelix-core-types/**'
+      - '.github/workflows/core-types-ci.yml'
+  pull_request:
+    branches: [main, myc-sys-001d-evidence-support-profile]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'crates/mycelix-core-types/**'
+      - '.github/workflows/core-types-ci.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  core-types:
+    name: Core Types coverage qualifier
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: crates/mycelix-core-types
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/mycelix-core-types
+
+      - name: Exact coverage contract (default)
+        run: cargo test --test evidence_coverage_validation --no-default-features
+
+      - name: Exact coverage contract (serde)
+        run: cargo test --test evidence_coverage_validation --features serde
+
+      - name: Serde library check
+        run: cargo check --lib --features serde
+
+      - name: Format
+        run: cargo fmt -p mycelix-core-types -- --check
