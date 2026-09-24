@@ -1,0 +1,121 @@
+name: FIN-SYS Stock-Flow V1 Qualification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/finance/FIN_SYS_STOCK_FLOW_ORACLE_V1.md'
+      - 'docs/finance/fixtures/stock_flow_v1/**'
+      - 'docs/finance/scripts/verify_stock_flow_v1.py'
+      - '.github/workflows/fin-sys-stock-flow-v1.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  stock-flow-v1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact qualifier subject
+        uses: actions/checkout@v4
+
+      - name: Record Python runtime
+        run: python3 --version
+
+      - name: Verify exact stock-flow corpus
+        run: python3 docs/finance/scripts/verify_stock_flow_v1.py
+
+      - name: Negative control - broken stock-flow identity must fail
+        shell: bash
+        run: |
+          set -euo pipefail
+          public='docs/finance/fixtures/stock_flow_v1/public.json'
+          cp "$public" "$public.bak"
+          trap 'mv -f "$public.bak" "$public"' EXIT
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('docs/finance/fixtures/stock_flow_v1/public.json')
+          doc = json.loads(p.read_text())
+          doc['fixtures'][0]['positions'][0]['closing'] = '101'
+          p.write_text(json.dumps(doc, separators=(',', ':')) + '\n')
+          PY
+          if python3 docs/finance/scripts/verify_stock_flow_v1.py; then
+            echo 'ERROR: verifier accepted broken stock-flow identity' >&2
+            exit 1
+          fi
+          mv -f "$public.bak" "$public"
+          trap - EXIT
+
+      - name: Negative control - borrowing-as-income mutation must fail
+        shell: bash
+        run: |
+          set -euo pipefail
+          public='docs/finance/fixtures/stock_flow_v1/public.json'
+          cp "$public" "$public.bak"
+          trap 'mv -f "$public.bak" "$public"' EXIT
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('docs/finance/fixtures/stock_flow_v1/public.json')
+          doc = json.loads(p.read_text())
+          doc['fixtures'][0]['events'][0]['claimed_flow_class'] = 'CurrentIncome'
+          p.write_text(json.dumps(doc, separators=(',', ':')) + '\n')
+          PY
+          if python3 docs/finance/scripts/verify_stock_flow_v1.py; then
+            echo 'ERROR: verifier accepted borrowing-as-income mutation' >&2
+            exit 1
+          fi
+          mv -f "$public.bak" "$public"
+          trap - EXIT
+
+      - name: Negative control - non-finite numeric must fail
+        shell: bash
+        run: |
+          set -euo pipefail
+          public='docs/finance/fixtures/stock_flow_v1/public.json'
+          cp "$public" "$public.bak"
+          trap 'mv -f "$public.bak" "$public"' EXIT
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('docs/finance/fixtures/stock_flow_v1/public.json')
+          doc = json.loads(p.read_text())
+          doc['fixtures'][0]['positions'][0]['opening'] = 'NaN'
+          p.write_text(json.dumps(doc, separators=(',', ':')) + '\n')
+          PY
+          if python3 docs/finance/scripts/verify_stock_flow_v1.py; then
+            echo 'ERROR: verifier accepted non-finite financial number' >&2
+            exit 1
+          fi
+          mv -f "$public.bak" "$public"
+          trap - EXIT
+
+      - name: Negative control - public/oracle ID mismatch must fail
+        shell: bash
+        run: |
+          set -euo pipefail
+          oracle='docs/finance/fixtures/stock_flow_v1/oracle.json'
+          cp "$oracle" "$oracle.bak"
+          trap 'mv -f "$oracle.bak" "$oracle"' EXIT
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('docs/finance/fixtures/stock_flow_v1/oracle.json')
+          doc = json.loads(p.read_text())
+          doc['fixtures'][0]['fixture_id'] = 'oracle_only_mismatch_001'
+          p.write_text(json.dumps(doc, separators=(',', ':')) + '\n')
+          PY
+          if python3 docs/finance/scripts/verify_stock_flow_v1.py; then
+            echo 'ERROR: verifier accepted public/oracle ID divergence' >&2
+            exit 1
+          fi
+          mv -f "$oracle.bak" "$oracle"
+          trap - EXIT
+
+      - name: Replay positive corpus after hostile controls
+        run: python3 docs/finance/scripts/verify_stock_flow_v1.py
+
+      - name: Postflight - qualifier did not mutate subject
+        run: git diff --exit-code
