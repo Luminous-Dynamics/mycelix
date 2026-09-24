@@ -1,0 +1,71 @@
+name: FIN-SYS Source CI
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-fin-sys-source/**'
+      - '.github/workflows/fin-sys-source-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  harness-source:
+    name: harness / source-present
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify source exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f crates/mycelix-fin-sys-source/Cargo.toml
+          test -f crates/mycelix-fin-sys-source/src/lib.rs
+
+  harness-toolchain:
+    name: harness / rust-1.96-toolchain
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Install pinned Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+      - name: Verify toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc --version
+          cargo --version
+          rustfmt --version
+          cargo clippy --version
+
+  source-parser:
+    name: source-parser / ${{ matrix.phase }}
+    needs: [harness-source, harness-toolchain]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - phase: format
+            command: cargo fmt --manifest-path crates/mycelix-fin-sys-source/Cargo.toml -- --check
+          - phase: check
+            command: cargo check --manifest-path crates/mycelix-fin-sys-source/Cargo.toml
+          - phase: test
+            command: cargo test --manifest-path crates/mycelix-fin-sys-source/Cargo.toml
+          - phase: clippy
+            command: cargo clippy --manifest-path crates/mycelix-fin-sys-source/Cargo.toml --all-targets -- -D warnings
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+      - name: Run ${{ matrix.phase }}
+        shell: bash
+        run: ${{ matrix.command }}
