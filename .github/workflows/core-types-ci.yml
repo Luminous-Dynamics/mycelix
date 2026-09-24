@@ -7,7 +7,7 @@ on:
       - 'crates/mycelix-core-types/**'
       - '.github/workflows/core-types-ci.yml'
   pull_request:
-    branches: [main, myc-sys-001d-evidence-support-profile]
+    branches: [main, myc-sys-001d-evidence-support-profile, myc-sys-001e-coverage-validation]
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'crates/mycelix-core-types/**'
