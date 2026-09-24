@@ -23,8 +23,8 @@ jobs:
           components: rustfmt
       - name: Format and validate core types
         run: |
-          cargo fmt -p mycelix-core-types
-          cargo fmt -p mycelix-core-types -- --check
+          cargo fmt --manifest-path crates/mycelix-core-types/Cargo.toml
+          cargo fmt --manifest-path crates/mycelix-core-types/Cargo.toml -- --check
           cargo test --manifest-path crates/mycelix-core-types/Cargo.toml --all-targets --no-default-features
           cargo check --manifest-path crates/mycelix-core-types/Cargo.toml --lib --features serde
           cargo test --manifest-path crates/mycelix-core-types/Cargo.toml --lib --features serde
