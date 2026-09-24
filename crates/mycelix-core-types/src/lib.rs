@@ -7,6 +7,7 @@
 //!
 //! - **K-Vector**: 8-dimensional trust representation
 //! - **E/N/M/H Classification**: Epistemic classification system
+//! - **Evidence Support**: Orthogonal factual-support/integrity assessment without scalar confidence collapse
 //! - **Systemic Statements**: Provider-neutral, bitemporal evidence/provenance primitives
 //! - **Harmonic Types**: Eight Harmonies integration for GIS v4
 //! - **Moral Uncertainty**: Tripartite moral uncertainty model
@@ -149,6 +150,7 @@
 
 pub mod collective_field;
 pub mod epistemic;
+pub mod evidence_support;
 pub mod harmonic;
 pub mod k_vector;
 pub mod moral;
@@ -158,6 +160,7 @@ pub mod wisdom_engine;
 
 pub use collective_field::*;
 pub use epistemic::*;
+pub use evidence_support::*;
 pub use harmonic::*;
 pub use k_vector::*;
 pub use moral::*;

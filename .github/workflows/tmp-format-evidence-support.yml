@@ -1,0 +1,38 @@
+name: Temporary Evidence Support Formatter
+
+on:
+  push:
+    branches:
+      - myc-sys-001d-evidence-support-profile
+
+permissions:
+  contents: write
+
+jobs:
+  format-and-qualify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: myc-sys-001d-evidence-support-profile
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Format and validate core types
+        run: |
+          cargo fmt --manifest-path crates/mycelix-core-types/Cargo.toml
+          cargo fmt --manifest-path crates/mycelix-core-types/Cargo.toml -- --check
+          cargo test --manifest-path crates/mycelix-core-types/Cargo.toml --all-targets --no-default-features
+          cargo check --manifest-path crates/mycelix-core-types/Cargo.toml --lib --features serde
+          cargo test --manifest-path crates/mycelix-core-types/Cargo.toml --lib --features serde
+      - name: Commit formatting and remove applicator
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/tmp-format-evidence-support.yml
+          git add crates/mycelix-core-types/src/evidence_support.rs crates/mycelix-core-types/src/lib.rs
+          git commit -m 'style(epistemic): apply rustfmt to evidence support'
+          git push origin HEAD:myc-sys-001d-evidence-support-profile
