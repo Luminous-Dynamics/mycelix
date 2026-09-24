@@ -43,5 +43,7 @@ jobs:
       - name: Serde library check
         run: cargo check --lib --features serde
 
-      - name: Format
-        run: cargo fmt -p mycelix-core-types -- --check
+      - name: Format numeric tranche
+        run: |
+          rustfmt --check --edition 2024 src/systemic_validation.rs
+          rustfmt --check --edition 2024 tests/systemic_numeric_validation.rs
