@@ -1,0 +1,38 @@
+name: Temporary Temporal Repair Formatter
+
+on:
+  push:
+    branches:
+      - myc-sys-001c-explicit-temporal-bounds
+
+permissions:
+  contents: write
+
+jobs:
+  format-and-qualify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: myc-sys-001c-explicit-temporal-bounds
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Format and validate core types
+        run: |
+          cargo fmt -p mycelix-core-types
+          cargo fmt -p mycelix-core-types -- --check
+          cargo test --manifest-path crates/mycelix-core-types/Cargo.toml --all-targets --no-default-features
+          cargo check --manifest-path crates/mycelix-core-types/Cargo.toml --lib --features serde
+          cargo test --manifest-path crates/mycelix-core-types/Cargo.toml --lib --features serde
+      - name: Commit formatting and remove applicator
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/tmp-format-temporal-repair.yml
+          git add crates/mycelix-core-types/src/systemic.rs
+          git commit -m 'style(systemic): apply rustfmt to temporal repair'
+          git push origin HEAD:myc-sys-001c-explicit-temporal-bounds
