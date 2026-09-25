@@ -1,0 +1,17 @@
+[package]
+name = "mycelix-circularity"
+version = "0.1.0"
+edition = "2024"
+description = "Circularity lifecycle event profiles over the Mycelix Economic Reality Graph"
+license = "AGPL-3.0-or-later"
+authors = ["Luminous Dynamics <contact@luminousdynamics.org>"]
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
+blake3 = "1"
+mycelix-economic-reality-graph = { path = "../mycelix-economic-reality-graph" }
+
+[dev-dependencies]
+serde_json = "1"
