@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "crates/manufacturing_common",
+    "crates/manufacturing_process_refs",
     "zomes/workorders/coordinator",
     "zomes/workorders/integrity",
     "zomes/bom/coordinator",
