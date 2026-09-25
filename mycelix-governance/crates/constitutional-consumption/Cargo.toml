@@ -1,0 +1,10 @@
+[package]
+name = "constitutional-consumption"
+version = "0.1.0"
+edition = "2021"
+license.workspace = true
+publish = false
+
+[dependencies]
+constitutional-envelope = { path = "../constitutional-envelope" }
+serde = { workspace = true }

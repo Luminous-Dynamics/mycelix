@@ -1,0 +1,202 @@
+{
+  "schema": "mycelix.constitutional-formal-crosswalk.v1",
+  "rust": {
+    "authority_source": "mycelix-governance/crates/constitutional-authority/src/lib.rs",
+    "consumption_source": "mycelix-governance/crates/constitutional-consumption/src/lib.rs"
+  },
+  "formal": {
+    "alloy_authority": "mycelix-governance/specs/alloy/ConstitutionalAuthority.als",
+    "tla_consumption": "mycelix-governance/specs/ConstitutionalConsumptionV2.tla"
+  },
+  "principal_classes": {
+    "branches": {
+      "Deliberative": "Deliberative",
+      "Stewardship": "Stewardship",
+      "Justice": "Justice",
+      "Integrity": "Integrity",
+      "CivicMandate": "CivicMandate"
+    },
+    "guardians": {
+      "RightsDefender": "RightsDefender",
+      "PublicEvidence": "PublicEvidence",
+      "FutureGenerations": "FutureGenerations",
+      "FiscalObservatory": "FiscalObservatory",
+      "PublicService": "PublicService",
+      "ProsecutionService": "ProsecutionService"
+    },
+    "special": {
+      "ConstituentSovereignty": "Constituent",
+      "AutomatedAgent": "AutomatedAgent"
+    }
+  },
+  "powers": {
+    "ProposeOrdinaryLaw": "Deliberative",
+    "EnactOrdinaryLaw": "Deliberative",
+    "AppropriatePublicFunds": "Deliberative",
+    "RatifyTreaty": "Deliberative",
+    "AuthorizeEmergency": "Deliberative",
+    "ConductLegislativeOversight": "Deliberative",
+    "ExecuteLaw": "Stewardship",
+    "ExecuteAppropriation": "Stewardship",
+    "AdministerPublicService": "Stewardship",
+    "DirectPublicAdministration": "Stewardship",
+    "DeclareProvisionalEmergency": "Stewardship",
+    "AdjudicateDispute": "Justice",
+    "ConductConstitutionalReview": "Justice",
+    "IssueJudicialRemedy": "Justice",
+    "AuditPublicExpenditure": "Integrity",
+    "AuditAuthorityUse": "Integrity",
+    "InvestigatePublicIntegrity": "Integrity",
+    "PublishIntegrityFinding": "Integrity",
+    "ReferForProsecution": "Integrity",
+    "AdministerElection": "CivicMandate",
+    "CertifyMandate": "CivicMandate",
+    "AdministerRecall": "CivicMandate",
+    "AdministerInitiative": "CivicMandate",
+    "AdministerSortition": "CivicMandate",
+    "VerifyCivicEligibility": "CivicMandate",
+    "CallConstitutionalConvention": "Constituent",
+    "RatifyStructuralConstitution": "Constituent",
+    "RatifyFoundationalCovenant": "Constituent",
+    "WithdrawConstituentDelegation": "Constituent",
+    "InitiateRightsChallenge": "RightsDefender",
+    "PublishEvidenceAssessment": "PublicEvidence",
+    "InitiateFutureGenerationsReview": "FutureGenerations",
+    "PublishFiscalAssessment": "FiscalObservatory",
+    "CertifyPublicServiceQualification": "PublicService",
+    "InitiatePublicProsecution": "ProsecutionService"
+  },
+  "entitlements": [
+    "RequestLawfulRecord",
+    "AccessSubmittedEvidence",
+    "ReceiveDecisionNotice",
+    "ObtainDecisionReasons",
+    "SubmitEvidence",
+    "ChallengePublicAction",
+    "SeekJudicialReview",
+    "PublishProtectedOversightReport",
+    "ReceiveProtectedDisclosure"
+  ],
+  "tla": {
+    "cutoff_values": {
+      "Finality": "Finality",
+      "Effect": "Effect"
+    },
+    "constants": [
+      "C1",
+      "C2",
+      "C3",
+      "U1",
+      "U2",
+      "MaxSeq",
+      "MaxUses",
+      "Cutoff"
+    ],
+    "variables": [
+      "pending",
+      "finalAt",
+      "effectAt",
+      "revocations",
+      "fault",
+      "depsKnown",
+      "frozenFinalAt",
+      "frozenEffectAt",
+      "clock"
+    ],
+    "required_invariants": [
+      "TypeOK",
+      "RecordedEventsDoNotExceedClock",
+      "AtMostOneFinalizedPerUse",
+      "NoEffectWithoutFinality",
+      "EffectAfterFinality",
+      "FinalizedWithinBudget",
+      "FaultFreezesFinalityAndEffects",
+      "NoEffectForUnfinalizedCompetitor",
+      "RevocationCutoffConsistentWhenFaultFree"
+    ],
+    "abstractions": [
+      {
+        "rust_symbol": "UsageBudget.max_uses",
+        "tla_symbol": "MaxUses",
+        "relationship": "abstraction",
+        "note": "TLA+ models a bounded finite set of use slots rather than the complete distributed lineage-ledger implementation."
+      },
+      {
+        "rust_symbol": "FinalityRequirement.revocation_cutoff",
+        "tla_symbol": "Cutoff",
+        "relationship": "exact_enumeration_correspondence",
+        "note": "Rust Finality/Effect variants correspond to the two checked TLA+ cutoff values."
+      },
+      {
+        "rust_symbol": "ConsumptionState.pending",
+        "tla_symbol": "pending",
+        "relationship": "abstraction",
+        "note": "TLA+ tracks claim identities; Rust retains complete claim objects."
+      },
+      {
+        "rust_symbol": "ConsumptionState.finalized",
+        "tla_symbol": "finalAt",
+        "relationship": "abstraction",
+        "note": "TLA+ maps each abstract claim to zero or a logical finalization sequence."
+      },
+      {
+        "rust_symbol": "ConsumptionState.effects",
+        "tla_symbol": "effectAt",
+        "relationship": "abstraction",
+        "note": "TLA+ models effect occurrence/order, not Rust output references."
+      },
+      {
+        "rust_symbol": "ConsumptionState.revoked_at_seq",
+        "tla_symbol": "revocations",
+        "relationship": "abstraction",
+        "note": "Rust retains the earliest accepted revocation while TLA+ explores a set of observed effective sequences to model late contradictory evidence."
+      },
+      {
+        "rust_symbol": "ConsumptionState.integrity_fault",
+        "tla_symbol": "fault",
+        "relationship": "abstraction",
+        "note": "TLA+ models whether the circuit breaker is active, not the full Rust fault payload."
+      },
+      {
+        "rust_symbol": "FinalityProof.dependency_state",
+        "tla_symbol": "depsKnown",
+        "relationship": "abstraction",
+        "note": "Complete vs indeterminate dependency evidence is abstracted to a Boolean availability state."
+      }
+    ],
+    "out_of_model": [
+      {
+        "rust_symbol": "FinalityProfile",
+        "reason": "V2 does not yet model LocalIdempotent/DetectionOnly/WitnessedSingleSpend/StrongConsensus profile ordering."
+      },
+      {
+        "rust_symbol": "FinalityRequirement.min_witnesses",
+        "reason": "Witness thresholds are validated by Rust and planned for a later TLA+ refinement."
+      },
+      {
+        "rust_symbol": "FinalityRequirement.min_distinct_domains",
+        "reason": "Witness-domain diversity is not represented in V2 temporal state."
+      },
+      {
+        "rust_symbol": "FinalityProof.consensus_ref",
+        "reason": "External consensus technology/reference is intentionally abstracted away."
+      },
+      {
+        "rust_symbol": "ConsumptionClaim.matter",
+        "reason": "MatterId conflict semantics are represented in the authorization layer, not this consumption V2 state machine."
+      },
+      {
+        "rust_symbol": "ConsumptionClaim.target_digest",
+        "reason": "Exact resource binding is established by the authorization envelope and not re-modeled in V2."
+      },
+      {
+        "rust_symbol": "ConsumptionClaim.payload_digest",
+        "reason": "Exact payload binding is established by the authorization envelope and not re-modeled in V2."
+      },
+      {
+        "rust_symbol": "EffectRecord.output_ref",
+        "reason": "V2 proves idempotent effect occurrence/order but does not model concrete output references."
+      }
+    ]
+  }
+}
