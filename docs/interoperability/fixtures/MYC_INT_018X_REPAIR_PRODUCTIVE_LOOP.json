@@ -1,0 +1,158 @@
+{
+  "profile_id": "myc-int-018x-repair-productive-loop-v1",
+  "profile_version": "1.0.0",
+  "status": "synthetic-planned",
+  "parent_productive_loop_subject": "7a6b4e8f26661969f686ce54afb5ad3da10ba754",
+  "generic_conformer": "ProductiveLoopV1",
+  "conformer_class": "repair-restoration",
+  "whole_node_extrapolation_prohibited": true,
+  "authority": "None",
+  "existing_owners": {
+    "work_orders": "mycelix-manufacturing/zomes/workorders",
+    "machines_operations_planning": "mycelix-manufacturing",
+    "worker_skill_history": "mycelix-craft + mycelix-identity",
+    "physical_observation_reference": "domain-owned evidence such as H1"
+  },
+  "required_evidence_sections": [
+    "repair-demand",
+    "asset-capability-subject",
+    "pre-repair-observations",
+    "diagnosis-hypotheses",
+    "work-order-reference",
+    "planned-parts-materials",
+    "observed-consumed-replaced-parts",
+    "work-events",
+    "interventions",
+    "post-repair-verification-profile",
+    "restored-capability-evidence",
+    "residual-defects-limitations",
+    "recurrence-window",
+    "loss-failure-evidence",
+    "outcome-feedback",
+    "external-dependency-map",
+    "correction-supersession-lineage",
+    "unknowns-conflicts"
+  ],
+  "semantic_separations": [
+    "repair-demand != diagnosis",
+    "work-order-created != work-performed",
+    "planned-part != consumed-or-replaced-part",
+    "work-order-completed != capability-restored",
+    "immediate-functional-test-pass != recurrence-free-repair",
+    "work-performed != compensation-or-itc-or-standing",
+    "diagnosis-hypothesis != observed-cause",
+    "synthetic-fault != physical-repair-event"
+  ],
+  "first_synthetic_reference_case": {
+    "case_id": "repair-h1-circulation-001",
+    "physical_execution_claimed": false,
+    "asset_subject": "H1 circulation subsystem",
+    "capability_subject": "bounded-water-circulation-under-run-profile",
+    "pre_repair_evidence_refs": [
+      "H1/FI-08:pump-command-without-flow",
+      "H1/FI-09:partial-flow-restriction"
+    ],
+    "pre_repair_state": {
+      "pump_command": "on-or-requested-on",
+      "measured_flow": "absent-or-degraded",
+      "cause": "UnknownUntilEvidence"
+    },
+    "work_order": {
+      "owner": "mycelix-manufacturing/zomes/workorders",
+      "reference": "UnboundSynthetic",
+      "status_is_not_restoration_proof": true
+    },
+    "planned_parts": [],
+    "observed_consumed_or_replaced_parts": [],
+    "work_events": [],
+    "interventions": [],
+    "post_repair_verification_profile": {
+      "required": [
+        "exact-commanded-state",
+        "electrical-state-if-observed",
+        "measured-flow-under-exact-test-profile",
+        "leak-containment-check",
+        "manual-stop-verified",
+        "residual-limitations-recorded"
+      ],
+      "single_nominal_sample_sufficient": false
+    },
+    "recurrence_window": {
+      "required": true,
+      "duration_profile": "Unbound",
+      "no_recurrence_claim_without_window": true
+    },
+    "outcome": {
+      "restored_capability_claimed": false,
+      "recurrence_free_claimed": false,
+      "n2_established": false
+    }
+  },
+  "productiveloop_mapping": {
+    "inputs_materials": {
+      "planned_parts_are_not_consumed_parts": true,
+      "replacement_part_identity_provenance_required": true
+    },
+    "work": {
+      "observed_work_required_for_physical_case": true,
+      "auto_compensation": false,
+      "auto_itc_credit": false,
+      "auto_governance_standing": false
+    },
+    "process": {
+      "inspection_intervention_evidence_domain_owned": true,
+      "diagnosis_may_not_replace_observation": true
+    },
+    "useful_output": {
+      "type": "RestoredCapabilityUnderExactVerificationProfile",
+      "work_order_status_is_not_output": true
+    },
+    "loss_failure": {
+      "failed_attempts_retained": true,
+      "damaged_or_rejected_parts_retained": true,
+      "unresolved_defects_retained": true,
+      "downtime_retained": true,
+      "recurrence_retained": true
+    },
+    "outcome_feedback": {
+      "restoration_result_required": true,
+      "operator_or_user_verification_as_applicable": true,
+      "recurrence_window_required": true,
+      "unknowns_and_deviations_retained": true
+    }
+  },
+  "n1_to_n2": {
+    "can_contribute_at_least_one_real_productive_loop_when_physical_and_evidence_complete": true,
+    "can_contribute_work_material_observations_when_physical_and_evidence_complete": true,
+    "can_contribute_outcome_feedback_when_physical_and_evidence_complete": true,
+    "automatically_establishes_n2": false,
+    "maturation_transition_record_required": true
+  },
+  "negative_fixtures": [
+    "work-order-created-treated-as-repair-complete",
+    "work-order-completed-treated-as-restored-capability",
+    "planned-part-treated-as-consumed",
+    "diagnosis-treated-as-observed-cause",
+    "single-nominal-reading-treated-as-stable-restoration",
+    "recurrence-window-omitted",
+    "failed-repair-attempt-omitted",
+    "replacement-part-provenance-omitted",
+    "work-auto-issues-compensation-or-itc-or-standing",
+    "synthetic-h1-fault-treated-as-physical-repair",
+    "post-repair-flow-inferred-from-pump-command",
+    "repair-output-grants-authority",
+    "one-repaired-subsystem-marks-whole-node-resilient-or-productive",
+    "historical-failure-rewritten-after-success",
+    "unresolved-limitation-hidden-on-workorder-close"
+  ],
+  "claim_ceiling": {
+    "physical_repair_executed": false,
+    "worker_qualified": false,
+    "restored_capability_established": false,
+    "recurrence_free_established": false,
+    "compensation_entitlement_established": false,
+    "safety_qualified": false,
+    "n2_established": false,
+    "whole_node_resilience_established": false
+  }
+}
