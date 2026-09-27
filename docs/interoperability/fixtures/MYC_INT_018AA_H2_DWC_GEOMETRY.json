@@ -1,0 +1,144 @@
+{
+  "profile_id": "myc-int-018aa-h2-dwc-geometry-v1",
+  "profile_version": "1.0.0",
+  "status": "design-reference-fixture",
+  "parent_018u_subject": "98a37538ef2cd36407e63f7c0904b012012bced8",
+  "physical_geometry_bound": false,
+  "authority": "None",
+  "whole_node_extrapolation_prohibited": true,
+  "reference_anchors": [
+    {
+      "source": "Virginia Tech Cooperative Extension SPES-464",
+      "url": "https://www.pubs.ext.vt.edu/SPES/spes-464/spes-464.html",
+      "claim": "lettuce raft plant spaces are usually about 8 inches apart",
+      "normalized_reference": {"center_spacing_mm_approx": 203.2},
+      "normative": false
+    },
+    {
+      "source": "Virginia Tech Cooperative Extension SPES-464",
+      "url": "https://www.pubs.ext.vt.edu/SPES/spes-464/spes-464.html",
+      "claim": "raft size is usually around 2 ft by 4 ft but varies by need and handling",
+      "normalized_reference": {"raft_width_mm_approx": 609.6, "raft_length_mm_approx": 1219.2},
+      "normative": false
+    },
+    {
+      "source": "UF/IFAS HS1422",
+      "url": "https://ask.ifas.ufl.edu/publication/HS1422",
+      "claim": "small floating raft systems may use a lined reservoir, roughly 2-inch foam surface, aerator and air stone",
+      "normalized_reference": {"foam_thickness_mm_approx": 50.8},
+      "normative": false
+    }
+  ],
+  "geometry_generation": {
+    "generation_id": "Unbound",
+    "reservoir": {
+      "outer_dimensions_mm": null,
+      "usable_depth_range_mm": null,
+      "nominal_volume_l": null,
+      "working_volume_l": null,
+      "max_volume_l": null,
+      "freeboard_profile": null,
+      "overflow_profile": null,
+      "containment_profile": null
+    },
+    "raft": {
+      "dimensions_mm": null,
+      "material_profile": null,
+      "thickness_mm": null,
+      "hole_coordinates_mm": [],
+      "hole_or_netpot_profile": null,
+      "center_spacing_mm": null,
+      "edge_setbacks_mm": null,
+      "intended_plant_count": null,
+      "spacing_stage": null,
+      "root_zone_clearance_profile": null
+    },
+    "hydraulics_aeration": {
+      "circulation_inlet_coordinates": [],
+      "circulation_outlet_coordinates": [],
+      "aeration_device_coordinates": [],
+      "aeration_device_profiles": [],
+      "mixing_state_profile": null
+    },
+    "sensor_geometry": {
+      "do_sensor_locations": [],
+      "ph_sensor_locations": [],
+      "ec_sensor_locations": [],
+      "solution_temperature_locations": [],
+      "level_distance_geometry": null,
+      "flow_sensor_location": null,
+      "leak_sensor_locations": []
+    },
+    "operations": {
+      "service_access_envelope": null,
+      "harvest_access_envelope": null,
+      "wet_dry_electrical_boundary": null,
+      "asset_labels": []
+    }
+  },
+  "canopy_light_sampling_profile": {
+    "bound": false,
+    "sensor_profile": null,
+    "reference_plane": null,
+    "measurement_coordinates_mm": [],
+    "method": null,
+    "sampling_cadence": null,
+    "integration_window": null,
+    "missing_stale_policy": "MustRemainExplicit",
+    "spatial_aggregation_method": null,
+    "coverage_ceiling": "UnknownUntilBound",
+    "single_fixed_point_implies_uniformity": false,
+    "rotating_sensor_implies_simultaneous_coverage": false
+  },
+  "do_spatial_sampling_profile": {
+    "bound": false,
+    "sensor_profile": null,
+    "measurement_coordinates_and_depths": [],
+    "manual_cross_check_locations": [],
+    "observation_window": null,
+    "mixing_state_required": true,
+    "single_point_implies_homogeneity": false,
+    "coverage_ceiling": "UnknownUntilBound"
+  },
+  "cultivar_geometry_admission_requirements": [
+    "mature-canopy-or-head-spread-assumption",
+    "expected-root-clearance",
+    "planting-density",
+    "airflow-service-access",
+    "harvest-method",
+    "light-uniformity-implications"
+  ],
+  "run_binding": {
+    "exact_geometry_generation_required_before_evidence": true,
+    "material_midrun_change_requires_deviation_or_new_generation": true,
+    "historical_geometry_rewrite_after_output_prohibited": true
+  },
+  "negative_fixtures": [
+    "reference-eight-inch-spacing-treated-as-optimum",
+    "reference-two-by-four-raft-treated-as-mandatory",
+    "hole-count-treated-as-productive-output",
+    "one-ppfd-point-treated-as-canopy-dli",
+    "rotating-sensor-treated-as-simultaneous-coverage",
+    "missing-ppfd-interval-silently-filled",
+    "one-do-point-treated-as-reservoir-homogeneous",
+    "air-pump-command-treated-as-do-adequate",
+    "reservoir-level-treated-as-volume-without-geometry",
+    "geometry-changed-midrun-without-deviation",
+    "cultivar-fit-inferred-from-hydroponic-claim",
+    "service-harvest-access-omitted",
+    "wet-dry-boundary-omitted",
+    "geometry-treated-as-food-safety-approval",
+    "geometry-treated-as-agronomic-optimum"
+  ],
+  "claim_ceiling": {
+    "geometry_selected": false,
+    "planting_density_optimized": false,
+    "aeration_adequacy_established": false,
+    "ppfd_uniformity_established": false,
+    "do_homogeneity_established": false,
+    "cultivar_geometry_compatible": false,
+    "crop_performance_established": false,
+    "food_safety_established": false,
+    "n2_established": false
+  }
+}
