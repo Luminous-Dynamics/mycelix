@@ -1,0 +1,70 @@
+name: MYC-INT-018Z exact repair qualification
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/myc-int-018zq-exact-repair-validator.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SUBJECT_SHA: 5ee98d3b3a9e92ade80ca47b6ecabd30edc86ee0
+  PARENT_SHA: fc446bca257d48ebb0233fd720792875425bbbd8
+
+jobs:
+  qualify-exact-018z:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact validator subject
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SUBJECT_SHA }}
+          fetch-depth: 0
+
+      - name: Verify exact validator scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SUBJECT_SHA"
+          actual="$(git diff --name-only "$PARENT_SHA" "$SUBJECT_SHA" | sort)"
+          expected="$(printf '%s\n' \
+            docs/interoperability/tools/test_validate_myc_int_018z.py \
+            docs/interoperability/tools/validate_myc_int_018z.py | sort)"
+          test "$actual" = "$expected"
+
+      - name: Compile validator and tests
+        run: |
+          python3 -m py_compile \
+            docs/interoperability/tools/validate_myc_int_018z.py \
+            docs/interoperability/tools/test_validate_myc_int_018z.py
+
+      - name: Run mutation suite
+        working-directory: docs/interoperability/tools
+        run: python3 -m unittest -v test_validate_myc_int_018z.py
+
+      - name: Validate exact repair fixture
+        run: |
+          python3 docs/interoperability/tools/validate_myc_int_018z.py \
+            docs/interoperability/fixtures/MYC_INT_018X_REPAIR_PRODUCTIVE_LOOP.json
+
+      - name: Build evidence capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/myc-int-018z
+          printf 'subject=%s\nparent=%s\n' "$SUBJECT_SHA" "$PARENT_SHA" > evidence/myc-int-018z/subjects.txt
+          python3 --version > evidence/myc-int-018z/python-version.txt 2>&1
+          git --version > evidence/myc-int-018z/git-version.txt
+          sha256sum \
+            docs/interoperability/fixtures/MYC_INT_018X_REPAIR_PRODUCTIVE_LOOP.json \
+            docs/interoperability/tools/validate_myc_int_018z.py \
+            docs/interoperability/tools/test_validate_myc_int_018z.py \
+            > evidence/myc-int-018z/sha256.txt
+
+      - name: Upload qualification capsule
+        uses: actions/upload-artifact@v4
+        with:
+          name: myc-int-018z-exact-qualification
+          path: evidence/myc-int-018z
