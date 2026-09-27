@@ -1,0 +1,80 @@
+{
+  "profile_id": "myc-int-007k-bootstrap-run-v1",
+  "profile_version": "1.0.0",
+  "status": "design-fixture",
+  "seed_package_generation": "A-seed-0001",
+  "receiving_node": "B",
+  "mode": "FreshNode",
+  "bootstrap_state": "Planned",
+  "component_admission": [
+    {"component_id":"design-pack-a1","decision":"AcceptWithLocalAdaptation","local_generation":"B-design-gen-1","declared_loss":true},
+    {"component_id":"deployment-pack-a1","decision":"AcceptAsIs","local_generation":"B-deploy-admission-1","declared_loss":false},
+    {"component_id":"conformance-pack-a1","decision":"AcceptAsIs","local_generation":"B-conformance-admission-1","declared_loss":false},
+    {"component_id":"operations-pack-a1","decision":"AcceptWithLocalAdaptation","local_generation":"B-ops-gen-1","declared_loss":false},
+    {"component_id":"training-pack-a1","decision":"AcceptAsIs","local_generation":"B-training-admission-1","declared_loss":false},
+    {"component_id":"physical-pack-a1","decision":"MoreEvidenceRequired","local_generation":null,"declared_loss":false},
+    {"component_id":"federation-intro-a1","decision":"Defer","local_generation":null,"declared_loss":false}
+  ],
+  "identity_events_required": [
+    {"identity":"NodeIdentity","fresh":true,"copied_from_seeder":false},
+    {"identity":"HostIdentity","fresh":true,"copied_from_seeder":false},
+    {"identity":"ApplicationAgentIdentity","fresh":true,"copied_from_seeder":false}
+  ],
+  "local_governance": {
+    "owner":"ReceivingNodeB",
+    "initialized_locally":true,
+    "source_node_roles_inherited":false,
+    "source_node_standing_inherited":false
+  },
+  "foreign_artifact_rules": {
+    "source_certification_auto_local":false,
+    "source_reputation_auto_local":false,
+    "source_balances_auto_local":false,
+    "source_authority_auto_local":false
+  },
+  "federation": {
+    "required_for_bootstrap":false,
+    "joined_during_bootstrap":false,
+    "may_join_later":true,
+    "may_leave_later":true
+  },
+  "independence_test": {
+    "seeder_A_available_initially":true,
+    "seeder_A_removed_after_package_transfer":true,
+    "required_local_operation_interval_seconds":86400,
+    "required_capabilities_under_test":[
+      "local-compute-network",
+      "local-evidence-provenance",
+      "local-governance-operations",
+      "admitted-productive-loop-profile"
+    ],
+    "external_dependencies_must_remain_explicit":true
+  },
+  "recursive_seeding_requirement": {
+    "B_must_later_produce_own_seed_package":true,
+    "A_required_for_B_to_C":false,
+    "B_to_C_uses_same_contract":true,
+    "lineage_provenance_retained":true,
+    "authority_lineage_inherited":false
+  },
+  "evidence_required": [
+    "seed-package-commitment",
+    "component-admission-records",
+    "fresh-identity-generation-events-without-secret-disclosure",
+    "local-governance-initialization-record",
+    "adaptation-and-loss-records",
+    "remaining-external-dependency-map",
+    "seeder-unavailability-transition",
+    "local-operation-observations-during-seeder-outage",
+    "optional-later-federation-event",
+    "second-generation-seed-package-export"
+  ],
+  "claim_ceiling": {
+    "bootstrap_executed": false,
+    "independence_proven": false,
+    "recursive_seeding_proven": false,
+    "economic_self_sufficiency_established": false,
+    "social_legitimacy_established": false,
+    "legal_compliance_established": false
+  }
+}
