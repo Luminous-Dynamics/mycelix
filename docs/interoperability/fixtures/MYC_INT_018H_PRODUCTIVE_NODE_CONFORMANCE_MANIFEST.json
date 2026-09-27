@@ -1,0 +1,182 @@
+{
+  "profile": "MYC-INT-018H/productive-node-conformance/v1",
+  "synthetic": true,
+  "observed_design_date": "2026-09-27",
+  "authority_ceiling": "ConformanceFixtureOnly",
+  "nonclaims": [
+    "agronomic_correctness",
+    "sensor_calibration",
+    "food_safety",
+    "water_safety",
+    "regulatory_compliance",
+    "commercial_viability",
+    "hardware_reliability",
+    "symthaea_real_world_accuracy",
+    "autonomous_control_safety"
+  ],
+  "cases": [
+    {
+      "id": "PN-01",
+      "name": "truthful-production-environment-identity",
+      "expected_disposition": "RejectSemanticStrengthening",
+      "invariants": [
+        "hydroponic_environment_must_not_require_fake_soil_type",
+        "soil_and_hydroponic_environment_identities_remain_distinct"
+      ]
+    },
+    {
+      "id": "PN-02",
+      "name": "missing-stale-observation",
+      "expected_disposition": "ExplicitUnknownOrHistorical",
+      "invariants": [
+        "missing_is_not_zero",
+        "stale_is_not_current",
+        "last_known_is_not_current"
+      ]
+    },
+    {
+      "id": "PN-03",
+      "name": "conflicting-probes",
+      "expected_disposition": "PreserveConflict",
+      "invariants": [
+        "conflicting_observations_remain_distinct",
+        "conflict_is_not_average_as_truth"
+      ]
+    },
+    {
+      "id": "PN-04",
+      "name": "duplicate-delayed-delivery",
+      "expected_disposition": "SingleSemanticObservation",
+      "invariants": [
+        "duplicate_delivery_is_not_duplicate_observation",
+        "arrival_order_does_not_define_observation_currentness"
+      ]
+    },
+    {
+      "id": "PN-05",
+      "name": "water-standards-convenience-field",
+      "expected_disposition": "SourceAssertionOnly",
+      "invariants": [
+        "source_standard_boolean_is_not_qualified_assessment"
+      ]
+    },
+    {
+      "id": "PN-06",
+      "name": "process-suitability-versus-admission",
+      "expected_disposition": "AssessmentWithoutAuthority",
+      "invariants": [
+        "suitable_is_not_admitted",
+        "suitable_is_not_valve_authority",
+        "suitable_is_not_pump_authority"
+      ]
+    },
+    {
+      "id": "PN-07",
+      "name": "energy-verification-convenience-field",
+      "expected_disposition": "SourceAssertionOnly",
+      "invariants": [
+        "energy_verified_boolean_is_not_verification_receipt",
+        "meter_value_without_profile_is_not_qualification_grade_telemetry"
+      ]
+    },
+    {
+      "id": "PN-08",
+      "name": "evidence-lease-versus-currentness",
+      "expected_disposition": "DomainCurrentnessRequired",
+      "invariants": [
+        "valid_evidence_lease_is_not_domain_currentness"
+      ]
+    },
+    {
+      "id": "PN-09",
+      "name": "residue-compost-admission",
+      "expected_disposition": "ExplicitAdmissionRequired",
+      "invariants": [
+        "waste_record_is_not_compost_input_until_admitted",
+        "compost_output_is_not_hydroponic_nutrient_solution"
+      ]
+    },
+    {
+      "id": "PN-10",
+      "name": "fabrication-repair-chain",
+      "expected_disposition": "PreserveStageIdentity",
+      "invariants": [
+        "design_is_not_manufactured_artifact",
+        "manufactured_artifact_is_not_installed_artifact",
+        "installed_artifact_is_not_successful_repair"
+      ]
+    },
+    {
+      "id": "PN-11",
+      "name": "assessment-profile-revision",
+      "expected_disposition": "DistinctAssessmentIdentity",
+      "invariants": [
+        "profile_revision_changes_assessment_identity",
+        "later_profile_does_not_rewrite_historical_assessment"
+      ]
+    },
+    {
+      "id": "PN-12",
+      "name": "analysis-contradicted-by-observation",
+      "expected_disposition": "ReviewCandidate",
+      "invariants": [
+        "analysis_artifact_remains_immutable",
+        "later_observation_remains_source_owned",
+        "contradiction_does_not_mutate_source_history"
+      ]
+    },
+    {
+      "id": "PN-13",
+      "name": "multi-objective-tradeoff",
+      "expected_disposition": "PreserveMetricVector",
+      "invariants": [
+        "water_improvement_and_energy_worsening_can_coexist",
+        "no_hidden_scalar_winner"
+      ]
+    },
+    {
+      "id": "PN-14",
+      "name": "foreign-evidence-local-authority",
+      "expected_disposition": "EvidenceWithoutAuthorityTransfer",
+      "invariants": [
+        "foreign_evidence_may_cross_boundary",
+        "foreign_authority_does_not_cross_by_implication"
+      ]
+    },
+    {
+      "id": "PN-15",
+      "name": "module-removal-export",
+      "expected_disposition": "SurvivingHistoryRemainsInterpretable",
+      "invariants": [
+        "optional_module_removal_does_not_reinterpret_source_history",
+        "surviving_semantic_refs_remain_stable"
+      ]
+    },
+    {
+      "id": "PN-16",
+      "name": "itc-disabled-neutrality",
+      "expected_disposition": "OperationalSemanticsRemainValid",
+      "invariants": [
+        "core_source_identity_does_not_depend_on_itc",
+        "decision_authorization_outcome_semantics_remain_available_without_itc"
+      ]
+    },
+    {
+      "id": "PN-17",
+      "name": "synthetic-provenance-preservation",
+      "expected_disposition": "SyntheticMarkerPreserved",
+      "invariants": [
+        "synthetic_fixture_cannot_be_promoted_to_physical_observation"
+      ]
+    },
+    {
+      "id": "PN-18",
+      "name": "dashboard-source-owner-separation",
+      "expected_disposition": "DerivedViewOnly",
+      "invariants": [
+        "dashboard_summary_is_not_source_record",
+        "dashboard_cannot_overwrite_source_domain_fact"
+      ]
+    }
+  ]
+}
