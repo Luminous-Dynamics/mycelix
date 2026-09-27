@@ -1,4 +1,7 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum SourceFamily {
     TechnicalSpecifications,
     DevelopmentGuide,
@@ -7,15 +10,18 @@ pub enum SourceFamily {
     ExplanatoryPage,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ExternalStatus {
     Draft,
     Pending,
     Ratified,
+    DevelopmentGuideProposal,
     Explanatory,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ContractKind {
     DataStructure,
     Interface,
@@ -30,7 +36,7 @@ pub struct ExternalContractRef {
     pub kind: ContractKind,
 }
 
-/// Current public Integral Phase-0 contract identities observed 2026-09-27.
+/// Current public Integral contract identities observed 2026-09-27.
 /// These are adapter-owned external identities, not canonical Mycelix types.
 pub const CURRENT_EXTERNAL_CONTRACTS: [ExternalContractRef; 9] = [
     ExternalContractRef {
