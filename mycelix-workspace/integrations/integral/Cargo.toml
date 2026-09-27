@@ -1,0 +1,13 @@
+[package]
+name = "mycelix-integral-shell"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+# Keep this shell independently testable until its parent workspace integration
+# and runtime dependencies are explicitly qualified.
+[workspace]
