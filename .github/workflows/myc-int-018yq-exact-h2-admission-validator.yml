@@ -1,0 +1,85 @@
+name: MYC-INT-018Y exact H2 admission qualification
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/myc-int-018yq-exact-h2-admission-validator.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SUBJECT_SHA: e1d3bd58814bd6b6e135d4c38243c3b2c24cdd61
+  PARENT_SHA: 98a37538ef2cd36407e63f7c0904b012012bced8
+  CULTIVAR_SHA: f3ef0119e24ca9655eee9f0cf08ee404c5284f9e
+  SENSOR_SHA: 6498ae198e7c11c72c27161e63a79ffb8a3c6717
+
+jobs:
+  qualify-exact-018y:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact validator subject
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SUBJECT_SHA }}
+          fetch-depth: 0
+
+      - name: Verify exact validator scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SUBJECT_SHA"
+          actual="$(git diff --name-only "$PARENT_SHA" "$SUBJECT_SHA" | sort)"
+          expected="$(printf '%s\n' \
+            docs/interoperability/tools/test_validate_myc_int_018y.py \
+            docs/interoperability/tools/validate_myc_int_018y.py | sort)"
+          test "$actual" = "$expected"
+
+      - name: Fetch and extract exact sibling fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin "$CULTIVAR_SHA" "$SENSOR_SHA"
+          mkdir -p /tmp/myc-int-018y
+          git show "$CULTIVAR_SHA:docs/interoperability/fixtures/MYC_INT_018V_H2_LETTUCE_CULTIVAR_ADMISSION.json" > /tmp/myc-int-018y/018v.json
+          git show "$SENSOR_SHA:docs/interoperability/fixtures/MYC_INT_018W_H2_SENSOR_CANDIDATES.json" > /tmp/myc-int-018y/018w.json
+
+      - name: Compile validator and tests
+        run: |
+          python3 -m py_compile \
+            docs/interoperability/tools/validate_myc_int_018y.py \
+            docs/interoperability/tools/test_validate_myc_int_018y.py
+
+      - name: Run mutation suite
+        working-directory: docs/interoperability/tools
+        run: python3 -m unittest -v test_validate_myc_int_018y.py
+
+      - name: Validate exact sibling fixtures
+        run: |
+          python3 docs/interoperability/tools/validate_myc_int_018y.py \
+            /tmp/myc-int-018y/018v.json \
+            /tmp/myc-int-018y/018w.json
+
+      - name: Build evidence capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/myc-int-018y
+          printf 'validator=%s\nparent=%s\ncultivar=%s\nsensor=%s\n' \
+            "$SUBJECT_SHA" "$PARENT_SHA" "$CULTIVAR_SHA" "$SENSOR_SHA" \
+            > evidence/myc-int-018y/subjects.txt
+          python3 --version > evidence/myc-int-018y/python-version.txt 2>&1
+          git --version > evidence/myc-int-018y/git-version.txt
+          sha256sum \
+            /tmp/myc-int-018y/018v.json \
+            /tmp/myc-int-018y/018w.json \
+            docs/interoperability/tools/validate_myc_int_018y.py \
+            docs/interoperability/tools/test_validate_myc_int_018y.py \
+            > evidence/myc-int-018y/sha256.txt
+
+      - name: Upload qualification capsule
+        uses: actions/upload-artifact@v4
+        with:
+          name: myc-int-018y-exact-qualification
+          path: evidence/myc-int-018y
