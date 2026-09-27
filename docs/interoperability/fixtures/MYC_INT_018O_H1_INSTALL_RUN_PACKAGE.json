@@ -1,0 +1,143 @@
+{
+  "profile_id": "myc-int-018o-h1-install-run-package-v1",
+  "profile_version": "1.0.0",
+  "status": "design-fixture",
+  "parent_018n_subject": "adf94f84adfd73ea94cdcf5fc9a1a96a05e10472",
+  "package_status": "Draft",
+  "claim_ceiling": {
+    "wiring_approved": false,
+    "energization_approved": false,
+    "electrical_safety_certified": false,
+    "sensor_calibration_established": false,
+    "agronomic_qualified": false,
+    "autonomous_control_authorized": false
+  },
+  "delivered_hardware_inventory": [],
+  "documentation_capture": [],
+  "electrical_design": {
+    "power_rails": [],
+    "protection_devices": [],
+    "switching_elements": [],
+    "ground_domains": [],
+    "isolation_barriers": [],
+    "level_shifters_or_buffers": [],
+    "connector_pin_map": [],
+    "manual_stop_override": null,
+    "visible_state_indication": null,
+    "wet_dry_boundary": null,
+    "power_budget_reviewed": false
+  },
+  "hydraulic_process": {
+    "reservoir_geometry_profile": null,
+    "tubing_fitting_profile": null,
+    "pump_installation_profile": null,
+    "restriction_bypass_profile": null,
+    "drain_isolation_points": [],
+    "containment_profile": null,
+    "flow_sensor_placement": null,
+    "level_distance_geometry": null,
+    "leak_sensor_placement": null,
+    "first_wet_test_medium": "clean-water-only"
+  },
+  "sensor_installations": [],
+  "calibration_check_plan": {
+    "factory_claims": [],
+    "local_functional_checks": [],
+    "local_calibrations": [],
+    "independent_cross_checks": [],
+    "expired_or_missing_evidence": []
+  },
+  "stage_gates": {
+    "H1a": {
+      "name": "dry-instrumentation-power",
+      "required_checks": [
+        "visual-inspection",
+        "polarity-continuity-as-applicable",
+        "fuses-and-protection-present",
+        "manual-stop-available",
+        "controller-and-sensor-interface-bring-up",
+        "idle-current-voltage-baseline",
+        "no-unintended-actuator-energization",
+        "manual-stop-tested"
+      ],
+      "approved": false
+    },
+    "H1b": {
+      "name": "clean-water-closed-loop",
+      "requires": ["H1a-approved"],
+      "required_checks": [
+        "containment-ready",
+        "clean-water-only",
+        "pre-circulation-leak-check",
+        "pump-prime-or-submergence-satisfied",
+        "flow-channel-active",
+        "reservoir-level-channel-active",
+        "leak-channel-active",
+        "solution-temperature-active",
+        "manual-stop-verified",
+        "power-current-baseline-retained",
+        "stop-criteria-defined"
+      ],
+      "approved": false
+    },
+    "H1c": {
+      "name": "nutrient-solution-sensing",
+      "requires": ["H1b-evidence-reviewed"],
+      "required_checks": [
+        "solution-preparation-profile-bound",
+        "ph-chain-installed",
+        "ec-chain-installed",
+        "calibration-check-evidence-current-under-run-profile",
+        "temperature-compensation-source-bound",
+        "do-enabled-only-if-process-profile-requires",
+        "automatic-dosing-disabled"
+      ],
+      "approved": false
+    }
+  },
+  "stop_abort_conditions": [
+    "leak-detected",
+    "unexpected-current-or-overtemperature",
+    "electrical-smell-smoke-noise",
+    "manual-stop-unavailable",
+    "unintended-actuator-state",
+    "prohibited-dry-running-condition",
+    "loss-of-containment",
+    "critical-sensor-or-interface-failure",
+    "unknown-wiring-or-device-identity",
+    "operator-concern"
+  ],
+  "run_evidence_requirements": [
+    "exact-installation-package-generation",
+    "exact-run-profile",
+    "exact-hardware-install-identities",
+    "pre-run-checklist-result",
+    "calibration-check-evidence-refs",
+    "edge-provider-adapter-versions-if-used",
+    "local-time-counter-evidence-with-limitations",
+    "observation-export",
+    "fault-action-log",
+    "manual-interventions",
+    "stop-abort-events",
+    "post-run-inspection-result",
+    "deviations-and-unknowns",
+    "evidence-commitments"
+  ],
+  "negative_controls": [
+    "delivered-revision-mismatch-hidden",
+    "gpio-level-assumed-safe",
+    "pump-directly-on-pi-gpio",
+    "shared-ground-assumed",
+    "protection-values-missing",
+    "manual-stop-not-tested",
+    "nutrient-before-clean-water-test",
+    "ph-ec-assumed-calibrated",
+    "flow-inferred-from-pump-command",
+    "distance-treated-as-volume",
+    "network-required-for-local-stop",
+    "analysis-causes-actuation-without-local-authority",
+    "missing-stale-sensor-treated-as-nominal",
+    "package-edited-after-run",
+    "abort-or-manual-intervention-omitted"
+  ]
+}
