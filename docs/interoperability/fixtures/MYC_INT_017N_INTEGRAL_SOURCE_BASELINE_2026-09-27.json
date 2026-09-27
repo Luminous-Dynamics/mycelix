@@ -1,0 +1,158 @@
+{
+  "profile": "myc-int-017n-integral-source-baseline-v1",
+  "observed_at": "2026-09-27",
+  "authority_precedence_decided_here": false,
+  "notes": [
+    "This baseline records observed source generations; it does not decide which Integral document governs a conflict.",
+    "GitHub blob identities are exact content identities for the recorded files.",
+    "The public Technical Specifications website is recorded as an unqualified web observation because no exact EPI/WEB-CAPTURE content commitment is available in this generation.",
+    "A source change does not update or requalify any Mycelix adapter automatically."
+  ],
+  "sources": [
+    {
+      "source_id": "integral.technical-specifications.public-web",
+      "source_family": "technical_specifications",
+      "role": "current public draft/pending contract presentation",
+      "status": "unqualified_web_observation",
+      "locator": "integralcollective.io/documents/specifications.html",
+      "identity": {
+        "kind": "web_observation",
+        "observation_token": "observed-2026-09-27",
+        "content_commitment": null
+      },
+      "observed_summary": "six DRAFT SPEC-DS structures; three PENDING SPEC-IF interfaces; SPEC-STACK-01 PENDING"
+    },
+    {
+      "source_id": "integral.specifications.readme",
+      "source_family": "technical_specifications_repository",
+      "role": "repository status and future authoritative-schema location",
+      "status": "phase_1_placeholder",
+      "repository": "Integral-Collective/integral-specifications",
+      "path": "README.md",
+      "identity": {
+        "kind": "github_blob",
+        "blob_sha": "e27b9a67a1de841d4c0f69c359935bf77a5d2de2"
+      }
+    },
+    {
+      "source_id": "integral.devguide.v0_1",
+      "source_family": "development_guide",
+      "role": "builder-facing proposed implementation bridge and twelve-seam definitions",
+      "status": "development_guide_proposal",
+      "repository": "Integral-Collective/integral-devguide",
+      "path": "DEVGUIDE.md",
+      "identity": {
+        "kind": "github_blob",
+        "blob_sha": "a99f095eae0790014163fd932488baf566ce4e6b"
+      }
+    },
+    {
+      "source_id": "integral.cds.readme",
+      "source_family": "system_repository",
+      "role": "CDS explanatory/current implementation status",
+      "status": "phase_1_no_implementation",
+      "repository": "Integral-Collective/integral-cds",
+      "path": "README.md",
+      "identity": {
+        "kind": "github_blob",
+        "blob_sha": "97ff81fb838dcabd6e78fa3a2f35dec230a0b7e8"
+      }
+    },
+    {
+      "source_id": "integral.oad.readme",
+      "source_family": "system_repository",
+      "role": "OAD explanatory/current implementation status",
+      "status": "phase_1_no_implementation",
+      "repository": "Integral-Collective/integral-oad",
+      "path": "README.md",
+      "identity": {
+        "kind": "github_blob",
+        "blob_sha": "13d38bbdbc86b558f37201a11f23f56a6387002b"
+      }
+    },
+    {
+      "source_id": "integral.itc.readme",
+      "source_family": "system_repository",
+      "role": "ITC explanatory/current implementation status",
+      "status": "phase_1_no_implementation",
+      "repository": "Integral-Collective/integral-itc",
+      "path": "README.md",
+      "identity": {
+        "kind": "github_blob",
+        "blob_sha": "9b8071cb0fbb914bb6a55485cd38a59302a1f449"
+      }
+    },
+    {
+      "source_id": "integral.cos.readme",
+      "source_family": "system_repository",
+      "role": "COS explanatory/current implementation status",
+      "status": "phase_1_no_implementation",
+      "repository": "Integral-Collective/integral-cos",
+      "path": "README.md",
+      "identity": {
+        "kind": "github_blob",
+        "blob_sha": "4f50d464ae49da98c52f2dd3815df01de61143bd"
+      }
+    },
+    {
+      "source_id": "integral.frs.readme",
+      "source_family": "system_repository",
+      "role": "FRS explanatory/current implementation status",
+      "status": "phase_1_no_implementation",
+      "repository": "Integral-Collective/integral-frs",
+      "path": "README.md",
+      "identity": {
+        "kind": "github_blob",
+        "blob_sha": "73b601bd5727f41d85c00578ed4592c7f56e20fd"
+      }
+    },
+    {
+      "source_id": "integral.decisions.readme",
+      "source_family": "decision_record_repository",
+      "role": "decision-record format and current ratification status",
+      "status": "awaiting_first_ratified_decision",
+      "repository": "Integral-Collective/integral-decisions",
+      "path": "README.md",
+      "identity": {
+        "kind": "github_blob",
+        "blob_sha": "f90217377f80d55568a0c97c78b1ecb1187fb631"
+      }
+    },
+    {
+      "source_id": "integral.whitepaper.core_subsystems",
+      "source_family": "white_paper",
+      "role": "five-system architecture reference",
+      "status": "whitepaper_v0_1_source",
+      "repository": "Integral-Collective/integral-whitepaper",
+      "path": "whitepaper/05-the-5-core-subsystems.md",
+      "identity": {
+        "kind": "github_blob",
+        "blob_sha": "c8d1d5e914e1ca65064ef404063df90c52b2df49"
+      }
+    },
+    {
+      "source_id": "integral.whitepaper.system_integration",
+      "source_family": "white_paper",
+      "role": "five-system integration reference",
+      "status": "whitepaper_v0_1_source",
+      "repository": "Integral-Collective/integral-whitepaper",
+      "path": "whitepaper/06-how-the-five-systems-work-as-one.md",
+      "identity": {
+        "kind": "github_blob",
+        "blob_sha": "62c662fc8b60bb922a4ed77a6264c2d6076fe137"
+      }
+    },
+    {
+      "source_id": "integral.whitepaper.transition",
+      "source_family": "white_paper",
+      "role": "transition/adoption/deployment reference",
+      "status": "whitepaper_v0_1_source",
+      "repository": "Integral-Collective/integral-whitepaper",
+      "path": "whitepaper/11-transition-adoption-implementation.md",
+      "identity": {
+        "kind": "github_blob",
+        "blob_sha": "3b811f42a7da408a0a60000a164dc02e24e4df0b"
+      }
+    }
+  ]
+}
