@@ -1,0 +1,117 @@
+name: MYC-INT-017E exact qualification
+
+on:
+  pull_request:
+    branches:
+      - myc-int-017e-external-profiles
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-exact-integral-profiles:
+    if: github.event.pull_request.head.ref == 'myc-int-017eq-exact-qualifier'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUBJECT_SHA: a850487aed8355fbca9b64d2386a90a282ee9624
+      PARENT_SHA: 5b42fff13da7a3a7c610b584d86db78fd8758f3e
+      CRATE_DIR: mycelix-workspace/integrations/integral
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SUBJECT_SHA }}
+          fetch-depth: 0
+
+      - name: Verify exact subject and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SUBJECT_SHA"
+          git cat-file -e "$PARENT_SHA^{commit}"
+          git diff --name-only "$PARENT_SHA" "$SUBJECT_SHA" | sort > /tmp/actual-files
+          printf '%s\n' \
+            "$CRATE_DIR/Cargo.toml" \
+            "$CRATE_DIR/src/external_profiles.rs" \
+            "$CRATE_DIR/src/lib.rs" \
+            "$CRATE_DIR/src/source_registry.rs" \
+            "$CRATE_DIR/tests/external_profiles.rs" | sort > /tmp/expected-files
+          diff -u /tmp/expected-files /tmp/actual-files
+
+      - name: Install Rust qualification toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ env.CRATE_DIR }}
+
+      - name: Resolve and freeze dependency set for this run
+        working-directory: ${{ env.CRATE_DIR }}
+        run: |
+          set -euo pipefail
+          cargo generate-lockfile
+          test -s Cargo.lock
+
+      - name: Check formatting
+        working-directory: ${{ env.CRATE_DIR }}
+        run: cargo fmt --all -- --check
+
+      - name: Run exact profile tests
+        working-directory: ${{ env.CRATE_DIR }}
+        run: cargo test --locked --test external_profiles
+
+      - name: Run complete shell tests
+        working-directory: ${{ env.CRATE_DIR }}
+        run: cargo test --locked
+
+      - name: Clippy exact resolved subject
+        working-directory: ${{ env.CRATE_DIR }}
+        run: cargo clippy --locked --all-targets -- -D warnings
+
+      - name: Write exact qualification capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p qualification
+          cp "$CRATE_DIR/Cargo.lock" qualification/MYC-INT-017E-Cargo.lock
+          cargo metadata \
+            --manifest-path "$CRATE_DIR/Cargo.toml" \
+            --locked \
+            --format-version 1 \
+            > qualification/MYC-INT-017E-cargo-metadata.json
+          {
+            echo 'subject=MYC-INT-017E'
+            echo "subject_sha=$SUBJECT_SHA"
+            echo "parent_sha=$PARENT_SHA"
+            echo "qualified_head=$(git rev-parse HEAD)"
+            echo "resolved_cargo_lock_sha256=$(sha256sum "$CRATE_DIR/Cargo.lock" | awk '{print $1}')"
+            echo 'external_technical_spec_capture=unqualified-web-observation'
+            echo 'development_guide_blob=a99f095eae0790014163fd932488baf566ce4e6b'
+            rustc -Vv
+            cargo -V
+            echo 'checks=exact scope; generated retained Cargo.lock; cargo fmt; external profile tests; all shell tests; cargo clippy -D warnings'
+            echo 'source_sha256_begin'
+            sha256sum \
+              "$CRATE_DIR/Cargo.toml" \
+              "$CRATE_DIR/src/external_profiles.rs" \
+              "$CRATE_DIR/src/lib.rs" \
+              "$CRATE_DIR/src/source_registry.rs" \
+              "$CRATE_DIR/tests/external_profiles.rs"
+            echo 'source_sha256_end'
+          } > qualification/MYC-INT-017E-exact.txt
+
+      - name: Upload qualification evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: myc-int-017e-exact-${{ env.SUBJECT_SHA }}
+          path: |
+            qualification/MYC-INT-017E-exact.txt
+            qualification/MYC-INT-017E-Cargo.lock
+            qualification/MYC-INT-017E-cargo-metadata.json
+          if-no-files-found: error
+          retention-days: 30
