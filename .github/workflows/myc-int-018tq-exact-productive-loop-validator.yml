@@ -1,0 +1,74 @@
+name: MYC-INT-018T exact ProductiveLoop/H2 qualification
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/myc-int-018tq-exact-productive-loop-validator.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SUBJECT_SHA: 696c944b0e4a01de768250a3e18624f6c3365333
+  PARENT_SHA: 7a6b4e8f26661969f686ce54afb5ad3da10ba754
+
+jobs:
+  qualify-exact-018t:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact product subject
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SUBJECT_SHA }}
+          fetch-depth: 0
+
+      - name: Verify exact subject and two-file scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SUBJECT_SHA"
+          actual="$(git diff --name-only "$PARENT_SHA" "$SUBJECT_SHA" | sort)"
+          expected="$(printf '%s\n' \
+            docs/interoperability/tools/test_validate_myc_int_018s.py \
+            docs/interoperability/tools/validate_myc_int_018s.py | sort)"
+          test "$actual" = "$expected"
+
+      - name: Compile validator and tests
+        run: |
+          python3 -m py_compile \
+            docs/interoperability/tools/validate_myc_int_018s.py \
+            docs/interoperability/tools/test_validate_myc_int_018s.py
+
+      - name: Run mutation suite
+        working-directory: docs/interoperability/tools
+        run: python3 -m unittest -v test_validate_myc_int_018s.py
+
+      - name: Validate exact ProductiveLoop/H2 fixtures
+        run: |
+          python3 docs/interoperability/tools/validate_myc_int_018s.py \
+            docs/interoperability/fixtures/MYC_INT_018K_H1_WET_BENCH_MANIFEST.json \
+            docs/interoperability/fixtures/MYC_INT_018S_PRODUCTIVE_LOOP_V1.json \
+            docs/interoperability/fixtures/MYC_INT_018S_H2_HYDROPONIC_CONFORMER.json
+
+      - name: Build evidence capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/myc-int-018t
+          printf 'subject=%s\nparent=%s\n' "$SUBJECT_SHA" "$PARENT_SHA" > evidence/myc-int-018t/subject.txt
+          python3 --version > evidence/myc-int-018t/python-version.txt 2>&1
+          git --version > evidence/myc-int-018t/git-version.txt
+          sha256sum \
+            docs/interoperability/fixtures/MYC_INT_018K_H1_WET_BENCH_MANIFEST.json \
+            docs/interoperability/fixtures/MYC_INT_018S_PRODUCTIVE_LOOP_V1.json \
+            docs/interoperability/fixtures/MYC_INT_018S_H2_HYDROPONIC_CONFORMER.json \
+            docs/interoperability/tools/validate_myc_int_018s.py \
+            docs/interoperability/tools/test_validate_myc_int_018s.py \
+            > evidence/myc-int-018t/sha256.txt
+
+      - name: Upload qualification capsule
+        uses: actions/upload-artifact@v4
+        with:
+          name: myc-int-018t-exact-qualification
+          path: evidence/myc-int-018t
