@@ -1,0 +1,21 @@
+[package]
+name = "psi-privacy-pass-rfc9578-public-preflight"
+version = "0.1.0"
+edition = "2024"
+authors = ["Mycelix Network"]
+description = "Experimental pinned RFC 9578 public-token verifier compatibility preflight"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+publish = false
+
+[dependencies]
+psi-privacy-pass-credit-core = { path = "../psi-privacy-pass-credit-core" }
+psi-privacy-pass-rfc9577-challenge = { path = "../psi-privacy-pass-rfc9577-challenge" }
+async-trait = "0.1.89"
+futures = "0.3"
+privacypass = { git = "https://github.com/raphaelrobert/privacypass", rev = "5ff5f57a62877f42313d6600b53e0d4ee4e4e452", default-features = false }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10.9"
+
+[workspace]
