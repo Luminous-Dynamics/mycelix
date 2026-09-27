@@ -1,0 +1,289 @@
+{
+  "profile_id": "myc-int-018q-h1-maturation-binding-v1",
+  "profile_version": "1.0.0",
+  "status": "design-binding-fixture",
+  "source_subjects": {
+    "h1_manifest": {
+      "profile_id": "myc-int-018k-h1-wet-bench-v1",
+      "exact_subject": "e0b8a5c3e58d937a94eab1ba975fc8ad1b36945d"
+    },
+    "h1_install_run": {
+      "profile_id": "myc-int-018o-h1-install-run-package-v1",
+      "exact_subject": "557665f9edbc8d08c2921958bd3b5db91e241c7c"
+    },
+    "h1_validator": {
+      "exact_subject": "9b946d7ea627a019532dd908a5093b94cca16147"
+    },
+    "maturation_trajectory": {
+      "profile_id": "myc-int-007o-node-maturation-trajectory-v1",
+      "exact_subject": "6489de3e2268c92e8b80c509ef60751bd28238cd"
+    },
+    "maturation_checkpoint_contract": {
+      "exact_subject": "52bdd21e1482272e75e122ebcc4a8fac37b2964d"
+    },
+    "maturation_checkpoint_validator": {
+      "exact_subject": "45fbd406a30657f21a8f9e3b8a481ed265ff7dc8"
+    }
+  },
+  "relation_vocabulary": [
+    "CanSatisfyUnderExactProfile",
+    "ContributesButInsufficient",
+    "CannotSatisfy",
+    "NotApplicable"
+  ],
+  "source_class_vocabulary": [
+    "DirectObservation",
+    "SourceOwnedOperationalFact",
+    "ReconstructedState",
+    "DerivedAssessment",
+    "OperatorDeclaration",
+    "ImportedForeignEvidence",
+    "Unknown"
+  ],
+  "global_invariants": {
+    "whole_node_extrapolation_prohibited": true,
+    "mapping_is_current_evidence": false,
+    "mapping_establishes_transition": false,
+    "mapping_grants_authority": false,
+    "mapping_grants_federation_membership": false,
+    "mapping_grants_governance_standing": false,
+    "symthaea_analysis_is_direct_observation": false
+  },
+  "transition_bindings": [
+    {
+      "transition": "N0->N1",
+      "requirement": "local-acquisition-or-evidence-path",
+      "relation": "CanSatisfyUnderExactProfile",
+      "claim_scope": "H1 local acquisition/evidence path only",
+      "h1_sources": [
+        "018K.channels",
+        "018K.semantic_separations",
+        "018K.runtime_optionalities",
+        "018O.run_evidence_requirements"
+      ],
+      "candidate_source_classes": ["DirectObservation", "SourceOwnedOperationalFact"],
+      "currentness_window_required": true,
+      "completeness_ceiling": "Exact H1 configured channels and run profile only",
+      "known_gaps": [
+        "no node-wide dependency map",
+        "no claim about non-H1 capabilities"
+      ],
+      "authority": "None",
+      "whole_node_extrapolation_prohibited": true
+    },
+    {
+      "transition": "N0->N1",
+      "requirement": "dependency-map",
+      "relation": "ContributesButInsufficient",
+      "claim_scope": "H1 hardware/process/software/operator dependencies only",
+      "h1_sources": [
+        "018O.delivered_hardware_inventory",
+        "018O.documentation_capture",
+        "018O.electrical_design",
+        "018O.hydraulic_process",
+        "018O.sensor_installations",
+        "018O.calibration_check_plan"
+      ],
+      "candidate_source_classes": ["SourceOwnedOperationalFact", "OperatorDeclaration"],
+      "currentness_window_required": true,
+      "completeness_ceiling": "H1 subsystem only",
+      "known_gaps": [
+        "food domain outside current H1 production semantics",
+        "health-safety support outside H1 subsystem",
+        "external legal-finance outside H1 subsystem",
+        "critical imports outside H1 inventory",
+        "node-wide skills/maintainers",
+        "other node services and productive loops"
+      ],
+      "authority": "None",
+      "whole_node_extrapolation_prohibited": true
+    },
+    {
+      "transition": "N1->N2",
+      "requirement": "at-least-one-real-productive-loop",
+      "relation": "CannotSatisfy",
+      "claim_scope": "Current H1 instrumentation/process bench",
+      "h1_sources": ["018K.stages.H1a", "018K.stages.H1b", "018K.stages.H1c"],
+      "candidate_source_classes": [],
+      "currentness_window_required": true,
+      "completeness_ceiling": "No useful-output/harvest semantics",
+      "known_gaps": [
+        "no crop or useful-output subject",
+        "no production window",
+        "no harvest/output observation",
+        "no useful-output delivery record"
+      ],
+      "authority": "None",
+      "whole_node_extrapolation_prohibited": true
+    },
+    {
+      "transition": "N1->N2",
+      "requirement": "work-material-observations",
+      "relation": "CannotSatisfy",
+      "claim_scope": "Current H1 instrumentation/process bench",
+      "h1_sources": ["018O.manual-interventions", "018O.observation-export"],
+      "candidate_source_classes": ["SourceOwnedOperationalFact"],
+      "currentness_window_required": true,
+      "completeness_ceiling": "Run interventions/process observations only; not a productive-loop work/material ledger",
+      "known_gaps": [
+        "no work-event model for productive output",
+        "no consumed-material event model for productive output",
+        "no input-to-output accounting boundary"
+      ],
+      "authority": "None",
+      "whole_node_extrapolation_prohibited": true
+    },
+    {
+      "transition": "N1->N2",
+      "requirement": "outcome-feedback",
+      "relation": "CannotSatisfy",
+      "claim_scope": "Current H1 instrumentation/process bench",
+      "h1_sources": ["018O.post-run-inspection-result", "018O.deviations-and-unknowns"],
+      "candidate_source_classes": ["SourceOwnedOperationalFact", "OperatorDeclaration"],
+      "currentness_window_required": true,
+      "completeness_ceiling": "Bench/run outcome only; not useful-output outcome feedback",
+      "known_gaps": [
+        "no useful-output result",
+        "no recipient/use feedback",
+        "no productive-loop success/failure outcome contract"
+      ],
+      "authority": "None",
+      "whole_node_extrapolation_prohibited": true
+    },
+    {
+      "transition": "N2->N3",
+      "requirement": "bounded-outage-continuity-evidence",
+      "relation": "ContributesButInsufficient",
+      "claim_scope": "H1 local acquisition/process subsystem continuity only",
+      "h1_sources": [
+        "018K.failure_injections.FI-13",
+        "018K.runtime_optionalities",
+        "018O.run_evidence_requirements"
+      ],
+      "candidate_source_classes": ["DirectObservation", "SourceOwnedOperationalFact"],
+      "currentness_window_required": true,
+      "completeness_ceiling": "H1 subsystem and declared outage window only",
+      "known_gaps": [
+        "other node productive/service capabilities not covered",
+        "whole-node outage denominator absent"
+      ],
+      "authority": "None",
+      "whole_node_extrapolation_prohibited": true
+    },
+    {
+      "transition": "N2->N3",
+      "requirement": "failure-recovery-evidence",
+      "relation": "ContributesButInsufficient",
+      "claim_scope": "H1 subsystem failure/restart/manual recovery only",
+      "h1_sources": [
+        "018K.failure_injections.FI-08",
+        "018K.failure_injections.FI-09",
+        "018K.failure_injections.FI-11",
+        "018K.failure_injections.FI-12",
+        "018K.failure_injections.FI-16",
+        "018O.fault-action-log",
+        "018O.manual-interventions",
+        "018O.post-run-inspection-result"
+      ],
+      "candidate_source_classes": ["DirectObservation", "SourceOwnedOperationalFact", "OperatorDeclaration"],
+      "currentness_window_required": true,
+      "completeness_ceiling": "H1 subsystem only",
+      "known_gaps": [
+        "no whole-node repair/recovery campaign",
+        "no complete productive-loop recovery evidence",
+        "no node-wide service restoration evidence"
+      ],
+      "authority": "None",
+      "whole_node_extrapolation_prohibited": true
+    },
+    {
+      "transition": "N2->N3",
+      "requirement": "local-safe-stop",
+      "relation": "CanSatisfyUnderExactProfile",
+      "claim_scope": "H1 physical/process subsystem only",
+      "h1_sources": [
+        "018O.electrical_design.manual_stop_override",
+        "018O.stage_gates.H1a.manual-stop-tested",
+        "018O.stage_gates.H1b.manual-stop-verified",
+        "018O.stop_abort_conditions"
+      ],
+      "candidate_source_classes": ["DirectObservation", "SourceOwnedOperationalFact"],
+      "currentness_window_required": true,
+      "completeness_ceiling": "H1 local stop under exact installed configuration only",
+      "known_gaps": [
+        "other node actuators/services not covered"
+      ],
+      "authority": "None",
+      "whole_node_extrapolation_prohibited": true
+    }
+  ],
+  "domain_scope_bindings": [
+    {
+      "dimension": "water",
+      "relation": "ContributesButInsufficient",
+      "h1_evidence": ["flow-rate", "reservoir-level", "reservoir-volume", "solution-temperature", "leak-state"],
+      "prohibited_inference": "H1 recirculation != node water independence",
+      "node_level_gap": "total qualified water input/use/reuse boundary and denominator"
+    },
+    {
+      "dimension": "energy",
+      "relation": "ContributesButInsufficient",
+      "h1_evidence": ["subsystem-power", "subsystem-energy"],
+      "prohibited_inference": "H1 power/energy observation != node energy independence",
+      "node_level_gap": "node-wide generation/import/use boundary and denominator"
+    },
+    {
+      "dimension": "food",
+      "relation": "CannotSatisfy",
+      "h1_evidence": [],
+      "prohibited_inference": "nutrient-solution sensing != crop production",
+      "node_level_gap": "productive crop/output profile"
+    },
+    {
+      "dimension": "repair-fabrication",
+      "relation": "ContributesButInsufficient",
+      "h1_evidence": ["fault-action-log", "manual-interventions", "restart-power-cycle"],
+      "prohibited_inference": "subsystem restart != repair/fabrication capability",
+      "node_level_gap": "repair demand/work/material/outcome evidence"
+    },
+    {
+      "dimension": "compute-network",
+      "relation": "ContributesButInsufficient",
+      "h1_evidence": ["network-partition", "local-acquisition-can-continue"],
+      "prohibited_inference": "H1 acquisition continuity != all node compute/network services resilient",
+      "node_level_gap": "node-wide service continuity and recovery profile"
+    }
+  ],
+  "productive_loop_gap": {
+    "current_h1_profile_must_not_be_widened_silently": true,
+    "follow_on_profile_required": true,
+    "candidate_profile_name": "ProductiveLoopV1",
+    "required_semantics": [
+      "useful-output-subject",
+      "production-window",
+      "material-input-observations",
+      "work-observations",
+      "process-observations",
+      "useful-output-observations",
+      "loss-waste-failure-observations",
+      "outcome-feedback",
+      "external-dependency-import-map",
+      "correction-supersession-lineage",
+      "whole-node-extrapolation-prohibited"
+    ],
+    "hydroponics_may_be_first_conformer": true,
+    "food_is_only_valid_productive_loop": false
+  },
+  "claim_ceiling": {
+    "N1_established": false,
+    "N2_established": false,
+    "N3_established": false,
+    "food_production_established": false,
+    "whole_node_resilience_established": false,
+    "water_independence_established": false,
+    "energy_independence_established": false,
+    "economic_independence_established": false,
+    "governance_standing_granted": false,
+    "federation_membership_granted": false
+  }
+}
