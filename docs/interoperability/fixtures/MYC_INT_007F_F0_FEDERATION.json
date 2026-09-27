@@ -1,0 +1,197 @@
+{
+  "profile_id": "myc-int-007f-f0-federation-v1",
+  "profile_version": "1.0.0",
+  "status": "design-fixture",
+  "parent_subject": "fa158facc180d4d7de6d9078bdd34a0cf3a5ded0",
+  "claim_ceiling": {
+    "federation_executed": false,
+    "scalability_established": false,
+    "production_ready": false,
+    "integral_endorsed": false
+  },
+  "network_zones": [
+    {"id":"zone-local","class":"LocalCluster","description":"low-latency ordinary connected operation"},
+    {"id":"zone-remote","class":"RemoteIntermittent","description":"latency/partition/version-skew fault zone"},
+    {"id":"zone-external","class":"CompatibilityEdge","description":"non-Holochain/conventional interoperability zone"}
+  ],
+  "nodes": [
+    {
+      "id":"A",
+      "role":"PhysicalProductiveNode",
+      "provenance":"Physical",
+      "runtime_family":"MycelixCandidate",
+      "network_zone":"zone-local",
+      "local_operability":["edge-sensor-acquisition","local-observation-history","manual-safe-operation"],
+      "optional_dependencies":["MycelixFederation","Holochain","Symthaea","IntegralITC"],
+      "schema_generation":"current-candidate",
+      "authority_profile":"local-effect-authority-required",
+      "physical_subject":"H1",
+      "claim_ceiling":"PrototypeCandidate"
+    },
+    {
+      "id":"B",
+      "role":"SecondProductiveNode",
+      "provenance":"ReplayBacked",
+      "runtime_family":"MycelixCandidate",
+      "network_zone":"zone-local",
+      "local_operability":["fixture-replay","source-provenance"],
+      "optional_dependencies":["Holochain"],
+      "schema_generation":"current-candidate",
+      "authority_profile":"local-effect-authority-required",
+      "claim_ceiling":"SyntheticOrReplayOnly"
+    },
+    {
+      "id":"C",
+      "role":"OADDesignNode",
+      "provenance":"Synthetic",
+      "runtime_family":"MycelixCandidate",
+      "network_zone":"zone-local",
+      "local_operability":["design-lineage","certification-fixtures"],
+      "optional_dependencies":[],
+      "schema_generation":"generation-2",
+      "authority_profile":"design-certification-separate-from-production-authority",
+      "claim_ceiling":"Synthetic"
+    },
+    {
+      "id":"D",
+      "role":"COSManufacturingNode",
+      "provenance":"Synthetic",
+      "runtime_family":"MycelixCandidate",
+      "network_zone":"zone-local",
+      "local_operability":["labor-material-events","production-fixtures"],
+      "optional_dependencies":[],
+      "schema_generation":"current-candidate",
+      "authority_profile":"local-production-authorization-required",
+      "claim_ceiling":"Synthetic"
+    },
+    {
+      "id":"E",
+      "role":"CDSDeliberationNode",
+      "provenance":"Synthetic",
+      "runtime_family":"MycelixCandidate",
+      "network_zone":"zone-local",
+      "local_operability":["decision-lineage","rationale-dissent-review-basis"],
+      "optional_dependencies":[],
+      "schema_generation":"current-candidate",
+      "authority_profile":"decision-not-effect-authority",
+      "claim_ceiling":"Synthetic"
+    },
+    {
+      "id":"F",
+      "role":"FRSAnalysisNode",
+      "provenance":"Synthetic",
+      "runtime_family":"MycelixCandidate",
+      "network_zone":"zone-remote",
+      "local_operability":["derived-summaries","recommendation-routing"],
+      "optional_dependencies":["Symthaea"],
+      "schema_generation":"generation-2",
+      "authority_profile":"analysis-authority-none",
+      "claim_ceiling":"Synthetic"
+    },
+    {
+      "id":"G",
+      "role":"DegradedOldGenerationNode",
+      "provenance":"Synthetic",
+      "runtime_family":"MycelixCandidateOldGeneration",
+      "network_zone":"zone-remote",
+      "local_operability":["old-schema-local-functions"],
+      "optional_dependencies":[],
+      "schema_generation":"generation-1",
+      "authority_profile":"local-only-under-old-profile",
+      "claim_ceiling":"SyntheticFaultSubject"
+    },
+    {
+      "id":"H",
+      "role":"ConventionalInteropNode",
+      "provenance":"ConventionalConformer",
+      "runtime_family":"PostgreSQLHttpCandidate",
+      "network_zone":"zone-external",
+      "local_operability":["runtime-neutral-import-export","http-service-fixtures"],
+      "optional_dependencies":[],
+      "schema_generation":"current-candidate",
+      "authority_profile":"runtime-neutral-local-policy",
+      "claim_ceiling":"ImplementedOrPlannedPer006M"
+    }
+  ],
+  "link_profiles": [
+    {
+      "id":"lp-local",
+      "zone":"zone-local",
+      "connectivity":"Connected",
+      "latency_ms":{"min":1,"max":20},
+      "jitter_ms":{"max":5},
+      "application_reordering":"DisabledByDefault",
+      "bandwidth":"UnconstrainedFixture",
+      "packet_loss":"0-fixture-default",
+      "partition":"None"
+    },
+    {
+      "id":"lp-remote",
+      "zone":"zone-remote",
+      "connectivity":"ConditionallyConnected",
+      "latency_ms":{"min":150,"max":500},
+      "jitter_ms":{"max":150},
+      "application_reordering":"FaultInjectable",
+      "bandwidth":"ConstrainedFixture",
+      "packet_loss":"FaultInjectable",
+      "partition":"FaultInjectable"
+    },
+    {
+      "id":"lp-external",
+      "zone":"zone-external",
+      "connectivity":"ConnectedThroughInteropSeam",
+      "latency_ms":{"min":20,"max":150},
+      "jitter_ms":{"max":50},
+      "application_reordering":"TransportDependent",
+      "bandwidth":"ModerateFixture",
+      "packet_loss":"FaultInjectable",
+      "partition":"FaultInjectable"
+    }
+  ],
+  "demonstration_phases": [
+    {"id":"D1","name":"local-first-normal-operation","nodes":["A"],"assertions":["A remains useful with remote nodes unavailable"]},
+    {"id":"D2","name":"design-propagation","nodes":["C","A","D"],"assertions":["delivery does not equal certification acceptance","delivery does not equal production authorization"]},
+    {"id":"D3","name":"duplicate-cos-accounting-delivery","nodes":["D","H"],"assertions":["duplicate delivery does not create duplicate logical effect"]},
+    {"id":"D4","name":"frs-recommendation-path","nodes":["F","E"],"assertions":["recommendation received does not equal decision","recommendation received does not equal authorization"]},
+    {"id":"D5","name":"foreign-decision-authority-negative-control","nodes":["E","A"],"assertions":["foreign decision artifact does not directly authorize A effect"]},
+    {"id":"D6","name":"partition","nodes":["G","A","F"],"assertions":["local admitted functions continue where profile permits","remote-derived state becomes stale-or-unknown"]},
+    {"id":"D7","name":"schema-version-skew","nodes":["C","F","G"],"assertions":["historical objects retain original schema identity","incompatible messages require reject-or-explicit-translation"]},
+    {"id":"D8","name":"reconnect-reconciliation","nodes":["A","G","F"],"assertions":["no silent last-arrival-wins","conflict remains representable"]},
+    {"id":"D9","name":"contradictory-physical-outcome","nodes":["A","E","F"],"assertions":["contradictory outcome creates review candidate","historical decision is not rewritten"]},
+    {"id":"D10","name":"optional-symthaea-analysis","nodes":["A","F"],"assertions":["analysis output retains exact source lineage","analysis authority remains none"]},
+    {"id":"D11","name":"runtime-heterogeneity","nodes":["H","A","C","F"],"assertions":["external semantic identity survives runtime translation","runtime-native IDs remain provenance only"]}
+  ],
+  "fault_campaigns": [
+    {"id":"F01","name":"node-offline-before-write","targets":["G"],"expected":["offline node does not fabricate receipt or current state"]},
+    {"id":"F02","name":"partition-after-persistence-before-ack","targets":["A","F"],"expected":["sender preserves unknown delivery outcome","retry does not imply new semantic event"]},
+    {"id":"F03","name":"duplicate-delivery","targets":["D","H"],"expected":["multiple deliveries preserve one logical semantic effect"]},
+    {"id":"F04","name":"reordered-delivery","targets":["F","E"],"expected":["arrival order does not rewrite semantic event ordering"]},
+    {"id":"F05","name":"stale-source-summary","targets":["F"],"expected":["stale derived state remains visibly stale"]},
+    {"id":"F06","name":"incompatible-schema-generation","targets":["C","G"],"expected":["reject-or-explicit-translation","no silent reinterpretation"]},
+    {"id":"F07","name":"unknown-field-old-peer","targets":["G"],"expected":["unknown-field behavior follows exact compatibility profile"]},
+    {"id":"F08","name":"clock-skew","targets":["G"],"expected":["source time does not become trusted global time"]},
+    {"id":"F09","name":"unknown-foreign-authority","targets":["E","A"],"expected":["foreign artifact does not mint local authority"]},
+    {"id":"F10","name":"expired-authorization","targets":["A"],"expected":["new effect admission refused after expiry"]},
+    {"id":"F11","name":"revoked-certification","targets":["C","D"],"expected":["historical certification lineage preserved","future admission follows current policy"]},
+    {"id":"F12","name":"conflicting-physical-observations","targets":["A","B"],"expected":["conflict preserved","no silent averaging into truth"]},
+    {"id":"F13","name":"false-positive-frs-recommendation","targets":["F","E"],"expected":["recommendation remains advisory","later outcome can contradict it"]},
+    {"id":"F14","name":"analysis-service-unavailable","targets":["F"],"expected":["FRS can report analysis unavailable","no fabricated recommendation"]},
+    {"id":"F15","name":"mycelix-holochain-unavailable-edge-alive","targets":["A"],"expected":["local Edge acquisition continues","federated projection can lag explicitly"]},
+    {"id":"F16","name":"signed-but-locally-unacceptable","targets":["H","A"],"expected":["cryptographic validity does not imply policy acceptance"]},
+    {"id":"F17","name":"delivery-timeout-after-receiver-persistence","targets":["F","E"],"expected":["sender outcome remains indeterminate until receipt/reconciliation"]},
+    {"id":"F18","name":"export-import-conventional-runtime","targets":["H","A"],"expected":["semantic identity and provenance survive","declared losses require receipt"]}
+  ],
+  "scale_generations": [
+    {"id":"F0","logical_nodes":8,"status":"Defined"},
+    {"id":"F1","logical_nodes":32,"status":"DeferredUntilF0Evidence"},
+    {"id":"F2","logical_nodes":128,"status":"DeferredUntilF1Evidence"},
+    {"id":"F3","logical_nodes_min":512,"status":"EvidenceGated"}
+  ],
+  "ui_invariants": [
+    "green-connectivity-does-not-imply-semantic-correctness",
+    "simulated-node-never-rendered-as-physical-pilot",
+    "authority-edges-distinct-from-delivery-links",
+    "stale-unknown-conflict-states-remain-visible",
+    "story-view-and-evidence-view-share-one-underlying-state"
+  ]
+}
