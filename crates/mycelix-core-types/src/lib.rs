@@ -149,6 +149,7 @@
 pub mod collective_field;
 pub mod epistemic;
 pub mod harmonic;
+pub mod interoperability;
 pub mod k_vector;
 pub mod moral;
 pub mod trust;
@@ -157,6 +158,7 @@ pub mod wisdom_engine;
 pub use collective_field::*;
 pub use epistemic::*;
 pub use harmonic::*;
+pub use interoperability::*;
 pub use k_vector::*;
 pub use moral::*;
 pub use trust::*;
