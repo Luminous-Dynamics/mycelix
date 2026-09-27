@@ -1,0 +1,26 @@
+{
+  "profile_id":"myc-int-007k-node-seed-package-v1",
+  "profile_version":"1.0.0",
+  "status":"design-fixture",
+  "parent_profile":"myc-int-007i-node-maturation-seeding-v1",
+  "source_node":"A",
+  "intended_recipient":"B",
+  "mode":"FreshNode",
+  "package_generation":"A-seed-0001",
+  "authority":"None",
+  "secret_free_required":true,
+  "fresh_identity_required":true,
+  "federation_required":false,
+  "components":[
+    {"class":"DesignPack","component_id":"design-pack-a1","admission_optional":true,"authority":"None","source_generation":"A-design-gen-1"},
+    {"class":"DeploymentPack","component_id":"deployment-pack-a1","admission_optional":true,"authority":"None","source_generation":"A-deploy-gen-1"},
+    {"class":"ConformancePack","component_id":"conformance-pack-a1","admission_optional":true,"authority":"None","source_generation":"A-conformance-gen-1"},
+    {"class":"OperationsPack","component_id":"operations-pack-a1","admission_optional":true,"authority":"None","source_generation":"A-ops-gen-1"},
+    {"class":"TrainingPack","component_id":"training-pack-a1","admission_optional":true,"authority":"None","source_generation":"A-training-gen-1"},
+    {"class":"PhysicalStarterPack","component_id":"physical-pack-a1","admission_optional":true,"authority":"None","source_generation":"A-physical-gen-1"},
+    {"class":"FederationIntroductionPack","component_id":"federation-intro-a1","admission_optional":true,"authority":"None","source_generation":"A-fedintro-gen-1"}
+  ],
+  "forbidden_inheritance":["source-node-private-keys","source-host-ssh-identity","source-application-agent-keys","source-xenia-signing-secrets","source-governance-roles","source-authority-receipts","source-reputation","source-standing","source-itc-or-account-balances","resident-or-person-secrets","reusable-default-bootstrap-credentials"],
+  "required_recipient_actions":["select-component-admission-independently","generate-new-node-identity","generate-new-host-identity","generate-new-application-agent-identities","initialize-local-governance","record-local-adaptations-and-losses","record-remaining-external-dependencies","decide-federation-separately"],
+  "claim_ceiling":{"recipient_identity_precreated":false,"recipient_governance_precreated":false,"recipient_certification_inherited":false,"recipient_reputation_inherited":false,"recipient_balances_inherited":false,"federation_membership_granted":false,"economic_self_sufficiency_established":false}
+}
