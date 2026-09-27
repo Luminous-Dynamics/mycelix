@@ -1,0 +1,120 @@
+name: MYC-INT-006K exact qualification
+
+on:
+  pull_request:
+    branches:
+      - myc-int-006k-neutral-protocol-validator
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-exact-neutral-protocol:
+    if: github.event.pull_request.head.ref == 'myc-int-006kq-exact-qualifier'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUBJECT_SHA: aed0c1bf2943cf59fc9ffd8fc8705f20bd3c35fb
+      PARENT_SHA: a6bad3eaa033680e6e253130d4d16c67efeb068f
+      FIXTURE_DIR: fixtures/interoperability/integral-water-i0
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SUBJECT_SHA }}
+          fetch-depth: 0
+
+      - name: Verify exact subject and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SUBJECT_SHA"
+          git cat-file -e "$PARENT_SHA^{commit}"
+          git diff --name-only "$PARENT_SHA" "$SUBJECT_SHA" | sort > /tmp/actual-files
+          printf '%s\n' \
+            "$FIXTURE_DIR/validate_candidate_protocol.py" \
+            "$FIXTURE_DIR/test_validate_candidate_protocol.py" | sort > /tmp/expected-files
+          diff -u /tmp/expected-files /tmp/actual-files
+
+      - name: Syntax-check neutral protocol programs
+        working-directory: ${{ env.FIXTURE_DIR }}
+        run: |
+          python3 -m py_compile \
+            build_candidate_input_v2.py \
+            conventional_i0_adapter_v2.py \
+            test_conventional_i0_adapter_v2.py \
+            validate_candidate_protocol.py \
+            test_validate_candidate_protocol.py
+
+      - name: Run migration and neutral protocol suites
+        working-directory: ${{ env.FIXTURE_DIR }}
+        run: |
+          python3 -m unittest -v \
+            test_conventional_i0_adapter_v2.py \
+            test_validate_candidate_protocol.py
+
+      - name: Generate exact neutral input and results
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p qualification
+          python3 "$FIXTURE_DIR/build_candidate_input_v2.py" \
+            --output qualification/candidate-input.json
+          python3 "$FIXTURE_DIR/conventional_i0_adapter_v2.py" \
+            qualification/candidate-input.json \
+            --output qualification/candidate-results.json
+
+      - name: Validate exact neutral protocol pair
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 "$FIXTURE_DIR/validate_candidate_protocol.py" \
+            --input qualification/candidate-input.json \
+            --results qualification/candidate-results.json \
+            --input-schema "$FIXTURE_DIR/myc-int-006i-i0-candidate-input.schema.json" \
+            --result-schema "$FIXTURE_DIR/myc-int-006i-i0-candidate-results.schema.json" \
+            --corpus "$FIXTURE_DIR/myc-int-006c-water-i0-corpus.v1.json" \
+            --stimulus "$FIXTURE_DIR/myc-int-006e-water-i0-stimulus.v1.json" \
+            > qualification/protocol-validation.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('qualification/protocol-validation.json').read_text())
+          assert report['status'] == 'PASS'
+          assert report['input']['cases'] == 19
+          assert report['results']['cases'] == 19
+          assert report['results']['facts_registered'] == 18
+          PY
+
+      - name: Write qualification capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo 'subject=MYC-INT-006K'
+            echo "subject_sha=$SUBJECT_SHA"
+            echo "parent_sha=$PARENT_SHA"
+            echo "qualified_head=$(git rev-parse HEAD)"
+            echo "python=$(python3 --version 2>&1)"
+            echo "input_schema_sha256=$(sha256sum "$FIXTURE_DIR/myc-int-006i-i0-candidate-input.schema.json" | awk '{print $1}')"
+            echo "result_schema_sha256=$(sha256sum "$FIXTURE_DIR/myc-int-006i-i0-candidate-results.schema.json" | awk '{print $1}')"
+            echo "validator_sha256=$(sha256sum "$FIXTURE_DIR/validate_candidate_protocol.py" | awk '{print $1}')"
+            echo "validator_test_sha256=$(sha256sum "$FIXTURE_DIR/test_validate_candidate_protocol.py" | awk '{print $1}')"
+            echo "candidate_input_sha256=$(sha256sum qualification/candidate-input.json | awk '{print $1}')"
+            echo "candidate_results_sha256=$(sha256sum qualification/candidate-results.json | awk '{print $1}')"
+            echo "validation_report_sha256=$(sha256sum qualification/protocol-validation.json | awk '{print $1}')"
+            echo 'checks=exact scope; py_compile; 006J migration suite; 006K mutation suite; exact neutral pair generation; schema-registry/source-commitment/result-binding validation'
+          } > qualification/MYC-INT-006K-exact.txt
+
+      - name: Upload protocol qualification evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: myc-int-006k-exact-${{ env.SUBJECT_SHA }}
+          path: |
+            qualification/MYC-INT-006K-exact.txt
+            qualification/candidate-input.json
+            qualification/candidate-results.json
+            qualification/protocol-validation.json
+          if-no-files-found: error
+          retention-days: 30
