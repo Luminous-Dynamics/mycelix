@@ -1,0 +1,82 @@
+{
+  "profile_id": "myc-int-007g-f0-run-manifest-v1",
+  "profile_version": "1.0.0",
+  "status": "design-fixture",
+  "parent_007f_subject": "006f7da146b4d1c781967c3ee8a6161b411b633c",
+  "execution_mode": "UNBOUND",
+  "claim_ceiling": {
+    "executed": false,
+    "qualified": false,
+    "scalability_established": false,
+    "physical_effect_authorized": false
+  },
+  "run_identity": {
+    "run_generation": "UNBOUND",
+    "seed": null,
+    "orchestrator_tool": null,
+    "orchestrator_version": null,
+    "environment_profile": null,
+    "environment_commitment": null
+  },
+  "node_bindings": [
+    {"fixture_node":"A","runtime_mode":"external-physical","implementation_subject":null,"schema_generation":"from-007f","optional_services":[],"provenance":"Physical"},
+    {"fixture_node":"B","runtime_mode":"replay","implementation_subject":null,"schema_generation":"from-007f","optional_services":[],"provenance":"ReplayBacked"},
+    {"fixture_node":"C","runtime_mode":"process-or-container","implementation_subject":null,"schema_generation":"from-007f","optional_services":[],"provenance":"Synthetic"},
+    {"fixture_node":"D","runtime_mode":"process-or-container","implementation_subject":null,"schema_generation":"from-007f","optional_services":[],"provenance":"Synthetic"},
+    {"fixture_node":"E","runtime_mode":"process-or-container","implementation_subject":null,"schema_generation":"from-007f","optional_services":[],"provenance":"Synthetic"},
+    {"fixture_node":"F","runtime_mode":"process-or-container","implementation_subject":null,"schema_generation":"from-007f","optional_services":["SymthaeaOptional"],"provenance":"Synthetic"},
+    {"fixture_node":"G","runtime_mode":"process-or-container","implementation_subject":null,"schema_generation":"from-007f-old-generation","optional_services":[],"provenance":"Synthetic"},
+    {"fixture_node":"H","runtime_mode":"external-conformer","implementation_subject":null,"schema_generation":"from-007f","optional_services":[],"provenance":"ConventionalConformer"}
+  ],
+  "network_emulation": {
+    "tool": null,
+    "version": null,
+    "config_commitment": null,
+    "dns_service_discovery_profile": null,
+    "link_profiles_source": "MYC_INT_007F_F0_FEDERATION.json",
+    "fault_schedule_source": "MYC_INT_007F_F0_FEDERATION.json"
+  },
+  "workload": {
+    "phase_ids": ["D1","D2","D3","D4","D5","D6","D7","D8","D9","D10","D11"],
+    "source_fixture_generation": null,
+    "oracle_visibility": "hidden-from-candidate-execution",
+    "retry_profile": null,
+    "timeout_profile": null,
+    "allowed_nondeterminism": []
+  },
+  "fault_campaigns": ["F01","F02","F03","F04","F05","F06","F07","F08","F09","F10","F11","F12","F13","F14","F15","F16","F17","F18"],
+  "evidence_capture": [
+    "run-manifest-exact-bytes",
+    "implementation-build-identities",
+    "node-logs-with-run-identity",
+    "semantic-event-exports",
+    "delivery-attempt-and-ack-traces",
+    "authority-decision-evidence",
+    "schema-and-translation-receipts",
+    "conflict-and-reconciliation-records",
+    "fault-injector-event-log",
+    "resource-telemetry-if-collected",
+    "final-state-export-commitments",
+    "environment-capsule"
+  ],
+  "safety_invariants": [
+    "federation-harness-does-not-gain-h1-actuator-authority",
+    "edge-local-acquisition-does-not-depend-on-federation",
+    "physical-node-stop-does-not-depend-on-network",
+    "synthetic-replay-evidence-remains-labeled"
+  ],
+  "negative_controls": [
+    "unpinned-build-as-exact-run",
+    "topology-changed-without-new-generation",
+    "fault-schedule-drift",
+    "wall-clock-as-semantic-order",
+    "packet-drop-as-semantic-rejection",
+    "container-restart-as-semantic-node-replacement",
+    "federation-harness-gains-actuator-authority",
+    "replay-node-as-physical-source",
+    "missing-log-as-successful-absence",
+    "runtime-id-as-only-semantic-identity",
+    "schema-generation-drift-hidden",
+    "convergence-claimed-without-reconciliation-evidence"
+  ]
+}
