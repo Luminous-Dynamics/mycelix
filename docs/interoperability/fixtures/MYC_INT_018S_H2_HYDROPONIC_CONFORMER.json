@@ -1,0 +1,188 @@
+{
+  "profile_id": "myc-int-018s-h2-hydroponic-productive-loop-v1",
+  "profile_version": "1.0.0",
+  "status": "synthetic-planned-showcase",
+  "conforms_to": "myc-int-018s-productive-loop-v1",
+  "parent_h1_subjects": {
+    "h1_manifest": "e0b8a5c3e58d937a94eab1ba975fc8ad1b36945d",
+    "h1_install_run": "557665f9edbc8d08c2921958bd3b5db91e241c7c",
+    "h1_maturation_binding": "3d30fbefc8ad49dcf7d4fa789022aa985b122141",
+    "h1_maturation_validator": "bc986eae0a998cf30e23681e20447f8ae118ee94"
+  },
+  "whole_node_extrapolation_prohibited": true,
+  "authority": "None",
+  "synthetic_fixture": true,
+  "physical_cycle_executed": false,
+  "crop_profile": {
+    "binding_status": "Unbound",
+    "crop_or_cultivar_subject": null,
+    "agronomic_profile": null,
+    "reason": "Crop/cultivar must be researched and frozen separately before physical H2 execution"
+  },
+  "loop_identity": {
+    "loop_id": "H2-hydroponic-loop-001",
+    "generation": "planned-v1",
+    "site_subject": "H1-node-A-site-placeholder",
+    "productive_subject": "hydroponic-crop-lot-placeholder"
+  },
+  "useful_output_profile": {
+    "output_class": "harvested-crop-output",
+    "output_profile_binding_status": "UnboundUntilCropProfile",
+    "edible_claim_allowed": false,
+    "food_safety_claim_allowed": false,
+    "marketability_claim_allowed": false
+  },
+  "stages": [
+    {
+      "id": "H2a",
+      "name": "crop-lot-input-work-preregistration",
+      "planned_requirements": [
+        "bind-crop-profile",
+        "bind-lot-or-bed-subject",
+        "bind-production-window",
+        "preregister-input-material-classes",
+        "preregister-work-activity-classes",
+        "bind-H1-process-evidence-profile",
+        "record-external-dependencies"
+      ]
+    },
+    {
+      "id": "H2b",
+      "name": "cultivation-process-observation-window",
+      "planned_requirements": [
+        "material-input-observations",
+        "work-observations",
+        "H1-process-observation-refs",
+        "fault-loss-deviation-observations",
+        "currentness-coverage-record"
+      ]
+    },
+    {
+      "id": "H2c",
+      "name": "harvest-useful-output-observation",
+      "planned_requirements": [
+        "harvest-event",
+        "gross-output-quantity-and-unit",
+        "rejected-or-lost-output",
+        "output-profile-disposition",
+        "evidence-refs"
+      ]
+    },
+    {
+      "id": "H2d",
+      "name": "losses-outcome-feedback-post-cycle-review",
+      "planned_requirements": [
+        "intended-output-use",
+        "useful-output-obtained-status",
+        "defects-rejections-losses",
+        "post-cycle-inspection",
+        "deviations-unknowns",
+        "recovery-or-adaptation-required",
+        "remaining-external-dependency-map"
+      ]
+    }
+  ],
+  "h1_process_observation_refs": [
+    "flow-rate",
+    "reservoir-level",
+    "reservoir-volume",
+    "solution-temperature",
+    "leak-state",
+    "ph",
+    "electrical-conductivity",
+    "dissolved-oxygen",
+    "air-temperature",
+    "relative-humidity",
+    "subsystem-power",
+    "subsystem-energy"
+  ],
+  "h1_channel_identity_duplicated": false,
+  "input_material_classes": [
+    "seed-or-planting-material",
+    "nutrient-or-feedstock",
+    "water-input",
+    "growing-medium-if-used",
+    "cleaning-maintenance-consumables",
+    "replacement-parts-if-consumed",
+    "calibration-materials-if-consumed"
+  ],
+  "work_activity_classes": [
+    "setup",
+    "planting-or-transplanting",
+    "routine-inspection",
+    "maintenance",
+    "calibration-or-check",
+    "fault-response",
+    "harvest",
+    "cleaning-reset",
+    "post-cycle-review"
+  ],
+  "planned_output_observations": [
+    "harvest-event",
+    "gross-harvested-quantity",
+    "gross-harvested-unit-profile",
+    "rejected-or-lost-quantity",
+    "output-disposition-profile",
+    "destination-or-use-if-recorded"
+  ],
+  "planned_outcome_feedback": [
+    "intended-output-use",
+    "useful-output-obtained-status",
+    "operator-or-recipient-feedback-if-applicable",
+    "defects-rejections-losses",
+    "post-cycle-inspection",
+    "deviations-unknowns",
+    "recovery-or-adaptation-required"
+  ],
+  "external_dependency_categories_required": [
+    "seeds-genetics",
+    "nutrients-material-feedstocks",
+    "water-input",
+    "electricity-energy",
+    "replacement-parts",
+    "calibration-materials",
+    "external-specialist-labor-or-knowledge",
+    "legal-food-safety-or-other-external-services"
+  ],
+  "maturation_contribution": {
+    "transition": "N1->N2",
+    "can_contribute_if_physical_evidence_complete": [
+      "at-least-one-real-productive-loop",
+      "work-material-observations",
+      "outcome-feedback"
+    ],
+    "automatically_establishes_N2": false,
+    "transition_record_required": true
+  },
+  "negative_semantic_guards": [
+    "H1-process-telemetry-alone-does-not-establish-productive-loop",
+    "planned-input-does-not-equal-consumed-material",
+    "work-estimate-does-not-equal-observed-work",
+    "work-does-not-issue-credits-or-standing",
+    "harvested-output-does-not-imply-edible-or-food-safe",
+    "pH-EC-nominal-does-not-imply-useful-output",
+    "one-cycle-does-not-imply-node-food-independence",
+    "external-inputs-must-remain-visible",
+    "unknown-denominator-does-not-permit-yield-share",
+    "Symthaea-prediction-does-not-become-output-observation",
+    "correction-does-not-rewrite-history",
+    "ProductiveLoop-does-not-grant-authority",
+    "H2-references-H1-observations-without-duplicating-identity",
+    "synthetic-fixture-does-not-become-physical-evidence",
+    "completed-loop-does-not-auto-establish-N2"
+  ],
+  "claim_ceiling": {
+    "crop_profile_bound": false,
+    "physical_cycle_executed": false,
+    "productive_loop_established": false,
+    "useful_output_observed": false,
+    "crop_performance_established": false,
+    "food_safety_established": false,
+    "food_independence_established": false,
+    "N2_established": false,
+    "commercial_viability_established": false,
+    "governance_standing_granted": false,
+    "federation_membership_granted": false,
+    "actuation_authority_granted": false
+  }
+}
