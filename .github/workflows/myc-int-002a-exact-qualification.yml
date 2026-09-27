@@ -1,0 +1,87 @@
+name: MYC-INT-002A exact qualification
+
+on:
+  pull_request:
+    branches:
+      - myc-int-002a-semantic-refs
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-exact-subject:
+    if: github.event.pull_request.head.ref == 'myc-int-002q-exact-qualifier'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUBJECT_SHA: 280e9b576c52b5838130c9875a35ad215908fe98
+      PARENT_SHA: 5f7a9d03a0447d39d1532ae23218458a8f30ee59
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SUBJECT_SHA }}
+          fetch-depth: 0
+
+      - name: Verify exact subject and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SUBJECT_SHA"
+          git cat-file -e "$PARENT_SHA^{commit}"
+          git diff --name-only "$PARENT_SHA" "$SUBJECT_SHA" | sort > /tmp/actual-files
+          printf '%s\n' \
+            'crates/mycelix-core-types/src/interoperability.rs' \
+            'crates/mycelix-core-types/src/lib.rs' | sort > /tmp/expected-files
+          diff -u /tmp/expected-files /tmp/actual-files
+
+      - name: Install Rust qualification toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/mycelix-core-types
+
+      - name: Check formatting
+        working-directory: crates/mycelix-core-types
+        run: cargo fmt --all -- --check
+
+      - name: Test default feature set
+        working-directory: crates/mycelix-core-types
+        run: cargo test --locked
+
+      - name: Test serde boundary
+        working-directory: crates/mycelix-core-types
+        run: cargo test --locked --features serde
+
+      - name: Clippy serde boundary
+        working-directory: crates/mycelix-core-types
+        run: cargo clippy --locked --all-targets --features serde -- -D warnings
+
+      - name: Write qualification capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p qualification
+          {
+            echo 'subject=MYC-INT-002A'
+            echo "subject_sha=$SUBJECT_SHA"
+            echo "parent_sha=$PARENT_SHA"
+            echo "qualified_head=$(git rev-parse HEAD)"
+            echo "cargo_lock_sha256=$(sha256sum crates/mycelix-core-types/Cargo.lock | awk '{print $1}')"
+            rustc -Vv
+            cargo -V
+            echo 'checks=cargo fmt --all -- --check; cargo test --locked; cargo test --locked --features serde; cargo clippy --locked --all-targets --features serde -- -D warnings'
+          } > qualification/MYC-INT-002A-exact.txt
+
+      - name: Upload qualification capsule
+        uses: actions/upload-artifact@v4
+        with:
+          name: myc-int-002a-exact-${{ env.SUBJECT_SHA }}
+          path: qualification/MYC-INT-002A-exact.txt
+          if-no-files-found: error
+          retention-days: 30
