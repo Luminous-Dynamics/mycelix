@@ -1,0 +1,148 @@
+name: MYC-INT-006J exact qualification
+
+on:
+  pull_request:
+    branches:
+      - myc-int-006j-conventional-neutral-migration
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-exact-neutral-migration:
+    if: github.event.pull_request.head.ref == 'myc-int-006jq-exact-qualifier'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUBJECT_SHA: a6bad3eaa033680e6e253130d4d16c67efeb068f
+      PARENT_SHA: 8d397052118e92fcab6a7cdffcde2950092c73bb
+      FIXTURE_DIR: fixtures/interoperability/integral-water-i0
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SUBJECT_SHA }}
+          fetch-depth: 0
+
+      - name: Verify exact subject and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SUBJECT_SHA"
+          git cat-file -e "$PARENT_SHA^{commit}"
+          git diff --name-only "$PARENT_SHA" "$SUBJECT_SHA" | sort > /tmp/actual-files
+          printf '%s\n' \
+            "$FIXTURE_DIR/build_candidate_input_v2.py" \
+            "$FIXTURE_DIR/conventional_i0_adapter_v2.py" \
+            "$FIXTURE_DIR/test_conventional_i0_adapter_v2.py" | sort > /tmp/expected-files
+          diff -u /tmp/expected-files /tmp/actual-files
+
+      - name: Syntax-check I0 programs
+        working-directory: ${{ env.FIXTURE_DIR }}
+        run: |
+          python3 -m py_compile \
+            validate_i0.py test_validate_i0.py \
+            validate_stimulus.py test_validate_stimulus.py \
+            build_candidate_input.py conventional_i0_adapter.py test_conventional_i0_adapter.py \
+            evaluate_i0_results.py test_evaluate_i0_results.py \
+            qualify_i0.py test_qualify_i0.py \
+            build_candidate_input_v2.py conventional_i0_adapter_v2.py test_conventional_i0_adapter_v2.py
+
+      - name: Parse neutral protocol schemas
+        working-directory: ${{ env.FIXTURE_DIR }}
+        run: |
+          python3 -m json.tool myc-int-006i-i0-candidate-input.schema.json >/dev/null
+          python3 -m json.tool myc-int-006i-i0-candidate-results.schema.json >/dev/null
+
+      - name: Run I0 validation and migration suites
+        working-directory: ${{ env.FIXTURE_DIR }}
+        run: |
+          python3 -m unittest -v \
+            test_validate_i0.py \
+            test_validate_stimulus.py \
+            test_conventional_i0_adapter.py \
+            test_evaluate_i0_results.py \
+            test_qualify_i0.py \
+            test_conventional_i0_adapter_v2.py
+
+      - name: Build exact neutral candidate input
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p qualification
+          python3 "$FIXTURE_DIR/build_candidate_input_v2.py" \
+            --output qualification/myc-int-006j-candidate-input.json
+
+      - name: Execute exact neutral conventional candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 "$FIXTURE_DIR/conventional_i0_adapter_v2.py" \
+            qualification/myc-int-006j-candidate-input.json \
+            --output qualification/myc-int-006j-candidate-results.json
+
+      - name: Verify generated neutral evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+
+          inp_path = Path('qualification/myc-int-006j-candidate-input.json')
+          out_path = Path('qualification/myc-int-006j-candidate-results.json')
+          inp_raw = inp_path.read_bytes()
+          inp = json.loads(inp_raw)
+          out = json.loads(out_path.read_bytes())
+
+          assert inp['candidate_input_id'] == 'myc-int-i0-candidate-input'
+          assert inp['candidate_input_version'] == '1.0.0'
+          assert 'conventional' not in inp['candidate_input_id']
+          encoded_input = inp_raw.decode('utf-8')
+          for forbidden in ('expected_disposition', 'reason_code', '"assertions"', '"predicate"'):
+              assert forbidden not in encoded_input, forbidden
+
+          assert out['result_protocol_id'] == 'myc-int-i0-candidate-results'
+          assert out['result_protocol_version'] == '1.0.0'
+          assert out['implementation']['implementation_id'] == 'mycelix.i0.conventional.sqlite'
+          assert out['implementation']['family'] == 'conventional-sqlite'
+          assert out['candidate_input_sha256'] == hashlib.sha256(inp_raw).hexdigest()
+          assert len(out['results']) == 19
+          assert not [row for row in out['results'] if row['disposition'] == 'Unsupported']
+          assert len({row['case_id'] for row in out['results']}) == 19
+          for row in out['results']:
+              assert isinstance(row['facts'], dict)
+              assert isinstance(row['effect_count'], int)
+          PY
+
+      - name: Write qualification capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo 'subject=MYC-INT-006J'
+            echo "subject_sha=$SUBJECT_SHA"
+            echo "parent_sha=$PARENT_SHA"
+            echo "qualified_head=$(git rev-parse HEAD)"
+            echo "python=$(python3 --version 2>&1)"
+            echo "input_schema_sha256=$(sha256sum "$FIXTURE_DIR/myc-int-006i-i0-candidate-input.schema.json" | awk '{print $1}')"
+            echo "result_schema_sha256=$(sha256sum "$FIXTURE_DIR/myc-int-006i-i0-candidate-results.schema.json" | awk '{print $1}')"
+            echo "builder_v2_sha256=$(sha256sum "$FIXTURE_DIR/build_candidate_input_v2.py" | awk '{print $1}')"
+            echo "adapter_v2_sha256=$(sha256sum "$FIXTURE_DIR/conventional_i0_adapter_v2.py" | awk '{print $1}')"
+            echo "migration_test_sha256=$(sha256sum "$FIXTURE_DIR/test_conventional_i0_adapter_v2.py" | awk '{print $1}')"
+            echo "candidate_input_sha256=$(sha256sum qualification/myc-int-006j-candidate-input.json | awk '{print $1}')"
+            echo "candidate_results_sha256=$(sha256sum qualification/myc-int-006j-candidate-results.json | awk '{print $1}')"
+            echo 'checks=exact scope; py_compile; schema JSON parse; 006D-006J unit/mutation suites; neutral input generation; neutral candidate execution; 19-result/no-Unsupported/input-binding assertions'
+          } > qualification/MYC-INT-006J-exact.txt
+
+      - name: Upload neutral migration evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: myc-int-006j-exact-${{ env.SUBJECT_SHA }}
+          path: |
+            qualification/MYC-INT-006J-exact.txt
+            qualification/myc-int-006j-candidate-input.json
+            qualification/myc-int-006j-candidate-results.json
+          if-no-files-found: error
+          retention-days: 30
