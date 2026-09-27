@@ -1,0 +1,118 @@
+{
+  "profile_id": "myc-int-018k-h1-wet-bench-v1",
+  "profile_version": "1.0.0",
+  "status": "design-only",
+  "parent_subject": "791835936f940962d22b306cf9bb1d3a1d6838ea",
+  "acquisition_owner": {
+    "project": "Luminous Edge",
+    "issue": "Luminous-Dynamics/luminous-dynamics#3354",
+    "architecture_pr": "Luminous-Dynamics/luminous-dynamics#3355",
+    "qualified": false
+  },
+  "claim_ceiling": {
+    "hardware_qualified": false,
+    "sensor_calibration_qualified": false,
+    "agronomic_qualified": false,
+    "food_safety_qualified": false,
+    "electrical_safety_qualified": false,
+    "autonomous_control_authorized": false
+  },
+  "stages": [
+    {"id":"H1a","name":"dry-instrumentation-power","water_present":false,"nutrient_solution_present":false},
+    {"id":"H1b","name":"clean-water-closed-loop","water_present":true,"nutrient_solution_present":false},
+    {"id":"H1c","name":"nutrient-solution-sensing","water_present":true,"nutrient_solution_present":true}
+  ],
+  "physical_zones": [
+    {"id":"dry-control","description":"edge controller, power distribution, dry-side interfaces"},
+    {"id":"wet-process","description":"reservoir, pump, plumbing and immersed/process instrumentation"},
+    {"id":"containment","description":"spill tray and leak observation boundary"},
+    {"id":"ambient","description":"aerial/environment measurement area"}
+  ],
+  "acquisition_classes": [
+    {"id":"A","description":"fast hydraulic/electrical state","candidate_local_cadence":"~1 Hz where supported","normative":false},
+    {"id":"B","description":"chemistry/environment state","candidate_local_cadence":"5-15 s","normative":false},
+    {"id":"C","description":"persistent ordinary observation projection","candidate_local_cadence":"1-5 min plus separate transitions/faults","normative":false}
+  ],
+  "channels": [
+    {"id":"pump-command-state","phenomenon":"commanded actuator state","stage":"H1a","requirement":"Required","zone":"dry-control","acquisition_class":"A","unit_profile":"state-profile-required","calibration_metadata":"NotApplicable","provenance":"physical-or-test-command","actuation_authority":false},
+    {"id":"pump-electrical-state","phenomenon":"observed electrical/energized state","stage":"H1a","requirement":"Conditional","zone":"dry-control","acquisition_class":"A","unit_profile":"state-or-electrical-profile-required","calibration_metadata":"AsAvailable","provenance":"physical","actuation_authority":false},
+    {"id":"subsystem-power","phenomenon":"electrical power","stage":"H1a","requirement":"Required","zone":"dry-control","acquisition_class":"A","unit_profile":"power-unit-required","calibration_metadata":"AsAvailable","provenance":"physical","actuation_authority":false},
+    {"id":"subsystem-energy","phenomenon":"electrical energy","stage":"H1a","requirement":"Conditional","zone":"dry-control","acquisition_class":"C","unit_profile":"energy-unit-required","calibration_metadata":"AsAvailable","provenance":"physical-or-derived-from-qualified-profile","actuation_authority":false},
+    {"id":"controller-power-state","phenomenon":"controller runtime/power state","stage":"H1a","requirement":"Required","zone":"dry-control","acquisition_class":"A","unit_profile":"state-profile-required","calibration_metadata":"NotApplicable","provenance":"physical-or-runtime","actuation_authority":false},
+    {"id":"manual-override-state","phenomenon":"local override state","stage":"H1a","requirement":"Required","zone":"dry-control","acquisition_class":"A","unit_profile":"state-profile-required","calibration_metadata":"NotApplicable","provenance":"physical","actuation_authority":false},
+    {"id":"flow-rate","phenomenon":"volumetric flow rate","stage":"H1b","requirement":"Required","zone":"wet-process","acquisition_class":"A","unit_profile":"volumetric-flow-unit-required","calibration_metadata":"RequiredOrExplicitlyMissing","provenance":"physical","actuation_authority":false},
+    {"id":"reservoir-level","phenomenon":"liquid level","stage":"H1b","requirement":"Required","zone":"wet-process","acquisition_class":"A","unit_profile":"level-unit-required","calibration_metadata":"RequiredOrExplicitlyMissing","provenance":"physical","actuation_authority":false},
+    {"id":"reservoir-volume","phenomenon":"liquid volume","stage":"H1b","requirement":"Conditional","zone":"wet-process","acquisition_class":"C","unit_profile":"volume-unit-required","calibration_metadata":"AsAvailable","provenance":"physical-or-explicit-conversion-profile","actuation_authority":false},
+    {"id":"solution-temperature","phenomenon":"liquid temperature","stage":"H1b","requirement":"Required","zone":"wet-process","acquisition_class":"B","unit_profile":"temperature-unit-required","calibration_metadata":"RequiredOrExplicitlyMissing","provenance":"physical","actuation_authority":false},
+    {"id":"leak-state","phenomenon":"spill/leak contact state","stage":"H1b","requirement":"Required","zone":"containment","acquisition_class":"A","unit_profile":"state-profile-required","calibration_metadata":"CheckEvidenceExpected","provenance":"physical","actuation_authority":false},
+    {"id":"ph","phenomenon":"pH","stage":"H1c","requirement":"Required","zone":"wet-process","acquisition_class":"B","unit_profile":"ph-profile-required","calibration_metadata":"RequiredOrExplicitlyMissing","provenance":"physical","actuation_authority":false},
+    {"id":"electrical-conductivity","phenomenon":"electrical conductivity","stage":"H1c","requirement":"Required","zone":"wet-process","acquisition_class":"B","unit_profile":"conductivity-unit-required","calibration_metadata":"RequiredOrExplicitlyMissing","provenance":"physical","actuation_authority":false},
+    {"id":"dissolved-oxygen","phenomenon":"dissolved oxygen","stage":"H1c","requirement":"Conditional","zone":"wet-process","acquisition_class":"B","unit_profile":"do-unit-required","calibration_metadata":"RequiredOrExplicitlyMissing","provenance":"physical","actuation_authority":false},
+    {"id":"air-temperature","phenomenon":"air temperature","stage":"H1a","requirement":"Required","zone":"ambient","acquisition_class":"B","unit_profile":"temperature-unit-required","calibration_metadata":"AsAvailable","provenance":"physical","actuation_authority":false},
+    {"id":"relative-humidity","phenomenon":"relative humidity","stage":"H1a","requirement":"Required","zone":"ambient","acquisition_class":"B","unit_profile":"relative-humidity-profile-required","calibration_metadata":"AsAvailable","provenance":"physical","actuation_authority":false},
+    {"id":"light","phenomenon":"optical/plant-light quantity","stage":"H1a","requirement":"Optional","zone":"ambient","acquisition_class":"B","unit_profile":"explicit-light-profile-required","calibration_metadata":"AsAvailable","provenance":"physical","actuation_authority":false},
+    {"id":"co2","phenomenon":"carbon-dioxide concentration","stage":"H1a","requirement":"Deferred","zone":"ambient","acquisition_class":"B","unit_profile":"concentration-profile-required","calibration_metadata":"AsAvailable","provenance":"physical","actuation_authority":false}
+  ],
+  "semantic_separations": [
+    "pump-command-state != pump-electrical-state != flow-rate",
+    "reservoir-level != reservoir-volume unless an explicit conversion profile exists",
+    "pH observation != hydroponic suitability assessment",
+    "electrical-conductivity observation != nutrient adequacy assessment",
+    "subsystem-power != subsystem-energy",
+    "missing != zero",
+    "stale != current",
+    "synthetic/replayed != physical"
+  ],
+  "bom_capability_classes": [
+    "opaque-serviceable-reservoir",
+    "secondary-spill-containment",
+    "low-voltage-circulation-pump",
+    "compatible-tubing-and-fittings",
+    "serviceable-restriction-bypass-manifold",
+    "flow-instrument",
+    "level-or-volume-instrument",
+    "solution-temperature-instrument",
+    "ph-instrument",
+    "conductivity-instrument",
+    "optional-do-instrument",
+    "ambient-temperature-rh-instrument",
+    "optional-explicit-profile-light-instrument",
+    "leak-detector",
+    "power-energy-observation-method",
+    "edge-acquisition-controller",
+    "isolated-low-voltage-power-supply",
+    "protected-load-switching",
+    "physical-manual-stop-or-override",
+    "visible-state-indication",
+    "calibration-check-materials",
+    "asset-labeling-and-service-log",
+    "wet-dry-cable-management"
+  ],
+  "failure_injections": [
+    {"id":"FI-01","name":"missing-sensor","expected":"missing-remains-explicit"},
+    {"id":"FI-02","name":"stale-stream","expected":"historical-value-does-not-become-current"},
+    {"id":"FI-03","name":"stuck-at-value","expected":"observation-preserved-assessment-separate"},
+    {"id":"FI-04","name":"controlled-drift","expected":"drift-evidence-separate-from-source"},
+    {"id":"FI-05","name":"duplicate-delivery","expected":"delivery-duplicate-does-not-imply-new-semantic-observation"},
+    {"id":"FI-06","name":"out-of-order-arrival","expected":"arrival-order-does-not-define-event-time"},
+    {"id":"FI-07","name":"conflicting-probes","expected":"conflict-preserved-no-silent-average"},
+    {"id":"FI-08","name":"pump-command-without-flow","expected":"command-and-flow-may-disagree"},
+    {"id":"FI-09","name":"partial-flow-restriction","expected":"degradation-observed-cause-not-invented"},
+    {"id":"FI-10","name":"low-reservoir","expected":"finding-does-not-authorize-refill"},
+    {"id":"FI-11","name":"leak","expected":"leak-evidence-separate-from-safety-effect-authority"},
+    {"id":"FI-12","name":"restart-power-cycle","expected":"no-fabricated-or-duplicated-history"},
+    {"id":"FI-13","name":"network-partition","expected":"local-acquisition-can-continue-and-reconnect-preserves-identity"},
+    {"id":"FI-14","name":"timestamp-skew","expected":"source-time-does-not-become-trusted-global-time"},
+    {"id":"FI-15","name":"missing-energy-meter","expected":"energy-unknown-not-zero"},
+    {"id":"FI-16","name":"manual-override","expected":"manual-state-distinct-from-requested-or-automated-state"},
+    {"id":"FI-17","name":"unauthorized-actuation-attempt","expected":"analysis-assessment-path-has-no-effect-authority"},
+    {"id":"FI-18","name":"profile-revision-mid-run","expected":"old-and-new-profile-generations-remain-distinct"}
+  ],
+  "runtime_optionalities": {
+    "mycelix_required_for_local_acquisition": false,
+    "holochain_required_for_local_acquisition": false,
+    "symthaea_required_for_local_acquisition": false,
+    "itc_required_for_local_acquisition": false,
+    "fleet_required_for_local_acquisition": false
+  }
+}
