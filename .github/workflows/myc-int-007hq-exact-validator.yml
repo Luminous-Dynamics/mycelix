@@ -1,0 +1,72 @@
+name: MYC-INT-007H exact validator qualification
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/myc-int-007hq-exact-validator.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SUBJECT_SHA: be16989749922b1208d013bd1d2726f5b6c1f5e8
+  PARENT_SHA: 284a96e20102f5beeec5533c80839b5aa2c3c65c
+
+jobs:
+  qualify-exact-007h:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact product subject
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SUBJECT_SHA }}
+          fetch-depth: 0
+
+      - name: Verify exact subject and two-file scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SUBJECT_SHA"
+          actual="$(git diff --name-only "$PARENT_SHA" "$SUBJECT_SHA" | sort)"
+          expected="$(printf '%s\n' \
+            docs/interoperability/tools/test_validate_myc_int_007g.py \
+            docs/interoperability/tools/validate_myc_int_007g.py | sort)"
+          test "$actual" = "$expected"
+
+      - name: Compile validator and tests
+        run: |
+          python3 -m py_compile \
+            docs/interoperability/tools/validate_myc_int_007g.py \
+            docs/interoperability/tools/test_validate_myc_int_007g.py
+
+      - name: Run mutation suite
+        working-directory: docs/interoperability/tools
+        run: python3 -m unittest -v test_validate_myc_int_007g.py
+
+      - name: Validate exact stacked F0 fixtures
+        run: |
+          python3 docs/interoperability/tools/validate_myc_int_007g.py \
+            docs/interoperability/fixtures/MYC_INT_007F_F0_FEDERATION.json \
+            docs/interoperability/fixtures/MYC_INT_007G_F0_RUN_MANIFEST.json
+
+      - name: Build evidence capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/myc-int-007h
+          printf 'subject=%s\nparent=%s\n' "$SUBJECT_SHA" "$PARENT_SHA" > evidence/myc-int-007h/subject.txt
+          python3 --version > evidence/myc-int-007h/python-version.txt 2>&1
+          git --version > evidence/myc-int-007h/git-version.txt
+          sha256sum \
+            docs/interoperability/fixtures/MYC_INT_007F_F0_FEDERATION.json \
+            docs/interoperability/fixtures/MYC_INT_007G_F0_RUN_MANIFEST.json \
+            docs/interoperability/tools/validate_myc_int_007g.py \
+            docs/interoperability/tools/test_validate_myc_int_007g.py \
+            > evidence/myc-int-007h/sha256.txt
+
+      - name: Upload qualification capsule
+        uses: actions/upload-artifact@v4
+        with:
+          name: myc-int-007h-exact-qualification
+          path: evidence/myc-int-007h
