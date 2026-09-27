@@ -1,0 +1,87 @@
+name: MYC-INT-007N exact recursive-seeding validator qualification
+
+on:
+  pull_request:
+    branches:
+      - myc-int-007n-recursive-seeding-validator
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SUBJECT_SHA: 33c2ff35abccd4ca22caac6161edf26c8eb3f800
+  PARENT_SHA: 262d16b7f04f8368ffe89e6a96e6f5e7ecb1752c
+
+jobs:
+  qualify-exact-subject:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SUBJECT_SHA }}
+          fetch-depth: 0
+
+      - name: Verify exact subject and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SUBJECT_SHA"
+          mapfile -t changed < <(git diff --name-only "$PARENT_SHA" "$SUBJECT_SHA")
+          printf '%s\n' "${changed[@]}"
+          test "${#changed[@]}" -eq 2
+          expected=(
+            "docs/interoperability/scripts/test_validate_myc_int_007m.py"
+            "docs/interoperability/scripts/validate_myc_int_007m.py"
+          )
+          mapfile -t got < <(printf '%s\n' "${changed[@]}" | sort)
+          mapfile -t want < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${got[*]}" = "${want[*]}"
+
+      - name: Python syntax
+        run: |
+          python3 -m py_compile \
+            docs/interoperability/scripts/validate_myc_int_007m.py \
+            docs/interoperability/scripts/test_validate_myc_int_007m.py
+
+      - name: Run 007N mutation suite
+        run: |
+          python3 -m unittest -v docs/interoperability/scripts/test_validate_myc_int_007m.py
+
+      - name: Validate real 007K/007M fixtures
+        run: |
+          python3 docs/interoperability/scripts/validate_myc_int_007m.py \
+            docs/interoperability/fixtures/MYC_INT_007K_NODE_SEED_PACKAGE_A_TO_B.json \
+            docs/interoperability/fixtures/MYC_INT_007K_BOOTSTRAP_RUN_B.json \
+            docs/interoperability/fixtures/MYC_INT_007M_NODE_SEED_PACKAGE_B_TO_C.json \
+            docs/interoperability/fixtures/MYC_INT_007M_BOOTSTRAP_RUN_C.json
+
+      - name: Create evidence capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p qualification-capsule
+          {
+            echo "subject_sha=$SUBJECT_SHA"
+            echo "parent_sha=$PARENT_SHA"
+            echo "head=$(git rev-parse HEAD)"
+            python3 --version
+            uname -a
+          } > qualification-capsule/environment.txt
+          sha256sum \
+            docs/interoperability/fixtures/MYC_INT_007K_NODE_SEED_PACKAGE_A_TO_B.json \
+            docs/interoperability/fixtures/MYC_INT_007K_BOOTSTRAP_RUN_B.json \
+            docs/interoperability/fixtures/MYC_INT_007M_NODE_SEED_PACKAGE_B_TO_C.json \
+            docs/interoperability/fixtures/MYC_INT_007M_BOOTSTRAP_RUN_C.json \
+            docs/interoperability/scripts/validate_myc_int_007m.py \
+            docs/interoperability/scripts/test_validate_myc_int_007m.py \
+            > qualification-capsule/files.sha256
+          git diff --name-status "$PARENT_SHA" "$SUBJECT_SHA" > qualification-capsule/exact-scope.txt
+
+      - name: Upload qualification capsule
+        uses: actions/upload-artifact@v4
+        with:
+          name: myc-int-007n-exact-qualification-${{ env.SUBJECT_SHA }}
+          path: qualification-capsule/
+          if-no-files-found: error
