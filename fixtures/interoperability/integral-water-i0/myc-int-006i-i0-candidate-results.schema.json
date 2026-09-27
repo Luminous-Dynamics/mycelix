@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminous-dynamics.org/schemas/mycelix/interoperability/myc-int-006i-i0-candidate-results.schema.json",
+  "title": "MYC-INT-006I implementation-neutral I0 candidate results",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "result_protocol_id",
+    "result_protocol_version",
+    "profile",
+    "implementation",
+    "candidate_input_id",
+    "candidate_input_version",
+    "candidate_input_sha256",
+    "results"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "const": "./myc-int-006i-i0-candidate-results.schema.json"
+    },
+    "result_protocol_id": {
+      "type": "string",
+      "const": "myc-int-i0-candidate-results"
+    },
+    "result_protocol_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "profile": {
+      "type": "string",
+      "const": "runtime-neutral-candidate-results-v1"
+    },
+    "implementation": {
+      "$ref": "#/$defs/implementation"
+    },
+    "candidate_input_id": {
+      "type": "string",
+      "const": "myc-int-i0-candidate-input"
+    },
+    "candidate_input_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "candidate_input_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "results": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/result"}
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "implementation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["implementation_id", "family", "version"],
+      "properties": {
+        "implementation_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]{2,127}$"
+        },
+        "family": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    "disposition": {
+      "type": "string",
+      "enum": ["Accepted", "Rejected", "Indeterminate", "Unsupported"]
+    },
+    "facts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "distinct_semantic_subjects": {"type": "boolean"},
+        "effect_authority_granted": {"type": "boolean"},
+        "authorization_subject_bound": {"type": "boolean"},
+        "source_schema_preserved": {"type": "boolean"},
+        "provenance_preserved": {"type": "boolean"},
+        "unknown_state_preserved": {"type": "boolean"},
+        "conflict_preserved": {"type": "boolean"},
+        "logical_effect_count": {"type": "integer", "minimum": 0},
+        "historical_mutation": {"type": "boolean"},
+        "review_candidate_created": {"type": "boolean"},
+        "local_authority_granted": {"type": "boolean"},
+        "observation_promotion": {"type": "boolean"},
+        "receipt_promotion": {"type": "boolean"},
+        "outcome_promotion": {"type": "boolean"},
+        "translation_loss_declared": {"type": "boolean"},
+        "idempotent_replay": {"type": "boolean"},
+        "expired_authority_rejected": {"type": "boolean"},
+        "stale_schema_rejected": {"type": "boolean"}
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "disposition",
+        "implementation_rule",
+        "effect_count",
+        "tags",
+        "facts"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^I0-[A-Z]+-[0-9]{3}$"
+        },
+        "disposition": {"$ref": "#/$defs/disposition"},
+        "implementation_rule": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "effect_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tags": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "facts": {"$ref": "#/$defs/facts"}
+      }
+    }
+  }
+}
