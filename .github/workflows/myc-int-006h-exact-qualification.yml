@@ -1,0 +1,128 @@
+name: MYC-INT-006H exact qualification
+
+on:
+  pull_request:
+    branches:
+      - myc-int-006h-i0-qualification-orchestrator
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-exact-i0-subject:
+    if: github.event.pull_request.head.ref == 'myc-int-006hq-exact-qualifier'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUBJECT_SHA: 1bbdff78067e872c1a1b527587878646fbe4b662
+      PARENT_SHA: 693020fb9bff7d8da404d12895f585b076fb14f2
+      I0_DIR: fixtures/interoperability/integral-water-i0
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SUBJECT_SHA }}
+          fetch-depth: 0
+
+      - name: Verify exact subject and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SUBJECT_SHA"
+          git cat-file -e "$PARENT_SHA^{commit}"
+          git diff --name-only "$PARENT_SHA" "$SUBJECT_SHA" | sort > /tmp/actual-files
+          printf '%s\n' \
+            "$I0_DIR/qualify_i0.py" \
+            "$I0_DIR/test_qualify_i0.py" | sort > /tmp/expected-files
+          diff -u /tmp/expected-files /tmp/actual-files
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Syntax-check exact I0 programs
+        working-directory: ${{ env.I0_DIR }}
+        run: |
+          set -euo pipefail
+          python3 -m py_compile \
+            validate_i0.py test_validate_i0.py \
+            validate_stimulus.py test_validate_stimulus.py \
+            build_candidate_input.py conventional_i0_adapter.py test_conventional_i0_adapter.py \
+            evaluate_i0_results.py test_evaluate_i0_results.py \
+            qualify_i0.py test_qualify_i0.py
+
+      - name: Run all I0 unit and mutation controls
+        working-directory: ${{ env.I0_DIR }}
+        run: |
+          set -euo pipefail
+          python3 -m unittest -v \
+            test_validate_i0.py \
+            test_validate_stimulus.py \
+            test_conventional_i0_adapter.py \
+            test_evaluate_i0_results.py \
+            test_qualify_i0.py
+
+      - name: Execute exact process-separated qualification
+        working-directory: ${{ env.I0_DIR }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/qualification"
+          python3 qualify_i0.py \
+            --output "$GITHUB_WORKSPACE/qualification/MYC-INT-006H-manifest.json"
+
+      - name: Verify qualification manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('qualification/MYC-INT-006H-manifest.json')
+          doc = json.loads(path.read_text(encoding='utf-8'))
+          assert doc['qualifier_profile'] == 'myc-int-006h-process-separated-qualifier-v1'
+          assert doc['status'] == 'PASS'
+          summary = doc['evaluation_summary']
+          assert summary['case_count'] == 19
+          assert summary['disposition_matches'] == 19
+          assert summary['assertion_checks'] == 28
+          assert summary['assertion_passes'] == 28
+          PY
+
+      - name: Write exact qualification capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo 'subject=MYC-INT-006H'
+            echo "subject_sha=$SUBJECT_SHA"
+            echo "parent_sha=$PARENT_SHA"
+            echo "qualified_head=$(git rev-parse HEAD)"
+            python3 --version
+            echo 'checks=exact scope; py_compile; all 006D-006H unit/mutation suites; qualify_i0.py; manifest semantic totals'
+            echo 'file_sha256_begin'
+            for f in \
+              "$I0_DIR/myc-int-006c-water-i0-corpus.schema.json" \
+              "$I0_DIR/myc-int-006c-water-i0-corpus.v1.json" \
+              "$I0_DIR/myc-int-006e-water-i0-stimulus.v1.json" \
+              "$I0_DIR/validate_i0.py" \
+              "$I0_DIR/validate_stimulus.py" \
+              "$I0_DIR/build_candidate_input.py" \
+              "$I0_DIR/conventional_i0_adapter.py" \
+              "$I0_DIR/evaluate_i0_results.py" \
+              "$I0_DIR/qualify_i0.py"; do
+              sha256sum "$f"
+            done
+            echo 'file_sha256_end'
+          } > qualification/MYC-INT-006H-exact.txt
+
+      - name: Upload qualification evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: myc-int-006h-exact-${{ env.SUBJECT_SHA }}
+          path: |
+            qualification/MYC-INT-006H-manifest.json
+            qualification/MYC-INT-006H-exact.txt
+          if-no-files-found: error
+          retention-days: 30
