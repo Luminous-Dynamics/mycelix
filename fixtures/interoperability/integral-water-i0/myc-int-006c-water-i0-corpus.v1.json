@@ -1,0 +1,291 @@
+{
+  "$schema": "./myc-int-006c-water-i0-corpus.schema.json",
+  "corpus_id": "myc-int-006c-water-i0",
+  "corpus_version": "1.0.0",
+  "profile": "runtime-neutral-semantic-conformance-v1",
+  "source_refs": {
+    "scenario_issue": 3119,
+    "evaluation_issue": 3147,
+    "integral_source_registry_pr": 3144
+  },
+  "subjects": {
+    "water.system.alpha": {
+      "kind": "Resource",
+      "semantic_ref": {"namespace": "mycelix.interop.i0", "name": "water-system", "version": "1"},
+      "description": "Synthetic community water-system resource subject."
+    },
+    "water.issue.maintenance": {
+      "kind": "Issue",
+      "semantic_ref": {"namespace": "mycelix.interop.i0", "name": "maintenance-issue", "version": "1"},
+      "description": "Synthetic maintenance issue affecting water.system.alpha."
+    },
+    "water.observation.pressure": {
+      "kind": "Observation",
+      "semantic_ref": {"namespace": "mycelix.interop.i0", "name": "pressure-observation", "version": "1"},
+      "description": "Synthetic direct instrument observation of low pressure."
+    },
+    "water.report.operator": {
+      "kind": "ActorReport",
+      "semantic_ref": {"namespace": "mycelix.interop.i0", "name": "operator-report", "version": "1"},
+      "description": "Synthetic operator report of intermittent pump behavior."
+    },
+    "water.evidence.bundle": {
+      "kind": "EvidenceBundle",
+      "semantic_ref": {"namespace": "mycelix.interop.i0", "name": "evidence-bundle", "version": "1"},
+      "description": "Bundle linking the direct observation and actor report without collapsing their epistemic kinds."
+    },
+    "water.alternative.repair": {
+      "kind": "Alternative",
+      "semantic_ref": {"namespace": "mycelix.interop.i0", "name": "repair-alternative", "version": "1"},
+      "description": "Repair the existing pump assembly."
+    },
+    "water.alternative.replace": {
+      "kind": "Alternative",
+      "semantic_ref": {"namespace": "mycelix.interop.i0", "name": "replace-alternative", "version": "1"},
+      "description": "Replace the pump assembly."
+    },
+    "water.objection.access": {
+      "kind": "Objection",
+      "semantic_ref": {"namespace": "mycelix.interop.i0", "name": "access-objection", "version": "1"},
+      "description": "Objection noting maintenance-access disruption for affected residents."
+    },
+    "water.prediction.pressure": {
+      "kind": "Prediction",
+      "semantic_ref": {"namespace": "mycelix.interop.i0", "name": "post-repair-pressure-prediction", "version": "1"},
+      "description": "Synthetic analytical prediction of post-repair pressure, explicitly not an observation."
+    },
+    "water.recommendation.repair": {
+      "kind": "Recommendation",
+      "semantic_ref": {"namespace": "mycelix.interop.i0", "name": "repair-recommendation", "version": "1"},
+      "description": "Non-executive analytical recommendation favoring bounded repair."
+    },
+    "water.decision.repair": {
+      "kind": "Decision",
+      "semantic_ref": {"namespace": "mycelix.interop.i0", "name": "repair-decision", "version": "1"},
+      "description": "Governance decision selecting bounded repair while preserving objection lineage."
+    },
+    "water.decision.foreign": {
+      "kind": "ForeignDecision",
+      "semantic_ref": {"namespace": "external.integral.fixture", "name": "foreign-repair-decision", "version": "1"},
+      "description": "Synthetic foreign decision object that is validly imported but carries no automatic local authority."
+    },
+    "water.authorization.repair": {
+      "kind": "Authorization",
+      "semantic_ref": {"namespace": "mycelix.interop.i0", "name": "repair-authorization", "version": "1"},
+      "description": "Bounded authorization for one repair action on water.system.alpha."
+    },
+    "water.attempt.repair": {
+      "kind": "ImplementationAttempt",
+      "semantic_ref": {"namespace": "mycelix.interop.i0", "name": "repair-attempt", "version": "1"},
+      "description": "Implementation attempt admitted under the bounded authorization."
+    },
+    "water.receipt.repair": {
+      "kind": "ImplementationReceipt",
+      "semantic_ref": {"namespace": "mycelix.interop.i0", "name": "repair-receipt", "version": "1"},
+      "description": "Receipt that the admitted repair attempt executed at the implementation layer."
+    },
+    "water.outcome.pressure-low": {
+      "kind": "OutcomeObservation",
+      "semantic_ref": {"namespace": "mycelix.interop.i0", "name": "post-repair-pressure-observation", "version": "1"},
+      "description": "Independent post-repair observation showing pressure remains below the intended target."
+    },
+    "water.review.repair": {
+      "kind": "ReviewCandidate",
+      "semantic_ref": {"namespace": "mycelix.interop.i0", "name": "repair-review-candidate", "version": "1"},
+      "description": "Review candidate created because observed outcome contradicts the intended result."
+    },
+    "water.decision.supersede": {
+      "kind": "SupersedingDecisionCandidate",
+      "semantic_ref": {"namespace": "mycelix.interop.i0", "name": "superseding-decision-candidate", "version": "1"},
+      "description": "Candidate successor decision that does not mutate water.decision.repair history."
+    },
+    "water.credential.operator": {
+      "kind": "Credential",
+      "semantic_ref": {"namespace": "mycelix.interop.i0", "name": "operator-credential", "version": "1"},
+      "description": "Synthetic valid identity/role credential with no automatic effect authority."
+    },
+    "water.certification.external": {
+      "kind": "Certification",
+      "semantic_ref": {"namespace": "external.integral.fixture", "name": "certified-design", "version": "draft-2026-09-27"},
+      "description": "Synthetic external certification object that is not automatically locally accepted."
+    },
+    "water.summary.derived": {
+      "kind": "DerivedSummary",
+      "semantic_ref": {"namespace": "mycelix.interop.i0", "name": "derived-water-summary", "version": "1"},
+      "description": "Derived analytical summary that is not the source-owned current state."
+    },
+    "water.authority.foreign": {
+      "kind": "ForeignAuthority",
+      "semantic_ref": {"namespace": "external.integral.fixture", "name": "foreign-authorization", "version": "1"},
+      "description": "Synthetic foreign authority artifact with no automatic local authority."
+    },
+    "water.receipt.delivery": {
+      "kind": "DeliveryReceipt",
+      "semantic_ref": {"namespace": "mycelix.interop.i0", "name": "delivery-receipt", "version": "1"},
+      "description": "Transport/delivery receipt that is not an implementation or outcome receipt."
+    }
+  },
+  "cases": {
+    "I0-POS-001": {
+      "kind": "Positive",
+      "summary": "Complete water-maintenance lineage with recommendation, decision, bounded authorization, execution receipt, adverse outcome observation and review candidate.",
+      "inputs": ["water.system.alpha", "water.issue.maintenance", "water.observation.pressure", "water.report.operator", "water.evidence.bundle", "water.alternative.repair", "water.alternative.replace", "water.objection.access", "water.prediction.pressure", "water.recommendation.repair", "water.decision.repair", "water.authorization.repair", "water.attempt.repair", "water.receipt.repair", "water.outcome.pressure-low", "water.review.repair", "water.decision.supersede"],
+      "expected_disposition": {"class": "Accepted", "reason_code": "LINEAGE_PRESERVED"},
+      "assertions": [
+        {"predicate": "DistinctSemanticSubjects", "subjects": ["water.prediction.pressure", "water.observation.pressure", "water.recommendation.repair", "water.decision.repair", "water.authorization.repair", "water.receipt.repair", "water.outcome.pressure-low"], "note": "Prediction, observation, recommendation, decision, authorization, execution receipt and observed outcome remain distinct."},
+        {"predicate": "NoEffectAuthority", "subjects": ["water.recommendation.repair"], "note": "The recommendation has no direct effect authority."},
+        {"predicate": "BindsExactSubject", "subjects": ["water.authorization.repair", "water.system.alpha", "water.decision.repair"], "note": "Authorization is scoped to the selected decision and water-system subject."},
+        {"predicate": "NoHistoricalMutation", "subjects": ["water.decision.repair", "water.decision.supersede"], "note": "Successor decision semantics do not rewrite historical decision bytes."},
+        {"predicate": "CreatesReviewCandidate", "subjects": ["water.outcome.pressure-low", "water.review.repair"], "note": "Adverse outcome creates review rather than automatic revocation or history mutation."}
+      ]
+    },
+    "I0-HOSTILE-001": {
+      "kind": "Hostile",
+      "summary": "Recommendation attempts direct external effect.",
+      "inputs": ["water.recommendation.repair", "water.system.alpha"],
+      "expected_disposition": {"class": "Rejected", "reason_code": "RECOMMENDATION_NOT_AUTHORITY"},
+      "assertions": [{"predicate": "NoEffectAuthority", "subjects": ["water.recommendation.repair"], "note": "Recommendation cannot authorize implementation."}]
+    },
+    "I0-HOSTILE-002": {
+      "kind": "Hostile",
+      "summary": "Imported foreign decision attempts to become local authority.",
+      "inputs": ["water.decision.foreign", "water.system.alpha"],
+      "expected_disposition": {"class": "Rejected", "reason_code": "FOREIGN_DECISION_NOT_LOCAL_AUTHORITY"},
+      "assertions": [{"predicate": "NoLocalAuthority", "subjects": ["water.decision.foreign"], "note": "Foreign/imported decision needs explicit local recognition or delegation before it can support local authority."}]
+    },
+    "I0-HOSTILE-003": {
+      "kind": "Hostile",
+      "summary": "Valid credential attempts to become effect authority.",
+      "inputs": ["water.credential.operator", "water.system.alpha"],
+      "expected_disposition": {"class": "Rejected", "reason_code": "CREDENTIAL_NOT_AUTHORITY"},
+      "assertions": [{"predicate": "NoEffectAuthority", "subjects": ["water.credential.operator"], "note": "Credential validity does not mint action authority."}]
+    },
+    "I0-HOSTILE-004": {
+      "kind": "Hostile",
+      "summary": "Duplicate delivery of one semantic implementation attempt.",
+      "inputs": ["water.attempt.repair", "water.attempt.repair"],
+      "expected_disposition": {"class": "Accepted", "reason_code": "IDEMPOTENT_REPLAY"},
+      "assertions": [
+        {"predicate": "IdempotentReplay", "subjects": ["water.attempt.repair"], "note": "Replay is recognized as the same semantic attempt."},
+        {"predicate": "SingleLogicalEffect", "subjects": ["water.attempt.repair", "water.receipt.repair"], "note": "Duplicate delivery cannot create a second logical effect."}
+      ]
+    },
+    "I0-HOSTILE-005": {
+      "kind": "Hostile",
+      "summary": "Receiver may have persisted before sender timeout and missing acknowledgement.",
+      "inputs": ["water.attempt.repair", "water.receipt.delivery"],
+      "expected_disposition": {"class": "Indeterminate", "reason_code": "DELIVERY_OUTCOME_UNKNOWN"},
+      "assertions": [{"predicate": "PreservesUnknownState", "subjects": ["water.attempt.repair", "water.receipt.delivery"], "note": "Timeout cannot be promoted to definite non-delivery or definite execution."}]
+    },
+    "I0-HOSTILE-006": {
+      "kind": "Hostile",
+      "summary": "Stale schema generation is submitted as current compatible input.",
+      "inputs": ["water.evidence.bundle"],
+      "expected_disposition": {"class": "Rejected", "reason_code": "STALE_SCHEMA_GENERATION"},
+      "assertions": [
+        {"predicate": "RejectsStaleSchema", "subjects": ["water.evidence.bundle"], "note": "Stale schema cannot silently enter the strongest compatibility path."},
+        {"predicate": "PreservesSourceSchema", "subjects": ["water.evidence.bundle"], "note": "Source schema identity remains explicit."}
+      ]
+    },
+    "I0-HOSTILE-007": {
+      "kind": "Hostile",
+      "summary": "External certification is presented as automatically accepted local certification.",
+      "inputs": ["water.certification.external"],
+      "expected_disposition": {"class": "Rejected", "reason_code": "EXTERNAL_CERT_NOT_LOCAL_ACCEPTANCE"},
+      "assertions": [{"predicate": "NoLocalAuthority", "subjects": ["water.certification.external"], "note": "External certification does not create local acceptance by itself."}]
+    },
+    "I0-HOSTILE-008": {
+      "kind": "Hostile",
+      "summary": "Derived summary is presented as source-owned current fact.",
+      "inputs": ["water.summary.derived", "water.system.alpha"],
+      "expected_disposition": {"class": "Rejected", "reason_code": "DERIVED_NOT_SOURCE_FACT"},
+      "assertions": [{"predicate": "DistinctSemanticSubjects", "subjects": ["water.summary.derived", "water.observation.pressure"], "note": "Derived view and source observation are not interchangeable."}]
+    },
+    "I0-HOSTILE-009": {
+      "kind": "Hostile",
+      "summary": "Expired or revoked authorization is presented for a new effect.",
+      "inputs": ["water.authorization.repair", "water.attempt.repair"],
+      "expected_disposition": {"class": "Rejected", "reason_code": "AUTHORIZATION_NOT_CURRENT"},
+      "assertions": [{"predicate": "RejectsExpiredAuthority", "subjects": ["water.authorization.repair"], "note": "Historical authorization cannot be reused as current effect authority."}]
+    },
+    "I0-HOSTILE-010": {
+      "kind": "Hostile",
+      "summary": "Contradictory outcome attempts to overwrite the original decision.",
+      "inputs": ["water.decision.repair", "water.outcome.pressure-low", "water.review.repair"],
+      "expected_disposition": {"class": "Rejected", "reason_code": "HISTORICAL_MUTATION_FORBIDDEN"},
+      "assertions": [
+        {"predicate": "NoHistoricalMutation", "subjects": ["water.decision.repair"], "note": "Historical decision remains immutable."},
+        {"predicate": "CreatesReviewCandidate", "subjects": ["water.outcome.pressure-low", "water.review.repair"], "note": "Contradictory outcome creates review instead."}
+      ]
+    },
+    "I0-HOSTILE-011": {
+      "kind": "Hostile",
+      "summary": "Transport messages are reordered where the seam promised no total order.",
+      "inputs": ["water.report.operator", "water.observation.pressure", "water.evidence.bundle"],
+      "expected_disposition": {"class": "Accepted", "reason_code": "ORDER_INDEPENDENT_SEMANTICS"},
+      "assertions": [
+        {"predicate": "PreservesProvenance", "subjects": ["water.report.operator", "water.observation.pressure", "water.evidence.bundle"], "note": "Reordering transport does not erase provenance."},
+        {"predicate": "DistinctSemanticSubjects", "subjects": ["water.report.operator", "water.observation.pressure"], "note": "Actor report and observation remain distinct regardless of arrival order."}
+      ]
+    },
+    "I0-HOSTILE-012": {
+      "kind": "Hostile",
+      "summary": "Same visible identifier is supplied under a different source schema identity.",
+      "inputs": ["water.issue.maintenance"],
+      "expected_disposition": {"class": "Rejected", "reason_code": "SCHEMA_QUALIFIED_IDENTITY_MISMATCH"},
+      "assertions": [{"predicate": "PreservesSourceSchema", "subjects": ["water.issue.maintenance"], "note": "Visible ID text alone cannot collapse schema-qualified identity."}]
+    },
+    "I0-HOSTILE-013": {
+      "kind": "Hostile",
+      "summary": "Translation silently drops source- or authority-relevant semantics.",
+      "inputs": ["water.authorization.repair", "water.evidence.bundle"],
+      "expected_disposition": {"class": "Rejected", "reason_code": "UNDECLARED_TRANSLATION_LOSS"},
+      "assertions": [
+        {"predicate": "PreservesSourceSchema", "subjects": ["water.authorization.repair", "water.evidence.bundle"], "note": "Translation cannot erase source identity."},
+        {"predicate": "PreservesProvenance", "subjects": ["water.authorization.repair", "water.evidence.bundle"], "note": "Translation cannot silently sever provenance."}
+      ]
+    },
+    "I0-HOSTILE-014": {
+      "kind": "Hostile",
+      "summary": "Foreign authority is presented as local authority without recognition or delegation.",
+      "inputs": ["water.authority.foreign", "water.system.alpha"],
+      "expected_disposition": {"class": "Rejected", "reason_code": "FOREIGN_AUTHORITY_NOT_LOCAL"},
+      "assertions": [{"predicate": "NoLocalAuthority", "subjects": ["water.authority.foreign"], "note": "Verification/import does not imply local authority."}]
+    },
+    "I0-HOSTILE-015": {
+      "kind": "Partition",
+      "summary": "Conflicting partitioned states attempt last-arrival-wins resolution after reconnect.",
+      "inputs": ["water.observation.pressure", "water.report.operator", "water.system.alpha"],
+      "expected_disposition": {"class": "Rejected", "reason_code": "ARRIVAL_ORDER_NOT_CONFLICT_RESOLUTION"},
+      "assertions": [{"predicate": "PreservesConflict", "subjects": ["water.observation.pressure", "water.report.operator"], "note": "Conflict must remain visible until an explicit resolution profile applies."}]
+    },
+    "I0-HOSTILE-016": {
+      "kind": "Hostile",
+      "summary": "Analytical prediction is submitted as a direct observation.",
+      "inputs": ["water.prediction.pressure", "water.observation.pressure"],
+      "expected_disposition": {"class": "Rejected", "reason_code": "PREDICTION_NOT_OBSERVATION"},
+      "assertions": [{"predicate": "NoObservationPromotion", "subjects": ["water.prediction.pressure", "water.observation.pressure"], "note": "Prediction cannot be relabeled as direct observation."}]
+    },
+    "I0-HOSTILE-017": {
+      "kind": "Hostile",
+      "summary": "Delivery/registration receipt is submitted as proof of implementation effect.",
+      "inputs": ["water.receipt.delivery", "water.receipt.repair"],
+      "expected_disposition": {"class": "Rejected", "reason_code": "RECEIPT_ROLE_MISMATCH"},
+      "assertions": [{"predicate": "NoReceiptPromotion", "subjects": ["water.receipt.delivery", "water.receipt.repair"], "note": "Delivery receipt is not implementation/effect receipt."}]
+    },
+    "I0-HOSTILE-018": {
+      "kind": "Hostile",
+      "summary": "Successful command completion is presented as proof that the desired real-world outcome occurred.",
+      "inputs": ["water.receipt.repair", "water.outcome.pressure-low"],
+      "expected_disposition": {"class": "Rejected", "reason_code": "SUCCESS_NOT_DESIRED_OUTCOME"},
+      "assertions": [{"predicate": "NoOutcomePromotion", "subjects": ["water.receipt.repair", "water.outcome.pressure-low"], "note": "Execution success and observed desired outcome remain separate."}]
+    }
+  },
+  "nonclaims": [
+    "Corpus validity does not establish any implementation passes it.",
+    "The corpus does not establish Integral endorsement or adoption.",
+    "The corpus does not establish production readiness, legal compliance, security certification or deployment suitability.",
+    "The corpus does not select a winning technology stack.",
+    "The corpus is a synthetic semantic-conformance workload, not evidence about a real water system."
+  ]
+}
