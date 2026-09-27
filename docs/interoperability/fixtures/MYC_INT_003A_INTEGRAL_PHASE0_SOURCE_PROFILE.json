@@ -1,0 +1,160 @@
+{
+  "profile": "mycelix.interop.integral.phase0-source-registry.v1",
+  "profile_revision": 1,
+  "observed_on": "2026-09-27",
+  "claim_ceiling": "source-registry-only",
+  "sources": [
+    {
+      "source_id": "integral-tech-specs-v0.1-observed-2026-09-27",
+      "family": "technical_specifications",
+      "url": "https://integralcollective.io/documents/specifications.html",
+      "project_version": "v0.1",
+      "declared_role": "builder_source_of_truth_for_schemas_interfaces_contracts",
+      "content_commitment": null,
+      "content_commitment_status": "not_frozen_in_this_tranche"
+    },
+    {
+      "source_id": "integral-devguide-v0.1-observed-2026-09-27",
+      "family": "development_guide",
+      "url": "https://integralcollective.io/documents/integral_devguide_v01.pdf",
+      "project_version": "v0.1",
+      "declared_role": "builder_bridge_and_minimal_implementation_proposals",
+      "content_commitment": null,
+      "content_commitment_status": "not_frozen_in_this_tranche"
+    },
+    {
+      "source_id": "integral-whitepaper-v0.1-observed-2026-09-27",
+      "family": "white_paper",
+      "url": "https://integralcollective.io/documents/whitepaper.html",
+      "project_version": "v0.1",
+      "declared_role": "higher_level_architecture_and_formal_reference",
+      "content_commitment": null,
+      "content_commitment_status": "not_frozen_in_this_tranche"
+    }
+  ],
+  "technical_specification_registry": {
+    "core_data_structures": [
+      {
+        "spec_id": "SPEC-DS-01",
+        "name": "Certified Design",
+        "status": "draft",
+        "source_id": "integral-tech-specs-v0.1-observed-2026-09-27",
+        "mapping_hypothesis": "versioned_artifact_design_plus_certification_evidence",
+        "authority_boundary": "external_certification_does_not_imply_local_acceptance"
+      },
+      {
+        "spec_id": "SPEC-DS-02",
+        "name": "Labor Event",
+        "status": "draft",
+        "source_id": "integral-tech-specs-v0.1-observed-2026-09-27",
+        "mapping_hypothesis": "contribution_or_work_attestation_profile",
+        "authority_boundary": "contribution_evidence_does_not_define_universal_value"
+      },
+      {
+        "spec_id": "SPEC-DS-03",
+        "name": "Material Consumption Event",
+        "status": "draft",
+        "source_id": "integral-tech-specs-v0.1-observed-2026-09-27",
+        "mapping_hypothesis": "resource_or_production_observation_profile",
+        "authority_boundary": "resource_observation_does_not_define_local_ecological_policy"
+      },
+      {
+        "spec_id": "SPEC-DS-04",
+        "name": "ITC Ledger Entry",
+        "status": "draft",
+        "source_id": "integral-tech-specs-v0.1-observed-2026-09-27",
+        "mapping_hypothesis": "external_accounting_or_contribution_event",
+        "authority_boundary": "itc_amount_does_not_define_universal_currency_or_value"
+      },
+      {
+        "spec_id": "SPEC-DS-05",
+        "name": "FRS Signal Packet",
+        "status": "draft",
+        "source_id": "integral-tech-specs-v0.1-observed-2026-09-27",
+        "mapping_hypothesis": "bounded_derived_summary_and_evidence_bundle",
+        "authority_boundary": "derived_summary_does_not_replace_source_owned_current_state"
+      },
+      {
+        "spec_id": "SPEC-DS-06",
+        "name": "Decision Packet",
+        "status": "draft",
+        "source_id": "integral-tech-specs-v0.1-observed-2026-09-27",
+        "mapping_hypothesis": "governance_decision_lineage_constraints_and_review_refs",
+        "authority_boundary": "foreign_decision_does_not_imply_local_authorization"
+      }
+    ],
+    "interface_contracts": [
+      {
+        "spec_id": "SPEC-IF-01",
+        "name": "OAD to COS Interface",
+        "status": "pending",
+        "source_id": "integral-tech-specs-v0.1-observed-2026-09-27",
+        "topics_declared": [
+          "versioning_policy",
+          "authentication_requirements",
+          "error_handling",
+          "retry_behavior"
+        ]
+      },
+      {
+        "spec_id": "SPEC-IF-02",
+        "name": "COS to ITC Interface",
+        "status": "pending",
+        "source_id": "integral-tech-specs-v0.1-observed-2026-09-27",
+        "topics_declared": [
+          "batch_vs_streaming_delivery",
+          "idempotency_for_append_only_ledger"
+        ]
+      },
+      {
+        "spec_id": "SPEC-IF-03",
+        "name": "FRS to CDS Interface",
+        "status": "pending",
+        "source_id": "integral-tech-specs-v0.1-observed-2026-09-27",
+        "topics_declared": [
+          "delivery_guarantees",
+          "signal_packet_versioning",
+          "recommendation_routing",
+          "cds_acknowledgment_protocol"
+        ]
+      }
+    ],
+    "technology_stack": {
+      "spec_id": "SPEC-STACK-01",
+      "name": "Technology Stack Decision",
+      "status": "pending",
+      "source_id": "integral-tech-specs-v0.1-observed-2026-09-27",
+      "authority_boundary": "published_reference_technologies_do_not_imply_committed_stack"
+    }
+  },
+  "development_guide_supplemental_objects": [
+    {
+      "name": "ITCAccount",
+      "source_id": "integral-devguide-v0.1-observed-2026-09-27",
+      "technical_specification_status": "not_registered_as_core_structure_on_observation_date"
+    },
+    {
+      "name": "DiagnosticFinding",
+      "source_id": "integral-devguide-v0.1-observed-2026-09-27",
+      "technical_specification_status": "not_registered_as_core_structure_on_observation_date",
+      "mapping_boundary": "source_confidence_severity_scope_and_persistence_are_adapter_semantics_not_universal_mycelix_axes"
+    },
+    {
+      "name": "Recommendation",
+      "source_id": "integral-devguide-v0.1-observed-2026-09-27",
+      "technical_specification_status": "not_registered_as_core_structure_on_observation_date",
+      "mapping_boundary": "recommendation_is_non_executive_and_does_not_create_local_authority"
+    }
+  ],
+  "invariants": [
+    "source_family_identity_is_preserved",
+    "draft_is_not_ratified",
+    "pending_is_not_implemented",
+    "development_guide_proposal_is_not_ratified_interface_contract",
+    "same_object_name_is_not_cross_source_semantic_equivalence",
+    "external_schema_is_not_mycelix_canonical_schema",
+    "external_decision_is_not_local_authorization",
+    "external_recommendation_is_not_execution_authority",
+    "source_status_changes_do_not_rewrite_historical_observations"
+  ]
+}
