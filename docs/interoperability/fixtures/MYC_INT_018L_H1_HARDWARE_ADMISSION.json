@@ -1,0 +1,80 @@
+{
+  "profile_id": "myc-int-018l-h1-hardware-admission-v1",
+  "profile_version": "1.0.0",
+  "status": "design-only",
+  "parent_manifest": "myc-int-018k-h1-wet-bench-v1",
+  "admission_states": [
+    "AdmittedForH1Profile",
+    "AdmittedWithDeclaredLimitations",
+    "MoreEvidenceRequired",
+    "IncompatibleWithH1Profile",
+    "Deferred"
+  ],
+  "weighted_overall_score": false,
+  "purchase_authority": false,
+  "criteria": [
+    {"id":"measurement-semantics","required_evidence":["phenomenon","unit-or-unit-profile","range","resolution-or-precision-if-published","update-or-sampling-semantics","error-status-semantics"],"rule":"opaque convenience score cannot replace required physical quantity"},
+    {"id":"local-open-acquisition","required_evidence":["local-read-path","protocol-or-schema-reference","offline-behavior","read-credential-scope"],"rule":"cloud-only required operation is incompatible with local-first H1"},
+    {"id":"device-identity","required_evidence":["model-or-profile","device-identity-method","firmware-or-schema-version-if-material","replacement-detection-method"],"rule":"runtime path/topic/register alone is not durable device identity"},
+    {"id":"calibration-check-support","required_evidence":["calibration-or-check-procedure-or-explicit-none","calibration-materials-or-reference","service-maintenance-procedure-if-applicable"],"rule":"device calibration flag is provider assertion, not independent proof"},
+    {"id":"raw-derived-separation","required_evidence":["raw-or-physical-channel-list","derived-status-list"],"rule":"derived quality/health status cannot substitute for required source channel"},
+    {"id":"wet-side-electrical","required_evidence":["supply-voltage-class","wet-dry-placement","isolation-or-interface-boundary"],"rule":"prefer extra-low-voltage wet-side equipment; no electrical certification inferred"},
+    {"id":"fault-observability","required_evidence":["missing-state","timeout-state","decode-error-state","device-error-state","stale-state-or-limitation"],"rule":"failure must not collapse into numeric zero"},
+    {"id":"cross-checkability","required_evidence":["reference-check-or-second-method-availability"],"rule":"critical H1 measurements should permit bounded independent checking where practical"},
+    {"id":"serviceability","required_evidence":["replaceable-elements","cleaning-storage-maintenance","connector-fitting-profile"],"rule":"service limitations remain explicit"},
+    {"id":"data-ownership-privacy","required_evidence":["cloud-requirement","off-device-export","account-requirement","local-data-path"],"rule":"local acquisition must not silently depend on vendor cloud or person identity"}
+  ],
+  "channel_specific_rules": [
+    {"channel_class":"ph","rule":"use a complete measurement/transmitter front-end with explicit conditioning/calibration semantics; raw electrochemical probe is not a general SBC voltage input"},
+    {"channel_class":"electrical-conductivity","rule":"explicit conductivity units/scaling and compensation semantics required"},
+    {"channel_class":"dissolved-oxygen","rule":"conditional on selected process profile; absence never means adequate DO"},
+    {"channel_class":"flow-rate","rule":"actual flow or documented pulse/count conversion required; pump current/command is not flow"},
+    {"channel_class":"reservoir-level-volume","rule":"level does not become volume without explicit geometry/conversion profile"},
+    {"channel_class":"power-energy","rule":"instantaneous power and accumulated energy remain distinct"},
+    {"channel_class":"light","rule":"explicit optical quantity/profile required when used for plant-light comparison; generic light_level insufficient"}
+  ],
+  "preferred_interface_properties": {
+    "local_operation": true,
+    "read_only_possible": true,
+    "documented_schema_or_register_map": true,
+    "cloud_required": false,
+    "mutation_permission_required_for_basic_read": false
+  },
+  "negative_fixtures": [
+    "cloud-only-no-local-path",
+    "undocumented-unit-or-scaling",
+    "replacement-under-same-runtime-path-collapsed",
+    "calibrated-flag-treated-as-proof",
+    "opaque-score-substitutes-for-raw",
+    "timeout-represented-as-zero",
+    "level-as-volume-without-profile",
+    "pump-current-as-flow",
+    "raw-ph-probe-without-conditioning-profile",
+    "firmware-schema-change-without-profile-generation",
+    "write-permission-required-for-basic-read",
+    "claimed-offline-operation-with-cloud-dependency"
+  ],
+  "candidate_record_required_fields": [
+    "candidate_id",
+    "manufacturer_or_source",
+    "model_or_family",
+    "hardware_revision_if_known",
+    "firmware_version_if_material",
+    "channel_class",
+    "evidence_sources",
+    "criterion_findings",
+    "limitations",
+    "admission_state",
+    "reviewed_at_or_evidence_time",
+    "profile_version"
+  ],
+  "claim_ceiling": {
+    "product_selected": false,
+    "purchase_authorized": false,
+    "hardware_qualified": false,
+    "sensor_accuracy_established": false,
+    "calibration_established": false,
+    "electrical_safety_established": false,
+    "agronomic_suitability_established": false
+  }
+}
