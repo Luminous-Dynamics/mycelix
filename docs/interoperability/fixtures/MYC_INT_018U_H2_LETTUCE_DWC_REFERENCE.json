@@ -1,0 +1,232 @@
+{
+  "profile_id": "myc-int-018u-h2-lettuce-dwc-reference-v1",
+  "profile_version": "1.0.0",
+  "status": "research-design-fixture",
+  "parent_subject": "696c944b0e4a01de768250a3e18624f6c3365333",
+  "reference_crop": {
+    "crop_class": "Lactuca sativa leaf/butterhead lettuce",
+    "cultivar_binding_status": "Unbound",
+    "cultivar_subject": null,
+    "selection_basis": "evidence clarity and showcase simplicity",
+    "globally_best_crop_claimed": false
+  },
+  "reference_system": {
+    "system_class": "small DWC/floating hydroponic reference",
+    "only_valid_hydroponic_system": false,
+    "physical_geometry_bound": false,
+    "physical_acceptance_thresholds_bound": false
+  },
+  "source_registry": [
+    {
+      "source_id": "cornell-cea-lettuce",
+      "publisher": "Cornell Controlled Environment Agriculture",
+      "url": "https://cea.cals.cornell.edu/",
+      "retrieved_on": "2026-09-27",
+      "use": "controlled-environment lettuce reference profile and CEA resource registry"
+    },
+    {
+      "source_id": "cornell-cea-crops",
+      "publisher": "Cornell Controlled Environment Agriculture",
+      "url": "https://cea.cals.cornell.edu/crops/",
+      "retrieved_on": "2026-09-27",
+      "use": "lettuce/leafy-green crop resources, nutrient and disorder references"
+    },
+    {
+      "source_id": "virginia-tech-edible-crops",
+      "publisher": "Virginia Cooperative Extension",
+      "url": "https://www.pubs.ext.vt.edu/SPES/spes-462/spes-462.html",
+      "retrieved_on": "2026-09-27",
+      "use": "DLI, airflow/tipburn and hydroponic edible-crop management guidance"
+    },
+    {
+      "source_id": "virginia-tech-dwc",
+      "publisher": "Virginia Cooperative Extension",
+      "url": "https://www.pubs.ext.vt.edu/SPES/spes-464/spes-464.html",
+      "retrieved_on": "2026-09-27",
+      "use": "DWC pH/EC/DO measurement guidance"
+    },
+    {
+      "source_id": "uf-ifas-small-lettuce",
+      "publisher": "UF/IFAS Extension",
+      "url": "https://ask.ifas.ufl.edu/publication/HS1422",
+      "retrieved_on": "2026-09-27",
+      "use": "small hydroponic lettuce pH/EC/DO/root-zone guidance"
+    },
+    {
+      "source_id": "okstate-ph-ec",
+      "publisher": "Oklahoma State University Extension",
+      "url": "https://extension.okstate.edu/fact-sheets/electrical-conductivity-and-ph-guide-for-hydroponics",
+      "retrieved_on": "2026-09-27",
+      "use": "crop-specific hydroponic pH/EC comparison ranges"
+    }
+  ],
+  "reference_targets": [
+    {
+      "variable": "seed_to_harvest_duration",
+      "source_id": "cornell-cea-lettuce",
+      "reference_value": 35,
+      "unit": "days",
+      "semantics": "approximately 35 days under the referenced controlled-environment system",
+      "physical_acceptance_threshold": false
+    },
+    {
+      "variable": "daily_light_integral",
+      "source_id": "cornell-cea-lettuce",
+      "reference_value": 17,
+      "unit": "mol/m2/day",
+      "semantics": "reference DLI under Cornell controlled-environment lettuce profile",
+      "physical_acceptance_threshold": false
+    },
+    {
+      "variable": "air_temperature_day",
+      "source_id": "cornell-cea-lettuce",
+      "reference_value": 24,
+      "unit": "degC",
+      "physical_acceptance_threshold": false
+    },
+    {
+      "variable": "air_temperature_night",
+      "source_id": "cornell-cea-lettuce",
+      "reference_value": 19,
+      "unit": "degC",
+      "physical_acceptance_threshold": false
+    },
+    {
+      "variable": "relative_humidity",
+      "source_id": "cornell-cea-lettuce",
+      "reference_range": [50, 70],
+      "unit": "percent_RH",
+      "physical_acceptance_threshold": false
+    },
+    {
+      "variable": "nutrient_solution_pH",
+      "source_id": "cornell-cea-lettuce",
+      "reference_range": [5.6, 6.0],
+      "unit": "pH",
+      "semantics": "source-specific Cornell reference; broader extension ranges exist",
+      "physical_acceptance_threshold": false
+    },
+    {
+      "variable": "electrical_conductivity_above_source_water",
+      "source_id": "cornell-cea-lettuce",
+      "reference_range": [1150, 1250],
+      "unit": "uS/cm_above_source_water",
+      "semantics": "relative-to-source-water convention must not be confused with absolute EC",
+      "physical_acceptance_threshold": false
+    },
+    {
+      "variable": "dissolved_oxygen_reference_target",
+      "source_id": "cornell-cea-lettuce",
+      "reference_value": 7,
+      "unit": "mg/L",
+      "semantics": "Cornell reference target; other extension sources use different guidance",
+      "physical_acceptance_threshold": false
+    }
+  ],
+  "source_disagreement_policy": {
+    "average_disagreeing_targets": false,
+    "retain_source_specific_semantics": true,
+    "physical_threshold_requires_separate_profile": true
+  },
+  "co2_profile": {
+    "enrichment_required_for_first_showcase": false,
+    "ambient_operation_allowed": true,
+    "ambient_profile_equivalent_to_enriched_reference": false,
+    "growth_duration_or_output_from_enriched_profile_transferable_without_evidence": false
+  },
+  "h2_sensor_requirements": {
+    "par_ppfd": {
+      "state": "RequiredUnderCropProfile",
+      "h1_generic_light_channel_sufficient": false,
+      "measurement_profile": "quantum/PAR with PPFD observations and DLI integration semantics",
+      "lux_or_foot_candle_sufficient": false,
+      "fixture_power_or_command_sufficient": false,
+      "hardware_gap": "quantum-PAR measurement capability"
+    },
+    "dissolved_oxygen": {
+      "state": "RequiredUnderCropProfile",
+      "h1_conditional_channel_promoted_for_h2": true,
+      "missing_means_adequate": false,
+      "physical_acceptance_threshold_bound": false
+    },
+    "reuse_h1_channels_by_reference": [
+      "ph",
+      "electrical-conductivity",
+      "solution-temperature",
+      "flow-rate",
+      "reservoir-level",
+      "reservoir-volume",
+      "air-temperature",
+      "relative-humidity",
+      "subsystem-power",
+      "subsystem-energy",
+      "leak-state"
+    ],
+    "duplicate_h1_channel_identity": false
+  },
+  "planned_output_evidence": [
+    "sowing-lot-event",
+    "germination-emergence-status",
+    "transplant-event-if-used",
+    "plant-raft-bed-count-and-losses",
+    "production-window",
+    "harvest-event",
+    "gross-harvested-mass-or-count",
+    "rejected-lost-mass-or-count",
+    "usable-output-disposition-profile",
+    "post-cycle-inspection-outcome-feedback"
+  ],
+  "minimum_harvest_mass_threshold_bound": false,
+  "risk_vocabulary": [
+    "tipburn-calcium-transport-disorder",
+    "root-zone-oxygenation-failure",
+    "root-disease-or-rot-symptom",
+    "ph-ec-nutrient-drift",
+    "uneven-water-or-nutrient-delivery",
+    "dli-low-or-high-under-profile",
+    "air-or-root-zone-temperature-excursion",
+    "germination-failure",
+    "plant-loss-or-mortality",
+    "contamination-or-unknown-quality-event",
+    "sensor-or-calibration-failure",
+    "pump-aeration-or-power-outage",
+    "output-below-expected-profile-cause-unresolved"
+  ],
+  "causal_diagnosis_from_symptom_allowed": false,
+  "comparison_candidates_retained": [
+    "basil",
+    "pak-choi-bok-choy",
+    "spinach",
+    "other-leafy-greens"
+  ],
+  "food_safety_boundary": {
+    "harvest_implies_edible": false,
+    "harvest_implies_food_safe": false,
+    "harvest_implies_marketable": false,
+    "separate_food_safety_profile_required": true
+  },
+  "cultivar_follow_on_required": true,
+  "cultivar_admission_dimensions": [
+    "seed-availability-and-provenance",
+    "expected-cycle-under-exact-profile",
+    "architecture-compatible-with-system-geometry",
+    "heat-and-tipburn-tolerance",
+    "disease-profile",
+    "output-uniformity",
+    "local-availability",
+    "evidence-source-quality"
+  ],
+  "claim_ceiling": {
+    "cultivar_selected": false,
+    "physical_crop_cycle_executed": false,
+    "physical_crop_duration_established": false,
+    "crop_performance_established": false,
+    "food_safety_established": false,
+    "edible_quality_established": false,
+    "marketability_established": false,
+    "economic_viability_established": false,
+    "N2_established": false,
+    "food_independence_established": false,
+    "crop_superiority_established": false
+  }
+}
