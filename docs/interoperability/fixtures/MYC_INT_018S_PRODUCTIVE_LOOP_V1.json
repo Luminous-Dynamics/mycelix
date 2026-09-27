@@ -1,0 +1,148 @@
+{
+  "profile_id": "myc-int-018s-productive-loop-v1",
+  "profile_version": "1.0.0",
+  "status": "design-contract",
+  "purpose": "Generic useful-output evidence contract for N1->N2 maturation evidence",
+  "whole_node_extrapolation_prohibited": true,
+  "authority": "None",
+  "allowed_source_classes": [
+    "DirectObservation",
+    "SourceOwnedOperationalFact",
+    "ReconstructedState",
+    "DerivedAssessment",
+    "OperatorDeclaration",
+    "ImportedForeignEvidence",
+    "Unknown"
+  ],
+  "required_sections": [
+    "loop_identity",
+    "useful_output_profile",
+    "production_window",
+    "input_material_observations",
+    "work_observations",
+    "process_observation_refs",
+    "useful_output_observations",
+    "loss_waste_failure_observations",
+    "outcome_feedback",
+    "external_dependency_import_map",
+    "currentness_coverage",
+    "conflicts_unknowns",
+    "correction_supersession_lineage"
+  ],
+  "input_material_observation_requirements": [
+    "material_resource_subject",
+    "quantity",
+    "unit_profile",
+    "source_class",
+    "event_or_window_time",
+    "origin_provenance",
+    "local_or_external_source",
+    "estimated_or_observed_status",
+    "correction_lineage"
+  ],
+  "work_observation_requirements": [
+    "work_event_subject",
+    "actor_or_role_reference_under_privacy_profile",
+    "bounded_time_or_duration_profile",
+    "activity_class",
+    "productive_loop_subject",
+    "source_class",
+    "evidence_refs",
+    "correction_lineage"
+  ],
+  "work_nonclaims": {
+    "compensation_owed_established": false,
+    "itc_credit_issued": false,
+    "governance_standing_granted": false
+  },
+  "process_observation_contract": {
+    "domain_owned": true,
+    "referenced_not_duplicated": true,
+    "analysis_can_replace_source_observation": false
+  },
+  "useful_output_observation_requirements": [
+    "output_subject",
+    "output_profile",
+    "quantity",
+    "unit_profile",
+    "event_or_window_time",
+    "source_class",
+    "disposition",
+    "evidence_refs",
+    "correction_lineage"
+  ],
+  "output_nonclaims": {
+    "edible": false,
+    "food_safe": false,
+    "nutritionally_adequate": false,
+    "marketable": false,
+    "whole_node_dependency_reduced": false
+  },
+  "loss_waste_failure_requirements": [
+    "loss_subject_or_class",
+    "quantity_or_explicit_unknown",
+    "unit_profile_or_not_applicable",
+    "cause_status_observed_or_unknown",
+    "source_class",
+    "evidence_refs"
+  ],
+  "outcome_feedback_requirements": [
+    "intended_use_or_output",
+    "useful_output_obtained_status",
+    "defects_rejections_losses",
+    "post_cycle_inspection",
+    "deviations_unknowns",
+    "recovery_or_adaptation_required"
+  ],
+  "external_dependency_categories": [
+    "seeds-genetics",
+    "nutrients-material-feedstocks",
+    "water-input",
+    "electricity-energy",
+    "replacement-parts",
+    "calibration-materials",
+    "network-cloud-services",
+    "external-specialist-labor-or-knowledge",
+    "consumables-packaging",
+    "legal-food-safety-or-other-external-services"
+  ],
+  "quantitative_metric_rule": {
+    "denominator_required_when_share_or_yield_claimed": true,
+    "coverage_window_required": true,
+    "unknown_denominator_means_metric_unknown": true
+  },
+  "maturation_binding": {
+    "transition": "N1->N2",
+    "requirements": [
+      "at-least-one-real-productive-loop",
+      "work-material-observations",
+      "outcome-feedback"
+    ],
+    "evidence_complete_loop_automatically_establishes_transition": false,
+    "transition_record_required": true
+  },
+  "correction_policy": {
+    "history_rewrite_allowed": false,
+    "supersession_required": true
+  },
+  "supported_conformer_classes": [
+    "hydroponic-food-production",
+    "fabrication",
+    "repair",
+    "water-treatment",
+    "energy-service",
+    "other-explicit-profile"
+  ],
+  "claim_ceiling": {
+    "physical_loop_executed": false,
+    "useful_output_observed": false,
+    "N2_established": false,
+    "food_production_established": false,
+    "food_safety_established": false,
+    "commercial_viability_established": false,
+    "economic_independence_established": false,
+    "governance_standing_granted": false,
+    "federation_membership_granted": false,
+    "actuation_authority_granted": false
+  }
+}
