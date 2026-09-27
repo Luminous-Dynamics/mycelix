@@ -1,0 +1,123 @@
+{
+  "stimulus_id": "myc-int-006e-water-i0-stimulus",
+  "stimulus_version": "1.0.0",
+  "profile": "runtime-neutral-executable-stimulus-v1",
+  "corpus_id": "myc-int-006c-water-i0",
+  "corpus_version": "1.0.0",
+  "cases": {
+    "I0-POS-001": {
+      "operation": "RecordLineage",
+      "subjects": [
+        "water.system.alpha",
+        "water.issue.maintenance",
+        "water.observation.pressure",
+        "water.report.operator",
+        "water.evidence.bundle",
+        "water.alternative.repair",
+        "water.alternative.replace",
+        "water.objection.access",
+        "water.prediction.pressure",
+        "water.recommendation.repair",
+        "water.decision.repair",
+        "water.authorization.repair",
+        "water.attempt.repair",
+        "water.receipt.repair",
+        "water.outcome.pressure-low",
+        "water.review.repair",
+        "water.decision.supersede"
+      ]
+    },
+    "I0-HOSTILE-001": {
+      "operation": "ExecuteRecommendation",
+      "subjects": ["water.recommendation.repair", "water.system.alpha"]
+    },
+    "I0-HOSTILE-002": {
+      "operation": "ImportForeignDecisionAsLocalAuthority",
+      "subjects": ["water.decision.foreign", "water.system.alpha"]
+    },
+    "I0-HOSTILE-003": {
+      "operation": "UseCredentialAsAuthority",
+      "subjects": ["water.credential.operator", "water.system.alpha"]
+    },
+    "I0-HOSTILE-004": {
+      "operation": "DeliverImplementationAttempt",
+      "subjects": ["water.attempt.repair"],
+      "transport": {"delivery_count": 2, "semantic_attempt_count": 1}
+    },
+    "I0-HOSTILE-005": {
+      "operation": "ClassifyTimeoutOutcome",
+      "subjects": ["water.attempt.repair", "water.receipt.delivery"],
+      "transport": {
+        "receiver_persistence": "possible",
+        "acknowledgement": "missing",
+        "sender_result": "timeout"
+      }
+    },
+    "I0-HOSTILE-006": {
+      "operation": "AdmitStaleSchema",
+      "subjects": ["water.evidence.bundle"],
+      "schema": {"supplied_generation": "stale", "required_generation": "current"}
+    },
+    "I0-HOSTILE-007": {
+      "operation": "AcceptExternalCertificationLocally",
+      "subjects": ["water.certification.external"]
+    },
+    "I0-HOSTILE-008": {
+      "operation": "TreatDerivedSummaryAsSourceFact",
+      "subjects": ["water.summary.derived", "water.system.alpha"]
+    },
+    "I0-HOSTILE-009": {
+      "operation": "ExecuteWithExpiredAuthorization",
+      "subjects": ["water.authorization.repair", "water.attempt.repair"],
+      "authority": {"status": "expired"}
+    },
+    "I0-HOSTILE-010": {
+      "operation": "RewriteHistoricalDecisionFromOutcome",
+      "subjects": ["water.decision.repair", "water.outcome.pressure-low", "water.review.repair"]
+    },
+    "I0-HOSTILE-011": {
+      "operation": "ProcessReorderedTransport",
+      "subjects": ["water.report.operator", "water.observation.pressure", "water.evidence.bundle"],
+      "transport": {
+        "delivery_order": ["water.report.operator", "water.observation.pressure", "water.evidence.bundle"],
+        "total_order_promised": false
+      }
+    },
+    "I0-HOSTILE-012": {
+      "operation": "CollapseSchemaQualifiedIdentity",
+      "subjects": ["water.issue.maintenance"],
+      "schema": {"visible_identifier_equal": true, "source_schema_equal": false}
+    },
+    "I0-HOSTILE-013": {
+      "operation": "TranslateWithUndeclaredLoss",
+      "subjects": ["water.authorization.repair", "water.evidence.bundle"],
+      "translation": {"declared_loss": false, "actual_loss": ["source_schema", "provenance"]}
+    },
+    "I0-HOSTILE-014": {
+      "operation": "ImportForeignAuthorityAsLocal",
+      "subjects": ["water.authority.foreign", "water.system.alpha"]
+    },
+    "I0-HOSTILE-015": {
+      "operation": "ResolvePartitionByLastArrival",
+      "subjects": ["water.observation.pressure", "water.report.operator", "water.system.alpha"],
+      "transport": {"partitioned": true, "reconnected": true, "proposed_resolution": "last_arrival_wins"}
+    },
+    "I0-HOSTILE-016": {
+      "operation": "PromotePredictionToObservation",
+      "subjects": ["water.prediction.pressure", "water.observation.pressure"]
+    },
+    "I0-HOSTILE-017": {
+      "operation": "PromoteDeliveryReceiptToImplementationReceipt",
+      "subjects": ["water.receipt.delivery", "water.receipt.repair"]
+    },
+    "I0-HOSTILE-018": {
+      "operation": "PromoteExecutionReceiptToDesiredOutcome",
+      "subjects": ["water.receipt.repair", "water.outcome.pressure-low"]
+    }
+  },
+  "nonclaims": [
+    "Stimulus validity does not establish any candidate implementation passes I0.",
+    "The candidate decision procedure must not consume expected dispositions, reason codes, or oracle assertions.",
+    "The stimulus profile does not select a technology stack."
+  ]
+}
