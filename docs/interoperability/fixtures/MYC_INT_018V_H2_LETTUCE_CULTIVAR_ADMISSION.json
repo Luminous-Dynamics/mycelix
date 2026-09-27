@@ -1,0 +1,171 @@
+{
+  "profile_id": "myc-int-018v-h2-lettuce-cultivar-admission-v1",
+  "profile_version": "1.0.0",
+  "status": "research-fixture",
+  "parent_018u_subject": "98a37538ef2cd36407e63f7c0904b012012bced8",
+  "retrieved_at": "2026-09-27",
+  "exact_cultivar_selected": false,
+  "weighted_overall_score": false,
+  "admission_states": [
+    "AdmittedForH2ReferenceProfile",
+    "AdmittedWithDeclaredLimitations",
+    "MoreEvidenceRequired",
+    "IncompatibleWithH2ReferenceProfile",
+    "Deferred"
+  ],
+  "source_policy": {
+    "supplier_claims_are_source_claims_not_local_measurements": true,
+    "catalogue_listing_is_not_stock_evidence": true,
+    "hydroponic_claim_is_not_dwc_qualification": true,
+    "resistance_code_is_not_immunity": true
+  },
+  "required_admission_dimensions": [
+    "cultivar-identity",
+    "supplier-source",
+    "hydroponic-suitability-claim",
+    "cultivation-season-claim",
+    "south-africa-source-evidence",
+    "architecture-geometry-fit",
+    "bolting-heat-notes",
+    "tipburn-notes",
+    "resistance-profile",
+    "exact-condition-cycle-evidence",
+    "dwc-specific-evidence",
+    "seed-lot-provenance",
+    "uniformity-yield-source-class",
+    "known-unknowns"
+  ],
+  "candidates": [
+    {
+      "candidate_id": "rijk-zwaan-sandalina-rz",
+      "cultivar": "SANDALINA RZ",
+      "crop_type": "Butterhead lettuce",
+      "supplier_region": "Rijk Zwaan South Africa",
+      "source_url": "https://www.rijkzwaan.co.za/lettuce/SANDALINA-RZ-prdLS10722-ctgCrops.lettuce",
+      "supplier_claims": {
+        "cultivation_method": ["Hydroponic", "Outdoor"],
+        "cultivation_season": ["Spring", "Summer", "Autumn"],
+        "slow_bolting": true,
+        "tipburn_note": "Very strong against tipburn",
+        "warm_condition_note": "Suitable for warmer conditions in spring, summer and early autumn",
+        "wholehead_size": "Large",
+        "resistance_hr": "Bl:29-34,36,39,40EU/Nr:0",
+        "resistance_ir": "LMV:1/Fol:4"
+      },
+      "dwc_specific_evidence": null,
+      "exact_cycle_evidence": null,
+      "exact_seed_lot": null,
+      "geometry_fit": "Unbound",
+      "admission_state": "MoreEvidenceRequired",
+      "known_unknowns": ["exact seed availability", "seed-lot provenance", "DWC-specific cycle", "actual canopy geometry under H2", "local measured tipburn/bolting behavior"]
+    },
+    {
+      "candidate_id": "rijk-zwaan-kireve-rz",
+      "cultivar": "KIREVE RZ",
+      "crop_type": "Oak leaf lettuce",
+      "supplier_region": "Rijk Zwaan South Africa",
+      "source_url": "https://www.rijkzwaan.co.za/lettuce/KIREVE-RZ-prdLS10358-ctgCrops.lettuce",
+      "supplier_claims": {
+        "cultivation_method": ["Hydroponic", "Outdoor"],
+        "cultivation_season": ["Spring", "Summer", "Autumn", "Winter"],
+        "fast_growing": true,
+        "slow_bolting": true,
+        "wholehead_size": "Select",
+        "resistance_hr": "Bl:31,32EU/Fol:4/Nr:0/Pb",
+        "resistance_ir": "LMV:1"
+      },
+      "dwc_specific_evidence": null,
+      "exact_cycle_evidence": null,
+      "exact_seed_lot": null,
+      "geometry_fit": "Unbound",
+      "admission_state": "MoreEvidenceRequired",
+      "known_unknowns": ["exact seed availability", "seed-lot provenance", "DWC-specific cycle", "actual canopy geometry under H2", "local measured performance"]
+    },
+    {
+      "candidate_id": "rijk-zwaan-extranet-rz",
+      "cultivar": "EXTRANET RZ",
+      "crop_type": "Salanova incised leaf lettuce",
+      "supplier_region": "Rijk Zwaan South Africa",
+      "source_url": "https://www.rijkzwaan.co.za/vegetable-seeds/lettuce/extranet-rz-prdLS10942-ctgCrops.lettuce",
+      "supplier_claims": {
+        "cultivation_method": ["Hydroponic", "Outdoor"],
+        "cultivation_season": ["Spring", "Summer", "Autumn", "Winter"],
+        "slow_bolting": true,
+        "tipburn_note": "Strong against tipburn",
+        "yield_note": "High yielding",
+        "uniformity_note": "Extremely uniform leaf type with upright habit and short core",
+        "resistance_hr": "Bl:29-37,39-41EU/Nr:0",
+        "resistance_ir": "LMV:1"
+      },
+      "dwc_specific_evidence": null,
+      "exact_cycle_evidence": null,
+      "exact_seed_lot": null,
+      "geometry_fit": "Unbound",
+      "admission_state": "MoreEvidenceRequired",
+      "known_unknowns": ["exact seed availability", "seed-lot provenance", "DWC-specific cycle", "high-density geometry fit", "local measured yield"]
+    },
+    {
+      "candidate_id": "rijk-zwaan-klee-rz",
+      "cultivar": "KLEE RZ",
+      "crop_type": "Salanova multi-leaf lettuce",
+      "supplier_region": "Rijk Zwaan South Africa",
+      "source_url": "https://www.rijkzwaan.co.za/lettuce/KLEE-RZ-prdLS10621-ctgCrops.lettuce",
+      "supplier_claims": {
+        "cultivation_method": ["Hydroponic", "Outdoor"],
+        "cultivation_season": ["Spring", "Summer", "Autumn", "Winter"],
+        "vigorous": true,
+        "yield_note": "High yielding",
+        "resistance_hr": "Bl:29-32,34,36,39,40EU/Nr:0"
+      },
+      "dwc_specific_evidence": null,
+      "exact_cycle_evidence": null,
+      "exact_seed_lot": null,
+      "geometry_fit": "Unbound",
+      "admission_state": "MoreEvidenceRequired",
+      "known_unknowns": ["exact seed availability", "seed-lot provenance", "DWC-specific cycle", "canopy geometry", "local measured yield"]
+    },
+    {
+      "candidate_id": "rijk-zwaan-station-rz",
+      "cultivar": "STATION RZ",
+      "crop_type": "Batavia lettuce",
+      "supplier_region": "Rijk Zwaan South Africa",
+      "source_url": "https://www.rijkzwaan.co.za/lettuce/STATION-RZ-prdLS11006-ctgCrops.lettuce",
+      "supplier_claims": {
+        "cultivation_method": ["Hydroponic", "Outdoor"],
+        "cultivation_season": ["Spring", "Summer", "Autumn", "Winter"],
+        "yield_note": "High yielding",
+        "tipburn_note": "Strong against tipburn and yellowing",
+        "resistance_hr": "Bl:29-37,40,41EU/Nr:0"
+      },
+      "dwc_specific_evidence": null,
+      "exact_cycle_evidence": null,
+      "exact_seed_lot": null,
+      "geometry_fit": "Unbound",
+      "admission_state": "MoreEvidenceRequired",
+      "known_unknowns": ["exact seed availability", "seed-lot provenance", "DWC-specific cycle", "canopy geometry", "local measured performance"]
+    }
+  ],
+  "negative_fixtures": [
+    "hydroponic-claim-treated-as-dwc-qualified",
+    "supplier-yield-treated-as-local-measurement",
+    "year-round-treated-as-climate-independent",
+    "catalogue-listing-treated-as-stock",
+    "tipburn-resistance-treated-as-impossible-tipburn",
+    "resistance-code-treated-as-immunity",
+    "cultivar-selected-without-seed-lot-provenance",
+    "seed-lot-change-hidden",
+    "geometry-mismatch-ignored",
+    "cycle-estimate-copied-between-cultivars",
+    "scalar-score-declares-winner",
+    "cultivar-admission-upgrades-food-safety"
+  ],
+  "claim_ceiling": {
+    "cultivar_selected": false,
+    "seed_in_stock": false,
+    "dwc_qualified": false,
+    "crop_performance_established": false,
+    "food_safety_established": false,
+    "marketability_established": false,
+    "n2_established": false
+  }
+}
