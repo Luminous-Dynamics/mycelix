@@ -1,0 +1,189 @@
+{
+  "profile_id": "myc-int-018m-h1-hardware-candidates-v1",
+  "profile_version": "1.0.0",
+  "observed_date": "2026-09-27",
+  "parent_admission_profile": "myc-int-018l-h1-hardware-admission-v1",
+  "status": "research-candidate-evidence-only",
+  "purchase_authority": false,
+  "candidates": [
+    {
+      "id": "edge-host-rpi4-4gb",
+      "class": "edge-acquisition-controller",
+      "product": "Raspberry Pi 4 Model B",
+      "admission_state": "MoreEvidenceRequired",
+      "source_urls": ["https://www.raspberrypi.com/products/raspberry-pi-4-model-b/specifications/"],
+      "matched": ["local-linux", "ethernet", "usb", "gpio-i2c-uart", "no-cloud-requirement", "production-commitment-through-at-least-2034"],
+      "unknowns": ["exact-h1-nixos-image", "adapter-execution", "restart-power-loss", "storage-durability", "wet-dry-enclosure"]
+    },
+    {
+      "id": "ph-atlas-kit-101p",
+      "class": "ph-instrument",
+      "product": "Atlas Scientific KIT-101P EZO pH Kit",
+      "admission_state": "MoreEvidenceRequired",
+      "observed_price_usd": 174.99,
+      "source_urls": ["https://atlas-scientific.com/kits/ph-kit/", "https://atlas-scientific.com/embedded-solutions/ezo-ph-circuit/"],
+      "matched": ["complete-measurement-front-end", "uart", "i2c", "calibration-materials", "temperature-compensation", "electrical-isolation", "local-operation"],
+      "unknowns": ["physical-calibration-check", "cross-probe-disagreement", "probe-storage-maintenance", "currentness-horizon", "edge-adapter"]
+    },
+    {
+      "id": "ec-atlas-k1-kit",
+      "class": "electrical-conductivity-instrument",
+      "product": "Atlas Scientific EC-KIT-1.0 Conductivity K 1.0 Kit",
+      "admission_state": "MoreEvidenceRequired",
+      "observed_price_usd": 229.99,
+      "source_urls": ["https://atlas-scientific.com/kits/conductivity-k-1-0-kit/", "https://atlas-scientific.com/embedded-solutions/ezo-conductivity-circuit/"],
+      "matched": ["complete-measurement-front-end", "uart", "i2c", "calibration-materials", "temperature-compensation", "electrical-isolation", "local-operation"],
+      "unknowns": ["h1c-range-fit", "physical-calibration-check", "temperature-compensation-binding", "cleaning-contamination", "edge-adapter"]
+    },
+    {
+      "id": "do-atlas-kit-103dx",
+      "class": "dissolved-oxygen-instrument",
+      "product": "Atlas Scientific KIT-103DX",
+      "admission_state": "Deferred",
+      "conditional_state": "MoreEvidenceRequired if selected H1c process makes DO load-bearing",
+      "observed_price_usd": 354.99,
+      "source_urls": ["https://atlas-scientific.com/kits/dissolved-oxygen-kit/", "https://atlas-scientific.com/embedded-solutions/ezo-dissolved-oxygen-circuit/"],
+      "matched": ["uart", "i2c", "calibration-materials", "temperature-salinity-pressure-compensation", "local-operation"],
+      "unknowns": ["selected-process-relevance", "physical-calibration-check", "maintenance", "edge-adapter"]
+    },
+    {
+      "id": "solution-temp-atlas-kit-306",
+      "class": "solution-temperature-instrument",
+      "product": "Atlas Scientific KIT-306 SMA PT-1000 Temperature Kit",
+      "admission_state": "MoreEvidenceRequired",
+      "observed_price_usd": 61.99,
+      "source_urls": ["https://atlas-scientific.com/kits/sma-temperature-kit/", "https://atlas-scientific.com/embedded-solutions/ezo-rtd-temperature-circuit/"],
+      "matched": ["pt1000", "uart", "i2c", "explicit-temperature-units", "one-point-calibration"],
+      "unknowns": ["physical-check", "noise-coupling", "installation-profile", "edge-adapter"]
+    },
+    {
+      "id": "flow-dfrobot-sen0217",
+      "class": "flow-instrument",
+      "product": "DFRobot SEN0217 1/2-inch Water Flow Sensor",
+      "admission_state": "MoreEvidenceRequired",
+      "source_urls": ["https://www.dfrobot.com/product-1517.html"],
+      "matched": ["pulse-output", "documented-pulse-conversion", "local-operation", "candidate-pump-range-overlap"],
+      "unknowns": ["gpio-safe-interface", "low-end-repeatability", "orientation", "pulse-counter-provider", "physical-calibration"]
+    },
+    {
+      "id": "flow-atlas-quarter-inch",
+      "class": "flow-instrument",
+      "product": "Atlas Scientific 1/4-inch Flow Meter + EZO-FLOW",
+      "admission_state": "Deferred",
+      "observed_price_usd_meter": 249.99,
+      "observed_stock": "out-of-stock",
+      "source_urls": ["https://atlas-scientific.com/probes/1-4-flow-meter/", "https://atlas-scientific.com/embedded-solutions/ezo-embedded-flow-meter-totalizer/"],
+      "matched": ["explicit-flow-rate", "totalizer", "uart", "i2c"],
+      "unknowns": ["availability", "bench-fit", "edge-adapter", "physical-calibration"]
+    },
+    {
+      "id": "pump-dfrobot-fit0200",
+      "class": "low-voltage-circulation-pump",
+      "product": "DFRobot FIT0200 Immersible Pump",
+      "admission_state": "MoreEvidenceRequired",
+      "observed_price_usd": 9.20,
+      "source_urls": ["https://www.dfrobot.com/product-667.html"],
+      "matched": ["4.5-12v-dc", "low-power", "submersible", "candidate-flow-range-overlap"],
+      "unknowns": ["delivered-curve", "continuous-duty-behavior", "restriction-behavior", "switching-transients", "service-life"]
+    },
+    {
+      "id": "level-dfrobot-a02yyuw",
+      "class": "distance-to-liquid-surface-instrument",
+      "product": "DFRobot SEN0311 A02YYUW",
+      "admission_state": "MoreEvidenceRequired",
+      "observed_price_usd": 15.90,
+      "source_urls": ["https://www.dfrobot.com/product-1935.html"],
+      "matched": ["uart", "ip67", "explicit-distance-range", "local-operation"],
+      "unknowns": ["mounting-profile", "surface-behavior", "distance-to-level-conversion", "reservoir-geometry", "edge-adapter"]
+    },
+    {
+      "id": "level-threshold-atlas-float",
+      "class": "independent-level-threshold-witness",
+      "product": "Atlas Scientific SVM-FS / TVM-FS Float Switch",
+      "admission_state": "MoreEvidenceRequired",
+      "observed_price_usd_range": [18.99, 22.99],
+      "source_urls": ["https://atlas-scientific.com/float-switches/"],
+      "matched": ["simple-threshold-state", "independent-cross-check"],
+      "unknowns": ["exact-model-selection", "mounting", "contact-interface", "wet-compatibility"]
+    },
+    {
+      "id": "leak-dfrobot-sen0454",
+      "class": "leak-detector",
+      "product": "DFRobot SEN0454 Water Leak Detector",
+      "admission_state": "MoreEvidenceRequired",
+      "observed_price_usd": 17.90,
+      "source_urls": ["https://www.dfrobot.com/product-2316.html"],
+      "matched": ["local-output", "no-nc-state", "ip66"],
+      "unknowns": ["dry-side-12v-integration", "gpio-safe-interface", "spill-tray-placement", "restart-behavior"]
+    },
+    {
+      "id": "ambient-sht45-breakout",
+      "class": "ambient-temperature-relative-humidity",
+      "product": "Adafruit Sensirion SHT45 breakout PID 5665",
+      "admission_state": "MoreEvidenceRequired",
+      "observed_price_usd": 12.50,
+      "observed_stock": "in-stock-on-observed-page",
+      "source_urls": ["https://www.adafruit.com/product/5665", "https://sensirion.com/products/catalog/SHT45"],
+      "matched": ["i2c", "crc", "explicit-temperature-rh", "factory-calibration", "local-operation"],
+      "unknowns": ["placement", "airflow", "self-heating", "enclosure", "edge-adapter"]
+    },
+    {
+      "id": "power-ina260-breakout",
+      "class": "low-voltage-dc-power-observer",
+      "product": "Adafruit INA260 breakout PID 4226",
+      "admission_state": "MoreEvidenceRequired",
+      "observed_price_usd": 9.95,
+      "observed_stock": "in-stock-on-observed-page",
+      "source_urls": ["https://www.adafruit.com/product/4226"],
+      "matched": ["i2c", "integrated-shunt", "separate-current-voltage-power", "low-voltage-dc"],
+      "unknowns": ["pump-transient-protection", "wiring", "calibration-check", "edge-adapter"]
+    },
+    {
+      "id": "ppfd-apogee-sq520",
+      "class": "plant-light-ppfd-reference",
+      "product": "Apogee SQ-520 Full-Spectrum Smart Quantum Sensor USB",
+      "admission_state": "Deferred",
+      "source_urls": ["https://www.apogeeinstruments.com/sq-520-full-spectrum-smart-quantum-sensor-usb/"],
+      "matched": ["usb", "explicit-ppfd", "400-700nm", "local-storage"],
+      "unknowns": ["h1-necessity", "h2-placement", "physical-cross-check"]
+    }
+  ],
+  "candidate_composition": [
+    "edge-host-rpi4-4gb",
+    "ph-atlas-kit-101p",
+    "ec-atlas-k1-kit",
+    "solution-temp-atlas-kit-306",
+    "flow-dfrobot-sen0217",
+    "pump-dfrobot-fit0200",
+    "level-dfrobot-a02yyuw",
+    "level-threshold-atlas-float",
+    "leak-dfrobot-sen0454",
+    "ambient-sht45-breakout",
+    "power-ina260-breakout"
+  ],
+  "qualification_obligations": [
+    "exact-delivered-model-revision-firmware",
+    "versioned-manufacturer-documentation",
+    "electrical-interface-review",
+    "wet-dry-layout-review",
+    "exact-luminous-edge-adapter-execution",
+    "missing-timeout-decode-reconnect-characterization",
+    "calibration-check-execution",
+    "independent-cross-check-critical-channels",
+    "pump-flow-restriction-experiment",
+    "power-cycle-network-partition-campaign",
+    "fi-01-through-fi-18-physical-mapping",
+    "raw-derived-and-authority-boundary-preservation"
+  ],
+  "claim_ceiling": {
+    "winner_selected": false,
+    "purchase_recommended": false,
+    "purchase_authorized": false,
+    "local_south_africa_availability_established": false,
+    "delivered_revision_established": false,
+    "hardware_qualified": false,
+    "calibration_established": false,
+    "sensor_accuracy_in_bench_established": false,
+    "electrical_water_safety_established": false
+  }
+}
