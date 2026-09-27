@@ -1,0 +1,19 @@
+[package]
+name = "psi-privacy-pass-issuer-directory-core"
+version = "0.1.0"
+edition = "2024"
+authors = ["Mycelix Network"]
+description = "Structural RFC 9578 issuer-directory and key-admission semantics for Mycelix query credits"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+publish = false
+
+[dependencies]
+psi-privacy-pass-credit-core = { path = "../psi-privacy-pass-credit-core" }
+serde = { version = "1.0", features = ["derive"] }
+sha2 = "0.10"
+
+[dev-dependencies]
+serde_json = "1.0"
+
+[workspace]
