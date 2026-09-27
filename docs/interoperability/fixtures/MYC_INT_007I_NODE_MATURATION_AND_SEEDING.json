@@ -1,0 +1,228 @@
+{
+  "profile_id": "myc-int-007i-node-maturation-seeding-v1",
+  "profile_version": "1.0.0",
+  "status": "design-fixture",
+  "parent_subject": "284a96e20102f5beeec5533c80839b5aa2c3c65c",
+  "observed_external_basis": {
+    "integral_transition_model_observed_at": "2026-09-27",
+    "notes": [
+      "Integral publicly describes proto-nodes, gradual emergence of its five systems, scaling through use, hybrid coexistence, and later federation.",
+      "Integral publicly states that proto-node relationships and mutual accountability precede mature technical federation.",
+      "This fixture is a Luminous technical showcase interpretation, not an Integral-ratified lifecycle specification."
+    ]
+  },
+  "claim_ceiling": {
+    "economic_self_sufficiency_established": false,
+    "ecological_sustainability_established": false,
+    "social_legitimacy_established": false,
+    "legal_compliance_established": false,
+    "integral_endorsed": false,
+    "governance_model_recommended": false
+  },
+  "core_invariants": [
+    "capability-growth-does-not-create-authority-over-other-nodes",
+    "seed-support-does-not-create-governance-standing",
+    "resource-transfer-does-not-create-authority",
+    "deployment-artifact-does-not-copy-node-identity",
+    "foreign-certification-does-not-become-local-certification-automatically",
+    "reputation-credit-or-standing-do-not-copy-across-bootstrap",
+    "new-node-can-operate-before-federating",
+    "new-node-can-decline-or-leave-federation",
+    "remaining-critical-imports-remain-visible",
+    "self-sufficiency-is-not-a-binary-field"
+  ],
+  "capability_dimensions": [
+    {"id":"food","description":"local food-production/preservation/distribution capability","scalar_score":false},
+    {"id":"water","description":"capture/treatment/storage/reuse capability","scalar_score":false},
+    {"id":"energy","description":"local energy production/storage/management capability","scalar_score":false},
+    {"id":"repair-fabrication","description":"repair, tooling, fabrication and spare-part capability","scalar_score":false},
+    {"id":"compute-network","description":"local compute/network operation and recovery capability","scalar_score":false},
+    {"id":"governance-operations","description":"local decision record/deliberation/authorization operations","scalar_score":false},
+    {"id":"evidence-provenance","description":"local evidence/provenance/currentness operations","scalar_score":false},
+    {"id":"health-safety-support","description":"local health/safety support relevant to the node profile","scalar_score":false},
+    {"id":"external-legal-finance","description":"remaining legal/financial/external-institution dependency","scalar_score":false},
+    {"id":"critical-imports","description":"critical externally sourced components, consumables and materials","scalar_score":false},
+    {"id":"skills-maintainers","description":"local maintainers and skill coverage","scalar_score":false},
+    {"id":"recovery-spares","description":"rollback, backups, spare parts and recovery readiness","scalar_score":false},
+    {"id":"federation-dependency","description":"which functions require remote/federated availability","scalar_score":false}
+  ],
+  "dependency_states": [
+    "LocallyAvailable",
+    "LocallyAvailableWithExternalInputs",
+    "ExternallyDependent",
+    "DegradedWithoutExternalSupport",
+    "UnavailableWithoutExternalSupport",
+    "Unknown"
+  ],
+  "lifecycle_generations": [
+    {
+      "id":"N0",
+      "name":"GrassrootsProtoNode",
+      "required_properties":[
+        "community-or-organizing-group-exists",
+        "needs-capabilities-inventory-started",
+        "basic-accessible-decision-records",
+        "external-dependencies-explicit",
+        "no-complete-node-claim"
+      ],
+      "forbidden_claims":["full-integral-node","self-sustaining"]
+    },
+    {
+      "id":"N1",
+      "name":"InstrumentedNode",
+      "required_properties":[
+        "asset-resource-inventory",
+        "source-owned-observation-path",
+        "dependency-map",
+        "local-acquisition-where-relevant",
+        "no-autonomous-control-required"
+      ],
+      "optional_components":["LuminousEdge","MycelixProjection"]
+    },
+    {
+      "id":"N2",
+      "name":"OperationalProductiveNode",
+      "required_properties":[
+        "at-least-one-real-productive-loop",
+        "work-material-observations",
+        "maintenance-repair-path",
+        "outcome-feedback",
+        "external-interfaces-remain-visible"
+      ],
+      "reference_subjects":["MYC-INT-018 productive-node line","H1 physical node"]
+    },
+    {
+      "id":"N3",
+      "name":"LocallyResilientNode",
+      "required_properties":[
+        "bounded-outage-continuity-demonstrated",
+        "failure-recovery-evidence",
+        "local-safe-stop-independent-of-federation",
+        "degraded-vs-unavailable-functions-explicit",
+        "optional-analysis-loss-does-not-stop-core-local-functions"
+      ]
+    },
+    {
+      "id":"N4",
+      "name":"ReducedDependencyRegenerativeNode",
+      "required_properties":[
+        "domain-specific-dependency-change-measured",
+        "remaining-critical-imports-explicit",
+        "no-scalar-self-sufficiency-score",
+        "tradeoffs-between-domains-preserved"
+      ],
+      "example_measures":[
+        "water-reuse-share",
+        "local-energy-share",
+        "local-repair-share",
+        "locally-fabricated-spare-share",
+        "external-critical-import-count",
+        "external-critical-import-criticality"
+      ]
+    },
+    {
+      "id":"N5",
+      "name":"SeederNode",
+      "required_properties":[
+        "can-export-node-seed-package",
+        "seed-package-source-provenance-complete",
+        "seed-package-contains-no-source-node-private-keys",
+        "seed-package-grants-no-governance-authority",
+        "receiving-node-can-selectively-admit-components"
+      ]
+    },
+    {
+      "id":"N6",
+      "name":"IndependentSeededNode",
+      "required_properties":[
+        "new-node-identity-and-keys",
+        "local-governance-owned-by-receiving-community",
+        "local-admission-of-imported-artifacts",
+        "local-certification-not-implicitly-inherited",
+        "can-operate-before-federation",
+        "can-decline-or-leave-federation"
+      ]
+    },
+    {
+      "id":"N7",
+      "name":"RecursiveSeederNode",
+      "required_properties":[
+        "seeded-node-can-create-own-seed-package",
+        "original-seeder-not-required",
+        "lineage-provenance-retained-without-authority-lineage",
+        "peer-federation-optional"
+      ]
+    }
+  ],
+  "seed_package_classes": [
+    {"id":"DesignPack","contents":["designs","BOMs","process-profiles","source-generations"],"authority":"None"},
+    {"id":"DeploymentPack","contents":["reproducible-software-profile","Nix-or-Spore-artifacts-if-qualified","configuration-template"],"authority":"None"},
+    {"id":"ConformancePack","contents":["fixtures","validators","qualification-evidence-capsules"],"authority":"None"},
+    {"id":"OperationsPack","contents":["runbooks","maintenance-procedures","calibration-check-procedures","recovery-guides"],"authority":"None"},
+    {"id":"TrainingPack","contents":["training-materials","skill-prerequisites","mentoring-offer"],"authority":"None"},
+    {"id":"PhysicalStarterPack","contents":["optional-tools","starter-parts","consumables","locally-fabricated-components"],"authority":"None"},
+    {"id":"FederationIntroductionPack","contents":["peer-contact-context","source-provenance","optional-recognition-request"],"authority":"None"}
+  ],
+  "seed_import_rules": [
+    "receiving-node-selects-each-component",
+    "receiving-node-generates-own-identity-and-secrets",
+    "every-imported-artifact-keeps-source-generation",
+    "local-policy-may-reject-any-component",
+    "local-adaptation-creates-new-generation",
+    "declared-translation-loss-required-where-applicable",
+    "foreign-certification-requires-explicit-local-recognition",
+    "training-does-not-create-standing",
+    "donation-does-not-create-authority",
+    "federation-membership-is-optional"
+  ],
+  "adversarial_cases": [
+    {"id":"S01","name":"copied-private-keys","expected":"Reject"},
+    {"id":"S02","name":"copied-governance-standing","expected":"Reject"},
+    {"id":"S03","name":"foreign-certification-auto-accepted","expected":"Reject"},
+    {"id":"S04","name":"copied-reputation-or-credit","expected":"Reject"},
+    {"id":"S05","name":"stale-seed-design-generation","expected":"ExplicitStaleOrReviewRequired"},
+    {"id":"S06","name":"local-material-unavailable","expected":"AdaptOrReject"},
+    {"id":"S07","name":"translation-loss","expected":"DeclareLoss"},
+    {"id":"S08","name":"seeder-offline-during-bootstrap","expected":"ReceivingNodeCanContinueWhereSeedPackageComplete"},
+    {"id":"S09","name":"receiving-node-rejects-component","expected":"Allowed"},
+    {"id":"S10","name":"operate-before-federating","expected":"Allowed"},
+    {"id":"S11","name":"leave-federation","expected":"Allowed"},
+    {"id":"S12","name":"donation-creates-authority-edge","expected":"Reject"},
+    {"id":"S13","name":"mentor-direct-mutation","expected":"RejectWithoutLocalAuthorization"},
+    {"id":"S14","name":"imported-recommendation-wrong-locally","expected":"LocalEvidenceCanContradict"},
+    {"id":"S15","name":"unserviceable-imported-hardware","expected":"DependencyRemainsExplicit"},
+    {"id":"S16","name":"dependency-shifts-between-domains","expected":"PreserveTradeoff"},
+    {"id":"S17","name":"self-sufficient-claim-with-critical-imports","expected":"RejectClaim"},
+    {"id":"S18","name":"second-generation-seeding-without-original-node","expected":"RequiredForN7"}
+  ],
+  "showcase_mapping": {
+    "node_A_initial_role":"first physical H1 node",
+    "node_B_initial_role":"replay-backed second productive node",
+    "node_B_future_role":"first independently bootstrapped physical or semi-physical second node",
+    "node_A_to_B_relationship":"SeederPeerNotParentAuthority",
+    "node_B_to_future_node_relationship":"RecursiveSeederPeer",
+    "federation_required_for_bootstrap":false
+  },
+  "measurement_dimensions": [
+    "service-continuity-by-domain",
+    "external-dependency-count-and-criticality",
+    "local-energy-water-material-shares-where-measurable",
+    "repair-turnaround",
+    "spare-availability",
+    "maintainer-skill-coverage",
+    "bootstrap-time-and-operator-steps",
+    "seed-artifact-reuse-vs-rejection",
+    "adaptation-count",
+    "declared-translation-loss-count",
+    "time-to-operate-without-seeder",
+    "federation-optional-operation-duration",
+    "provenance-completeness"
+  ],
+  "runtime_optionalities": {
+    "integral_itc_required": false,
+    "symthaea_required": false,
+    "holochain_required_for_seed_package": false,
+    "federation_required_for_local_operation": false,
+    "seeder-online-required_after-complete-bootstrap": false
+  }
+}
