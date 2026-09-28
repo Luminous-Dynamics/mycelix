@@ -31,6 +31,40 @@ pub enum TraceActor {
     System,
 }
 
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TraceRelation {
+    Supports,
+    Authorizes,
+    RespondsTo,
+    Disputes,
+    Supersedes,
+    AlternativeTo,
+    Appeals,
+    Reopens,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TraceStatus {
+    Proposed,
+    Accepted,
+    Rejected,
+    Superseded,
+    Disputed,
+    Appealed,
+    Reopened,
+    Reversed,
+    Executed,
+    Closed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TraceRelationRef {
+    pub from_event: &'static str,
+    pub to_event: &'static str,
+    pub relation: TraceRelation,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TraceEvent {
     pub event_id: &'static str,
@@ -50,6 +84,8 @@ pub struct TraceEvent {
     pub appeal_ref: Option<&'static str>,
     /// Explicit human decision disposition; absence means no disposition is claimed.
     pub decision_accepted: Option<bool>,
+    pub status: TraceStatus,
+    pub relations: &'static [TraceRelationRef],
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -192,6 +228,20 @@ pub fn validate_trace(events: &[TraceEvent]) -> Result<(), TraceError> {
         }
     }
 
+    for relation in events.iter().flat_map(|e| e.relations.iter()) {
+        let from = events.iter().find(|e| e.event_id == relation.from_event);
+        let to = events.iter().find(|e| e.event_id == relation.to_event);
+        if from.is_none() || to.is_none() || relation.from_event == relation.to_event {
+            return Err(TraceError::SupersededLineage);
+        }
+        if relation.relation == TraceRelation::Authorizes && to.unwrap().kind == TraceKind::Recommendation {
+            return Err(TraceError::AuthorityOnRecommendation);
+        }
+        if relation.relation == TraceRelation::Supersedes && to.unwrap().generation >= from.unwrap().generation {
+            return Err(TraceError::SupersededLineage);
+        }
+    }
+
     for pair in events.windows(2) {
         let previous = pair[0];
         let current = pair[1];
@@ -314,7 +364,9 @@ mod tests {
             recommendation_only,
             recovery_ref: if kind == TraceKind::Outcome { Some("recovery-1") } else { None },
             appeal_ref: if kind == TraceKind::Outcome { Some("appeal-1") } else { None },
-            decision_accepted: None,
+            decision_accepted: if kind == TraceKind::HumanDecision { Some(true) } else { None },
+            status: match kind { TraceKind::Decision | TraceKind::Authorization | TraceKind::HumanDecision => TraceStatus::Accepted, TraceKind::Outcome => TraceStatus::Executed, _ => TraceStatus::Accepted },
+            relations: &[],
         }
     }
 
