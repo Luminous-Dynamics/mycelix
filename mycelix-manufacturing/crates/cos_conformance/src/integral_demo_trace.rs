@@ -428,9 +428,12 @@ pub fn validate_trace(fixture: &TraceFixture) -> Result<(), TraceError> {
         if previous.uncertainty_present && !current.uncertainty_present {
             return Err(TraceError::UncertaintyLoss);
         }
-        if previous.source != current.source
-            && previous.source == SourceKind::Foreign
+        if previous.source == SourceKind::Foreign
             && current.source == SourceKind::Local
+            && matches!(
+                current.kind,
+                TraceKind::Observation | TraceKind::ItcProjection | TraceKind::FrsAssessment
+            )
         {
             return Err(TraceError::ForeignOriginLoss);
         }
