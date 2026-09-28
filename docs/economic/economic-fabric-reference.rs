@@ -90,6 +90,30 @@ pub fn can_enter_settlement(current_state: State, ctx: &TransitionContext) -> bo
         && ctx.claim_ceiling_preserved
 }
 
+pub fn profile_allows_transition(
+    profile: EconomicProfile,
+    from: State,
+    to: State,
+) -> bool {
+    match profile {
+        EconomicProfile::IntegralItc => !matches!(
+            (from, to),
+            (State::Evidenced, State::Entitled)
+        ),
+        EconomicProfile::Valueflows => !matches!(
+            (from, to),
+            (State::Observed, State::Entitled)
+        ),
+        EconomicProfile::AccountingProjection => !matches!(
+            (from, to),
+            (State::Observed, State::Settled)
+        ),
+        EconomicProfile::Generic
+        | EconomicProfile::MutualCredit
+        | EconomicProfile::Tend => true,
+    } && can_transition(from, to)
+}
+
 pub fn validate_settlement(
     s: &Settlement,
     current_state: State,
