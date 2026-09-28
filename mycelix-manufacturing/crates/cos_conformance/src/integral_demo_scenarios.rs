@@ -222,7 +222,7 @@ pub fn fixture_for(id: ScenarioId) -> ScenarioFixture {
             let second = event("o2", 7, TraceKind::Observation, TraceActor::System, SourceKind::Local, 7, true, None, false, None, TraceStatus::Disputed);
             events.truncate(6);
             events.push(second);
-            relations.truncate(7);
+            relations.truncate(4);
             relations.push(relation("o2", "o1", TraceRelation::Disputes));
         }
         ScenarioId::ForeignEvidence => {
