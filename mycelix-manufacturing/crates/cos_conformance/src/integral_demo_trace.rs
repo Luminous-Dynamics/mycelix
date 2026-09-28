@@ -34,11 +34,16 @@ pub enum TraceActor {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TraceRelation {
+    GeneratedBy,
+    DerivedFrom,
+    Used,
+    AttributedTo,
     Supports,
     Authorizes,
     RespondsTo,
     Disputes,
     Supersedes,
+    Revises,
     AlternativeTo,
     Appeals,
     Reopens,
@@ -63,6 +68,42 @@ pub struct TraceRelationRef {
     pub from_event: &'static str,
     pub to_event: &'static str,
     pub relation: TraceRelation,
+}
+
+/// Provenance relations are explicit graph semantics. They are never inferred
+/// from sequence order or substituted with an A1 parent link.
+pub fn is_provenance_relation(relation: TraceRelation) -> bool {
+    matches!(
+        relation,
+        TraceRelation::GeneratedBy
+            | TraceRelation::DerivedFrom
+            | TraceRelation::Used
+            | TraceRelation::AttributedTo
+            | TraceRelation::Revises
+    )
+}
+
+/// Validate provenance relation semantics without asserting truth or causality.
+pub fn provenance_relation_is_valid(
+    relation: TraceRelation,
+    from: &TraceEvent,
+    to: &TraceEvent,
+) -> bool {
+    if from.event_id == to.event_id {
+        return false;
+    }
+    match relation {
+        TraceRelation::GeneratedBy => true,
+        TraceRelation::DerivedFrom => from.generation >= to.generation,
+        TraceRelation::Used => true,
+        TraceRelation::AttributedTo => true,
+        TraceRelation::Revises => {
+            from.kind == TraceKind::Design
+                && to.kind == TraceKind::Design
+                && from.generation > to.generation
+        }
+        _ => false,
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -314,6 +355,11 @@ pub fn validate_trace(fixture: &TraceFixture) -> Result<(), TraceError> {
         }
         let from = from.unwrap();
         let to = to.unwrap();
+        if is_provenance_relation(relation.relation)
+            && !provenance_relation_is_valid(relation.relation, from, to)
+        {
+            return Err(TraceError::IllegalTransition);
+        }
         if relation.relation == TraceRelation::Authorizes && to.kind == TraceKind::Recommendation {
             return Err(TraceError::AuthorityOnRecommendation);
         }
@@ -594,6 +640,50 @@ mod tests {
         ],
             relations: vec![],
         }
+    }
+
+    #[test]
+    fn provenance_relations_are_explicit_and_not_sequence_derived() {
+        let t = valid_trace();
+        assert!(is_provenance_relation(TraceRelation::GeneratedBy));
+        assert!(is_provenance_relation(TraceRelation::DerivedFrom));
+        assert!(is_provenance_relation(TraceRelation::Used));
+        assert!(is_provenance_relation(TraceRelation::AttributedTo));
+        assert!(is_provenance_relation(TraceRelation::Revises));
+
+        let generated = TraceRelationRef {
+            from_event: "e3",
+            to_event: "e2",
+            relation: TraceRelation::GeneratedBy,
+        };
+        let derived = TraceRelationRef {
+            from_event: "e8",
+            to_event: "e6",
+            relation: TraceRelation::DerivedFrom,
+        };
+        let mut reordered = t.clone();
+        reordered.relations = vec![derived, generated];
+        assert_eq!(validate_trace(&reordered), Ok(()));
+    }
+
+    #[test]
+    fn revises_requires_explicit_newer_design_generation() {
+        let t = valid_trace();
+        let from = t.events.iter().find(|e| e.event_id == "e2").unwrap();
+        let to = t.events.iter().find(|e| e.event_id == "e2").unwrap();
+        assert!(!provenance_relation_is_valid(TraceRelation::Revises, from, to));
+
+        let newer = TraceEvent { generation: 8, event_id: "new-design", ..*from };
+        assert!(provenance_relation_is_valid(TraceRelation::Revises, &newer, to));
+    }
+
+    #[test]
+    fn provenance_relation_validation_does_not_require_matching_source() {
+        let t = valid_trace();
+        let from = t.events.iter().find(|e| e.event_id == "e8").unwrap();
+        let to = t.events.iter().find(|e| e.event_id == "e6").unwrap();
+        assert!(provenance_relation_is_valid(TraceRelation::DerivedFrom, from, to));
+        assert_ne!(from.source_ref, to.source_ref);
     }
 
     #[test]
