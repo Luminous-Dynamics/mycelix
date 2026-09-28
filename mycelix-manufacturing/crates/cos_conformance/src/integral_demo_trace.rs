@@ -524,9 +524,9 @@ mod tests {
     }
 
     #[test]
-    fn generation_cannot_regress() {
+    fn decision_cannot_consume_a_different_design_generation() {
         let mut t = valid_trace();
-        t.events[6].generation = 8;
+        t.events[2].generation = 6;
         assert_eq!(validate_trace(&t), Err(TraceError::GenerationRegression));
     }
 
