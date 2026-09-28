@@ -1,0 +1,184 @@
+name: Constitutional Effect Delivery Exact Qualification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/constitutional-effect-delivery-exact-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: constitutional-effect-delivery-exact-\${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  PRODUCT_HEAD: 2b7e17783df9e7a3666390841e24b0308b9d0717
+  PRODUCT_PARENT: 43110125e73b3c2eb51c29d302a98435f5c279de
+  PRODUCT_TREE: fbba3358470a8a4fc5e877f5c4829bdc51f7f35e
+  GOVERNANCE_MANIFEST: 4f05b66209e2cb3f89662e2cc5237dd962c0941d
+  CRATE_MANIFEST: 6529d91dab38303a9adc6f34af08359e18954f10
+  INVARIANTS: f06fb4cfa8bcffbf3eca9e97d88641fc1793e613
+  LIB: d0e6732dff60f05d77113e7dd4f5615251b00268
+  LOCK: f872b74f13264e7345be02b64270179eed56c703
+  RUST_VERSION: 1.98.1
+  RUSTUP_VERSION: 1.29.0
+  RUSTUP_SHA256: 4acc9acc76d5079515b46346a485974457b5a79893cfb01112423c89aeb5aa10
+
+jobs:
+  qualify:
+    name: exact D1E Rust core
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Check out exact qualification subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Bind qualifier topology and exact product
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$PRODUCT_PARENT"
+          test "$(git rev-list --count "$PRODUCT_PARENT"..HEAD)" -eq 1
+          mapfile -t qualifier_changed < <(git diff --name-only HEAD^ HEAD | sort)
+          printf '%s\n' "\${qualifier_changed[@]}" > /tmp/qualifier-changed
+          printf '%s\n' ".github/workflows/constitutional-effect-delivery-exact-qualification.yml" > /tmp/qualifier-expected
+          diff -u /tmp/qualifier-expected /tmp/qualifier-changed
+
+          git fetch --no-tags --depth=2 origin "$PRODUCT_HEAD"
+          test "$(git rev-parse "$PRODUCT_HEAD^")" = "$PRODUCT_PARENT"
+          test "$(git rev-parse "$PRODUCT_HEAD^{tree}")" = "$PRODUCT_TREE"
+
+          mapfile -t product_changed < <(git diff --name-only "$PRODUCT_PARENT" "$PRODUCT_HEAD" | sort)
+          printf '%s\n' "\${product_changed[@]}" > /tmp/product-changed
+          cat > /tmp/product-expected <<'EOF'
+          mycelix-governance/Cargo.toml
+          mycelix-governance/crates/mycelix-constitutional-effect-delivery/Cargo.toml
+          mycelix-governance/crates/mycelix-constitutional-effect-delivery/INVARIANTS.md
+          mycelix-governance/crates/mycelix-constitutional-effect-delivery/README.md
+          mycelix-governance/crates/mycelix-constitutional-effect-delivery/src/lib.rs
+          EOF
+          diff -u /tmp/product-expected /tmp/product-changed
+
+      - name: Bind reviewed product blobs and dependency boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse "$PRODUCT_HEAD:mycelix-governance/Cargo.toml")" = "$GOVERNANCE_MANIFEST"
+          test "$(git rev-parse "$PRODUCT_HEAD:mycelix-governance/crates/mycelix-constitutional-effect-delivery/Cargo.toml")" = "$CRATE_MANIFEST"
+          test "$(git rev-parse "$PRODUCT_HEAD:mycelix-governance/crates/mycelix-constitutional-effect-delivery/INVARIANTS.md")" = "$INVARIANTS"
+          test "$(git rev-parse "$PRODUCT_HEAD:mycelix-governance/crates/mycelix-constitutional-effect-delivery/src/lib.rs")" = "$LIB"
+          test "$(git rev-parse "$PRODUCT_HEAD:mycelix-governance/Cargo.lock")" = "$LOCK"
+
+          python3 - <<'PY'
+          import os
+          import subprocess
+          head = subprocess.check_output([
+              "git", "show",
+              f"{os.environ['PRODUCT_HEAD']}:mycelix-governance/crates/mycelix-constitutional-effect-delivery/Cargo.toml",
+          ], text=True)
+          src = subprocess.check_output([
+              "git", "show",
+              f"{os.environ['PRODUCT_HEAD']}:mycelix-governance/crates/mycelix-constitutional-effect-delivery/src/lib.rs",
+          ], text=True)
+          deps = head.split("[dependencies]\n", 1)[1].strip()
+          if deps != 'serde = { workspace = true }':
+              raise SystemExit(f"unexpected dependency surface: {deps!r}")
+          if "#![forbid(unsafe_code)]" not in src:
+              raise SystemExit("unsafe-code boundary missing")
+          if "hdk" in src or "holochain" in src.lower():
+              raise SystemExit("delivery core directly references Holochain")
+          PY
+
+      - name: Install pinned Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          host=x86_64-unknown-linux-gnu
+          url="https://static.rust-lang.org/rustup/archive/$RUSTUP_VERSION/$host/rustup-init"
+          curl --fail --location --retry 3 --silent --show-error "$url" -o /tmp/rustup-init
+          printf '%s  /tmp/rustup-init\n' "$RUSTUP_SHA256" | sha256sum --check --strict
+          chmod 0755 /tmp/rustup-init
+          /tmp/rustup-init -y --no-modify-path --profile minimal --default-host "$host" --default-toolchain "$RUST_VERSION"
+          "$HOME/.cargo/bin/rustup" component add --toolchain "$RUST_VERSION" rustfmt clippy
+          "$HOME/.cargo/bin/rustup" target add --toolchain "$RUST_VERSION" wasm32-unknown-unknown
+          "$HOME/.cargo/bin/rustc" +"$RUST_VERSION" --version | grep -Eq '^rustc 1\.98\.1 '
+          "$HOME/.cargo/bin/cargo" +"$RUST_VERSION" --version | grep -Eq '^cargo 1\.98\.1 '
+
+      - name: Run exact package qualification matrix
+        shell: bash
+        run: |
+          set -uo pipefail
+          cargo="$HOME/.cargo/bin/cargo"
+          manifest=mycelix-governance/Cargo.toml
+          pkg=mycelix-constitutional-effect-delivery
+          receipt="$RUNNER_TEMP/d1e-qualification.txt"
+          : > "$receipt"
+          failed=0
+
+          run_gate() {
+            name="$1"
+            shift
+            echo "=== $name ==="
+            if "$@"; then
+              echo "$name=PASS" | tee -a "$receipt"
+            else
+              echo "$name=FAIL" | tee -a "$receipt"
+              failed=1
+            fi
+          }
+
+          run_gate metadata "$cargo" +"$RUST_VERSION" metadata --locked --no-deps --manifest-path "$manifest"
+          run_gate format "$cargo" +"$RUST_VERSION" fmt --manifest-path "$manifest" --package "$pkg" -- --check
+          run_gate check "$cargo" +"$RUST_VERSION" check --locked --manifest-path "$manifest" --package "$pkg" --all-targets
+          run_gate tests "$cargo" +"$RUST_VERSION" test --locked --manifest-path "$manifest" --package "$pkg" --all-targets
+          run_gate clippy "$cargo" +"$RUST_VERSION" clippy --locked --manifest-path "$manifest" --package "$pkg" --all-targets -- -D warnings
+          run_gate wasm32 "$cargo" +"$RUST_VERSION" check --locked --manifest-path "$manifest" --package "$pkg" --target wasm32-unknown-unknown
+
+          exit "$failed"
+
+      - name: Prove reviewed product bytes and checkout stayed immutable
+        if: always()
+        shell: bash
+        run: |
+          set -uo pipefail
+          failed=0
+          check_blob() {
+            path="$1"
+            expected="$2"
+            actual="$(git rev-parse "$PRODUCT_HEAD:$path")"
+            if test "$actual" = "$expected"; then
+              echo "blob:$path=PASS"
+            else
+              echo "blob:$path=FAIL expected=$expected actual=$actual"
+              failed=1
+            fi
+          }
+          check_blob mycelix-governance/Cargo.toml "$GOVERNANCE_MANIFEST"
+          check_blob mycelix-governance/crates/mycelix-constitutional-effect-delivery/Cargo.toml "$CRATE_MANIFEST"
+          check_blob mycelix-governance/crates/mycelix-constitutional-effect-delivery/INVARIANTS.md "$INVARIANTS"
+          check_blob mycelix-governance/crates/mycelix-constitutional-effect-delivery/src/lib.rs "$LIB"
+          check_blob mycelix-governance/Cargo.lock "$LOCK"
+
+          if test -z "$(git status --porcelain)"; then
+            echo "qualifier-checkout-immutable=PASS"
+          else
+            git status --short
+            echo "qualifier-checkout-immutable=FAIL"
+            failed=1
+          fi
+          exit "$failed"
+
+      - name: Upload immutable qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: constitutional-effect-delivery-exact-${{ env.PRODUCT_HEAD }}
+          path: ${{ runner.temp }}/d1e-qualification.txt
+          if-no-files-found: warn
+          retention-days: 30
