@@ -639,6 +639,15 @@ mod tests {
             delegated.authority,
             AuthorityDisposition::ExplicitDelegatedAuthority
         );
+
+        let mut replay = foreign.clone();
+        replay.attempt_id = "attempt-delegated-retry".into();
+        let replayed = deliver(&mut delegated_state, &replay, 50, true);
+        assert_eq!(replayed.decision, FederationDecision::Duplicate);
+        assert_eq!(
+            replayed.authority,
+            AuthorityDisposition::ExplicitDelegatedAuthority
+        );
     }
 
     #[test]
