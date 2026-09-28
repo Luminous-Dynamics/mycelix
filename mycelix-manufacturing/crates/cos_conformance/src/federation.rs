@@ -74,6 +74,7 @@ pub struct DeliveryRecord {
     pub semantic_subject_id: String,
     pub payload_commitment: String,
     pub origin_node: String,
+    pub authority: AuthorityDisposition,
     pub attempts: BTreeSet<String>,
 }
 
@@ -296,13 +297,9 @@ pub fn deliver(
         existing.attempts.insert(envelope.attempt_id.clone());
         return FederationOutcome::new(
             FederationDecision::Duplicate,
-            if envelope.origin_node == envelope.target_node {
-                AuthorityDisposition::LocalAuthority
-            } else {
-                AuthorityDisposition::ForeignEvidence
-            },
+            existing.authority,
             envelope,
-            "A replayed attempt is idempotent at the logical-delivery identity.",
+            "A replayed attempt is idempotent and preserves the original authority disposition.",
         );
     }
 
@@ -343,6 +340,7 @@ pub fn deliver(
             semantic_subject_id: envelope.semantic_subject_id.clone(),
             payload_commitment: envelope.payload_commitment.clone(),
             origin_node: envelope.origin_node.clone(),
+            authority,
             attempts: BTreeSet::from([envelope.attempt_id.clone()]),
         },
     );
