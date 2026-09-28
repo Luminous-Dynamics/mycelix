@@ -12,8 +12,8 @@ use leptos::prelude::*;
 use mycelix_leptos_core::holochain_provider::HolochainCtx;
 
 use crate::context::{
-    refresh_health_state, refresh_identity_state, refresh_preferences_state, PersonalCtx,
-    PersonalSourceState,
+    refresh_health_state_at_epoch, refresh_identity_state_at_epoch,
+    refresh_preferences_state_at_epoch, PersonalCtx, PersonalSourceState,
 };
 use crate::mutation_state::MutationRefreshOutcome;
 use crate::reconciliation::ReconciliationEpoch;
@@ -27,12 +27,20 @@ enum MutationRefreshTarget {
 
 fn begin_mutation_refresh(
     gate: &mut ReconciliationEpoch,
+    mutation_epoch: u64,
 ) -> Result<u64, MutationRefreshOutcome> {
     if !gate.is_usable() {
         return Err(MutationRefreshOutcome::NoUsableEpoch);
     }
 
     let epoch = gate.current_epoch();
+    if epoch != mutation_epoch {
+        return Err(MutationRefreshOutcome::EpochChanged {
+            started_epoch: mutation_epoch,
+            current_epoch: epoch,
+        });
+    }
+
     if gate.is_in_flight() {
         return Err(MutationRefreshOutcome::Busy { epoch });
     }
@@ -40,7 +48,7 @@ fn begin_mutation_refresh(
     let started_epoch = gate
         .begin_refresh()
         .expect("usable non-busy Personal epoch must admit one explicit refresh");
-    debug_assert_eq!(started_epoch, epoch);
+    debug_assert_eq!(started_epoch, mutation_epoch);
     Ok(started_epoch)
 }
 
@@ -87,9 +95,10 @@ async fn run_mutation_refresh(
     ctx: PersonalCtx,
     hc: HolochainCtx,
     target: MutationRefreshTarget,
+    mutation_epoch: u64,
 ) -> MutationRefreshOutcome {
     let mut gate = ctx.reconciliation.get_untracked();
-    let started_epoch = match begin_mutation_refresh(&mut gate) {
+    let started_epoch = match begin_mutation_refresh(&mut gate, mutation_epoch) {
         Ok(epoch) => epoch,
         Err(outcome) => return outcome,
     };
@@ -97,15 +106,15 @@ async fn run_mutation_refresh(
 
     let source_published = match target {
         MutationRefreshTarget::Identity => {
-            refresh_identity_state(ctx.clone(), hc).await;
+            refresh_identity_state_at_epoch(ctx.clone(), hc.clone(), started_epoch).await;
             source_state_has_published_snapshot(ctx.identity_state.get_untracked())
         }
         MutationRefreshTarget::Health => {
-            refresh_health_state(ctx.clone(), hc).await;
+            refresh_health_state_at_epoch(ctx.clone(), hc.clone(), started_epoch).await;
             source_state_has_published_snapshot(ctx.health_state.get_untracked())
         }
         MutationRefreshTarget::Preferences => {
-            refresh_preferences_state(ctx.clone(), hc).await;
+            refresh_preferences_state_at_epoch(ctx.clone(), hc.clone(), started_epoch).await;
             source_state_has_published_snapshot(ctx.preferences_state.get_untracked())
         }
     };
@@ -125,22 +134,25 @@ async fn run_mutation_refresh(
 pub async fn refresh_identity_after_mutation(
     ctx: PersonalCtx,
     hc: HolochainCtx,
+    mutation_epoch: u64,
 ) -> MutationRefreshOutcome {
-    run_mutation_refresh(ctx, hc, MutationRefreshTarget::Identity).await
+    run_mutation_refresh(ctx, hc, MutationRefreshTarget::Identity, mutation_epoch).await
 }
 
 pub async fn refresh_health_after_mutation(
     ctx: PersonalCtx,
     hc: HolochainCtx,
+    mutation_epoch: u64,
 ) -> MutationRefreshOutcome {
-    run_mutation_refresh(ctx, hc, MutationRefreshTarget::Health).await
+    run_mutation_refresh(ctx, hc, MutationRefreshTarget::Health, mutation_epoch).await
 }
 
 pub async fn refresh_preferences_after_mutation(
     ctx: PersonalCtx,
     hc: HolochainCtx,
+    mutation_epoch: u64,
 ) -> MutationRefreshOutcome {
-    run_mutation_refresh(ctx, hc, MutationRefreshTarget::Preferences).await
+    run_mutation_refresh(ctx, hc, MutationRefreshTarget::Preferences, mutation_epoch).await
 }
 
 #[cfg(test)]
@@ -152,7 +164,7 @@ mod tests {
     fn refresh_without_usable_epoch_is_rejected() {
         let mut gate = ReconciliationEpoch::default();
         assert_eq!(
-            begin_mutation_refresh(&mut gate),
+            begin_mutation_refresh(&mut gate, 1),
             Err(MutationRefreshOutcome::NoUsableEpoch)
         );
     }
@@ -165,7 +177,7 @@ mod tests {
         };
 
         assert_eq!(
-            begin_mutation_refresh(&mut gate),
+            begin_mutation_refresh(&mut gate, epoch),
             Err(MutationRefreshOutcome::Busy { epoch })
         );
     }
@@ -178,7 +190,7 @@ mod tests {
         };
         assert!(gate.finish(epoch));
 
-        let started = begin_mutation_refresh(&mut gate).expect("refresh should be admitted");
+        let started = begin_mutation_refresh(&mut gate, epoch).expect("refresh should be admitted");
         assert_eq!(started, epoch);
         assert!(gate.is_in_flight());
         assert_eq!(
@@ -198,7 +210,7 @@ mod tests {
         assert!(gate.finish(epoch));
         assert!(gate.has_completed());
 
-        let started = begin_mutation_refresh(&mut gate).expect("refresh should be admitted");
+        let started = begin_mutation_refresh(&mut gate, epoch).expect("refresh should be admitted");
         assert_eq!(
             finish_mutation_refresh(&mut gate, started, false),
             MutationRefreshOutcome::SourceNotPublished { epoch }
@@ -220,13 +232,44 @@ mod tests {
     }
 
     #[test]
+    fn replacement_epoch_cannot_admit_an_old_mutation_refresh() {
+        let mut gate = ReconciliationEpoch::default();
+        let ReconciliationTransition::Start { epoch } = gate.observe_usable(true) else {
+            panic!("session must start");
+        };
+        assert!(gate.finish(epoch));
+        assert_eq!(
+            gate.observe_usable(false),
+            ReconciliationTransition::Invalidated {
+                epoch: invalidated_epoch,
+                had_completed: true,
+            }
+        );
+        let ReconciliationTransition::Start { epoch: replacement } =
+            gate.observe_usable(true)
+        else {
+            panic!("reconnect must start a replacement epoch");
+        };
+        assert_ne!(epoch, replacement);
+        assert_eq!(
+            begin_mutation_refresh(&mut gate, epoch),
+            Err(MutationRefreshOutcome::EpochChanged {
+                started_epoch: epoch,
+                current_epoch: replacement,
+            })
+        );
+        assert!(gate.is_in_flight());
+        assert_eq!(invalidated_epoch + 1, replacement);
+    }
+
+    #[test]
     fn epoch_change_rejects_old_refresh_publication() {
         let mut gate = ReconciliationEpoch::default();
         let ReconciliationTransition::Start { epoch } = gate.observe_usable(true) else {
             panic!("usable session must start initial reconciliation");
         };
         assert!(gate.finish(epoch));
-        let started = begin_mutation_refresh(&mut gate).expect("refresh should be admitted");
+        let started = begin_mutation_refresh(&mut gate, epoch).expect("refresh should be admitted");
 
         let ReconciliationTransition::Invalidated {
             epoch: current_epoch,
