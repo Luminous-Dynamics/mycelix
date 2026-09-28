@@ -131,25 +131,24 @@ pub fn resolve_conflict(
     reconciliation: ReconciliationDecision,
     decision_ref: Option<&'static str>,
 ) -> ResolutionDecision {
-    match reconciliation {
-        ReconciliationDecision::Agreement => {
-            ResolutionDecision::AwaitingHumanDecision(ObservationConflict {
-                work_id: "",
-                left_observation_id: "",
-                left_origin: FederationNode::Local,
-                left_quantity: 0,
-                right_observation_id: "",
-                right_origin: FederationNode::Local,
-                right_quantity: 0,
-            })
-        }
-        ReconciliationDecision::ConflictPreserved(conflict) => match decision_ref {
-            Some(reference) if !reference.is_empty() => ResolutionDecision::ResolvedByExplicitDecision {
-                conflict_work_id: conflict.work_id,
-                decision_ref: reference,
-            },
-            _ => ResolutionDecision::AwaitingHumanDecision(conflict),
+    let ReconciliationDecision::ConflictPreserved(conflict) = reconciliation else {
+        return ResolutionDecision::AwaitingHumanDecision(ObservationConflict {
+            work_id: "",
+            left_observation_id: "",
+            left_origin: FederationNode::Local,
+            left_quantity: 0,
+            right_observation_id: "",
+            right_origin: FederationNode::Local,
+            right_quantity: 0,
+        });
+    };
+
+    match decision_ref {
+        Some(reference) if !reference.is_empty() => ResolutionDecision::ResolvedByExplicitDecision {
+            conflict_work_id: conflict.work_id,
+            decision_ref: reference,
         },
+        _ => ResolutionDecision::AwaitingHumanDecision(conflict),
     }
 }
 
