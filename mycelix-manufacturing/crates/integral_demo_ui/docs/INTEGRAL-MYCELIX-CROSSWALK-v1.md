@@ -227,3 +227,8 @@ The A1↔D5 bridge now also exposes a combined validation gate: A1 parent lineag
 ### Explicit A1↔D5 pairing for shared fixtures
 
 For fixtures that carry both representations, the bridge now supports explicit artifact/event pairs. The caller supplies the semantic A1 artifact and the exact D5 event it represents; the bridge verifies identity and shared semantics but does not derive parentage, causality, or authority from serialization order. This makes the integration suitable for adversarial fixtures while keeping lineage ownership with the model that declares it.
+
+
+### Canonical-event binding
+
+Explicit A1↔D5 pairs must bind to the canonical event already present in the validated D5 fixture. A caller cannot supply a forged or detached event with a matching ID and have it treated as the fixture's evidence. The bridge therefore validates the D5 fixture first, resolves the event by identity, and compares the supplied pair event to that canonical record before applying semantic alignment.
