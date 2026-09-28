@@ -110,8 +110,17 @@ fn normal_trace() -> Vec<TraceEvent> {
 pub fn trace_for(id: ScenarioId) -> Vec<TraceEvent> {
     let mut t = normal_trace();
     match id {
-        ScenarioId::NormalFlow | ScenarioId::RecommendationAccepted | ScenarioId::AppealedOutcome => t,
-        ScenarioId::RecommendationRejected => { t[8].status = TraceStatus::Rejected; t[9].decision_accepted = Some(false); t }
+        ScenarioId::NormalFlow => t,
+        ScenarioId::RecommendationAccepted => {
+            t[8].status = TraceStatus::Accepted;
+            t[9].decision_accepted = Some(true);
+            t
+        }
+        ScenarioId::RecommendationRejected => {
+            t[8].status = TraceStatus::Rejected;
+            t[9].decision_accepted = Some(false);
+            t
+        }
         ScenarioId::RejectedCdsDecision => {
             t[2].decision_accepted = Some(false);
             t[2].status = TraceStatus::Rejected;
@@ -134,20 +143,23 @@ pub fn trace_for(id: ScenarioId) -> Vec<TraceEvent> {
                 to_event: "d0",
                 relation: TraceRelation::Supersedes,
             }].into_boxed_slice());
+            t.insert(1, prior_design);
             for (index, event) in t.iter_mut().enumerate().skip(2) {
                 event.sequence = (index as u32) + 2;
             }
-            t[2].generation = 6;
-            t.insert(1, prior_design);
+            // The current decision deliberately points at the superseded generation.
+            t[3].generation = 6;
             t
+        }
         ScenarioId::UncertainObservation => {
             t[5].uncertainty_present = false;
             t
         }
         ScenarioId::ConflictingObservations => {
-            let second = event("o2",7,TraceKind::Observation,TraceActor::System,SourceKind::Local,7,true,None,false,None);
+            let second = event("o2", 7, TraceKind::Observation, TraceActor::System, SourceKind::Local, 7, true, None, false, None);
             t.truncate(6);
             t.push(second);
+            t[6].relations = conflict_relations();
             t
         }
         ScenarioId::ForeignEvidence => {
@@ -156,6 +168,13 @@ pub fn trace_for(id: ScenarioId) -> Vec<TraceEvent> {
             t[7].source = SourceKind::Foreign;
             t[8].source = SourceKind::Foreign;
             t[9].source = SourceKind::Local;
+            t
+        }
+        ScenarioId::AppealedOutcome => {
+            let relations = scenario_relations(ScenarioId::AppealedOutcome);
+            t[10].status = TraceStatus::Reversed;
+            t[11].status = TraceStatus::Reopened;
+            t[11].relations = relations;
             t
         }
         ScenarioId::NoSymthaea => {
