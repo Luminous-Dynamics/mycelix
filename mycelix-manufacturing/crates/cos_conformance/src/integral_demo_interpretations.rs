@@ -344,8 +344,11 @@ mod tests {
         let mut values = FRS_CDS_INTERPRETATIONS.to_vec();
         values.reverse();
         values.sort_by_key(|i| comparison_key(*i));
-        assert_eq!(values[0].kind, InterpretationKind::MinimalFaithful);
-        assert_eq!(values[2].kind, InterpretationKind::FederationAware);
         assert_eq!(values.len(), 3);
+        assert_eq!(
+            values.iter().map(|i| comparison_key(*i).1).collect::<Vec<_>>(),
+            vec![0, 1, 2],
+        );
+        // This is canonical serialization order only, never a semantic ranking.
     }
 }
