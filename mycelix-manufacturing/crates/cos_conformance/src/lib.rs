@@ -331,3 +331,5 @@ mod tests {
         assert!(b.foreign_recognition);
     }
 }
+
+pub mod integral_demo_domain;
