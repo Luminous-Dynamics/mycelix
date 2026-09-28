@@ -233,6 +233,7 @@ pub struct ProviderOutcomeV1 {
     pub outcome_id: String,
     pub effect_id: String,
     pub route_id: String,
+    pub provider_operation_id: String,
     pub provider_id: String,
     pub provider_profile_root: String,
     pub request_commitment: String,
@@ -249,6 +250,7 @@ impl ProviderOutcomeV1 {
         non_empty(&self.outcome_id)
             && non_empty(&self.effect_id)
             && non_empty(&self.route_id)
+            && non_empty(&self.provider_operation_id)
             && non_empty(&self.provider_id)
             && non_empty(&self.provider_profile_root)
             && non_empty(&self.request_commitment)
@@ -263,6 +265,7 @@ impl ProviderOutcomeV1 {
 fn outcome_matches_route(outcome: &ProviderOutcomeV1, route: &ProviderRouteV1) -> bool {
     outcome.effect_id == route.effect_id
         && outcome.route_id == route.route_id
+        && outcome.provider_operation_id == route.provider_operation_id
         && outcome.provider_id == route.provider_id
         && outcome.provider_profile_root == route.provider_profile_root
         && outcome.request_commitment == route.request_commitment
@@ -283,6 +286,9 @@ pub struct OutcomeResolutionV1 {
     pub effect_id: String,
     pub prior_outcome_id: String,
     pub prior_route_id: String,
+    pub prior_operation_id: String,
+    pub prior_outcome_evidence_root: String,
+    pub prior_outcome_kind: ProviderOutcomeKindV1,
     pub provider_id: String,
     pub provider_profile_root: String,
     pub request_commitment: String,
@@ -301,6 +307,8 @@ impl OutcomeResolutionV1 {
             && non_empty(&self.effect_id)
             && non_empty(&self.prior_outcome_id)
             && non_empty(&self.prior_route_id)
+            && non_empty(&self.prior_operation_id)
+            && non_empty(&self.prior_outcome_evidence_root)
             && non_empty(&self.provider_id)
             && non_empty(&self.provider_profile_root)
             && non_empty(&self.request_commitment)
@@ -345,6 +353,9 @@ pub fn assess_outcome_resolution(
         || resolution.effect_id != effect.effect_id
         || resolution.prior_outcome_id != outcome.outcome_id
         || resolution.prior_route_id != route.route_id
+        || resolution.prior_operation_id != route.provider_operation_id
+        || resolution.prior_outcome_evidence_root != outcome.evidence_root
+        || resolution.prior_outcome_kind != outcome.outcome_kind
         || resolution.provider_id != route.provider_id
         || resolution.provider_profile_root != route.provider_profile_root
         || resolution.request_commitment != effect.request_commitment
@@ -379,8 +390,12 @@ pub struct CrossProviderIdempotencyWitnessV1 {
     pub substitution_profile_id: String,
     pub semantic_environment_root: String,
     pub from_provider_id: String,
+    pub from_route_id: String,
+    pub from_operation_id: String,
     pub from_provider_profile_root: String,
     pub to_provider_id: String,
+    pub to_route_id: String,
+    pub to_operation_id: String,
     pub to_provider_profile_root: String,
     pub idempotency_policy_root: String,
     pub evidence_root: String,
@@ -397,8 +412,12 @@ impl CrossProviderIdempotencyWitnessV1 {
             && non_empty(&self.substitution_profile_id)
             && non_empty(&self.semantic_environment_root)
             && non_empty(&self.from_provider_id)
+            && non_empty(&self.from_route_id)
+            && non_empty(&self.from_operation_id)
             && non_empty(&self.from_provider_profile_root)
             && non_empty(&self.to_provider_id)
+            && non_empty(&self.to_route_id)
+            && non_empty(&self.to_operation_id)
             && non_empty(&self.to_provider_profile_root)
             && non_empty(&self.idempotency_policy_root)
             && non_empty(&self.evidence_root)
@@ -449,8 +468,12 @@ pub fn assess_cross_provider_idempotency_witness(
         || witness.substitution_profile_id != profile.profile_id
         || witness.semantic_environment_root != effect.semantic_environment_root
         || witness.from_provider_id != predecessor.provider_id
+        || witness.from_route_id != predecessor.route_id
+        || witness.from_operation_id != predecessor.provider_operation_id
         || witness.from_provider_profile_root != predecessor.provider_profile_root
         || witness.to_provider_id != successor.provider_id
+        || witness.to_route_id != successor.route_id
+        || witness.to_operation_id != successor.provider_operation_id
         || witness.to_provider_profile_root != successor.provider_profile_root
     {
         return IdempotencyWitnessDispositionV1::BlockedBinding;
@@ -464,6 +487,8 @@ pub struct EffectContinuityReceiptV1 {
     pub effect_id: String,
     pub predecessor_route_id: String,
     pub predecessor_outcome_id: String,
+    pub predecessor_outcome_kind: ProviderOutcomeKindV1,
+    pub predecessor_outcome_evidence_root: String,
     pub predecessor_provider_id: String,
     pub predecessor_provider_profile_root: String,
     pub predecessor_operation_id: String,
@@ -493,6 +518,7 @@ impl EffectContinuityReceiptV1 {
             && non_empty(&self.effect_id)
             && non_empty(&self.predecessor_route_id)
             && non_empty(&self.predecessor_outcome_id)
+            && non_empty(&self.predecessor_outcome_evidence_root)
             && non_empty(&self.predecessor_provider_id)
             && non_empty(&self.predecessor_provider_profile_root)
             && non_empty(&self.predecessor_operation_id)
@@ -536,6 +562,8 @@ fn receipt_matches_routes(
     receipt.effect_id == effect.effect_id
         && receipt.predecessor_route_id == predecessor.route_id
         && receipt.predecessor_outcome_id == outcome.outcome_id
+        && receipt.predecessor_outcome_kind == outcome.outcome_kind
+        && receipt.predecessor_outcome_evidence_root == outcome.evidence_root
         && receipt.predecessor_provider_id == predecessor.provider_id
         && receipt.predecessor_provider_profile_root == predecessor.provider_profile_root
         && receipt.predecessor_operation_id == predecessor.provider_operation_id
@@ -679,7 +707,11 @@ pub fn assess_effect_continuity(
     if let Some(item) = resolution {
         match assess_outcome_resolution(item, effect, profile, predecessor, predecessor_outcome) {
             OutcomeResolutionDispositionV1::AcceptedNotApplied => {
-                return SubstitutionDispositionV1::AcceptedAfterResolvedNotApplied;
+                return if profile.allow_retry_after_no_effect {
+                    SubstitutionDispositionV1::AcceptedAfterResolvedNotApplied
+                } else {
+                    SubstitutionDispositionV1::BlockedNoEffectRetryNotPermitted
+                };
             }
             OutcomeResolutionDispositionV1::AcceptedApplied => {
                 return SubstitutionDispositionV1::BlockedAlreadyApplied;
@@ -865,11 +897,13 @@ pub struct ArchiveRecoveryBindingV1 {
     pub archive_id: String,
     pub source_snapshot_root: String,
     pub source_frontier_root: String,
+    pub membership_epoch: u64,
     pub semantic_environment_root: String,
     pub historical_profile_id: String,
     pub effect_id: String,
     pub request_commitment: String,
     pub lifecycle_generation_id: String,
+    pub reconstructed_state_root: String,
     pub evidence_root: String,
     pub claim_ceiling: String,
 }
@@ -884,6 +918,7 @@ impl ArchiveRecoveryBindingV1 {
             && non_empty(&self.effect_id)
             && non_empty(&self.request_commitment)
             && non_empty(&self.lifecycle_generation_id)
+            && non_empty(&self.reconstructed_state_root)
             && non_empty(&self.evidence_root)
             && self.claim_ceiling == RECOVERY_INPUT_CLAIM_CEILING
     }
@@ -916,6 +951,7 @@ pub fn assess_recovered_effect_input(
     if binding.archive_id != archive.archive_id
         || binding.source_snapshot_root != archive.source_snapshot_root
         || binding.source_frontier_root != archive.source_frontier_root
+        || binding.membership_epoch != archive.membership_epoch
         || binding.semantic_environment_root != archive.semantic_environment_root
         || binding.historical_profile_id != historical_profile.profile_id
         || binding.effect_id != effect.effect_id
@@ -934,6 +970,8 @@ pub fn assess_recovered_effect_input(
     }
     if archive.source_snapshot_root != manifest.snapshot_root
         || archive.source_frontier_root != manifest.snapshot_frontier_root
+        || archive.membership_epoch != manifest.membership_epoch
+        || binding.reconstructed_state_root != manifest.normative_state_root
         || !reconstruction_matches_manifest(reconstruction, manifest)
     {
         return RecoveryInputDispositionV1::BlockedArchiveBinding;
@@ -1047,6 +1085,7 @@ mod tests {
             outcome_id: format!("outcome-{}", route.route_id),
             effect_id: route.effect_id.clone(),
             route_id: route.route_id.clone(),
+            provider_operation_id: route.provider_operation_id.clone(),
             provider_id: route.provider_id.clone(),
             provider_profile_root: route.provider_profile_root.clone(),
             request_commitment: route.request_commitment.clone(),
@@ -1072,6 +1111,8 @@ mod tests {
             effect_id: effect.effect_id.clone(),
             predecessor_route_id: predecessor.route_id.clone(),
             predecessor_outcome_id: prior.outcome_id.clone(),
+            predecessor_outcome_kind: prior.outcome_kind,
+            predecessor_outcome_evidence_root: prior.evidence_root.clone(),
             predecessor_provider_id: predecessor.provider_id.clone(),
             predecessor_provider_profile_root: predecessor.provider_profile_root.clone(),
             predecessor_operation_id: predecessor.provider_operation_id.clone(),
@@ -1108,6 +1149,9 @@ mod tests {
             effect_id: effect.effect_id.clone(),
             prior_outcome_id: prior.outcome_id.clone(),
             prior_route_id: route.route_id.clone(),
+            prior_operation_id: route.provider_operation_id.clone(),
+            prior_outcome_evidence_root: prior.evidence_root.clone(),
+            prior_outcome_kind: prior.outcome_kind,
             provider_id: route.provider_id.clone(),
             provider_profile_root: route.provider_profile_root.clone(),
             request_commitment: effect.request_commitment.clone(),
@@ -1135,8 +1179,12 @@ mod tests {
             substitution_profile_id: profile.profile_id.clone(),
             semantic_environment_root: effect.semantic_environment_root.clone(),
             from_provider_id: predecessor.provider_id.clone(),
+            from_route_id: predecessor.route_id.clone(),
+            from_operation_id: predecessor.provider_operation_id.clone(),
             from_provider_profile_root: predecessor.provider_profile_root.clone(),
             to_provider_id: successor.provider_id.clone(),
+            to_route_id: successor.route_id.clone(),
+            to_operation_id: successor.provider_operation_id.clone(),
             to_provider_profile_root: successor.provider_profile_root.clone(),
             idempotency_policy_root: profile.idempotency_policy_root.clone().unwrap(),
             evidence_root: "idempotency-evidence-root".into(),
@@ -1233,11 +1281,13 @@ mod tests {
             archive_id: archive.archive_id.clone(),
             source_snapshot_root: archive.source_snapshot_root.clone(),
             source_frontier_root: archive.source_frontier_root.clone(),
+            membership_epoch: archive.membership_epoch,
             semantic_environment_root: archive.semantic_environment_root.clone(),
             historical_profile_id: historical_profile.profile_id.clone(),
             effect_id: effect.effect_id.clone(),
             request_commitment: effect.request_commitment.clone(),
             lifecycle_generation_id: effect.generation_id.clone(),
+            reconstructed_state_root: "state-root-1".into(),
             evidence_root: "archive-recovery-evidence-root".into(),
             claim_ceiling: RECOVERY_INPUT_CLAIM_CEILING.into(),
         };
@@ -1296,6 +1346,22 @@ mod tests {
         assert_eq!(
             assess(&effect, &profile, &predecessor, &successor, &prior, &receipt, Some(&resolution), None, "generation-1", None),
             SubstitutionDispositionV1::AcceptedAfterResolvedNotApplied
+        );
+    }
+
+    #[test]
+    fn explicit_not_applied_resolution_does_not_override_retry_policy() {
+        let effect = effect();
+        let mut profile = profile();
+        profile.allow_retry_after_no_effect = false;
+        let predecessor = route(&effect, "provider-a", "operation-a", "route-a", 0);
+        let successor = route(&effect, "provider-b", "operation-b", "route-b", 1);
+        let prior = outcome(&predecessor, ProviderOutcomeKindV1::Unknown);
+        let resolution = resolution(&effect, &profile, &predecessor, &prior, OutcomeResolutionKindV1::NotApplied);
+        let receipt = receipt(&effect, &predecessor, &prior, &successor, Some(&resolution.resolution_id), None);
+        assert_eq!(
+            assess(&effect, &profile, &predecessor, &successor, &prior, &receipt, Some(&resolution), None, "generation-1", None),
+            SubstitutionDispositionV1::BlockedNoEffectRetryNotPermitted
         );
     }
 
