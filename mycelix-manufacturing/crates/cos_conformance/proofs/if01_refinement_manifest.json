@@ -43,7 +43,8 @@
       "smt": null,
       "scope": "bounded executable reference model",
       "status": "BoundedExecutableWitness",
-      "claim_ceiling": "Authentication/authorization semantic separation only."
+      "claim_ceiling": "Authentication/authorization semantic separation only.",
+      "proposition": "Authentication evidence does not imply authorization."
     },
     {
       "id": "IF01-FV-002",
@@ -53,7 +54,8 @@
       "smt": null,
       "scope": "bounded executable reference model",
       "status": "BoundedExecutableWitness",
-      "claim_ceiling": "Schema-currentness semantics only."
+      "claim_ceiling": "Schema-currentness semantics only.",
+      "proposition": "A schema version different from the admitted schema cannot be semantically admitted."
     },
     {
       "id": "IF01-FV-003",
@@ -63,7 +65,8 @@
       "smt": null,
       "scope": "bounded executable reference model",
       "status": "BoundedExecutableWitness",
-      "claim_ceiling": "Receipt semantics only."
+      "claim_ceiling": "Receipt semantics only.",
+      "proposition": "Transport acceptance does not imply semantic admission."
     },
     {
       "id": "IF01-FV-004",
@@ -73,7 +76,8 @@
       "smt": null,
       "scope": "bounded executable reference model",
       "status": "BoundedExecutableWitness",
-      "claim_ceiling": "Retry identity semantics only."
+      "claim_ceiling": "Retry identity semantics only.",
+      "proposition": "A retry preserves logical delivery identity while attempt identity may change."
     },
     {
       "id": "IF01-FV-005",
@@ -83,7 +87,8 @@
       "smt": null,
       "scope": "bounded executable reference model",
       "status": "BoundedExecutableWitness",
-      "claim_ceiling": "Replay/mutation semantics only."
+      "claim_ceiling": "Replay/mutation semantics only.",
+      "proposition": "A stable logical delivery cannot be reused with a mutated payload."
     },
     {
       "id": "IF01-FV-006",
@@ -93,7 +98,8 @@
       "smt": null,
       "scope": "bounded executable reference model",
       "status": "BoundedExecutableWitness",
-      "claim_ceiling": "Reference-model idempotency semantics only."
+      "claim_ceiling": "Reference-model idempotency semantics only.",
+      "proposition": "Repeated semantic admission of the same logical delivery and payload is idempotent."
     },
     {
       "id": "IF01-FV-007",
@@ -103,7 +109,8 @@
       "smt": null,
       "scope": "bounded executable reference model",
       "status": "BoundedExecutableWitness",
-      "claim_ceiling": "Unknown-state semantics only."
+      "claim_ceiling": "Unknown-state semantics only.",
+      "proposition": "An indeterminate delivery receipt cannot be promoted to a definite failure."
     },
     {
       "id": "IF01-FV-008",
@@ -113,7 +120,8 @@
       "smt": null,
       "scope": "bounded executable reference model",
       "status": "BoundedExecutableWitness",
-      "claim_ceiling": "Federation provenance semantics only."
+      "claim_ceiling": "Federation provenance semantics only.",
+      "proposition": "Recognition does not rewrite the originating node."
     },
     {
       "id": "IF01-FV-009",
@@ -123,7 +131,8 @@
       "smt": null,
       "scope": "bounded executable reference model",
       "status": "BoundedExecutableWitness",
-      "claim_ceiling": "Authority-boundary semantics only."
+      "claim_ceiling": "Authority-boundary semantics only.",
+      "proposition": "A transport or semantic receipt does not itself mint production authority."
     },
     {
       "id": "IF01-FV-010",
@@ -133,7 +142,8 @@
       "smt": "proofs/integral_if01_authority_outcome.smt2::IF01-FV-010",
       "scope": "bounded SMT contradiction",
       "status": "BoundedExecutableWitness",
-      "claim_ceiling": "Certification-state semantics only."
+      "claim_ceiling": "Certification-state semantics only.",
+      "proposition": "Certification failure is distinct from authorization failure."
     },
     {
       "id": "IF01-FV-011",
@@ -143,7 +153,8 @@
       "smt": "proofs/integral_if01_authority_outcome.smt2::IF01-FV-011",
       "scope": "bounded SMT contradiction",
       "status": "BoundedExecutableWitness",
-      "claim_ceiling": "Authorization-reference binding semantics only."
+      "claim_ceiling": "Authorization-reference binding semantics only.",
+      "proposition": "Granted authorization requires a matching explicit authorization reference."
     },
     {
       "id": "IF01-FV-012",
@@ -153,7 +164,8 @@
       "smt": "proofs/integral_if01_authority_outcome.smt2::IF01-FV-012",
       "scope": "bounded SMT contradiction",
       "status": "BoundedExecutableWitness",
-      "claim_ceiling": "Delivery outcome classification only."
+      "claim_ceiling": "Delivery outcome classification only.",
+      "proposition": "A known recipient semantic rejection is not indeterminate delivery."
     }
   ],
   "closure_rule": "No obligation may become FormallyClosed until both reproducible formal evidence and production refinement evidence are present and traceable to an exact source/build identity.",
