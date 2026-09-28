@@ -1,0 +1,19 @@
+[package]
+name = "sap_account_v2_integrity"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "FIN-SAFE-014 integrity zome for disabled owner-authored SAP V2 collateral claim journal"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "sap_account_v2_integrity"
+
+[dependencies]
+holochain_serialized_bytes = { workspace = true }
+hdi = { workspace = true }
+serde = { workspace = true }
+finance-sap-account-v2 = { path = "../../../crates/finance-sap-account-v2" }
+finance-collateral-issuance-persistence = { path = "../../../crates/finance-collateral-issuance-persistence" }
+collateral_issuance_v2_integrity = { path = "../../collateral-issuance-v2/integrity" }
+mycelix-bridge-entry-types = { workspace = true }

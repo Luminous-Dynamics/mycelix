@@ -1,0 +1,18 @@
+[package]
+name = "finance-collateral-request-binding"
+version = "0.2.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+description = "Bind collateral settlement to exact request and authenticated evidence actions"
+
+[lib]
+path = "src/authenticated.rs"
+
+[dependencies]
+serde = { workspace = true }
+finance-collateral-deposit = { path = "../finance-collateral-deposit" }
+finance-collateral-settlement = { path = "../finance-collateral-settlement" }
+finance-collateral-auth = { path = "../finance-collateral-auth" }
+
+[dev-dependencies]
+serde_json = { workspace = true }
