@@ -41,6 +41,8 @@ pub enum LifecycleViolation {
     ReconciliationClaimWithoutMatch,
     OutcomeClaimWithoutExecution,
     AuthorizationClaimWithoutAuthorization,
+    InvalidStageTransition,
+    PredecessorMismatch,
 }
 
 pub fn advance(
@@ -48,33 +50,36 @@ pub fn advance(
     next_stage: Stage,
     predecessor: Option<&SemanticReceipt>,
 ) -> Result<SemanticReceipt, LifecycleViolation> {
-    if matches!(next_stage, Stage::Authorization | Stage::Execution | Stage::RailEvidence
-        | Stage::Finality | Stage::Reconciliation | Stage::OutcomeProjection)
-        && predecessor.is_none()
-    {
-        return Err(LifecycleViolation::MissingPredecessor);
+    let valid_next = matches!(
+        (receipt.stage, next_stage),
+        (Stage::Intent, Stage::Authorization)
+            | (Stage::Authorization, Stage::Execution)
+            | (Stage::Execution, Stage::RailEvidence)
+            | (Stage::RailEvidence, Stage::Finality)
+            | (Stage::Finality, Stage::Reconciliation)
+            | (Stage::Execution, Stage::OutcomeProjection)
+    );
+    if !valid_next {
+        return Err(match next_stage {
+            Stage::Finality => LifecycleViolation::FinalityClaimWithoutEvidence,
+            Stage::Reconciliation => LifecycleViolation::ReconciliationClaimWithoutMatch,
+            Stage::OutcomeProjection => LifecycleViolation::OutcomeClaimWithoutExecution,
+            _ => LifecycleViolation::InvalidStageTransition,
+        });
     }
 
-    if let Some(previous) = predecessor {
-        if previous.instrument_id != receipt.instrument_id {
-            return Err(LifecycleViolation::InstrumentChanged);
-        }
-        if previous.unit != receipt.unit || previous.scale != receipt.scale {
-            return Err(LifecycleViolation::UnitChanged);
-        }
-        if previous.origin != receipt.origin {
-            return Err(LifecycleViolation::OriginLost);
-        }
+    let previous = predecessor.ok_or(LifecycleViolation::MissingPredecessor)?;
+    if previous.event_id != receipt.event_id {
+        return Err(LifecycleViolation::PredecessorMismatch);
     }
-
-    if next_stage == Stage::Finality && receipt.stage != Stage::RailEvidence {
-        return Err(LifecycleViolation::FinalityClaimWithoutEvidence);
+    if previous.instrument_id != receipt.instrument_id {
+        return Err(LifecycleViolation::InstrumentChanged);
     }
-    if next_stage == Stage::Reconciliation && receipt.stage != Stage::Finality {
-        return Err(LifecycleViolation::ReconciliationClaimWithoutMatch);
+    if previous.unit != receipt.unit || previous.scale != receipt.scale {
+        return Err(LifecycleViolation::UnitChanged);
     }
-    if next_stage == Stage::OutcomeProjection && receipt.stage != Stage::Execution {
-        return Err(LifecycleViolation::OutcomeClaimWithoutExecution);
+    if previous.origin != receipt.origin {
+        return Err(LifecycleViolation::OriginLost);
     }
 
     Ok(SemanticReceipt {
@@ -141,6 +146,25 @@ mod tests {
         assert_eq!(e.unit, "itc-unit");
         assert_eq!(e.scale, 0);
         assert_eq!(e.origin, "integral-itc");
+    }
+
+    #[test]
+    fn rejects_skipped_stage() {
+        let i = intent();
+        assert_eq!(
+            advance(&i, Stage::Execution, Some(&i)),
+            Err(LifecycleViolation::InvalidStageTransition)
+        );
+    }
+
+    #[test]
+    fn rejects_unrelated_predecessor() {
+        let i = intent();
+        let other = intent();
+        assert_eq!(
+            advance(&i, Stage::Authorization, Some(&other)),
+            Err(LifecycleViolation::PredecessorMismatch)
+        );
     }
 
     #[test]
