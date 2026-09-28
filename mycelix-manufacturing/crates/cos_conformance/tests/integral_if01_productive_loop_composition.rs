@@ -11,7 +11,8 @@ mod tests {
         admit_after_receipt, validate_envelope, AdmissionState, Authn, Authz,
         DeliveryOutcome, InterfaceDecision, InterfaceProfile, Receipt,
     };
-    use crate::productive_loop::{ProductiveLoopObligation, RefinementWitness};
+    use crate::productive_loop::{refine, Domain, ProductiveLoopObligation};
+    use crate::{Evidence, Origin, Bindings};
 
     fn envelope() -> super::integral_oad_cos_interface::DesignEnvelope {
         super::integral_oad_cos_interface::DesignEnvelope {
@@ -58,29 +59,35 @@ mod tests {
             InterfaceDecision::Admitted
         );
 
-        let witness = RefinementWitness::new(
-            ProductiveLoopObligation::DeclaredWorkToObservedWork,
-            false,
+        let witness = refine(
+            Domain::Manufacturing,
+            ProductiveLoopObligation::DeclaredWorkVsObservedWork,
+            &Bindings::default(),
+            &Evidence { id: "delivery-1", origin: Origin::Local, validity: crate::Validity { valid_from: 0, valid_until: None }, superseded: false, conflicting: false },
         );
-        assert!(!witness.satisfies_obligation());
+        assert_eq!(witness.decision, crate::Decision::Rejected);
     }
 
     #[test]
     fn semantic_admission_does_not_become_qualified_output() {
-        let witness = RefinementWitness::new(
-            ProductiveLoopObligation::UsefulOutputToQualifiedOutput,
-            false,
+        let witness = refine(
+            Domain::Manufacturing,
+            ProductiveLoopObligation::UsefulVsQualifiedOutput,
+            &Bindings::default(),
+            &Evidence { id: "delivery-1", origin: Origin::Local, validity: crate::Validity { valid_from: 0, valid_until: None }, superseded: false, conflicting: false },
         );
-        assert!(!witness.satisfies_obligation());
+        assert_eq!(witness.decision, crate::Decision::Rejected);
     }
 
     #[test]
     fn semantic_admission_does_not_become_current_availability() {
-        let witness = RefinementWitness::new(
-            ProductiveLoopObligation::CapabilityToAvailability,
-            false,
+        let witness = refine(
+            Domain::Manufacturing,
+            ProductiveLoopObligation::CapabilityVsAvailability,
+            &Bindings::default(),
+            &Evidence { id: "delivery-1", origin: Origin::Local, validity: crate::Validity { valid_from: 0, valid_until: None }, superseded: false, conflicting: false },
         );
-        assert!(!witness.satisfies_obligation());
+        assert_eq!(witness.decision, crate::Decision::Rejected);
     }
 
     #[test]
@@ -101,7 +108,13 @@ mod tests {
             ),
             InterfaceDecision::Admitted
         );
-        assert!(!crate::productive_loop::productive_closure_implies_n2());
+        let witness = refine(
+            Domain::Manufacturing,
+            ProductiveLoopObligation::ProductiveClosureVsN2,
+            &Bindings::default(),
+            &Evidence { id: "delivery-1", origin: Origin::Local, validity: crate::Validity { valid_from: 0, valid_until: None }, superseded: false, conflicting: false },
+        );
+        assert_eq!(witness.decision, crate::Decision::Rejected);
     }
 
     #[test]
