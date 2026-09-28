@@ -165,7 +165,8 @@ jobs:
 
           interface = interface_path.read_text()
           formal = formal_path.read_text()
-          composition = composition_path.read_text()
+          assert composition_path.is_file()
+          assert smt_path.is_file()
           smt = smt_path.read_text()
 
           # Traceability gate: every manifest production/test symbol must exist
