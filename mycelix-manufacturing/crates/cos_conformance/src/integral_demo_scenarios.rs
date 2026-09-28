@@ -365,6 +365,31 @@ mod tests {
     }
 
     #[test]
+    fn branch_closure_rejects_executable_descendants_of_rejected_decisions() {
+        assert_eq!(
+            evaluate(ScenarioId::RejectedDecisionDescendant).validation_error,
+            Some(TraceError::RejectedDecisionHasDescendant)
+        );
+    }
+
+    #[test]
+    fn branch_closure_rejects_use_of_superseded_designs() {
+        assert_eq!(
+            evaluate(ScenarioId::SupersededDesignUsed).validation_error,
+            Some(TraceError::SupersededDesignUsed)
+        );
+    }
+
+    #[test]
+    fn appeal_reopen_requires_and_can_create_a_new_path() {
+        assert_eq!(
+            evaluate(ScenarioId::AppealReopenWithoutNewPath).validation_error,
+            Some(TraceError::ReopenRequiresNewPath)
+        );
+        assert!(evaluate(ScenarioId::AppealReopenWithNewPath).actual_valid);
+    }
+
+    #[test]
     fn recommendation_acceptance_and_rejection_keep_the_same_trace_boundary() {
         assert!(evaluate(ScenarioId::RecommendationAccepted).actual_valid);
         assert!(evaluate(ScenarioId::RecommendationRejected).actual_valid);
