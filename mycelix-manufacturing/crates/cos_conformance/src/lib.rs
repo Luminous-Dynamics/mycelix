@@ -17,6 +17,7 @@ pub mod integral_oad_cos_formal;
 pub mod integral_hxa_formal;
 pub mod integral_hxa_if01_composition;
 pub mod integral_hxa_manifest_consistency;
+pub mod integral_demo_coordination;
 pub mod integral_demo_domain;
 pub mod integral_demo_oad_cds_cos;
 pub mod integral_demo_cos_itc;
