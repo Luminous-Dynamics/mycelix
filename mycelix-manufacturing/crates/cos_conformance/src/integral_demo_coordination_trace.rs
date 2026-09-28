@@ -19,6 +19,7 @@ pub enum AlignmentError {
     SourceMismatch,
     GenerationMismatch,
     SourceReferenceMismatch,
+    EvidenceReferenceMismatch,
     AuthorityMismatch,
     UncertaintyMismatch,
     DispositionMismatch,
@@ -68,6 +69,7 @@ fn align_one(artifact: &CoordinationArtifact, event: &TraceEvent) -> Result<(), 
     if event.source != expected_origin { return Err(AlignmentError::OriginMismatch); }
     if event.generation != artifact.generation { return Err(AlignmentError::GenerationMismatch); }
     if event.source_ref != artifact.source_ref { return Err(AlignmentError::SourceReferenceMismatch); }
+    if event.evidence_ref != artifact.evidence_ref { return Err(AlignmentError::EvidenceReferenceMismatch); }
     if event.authority_ref != artifact.authority_ref { return Err(AlignmentError::AuthorityMismatch); }
     if event.uncertainty_present != artifact.uncertainty_present { return Err(AlignmentError::UncertaintyMismatch); }
     if event.challengeable != artifact.challengeable { return Err(AlignmentError::ChallengeabilityMismatch); }
@@ -187,6 +189,14 @@ mod tests {
         let trace = conflict_trace();
         let artifacts = vec![artifact("obs-b", CoordinationKind::Observation, CoordinationOrigin::Local, "evidence://foreign-b")];
         assert_eq!(validate_coordination_trace_alignment(&artifacts, &trace), Err(AlignmentError::OriginMismatch));
+    }
+
+    #[test]
+    fn mismatched_evidence_reference_is_rejected() {
+        let trace = conflict_trace();
+        let mut item = artifact("obs-a", CoordinationKind::Observation, CoordinationOrigin::Local, "evidence://local-a");
+        item.evidence_ref = Some("evidence://changed");
+        assert_eq!(validate_coordination_trace_alignment(&[item], &trace), Err(AlignmentError::EvidenceReferenceMismatch));
     }
 
     #[test]
