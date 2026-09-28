@@ -61,6 +61,7 @@ pub enum CoordinationError {
     InvalidTransition,
     MissingAuthority,
     AuthorityOnRecommendation,
+    AuthorityMutation,
     MissingDisposition,
     MissingEvidence,
     UncertaintyLoss,
@@ -91,6 +92,37 @@ fn allowed(from: CoordinationKind, to: CoordinationKind) -> bool {
             | (CoordinationKind::Revision, CoordinationKind::Decision)
             | (_, CoordinationKind::Appeal)
     )
+}
+
+/// Authority may be introduced only by an explicit governance-bearing stage.
+/// Once present on an authorization-bearing parent, downstream execution intent
+/// must conserve the exact reference. Evidence, recommendations, revisions, and
+/// appeals cannot manufacture or silently inherit authority.
+fn authority_transition_is_valid(
+    parent: &CoordinationArtifact,
+    child: &CoordinationArtifact,
+) -> bool {
+    match child.kind {
+        CoordinationKind::Decision
+        | CoordinationKind::Authorization
+        | CoordinationKind::HumanDisposition => {
+            // These are explicit governance transitions and may introduce a new
+            // authority reference; they must still have one (checked separately).
+            true
+        }
+        CoordinationKind::ExecutionIntent => {
+            child.authority_ref.is_some()
+                && parent.kind == CoordinationKind::Authorization
+                && child.authority_ref == parent.authority_ref
+        }
+        CoordinationKind::Intent
+        | CoordinationKind::Design
+        | CoordinationKind::Observation
+        | CoordinationKind::Assessment
+        | CoordinationKind::Recommendation
+        | CoordinationKind::Revision
+        | CoordinationKind::Appeal => child.authority_ref.is_none(),
+    }
 }
 
 /// Validate explicit parent-linked artifacts in canonical append order.
@@ -143,6 +175,9 @@ pub fn validate_loop(loop_: &CoordinationLoop) -> Result<(), CoordinationError> 
             }
             if !allowed(parent.kind, artifact.kind) {
                 return Err(CoordinationError::InvalidTransition);
+            }
+            if !authority_transition_is_valid(parent, artifact) {
+                return Err(CoordinationError::AuthorityMutation);
             }
             if parent.uncertainty_present && !artifact.uncertainty_present {
                 return Err(CoordinationError::UncertaintyLoss);
@@ -269,6 +304,27 @@ mod tests {
         let mut loop_ = valid_loop();
         loop_.artifacts[4].authority_ref = None;
         assert_eq!(validate_loop(&loop_), Err(CoordinationError::MissingAuthority));
+    }
+
+    #[test]
+    fn execution_intent_cannot_switch_authority_reference() {
+        let mut loop_ = valid_loop();
+        loop_.artifacts[4].authority_ref = Some("authority://different");
+        assert_eq!(validate_loop(&loop_), Err(CoordinationError::AuthorityMutation));
+    }
+
+    #[test]
+    fn execution_intent_cannot_inherit_authority_from_a_non_authorization_parent() {
+        let mut loop_ = valid_loop();
+        loop_.artifacts[4].parent_ref = Some("g1");
+        assert_eq!(validate_loop(&loop_), Err(CoordinationError::InvalidTransition));
+    }
+
+    #[test]
+    fn evidence_stages_cannot_acquire_authority_from_a_valid_parent() {
+        let mut loop_ = valid_loop();
+        loop_.artifacts[5].authority_ref = Some("authority://forged");
+        assert_eq!(validate_loop(&loop_), Err(CoordinationError::AuthorityMutation));
     }
 
     #[test]
