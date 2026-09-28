@@ -496,6 +496,8 @@ impl CompensationAssessmentV1 {
 fn conservation_allows_compensation(
     predecessor_effect_id: &str,
     compensation_effect_id: &str,
+    compensation_authority_claim_id: &str,
+    compensation_consent_claim_id: &str,
     covered_capacity_claim_ids: &BTreeSet<String>,
     before: &EffectConservationStateV1,
     after: &EffectConservationStateV1,
@@ -518,6 +520,12 @@ fn conservation_allows_compensation(
             .authority_claim_ids
             .is_subset(&after.authority_claim_ids)
         && before.consent_claim_ids.is_subset(&after.consent_claim_ids)
+        && after
+            .authority_claim_ids
+            .contains(compensation_authority_claim_id)
+        && after
+            .consent_claim_ids
+            .contains(compensation_consent_claim_id)
         && covered_capacity_claim_ids.is_subset(&before.capacity_claim_ids)
         && if before.capacity_claim_ids.is_empty() {
             covered_capacity_claim_ids.is_empty()
@@ -640,8 +648,15 @@ pub fn assess_compensation_effect(
         if !finality.structurally_valid()
             || finality.effect_id != predecessor_before.effect_id
             || finality.observation_id != cause_observation.observation_id
+            || finality.effect_lineage_id != predecessor_before.lineage_id
+            || finality.lifecycle_generation_id != predecessor_before.generation_id
+            || finality.route_id != cause_observation.route_id
             || finality.provider_id != cause_observation.provider_id
+            || finality.provider_operation_id != cause_observation.provider_operation_id
             || finality.provider_profile_root != cause_observation.provider_profile_root
+            || finality.provider_outcome_id != cause_observation.provider_outcome_id
+            || finality.observation_frontier_root != cause_observation.observed_frontier_root
+            || finality.semantic_environment_root != predecessor_before.semantic_environment_root
             || finality.finality_state != ExternalFinalityStateV1::Applied
         {
             return CompensationAssessmentV1::new(
@@ -698,6 +713,8 @@ pub fn assess_compensation_effect(
     if !conservation_allows_compensation(
         &link.predecessor_effect_id,
         &link.compensation_effect_id,
+        &compensation.authority_claim_id,
+        &compensation.consent_claim_id,
         &link.covered_capacity_claim_ids,
         before_claims,
         after_claims,
@@ -1563,6 +1580,51 @@ mod tests {
             )
             .disposition,
             CompensationDispositionV1::BlockedCause
+        );
+    }
+
+    #[test]
+    fn compensation_cannot_use_finality_for_another_provider_operation() {
+        let predecessor = effect("effect-1", "lineage-1", "generation-1");
+        let compensation = compensation_effect(&predecessor);
+        let route = route(&predecessor, "provider-a", "profile-a", "route-a", "operation-a");
+        let outcome = outcome(&route, ProviderOutcomeKindV1::Succeeded);
+        let observation = observation(
+            &predecessor,
+            &route,
+            &outcome,
+            ExternalObservationSourceV1::IndependentObserver,
+            ExternalObservedStateV1::Applied,
+            "frontier-1",
+        );
+        let profile = finality_profile(&predecessor, ExternalFinalityStateV1::Applied, true);
+        let mut finality = finality_receipt(
+            &predecessor,
+            &route,
+            &outcome,
+            &observation,
+            &profile,
+        );
+        finality.provider_operation_id = "other-operation".into();
+        let link = compensation_link(&predecessor, &compensation, &observation, Some(&finality));
+        let (before, after) = claims(&predecessor, &compensation);
+
+        assert_eq!(
+            assess_compensation_effect(
+                &link,
+                &predecessor,
+                &predecessor,
+                &compensation,
+                &observation,
+                Some(&finality),
+                &before,
+                &after,
+                &ExternalEffectLedgerV1::default(),
+                "generation-comp",
+                None,
+            )
+            .disposition,
+            CompensationDispositionV1::BlockedFinalityMismatch
         );
     }
 
