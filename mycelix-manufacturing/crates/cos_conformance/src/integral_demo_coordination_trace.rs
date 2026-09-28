@@ -6,10 +6,11 @@
 
 use crate::integral_demo_coordination::{CoordinationArtifact, CoordinationKind, CoordinationOrigin, Disposition};
 use crate::integral_demo_domain::{ProvenanceClass, SourceKind};
-use crate::integral_demo_trace::{TraceEvent, TraceFixture, TraceKind};
+use crate::integral_demo_trace::{validate_trace, TraceError, TraceEvent, TraceFixture, TraceKind};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AlignmentError {
+    InvalidTrace(TraceError),
     MissingTraceEvent,
     DuplicateTraceIdentity,
     KindMismatch,
@@ -85,6 +86,7 @@ pub fn validate_coordination_trace_alignment(
     artifacts: &[CoordinationArtifact],
     trace: &TraceFixture,
 ) -> Result<(), AlignmentError> {
+    validate_trace(trace).map_err(AlignmentError::InvalidTrace)?;
     for (index, artifact) in artifacts.iter().enumerate() {
         if artifacts[..index].iter().any(|prior| prior.id == artifact.id) {
             return Err(AlignmentError::DuplicateTraceIdentity);
@@ -117,6 +119,7 @@ mod tests {
     #[test]
     fn foreign_conflict_evidence_aligns_without_origin_laundering() {
         let trace = conflict_trace();
+        assert_eq!(validate_trace(&trace), Ok(()));
         let artifacts = vec![
             artifact("obs-a", CoordinationKind::Observation, CoordinationOrigin::Local, "evidence://local-a"),
             artifact("obs-b", CoordinationKind::Observation, CoordinationOrigin::Foreign, "evidence://foreign-b"),
