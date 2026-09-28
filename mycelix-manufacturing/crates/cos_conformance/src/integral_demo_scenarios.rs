@@ -212,9 +212,23 @@ pub fn conflict_relations() -> &'static [crate::integral_demo_trace::TraceRelati
     &RELATIONS
 }
 
+const APPEAL_RELATIONS: [crate::integral_demo_trace::TraceRelationRef; 2] = [
+    crate::integral_demo_trace::TraceRelationRef {
+        from_event: "a1",
+        to_event: "o1",
+        relation: crate::integral_demo_trace::TraceRelation::Appeals,
+    },
+    crate::integral_demo_trace::TraceRelationRef {
+        from_event: "a1",
+        to_event: "h1",
+        relation: crate::integral_demo_trace::TraceRelation::Reopens,
+    },
+];
+
 pub fn scenario_relations(id: ScenarioId) -> &'static [crate::integral_demo_trace::TraceRelationRef] {
     match id {
         ScenarioId::ConflictingObservations => conflict_relations(),
+        ScenarioId::AppealedOutcome => &APPEAL_RELATIONS,
         _ => &[],
     }
 }
