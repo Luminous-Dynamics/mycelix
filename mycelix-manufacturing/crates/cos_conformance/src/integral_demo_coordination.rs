@@ -22,17 +22,10 @@ pub enum CoordinationKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CoordinationOrigin {
-    Local,
-    Foreign,
-}
+pub enum CoordinationOrigin { Local, Foreign }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Disposition {
-    Accepted,
-    Rejected,
-    Deferred,
-}
+pub enum Disposition { Accepted, Rejected, Deferred }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CoordinationArtifact {
@@ -73,9 +66,7 @@ pub enum CoordinationError {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CoordinationLoop {
-    pub artifacts: Vec<CoordinationArtifact>,
-}
+pub struct CoordinationLoop { pub artifacts: Vec<CoordinationArtifact> }
 
 fn allowed(from: CoordinationKind, to: CoordinationKind) -> bool {
     matches!(
@@ -94,6 +85,17 @@ fn allowed(from: CoordinationKind, to: CoordinationKind) -> bool {
     )
 }
 
+/// These are the only stages allowed to create an authority reference.
+/// All other stages are non-governance artifacts and must remain authority-free.
+fn may_create_authority(kind: CoordinationKind) -> bool {
+    matches!(
+        kind,
+        CoordinationKind::Decision
+            | CoordinationKind::Authorization
+            | CoordinationKind::HumanDisposition
+    )
+}
+
 /// Authority may be introduced only by an explicit governance-bearing stage.
 /// Once present on an authorization-bearing parent, downstream execution intent
 /// must conserve the exact reference. Evidence, recommendations, revisions, and
@@ -102,14 +104,14 @@ fn authority_transition_is_valid(
     parent: &CoordinationArtifact,
     child: &CoordinationArtifact,
 ) -> bool {
+    if child.authority_ref.is_some() && !may_create_authority(child.kind) {
+        return false;
+    }
+
     match child.kind {
         CoordinationKind::Decision
         | CoordinationKind::Authorization
-        | CoordinationKind::HumanDisposition => {
-            // These are explicit governance transitions and may introduce a new
-            // authority reference; they must still have one (checked separately).
-            true
-        }
+        | CoordinationKind::HumanDisposition => true,
         CoordinationKind::ExecutionIntent => {
             child.authority_ref.is_some()
                 && parent.kind == CoordinationKind::Authorization
@@ -129,9 +131,7 @@ fn authority_transition_is_valid(
 /// This validates the model's declared semantics, not the truth of its evidence.
 pub fn validate_loop(loop_: &CoordinationLoop) -> Result<(), CoordinationError> {
     let artifacts = &loop_.artifacts;
-    if artifacts.is_empty() {
-        return Err(CoordinationError::EmptyIdentity);
-    }
+    if artifacts.is_empty() { return Err(CoordinationError::EmptyIdentity); }
 
     for (index, artifact) in artifacts.iter().enumerate() {
         if artifact.id.trim().is_empty() || artifact.source_ref.trim().is_empty() {
@@ -143,10 +143,18 @@ pub fn validate_loop(loop_: &CoordinationLoop) -> Result<(), CoordinationError> 
         if artifact.kind == CoordinationKind::Recommendation && artifact.authority_ref.is_some() {
             return Err(CoordinationError::AuthorityOnRecommendation);
         }
+        if !may_create_authority(artifact.kind) && artifact.authority_ref.is_some() {
+            return Err(CoordinationError::AuthorityMutation);
+        }
         if matches!(artifact.kind, CoordinationKind::Decision | CoordinationKind::Authorization | CoordinationKind::ExecutionIntent | CoordinationKind::HumanDisposition)
             && artifact.authority_ref.map_or(true, str::is_empty)
         {
             return Err(CoordinationError::MissingAuthority);
+        }
+        if matches!(artifact.kind, CoordinationKind::Decision | CoordinationKind::Design | CoordinationKind::Authorization | CoordinationKind::ExecutionIntent)
+            && artifact.parent_ref.is_none()
+        {
+            return Err(CoordinationError::MissingParent);
         }
         if artifact.kind == CoordinationKind::HumanDisposition && artifact.disposition.is_none() {
             return Err(CoordinationError::MissingDisposition);
@@ -182,8 +190,6 @@ pub fn validate_loop(loop_: &CoordinationLoop) -> Result<(), CoordinationError> 
             if parent.uncertainty_present && !artifact.uncertainty_present {
                 return Err(CoordinationError::UncertaintyLoss);
             }
-            // Only evidence-bearing descendants are required to retain the
-            // source origin. Human governance may act locally on foreign facts.
             if matches!(artifact.kind, CoordinationKind::Observation | CoordinationKind::Assessment)
                 && parent.origin == CoordinationOrigin::Foreign
                 && artifact.origin != CoordinationOrigin::Foreign
@@ -221,9 +227,7 @@ pub fn validate_loop(loop_: &CoordinationLoop) -> Result<(), CoordinationError> 
         {
             return Err(CoordinationError::MissingRecovery);
         }
-        if artifact.kind == CoordinationKind::Appeal
-            && artifact.parent_ref.is_none()
-        {
+        if artifact.kind == CoordinationKind::Appeal && artifact.parent_ref.is_none() {
             return Err(CoordinationError::AppealNotIndependent);
         }
     }
@@ -325,6 +329,47 @@ mod tests {
         let mut loop_ = valid_loop();
         loop_.artifacts[5].authority_ref = Some("authority://forged");
         assert_eq!(validate_loop(&loop_), Err(CoordinationError::AuthorityMutation));
+    }
+
+    #[test]
+    fn non_governance_root_cannot_carry_authority() {
+        for kind in [
+            CoordinationKind::Intent,
+            CoordinationKind::Design,
+            CoordinationKind::Observation,
+            CoordinationKind::Assessment,
+            CoordinationKind::Recommendation,
+            CoordinationKind::Revision,
+            CoordinationKind::Appeal,
+        ] {
+            let mut artifact = item("root", kind, None);
+            if kind == CoordinationKind::Revision { artifact.generation = 1; artifact.parent_ref = Some("missing"); }
+            artifact.authority_ref = Some("authority://forged");
+            let result = if kind == CoordinationKind::Revision {
+                validate_loop(&CoordinationLoop { artifacts: vec![artifact] })
+            } else {
+                validate_loop(&CoordinationLoop { artifacts: vec![artifact] })
+            };
+            assert_eq!(result, Err(CoordinationError::AuthorityMutation), "kind={kind:?}");
+        }
+    }
+
+    #[test]
+    fn governance_authority_requires_an_explicit_parent_transition() {
+        for (kind, parent) in [
+            (CoordinationKind::Decision, CoordinationKind::Intent),
+            (CoordinationKind::Design, CoordinationKind::Decision),
+            (CoordinationKind::Authorization, CoordinationKind::Design),
+            (CoordinationKind::ExecutionIntent, CoordinationKind::Authorization),
+        ] {
+            let child = item("child", kind, None);
+            let parent = item("parent", parent, None);
+            assert_eq!(
+                validate_loop(&CoordinationLoop { artifacts: vec![parent, child] }),
+                Err(CoordinationError::MissingParent),
+                "kind={kind:?}"
+            );
+        }
     }
 
     #[test]
