@@ -3,7 +3,7 @@
   "status": "BoundedExecutableWitness",
   "source_status": "CandidateInterface",
   "interface_profile": "INTEGRAL-SPEC-IF-01-OAD-COS-CANDIDATE",
-  "source_commit": "4ddef7eacdedd57bd9e57875adf7d5c3bc34b49f",
+  "source_commit": "4ddefe7acdedd57bd9e57875adf7d5c3bc34b49f",
   "scope": "Candidate OAD-to-COS reference semantics; production/runtime closure remains open.",
   "tooling": {
     "formal_language": "SMT-LIB2",
