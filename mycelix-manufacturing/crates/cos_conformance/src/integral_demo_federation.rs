@@ -118,6 +118,10 @@ pub enum ReconciliationDecision {
     ConflictPreserved(ObservationConflict),
 }
 
+pub fn conflict_preserves_no_winner(decision: &ReconciliationDecision) -> bool {
+    matches!(decision, ReconciliationDecision::ConflictPreserved(_))
+}
+
 pub fn reconcile_observation_set(
     observations: &[FederationObservation],
 ) -> ReconciliationDecision {
@@ -337,6 +341,27 @@ mod tests {
             reconcile_observation_set(&[left, right]),
             ReconciliationDecision::ConflictPreserved(_)
         ));
+    }
+
+    #[test]
+    fn conflict_reconciliation_has_no_implicit_winner() {
+        let left = FederationObservation {
+            observation_id: "obs-a",
+            work_id: "work-1",
+            origin: FederationNode::Local,
+            quantity: 10,
+            evidence_ref: "e-a",
+            observed_at: 10,
+        };
+        let right = FederationObservation {
+            observation_id: "obs-b",
+            work_id: "work-1",
+            origin: FederationNode::Foreign,
+            quantity: 12,
+            evidence_ref: "e-b",
+            observed_at: 11,
+        };
+        assert!(conflict_preserves_no_winner(&reconcile_observation_set(&[left, right])));
     }
 
     #[test]
