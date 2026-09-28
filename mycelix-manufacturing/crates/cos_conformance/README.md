@@ -26,3 +26,7 @@ outcomes, or Integral validation.
 ## Heterogeneous federation
 
 `federation.rs` provides the deterministic reference oracle for Integral/Mycelix heterogeneous federation. It preserves local-vs-foreign authority, logical delivery identity, schema/authorization generations, causal dependencies, reconnect idempotence, conflicting observations, and privacy-minimized projections. See `docs/integral/heterogeneous-federation-reference-v1.md`.
+
+## Branch reconciliation
+
+`federation_reconciliation.rs` extends the federation oracle with explicit branch identity, frontier closure, compatibility classification, conflict-preserving reconciliation, capacity double-spend detection, authority-validity fencing, and branch-aware cockpit projections. See `docs/integral/heterogeneous-federation-reconciliation-v1.md`.
