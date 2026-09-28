@@ -11,6 +11,21 @@ use super::federation::AuthorityDisposition;
 
 pub const FEDERATION_RECONCILIATION_PROFILE_ID: &str = "INTEGRAL-FED-REF-002";
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord)]
+pub enum AuthorityValidity {
+    Current,
+    Stale,
+    Fenced,
+    Expired,
+    Revoked,
+}
+
+impl AuthorityValidity {
+    fn is_current(self) -> bool {
+        matches!(self, Self::Current)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeliveryClaim {
     pub payload_commitment: String,
@@ -28,6 +43,7 @@ pub struct SemanticBranch {
     pub invariant_state_root: String,
     pub invariant_conflict: bool,
     pub provenance_conflict: bool,
+    pub authority_validity: BTreeMap<String, AuthorityValidity>,
     pub deliveries: BTreeMap<String, DeliveryClaim>,
     pub consumed_capacity: BTreeMap<String, u64>,
     pub authority_claims: BTreeMap<String, AuthorityDisposition>,
@@ -214,6 +230,19 @@ pub fn classify_branches(
         }
     }
 
+    for (claim_id, validity_a) in &branch_a.authority_validity {
+        if let Some(validity_b) = branch_b.authority_validity.get(claim_id) {
+            if validity_a != validity_b {
+                conflicts.push(ReconciliationConflict {
+                    kind: ConflictKind::AuthorityConflict,
+                    subject: format!("{claim_id}:validity"),
+                    branch_a_value: format!("{validity_a:?}"),
+                    branch_b_value: format!("{validity_b:?}"),
+                });
+            }
+        }
+    }
+
     if branch_a.invariant_conflict || branch_b.invariant_conflict {
         conflicts.push(ReconciliationConflict {
             kind: ConflictKind::InvariantConflict,
@@ -244,10 +273,6 @@ pub fn classify_branches(
         return (BranchCompatibility::Incompatible, conflicts);
     }
 
-    if branch_a.semantic_state_root == branch_b.semantic_state_root {
-        return (BranchCompatibility::Equivalent, conflicts);
-    }
-
     let hard_conflict = conflicts.iter().any(|conflict| {
         matches!(
             conflict.kind,
@@ -262,6 +287,10 @@ pub fn classify_branches(
 
     if hard_conflict {
         return (BranchCompatibility::Incompatible, conflicts);
+    }
+
+    if branch_a.semantic_state_root == branch_b.semantic_state_root && conflicts.is_empty() {
+        return (BranchCompatibility::Equivalent, conflicts);
     }
 
     if conflicts.is_empty() {
@@ -365,6 +394,9 @@ pub fn reconcile(
                 merged.deliveries.extend(branch_b.deliveries.clone());
                 merged.consumed_capacity.extend(branch_b.consumed_capacity.clone());
                 merged.authority_claims.extend(branch_b.authority_claims.clone());
+                merged
+                    .authority_validity
+                    .extend(branch_b.authority_validity.clone());
                 state.branches.insert(merged.branch_id.clone(), merged.clone());
 
                 ReconciliationReceipt {
@@ -426,6 +458,7 @@ pub struct BranchCockpitProjection {
     pub local_authority_count: usize,
     pub foreign_evidence_count: usize,
     pub delegated_authority_count: usize,
+    pub noncurrent_authority_count: usize,
     pub can_be_normative: bool,
 }
 
@@ -452,8 +485,21 @@ pub fn cockpit_projection(
         .count();
     let delegated_authority_count = branch
         .authority_claims
+        .iter()
+        .filter(|(claim_id, value)| {
+            matches!(value, AuthorityDisposition::ExplicitDelegatedAuthority)
+                && branch
+                    .authority_validity
+                    .get(*claim_id)
+                    .copied()
+                    .unwrap_or(AuthorityValidity::Current)
+                    .is_current()
+        })
+        .count();
+    let noncurrent_authority_count = branch
+        .authority_validity
         .values()
-        .filter(|value| matches!(value, AuthorityDisposition::ExplicitDelegatedAuthority))
+        .filter(|value| !value.is_current())
         .count();
 
     BranchCockpitProjection {
@@ -465,6 +511,7 @@ pub fn cockpit_projection(
         local_authority_count,
         foreign_evidence_count,
         delegated_authority_count,
+        noncurrent_authority_count,
         can_be_normative: branch.closed
             && conflicts.is_empty()
             && matches!(
@@ -497,6 +544,10 @@ mod tests {
             invariant_state_root: format!("inv-{id}"),
             invariant_conflict: false,
             provenance_conflict: false,
+            authority_validity: BTreeMap::from([(
+                authority_id.into(),
+                AuthorityValidity::Current,
+            )]),
             deliveries: BTreeMap::from([(
                 delivery_id.into(),
                 DeliveryClaim {
@@ -545,6 +596,21 @@ mod tests {
         assert!(conflicts
             .iter()
             .any(|conflict| conflict.kind == ConflictKind::CapacityDoubleSpend));
+    }
+
+    #[test]
+    fn stale_authority_cannot_be_revived_by_reconciliation() {
+        let a = branch("a", "state-a", "delivery-a", "payload-a", "cap-a", "auth-x");
+        let mut b = branch("b", "state-b", "delivery-b", "payload-b", "cap-b", "auth-x");
+        b.authority_validity
+            .insert("auth-x".into(), AuthorityValidity::Stale);
+
+        let (compatibility, conflicts) = classify_branches(&a, &b);
+        assert_eq!(compatibility, BranchCompatibility::Incompatible);
+        assert!(conflicts.iter().any(|conflict| {
+            conflict.kind == ConflictKind::AuthorityConflict
+                && conflict.subject == "auth-x:validity"
+        }));
     }
 
     #[test]
