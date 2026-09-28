@@ -1,0 +1,202 @@
+{
+  "manifest_id": "MYC-INT-ASSURE-001-MATRIX-001",
+  "version": "1.0.0",
+  "source_basis": [
+    {
+      "source": "Integral Development Guide v0.1",
+      "status": "public_draft",
+      "url": "https://integralcollective.io/documents/integral_devguide_v01.pdf"
+    }
+  ],
+  "source_status_rule": "white-paper concept != DevelopmentGuide proposal != public draft schema != ratified specification != implementation != conformance evidence",
+  "classification": [
+    "Explicit",
+    "Partial",
+    "Deferred",
+    "NotExplicit",
+    "ExternalNormative",
+    "MycelixReuse",
+    "GapCandidate"
+  ],
+  "systems": [
+    "CDS",
+    "OAD",
+    "ITC",
+    "COS",
+    "FRS"
+  ],
+  "dimensions": [
+    {
+      "dimension": "evidence_provenance",
+      "classification": {
+        "CDS": "Partial",
+        "OAD": "Partial",
+        "ITC": "Partial",
+        "COS": "Partial",
+        "FRS": "Partial"
+      },
+      "mycelix_opportunity": "EvidenceEnvelope"
+    },
+    {
+      "dimension": "temporal_validity",
+      "classification": {
+        "CDS": "Partial",
+        "OAD": "Partial",
+        "ITC": "Partial",
+        "COS": "Partial",
+        "FRS": "Partial"
+      },
+      "mycelix_opportunity": "ValidityWindow"
+    },
+    {
+      "dimension": "uncertainty_conflict",
+      "classification": {
+        "CDS": "Partial",
+        "OAD": "Partial",
+        "ITC": "Partial",
+        "COS": "Partial",
+        "FRS": "Partial"
+      },
+      "mycelix_opportunity": "Explicit epistemic state"
+    },
+    {
+      "dimension": "claim_ceiling",
+      "classification": {
+        "CDS": "NotExplicit",
+        "OAD": "NotExplicit",
+        "ITC": "NotExplicit",
+        "COS": "NotExplicit",
+        "FRS": "Partial"
+      },
+      "mycelix_opportunity": "ClaimCeiling"
+    },
+    {
+      "dimension": "observation_interpretation_separation",
+      "classification": {
+        "CDS": "Partial",
+        "OAD": "Partial",
+        "ITC": "Partial",
+        "COS": "Partial",
+        "FRS": "Partial"
+      },
+      "mycelix_opportunity": "EpistemicTransition"
+    },
+    {
+      "dimension": "decision_authorization_effect",
+      "classification": {
+        "CDS": "Partial",
+        "OAD": "Partial",
+        "ITC": "Partial",
+        "COS": "Partial",
+        "FRS": "Partial"
+      },
+      "mycelix_opportunity": "Authority/effect receipts"
+    },
+    {
+      "dimension": "capability_qualification_availability",
+      "classification": {
+        "CDS": "Partial",
+        "OAD": "Partial",
+        "ITC": "Partial",
+        "COS": "Partial",
+        "FRS": "Partial"
+      },
+      "mycelix_opportunity": "ProductiveLoop + capability graph"
+    },
+    {
+      "dimension": "dependency_replacement",
+      "classification": {
+        "CDS": "Partial",
+        "OAD": "Deferred",
+        "ITC": "NotExplicit",
+        "COS": "Partial",
+        "FRS": "Partial"
+      },
+      "mycelix_opportunity": "Dependency/replacement closure"
+    },
+    {
+      "dimension": "failure_history_learning",
+      "classification": {
+        "CDS": "Partial",
+        "OAD": "Partial",
+        "ITC": "Partial",
+        "COS": "Partial",
+        "FRS": "Partial"
+      },
+      "mycelix_opportunity": "Immutable lineage"
+    },
+    {
+      "dimension": "federation_origin_recognition",
+      "classification": {
+        "CDS": "Partial",
+        "OAD": "Deferred",
+        "ITC": "Deferred",
+        "COS": "Partial",
+        "FRS": "Partial"
+      },
+      "mycelix_opportunity": "FederationRecognition"
+    },
+    {
+      "dimension": "formal_reproducible_assurance",
+      "classification": {
+        "CDS": "NotExplicit",
+        "OAD": "NotExplicit",
+        "ITC": "NotExplicit",
+        "COS": "NotExplicit",
+        "FRS": "NotExplicit"
+      },
+      "mycelix_opportunity": "AssuranceReceipt"
+    },
+    {
+      "dimension": "prediction_counterfactual_boundary",
+      "classification": {
+        "CDS": "Partial",
+        "OAD": "Deferred",
+        "ITC": "Partial",
+        "COS": "Partial",
+        "FRS": "Partial"
+      },
+      "mycelix_opportunity": "Non-authoritative analysis"
+    },
+    {
+      "dimension": "emergency_bounded_authority",
+      "classification": {
+        "CDS": "Partial",
+        "OAD": "Partial",
+        "ITC": "Partial",
+        "COS": "Partial",
+        "FRS": "Partial"
+      },
+      "mycelix_opportunity": "Expiring authorization"
+    },
+    {
+      "dimension": "dispute_review_correction",
+      "classification": {
+        "CDS": "Partial",
+        "OAD": "Deferred",
+        "ITC": "Deferred",
+        "COS": "Partial",
+        "FRS": "Partial"
+      },
+      "mycelix_opportunity": "Correction/supersession lineage"
+    },
+    {
+      "dimension": "physical_outcome_antioracle",
+      "classification": {
+        "CDS": "Partial",
+        "OAD": "Partial",
+        "ITC": "Partial",
+        "COS": "Partial",
+        "FRS": "Partial"
+      },
+      "mycelix_opportunity": "Evidence binding + triangulation"
+    }
+  ],
+  "claim_ceiling": "Research baseline only; classifications do not establish absence from Integral beyond the reviewed public source.",
+  "nonclaims": [
+    "Integral endorsement/adoption/ratification",
+    "completeness of Integral architecture",
+    "real-world productivity/safety/fairness/ecological outcomes",
+    "Mycelix as preferred implementation"
+  ]
+}
