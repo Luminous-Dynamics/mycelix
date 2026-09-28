@@ -42,3 +42,7 @@ outcomes, or Integral validation.
 ## No-resurrection integrity
 
 `no_resurrection.rs` models first-class tombstones, semantic generations, explicit successor/reactivation, resource/authority conservation across generations, cache invalidation, compaction preservation, and branch lifecycle reconciliation. See `docs/integral/tombstone-generation-no-resurrection-v1.md`.
+
+## Stable frontier and safe reclamation
+
+`stable_frontier.rs` models closed authority-bearing membership, explicit frontier coverage, stable-frontier certificates, retention boundaries, pruning receipts, cold-start reconstruction, rejoin fencing, and conservation of authority/capacity/consent claims across reclamation. See `docs/integral/stable-frontier-safe-history-reclamation-v1.md`.
