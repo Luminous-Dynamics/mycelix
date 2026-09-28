@@ -30,3 +30,7 @@ outcomes, or Integral validation.
 ## Branch reconciliation
 
 `federation_reconciliation.rs` extends the federation oracle with explicit branch identity, frontier closure, compatibility classification, conflict-preserving reconciliation, capacity double-spend detection, authority-validity fencing, and branch-aware cockpit projections. See `docs/integral/heterogeneous-federation-reconciliation-v1.md`.
+
+## Identity and alias integrity
+
+`federation_identity.rs` keeps identifiers, credentials, principals, accounts, devices, resources, locators, and entities distinct. It provides scoped equivalence classes, typed substitution profiles, append-only lifecycle events, resource-capacity alias checks, privacy projections, and deterministic identity-resolution witnesses. See `docs/integral/semantic-identity-alias-integrity-v1.md`.
