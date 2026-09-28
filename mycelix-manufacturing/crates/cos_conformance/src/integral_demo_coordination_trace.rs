@@ -177,8 +177,8 @@ mod tests {
         let trace = conflict_trace();
         assert_eq!(validate_trace(&trace), Ok(()));
         let artifacts = vec![
-            artifact("obs-a", CoordinationKind::Observation, CoordinationOrigin::Local, "evidence://local-a"),
-            artifact("obs-b", CoordinationKind::Observation, CoordinationOrigin::Foreign, "evidence://foreign-b"),
+            artifact("obs-a", CoordinationKind::Observation, CoordinationOrigin::Local, "source://local-a"),
+            artifact("obs-b", CoordinationKind::Observation, CoordinationOrigin::Foreign, "source://foreign-b"),
             artifact("frs-conflict-1", CoordinationKind::Assessment, CoordinationOrigin::Local, "assessment://conflict-1"),
         ];
         assert_eq!(validate_coordination_trace_pair(&artifacts, &trace), Ok(()));
