@@ -14,6 +14,7 @@ pub mod federation;
 pub mod federation_reconciliation;
 pub mod federation_identity;
 pub mod federation_causal_time;
+pub mod no_resurrection;
 
 pub const CORPUS_ID: &str = "COS-CONF-001";
 pub const FORMAL_OBLIGATIONS: [&str; 10] = [
