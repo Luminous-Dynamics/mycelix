@@ -7,6 +7,8 @@
 //!
 //! Evidence ceiling: ReferenceModelOnly.
 
+use crate::integral_demo_trace::{TraceActor, TraceEvent, TraceKind, TraceRelation, TraceRelationRef, TraceStatus};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FederationNode {
     Local,
@@ -142,6 +144,43 @@ pub struct FederationDecisionArtifact {
     pub decided_at: u64,
     pub accepted: bool,
     pub source_ref: &'static str,
+    pub recommendation_ref: Option<&'static str>,
+}
+
+/// Project the governance artifact into the D5 trace without changing its provenance.
+pub fn decision_artifact_trace(
+    artifact: &FederationDecisionArtifact,
+    sequence: u32,
+) -> (TraceEvent, Vec<TraceRelationRef>) {
+    let event = TraceEvent {
+        event_id: artifact.decision_id,
+        sequence,
+        kind: TraceKind::HumanDecision,
+        provenance: crate::integral_demo_domain::ProvenanceClass::Decision,
+        actor: TraceActor::Human,
+        source: crate::integral_demo_domain::SourceKind::Local,
+        source_ref: artifact.source_ref,
+        generation: artifact.generation,
+        uncertainty_present: false,
+        authority_ref: Some(artifact.authority_ref),
+        reversible: true,
+        challengeable: true,
+        recommendation_only: false,
+        recovery_ref: None,
+        appeal_ref: None,
+        decision_accepted: Some(artifact.accepted),
+        status: if artifact.accepted { TraceStatus::Accepted } else { TraceStatus::Rejected },
+    };
+    let mut relations = vec![
+        TraceRelationRef { from_event: artifact.decision_id, to_event: artifact.left_observation_id, relation: TraceRelation::RespondsTo },
+        TraceRelationRef { from_event: artifact.decision_id, to_event: artifact.right_observation_id, relation: TraceRelation::RespondsTo },
+    ];
+    if let Some(recommendation_ref) = artifact.recommendation_ref {
+        if !recommendation_ref.is_empty() {
+            relations.push(TraceRelationRef { from_event: artifact.decision_id, to_event: recommendation_ref, relation: TraceRelation::RespondsTo });
+        }
+    }
+    (event, relations)
 }
 
 pub fn validate_decision_artifact(
