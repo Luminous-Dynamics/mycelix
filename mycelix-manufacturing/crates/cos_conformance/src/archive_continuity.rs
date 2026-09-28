@@ -148,41 +148,30 @@ pub fn assess_archive_continuity(
         || certificate.predecessor_frontier_root != predecessor.source_frontier_root
         || certificate.successor_archive_id != successor.archive_id
         || certificate.successor_frontier_root != successor.source_frontier_root
+        || certificate.predecessor_membership_epoch != predecessor.membership_epoch
+        || certificate.successor_membership_epoch != successor.membership_epoch
     {
         return ArchiveContinuityDispositionV1::Conflict;
     }
-    if certificate.predecessor_membership_epoch != predecessor.membership_epoch
-        || certificate.successor_membership_epoch != successor.membership_epoch
-    {
-        return ArchiveContinuityDispositionV1::BlockedMembership;
+
+    let membership_changed = predecessor.membership_epoch != successor.membership_epoch;
+    let profile_changed = predecessor.profile_id != successor.profile_id;
+
+    if membership_changed && certificate.membership_transition_root.as_deref().is_none() {
+        return ArchiveContinuityDispositionV1::BlockedMissingTransitionEvidence;
     }
-    if certificate.predecessor_profile_id != predecessor.profile_id
-        || certificate.successor_profile_id != successor.profile_id
-    {
-        return match certificate.profile_transition_root.as_deref() {
-            Some(root) if !root.is_empty() => {
-                if certificate.continuity_kind
-                    != ArchiveContinuityKindV1::ProfileTransition
-                    && certificate.continuity_kind
-                        != ArchiveContinuityKindV1::MembershipAndProfileTransition
-                {
-                    ArchiveContinuityDispositionV1::Conflict
-                } else {
-                    ArchiveContinuityDispositionV1::Accepted
-                }
-            }
-            _ => ArchiveContinuityDispositionV1::BlockedProfile,
-        };
+    if profile_changed && certificate.profile_transition_root.as_deref().is_none() {
+        return ArchiveContinuityDispositionV1::BlockedProfile;
     }
 
-    if predecessor.membership_epoch != successor.membership_epoch {
-        if certificate.continuity_kind != ArchiveContinuityKindV1::MembershipTransition {
-            return ArchiveContinuityDispositionV1::Conflict;
-        }
-        if certificate.membership_transition_root.as_deref().is_none() {
-            return ArchiveContinuityDispositionV1::BlockedMissingTransitionEvidence;
-        }
-    } else if certificate.continuity_kind != ArchiveContinuityKindV1::CompactedSuccessor {
+    let expected_kind = match (membership_changed, profile_changed) {
+        (false, false) => ArchiveContinuityKindV1::CompactedSuccessor,
+        (true, false) => ArchiveContinuityKindV1::MembershipTransition,
+        (false, true) => ArchiveContinuityKindV1::ProfileTransition,
+        (true, true) => ArchiveContinuityKindV1::MembershipAndProfileTransition,
+    };
+
+    if certificate.continuity_kind != expected_kind {
         return ArchiveContinuityDispositionV1::Conflict;
     }
 
@@ -367,7 +356,7 @@ pub fn assess_historical_claim(
             | ArchiveCompletenessV1::Conflicting
     ) || !completeness_allows_historical(archive.completeness)
     {
-        return ArchiveUseDispositionV1::BlockedIncompleteArchive.into();
+        return HistoricalClaimDispositionV1::BlockedIncompleteEvidence;
     }
     HistoricalClaimDispositionV1::AcceptedHistorical
 }
