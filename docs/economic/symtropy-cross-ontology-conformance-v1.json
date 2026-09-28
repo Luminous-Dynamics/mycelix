@@ -1,0 +1,46 @@
+{
+  "corpus_id": "ECO-SYMTROPY-XONT-CONF-001",
+  "version": "1.0.0",
+  "status": "bounded cross-repository conformance corpus",
+  "source": {
+    "repository": "Luminous-Dynamics/symtropy",
+    "branch": "mycelix-economic-fabric-interoperability",
+    "envelope_commit": "fe6d9fcf62bbbedf324df31f12b855d9e408a891",
+    "recognition_commit": "bbdc0fa5acd6a2c6f498238e450ea246d537eb2e"
+  },
+  "trace": [
+    "source_event_id",
+    "source_origin",
+    "world_id",
+    "episode_id",
+    "simulation_build_id",
+    "deterministic_replay_id",
+    "tick",
+    "replay_fingerprint",
+    "target_id",
+    "recognition_record"
+  ],
+  "cases": [
+    {"id":"XONT-N-001","name":"simulation ownership to legal title","expected":"Rejected"},
+    {"id":"XONT-N-002","name":"simulation production to physical production","expected":"Rejected"},
+    {"id":"XONT-N-003","name":"replay equality to independent verification","expected":"Rejected"},
+    {"id":"XONT-N-004","name":"TEND balance to external currency","expected":"Rejected"},
+    {"id":"XONT-N-005","name":"recognition rewrites origin","expected":"Rejected"},
+    {"id":"XONT-N-006","name":"market acceptance to settlement","expected":"Rejected"},
+    {"id":"XONT-N-007","name":"indeterminate transport to settlement","expected":"Rejected"},
+    {"id":"XONT-N-008","name":"correction mutates source event","expected":"Rejected"},
+    {"id":"XONT-N-009","name":"quantity or unit mutation under same replay fingerprint","expected":"Rejected"},
+    {"id":"XONT-N-010","name":"same target identifier replaces source identity","expected":"Rejected"},
+    {"id":"XONT-N-011","name":"Integral COS observation directly mints ITC","expected":"Rejected"},
+    {"id":"XONT-N-012","name":"accounting projection treated as physical evidence","expected":"Rejected"}
+  ],
+  "positive_controls": [
+    "deterministic replay produces identical source identity and fingerprint",
+    "wall-clock emission does not change replay identity",
+    "recognition creates a distinct target identifier",
+    "recognition preserves origin and source fingerprint",
+    "correction creates lineage instead of mutating history",
+    "duplicate settlement is handled by economic logical idempotency"
+  ],
+  "claim_ceiling": "Semantic cross-ontology conformance only; no financial, legal, physical, or economic performance claim."
+}

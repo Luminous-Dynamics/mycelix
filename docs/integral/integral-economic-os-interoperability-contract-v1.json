@@ -1,0 +1,75 @@
+{
+  "contract_id": "INTEGRAL-ECO-OS-001",
+  "version": "1.0.0",
+  "status": "bounded_reference",
+  "source_architecture": [
+    "CDS",
+    "OAD",
+    "COS",
+    "ITC",
+    "FRS"
+  ],
+  "economic_kernel": [
+    "Observation",
+    "Evidence",
+    "EconomicEvent",
+    "Obligation",
+    "Entitlement",
+    "Offer",
+    "Commitment",
+    "Allocation",
+    "Authorization",
+    "Settlement",
+    "Dispute",
+    "Correction",
+    "EconomicOutcome"
+  ],
+  "transition_rules": {
+    "allowed": [
+      "Observed->Evidenced",
+      "Evidenced->Valuated",
+      "Valuated->Entitled",
+      "Entitled->Authorized",
+      "Authorized->Submitted",
+      "Submitted->Settled",
+      "Settled->OutcomeObserved",
+      "OutcomeObserved->Corrected"
+    ],
+    "forbidden": [
+      "Observed->Entitled",
+      "Observed->Authorized",
+      "Observed->Settled",
+      "LaborObserved->ITC",
+      "ProductionObserved->Compensation",
+      "Recommendation->Authorization",
+      "Intent->EconomicEvent",
+      "Commitment->Settlement",
+      "Recognition->LocalIssuance",
+      "Correction->HistoricalMutation"
+    ]
+  },
+  "conservation_vector": [
+    "identity",
+    "origin",
+    "quantity",
+    "unit",
+    "validity",
+    "correction_lineage",
+    "claim_ceiling",
+    "policy_version",
+    "authority_reference",
+    "instrument_identity"
+  ],
+  "anti_collapse": [
+    "Evidence!=Policy",
+    "Policy!=Authority",
+    "Authority!=Settlement",
+    "Settlement!=Outcome",
+    "ITC!=generic_currency",
+    "design!=production",
+    "certification!=production_authorization",
+    "FRS_recommendation!=decision",
+    "decision!=authorization"
+  ],
+  "claim_ceiling": "portable semantic interoperability target only"
+}
