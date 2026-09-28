@@ -350,3 +350,5 @@ pub mod integral_demo_trace;
 pub mod integral_demo_cockpit;
 
 pub mod integral_demo_scenarios;
+
+pub mod integral_demo_federation;
