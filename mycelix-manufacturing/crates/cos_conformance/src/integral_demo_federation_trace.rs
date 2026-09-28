@@ -79,9 +79,14 @@ pub fn observation_binding_trace(
 /// Ordering is by observation identity, making reconstruction independent of
 /// delivery arrival order. Exact duplicate identities are replayed, while a
 /// caller-supplied mutation is rejected before projection.
-pub fn project_bindings(
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FederationProjectionError {
+    DuplicateIdentityMutation,
+}
+
+pub fn project_bindings_checked(
     bindings: &[(FederationObservationBinding, EvidenceBindingDecision, bool)],
-) -> TraceFixture {
+) -> Result<TraceFixture, FederationProjectionError> {
     let mut projected: Vec<FederationObservationTrace> = bindings
         .iter()
         .filter_map(|(binding, decision, uncertainty)| {
@@ -98,11 +103,15 @@ pub fn project_bindings(
             .find(|event: &&TraceEvent| event.event_id == item.event.event_id)
         {
             if *existing != item.event {
-                continue;
+                return Err(FederationProjectionError::DuplicateIdentityMutation);
             }
             continue;
         }
         events.push(item.event);
+    }
+
+    for (sequence, event) in events.iter_mut().enumerate() {
+        event.sequence = (sequence + 1) as u32;
     }
 
     let mut relations = Vec::new();
@@ -114,7 +123,13 @@ pub fn project_bindings(
         });
     }
 
-    TraceFixture { events, relations }
+    Ok(TraceFixture { events, relations })
+}
+
+pub fn project_bindings(
+    bindings: &[(FederationObservationBinding, EvidenceBindingDecision, bool)],
+) -> TraceFixture {
+    project_bindings_checked(bindings).expect("invalid federation evidence projection")
 }
 
 /// Re-project a binding against an existing event, distinguishing exact replay
@@ -261,11 +276,13 @@ mod tests {
             payload_digest: "digest-b",
         };
 
-        let left = project_bindings(&[(a, EvidenceBindingDecision::Bound, false), (b, EvidenceBindingDecision::Bound, true)]);
-        let right = project_bindings(&[(b, EvidenceBindingDecision::Bound, true), (a, EvidenceBindingDecision::Bound, false)]);
+        let left = project_bindings_checked(&[(a, EvidenceBindingDecision::Bound, false), (b, EvidenceBindingDecision::Bound, true)]).expect("projection");
+        let right = project_bindings_checked(&[(b, EvidenceBindingDecision::Bound, true), (a, EvidenceBindingDecision::Bound, false)]).expect("projection");
 
         assert_eq!(left, right);
         assert_eq!(left.events[0].event_id, "obs-a");
+        assert_eq!(left.events[0].sequence, 1);
+        assert_eq!(left.events[1].sequence, 2);
         assert_eq!(left.events[1].event_id, "obs-b");
         assert_eq!(left.events[1].source, SourceKind::Foreign);
     }
