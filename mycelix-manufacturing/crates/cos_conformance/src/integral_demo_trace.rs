@@ -242,6 +242,37 @@ pub fn validate_trace(events: &[TraceEvent]) -> Result<(), TraceError> {
         }
     }
 
+    // Relations are authoritative graph edges. They allow branches and
+    // non-adjacent lineage without weakening the deterministic sequence check.
+    for relation in events.iter().flat_map(|e| e.relations.iter()) {
+        let from = events.iter().find(|e| e.event_id == relation.from_event).unwrap();
+        let to = events.iter().find(|e| e.event_id == relation.to_event).unwrap();
+        match relation.relation {
+            TraceRelation::Disputes => {
+                if from.kind != TraceKind::Observation || to.kind != TraceKind::Observation {
+                    return Err(TraceError::IllegalTransition);
+                }
+                if from.source != to.source || from.generation != to.generation {
+                    return Err(TraceError::ProvenanceMutation);
+                }
+            }
+            TraceRelation::Reopens => {
+                if from.kind != TraceKind::Appeal {
+                    return Err(TraceError::IllegalTransition);
+                }
+                if !matches!(to.kind, TraceKind::Decision | TraceKind::Authorization | TraceKind::HumanDecision | TraceKind::Outcome) {
+                    return Err(TraceError::IllegalTransition);
+                }
+            }
+            TraceRelation::RespondsTo | TraceRelation::Appeals => {
+                if from.sequence <= to.sequence {
+                    return Err(TraceError::SequenceRegression);
+                }
+            }
+            _ => {}
+        }
+    }
+
     for pair in events.windows(2) {
         let previous = pair[0];
         let current = pair[1];
