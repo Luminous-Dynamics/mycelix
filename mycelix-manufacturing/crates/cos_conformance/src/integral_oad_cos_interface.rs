@@ -223,7 +223,7 @@ pub fn recognized_origin(envelope: &DesignEnvelope) -> &'static str {
 mod tests {
     use super::*;
 
-    fn envelope() -> DesignEnvelope {
+    pub(super) fn envelope() -> DesignEnvelope {
         DesignEnvelope {
             design_id: "design-1",
             design_generation: 7,
