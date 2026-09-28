@@ -1,0 +1,93 @@
+{
+  "manifest_id": "MYC-INT-ASSURE-FV-001",
+  "version": "1.0.0",
+  "source_status": "Research candidate",
+  "obligations": [
+    {
+      "id": "ASSURE-FV-015",
+      "state": "Open",
+      "claim_ceiling": "Semantic assurance boundary only; no physical, social, economic, safety, or deployment qualification."
+    },
+    {
+      "id": "ASSURE-FV-016",
+      "state": "Open",
+      "claim_ceiling": "Semantic assurance boundary only; no physical, social, economic, safety, or deployment qualification."
+    },
+    {
+      "id": "ASSURE-FV-017",
+      "state": "Open",
+      "claim_ceiling": "Semantic assurance boundary only; no physical, social, economic, safety, or deployment qualification."
+    },
+    {
+      "id": "ASSURE-FV-018",
+      "state": "Open",
+      "claim_ceiling": "Semantic assurance boundary only; no physical, social, economic, safety, or deployment qualification."
+    },
+    {
+      "id": "ASSURE-FV-019",
+      "state": "Open",
+      "claim_ceiling": "Semantic assurance boundary only; no physical, social, economic, safety, or deployment qualification."
+    },
+    {
+      "id": "ASSURE-FV-020",
+      "state": "Open",
+      "claim_ceiling": "Semantic assurance boundary only; no physical, social, economic, safety, or deployment qualification."
+    },
+    {
+      "id": "ASSURE-FV-021",
+      "state": "Open",
+      "claim_ceiling": "Semantic assurance boundary only; no physical, social, economic, safety, or deployment qualification."
+    },
+    {
+      "id": "ASSURE-FV-022",
+      "state": "Open",
+      "claim_ceiling": "Semantic assurance boundary only; no physical, social, economic, safety, or deployment qualification."
+    },
+    {
+      "id": "ASSURE-FV-023",
+      "state": "Open",
+      "claim_ceiling": "Semantic assurance boundary only; no physical, social, economic, safety, or deployment qualification."
+    },
+    {
+      "id": "ASSURE-FV-024",
+      "state": "Open",
+      "claim_ceiling": "Semantic assurance boundary only; no physical, social, economic, safety, or deployment qualification."
+    },
+    {
+      "id": "ASSURE-FV-025",
+      "state": "Open",
+      "claim_ceiling": "Semantic assurance boundary only; no physical, social, economic, safety, or deployment qualification."
+    },
+    {
+      "id": "ASSURE-FV-026",
+      "state": "Open",
+      "claim_ceiling": "Semantic assurance boundary only; no physical, social, economic, safety, or deployment qualification."
+    },
+    {
+      "id": "ASSURE-FV-027",
+      "state": "Open",
+      "claim_ceiling": "Semantic assurance boundary only; no physical, social, economic, safety, or deployment qualification."
+    },
+    {
+      "id": "ASSURE-FV-028",
+      "state": "Open",
+      "claim_ceiling": "Semantic assurance boundary only; no physical, social, economic, safety, or deployment qualification."
+    }
+  ],
+  "closure_policy": {
+    "formally_closed_requires": [
+      "formal_artifact",
+      "executable_witness",
+      "production_refinement",
+      "exact_source_commit",
+      "reproducible_build_identity"
+    ],
+    "scalar_score_can_close": false
+  },
+  "nonclaims": [
+    "Integral endorsement or ratification",
+    "architectural completeness",
+    "real-world qualification",
+    "Mycelix preferred implementation"
+  ]
+}
