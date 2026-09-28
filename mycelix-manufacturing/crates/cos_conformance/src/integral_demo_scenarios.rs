@@ -323,7 +323,7 @@ pub fn evaluate(id: ScenarioId) -> ScenarioResult {
     }
 }
 
-pub const ALL_SCENARIOS: [ScenarioId; 10] = [
+pub const ALL_SCENARIOS: [ScenarioId; 14] = [
     ScenarioId::NormalFlow,
     ScenarioId::RejectedCdsDecision,
     ScenarioId::RejectedDecisionDescendant,
