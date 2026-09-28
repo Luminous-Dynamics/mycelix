@@ -705,8 +705,8 @@ mod tests {
         assert!(!authority_reference_is_conserved(&before, &replaced));
 
         let mut removed = before;
-        removed.authority_ref = None;
-        assert!(authority_reference_is_conserved(&before, &removed));
+        removed.authority_ref = Some("authority://different");
+        assert!(!authority_reference_is_conserved(&before, &removed));
 
         let authorized = t.events[4];
         let mut replay = authorized;
