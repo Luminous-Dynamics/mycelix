@@ -297,6 +297,8 @@ This is intentionally a thin seam for the future Leptos UI: a user can select an
 
 ## Graph-native federation disagreement
 
+The A1↔D5 boundary now carries an explicit `evidence_ref` alongside `source_ref`. These are distinct semantic fields: source/binding identity is not silently treated as evidence identity, and evidence-bearing Observation/Assessment events must retain an explicit evidence binding.
+
 D6E also projects a reconciled heterogeneous conflict into the D5 graph without collapsing it into a winner. Two source observations remain distinct, retain their local/foreign origin, and receive explicit reciprocal dispute relations. A local FRS assessment may respond to both observations and remains an assessment with no authority reference.
 
 An important validator correction accompanies this: a dispute is allowed to cross federation origins because heterogeneous origin is the *subject* of the disagreement, not a provenance mutation. The schema generation must still match, preventing evidence from different schema epochs from being treated as one dispute set.
