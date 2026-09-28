@@ -25,6 +25,8 @@ pub struct ConflictTraceInput {
     pub right: FederationObservation,
     pub assessment_id: &'static str,
     pub assessment_source_ref: &'static str,
+    /// Explicit evidence binding for the assessment, kept distinct from its source reference.
+    pub assessment_evidence_ref: &'static str,
     pub generation: u32,
     pub assessed_at: u64,
     pub uncertainty_present: bool,
@@ -37,6 +39,7 @@ pub struct ConflictTraceInput {
 pub fn project_conflict_trace(input: ConflictTraceInput) -> Option<TraceFixture> {
     if input.assessment_id.is_empty()
         || input.assessment_source_ref.is_empty()
+        || input.assessment_evidence_ref.is_empty()
         || input.left.observation_id.is_empty()
         || input.right.observation_id.is_empty()
         || input.left.observation_id == input.right.observation_id
@@ -64,6 +67,7 @@ pub fn project_conflict_trace(input: ConflictTraceInput) -> Option<TraceFixture>
         actor: TraceActor::System,
         source: SourceKind::Local,
         source_ref: input.assessment_source_ref,
+        evidence_ref: Some(input.assessment_evidence_ref),
         generation: input.generation,
         uncertainty_present: input.uncertainty_present,
         authority_ref: None,
@@ -104,6 +108,7 @@ fn observation_event(
             crate::integral_demo_federation::FederationNode::Foreign => SourceKind::Foreign,
         },
         source_ref: observation.evidence_ref,
+        evidence_ref: Some(observation.evidence_ref),
         generation,
         uncertainty_present,
         authority_ref: None,
@@ -150,7 +155,7 @@ mod tests {
                 right_observation_id: "obs-b", right_origin: FederationNode::Foreign, right_quantity: 12,
             },
             left, right, assessment_id: "frs-conflict-1",
-            assessment_source_ref: "assessment://conflict-1", generation: 7,
+            assessment_source_ref: "assessment://conflict-1", assessment_evidence_ref: "evidence://conflict-1", generation: 7,
             assessed_at: 110, uncertainty_present: true,
         }
     }
