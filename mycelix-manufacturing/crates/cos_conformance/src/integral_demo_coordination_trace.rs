@@ -279,6 +279,27 @@ mod tests {
     }
 
     #[test]
+    fn authority_escalation_is_rejected_across_a1_d5_alignment() {
+        let trace = conflict_trace();
+        let mut item = artifact("obs-a", CoordinationKind::Observation, CoordinationOrigin::Local, "source://local-a");
+        item.authority_ref = Some("authority://forged");
+        assert_eq!(
+            validate_coordination_trace_alignment(&[item], &trace),
+            Err(AlignmentError::AuthorityMismatch)
+        );
+    }
+
+    #[test]
+    fn recommendation_authority_is_rejected_before_cross_boundary_alignment() {
+        let mut recommendation = artifact("recommendation-1", CoordinationKind::Recommendation, CoordinationOrigin::Local, "recommendation://1");
+        recommendation.authority_ref = Some("authority://forged");
+        assert_eq!(
+            validate_coordination_trace_pair(&[recommendation], &TraceFixture { events: vec![], relations: vec![] }),
+            Err(AlignmentError::InvalidCoordination(CoordinationError::AuthorityOnRecommendation))
+        );
+    }
+
+    #[test]
     fn semantic_conservation_survives_a1_federation_d5_projection() {
         let delivery = envelope();
         let observation = FederationObservation {
