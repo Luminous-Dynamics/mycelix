@@ -280,7 +280,7 @@ mod tests {
     #[test]
     fn exact_safety_fields_align_when_unchanged() {
         let trace = conflict_trace();
-        let item = artifact("obs-a", CoordinationKind::Observation, CoordinationOrigin::Local, "evidence://local-a");
+        let item = artifact("obs-a", CoordinationKind::Observation, CoordinationOrigin::Local, "source://local-a");
         assert_eq!(validate_coordination_trace_alignment(&[item], &trace), Ok(()));
     }
 
