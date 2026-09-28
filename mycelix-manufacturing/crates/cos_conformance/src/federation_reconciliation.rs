@@ -469,18 +469,31 @@ pub fn cockpit_projection(
 ) -> BranchCockpitProjection {
     let local_authority_count = branch
         .authority_claims
-        .values()
-        .filter(|value| matches!(value, AuthorityDisposition::LocalAuthority))
+        .iter()
+        .filter(|(claim_id, value)| {
+            matches!(value, AuthorityDisposition::LocalAuthority)
+                && branch
+                    .authority_validity
+                    .get(claim_id)
+                    .copied()
+                    .unwrap_or(AuthorityValidity::Current)
+                    .is_current()
+        })
         .count();
     let foreign_evidence_count = branch
         .authority_claims
-        .values()
-        .filter(|value| {
+        .iter()
+        .filter(|(claim_id, value)| {
             matches!(
                 value,
                 AuthorityDisposition::ForeignEvidence
                     | AuthorityDisposition::RecognizedForeignEvidence
-            )
+            ) && branch
+                .authority_validity
+                .get(claim_id)
+                .copied()
+                .unwrap_or(AuthorityValidity::Current)
+                .is_current()
         })
         .count();
     let delegated_authority_count = branch
@@ -490,7 +503,7 @@ pub fn cockpit_projection(
             matches!(value, AuthorityDisposition::ExplicitDelegatedAuthority)
                 && branch
                     .authority_validity
-                    .get(*claim_id)
+                    .get(claim_id)
                     .copied()
                     .unwrap_or(AuthorityValidity::Current)
                     .is_current()
