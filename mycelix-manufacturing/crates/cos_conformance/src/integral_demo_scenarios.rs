@@ -107,12 +107,21 @@ pub fn trace_for(id: ScenarioId) -> Vec<TraceEvent> {
         ScenarioId::NormalFlow | ScenarioId::RecommendationAccepted | ScenarioId::AppealedOutcome => t,
         ScenarioId::RecommendationRejected => { t[9].decision_accepted = Some(false); t }
         ScenarioId::RejectedCdsDecision => {
-            t[2].authority_ref = None;
+            t[2].decision_accepted = Some(false);
+            t[2].status = crate::integral_demo_trace::TraceStatus::Rejected;
+            t[3].status = crate::integral_demo_trace::TraceStatus::Rejected;
+            t.truncate(3);
             t
         }
         ScenarioId::StaleDesign => {
             t[1].generation = 7;
+            t[1].status = crate::integral_demo_trace::TraceStatus::Superseded;
             t[2].generation = 6;
+            t[1].relations = Box::leak(vec![crate::integral_demo_trace::TraceRelationRef {
+                from_event: "d1",
+                to_event: "p1",
+                relation: crate::integral_demo_trace::TraceRelation::Supersedes,
+            }].into_boxed_slice());
             t
         }
         ScenarioId::UncertainObservation => {
