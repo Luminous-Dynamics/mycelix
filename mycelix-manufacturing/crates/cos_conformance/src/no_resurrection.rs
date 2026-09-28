@@ -76,6 +76,7 @@ pub fn assess_reactivation(
     }
     if candidate.predecessor_tombstone_id != tombstone.tombstone_id
         || candidate.predecessor_frontier_root != tombstone.causal_frontier_root
+        || candidate.successor_event_id != generation.creation_event_id
     {
         return ReactivationDisposition::InsufficientEvidence;
     }
@@ -348,6 +349,18 @@ mod tests {
         let tombstone = tombstone();
         let candidate = successor("new-state");
         assert_eq!(assess_reactivation(&new_generation, &tombstone, &candidate), ReactivationDisposition::AcceptedSuccessor);
+    }
+
+    #[test]
+    fn successor_event_must_bind_to_new_generation() {
+        let new_generation = generation("gen-2", "new-state");
+        let tombstone = tombstone();
+        let mut candidate = successor("new-state");
+        candidate.successor_event_id = "unrelated-event".into();
+        assert_eq!(
+            assess_reactivation(&new_generation, &tombstone, &candidate),
+            ReactivationDisposition::InsufficientEvidence
+        );
     }
 
     #[test]
