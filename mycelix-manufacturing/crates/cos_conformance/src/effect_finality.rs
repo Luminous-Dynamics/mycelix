@@ -1513,10 +1513,9 @@ mod tests {
     fn compensation_without_explicit_cause_is_rejected() {
         let predecessor = effect("effect-1", "lineage-1", "generation-1");
         let compensation = compensation_effect(&predecessor);
-        let sub = substitution_profile(&predecessor);
         let route = route(&predecessor, "provider-a", "profile-a", "route-a", "operation-a");
         let outcome = outcome(&route, ProviderOutcomeKindV1::Succeeded);
-        let mut observation = observation(
+        let observation = observation(
             &predecessor,
             &route,
             &outcome,
@@ -1524,9 +1523,9 @@ mod tests {
             ExternalObservedStateV1::Applied,
             "frontier-1",
         );
-        observation.observation_id = "wrong-cause".into();
-        let link = compensation_link(&predecessor, &compensation, &observation, None);
+        let mut link = compensation_link(&predecessor, &compensation, &observation, None);
         let (before, after) = claims(&predecessor, &compensation);
+        link.cause_observation_id.clear();
 
         assert_eq!(
             assess_compensation_effect(
@@ -1543,13 +1542,14 @@ mod tests {
                 None,
             )
             .disposition,
-            CompensationDispositionV1::Accepted
+            CompensationDispositionV1::InsufficientEvidence
         );
-        let mut broken_link = link.clone();
-        broken_link.cause_observation_id = "different".into();
+
+        let mut mismatched = compensation_link(&predecessor, &compensation, &observation, None);
+        mismatched.cause_observation_id = "different".into();
         assert_eq!(
             assess_compensation_effect(
-                &broken_link,
+                &mismatched,
                 &predecessor,
                 &predecessor,
                 &compensation,
@@ -1564,7 +1564,6 @@ mod tests {
             .disposition,
             CompensationDispositionV1::BlockedCause
         );
-        let _ = sub;
     }
 
     #[test]
