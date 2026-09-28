@@ -51,6 +51,7 @@ fn event(
     uncertainty: bool,
     authority: Option<&'static str>,
     recommendation_only: bool,
+    decision_accepted: Option<bool>,
 ) -> TraceEvent {
     TraceEvent {
         event_id: id,
@@ -79,31 +80,32 @@ fn event(
         recommendation_only,
         recovery_ref: if kind == TraceKind::Outcome { Some("recovery://outcome") } else { None },
         appeal_ref: if kind == TraceKind::Outcome { Some("appeal://outcome") } else { None },
+        decision_accepted,
     }
 }
 
 fn normal_trace() -> Vec<TraceEvent> {
     vec![
-        event("p1",1,TraceKind::Proposal,TraceActor::Human,SourceKind::Local,7,true,None,false),
-        event("d1",2,TraceKind::Design,TraceActor::System,SourceKind::Local,7,true,None,false),
-        event("c1",3,TraceKind::Decision,TraceActor::Human,SourceKind::Local,7,true,Some("auth-cds"),false),
-        event("a1",4,TraceKind::Authorization,TraceActor::Human,SourceKind::Local,7,true,Some("auth-production"),false),
-        event("x1",5,TraceKind::ExecutionIntent,TraceActor::System,SourceKind::Local,7,true,Some("auth-production"),false),
-        event("o1",6,TraceKind::Observation,TraceActor::System,SourceKind::Local,7,true,None,false),
-        event("i1",7,TraceKind::ItcProjection,TraceActor::System,SourceKind::Local,7,true,None,false),
-        event("f1",8,TraceKind::FrsAssessment,TraceActor::System,SourceKind::Local,7,true,None,false),
-        event("r1",9,TraceKind::Recommendation,TraceActor::Symthaea,SourceKind::Local,7,true,None,true),
-        event("h1",10,TraceKind::HumanDecision,TraceActor::Human,SourceKind::Local,7,true,Some("auth-review"),false),
-        event("u1",11,TraceKind::Outcome,TraceActor::System,SourceKind::Local,7,true,Some("auth-review"),false),
-        event("ap1",12,TraceKind::Appeal,TraceActor::Human,SourceKind::Local,7,true,None,false),
+        event("p1",1,TraceKind::Proposal,TraceActor::Human,SourceKind::Local,7,true,None,false,None),
+        event("d1",2,TraceKind::Design,TraceActor::System,SourceKind::Local,7,true,None,false,None),
+        event("c1",3,TraceKind::Decision,TraceActor::Human,SourceKind::Local,7,true,Some("auth-cds"),false,None),
+        event("a1",4,TraceKind::Authorization,TraceActor::Human,SourceKind::Local,7,true,Some("auth-production"),false,None),
+        event("x1",5,TraceKind::ExecutionIntent,TraceActor::System,SourceKind::Local,7,true,Some("auth-production"),false,None),
+        event("o1",6,TraceKind::Observation,TraceActor::System,SourceKind::Local,7,true,None,false,None),
+        event("i1",7,TraceKind::ItcProjection,TraceActor::System,SourceKind::Local,7,true,None,false,None),
+        event("f1",8,TraceKind::FrsAssessment,TraceActor::System,SourceKind::Local,7,true,None,false,None),
+        event("r1",9,TraceKind::Recommendation,TraceActor::Symthaea,SourceKind::Local,7,true,None,true,None),
+        event("h1",10,TraceKind::HumanDecision,TraceActor::Human,SourceKind::Local,7,true,Some("auth-review"),false,Some(true)),
+        event("u1",11,TraceKind::Outcome,TraceActor::System,SourceKind::Local,7,true,Some("auth-review"),false,None),
+        event("ap1",12,TraceKind::Appeal,TraceActor::Human,SourceKind::Local,7,true,None,false,None),
     ]
 }
 
 pub fn trace_for(id: ScenarioId) -> Vec<TraceEvent> {
     let mut t = normal_trace();
     match id {
-        ScenarioId::NormalFlow | ScenarioId::RecommendationAccepted | ScenarioId::RecommendationRejected
-        | ScenarioId::AppealedOutcome => t,
+        ScenarioId::NormalFlow | ScenarioId::RecommendationAccepted | ScenarioId::AppealedOutcome => t,
+        ScenarioId::RecommendationRejected => { t[9].decision_accepted = Some(false); t }
         ScenarioId::RejectedCdsDecision => {
             t[2].authority_ref = None;
             t
@@ -118,7 +120,7 @@ pub fn trace_for(id: ScenarioId) -> Vec<TraceEvent> {
             t
         }
         ScenarioId::ConflictingObservations => {
-            let second = event("o2",7,TraceKind::Observation,TraceActor::System,SourceKind::Local,7,true,None,false);
+            let second = event("o2",7,TraceKind::Observation,TraceActor::System,SourceKind::Local,7,true,None,false,None);
             t.truncate(6);
             t.push(second);
             t
