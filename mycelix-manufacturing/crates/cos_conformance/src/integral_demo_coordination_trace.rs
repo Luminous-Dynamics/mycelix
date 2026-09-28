@@ -80,6 +80,32 @@ fn align_one(artifact: &CoordinationArtifact, event: &TraceEvent) -> Result<(), 
     Ok(())
 }
 
+/// An explicit pair keeps lineage supplied by the caller rather than inferred from D5 order.
+/// This is useful when a shared scenario has both representations and the caller can
+/// name the semantic parent independently of the trace serialization order.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CoordinationTracePair<'a> {
+    pub artifact: &'a CoordinationArtifact,
+    pub trace_event: &'a TraceEvent,
+}
+
+pub fn validate_explicit_coordination_trace_pairs(
+    pairs: &[CoordinationTracePair<'_>],
+    trace: &TraceFixture,
+) -> Result<(), AlignmentError> {
+    validate_trace(trace).map_err(AlignmentError::InvalidTrace)?;
+    for (index, pair) in pairs.iter().enumerate() {
+        if pairs[..index].iter().any(|prior| prior.artifact.id == pair.artifact.id) {
+            return Err(AlignmentError::DuplicateTraceIdentity);
+        }
+        if pair.artifact.id != pair.trace_event.event_id {
+            return Err(AlignmentError::MissingTraceEvent);
+        }
+        align_one(pair.artifact, pair.trace_event)?;
+    }
+    Ok(())
+}
+
 /// Validate the complete bounded pair without synthesizing lineage between models.
 /// A1 parent links are checked by A1's validator; D5 graph relations are checked
 /// by D5's validator; only explicitly shared fields are cross-checked afterward.
@@ -172,6 +198,19 @@ mod tests {
             validate_coordination_trace_pair(&[item], &trace),
             Err(AlignmentError::InvalidCoordination(CoordinationError::MissingParent))
         );
+    }
+
+
+    #[test]
+    fn explicit_pairs_cross_check_identity_without_deriving_parentage() {
+        let trace = conflict_trace();
+        let local = artifact("obs-a", CoordinationKind::Observation, CoordinationOrigin::Local, "evidence://local-a");
+        let foreign = artifact("obs-b", CoordinationKind::Observation, CoordinationOrigin::Foreign, "evidence://foreign-b");
+        let pairs = [
+            CoordinationTracePair { artifact: &local, trace_event: &trace.events[0] },
+            CoordinationTracePair { artifact: &foreign, trace_event: &trace.events[1] },
+        ];
+        assert_eq!(validate_explicit_coordination_trace_pairs(&pairs, &trace), Ok(()));
     }
 
     #[test]
