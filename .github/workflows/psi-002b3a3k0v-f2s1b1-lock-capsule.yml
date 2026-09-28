@@ -19,7 +19,7 @@ jobs:
         shell: bash
     steps:
       - name: Checkout pinned source
-        uses: actions/checkout@d23441a5d9b0e1c8f1c2a5d5b4f0a8f5f5b4d5e6 # v6.1.0
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -95,7 +95,7 @@ jobs:
           sha256sum capsule/* | sort > capsule/manifest.sha256
 
       - name: Upload lock capsule
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: psi-002b3a3k0v-f2s1b1-lock-capsule
           path: capsule/
