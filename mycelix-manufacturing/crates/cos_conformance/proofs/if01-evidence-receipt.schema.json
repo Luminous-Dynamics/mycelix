@@ -2,11 +2,12 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "IF01 Formal Evidence Receipt",
   "type": "object",
-  "required": ["obligation_ids","artifact_path","artifact_identity","source_commit","build_identity","runner_image","os","solver","solver_version","command","expected_result","actual_result","timestamp","status","claim_ceiling","excluded_claims"],
+  "required": ["obligation_ids","artifact_path","artifact_identity","manifest_identity","source_commit","build_identity","runner_image","os","solver","solver_version","command","expected_result","actual_result","timestamp","status","claim_ceiling","excluded_claims"],
   "properties": {
     "obligation_ids": {"type":"array","minItems":1,"items":{"type":"string","pattern":"^IF01-FV-[0-9]{3}$"}},
     "artifact_path": {"type":"string","minLength":1},
     "artifact_identity": {"type":"string","minLength":1},
+    "manifest_identity": {"type":"string","pattern":"^[0-9a-f]{40}:git-blob:[0-9a-f]{40}$"},
     "source_commit": {"type":"string","pattern":"^[0-9a-f]{40}$"},
     "build_identity": {"type":"string"},
     "runner_image": {"type":"string"},
