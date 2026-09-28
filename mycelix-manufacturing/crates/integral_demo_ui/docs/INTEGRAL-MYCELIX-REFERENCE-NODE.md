@@ -293,3 +293,12 @@ The view therefore exposes two distinct layers:
 Ordering is deterministic for serialization/UI stability only. It is not a ranking, maturity ladder, or recommendation.
 
 This is intentionally a thin seam for the future Leptos UI: a user can select an unresolved interface and adversarial fixture, compare the three hypotheses, then inspect the same underlying trace rather than receiving a single hidden interpretation.
+
+
+## Graph-native federation disagreement
+
+D6E also projects a reconciled heterogeneous conflict into the D5 graph without collapsing it into a winner. Two source observations remain distinct, retain their local/foreign origin, and receive explicit reciprocal dispute relations. A local FRS assessment may respond to both observations and remains an assessment with no authority reference.
+
+An important validator correction accompanies this: a dispute is allowed to cross federation origins because heterogeneous origin is the *subject* of the disagreement, not a provenance mutation. The schema generation must still match, preventing evidence from different schema epochs from being treated as one dispute set.
+
+Delivery order is not causal order. The projection canonicalizes observation presentation by identity and emits only relations justified by the conflict itself. Governance resolution remains a separate human decision artifact.
