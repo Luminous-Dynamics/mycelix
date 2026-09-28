@@ -16,6 +16,7 @@ pub mod integral_oad_cos_interface;
 pub mod integral_oad_cos_formal;
 pub mod integral_hxa_formal;
 pub mod integral_hxa_if01_composition;
+pub mod integral_hxa_manifest_consistency;
 
 pub const CORPUS_ID: &str = "COS-CONF-001";
 pub const FORMAL_OBLIGATIONS: [&str; 10] = [
