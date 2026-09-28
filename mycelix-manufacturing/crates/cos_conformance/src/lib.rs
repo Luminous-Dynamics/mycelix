@@ -6,6 +6,8 @@
 
 use serde::{Deserialize, Serialize};
 
+pub mod productive_loop;
+
 pub const CORPUS_ID: &str = "COS-CONF-001";
 pub const FORMAL_OBLIGATIONS: [&str; 10] = [
     "COS-FV-001", "COS-FV-002", "COS-FV-003", "COS-FV-004", "COS-FV-005",
