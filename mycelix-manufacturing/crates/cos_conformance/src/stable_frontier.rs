@@ -158,7 +158,7 @@ pub fn assess_stable_frontier(
         let Some(coverage) = certificate.coverage.get(id) else {
             return StableFrontierDispositionV1::BlockedMissingCoverage;
         };
-        if coverage.participant_id != *id
+        if coverage.participant_id.as_str() != id.as_str()
             || coverage.membership_epoch != scope.membership_epoch
             || coverage.semantic_environment_root != scope.semantic_environment_root
             || coverage.evidence_root.is_empty()
