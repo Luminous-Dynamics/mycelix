@@ -163,32 +163,32 @@ jobs:
           mkdir -p evidence
           artifact="crates/cos_conformance/proofs/integral_if01_authority_outcome.smt2"
           output="$(z3 "$artifact")"
-          printf '%s\\n' "$output"
+          printf '%s\n' "$output"
           source_sha="$(git rev-parse HEAD)"
           test "$source_sha" = "${{ github.sha }}"
           artifact_blob="$(git hash-object "$artifact")"
           artifact_identity="$source_sha:git-blob:$artifact_blob"
           actual_digest="$(printf '%s' "$output" | sha256sum | awk '{print $1}')"
           timestamp="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-          jq -n \\
-            --argjson obligation_ids '["IF01-FV-010","IF01-FV-011","IF01-FV-012"]' \\
-            --arg artifact_path "$artifact" \\
-            --arg artifact_identity "$artifact_identity" \\
-            --arg source_commit "$source_sha" \\
-            --arg build_identity "${{ github.run_id }}:${{ github.run_attempt }}" \\
-            --arg runner_image "ubuntu-latest" \\
-            --arg os "${{ runner.os }}" \\
-            --arg solver "z3" \\
-            --arg solver_version "$(z3 --version)" \\
-            --arg command "z3 $artifact" \\
-            --arg expected_result "3 unsat results" \\
-            --arg actual_result "$output" \\
-            --arg output_digest "$actual_digest" \\
-            --arg timestamp "$timestamp" \\
-            --arg status "BoundedExecutableWitness" \\
-            --arg claim_ceiling "Bounded IF01-FV-010..012 semantic contradictions only; no production/runtime/security/ratification closure." \\
-            --argjson excluded_claims '["cryptographic authentication","network delivery guarantees","production authorization","manufacturing qualification","security certification","Integral ratification"]' \\
-            '{obligation_ids:$obligation_ids,artifact_path:$artifact_path,artifact_identity:$artifact_identity,source_commit:$source_commit,build_identity:$build_identity,runner_image:$runner_image,os:$os,solver:$solver,solver_version:$solver_version,command:$command,expected_result:$expected_result,actual_result:$actual_result,output_digest:$output_digest,timestamp:$timestamp,status:$status,claim_ceiling:$claim_ceiling,excluded_claims:$excluded_claims}' \\
+          jq -n \
+            --argjson obligation_ids '["IF01-FV-010","IF01-FV-011","IF01-FV-012"]' \
+            --arg artifact_path "$artifact" \
+            --arg artifact_identity "$artifact_identity" \
+            --arg source_commit "$source_sha" \
+            --arg build_identity "${{ github.run_id }}:${{ github.run_attempt }}" \
+            --arg runner_image "ubuntu-latest" \
+            --arg os "${{ runner.os }}" \
+            --arg solver "z3" \
+            --arg solver_version "$(z3 --version)" \
+            --arg command "z3 $artifact" \
+            --arg expected_result "3 unsat results" \
+            --arg actual_result "$output" \
+            --arg output_digest "$actual_digest" \
+            --arg timestamp "$timestamp" \
+            --arg status "BoundedExecutableWitness" \
+            --arg claim_ceiling "Bounded IF01-FV-010..012 semantic contradictions only; no production/runtime/security/ratification closure." \
+            --argjson excluded_claims '["cryptographic authentication","network delivery guarantees","production authorization","manufacturing qualification","security certification","Integral ratification"]' \
+            '{obligation_ids:$obligation_ids,artifact_path:$artifact_path,artifact_identity:$artifact_identity,source_commit:$source_commit,build_identity:$build_identity,runner_image:$runner_image,os:$os,solver:$solver,solver_version:$solver_version,command:$command,expected_result:$expected_result,actual_result:$actual_result,output_digest:$output_digest,timestamp:$timestamp,status:$status,claim_ceiling:$claim_ceiling,excluded_claims:$excluded_claims}' \
             > evidence/if01-evidence-receipt.json
           python3 -m pip install --quiet jsonschema
           python3 - <<'PY'
