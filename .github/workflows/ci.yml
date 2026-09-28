@@ -157,7 +157,7 @@ jobs:
             "solver_version": "$(z3 --version)",
             "command": "z3 crates/cos_conformance/proofs/integral_if01_authority_outcome.smt2",
             "expected_result": "3 unsat results",
-            "actual_result": "$output",
+            "actual_result": $(printf '%s' "$output" | jq -Rs .),
             "timestamp": "${{ github.run_started_at }}",
             "status": "BoundedExecutableWitness",
             "claim_ceiling": "Bounded IF01-FV-010..012 semantic contradictions only; no production/runtime/security/ratification closure.",
@@ -165,6 +165,12 @@ jobs:
           }
           EOF
           test -s evidence/if01-evidence-receipt.json
+      - name: Upload IF01 evidence receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: if01-evidence-receipt-${{ github.run_id }}-${{ github.run_attempt }}
+          path: mycelix-manufacturing/evidence/if01-evidence-receipt.json
+          if-no-files-found: error
   test-commons:
     needs: changes
     if: needs.changes.outputs.commons == 'true' || github.event_name == 'push'
