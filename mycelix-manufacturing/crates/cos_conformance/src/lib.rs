@@ -63,6 +63,10 @@ pub struct Bindings {
     pub effect_recorded: bool,
     pub quality_current: bool,
     pub denominator_explicit: bool,
+    pub general_capability_evidence: bool,
+    pub failure_history_preserved: bool,
+    pub source_observation_created: bool,
+    pub physical_work_binding: bool,
 }
 
 pub fn bind_plan_to_execution(b: &mut Bindings) { b.plan_execution = true; }
@@ -75,6 +79,10 @@ pub fn project_to_itc(b: &mut Bindings) { b.itc_projection = true; }
 pub fn project_to_frs(b: &mut Bindings) { b.frs_projection = true; }
 pub fn authorize_recommendation(b: &mut Bindings) { b.recommendation_authorized = true; }
 pub fn record_effect(b: &mut Bindings) { b.effect_recorded = true; }
+pub fn bind_general_capability(b: &mut Bindings) { b.general_capability_evidence = true; }
+pub fn preserve_failure_history(b: &mut Bindings) { b.failure_history_preserved = true; }
+pub fn create_source_observation(b: &mut Bindings) { b.source_observation_created = true; }
+pub fn bind_physical_work(b: &mut Bindings) { b.physical_work_binding = true; }
 
 pub fn stale_evidence_is_rejected(e: &Evidence, now: u64) -> Decision {
     if e.superseded { Decision::Superseded }
@@ -90,12 +98,12 @@ pub fn evaluate_negative(id: &str, b: &Bindings, evidence: Option<&Evidence>, no
         "COS-N-003" | "COS-N-004" => if b.requirement_availability { Decision::Accepted } else { Decision::Rejected },
         "COS-N-005" => evidence.map_or(Decision::Unknown, |e| stale_evidence_is_rejected(e, now)),
         "COS-N-006" => if b.output_qualification { Decision::Accepted } else { Decision::Rejected },
-        "COS-N-007" => if b.plan_execution { Decision::Accepted } else { Decision::Rejected },
-        "COS-N-008" => if b.effect_recorded { Decision::Accepted } else { Decision::Rejected },
+        "COS-N-007" => if b.general_capability_evidence { Decision::Accepted } else { Decision::Rejected },
+        "COS-N-008" => if b.failure_history_preserved { Decision::Accepted } else { Decision::Rejected },
         "COS-N-009" | "COS-N-013" => if b.foreign_recognition { Decision::Accepted } else { Decision::Rejected },
-        "COS-N-010" => if b.frs_projection { Decision::Accepted } else { Decision::Rejected },
+        "COS-N-010" => if b.source_observation_created { Decision::Accepted } else { Decision::Rejected },
         "COS-N-011" => if b.itc_projection { Decision::Accepted } else { Decision::Rejected },
-        "COS-N-012" => if b.itc_projection { Decision::Accepted } else { Decision::Rejected },
+        "COS-N-012" => if b.physical_work_binding { Decision::Accepted } else { Decision::Rejected },
         "COS-N-014" => if b.recommendation_authorized && b.effect_recorded { Decision::Accepted } else { Decision::Unauthorized },
         "COS-N-015" => if b.output_qualification { Decision::Accepted } else { Decision::Rejected },
         "COS-N-016" => if b.denominator_explicit { Decision::Accepted } else { Decision::Rejected },
@@ -171,11 +179,12 @@ mod tests {
                 "COS-N-003" | "COS-N-004" => bind_requirement_to_availability(&mut b),
                 "COS-N-005" => b.quality_current = true,
                 "COS-N-006" | "COS-N-015" => qualify_output(&mut b),
-                "COS-N-007" => bind_plan_to_execution(&mut b),
-                "COS-N-008" => record_effect(&mut b),
+                "COS-N-007" => bind_general_capability(&mut b),
+                "COS-N-008" => preserve_failure_history(&mut b),
                 "COS-N-009" | "COS-N-013" => recognize_foreign_evidence(&mut b),
-                "COS-N-010" => project_to_frs(&mut b),
-                "COS-N-011" | "COS-N-012" => project_to_itc(&mut b),
+                "COS-N-010" => create_source_observation(&mut b),
+                "COS-N-011" => project_to_itc(&mut b),
+                "COS-N-012" => bind_physical_work(&mut b),
                 "COS-N-014" => { authorize_recommendation(&mut b); record_effect(&mut b); },
                 "COS-N-016" => b.denominator_explicit = true,
                 _ => unreachable!(),
