@@ -290,15 +290,22 @@ pub fn deliver(
     }
 
     if let Some(existing) = state.deliveries.get_mut(&envelope.logical_delivery_id) {
+        if existing.origin_node != envelope.origin_node {
+            return FederationOutcome::new(
+                FederationDecision::OriginConflict,
+                AuthorityDisposition::NoAuthority,
+                envelope,
+                "A logical delivery identity cannot be reused by a different origin node.",
+            );
+        }
         if existing.payload_commitment != envelope.payload_commitment
             || existing.semantic_subject_id != envelope.semantic_subject_id
-            || existing.origin_node != envelope.origin_node
         {
             return FederationOutcome::new(
                 FederationDecision::PayloadConflict,
                 AuthorityDisposition::NoAuthority,
                 envelope,
-                "A logical delivery identity cannot be reused for a different semantic payload or origin.",
+                "A logical delivery identity cannot be reused for a different semantic payload.",
             );
         }
         existing.attempts.insert(envelope.attempt_id.clone());
@@ -711,6 +718,12 @@ mod tests {
         mutated.payload_commitment = "sha256:changed".into();
         let conflict = deliver(&mut state, &mutated, 50, true);
         assert_eq!(conflict.decision, FederationDecision::PayloadConflict);
+
+        let mut foreign_origin = retry;
+        foreign_origin.attempt_id = "attempt-4".into();
+        foreign_origin.origin_node = "node-b".into();
+        let origin_conflict = deliver(&mut state, &foreign_origin, 50, true);
+        assert_eq!(origin_conflict.decision, FederationDecision::OriginConflict);
     }
 
     #[test]
