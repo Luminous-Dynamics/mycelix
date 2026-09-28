@@ -161,6 +161,8 @@ jobs:
         run: |
           cd mycelix-manufacturing
           mkdir -p evidence
+          output="$(z3 crates/cos_conformance/proofs/integral_if01_authority_outcome.smt2)"
+          printf '%s\n' "$output"
           artifact_sha256="$(sha256sum crates/cos_conformance/proofs/integral_if01_authority_outcome.smt2 | awk '{print $1}')"
           source_sha="$(git rev-parse HEAD)"
           test "$source_sha" = "${{ github.sha }}"
