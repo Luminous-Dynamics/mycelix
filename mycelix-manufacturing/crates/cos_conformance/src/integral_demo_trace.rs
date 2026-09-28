@@ -87,6 +87,12 @@ pub struct TraceEvent {
     pub status: TraceStatus,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TraceFixture {
+    pub events: Vec<TraceEvent>,
+    pub relations: Vec<TraceRelationRef>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TraceError {
     EmptyIdentity,
