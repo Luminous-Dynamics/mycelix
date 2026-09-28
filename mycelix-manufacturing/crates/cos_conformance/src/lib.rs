@@ -28,6 +28,7 @@ pub mod integral_demo_federation;
 pub mod integral_demo_federation_trace;
 pub mod integral_demo_interpretations;
 pub mod integral_demo_interpretation_cockpit;
+pub mod integral_demo_federation_conflict_trace;
 
 pub const CORPUS_ID: &str = "COS-CONF-001";
 pub const FORMAL_OBLIGATIONS: [&str; 10] = [
