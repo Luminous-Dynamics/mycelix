@@ -7,6 +7,7 @@
 //! Evidence ceiling: ReferenceModelOnly.
 
 use crate::integral_demo_trace::{ExplanationLevel, TraceActor, TraceEvent, TraceKind};
+use crate::integral_demo_domain::SourceKind;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CockpitField {
@@ -38,7 +39,7 @@ pub struct CockpitFact {
 pub struct CockpitView {
     pub trace_ref: &'static str,
     pub level: ExplanationLevel,
-    pub facts: &'static [CockpitFact],
+    pub facts: Vec<CockpitFact>,
     pub has_recommendation: bool,
     pub has_human_decision: bool,
     pub has_uncertainty: bool,
@@ -78,15 +79,16 @@ pub fn project_cockpit(
     let has_recommendation = events.iter().any(|e| e.kind == TraceKind::Recommendation);
     let has_human_decision = events.iter().any(|e| e.kind == TraceKind::HumanDecision);
     let has_uncertainty = events.iter().any(|e| e.uncertainty_present);
-    let has_foreign_origin = events.iter().any(|e| matches!(e.source, crate::integral_demo_domain::SourceKind::Foreign));
+    let has_foreign_origin = events.iter().any(|e| matches!(e.source, SourceKind::Foreign));
     let has_recovery = events.iter().any(|e| e.recovery_ref.is_some());
     let has_challenge_path = events.iter().any(|e| e.challengeable);
 
-    let _ = fact_for;
+    let fields = fields_for(level);
+    let facts = events.iter().flat_map(|event| fields.iter().map(move |field| fact_for(event, *field))).collect();
     Some(CockpitView {
         trace_ref,
         level,
-        facts: &[],
+        facts,
         has_recommendation,
         has_human_decision,
         has_uncertainty,
@@ -162,7 +164,9 @@ mod tests {
         assert!(view.has_recommendation);
         assert!(view.has_uncertainty);
         assert_eq!(view.trace_ref, "trace://demo");
-        assert!(!view.facts.iter().any(|f| f.authoritative == false));
+        assert!(view.facts.iter().all(|f| f.authoritative));
+        assert!(view.facts.iter().any(|f| f.field == CockpitField::WhatHappened));
+        assert!(view.facts.iter().any(|f| f.field == CockpitField::Uncertainty));
     }
 
     #[test]
