@@ -111,7 +111,7 @@ pub fn validate_loop(loop_: &CoordinationLoop) -> Result<(), CoordinationError> 
         if artifact.kind == CoordinationKind::Recommendation && artifact.authority_ref.is_some() {
             return Err(CoordinationError::AuthorityOnRecommendation);
         }
-        if matches!(artifact.kind, CoordinationKind::Decision | CoordinationKind::Authorization | CoordinationKind::HumanDisposition)
+        if matches!(artifact.kind, CoordinationKind::Decision | CoordinationKind::Authorization | CoordinationKind::ExecutionIntent | CoordinationKind::HumanDisposition)
             && artifact.authority_ref.map_or(true, str::is_empty)
         {
             return Err(CoordinationError::MissingAuthority);
@@ -261,6 +261,13 @@ mod tests {
     fn missing_decision_authority_fails_closed() {
         let mut loop_ = valid_loop();
         loop_.artifacts[1].authority_ref = None;
+        assert_eq!(validate_loop(&loop_), Err(CoordinationError::MissingAuthority));
+    }
+
+    #[test]
+    fn execution_intent_requires_explicit_authority() {
+        let mut loop_ = valid_loop();
+        loop_.artifacts[4].authority_ref = None;
         assert_eq!(validate_loop(&loop_), Err(CoordinationError::MissingAuthority));
     }
 
