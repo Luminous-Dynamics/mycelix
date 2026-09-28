@@ -132,6 +132,7 @@ pub fn foreign_origin_never_becomes_local(
 ) -> bool {
     original.origin == FederationNode::Foreign
         && projected.origin == FederationNode::Foreign
+        && projected.authority_origin == FederationNode::Local
 }
 
 pub fn attempt_may_change_without_mutating_logical_delivery(
