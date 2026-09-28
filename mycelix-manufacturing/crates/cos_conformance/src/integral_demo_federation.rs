@@ -63,6 +63,7 @@ pub enum FederationDecision {
     RejectedForeignAuthority,
     RejectedPartitioned,
     RejectedPrivacyProjectionAsObservation,
+    RejectedMissingReference,
     RejectedOriginMutation,
 }
 
@@ -129,7 +130,11 @@ pub fn bind_delivery_to_observation(
     if !matches!(delivery_decision, FederationDecision::Accepted | FederationDecision::Replayed) {
         return EvidenceBindingDecision::RejectedDelivery;
     }
-    if observation.observation_id.is_empty() || observation.work_id.is_empty() {
+    if observation.observation_id.is_empty()
+        || observation.work_id.is_empty()
+        || observation.source_ref.is_empty()
+        || observation.evidence_ref.is_empty()
+    {
         return EvidenceBindingDecision::RejectedLogicalIdentity;
     }
     if observation.origin != envelope.origin {
@@ -565,6 +570,9 @@ pub fn accept_delivery(
     if envelope.schema_generation != current_generation {
         return FederationDecision::RejectedStaleGeneration;
     }
+    if envelope.source_ref.is_empty() || envelope.evidence_ref.is_empty() {
+        return FederationDecision::RejectedMissingReference;
+    }
     if envelope.authority_origin == FederationNode::Foreign {
         return FederationDecision::RejectedForeignAuthority;
     }
@@ -650,6 +658,8 @@ pub fn attempt_may_change_without_mutating_logical_delivery(
     first.logical_delivery_id == retry.logical_delivery_id
         && first.payload_digest == retry.payload_digest
         && first.origin == retry.origin
+        && first.source_ref == retry.source_ref
+        && first.evidence_ref == retry.evidence_ref
         && first.attempt_id != retry.attempt_id
 }
 
@@ -759,6 +769,23 @@ mod tests {
         assert_eq!(binding.logical_delivery_id, "delivery-1");
         assert_eq!(binding.origin, FederationNode::Foreign);
         assert_eq!(binding.source_ref, e.source_ref);
+    }
+
+    #[test]
+    fn missing_source_or_evidence_reference_fails_closed() {
+        let mut missing_source = envelope();
+        missing_source.source_ref = "";
+        assert_eq!(
+            accept_delivery(missing_source, 7, 20, None),
+            FederationDecision::RejectedMissingReference
+        );
+
+        let mut missing_evidence = envelope();
+        missing_evidence.evidence_ref = "";
+        assert_eq!(
+            accept_delivery(missing_evidence, 7, 20, None),
+            FederationDecision::RejectedMissingReference
+        );
     }
 
     #[test]
