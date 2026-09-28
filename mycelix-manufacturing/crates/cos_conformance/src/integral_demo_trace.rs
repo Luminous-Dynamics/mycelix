@@ -177,6 +177,7 @@ fn transition_allowed(from: TraceKind, to: TraceKind) -> bool {
             | (TraceKind::Recommendation, TraceKind::Appeal)
             | (TraceKind::FrsAssessment, TraceKind::Appeal)
             | (TraceKind::Observation, TraceKind::Appeal)
+            | (TraceKind::Observation, TraceKind::Observation)
     )
 }
 
@@ -283,6 +284,15 @@ pub fn validate_trace(events: &[TraceEvent]) -> Result<(), TraceError> {
             return Err(TraceError::GenerationRegression);
         }
         if !transition_allowed(previous.kind, current.kind) {
+            return Err(TraceError::IllegalTransition);
+        }
+        if previous.kind == TraceKind::Observation && current.kind == TraceKind::Observation
+            && !events.iter().any(|e| e.relations.iter().any(|r| {
+                r.relation == TraceRelation::Disputes
+                    && ((r.from_event == previous.event_id && r.to_event == current.event_id)
+                        || (r.from_event == current.event_id && r.to_event == previous.event_id))
+            }))
+        {
             return Err(TraceError::IllegalTransition);
         }
         if previous.uncertainty_present && !current.uncertainty_present {
