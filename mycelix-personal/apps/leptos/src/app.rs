@@ -39,7 +39,9 @@ use crate::mutation_refresh::{
 use crate::mutation_state::{MutationRefreshOutcome, PersonalMutationTarget};
 use crate::mutation_truth::MutationPendingNotice;
 use crate::pages::{ActivityPage, UnlockPage, WalletPage};
-use crate::profile_mutation::admit_profile_mutation;
+use crate::profile_mutation_service::{
+    submit_profile_mutation, ProfileMutationOutcome, ProfileMutationServiceError,
+};
 use crate::runtime_mode::{detect_runtime_mode, provide_runtime_mode, PersonalRuntimeMode};
 use crate::telemetry::ConstellationTelemetry;
 
@@ -478,41 +480,31 @@ fn IdentityPage() -> impl IntoView {
     let ledger = use_mutation_ledger();
     let location = use_location();
     let hc = mycelix_leptos_core::holochain_provider::use_holochain();
+    let diagnostics = use_mutation_diagnostic_runtime();
     let toasts = use_toasts();
     let ctx_for_save = ctx.clone();
 
     let save_profile = move |ev: SubmitEvent| {
         ev.prevent_default();
-        let input = match admit_profile_mutation(
-            ctx_for_save.identity_state.get_untracked(),
-            ctx_for_save.profile_action_hash.get_untracked(),
-            ctx_for_save.draft_profile.get(),
-        ) {
-            Ok(input) => input,
-            Err(_) => {
-                toasts.push(
-                    "Profile was not written because the live Identity baseline is not established. Your local draft was retained; reconcile the current Personal snapshot before retrying."
-                        .into(),
-                    ToastKind::Error,
-                );
-                return;
-            }
-        };
-
+        let identity_state = ctx_for_save.identity_state.get_untracked();
+        let profile_action_hash = ctx_for_save.profile_action_hash.get_untracked();
+        let profile = ctx_for_save.draft_profile.get();
         let hc = hc.clone();
+        let diagnostics = diagnostics;
         let toasts = toasts.clone();
         let ctx = ctx_for_save.clone();
         let ledger = ledger;
         spawn_local(async move {
-            match hc
-                .call_zome_default::<_, ConditionalMutationResultView>(
-                    "identity_vault",
-                    "set_profile_view_if_current",
-                    &input,
-                )
-                .await
+            match submit_profile_mutation(
+                &hc,
+                diagnostics,
+                identity_state,
+                profile_action_hash,
+                profile,
+            )
+            .await
             {
-                Ok(ConditionalMutationResultView::Committed { receipt }) => {
+                Ok(ProfileMutationOutcome::Committed { receipt }) => {
                     let action_hash = receipt.action_hash;
                     ledger.record_committed(PersonalMutationTarget::Profile, action_hash.clone());
                     let outcome = refresh_identity_after_mutation(ctx.clone(), hc.clone()).await;
@@ -526,7 +518,7 @@ fn IdentityPage() -> impl IntoView {
                         );
                     }
                 }
-                Ok(ConditionalMutationResultView::Conflict { current_action_hash }) => {
+                Ok(ProfileMutationOutcome::Conflict { current_action_hash }) => {
                     let current = current_action_hash
                         .map(|hash| format!("current action {hash}"))
                         .unwrap_or_else(|| "current authoritative Profile is empty".into());
@@ -537,9 +529,17 @@ fn IdentityPage() -> impl IntoView {
                         ToastKind::Error,
                     );
                 }
-                Err(err) => {
+                Err(ProfileMutationServiceError::Admission(_)) => {
                     toasts.push(
-                        format!("Profile write failed; local draft retained: {err}"),
+                        "Profile was not written because the live Identity baseline is not established. Your local draft was retained; reconcile the current Personal snapshot before retrying."
+                            .into(),
+                        ToastKind::Error,
+                    );
+                }
+                Err(ProfileMutationServiceError::Dispatch(_)) => {
+                    toasts.push(
+                        "Profile write did not return a typed domain result. Review the Identity mutation status before taking another action; your local draft was retained."
+                            .into(),
                         ToastKind::Error,
                     );
                 }
