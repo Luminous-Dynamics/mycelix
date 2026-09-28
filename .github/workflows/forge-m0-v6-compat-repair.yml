@@ -1,0 +1,45 @@
+name: Forge M0 v6 Compatibility Repair Candidate
+
+on:
+  pull_request:
+    paths:
+      - 'adapters/forge-m0-offline-evidence-v6/**'
+      - 'adapters/forge-sealed-inputs/**'
+      - 'adapters/forge-guest-plan/**'
+      - 'crates/mycelix-forge-repository/**'
+      - '.github/workflows/forge-m0-v6-compat-repair.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-repair-candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+      - name: rustfmt sealed-inputs
+        working-directory: adapters/forge-sealed-inputs
+        run: cargo fmt -- --check
+      - name: rustfmt guest-plan
+        working-directory: adapters/forge-guest-plan
+        run: cargo fmt -- --check
+      - name: rustfmt repository contracts
+        working-directory: crates/mycelix-forge-repository
+        run: cargo fmt -- --check
+      - name: rustfmt M0 candidate
+        working-directory: adapters/forge-m0-offline-evidence-v6
+        run: cargo fmt -- --check
+      - name: clippy M0 candidate
+        working-directory: adapters/forge-m0-offline-evidence-v6
+        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: tests M0 candidate
+        working-directory: adapters/forge-m0-offline-evidence-v6
+        run: cargo test --all-features
