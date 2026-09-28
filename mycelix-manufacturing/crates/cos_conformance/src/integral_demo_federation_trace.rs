@@ -59,6 +59,7 @@ pub fn observation_binding_trace(
             actor: TraceActor::System,
             source,
             source_ref: binding.source_ref,
+            evidence_ref: Some(binding.source_ref),
             generation: binding.schema_generation,
             uncertainty_present,
             authority_ref: None,
