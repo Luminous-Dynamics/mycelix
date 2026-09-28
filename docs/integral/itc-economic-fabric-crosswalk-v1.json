@@ -1,0 +1,75 @@
+{
+  "schema": "mycelix.integral.itc-economic-fabric-crosswalk/v1",
+  "status": "candidate",
+  "source_owner": "Integral ITC",
+  "boundaries": [
+    [
+      "COSWorkObservation",
+      "ITCWeightingAssessment"
+    ],
+    [
+      "ITCWeightingAssessment",
+      "ITCCreditIssuance"
+    ],
+    [
+      "ITCCreditIssuance",
+      "SAP"
+    ],
+    [
+      "ITCCreditIssuance",
+      "TEND"
+    ],
+    [
+      "ITCCreditIssuance",
+      "MYCEL"
+    ],
+    [
+      "ITCAccountProjection",
+      "Authorization"
+    ],
+    [
+      "AccountingEvent",
+      "Settlement"
+    ],
+    [
+      "ForeignRecognition",
+      "LocalIssuance"
+    ]
+  ],
+  "positive_cases": [
+    "labor_to_assessment",
+    "assessment_to_issuance",
+    "ledger_to_position",
+    "material_to_contribution",
+    "itc_to_frs",
+    "correction_lineage",
+    "foreign_recognition_origin",
+    "itc_external_valuation",
+    "itc_external_settlement"
+  ],
+  "negative_cases": [
+    "labor_to_money",
+    "itc_to_sap",
+    "itc_to_tend",
+    "itc_to_mycel",
+    "balance_to_authorization",
+    "accounting_to_settlement",
+    "foreign_to_local_mint",
+    "correction_rewrites_history",
+    "valuation_to_unit_substitution"
+  ],
+  "required_identity": [
+    "source_schema",
+    "source_revision",
+    "object_id",
+    "participant_id",
+    "quantity",
+    "unit",
+    "scale",
+    "policy_profile",
+    "validity",
+    "provenance",
+    "correction_lineage"
+  ],
+  "claim_ceiling": "Candidate interoperability contract only; no Integral ratification or economic-effectiveness claim."
+}
