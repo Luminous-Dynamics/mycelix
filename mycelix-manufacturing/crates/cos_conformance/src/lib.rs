@@ -13,6 +13,7 @@ pub mod oad_cos_admission;
 pub mod cos_projections;
 pub mod integral_phase0_schema;
 pub mod integral_oad_cos_interface;
+pub mod integral_oad_cos_formal;
 
 pub const CORPUS_ID: &str = "COS-CONF-001";
 pub const FORMAL_OBLIGATIONS: [&str; 10] = [
