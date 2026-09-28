@@ -215,5 +215,5 @@ fn Fact(title: &'static str, value: &'static str) -> impl IntoView {
 }
 
 fn main() {
-    leptos::mount::mount_to_body(App);
+    leptos::mount::mount_to_body(|| view! { <App /> });
 }
