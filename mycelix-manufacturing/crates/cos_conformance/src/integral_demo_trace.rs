@@ -104,6 +104,21 @@ pub struct TraceDigest {
     pub foreign_origin_present: bool,
 }
 
+fn expected_provenance(kind: TraceKind) -> ProvenanceClass {
+    match kind {
+        TraceKind::Proposal => ProvenanceClass::Proposal,
+        TraceKind::Design => ProvenanceClass::Design,
+        TraceKind::Decision | TraceKind::HumanDecision => ProvenanceClass::Decision,
+        TraceKind::Authorization => ProvenanceClass::Authorization,
+        TraceKind::ExecutionIntent => ProvenanceClass::ExecutionIntent,
+        TraceKind::Observation => ProvenanceClass::Observation,
+        TraceKind::ItcProjection | TraceKind::FrsAssessment => ProvenanceClass::Assessment,
+        TraceKind::Recommendation => ProvenanceClass::Recommendation,
+        TraceKind::Outcome => ProvenanceClass::Outcome,
+        TraceKind::Appeal => ProvenanceClass::Appeal,
+    }
+}
+
 fn transition_allowed(from: TraceKind, to: TraceKind) -> bool {
     matches!(
         (from, to),
@@ -132,7 +147,16 @@ pub fn validate_trace(events: &[TraceEvent]) -> Result<(), TraceError> {
         return Err(TraceError::EmptyIdentity);
     }
 
-    for event in events {
+    for (index, event) in events.iter().enumerate() {
+        if event.event_id.is_empty() || event.source_ref.is_empty() {
+            return Err(TraceError::EmptyIdentity);
+        }
+        if event.provenance != expected_provenance(event.kind) {
+            return Err(TraceError::ProvenanceMutation);
+        }
+        if events.iter().take(index).any(|prior| prior.event_id == event.event_id) {
+            return Err(TraceError::DuplicateIdentityMutation);
+        }
         if event.event_id.is_empty() || event.source_ref.is_empty() {
             return Err(TraceError::EmptyIdentity);
         }
