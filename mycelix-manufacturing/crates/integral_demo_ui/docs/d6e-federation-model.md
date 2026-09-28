@@ -42,3 +42,8 @@ That conflict can feed the existing FRS conflict/assessment seam, where a later 
 The observation reconciler is explicitly order-invariant. Reversing delivery order cannot change whether the reference model sees agreement or conflict.
 
 When quantities disagree, the result is `ConflictPreserved`; there is no implicit winner. A later FRS or governance process must make any resolution explicit rather than having federation silently choose one observation.
+
+
+## Resolution boundary
+
+A preserved conflict is not a resolved conflict. `resolve_conflict` returns `AwaitingHumanDecision` until an explicit decision reference is supplied. The federation layer therefore records disagreement without selecting an outcome; a subsequent decision is a separate artifact.
