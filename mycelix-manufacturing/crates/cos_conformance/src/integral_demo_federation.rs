@@ -84,6 +84,84 @@ pub struct FederationObservation {
     pub observed_at: u64,
 }
 
+
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EvidenceBindingDecision {
+    Bound,
+    Replayed,
+    RejectedDelivery,
+    RejectedLogicalIdentity,
+    RejectedOriginMutation,
+    RejectedGenerationMismatch,
+    RejectedSourceMutation,
+}
+
+/// A source observation may be materialized from a federation delivery only when
+/// the delivery itself has crossed the acceptance boundary. The binding keeps
+/// logical delivery identity, source origin, schema generation, and source ref
+/// visible rather than laundering transport provenance into local evidence.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FederationObservationBinding {
+    pub logical_delivery_id: &'static str,
+    pub observation_id: &'static str,
+    pub source_ref: &'static str,
+    pub origin: FederationNode,
+    pub schema_generation: u32,
+    pub payload_digest: &'static str,
+}
+
+pub fn bind_delivery_to_observation(
+    envelope: FederationEnvelope,
+    observation: FederationObservation,
+    current_generation: u32,
+    now: u64,
+    existing: Option<FederationReceipt>,
+) -> EvidenceBindingDecision {
+    let delivery_decision = accept_delivery(envelope, current_generation, now, existing);
+    if !matches!(delivery_decision, FederationDecision::Accepted | FederationDecision::Replayed) {
+        return EvidenceBindingDecision::RejectedDelivery;
+    }
+    if observation.observation_id.is_empty() || observation.work_id.is_empty() {
+        return EvidenceBindingDecision::RejectedLogicalIdentity;
+    }
+    if observation.origin != envelope.origin {
+        return EvidenceBindingDecision::RejectedOriginMutation;
+    }
+    if envelope.schema_generation != current_generation {
+        return EvidenceBindingDecision::RejectedGenerationMismatch;
+    }
+    if observation.evidence_ref != envelope.source_ref {
+        return EvidenceBindingDecision::RejectedSourceMutation;
+    }
+    if matches!(delivery_decision, FederationDecision::Replayed) {
+        EvidenceBindingDecision::Replayed
+    } else {
+        EvidenceBindingDecision::Bound
+    }
+}
+
+pub fn observation_binding_for(
+    envelope: FederationEnvelope,
+    observation: FederationObservation,
+    current_generation: u32,
+    now: u64,
+) -> Option<FederationObservationBinding> {
+    if bind_delivery_to_observation(envelope, observation, current_generation, now, None)
+        != EvidenceBindingDecision::Bound
+    {
+        return None;
+    }
+    Some(FederationObservationBinding {
+        logical_delivery_id: envelope.logical_delivery_id,
+        observation_id: observation.observation_id,
+        source_ref: observation.evidence_ref,
+        origin: observation.origin,
+        schema_generation: envelope.schema_generation,
+        payload_digest: envelope.payload_digest,
+    })
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ObservationConflict {
     pub work_id: &'static str,
@@ -633,6 +711,101 @@ mod tests {
         assert_eq!(replay.len(), 2);
         assert_eq!(replay[0], FederationDecision::RejectedDuplicateMutation);
         assert_eq!(replay[1], FederationDecision::RejectedDuplicateMutation);
+    }
+
+    #[test]
+    fn accepted_delivery_binds_observation_without_laundering_origin() {
+        let e = envelope();
+        let observation = FederationObservation {
+            observation_id: "obs-foreign",
+            work_id: "work-1",
+            origin: FederationNode::Foreign,
+            quantity: 12,
+            evidence_ref: e.source_ref,
+            observed_at: e.observed_at,
+        };
+        assert_eq!(
+            bind_delivery_to_observation(e, observation, 7, 20, None),
+            EvidenceBindingDecision::Bound
+        );
+        let binding = observation_binding_for(e, observation, 7, 20).expect("binding");
+        assert_eq!(binding.logical_delivery_id, "delivery-1");
+        assert_eq!(binding.origin, FederationNode::Foreign);
+        assert_eq!(binding.source_ref, e.source_ref);
+    }
+
+    #[test]
+    fn observation_cannot_mutate_delivery_origin_or_source() {
+        let e = envelope();
+        let mut observation = FederationObservation {
+            observation_id: "obs-foreign",
+            work_id: "work-1",
+            origin: FederationNode::Local,
+            quantity: 12,
+            evidence_ref: e.source_ref,
+            observed_at: e.observed_at,
+        };
+        assert_eq!(
+            bind_delivery_to_observation(e, observation, 7, 20, None),
+            EvidenceBindingDecision::RejectedOriginMutation
+        );
+        observation.origin = FederationNode::Foreign;
+        observation.evidence_ref = "different-source";
+        assert_eq!(
+            bind_delivery_to_observation(e, observation, 7, 20, None),
+            EvidenceBindingDecision::RejectedSourceMutation
+        );
+    }
+
+    #[test]
+    fn stale_or_partitioned_delivery_cannot_materialize_observation() {
+        let mut stale = envelope();
+        stale.schema_generation = 6;
+        let observation = FederationObservation {
+            observation_id: "obs-stale",
+            work_id: "work-1",
+            origin: FederationNode::Foreign,
+            quantity: 12,
+            evidence_ref: stale.source_ref,
+            observed_at: stale.observed_at,
+        };
+        assert_eq!(
+            bind_delivery_to_observation(stale, observation, 7, 20, None),
+            EvidenceBindingDecision::RejectedDelivery
+        );
+
+        let mut partitioned = envelope();
+        partitioned.state = DeliveryState::Partitioned;
+        let observation = FederationObservation {
+            observation_id: "obs-partitioned",
+            work_id: "work-1",
+            origin: FederationNode::Foreign,
+            quantity: 12,
+            evidence_ref: partitioned.source_ref,
+            observed_at: partitioned.observed_at,
+        };
+        assert_eq!(
+            bind_delivery_to_observation(partitioned, observation, 7, 20, None),
+            EvidenceBindingDecision::RejectedDelivery
+        );
+    }
+
+    #[test]
+    fn replayed_delivery_replays_observation_binding() {
+        let e = envelope();
+        let receipt = receipt_for(e);
+        let observation = FederationObservation {
+            observation_id: "obs-replay",
+            work_id: "work-1",
+            origin: FederationNode::Foreign,
+            quantity: 12,
+            evidence_ref: e.source_ref,
+            observed_at: e.observed_at,
+        };
+        assert_eq!(
+            bind_delivery_to_observation(e, observation, 7, 20, Some(receipt)),
+            EvidenceBindingDecision::Replayed
+        );
     }
 
     #[test]
