@@ -17,9 +17,6 @@ use mycelix_leptos_core::{
     AvailabilityStateKind, EmptyState, FreshnessBadge, FreshnessLevel, HolochainProviderAuto,
     HolochainProviderConfig, NavLink, NavTab, ToastContainer, ToastKind,
 };
-use personal_leptos_types::{
-    ConditionalMutationResultView, ConditionalPreferenceMutationInputView,
-};
 
 use crate::health_consent_mutation_service::submit_health_consent_mutation;
 use crate::components::{
@@ -41,6 +38,9 @@ use crate::mutation_truth::MutationPendingNotice;
 use crate::pages::{ActivityPage, UnlockPage, WalletPage};
 use crate::profile_mutation_service::{
     submit_profile_mutation, ProfileMutationOutcome, ProfileMutationServiceError,
+};
+use crate::preference_mutation_service::{
+    submit_existing_preference_mutation, PreferenceMutationOutcome, PreferenceMutationServiceError,
 };
 use crate::runtime_mode::{detect_runtime_mode, provide_runtime_mode, PersonalRuntimeMode};
 use crate::telemetry::ConstellationTelemetry;
@@ -827,6 +827,7 @@ fn PreferenceCard(pref: personal_leptos_types::DataSharingPreferenceView) -> imp
     let ctx = use_personal();
     let ledger = use_mutation_ledger();
     let hc = mycelix_leptos_core::holochain_provider::use_holochain();
+    let diagnostics = use_mutation_diagnostic_runtime();
     let toasts = use_toasts();
     let pair = (
         pref.source_cluster.clone(),
@@ -869,11 +870,6 @@ fn PreferenceCard(pref: personal_leptos_types::DataSharingPreferenceView) -> imp
         next.allowed = !next.allowed;
         local_pref.set(next.clone());
         blocked_zomes_text.set(next.blocked_zomes.join(", "));
-        let input = ConditionalPreferenceMutationInputView {
-            expected_action_hash: Some(expected_action_hash),
-            preference: next.clone(),
-        };
-
         let hc = toggle_hc.clone();
         let toasts = toggle_toasts.clone();
         let ctx = toggle_ctx.clone();
@@ -882,15 +878,16 @@ fn PreferenceCard(pref: personal_leptos_types::DataSharingPreferenceView) -> imp
         let local_pref_signal = local_pref;
         let blocked_zomes_signal = blocked_zomes_text;
         spawn_local(async move {
-            match hc
-                .call_zome_default::<_, ConditionalMutationResultView>(
-                    "data_preferences",
-                    "set_preference_view_if_current",
-                    &input,
-                )
-                .await
+            match submit_existing_preference_mutation(
+                &hc,
+                diagnostics,
+                target.clone(),
+                Some(expected_action_hash),
+                next.clone(),
+            )
+            .await
             {
-                Ok(ConditionalMutationResultView::Committed { receipt }) => {
+                Ok(PreferenceMutationOutcome::Committed { receipt, .. }) => {
                     let action_hash = receipt.action_hash;
                     ledger.record_committed(target, action_hash.clone());
                     let outcome = refresh_preferences_after_mutation(ctx.clone(), hc.clone()).await;
@@ -906,7 +903,7 @@ fn PreferenceCard(pref: personal_leptos_types::DataSharingPreferenceView) -> imp
                         );
                     }
                 }
-                Ok(ConditionalMutationResultView::Conflict { current_action_hash }) => {
+                Ok(PreferenceMutationOutcome::Conflict { current_action_hash, .. }) => {
                     local_pref_signal.set(previous.clone());
                     blocked_zomes_signal.set(previous.blocked_zomes.join(", "));
                     let current = preference_conflict_copy(current_action_hash);
@@ -917,10 +914,23 @@ fn PreferenceCard(pref: personal_leptos_types::DataSharingPreferenceView) -> imp
                         ToastKind::Error,
                     );
                 }
-                Err(err) => {
+                Err(PreferenceMutationServiceError::Admission(_)) => {
                     local_pref_signal.set(previous.clone());
                     blocked_zomes_signal.set(previous.blocked_zomes.join(", "));
-                    toasts.push(format!("Preference update failed: {err}"), ToastKind::Error);
+                    toasts.push(
+                        "Preference admission was not established for this pair. The optimistic local toggle was rolled back; reconcile before taking another action."
+                            .into(),
+                        ToastKind::Error,
+                    );
+                }
+                Err(PreferenceMutationServiceError::Dispatch(_)) => {
+                    local_pref_signal.set(previous.clone());
+                    blocked_zomes_signal.set(previous.blocked_zomes.join(", "));
+                    toasts.push(
+                        "Preference update did not return a typed domain result. The local toggle was restored; reconcile before taking another action."
+                            .into(),
+                        ToastKind::Error,
+                    );
                 }
             }
         });
@@ -945,11 +955,6 @@ fn PreferenceCard(pref: personal_leptos_types::DataSharingPreferenceView) -> imp
             .map(ToString::to_string)
             .collect();
         local_pref.set(next.clone());
-        let input = ConditionalPreferenceMutationInputView {
-            expected_action_hash: Some(expected_action_hash),
-            preference: next.clone(),
-        };
-
         let hc = save_hc.clone();
         let toasts = save_toasts.clone();
         let ctx = save_ctx.clone();
@@ -958,15 +963,16 @@ fn PreferenceCard(pref: personal_leptos_types::DataSharingPreferenceView) -> imp
         let local_pref_signal = local_pref;
         let blocked_zomes_signal = blocked_zomes_text;
         spawn_local(async move {
-            match hc
-                .call_zome_default::<_, ConditionalMutationResultView>(
-                    "data_preferences",
-                    "set_preference_view_if_current",
-                    &input,
-                )
-                .await
+            match submit_existing_preference_mutation(
+                &hc,
+                diagnostics,
+                target.clone(),
+                Some(expected_action_hash),
+                next.clone(),
+            )
+            .await
             {
-                Ok(ConditionalMutationResultView::Committed { receipt }) => {
+                Ok(PreferenceMutationOutcome::Committed { receipt, .. }) => {
                     let action_hash = receipt.action_hash;
                     ledger.record_committed(target, action_hash.clone());
                     let outcome = refresh_preferences_after_mutation(ctx.clone(), hc.clone()).await;
@@ -982,7 +988,7 @@ fn PreferenceCard(pref: personal_leptos_types::DataSharingPreferenceView) -> imp
                         );
                     }
                 }
-                Ok(ConditionalMutationResultView::Conflict { current_action_hash }) => {
+                Ok(PreferenceMutationOutcome::Conflict { current_action_hash, .. }) => {
                     local_pref_signal.set(previous.clone());
                     blocked_zomes_signal.set(previous.blocked_zomes.join(", "));
                     let current = preference_conflict_copy(current_action_hash);
@@ -993,10 +999,23 @@ fn PreferenceCard(pref: personal_leptos_types::DataSharingPreferenceView) -> imp
                         ToastKind::Error,
                     );
                 }
-                Err(err) => {
+                Err(PreferenceMutationServiceError::Admission(_)) => {
                     local_pref_signal.set(previous.clone());
                     blocked_zomes_signal.set(previous.blocked_zomes.join(", "));
-                    toasts.push(format!("Preference update failed: {err}"), ToastKind::Error);
+                    toasts.push(
+                        "Preference admission was not established for this pair. Local state was restored; reconcile before taking another action."
+                            .into(),
+                        ToastKind::Error,
+                    );
+                }
+                Err(PreferenceMutationServiceError::Dispatch(_)) => {
+                    local_pref_signal.set(previous.clone());
+                    blocked_zomes_signal.set(previous.blocked_zomes.join(", "));
+                    toasts.push(
+                        "Preference update did not return a typed domain result. Local state was restored; reconcile before taking another action."
+                            .into(),
+                        ToastKind::Error,
+                    );
                 }
             }
         });
