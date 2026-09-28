@@ -18,6 +18,8 @@ pub struct FrsFinding {
     pub observed_quantity: u32,
     pub finding_basis: &'static str,
     pub observation_binding: ObservationBinding,
+    pub source_generation: u32,
+    pub assessed_at: u64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -27,6 +29,17 @@ pub struct FrsRecommendation {
     pub rationale: &'static str,
     pub source: SourceKind,
     pub uncertainty_present: bool,
+    pub finding_generation: u32,
+    pub review_before: Option<u64>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FrsConflict {
+    pub left_observation_id: &'static str,
+    pub right_observation_id: &'static str,
+    pub left_quantity: u32,
+    pub right_quantity: u32,
+    pub same_work_id: &'static str,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -35,12 +48,16 @@ pub enum FrsDecision {
     RejectedWrongProvenance,
     RejectedEmptyBasis,
     RejectedSourceMutation,
+    RejectedStaleProjection,
+    RejectedFutureAssessmentTime,
 }
 
 pub fn project_itc_to_frs(
     projection: Option<&ItcProjection>,
     finding_id: &'static str,
     finding_basis: &'static str,
+    current_generation: u32,
+    assessed_at: u64,
 ) -> FrsDecision {
     let Some(projection) = projection else {
         return FrsDecision::RejectedWrongProvenance;
@@ -54,8 +71,23 @@ pub fn project_itc_to_frs(
         return FrsDecision::RejectedEmptyBasis;
     }
 
-    if projection.observation_binding.observation_id != projection.source_observation_id {
+    if projection.observation_binding.observation_id != projection.source_observation_id
+        || projection.observation_binding.work_id.is_empty()
+        || projection.observation_binding.actor_id.is_empty()
+        || projection.observation_binding.evidence_ref.is_empty()
+        || projection.observation_binding.source != projection.source
+        || projection.observation_binding.uncertainty_present != projection.uncertainty_present
+        || projection.observation_binding.observed_quantity != projection.projected_contribution
+    {
         return FrsDecision::RejectedSourceMutation;
+    }
+
+    if projection.observation_binding.design_generation != current_generation {
+        return FrsDecision::RejectedStaleProjection;
+    }
+
+    if assessed_at < projection.observation_binding.observed_at {
+        return FrsDecision::RejectedFutureAssessmentTime;
     }
 
     FrsDecision::Finding(FrsFinding {
@@ -68,6 +100,8 @@ pub fn project_itc_to_frs(
         observed_quantity: projection.projected_contribution,
         finding_basis,
         observation_binding: projection.observation_binding,
+        source_generation: projection.observation_binding.design_generation,
+        assessed_at,
     })
 }
 
@@ -75,10 +109,12 @@ pub fn finding_to_recommendation(
     finding: &FrsFinding,
     recommendation_id: &'static str,
     rationale: &'static str,
+    review_before: Option<u64>,
 ) -> Option<FrsRecommendation> {
     if finding.provenance != ProvenanceClass::Assessment
         || recommendation_id.is_empty()
         || rationale.is_empty()
+        || review_before.is_some_and(|deadline| deadline < finding.assessed_at)
     {
         return None;
     }
@@ -89,6 +125,29 @@ pub fn finding_to_recommendation(
         rationale,
         source: finding.source,
         uncertainty_present: finding.uncertainty_present,
+        finding_generation: finding.source_generation,
+        review_before,
+    })
+}
+
+/// Two source observations can disagree without one being rewritten into the other.
+pub fn preserve_conflicting_observations(
+    left: &ObservationBinding,
+    right: &ObservationBinding,
+) -> Option<FrsConflict> {
+    if left.work_id != right.work_id
+        || left.observation_id == right.observation_id
+        || left.observed_quantity == right.observed_quantity
+    {
+        return None;
+    }
+
+    Some(FrsConflict {
+        left_observation_id: left.observation_id,
+        right_observation_id: right.observation_id,
+        left_quantity: left.observed_quantity,
+        right_quantity: right.observed_quantity,
+        same_work_id: left.work_id,
     })
 }
 
@@ -99,7 +158,7 @@ pub fn feedback_does_not_become_governance_authority() -> bool {
         && ProvenanceClass::Recommendation != ProvenanceClass::Authorization
 }
 
-/// The CDS decision remains an explicit human/community artifact; FRS feedback
+/// The CDS decision remains a separate human/community artifact; FRS feedback
 /// may inform it but cannot manufacture the decision.
 pub fn recommendation_requires_separate_decision(
     recommendation: &FrsRecommendation,
@@ -135,23 +194,29 @@ mod tests {
         }
     }
 
-    #[test]
-    fn projection_becomes_assessment_not_decision() {
-        let result = project_itc_to_frs(Some(&projection()), "finding-001", "quantity review");
-        let FrsDecision::Finding(finding) = result else {
+    fn finding() -> FrsFinding {
+        let FrsDecision::Finding(f) =
+            project_itc_to_frs(Some(&projection()), "finding-001", "quantity review", 7, 1_100)
+        else {
             panic!("expected finding");
         };
-        assert_eq!(finding.provenance, ProvenanceClass::Assessment);
-        assert_eq!(finding.source_observation_id, "obs-001");
-        assert!(finding.uncertainty_present);
+        f
     }
 
     #[test]
-    fn source_binding_cannot_be_rewritten() {
+    fn projection_becomes_assessment_not_decision() {
+        let f = finding();
+        assert_eq!(f.provenance, ProvenanceClass::Assessment);
+        assert_eq!(f.source_observation_id, "obs-001");
+        assert!(f.uncertainty_present);
+    }
+
+    #[test]
+    fn complete_source_binding_is_checked() {
         let mut value = projection();
-        value.observation_binding.observation_id = "obs-evil";
+        value.observation_binding.observed_quantity = 11;
         assert_eq!(
-            project_itc_to_frs(Some(&value), "finding-001", "quantity review"),
+            project_itc_to_frs(Some(&value), "finding-001", "quantity review", 7, 1_100),
             FrsDecision::RejectedSourceMutation
         );
     }
@@ -161,27 +226,58 @@ mod tests {
         let mut value = projection();
         value.source = SourceKind::Foreign;
         value.observation_binding.source = SourceKind::Foreign;
-        let FrsDecision::Finding(finding) =
-            project_itc_to_frs(Some(&value), "finding-001", "foreign observation review")
+        let FrsDecision::Finding(f) =
+            project_itc_to_frs(Some(&value), "finding-001", "foreign review", 7, 1_100)
         else {
             panic!("expected finding");
         };
-        assert_eq!(finding.source, SourceKind::Foreign);
-        assert_eq!(finding.observation_binding.source, SourceKind::Foreign);
+        assert_eq!(f.source, SourceKind::Foreign);
+        assert_eq!(f.observation_binding.source, SourceKind::Foreign);
     }
 
     #[test]
-    fn recommendation_preserves_uncertainty_and_finding_lineage() {
-        let FrsDecision::Finding(finding) =
-            project_itc_to_frs(Some(&projection()), "finding-001", "quantity review")
-        else {
-            panic!("expected finding");
-        };
+    fn stale_generation_cannot_become_current_feedback() {
+        assert_eq!(
+            project_itc_to_frs(Some(&projection()), "finding-001", "review", 8, 1_100),
+            FrsDecision::RejectedStaleProjection
+        );
+    }
+
+    #[test]
+    fn assessment_cannot_predate_observation() {
+        assert_eq!(
+            project_itc_to_frs(Some(&projection()), "finding-001", "review", 7, 999),
+            FrsDecision::RejectedFutureAssessmentTime
+        );
+    }
+
+    #[test]
+    fn recommendation_preserves_uncertainty_and_lineage() {
         let recommendation =
-            finding_to_recommendation(&finding, "recommendation-001", "request human review")
+            finding_to_recommendation(&finding(), "recommendation-001", "request human review", Some(2_000))
                 .expect("valid recommendation");
         assert_eq!(recommendation.finding_id, "finding-001");
+        assert_eq!(recommendation.finding_generation, 7);
         assert!(recommendation.uncertainty_present);
+        assert_eq!(recommendation.review_before, Some(2_000));
+    }
+
+    #[test]
+    fn invalid_review_window_is_rejected() {
+        assert!(finding_to_recommendation(&finding(), "recommendation-001", "review", Some(1_099)).is_none());
+    }
+
+    #[test]
+    fn conflicting_observations_remain_distinguishable() {
+        let left = projection().observation_binding;
+        let mut right = left;
+        right.observation_id = "obs-002";
+        right.observed_quantity = 14;
+        let conflict = preserve_conflicting_observations(&left, &right).expect("conflict preserved");
+        assert_eq!(conflict.left_observation_id, "obs-001");
+        assert_eq!(conflict.right_observation_id, "obs-002");
+        assert_eq!(conflict.left_quantity, 12);
+        assert_eq!(conflict.right_quantity, 14);
     }
 
     #[test]
@@ -190,24 +286,23 @@ mod tests {
     }
 
     #[test]
-    fn recommendation_needs_separate_human_decision_artifact() {
+    fn recommendation_needs_separate_decision_artifact() {
         let recommendation = FrsRecommendation {
             recommendation_id: "recommendation-001",
             finding_id: "finding-001",
             rationale: "request review",
             source: SourceKind::Local,
             uncertainty_present: true,
+            finding_generation: 7,
+            review_before: Some(2_000),
         };
-        assert!(recommendation_requires_separate_decision(
-            &recommendation,
-            &DemoDecision::Accepted
-        ));
+        assert!(recommendation_requires_separate_decision(&recommendation, &DemoDecision::Accepted));
     }
 
     #[test]
     fn empty_finding_basis_is_rejected() {
         assert_eq!(
-            project_itc_to_frs(Some(&projection()), "finding-001", ""),
+            project_itc_to_frs(Some(&projection()), "finding-001", "", 7, 1_100),
             FrsDecision::RejectedEmptyBasis
         );
     }
