@@ -114,14 +114,19 @@ pub fn trace_for(id: ScenarioId) -> Vec<TraceEvent> {
             t
         }
         ScenarioId::StaleDesign => {
-            t[1].generation = 6;
-            t[1].status = crate::integral_demo_trace::TraceStatus::Superseded;
-            t[2].generation = 7;
-            t[2].relations = Box::leak(vec![crate::integral_demo_trace::TraceRelationRef {
-                from_event: "c1",
-                to_event: "d1",
+            let mut prior_design = t[1];
+            prior_design.event_id = "d0";
+            prior_design.generation = 6;
+            prior_design.status = crate::integral_demo_trace::TraceStatus::Superseded;
+
+            t[1].generation = 7;
+            t[1].relations = Box::leak(vec![crate::integral_demo_trace::TraceRelationRef {
+                from_event: "d1",
+                to_event: "d0",
                 relation: crate::integral_demo_trace::TraceRelation::Supersedes,
             }].into_boxed_slice());
+            t[2].generation = 6;
+            t.insert(2, prior_design);
             t
         }
         ScenarioId::UncertainObservation => {
