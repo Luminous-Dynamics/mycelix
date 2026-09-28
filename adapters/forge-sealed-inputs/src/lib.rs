@@ -312,11 +312,11 @@ pub fn build_sealed_bubblewrap_command(
     let mut index = 0;
     while index + 2 < command.args.len() {
         if command.args[index] == "--ro-bind" {
-            let destination = command.args[index + 2].as_str();
-            if let Some(fd) = fd_by_destination.get(destination) {
+            let destination = command.args[index + 2].clone();
+            if let Some(fd) = fd_by_destination.get(destination.as_str()) {
                 command.args[index] = "--ro-bind-fd".to_owned();
                 command.args[index + 1] = fd.to_string();
-                rewritten.insert(destination.to_owned());
+                rewritten.insert(destination);
             }
             index += 3;
         } else {

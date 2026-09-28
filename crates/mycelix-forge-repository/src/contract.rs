@@ -476,6 +476,48 @@ impl RepositoryVerificationRequest {
     }
 }
 
+impl<'de> Deserialize<'de> for RepositoryVerificationRequest {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct WireRequest {
+            version: ProtocolVersion,
+            project: ProjectIdentity,
+            adoption: Digest,
+            reference: RepositoryRef,
+            from: GitObjectId,
+            to: GitObjectId,
+            authority_epoch: Digest,
+            project_policy: Digest,
+            repository_policy_state: Digest,
+            repository_policy_sequence: u64,
+        }
+
+        let wire = WireRequest::deserialize(deserializer)?;
+        ensure_current_version(wire.version).map_err(D::Error::custom)?;
+        if wire.from == wire.to {
+            return Err(D::Error::custom(
+                RepositoryVerificationError::NoOpTransition,
+            ));
+        }
+
+        Ok(Self {
+            version: CURRENT_PROTOCOL_VERSION,
+            project: wire.project,
+            adoption: wire.adoption,
+            reference: wire.reference,
+            from: wire.from,
+            to: wire.to,
+            authority_epoch: wire.authority_epoch,
+            project_policy: wire.project_policy,
+            repository_policy_state: wire.repository_policy_state,
+            repository_policy_sequence: wire.repository_policy_sequence,
+        })
+    }
+}
+
 /// Semantics an adapter can demonstrably establish for one observation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum VerificationCapability {
