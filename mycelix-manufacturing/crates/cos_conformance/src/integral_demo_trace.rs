@@ -465,6 +465,13 @@ pub fn replay_fixture_is_idempotent(existing: &TraceFixture, replay: &TraceFixtu
     existing == replay
 }
 
+/// Projection and replay may preserve an authority reference, but they may not
+/// create, replace, or silently remove one. Governance transitions are validated
+/// separately by their explicit artifact semantics.
+pub fn authority_reference_is_conserved(before: &TraceEvent, after: &TraceEvent) -> bool {
+    before.authority_ref == after.authority_ref
+}
+
 /// Explanations are deterministic views over trace identity; they cannot become authority.
 pub fn explanation_view(
     request: ExplanationRequest,
@@ -682,6 +689,30 @@ mod tests {
         t.events[5].source = SourceKind::Foreign;
         t.events[6].source = SourceKind::Local;
         assert_eq!(validate_trace(&t), Err(TraceError::ForeignOriginLoss));
+    }
+
+    #[test]
+    fn authority_reference_cannot_escalate_or_mutate_during_projection() {
+        let t = valid_trace();
+        let before = t.events[5];
+
+        let mut gained = before;
+        gained.authority_ref = Some("authority://forged");
+        assert!(!authority_reference_is_conserved(&before, &gained));
+
+        let mut replaced = before;
+        replaced.authority_ref = Some("authority://different");
+        assert!(!authority_reference_is_conserved(&before, &replaced));
+
+        let mut removed = before;
+        removed.authority_ref = None;
+        assert!(authority_reference_is_conserved(&before, &removed));
+
+        let authorized = t.events[4];
+        let mut replay = authorized;
+        replay.authority_ref = Some("auth-other");
+        assert!(!authority_reference_is_conserved(&authorized, &replay));
+        assert!(authority_reference_is_conserved(&authorized, &authorized));
     }
 
     #[test]
