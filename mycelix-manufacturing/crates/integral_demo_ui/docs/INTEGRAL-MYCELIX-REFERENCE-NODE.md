@@ -76,6 +76,15 @@ This is an implementation choice designed to preserve the distinction between **
 
 It should be treated as a proposed federation invariant for discussion, not as a claim that Integral has already ratified this exact representation.
 
+### 2a. Source identity and evidence identity are separate
+
+The federation seam now carries two explicit references rather than reusing one identifier for both meanings:
+
+- `source_ref` identifies the source/binding context;
+- `evidence_ref` identifies the evidence artifact.
+
+The distinction is conserved in delivery envelopes, replay receipts, observation bindings, and D5 trace projection. Missing references and replay mutations fail closed in the reference validator. This is deliberately a proposed engineering invariant, not an Integral-ratified rule.
+
 ### 3. Reconciliation does not mean selecting a winner
 
 When two observations refer to the same work but disagree:
