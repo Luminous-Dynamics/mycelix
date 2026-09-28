@@ -103,6 +103,12 @@ pub fn reconcile_observations(
         return None;
     }
 
+    let (left, right) = if left.observation_id <= right.observation_id {
+        (left, right)
+    } else {
+        (right, left)
+    };
+
     Some(ObservationConflict {
         work_id: left.work_id,
         left_observation_id: left.observation_id,
@@ -511,13 +517,13 @@ mod tests {
             evidence_ref: "e-a",
             observed_at: 10,
         };
-        assert!(matches!(
+        assert_eq!(
             resolve_conflict(
                 reconcile_observation_set(&[observation]),
                 Some("decision-should-not-resolve-agreement")
             ),
-            ResolutionDecision::AwaitingHumanDecision(_)
-        ));
+            ResolutionDecision::NoConflict
+        );
     }
 
     #[test]
