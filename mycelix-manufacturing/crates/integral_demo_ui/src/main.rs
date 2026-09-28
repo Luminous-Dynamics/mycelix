@@ -44,8 +44,16 @@ fn App() -> impl IntoView {
                                     aria-pressed=move || selected.get() == index
                                 >
                                     <span class="scenario-name">{result.name}</span>
-                                    <span class=if result.actual_valid { "scenario-status valid" } else { "scenario-status invalid" }>
-                                        {if result.actual_valid { "valid reference path" } else { "fails closed" }}
+                                    <span class=match result.expected {
+                                        cos_conformance::integral_demo_scenarios::ScenarioExpected::PresentationOnly => "scenario-status neutral",
+                                        cos_conformance::integral_demo_scenarios::ScenarioExpected::Valid => "scenario-status valid",
+                                        cos_conformance::integral_demo_scenarios::ScenarioExpected::Invalid(_) => "scenario-status invalid",
+                                    }>
+                                        {match result.expected {
+                                            cos_conformance::integral_demo_scenarios::ScenarioExpected::PresentationOnly => "presentation-only",
+                                            cos_conformance::integral_demo_scenarios::ScenarioExpected::Valid => "valid reference path",
+                                            cos_conformance::integral_demo_scenarios::ScenarioExpected::Invalid(_) => "fails closed",
+                                        }}
                                     </span>
                                 </button>
                             }
