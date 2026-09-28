@@ -63,7 +63,7 @@ This is intentionally conservative. A simple minimum over the replicas currently
 
 The reference model therefore makes the scope closed before it permits a pruning theorem.
 
-This matches the broader distributed-systems requirement that safe causal garbage collection depends on knowing which replicas must be covered; when that knowledge is absent, reclamation may safely block rather than silently assume the missing replica is irrelevant. citeturn13search13
+This matches the broader distributed-systems requirement that safe causal garbage collection depends on knowing which replicas must be covered; when that knowledge is absent, reclamation may safely block rather than silently assume the missing replica is irrelevant.
 
 ## Retention boundary
 
@@ -142,7 +142,7 @@ A stale membership epoch is rejected even if the node's payload otherwise looks 
 
 A stale frontier is likewise rejected.
 
-This is the same class of zombie-prevention invariant used in other distributed systems: stale replica/member epochs are treated as fencing information rather than as harmless metadata. citeturn5search12
+This is the same class of zombie-prevention invariant used in other distributed systems: stale replica/member epochs are treated as fencing information rather than as harmless metadata.
 
 ## Conservation under forgetting
 
