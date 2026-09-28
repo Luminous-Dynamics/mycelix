@@ -41,3 +41,32 @@ fn formal_closure_requires_more_than_the_current_bounded_state() {
     assert_eq!(json["consistency_gate"]["required_obligation_count"].as_u64(), Some(12));
     assert_eq!(json["consistency_gate"]["forbid_formally_closed_without_runtime_receipt"].as_bool(), Some(true));
 }
+
+#[test]
+fn smt_proposition_anchors_match_the_json_refinement_ledger() {
+    let json: Value = serde_json::from_str(JSON_MANIFEST).expect("valid JSON manifest");
+    for item in json["obligations"].as_array().expect("obligations array") {
+        let Some(smt_ref) = item["smt"].as_str() else {
+            continue;
+        };
+        let (path, marker) = smt_ref.split_once("::").expect("SMT artifact marker");
+        assert_eq!(path, "proofs/integral_if01_authority_outcome.smt2");
+        let id = item["id"].as_str().expect("obligation id");
+        assert!(SMT_ARTIFACT.contains(&format!("; {id}")));
+        assert!(SMT_ARTIFACT.contains(&format!("; {marker}")));
+        let rust = OBLIGATIONS
+            .iter()
+            .find(|obligation| obligation.id == id)
+            .expect("Rust obligation");
+        let expected_anchor = format!("; IF01-PROPOSITION: {}", rust.proposition);
+        assert!(
+            SMT_ARTIFACT.contains(&expected_anchor),
+            "SMT proposition anchor drifted for {id}"
+        );
+        assert_eq!(
+            item["proposition"].as_str(),
+            Some(rust.proposition),
+            "JSON/Rust proposition drifted for {id}"
+        );
+    }
+}
