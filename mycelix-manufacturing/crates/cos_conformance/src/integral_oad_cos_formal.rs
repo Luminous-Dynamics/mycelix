@@ -117,7 +117,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn all_nine_obligations_have_executable_witnesses_and_are_not_overclaimed() {
+    fn all_obligations_have_executable_witnesses_and_are_not_overclaimed() {
         assert_eq!(OBLIGATIONS.len(), 12);
         assert!(manifest_is_explicitly_open());
         for obligation in OBLIGATIONS {
