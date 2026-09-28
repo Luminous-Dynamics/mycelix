@@ -624,6 +624,60 @@ mod tests {
     }
 
     #[test]
+    fn governance_decision_projects_into_trace_without_laundering_foreign_observation() {
+        let artifact = FederationDecisionArtifact {
+            decision_id: "decision-2",
+            conflict_work_id: "work-1",
+            left_observation_id: "obs-a",
+            right_observation_id: "obs-b",
+            actor: "human-1",
+            authority_ref: "auth-2",
+            generation: 7,
+            decided_at: 20,
+            accepted: true,
+            source_ref: "decision://2",
+            recommendation_ref: Some("recommendation-1"),
+        };
+        let (decision, mut relations) = decision_artifact_trace(&artifact, 3);
+        assert_eq!(decision.kind, TraceKind::HumanDecision);
+        assert_eq!(decision.actor, TraceActor::Human);
+        assert_eq!(decision.authority_ref, Some("auth-2"));
+        assert_eq!(decision.decision_accepted, Some(true));
+        assert_eq!(decision.status, TraceStatus::Accepted);
+
+        relations.push(TraceRelationRef {
+            from_event: "obs-b",
+            to_event: "obs-a",
+            relation: TraceRelation::Disputes,
+        });
+        let fixture = TraceFixture {
+            events: vec![
+                TraceEvent {
+                    event_id: "obs-a", sequence: 1, kind: TraceKind::Observation,
+                    provenance: crate::integral_demo_domain::ProvenanceClass::Observation,
+                    actor: TraceActor::System, source: crate::integral_demo_domain::SourceKind::Local,
+                    source_ref: "evidence://local", generation: 7, uncertainty_present: true,
+                    authority_ref: None, reversible: true, challengeable: true,
+                    recommendation_only: false, recovery_ref: None, appeal_ref: None,
+                    decision_accepted: None, status: TraceStatus::Accepted,
+                },
+                TraceEvent {
+                    event_id: "obs-b", sequence: 2, kind: TraceKind::Observation,
+                    provenance: crate::integral_demo_domain::ProvenanceClass::Observation,
+                    actor: TraceActor::System, source: crate::integral_demo_domain::SourceKind::Foreign,
+                    source_ref: "evidence://foreign", generation: 7, uncertainty_present: true,
+                    authority_ref: None, reversible: true, challengeable: true,
+                    recommendation_only: false, recovery_ref: None, appeal_ref: None,
+                    decision_accepted: None, status: TraceStatus::Disputed,
+                },
+                decision,
+            ],
+            relations,
+        };
+        assert_eq!(crate::integral_demo_trace::validate_trace(&fixture), Ok(()));
+    }
+
+    #[test]
     fn duplicate_payload_mutation_fails_closed() {
         let e = envelope();
         let receipt = receipt_for(e);
