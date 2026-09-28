@@ -139,11 +139,87 @@ pub const CASES: [Case; 16] = [
 
 pub fn conformance_report_json() -> String {
     #[derive(Serialize)]
-    struct Report<'a> { corpus_id: &'a str, negative_cases: &'a [Case;16], obligations: &'a [&'a str;10], claim_ceiling: &'a str }
+    struct Record<'a> {
+        test_id: &'a str,
+        formal_obligations: &'a [&'a str],
+        expected_negative: Decision,
+        actual_negative: Decision,
+        expected_positive: Decision,
+        actual_positive: Decision,
+        provenance_origin: &'a str,
+        temporal_validity: &'a str,
+        refinement_status: &'a str,
+        claim_ceiling: &'a str,
+    }
+    #[derive(Serialize)]
+    struct Report<'a> {
+        corpus_id: &'a str,
+        case_count: usize,
+        records: Vec<Record<'a>>,
+        untested_formal_obligations: Vec<&'a str>,
+        claim_ceiling: &'a str,
+    }
+
+    let current = Evidence::current_local("report-current", 100);
+    let stale = Evidence::stale("report-stale", 100);
+    let negative = Bindings::default();
+    let mut records = Vec::with_capacity(CASES.len());
+    for case in CASES.iter() {
+        let mut positive = Bindings::default();
+        match case.test_id {
+            "COS-N-001" => bind_plan_to_execution(&mut positive),
+            "COS-N-002" => bind_plan_to_consumption(&mut positive),
+            "COS-N-003" | "COS-N-004" => bind_requirement_to_availability(&mut positive),
+            "COS-N-005" => positive.quality_current = true,
+            "COS-N-006" | "COS-N-015" => qualify_output(&mut positive),
+            "COS-N-007" => bind_general_capability(&mut positive),
+            "COS-N-008" => preserve_failure_history(&mut positive),
+            "COS-N-009" | "COS-N-013" => recognize_foreign_evidence(&mut positive),
+            "COS-N-010" => create_source_observation(&mut positive),
+            "COS-N-011" => project_to_itc(&mut positive),
+            "COS-N-012" => bind_physical_work(&mut positive),
+            "COS-N-014" => { authorize_recommendation(&mut positive); record_effect(&mut positive); },
+            "COS-N-016" => positive.denominator_explicit = true,
+            _ => unreachable!(),
+        }
+        let actual_negative = if case.test_id == "COS-N-005" {
+            stale_evidence_is_rejected(&stale, 100)
+        } else {
+            evaluate_negative(case.test_id, &negative, Some(&current), 100)
+        };
+        let actual_positive = if case.test_id == "COS-N-005" {
+            if positive.quality_current && stale_evidence_is_rejected(&current, 100) == Decision::Accepted {
+                Decision::Accepted
+            } else { Decision::Rejected }
+        } else {
+            evaluate_negative(case.test_id, &positive, Some(&current), 100)
+        };
+        records.push(Record {
+            test_id: case.test_id,
+            formal_obligations: case.formal_obligations,
+            expected_negative: if case.test_id == "COS-N-005" { Decision::Stale } else if case.test_id == "COS-N-014" { Decision::Unauthorized } else { Decision::Rejected },
+            actual_negative,
+            expected_positive: Decision::Accepted,
+            actual_positive,
+            provenance_origin: if matches!(case.test_id, "COS-N-009" | "COS-N-013") { "Foreign evidence retained as foreign; recognition does not rewrite origin." } else { "Local reference evidence." },
+            temporal_validity: if case.test_id == "COS-N-005" { "Negative=stale; positive=current." } else { "Current reference fixture." },
+            refinement_status: "ReferenceModelOnly",
+            claim_ceiling: case.claim_ceiling,
+        });
+    }
+    let covered: std::collections::BTreeSet<&str> = CASES.iter()
+        .flat_map(|case| case.formal_obligations.iter().copied())
+        .collect();
+    let untested_formal_obligations = FORMAL_OBLIGATIONS.iter()
+        .copied()
+        .filter(|obligation| !covered.contains(obligation))
+        .collect();
+
     serde_json::to_string_pretty(&Report {
         corpus_id: CORPUS_ID,
-        negative_cases: &CASES,
-        obligations: &FORMAL_OBLIGATIONS,
+        case_count: CASES.len() * 2,
+        records,
+        untested_formal_obligations,
         claim_ceiling: "Semantic conformance of this reference harness only; no physical, safety, economic, ecological, or Integral-validation claim.",
     }).expect("report serialization is infallible for these static values")
 }
