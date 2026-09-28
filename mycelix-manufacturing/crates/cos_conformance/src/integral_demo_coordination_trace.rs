@@ -23,6 +23,7 @@ pub enum AlignmentError {
     UncertaintyMismatch,
     DispositionMismatch,
     ProvenanceMismatch,
+    PairEventNotInTrace,
 }
 
 fn expected_trace_kind(kind: CoordinationKind) -> Option<TraceKind> {
@@ -101,7 +102,15 @@ pub fn validate_explicit_coordination_trace_pairs(
         if pair.artifact.id != pair.trace_event.event_id {
             return Err(AlignmentError::MissingTraceEvent);
         }
-        align_one(pair.artifact, pair.trace_event)?;
+        let canonical = trace
+            .events
+            .iter()
+            .find(|event| event.event_id == pair.trace_event.event_id)
+            .ok_or(AlignmentError::MissingTraceEvent)?;
+        if canonical != pair.trace_event {
+            return Err(AlignmentError::PairEventNotInTrace);
+        }
+        align_one(pair.artifact, canonical)?;
     }
     Ok(())
 }
@@ -211,6 +220,20 @@ mod tests {
             CoordinationTracePair { artifact: &foreign, trace_event: &trace.events[1] },
         ];
         assert_eq!(validate_explicit_coordination_trace_pairs(&pairs, &trace), Ok(()));
+    }
+
+
+    #[test]
+    fn explicit_pair_cannot_smuggle_an_unbound_event() {
+        let trace = conflict_trace();
+        let local = artifact("obs-a", CoordinationKind::Observation, CoordinationOrigin::Local, "evidence://local-a");
+        let mut forged = trace.events[0];
+        forged.source_ref = "evidence://forged";
+        let pair = CoordinationTracePair { artifact: &local, trace_event: &forged };
+        assert_eq!(
+            validate_explicit_coordination_trace_pairs(&[pair], &trace),
+            Err(AlignmentError::PairEventNotInTrace)
+        );
     }
 
     #[test]
