@@ -196,6 +196,19 @@ jobs:
               )
               assert needle in formal, obligation["id"]
 
+          # For SMT-backed obligations, bind the exact natural-language
+          # proposition to a machine-readable anchor in the formal artifact.
+          # This is traceability, not a proof that the formula is equivalent
+          # to the prose proposition; that stronger semantic-differential step
+          # remains a separate refinement obligation.
+          for obligation in obligations:
+              if obligation["smt"] is None:
+                  continue
+              _, marker = obligation["smt"].split("::", 1)
+              assert ("; " + obligation["id"]) in smt, obligation["id"]
+              assert ("; " + marker) in smt, obligation["id"]
+              assert ("; IF01-PROPOSITION: " + obligation["proposition"]) in smt, obligation["id"]
+
           # Artifact hashes are Git blob identities (SHA-1), deliberately
           # distinct from runtime SHA-256 output digests.
           artifacts = manifest["artifacts"]
