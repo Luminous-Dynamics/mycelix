@@ -500,7 +500,7 @@ pub fn archive_tombstones_are_present(
         && required_tombstones.iter().all(|id| {
             tombstones
                 .get(id)
-                .map(|tombstone| tombstone.tombstone_id == *id)
+                .map(|tombstone| tombstone.tombstone_id.as_str() == id.as_str())
                 .unwrap_or(false)
         })
 }
