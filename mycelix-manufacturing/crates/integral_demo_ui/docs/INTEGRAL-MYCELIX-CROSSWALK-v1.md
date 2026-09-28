@@ -222,3 +222,8 @@ The alignment is still a reference-model cross-check. It does not establish that
 A recommendation is not treated as governance authority merely because a human disposition artifact exists. The reference helper recognizes only explicit **Accepted** or **Rejected** dispositions as a governance disposition; **Deferred** remains a distinct unresolved state and is not coerced into execution authority.
 
 The A1↔D5 bridge now also exposes a combined validation gate: A1 parent lineage is validated by the A1 coordination validator, D5 graph structure is validated by the D5 trace validator, and shared fields are then cross-checked by stable identity. No parent link is inferred from trace ordering. This keeps model-specific semantics explicit while still making a shared fixture capable of failing closed when either representation is malformed.
+
+
+### Explicit A1↔D5 pairing for shared fixtures
+
+For fixtures that carry both representations, the bridge now supports explicit artifact/event pairs. The caller supplies the semantic A1 artifact and the exact D5 event it represents; the bridge verifies identity and shared semantics but does not derive parentage, causality, or authority from serialization order. This makes the integration suitable for adversarial fixtures while keeping lineage ownership with the model that declares it.
