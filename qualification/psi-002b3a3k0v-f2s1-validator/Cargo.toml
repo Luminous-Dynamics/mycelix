@@ -1,0 +1,14 @@
+[package]
+name = "psi-002b3a3k0v-f2s1-validator"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.96.0"
+publish = false
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+
+[dependencies]
+jsonschema = { version = "=0.58.2", default-features = false }
+
+[workspace]
+resolver = "3"
