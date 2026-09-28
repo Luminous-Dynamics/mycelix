@@ -379,11 +379,16 @@ mod tests {
     fn consequential_outcome_requires_recovery_and_contestability() {
         let mut t = valid_trace();
         t[10].reversible = false;
+        t[10].recovery_ref = None;
         assert_eq!(validate_trace(&t), Err(TraceError::UnreversibleWithoutRecovery));
 
         let mut t = valid_trace();
         t[10].challengeable = false;
         assert_eq!(validate_trace(&t), Err(TraceError::UnchallengeableConsequentialAction));
+
+        let mut t = valid_trace();
+        t[10].appeal_ref = None;
+        assert_eq!(validate_trace(&t), Err(TraceError::MissingAppealRoute));
     }
 
     #[test]
