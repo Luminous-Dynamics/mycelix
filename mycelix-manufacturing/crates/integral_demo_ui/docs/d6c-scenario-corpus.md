@@ -31,6 +31,8 @@ The UI does not contain the truth of a scenario. Each scenario is an owned Scena
 | Recommendation rejected | Human decision explicitly records rejection |
 | Foreign evidence | Fails on foreign→local provenance laundering |
 | Appealed outcome | Preserves recovery/challenge metadata |
+| Appeal reopen without new path | Fails closed until a new decision path exists |
+| Appeal reopen with new path | Valid only when the new decision responds to the appeal |
 | No-Symthaea | Valid path remains available without Symthaea |
 
 ## Graph-native adversarial semantics
@@ -62,6 +64,19 @@ This prevents the UI from inferring acceptance/rejection from sequence position 
 ReferenceModelOnly.
 
 D6C does not establish Integral ratification, production correctness, economic validity, security/privacy compliance, scalability, or improved human outcomes.
+
+## D6D branch closure
+
+D6D extends the graph validator from endpoint integrity to causal-path integrity.
+
+Executable witnesses now cover:
+
+- rejected decisions cannot acquire executable descendants;
+- superseded designs cannot be consumed by later decision/authorization/execution events;
+- reopening an appeal requires a new explicit decision path responding to the appeal;
+- the valid reopened path is represented by new events rather than mutating the old decision in place.
+
+The validator deliberately keeps event sequence and graph causality separate: sequence provides deterministic ordering, while relations provide causal meaning.
 
 ## Next hardening
 
