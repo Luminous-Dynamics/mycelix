@@ -138,7 +138,33 @@ jobs:
           sudo apt-get install -y z3
           output=$(z3 mycelix-manufacturing/crates/cos_conformance/proofs/integral_if01_authority_outcome.smt2)
           printf '%s\n' "$output"
-          test "$(printf '%s\n' "$output" | grep -c '^unsat
+          unsat_count="$(printf '%s\n' "$output" | grep -c '^unsat$' || true)"
+          test "$unsat_count" -eq 3
+      - name: Record IF01 evidence receipt
+        run: |
+          cd mycelix-manufacturing
+          mkdir -p evidence
+          cat > evidence/if01-evidence-receipt.json <<EOF
+          {
+            "obligation_ids": ["IF01-FV-010", "IF01-FV-011", "IF01-FV-012"],
+            "artifact_path": "crates/cos_conformance/proofs/integral_if01_authority_outcome.smt2",
+            "artifact_identity": "${{ github.sha }}:306b7fa6aeed77ec5989070393a0c8dad9956c65",
+            "source_commit": "${{ github.sha }}",
+            "build_identity": "${{ github.run_id }}:${{ github.run_attempt }}",
+            "runner_image": "ubuntu-latest",
+            "os": "${{ runner.os }}",
+            "solver": "z3",
+            "solver_version": "$(z3 --version)",
+            "command": "z3 crates/cos_conformance/proofs/integral_if01_authority_outcome.smt2",
+            "expected_result": "3 unsat results",
+            "actual_result": "$output",
+            "timestamp": "${{ github.run_started_at }}",
+            "status": "BoundedExecutableWitness",
+            "claim_ceiling": "Bounded IF01-FV-010..012 semantic contradictions only; no production/runtime/security/ratification closure.",
+            "excluded_claims": ["cryptographic authentication", "network delivery guarantees", "production authorization", "manufacturing qualification", "security certification", "Integral ratification"]
+          }
+          EOF
+          test -s evidence/if01-evidence-receipt.json
   test-commons:
     needs: changes
     if: needs.changes.outputs.commons == 'true' || github.event_name == 'push'
