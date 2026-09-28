@@ -3,11 +3,14 @@
 //! Transport, storage, cryptography, and production networking are intentionally
 //! outside this model. The oracle only answers whether a supplied federation
 //! event preserves the declared identity, generation, origin, authorization,
-//! expiry, and replay boundaries.
+//! expiry, replay, observation, and conflict boundaries.
 //!
 //! Evidence ceiling: ReferenceModelOnly.
 
-use crate::integral_demo_trace::{TraceActor, TraceEvent, TraceKind, TraceRelation, TraceRelationRef, TraceStatus, TraceFixture};
+use crate::integral_demo_trace::{
+    TraceActor, TraceEvent, TraceFixture, TraceKind, TraceRelation, TraceRelationRef,
+    TraceStatus,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FederationNode {
@@ -69,7 +72,6 @@ pub struct FederationReceipt {
     pub payload_digest: &'static str,
     pub state: DeliveryState,
 }
-
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FederationObservation {
@@ -175,15 +177,31 @@ pub fn decision_artifact_trace(
         recovery_ref: None,
         appeal_ref: None,
         decision_accepted: Some(artifact.accepted),
-        status: if artifact.accepted { TraceStatus::Accepted } else { TraceStatus::Rejected },
+        status: if artifact.accepted {
+            TraceStatus::Accepted
+        } else {
+            TraceStatus::Rejected
+        },
     };
     let mut relations = vec![
-        TraceRelationRef { from_event: artifact.decision_id, to_event: artifact.left_observation_id, relation: TraceRelation::RespondsTo },
-        TraceRelationRef { from_event: artifact.decision_id, to_event: artifact.right_observation_id, relation: TraceRelation::RespondsTo },
+        TraceRelationRef {
+            from_event: artifact.decision_id,
+            to_event: artifact.left_observation_id,
+            relation: TraceRelation::RespondsTo,
+        },
+        TraceRelationRef {
+            from_event: artifact.decision_id,
+            to_event: artifact.right_observation_id,
+            relation: TraceRelation::RespondsTo,
+        },
     ];
     if let Some(recommendation_ref) = artifact.recommendation_ref {
         if !recommendation_ref.is_empty() {
-            relations.push(TraceRelationRef { from_event: artifact.decision_id, to_event: recommendation_ref, relation: TraceRelation::RespondsTo });
+            relations.push(TraceRelationRef {
+                from_event: artifact.decision_id,
+                to_event: recommendation_ref,
+                relation: TraceRelation::RespondsTo,
+            });
         }
     }
     (event, relations)
@@ -234,10 +252,12 @@ pub fn resolve_conflict(
     };
 
     match decision_ref {
-        Some(reference) if !reference.is_empty() => ResolutionDecision::ResolvedByExplicitDecision {
-            conflict_work_id: conflict.work_id,
-            decision_ref: reference,
-        },
+        Some(reference) if !reference.is_empty() => {
+            ResolutionDecision::ResolvedByExplicitDecision {
+                conflict_work_id: conflict.work_id,
+                decision_ref: reference,
+            }
+        }
         _ => ResolutionDecision::AwaitingHumanDecision(conflict),
     }
 }
@@ -259,6 +279,93 @@ pub fn reconcile_observation_set(
     ReconciliationDecision::Agreement
 }
 
+/// A deterministic observation state reconstructed from an append-only event history.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FederationObservationState {
+    pub observations: Vec<FederationObservation>,
+    pub conflicts: Vec<ObservationConflict>,
+}
+
+impl FederationObservationState {
+    pub fn empty() -> Self {
+        Self {
+            observations: Vec::new(),
+            conflicts: Vec::new(),
+        }
+    }
+
+    /// Rebuild the evidence state without choosing a winner or applying governance.
+    pub fn replay(observations: &[FederationObservation]) -> Self {
+        let mut ordered = observations.to_vec();
+        ordered.sort_by_key(|observation| observation.observation_id);
+        ordered.dedup_by_key(|observation| observation.observation_id);
+
+        let mut conflicts = Vec::new();
+        for (index, left) in ordered.iter().enumerate() {
+            for right in ordered.iter().skip(index + 1) {
+                if let Some(conflict) = reconcile_observations(*left, *right) {
+                    conflicts.push(conflict);
+                }
+            }
+        }
+        conflicts.sort_by_key(|conflict| {
+            (
+                conflict.work_id,
+                conflict.left_observation_id,
+                conflict.right_observation_id,
+            )
+        });
+
+        Self {
+            observations: ordered,
+            conflicts,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ObservationAppendDecision {
+    Appended,
+    Replayed,
+    RejectedDuplicateMutation,
+}
+
+/// Append-only observation history. Exact duplicate events are replayable; the same
+/// observation identity with changed evidence is a mutation and fails closed.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct FederationObservationLog {
+    pub observations: Vec<FederationObservation>,
+}
+
+impl FederationObservationLog {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn append(&mut self, observation: FederationObservation) -> ObservationAppendDecision {
+        if let Some(existing) = self
+            .observations
+            .iter()
+            .find(|existing| existing.observation_id == observation.observation_id)
+        {
+            return if *existing == observation {
+                ObservationAppendDecision::Replayed
+            } else {
+                ObservationAppendDecision::RejectedDuplicateMutation
+            };
+        }
+
+        self.observations.push(observation);
+        self.observations
+            .sort_by_key(|item| item.observation_id);
+        ObservationAppendDecision::Appended
+    }
+
+    pub fn replay(&self) -> FederationObservationState {
+        FederationObservationState::replay(&self.observations)
+    }
+}
+
 /// A deterministic, append-only reference log for federation deliveries.
 /// Replay is pure: it never selects a winner or mutates an observation payload.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -268,7 +375,9 @@ pub struct FederationLog {
 
 impl FederationLog {
     pub fn new() -> Self {
-        Self { deliveries: Vec::new() }
+        Self {
+            deliveries: Vec::new(),
+        }
     }
 
     pub fn append(&mut self, envelope: FederationEnvelope) -> bool {
@@ -279,36 +388,36 @@ impl FederationLog {
             return false;
         }
         self.deliveries.push(envelope);
-        self.deliveries.sort_by_key(|event| {
-            (event.logical_delivery_id, event.attempt_id, event.observed_at)
-        });
+        self.deliveries
+            .sort_by_key(|event| (event.logical_delivery_id, event.attempt_id, event.observed_at));
         true
     }
 
-    pub fn replay(
-        &self,
-        current_generation: u32,
-        now: u64,
-    ) -> Vec<FederationDecision> {
-        let mut receipts = Vec::new();
-        self.deliveries.iter().map(|envelope| {
-            let existing = receipts
-                .iter()
-                .find(|receipt: &&FederationReceipt| {
-                    receipt.logical_delivery_id == envelope.logical_delivery_id
-                })
-                .copied();
-            let decision = accept_delivery(*envelope, current_generation, now, existing);
-            if matches!(decision, FederationDecision::Accepted) {
-                receipts.push(receipt_for(*envelope));
-            }
-            decision
-        }).collect()
+    pub fn replay(&self, current_generation: u32, now: u64) -> Vec<FederationDecision> {
+        let mut receipts: Vec<FederationReceipt> = Vec::new();
+        self.deliveries
+            .iter()
+            .map(|envelope| {
+                let existing = receipts
+                    .iter()
+                    .find(|receipt| {
+                        receipt.logical_delivery_id == envelope.logical_delivery_id
+                    })
+                    .copied();
+                let decision = accept_delivery(*envelope, current_generation, now, existing);
+                if matches!(decision, FederationDecision::Accepted) {
+                    receipts.push(receipt_for(*envelope));
+                }
+                decision
+            })
+            .collect()
     }
 }
 
 impl Default for FederationLog {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 pub fn replay_is_deterministic(log: &FederationLog, generation: u32, now: u64) -> bool {
@@ -319,7 +428,8 @@ pub fn reconciliation_is_order_invariant(
     observations: &[FederationObservation],
     reversed: &[FederationObservation],
 ) -> bool {
-    reconcile_observation_set(observations) == reconcile_observation_set(reversed)
+    FederationObservationState::replay(observations)
+        == FederationObservationState::replay(reversed)
 }
 
 pub fn accept_delivery(
@@ -333,9 +443,6 @@ pub fn accept_delivery(
     }
     if envelope.authority_origin == FederationNode::Foreign {
         return FederationDecision::RejectedForeignAuthority;
-    }
-    if envelope.origin == FederationNode::Foreign && envelope.authority_origin == FederationNode::Local {
-        // Explicit local recognition is allowed, but it never rewrites evidence origin.
     }
     if envelope.authorization != AuthorizationState::Active || now >= envelope.expires_at {
         return FederationDecision::RejectedExpiredAuthorization;
@@ -431,6 +538,35 @@ mod tests {
         }
     }
 
+    fn observations() -> [FederationObservation; 3] {
+        [
+            FederationObservation {
+                observation_id: "obs-a",
+                work_id: "work-1",
+                origin: FederationNode::Local,
+                quantity: 10,
+                evidence_ref: "e-a",
+                observed_at: 10,
+            },
+            FederationObservation {
+                observation_id: "obs-b",
+                work_id: "work-1",
+                origin: FederationNode::Foreign,
+                quantity: 12,
+                evidence_ref: "e-b",
+                observed_at: 11,
+            },
+            FederationObservation {
+                observation_id: "obs-c",
+                work_id: "work-2",
+                origin: FederationNode::Foreign,
+                quantity: 4,
+                evidence_ref: "e-c",
+                observed_at: 12,
+            },
+        ]
+    }
+
     #[test]
     fn federation_log_deduplicates_exact_attempts_and_replays_deterministically() {
         let mut log = FederationLog::new();
@@ -447,7 +583,10 @@ mod tests {
 
     #[test]
     fn foreign_delivery_is_accepted_without_becoming_local() {
-        assert_eq!(accept_delivery(envelope(), 7, 20, None), FederationDecision::Accepted);
+        assert_eq!(
+            accept_delivery(envelope(), 7, 20, None),
+            FederationDecision::Accepted
+        );
         let mut projected = envelope();
         projected.source_ref = "node://foreign/evidence/1";
         assert!(foreign_origin_never_becomes_local(envelope(), projected));
@@ -467,14 +606,20 @@ mod tests {
     fn retry_changes_attempt_but_not_logical_identity() {
         let mut retry = envelope();
         retry.attempt_id = "attempt-2";
-        assert!(attempt_may_change_without_mutating_logical_delivery(envelope(), retry));
+        assert!(attempt_may_change_without_mutating_logical_delivery(
+            envelope(),
+            retry
+        ));
     }
 
     #[test]
     fn duplicate_identical_delivery_replays() {
         let e = envelope();
         let receipt = receipt_for(e);
-        assert_eq!(accept_delivery(e, 7, 20, Some(receipt)), FederationDecision::Replayed);
+        assert_eq!(
+            accept_delivery(e, 7, 20, Some(receipt)),
+            FederationDecision::Replayed
+        );
     }
 
     #[test]
@@ -483,28 +628,16 @@ mod tests {
         let mut retry = e;
         retry.attempt_id = "attempt-2";
         assert!(attempt_may_change_without_mutating_logical_delivery(e, retry));
-        assert_eq!(receipt_for(e).logical_delivery_id, receipt_for(retry).logical_delivery_id);
+        assert_eq!(
+            receipt_for(e).logical_delivery_id,
+            receipt_for(retry).logical_delivery_id
+        );
         assert_eq!(receipt_for(e).origin, FederationNode::Foreign);
     }
 
     #[test]
     fn reconciliation_preserves_competing_observations() {
-        let left = FederationObservation {
-            observation_id: "obs-local",
-            work_id: "work-1",
-            origin: FederationNode::Local,
-            quantity: 10,
-            evidence_ref: "e-local",
-            observed_at: 10,
-        };
-        let right = FederationObservation {
-            observation_id: "obs-foreign",
-            work_id: "work-1",
-            origin: FederationNode::Foreign,
-            quantity: 12,
-            evidence_ref: "e-foreign",
-            observed_at: 11,
-        };
+        let [left, right, _] = observations();
         let conflict = reconcile_observations(left, right).expect("conflict");
         assert_eq!(conflict.left_origin, FederationNode::Local);
         assert_eq!(conflict.right_origin, FederationNode::Foreign);
@@ -513,80 +646,107 @@ mod tests {
     }
 
     #[test]
-    fn reconciliation_does_not_depend_on_delivery_order() {
-        let left = FederationObservation {
-            observation_id: "obs-a",
-            work_id: "work-1",
-            origin: FederationNode::Local,
-            quantity: 10,
-            evidence_ref: "e-a",
-            observed_at: 10,
-        };
-        let right = FederationObservation {
-            observation_id: "obs-b",
-            work_id: "work-1",
-            origin: FederationNode::Foreign,
-            quantity: 12,
-            evidence_ref: "e-b",
-            observed_at: 11,
-        };
-        assert!(reconciliation_is_order_invariant(
-            &[left, right],
-            &[right, left]
-        ));
-        assert!(matches!(
-            reconcile_observation_set(&[left, right]),
-            ReconciliationDecision::ConflictPreserved(_)
-        ));
+    fn observation_event_log_rebuilds_all_conflicts_without_winner_selection() {
+        let observations = observations();
+        let mut log = FederationObservationLog::new();
+        assert_eq!(
+            log.append(observations[2]),
+            ObservationAppendDecision::Appended
+        );
+        assert_eq!(
+            log.append(observations[1]),
+            ObservationAppendDecision::Appended
+        );
+        assert_eq!(
+            log.append(observations[0]),
+            ObservationAppendDecision::Appended
+        );
+
+        let state = log.replay();
+        assert_eq!(state.observations.len(), 3);
+        assert_eq!(state.conflicts.len(), 1);
+        assert_eq!(state.conflicts[0].left_observation_id, "obs-a");
+        assert_eq!(state.conflicts[0].right_observation_id, "obs-b");
+    }
+
+    #[test]
+    fn exact_observation_replay_is_idempotent_but_mutation_fails_closed() {
+        let observation = observations()[0];
+        let mut log = FederationObservationLog::new();
+        assert_eq!(
+            log.append(observation),
+            ObservationAppendDecision::Appended
+        );
+        assert_eq!(
+            log.append(observation),
+            ObservationAppendDecision::Replayed
+        );
+
+        let mut mutated = observation;
+        mutated.quantity = 99;
+        assert_eq!(
+            log.append(mutated),
+            ObservationAppendDecision::RejectedDuplicateMutation
+        );
+        assert_eq!(log.replay().observations[0].quantity, 10);
+    }
+
+    #[test]
+    fn observation_replay_is_canonical_across_delivery_order() {
+        let source = observations();
+        let order_a = [source[0], source[1], source[2]];
+        let order_b = [source[2], source[0], source[1]];
+        let order_c = [source[1], source[2], source[0]];
+
+        assert_eq!(
+            FederationObservationState::replay(&order_a),
+            FederationObservationState::replay(&order_b)
+        );
+        assert_eq!(
+            FederationObservationState::replay(&order_b),
+            FederationObservationState::replay(&order_c)
+        );
+        assert!(reconciliation_is_order_invariant(&order_a, &order_b));
+    }
+
+    #[test]
+    fn duplicated_observation_events_do_not_change_reconstructed_state() {
+        let source = observations();
+        let duplicated = [
+            source[1],
+            source[0],
+            source[1],
+            source[2],
+            source[0],
+        ];
+        assert_eq!(
+            FederationObservationState::replay(&source),
+            FederationObservationState::replay(&duplicated)
+        );
     }
 
     #[test]
     fn conflict_reconciliation_has_no_implicit_winner() {
-        let left = FederationObservation {
-            observation_id: "obs-a",
-            work_id: "work-1",
-            origin: FederationNode::Local,
-            quantity: 10,
-            evidence_ref: "e-a",
-            observed_at: 10,
-        };
-        let right = FederationObservation {
-            observation_id: "obs-b",
-            work_id: "work-1",
-            origin: FederationNode::Foreign,
-            quantity: 12,
-            evidence_ref: "e-b",
-            observed_at: 11,
-        };
-        assert!(conflict_preserves_no_winner(&reconcile_observation_set(&[left, right])));
+        let [left, right, _] = observations();
+        let decision = reconcile_observation_set(&[left, right]);
+        assert!(conflict_preserves_no_winner(&decision));
     }
 
     #[test]
     fn agreement_is_distinct_from_unresolved_conflict() {
-        let observation = FederationObservation {
-            observation_id: "obs-a",
-            work_id: "work-1",
-            origin: FederationNode::Local,
-            quantity: 10,
-            evidence_ref: "e-a",
-            observed_at: 10,
-        };
+        let observation = observations()[0];
         assert_eq!(
-            resolve_conflict(reconcile_observation_set(&[observation]), Some("decision")),
+            resolve_conflict(
+                reconcile_observation_set(&[observation]),
+                Some("decision")
+            ),
             ResolutionDecision::NoConflict
         );
     }
 
     #[test]
     fn agreement_does_not_create_a_resolution_artifact() {
-        let observation = FederationObservation {
-            observation_id: "obs-a",
-            work_id: "work-1",
-            origin: FederationNode::Local,
-            quantity: 10,
-            evidence_ref: "e-a",
-            observed_at: 10,
-        };
+        let observation = observations()[0];
         assert_eq!(
             resolve_conflict(
                 reconcile_observation_set(&[observation]),
@@ -598,24 +758,24 @@ mod tests {
 
     #[test]
     fn decision_artifact_must_target_exact_conflict() {
-        let left = FederationObservation {
-            observation_id: "obs-a", work_id: "work-1", origin: FederationNode::Local,
-            quantity: 10, evidence_ref: "e-a", observed_at: 10,
-        };
-        let right = FederationObservation {
-            observation_id: "obs-b", work_id: "work-1", origin: FederationNode::Foreign,
-            quantity: 12, evidence_ref: "e-b", observed_at: 11,
-        };
+        let [left, right, _] = observations();
         let reconciliation = reconcile_observation_set(&[left, right]);
         let conflict = match reconciliation {
             ReconciliationDecision::ConflictPreserved(c) => c,
             _ => panic!("expected conflict"),
         };
         let artifact = FederationDecisionArtifact {
-            decision_id: "decision-1", conflict_work_id: "work-1",
-            left_observation_id: "obs-a", right_observation_id: "wrong",
-            actor: "human-1", authority_ref: "auth-1", generation: 7,
-            decided_at: 20, accepted: true, source_ref: "decision://1", recommendation_ref: None,
+            decision_id: "decision-1",
+            conflict_work_id: "work-1",
+            left_observation_id: "obs-a",
+            right_observation_id: "wrong",
+            actor: "human-1",
+            authority_ref: "auth-1",
+            generation: 7,
+            decided_at: 20,
+            accepted: true,
+            source_ref: "decision://1",
+            recommendation_ref: None,
         };
         assert!(matches!(
             resolve_with_decision_artifact(reconciliation, Some(&artifact), 7),
@@ -626,43 +786,46 @@ mod tests {
 
     #[test]
     fn decision_artifact_can_resolve_only_matching_current_conflict() {
-        let left = FederationObservation {
-            observation_id: "obs-a", work_id: "work-1", origin: FederationNode::Local,
-            quantity: 10, evidence_ref: "e-a", observed_at: 10,
-        };
-        let right = FederationObservation {
-            observation_id: "obs-b", work_id: "work-1", origin: FederationNode::Foreign,
-            quantity: 12, evidence_ref: "e-b", observed_at: 11,
-        };
+        let [left, right, _] = observations();
         let reconciliation = reconcile_observation_set(&[left, right]);
         let artifact = FederationDecisionArtifact {
-            decision_id: "decision-1", conflict_work_id: "work-1",
-            left_observation_id: "obs-a", right_observation_id: "obs-b",
-            actor: "human-1", authority_ref: "auth-1", generation: 7,
-            decided_at: 20, accepted: true, source_ref: "decision://1",
+            decision_id: "decision-1",
+            conflict_work_id: "work-1",
+            left_observation_id: "obs-a",
+            right_observation_id: "obs-b",
+            actor: "human-1",
+            authority_ref: "auth-1",
+            generation: 7,
+            decided_at: 20,
+            accepted: true,
+            source_ref: "decision://1",
+            recommendation_ref: None,
         };
         assert!(matches!(
             resolve_with_decision_artifact(reconciliation, Some(&artifact), 7),
-            ResolutionDecision::ResolvedByExplicitDecision { decision_ref: "decision-1", .. }
+            ResolutionDecision::ResolvedByExplicitDecision {
+                decision_ref: "decision-1",
+                ..
+            }
         ));
     }
 
     #[test]
     fn stale_decision_artifact_cannot_resolve_current_conflict() {
-        let left = FederationObservation {
-            observation_id: "obs-a", work_id: "work-1", origin: FederationNode::Local,
-            quantity: 10, evidence_ref: "e-a", observed_at: 10,
-        };
-        let right = FederationObservation {
-            observation_id: "obs-b", work_id: "work-1", origin: FederationNode::Foreign,
-            quantity: 12, evidence_ref: "e-b", observed_at: 11,
-        };
+        let [left, right, _] = observations();
         let reconciliation = reconcile_observation_set(&[left, right]);
         let artifact = FederationDecisionArtifact {
-            decision_id: "decision-1", conflict_work_id: "work-1",
-            left_observation_id: "obs-a", right_observation_id: "obs-b",
-            actor: "human-1", authority_ref: "auth-1", generation: 6,
-            decided_at: 20, accepted: true, source_ref: "decision://1",
+            decision_id: "decision-1",
+            conflict_work_id: "work-1",
+            left_observation_id: "obs-a",
+            right_observation_id: "obs-b",
+            actor: "human-1",
+            authority_ref: "auth-1",
+            generation: 6,
+            decided_at: 20,
+            accepted: true,
+            source_ref: "decision://1",
+            recommendation_ref: None,
         };
         assert!(matches!(
             resolve_with_decision_artifact(reconciliation, Some(&artifact), 7),
@@ -672,22 +835,7 @@ mod tests {
 
     #[test]
     fn conflict_requires_explicit_resolution() {
-        let left = FederationObservation {
-            observation_id: "obs-a",
-            work_id: "work-1",
-            origin: FederationNode::Local,
-            quantity: 10,
-            evidence_ref: "e-a",
-            observed_at: 10,
-        };
-        let right = FederationObservation {
-            observation_id: "obs-b",
-            work_id: "work-1",
-            origin: FederationNode::Foreign,
-            quantity: 12,
-            evidence_ref: "e-b",
-            observed_at: 11,
-        };
+        let [left, right, _] = observations();
         let conflict = reconcile_observation_set(&[left, right]);
         assert!(matches!(
             resolve_conflict(conflict, None),
@@ -729,22 +877,42 @@ mod tests {
         let fixture = TraceFixture {
             events: vec![
                 TraceEvent {
-                    event_id: "obs-a", sequence: 1, kind: TraceKind::Observation,
+                    event_id: "obs-a",
+                    sequence: 1,
+                    kind: TraceKind::Observation,
                     provenance: crate::integral_demo_domain::ProvenanceClass::Observation,
-                    actor: TraceActor::System, source: crate::integral_demo_domain::SourceKind::Local,
-                    source_ref: "evidence://local", generation: 7, uncertainty_present: true,
-                    authority_ref: None, reversible: true, challengeable: true,
-                    recommendation_only: false, recovery_ref: None, appeal_ref: None,
-                    decision_accepted: None, status: TraceStatus::Accepted,
+                    actor: TraceActor::System,
+                    source: crate::integral_demo_domain::SourceKind::Local,
+                    source_ref: "evidence://local",
+                    generation: 7,
+                    uncertainty_present: true,
+                    authority_ref: None,
+                    reversible: true,
+                    challengeable: true,
+                    recommendation_only: false,
+                    recovery_ref: None,
+                    appeal_ref: None,
+                    decision_accepted: None,
+                    status: TraceStatus::Accepted,
                 },
                 TraceEvent {
-                    event_id: "obs-b", sequence: 2, kind: TraceKind::Observation,
+                    event_id: "obs-b",
+                    sequence: 2,
+                    kind: TraceKind::Observation,
                     provenance: crate::integral_demo_domain::ProvenanceClass::Observation,
-                    actor: TraceActor::System, source: crate::integral_demo_domain::SourceKind::Foreign,
-                    source_ref: "evidence://foreign", generation: 7, uncertainty_present: true,
-                    authority_ref: None, reversible: true, challengeable: true,
-                    recommendation_only: false, recovery_ref: None, appeal_ref: None,
-                    decision_accepted: None, status: TraceStatus::Disputed,
+                    actor: TraceActor::System,
+                    source: crate::integral_demo_domain::SourceKind::Foreign,
+                    source_ref: "evidence://foreign",
+                    generation: 7,
+                    uncertainty_present: true,
+                    authority_ref: None,
+                    reversible: true,
+                    challengeable: true,
+                    recommendation_only: false,
+                    recovery_ref: None,
+                    appeal_ref: None,
+                    decision_accepted: None,
+                    status: TraceStatus::Disputed,
                 },
                 decision,
             ],
@@ -767,7 +935,10 @@ mod tests {
 
     #[test]
     fn stale_schema_fails_closed() {
-        assert_eq!(accept_delivery(envelope(), 8, 20, None), FederationDecision::RejectedStaleGeneration);
+        assert_eq!(
+            accept_delivery(envelope(), 8, 20, None),
+            FederationDecision::RejectedStaleGeneration
+        );
     }
 
     #[test]
@@ -775,14 +946,20 @@ mod tests {
         let mut e = envelope();
         e.authorization = AuthorizationState::Expired;
         assert!(reconnect_cannot_revive_expired_authorization(e, 20));
-        assert_eq!(reconcile(e, 7, 20, None), FederationDecision::RejectedExpiredAuthorization);
+        assert_eq!(
+            reconcile(e, 7, 20, None),
+            FederationDecision::RejectedExpiredAuthorization
+        );
     }
 
     #[test]
     fn partition_does_not_fabricate_delivery() {
         let mut e = envelope();
         e.state = DeliveryState::Partitioned;
-        assert_eq!(accept_delivery(e, 7, 20, None), FederationDecision::RejectedPartitioned);
+        assert_eq!(
+            accept_delivery(e, 7, 20, None),
+            FederationDecision::RejectedPartitioned
+        );
     }
 
     #[test]
