@@ -10,7 +10,7 @@
 
 use serde::{Serialize, de::DeserializeOwned};
 
-use mycelix_leptos_core::HolochainCtx;
+use mycelix_leptos_core::{HolochainCallPhase, HolochainCtx};
 
 use crate::mutation_diagnostic_runtime::MutationDiagnosticRuntime;
 use crate::mutation_diagnostics::{
@@ -34,12 +34,57 @@ pub enum PersonalMutationDispatchError {
     ProviderTargetMismatch(PersonalMutationDiagnosticTargetMismatch),
 }
 
+/// Whether a typed mutation dispatch was known not to reach provider transport
+/// or whether its source-chain outcome remains unresolved.
+///
+/// This is an evidence disposition, not a commit/rollback result. In
+/// particular, `OutcomeUnknown` does not assert that a mutation committed; it
+/// only records that the typed invocation result is insufficient to establish
+/// that it did not.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PersonalMutationDispatchDisposition {
+    /// No provider zome request was dispatched.
+    NotSubmitted,
+    /// The provider call was attempted or a response was acquired, but no
+    /// typed domain result established whether the source-chain mutation
+    /// occurred.
+    OutcomeUnknown,
+}
+
 impl PersonalMutationDispatchError {
     pub const fn invocation_failure(&self) -> Option<&PersonalMutationFailure> {
         match self {
             Self::Invocation(failure) => Some(failure),
             Self::PersonalAttemptSequenceExhausted { .. }
             | Self::ProviderTargetMismatch(_) => None,
+        }
+    }
+
+    /// Classify how much the typed invocation failure establishes about whether
+    /// a provider request reached the source chain.
+    ///
+    /// Admission and Encode fail before transport dispatch. Transport can fail
+    /// after a request was sent, and Decode can fail after response bytes were
+    /// acquired, so neither establishes source-chain mutation absence.
+    pub fn disposition(&self) -> PersonalMutationDispatchDisposition {
+        match self {
+            Self::PersonalAttemptSequenceExhausted { .. } => {
+                PersonalMutationDispatchDisposition::NotSubmitted
+            }
+            Self::ProviderTargetMismatch(_) => {
+                PersonalMutationDispatchDisposition::OutcomeUnknown
+            }
+            Self::Invocation(failure) => match failure
+                .provider_failure_observation()
+                .map(|observation| observation.error().phase())
+            {
+                Some(HolochainCallPhase::Admission | HolochainCallPhase::Encode) => {
+                    PersonalMutationDispatchDisposition::NotSubmitted
+                }
+                Some(HolochainCallPhase::Transport | HolochainCallPhase::Decode) | None => {
+                    PersonalMutationDispatchDisposition::OutcomeUnknown
+                }
+            },
         }
     }
 }
@@ -96,5 +141,96 @@ where
                 mismatch,
             )),
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mycelix_leptos_core::{
+        HolochainCallAttemptId, HolochainCallError, HolochainCallFailureObservation,
+    };
+    use mycelix_leptos_client::ClientError;
+
+    fn failure_for_phase(phase: HolochainCallPhase) -> PersonalMutationDispatchError {
+        let binding =
+            crate::mutation_diagnostics::PersonalMutationCallBinding::for_target(
+                PersonalMutationTarget::Profile,
+            );
+        let mut sequence =
+            crate::mutation_diagnostics::PersonalMutationAttemptSequence::default();
+        let attempt = sequence.admit(binding.clone()).expect("personal attempt");
+        let observation = HolochainCallFailureObservation::new(
+            HolochainCallAttemptId::FIRST,
+            HolochainCallError::new(
+                phase,
+                binding.role(),
+                binding.zome(),
+                binding.function(),
+                ClientError::NotConnected,
+            ),
+        );
+        let failure = attempt
+            .fail(observation.into())
+            .expect("provider target must match");
+        PersonalMutationDispatchError::Invocation(failure)
+    }
+
+    #[test]
+    fn admission_and_encode_are_not_submitted() {
+        assert_eq!(
+            failure_for_phase(HolochainCallPhase::Admission).disposition(),
+            PersonalMutationDispatchDisposition::NotSubmitted
+        );
+        assert_eq!(
+            failure_for_phase(HolochainCallPhase::Encode).disposition(),
+            PersonalMutationDispatchDisposition::NotSubmitted
+        );
+    }
+
+    #[test]
+    fn transport_and_decode_are_outcome_unknown() {
+        assert_eq!(
+            failure_for_phase(HolochainCallPhase::Transport).disposition(),
+            PersonalMutationDispatchDisposition::OutcomeUnknown
+        );
+        assert_eq!(
+            failure_for_phase(HolochainCallPhase::Decode).disposition(),
+            PersonalMutationDispatchDisposition::OutcomeUnknown
+        );
+    }
+
+    #[test]
+    fn personal_attempt_sequence_exhaustion_is_not_submitted() {
+        let error = PersonalMutationDispatchError::PersonalAttemptSequenceExhausted {
+            target: PersonalMutationTarget::Profile,
+        };
+        assert_eq!(
+            error.disposition(),
+            PersonalMutationDispatchDisposition::NotSubmitted
+        );
+    }
+
+    #[test]
+    fn provider_target_mismatch_is_outcome_unknown() {
+        let profile =
+            crate::mutation_diagnostics::PersonalMutationCallBinding::for_target(
+                PersonalMutationTarget::Profile,
+            );
+        let mut sequence =
+            crate::mutation_diagnostics::PersonalMutationAttemptSequence::default();
+        let attempt = sequence.admit(profile.clone()).expect("personal attempt");
+        let mismatch = attempt
+            .fail(mycelix_leptos_core::HolochainCallInvocationError::attempt_sequence_exhausted(
+                "personal",
+                "health_vault",
+                "grant_consent_view",
+            ))
+            .expect_err("mismatch must be refused");
+        let error = PersonalMutationDispatchError::ProviderTargetMismatch(mismatch);
+        assert_eq!(
+            error.disposition(),
+            PersonalMutationDispatchDisposition::OutcomeUnknown
+        );
     }
 }
