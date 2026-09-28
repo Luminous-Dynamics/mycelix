@@ -335,3 +335,5 @@ mod tests {
 pub mod integral_demo_domain;
 
 pub mod integral_demo_oad_cds_cos;
+
+pub mod integral_demo_cos_itc;
