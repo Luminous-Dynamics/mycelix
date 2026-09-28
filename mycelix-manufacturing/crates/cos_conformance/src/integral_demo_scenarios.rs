@@ -16,13 +16,17 @@ use crate::integral_demo_trace::{
 pub enum ScenarioId {
     NormalFlow,
     RejectedCdsDecision,
+    RejectedDecisionDescendant,
     StaleDesign,
+    SupersededDesignUsed,
     UncertainObservation,
     ConflictingObservations,
     RecommendationAccepted,
     RecommendationRejected,
     ForeignEvidence,
     AppealedOutcome,
+    AppealReopenWithoutNewPath,
+    AppealReopenWithNewPath,
     NoSymthaea,
 }
 
@@ -164,13 +168,17 @@ fn metadata(id: ScenarioId) -> (&'static str, &'static str) {
     match id {
         ScenarioId::NormalFlow => ("Normal flow", "Complete bounded lifecycle."),
         ScenarioId::RejectedCdsDecision => ("Rejected CDS decision", "Missing explicit decision authority must fail closed."),
+        ScenarioId::RejectedDecisionDescendant => ("Rejected decision with descendant", "A rejected decision cannot authorize an executable descendant."),
         ScenarioId::StaleDesign => ("Stale design", "A superseded design generation cannot become current."),
+        ScenarioId::SupersededDesignUsed => ("Superseded design used", "A later action cannot consume a superseded design."),
         ScenarioId::UncertainObservation => ("Uncertain observation", "Uncertainty loss is rejected."),
         ScenarioId::ConflictingObservations => ("Conflicting observations", "Two observations remain distinguishable through an explicit dispute edge."),
         ScenarioId::RecommendationAccepted => ("Recommendation accepted", "A recommendation can inform a later human decision."),
         ScenarioId::RecommendationRejected => ("Recommendation rejected", "A recommendation can be rejected without breaking authority boundaries."),
         ScenarioId::ForeignEvidence => ("Foreign evidence", "Foreign origin cannot be silently laundered into local origin."),
-        ScenarioId::AppealedOutcome => ("Appealed outcome", "A consequential outcome retains an explicit appeal and reopening path."),
+        ScenarioId::AppealedOutcome => ("Appealed outcome", "An appeal without a new decision path fails closed."),
+        ScenarioId::AppealReopenWithoutNewPath => ("Appeal reopen without new path", "Reopening requires a new explicit decision path."),
+        ScenarioId::AppealReopenWithNewPath => ("Appeal reopen with new path", "A reopened review can create a new explicit decision path."),
         ScenarioId::NoSymthaea => ("No-Symthaea fallback", "The trace remains usable without Symthaea."),
     }
 }
@@ -190,6 +198,28 @@ pub fn fixture_for(id: ScenarioId) -> ScenarioFixture {
             events[8].status = TraceStatus::Rejected;
             events[9].decision_accepted = Some(false);
             events[9].status = TraceStatus::Rejected;
+        }
+        ScenarioId::RejectedDecisionDescendant => {
+            events[2].status = TraceStatus::Rejected;
+            events[2].decision_accepted = Some(false);
+            relations.push(relation("a1", "c1", TraceRelation::Supports));
+        }
+        ScenarioId::SupersededDesignUsed => {
+            let mut prior = events[1];
+            prior.event_id = "d0";
+            prior.sequence = 2;
+            prior.generation = 6;
+            prior.status = TraceStatus::Superseded;
+            events[1].event_id = "d1";
+            events[1].sequence = 3;
+            events[1].generation = 7;
+            events.insert(1, prior);
+            for (index, event) in events.iter_mut().enumerate().skip(2) {
+                event.sequence = (index as u32) + 2;
+            }
+            relations.retain(|r| r.from_event != "d1" && r.to_event != "d1" && r.from_event != "d0" && r.to_event != "d0");
+            relations.push(relation("d1", "d0", TraceRelation::Supersedes));
+            relations.push(relation("c1", "d0", TraceRelation::Supports));
         }
         ScenarioId::RejectedCdsDecision => {
             events[2].status = TraceStatus::Rejected;
@@ -235,6 +265,20 @@ pub fn fixture_for(id: ScenarioId) -> ScenarioFixture {
             events[11].status = TraceStatus::Reopened;
             relations.push(relation("ap1", "h1", TraceRelation::Reopens));
         }
+        ScenarioId::AppealReopenWithoutNewPath => {
+            events[10].status = TraceStatus::Reversed;
+            events[11].status = TraceStatus::Reopened;
+            relations.push(relation("ap1", "h1", TraceRelation::Reopens));
+        }
+        ScenarioId::AppealReopenWithNewPath => {
+            events[10].status = TraceStatus::Reversed;
+            events[11].status = TraceStatus::Reopened;
+            relations.push(relation("ap1", "h1", TraceRelation::Reopens));
+            events.push(event("c2", 13, TraceKind::Decision, TraceActor::Human, SourceKind::Local, 7, true, Some("auth-reopen"), false, Some(true), TraceStatus::Accepted));
+            events.push(event("a2", 14, TraceKind::Authorization, TraceActor::Human, SourceKind::Local, 7, true, Some("auth-reopen"), false, None, TraceStatus::Accepted));
+            relations.push(relation("c2", "ap1", TraceRelation::RespondsTo));
+            relations.push(relation("a2", "c2", TraceRelation::Authorizes));
+        }
         ScenarioId::NoSymthaea => {
             events[8].actor = TraceActor::System;
         }
@@ -242,12 +286,15 @@ pub fn fixture_for(id: ScenarioId) -> ScenarioFixture {
 
     let expected = match id {
         ScenarioId::NormalFlow | ScenarioId::RecommendationAccepted | ScenarioId::RecommendationRejected
-        | ScenarioId::AppealedOutcome | ScenarioId::NoSymthaea => ScenarioExpected::Valid,
+        | ScenarioId::AppealReopenWithNewPath | ScenarioId::NoSymthaea => ScenarioExpected::Valid,
         ScenarioId::RejectedCdsDecision => ScenarioExpected::Invalid(TraceError::MissingAuthorization),
+        ScenarioId::RejectedDecisionDescendant => ScenarioExpected::Invalid(TraceError::RejectedDecisionHasDescendant),
         ScenarioId::StaleDesign => ScenarioExpected::Invalid(TraceError::GenerationRegression),
+        ScenarioId::SupersededDesignUsed => ScenarioExpected::Invalid(TraceError::SupersededDesignUsed),
         ScenarioId::UncertainObservation => ScenarioExpected::Invalid(TraceError::UncertaintyLoss),
         ScenarioId::ConflictingObservations => ScenarioExpected::PresentationOnly,
         ScenarioId::ForeignEvidence => ScenarioExpected::Invalid(TraceError::ForeignOriginLoss),
+        ScenarioId::AppealedOutcome | ScenarioId::AppealReopenWithoutNewPath => ScenarioExpected::Invalid(TraceError::ReopenRequiresNewPath),
     };
 
     fixture(
@@ -279,13 +326,17 @@ pub fn evaluate(id: ScenarioId) -> ScenarioResult {
 pub const ALL_SCENARIOS: [ScenarioId; 10] = [
     ScenarioId::NormalFlow,
     ScenarioId::RejectedCdsDecision,
+    ScenarioId::RejectedDecisionDescendant,
     ScenarioId::StaleDesign,
+    ScenarioId::SupersededDesignUsed,
     ScenarioId::UncertainObservation,
     ScenarioId::ConflictingObservations,
     ScenarioId::RecommendationAccepted,
     ScenarioId::RecommendationRejected,
     ScenarioId::ForeignEvidence,
     ScenarioId::AppealedOutcome,
+    ScenarioId::AppealReopenWithoutNewPath,
+    ScenarioId::AppealReopenWithNewPath,
     ScenarioId::NoSymthaea,
 ];
 
