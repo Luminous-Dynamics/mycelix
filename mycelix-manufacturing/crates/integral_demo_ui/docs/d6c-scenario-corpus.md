@@ -76,7 +76,7 @@ Executable witnesses now cover:
 - reopening an appeal requires a new explicit decision path responding to the appeal;
 - the valid reopened path is represented by new events rather than mutating the old decision in place.
 
-The validator deliberately keeps event sequence and graph causality separate: sequence provides deterministic ordering, while relations provide causal meaning.
+The validator deliberately keeps event sequence and graph causality separate: sequence provides deterministic ordering, while relations provide causal meaning. Fixture replay is also graph-aware: identical event and relation payloads may replay, while relation mutations are rejected.
 
 ## Next hardening
 
