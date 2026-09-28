@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 pub mod productive_loop;
 pub mod source_refinement;
+pub mod seam_profile;
 
 pub const CORPUS_ID: &str = "COS-CONF-001";
 pub const FORMAL_OBLIGATIONS: [&str; 10] = [
