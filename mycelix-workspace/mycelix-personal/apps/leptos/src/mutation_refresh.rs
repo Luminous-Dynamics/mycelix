@@ -12,8 +12,8 @@ use leptos::prelude::*;
 use mycelix_leptos_core::holochain_provider::HolochainCtx;
 
 use crate::context::{
-    refresh_health_state, refresh_identity_state, refresh_preferences_state, PersonalCtx,
-    PersonalSourceState,
+    refresh_health_state_at_epoch, refresh_identity_state_at_epoch,
+    refresh_preferences_state_at_epoch, PersonalCtx, PersonalSourceState,
 };
 use crate::mutation_state::MutationRefreshOutcome;
 use crate::reconciliation::ReconciliationEpoch;
@@ -25,23 +25,42 @@ enum MutationRefreshTarget {
     Preferences,
 }
 
-fn begin_mutation_refresh(
+fn begin_mutation_refresh_at_epoch(
     gate: &mut ReconciliationEpoch,
+    expected_epoch: u64,
 ) -> Result<u64, MutationRefreshOutcome> {
+    let current_epoch = gate.current_epoch();
+    if current_epoch != expected_epoch {
+        return Err(MutationRefreshOutcome::EpochChanged {
+            started_epoch: expected_epoch,
+            current_epoch,
+        });
+    }
+
     if !gate.is_usable() {
         return Err(MutationRefreshOutcome::NoUsableEpoch);
     }
 
-    let epoch = gate.current_epoch();
     if gate.is_in_flight() {
-        return Err(MutationRefreshOutcome::Busy { epoch });
+        return Err(MutationRefreshOutcome::Busy {
+            epoch: current_epoch,
+        });
     }
 
     let started_epoch = gate
         .begin_refresh()
         .expect("usable non-busy Personal epoch must admit one explicit refresh");
-    debug_assert_eq!(started_epoch, epoch);
+    debug_assert_eq!(started_epoch, expected_epoch);
     Ok(started_epoch)
+}
+
+fn begin_mutation_refresh(
+    gate: &mut ReconciliationEpoch,
+) -> Result<u64, MutationRefreshOutcome> {
+    let Some(expected_epoch) = gate.is_usable().then(|| gate.current_epoch()) else {
+        return Err(MutationRefreshOutcome::NoUsableEpoch);
+    };
+    begin_mutation_refresh_at_epoch(gate, expected_epoch)
 }
 
 fn source_state_has_published_snapshot(state: PersonalSourceState) -> bool {
@@ -83,13 +102,14 @@ fn finish_mutation_refresh(
     }
 }
 
-async fn run_mutation_refresh(
+async fn run_mutation_refresh_at_epoch(
     ctx: PersonalCtx,
     hc: HolochainCtx,
     target: MutationRefreshTarget,
+    expected_epoch: u64,
 ) -> MutationRefreshOutcome {
     let mut gate = ctx.reconciliation.get_untracked();
-    let started_epoch = match begin_mutation_refresh(&mut gate) {
+    let started_epoch = match begin_mutation_refresh_at_epoch(&mut gate, expected_epoch) {
         Ok(epoch) => epoch,
         Err(outcome) => return outcome,
     };
@@ -97,15 +117,16 @@ async fn run_mutation_refresh(
 
     let source_published = match target {
         MutationRefreshTarget::Identity => {
-            refresh_identity_state(ctx.clone(), hc).await;
+            let _ = refresh_identity_state_at_epoch(ctx.clone(), hc.clone(), expected_epoch).await;
             source_state_has_published_snapshot(ctx.identity_state.get_untracked())
         }
         MutationRefreshTarget::Health => {
-            refresh_health_state(ctx.clone(), hc).await;
+            let _ = refresh_health_state_at_epoch(ctx.clone(), hc.clone(), expected_epoch).await;
             source_state_has_published_snapshot(ctx.health_state.get_untracked())
         }
         MutationRefreshTarget::Preferences => {
-            refresh_preferences_state(ctx.clone(), hc).await;
+            let _ =
+                refresh_preferences_state_at_epoch(ctx.clone(), hc.clone(), expected_epoch).await;
             source_state_has_published_snapshot(ctx.preferences_state.get_untracked())
         }
     };
@@ -125,22 +146,25 @@ async fn run_mutation_refresh(
 pub async fn refresh_identity_after_mutation(
     ctx: PersonalCtx,
     hc: HolochainCtx,
+    expected_epoch: u64,
 ) -> MutationRefreshOutcome {
-    run_mutation_refresh(ctx, hc, MutationRefreshTarget::Identity).await
+    run_mutation_refresh_at_epoch(ctx, hc, MutationRefreshTarget::Identity, expected_epoch).await
 }
 
 pub async fn refresh_health_after_mutation(
     ctx: PersonalCtx,
     hc: HolochainCtx,
+    expected_epoch: u64,
 ) -> MutationRefreshOutcome {
-    run_mutation_refresh(ctx, hc, MutationRefreshTarget::Health).await
+    run_mutation_refresh_at_epoch(ctx, hc, MutationRefreshTarget::Health, expected_epoch).await
 }
 
 pub async fn refresh_preferences_after_mutation(
     ctx: PersonalCtx,
     hc: HolochainCtx,
+    expected_epoch: u64,
 ) -> MutationRefreshOutcome {
-    run_mutation_refresh(ctx, hc, MutationRefreshTarget::Preferences).await
+    run_mutation_refresh_at_epoch(ctx, hc, MutationRefreshTarget::Preferences, expected_epoch).await
 }
 
 #[cfg(test)]
@@ -217,6 +241,66 @@ mod tests {
         ));
         assert!(source_state_has_published_snapshot(PersonalSourceState::Live));
         assert!(source_state_has_published_snapshot(PersonalSourceState::Empty));
+    }
+
+    #[test]
+    fn mutation_refresh_rejects_a_replacement_epoch_before_dispatch() {
+        let mut gate = ReconciliationEpoch::default();
+        let ReconciliationTransition::Start { epoch } = gate.observe_usable(true) else {
+            panic!("usable session must start initial reconciliation");
+        };
+        assert!(gate.finish(epoch));
+
+        let ReconciliationTransition::Invalidated {
+            epoch: replacement_epoch,
+            ..
+        } = gate.observe_usable(false)
+        else {
+            panic!("disconnect must advance the reconciliation epoch");
+        };
+        assert_ne!(replacement_epoch, epoch);
+
+        assert_eq!(
+            begin_mutation_refresh_at_epoch(&mut gate, epoch),
+            Err(MutationRefreshOutcome::EpochChanged {
+                started_epoch: epoch,
+                current_epoch: replacement_epoch,
+            })
+        );
+        assert!(!gate.is_in_flight());
+    }
+
+    #[test]
+    fn mutation_refresh_cannot_adopt_a_reconnected_replacement_epoch() {
+        let mut gate = ReconciliationEpoch::default();
+        let ReconciliationTransition::Start { epoch } = gate.observe_usable(true) else {
+            panic!("usable session must start initial reconciliation");
+        };
+        assert!(gate.finish(epoch));
+
+        let ReconciliationTransition::Invalidated {
+            epoch: replacement_epoch,
+            ..
+        } = gate.observe_usable(false)
+        else {
+            panic!("disconnect must advance the reconciliation epoch");
+        };
+        let ReconciliationTransition::Start {
+            epoch: reconnected_epoch,
+        } = gate.observe_usable(true)
+        else {
+            panic!("reconnection must establish a new usable epoch");
+        };
+        assert_eq!(replacement_epoch, reconnected_epoch);
+
+        assert_eq!(
+            begin_mutation_refresh_at_epoch(&mut gate, epoch),
+            Err(MutationRefreshOutcome::EpochChanged {
+                started_epoch: epoch,
+                current_epoch: reconnected_epoch,
+            })
+        );
+        assert!(!gate.is_in_flight());
     }
 
     #[test]

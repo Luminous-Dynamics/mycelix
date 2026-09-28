@@ -492,6 +492,14 @@ fn IdentityPage() -> impl IntoView {
         let identity_state = ctx_for_save.identity_state.get_untracked();
         let profile_action_hash = ctx_for_save.profile_action_hash.get_untracked();
         let profile = ctx_for_save.draft_profile.get();
+        let Some(mutation_epoch) = ctx_for_save.current_usable_epoch() else {
+            toasts.push(
+                "Profile was not submitted because no usable live Personal reconciliation epoch is established. Your local draft was retained."
+                    .into(),
+                ToastKind::Error,
+            );
+            return;
+        };
         let hc = hc.clone();
         let diagnostics = diagnostics;
         let toasts = toasts.clone();
@@ -510,7 +518,9 @@ fn IdentityPage() -> impl IntoView {
                 Ok(ProfileMutationOutcome::Committed { receipt }) => {
                     let action_hash = receipt.action_hash;
                     ledger.record_committed(PersonalMutationTarget::Profile, action_hash.clone());
-                    let outcome = refresh_identity_after_mutation(ctx.clone(), hc.clone()).await;
+                    let outcome =
+                        refresh_identity_after_mutation(ctx.clone(), hc.clone(), mutation_epoch)
+                            .await;
                     ledger.record_refresh_outcome(&action_hash, outcome);
                     if let MutationRefreshOutcome::Published { epoch } = outcome {
                         toasts.push(
@@ -650,6 +660,15 @@ fn HealthPage() -> impl IntoView {
             active: true,
         };
 
+        let Some(mutation_epoch) = ctx_for_consent.current_usable_epoch() else {
+            toasts.push(
+                "Consent grant was not submitted because no usable live Personal reconciliation epoch is established."
+                    .into(),
+                ToastKind::Error,
+            );
+            return;
+        };
+
         let hc = hc.clone();
         let toasts = toasts.clone();
         let ctx = ctx_for_consent.clone();
@@ -666,7 +685,9 @@ fn HealthPage() -> impl IntoView {
                     );
                     consent_grantee_signal.set(String::new());
                     consent_types_signal.set("allergy, medication".to_string());
-                    let outcome = refresh_health_after_mutation(ctx.clone(), hc.clone()).await;
+                    let outcome =
+                        refresh_health_after_mutation(ctx.clone(), hc.clone(), mutation_epoch)
+                            .await;
                     ledger.record_refresh_outcome(&action_hash, outcome);
 
                     if let MutationRefreshOutcome::Published { epoch } = outcome {
@@ -878,6 +899,14 @@ fn PreferenceCard(pref: personal_leptos_types::DataSharingPreferenceView) -> imp
             );
             return;
         };
+        let Some(mutation_epoch) = toggle_ctx.current_usable_epoch() else {
+            toggle_toasts.push(
+                "Preference was not submitted because no usable live Personal reconciliation epoch is established."
+                    .into(),
+                ToastKind::Error,
+            );
+            return;
+        };
         let previous = local_pref.get();
         let mut next = local_pref.get();
         next.allowed = !next.allowed;
@@ -903,7 +932,12 @@ fn PreferenceCard(pref: personal_leptos_types::DataSharingPreferenceView) -> imp
                 Ok(PreferenceMutationOutcome::Committed { receipt, .. }) => {
                     let action_hash = receipt.action_hash;
                     ledger.record_committed(target, action_hash.clone());
-                    let outcome = refresh_preferences_after_mutation(ctx.clone(), hc.clone()).await;
+                    let outcome = refresh_preferences_after_mutation(
+                        ctx.clone(),
+                        hc.clone(),
+                        mutation_epoch,
+                    )
+                    .await;
                     ledger.record_refresh_outcome(&action_hash, outcome);
                     if let MutationRefreshOutcome::Published { epoch } = outcome {
                         let state = if next.allowed { "allowed" } else { "blocked" };
@@ -962,6 +996,14 @@ fn PreferenceCard(pref: personal_leptos_types::DataSharingPreferenceView) -> imp
             );
             return;
         };
+        let Some(mutation_epoch) = save_ctx.current_usable_epoch() else {
+            save_toasts.push(
+                "Preference was not submitted because no usable live Personal reconciliation epoch is established."
+                    .into(),
+                ToastKind::Error,
+            );
+            return;
+        };
         let previous = local_pref.get();
         let mut next = local_pref.get();
         next.blocked_zomes = blocked_zomes_text
@@ -992,7 +1034,12 @@ fn PreferenceCard(pref: personal_leptos_types::DataSharingPreferenceView) -> imp
                 Ok(PreferenceMutationOutcome::Committed { receipt, .. }) => {
                     let action_hash = receipt.action_hash;
                     ledger.record_committed(target, action_hash.clone());
-                    let outcome = refresh_preferences_after_mutation(ctx.clone(), hc.clone()).await;
+                    let outcome = refresh_preferences_after_mutation(
+                        ctx.clone(),
+                        hc.clone(),
+                        mutation_epoch,
+                    )
+                    .await;
                     ledger.record_refresh_outcome(&action_hash, outcome);
                     if let MutationRefreshOutcome::Published { epoch } = outcome {
                         let state = if next.allowed { "allowed" } else { "blocked" };
