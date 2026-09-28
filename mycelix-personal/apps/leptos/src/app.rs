@@ -18,9 +18,10 @@ use mycelix_leptos_core::{
     HolochainProviderConfig, NavLink, NavTab, ToastContainer, ToastKind,
 };
 use personal_leptos_types::{
-    ConditionalMutationResultView, ConditionalPreferenceMutationInputView, MutationReceiptView,
+    ConditionalMutationResultView, ConditionalPreferenceMutationInputView,
 };
 
+use crate::health_consent_mutation_service::submit_health_consent_mutation;
 use crate::components::{
     format_relative_micros, freshness_from_micros, ConsentCard, KeyCard, PageHeader, SectionTitle,
     VaultStat,
@@ -29,6 +30,7 @@ use crate::context::{
     provide_cultural_context, provide_personal_context, use_cultural, use_personal,
     PersonalSourceState, SymbolRegistry,
 };
+use crate::mutation_diagnostic_runtime::use_mutation_diagnostic_runtime;
 use crate::mutation_ledger::{provide_mutation_ledger, use_mutation_ledger};
 use crate::mutation_refresh::{
     refresh_health_after_mutation, refresh_identity_after_mutation,
@@ -617,6 +619,7 @@ fn HealthPage() -> impl IntoView {
     let ctx = use_personal();
     let ledger = use_mutation_ledger();
     let hc = mycelix_leptos_core::holochain_provider::use_holochain();
+    let diagnostics = use_mutation_diagnostic_runtime();
     let toasts = use_toasts();
     let consent_grantee = RwSignal::new(String::new());
     let consent_types = RwSignal::new("allergy, medication".to_string());
@@ -647,16 +650,9 @@ fn HealthPage() -> impl IntoView {
         let consent_grantee_signal = consent_grantee;
         let consent_types_signal = consent_types;
         spawn_local(async move {
-            match hc
-                .call_zome_default::<_, MutationReceiptView>(
-                    "health_vault",
-                    "grant_consent_view",
-                    &input,
-                )
-                .await
-            {
-                Ok(receipt) => {
-                    let action_hash = receipt.action_hash;
+            match submit_health_consent_mutation(&hc, diagnostics, input).await {
+                Ok(outcome) => {
+                    let action_hash = outcome.receipt.action_hash;
                     ledger.record_committed(
                         PersonalMutationTarget::HealthConsent,
                         action_hash.clone(),
@@ -683,7 +679,11 @@ fn HealthPage() -> impl IntoView {
                         }
                     }
                 }
-                Err(err) => toasts.push(format!("Consent grant failed: {err}"), ToastKind::Error),
+                Err(_) => toasts.push(
+                    "Consent grant did not return a typed receipt. Review the Health mutation status before taking another action."
+                        .into(),
+                    ToastKind::Error,
+                ),
             }
         });
     };
