@@ -252,3 +252,12 @@ This separates three operations that are easy to conflate:
 3. **Authority mutation/escalation** — rejected when a transition changes, removes, or introduces authority outside the allowed governance boundary.
 
 These are reference-model invariants, not claims about Integral's ratified governance semantics.
+
+
+### D6F semantic capability boundary
+
+D6F makes the capability boundary explicit rather than leaving it implicit in stage names or authority fields. The A1 reference model now classifies Observation as **Evidence**, Assessment as **Assessment**, Recommendation as **AdvisoryRecommendation**, HumanDisposition as **HumanDisposition**, Authorization as **Authorization**, and ExecutionIntent as **ExecutionIntent**. Capability is deliberately distinct from authority: evidence and assessment can be validly represented without gaining permission to authorize or execute.
+
+The capability transition validator rejects direct jumps from Evidence, Assessment, or Recommendation to Authorization or ExecutionIntent. Execution capability requires the explicit Authorization → ExecutionIntent transition. HumanDisposition remains a governance disposition boundary rather than an execution capability, so a disposition cannot be treated as an authorization merely because it is accepted.
+
+This is a structural reference-model constraint. It does not claim that these exact capability names or transitions are Integral-ratified governance rules, nor does it establish truth, legitimacy, or real-world execution.
