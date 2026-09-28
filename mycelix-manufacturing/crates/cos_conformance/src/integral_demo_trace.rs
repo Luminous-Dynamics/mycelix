@@ -85,7 +85,6 @@ pub struct TraceEvent {
     /// Explicit human decision disposition; absence means no disposition is claimed.
     pub decision_accepted: Option<bool>,
     pub status: TraceStatus,
-    pub relations: &'static [TraceRelationRef],
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -295,10 +294,8 @@ pub fn validate_trace(fixture: &TraceFixture) -> Result<(), TraceError> {
         }
         if current.kind == TraceKind::Decision
             && previous.kind == TraceKind::Design
-            && current.generation > previous.generation
+            && current.generation != previous.generation
         {
-            // A decision may only consume the current design generation; a higher
-            // generation here is impossible to justify from this trace alone.
             return Err(TraceError::GenerationRegression);
         }
         if previous.kind == TraceKind::Design && current.kind == TraceKind::Design
