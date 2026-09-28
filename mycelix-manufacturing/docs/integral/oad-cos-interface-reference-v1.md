@@ -43,11 +43,11 @@ This follows the same safety objective used by mature API integration practice: 
 The reference model rejects or leaves indeterminate:
 
 - missing/invalid authentication;
-- missing/denied authorization;
+- missing/denied authorization;\n- missing or mismatched explicit authorization reference;
 - stale schema;
 - stale design generation;
 - superseded design;
-- uncertified design;
+- uncertified design (classified as a certification failure, not an authorization failure);
 - logical delivery identity mismatch;
 - payload mutation under an existing logical delivery;
 - transport acceptance without semantic admission;
@@ -87,7 +87,7 @@ This prevents a timeout from becoming a fabricated failure and prevents a retry 
 | Same logical ID + mutated payload | rejected |
 | Timeout / unknown receipt | indeterminate |
 | Foreign-origin recognition | origin preserved |
-| Any receipt | never mints production authority |
+| Known recipient rejection | rejected, not indeterminate |\n| Any receipt | never mints production authority |
 
 ## Relationship to the existing Mycelix COS layer
 
@@ -99,7 +99,7 @@ It does not replace the neutral seam profile, ProductiveLoopV1 evidence semantic
 
 ## Formal refinement targets
 
-The next formal tranche can map:
+The current formal tranche now also maps:
 
 - IF01-FV-001: authentication != authorization;
 - IF01-FV-002: stale schema cannot be admitted;
@@ -109,7 +109,7 @@ The next formal tranche can map:
 - IF01-FV-006: duplicate semantic admission is idempotent;
 - IF01-FV-007: indeterminate delivery is not definite failure;
 - IF01-FV-008: foreign origin is preserved;
-- IF01-FV-009: receipt does not mint production authority.
+- IF01-FV-009: receipt does not mint production authority;\n- IF01-FV-010: certification failure is distinct from authorization failure;\n- IF01-FV-011: granted authorization requires a matching explicit reference;\n- IF01-FV-012: known recipient rejection is distinct from unknown delivery.
 
 Each proof must still identify its production refinement path, assumptions, tool/version, executable witness, counterexample, and claim ceiling. An abstract proof remains an abstract proof until that refinement exists.
 
