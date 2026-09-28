@@ -111,6 +111,9 @@ pub enum TraceError {
     ForeignOriginLoss,
     DuplicateIdentityMutation,
     SupersededLineage,
+    RejectedDecisionHasDescendant,
+    SupersededDesignUsed,
+    ReopenRequiresNewPath,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -188,6 +191,41 @@ fn transition_allowed(from: TraceKind, to: TraceKind) -> bool {
 }
 
 /// Validate a complete trace without consulting any presentation or AI layer.
+fn has_graph_relation(
+    relations: &[TraceRelationRef],
+    from_event: &str,
+    to_event: &str,
+    relation: TraceRelation,
+) -> bool {
+    relations.iter().any(|r| {
+        r.from_event == from_event && r.to_event == to_event && r.relation == relation
+    })
+}
+
+fn reachable_descendant_kinds(
+    events: &[TraceEvent],
+    relations: &[TraceRelationRef],
+    root: &str,
+) -> Vec<TraceKind> {
+    let mut seen = vec![root.to_owned()];
+    let mut cursor = 0;
+    let mut kinds = Vec::new();
+
+    while cursor < seen.len() {
+        let current = seen[cursor].as_str();
+        cursor += 1;
+        for relation in relations.iter().filter(|r| r.to_event == current) {
+            if !seen.iter().any(|id| id == relation.from_event) {
+                seen.push(relation.from_event.to_owned());
+                if let Some(event) = events.iter().find(|e| e.event_id == relation.from_event) {
+                    kinds.push(event.kind);
+                }
+            }
+        }
+    }
+    kinds
+}
+
 fn status_compatible(event: &TraceEvent) -> bool {
     match event.kind {
         TraceKind::Proposal => matches!(event.status, TraceStatus::Proposed | TraceStatus::Accepted),
@@ -286,6 +324,66 @@ pub fn validate_trace(fixture: &TraceFixture) -> Result<(), TraceError> {
                 }
             }
             _ => {}
+        }
+    }
+
+    // Branch-closure invariants operate on the owned causal graph rather
+    // than inferring causality from presentation order.
+    for rejected in events.iter().filter(|e| {
+        matches!(e.kind, TraceKind::Decision | TraceKind::HumanDecision)
+            && e.status == TraceStatus::Rejected
+    }) {
+        let descendants = reachable_descendant_kinds(events, relations, rejected.event_id);
+        if descendants.iter().any(|kind| {
+            matches!(
+                kind,
+                TraceKind::Authorization
+                    | TraceKind::ExecutionIntent
+                    | TraceKind::Observation
+                    | TraceKind::Outcome
+            )
+        }) {
+            return Err(TraceError::RejectedDecisionHasDescendant);
+        }
+    }
+
+    for design in events.iter().filter(|e| {
+        e.kind == TraceKind::Design && e.status == TraceStatus::Superseded
+    }) {
+        if events.iter().any(|event| {
+            matches!(event.kind, TraceKind::Decision | TraceKind::Authorization | TraceKind::ExecutionIntent)
+                && relations.iter().any(|r| {
+                    r.from_event == event.event_id
+                        && r.to_event == design.event_id
+                        && matches!(r.relation, TraceRelation::Supports | TraceRelation::Authorizes)
+                })
+        }) {
+            return Err(TraceError::SupersededDesignUsed);
+        }
+    }
+
+    for appeal in events.iter().filter(|e| e.kind == TraceKind::Appeal) {
+        let reopens = relations.iter().any(|r| {
+            r.from_event == appeal.event_id && r.relation == TraceRelation::Reopens
+        });
+        if reopens {
+            let has_new_path = events.iter().any(|event| {
+                event.sequence > appeal.sequence
+                    && matches!(
+                        event.kind,
+                        TraceKind::Decision
+                            | TraceKind::Authorization
+                            | TraceKind::HumanDecision
+                    )
+                    && relations.iter().any(|r| {
+                        r.from_event == event.event_id
+                            && r.relation == TraceRelation::RespondsTo
+                            && r.to_event == appeal.event_id
+                    })
+            });
+            if !has_new_path {
+                return Err(TraceError::ReopenRequiresNewPath);
+            }
         }
     }
 
