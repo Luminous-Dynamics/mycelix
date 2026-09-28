@@ -148,10 +148,10 @@ fn App() -> impl IntoView {
                                                 <span class="trace-meta">{format!("{:?}", event.status)}</span>
                                                 <span class="trace-meta">{status}</span>
                                                 <span class="uncertainty">{if event.uncertainty_present { "uncertain" } else { "uncertainty lost" }}</span>
-                                                {event.relations.iter().map(|relation| {
+                                                {fixture.trace.relations.iter().filter(|relation| relation.from_event == event.event_id).map(|relation| {
                                                     view! {
                                                         <span class="trace-relation">
-                                                            {format!("{:?} → {} ({:?})", relation.relation, relation.to_event, relation.relation)}
+                                                            {format!("{:?} → {}", relation.relation, relation.to_event)}
                                                         </span>
                                                     }
                                                 }).collect_view()}
