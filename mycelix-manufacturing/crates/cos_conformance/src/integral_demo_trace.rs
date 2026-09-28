@@ -607,6 +607,17 @@ mod tests {
     }
 
     #[test]
+    fn evidence_bearing_events_require_explicit_evidence_binding() {
+        let mut t = valid_trace();
+        t.events[5].evidence_ref = None;
+        assert_eq!(validate_trace(&t), Err(TraceError::EmptySource));
+
+        let mut t = valid_trace();
+        t.events[7].evidence_ref = None;
+        assert_eq!(validate_trace(&t), Err(TraceError::EmptySource));
+    }
+
+    #[test]
     fn recommendation_cannot_carry_authority() {
         let mut t = valid_trace();
         t.events[8].authority_ref = Some("forbidden");
