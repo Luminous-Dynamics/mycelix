@@ -163,6 +163,7 @@ fn transition_allowed(from: TraceKind, to: TraceKind) -> bool {
         (from, to),
         (TraceKind::Proposal, TraceKind::Design)
             | (TraceKind::Design, TraceKind::Decision)
+            | (TraceKind::Design, TraceKind::Design)
             | (TraceKind::Decision, TraceKind::Authorization)
             | (TraceKind::Authorization, TraceKind::ExecutionIntent)
             | (TraceKind::ExecutionIntent, TraceKind::Observation)
@@ -303,6 +304,15 @@ pub fn validate_trace(events: &[TraceEvent]) -> Result<(), TraceError> {
         }
         if !transition_allowed(previous.kind, current.kind) {
             return Err(TraceError::IllegalTransition);
+        }
+        if previous.kind == TraceKind::Design && current.kind == TraceKind::Design
+            && !events.iter().any(|e| e.relations.iter().any(|r| {
+                r.relation == TraceRelation::Supersedes
+                    && r.from_event == current.event_id
+                    && r.to_event == previous.event_id
+            }))
+        {
+            return Err(TraceError::SupersededLineage);
         }
         if previous.kind == TraceKind::Observation && current.kind == TraceKind::Observation
             && !events.iter().any(|e| e.relations.iter().any(|r| {
