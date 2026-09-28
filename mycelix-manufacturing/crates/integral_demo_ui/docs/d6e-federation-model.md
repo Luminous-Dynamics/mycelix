@@ -28,3 +28,10 @@ Retries may change `attempt_id`, but must retain `logical_delivery_id`, payload 
 `ReferenceModelOnly`.
 
 D6E does not establish network reliability, cryptographic authenticity, privacy compliance, scalability, economic correctness, governance legitimacy, or human outcomes.
+
+
+## Competing observations
+
+Federation reconciliation also has an explicit observation boundary. Two observations of the same work with different quantities are retained as distinct records, including their independent origins and evidence references. The reference model produces an ObservationConflict; it does not choose a winner or rewrite either observation.
+
+That conflict can feed the existing FRS conflict/assessment seam, where a later human decision remains separate from the observations themselves.
