@@ -241,6 +241,14 @@ Explicit A1↔D5 pairs must bind to the canonical event already present in the v
 
 ### Authority non-escalation at projection/replay boundaries
 
-Authority is treated as a semantic boundary, not as metadata that can emerge while an artifact crosses subsystem representations. The D5 reference model now exposes an explicit authority_reference_is_conserved invariant for projection/replay paths: an existing authority reference must remain identical, and an absent reference cannot become authoritative merely through serialization, replay, federation, or trace projection. Governance transitions remain separate: A1 explicitly requires authority on Decision/Authorization/ExecutionIntent/HumanDisposition where applicable, while Recommendation is permanently advisory and cannot carry authority.
+Authority is treated as a semantic boundary, not as metadata that can emerge while an artifact crosses subsystem representations. The D5 reference model now exposes an explicit `authority_reference_is_conserved` invariant for projection/replay paths: an existing authority reference must remain identical, and an absent reference cannot become authoritative merely through serialization, replay, federation, or trace projection. Governance transitions remain separate: A1 explicitly requires authority on Decision/Authorization/ExecutionIntent/HumanDisposition where applicable, while Recommendation is permanently advisory and cannot carry authority.
 
-This distinction is important because authority conservation is not authority creation. A projection may faithfully preserve a legitimate authority reference, but the projection itself does not grant authority. This is a reference-model engineering invariant, not a claim about Integral's ratified governance semantics.
+The A1 coordination validator now makes the stronger transition rule explicit: **authority creation is confined to governance-bearing stages** (Decision, Authorization, HumanDisposition), while ExecutionIntent must conserve the exact authority reference from its Authorization parent. Evidence stages, Recommendation, Revision, and Appeal cannot acquire authority through ordinary parent linkage.
+
+This separates three operations that are easy to conflate:
+
+1. **Authority creation** — permitted only at an explicit governance transition.
+2. **Authority conservation** — permitted when a stage legitimately carries the existing reference forward.
+3. **Authority mutation/escalation** — rejected when a transition changes, removes, or introduces authority outside the allowed governance boundary.
+
+These are reference-model invariants, not claims about Integral's ratified governance semantics.
