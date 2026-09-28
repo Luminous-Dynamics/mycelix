@@ -191,10 +191,10 @@ jobs:
           for obligation in obligations:
               needle = (
                   'id: "' + obligation["id"] + '",\n'
-                  '        proposition:'
+                  '        proposition: "' + obligation["proposition"] + '",\n'
+                  '        witness: "' + obligation["test_symbol"] + '"'
               )
               assert needle in formal, obligation["id"]
-              assert 'witness: "' + obligation["test_symbol"] + '"' in formal, obligation["id"]
 
           # Artifact hashes are Git blob identities (SHA-1), deliberately
           # distinct from runtime SHA-256 output digests.
