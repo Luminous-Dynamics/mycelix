@@ -192,7 +192,9 @@ jobs:
             > evidence/if01-evidence-receipt.json
           python3 -m pip install --quiet jsonschema
           python3 - <<'PY'
+          import hashlib
           import json
+          import subprocess
           from pathlib import Path
           from jsonschema import Draft202012Validator, FormatChecker
 
@@ -201,9 +203,20 @@ jobs:
           receipt_path = Path("evidence/if01-evidence-receipt.json")
           receipt = json.loads(receipt_path.read_text())
           Draft202012Validator(schema, format_checker=FormatChecker()).validate(receipt)
-          assert len(receipt["source_commit"]) == 40
+          artifact = Path(receipt["artifact_path"])
+          artifact_blob = subprocess.check_output(
+              ["git", "hash-object", str(artifact)], text=True
+          ).strip()
+          actual_digest = hashlib.sha256(
+              receipt["actual_result"].encode("utf-8")
+          ).hexdigest()
+          assert receipt["source_commit"] == subprocess.check_output(
+              ["git", "rev-parse", "HEAD"], text=True
+          ).strip()
+          assert receipt["artifact_identity"].endswith(":git-blob:" + artifact_blob)
+          assert receipt["output_digest"] == actual_digest
           assert receipt["status"] == "BoundedExecutableWitness"
-          print("IF01 evidence receipt: schema and format validation passed")
+          print("IF01 evidence receipt: schema, provenance, and digest validation passed")
           PY
           test -s evidence/if01-evidence-receipt.json
       - name: Upload IF01 evidence receipt
