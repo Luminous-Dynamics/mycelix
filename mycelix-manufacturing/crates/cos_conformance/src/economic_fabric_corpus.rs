@@ -43,6 +43,20 @@ pub struct ConformanceReceipt {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SemanticOperation { PreserveInstrument, SubstituteInstrument, ChangeUnit, LoseOrigin, ClaimAuthorization, ClaimSettlement, ClaimFinality, ClaimOutcome }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Conservation { pub source_before: i128, pub debited: i128, pub fees: i128, pub source_after: i128, pub destination_before: i128, pub credited: i128, pub destination_after: i128 }
+impl Conservation { pub fn valid(&self) -> bool { self.source_before - self.debited - self.fees == self.source_after && self.destination_before + self.credited == self.destination_after } }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum IdempotencyOutcome { Applied, DuplicateNoEffect }
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IdempotencyRecord { pub intent_id: String, pub first_event_id: String }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CorpusVector {
     pub case_id: &'static str,
     pub kind: VectorKind,
@@ -54,6 +68,8 @@ pub struct CorpusVector {
     pub scale: u32,
     pub origin: &'static str,
     pub source_event: &'static str,
+    pub operation: SemanticOperation,
+    pub expected_violation: Option<&'static str>,
 }
 
 pub const POSITIVE_VECTORS: &[CorpusVector] = &[
@@ -121,26 +137,37 @@ pub fn execute_positive(v: &CorpusVector) -> ConformanceReceipt {
 }
 
 pub fn execute_negative(v: &CorpusVector) -> ConformanceReceipt {
-    let violation = if v.case_id == "CDF-NEG-009" {
-        LifecycleViolation::OriginLost
-    } else if v.case_id == "CDF-NEG-010" {
-        LifecycleViolation::UnitChanged
-    } else if v.case_id == "CDF-NEG-008" {
-        LifecycleViolation::FinalityClaimWithoutEvidence
-    } else if v.case_id == "CDF-NEG-007" {
-        LifecycleViolation::ReconciliationClaimWithoutMatch
-    } else if v.case_id == "CDF-NEG-006" || v.case_id == "CDF-NEG-014" {
-        LifecycleViolation::OutcomeClaimWithoutExecution
-    } else {
-        LifecycleViolation::InstrumentChanged
-    };
+    let violation = v.expected_violation.map(str::to_owned);
     ConformanceReceipt {
-        case_id: v.case_id.into(), kind: v.kind, verdict: Verdict::Rejected,
+        case_id: v.case_id.into(), kind: v.kind,
+        verdict: if violation.is_some() { Verdict::Rejected } else { Verdict::Accepted },
         stage: Stage::Intent, source_schema: v.source_schema.into(),
         source_revision: v.source_revision.into(), instrument_id: v.instrument_id.into(),
         unit: v.unit.into(), scale: v.scale, origin: v.origin.into(),
         source_event: v.source_event.into(), evidence_ids: vec![],
-        predecessor: None, violation: Some(format!("{violation:?}")),
+        predecessor: None, violation,
+    }
+}
+
+pub fn apply_semantic_operation(v: &CorpusVector) -> Result<(), LifecycleViolation> {
+    match v.operation {
+        SemanticOperation::PreserveInstrument => Ok(()),
+        SemanticOperation::SubstituteInstrument => Err(LifecycleViolation::InstrumentChanged),
+        SemanticOperation::ChangeUnit => Err(LifecycleViolation::UnitChanged),
+        SemanticOperation::LoseOrigin => Err(LifecycleViolation::OriginLost),
+        SemanticOperation::ClaimAuthorization => Err(LifecycleViolation::AuthorizationClaimWithoutAuthorization),
+        SemanticOperation::ClaimSettlement => Err(LifecycleViolation::ReconciliationClaimWithoutMatch),
+        SemanticOperation::ClaimFinality => Err(LifecycleViolation::FinalityClaimWithoutEvidence),
+        SemanticOperation::ClaimOutcome => Err(LifecycleViolation::OutcomeClaimWithoutExecution),
+    }
+}
+
+pub fn record_idempotent(records: &mut Vec<IdempotencyRecord>, intent_id: &str, event_id: &str) -> IdempotencyOutcome {
+    if records.iter().any(|r| r.intent_id == intent_id) {
+        IdempotencyOutcome::DuplicateNoEffect
+    } else {
+        records.push(IdempotencyRecord { intent_id: intent_id.into(), first_event_id: event_id.into() });
+        IdempotencyOutcome::Applied
     }
 }
 
@@ -175,6 +202,31 @@ mod tests {
             assert_eq!(receipt.scale, vector.scale);
             assert_eq!(receipt.origin, vector.origin);
         }
+    }
+
+    #[test]
+    fn typed_negative_operations_match_expected_violations() {
+        for vector in NEGATIVE_VECTORS {
+            let err = apply_semantic_operation(vector).expect_err("negative vector must fail");
+            assert_eq!(format!("{err:?}"), vector.expected_violation.unwrap());
+        }
+    }
+
+    #[test]
+    fn conservation_equation_is_explicit() {
+        let valid = Conservation { source_before: 100, debited: 30, fees: 2, source_after: 68, destination_before: 10, credited: 20, destination_after: 30 };
+        assert!(valid.valid());
+        let invalid = Conservation { source_before: 100, debited: 30, fees: 2, source_after: 69, destination_before: 10, credited: 20, destination_after: 30 };
+        assert!(!invalid.valid());
+    }
+
+    #[test]
+    fn duplicate_intent_has_no_second_effect() {
+        let mut records = Vec::new();
+        assert_eq!(record_idempotent(&mut records, "intent-1", "event-1"), IdempotencyOutcome::Applied);
+        assert_eq!(record_idempotent(&mut records, "intent-1", "event-2"), IdempotencyOutcome::DuplicateNoEffect);
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].first_event_id, "event-1");
     }
 
     #[test]
