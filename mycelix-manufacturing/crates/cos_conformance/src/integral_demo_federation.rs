@@ -118,6 +118,41 @@ pub enum ReconciliationDecision {
     ConflictPreserved(ObservationConflict),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResolutionDecision {
+    AwaitingHumanDecision(ObservationConflict),
+    ResolvedByExplicitDecision {
+        conflict_work_id: &'static str,
+        decision_ref: &'static str,
+    },
+}
+
+pub fn resolve_conflict(
+    reconciliation: ReconciliationDecision,
+    decision_ref: Option<&'static str>,
+) -> ResolutionDecision {
+    match reconciliation {
+        ReconciliationDecision::Agreement => {
+            ResolutionDecision::AwaitingHumanDecision(ObservationConflict {
+                work_id: "",
+                left_observation_id: "",
+                left_origin: FederationNode::Local,
+                left_quantity: 0,
+                right_observation_id: "",
+                right_origin: FederationNode::Local,
+                right_quantity: 0,
+            })
+        }
+        ReconciliationDecision::ConflictPreserved(conflict) => match decision_ref {
+            Some(reference) if !reference.is_empty() => ResolutionDecision::ResolvedByExplicitDecision {
+                conflict_work_id: conflict.work_id,
+                decision_ref: reference,
+            },
+            _ => ResolutionDecision::AwaitingHumanDecision(conflict),
+        },
+    }
+}
+
 pub fn conflict_preserves_no_winner(decision: &ReconciliationDecision) -> bool {
     matches!(decision, ReconciliationDecision::ConflictPreserved(_))
 }
@@ -362,6 +397,35 @@ mod tests {
             observed_at: 11,
         };
         assert!(conflict_preserves_no_winner(&reconcile_observation_set(&[left, right])));
+    }
+
+    #[test]
+    fn conflict_requires_explicit_resolution() {
+        let left = FederationObservation {
+            observation_id: "obs-a",
+            work_id: "work-1",
+            origin: FederationNode::Local,
+            quantity: 10,
+            evidence_ref: "e-a",
+            observed_at: 10,
+        };
+        let right = FederationObservation {
+            observation_id: "obs-b",
+            work_id: "work-1",
+            origin: FederationNode::Foreign,
+            quantity: 12,
+            evidence_ref: "e-b",
+            observed_at: 11,
+        };
+        let conflict = reconcile_observation_set(&[left, right]);
+        assert!(matches!(
+            resolve_conflict(conflict, None),
+            ResolutionDecision::AwaitingHumanDecision(_)
+        ));
+        assert!(matches!(
+            resolve_conflict(conflict, Some("decision-1")),
+            ResolutionDecision::ResolvedByExplicitDecision { .. }
+        ));
     }
 
     #[test]
