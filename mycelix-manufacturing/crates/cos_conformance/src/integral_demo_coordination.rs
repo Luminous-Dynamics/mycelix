@@ -27,6 +27,63 @@ pub enum CoordinationOrigin { Local, Foreign }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Disposition { Accepted, Rejected, Deferred }
 
+/// Semantic capability exposed by a coordination artifact.
+///
+/// Capability is deliberately distinct from authority: an artifact may carry
+/// evidence or an assessment without being permitted to authorize or execute
+/// anything. The mapping is structural and does not assert governance legitimacy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CoordinationCapability {
+    Evidence,
+    Assessment,
+    AdvisoryRecommendation,
+    HumanDisposition,
+    Authorization,
+    ExecutionIntent,
+}
+
+/// Map a coordination stage to the capability it exposes at this boundary.
+/// Non-listed stages have no consequential capability in this reference model.
+pub fn capability_for_kind(kind: CoordinationKind) -> Option<CoordinationCapability> {
+    match kind {
+        CoordinationKind::Observation => Some(CoordinationCapability::Evidence),
+        CoordinationKind::Assessment => Some(CoordinationCapability::Assessment),
+        CoordinationKind::Recommendation => Some(CoordinationCapability::AdvisoryRecommendation),
+        CoordinationKind::HumanDisposition => Some(CoordinationCapability::HumanDisposition),
+        CoordinationKind::Authorization => Some(CoordinationCapability::Authorization),
+        CoordinationKind::ExecutionIntent => Some(CoordinationCapability::ExecutionIntent),
+        CoordinationKind::Intent
+        | CoordinationKind::Decision
+        | CoordinationKind::Design
+        | CoordinationKind::Revision
+        | CoordinationKind::Appeal => None,
+    }
+}
+
+/// Return whether a capability transition is structurally permitted.
+/// Evidence, assessment, and recommendation never directly acquire execution
+/// capability; execution requires the explicit Authorization → ExecutionIntent
+/// transition already validated by the coordination loop.
+pub fn capability_transition_is_valid(
+    parent: CoordinationKind,
+    child: CoordinationKind,
+) -> bool {
+    match (capability_for_kind(parent), capability_for_kind(child)) {
+        (Some(CoordinationCapability::Evidence), Some(CoordinationCapability::Assessment)) => true,
+        (Some(CoordinationCapability::Assessment), Some(CoordinationCapability::AdvisoryRecommendation)) => true,
+        (Some(CoordinationCapability::AdvisoryRecommendation), Some(CoordinationCapability::HumanDisposition)) => true,
+        (Some(CoordinationCapability::Authorization), Some(CoordinationCapability::ExecutionIntent)) => true,
+        _ => matches!(
+            (parent, child),
+            (CoordinationKind::Intent, CoordinationKind::Decision)
+                | (CoordinationKind::Decision, CoordinationKind::Design)
+                | (CoordinationKind::Design, CoordinationKind::Authorization)
+                | (CoordinationKind::HumanDisposition, CoordinationKind::Revision)
+                | (CoordinationKind::Revision, CoordinationKind::Decision)
+        ),
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CoordinationArtifact {
     pub id: &'static str,
@@ -184,6 +241,9 @@ pub fn validate_loop(loop_: &CoordinationLoop) -> Result<(), CoordinationError> 
             if !allowed(parent.kind, artifact.kind) {
                 return Err(CoordinationError::InvalidTransition);
             }
+            if !capability_transition_is_valid(parent.kind, artifact.kind) {
+                return Err(CoordinationError::InvalidTransition);
+            }
             if !authority_transition_is_valid(parent, artifact) {
                 return Err(CoordinationError::AuthorityMutation);
             }
@@ -280,6 +340,40 @@ mod tests {
             item("h1", CoordinationKind::HumanDisposition, Some("r1")),
             item("v2", CoordinationKind::Revision, Some("h1")),
         ]}
+    }
+
+    #[test]
+    fn capability_mapping_keeps_evidence_and_governance_distinct() {
+        assert_eq!(capability_for_kind(CoordinationKind::Observation), Some(CoordinationCapability::Evidence));
+        assert_eq!(capability_for_kind(CoordinationKind::Assessment), Some(CoordinationCapability::Assessment));
+        assert_eq!(capability_for_kind(CoordinationKind::Recommendation), Some(CoordinationCapability::AdvisoryRecommendation));
+        assert_eq!(capability_for_kind(CoordinationKind::HumanDisposition), Some(CoordinationCapability::HumanDisposition));
+        assert_eq!(capability_for_kind(CoordinationKind::Authorization), Some(CoordinationCapability::Authorization));
+        assert_eq!(capability_for_kind(CoordinationKind::ExecutionIntent), Some(CoordinationCapability::ExecutionIntent));
+    }
+
+    #[test]
+    fn evidence_assessment_and_recommendation_cannot_jump_to_execution_capability() {
+        for parent in [
+            CoordinationKind::Observation,
+            CoordinationKind::Assessment,
+            CoordinationKind::Recommendation,
+        ] {
+            assert!(!capability_transition_is_valid(parent, CoordinationKind::ExecutionIntent));
+            assert!(!capability_transition_is_valid(parent, CoordinationKind::Authorization));
+        }
+    }
+
+    #[test]
+    fn execution_capability_requires_authorization_capability() {
+        assert!(capability_transition_is_valid(
+            CoordinationKind::Authorization,
+            CoordinationKind::ExecutionIntent
+        ));
+        assert!(!capability_transition_is_valid(
+            CoordinationKind::HumanDisposition,
+            CoordinationKind::ExecutionIntent
+        ));
     }
 
     #[test]
