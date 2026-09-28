@@ -1,8 +1,8 @@
 //! Executable COS semantic conformance model.
 //!
 //! This crate deliberately models evidence transitions rather than manufacturing
-//! execution. It is dependency-light so semantic boundaries remain testable without
-//! Holochain runtime state.
+// execution. It is dependency-light so semantic boundaries remain testable without
+// Holochain runtime state.
 
 use serde::{Deserialize, Serialize};
 
@@ -23,6 +23,10 @@ pub mod integral_demo_cos_itc;
 pub mod integral_demo_itc_frs;
 pub mod integral_demo_trace;
 pub mod integral_demo_cockpit;
+pub mod integral_demo_scenarios;
+pub mod integral_demo_federation;
+pub mod integral_demo_federation_trace;
+pub mod integral_demo_interpretations;
 
 pub const CORPUS_ID: &str = "COS-CONF-001";
 pub const FORMAL_OBLIGATIONS: [&str; 10] = [
@@ -289,11 +293,10 @@ mod tests {
                 _ => unreachable!(),
             }
             let current = fresh();
-            let evidence = Some(&current);
             let decision = if case.test_id == "COS-N-005" {
-                if b.quality_current && stale_evidence_is_rejected(evidence.unwrap(), now) == Decision::Accepted { Decision::Accepted } else { Decision::Rejected }
+                if b.quality_current && stale_evidence_is_rejected(&current, now) == Decision::Accepted { Decision::Accepted } else { Decision::Rejected }
             } else {
-                evaluate_negative(case.test_id, &b, evidence, now)
+                evaluate_negative(case.test_id, &b, Some(&current), now)
             };
             assert_eq!(decision, Decision::Accepted, "{} positive counterpart did not bind explicitly", case.test_id);
         }
@@ -339,18 +342,12 @@ mod tests {
 }
 
 pub mod integral_demo_domain;
-
 pub mod integral_demo_oad_cds_cos;
-
 pub mod integral_demo_cos_itc;
-
 pub mod integral_demo_itc_frs;
 pub mod integral_demo_trace;
-
 pub mod integral_demo_cockpit;
-
 pub mod integral_demo_scenarios;
-
 pub mod integral_demo_federation;
-
 pub mod integral_demo_federation_trace;
+pub mod integral_demo_interpretations;
