@@ -114,6 +114,28 @@ current value equality
 current authority
 \`\`\`
 
+## Explicit currentness ceiling
+
+The reference model exposes an explicit currentness assessment:
+
+- an archive behind the current normative frontier is \`StaleRelativeToCurrentFrontier\`;
+- an archive at the same frontier is still \`SameFrontierStillHistorical\`.
+
+The second case is important: matching the current frontier does not transform an archive into authority.
+
+This closes a subtle substitution path:
+
+\`\`\`
+same frontier
++ same visible value
++ complete archive
+!=
+current authorization
+\`\`\`
+
+Current authorization and actuation remain separate Mycelix semantic decisions.
+
+
 ## Historical claims
 
 \`HistoricalClaimReceiptV1\` binds a claim to:
