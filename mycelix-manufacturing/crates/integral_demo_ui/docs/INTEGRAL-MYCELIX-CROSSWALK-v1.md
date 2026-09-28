@@ -197,3 +197,12 @@ This crosswalk does not establish:
 - superiority of either project.
 
 It is an engineering research bridge intended to make those questions explicit and testable.
+
+
+## A1 implementation status
+
+The reference model is implemented in `cos_conformance::integral_demo_coordination`.
+
+It introduces typed coordination artifacts for Intent, Decision, Design, Authorization, ExecutionIntent, Observation, Assessment, Recommendation, HumanDisposition, Revision, and Appeal. The validator checks explicit parent lineage, generation monotonicity, provenance-bearing evidence, uncertainty preservation, authority boundaries, and challenge/recovery requirements for consequential accepted dispositions.
+
+This is a bounded semantic model. It does not prove the evidence is true, the authority is legitimate, or any physical action occurred. The validator also does not yet replace D5's richer graph validator; integration and shared fixture coverage remain follow-up work.
