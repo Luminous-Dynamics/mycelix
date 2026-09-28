@@ -18,7 +18,9 @@ use mycelix_leptos_core::{
     HolochainProviderConfig, NavLink, NavTab, ToastContainer, ToastKind,
 };
 
-use crate::health_consent_mutation_service::submit_health_consent_mutation;
+use crate::health_consent_mutation_service::{
+    submit_health_consent_mutation, HealthConsentMutationServiceError,
+};
 use crate::components::{
     format_relative_micros, freshness_from_micros, ConsentCard, KeyCard, PageHeader, SectionTitle,
     VaultStat,
@@ -28,6 +30,7 @@ use crate::context::{
     PersonalSourceState, SymbolRegistry,
 };
 use crate::mutation_diagnostic_runtime::use_mutation_diagnostic_runtime;
+use crate::mutation_dispatch::PersonalMutationDispatchDisposition;
 use crate::mutation_ledger::{provide_mutation_ledger, use_mutation_ledger};
 use crate::mutation_refresh::{
     refresh_health_after_mutation, refresh_identity_after_mutation,
@@ -536,12 +539,16 @@ fn IdentityPage() -> impl IntoView {
                         ToastKind::Error,
                     );
                 }
-                Err(ProfileMutationServiceError::Dispatch(_)) => {
-                    toasts.push(
-                        "Profile write did not return a typed domain result. Review the Identity mutation status before taking another action; your local draft was retained."
-                            .into(),
-                        ToastKind::Error,
-                    );
+                Err(ProfileMutationServiceError::Dispatch(error)) => {
+                    let message = match error.disposition() {
+                        PersonalMutationDispatchDisposition::NotSubmitted => {
+                            "Profile write was not submitted. Your local draft was retained; review Identity status before taking another action."
+                        }
+                        PersonalMutationDispatchDisposition::OutcomeUnknown => {
+                            "Profile write outcome is unknown because no typed domain result was returned. Your local draft was retained; reconcile Identity state before taking another action."
+                        }
+                    };
+                    toasts.push(message.into(), ToastKind::Error);
                 }
             }
         });
@@ -679,11 +686,17 @@ fn HealthPage() -> impl IntoView {
                         }
                     }
                 }
-                Err(_) => toasts.push(
-                    "Consent grant did not return a typed receipt. Review the Health mutation status before taking another action."
-                        .into(),
-                    ToastKind::Error,
-                ),
+                Err(HealthConsentMutationServiceError::Dispatch(error)) => {
+                    let message = match error.disposition() {
+                        PersonalMutationDispatchDisposition::NotSubmitted => {
+                            "Consent grant was not submitted. Review the Health mutation status before taking another action."
+                        }
+                        PersonalMutationDispatchDisposition::OutcomeUnknown => {
+                            "Consent grant outcome is unknown because no typed receipt was returned. Reconcile Health state before taking another action."
+                        }
+                    };
+                    toasts.push(message.into(), ToastKind::Error);
+                },
             }
         });
     };
@@ -923,14 +936,18 @@ fn PreferenceCard(pref: personal_leptos_types::DataSharingPreferenceView) -> imp
                         ToastKind::Error,
                     );
                 }
-                Err(PreferenceMutationServiceError::Dispatch(_)) => {
+                Err(PreferenceMutationServiceError::Dispatch(error)) => {
                     local_pref_signal.set(previous.clone());
                     blocked_zomes_signal.set(previous.blocked_zomes.join(", "));
-                    toasts.push(
-                        "Preference update did not return a typed domain result. The local toggle was restored; reconcile before taking another action."
-                            .into(),
-                        ToastKind::Error,
-                    );
+                    let message = match error.disposition() {
+                        PersonalMutationDispatchDisposition::NotSubmitted => {
+                            "Preference mutation was not submitted. The optimistic local toggle was rolled back; reconcile before taking another action."
+                        }
+                        PersonalMutationDispatchDisposition::OutcomeUnknown => {
+                            "Preference mutation outcome is unknown because no typed domain result was returned. The local toggle was restored; reconcile before taking another action."
+                        }
+                    };
+                    toasts.push(message.into(), ToastKind::Error);
                 }
             }
         });
@@ -1008,14 +1025,18 @@ fn PreferenceCard(pref: personal_leptos_types::DataSharingPreferenceView) -> imp
                         ToastKind::Error,
                     );
                 }
-                Err(PreferenceMutationServiceError::Dispatch(_)) => {
+                Err(PreferenceMutationServiceError::Dispatch(error)) => {
                     local_pref_signal.set(previous.clone());
                     blocked_zomes_signal.set(previous.blocked_zomes.join(", "));
-                    toasts.push(
-                        "Preference update did not return a typed domain result. Local state was restored; reconcile before taking another action."
-                            .into(),
-                        ToastKind::Error,
-                    );
+                    let message = match error.disposition() {
+                        PersonalMutationDispatchDisposition::NotSubmitted => {
+                            "Preference mutation was not submitted. Local state was restored; reconcile before taking another action."
+                        }
+                        PersonalMutationDispatchDisposition::OutcomeUnknown => {
+                            "Preference mutation outcome is unknown because no typed domain result was returned. Local state was restored; reconcile before taking another action."
+                        }
+                    };
+                    toasts.push(message.into(), ToastKind::Error);
                 }
             }
         });
