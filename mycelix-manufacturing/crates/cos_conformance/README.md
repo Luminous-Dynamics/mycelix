@@ -34,3 +34,7 @@ outcomes, or Integral validation.
 ## Identity and alias integrity
 
 `federation_identity.rs` keeps identifiers, credentials, principals, accounts, devices, resources, locators, and entities distinct. It provides scoped equivalence classes, typed substitution profiles, append-only lifecycle events, resource-capacity alias checks, privacy projections, and deterministic identity-resolution witnesses. See `docs/integral/semantic-identity-alias-integrity-v1.md`.
+
+## Causal time
+
+`federation_causal_time.rs` separates causal ancestry from wall-clock observations, distinguishes concurrent from incomparable histories, models bounded clock uncertainty, evaluates profile-bound freshness, and requires explicit revalidation for long-offline branches. See `docs/integral/causal-time-long-lived-federation-v1.md`.
