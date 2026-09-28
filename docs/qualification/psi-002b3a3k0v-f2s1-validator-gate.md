@@ -63,3 +63,23 @@ JSON Schema currently publishes Draft 2020-12 as its current specification versi
 **NOT EXECUTED.**
 
 No PASS or production-security claim may be inferred from this preflight artifact.
+
+
+## Dialect/runtime lock preflight
+
+The implementation boundary is now pinned as follows, pending generation and review of the complete dependency lock:
+
+- JSON Schema dialect: Draft 2020-12.
+- Required schema dialect identifier: `https://json-schema.org/draft/2020-12/schema`.
+- Validator crate: `jsonschema 0.58.2`.
+- Validator release source identity: `3d48b9026c6518e7f3a2ecc6c9c94a9f77f6083c` (release commit).
+- Cargo feature policy: `default-features = false`; no HTTP or filesystem reference-resolution features.
+- Validator construction must use the explicit Draft 2020-12 API and a repository-bounded schema/resource set. External reference retrieval is outside the qualification boundary.
+- Qualification runtime: Rust `1.96.0`, matching the repository-owned `mycelix-workspace/rust-toolchain.toml`; the candidate validator's upstream floor is lower and therefore does not weaken this runtime pin.
+- Cargo resolver: 3.
+- Edition: 2024 for the repository-owned qualification package; the external validator itself declares edition 2021.
+- Remaining pre-implementation lock item: a committed standalone `Cargo.lock` generated from the exact qualification package, plus its SHA-256 and dependency/source inventory. This cannot be represented by a version-only dependency declaration.
+
+The validator's upstream documentation explicitly supports Draft 2020-12 and explicitly documents that external reference resolution can be disabled with `default-features = false`. citeturn1search0turn1search4
+
+This is a **preflight lock proposal, NOT EXECUTED / NOT A PASS**. No semantic validator result or currentness/admission claim follows from this artifact.
