@@ -207,6 +207,16 @@ mod tests {
     }
 
     #[test]
+    fn reconnect_preserves_origin_and_logical_identity() {
+        let e = envelope();
+        let mut retry = e;
+        retry.attempt_id = "attempt-2";
+        assert!(attempt_may_change_without_mutating_logical_delivery(e, retry));
+        assert_eq!(receipt_for(e).logical_delivery_id, receipt_for(retry).logical_delivery_id);
+        assert_eq!(receipt_for(e).origin, FederationNode::Foreign);
+    }
+
+    #[test]
     fn duplicate_payload_mutation_fails_closed() {
         let e = envelope();
         let receipt = receipt_for(e);
