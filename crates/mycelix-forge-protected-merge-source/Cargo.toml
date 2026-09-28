@@ -1,0 +1,19 @@
+[package]
+name = "mycelix-forge-protected-merge-source"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+publish = false
+
+[dependencies]
+mycelix-forge-core = { path = "../mycelix-forge-core" }
+mycelix-forge-proposal = { path = "../mycelix-forge-proposal" }
+mycelix-forge-protected-merge-request = { path = "../mycelix-forge-protected-merge-request" }
+mycelix-forge-repository = { path = "../mycelix-forge-repository" }
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
+
+[dev-dependencies]
+mycelix-forge-authority = { path = "../mycelix-forge-authority" }
+mycelix-forge-project-policy = { path = "../mycelix-forge-project-policy" }
+serde_json = "1"
