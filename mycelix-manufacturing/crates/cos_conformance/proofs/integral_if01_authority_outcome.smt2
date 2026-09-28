@@ -8,7 +8,8 @@
 (set-option :produce-proofs true)
 (set-logic ALL)
 
-; IF01-FV-010: certification failure is distinct from authorization failure.
+; IF01-FV-010
+; IF01-PROPOSITION: Certification failure is distinct from authorization failure.
 (declare-const certified Bool)
 (declare-const authorized Bool)
 (define-fun semantically_admissible () Bool
@@ -19,7 +20,8 @@
 (check-sat)
 (pop)
 
-; IF01-FV-011: granted authorization requires one matching explicit reference.
+; IF01-FV-011
+; IF01-PROPOSITION: Granted authorization requires a matching explicit authorization reference.
 (declare-const presented_ref String)
 (declare-const envelope_ref String)
 (declare-const required_ref String)
@@ -33,7 +35,8 @@
 (check-sat)
 (pop)
 
-; IF01-FV-012: known recipient rejection is not indeterminate.
+; IF01-FV-012
+; IF01-PROPOSITION: Known recipient rejection is not indeterminate.
 (declare-datatypes () ((DeliveryState TransportAccepted Delivered SemanticAdmitted Rejected Indeterminate)))
 (declare-const state DeliveryState)
 (define-fun semantic_admission_possible () Bool
