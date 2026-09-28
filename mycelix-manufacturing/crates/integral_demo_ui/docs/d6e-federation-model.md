@@ -76,3 +76,7 @@ The accepted delivery-to-observation binding can now project into the D5 machine
 Uncertainty is intentionally supplied by the evidence layer rather than invented by federation transport. This prevents the adapter from manufacturing either certainty or uncertainty. Canonical projection orders observation events by stable observation identity, so equivalent delivery permutations produce the same D5 observation fixture.
 
 The resulting evidence path is therefore: **delivery → binding → observation trace → conflict graph → governance decision trace**. Governance remains outside replay: a replay can reconstruct evidence and disagreement, but cannot manufacture or select a human decision.
+
+### No synthetic causality
+
+Federation trace projection deliberately emits observation nodes without inventing `Supports` or other causal edges merely because two observations were delivered together. Causal relations are added only by the layer that has evidence for that relationship—for example, the reconciliation layer when it establishes an actual `Disputes` relation. This keeps transport co-occurrence distinct from semantic causality.
