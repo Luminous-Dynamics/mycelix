@@ -517,6 +517,65 @@ pub fn replay_fixture_is_idempotent(existing: &TraceFixture, replay: &TraceFixtu
     existing == replay
 }
 
+/// Canonical semantic projection for replay/equivalence.
+///
+/// Sequence is deliberately excluded: it is presentation/serialization order,
+/// not causality. All other event fields remain part of semantic identity,
+/// including origin, source/evidence bindings, authority, uncertainty, safety,
+/// provenance, status, and generation.
+fn canonical_event(event: &TraceEvent) -> TraceEvent {
+    let mut canonical = *event;
+    canonical.sequence = 0;
+    canonical
+}
+
+/// Compare traces by semantic identity rather than serialization order.
+///
+/// Event and relation ordering may differ while preserving the same graph.
+/// Duplicate identities are rejected from equivalence so malformed replay
+/// cannot be normalized into a seemingly valid state.
+pub fn trace_semantically_equivalent(left: &TraceFixture, right: &TraceFixture) -> bool {
+    fn canonical(fixture: &TraceFixture) -> Option<(Vec<TraceEvent>, Vec<TraceRelationRef>)> {
+        let mut events: Vec<TraceEvent> = fixture.events.iter().map(canonical_event).collect();
+        if events.iter().any(|event| {
+            event.event_id.is_empty()
+                || events.iter().filter(|candidate| candidate.event_id == event.event_id).count() > 1
+        }) {
+            return None;
+        }
+
+        let mut relations = fixture.relations.clone();
+        if relations.iter().any(|relation| {
+            relation.from_event.is_empty()
+                || relation.to_event.is_empty()
+                || relation.from_event == relation.to_event
+                || relations.iter().filter(|candidate| *candidate == relation).count() > 1
+        }) {
+            return None;
+        }
+
+        events.sort_by(|a, b| a.event_id.cmp(b.event_id));
+        relations.sort_by(|a, b| {
+            a.from_event
+                .cmp(b.from_event)
+                .then_with(|| a.to_event.cmp(b.to_event))
+                .then_with(|| (a.relation as u8).cmp(&(b.relation as u8)))
+        });
+        Some((events, relations))
+    }
+
+    match (canonical(left), canonical(right)) {
+        (Some(left), Some(right)) => left == right,
+        _ => false,
+    }
+}
+
+/// A replay may be reordered without changing meaning, but semantic payload
+/// mutation must make the replay non-equivalent.
+pub fn canonical_replay_is_equivalent(existing: &TraceFixture, replay: &TraceFixture) -> bool {
+    trace_semantically_equivalent(existing, replay)
+}
+
 /// Projection and replay may preserve an authority reference, but they may not
 /// create, replace, or silently remove one. Governance transitions are validated
 /// separately by their explicit artifact semantics.
@@ -853,6 +912,92 @@ mod tests {
                 Err(TraceError::AuthorityOnEvidenceBearingEvent)
             );
         }
+    }
+
+    #[test]
+    fn canonical_replay_ignores_event_and_relation_serialization_order() {
+        let mut original = valid_trace();
+        original.relations = vec![
+            TraceRelationRef {
+                from_event: "e3",
+                to_event: "e4",
+                relation: TraceRelation::Authorizes,
+            },
+            TraceRelationRef {
+                from_event: "e6",
+                to_event: "e8",
+                relation: TraceRelation::Disputes,
+            },
+        ];
+        let mut replay = original.clone();
+        replay.events.reverse();
+        replay.relations.reverse();
+        assert!(trace_semantically_equivalent(&original, &replay));
+        assert!(canonical_replay_is_equivalent(&original, &replay));
+    }
+
+    #[test]
+    fn canonical_replay_ignores_sequence_but_not_semantic_identity() {
+        let original = valid_trace();
+        let mut replay = original.clone();
+        for event in &mut replay.events {
+            event.sequence = 10_000 - event.sequence;
+        }
+        assert!(trace_semantically_equivalent(&original, &replay));
+
+        replay.events[5].source_ref = "source://mutated";
+        assert!(!trace_semantically_equivalent(&original, &replay));
+
+        let mut replay = original.clone();
+        replay.events[5].evidence_ref = Some("evidence://mutated");
+        assert!(!trace_semantically_equivalent(&original, &replay));
+    }
+
+    #[test]
+    fn canonical_replay_preserves_authority_origin_uncertainty_and_safety() {
+        let original = valid_trace();
+
+        let mut authority = original.clone();
+        authority.events[4].authority_ref = Some("authority://mutated");
+        assert!(!trace_semantically_equivalent(&original, &authority));
+
+        let mut origin = original.clone();
+        origin.events[5].source = SourceKind::Foreign;
+        assert!(!trace_semantically_equivalent(&original, &origin));
+
+        let mut uncertainty = original.clone();
+        uncertainty.events[5].uncertainty_present = false;
+        assert!(!trace_semantically_equivalent(&original, &uncertainty));
+
+        let mut safety = original.clone();
+        safety.events[10].reversible = false;
+        assert!(!trace_semantically_equivalent(&original, &safety));
+
+        let mut relation = original.clone();
+        relation.relations = vec![TraceRelationRef {
+            from_event: "e4",
+            to_event: "e5",
+            relation: TraceRelation::Authorizes,
+        }];
+        assert!(!trace_semantically_equivalent(&original, &relation));
+    }
+
+    #[test]
+    fn canonical_replay_rejects_duplicate_identities_and_relations() {
+        let original = valid_trace();
+
+        let mut duplicate_event = original.clone();
+        duplicate_event.events.push(original.events[0]);
+        assert!(!trace_semantically_equivalent(&original, &duplicate_event));
+
+        let mut duplicate_relation = original.clone();
+        let relation = TraceRelationRef {
+            from_event: "e3",
+            to_event: "e4",
+            relation: TraceRelation::Authorizes,
+        };
+        duplicate_relation.relations = vec![relation, relation];
+        assert!(!trace_semantically_equivalent(&original, &duplicate_relation));
     }
 
     #[test]
