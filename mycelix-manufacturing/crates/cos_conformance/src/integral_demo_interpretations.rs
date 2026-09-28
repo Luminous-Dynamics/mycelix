@@ -1,9 +1,8 @@
 //! Executable interpretation laboratory for unresolved Integral interface seams.
 //!
-//! Every interpretation below is explicitly classified as a reference-model
-//! proposal. This module does not assert that any variant is ratified by Integral.
-//! The purpose is to make ambiguity executable so maintainers can compare semantics
-//! rather than infer them from prose.
+//! The laboratory makes alternative semantic hypotheses explicit and exercises
+//! them against adversarial fixtures. These are reference-model proposals, not
+//! claims about Integral ratification.
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InterpretationKind {
@@ -28,6 +27,18 @@ pub enum InterpretationOutcome {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Fixture {
+    CurrentLocalDesign,
+    SupersededDesign,
+    ForeignEvidence,
+    ForeignAuthority,
+    MutatedRetry,
+    ConflictingObservations,
+    FrsRecommendation,
+    ConsequentialRecommendationAction,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Interpretation {
     pub seam: InterfaceSeam,
     pub kind: InterpretationKind,
@@ -36,13 +47,22 @@ pub struct Interpretation {
     pub claim_ceiling: &'static str,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FixtureResult {
+    pub seam: InterfaceSeam,
+    pub kind: InterpretationKind,
+    pub fixture: Fixture,
+    pub outcome: InterpretationOutcome,
+    pub reason: &'static str,
+}
+
 pub const OAD_COS_INTERPRETATIONS: [Interpretation; 3] = [
     Interpretation {
         seam: InterfaceSeam::OadToCos,
         kind: InterpretationKind::MinimalFaithful,
         assumptions: &[
             "A current certified design may enter the COS admission boundary.",
-            "The model does not add federation-specific provenance requirements.",
+            "Federation-specific provenance is outside this minimal hypothesis.",
         ],
         outcome: InterpretationOutcome::Admitted,
         claim_ceiling: "Bounded OAD→COS admission interpretation only.",
@@ -76,7 +96,7 @@ pub const COS_ITC_INTERPRETATIONS: [Interpretation; 3] = [
         seam: InterfaceSeam::CosToItc,
         kind: InterpretationKind::MinimalFaithful,
         assumptions: &[
-            "A COS operational observation can be projected into an ITC-facing event.",
+            "A COS operational observation can cross an ITC-facing projection seam.",
             "Projection is not itself a claim of economic eligibility.",
         ],
         outcome: InterpretationOutcome::Projected,
@@ -123,7 +143,7 @@ pub const FRS_CDS_INTERPRETATIONS: [Interpretation; 3] = [
         assumptions: &[
             "A recommendation cannot carry operational authority.",
             "A consequential change requires an explicit governance disposition.",
-            "Acceptance and rejection are represented as separate decision artifacts.",
+            "Acceptance and rejection are separate decision artifacts.",
         ],
         outcome: InterpretationOutcome::RequiresGovernance,
         claim_ceiling: "Bounded recommendation/decision separation only.",
@@ -149,19 +169,75 @@ pub fn interpretations_for(seam: InterfaceSeam) -> &'static [Interpretation] {
     }
 }
 
-/// Returns true when a proposed interpretation introduces no authority transition
-/// that is hidden inside evidence transport or recommendation handling.
+/// Evaluate an adversarial fixture under one semantic hypothesis.
+///
+/// The point is not to decide which hypothesis is correct. The point is to make
+/// the places where the hypotheses diverge observable and reviewable.
+pub fn evaluate_fixture(
+    interpretation: Interpretation,
+    fixture: Fixture,
+) -> FixtureResult {
+    let (outcome, reason) = match (interpretation.seam, interpretation.kind, fixture) {
+        (InterfaceSeam::OadToCos, InterpretationKind::MinimalFaithful, Fixture::CurrentLocalDesign) =>
+            (InterpretationOutcome::Admitted, "Current certified design crosses the minimal bounded admission seam."),
+        (InterfaceSeam::OadToCos, InterpretationKind::MinimalFaithful, Fixture::SupersededDesign) =>
+            (InterpretationOutcome::Admitted, "Minimal hypothesis does not add an explicit generation-freshness guard."),
+        (InterfaceSeam::OadToCos, InterpretationKind::StrongSafety, Fixture::SupersededDesign) =>
+            (InterpretationOutcome::Rejected, "Strong-safety hypothesis rejects a superseded design generation."),
+        (InterfaceSeam::OadToCos, InterpretationKind::FederationAware, Fixture::ForeignAuthority) =>
+            (InterpretationOutcome::Rejected, "Federation-aware hypothesis rejects foreign authority as local authority."),
+        (InterfaceSeam::OadToCos, InterpretationKind::StrongSafety, Fixture::MutatedRetry) =>
+            (InterpretationOutcome::Rejected, "Strong-safety hypothesis rejects mutation across retry identity."),
+        (InterfaceSeam::OadToCos, InterpretationKind::FederationAware, Fixture::MutatedRetry) =>
+            (InterpretationOutcome::Rejected, "Federation-aware hypothesis rejects mutation across logical delivery identity."),
+        (InterfaceSeam::OadToCos, _, Fixture::ForeignEvidence) =>
+            (InterpretationOutcome::Admitted, "This fixture does not by itself assert foreign authority; origin remains an explicit dimension."),
+        (InterfaceSeam::OadToCos, _, _) =>
+            (InterpretationOutcome::Rejected, "Fixture is outside this interpretation's explicit positive boundary."),
+
+        (InterfaceSeam::CosToItc, InterpretationKind::MinimalFaithful, Fixture::ForeignEvidence) =>
+            (InterpretationOutcome::Projected, "Minimal hypothesis permits the bounded projection without adding federation-specific checks."),
+        (InterfaceSeam::CosToItc, InterpretationKind::StrongSafety, Fixture::MutatedRetry) =>
+            (InterpretationOutcome::Rejected, "Strong-safety hypothesis rejects mutation of source-bound identity."),
+        (InterfaceSeam::CosToItc, InterpretationKind::FederationAware, Fixture::ForeignEvidence) =>
+            (InterpretationOutcome::Projected, "Federation-aware projection preserves foreign origin."),
+        (InterfaceSeam::CosToItc, InterpretationKind::FederationAware, Fixture::ConflictingObservations) =>
+            (InterpretationOutcome::Rejected, "Federation-aware hypothesis keeps disagreement outside an automatic projection decision."),
+        (InterfaceSeam::CosToItc, _, Fixture::MutatedRetry) =>
+            (InterpretationOutcome::Rejected, "Mutated retry is not an exact replay."),
+        (InterfaceSeam::CosToItc, _, _) =>
+            (InterpretationOutcome::Projected, "Fixture crosses only the bounded projection seam; no economic eligibility is inferred."),
+
+        (InterfaceSeam::FrsToCds, _, Fixture::FrsRecommendation) =>
+            (InterpretationOutcome::RequiresGovernance, "Recommendation reaches governance as a recommendation, not as authority."),
+        (InterfaceSeam::FrsToCds, InterpretationKind::StrongSafety, Fixture::ConsequentialRecommendationAction) =>
+            (InterpretationOutcome::RequiresGovernance, "Consequential action requires a separate governance disposition."),
+        (InterfaceSeam::FrsToCds, InterpretationKind::FederationAware, Fixture::ForeignEvidence) =>
+            (InterpretationOutcome::RequiresGovernance, "Foreign evidence does not become local governance authority through FRS."),
+        (InterfaceSeam::FrsToCds, _, Fixture::ConflictingObservations) =>
+            (InterpretationOutcome::RequiresGovernance, "Conflicting evidence remains contested until an explicit governance decision."),
+        (InterfaceSeam::FrsToCds, _, _) =>
+            (InterpretationOutcome::RequiresGovernance, "FRS output remains a recommendation pending governance disposition."),
+    };
+
+    FixtureResult {
+        seam: interpretation.seam,
+        kind: interpretation.kind,
+        fixture,
+        outcome,
+        reason,
+    }
+}
+
 pub fn preserves_authority_boundary(interpretation: Interpretation) -> bool {
     match interpretation.seam {
-        InterfaceSeam::OadToCos => interpretation.kind != InterpretationKind::MinimalFaithful
-            || interpretation.outcome == InterpretationOutcome::Admitted,
+        InterfaceSeam::OadToCos => interpretation.outcome == InterpretationOutcome::Admitted,
         InterfaceSeam::CosToItc => interpretation.outcome == InterpretationOutcome::Projected,
         InterfaceSeam::FrsToCds => interpretation.outcome == InterpretationOutcome::RequiresGovernance,
     }
 }
 
-/// Deterministic comparison key used by tooling and fixtures. It deliberately
-/// orders interpretations without declaring any one of them correct.
+/// Stable serialization-free ordering for fixtures used by review tooling.
 pub fn comparison_key(interpretation: Interpretation) -> (u8, u8) {
     let seam = match interpretation.seam {
         InterfaceSeam::OadToCos => 0,
@@ -213,6 +289,54 @@ mod tests {
             assert_eq!(interpretation.outcome, InterpretationOutcome::RequiresGovernance);
             assert!(preserves_authority_boundary(interpretation));
         }
+    }
+
+    #[test]
+    fn divergent_oad_fixture_makes_the_interpretation_difference_executable() {
+        let minimal = evaluate_fixture(
+            OAD_COS_INTERPRETATIONS[0],
+            Fixture::SupersededDesign,
+        );
+        let strong = evaluate_fixture(
+            OAD_COS_INTERPRETATIONS[1],
+            Fixture::SupersededDesign,
+        );
+        assert_eq!(minimal.outcome, InterpretationOutcome::Admitted);
+        assert_eq!(strong.outcome, InterpretationOutcome::Rejected);
+        assert_ne!(minimal.outcome, strong.outcome);
+    }
+
+    #[test]
+    fn foreign_authority_divergence_is_explicit() {
+        let minimal = evaluate_fixture(
+            OAD_COS_INTERPRETATIONS[0],
+            Fixture::ForeignAuthority,
+        );
+        let federation = evaluate_fixture(
+            OAD_COS_INTERPRETATIONS[2],
+            Fixture::ForeignAuthority,
+        );
+        assert_eq!(minimal.outcome, InterpretationOutcome::Rejected);
+        assert_eq!(federation.outcome, InterpretationOutcome::Rejected);
+        assert!(federation.reason.contains("foreign authority"));
+    }
+
+    #[test]
+    fn recommendation_never_becomes_an_implicit_decision() {
+        for interpretation in FRS_CDS_INTERPRETATIONS {
+            let result = evaluate_fixture(interpretation, Fixture::FrsRecommendation);
+            assert_eq!(result.outcome, InterpretationOutcome::RequiresGovernance);
+        }
+    }
+
+    #[test]
+    fn conflicting_observations_do_not_get_a_winner() {
+        let result = evaluate_fixture(
+            COS_ITC_INTERPRETATIONS[2],
+            Fixture::ConflictingObservations,
+        );
+        assert_eq!(result.outcome, InterpretationOutcome::Rejected);
+        assert!(result.reason.contains("disagreement"));
     }
 
     #[test]
