@@ -1,0 +1,21 @@
+[package]
+name = "collateral_issuance_v2"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "FIN-SAFE-010 coordinator for zero-effect collateral SAP issuance provenance stages"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "collateral_issuance_v2"
+
+[dependencies]
+holochain_serialized_bytes = { workspace = true }
+hdk = { workspace = true }
+serde = { workspace = true }
+finance-collateral-auth = { path = "../../../crates/finance-collateral-auth" }
+finance-collateral-issuance-persistence = { path = "../../../crates/finance-collateral-issuance-persistence" }
+finance-collateral-request-binding = { path = "../../../crates/finance-collateral-request-binding" }
+finance-sap-conservation = { path = "../../../crates/finance-sap-conservation" }
+collateral_issuance_v2_integrity = { path = "../integrity" }
+collateral_settlement_auth_integrity = { path = "../../collateral-settlement-auth/integrity" }

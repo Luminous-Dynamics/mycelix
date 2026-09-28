@@ -1,0 +1,17 @@
+[package]
+name = "collateral_settlement_auth_integrity"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Integrity zome for DNA-rooted collateral price and custody attestations"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "collateral_settlement_auth_integrity"
+
+[dependencies]
+holochain_serialized_bytes = { workspace = true }
+hdi = { workspace = true }
+serde = { workspace = true }
+finance-collateral-auth = { path = "../../../crates/finance-collateral-auth" }
+mycelix-bridge-entry-types = { workspace = true }
