@@ -130,11 +130,25 @@ Each unresolved seam is represented with three deliberately distinct variants:
 
 These are **not three maturity levels** and the ordering is not a ranking. They are alternative semantic hypotheses.
 
+### Divergent fixtures
+
+The laboratory now makes semantic divergence executable rather than merely descriptive.
+
+| Fixture | Minimal / faithful | Strong-safety | Federation-aware |
+|---|---|---|---|
+| Superseded OAD design | Admitted by the minimal hypothesis | Rejected because generation freshness is explicit | Rejected under the federated admission boundary when freshness/authority checks apply |
+| Foreign authority | Outside the minimal positive boundary | Outside the explicit positive boundary | Rejected as an authority-origin violation |
+| Mutated retry | Outside the minimal positive fixture | Rejected as non-idempotent mutation | Rejected as mutation of logical delivery identity |
+| Conflicting observations | Outside the minimal projection fixture | Outside the bounded source-projection fixture | Rejected from automatic projection; disagreement remains explicit |
+| FRS recommendation | Returned to governance | Requires explicit governance disposition | Requires governance while preserving foreign provenance |
+
+The exact outcomes are **fixture semantics of this reference harness**, not claims about what Integral itself must do.
+
 The useful review question is therefore:
 
 > **Which semantics did Integral intend at this interface, and what evidence should distinguish the alternatives?**
 
-The executable laboratory makes that question testable. For example, a future maintainer can add a fixture where the variants produce different outcomes—such as a foreign authority token, a superseded design, a mutated retry, or an FRS recommendation attached to a consequential action—and then compare the resulting trace.
+The executable laboratory makes that question testable. A future fixture can be added whenever a specification question has multiple plausible readings.
 
 The implementation should not silently promote one hypothesis into an architectural fact.
 
