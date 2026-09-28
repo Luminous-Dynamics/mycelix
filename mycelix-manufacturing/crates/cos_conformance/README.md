@@ -50,3 +50,8 @@ outcomes, or Integral validation.
 ## Semantic archive continuity
 
 `archive_continuity.rs` models historical-evidence profiles, archive manifests, explicit archive/frontier continuity, profile and membership transitions, historical-claim ceilings, contested archive sets, and reconstruction gates. Archives can support historical analysis or cold-start reconstruction but cannot become current authority, actuation, or policy authority by themselves. See `docs/integral/semantic-archive-continuity-v1.md`.
+
+## Semantic recovery and provider substitution
+
+`substitution_continuity.rs` binds provider routes to one stable Mycelix semantic effect, exact request/resource/tenant/amount/unit/authority/consent semantics, provider-profile allow-lists, lifecycle generation, and explicit route succession. Unknown or pending outcomes block independent failover unless an exact outcome-resolution witness or contract-wide idempotency witness qualifies continuation. Provider operation IDs remain provider-scoped and cannot replace the semantic effect ID. Archive recovery is exposed as reconstruction input only; it cannot authorize current provider execution. See `docs/integral/semantic-recovery-provider-substitution-v1.md`.
+
