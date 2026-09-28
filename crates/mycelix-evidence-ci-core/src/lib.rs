@@ -522,9 +522,24 @@ fn validate_observation_v1(observation: &WorkflowRunObservationV1) -> Result<(),
         {
             return Err(EvidenceError::InvalidJobObservation);
         }
+        if matches!(
+            (job.status, job.conclusion, job.failure_class, job.gate_execution),
+            (
+                JobStatusV1::Completed,
+                Some(JobConclusionV1::Success),
+                FailureClassV1::NotApplicable,
+                GateExecutionStateV1::AllRegisteredTheoremStepsExecuted
+            )
+        ) && !matches!(job.dependency_state, DependencyStateV1::EligibleForRunner)
+        {
+            return Err(EvidenceError::InvalidJobObservation);
+        }
 
         match job.failure_class {
             FailureClassV1::RegisteredTheoremGate => {
+                if !matches!(job.dependency_state, DependencyStateV1::EligibleForRunner) {
+                    return Err(EvidenceError::InvalidJobObservation);
+                }
                 if !matches!(job.status, JobStatusV1::Completed)
                     || !matches!(job.conclusion, Some(JobConclusionV1::Failure))
                     || !matches!(
@@ -537,6 +552,9 @@ fn validate_observation_v1(observation: &WorkflowRunObservationV1) -> Result<(),
                 }
             }
             FailureClassV1::RunnerInfrastructureBeforeTheoremGate => {
+                if !matches!(job.dependency_state, DependencyStateV1::EligibleForRunner) {
+                    return Err(EvidenceError::InvalidJobObservation);
+                }
                 if !matches!(job.status, JobStatusV1::Completed)
                     || !matches!(
                         job.conclusion,
@@ -841,6 +859,52 @@ mod tests {
     }
 
     #[test]
+    fn terminal_failure_with_noneligible_dependency_is_rejected() {
+        for dependency_state in [
+            DependencyStateV1::WaitingOnRequiredDependency,
+            DependencyStateV1::DependencyFailed,
+            DependencyStateV1::DependencySkipped,
+            DependencyStateV1::Unknown,
+        ] {
+            let semantic = JobObservationV1 {
+                job_id: 1,
+                job_key: id("qualify"),
+                status: JobStatusV1::Completed,
+                conclusion: Some(JobConclusionV1::Failure),
+                gate_execution: GateExecutionStateV1::SomeTheoremStepsExecuted,
+                dependency_state,
+                queue_age_seconds: Some(0),
+                failure_class: FailureClassV1::RegisteredTheoremGate,
+            };
+            assert_eq!(
+                derive_conjunctive_receipt_v1(
+                    &manifest(&["qualify"]),
+                    &observation(vec![semantic])
+                ),
+                Err(EvidenceError::InvalidJobObservation)
+            );
+
+            let infrastructure = JobObservationV1 {
+                job_id: 1,
+                job_key: id("qualify"),
+                status: JobStatusV1::Completed,
+                conclusion: Some(JobConclusionV1::Failure),
+                gate_execution: GateExecutionStateV1::NoTheoremStepExecuted,
+                dependency_state,
+                queue_age_seconds: Some(0),
+                failure_class: FailureClassV1::RunnerInfrastructureBeforeTheoremGate,
+            };
+            assert_eq!(
+                derive_conjunctive_receipt_v1(
+                    &manifest(&["qualify"]),
+                    &observation(vec![infrastructure])
+                ),
+                Err(EvidenceError::InvalidJobObservation)
+            );
+        }
+    }
+
+    #[test]
     fn infrastructure_failure_is_not_semantic_red() {
         let failed = JobObservationV1 {
             job_id: 1,
@@ -905,6 +969,26 @@ mod tests {
                 .expect("valid observation"),
             RunLivenessV1::Indeterminate
         );
+    }
+
+    #[test]
+    fn completed_success_with_blocked_dependency_is_rejected() {
+        for dependency_state in [
+            DependencyStateV1::WaitingOnRequiredDependency,
+            DependencyStateV1::DependencyFailed,
+            DependencyStateV1::DependencySkipped,
+            DependencyStateV1::Unknown,
+        ] {
+            let mut impossible = success(1, "qualify");
+            impossible.dependency_state = dependency_state;
+            assert_eq!(
+                derive_conjunctive_receipt_v1(
+                    &manifest(&["qualify"]),
+                    &observation(vec![impossible])
+                ),
+                Err(EvidenceError::InvalidJobObservation)
+            );
+        }
     }
 
     #[test]
