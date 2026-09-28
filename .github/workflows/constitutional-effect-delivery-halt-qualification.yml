@@ -1,0 +1,39 @@
+name: Constitutional Effect Delivery Halt Provenance Exact Qualification
+
+on:
+  push:
+    branches:
+      - constitutional-effect-delivery-halt-qualification-v0.1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: exact D1E-B2 Rust core
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out exact qualification subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Bind exact repair subject
+        shell: bash
+        env:
+          PRODUCT_HEAD: 5c4c674d9e608f50b95024a8b38bdff243e76592
+          PRODUCT_PARENT: 2b7e17783df9e7a3666390841e24b0308b9d0717
+          PRODUCT_TREE: 43876d4875924c871abc36f3c46e8d79434fd4f1
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$PRODUCT_HEAD"
+          test "$(git rev-list --count "$PRODUCT_PARENT".."$PRODUCT_HEAD")" -eq 1
+          test "$(git rev-parse "$PRODUCT_HEAD^")" = "$PRODUCT_PARENT"
+          test "$(git rev-parse "$PRODUCT_HEAD^{tree}")" = "$PRODUCT_TREE"
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/constitutional-effect-delivery-halt-qualification.yml"
+      - name: Run exact package tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +1.98.1 test --locked --manifest-path mycelix-governance/Cargo.toml --package mycelix-constitutional-effect-delivery --all-targets
