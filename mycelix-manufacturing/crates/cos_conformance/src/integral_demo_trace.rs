@@ -282,6 +282,8 @@ mod tests {
             reversible,
             challengeable,
             recommendation_only,
+            recovery_ref: if kind == TraceKind::Outcome { Some("recovery-1") } else { None },
+            appeal_ref: if kind == TraceKind::Outcome { Some("appeal-1") } else { None },
         }
     }
 
