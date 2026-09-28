@@ -188,6 +188,9 @@ pub fn accept_delivery(
     if envelope.authority_origin == FederationNode::Foreign {
         return FederationDecision::RejectedForeignAuthority;
     }
+    if envelope.origin == FederationNode::Foreign && envelope.authority_origin == FederationNode::Local {
+        // Explicit local recognition is allowed, but it never rewrites evidence origin.
+    }
     if envelope.authorization != AuthorizationState::Active || now >= envelope.expires_at {
         return FederationDecision::RejectedExpiredAuthorization;
     }
