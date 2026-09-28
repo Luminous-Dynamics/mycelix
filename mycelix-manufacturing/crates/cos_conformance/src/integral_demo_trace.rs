@@ -182,6 +182,21 @@ fn transition_allowed(from: TraceKind, to: TraceKind) -> bool {
 }
 
 /// Validate a complete trace without consulting any presentation or AI layer.
+fn status_compatible(event: &TraceEvent) -> bool {
+    match event.kind {
+        TraceKind::Proposal => matches!(event.status, TraceStatus::Proposed | TraceStatus::Accepted),
+        TraceKind::Design => matches!(event.status, TraceStatus::Proposed | TraceStatus::Accepted | TraceStatus::Superseded),
+        TraceKind::Decision | TraceKind::Authorization | TraceKind::HumanDecision =>
+            matches!(event.status, TraceStatus::Accepted | TraceStatus::Rejected | TraceStatus::Reopened | TraceStatus::Reversed),
+        TraceKind::ExecutionIntent => matches!(event.status, TraceStatus::Proposed | TraceStatus::Accepted | TraceStatus::Executed),
+        TraceKind::Observation | TraceKind::ItcProjection | TraceKind::FrsAssessment =>
+            matches!(event.status, TraceStatus::Accepted | TraceStatus::Disputed),
+        TraceKind::Recommendation => matches!(event.status, TraceStatus::Proposed | TraceStatus::Accepted | TraceStatus::Rejected),
+        TraceKind::Outcome => matches!(event.status, TraceStatus::Executed | TraceStatus::Reversed | TraceStatus::Closed),
+        TraceKind::Appeal => matches!(event.status, TraceStatus::Proposed | TraceStatus::Accepted | TraceStatus::Reopened | TraceStatus::Closed),
+    }
+}
+
 pub fn validate_trace(events: &[TraceEvent]) -> Result<(), TraceError> {
     if events.is_empty() {
         return Err(TraceError::EmptyIdentity);
@@ -202,6 +217,9 @@ pub fn validate_trace(events: &[TraceEvent]) -> Result<(), TraceError> {
         }
         if event.kind != TraceKind::Proposal && event.source_ref.is_empty() {
             return Err(TraceError::EmptySource);
+        }
+        if !status_compatible(event) {
+            return Err(TraceError::IllegalTransition);
         }
         if event.kind == TraceKind::Recommendation {
             if !event.recommendation_only || event.authority_ref.is_some() {
