@@ -5,6 +5,7 @@
 ; The model encodes only the candidate semantic predicates. It does not model
 ; cryptographic authentication, network transport, or production execution.
 
+(set-option :produce-proofs true)
 (set-logic ALL)
 
 ; IF01-FV-010: certification failure is distinct from authorization failure.
