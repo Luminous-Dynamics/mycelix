@@ -33,6 +33,8 @@ pub struct FederationEnvelope {
     pub logical_delivery_id: &'static str,
     pub attempt_id: &'static str,
     pub origin: FederationNode,
+    /// The node whose authority is being exercised. Evidence origin and authority origin are distinct.
+    pub authority_origin: FederationNode,
     pub source_ref: &'static str,
     pub schema_generation: u32,
     pub payload_digest: &'static str,
@@ -73,6 +75,9 @@ pub fn accept_delivery(
 ) -> FederationDecision {
     if envelope.schema_generation != current_generation {
         return FederationDecision::RejectedStaleGeneration;
+    }
+    if envelope.authority_origin == FederationNode::Foreign {
+        return FederationDecision::RejectedForeignAuthority;
     }
     if envelope.authorization != AuthorizationState::Active || now >= envelope.expires_at {
         return FederationDecision::RejectedExpiredAuthorization;
@@ -148,6 +153,7 @@ mod tests {
             logical_delivery_id: "delivery-1",
             attempt_id: "attempt-1",
             origin: FederationNode::Foreign,
+            authority_origin: FederationNode::Local,
             source_ref: "node://foreign/evidence/1",
             schema_generation: 7,
             payload_digest: "digest-1",
@@ -165,6 +171,16 @@ mod tests {
         let mut projected = envelope();
         projected.source_ref = "node://foreign/evidence/1";
         assert!(foreign_origin_never_becomes_local(envelope(), projected));
+    }
+
+    #[test]
+    fn foreign_authority_cannot_become_local_authority_by_projection() {
+        let mut e = envelope();
+        e.authority_origin = FederationNode::Foreign;
+        assert_eq!(
+            accept_delivery(e, 7, 20, None),
+            FederationDecision::RejectedForeignAuthority
+        );
     }
 
     #[test]
