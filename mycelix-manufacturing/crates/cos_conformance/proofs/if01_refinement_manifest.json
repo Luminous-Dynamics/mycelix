@@ -1,0 +1,58 @@
+{
+  "manifest_id": "IF01-REFINEMENT-MANIFEST-001",
+  "status": "BoundedExecutableWitness",
+  "source_status": "CandidateInterface",
+  "interface_profile": "INTEGRAL-SPEC-IF-01-OAD-COS-CANDIDATE",
+  "source_commit": "4ddef7eacdedd57bd9e57875adf7d5c3bc34b49f",
+  "scope": "Candidate OAD-to-COS reference semantics; production/runtime closure remains open.",
+  "tooling": {
+    "formal_language": "SMT-LIB2",
+    "solver": "Z3",
+    "solver_version": "UNPINNED-CI-VERSION",
+    "version_policy": "Record exact runtime version in evidence receipt; do not infer it from source metadata."
+  },
+  "artifacts": {
+    "smt": {
+      "path": "mycelix-manufacturing/crates/cos_conformance/proofs/integral_if01_authority_outcome.smt2",
+      "git_blob_sha": "306b7fa6aeed77ec5989070393a0c8dad9956c65",
+      "expected_results": ["unsat", "unsat", "unsat"]
+    },
+    "rust_interface": {
+      "path": "mycelix-manufacturing/crates/cos_conformance/src/integral_oad_cos_interface.rs",
+      "git_blob_sha": "1f64f67f0cd57e0c20c6bc6518f4256e32ec26d7"
+    },
+    "rust_formal_manifest": {
+      "path": "mycelix-manufacturing/crates/cos_conformance/src/integral_oad_cos_formal.rs",
+      "git_blob_sha": "29963bdc555781e9ed834440614f1d4039b67023"
+    },
+    "composition_test": {
+      "path": "mycelix-manufacturing/crates/cos_conformance/tests/integral_if01_productive_loop_composition.rs",
+      "git_blob_sha": "026c07e90341457c79262ea44164dc86a303ffdd"
+    }
+  },
+  "obligations": [
+    {"id":"IF01-FV-001","production_symbol":"authenticate","test_symbol":"valid_authentication_and_authorization_are_separate","test_path":"src/integral_oad_cos_interface.rs","smt":null,"scope":"bounded executable reference model","status":"BoundedExecutableWitness","claim_ceiling":"Authentication/authorization semantic separation only."},
+    {"id":"IF01-FV-002","production_symbol":"validate_envelope","test_symbol":"stale_schema_fails_closed","test_path":"src/integral_oad_cos_interface.rs","smt":null,"scope":"bounded executable reference model","status":"BoundedExecutableWitness","claim_ceiling":"Schema-currentness semantics only."},
+    {"id":"IF01-FV-003","production_symbol":"admit_after_receipt","test_symbol":"transport_acceptance_is_not_semantic_admission","test_path":"src/integral_oad_cos_interface.rs","smt":null,"scope":"bounded executable reference model","status":"BoundedExecutableWitness","claim_ceiling":"Receipt semantics only."},
+    {"id":"IF01-FV-004","production_symbol":"retry_compatible","test_symbol":"retry_may_change_attempt_but_not_logical_delivery_or_payload","test_path":"src/integral_oad_cos_interface.rs","smt":null,"scope":"bounded executable reference model","status":"BoundedExecutableWitness","claim_ceiling":"Retry identity semantics only."},
+    {"id":"IF01-FV-005","production_symbol":"admit_after_receipt","test_symbol":"same_logical_delivery_with_mutated_payload_is_rejected","test_path":"src/integral_oad_cos_interface.rs","smt":null,"scope":"bounded executable reference model","status":"BoundedExecutableWitness","claim_ceiling":"Replay/mutation semantics only."},
+    {"id":"IF01-FV-006","production_symbol":"admit_after_receipt","test_symbol":"duplicate_semantic_admission_is_idempotent","test_path":"src/integral_oad_cos_interface.rs","smt":null,"scope":"bounded executable reference model","status":"BoundedExecutableWitness","claim_ceiling":"Reference-model idempotency semantics only."},
+    {"id":"IF01-FV-007","production_symbol":"admit_after_receipt","test_symbol":"unknown_receipt_never_becomes_definite_failure","test_path":"src/integral_oad_cos_interface.rs","smt":null,"scope":"bounded executable reference model","status":"BoundedExecutableWitness","claim_ceiling":"Unknown-state semantics only."},
+    {"id":"IF01-FV-008","production_symbol":"recognized_origin","test_symbol":"foreign_origin_is_preserved","test_path":"src/integral_oad_cos_interface.rs","smt":null,"scope":"bounded executable reference model","status":"BoundedExecutableWitness","claim_ceiling":"Federation provenance semantics only."},
+    {"id":"IF01-FV-009","production_symbol":"receipt_grants_production_authority","test_symbol":"receipts_never_grant_production_authority","test_path":"src/integral_oad_cos_interface.rs","smt":null,"scope":"bounded executable reference model","status":"BoundedExecutableWitness","claim_ceiling":"Authority-boundary semantics only."},
+    {"id":"IF01-FV-010","production_symbol":"validate_envelope","test_symbol":"certification_failure_is_not_mislabeled_as_authorization_failure","test_path":"src/integral_oad_cos_interface.rs","smt":"proofs/integral_if01_authority_outcome.smt2::IF01-FV-010","scope":"bounded SMT contradiction","status":"BoundedExecutableWitness","claim_ceiling":"Certification-state semantics only."},
+    {"id":"IF01-FV-011","production_symbol":"validate_envelope","test_symbol":"granted_authorization_requires_explicit_matching_reference","test_path":"src/integral_oad_cos_interface.rs","smt":"proofs/integral_if01_authority_outcome.smt2::IF01-FV-011","scope":"bounded SMT contradiction","status":"BoundedExecutableWitness","claim_ceiling":"Authorization-reference binding semantics only."},
+    {"id":"IF01-FV-012","production_symbol":"admit_after_receipt","test_symbol":"known_recipient_rejection_is_not_indeterminate","test_path":"src/integral_oad_cos_interface.rs","smt":"proofs/integral_if01_authority_outcome.smt2::IF01-FV-012","scope":"bounded SMT contradiction","status":"BoundedExecutableWitness","claim_ceiling":"Delivery outcome classification only."}
+  ],
+  "closure_rule": "No obligation may become FormallyClosed until both reproducible formal evidence and production refinement evidence are present and traceable to an exact source/build identity.",
+  "excluded_claims": [
+    "cryptographic authentication",
+    "network delivery guarantees",
+    "production authorization",
+    "manufacturing qualification",
+    "security certification",
+    "Integral ratification",
+    "physical production performance",
+    "N2 or general node independence"
+  ]
+}
