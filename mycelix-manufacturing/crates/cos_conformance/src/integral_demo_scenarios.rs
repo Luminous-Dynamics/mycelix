@@ -109,8 +109,8 @@ pub fn trace_for(id: ScenarioId) -> Vec<TraceEvent> {
             t
         }
         ScenarioId::StaleDesign => {
-            t[1].generation = 6;
-            t[2].generation = 7;
+            t[1].generation = 7;
+            t[2].generation = 6;
             t
         }
         ScenarioId::UncertainObservation => {
