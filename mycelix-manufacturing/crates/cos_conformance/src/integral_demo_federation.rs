@@ -7,7 +7,7 @@
 //!
 //! Evidence ceiling: ReferenceModelOnly.
 
-use crate::integral_demo_trace::{TraceActor, TraceEvent, TraceKind, TraceRelation, TraceRelationRef, TraceStatus};
+use crate::integral_demo_trace::{TraceActor, TraceEvent, TraceKind, TraceRelation, TraceRelationRef, TraceStatus, TraceFixture};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FederationNode {
