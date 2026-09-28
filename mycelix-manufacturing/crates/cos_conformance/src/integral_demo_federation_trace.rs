@@ -246,12 +246,24 @@ mod tests {
             FederationTraceDecision::Replayed
         );
 
-        let mut mutated = binding;
-        mutated.source_ref = "evidence://mutated";
+        let mut source_mutated = binding;
+        source_mutated.source_ref = "source://mutated";
         assert_eq!(
             replay_decision(
                 Some(&projected.event),
-                mutated,
+                source_mutated,
+                EvidenceBindingDecision::Replayed,
+                true
+            ),
+            FederationTraceDecision::Rejected
+        );
+
+        let mut evidence_mutated = binding;
+        evidence_mutated.evidence_ref = "evidence://mutated";
+        assert_eq!(
+            replay_decision(
+                Some(&projected.event),
+                evidence_mutated,
                 EvidenceBindingDecision::Replayed,
                 true
             ),
