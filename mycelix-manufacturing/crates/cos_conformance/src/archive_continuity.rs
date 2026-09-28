@@ -286,6 +286,24 @@ pub fn assess_archive_use(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ArchiveCurrentnessDispositionV1 {
+    HistoricalOnly,
+    StaleRelativeToCurrentFrontier,
+    SameFrontierStillHistorical,
+}
+
+pub fn assess_archive_currentness(
+    archive: &SemanticArchiveManifestV1,
+    current_frontier_root: &str,
+) -> ArchiveCurrentnessDispositionV1 {
+    if archive.source_frontier_root != current_frontier_root {
+        ArchiveCurrentnessDispositionV1::StaleRelativeToCurrentFrontier
+    } else {
+        ArchiveCurrentnessDispositionV1::SameFrontierStillHistorical
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum HistoricalClaimTemporalScopeV1 {
     HistoricalAtFrontier,
     HistoricalInterval,
@@ -479,7 +497,12 @@ pub fn archive_tombstones_are_present(
     tombstones: &BTreeMap<String, SemanticTombstone>,
 ) -> bool {
     required_tombstones.is_subset(&archive.retained_tombstone_ids)
-        && required_tombstones.iter().all(|id| tombstones.contains_key(id))
+        && required_tombstones.iter().all(|id| {
+            tombstones
+                .get(id)
+                .map(|tombstone| tombstone.tombstone_id == *id)
+                .unwrap_or(false)
+        })
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -866,6 +889,33 @@ mod tests {
             },
         );
         assert!(archive_tombstones_are_present(&a, &required, &tombstones));
+    }
+
+    #[test]
+    fn stale_archive_is_not_current_even_when_used_as_evidence() {
+        let a = archive("a1", "frontier-1", 7);
+        assert_eq!(
+            assess_archive_currentness(&a, "frontier-2"),
+            ArchiveCurrentnessDispositionV1::StaleRelativeToCurrentFrontier
+        );
+        assert_eq!(
+            assess_archive_currentness(&a, "frontier-1"),
+            ArchiveCurrentnessDispositionV1::SameFrontierStillHistorical
+        );
+        let empty = BTreeSet::new();
+        assert_eq!(
+            assess_archive_use(
+                &a,
+                &profile(),
+                ArchiveUsePurposeV1::CurrentAuthorization,
+                "env-1",
+                &empty,
+                &empty,
+                &empty,
+                &empty,
+            ),
+            ArchiveUseDispositionV1::BlockedCurrentAuthority
+        );
     }
 
     #[test]
