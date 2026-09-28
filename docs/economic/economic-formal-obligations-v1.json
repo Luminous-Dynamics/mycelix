@@ -1,6 +1,6 @@
 {
   "manifest_id": "MYC-ECO-FV-001",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "status": "Research candidate",
   "closure_policy": {
     "states": [
@@ -146,6 +146,66 @@
     {
       "id": "ECO-FV-026",
       "proposition": "Economic profile selection cannot silently change the source claim ceiling.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-027",
+      "proposition": "An external instrument profile cannot be admitted without the identity fields required by its profile class.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-028",
+      "proposition": "Issuer, network, chain, contract or mint identity cannot be silently dropped when required by the source profile.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-029",
+      "proposition": "A numeric quantity cannot change semantic unit or atomic scale during adapter translation without explicit policy and evidence.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-030",
+      "proposition": "A token ticker or display symbol cannot substitute for authoritative instrument identity.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-031",
+      "proposition": "A chain observation cannot itself establish legal ownership or key control.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-032",
+      "proposition": "A wrapped or bridged representation cannot silently become the underlying native asset.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-033",
+      "proposition": "A stablecoin representation cannot silently become the referenced fiat unit.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-034",
+      "proposition": "An FX conversion requires an explicit, versioned and validity-bounded valuation profile.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-035",
+      "proposition": "External provider status or transport completion cannot itself establish settlement finality.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-036",
+      "proposition": "External instrument recognition creates a distinct target identity and preserves source origin.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-037",
+      "proposition": "A profile adapter may restrict kernel transitions but cannot widen the source claim ceiling.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-038",
+      "proposition": "A simulation-scoped economic asset cannot silently promote its claim ceiling to a physical-world economic fact.",
       "state": "Open"
     }
   ],
