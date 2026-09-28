@@ -10,16 +10,17 @@ Symtropy owns deterministic simulation state. Mycelix owns portable economic sem
 
 ## Current Symtropy refinement
 
-The first executable envelope is implemented at:
+The executable envelope and recognition boundary are implemented at:
 
 - repository: `Luminous-Dynamics/symtropy`
 - branch: `mycelix-economic-fabric-interoperability`
-- source commit: `b4b0de0b90bea9d7dc578f3bb9872bad0de2dd9f`
+- envelope source commit: `fe6d9fcf62bbbedf324df31f12b855d9e408a891`
+- recognition source commit: `bbdc0fa5acd6a2c6f498238e450ea246d537eb2e`
 - implementation: `crates/bridges/symtropy-mycelix-bridge/src/economic_events.rs`
-- API: `EconomicEventEnvelopeV1`
-- schema marker: `EconomicEventEnvelopeV1`
+- recognition: `crates/bridges/symtropy-mycelix-bridge/src/recognition.rs`
+- API: `EconomicEventEnvelopeV1`, `RecognitionRecord`
 
-The implementation provides deterministic `stable_identity()`, a replay fingerprint covering event kind, actors, resources, quantities/units and causal parents, wall-clock exclusion from identity, correction-lineage validation, and an explicit simulation claim ceiling.
+The envelope provides deterministic replay identity, unambiguous length-prefixed hashing, mutation detection, correction-lineage validation and an explicit simulation claim ceiling. Recognition records preserve source identity, origin and replay fingerprint while assigning a distinct target identifier.
 
 ## Required preservation
 
@@ -45,6 +46,7 @@ The implementation provides deterministic `stable_identity()`, a replay fingerpr
 5. Map to a TEND instrument transaction candidate preserving TEND policy.
 6. Produce an accounting projection that remains derived.
 7. Exercise duplicate, stale, mutated-replay and origin-rewrite adversarial cases.
+8. Require every recognition record to retain source identity, origin and replay fingerprint.
 
 ## Cross-repo traceability rule
 
