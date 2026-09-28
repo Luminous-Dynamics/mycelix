@@ -172,6 +172,12 @@ The current federation work already demonstrates two important pieces of this cr
 
 The next integration point is therefore not another transport feature. It is the **feedback/governance boundary**: conflict → assessment → recommendation → explicit human disposition.
 
+### Federation source/evidence conservation
+
+D6E now makes the source/evidence boundary explicit at the federation seam. A delivery carries both `source_ref` and `evidence_ref`; an observation and its federation binding carry both fields; replay receipts preserve both; and the D5 projection maps them independently. A source reference is therefore never treated as evidence identity merely because both values happen to be strings or because the delivery was accepted locally.
+
+The federation validator also fails closed when either reference is missing, and rejects mutations to either field during replay/binding. This is a reference-model invariant intended to prevent provenance compression at the adapter boundary.
+
 ## Open questions for Integral maintainers
 
 1. What exactly constitutes OAD→COS semantic admission?
