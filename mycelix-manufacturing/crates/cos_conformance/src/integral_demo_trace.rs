@@ -74,6 +74,8 @@ pub struct TraceEvent {
     pub actor: TraceActor,
     pub source: SourceKind,
     pub source_ref: &'static str,
+    /// Explicit evidence binding; distinct from source_ref.
+    pub evidence_ref: Option<&'static str>,
     pub generation: u32,
     pub uncertainty_present: bool,
     pub authority_ref: Option<&'static str>,
@@ -254,6 +256,11 @@ pub fn validate_trace(fixture: &TraceFixture) -> Result<(), TraceError> {
     for (index, event) in events.iter().enumerate() {
         if event.event_id.is_empty() || event.source_ref.is_empty() {
             return Err(TraceError::EmptyIdentity);
+        }
+        if matches!(event.kind, TraceKind::Observation | TraceKind::ItcProjection | TraceKind::FrsAssessment)
+            && event.evidence_ref.map_or(true, str::is_empty)
+        {
+            return Err(TraceError::EmptySource);
         }
         if event.provenance != expected_provenance(event.kind) {
             return Err(TraceError::ProvenanceMutation);
@@ -542,6 +549,7 @@ mod tests {
             actor,
             source,
             source_ref: "evidence://demo",
+            evidence_ref: if matches!(kind, TraceKind::Observation | TraceKind::ItcProjection | TraceKind::FrsAssessment) { Some("evidence://demo") } else { None },
             generation,
             uncertainty_present,
             authority_ref,
