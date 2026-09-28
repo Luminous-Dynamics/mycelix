@@ -114,6 +114,30 @@ For example, a reconciliation layer may establish an explicit `Disputes` relatio
 
 This distinction is now a deliberate design rule in the reference model.
 
+## Interpretation laboratory
+
+D6E now includes a small executable **interpretation laboratory** in `integral_demo_interpretations.rs`.
+
+The laboratory does not choose a “correct” interpretation. It makes competing semantics explicit so they can be reviewed against Integral's own governance/specification process.
+
+Each unresolved seam is represented with three deliberately distinct variants:
+
+| Seam | Minimal / faithful | Strong-safety | Federation-aware |
+|---|---|---|---|
+| OAD→COS | Current certified design may cross a bounded admission seam | Certification, admission authorization, generation freshness, and retry identity are distinct | Adds explicit evidence-origin / authority-origin separation and foreign-authority rejection |
+| COS→ITC | Operational observation can cross a projection seam; projection is not economic eligibility | Source/observation identity and current generation are checked; mutation is rejected | Foreign origin remains foreign and privacy projections cannot become source observations |
+| FRS→CDS | FRS returns a recommendation to governance | Recommendation cannot carry operational authority; explicit governance disposition is required | Foreign recommendation provenance remains intact; conflicting observations await explicit decision |
+
+These are **not three maturity levels** and the ordering is not a ranking. They are alternative semantic hypotheses.
+
+The useful review question is therefore:
+
+> **Which semantics did Integral intend at this interface, and what evidence should distinguish the alternatives?**
+
+The executable laboratory makes that question testable. For example, a future maintainer can add a fixture where the variants produce different outcomes—such as a foreign authority token, a superseded design, a mutated retry, or an FRS recommendation attached to a consequential action—and then compare the resulting trace.
+
+The implementation should not silently promote one hypothesis into an architectural fact.
+
 ## Compatibility matrix
 
 | Area | Integral public baseline | Mycelix reference treatment | Classification |
