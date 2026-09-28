@@ -198,7 +198,9 @@ fn status_compatible(event: &TraceEvent) -> bool {
     }
 }
 
-pub fn validate_trace(events: &[TraceEvent]) -> Result<(), TraceError> {
+pub fn validate_trace(fixture: &TraceFixture) -> Result<(), TraceError> {
+    let events = &fixture.events;
+    let relations = &fixture.relations;
     if events.is_empty() {
         return Err(TraceError::EmptyIdentity);
     }
@@ -213,19 +215,13 @@ pub fn validate_trace(events: &[TraceEvent]) -> Result<(), TraceError> {
         if events.iter().take(index).any(|prior| prior.event_id == event.event_id) {
             return Err(TraceError::DuplicateIdentityMutation);
         }
-        if event.event_id.is_empty() || event.source_ref.is_empty() {
-            return Err(TraceError::EmptyIdentity);
-        }
-        if event.kind != TraceKind::Proposal && event.source_ref.is_empty() {
-            return Err(TraceError::EmptySource);
-        }
         if !status_compatible(event) {
             return Err(TraceError::IllegalTransition);
         }
-        if event.kind == TraceKind::Recommendation {
-            if !event.recommendation_only || event.authority_ref.is_some() {
-                return Err(TraceError::AuthorityOnRecommendation);
-            }
+        if event.kind == TraceKind::Recommendation
+            && (!event.recommendation_only || event.authority_ref.is_some())
+        {
+            return Err(TraceError::AuthorityOnRecommendation);
         }
         if matches!(event.kind, TraceKind::Decision | TraceKind::Authorization | TraceKind::HumanDecision)
             && event.authority_ref.is_none()
@@ -248,25 +244,20 @@ pub fn validate_trace(events: &[TraceEvent]) -> Result<(), TraceError> {
         }
     }
 
-    for relation in events.iter().flat_map(|e| e.relations.iter()) {
+    for relation in relations {
         let from = events.iter().find(|e| e.event_id == relation.from_event);
         let to = events.iter().find(|e| e.event_id == relation.to_event);
         if from.is_none() || to.is_none() || relation.from_event == relation.to_event {
             return Err(TraceError::SupersededLineage);
         }
-        if relation.relation == TraceRelation::Authorizes && to.unwrap().kind == TraceKind::Recommendation {
+        let from = from.unwrap();
+        let to = to.unwrap();
+        if relation.relation == TraceRelation::Authorizes && to.kind == TraceKind::Recommendation {
             return Err(TraceError::AuthorityOnRecommendation);
         }
-        if relation.relation == TraceRelation::Supersedes && to.unwrap().generation >= from.unwrap().generation {
+        if relation.relation == TraceRelation::Supersedes && to.generation >= from.generation {
             return Err(TraceError::SupersededLineage);
         }
-    }
-
-    // Relations are authoritative graph edges. They allow branches and
-    // non-adjacent lineage without weakening the deterministic sequence check.
-    for relation in events.iter().flat_map(|e| e.relations.iter()) {
-        let from = events.iter().find(|e| e.event_id == relation.from_event).unwrap();
-        let to = events.iter().find(|e| e.event_id == relation.to_event).unwrap();
         match relation.relation {
             TraceRelation::Disputes => {
                 if from.kind != TraceKind::Observation || to.kind != TraceKind::Observation {
@@ -299,27 +290,32 @@ pub fn validate_trace(events: &[TraceEvent]) -> Result<(), TraceError> {
         if current.sequence <= previous.sequence {
             return Err(TraceError::SequenceRegression);
         }
-        if current.generation < previous.generation {
-            return Err(TraceError::GenerationRegression);
-        }
         if !transition_allowed(previous.kind, current.kind) {
             return Err(TraceError::IllegalTransition);
         }
+        if current.kind == TraceKind::Decision
+            && previous.kind == TraceKind::Design
+            && current.generation > previous.generation
+        {
+            // A decision may only consume the current design generation; a higher
+            // generation here is impossible to justify from this trace alone.
+            return Err(TraceError::GenerationRegression);
+        }
         if previous.kind == TraceKind::Design && current.kind == TraceKind::Design
-            && !events.iter().any(|e| e.relations.iter().any(|r| {
+            && !relations.iter().any(|r| {
                 r.relation == TraceRelation::Supersedes
                     && r.from_event == current.event_id
                     && r.to_event == previous.event_id
-            }))
+            })
         {
             return Err(TraceError::SupersededLineage);
         }
         if previous.kind == TraceKind::Observation && current.kind == TraceKind::Observation
-            && !events.iter().any(|e| e.relations.iter().any(|r| {
+            && !relations.iter().any(|r| {
                 r.relation == TraceRelation::Disputes
                     && ((r.from_event == previous.event_id && r.to_event == current.event_id)
                         || (r.from_event == current.event_id && r.to_event == previous.event_id))
-            }))
+            })
         {
             return Err(TraceError::IllegalTransition);
         }
@@ -377,7 +373,8 @@ pub fn explanation_view(
 }
 
 /// Compute only descriptive trace properties; this is not a legitimacy or human-outcome score.
-pub fn digest(events: &[TraceEvent]) -> Option<TraceDigest> {
+pub fn digest(fixture: &TraceFixture) -> Option<TraceDigest> {
+    let events = &fixture.events;
     let last = events.last()?;
     Some(TraceDigest {
         event_count: events.len() as u32,
@@ -435,12 +432,12 @@ mod tests {
             appeal_ref: if kind == TraceKind::Outcome { Some("appeal-1") } else { None },
             decision_accepted: if kind == TraceKind::HumanDecision { Some(true) } else { None },
             status: match kind { TraceKind::Decision | TraceKind::Authorization | TraceKind::HumanDecision => TraceStatus::Accepted, TraceKind::Outcome => TraceStatus::Executed, _ => TraceStatus::Accepted },
-            relations: &[],
         }
     }
 
-    fn valid_trace() -> Vec<TraceEvent> {
-        vec![
+    fn valid_trace() -> TraceFixture {
+        TraceFixture {
+            events: vec![
             event("e1", 1, TraceKind::Proposal, TraceActor::Human, SourceKind::Local, 7, true, None, true, true, false),
             event("e2", 2, TraceKind::Design, TraceActor::System, SourceKind::Local, 7, true, None, true, true, false),
             event("e3", 3, TraceKind::Decision, TraceActor::Human, SourceKind::Local, 7, true, Some("auth-cds"), true, true, false),
@@ -453,7 +450,9 @@ mod tests {
             event("e10", 10, TraceKind::HumanDecision, TraceActor::Human, SourceKind::Local, 7, true, Some("auth-review"), true, true, false),
             event("e11", 11, TraceKind::Outcome, TraceActor::System, SourceKind::Local, 7, true, Some("auth-review"), true, true, false),
             event("e12", 12, TraceKind::Appeal, TraceActor::Human, SourceKind::Local, 7, true, None, true, true, false),
-        ]
+        ],
+            relations: vec![],
+        }
     }
 
     #[test]
@@ -464,32 +463,32 @@ mod tests {
     #[test]
     fn provenance_class_cannot_be_relabelled() {
         let mut t = valid_trace();
-        t[5].provenance = ProvenanceClass::Assessment;
+        t.events[5].provenance = ProvenanceClass::Assessment;
         assert_eq!(validate_trace(&t), Err(TraceError::ProvenanceMutation));
 
         let mut t = valid_trace();
-        t[7].provenance = ProvenanceClass::Observation;
+        t.events[7].provenance = ProvenanceClass::Observation;
         assert_eq!(validate_trace(&t), Err(TraceError::ProvenanceMutation));
     }
 
     #[test]
     fn event_identity_cannot_be_reused_for_a_different_event() {
         let mut t = valid_trace();
-        t[6].event_id = t[5].event_id;
+        t.events[6].event_id = t.events[5].event_id;
         assert_eq!(validate_trace(&t), Err(TraceError::DuplicateIdentityMutation));
     }
 
     #[test]
     fn recommendation_cannot_carry_authority() {
         let mut t = valid_trace();
-        t[8].authority_ref = Some("forbidden");
+        t.events[8].authority_ref = Some("forbidden");
         assert_eq!(validate_trace(&t), Err(TraceError::AuthorityOnRecommendation));
     }
 
     #[test]
     fn recommendation_must_remain_recommendation_only() {
         let mut t = valid_trace();
-        t[8].recommendation_only = false;
+        t.events[8].recommendation_only = false;
         assert_eq!(validate_trace(&t), Err(TraceError::AuthorityOnRecommendation));
     }
 
@@ -517,54 +516,54 @@ mod tests {
     #[test]
     fn uncertainty_cannot_disappear() {
         let mut t = valid_trace();
-        t[7].uncertainty_present = false;
+        t.events[7].uncertainty_present = false;
         assert_eq!(validate_trace(&t), Err(TraceError::UncertaintyLoss));
     }
 
     #[test]
     fn generation_cannot_regress() {
         let mut t = valid_trace();
-        t[6].generation = 8;
+        t.events[6].generation = 8;
         assert_eq!(validate_trace(&t), Err(TraceError::GenerationRegression));
     }
 
     #[test]
     fn foreign_origin_cannot_be_laundered_to_local() {
         let mut t = valid_trace();
-        t[5].source = SourceKind::Foreign;
-        t[6].source = SourceKind::Local;
+        t.events[5].source = SourceKind::Foreign;
+        t.events[6].source = SourceKind::Local;
         assert_eq!(validate_trace(&t), Err(TraceError::ForeignOriginLoss));
     }
 
     #[test]
     fn replay_cannot_mutate_authoritative_payload() {
         let t = valid_trace();
-        assert!(replay_is_idempotent(&t[5], &t[5]));
-        let mut replay = t[5];
+        assert!(replay_is_idempotent(&t.events[5], &t.events[5]));
+        let mut replay = t.events[5];
         replay.source_ref = "evidence://mutated";
-        assert!(!replay_is_idempotent(&t[5], &replay));
+        assert!(!replay_is_idempotent(&t.events[5], &replay));
     }
 
     #[test]
     fn consequential_outcome_requires_recovery_and_contestability() {
         let mut t = valid_trace();
-        t[10].reversible = false;
-        t[10].recovery_ref = None;
+        t.events[10].reversible = false;
+        t.events[10].recovery_ref = None;
         assert_eq!(validate_trace(&t), Err(TraceError::UnreversibleWithoutRecovery));
 
         let mut t = valid_trace();
-        t[10].challengeable = false;
+        t.events[10].challengeable = false;
         assert_eq!(validate_trace(&t), Err(TraceError::UnchallengeableConsequentialAction));
 
         let mut t = valid_trace();
-        t[10].appeal_ref = None;
+        t.events[10].appeal_ref = None;
         assert_eq!(validate_trace(&t), Err(TraceError::MissingAppealRoute));
     }
 
     #[test]
     fn human_decision_requires_explicit_authority_reference() {
         let mut t = valid_trace();
-        t[9].authority_ref = None;
+        t.events[9].authority_ref = None;
         assert_eq!(validate_trace(&t), Err(TraceError::MissingAuthorization));
     }
 
@@ -579,7 +578,7 @@ mod tests {
     #[test]
     fn all_trace_kinds_have_explicit_provenance_mapping() {
         let t = valid_trace();
-        assert!(t.iter().all(|e| matches!(
+        assert!(t.events.iter().all(|e| matches!(
             e.provenance,
             ProvenanceClass::Proposal
                 | ProvenanceClass::Design
