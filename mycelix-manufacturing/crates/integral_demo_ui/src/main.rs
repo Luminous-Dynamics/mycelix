@@ -12,10 +12,10 @@ fn App() -> impl IntoView {
         <main class="shell">
             <header class="hero">
                 <div>
-                    <p class="eyebrow">"INTEGRAL · REFERENCE NODE · D6C"</p>
+                    <p class="eyebrow">"INTEGRAL · REFERENCE NODE · D6D"</p>
                     <h1>"See the evidence path. Keep human authority visible."</h1>
                     <p class="lede">
-                        "An executable Leptos cockpit over the Mycelix reference model. Each scenario is evaluated before it is presented."
+                        "An executable Leptos cockpit over the Mycelix reference model. Each scenario is evaluated before it is presented; branch closure and causal relations are checked independently of the UI."
                     </p>
                 </div>
                 <div class="status-card">
@@ -88,7 +88,14 @@ fn App() -> impl IntoView {
                         view! {
                             <div class="scenario-summary">
                                 <div class="result-line">
-                                    <strong>{if result.actual_valid { "Reference path validates" } else { "Reference path rejected" }}</strong>
+                                    <strong>{
+    match result.expected {
+        cos_conformance::integral_demo_scenarios::ScenarioExpected::PresentationOnly => "Presentation-only scenario",
+        cos_conformance::integral_demo_scenarios::ScenarioExpected::Valid if result.actual_valid => "Reference path validates",
+        _ if !result.actual_valid => "Reference path rejected",
+        _ => "Reference path differs from expectation",
+    }
+}</strong>
                                     <span class="badge">{result.claim_ceiling}</span>
                                 </div>
                                 <span>{result.summary}</span>
@@ -98,6 +105,7 @@ fn App() -> impl IntoView {
                                     " · Events: " {result.trace_len}
                                     " · Relations: " {result.relation_count}
                                     " · Symthaea: " {if result.symthaea_used { "assistive" } else { "not required" }}
+                                    {result.validation_error.map(|error| view! { <span>" · Boundary: " {format!("{:?}", error)}</span> })}
                                 </small>
                             </div>
 
