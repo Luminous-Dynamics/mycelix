@@ -116,6 +116,13 @@ pub fn reconcile(
     accept_delivery(reconciled, current_generation, now, existing)
 }
 
+pub fn reconnect_cannot_revive_expired_authorization(
+    envelope: FederationEnvelope,
+    now: u64,
+) -> bool {
+    envelope.authorization == AuthorizationState::Expired || now >= envelope.expires_at
+}
+
 pub fn receipt_for(envelope: FederationEnvelope) -> FederationReceipt {
     FederationReceipt {
         logical_delivery_id: envelope.logical_delivery_id,
@@ -219,6 +226,7 @@ mod tests {
     fn expired_authorization_cannot_revive_on_reconnect() {
         let mut e = envelope();
         e.authorization = AuthorizationState::Expired;
+        assert!(reconnect_cannot_revive_expired_authorization(e, 20));
         assert_eq!(reconcile(e, 7, 20, None), FederationDecision::RejectedExpiredAuthorization);
     }
 
