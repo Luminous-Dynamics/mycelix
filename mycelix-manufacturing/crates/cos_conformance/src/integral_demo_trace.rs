@@ -227,7 +227,7 @@ pub fn validate_trace(events: &[TraceEvent]) -> Result<(), TraceError> {
                 return Err(TraceError::AuthorityOnRecommendation);
             }
         }
-        if matches!(event.kind, TraceKind::Authorization | TraceKind::HumanDecision)
+        if matches!(event.kind, TraceKind::Decision | TraceKind::Authorization | TraceKind::HumanDecision)
             && event.authority_ref.is_none()
         {
             return Err(TraceError::MissingAuthorization);
