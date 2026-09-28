@@ -189,6 +189,7 @@ fn transition_allowed(from: TraceKind, to: TraceKind) -> bool {
             | (TraceKind::FrsAssessment, TraceKind::Appeal)
             | (TraceKind::Observation, TraceKind::Appeal)
             | (TraceKind::Observation, TraceKind::Observation)
+            | (TraceKind::Observation, TraceKind::FrsAssessment)
     )
 }
 
