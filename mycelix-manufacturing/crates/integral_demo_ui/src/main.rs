@@ -1,5 +1,5 @@
 use cos_conformance::integral_demo_cockpit::{fields_for, project_cockpit, CockpitField};
-use cos_conformance::integral_demo_scenarios::{evaluate, trace_for, ALL_SCENARIOS};
+use cos_conformance::integral_demo_scenarios::{evaluate, trace_for, relation_count, ALL_SCENARIOS};
 use cos_conformance::integral_demo_trace::{ExplanationLevel, TraceKind};
 use leptos::prelude::*;
 
@@ -93,6 +93,7 @@ fn App() -> impl IntoView {
                                     "Expected: " {format!("{:?}", result.expected)}
                                     " · Actual: " {if result.actual_valid { "valid" } else { "invalid" }}
                                     " · Events: " {result.trace_len}
+                                    " · Relations: " {relation_count(id)}
                                 </small>
                             </div>
 
@@ -140,8 +141,16 @@ fn App() -> impl IntoView {
                                                     <span>{event.event_id}</span>
                                                 </div>
                                                 <span class="trace-meta">{actor}</span>
+                                                <span class="trace-meta">{format!("{:?}", event.status)}</span>
                                                 <span class="trace-meta">{status}</span>
                                                 <span class="uncertainty">{if event.uncertainty_present { "uncertain" } else { "uncertainty lost" }}</span>
+                                                {event.relations.iter().map(|relation| {
+                                                    view! {
+                                                        <span class="trace-relation">
+                                                            {format!("{:?} → {} ({:?})", relation.relation, relation.to_event, relation.relation)}
+                                                        </span>
+                                                    }
+                                                }).collect_view()}
                                             </div>
                                         }
                                     }).collect_view()}
