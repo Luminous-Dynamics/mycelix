@@ -282,6 +282,6 @@ mod tests {
         assert_eq!(left.events[0].sequence, 1);
         assert_eq!(left.events[1].sequence, 2);
         assert_eq!(left.events[1].event_id, "obs-b");
-        assert_eq!(left.events[1].source, SourceKind::Foreign);
+        assert_eq!(left.events[1].source, SourceKind::Foreign);\n        assert!(left.relations.is_empty());
     }
 }
