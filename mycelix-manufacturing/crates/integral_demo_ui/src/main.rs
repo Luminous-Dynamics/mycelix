@@ -1,4 +1,4 @@
-use cos_conformance::integral_demo_cockpit::{project_cockpit, CockpitField};
+use cos_conformance::integral_demo_cockpit::{fields_for, project_cockpit, CockpitField};
 use cos_conformance::integral_demo_domain::{ProvenanceClass, SourceKind};
 use cos_conformance::integral_demo_trace::{
     validate_trace, ExplanationLevel, TraceActor, TraceEvent, TraceKind,
@@ -19,6 +19,10 @@ const TRACE: [TraceEvent; 12] = [
     event("outcome-1", 11, TraceKind::Outcome, TraceActor::System, ProvenanceClass::Outcome, Some("review-auth-1"), true),
     event("appeal-1", 12, TraceKind::Appeal, TraceActor::Human, ProvenanceClass::Appeal, None, true),
 ];
+
+// D6C boundary: the scenario selector changes presentation context only. The authoritative
+// reference trace remains immutable until a scenario receives its own executable fixture.
+const D6C_CLAIM_CEILING: &str = "ReferenceModelOnly";
 
 const SCENARIOS: [Scenario; 8] = [
     Scenario { name: "Normal flow", summary: "A complete bounded path from design through human decision, outcome, and appeal.", status: "Trace validates", note: "The cockpit shows lineage without turning presentation into authority." },
@@ -73,7 +77,9 @@ fn App() -> impl IntoView {
     let (level, set_level) = signal(ExplanationLevel::Summary);
 
     let trace_valid = validate_trace(&TRACE).is_ok();
-    let view = project_cockpit("trace://integral-demo-001", ExplanationLevel::Assurance, &TRACE)
+    let assurance_view = project_cockpit("trace://integral-demo-001", ExplanationLevel::Assurance, &TRACE)
+        .expect("static reference trace produces a cockpit view");
+    let technical_view = project_cockpit("trace://integral-demo-001", ExplanationLevel::Technical, &TRACE)
         .expect("static reference trace produces a cockpit view");
 
     view! {
@@ -149,21 +155,28 @@ fn App() -> impl IntoView {
                     </div>
 
                     <div class="facts">
-                        <Fact title="What happened" value="The trace records a complete bounded lifecycle." />
-                        <Fact title="Who produced it" value="Human, system, and Symthaea actors are disclosed." />
-                        <Fact title="Evidence" value="Every cockpit fact points back to a source reference." />
-                        <Fact title="Authority" value="Authorization is explicit; recommendations carry none." />
-                        <Fact title="Uncertainty" value="Uncertainty is preserved through the full reference path." />
-                        <Fact title="Recovery / challenge" value="Consequential outcomes expose recovery and appeal metadata." />
-                        <Fact title="Generation / origin" value="Schema generation and source origin remain visible." />
-                        <Fact title="Recommendation vs decision" value="Symthaea may recommend; a human decision remains distinct." />
+                        {move || {
+                            let fields = fields_for(level.get());
+                            fields.iter().map(|field| match field {
+                                CockpitField::WhatHappened => view! { <Fact title="What happened" value="The trace records a bounded lifecycle; presentation does not invent events." /> }.into_any(),
+                                CockpitField::WhoProducedIt => view! { <Fact title="Who produced it" value="Human, system, and Symthaea actors are disclosed." /> }.into_any(),
+                                CockpitField::Evidence => view! { <Fact title="Evidence" value="Each displayed fact points back to trace evidence." /> }.into_any(),
+                                CockpitField::Authority => view! { <Fact title="Authority" value="Authorization is explicit; recommendations carry none." /> }.into_any(),
+                                CockpitField::Uncertainty => view! { <Fact title="Uncertainty" value="Uncertainty remains visible rather than being collapsed into a score." /> }.into_any(),
+                                CockpitField::RecommendationStatus => view! { <Fact title="Recommendation vs decision" value="Symthaea may recommend; a human decision remains distinct." /> }.into_any(),
+                                CockpitField::Recovery => view! { <Fact title="Recovery" value="Consequential outcomes expose recovery metadata." /> }.into_any(),
+                                CockpitField::Challenge => view! { <Fact title="Challenge" value="A challenge/appeal path remains visible without requiring Symthaea." /> }.into_any(),
+                                CockpitField::Generation => view! { <Fact title="Generation" value="Schema generation remains explicit in the lineage." /> }.into_any(),
+                                CockpitField::Origin => view! { <Fact title="Origin" value="Local versus foreign origin remains attributable." /> }.into_any(),
+                            }).collect_view()
+                        }}
                     </div>
 
                     <div class="trace-card">
                         <div class="trace-header">
                             <div>
                                 <span class="eyebrow">"MACHINE-READABLE LINEAGE"</span>
-                                <h3>"{view.trace_ref}"</h3>
+                                <h3>"{move || if level.get() == ExplanationLevel::Technical { technical_view.trace_ref } else { assurance_view.trace_ref }}"</h3>
                             </div>
                             <span class="badge">"ReferenceModelOnly"</span>
                         </div>
