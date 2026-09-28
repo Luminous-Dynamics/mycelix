@@ -7,6 +7,7 @@
 use serde::{Deserialize, Serialize};
 
 pub mod productive_loop;
+pub mod source_refinement;
 
 pub const CORPUS_ID: &str = "COS-CONF-001";
 pub const FORMAL_OBLIGATIONS: [&str; 10] = [
@@ -89,16 +90,21 @@ pub fn bind_physical_work(b: &mut Bindings) { b.physical_work_binding = true; }
 pub fn stale_evidence_is_rejected(e: &Evidence, now: u64) -> Decision {
     if e.superseded { Decision::Superseded }
     else if e.conflicting { Decision::Conflicting }
-    else if !e.validity.active_at(now) { Decision::Stale }
-    else { Decision::Accepted }
+    else if e.validity.active_at(now) { Decision::Accepted }
+    else { Decision::Stale }
 }
 
-pub fn evaluate_negative(id: &str, b: &Bindings, evidence: Option<&Evidence>, now: u64) -> Decision {
-    match id {
+pub fn evaluate_negative(test_id: &str, b: &Bindings, evidence: Option<&Evidence>, now: u64) -> Decision {
+    if let Some(e) = evidence {
+        if e.superseded { return Decision::Superseded; }
+        if e.conflicting { return Decision::Conflicting; }
+        if !e.validity.active_at(now) && test_id == "COS-N-005" { return Decision::Stale; }
+    }
+    match test_id {
         "COS-N-001" => if b.plan_execution { Decision::Accepted } else { Decision::Rejected },
         "COS-N-002" => if b.plan_consumption { Decision::Accepted } else { Decision::Rejected },
         "COS-N-003" | "COS-N-004" => if b.requirement_availability { Decision::Accepted } else { Decision::Rejected },
-        "COS-N-005" => evidence.map_or(Decision::Unknown, |e| stale_evidence_is_rejected(e, now)),
+        "COS-N-005" => if b.quality_current { Decision::Accepted } else { Decision::Rejected },
         "COS-N-006" => if b.output_qualification { Decision::Accepted } else { Decision::Rejected },
         "COS-N-007" => if b.general_capability_evidence { Decision::Accepted } else { Decision::Rejected },
         "COS-N-008" => if b.failure_history_preserved { Decision::Accepted } else { Decision::Rejected },
