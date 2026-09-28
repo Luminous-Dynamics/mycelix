@@ -210,7 +210,7 @@ This is a bounded semantic model. It does not prove the evidence is true, the au
 
 ### A1 ↔ D5 alignment boundary
 
-A bounded cross-check now compares A1 coordination artifacts against D5 trace events by stable identity and shared fields: kind, provenance, origin, generation, source reference, authority reference, uncertainty, and explicit human disposition. It first runs the D5 trace validator.
+A bounded cross-check now compares A1 coordination artifacts against D5 trace events by stable identity and explicitly shared fields: kind, provenance, origin, generation, source reference, **evidence reference**, authority reference, uncertainty, challengeability, reversibility, recovery reference, and explicit human disposition. `source_ref` and `evidence_ref` remain distinct fields; the bridge never equates them implicitly. It first runs the D5 trace validator.
 
 This is intentionally **not** a conversion. D5 graph relations and A1 parent links express different things; event order is not used to invent parentage. A direct Observation → FRS Assessment trace transition is permitted so a valid graph-native conflict assessment does not require an artificial ITC projection stage.
 
