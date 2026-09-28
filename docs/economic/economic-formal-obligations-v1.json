@@ -1,6 +1,6 @@
 {
   "manifest_id": "MYC-ECO-FV-001",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "status": "Research candidate",
   "closure_policy": {
     "states": [
@@ -206,6 +206,66 @@
     {
       "id": "ECO-FV-038",
       "proposition": "A simulation-scoped economic asset cannot silently promote its claim ceiling to a physical-world economic fact.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-039",
+      "proposition": "Settlement rail identity remains distinct from instrument identity.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-040",
+      "proposition": "Confirmation state cannot be interpreted as universal finality.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-041",
+      "proposition": "Provider acknowledgement cannot itself establish rail finality.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-042",
+      "proposition": "Block inclusion cannot itself establish economic settlement finality.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-043",
+      "proposition": "Probabilistic and consensus-finality profiles remain semantically distinct.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-044",
+      "proposition": "A settlement receipt cannot exceed its authorization scope.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-045",
+      "proposition": "Reconciliation requires explicit correspondence between source event, rail execution and target settlement identity.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-046",
+      "proposition": "Reconciliation mismatch cannot be promoted to successful settlement.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-047",
+      "proposition": "Timeout or unresolved rail outcome remains indeterminate until fresh qualified evidence resolves it.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-048",
+      "proposition": "A correction appends settlement-receipt lineage and does not mutate the original receipt.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-049",
+      "proposition": "Accounting projections cannot establish settlement finality.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-050",
+      "proposition": "A rail profile cannot widen the instrument profile claim ceiling.",
       "state": "Open"
     }
   ],
