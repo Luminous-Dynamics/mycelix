@@ -1,0 +1,168 @@
+{
+  "manifest_id": "MYC-INT-ASSURE-FV-001",
+  "version": "1.1.0",
+  "source_status": "Research candidate",
+  "obligations": [
+    {
+      "id": "ASSURE-FV-015",
+      "state": "Open",
+      "claim_ceiling": "Semantic assurance boundary only; no physical, social, economic, safety, or deployment qualification.",
+      "proposition": "Assurance-flow transitions cannot widen the claim class implicitly.",
+      "production_refinement": "Open",
+      "executable_witness": "Open",
+      "formal_artifact": "Open",
+      "scope": "Semantic assurance boundary only"
+    },
+    {
+      "id": "ASSURE-FV-016",
+      "state": "Open",
+      "claim_ceiling": "Semantic assurance boundary only; no physical, social, economic, safety, or deployment qualification.",
+      "proposition": "Verification evidence does not satisfy a qualification predicate without an explicit qualification profile and scope match.",
+      "production_refinement": "Open",
+      "executable_witness": "Open",
+      "formal_artifact": "Open",
+      "scope": "Semantic assurance boundary only"
+    },
+    {
+      "id": "ASSURE-FV-017",
+      "state": "Open",
+      "claim_ceiling": "Semantic assurance boundary only; no physical, social, economic, safety, or deployment qualification.",
+      "proposition": "Qualification does not satisfy an authorization predicate without an explicit authorized decision, authority reference, scope, and validity.",
+      "production_refinement": "Open",
+      "executable_witness": "Open",
+      "formal_artifact": "Open",
+      "scope": "Semantic assurance boundary only"
+    },
+    {
+      "id": "ASSURE-FV-018",
+      "state": "Open",
+      "claim_ceiling": "Semantic assurance boundary only; no physical, social, economic, safety, or deployment qualification.",
+      "proposition": "Recognition preserves the origin and lineage of foreign evidence; recognition cannot rewrite origin.",
+      "production_refinement": "Open",
+      "executable_witness": "Open",
+      "formal_artifact": "Open",
+      "scope": "Semantic assurance boundary only"
+    },
+    {
+      "id": "ASSURE-FV-019",
+      "state": "Open",
+      "claim_ceiling": "Semantic assurance boundary only; no physical, social, economic, safety, or deployment qualification.",
+      "proposition": "A reliability history does not establish current capability or availability.",
+      "production_refinement": "Open",
+      "executable_witness": "Open",
+      "formal_artifact": "Open",
+      "scope": "Semantic assurance boundary only"
+    },
+    {
+      "id": "ASSURE-FV-020",
+      "state": "Open",
+      "claim_ceiling": "Semantic assurance boundary only; no physical, social, economic, safety, or deployment qualification.",
+      "proposition": "Viability threshold evaluation requires admissible current evidence bound to node, scope, and validity window.",
+      "production_refinement": "Open",
+      "executable_witness": "Open",
+      "formal_artifact": "Open",
+      "scope": "Semantic assurance boundary only"
+    },
+    {
+      "id": "ASSURE-FV-021",
+      "state": "Open",
+      "claim_ceiling": "Semantic assurance boundary only; no physical, social, economic, safety, or deployment qualification.",
+      "proposition": "A Coordination Envelope cannot silently exceed its declared affected-node and decision scope.",
+      "production_refinement": "Open",
+      "executable_witness": "Open",
+      "formal_artifact": "Open",
+      "scope": "Semantic assurance boundary only"
+    },
+    {
+      "id": "ASSURE-FV-022",
+      "state": "Open",
+      "claim_ceiling": "Semantic assurance boundary only; no physical, social, economic, safety, or deployment qualification.",
+      "proposition": "A Coordination Envelope dissolves when its declared exit criteria are satisfied and dissolution is recorded monotonically.",
+      "production_refinement": "Open",
+      "executable_witness": "Open",
+      "formal_artifact": "Open",
+      "scope": "Semantic assurance boundary only"
+    },
+    {
+      "id": "ASSURE-FV-023",
+      "state": "Open",
+      "claim_ceiling": "Semantic assurance boundary only; no physical, social, economic, safety, or deployment qualification.",
+      "proposition": "An FRS confidence value is not a calibrated probability claim without an explicit calibration contract.",
+      "production_refinement": "Open",
+      "executable_witness": "Open",
+      "formal_artifact": "Open",
+      "scope": "Semantic assurance boundary only"
+    },
+    {
+      "id": "ASSURE-FV-024",
+      "state": "Open",
+      "claim_ceiling": "Semantic assurance boundary only; no physical, social, economic, safety, or deployment qualification.",
+      "proposition": "An evidence reference is not independent verification merely because it is referenced by a finding.",
+      "production_refinement": "Open",
+      "executable_witness": "Open",
+      "formal_artifact": "Open",
+      "scope": "Semantic assurance boundary only"
+    },
+    {
+      "id": "ASSURE-FV-025",
+      "state": "Open",
+      "claim_ceiling": "Semantic assurance boundary only; no physical, social, economic, safety, or deployment qualification.",
+      "proposition": "A formal proof receipt does not establish physical-world qualification.",
+      "production_refinement": "Open",
+      "executable_witness": "Open",
+      "formal_artifact": "Open",
+      "scope": "Semantic assurance boundary only"
+    },
+    {
+      "id": "ASSURE-FV-026",
+      "state": "Open",
+      "claim_ceiling": "Semantic assurance boundary only; no physical, social, economic, safety, or deployment qualification.",
+      "proposition": "Retrying the same logical assurance delivery cannot duplicate semantic recognition.",
+      "production_refinement": "Open",
+      "executable_witness": "Open",
+      "formal_artifact": "Open",
+      "scope": "Semantic assurance boundary only"
+    },
+    {
+      "id": "ASSURE-FV-027",
+      "state": "Open",
+      "claim_ceiling": "Semantic assurance boundary only; no physical, social, economic, safety, or deployment qualification.",
+      "proposition": "Correction appends lineage and preserves the historical observation; it cannot rewrite history.",
+      "production_refinement": "Open",
+      "executable_witness": "Open",
+      "formal_artifact": "Open",
+      "scope": "Semantic assurance boundary only"
+    },
+    {
+      "id": "ASSURE-FV-028",
+      "state": "Open",
+      "claim_ceiling": "Semantic assurance boundary only; no physical, social, economic, safety, or deployment qualification.",
+      "proposition": "A prediction or counterfactual cannot satisfy an observation predicate without an explicit observation transition.",
+      "production_refinement": "Open",
+      "executable_witness": "Open",
+      "formal_artifact": "Open",
+      "scope": "Semantic assurance boundary only"
+    }
+  ],
+  "closure_policy": {
+    "formally_closed_requires": [
+      "formal_artifact",
+      "executable_witness",
+      "production_refinement",
+      "exact_source_commit",
+      "reproducible_build_identity"
+    ],
+    "scalar_score_can_close": false
+  },
+  "nonclaims": [
+    "Integral endorsement or ratification",
+    "architectural completeness",
+    "real-world qualification",
+    "Mycelix preferred implementation"
+  ],
+  "source_basis": [
+    "Integral Development Guide v0.1 public draft",
+    "Integral White Paper v0.1 public draft",
+    "Mycelix AssuranceFlowV1 engineering reference contract"
+  ]
+}
