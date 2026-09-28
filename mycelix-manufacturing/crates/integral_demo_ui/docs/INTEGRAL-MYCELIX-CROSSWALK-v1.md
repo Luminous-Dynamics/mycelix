@@ -206,3 +206,12 @@ The reference model is implemented in `cos_conformance::integral_demo_coordinati
 It introduces typed coordination artifacts for Intent, Decision, Design, Authorization, ExecutionIntent, Observation, Assessment, Recommendation, HumanDisposition, Revision, and Appeal. The validator checks explicit parent lineage, generation monotonicity, provenance-bearing evidence, uncertainty preservation, authority boundaries, and challenge/recovery requirements for consequential accepted dispositions.
 
 This is a bounded semantic model. It does not prove the evidence is true, the authority is legitimate, or any physical action occurred. The validator also does not yet replace D5's richer graph validator; integration and shared fixture coverage remain follow-up work.
+
+
+### A1 ↔ D5 alignment boundary
+
+A bounded cross-check now compares A1 coordination artifacts against D5 trace events by stable identity and shared fields: kind, provenance, origin, generation, source reference, authority reference, uncertainty, and explicit human disposition. It first runs the D5 trace validator.
+
+This is intentionally **not** a conversion. D5 graph relations and A1 parent links express different things; event order is not used to invent parentage. A direct Observation → FRS Assessment trace transition is permitted so a valid graph-native conflict assessment does not require an artificial ITC projection stage.
+
+The alignment is still a reference-model cross-check. It does not establish that the two representations are semantically complete or that external evidence is true.
