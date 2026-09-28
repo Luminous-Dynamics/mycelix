@@ -539,7 +539,7 @@ mod tests {
             decision_id: "decision-1", conflict_work_id: "work-1",
             left_observation_id: "obs-a", right_observation_id: "wrong",
             actor: "human-1", authority_ref: "auth-1", generation: 7,
-            decided_at: 20, accepted: true, source_ref: "decision://1",
+            decided_at: 20, accepted: true, source_ref: "decision://1", recommendation_ref: None,
         };
         assert!(matches!(
             resolve_with_decision_artifact(reconciliation, Some(&artifact), 7),
