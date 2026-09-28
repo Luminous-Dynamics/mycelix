@@ -64,6 +64,13 @@ pub enum BindingStatus {
     Revoked,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CredentialValidity {
+    Active,
+    Stale,
+    Revoked,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IdentityBinding {
     pub binding_id: String,
@@ -111,7 +118,7 @@ pub struct IdentityGraph {
     pub claims: BTreeMap<String, SemanticIdentityClaim>,
     pub bindings: BTreeMap<String, IdentityBinding>,
     pub lifecycle_events: BTreeMap<String, IdentityLifecycleEvent>,
-    pub resource_capacity: BTreeMap<(String, String), ResourceCapacityBinding>,
+    pub resource_capacity: BTreeMap<(String, String, IdentityKind), ResourceCapacityBinding>,
 }
 
 impl IdentityGraph {
@@ -201,6 +208,7 @@ impl IdentityGraph {
         let key = (
             binding.resource_reference.namespace.clone(),
             binding.resource_reference.reference_id.clone(),
+            binding.resource_reference.kind,
         );
         self.resource_capacity.insert(key, binding);
     }
@@ -237,13 +245,44 @@ pub struct EquivalenceProfile {
     pub pairwise: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IdentityBridge {
+    pub bridge_id: String,
+    pub source_namespace: String,
+    pub target_namespace: String,
+    pub scope_root: String,
+    pub equivalence_profile_root: String,
+    pub pairwise: bool,
+}
+
+pub fn bridge_allows(
+    bridge: &IdentityBridge,
+    claim: &SemanticIdentityClaim,
+) -> bool {
+    claim.left.namespace == bridge.source_namespace
+        && claim.right.namespace == bridge.target_namespace
+        && claim.scope_root == bridge.scope_root
+        && claim.equivalence_profile_root == bridge.equivalence_profile_root
+        && matches!(claim.equivalence, EquivalenceClass::SameScopedEntity)
+        && (!bridge.pairwise || claim.left.namespace != claim.right.namespace)
+}
+
 pub fn substitution_allowed(
     source: &IdentityReference,
     target: &IdentityReference,
     profile: &EquivalenceProfile,
     claim: &SemanticIdentityClaim,
+    source_credential_validity: Option<CredentialValidity>,
 ) -> bool {
-    source == &claim.left
+    let source_status_ok = match source.kind {
+        IdentityKind::Credential => {
+            matches!(source_credential_validity, Some(CredentialValidity::Active))
+        }
+        _ => source_credential_validity.is_none(),
+    };
+
+    source_status_ok
+        && source == &claim.left
         && target == &claim.right
         && source.kind == profile.allowed_left_kind
         && target.kind == profile.allowed_right_kind
@@ -415,7 +454,30 @@ mod tests {
             required_equivalence: EquivalenceClass::SameScopedEntity,
             pairwise: true,
         };
-        assert!(substitution_allowed(&left, &right, &profile, &claim));
+        assert!(substitution_allowed(
+            &left,
+            &right,
+            &profile,
+            &claim,
+            Some(CredentialValidity::Active),
+        ));
+        assert!(!substitution_allowed(
+            &left,
+            &right,
+            &profile,
+            &claim,
+            Some(CredentialValidity::Stale),
+        ));
+
+        let bridge = IdentityBridge {
+            bridge_id: "bridge-1".into(),
+            source_namespace: "ns-1".into(),
+            target_namespace: "ns-1".into(),
+            scope_root: "scope-1".into(),
+            equivalence_profile_root: "profile-1".into(),
+            pairwise: true,
+        };
+        assert!(!bridge_allows(&bridge, &claim));
 
         let wrong_target = reference("account-1", IdentityKind::Account);
         assert!(!substitution_allowed(&left, &wrong_target, &profile, &claim));
