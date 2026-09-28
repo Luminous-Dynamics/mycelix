@@ -123,15 +123,21 @@ impl FederationState {
         recognizing_node: &str,
         origin_node: &str,
         scope: &str,
-    ) -> Option<RecognitionMode> {
-        self.recognition_edges
+    ) -> Result<Option<RecognitionMode>, ()> {
+        let mut modes = self
+            .recognition_edges
             .iter()
-            .find(|edge| {
+            .filter(|edge| {
                 edge.recognizing_node == recognizing_node
                     && edge.origin_node == origin_node
                     && edge.scope == scope
             })
             .map(|edge| edge.mode)
+            .collect::<BTreeSet<_>>();
+        if modes.len() > 1 {
+            return Err(());
+        }
+        Ok(modes.pop())
     }
 }
 
@@ -149,6 +155,7 @@ pub enum FederationDecision {
     PayloadConflict,
     OriginConflict,
     UnknownNode,
+    RecognitionConflict,
     Rejected,
 }
 
@@ -305,11 +312,21 @@ pub fn deliver(
 
     let foreign = envelope.origin_node != envelope.target_node;
     let scope = envelope.semantic_subject_id.as_str();
-    let recognition = state.recognition_mode(
+    let recognition = match state.recognition_mode(
         &envelope.target_node,
         &envelope.origin_node,
         scope,
-    );
+    ) {
+        Ok(mode) => mode,
+        Err(()) => {
+            return FederationOutcome::new(
+                FederationDecision::RecognitionConflict,
+                AuthorityDisposition::NoAuthority,
+                envelope,
+                "Conflicting recognition edges cannot be resolved into authority.",
+            );
+        }
+    };
 
     let (decision, authority) = if !foreign {
         (
@@ -648,6 +665,34 @@ mod tests {
             replayed.authority,
             AuthorityDisposition::ExplicitDelegatedAuthority
         );
+    }
+
+    #[test]
+    fn conflicting_recognition_fails_closed_without_selecting_an_authority() {
+        let mut state = nodes();
+        state.add_recognition(RecognitionEdge {
+            recognizing_node: "node-a".into(),
+            origin_node: "node-b".into(),
+            scope: "subject-1".into(),
+            mode: RecognitionMode::EvidenceOnly,
+        });
+        state.add_recognition(RecognitionEdge {
+            recognizing_node: "node-a".into(),
+            origin_node: "node-b".into(),
+            scope: "subject-1".into(),
+            mode: RecognitionMode::DelegatedAuthority,
+        });
+
+        let mut foreign = envelope();
+        foreign.envelope_id = "env-recognition-conflict".into();
+        foreign.logical_delivery_id = "delivery-recognition-conflict".into();
+        foreign.origin_node = "node-b".into();
+        foreign.target_node = "node-a".into();
+
+        let outcome = deliver(&mut state, &foreign, 50, true);
+        assert_eq!(outcome.decision, FederationDecision::RecognitionConflict);
+        assert_eq!(outcome.authority, AuthorityDisposition::NoAuthority);
+        assert!(state.deliveries.is_empty());
     }
 
     #[test]
