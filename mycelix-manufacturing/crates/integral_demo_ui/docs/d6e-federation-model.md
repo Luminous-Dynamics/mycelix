@@ -63,3 +63,8 @@ A preserved federation conflict can now be handed to the FRS seam without select
 `ReferenceModelOnly`.
 
 D6E does not establish network reliability, cryptographic authenticity, privacy compliance, scalability, economic correctness, governance legitimacy, or human outcomes.
+## Delivery-to-evidence binding
+
+The transport/evidence boundary is now executable as well. An observation can be materialized from a federation delivery only after the delivery crosses the same acceptance boundary. The binding preserves the delivery's logical ID, origin, source reference, schema generation, and payload digest. A stale, partitioned, unauthorized, privacy-minimized, or otherwise rejected delivery cannot manufacture an observation; an observation cannot rewrite delivery origin or source provenance.
+
+This gives D6E a stricter chain: **delivery admission → evidence binding → canonical observation replay → conflict preservation → explicit governance resolution**. Each boundary can fail closed independently, and none of these steps grants governance authority.
