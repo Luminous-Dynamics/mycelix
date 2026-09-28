@@ -5,6 +5,7 @@ pub mod app;
 pub mod components;
 pub mod context;
 pub mod diagnostic_copy;
+pub mod health_consent_mutation_service;
 pub mod mock_data;
 pub mod mutation_diagnostic_runtime;
 pub mod mutation_diagnostics;
