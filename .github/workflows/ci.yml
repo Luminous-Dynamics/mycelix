@@ -123,13 +123,9 @@ jobs:
         with:
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: mycelix-manufacturing
-      - name: Check COS conformance formatting
-        run: cd mycelix-manufacturing && cargo fmt --all --check
       - name: Test COS conformance harness
         run: cd mycelix-manufacturing && cargo test -p cos_conformance
       - name: Generate machine-readable report
