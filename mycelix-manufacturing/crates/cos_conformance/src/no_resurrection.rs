@@ -31,6 +31,7 @@ pub struct SemanticTombstone {
     pub tombstone_id: String,
     pub lineage_id: String,
     pub retired_generation_id: String,
+    pub retired_creation_event_id: String,
     pub causal_frontier_root: String,
     pub reason: TombstoneReason,
     pub provenance_root: String,
@@ -69,6 +70,7 @@ pub fn assess_reactivation(
     }
     if generation.generation_id == tombstone.retired_generation_id
         || candidate.proposed_generation_id == tombstone.retired_generation_id
+        || candidate.successor_event_id == tombstone.retired_creation_event_id
     {
         return ReactivationDisposition::BlockedResurrection;
     }
@@ -76,11 +78,6 @@ pub fn assess_reactivation(
         || candidate.predecessor_frontier_root != tombstone.causal_frontier_root
     {
         return ReactivationDisposition::InsufficientEvidence;
-    }
-    if candidate.successor_event_id == generation.creation_event_id
-        && generation.generation_id == tombstone.retired_generation_id
-    {
-        return ReactivationDisposition::BlockedResurrection;
     }
     ReactivationDisposition::AcceptedSuccessor
 }
@@ -280,6 +277,7 @@ mod tests {
             tombstone_id: "tomb-1".into(),
             lineage_id: "lineage-1".into(),
             retired_generation_id: "gen-1".into(),
+            retired_creation_event_id: "event-gen-1".into(),
             causal_frontier_root: "frontier-1".into(),
             reason: TombstoneReason::Revoked,
             provenance_root: "prov-tomb-1".into(),
