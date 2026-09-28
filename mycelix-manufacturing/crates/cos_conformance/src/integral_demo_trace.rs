@@ -633,7 +633,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn fixture_replay_cannot_mutate_graph_relations() {
         let fixture = valid_trace();
         assert!(replay_fixture_is_idempotent(&fixture, &fixture));
@@ -643,6 +642,7 @@ mod tests {
         assert!(!replay_fixture_is_idempotent(&fixture, &mutated));
     }
 
+    #[test]
     fn decision_cannot_consume_a_different_design_generation() {
         let mut t = valid_trace();
         t.events[2].generation = 6;
