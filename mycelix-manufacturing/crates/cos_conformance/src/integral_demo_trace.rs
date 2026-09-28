@@ -334,6 +334,24 @@ mod tests {
     }
 
     #[test]
+    fn provenance_class_cannot_be_relabelled() {
+        let mut t = valid_trace();
+        t[5].provenance = ProvenanceClass::Assessment;
+        assert_eq!(validate_trace(&t), Err(TraceError::ProvenanceMutation));
+
+        let mut t = valid_trace();
+        t[7].provenance = ProvenanceClass::Observation;
+        assert_eq!(validate_trace(&t), Err(TraceError::ProvenanceMutation));
+    }
+
+    #[test]
+    fn event_identity_cannot_be_reused_for_a_different_event() {
+        let mut t = valid_trace();
+        t[6].event_id = t[5].event_id;
+        assert_eq!(validate_trace(&t), Err(TraceError::DuplicateIdentityMutation));
+    }
+
+    #[test]
     fn recommendation_cannot_carry_authority() {
         let mut t = valid_trace();
         t[8].authority_ref = Some("forbidden");
