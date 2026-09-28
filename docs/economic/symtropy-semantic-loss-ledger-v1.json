@@ -76,5 +76,18 @@
     "correction_to_history_mutation",
     "indeterminate_transport_to_settlement"
   ],
-  "claim_ceiling": "provenance-preserving bounded cross-ontology semantic projection"
+  "claim_ceiling": "provenance-preserving bounded cross-ontology semantic projection",
+  "conservation_vector": [
+    "identity",
+    "origin",
+    "replay_fingerprint",
+    "quantity",
+    "unit",
+    "causality",
+    "validity",
+    "correction_lineage",
+    "claim_ceiling"
+  ],
+  "clean_projection_rule": "all conservation_vector dimensions must be Preserved; Conflict prevents clean projection",
+  "unit_conversion_policy": "no implicit conversion; explicit conversion profile required"
 }
