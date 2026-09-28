@@ -46,6 +46,8 @@ pub struct TraceEvent {
     pub reversible: bool,
     pub challengeable: bool,
     pub recommendation_only: bool,
+    pub recovery_ref: Option<&'static str>,
+    pub appeal_ref: Option<&'static str>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -59,6 +61,7 @@ pub enum TraceError {
     MissingAuthorization,
     UnchallengeableConsequentialAction,
     UnreversibleWithoutRecovery,
+    MissingAppealRoute,
     UncertaintyLoss,
     ProvenanceMutation,
     ForeignOriginLoss,
@@ -149,8 +152,13 @@ pub fn validate_trace(events: &[TraceEvent]) -> Result<(), TraceError> {
         if event.kind == TraceKind::Outcome && !event.challengeable {
             return Err(TraceError::UnchallengeableConsequentialAction);
         }
-        if event.kind == TraceKind::Outcome && !event.reversible {
-            return Err(TraceError::UnreversibleWithoutRecovery);
+        if event.kind == TraceKind::Outcome {
+            if !event.reversible && event.recovery_ref.is_none() {
+                return Err(TraceError::UnreversibleWithoutRecovery);
+            }
+            if event.challengeable && event.appeal_ref.is_none() {
+                return Err(TraceError::MissingAppealRoute);
+            }
         }
     }
 
