@@ -4,7 +4,7 @@ D6C binds the Leptos cockpit to executable reference-model scenarios.
 
 ## Principle
 
-The UI does not contain the truth of a scenario. A scenario produces a machine-readable trace, the reference validator evaluates it, and the cockpit renders the resulting evidence state.
+The UI does not contain the truth of a scenario. Each scenario is an owned ScenarioFixture containing the trace events, first-class graph relations, expected validation boundary, claim ceiling, and Symthaea availability. The reference validator evaluates that fixture, and the cockpit renders it.
 
     scenario
       ↓
@@ -26,18 +26,26 @@ The UI does not contain the truth of a scenario. A scenario produces a machine-r
 | Rejected CDS decision | Fails closed when explicit authority is absent |
 | Stale design | Fails on generation regression |
 | Uncertain observation | Fails if uncertainty is silently lost |
-| Conflicting observations | Explicitly PresentationOnly until the trace model has conflict relations |
+| Conflicting observations | Graph-native Disputes edge preserves both observations |
 | Recommendation accepted | Human decision explicitly records acceptance |
 | Recommendation rejected | Human decision explicitly records rejection |
 | Foreign evidence | Fails on foreign→local provenance laundering |
 | Appealed outcome | Preserves recovery/challenge metadata |
 | No-Symthaea | Valid path remains available without Symthaea |
 
-## Important non-overclaim
+## Graph-native adversarial semantics
 
-The conflicting-observation scenario is deliberately not reported as validated. The current D5 trace is linear and cannot establish semantic conflict merely because two observations occur adjacent to each other.
+D6C now makes relations first-class and owned by the fixture rather than embedding borrowed/static relation slices inside individual events. This removes leaked allocations and lets the validator reason about graph edges independently of event adjacency.
 
-That limitation is surfaced in the scenario result rather than hidden behind UI language.
+In particular:
+
+- `Disputes` makes conflicting observations explicit;
+- `Supersedes` makes design-generation lineage explicit;
+- `RespondsTo` keeps human disposition distinct from a recommendation;
+- `Appeals` and `Reopens` make review/reopening explicit;
+- relation endpoints must resolve to events in the same fixture.
+
+The linear event sequence remains deterministic, but it is no longer the only representation of meaning.
 
 ## Decision boundary
 
@@ -57,14 +65,12 @@ D6C does not establish Integral ratification, production correctness, economic v
 
 ## Next hardening
 
-The next trace increment should replace linear adjacency assumptions with explicit relations for:
+The next increment should make the graph validator stricter about **branch closure**:
 
-- supports;
-- authorizes;
-- responds-to;
-- disputes;
-- supersedes;
-- alternative-to;
-- appeals/reopens.
+- a rejected CDS decision must have no executable descendant;
+- a superseded design must not be used by a later authorization;
+- an appeal reopening must lead to a new explicit decision/authorization path rather than merely changing status;
+- conflicting observations should be able to feed separate assessments without collapsing provenance;
+- alternative paths should be explicit rather than inferred from event order.
 
-That will allow conflict, rejection, branching, and appeal reopening to become first-class executable semantics rather than presentation-only scenarios.
+The claim ceiling remains `ReferenceModelOnly`.
