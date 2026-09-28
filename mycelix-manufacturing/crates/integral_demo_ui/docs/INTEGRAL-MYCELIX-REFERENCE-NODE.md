@@ -271,3 +271,25 @@ That keeps the relationship healthy:
 **Implementation findings become questions or proposals for Integral's own review process.**
 
 That separation is intentional.
+
+
+## Interpretation cockpit projection
+
+The D6E interpretation laboratory is now connected to the cockpit projection boundary through `integral_demo_interpretation_cockpit.rs`.
+
+For each unresolved seam, the cockpit can expose the three semantic hypotheses side-by-side and attach them to the same underlying D5 trace context:
+
+- **Minimal / Faithful hypothesis**
+- **Strong-Safety hypothesis**
+- **Federation-Aware hypothesis**
+
+The projection deliberately does **not** create a trace event for an interpretation. The hypothesis is analysis; the D5 trace remains the evidence-bearing reference artifact. This prevents the UI from laundering an interpretation into evidence, authority, causality, or an observed outcome.
+
+The view therefore exposes two distinct layers:
+
+1. **What the reference trace contains** — event/relation counts and the trace reference.
+2. **What each semantic hypothesis would conclude from that fixture** — outcome and reason from the executable interpretation laboratory.
+
+Ordering is deterministic for serialization/UI stability only. It is not a ranking, maturity ladder, or recommendation.
+
+This is intentionally a thin seam for the future Leptos UI: a user can select an unresolved interface and adversarial fixture, compare the three hypotheses, then inspect the same underlying trace rather than receiving a single hidden interpretation.
