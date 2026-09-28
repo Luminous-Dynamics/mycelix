@@ -1,5 +1,5 @@
 use cos_conformance::integral_demo_cockpit::{fields_for, project_cockpit, CockpitField};
-use cos_conformance::integral_demo_scenarios::{evaluate, trace_for, relation_count, ALL_SCENARIOS};
+use cos_conformance::integral_demo_scenarios::{evaluate, fixture_for, ALL_SCENARIOS};
 use cos_conformance::integral_demo_trace::{ExplanationLevel, TraceKind};
 use leptos::prelude::*;
 
@@ -41,6 +41,7 @@ fn App() -> impl IntoView {
                                     class=move || if selected.get() == index { "scenario active" } else { "scenario" }
                                     on:click=move |_| set_selected.set(index)
                                     aria-label=result.name
+                                    aria-pressed=move || selected.get() == index
                                 >
                                     <span class="scenario-name">{result.name}</span>
                                     <span class=if result.actual_valid { "scenario-status valid" } else { "scenario-status invalid" }>
@@ -69,6 +70,7 @@ fn App() -> impl IntoView {
                                     <button
                                         class=move || if level.get() == value { "level active" } else { "level" }
                                         on:click=move |_| set_level.set(value)
+                                        aria-pressed=move || level.get() == value
                                     >{label}</button>
                                 }
                             }).collect_view()}
@@ -78,8 +80,9 @@ fn App() -> impl IntoView {
                     {move || {
                         let id = ALL_SCENARIOS[selected.get()];
                         let result = evaluate(id);
-                        let trace = trace_for(id);
-                        let cockpit = project_cockpit("trace://integral-demo-d6c", level.get(), &trace);
+                        let fixture = fixture_for(id);
+                        let trace = &fixture.trace.events;
+                        let cockpit = project_cockpit(fixture.trace_ref, level.get(), &fixture.trace);
                         let fields = fields_for(level.get());
 
                         view! {
@@ -93,7 +96,8 @@ fn App() -> impl IntoView {
                                     "Expected: " {format!("{:?}", result.expected)}
                                     " · Actual: " {if result.actual_valid { "valid" } else { "invalid" }}
                                     " · Events: " {result.trace_len}
-                                    " · Relations: " {relation_count(id)}
+                                    " · Relations: " {result.relation_count}
+                                    " · Symthaea: " {if result.symthaea_used { "assistive" } else { "not required" }}
                                 </small>
                             </div>
 
@@ -115,7 +119,7 @@ fn App() -> impl IntoView {
                                 }).collect_view()}
                             </div>
 
-                            <div class="trace-card">
+                            <div class="trace-card" aria-live="polite">
                                 <div class="trace-header">
                                     <div>
                                         <span class="eyebrow">"MACHINE-READABLE LINEAGE"</span>
