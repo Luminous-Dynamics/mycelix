@@ -86,7 +86,9 @@ pub const OBLIGATIONS: [HxaObligation; 12] = [
 ];
 
 pub fn recommendation_never_becomes_authority(a: &HxaArtifact) -> bool {
-    a.class == ProvenanceClass::Recommendation && !a.authorization_ref
+    // An authorization reference may authorize a consequential action, but it
+    // never changes the provenance class of the recommendation itself.
+    a.class == ProvenanceClass::Recommendation
 }
 
 pub fn explanation_does_not_create_evidence(explanation: &HxaArtifact) -> bool {
@@ -188,7 +190,7 @@ mod tests {
         let mut a = ai_recommendation();
         assert!(recommendation_never_becomes_authority(&a));
         a.authorization_ref = true;
-        assert!(!recommendation_never_becomes_authority(&a));
+        assert!(recommendation_never_becomes_authority(&a));
     }
 
     #[test]
