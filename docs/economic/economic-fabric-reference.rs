@@ -161,6 +161,38 @@ mod tests {
     }
 
     #[test]
+    fn profile_guards_preserve_integral_itc_boundary() {
+        assert!(!profile_allows_transition(
+            EconomicProfile::IntegralItc,
+            State::Evidenced,
+            State::Entitled
+        ));
+        assert!(profile_allows_transition(
+            EconomicProfile::IntegralItc,
+            State::Valuated,
+            State::Entitled
+        ));
+    }
+
+    #[test]
+    fn profile_guards_keep_accounting_derived() {
+        assert!(!profile_allows_transition(
+            EconomicProfile::AccountingProjection,
+            State::Observed,
+            State::Settled
+        ));
+    }
+
+    #[test]
+    fn valueflows_does_not_promote_observation_directly_to_entitlement() {
+        assert!(!profile_allows_transition(
+            EconomicProfile::Valueflows,
+            State::Observed,
+            State::Entitled
+        ));
+    }
+
+    #[test]
     fn settlement_requires_policy_authority_and_current_evidence() {
         assert!(can_enter_settlement(State::SettlementEligible, &context(EconomicProfile::IntegralItc)));
 
