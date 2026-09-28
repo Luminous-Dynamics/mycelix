@@ -215,3 +215,10 @@ A bounded cross-check now compares A1 coordination artifacts against D5 trace ev
 This is intentionally **not** a conversion. D5 graph relations and A1 parent links express different things; event order is not used to invent parentage. A direct Observation → FRS Assessment trace transition is permitted so a valid graph-native conflict assessment does not require an artificial ITC projection stage.
 
 The alignment is still a reference-model cross-check. It does not establish that the two representations are semantically complete or that external evidence is true.
+
+
+### A1 governance-disposition and pair-validation boundary
+
+A recommendation is not treated as governance authority merely because a human disposition artifact exists. The reference helper recognizes only explicit **Accepted** or **Rejected** dispositions as a governance disposition; **Deferred** remains a distinct unresolved state and is not coerced into execution authority.
+
+The A1↔D5 bridge now also exposes a combined validation gate: A1 parent lineage is validated by the A1 coordination validator, D5 graph structure is validated by the D5 trace validator, and shared fields are then cross-checked by stable identity. No parent link is inferred from trace ordering. This keeps model-specific semantics explicit while still making a shared fixture capable of failing closed when either representation is malformed.
