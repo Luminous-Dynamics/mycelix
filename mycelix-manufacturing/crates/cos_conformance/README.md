@@ -55,3 +55,12 @@ outcomes, or Integral validation.
 
 `substitution_continuity.rs` binds provider routes to one stable Mycelix semantic effect, exact request/resource/tenant/amount/unit/authority/consent semantics, provider-profile allow-lists, lifecycle generation, and explicit route succession. Unknown or pending outcomes block independent failover unless an exact outcome-resolution witness or contract-wide idempotency witness qualifies continuation. Provider operation IDs remain provider-scoped and cannot replace the semantic effect ID. Archive recovery is exposed as reconstruction input only; it cannot authorize current provider execution. See `docs/integral/semantic-recovery-provider-substitution-v1.md`.
 
+
+## External-effect finality and compensation lineage
+
+`effect_finality.rs` separates provider-reported outcomes from independently qualified external-state evidence. Finality receipts bind the exact effect, route, provider operation, provider profile, outcome, observation frontier, and semantic environment. Provider-only assertions, unresolved external state, stale current-finality observations, lifecycle tombstones, and mismatched evidence fail closed.
+
+Reversal, refund, remediation, and correction are modeled as new semantic effects with explicit causal links. The predecessor effect remains immutable. Compensation coverage is explicit and cannot overlap conserved capacity already compensated in the reference ledger; new capacity creation/release remains a separate semantic transition.
+
+Archive recovery remains historical reconstruction input only. An archive cannot establish current external finality or current actuation authorization, even when its source frontier equals the current frontier. See `docs/integral/external-effect-finality-compensation-v1.md`.
+
