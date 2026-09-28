@@ -6,7 +6,7 @@ use cos_conformance::oad_cos_admission::{
 fn design() -> OadDesignPackage {
     OadDesignPackage {
         design_id: "design-1".into(), design_generation: 3,
-        source_status: SourceStatus::DevelopmentGuideProposal,
+        source_status: SourceStatus::RatifiedSchema,
         source_schema_version: "oad.public.2026-09".into(), certified: true,
         production_profile_id: "profile-1".into(),
         required_material_generation: "materials-1".into(),
@@ -49,4 +49,36 @@ fn matching_authorization_is_explicit() {
         authorized_at: 101,
     };
     assert!(authorization_is_explicit(Some(&authorization), &basis));
+}
+
+#[test]
+fn non_ratified_source_status_cannot_establish_cos_admission_or_basis() {
+    for status in [
+        SourceStatus::EpisodeDescription,
+        SourceStatus::DevelopmentGuideProposal,
+        SourceStatus::TechnicalSpecification,
+        SourceStatus::Implementation,
+        SourceStatus::ConformanceEvidence,
+    ] {
+        let mut candidate = design();
+        candidate.source_status = status;
+        assert_eq!(
+            admit_design_to_cos(&candidate, "profile-1", 3),
+            AdmissionDecision::RejectedSourceStatus,
+            "source status {status:?} must not establish a production basis"
+        );
+        assert!(create_production_basis(&candidate, "profile-1", 3, 100).is_none());
+    }
+}
+
+#[test]
+fn ratified_source_status_is_still_not_production_authority() {
+    let candidate = design();
+    assert_eq!(
+        admit_design_to_cos(&candidate, "profile-1", 3),
+        AdmissionDecision::Admitted
+    );
+    let basis = create_production_basis(&candidate, "profile-1", 3, 100).unwrap();
+    assert!(!authorization_is_explicit(None, &basis));
+    assert!(!certification_grants_production_authority(&candidate));
 }
