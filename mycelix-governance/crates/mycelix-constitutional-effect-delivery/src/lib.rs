@@ -11,7 +11,7 @@
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::fmt;
 
-pub const DELIVERY_SCHEMA_VERSION: u16 = 1;
+pub const DELIVERY_SCHEMA_VERSION: u16 = 2;
 pub const MAX_ATTEMPTS: usize = 1024;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -28,6 +28,45 @@ pub enum DeliveryState {
     KnownSuccess,
     KnownNoEffect,
     IntegrityHalted,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum HaltReason {
+    BindingDrift,
+    AttemptProvenance,
+    ContradictorySemanticEvidence,
+    InvalidReconciliationProvenance,
+    InvariantViolation,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HaltProvenance {
+    reason: HaltReason,
+    observation_sequence: Option<u64>,
+}
+
+impl HaltProvenance {
+    const fn reason(reason: HaltReason) -> Self {
+        Self {
+            reason,
+            observation_sequence: None,
+        }
+    }
+
+    const fn contradictory(sequence: u64) -> Self {
+        Self {
+            reason: HaltReason::ContradictorySemanticEvidence,
+            observation_sequence: Some(sequence),
+        }
+    }
+
+    pub const fn reason_code(self) -> HaltReason {
+        self.reason
+    }
+
+    pub const fn observation_sequence(self) -> Option<u64> {
+        self.observation_sequence
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -151,6 +190,7 @@ impl<B: EffectBinding> CommittedDeliveryIntent<B> {
             completion_committed: false,
             caller_acknowledged: false,
             next_observation_sequence: 1,
+            halt_provenance: None,
         }
     }
 }
@@ -305,6 +345,7 @@ pub struct DeliverySnapshot<B: EffectBinding> {
     attempts: Vec<Attempt<B>>,
     observations: Vec<Observation<B>>,
     completion_committed: bool,
+    halt_provenance: Option<HaltProvenance>,
 }
 
 impl<B: EffectBinding> DeliverySnapshot<B> {
@@ -334,6 +375,10 @@ impl<B: EffectBinding> DeliverySnapshot<B> {
 
     pub const fn completion_committed(&self) -> bool {
         self.completion_committed
+    }
+
+    pub const fn halt_provenance(&self) -> Option<HaltProvenance> {
+        self.halt_provenance
     }
 }
 
@@ -371,6 +416,9 @@ pub enum DeliveryError {
     AlreadyCompleted,
     SnapshotInvariantViolation(&'static str),
     AttemptLimitExceeded,
+    HaltProvenanceMissing,
+    HaltProvenanceUnexpected,
+    HaltProvenanceMismatch,
 }
 
 impl fmt::Display for DeliveryError {
@@ -395,6 +443,15 @@ impl fmt::Display for DeliveryError {
             Self::AlreadyCompleted => write!(f, "durable completion is already committed"),
             Self::SnapshotInvariantViolation(msg) => write!(f, "snapshot invariant violation: {msg}"),
             Self::AttemptLimitExceeded => write!(f, "maximum attempt count exceeded"),
+            Self::HaltProvenanceMissing => {
+                write!(f, "integrity halt is missing durable halt provenance")
+            }
+            Self::HaltProvenanceUnexpected => {
+                write!(f, "non-halted delivery state contains halt provenance")
+            }
+            Self::HaltProvenanceMismatch => {
+                write!(f, "durable halt provenance does not match the halt history")
+            }
         }
     }
 }
@@ -411,6 +468,7 @@ pub struct DeliveryRecord<B: EffectBinding> {
     completion_committed: bool,
     caller_acknowledged: bool,
     next_observation_sequence: u64,
+    halt_provenance: Option<HaltProvenance>,
 }
 
 impl<B: EffectBinding> DeliveryRecord<B> {
@@ -438,6 +496,10 @@ impl<B: EffectBinding> DeliveryRecord<B> {
         self.completion_committed
     }
 
+    pub const fn halt_provenance(&self) -> Option<HaltProvenance> {
+        self.halt_provenance
+    }
+
     pub const fn caller_acknowledged(&self) -> bool {
         self.caller_acknowledged
     }
@@ -458,16 +520,19 @@ impl<B: EffectBinding> DeliveryRecord<B> {
 
     /// Revalidate the permit immediately before external dispatch.
     pub fn authorize_dispatch(
-        &self,
+        &mut self,
         permit: &DispatchPermit<B>,
     ) -> Result<(), DeliveryError> {
         if self.state != DeliveryState::AttemptStarted {
             return Err(DeliveryError::RetryNotPermitted(self.state));
         }
-        if permit.attempt.binding != self.binding
-            || self.attempts.last().map(|attempt| attempt.id) != Some(permit.attempt.id)
-        {
+        if permit.attempt.binding != self.binding {
+            self.enter_halt(HaltProvenance::reason(HaltReason::BindingDrift));
             return Err(DeliveryError::BindingMismatch);
+        }
+        if self.attempts.last().map(|attempt| attempt.id) != Some(permit.attempt.id) {
+            self.enter_halt(HaltProvenance::reason(HaltReason::AttemptProvenance));
+            return Err(DeliveryError::WrongAttempt);
         }
         Ok(())
     }
@@ -525,7 +590,7 @@ impl<B: EffectBinding> DeliveryRecord<B> {
         observation: Observation<B>,
     ) -> Result<ObservationResult, DeliveryError> {
         if self.binding != observation.binding {
-            self.state = DeliveryState::IntegrityHalted;
+            self.enter_halt(HaltProvenance::reason(HaltReason::BindingDrift));
             return Err(DeliveryError::BindingMismatch);
         }
         if !self
@@ -533,7 +598,7 @@ impl<B: EffectBinding> DeliveryRecord<B> {
             .iter()
             .any(|attempt| attempt.id == observation.attempt_id)
         {
-            self.state = DeliveryState::IntegrityHalted;
+            self.enter_halt(HaltProvenance::reason(HaltReason::AttemptProvenance));
             return Err(DeliveryError::WrongAttempt);
         }
 
@@ -553,16 +618,41 @@ impl<B: EffectBinding> DeliveryRecord<B> {
             observation.kind,
             ObservationKind::ReconciliationSuccess | ObservationKind::ReconciliationNoEffect
         ) {
-            self.validate_reconciliation(&observation)?;
+            if let Err(error) = self.validate_reconciliation(&observation) {
+                match error {
+                    DeliveryError::WrongAttempt => {
+                        self.enter_halt(HaltProvenance::reason(HaltReason::AttemptProvenance));
+                    }
+                    DeliveryError::ReconciliationTargetMissing(_)
+                    | DeliveryError::ReconciliationTargetNotUnknown(_) => {
+                        self.enter_halt(HaltProvenance::reason(
+                            HaltReason::InvalidReconciliationProvenance,
+                        ));
+                    }
+                    _ => return Err(error),
+                }
+                return Err(error);
+            }
         }
 
         let sequence = self.next_observation_sequence;
-        self.next_observation_sequence = sequence
-            .checked_add(1)
-            .ok_or(DeliveryError::ObservationSequenceOverflow)?;
+        self.next_observation_sequence = match sequence.checked_add(1) {
+            Some(next) => next,
+            None => {
+                self.enter_halt(HaltProvenance::reason(HaltReason::InvariantViolation));
+                return Err(DeliveryError::ObservationSequenceOverflow);
+            }
+        };
 
         let committed = observation.with_sequence(sequence);
-        self.state = self.transition_for_observation(&committed);
+        let previous_state = self.state;
+        let next_state = self.transition_for_observation(&committed);
+        if next_state == DeliveryState::IntegrityHalted
+            && previous_state != DeliveryState::IntegrityHalted
+        {
+            self.halt_provenance = Some(HaltProvenance::contradictory(sequence));
+        }
+        self.state = next_state;
         self.observations.push(committed);
 
         if self.state == DeliveryState::IntegrityHalted {
@@ -654,8 +744,15 @@ impl<B: EffectBinding> DeliveryRecord<B> {
         if &self.binding == binding {
             Ok(())
         } else {
-            self.state = DeliveryState::IntegrityHalted;
+            self.enter_halt(HaltProvenance::reason(HaltReason::BindingDrift));
             Err(DeliveryError::BindingMismatch)
+        }
+    }
+
+    fn enter_halt(&mut self, provenance: HaltProvenance) {
+        self.state = DeliveryState::IntegrityHalted;
+        if self.halt_provenance.is_none() {
+            self.halt_provenance = Some(provenance);
         }
     }
 
@@ -684,6 +781,7 @@ impl<B: EffectBinding> DeliveryRecord<B> {
             attempts: self.attempts.clone(),
             observations: self.observations.clone(),
             completion_committed: self.completion_committed,
+            halt_provenance: self.halt_provenance,
         }
     }
 
@@ -726,15 +824,63 @@ impl<B: EffectBinding> DeliveryRecord<B> {
                 "observation references missing attempt",
             ));
         }
+        let halt_provenance = match snapshot.state {
+            DeliveryState::IntegrityHalted => {
+                let provenance = snapshot
+                    .halt_provenance
+                    .ok_or(DeliveryError::HaltProvenanceMissing)?;
+                match provenance.reason {
+                    HaltReason::ContradictorySemanticEvidence => {
+                        let sequence = provenance
+                            .observation_sequence
+                            .ok_or(DeliveryError::HaltProvenanceMismatch)?;
+                        let trigger = snapshot
+                            .observations
+                            .iter()
+                            .find(|observation| observation.sequence == sequence)
+                            .ok_or(DeliveryError::HaltProvenanceMismatch)?;
+                        if !(trigger.kind.is_semantic_success() || trigger.kind.is_no_effect())
+                            || !(has_success && has_no_effect)
+                        {
+                            return Err(DeliveryError::HaltProvenanceMismatch);
+                        }
+                    }
+                    _ if provenance.observation_sequence.is_some() => {
+                        return Err(DeliveryError::HaltProvenanceMismatch);
+                    }
+                    _ => {}
+                }
+                Some(provenance)
+            }
+            _ => {
+                if snapshot.halt_provenance.is_some() {
+                    return Err(DeliveryError::HaltProvenanceUnexpected);
+                }
+                None
+            }
+        };
+
         if snapshot.state == DeliveryState::Pending && !snapshot.attempts.is_empty() {
             return Err(DeliveryError::SnapshotInvariantViolation(
                 "pending state cannot have an attempt",
             ));
         }
-        if snapshot.state != DeliveryState::Pending && snapshot.attempts.is_empty() {
+        if snapshot.state != DeliveryState::Pending
+            && snapshot.state != DeliveryState::IntegrityHalted
+            && snapshot.attempts.is_empty()
+        {
             return Err(DeliveryError::SnapshotInvariantViolation(
                 "non-pending state requires an attempt",
             ));
+        }
+        if snapshot.state == DeliveryState::IntegrityHalted
+            && snapshot.attempts.is_empty()
+            && !matches!(
+                halt_provenance.map(|provenance| provenance.reason),
+                Some(HaltReason::BindingDrift)
+            )
+        {
+            return Err(DeliveryError::HaltProvenanceMismatch);
         }
 
         let latest_attempt = snapshot.attempts.last().map(|attempt| attempt.id);
@@ -796,13 +942,7 @@ impl<B: EffectBinding> DeliveryRecord<B> {
                     ));
                 }
             }
-            DeliveryState::IntegrityHalted => {
-                if !(has_success && has_no_effect) {
-                    return Err(DeliveryError::SnapshotInvariantViolation(
-                        "integrity halt lacks contradictory semantic evidence",
-                    ));
-                }
-            }
+            DeliveryState::IntegrityHalted => {}
         }
 
         if snapshot.completion_committed && !has_success {
@@ -825,6 +965,7 @@ impl<B: EffectBinding> DeliveryRecord<B> {
             completion_committed: snapshot.completion_committed,
             caller_acknowledged: false,
             next_observation_sequence,
+            halt_provenance,
         })
     }
 }
@@ -872,6 +1013,209 @@ mod tests {
 
     fn attempt(record: &mut DeliveryRecord<TestBinding>) -> AttemptId {
         record.start_initial_attempt(&binding()).unwrap().attempt_id()
+    }
+
+    #[test]
+    fn dispatch_permit_binding_drift_halts_and_survives_recovery() {
+        let mut record = record(ReplayProfile::NoAutomaticRetry);
+        let mut other = PreparedDeliveryIntent::new(drifted(), ReplayProfile::NoAutomaticRetry)
+            .into_committed()
+            .start_record();
+        let forged_permit = other.start_initial_attempt(&drifted()).unwrap();
+        record.start_initial_attempt(&binding()).unwrap();
+
+        assert_eq!(
+            record.authorize_dispatch(&forged_permit),
+            Err(DeliveryError::BindingMismatch)
+        );
+        assert_eq!(
+            record.halt_provenance().map(|p| p.reason_code()),
+            Some(HaltReason::BindingDrift)
+        );
+        let recovered = DeliveryRecord::recover(record.snapshot()).unwrap();
+        assert_eq!(recovered.state(), DeliveryState::IntegrityHalted);
+    }
+
+    #[test]
+    fn dispatch_permit_wrong_attempt_halts_and_survives_recovery() {
+        let mut record = record(ReplayProfile::IdempotentByEffectInstance);
+        let mut other = record(ReplayProfile::IdempotentByEffectInstance);
+        let _first = other.start_initial_attempt(&binding()).unwrap();
+        other
+            .observe(Observation::outcome_unknown(binding(), AttemptId(1), 8))
+            .unwrap();
+        let forged_permit = other.retry_same_effect(&binding()).unwrap();
+
+        record.start_initial_attempt(&binding()).unwrap();
+        assert_eq!(
+            record.authorize_dispatch(&forged_permit),
+            Err(DeliveryError::WrongAttempt)
+        );
+        assert_eq!(
+            record.halt_provenance().map(|p| p.reason_code()),
+            Some(HaltReason::AttemptProvenance)
+        );
+        let recovered = DeliveryRecord::recover(record.snapshot()).unwrap();
+        assert_eq!(recovered.state(), DeliveryState::IntegrityHalted);
+    }
+
+    #[test]
+    fn snapshot_schema_change_rejects_previous_version() {
+        let record = record(ReplayProfile::NoAutomaticRetry);
+        let mut snapshot = record.snapshot();
+        snapshot.schema_version = 1;
+
+        assert_eq!(
+            DeliveryRecord::recover(snapshot),
+            Err(DeliveryError::InvalidSchemaVersion(1))
+        );
+    }
+
+    #[test]
+    fn binding_drift_halt_survives_recovery() {
+        let mut record = record(ReplayProfile::NoAutomaticRetry);
+        assert_eq!(
+            record.start_initial_attempt(&drifted()),
+            Err(DeliveryError::BindingMismatch)
+        );
+        assert_eq!(
+            record.halt_provenance().map(|p| p.reason_code()),
+            Some(HaltReason::BindingDrift)
+        );
+
+        let recovered = DeliveryRecord::recover(record.snapshot()).unwrap();
+        assert_eq!(recovered.state(), DeliveryState::IntegrityHalted);
+        assert_eq!(
+            recovered.halt_provenance().map(|p| p.reason_code()),
+            Some(HaltReason::BindingDrift)
+        );
+    }
+
+    #[test]
+    fn wrong_attempt_halt_survives_recovery() {
+        let mut record = record(ReplayProfile::NoAutomaticRetry);
+        let id = attempt(&mut record);
+        assert_eq!(
+            record.observe(Observation::outcome_unknown(binding(), AttemptId(id.raw() + 1), 8)),
+            Err(DeliveryError::WrongAttempt)
+        );
+        assert_eq!(
+            record.halt_provenance().map(|p| p.reason_code()),
+            Some(HaltReason::AttemptProvenance)
+        );
+
+        let recovered = DeliveryRecord::recover(record.snapshot()).unwrap();
+        assert_eq!(recovered.state(), DeliveryState::IntegrityHalted);
+        assert_eq!(
+            recovered.halt_provenance().map(|p| p.reason_code()),
+            Some(HaltReason::AttemptProvenance)
+        );
+    }
+
+    #[test]
+    fn invalid_reconciliation_halt_survives_recovery() {
+        let mut record = record(ReplayProfile::NoAutomaticRetry);
+        let id = attempt(&mut record);
+        record.observe(Observation::outcome_unknown(binding(), id, 8)).unwrap();
+
+        assert_eq!(
+            record.observe(Observation::reconciliation_no_effect(binding(), id, 9, 999)),
+            Err(DeliveryError::ReconciliationTargetMissing(999))
+        );
+        assert_eq!(
+            record.halt_provenance().map(|p| p.reason_code()),
+            Some(HaltReason::InvalidReconciliationProvenance)
+        );
+
+        let recovered = DeliveryRecord::recover(record.snapshot()).unwrap();
+        assert_eq!(recovered.state(), DeliveryState::IntegrityHalted);
+        assert_eq!(
+            recovered.halt_provenance().map(|p| p.reason_code()),
+            Some(HaltReason::InvalidReconciliationProvenance)
+        );
+    }
+
+    #[test]
+    fn recovered_halt_rejects_dispatch_retry_and_completion() {
+        let mut record = record(ReplayProfile::IdempotentByEffectInstance);
+        let permit = record.start_initial_attempt(&binding()).unwrap();
+        record.start_initial_attempt(&binding()).err();
+
+        assert_eq!(
+            record.observe(Observation::outcome_unknown(drifted(), permit.attempt_id(), 8)),
+            Err(DeliveryError::BindingMismatch)
+        );
+        let mut recovered = DeliveryRecord::recover(record.snapshot()).unwrap();
+
+        assert_eq!(
+            recovered.authorize_dispatch(&permit),
+            Err(DeliveryError::RetryNotPermitted(DeliveryState::IntegrityHalted))
+        );
+        assert_eq!(
+            recovered.retry_same_effect(&binding()),
+            Err(DeliveryError::RetryNotPermitted(DeliveryState::IntegrityHalted))
+        );
+        assert_eq!(
+            recovered.commit_completion(),
+            Err(DeliveryError::CompletionRequiresKnownSuccess)
+        );
+    }
+
+    #[test]
+    fn missing_halt_provenance_is_rejected() {
+        let mut record = record(ReplayProfile::NoAutomaticRetry);
+        let id = attempt(&mut record);
+        record.observe(Observation::outcome_unknown(binding(), id, 8)).unwrap();
+        let mut snapshot = record.snapshot();
+        snapshot.state = DeliveryState::IntegrityHalted;
+        snapshot.halt_provenance = None;
+
+        assert_eq!(
+            DeliveryRecord::recover(snapshot),
+            Err(DeliveryError::HaltProvenanceMissing)
+        );
+    }
+
+    #[test]
+    fn forged_halt_provenance_is_rejected() {
+        let mut record = record(ReplayProfile::NoAutomaticRetry);
+        let id = attempt(&mut record);
+        record.observe(Observation::outcome_unknown(binding(), id, 8)).unwrap();
+        let mut snapshot = record.snapshot();
+        snapshot.state = DeliveryState::IntegrityHalted;
+        snapshot.halt_provenance = Some(HaltProvenance::contradictory(1));
+
+        assert_eq!(
+            DeliveryRecord::recover(snapshot),
+            Err(DeliveryError::HaltProvenanceMismatch)
+        );
+    }
+
+    #[test]
+    fn contradictory_halt_provenance_survives_recovery() {
+        let mut record = record(ReplayProfile::NoAutomaticRetry);
+        let id = attempt(&mut record);
+        let success = record
+            .observe(Observation::semantic_success(binding(), id, 10))
+            .unwrap()
+            .sequence();
+        record.commit_completion().unwrap();
+        assert_eq!(
+            record.observe(Observation::reconciliation_no_effect(binding(), id, 11, success)),
+            Ok(ObservationResult::IntegrityHalted { sequence: 2 })
+        );
+
+        let recovered = DeliveryRecord::recover(record.snapshot()).unwrap();
+        assert_eq!(recovered.state(), DeliveryState::IntegrityHalted);
+        assert_eq!(
+            recovered.halt_provenance().map(|p| p.reason_code()),
+            Some(HaltReason::ContradictorySemanticEvidence)
+        );
+        assert_eq!(
+            recovered.halt_provenance().and_then(|p| p.observation_sequence()),
+            Some(2)
+        );
+        assert!(recovered.completion_committed());
     }
 
     #[test]

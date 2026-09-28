@@ -14,7 +14,8 @@ This maps the implementation to the frozen delivery-core requirements in #3397. 
 | Completion | Local durable completion requires KnownSuccess and remains recorded if later contradictory evidence forces IntegrityHalted. |
 | Caller acknowledgement | Acknowledgement changes only volatile state and is omitted from snapshots. |
 | Commit truth | Only Committed produces delivery authority; DefinitelyNotCommitted and CommitOutcomeUnknown do not. |
-| Recovery | DeliverySnapshot retains semantic state, attempts, observations, and completion. recover() validates schema, identity stability, ordering, terminal evidence shape, and completion evidence. |
+| Recovery | DeliverySnapshot retains semantic state, attempts, observations, completion, and durable halt provenance. Snapshot schema version 2 explicitly covers the halt-provenance format; recover() validates schema, identity stability, ordering, terminal evidence shape, completion evidence, and halt-provenance consistency. |
+| Durable halt provenance | Every integrity halt carries a durable reason. Binding drift, attempt provenance, contradictory semantic evidence, invalid reconciliation provenance, and invariant violations are distinguishable; a halted snapshot without valid provenance is unrecoverable. |
 
 ## Negative corpus
 
@@ -34,7 +35,14 @@ The unit tests cover:
 - duplicate observation replay;
 - caller acknowledgement changing durable state;
 - snapshot recovery after retry;
-- malformed conflicting snapshot state.
+- malformed conflicting snapshot state;
+- binding-drift halt recovery;
+- wrong-attempt halt recovery;
+- invalid-reconciliation halt recovery;
+- recovered halt rejects dispatch/retry/completion;
+- absent halt provenance is rejected;
+- forged/inconsistent halt provenance is rejected;
+- contradictory-halt provenance and completion survive recovery.
 
 ## Qualification boundary
 
