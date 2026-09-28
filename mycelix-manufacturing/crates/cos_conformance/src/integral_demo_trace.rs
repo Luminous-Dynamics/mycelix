@@ -48,6 +48,8 @@ pub struct TraceEvent {
     pub recommendation_only: bool,
     pub recovery_ref: Option<&'static str>,
     pub appeal_ref: Option<&'static str>,
+    /// Explicit human decision disposition; absence means no disposition is claimed.
+    pub decision_accepted: Option<bool>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -62,6 +64,7 @@ pub enum TraceError {
     UnchallengeableConsequentialAction,
     UnreversibleWithoutRecovery,
     MissingAppealRoute,
+    MissingDecisionDisposition,
     UncertaintyLoss,
     ProvenanceMutation,
     ForeignOriginLoss,
@@ -175,6 +178,9 @@ pub fn validate_trace(events: &[TraceEvent]) -> Result<(), TraceError> {
         }
         if event.kind == TraceKind::Outcome && !event.challengeable {
             return Err(TraceError::UnchallengeableConsequentialAction);
+        }
+        if event.kind == TraceKind::HumanDecision && event.decision_accepted.is_none() {
+            return Err(TraceError::MissingDecisionDisposition);
         }
         if event.kind == TraceKind::Outcome {
             if !event.reversible && event.recovery_ref.is_none() {
@@ -308,6 +314,7 @@ mod tests {
             recommendation_only,
             recovery_ref: if kind == TraceKind::Outcome { Some("recovery-1") } else { None },
             appeal_ref: if kind == TraceKind::Outcome { Some("appeal-1") } else { None },
+            decision_accepted: None,
         }
     }
 
