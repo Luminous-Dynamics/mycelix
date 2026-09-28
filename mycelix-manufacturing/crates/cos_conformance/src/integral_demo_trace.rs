@@ -311,7 +311,11 @@ pub fn validate_trace(fixture: &TraceFixture) -> Result<(), TraceError> {
                 if from.kind != TraceKind::Observation || to.kind != TraceKind::Observation {
                     return Err(TraceError::IllegalTransition);
                 }
-                if from.source != to.source || from.generation != to.generation {
+                // A dispute is precisely where two source observations may disagree.
+                // Requiring equal source here would erase legitimate heterogeneous
+                // federation conflicts. Generation must still match so a dispute
+                // cannot silently compare evidence from different schema epochs.
+                if from.generation != to.generation {
                     return Err(TraceError::ProvenanceMutation);
                 }
             }
