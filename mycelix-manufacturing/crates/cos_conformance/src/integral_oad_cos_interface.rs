@@ -323,7 +323,7 @@ mod tests {
         let mut e = envelope();
         e.superseded = true;
         assert_eq!(
-            validate_envelope(&InterfaceProfile::CANDIDATE_V1, &e, Authn::Valid, Authz::Granted, 7, "oad-certified-design/0.1-draft"),
+            validate_envelope(&InterfaceProfile::CANDIDATE_V1, &e, Authn::Valid, Authz::Granted, 7, "oad-certified-design/0.1-draft", Some("authz-1")),
             InterfaceDecision::RejectedSupersededDesign
         );
     }
