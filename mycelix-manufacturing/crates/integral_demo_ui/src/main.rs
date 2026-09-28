@@ -22,7 +22,6 @@ const TRACE: [TraceEvent; 12] = [
 
 // D6C boundary: the scenario selector changes presentation context only. The authoritative
 // reference trace remains immutable until a scenario receives its own executable fixture.
-const D6C_CLAIM_CEILING: &str = "ReferenceModelOnly";
 
 const SCENARIOS: [Scenario; 8] = [
     Scenario { name: "Normal flow", summary: "A complete bounded path from design through human decision, outcome, and appeal.", status: "Trace validates", note: "The cockpit shows lineage without turning presentation into authority." },
