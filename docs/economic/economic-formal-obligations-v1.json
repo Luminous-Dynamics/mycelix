@@ -1,25 +1,123 @@
 {
-  "manifest_id":"MYC-ECO-FV-001",
-  "version":"1.0.0",
-  "status":"Research candidate",
-  "closure_policy":{
-    "states":["Open","BoundedExecutableWitness","FormallyClosed"],
-    "formally_closed_requires":["formal_artifact","executable_witness","production_refinement","exact_source_commit","reproducible_build_identity"],
-    "scalar_score_can_close":false
+  "manifest_id": "MYC-ECO-FV-001",
+  "version": "1.1.0",
+  "status": "Research candidate",
+  "closure_policy": {
+    "states": [
+      "Open",
+      "BoundedExecutableWitness",
+      "FormallyClosed"
+    ],
+    "formally_closed_requires": [
+      "formal_artifact",
+      "executable_witness",
+      "production_refinement",
+      "exact_source_commit",
+      "reproducible_build_identity"
+    ],
+    "scalar_score_can_close": false
   },
-  "obligations":[
-    {"id":"ECO-FV-001","proposition":"A stale price quote cannot authorize a settlement.","state":"Open"},
-    {"id":"ECO-FV-002","proposition":"The same logical settlement cannot settle twice.","state":"Open"},
-    {"id":"ECO-FV-003","proposition":"A settlement requires explicit authorization and matching scope.","state":"Open"},
-    {"id":"ECO-FV-004","proposition":"Recognition of a foreign instrument preserves origin and does not mint local issuance.","state":"Open"},
-    {"id":"ECO-FV-005","proposition":"Correction preserves the historical economic event lineage.","state":"Open"},
-    {"id":"ECO-FV-006","proposition":"A dispute cannot be silently promoted to settled state.","state":"Open"},
-    {"id":"ECO-FV-007","proposition":"A production observation does not itself create economic entitlement.","state":"Open"},
-    {"id":"ECO-FV-008","proposition":"Labor observation does not itself determine compensation.","state":"Open"},
-    {"id":"ECO-FV-009","proposition":"Unit identity and validity must match before cross-system valuation is applied.","state":"Open"},
-    {"id":"ECO-FV-010","proposition":"Economic-event evidence provenance survives adapter translation.","state":"Open"},
-    {"id":"ECO-FV-011","proposition":"A transport acknowledgment is not a settlement receipt.","state":"Open"},
-    {"id":"ECO-FV-012","proposition":"Price and valuation basis remain distinct semantic objects.","state":"Open"}
+  "obligations": [
+    {
+      "id": "ECO-FV-001",
+      "proposition": "A stale price quote cannot authorize a settlement.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-002",
+      "proposition": "The same logical settlement cannot settle twice.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-003",
+      "proposition": "A settlement requires explicit authorization and matching scope.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-004",
+      "proposition": "Recognition of a foreign instrument preserves origin and does not mint local issuance.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-005",
+      "proposition": "Correction preserves the historical economic event lineage.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-006",
+      "proposition": "A dispute cannot be silently promoted to settled state.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-007",
+      "proposition": "A production observation does not itself create economic entitlement.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-008",
+      "proposition": "Labor observation does not itself determine compensation.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-009",
+      "proposition": "Unit identity and validity must match before cross-system valuation is applied.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-010",
+      "proposition": "Economic-event evidence provenance survives adapter translation.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-011",
+      "proposition": "A transport acknowledgment is not a settlement receipt.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-012",
+      "proposition": "Price and valuation basis remain distinct semantic objects.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-013",
+      "proposition": "An Integral CDS recommendation cannot itself become a decision or authorization.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-014",
+      "proposition": "An Integral OAD certification cannot itself become a production observation.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-015",
+      "proposition": "An Integral COS labor observation cannot itself mint an ITC entitlement.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-016",
+      "proposition": "An ITC entitlement remains instrument-specific and cannot silently become a generic Mycelix currency.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-017",
+      "proposition": "An Integral FRS recommendation cannot itself authorize an economic settlement.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-018",
+      "proposition": "An Integral source identity and policy version survive economic adapter translation.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-019",
+      "proposition": "A foreign Integral instrument may be recognized without creating local issuance.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-020",
+      "proposition": "Integral economic meaning remains reversible to its source observation, decision, or entitlement.",
+      "state": "Open"
+    }
   ],
-  "claim_ceiling":"Semantic economic interoperability only; no financial, legal, regulatory, or real-world performance claim."
+  "claim_ceiling": "Semantic economic interoperability only; no financial, legal, regulatory, or real-world performance claim."
 }
