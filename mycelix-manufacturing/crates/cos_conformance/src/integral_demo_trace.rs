@@ -103,6 +103,7 @@ pub enum TraceError {
     GenerationRegression,
     IllegalTransition,
     AuthorityOnRecommendation,
+    AuthorityOnEvidenceBearingEvent,
     MissingAuthorization,
     UnchallengeableConsequentialAction,
     UnreversibleWithoutRecovery,
@@ -275,6 +276,11 @@ pub fn validate_trace(fixture: &TraceFixture) -> Result<(), TraceError> {
             && (!event.recommendation_only || event.authority_ref.is_some())
         {
             return Err(TraceError::AuthorityOnRecommendation);
+        }
+        if matches!(event.kind, TraceKind::Observation | TraceKind::ItcProjection | TraceKind::FrsAssessment)
+            && event.authority_ref.is_some()
+        {
+            return Err(TraceError::AuthorityOnEvidenceBearingEvent);
         }
         if matches!(event.kind, TraceKind::Decision | TraceKind::Authorization | TraceKind::ExecutionIntent | TraceKind::HumanDecision)
             && event.authority_ref.is_none()
@@ -632,6 +638,18 @@ mod tests {
     }
 
     #[test]
+    fn evidence_bearing_event_cannot_gain_authority() {
+        for index in [5usize, 6usize, 7usize] {
+            let mut t = valid_trace();
+            t.events[index].authority_ref = Some("authority://forged");
+            assert_eq!(
+                validate_trace(&t),
+                Err(TraceError::AuthorityOnEvidenceBearingEvent)
+            );
+        }
+    }
+
+    #[test]
     fn recommendation_must_remain_recommendation_only() {
         let mut t = valid_trace();
         t.events[8].recommendation_only = false;
@@ -713,6 +731,38 @@ mod tests {
         replay.authority_ref = Some("auth-other");
         assert!(!authority_reference_is_conserved(&authorized, &replay));
         assert!(authority_reference_is_conserved(&authorized, &authorized));
+    }
+
+    #[test]
+    fn authority_reference_removal_is_rejected_even_when_source_payload_is_unchanged() {
+        let t = valid_trace();
+        let authorized = t.events[4];
+        let mut replay = authorized;
+        replay.authority_ref = None;
+
+        assert!(!authority_reference_is_conserved(&authorized, &replay));
+        assert_ne!(authorized.authority_ref, replay.authority_ref);
+    }
+
+    #[test]
+    fn foreign_evidence_bearing_event_cannot_gain_local_authority() {
+        let t = valid_trace();
+        for index in [5usize, 6usize, 7usize] {
+            let mut projected = t.events[index];
+            projected.source = SourceKind::Foreign;
+            projected.authority_ref = Some("authority://local-forged");
+            assert_eq!(
+                validate_trace(&TraceFixture {
+                    events: {
+                        let mut events = t.events.clone();
+                        events[index] = projected;
+                        events
+                    },
+                    relations: vec![],
+                }),
+                Err(TraceError::AuthorityOnEvidenceBearingEvent)
+            );
+        }
     }
 
     #[test]
