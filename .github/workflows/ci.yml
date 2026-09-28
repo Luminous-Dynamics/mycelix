@@ -135,7 +135,6 @@ jobs:
       - name: Verify IF01 refinement manifest
         run: |
           python3 - <<'PY'
-          import hashlib
           import json
           import re
           import subprocess
@@ -229,12 +228,16 @@ jobs:
           test "$source_sha" = "${{ github.sha }}"
           artifact_blob="$(git hash-object "$artifact")"
           artifact_identity="$source_sha:git-blob:$artifact_blob"
+          manifest="crates/cos_conformance/proofs/if01_refinement_manifest.json"
+          manifest_blob="$(git hash-object "$manifest")"
+          manifest_identity="$source_sha:git-blob:$manifest_blob"
           actual_digest="$(printf '%s' "$output" | sha256sum | awk '{print $1}')"
           timestamp="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
           jq -n \
             --argjson obligation_ids '["IF01-FV-010","IF01-FV-011","IF01-FV-012"]' \
             --arg artifact_path "$artifact" \
             --arg artifact_identity "$artifact_identity" \
+            --arg manifest_identity "$manifest_identity" \
             --arg source_commit "$source_sha" \
             --arg build_identity "${{ github.run_id }}:${{ github.run_attempt }}" \
             --arg runner_image "ubuntu-latest" \
@@ -249,7 +252,7 @@ jobs:
             --arg status "BoundedExecutableWitness" \
             --arg claim_ceiling "Bounded IF01-FV-010..012 semantic contradictions only; no production/runtime/security/ratification closure." \
             --argjson excluded_claims '["cryptographic authentication","network delivery guarantees","production authorization","manufacturing qualification","security certification","Integral ratification"]' \
-            '{obligation_ids:$obligation_ids,artifact_path:$artifact_path,artifact_identity:$artifact_identity,source_commit:$source_commit,build_identity:$build_identity,runner_image:$runner_image,os:$os,solver:$solver,solver_version:$solver_version,command:$command,expected_result:$expected_result,actual_result:$actual_result,output_digest:$output_digest,timestamp:$timestamp,status:$status,claim_ceiling:$claim_ceiling,excluded_claims:$excluded_claims}' \
+            '{obligation_ids:$obligation_ids,artifact_path:$artifact_path,artifact_identity:$artifact_identity,manifest_identity:$manifest_identity,source_commit:$source_commit,build_identity:$build_identity,runner_image:$runner_image,os:$os,solver:$solver,solver_version:$solver_version,command:$command,expected_result:$expected_result,actual_result:$actual_result,output_digest:$output_digest,timestamp:$timestamp,status:$status,claim_ceiling:$claim_ceiling,excluded_claims:$excluded_claims}' \
             > evidence/if01-evidence-receipt.json
           python3 -m pip install --quiet jsonschema
           python3 - <<'PY'
@@ -274,7 +277,11 @@ jobs:
           assert receipt["source_commit"] == subprocess.check_output(
               ["git", "rev-parse", "HEAD"], text=True
           ).strip()
+          manifest_blob = subprocess.check_output(
+              ["git", "hash-object", str(base / "if01_refinement_manifest.json")], text=True
+          ).strip()
           assert receipt["artifact_identity"].endswith(":git-blob:" + artifact_blob)
+          assert receipt["manifest_identity"].endswith(":git-blob:" + manifest_blob)
           assert receipt["output_digest"] == actual_digest
           assert receipt["status"] == "BoundedExecutableWitness"
           print("IF01 evidence receipt: schema, provenance, and digest validation passed")
