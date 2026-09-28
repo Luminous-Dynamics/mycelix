@@ -62,8 +62,8 @@ mod tests {
         let witness = refine(
             Domain::Manufacturing,
             ProductiveLoopObligation::DeclaredWorkVsObservedWork,
-            &Bindings::default(),
-            &Evidence { id: "delivery-1", origin: Origin::Local, validity: crate::Validity { valid_from: 0, valid_until: None }, superseded: false, conflicting: false },
+            &empty_bindings(),
+            &evidence(),
         );
         assert_eq!(witness.decision, crate::Decision::Rejected);
     }
@@ -73,8 +73,8 @@ mod tests {
         let witness = refine(
             Domain::Manufacturing,
             ProductiveLoopObligation::UsefulVsQualifiedOutput,
-            &Bindings::default(),
-            &Evidence { id: "delivery-1", origin: Origin::Local, validity: crate::Validity { valid_from: 0, valid_until: None }, superseded: false, conflicting: false },
+            &empty_bindings(),
+            &evidence(),
         );
         assert_eq!(witness.decision, crate::Decision::Rejected);
     }
@@ -84,8 +84,8 @@ mod tests {
         let witness = refine(
             Domain::Manufacturing,
             ProductiveLoopObligation::CapabilityVsAvailability,
-            &Bindings::default(),
-            &Evidence { id: "delivery-1", origin: Origin::Local, validity: crate::Validity { valid_from: 0, valid_until: None }, superseded: false, conflicting: false },
+            &empty_bindings(),
+            &evidence(),
         );
         assert_eq!(witness.decision, crate::Decision::Rejected);
     }
@@ -111,8 +111,8 @@ mod tests {
         let witness = refine(
             Domain::Manufacturing,
             ProductiveLoopObligation::ProductiveClosureVsN2,
-            &Bindings::default(),
-            &Evidence { id: "delivery-1", origin: Origin::Local, validity: crate::Validity { valid_from: 0, valid_until: None }, superseded: false, conflicting: false },
+            &empty_bindings(),
+            &evidence(),
         );
         assert_eq!(witness.decision, crate::Decision::Rejected);
     }
