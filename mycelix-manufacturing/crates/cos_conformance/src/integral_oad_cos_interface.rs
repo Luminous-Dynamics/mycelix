@@ -47,6 +47,9 @@ pub enum InterfaceDecision {
     RejectedIdentityMismatch,
     RejectedAuthentication,
     RejectedAuthorization,
+    RejectedAuthorizationReference,
+    RejectedCertification,
+    RejectedSemanticDelivery,
     RejectedStaleDesign,
     RejectedSupersededDesign,
     Indeterminate,
@@ -85,6 +88,7 @@ pub struct DesignEnvelope {
     pub payload_commitment: &'static str,
     pub origin_node: &'static str,
     pub authorization_ref: Option<&'static str>,
+    pub presented_authorization_ref: Option<&'static str>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -121,12 +125,19 @@ pub fn validate_envelope(
     authz: Authz,
     expected_generation: u64,
     expected_schema: &str,
+    expected_authorization_ref: Option<&str>,
 ) -> InterfaceDecision {
     if authenticate(authn) != InterfaceDecision::Admitted {
         return InterfaceDecision::RejectedAuthentication;
     }
     if authorize(authz) != InterfaceDecision::Admitted {
         return InterfaceDecision::RejectedAuthorization;
+    }
+    if authz == Authz::Granted {
+        match (envelope.authorization_ref, envelope.presented_authorization_ref, expected_authorization_ref) {
+            (Some(expected), Some(presented), Some(required)) if expected == presented && presented == required => {}
+            _ => return InterfaceDecision::RejectedAuthorizationReference,
+        }
     }
     if envelope.schema_version != expected_schema {
         return InterfaceDecision::RejectedStaleSchema;
@@ -138,7 +149,7 @@ pub fn validate_envelope(
         return InterfaceDecision::RejectedSupersededDesign;
     }
     if !envelope.certified {
-        return InterfaceDecision::RejectedAuthorization;
+        return InterfaceDecision::RejectedCertification;
     }
     if profile.source_status != SourceStatus::CandidateInterface
         && profile.source_status != SourceStatus::RatifiedSchema
@@ -164,7 +175,7 @@ pub fn admit_after_receipt(
         DeliveryOutcome::TransportAccepted | DeliveryOutcome::Delivered => {
             InterfaceDecision::Indeterminate
         }
-        DeliveryOutcome::Rejected => InterfaceDecision::Indeterminate,
+        DeliveryOutcome::Rejected => InterfaceDecision::RejectedSemanticDelivery,
         DeliveryOutcome::Indeterminate => InterfaceDecision::Indeterminate,
         DeliveryOutcome::SemanticAdmitted => {
             if receipt.logical_delivery_id != envelope.logical_delivery_id {
@@ -224,6 +235,7 @@ mod tests {
             payload_commitment: "sha256:abc",
             origin_node: "node-a",
             authorization_ref: Some("authz-1"),
+            presented_authorization_ref: Some("authz-1"),
         }
     }
 
@@ -238,7 +250,7 @@ mod tests {
         let mut e = envelope();
         e.schema_version = "oad-certified-design/0.0";
         assert_eq!(
-            validate_envelope(&InterfaceProfile::CANDIDATE_V1, &e, Authn::Valid, Authz::Granted, 7, "oad-certified-design/0.1-draft"),
+            validate_envelope(&InterfaceProfile::CANDIDATE_V1, &e, Authn::Valid, Authz::Granted, 7, "oad-certified-design/0.1-draft", Some("authz-1")),
             InterfaceDecision::RejectedStaleSchema
         );
     }
@@ -314,5 +326,39 @@ mod tests {
             validate_envelope(&InterfaceProfile::CANDIDATE_V1, &e, Authn::Valid, Authz::Granted, 7, "oad-certified-design/0.1-draft"),
             InterfaceDecision::RejectedSupersededDesign
         );
+    }
+}
+
+#[cfg(test)]
+mod authorization_reference_tests {
+    use super::*;
+
+    #[test]
+    fn granted_authorization_requires_explicit_matching_reference() {
+        let mut e = super::tests::envelope();
+        e.presented_authorization_ref = None;
+        assert_eq!(validate_envelope(&InterfaceProfile::CANDIDATE_V1, &e, Authn::Valid, Authz::Granted, 7, "oad-certified-design/0.1-draft", Some("authz-1")), InterfaceDecision::RejectedAuthorizationReference);
+    }
+
+    #[test]
+    fn certification_failure_is_not_mislabeled_as_authorization_failure() {
+        let mut e = super::tests::envelope();
+        e.certified = false;
+        assert_eq!(validate_envelope(&InterfaceProfile::CANDIDATE_V1, &e, Authn::Valid, Authz::Granted, 7, "oad-certified-design/0.1-draft", Some("authz-1")), InterfaceDecision::RejectedCertification);
+    }
+
+    #[test]
+    fn known_recipient_rejection_is_not_indeterminate() {
+        let e = super::tests::envelope();
+        let r = Receipt { logical_delivery_id: "delivery-1", attempt_id: "attempt-1", outcome: DeliveryOutcome::Rejected };
+        let state = AdmissionState { admitted_delivery: None, admitted_payload: None };
+        assert_eq!(admit_after_receipt(&state, &r, &e, InterfaceDecision::Admitted), InterfaceDecision::RejectedSemanticDelivery);
+    }
+
+    #[test]
+    fn wrong_authorization_reference_is_rejected() {
+        let mut e = super::tests::envelope();
+        e.presented_authorization_ref = Some("authz-other");
+        assert_eq!(validate_envelope(&InterfaceProfile::CANDIDATE_V1, &e, Authn::Valid, Authz::Granted, 7, "oad-certified-design/0.1-draft", Some("authz-1")), InterfaceDecision::RejectedAuthorizationReference);
     }
 }
