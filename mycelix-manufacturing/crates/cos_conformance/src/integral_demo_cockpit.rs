@@ -191,6 +191,6 @@ mod tests {
     #[test]
     fn empty_trace_is_not_presented_as_a_result() {
         assert!(project_cockpit("trace://demo", ExplanationLevel::Summary, &TraceFixture { events: vec![], relations: vec![] }).is_none());
-        assert!(project_cockpit("", ExplanationLevel::Summary, &TRACE).is_none());
+        assert!(project_cockpit("", ExplanationLevel::Summary, &fixture()).is_none());
     }
 }
