@@ -203,7 +203,7 @@ pub fn recommendation_has_governance_disposition(
     artifacts.iter().any(|artifact| {
         artifact.kind == CoordinationKind::HumanDisposition
             && artifact.parent_ref == Some(recommendation_id)
-            && artifact.disposition.is_some()
+            && matches!(artifact.disposition, Some(Disposition::Accepted | Disposition::Rejected))
             && artifact.authority_ref.is_some()
     })
 }
