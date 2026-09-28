@@ -114,16 +114,14 @@ pub fn project_bindings_checked(
         event.sequence = (sequence + 1) as u32;
     }
 
-    let mut relations = Vec::new();
-    for pair in events.windows(2) {
-        relations.push(TraceRelationRef {
-            from_event: pair[1].event_id,
-            to_event: pair[0].event_id,
-            relation: TraceRelation::Supports,
-        });
-    }
-
-    Ok(TraceFixture { events, relations })
+    // Do not manufacture causal edges between independently sourced observations.
+    // Federation binding provenance is carried by the observation payload itself;
+    // conflict edges are added only by the reconciliation layer when disagreement
+    // is actually established.
+    Ok(TraceFixture {
+        events,
+        relations: Vec::new(),
+    })
 }
 
 pub fn project_bindings(
