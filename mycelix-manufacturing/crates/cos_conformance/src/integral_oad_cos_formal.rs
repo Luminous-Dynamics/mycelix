@@ -21,7 +21,7 @@ pub struct Obligation {
     pub state: ClosureState,
 }
 
-pub const OBLIGATIONS: [Obligation; 9] = [
+pub const OBLIGATIONS: [Obligation; 12] = [
     Obligation {
         id: "IF01-FV-001",
         proposition: "Authentication evidence does not imply authorization.",
@@ -79,6 +79,27 @@ pub const OBLIGATIONS: [Obligation; 9] = [
         state: ClosureState::BoundedExecutableWitness,
     },
     Obligation {
+        id: "IF01-FV-010",
+        proposition: "Certification failure is distinct from authorization failure.",
+        witness: "uncertified_design_is_rejected_as_certification",
+        claim_ceiling: "Certification-state semantics only.",
+        state: ClosureState::BoundedExecutableWitness,
+    },
+    Obligation {
+        id: "IF01-FV-011",
+        proposition: "Granted authorization requires a matching explicit authorization reference.",
+        witness: "wrong_or_missing_authorization_reference_is_rejected",
+        claim_ceiling: "Authorization-reference binding semantics only.",
+        state: ClosureState::BoundedExecutableWitness,
+    },
+    Obligation {
+        id: "IF01-FV-012",
+        proposition: "A known recipient semantic rejection is not indeterminate delivery.",
+        witness: "known_recipient_rejection_is_distinguished_from_unknown_delivery",
+        claim_ceiling: "Delivery outcome classification only.",
+        state: ClosureState::BoundedExecutableWitness,
+    },
+    Obligation {
         id: "IF01-FV-009",
         proposition: "A transport or semantic receipt does not itself mint production authority.",
         witness: "receipts_never_grant_production_authority",
@@ -97,7 +118,7 @@ mod tests {
 
     #[test]
     fn all_nine_obligations_have_executable_witnesses_and_are_not_overclaimed() {
-        assert_eq!(OBLIGATIONS.len(), 9);
+        assert_eq!(OBLIGATIONS.len(), 12);
         assert!(manifest_is_explicitly_open());
         for obligation in OBLIGATIONS {
             assert!(!obligation.id.is_empty());
