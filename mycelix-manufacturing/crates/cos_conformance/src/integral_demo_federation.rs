@@ -394,10 +394,32 @@ impl FederationLog {
     }
 
     pub fn replay(&self, current_generation: u32, now: u64) -> Vec<FederationDecision> {
+        let mut ordered = self.deliveries.clone();
+        ordered.sort_by_key(|event| {
+            (event.logical_delivery_id, event.attempt_id, event.observed_at)
+        });
+
         let mut receipts: Vec<FederationReceipt> = Vec::new();
-        self.deliveries
+        ordered
             .iter()
             .map(|envelope| {
+                let prior = ordered.iter().find(|candidate| {
+                    candidate.logical_delivery_id == envelope.logical_delivery_id
+                        && (candidate.attempt_id, candidate.observed_at)
+                            < (envelope.attempt_id, envelope.observed_at)
+                });
+
+                // Logical delivery identity is canonical across attempts. A mutation must
+                // fail regardless of which retry arrived first.
+                if let Some(prior) = prior {
+                    if prior.origin != envelope.origin {
+                        return FederationDecision::RejectedOriginMutation;
+                    }
+                    if prior.payload_digest != envelope.payload_digest {
+                        return FederationDecision::RejectedDuplicateMutation;
+                    }
+                }
+
                 let existing = receipts
                     .iter()
                     .find(|receipt| {
@@ -421,7 +443,9 @@ impl Default for FederationLog {
 }
 
 pub fn replay_is_deterministic(log: &FederationLog, generation: u32, now: u64) -> bool {
-    log.replay(generation, now) == log.replay(generation, now)
+    let mut permuted = log.clone();
+    permuted.deliveries.reverse();
+    log.replay(generation, now) == permuted.replay(generation, now)
 }
 
 pub fn reconciliation_is_order_invariant(
@@ -579,6 +603,24 @@ mod tests {
         assert!(replay_is_deterministic(&log, 7, 20));
         assert_eq!(log.replay(7, 20)[0], FederationDecision::Accepted);
         assert_eq!(log.replay(7, 20)[1], FederationDecision::Replayed);
+    }
+
+    #[test]
+    fn federation_replay_rejects_mutation_even_when_mutated_attempt_sorts_first() {
+        let mut log = FederationLog::new();
+        let mut valid = envelope();
+        valid.attempt_id = "attempt-z";
+        let mut mutated = envelope();
+        mutated.attempt_id = "attempt-a";
+        mutated.payload_digest = "digest-mutated";
+
+        assert!(log.append(valid));
+        assert!(log.append(mutated));
+
+        let replay = log.replay(7, 20);
+        assert_eq!(replay.len(), 2);
+        assert_eq!(replay[0], FederationDecision::RejectedDuplicateMutation);
+        assert_eq!(replay[1], FederationDecision::RejectedDuplicateMutation);
     }
 
     #[test]
