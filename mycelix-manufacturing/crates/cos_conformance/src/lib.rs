@@ -311,7 +311,7 @@ mod tests {
     #[test]
     fn report_is_machine_readable_and_claim_bounded() {
         let report = conformance_report_json();
-        assert!(report.contains(""COS-CONF-001""));
+        assert!(report.contains("\"COS-CONF-001\""));
         assert!(report.contains("no physical, safety, economic, ecological"));
         assert!(!report.contains("verified_score"));
     }
