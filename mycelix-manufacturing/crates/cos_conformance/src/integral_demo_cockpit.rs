@@ -138,7 +138,7 @@ pub fn fields_for(level: ExplanationLevel) -> &'static [CockpitField] {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::integral_demo_trace::{TraceActor, TraceKind};
+    use crate::integral_demo_trace::{TraceActor, TraceKind, TraceStatus};
 
     const TRACE: [TraceEvent; 1] = [TraceEvent {
         event_id: "e1",
@@ -157,6 +157,8 @@ mod tests {
         recovery_ref: None,
         appeal_ref: None,
         decision_accepted: None,
+        status: TraceStatus::Proposed,
+        relations: &[],
     }];
 
     #[test]
