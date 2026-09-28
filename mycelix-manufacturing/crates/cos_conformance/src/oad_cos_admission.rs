@@ -5,7 +5,7 @@ use crate::seam_profile::{admit_after_receipt, validate_envelope, Receipt, Recei
 pub enum SourceStatus { EpisodeDescription, DevelopmentGuideProposal, TechnicalSpecification, RatifiedSchema, Implementation, ConformanceEvidence }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AdmissionDecision { Admitted, RejectedStale, RejectedCertificationOnly, RejectedUnauthorized, Indeterminate }
+pub enum AdmissionDecision { Admitted, RejectedStale, RejectedSourceStatus, RejectedCertificationOnly, RejectedUnauthorized, Indeterminate }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OadDesignPackage {
@@ -41,6 +41,11 @@ pub struct ProductionAuthorization {
 pub fn admit_design_to_cos(design: &OadDesignPackage, expected_profile: &str, expected_generation: u32) -> AdmissionDecision {
     if design.superseded || design.production_profile_id != expected_profile || design.design_generation != expected_generation {
         return AdmissionDecision::RejectedStale;
+    }
+    // Public descriptions, guide proposals, and technical specifications are context, not
+    // ratified authority to establish a COS production basis. Require a ratified schema.
+    if design.source_status != SourceStatus::RatifiedSchema {
+        return AdmissionDecision::RejectedSourceStatus;
     }
     if !design.certified { return AdmissionDecision::RejectedCertificationOnly; }
     AdmissionDecision::Admitted
@@ -83,7 +88,7 @@ mod tests {
     fn design() -> OadDesignPackage {
         OadDesignPackage {
             design_id: "oad-greenhouse-001".into(), design_generation: 7,
-            source_status: SourceStatus::EpisodeDescription,
+            source_status: SourceStatus::RatifiedSchema,
             source_schema_version: "oad.public.2026-09".into(), certified: true,
             production_profile_id: "node-h2-profile-1".into(),
             required_material_generation: "materials-3".into(),
