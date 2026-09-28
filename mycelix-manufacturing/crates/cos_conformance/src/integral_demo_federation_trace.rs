@@ -198,7 +198,8 @@ mod tests {
             work_id: "work-1",
             origin: FederationNode::Foreign,
             quantity: 12,
-            evidence_ref: delivery.source_ref,
+            source_ref: delivery.source_ref,
+            evidence_ref: delivery.evidence_ref,
             observed_at: delivery.observed_at,
         };
         let decision = bind_delivery_to_observation(delivery, observation, 7, 20, None);
