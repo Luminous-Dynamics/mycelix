@@ -1,0 +1,103 @@
+name: PSI-002B3A3K0V-F2S1b1 lock capsule
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'qualification/psi-002b3a3k0v-f2s1-validator/**'
+      - '.github/workflows/psi-002b3a3k0v-f2s1b1-lock-capsule.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  generate-lock-capsule:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout pinned source
+        uses: actions/checkout@d23441a5d9b0e1c8f1c2a5d5b4f0a8f5f5b4d5e6 # v6.1.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install exact Rust toolchain
+        run: |
+          rustup toolchain install 1.96.0 --profile minimal --no-self-update
+          rustc +1.96.0 --version --verbose
+          cargo +1.96.0 --version --verbose
+
+      - name: Generate standalone lockfile
+        working-directory: qualification/psi-002b3a3k0v-f2s1-validator
+        run: |
+          rm -f Cargo.lock
+          cargo +1.96.0 generate-lockfile --manifest-path Cargo.toml
+          test -s Cargo.lock
+          sha256sum Cargo.lock | tee Cargo.lock.sha256
+
+      - name: Freeze dependency/source inventory
+        working-directory: qualification/psi-002b3a3k0v-f2s1-validator
+        run: |
+          cargo +1.96.0 metadata --manifest-path Cargo.toml --locked --format-version 1 > cargo-metadata.json
+          cargo +1.96.0 tree --manifest-path Cargo.toml --locked > cargo-tree.txt
+          python3 - <<'PY'
+          import json, hashlib
+          from pathlib import Path
+
+          meta = json.loads(Path("cargo-metadata.json").read_text())
+          packages = []
+          for p in sorted(meta["packages"], key=lambda x: x["id"]):
+              packages.append({
+                  "id": p["id"],
+                  "name": p["name"],
+                  "version": p["version"],
+                  "source": p.get("source"),
+                  "checksum": p.get("checksum"),
+                  "edition": p["edition"],
+                  "rust_version": p.get("rust_version"),
+                  "manifest_path": p["manifest_path"],
+              })
+          inventory = {
+              "schema": "psi-002b3a3k0v-f2s1b1-dependency-source-inventory.v1",
+              "toolchain": "1.96.0",
+              "manifest_sha256": hashlib.sha256(Path("Cargo.toml").read_bytes()).hexdigest(),
+              "lock_sha256": hashlib.sha256(Path("Cargo.lock").read_bytes()).hexdigest(),
+              "packages": packages,
+          }
+          raw = json.dumps(inventory, sort_keys=True, separators=(",", ":")).encode()
+          Path("dependency-source-inventory.v1.json").write_bytes(raw + b"\n")
+          Path("dependency-source-inventory.v1.sha256").write_text(
+              hashlib.sha256(raw + b"\n").hexdigest() + "  dependency-source-inventory.v1.json\n"
+          )
+          PY
+
+      - name: Verify locked/offline metadata after capsule generation
+        working-directory: qualification/psi-002b3a3k0v-f2s1-validator
+        run: |
+          cargo +1.96.0 metadata --manifest-path Cargo.toml --locked --offline --format-version 1 > metadata-offline.json
+          cmp <(python3 -c 'import json; print(json.dumps(json.load(open("cargo-metadata.json")), sort_keys=True, separators=(",", ":")))' ) <(python3 -c 'import json; print(json.dumps(json.load(open("metadata-offline.json")), sort_keys=True, separators=(",", ":")))' )
+
+      - name: Package capsule
+        run: |
+          mkdir -p capsule
+          cp qualification/psi-002b3a3k0v-f2s1-validator/Cargo.toml capsule/
+          cp qualification/psi-002b3a3k0v-f2s1-validator/Cargo.lock capsule/
+          cp qualification/psi-002b3a3k0v-f2s1-validator/Cargo.lock.sha256 capsule/
+          cp qualification/psi-002b3a3k0v-f2s1-validator/cargo-metadata.json capsule/
+          cp qualification/psi-002b3a3k0v-f2s1-validator/cargo-tree.txt capsule/
+          cp qualification/psi-002b3a3k0v-f2s1-validator/dependency-source-inventory.v1.json capsule/
+          cp qualification/psi-002b3a3k0v-f2s1-validator/dependency-source-inventory.v1.sha256 capsule/
+          rustc +1.96.0 --version --verbose > capsule/rustc-1.96.0.txt
+          cargo +1.96.0 --version --verbose > capsule/cargo-1.96.0.txt
+          sha256sum capsule/* | sort > capsule/manifest.sha256
+
+      - name: Upload lock capsule
+        uses: actions/upload-artifact@v7
+        with:
+          name: psi-002b3a3k0v-f2s1b1-lock-capsule
+          path: capsule/
+          if-no-files-found: error
+          retention-days: 14
