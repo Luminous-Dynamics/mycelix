@@ -14,7 +14,11 @@ mod tests {
     use crate::productive_loop::{refine, Domain, ProductiveLoopObligation};
     use crate::{Evidence, Origin, Bindings};
 
-    fn empty_bindings() -> Bindings { Bindings { plan_execution:false, requirement_availability:false, assignment_observed_work:false, plan_consumption:false, output_qualification:false, foreign_recognition:false, itc_projection:false, frs_projection:false, recommendation_authorized:false, effect_recorded:false, quality_current:false, denominator_explicit:false, general_capability_evidence:false, failure_history_preserved:false, source_observation_created:false, physical_work_binding:false } }\n\n    fn evidence() -> Evidence { Evidence { id: "delivery-1", origin: Origin::Local, validity: crate::Validity { valid_from: 0, valid_until: None }, superseded: false, conflicting: false } }\n\n    fn envelope() -> super::integral_oad_cos_interface::DesignEnvelope {
+    fn empty_bindings() -> Bindings { Bindings { plan_execution:false, requirement_availability:false, assignment_observed_work:false, plan_consumption:false, output_qualification:false, foreign_recognition:false, itc_projection:false, frs_projection:false, recommendation_authorized:false, effect_recorded:false, quality_current:false, denominator_explicit:false, general_capability_evidence:false, failure_history_preserved:false, source_observation_created:false, physical_work_binding:false } }
+
+    fn evidence() -> Evidence { Evidence { id: "delivery-1", origin: Origin::Local, validity: crate::Validity { valid_from: 0, valid_until: None }, superseded: false, conflicting: false } }
+
+    fn envelope() -> super::integral_oad_cos_interface::DesignEnvelope {
         super::integral_oad_cos_interface::DesignEnvelope {
             design_id: "design-1",
             design_generation: 7,
