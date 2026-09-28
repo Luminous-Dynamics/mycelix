@@ -120,6 +120,7 @@ pub enum ReconciliationDecision {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ResolutionDecision {
+    NoConflict,
     AwaitingHumanDecision(ObservationConflict),
     ResolvedByExplicitDecision {
         conflict_work_id: &'static str,
@@ -127,20 +128,64 @@ pub enum ResolutionDecision {
     },
 }
 
+/// A governance decision is an explicit human artifact. It is not an observation,
+/// recommendation, or federation receipt, and it cannot rewrite either observation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FederationDecisionArtifact {
+    pub decision_id: &'static str,
+    pub conflict_work_id: &'static str,
+    pub left_observation_id: &'static str,
+    pub right_observation_id: &'static str,
+    pub actor: &'static str,
+    pub authority_ref: &'static str,
+    pub generation: u32,
+    pub decided_at: u64,
+    pub accepted: bool,
+    pub source_ref: &'static str,
+}
+
+pub fn validate_decision_artifact(
+    artifact: &FederationDecisionArtifact,
+    conflict: &ObservationConflict,
+    current_generation: u32,
+) -> bool {
+    !artifact.decision_id.is_empty()
+        && !artifact.actor.is_empty()
+        && !artifact.authority_ref.is_empty()
+        && !artifact.source_ref.is_empty()
+        && artifact.conflict_work_id == conflict.work_id
+        && artifact.left_observation_id == conflict.left_observation_id
+        && artifact.right_observation_id == conflict.right_observation_id
+        && artifact.generation == current_generation
+}
+
+pub fn resolve_with_decision_artifact(
+    reconciliation: ReconciliationDecision,
+    artifact: Option<&FederationDecisionArtifact>,
+    current_generation: u32,
+) -> ResolutionDecision {
+    let ReconciliationDecision::ConflictPreserved(conflict) = reconciliation else {
+        return ResolutionDecision::NoConflict;
+    };
+    let Some(artifact) = artifact else {
+        return ResolutionDecision::AwaitingHumanDecision(conflict);
+    };
+    if validate_decision_artifact(artifact, &conflict, current_generation) {
+        ResolutionDecision::ResolvedByExplicitDecision {
+            conflict_work_id: conflict.work_id,
+            decision_ref: artifact.decision_id,
+        }
+    } else {
+        ResolutionDecision::AwaitingHumanDecision(conflict)
+    }
+}
+
 pub fn resolve_conflict(
     reconciliation: ReconciliationDecision,
     decision_ref: Option<&'static str>,
 ) -> ResolutionDecision {
     let ReconciliationDecision::ConflictPreserved(conflict) = reconciliation else {
-        return ResolutionDecision::AwaitingHumanDecision(ObservationConflict {
-            work_id: "",
-            left_observation_id: "",
-            left_origin: FederationNode::Local,
-            left_quantity: 0,
-            right_observation_id: "",
-            right_origin: FederationNode::Local,
-            right_quantity: 0,
-        });
+        return ResolutionDecision::NoConflict;
     };
 
     match decision_ref {
@@ -402,6 +447,22 @@ mod tests {
     }
 
     #[test]
+    fn agreement_is_distinct_from_unresolved_conflict() {
+        let observation = FederationObservation {
+            observation_id: "obs-a",
+            work_id: "work-1",
+            origin: FederationNode::Local,
+            quantity: 10,
+            evidence_ref: "e-a",
+            observed_at: 10,
+        };
+        assert_eq!(
+            resolve_conflict(reconcile_observation_set(&[observation]), Some("decision")),
+            ResolutionDecision::NoConflict
+        );
+    }
+
+    #[test]
     fn agreement_does_not_create_a_resolution_artifact() {
         let observation = FederationObservation {
             observation_id: "obs-a",
@@ -416,6 +477,80 @@ mod tests {
                 reconcile_observation_set(&[observation]),
                 Some("decision-should-not-resolve-agreement")
             ),
+            ResolutionDecision::AwaitingHumanDecision(_)
+        ));
+    }
+
+    #[test]
+    fn decision_artifact_must_target_exact_conflict() {
+        let left = FederationObservation {
+            observation_id: "obs-a", work_id: "work-1", origin: FederationNode::Local,
+            quantity: 10, evidence_ref: "e-a", observed_at: 10,
+        };
+        let right = FederationObservation {
+            observation_id: "obs-b", work_id: "work-1", origin: FederationNode::Foreign,
+            quantity: 12, evidence_ref: "e-b", observed_at: 11,
+        };
+        let reconciliation = reconcile_observation_set(&[left, right]);
+        let conflict = match reconciliation {
+            ReconciliationDecision::ConflictPreserved(c) => c,
+            _ => panic!("expected conflict"),
+        };
+        let artifact = FederationDecisionArtifact {
+            decision_id: "decision-1", conflict_work_id: "work-1",
+            left_observation_id: "obs-a", right_observation_id: "wrong",
+            actor: "human-1", authority_ref: "auth-1", generation: 7,
+            decided_at: 20, accepted: true, source_ref: "decision://1",
+        };
+        assert!(matches!(
+            resolve_with_decision_artifact(reconciliation, Some(&artifact), 7),
+            ResolutionDecision::AwaitingHumanDecision(_)
+        ));
+        assert!(!validate_decision_artifact(&artifact, &conflict, 7));
+    }
+
+    #[test]
+    fn decision_artifact_can_resolve_only_matching_current_conflict() {
+        let left = FederationObservation {
+            observation_id: "obs-a", work_id: "work-1", origin: FederationNode::Local,
+            quantity: 10, evidence_ref: "e-a", observed_at: 10,
+        };
+        let right = FederationObservation {
+            observation_id: "obs-b", work_id: "work-1", origin: FederationNode::Foreign,
+            quantity: 12, evidence_ref: "e-b", observed_at: 11,
+        };
+        let reconciliation = reconcile_observation_set(&[left, right]);
+        let artifact = FederationDecisionArtifact {
+            decision_id: "decision-1", conflict_work_id: "work-1",
+            left_observation_id: "obs-a", right_observation_id: "obs-b",
+            actor: "human-1", authority_ref: "auth-1", generation: 7,
+            decided_at: 20, accepted: true, source_ref: "decision://1",
+        };
+        assert!(matches!(
+            resolve_with_decision_artifact(reconciliation, Some(&artifact), 7),
+            ResolutionDecision::ResolvedByExplicitDecision { decision_ref: "decision-1", .. }
+        ));
+    }
+
+    #[test]
+    fn stale_decision_artifact_cannot_resolve_current_conflict() {
+        let left = FederationObservation {
+            observation_id: "obs-a", work_id: "work-1", origin: FederationNode::Local,
+            quantity: 10, evidence_ref: "e-a", observed_at: 10,
+        };
+        let right = FederationObservation {
+            observation_id: "obs-b", work_id: "work-1", origin: FederationNode::Foreign,
+            quantity: 12, evidence_ref: "e-b", observed_at: 11,
+        };
+        let reconciliation = reconcile_observation_set(&[left, right]);
+        let artifact = FederationDecisionArtifact {
+            decision_id: "decision-1", conflict_work_id: "work-1",
+            left_observation_id: "obs-a", right_observation_id: "obs-b",
+            actor: "human-1", authority_ref: "auth-1", generation: 6,
+            decided_at: 20, accepted: true, source_ref: "decision://1",
+        };
+        assert!(matches!(
+            resolve_with_decision_artifact(reconciliation, Some(&artifact), 7),
             ResolutionDecision::AwaitingHumanDecision(_)
         ));
     }
