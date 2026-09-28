@@ -104,6 +104,7 @@ mod tests {
                     actor: crate::integral_demo_trace::TraceActor::System,
                     source: crate::integral_demo_domain::SourceKind::Local,
                     source_ref: "evidence://design",
+                    evidence_ref: None,
                     generation: 7,
                     uncertainty_present: true,
                     authority_ref: None,
