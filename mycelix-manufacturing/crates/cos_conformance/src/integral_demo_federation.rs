@@ -69,6 +69,7 @@ pub struct FederationReceipt {
     pub logical_delivery_id: &'static str,
     pub attempt_id: &'static str,
     pub origin: FederationNode,
+    pub authority_origin: FederationNode,
     pub payload_digest: &'static str,
     pub state: DeliveryState,
 }
@@ -411,13 +412,20 @@ impl FederationLog {
 
                 // Logical delivery identity is canonical across attempts. A mutation must
                 // fail regardless of which retry arrived first.
-                if let Some(prior) = prior {
-                    if prior.origin != envelope.origin {
-                        return FederationDecision::RejectedOriginMutation;
-                    }
-                    if prior.payload_digest != envelope.payload_digest {
-                        return FederationDecision::RejectedDuplicateMutation;
-                    }
+                if ordered.iter().any(|candidate| {
+                    candidate.logical_delivery_id == envelope.logical_delivery_id
+                        && (candidate.origin != envelope.origin
+                            || candidate.authority_origin != envelope.authority_origin
+                            || candidate.payload_digest != envelope.payload_digest)
+                }) {
+                    return if ordered.iter().any(|candidate| {
+                        candidate.logical_delivery_id == envelope.logical_delivery_id
+                            && candidate.origin != envelope.origin
+                    }) {
+                        FederationDecision::RejectedOriginMutation
+                    } else {
+                        FederationDecision::RejectedDuplicateMutation
+                    };
                 }
 
                 let existing = receipts
@@ -485,6 +493,9 @@ pub fn accept_delivery(
         if receipt.origin != envelope.origin {
             return FederationDecision::RejectedOriginMutation;
         }
+        if receipt.authority_origin != envelope.authority_origin {
+            return FederationDecision::RejectedForeignAuthority;
+        }
         if receipt.payload_digest != envelope.payload_digest {
             return FederationDecision::RejectedDuplicateMutation;
         }
@@ -517,6 +528,7 @@ pub fn receipt_for(envelope: FederationEnvelope) -> FederationReceipt {
         logical_delivery_id: envelope.logical_delivery_id,
         attempt_id: envelope.attempt_id,
         origin: envelope.origin,
+        authority_origin: envelope.authority_origin,
         payload_digest: envelope.payload_digest,
         state: envelope.state,
     }
