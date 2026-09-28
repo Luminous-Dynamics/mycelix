@@ -204,13 +204,27 @@ impl IdentityGraph {
         IdentityRecordOutcome::Recorded
     }
 
-    pub fn record_resource_capacity(&mut self, binding: ResourceCapacityBinding) {
+    pub fn record_resource_capacity(
+        &mut self,
+        binding: ResourceCapacityBinding,
+    ) -> IdentityRecordOutcome {
+        if binding.resource_reference.kind != IdentityKind::Resource {
+            return IdentityRecordOutcome::Conflict;
+        }
         let key = (
             binding.resource_reference.namespace.clone(),
             binding.resource_reference.reference_id.clone(),
             binding.resource_reference.kind,
         );
+        if let Some(existing) = self.resource_capacity.get(&key) {
+            return if existing == &binding {
+                IdentityRecordOutcome::Duplicate
+            } else {
+                IdentityRecordOutcome::Conflict
+            };
+        }
         self.resource_capacity.insert(key, binding);
+        IdentityRecordOutcome::Recorded
     }
 }
 
@@ -468,6 +482,13 @@ mod tests {
             &claim,
             Some(CredentialValidity::Stale),
         ));
+        assert!(!substitution_allowed(
+            &left,
+            &right,
+            &profile,
+            &claim,
+            Some(CredentialValidity::Revoked),
+        ));
 
         let bridge = IdentityBridge {
             bridge_id: "bridge-1".into(),
@@ -533,6 +554,33 @@ mod tests {
         let assessment = assess_resource_alias(&left, &right, EquivalenceClass::SameScopedEntity);
         assert_eq!(assessment.shared_capacity_claims, BTreeSet::from(["capacity-2".into()]));
         assert!(!assessment.may_union_without_reallocation);
+    }
+
+    #[test]
+    fn resource_capacity_registration_preserves_type_and_identity() {
+        let mut graph = IdentityGraph::new();
+        let resource = reference("resource-1", IdentityKind::Resource);
+        let binding = ResourceCapacityBinding {
+            resource_reference: resource.clone(),
+            capacity_claims: BTreeSet::from(["capacity-1".into()]),
+        };
+        assert_eq!(
+            graph.record_resource_capacity(binding.clone()),
+            IdentityRecordOutcome::Recorded
+        );
+        assert_eq!(
+            graph.record_resource_capacity(binding),
+            IdentityRecordOutcome::Duplicate
+        );
+
+        let wrong_type = ResourceCapacityBinding {
+            resource_reference: reference("account-1", IdentityKind::Account),
+            capacity_claims: BTreeSet::from(["capacity-2".into()]),
+        };
+        assert_eq!(
+            graph.record_resource_capacity(wrong_type),
+            IdentityRecordOutcome::Conflict
+        );
     }
 
     #[test]
