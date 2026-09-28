@@ -38,3 +38,7 @@ outcomes, or Integral validation.
 ## Causal time
 
 `federation_causal_time.rs` separates causal ancestry from wall-clock observations, distinguishes concurrent from incomparable histories, models bounded clock uncertainty, evaluates profile-bound freshness, and requires explicit revalidation for long-offline branches. See `docs/integral/causal-time-long-lived-federation-v1.md`.
+
+## No-resurrection integrity
+
+`no_resurrection.rs` models first-class tombstones, semantic generations, explicit successor/reactivation, resource/authority conservation across generations, cache invalidation, compaction preservation, and branch lifecycle reconciliation. See `docs/integral/tombstone-generation-no-resurrection-v1.md`.
