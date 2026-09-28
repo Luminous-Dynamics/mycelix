@@ -68,3 +68,11 @@ D6E does not establish network reliability, cryptographic authenticity, privacy 
 The transport/evidence boundary is now executable as well. An observation can be materialized from a federation delivery only after the delivery crosses the same acceptance boundary. The binding preserves the delivery's logical ID, origin, source reference, schema generation, and payload digest. A stale, partitioned, unauthorized, privacy-minimized, or otherwise rejected delivery cannot manufacture an observation; an observation cannot rewrite delivery origin or source provenance.
 
 This gives D6E a stricter chain: **delivery admission → evidence binding → canonical observation replay → conflict preservation → explicit governance resolution**. Each boundary can fail closed independently, and none of these steps grants governance authority.
+
+## Federation evidence trace
+
+The accepted delivery-to-observation binding can now project into the D5 machine-readable trace. Only `Bound` and exact `Replayed` bindings materialize `TraceKind::Observation`; rejected delivery states produce no evidence event. The projection preserves `SourceKind::Foreign` for foreign observations, carries the original source reference and schema generation, and attaches no authority to the observation.
+
+Uncertainty is intentionally supplied by the evidence layer rather than invented by federation transport. This prevents the adapter from manufacturing either certainty or uncertainty. Canonical projection orders observation events by stable observation identity, so equivalent delivery permutations produce the same D5 observation fixture.
+
+The resulting evidence path is therefore: **delivery → binding → observation trace → conflict graph → governance decision trace**. Governance remains outside replay: a replay can reconstruct evidence and disagreement, but cannot manufacture or select a human decision.
