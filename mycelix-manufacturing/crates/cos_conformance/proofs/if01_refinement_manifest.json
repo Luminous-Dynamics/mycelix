@@ -14,7 +14,7 @@
   "artifacts": {
     "smt": {
       "path": "mycelix-manufacturing/crates/cos_conformance/proofs/integral_if01_authority_outcome.smt2",
-      "git_blob_sha": "306b7fa6aeed77ec5989070393a0c8dad9956c65",
+      "git_blob_sha": "2741e4eee4551f948b00febbf114ab8a78635d82",
       "expected_results": [
         "unsat",
         "unsat",
