@@ -65,7 +65,13 @@ A semantic FAIL requires an executed registered theorem gate classified as `Regi
 
 A runner/environment failure classified as `RunnerInfrastructureBeforeTheoremGate` must have no theorem steps executed.
 
-Contradictory observations such as `success + RegisteredTheoremGate failure class` or `infrastructure-before-gate + executed theorem steps` are rejected rather than interpreted conveniently.
+Definitive terminal failure classes also require `EligibleForRunner`: a
+dependency-blocked or unknown dependency state cannot be combined with
+`RegisteredTheoremGate` or `RunnerInfrastructureBeforeTheoremGate`.
+Contradictory observations such as `success + RegisteredTheoremGate failure class`,
+`infrastructure-before-gate + executed theorem steps`, or a terminal failure
+class paired with a non-eligible dependency state are rejected rather than
+interpreted conveniently.
 
 Missing, skipped, queued, cancelled, dependency-blocked, or unknown execution cannot be silently upgraded to PASS.
 
