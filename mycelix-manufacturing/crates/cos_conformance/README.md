@@ -46,3 +46,7 @@ outcomes, or Integral validation.
 ## Stable frontier and safe reclamation
 
 `stable_frontier.rs` models closed authority-bearing membership, explicit frontier coverage, stable-frontier certificates, retention boundaries, pruning receipts, cold-start reconstruction, rejoin fencing, and conservation of authority/capacity/consent claims across reclamation. See `docs/integral/stable-frontier-safe-history-reclamation-v1.md`.
+
+## Semantic archive continuity
+
+`archive_continuity.rs` models historical-evidence profiles, archive manifests, explicit archive/frontier continuity, profile and membership transitions, historical-claim ceilings, contested archive sets, and reconstruction gates. Archives can support historical analysis or cold-start reconstruction but cannot become current authority, actuation, or policy authority by themselves. See `docs/integral/semantic-archive-continuity-v1.md`.
