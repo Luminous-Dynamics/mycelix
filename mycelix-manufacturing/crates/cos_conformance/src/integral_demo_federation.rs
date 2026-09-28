@@ -32,6 +32,7 @@ pub enum AuthorizationState {
 pub struct FederationEnvelope {
     pub logical_delivery_id: &'static str,
     pub attempt_id: &'static str,
+    /// Transport attempt identity may change on retry; logical delivery identity may not.
     pub origin: FederationNode,
     /// The node whose authority is being exercised. Evidence origin and authority origin are distinct.
     pub authority_origin: FederationNode,
