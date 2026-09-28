@@ -141,6 +141,14 @@ mod tests {
     }
 }
 
+    
+#[cfg(test)]
+mod mutation_tests {
+    use crate::integral_oad_cos_interface::{
+        admit_after_receipt, validate_envelope, AdmissionState, Authn, Authz,
+        DeliveryOutcome, InterfaceDecision, InterfaceProfile, Receipt,
+    };
+    use super::tests::{admitted, empty_bindings, envelope};
 
     #[test]
     fn valid_authorization_cannot_rescue_stale_schema() {
@@ -148,13 +156,8 @@ mod tests {
         e.schema_version = "oad-certified-design/0.0";
         assert_eq!(
             validate_envelope(
-                &InterfaceProfile::CANDIDATE_V1,
-                &e,
-                Authn::Valid,
-                Authz::Granted,
-                7,
-                "oad-certified-design/0.1-draft",
-                Some("authz-1"),
+                &InterfaceProfile::CANDIDATE_V1, &e, Authn::Valid, Authz::Granted, 7,
+                "oad-certified-design/0.1-draft", Some("authz-1"),
             ),
             InterfaceDecision::RejectedStaleSchema
         );
@@ -166,13 +169,8 @@ mod tests {
         e.presented_authorization_ref = Some("authz-other");
         assert_eq!(
             validate_envelope(
-                &InterfaceProfile::CANDIDATE_V1,
-                &e,
-                Authn::Valid,
-                Authz::Granted,
-                7,
-                "oad-certified-design/0.1-draft",
-                Some("authz-1"),
+                &InterfaceProfile::CANDIDATE_V1, &e, Authn::Valid, Authz::Granted, 7,
+                "oad-certified-design/0.1-draft", Some("authz-1"),
             ),
             InterfaceDecision::RejectedAuthorizationReference
         );
@@ -181,19 +179,9 @@ mod tests {
     #[test]
     fn duplicate_retry_with_new_attempt_id_remains_idempotent() {
         let e = envelope();
-        let receipt = Receipt {
-            logical_delivery_id: "delivery-1",
-            attempt_id: "attempt-2",
-            outcome: DeliveryOutcome::SemanticAdmitted,
-        };
-        let state = AdmissionState {
-            admitted_delivery: Some("delivery-1"),
-            admitted_payload: Some("sha256:abc"),
-        };
-        assert_eq!(
-            admit_after_receipt(&state, &receipt, &e, admitted()),
-            InterfaceDecision::DuplicateIdempotent
-        );
+        let receipt = Receipt { logical_delivery_id: "delivery-1", attempt_id: "attempt-2", outcome: DeliveryOutcome::SemanticAdmitted };
+        let state = AdmissionState { admitted_delivery: Some("delivery-1"), admitted_payload: Some("sha256:abc") };
+        assert_eq!(admit_after_receipt(&state, &receipt, &e, admitted()), InterfaceDecision::DuplicateIdempotent);
     }
 
     #[test]
@@ -208,28 +196,15 @@ mod tests {
     #[test]
     fn known_rejection_then_retry_stays_explicitly_rejected() {
         let e = envelope();
-        let rejected = Receipt {
-            logical_delivery_id: "delivery-1",
-            attempt_id: "attempt-1",
-            outcome: DeliveryOutcome::Rejected,
-        };
-        let state = AdmissionState {
-            admitted_delivery: None,
-            admitted_payload: None,
-        };
-        assert_eq!(
-            admit_after_receipt(&state, &rejected, &e, admitted()),
-            InterfaceDecision::RejectedSemanticDelivery
-        );
+        let rejected = Receipt { logical_delivery_id: "delivery-1", attempt_id: "attempt-1", outcome: DeliveryOutcome::Rejected };
+        let state = AdmissionState { admitted_delivery: None, admitted_payload: None };
+        assert_eq!(admit_after_receipt(&state, &rejected, &e, admitted()), InterfaceDecision::RejectedSemanticDelivery);
     }
 
     #[test]
     fn foreign_origin_survives_admission_and_cannot_become_local_origin() {
         let e = envelope();
-        assert_eq!(
-            crate::integral_oad_cos_interface::recognized_origin(&e),
-            "foreign-node"
-        );
+        assert_eq!(crate::integral_oad_cos_interface::recognized_origin(&e), "foreign-node");
     }
 
     #[test]
@@ -238,13 +213,8 @@ mod tests {
         e.design_generation = 8;
         assert_eq!(
             validate_envelope(
-                &InterfaceProfile::CANDIDATE_V1,
-                &e,
-                Authn::Valid,
-                Authz::Granted,
-                7,
-                "oad-certified-design/0.1-draft",
-                Some("authz-1"),
+                &InterfaceProfile::CANDIDATE_V1, &e, Authn::Valid, Authz::Granted, 7,
+                "oad-certified-design/0.1-draft", Some("authz-1"),
             ),
             InterfaceDecision::RejectedStaleDesign
         );
@@ -256,13 +226,8 @@ mod tests {
         e.certified = false;
         assert_eq!(
             validate_envelope(
-                &InterfaceProfile::CANDIDATE_V1,
-                &e,
-                Authn::Valid,
-                Authz::Granted,
-                7,
-                "oad-certified-design/0.1-draft",
-                Some("authz-1"),
+                &InterfaceProfile::CANDIDATE_V1, &e, Authn::Valid, Authz::Granted, 7,
+                "oad-certified-design/0.1-draft", Some("authz-1"),
             ),
             InterfaceDecision::RejectedCertification
         );
@@ -271,14 +236,11 @@ mod tests {
     #[test]
     fn admission_cannot_mint_itc_frs_or_production_authority() {
         let e = envelope();
-        let receipt = Receipt {
-            logical_delivery_id: "delivery-1",
-            attempt_id: "attempt-1",
-            outcome: DeliveryOutcome::SemanticAdmitted,
-        };
+        let receipt = Receipt { logical_delivery_id: "delivery-1", attempt_id: "attempt-1", outcome: DeliveryOutcome::SemanticAdmitted };
         assert!(!crate::integral_oad_cos_interface::receipt_grants_production_authority(&receipt));
         let b = empty_bindings();
         assert!(!b.itc_projection);
         assert!(!b.frs_projection);
         assert!(!b.effect_recorded);
     }
+}
