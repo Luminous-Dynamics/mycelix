@@ -35,3 +35,10 @@ D6E does not establish network reliability, cryptographic authenticity, privacy 
 Federation reconciliation also has an explicit observation boundary. Two observations of the same work with different quantities are retained as distinct records, including their independent origins and evidence references. The reference model produces an ObservationConflict; it does not choose a winner or rewrite either observation.
 
 That conflict can feed the existing FRS conflict/assessment seam, where a later human decision remains separate from the observations themselves.
+
+
+## Reconciliation is not resolution
+
+The observation reconciler is explicitly order-invariant. Reversing delivery order cannot change whether the reference model sees agreement or conflict.
+
+When quantities disagree, the result is `ConflictPreserved`; there is no implicit winner. A later FRS or governance process must make any resolution explicit rather than having federation silently choose one observation.
