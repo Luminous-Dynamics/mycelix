@@ -102,6 +102,7 @@ pub fn evaluate_freshness(
 pub struct CausalEvent {
     pub event_id: String,
     pub predecessors: BTreeSet<String>,
+    pub base_frontier_root: String,
     pub temporal_interval: TemporalInterval,
     pub semantic_environment_root: String,
     pub protocol_profile_root: String,
@@ -238,14 +239,12 @@ impl CausalGraph {
         } else if right_ancestors.contains(left) {
             Some(CausalRelation::Before)
         } else {
-            let left_branch = self.events.get(left)?.branch_id.clone();
-            let right_branch = self.events.get(right)?.branch_id.clone();
-            let left_env = self.events.get(left)?.semantic_environment_root.clone();
-            let right_env = self.events.get(right)?.semantic_environment_root.clone();
-            if left_branch != right_branch && left_env != right_env {
-                Some(CausalRelation::Incomparable)
-            } else {
+            let left_base = self.events.get(left)?.base_frontier_root.clone();
+            let right_base = self.events.get(right)?.base_frontier_root.clone();
+            if left_base == right_base {
                 Some(CausalRelation::Concurrent)
+            } else {
+                Some(CausalRelation::Incomparable)
             }
         }
     }
@@ -374,10 +373,12 @@ mod tests {
         latest: u64,
         branch: &str,
         protocol: &str,
+        base: &str,
     ) -> CausalEvent {
         CausalEvent {
             event_id: id.into(),
             predecessors: predecessors.iter().map(|id| (*id).into()).collect(),
+            base_frontier_root: base.into(),
             temporal_interval: interval(earliest, latest),
             semantic_environment_root: "env-1".into(),
             protocol_profile_root: protocol.into(),
@@ -406,24 +407,32 @@ mod tests {
     #[test]
     fn causal_order_does_not_follow_wall_clock_arrival() {
         let mut graph = CausalGraph::new();
-        graph.insert_event(event("a", &[], 1_000, 1_000, "branch-a", "proto-1"));
-        graph.insert_event(event("b", &[], 2_000, 2_000, "branch-b", "proto-1"));
+        graph.insert_event(event("a", &[], 1_000, 1_000, "branch-a", "proto-1", "base-1"));
+        graph.insert_event(event("b", &[], 2_000, 2_000, "branch-b", "proto-1", "base-1"));
         assert_eq!(graph.relation("a", "b"), Some(CausalRelation::Concurrent));
     }
 
     #[test]
     fn explicit_predecessor_defines_causal_order_even_with_older_wall_time() {
         let mut graph = CausalGraph::new();
-        graph.insert_event(event("a", &[], 2_000, 2_000, "branch-a", "proto-1"));
-        graph.insert_event(event("b", &["a"], 1_000, 1_000, "branch-a", "proto-1"));
+        graph.insert_event(event("a", &[], 2_000, 2_000, "branch-a", "proto-1", "base-1"));
+        graph.insert_event(event("b", &["a"], 1_000, 1_000, "branch-a", "proto-1", "base-1"));
         assert_eq!(graph.relation("a", "b"), Some(CausalRelation::Before));
         assert_eq!(graph.relation("b", "a"), Some(CausalRelation::After));
     }
 
     #[test]
+    fn different_bases_are_incomparable_even_in_one_environment() {
+        let mut graph = CausalGraph::new();
+        graph.insert_event(event("a", &[], 1_000, 1_000, "branch-a", "proto-1", "base-a"));
+        graph.insert_event(event("b", &[], 2_000, 2_000, "branch-b", "proto-1", "base-b"));
+        assert_eq!(graph.relation("a", "b"), Some(CausalRelation::Incomparable));
+    }
+
+    #[test]
     fn missing_predecessor_is_not_treated_as_concurrency() {
         let mut graph = CausalGraph::new();
-        graph.insert_event(event("b", &["missing"], 2_000, 2_000, "branch-a", "proto-1"));
+        graph.insert_event(event("b", &["missing"], 2_000, 2_000, "branch-a", "proto-1", "base-1"));
         assert_eq!(graph.closure_report("b").status, ClosureStatus::MissingPredecessors);
         assert_eq!(graph.relation("b", "b"), Some(CausalRelation::Same));
         assert_eq!(graph.relation("b", "missing"), None);
@@ -432,8 +441,8 @@ mod tests {
     #[test]
     fn cycles_are_rejected_from_causal_closure() {
         let mut graph = CausalGraph::new();
-        graph.insert_event(event("a", &["b"], 1, 1, "branch-a", "proto-1"));
-        graph.insert_event(event("b", &["a"], 2, 2, "branch-a", "proto-1"));
+        graph.insert_event(event("a", &["b"], 1, 1, "branch-a", "proto-1", "base-1"));
+        graph.insert_event(event("b", &["a"], 2, 2, "branch-a", "proto-1", "base-1"));
         assert_eq!(graph.closure_report("a").status, ClosureStatus::CycleDetected);
         assert_eq!(graph.relation("a", "b"), None);
     }
@@ -475,7 +484,7 @@ mod tests {
 
     #[test]
     fn protocol_generation_change_blocks_silent_replay() {
-        let e = event("old", &[], 100, 100, "branch-a", "proto-v1");
+        let e = event("old", &[], 100, 100, "branch-a", "proto-v1", "base-1");
         let evaluation = reference(200, 200, "proto-v2");
         assert_eq!(replay_disposition(&e, &evaluation, &profile(10_000, "proto-v2")), ReplayDisposition::ProfileMismatch);
     }
@@ -493,7 +502,7 @@ mod tests {
 
     #[test]
     fn replay_keeps_old_profile_historical() {
-        let e = event("old", &[], 100, 100, "branch-a", "proto-v1");
+        let e = event("old", &[], 100, 100, "branch-a", "proto-v1", "base-1");
         let evaluation = reference(101, 101, "proto-v2");
         assert_eq!(replay_disposition(&e, &evaluation, &profile(10_000, "proto-v2")), ReplayDisposition::ProfileMismatch);
     }
@@ -501,7 +510,7 @@ mod tests {
     #[test]
     fn temporal_witness_preserves_claim_ceiling() {
         let mut graph = CausalGraph::new();
-        graph.insert_event(event("a", &[], 100, 100, "branch-a", "proto-1"));
+        graph.insert_event(event("a", &[], 100, 100, "branch-a", "proto-1", "base-1"));
         let witness = temporal_witness(
             &graph,
             "a",
