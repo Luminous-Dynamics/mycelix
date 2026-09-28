@@ -151,6 +151,23 @@ pub fn preserve_conflicting_observations(
     })
 }
 
+/// A federation conflict can enter FRS as a dispute without becoming a decision.
+/// No quantity is selected by this seam.
+pub fn federation_conflict_requires_explicit_governance_resolution(
+    conflict: &FrsConflict,
+    decision: Option<&DemoDecision>,
+) -> bool {
+    if conflict.left_observation_id.is_empty()
+        || conflict.right_observation_id.is_empty()
+        || conflict.left_observation_id == conflict.right_observation_id
+        || conflict.left_quantity == conflict.right_quantity
+    {
+        return false;
+    }
+
+    matches!(decision, Some(DemoDecision::Accepted) | Some(DemoDecision::Rejected))
+}
+
 /// A finding or recommendation is never itself a CDS decision or authorization.
 pub fn feedback_does_not_become_governance_authority() -> bool {
     ProvenanceClass::Assessment != ProvenanceClass::Decision
@@ -278,6 +295,25 @@ mod tests {
         assert_eq!(conflict.right_observation_id, "obs-002");
         assert_eq!(conflict.left_quantity, 12);
         assert_eq!(conflict.right_quantity, 14);
+    }
+
+    #[test]
+    fn federation_conflict_stays_unresolved_without_explicit_decision() {
+        let conflict = FrsConflict {
+            left_observation_id: "obs-a",
+            right_observation_id: "obs-b",
+            left_quantity: 10,
+            right_quantity: 12,
+            same_work_id: "work-1",
+        };
+        assert!(!federation_conflict_requires_explicit_governance_resolution(
+            &conflict,
+            Some(&DemoDecision::Draft)
+        ));
+        assert!(federation_conflict_requires_explicit_governance_resolution(
+            &conflict,
+            Some(&DemoDecision::Accepted)
+        ));
     }
 
     #[test]
