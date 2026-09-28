@@ -399,6 +399,25 @@ mod tests {
     }
 
     #[test]
+    fn agreement_does_not_create_a_resolution_artifact() {
+        let observation = FederationObservation {
+            observation_id: "obs-a",
+            work_id: "work-1",
+            origin: FederationNode::Local,
+            quantity: 10,
+            evidence_ref: "e-a",
+            observed_at: 10,
+        };
+        assert!(matches!(
+            resolve_conflict(
+                reconcile_observation_set(&[observation]),
+                Some("decision-should-not-resolve-agreement")
+            ),
+            ResolutionDecision::AwaitingHumanDecision(_)
+        ));
+    }
+
+    #[test]
     fn conflict_requires_explicit_resolution() {
         let left = FederationObservation {
             observation_id: "obs-a",
