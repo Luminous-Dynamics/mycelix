@@ -516,11 +516,11 @@ impl PersonalCtx {
         ]
     }
 
-    fn accepts_epoch(&self, epoch: u64) -> bool {
+    pub(crate) fn accepts_epoch(&self, epoch: u64) -> bool {
         self.reconciliation.get_untracked().accepts(epoch)
     }
 
-    fn current_usable_epoch(&self) -> Option<u64> {
+    pub(crate) fn current_usable_epoch(&self) -> Option<u64> {
         let gate = self.reconciliation.get_untracked();
         gate.is_usable().then(|| gate.current_epoch())
     }
@@ -1083,25 +1083,49 @@ pub fn use_personal() -> PersonalCtx {
     expect_context::<PersonalCtx>()
 }
 
+pub(crate) async fn refresh_identity_state_at_epoch(
+    ctx: PersonalCtx,
+    hc: HolochainCtx,
+    epoch: u64,
+) -> bool {
+    load_identity_source(&ctx, &hc, epoch).await
+}
+
+pub(crate) async fn refresh_preferences_state_at_epoch(
+    ctx: PersonalCtx,
+    hc: HolochainCtx,
+    epoch: u64,
+) -> bool {
+    load_preferences_source(&ctx, &hc, epoch).await
+}
+
+pub(crate) async fn refresh_health_state_at_epoch(
+    ctx: PersonalCtx,
+    hc: HolochainCtx,
+    epoch: u64,
+) -> bool {
+    load_health_source(&ctx, &hc, epoch).await
+}
+
 pub async fn refresh_identity_state(ctx: PersonalCtx, hc: HolochainCtx) {
     let Some(epoch) = ctx.current_usable_epoch() else {
         return;
     };
-    let _ = load_identity_source(&ctx, &hc, epoch).await;
+    let _ = refresh_identity_state_at_epoch(ctx, hc, epoch).await;
 }
 
 pub async fn refresh_preferences_state(ctx: PersonalCtx, hc: HolochainCtx) {
     let Some(epoch) = ctx.current_usable_epoch() else {
         return;
     };
-    let _ = load_preferences_source(&ctx, &hc, epoch).await;
+    let _ = refresh_preferences_state_at_epoch(ctx, hc, epoch).await;
 }
 
 pub async fn refresh_health_state(ctx: PersonalCtx, hc: HolochainCtx) {
     let Some(epoch) = ctx.current_usable_epoch() else {
         return;
     };
-    let _ = load_health_source(&ctx, &hc, epoch).await;
+    let _ = refresh_health_state_at_epoch(ctx, hc, epoch).await;
 }
 
 #[cfg(test)]
