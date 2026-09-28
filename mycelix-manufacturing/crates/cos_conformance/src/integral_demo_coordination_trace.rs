@@ -23,6 +23,9 @@ pub enum AlignmentError {
     UncertaintyMismatch,
     DispositionMismatch,
     ProvenanceMismatch,
+    ChallengeabilityMismatch,
+    ReversibilityMismatch,
+    RecoveryReferenceMismatch,
     PairEventNotInTrace,
 }
 
@@ -67,6 +70,9 @@ fn align_one(artifact: &CoordinationArtifact, event: &TraceEvent) -> Result<(), 
     if event.source_ref != artifact.source_ref { return Err(AlignmentError::SourceReferenceMismatch); }
     if event.authority_ref != artifact.authority_ref { return Err(AlignmentError::AuthorityMismatch); }
     if event.uncertainty_present != artifact.uncertainty_present { return Err(AlignmentError::UncertaintyMismatch); }
+    if event.challengeable != artifact.challengeable { return Err(AlignmentError::ChallengeabilityMismatch); }
+    if event.reversible != artifact.reversible { return Err(AlignmentError::ReversibilityMismatch); }
+    if event.recovery_ref != artifact.recovery_ref { return Err(AlignmentError::RecoveryReferenceMismatch); }
     if expected_provenance(artifact.kind) != Some(event.provenance) { return Err(AlignmentError::ProvenanceMismatch); }
     if artifact.kind == CoordinationKind::HumanDisposition {
         let expected = match artifact.disposition {
@@ -234,6 +240,38 @@ mod tests {
             validate_explicit_coordination_trace_pairs(&[pair], &trace),
             Err(AlignmentError::PairEventNotInTrace)
         );
+    }
+
+    #[test]
+    fn consequential_safety_fields_must_survive_alignment() {
+        let trace = conflict_trace();
+        let mut item = artifact("obs-a", CoordinationKind::Observation, CoordinationOrigin::Local, "evidence://local-a");
+        item.challengeable = false;
+        assert_eq!(
+            validate_coordination_trace_alignment(&[item], &trace),
+            Err(AlignmentError::ChallengeabilityMismatch)
+        );
+
+        let mut item = artifact("obs-a", CoordinationKind::Observation, CoordinationOrigin::Local, "evidence://local-a");
+        item.reversible = false;
+        assert_eq!(
+            validate_coordination_trace_alignment(&[item], &trace),
+            Err(AlignmentError::ReversibilityMismatch)
+        );
+
+        let mut item = artifact("obs-a", CoordinationKind::Observation, CoordinationOrigin::Local, "evidence://local-a");
+        item.recovery_ref = Some("recovery://changed");
+        assert_eq!(
+            validate_coordination_trace_alignment(&[item], &trace),
+            Err(AlignmentError::RecoveryReferenceMismatch)
+        );
+    }
+
+    #[test]
+    fn exact_safety_fields_align_when_unchanged() {
+        let trace = conflict_trace();
+        let item = artifact("obs-a", CoordinationKind::Observation, CoordinationOrigin::Local, "evidence://local-a");
+        assert_eq!(validate_coordination_trace_alignment(&[item], &trace), Ok(()));
     }
 
     #[test]
