@@ -132,24 +132,40 @@ jobs:
         run: cd mycelix-manufacturing && cargo run -q -p cos_conformance --bin cos-report > cos-conformance-report.json
       - name: Validate report
         run: test -s mycelix-manufacturing/cos-conformance-report.json && grep -q 'COS-CONF-001' mycelix-manufacturing/cos-conformance-report.json
+      - name: Verify IF01 refinement manifest
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("mycelix-manufacturing/crates/cos_conformance/proofs/if01_refinement_manifest.json")
+          m = json.loads(p.read_text())
+          assert m["manifest_id"] == "IF01-REFINEMENT-MANIFEST-001"
+          assert m["status"] == "BoundedExecutableWitness"
+          assert m["source_status"] == "CandidateInterface"
+          assert len(m["obligations"]) == 12
+          assert all(o["status"] != "FormallyClosed" for o in m["obligations"])
+          assert "production/runtime closure remains open" in m["scope"]
+          print("IF01 refinement manifest: structurally valid and explicitly open")
+          PY
       - name: Verify IF01 SMT witness
         run: |
           sudo apt-get update
           sudo apt-get install -y z3
           output=$(z3 mycelix-manufacturing/crates/cos_conformance/proofs/integral_if01_authority_outcome.smt2)
           printf '%s\n' "$output"
-          unsat_count="$(printf '%s\n' "$output" | grep -c '^unsat$' || true)"
-          test "$unsat_count" -eq 3
-      - name: Record IF01 evidence receipt
+          unsat_count="$(printf '%s\n' "$output" | grep -c '^unsat      - name: Record IF01 evidence receipt
         run: |
           cd mycelix-manufacturing
           mkdir -p evidence
+          artifact_sha256="$(sha256sum crates/cos_conformance/proofs/integral_if01_authority_outcome.smt2 | awk '{print $1}')"
+          source_sha="$(git rev-parse HEAD)"
+          test "$source_sha" = "${{ github.sha }}"
           cat > evidence/if01-evidence-receipt.json <<EOF
           {
             "obligation_ids": ["IF01-FV-010", "IF01-FV-011", "IF01-FV-012"],
             "artifact_path": "crates/cos_conformance/proofs/integral_if01_authority_outcome.smt2",
-            "artifact_identity": "${{ github.sha }}:306b7fa6aeed77ec5989070393a0c8dad9956c65",
-            "source_commit": "${{ github.sha }}",
+            "artifact_sha256": "$artifact_sha256",
+            "source_commit": "$source_sha",
             "build_identity": "${{ github.run_id }}:${{ github.run_attempt }}",
             "runner_image": "ubuntu-latest",
             "os": "${{ runner.os }}",
@@ -516,8 +532,39 @@ jobs:
             if [ "$result" = "failure" ]; then exit 1; fi
           done
           echo "All checks passed!"
-)" -eq 3
-
+ || true)"
+          test "$unsat_count" -eq 3
+      - name: Record IF01 evidence receipt
+        run: |
+          cd mycelix-manufacturing
+          mkdir -p evidence
+          cat > evidence/if01-evidence-receipt.json <<EOF
+          {
+            "obligation_ids": ["IF01-FV-010", "IF01-FV-011", "IF01-FV-012"],
+            "artifact_path": "crates/cos_conformance/proofs/integral_if01_authority_outcome.smt2",
+            "artifact_identity": "${{ github.sha }}:306b7fa6aeed77ec5989070393a0c8dad9956c65",
+            "source_commit": "${{ github.sha }}",
+            "build_identity": "${{ github.run_id }}:${{ github.run_attempt }}",
+            "runner_image": "ubuntu-latest",
+            "os": "${{ runner.os }}",
+            "solver": "z3",
+            "solver_version": "$(z3 --version)",
+            "command": "z3 crates/cos_conformance/proofs/integral_if01_authority_outcome.smt2",
+            "expected_result": "3 unsat results",
+            "actual_result": $(printf '%s' "$output" | jq -Rs .),
+            "timestamp": "${{ github.run_started_at }}",
+            "status": "BoundedExecutableWitness",
+            "claim_ceiling": "Bounded IF01-FV-010..012 semantic contradictions only; no production/runtime/security/ratification closure.",
+            "excluded_claims": ["cryptographic authentication", "network delivery guarantees", "production authorization", "manufacturing qualification", "security certification", "Integral ratification"]
+          }
+          EOF
+          test -s evidence/if01-evidence-receipt.json
+      - name: Upload IF01 evidence receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: if01-evidence-receipt-${{ github.run_id }}-${{ github.run_attempt }}
+          path: mycelix-manufacturing/evidence/if01-evidence-receipt.json
+          if-no-files-found: error
   test-commons:
     needs: changes
     if: needs.changes.outputs.commons == 'true' || github.event_name == 'push'
