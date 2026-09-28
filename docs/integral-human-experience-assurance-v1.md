@@ -141,3 +141,64 @@ This specification does not claim:
 - that formal verification proves lived outcomes.
 
 Those claims require empirical research with actual participants and communities.
+
+
+## Executable assurance boundary
+
+The machine-checkable subset of HXA is implemented in
+`mycelix-manufacturing/crates/cos_conformance/src/integral_hxa_formal.rs`
+as bounded reference-model witnesses for HXA-I01 through HXA-I12.
+
+These witnesses deliberately establish **boundary semantics**, not human outcomes:
+
+| HXA | Machine-checkable boundary | Evidence still required outside the reference model |
+|---|---|---|
+| I01 | recommendation cannot itself become authority | participants can recognize that distinction |
+| I02 | generated explanation does not become evidence | participants can identify evidence vs explanation |
+| I03 | explanation is non-authoritative | participants can challenge an explanation |
+| I04 | uncertainty survives transformation | users correctly interpret uncertainty |
+| I05 | consequential action requires explicit authorization | users understand consequences before authorizing |
+| I06 | human override path remains available | users actually override appropriately when warranted |
+| I07 | appeal does not require the recommending AI | participants can successfully contest outcomes |
+| I08 | transformations preserve provenance | accessibility/localization remains understandable |
+| I09 | disagreement is preserved | participants can see and use disagreement |
+| I10 | AI identity is disclosed | participants notice and understand system identity |
+| I11 | system can degrade without Symthaea authorization | humans can complete essential tasks without AI assistance |
+| I12 | generated artifacts cannot launder legitimacy | participants do not mistake AI output for governance authority |
+
+The formal witnesses use no aggregate happiness, satisfaction, trust, or
+"flourishing" score as a closure criterion. Human evidence therefore remains
+a separate assurance layer.
+
+### Trust-calibration implication
+
+The participant protocol should measure behavior rather than asking only
+whether participants "trust" the assistant. Useful measures include:
+recommendation acceptance/rejection, override accuracy, error detection,
+evidence-location accuracy, uncertainty/authority identification,
+time-to-correct, AI-independent task completion, and the ability to explain
+why an AI recommendation can legitimately be rejected.
+
+This is consistent with recent human-AI research finding that explanation
+length can increase user confidence without increasing answer accuracy, while
+uncertainty information and explicit transparency can improve calibration in
+some settings. citeturn0search1turn0search5 Recent work also proposes
+override rate and override accuracy as practical indicators of calibrated
+reliance. citeturn0search2
+
+### Current claim ceiling
+
+Passing the executable HXA witnesses means only that the bounded reference
+model satisfies its encoded boundary conditions. It does **not** establish:
+
+- that Integral is easy to learn;
+- that participants will understand every decision;
+- that Symthaea explanations are correct;
+- that users will trust AI appropriately;
+- that users will be happy;
+- that Integral causes flourishing;
+- that the production implementation refines the reference model; or
+- that any population has achieved a desired quality of life.
+
+Those claims require staged participant evidence and, for lived outcomes,
+longitudinal and cross-context evaluation.
