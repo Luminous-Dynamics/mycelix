@@ -68,6 +68,50 @@ pub struct FederationReceipt {
     pub state: DeliveryState,
 }
 
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FederationObservation {
+    pub observation_id: &'static str,
+    pub work_id: &'static str,
+    pub origin: FederationNode,
+    pub quantity: u32,
+    pub evidence_ref: &'static str,
+    pub observed_at: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ObservationConflict {
+    pub work_id: &'static str,
+    pub left_observation_id: &'static str,
+    pub left_origin: FederationNode,
+    pub left_quantity: u32,
+    pub right_observation_id: &'static str,
+    pub right_origin: FederationNode,
+    pub right_quantity: u32,
+}
+
+pub fn reconcile_observations(
+    left: FederationObservation,
+    right: FederationObservation,
+) -> Option<ObservationConflict> {
+    if left.work_id != right.work_id
+        || left.observation_id == right.observation_id
+        || left.quantity == right.quantity
+    {
+        return None;
+    }
+
+    Some(ObservationConflict {
+        work_id: left.work_id,
+        left_observation_id: left.observation_id,
+        left_origin: left.origin,
+        left_quantity: left.quantity,
+        right_observation_id: right.observation_id,
+        right_origin: right.origin,
+        right_quantity: right.quantity,
+    })
+}
+
 pub fn accept_delivery(
     envelope: FederationEnvelope,
     current_generation: u32,
@@ -214,6 +258,31 @@ mod tests {
         assert!(attempt_may_change_without_mutating_logical_delivery(e, retry));
         assert_eq!(receipt_for(e).logical_delivery_id, receipt_for(retry).logical_delivery_id);
         assert_eq!(receipt_for(e).origin, FederationNode::Foreign);
+    }
+
+    #[test]
+    fn reconciliation_preserves_competing_observations() {
+        let left = FederationObservation {
+            observation_id: "obs-local",
+            work_id: "work-1",
+            origin: FederationNode::Local,
+            quantity: 10,
+            evidence_ref: "e-local",
+            observed_at: 10,
+        };
+        let right = FederationObservation {
+            observation_id: "obs-foreign",
+            work_id: "work-1",
+            origin: FederationNode::Foreign,
+            quantity: 12,
+            evidence_ref: "e-foreign",
+            observed_at: 11,
+        };
+        let conflict = reconcile_observations(left, right).expect("conflict");
+        assert_eq!(conflict.left_origin, FederationNode::Local);
+        assert_eq!(conflict.right_origin, FederationNode::Foreign);
+        assert_eq!(conflict.left_quantity, 10);
+        assert_eq!(conflict.right_quantity, 12);
     }
 
     #[test]
