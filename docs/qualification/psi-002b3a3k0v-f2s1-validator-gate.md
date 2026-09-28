@@ -83,3 +83,25 @@ The implementation boundary is now pinned as follows, pending generation and rev
 The validator's upstream documentation explicitly supports Draft 2020-12 and explicitly documents that external reference resolution can be disabled with `default-features = false`. citeturn1search0turn1search4
 
 This is a **preflight lock proposal, NOT EXECUTED / NOT A PASS**. No semantic validator result or currentness/admission claim follows from this artifact.
+
+## Standalone package boundary advanced
+
+A dedicated package boundary has now been added at:
+
+`qualification/psi-002b3a3k0v-f2s1-validator/`
+
+The package declares:
+
+- Rust `1.96.0`;
+- edition `2024`;
+- Cargo resolver `3`;
+- exact direct dependency `jsonschema = 0.58.2`;
+- `default-features = false`;
+- `publish = false`;
+- a local Cargo `[workspace]` boundary so it does not inherit the existing repository workspace.
+
+This advances #3450's package-isolation gate but deliberately does **not** claim that dependency resolution has been executed. The standalone `Cargo.lock` is still absent and therefore the package must not yet be built with a qualification claim.
+
+Cargo documents that `--locked` fails when the lockfile is missing or would change, while `--offline` prevents network access; these controls are reserved for the subsequent lock-generation/verification gate. citeturn0search0turn0search1
+
+**Current disposition: PACKAGE BOUNDARY CREATED / LOCK NOT GENERATED / NOT EXECUTED / NOT A PASS.**
