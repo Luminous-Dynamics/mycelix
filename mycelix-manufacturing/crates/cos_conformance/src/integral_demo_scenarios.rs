@@ -187,6 +187,17 @@ pub fn evaluate(id: ScenarioId) -> ScenarioResult {
     }
 }
 
+pub fn conflict_relations() -> &'static [crate::integral_demo_trace::TraceRelationRef] {
+    const RELATIONS: [crate::integral_demo_trace::TraceRelationRef; 1] = [
+        crate::integral_demo_trace::TraceRelationRef {
+            from_event: "o2",
+            to_event: "o1",
+            relation: crate::integral_demo_trace::TraceRelation::Disputes,
+        },
+    ];
+    &RELATIONS
+}
+
 pub const ALL_SCENARIOS: [ScenarioId; 10] = [
     ScenarioId::NormalFlow,
     ScenarioId::RejectedCdsDecision,
