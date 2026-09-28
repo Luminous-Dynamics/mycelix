@@ -150,9 +150,10 @@ mod tests {
     fn negative_corpus_001_through_016_fails_closed() {
         let now = 100;
         let stale = Evidence::stale("qa-1", now);
+        let current = fresh();
         let b = Bindings::default();
         for case in CASES.iter() {
-            let evidence = if case.test_id == "COS-N-005" { Some(&stale) } else { Some(&fresh()) };
+            let evidence = if case.test_id == "COS-N-005" { Some(&stale) } else { Some(&current) };
             let decision = evaluate_negative(case.test_id, &b, evidence, now);
             assert!(matches!(decision, Decision::Rejected | Decision::Stale | Decision::Unauthorized),
                 "{} unexpectedly accepted as {:?}", case.test_id, decision);
@@ -179,7 +180,8 @@ mod tests {
                 "COS-N-016" => b.denominator_explicit = true,
                 _ => unreachable!(),
             }
-            let evidence = if case.test_id == "COS-N-005" { Some(&fresh()) } else { Some(&fresh()) };
+            let current = fresh();
+            let evidence = Some(&current);
             let decision = if case.test_id == "COS-N-005" {
                 if b.quality_current && stale_evidence_is_rejected(evidence.unwrap(), now) == Decision::Accepted { Decision::Accepted } else { Decision::Rejected }
             } else {
