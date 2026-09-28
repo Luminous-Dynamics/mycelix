@@ -26,6 +26,8 @@ pub struct SemanticBranch {
     pub semantic_state_root: String,
     pub provenance_root: String,
     pub invariant_state_root: String,
+    pub invariant_conflict: bool,
+    pub provenance_conflict: bool,
     pub deliveries: BTreeMap<String, DeliveryClaim>,
     pub consumed_capacity: BTreeMap<String, u64>,
     pub authority_claims: BTreeMap<String, AuthorityDisposition>,
@@ -92,6 +94,7 @@ pub struct ReconciliationReceipt {
     pub branch_a_id: String,
     pub branch_b_id: String,
     pub candidate_compatibility: BranchCompatibility,
+    pub proposed_resolution_root: Option<String>,
     pub action: ReconciliationAction,
     pub outcome: ReconciliationOutcome,
     pub resulting_state_root: Option<String>,
@@ -211,7 +214,7 @@ pub fn classify_branches(
         }
     }
 
-    if branch_a.invariant_state_root != branch_b.invariant_state_root {
+    if branch_a.invariant_conflict || branch_b.invariant_conflict {
         conflicts.push(ReconciliationConflict {
             kind: ConflictKind::InvariantConflict,
             subject: "invariant_state".into(),
@@ -220,7 +223,7 @@ pub fn classify_branches(
         });
     }
 
-    if branch_a.provenance_root != branch_b.provenance_root {
+    if branch_a.provenance_conflict || branch_b.provenance_conflict {
         conflicts.push(ReconciliationConflict {
             kind: ConflictKind::ProvenanceConflict,
             subject: "provenance".into(),
@@ -298,6 +301,7 @@ pub fn reconcile(
         if existing.branch_a_id == candidate.branch_a_id
             && existing.branch_b_id == candidate.branch_b_id
             && existing.candidate_compatibility == candidate.compatibility
+            && existing.proposed_resolution_root == candidate.proposed_resolution_root
             && existing.action == action
         {
             return ReconciliationReceipt {
@@ -310,6 +314,7 @@ pub fn reconcile(
             branch_a_id: candidate.branch_a_id.clone(),
             branch_b_id: candidate.branch_b_id.clone(),
             candidate_compatibility: candidate.compatibility,
+            proposed_resolution_root: candidate.proposed_resolution_root.clone(),
             action,
             outcome: ReconciliationOutcome::Rejected,
             resulting_state_root: None,
@@ -367,6 +372,7 @@ pub fn reconcile(
                     branch_a_id: candidate.branch_a_id.clone(),
                     branch_b_id: candidate.branch_b_id.clone(),
                     candidate_compatibility: candidate.compatibility,
+                    proposed_resolution_root: candidate.proposed_resolution_root.clone(),
                     action,
                     outcome: ReconciliationOutcome::Merged,
                     resulting_state_root: Some(merged.semantic_state_root),
@@ -379,6 +385,7 @@ pub fn reconcile(
             branch_a_id: candidate.branch_a_id.clone(),
             branch_b_id: candidate.branch_b_id.clone(),
             candidate_compatibility: candidate.compatibility,
+            proposed_resolution_root: candidate.proposed_resolution_root.clone(),
             action,
             outcome: ReconciliationOutcome::Unresolved,
             resulting_state_root: None,
@@ -401,6 +408,7 @@ fn rejected(
         branch_a_id: candidate.branch_a_id.clone(),
         branch_b_id: candidate.branch_b_id.clone(),
         candidate_compatibility: candidate.compatibility,
+        proposed_resolution_root: candidate.proposed_resolution_root.clone(),
         action,
         outcome: ReconciliationOutcome::Rejected,
         resulting_state_root: None,
@@ -487,6 +495,8 @@ mod tests {
             semantic_state_root: state_root.into(),
             provenance_root: format!("prov-{id}"),
             invariant_state_root: format!("inv-{id}"),
+            invariant_conflict: false,
+            provenance_conflict: false,
             deliveries: BTreeMap::from([(
                 delivery_id.into(),
                 DeliveryClaim {
@@ -556,6 +566,7 @@ mod tests {
         let mut b = branch("b", "state-b", "delivery-b", "payload-b", "cap-b", "auth-b");
         a.provenance_root = "prov-shared".into();
         b.provenance_root = "prov-other".into();
+        a.provenance_conflict = true;
         let (compatibility, conflicts) = classify_branches(&a, &b);
         assert_eq!(
             compatibility,
