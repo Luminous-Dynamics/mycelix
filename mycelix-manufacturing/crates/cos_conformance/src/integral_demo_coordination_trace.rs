@@ -4,12 +4,13 @@
 //! and A1 parent links have different semantics and are never synthesized here.
 //! Claim ceiling: ReferenceModelOnly.
 
-use crate::integral_demo_coordination::{CoordinationArtifact, CoordinationKind, CoordinationOrigin, Disposition};
+use crate::integral_demo_coordination::{validate_loop, CoordinationArtifact, CoordinationError, CoordinationKind, CoordinationOrigin, CoordinationLoop, Disposition};
 use crate::integral_demo_domain::{ProvenanceClass, SourceKind};
 use crate::integral_demo_trace::{validate_trace, TraceError, TraceEvent, TraceFixture, TraceKind};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AlignmentError {
+    InvalidCoordination(CoordinationError),
     InvalidTrace(TraceError),
     MissingTraceEvent,
     DuplicateTraceIdentity,
@@ -79,6 +80,18 @@ fn align_one(artifact: &CoordinationArtifact, event: &TraceEvent) -> Result<(), 
     Ok(())
 }
 
+/// Validate the complete bounded pair without synthesizing lineage between models.
+/// A1 parent links are checked by A1's validator; D5 graph relations are checked
+/// by D5's validator; only explicitly shared fields are cross-checked afterward.
+pub fn validate_coordination_trace_pair(
+    artifacts: &[CoordinationArtifact],
+    trace: &TraceFixture,
+) -> Result<(), AlignmentError> {
+    validate_loop(&CoordinationLoop { artifacts: artifacts.to_vec() })
+        .map_err(AlignmentError::InvalidCoordination)?;
+    validate_coordination_trace_alignment(artifacts, trace)
+}
+
 /// Every A1 artifact must have exactly one D5 event with the same identity and
 /// matching shared fields. Additional D5 events are allowed, but unpaired A1
 /// artifacts fail closed. Parent lineage is not inferred from event sequence.
@@ -125,7 +138,7 @@ mod tests {
             artifact("obs-b", CoordinationKind::Observation, CoordinationOrigin::Foreign, "evidence://foreign-b"),
             artifact("frs-conflict-1", CoordinationKind::Assessment, CoordinationOrigin::Local, "assessment://conflict-1"),
         ];
-        assert_eq!(validate_coordination_trace_alignment(&artifacts, &trace), Ok(()));
+        assert_eq!(validate_coordination_trace_pair(&artifacts, &trace), Ok(()));
     }
 
     #[test]
@@ -147,6 +160,18 @@ mod tests {
         let trace = conflict_trace();
         let artifacts = vec![artifact("not-in-trace", CoordinationKind::Observation, CoordinationOrigin::Local, "evidence://x")];
         assert_eq!(validate_coordination_trace_alignment(&artifacts, &trace), Err(AlignmentError::MissingTraceEvent));
+    }
+
+
+    #[test]
+    fn combined_pair_gate_rejects_invalid_explicit_parent() {
+        let trace = conflict_trace();
+        let mut item = artifact("obs-a", CoordinationKind::Observation, CoordinationOrigin::Local, "evidence://local-a");
+        item.parent_ref = Some("not-present");
+        assert_eq!(
+            validate_coordination_trace_pair(&[item], &trace),
+            Err(AlignmentError::InvalidCoordination(CoordinationError::MissingParent))
+        );
     }
 
     #[test]
