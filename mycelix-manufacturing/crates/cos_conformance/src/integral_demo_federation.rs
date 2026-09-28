@@ -112,6 +112,32 @@ pub fn reconcile_observations(
     })
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReconciliationDecision {
+    Agreement,
+    ConflictPreserved(ObservationConflict),
+}
+
+pub fn reconcile_observation_set(
+    observations: &[FederationObservation],
+) -> ReconciliationDecision {
+    for (index, left) in observations.iter().enumerate() {
+        for right in observations.iter().skip(index + 1) {
+            if let Some(conflict) = reconcile_observations(*left, *right) {
+                return ReconciliationDecision::ConflictPreserved(conflict);
+            }
+        }
+    }
+    ReconciliationDecision::Agreement
+}
+
+pub fn reconciliation_is_order_invariant(
+    observations: &[FederationObservation],
+    reversed: &[FederationObservation],
+) -> bool {
+    reconcile_observation_set(observations) == reconcile_observation_set(reversed)
+}
+
 pub fn accept_delivery(
     envelope: FederationEnvelope,
     current_generation: u32,
@@ -283,6 +309,34 @@ mod tests {
         assert_eq!(conflict.right_origin, FederationNode::Foreign);
         assert_eq!(conflict.left_quantity, 10);
         assert_eq!(conflict.right_quantity, 12);
+    }
+
+    #[test]
+    fn reconciliation_does_not_depend_on_delivery_order() {
+        let left = FederationObservation {
+            observation_id: "obs-a",
+            work_id: "work-1",
+            origin: FederationNode::Local,
+            quantity: 10,
+            evidence_ref: "e-a",
+            observed_at: 10,
+        };
+        let right = FederationObservation {
+            observation_id: "obs-b",
+            work_id: "work-1",
+            origin: FederationNode::Foreign,
+            quantity: 12,
+            evidence_ref: "e-b",
+            observed_at: 11,
+        };
+        assert!(reconciliation_is_order_invariant(
+            &[left, right],
+            &[right, left]
+        ));
+        assert!(matches!(
+            reconcile_observation_set(&[left, right]),
+            ReconciliationDecision::ConflictPreserved(_)
+        ));
     }
 
     #[test]
