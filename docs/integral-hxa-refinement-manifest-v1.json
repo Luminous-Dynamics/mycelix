@@ -1,0 +1,33 @@
+{
+  "manifest_id": "INTEGRAL-HXA-REFINEMENT-MANIFEST-001",
+  "status": "BoundedExecutableWitness",
+  "source_status": "CandidateInterface",
+  "interface_profile": "INTEGRAL-HXA-IF01-COMPOSITION-CANDIDATE",
+  "closure_rule": "HXA closure requires reproducible executable witnesses plus production refinement evidence and participant evidence; reference conformance alone cannot close human-outcome claims.",
+  "claim_ceiling": ["Boundary semantics only.","Reference-model conformance does not establish participant comprehension, calibrated reliance, satisfaction, happiness, flourishing, social legitimacy, or production correctness."],
+  "artifacts": [
+    {"path":"mycelix-manufacturing/crates/cos_conformance/src/integral_hxa_formal.rs","sha":"34153a00f23ff6e556d1a3fdd9c75cfed8d82614","role":"HXA machine-checkable witnesses"},
+    {"path":"mycelix-manufacturing/crates/cos_conformance/src/integral_hxa_if01_composition.rs","sha":"a7759aa93ef49fade94d6ee1958f0aac2583f0ca","role":"HXA/IF01 cross-layer composition witnesses"},
+    {"path":"mycelix-manufacturing/crates/cos_conformance/src/integral_oad_cos_formal.rs","sha":"6be51c290f936b9cb64d879bdf9eb9186f26495b","role":"IF01 bounded formal obligation registry"}
+  ],
+  "obligations": [
+    {"id":"HXA-I01","witness":"recommendation_never_becomes_authority","claim_ceiling":"Recommendation/authority separation only."},
+    {"id":"HXA-I02","witness":"explanation_does_not_create_evidence","claim_ceiling":"Explanation/evidence distinction only."},
+    {"id":"HXA-I03","witness":"explanation_cannot_mutate_authoritative_state","claim_ceiling":"Non-authoritative explanation semantics only."},
+    {"id":"HXA-I04","witness":"uncertainty_is_preserved","claim_ceiling":"Uncertainty-preservation semantics only."},
+    {"id":"HXA-I05","witness":"consequential_action_requires_explicit_authorization","claim_ceiling":"Authorization-boundary semantics only."},
+    {"id":"HXA-I06","witness":"human_override_remains_possible","claim_ceiling":"Override-path availability only."},
+    {"id":"HXA-I07","witness":"appeal_does_not_require_recommending_ai","claim_ceiling":"AI-independent appeal-path semantics only."},
+    {"id":"HXA-I08","witness":"transformation_preserves_provenance","claim_ceiling":"Transformation provenance semantics only."},
+    {"id":"HXA-I09","witness":"disagreement_is_preserved","claim_ceiling":"Disagreement preservation semantics only."},
+    {"id":"HXA-I10","witness":"ai_identity_is_disclosed","claim_ceiling":"Actor identity disclosure semantics only."},
+    {"id":"HXA-I11","witness":"safe_degradation_without_symthaea","claim_ceiling":"Assistive-system independence semantics only."},
+    {"id":"HXA-I12","witness":"no_legitimacy_laundering","claim_ceiling":"Legitimacy-boundary semantics only."}
+  ],
+  "composition_obligations": [
+    {"id":"HXA-IF01-C01","witness":"evaluate_cross_layer","claim_ceiling":"Cross-layer reference-path semantics only."},
+    {"id":"HXA-IF01-C02","witness":"if01_and_hxa_are_both_bounded_reference_models","claim_ceiling":"Bounded reference-model presence only."}
+  ],
+  "participant_evidence_required":["comprehension","appropriate_reliance","override_accuracy","uncertainty_identification","authority_identification","AI-independent contestability","safe degradation","accessibility/localization","longitudinal outcomes"],
+  "non_claims":["No scalar trust, satisfaction, happiness, flourishing, or legitimacy score can close this manifest.","Traceability between manifest entries and source artifacts is not semantic equivalence and is not a proof of production refinement."]
+}
