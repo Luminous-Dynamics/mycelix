@@ -272,3 +272,20 @@ The direction of a provenance edge is part of its declared meaning. Validation c
 The change is deliberately additive to the D5 reference model. A1 parent_ref remains model-owned compatibility data for now; D6G does not silently reinterpret it as a provenance edge. A future migration can introduce explicit relation fields in the coordination model once the cross-boundary vocabulary is stable.
 
 This remains a ReferenceModelOnly invariant. It does not establish causal truth merely because a DerivedFrom or GeneratedBy edge is structurally valid.
+
+
+### D6H canonical replay and semantic equivalence
+
+D6H adds an explicit semantic-equivalence boundary for replay. A replay may reorder events or relation records and may use different sequence values without becoming a different semantic trace. Canonicalization sorts events by stable event identity and relations by their declared endpoints and relation kind; sequence is intentionally excluded from semantic identity because **ordering is not causality**.
+
+Semantic equivalence nevertheless preserves the fields that can change the meaning or authority of a trace: event identity, kind, provenance, actor, origin, source reference, evidence reference, generation, uncertainty, authority reference, reversibility, challengeability, recommendation-only status, recovery/appeal references, disposition, status, and relation endpoints/kinds. Independent mutation of source or evidence, origin laundering, authority mutation, safety-field mutation, uncertainty loss, or relation mutation therefore makes a replay non-equivalent.
+
+The canonical helper also rejects duplicate event identities and duplicate relation records rather than normalizing malformed input into an apparently valid replay. This is intentionally stronger than byte equality while remaining weaker than a truth claim: semantic equivalence says that two reference-model representations describe the same declared trace semantics; it does not prove that the underlying evidence is true, that a causal relation actually occurred, or that an authority is legitimate.
+
+D6H therefore establishes three separate properties:
+
+1. **Replay identity** — an exact event or fixture can be replayed without mutation.
+2. **Semantic equivalence** — permitted serialization/order differences do not create false semantic divergence.
+3. **Semantic mutation detection** — changes to provenance, evidence, authority, uncertainty, origin, safety, or graph relations are observable as non-equivalence.
+
+The canonical representation is a comparison aid, not a canonical election of history. It does not select a winner among conflicting observations or turn deterministic ordering into causal truth.
