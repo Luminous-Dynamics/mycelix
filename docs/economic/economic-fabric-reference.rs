@@ -8,6 +8,27 @@ pub enum State {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EconomicProfile {
+    Generic,
+    IntegralItc,
+    Valueflows,
+    MutualCredit,
+    Tend,
+    AccountingProjection,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TransitionContext {
+    pub profile: EconomicProfile,
+    pub source_evidence_current: bool,
+    pub policy_version: Option<&'static str>,
+    pub authority: Option<&'static str>,
+    pub dispute_resolved: bool,
+    pub claim_ceiling_preserved: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Decision {
     Accepted, Rejected, DuplicateIdempotent, Indeterminate,
 }
@@ -41,10 +62,22 @@ pub fn can_transition(from: State, to: State) -> bool {
         (State::Settled, State::Reversed) |
         (State::Settled, State::Corrected) |
         (State::Submitted, State::Disputed) |
-        (State::Disputed, State::Settled) |
+        (State::Disputed, State::SettlementEligible) |
         (State::Disputed, State::Reversed) |
         (State::Indeterminate, State::Settled)
     )
+}
+
+pub fn can_enter_settlement(
+    current_state: State,
+    ctx: &TransitionContext,
+) -> bool {
+    current_state == State::SettlementEligible
+        && ctx.source_evidence_current
+        && ctx.policy_version.is_some()
+        && ctx.authority.is_some()
+        && ctx.dispute_resolved
+        && ctx.claim_ceiling_preserved
 }
 
 pub fn validate_settlement(s: &Settlement, current_state: State, recipient_accepted: bool, authorization_current: bool, already_settled: bool) -> Decision {
@@ -71,7 +104,7 @@ mod tests {
         assert!(!can_transition(State::Observed, State::Entitled));
         assert!(!can_transition(State::Evidenced, State::Settled));
         assert!(!can_transition(State::Valuated, State::Settled));
-        assert!(!can_transition(State::Entitled, State::Settled));
+        assert!(!can_transition(State::Entitled, State::Settled));\n        assert!(!can_transition(State::Submitted, State::Settled));
     }
 
     #[test] fn settlement_requires_authorization_and_acceptance() {
