@@ -12,6 +12,7 @@ pub mod seam_profile;
 pub mod seam_scenario;
 pub mod federation;
 pub mod federation_reconciliation;
+pub mod federation_identity;
 
 pub const CORPUS_ID: &str = "COS-CONF-001";
 pub const FORMAL_OBLIGATIONS: [&str; 10] = [
