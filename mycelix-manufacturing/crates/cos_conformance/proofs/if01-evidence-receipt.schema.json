@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "IF01 Formal Evidence Receipt",
+  "type": "object",
+  "required": ["obligation_id","artifact_path","artifact_identity","source_commit","command","expected_result","actual_result","status","claim_ceiling"],
+  "properties": {
+    "obligation_id": {"type":"string","pattern":"^IF01-FV-[0-9]{3}$"},
+    "artifact_path": {"type":"string"},
+    "artifact_identity": {"type":"string"},
+    "source_commit": {"type":"string","pattern":"^[0-9a-f]{40}$"},
+    "build_identity": {"type":["string","null"]},
+    "runner_image": {"type":["string","null"]},
+    "os": {"type":["string","null"]},
+    "solver": {"type":["string","null"]},
+    "solver_version": {"type":["string","null"]},
+    "command": {"type":"string"},
+    "output_digest": {"type":["string","null"]},
+    "expected_result": {"type":"string"},
+    "actual_result": {"type":"string"},
+    "timestamp": {"type":["string","null"]},
+    "status": {"enum":["BoundedExecutableWitness","FormallyClosed","Failed","Unknown"]},
+    "claim_ceiling": {"type":"string"},
+    "excluded_claims": {"type":"array","items":{"type":"string"}}
+  },
+  "additionalProperties": false
+}
