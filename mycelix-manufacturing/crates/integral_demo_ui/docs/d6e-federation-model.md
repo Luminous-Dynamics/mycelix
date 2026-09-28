@@ -47,3 +47,8 @@ When quantities disagree, the result is `ConflictPreserved`; there is no implici
 ## Resolution boundary
 
 A preserved conflict is not a resolved conflict. `resolve_conflict` returns `AwaitingHumanDecision` until an explicit decision reference is supplied. The federation layer therefore records disagreement without selecting an outcome; a subsequent decision is a separate artifact.
+
+
+## FRS handoff
+
+A preserved federation conflict can now be handed to the FRS seam without selecting a quantity. FRS may recognize the disagreement and require an explicit `Accepted` or `Rejected` CDS decision; `Draft` is not treated as resolution. The reference model therefore keeps observation, assessment, recommendation, and governance decision as distinct artifacts.
