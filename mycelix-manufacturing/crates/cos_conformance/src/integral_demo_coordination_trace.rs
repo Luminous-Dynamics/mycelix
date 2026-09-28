@@ -158,7 +158,8 @@ pub fn validate_coordination_trace_alignment(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::integral_demo_federation::{FederationNode, FederationObservation, ObservationConflict};
+    use crate::integral_demo_federation::{FederationNode, FederationObservation, ObservationConflict, EvidenceBindingDecision, observation_binding_for, envelope};
+    use crate::integral_demo_federation_trace::observation_binding_trace;
     use crate::integral_demo_federation_conflict_trace::{project_conflict_trace, ConflictTraceInput};
 
     fn conflict_trace() -> TraceFixture {
@@ -274,6 +275,64 @@ mod tests {
         assert_eq!(
             validate_coordination_trace_alignment(&[item], &trace),
             Err(AlignmentError::RecoveryReferenceMismatch)
+        );
+    }
+
+    #[test]
+    fn semantic_conservation_survives_a1_federation_d5_projection() {
+        let delivery = envelope();
+        let observation = FederationObservation {
+            observation_id: "obs-conservation",
+            work_id: "work-1",
+            origin: FederationNode::Foreign,
+            quantity: 12,
+            source_ref: delivery.source_ref,
+            evidence_ref: delivery.evidence_ref,
+            observed_at: delivery.observed_at,
+        };
+        let binding = observation_binding_for(delivery, observation, 7, 20).expect("binding");
+        let projected = observation_binding_trace(
+            binding,
+            EvidenceBindingDecision::Bound,
+            1,
+            true,
+        ).expect("projection");
+
+        let artifact = CoordinationArtifact {
+            id: "obs-conservation",
+            kind: CoordinationKind::Observation,
+            origin: CoordinationOrigin::Foreign,
+            generation: 7,
+            source_ref: delivery.source_ref,
+            parent_ref: None,
+            evidence_ref: Some(delivery.evidence_ref),
+            authority_ref: None,
+            disposition: None,
+            uncertainty_present: true,
+            challengeable: true,
+            reversible: true,
+            recovery_ref: None,
+        };
+
+        assert_eq!(artifact.id, projected.event.event_id);
+        assert_eq!(artifact.origin, CoordinationOrigin::Foreign);
+        assert_eq!(projected.event.source, SourceKind::Foreign);
+        assert_eq!(artifact.generation, projected.event.generation);
+        assert_eq!(artifact.source_ref, projected.event.source_ref);
+        assert_eq!(artifact.evidence_ref, projected.event.evidence_ref);
+        assert_eq!(artifact.authority_ref, projected.event.authority_ref);
+        assert_eq!(artifact.uncertainty_present, projected.event.uncertainty_present);
+        assert_eq!(artifact.challengeable, projected.event.challengeable);
+        assert_eq!(artifact.reversible, projected.event.reversible);
+        assert_eq!(artifact.recovery_ref, projected.event.recovery_ref);
+        assert_eq!(expected_provenance(artifact.kind), Some(projected.event.provenance));
+
+        assert_eq!(
+            validate_coordination_trace_alignment(&[artifact], &TraceFixture {
+                events: vec![projected.event],
+                relations: vec![],
+            }),
+            Ok(())
         );
     }
 
