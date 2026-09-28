@@ -261,3 +261,14 @@ D6F makes the capability boundary explicit rather than leaving it implicit in st
 The capability transition validator rejects direct jumps from Evidence, Assessment, or Recommendation to Authorization or ExecutionIntent. Execution capability requires the explicit Authorization → ExecutionIntent transition. HumanDisposition remains a governance disposition boundary rather than an execution capability, so a disposition cannot be treated as an authorization merely because it is accepted.
 
 This is a structural reference-model constraint. It does not claim that these exact capability names or transitions are Integral-ratified governance rules, nor does it establish truth, legitimacy, or real-world execution.
+
+
+### D6G provenance relation algebra
+
+D6G makes provenance relations explicit in the D5 graph instead of overloading event sequence or A1 parentage. The reference relation vocabulary now includes GeneratedBy, DerivedFrom, Used, AttributedTo, and Revises, alongside existing governance/dispute relations such as Authorizes, RespondsTo, Disputes, Supersedes, Appeals, and Reopens.
+
+The direction of a provenance edge is part of its declared meaning. Validation checks the relation semantics directly; it does not infer causality from serialization order, and it does not require unrelated source references to match. Revises additionally requires an explicit newer Design generation. This keeps several concepts separate: ordering ≠ causality, parentage ≠ provenance, provenance ≠ authority.
+
+The change is deliberately additive to the D5 reference model. A1 parent_ref remains model-owned compatibility data for now; D6G does not silently reinterpret it as a provenance edge. A future migration can introduce explicit relation fields in the coordination model once the cross-boundary vocabulary is stable.
+
+This remains a ReferenceModelOnly invariant. It does not establish causal truth merely because a DerivedFrom or GeneratedBy edge is structurally valid.
