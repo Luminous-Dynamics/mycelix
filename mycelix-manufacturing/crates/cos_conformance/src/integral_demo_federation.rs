@@ -259,6 +259,62 @@ pub fn reconcile_observation_set(
     ReconciliationDecision::Agreement
 }
 
+/// A deterministic, append-only reference log for federation deliveries.
+/// Replay is pure: it never selects a winner or mutates an observation payload.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FederationLog {
+    pub deliveries: Vec<FederationEnvelope>,
+}
+
+impl FederationLog {
+    pub fn new() -> Self {
+        Self { deliveries: Vec::new() }
+    }
+
+    pub fn append(&mut self, envelope: FederationEnvelope) -> bool {
+        if self.deliveries.iter().any(|existing| {
+            existing.logical_delivery_id == envelope.logical_delivery_id
+                && existing.attempt_id == envelope.attempt_id
+        }) {
+            return false;
+        }
+        self.deliveries.push(envelope);
+        self.deliveries.sort_by_key(|event| {
+            (event.logical_delivery_id, event.attempt_id, event.observed_at)
+        });
+        true
+    }
+
+    pub fn replay(
+        &self,
+        current_generation: u32,
+        now: u64,
+    ) -> Vec<FederationDecision> {
+        let mut receipts = Vec::new();
+        self.deliveries.iter().map(|envelope| {
+            let existing = receipts
+                .iter()
+                .find(|receipt: &&FederationReceipt| {
+                    receipt.logical_delivery_id == envelope.logical_delivery_id
+                })
+                .copied();
+            let decision = accept_delivery(*envelope, current_generation, now, existing);
+            if matches!(decision, FederationDecision::Accepted) {
+                receipts.push(receipt_for(*envelope));
+            }
+            decision
+        }).collect()
+    }
+}
+
+impl Default for FederationLog {
+    fn default() -> Self { Self::new() }
+}
+
+pub fn replay_is_deterministic(log: &FederationLog, generation: u32, now: u64) -> bool {
+    log.replay(generation, now) == log.replay(generation, now)
+}
+
 pub fn reconciliation_is_order_invariant(
     observations: &[FederationObservation],
     reversed: &[FederationObservation],
@@ -373,6 +429,20 @@ mod tests {
             observed_at: 10,
             privacy_minimized: false,
         }
+    }
+
+    #[test]
+    fn federation_log_deduplicates_exact_attempts_and_replays_deterministically() {
+        let mut log = FederationLog::new();
+        let e = envelope();
+        assert!(log.append(e));
+        assert!(!log.append(e));
+        let mut retry = e;
+        retry.attempt_id = "attempt-2";
+        assert!(log.append(retry));
+        assert!(replay_is_deterministic(&log, 7, 20));
+        assert_eq!(log.replay(7, 20)[0], FederationDecision::Accepted);
+        assert_eq!(log.replay(7, 20)[1], FederationDecision::Replayed);
     }
 
     #[test]
