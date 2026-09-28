@@ -42,6 +42,8 @@ pub struct FederationEnvelope {
     /// The node whose authority is being exercised. Evidence origin and authority origin are distinct.
     pub authority_origin: FederationNode,
     pub source_ref: &'static str,
+    /// Identity of the evidence artifact carried by the delivery; distinct from source_ref.
+    pub evidence_ref: &'static str,
     pub schema_generation: u32,
     pub payload_digest: &'static str,
     pub state: DeliveryState,
@@ -70,6 +72,8 @@ pub struct FederationReceipt {
     pub attempt_id: &'static str,
     pub origin: FederationNode,
     pub authority_origin: FederationNode,
+    pub source_ref: &'static str,
+    pub evidence_ref: &'static str,
     pub payload_digest: &'static str,
     pub state: DeliveryState,
 }
@@ -80,6 +84,7 @@ pub struct FederationObservation {
     pub work_id: &'static str,
     pub origin: FederationNode,
     pub quantity: u32,
+    pub source_ref: &'static str,
     pub evidence_ref: &'static str,
     pub observed_at: u64,
 }
@@ -95,6 +100,7 @@ pub enum EvidenceBindingDecision {
     RejectedOriginMutation,
     RejectedGenerationMismatch,
     RejectedSourceMutation,
+    RejectedEvidenceMutation,
 }
 
 /// A source observation may be materialized from a federation delivery only when
@@ -106,6 +112,7 @@ pub struct FederationObservationBinding {
     pub logical_delivery_id: &'static str,
     pub observation_id: &'static str,
     pub source_ref: &'static str,
+    pub evidence_ref: &'static str,
     pub origin: FederationNode,
     pub schema_generation: u32,
     pub payload_digest: &'static str,
@@ -131,8 +138,11 @@ pub fn bind_delivery_to_observation(
     if envelope.schema_generation != current_generation {
         return EvidenceBindingDecision::RejectedGenerationMismatch;
     }
-    if observation.evidence_ref != envelope.source_ref {
+    if observation.source_ref != envelope.source_ref {
         return EvidenceBindingDecision::RejectedSourceMutation;
+    }
+    if observation.evidence_ref != envelope.evidence_ref {
+        return EvidenceBindingDecision::RejectedEvidenceMutation;
     }
     if matches!(delivery_decision, FederationDecision::Replayed) {
         EvidenceBindingDecision::Replayed
@@ -155,7 +165,8 @@ pub fn observation_binding_for(
     Some(FederationObservationBinding {
         logical_delivery_id: envelope.logical_delivery_id,
         observation_id: observation.observation_id,
-        source_ref: observation.evidence_ref,
+        source_ref: observation.source_ref,
+        evidence_ref: observation.evidence_ref,
         origin: observation.origin,
         schema_generation: envelope.schema_generation,
         payload_digest: envelope.payload_digest,
@@ -495,6 +506,8 @@ impl FederationLog {
                     candidate.logical_delivery_id == envelope.logical_delivery_id
                         && (candidate.origin != envelope.origin
                             || candidate.authority_origin != envelope.authority_origin
+                            || candidate.source_ref != envelope.source_ref
+                            || candidate.evidence_ref != envelope.evidence_ref
                             || candidate.payload_digest != envelope.payload_digest)
                 }) {
                     return if ordered.iter().any(|candidate| {
@@ -575,6 +588,12 @@ pub fn accept_delivery(
         if receipt.authority_origin != envelope.authority_origin {
             return FederationDecision::RejectedForeignAuthority;
         }
+        if receipt.source_ref != envelope.source_ref {
+            return FederationDecision::RejectedDuplicateMutation;
+        }
+        if receipt.evidence_ref != envelope.evidence_ref {
+            return FederationDecision::RejectedDuplicateMutation;
+        }
         if receipt.payload_digest != envelope.payload_digest {
             return FederationDecision::RejectedDuplicateMutation;
         }
@@ -608,6 +627,8 @@ pub fn receipt_for(envelope: FederationEnvelope) -> FederationReceipt {
         attempt_id: envelope.attempt_id,
         origin: envelope.origin,
         authority_origin: envelope.authority_origin,
+        source_ref: envelope.source_ref,
+        evidence_ref: envelope.evidence_ref,
         payload_digest: envelope.payload_digest,
         state: envelope.state,
     }
@@ -642,7 +663,8 @@ mod tests {
             attempt_id: "attempt-1",
             origin: FederationNode::Foreign,
             authority_origin: FederationNode::Local,
-            source_ref: "node://foreign/evidence/1",
+            source_ref: "node://foreign/observation/1",
+            evidence_ref: "evidence://foreign/1",
             schema_generation: 7,
             payload_digest: "digest-1",
             state: DeliveryState::Delivered,
@@ -660,6 +682,7 @@ mod tests {
                 work_id: "work-1",
                 origin: FederationNode::Local,
                 quantity: 10,
+                source_ref: "e-a",
                 evidence_ref: "e-a",
                 observed_at: 10,
             },
@@ -668,6 +691,7 @@ mod tests {
                 work_id: "work-1",
                 origin: FederationNode::Foreign,
                 quantity: 12,
+                source_ref: "e-b",
                 evidence_ref: "e-b",
                 observed_at: 11,
             },
@@ -676,6 +700,7 @@ mod tests {
                 work_id: "work-2",
                 origin: FederationNode::Foreign,
                 quantity: 4,
+                source_ref: "e-c",
                 evidence_ref: "e-c",
                 observed_at: 12,
             },
@@ -722,7 +747,8 @@ mod tests {
             work_id: "work-1",
             origin: FederationNode::Foreign,
             quantity: 12,
-            evidence_ref: e.source_ref,
+            source_ref: e.source_ref,
+                evidence_ref: e.evidence_ref,
             observed_at: e.observed_at,
         };
         assert_eq!(
@@ -736,6 +762,29 @@ mod tests {
     }
 
     #[test]
+    fn source_and_evidence_bindings_are_independently_conserved() {
+        let e = envelope();
+        let observation = FederationObservation {
+            observation_id: "obs-distinct-binding",
+            work_id: "work-1",
+            origin: FederationNode::Foreign,
+            quantity: 12,
+            source_ref: e.source_ref,
+            evidence_ref: e.evidence_ref,
+            observed_at: e.observed_at,
+        };
+        assert_eq!(bind_delivery_to_observation(e, observation, 7, 20, None), EvidenceBindingDecision::Bound);
+
+        let mut source_mutation = observation;
+        source_mutation.source_ref = "source://tampered";
+        assert_eq!(bind_delivery_to_observation(e, source_mutation, 7, 20, None), EvidenceBindingDecision::RejectedSourceMutation);
+
+        let mut evidence_mutation = observation;
+        evidence_mutation.evidence_ref = "evidence://tampered";
+        assert_eq!(bind_delivery_to_observation(e, evidence_mutation, 7, 20, None), EvidenceBindingDecision::RejectedEvidenceMutation);
+    }
+
+    #[test]
     fn observation_cannot_mutate_delivery_origin_or_source() {
         let e = envelope();
         let mut observation = FederationObservation {
@@ -743,7 +792,8 @@ mod tests {
             work_id: "work-1",
             origin: FederationNode::Local,
             quantity: 12,
-            evidence_ref: e.source_ref,
+            source_ref: e.source_ref,
+                evidence_ref: e.evidence_ref,
             observed_at: e.observed_at,
         };
         assert_eq!(
@@ -767,7 +817,8 @@ mod tests {
             work_id: "work-1",
             origin: FederationNode::Foreign,
             quantity: 12,
-            evidence_ref: stale.source_ref,
+            source_ref: stale.source_ref,
+                evidence_ref: stale.evidence_ref,
             observed_at: stale.observed_at,
         };
         assert_eq!(
@@ -782,7 +833,8 @@ mod tests {
             work_id: "work-1",
             origin: FederationNode::Foreign,
             quantity: 12,
-            evidence_ref: partitioned.source_ref,
+            source_ref: partitioned.source_ref,
+                evidence_ref: partitioned.evidence_ref,
             observed_at: partitioned.observed_at,
         };
         assert_eq!(
@@ -800,7 +852,8 @@ mod tests {
             work_id: "work-1",
             origin: FederationNode::Foreign,
             quantity: 12,
-            evidence_ref: e.source_ref,
+            source_ref: e.source_ref,
+                evidence_ref: e.evidence_ref,
             observed_at: e.observed_at,
         };
         assert_eq!(
