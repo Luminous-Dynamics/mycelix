@@ -1,13 +1,16 @@
 //! D6C executable adversarial scenario corpus for the Integral cockpit.
 //!
-//! Each scenario is a reference-model fixture with an expected validation
-//! outcome. The Leptos UI consumes these results rather than inventing
-//! scenario-specific truth.
+//! A ScenarioFixture is the single source of truth for events, graph relations,
+//! expected validation, and claim ceiling. Presentation code consumes this
+//! owned artifact; it does not maintain scenario-specific truth.
 //!
 //! Evidence ceiling: ReferenceModelOnly.
 
 use crate::integral_demo_domain::{ProvenanceClass, SourceKind};
-use crate::integral_demo_trace::{validate_trace, TraceError, TraceEvent, TraceActor, TraceKind, TraceStatus, TraceRelation, TraceRelationRef};
+use crate::integral_demo_trace::{
+    validate_trace, TraceActor, TraceError, TraceEvent, TraceFixture, TraceKind,
+    TraceRelation, TraceRelationRef, TraceStatus,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ScenarioId {
@@ -30,6 +33,18 @@ pub enum ScenarioExpected {
     PresentationOnly,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ScenarioFixture {
+    pub id: ScenarioId,
+    pub name: &'static str,
+    pub summary: &'static str,
+    pub expected: ScenarioExpected,
+    pub claim_ceiling: &'static str,
+    pub symthaea_used: bool,
+    pub trace_ref: &'static str,
+    pub trace: TraceFixture,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ScenarioResult {
     pub id: ScenarioId,
@@ -37,8 +52,11 @@ pub struct ScenarioResult {
     pub summary: &'static str,
     pub expected: ScenarioExpected,
     pub actual_valid: bool,
+    pub validation_error: Option<TraceError>,
     pub trace_len: usize,
+    pub relation_count: usize,
     pub claim_ceiling: &'static str,
+    pub symthaea_used: bool,
 }
 
 fn event(
@@ -52,6 +70,7 @@ fn event(
     authority: Option<&'static str>,
     recommendation_only: bool,
     decision_accepted: Option<bool>,
+    status: TraceStatus,
 ) -> TraceEvent {
     TraceEvent {
         event_id: id,
@@ -81,190 +100,180 @@ fn event(
         recovery_ref: if kind == TraceKind::Outcome { Some("recovery://outcome") } else { None },
         appeal_ref: if kind == TraceKind::Outcome { Some("appeal://outcome") } else { None },
         decision_accepted,
-        status: match kind {
-            TraceKind::Decision | TraceKind::Authorization | TraceKind::HumanDecision => TraceStatus::Accepted,
-            TraceKind::Outcome => TraceStatus::Executed,
-            _ => TraceStatus::Accepted,
-        },
-        relations: &[],
+        status,
     }
 }
 
-fn normal_trace() -> Vec<TraceEvent> {
+fn relation(from_event: &'static str, to_event: &'static str, relation: TraceRelation) -> TraceRelationRef {
+    TraceRelationRef { from_event, to_event, relation }
+}
+
+fn base_events() -> Vec<TraceEvent> {
     vec![
-        event("p1",1,TraceKind::Proposal,TraceActor::Human,SourceKind::Local,7,true,None,false,None),
-        event("d1",2,TraceKind::Design,TraceActor::System,SourceKind::Local,7,true,None,false,None),
-        event("c1",3,TraceKind::Decision,TraceActor::Human,SourceKind::Local,7,true,Some("auth-cds"),false,None),
-        event("a1",4,TraceKind::Authorization,TraceActor::Human,SourceKind::Local,7,true,Some("auth-production"),false,None),
-        event("x1",5,TraceKind::ExecutionIntent,TraceActor::System,SourceKind::Local,7,true,Some("auth-production"),false,None),
-        event("o1",6,TraceKind::Observation,TraceActor::System,SourceKind::Local,7,true,None,false,None),
-        event("i1",7,TraceKind::ItcProjection,TraceActor::System,SourceKind::Local,7,true,None,false,None),
-        event("f1",8,TraceKind::FrsAssessment,TraceActor::System,SourceKind::Local,7,true,None,false,None),
-        event("r1",9,TraceKind::Recommendation,TraceActor::Symthaea,SourceKind::Local,7,true,None,true,None),
-        event("h1",10,TraceKind::HumanDecision,TraceActor::Human,SourceKind::Local,7,true,Some("auth-review"),false,Some(true)),
-        event("u1",11,TraceKind::Outcome,TraceActor::System,SourceKind::Local,7,true,Some("auth-review"),false,None),
-        event("ap1",12,TraceKind::Appeal,TraceActor::Human,SourceKind::Local,7,true,None,false,None),
+        event("p1", 1, TraceKind::Proposal, TraceActor::Human, SourceKind::Local, 7, true, None, false, None, TraceStatus::Accepted),
+        event("d1", 2, TraceKind::Design, TraceActor::System, SourceKind::Local, 7, true, None, false, None, TraceStatus::Accepted),
+        event("c1", 3, TraceKind::Decision, TraceActor::Human, SourceKind::Local, 7, true, Some("auth-cds"), false, Some(true), TraceStatus::Accepted),
+        event("a1", 4, TraceKind::Authorization, TraceActor::Human, SourceKind::Local, 7, true, Some("auth-production"), false, None, TraceStatus::Accepted),
+        event("x1", 5, TraceKind::ExecutionIntent, TraceActor::System, SourceKind::Local, 7, true, Some("auth-production"), false, None, TraceStatus::Accepted),
+        event("o1", 6, TraceKind::Observation, TraceActor::System, SourceKind::Local, 7, true, None, false, None, TraceStatus::Accepted),
+        event("i1", 7, TraceKind::ItcProjection, TraceActor::System, SourceKind::Local, 7, true, None, false, None, TraceStatus::Accepted),
+        event("f1", 8, TraceKind::FrsAssessment, TraceActor::System, SourceKind::Local, 7, true, None, false, None, TraceStatus::Accepted),
+        event("r1", 9, TraceKind::Recommendation, TraceActor::Symthaea, SourceKind::Local, 7, true, None, true, None, TraceStatus::Proposed),
+        event("h1", 10, TraceKind::HumanDecision, TraceActor::Human, SourceKind::Local, 7, true, Some("auth-review"), false, Some(true), TraceStatus::Accepted),
+        event("u1", 11, TraceKind::Outcome, TraceActor::System, SourceKind::Local, 7, true, Some("auth-review"), false, None, TraceStatus::Executed),
+        event("ap1", 12, TraceKind::Appeal, TraceActor::Human, SourceKind::Local, 7, true, None, false, None, TraceStatus::Proposed),
     ]
 }
 
-pub fn trace_for(id: ScenarioId) -> Vec<TraceEvent> {
-    let mut t = normal_trace();
-    match id {
-        ScenarioId::NormalFlow => t,
-        ScenarioId::RecommendationAccepted => {
-            t[8].status = TraceStatus::Accepted;
-            t[9].decision_accepted = Some(true);
-            t
-        }
-        ScenarioId::RecommendationRejected => {
-            t[8].status = TraceStatus::Rejected;
-            t[9].decision_accepted = Some(false);
-            t
-        }
-        ScenarioId::RejectedCdsDecision => {
-            t[2].decision_accepted = Some(false);
-            t[2].status = TraceStatus::Rejected;
-            t[2].authority_ref = None;
-            t.truncate(3);
-            t
-        }
-        ScenarioId::StaleDesign => {
-            let mut prior_design = t[1];
-            prior_design.event_id = "d0";
-            prior_design.sequence = 2;
-            prior_design.generation = 6;
-            prior_design.status = TraceStatus::Superseded;
+fn base_relations() -> Vec<TraceRelationRef> {
+    vec![
+        relation("d1", "p1", TraceRelation::Supports),
+        relation("c1", "d1", TraceRelation::Supports),
+        relation("a1", "c1", TraceRelation::Authorizes),
+        relation("x1", "a1", TraceRelation::Authorizes),
+        relation("i1", "o1", TraceRelation::Supports),
+        relation("f1", "i1", TraceRelation::Supports),
+        relation("r1", "f1", TraceRelation::Supports),
+        relation("h1", "r1", TraceRelation::RespondsTo),
+        relation("u1", "h1", TraceRelation::RespondsTo),
+        relation("ap1", "u1", TraceRelation::Appeals),
+    ]
+}
 
-            t[1].event_id = "d1";
-            t[1].sequence = 3;
-            t[1].generation = 7;
-            t[1].relations = Box::leak(vec![TraceRelationRef {
-                from_event: "d1",
-                to_event: "d0",
-                relation: TraceRelation::Supersedes,
-            }].into_boxed_slice());
-            t.insert(1, prior_design);
-            for (index, event) in t.iter_mut().enumerate().skip(2) {
-                event.sequence = (index as u32) + 2;
-            }
-            // The current decision deliberately points at the superseded generation.
-            t[3].generation = 6;
-            t
-        }
-        ScenarioId::UncertainObservation => {
-            t[5].uncertainty_present = false;
-            t
-        }
-        ScenarioId::ConflictingObservations => {
-            let second = event("o2", 7, TraceKind::Observation, TraceActor::System, SourceKind::Local, 7, true, None, false, None);
-            t.truncate(6);
-            t.push(second);
-            t[6].relations = conflict_relations();
-            t
-        }
-        ScenarioId::ForeignEvidence => {
-            t[5].source = SourceKind::Foreign;
-            t[6].source = SourceKind::Foreign;
-            t[7].source = SourceKind::Foreign;
-            t[8].source = SourceKind::Foreign;
-            t[9].source = SourceKind::Local;
-            t
-        }
-        ScenarioId::AppealedOutcome => {
-            let relations = scenario_relations(ScenarioId::AppealedOutcome);
-            t[10].status = TraceStatus::Reversed;
-            t[11].status = TraceStatus::Reopened;
-            t[11].relations = relations;
-            t
-        }
-        ScenarioId::NoSymthaea => {
-            t[8].actor = TraceActor::System;
-            t
-        }
+fn fixture(
+    id: ScenarioId,
+    expected: ScenarioExpected,
+    symthaea_used: bool,
+    events: Vec<TraceEvent>,
+    relations: Vec<TraceRelationRef>,
+) -> ScenarioFixture {
+    let (name, summary) = metadata(id);
+    ScenarioFixture {
+        id,
+        name,
+        summary,
+        expected,
+        claim_ceiling: "ReferenceModelOnly",
+        symthaea_used,
+        trace_ref: "trace://integral-demo-d6c",
+        trace: TraceFixture { events, relations },
     }
 }
 
-pub fn evaluate(id: ScenarioId) -> ScenarioResult {
-    let trace = trace_for(id);
-    let actual = validate_trace(&trace);
+fn metadata(id: ScenarioId) -> (&'static str, &'static str) {
+    match id {
+        ScenarioId::NormalFlow => ("Normal flow", "Complete bounded lifecycle."),
+        ScenarioId::RejectedCdsDecision => ("Rejected CDS decision", "Missing explicit decision authority must fail closed."),
+        ScenarioId::StaleDesign => ("Stale design", "A superseded design generation cannot become current."),
+        ScenarioId::UncertainObservation => ("Uncertain observation", "Uncertainty loss is rejected."),
+        ScenarioId::ConflictingObservations => ("Conflicting observations", "Two observations remain distinguishable through an explicit dispute edge."),
+        ScenarioId::RecommendationAccepted => ("Recommendation accepted", "A recommendation can inform a later human decision."),
+        ScenarioId::RecommendationRejected => ("Recommendation rejected", "A recommendation can be rejected without breaking authority boundaries."),
+        ScenarioId::ForeignEvidence => ("Foreign evidence", "Foreign origin cannot be silently laundered into local origin."),
+        ScenarioId::AppealedOutcome => ("Appealed outcome", "A consequential outcome retains an explicit appeal and reopening path."),
+        ScenarioId::NoSymthaea => ("No-Symthaea fallback", "The trace remains usable without Symthaea."),
+    }
+}
+
+pub fn fixture_for(id: ScenarioId) -> ScenarioFixture {
+    let mut events = base_events();
+    let mut relations = base_relations();
+
+    match id {
+        ScenarioId::NormalFlow => {}
+        ScenarioId::RecommendationAccepted => {
+            events[8].status = TraceStatus::Accepted;
+            events[9].decision_accepted = Some(true);
+            events[9].status = TraceStatus::Accepted;
+        }
+        ScenarioId::RecommendationRejected => {
+            events[8].status = TraceStatus::Rejected;
+            events[9].decision_accepted = Some(false);
+            events[9].status = TraceStatus::Rejected;
+        }
+        ScenarioId::RejectedCdsDecision => {
+            events[2].status = TraceStatus::Rejected;
+            events[2].decision_accepted = Some(false);
+            events[2].authority_ref = None;
+            events.truncate(3);
+            relations.retain(|r| r.from_event != "a1" && r.from_event != "x1");
+        }
+        ScenarioId::StaleDesign => {
+            let mut prior = events[1];
+            prior.event_id = "d0";
+            prior.sequence = 2;
+            prior.generation = 6;
+            prior.status = TraceStatus::Superseded;
+            events[1].event_id = "d1";
+            events[1].sequence = 3;
+            events[1].generation = 7;
+            events.insert(1, prior);
+            for (index, event) in events.iter_mut().enumerate().skip(2) {
+                event.sequence = (index as u32) + 2;
+            }
+            events[3].generation = 6;
+            relations.retain(|r| r.from_event != "d1" && r.to_event != "d1" && r.from_event != "d0" && r.to_event != "d0");
+            relations.push(relation("d1", "d0", TraceRelation::Supersedes));
+        }
+        ScenarioId::UncertainObservation => {
+            events[5].uncertainty_present = false;
+        }
+        ScenarioId::ConflictingObservations => {
+            let second = event("o2", 7, TraceKind::Observation, TraceActor::System, SourceKind::Local, 7, true, None, false, None, TraceStatus::Disputed);
+            events.truncate(6);
+            events.push(second);
+            relations.truncate(7);
+            relations.push(relation("o2", "o1", TraceRelation::Disputes));
+        }
+        ScenarioId::ForeignEvidence => {
+            for index in 5..9 {
+                events[index].source = SourceKind::Foreign;
+            }
+        }
+        ScenarioId::AppealedOutcome => {
+            events[10].status = TraceStatus::Reversed;
+            events[11].status = TraceStatus::Reopened;
+            relations.push(relation("ap1", "h1", TraceRelation::Reopens));
+        }
+        ScenarioId::NoSymthaea => {
+            events[8].actor = TraceActor::System;
+        }
+    }
+
     let expected = match id {
         ScenarioId::NormalFlow | ScenarioId::RecommendationAccepted | ScenarioId::RecommendationRejected
         | ScenarioId::AppealedOutcome | ScenarioId::NoSymthaea => ScenarioExpected::Valid,
         ScenarioId::RejectedCdsDecision => ScenarioExpected::Invalid(TraceError::MissingAuthorization),
         ScenarioId::StaleDesign => ScenarioExpected::Invalid(TraceError::GenerationRegression),
         ScenarioId::UncertainObservation => ScenarioExpected::Invalid(TraceError::UncertaintyLoss),
-        // This fixture intentionally stops before the assessment layer: the
-        // trace validator cannot infer conflict from adjacency.
         ScenarioId::ConflictingObservations => ScenarioExpected::PresentationOnly,
         ScenarioId::ForeignEvidence => ScenarioExpected::Invalid(TraceError::ForeignOriginLoss),
     };
+
+    fixture(
+        id,
+        expected,
+        !matches!(id, ScenarioId::NoSymthaea),
+        events,
+        relations,
+    )
+}
+
+pub fn evaluate(id: ScenarioId) -> ScenarioResult {
+    let fixture = fixture_for(id);
+    let validation = validate_trace(&fixture.trace);
     ScenarioResult {
         id,
-        name: match id {
-            ScenarioId::NormalFlow => "Normal flow",
-            ScenarioId::RejectedCdsDecision => "Rejected CDS decision",
-            ScenarioId::StaleDesign => "Stale design",
-            ScenarioId::UncertainObservation => "Uncertain observation",
-            ScenarioId::ConflictingObservations => "Conflicting observations",
-            ScenarioId::RecommendationAccepted => "Recommendation accepted",
-            ScenarioId::RecommendationRejected => "Recommendation rejected",
-            ScenarioId::ForeignEvidence => "Foreign evidence",
-            ScenarioId::AppealedOutcome => "Appealed outcome",
-            ScenarioId::NoSymthaea => "No-Symthaea fallback",
-        },
-        summary: match id {
-            ScenarioId::NormalFlow => "Complete bounded lifecycle.",
-            ScenarioId::RejectedCdsDecision => "Missing explicit decision authority must fail closed.",
-            ScenarioId::StaleDesign => "A generation regression must not become current.",
-            ScenarioId::UncertainObservation => "Uncertainty loss is rejected.",
-            ScenarioId::ConflictingObservations => "Two observations must remain distinguishable.",
-            ScenarioId::RecommendationAccepted => "A recommendation can inform a later human decision.",
-            ScenarioId::RecommendationRejected => "A recommendation can be rejected without breaking authority boundaries.",
-            ScenarioId::ForeignEvidence => "Foreign origin cannot be silently laundered into local origin.",
-            ScenarioId::AppealedOutcome => "A consequential outcome retains an appeal path.",
-            ScenarioId::NoSymthaea => "The trace remains usable without Symthaea.",
-        },
-        expected,
-        actual_valid: actual.is_ok(),
-        trace_len: trace.len(),
-        claim_ceiling: "ReferenceModelOnly",
+        name: fixture.name,
+        summary: fixture.summary,
+        expected: fixture.expected,
+        actual_valid: validation.is_ok(),
+        validation_error: validation.err(),
+        trace_len: fixture.trace.events.len(),
+        relation_count: fixture.trace.relations.len(),
+        claim_ceiling: fixture.claim_ceiling,
+        symthaea_used: fixture.symthaea_used,
     }
-}
-
-pub fn conflict_relations() -> &'static [crate::integral_demo_trace::TraceRelationRef] {
-    const RELATIONS: [crate::integral_demo_trace::TraceRelationRef; 1] = [
-        crate::integral_demo_trace::TraceRelationRef {
-            from_event: "o2",
-            to_event: "o1",
-            relation: crate::integral_demo_trace::TraceRelation::Disputes,
-        },
-    ];
-    &RELATIONS
-}
-
-const APPEAL_RELATIONS: [crate::integral_demo_trace::TraceRelationRef; 2] = [
-    crate::integral_demo_trace::TraceRelationRef {
-        from_event: "ap1",
-        to_event: "u1",
-        relation: crate::integral_demo_trace::TraceRelation::Appeals,
-    },
-    crate::integral_demo_trace::TraceRelationRef {
-        from_event: "ap1",
-        to_event: "h1",
-        relation: crate::integral_demo_trace::TraceRelation::Reopens,
-    },
-];
-
-pub fn scenario_relations(id: ScenarioId) -> &'static [crate::integral_demo_trace::TraceRelationRef] {
-    match id {
-        ScenarioId::ConflictingObservations => conflict_relations(),
-        ScenarioId::AppealedOutcome => &APPEAL_RELATIONS,
-        _ => &[],
-    }
-}
-
-pub fn relation_count(id: ScenarioId) -> usize {
-    scenario_relations(id).len()
 }
 
 pub const ALL_SCENARIOS: [ScenarioId; 10] = [
@@ -311,10 +320,30 @@ mod tests {
     }
 
     #[test]
-    fn conflict_is_explicitly_not_overclaimed_by_linear_trace_validation() {
-        let result = evaluate(ScenarioId::ConflictingObservations);
-        assert!(matches!(result.expected, ScenarioExpected::PresentationOnly));
-        assert!(result.actual_valid);
+    fn conflict_is_explicitly_graph_native() {
+        let fixture = fixture_for(ScenarioId::ConflictingObservations);
+        assert!(fixture.trace.relations.iter().any(|r| r.relation == TraceRelation::Disputes));
+        assert!(evaluate(ScenarioId::ConflictingObservations).actual_valid);
+    }
+
+    #[test]
+    fn stale_design_has_owned_supersession_edge() {
+        let fixture = fixture_for(ScenarioId::StaleDesign);
+        assert!(fixture.trace.relations.iter().any(|r| {
+            r.from_event == "d1" && r.to_event == "d0" && r.relation == TraceRelation::Supersedes
+        }));
+        assert_eq!(evaluate(ScenarioId::StaleDesign).validation_error, Some(TraceError::GenerationRegression));
+    }
+
+    #[test]
+    fn accepted_and_rejected_recommendations_have_explicit_human_disposition() {
+        for (id, accepted) in [
+            (ScenarioId::RecommendationAccepted, true),
+            (ScenarioId::RecommendationRejected, false),
+        ] {
+            let fixture = fixture_for(id);
+            assert_eq!(fixture.trace.events[9].decision_accepted, Some(accepted));
+        }
     }
 
     #[test]
