@@ -177,7 +177,7 @@ Mycelix remains the semantic root and the authority for qualifying current trans
 
 ## Reference tests
 
-The module contains 19 source-level tests covering:
+The module contains 20 source-level tests covering:
 
 - provider success without independent finality;
 - accepted independent current finality;
