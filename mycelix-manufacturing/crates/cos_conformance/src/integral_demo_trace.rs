@@ -114,6 +114,7 @@ pub enum TraceError {
     RejectedDecisionHasDescendant,
     SupersededDesignUsed,
     ReopenRequiresNewPath,
+    DuplicateRelationMutation,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -288,7 +289,10 @@ pub fn validate_trace(fixture: &TraceFixture) -> Result<(), TraceError> {
         }
     }
 
-    for relation in relations {
+    for (index, relation) in relations.iter().enumerate() {
+        if relations.iter().take(index).any(|prior| prior == relation) {
+            return Err(TraceError::DuplicateRelationMutation);
+        }
         let from = events.iter().find(|e| e.event_id == relation.from_event);
         let to = events.iter().find(|e| e.event_id == relation.to_event);
         if from.is_none() || to.is_none() || relation.from_event == relation.to_event {
@@ -438,6 +442,12 @@ pub fn validate_trace(fixture: &TraceFixture) -> Result<(), TraceError> {
 /// The same logical event may be replayed, but its authoritative payload may not mutate.
 pub fn replay_is_idempotent(existing: &TraceEvent, replay: &TraceEvent) -> bool {
     existing.event_id == replay.event_id && existing == replay
+}
+
+/// A fixture replay is idempotent only when both the event payloads and causal
+/// relations are byte-for-byte equivalent at the reference-model level.
+pub fn replay_fixture_is_idempotent(existing: &TraceFixture, replay: &TraceFixture) -> bool {
+    existing == replay
 }
 
 /// Explanations are deterministic views over trace identity; they cannot become authority.
@@ -623,6 +633,16 @@ mod tests {
     }
 
     #[test]
+    #[test]
+    fn fixture_replay_cannot_mutate_graph_relations() {
+        let fixture = valid_trace();
+        assert!(replay_fixture_is_idempotent(&fixture, &fixture));
+
+        let mut mutated = fixture.clone();
+        mutated.relations.pop();
+        assert!(!replay_fixture_is_idempotent(&fixture, &mutated));
+    }
+
     fn decision_cannot_consume_a_different_design_generation() {
         let mut t = valid_trace();
         t.events[2].generation = 6;
