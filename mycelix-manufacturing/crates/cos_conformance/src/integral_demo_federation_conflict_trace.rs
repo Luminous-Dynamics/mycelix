@@ -107,7 +107,7 @@ fn observation_event(
             crate::integral_demo_federation::FederationNode::Local => SourceKind::Local,
             crate::integral_demo_federation::FederationNode::Foreign => SourceKind::Foreign,
         },
-        source_ref: observation.evidence_ref,
+        source_ref: observation.source_ref,
         evidence_ref: Some(observation.evidence_ref),
         generation,
         uncertainty_present,
@@ -142,11 +142,11 @@ mod tests {
     fn input() -> ConflictTraceInput {
         let left = FederationObservation {
             observation_id: "obs-a", work_id: "work-1", origin: FederationNode::Local,
-            quantity: 10, evidence_ref: "evidence://local-a", observed_at: 100,
+            quantity: 10, source_ref: "source://local-a", evidence_ref: "evidence://local-a", observed_at: 100,
         };
         let right = FederationObservation {
             observation_id: "obs-b", work_id: "work-1", origin: FederationNode::Foreign,
-            quantity: 12, evidence_ref: "evidence://foreign-b", observed_at: 101,
+            quantity: 12, source_ref: "source://foreign-b", evidence_ref: "evidence://foreign-b", observed_at: 101,
         };
         ConflictTraceInput {
             conflict: ObservationConflict {
@@ -166,7 +166,11 @@ mod tests {
         assert_eq!(trace.events.len(), 3);
         assert_eq!(trace.relations.len(), 4);
         assert_eq!(trace.events[0].source, SourceKind::Local);
+        assert_eq!(trace.events[0].source_ref, "source://local-a");
+        assert_eq!(trace.events[0].evidence_ref, Some("evidence://local-a"));
         assert_eq!(trace.events[1].source, SourceKind::Foreign);
+        assert_eq!(trace.events[1].source_ref, "source://foreign-b");
+        assert_eq!(trace.events[1].evidence_ref, Some("evidence://foreign-b"));
         assert_eq!(trace.events[2].kind, TraceKind::FrsAssessment);
         assert_eq!(trace.events[2].status, TraceStatus::Disputed);
         assert!(trace.events.iter().all(|event| event.authority_ref.is_none()));
