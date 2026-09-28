@@ -59,7 +59,7 @@ pub fn observation_binding_trace(
             actor: TraceActor::System,
             source,
             source_ref: binding.source_ref,
-            evidence_ref: Some(binding.source_ref),
+            evidence_ref: Some(binding.evidence_ref),
             generation: binding.schema_generation,
             uncertainty_present,
             authority_ref: None,
@@ -169,7 +169,8 @@ mod tests {
             work_id: "work-1",
             origin: FederationNode::Foreign,
             quantity: 12,
-            evidence_ref: delivery.source_ref,
+            source_ref: delivery.source_ref,
+            evidence_ref: delivery.evidence_ref,
             observed_at: delivery.observed_at,
         };
         let binding = observation_binding_for(delivery, observation, 7, 20).expect("binding");
@@ -206,7 +207,8 @@ mod tests {
             crate::integral_demo_federation::FederationObservationBinding {
                 logical_delivery_id: delivery.logical_delivery_id,
                 observation_id: observation.observation_id,
-                source_ref: observation.evidence_ref,
+                source_ref: observation.source_ref,
+                evidence_ref: observation.evidence_ref,
                 origin: observation.origin,
                 schema_generation: delivery.schema_generation,
                 payload_digest: delivery.payload_digest,
@@ -261,7 +263,8 @@ mod tests {
         let a = FederationObservationBinding {
             logical_delivery_id: delivery.logical_delivery_id,
             observation_id: "obs-a",
-            source_ref: "evidence://a",
+            source_ref: "source://a",
+            evidence_ref: "evidence://a",
             origin: FederationNode::Local,
             schema_generation: 7,
             payload_digest: "digest-a",
@@ -269,7 +272,8 @@ mod tests {
         let b = FederationObservationBinding {
             logical_delivery_id: "delivery-2",
             observation_id: "obs-b",
-            source_ref: "evidence://b",
+            source_ref: "source://b",
+            evidence_ref: "evidence://b",
             origin: FederationNode::Foreign,
             schema_generation: 7,
             payload_digest: "digest-b",
