@@ -144,7 +144,9 @@ jobs:
           assert m["source_status"] == "CandidateInterface"
           assert len(m["obligations"]) == 12
           assert all(o["status"] != "FormallyClosed" for o in m["obligations"])
-          assert "production/runtime closure remains open" in m["scope"]
+          assert m["source_commit"] == "RECORDED_IN_CI_EVIDENCE_RECEIPT"
+          assert m["runtime_receipt"]["source_commit"] == "GITHUB_SHA"
+          assert m["consistency_gate"]["required_obligation_count"] == 12
           print("IF01 refinement manifest: structurally valid and explicitly open")
           PY
       - name: Verify IF01 SMT witness
@@ -153,13 +155,16 @@ jobs:
           sudo apt-get install -y z3
           output=$(z3 mycelix-manufacturing/crates/cos_conformance/proofs/integral_if01_authority_outcome.smt2)
           printf '%s\n' "$output"
-          unsat_count="$(printf '%s\n' "$output" | grep -c '^unsat      - name: Record IF01 evidence receipt
+          unsat_count="$(printf '%s\n' "$output" | grep -c '^unsat$' || true)"
+          test "$unsat_count" -eq 3
+      - name: Record IF01 evidence receipt
         run: |
           cd mycelix-manufacturing
           mkdir -p evidence
           artifact_sha256="$(sha256sum crates/cos_conformance/proofs/integral_if01_authority_outcome.smt2 | awk '{print $1}')"
           source_sha="$(git rev-parse HEAD)"
           test "$source_sha" = "${{ github.sha }}"
+          actual_digest="$(printf '%s' "$output" | sha256sum | awk '{print $1}')"
           cat > evidence/if01-evidence-receipt.json <<EOF
           {
             "obligation_ids": ["IF01-FV-010", "IF01-FV-011", "IF01-FV-012"],
@@ -173,7 +178,7 @@ jobs:
             "solver_version": "$(z3 --version)",
             "command": "z3 crates/cos_conformance/proofs/integral_if01_authority_outcome.smt2",
             "expected_result": "3 unsat results",
-            "actual_result": $(printf '%s' "$output" | jq -Rs .),
+            "actual_result_sha256": "$actual_digest",
             "timestamp": "${{ github.run_started_at }}",
             "status": "BoundedExecutableWitness",
             "claim_ceiling": "Bounded IF01-FV-010..012 semantic contradictions only; no production/runtime/security/ratification closure.",
@@ -187,6 +192,7 @@ jobs:
           name: if01-evidence-receipt-${{ github.run_id }}-${{ github.run_attempt }}
           path: mycelix-manufacturing/evidence/if01-evidence-receipt.json
           if-no-files-found: error
+
   test-commons:
     needs: changes
     if: needs.changes.outputs.commons == 'true' || github.event_name == 'push'
