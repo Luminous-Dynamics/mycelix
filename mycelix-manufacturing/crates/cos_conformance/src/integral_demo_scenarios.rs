@@ -7,7 +7,7 @@
 //! Evidence ceiling: ReferenceModelOnly.
 
 use crate::integral_demo_domain::{ProvenanceClass, SourceKind};
-use crate::integral_demo_trace::{validate_trace, TraceError, TraceEvent, TraceActor, TraceKind};
+use crate::integral_demo_trace::{validate_trace, TraceError, TraceEvent, TraceActor, TraceKind, TraceStatus, TraceRelation, TraceRelationRef};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ScenarioId {
@@ -81,6 +81,12 @@ fn event(
         recovery_ref: if kind == TraceKind::Outcome { Some("recovery://outcome") } else { None },
         appeal_ref: if kind == TraceKind::Outcome { Some("appeal://outcome") } else { None },
         decision_accepted,
+        status: match kind {
+            TraceKind::Decision | TraceKind::Authorization | TraceKind::HumanDecision => TraceStatus::Accepted,
+            TraceKind::Outcome => TraceStatus::Executed,
+            _ => TraceStatus::Accepted,
+        },
+        relations: &[],
     }
 }
 
@@ -105,30 +111,35 @@ pub fn trace_for(id: ScenarioId) -> Vec<TraceEvent> {
     let mut t = normal_trace();
     match id {
         ScenarioId::NormalFlow | ScenarioId::RecommendationAccepted | ScenarioId::AppealedOutcome => t,
-        ScenarioId::RecommendationRejected => { t[9].decision_accepted = Some(false); t }
+        ScenarioId::RecommendationRejected => { t[8].status = TraceStatus::Rejected; t[9].decision_accepted = Some(false); t }
         ScenarioId::RejectedCdsDecision => {
             t[2].decision_accepted = Some(false);
-            t[2].status = crate::integral_demo_trace::TraceStatus::Rejected;
-            t[3].status = crate::integral_demo_trace::TraceStatus::Rejected;
+            t[2].status = TraceStatus::Rejected;
+            t[2].authority_ref = None;
             t.truncate(3);
             t
         }
         ScenarioId::StaleDesign => {
             let mut prior_design = t[1];
             prior_design.event_id = "d0";
+            prior_design.sequence = 2;
             prior_design.generation = 6;
-            prior_design.status = crate::integral_demo_trace::TraceStatus::Superseded;
+            prior_design.status = TraceStatus::Superseded;
 
+            t[1].event_id = "d1";
+            t[1].sequence = 3;
             t[1].generation = 7;
-            t[1].relations = Box::leak(vec![crate::integral_demo_trace::TraceRelationRef {
+            t[1].relations = Box::leak(vec![TraceRelationRef {
                 from_event: "d1",
                 to_event: "d0",
-                relation: crate::integral_demo_trace::TraceRelation::Supersedes,
+                relation: TraceRelation::Supersedes,
             }].into_boxed_slice());
+            for (index, event) in t.iter_mut().enumerate().skip(2) {
+                event.sequence = (index as u32) + 2;
+            }
             t[2].generation = 6;
-            t.insert(2, prior_design);
+            t.insert(1, prior_design);
             t
-        }
         ScenarioId::UncertainObservation => {
             t[5].uncertainty_present = false;
             t
