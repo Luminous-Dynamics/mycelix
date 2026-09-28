@@ -162,14 +162,14 @@ mod tests {
     use crate::integral_demo_federation_conflict_trace::{project_conflict_trace, ConflictTraceInput};
 
     fn conflict_trace() -> TraceFixture {
-        let left = FederationObservation { observation_id: "obs-a", work_id: "work-1", origin: FederationNode::Local, quantity: 10, evidence_ref: "evidence://local-a", observed_at: 100 };
-        let right = FederationObservation { observation_id: "obs-b", work_id: "work-1", origin: FederationNode::Foreign, quantity: 12, evidence_ref: "evidence://foreign-b", observed_at: 101 };
+        let left = FederationObservation { observation_id: "obs-a", work_id: "work-1", origin: FederationNode::Local, quantity: 10, source_ref: "source://local-a", evidence_ref: "evidence://local-a", observed_at: 100 };
+        let right = FederationObservation { observation_id: "obs-b", work_id: "work-1", origin: FederationNode::Foreign, quantity: 12, source_ref: "source://foreign-b", evidence_ref: "evidence://foreign-b", observed_at: 101 };
         let conflict = ObservationConflict { work_id: "work-1", left_observation_id: "obs-a", left_origin: FederationNode::Local, left_quantity: 10, right_observation_id: "obs-b", right_origin: FederationNode::Foreign, right_quantity: 12 };
-        project_conflict_trace(ConflictTraceInput { conflict, left, right, assessment_id: "frs-conflict-1", assessment_source_ref: "assessment://conflict-1", generation: 7, assessed_at: 110, uncertainty_present: true }).expect("trace")
+        project_conflict_trace(ConflictTraceInput { conflict, left, right, assessment_id: "frs-conflict-1", assessment_source_ref: "assessment://conflict-1", assessment_evidence_ref: "evidence://conflict-1", generation: 7, assessed_at: 110, uncertainty_present: true }).expect("trace")
     }
 
     fn artifact(id: &'static str, kind: CoordinationKind, origin: CoordinationOrigin, source_ref: &'static str) -> CoordinationArtifact {
-        CoordinationArtifact { id, kind, origin, generation: 7, source_ref, parent_ref: None, evidence_ref: if kind == CoordinationKind::Assessment { Some("evidence://conflict-1") } else if kind == CoordinationKind::Observation { Some(source_ref) } else { None }, authority_ref: None, disposition: None, uncertainty_present: true, challengeable: true, reversible: true, recovery_ref: None }
+        CoordinationArtifact { id, kind, origin, generation: 7, source_ref, parent_ref: None, evidence_ref: if kind == CoordinationKind::Assessment { Some("evidence://conflict-1") } else if kind == CoordinationKind::Observation { Some(if source_ref.starts_with("source://") { if source_ref == "source://local-a" { "evidence://local-a" } else if source_ref == "source://foreign-b" { "evidence://foreign-b" } else { source_ref } } else { source_ref }) } else { None }, authority_ref: None, disposition: None, uncertainty_present: true, challengeable: true, reversible: true, recovery_ref: None }
     }
 
     #[test]
