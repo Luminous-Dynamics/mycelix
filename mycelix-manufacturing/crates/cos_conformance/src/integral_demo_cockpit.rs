@@ -156,6 +156,7 @@ mod tests {
         recommendation_only: true,
         recovery_ref: None,
         appeal_ref: None,
+        decision_accepted: None,
     }];
 
     #[test]
