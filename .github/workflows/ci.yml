@@ -36,6 +36,7 @@ jobs:
       bridge: ${{ steps.filter.outputs.bridge }}
       sdk: ${{ steps.filter.outputs.sdk }}
       prism: ${{ steps.filter.outputs.prism }}
+      cos_conformance: ${{ steps.filter.outputs.cos_conformance }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -73,6 +74,12 @@ jobs:
               - 'mycelix-workspace/sdk-ts/**'
             prism:
               - 'mycelix-workspace/mycelix-prism/**'
+            cos_conformance:
+              - 'mycelix-manufacturing/crates/cos_conformance/**'
+              - 'mycelix-manufacturing/Cargo.toml'
+              - 'mycelix-manufacturing/Cargo.lock'
+              - 'docs/integral/cos-reference-node-v1.md'
+              - 'mycelix-manufacturing/tests/cos_reference_conformance.md'
 
   # Format check (always runs when CI is admitted)
   format:
@@ -106,6 +113,30 @@ jobs:
           exit $status
 
   # Per-cluster test jobs
+  test-cos-conformance:
+    needs: changes
+    if: needs.changes.outputs.cos_conformance == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-manufacturing
+      - name: Check COS conformance formatting
+        run: cd mycelix-manufacturing && cargo fmt --all --check
+      - name: Test COS conformance harness
+        run: cd mycelix-manufacturing && cargo test -p cos_conformance
+      - name: Generate machine-readable report
+        run: cd mycelix-manufacturing && cargo run -q -p cos_conformance --bin cos-report > cos-conformance-report.json
+      - name: Validate report
+        run: test -s mycelix-manufacturing/cos-conformance-report.json && grep -q 'COS-CONF-001' mycelix-manufacturing/cos-conformance-report.json
+
   test-commons:
     needs: changes
     if: needs.changes.outputs.commons == 'true' || github.event_name == 'push'
@@ -412,6 +443,7 @@ jobs:
     if: always() && !cancelled() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false))
     needs:
       - format
+      - test-cos-conformance
       - test-commons
       - test-civic
       - test-hearth
@@ -429,6 +461,7 @@ jobs:
       - name: Check results
         run: |
           echo "Format: ${{ needs.format.result }}"
+          echo "COS conformance: ${{ needs.test-cos-conformance.result }}"
           echo "Commons: ${{ needs.test-commons.result }}"
           echo "Civic: ${{ needs.test-civic.result }}"
           echo "Hearth: ${{ needs.test-hearth.result }}"
@@ -445,7 +478,7 @@ jobs:
           echo "Prism: ${{ needs.test-prism.result }}"
           if [ "${{ needs.format.result }}" = "failure" ]; then exit 1; fi
           # Skipped jobs are OK (path filter didn't match)
-          for result in "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
+          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
             if [ "$result" = "failure" ]; then exit 1; fi
           done
           echo "All checks passed!"
