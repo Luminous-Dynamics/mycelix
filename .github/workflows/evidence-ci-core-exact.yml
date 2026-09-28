@@ -1,0 +1,210 @@
+name: EVIDENCE-CI Core Exact Qualification
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/evidence-ci-core-exact.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: evidence-ci-core-exact-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out exact execution wrapper
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 2
+
+      - name: Prove workflow-only wrapper over exact semantic core
+        shell: bash
+        run: |
+          set -euo pipefail
+          product="4190f855eb0f3c03a7a6b0decee84dd7edba07b4"
+          test "$(git rev-list --parents -n 1 HEAD | awk '{print NF}')" -eq 2
+          test "$(git rev-parse HEAD^)" = "$product"
+          test "$(git rev-list --count "${product}..HEAD")" -eq 1
+          mapfile -t changed < <(git diff --name-only HEAD^ HEAD | sort)
+          expected=(".github/workflows/evidence-ci-core-exact.yml")
+          printf '%s\n' "${changed[@]}" > /tmp/changed
+          printf '%s\n' "${expected[@]}" > /tmp/expected
+          diff -u /tmp/expected /tmp/changed
+          git diff --quiet HEAD^ HEAD -- crates/mycelix-evidence-ci-core
+
+      - name: Bind exact product blobs and dependency surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          product="4190f855eb0f3c03a7a6b0decee84dd7edba07b4"
+          test "$(git rev-parse "${product}:crates/mycelix-evidence-ci-core/Cargo.toml")" = "b033f4fd7cf0c70d2b5a8642630cec2e26da99e3"
+          test "$(git rev-parse "${product}:crates/mycelix-evidence-ci-core/INVARIANTS.md")" = "56adc026c8d510dc3ee82e1b81d8f2989a8cc6b2"
+          test "$(git rev-parse "${product}:crates/mycelix-evidence-ci-core/src/lib.rs")" = "b8b2baced6328ad9df6c7bead4467b5c5085d07e"
+          python3 - <<'PY'
+          import subprocess
+          product = "4190f855eb0f3c03a7a6b0decee84dd7edba07b4"
+          cargo = subprocess.check_output([
+              "git", "show", f"{product}:crates/mycelix-evidence-ci-core/Cargo.toml"
+          ], text=True)
+          src = subprocess.check_output([
+              "git", "show", f"{product}:crates/mycelix-evidence-ci-core/src/lib.rs"
+          ], text=True)
+          if "[dependencies]\n" not in cargo:
+              raise SystemExit("missing dependencies section")
+          if cargo.split("[dependencies]\n", 1)[1].strip():
+              raise SystemExit("EVIDENCE-CI core acquired dependencies")
+          if "#![deny(unsafe_code)]" not in src:
+              raise SystemExit("unsafe-code deny boundary missing")
+          PY
+
+      - name: Bootstrap pinned rustup installer and exact Rust release
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUSTUP_VERSION="1.29.0"
+          RUSTUP_SHA256="4acc9acc76d5079515b46346a485974457b5a79893cfb01112423c89aeb5aa10"
+          HOST="x86_64-unknown-linux-gnu"
+          URL="https://static.rust-lang.org/rustup/archive/${RUSTUP_VERSION}/${HOST}/rustup-init"
+          curl --fail --location --retry 3 --silent --show-error "$URL" -o /tmp/rustup-init
+          echo "${RUSTUP_SHA256}  /tmp/rustup-init" | sha256sum --check
+          chmod 0755 /tmp/rustup-init
+          /tmp/rustup-init -y --no-modify-path --profile minimal --default-host "$HOST" --default-toolchain 1.98.1
+          "$HOME/.cargo/bin/rustup" component add --toolchain 1.98.1 rustfmt clippy
+          "$HOME/.cargo/bin/rustup" target add --toolchain 1.98.1 wasm32-unknown-unknown
+          "$HOME/.cargo/bin/rustc" +1.98.1 --version | grep -Eq '^rustc 1\.98\.1 '
+          "$HOME/.cargo/bin/cargo" +1.98.1 --version | grep -Eq '^cargo 1\.98\.1 '
+
+      - name: Materialize exact product bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          product="4190f855eb0f3c03a7a6b0decee84dd7edba07b4"
+          root=/tmp/mycelix-evidence-ci-core
+          rm -rf "$root"
+          mkdir -p "$root/src"
+          git show "${product}:crates/mycelix-evidence-ci-core/Cargo.toml" > "$root/Cargo.toml"
+          git show "${product}:crates/mycelix-evidence-ci-core/INVARIANTS.md" > "$root/INVARIANTS.md"
+          git show "${product}:crates/mycelix-evidence-ci-core/src/lib.rs" > "$root/src/lib.rs"
+          test "$(git hash-object "$root/Cargo.toml")" = "b033f4fd7cf0c70d2b5a8642630cec2e26da99e3"
+          test "$(git hash-object "$root/INVARIANTS.md")" = "56adc026c8d510dc3ee82e1b81d8f2989a8cc6b2"
+          test "$(git hash-object "$root/src/lib.rs")" = "b8b2baced6328ad9df6c7bead4467b5c5085d07e"
+
+      - name: Collect exact Rust qualification matrix
+        shell: bash
+        run: |
+          set -uo pipefail
+          C="$HOME/.cargo/bin/cargo"
+          manifest="/tmp/mycelix-evidence-ci-core/Cargo.toml"
+          lock="/tmp/mycelix-evidence-ci-core/Cargo.lock"
+          receipt=/tmp/evidence-ci-core-matrix
+          : > "$receipt"
+
+          record() {
+            local name="$1"
+            shift
+            if "$@"; then
+              printf '%s=PASS\n' "$name" | tee -a "$receipt"
+            else
+              printf '%s=FAIL\n' "$name" | tee -a "$receipt"
+            fi
+          }
+
+          record lockfile "$C" +1.98.1 generate-lockfile --offline --manifest-path "$manifest"
+          if test -f "$lock"; then
+            sha256sum "$lock" | tee /tmp/evidence-ci-core-lock.sha256
+          else
+            echo 'lockfile_missing=FAIL' | tee -a "$receipt"
+          fi
+          record rustfmt "$C" +1.98.1 fmt --manifest-path "$manifest" -- --check
+          record tests "$C" +1.98.1 test --locked --offline --manifest-path "$manifest" --all-targets
+          record clippy "$C" +1.98.1 clippy --locked --offline --manifest-path "$manifest" --all-targets -- -D warnings
+          record wasm32 "$C" +1.98.1 check --locked --offline --manifest-path "$manifest" --target wasm32-unknown-unknown
+
+      - name: Prove materialized corpus and generated lock remained immutable
+        if: always()
+        shell: bash
+        run: |
+          set -uo pipefail
+          root=/tmp/mycelix-evidence-ci-core
+          receipt=/tmp/evidence-ci-core-matrix
+          touch "$receipt"
+
+          product_ok=true
+          test -f "$root/Cargo.toml" || product_ok=false
+          test -f "$root/INVARIANTS.md" || product_ok=false
+          test -f "$root/src/lib.rs" || product_ok=false
+          if $product_ok && \
+             test "$(git hash-object "$root/Cargo.toml")" = "b033f4fd7cf0c70d2b5a8642630cec2e26da99e3" && \
+             test "$(git hash-object "$root/INVARIANTS.md")" = "56adc026c8d510dc3ee82e1b81d8f2989a8cc6b2" && \
+             test "$(git hash-object "$root/src/lib.rs")" = "b8b2baced6328ad9df6c7bead4467b5c5085d07e"; then
+            echo 'materialized_product_immutable=PASS' | tee -a "$receipt"
+          else
+            echo 'materialized_product_immutable=FAIL' | tee -a "$receipt"
+          fi
+
+          if test -f "$root/Cargo.lock" && test -f /tmp/evidence-ci-core-lock.sha256 && \
+             echo "$(cat /tmp/evidence-ci-core-lock.sha256)" | sha256sum --check --status; then
+            echo 'generated_lock_immutable=PASS' | tee -a "$receipt"
+          else
+            echo 'generated_lock_immutable=FAIL' | tee -a "$receipt"
+          fi
+
+      - name: Record immutable reviewed checkout
+        if: always()
+        shell: bash
+        run: |
+          set -uo pipefail
+          receipt=/tmp/evidence-ci-core-matrix
+          touch "$receipt"
+          if test -z "$(git status --porcelain)"; then
+            echo 'checkout_immutable=PASS' | tee -a "$receipt"
+          else
+            git status --short
+            echo 'checkout_immutable=FAIL' | tee -a "$receipt"
+          fi
+
+      - name: Emit bounded qualification receipt
+        if: always()
+        shell: bash
+        run: |
+          set -uo pipefail
+          printf '%s\n' \
+            'scope=pure EVIDENCE-CI liveness/conjunction implementation qualification only' \
+            'product_subject=4190f855eb0f3c03a7a6b0decee84dd7edba07b4' \
+            'rust_release=1.98.1' \
+            'rustup_installer_sha256=4acc9acc76d5079515b46346a485974457b5a79893cfb01112423c89aeb5aa10' \
+            'full_rust_toolchain_content_hash_attested=false' \
+            'raw_provider_authenticity_established=false' \
+            'underlying_scientific_theorem_qualified=false' \
+            'runner_availability_guaranteed=false' \
+            'repository_mutation_authority=false' \
+            'failover_dispatch_authority=false' \
+            'cross_run_stitching_authorized=false'
+          if test -f /tmp/evidence-ci-core-lock.sha256; then
+            cat /tmp/evidence-ci-core-lock.sha256
+          fi
+          if test -f /tmp/evidence-ci-core-matrix; then
+            cat /tmp/evidence-ci-core-matrix
+          fi
+
+      - name: Enforce fail-closed promotion gate
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          receipt=/tmp/evidence-ci-core-matrix
+          test -f "$receipt"
+          ! grep -q '=FAIL$' "$receipt"
+          for required in \
+            lockfile rustfmt tests clippy wasm32 \
+            materialized_product_immutable generated_lock_immutable checkout_immutable; do
+            grep -qx "${required}=PASS" "$receipt"
+          done
