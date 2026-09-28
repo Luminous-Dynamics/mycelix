@@ -123,7 +123,7 @@ At minimum, measure:
 - ability to complete the task without AI assistance;
 - ability to explain why an AI recommendation can be rejected.
 
-A system can produce high satisfaction while producing poor calibration. Conversely, deliberate verification friction may reduce convenience while improving independent checking. Current research on automation bias supports testing active verification rather than assuming that more explanation automatically produces better decisions. citeturn0search0turn0search1
+A system can produce high satisfaction while producing poor calibration. Conversely, deliberate verification friction may reduce convenience while improving independent checking. Current research on automation bias supports testing active verification rather than assuming that more explanation automatically produces better decisions.
 
 ## Experimental protocol
 
@@ -140,7 +140,7 @@ It is:
 
 > Can participants use assistance while retaining an accurate mental model of what the system knows, what it recommends, what it does not know, and who actually has authority?
 
-This follows the broader trust-calibration literature, including work emphasizing multidimensional confidence and dynamic calibration rather than a single trust value. citeturn0search3
+This follows the broader trust-calibration literature, including work emphasizing multidimensional confidence and dynamic calibration rather than a single trust value.
 
 ## Graduation rule
 
