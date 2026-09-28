@@ -244,12 +244,12 @@ pub fn conflict_relations() -> &'static [crate::integral_demo_trace::TraceRelati
 
 const APPEAL_RELATIONS: [crate::integral_demo_trace::TraceRelationRef; 2] = [
     crate::integral_demo_trace::TraceRelationRef {
-        from_event: "a1",
-        to_event: "o1",
+        from_event: "ap1",
+        to_event: "u1",
         relation: crate::integral_demo_trace::TraceRelation::Appeals,
     },
     crate::integral_demo_trace::TraceRelationRef {
-        from_event: "a1",
+        from_event: "ap1",
         to_event: "h1",
         relation: crate::integral_demo_trace::TraceRelation::Reopens,
     },
