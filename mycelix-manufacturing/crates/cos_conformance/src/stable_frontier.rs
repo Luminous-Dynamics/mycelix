@@ -252,7 +252,7 @@ fn exact_partition(
     left.is_disjoint(right)
         && left.is_subset(known)
         && right.is_subset(known)
-        && left.union(right).cloned().collect::<BTreeSet<_>>() == *known
+        && left.union(right).cloned().collect::<BTreeSet<_>>() == known
 }
 
 pub fn assess_retention_boundary(
