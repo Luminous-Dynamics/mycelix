@@ -69,7 +69,6 @@ pub fn assess_reactivation(
     }
     if generation.generation_id == tombstone.retired_generation_id
         || candidate.proposed_generation_id == tombstone.retired_generation_id
-        || generation.creation_event_id == candidate.successor_event_id
     {
         return ReactivationDisposition::BlockedResurrection;
     }
@@ -78,7 +77,9 @@ pub fn assess_reactivation(
     {
         return ReactivationDisposition::InsufficientEvidence;
     }
-    if generation.state_fingerprint == candidate.state_fingerprint {
+    if candidate.successor_event_id == generation.creation_event_id
+        && generation.generation_id == tombstone.retired_generation_id
+    {
         return ReactivationDisposition::BlockedResurrection;
     }
     ReactivationDisposition::AcceptedSuccessor
@@ -316,11 +317,31 @@ mod tests {
     }
 
     #[test]
-    fn same_visible_value_without_successor_generation_is_not_reactivation() {
+    fn same_visible_value_can_return_only_as_an_explicit_new_generation() {
         let new_generation = generation("gen-2", "same-state");
         let tombstone = tombstone();
         let candidate = successor("same-state");
-        assert_eq!(assess_reactivation(&new_generation, &tombstone, &candidate), ReactivationDisposition::BlockedResurrection);
+        assert_eq!(assess_reactivation(&new_generation, &tombstone, &candidate), ReactivationDisposition::AcceptedSuccessor);
+    }
+
+    #[test]
+    fn old_successor_event_cannot_be_reused() {
+        let old_generation = generation("gen-1", "old-state");
+        let tombstone = tombstone();
+        let candidate = ReactivationCandidate {
+            candidate_id: "old-event-replay".into(),
+            lineage_id: "lineage-1".into(),
+            proposed_generation_id: "gen-1".into(),
+            predecessor_tombstone_id: "tomb-1".into(),
+            predecessor_frontier_root: "frontier-1".into(),
+            successor_event_id: old_generation.creation_event_id.clone(),
+            state_fingerprint: "old-state".into(),
+            semantic_environment_root: "env-1".into(),
+        };
+        assert_eq!(
+            assess_reactivation(&old_generation, &tombstone, &candidate),
+            ReactivationDisposition::BlockedResurrection
+        );
     }
 
     #[test]
