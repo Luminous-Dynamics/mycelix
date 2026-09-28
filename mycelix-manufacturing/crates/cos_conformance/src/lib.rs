@@ -348,3 +348,5 @@ pub mod integral_demo_itc_frs;
 pub mod integral_demo_trace;
 
 pub mod integral_demo_cockpit;
+
+pub mod integral_demo_scenarios;

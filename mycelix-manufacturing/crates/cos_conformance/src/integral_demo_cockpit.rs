@@ -6,7 +6,7 @@
 //!
 //! Evidence ceiling: ReferenceModelOnly.
 
-use crate::integral_demo_trace::{ExplanationLevel, TraceActor, TraceEvent, TraceKind};
+use crate::integral_demo_trace::{ExplanationLevel, TraceActor, TraceEvent, TraceFixture, TraceKind};
 use crate::integral_demo_domain::SourceKind;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -70,12 +70,13 @@ fn fact_for(event: &TraceEvent, field: CockpitField) -> CockpitFact {
 pub fn project_cockpit(
     trace_ref: &'static str,
     level: ExplanationLevel,
-    events: &'static [TraceEvent],
+    fixture: &TraceFixture,
 ) -> Option<CockpitView> {
-    if trace_ref.is_empty() || events.is_empty() {
+    if trace_ref.is_empty() || fixture.events.is_empty() {
         return None;
     }
 
+    let events = &fixture.events;
     let has_recommendation = events.iter().any(|e| e.kind == TraceKind::Recommendation);
     let has_human_decision = events.iter().any(|e| e.kind == TraceKind::HumanDecision);
     let has_uncertainty = events.iter().any(|e| e.uncertainty_present);
@@ -84,7 +85,11 @@ pub fn project_cockpit(
     let has_challenge_path = events.iter().any(|e| e.challengeable);
 
     let fields = fields_for(level);
-    let facts = events.iter().flat_map(|event| fields.iter().map(move |field| fact_for(event, *field))).collect();
+    let facts = events
+        .iter()
+        .flat_map(|event| fields.iter().map(move |field| fact_for(event, *field)))
+        .collect();
+
     Some(CockpitView {
         trace_ref,
         level,
@@ -138,29 +143,36 @@ pub fn fields_for(level: ExplanationLevel) -> &'static [CockpitField] {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::integral_demo_trace::{TraceActor, TraceKind};
+    use crate::integral_demo_trace::{TraceActor, TraceEvent, TraceFixture, TraceKind, TraceStatus};
 
-    const TRACE: [TraceEvent; 1] = [TraceEvent {
-        event_id: "e1",
-        sequence: 1,
-        kind: TraceKind::Recommendation,
-        provenance: crate::integral_demo_domain::ProvenanceClass::Recommendation,
-        actor: TraceActor::Symthaea,
-        source: crate::integral_demo_domain::SourceKind::Local,
-        source_ref: "evidence://recommendation",
-        generation: 7,
-        uncertainty_present: true,
-        authority_ref: None,
-        reversible: true,
-        challengeable: true,
-        recommendation_only: true,
-        recovery_ref: None,
-        appeal_ref: None,
-    }];
+    fn fixture() -> TraceFixture {
+        TraceFixture {
+            events: vec![TraceEvent {
+                event_id: "e1",
+                sequence: 1,
+                kind: TraceKind::Recommendation,
+                provenance: crate::integral_demo_domain::ProvenanceClass::Recommendation,
+                actor: TraceActor::Symthaea,
+                source: crate::integral_demo_domain::SourceKind::Local,
+                source_ref: "evidence://recommendation",
+                generation: 7,
+                uncertainty_present: true,
+                authority_ref: None,
+                reversible: true,
+                challengeable: true,
+                recommendation_only: true,
+                recovery_ref: None,
+                appeal_ref: None,
+                decision_accepted: None,
+                status: TraceStatus::Proposed,
+            }],
+            relations: vec![],
+        }
+    }
 
     #[test]
     fn projection_is_descriptive_not_authoritative() {
-        let view = project_cockpit("trace://demo", ExplanationLevel::Summary, &TRACE).expect("view");
+        let view = project_cockpit("trace://demo", ExplanationLevel::Summary, &fixture()).expect("view");
         assert!(view.has_recommendation);
         assert!(view.has_uncertainty);
         assert_eq!(view.trace_ref, "trace://demo");
@@ -178,7 +190,7 @@ mod tests {
 
     #[test]
     fn empty_trace_is_not_presented_as_a_result() {
-        assert!(project_cockpit("trace://demo", ExplanationLevel::Summary, &[]).is_none());
-        assert!(project_cockpit("", ExplanationLevel::Summary, &TRACE).is_none());
+        assert!(project_cockpit("trace://demo", ExplanationLevel::Summary, &TraceFixture { events: vec![], relations: vec![] }).is_none());
+        assert!(project_cockpit("", ExplanationLevel::Summary, &fixture()).is_none());
     }
 }
