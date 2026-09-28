@@ -198,6 +198,17 @@ pub fn conflict_relations() -> &'static [crate::integral_demo_trace::TraceRelati
     &RELATIONS
 }
 
+pub fn scenario_relations(id: ScenarioId) -> &'static [crate::integral_demo_trace::TraceRelationRef] {
+    match id {
+        ScenarioId::ConflictingObservations => conflict_relations(),
+        _ => &[],
+    }
+}
+
+pub fn relation_count(id: ScenarioId) -> usize {
+    scenario_relations(id).len()
+}
+
 pub const ALL_SCENARIOS: [ScenarioId; 10] = [
     ScenarioId::NormalFlow,
     ScenarioId::RejectedCdsDecision,
