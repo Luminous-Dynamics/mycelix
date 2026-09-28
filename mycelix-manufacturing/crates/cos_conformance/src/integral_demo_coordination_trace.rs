@@ -169,7 +169,7 @@ mod tests {
     }
 
     fn artifact(id: &'static str, kind: CoordinationKind, origin: CoordinationOrigin, source_ref: &'static str) -> CoordinationArtifact {
-        CoordinationArtifact { id, kind, origin, generation: 7, source_ref, parent_ref: None, evidence_ref: Some(source_ref), authority_ref: None, disposition: None, uncertainty_present: true, challengeable: true, reversible: true, recovery_ref: None }
+        CoordinationArtifact { id, kind, origin, generation: 7, source_ref, parent_ref: None, evidence_ref: if kind == CoordinationKind::Assessment { Some("evidence://conflict-1") } else if kind == CoordinationKind::Observation { Some(source_ref) } else { None }, authority_ref: None, disposition: None, uncertainty_present: true, challengeable: true, reversible: true, recovery_ref: None }
     }
 
     #[test]
