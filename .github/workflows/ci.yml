@@ -132,6 +132,359 @@ jobs:
         run: cd mycelix-manufacturing && cargo run -q -p cos_conformance --bin cos-report > cos-conformance-report.json
       - name: Validate report
         run: test -s mycelix-manufacturing/cos-conformance-report.json && grep -q 'COS-CONF-001' mycelix-manufacturing/cos-conformance-report.json
+      - name: Verify IF01 SMT witness
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y z3
+          output=$(z3 mycelix-manufacturing/crates/cos_conformance/proofs/integral_if01_authority_outcome.smt2)
+          printf '%s\n' "$output"
+          test "$(printf '%s\n' "$output" | grep -c '^unsat
+  test-commons:
+    needs: changes
+    if: needs.changes.outputs.commons == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-commons
+      - name: Test commons
+        run: cd mycelix-commons && cargo test --workspace
+
+  test-civic:
+    needs: changes
+    if: needs.changes.outputs.civic == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-civic
+      - name: Test civic
+        run: cd mycelix-civic && cargo test --workspace
+
+  test-hearth:
+    needs: changes
+    if: needs.changes.outputs.hearth == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-hearth
+      - name: Test hearth
+        run: cd mycelix-hearth && cargo test --workspace
+
+  test-finance:
+    needs: changes
+    if: needs.changes.outputs.finance == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-finance
+      - name: Test finance
+        run: cd mycelix-finance && cargo test --workspace
+
+  # Separate from test-finance on purpose: this needs nix (for `hc`) and a much
+  # longer timeout (a cold `holochain` crate compile alone takes ~1h without a
+  # warm rust-cache), so it shouldn't share test-finance's fast 20-minute budget.
+  # `tests/` is excluded from the finance Cargo workspace and every sweettest is
+  # #[ignore]-gated, so `cargo test --workspace` in test-finance never runs them —
+  # this job is what actually packs the DNA and exercises the SweetConductor
+  # fail-closed-gate checks end to end.
+  #
+  # NOT yet in ci-pass's required job list: the finance zomes/types/tests this
+  # job needs (e.g. tests/sweettest_sap_finality_adversarial.rs) haven't been
+  # synced from the monorepo to this repo yet, so it is EXPECTED to fail until
+  # that sync lands. It still runs and reports for visibility — once the
+  # finance sync lands, add `test-finance-integration` to ci-pass's `needs`
+  # and failure-check loop below to make it a real merge gate.
+  test-finance-integration:
+    name: Finance Integration (SweetConductor)
+    needs: changes
+    if: needs.changes.outputs.finance == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: cachix/install-nix-action@v27
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+      - uses: cachix/cachix-action@v15
+        with:
+          name: holochain-ci
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            mycelix-finance
+            mycelix-finance/tests
+      - name: Build finance zomes (wasm32)
+        # hc dna pack reads dna.yaml's zome paths, which point at
+        # ../target/wasm32-unknown-unknown/release/*.wasm relative to dna/ —
+        # nothing builds those files on its own. Skipping this step is what
+        # made "Pack finance DNA" fail with "Failed to canonicalize resource
+        # path: .../recognition.wasm: No such file or directory" after a
+        # real ~25-minute nix toolchain build that otherwise succeeded.
+        run: |
+          cd mycelix-finance && nix develop .#ci --impure --command \
+            cargo build --release --target wasm32-unknown-unknown --workspace --exclude finance-leptos-types
+      - name: Pack finance DNA
+        # --impure: the flake's .#ci shell imports ../../nix/modules/
+        # holochain-base.nix, a relative path outside mycelix-finance's own
+        # flake root — flakes evaluate purely by default, so without this
+        # flag `nix develop` fails immediately with "access to absolute
+        # path '/nix/store/nix' is forbidden in pure evaluation mode",
+        # before ever reaching `hc`. Confirmed locally: the same command
+        # fails identically without --impure and proceeds to build with it.
+        run: cd mycelix-finance && nix develop .#ci --impure --command hc dna pack dna/
+      - name: Run SweetConductor integration tests
+        run: |
+          cd mycelix-finance && nix develop .#ci --impure --command bash -c "
+            cd tests && cargo test -- --include-ignored --test-threads=1
+          "
+
+  test-governance:
+    needs: changes
+    if: needs.changes.outputs.governance == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-governance
+      - name: Test governance
+        run: cd mycelix-governance && cargo test --workspace
+
+  test-identity:
+    needs: changes
+    if: needs.changes.outputs.identity == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-identity
+      - name: Test identity
+        run: cd mycelix-identity && cargo test --workspace
+
+  test-personal:
+    needs: changes
+    if: needs.changes.outputs.personal == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-personal
+      - name: Test personal
+        run: cd mycelix-personal && cargo test --workspace
+
+  test-attribution:
+    needs: changes
+    if: needs.changes.outputs.attribution == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-attribution
+      - name: Test attribution
+        run: cd mycelix-attribution && cargo test --workspace
+
+  test-bridge:
+    needs: changes
+    if: needs.changes.outputs.bridge == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/mycelix-bridge-common
+      - name: Test bridge-common
+        run: cd crates/mycelix-bridge-common && cargo test --workspace
+      - name: Test bridge-entry-types
+        run: cd crates/mycelix-bridge-entry-types && cargo test --workspace
+
+  test-sdk:
+    needs: changes
+    if: needs.changes.outputs.sdk == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/sdk
+      - name: Test Rust SDK
+        run: cd mycelix-workspace/sdk && cargo test --workspace
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Test TypeScript SDK
+        continue-on-error: true
+        run: cd mycelix-workspace/sdk-ts && npm ci && npm test
+
+  test-prism:
+    needs: changes
+    if: needs.changes.outputs.prism == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install system dependencies (winit/vello GUI deps for prism-shell, webkit for prism-tauri)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libx11-dev libxcursor-dev libxi-dev libxrandr-dev libxkbcommon-dev libwayland-dev libgl1-mesa-dev \
+            libwebkit2gtk-4.1-dev libjavascriptcoregtk-4.1-dev libsoup-3.0-dev librsvg2-dev libayatana-appindicator3-dev
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace
+      # `cargo fmt --all` needs full-workspace `cargo metadata`, which
+      # currently fails workspace-wide (mycelix-personal/crates/stress-tester
+      # depends on a missing crates/luminous-sim-core -- unrelated to Prism).
+      # Per-package `-p` flags avoid that full-graph walk.
+      - name: Check formatting
+        run: |
+          cd mycelix-workspace/mycelix-prism
+          cargo fmt --check \
+            -p prism-common -p prism-dom -p prism-net -p prism-proxy -p prism-serve \
+            -p prism-ingest -p prism-search -p prism-layout -p prism-reflex -p prism-privacy \
+            -p prism-zkp -p prism-knowledge-bridge -p prism-bridge -p prism-shell -p prism-ui \
+            -p prism-tauri -p prism-node
+      - name: Build prism-ui for wasm32 (Trunk target)
+        run: cd mycelix-workspace/mycelix-prism/prism-ui && cargo build --target wasm32-unknown-unknown
+      # Each package is tested in its own `cargo test` invocation, not one
+      # combined `-p a -p b -p c` command: combining prism-shell and
+      # prism-ui in a single invocation triggers cross-package feature
+      # unification that pulls in an incompatible naga/termcolor pairing
+      # (naga 28.0.0 fails to compile against the resolved termcolor
+      # version) even though each crate builds and tests cleanly alone.
+      - name: Test Prism crates
+        run: |
+          cd mycelix-workspace/mycelix-prism
+          for pkg in prism-common prism-dom prism-net prism-proxy prism-serve \
+                     prism-ingest prism-search prism-layout prism-reflex prism-privacy \
+                     prism-zkp prism-knowledge-bridge prism-bridge prism-shell prism-ui; do
+            echo "=== Testing $pkg ==="
+            cargo test -p "$pkg"
+          done
+      - name: Check prism-tauri (desktop shell, compile-only)
+        run: cd mycelix-workspace/mycelix-prism && cargo check -p prism-tauri
+
+  # Summary gate
+  ci-pass:
+    if: always() && !cancelled() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false))
+    needs:
+      - format
+      - test-cos-conformance
+      - test-commons
+      - test-civic
+      - test-hearth
+      - test-finance
+      - test-finance-integration
+      - test-governance
+      - test-identity
+      - test-personal
+      - test-attribution
+      - test-bridge
+      - test-sdk
+      - test-prism
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check results
+        run: |
+          echo "Format: ${{ needs.format.result }}"
+          echo "COS conformance: ${{ needs.test-cos-conformance.result }}"
+          echo "Commons: ${{ needs.test-commons.result }}"
+          echo "Civic: ${{ needs.test-civic.result }}"
+          echo "Hearth: ${{ needs.test-hearth.result }}"
+          echo "Finance: ${{ needs.test-finance.result }}"
+          # Reported but not gated below — expected red until the finance
+          # zomes/tests are synced from the monorepo. See the job's own comment.
+          echo "Finance Integration (informational): ${{ needs.test-finance-integration.result }}"
+          echo "Governance: ${{ needs.test-governance.result }}"
+          echo "Identity: ${{ needs.test-identity.result }}"
+          echo "Personal: ${{ needs.test-personal.result }}"
+          echo "Attribution: ${{ needs.test-attribution.result }}"
+          echo "Bridge: ${{ needs.test-bridge.result }}"
+          echo "SDK: ${{ needs.test-sdk.result }}"
+          echo "Prism: ${{ needs.test-prism.result }}"
+          if [ "${{ needs.format.result }}" = "failure" ]; then exit 1; fi
+          # Skipped jobs are OK (path filter didn't match)
+          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
+            if [ "$result" = "failure" ]; then exit 1; fi
+          done
+          echo "All checks passed!"
+)" -eq 3
 
   test-commons:
     needs: changes
