@@ -1,6 +1,6 @@
 {
   "manifest_id": "MYC-ECO-FV-001",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "status": "Research candidate",
   "closure_policy": {
     "states": [
@@ -116,6 +116,36 @@
     {
       "id": "ECO-FV-020",
       "proposition": "Integral economic meaning remains reversible to its source observation, decision, or entitlement.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-021",
+      "proposition": "Settlement eligibility is distinct from authorization and requires current evidence, versioned policy, explicit authority, resolved disputes, and preserved claim ceiling.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-022",
+      "proposition": "An authorized submission cannot bypass explicit settlement eligibility.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-023",
+      "proposition": "An unresolved dispute cannot silently become settlement eligibility.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-024",
+      "proposition": "An indeterminate outcome cannot be treated as settlement success.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-025",
+      "proposition": "A settlement retry changes attempt identity but not logical economic identity.",
+      "state": "Open"
+    },
+    {
+      "id": "ECO-FV-026",
+      "proposition": "Economic profile selection cannot silently change the source claim ceiling.",
       "state": "Open"
     }
   ],
