@@ -123,7 +123,7 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(OpEntry::CreateEntry {
+        FlatOp::CreateEntry(OpEntry::CreateEntry {
             app_entry,
             action: _,
         }) => match app_entry {
@@ -131,11 +131,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             EntryTypes::EmergencyAlert(alert) => validate_alert(&alert),
             EntryTypes::SafetyCheckIn(checkin) => validate_checkin(&checkin),
         },
-        FlatOp::StoreEntry(OpEntry::UpdateEntry {
-            app_entry,
-            original_action_hash,
-            ..
-        }) => match app_entry {
+        FlatOp::CreateEntry(OpEntry::UpdateEntry { app_entry, action, .. }) => {
+            let original_action_hash = action.original_action_address.clone();
+            match app_entry {
             EntryTypes::EmergencyPlan(plan) => {
                 validate_plan(&plan)?;
                 validate_plan_immutable_fields(&plan, &original_action_hash)
@@ -152,38 +150,31 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 ))
             }
         },
-        FlatOp::StoreEntry(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterCreateLink {
-            link_type: _,
-            base_address: _,
-            target_address: _,
-            tag,
-            action: _,
-        } => {
-            if tag.0.len() > 512 {
+        FlatOp::CreateEntry(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Link(OpLink::CreateLink { action, .. }) => {
+            if action.tag.0.len() > 512 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Link tag exceeds 512 bytes".into(),
                 ));
             }
             Ok(ValidateCallbackResult::Valid)
         }
-        FlatOp::RegisterDeleteLink { tag, action, .. } => {
-            let original_action = must_get_action(action.link_add_address.clone())?;
-            let result = check_link_author_match(original_action.action().author(), &action.author);
+        FlatOp::Link(OpLink::DeleteLink { action, original_action, .. }) => {
+            let result = check_link_author_match(original_action.author(), &action.author());
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
-            if tag.0.len() > 512 {
+            if original_action.tag.0.len() > 512 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Link tag exceeds 512 bytes".into(),
                 ));
             }
             Ok(ValidateCallbackResult::Valid)
         }
-        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Invalid(
+        FlatOp::Delete(_) => Ok(ValidateCallbackResult::Invalid(
             "Emergency entries cannot be deleted once created".into(),
         )),
-        FlatOp::RegisterUpdate(update) => {
+        FlatOp::Update(update) => {
             let action = match &update {
                 OpUpdate::Entry { action, .. }
                 | OpUpdate::PrivateEntry { action, .. }
@@ -194,7 +185,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             let original = must_get_action(action.original_action_address.clone())?;
             Ok(check_author_match(
                 original.action().author(),
-                &action.author,
+                &action.author(),
                 "update",
             ))
         }
