@@ -1,5 +1,5 @@
 //! D6W diagnostic decomposition of D6S commitments. Integrity only; no authority.
-use crate::canonical_derivation_receipt::{canonical_sha256, DerivationProfileV1, DerivationResultStatusV1, QualifiedProjectionV1, SemanticEnvironmentV1, D6S_CLAIM_CEILING};
+use crate::canonical_derivation_receipt::{canonical_sha256, CanonicalDerivationReceiptV1, DerivationProfileV1, DerivationResultStatusV1, QualifiedProjectionV1, SemanticEnvironmentV1, D6S_CLAIM_CEILING};
 use serde::{Deserialize, Serialize};
 
 pub const D6W_SCHEMA_VERSION: &str = "D6W-1";
@@ -62,6 +62,23 @@ impl LayeredReceiptV1 {
     pub fn new(i:&InputCommitmentV1,d:&DerivationCommitmentV1,r:&ResultCommitmentV1)->Option<Self>{
         if !i.valid()||!d.valid()||!r.valid()||d.input!=i.commitment||r.derivation!=d.commitment{return None}
         let mut v=Self{schema_version:D6W_SCHEMA_VERSION.into(),input:i.commitment.clone(),derivation:d.commitment.clone(),result:r.commitment.clone(),claim_ceiling:D6S_CLAIM_CEILING.into(),commitment:String::new()};v.commitment=v.recompute();Some(v)
+    }
+    /// Reconstruct and cross-check the D6W layers against an exact D6S receipt.
+    pub fn verifies_d6s(&self, d6s:&CanonicalDerivationReceiptV1, p:&QualifiedProjectionV1, e:&SemanticEnvironmentV1, profile:&DerivationProfileV1, trace:Option<String>)->bool {
+        if !d6s.commitment_matches() || !p.structurally_valid() || !e.structurally_valid() || !profile.structurally_valid()
+            || d6s.projection_commitment!=p.commitment() || d6s.semantic_environment_commitment!=e.commitment()
+            || d6s.derivation_profile_commitment!=profile.commitment() || d6s.source_dkg_snapshot_commitment!=p.source_dkg_snapshot_commitment
+            || d6s.input_node_commitments!=p.nodes.values().map(|n|n.node_commitment.clone()).collect()
+            || d6s.input_edge_commitments!=p.edges.values().map(|n|n.edge_commitment.clone()).collect()
+            || d6s.d6p_current_receipt_commitments!=p.d6p_current_receipt_commitments { return false; }
+        let input=InputCommitmentV1::from_projection(p,e);
+        if !input.valid(){return false}
+        let Some(derivation)=DerivationCommitmentV1::new(&input,profile,trace) else{return false};
+        let Some(result)=ResultCommitmentV1::new(&derivation,d6s.result_status,d6s.result_commitment.clone(),d6s.contradiction_preserved,d6s.unresolved_preserved) else{return false};
+        let Some(expected)=Self::new(&input,&derivation,&result) else{return false};
+        self.valid() && self.input==expected.input && self.derivation==expected.derivation
+            && self.result==expected.result && self.claim_ceiling==expected.claim_ceiling
+            && self.commitment==expected.commitment
     }
     pub fn recompute(&self)->String{let mut v=self.clone();v.commitment.clear();canonical_sha256("d6w-receipt",&v)}
     pub fn valid(&self)->bool{self.schema_version==D6W_SCHEMA_VERSION&&!self.input.is_empty()&&!self.derivation.is_empty()&&!self.result.is_empty()&&self.claim_ceiling==D6S_CLAIM_CEILING&&self.commitment==self.recompute()}
