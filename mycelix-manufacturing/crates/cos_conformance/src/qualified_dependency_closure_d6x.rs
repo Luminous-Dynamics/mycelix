@@ -495,6 +495,16 @@ mod tests {
     }
 
     #[test]
+    fn canonical_dependency_set_contains_selected_node_and_edge() {
+        let (a,e,d)=projection(false); let p=profile(BTreeSet::new());
+        let c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
+        assert!(c.dependencies.contains(&SemanticDependencyReferenceV1::node("root", Some("commit-root".into()))));
+        assert!(c.dependencies.contains(&SemanticDependencyReferenceV1::node("dep", Some("commit-dep".into()))));
+        assert!(c.dependencies.contains(&SemanticDependencyReferenceV1::edge("e1", Some("edge-e1".into()))));
+        assert_eq!(c.dependencies.len(), 3);
+    }
+
+    #[test]
     fn traversal_order_is_canonical() {
         let (a,e,d)=projection(false); let p=profile(BTreeSet::new());
         let c1=compute_dependency_closure(&a,&e,&d,&p).unwrap();
