@@ -410,6 +410,36 @@ mod tests {
     }
 
     #[test]
+    fn selected_edge_kind_changes_identity() {
+        let (mut a,e,d)=projection(false); let p=profile(BTreeSet::new());
+        let before=compute_dependency_closure(&a,&e,&d,&p).unwrap();
+        a.edges.get_mut("e1").unwrap().kind=ClaimGraphEdgeKindV1::Provenance;
+        let after=compute_dependency_closure(&a,&e,&d,&p).unwrap();
+        assert_ne!(before.closure_identity_commitment, after.closure_identity_commitment);
+    }
+
+    #[test]
+    fn closure_profile_change_changes_identity() {
+        let (a,e,d)=projection(false); let p=profile(BTreeSet::new());
+        let before=compute_dependency_closure(&a,&e,&d,&p).unwrap();
+        let mut changed=p.clone();
+        changed.version="2".into();
+        let after=compute_dependency_closure(&a,&e,&d,&changed).unwrap();
+        assert_ne!(before.closure_identity_commitment, after.closure_identity_commitment);
+    }
+
+    #[test]
+    fn set_insertion_order_does_not_change_identity() {
+        let (a,e,d)=projection(false);
+        let mut p1=profile(BTreeSet::new());
+        p1.required_node_ids.extend(["dep".into(), "root".into()]);
+        let mut p2=p1.clone();
+        p2.required_node_ids=BTreeSet::from(["root".into(), "dep".into()]);
+        assert_eq!(compute_dependency_closure(&a,&e,&d,&p1).unwrap().closure_identity_commitment,
+                   compute_dependency_closure(&a,&e,&d,&p2).unwrap().closure_identity_commitment);
+    }
+
+    #[test]
     fn traversal_order_is_canonical() {
         let (a,e,d)=projection(false); let p=profile(BTreeSet::new());
         let c1=compute_dependency_closure(&a,&e,&d,&p).unwrap();
