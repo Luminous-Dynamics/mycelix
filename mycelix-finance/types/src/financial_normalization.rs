@@ -101,11 +101,23 @@ pub fn normalize_chain(
         if !seen.insert(recipe.recipe_id.clone()) {
             return Err(ChainError::DuplicateRecipeId);
         }
-        let next = normalize_observation(&current, recipe).map_err(ChainError::Step)?;
+        let prior_projection_id = current.observation_id.clone();
+        let mut next = normalize_observation(&current, recipe).map_err(ChainError::Step)?;
+        if !results.is_empty() {
+            next.input_refs = vec![NormalizationInputRef::DerivedProjection {
+                projection_id: prior_projection_id,
+                transformation_id: results.last().unwrap().recipe.recipe_id.clone(),
+            }];
+        }
+        let mut lineage = current.evidence_refs.clone();
+        lineage.extend(recipe.evidence_refs.clone());
+        lineage.sort_by(|a, b| a.evidence_id.cmp(&b.evidence_id));
+        lineage.dedup_by(|a, b| a.evidence_id == b.evidence_id);
+        next.evidence_refs = lineage.clone();
         current.value = next.value.clone();
         current.unit = next.unit.clone();
         current.observation_id = next.projection_id.clone();
-        current.evidence_refs = next.evidence_refs.clone();
+        current.evidence_refs = lineage;
         results.push(next);
     }
     Ok(results)
@@ -428,6 +440,17 @@ mod tests {
         let raw = observation("10.00", 2);
         let result = normalize_observation(&raw, &recipe(AdjustmentKind::CurrencyConversion, Some("bad"), 0, None));
         assert_eq!(result, Err(NormalizationError::InvalidDecimal));
+    }
+
+    #[test]
+    fn chain_preserves_derived_projection_lineage() {
+        let raw = observation("100.00", 2);
+        let first = recipe(AdjustmentKind::Split, Some("0.5"), 1, Some(2));
+        let second = NormalizationRecipe { recipe_id: "recipe-2".into(), ..recipe(AdjustmentKind::CurrencyConversion, Some("0.9"), 1, Some(2)) };
+        let chain = NormalizationChain { chain_id: "chain-1".into(), steps: vec![first, second] };
+        let results = normalize_chain(&raw, &chain).unwrap();
+        assert!(matches!(results[1].input_refs[0], NormalizationInputRef::DerivedProjection { .. }));
+        assert_eq!(results[1].evidence_refs.len(), 0);
     }
 
     #[test]
