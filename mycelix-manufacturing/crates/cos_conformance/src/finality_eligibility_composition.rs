@@ -303,27 +303,49 @@ fn observation_matches_set(
         && o.observed_frontier_root == set.observation_frontier_root
 }
 
-fn receipt_matches_witness(
+fn receipt_binding_failure(
     receipt: &EvidenceEligibilityReceiptV1,
     evidence: &ExternalObservedEvidenceV1,
     assessment: &crate::contestable_finality::ObservationAssessmentV1,
     set: &ExternalObservationSetV1,
     lifecycle_profile_id: &str,
     current_frontier_root: &str,
-) -> bool {
-    receipt.structurally_valid()
-        && receipt.disposition == EvidenceEligibilityDispositionV1::EligibleCurrent
-        && receipt.provenance == ObserverEvidenceProvenanceV1::Live
-        && receipt.observation_id == evidence.observation.observation_id
-        && receipt.observer_id == evidence.observer_id
-        && receipt.observation_profile_id == evidence.observer.observation_profile_id
-        && receipt.semantic_environment_root == set.semantic_environment_root
-        && receipt.dependency_snapshot_id != ""
-        && receipt.observation_frontier_root == set.observation_frontier_root
-        && receipt.current_frontier_root == current_frontier_root
-        && receipt.current_generation_id.as_deref() == Some(receipt.observer_generation_id.as_str())
-        && receipt.qualification_profile_id == lifecycle_profile_id
-        && receipt.classification == assessment.classification
+) -> Option<FinalityEligibilityDispositionV1> {
+    if !receipt.structurally_valid() {
+        return Some(FinalityEligibilityDispositionV1::BlockedBinding);
+    }
+    if receipt.observation_id != evidence.observation.observation_id
+        || receipt.observer_id != evidence.observer_id
+        || receipt.classification != assessment.classification
+    {
+        return Some(FinalityEligibilityDispositionV1::BlockedBinding);
+    }
+    if receipt.observation_profile_id != evidence.observer.observation_profile_id
+        || receipt.semantic_environment_root != set.semantic_environment_root
+        || receipt.qualification_profile_id != lifecycle_profile_id
+    {
+        return Some(FinalityEligibilityDispositionV1::BlockedProfile);
+    }
+    if receipt.observation_frontier_root != set.observation_frontier_root
+        || receipt.current_frontier_root != current_frontier_root
+    {
+        return Some(FinalityEligibilityDispositionV1::BlockedCurrentness);
+    }
+    if receipt.current_generation_id.as_deref() != Some(receipt.observer_generation_id.as_str()) {
+        return Some(FinalityEligibilityDispositionV1::BlockedContinuity);
+    }
+    if receipt.provenance != ObserverEvidenceProvenanceV1::Live {
+        return Some(FinalityEligibilityDispositionV1::BlockedArchive);
+    }
+    if receipt.disposition == EvidenceEligibilityDispositionV1::EligibleCurrent {
+        None
+    } else {
+        Some(map_receipt_failure(
+            receipt,
+            current_frontier_root,
+            lifecycle_profile_id,
+        ))
+    }
 }
 
 fn witness_from(
@@ -494,6 +516,7 @@ pub fn compose_finality_eligibility(
     let mut witnesses = Vec::with_capacity(assessment.assessments.len());
     let mut eligible_count = 0u32;
     let mut preserved_contradictory_count = 0u32;
+    let mut blocking_dispositions = Vec::new();
 
     for item in &assessment.assessments {
         let Some(observation) = evidence_by_id.get(&item.observation_id) else {
@@ -530,7 +553,7 @@ pub fn compose_finality_eligibility(
             ObservationClassificationV1::CorroboratingIndependent
         ) {
             if let Some(receipt) = receipt {
-                if receipt_matches_witness(
+                if let Some(failure) = receipt_binding_failure(
                     receipt,
                     observation,
                     item,
@@ -538,6 +561,8 @@ pub fn compose_finality_eligibility(
                     lifecycle_profile_id,
                     current_frontier_root,
                 ) {
+                    blocking_dispositions.push(failure);
+                } else {
                     eligible_count += 1;
                 }
             }
@@ -546,10 +571,19 @@ pub fn compose_finality_eligibility(
         witnesses.push(witness);
     }
 
+    let mut distinct_blocking_dispositions = Vec::new();
+    for disposition in blocking_dispositions {
+        if !distinct_blocking_dispositions.contains(&disposition) {
+            distinct_blocking_dispositions.push(disposition);
+        }
+    }
+
     let disposition = if preserved_contradictory_count > 0 {
         FinalityEligibilityDispositionV1::Contested
     } else if eligible_count >= required_independent_observations {
         FinalityEligibilityDispositionV1::EligibleCurrent
+    } else if distinct_blocking_dispositions.len() == 1 {
+        distinct_blocking_dispositions[0]
     } else {
         FinalityEligibilityDispositionV1::InsufficientEligibleWitnesses
     };
@@ -1096,7 +1130,10 @@ mod tests {
             &s, &a, &[e1, e2, e3], &[r1, r2, r3], "life-profile-1", "frontier-1", 2
         );
         assert_eq!(result.eligible_independent_count, 0);
-        assert_eq!(result.disposition, FinalityEligibilityDispositionV1::BlockedDependency);
+        assert_eq!(
+            result.disposition,
+            FinalityEligibilityDispositionV1::InsufficientEligibleWitnesses
+        );
     }
 
     #[test]
