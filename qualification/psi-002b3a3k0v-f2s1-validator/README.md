@@ -73,3 +73,8 @@ The capsule now has a non-circular final evidence layer. A `manifest.pre-receipt
 ## Pre-receipt manifest verification
 
 The independent capsule verifier validates `manifest.pre-receipt.sha256` as an evidence structure, not merely as an opaque digest. It requires the exact base-evidence file set, deterministic sorted ordering, unique paths, valid SHA-256 records, matching file digests, and no self-reference. Negative self-tests cover reordered, duplicated, unexpected, and omitted pre-receipt entries while refreshing the outer receipt/final manifest so those cases exercise the pre-receipt parser itself.
+
+
+## Dependency-record multiplicity
+
+The independent capsule verifier preserves dependency-record multiplicity when projecting `Cargo.lock` and the dependency inventory. It does not collapse records into sets before comparison, so duplicate inventory records cannot be silently normalized away. The negative self-test includes an explicit duplicate inventory record while refreshing the dependent receipt and outer manifest integrity records.
