@@ -135,7 +135,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             OpEntry::UpdateEntry {
             app_entry,
-            action: _,
+            action,
             ..
         } => match app_entry {
                 EntryTypes::FamilyStory(story) => {
