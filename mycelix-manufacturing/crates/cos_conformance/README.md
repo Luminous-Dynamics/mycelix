@@ -92,21 +92,24 @@ Out-of-order lifecycle transitions and dependency snapshots may be recorded as t
 
 Claim ceiling: **ReferenceModelOnly**. This does not establish real-world revocation, observer trust, key authenticity, physical observation correctness, distributed consensus, durable storage, production finality, or actuation safety.
 
-## Finality/lifecycle eligibility composition
 
-`finality_eligibility_composition.rs` composes D6N contestable-finality classifications with D6O observer/evidence lifecycle eligibility.
+## Evidence bundles and claim-graph closure
 
-A current independent witness is counted only when:
+`evidence_claim_graph.rs` gives the evidence chain an explicit typed graph: Source -> Evidence -> Statement -> Registration Receipt -> Validation -> Assessment -> Conclusion -> Human Disposition.
 
-`D6N CorroboratingIndependent + D6O EligibleCurrent + exact join`
+The model enforces endpoint/type compatibility, rejects dangling edges and semantic cycles, and distinguishes structural closure from evidentiary sufficiency. Graph reachability is never treated as truth. Provenance and custody edges cannot become causal support, registration cannot become endorsement, and human disposition cannot become evidence.
 
-The composition recomputes the eligible witness count rather than trusting D6N's historical independent count. Historical-only, lifecycle/profile/dependency/continuity-blocked, archived, or insufficient D6O evidence does not satisfy a current-finality threshold.
+Historical-only nodes block current reuse. Symthaea graph proposals remain non-authoritative; conclusion assessment cannot authorize actuation. See `docs/integral/evidence-bundle-claim-graph-v1.md`.
 
-D6N contradictory classifications remain preserved and keep the composition contested; lifecycle invalidation never rewrites the underlying observation. Exact observation, observer, generation, profile, environment, dependency, frontier, and assessment commitments are bound, while the D6O lifecycle profile remains distinct from the D6N finality profile.
+Claim ceiling: **ReferenceModelOnly**. This does not establish source truth, causal validity, cryptographic authenticity, legal authority, production finality, or actuation safety.
 
-Only `EligibleCurrent` composition receipts are terminal in the reference ledger. Insufficient, contested, and blocked receipts remain non-terminal so later evidence may produce a newly qualified receipt.
 
-The resulting composition is qualification evidence only. It cannot authorize actuation or manufacture semantic authority. See `docs/integral/finality-lifecycle-eligibility-composition-v1.md`.
+## Evidence bundles and claim-graph closure
 
-Claim ceiling: **ReferenceModelOnly**.
+D6Q adds `evidence_claim_graph.rs`, a reference-model envelope for the typed chain:
 
+`Source -> Evidence -> Statement -> Registration Receipt -> Validation -> Assessment -> Conclusion -> Human Disposition`.
+
+The graph enforces endpoint compatibility, rejects dangling edges and semantic cycles, and keeps structural closure separate from evidentiary sufficiency. Reachability is not truth; provenance/custody are not causal support; registration is not endorsement; human disposition is not evidence; and conclusion is not authorization.
+
+D6Q remains `ReferenceModelOnly` and does not establish source truth, causality, cryptographic authenticity, legal authority, production finality, or actuation safety. See `docs/integral/evidence-bundle-claim-graph-v1.md`.
