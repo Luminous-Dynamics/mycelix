@@ -146,7 +146,7 @@ mod tests {
         if extra{edges.insert("noise-edge".into(),QualifiedEdgeV1{edge_id:"noise-edge".into(),from_node_id:"noise".into(),to_node_id:"dep".into(),kind:ClaimGraphEdgeKindV1::Provenance,edge_commitment:"e-noise".into(),claim_ceiling:D6S_CLAIM_CEILING.into()});}
         let p=QualifiedProjectionV1{projection_id:"p".into(),projection_version:"1".into(),canonicalization_version:"D6S-CANON-1".into(),source_dkg_snapshot_commitment:"snapshot".into(),nodes,edges,d6p_current_receipt_commitments:BTreeSet::new(),d6n_context_commitment:None,d6o_context_commitment:None,semantic_environment_commitment:e.commitment(),derivation_profile_commitment:d.commitment(),claim_ceiling:D6S_CLAIM_CEILING.into()};
         let rule=DependencyRuleV1{edge_kind:ClaimGraphEdgeKindV1::Supports,from_kind:Some(ClaimGraphNodeKindV1::Statement),to_kind:Some(ClaimGraphNodeKindV1::Evidence),currentness:DependencyCurrentnessV1::Any};
-        let cp=DependencyClosureProfileV1{profile_id:"cp".into(),version:"1".into(),root_node_ids:["root".into()].into_iter().collect(),required_node_ids:BTreeSet::new(),rules:[rule].into_iter().collect(),excluded_boundary_policy:"rule-matched semantic edges only".into(),max_nodes:16,max_edges:16,claim_ceiling:D6S_CLAIM_CEILING.into()};
+        let cp=DependencyClosureProfileV1{profile_id:"cp".into(),version:"1".into(),root_node_ids:["root".into()].into_iter().collect(),required_node_ids:BTreeSet::new(),required_d6p_receipt_commitments:BTreeSet::new(),rules:[rule].into_iter().collect(),excluded_boundary_policy:"rule-matched semantic edges only".into(),max_nodes:16,max_edges:16,claim_ceiling:D6S_CLAIM_CEILING.into()};
         let c=compute_dependency_closure(&p,&e,&d,&cp).unwrap();
         (p,e,d,c)
     }
