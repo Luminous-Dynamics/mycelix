@@ -881,6 +881,7 @@ pub fn assess_observer_rotation(
 
     if successor.predecessor_generation_id.as_deref()
         != Some(predecessor.generation_id.as_str())
+        || successor.generation_sequence <= predecessor.generation_sequence
         || transition.predecessor_generation_id != predecessor.generation_id
         || transition.successor_generation_id.as_deref()
             != Some(successor.generation_id.as_str())
@@ -1647,6 +1648,28 @@ mod tests {
         assert_eq!(
             assess_observer_rotation(&predecessor, &successor, &transition, &certificate),
             ObserverRotationDispositionV1::Conflict
+        );
+    }
+
+    #[test]
+    fn rotation_cannot_reuse_generation_sequence() {
+        let predecessor = generation("observer-A-g1", 2, None);
+        let successor = generation("observer-A-g2", 2, Some("observer-A-g1"));
+        let transition = transition(
+            &predecessor,
+            "rotate-1",
+            ObserverStatusV1::Superseded,
+            3,
+            Some(&successor.generation_id),
+        );
+        assert_eq!(
+            assess_observer_rotation(
+                &predecessor,
+                &successor,
+                &transition,
+                &rotation_certificate(&predecessor, &successor, &transition)
+            ),
+            ObserverRotationDispositionV1::BlockedContinuity
         );
     }
 
