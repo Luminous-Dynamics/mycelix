@@ -2,7 +2,7 @@
 
 Status: **IMPLEMENTATION GATE / NOT EXECUTED / NOT A PASS**
 
-This directory is an intentionally standalone Cargo package for the structural JSON Schema qualification work tracked by #3439, #3440, #3443, and #3450.
+This directory is an intentionally standalone Cargo package for the structural JSON Schema qualification work tracked by #3439, #3440, #3443, and #3450. A compile-only crate target is present so the dependency capsule can exercise an actual locked/offline build without introducing validator logic.
 
 ## Isolation boundary
 
@@ -27,15 +27,16 @@ The only direct validator dependency is:
 - Draft 2020-12 must be selected explicitly by validator code;
 - external HTTP/filesystem reference resolution is outside the qualification boundary.
 
-A complete generated `Cargo.lock`, source inventory, and lock digest are still required before execution. The manifest alone is not a reproducibility qualification.
+A complete generated `Cargo.lock`, source inventory, and lock digest are still required before execution. The manifest alone is not a reproducibility qualification. The lock-capsule workflow also records the exact checked-out commit/tree and workflow-file digest, and performs locked/offline build and test checks.
 
 ## Required next gate
 
 1. Generate the standalone lock under Rust 1.96.0.
 2. Freeze its exact bytes and SHA-256.
 3. Record the complete resolved source inventory.
-4. Verify repeated `--locked --offline` metadata/build behavior.
-5. Only then add executable structural-validation code.
+4. Verify repeated `--locked --offline` metadata/build/test behavior.
+5. Bind the resulting evidence to the exact source commit/tree and workflow bytes.
+6. Only then replace the compile-only target with executable structural-validation code.
 
 ## Non-delegation
 
