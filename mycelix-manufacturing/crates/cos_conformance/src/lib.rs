@@ -25,6 +25,7 @@ pub mod evidence_claim_graph;
 pub mod finality_eligibility_composition;
 pub mod canonical_derivation_receipt;
 pub mod derivation_commitment_layers;
+pub mod layered_verification;
 
 pub const CORPUS_ID: &str = "COS-CONF-001";
 pub const FORMAL_OBLIGATIONS: [&str; 10] = [
