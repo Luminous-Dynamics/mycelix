@@ -173,3 +173,19 @@ An input mutation therefore propagates through all downstream layers; a derivati
 D6W first verifies the underlying D6S receipt, so decomposition cannot turn an invalid D6S receipt into a valid-looking layered receipt. It remains ReferenceModelOnly and cannot authorize actuation.
 See `docs/integral/layered-derivation-commitments-d6w-v1.md`.
 
+## D6X layered verification ceilings
+
+`layered_verification.rs` makes partial D6W verification explicitly claim-bounded:
+
+`InputOnly -> InputAndDerivation -> Result -> FullReceipt`
+
+A higher verification scope requires every lower layer. A higher commitment cannot substitute for a missing lower commitment.
+
+FullReceipt verification delegates to the D6W verifier and therefore includes complete D6S receipt verification. A successful lower-layer verification proves only commitment integrity for that layer; it does not create semantic truth, currentness, authority, or authorization.
+
+D6X emits deterministic verification receipts containing exactly the commitments verified at the declared scope.
+
+See `docs/integral/layered-verification-ceilings-d6x-v1.md`.
+
+Claim ceiling: **ReferenceModelOnly**.
+
