@@ -222,7 +222,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 action.author(),
             )
         }
-        FlatOp::Link(OpLink::DeleteLink {
+        FlatOp::Link(link @ OpLink::DeleteLink {
             action,
             original_action,
             ..
@@ -231,6 +231,11 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 check_link_author_match(original_action.author(), action.author());
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
+            }
+            if link.tag().0.len() > 512 {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Link tag exceeds 512 bytes".into(),
+                ));
             }
             Ok(ValidateCallbackResult::Valid)
         }
@@ -389,6 +394,24 @@ fn validate_create_link(
     author: &AgentPubKey,
 ) -> ExternResult<ValidateCallbackResult> {
     match link_type {
+        LinkTypes::AgentToHearths => {
+            let base_agent = match agent_key_from_link(base_address, "AgentToHearths base") {
+                Ok(agent) => agent,
+                Err(result) => return Ok(result),
+            };
+            if base_agent != *author {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "AgentToHearths link base must equal the author".into(),
+                ));
+            }
+
+            let hearth_hash =
+                match action_hash_from_link(target_address, "AgentToHearths target") {
+                    Ok(hash) => hash,
+                    Err(result) => return Ok(result),
+                };
+            let _ = load_original_typed_entry::<Hearth>(hearth_hash, "Hearth")?;
+        }
         LinkTypes::HearthToMembers => {
             let hearth_hash = match action_hash_from_link(base_address, "HearthToMembers base") {
                 Ok(hash) => hash,
@@ -424,7 +447,7 @@ fn validate_create_link(
                     Err(result) => return Ok(result),
                 };
             let (invitation, invitation_author): (HearthInvitation, AgentPubKey) =
-                load_typed_entry(invitation_hash, "HearthInvitation")?;
+                load_original_typed_entry(invitation_hash, "HearthInvitation")?;
             if invitation.hearth_hash != hearth_hash {
                 return Ok(ValidateCallbackResult::Invalid(
                     "HearthToInvitations target belongs to a different hearth".into(),
@@ -447,7 +470,7 @@ fn validate_create_link(
                     Err(result) => return Ok(result),
                 };
             let (invitation, invitation_author): (HearthInvitation, AgentPubKey) =
-                load_typed_entry(invitation_hash, "HearthInvitation")?;
+                load_original_typed_entry(invitation_hash, "HearthInvitation")?;
             if invitation.invitee_agent != invitee {
                 return Ok(ValidateCallbackResult::Invalid(
                     "AgentToInvitations base is not the invitation invitee".into(),
@@ -471,7 +494,7 @@ fn validate_create_link(
                     Err(result) => return Ok(result),
                 };
             let (response, response_author): (InvitationResponse, AgentPubKey) =
-                load_typed_entry(response_hash, "InvitationResponse")?;
+                load_original_typed_entry(response_hash, "InvitationResponse")?;
             if response.invitation_hash != invitation_hash {
                 return Ok(ValidateCallbackResult::Invalid(
                     "InvitationToResponses target references a different invitation".into(),
@@ -495,7 +518,7 @@ fn validate_create_link(
                     Err(result) => return Ok(result),
                 };
             let (response, response_author): (InvitationResponse, AgentPubKey) =
-                load_typed_entry(response_hash, "InvitationResponse")?;
+                load_original_typed_entry(response_hash, "InvitationResponse")?;
             if response.invitee_agent != invitee {
                 return Ok(ValidateCallbackResult::Invalid(
                     "AgentToInvitationResponses base is not the response invitee".into(),
@@ -595,7 +618,7 @@ fn validate_membership_admission(
     match &membership.admission {
         MembershipAdmission::Founder => {
             let (hearth, _): (Hearth, AgentPubKey) =
-                load_typed_entry(membership.hearth_hash.clone(), "Hearth")?;
+                load_original_typed_entry(membership.hearth_hash.clone(), "Hearth")?;
             if hearth.created_by != membership.agent {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Founder admission requires the member to be the hearth creator".into(),
@@ -617,9 +640,9 @@ fn validate_membership_admission(
             response_hash,
         } => {
             let (invitation, invitation_author): (HearthInvitation, AgentPubKey) =
-                load_typed_entry(invitation_hash.clone(), "HearthInvitation")?;
+                load_original_typed_entry(invitation_hash.clone(), "HearthInvitation")?;
             let (response, response_author): (InvitationResponse, AgentPubKey) =
-                load_typed_entry(response_hash.clone(), "InvitationResponse")?;
+                load_original_typed_entry(response_hash.clone(), "InvitationResponse")?;
 
             if invitation_author != invitation.inviter {
                 return Ok(ValidateCallbackResult::Invalid(
@@ -692,7 +715,7 @@ pub fn validate_invitation_response(
     response: &InvitationResponse,
 ) -> ExternResult<ValidateCallbackResult> {
     let (invitation, invitation_author): (HearthInvitation, AgentPubKey) =
-        load_typed_entry(response.invitation_hash.clone(), "HearthInvitation")?;
+        load_original_typed_entry(response.invitation_hash.clone(), "HearthInvitation")?;
 
     if invitation_author != invitation.inviter {
         return Ok(ValidateCallbackResult::Invalid(
