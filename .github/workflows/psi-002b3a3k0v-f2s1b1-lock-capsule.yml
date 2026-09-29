@@ -184,7 +184,39 @@ jobs:
           cp runner-uname.txt runner-os-release.txt runner-python-version.txt capsule/
           rustc +1.96.0 --version --verbose > capsule/rustc-1.96.0.txt
           cargo +1.96.0 --version --verbose > capsule/cargo-1.96.0.txt
-          sha256sum capsule/* | sort > capsule/manifest.sha256
+          python3 - <<'PY'
+          import hashlib
+          from pathlib import Path
+
+          capsule = Path("capsule")
+          allowed = [
+              "Cargo.toml",
+              "Cargo.lock",
+              "Cargo.lock.sha256",
+              "cargo-metadata.canonical.json",
+              "cargo-tree.txt",
+              "cargo-tree-offline.txt",
+              "dependency-source-inventory.v1.json",
+              "dependency-source-inventory.v1.sha256",
+              "cargo-lock-source-projection.v1.json",
+              "cargo-lock-source-projection.v1.sha256",
+              "source-commit.txt",
+              "source-tree.txt",
+              "source-status.txt",
+              "workflow-sha256.txt",
+              "runner-uname.txt",
+              "runner-os-release.txt",
+              "runner-python-version.txt",
+              "rustc-1.96.0.txt",
+              "cargo-1.96.0.txt",
+          ]
+          assert len(allowed) == len(set(allowed))
+          lines = [
+              f"{hashlib.sha256((capsule / name).read_bytes()).hexdigest()}  {name}"
+              for name in allowed
+          ]
+          (capsule / "manifest.sha256").write_text("\n".join(lines) + "\n")
+          PY
 
       - name: Self-audit capsule manifest
         run: |
