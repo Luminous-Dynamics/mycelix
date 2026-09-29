@@ -38,7 +38,7 @@ The certificate binds:
 - exact included node commitments;
 - exact selected D6P receipt commitments;
 - exact included edge commitments;
-- explicit missing dependency IDs;
+- explicit missing dependency IDs plus typed semantic dependency references;
 - closure status;
 - cycle detection state.
 
@@ -47,7 +47,7 @@ The certificate distinguishes two identities:
 - `commitment` is an audit/provenance certificate commitment and remains bound to the candidate projection;
 - `closure_identity_commitment` is the candidate-independent semantic identity consumed by D6W.
 
-The semantic identity binds the exact selected node-id → node-commitment mapping and selected edge-id → endpoint/kind/commitment mapping. It deliberately excludes irrelevant candidate material, so adding unused material must not perturb the closure identity or downstream D6W input identity.
+The semantic identity binds the exact selected node-id → node-commitment mapping and selected edge-id → endpoint/kind/commitment mapping. Missing dependencies are also represented through a typed reference algebra (`Node`, `Edge`, `D6PReceipt`) so identifiers from different dependency domains cannot silently collide. It deliberately excludes irrelevant candidate material, so adding unused material must not perturb the closure identity or downstream D6W input identity.
 
 ## Status semantics
 
@@ -103,6 +103,8 @@ The reference model currently includes fixtures for:
 8. blocked closures fail closed at the D6W input boundary;
 9. irrelevant D6P receipts do not perturb the closure identity;
 10. required D6P receipts are explicit closure dependencies.
+11. typed missing-dependency references distinguish node and D6P-receipt dependency domains.
+12. set insertion order does not alter semantic closure identity.
 
 Before interoperability or production claims, add cross-language golden vectors, currentness/D6P fixtures, contradiction-preservation fixtures, cycle fixtures, resource-limit fixtures, and execute the Rust/WASM/Holochain conformance corpus.
 
