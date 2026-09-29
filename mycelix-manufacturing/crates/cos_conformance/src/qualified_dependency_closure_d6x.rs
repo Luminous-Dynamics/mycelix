@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 pub const D6X_SCHEMA_VERSION: &str = "D6X-1";
-pub const D6X_ALGORITHM_VERSION: &str = "D6X-CLOSURE-1";
+pub const D6X_ALGORITHM_VERSION: &str = "D6X-CLOSURE-2";
 pub const D6X_CLAIM_CEILING: &str = D6S_CLAIM_CEILING;
 
 fn non_empty(v: &str) -> bool { !v.trim().is_empty() }
@@ -91,6 +91,9 @@ pub struct DependencyClosureCertificateV1 {
     pub root_node_ids: BTreeSet<String>,
     pub included_node_commitments: BTreeSet<String>,
     pub included_node_ids: BTreeSet<String>,
+    /// Exact selected node identity: node id -> node commitment.
+    /// This pairing is part of the candidate-independent closure identity.
+    pub included_nodes: BTreeMap<String, String>,
     pub included_edge_commitments: BTreeSet<String>,
     pub included_edges: BTreeMap<String, (String, String, ClaimGraphEdgeKindV1, String)>,
     pub missing_dependency_ids: BTreeSet<String>,
@@ -112,6 +115,9 @@ impl DependencyClosureCertificateV1 {
             && !self.root_node_ids.is_empty()
             && self.included_node_commitments.iter().all(|v| non_empty(v))
             && self.included_node_ids.iter().all(|v| non_empty(v))
+            && self.included_nodes.iter().all(|(id, commitment)| non_empty(id) && non_empty(commitment))
+            && self.included_nodes.keys().cloned().collect::<BTreeSet<_>>() == self.included_node_ids
+            && self.included_nodes.values().cloned().collect::<BTreeSet<_>>() == self.included_node_commitments
             && self.included_edge_commitments.iter().all(|v| non_empty(v))
             && self.included_edges.iter().all(|(id, (from, to, _kind, commitment))|
                 non_empty(id) && non_empty(from) && non_empty(to) && from != to && non_empty(commitment))
@@ -119,6 +125,9 @@ impl DependencyClosureCertificateV1 {
             && self.claim_ceiling == D6X_CLAIM_CEILING
             && self.included_node_ids.len() == self.included_node_commitments.len()
             && self.included_edges.len() == self.included_edge_commitments.len()
+            && self.included_edges.values().all(|(from, to, _kind, commitment)|
+                self.included_node_ids.contains(from) && self.included_node_ids.contains(to)
+                    && self.included_edge_commitments.contains(commitment))
             && self.closure_identity_commitment == self.closure_identity()
             && match self.status {
                 DependencyClosureStatusV1::Complete => self.missing_dependency_ids.is_empty(),
@@ -136,7 +145,7 @@ impl DependencyClosureCertificateV1 {
             &self.semantic_environment_commitment,
             &self.derivation_profile_commitment,
             &self.root_node_ids,
-            &self.included_node_ids,
+            &self.included_nodes,
             &self.included_edges,
             &self.missing_dependency_ids,
             &self.status,
@@ -244,6 +253,7 @@ pub fn compute_dependency_closure(
         root_node_ids: profile.root_node_ids.clone(),
         included_node_commitments: included_ids.iter().filter_map(|id| projection.nodes.get(id).map(|n| n.node_commitment.clone())).collect(),
         included_node_ids: included_ids.clone(),
+        included_nodes: included_ids.iter().filter_map(|id| projection.nodes.get(id).map(|n| (id.clone(), n.node_commitment.clone()))).collect(),
         included_edge_commitments: included_edges.iter().filter_map(|id| projection.edges.get(id).map(|e| e.edge_commitment.clone())).collect(),
         included_edges: included_edges.iter().filter_map(|id| projection.edges.get(id).map(|e| (id.clone(), (e.from_node_id.clone(), e.to_node_id.clone(), e.kind, e.edge_commitment.clone())))).collect(),
         missing_dependency_ids: missing,
@@ -327,8 +337,9 @@ mod tests {
         let (a,e,d)=projection(false); let (b,_,_)=projection(true); let p=profile(BTreeSet::new());
         let ca=compute_dependency_closure(&a,&e,&d,&p).unwrap();
         let cb=compute_dependency_closure(&b,&e,&d,&p).unwrap();
-        assert_eq!(ca.commitment, cb.commitment);
-        assert_eq!(ca.included_node_commitments, cb.included_node_commitments);
+        assert_ne!(ca.commitment, cb.commitment); // audit/provenance certificate remains bound to candidate projection
+        assert_eq!(ca.closure_identity_commitment, cb.closure_identity_commitment);
+        assert_eq!(ca.included_nodes, cb.included_nodes);
     }
 
     #[test]
@@ -361,6 +372,31 @@ mod tests {
         p.max_nodes=2; p.max_edges=1;
         let c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
         assert_eq!(c.status, DependencyClosureStatusV1::Complete);
+    }
+
+    #[test]
+    fn selected_node_commitment_changes_identity() {
+        let (mut a,e,d)=projection(false); let p=profile(BTreeSet::new());
+        let before=compute_dependency_closure(&a,&e,&d,&p).unwrap();
+        a.nodes.get_mut("dep").unwrap().node_commitment="changed".into();
+        let after=compute_dependency_closure(&a,&e,&d,&p).unwrap();
+        assert_ne!(before.closure_identity_commitment, after.closure_identity_commitment);
+    }
+
+    #[test]
+    fn selected_edge_commitment_changes_identity() {
+        let (mut a,e,d)=projection(false); let p=profile(BTreeSet::new());
+        let before=compute_dependency_closure(&a,&e,&d,&p).unwrap();
+        a.edges.get_mut("e1").unwrap().edge_commitment="changed".into();
+        let after=compute_dependency_closure(&a,&e,&d,&p).unwrap();
+        assert_ne!(before.closure_identity_commitment, after.closure_identity_commitment);
+    }
+
+    #[test]
+    fn irrelevant_node_does_not_change_identity() {
+        let (a,e,d)=projection(false); let (b,_,_)=projection(true); let p=profile(BTreeSet::new());
+        assert_eq!(compute_dependency_closure(&a,&e,&d,&p).unwrap().closure_identity_commitment,
+                   compute_dependency_closure(&b,&e,&d,&p).unwrap().closure_identity_commitment);
     }
 
     #[test]
