@@ -103,7 +103,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         },
         FlatOp::CreateEntry(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::Link(OpLink::CreateLink { action, .. }) => {
-            if action.tag.0.len() > 512 {
+            if action.data.tag.0.len() > 512 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Link tag exceeds 512 bytes".into(),
                 ));
@@ -116,7 +116,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             ..
         }) => {
             let result =
-                check_link_author_match(original_action.author(), &action.author());
+                check_link_author_match(original_action.author(), action.author());
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
@@ -130,21 +130,15 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::Delete(OpDelete { .. }) => Ok(ValidateCallbackResult::Invalid(
             "Bridge entries cannot be deleted once created".into(),
         )),
-        FlatOp::Update(update) => {
-            let action = match &update {
-                OpUpdate::Entry { action, .. }
-                | OpUpdate::PrivateEntry { action, .. }
-                | OpUpdate::Agent { action, .. }
-                | OpUpdate::CapClaim { action, .. }
-                | OpUpdate::CapGrant { action, .. } => action,
-            };
-            let original = must_get_action(update.original_action_hash())?;
+        FlatOp::Update(OpUpdate::Entry { action, .. }) => {
+            let original = must_get_action(action.original_action_address.clone())?;
             Ok(check_author_match(
                 original.action().author(),
-                &action.author(),
+                action.author(),
                 "update",
             ))
         }
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Valid)
         _ => Ok(ValidateCallbackResult::Valid),
     }
 }
