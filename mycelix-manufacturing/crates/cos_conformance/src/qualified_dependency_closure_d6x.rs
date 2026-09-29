@@ -88,7 +88,9 @@ pub struct DependencyClosureCertificateV1 {
     pub derivation_profile_commitment: String,
     pub root_node_ids: BTreeSet<String>,
     pub included_node_commitments: BTreeSet<String>,
+    pub included_node_ids: BTreeSet<String>,
     pub included_edge_commitments: BTreeSet<String>,
+    pub included_edges: BTreeMap<String, (String, String, ClaimGraphEdgeKindV1, String)>,
     pub missing_dependency_ids: BTreeSet<String>,
     pub status: DependencyClosureStatusV1,
     pub cycle_detected: bool,
@@ -106,7 +108,10 @@ impl DependencyClosureCertificateV1 {
             && non_empty(&self.derivation_profile_commitment)
             && !self.root_node_ids.is_empty()
             && self.included_node_commitments.iter().all(|v| non_empty(v))
+            && self.included_node_ids.iter().all(|v| non_empty(v))
             && self.included_edge_commitments.iter().all(|v| non_empty(v))
+            && self.included_edges.iter().all(|(id, (from, to, _kind, commitment))|
+                non_empty(id) && non_empty(from) && non_empty(to) && from != to && non_empty(commitment))
             && self.missing_dependency_ids.iter().all(|v| non_empty(v))
             && self.claim_ceiling == D6X_CLAIM_CEILING
             && match self.status {
@@ -155,7 +160,11 @@ pub fn compute_dependency_closure(
     let mut included_edges = BTreeSet::new();
     let mut missing = BTreeSet::new();
     let mut blocked_currentness = false;
+    let mut resource_blocked = false;
     let mut queue = VecDeque::from_iter(profile.root_node_ids.iter().cloned());
+    for id in &profile.required_node_ids {
+        if projection.nodes.contains_key(id) { queue.push_back(id.clone()); }
+    }
     let mut queued = BTreeSet::new();
     for id in profile.root_node_ids.iter().chain(profile.required_node_ids.iter()) {
         if !projection.nodes.contains_key(id) { missing.insert(id.clone()); }
@@ -164,14 +173,20 @@ pub fn compute_dependency_closure(
     while let Some(id) = queue.pop_front() {
         if !queued.insert(id.clone()) { continue; }
         let Some(node) = projection.nodes.get(&id) else { missing.insert(id); continue; };
-        if included_ids.len() as u32 >= profile.max_nodes { break; }
+        if included_ids.len() as u32 >= profile.max_nodes {
+            resource_blocked = true;
+            break;
+        }
         included_ids.insert(id.clone());
 
         for edge in projection.edges.values() {
             if edge.from_node_id != id { continue; }
             let Some(to) = projection.nodes.get(&edge.to_node_id) else { missing.insert(edge.to_node_id.clone()); continue; };
             let Some(rule) = profile.rules.iter().find(|r| r.matches(node.kind, to.kind, edge.kind)) else { continue; };
-            if included_edges.len() as u32 >= profile.max_edges { break; }
+            if included_edges.len() as u32 >= profile.max_edges {
+                resource_blocked = true;
+                break;
+            }
             included_edges.insert(edge.edge_id.clone());
             if rule.currentness == DependencyCurrentnessV1::CurrentOnly && to.historical_only { blocked_currentness = true; }
             if !queued.contains(&to.node_id) { queue.push_back(to.node_id.clone()); }
@@ -182,7 +197,6 @@ pub fn compute_dependency_closure(
         projection.edges.get(id).map(|e| (e.from_node_id.clone(), e.to_node_id.clone()))
     ).collect();
     let cycle_detected = cycle_exists(&included_ids, &selected_edges);
-    let resource_blocked = included_ids.len() as u32 >= profile.max_nodes || included_edges.len() as u32 >= profile.max_edges;
     let status = if !missing.is_empty() {
         DependencyClosureStatusV1::BlockedMissingDependency
     } else if blocked_currentness {
@@ -203,7 +217,9 @@ pub fn compute_dependency_closure(
         derivation_profile_commitment: derivation_profile.commitment(),
         root_node_ids: profile.root_node_ids.clone(),
         included_node_commitments: included_ids.iter().filter_map(|id| projection.nodes.get(id).map(|n| n.node_commitment.clone())).collect(),
+        included_node_ids: included_ids.clone(),
         included_edge_commitments: included_edges.iter().filter_map(|id| projection.edges.get(id).map(|e| e.edge_commitment.clone())).collect(),
+        included_edges: included_edges.iter().filter_map(|id| projection.edges.get(id).map(|e| (id.clone(), (e.from_node_id.clone(), e.to_node_id.clone(), e.kind, e.edge_commitment.clone())))).collect(),
         missing_dependency_ids: missing,
         status, cycle_detected, claim_ceiling: D6X_CLAIM_CEILING.into(), commitment: String::new(),
     };
@@ -301,6 +317,23 @@ mod tests {
         let (a,e,d)=projection(true); let p=profile(BTreeSet::new());
         let c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
         assert!(!c.included_node_commitments.contains("commit-noise"));
+        assert_eq!(c.included_node_ids, ["root".to_string(), "dep".to_string()].into_iter().collect());
+    }
+
+    #[test]
+    fn disconnected_required_node_is_included() {
+        let (a,e,d)=projection(false); let p=profile(["dep".into()].into_iter().collect());
+        let c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
+        assert_eq!(c.status, DependencyClosureStatusV1::Complete);
+        assert!(c.included_node_ids.contains("dep"));
+    }
+
+    #[test]
+    fn exact_resource_limit_is_not_blocked_when_no_work_remains() {
+        let (a,e,d)=projection(false); let mut p=profile(BTreeSet::new());
+        p.max_nodes=2; p.max_edges=1;
+        let c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
+        assert_eq!(c.status, DependencyClosureStatusV1::Complete);
     }
 
     #[test]
