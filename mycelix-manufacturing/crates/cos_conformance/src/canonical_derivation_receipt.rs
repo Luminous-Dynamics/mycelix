@@ -372,11 +372,31 @@ mod tests {
         }
     }
 
+    fn d6p_receipt() -> CurrentFinalityEligibilityReceiptV1 {
+        CurrentFinalityEligibilityReceiptV1 {
+            receipt_id: "d6p-1".into(), effect_id: "effect".into(), effect_lineage_id: "lineage".into(),
+            lifecycle_generation_id: "generation".into(), route_id: "route".into(), provider_id: "provider".into(),
+            provider_operation_id: "operation".into(), provider_profile_root: "provider-profile".into(),
+            semantic_environment_root: "env".into(), observation_set_id: "set".into(), observation_set_commitment: "set-c".into(),
+            d6n_assessment_commitment: "d6n-c".into(), witness_eligibility_ids: ["w".into()].into_iter().collect(),
+            observer_generation_ids: ["g".into()].into_iter().collect(), current_frontier_root: "frontier".into(),
+            lifecycle_profile_id: "life".into(), eligible_independent_count: 1, preserved_contradictory_count: 0,
+            disposition: FinalityEligibilityDispositionV1::EligibleCurrent, qualification_transition_id: "t".into(),
+            receipt_commitment: "d6p-receipt-1".into(),
+            claim_ceiling: crate::finality_eligibility_composition::FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING.into(),
+        }
+    }
+
     fn projection() -> QualifiedProjectionV1 {
         let mut nodes = BTreeMap::new();
         nodes.insert("e".into(), QualifiedNodeV1 {
             node_id: "e".into(), kind: ClaimGraphNodeKindV1::Evidence,
             node_commitment: "node-e".into(), historical_only: false,
+            current_frontier_root: Some("frontier-1".into()), claim_ceiling: D6S_CLAIM_CEILING.into(),
+        });
+        nodes.insert("a".into(), QualifiedNodeV1 {
+            node_id: "a".into(), kind: ClaimGraphNodeKindV1::Assessment,
+            node_commitment: "node-a".into(), historical_only: false,
             current_frontier_root: Some("frontier-1".into()), claim_ceiling: D6S_CLAIM_CEILING.into(),
         });
         nodes.insert("c".into(), QualifiedNodeV1 {
@@ -385,8 +405,13 @@ mod tests {
             current_frontier_root: Some("frontier-1".into()), claim_ceiling: D6S_CLAIM_CEILING.into(),
         });
         let mut edges = BTreeMap::new();
+        edges.insert("p".into(), QualifiedEdgeV1 {
+            edge_id: "p".into(), from_node_id: "e".into(), to_node_id: "a".into(),
+            kind: ClaimGraphEdgeKindV1::Provenance, edge_commitment: "edge-p".into(),
+            claim_ceiling: D6S_CLAIM_CEILING.into(),
+        });
         edges.insert("s".into(), QualifiedEdgeV1 {
-            edge_id: "s".into(), from_node_id: "e".into(), to_node_id: "c".into(),
+            edge_id: "s".into(), from_node_id: "a".into(), to_node_id: "c".into(),
             kind: ClaimGraphEdgeKindV1::Supports, edge_commitment: "edge-s".into(),
             claim_ceiling: D6S_CLAIM_CEILING.into(),
         });
@@ -440,30 +465,30 @@ mod tests {
         changed.version = "2".into();
         let mut changed_projection = p.clone();
         changed_projection.derivation_profile_commitment = changed.commitment();
-        let second = build_canonical_receipt(&changed_projection, &e, &changed, &[], DerivationResultStatusV1::Supported, "result-1".into(), false, false).unwrap();
+        let second = build_canonical_receipt(&changed_projection, &e, &changed, &[d6p_receipt()], DerivationResultStatusV1::Supported, "result-1".into(), false, false).unwrap();
         assert_ne!(first.receipt_commitment, second.receipt_commitment);
     }
 
     #[test]
     fn missing_d6p_receipt_is_not_current_qualification() {
         let p = projection();
-        assert!(build_canonical_receipt(&p, &env(), &profile(), &[], DerivationResultStatusV1::Supported, "result-1".into(), false, false).is_none());
+        assert!(build_canonical_receipt(&p, &env(), &profile(), &[d6p_receipt()], DerivationResultStatusV1::Supported, "result-1".into(), false, false).is_none());
     }
 
     #[test]
     fn derivation_cycles_are_rejected_but_provenance_cycles_are_not() {
         let mut p = projection();
         p.nodes.insert("x".into(), QualifiedNodeV1 {
-            node_id: "x".into(), kind: ClaimGraphNodeKindV1::Evidence,
+            node_id: "x".into(), kind: ClaimGraphNodeKindV1::Assessment,
             node_commitment: "node-x".into(), historical_only: false,
             current_frontier_root: Some("frontier-1".into()), claim_ceiling: D6S_CLAIM_CEILING.into(),
         });
         p.edges.insert("cycle-a".into(), QualifiedEdgeV1 {
-            edge_id: "cycle-a".into(), from_node_id: "e".into(), to_node_id: "x".into(),
+            edge_id: "cycle-a".into(), from_node_id: "a".into(), to_node_id: "x".into(),
             kind: ClaimGraphEdgeKindV1::Supports, edge_commitment: "edge-a".into(), claim_ceiling: D6S_CLAIM_CEILING.into(),
         });
         p.edges.insert("cycle-b".into(), QualifiedEdgeV1 {
-            edge_id: "cycle-b".into(), from_node_id: "x".into(), to_node_id: "e".into(),
+            edge_id: "cycle-b".into(), from_node_id: "x".into(), to_node_id: "a".into(),
             kind: ClaimGraphEdgeKindV1::Provenance, edge_commitment: "edge-b".into(), claim_ceiling: D6S_CLAIM_CEILING.into(),
         });
         assert!(!p.derivation_cycle_exists());
@@ -473,7 +498,7 @@ mod tests {
 
     #[test]
     fn receipt_commitment_is_self_consistent() {
-        let r = build_canonical_receipt(&projection(), &env(), &profile(), &[], DerivationResultStatusV1::Supported, "result-1".into(), false, false).unwrap();
+        let r = build_canonical_receipt(&projection(), &env(), &profile(), &[d6p_receipt()], DerivationResultStatusV1::Supported, "result-1".into(), false, false).unwrap();
         assert!(r.commitment_matches());
     }
 
