@@ -411,21 +411,24 @@ impl StagedHearthSnapshot {
     }
 
     fn publish(self, hearth: &HearthCtx, truth: &HearthTruthState) {
-        // These writes occur synchronously after the complete generation has
-        // been staged. Reactive consumers therefore never observe source-A from
-        // the new generation while source-B is still awaiting transport.
-        hearth.current_hearth.set(self.current_hearth);
-        hearth.my_role.set(self.my_role);
-        hearth.members.set(self.members);
-        hearth.bonds.set(self.bonds);
-        hearth.care_schedules.set(self.care_schedules);
-        hearth.decisions.set(self.decisions);
-        hearth.votes.set(self.votes);
-        hearth.gratitude.set(self.gratitude);
-        hearth.rhythms.set(self.rhythms);
-        hearth.presence.set(self.presence);
-        hearth.my_agent.set(self.my_agent);
-        truth.availability.set(self.availability);
+        // The complete staged generation is published through one Leptos
+        // notification boundary. Payloads are written before the final
+        // provenance/availability write so ImmediateEffects cannot observe a
+        // mixed-generation payload/provenance pair.
+        batch(|| {
+            hearth.current_hearth.set(self.current_hearth);
+            hearth.my_role.set(self.my_role);
+            hearth.members.set(self.members);
+            hearth.bonds.set(self.bonds);
+            hearth.care_schedules.set(self.care_schedules);
+            hearth.decisions.set(self.decisions);
+            hearth.votes.set(self.votes);
+            hearth.gratitude.set(self.gratitude);
+            hearth.rhythms.set(self.rhythms);
+            hearth.presence.set(self.presence);
+            hearth.my_agent.set(self.my_agent);
+            truth.availability.set(self.availability);
+        });
     }
 }
 
@@ -991,6 +994,43 @@ mod tests {
         let token = generation.advance();
         generation.invalidate();
         assert!(!generation.is_current(token));
+    }
+
+    #[test]
+    fn publish_exposes_only_coherent_payload_and_provenance_pairs() {
+        let owner = Owner::new();
+
+        owner.with(|| {
+            let hearth = crate::hearth_context::provide_hearth_context();
+            let truth = HearthTruthState {
+                availability: RwSignal::new(HearthAvailability::live_pending()),
+                loading: RwSignal::new(false),
+                generation: LoadGeneration::default(),
+            };
+            let observations = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+            let observations_for_effect = std::rc::Rc::clone(&observations);
+
+            let _effect = ImmediateEffect::new(move || {
+                observations_for_effect.borrow_mut().push((
+                    hearth.current_hearth.get().is_some(),
+                    truth.availability.get().current_hearth,
+                ));
+            });
+
+            let mut staged = StagedHearthSnapshot::pending("agent-test".into());
+            staged.current_hearth = Some(crate::mock_data::mock_hearth());
+            staged.availability.current_hearth = AvailabilityStateKind::Live;
+
+            staged.publish(&hearth, &truth);
+
+            assert_eq!(
+                observations.borrow().as_slice(),
+                &[
+                    (true, AvailabilityStateKind::Mock),
+                    (true, AvailabilityStateKind::Live)
+                ][..]
+            );
+        });
     }
 
     #[test]
