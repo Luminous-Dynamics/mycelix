@@ -460,18 +460,31 @@ pub fn compute_dependency_closure(
         for edge in projection.edges.values() {
             if edge.from_node_id != id { continue; }
 
-            let matching_rules: Vec<&DependencyRuleV1> = match projection.nodes.get(&edge.to_node_id) {
-                Some(to) => profile.rules.iter().filter(|r| r.matches(node.kind, to.kind, edge.kind)).collect(),
-                None => profile.rules.iter().filter(|r| {
-                    r.edge_kind == edge.kind
-                        && r.from_kind.map_or(true, |kind| kind == node.kind)
-                        && r.to_kind.is_none()
-                }).collect(),
+            let (matches_rule, requires_current) = match projection.nodes.get(&edge.to_node_id) {
+                Some(to) => {
+                    let matching_rules = profile.rules.iter().filter(|r| r.matches(node.kind, to.kind, edge.kind));
+                    (
+                        matching_rules.clone().next().is_some(),
+                        matching_rules.any(|r| r.currentness == DependencyCurrentnessV1::CurrentOnly),
+                    )
+                }
+                None => {
+                    // A missing target has no node kind, so only an explicitly
+                    // wildcard-target rule can qualify the dangling relationship.
+                    let matching_rules = profile.rules.iter().filter(|r| {
+                        r.edge_kind == edge.kind
+                            && r.from_kind.map_or(true, |kind| kind == node.kind)
+                            && r.to_kind.is_none()
+                    });
+                    (
+                        matching_rules.clone().next().is_some(),
+                        matching_rules.any(|r| r.currentness == DependencyCurrentnessV1::CurrentOnly),
+                    )
+                }
             };
 
-            if matching_rules.is_empty() { continue; }
+            if !matches_rule { continue; }
             // Overlapping rules resolve monotonically: CurrentOnly dominates Any.
-            let requires_current = matching_rules.iter().any(|r| r.currentness == DependencyCurrentnessV1::CurrentOnly);
             let Some(to) = projection.nodes.get(&edge.to_node_id) else {
                 let dependency = SemanticDependencyReferenceV1::node(edge.to_node_id.clone(), None);
                 missing_dependencies.insert(dependency.clone());
@@ -934,6 +947,21 @@ mod tests {
             qualification_context_commitment: Some("qualification-context".into()),
         });
         assert!(c.valid());
+    }
+
+    #[test]
+    fn invalid_resolution_evidence_does_not_change_semantic_identity() {
+        let (a,e,d)=projection(false); let p=profile(BTreeSet::new());
+        let mut c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
+        let identity = c.closure_identity_commitment.clone();
+        let dep=SemanticDependencyReferenceV1::node("dep", Some("commit-dep".into()));
+        c.resolution_evidence.insert(dep, SemanticDependencyResolutionEvidenceV1 {
+            retrieval_reference: Some("retrieval".into()),
+            observed_commitment: Some("wrong".into()),
+            qualification_context_commitment: None,
+        });
+        assert_eq!(c.closure_identity_commitment, identity);
+        assert!(!c.valid());
     }
 
     #[test]
