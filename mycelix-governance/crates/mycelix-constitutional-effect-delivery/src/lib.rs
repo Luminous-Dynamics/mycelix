@@ -907,6 +907,101 @@ impl<B: EffectBinding> DeliveryRecord<B> {
             ));
         }
 
+        // Recovery is a proof boundary: reconstruct the persisted history through
+        // the same transition validator used for live observations. This rejects
+        // snapshots whose final state merely looks compatible with forged evidence.
+        let mut replay = Self {
+            binding: snapshot.binding.clone(),
+            replay_profile: snapshot.replay_profile,
+            state: DeliveryState::Pending,
+            attempts: Vec::new(),
+            observations: Vec::new(),
+            completion_committed: false,
+            caller_acknowledged: false,
+            next_observation_sequence: 1,
+            halt_provenance: None,
+        };
+        let mut observation_index = 0usize;
+        for expected_attempt in &snapshot.attempts {
+            let permit = replay.create_attempt().map_err(|_| {
+                DeliveryError::SnapshotInvariantViolation("attempt history cannot be reconstructed")
+            })?;
+            if permit.attempt != *expected_attempt {
+                return Err(DeliveryError::SnapshotInvariantViolation(
+                    "attempt history is not reconstructible",
+                ));
+            }
+            while observation_index < snapshot.observations.len()
+                && snapshot.observations[observation_index].attempt_id == expected_attempt.id
+            {
+                let observation = snapshot.observations[observation_index].clone();
+                let persisted_sequence = observation.sequence;
+                match replay.observe(observation) {
+                    Ok(ObservationResult::Applied { sequence, .. })
+                    | Ok(ObservationResult::IntegrityHalted { sequence })
+                        if sequence == persisted_sequence => {}
+                    Ok(ObservationResult::Duplicate { .. }) => {
+                        return Err(DeliveryError::SnapshotInvariantViolation(
+                            "persisted observation history contains a duplicate",
+                        ));
+                    }
+                    Ok(_) => {
+                        return Err(DeliveryError::SnapshotInvariantViolation(
+                            "replayed observation sequence does not match persistence",
+                        ));
+                    }
+                    Err(_) => {
+                        return Err(DeliveryError::SnapshotInvariantViolation(
+                            "persisted observation history is not replayable",
+                        ));
+                    }
+                }
+                observation_index += 1;
+            }
+        }
+        if observation_index != snapshot.observations.len() {
+            return Err(DeliveryError::SnapshotInvariantViolation(
+                "observations are not ordered by contiguous attempt history",
+            ));
+        }
+
+        if snapshot.state != DeliveryState::IntegrityHalted && replay.state != snapshot.state {
+            return Err(DeliveryError::SnapshotInvariantViolation(
+                "persisted state does not match replayed observation history",
+            ));
+        }
+        if snapshot.completion_committed
+            && snapshot.state != DeliveryState::KnownSuccess
+            && !matches!(
+                halt_provenance.map(|provenance| provenance.reason),
+                Some(HaltReason::ContradictorySemanticEvidence)
+            )
+        {
+            return Err(DeliveryError::SnapshotInvariantViolation(
+                "completion is incompatible with persisted state",
+            ));
+        }
+        if snapshot.state == DeliveryState::IntegrityHalted
+            && matches!(
+                halt_provenance.map(|provenance| provenance.reason),
+                Some(HaltReason::ContradictorySemanticEvidence)
+            )
+            && replay.state != DeliveryState::IntegrityHalted
+        {
+            return Err(DeliveryError::SnapshotInvariantViolation(
+                "contradictory halt does not replay from persisted evidence",
+            ));
+        }
+        if matches!(
+            halt_provenance.map(|provenance| provenance.reason),
+            Some(HaltReason::ContradictorySemanticEvidence)
+        ) && replay.halt_provenance != halt_provenance
+        {
+            return Err(DeliveryError::SnapshotInvariantViolation(
+                "persisted contradictory halt provenance does not match replay",
+            ));
+        }
+
         match snapshot.state {
             DeliveryState::Pending => {}
             DeliveryState::AttemptStarted => {
@@ -969,6 +1064,7 @@ impl<B: EffectBinding> DeliveryRecord<B> {
         })
     }
 }
+
 
 #[cfg(test)]
 mod tests {
@@ -1431,6 +1527,57 @@ mod tests {
         let recovered = DeliveryRecord::recover(record.snapshot()).unwrap();
         assert_eq!(recovered.state(), DeliveryState::AttemptStarted);
         assert_eq!(recovered.attempts().len(), 2);
+    }
+
+    #[test]
+    fn recovery_rejects_state_rewind_after_success() {
+        let mut record = record(ReplayProfile::NoAutomaticRetry);
+        let id = attempt(&mut record);
+        record.observe(Observation::semantic_success(binding(), id, 10)).unwrap();
+        let mut snapshot = record.snapshot();
+        snapshot.state = DeliveryState::OutcomeUnknown;
+
+        assert_eq!(
+            DeliveryRecord::recover(snapshot),
+            Err(DeliveryError::SnapshotInvariantViolation(
+                "persisted state does not match replayed observation history"
+            ))
+        );
+    }
+
+    #[test]
+    fn recovery_rejects_forged_reconciliation_without_unknown() {
+        let mut record = record(ReplayProfile::NoAutomaticRetry);
+        let id = attempt(&mut record);
+        let mut snapshot = record.snapshot();
+        snapshot.observations.push(
+            Observation::reconciliation_no_effect(binding(), id, 9, 1).with_sequence(1),
+        );
+        snapshot.state = DeliveryState::KnownNoEffect;
+
+        assert_eq!(
+            DeliveryRecord::recover(snapshot),
+            Err(DeliveryError::SnapshotInvariantViolation(
+                "persisted observation history is not replayable"
+            ))
+        );
+    }
+
+    #[test]
+    fn recovery_rejects_duplicate_persisted_observation() {
+        let mut record = record(ReplayProfile::NoAutomaticRetry);
+        let id = attempt(&mut record);
+        let observation = Observation::outcome_unknown(binding(), id, 8);
+        record.observe(observation.clone()).unwrap();
+        let mut snapshot = record.snapshot();
+        snapshot.observations.push(observation.with_sequence(2));
+
+        assert_eq!(
+            DeliveryRecord::recover(snapshot),
+            Err(DeliveryError::SnapshotInvariantViolation(
+                "persisted observation history contains a duplicate"
+            ))
+        );
     }
 
     #[test]
