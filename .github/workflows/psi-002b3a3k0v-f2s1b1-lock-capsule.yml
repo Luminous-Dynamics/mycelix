@@ -41,8 +41,8 @@ jobs:
       - name: Install exact Rust toolchain
         run: |
           rustup toolchain install 1.96.0 --profile minimal --no-self-update
-          rustc +1.96.0 --version --verbose
-          cargo +1.96.0 --version --verbose
+          rustc +1.96.0 --version --verbose | tee rustc-1.96.0.txt
+          cargo +1.96.0 --version --verbose | tee cargo-1.96.0.txt
 
       - name: Generate standalone lockfile
         working-directory: qualification/psi-002b3a3k0v-f2s1-validator
@@ -225,8 +225,7 @@ jobs:
           cp qualification/psi-002b3a3k0v-f2s1-validator/provenance.v1.sha256 capsule/
           cp source-commit.txt source-tree.txt source-status.txt workflow-sha256.txt capsule/
           cp runner-uname.txt runner-os-release.txt runner-python-version.txt capsule/
-          rustc +1.96.0 --version --verbose > capsule/rustc-1.96.0.txt
-          cargo +1.96.0 --version --verbose > capsule/cargo-1.96.0.txt
+          cp rustc-1.96.0.txt cargo-1.96.0.txt capsule/
           python3 - <<'PY'
           import hashlib
           from pathlib import Path
