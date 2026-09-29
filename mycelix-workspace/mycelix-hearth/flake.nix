@@ -15,7 +15,7 @@
     flake-utils.url = "github:numtide/flake-utils";
 
     holonix = {
-      url = "github:holochain/holonix/d21b3543"; # pinned to fixed commit, matches mycelix-workspace root (was moving branch main-0.6)
+      url = "github:holochain/holonix?ref=main-0.7"; # Holochain 0.7 toolchain
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
