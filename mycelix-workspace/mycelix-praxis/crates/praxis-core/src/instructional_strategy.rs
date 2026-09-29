@@ -870,6 +870,55 @@ mod tests {
     }
 
     #[test]
+    fn analysis_execution_requires_tool_and_environment_provenance() {
+        let mut execution = InstructionalAnalysisExecution {
+            software_id: "praxis-analyzer".into(),
+            software_version: "1".into(),
+            software_digest: "blake3:software".into(),
+            environment_id: "test-env".into(),
+            environment_digest: "blake3:environment".into(),
+            randomness_policy: "deterministic".into(),
+            random_seed: None,
+            multiple_comparison_policy: "none".into(),
+            sensitivity_analysis_plan_digest: "blake3:sensitivity".into(),
+        };
+        assert_eq!(execution.validate(), Ok(()));
+        execution.environment_digest.clear();
+        assert_eq!(
+            execution.validate(),
+            Err(InstructionalScienceContractError::InvalidAnalysisExecution)
+        );
+    }
+
+    #[test]
+    fn uncertainty_receipt_is_explicitly_versioned() {
+        let receipt = InstructionalUncertaintyReceipt {
+            uncertainty_kind: "confidence_interval".into(),
+            uncertainty_method_version: "1".into(),
+            lower_bound: "0.10".into(),
+            upper_bound: "0.30".into(),
+            confidence_level: Some("0.95".into()),
+        };
+        assert_eq!(receipt.validate(), Ok(()));
+    }
+
+    #[test]
+    fn analysis_execution_has_no_authority() {
+        let execution = InstructionalAnalysisExecution {
+            software_id: "praxis-analyzer".into(),
+            software_version: "1".into(),
+            software_digest: "blake3:software".into(),
+            environment_id: "test-env".into(),
+            environment_digest: "blake3:environment".into(),
+            randomness_policy: "deterministic".into(),
+            random_seed: None,
+            multiple_comparison_policy: "none".into(),
+            sensitivity_analysis_plan_digest: "blake3:sensitivity".into(),
+        };
+        assert_eq!(execution.validate(), Ok(()));
+    }
+
+    #[test]
     fn outcome_observation_has_no_authority() {
         let value = observation(InstructionalOutcomeObservationStatus::Complete);
         assert!(!value.grants_credential_authority());
