@@ -64,7 +64,7 @@ jobs:
                   "checksum": p.get("checksum"),
                   "edition": p["edition"],
                   "rust_version": p.get("rust_version"),
-                  "manifest_path": p["manifest_path"],
+                  "manifest_path": str(Path(p["manifest_path"]).relative_to(Path(meta["workspace_root"]))),
               })
           inventory = {
               "schema": "psi-002b3a3k0v-f2s1b1-dependency-source-inventory.v1",
@@ -83,8 +83,29 @@ jobs:
       - name: Verify locked/offline metadata after capsule generation
         working-directory: qualification/psi-002b3a3k0v-f2s1-validator
         run: |
+          cargo +1.96.0 fetch --manifest-path Cargo.toml --locked
           cargo +1.96.0 metadata --manifest-path Cargo.toml --locked --offline --format-version 1 > metadata-offline.json
-          cmp <(python3 -c 'import json; print(json.dumps(json.load(open("cargo-metadata.json")), sort_keys=True, separators=(",", ":")))' ) <(python3 -c 'import json; print(json.dumps(json.load(open("metadata-offline.json")), sort_keys=True, separators=(",", ":")))' )
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          def canonical(path):
+              value = json.loads(Path(path).read_text())
+              root = value["workspace_root"]
+              target = value["target_directory"]
+              def normalize(item):
+                  if isinstance(item, str):
+                      return item.replace(root, "$WORKSPACE").replace(target, "$TARGET")
+                  if isinstance(item, list):
+                      return [normalize(x) for x in item]
+                  if isinstance(item, dict):
+                      return {k: normalize(v) for k, v in item.items()}
+                  return item
+              return json.dumps(normalize(value), sort_keys=True, separators=(",", ":"))
+
+          assert canonical("cargo-metadata.json") == canonical("metadata-offline.json"), "locked/offline metadata differs"
+          Path("cargo-metadata.canonical.json").write_text(canonical("cargo-metadata.json") + "\\n")
+          PY
 
       - name: Package capsule
         run: |
@@ -92,7 +113,7 @@ jobs:
           cp qualification/psi-002b3a3k0v-f2s1-validator/Cargo.toml capsule/
           cp qualification/psi-002b3a3k0v-f2s1-validator/Cargo.lock capsule/
           cp qualification/psi-002b3a3k0v-f2s1-validator/Cargo.lock.sha256 capsule/
-          cp qualification/psi-002b3a3k0v-f2s1-validator/cargo-metadata.json capsule/
+          cp qualification/psi-002b3a3k0v-f2s1-validator/cargo-metadata.canonical.json capsule/
           cp qualification/psi-002b3a3k0v-f2s1-validator/cargo-tree.txt capsule/
           cp qualification/psi-002b3a3k0v-f2s1-validator/dependency-source-inventory.v1.json capsule/
           cp qualification/psi-002b3a3k0v-f2s1-validator/dependency-source-inventory.v1.sha256 capsule/
