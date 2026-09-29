@@ -115,6 +115,53 @@ pub struct InstructionalStrategyAssignment {
     pub assigned_at: i64,
 }
 
+/// Immutable reference to the exact assignment that produced an observation.
+///
+/// The digest closes the provenance edge even if a later assignment version is
+/// superseded. An observation must never point only at a mutable logical ID.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalAssignmentRef {
+    pub assignment_id: String,
+    pub assignment_version: u64,
+    pub assignment_digest: String,
+}
+
+impl InstructionalAssignmentRef {
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.assignment_id.trim().is_empty()
+            || self.assignment_digest.trim().is_empty()
+        {
+            return Err(InstructionalScienceContractError::InvalidAssignmentReference);
+        }
+        if self.assignment_version == 0 {
+            return Err(InstructionalScienceContractError::ZeroAssignmentReferenceVersion);
+        }
+        Ok(())
+    }
+}
+
+/// Exact reference to an earlier observation when this observation is a correction.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalObservationRef {
+    pub observation_id: String,
+    pub observation_version: u64,
+    pub observation_digest: String,
+}
+
+impl InstructionalObservationRef {
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.observation_id.trim().is_empty()
+            || self.observation_digest.trim().is_empty()
+        {
+            return Err(InstructionalScienceContractError::InvalidSupersededObservation);
+        }
+        if self.observation_version == 0 {
+            return Err(InstructionalScienceContractError::ZeroSupersededObservationVersion);
+        }
+        Ok(())
+    }
+}
+
 /// Measurement state for an observed outcome.
 ///
 /// Invalid and excluded observations remain explicit states so downstream
@@ -155,13 +202,12 @@ pub struct InstructionalOutcomeObservation {
     pub value: Option<String>,
     pub status: InstructionalOutcomeObservationStatus,
     pub status_reason: Option<String>,
-    pub supersedes_observation_id: Option<String>,
+    pub supersedes_observation: Option<InstructionalObservationRef>,
 }
 
 impl InstructionalOutcomeObservation {
     pub fn validate(&self) -> Result<(), InstructionalScienceContractError> {
         if self.observation_id.trim().is_empty()
-            || self.assignment_id.trim().is_empty()
             || self.learner_id.0.trim().is_empty()
             || self.outcome_measure_id.trim().is_empty()
             || self.outcome_measure_version.trim().is_empty()
@@ -175,6 +221,7 @@ impl InstructionalOutcomeObservation {
         if self.observation_version == 0 {
             return Err(InstructionalScienceContractError::ZeroObservationVersion);
         }
+        self.assignment.validate()?;
         if self.observation_window_start < 0
             || self.observation_window_end < self.observation_window_start
             || self.observed_at < self.observation_window_start
@@ -182,23 +229,30 @@ impl InstructionalOutcomeObservation {
         {
             return Err(InstructionalScienceContractError::InvalidObservationWindow);
         }
-        if self.supersedes_observation_id.as_deref() == Some(self.observation_id.as_str()) {
-            return Err(InstructionalScienceContractError::SelfSupersedingObservation);
-        }
-        if let Some(id) = &self.supersedes_observation_id {
-            if id.trim().is_empty() {
-                return Err(InstructionalScienceContractError::InvalidSupersededObservation);
+        if let Some(previous) = &self.supersedes_observation {
+            previous.validate()?;
+            if previous.observation_id == self.observation_id
+                && previous.observation_version == self.observation_version
+            {
+                return Err(InstructionalScienceContractError::SelfSupersedingObservation);
             }
         }
 
         match self.status {
-            InstructionalOutcomeObservationStatus::Complete
-            | InstructionalOutcomeObservationStatus::Partial => {
+            InstructionalOutcomeObservationStatus::Complete => {
                 if self.value.as_deref().is_none_or(|value| value.trim().is_empty()) {
                     return Err(InstructionalScienceContractError::MissingObservedValue);
                 }
                 if self.status_reason.as_deref().is_some_and(|reason| reason.trim().is_empty()) {
                     return Err(InstructionalScienceContractError::EmptyObservationStatusReason);
+                }
+            }
+            InstructionalOutcomeObservationStatus::Partial => {
+                if self.value.as_deref().is_none_or(|value| value.trim().is_empty()) {
+                    return Err(InstructionalScienceContractError::MissingObservedValue);
+                }
+                if self.status_reason.as_deref().is_none_or(|reason| reason.trim().is_empty()) {
+                    return Err(InstructionalScienceContractError::MissingObservationStatusReason);
                 }
             }
             InstructionalOutcomeObservationStatus::Invalid
@@ -226,6 +280,29 @@ pub enum InstructionalAnalysisKind {
     Exploratory,
 }
 
+/// Exact protocol provenance required when an analysis is presented as an
+/// experimental effect estimate.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExperimentalAnalysisRef {
+    pub experiment_id: String,
+    pub protocol_id: String,
+    pub protocol_version: String,
+    pub protocol_digest: String,
+}
+
+impl ExperimentalAnalysisRef {
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.experiment_id.trim().is_empty()
+            || self.protocol_id.trim().is_empty()
+            || self.protocol_version.trim().is_empty()
+            || self.protocol_digest.trim().is_empty()
+        {
+            return Err(InstructionalScienceContractError::InvalidExperimentalAnalysisReference);
+        }
+        Ok(())
+    }
+}
+
 /// A reproducible, immutable receipt for an analysis over outcome observations.
 ///
 /// The receipt binds the computation to exact plans, inputs, cohort rules,
@@ -250,6 +327,7 @@ pub struct InstructionalAnalysisReceipt {
     pub analysis_method_version: String,
     pub estimand: String,
     pub kind: InstructionalAnalysisKind,
+    pub experimental_provenance: Option<ExperimentalAnalysisRef>,
     pub prespecified: bool,
     pub deviation_rationale: Option<String>,
     pub result_digest: String,
@@ -278,6 +356,13 @@ impl InstructionalAnalysisReceipt {
         }
         if self.analysis_version == 0 {
             return Err(InstructionalScienceContractError::ZeroAnalysisVersion);
+        }
+        if matches!(self.kind, InstructionalAnalysisKind::ExperimentalEffectEstimate) {
+            self.experimental_provenance.as_ref().ok_or(
+                InstructionalScienceContractError::MissingExperimentalAnalysisReference,
+            )?.validate()?;
+        } else if let Some(provenance) = &self.experimental_provenance {
+            provenance.validate()?;
         }
         if self.generated_at < 0 {
             return Err(InstructionalScienceContractError::NegativeAnalysisGeneratedAt);
@@ -335,6 +420,11 @@ pub enum InstructionalScienceContractError {
     EmptyObservationStatusReason,
     SelfSupersedingObservation,
     InvalidSupersededObservation,
+    InvalidAssignmentReference,
+    ZeroAssignmentReferenceVersion,
+    ZeroSupersededObservationVersion,
+    InvalidExperimentalAnalysisReference,
+    MissingExperimentalAnalysisReference,
 }
 
 impl EvidencePolicy {
@@ -512,7 +602,11 @@ mod tests {
         InstructionalOutcomeObservation {
             observation_id: "observation-1".into(),
             observation_version: 1,
-            assignment_id: "assignment-1".into(),
+            assignment: InstructionalAssignmentRef {
+                assignment_id: "assignment-1".into(),
+                assignment_version: 1,
+                assignment_digest: "blake3:assignment".into(),
+            },
             learner_id: LearnerId("learner-1".into()),
             outcome_measure_id: "measure:delayed-retrieval".into(),
             outcome_measure_version: "1".into(),
@@ -526,7 +620,7 @@ mod tests {
             value: Some("0.82".into()),
             status,
             status_reason: None,
-            supersedes_observation_id: None,
+            supersedes_observation: None,
         }
     }
 
@@ -639,6 +733,58 @@ mod tests {
         assert_eq!(
             value.validate(),
             Err(InstructionalScienceContractError::SelfSupersedingObservation)
+        );
+    }
+
+    #[test]
+    fn observation_requires_exact_assignment_provenance() {
+        let mut value = observation(InstructionalOutcomeObservationStatus::Complete);
+        value.assignment.assignment_digest.clear();
+        assert_eq!(
+            value.validate(),
+            Err(InstructionalScienceContractError::InvalidAssignmentReference)
+        );
+    }
+
+    #[test]
+    fn partial_outcome_requires_reason() {
+        let mut value = observation(InstructionalOutcomeObservationStatus::Partial);
+        assert_eq!(
+            value.validate(),
+            Err(InstructionalScienceContractError::MissingObservationStatusReason)
+        );
+        value.status_reason = Some("assessment interrupted before final item".into());
+        assert_eq!(value.validate(), Ok(()));
+    }
+
+    #[test]
+    fn experimental_effect_estimate_requires_protocol_provenance() {
+        let receipt = InstructionalAnalysisReceipt {
+            analysis_id: "analysis-1".into(),
+            analysis_version: 1,
+            analysis_plan_id: "plan-1".into(),
+            analysis_plan_version: "1".into(),
+            analysis_plan_digest: "blake3:plan".into(),
+            outcome_measure_id: "measure-1".into(),
+            outcome_measure_version: "1".into(),
+            input_observation_set_digest: "blake3:observations".into(),
+            cohort_definition_digest: "blake3:cohort".into(),
+            inclusion_rules_digest: "blake3:include".into(),
+            exclusion_rules_digest: "blake3:exclude".into(),
+            missing_data_policy: "complete-case-v1".into(),
+            analysis_method: "difference-in-means".into(),
+            analysis_method_version: "1".into(),
+            estimand: "mean outcome difference".into(),
+            kind: InstructionalAnalysisKind::ExperimentalEffectEstimate,
+            experimental_provenance: None,
+            prespecified: true,
+            deviation_rationale: None,
+            result_digest: "blake3:result".into(),
+            generated_at: 200,
+        };
+        assert_eq!(
+            receipt.validate(),
+            Err(InstructionalScienceContractError::MissingExperimentalAnalysisReference)
         );
     }
 
