@@ -252,7 +252,7 @@ pub struct CanonicalDerivationReceiptV1 {
 
 impl CanonicalDerivationReceiptV1 {
     pub fn structurally_valid(&self) -> bool {
-        non_empty(&self.schema_version)
+        self.schema_version == "D6S-1"
             && non_empty(&self.projection_version)
             && self.canonicalization_version == D6S_REFERENCE_CANONICALIZATION_VERSION
             && non_empty(&self.source_dkg_snapshot_commitment)
@@ -267,6 +267,11 @@ impl CanonicalDerivationReceiptV1 {
             && non_empty(&self.result_commitment)
             && non_empty(&self.receipt_commitment)
             && self.claim_ceiling == D6S_CLAIM_CEILING
+            && result_flags_are_consistent(
+                self.result_status,
+                self.contradiction_preserved,
+                self.unresolved_preserved,
+            )
     }
 
     pub fn canonical_bytes(&self) -> Vec<u8> {
@@ -384,6 +389,30 @@ pub fn build_canonical_receipt(
     };
     receipt.receipt_commitment = receipt.recomputed_commitment();
     Some(receipt)
+}
+
+pub fn verify_canonical_receipt(
+    receipt: &CanonicalDerivationReceiptV1,
+    projection: &QualifiedProjectionV1,
+    environment: &SemanticEnvironmentV1,
+    profile: &DerivationProfileV1,
+    current_receipts: &[CurrentFinalityEligibilityReceiptV1],
+) -> bool {
+    if !receipt.commitment_matches() {
+        return false;
+    }
+
+    build_canonical_receipt(
+        projection,
+        environment,
+        profile,
+        current_receipts,
+        receipt.result_status,
+        receipt.result_commitment.clone(),
+        receipt.contradiction_preserved,
+        receipt.unresolved_preserved,
+    )
+    .is_some_and(|expected| expected == *receipt)
 }
 
 pub fn current_receipt_is_bound(
@@ -638,6 +667,23 @@ mod tests {
     fn receipt_commitment_is_self_consistent() {
         let r = build_canonical_receipt(&projection(), &env(), &profile(), &[d6p_receipt()], DerivationResultStatusV1::Supported, "result-1".into(), false, false).unwrap();
         assert!(r.commitment_matches());
+    }
+
+    #[test]
+    fn verifier_reconstructs_the_exact_receipt() {
+        let receipt = build_canonical_receipt(
+            &projection(), &env(), &profile(), &[d6p_receipt()],
+            DerivationResultStatusV1::Supported, "result-1".into(), false, false
+        ).unwrap();
+        assert!(verify_canonical_receipt(
+            &receipt, &projection(), &env(), &profile(), &[d6p_receipt()]
+        ));
+
+        let mut mutated = receipt.clone();
+        mutated.result_commitment = "result-2".into();
+        assert!(!verify_canonical_receipt(
+            &mutated, &projection(), &env(), &profile(), &[d6p_receipt()]
+        ));
     }
 
     #[test]
