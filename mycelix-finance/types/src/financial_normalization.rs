@@ -277,7 +277,21 @@ fn validate_frontier(
 
 fn validate_factor(observation: &MarketObservation, recipe: &NormalizationRecipe, factor: &NormalizationFactorObservation, frontier: &InformationFrontier) -> Result<(), NormalizationError> {
     if recipe.factor_observation.as_ref().map(|f| f.factor_id.as_str()) != Some(factor.factor_id.as_str()) { return Err(NormalizationError::FactorIdentityMismatch); }
-    match factor.status { EvidenceStatus::Protected => return Err(NormalizationError::ProtectedEvidence), EvidenceStatus::Conflicting | EvidenceStatus::Unavailable | EvidenceStatus::Unknown | EvidenceStatus::Stale | EvidenceStatus::FutureInaccessible => return Err(NormalizationError::FactorUnavailableAtFrontier), EvidenceStatus::Known | EvidenceStatus::ObservedUnqualified => {} }
+    match factor.status {
+        EvidenceStatus::Protected => return Err(NormalizationError::ProtectedEvidence),
+        EvidenceStatus::Known => {}
+        EvidenceStatus::ObservedUnqualified
+        | EvidenceStatus::Conflicting
+        | EvidenceStatus::Unavailable
+        | EvidenceStatus::Unknown
+        | EvidenceStatus::Stale
+        | EvidenceStatus::FutureInaccessible => {
+            // A transformation factor is materially part of a derived
+            // projection. Merely observing the factor is insufficient:
+            // it must itself be qualified before it can affect a projection.
+            return Err(NormalizationError::FactorUnavailableAtFrontier);
+        }
+    }
     let available = factor.available_at_micros.ok_or(NormalizationError::FactorUnavailableAtFrontier)?;
     if available > frontier.as_of_micros || factor.information_frontier.as_of_micros > frontier.as_of_micros { return Err(NormalizationError::FactorUnavailableAtFrontier); }
     if let Some(from) = factor.effective_from_micros { if observation.observed_at_micros < from { return Err(NormalizationError::FactorNotEffectiveAtObservation); } }
@@ -639,6 +653,19 @@ mod factor_binding_tests {
     fn unit_mismatch_is_rejected_even_when_factor_is_available() {
         let recipe = fx_recipe(factor("factor-a", "0.9", EvidenceStatus::Known, 95, "GBP", "EUR"));
         assert_eq!(normalize_observation_at_frontier(&base_observation(), &recipe, &InformationFrontier { as_of_micros: 100, frontier_id: "f100".into() }), Err(NormalizationError::FactorUnitMismatch));
+    }
+
+    #[test]
+    fn observed_unqualified_factor_is_rejected_even_when_available() {
+        let recipe = fx_recipe(factor("factor-a", "0.9", EvidenceStatus::ObservedUnqualified, 95, "USD", "EUR"));
+        assert_eq!(
+            normalize_observation_at_frontier(
+                &base_observation(),
+                &recipe,
+                &InformationFrontier { as_of_micros: 100, frontier_id: "f100".into() }
+            ),
+            Err(NormalizationError::FactorUnavailableAtFrontier)
+        );
     }
 
     #[test]
