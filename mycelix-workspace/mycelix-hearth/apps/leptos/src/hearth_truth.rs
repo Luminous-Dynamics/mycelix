@@ -1026,7 +1026,7 @@ mod tests {
             assert_eq!(
                 observations.borrow().as_slice(),
                 &[
-                    (true, AvailabilityStateKind::Mock),
+                    (true, AvailabilityStateKind::Unknown),
                     (true, AvailabilityStateKind::Live)
                 ][..]
             );
