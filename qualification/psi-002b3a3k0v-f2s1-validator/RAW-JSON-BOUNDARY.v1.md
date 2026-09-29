@@ -19,7 +19,7 @@ This boundary prevents ambiguous JSON objects from entering later structural-sch
 ## Reference implementation and vectors
 
 - `tools/check_raw_json.py` implements the duplicate-aware parse boundary using Python's `object_pairs_hook`, which observes object member pairs before conversion to a dictionary.
-- `tools/test_raw_json_boundary.py` covers top-level and nested duplicates, equal and unequal values, escaped-name collision, valid empty/null forms, numeric spellings, whitespace/member-order raw identity, malformed/trailing input, BOM, and invalid UTF-8.
+- `raw-json-boundary-vectors.v1.json` freezes machine-readable vector IDs, byte inputs, and expected boundary dispositions. `tools/test_raw_json_boundary.py` exercises the reference implementation against these boundary classes, including top-level and nested duplicates, equal and unequal values, escaped-name collision, valid empty/null forms, numeric spellings, whitespace/member-order raw identity, malformed/trailing input, BOM, and invalid UTF-8.
 
 The implementation is a reference boundary for this qualification package. A later Rust validator must independently enforce the same raw-input semantics before any deserialization path that could discard duplicate names.
 
