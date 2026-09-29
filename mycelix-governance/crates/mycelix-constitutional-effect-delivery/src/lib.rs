@@ -589,6 +589,9 @@ impl<B: EffectBinding> DeliveryRecord<B> {
         &mut self,
         observation: Observation<B>,
     ) -> Result<ObservationResult, DeliveryError> {
+        if self.state == DeliveryState::IntegrityHalted {
+            return Err(DeliveryError::RetryNotPermitted(self.state));
+        }
         if self.binding != observation.binding {
             self.enter_halt(HaltProvenance::reason(HaltReason::BindingDrift));
             return Err(DeliveryError::BindingMismatch);
@@ -1349,6 +1352,26 @@ mod tests {
             record.authorize_dispatch(&permit),
             Err(DeliveryError::RetryNotPermitted(DeliveryState::KnownSuccess))
         );
+    }
+
+    #[test]
+    fn halted_record_rejects_observation_without_mutation() {
+        let mut record = record(ReplayProfile::NoAutomaticRetry);
+        let id = attempt(&mut record);
+        record
+            .observe(Observation::outcome_unknown(binding(), id, 8))
+            .unwrap();
+        assert_eq!(
+            record.observe(Observation::reconciliation_no_effect(binding(), id, 9, 999)),
+            Err(DeliveryError::ReconciliationTargetMissing(999))
+        );
+
+        let before = record.snapshot();
+        assert_eq!(
+            record.observe(Observation::semantic_success(binding(), id, 10)),
+            Err(DeliveryError::RetryNotPermitted(DeliveryState::IntegrityHalted))
+        );
+        assert_eq!(record.snapshot(), before);
     }
 
     #[test]
