@@ -45,7 +45,8 @@ fn non_empty(value: &str) -> bool {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct D6WInputLayerV1 {
     pub source_dkg_snapshot_commitment: String,
-    pub projection_commitment: String,
+    pub projection_id: String,
+    pub projection_version: String,
     pub input_node_commitments: BTreeSet<String>,
     pub input_edge_commitments: BTreeSet<String>,
     pub d6p_current_receipt_commitments: BTreeSet<String>,
@@ -58,7 +59,8 @@ pub struct D6WInputLayerV1 {
 impl D6WInputLayerV1 {
     pub fn structurally_valid(&self) -> bool {
         non_empty(&self.source_dkg_snapshot_commitment)
-            && non_empty(&self.projection_commitment)
+            && non_empty(&self.projection_id)
+            && non_empty(&self.projection_version)
             && !self.input_node_commitments.is_empty()
             && !self.input_edge_commitments.is_empty()
             && self.input_node_commitments.iter().all(|v| non_empty(v))
@@ -89,7 +91,8 @@ impl D6WInputLayerV1 {
         }
         let layer = Self {
             source_dkg_snapshot_commitment: projection.source_dkg_snapshot_commitment.clone(),
-            projection_commitment: projection.commitment(),
+            projection_id: projection.projection_id.clone(),
+            projection_version: projection.projection_version.clone(),
             input_node_commitments: projection
                 .nodes
                 .values()
@@ -116,6 +119,7 @@ impl D6WInputLayerV1 {
 pub struct D6WDerivationLayerV1 {
     pub input_commitment: String,
     pub derivation_profile_commitment: String,
+    pub canonicalization_version: String,
     pub execution_trace_commitment: String,
     pub claim_ceiling: String,
 }
@@ -124,6 +128,7 @@ impl D6WDerivationLayerV1 {
     pub fn structurally_valid(&self) -> bool {
         non_empty(&self.input_commitment)
             && non_empty(&self.derivation_profile_commitment)
+            && self.canonicalization_version == "D6S-CANON-1"
             && non_empty(&self.execution_trace_commitment)
             && self.claim_ceiling == D6S_CLAIM_CEILING
     }
@@ -234,6 +239,7 @@ pub fn build_d6w_receipt(
     let derivation = D6WDerivationLayerV1 {
         input_commitment: input.commitment(),
         derivation_profile_commitment: profile.commitment(),
+        canonicalization_version: projection.canonicalization_version.clone(),
         execution_trace_commitment,
         claim_ceiling: D6S_CLAIM_CEILING.into(),
     };
@@ -497,6 +503,26 @@ mod tests {
         ).unwrap();
         assert_eq!(input.commitment(), D6WInputLayerV1::from_projection(&projection).unwrap().commitment());
         assert_ne!(derivation.commitment(), d2.commitment());
+    }
+
+    #[test]
+    fn canonicalization_version_mutation_changes_derivation_not_input() {
+        let (input, derivation, _, _) = layers("trace-1");
+        let mut projection = projection();
+        projection.canonicalization_version = "D6S-CANON-2".into();
+        let d6s = build_canonical_receipt(
+            &projection,
+            &env(),
+            &profile(),
+            &[d6p_receipt()],
+            DerivationResultStatusV1::Supported,
+            "result-1".into(),
+            false,
+            false,
+        );
+        assert!(d6s.is_none());
+        assert_eq!(input.commitment(), layers("trace-1").0.commitment());
+        assert_ne!(derivation.canonicalization_version, "D6S-CANON-2");
     }
 
     #[test]
