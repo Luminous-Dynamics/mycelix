@@ -112,6 +112,29 @@ pub enum SemanticDependencyResolutionV1 {
     Stale,
 }
 
+/// Runtime/audit evidence about resolving a semantic dependency.
+/// This is deliberately excluded from closure identity: retrieval addresses and
+/// observed evidence may vary without changing what the semantic dependency is.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SemanticDependencyResolutionEvidenceV1 {
+    pub retrieval_reference: Option<String>,
+    pub observed_commitment: Option<String>,
+    pub qualification_context_commitment: Option<String>,
+}
+
+impl SemanticDependencyResolutionEvidenceV1 {
+    pub fn structurally_valid(&self) -> bool {
+        [
+            self.retrieval_reference.as_deref(),
+            self.observed_commitment.as_deref(),
+            self.qualification_context_commitment.as_deref(),
+        ]
+        .into_iter()
+        .flatten()
+        .all(non_empty)
+    }
+}
+
 impl SemanticDependencyReferenceV1 {
     pub fn node(id: impl Into<String>, commitment: Option<String>) -> Self {
         Self { kind: SemanticDependencyKindV1::Node, identifier: id.into(), commitment, context: None }
@@ -189,6 +212,8 @@ pub struct DependencyClosureCertificateV1 {
     /// Per-dependency resolution state. The key set must exactly cover selected
     /// and missing dependencies; "not selected" is represented by absence.
     pub dependency_resolutions: BTreeMap<SemanticDependencyReferenceV1, SemanticDependencyResolutionV1>,
+    /// Optional audit/retrieval evidence. Never part of semantic closure identity.
+    pub resolution_evidence: BTreeMap<SemanticDependencyReferenceV1, SemanticDependencyResolutionEvidenceV1>,
     pub status: DependencyClosureStatusV1,
     pub cycle_detected: bool,
     pub claim_ceiling: String,
@@ -229,6 +254,10 @@ impl DependencyClosureCertificateV1 {
             && self.dependency_resolutions.keys().cloned().collect::<BTreeSet<_>>() == self.dependencies.union(&self.missing_dependencies).cloned().collect()
             && self.dependencies.iter().all(|dependency| matches!(self.dependency_resolutions.get(dependency), Some(SemanticDependencyResolutionV1::Present | SemanticDependencyResolutionV1::Stale)))
             && self.missing_dependencies.iter().all(|dependency| matches!(self.dependency_resolutions.get(dependency), Some(SemanticDependencyResolutionV1::Missing)))
+            && self.resolution_evidence.iter().all(|(dependency, evidence)| {
+                self.dependencies.contains(dependency)
+                    || self.missing_dependencies.contains(dependency)
+            } && evidence.structurally_valid())
             && self.claim_ceiling == D6X_CLAIM_CEILING
             && self.included_node_ids.len() == self.included_node_commitments.len()
             && self.included_edges.len() == self.included_edge_commitments.len()
@@ -465,6 +494,7 @@ pub fn compute_dependency_closure(
         missing_dependencies,
         dependencies,
         dependency_resolutions,
+        resolution_evidence: BTreeMap::new(),
         status, cycle_detected, claim_ceiling: D6X_CLAIM_CEILING.into(), commitment: String::new(),
     };
     out.closure_identity_commitment = out.closure_identity();
@@ -724,6 +754,37 @@ mod tests {
         assert_eq!(c.dependency_resolutions.get(&SemanticDependencyReferenceV1::node("root", Some("commit-root".into()))), Some(&SemanticDependencyResolutionV1::Present));
         assert_eq!(c.dependency_resolutions.get(&SemanticDependencyReferenceV1::node("missing", None)), Some(&SemanticDependencyResolutionV1::Missing));
         assert!(c.valid());
+    }
+
+    #[test]
+    fn resolution_evidence_does_not_change_semantic_identity() {
+        let (a,e,d)=projection(false); let p=profile(BTreeSet::new());
+        let mut c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
+        let identity = c.closure_identity_commitment.clone();
+        let dep=SemanticDependencyReferenceV1::node("dep", Some("commit-dep".into()));
+        c.resolution_evidence.insert(dep, SemanticDependencyResolutionEvidenceV1 {
+            retrieval_reference: Some("opaque-retrieval-ref".into()),
+            observed_commitment: Some("commit-dep".into()),
+            qualification_context_commitment: Some("qualification-context".into()),
+        });
+        assert_eq!(c.closure_identity_commitment, identity);
+        assert!(c.valid());
+        assert_ne!(c.commitment, compute_dependency_closure(&a,&e,&d,&p).unwrap().commitment);
+    }
+
+    #[test]
+    fn resolution_evidence_cannot_reference_unselected_dependency() {
+        let (a,e,d)=projection(false); let p=profile(BTreeSet::new());
+        let mut c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
+        c.resolution_evidence.insert(
+            SemanticDependencyReferenceV1::node("noise", Some("noise".into())),
+            SemanticDependencyResolutionEvidenceV1 {
+                retrieval_reference: Some("retrieval".into()),
+                observed_commitment: None,
+                qualification_context_commitment: None,
+            },
+        );
+        assert!(!c.valid());
     }
 
     #[test]
