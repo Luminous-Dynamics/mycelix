@@ -27,7 +27,7 @@ The only direct validator dependency is:
 - Draft 2020-12 must be selected explicitly by validator code;
 - external HTTP/filesystem reference resolution is outside the qualification boundary.
 
-A complete generated `Cargo.lock`, source inventory, and lock digest are still required before execution. The manifest alone is not a reproducibility qualification. The lock-capsule workflow also records the exact checked-out commit/tree and workflow-file digest, and performs locked/offline build and test checks.
+A complete generated `Cargo.lock`, source inventory, and lock digest are still required before execution. The manifest alone is not a reproducibility qualification. The lock-capsule workflow also emits a canonical `provenance.v1.json` record (plus SHA-256) binding the exact source commit/tree, workflow bytes, manifest, lockfile, toolchain identity, and runner evidence; it performs locked/offline build and test checks.
 
 ## Required next gate
 
@@ -35,8 +35,9 @@ A complete generated `Cargo.lock`, source inventory, and lock digest are still r
 2. Freeze its exact bytes and SHA-256.
 3. Record the complete resolved source inventory.
 4. Verify repeated `--locked --offline` metadata/build/test behavior.
-5. Bind the resulting evidence to the exact source commit/tree and workflow bytes.
-6. Only then replace the compile-only target with executable structural-validation code.
+5. Bind the resulting evidence to the exact source commit/tree, workflow bytes, manifest/lock digests, toolchain, and runner evidence.
+6. Verify the canonical provenance record and capsule manifest as part of the independent audit boundary.
+7. Only then replace the compile-only target with executable structural-validation code.
 
 ## Non-delegation
 
