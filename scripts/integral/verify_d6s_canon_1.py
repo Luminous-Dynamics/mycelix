@@ -93,9 +93,7 @@ def main():
     corpus = load_json(vector_path.read_text(encoding="utf-8"))
     if corpus["profile"] != "D6S-CANON-1":
         raise SystemExit("unexpected canonicalization profile")
-    if corpus["hash_domain"].encode("utf-8").decode("unicode_escape").encode(
-        "utf-8"
-    ) != DOMAIN:
+    if corpus["hash_domain"].encode("utf-8") != DOMAIN:
         raise SystemExit("unexpected hash domain")
 
     for case in corpus["cases"]:
