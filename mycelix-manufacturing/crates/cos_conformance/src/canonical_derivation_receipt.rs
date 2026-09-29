@@ -197,6 +197,18 @@ impl QualifiedProjectionV1 {
         adjacency.keys().any(|id| visit(id, &adjacency, &mut visiting, &mut visited))
     }
 
+    pub fn incompatible_edge_ids(&self) -> BTreeSet<String> {
+        self.edges.values()
+            .filter(|edge| {
+                let (Some(from), Some(to)) = (self.nodes.get(&edge.from_node_id), self.nodes.get(&edge.to_node_id)) else {
+                    return true;
+                };
+                !crate::evidence_claim_graph::EvidenceBundleV1::edge_type_compatible(from.kind, to.kind, edge.kind)
+            })
+            .map(|edge| edge.edge_id.clone())
+            .collect()
+    }
+
     pub fn commitment(&self) -> String {
         canonical_sha256(self)
     }
@@ -272,6 +284,7 @@ pub fn build_canonical_receipt(
     projection: &QualifiedProjectionV1,
     environment: &SemanticEnvironmentV1,
     profile: &DerivationProfileV1,
+    current_receipts: &[CurrentFinalityEligibilityReceiptV1],
     result_status: DerivationResultStatusV1,
     result_commitment: String,
     contradiction_preserved: bool,
@@ -283,8 +296,14 @@ pub fn build_canonical_receipt(
         || projection.semantic_environment_commitment != environment.commitment()
         || projection.derivation_profile_commitment != profile.commitment()
         || !projection.dangling_edge_ids().is_empty()
+        || !projection.incompatible_edge_ids().is_empty()
         || (projection.derivation_cycle_exists() && !profile.permits_recursive_fixpoint)
         || result_commitment.trim().is_empty()
+        || (matches!(result_status, DerivationResultStatusV1::Supported)
+            && (projection.d6p_current_receipt_commitments.is_empty()
+                || !projection.d6p_current_receipt_commitments.iter().all(|expected| {
+                    current_receipts.iter().any(|receipt| current_receipt_is_bound(receipt, expected))
+                })))
     {
         return None;
     }
@@ -421,15 +440,14 @@ mod tests {
         changed.version = "2".into();
         let mut changed_projection = p.clone();
         changed_projection.derivation_profile_commitment = changed.commitment();
-        let second = build_canonical_receipt(&changed_projection, &e, &changed, DerivationResultStatusV1::Supported, "result-1".into(), false, false).unwrap();
+        let second = build_canonical_receipt(&changed_projection, &e, &changed, &[], DerivationResultStatusV1::Supported, "result-1".into(), false, false).unwrap();
         assert_ne!(first.receipt_commitment, second.receipt_commitment);
     }
 
     #[test]
     fn missing_d6p_receipt_is_not_current_qualification() {
-        let mut p = projection();
-        p.d6p_current_receipt_commitments.clear();
-        assert!(build_canonical_receipt(&p, &env(), &profile(), DerivationResultStatusV1::Supported, "result-1".into(), false, false).is_none());
+        let p = projection();
+        assert!(build_canonical_receipt(&p, &env(), &profile(), &[], DerivationResultStatusV1::Supported, "result-1".into(), false, false).is_none());
     }
 
     #[test]
@@ -455,13 +473,13 @@ mod tests {
 
     #[test]
     fn receipt_commitment_is_self_consistent() {
-        let r = build_canonical_receipt(&projection(), &env(), &profile(), DerivationResultStatusV1::Supported, "result-1".into(), false, false).unwrap();
+        let r = build_canonical_receipt(&projection(), &env(), &profile(), &[], DerivationResultStatusV1::Supported, "result-1".into(), false, false).unwrap();
         assert!(r.commitment_matches());
     }
 
     #[test]
     fn contradiction_and_unresolved_are_explicit() {
-        let r = build_canonical_receipt(&projection(), &env(), &profile(), DerivationResultStatusV1::Disputed, "result-1".into(), true, false).unwrap();
+        let r = build_canonical_receipt(&projection(), &env(), &profile(), &[], DerivationResultStatusV1::Disputed, "result-1".into(), true, false).unwrap();
         assert!(r.contradiction_preserved);
         assert!(!r.unresolved_preserved);
         assert!(r.commitment_matches());
