@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 pub const D6X_SCHEMA_VERSION: &str = "D6X-1";
-pub const D6X_ALGORITHM_VERSION: &str = "D6X-CLOSURE-3";
+pub const D6X_ALGORITHM_VERSION: &str = "D6X-CLOSURE-4";
 pub const D6X_CLAIM_CEILING: &str = D6S_CLAIM_CEILING;
 
 fn non_empty(v: &str) -> bool { !v.trim().is_empty() }
@@ -88,11 +88,23 @@ pub enum SemanticDependencyKindV1 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum SemanticDependencyContextV1 {
+    Edge {
+        from_node_id: String,
+        to_node_id: String,
+        kind: ClaimGraphEdgeKindV1,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct SemanticDependencyReferenceV1 {
     pub kind: SemanticDependencyKindV1,
     pub identifier: String,
     pub commitment: Option<String>,
+    /// Edge context is part of semantic identity; node/D6P references have no context.
+    pub context: Option<SemanticDependencyContextV1>,
 }
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum SemanticDependencyResolutionV1 {
     Present,
@@ -102,17 +114,50 @@ pub enum SemanticDependencyResolutionV1 {
 
 impl SemanticDependencyReferenceV1 {
     pub fn node(id: impl Into<String>, commitment: Option<String>) -> Self {
-        Self { kind: SemanticDependencyKindV1::Node, identifier: id.into(), commitment }
+        Self { kind: SemanticDependencyKindV1::Node, identifier: id.into(), commitment, context: None }
     }
-    pub fn edge(id: impl Into<String>, commitment: Option<String>) -> Self {
-        Self { kind: SemanticDependencyKindV1::Edge, identifier: id.into(), commitment }
+
+    pub fn edge(
+        id: impl Into<String>,
+        from_node_id: impl Into<String>,
+        to_node_id: impl Into<String>,
+        kind: ClaimGraphEdgeKindV1,
+        commitment: Option<String>,
+    ) -> Self {
+        Self {
+            kind: SemanticDependencyKindV1::Edge,
+            identifier: id.into(),
+            commitment,
+            context: Some(SemanticDependencyContextV1::Edge {
+                from_node_id: from_node_id.into(),
+                to_node_id: to_node_id.into(),
+                kind,
+            }),
+        }
     }
+
     pub fn d6p_receipt(commitment: impl Into<String>) -> Self {
         let commitment = commitment.into();
-        Self { kind: SemanticDependencyKindV1::D6PReceipt, identifier: commitment.clone(), commitment: Some(commitment) }
+        Self {
+            kind: SemanticDependencyKindV1::D6PReceipt,
+            identifier: commitment.clone(),
+            commitment: Some(commitment),
+            context: None,
+        }
     }
+
     pub fn structurally_valid(&self) -> bool {
-        non_empty(&self.identifier) && self.commitment.as_deref().map_or(true, non_empty)
+        if !non_empty(&self.identifier) || self.commitment.as_deref().map_or(false, |v| !non_empty(v)) {
+            return false;
+        }
+        match (&self.kind, &self.context, &self.commitment) {
+            (SemanticDependencyKindV1::Node, None, _) => true,
+            (SemanticDependencyKindV1::Edge, Some(SemanticDependencyContextV1::Edge { from_node_id, to_node_id, .. }), _) =>
+                non_empty(from_node_id) && non_empty(to_node_id) && from_node_id != to_node_id,
+            (SemanticDependencyKindV1::D6PReceipt, None, Some(commitment)) =>
+                self.identifier == *commitment,
+            _ => false,
+        }
     }
 }
 
@@ -208,7 +253,13 @@ impl DependencyClosureCertificateV1 {
         );
         expected.extend(
             self.included_edges.iter().map(|(id, (_from, _to, _kind, commitment))|
-                SemanticDependencyReferenceV1::edge(id.clone(), Some(commitment.clone()))
+                SemanticDependencyReferenceV1::edge(
+                    id.clone(),
+                    self.included_edges.get(id).map(|edge| edge.0.clone()).unwrap_or_default(),
+                    self.included_edges.get(id).map(|edge| edge.1.clone()).unwrap_or_default(),
+                    self.included_edges.get(id).map(|edge| edge.2).unwrap_or(ClaimGraphEdgeKindV1::Provenance),
+                    Some(commitment.clone()),
+                )
             ),
         );
         expected.extend(
@@ -278,6 +329,7 @@ pub fn compute_dependency_closure(
     let mut missing = BTreeSet::new();
     let mut missing_dependencies = BTreeSet::new();
     let mut dependencies = BTreeSet::new();
+    let mut dependency_resolutions: BTreeMap<SemanticDependencyReferenceV1, SemanticDependencyResolutionV1> = BTreeMap::new();
     let selected_d6p_receipts: BTreeSet<String> = profile.required_d6p_receipt_commitments.intersection(&projection.d6p_current_receipt_commitments).cloned().collect();
     let missing_d6p_receipts: BTreeSet<String> = profile.required_d6p_receipt_commitments.difference(&projection.d6p_current_receipt_commitments).cloned().collect();
     for receipt in &selected_d6p_receipts {
@@ -293,7 +345,6 @@ pub fn compute_dependency_closure(
     }
     let mut blocked_currentness = false;
     let mut resource_blocked = false;
-    let mut dependency_resolutions: BTreeMap<SemanticDependencyReferenceV1, SemanticDependencyResolutionV1> = BTreeMap::new();
     let mut queue = VecDeque::from_iter(profile.root_node_ids.iter().cloned());
     for id in &profile.required_node_ids {
         if projection.nodes.contains_key(id) { queue.push_back(id.clone()); }
@@ -324,7 +375,22 @@ pub fn compute_dependency_closure(
         included_ids.insert(id.clone());
         let node_dependency = SemanticDependencyReferenceV1::node(id.clone(), Some(node.node_commitment.clone()));
         dependencies.insert(node_dependency.clone());
-        dependency_resolutions.insert(node_dependency, SemanticDependencyResolutionV1::Present);
+        let node_is_stale = projection.edges.values().any(|edge| {
+            edge.to_node_id == id
+                && included_edges.contains(&edge.edge_id)
+                && profile.rules.iter().any(|rule| {
+                    rule.matches(
+                        projection.nodes.get(&edge.from_node_id).map(|n| n.kind).unwrap_or(node.kind),
+                        node.kind,
+                        edge.kind,
+                    ) && rule.currentness == DependencyCurrentnessV1::CurrentOnly
+                })
+                && node.historical_only
+        });
+        dependency_resolutions.insert(
+            node_dependency,
+            if node_is_stale { SemanticDependencyResolutionV1::Stale } else { SemanticDependencyResolutionV1::Present },
+        );
 
         for edge in projection.edges.values() {
             if edge.from_node_id != id { continue; }
@@ -341,13 +407,17 @@ pub fn compute_dependency_closure(
                 break;
             }
             included_edges.insert(edge.edge_id.clone());
-            let edge_dependency = SemanticDependencyReferenceV1::edge(edge.edge_id.clone(), Some(edge.edge_commitment.clone()));
+            let edge_dependency = SemanticDependencyReferenceV1::edge(
+                edge.edge_id.clone(),
+                edge.from_node_id.clone(),
+                edge.to_node_id.clone(),
+                edge.kind,
+                Some(edge.edge_commitment.clone()),
+            );
             dependencies.insert(edge_dependency.clone());
             dependency_resolutions.insert(edge_dependency, SemanticDependencyResolutionV1::Present);
             if rule.currentness == DependencyCurrentnessV1::CurrentOnly && to.historical_only {
                 blocked_currentness = true;
-                let node_dependency = SemanticDependencyReferenceV1::node(to.node_id.clone(), Some(to.node_commitment.clone()));
-                dependency_resolutions.insert(node_dependency, SemanticDependencyResolutionV1::Stale);
             }
             if !queued.contains(&to.node_id) { queue.push_back(to.node_id.clone()); }
         }
@@ -565,8 +635,52 @@ mod tests {
         let c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
         assert!(c.dependencies.contains(&SemanticDependencyReferenceV1::node("root", Some("commit-root".into()))));
         assert!(c.dependencies.contains(&SemanticDependencyReferenceV1::node("dep", Some("commit-dep".into()))));
-        assert!(c.dependencies.contains(&SemanticDependencyReferenceV1::edge("e1", Some("edge-e1".into()))));
+        assert!(c.dependencies.contains(&SemanticDependencyReferenceV1::edge("e1", "root", "dep", ClaimGraphEdgeKindV1::Supports, Some("edge-e1".into()))));
         assert_eq!(c.dependencies.len(), 3);
+    }
+
+    #[test]
+    fn selected_edge_endpoint_or_kind_changes_identity() {
+        let (mut a,e,d)=projection(false); let p=profile(BTreeSet::new());
+        let before=compute_dependency_closure(&a,&e,&d,&p).unwrap();
+
+        a.edges.get_mut("e1").unwrap().to_node_id = "root".into();
+        let endpoint_changed=compute_dependency_closure(&a,&e,&d,&p).unwrap();
+        assert_ne!(before.closure_identity_commitment, endpoint_changed.closure_identity_commitment);
+
+        let (mut a,e,d)=projection(false);
+        let before=compute_dependency_closure(&a,&e,&d,&p).unwrap();
+        a.edges.get_mut("e1").unwrap().kind = ClaimGraphEdgeKindV1::Provenance;
+        let kind_changed=compute_dependency_closure(&a,&e,&d,&p).unwrap();
+        assert_ne!(before.closure_identity_commitment, kind_changed.closure_identity_commitment);
+    }
+
+    #[test]
+    fn dependency_reference_domains_are_structurally_distinct() {
+        let node = SemanticDependencyReferenceV1::node("x", Some("node-c".into()));
+        let edge = SemanticDependencyReferenceV1::edge(
+            "x", "a", "b", ClaimGraphEdgeKindV1::Supports, Some("edge-c".into())
+        );
+        let d6p = SemanticDependencyReferenceV1::d6p_receipt("receipt-c");
+        assert!(node.structurally_valid());
+        assert!(edge.structurally_valid());
+        assert!(d6p.structurally_valid());
+
+        let invalid_d6p = SemanticDependencyReferenceV1 {
+            kind: SemanticDependencyKindV1::D6PReceipt,
+            identifier: "receipt-c".into(),
+            commitment: Some("different".into()),
+            context: None,
+        };
+        assert!(!invalid_d6p.structurally_valid());
+
+        let invalid_edge = SemanticDependencyReferenceV1 {
+            kind: SemanticDependencyKindV1::Edge,
+            identifier: "x".into(),
+            commitment: Some("edge-c".into()),
+            context: None,
+        };
+        assert!(!invalid_edge.structurally_valid());
     }
 
     #[test]
@@ -583,6 +697,9 @@ mod tests {
         let c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
         let dep=SemanticDependencyReferenceV1::node("dep", Some("commit-dep".into()));
         assert_eq!(c.status, DependencyClosureStatusV1::BlockedCurrentness);
+        assert!(c.dependencies.contains(&SemanticDependencyReferenceV1::edge(
+            "e1", "root", "dep", ClaimGraphEdgeKindV1::Supports, Some("edge-e1".into())
+        )));
         assert_eq!(c.dependency_resolutions.get(&dep), Some(&SemanticDependencyResolutionV1::Stale));
         assert!(c.valid());
     }
