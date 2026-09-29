@@ -111,7 +111,7 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(store_entry) => match store_entry {
+        FlatOp::CreateEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
                 EntryTypes::GratitudeExpression(expr) => validate_gratitude(action, expr),
                 EntryTypes::AppreciationCircle(circle) => validate_circle(action, circle),
@@ -134,29 +134,17 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink {
-            link_type,
-            base_address: _,
-            target_address: _,
-            tag,
-            action: _,
-        } => validate_create_link(link_type, &tag),
-        FlatOp::RegisterDeleteLink {
-            link_type,
-            tag,
-            action,
-            ..
-        } => {
-            let original_action = must_get_action(action.link_add_address.clone())?;
-            let result = check_link_author_match(original_action.action().author(), &action.author);
+        FlatOp::Link(OpLink::CreateLink { link_type, action }) => validate_create_link(link_type, &action.tag),
+        FlatOp::Link(OpLink::DeleteLink { link_type, action, original_action }) => {
+            let result = check_link_author_match(original_action.author(), &action.author());
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
-            validate_delete_link(link_type, &tag)
+            validate_delete_link(link_type, &original_action.tag)
         }
-        FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterUpdate(update) => {
+        FlatOp::CreateRecord(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Update(update) => {
             let action = match &update {
                 OpUpdate::Entry { action, .. }
                 | OpUpdate::PrivateEntry { action, .. }
@@ -167,11 +155,11 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             let original = must_get_action(action.original_action_address.clone())?;
             Ok(check_author_match(
                 original.action().author(),
-                &action.author,
+                &action.author(),
                 "update",
             ))
         }
-        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Invalid(
+        FlatOp::Delete(_) => Ok(ValidateCallbackResult::Invalid(
             "Gratitude expressions cannot be deleted once created".into(),
         )),
     }
