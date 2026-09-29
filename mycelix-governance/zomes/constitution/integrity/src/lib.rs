@@ -392,14 +392,15 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             OpEntry::UpdateEntry {
                 app_entry,
                 action,
-                original_action_hash,
-                original_entry_hash: _,
+                ..
             } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
                 EntryTypes::Charter(charter) => {
+                    let original_action_hash = action.original_action_address.clone();
                     validate_update_charter(action, charter, original_action_hash)
                 }
                 EntryTypes::Amendment(amendment) => {
+                    let original_action_hash = action.original_action_address.clone();
                     validate_update_amendment(action, amendment, original_action_hash)
                 }
                 EntryTypes::GovernanceParameter(param) => validate_update_parameter(action, param),
