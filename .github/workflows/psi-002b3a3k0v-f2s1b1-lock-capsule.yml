@@ -104,7 +104,7 @@ jobs:
               return json.dumps(normalize(value), sort_keys=True, separators=(",", ":"))
 
           assert canonical("cargo-metadata.json") == canonical("metadata-offline.json"), "locked/offline metadata differs"
-          Path("cargo-metadata.canonical.json").write_text(canonical("cargo-metadata.json") + "\\n")
+          Path("cargo-metadata.canonical.json").write_text(canonical("cargo-metadata.json") + "\n")
           PY
 
       - name: Package capsule
