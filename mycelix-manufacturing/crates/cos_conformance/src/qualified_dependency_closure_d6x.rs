@@ -428,16 +428,18 @@ pub fn compute_dependency_closure(
         for edge in projection.edges.values() {
             if edge.from_node_id != id { continue; }
 
-            let rule = match projection.nodes.get(&edge.to_node_id) {
-                Some(to) => profile.rules.iter().find(|r| r.matches(node.kind, to.kind, edge.kind)),
-                None => profile.rules.iter().find(|r| {
+            let matching_rules: Vec<&DependencyRuleV1> = match projection.nodes.get(&edge.to_node_id) {
+                Some(to) => profile.rules.iter().filter(|r| r.matches(node.kind, to.kind, edge.kind)).collect(),
+                None => profile.rules.iter().filter(|r| {
                     r.edge_kind == edge.kind
                         && r.from_kind.map_or(true, |kind| kind == node.kind)
                         && r.to_kind.is_none()
-                }),
+                }).collect(),
             };
 
-            let Some(rule) = rule else { continue; };
+            if matching_rules.is_empty() { continue; }
+            // Overlapping rules resolve monotonically: CurrentOnly dominates Any.
+            let requires_current = matching_rules.iter().any(|r| r.currentness == DependencyCurrentnessV1::CurrentOnly);
             let Some(to) = projection.nodes.get(&edge.to_node_id) else {
                 let dependency = SemanticDependencyReferenceV1::node(edge.to_node_id.clone(), None);
                 missing_dependencies.insert(dependency.clone());
@@ -459,7 +461,7 @@ pub fn compute_dependency_closure(
             );
             dependencies.insert(edge_dependency.clone());
             dependency_resolutions.insert(edge_dependency, SemanticDependencyResolutionV1::Present);
-            if rule.currentness == DependencyCurrentnessV1::CurrentOnly && to.historical_only {
+            if requires_current && to.historical_only {
                 blocked_currentness = true;
                 let target_dependency = SemanticDependencyReferenceV1::node(
                     to.node_id.clone(),
