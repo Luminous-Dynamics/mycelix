@@ -1705,7 +1705,7 @@ mod tests {
             eligibility(
                 &ledger,
                 &e,
-                &generation,
+                &archive_generation,
                 &snapshot,
                 ObserverLifecycleUsePurposeV1::CurrentFinalityEligibility,
                 ObservationClassificationV1::CorroboratingIndependent,
