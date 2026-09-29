@@ -45,11 +45,29 @@ sdk_lock="sdk-ts/package-lock.json"
 require "$cargo_toml" 'hdk = "=0.7.0"' "HDK is pinned to Holochain 0.7"
 require "$cargo_toml" 'hdi = "=0.8.0"' "HDI is pinned to Holochain 0.7"
 require "$cargo_toml" 'holochain_integrity_types = "=0.7.0"' "integrity types are pinned to 0.7"
-require "$cargo_lock" 'name = "hdk"' "Hearth Cargo lock contains HDK"
-require "$cargo_lock" 'version = "0.7.0"' "Hearth Cargo lock contains a 0.7.0 package"
-require "$tests_cargo_lock" 'name = "holochain"' "Sweettest Cargo lock contains Holochain"
-require "$tests_cargo_lock" 'name = "holochain_types"' "Sweettest Cargo lock contains Holochain types"
-require "$tests_cargo_lock" 'version = "0.7.0"' "Sweettest Cargo lock contains a 0.7.0 package"
+for spec in   'hdk|0.7.0'   'hdi|0.8.0'   'holochain_integrity_types|0.7.0'   'holo_hash|0.7.0'
+do
+  package="${spec%%|*}"
+  version="${spec#*|}"
+  if grep -A1 -F "name = \"$package\"" "$cargo_lock" | grep -Fq "version = \"$version\""; then
+    echo "PASS: Cargo lock pins $package $version"
+  else
+    echo "FAIL: Cargo lock does not pin $package $version"
+    fail=1
+  fi
+done
+
+for spec in   'holochain|0.7.0'   'holochain_types|0.7.0'
+do
+  package="${spec%%|*}"
+  version="${spec#*|}"
+  if grep -A1 -F "name = \"$package\"" "$tests_cargo_lock" | grep -Fq "version = \"$version\""; then
+    echo "PASS: Sweettest lock pins $package $version"
+  else
+    echo "FAIL: Sweettest lock does not pin $package $version"
+    fail=1
+  fi
+done
 require "$flake_nix" 'ref=main-0.7' "Holonix declaration targets main-0.7"
 require "$sdk_package" '"@holochain/client": "^0.21.0"' "JS manifest targets client 0.21"
 require "$sdk_lock" '"@holochain/client": "^0.21.0"' "JS lock root targets client 0.21"
