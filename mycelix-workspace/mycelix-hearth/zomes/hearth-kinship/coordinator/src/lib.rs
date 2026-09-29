@@ -926,6 +926,126 @@ pub fn get_my_hearths(_: ()) -> ExternResult<Vec<Record>> {
     records_from_links(links)
 }
 
+
+/// Resolve the unique current Active membership for an agent within a Hearth.
+///
+/// Zero matches means the caller is not currently Active. More than one Active
+/// membership is an integrity conflict and must not be resolved by choosing the
+/// first or strongest role.
+fn resolve_active_membership_role(
+    memberships: &[HearthMembership],
+    agent: &AgentPubKey,
+) -> ExternResult<Option<MemberRole>> {
+    let active_roles = memberships
+        .iter()
+        .filter(|membership| {
+            membership.agent == *agent && membership.status == MembershipStatus::Active
+        })
+        .map(|membership| membership.role.clone())
+        .collect::<Vec<_>>();
+
+    match active_roles.as_slice() {
+        [] => Ok(None),
+        [role] => Ok(Some(role.clone())),
+        _ => Err(wasm_error!(WasmErrorInner::Guest(
+            "Conflicting Active memberships exist for the same agent and Hearth".into()
+        ))),
+    }
+}
+
+/// Resolve the caller's current Active Hearths while preserving the stable Hearth
+/// identity separately from the latest display record.
+///
+/// AgentToHearths is discovery/history evidence. Its target is retained as the
+/// stable Hearth ActionHash, while the latest Hearth record is read separately.
+/// Current membership is derived from HearthToMembers and requires exactly one
+/// Active membership for the connected agent. Conflicting Active memberships
+/// fail the whole query rather than selecting one arbitrarily.
+///
+/// This endpoint is read evidence only. Consequential mutations must continue
+/// to enforce membership and role at their own source.
+#[hdk_extern]
+pub fn get_my_active_hearths(_: ()) -> ExternResult<Vec<ActiveHearthView>> {
+    let agent = agent_info()?.agent_initial_pubkey;
+    let observed_at = sys_time()?;
+
+    let links = get_links(
+        LinkQuery::try_new(agent.clone(), LinkTypes::AgentToHearths)?,
+        GetStrategy::default(),
+    )?;
+
+    // Links are discovery/history evidence and may contain duplicates. Preserve
+    // each stable target exactly once before deriving current membership.
+    let mut hearth_hashes = std::collections::BTreeSet::<ActionHash>::new();
+    for link in links {
+        let hearth_hash = ActionHash::try_from(link.target).map_err(|_| {
+            wasm_error!(WasmErrorInner::Guest(
+                "AgentToHearths contained a non-ActionHash target".into()
+            ))
+        })?;
+        hearth_hashes.insert(hearth_hash);
+    }
+
+    let mut active = Vec::new();
+
+    for hearth_hash in hearth_hashes {
+        let membership_records = membership_records_for_hearth(&hearth_hash)?;
+        let membership_entries = membership_records
+            .iter()
+            .map(|(_, membership)| membership.clone())
+            .collect::<Vec<_>>();
+
+        let Some(role) = resolve_active_membership_role(&membership_entries, &agent)? else {
+            // Historical AgentToHearths link with no current Active membership.
+            continue;
+        };
+
+        let (membership_record, _membership) = membership_records
+            .into_iter()
+            .find(|(_, membership)| {
+                membership.agent == agent
+                    && membership.status == MembershipStatus::Active
+                    && membership.role == role
+            })
+            .ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "Active membership disappeared while resolving catalog evidence".into()
+                ))
+            })?;
+
+        // The stable Hearth identity is the original link target. The display
+        // record is independently resolved through the update chain.
+        let hearth_record = get_latest_record(hearth_hash.clone())?.ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Active Hearth {} has no latest valid Hearth record",
+                hearth_hash
+            )))
+        })?;
+
+        let hearth: Hearth = entry_from_record(&hearth_record, "Hearth")?;
+
+
+        active.push(ActiveHearthView {
+            hearth_hash,
+            latest_hearth_record_hash: hearth_record.action_address().to_owned(),
+            membership_record_hash: membership_record.action_address().to_owned(),
+            agent: agent.clone(),
+            role,
+            name: hearth.name,
+            description: hearth.description,
+            hearth_type: hearth.hearth_type,
+            created_by: hearth.created_by,
+            created_at: hearth.created_at,
+            max_members: hearth.max_members,
+            observed_at,
+        });
+    }
+
+    // Ordering is representational only; selection policy must never use it.
+    active.sort_by(|a, b| a.hearth_hash.cmp(&b.hearth_hash));
+    Ok(active)
+}
+
 /// Get the full kinship graph (all bonds) for a hearth.
 #[hdk_extern]
 pub fn get_kinship_graph(hearth_hash: ActionHash) -> ExternResult<Vec<Record>> {
@@ -1782,4 +1902,61 @@ mod tests {
         // Active count: only 2 (founder + youth)
         assert_eq!(count_active_memberships(&memberships), 2);
     }
+    
+    #[test]
+    fn active_catalog_membership_resolution_ignores_departed_history() {
+        let agent = fake_agent_a();
+        let memberships = vec![
+            make_membership(&agent, MemberRole::Adult, MembershipStatus::Departed),
+            make_membership(&agent, MemberRole::Adult, MembershipStatus::Active),
+        ];
+
+        assert_eq!(
+            resolve_active_membership_role(&memberships, &agent).unwrap(),
+            Some(MemberRole::Adult)
+        );
+    }
+
+    #[test]
+    fn active_catalog_membership_resolution_returns_none_without_active_membership() {
+        let agent = fake_agent_a();
+        let memberships = vec![make_membership(
+            &agent,
+            MemberRole::Adult,
+            MembershipStatus::Departed,
+        )];
+
+        assert_eq!(
+            resolve_active_membership_role(&memberships, &agent).unwrap(),
+            None
+        );
+    }
+
+    #[test]
+    fn active_catalog_membership_resolution_rejects_conflicting_active_memberships() {
+        let agent = fake_agent_a();
+        let memberships = vec![
+            make_membership(&agent, MemberRole::Adult, MembershipStatus::Active),
+            make_membership(&agent, MemberRole::Founder, MembershipStatus::Active),
+        ];
+
+        assert!(resolve_active_membership_role(&memberships, &agent).is_err());
+    }
+
+    #[test]
+    fn active_catalog_membership_resolution_ignores_other_agents() {
+        let agent = fake_agent_a();
+        let other = fake_agent_b();
+        let memberships = vec![make_membership(
+            &other,
+            MemberRole::Founder,
+            MembershipStatus::Active,
+        )];
+
+        assert_eq!(
+            resolve_active_membership_role(&memberships, &agent).unwrap(),
+            None
+        );
+    }
+
 }
