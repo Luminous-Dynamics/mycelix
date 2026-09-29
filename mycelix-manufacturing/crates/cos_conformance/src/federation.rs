@@ -69,11 +69,37 @@ pub struct ObservationRecord {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DeliveryRecord {
+pub struct ImmutableDeliveryContract {
     pub logical_delivery_id: String,
+    pub origin_node: String,
+    pub target_node: String,
     pub semantic_subject_id: String,
     pub payload_commitment: String,
-    pub origin_node: String,
+    pub schema_generation: u64,
+    pub authorization_generation: u64,
+    pub predecessor_delivery_id: Option<String>,
+    pub expires_at: Option<u64>,
+}
+
+impl From<&FederationEnvelope> for ImmutableDeliveryContract {
+    fn from(envelope: &FederationEnvelope) -> Self {
+        Self {
+            logical_delivery_id: envelope.logical_delivery_id.clone(),
+            origin_node: envelope.origin_node.clone(),
+            target_node: envelope.target_node.clone(),
+            semantic_subject_id: envelope.semantic_subject_id.clone(),
+            payload_commitment: envelope.payload_commitment.clone(),
+            schema_generation: envelope.schema_generation,
+            authorization_generation: envelope.authorization_generation,
+            predecessor_delivery_id: envelope.predecessor_delivery_id.clone(),
+            expires_at: envelope.expires_at,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeliveryRecord {
+    pub contract: ImmutableDeliveryContract,
     pub authority: AuthorityDisposition,
     pub attempts: BTreeSet<String>,
 }
@@ -154,6 +180,7 @@ pub enum FederationDecision {
     Unauthorized,
     PayloadConflict,
     OriginConflict,
+    ContractConflict,
     UnknownNode,
     RecognitionConflict,
     Rejected,
@@ -298,14 +325,22 @@ pub fn deliver(
                 "A logical delivery identity cannot be reused by a different origin node.",
             );
         }
-        if existing.payload_commitment != envelope.payload_commitment
-            || existing.semantic_subject_id != envelope.semantic_subject_id
+        if existing.contract.payload_commitment != envelope.payload_commitment
+            || existing.contract.semantic_subject_id != envelope.semantic_subject_id
         {
             return FederationOutcome::new(
                 FederationDecision::PayloadConflict,
                 AuthorityDisposition::NoAuthority,
                 envelope,
                 "A logical delivery identity cannot be reused for a different semantic payload.",
+            );
+        }
+        if existing.contract != ImmutableDeliveryContract::from(envelope) {
+            return FederationOutcome::new(
+                FederationDecision::ContractConflict,
+                AuthorityDisposition::NoAuthority,
+                envelope,
+                "A logical delivery identity cannot be reused with a changed immutable delivery contract.",
             );
         }
         existing.attempts.insert(envelope.attempt_id.clone());
@@ -360,10 +395,7 @@ pub fn deliver(
     state.deliveries.insert(
         envelope.logical_delivery_id.clone(),
         DeliveryRecord {
-            logical_delivery_id: envelope.logical_delivery_id.clone(),
-            semantic_subject_id: envelope.semantic_subject_id.clone(),
-            payload_commitment: envelope.payload_commitment.clone(),
-            origin_node: envelope.origin_node.clone(),
+            contract: ImmutableDeliveryContract::from(envelope),
             authority,
             attempts: BTreeSet::from([envelope.attempt_id.clone()]),
         },
@@ -390,29 +422,26 @@ pub fn deliver(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum ObservationConflict {
-    DistinctRecords,
-    DuplicateRecord,
+pub enum ObservationWriteResult {
+    Inserted,
+    Duplicate,
+    Conflict,
 }
 
 pub fn record_observation(
     state: &mut FederationState,
     observation: ObservationRecord,
-) -> ObservationConflict {
-    if let Some(existing) = state.observations.values().find(|existing| {
-        existing.semantic_subject_id == observation.semantic_subject_id
-            && existing.payload_commitment == observation.payload_commitment
-            && existing.origin_node == observation.origin_node
-    }) {
-        return if existing.observation_id == observation.observation_id {
-            ObservationConflict::DuplicateRecord
+) -> ObservationWriteResult {
+    if let Some(existing) = state.observations.get(&observation.observation_id) {
+        return if existing == &observation {
+            ObservationWriteResult::Duplicate
         } else {
-            ObservationConflict::DistinctRecords
+            ObservationWriteResult::Conflict
         };
     }
 
     state.observations.insert(observation.observation_id.clone(), observation);
-    ObservationConflict::DistinctRecords
+    ObservationWriteResult::Inserted
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -806,7 +835,7 @@ mod tests {
         };
         assert_eq!(
             record_observation(&mut state, a),
-            ObservationConflict::DistinctRecords
+            ObservationWriteResult::Inserted
         );
         assert_eq!(
             record_observation(&mut state, b),
