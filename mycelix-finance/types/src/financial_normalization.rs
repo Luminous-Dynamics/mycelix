@@ -26,11 +26,24 @@ pub struct NormalizationRecipe {
     pub evidence_refs: Vec<EvidenceRef>,
     #[serde(default)]
     pub factor_observation: Option<NormalizationFactorObservation>,
+    /// Stable identity of the typed factor evidence used by the transformation.
+    /// When present, the materialized factor must resolve to this exact identity.
+    #[serde(default)]
+    pub factor_ref: Option<NormalizationFactorRef>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NormalizationFactorRef {
+    pub factor_id: String,
+    pub source_id: String,
+    pub evidence_id: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NormalizationFactorObservation {
     pub factor_id: String,
+    pub source_id: String,
+    pub evidence_id: String,
     pub kind: NormalizationFactorKind,
     pub value: DecimalValue,
     pub status: EvidenceStatus,
@@ -172,6 +185,8 @@ pub enum NormalizationError {
     FrontierMismatch,
     MissingFactorObservation,
     FactorIdentityMismatch,
+    FactorReferenceUnresolved,
+    FactorReferenceMismatch,
     FactorUnavailableAtFrontier,
     FactorNotEffectiveAtObservation,
     FactorValueMismatch,
@@ -189,6 +204,25 @@ pub fn normalize_observation(
     normalize_observation_at_frontier(observation, recipe, &observation.information_frontier)
 }
 
+/// Apply a transformation through an identity-addressed factor reference.
+///
+/// The factor must have been resolved from canonical evidence by the caller;
+/// this function verifies the exact factor/source/evidence identity before any
+/// numeric value can participate in the projection.
+pub fn normalize_observation_with_factor_ref(
+    observation: &MarketObservation,
+    recipe: &NormalizationRecipe,
+    factor: &NormalizationFactorObservation,
+    frontier: &InformationFrontier,
+) -> Result<NormalizedObservation, NormalizationError> {
+    if recipe.factor_ref.is_none() {
+        return Err(NormalizationError::FactorReferenceUnresolved);
+    }
+    let mut resolved_recipe = recipe.clone();
+    resolved_recipe.factor_observation = Some(factor.clone());
+    normalize_observation_at_frontier(observation, &resolved_recipe, frontier)
+}
+
 /// Apply a transformation only with information available at the requested frontier.
 pub fn normalize_observation_at_frontier(
     observation: &MarketObservation,
@@ -198,7 +232,13 @@ pub fn normalize_observation_at_frontier(
     validate_frontier(observation, recipe, frontier)?;
     let factor = recipe.factor_observation.as_ref();
     if matches!(recipe.adjustment, AdjustmentKind::Split | AdjustmentKind::Dividend | AdjustmentKind::CurrencyConversion | AdjustmentKind::UnitConversion) && factor.is_none() { return Err(NormalizationError::MissingFactorObservation); }
-    if let Some(f) = factor { validate_factor(observation, recipe, f, frontier)?; }
+    if let Some(f) = factor {
+        validate_factor(observation, recipe, f, frontier)?;
+    }
+    if let Some(factor_ref) = recipe.factor_ref.as_ref() {
+        let resolved = factor.ok_or(NormalizationError::FactorReferenceUnresolved)?;
+        resolve_factor_ref(factor_ref, resolved)?;
+    }
     let factor_value = factor.map(|f| f.value.clone());
     let output_unit = recipe
         .target_unit
@@ -215,9 +255,12 @@ pub fn normalize_observation_at_frontier(
         None => value,
     };
 
+    let factor_identity = recipe.factor_ref.as_ref().map(|r| {
+        format!(":{}:{}:{}", r.factor_id, r.source_id, r.evidence_id)
+    }).unwrap_or_default();
     let projection_id = format!(
-        "norm:{}:{}:{}",
-        observation.observation_id, recipe.recipe_id, observation.information_frontier.frontier_id
+        "norm:{}:{}:{}{}",
+        observation.observation_id, recipe.recipe_id, observation.information_frontier.frontier_id, factor_identity
     );
 
     Ok(NormalizedObservation {
@@ -271,6 +314,19 @@ fn validate_frontier(
         if evidence.information_frontier.as_of_micros > frontier.as_of_micros {
             return Err(NormalizationError::FrontierMismatch);
         }
+    }
+    Ok(())
+}
+
+fn resolve_factor_ref(
+    factor_ref: &NormalizationFactorRef,
+    factor: &NormalizationFactorObservation,
+) -> Result<(), NormalizationError> {
+    if factor_ref.factor_id != factor.factor_id
+        || factor_ref.source_id != factor.source_id
+        || factor_ref.evidence_id != factor.evidence_id
+    {
+        return Err(NormalizationError::FactorReferenceMismatch);
     }
     Ok(())
 }
@@ -632,6 +688,7 @@ mod factor_binding_tests {
             session: None,
             evidence_refs: vec![],
             factor_observation: Some(f),
+            factor_ref: None,
         }
     }
 
@@ -698,4 +755,76 @@ mod frontier_tests {
     #[test] fn future_fx_is_rejected_at_historical_frontier() { assert_eq!(normalize_observation_at_frontier(&obs(), &fx_recipe(fx_evidence(150, EvidenceStatus::Known)), &frontier(120)), Err(NormalizationError::EvidenceUnavailableAtFrontier)); }
     #[test] fn protected_fx_is_rejected_even_when_available() { assert_eq!(normalize_observation_at_frontier(&obs(), &fx_recipe(fx_evidence(105, EvidenceStatus::Protected)), &frontier(120)), Err(NormalizationError::ProtectedEvidence)); }
     #[test] fn available_fx_can_be_used_at_frontier() { let r=normalize_observation_at_frontier(&obs(), &fx_recipe(fx_evidence(105, EvidenceStatus::Known)), &frontier(120)).unwrap(); assert_eq!(r.evidence_refs.len(), 1); }
+}
+
+
+#[cfg(test)]
+mod factor_reference_tests {
+    use super::*;
+    use crate::{FinancialSubjectKind, FinancialSubjectRef, IdentifierAlias, SourceRef, ValidityInterval};
+
+    fn observation() -> MarketObservation {
+        MarketObservation {
+            observation_id: "obs-ref".into(),
+            subject: FinancialSubjectRef {
+                subject_id: "instrument:ref".into(), subject_kind: FinancialSubjectKind::Instrument,
+                validity_interval: ValidityInterval { valid_from_micros: Some(0), valid_to_micros: None },
+                identifier_aliases: vec![IdentifierAlias { namespace: "ticker".into(), value: "REF".into(), valid_from_micros: Some(0), valid_to_micros: None }],
+                lineage_relations: vec![], information_frontier: InformationFrontier { as_of_micros: 100, frontier_id: "f100".into() },
+            },
+            observed_at_micros: 90, published_at_micros: Some(91), available_at_micros: Some(92), ingested_at_micros: 93,
+            unit: MarketUnit::Price { currency: "USD".into() }, value: DecimalValue { value: "100.00".into(), scale: 2 },
+            status: EvidenceStatus::ObservedUnqualified,
+            source: SourceRef { source_id: "obs-source".into(), provider_id: "p".into(), common_ancestry_id: None, retrieved_at_micros: 93 },
+            evidence_refs: vec![], information_frontier: InformationFrontier { as_of_micros: 100, frontier_id: "f100".into() },
+        }
+    }
+
+    fn factor() -> NormalizationFactorObservation {
+        NormalizationFactorObservation {
+            factor_id: "fx-1".into(), source_id: "fx-source".into(), evidence_id: "fx-evidence-v1".into(),
+            kind: NormalizationFactorKind::FxRate { base_currency: "USD".into(), quote_currency: "EUR".into() },
+            value: DecimalValue { value: "0.9".into(), scale: 1 }, status: EvidenceStatus::Known,
+            observed_at_micros: 90, available_at_micros: Some(95), effective_from_micros: Some(0), effective_to_micros: None,
+            source: SourceRef { source_id: "fx-source".into(), provider_id: "fx-provider".into(), common_ancestry_id: None, retrieved_at_micros: 95 },
+            information_frontier: InformationFrontier { as_of_micros: 95, frontier_id: "f95".into() },
+        }
+    }
+
+    fn recipe(r: NormalizationFactorRef) -> NormalizationRecipe {
+        NormalizationRecipe {
+            recipe_id: "ref-recipe".into(), adjustment: AdjustmentKind::CurrencyConversion,
+            target_unit: Some(MarketUnit::Price { currency: "EUR".into() }), multiplier: Some(DecimalValue { value: "0.9".into(), scale: 1 }),
+            output_scale: Some(2), session: None, evidence_refs: vec![], factor_observation: None, factor_ref: Some(r),
+        }
+    }
+
+    #[test]
+    fn identity_addressed_factor_resolves_deterministically() {
+        let f = factor();
+        let r = recipe(NormalizationFactorRef { factor_id: "fx-1".into(), source_id: "fx-source".into(), evidence_id: "fx-evidence-v1".into() });
+        let out = normalize_observation_with_factor_ref(&observation(), &r, &f, &InformationFrontier { as_of_micros: 100, frontier_id: "f100".into() }).unwrap();
+        assert_eq!(out.value.value, "90.00");
+        assert!(out.projection_id.contains(":fx-1:fx-source:fx-evidence-v1"));
+    }
+
+    #[test]
+    fn same_number_with_different_evidence_identity_is_rejected() {
+        let f = factor();
+        let r = recipe(NormalizationFactorRef { factor_id: "fx-1".into(), source_id: "fx-source".into(), evidence_id: "fx-evidence-v2".into() });
+        assert_eq!(normalize_observation_with_factor_ref(&observation(), &r, &f, &InformationFrontier { as_of_micros: 100, frontier_id: "f100".into() }), Err(NormalizationError::FactorReferenceMismatch));
+    }
+
+    #[test]
+    fn same_number_with_different_source_identity_is_rejected() {
+        let f = factor();
+        let r = recipe(NormalizationFactorRef { factor_id: "fx-1".into(), source_id: "other-source".into(), evidence_id: "fx-evidence-v1".into() });
+        assert_eq!(normalize_observation_with_factor_ref(&observation(), &r, &f, &InformationFrontier { as_of_micros: 100, frontier_id: "f100".into() }), Err(NormalizationError::FactorReferenceMismatch));
+    }
+
+    #[test]
+    fn factor_ref_cannot_be_used_without_resolved_factor() {
+        let r = recipe(NormalizationFactorRef { factor_id: "fx-1".into(), source_id: "fx-source".into(), evidence_id: "fx-evidence-v1".into() });
+        assert_eq!(normalize_observation_at_frontier(&observation(), &r, &InformationFrontier { as_of_micros: 100, frontier_id: "f100".into() }), Err(NormalizationError::FactorReferenceUnresolved));
+    }
 }
