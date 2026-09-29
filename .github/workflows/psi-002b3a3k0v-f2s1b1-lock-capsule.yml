@@ -182,8 +182,28 @@ jobs:
           from pathlib import Path
 
           capsule = Path("capsule")
-          files = sorted(p for p in capsule.iterdir() if p.is_file() and p.name != "manifest.sha256")
-          expected = [p.name for p in files]
+          allowed = {
+              "Cargo.toml",
+              "Cargo.lock",
+              "Cargo.lock.sha256",
+              "cargo-metadata.canonical.json",
+              "cargo-tree.txt",
+              "cargo-tree-offline.txt",
+              "dependency-source-inventory.v1.json",
+              "dependency-source-inventory.v1.sha256",
+              "cargo-lock-source-projection.v1.json",
+              "cargo-lock-source-projection.v1.sha256",
+              "runner-uname.txt",
+              "runner-os-release.txt",
+              "runner-python-version.txt",
+              "rustc-1.96.0.txt",
+              "cargo-1.96.0.txt",
+          }
+          entries = list(capsule.iterdir())
+          assert all(p.is_file() and not p.is_symlink() for p in entries), "capsule contains non-regular or symlink entry"
+          files = sorted(p for p in entries if p.name != "manifest.sha256")
+          actual_names = {p.name for p in files}
+          assert actual_names == allowed, "capsule file set differs from exact allowlist"
           recorded = []
           for line in Path(capsule / "manifest.sha256").read_text().splitlines():
               digest, name = line.split("  ", 1)
@@ -191,7 +211,7 @@ jobs:
               actual = hashlib.sha256((capsule / name).read_bytes()).hexdigest()
               assert actual == digest, f"capsule digest mismatch: {name}"
 
-          assert recorded == sorted(expected), "capsule manifest file set mismatch"
+          assert recorded == sorted(allowed), "capsule manifest file set mismatch"
           assert len(recorded) == len(set(recorded)), "capsule manifest contains duplicate paths"
           assert "manifest.sha256" not in recorded, "manifest must not self-reference"
           PY
