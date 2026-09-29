@@ -130,7 +130,7 @@ The model is deliberately not a confidence or trust score. Its finite claim ceil
 
 A derived claim cannot exceed the ceiling of its exact authority-bearing inputs or the profile maximum. Currentness is independently conserved: Historical or Unknown inputs cannot be promoted to Current.
 
-D6P `EligibleCurrent` receipts are the only current-finality witness inputs exposed by the adapter. D6Q assessment receipts remain assessment-level and deliberately do not manufacture currentness from graph reachability or human disposition.
+D6P `EligibleCurrent` receipts are the only current-finality witness inputs exposed by the adapter. D6Q assessment receipts remain assessment-level and deliberately do not manufacture currentness from graph reachability or human disposition. When D6Q is composed with D6P, the explicit environment-bound adapter must receive the exact shared semantic-environment root; the standalone D6Q adapter deliberately uses an unknown root and cannot silently cross-bind environments.
 
 Scope widening and unknown scope are fail-closed. Explicit narrowing requires a narrowing witness. Missing evidence is `InsufficientEvidence`, not semantic rejection. Supporting/provenance inputs cannot be promoted to authority.
 
