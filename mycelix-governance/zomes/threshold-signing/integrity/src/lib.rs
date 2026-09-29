@@ -336,23 +336,23 @@ pub enum LinkTypes {
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(store_entry) => match store_entry {
+        FlatOp::CreateEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
                 EntryTypes::SigningCommittee(committee) => {
-                    validate_create_committee(action, committee)
+                    validate_create_committee(action.into(), committee)
                 }
-                EntryTypes::CommitteeMember(member) => validate_create_member(action, member),
-                EntryTypes::ThresholdSignature(sig) => validate_create_signature(action, sig),
-                EntryTypes::SignatureShare(share) => validate_create_share(action, share),
+                EntryTypes::CommitteeMember(member) => validate_create_member(action.into(), member),
+                EntryTypes::ThresholdSignature(sig) => validate_create_signature(action.into(), sig),
+                EntryTypes::SignatureShare(share) => validate_create_share(action.into(), share),
                 EntryTypes::DkgViolationReport(report) => {
-                    validate_create_violation_report(action, report)
+                    validate_create_violation_report(action.into(), report)
                 }
-                EntryTypes::PqAttestor(attestor) => validate_create_pq_attestor(action, attestor),
+                EntryTypes::PqAttestor(attestor) => validate_create_pq_attestor(action.into(), attestor),
                 EntryTypes::DkgHashCommitment(commitment) => {
-                    validate_create_hash_commitment(action, commitment)
+                    validate_create_hash_commitment(action.into(), commitment)
                 }
-                EntryTypes::DkgHashReveal(reveal) => validate_create_hash_reveal(action, reveal),
+                EntryTypes::DkgHashReveal(reveal) => validate_create_hash_reveal(action.into(), reveal),
             },
             OpEntry::UpdateEntry {
                 app_entry,
@@ -365,7 +365,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     validate_update_committee(action, committee)
                 }
                 EntryTypes::CommitteeMember(member) => {
-                    validate_update_member(action, member, original_action_hash)
+                    { let original_action_hash = action.original_action_address.clone(); validate_update_member(action, member, original_action_hash) }
                 }
                 EntryTypes::ThresholdSignature(_) => Ok(ValidateCallbackResult::Invalid(
                     "Threshold signatures cannot be updated".into(),
@@ -388,13 +388,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink {
-            link_type,
-            base_address: _,
-            target_address: _,
-            tag: _,
-            action: _,
-        } => match link_type {
+        FlatOp::Link(OpLink::CreateLink { link_type, .. }) => match link_type {
             LinkTypes::CommitteeToMember => Ok(ValidateCallbackResult::Valid),
             LinkTypes::CommitteeToSignature => Ok(ValidateCallbackResult::Valid),
             LinkTypes::SignatureToShare => Ok(ValidateCallbackResult::Valid),
@@ -407,17 +401,17 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             LinkTypes::CommitteeToHashCommitment => Ok(ValidateCallbackResult::Valid),
             LinkTypes::CommitteeToHashReveal => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterDeleteLink { .. } => Ok(ValidateCallbackResult::Valid),
-        FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Link(OpLink::DeleteLink { .. }) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::CreateRecord(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Delete(_) => Ok(ValidateCallbackResult::Valid),
     }
 }
 
 /// Validate committee creation
 fn validate_create_committee(
-    _action: Create,
+    _action: TypedAction<EntryCreationData>,
     committee: SigningCommittee,
 ) -> ExternResult<ValidateCallbackResult> {
     // Threshold must be positive
@@ -499,7 +493,7 @@ pub fn check_committee_update_validity(committee: &SigningCommittee) -> Result<(
 
 /// Validate committee update
 fn validate_update_committee(
-    _action: Update,
+    _action: TypedAction<UpdateData>,
     committee: SigningCommittee,
 ) -> ExternResult<ValidateCallbackResult> {
     if let Err(reason) = check_committee_update_validity(&committee) {
@@ -553,7 +547,7 @@ pub fn check_member_validity(member: &CommitteeMember) -> Result<(), String> {
 
 /// Validate member creation
 fn validate_create_member(
-    _action: Create,
+    _action: TypedAction<EntryCreationData>,
     member: CommitteeMember,
 ) -> ExternResult<ValidateCallbackResult> {
     if let Err(reason) = check_member_validity(&member) {
@@ -564,7 +558,7 @@ fn validate_create_member(
 
 /// Validate member update
 fn validate_update_member(
-    _action: Update,
+    _action: TypedAction<UpdateData>,
     member: CommitteeMember,
     original_action_hash: ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
@@ -683,7 +677,7 @@ pub fn check_signature_validity(sig: &ThresholdSignature) -> Result<(), String> 
 
 /// Validate threshold signature creation
 fn validate_create_signature(
-    _action: Create,
+    _action: TypedAction<EntryCreationData>,
     sig: ThresholdSignature,
 ) -> ExternResult<ValidateCallbackResult> {
     if let Err(reason) = check_signature_validity(&sig) {
@@ -694,7 +688,7 @@ fn validate_create_signature(
 
 /// Validate signature share creation
 fn validate_create_share(
-    _action: Create,
+    _action: TypedAction<EntryCreationData>,
     share: SignatureShare,
 ) -> ExternResult<ValidateCallbackResult> {
     // Participant ID must be positive
@@ -767,7 +761,7 @@ pub fn check_violation_report_validity(report: &DkgViolationReport) -> Result<()
 
 /// Validate violation report creation
 fn validate_create_violation_report(
-    _action: Create,
+    _action: TypedAction<EntryCreationData>,
     report: DkgViolationReport,
 ) -> ExternResult<ValidateCallbackResult> {
     if let Err(reason) = check_violation_report_validity(&report) {
@@ -812,7 +806,7 @@ pub fn check_hash_commitment_validity(commitment: &DkgHashCommitment) -> Result<
 
 /// Validate DKG hash commitment creation
 fn validate_create_hash_commitment(
-    _action: Create,
+    _action: TypedAction<EntryCreationData>,
     commitment: DkgHashCommitment,
 ) -> ExternResult<ValidateCallbackResult> {
     if let Err(reason) = check_hash_commitment_validity(&commitment) {
@@ -840,7 +834,7 @@ pub fn check_hash_reveal_validity(reveal: &DkgHashReveal) -> Result<(), String> 
 
 /// Validate DKG hash reveal creation
 fn validate_create_hash_reveal(
-    _action: Create,
+    _action: TypedAction<EntryCreationData>,
     reveal: DkgHashReveal,
 ) -> ExternResult<ValidateCallbackResult> {
     if let Err(reason) = check_hash_reveal_validity(&reveal) {
@@ -851,7 +845,7 @@ fn validate_create_hash_reveal(
 
 /// Validate PQ attestor creation
 fn validate_create_pq_attestor(
-    _action: Create,
+    _action: TypedAction<EntryCreationData>,
     attestor: PqAttestor,
 ) -> ExternResult<ValidateCallbackResult> {
     if let Err(reason) = check_pq_attestor_validity(&attestor) {
