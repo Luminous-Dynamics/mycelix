@@ -927,6 +927,32 @@ pub fn get_my_hearths(_: ()) -> ExternResult<Vec<Record>> {
 }
 
 
+/// Resolve the unique current Active membership for an agent within a Hearth.
+///
+/// Zero matches means the caller is not currently Active. More than one Active
+/// membership is an integrity conflict and must not be resolved by choosing the
+/// first or strongest role.
+fn resolve_active_membership_role(
+    memberships: &[HearthMembership],
+    agent: &AgentPubKey,
+) -> ExternResult<Option<MemberRole>> {
+    let active_roles = memberships
+        .iter()
+        .filter(|membership| {
+            membership.agent == *agent && membership.status == MembershipStatus::Active
+        })
+        .map(|membership| membership.role.clone())
+        .collect::<Vec<_>>();
+
+    match active_roles.as_slice() {
+        [] => Ok(None),
+        [role] => Ok(Some(role.clone())),
+        _ => Err(wasm_error!(WasmErrorInner::Guest(
+            "Conflicting Active memberships exist for the same agent and Hearth".into()
+        ))),
+    }
+}
+
 /// Resolve the caller's current Active Hearths while preserving the stable Hearth
 /// identity separately from the latest display record.
 ///
@@ -963,26 +989,29 @@ pub fn get_my_active_hearths(_: ()) -> ExternResult<Vec<ActiveHearthView>> {
     let mut active = Vec::new();
 
     for hearth_hash in hearth_hashes {
-        let mut active_memberships = membership_records_for_hearth(&hearth_hash)?
-            .into_iter()
-            .filter(|(_, membership)| {
-                membership.agent == agent && membership.status == MembershipStatus::Active
-            });
+        let membership_records = membership_records_for_hearth(&hearth_hash)?;
+        let membership_entries = membership_records
+            .iter()
+            .map(|(_, membership)| membership.clone())
+            .collect::<Vec<_>>();
 
-        let first = active_memberships.next();
-        let second = active_memberships.next();
-
-        if second.is_some() {
-            return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                "Conflicting Active memberships for agent {} in Hearth {}",
-                agent, hearth_hash
-            ))));
-        }
-
-        let Some((membership_record, membership)) = first else {
+        let Some(role) = resolve_active_membership_role(&membership_entries, &agent)? else {
             // Historical AgentToHearths link with no current Active membership.
             continue;
         };
+
+        let (membership_record, _membership) = membership_records
+            .into_iter()
+            .find(|(_, membership)| {
+                membership.agent == agent
+                    && membership.status == MembershipStatus::Active
+                    && membership.role == role
+            })
+            .ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "Active membership disappeared while resolving catalog evidence".into()
+                ))
+            })?;
 
         // The stable Hearth identity is the original link target. The display
         // record is independently resolved through the update chain.
@@ -1001,7 +1030,7 @@ pub fn get_my_active_hearths(_: ()) -> ExternResult<Vec<ActiveHearthView>> {
             latest_hearth_record_hash: hearth_record.action_address().to_owned(),
             membership_record_hash: membership_record.action_address().to_owned(),
             agent: agent.clone(),
-            role: membership.role,
+            role,
             name: hearth.name,
             description: hearth.description,
             hearth_type: hearth.hearth_type,
