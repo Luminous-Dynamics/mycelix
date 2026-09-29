@@ -150,15 +150,16 @@ impl FinalityQualificationProfileV1 {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExternalObservedEvidenceV1 {
     pub observation: ExternalEffectObservationV1,
+    pub observer_id: String,
     pub observer: ExternalObserverProfileV1,
 }
 
 impl ExternalObservedEvidenceV1 {
     pub fn structurally_valid(&self) -> bool {
         self.observation.structurally_valid()
+            && non_empty(&self.observer_id)
             && self.observer.structurally_valid()
-            && self.observation.observation_id == self.observer.observer_id
-                || (self.observation.structurally_valid() && self.observer.structurally_valid())
+            && self.observer_id == self.observer.observer_id
     }
 }
 
@@ -209,6 +210,7 @@ pub struct ObservationAssessmentV1 {
     pub evidence_root: String,
     pub custody_root: String,
     pub assessment_commitment: String,
+    pub claim_ceiling: String,
 }
 
 impl ObservationAssessmentV1 {
@@ -218,11 +220,7 @@ impl ObservationAssessmentV1 {
             && non_empty(&self.evidence_root)
             && non_empty(&self.custody_root)
             && non_empty(&self.assessment_commitment)
-            && self.claim_ceiling() == CONTESTABLE_FINALITY_CLAIM_CEILING
-    }
-
-    fn claim_ceiling(&self) -> &'static str {
-        CONTESTABLE_FINALITY_CLAIM_CEILING
+            && self.claim_ceiling == CONTESTABLE_FINALITY_CLAIM_CEILING
     }
 }
 
@@ -604,7 +602,7 @@ pub fn assess_observation_set(
 
         assessments.push(ObservationAssessmentV1 {
             observation_id: o.observation_id.clone(),
-            observer_id: item.observer.observer_id.clone(),
+            observer_id: item.observer_id.clone(),
             independence: item.observer.independence,
             classification,
             evidence_root: item.observer.evidence_root.clone(),
@@ -613,6 +611,7 @@ pub fn assess_observation_set(
                 "{}:{}:{}",
                 o.observation_id, item.observer.evidence_root, item.observer.custody_root
             ),
+            claim_ceiling: CONTESTABLE_FINALITY_CLAIM_CEILING.to_owned(),
         });
     }
 
