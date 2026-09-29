@@ -101,7 +101,7 @@ jobs:
           import tomllib
           from pathlib import Path
 
-          lock = tomllib.loads(Path("Cargo.lock").read_text())
+          if set(lock) != {"version", "package"}:\n              raise AssertionError("unexpected Cargo.lock top-level fields")\n          assert lock["version"] == 4, "unsupported Cargo.lock format version"\n          assert isinstance(lock["package"], list), "Cargo.lock package section must be a list"\n\n          lock = tomllib.loads(Path("Cargo.lock").read_text())
           inventory = json.loads(Path("dependency-source-inventory.v1.json").read_text())
 
           lock_packages = []
@@ -112,9 +112,9 @@ jobs:
                   "source": package.get("source"),
                   "checksum": package.get("checksum"),
               })
-          lock_packages.sort(key=lambda x: (x["name"], x["version"], x["source"] or ""))
+          lock_identities = [(x["name"], x["version"], x["source"], x["checksum"]) for x in lock_packages]\n          assert len(lock_identities) == len(set(lock_identities)), "duplicate Cargo.lock package identity"\n          lock_packages.sort(key=lambda x: (x["name"], x["version"], x["source"] or ""))
 
-          inventory_packages = [
+          assert set(inventory) == {"schema", "toolchain", "manifest_sha256", "lock_sha256", "packages"}, "unexpected inventory top-level fields"\n          inventory_packages = [
               {
                   "name": p["name"],
                   "version": p["version"],
@@ -123,16 +123,16 @@ jobs:
               }
               for p in inventory["packages"]
           ]
-          inventory_packages.sort(key=lambda x: (x["name"], x["version"], x["source"] or ""))
+          inventory_ids = [p["id"] for p in inventory["packages"]]\n          assert inventory_ids == sorted(inventory_ids), "inventory package ordering is not canonical"\n          inventory_identities = [(x["name"], x["version"], x["source"], x["checksum"]) for x in inventory_packages]\n          assert len(inventory_identities) == len(set(inventory_identities)), "duplicate inventory package identity"\n          inventory_packages.sort(key=lambda x: (x["name"], x["version"], x["source"] or ""))
 
           assert lock_packages == inventory_packages, "source inventory does not independently match Cargo.lock"
           assert inventory["lock_sha256"] == hashlib.sha256(Path("Cargo.lock").read_bytes()).hexdigest(), "inventory lock digest mismatch"
           assert inventory["manifest_sha256"] == hashlib.sha256(Path("Cargo.toml").read_bytes()).hexdigest(), "inventory manifest digest mismatch"
 
           projection = json.dumps(lock_packages, sort_keys=True, separators=(",", ":")).encode()
-          Path("cargo-lock-source-projection.v1.json").write_bytes(projection + b"\\n")
+          Path("cargo-lock-source-projection.v1.json").write_bytes(projection + b"\n")
           Path("cargo-lock-source-projection.v1.sha256").write_text(
-              hashlib.sha256(projection + b"\\n").hexdigest() + "  cargo-lock-source-projection.v1.json\\n"
+              hashlib.sha256(projection + b"\n").hexdigest() + "  cargo-lock-source-projection.v1.json\\n"
           )
           PY
 
@@ -172,9 +172,9 @@ jobs:
               },
           }
           raw = json.dumps(provenance, sort_keys=True, separators=(",", ":")).encode()
-          Path("provenance.v1.json").write_bytes(raw + b"\\n")
+          Path("provenance.v1.json").write_bytes(raw + b"\n")
           Path("provenance.v1.sha256").write_text(
-              hashlib.sha256(raw + b"\\n").hexdigest() + "  provenance.v1.json\\n"
+              hashlib.sha256(raw + b"\n").hexdigest() + "  provenance.v1.json\\n"
           )
           PY
 
@@ -200,7 +200,7 @@ jobs:
           assert p["toolchain"]["rust"] == "1.96.0"
           assert p["toolchain"]["rustc_version_sha256"] == hashlib.sha256(Path("../../rustc-1.96.0.txt").read_bytes()).hexdigest()
           assert p["toolchain"]["cargo_version_sha256"] == hashlib.sha256(Path("../../cargo-1.96.0.txt").read_bytes()).hexdigest()
-          canonical = json.dumps(p, sort_keys=True, separators=(",", ":")).encode() + b"\\n"
+          canonical = json.dumps(p, sort_keys=True, separators=(",", ":")).encode() + b"\n"
           recorded = Path("provenance.v1.sha256").read_text().strip().split()
           assert recorded == [hashlib.sha256(canonical).hexdigest(), "provenance.v1.json"]
           PY
