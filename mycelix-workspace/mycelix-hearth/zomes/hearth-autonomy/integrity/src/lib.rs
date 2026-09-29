@@ -8,7 +8,7 @@
 
 use hdi::prelude::*;
 use hearth_types::*;
-use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
+use mycelix_bridge_entry_types::{check_author_match, check_claimed_agent_match, check_link_author_match};
 
 // ============================================================================
 // Entry Types
@@ -157,8 +157,28 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::CreateEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
                 EntryTypes::AutonomyProfile(profile) => validate_profile(&profile),
-                EntryTypes::AutonomyRequest(request) => validate_request(&request),
-                EntryTypes::GuardianApproval(approval) => validate_approval(&approval),
+                EntryTypes::AutonomyRequest(request) => {
+                    let result = check_claimed_agent_match(
+                        &request.requester,
+                        action.author(),
+                        "AutonomyRequest.requester",
+                    );
+                    if result != ValidateCallbackResult::Valid {
+                        return Ok(result);
+                    }
+                    validate_request(&request)
+                },
+                EntryTypes::GuardianApproval(approval) => {
+                    let result = check_claimed_agent_match(
+                        &approval.guardian,
+                        action.author(),
+                        "GuardianApproval.guardian",
+                    );
+                    if result != ValidateCallbackResult::Valid {
+                        return Ok(result);
+                    }
+                    validate_approval(&approval)
+                },
                 EntryTypes::TierTransition(transition) => validate_transition(&transition),
             },
             OpEntry::UpdateEntry {
