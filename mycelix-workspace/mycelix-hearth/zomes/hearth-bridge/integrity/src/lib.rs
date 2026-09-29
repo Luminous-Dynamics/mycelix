@@ -79,67 +79,58 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(OpEntry::CreateEntry {
-            app_entry,
-            action: _,
-        }) => match app_entry {
+        FlatOp::CreateEntry(OpEntry::CreateEntry { app_entry, .. }) => match app_entry {
             EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
             EntryTypes::BridgeQuery(query) => validate_query(&query),
             EntryTypes::BridgeEvent(event) => validate_event(&event),
             EntryTypes::CachedCredential(cred) => validate_credential_cache(&cred),
             EntryTypes::Notification(_) => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::StoreEntry(OpEntry::UpdateEntry {
-            app_entry,
-            original_action_hash,
-            ..
-        }) => match app_entry {
+        FlatOp::CreateEntry(OpEntry::UpdateEntry { app_entry, action, .. }) => match app_entry {
             EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Invalid(
                 "Anchor cannot be updated once created".into(),
             )),
             EntryTypes::BridgeQuery(query) => {
                 validate_query(&query)?;
-                validate_query_immutable_fields(&query, &original_action_hash)
+                validate_query_immutable_fields(&query, &action.original_action_address)
             }
             EntryTypes::BridgeEvent(event) => {
                 validate_event(&event)?;
-                validate_event_immutable_fields(&event, &original_action_hash)
+                validate_event_immutable_fields(&event, &action.original_action_address)
             }
             EntryTypes::CachedCredential(cred) => validate_credential_cache(&cred),
             EntryTypes::Notification(_) => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::StoreEntry(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterCreateLink {
-            link_type: _,
-            base_address: _,
-            target_address: _,
-            tag,
-            action: _,
-        } => {
-            if tag.0.len() > 512 {
+        FlatOp::CreateEntry(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Link(OpLink::CreateLink { action, .. }) => {
+            if action.tag.0.len() > 512 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Link tag exceeds 512 bytes".into(),
                 ));
             }
             Ok(ValidateCallbackResult::Valid)
         }
-        FlatOp::RegisterDeleteLink { tag, action, .. } => {
-            let original_action = must_get_action(action.link_add_address.clone())?;
-            let result = check_link_author_match(original_action.action().author(), &action.author);
+        FlatOp::Link(OpLink::DeleteLink {
+            action,
+            original_action,
+            ..
+        }) => {
+            let result =
+                check_link_author_match(original_action.author(), &action.author());
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
-            if tag.0.len() > 512 {
+            if action.tag.0.len() > 512 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Link tag exceeds 512 bytes".into(),
                 ));
             }
             Ok(ValidateCallbackResult::Valid)
         }
-        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Invalid(
+        FlatOp::Delete(OpDelete { .. }) => Ok(ValidateCallbackResult::Invalid(
             "Bridge entries cannot be deleted once created".into(),
         )),
-        FlatOp::RegisterUpdate(update) => {
+        FlatOp::Update(update) => {
             let action = match &update {
                 OpUpdate::Entry { action, .. }
                 | OpUpdate::PrivateEntry { action, .. }
@@ -147,10 +138,10 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 | OpUpdate::CapClaim { action, .. }
                 | OpUpdate::CapGrant { action, .. } => action,
             };
-            let original = must_get_action(action.original_action_address.clone())?;
+            let original = must_get_action(update.original_action_hash())?;
             Ok(check_author_match(
                 original.action().author(),
-                &action.author,
+                &action.author(),
                 "update",
             ))
         }
