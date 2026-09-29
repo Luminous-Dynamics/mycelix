@@ -213,11 +213,13 @@ impl Model {
                 if self.halted {
                     return Effect::Rejected;
                 }
-                let target = self.observations.last().map(|o| o.sequence);
-                if self.state != DeliveryState::OutcomeUnknown {
-                    return self.halt();
-                }
-                if target.is_none() {
+                let target = self.observations.last();
+                let valid = matches!(
+                    (self.state, target.map(|o| o.kind)),
+                    (DeliveryState::OutcomeUnknown, Some(ObservationKind::OutcomeUnknown))
+                        | (DeliveryState::KnownSuccess, Some(ObservationKind::SemanticSuccess))
+                );
+                if !valid {
                     return self.halt();
                 }
                 self.observe(attempt, ObservationKind::ReconciliationNoEffect)
@@ -234,10 +236,13 @@ impl Model {
                 if self.halted {
                     return Effect::Rejected;
                 }
-                if self.state != DeliveryState::OutcomeUnknown {
-                    return self.halt();
-                }
-                if self.observations.last().is_none() {
+                let target = self.observations.last();
+                let valid = matches!(
+                    (self.state, target.map(|o| o.kind)),
+                    (DeliveryState::OutcomeUnknown, Some(ObservationKind::OutcomeUnknown))
+                        | (DeliveryState::KnownNoEffect, Some(ObservationKind::ReconciliationNoEffect))
+                );
+                if !valid {
                     return self.halt();
                 }
                 self.observe(attempt, ObservationKind::ReconciliationSuccess)
@@ -288,28 +293,46 @@ fn apply_op(record: &mut DeliveryRecord<ModelBinding>, op: Op) -> Result<(), Del
         Op::RetryNoEffect => { record.retry_after_no_effect(&binding()).map(|_| ()) }
         Op::RetryNoEffectWrongBinding => { record.retry_after_no_effect(&drifted()).map(|_| ()) }
         Op::Unknown => {
-            let id = record.attempts().last().map(|a| a.id()).unwrap_or(crate::dummy_attempt_id());
+            let id = match record.attempts().last() {
+                Some(a) => a.id(),
+                None => return record.start_initial_attempt(&drifted()).map(|_| ()),
+            };
             record.observe(Observation::outcome_unknown(binding(), id, 100 + record.observations().len() as u64)).map(|_| ())
         }
         Op::UnknownWrongBinding => {
-            let id = record.attempts().last().map(|a| a.id()).unwrap_or(crate::dummy_attempt_id());
+            let id = match record.attempts().last() {
+                Some(a) => a.id(),
+                None => return record.start_initial_attempt(&drifted()).map(|_| ()),
+            };
             record.observe(Observation::outcome_unknown(drifted(), id, 200 + record.observations().len() as u64)).map(|_| ())
         }
         Op::Success => {
-            let id = record.attempts().last().map(|a| a.id()).unwrap_or(crate::dummy_attempt_id());
+            let id = match record.attempts().last() {
+                Some(a) => a.id(),
+                None => return record.start_initial_attempt(&drifted()).map(|_| ()),
+            };
             record.observe(Observation::semantic_success(binding(), id, 300 + record.observations().len() as u64)).map(|_| ())
         }
         Op::SuccessWrongBinding => {
-            let id = record.attempts().last().map(|a| a.id()).unwrap_or(crate::dummy_attempt_id());
+            let id = match record.attempts().last() {
+                Some(a) => a.id(),
+                None => return record.start_initial_attempt(&drifted()).map(|_| ()),
+            };
             record.observe(Observation::semantic_success(drifted(), id, 400 + record.observations().len() as u64)).map(|_| ())
         }
         Op::ReconcileNoEffect => {
-            let id = record.attempts().last().map(|a| a.id()).unwrap_or(crate::dummy_attempt_id());
+            let id = match record.attempts().last() {
+                Some(a) => a.id(),
+                None => return record.start_initial_attempt(&drifted()).map(|_| ()),
+            };
             let target = record.observations().last().map(|o| o.sequence()).unwrap_or(0);
             record.observe(Observation::reconciliation_no_effect(binding(), id, 500 + record.observations().len() as u64, target)).map(|_| ())
         }
         Op::ReconcileNoEffectBadTarget => {
-            let id = record.attempts().last().map(|a| a.id()).unwrap_or(crate::dummy_attempt_id());
+            let id = match record.attempts().last() {
+                Some(a) => a.id(),
+                None => return record.start_initial_attempt(&drifted()).map(|_| ()),
+            };
             record.observe(Observation::reconciliation_no_effect(binding(), id, 600 + record.observations().len() as u64, u64::MAX)).map(|_| ())
         }
         Op::ReconcileSuccess => {
