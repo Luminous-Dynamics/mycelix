@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   generate-lock-capsule:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     defaults:
       run:
@@ -23,6 +23,12 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Record runner environment
+        run: |
+          uname -a > runner-uname.txt
+          cat /etc/os-release > runner-os-release.txt
+          python3 --version > runner-python-version.txt
 
       - name: Install exact Rust toolchain
         run: |
@@ -90,6 +96,7 @@ jobs:
           cp qualification/psi-002b3a3k0v-f2s1-validator/cargo-tree.txt capsule/
           cp qualification/psi-002b3a3k0v-f2s1-validator/dependency-source-inventory.v1.json capsule/
           cp qualification/psi-002b3a3k0v-f2s1-validator/dependency-source-inventory.v1.sha256 capsule/
+          cp runner-uname.txt runner-os-release.txt runner-python-version.txt capsule/
           rustc +1.96.0 --version --verbose > capsule/rustc-1.96.0.txt
           cargo +1.96.0 --version --verbose > capsule/cargo-1.96.0.txt
           sha256sum capsule/* | sort > capsule/manifest.sha256
