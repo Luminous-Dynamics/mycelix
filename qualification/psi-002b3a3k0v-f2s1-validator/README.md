@@ -96,3 +96,24 @@ into an apparently valid dependency evidence state.
 ## Dependency-record multiplicity
 
 The independent capsule verifier preserves dependency-record multiplicity when projecting `Cargo.lock` and the dependency inventory. It does not collapse records into sets before comparison, so duplicate inventory records cannot be silently normalized away. The negative self-test includes an explicit duplicate inventory record while refreshing the dependent receipt and outer manifest integrity records.
+
+## Raw JSON duplicate-member boundary
+
+`RAW-JSON-BOUNDARY.v1.md` freezes the raw-byte parsing contract before schema
+validation. Strict UTF-8 and one complete JSON value are required; duplicate
+object member names are rejected recursively after escape decoding (including
+escaped-name collisions). The raw SHA-256 is computed over the original bytes.
+This gate deliberately does not canonicalize whitespace, object order, or
+numeric spellings, and it preserves distinctions such as absent versus
+`null`, empty string, empty array, and empty object.
+
+The dependency-free reference implementation is
+`tools/check_raw_json.py`; focused vectors are in
+`tools/test_raw_json_boundary.py`. A later Rust implementation must enforce
+the same duplicate rejection before any parser can collapse object members.
+
+This is a syntax/evidence-identity boundary only. It does not establish schema
+validity, authenticity, freshness, currentness, issuer-key admission, token
+validity, replay authority, PSI qualification, or contact-discovery security.
+
+**NOT EXECUTED / NOT A PASS.**
