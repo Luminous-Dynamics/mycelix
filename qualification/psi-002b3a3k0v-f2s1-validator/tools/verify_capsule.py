@@ -196,17 +196,17 @@ def verify_lock_and_inventory(root: Path) -> None:
     if inv.get("lock_sha256") != digest(root / "Cargo.lock"):
         fail("dependency inventory lock digest mismatch")
 
+    def package_tuple(p):
+        try:
+            return (p["name"], p["version"], p.get("source"), p.get("checksum"))
+        except (KeyError, TypeError):
+            fail("malformed dependency package record")
+
     lock_packages = sorted(
-        {
-            (p["name"], p["version"], p.get("source"), p.get("checksum"))
-            for p in lock.get("package", [])
-        }
+        package_tuple(p) for p in lock.get("package", [])
     )
     inv_packages = sorted(
-        {
-            (p["name"], p["version"], p.get("source"), p.get("checksum"))
-            for p in inv.get("packages", [])
-        }
+        package_tuple(p) for p in inv.get("packages", [])
     )
     if lock_packages != inv_packages:
         fail("dependency inventory does not match Cargo.lock")
