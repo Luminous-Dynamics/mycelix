@@ -451,7 +451,7 @@ pub fn d6p_current_witness_input(
         input_id: format!("d6p:{}", receipt.receipt_id),
         input_commitment: format!("d6p:{}:{}", receipt.receipt_id, receipt.receipt_commitment),
         role: SemanticDerivationInputRoleV1::AuthorityBearing,
-        availability: if receipt.structurally_valid() {
+        availability: if receipt.structurally_valid() && eligible {
             SemanticInputAvailabilityV1::Present
         } else {
             SemanticInputAvailabilityV1::Unresolved
@@ -472,8 +472,9 @@ pub fn d6p_current_witness_input(
     }
 }
 
-pub fn d6q_assessment_input(
+pub fn d6q_assessment_input_for_environment(
     receipt: &ClaimGraphAssessmentReceiptV1,
+    semantic_environment_root: &str,
 ) -> SemanticDerivationInputV1 {
     let claim_ceiling = match receipt.disposition {
         GraphAssessmentDispositionV1::SupportedByBoundEvidence
@@ -496,7 +497,7 @@ pub fn d6q_assessment_input(
         } else {
             SemanticInputAvailabilityV1::Unresolved
         },
-        semantic_environment_root: format!("unknown:d6q:{}", receipt.assessment_commitment),
+        semantic_environment_root: semantic_environment_root.to_owned(),
         scope_commitment: format!(
             "bundle:{}:conclusion:{}",
             receipt.bundle_id, receipt.conclusion_id
@@ -512,8 +513,22 @@ pub fn d6q_assessment_input(
         claim_ceiling,
         claim_ceiling_commitment: format!("d6q-ceiling:{}", receipt.assessment_commitment),
         claim_ceiling_source: EVIDENCE_CLAIM_GRAPH_CLAIM_CEILING.into(),
-        claim_ceiling,
     }
+}
+
+/// Standalone D6Q adaptation when no semantic environment binding is available.
+///
+/// The resulting input is deliberately not suitable for a mixed D6P/D6Q
+/// derivation profile unless that profile explicitly uses the same unknown
+/// environment root. Call the explicit environment adapter when the caller
+/// has a qualified environment binding.
+pub fn d6q_assessment_input(
+    receipt: &ClaimGraphAssessmentReceiptV1,
+) -> SemanticDerivationInputV1 {
+    d6q_assessment_input_for_environment(
+        receipt,
+        &format!("unknown:d6q:{}", receipt.assessment_commitment),
+    )
 }
 
 pub fn symthaea_proposal_cannot_become_authoritative() -> bool {
@@ -535,11 +550,15 @@ pub fn serialization_cannot_amplify(
         && replayed.structurally_valid()
         && original.claim_id == replayed.claim_id
         && original.claim_commitment == replayed.claim_commitment
+        && original.output_scope_commitment == replayed.output_scope_commitment
+        && original.scope_relation == replayed.scope_relation
+        && original.scope_narrowing_witness == replayed.scope_narrowing_witness
+        && original.semantic_environment_root == replayed.semantic_environment_root
         && replayed.claim_ceiling.is_no_stronger_than(original.claim_ceiling)
         && replayed.currentness.is_no_stronger_than(original.currentness)
 }
 
-#[cfg(test)]
+#[cfg(test)]#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -803,12 +822,45 @@ mod tests {
     }
 
     #[test]
+    fn d6q_assessment_can_be_bound_to_explicit_shared_environment() {
+        let q = ClaimGraphAssessmentReceiptV1 {
+            assessment_id: "assessment-env".into(),
+            bundle_id: "bundle-1".into(),
+            conclusion_id: "conclusion-1".into(),
+            graph_reachable: true,
+            bound_evidence: true,
+            conflicting_evidence: false,
+            disposition: GraphAssessmentDispositionV1::SupportedByBoundEvidence,
+            human_disposition: crate::evidence_claim_graph::HumanDispositionV1::AcceptedForHumanUse,
+            assessment_commitment: "assessment-env-commitment".into(),
+            claim_ceiling: EVIDENCE_CLAIM_GRAPH_CLAIM_CEILING.into(),
+        };
+        let input = d6q_assessment_input_for_environment(&q, "env-1");
+        assert_eq!(input.semantic_environment_root, "env-1");
+        assert_eq!(input.role, SemanticDerivationInputRoleV1::Supporting);
+        assert_eq!(input.currentness, SemanticCurrentnessV1::Unknown);
+        assert_eq!(input.claim_ceiling, SemanticClaimCeilingV1::Assessment);
+    }
+
+    #[test]
     fn serialization_cannot_amplify_claim() {
         let original = claim();
         let mut replayed = original.clone();
         replayed.claim_ceiling = SemanticClaimCeilingV1::Assessment;
         assert!(!serialization_cannot_amplify(&original, &replayed));
         assert!(serialization_cannot_amplify(&original, &original));
+    }
+
+    #[test]
+    fn serialization_cannot_change_scope_or_environment() {
+        let original = claim();
+        let mut replayed = original.clone();
+        replayed.output_scope_commitment = "different-scope".into();
+        assert!(!serialization_cannot_amplify(&original, &replayed));
+
+        let mut replayed = original.clone();
+        replayed.semantic_environment_root = "env-2".into();
+        assert!(!serialization_cannot_amplify(&original, &replayed));
     }
 
     #[test]
