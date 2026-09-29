@@ -1598,7 +1598,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 
 /// Validate governance query creation
 fn validate_create_query(
-    _action: TypedAction<EntryCreationData>,
+    action: TypedAction<EntryCreationData>,
     query: GovernanceQuery,
 ) -> ExternResult<ValidateCallbackResult> {
     if query.source_happ.is_empty() {
@@ -1611,7 +1611,7 @@ fn validate_create_query(
 
 /// Validate proposal reference creation
 fn validate_create_proposal_ref(
-    _action: TypedAction<EntryCreationData>,
+    action: TypedAction<EntryCreationData>,
     _proposal: ProposalReference,
 ) -> ExternResult<ValidateCallbackResult> {
     Ok(ValidateCallbackResult::Valid)
@@ -1619,7 +1619,7 @@ fn validate_create_proposal_ref(
 
 /// Validate governance event creation
 fn validate_create_event(
-    _action: TypedAction<EntryCreationData>,
+    action: TypedAction<EntryCreationData>,
     event: GovernanceBridgeEvent,
 ) -> ExternResult<ValidateCallbackResult> {
     if event.source_happ.is_empty() {
@@ -1632,7 +1632,7 @@ fn validate_create_event(
 
 /// Validate execution request creation
 fn validate_create_execution_req(
-    _action: TypedAction<EntryCreationData>,
+    action: TypedAction<EntryCreationData>,
     req: ExecutionRequest,
 ) -> ExternResult<ValidateCallbackResult> {
     if req.target_happ.is_empty() {
@@ -1658,7 +1658,7 @@ fn validate_update_execution_req(
 
 /// Validate consciousness snapshot creation
 fn validate_create_consciousness_snapshot(
-    _action: TypedAction<EntryCreationData>,
+    action: TypedAction<EntryCreationData>,
     snapshot: ConsciousnessSnapshot,
 ) -> ExternResult<ValidateCallbackResult> {
     // Bind to the committer: `agent_did` is a self-reported consciousness claim,
@@ -1744,7 +1744,7 @@ fn validate_create_consciousness_snapshot(
 
 /// Validate consciousness attestation creation
 fn validate_create_consciousness_attestation(
-    _action: TypedAction<EntryCreationData>,
+    action: TypedAction<EntryCreationData>,
     attestation: ConsciousnessAttestation,
 ) -> ExternResult<ValidateCallbackResult> {
     // Bind to the committer: `agent_did` is a self-reported consciousness claim,
@@ -1802,7 +1802,7 @@ fn validate_create_consciousness_attestation(
 
 /// Validate consciousness gate creation
 fn validate_create_consciousness_gate(
-    _action: TypedAction<EntryCreationData>,
+    action: TypedAction<EntryCreationData>,
     gate: ConsciousnessGate,
 ) -> ExternResult<ValidateCallbackResult> {
     // Bind to the committer: `agent_did` is a self-reported consciousness claim,
@@ -1865,7 +1865,7 @@ fn validate_create_consciousness_gate(
 
 /// Validate consciousness history creation
 fn validate_create_consciousness_history(
-    _action: TypedAction<EntryCreationData>,
+    action: TypedAction<EntryCreationData>,
     history: ConsciousnessHistory,
 ) -> ExternResult<ValidateCallbackResult> {
     // Bind to the committer: `agent_did` is a self-reported consciousness claim,
@@ -1937,7 +1937,7 @@ fn validate_create_consciousness_history(
 
 /// Validate value alignment assessment creation
 fn validate_create_value_alignment(
-    _action: TypedAction<EntryCreationData>,
+    action: TypedAction<EntryCreationData>,
     assessment: ValueAlignmentAssessment,
 ) -> ExternResult<ValidateCallbackResult> {
     // Bind to the committer — a value-alignment assessment attributed to another
@@ -2017,7 +2017,7 @@ fn validate_create_value_alignment(
 
 /// Validate K-Vector creation
 fn validate_create_k_vector(
-    _action: TypedAction<EntryCreationData>,
+    action: TypedAction<EntryCreationData>,
     k_vector: KVector,
 ) -> ExternResult<ValidateCallbackResult> {
     // Bind to the committer: `agent_did` is a self-reported consciousness claim,
@@ -2065,7 +2065,7 @@ fn validate_create_k_vector(
 
 /// Validate MATL trust score creation
 fn validate_create_matl_score(
-    _action: TypedAction<EntryCreationData>,
+    action: TypedAction<EntryCreationData>,
     matl: MatlTrustScore,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate agent DID
@@ -2099,7 +2099,7 @@ fn validate_create_matl_score(
 
 /// Validate federated reputation creation
 fn validate_create_federated_reputation(
-    _action: TypedAction<EntryCreationData>,
+    action: TypedAction<EntryCreationData>,
     fed_rep: FederatedReputation,
 ) -> ExternResult<ValidateCallbackResult> {
     // Bind to the committer: `agent_did` is a self-reported consciousness claim,
@@ -2155,7 +2155,7 @@ fn validate_create_federated_reputation(
 
 /// Validate consensus participant creation
 fn validate_create_consensus_participant(
-    _action: TypedAction<EntryCreationData>,
+    action: TypedAction<EntryCreationData>,
     participant: ConsensusParticipant,
 ) -> ExternResult<ValidateCallbackResult> {
     // Bind to the committer: `agent_did` is a self-reported consciousness claim,
@@ -2206,7 +2206,7 @@ fn validate_create_consensus_participant(
 
 /// Validate weighted vote creation
 fn validate_create_weighted_vote(
-    _action: TypedAction<EntryCreationData>,
+    action: TypedAction<EntryCreationData>,
     vote: WeightedVote,
 ) -> ExternResult<ValidateCallbackResult> {
     // Bind the vote to its committer. The triage doc flags this in capitals as
@@ -2270,7 +2270,7 @@ fn validate_create_weighted_vote(
 
 /// Validate consensus round creation
 fn validate_create_consensus_round(
-    _action: TypedAction<EntryCreationData>,
+    action: TypedAction<EntryCreationData>,
     round: ConsensusRound,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate proposal ID
@@ -2313,7 +2313,7 @@ fn validate_create_consensus_round(
 
 /// Validate slashing record creation
 fn validate_create_slashing_record(
-    _action: TypedAction<EntryCreationData>,
+    action: TypedAction<EntryCreationData>,
     record: SlashingRecord,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate record ID
