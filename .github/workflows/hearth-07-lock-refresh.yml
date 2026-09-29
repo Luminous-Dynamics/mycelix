@@ -36,7 +36,16 @@ jobs:
 
       - name: Refresh Hearth flake lock
         working-directory: mycelix-workspace/mycelix-hearth
-        run: nix flake update
+        run: nix flake update holonix
+
+      - name: Verify resolved Holochain 0.7 toolchain
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: |
+          nix develop .#ci --impure --command holochain --version
+          nix develop .#ci --impure --command hc --version
+
+      - name: Verify generated lock and source invariants
+        run: bash mycelix-workspace/mycelix-hearth/tools/verify-holochain-07.sh
 
       - name: Refresh Hearth SDK npm lock
         working-directory: mycelix-workspace/mycelix-hearth/sdk-ts
