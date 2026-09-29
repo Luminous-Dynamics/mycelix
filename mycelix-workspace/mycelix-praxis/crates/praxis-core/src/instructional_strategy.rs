@@ -430,6 +430,80 @@ impl InstructionalAnalysisExecution {
     }
 }
 
+
+/// Exact identity of a computed analysis result.
+///
+/// The value is kept as canonical serialized text so this contract does not
+/// prescribe a numeric representation or expose raw learner-level data.
+/// Interpretation of the value is defined by the effect/summary measure.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalAnalysisResultReceipt {
+    pub result_id: String,
+    pub result_version: u64,
+    pub analysis: InstructionalAnalysisRef,
+    pub estimand_ref: InstructionalEstimandRef,
+    pub effect_measure: String,
+    pub point_estimate: String,
+    pub scale: String,
+    pub unit: String,
+    pub aggregation: String,
+    pub timepoint: String,
+    pub result_digest: String,
+    pub generated_at: i64,
+}
+
+impl InstructionalAnalysisResultReceipt {
+    pub fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.result_id.trim().is_empty()
+            || self.effect_measure.trim().is_empty()
+            || self.point_estimate.trim().is_empty()
+            || self.scale.trim().is_empty()
+            || self.unit.trim().is_empty()
+            || self.aggregation.trim().is_empty()
+            || self.timepoint.trim().is_empty()
+            || self.result_digest.trim().is_empty()
+        {
+            return Err(InstructionalScienceContractError::InvalidAnalysisResultReceipt);
+        }
+        if self.result_version == 0 {
+            return Err(InstructionalScienceContractError::ZeroAnalysisResultVersion);
+        }
+        self.analysis.validate()?;
+        self.estimand_ref.validate()?;
+        if self.estimand_ref.estimand_digest != self.analysis.estimand_ref.estimand_digest {
+            return Err(InstructionalScienceContractError::AnalysisResultEstimandMismatch);
+        }
+        if self.generated_at < 0 {
+            return Err(InstructionalScienceContractError::NegativeAnalysisResultGeneratedAt);
+        }
+        Ok(())
+    }
+
+    pub const fn grants_credential_authority(&self) -> bool { false }
+    pub const fn grants_trust_authority(&self) -> bool { false }
+    pub const fn grants_authorization(&self) -> bool { false }
+}
+
+/// Exact reference to a computed analysis result.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalAnalysisResultRef {
+    pub result_id: String,
+    pub result_version: u64,
+    pub result_digest: String,
+}
+
+impl InstructionalAnalysisResultRef {
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.result_id.trim().is_empty() || self.result_digest.trim().is_empty() {
+            return Err(InstructionalScienceContractError::InvalidAnalysisResultReference);
+        }
+        if self.result_version == 0 {
+            return Err(InstructionalScienceContractError::ZeroAnalysisResultReferenceVersion);
+        }
+        Ok(())
+    }
+}
+
 /// Explicit uncertainty attached to a computed result.
 ///
 /// The representation is deliberately generic: the analysis method defines
@@ -437,19 +511,31 @@ impl InstructionalAnalysisExecution {
 /// the reported uncertainty without turning it into a substantive interpretation.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InstructionalUncertaintyReceipt {
+    pub result: InstructionalAnalysisResultRef,
+    pub estimand_ref: InstructionalEstimandRef,
     pub uncertainty_kind: String,
     pub uncertainty_method_version: String,
     pub lower_bound: String,
     pub upper_bound: String,
+    pub scale: String,
+    pub unit: String,
     pub confidence_level: Option<String>,
+    pub assumptions_digest: String,
+    pub uncertainty_digest: String,
 }
 
 impl InstructionalUncertaintyReceipt {
     fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        self.result.validate()?;
+        self.estimand_ref.validate()?;
         if self.uncertainty_kind.trim().is_empty()
             || self.uncertainty_method_version.trim().is_empty()
             || self.lower_bound.trim().is_empty()
             || self.upper_bound.trim().is_empty()
+            || self.scale.trim().is_empty()
+            || self.unit.trim().is_empty()
+            || self.assumptions_digest.trim().is_empty()
+            || self.uncertainty_digest.trim().is_empty()
         {
             return Err(InstructionalScienceContractError::InvalidUncertaintyReceipt);
         }
@@ -485,6 +571,7 @@ pub struct InstructionalAnalysisReceipt {
     pub estimand_ref: InstructionalEstimandRef,
     pub kind: InstructionalAnalysisKind,
     pub experimental_provenance: Option<ExperimentalAnalysisRef>,
+    pub result: InstructionalAnalysisResultRef,
     pub execution: InstructionalAnalysisExecution,
     pub uncertainty: Option<InstructionalUncertaintyReceipt>,
     pub prespecified: bool,
@@ -532,9 +619,16 @@ impl InstructionalAnalysisReceipt {
         {
             return Err(InstructionalScienceContractError::InvalidPrespecifiedPlanStatus);
         }
+        self.result.validate()?;
         self.execution.validate()?;
         if let Some(uncertainty) = &self.uncertainty {
             uncertainty.validate()?;
+            if uncertainty.estimand_ref != self.estimand_ref {
+                return Err(InstructionalScienceContractError::AnalysisUncertaintyEstimandMismatch);
+            }
+            if uncertainty.result != self.result {
+                return Err(InstructionalScienceContractError::AnalysisUncertaintyResultMismatch);
+            }
         }
         if matches!(&self.kind, &InstructionalAnalysisKind::ExperimentalEffectEstimate) {
             self.experimental_provenance.as_ref().ok_or(
@@ -745,7 +839,7 @@ pub struct InstructionalSensitivityAnalysisRef {
     pub analysis: InstructionalAnalysisRef,
     pub estimand: InstructionalEstimandKind,
     pub assumptions_digest: String,
-    pub result_digest: String,
+    pub result: InstructionalAnalysisResultRef,
 }
 
 impl InstructionalSensitivityAnalysisRef {
@@ -753,10 +847,10 @@ impl InstructionalSensitivityAnalysisRef {
         self.analysis.validate()?;
         if matches!(&self.estimand, InstructionalEstimandKind::Other(value) if value.trim().is_empty())
             || self.assumptions_digest.trim().is_empty()
-            || self.result_digest.trim().is_empty()
         {
             return Err(InstructionalScienceContractError::InvalidSensitivityAnalysisReference);
         }
+        self.result.validate()?;
         Ok(())
     }
 }
@@ -1028,6 +1122,14 @@ pub enum InstructionalScienceContractError {
     MissingExperimentalAnalysisReference,
     InvalidAnalysisExecution,
     InvalidUncertaintyReceipt,
+    InvalidAnalysisResultReceipt,
+    ZeroAnalysisResultVersion,
+    AnalysisResultEstimandMismatch,
+    NegativeAnalysisResultGeneratedAt,
+    InvalidAnalysisResultReference,
+    ZeroAnalysisResultReferenceVersion,
+    AnalysisUncertaintyEstimandMismatch,
+    AnalysisUncertaintyResultMismatch,
     InvalidPrespecifiedPlanStatus,
     InvalidAnalysisReference,
     ZeroAnalysisReferenceVersion,
@@ -1450,7 +1552,11 @@ mod tests {
             },
             kind: InstructionalAnalysisKind::ExperimentalEffectEstimate,
             experimental_provenance: None,
-            identifying_assumptions: None,
+            result: InstructionalAnalysisResultRef {
+                result_id: "result-1".into(),
+                result_version: 1,
+                result_digest: "blake3:result".into(),
+            },
             execution: InstructionalAnalysisExecution {
                 software_id: "praxis-analyzer".into(),
                 software_version: "1".into(),
@@ -1498,11 +1604,23 @@ mod tests {
     #[test]
     fn uncertainty_receipt_is_explicitly_versioned() {
         let receipt = InstructionalUncertaintyReceipt {
+            result: InstructionalAnalysisResultRef {
+                result_id: "result-1".into(),
+                result_version: 1,
+                result_digest: "blake3:result".into(),
+            },
+            estimand_ref: InstructionalEstimandRef {
+                estimand_digest: "blake3:estimand".into(),
+            },
             uncertainty_kind: "confidence_interval".into(),
             uncertainty_method_version: "1".into(),
             lower_bound: "0.10".into(),
             upper_bound: "0.30".into(),
+            scale: "difference".into(),
+            unit: "score".into(),
             confidence_level: Some("0.95".into()),
+            assumptions_digest: "blake3:assumptions".into(),
+            uncertainty_digest: "blake3:uncertainty".into(),
         };
         assert_eq!(receipt.validate(), Ok(()));
     }
@@ -1564,7 +1682,11 @@ mod tests {
             },
             kind: InstructionalAnalysisKind::Descriptive,
             experimental_provenance: None,
-            identifying_assumptions: None,
+            result: InstructionalAnalysisResultRef {
+                result_id: "result-1".into(),
+                result_version: 1,
+                result_digest: "blake3:result".into(),
+            },
             execution: InstructionalAnalysisExecution {
                 software_id: "praxis-analyzer".into(),
                 software_version: "1".into(),
@@ -1602,12 +1724,6 @@ mod tests {
             estimand_ref: InstructionalEstimandRef {
                 estimand_digest: "blake3:estimand".into(),
             },
-            estimand_ref: InstructionalEstimandRef {
-                estimand_digest: "blake3:estimand".into(),
-            },
-            estimand_ref: InstructionalEstimandRef {
-                estimand_digest: "blake3:estimand".into(),
-            },
             },
             analysis_kind: InstructionalAnalysisKind::Descriptive,
             interpretation_kind: InstructionalInterpretationKind::Causal,
@@ -1616,6 +1732,11 @@ mod tests {
             limitations: "Causal identification is not established by this analysis.".into(),
             experimental_provenance: None,
             identifying_assumptions: None,
+            evidence_sufficiency: InstructionalEvidenceSufficiencyRef {
+                evidence_id: "evidence-interpretation".into(),
+                evidence_version: 1,
+                evidence_digest: "blake3:evidence-interpretation".into(),
+            },
             generated_at: 200,
         };
         assert_eq!(
@@ -1638,9 +1759,6 @@ mod tests {
                 analysis_id: "analysis-1".into(),
                 analysis_version: 1,
                 analysis_digest: "blake3:analysis".into(),
-            estimand_ref: InstructionalEstimandRef {
-                estimand_digest: "blake3:estimand".into(),
-            },
             estimand_ref: InstructionalEstimandRef {
                 estimand_digest: "blake3:estimand".into(),
             },
@@ -1719,9 +1837,6 @@ mod tests {
             estimand_ref: InstructionalEstimandRef {
                 estimand_digest: "blake3:estimand".into(),
             },
-            estimand_ref: InstructionalEstimandRef {
-                estimand_digest: "blake3:estimand".into(),
-            },
             },
             interpretation_kind: InstructionalInterpretationKind::Descriptive,
             claim_kind: InstructionalClaimKind::Descriptive,
@@ -1780,7 +1895,11 @@ mod tests {
                 },
                 estimand: InstructionalEstimandKind::RiskRatio,
                 assumptions_digest: "blake3:sensitivity-assumptions".into(),
-                result_digest: "blake3:sensitivity-result".into(),
+                result: InstructionalAnalysisResultRef {
+                    result_id: "result-sensitivity".into(),
+                    result_version: 1,
+                    result_digest: "blake3:sensitivity-result".into(),
+                },
             }],
             closure_status: InstructionalEvidenceSetClosure::Closed,
             closure_digest: "blake3:closure".into(),
@@ -1887,6 +2006,26 @@ mod tests {
     }
 
     #[test]
+    fn analysis_result_identity_is_separate_from_interpretation() {
+        let analysis=InstructionalAnalysisRef{
+            analysis_id:"analysis-result".into(), analysis_version:1,
+            analysis_digest:"blake3:analysis-result".into(),
+            estimand_ref:InstructionalEstimandRef{estimand_digest:"blake3:estimand".into()},
+        };
+        let result=InstructionalAnalysisResultReceipt{
+            result_id:"result-1".into(), result_version:1, analysis:analysis.clone(),
+            estimand_ref:InstructionalEstimandRef{estimand_digest:"blake3:estimand".into()},
+            effect_measure:"mean difference".into(), point_estimate:"0.20".into(),
+            scale:"difference".into(), unit:"score".into(), aggregation:"population-level".into(),
+            timepoint:"post-intervention".into(), result_digest:"blake3:result".into(), generated_at:200,
+        };
+        assert_eq!(result.validate(),Ok(()));
+        let mut mismatched=result.clone();
+        mismatched.estimand_ref.estimand_digest="blake3:other".into();
+        assert_eq!(mismatched.validate(),Err(InstructionalScienceContractError::AnalysisResultEstimandMismatch));
+    }
+
+    #[test]
     fn estimand_definition_must_match_exact_reference() {
         let mut receipt = InstructionalAnalysisReceipt {
             analysis_id: "analysis-estimand".into(),
@@ -1920,6 +2059,11 @@ mod tests {
             },
             kind: InstructionalAnalysisKind::Descriptive,
             experimental_provenance: None,
+            result: InstructionalAnalysisResultRef {
+                result_id: "result-1".into(),
+                result_version: 1,
+                result_digest: "blake3:result".into(),
+            },
             execution: InstructionalAnalysisExecution {
                 software_id: "tool".into(),
                 software_version: "1".into(),
