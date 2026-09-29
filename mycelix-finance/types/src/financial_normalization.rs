@@ -63,6 +63,49 @@ pub struct NormalizedObservation {
     pub information_frontier: super::InformationFrontier,
 }
 
+
+/// A validated ordered chain of normalization recipes.
+///
+/// Each step consumes the exact output of the previous step. The chain is
+/// itself immutable metadata, so replay can verify both ordering and recipe
+/// identity rather than trusting a precomputed final number.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NormalizationChain {
+    pub chain_id: String,
+    pub steps: Vec<NormalizationRecipe>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ChainError {
+    EmptyChain,
+    DuplicateRecipeId,
+    Step(NormalizationError),
+}
+
+/// Apply a complete ordered chain while preserving every intermediate result.
+pub fn normalize_chain(
+    observation: &MarketObservation,
+    chain: &NormalizationChain,
+) -> Result<Vec<NormalizedObservation>, ChainError> {
+    if chain.steps.is_empty() {
+        return Err(ChainError::EmptyChain);
+    }
+    let mut seen = std::collections::BTreeSet::new();
+    let mut current = observation.clone();
+    let mut results = Vec::with_capacity(chain.steps.len());
+    for recipe in &chain.steps {
+        if !seen.insert(recipe.recipe_id.clone()) {
+            return Err(ChainError::DuplicateRecipeId);
+        }
+        let next = normalize_observation(&current, recipe).map_err(ChainError::Step)?;
+        current.value = next.value.clone();
+        current.unit = next.unit.clone();
+        current.observation_id = next.projection_id.clone();
+        results.push(next);
+    }
+    Ok(results)
+}
+
 /// Errors are explicit so a failed normalization cannot silently produce a value.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum NormalizationError {
