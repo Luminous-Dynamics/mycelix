@@ -572,6 +572,9 @@ impl<B: EffectBinding> DeliveryRecord<B> {
     }
 
     fn create_attempt(&mut self) -> Result<DispatchPermit<B>, DeliveryError> {
+        if self.state == DeliveryState::IntegrityHalted {
+            return Err(DeliveryError::RetryNotPermitted(self.state));
+        }
         if self.attempts.len() >= MAX_ATTEMPTS {
             return Err(DeliveryError::AttemptLimitExceeded);
         }
@@ -1412,6 +1415,26 @@ mod tests {
         );
         assert_eq!(recovered.commit_completion(), Err(DeliveryError::AlreadyCompleted));
         assert_eq!(recovered.snapshot(), before);
+    }
+
+    #[test]
+    fn internal_attempt_creation_is_halted_by_integrity_barrier() {
+        let mut record = record(ReplayProfile::IdempotentByEffectInstance);
+        let id = attempt(&mut record);
+        record
+            .observe(Observation::semantic_success(binding(), id, 10))
+            .unwrap();
+        record.commit_completion().unwrap();
+        record
+            .observe(Observation::reconciliation_no_effect(binding(), id, 11, 1))
+            .unwrap();
+
+        let before = record.snapshot();
+        assert_eq!(
+            record.create_attempt(),
+            Err(DeliveryError::RetryNotPermitted(DeliveryState::IntegrityHalted))
+        );
+        assert_eq!(record.snapshot(), before);
     }
 
     #[test]
