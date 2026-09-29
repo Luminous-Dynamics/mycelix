@@ -20,6 +20,18 @@ require() {
   fi
 }
 
+require_file() {
+  local file="$1"
+  local label="$2"
+  if [[ ! -f "$file" ]]; then
+    echo "FAIL: $label"
+    echo "  missing: $file"
+    fail=1
+  else
+    echo "PASS: $label"
+  fi
+}
+
 forbid() {
   local file="$1"
   local pattern="$2"
@@ -42,6 +54,8 @@ flake_nix="flake.nix"
 flake_lock="flake.lock"
 sdk_package="sdk-ts/package.json"
 sdk_lock="sdk-ts/package-lock.json"
+require_file "$cargo_lock" "Hearth Cargo lock is generated and committed"
+require_file "$tests_cargo_lock" "Sweettest Cargo lock is generated and committed"
 
 require "$cargo_toml" 'hdk = "=0.7.0"' "HDK is pinned to Holochain 0.7"
 require "$cargo_toml" 'hdi = "=0.8.0"' "HDI is pinned to Holochain 0.7"
