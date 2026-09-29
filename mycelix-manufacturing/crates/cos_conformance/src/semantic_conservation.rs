@@ -130,7 +130,6 @@ pub struct SemanticDerivationInputV1 {
     pub claim_ceiling: SemanticClaimCeilingV1,
     pub claim_ceiling_commitment: String,
     pub claim_ceiling_source: String,
-    pub claim_ceiling: SemanticClaimCeilingV1,
 }
 
 impl SemanticDerivationInputV1 {
@@ -141,7 +140,6 @@ impl SemanticDerivationInputV1 {
             && non_empty(&self.scope_commitment)
             && non_empty(&self.claim_ceiling_commitment)
             && non_empty(&self.claim_ceiling_source)
-            && self.claim_ceiling == self.claim_ceiling
     }
 }
 
@@ -167,20 +165,6 @@ impl SemanticDerivationProfileV1 {
             && !self.scope_input_ids.is_empty()
             && non_empty(&self.profile_commitment)
             && self.claim_ceiling == SEMANTIC_CONSERVATION_CLAIM_CEILING
-            && self
-                .authority_input_ids
-                .is_disjoint(&self.currentness_input_ids)
-                .not()
-    }
-}
-
-trait BoolNot {
-    fn not(self) -> bool;
-}
-
-impl BoolNot for bool {
-    fn not(self) -> bool {
-        !self
     }
 }
 
@@ -497,7 +481,7 @@ pub fn d6q_assessment_input(
         } else {
             SemanticInputAvailabilityV1::Unresolved
         },
-        semantic_environment_root: EVIDENCE_CLAIM_GRAPH_CLAIM_CEILING.into(),
+        semantic_environment_root: format!("unknown:d6q:{}", receipt.assessment_commitment),
         scope_commitment: format!(
             "bundle:{}:conclusion:{}",
             receipt.bundle_id, receipt.conclusion_id
@@ -570,7 +554,6 @@ mod tests {
             claim_ceiling: SemanticClaimCeilingV1::CurrentQualifiedEvidence,
             claim_ceiling_commitment: "ceiling-1".into(),
             claim_ceiling_source: "d6p".into(),
-            claim_ceiling: SemanticClaimCeilingV1::CurrentQualifiedEvidence,
         }
     }
 
