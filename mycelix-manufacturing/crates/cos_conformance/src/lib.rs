@@ -21,6 +21,7 @@ pub mod substitution_continuity;
 pub mod effect_finality;
 pub mod contestable_finality;
 pub mod observer_lifecycle;
+pub mod evidence_claim_graph;
 pub mod finality_eligibility_composition;
 
 pub const CORPUS_ID: &str = "COS-CONF-001";
