@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../" && pwd)"
 cd "$ROOT"
 
 # The canonical tree itself is excluded. This guard looks only for references
@@ -18,8 +18,8 @@ check() {
 }
 
 check '(^|[^/[:alnum:]_-])mycelix-hearth/'
-check '(^|[[:space:]="'"'"''])./mycelix-hearth/'
-check '../mycelix-hearth/'
+check '(^|[[:space:]="'"'"''])\\./mycelix-hearth/'
+check '\\.\\./mycelix-hearth/'
 
 if [[ "$legacy" -ne 0 ]]; then
   echo
