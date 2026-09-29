@@ -233,6 +233,30 @@ def refresh_final_integrity(root: Path) -> None:
     ]
     (root / "manifest.sha256").write_text("\n".join(lines) + "\n")
 
+def refresh_inventory_integrity(root: Path) -> None:
+    inventory_path = root / "dependency-source-inventory.v1.json"
+    inventory = json.loads(inventory_path.read_text())
+    inventory_path.write_bytes(canonical(inventory))
+    write_sidecar(root, "dependency-source-inventory.v1.sha256")
+
+    receipt_path = root / "evidence-receipt.v1.json"
+    receipt = json.loads(receipt_path.read_text())
+    receipt["artifacts"]["dependency-source-inventory.v1.json"] = sha256_bytes(
+        inventory_path.read_bytes()
+    )
+    receipt_path.write_bytes(canonical(receipt))
+    write_sidecar(root, "evidence-receipt.v1.sha256")
+
+    lines = [
+        f"{sha256_bytes((root / name).read_bytes())}  {name}"
+        for name in sorted(FILES + [
+            "evidence-receipt.v1.json",
+            "evidence-receipt.v1.sha256",
+            "manifest.pre-receipt.sha256",
+        ])
+    ]
+    (root / "manifest.sha256").write_text("\n".join(lines) + "\n")
+
 def expect_fail(base: Path, name: str, mutate) -> None:
     case = base.parent / name
     shutil.copytree(base, case, symlinks=True)
@@ -292,6 +316,15 @@ def main() -> int:
             (p / "manifest.pre-receipt.sha256").write_text("\n".join(lines[:-1]) + "\n")
             refresh_final_integrity(p)
         expect_fail(base, "pre-receipt-omitted", omitted_pre_receipt)
+
+
+        def duplicate_inventory_record(p: Path) -> None:
+            path = p / "dependency-source-inventory.v1.json"
+            inventory = json.loads(path.read_text())
+            inventory["packages"].append(dict(inventory["packages"][0]))
+            path.write_bytes(canonical(inventory))
+            refresh_inventory_integrity(p)
+        expect_fail(base, "duplicate-inventory-record", duplicate_inventory_record)
 
         print("CAPSULE NEGATIVE TESTS: PASS (tamper rejection only; no qualification claim)")
         return 0
