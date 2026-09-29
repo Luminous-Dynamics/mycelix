@@ -1012,23 +1012,38 @@ mod tests {
 
             let _effect = ImmediateEffect::new(move || {
                 observations_for_effect.borrow_mut().push((
-                    hearth.current_hearth.get().is_some(),
+                    hearth.current_hearth.get().map(|value| value.name),
                     truth.availability.get().current_hearth,
                 ));
             });
 
             let mut staged = StagedHearthSnapshot::pending("agent-test".into());
-            staged.current_hearth = Some(crate::mock_data::mock_hearth());
+            let mut changed_hearth = crate::mock_data::mock_hearth();
+            changed_hearth.name = "Staged Hearth".into();
+            staged.current_hearth = Some(changed_hearth);
             staged.availability.current_hearth = AvailabilityStateKind::Live;
 
             staged.publish(&hearth, &truth);
 
+            let trace = observations.borrow();
+            assert_eq!(trace.len(), 2);
             assert_eq!(
-                observations.borrow().as_slice(),
-                &[
-                    (true, AvailabilityStateKind::Unknown),
-                    (true, AvailabilityStateKind::Live)
-                ][..]
+                trace[1],
+                (Some("Staged Hearth".to_string()), AvailabilityStateKind::Live)
+            );
+            assert!(
+                trace.iter().all(|(name, availability)| !(
+                    name.as_deref() == Some("Staged Hearth")
+                        && *availability != AvailabilityStateKind::Live
+                )),
+                "new payload must never be observed with old provenance: {trace:?}"
+            );
+            assert!(
+                trace.iter().all(|(name, availability)| !(
+                    name.as_deref() != Some("Staged Hearth")
+                        && *availability == AvailabilityStateKind::Live
+                )),
+                "new provenance must never be observed with old payload: {trace:?}"
             );
         });
     }
