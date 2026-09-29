@@ -461,24 +461,28 @@ pub fn compute_dependency_closure(
             if edge.from_node_id != id { continue; }
 
             let (matches_rule, requires_current) = match projection.nodes.get(&edge.to_node_id) {
-                Some(to) => {
-                    let matching_rules = profile.rules.iter().filter(|r| r.matches(node.kind, to.kind, edge.kind));
-                    (
-                        matching_rules.clone().next().is_some(),
-                        matching_rules.any(|r| r.currentness == DependencyCurrentnessV1::CurrentOnly),
-                    )
-                }
+                Some(to) => (
+                    profile.rules.iter().any(|r| r.matches(node.kind, to.kind, edge.kind)),
+                    profile.rules.iter().any(|r|
+                        r.matches(node.kind, to.kind, edge.kind)
+                            && r.currentness == DependencyCurrentnessV1::CurrentOnly
+                    ),
+                ),
                 None => {
                     // A missing target has no node kind, so only an explicitly
                     // wildcard-target rule can qualify the dangling relationship.
-                    let matching_rules = profile.rules.iter().filter(|r| {
-                        r.edge_kind == edge.kind
-                            && r.from_kind.map_or(true, |kind| kind == node.kind)
-                            && r.to_kind.is_none()
-                    });
                     (
-                        matching_rules.clone().next().is_some(),
-                        matching_rules.any(|r| r.currentness == DependencyCurrentnessV1::CurrentOnly),
+                        profile.rules.iter().any(|r| {
+                            r.edge_kind == edge.kind
+                                && r.from_kind.map_or(true, |kind| kind == node.kind)
+                                && r.to_kind.is_none()
+                        }),
+                        profile.rules.iter().any(|r| {
+                            r.edge_kind == edge.kind
+                                && r.from_kind.map_or(true, |kind| kind == node.kind)
+                                && r.to_kind.is_none()
+                                && r.currentness == DependencyCurrentnessV1::CurrentOnly
+                        }),
                     )
                 }
             };
