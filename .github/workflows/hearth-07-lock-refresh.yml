@@ -14,6 +14,7 @@ on:
       - "mycelix-workspace/mycelix-hearth/sdk-ts/package.json"
       - "mycelix-workspace/mycelix-hearth/sdk-ts/package-lock.json"
       - ".github/workflows/hearth-07-lock-refresh.yml"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -50,6 +51,13 @@ jobs:
       - name: Refresh Hearth SDK npm lock
         working-directory: mycelix-workspace/mycelix-hearth/sdk-ts
         run: npm install --package-lock-only --ignore-scripts
+
+      - name: Validate npm lock without mutating it
+        working-directory: mycelix-workspace/mycelix-hearth/sdk-ts
+        run: npm ci --ignore-scripts --dry-run
+
+      - name: Verify no whitespace errors in refreshed locks
+        run: git diff --check -- mycelix-workspace/mycelix-hearth/flake.lock mycelix-workspace/mycelix-hearth/sdk-ts/package-lock.json
 
       - name: Commit refreshed dependency locks
         run: |
