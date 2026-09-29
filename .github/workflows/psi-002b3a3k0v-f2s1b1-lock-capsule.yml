@@ -256,10 +256,11 @@ jobs:
           cp rustc-1.96.0.txt cargo-1.96.0.txt capsule/
           python3 - <<'PY'
           import hashlib
+          import json
           from pathlib import Path
 
           capsule = Path("capsule")
-          allowed = [
+          base = [
               "Cargo.toml",
               "Cargo.lock",
               "Cargo.lock.sha256",
@@ -282,59 +283,51 @@ jobs:
               "rustc-1.96.0.txt",
               "cargo-1.96.0.txt",
           ]
-          assert len(allowed) == len(set(allowed))
           lines = [
               f"{hashlib.sha256((capsule / name).read_bytes()).hexdigest()}  {name}"
-              for name in allowed
+              for name in base
           ]
-          (capsule / "manifest.sha256").write_text("\n".join(lines) + "\n")
-          PY
+          (capsule / "manifest.pre-receipt.sha256").write_text("\n".join(lines) + "\n")
 
-      - name: Self-audit capsule manifest
-        run: |
-          python3 - <<'PY'
-          import hashlib
-          from pathlib import Path
-
-          capsule = Path("capsule")
-          allowed = {
-              "Cargo.toml",
-              "Cargo.lock",
-              "Cargo.lock.sha256",
+          artifacts = [
               "cargo-metadata.canonical.json",
               "cargo-tree.txt",
               "cargo-tree-offline.txt",
               "dependency-source-inventory.v1.json",
-              "dependency-source-inventory.v1.sha256",
               "cargo-lock-source-projection.v1.json",
-              "cargo-lock-source-projection.v1.sha256",
               "provenance.v1.json",
-              "provenance.v1.sha256",
-              "source-commit.txt",
-              "source-tree.txt",
-              "source-status.txt",
-              "workflow-sha256.txt",
-              "runner-uname.txt",
-              "runner-os-release.txt",
-              "runner-python-version.txt",
-              "rustc-1.96.0.txt",
-              "cargo-1.96.0.txt",
+              "Cargo.toml",
+              "Cargo.lock",
+          ]
+          receipt = {
+              "schema": "psi-002b3a3k0v-f2s1b1-evidence-receipt.v1",
+              "pre_receipt_manifest_sha256": hashlib.sha256(
+                  (capsule / "manifest.pre-receipt.sha256").read_bytes()
+              ).hexdigest(),
+              "artifacts": {
+                  name: hashlib.sha256((capsule / name).read_bytes()).hexdigest()
+                  for name in artifacts
+              },
           }
-          entries = list(capsule.iterdir())
-          assert all(p.is_file() and not p.is_symlink() for p in entries), "capsule contains non-regular or symlink entry"
-          files = sorted(p for p in entries if p.name != "manifest.sha256")
-          actual_names = {p.name for p in files}
-          assert actual_names == allowed, "capsule file set differs from exact allowlist"
-          recorded = []
-          for line in Path(capsule / "manifest.sha256").read_text().splitlines():
-              digest, name = line.split("  ", 1)
-              recorded.append(name)
-              actual = hashlib.sha256((capsule / name).read_bytes()).hexdigest()
-              assert actual == digest, f"capsule digest mismatch: {name}"
+          raw = json.dumps(receipt, sort_keys=True, separators=(",", ":")).encode() + b"\n"
+          (capsule / "evidence-receipt.v1.json").write_bytes(raw)
+          (capsule / "evidence-receipt.v1.sha256").write_text(
+              hashlib.sha256(raw).hexdigest() + "  evidence-receipt.v1.json\n"
+          )
 
-          assert recorded == sorted(allowed), "capsule manifest file set mismatch"
-          assert len(recorded) == len(set(recorded)), "capsule manifest contains duplicate paths"
-          assert "manifest.sha256" not in recorded, "manifest must not self-reference"
+          final = base + [
+              "evidence-receipt.v1.json",
+              "evidence-receipt.v1.sha256",
+              "manifest.pre-receipt.sha256",
+          ]
+          assert len(final) == len(set(final))
+          assert set(final) == {p.name for p in capsule.iterdir()}
+          (capsule / "manifest.sha256").write_text(
+              "\n".join(
+                  f"{hashlib.sha256((capsule / name).read_bytes()).hexdigest()}  {name}"
+                  for name in sorted(final)
+              ) + "\n"
+          )
           PY
 
       - name: Run capsule verifier tamper-negative tests
