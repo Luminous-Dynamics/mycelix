@@ -1,0 +1,315 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
+//! Evidence-policy-driven instructional adaptation.
+//!
+//! Presentation preference, accessibility, task affordance, and instructional
+//! strategy are intentionally separate concepts. No preference is treated as a
+//! stable aptitude or as evidence that matching presentation to preference
+//! improves learning.
+
+use crate::learner_profile_state::PresentationModality;
+use crate::learning_evidence::LearnerId;
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub enum AccessibilityRequirement {
+    Captions,
+    Transcript,
+    AudioDescription,
+    ScreenReaderCompatibility,
+    KeyboardNavigation,
+    HighContrast,
+    ReducedMotion,
+    AdjustableText,
+    PlainLanguage,
+    Other(String),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub enum TaskAffordance {
+    AudioPronunciation,
+    ListeningComprehension,
+    SpatialDiagram,
+    VisualInspection,
+    PhysicalManipulation,
+    ProceduralSequence,
+    SymbolicNotation,
+    TextualCloseReading,
+    Other(String),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub enum InstructionalStrategyKind {
+    RetrievalPractice,
+    DistributedPractice,
+    Interleaving,
+    Elaboration,
+    ConcreteExamples,
+    ComplementaryRepresentations,
+    WorkedExamplesAndFading,
+    PracticeWithFeedback,
+    TransferPractice,
+    Experimental(String),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum EvidencePolicyClass {
+    EvidenceSupportedContextual,
+    Experimental,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EvidencePolicy {
+    pub policy_id: String,
+    pub version: u64,
+    pub class: EvidencePolicyClass,
+    /// Human-readable scope statement. This is a policy boundary, not a claim
+    /// that the strategy is universally effective.
+    pub scope: String,
+    pub rationale: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExperimentalAssignment {
+    pub experiment_id: String,
+    pub hypothesis: String,
+    pub outcome_measure: String,
+    pub assignment_version: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalStrategyAssignment {
+    pub assignment_id: String,
+    pub learner_id: LearnerId,
+    pub strategy: InstructionalStrategyKind,
+    pub policy: EvidencePolicy,
+    pub context_id: String,
+    pub rationale: String,
+    pub experimental_assignment: Option<ExperimentalAssignment>,
+    pub assigned_at: i64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalAdaptationContext {
+    pub context_id: String,
+    pub presentation_preferences: Vec<PresentationModality>,
+    pub accessibility_requirements: Vec<AccessibilityRequirement>,
+    pub task_affordances: Vec<TaskAffordance>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum InstructionalScienceContractError {
+    EmptyId,
+    ZeroVersion,
+    EmptyScope,
+    EmptyRationale,
+    DuplicateAccessibilityRequirement,
+    EmptyAccessibilityOther,
+    DuplicateTaskAffordance,
+    EmptyTaskAffordanceOther,
+    DuplicatePresentationPreference,
+    EmptyAssignmentContext,
+    ExperimentalStrategyRequiresExperimentalPolicy,
+    ExperimentalPolicyRequiresExperimentAssignment,
+    ExperimentalAssignmentMissingHypothesis,
+    ExperimentalAssignmentMissingOutcome,
+    ZeroExperimentAssignmentVersion,
+    NegativeAssignedAt,
+}
+
+impl EvidencePolicy {
+    pub fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.policy_id.trim().is_empty() {
+            return Err(InstructionalScienceContractError::EmptyId);
+        }
+        if self.version == 0 {
+            return Err(InstructionalScienceContractError::ZeroVersion);
+        }
+        if self.scope.trim().is_empty() {
+            return Err(InstructionalScienceContractError::EmptyScope);
+        }
+        if self.rationale.trim().is_empty() {
+            return Err(InstructionalScienceContractError::EmptyRationale);
+        }
+        Ok(())
+    }
+}
+
+impl ExperimentalAssignment {
+    pub fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.experiment_id.trim().is_empty() {
+            return Err(InstructionalScienceContractError::EmptyId);
+        }
+        if self.hypothesis.trim().is_empty() {
+            return Err(InstructionalScienceContractError::ExperimentalAssignmentMissingHypothesis);
+        }
+        if self.outcome_measure.trim().is_empty() {
+            return Err(InstructionalScienceContractError::ExperimentalAssignmentMissingOutcome);
+        }
+        if self.assignment_version == 0 {
+            return Err(InstructionalScienceContractError::ZeroExperimentAssignmentVersion);
+        }
+        Ok(())
+    }
+}
+
+impl InstructionalStrategyAssignment {
+    pub fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.assignment_id.trim().is_empty() || self.learner_id.0.trim().is_empty() {
+            return Err(InstructionalScienceContractError::EmptyId);
+        }
+        self.policy.validate()?;
+        if self.context_id.trim().is_empty() {
+            return Err(InstructionalScienceContractError::EmptyAssignmentContext);
+        }
+        if self.rationale.trim().is_empty() {
+            return Err(InstructionalScienceContractError::EmptyRationale);
+        }
+        if self.assigned_at < 0 {
+            return Err(InstructionalScienceContractError::NegativeAssignedAt);
+        }
+        let experimental_strategy =
+            matches!(&self.strategy, InstructionalStrategyKind::Experimental(_));
+        let experimental_policy =
+            matches!(&self.policy.class, EvidencePolicyClass::Experimental);
+        if experimental_strategy && !experimental_policy {
+            return Err(
+                InstructionalScienceContractError::ExperimentalStrategyRequiresExperimentalPolicy,
+            );
+        }
+        if experimental_policy && self.experimental_assignment.is_none() {
+            return Err(
+                InstructionalScienceContractError::ExperimentalPolicyRequiresExperimentAssignment,
+            );
+        }
+        if let Some(experiment) = &self.experimental_assignment {
+            experiment.validate()?;
+        }
+        Ok(())
+    }
+
+    pub const fn grants_credential_authority(&self) -> bool { false }
+    pub const fn grants_trust_authority(&self) -> bool { false }
+    pub const fn grants_authorization(&self) -> bool { false }
+}
+
+impl InstructionalAdaptationContext {
+    pub fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.context_id.trim().is_empty() {
+            return Err(InstructionalScienceContractError::EmptyId);
+        }
+        let mut preferences = BTreeSet::new();
+        for preference in &self.presentation_preferences {
+            if !preferences.insert(preference.clone()) {
+                return Err(InstructionalScienceContractError::DuplicatePresentationPreference);
+            }
+        }
+        let mut accessibility = BTreeSet::new();
+        for requirement in &self.accessibility_requirements {
+            if let AccessibilityRequirement::Other(value) = requirement {
+                if value.trim().is_empty() {
+                    return Err(InstructionalScienceContractError::EmptyAccessibilityOther);
+                }
+            }
+            if !accessibility.insert(requirement.clone()) {
+                return Err(InstructionalScienceContractError::DuplicateAccessibilityRequirement);
+            }
+        }
+        let mut affordances = BTreeSet::new();
+        for affordance in &self.task_affordances {
+            if let TaskAffordance::Other(value) = affordance {
+                if value.trim().is_empty() {
+                    return Err(InstructionalScienceContractError::EmptyTaskAffordanceOther);
+                }
+            }
+            if !affordances.insert(affordance.clone()) {
+                return Err(InstructionalScienceContractError::DuplicateTaskAffordance);
+            }
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn policy(class: EvidencePolicyClass) -> EvidencePolicy {
+        EvidencePolicy {
+            policy_id: "praxis:retrieval-context-v1".into(),
+            version: 1,
+            class,
+            scope: "Use when retrieval is appropriate to the task and material.".into(),
+            rationale: "Named evidence policy; not a universal efficacy claim.".into(),
+        }
+    }
+
+    #[test]
+    fn preference_is_not_strategy_evidence() {
+        let context = InstructionalAdaptationContext {
+            context_id: "lesson-1".into(),
+            presentation_preferences: vec![PresentationModality::Visual],
+            accessibility_requirements: vec![AccessibilityRequirement::Captions],
+            task_affordances: vec![TaskAffordance::SpatialDiagram],
+        };
+        assert_eq!(context.validate(), Ok(()));
+    }
+
+    #[test]
+    fn contextual_strategy_requires_named_policy() {
+        let assignment = InstructionalStrategyAssignment {
+            assignment_id: "assignment-1".into(),
+            learner_id: LearnerId("learner-1".into()),
+            strategy: InstructionalStrategyKind::RetrievalPractice,
+            policy: policy(EvidencePolicyClass::EvidenceSupportedContextual),
+            context_id: "lesson-1".into(),
+            rationale: "Task requires active recall of previously introduced material.".into(),
+            experimental_assignment: None,
+            assigned_at: 100,
+        };
+        assert_eq!(assignment.validate(), Ok(()));
+        assert!(!assignment.grants_credential_authority());
+        assert!(!assignment.grants_trust_authority());
+        assert!(!assignment.grants_authorization());
+    }
+
+    #[test]
+    fn experimental_matching_cannot_hide_as_default_personalization() {
+        let assignment = InstructionalStrategyAssignment {
+            assignment_id: "assignment-2".into(),
+            learner_id: LearnerId("learner-1".into()),
+            strategy: InstructionalStrategyKind::Experimental("preference-match-v1".into()),
+            policy: policy(EvidencePolicyClass::Experimental),
+            context_id: "lesson-1".into(),
+            rationale: "Pre-registered comparison of a presentation preference hypothesis.".into(),
+            experimental_assignment: Some(ExperimentalAssignment {
+                experiment_id: "exp-1".into(),
+                hypothesis: "Matching may improve this task outcome under this protocol.".into(),
+                outcome_measure: "delayed_retrieval_score".into(),
+                assignment_version: 1,
+            }),
+            assigned_at: 100,
+        };
+        assert_eq!(assignment.validate(), Ok(()));
+    }
+
+    #[test]
+    fn experimental_strategy_without_experimental_policy_is_rejected() {
+        let assignment = InstructionalStrategyAssignment {
+            assignment_id: "assignment-3".into(),
+            learner_id: LearnerId("learner-1".into()),
+            strategy: InstructionalStrategyKind::Experimental("preference-match-v1".into()),
+            policy: policy(EvidencePolicyClass::EvidenceSupportedContextual),
+            context_id: "lesson-1".into(),
+            rationale: "Attempt to treat an experiment as ordinary personalization.".into(),
+            experimental_assignment: None,
+            assigned_at: 100,
+        };
+        assert_eq!(
+            assignment.validate(),
+            Err(InstructionalScienceContractError::ExperimentalStrategyRequiresExperimentalPolicy)
+        );
+    }
+}

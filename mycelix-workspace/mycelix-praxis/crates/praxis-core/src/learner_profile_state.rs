@@ -18,7 +18,7 @@ use std::collections::BTreeSet;
 pub struct LearnerPreferenceIntentId(pub String);
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub enum LearningModality {
+pub enum PresentationModality {
     Visual,
     Auditory,
     ReadingWriting,
@@ -52,7 +52,7 @@ pub struct LearnerPreferenceIntent {
     pub preference_intent_id: LearnerPreferenceIntentId,
     pub version: u64,
     pub learner_id: LearnerId,
-    pub preferred_modalities: Vec<LearningModality>,
+    pub preferred_modalities: Vec<PresentationModality>,
     pub preferred_session_minutes: Option<u16>,
     pub preferred_time_window: Option<PreferredTimeWindow>,
     pub preferred_difficulty_permille: Option<u16>,
@@ -143,7 +143,7 @@ pub enum LearnerProfileContractError {
     ZeroPreferenceIntentVersion,
     EmptyLearnerId,
     NoPreferences,
-    DuplicateModality(LearningModality),
+    DuplicatePresentationModality(PresentationModality),
     ZeroPreferredSessionMinutes,
     PreferredHourOutOfRange(u8),
     DegeneratePreferredTimeWindow,
@@ -497,7 +497,7 @@ mod tests {
             preference_intent_id: LearnerPreferenceIntentId("prefs-1".into()),
             version: 1,
             learner_id: LearnerId("learner-1".into()),
-            preferred_modalities: vec![LearningModality::Kinesthetic],
+            preferred_modalities: vec![PresentationModality::Kinesthetic],
             preferred_session_minutes: Some(45),
             preferred_time_window: Some(PreferredTimeWindow { start_hour: 8, end_hour: 11 }),
             preferred_difficulty_permille: Some(600),
