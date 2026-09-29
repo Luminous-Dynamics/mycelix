@@ -465,7 +465,14 @@ pub fn compute_dependency_closure(
                     to.node_id.clone(),
                     Some(to.node_commitment.clone()),
                 );
-                dependency_resolutions.insert(target_dependency, SemanticDependencyResolutionV1::Stale);
+                dependency_resolutions
+                    .entry(target_dependency)
+                    .and_modify(|resolution| {
+                        if *resolution != SemanticDependencyResolutionV1::Stale {
+                            *resolution = SemanticDependencyResolutionV1::Stale;
+                        }
+                    })
+                    .or_insert(SemanticDependencyResolutionV1::Stale);
             }
             if !queued.contains(&to.node_id) { queue.push_back(to.node_id.clone()); }
         }
@@ -756,6 +763,36 @@ mod tests {
         )));
         assert_eq!(c.dependency_resolutions.get(&dep), Some(&SemanticDependencyResolutionV1::Stale));
         assert!(c.valid());
+    }
+
+    #[test]
+    fn stale_resolution_is_monotonic_across_selected_edge_order() {
+        let (mut a,e,d)=projection(false);
+        a.nodes.get_mut("dep").unwrap().historical_only = true;
+        a.edges.insert("z-current".into(), QualifiedEdgeV1 {
+            edge_id:"z-current".into(), from_node_id:"root".into(), to_node_id:"dep".into(),
+            kind:ClaimGraphEdgeKindV1::Supports, edge_commitment:"edge-z".into(),
+            claim_ceiling:D6X_CLAIM_CEILING.into(),
+        });
+        let mut p=profile(BTreeSet::new());
+        p.rules = [
+            DependencyRuleV1 {
+                edge_kind: ClaimGraphEdgeKindV1::Supports,
+                from_kind: Some(ClaimGraphNodeKindV1::Statement),
+                to_kind: Some(ClaimGraphNodeKindV1::Evidence),
+                currentness: DependencyCurrentnessV1::Any,
+            },
+            DependencyRuleV1 {
+                edge_kind: ClaimGraphEdgeKindV1::Supports,
+                from_kind: Some(ClaimGraphNodeKindV1::Statement),
+                to_kind: Some(ClaimGraphNodeKindV1::Evidence),
+                currentness: DependencyCurrentnessV1::CurrentOnly,
+            },
+        ].into_iter().collect();
+        let c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
+        let dep=SemanticDependencyReferenceV1::node("dep", Some("commit-dep".into()));
+        assert_eq!(c.dependency_resolutions.get(&dep), Some(&SemanticDependencyResolutionV1::Stale));
+        assert_eq!(c.status, DependencyClosureStatusV1::BlockedCurrentness);
     }
 
     #[test]
