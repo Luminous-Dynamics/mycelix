@@ -31,8 +31,7 @@ use crate::finality_eligibility_composition::CurrentFinalityEligibilityReceiptV1
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
-pub const D6W_CLAIM_CEILING: &str =
-    "ReferenceModelOnly; layered D6S commitment decomposition only; no truth, authority, authorization, or actuation claim.";
+pub const D6W_CLAIM_CEILING: &str = D6S_CLAIM_CEILING;
 pub const D6W_DOMAIN_INPUT: &str = "d6w-input";
 pub const D6W_DOMAIN_DERIVATION: &str = "d6w-derivation";
 pub const D6W_DOMAIN_RESULT: &str = "d6w-result";
@@ -78,7 +77,7 @@ impl D6WInputLayerV1 {
                 .as_deref()
                 .map_or(true, non_empty)
             && non_empty(&self.semantic_environment_commitment)
-            && self.claim_ceiling == D6S_CLAIM_CEILING
+            && self.claim_ceiling == D6W_CLAIM_CEILING
     }
 
     pub fn commitment(&self) -> String {
@@ -109,7 +108,7 @@ impl D6WInputLayerV1 {
             d6n_context_commitment: projection.d6n_context_commitment.clone(),
             d6o_context_commitment: projection.d6o_context_commitment.clone(),
             semantic_environment_commitment: projection.semantic_environment_commitment.clone(),
-            claim_ceiling: D6S_CLAIM_CEILING.into(),
+            claim_ceiling: D6W_CLAIM_CEILING.into(),
         };
         layer.structurally_valid().then_some(layer)
     }
@@ -130,7 +129,7 @@ impl D6WDerivationLayerV1 {
             && non_empty(&self.derivation_profile_commitment)
             && self.canonicalization_version == "D6S-CANON-1"
             && non_empty(&self.execution_trace_commitment)
-            && self.claim_ceiling == D6S_CLAIM_CEILING
+            && self.claim_ceiling == D6W_CLAIM_CEILING
     }
 
     pub fn commitment(&self) -> String {
@@ -152,7 +151,7 @@ impl D6WResultLayerV1 {
     pub fn structurally_valid(&self) -> bool {
         non_empty(&self.derivation_commitment)
             && non_empty(&self.result_commitment)
-            && self.claim_ceiling == D6S_CLAIM_CEILING
+            && self.claim_ceiling == D6W_CLAIM_CEILING
             && result_flags_are_consistent(
                 self.result_status,
                 self.contradiction_preserved,
@@ -186,7 +185,7 @@ impl D6WReceiptV1 {
             && non_empty(&self.result_commitment)
             && non_empty(&self.d6s_receipt_commitment)
             && non_empty(&self.receipt_commitment)
-            && self.claim_ceiling == D6S_CLAIM_CEILING
+            && self.claim_ceiling == D6W_CLAIM_CEILING
     }
 
     pub fn recomputed_commitment(&self) -> String {
@@ -241,7 +240,7 @@ pub fn build_d6w_receipt(
         derivation_profile_commitment: profile.commitment(),
         canonicalization_version: projection.canonicalization_version.clone(),
         execution_trace_commitment,
-        claim_ceiling: D6S_CLAIM_CEILING.into(),
+        claim_ceiling: D6W_CLAIM_CEILING.into(),
     };
     if !derivation.structurally_valid() {
         return None;
@@ -253,7 +252,7 @@ pub fn build_d6w_receipt(
         result_commitment: d6s_receipt.result_commitment.clone(),
         contradiction_preserved: d6s_receipt.contradiction_preserved,
         unresolved_preserved: d6s_receipt.unresolved_preserved,
-        claim_ceiling: D6S_CLAIM_CEILING.into(),
+        claim_ceiling: D6W_CLAIM_CEILING.into(),
     };
     if !result.structurally_valid() {
         return None;
@@ -266,7 +265,7 @@ pub fn build_d6w_receipt(
         derivation_commitment: result.derivation_commitment.clone(),
         result_commitment: result.commitment(),
         d6s_receipt_commitment: d6s_receipt.receipt_commitment.clone(),
-        claim_ceiling: D6S_CLAIM_CEILING.into(),
+        claim_ceiling: D6W_CLAIM_CEILING.into(),
         receipt_commitment: String::new(),
     };
     receipt.receipt_commitment = receipt.recomputed_commitment();
@@ -331,7 +330,7 @@ mod tests {
             dependency_snapshot_root: Some("deps-1".into()),
             historical_cutoff: Some(100),
             policy_version: "policy-1".into(),
-            claim_ceiling: D6S_CLAIM_CEILING.into(),
+            claim_ceiling: D6W_CLAIM_CEILING.into(),
         }
     }
 
@@ -341,7 +340,7 @@ mod tests {
             version: "1".into(),
             rule_ids: ["support-v1".into()].into_iter().collect(),
             permits_recursive_fixpoint: false,
-            claim_ceiling: D6S_CLAIM_CEILING.into(),
+            claim_ceiling: D6W_CLAIM_CEILING.into(),
         }
     }
 
@@ -360,7 +359,7 @@ mod tests {
                     node_commitment: format!("node-{id}"),
                     historical_only: false,
                     current_frontier_root: Some("frontier-1".into()),
-                    claim_ceiling: D6S_CLAIM_CEILING.into(),
+                    claim_ceiling: D6W_CLAIM_CEILING.into(),
                 },
             );
         }
@@ -373,7 +372,7 @@ mod tests {
                 to_node_id: "a".into(),
                 kind: ClaimGraphEdgeKindV1::Provenance,
                 edge_commitment: "edge-p".into(),
-                claim_ceiling: D6S_CLAIM_CEILING.into(),
+                claim_ceiling: D6W_CLAIM_CEILING.into(),
             },
         );
         edges.insert(
@@ -384,7 +383,7 @@ mod tests {
                 to_node_id: "c".into(),
                 kind: ClaimGraphEdgeKindV1::Supports,
                 edge_commitment: "edge-s".into(),
-                claim_ceiling: D6S_CLAIM_CEILING.into(),
+                claim_ceiling: D6W_CLAIM_CEILING.into(),
             },
         );
         let e = env();
@@ -401,7 +400,7 @@ mod tests {
             d6o_context_commitment: Some("d6o-1".into()),
             semantic_environment_commitment: e.commitment(),
             derivation_profile_commitment: p.commitment(),
-            claim_ceiling: D6S_CLAIM_CEILING.into(),
+            claim_ceiling: D6W_CLAIM_CEILING.into(),
         }
     }
 
