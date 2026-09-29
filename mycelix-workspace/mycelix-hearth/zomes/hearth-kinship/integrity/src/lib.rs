@@ -186,7 +186,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             EntryTypes::HearthInvitation(invitation) => validate_invitation(&invitation),
             EntryTypes::InvitationResponse(response) => {
                 let authorship = validate_claimed_agent(
-                    &action.author(),
+                    action.author(),
                     &response.invitee_agent,
                     "InvitationResponse.invitee_agent",
                 );
@@ -253,7 +253,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 link_type,
                 action.base_address.clone(),
                 action.target_address.clone(),
-                &action.author(),
+                action.author(),
             )
         }
         FlatOp::Link(OpLink::DeleteLink {
@@ -262,7 +262,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             ..
         }) => {
             let result =
-                check_link_author_match(original_action.author(), &action.author());
+                check_link_author_match(original_action.author(), action.author());
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
@@ -287,7 +287,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             let original = must_get_action(update.original_action_hash())?;
             Ok(check_author_match(
                 original.action().author(),
-                &action.author(),
+                action.author(),
                 "update",
             ))
         }
@@ -295,7 +295,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             let original = must_get_action(action.deletes_address.clone())?;
             Ok(check_author_match(
                 original.action().author(),
-                &action.author(),
+                action.author(),
                 "delete",
             ))
         }
