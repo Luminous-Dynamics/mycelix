@@ -34,7 +34,7 @@ The current reference profile deliberately defines a **D6S-specific canonical JS
 1. **Objects:** property names are sorted recursively by their UTF-16 code-unit sequences. Locale, insertion order, and runtime map order are irrelevant.
 2. **Arrays:** element order is preserved exactly; arrays are never sorted by the canonicalizer.
 3. **Strings:** UTF-8 Unicode scalar values are preserved without Unicode normalization. JSON quoting uses deterministic escaping: \b, \t, \n, \f, \r for the five short control escapes, \uXXXX for remaining U+0000..U+001F controls, and escaping only quote/backslash otherwise.
-4. **Numbers:** only signed/unsigned integers are admitted. Decimal floating-point values, NaN, and infinity are rejected. This is intentional: all current D6S numeric schema fields are integral, and the profile does not attempt to freeze cross-runtime floating-point semantics.
+4. **Numbers:** only signed 64-bit and unsigned 64-bit integers are admitted. Decimal floating-point values, exponent forms, NaN, infinity, and integers outside the frozen i64/u64 domain are rejected. At raw parser boundaries, negative zero is rejected rather than normalized. This is intentional: all current D6S numeric schema fields are integral, and the profile does not attempt to freeze cross-runtime floating-point semantics.
 5. **Null/booleans:** null, true, and false use those exact lowercase spellings.
 6. **UTF-8:** canonical output is the exact UTF-8 byte sequence of the resulting canonical JSON text.
 7. **Duplicate properties:** typed Rust values cannot represent duplicate object properties; any future parser-facing implementation MUST reject duplicate names rather than last-write-wins coercion.
@@ -103,9 +103,9 @@ D6T should maintain vectors covering:
 - reordered properties;
 - Unicode and escaped strings;
 - control characters;
-- large and boundary numeric values;
-- negative zero;
-- duplicate properties;
+- i64/u64 boundary numeric values;
+- negative zero rejection;
+- duplicate-property rejection;
 - optional fields;
 - every D6S receipt field;
 - exact D6P receipt bindings;
