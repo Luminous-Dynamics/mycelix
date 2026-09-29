@@ -112,7 +112,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         },
         FlatOp::CreateEntry(OpEntry::UpdateEntry {
             app_entry,
-
+            action,
             ..
         }) => match app_entry {
             EntryTypes::SharedResource(resource) => {
@@ -142,7 +142,6 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             original_action,
             ..
         }) => {
-{
             let result = check_link_author_match(original_action.author(), action.author());
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
@@ -153,7 +152,6 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 ));
             }
             Ok(ValidateCallbackResult::Valid)
-        }
         }
         FlatOp::Update(OpUpdate::Entry { action, .. }) => {
             let original = must_get_action(action.original_action_address.clone())?;
