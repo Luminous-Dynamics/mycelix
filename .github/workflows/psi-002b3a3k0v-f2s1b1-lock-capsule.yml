@@ -282,6 +282,9 @@ jobs:
               "runner-python-version.txt",
               "rustc-1.96.0.txt",
               "cargo-1.96.0.txt",
+              "evidence-receipt.v1.json",
+              "evidence-receipt.v1.sha256",
+              "manifest.pre-receipt.sha256",
           ]
           lines = [
               f"{hashlib.sha256((capsule / name).read_bytes()).hexdigest()}  {name}"
