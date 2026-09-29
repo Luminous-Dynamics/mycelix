@@ -10,7 +10,8 @@
 {
   description = "Mycelix Hearth - Family/household coordination on Holochain";
 
-  # HEARTH-0.7 lock refresh trigger: keep dependency graph regeneration on the branch lifecycle.\n    inputs = {
+  # HEARTH-0.7 lock refresh trigger: keep dependency graph regeneration on the branch lifecycle.
+  inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
 
