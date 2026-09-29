@@ -157,3 +157,19 @@ See `docs/integral/canonical-encoding-profile-d6t-v1.md`.
 
 Claim ceiling: **ReferenceModelOnly**.
 
+## D6W layered derivation commitments
+
+`derivation_commitment_layers.rs` decomposes a verified D6S receipt into diagnostic commitment layers:
+
+`C_input -> C_derivation -> C_result -> C_receipt`
+
+- `C_input` binds the projection identity/version, exact node/edge commitments, D6P set, D6N/D6O context, and semantic environment, deliberately excluding the derivation profile.
+- `C_derivation` binds `C_input`, the derivation profile, D6S-CANON-1 version, and an explicit execution/fixpoint trace commitment.
+- `C_result` binds the derivation commitment, result status, result commitment, contradiction/unresolved preservation, and claim ceiling.
+- `C_receipt` binds all three layers plus the exact D6S receipt commitment.
+
+An input mutation therefore propagates through all downstream layers; a derivation/profile/trace mutation leaves `C_input` unchanged; a result mutation leaves both `C_input` and `C_derivation` unchanged.
+
+D6W first verifies the underlying D6S receipt, so decomposition cannot turn an invalid D6S receipt into a valid-looking layered receipt. It remains ReferenceModelOnly and cannot authorize actuation.
+See `docs/integral/layered-derivation-commitments-d6w-v1.md`.
+
