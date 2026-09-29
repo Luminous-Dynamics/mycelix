@@ -65,3 +65,6 @@ The lock-capsule workflow runs this verifier **after packaging and before artifa
 
 The verifier's own PASS message is limited to **evidence integrity only**. It does not qualify JSON Schema semantics, currentness, issuer-key admission, token validity, replay authorization, PSI, or contact-discovery security.
 The verifier is accompanied by `tools/test_verify_capsule_negative.py`, which first checks a synthetic baseline capsule and then requires rejection of tampering cases: provenance mutation, lock mutation, manifest mutation, missing file, extra file, symlink insertion, duplicate manifest entry, and digest mismatch. The workflow executes these tests before uploading the capsule.
+## Final evidence receipt
+
+The capsule now has a non-circular final evidence layer. A `manifest.pre-receipt.sha256` records the pre-receipt evidence set; `evidence-receipt.v1.json` then binds the canonical metadata/tree, dependency inventory, lock projection, provenance, manifest, and lockfile plus that pre-receipt manifest digest. The final `manifest.sha256` covers the receipt and pre-receipt manifest as well. This avoids self-referential hashing while ensuring the final packaged evidence is covered by two independent integrity layers.
