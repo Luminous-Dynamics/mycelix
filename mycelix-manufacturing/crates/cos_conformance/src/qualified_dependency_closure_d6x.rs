@@ -80,7 +80,6 @@ impl DependencyClosureProfileV1 {
     pub fn commitment(&self) -> String { canonical_sha256("d6x-closure-profile", self) }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum SemanticDependencyKindV1 {
     Node,
@@ -97,6 +96,9 @@ pub struct SemanticDependencyReferenceV1 {
 impl SemanticDependencyReferenceV1 {
     pub fn node(id: impl Into<String>, commitment: Option<String>) -> Self {
         Self { kind: SemanticDependencyKindV1::Node, identifier: id.into(), commitment }
+    }
+    pub fn edge(id: impl Into<String>, commitment: Option<String>) -> Self {
+        Self { kind: SemanticDependencyKindV1::Edge, identifier: id.into(), commitment }
     }
     pub fn d6p_receipt(commitment: impl Into<String>) -> Self {
         let commitment = commitment.into();
