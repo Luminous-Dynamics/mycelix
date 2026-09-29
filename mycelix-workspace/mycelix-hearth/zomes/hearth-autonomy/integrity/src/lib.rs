@@ -154,26 +154,24 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(store_entry) => match store_entry {
+        FlatOp::CreateEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
-                EntryTypes::AutonomyProfile(profile) => validate_profile(&profile, &action),
+                EntryTypes::AutonomyProfile(profile) => validate_profile(&profile),
                 EntryTypes::AutonomyRequest(request) => validate_request(&request),
                 EntryTypes::GuardianApproval(approval) => validate_approval(&approval),
                 EntryTypes::TierTransition(transition) => validate_transition(&transition),
             },
             OpEntry::UpdateEntry {
                 app_entry,
-                action: _,
-                original_action_hash,
-                original_entry_hash: _,
-            } => match app_entry {
+            action,
+        } => match app_entry {
                 EntryTypes::AutonomyProfile(profile) => {
                     validate_profile_update(&profile)?;
-                    validate_profile_immutable_fields(&profile, &original_action_hash)
+                    validate_profile_immutable_fields(&profile, &action.original_action_address)
                 }
                 EntryTypes::AutonomyRequest(request) => {
                     validate_request_update(&request)?;
-                    validate_request_immutable_fields(&request, &original_action_hash)
+                    validate_request_immutable_fields(&request, &action.original_action_address)
                 }
                 EntryTypes::GuardianApproval(_) => {
                     // INVARIANT: GuardianApproval immutability — once a guardian records
@@ -185,50 +183,42 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 }
                 EntryTypes::TierTransition(transition) => {
                     validate_transition_update(&transition)?;
-                    validate_transition_immutable_fields(&transition, &original_action_hash)
+                    validate_transition_immutable_fields(&transition, &action.original_action_address)
                 }
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink {
-            link_type: _,
-            base_address: _,
-            target_address: _,
-            tag,
-            action: _,
-        } => {
-            if tag.0.len() > 256 {
+        FlatOp::Link(OpLink::CreateLink { action, .. }) => {
+            if action.data.tag.0.len() > 256 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Link tag too long (max 256 bytes)".into(),
                 ));
             }
             Ok(ValidateCallbackResult::Valid)
         }
-        FlatOp::RegisterDeleteLink { action, .. } => {
-            let original_action = must_get_action(action.link_add_address.clone())?;
+        FlatOp::Link(link @ OpLink::DeleteLink {
+            action,
+            original_action,
+            ..
+        }) => {
+{
             Ok(check_link_author_match(
-                original_action.action().author(),
-                &action.author,
+                original_action.author(), action.author(),
             ))
         }
-        FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterUpdate(update) => {
-            let action = match &update {
-                OpUpdate::Entry { action, .. }
-                | OpUpdate::PrivateEntry { action, .. }
-                | OpUpdate::Agent { action, .. }
-                | OpUpdate::CapClaim { action, .. }
-                | OpUpdate::CapGrant { action, .. } => action,
-            };
+        }
+        FlatOp::CreateRecord(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Update(OpUpdate::Entry { action, .. }) => {
             let original = must_get_action(action.original_action_address.clone())?;
             Ok(check_author_match(
                 original.action().author(),
-                &action.author,
+                action.author(),
                 "update",
             ))
         }
-        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Invalid(
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Delete(_) => Ok(ValidateCallbackResult::Invalid(
             "Autonomy entries cannot be deleted once created".into(),
         )),
     }
@@ -236,7 +226,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 
 fn validate_profile(
     profile: &AutonomyProfile,
-    _action: &Create,
+
 ) -> ExternResult<ValidateCallbackResult> {
     if profile.capabilities.len() > 50 {
         return Ok(ValidateCallbackResult::Invalid(
