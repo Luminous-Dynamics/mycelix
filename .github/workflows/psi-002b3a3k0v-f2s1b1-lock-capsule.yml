@@ -101,20 +101,36 @@ jobs:
           import tomllib
           from pathlib import Path
 
-          if set(lock) != {"version", "package"}:\n              raise AssertionError("unexpected Cargo.lock top-level fields")\n          assert lock["version"] == 4, "unsupported Cargo.lock format version"\n          assert isinstance(lock["package"], list), "Cargo.lock package section must be a list"\n\n          lock = tomllib.loads(Path("Cargo.lock").read_text())
+          lock = tomllib.loads(Path("Cargo.lock").read_text())
           inventory = json.loads(Path("dependency-source-inventory.v1.json").read_text())
 
+          assert set(lock) == {"version", "package"}, "unexpected Cargo.lock top-level fields"
+          assert lock["version"] == 4, "unsupported Cargo.lock format version"
+          assert isinstance(lock["package"], list), "Cargo.lock package section must be a list"
+
           lock_packages = []
-          for package in lock.get("package", []):
+          for package in lock["package"]:
               lock_packages.append({
                   "name": package["name"],
                   "version": package["version"],
                   "source": package.get("source"),
                   "checksum": package.get("checksum"),
               })
-          lock_identities = [(x["name"], x["version"], x["source"], x["checksum"]) for x in lock_packages]\n          assert len(lock_identities) == len(set(lock_identities)), "duplicate Cargo.lock package identity"\n          lock_packages.sort(key=lambda x: (x["name"], x["version"], x["source"] or ""))
+          lock_identities = [
+              (x["name"], x["version"], x["source"], x["checksum"])
+              for x in lock_packages
+          ]
+          assert len(lock_identities) == len(set(lock_identities)), "duplicate Cargo.lock package identity"
+          lock_packages.sort(key=lambda x: (x["name"], x["version"], x["source"] or ""))
 
-          assert set(inventory) == {"schema", "toolchain", "manifest_sha256", "lock_sha256", "packages"}, "unexpected inventory top-level fields"\n          inventory_packages = [
+          assert set(inventory) == {
+              "schema",
+              "toolchain",
+              "manifest_sha256",
+              "lock_sha256",
+              "packages",
+          }, "unexpected inventory top-level fields"
+          inventory_packages = [
               {
                   "name": p["name"],
                   "version": p["version"],
@@ -123,7 +139,14 @@ jobs:
               }
               for p in inventory["packages"]
           ]
-          inventory_ids = [p["id"] for p in inventory["packages"]]\n          assert inventory_ids == sorted(inventory_ids), "inventory package ordering is not canonical"\n          inventory_identities = [(x["name"], x["version"], x["source"], x["checksum"]) for x in inventory_packages]\n          assert len(inventory_identities) == len(set(inventory_identities)), "duplicate inventory package identity"\n          inventory_packages.sort(key=lambda x: (x["name"], x["version"], x["source"] or ""))
+          inventory_ids = [p["id"] for p in inventory["packages"]]
+          assert inventory_ids == sorted(inventory_ids), "inventory package ordering is not canonical"
+          inventory_identities = [
+              (x["name"], x["version"], x["source"], x["checksum"])
+              for x in inventory_packages
+          ]
+          assert len(inventory_identities) == len(set(inventory_identities)), "duplicate inventory package identity"
+          inventory_packages.sort(key=lambda x: (x["name"], x["version"], x["source"] or ""))
 
           assert lock_packages == inventory_packages, "source inventory does not independently match Cargo.lock"
           assert inventory["lock_sha256"] == hashlib.sha256(Path("Cargo.lock").read_bytes()).hexdigest(), "inventory lock digest mismatch"
@@ -132,7 +155,7 @@ jobs:
           projection = json.dumps(lock_packages, sort_keys=True, separators=(",", ":")).encode()
           Path("cargo-lock-source-projection.v1.json").write_bytes(projection + b"\n")
           Path("cargo-lock-source-projection.v1.sha256").write_text(
-              hashlib.sha256(projection + b"\n").hexdigest() + "  cargo-lock-source-projection.v1.json\\n"
+              hashlib.sha256(projection + b"\n").hexdigest() + "  cargo-lock-source-projection.v1.json\n"
           )
           PY
 
