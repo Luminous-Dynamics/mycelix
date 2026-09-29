@@ -176,6 +176,37 @@ version = "0.1.0"
         f"{sha256_bytes((root / 'provenance.v1.json').read_bytes())}  provenance.v1.json\n"
     )
 
+    receipt = {
+        "schema": "psi-002b3a3k0v-f2s1b1-evidence-receipt.v1",
+        "pre_receipt_manifest_sha256": "",
+        "artifacts": {
+            name: sha256_bytes((root / name).read_bytes())
+            for name in [
+                "cargo-metadata.canonical.json",
+                "cargo-tree.txt",
+                "cargo-tree-offline.txt",
+                "dependency-source-inventory.v1.json",
+                "cargo-lock-source-projection.v1.json",
+                "provenance.v1.json",
+                "Cargo.toml",
+                "Cargo.lock",
+            ]
+        },
+    }
+    base = FILES[:]
+    pre_lines = [
+        f"{sha256_bytes((root / name).read_bytes())}  {name}"
+        for name in base
+    ]
+    (root / "manifest.pre-receipt.sha256").write_text("\n".join(pre_lines) + "\n")
+    receipt["pre_receipt_manifest_sha256"] = sha256_bytes(
+        (root / "manifest.pre-receipt.sha256").read_bytes()
+    )
+    (root / "evidence-receipt.v1.json").write_bytes(canonical(receipt))
+    (root / "evidence-receipt.v1.sha256").write_text(
+        f"{sha256_bytes((root / "evidence-receipt.v1.json").read_bytes())}  evidence-receipt.v1.json\n"
+    )
+
     # The verifier checks the exact manifest after all files exist.
     lines = [
         f"{sha256_bytes((root / name).read_bytes())}  {name}"
