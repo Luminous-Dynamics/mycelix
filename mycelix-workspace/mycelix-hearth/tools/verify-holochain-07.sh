@@ -36,6 +36,7 @@ forbid() {
 
 cargo_toml="Cargo.toml"
 cargo_lock="Cargo.lock"
+tests_cargo_toml="tests/Cargo.toml"
 tests_cargo_lock="tests/Cargo.lock"
 flake_nix="flake.nix"
 flake_lock="flake.lock"
@@ -45,6 +46,11 @@ sdk_lock="sdk-ts/package-lock.json"
 require "$cargo_toml" 'hdk = "=0.7.0"' "HDK is pinned to Holochain 0.7"
 require "$cargo_toml" 'hdi = "=0.8.0"' "HDI is pinned to Holochain 0.7"
 require "$cargo_toml" 'holochain_integrity_types = "=0.7.0"' "integrity types are pinned to 0.7"
+require "$tests_cargo_toml" 'hdk = "=0.7.0"' "Sweettest HDK is pinned to 0.7"
+require "$tests_cargo_toml" 'hdi = "=0.8.0"' "Sweettest HDI is pinned to 0.8"
+require "$tests_cargo_toml" 'holochain = { version = "0.7.0"' "Sweettest conductor targets 0.7"
+require "$tests_cargo_toml" 'holochain_types = "0.7.0"' "Sweettest types target 0.7"
+require "$tests_cargo_toml" 'wasmer-sys-cranelift' "Sweettest uses the Holochain 0.7 Wasmer feature"
 for spec in   'hdk|0.7.0'   'hdi|0.8.0'   'holochain_integrity_types|0.7.0'   'holo_hash|0.7.0'
 do
   package="${spec%%|*}"
