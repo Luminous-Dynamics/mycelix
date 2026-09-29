@@ -47,7 +47,7 @@ The certificate distinguishes two identities:
 - `commitment` is an audit/provenance certificate commitment and remains bound to the candidate projection;
 - `closure_identity_commitment` is the candidate-independent semantic identity consumed by D6W.
 
-The semantic identity binds the exact selected node-id → node-commitment mapping and selected edge-id → endpoint/kind/commitment mapping. Selected and missing dependencies are represented through a typed reference algebra (`Node`, `Edge`, `D6PReceipt`). The selected typed set is the canonical semantic dependency set; the parallel node/edge/D6P collections remain explicit compatibility/audit views. It deliberately excludes irrelevant candidate material, so adding unused material must not perturb the closure identity or downstream D6W input identity.
+The semantic identity binds the exact selected node-id → node-commitment mapping and selected edge-id → endpoint/kind/commitment mapping. Selected and missing dependencies are represented through a typed reference algebra (`Node`, `Edge`, `D6PReceipt`). The selected typed set is the canonical semantic dependency set; the parallel node/edge/D6P collections remain explicit compatibility/audit views. Certificate validation reconstructs the canonical selected set from those views and rejects omission, injection, or commitment/type drift. The legacy flat missing-ID view is likewise required to equal the identifier projection of the typed missing-dependency set. It deliberately excludes irrelevant candidate material, so adding unused material must not perturb the closure identity or downstream D6W input identity.
 
 ## Status semantics
 
@@ -106,6 +106,9 @@ The reference model currently includes fixtures for:
 11. typed dependency references distinguish node, edge, and D6P-receipt domains.
 12. the canonical selected dependency set contains exact selected node/edge identities.
 13. set insertion order does not alter semantic closure identity.
+14. mutating the canonical selected dependency set invalidates the certificate.
+15. adding an unselected typed dependency invalidates the certificate.
+16. mutating the legacy missing-ID compatibility view invalidates the certificate.
 
 Before interoperability or production claims, add cross-language golden vectors, currentness/D6P fixtures, contradiction-preservation fixtures, cycle fixtures, resource-limit fixtures, and execute the Rust/WASM/Holochain conformance corpus.
 
