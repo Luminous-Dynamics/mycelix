@@ -418,6 +418,7 @@ pub fn HolochainProviderAuto(config: HolochainProviderConfig, children: Children
 
                 let ws_transport = BrowserWsTransport::new();
                 *transport_for_connect.borrow_mut() = Some(ws_transport.clone());
+                let identity_transport = ws_transport.clone();
                 ws_transport.set_status_handler(move |transport_status| {
                     match transport_status {
                         TransportConnectionStatus::Disconnected => {
@@ -434,7 +435,7 @@ pub fn HolochainProviderAuto(config: HolochainProviderConfig, children: Children
                             // BrowserWsTransport emits Connected only after authenticated
                             // app-info has established the cell identity.
                             set_connected_agent_pub_key.set(
-                                ws_transport.connected_agent_pub_key_b64(),
+                                identity_transport.connected_agent_pub_key_b64(),
                             );
                             let signer_ready = HostZomeCallSigner::is_available();
                             set_zome_call_signing_ready.set(signer_ready);
