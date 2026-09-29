@@ -193,6 +193,8 @@ jobs:
               value = p["source"][key]
               assert len(value) == 64 and all(c in "0123456789abcdef" for c in value), key
           assert p["source"]["workflow_sha256"] == Path("../../workflow-sha256.txt").read_text().split()[0]
+          assert p["source"]["commit_sha"] == __import__("subprocess").check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+          assert p["source"]["tree_sha"] == __import__("subprocess").check_output(["git", "rev-parse", "HEAD^{tree}"], text=True).strip()
           assert p["source"]["manifest_sha256"] == hashlib.sha256(Path("Cargo.toml").read_bytes()).hexdigest()
           assert p["source"]["lock_sha256"] == hashlib.sha256(Path("Cargo.lock").read_bytes()).hexdigest()
           assert p["toolchain"]["rust"] == "1.96.0"
