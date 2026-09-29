@@ -661,14 +661,13 @@ impl ObserverLifecycleLedgerV1 {
         }
 
         if let Some(predecessor_id) = snapshot.predecessor_snapshot_id.as_deref() {
-            let Some(predecessor) = self.dependency_snapshots.get(predecessor_id) else {
-                return LifecycleRecordDispositionV1::InsufficientEvidence;
-            };
-            if predecessor.observer_generation_id != snapshot.observer_generation_id
-                || predecessor.effective_frontier_sequence
-                    >= snapshot.effective_frontier_sequence
-            {
-                return LifecycleRecordDispositionV1::Conflict;
+            if let Some(predecessor) = self.dependency_snapshots.get(predecessor_id) {
+                if predecessor.observer_generation_id != snapshot.observer_generation_id
+                    || predecessor.effective_frontier_sequence
+                        >= snapshot.effective_frontier_sequence
+                {
+                    return LifecycleRecordDispositionV1::Conflict;
+                }
             }
         } else if snapshot.effective_frontier_sequence != generation.created_frontier_sequence {
             return LifecycleRecordDispositionV1::InsufficientEvidence;
@@ -677,6 +676,36 @@ impl ObserverLifecycleLedgerV1 {
         self.dependency_snapshots
             .insert(snapshot.snapshot_id.clone(), snapshot);
         LifecycleRecordDispositionV1::Recorded
+    }
+
+    fn dependency_chain_complete(&self, snapshot_id: &str) -> bool {
+        let mut current_id = snapshot_id.to_owned();
+        let mut visited = BTreeSet::new();
+
+        loop {
+            if !visited.insert(current_id.clone()) {
+                return false;
+            }
+            let Some(snapshot) = self.dependency_snapshots.get(&current_id) else {
+                return false;
+            };
+            let Some(predecessor_id) = snapshot.predecessor_snapshot_id.as_deref() else {
+                let Some(generation) = self.generations.get(&snapshot.observer_generation_id) else {
+                    return false;
+                };
+                return snapshot.effective_frontier_sequence == generation.created_frontier_sequence;
+            };
+            let Some(predecessor) = self.dependency_snapshots.get(predecessor_id) else {
+                return false;
+            };
+            if predecessor.observer_generation_id != snapshot.observer_generation_id
+                || predecessor.effective_frontier_sequence
+                    >= snapshot.effective_frontier_sequence
+            {
+                return false;
+            }
+            current_id = predecessor_id.to_owned();
+        }
     }
 
     pub fn dependency_snapshot_at(
@@ -690,6 +719,7 @@ impl ObserverLifecycleLedgerV1 {
                 .filter(|snapshot| {
                     snapshot.observer_generation_id == generation_id
                         && snapshot.effective_frontier_sequence <= frontier_sequence
+                        && self.dependency_chain_complete(&snapshot.snapshot_id)
                 }),
         )
         .into_iter()
@@ -1521,7 +1551,8 @@ mod tests {
     #[test]
     fn same_observer_id_new_generation_is_not_silently_continuous() {
         let predecessor = generation("observer-A-g1", 1, None);
-        let successor = generation("observer-A-g2", 2, Some("observer-A-g1"));
+        let mut successor = generation("observer-A-g2", 2, Some("observer-A-g1"));
+        successor.observation_profile_id = "obs-profile-2".into();
         let mut ledger = ObserverLifecycleLedgerV1::default();
         assert_eq!(
             ledger.record_generation(predecessor.clone()),
@@ -1531,20 +1562,39 @@ mod tests {
             ledger.record_generation(successor.clone()),
             LifecycleRecordDispositionV1::Recorded
         );
-        let transition = transition(
-            &predecessor,
-            "rotate-1",
-            ObserverStatusV1::Superseded,
-            2,
-            Some(&successor.generation_id),
-        );
-        assert_eq!(
-            ledger.record_transition(transition),
-            LifecycleRecordDispositionV1::Recorded
-        );
         assert_eq!(
             ledger.current_continuous_generation_id("observer-A", 2),
-            None
+            Some("observer-A-g1".into())
+        );
+
+        let successor_snapshot = snapshot(
+            "snapshot-2",
+            &successor.generation_id,
+            2,
+            None,
+            &successor.evidence_root,
+            &successor.custody_root,
+            ObservationIndependenceV1::DeclaredIndependent,
+        );
+        ledger.record_dependency_snapshot(successor_snapshot.clone());
+        let e = evidence(
+            "obs-successor",
+            &successor,
+            "frontier-2",
+            ExternalObservedStateV1::Applied,
+        );
+        assert_eq!(
+            eligibility(
+                &ledger,
+                &e,
+                &successor,
+                &successor_snapshot,
+                ObserverLifecycleUsePurposeV1::CurrentFinalityEligibility,
+                ObservationClassificationV1::CorroboratingIndependent,
+                2,
+                2
+            ),
+            EvidenceEligibilityDispositionV1::BlockedContinuity
         );
     }
 
@@ -1923,6 +1973,56 @@ mod tests {
         assert_eq!(
             ledger.record_transition(invalid),
             LifecycleRecordDispositionV1::InsufficientEvidence
+        );
+    }
+
+    #[test]
+    fn out_of_order_dependency_snapshot_delivery_converges_after_predecessor_arrives() {
+        let generation = generation("observer-A-g1", 1, None);
+        let snapshot_one = snapshot(
+            "snapshot-1",
+            &generation.generation_id,
+            1,
+            None,
+            &generation.evidence_root,
+            &generation.custody_root,
+            ObservationIndependenceV1::DeclaredIndependent,
+        );
+        let snapshot_two = snapshot(
+            "snapshot-2",
+            &generation.generation_id,
+            2,
+            Some("snapshot-1"),
+            "new-evidence-root",
+            &generation.custody_root,
+            ObservationIndependenceV1::DeclaredIndependent,
+        );
+
+        let mut reversed = ObserverLifecycleLedgerV1::default();
+        reversed.record_generation(generation.clone());
+        assert_eq!(
+            reversed.record_dependency_snapshot(snapshot_two.clone()),
+            LifecycleRecordDispositionV1::Recorded
+        );
+        assert!(reversed.dependency_snapshot_at(&generation.generation_id, 2).is_none());
+        assert_eq!(
+            reversed.record_dependency_snapshot(snapshot_one.clone()),
+            LifecycleRecordDispositionV1::Recorded
+        );
+        assert_eq!(
+            reversed
+                .dependency_snapshot_at(&generation.generation_id, 2)
+                .map(|snapshot| snapshot.snapshot_id.as_str()),
+            Some("snapshot-2")
+        );
+
+        let mut ordered = ObserverLifecycleLedgerV1::default();
+        ordered.record_generation(generation.clone());
+        ordered.record_dependency_snapshot(snapshot_one);
+        ordered.record_dependency_snapshot(snapshot_two);
+        assert_eq!(
+            reversed.dependency_snapshot_at(&generation.generation_id, 2),
+            ordered.dependency_snapshot_at(&generation.generation_id, 2)
         );
     }
 
