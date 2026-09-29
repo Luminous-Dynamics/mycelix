@@ -926,6 +926,101 @@ pub fn get_my_hearths(_: ()) -> ExternResult<Vec<Record>> {
     records_from_links(links)
 }
 
+
+/// Resolve the caller's current Active Hearths while preserving the stable Hearth
+/// identity separately from the latest display record.
+///
+/// AgentToHearths is discovery/history evidence. Its target is retained as the
+/// stable Hearth ActionHash, while the latest Hearth record is read separately.
+/// Current membership is derived from HearthToMembers and requires exactly one
+/// Active membership for the connected agent. Conflicting Active memberships
+/// fail the whole query rather than selecting one arbitrarily.
+///
+/// This endpoint is read evidence only. Consequential mutations must continue
+/// to enforce membership and role at their own source.
+#[hdk_extern]
+pub fn get_my_active_hearths(_: ()) -> ExternResult<Vec<ActiveHearthView>> {
+    let agent = agent_info()?.agent_initial_pubkey;
+    let observed_at = sys_time()?;
+
+    let links = get_links(
+        LinkQuery::try_new(agent.clone(), LinkTypes::AgentToHearths)?,
+        GetStrategy::default(),
+    )?;
+
+    // Links are discovery/history evidence and may contain duplicates. Preserve
+    // each stable target exactly once before deriving current membership.
+    let mut hearth_hashes = std::collections::BTreeSet::<ActionHash>::new();
+    for link in links {
+        let hearth_hash = ActionHash::try_from(link.target).map_err(|_| {
+            wasm_error!(WasmErrorInner::Guest(
+                "AgentToHearths contained a non-ActionHash target".into()
+            ))
+        })?;
+        hearth_hashes.insert(hearth_hash);
+    }
+
+    let mut active = Vec::new();
+
+    for hearth_hash in hearth_hashes {
+        let mut active_memberships = membership_records_for_hearth(&hearth_hash)?
+            .into_iter()
+            .filter(|(_, membership)| {
+                membership.agent == agent && membership.status == MembershipStatus::Active
+            });
+
+        let first = active_memberships.next();
+        let second = active_memberships.next();
+
+        if second.is_some() {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Conflicting Active memberships for agent {} in Hearth {}",
+                agent, hearth_hash
+            ))));
+        }
+
+        let Some((membership_record, membership)) = first else {
+            // Historical AgentToHearths link with no current Active membership.
+            continue;
+        };
+
+        // The stable Hearth identity is the original link target. The display
+        // record is independently resolved through the update chain.
+        let hearth_record = get_latest_record(hearth_hash.clone())?.ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Active Hearth {} has no latest valid Hearth record",
+                hearth_hash
+            )))
+        })?;
+
+        let hearth: Hearth = entry_from_record(&hearth_record, "Hearth")?;
+
+        if hearth_hash == hearth_record.action_address() {
+            // Expected for an unmodified Hearth: stable identity and latest
+            // display record happen to be the same action.
+        }
+
+        active.push(ActiveHearthView {
+            hearth_hash,
+            latest_hearth_record_hash: hearth_record.action_address().to_owned(),
+            membership_record_hash: membership_record.action_address().to_owned(),
+            agent: agent.clone(),
+            role: membership.role,
+            name: hearth.name,
+            description: hearth.description,
+            hearth_type: hearth.hearth_type,
+            created_by: hearth.created_by,
+            created_at: hearth.created_at,
+            max_members: hearth.max_members,
+            observed_at,
+        });
+    }
+
+    // Ordering is representational only; selection policy must never use it.
+    active.sort_by(|a, b| a.hearth_hash.cmp(&b.hearth_hash));
+    Ok(active)
+}
+
 /// Get the full kinship graph (all bonds) for a hearth.
 #[hdk_extern]
 pub fn get_kinship_graph(hearth_hash: ActionHash) -> ExternResult<Vec<Record>> {
