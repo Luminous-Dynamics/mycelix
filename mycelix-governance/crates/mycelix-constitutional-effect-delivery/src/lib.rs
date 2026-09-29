@@ -1358,20 +1358,60 @@ mod tests {
     fn halted_record_rejects_observation_without_mutation() {
         let mut record = record(ReplayProfile::NoAutomaticRetry);
         let id = attempt(&mut record);
-        record
-            .observe(Observation::outcome_unknown(binding(), id, 8))
-            .unwrap();
+        let success = record
+            .observe(Observation::semantic_success(binding(), id, 10))
+            .unwrap()
+            .sequence();
+        record.commit_completion().unwrap();
+
         assert_eq!(
-            record.observe(Observation::reconciliation_no_effect(binding(), id, 9, 999)),
-            Err(DeliveryError::ReconciliationTargetMissing(999))
+            record.observe(Observation::reconciliation_no_effect(binding(), id, 11, success)),
+            Ok(ObservationResult::IntegrityHalted { sequence: 2 })
         );
+        assert_eq!(record.state(), DeliveryState::IntegrityHalted);
 
         let before = record.snapshot();
         assert_eq!(
-            record.observe(Observation::semantic_success(binding(), id, 10)),
+            record.observe(Observation::semantic_success(binding(), id, 12)),
             Err(DeliveryError::RetryNotPermitted(DeliveryState::IntegrityHalted))
         );
         assert_eq!(record.snapshot(), before);
+    }
+
+    #[test]
+    fn recovered_halt_rejects_all_semantic_mutation() {
+        let mut record = record(ReplayProfile::NoAutomaticRetry);
+        let id = attempt(&mut record);
+        let success = record
+            .observe(Observation::semantic_success(binding(), id, 10))
+            .unwrap()
+            .sequence();
+        record.commit_completion().unwrap();
+        record
+            .observe(Observation::reconciliation_no_effect(binding(), id, 11, success))
+            .unwrap();
+
+        let mut recovered = DeliveryRecord::recover(record.snapshot()).unwrap();
+        let before = recovered.snapshot();
+
+        assert_eq!(
+            recovered.start_initial_attempt(&binding()),
+            Err(DeliveryError::RetryNotPermitted(DeliveryState::IntegrityHalted))
+        );
+        assert_eq!(
+            recovered.retry_same_effect(&binding()),
+            Err(DeliveryError::RetryNotPermitted(DeliveryState::IntegrityHalted))
+        );
+        assert_eq!(
+            recovered.retry_after_no_effect(&binding()),
+            Err(DeliveryError::RetryNotPermitted(DeliveryState::IntegrityHalted))
+        );
+        assert_eq!(
+            recovered.observe(Observation::outcome_unknown(binding(), id, 12)),
+            Err(DeliveryError::RetryNotPermitted(DeliveryState::IntegrityHalted))
+        );
+        assert_eq!(recovered.commit_completion(), Err(DeliveryError::AlreadyCompleted));
+        assert_eq!(recovered.snapshot(), before);
     }
 
     #[test]
