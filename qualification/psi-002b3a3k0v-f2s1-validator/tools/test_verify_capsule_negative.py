@@ -292,7 +292,9 @@ def main() -> int:
         expect_fail(base, "extra-file", lambda p: (p / "unexpected.txt").write_text("unexpected\n"))
         expect_fail(base, "symlink", lambda p: ((p / "link").symlink_to(p / "Cargo.toml")))
         expect_fail(base, "duplicate-entry", lambda p: (p / "manifest.sha256").write_text((p / "manifest.sha256").read_text() + (p / "manifest.sha256").read_text().splitlines()[0] + "\n"))
-        expect_fail(base, "digest-mismatch", lambda p: (p / "Cargo.lock.sha256").write_text("0" * 64 + "  Cargo.lock\n"))\n\n        def reorder_pre_receipt(p: Path) -> None:
+        expect_fail(base, "digest-mismatch", lambda p: (p / "Cargo.lock.sha256").write_text("0" * 64 + "  Cargo.lock\n"))
+
+        def reorder_pre_receipt(p: Path) -> None:
             lines = (p / "manifest.pre-receipt.sha256").read_text().splitlines()
             (p / "manifest.pre-receipt.sha256").write_text("\n".join(reversed(lines)) + "\n")
             refresh_final_integrity(p)
