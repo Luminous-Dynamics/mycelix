@@ -136,14 +136,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::Delete(_) => Ok(ValidateCallbackResult::Invalid(
             "Bridge entries cannot be deleted once created".into(),
         )),
-        FlatOp::Update(update) => {
-            let action = match &update {
-                OpUpdate::Entry { action, .. }
-                | OpUpdate::PrivateEntry { action, .. }
-                | OpUpdate::Agent { action, .. }
-                | OpUpdate::CapClaim { action, .. }
-                | OpUpdate::CapGrant { action, .. } => action,
-            };
+        FlatOp::Update(OpUpdate::Entry { action, .. }) => {
             let original = must_get_action(action.original_action_address.clone())?;
             Ok(check_author_match(
                 original.action().author(),
@@ -151,6 +144,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 "update",
             ))
         }
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Valid),
         _ => Ok(ValidateCallbackResult::Valid),
     }
 }
