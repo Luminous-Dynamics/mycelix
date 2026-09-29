@@ -208,7 +208,7 @@ Mycelix remains the semantic root and qualifies the transition.
 
 ## Reference tests
 
-The module contains **26 source-level tests** covering:
+The module contains **27 source-level tests** covering:
 
 - genuinely independent corroboration;
 - provider self-report exclusion from independent thresholds;
