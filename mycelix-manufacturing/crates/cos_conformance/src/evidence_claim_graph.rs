@@ -431,10 +431,57 @@ impl EvidenceBundleV1 {
         &self,
         conclusion_id: &str,
     ) -> GraphAssessmentDispositionV1 {
-        self.semantically_bound_conclusion_with_current_receipt(conclusion_id, None)
+        if self.structural_closure() != BundleNodeStatusV1::Present {
+            return GraphAssessmentDispositionV1::BlockedMissingEvidence;
+        }
+        let Some(conclusion) = self.nodes.get(conclusion_id) else {
+            return GraphAssessmentDispositionV1::BlockedMissingEvidence;
+        };
+        if conclusion.kind != ClaimGraphNodeKindV1::Conclusion {
+            return GraphAssessmentDispositionV1::BlockedMissingEvidence;
+        }
+
+        let mut has_support = false;
+        let mut has_conflict = false;
+        let mut has_current_evidence = false;
+        for edge in self.edges.values() {
+            if edge.to_node_id != conclusion_id {
+                continue;
+            }
+            match edge.kind {
+                ClaimGraphEdgeKindV1::Supports => {
+                    if self.nodes.contains_key(&edge.from_node_id) {
+                        has_support = true;
+                        if self
+                            .nodes
+                            .get(&edge.from_node_id)
+                            .and_then(|n| n.current_frontier_sequence)
+                            .is_some()
+                        {
+                            has_current_evidence = true;
+                        }
+                    }
+                }
+                ClaimGraphEdgeKindV1::Contradicts => {
+                    if self.nodes.contains_key(&edge.from_node_id) {
+                        has_conflict = true;
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        if has_conflict {
+            GraphAssessmentDispositionV1::DisputedByBoundEvidence
+        } else if has_support && has_current_evidence {
+            GraphAssessmentDispositionV1::SupportedByBoundEvidence
+        } else if has_support {
+            GraphAssessmentDispositionV1::BlockedCurrentness
+        } else {
+            GraphAssessmentDispositionV1::ReachableOnly
+        }
     }
 
-    /// Current support requires an exact qualified D6P receipt when supplied.
     pub fn semantically_bound_conclusion_with_current_receipt(
         &self,
         conclusion_id: &str,
