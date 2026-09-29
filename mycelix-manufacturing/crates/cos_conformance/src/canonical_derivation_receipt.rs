@@ -339,6 +339,8 @@ pub fn build_canonical_receipt(
         || !projection_context_matches_environment(projection, environment)
         || !projection.dangling_edge_ids().is_empty()
         || !projection.incompatible_edge_ids().is_empty()
+        || (matches!(result_status, DerivationResultStatusV1::Supported)
+            && projection.nodes.values().any(|node| node.historical_only))
         || (projection.derivation_cycle_exists() && !profile.permits_recursive_fixpoint)
         || result_commitment.trim().is_empty()
         || !result_flags_are_consistent(result_status, contradiction_preserved, unresolved_preserved)
