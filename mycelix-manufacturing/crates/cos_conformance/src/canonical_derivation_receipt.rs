@@ -287,7 +287,7 @@ impl CanonicalDerivationReceiptV1 {
     pub fn recomputed_commitment(&self) -> String {
         let mut unsigned = self.clone();
         unsigned.receipt_commitment.clear();
-        canonical_sha256(&unsigned)
+        canonical_sha256(D6S_DOMAIN_RECEIPT, &unsigned)
     }
 
     pub fn commitment_matches(&self) -> bool {
