@@ -688,7 +688,8 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
                 EntryTypes::Council(council) => {
-                    validate_update_council(action, council, action.original_action_address.clone())
+                    let original_action_hash = action.original_action_address.clone();
+                    validate_update_council(action, council, original_action_hash)
                 }
                 EntryTypes::CouncilMembership(membership) => {
                     validate_update_membership(action, membership)
