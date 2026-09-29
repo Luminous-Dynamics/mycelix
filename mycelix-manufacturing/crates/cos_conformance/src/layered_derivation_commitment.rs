@@ -29,7 +29,10 @@ impl InputCommitmentV1 {
         p: &QualifiedProjectionV1,
         e: &SemanticEnvironmentV1,
         closure: &DependencyClosureCertificateV1,
-    ) -> Self {
+    ) -> Option<Self> {
+        if closure.status != qualified_dependency_closure_d6x::DependencyClosureStatusV1::Complete || !closure.valid() {
+            return None;
+        }
         let mut v = Self {
             schema_version: D6W_SCHEMA_VERSION.into(),
             source_snapshot: p.source_dkg_snapshot_commitment.clone(),
@@ -42,7 +45,7 @@ impl InputCommitmentV1 {
             claim_ceiling: D6S_CLAIM_CEILING.into(),
             commitment: String::new(),
         };
-        v.commitment = v.recompute(); v
+        v.commitment = v.recompute(); Some(v)
     }
     pub fn recompute(&self) -> String {
         let mut v = self.clone(); v.commitment.clear();
@@ -112,7 +115,7 @@ impl LayeredReceiptV1 {
             || d6s.input_node_commitments!=p.nodes.values().map(|n|n.node_commitment.clone()).collect()
             || d6s.input_edge_commitments!=p.edges.values().map(|n|n.edge_commitment.clone()).collect()
             || d6s.d6p_current_receipt_commitments!=p.d6p_current_receipt_commitments { return false; }
-        let input=InputCommitmentV1::from_projection(p,e,closure);
+        let Some(input)=InputCommitmentV1::from_projection(p,e,closure) else{return false};
         if !input.valid(){return false}
         let Some(derivation)=DerivationCommitmentV1::new(&input,profile,trace) else{return false};
         let Some(result)=ResultCommitmentV1::new(&derivation,d6s.result_status,d6s.result_commitment.clone(),d6s.contradiction_preserved,d6s.unresolved_preserved) else{return false};
@@ -147,7 +150,14 @@ mod tests {
         let c=compute_dependency_closure(&p,&e,&d,&cp).unwrap();
         (p,e,d,c)
     }
-    #[test] fn closure_is_bound_into_input(){let(p,e,d,c)=fixture(false);let i=InputCommitmentV1::from_projection(&p,&e,&c);assert!(i.valid());assert!(!i.dependency_closure.is_empty());let x=LayeredReceiptV1::new(&i,&DerivationCommitmentV1::new(&i,&d,None).unwrap(),&ResultCommitmentV1::new(&DerivationCommitmentV1::new(&i,&d,None).unwrap(),DerivationResultStatusV1::Supported,"x".into(),false,false).unwrap());assert!(x.is_some());}
-    #[test] fn closure_mutation_changes_input(){let(p,e,d,c)=fixture(false);let mut i=InputCommitmentV1::from_projection(&p,&e,&c);let old=i.commitment.clone();i.dependency_closure="tampered".into();i.commitment=i.recompute();assert_ne!(old,i.commitment);assert!(DerivationCommitmentV1::new(&i,&d,None).is_some());}
-    #[test] fn irrelevant_material_does_not_change_closure_or_input(){let(a,e,d,c1)=fixture(false);let(b,_,_,c2)=fixture(true);assert_eq!(c1.commitment,c2.commitment);assert_eq!(InputCommitmentV1::from_projection(&a,&e,&c1).commitment,InputCommitmentV1::from_projection(&b,&e,&c2).commitment);}
+    #[test] fn closure_is_bound_into_input(){let(p,e,d,c)=fixture(false);let i=InputCommitmentV1::from_projection(&p,&e,&c).unwrap();assert!(i.valid());assert!(!i.dependency_closure.is_empty());let x=LayeredReceiptV1::new(&i,&DerivationCommitmentV1::new(&i,&d,None).unwrap(),&ResultCommitmentV1::new(&DerivationCommitmentV1::new(&i,&d,None).unwrap(),DerivationResultStatusV1::Supported,"x".into(),false,false).unwrap());assert!(x.is_some());}
+    #[test] fn blocked_closure_cannot_enter_d6w_input(){
+        let(p,e,d,mut c)=fixture(false);
+        c.status=qualified_dependency_closure_d6x::DependencyClosureStatusV1::BlockedResourceLimit;
+        c.commitment=c.recompute();
+        assert!(InputCommitmentV1::from_projection(&p,&e,&c).is_none());
+        let _=d;
+    }
+    #[test] fn closure_mutation_changes_input(){let(p,e,d,c)=fixture(false);let mut i=InputCommitmentV1::from_projection(&p,&e,&c).unwrap();let old=i.commitment.clone();i.dependency_closure="tampered".into();i.commitment=i.recompute();assert_ne!(old,i.commitment);assert!(DerivationCommitmentV1::new(&i,&d,None).is_some());}
+    #[test] fn irrelevant_material_does_not_change_closure_or_input(){let(a,e,d,c1)=fixture(false);let(b,_,_,c2)=fixture(true);assert_eq!(c1.commitment,c2.commitment);assert_eq!(InputCommitmentV1::from_projection(&a,&e,&c1).unwrap().commitment,InputCommitmentV1::from_projection(&b,&e,&c2).unwrap().commitment);}
 }
