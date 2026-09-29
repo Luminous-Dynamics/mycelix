@@ -85,6 +85,7 @@ pub struct NormalizedObservation {
     pub projection_id: String,
     pub input_refs: Vec<NormalizationInputRef>,
     pub recipe: NormalizationRecipe,
+    pub evidence_refs: Vec<EvidenceRef>,
     pub value: DecimalValue,
     pub unit: MarketUnit,
     pub observed_at_micros: i64,
@@ -115,6 +116,15 @@ pub fn normalize_chain(
     observation: &MarketObservation,
     chain: &NormalizationChain,
 ) -> Result<Vec<NormalizedObservation>, ChainError> {
+    normalize_chain_at_frontier(observation, chain, &observation.information_frontier)
+}
+
+/// Apply a chain against an explicit replay frontier.
+pub fn normalize_chain_at_frontier(
+    observation: &MarketObservation,
+    chain: &NormalizationChain,
+    frontier: &InformationFrontier,
+) -> Result<Vec<NormalizedObservation>, ChainError> {
     if chain.steps.is_empty() {
         return Err(ChainError::EmptyChain);
     }
@@ -126,7 +136,7 @@ pub fn normalize_chain(
             return Err(ChainError::DuplicateRecipeId);
         }
         let prior_projection_id = current.observation_id.clone();
-        let mut next = normalize_observation(&current, recipe).map_err(ChainError::Step)?;
+        let mut next = normalize_observation_at_frontier(&current, recipe, frontier).map_err(ChainError::Step)?;
         if !results.is_empty() {
             next.input_refs = vec![NormalizationInputRef::DerivedProjection {
                 projection_id: prior_projection_id,
@@ -221,7 +231,7 @@ pub fn normalize_observation_at_frontier(
         value,
         unit: output_unit,
         observed_at_micros: observation.observed_at_micros,
-        information_frontier: observation.information_frontier.clone(),
+        information_frontier: frontier.clone(),
     })
 }
 
