@@ -915,6 +915,104 @@ pub fn get_hearth_members(hearth_hash: ActionHash) -> ExternResult<Vec<Record>> 
         .collect())
 }
 
+/// Return the canonical Active Hearth catalog for the connected agent.
+///
+/// This endpoint is deliberately source-side: AgentToHearths is treated only
+/// as discovery, then every candidate is rebound to the latest membership
+/// state for this exact hearth and caller AgentPubKey. Historical/departed
+/// links therefore cannot establish active membership.
+///
+/// The endpoint fails closed if a discovered candidate has incomplete evidence
+/// or more than one active membership revision for the same caller/hearth pair.
+#[hdk_extern]
+pub fn get_my_active_hearths(_: ()) -> ExternResult<Vec<ActiveHearthCatalogItem>> {
+    let agent = agent_info()?.agent_initial_pubkey;
+
+    let links = get_links(
+        LinkQuery::try_new(agent.clone(), LinkTypes::AgentToHearths)?,
+        GetStrategy::default(),
+    )?;
+
+    let mut hearth_hashes = std::collections::BTreeSet::<ActionHash>::new();
+    for link in links {
+        let hearth_hash = ActionHash::try_from(link.target).map_err(|_| {
+            wasm_error!(WasmErrorInner::Guest(
+                "AgentToHearths contains a non-Hearth ActionHash target".into()
+            ))
+        })?;
+        hearth_hashes.insert(hearth_hash);
+    }
+
+    let mut catalog = Vec::new();
+
+    for hearth_hash in hearth_hashes {
+        let hearth_record = get_latest_record(hearth_hash.clone())?.ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Active Hearth discovery evidence is incomplete: Hearth record missing".into()
+            ))
+        })?;
+        let hearth: Hearth = entry_from_record(&hearth_record, "Hearth")?;
+
+        let memberships = membership_records_for_hearth(&hearth_hash)?;
+        let active: Vec<(Record, HearthMembership)> = memberships
+            .into_iter()
+            .filter(|(_, membership)| {
+                membership.agent == agent && membership.status == MembershipStatus::Active
+            })
+            .collect();
+
+        match active.as_slice() {
+            [] => {
+                // Historical/departed discovery links remain observable but
+                // never establish active membership.
+                continue;
+            }
+            [(_membership_record, _membership)] => {}
+            _ => {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Conflicting active membership revisions for this Hearth and agent".into()
+                )));
+            }
+        }
+
+        let (membership_record, membership) = active.into_iter().next().ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Active membership evidence disappeared during catalog assembly".into()
+            ))
+        })?;
+
+        if membership.hearth_hash != hearth_hash || membership.agent != agent {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Membership provenance does not match the catalog Hearth or caller".into()
+            )));
+        }
+
+        catalog.push(ActiveHearthCatalogItem {
+            hearth_hash,
+            hearth: HearthCatalogData {
+                name: hearth.name,
+                description: hearth.description,
+                hearth_type: hearth.hearth_type,
+                created_by: hearth.created_by,
+                created_at: hearth.created_at,
+                max_members: hearth.max_members,
+            },
+            membership_hash: membership_record.action_address().clone(),
+            membership: HearthMembershipCatalogData {
+                agent: membership.agent,
+                role: membership.role,
+                status: membership.status,
+                display_name: membership.display_name,
+                joined_at: membership.joined_at,
+                admission: membership.admission,
+            },
+            agent: agent.clone(),
+        });
+    }
+
+    Ok(catalog)
+}
+
 /// Get all hearths the calling agent belongs to.
 #[hdk_extern]
 pub fn get_my_hearths(_: ()) -> ExternResult<Vec<Record>> {
