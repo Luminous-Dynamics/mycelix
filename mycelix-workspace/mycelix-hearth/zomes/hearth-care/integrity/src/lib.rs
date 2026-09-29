@@ -155,7 +155,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             Ok(ValidateCallbackResult::Valid)
         }
         FlatOp::Link(OpLink::DeleteLink { action, original_action, .. }) =>
-            Ok(check_link_author_match(original_action.author(), &action.author())),
+            Ok(check_link_author_match(original_action.author(), action.author())),
         FlatOp::CreateRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::Update(update) => {
@@ -169,7 +169,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             let original = must_get_action(update.original_action_hash())?;
             Ok(check_author_match(
                 original.action().author(),
-                &action.author(),
+                action.author(),
                 "update",
             ))
         }
@@ -177,7 +177,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             let original = must_get_action(action.deletes_address.clone())?;
             Ok(check_author_match(
                 original.action().author(),
-                &action.author(),
+                action.author(),
                 "delete",
             ))
         }
