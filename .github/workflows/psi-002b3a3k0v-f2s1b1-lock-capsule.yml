@@ -337,6 +337,10 @@ jobs:
           assert "manifest.sha256" not in recorded, "manifest must not self-reference"
           PY
 
+      - name: Run capsule verifier tamper-negative tests
+        run: |
+          python3 qualification/psi-002b3a3k0v-f2s1-validator/tools/test_verify_capsule_negative.py
+
       - name: Independently verify packaged capsule
         run: |
           python3 qualification/psi-002b3a3k0v-f2s1-validator/tools/verify_capsule.py capsule
