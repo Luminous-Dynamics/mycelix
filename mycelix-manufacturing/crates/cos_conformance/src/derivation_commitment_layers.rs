@@ -530,8 +530,14 @@ mod tests {
         let mut mutated = result.clone();
         mutated.claim_ceiling = "different-claim-ceiling".into();
         assert!(!mutated.structurally_valid());
-        assert_ne!(result.commitment(), mutated.commitment());
-        assert_ne!(receipt.receipt_commitment, layers("trace-2").3.receipt_commitment);
+        let mutated_result_commitment = mutated.commitment();
+        assert_ne!(result.commitment(), mutated_result_commitment);
+
+        let mut mutated_receipt = receipt.clone();
+        mutated_receipt.result_commitment = mutated_result_commitment;
+        mutated_receipt.receipt_commitment = mutated_receipt.recomputed_commitment();
+        assert_ne!(receipt.receipt_commitment, mutated_receipt.receipt_commitment);
+
         assert_eq!(input.claim_ceiling, D6S_CLAIM_CEILING);
         assert_eq!(derivation.claim_ceiling, D6S_CLAIM_CEILING);
     }
