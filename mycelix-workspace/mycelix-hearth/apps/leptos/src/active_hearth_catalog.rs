@@ -45,6 +45,8 @@ pub struct ActiveHearthCatalogSnapshot {
     pub discovered_records: usize,
     /// Number of unique, well-formed Hearth candidates derived from discovery.
     pub unique_candidates: usize,
+    /// Number of discovery records that resolved to an already-seen semantic Hearth identity.
+    pub duplicate_candidates: usize,
     /// Number of candidates for which current Active membership was proven.
     pub verified_active: usize,
     /// Number of malformed discovery records.
@@ -65,6 +67,7 @@ impl ActiveHearthCatalogSnapshot {
             roles: BTreeMap::new(),
             discovered_records: 0,
             unique_candidates: 0,
+            duplicate_candidates: 0,
             verified_active: 0,
             malformed_candidates: 0,
             identity_ambiguous_candidates: 0,
@@ -140,6 +143,7 @@ fn record_to_hearth(record: &WireRecord) -> Option<HearthView> {
 struct CatalogEvidence {
     discovered_records: usize,
     unique_candidates: usize,
+    duplicate_candidates: usize,
     malformed_candidates: usize,
     identity_ambiguous_candidates: usize,
     membership_queries_succeeded: usize,
@@ -161,6 +165,7 @@ fn finalize_catalog(
         + evidence.membership_query_failures
         == evidence.unique_candidates;
     let complete = evidence.malformed_candidates == 0
+        && evidence.duplicate_candidates == 0
         && evidence.identity_ambiguous_candidates == 0
         && evidence.membership_query_failures == 0
         && query_shape_complete;
@@ -174,6 +179,7 @@ fn finalize_catalog(
             roles: BTreeMap::new(),
             discovered_records: evidence.discovered_records,
             unique_candidates: evidence.unique_candidates,
+            duplicate_candidates: evidence.duplicate_candidates,
             verified_active,
             malformed_candidates: evidence.malformed_candidates,
             identity_ambiguous_candidates: evidence.identity_ambiguous_candidates,
@@ -210,6 +216,7 @@ fn finalize_catalog(
         roles,
         discovered_records: evidence.discovered_records,
         unique_candidates: evidence.unique_candidates,
+        duplicate_candidates: evidence.duplicate_candidates,
         verified_active,
         malformed_candidates: 0,
         identity_ambiguous_candidates: 0,
@@ -259,6 +266,7 @@ async fn load_active_catalog(
             roles: BTreeMap::new(),
             discovered_records: 0,
             unique_candidates: 0,
+            duplicate_candidates: 0,
             verified_active: 0,
             malformed_candidates: 0,
             identity_ambiguous_candidates: 0,
@@ -280,7 +288,12 @@ async fn load_active_catalog(
 
         match record_to_hearth(record) {
             Some(hearth) => {
-                candidates.entry(hearth.hash.clone()).or_insert(hearth);
+                let key = hearth.hash.clone();
+                if candidates.contains_key(&key) {
+                    evidence.duplicate_candidates += 1;
+                } else {
+                    candidates.insert(key, hearth);
+                }
             }
             None => evidence.malformed_candidates += 1,
         }
@@ -581,6 +594,28 @@ mod tests {
         assert!(snapshot.roles.is_empty());
         assert_eq!(snapshot.verified_active, 1);
         assert_eq!(snapshot.membership_query_failures, 1);
+    }
+
+    #[test]
+    fn duplicate_discovery_identity_is_recorded_and_degrades_catalog() {
+        let snapshot = finalize_catalog(
+            agent(1),
+            CatalogEvidence {
+                discovered_records: 2,
+                unique_candidates: 1,
+                duplicate_candidates: 1,
+                membership_queries_succeeded: 1,
+                active: vec![(hearth(1, "A"), MemberRole::Adult)],
+                ..CatalogEvidence::default()
+            },
+        );
+
+        assert_eq!(snapshot.availability, AvailabilityStateKind::Degraded);
+        assert!(snapshot.hearths.is_empty());
+        assert!(snapshot.roles.is_empty());
+        assert_eq!(snapshot.discovered_records, 2);
+        assert_eq!(snapshot.unique_candidates, 1);
+        assert_eq!(snapshot.duplicate_candidates, 1);
     }
 
     #[test]
