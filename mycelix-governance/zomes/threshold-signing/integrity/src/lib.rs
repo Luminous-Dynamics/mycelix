@@ -357,7 +357,6 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             OpEntry::UpdateEntry {
                 app_entry,
                 action,
-                original_action_hash,
                 ..
             } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
@@ -365,7 +364,8 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     validate_update_committee(action, committee)
                 }
                 EntryTypes::CommitteeMember(member) => {
-                    { let original_action_hash = action.original_action_address.clone(); validate_update_member(action, member, original_action_hash) }
+                    let original_action_hash = action.original_action_address.clone();
+                    validate_update_member(action, member, original_action_hash)
                 }
                 EntryTypes::ThresholdSignature(_) => Ok(ValidateCallbackResult::Invalid(
                     "Threshold signatures cannot be updated".into(),
