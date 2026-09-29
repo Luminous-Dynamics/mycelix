@@ -8,7 +8,7 @@
 
 use hdi::prelude::*;
 use hearth_types::*;
-use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
+use mycelix_bridge_entry_types::{check_author_match, check_claimed_agent_match, check_link_author_match};
 
 // ============================================================================
 // Entry Types
@@ -125,11 +125,31 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::CreateEntry(OpEntry::CreateEntry {
             app_entry,
-            action: _,
+            action,
         }) => match app_entry {
             EntryTypes::EmergencyPlan(plan) => validate_plan(&plan),
-            EntryTypes::EmergencyAlert(alert) => validate_alert(&alert),
-            EntryTypes::SafetyCheckIn(checkin) => validate_checkin(&checkin),
+            EntryTypes::EmergencyAlert(alert) => {
+                let result = check_claimed_agent_match(
+                    &alert.reporter,
+                    action.author(),
+                    "EmergencyAlert.reporter",
+                );
+                if result != ValidateCallbackResult::Valid {
+                    return Ok(result);
+                }
+                validate_alert(&alert)
+            }
+            EntryTypes::SafetyCheckIn(checkin) => {
+                let result = check_claimed_agent_match(
+                    &checkin.member,
+                    action.author(),
+                    "SafetyCheckIn.member",
+                );
+                if result != ValidateCallbackResult::Valid {
+                    return Ok(result);
+                }
+                validate_checkin(&checkin)
+            },
         },
         FlatOp::CreateEntry(OpEntry::UpdateEntry {
             app_entry,
