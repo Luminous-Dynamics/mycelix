@@ -145,7 +145,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             original_action,
         }) => {
             let result =
-                check_link_author_match(original_action.author(), &action.author());
+                check_link_author_match(original_action.author(), action.author());
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
