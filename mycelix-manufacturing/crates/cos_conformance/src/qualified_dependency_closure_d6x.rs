@@ -55,6 +55,8 @@ pub struct DependencyClosureProfileV1 {
     pub version: String,
     pub root_node_ids: BTreeSet<String>,
     pub required_node_ids: BTreeSet<String>,
+    /// Exact D6P receipt commitments required by this semantic closure profile.
+    pub required_d6p_receipt_commitments: BTreeSet<String>,
     pub rules: BTreeSet<DependencyRuleV1>,
     pub excluded_boundary_policy: String,
     pub max_nodes: u32,
@@ -70,6 +72,7 @@ impl DependencyClosureProfileV1 {
             && self.rules.iter().all(DependencyRuleV1::structurally_valid)
             && self.root_node_ids.iter().all(|v| non_empty(v))
             && self.required_node_ids.iter().all(|v| non_empty(v))
+            && self.required_d6p_receipt_commitments.iter().all(|v| non_empty(v))
             && non_empty(&self.excluded_boundary_policy)
             && self.max_nodes > 0 && self.max_edges > 0
             && self.claim_ceiling == D6X_CLAIM_CEILING
@@ -94,6 +97,7 @@ pub struct DependencyClosureCertificateV1 {
     /// Exact selected node identity: node id -> node commitment.
     /// This pairing is part of the candidate-independent closure identity.
     pub included_nodes: BTreeMap<String, String>,
+    pub included_d6p_receipt_commitments: BTreeSet<String>,
     pub included_edge_commitments: BTreeSet<String>,
     pub included_edges: BTreeMap<String, (String, String, ClaimGraphEdgeKindV1, String)>,
     pub missing_dependency_ids: BTreeSet<String>,
@@ -118,6 +122,7 @@ impl DependencyClosureCertificateV1 {
             && self.included_nodes.iter().all(|(id, commitment)| non_empty(id) && non_empty(commitment))
             && self.included_nodes.keys().cloned().collect::<BTreeSet<_>>() == self.included_node_ids
             && self.included_nodes.values().cloned().collect::<BTreeSet<_>>() == self.included_node_commitments
+            && self.included_d6p_receipt_commitments.iter().all(|v| non_empty(v))
             && self.included_edge_commitments.iter().all(|v| non_empty(v))
             && self.included_edges.iter().all(|(id, (from, to, _kind, commitment))|
                 non_empty(id) && non_empty(from) && non_empty(to) && from != to && non_empty(commitment))
@@ -146,6 +151,7 @@ impl DependencyClosureCertificateV1 {
             &self.derivation_profile_commitment,
             &self.root_node_ids,
             &self.included_nodes,
+            &self.included_d6p_receipt_commitments,
             &self.included_edges,
             &self.missing_dependency_ids,
             &self.status,
@@ -193,6 +199,9 @@ pub fn compute_dependency_closure(
     let mut included_ids = BTreeSet::new();
     let mut included_edges = BTreeSet::new();
     let mut missing = BTreeSet::new();
+    let selected_d6p_receipts: BTreeSet<String> = profile.required_d6p_receipt_commitments.intersection(&projection.d6p_current_receipt_commitments).cloned().collect();
+    let missing_d6p_receipts: BTreeSet<String> = profile.required_d6p_receipt_commitments.difference(&projection.d6p_current_receipt_commitments).cloned().collect();
+    missing.extend(missing_d6p_receipts);
     let mut blocked_currentness = false;
     let mut resource_blocked = false;
     let mut queue = VecDeque::from_iter(profile.root_node_ids.iter().cloned());
@@ -254,6 +263,7 @@ pub fn compute_dependency_closure(
         included_node_commitments: included_ids.iter().filter_map(|id| projection.nodes.get(id).map(|n| n.node_commitment.clone())).collect(),
         included_node_ids: included_ids.clone(),
         included_nodes: included_ids.iter().filter_map(|id| projection.nodes.get(id).map(|n| (id.clone(), n.node_commitment.clone()))).collect(),
+        included_d6p_receipt_commitments: selected_d6p_receipts,
         included_edge_commitments: included_edges.iter().filter_map(|id| projection.edges.get(id).map(|e| e.edge_commitment.clone())).collect(),
         included_edges: included_edges.iter().filter_map(|id| projection.edges.get(id).map(|e| (id.clone(), (e.from_node_id.clone(), e.to_node_id.clone(), e.kind, e.edge_commitment.clone())))).collect(),
         missing_dependency_ids: missing,
@@ -279,7 +289,7 @@ mod tests {
         DependencyClosureProfileV1 {
             profile_id:"closure".into(), version:"1".into(),
             root_node_ids:["root".into()].into_iter().collect(),
-            required_node_ids:required, rules:[rule].into_iter().collect(),
+            required_node_ids:required, required_d6p_receipt_commitments:BTreeSet::new(), rules:[rule].into_iter().collect(),
             excluded_boundary_policy:"Only rule-matched semantic edges expand closure.".into(),
             max_nodes:16, max_edges:16, claim_ceiling:D6X_CLAIM_CEILING.into(),
         }
