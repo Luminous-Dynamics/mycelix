@@ -522,6 +522,87 @@ mod tests {
 
 
 #[cfg(test)]
+mod factor_binding_tests {
+    use super::*;
+    use crate::{FinancialSubjectKind, FinancialSubjectRef, IdentifierAlias, SourceRef, ValidityInterval};
+
+    fn base_observation() -> MarketObservation {
+        MarketObservation {
+            observation_id: "obs-factor-test".into(),
+            subject: FinancialSubjectRef {
+                subject_id: "instrument:factor-test".into(),
+                subject_kind: FinancialSubjectKind::Instrument,
+                validity_interval: ValidityInterval { valid_from_micros: Some(0), valid_to_micros: None },
+                identifier_aliases: vec![IdentifierAlias { namespace: "ticker".into(), value: "FT".into(), valid_from_micros: Some(0), valid_to_micros: None }],
+                lineage_relations: vec![],
+                information_frontier: InformationFrontier { as_of_micros: 100, frontier_id: "f100".into() },
+            },
+            observed_at_micros: 90, published_at_micros: Some(91), available_at_micros: Some(92), ingested_at_micros: 93,
+            unit: MarketUnit::Price { currency: "USD".into() },
+            value: DecimalValue { value: "100.00".into(), scale: 2 },
+            status: EvidenceStatus::ObservedUnqualified,
+            source: SourceRef { source_id: "src-obs".into(), provider_id: "provider-a".into(), common_ancestry_id: Some("upstream-a".into()), retrieved_at_micros: 93 },
+            evidence_refs: vec![],
+            information_frontier: InformationFrontier { as_of_micros: 100, frontier_id: "f100".into() },
+        }
+    }
+
+    fn factor(id: &str, value: &str, status: EvidenceStatus, available: i64, base: &str, quote: &str) -> NormalizationFactorObservation {
+        NormalizationFactorObservation {
+            factor_id: id.into(),
+            kind: NormalizationFactorKind::FxRate { base_currency: base.into(), quote_currency: quote.into() },
+            value: DecimalValue { value: value.into(), scale: 1 },
+            status,
+            observed_at_micros: available - 1,
+            available_at_micros: Some(available),
+            effective_from_micros: Some(0),
+            effective_to_micros: None,
+            source: SourceRef { source_id: format!("factor-src-{id}"), provider_id: "provider-factor".into(), common_ancestry_id: Some("upstream-factor".into()), retrieved_at_micros: available },
+            information_frontier: InformationFrontier { as_of_micros: available, frontier_id: format!("f{available}") },
+        }
+    }
+
+    fn fx_recipe(f: NormalizationFactorObservation) -> NormalizationRecipe {
+        NormalizationRecipe {
+            recipe_id: "factor-recipe".into(),
+            adjustment: AdjustmentKind::CurrencyConversion,
+            target_unit: Some(MarketUnit::Price { currency: "EUR".into() }),
+            multiplier: Some(f.value.clone()),
+            output_scale: Some(2),
+            session: None,
+            evidence_refs: vec![],
+            factor_observation: Some(f),
+        }
+    }
+
+    #[test]
+    fn same_numeric_value_from_different_factor_identity_is_rejected() {
+        let mut recipe = fx_recipe(factor("factor-a", "0.9", EvidenceStatus::Known, 95, "USD", "EUR"));
+        recipe.factor_observation.as_mut().unwrap().factor_id = "factor-b".into();
+        assert_eq!(normalize_observation_at_frontier(&base_observation(), &recipe, &InformationFrontier { as_of_micros: 100, frontier_id: "f100".into() }), Err(NormalizationError::FactorIdentityMismatch));
+    }
+
+    #[test]
+    fn factor_value_substitution_is_rejected() {
+        let mut recipe = fx_recipe(factor("factor-a", "0.9", EvidenceStatus::Known, 95, "USD", "EUR"));
+        recipe.multiplier = Some(DecimalValue { value: "0.8".into(), scale: 1 });
+        assert_eq!(normalize_observation_at_frontier(&base_observation(), &recipe, &InformationFrontier { as_of_micros: 100, frontier_id: "f100".into() }), Err(NormalizationError::FactorValueMismatch));
+    }
+
+    #[test]
+    fn unit_mismatch_is_rejected_even_when_factor_is_available() {
+        let recipe = fx_recipe(factor("factor-a", "0.9", EvidenceStatus::Known, 95, "GBP", "EUR"));
+        assert_eq!(normalize_observation_at_frontier(&base_observation(), &recipe, &InformationFrontier { as_of_micros: 100, frontier_id: "f100".into() }), Err(NormalizationError::FactorUnitMismatch));
+    }
+
+    #[test]
+    fn future_factor_is_rejected_at_replay_frontier() {
+        let recipe = fx_recipe(factor("factor-a", "0.9", EvidenceStatus::Known, 150, "USD", "EUR"));
+        assert_eq!(normalize_observation_at_frontier(&base_observation(), &recipe, &InformationFrontier { as_of_micros: 120, frontier_id: "f120".into() }), Err(NormalizationError::FactorUnavailableAtFrontier));
+    }
+}
+
+#[cfg(test)]
 mod frontier_tests {
     use super::*;
     use crate::{FinancialSubjectKind, FinancialSubjectRef, IdentifierAlias, SourceRef, ValidityInterval};
