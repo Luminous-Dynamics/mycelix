@@ -163,8 +163,8 @@ Claim ceiling: **ReferenceModelOnly**.
 
 `C_input -> C_derivation -> C_result -> C_receipt`
 
-- `C_input` binds the exact qualified projection, node/edge commitments, D6P set, D6N/D6O context, and semantic environment.
-- `C_derivation` binds `C_input`, the derivation profile, and an explicit execution/fixpoint trace commitment.
+- `C_input` binds the projection identity/version, exact node/edge commitments, D6P set, D6N/D6O context, and semantic environment, deliberately excluding the derivation profile.
+- `C_derivation` binds `C_input`, the derivation profile, D6S-CANON-1 version, and an explicit execution/fixpoint trace commitment.
 - `C_result` binds the derivation commitment, result status, result commitment, contradiction/unresolved preservation, and claim ceiling.
 - `C_receipt` binds all three layers plus the exact D6S receipt commitment.
 
