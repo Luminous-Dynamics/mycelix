@@ -202,3 +202,27 @@ Holochain is a realization substrate for storing, validating, linking, and distr
 **ReferenceModelOnly.**
 
 This specification does not establish physical truth, causal validity, legal authority, production finality, economic settlement, or actuation safety.
+
+## D6S hardening: source, frontier, and conflict conservation
+
+The reference implementation now binds the selected projection to an exact `source_dkg_snapshot_commitment` and an explicit `D6S-RUST-REF-1` canonicalization version. Both are receipt inputs.
+
+For current `Supported` results:
+
+- every projected node must be non-historical;
+- every projected node must bind the exact environment current frontier;
+- the environment must declare a current frontier;
+- every required D6P receipt must be structurally valid, `EligibleCurrent`, exactly committed, and at the exact environment frontier;
+- the projection's D6P receipt-commitment set must match the environment's D6P eligibility context root;
+- D6N and D6O projection context commitments must match the semantic environment exactly.
+
+Result flags are also constrained:
+
+- `Supported` cannot preserve contradiction or unresolved state;
+- `Disputed` must preserve contradiction;
+- `Unresolved` and blocked qualification/currentness/missing-evidence states must preserve unresolved state.
+
+This prevents a canonical receipt from turning stale or historical material into current support merely by projection, or from recording a resolved status while silently dropping the unresolved/contradictory state.
+
+The D6S implementation remains a bounded canonicalization layer. It does not itself make DKG confidence, attestation count, reputation, consensus snapshots, or graph reachability authoritative.
+
