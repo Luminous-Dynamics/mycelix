@@ -289,3 +289,11 @@ D6H therefore establishes three separate properties:
 3. **Semantic mutation detection** — changes to provenance, evidence, authority, uncertainty, origin, safety, or graph relations are observable as non-equivalence.
 
 The canonical representation is a comparison aid, not a canonical election of history. It does not select a winner among conflicting observations or turn deterministic ordering into causal truth.
+
+### D6I conflict branches and explicit reconciliation
+
+D6I makes unresolved disagreement addressable as a first-class branch set. A conflict produces two separately identified branches, each retaining its observation identity, origin, work identity, and quantity. Branch labels are navigational only: they do not rank observations, choose a winner, or imply that either source is more credible.
+
+A reconciliation record must bind to the exact conflict and an explicit human decision artifact that names both observation identities and the current generation. It must also identify a distinct reconciliation artifact and a revision at a strictly newer generation. Missing, stale, mismatched, or identity-colliding records fail validation. The source observations remain intact; reconciliation creates a new governance/revision path rather than rewriting history.
+
+This is a structural reference-model gate, not a resolution algorithm. It does not decide which observation is true, does not treat an accepted disposition as proof of factual correctness, and does not imply that a revision was executed. The model preserves the difference between disagreement, human disposition, and subsequent revision.
