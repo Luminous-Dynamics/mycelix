@@ -49,6 +49,10 @@ jobs:
         working-directory: mycelix-workspace/mycelix-hearth
         run: nix develop .#ci --impure --command cargo update
 
+      - name: Refresh Hearth Sweettest Cargo lock
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: nix develop .#ci --impure --command cargo update --manifest-path tests/Cargo.toml
+
       - name: Refresh Hearth SDK npm lock
         working-directory: mycelix-workspace/mycelix-hearth/sdk-ts
         run: npm install --package-lock-only --ignore-scripts
@@ -61,16 +65,16 @@ jobs:
         run: bash mycelix-workspace/mycelix-hearth/tools/verify-holochain-07.sh
 
       - name: Verify no whitespace errors in refreshed locks
-        run: git diff --check -- mycelix-workspace/mycelix-hearth/flake.lock mycelix-workspace/mycelix-hearth/Cargo.lock mycelix-workspace/mycelix-hearth/sdk-ts/package-lock.json
+        run: git diff --check -- mycelix-workspace/mycelix-hearth/flake.lock mycelix-workspace/mycelix-hearth/Cargo.lock mycelix-workspace/mycelix-hearth/tests/Cargo.lock mycelix-workspace/mycelix-hearth/sdk-ts/package-lock.json
 
       - name: Commit refreshed dependency locks
         run: |
-          if git diff --quiet -- mycelix-workspace/mycelix-hearth/flake.lock mycelix-workspace/mycelix-hearth/Cargo.lock mycelix-workspace/mycelix-hearth/sdk-ts/package-lock.json; then
+          if git diff --quiet -- mycelix-workspace/mycelix-hearth/flake.lock mycelix-workspace/mycelix-hearth/Cargo.lock mycelix-workspace/mycelix-hearth/tests/Cargo.lock mycelix-workspace/mycelix-hearth/sdk-ts/package-lock.json; then
             echo "Hearth dependency locks are already current."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add mycelix-workspace/mycelix-hearth/flake.lock mycelix-workspace/mycelix-hearth/Cargo.lock mycelix-workspace/mycelix-hearth/sdk-ts/package-lock.json
+          git add mycelix-workspace/mycelix-hearth/flake.lock mycelix-workspace/mycelix-hearth/Cargo.lock mycelix-workspace/mycelix-hearth/tests/Cargo.lock mycelix-workspace/mycelix-hearth/sdk-ts/package-lock.json
           git commit -m "HEARTH-0.7-SOURCE: resolve Hearth dependency locks [skip-hearth-lock]"
           git push origin "HEAD:${{ github.ref_name }}"
