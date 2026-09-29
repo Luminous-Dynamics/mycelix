@@ -423,23 +423,21 @@ pub fn compute_dependency_closure(
         included_ids.insert(id.clone());
         let node_dependency = SemanticDependencyReferenceV1::node(id.clone(), Some(node.node_commitment.clone()));
         dependencies.insert(node_dependency.clone());
-        let node_is_stale = node.historical_only && projection.edges.values().any(|edge| {
-            edge.to_node_id == id
-                && profile.rules.iter().any(|rule| {
-                    rule.matches(
-                        projection.nodes.get(&edge.from_node_id).map(|n| n.kind).unwrap_or(node.kind),
-                        node.kind,
-                        edge.kind,
-                    ) && rule.currentness == DependencyCurrentnessV1::CurrentOnly
-                })
-        });
-        dependency_resolutions.insert(
-            node_dependency,
-            if node_is_stale { SemanticDependencyResolutionV1::Stale } else { SemanticDependencyResolutionV1::Present },
-        );
+        dependency_resolutions.insert(node_dependency.clone(), SemanticDependencyResolutionV1::Present);
 
         for edge in projection.edges.values() {
             if edge.from_node_id != id { continue; }
+
+            let rule = match projection.nodes.get(&edge.to_node_id) {
+                Some(to) => profile.rules.iter().find(|r| r.matches(node.kind, to.kind, edge.kind)),
+                None => profile.rules.iter().find(|r| {
+                    r.edge_kind == edge.kind
+                        && r.from_kind.map_or(true, |kind| kind == node.kind)
+                        && r.to_kind.is_none()
+                }),
+            };
+
+            let Some(rule) = rule else { continue; };
             let Some(to) = projection.nodes.get(&edge.to_node_id) else {
                 let dependency = SemanticDependencyReferenceV1::node(edge.to_node_id.clone(), None);
                 missing_dependencies.insert(dependency.clone());
@@ -447,7 +445,6 @@ pub fn compute_dependency_closure(
                 missing.insert(edge.to_node_id.clone());
                 continue;
             };
-            let Some(rule) = profile.rules.iter().find(|r| r.matches(node.kind, to.kind, edge.kind)) else { continue; };
             if included_edges.len() as u32 >= profile.max_edges {
                 resource_blocked = true;
                 break;
@@ -464,6 +461,11 @@ pub fn compute_dependency_closure(
             dependency_resolutions.insert(edge_dependency, SemanticDependencyResolutionV1::Present);
             if rule.currentness == DependencyCurrentnessV1::CurrentOnly && to.historical_only {
                 blocked_currentness = true;
+                let target_dependency = SemanticDependencyReferenceV1::node(
+                    to.node_id.clone(),
+                    Some(to.node_commitment.clone()),
+                );
+                dependency_resolutions.insert(target_dependency, SemanticDependencyResolutionV1::Stale);
             }
             if !queued.contains(&to.node_id) { queue.push_back(to.node_id.clone()); }
         }
@@ -754,6 +756,49 @@ mod tests {
         )));
         assert_eq!(c.dependency_resolutions.get(&dep), Some(&SemanticDependencyResolutionV1::Stale));
         assert!(c.valid());
+    }
+
+    #[test]
+    fn stale_resolution_requires_a_selected_current_only_edge() {
+        let (mut a,e,d)=projection(false);
+        a.nodes.insert("other".into(), QualifiedNodeV1 {
+            node_id:"other".into(), kind:ClaimGraphNodeKindV1::Statement,
+            node_commitment:"commit-other".into(), historical_only:false,
+            current_frontier_root:Some("frontier".into()), claim_ceiling:D6S_CLAIM_CEILING.into(),
+        });
+        a.edges.insert("unselected-current-only".into(), QualifiedEdgeV1 {
+            edge_id:"unselected-current-only".into(),
+            from_node_id:"other".into(), to_node_id:"dep".into(),
+            kind:ClaimGraphEdgeKindV1::Supports, edge_commitment:"edge-unselected".into(),
+            claim_ceiling:D6S_CLAIM_CEILING.into(),
+        });
+        a.nodes.get_mut("dep").unwrap().historical_only = true;
+        let mut p=profile(BTreeSet::new());
+        p.rules = [DependencyRuleV1 {
+            edge_kind: ClaimGraphEdgeKindV1::Supports,
+            from_kind: Some(ClaimGraphNodeKindV1::Statement),
+            to_kind: Some(ClaimGraphNodeKindV1::Evidence),
+            currentness: DependencyCurrentnessV1::Any,
+        }].into_iter().collect();
+        let c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
+        let dep=SemanticDependencyReferenceV1::node("dep", Some("commit-dep".into()));
+        assert_eq!(c.dependency_resolutions.get(&dep), Some(&SemanticDependencyResolutionV1::Present));
+        assert_eq!(c.status, DependencyClosureStatusV1::Complete);
+    }
+
+    #[test]
+    fn missing_unmatched_edge_target_does_not_block_closure() {
+        let (mut a,e,d)=projection(false);
+        a.edges.insert("irrelevant-dangling".into(), QualifiedEdgeV1 {
+            edge_id:"irrelevant-dangling".into(),
+            from_node_id:"root".into(), to_node_id:"missing-target".into(),
+            kind:ClaimGraphEdgeKindV1::Provenance, edge_commitment:"edge-dangling".into(),
+            claim_ceiling:D6S_CLAIM_CEILING.into(),
+        });
+        let p=profile(BTreeSet::new());
+        let c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
+        assert_eq!(c.status, DependencyClosureStatusV1::Complete);
+        assert!(!c.missing_dependency_ids.contains("missing-target"));
     }
 
     #[test]
