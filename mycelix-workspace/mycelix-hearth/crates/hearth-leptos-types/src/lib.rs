@@ -505,6 +505,27 @@ pub struct HearthView {
     pub max_members: u32,
 }
 
+/// Source-backed active Hearth catalog item.
+///
+/// hearth_hash is the stable original Hearth ActionHash used by Hearth-scoped
+/// links and membership records. The latest display and membership records
+/// have their own action hashes and may change over time.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActiveHearthView {
+    pub hearth_hash: String,
+    pub latest_hearth_record_hash: String,
+    pub membership_record_hash: String,
+    pub agent: String,
+    pub role: MemberRole,
+    pub name: String,
+    pub description: String,
+    pub hearth_type: HearthType,
+    pub created_by: String,
+    pub created_at: i64,
+    pub max_members: u32,
+    pub observed_at: i64,
+}
+
 /// Member view for the frontend.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MemberView {
