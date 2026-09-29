@@ -657,7 +657,7 @@ mod tests {
     fn canonical_bytes_are_deterministic() {
         let a = projection();
         let b = projection();
-        assert_eq!(a.canonical_bytes_for_test(), b.canonical_bytes_for_test());
+        assert_eq!(canonical_bytes(&a).unwrap(), canonical_bytes(&b).unwrap());
     }
 
     #[test]
