@@ -20,6 +20,7 @@ The closure profile fixes:
 
 - root node IDs;
 - explicitly required node IDs;
+- explicitly required D6P receipt commitments;
 - typed edge traversal rules;
 - currentness requirements;
 - excluded-boundary policy;
@@ -35,6 +36,7 @@ The certificate binds:
 - semantic-environment commitment;
 - derivation-profile commitment;
 - exact included node commitments;
+- exact selected D6P receipt commitments;
 - exact included edge commitments;
 - explicit missing dependency IDs;
 - closure status;
@@ -82,7 +84,8 @@ C_input = H(
 Therefore:
 
 - changing the closure changes `C_input`;
-- changing only irrelevant DKG material leaves the closure and `C_input` unchanged;
+- changing only irrelevant DKG material or irrelevant D6P receipts leaves the semantic closure identity and `C_input` unchanged;
+- a D6P receipt becomes semantically relevant only when the closure profile explicitly requires it;
 - a blocked closure remains explicit rather than being silently replaced by a smaller closure;
 - downstream derivation/result commitments remain layered above the changed input.
 
@@ -97,7 +100,9 @@ The reference model currently includes fixtures for:
 5. selected node commitment changes the closure identity;
 6. selected edge commitment changes the closure identity;
 7. edge-free complete closures remain consumable by D6W;
-8. blocked closures fail closed at the D6W input boundary.
+8. blocked closures fail closed at the D6W input boundary;
+9. irrelevant D6P receipts do not perturb the closure identity;
+10. required D6P receipts are explicit closure dependencies.
 
 Before interoperability or production claims, add cross-language golden vectors, currentness/D6P fixtures, contradiction-preservation fixtures, cycle fixtures, resource-limit fixtures, and execute the Rust/WASM/Holochain conformance corpus.
 
