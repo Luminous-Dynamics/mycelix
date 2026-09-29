@@ -113,3 +113,30 @@ D6Q adds `evidence_claim_graph.rs`, a reference-model envelope for the typed cha
 The graph enforces endpoint compatibility, rejects dangling edges and semantic cycles, and keeps structural closure separate from evidentiary sufficiency. Reachability is not truth; provenance/custody are not causal support; registration is not endorsement; human disposition is not evidence; and conclusion is not authorization.
 
 D6Q remains `ReferenceModelOnly` and does not establish source truth, causality, cryptographic authenticity, legal authority, production finality, or actuation safety. See `docs/integral/evidence-bundle-claim-graph-v1.md`.
+
+## Semantic conservation and non-amplification
+
+`semantic_conservation.rs` makes the D6P/D6Q evidence chain explicitly non-amplifying.
+
+The governing rule is:
+
+`derived semantic authority <= qualified authority of exact inputs`
+
+D6R binds every derivation to exact input commitments, an exact derivation profile, semantic environment, selected currentness inputs, selected authority-bearing inputs, and an explicit scope relation.
+
+The model is deliberately not a confidence or trust score. Its finite claim ceiling is:
+
+`Unresolved -> HistoricalEvidence -> CurrentQualifiedEvidence -> Assessment -> Conclusion`
+
+A derived claim cannot exceed the ceiling of its exact authority-bearing inputs or the profile maximum. Currentness is independently conserved: Historical or Unknown inputs cannot be promoted to Current.
+
+D6P `EligibleCurrent` receipts are the only current-finality witness inputs exposed by the adapter. D6Q assessment receipts remain assessment-level and deliberately do not manufacture currentness from graph reachability or human disposition.
+
+Scope widening and unknown scope are fail-closed. Explicit narrowing requires a narrowing witness. Missing evidence is `InsufficientEvidence`, not semantic rejection. Supporting/provenance inputs cannot be promoted to authority.
+
+D6R remains qualification evidence only: conclusions do not authorize actuation, Symthaea proposals do not become authoritative through serialization, and Mycelix remains the semantic root.
+
+See `docs/integral/semantic-conservation-non-amplification-v1.md`.
+
+Claim ceiling: **ReferenceModelOnly**.
+
