@@ -824,6 +824,15 @@ impl<B: EffectBinding> DeliveryRecord<B> {
                 "observation references missing attempt",
             ));
         }
+        let has_success = snapshot
+            .observations
+            .iter()
+            .any(|observation| observation.kind.is_semantic_success());
+        let has_no_effect = snapshot
+            .observations
+            .iter()
+            .any(|observation| observation.kind.is_no_effect());
+
         let halt_provenance = match snapshot.state {
             DeliveryState::IntegrityHalted => {
                 let provenance = snapshot
@@ -892,15 +901,6 @@ impl<B: EffectBinding> DeliveryRecord<B> {
                     .any(|observation| observation.attempt_id == attempt_id && observation.kind == kind)
             })
         };
-        let has_success = snapshot
-            .observations
-            .iter()
-            .any(|observation| observation.kind.is_semantic_success());
-        let has_no_effect = snapshot
-            .observations
-            .iter()
-            .any(|observation| observation.kind.is_no_effect());
-
         if has_success && has_no_effect && snapshot.state != DeliveryState::IntegrityHalted {
             return Err(DeliveryError::SnapshotInvariantViolation(
                 "conflicting semantic evidence must halt",
