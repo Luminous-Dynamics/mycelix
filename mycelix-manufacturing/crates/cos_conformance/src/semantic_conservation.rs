@@ -264,6 +264,17 @@ fn input_commitments_exact(
         })
 }
 
+fn authority_roles_are_qualified(
+    profile: &SemanticDerivationProfileV1,
+    inputs: &BTreeMap<String, &SemanticDerivationInputV1>,
+) -> bool {
+    profile.authority_input_ids.iter().all(|id| {
+        inputs
+            .get(id)
+            .is_some_and(|input| matches!(input.role, SemanticDerivationInputRoleV1::AuthorityBearing))
+    })
+}
+
 fn authority_ceiling(
     profile: &SemanticDerivationProfileV1,
     inputs: &BTreeMap<String, &SemanticDerivationInputV1>,
@@ -353,6 +364,10 @@ pub fn assess_semantic_derivation(
         || !input_commitments_exact(&input_map, receipt)
     {
         return SemanticConservationDispositionV1::BlockedInputBinding;
+    }
+
+    if !authority_roles_are_qualified(profile, &input_map) {
+        return SemanticConservationDispositionV1::BlockedAuthority;
     }
 
     if inputs.iter().any(|input| {
@@ -709,6 +724,17 @@ mod tests {
         assert_eq!(
             assess_semantic_derivation(&profile(), &[d6p_input()], &c, &r),
             SemanticConservationDispositionV1::BlockedScope
+        );
+    }
+
+    #[test]
+    fn provenance_or_supporting_input_cannot_be_promoted_to_authority() {
+        let mut input = d6p_input();
+        input.role = SemanticDerivationInputRoleV1::Provenance;
+        let r = receipt(SemanticConservationDispositionV1::Conserved);
+        assert_eq!(
+            assess_semantic_derivation(&profile(), &[input], &claim(), &r),
+            SemanticConservationDispositionV1::BlockedAuthority
         );
     }
 
