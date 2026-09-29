@@ -8,6 +8,7 @@
 
 use hdk::prelude::*;
 use hearth_coordinator_common::{get_latest_record, records_from_links};
+use mycelix_zome_helpers::get_latest_record_strict;
 use hearth_kinship_integrity::*;
 use hearth_types::*;
 use mycelix_bridge_common::{
@@ -109,7 +110,7 @@ fn membership_records_for_hearth(
     for link in links {
         let target = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid membership link".into())))?;
-        if let Some(record) = get_latest_record(target)? {
+        if let Some(record) = get_latest_record_strict(target)? {
             let membership: HearthMembership = entry_from_record(&record, "HearthMembership")?;
             if membership.hearth_hash == *hearth_hash {
                 records.push((record, membership));
@@ -965,7 +966,7 @@ fn resolve_active_membership_role(
 /// This endpoint is read evidence only. Consequential mutations must continue
 /// to enforce membership and role at their own source.
 #[hdk_extern]
-pub fn get_my_active_hearths(_: ()) -> ExternResult<Vec<ActiveHearthView>> {
+pub fn get_my_active_hearths(_: ()) -> ExternResult<ActiveHearthCatalogView> {
     let agent = agent_info()?.agent_initial_pubkey;
     let observed_at = sys_time()?;
 
@@ -1029,7 +1030,6 @@ pub fn get_my_active_hearths(_: ()) -> ExternResult<Vec<ActiveHearthView>> {
             hearth_hash,
             latest_hearth_record_hash: hearth_record.action_address().to_owned(),
             membership_record_hash: membership_record.action_address().to_owned(),
-            agent: agent.clone(),
             role,
             name: hearth.name,
             description: hearth.description,
@@ -1043,7 +1043,11 @@ pub fn get_my_active_hearths(_: ()) -> ExternResult<Vec<ActiveHearthView>> {
 
     // Ordering is representational only; selection policy must never use it.
     active.sort_by(|a, b| a.hearth_hash.cmp(&b.hearth_hash));
-    Ok(active)
+    Ok(ActiveHearthCatalogView {
+        agent,
+        observed_at,
+        hearths: active,
+    })
 }
 
 /// Get the full kinship graph (all bonds) for a hearth.
