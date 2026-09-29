@@ -92,3 +92,21 @@ Out-of-order lifecycle transitions and dependency snapshots may be recorded as t
 
 Claim ceiling: **ReferenceModelOnly**. This does not establish real-world revocation, observer trust, key authenticity, physical observation correctness, distributed consensus, durable storage, production finality, or actuation safety.
 
+## Finality/lifecycle eligibility composition
+
+`finality_eligibility_composition.rs` composes D6N contestable-finality classifications with D6O observer/evidence lifecycle eligibility.
+
+A current independent witness is counted only when:
+
+`D6N CorroboratingIndependent + D6O EligibleCurrent + exact join`
+
+The composition recomputes the eligible witness count rather than trusting D6N's historical independent count. Historical-only, lifecycle/profile/dependency/continuity-blocked, archived, or insufficient D6O evidence does not satisfy a current-finality threshold.
+
+D6N contradictory classifications remain preserved and keep the composition contested; lifecycle invalidation never rewrites the underlying observation. Exact observation, observer, generation, profile, environment, dependency, frontier, and assessment commitments are bound, while the D6O lifecycle profile remains distinct from the D6N finality profile.
+
+Only `EligibleCurrent` composition receipts are terminal in the reference ledger. Insufficient, contested, and blocked receipts remain non-terminal so later evidence may produce a newly qualified receipt.
+
+The resulting composition is qualification evidence only. It cannot authorize actuation or manufacture semantic authority. See `docs/integral/finality-lifecycle-eligibility-composition-v1.md`.
+
+Claim ceiling: **ReferenceModelOnly**.
+
