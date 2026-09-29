@@ -128,9 +128,32 @@ D6S rejects dangling or type-incompatible edges, semantic derivation/support cyc
 
 Current D6P receipts are bound to the exact environment frontier and exact D6P context commitment set. Contradiction/unresolved flags must agree with the result disposition.
 
-The receipt uses deterministic Rust `serde_json` encoding and SHA-256 only as a ReferenceModelOnly integrity commitment. This is **not** a cross-language canonicalization claim; D6T #3464 freezes that protocol boundary.
+D6T now freezes `D6S-CANON-1`: recursive UTF-16 property ordering, preserved array order, deterministic string escaping without Unicode normalization, integer-only numbers, exact UTF-8 output, explicit SHA-256 domain separation, and per-object commitment labels. The profile is a D6S-specific canonical JSON subset and is **not** described as RFC 8785/JCS-compatible.
 
 See `docs/integral/canonical-derivation-receipt-v1.md`.
+
+Claim ceiling: **ReferenceModelOnly**.
+
+## D6T — cross-language canonical encoding profile
+
+D6T freezes the byte representation used by D6S commitments as `D6S-CANON-1`.
+
+The reference implementation defines:
+
+- recursive UTF-16 code-unit property ordering;
+- insertion-order-independent objects;
+- preserved array order;
+- deterministic control-character escaping and raw Unicode scalar preservation;
+- integer-only numeric values; non-integral numbers are rejected;
+- null/boolean spellings and exact UTF-8 output;
+- explicit domain-separated SHA-256 commitments with per-object labels;
+- receipt self-commitment that excludes `receipt_commitment` from its own preimage.
+
+The current vector suite covers empty/nested values, property ordering, UTF-16 ordering, controls, integer rejection, domain separation, and material-field mutation.
+
+D6S-CANON-1 is intentionally **not** called RFC 8785/JCS-compatible. Independent implementations must reproduce the frozen vectors and primitive rules before interoperability is claimed.
+
+See `docs/integral/canonical-encoding-profile-d6t-v1.md`.
 
 Claim ceiling: **ReferenceModelOnly**.
 
