@@ -12,6 +12,10 @@
 #![warn(missing_docs)]
 
 use mycelix_forge_core::{Digest, DigestAlgorithm, ProtocolVersion};
+mod authority;
+pub use authority::{
+    qualify_merge_execution_authorization_v1, MergeExecutionAuthorityEvidenceV1,
+};
 use mycelix_forge_sealed_executor_interface::{
     SealedExecutorInterfaceError, SealedExecutorInvocationV1,
 };
