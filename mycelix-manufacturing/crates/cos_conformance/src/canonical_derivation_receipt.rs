@@ -445,13 +445,13 @@ mod tests {
     fn environment_substitution_changes_receipt() {
         let p = projection();
         let profile = profile();
-        let first = build_canonical_receipt(&p, &env(), &profile, DerivationResultStatusV1::Supported, "result-1".into(), false, false).unwrap();
+        let first = build_canonical_receipt(&p, &env(), &profile, &[d6p_receipt()], DerivationResultStatusV1::Supported, "result-1".into(), false, false).unwrap();
 
         let mut changed_env = env();
         changed_env.policy_version = "policy-2".into();
         let mut changed_projection = p.clone();
         changed_projection.semantic_environment_commitment = changed_env.commitment();
-        let second = build_canonical_receipt(&changed_projection, &changed_env, &profile, DerivationResultStatusV1::Supported, "result-1".into(), false, false).unwrap();
+        let second = build_canonical_receipt(&changed_projection, &changed_env, &profile, &[d6p_receipt()], DerivationResultStatusV1::Supported, "result-1".into(), false, false).unwrap();
 
         assert_ne!(first.receipt_commitment, second.receipt_commitment);
     }
@@ -460,7 +460,7 @@ mod tests {
     fn profile_substitution_changes_receipt() {
         let p = projection();
         let e = env();
-        let first = build_canonical_receipt(&p, &e, &profile(), DerivationResultStatusV1::Supported, "result-1".into(), false, false).unwrap();
+        let first = build_canonical_receipt(&p, &e, &profile(), &[d6p_receipt()], DerivationResultStatusV1::Supported, "result-1".into(), false, false).unwrap();
         let mut changed = profile();
         changed.version = "2".into();
         let mut changed_projection = p.clone();
