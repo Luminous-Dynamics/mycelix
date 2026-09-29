@@ -262,7 +262,8 @@ fn validate_frontier(
             EvidenceStatus::Unavailable | EvidenceStatus::Unknown | EvidenceStatus::FutureInaccessible | EvidenceStatus::Stale => {
                 return Err(NormalizationError::EvidenceUnavailableAtFrontier)
             }
-            EvidenceStatus::Known | EvidenceStatus::ObservedUnqualified => {}
+            EvidenceStatus::Known => {},
+        EvidenceStatus::ObservedUnqualified => return Err(NormalizationError::FactorUnavailableAtFrontier),
         }
         if evidence.available_at_micros.is_none() || evidence.available_at_micros.unwrap() > frontier.as_of_micros {
             return Err(NormalizationError::EvidenceUnavailableAtFrontier);
