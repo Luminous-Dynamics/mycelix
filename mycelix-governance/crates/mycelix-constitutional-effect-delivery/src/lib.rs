@@ -1581,6 +1581,45 @@ mod tests {
     }
 
     #[test]
+    fn recovery_rejects_forged_observation_sequence() {
+        let mut record = record(ReplayProfile::NoAutomaticRetry);
+        let id = attempt(&mut record);
+        record.observe(Observation::outcome_unknown(binding(), id, 8)).unwrap();
+        let mut snapshot = record.snapshot();
+        snapshot.observations[0].sequence = 2;
+
+        assert_eq!(
+            DeliveryRecord::recover(snapshot),
+            Err(DeliveryError::SnapshotInvariantViolation(
+                "replayed observation sequence does not match persistence"
+            ))
+        );
+    }
+
+    #[test]
+    fn recovery_rejects_observations_outside_contiguous_attempt_history() {
+        let mut record = record(ReplayProfile::IdempotentByEffectInstance);
+        let first = attempt(&mut record);
+        record
+            .observe(Observation::outcome_unknown(binding(), first, 8))
+            .unwrap();
+        let second = record.retry_same_effect(&binding()).unwrap().attempt_id();
+
+        let mut snapshot = record.snapshot();
+        snapshot.observations[0].attempt_id = second;
+        snapshot.observations[0].kind = ObservationKind::SemanticSuccess;
+        snapshot.observations[0].evidence_id = 10;
+        snapshot.observations[0].reconciles_sequence = None;
+
+        assert_eq!(
+            DeliveryRecord::recover(snapshot),
+            Err(DeliveryError::SnapshotInvariantViolation(
+                "observations are not ordered by contiguous attempt history"
+            ))
+        );
+    }
+
+    #[test]
     fn snapshot_rejects_conflict_without_halt() {
         let mut record = record(ReplayProfile::NoAutomaticRetry);
         let id = attempt(&mut record);
