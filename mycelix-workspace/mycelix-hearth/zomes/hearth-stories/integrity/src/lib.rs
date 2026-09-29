@@ -7,7 +7,7 @@
 
 use hdi::prelude::*;
 use hearth_types::*;
-use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
+use mycelix_bridge_entry_types::{check_author_match, check_claimed_agent_match, check_link_author_match};
 
 // ============================================================================
 // Entry Types
@@ -128,8 +128,28 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::CreateEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
-                EntryTypes::FamilyStory(story) => validate_story(story),
-                EntryTypes::StoryCollection(collection) => validate_collection(collection),
+                EntryTypes::FamilyStory(story) => {
+                    let result = check_claimed_agent_match(
+                        &story.storyteller,
+                        action.author(),
+                        "FamilyStory.storyteller",
+                    );
+                    if result != ValidateCallbackResult::Valid {
+                        return Ok(result);
+                    }
+                    validate_story(story)
+                },
+                EntryTypes::StoryCollection(collection) => {
+                    let result = check_claimed_agent_match(
+                        &collection.curator,
+                        action.author(),
+                        "StoryCollection.curator",
+                    );
+                    if result != ValidateCallbackResult::Valid {
+                        return Ok(result);
+                    }
+                    validate_collection(collection)
+                },
                 EntryTypes::FamilyTradition(tradition) => validate_tradition(tradition),
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
             },

@@ -7,7 +7,7 @@
 
 use hdi::prelude::*;
 use hearth_types::*;
-use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
+use mycelix_bridge_entry_types::{check_author_match, check_claimed_agent_match, check_link_author_match};
 
 // ============================================================================
 // Entry Types
@@ -113,7 +113,17 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::CreateEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
-                EntryTypes::GratitudeExpression(expr) => validate_gratitude(expr),
+                EntryTypes::GratitudeExpression(expr) => {
+                    let result = check_claimed_agent_match(
+                        &expr.from_agent,
+                        action.author(),
+                        "GratitudeExpression.from_agent",
+                    );
+                    if result != ValidateCallbackResult::Valid {
+                        return Ok(result);
+                    }
+                    validate_gratitude(expr)
+                },
                 EntryTypes::AppreciationCircle(circle) => validate_circle(circle),
                 EntryTypes::GratitudeAnchor(anchor) => validate_anchor(anchor),
             },

@@ -8,7 +8,7 @@
 
 use hdi::prelude::*;
 use hearth_types::*;
-use mycelix_bridge_entry_types::check_link_author_match;
+use mycelix_bridge_entry_types::{check_claimed_agent_match, check_link_author_match};
 
 // ============================================================================
 // Entry Types
@@ -118,10 +118,30 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::CreateEntry(OpEntry::CreateEntry {
             app_entry,
-            action: _,
+            action,
         }) => match app_entry {
-            EntryTypes::Decision(decision) => validate_decision(&decision),
-            EntryTypes::Vote(vote) => validate_vote(&vote),
+            EntryTypes::Decision(decision) => {
+                let result = check_claimed_agent_match(
+                    &decision.created_by,
+                    action.author(),
+                    "Decision.created_by",
+                );
+                if result != ValidateCallbackResult::Valid {
+                    return Ok(result);
+                }
+                validate_decision(&decision)
+            }
+            EntryTypes::Vote(vote) => {
+                let result = check_claimed_agent_match(
+                    &vote.voter,
+                    action.author(),
+                    "Vote.voter",
+                );
+                if result != ValidateCallbackResult::Valid {
+                    return Ok(result);
+                }
+                validate_vote(&vote)
+            },
             EntryTypes::DecisionOutcome(outcome) => validate_outcome(&outcome),
         },
         FlatOp::CreateEntry(OpEntry::UpdateEntry {

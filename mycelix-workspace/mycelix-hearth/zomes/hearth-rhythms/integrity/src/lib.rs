@@ -8,7 +8,7 @@
 
 use hdi::prelude::*;
 use hearth_types::*;
-use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
+use mycelix_bridge_entry_types::{check_author_match, check_claimed_agent_match, check_link_author_match};
 
 // ============================================================================
 // Entry Types
@@ -106,11 +106,21 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::CreateEntry(OpEntry::CreateEntry {
             app_entry,
-            action: _,
+            action,
         }) => match app_entry {
             EntryTypes::Rhythm(rhythm) => validate_rhythm(&rhythm),
             EntryTypes::RhythmOccurrence(occurrence) => validate_occurrence(&occurrence),
-            EntryTypes::PresenceStatus(presence) => validate_presence(&presence),
+            EntryTypes::PresenceStatus(presence) => {
+                let result = check_claimed_agent_match(
+                    &presence.agent,
+                    action.author(),
+                    "PresenceStatus.agent",
+                );
+                if result != ValidateCallbackResult::Valid {
+                    return Ok(result);
+                }
+                validate_presence(&presence)
+            },
         },
         FlatOp::CreateEntry(OpEntry::UpdateEntry {
             app_entry,
