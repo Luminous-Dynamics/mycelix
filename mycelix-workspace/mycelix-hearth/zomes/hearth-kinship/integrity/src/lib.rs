@@ -171,107 +171,71 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, action }) => match app_entry {
-            EntryTypes::Hearth(hearth) => validate_hearth(&hearth),
-            EntryTypes::HearthMembership(membership) => {
-                let structural = validate_membership(&membership)?;
-                if structural != ValidateCallbackResult::Valid {
-                    return Ok(structural);
-                }
-                validate_membership_admission(&membership)
-            }
-            EntryTypes::KinshipBond(bond) => validate_bond(&bond),
-            EntryTypes::HearthInvitation(invitation) => validate_invitation(&invitation),
-            EntryTypes::InvitationResponse(response) => {
-                let authorship = validate_claimed_agent(
-                    &action.author,
-                    &response.invitee_agent,
-                    "InvitationResponse.invitee_agent",
-                );
-                if authorship != ValidateCallbackResult::Valid {
-                    return Ok(authorship);
-                }
-                validate_invitation_response(&response)
-            }
-            EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-            EntryTypes::WeeklyDigest(digest) => validate_weekly_digest(&digest),
-        },
-        FlatOp::StoreEntry(OpEntry::UpdateEntry {
+        // Holochain 0.7 validates both the entry authority's CreateEntry
+        // operation and the action authority's CreateRecord operation.
+        // Keep the application semantics identical on both paths.
+        FlatOp::CreateEntry(OpEntry::CreateEntry { app_entry, action }) => {
+            validate_created_entry(app_entry, action.author())
+        }
+        FlatOp::CreateRecord(OpRecord::CreateEntry { app_entry, action }) => {
+            validate_created_entry(app_entry, action.author())
+        }
+        FlatOp::CreateEntry(OpEntry::UpdateEntry {
             app_entry,
-            original_action_hash,
-            ..
-        }) => match app_entry {
-            EntryTypes::Hearth(hearth) => {
-                let structural = validate_hearth(&hearth)?;
-                if structural != ValidateCallbackResult::Valid {
-                    return Ok(structural);
-                }
-                validate_hearth_immutable_fields(&hearth, &original_action_hash)
-            }
-            EntryTypes::HearthMembership(membership) => {
-                let structural = validate_membership(&membership)?;
-                if structural != ValidateCallbackResult::Valid {
-                    return Ok(structural);
-                }
-                validate_membership_immutable_fields(&membership, &original_action_hash)
-            }
-            EntryTypes::KinshipBond(bond) => {
-                let structural = validate_bond(&bond)?;
-                if structural != ValidateCallbackResult::Valid {
-                    return Ok(structural);
-                }
-                validate_bond_immutable_fields(&bond, &original_action_hash)
-            }
-            EntryTypes::HearthInvitation(_) => Ok(ValidateCallbackResult::Invalid(
-                "HearthInvitation is immutable; publish an InvitationResponse instead".into(),
-            )),
-            EntryTypes::InvitationResponse(_) => Ok(ValidateCallbackResult::Invalid(
-                "InvitationResponse cannot be updated once created".into(),
-            )),
-            EntryTypes::Anchor(_) => {
-                // INVARIANT: Anchor immutability — anchors are deterministic link bases
-                // and must not be modified after creation.
-                Ok(ValidateCallbackResult::Invalid(
-                    "Anchor cannot be updated once created".into(),
-                ))
-            }
-            EntryTypes::WeeklyDigest(_) => {
-                // INVARIANT: WeeklyDigest immutability — digests are rollup snapshots
-                // of an epoch and cannot be modified after creation.
-                Ok(ValidateCallbackResult::Invalid(
-                    "WeeklyDigest cannot be updated once created".into(),
-                ))
-            }
-        },
-        FlatOp::StoreEntry(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterCreateLink {
-            link_type,
-            base_address,
-            target_address,
-            tag,
             action,
-        } => {
-            if tag.0.len() > 512 {
+            ..
+        }) => validate_updated_entry(app_entry, &action.original_action_address),
+        FlatOp::CreateRecord(OpRecord::UpdateEntry {
+            app_entry,
+            action,
+            ..
+        }) => validate_updated_entry(app_entry, &action.original_action_address),
+        FlatOp::CreateEntry(_) | FlatOp::CreateRecord(_) => {
+            Ok(ValidateCallbackResult::Valid)
+        }
+
+        FlatOp::Link(OpLink::CreateLink { link_type, action }) => {
+            if action.data.tag.0.len() > 512 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Link tag exceeds 512 bytes".into(),
                 ));
             }
-            validate_create_link(link_type, base_address, target_address, &action.author)
+            validate_create_link(
+                link_type,
+                action.data.base_address.clone(),
+                action.data.target_address.clone(),
+                action.author(),
+            )
         }
-        FlatOp::RegisterDeleteLink { tag, action, .. } => {
-            let original_action = must_get_action(action.link_add_address.clone())?;
-            let result = check_link_author_match(original_action.action().author(), &action.author);
+        FlatOp::CreateRecord(OpRecord::CreateLink {
+            link_type, action, ..
+        }) => {
+            if action.data.tag.0.len() > 512 {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Link tag exceeds 512 bytes".into(),
+                ));
+            }
+            validate_create_link(
+                link_type,
+                action.data.base_address.clone(),
+                action.data.target_address.clone(),
+                action.author(),
+            )
+        }
+        FlatOp::Link(OpLink::DeleteLink {
+            action,
+            original_action,
+            ..
+        }) => {
+            let result =
+                check_link_author_match(original_action.author(), action.author());
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
-            if tag.0.len() > 512 {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Link tag exceeds 512 bytes".into(),
-                ));
-            }
             Ok(ValidateCallbackResult::Valid)
         }
-        FlatOp::RegisterUpdate(update) => {
+
+        FlatOp::Update(update) => {
             let action = match &update {
                 OpUpdate::Entry { action, .. }
                 | OpUpdate::PrivateEntry { action, .. }
@@ -282,19 +246,119 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             let original = must_get_action(action.original_action_address.clone())?;
             Ok(check_author_match(
                 original.action().author(),
-                &action.author,
+                action.author(),
                 "update",
             ))
         }
-        FlatOp::RegisterDelete(OpDelete { action, .. }) => {
+        FlatOp::Delete(OpDelete { action }) => {
             let original = must_get_action(action.deletes_address.clone())?;
             Ok(check_author_match(
                 original.action().author(),
-                &action.author,
+                action.author(),
                 "delete",
             ))
         }
         _ => Ok(ValidateCallbackResult::Valid),
+    }
+}
+
+/// Apply entry validation to both the CreateEntry and CreateRecord operations.
+fn validate_created_entry(
+    app_entry: EntryTypes,
+    author: &AgentPubKey,
+) -> ExternResult<ValidateCallbackResult> {
+    match app_entry {
+        EntryTypes::Hearth(hearth) => {
+            let authorship = validate_claimed_agent(author, &hearth.created_by, "Hearth.created_by");
+            if authorship != ValidateCallbackResult::Valid {
+                return Ok(authorship);
+            }
+            validate_hearth(&hearth)
+        }
+        EntryTypes::HearthMembership(membership) => {
+            let authorship =
+                validate_claimed_agent(author, &membership.agent, "HearthMembership.agent");
+            if authorship != ValidateCallbackResult::Valid {
+                return Ok(authorship);
+            }
+            let structural = validate_membership(&membership)?;
+            if structural != ValidateCallbackResult::Valid {
+                return Ok(structural);
+            }
+            validate_membership_admission(&membership)
+        }
+        EntryTypes::KinshipBond(bond) => {
+            let authorship =
+                validate_claimed_agent(author, &bond.member_a, "KinshipBond.member_a");
+            if authorship != ValidateCallbackResult::Valid {
+                return Ok(authorship);
+            }
+            validate_bond(&bond)
+        }
+        EntryTypes::HearthInvitation(invitation) => {
+            let authorship =
+                validate_claimed_agent(author, &invitation.inviter, "HearthInvitation.inviter");
+            if authorship != ValidateCallbackResult::Valid {
+                return Ok(authorship);
+            }
+            validate_invitation(&invitation)
+        }
+        EntryTypes::InvitationResponse(response) => {
+            let authorship = validate_claimed_agent(
+                author,
+                &response.invitee_agent,
+                "InvitationResponse.invitee_agent",
+            );
+            if authorship != ValidateCallbackResult::Valid {
+                return Ok(authorship);
+            }
+            validate_invitation_response(&response)
+        }
+        EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
+        EntryTypes::WeeklyDigest(digest) => validate_weekly_digest(&digest),
+    }
+}
+
+/// Apply update-specific structural and immutable-field validation. Author
+/// binding is enforced independently by the FlatOp::Update path below.
+fn validate_updated_entry(
+    app_entry: EntryTypes,
+    original_action_hash: &ActionHash,
+) -> ExternResult<ValidateCallbackResult> {
+    match app_entry {
+        EntryTypes::Hearth(hearth) => {
+            let structural = validate_hearth(&hearth)?;
+            if structural != ValidateCallbackResult::Valid {
+                return Ok(structural);
+            }
+            validate_hearth_immutable_fields(&hearth, original_action_hash)
+        }
+        EntryTypes::HearthMembership(membership) => {
+            let structural = validate_membership(&membership)?;
+            if structural != ValidateCallbackResult::Valid {
+                return Ok(structural);
+            }
+            validate_membership_immutable_fields(&membership, original_action_hash)
+        }
+        EntryTypes::KinshipBond(bond) => {
+            let structural = validate_bond(&bond)?;
+            if structural != ValidateCallbackResult::Valid {
+                return Ok(structural);
+            }
+            validate_bond_immutable_fields(&bond, original_action_hash)
+        }
+        EntryTypes::HearthInvitation(_) => Ok(ValidateCallbackResult::Invalid(
+            "HearthInvitation is immutable; publish an InvitationResponse instead".into(),
+        )),
+        EntryTypes::InvitationResponse(_) => Ok(ValidateCallbackResult::Invalid(
+            "InvitationResponse cannot be updated once created".into(),
+        )),
+        EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Invalid(
+            "Anchor cannot be updated once created".into(),
+        )),
+        EntryTypes::WeeklyDigest(_) => Ok(ValidateCallbackResult::Invalid(
+            "WeeklyDigest cannot be updated once created".into(),
+        )),
     }
 }
 
@@ -336,7 +400,7 @@ fn validate_create_link(
                     Err(result) => return Ok(result),
                 };
             let (membership, membership_author): (HearthMembership, AgentPubKey) =
-                load_typed_entry(membership_hash, "HearthMembership")?;
+                load_original_typed_entry(membership_hash, "HearthMembership")?;
             if membership.hearth_hash != hearth_hash {
                 return Ok(ValidateCallbackResult::Invalid(
                     "HearthToMembers target belongs to a different hearth".into(),
@@ -495,11 +559,19 @@ pub fn validate_membership(membership: &HearthMembership) -> ExternResult<Valida
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn load_typed_entry<T>(hash: ActionHash, label: &str) -> ExternResult<(T, AgentPubKey)>
+fn load_original_typed_entry<T>(
+    hash: ActionHash,
+    label: &str,
+) -> ExternResult<(T, AgentPubKey)>
 where
     T: TryFrom<SerializedBytes, Error = SerializedBytesError>,
 {
     let record = must_get_valid_record(hash)?;
+    if !matches!(&record.action().data, ActionData::Create(_)) {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Referenced {label} action is not the original Create action"
+        ))));
+    }
     let author = record.action().author().clone();
     let entry = record
         .entry()
