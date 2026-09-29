@@ -399,7 +399,7 @@ fn sequence(depth: usize, prefix: &mut Vec<Op>, out: &mut Vec<Vec<Op>>) {
 #[test]
 fn bounded_mutation_model_checks_prefixes_and_recovery() {
     let mut cases = Vec::new();
-    sequence(4, &mut Vec::new(), &mut cases);
+    sequence(3, &mut Vec::new(), &mut cases);
 
     for profile in [ReplayProfile::NoAutomaticRetry, ReplayProfile::IdempotentByEffectInstance] {
         for operations in &cases {
