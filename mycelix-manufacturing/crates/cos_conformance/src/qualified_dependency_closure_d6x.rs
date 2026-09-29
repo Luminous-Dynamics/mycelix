@@ -385,9 +385,8 @@ pub fn compute_dependency_closure(
         included_ids.insert(id.clone());
         let node_dependency = SemanticDependencyReferenceV1::node(id.clone(), Some(node.node_commitment.clone()));
         dependencies.insert(node_dependency.clone());
-        let node_is_stale = projection.edges.values().any(|edge| {
+        let node_is_stale = node.historical_only && projection.edges.values().any(|edge| {
             edge.to_node_id == id
-                && included_edges.contains(&edge.edge_id)
                 && profile.rules.iter().any(|rule| {
                     rule.matches(
                         projection.nodes.get(&edge.from_node_id).map(|n| n.kind).unwrap_or(node.kind),
@@ -395,7 +394,6 @@ pub fn compute_dependency_closure(
                         edge.kind,
                     ) && rule.currentness == DependencyCurrentnessV1::CurrentOnly
                 })
-                && node.historical_only
         });
         dependency_resolutions.insert(
             node_dependency,
