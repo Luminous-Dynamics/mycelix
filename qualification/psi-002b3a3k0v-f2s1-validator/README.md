@@ -57,3 +57,10 @@ This package boundary establishes only the intended isolation and dependency dec
 It does **not** establish schema correctness, currentness, issuer-key admission, token validity, replay authorization, PSI qualification, or contact-discovery security.
 
 **NOT EXECUTED / NOT A PASS.**
+## Independent capsule verification
+
+The repository also contains a dependency-free evidence consumer at `tools/verify_capsule.py`. It verifies the produced capsule without importing the generation workflow or any validator/currentness/crypto implementation. It checks the exact capsule allowlist, regular-file boundary, manifest digests, canonical provenance, source commit/tree bindings, manifest/lock digests, toolchain evidence, dependency inventory, lock projection, and package dependency boundary.
+
+The lock-capsule workflow runs this verifier **after packaging and before artifact upload**. This creates a producer/consumer separation: the workflow constructs the evidence, while a separate implementation independently checks the packaged evidence graph.
+
+The verifier's own PASS message is limited to **evidence integrity only**. It does not qualify JSON Schema semantics, currentness, issuer-key admission, token validity, replay authorization, PSI, or contact-discovery security.
