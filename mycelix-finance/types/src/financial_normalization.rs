@@ -8,7 +8,7 @@
 //! is introduced. Arithmetic is performed on decimal text using bounded i128
 //! intermediates so replay does not depend on machine floating-point behavior.
 
-use super::{DecimalValue, MarketObservation, MarketUnit};
+use super::{DecimalValue, EvidenceRef, EvidenceStatus, InformationFrontier, MarketObservation, MarketUnit};
 use serde::{Deserialize, Serialize};
 
 /// A deterministic recipe describing how a raw observation becomes a derived
@@ -21,6 +21,9 @@ pub struct NormalizationRecipe {
     pub multiplier: Option<DecimalValue>,
     pub output_scale: Option<u32>,
     pub session: Option<SessionNormalization>,
+    /// Evidence required to perform the transformation. Every reference must
+    /// be available at the replay frontier; otherwise the transformation fails closed.
+    pub evidence_refs: Vec<EvidenceRef>,
 }
 
 /// Explicitly typed transformations prevent provider-specific adjustment
@@ -46,16 +49,17 @@ pub struct SessionNormalization {
 
 /// Reference to the immutable raw observation(s) used by a projection.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RawObservationRef {
-    pub observation_id: String,
-    pub source_id: String,
+pub enum NormalizationInputRef {
+    RawObservation { observation_id: String, source_id: String },
+    DerivedProjection { projection_id: String, transformation_id: String },
+    Evidence { evidence_id: String, source_id: String },
 }
 
 /// Independently identifiable normalized projection with complete recipe lineage.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NormalizedObservation {
     pub projection_id: String,
-    pub raw_observations: Vec<RawObservationRef>,
+    pub input_refs: Vec<NormalizationInputRef>,
     pub recipe: NormalizationRecipe,
     pub value: DecimalValue,
     pub unit: MarketUnit,
@@ -101,6 +105,7 @@ pub fn normalize_chain(
         current.value = next.value.clone();
         current.unit = next.unit.clone();
         current.observation_id = next.projection_id.clone();
+        current.evidence_refs = next.evidence_refs.clone();
         results.push(next);
     }
     Ok(results)
@@ -114,6 +119,11 @@ pub enum NormalizationError {
     ScaleOverflow,
     ArithmeticOverflow,
     NegativeScale,
+    EvidenceUnavailableAtFrontier,
+    ProtectedEvidence,
+    ConflictingEvidence,
+    FutureObservation,
+    FrontierMismatch,
 }
 
 /// Apply a single deterministic multiplier and optional output scale.
@@ -124,6 +134,16 @@ pub fn normalize_observation(
     observation: &MarketObservation,
     recipe: &NormalizationRecipe,
 ) -> Result<NormalizedObservation, NormalizationError> {
+    normalize_observation_at_frontier(observation, recipe, &observation.information_frontier)
+}
+
+/// Apply a transformation only with information available at the requested frontier.
+pub fn normalize_observation_at_frontier(
+    observation: &MarketObservation,
+    recipe: &NormalizationRecipe,
+    frontier: &InformationFrontier,
+) -> Result<NormalizedObservation, NormalizationError> {
+    validate_frontier(observation, recipe, frontier)?;
     let output_unit = recipe
         .target_unit
         .clone()
@@ -146,16 +166,56 @@ pub fn normalize_observation(
 
     Ok(NormalizedObservation {
         projection_id,
-        raw_observations: vec![RawObservationRef {
+        input_refs: vec![NormalizationInputRef::RawObservation {
             observation_id: observation.observation_id.clone(),
             source_id: observation.source.source_id.clone(),
         }],
+        evidence_refs: recipe.evidence_refs.clone(),
         recipe: recipe.clone(),
         value,
         unit: output_unit,
         observed_at_micros: observation.observed_at_micros,
         information_frontier: observation.information_frontier.clone(),
     })
+}
+
+fn validate_frontier(
+    observation: &MarketObservation,
+    recipe: &NormalizationRecipe,
+    frontier: &InformationFrontier,
+) -> Result<(), NormalizationError> {
+    if observation.information_frontier.as_of_micros > frontier.as_of_micros {
+        return Err(NormalizationError::FrontierMismatch);
+    }
+    if observation.status == EvidenceStatus::Protected {
+        return Err(NormalizationError::ProtectedEvidence);
+    }
+    if observation.status == EvidenceStatus::Conflicting {
+        return Err(NormalizationError::ConflictingEvidence);
+    }
+    if observation.available_at_micros.is_none() {
+        return Err(NormalizationError::EvidenceUnavailableAtFrontier);
+    }
+    if observation.available_at_micros.unwrap() > frontier.as_of_micros {
+        return Err(NormalizationError::FutureObservation);
+    }
+    for evidence in &recipe.evidence_refs {
+        match evidence.status {
+            EvidenceStatus::Protected => return Err(NormalizationError::ProtectedEvidence),
+            EvidenceStatus::Conflicting => return Err(NormalizationError::ConflictingEvidence),
+            EvidenceStatus::Unavailable | EvidenceStatus::Unknown | EvidenceStatus::FutureInaccessible | EvidenceStatus::Stale => {
+                return Err(NormalizationError::EvidenceUnavailableAtFrontier)
+            }
+            EvidenceStatus::Known | EvidenceStatus::ObservedUnqualified => {}
+        }
+        if evidence.available_at_micros.is_none() || evidence.available_at_micros.unwrap() > frontier.as_of_micros {
+            return Err(NormalizationError::EvidenceUnavailableAtFrontier);
+        }
+        if evidence.information_frontier.as_of_micros > frontier.as_of_micros {
+            return Err(NormalizationError::FrontierMismatch);
+        }
+    }
+    Ok(())
 }
 
 fn parse_decimal(value: &DecimalValue) -> Result<i128, NormalizationError> {
@@ -301,7 +361,7 @@ mod tests {
             multiplier: multiplier.map(|v| DecimalValue { value: v.into(), scale: multiplier_scale }),
             output_scale,
             session: None,
-        }
+            evidence_refs: vec![],
     }
 
     #[test]
@@ -310,7 +370,7 @@ mod tests {
         let normalized = normalize_observation(&raw, &recipe(AdjustmentKind::Split, Some("0.5"), 1, Some(2))).unwrap();
         assert_eq!(normalized.value.value, "50.00");
         assert_eq!(raw.value.value, "100.00");
-        assert_eq!(normalized.raw_observations[0].observation_id, "obs-raw-001");
+        assert_eq!(match &normalized.input_refs[0] { NormalizationInputRef::RawObservation { observation_id, .. } => observation_id.as_str(), _ => "" }, "obs-raw-001");
     }
 
     #[test]
@@ -357,6 +417,7 @@ mod tests {
                 session_label: "regular".into(),
                 timezone: "UTC".into(),
             }),
+            evidence_refs: vec![],
         }).unwrap();
         assert_eq!(normalized.observed_at_micros, raw.observed_at_micros);
         assert_eq!(normalized.recipe.session.as_ref().unwrap().timezone, "UTC");
@@ -375,4 +436,32 @@ mod tests {
         let normalized = normalize_observation(&raw, &recipe(AdjustmentKind::Split, Some("0.5"), 1, Some(2))).unwrap();
         assert_eq!(normalized.projection_id, "norm:obs-raw-001:recipe-1:frontier-1");
     }
+}
+
+
+#[cfg(test)]
+mod frontier_tests {
+    use super::*;
+    use crate::{FinancialSubjectKind, FinancialSubjectRef, IdentifierAlias, SourceRef, ValidityInterval};
+    fn obs() -> MarketObservation {
+        MarketObservation { observation_id: "obs-frontier-001".into(),
+            subject: FinancialSubjectRef { subject_id: "instrument:x".into(), subject_kind: FinancialSubjectKind::Instrument,
+                validity_interval: ValidityInterval { valid_from_micros: Some(0), valid_to_micros: None },
+                identifier_aliases: vec![IdentifierAlias { namespace: "ticker".into(), value: "X".into(), valid_from_micros: Some(0), valid_to_micros: None }], lineage_relations: vec![],
+                information_frontier: InformationFrontier { as_of_micros: 100, frontier_id: "f100".into() } },
+            observed_at_micros: 90, published_at_micros: Some(95), available_at_micros: Some(96), ingested_at_micros: 97,
+            unit: MarketUnit::Price { currency: "USD".into() }, value: DecimalValue { value: "100.00".into(), scale: 2 }, status: EvidenceStatus::ObservedUnqualified,
+            source: SourceRef { source_id: "src-x".into(), provider_id: "p-x".into(), common_ancestry_id: None, retrieved_at_micros: 97 }, evidence_refs: vec![],
+            information_frontier: InformationFrontier { as_of_micros: 100, frontier_id: "f100".into() } }
+    }
+    fn frontier(at: i64) -> InformationFrontier { InformationFrontier { as_of_micros: at, frontier_id: format!("f{at}") } }
+    fn fx_evidence(available: i64, status: EvidenceStatus) -> EvidenceRef {
+        let o=obs(); EvidenceRef { evidence_id: "fx-1".into(), artifact_id: None, source: o.source, status, observed_at_micros: Some(available-1), available_at_micros: Some(available), information_frontier: frontier(available) }
+    }
+    fn fx_recipe(e: EvidenceRef) -> NormalizationRecipe {
+        NormalizationRecipe { recipe_id: "fx-r1".into(), adjustment: AdjustmentKind::CurrencyConversion, target_unit: Some(MarketUnit::Price { currency: "EUR".into() }), multiplier: Some(DecimalValue { value: "0.9".into(), scale: 1 }), output_scale: Some(2), session: None, evidence_refs: vec![e] }
+    }
+    #[test] fn future_fx_is_rejected_at_historical_frontier() { assert_eq!(normalize_observation_at_frontier(&obs(), &fx_recipe(fx_evidence(150, EvidenceStatus::Known)), &frontier(120)), Err(NormalizationError::EvidenceUnavailableAtFrontier)); }
+    #[test] fn protected_fx_is_rejected_even_when_available() { assert_eq!(normalize_observation_at_frontier(&obs(), &fx_recipe(fx_evidence(105, EvidenceStatus::Protected)), &frontier(120)), Err(NormalizationError::ProtectedEvidence)); }
+    #[test] fn available_fx_can_be_used_at_frontier() { let r=normalize_observation_at_frontier(&obs(), &fx_recipe(fx_evidence(105, EvidenceStatus::Known)), &frontier(120)).unwrap(); assert_eq!(r.evidence_refs.len(), 1); }
 }
