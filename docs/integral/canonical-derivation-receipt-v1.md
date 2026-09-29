@@ -137,6 +137,12 @@ Missing evidence produces an unresolved/blocked result, not a rejection.
 
 Contradiction remains contradiction unless an explicit qualified profile supplies a legitimate resolution rule.
 
+## Reference implementation status
+
+The current Rust reference implementation uses deterministic `serde_json` encoding over ordered collections and SHA-256 integrity commitments. This is intentionally a reference-model mechanism, not yet a cross-language canonicalization standard.
+
+D6T (#3464) freezes the cross-language encoding profile before any interoperability or cryptographic interoperability claim is made. In particular, the implementation MUST NOT be described as RFC 8785/JCS-compatible until its primitive serialization, Unicode handling, ordering rules, rejection rules, and golden vectors have been independently verified.
+
 ## Receipt identity
 
 Conceptually:
@@ -155,7 +161,7 @@ DerivationCommitment =
   )
 ```
 
-The exact hash algorithm is intentionally left open at ReferenceModelOnly level.
+The current reference implementation uses SHA-256. The hash algorithm and domain-separation labels become protocol commitments only after the D6T canonical encoding profile is frozen.
 
 The important invariant is that every semantically material input is committed.
 
