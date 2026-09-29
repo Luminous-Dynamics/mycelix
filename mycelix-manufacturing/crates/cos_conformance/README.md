@@ -71,3 +71,24 @@ Archive recovery remains historical reconstruction input only. An archive cannot
 
 Finality resolution is a new semantic evidence transition. It preserves contradictory observations, rejects arrival-order/majority heuristics, and cannot authorize actuation or mutate the predecessor effect. See `docs/integral/contestable-multi-observer-finality-v1.md`.
 
+## Observer and evidence lifecycle continuity
+
+`observer_lifecycle.rs` extends D6N with time-scoped observer generations, append-only lifecycle status transitions, immutable dependency snapshots, explicit rotation continuity, and generation-bound evidence eligibility.
+
+The model preserves:
+
+- observer independence as temporal rather than permanent;
+- logical frontier sequence/root rather than wall-clock authority;
+- historical evidence after later suspension, revocation, or rotation;
+- explicit predecessor/successor generation continuity;
+- dependency-root changes as immutable snapshots rather than generation mutation;
+- current-finality revalidation against the current continuous observer generation and dependency snapshot;
+- D6N `ObservationClassificationV1` as the conflict taxonomy;
+- archive evidence as historical-only;
+- lifecycle proposals/receipts as non-authoritative evidence;
+- explicit non-authority for actuation, authority, capacity, and consent.
+
+Out-of-order lifecycle transitions and dependency snapshots may be recorded as temporarily incomplete; status/currentness queries fail closed until the missing predecessor arrives. Same-frontier divergent transitions are conflicts, and a later-arriving record never wins by delivery order. See `docs/integral/observer-evidence-lifecycle-continuity-v1.md`.
+
+Claim ceiling: **ReferenceModelOnly**. This does not establish real-world revocation, observer trust, key authenticity, physical observation correctness, distributed consensus, durable storage, production finality, or actuation safety.
+
