@@ -24,6 +24,14 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Record source provenance
+        run: |
+          git rev-parse HEAD > source-commit.txt
+          git rev-parse HEAD^{tree} > source-tree.txt
+          git status --porcelain=v1 --untracked-files=no > source-status.txt
+          test ! -s source-status.txt
+          sha256sum .github/workflows/psi-002b3a3k0v-f2s1b1-lock-capsule.yml > workflow-sha256.txt
+
       - name: Record runner environment
         run: |
           uname -a > runner-uname.txt
@@ -132,6 +140,8 @@ jobs:
         working-directory: qualification/psi-002b3a3k0v-f2s1-validator
         run: |
           cargo +1.96.0 fetch --manifest-path Cargo.toml --locked
+          cargo +1.96.0 build --manifest-path Cargo.toml --locked --offline
+          cargo +1.96.0 test --manifest-path Cargo.toml --locked --offline
           cargo +1.96.0 metadata --manifest-path Cargo.toml --locked --offline --format-version 1 > metadata-offline.json
           cargo +1.96.0 tree --manifest-path Cargo.toml --locked --offline > cargo-tree-offline.txt
           python3 - <<'PY'
@@ -170,6 +180,7 @@ jobs:
           cp qualification/psi-002b3a3k0v-f2s1-validator/dependency-source-inventory.v1.sha256 capsule/
           cp qualification/psi-002b3a3k0v-f2s1-validator/cargo-lock-source-projection.v1.json capsule/
           cp qualification/psi-002b3a3k0v-f2s1-validator/cargo-lock-source-projection.v1.sha256 capsule/
+          cp source-commit.txt source-tree.txt source-status.txt workflow-sha256.txt capsule/
           cp runner-uname.txt runner-os-release.txt runner-python-version.txt capsule/
           rustc +1.96.0 --version --verbose > capsule/rustc-1.96.0.txt
           cargo +1.96.0 --version --verbose > capsule/cargo-1.96.0.txt
@@ -193,6 +204,10 @@ jobs:
               "dependency-source-inventory.v1.sha256",
               "cargo-lock-source-projection.v1.json",
               "cargo-lock-source-projection.v1.sha256",
+              "source-commit.txt",
+              "source-tree.txt",
+              "source-status.txt",
+              "workflow-sha256.txt",
               "runner-uname.txt",
               "runner-os-release.txt",
               "runner-python-version.txt",
