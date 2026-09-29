@@ -483,7 +483,8 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
                 EntryTypes::Timelock(timelock) => {
-                    validate_update_timelock(action, timelock, action.original_action_address.clone())
+                    let original_action_hash = action.original_action_address.clone();
+                    validate_update_timelock(action, timelock, original_action_hash)
                 }
                 EntryTypes::Execution(_) => {
                     // Executions cannot be updated once created
@@ -504,7 +505,8 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     "Override results cannot be modified".into(),
                 )),
                 EntryTypes::FundAllocation(alloc) => {
-                    validate_update_fund_allocation(action, alloc, action.original_action_address.clone())
+                    let original_action_hash = action.original_action_address.clone();
+                    validate_update_fund_allocation(action, alloc, original_action_hash)
                 }
             },
             _ => Ok(ValidateCallbackResult::Valid),
@@ -599,7 +601,7 @@ fn validate_create_veto(
     // derives the expected DID from agent_info() and rejects a mismatch, so this
     // enforces at the DHT level what the coordinator already does — and closes
     // the path where a peer bypasses the coordinator entirely.
-    let author_did = did_for_author(&action.author);
+    let author_did = did_for_author(action.author());
     if let ValidateCallbackResult::Invalid(msg) =
         require_did_is_author("GuardianVeto", "guardian", &veto.guardian, &author_did)
     {
@@ -621,7 +623,7 @@ fn validate_create_override_vote(
     //
     // Safe to bind: `cast_override_vote` (execution/coordinator:1084-1086)
     // already compares input.voter_did against an agent_info()-derived DID.
-    let author_did = did_for_author(&action.author);
+    let author_did = did_for_author(action.author());
     if let ValidateCallbackResult::Invalid(msg) = require_did_is_author(
         "VetoOverrideVote",
         "voter_did",
