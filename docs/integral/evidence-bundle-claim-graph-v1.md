@@ -58,3 +58,12 @@ No build/test/CI execution is claimed unless an execution receipt is available.
 ## Claim ceiling
 
 **ReferenceModelOnly.** This document does not establish physical truth, causal validity, cryptographic authenticity, legal authority, production finality, economic settlement, or actuation safety.
+
+## D6R non-amplification refinement
+
+D6R adds a downstream semantic-conservation boundary. A D6Q graph assessment or D6P current-finality receipt may be used as an exact input, but wrapping, replaying, serializing, or traversing that artifact cannot silently increase its claim ceiling or currentness.
+
+D6R also separates scope conservation from graph reachability: exact scope is preserved; narrowing requires an explicit witness; broadening and unknown scope are rejected. Missing evidence remains unresolved/insufficient rather than becoming a rejection.
+
+See `docs/integral/semantic-conservation-non-amplification-v1.md`.
+
