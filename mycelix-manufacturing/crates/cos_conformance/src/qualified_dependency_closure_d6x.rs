@@ -131,6 +131,15 @@ impl SemanticDependencyResolutionEvidenceV1 {
         ]
         .into_iter()
         .flatten()
+        .next()
+        .is_some()
+        && [
+            self.retrieval_reference.as_deref(),
+            self.observed_commitment.as_deref(),
+            self.qualification_context_commitment.as_deref(),
+        ]
+        .into_iter()
+        .flatten()
         .all(non_empty)
     }
 }
