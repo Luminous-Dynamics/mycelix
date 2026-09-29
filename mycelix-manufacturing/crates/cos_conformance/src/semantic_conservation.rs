@@ -765,6 +765,25 @@ mod tests {
     }
 
     #[test]
+    fn human_disposition_does_not_raise_d6q_assessment_ceiling() {
+        let q = ClaimGraphAssessmentReceiptV1 {
+            assessment_id: "assessment-human".into(),
+            bundle_id: "bundle-1".into(),
+            conclusion_id: "conclusion-1".into(),
+            graph_reachable: true,
+            bound_evidence: true,
+            conflicting_evidence: false,
+            disposition: GraphAssessmentDispositionV1::SupportedByBoundEvidence,
+            human_disposition: crate::evidence_claim_graph::HumanDispositionV1::AcceptedForHumanUse,
+            assessment_commitment: "assessment-human-commitment".into(),
+            claim_ceiling: EVIDENCE_CLAIM_GRAPH_CLAIM_CEILING.into(),
+        };
+        let input = d6q_assessment_input(&q);
+        assert_eq!(input.claim_ceiling, SemanticClaimCeilingV1::Assessment);
+        assert_eq!(input.role, SemanticDerivationInputRoleV1::Supporting);
+    }
+
+    #[test]
     fn d6q_assessment_never_mints_currentness() {
         let q = ClaimGraphAssessmentReceiptV1 {
             assessment_id: "assessment-1".into(),
