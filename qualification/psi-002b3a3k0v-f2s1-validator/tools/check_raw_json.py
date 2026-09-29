@@ -28,7 +28,7 @@ def _unique_object(pairs):
 def parse_raw_json(raw: bytes):
     """Return (raw_sha256, value); reject invalid UTF-8, BOM, malformed JSON, duplicates."""
     digest = hashlib.sha256(raw).hexdigest()
-    if raw.startswith(b"\\xef\\xbb\\xbf"):
+    if raw.startswith(b"\xef\xbb\xbf"):
         raise ValueError("UTF-8 BOM is not permitted")
     try:
         source = raw.decode("utf-8", errors="strict")
