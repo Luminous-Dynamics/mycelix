@@ -155,7 +155,7 @@ async fn test_multi_hearth_isolation() {
         "get_my_hearths should return 2 hearths"
     );
 
-    // 4. Alice creates a decision in hearth1
+    // 3b. The canonical Active Hearth catalog must preserve both exact Hearth identities.\n    let active_catalog: serde_json::Value = conductor\n        .call(&alice.zome("hearth_kinship"), "get_my_active_hearths", ())\n        .await;\n    let active_items = active_catalog\n        .as_array()\n        .expect("canonical Active Hearth catalog must be an array");\n    assert_eq!(\n        active_items.len(),\n        2,\n        "canonical Active Hearth catalog should expose both active Hearths"\n    );\n\n    // 4. Alice creates a decision in hearth1
     let deadline_micros = Timestamp::now().as_micros() + 3_600_000_000; // 1 hour
     let deadline = Timestamp::from_micros(deadline_micros);
 
