@@ -133,8 +133,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::MealPlan(plan) => validate_meal_plan(&plan),
             },
             OpEntry::UpdateEntry {
-                app_entry,
+            app_entry,
             action,
+            ..
         } => match app_entry {
                 EntryTypes::CareSchedule(schedule) => {
                     validate_schedule_update(&schedule)?;
@@ -164,11 +165,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             original_action,
             ..
         }) => {
-{
             Ok(check_link_author_match(
                 original_action.author(), action.author(),
             ))
-        }
         }
         FlatOp::CreateRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
