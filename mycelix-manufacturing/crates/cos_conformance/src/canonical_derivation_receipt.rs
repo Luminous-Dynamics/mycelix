@@ -362,11 +362,11 @@ fn write_canonical_string(value: &str, out: &mut Vec<u8>) {
         match ch {
             '"' => out.extend_from_slice(br#"\""#),
             '\\' => out.extend_from_slice(br#"\\\"#),
-            '\\u{0008}' => out.extend_from_slice(br#"\b"#),
-            '\\t' => out.extend_from_slice(br#"\t"#),
-            '\\n' => out.extend_from_slice(br#"\n"#),
-            '\\u{000C}' => out.extend_from_slice(br#"\f"#),
-            '\\r' => out.extend_from_slice(br#"\r"#),
+            '\u{0008}' => out.extend_from_slice(br#"\b"#),
+            '\t' => out.extend_from_slice(br#"\t"#),
+            '\n' => out.extend_from_slice(br#"\n"#),
+            '\u{000C}' => out.extend_from_slice(br#"\f"#),
+            '\r' => out.extend_from_slice(br#"\r"#),
             ch if (ch as u32) <= 0x1F => {
                 let escaped = format!("\\u{:04x}", ch as u32);
                 out.extend_from_slice(escaped.as_bytes());
