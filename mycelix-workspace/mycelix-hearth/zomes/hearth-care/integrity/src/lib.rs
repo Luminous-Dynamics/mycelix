@@ -7,7 +7,7 @@
 
 use hdi::prelude::*;
 use hearth_types::*;
-use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
+use mycelix_bridge_entry_types::{check_author_match, check_claimed_agent_match, check_link_author_match};
 
 // ============================================================================
 // Entry Types
@@ -129,7 +129,17 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::CreateEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
                 EntryTypes::CareSchedule(schedule) => validate_schedule(&schedule),
-                EntryTypes::CareSwap(swap) => validate_swap(&swap),
+                EntryTypes::CareSwap(swap) => {
+                    let result = check_claimed_agent_match(
+                        &swap.requester,
+                        action.author(),
+                        "CareSwap.requester",
+                    );
+                    if result != ValidateCallbackResult::Valid {
+                        return Ok(result);
+                    }
+                    validate_swap(&swap)
+                },
                 EntryTypes::MealPlan(plan) => validate_meal_plan(&plan),
             },
             OpEntry::UpdateEntry {
