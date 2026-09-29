@@ -1004,7 +1004,10 @@ mod tests {
             &s, &a, &[e], &[r], "life-profile-1", "frontier-1", 1
         );
         assert_eq!(result.eligible_independent_count, 0);
-        assert_eq!(result.disposition, FinalityEligibilityDispositionV1::InsufficientEligibleWitnesses);
+        assert_eq!(
+            result.disposition,
+            FinalityEligibilityDispositionV1::BlockedContinuity
+        );
     }
 
     #[test]
@@ -1078,7 +1081,7 @@ mod tests {
             &s, &a, &[e], &[r], "other-profile", "frontier-1", 1
         );
         assert_eq!(result.eligible_independent_count, 0);
-        assert_eq!(result.disposition, FinalityEligibilityDispositionV1::InsufficientEligibleWitnesses);
+        assert_eq!(result.disposition, FinalityEligibilityDispositionV1::BlockedProfile);
     }
 
     #[test]
