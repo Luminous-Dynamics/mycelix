@@ -1,0 +1,15 @@
+[package]
+name = "mycelix-forge-merge-protected-review-basis"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+publish = false
+
+[dependencies]
+mycelix-forge-authentication-policy = { path = "../mycelix-forge-authentication-policy" }
+mycelix-forge-authority = { path = "../mycelix-forge-authority" }
+mycelix-forge-core = { path = "../mycelix-forge-core" }
+mycelix-forge-proposal = { path = "../mycelix-forge-proposal" }
+mycelix-forge-review-policy-satisfied-checkpoint = { path = "../mycelix-forge-review-policy-satisfied-checkpoint" }
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
