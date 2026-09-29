@@ -333,22 +333,6 @@ mod tests {
         Timestamp::from_micros(1_000_000)
     }
 
-    fn valid_create_action() -> Create {
-        Create {
-            author: agent_a(),
-            timestamp: valid_timestamp(),
-            action_seq: 0,
-            prev_action: ActionHash::from_raw_36(vec![0xAC; 36]),
-            entry_type: EntryType::App(AppEntryDef {
-                entry_index: 0.into(),
-                zome_index: 0.into(),
-                visibility: EntryVisibility::Public,
-            }),
-            entry_hash: EntryHash::from_raw_36(vec![0xAD; 36]),
-            weight: Default::default(),
-        }
-    }
-
     fn valid_gratitude() -> GratitudeExpression {
         GratitudeExpression {
             hearth_hash: valid_action_hash(),
@@ -387,7 +371,6 @@ mod tests {
     #[test]
     fn test_valid_gratitude_expression() {
         let expr = valid_gratitude();
-        let action = valid_create_action();
         let result = validate_gratitude(expr).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
@@ -396,7 +379,6 @@ mod tests {
     fn test_gratitude_empty_message_rejected() {
         let mut expr = valid_gratitude();
         expr.message = "".to_string();
-        let action = valid_create_action();
         let result = validate_gratitude(expr).unwrap();
         match result {
             ValidateCallbackResult::Invalid(msg) => {
@@ -410,7 +392,6 @@ mod tests {
     fn test_gratitude_message_one_char() {
         let mut expr = valid_gratitude();
         expr.message = "T".to_string();
-        let action = valid_create_action();
         let result = validate_gratitude(expr).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
@@ -419,7 +400,6 @@ mod tests {
     fn test_gratitude_message_at_max() {
         let mut expr = valid_gratitude();
         expr.message = "a".repeat(2048);
-        let action = valid_create_action();
         let result = validate_gratitude(expr).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
@@ -428,7 +408,6 @@ mod tests {
     fn test_gratitude_message_exceeds_max_rejected() {
         let mut expr = valid_gratitude();
         expr.message = "a".repeat(2049);
-        let action = valid_create_action();
         let result = validate_gratitude(expr).unwrap();
         match result {
             ValidateCallbackResult::Invalid(msg) => {
@@ -442,7 +421,6 @@ mod tests {
     fn test_gratitude_self_expression_rejected() {
         let mut expr = valid_gratitude();
         expr.to_agent = expr.from_agent.clone();
-        let action = valid_create_action();
         let result = validate_gratitude(expr).unwrap();
         match result {
             ValidateCallbackResult::Invalid(msg) => {
@@ -464,8 +442,7 @@ mod tests {
         for gt in types {
             let mut expr = valid_gratitude();
             expr.gratitude_type = gt;
-            let action = valid_create_action();
-            let result = validate_gratitude(expr).unwrap();
+                let result = validate_gratitude(expr).unwrap();
             assert_eq!(result, ValidateCallbackResult::Valid);
         }
     }
@@ -474,7 +451,6 @@ mod tests {
     fn test_gratitude_unicode_message() {
         let mut expr = valid_gratitude();
         expr.message = "Merci beaucoup pour votre aide!".to_string();
-        let action = valid_create_action();
         let result = validate_gratitude(expr).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
@@ -484,7 +460,6 @@ mod tests {
     #[test]
     fn test_valid_circle() {
         let circle = valid_circle();
-        let action = valid_create_action();
         let result = validate_circle(circle).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
@@ -493,7 +468,6 @@ mod tests {
     fn test_circle_empty_theme_rejected() {
         let mut circle = valid_circle();
         circle.theme = "".to_string();
-        let action = valid_create_action();
         let result = validate_circle(circle).unwrap();
         match result {
             ValidateCallbackResult::Invalid(msg) => {
@@ -507,7 +481,6 @@ mod tests {
     fn test_circle_theme_one_char() {
         let mut circle = valid_circle();
         circle.theme = "G".to_string();
-        let action = valid_create_action();
         let result = validate_circle(circle).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
@@ -516,7 +489,6 @@ mod tests {
     fn test_circle_theme_at_max() {
         let mut circle = valid_circle();
         circle.theme = "a".repeat(256);
-        let action = valid_create_action();
         let result = validate_circle(circle).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
@@ -525,7 +497,6 @@ mod tests {
     fn test_circle_theme_exceeds_max_rejected() {
         let mut circle = valid_circle();
         circle.theme = "a".repeat(257);
-        let action = valid_create_action();
         let result = validate_circle(circle).unwrap();
         match result {
             ValidateCallbackResult::Invalid(msg) => {
@@ -539,7 +510,6 @@ mod tests {
     fn test_circle_too_few_participants_rejected() {
         let mut circle = valid_circle();
         circle.participants = vec![agent_a()];
-        let action = valid_create_action();
         let result = validate_circle(circle).unwrap();
         match result {
             ValidateCallbackResult::Invalid(msg) => {
@@ -553,7 +523,6 @@ mod tests {
     fn test_circle_zero_participants_rejected() {
         let mut circle = valid_circle();
         circle.participants = vec![];
-        let action = valid_create_action();
         let result = validate_circle(circle).unwrap();
         match result {
             ValidateCallbackResult::Invalid(msg) => {
@@ -569,7 +538,6 @@ mod tests {
         circle.participants = (0..51)
             .map(|i| AgentPubKey::from_raw_36(vec![i as u8; 36]))
             .collect();
-        let action = valid_create_action();
         let result = validate_circle(circle).unwrap();
         match result {
             ValidateCallbackResult::Invalid(msg) => {
@@ -585,7 +553,6 @@ mod tests {
         circle.participants = (0..50)
             .map(|i| AgentPubKey::from_raw_36(vec![i as u8; 36]))
             .collect();
-        let action = valid_create_action();
         let result = validate_circle(circle).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
@@ -600,8 +567,7 @@ mod tests {
         for status in statuses {
             let mut circle = valid_circle();
             circle.status = status;
-            let action = valid_create_action();
-            let result = validate_circle(circle).unwrap();
+                let result = validate_circle(circle).unwrap();
             assert_eq!(result, ValidateCallbackResult::Valid);
         }
     }
@@ -611,7 +577,6 @@ mod tests {
     #[test]
     fn test_valid_anchor() {
         let anchor = valid_anchor();
-        let action = valid_create_action();
         let result = validate_anchor(anchor).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
@@ -622,7 +587,6 @@ mod tests {
         anchor.total_given = 0;
         anchor.total_received = 0;
         anchor.current_streak_days = 0;
-        let action = valid_create_action();
         let result = validate_anchor(anchor).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
@@ -632,7 +596,6 @@ mod tests {
         let mut anchor = valid_anchor();
         anchor.total_given = u32::MAX;
         anchor.total_received = 1;
-        let action = valid_create_action();
         let result = validate_anchor(anchor).unwrap();
         match result {
             ValidateCallbackResult::Invalid(msg) => {
@@ -647,7 +610,6 @@ mod tests {
         let mut anchor = valid_anchor();
         anchor.total_given = u32::MAX;
         anchor.total_received = 0;
-        let action = valid_create_action();
         let result = validate_anchor(anchor).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
