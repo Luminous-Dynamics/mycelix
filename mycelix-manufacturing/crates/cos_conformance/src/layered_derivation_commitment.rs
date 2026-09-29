@@ -38,7 +38,7 @@ impl InputCommitmentV1 {
             source_snapshot: p.source_dkg_snapshot_commitment.clone(),
             projection: p.commitment(),
             environment: e.commitment(),
-            dependency_closure: closure.commitment.clone(),
+            dependency_closure: closure.closure_identity_commitment.clone(),
             nodes: p.nodes.values().map(|n| n.node_commitment.clone()).collect(),
             edges: p.edges.values().map(|e| e.edge_commitment.clone()).collect(),
             d6p_receipts: p.d6p_current_receipt_commitments.iter().cloned().collect(),
