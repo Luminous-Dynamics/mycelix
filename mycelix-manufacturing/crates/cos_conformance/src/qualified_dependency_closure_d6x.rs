@@ -117,6 +117,9 @@ impl DependencyClosureCertificateV1 {
                 non_empty(id) && non_empty(from) && non_empty(to) && from != to && non_empty(commitment))
             && self.missing_dependency_ids.iter().all(|v| non_empty(v))
             && self.claim_ceiling == D6X_CLAIM_CEILING
+            && self.included_node_ids.len() == self.included_node_commitments.len()
+            && self.included_edges.len() == self.included_edge_commitments.len()
+            && self.closure_identity_commitment == self.closure_identity()
             && match self.status {
                 DependencyClosureStatusV1::Complete => self.missing_dependency_ids.is_empty(),
                 DependencyClosureStatusV1::BlockedMissingDependency => !self.missing_dependency_ids.is_empty(),
