@@ -38,12 +38,17 @@ cargo_toml="Cargo.toml"
 flake_nix="flake.nix"
 flake_lock="flake.lock"
 sdk_package="sdk-ts/package.json"
+sdk_lock="sdk-ts/package-lock.json"
 
 require "$cargo_toml" 'hdk = "=0.7.0"' "HDK is pinned to Holochain 0.7"
 require "$cargo_toml" 'hdi = "=0.8.0"' "HDI is pinned to Holochain 0.7"
 require "$cargo_toml" 'holochain_integrity_types = "=0.7.0"' "integrity types are pinned to 0.7"
 require "$flake_nix" 'ref=main-0.7' "Holonix declaration targets main-0.7"
-require "$sdk_package" '"@holochain/client": "^0.21.0"' "JS client targets 0.21"
+require "$sdk_package" '"@holochain/client": "^0.21.0"' "JS manifest targets client 0.21"
+require "$sdk_lock" '"@holochain/client": "^0.21.0"' "JS lock root targets client 0.21"
+require "$sdk_lock" '"node_modules/@holochain/client": {' "JS lock contains the client package"
+require "$sdk_lock" '"version": "0.21.0"' "JS lock resolves a 0.21 client"
+forbid "$sdk_lock" '"version": "0.20.2"' "JS lock no longer resolves client 0.20.2"
 
 # A declaration is not enough: the checked-in Nix graph must not retain the
 # 0.6-era Holonix component set.
@@ -56,7 +61,7 @@ forbid "$flake_lock" '"ref": "v0.3.2"' "lockfile no longer resolves Kitsune2 0.3
 # FlatOp vocabulary, so reject known 0.6 validation dispatcher patterns.
 legacy_source=0
 while IFS= read -r -d '' file; do
-  for pattern in     'FlatOp::StoreEntry'     'FlatOp::RegisterCreateLink'     'FlatOp::RegisterDeleteLink'     'FlatOp::RegisterUpdate'     'FlatOp::RegisterDelete'     'FlatOp::RegisterAgentActivity'     'Action::Create'     'Action::Update'     'Action::Delete'
+  for pattern in     'FlatOp::StoreEntry'     'FlatOp::RegisterCreateLink'     'FlatOp::RegisterDeleteLink'     'FlatOp::RegisterUpdate'     'FlatOp::RegisterDelete'     'FlatOp::RegisterAgentActivity'     'Action::Create'     'Action::Update'     'Action::Delete'     'SignedActionHashed<'     'signal_url'     'webrtc_config'     'transport-iroh'     'sqlite-encrypted'     'wasmer_sys'
   do
     if grep -Fq -- "$pattern" "$file"; then
       echo "FAIL: legacy Holochain 0.6 source pattern '$pattern' in $file"
@@ -64,6 +69,18 @@ while IFS= read -r -d '' file; do
     fi
   done
 done < <(find zomes -path '*/src/*.rs' -type f -print0)
+
+# Coordinator and SDK surfaces are part of the 0.7 migration too; catch stale
+# generic action types/imports and removed transport configuration outside the
+# integrity dispatchers.
+while IFS= read -r -d '' file; do
+  for pattern in 'SignedActionHashed<' 'signal_url' 'webrtc_config' 'transport-iroh' 'sqlite-encrypted' 'wasmer_sys'; do
+    if grep -Fq -- "$pattern" "$file"; then
+      echo "FAIL: legacy Holochain 0.6 pattern '$pattern' in $file"
+      legacy_source=1
+    fi
+  done
+done < <(find zomes tests -type f \( -name '*.rs' -o -name '*.toml' -o -name '*.ts' -o -name '*.json' \) -print0)
 
 if [[ "$legacy_source" -ne 0 ]]; then
   fail=1
