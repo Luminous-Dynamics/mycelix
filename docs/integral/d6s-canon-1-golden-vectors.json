@@ -1,6 +1,6 @@
 {
   "profile": "D6S-CANON-1",
-  "hash_domain": "MYCELIX-INTEGRAL-D6S-RECEIPT-V1\\u0000",
+  "hash_domain": "MYCELIX-INTEGRAL-D6S-RECEIPT-V1\u0000",
   "cases": [
     {
       "name": "empty-object",
@@ -42,7 +42,7 @@
     {
       "name": "control-characters",
       "value": {
-        "control": "\\u0000\\n\\t"
+        "control": "\u0000\n\t"
       },
       "canonical": "{\"control\":\"\\u0000\\n\\t\"}",
       "commitment": "2858d768f111071c54c72c3b5b6589b78401261c2c3dac1618c4b4389504697d"
