@@ -55,7 +55,7 @@ impl InputCommitmentV1 {
         self.schema_version == D6W_SCHEMA_VERSION
             && !self.source_snapshot.is_empty() && !self.projection.is_empty()
             && !self.environment.is_empty() && !self.dependency_closure.is_empty()
-            && !self.nodes.is_empty() && !self.edges.is_empty()
+            && !self.nodes.is_empty()
             && self.claim_ceiling == D6S_CLAIM_CEILING && self.commitment == self.recompute()
     }
 }
