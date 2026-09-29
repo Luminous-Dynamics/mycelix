@@ -37,6 +37,13 @@ jobs:
           ! grep -Eq 'Command::new\([^&]' src/lib.rs
           ! grep -Eq 'std::process::Command.*(sh|bash)|Command::new\([^)]*["'"'"'](sh|bash)["'"'"']' src/lib.rs
           grep -Fq 'spawn_and_wait(invocation.command_args(), invocation.stdin_bytes())' src/lib.rs
+          grep -Fq 'QualifiedM0OfflineEvidenceV6' src/authority.rs
+          grep -Fq 'MergeProtectedTrustedReviewBasisCurrentnessV1' src/authority.rs
+          grep -Fq 'SourceQualifiedProtectedMergeRequestV1' src/authority.rs
+          grep -Fq 'AtomicProtectedRefConsumptionIntentV1' src/authority.rs
+          grep -Fq 'runtime_config.commitment' src/authority.rs
+          grep -Fq 'MergeExecutionAuthorizationV1 {' src/authority.rs
+          ! grep -Fq 'PreparedExecutionPermitV1::issue' src/authority.rs
           grep -Fq '.stdin(Stdio::piped())' src/lib.rs
           grep -Fq '.env_clear()' src/lib.rs
           grep -Fq '.current_dir(&self.config.repository_path)' src/lib.rs

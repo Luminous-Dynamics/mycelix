@@ -9,3 +9,14 @@ publish = false
 mycelix-forge-core = { path = "../mycelix-forge-core" }
 mycelix-forge-sealed-executor-interface = { path = "../mycelix-forge-sealed-executor-interface" }
 thiserror = "2"
+
+mycelix-forge-m0-offline-evidence-v6 = { path = "../../adapters/forge-m0-offline-evidence-v6" }
+mycelix-forge-protected-merge-source = { path = "../mycelix-forge-protected-merge-source" }
+mycelix-forge-protected-ref-consumption = { path = "../mycelix-forge-protected-ref-consumption" }
+mycelix-forge-protected-ref-executor-confinement = { path = "../mycelix-forge-protected-ref-executor-confinement" }
+mycelix-forge-review-basis-currentness-trust-context = { path = "../mycelix-forge-review-basis-currentness-trust-context" }
+forge-git-ref-transaction = { path = "../../adapters/forge-git-ref-transaction" }
+forge-gittuf-marker-policy = { path = "../../adapters/forge-gittuf-marker-policy" }
+
+mycelix-forge-proposal = { path = "../mycelix-forge-proposal" }
+serde = { version = "1", features = ["derive"] }

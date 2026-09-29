@@ -51,3 +51,26 @@ FORGE-009K runtime
 != proof that the configured provider paths are trustworthy
 
 The independent provider/verifier evidence must bind the concrete deployment's executable, repository, authority, journal, and runtime configuration to the qualified FORGE-009J interface.
+
+
+## FORGE-010 deliberate authority join
+
+The final authority qualifier lives in this crate because MergeExecutionAuthorizationV1 and PreparedExecutionPermitV1 are intentionally opaque to all other crates.
+
+The authority qualifier joins:
+
+- MergeProtectedTrustedReviewBasisCurrentnessV1;
+- SourceQualifiedProtectedMergeRequestV1;
+- AtomicProtectedRefConsumptionIntentV1;
+- QualifiedM0OfflineEvidenceV6;
+- GittufMarkerNamespacePolicyEvidenceV1;
+- ExecutorConstrainedGitRefTransactionPlanV1;
+- SealedExecutorInterfaceBindingV1;
+- SealedExecutorInvocationV1;
+- the exact SealedExecutorRuntimeConfigV1.
+
+It constructs only MergeExecutionAuthorizationV1. It does not issue PreparedExecutionPermitV1, because that permit may only be issued after the durable prepared record is committed.
+
+The qualifier requires the provider currentness observation time to equal the supplied authority-observation time. This is an exact freshness binding, not a trusted-clock claim.
+
+The resulting authorization does not prove that the host is uncompromised, that the provider configuration is trustworthy, or that a Git mutation has already happened.
