@@ -580,6 +580,38 @@ pub struct DigestEpochInput {
     pub epoch_end: Timestamp,
 }
 
+/// Source-backed active Hearth catalog item returned by Kinship.
+///
+/// hearth_hash is the stable original Hearth ActionHash used by Hearth-scoped
+/// links and membership records. latest_hearth_record_hash may change when the
+/// Hearth is updated. membership_record_hash identifies the current active
+/// membership record for the connected agent.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActiveHearthView {
+    pub hearth_hash: ActionHash,
+    pub latest_hearth_record_hash: ActionHash,
+    pub membership_record_hash: ActionHash,
+    pub role: MemberRole,
+    pub name: String,
+    pub description: String,
+    pub hearth_type: HearthType,
+    pub created_by: AgentPubKey,
+    pub created_at: Timestamp,
+    pub max_members: u32,
+}
+
+/// One source observation of the connected agent's Active Hearth catalog.
+///
+/// The envelope deliberately carries agent and observation time even when the
+/// catalog is empty. This prevents an empty vector from losing the provenance
+/// of the read that established that emptiness.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActiveHearthCatalogView {
+    pub agent: AgentPubKey,
+    pub observed_at: Timestamp,
+    pub hearths: Vec<ActiveHearthView>,
+}
+
 // NOTE: Anchor is NOT defined here. Each integrity zome defines its own
 // Anchor entry type using #[hdk_entry_helper] (required for Holochain validation).
 // Having Anchor in shared types caused ambiguity with glob imports.
