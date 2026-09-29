@@ -45,9 +45,6 @@ jobs:
           nix develop .#ci --impure --command holochain --version
           nix develop .#ci --impure --command hc --version
 
-      - name: Verify generated lock and source invariants
-        run: bash mycelix-workspace/mycelix-hearth/tools/verify-holochain-07.sh
-
       - name: Refresh Hearth Cargo lock
         working-directory: mycelix-workspace/mycelix-hearth
         run: nix develop .#ci --impure --command cargo update
@@ -59,6 +56,9 @@ jobs:
       - name: Validate npm lock without mutating it
         working-directory: mycelix-workspace/mycelix-hearth/sdk-ts
         run: npm ci --ignore-scripts --dry-run
+
+      - name: Verify generated lock and source invariants
+        run: bash mycelix-workspace/mycelix-hearth/tools/verify-holochain-07.sh
 
       - name: Verify no whitespace errors in refreshed locks
         run: git diff --check -- mycelix-workspace/mycelix-hearth/flake.lock mycelix-workspace/mycelix-hearth/Cargo.lock mycelix-workspace/mycelix-hearth/sdk-ts/package-lock.json
