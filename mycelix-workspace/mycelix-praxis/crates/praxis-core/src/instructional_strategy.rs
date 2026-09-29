@@ -280,6 +280,30 @@ pub enum InstructionalAnalysisKind {
     Exploratory,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum InstructionalEstimandKind {
+    MeanDifference,
+    MeanChange,
+    ProportionDifference,
+    RiskRatio,
+    OddsRatio,
+    Correlation,
+    RegressionCoefficient,
+    StandardizedEffect,
+    SurvivalContrast,
+    PredictivePerformance,
+    DescriptiveSummary,
+    Other(String),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum InstructionalAnalysisPlanStatus {
+    Draft,
+    Locked,
+    Amended,
+    Superseded,
+}
+
 /// Exact protocol provenance required when an analysis is presented as an
 /// experimental effect estimate.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -377,6 +401,7 @@ pub struct InstructionalAnalysisReceipt {
     pub analysis_plan_id: String,
     pub analysis_plan_version: String,
     pub analysis_plan_digest: String,
+    pub analysis_plan_status: InstructionalAnalysisPlanStatus,
     pub outcome_measure_id: String,
     pub outcome_measure_version: String,
     pub input_observation_set_digest: String,
@@ -386,7 +411,7 @@ pub struct InstructionalAnalysisReceipt {
     pub missing_data_policy: String,
     pub analysis_method: String,
     pub analysis_method_version: String,
-    pub estimand: String,
+    pub estimand: InstructionalEstimandKind,
     pub kind: InstructionalAnalysisKind,
     pub experimental_provenance: Option<ExperimentalAnalysisRef>,
     pub execution: InstructionalAnalysisExecution,
@@ -412,7 +437,7 @@ impl InstructionalAnalysisReceipt {
             || self.missing_data_policy.trim().is_empty()
             || self.analysis_method.trim().is_empty()
             || self.analysis_method_version.trim().is_empty()
-            || self.estimand.trim().is_empty()
+            || matches!(&self.estimand, InstructionalEstimandKind::Other(value) if value.trim().is_empty())
             || self.result_digest.trim().is_empty()
         {
             return Err(InstructionalScienceContractError::InvalidAnalysisReceipt);
@@ -420,11 +445,20 @@ impl InstructionalAnalysisReceipt {
         if self.analysis_version == 0 {
             return Err(InstructionalScienceContractError::ZeroAnalysisVersion);
         }
+        if self.prespecified
+            && matches!(
+                &self.analysis_plan_status,
+                InstructionalAnalysisPlanStatus::Draft
+                    | InstructionalAnalysisPlanStatus::Superseded
+            )
+        {
+            return Err(InstructionalScienceContractError::InvalidPrespecifiedPlanStatus);
+        }
         self.execution.validate()?;
         if let Some(uncertainty) = &self.uncertainty {
             uncertainty.validate()?;
         }
-        if matches!(self.kind, InstructionalAnalysisKind::ExperimentalEffectEstimate) {
+        if matches!(&self.kind, InstructionalAnalysisKind::ExperimentalEffectEstimate) {
             self.experimental_provenance.as_ref().ok_or(
                 InstructionalScienceContractError::MissingExperimentalAnalysisReference,
             )?.validate()?;
@@ -440,6 +474,181 @@ impl InstructionalAnalysisReceipt {
             }
         } else if self.deviation_rationale.as_deref().is_none_or(|r| r.trim().is_empty()) {
             return Err(InstructionalScienceContractError::MissingAnalysisDeviationRationale);
+        }
+        Ok(())
+    }
+
+    pub const fn grants_credential_authority(&self) -> bool { false }
+    pub const fn grants_trust_authority(&self) -> bool { false }
+    pub const fn grants_authorization(&self) -> bool { false }
+}
+
+/// Exact provenance edge from an interpretation back to the analysis receipt.
+/// This does not certify the interpretation; it makes the source computation explicit.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalAnalysisRef {
+    pub analysis_id: String,
+    pub analysis_version: u64,
+    pub analysis_digest: String,
+}
+
+impl InstructionalAnalysisRef {
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.analysis_id.trim().is_empty() || self.analysis_digest.trim().is_empty() {
+            return Err(InstructionalScienceContractError::InvalidAnalysisReference);
+        }
+        if self.analysis_version == 0 {
+            return Err(InstructionalScienceContractError::ZeroAnalysisReferenceVersion);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum InstructionalInterpretationKind {
+    Descriptive,
+    Associational,
+    ExperimentalEffect,
+    Causal,
+    Pedagogical,
+    IndividualLearner,
+    Exploratory,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum InstructionalInterpretationScope {
+    Aggregate,
+    Contextual,
+    IndividualLearner,
+}
+
+/// An interpretation is a separate epistemic layer above a computed analysis.
+/// It must identify the exact analysis, its kind, and its limitations.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalInterpretationReceipt {
+    pub interpretation_id: String,
+    pub interpretation_version: u64,
+    pub analysis: InstructionalAnalysisRef,
+    pub analysis_kind: InstructionalAnalysisKind,
+    pub interpretation_kind: InstructionalInterpretationKind,
+    pub scope: InstructionalInterpretationScope,
+    pub statement: String,
+    pub limitations: String,
+    pub experimental_provenance: Option<ExperimentalAnalysisRef>,
+    pub generated_at: i64,
+}
+
+impl InstructionalInterpretationReceipt {
+    pub fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.interpretation_id.trim().is_empty()
+            || self.statement.trim().is_empty()
+            || self.limitations.trim().is_empty()
+        {
+            return Err(InstructionalScienceContractError::InvalidInterpretationReceipt);
+        }
+        if self.interpretation_version == 0 {
+            return Err(InstructionalScienceContractError::ZeroInterpretationVersion);
+        }
+        self.analysis.validate()?;
+
+        if matches!(&self.interpretation_kind, InstructionalInterpretationKind::Causal)
+            && (!matches!(
+                &self.analysis_kind,
+                InstructionalAnalysisKind::ExperimentalEffectEstimate
+            ) || self.experimental_provenance.is_none())
+        {
+            return Err(InstructionalScienceContractError::CausalInterpretationRequiresExperimentalProvenance);
+        }
+
+        if let Some(provenance) = &self.experimental_provenance {
+            provenance.validate()?;
+        }
+        if self.generated_at < 0 {
+            return Err(InstructionalScienceContractError::NegativeInterpretationGeneratedAt);
+        }
+        Ok(())
+    }
+
+    pub const fn grants_credential_authority(&self) -> bool { false }
+    pub const fn grants_trust_authority(&self) -> bool { false }
+    pub const fn grants_authorization(&self) -> bool { false }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalInterpretationRef {
+    pub interpretation_id: String,
+    pub interpretation_version: u64,
+    pub interpretation_digest: String,
+}
+
+impl InstructionalInterpretationRef {
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.interpretation_id.trim().is_empty()
+            || self.interpretation_digest.trim().is_empty()
+        {
+            return Err(InstructionalScienceContractError::InvalidInterpretationReference);
+        }
+        if self.interpretation_version == 0 {
+            return Err(InstructionalScienceContractError::ZeroInterpretationReferenceVersion);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum InstructionalClaimKind {
+    Descriptive,
+    Associational,
+    Causal,
+    Pedagogical,
+    IndividualLearner,
+}
+
+/// A claim is a declared statement derived from an interpretation. It cannot
+/// silently upgrade an analysis result into causal, pedagogical, learner-level,
+/// mastery, credential, trust, or authorization authority.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalClaimReceipt {
+    pub claim_id: String,
+    pub claim_version: u64,
+    pub interpretation: InstructionalInterpretationRef,
+    pub analysis: InstructionalAnalysisRef,
+    pub interpretation_kind: InstructionalInterpretationKind,
+    pub claim_kind: InstructionalClaimKind,
+    pub scope: InstructionalInterpretationScope,
+    pub statement: String,
+    pub qualification: String,
+    pub experimental_provenance: Option<ExperimentalAnalysisRef>,
+    pub generated_at: i64,
+}
+
+impl InstructionalClaimReceipt {
+    pub fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.claim_id.trim().is_empty()
+            || self.statement.trim().is_empty()
+            || self.qualification.trim().is_empty()
+        {
+            return Err(InstructionalScienceContractError::InvalidClaimReceipt);
+        }
+        if self.claim_version == 0 {
+            return Err(InstructionalScienceContractError::ZeroClaimVersion);
+        }
+        self.interpretation.validate()?;
+        self.analysis.validate()?;
+
+        if matches!(&self.claim_kind, InstructionalClaimKind::Causal)
+            && (!matches!(
+                &self.interpretation_kind,
+                InstructionalInterpretationKind::Causal
+            ) || self.experimental_provenance.is_none())
+        {
+            return Err(InstructionalScienceContractError::CausalClaimRequiresExperimentalProvenance);
+        }
+        if let Some(provenance) = &self.experimental_provenance {
+            provenance.validate()?;
+        }
+        if self.generated_at < 0 {
+            return Err(InstructionalScienceContractError::NegativeClaimGeneratedAt);
         }
         Ok(())
     }
@@ -494,6 +703,22 @@ pub enum InstructionalScienceContractError {
     MissingExperimentalAnalysisReference,
     InvalidAnalysisExecution,
     InvalidUncertaintyReceipt,
+    InvalidPrespecifiedPlanStatus,
+    InvalidAnalysisReference,
+    ZeroAnalysisReferenceVersion,
+    InvalidInterpretationReceipt,
+    ZeroInterpretationVersion,
+    CausalInterpretationRequiresExperimentalProvenance,
+    NegativeInterpretationGeneratedAt,
+    InvalidInterpretationReference,
+    ZeroInterpretationReferenceVersion,
+    InvalidClaimReceipt,
+    ZeroClaimVersion,
+    CausalClaimRequiresExperimentalProvenance,
+    NegativeClaimGeneratedAt,
+    NegativeAnalysisGeneratedAt,
+    EmptyAnalysisDeviationRationale,
+    MissingAnalysisDeviationRationale,
 }
 
 impl EvidencePolicy {
@@ -572,7 +797,7 @@ impl ExperimentalAssignment {
 
 impl InstructionalStrategyAssignment {
     pub fn validate(&self) -> Result<(), InstructionalScienceContractError> {
-        if self.assignment_id.trim().is_empty() || self.learner_id.0.trim().is_empty() {
+        if self.assignment.assignment_id.trim().is_empty() || self.learner_id.0.trim().is_empty() {
             return Err(InstructionalScienceContractError::EmptyId);
         }
         self.policy.validate()?;
@@ -707,7 +932,11 @@ mod tests {
     #[test]
     fn contextual_strategy_requires_named_policy() {
         let assignment = InstructionalStrategyAssignment {
-            assignment_id: "assignment-1".into(),
+            assignment: InstructionalAssignmentRef {
+                assignment_id: "assignment-1".into(),
+                assignment_version: 1,
+                assignment_digest: "blake3:assignment".into(),
+            },
             learner_id: LearnerId("learner-1".into()),
             strategy: InstructionalStrategyKind::RetrievalPractice,
             policy: policy(EvidencePolicyClass::EvidenceSupportedContextual),
@@ -725,7 +954,11 @@ mod tests {
     #[test]
     fn experimental_matching_cannot_hide_as_default_personalization() {
         let assignment = InstructionalStrategyAssignment {
-            assignment_id: "assignment-2".into(),
+            assignment: InstructionalAssignmentRef {
+                assignment_id: "assignment-2".into(),
+                assignment_version: 1,
+                assignment_digest: "blake3:assignment-2".into(),
+            },
             learner_id: LearnerId("learner-1".into()),
             strategy: InstructionalStrategyKind::Experimental("preference-match-v1".into()),
             policy: policy(EvidencePolicyClass::Experimental),
@@ -753,7 +986,11 @@ mod tests {
     #[test]
     fn experimental_strategy_without_experimental_policy_is_rejected() {
         let assignment = InstructionalStrategyAssignment {
-            assignment_id: "assignment-3".into(),
+            assignment: InstructionalAssignmentRef {
+                assignment_id: "assignment-3".into(),
+                assignment_version: 1,
+                assignment_digest: "blake3:assignment-3".into(),
+            },
             learner_id: LearnerId("learner-1".into()),
             strategy: InstructionalStrategyKind::Experimental("preference-match-v1".into()),
             policy: policy(EvidencePolicyClass::EvidenceSupportedContextual),
@@ -798,7 +1035,11 @@ mod tests {
     #[test]
     fn outcome_cannot_self_supersede() {
         let mut value = observation(InstructionalOutcomeObservationStatus::Complete);
-        value.supersedes_observation_id = Some("observation-1".into());
+        value.supersedes_observation = Some(InstructionalObservationRef {
+            observation_id: "observation-1".into(),
+            observation_version: 1,
+            observation_digest: "blake3:observation".into(),
+        });
         assert_eq!(
             value.validate(),
             Err(InstructionalScienceContractError::SelfSupersedingObservation)
@@ -834,6 +1075,7 @@ mod tests {
             analysis_plan_id: "plan-1".into(),
             analysis_plan_version: "1".into(),
             analysis_plan_digest: "blake3:plan".into(),
+            analysis_plan_status: InstructionalAnalysisPlanStatus::Locked,
             outcome_measure_id: "measure-1".into(),
             outcome_measure_version: "1".into(),
             input_observation_set_digest: "blake3:observations".into(),
@@ -843,7 +1085,7 @@ mod tests {
             missing_data_policy: "complete-case-v1".into(),
             analysis_method: "difference-in-means".into(),
             analysis_method_version: "1".into(),
-            estimand: "mean outcome difference".into(),
+            estimand: InstructionalEstimandKind::MeanDifference,
             kind: InstructionalAnalysisKind::ExperimentalEffectEstimate,
             experimental_provenance: None,
             execution: InstructionalAnalysisExecution {
@@ -925,4 +1167,103 @@ mod tests {
         assert!(!value.grants_trust_authority());
         assert!(!value.grants_authorization());
     }
+    #[test]
+    fn prespecified_analysis_requires_locked_or_amended_plan() {
+        let mut receipt = InstructionalAnalysisReceipt {
+            analysis_id: "analysis-1".into(),
+            analysis_version: 1,
+            analysis_plan_id: "plan-1".into(),
+            analysis_plan_version: "1".into(),
+            analysis_plan_digest: "blake3:plan".into(),
+            analysis_plan_status: InstructionalAnalysisPlanStatus::Draft,
+            outcome_measure_id: "measure-1".into(),
+            outcome_measure_version: "1".into(),
+            input_observation_set_digest: "blake3:observations".into(),
+            cohort_definition_digest: "blake3:cohort".into(),
+            inclusion_rules_digest: "blake3:include".into(),
+            exclusion_rules_digest: "blake3:exclude".into(),
+            missing_data_policy: "complete-case-v1".into(),
+            analysis_method: "difference-in-means".into(),
+            analysis_method_version: "1".into(),
+            estimand: InstructionalEstimandKind::MeanDifference,
+            kind: InstructionalAnalysisKind::Descriptive,
+            experimental_provenance: None,
+            execution: InstructionalAnalysisExecution {
+                software_id: "praxis-analyzer".into(),
+                software_version: "1".into(),
+                software_digest: "blake3:software".into(),
+                environment_id: "test-env".into(),
+                environment_digest: "blake3:environment".into(),
+                randomness_policy: "deterministic".into(),
+                random_seed: None,
+                multiple_comparison_policy: "none".into(),
+                sensitivity_analysis_plan_digest: "blake3:sensitivity".into(),
+            },
+            uncertainty: None,
+            prespecified: true,
+            deviation_rationale: None,
+            result_digest: "blake3:result".into(),
+            generated_at: 200,
+        };
+        assert_eq!(
+            receipt.validate(),
+            Err(InstructionalScienceContractError::InvalidPrespecifiedPlanStatus)
+        );
+        receipt.analysis_plan_status = InstructionalAnalysisPlanStatus::Locked;
+        assert_eq!(receipt.validate(), Ok(()));
+    }
+
+    #[test]
+    fn causal_interpretation_cannot_be_detached_from_experimental_provenance() {
+        let interpretation = InstructionalInterpretationReceipt {
+            interpretation_id: "interpretation-1".into(),
+            interpretation_version: 1,
+            analysis: InstructionalAnalysisRef {
+                analysis_id: "analysis-1".into(),
+                analysis_version: 1,
+                analysis_digest: "blake3:analysis".into(),
+            },
+            analysis_kind: InstructionalAnalysisKind::Descriptive,
+            interpretation_kind: InstructionalInterpretationKind::Causal,
+            scope: InstructionalInterpretationScope::Aggregate,
+            statement: "The strategy caused an improvement.".into(),
+            limitations: "Causal identification is not established by this analysis.".into(),
+            experimental_provenance: None,
+            generated_at: 200,
+        };
+        assert_eq!(
+            interpretation.validate(),
+            Err(InstructionalScienceContractError::CausalInterpretationRequiresExperimentalProvenance)
+        );
+    }
+
+    #[test]
+    fn claims_require_qualification_and_preserve_authority_boundary() {
+        let claim = InstructionalClaimReceipt {
+            claim_id: "claim-1".into(),
+            claim_version: 1,
+            interpretation: InstructionalInterpretationRef {
+                interpretation_id: "interpretation-1".into(),
+                interpretation_version: 1,
+                interpretation_digest: "blake3:interpretation".into(),
+            },
+            analysis: InstructionalAnalysisRef {
+                analysis_id: "analysis-1".into(),
+                analysis_version: 1,
+                analysis_digest: "blake3:analysis".into(),
+            },
+            interpretation_kind: InstructionalInterpretationKind::Descriptive,
+            claim_kind: InstructionalClaimKind::Descriptive,
+            scope: InstructionalInterpretationScope::Aggregate,
+            statement: "The observed group mean was higher.".into(),
+            qualification: "Descriptive result; no causal or learner-level inference.".into(),
+            experimental_provenance: None,
+            generated_at: 200,
+        };
+        assert_eq!(claim.validate(), Ok(()));
+        assert!(!claim.grants_credential_authority());
+        assert!(!claim.grants_trust_authority());
+        assert!(!claim.grants_authorization());
+    }
+
 }
