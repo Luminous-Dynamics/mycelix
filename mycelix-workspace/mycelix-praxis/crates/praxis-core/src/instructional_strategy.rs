@@ -474,6 +474,112 @@ impl InstructionalSummaryMeasure {
     }
 }
 
+/// Exact identity of an outcome entity before or after a declared transformation.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalOutcomeRef {
+    pub outcome_measure_id: String,
+    pub outcome_measure_version: String,
+    pub outcome_measure_digest: String,
+}
+
+impl InstructionalOutcomeRef {
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.outcome_measure_id.trim().is_empty()
+            || self.outcome_measure_version.trim().is_empty()
+            || self.outcome_measure_digest.trim().is_empty()
+        {
+            return Err(InstructionalScienceContractError::InvalidOutcomeReference);
+        }
+        Ok(())
+    }
+}
+
+/// A declared processing operation that transforms one exact outcome entity into another.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum InstructionalOutcomeTransformationKind {
+    UnitConversion,
+    Normalization,
+    Standardization,
+    BaselineAdjustment,
+    CompositeConstruction,
+    SubgroupSelection,
+    Rounding,
+    Other(String),
+}
+
+impl InstructionalOutcomeTransformationKind {
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if matches!(self, Self::Other(value) if value.trim().is_empty()) {
+            return Err(InstructionalScienceContractError::InvalidTransformation);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalOutcomeTransformationReceipt {
+    pub transformation_id: String,
+    pub transformation_version: u64,
+    pub sequence: u32,
+    pub input_outcome: InstructionalOutcomeRef,
+    pub output_outcome: InstructionalOutcomeRef,
+    pub operation: InstructionalOutcomeTransformationKind,
+    pub operation_version: String,
+    pub parameters_digest: String,
+}
+
+impl InstructionalOutcomeTransformationReceipt {
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.transformation_id.trim().is_empty()
+            || self.transformation_version == 0
+            || self.operation_version.trim().is_empty()
+            || self.parameters_digest.trim().is_empty()
+        {
+            return Err(InstructionalScienceContractError::InvalidTransformation);
+        }
+        self.input_outcome.validate()?;
+        self.output_outcome.validate()?;
+        self.operation.validate()?;
+        if self.input_outcome == self.output_outcome {
+            return Err(InstructionalScienceContractError::TransformationIdentityNoOp);
+        }
+        Ok(())
+    }
+}
+
+/// Provenance-preserving ordered transformation chain for a computed result.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalTransformationChain {
+    pub transformations: Vec<InstructionalOutcomeTransformationReceipt>,
+}
+
+impl InstructionalTransformationChain {
+    fn validate_for_output(
+        &self,
+        output: &InstructionalOutcomeRef,
+    ) -> Result<(), InstructionalScienceContractError> {
+        if self.transformations.is_empty() {
+            return Ok(());
+        }
+        for (index, transformation) in self.transformations.iter().enumerate() {
+            transformation.validate()?;
+            if transformation.sequence != (index + 1) as u32 {
+                return Err(InstructionalScienceContractError::TransformationSequenceMismatch);
+            }
+            if index > 0
+                && self.transformations[index - 1].output_outcome
+                    != transformation.input_outcome
+            {
+                return Err(InstructionalScienceContractError::TransformationChainMismatch);
+            }
+        }
+        if self.transformations.last().unwrap().output_outcome != *output {
+            return Err(InstructionalScienceContractError::TransformationOutputMismatch);
+        }
+        Ok(())
+    }
+}
+
 /// Exact identity of a computed analysis result.
 ///
 /// The value is kept as canonical serialized text so this contract does not
@@ -490,6 +596,7 @@ pub struct InstructionalAnalysisResultReceipt {
     pub outcome_measure_digest: String,
     pub analysis_metric: InstructionalAnalysisMetric,
     pub summary_measure: InstructionalSummaryMeasure,
+    pub transformation_chain: InstructionalTransformationChain,
     pub effect_measure: String,
     pub point_estimate: String,
     pub scale: String,
@@ -523,6 +630,12 @@ impl InstructionalAnalysisResultReceipt {
         self.estimand_ref.validate()?;
         self.analysis_metric.validate()?;
         self.summary_measure.validate()?;
+        let result_outcome = InstructionalOutcomeRef {
+            outcome_measure_id: self.outcome_measure_id.clone(),
+            outcome_measure_version: self.outcome_measure_version.clone(),
+            outcome_measure_digest: self.outcome_measure_digest.clone(),
+        };
+        self.transformation_chain.validate_for_output(&result_outcome)?;
         if self.estimand_ref.estimand_digest != self.analysis.estimand_ref.estimand_digest {
             return Err(InstructionalScienceContractError::AnalysisResultEstimandMismatch);
         }
@@ -1183,6 +1296,12 @@ pub enum InstructionalScienceContractError {
     InvalidUncertaintyReceipt,
     InvalidAnalysisResultReceipt,
     InvalidAnalysisOutcomeSemantics,
+    InvalidOutcomeReference,
+    InvalidTransformation,
+    TransformationIdentityNoOp,
+    TransformationSequenceMismatch,
+    TransformationChainMismatch,
+    TransformationOutputMismatch,
     ZeroAnalysisResultVersion,
     AnalysisResultEstimandMismatch,
     NegativeAnalysisResultGeneratedAt,
@@ -2126,6 +2245,7 @@ mod tests {
             outcome_measure_digest: "blake3:outcome".into(),
             analysis_metric: InstructionalAnalysisMetric::FinalValue,
             summary_measure: InstructionalSummaryMeasure::Mean,
+            transformation_chain: InstructionalTransformationChain { transformations: vec![] },
             effect_measure: "mean".into(),
             point_estimate: "0.20".into(),
             scale: "difference".into(),
@@ -2140,6 +2260,60 @@ mod tests {
         assert_eq!(
             result.validate(),
             Err(InstructionalScienceContractError::InvalidAnalysisResultReceipt)
+        );
+    }
+
+    #[test]
+    fn transformation_chain_must_be_ordered_and_end_at_result_outcome() {
+        let input = InstructionalOutcomeRef {
+            outcome_measure_id: "raw".into(),
+            outcome_measure_version: "1".into(),
+            outcome_measure_digest: "blake3:raw".into(),
+        };
+        let output = InstructionalOutcomeRef {
+            outcome_measure_id: "standardized".into(),
+            outcome_measure_version: "1".into(),
+            outcome_measure_digest: "blake3:standardized".into(),
+        };
+        let chain = InstructionalTransformationChain {
+            transformations: vec![InstructionalOutcomeTransformationReceipt {
+                transformation_id: "transform-1".into(),
+                transformation_version: 1,
+                sequence: 1,
+                input_outcome: input.clone(),
+                output_outcome: output.clone(),
+                operation: InstructionalOutcomeTransformationKind::Standardization,
+                operation_version: "1".into(),
+                parameters_digest: "blake3:params".into(),
+            }],
+        };
+        assert_eq!(chain.validate_for_output(&output), Ok(()));
+        assert_eq!(
+            chain.validate_for_output(&input),
+            Err(InstructionalScienceContractError::TransformationOutputMismatch)
+        );
+    }
+
+    #[test]
+    fn transformation_chain_rejects_hidden_noop() {
+        let outcome = InstructionalOutcomeRef {
+            outcome_measure_id: "same".into(),
+            outcome_measure_version: "1".into(),
+            outcome_measure_digest: "blake3:same".into(),
+        };
+        let transformation = InstructionalOutcomeTransformationReceipt {
+            transformation_id: "transform-noop".into(),
+            transformation_version: 1,
+            sequence: 1,
+            input_outcome: outcome.clone(),
+            output_outcome: outcome,
+            operation: InstructionalOutcomeTransformationKind::Rounding,
+            operation_version: "1".into(),
+            parameters_digest: "blake3:params".into(),
+        };
+        assert_eq!(
+            transformation.validate(),
+            Err(InstructionalScienceContractError::TransformationIdentityNoOp)
         );
     }
 
