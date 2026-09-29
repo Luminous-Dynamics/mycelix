@@ -1,0 +1,62 @@
+name: Forge Sealed Executor Runtime
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-forge-sealed-executor-runtime/**'
+      - 'crates/mycelix-forge-sealed-executor-interface/**'
+      - 'adapters/forge-git-ref-transaction/**'
+      - '.github/workflows/forge-sealed-executor-runtime.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+      - name: rustfmt
+        working-directory: crates/mycelix-forge-sealed-executor-runtime
+        run: cargo fmt -- --check
+      - name: clippy
+        working-directory: crates/mycelix-forge-sealed-executor-runtime
+        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: static execution firewall
+        working-directory: crates/mycelix-forge-sealed-executor-runtime
+        run: |
+          test "$(grep -Ec 'Command::new\(' src/lib.rs)" -eq 1
+          ! grep -Eq 'Command::new\([^&]' src/lib.rs
+          ! grep -Eq 'std::process::Command.*(sh|bash)|Command::new\([^)]*["'"'"'](sh|bash)["'"'"']' src/lib.rs
+          grep -Fq '.args(invocation.command_args())' src/lib.rs
+          grep -Fq '.stdin(Stdio::piped())' src/lib.rs
+          grep -Fq '.env_clear()' src/lib.rs
+          grep -Fq '.current_dir(&self.config.repository_path)' src/lib.rs
+          ! grep -Eq 'args\([^)]*String|args\([^)]*Path|env\([^)]*invocation' src/lib.rs
+          ! grep -Eq 'SealedExecutorInvocationV1.*Deserialize|MergeExecutionAuthorizationV1.*Deserialize|PreparedExecutionPermitV1.*Deserialize|impl.*Deserialize.*SealedExecutor' src/lib.rs
+          ! grep -Fq 'MergeExecutionAuthorizationV1::new' src/lib.rs
+          ! grep -Fq 'pub fn issue(' src/lib.rs
+          ! grep -Fq 'pub(crate) fn issue(' src/lib.rs
+          ! grep -Fq 'impl Clone for MergeExecutionAuthorizationV1' src/lib.rs
+          ! grep -Fq 'impl Clone for PreparedExecutionPermitV1' src/lib.rs
+          ! grep -Fq 'pub(crate) invocation_commitment:' src/lib.rs
+          ! grep -Fq 'pub(crate) runtime_config_commitment:' src/lib.rs
+          ! grep -Fq 'pub(crate) authority_evidence:' src/lib.rs
+          ! grep -Fq 'pub(crate) evidence_commitment:' src/lib.rs
+          ! grep -Fq 'pub(crate) preparation_evidence:' src/lib.rs
+          grep -Fq 'authorization: MergeExecutionAuthorizationV1' src/lib.rs
+          grep -Fq 'authorization: &MergeExecutionAuthorizationV1' src/lib.rs
+          grep -Fq 'journal.prepare(' src/lib.rs
+          grep -Fq 'prepared: PreparedExecutionPermitV1' src/lib.rs
+          grep -Fq 'invocation.command_args(), invocation.stdin_bytes()' src/lib.rs
+      - name: tests
+        working-directory: crates/mycelix-forge-sealed-executor-runtime
+        run: cargo test --all-features
