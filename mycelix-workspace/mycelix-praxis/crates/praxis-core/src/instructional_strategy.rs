@@ -535,6 +535,7 @@ pub struct InstructionalInterpretationReceipt {
     pub statement: String,
     pub limitations: String,
     pub experimental_provenance: Option<ExperimentalAnalysisRef>,
+    pub evidence_sufficiency: InstructionalEvidenceSufficiencyRef,
     pub generated_at: i64,
 }
 
@@ -608,6 +609,106 @@ pub enum InstructionalClaimKind {
 /// silently upgrade an analysis result into causal, pedagogical, learner-level,
 /// mastery, credential, trust, or authorization authority.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum InstructionalEvidenceRole {
+    PrimaryAnalysis,
+    SensitivityAnalysis,
+    Limitation,
+    Counterevidence,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalEvidenceRef {
+    pub evidence_id: String,
+    pub evidence_version: u64,
+    pub evidence_digest: String,
+    pub role: InstructionalEvidenceRole,
+}
+
+impl InstructionalEvidenceRef {
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.evidence_id.trim().is_empty() || self.evidence_digest.trim().is_empty() {
+            return Err(InstructionalScienceContractError::InvalidEvidenceReference);
+        }
+        if self.evidence_version == 0 {
+            return Err(InstructionalScienceContractError::ZeroEvidenceReferenceVersion);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum InstructionalRobustnessStatus {
+    NotAssessed,
+    Consistent,
+    Sensitive,
+    Inconclusive,
+}
+
+/// Describes whether a claim's declared evidence has been checked for robustness.
+/// This is descriptive metadata, not a scientific-validity score.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalEvidenceSufficiencyReceipt {
+    pub evidence_id: String,
+    pub evidence_version: u64,
+    pub evidence_set_digest: String,
+    pub evidence: Vec<InstructionalEvidenceRef>,
+    pub robustness_status: InstructionalRobustnessStatus,
+    pub assumptions_digest: String,
+    pub sensitivity_plan_digest: String,
+    pub limitations_digest: String,
+    pub generated_at: i64,
+}
+
+impl InstructionalEvidenceSufficiencyReceipt {
+    pub fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.evidence_id.trim().is_empty()
+            || self.evidence_set_digest.trim().is_empty()
+            || self.assumptions_digest.trim().is_empty()
+            || self.sensitivity_plan_digest.trim().is_empty()
+            || self.limitations_digest.trim().is_empty()
+        {
+            return Err(InstructionalScienceContractError::InvalidEvidenceSufficiencyReceipt);
+        }
+        if self.evidence_version == 0 {
+            return Err(InstructionalScienceContractError::ZeroEvidenceSufficiencyVersion);
+        }
+        if self.evidence.is_empty() {
+            return Err(InstructionalScienceContractError::NoEvidenceReferences);
+        }
+        for evidence in &self.evidence {
+            evidence.validate()?;
+        }
+        if self.generated_at < 0 {
+            return Err(InstructionalScienceContractError::NegativeEvidenceGeneratedAt);
+        }
+        Ok(())
+    }
+
+    pub const fn grants_credential_authority(&self) -> bool { false }
+    pub const fn grants_trust_authority(&self) -> bool { false }
+    pub const fn grants_authorization(&self) -> bool { false }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalEvidenceSufficiencyRef {
+    pub evidence_id: String,
+    pub evidence_version: u64,
+    pub evidence_digest: String,
+}
+
+impl InstructionalEvidenceSufficiencyRef {
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.evidence_id.trim().is_empty() || self.evidence_digest.trim().is_empty() {
+            return Err(InstructionalScienceContractError::InvalidEvidenceSufficiencyReference);
+        }
+        if self.evidence_version == 0 {
+            return Err(InstructionalScienceContractError::ZeroEvidenceSufficiencyReferenceVersion);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InstructionalClaimReceipt {
     pub claim_id: String,
     pub claim_version: u64,
@@ -634,6 +735,7 @@ impl InstructionalClaimReceipt {
             return Err(InstructionalScienceContractError::ZeroClaimVersion);
         }
         self.interpretation.validate()?;
+        self.evidence_sufficiency.validate()?;
         self.analysis.validate()?;
 
         if matches!(&self.claim_kind, &InstructionalClaimKind::Causal)
@@ -716,6 +818,14 @@ pub enum InstructionalScienceContractError {
     ZeroClaimVersion,
     CausalClaimRequiresExperimentalProvenance,
     NegativeClaimGeneratedAt,
+    InvalidEvidenceReference,
+    ZeroEvidenceReferenceVersion,
+    InvalidEvidenceSufficiencyReceipt,
+    ZeroEvidenceSufficiencyVersion,
+    NoEvidenceReferences,
+    NegativeEvidenceGeneratedAt,
+    InvalidEvidenceSufficiencyReference,
+    ZeroEvidenceSufficiencyReferenceVersion,
     NegativeAnalysisGeneratedAt,
     EmptyAnalysisDeviationRationale,
     MissingAnalysisDeviationRationale,
@@ -1258,12 +1368,72 @@ mod tests {
             statement: "The observed group mean was higher.".into(),
             qualification: "Descriptive result; no causal or learner-level inference.".into(),
             experimental_provenance: None,
+            evidence_sufficiency: InstructionalEvidenceSufficiencyRef {
+                evidence_id: "evidence-1".into(),
+                evidence_version: 1,
+                evidence_digest: "blake3:evidence".into(),
+            },
             generated_at: 200,
         };
         assert_eq!(claim.validate(), Ok(()));
         assert!(!claim.grants_credential_authority());
         assert!(!claim.grants_trust_authority());
         assert!(!claim.grants_authorization());
+    }
+
+    #[test]
+    fn evidence_sufficiency_requires_explicit_evidence_and_keeps_robustness_descriptive() {
+        let receipt = InstructionalEvidenceSufficiencyReceipt {
+            evidence_id: "evidence-1".into(),
+            evidence_version: 1,
+            evidence_set_digest: "blake3:evidence-set".into(),
+            evidence: vec![InstructionalEvidenceRef {
+                evidence_id: "analysis-1".into(),
+                evidence_version: 1,
+                evidence_digest: "blake3:analysis".into(),
+                role: InstructionalEvidenceRole::PrimaryAnalysis,
+            }],
+            robustness_status: InstructionalRobustnessStatus::Consistent,
+            assumptions_digest: "blake3:assumptions".into(),
+            sensitivity_plan_digest: "blake3:sensitivity".into(),
+            limitations_digest: "blake3:limitations".into(),
+            generated_at: 200,
+        };
+        assert_eq!(receipt.validate(), Ok(()));
+        assert!(!receipt.grants_credential_authority());
+        assert!(!receipt.grants_trust_authority());
+        assert!(!receipt.grants_authorization());
+    }
+
+    #[test]
+    fn claim_requires_evidence_sufficiency_provenance() {
+        let claim = InstructionalClaimReceipt {
+            claim_id: "claim-2".into(),
+            claim_version: 1,
+            interpretation: InstructionalInterpretationRef {
+                interpretation_id: "interpretation-2".into(),
+                interpretation_version: 1,
+                interpretation_digest: "blake3:interpretation".into(),
+            },
+            analysis: InstructionalAnalysisRef {
+                analysis_id: "analysis-2".into(),
+                analysis_version: 1,
+                analysis_digest: "blake3:analysis".into(),
+            },
+            interpretation_kind: InstructionalInterpretationKind::Descriptive,
+            claim_kind: InstructionalClaimKind::Descriptive,
+            scope: InstructionalInterpretationScope::Aggregate,
+            statement: "The observed group mean was higher.".into(),
+            qualification: "Descriptive result.".into(),
+            experimental_provenance: None,
+            evidence_sufficiency: InstructionalEvidenceSufficiencyRef {
+                evidence_id: "evidence-2".into(),
+                evidence_version: 1,
+                evidence_digest: "blake3:evidence".into(),
+            },
+            generated_at: 200,
+        };
+        assert_eq!(claim.validate(), Ok(()));
     }
 
 }
