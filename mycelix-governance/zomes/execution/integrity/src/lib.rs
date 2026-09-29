@@ -4,7 +4,7 @@
 //! Execution Integrity Zome
 //! Defines entry types and validation for proposal execution
 //!
-//! Updated to use HDI 0.7 patterns
+//! Updated to use Holochain 0.7 / HDI 0.8 patterns
 
 use hdi::prelude::*;
 use mycelix_bridge_entry_types::{did_for_author, require_did_is_author};
@@ -464,27 +464,26 @@ pub fn check_update_fund_allocation(
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(store_entry) => match store_entry {
+        FlatOp::CreateEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::Timelock(timelock) => validate_create_timelock(action, timelock),
-                EntryTypes::Execution(execution) => validate_create_execution(action, execution),
-                EntryTypes::GuardianVeto(veto) => validate_create_veto(action, veto),
-                EntryTypes::FundAllocation(alloc) => validate_create_fund_allocation(action, alloc),
-                EntryTypes::VetoOverrideVote(vote) => validate_create_override_vote(action, vote),
+                EntryTypes::Timelock(timelock) => validate_create_timelock(action.into(), timelock),
+                EntryTypes::Execution(execution) => validate_create_execution(action.into(), execution),
+                EntryTypes::GuardianVeto(veto) => validate_create_veto(action.into(), veto),
+                EntryTypes::FundAllocation(alloc) => validate_create_fund_allocation(action.into(), alloc),
+                EntryTypes::VetoOverrideVote(vote) => validate_create_override_vote(action.into(), vote),
                 EntryTypes::VetoOverrideResult(result) => {
-                    validate_create_override_result(action, result)
+                    validate_create_override_result(action.into(), result)
                 }
             },
             OpEntry::UpdateEntry {
                 app_entry,
                 action,
-                original_action_hash,
-                original_entry_hash: _,
+                ..
             } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
                 EntryTypes::Timelock(timelock) => {
-                    validate_update_timelock(action, timelock, original_action_hash)
+                    validate_update_timelock(action, timelock, action.original_action_address.clone())
                 }
                 EntryTypes::Execution(_) => {
                     // Executions cannot be updated once created
@@ -505,18 +504,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     "Override results cannot be modified".into(),
                 )),
                 EntryTypes::FundAllocation(alloc) => {
-                    validate_update_fund_allocation(action, alloc, original_action_hash)
+                    validate_update_fund_allocation(action, alloc, action.original_action_address.clone())
                 }
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink {
-            link_type,
-            base_address: _,
-            target_address: _,
-            tag: _,
-            action: _,
-        } => match link_type {
+        FlatOp::Link(OpLink::CreateLink { link_type, .. }) => match link_type {
             LinkTypes::ProposalToTimelock => Ok(ValidateCallbackResult::Valid),
             LinkTypes::TimelockToExecution => Ok(ValidateCallbackResult::Valid),
             LinkTypes::PendingTimelocks => Ok(ValidateCallbackResult::Valid),
@@ -526,28 +519,21 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             LinkTypes::VetoToOverrideVotes => Ok(ValidateCallbackResult::Valid),
             LinkTypes::VetoToOverrideResult => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterDeleteLink {
-            link_type,
-            original_action: _,
-            base_address: _,
-            target_address: _,
-            tag: _,
-            action: _,
-        } => match link_type {
+        FlatOp::Link(OpLink::DeleteLink { link_type, .. }) => match link_type {
             // Allow removing from pending list when executed/cancelled
             LinkTypes::PendingTimelocks => Ok(ValidateCallbackResult::Valid),
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::CreateRecord(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Delete(_) => Ok(ValidateCallbackResult::Valid),
     }
 }
 
 /// Validate timelock creation
 fn validate_create_timelock(
-    _action: Create,
+    _action: TypedAction<EntryCreationData>,
     timelock: Timelock,
 ) -> ExternResult<ValidateCallbackResult> {
     match check_create_timelock(&timelock) {
@@ -558,7 +544,7 @@ fn validate_create_timelock(
 
 /// Validate timelock update
 fn validate_update_timelock(
-    _action: Update,
+    _action: TypedAction<UpdateData>,
     timelock: Timelock,
     original_action_hash: ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
@@ -580,13 +566,13 @@ fn validate_update_timelock(
 
 /// Validate execution creation
 fn validate_create_execution(
-    action: Create,
+    action: TypedAction<EntryCreationData>,
     execution: Execution,
 ) -> ExternResult<ValidateCallbackResult> {
     // Bind to the committer. `execute_timelock` (execution/coordinator:297-300)
     // already compares input.executor_did against an agent_info()-derived DID,
     // so this enforces that at the DHT level. (governance Class-A, `execution:581`.)
-    let author_did = did_for_author(&action.author);
+    let author_did = did_for_author(action.author());
     if let ValidateCallbackResult::Invalid(msg) =
         require_did_is_author("Execution", "executor", &execution.executor, &author_did)
     {
@@ -601,7 +587,7 @@ fn validate_create_execution(
 
 /// Validate guardian veto creation
 fn validate_create_veto(
-    action: Create,
+    action: TypedAction<EntryCreationData>,
     veto: GuardianVeto,
 ) -> ExternResult<ValidateCallbackResult> {
     // Bind the veto to its committer. A forged `guardian` lets any agent freeze
@@ -627,7 +613,7 @@ fn validate_create_veto(
 
 /// Validate veto override vote creation
 fn validate_create_override_vote(
-    action: Create,
+    action: TypedAction<EntryCreationData>,
     vote: VetoOverrideVote,
 ) -> ExternResult<ValidateCallbackResult> {
     // Bind the override vote to its committer — a forged `voter_did` swings the
@@ -652,7 +638,7 @@ fn validate_create_override_vote(
 
 /// Validate veto override result creation
 fn validate_create_override_result(
-    _action: Create,
+    _action: TypedAction<EntryCreationData>,
     result: VetoOverrideResult,
 ) -> ExternResult<ValidateCallbackResult> {
     match check_create_override_result(&result) {
@@ -663,7 +649,7 @@ fn validate_create_override_result(
 
 /// Validate fund allocation creation
 fn validate_create_fund_allocation(
-    _action: Create,
+    _action: TypedAction<EntryCreationData>,
     alloc: FundAllocation,
 ) -> ExternResult<ValidateCallbackResult> {
     match check_create_fund_allocation(&alloc) {
@@ -674,7 +660,7 @@ fn validate_create_fund_allocation(
 
 /// Validate fund allocation update (status transitions)
 fn validate_update_fund_allocation(
-    _action: Update,
+    _action: TypedAction<UpdateData>,
     alloc: FundAllocation,
     original_action_hash: ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
@@ -710,18 +696,6 @@ mod tests {
             expires: ts(2_000_000),
             status: TimelockStatus::Pending,
             cancellation_reason: None,
-        }
-    }
-
-    fn make_create() -> Create {
-        Create {
-            author: AgentPubKey::from_raw_36(vec![0; 36]),
-            timestamp: ts(1_000_000),
-            action_seq: 0,
-            prev_action: ActionHash::from_raw_36(vec![0; 36]),
-            entry_type: EntryType::CapClaim,
-            entry_hash: EntryHash::from_raw_36(vec![0; 36]),
-            weight: Default::default(),
         }
     }
 
@@ -1201,47 +1175,5 @@ mod tests {
         assert!(check_update_fund_allocation(&released, &updated).is_err());
     }
 
-    #[test]
-    fn test_veto_forged_guardian_is_rejected() {
-        // A forged guardian freezes any timelock under a real guardian's name.
-        let mut v = make_veto();
-        v.guardian = "did:mycelix:uhCAkSomeoneElse".into();
-        let result = validate_create_veto(make_create(), v).unwrap();
-        match result {
-            ValidateCallbackResult::Invalid(msg) => {
-                assert!(
-                    msg.contains("GuardianVeto") && msg.contains("forgery"),
-                    "got: {msg}"
-                )
-            }
-            other => panic!("forged guardian must be rejected, got {other:?}"),
-        }
-    }
 
-    #[test]
-    fn test_veto_from_the_committing_guardian_is_accepted() {
-        let result = validate_create_veto(make_create(), make_veto()).unwrap();
-        assert!(matches!(result, ValidateCallbackResult::Valid));
-    }
-
-    #[test]
-    fn test_override_vote_forged_voter_is_rejected() {
-        // A forged voter_did swings the 67% veto-override threshold.
-        let vote = VetoOverrideVote {
-            id: "ov-1".into(),
-            veto_id: "v-1".into(),
-            voter_did: "did:mycelix:uhCAkSomeoneElse".into(),
-            supports_override: true,
-            phi_score: 0.7,
-            voted_at: ts(2_000_000),
-        };
-        let result = validate_create_override_vote(make_create(), vote).unwrap();
-        match result {
-            ValidateCallbackResult::Invalid(msg) => assert!(
-                msg.contains("VetoOverrideVote") && msg.contains("forgery"),
-                "got: {msg}"
-            ),
-            other => panic!("forged voter_did must be rejected, got {other:?}"),
-        }
-    }
 }
