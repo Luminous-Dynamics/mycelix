@@ -119,6 +119,35 @@ fn membership_records_for_hearth(
     Ok(records)
 }
 
+/// Resolve membership links for canonical catalog assembly without silently
+/// dropping missing/deleted evidence. A discovered active Hearth must fail
+/// closed when one of its membership evidence records cannot be resolved.
+fn membership_records_for_hearth_strict(
+    hearth_hash: &ActionHash,
+) -> ExternResult<Vec<(Record, HearthMembership)>> {
+    let links = get_links(
+        LinkQuery::try_new(hearth_hash.clone(), LinkTypes::HearthToMembers)?,
+        GetStrategy::default(),
+    )?;
+    let mut records = Vec::new();
+    for link in links {
+        let target = ActionHash::try_from(link.target).map_err(|_| {
+            wasm_error!(WasmErrorInner::Guest("Invalid membership link".into()))
+        })?;
+        let record = get_latest_record(target.clone())?.ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Active Hearth catalog evidence is incomplete: membership record {:?} is missing",
+                target
+            )))
+        })?;
+        let membership: HearthMembership = entry_from_record(&record, "HearthMembership")?;
+        if membership.hearth_hash == *hearth_hash {
+            records.push((record, membership));
+        }
+    }
+    Ok(records)
+}
+
 /// Verify the caller has a guardian-level role (Founder, Elder, or Adult)
 /// within the specified hearth. Returns the caller's membership record.
 fn require_guardian_role(hearth_hash: &ActionHash) -> ExternResult<HearthMembership> {
@@ -953,7 +982,7 @@ pub fn get_my_active_hearths(_: ()) -> ExternResult<Vec<ActiveHearthCatalogItem>
         })?;
         let hearth: Hearth = entry_from_record(&hearth_record, "Hearth")?;
 
-        let memberships = membership_records_for_hearth(&hearth_hash)?;
+        let memberships = membership_records_for_hearth_strict(&hearth_hash)?;
         let active: Vec<(Record, HearthMembership)> = memberships
             .into_iter()
             .filter(|(_, membership)| {
