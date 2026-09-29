@@ -361,7 +361,7 @@ fn write_canonical_string(value: &str, out: &mut Vec<u8>) {
     for ch in value.chars() {
         match ch {
             '"' => out.extend_from_slice(br#"\""#),
-            '\\' => out.extend_from_slice(br#"\\\"#),
+            '\\' => out.extend_from_slice(br#"\\"#),
             '\u{0008}' => out.extend_from_slice(br#"\b"#),
             '\t' => out.extend_from_slice(br#"\t"#),
             '\n' => out.extend_from_slice(br#"\n"#),
