@@ -19,6 +19,7 @@ pub mod stable_frontier;
 pub mod archive_continuity;
 pub mod substitution_continuity;
 pub mod effect_finality;
+pub mod contestable_finality;
 
 pub const CORPUS_ID: &str = "COS-CONF-001";
 pub const FORMAL_OBLIGATIONS: [&str; 10] = [
