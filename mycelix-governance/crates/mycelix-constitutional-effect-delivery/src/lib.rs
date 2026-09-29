@@ -1604,12 +1604,12 @@ mod tests {
             .observe(Observation::outcome_unknown(binding(), first, 8))
             .unwrap();
         let second = record.retry_same_effect(&binding()).unwrap().attempt_id();
+        record
+            .observe(Observation::semantic_success(binding(), second, 10))
+            .unwrap();
 
         let mut snapshot = record.snapshot();
-        snapshot.observations[0].attempt_id = second;
-        snapshot.observations[0].kind = ObservationKind::SemanticSuccess;
-        snapshot.observations[0].evidence_id = 10;
-        snapshot.observations[0].reconciles_sequence = None;
+        snapshot.observations.swap(0, 1);
 
         assert_eq!(
             DeliveryRecord::recover(snapshot),
