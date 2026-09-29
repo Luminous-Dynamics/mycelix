@@ -157,3 +157,17 @@ See `docs/integral/canonical-encoding-profile-d6t-v1.md`.
 
 Claim ceiling: **ReferenceModelOnly**.
 
+## D6U — explicitly qualified recursive/fixpoint derivations
+
+`recursive_fixpoint.rs` makes recursive semantic derivation explicit, bounded, replayable, and non-amplifying.
+
+A recursive profile freezes the rule ID, deterministic iteration order, convergence criterion, finite-carrier commitment, iteration/resource bounds, and exact profile commitment. A seed binds the exact D6S projection/environment and input state. Every iteration binds predecessor state, successor state, delta, and transition commitments.
+
+A `Converged` result requires exact state equality at the final step. Non-convergence exhausts the declared bound and remains unresolved. Convergence never creates truth, currentness, authority, authorization, or actuation permission.
+
+D6S now requires an exact `recursive_derivation_trace_commitment` when a selected derivation contains a semantic cycle under the explicitly named `recursive-fixpoint-v1` profile. A recursive profile alone cannot bypass the cycle boundary.
+
+See `docs/integral/recursive-fixpoint-derivations-d6u-v1.md`.
+
+Claim ceiling: **ReferenceModelOnly**.
+
