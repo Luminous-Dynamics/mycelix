@@ -151,6 +151,7 @@ pub struct QualifiedProjectionV1 {
     pub d6p_current_receipt_commitments: BTreeSet<String>,
     pub d6n_context_commitment: Option<String>,
     pub d6o_context_commitment: Option<String>,
+    pub recursive_derivation_trace_commitment: Option<String>,
     pub semantic_environment_commitment: String,
     pub derivation_profile_commitment: String,
     pub claim_ceiling: String,
@@ -172,6 +173,10 @@ impl QualifiedProjectionV1 {
             && self.d6p_current_receipt_commitments.iter().all(|v| non_empty(v))
             && self.d6n_context_commitment.as_deref().map_or(true, non_empty)
             && self.d6o_context_commitment.as_deref().map_or(true, non_empty)
+            && self
+                .recursive_derivation_trace_commitment
+                .as_deref()
+                .map_or(true, non_empty)
     }
 
     pub fn dangling_edge_ids(&self) -> BTreeSet<String> {
@@ -248,6 +253,7 @@ pub struct CanonicalDerivationReceiptV1 {
     pub input_node_commitments: BTreeSet<String>,
     pub input_edge_commitments: BTreeSet<String>,
     pub d6p_current_receipt_commitments: BTreeSet<String>,
+    pub recursive_derivation_trace_commitment: Option<String>,
     pub result_status: DerivationResultStatusV1,
     pub result_commitment: String,
     pub contradiction_preserved: bool,
@@ -270,6 +276,10 @@ impl CanonicalDerivationReceiptV1 {
             && self.input_node_commitments.iter().all(|v| non_empty(v))
             && self.input_edge_commitments.iter().all(|v| non_empty(v))
             && self.d6p_current_receipt_commitments.iter().all(|v| non_empty(v))
+            && self
+                .recursive_derivation_trace_commitment
+                .as_deref()
+                .map_or(true, non_empty)
             && non_empty(&self.result_commitment)
             && non_empty(&self.receipt_commitment)
             && self.claim_ceiling == D6S_CLAIM_CEILING
@@ -441,6 +451,9 @@ pub fn build_canonical_receipt(
         || (matches!(result_status, DerivationResultStatusV1::Supported)
             && projection.nodes.values().any(|node| node.historical_only))
         || (projection.derivation_cycle_exists() && !profile.permits_recursive_fixpoint)
+        || (projection.derivation_cycle_exists()
+            && profile.permits_recursive_fixpoint
+            && projection.recursive_derivation_trace_commitment.is_none())
         || result_commitment.trim().is_empty()
         || !result_flags_are_consistent(result_status, contradiction_preserved, unresolved_preserved)
         || (matches!(result_status, DerivationResultStatusV1::Supported)
@@ -474,6 +487,7 @@ pub fn build_canonical_receipt(
         input_node_commitments,
         input_edge_commitments,
         d6p_current_receipt_commitments: projection.d6p_current_receipt_commitments.clone(),
+        recursive_derivation_trace_commitment: projection.recursive_derivation_trace_commitment.clone(),
         result_status,
         result_commitment,
         contradiction_preserved,
@@ -828,6 +842,35 @@ mod tests {
         assert!(!p.derivation_cycle_exists());
         p.edges.get_mut("cycle-b").unwrap().kind = ClaimGraphEdgeKindV1::Supports;
         assert!(p.derivation_cycle_exists());
+    }
+
+    #[test]
+    fn recursive_cycle_requires_an_exact_trace_commitment() {
+        let mut p = projection();
+        p.nodes.insert("x".into(), QualifiedNodeV1 {
+            node_id: "x".into(), kind: ClaimGraphNodeKindV1::Assessment,
+            node_commitment: "node-x".into(), historical_only: false,
+            current_frontier_root: Some("frontier-1".into()), claim_ceiling: D6S_CLAIM_CEILING.into(),
+        });
+        p.edges.insert("cycle-a".into(), QualifiedEdgeV1 {
+            edge_id: "cycle-a".into(), from_node_id: "a".into(), to_node_id: "x".into(),
+            kind: ClaimGraphEdgeKindV1::Supports, edge_commitment: "edge-a".into(), claim_ceiling: D6S_CLAIM_CEILING.into(),
+        });
+        p.edges.insert("cycle-b".into(), QualifiedEdgeV1 {
+            edge_id: "cycle-b".into(), from_node_id: "x".into(), to_node_id: "a".into(),
+            kind: ClaimGraphEdgeKindV1::Supports, edge_commitment: "edge-b".into(), claim_ceiling: D6S_CLAIM_CEILING.into(),
+        });
+
+        let mut recursive = profile();
+        recursive.permits_recursive_fixpoint = true;
+        recursive.rule_ids.insert("recursive-fixpoint-v1".into());
+        let profile_commitment = recursive.commitment();
+        p.derivation_profile_commitment = profile_commitment;
+
+        assert!(build_canonical_receipt(
+            &p, &env(), &recursive, &[d6p_receipt()],
+            DerivationResultStatusV1::Supported, "result-1".into(), false, false
+        ).is_none());
     }
 
     #[test]

@@ -238,3 +238,24 @@ This prevents a canonical receipt from turning stale or historical material into
 
 The D6S implementation remains a bounded canonicalization layer. It does not itself make DKG confidence, attestation count, reputation, consensus snapshots, or graph reachability authoritative.
 
+## D6U recursive derivation integration
+
+A semantic derivation cycle is no longer sufficient merely because a derivation profile names `recursive-fixpoint-v1`.
+
+When a selected projection contains a derivation/support cycle, D6S requires an exact `recursive_derivation_trace_commitment`. D6U supplies the bounded, deterministic trace commitment.
+
+This makes the recursive exception explicit:
+
+```
+cycle
++ qualified recursive profile
++ exact bounded trace
+= recursively admissible reference derivation
+
+cycle
++ recursive profile without trace
+= blocked
+```
+
+The trace remains a qualification artifact. Convergence does not raise the D6S claim ceiling.
+
