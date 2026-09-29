@@ -16,6 +16,7 @@
 //! legal authority, or production finality.
 
 use serde::{Deserialize, Serialize};
+use crate::finality_eligibility_composition::CurrentFinalityEligibilityReceiptV1;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 pub const EVIDENCE_CLAIM_GRAPH_CLAIM_CEILING: &str =
@@ -430,6 +431,15 @@ impl EvidenceBundleV1 {
         &self,
         conclusion_id: &str,
     ) -> GraphAssessmentDispositionV1 {
+        self.semantically_bound_conclusion_with_current_receipt(conclusion_id, None)
+    }
+
+    /// Current support requires an exact qualified D6P receipt when supplied.
+    pub fn semantically_bound_conclusion_with_current_receipt(
+        &self,
+        conclusion_id: &str,
+        current_receipt: Option<&CurrentFinalityEligibilityReceiptV1>,
+    ) -> GraphAssessmentDispositionV1 {
         if self.structural_closure() != BundleNodeStatusV1::Present {
             return GraphAssessmentDispositionV1::BlockedMissingEvidence;
         }
@@ -439,6 +449,11 @@ impl EvidenceBundleV1 {
         if conclusion.kind != ClaimGraphNodeKindV1::Conclusion {
             return GraphAssessmentDispositionV1::BlockedMissingEvidence;
         }
+
+        let receipt_is_current = current_receipt.is_some_and(|receipt| {
+            receipt.structurally_valid()
+                && matches!(receipt.disposition, crate::finality_eligibility_composition::FinalityEligibilityDispositionV1::EligibleCurrent)
+        });
 
         let mut has_support = false;
         let mut has_conflict = false;
@@ -472,7 +487,7 @@ impl EvidenceBundleV1 {
 
         if has_conflict {
             GraphAssessmentDispositionV1::DisputedByBoundEvidence
-        } else if has_support && has_current_evidence {
+        } else if has_support && has_current_evidence && receipt_is_current {
             GraphAssessmentDispositionV1::SupportedByBoundEvidence
         } else if has_support {
             GraphAssessmentDispositionV1::BlockedCurrentness
@@ -670,6 +685,32 @@ mod tests {
         );
         assert_eq!(b.structural_closure(), BundleNodeStatusV1::Invalid);
         assert!(human_disposition_is_not_evidence());
+    }
+
+    #[test]
+    fn current_support_requires_exact_d6p_eligible_current_receipt() {
+        let b = bundle();
+        assert_eq!(
+            b.semantically_bound_conclusion_with_current_receipt("conclusion", None),
+            GraphAssessmentDispositionV1::BlockedCurrentness
+        );
+
+        let receipt = CurrentFinalityEligibilityReceiptV1 {
+            receipt_id: "receipt-1".into(), effect_id: "effect-1".into(), effect_lineage_id: "lineage-1".into(),
+            lifecycle_generation_id: "generation-1".into(), route_id: "route-1".into(), provider_id: "provider-1".into(),
+            provider_operation_id: "operation-1".into(), provider_profile_root: "provider-profile-1".into(),
+            semantic_environment_root: "env-1".into(), observation_set_id: "set-1".into(), observation_set_commitment: "set-commitment".into(),
+            d6n_assessment_commitment: "assessment:set-commitment".into(), witness_eligibility_ids: ["eligibility-1".into()].into_iter().collect(),
+            observer_generation_ids: ["generation-1".into()].into_iter().collect(), current_frontier_root: "frontier-1".into(),
+            lifecycle_profile_id: "life-profile-1".into(), eligible_independent_count: 1, preserved_contradictory_count: 0,
+            disposition: crate::finality_eligibility_composition::FinalityEligibilityDispositionV1::EligibleCurrent,
+            qualification_transition_id: "transition-1".into(), receipt_commitment: "receipt-commitment".into(),
+            claim_ceiling: crate::finality_eligibility_composition::FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING.into(),
+        };
+        assert_eq!(
+            b.semantically_bound_conclusion_with_current_receipt("conclusion", Some(&receipt)),
+            GraphAssessmentDispositionV1::SupportedByBoundEvidence
+        );
     }
 
     #[test]
