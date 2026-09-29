@@ -189,6 +189,83 @@ pub struct ObservationConflict {
     pub right_quantity: u32,
 }
 
+/// Stable identity for a conflict branch. Branch labels are navigational,
+/// never a ranking or selection of either observation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ConflictBranch {
+    pub branch_id: &'static str,
+    pub work_id: &'static str,
+    pub observation_id: &'static str,
+    pub origin: FederationNode,
+    pub quantity: u32,
+}
+
+/// Both conflicting observations remain represented as parallel branches.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ConflictBranchSet {
+    pub conflict: ObservationConflict,
+    pub left: ConflictBranch,
+    pub right: ConflictBranch,
+}
+
+pub fn conflict_branches(conflict: ObservationConflict) -> Option<ConflictBranchSet> {
+    if conflict.work_id.is_empty()
+        || conflict.left_observation_id.is_empty()
+        || conflict.right_observation_id.is_empty()
+        || conflict.left_observation_id == conflict.right_observation_id
+        || conflict.left_quantity == conflict.right_quantity
+    {
+        return None;
+    }
+    Some(ConflictBranchSet {
+        conflict,
+        left: ConflictBranch {
+            branch_id: "branch:left",
+            work_id: conflict.work_id,
+            observation_id: conflict.left_observation_id,
+            origin: conflict.left_origin,
+            quantity: conflict.left_quantity,
+        },
+        right: ConflictBranch {
+            branch_id: "branch:right",
+            work_id: conflict.work_id,
+            observation_id: conflict.right_observation_id,
+            origin: conflict.right_origin,
+            quantity: conflict.right_quantity,
+        },
+    })
+}
+
+/// Reconciliation records a human disposition and points to a newer revision.
+/// It does not mutate or remove either source observation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ConflictReconciliation {
+    pub reconciliation_id: &'static str,
+    pub decision_id: &'static str,
+    pub revision_id: &'static str,
+    pub revision_generation: u32,
+}
+
+pub fn validate_conflict_reconciliation(
+    branches: &ConflictBranchSet,
+    decision: &FederationDecisionArtifact,
+    reconciliation: &ConflictReconciliation,
+    current_generation: u32,
+) -> bool {
+    !reconciliation.reconciliation_id.is_empty()
+        && !reconciliation.revision_id.is_empty()
+        && reconciliation.reconciliation_id != reconciliation.revision_id
+        && reconciliation.reconciliation_id != decision.decision_id
+        && reconciliation.revision_id != decision.decision_id
+        && reconciliation.decision_id == decision.decision_id
+        && validate_decision_artifact(decision, &branches.conflict, current_generation)
+        && reconciliation.revision_generation > current_generation
+        && branches.left.observation_id == branches.conflict.left_observation_id
+        && branches.right.observation_id == branches.conflict.right_observation_id
+        && branches.left.work_id == branches.right.work_id
+        && branches.left.observation_id != branches.right.observation_id
+}
+
 pub fn reconcile_observations(
     left: FederationObservation,
     right: FederationObservation,
@@ -941,6 +1018,53 @@ mod tests {
             receipt_for(retry).logical_delivery_id
         );
         assert_eq!(receipt_for(e).origin, FederationNode::Foreign);
+    }
+
+    #[test]
+    fn conflict_branches_preserve_both_observations_without_preference() {
+        let [left, right, _] = observations();
+        let conflict = reconcile_observations(left, right).expect("conflict");
+        let branches = conflict_branches(conflict).expect("branches");
+        assert_eq!(branches.left.observation_id, conflict.left_observation_id);
+        assert_eq!(branches.right.observation_id, conflict.right_observation_id);
+        assert_ne!(branches.left.observation_id, branches.right.observation_id);
+        assert_eq!(branches.left.work_id, branches.right.work_id);
+        assert_eq!(branches.left.quantity, conflict.left_quantity);
+        assert_eq!(branches.right.quantity, conflict.right_quantity);
+    }
+
+    #[test]
+    fn reconciliation_requires_explicit_decision_and_new_revision() {
+        let [left, right, _] = observations();
+        let conflict = reconcile_observations(left, right).expect("conflict");
+        let branches = conflict_branches(conflict).expect("branches");
+        let decision = FederationDecisionArtifact {
+            decision_id: "decision-conflict-1",
+            conflict_work_id: conflict.work_id,
+            left_observation_id: conflict.left_observation_id,
+            right_observation_id: conflict.right_observation_id,
+            actor: "human-1",
+            authority_ref: "authority://review",
+            generation: 7,
+            decided_at: 120,
+            accepted: true,
+            source_ref: "decision://source",
+            recommendation_ref: None,
+        };
+        let path = ConflictReconciliation {
+            reconciliation_id: "reconciliation-1",
+            decision_id: decision.decision_id,
+            revision_id: "revision-8",
+            revision_generation: 8,
+        };
+        assert!(validate_conflict_reconciliation(&branches, &decision, &path, 7));
+        let stale = ConflictReconciliation { revision_generation: 7, ..path };
+        assert!(!validate_conflict_reconciliation(&branches, &decision, &stale, 7));
+        let wrong_branch = FederationDecisionArtifact {
+            left_observation_id: "other-observation",
+            ..decision
+        };
+        assert!(!validate_conflict_reconciliation(&branches, &wrong_branch, &path, 7));
     }
 
     #[test]
