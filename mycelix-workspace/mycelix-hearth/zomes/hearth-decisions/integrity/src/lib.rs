@@ -8,7 +8,7 @@
 
 use hdi::prelude::*;
 use hearth_types::*;
-use mycelix_bridge_entry_types::check_link_author_match;
+use mycelix_bridge_entry_types::{check_claimed_agent_match, check_link_author_match};
 
 // ============================================================================
 // Entry Types
@@ -116,23 +116,42 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(OpEntry::CreateEntry {
-            app_entry,
-            action: _,
-        }) => match app_entry {
-            EntryTypes::Decision(decision) => validate_decision(&decision),
-            EntryTypes::Vote(vote) => validate_vote(&vote),
-            EntryTypes::DecisionOutcome(outcome) => validate_outcome(&outcome),
-        },
-        FlatOp::StoreEntry(OpEntry::UpdateEntry {
+        FlatOp::CreateEntry(OpEntry::CreateEntry {
             app_entry,
             action,
-            original_action_hash,
+        }) => match app_entry {
+            EntryTypes::Decision(decision) => {
+                let result = check_claimed_agent_match(
+                    &decision.created_by,
+                    action.author(),
+                    "Decision.created_by",
+                );
+                if result != ValidateCallbackResult::Valid {
+                    return Ok(result);
+                }
+                validate_decision(&decision)
+            }
+            EntryTypes::Vote(vote) => {
+                let result = check_claimed_agent_match(
+                    &vote.voter,
+                    action.author(),
+                    "Vote.voter",
+                );
+                if result != ValidateCallbackResult::Valid {
+                    return Ok(result);
+                }
+                validate_vote(&vote)
+            },
+            EntryTypes::DecisionOutcome(outcome) => validate_outcome(&outcome),
+        },
+        FlatOp::CreateEntry(OpEntry::UpdateEntry {
+            app_entry,
+            action,
             ..
         }) => match app_entry {
             EntryTypes::Decision(decision) => {
                 validate_decision(&decision)?;
-                validate_decision_update(&action, &decision, &original_action_hash)
+                validate_decision_update(&decision, &action.original_action_address)
             }
             EntryTypes::Vote(_) => {
                 // INVARIANT: Vote immutability — once a vote is cast on a decision,
@@ -151,25 +170,23 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 ))
             }
         },
-        FlatOp::StoreEntry(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterCreateLink {
+        FlatOp::CreateEntry(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Link(OpLink::CreateLink { link_type, action }) => {
+            validate_create_link(link_type, &action.data.tag)
+        }
+        FlatOp::Link(link @ OpLink::DeleteLink {
             link_type,
-            base_address: _,
-            target_address: _,
-            tag,
-            action: _,
-        } => validate_create_link(link_type, &tag),
-        FlatOp::RegisterDeleteLink {
-            link_type, action, ..
-        } => {
-            let original_action = must_get_action(action.link_add_address.clone())?;
-            let result = check_link_author_match(original_action.action().author(), &action.author);
+            action,
+            original_action,
+            ..
+        }) => {
+            let result = check_link_author_match(original_action.author(), action.author());
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
             validate_delete_link(link_type)
         }
-        FlatOp::RegisterDelete(_) => {
+        FlatOp::Delete(_) => {
             // INVARIANT: Decisions, Votes, and Outcomes are append-only.
             // Deletion would break audit trails, tally integrity, and history links.
             Ok(ValidateCallbackResult::Invalid(
@@ -280,7 +297,6 @@ pub fn validate_outcome(outcome: &DecisionOutcome) -> ExternResult<ValidateCallb
 
 /// Validate that a Decision update only modifies allowed fields with valid transitions.
 pub fn validate_decision_update(
-    _action: &Update,
     new_decision: &Decision,
     original_action_hash: &ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
