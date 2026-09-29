@@ -81,6 +81,32 @@ impl DependencyClosureProfileV1 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum SemanticDependencyKindV1 {
+    Node,
+    Edge,
+    D6PReceipt,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct SemanticDependencyReferenceV1 {
+    pub kind: SemanticDependencyKindV1,
+    pub identifier: String,
+    pub commitment: Option<String>,
+}
+impl SemanticDependencyReferenceV1 {
+    pub fn node(id: impl Into<String>, commitment: Option<String>) -> Self {
+        Self { kind: SemanticDependencyKindV1::Node, identifier: id.into(), commitment }
+    }
+    pub fn d6p_receipt(commitment: impl Into<String>) -> Self {
+        let commitment = commitment.into();
+        Self { kind: SemanticDependencyKindV1::D6PReceipt, identifier: commitment.clone(), commitment: Some(commitment) }
+    }
+    pub fn structurally_valid(&self) -> bool {
+        non_empty(&self.identifier) && self.commitment.as_deref().map_or(true, non_empty)
+    }
+}
+
 pub struct DependencyClosureCertificateV1 {
     pub schema_version: String,
     pub algorithm_version: String,
@@ -100,7 +126,9 @@ pub struct DependencyClosureCertificateV1 {
     pub included_d6p_receipt_commitments: BTreeSet<String>,
     pub included_edge_commitments: BTreeSet<String>,
     pub included_edges: BTreeMap<String, (String, String, ClaimGraphEdgeKindV1, String)>,
+    /// Legacy flat IDs retained for wire compatibility; typed dependencies are authoritative for identity.
     pub missing_dependency_ids: BTreeSet<String>,
+    pub missing_dependencies: BTreeSet<SemanticDependencyReferenceV1>,
     pub status: DependencyClosureStatusV1,
     pub cycle_detected: bool,
     pub claim_ceiling: String,
@@ -127,6 +155,7 @@ impl DependencyClosureCertificateV1 {
             && self.included_edges.iter().all(|(id, (from, to, _kind, commitment))|
                 non_empty(id) && non_empty(from) && non_empty(to) && from != to && non_empty(commitment))
             && self.missing_dependency_ids.iter().all(|v| non_empty(v))
+            && self.missing_dependencies.iter().all(SemanticDependencyReferenceV1::structurally_valid)
             && self.claim_ceiling == D6X_CLAIM_CEILING
             && self.included_node_ids.len() == self.included_node_commitments.len()
             && self.included_edges.len() == self.included_edge_commitments.len()
@@ -153,7 +182,7 @@ impl DependencyClosureCertificateV1 {
             &self.included_nodes,
             &self.included_d6p_receipt_commitments,
             &self.included_edges,
-            &self.missing_dependency_ids,
+            &self.missing_dependencies,
             &self.status,
             &self.cycle_detected,
             &self.claim_ceiling,
@@ -199,9 +228,13 @@ pub fn compute_dependency_closure(
     let mut included_ids = BTreeSet::new();
     let mut included_edges = BTreeSet::new();
     let mut missing = BTreeSet::new();
+    let mut missing_dependencies = BTreeSet::new();
     let selected_d6p_receipts: BTreeSet<String> = profile.required_d6p_receipt_commitments.intersection(&projection.d6p_current_receipt_commitments).cloned().collect();
     let missing_d6p_receipts: BTreeSet<String> = profile.required_d6p_receipt_commitments.difference(&projection.d6p_current_receipt_commitments).cloned().collect();
-    missing.extend(missing_d6p_receipts);
+    for receipt in missing_d6p_receipts {
+        missing.insert(receipt.clone());
+        missing_dependencies.insert(SemanticDependencyReferenceV1::d6p_receipt(receipt));
+    }
     let mut blocked_currentness = false;
     let mut resource_blocked = false;
     let mut queue = VecDeque::from_iter(profile.root_node_ids.iter().cloned());
@@ -210,12 +243,19 @@ pub fn compute_dependency_closure(
     }
     let mut queued = BTreeSet::new();
     for id in profile.root_node_ids.iter().chain(profile.required_node_ids.iter()) {
-        if !projection.nodes.contains_key(id) { missing.insert(id.clone()); }
+        if !projection.nodes.contains_key(id) {
+            missing.insert(id.clone());
+            missing_dependencies.insert(SemanticDependencyReferenceV1::node(id.clone(), None));
+        }
     }
 
     while let Some(id) = queue.pop_front() {
         if !queued.insert(id.clone()) { continue; }
-        let Some(node) = projection.nodes.get(&id) else { missing.insert(id); continue; };
+        let Some(node) = projection.nodes.get(&id) else {
+            missing_dependencies.insert(SemanticDependencyReferenceV1::node(id.clone(), None));
+            missing.insert(id);
+            continue;
+        };
         if included_ids.len() as u32 >= profile.max_nodes {
             resource_blocked = true;
             break;
@@ -224,7 +264,11 @@ pub fn compute_dependency_closure(
 
         for edge in projection.edges.values() {
             if edge.from_node_id != id { continue; }
-            let Some(to) = projection.nodes.get(&edge.to_node_id) else { missing.insert(edge.to_node_id.clone()); continue; };
+            let Some(to) = projection.nodes.get(&edge.to_node_id) else {
+                missing_dependencies.insert(SemanticDependencyReferenceV1::node(edge.to_node_id.clone(), None));
+                missing.insert(edge.to_node_id.clone());
+                continue;
+            };
             let Some(rule) = profile.rules.iter().find(|r| r.matches(node.kind, to.kind, edge.kind)) else { continue; };
             if included_edges.len() as u32 >= profile.max_edges {
                 resource_blocked = true;
@@ -267,6 +311,7 @@ pub fn compute_dependency_closure(
         included_edge_commitments: included_edges.iter().filter_map(|id| projection.edges.get(id).map(|e| e.edge_commitment.clone())).collect(),
         included_edges: included_edges.iter().filter_map(|id| projection.edges.get(id).map(|e| (id.clone(), (e.from_node_id.clone(), e.to_node_id.clone(), e.kind, e.edge_commitment.clone())))).collect(),
         missing_dependency_ids: missing,
+        missing_dependencies,
         status, cycle_detected, claim_ceiling: D6X_CLAIM_CEILING.into(), commitment: String::new(),
     };
     out.closure_identity_commitment = out.closure_identity();
