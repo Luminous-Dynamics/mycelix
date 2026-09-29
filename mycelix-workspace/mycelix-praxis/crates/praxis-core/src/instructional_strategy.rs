@@ -216,6 +216,87 @@ impl InstructionalOutcomeObservation {
     pub const fn grants_authorization(&self) -> bool { false }
 }
 
+/// Classification of an analysis receipt. The label describes the computation
+/// performed; it is not an authority or a claim of causal truth.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum InstructionalAnalysisKind {
+    Descriptive,
+    Comparative,
+    ExperimentalEffectEstimate,
+    Exploratory,
+}
+
+/// A reproducible, immutable receipt for an analysis over outcome observations.
+///
+/// The receipt binds the computation to exact plans, inputs, cohort rules,
+/// methods, and outputs. It never rewrites observations and never turns an
+/// analysis result into a learner capability, mastery, credential, trust, or
+/// authorization claim.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalAnalysisReceipt {
+    pub analysis_id: String,
+    pub analysis_version: u64,
+    pub analysis_plan_id: String,
+    pub analysis_plan_version: String,
+    pub analysis_plan_digest: String,
+    pub outcome_measure_id: String,
+    pub outcome_measure_version: String,
+    pub input_observation_set_digest: String,
+    pub cohort_definition_digest: String,
+    pub inclusion_rules_digest: String,
+    pub exclusion_rules_digest: String,
+    pub missing_data_policy: String,
+    pub analysis_method: String,
+    pub analysis_method_version: String,
+    pub estimand: String,
+    pub kind: InstructionalAnalysisKind,
+    pub prespecified: bool,
+    pub deviation_rationale: Option<String>,
+    pub result_digest: String,
+    pub generated_at: i64,
+}
+
+impl InstructionalAnalysisReceipt {
+    pub fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.analysis_id.trim().is_empty()
+            || self.analysis_plan_id.trim().is_empty()
+            || self.analysis_plan_version.trim().is_empty()
+            || self.analysis_plan_digest.trim().is_empty()
+            || self.outcome_measure_id.trim().is_empty()
+            || self.outcome_measure_version.trim().is_empty()
+            || self.input_observation_set_digest.trim().is_empty()
+            || self.cohort_definition_digest.trim().is_empty()
+            || self.inclusion_rules_digest.trim().is_empty()
+            || self.exclusion_rules_digest.trim().is_empty()
+            || self.missing_data_policy.trim().is_empty()
+            || self.analysis_method.trim().is_empty()
+            || self.analysis_method_version.trim().is_empty()
+            || self.estimand.trim().is_empty()
+            || self.result_digest.trim().is_empty()
+        {
+            return Err(InstructionalScienceContractError::InvalidAnalysisReceipt);
+        }
+        if self.analysis_version == 0 {
+            return Err(InstructionalScienceContractError::ZeroAnalysisVersion);
+        }
+        if self.generated_at < 0 {
+            return Err(InstructionalScienceContractError::NegativeAnalysisGeneratedAt);
+        }
+        if self.prespecified {
+            if self.deviation_rationale.as_deref().is_some_and(|r| r.trim().is_empty()) {
+                return Err(InstructionalScienceContractError::EmptyAnalysisDeviationRationale);
+            }
+        } else if self.deviation_rationale.as_deref().is_none_or(|r| r.trim().is_empty()) {
+            return Err(InstructionalScienceContractError::MissingAnalysisDeviationRationale);
+        }
+        Ok(())
+    }
+
+    pub const fn grants_credential_authority(&self) -> bool { false }
+    pub const fn grants_trust_authority(&self) -> bool { false }
+    pub const fn grants_authorization(&self) -> bool { false }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InstructionalAdaptationContext {
     pub context_id: String,
