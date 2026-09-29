@@ -11,6 +11,8 @@ on:
     paths:
       - "mycelix-workspace/mycelix-hearth/flake.nix"
       - "mycelix-workspace/mycelix-hearth/flake.lock"
+      - "mycelix-workspace/mycelix-hearth/sdk-ts/package.json"
+      - "mycelix-workspace/mycelix-hearth/sdk-ts/package-lock.json"
       - ".github/workflows/hearth-07-lock-refresh.yml"
 
 permissions:
@@ -36,16 +38,18 @@ jobs:
         working-directory: mycelix-workspace/mycelix-hearth
         run: nix flake update
 
-      - name: Commit refreshed lock
+      - name: Refresh Hearth SDK npm lock
+        working-directory: mycelix-workspace/mycelix-hearth/sdk-ts
+        run: npm install --package-lock-only --ignore-scripts
+
+      - name: Commit refreshed dependency locks
         run: |
-          if git diff --quiet -- mycelix-workspace/mycelix-hearth/flake.lock; then
-            echo "Hearth flake.lock is already current."
+          if git diff --quiet -- mycelix-workspace/mycelix-hearth/flake.lock mycelix-workspace/mycelix-hearth/sdk-ts/package-lock.json; then
+            echo "Hearth dependency locks are already current."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add mycelix-workspace/mycelix-hearth/flake.lock
-          git commit -m "HEARTH-0.7-SOURCE: resolve Holochain 0.7 flake lock [skip-hearth-lock]"
+          git add mycelix-workspace/mycelix-hearth/flake.lock mycelix-workspace/mycelix-hearth/sdk-ts/package-lock.json
+          git commit -m "HEARTH-0.7-SOURCE: resolve Hearth dependency locks [skip-hearth-lock]"
           git push origin "HEAD:${{ github.ref_name }}"
-
-# Triggered after initial workflow creation so the 0.7 lock is resolved in CI.
