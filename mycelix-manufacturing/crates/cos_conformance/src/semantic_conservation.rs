@@ -558,7 +558,8 @@ pub fn serialization_cannot_amplify(
         && replayed.currentness.is_no_stronger_than(original.currentness)
 }
 
-#[cfg(test)]#[cfg(test)]
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
