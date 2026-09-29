@@ -27,13 +27,13 @@ exclude = ["tests"]
 license = "AGPL-3.0-or-later"
 
 [workspace.dependencies]
-# Holochain 0.6 compatible (per official compatibility table)
-hdk = "=0.6.1"
-hdi = "=0.7.1"
-holochain_integrity_types = "=0.6.1"
-holochain_zome_types = "=0.6.1"
-holo_hash = "=0.6.1"
-hdk_derive = "=0.6.1"
+# Holochain 0.7 compatibility tuple (per official 0.7 compatibility table)
+hdk = "=0.7.0"
+hdi = "=0.8.0"
+holochain_integrity_types = "=0.7.0"
+holochain_zome_types = "=0.7.0"
+holo_hash = "=0.7.0"
+hdk_derive = "=0.7.0"
 holochain_serialized_bytes = "=0.0.57"
 
 # Mycelix Core Types for collective sensing integration
