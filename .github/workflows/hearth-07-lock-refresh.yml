@@ -1,0 +1,45 @@
+name: Hearth Holochain 0.7 lock refresh
+
+on:
+  push:
+    branches:
+      - hearth-holochain-0.7-foundation
+    paths:
+      - "mycelix-workspace/mycelix-hearth/flake.nix"
+      - "mycelix-workspace/mycelix-hearth/flake.lock"
+      - ".github/workflows/hearth-07-lock-refresh.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    if: !contains(github.event.head_commit.message, "[skip-hearth-lock]")
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Refresh Hearth flake lock
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: nix flake update
+
+      - name: Commit refreshed lock
+        run: |
+          if git diff --quiet -- mycelix-workspace/mycelix-hearth/flake.lock; then
+            echo "Hearth flake.lock is already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add mycelix-workspace/mycelix-hearth/flake.lock
+          git commit -m "HEARTH-0.7-SOURCE: resolve Holochain 0.7 flake lock [skip-hearth-lock]"
+          git push origin "HEAD:${{ github.ref_name }}"
