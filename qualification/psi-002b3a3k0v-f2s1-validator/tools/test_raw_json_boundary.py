@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from check_raw_json import DuplicateMemberError, parse_raw_json
+from check_raw_json import parse_raw_json
 
 
 def must_reject(raw: bytes, fragment: str) -> None:
@@ -54,6 +54,7 @@ def main() -> int:
 
     must_reject(b'{"a":', "invalid or ambiguous JSON")
     must_reject(b'{"a":1} trailing', "invalid or ambiguous JSON")
+    must_reject(b'{"a":1,', "invalid or ambiguous JSON")
     must_reject(b'\xef\xbb\xbf{"a":1}', "BOM")
     must_reject(b'{"a":1}\xff', "valid UTF-8")
 
