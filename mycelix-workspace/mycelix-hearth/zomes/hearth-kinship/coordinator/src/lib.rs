@@ -141,9 +141,12 @@ fn membership_records_for_hearth_strict(
             )))
         })?;
         let membership: HearthMembership = entry_from_record(&record, "HearthMembership")?;
-        if membership.hearth_hash == *hearth_hash {
-            records.push((record, membership));
+        if membership.hearth_hash != *hearth_hash {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Active Hearth catalog evidence is linked from the wrong Hearth".into()
+            )));
         }
+        records.push((record, membership));
     }
     Ok(records)
 }
