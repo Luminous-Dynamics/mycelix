@@ -34,11 +34,16 @@ pub enum TraceActor {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TraceRelation {
+    GeneratedBy,
+    DerivedFrom,
+    Used,
+    AttributedTo,
     Supports,
     Authorizes,
     RespondsTo,
     Disputes,
     Supersedes,
+    Revises,
     AlternativeTo,
     Appeals,
     Reopens,
@@ -65,6 +70,42 @@ pub struct TraceRelationRef {
     pub relation: TraceRelation,
 }
 
+/// Provenance relations are explicit graph semantics. They are never inferred
+/// from sequence order or substituted with an A1 parent link.
+pub fn is_provenance_relation(relation: TraceRelation) -> bool {
+    matches!(
+        relation,
+        TraceRelation::GeneratedBy
+            | TraceRelation::DerivedFrom
+            | TraceRelation::Used
+            | TraceRelation::AttributedTo
+            | TraceRelation::Revises
+    )
+}
+
+/// Validate provenance relation semantics without asserting truth or causality.
+pub fn provenance_relation_is_valid(
+    relation: TraceRelation,
+    from: &TraceEvent,
+    to: &TraceEvent,
+) -> bool {
+    if from.event_id == to.event_id {
+        return false;
+    }
+    match relation {
+        TraceRelation::GeneratedBy => true,
+        TraceRelation::DerivedFrom => from.generation >= to.generation,
+        TraceRelation::Used => true,
+        TraceRelation::AttributedTo => true,
+        TraceRelation::Revises => {
+            from.kind == TraceKind::Design
+                && to.kind == TraceKind::Design
+                && from.generation > to.generation
+        }
+        _ => false,
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TraceEvent {
     pub event_id: &'static str,
@@ -74,6 +115,8 @@ pub struct TraceEvent {
     pub actor: TraceActor,
     pub source: SourceKind,
     pub source_ref: &'static str,
+    /// Explicit evidence binding; distinct from source_ref.
+    pub evidence_ref: Option<&'static str>,
     pub generation: u32,
     pub uncertainty_present: bool,
     pub authority_ref: Option<&'static str>,
@@ -101,6 +144,7 @@ pub enum TraceError {
     GenerationRegression,
     IllegalTransition,
     AuthorityOnRecommendation,
+    AuthorityOnEvidenceBearingEvent,
     MissingAuthorization,
     UnchallengeableConsequentialAction,
     UnreversibleWithoutRecovery,
@@ -189,6 +233,7 @@ fn transition_allowed(from: TraceKind, to: TraceKind) -> bool {
             | (TraceKind::FrsAssessment, TraceKind::Appeal)
             | (TraceKind::Observation, TraceKind::Appeal)
             | (TraceKind::Observation, TraceKind::Observation)
+            | (TraceKind::Observation, TraceKind::FrsAssessment)
     )
 }
 
@@ -254,6 +299,11 @@ pub fn validate_trace(fixture: &TraceFixture) -> Result<(), TraceError> {
         if event.event_id.is_empty() || event.source_ref.is_empty() {
             return Err(TraceError::EmptyIdentity);
         }
+        if matches!(event.kind, TraceKind::Observation | TraceKind::ItcProjection | TraceKind::FrsAssessment)
+            && event.evidence_ref.map_or(true, str::is_empty)
+        {
+            return Err(TraceError::EmptySource);
+        }
         if event.provenance != expected_provenance(event.kind) {
             return Err(TraceError::ProvenanceMutation);
         }
@@ -268,7 +318,12 @@ pub fn validate_trace(fixture: &TraceFixture) -> Result<(), TraceError> {
         {
             return Err(TraceError::AuthorityOnRecommendation);
         }
-        if matches!(event.kind, TraceKind::Decision | TraceKind::Authorization | TraceKind::HumanDecision)
+        if matches!(event.kind, TraceKind::Observation | TraceKind::ItcProjection | TraceKind::FrsAssessment)
+            && event.authority_ref.is_some()
+        {
+            return Err(TraceError::AuthorityOnEvidenceBearingEvent);
+        }
+        if matches!(event.kind, TraceKind::Decision | TraceKind::Authorization | TraceKind::ExecutionIntent | TraceKind::HumanDecision)
             && event.authority_ref.is_none()
         {
             return Err(TraceError::MissingAuthorization);
@@ -300,6 +355,11 @@ pub fn validate_trace(fixture: &TraceFixture) -> Result<(), TraceError> {
         }
         let from = from.unwrap();
         let to = to.unwrap();
+        if is_provenance_relation(relation.relation)
+            && !provenance_relation_is_valid(relation.relation, from, to)
+        {
+            return Err(TraceError::IllegalTransition);
+        }
         if relation.relation == TraceRelation::Authorizes && to.kind == TraceKind::Recommendation {
             return Err(TraceError::AuthorityOnRecommendation);
         }
@@ -311,7 +371,11 @@ pub fn validate_trace(fixture: &TraceFixture) -> Result<(), TraceError> {
                 if from.kind != TraceKind::Observation || to.kind != TraceKind::Observation {
                     return Err(TraceError::IllegalTransition);
                 }
-                if from.source != to.source || from.generation != to.generation {
+                // A dispute is precisely where two source observations may disagree.
+                // Requiring equal source here would erase legitimate heterogeneous
+                // federation conflicts. Generation must still match so a dispute
+                // cannot silently compare evidence from different schema epochs.
+                if from.generation != to.generation {
                     return Err(TraceError::ProvenanceMutation);
                 }
             }
@@ -428,9 +492,12 @@ pub fn validate_trace(fixture: &TraceFixture) -> Result<(), TraceError> {
         if previous.uncertainty_present && !current.uncertainty_present {
             return Err(TraceError::UncertaintyLoss);
         }
-        if previous.source != current.source
-            && previous.source == SourceKind::Foreign
+        if previous.source == SourceKind::Foreign
             && current.source == SourceKind::Local
+            && matches!(
+                current.kind,
+                TraceKind::Observation | TraceKind::ItcProjection | TraceKind::FrsAssessment
+            )
         {
             return Err(TraceError::ForeignOriginLoss);
         }
@@ -448,6 +515,72 @@ pub fn replay_is_idempotent(existing: &TraceEvent, replay: &TraceEvent) -> bool 
 /// relations are byte-for-byte equivalent at the reference-model level.
 pub fn replay_fixture_is_idempotent(existing: &TraceFixture, replay: &TraceFixture) -> bool {
     existing == replay
+}
+
+/// Canonical semantic projection for replay/equivalence.
+///
+/// Sequence is deliberately excluded: it is presentation/serialization order,
+/// not causality. All other event fields remain part of semantic identity,
+/// including origin, source/evidence bindings, authority, uncertainty, safety,
+/// provenance, status, and generation.
+fn canonical_event(event: &TraceEvent) -> TraceEvent {
+    let mut canonical = *event;
+    canonical.sequence = 0;
+    canonical
+}
+
+/// Compare traces by semantic identity rather than serialization order.
+///
+/// Event and relation ordering may differ while preserving the same graph.
+/// Duplicate identities are rejected from equivalence so malformed replay
+/// cannot be normalized into a seemingly valid state.
+pub fn trace_semantically_equivalent(left: &TraceFixture, right: &TraceFixture) -> bool {
+    fn canonical(fixture: &TraceFixture) -> Option<(Vec<TraceEvent>, Vec<TraceRelationRef>)> {
+        let mut events: Vec<TraceEvent> = fixture.events.iter().map(canonical_event).collect();
+        if events.iter().any(|event| {
+            event.event_id.is_empty()
+                || events.iter().filter(|candidate| candidate.event_id == event.event_id).count() > 1
+        }) {
+            return None;
+        }
+
+        let mut relations = fixture.relations.clone();
+        if relations.iter().any(|relation| {
+            relation.from_event.is_empty()
+                || relation.to_event.is_empty()
+                || relation.from_event == relation.to_event
+                || relations.iter().filter(|candidate| *candidate == relation).count() > 1
+        }) {
+            return None;
+        }
+
+        events.sort_by(|a, b| a.event_id.cmp(b.event_id));
+        relations.sort_by(|a, b| {
+            a.from_event
+                .cmp(b.from_event)
+                .then_with(|| a.to_event.cmp(b.to_event))
+                .then_with(|| (a.relation as u8).cmp(&(b.relation as u8)))
+        });
+        Some((events, relations))
+    }
+
+    match (canonical(left), canonical(right)) {
+        (Some(left), Some(right)) => left == right,
+        _ => false,
+    }
+}
+
+/// A replay may be reordered without changing meaning, but semantic payload
+/// mutation must make the replay non-equivalent.
+pub fn canonical_replay_is_equivalent(existing: &TraceFixture, replay: &TraceFixture) -> bool {
+    trace_semantically_equivalent(existing, replay)
+}
+
+/// Projection and replay may preserve an authority reference, but they may not
+/// create, replace, or silently remove one. Governance transitions are validated
+/// separately by their explicit artifact semantics.
+pub fn authority_reference_is_conserved(before: &TraceEvent, after: &TraceEvent) -> bool {
+    before.authority_ref == after.authority_ref
 }
 
 /// Explanations are deterministic views over trace identity; they cannot become authority.
@@ -534,6 +667,7 @@ mod tests {
             actor,
             source,
             source_ref: "evidence://demo",
+            evidence_ref: if matches!(kind, TraceKind::Observation | TraceKind::ItcProjection | TraceKind::FrsAssessment) { Some("evidence://demo") } else { None },
             generation,
             uncertainty_present,
             authority_ref,
@@ -568,6 +702,50 @@ mod tests {
     }
 
     #[test]
+    fn provenance_relations_are_explicit_and_not_sequence_derived() {
+        let t = valid_trace();
+        assert!(is_provenance_relation(TraceRelation::GeneratedBy));
+        assert!(is_provenance_relation(TraceRelation::DerivedFrom));
+        assert!(is_provenance_relation(TraceRelation::Used));
+        assert!(is_provenance_relation(TraceRelation::AttributedTo));
+        assert!(is_provenance_relation(TraceRelation::Revises));
+
+        let generated = TraceRelationRef {
+            from_event: "e3",
+            to_event: "e2",
+            relation: TraceRelation::GeneratedBy,
+        };
+        let derived = TraceRelationRef {
+            from_event: "e8",
+            to_event: "e6",
+            relation: TraceRelation::DerivedFrom,
+        };
+        let mut reordered = t.clone();
+        reordered.relations = vec![derived, generated];
+        assert_eq!(validate_trace(&reordered), Ok(()));
+    }
+
+    #[test]
+    fn revises_requires_explicit_newer_design_generation() {
+        let t = valid_trace();
+        let from = t.events.iter().find(|e| e.event_id == "e2").unwrap();
+        let to = t.events.iter().find(|e| e.event_id == "e2").unwrap();
+        assert!(!provenance_relation_is_valid(TraceRelation::Revises, from, to));
+
+        let newer = TraceEvent { generation: 8, event_id: "new-design", ..*from };
+        assert!(provenance_relation_is_valid(TraceRelation::Revises, &newer, to));
+    }
+
+    #[test]
+    fn provenance_relation_validation_does_not_require_matching_source() {
+        let t = valid_trace();
+        let from = t.events.iter().find(|e| e.event_id == "e8").unwrap();
+        let to = t.events.iter().find(|e| e.event_id == "e6").unwrap();
+        assert!(provenance_relation_is_valid(TraceRelation::DerivedFrom, from, to));
+        assert_ne!(from.source_ref, to.source_ref);
+    }
+
+    #[test]
     fn complete_trace_validates() {
         assert_eq!(validate_trace(&valid_trace()), Ok(()));
     }
@@ -591,10 +769,33 @@ mod tests {
     }
 
     #[test]
+    fn evidence_bearing_events_require_explicit_evidence_binding() {
+        let mut t = valid_trace();
+        t.events[5].evidence_ref = None;
+        assert_eq!(validate_trace(&t), Err(TraceError::EmptySource));
+
+        let mut t = valid_trace();
+        t.events[7].evidence_ref = None;
+        assert_eq!(validate_trace(&t), Err(TraceError::EmptySource));
+    }
+
+    #[test]
     fn recommendation_cannot_carry_authority() {
         let mut t = valid_trace();
         t.events[8].authority_ref = Some("forbidden");
         assert_eq!(validate_trace(&t), Err(TraceError::AuthorityOnRecommendation));
+    }
+
+    #[test]
+    fn evidence_bearing_event_cannot_gain_authority() {
+        for index in [5usize, 6usize, 7usize] {
+            let mut t = valid_trace();
+            t.events[index].authority_ref = Some("authority://forged");
+            assert_eq!(
+                validate_trace(&t),
+                Err(TraceError::AuthorityOnEvidenceBearingEvent)
+            );
+        }
     }
 
     #[test]
@@ -633,7 +834,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn fixture_replay_cannot_mutate_graph_relations() {
         let fixture = valid_trace();
         assert!(replay_fixture_is_idempotent(&fixture, &fixture));
@@ -643,6 +843,7 @@ mod tests {
         assert!(!replay_fixture_is_idempotent(&fixture, &mutated));
     }
 
+    #[test]
     fn decision_cannot_consume_a_different_design_generation() {
         let mut t = valid_trace();
         t.events[2].generation = 6;
@@ -655,6 +856,148 @@ mod tests {
         t.events[5].source = SourceKind::Foreign;
         t.events[6].source = SourceKind::Local;
         assert_eq!(validate_trace(&t), Err(TraceError::ForeignOriginLoss));
+    }
+
+    #[test]
+    fn authority_reference_cannot_escalate_or_mutate_during_projection() {
+        let t = valid_trace();
+        let before = t.events[5];
+
+        let mut gained = before;
+        gained.authority_ref = Some("authority://forged");
+        assert!(!authority_reference_is_conserved(&before, &gained));
+
+        let mut replaced = before;
+        replaced.authority_ref = Some("authority://different");
+        assert!(!authority_reference_is_conserved(&before, &replaced));
+
+        let mut removed = before;
+        removed.authority_ref = Some("authority://different");
+        assert!(!authority_reference_is_conserved(&before, &removed));
+
+        let authorized = t.events[4];
+        let mut replay = authorized;
+        replay.authority_ref = Some("auth-other");
+        assert!(!authority_reference_is_conserved(&authorized, &replay));
+        assert!(authority_reference_is_conserved(&authorized, &authorized));
+    }
+
+    #[test]
+    fn authority_reference_removal_is_rejected_even_when_source_payload_is_unchanged() {
+        let t = valid_trace();
+        let authorized = t.events[4];
+        let mut replay = authorized;
+        replay.authority_ref = None;
+
+        assert!(!authority_reference_is_conserved(&authorized, &replay));
+        assert_ne!(authorized.authority_ref, replay.authority_ref);
+    }
+
+    #[test]
+    fn foreign_evidence_bearing_event_cannot_gain_local_authority() {
+        let t = valid_trace();
+        for index in [5usize, 6usize, 7usize] {
+            let mut projected = t.events[index];
+            projected.source = SourceKind::Foreign;
+            projected.authority_ref = Some("authority://local-forged");
+            assert_eq!(
+                validate_trace(&TraceFixture {
+                    events: {
+                        let mut events = t.events.clone();
+                        events[index] = projected;
+                        events
+                    },
+                    relations: vec![],
+                }),
+                Err(TraceError::AuthorityOnEvidenceBearingEvent)
+            );
+        }
+    }
+
+    #[test]
+    fn canonical_replay_ignores_event_and_relation_serialization_order() {
+        let mut original = valid_trace();
+        original.relations = vec![
+            TraceRelationRef {
+                from_event: "e3",
+                to_event: "e4",
+                relation: TraceRelation::Authorizes,
+            },
+            TraceRelationRef {
+                from_event: "e6",
+                to_event: "e8",
+                relation: TraceRelation::Disputes,
+            },
+        ];
+        let mut replay = original.clone();
+        replay.events.reverse();
+        replay.relations.reverse();
+        assert!(trace_semantically_equivalent(&original, &replay));
+        assert!(canonical_replay_is_equivalent(&original, &replay));
+    }
+
+    #[test]
+    fn canonical_replay_ignores_sequence_but_not_semantic_identity() {
+        let original = valid_trace();
+        let mut replay = original.clone();
+        for event in &mut replay.events {
+            event.sequence = 10_000 - event.sequence;
+        }
+        assert!(trace_semantically_equivalent(&original, &replay));
+
+        replay.events[5].source_ref = "source://mutated";
+        assert!(!trace_semantically_equivalent(&original, &replay));
+
+        let mut replay = original.clone();
+        replay.events[5].evidence_ref = Some("evidence://mutated");
+        assert!(!trace_semantically_equivalent(&original, &replay));
+    }
+
+    #[test]
+    fn canonical_replay_preserves_authority_origin_uncertainty_and_safety() {
+        let original = valid_trace();
+
+        let mut authority = original.clone();
+        authority.events[4].authority_ref = Some("authority://mutated");
+        assert!(!trace_semantically_equivalent(&original, &authority));
+
+        let mut origin = original.clone();
+        origin.events[5].source = SourceKind::Foreign;
+        assert!(!trace_semantically_equivalent(&original, &origin));
+
+        let mut uncertainty = original.clone();
+        uncertainty.events[5].uncertainty_present = false;
+        assert!(!trace_semantically_equivalent(&original, &uncertainty));
+
+        let mut safety = original.clone();
+        safety.events[10].reversible = false;
+        assert!(!trace_semantically_equivalent(&original, &safety));
+
+        let mut relation = original.clone();
+        relation.relations = vec![TraceRelationRef {
+            from_event: "e4",
+            to_event: "e5",
+            relation: TraceRelation::Authorizes,
+        }];
+        assert!(!trace_semantically_equivalent(&original, &relation));
+    }
+
+    #[test]
+    fn canonical_replay_rejects_duplicate_identities_and_relations() {
+        let original = valid_trace();
+
+        let mut duplicate_event = original.clone();
+        duplicate_event.events.push(original.events[0]);
+        assert!(!trace_semantically_equivalent(&original, &duplicate_event));
+
+        let mut duplicate_relation = original.clone();
+        let relation = TraceRelationRef {
+            from_event: "e3",
+            to_event: "e4",
+            relation: TraceRelation::Authorizes,
+        };
+        duplicate_relation.relations = vec![relation, relation];
+        assert!(!trace_semantically_equivalent(&original, &duplicate_relation));
     }
 
     #[test]
@@ -680,6 +1023,13 @@ mod tests {
         let mut t = valid_trace();
         t.events[10].appeal_ref = None;
         assert_eq!(validate_trace(&t), Err(TraceError::MissingAppealRoute));
+    }
+
+    #[test]
+    fn execution_intent_requires_explicit_authority_reference() {
+        let mut t = valid_trace();
+        t.events[4].authority_ref = None;
+        assert_eq!(validate_trace(&t), Err(TraceError::MissingAuthorization));
     }
 
     #[test]
