@@ -93,6 +93,13 @@ pub struct SemanticDependencyReferenceV1 {
     pub identifier: String,
     pub commitment: Option<String>,
 }
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum SemanticDependencyResolutionV1 {
+    Present,
+    Missing,
+    Stale,
+}
+
 impl SemanticDependencyReferenceV1 {
     pub fn node(id: impl Into<String>, commitment: Option<String>) -> Self {
         Self { kind: SemanticDependencyKindV1::Node, identifier: id.into(), commitment }
@@ -134,6 +141,9 @@ pub struct DependencyClosureCertificateV1 {
     pub missing_dependencies: BTreeSet<SemanticDependencyReferenceV1>,
     /// Canonical typed set of all selected semantic dependencies.
     pub dependencies: BTreeSet<SemanticDependencyReferenceV1>,
+    /// Per-dependency resolution state. The key set must exactly cover selected
+    /// and missing dependencies; "not selected" is represented by absence.
+    pub dependency_resolutions: BTreeMap<SemanticDependencyReferenceV1, SemanticDependencyResolutionV1>,
     pub status: DependencyClosureStatusV1,
     pub cycle_detected: bool,
     pub claim_ceiling: String,
@@ -171,6 +181,9 @@ impl DependencyClosureCertificateV1 {
             && self.dependencies.iter().all(SemanticDependencyReferenceV1::structurally_valid)
             && self.dependencies == expected_dependencies
             && self.missing_dependency_ids == expected_missing_ids
+            && self.dependency_resolutions.keys().cloned().collect::<BTreeSet<_>>() == self.dependencies.union(&self.missing_dependencies).cloned().collect()
+            && self.dependencies.iter().all(|dependency| matches!(self.dependency_resolutions.get(dependency), Some(SemanticDependencyResolutionV1::Present | SemanticDependencyResolutionV1::Stale)))
+            && self.missing_dependencies.iter().all(|dependency| matches!(self.dependency_resolutions.get(dependency), Some(SemanticDependencyResolutionV1::Missing)))
             && self.claim_ceiling == D6X_CLAIM_CEILING
             && self.included_node_ids.len() == self.included_node_commitments.len()
             && self.included_edges.len() == self.included_edge_commitments.len()
@@ -217,6 +230,7 @@ impl DependencyClosureCertificateV1 {
             &self.root_node_ids,
             &self.dependencies,
             &self.missing_dependencies,
+            &self.dependency_resolutions,
             &self.status,
             &self.cycle_detected,
             &self.claim_ceiling,
@@ -267,14 +281,19 @@ pub fn compute_dependency_closure(
     let selected_d6p_receipts: BTreeSet<String> = profile.required_d6p_receipt_commitments.intersection(&projection.d6p_current_receipt_commitments).cloned().collect();
     let missing_d6p_receipts: BTreeSet<String> = profile.required_d6p_receipt_commitments.difference(&projection.d6p_current_receipt_commitments).cloned().collect();
     for receipt in &selected_d6p_receipts {
-        dependencies.insert(SemanticDependencyReferenceV1::d6p_receipt(receipt.clone()));
+        let dependency = SemanticDependencyReferenceV1::d6p_receipt(receipt.clone());
+        dependencies.insert(dependency.clone());
+        dependency_resolutions.insert(dependency, SemanticDependencyResolutionV1::Present);
     }
     for receipt in missing_d6p_receipts {
         missing.insert(receipt.clone());
-        missing_dependencies.insert(SemanticDependencyReferenceV1::d6p_receipt(receipt));
+        let dependency = SemanticDependencyReferenceV1::d6p_receipt(receipt);
+        missing_dependencies.insert(dependency.clone());
+        dependency_resolutions.insert(dependency, SemanticDependencyResolutionV1::Missing);
     }
     let mut blocked_currentness = false;
     let mut resource_blocked = false;
+    let mut dependency_resolutions: BTreeMap<SemanticDependencyReferenceV1, SemanticDependencyResolutionV1> = BTreeMap::new();
     let mut queue = VecDeque::from_iter(profile.root_node_ids.iter().cloned());
     for id in &profile.required_node_ids {
         if projection.nodes.contains_key(id) { queue.push_back(id.clone()); }
@@ -283,14 +302,18 @@ pub fn compute_dependency_closure(
     for id in profile.root_node_ids.iter().chain(profile.required_node_ids.iter()) {
         if !projection.nodes.contains_key(id) {
             missing.insert(id.clone());
-            missing_dependencies.insert(SemanticDependencyReferenceV1::node(id.clone(), None));
+            let dependency = SemanticDependencyReferenceV1::node(id.clone(), None);
+            missing_dependencies.insert(dependency.clone());
+            dependency_resolutions.insert(dependency, SemanticDependencyResolutionV1::Missing);
         }
     }
 
     while let Some(id) = queue.pop_front() {
         if !queued.insert(id.clone()) { continue; }
         let Some(node) = projection.nodes.get(&id) else {
-            missing_dependencies.insert(SemanticDependencyReferenceV1::node(id.clone(), None));
+            let dependency = SemanticDependencyReferenceV1::node(id.clone(), None);
+            missing_dependencies.insert(dependency.clone());
+            dependency_resolutions.insert(dependency, SemanticDependencyResolutionV1::Missing);
             missing.insert(id);
             continue;
         };
@@ -299,12 +322,16 @@ pub fn compute_dependency_closure(
             break;
         }
         included_ids.insert(id.clone());
-        dependencies.insert(SemanticDependencyReferenceV1::node(id.clone(), Some(node.node_commitment.clone())));
+        let node_dependency = SemanticDependencyReferenceV1::node(id.clone(), Some(node.node_commitment.clone()));
+        dependencies.insert(node_dependency.clone());
+        dependency_resolutions.insert(node_dependency, SemanticDependencyResolutionV1::Present);
 
         for edge in projection.edges.values() {
             if edge.from_node_id != id { continue; }
             let Some(to) = projection.nodes.get(&edge.to_node_id) else {
-                missing_dependencies.insert(SemanticDependencyReferenceV1::node(edge.to_node_id.clone(), None));
+                let dependency = SemanticDependencyReferenceV1::node(edge.to_node_id.clone(), None);
+                missing_dependencies.insert(dependency.clone());
+                dependency_resolutions.insert(dependency, SemanticDependencyResolutionV1::Missing);
                 missing.insert(edge.to_node_id.clone());
                 continue;
             };
@@ -314,8 +341,14 @@ pub fn compute_dependency_closure(
                 break;
             }
             included_edges.insert(edge.edge_id.clone());
-            dependencies.insert(SemanticDependencyReferenceV1::edge(edge.edge_id.clone(), Some(edge.edge_commitment.clone())));
-            if rule.currentness == DependencyCurrentnessV1::CurrentOnly && to.historical_only { blocked_currentness = true; }
+            let edge_dependency = SemanticDependencyReferenceV1::edge(edge.edge_id.clone(), Some(edge.edge_commitment.clone()));
+            dependencies.insert(edge_dependency.clone());
+            dependency_resolutions.insert(edge_dependency, SemanticDependencyResolutionV1::Present);
+            if rule.currentness == DependencyCurrentnessV1::CurrentOnly && to.historical_only {
+                blocked_currentness = true;
+                let node_dependency = SemanticDependencyReferenceV1::node(to.node_id.clone(), Some(to.node_commitment.clone()));
+                dependency_resolutions.insert(node_dependency, SemanticDependencyResolutionV1::Stale);
+            }
             if !queued.contains(&to.node_id) { queue.push_back(to.node_id.clone()); }
         }
     }
@@ -353,6 +386,7 @@ pub fn compute_dependency_closure(
         missing_dependency_ids: missing,
         missing_dependencies,
         dependencies,
+        dependency_resolutions,
         status, cycle_detected, claim_ceiling: D6X_CLAIM_CEILING.into(), commitment: String::new(),
     };
     out.closure_identity_commitment = out.closure_identity();
@@ -533,6 +567,15 @@ mod tests {
         assert!(c.dependencies.contains(&SemanticDependencyReferenceV1::node("dep", Some("commit-dep".into()))));
         assert!(c.dependencies.contains(&SemanticDependencyReferenceV1::edge("e1", Some("edge-e1".into()))));
         assert_eq!(c.dependencies.len(), 3);
+    }
+
+    #[test]
+    fn dependency_resolution_distinguishes_present_and_missing() {
+        let (a,e,d)=projection(false); let p=profile(["missing".into()].into_iter().collect());
+        let c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
+        assert_eq!(c.dependency_resolutions.get(&SemanticDependencyReferenceV1::node("root", Some("commit-root".into()))), Some(&SemanticDependencyResolutionV1::Present));
+        assert_eq!(c.dependency_resolutions.get(&SemanticDependencyReferenceV1::node("missing", None)), Some(&SemanticDependencyResolutionV1::Missing));
+        assert!(c.valid());
     }
 
     #[test]
