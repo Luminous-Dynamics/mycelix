@@ -40,7 +40,12 @@ The certificate binds:
 - closure status;
 - cycle detection state.
 
-The certificate does **not** bind a list of irrelevant DKG material. That is deliberate: adding unused material must not perturb the closure or its downstream D6W input identity.
+The certificate distinguishes two identities:
+
+- `commitment` is an audit/provenance certificate commitment and remains bound to the candidate projection;
+- `closure_identity_commitment` is the candidate-independent semantic identity consumed by D6W.
+
+The semantic identity binds the exact selected node-id → node-commitment mapping and selected edge-id → endpoint/kind/commitment mapping. It deliberately excludes irrelevant candidate material, so adding unused material must not perturb the closure identity or downstream D6W input identity.
 
 ## Status semantics
 
@@ -59,7 +64,7 @@ Provenance and custody edges are excluded unless the closure profile explicitly 
 
 ## D6W binding
 
-D6W now requires the exact D6X closure commitment in its input layer:
+D6W now requires the exact D6X `closure_identity_commitment` in its input layer:
 
 ```
 C_input = H(
@@ -85,10 +90,14 @@ Therefore:
 
 The reference model currently includes fixtures for:
 
-1. irrelevant DKG material does not change the closure;
+1. irrelevant DKG material does not change the semantic closure identity (while the audit certificate remains candidate-bound);
 2. missing required dependency blocks closure;
 3. provenance-only material does not enter a semantic closure;
-4. deterministic traversal produces the same commitment repeatedly.
+4. deterministic traversal produces the same commitment repeatedly;
+5. selected node commitment changes the closure identity;
+6. selected edge commitment changes the closure identity;
+7. edge-free complete closures remain consumable by D6W;
+8. blocked closures fail closed at the D6W input boundary.
 
 Before interoperability or production claims, add cross-language golden vectors, currentness/D6P fixtures, contradiction-preservation fixtures, cycle fixtures, resource-limit fixtures, and execute the Rust/WASM/Holochain conformance corpus.
 
