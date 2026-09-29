@@ -127,12 +127,11 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::CreateEntry(OpEntry::UpdateEntry {
             app_entry,
             action,
-
             ..
         }) => match app_entry {
             EntryTypes::Decision(decision) => {
                 validate_decision(&decision)?;
-                validate_decision_update(&action, &decision, &action.original_action_address)
+                validate_decision_update(&decision, &action.original_action_address)
             }
             EntryTypes::Vote(_) => {
                 // INVARIANT: Vote immutability — once a vote is cast on a decision,
@@ -161,13 +160,11 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             original_action,
             ..
         }) => {
-{
             let result = check_link_author_match(original_action.author(), action.author());
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
             validate_delete_link(link_type)
-        }
         }
         FlatOp::Delete(_) => {
             // INVARIANT: Decisions, Votes, and Outcomes are append-only.
