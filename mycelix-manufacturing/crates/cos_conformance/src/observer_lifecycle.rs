@@ -469,6 +469,22 @@ impl ObserverLifecycleLedgerV1 {
         self.status_at_frontier_internal(generation_id, frontier_sequence)
     }
 
+    fn transition_step_is_possible(
+        from_status: ObserverStatusV1,
+        to_status: ObserverStatusV1,
+    ) -> bool {
+        matches!(
+            (from_status, to_status),
+            (ObserverStatusV1::Active, ObserverStatusV1::Suspended)
+                | (ObserverStatusV1::Active, ObserverStatusV1::Revoked)
+                | (ObserverStatusV1::Active, ObserverStatusV1::Retired)
+                | (ObserverStatusV1::Active, ObserverStatusV1::Superseded)
+                | (ObserverStatusV1::Suspended, ObserverStatusV1::Revoked)
+                | (ObserverStatusV1::Suspended, ObserverStatusV1::Retired)
+                | (ObserverStatusV1::Suspended, ObserverStatusV1::Superseded)
+        )
+    }
+
     fn validate_transition_chain(&self, generation_id: &str) -> bool {
         let Some(generation) = self.generations.get(generation_id) else {
             return false;
@@ -496,7 +512,7 @@ impl ObserverLifecycleLedgerV1 {
                 || transition.custody_root != generation.custody_root
                 || transition.upstream_observer_ids != generation.upstream_observer_ids
                 || transition.upstream_evidence_roots != generation.upstream_evidence_roots
-                || matches!(transition.to_status, ObserverStatusV1::Active)
+                || !Self::transition_step_is_possible(transition.from_status, transition.to_status)
             {
                 return false;
             }
@@ -527,7 +543,9 @@ impl ObserverLifecycleLedgerV1 {
         &mut self,
         transition: ObserverStatusTransitionV1,
     ) -> LifecycleRecordDispositionV1 {
-        if !transition.structurally_valid() {
+        if !transition.structurally_valid()
+            || !Self::transition_step_is_possible(transition.from_status, transition.to_status)
+        {
             return LifecycleRecordDispositionV1::InsufficientEvidence;
         }
 
@@ -564,10 +582,7 @@ impl ObserverLifecycleLedgerV1 {
             return LifecycleRecordDispositionV1::Conflict;
         }
 
-        if transition.successor_generation_id.is_some() {
-            let Some(successor_id) = transition.successor_generation_id.as_deref() else {
-                return LifecycleRecordDispositionV1::InsufficientEvidence;
-            };
+        if let Some(successor_id) = transition.successor_generation_id.as_deref() {
             let Some(successor) = self.generations.get(successor_id) else {
                 return LifecycleRecordDispositionV1::InsufficientEvidence;
             };
@@ -585,8 +600,24 @@ impl ObserverLifecycleLedgerV1 {
             .transitions
             .insert(transition.transition_id.clone(), transition.clone());
 
-        if !tentative.validate_transition_chain(&transition.predecessor_generation_id) {
-            return LifecycleRecordDispositionV1::Conflict;
+        let chain_valid = tentative.validate_transition_chain(&transition.predecessor_generation_id);
+        if !chain_valid {
+            let ordered = transition_order(
+                tentative
+                    .transitions
+                    .values()
+                    .filter(|candidate| {
+                        candidate.predecessor_generation_id
+                            == transition.predecessor_generation_id
+                    }),
+            );
+            let has_missing_predecessor = ordered
+                .first()
+                .is_some_and(|first| first.from_status != generation.initial_status);
+
+            if !has_missing_predecessor {
+                return LifecycleRecordDispositionV1::Conflict;
+            }
         }
 
         self.transitions
@@ -1113,13 +1144,14 @@ mod tests {
     };
 
     fn profile() -> ObserverLifecycleProfileV1 {
-        [
+        let allowed_roles = [
             ExternalObserverRoleV1::IndependentObserver,
             ExternalObserverRoleV1::SettlementAuthority,
         ]
         .into_iter()
-        .collect::<BTreeSet<_>>()
-        .pipe(|allowed_roles| ObserverLifecycleProfileV1 {
+        .collect::<BTreeSet<_>>();
+
+        ObserverLifecycleProfileV1 {
             profile_id: "life-profile-1".into(),
             semantic_environment_root: "env-1".into(),
             observation_profile_id: "obs-profile-1".into(),
@@ -1128,7 +1160,7 @@ mod tests {
             historical_evidence_allowed: true,
             profile_commitment: "life-profile-commitment".into(),
             claim_ceiling: OBSERVER_LIFECYCLE_CLAIM_CEILING.into(),
-        })
+        }
     }
 
     fn generation(id: &str, sequence: u64, predecessor: Option<&str>) -> ObserverGenerationV1 {
@@ -1856,35 +1888,15 @@ mod tests {
         let mut reversed = ObserverLifecycleLedgerV1::default();
         reversed.record_generation(generation);
         assert_eq!(
-            reversed.record_transition(t2),
-            LifecycleRecordDispositionV1::Conflict
+            reversed.record_transition(t2.clone()),
+            LifecycleRecordDispositionV1::Recorded
+        );
+        assert_eq!(
+            reversed.status_at_frontier("observer-A-g1", 3),
+            None
         );
         assert_eq!(
             reversed.record_transition(t1),
-            LifecycleRecordDispositionV1::Recorded
-        );
-        let t2_retry = ObserverStatusTransitionV1 {
-            transition_id: "revoke-1".into(),
-            observer_id: "observer-A".into(),
-            predecessor_generation_id: "observer-A-g1".into(),
-            successor_generation_id: None,
-            from_status: ObserverStatusV1::Suspended,
-            to_status: ObserverStatusV1::Revoked,
-            effective_frontier_root: "frontier-3".into(),
-            effective_frontier_sequence: 3,
-            semantic_environment_root: "env-1".into(),
-            observation_profile_id: "obs-profile-1".into(),
-            evidence_root: "evidence-observer-A-g1".into(),
-            custody_root: "custody-observer-A-g1".into(),
-            upstream_observer_ids: BTreeSet::new(),
-            upstream_evidence_roots: BTreeSet::new(),
-            reason: "transition-revoke-1".into(),
-            qualification_transition_id: "qualification-revoke-1".into(),
-            transition_commitment: "transition:revoke-1".into(),
-            claim_ceiling: OBSERVER_LIFECYCLE_CLAIM_CEILING.into(),
-        };
-        assert_eq!(
-            reversed.record_transition(t2_retry),
             LifecycleRecordDispositionV1::Recorded
         );
         assert_eq!(
@@ -1894,6 +1906,23 @@ mod tests {
         assert_eq!(
             reversed.status_at_frontier("observer-A-g1", 3),
             Some(ObserverStatusV1::Revoked)
+        );
+    }
+
+    #[test]
+    fn impossible_status_regression_is_rejected_immediately() {
+        let (mut ledger, generation, _) = active_ledger();
+        let mut invalid = transition(
+            &generation,
+            "invalid-1",
+            ObserverStatusV1::Suspended,
+            2,
+            None,
+        );
+        invalid.from_status = ObserverStatusV1::Revoked;
+        assert_eq!(
+            ledger.record_transition(invalid),
+            LifecycleRecordDispositionV1::InsufficientEvidence
         );
     }
 
