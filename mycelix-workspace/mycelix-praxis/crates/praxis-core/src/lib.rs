@@ -10,25 +10,52 @@
 //! - Common data structures used across zomes
 //! - Cryptographic primitives (hashing, signatures)
 //! - Provenance tracking for models and credentials
+//! - Authority-safe learning evidence and advisory capability-estimate contracts
+//! - Provenance-complete attempt observations with explicit legacy incompleteness
+//! - Learner-authored goal intent separated from evidence-derived progress projections
+//! - Expiring recommendations bound to exact goal/evidence/projection dependencies
+//! - Versioned adaptive-path plans separated from evidence-derived execution progress
+//! - Descriptive session summaries and evidence-bound analytics projections
+//! - Learner-authored preferences separated from private inferred profile projections
+//! - Privacy-aware content difficulty calibration with explicit release policy
 //! - Validation utilities
-//! - Proof of Learning (PoL) for verifying genuine learning
+//! - Experimental Proof of Learning (PoL) analytics; PoL output is not, by itself,
+//!   proof of mastery, cheating, identity, credential eligibility, or authorization
 //! - Structured error handling with descriptive messages
 
 mod benchmarks;
+pub mod adaptive_path_state;
+pub mod analytics_state;
+pub mod attempt_evidence;
+pub mod content_calibration_state;
 pub mod contracts;
 pub mod crypto;
 pub mod errors;
 pub mod export_formats;
+pub mod goal_state;
+pub mod learner_profile_state;
+pub mod instructional_strategy;
+pub mod learning_evidence;
 pub mod proof_of_learning;
 pub mod provenance;
+pub mod recommendation_state;
 pub mod types;
 pub mod validation;
 
+pub use adaptive_path_state::*;
+pub use analytics_state::*;
+pub use attempt_evidence::*;
+pub use content_calibration_state::*;
 pub use contracts::*;
 pub use crypto::*;
 pub use errors::*;
+pub use goal_state::*;
+pub use learner_profile_state::*;
+pub use instructional_strategy::*;
+pub use learning_evidence::*;
 pub use proof_of_learning::*;
 pub use provenance::*;
+pub use recommendation_state::*;
 pub use types::*;
 
 /// Current protocol version
