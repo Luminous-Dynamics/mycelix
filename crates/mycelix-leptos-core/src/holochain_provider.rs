@@ -119,7 +119,14 @@ pub struct HolochainCtx {
     pub zome_call_signing_ready: ReadSignal<bool>,
     /// Most recent transport, serialization, or zome-call failure.
     pub last_error: ReadSignal<Option<String>>,
+    /// Exact connected AgentPubKey established by authenticated app-info.
+    ///
+    /// `None` means no currently established authenticated cell identity.
+    /// This is identity evidence only; it is not signing, membership, or
+    /// mutation authority.
+    pub connected_agent_pub_key: ReadSignal<Option<String>>,
     set_zome_call_signing_ready: WriteSignal<bool>,
+    set_connected_agent_pub_key: WriteSignal<Option<String>>,
     set_last_error: WriteSignal<Option<String>>,
     transport: TransportCell,
     default_role: Option<String>,
@@ -372,6 +379,8 @@ pub fn HolochainProviderAuto(config: HolochainProviderConfig, children: Children
     let (status, set_status) = signal(initial_status);
     let (zome_call_signing_ready, set_zome_call_signing_ready) = signal(false);
     let (last_error, set_last_error) = signal(None::<String>);
+    // Identity is established only after authenticated app-info succeeds.
+    let (connected_agent_pub_key, set_connected_agent_pub_key) = signal(None::<String>);
     // Distinguishes an ACCIDENTAL degrade (a Live strategy that failed to connect
     // and fell back to mock data) from a DELIBERATE demo (ConnectStrategy::MockOnly).
     // Only the former warrants shouting at the user -- see the banner below.
@@ -382,7 +391,9 @@ pub fn HolochainProviderAuto(config: HolochainProviderConfig, children: Children
         status,
         zome_call_signing_ready,
         last_error,
+        connected_agent_pub_key,
         set_zome_call_signing_ready,
+        set_connected_agent_pub_key,
         set_last_error,
         transport: transport.clone(),
         default_role: config.default_role.clone(),
@@ -407,17 +418,25 @@ pub fn HolochainProviderAuto(config: HolochainProviderConfig, children: Children
 
                 let ws_transport = BrowserWsTransport::new();
                 *transport_for_connect.borrow_mut() = Some(ws_transport.clone());
+                let identity_transport = ws_transport.clone();
                 ws_transport.set_status_handler(move |transport_status| {
                     match transport_status {
                         TransportConnectionStatus::Disconnected => {
+                            set_connected_agent_pub_key.set(None);
                             set_zome_call_signing_ready.set(false);
                             set_status.set(ConnectionStatus::Disconnected);
                         }
                         TransportConnectionStatus::Connecting => {
+                            set_connected_agent_pub_key.set(None);
                             set_zome_call_signing_ready.set(false);
                             set_status.set(ConnectionStatus::Connecting);
                         }
                         TransportConnectionStatus::Connected => {
+                            // BrowserWsTransport emits Connected only after authenticated
+                            // app-info has established the cell identity.
+                            set_connected_agent_pub_key.set(
+                                identity_transport.connected_agent_pub_key_b64(),
+                            );
                             let signer_ready = HostZomeCallSigner::is_available();
                             set_zome_call_signing_ready.set(signer_ready);
                             if signer_ready {
@@ -434,6 +453,7 @@ pub fn HolochainProviderAuto(config: HolochainProviderConfig, children: Children
                             attempt,
                             max_attempts,
                         } => {
+                            set_connected_agent_pub_key.set(None);
                             set_zome_call_signing_ready.set(false);
                             set_last_error.set(Some(format!(
                                 "{log_prefix} Conductor connection interrupted; reconnecting ({attempt}/{max_attempts})."
@@ -441,6 +461,7 @@ pub fn HolochainProviderAuto(config: HolochainProviderConfig, children: Children
                             set_status.set(ConnectionStatus::Reconnecting);
                         }
                         TransportConnectionStatus::Error(error) => {
+                            set_connected_agent_pub_key.set(None);
                             set_zome_call_signing_ready.set(false);
                             set_last_error.set(Some(format!(
                                 "{log_prefix} Conductor transport error: {error}"
@@ -460,6 +481,7 @@ pub fn HolochainProviderAuto(config: HolochainProviderConfig, children: Children
                 match ws_transport.connect(connect_config).await {
                     Ok(()) => {
                         let signer_ready = ws_transport.zome_call_signer_available();
+                        set_connected_agent_pub_key.set(ws_transport.connected_agent_pub_key_b64());
                         set_zome_call_signing_ready.set(signer_ready);
                         if signer_ready {
                             web_sys::console::log_1(
@@ -497,6 +519,7 @@ pub fn HolochainProviderAuto(config: HolochainProviderConfig, children: Children
                             )
                         };
                         web_sys::console::log_1(&JsValue::from_str(&message));
+                        set_connected_agent_pub_key.set(None);
                         set_zome_call_signing_ready.set(false);
                         set_last_error.set(Some(message));
                         if fallback_to_mock {
