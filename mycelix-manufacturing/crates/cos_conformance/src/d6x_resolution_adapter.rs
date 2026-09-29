@@ -48,9 +48,28 @@ impl ResolutionAttemptV1 {
             }
     }
 
+    /// Maps the runtime retrieval outcome to the D6X semantic resolution state.
+    ///
+    /// A retrieved observation is only structurally Present here; commitment
+    /// equality remains a certificate-level semantic check and is intentionally
+    /// not hidden inside the runtime adapter.
+    pub fn semantic_resolution(
+        &self,
+    ) -> crate::qualified_dependency_closure_d6x::SemanticDependencyResolutionV1 {
+        match self.outcome {
+            ResolutionAttemptOutcomeV1::Retrieved =>
+                crate::qualified_dependency_closure_d6x::SemanticDependencyResolutionV1::Present,
+            ResolutionAttemptOutcomeV1::Unavailable =>
+                crate::qualified_dependency_closure_d6x::SemanticDependencyResolutionV1::Missing,
+            ResolutionAttemptOutcomeV1::Historical =>
+                crate::qualified_dependency_closure_d6x::SemanticDependencyResolutionV1::Stale,
+        }
+    }
+
     /// Converts this runtime-neutral attempt into the opaque evidence payload
-    /// used by D6X. The address is intentionally retained as audit evidence,
-    /// never semantic dependency identity.
+    /// used by D6X. The address domain and outcome are preserved by the
+    /// envelope below; the legacy evidence payload intentionally remains
+    /// semantic-identity-neutral.
     pub fn to_resolution_evidence(
         &self,
     ) -> crate::qualified_dependency_closure_d6x::SemanticDependencyResolutionEvidenceV1 {
@@ -59,6 +78,39 @@ impl ResolutionAttemptV1 {
             observed_commitment: self.observed_commitment.clone(),
             qualification_context_commitment: self.qualification_context_commitment.clone(),
         }
+    }
+}
+
+/// Lossless audit envelope for runtime resolution attempts.
+///
+/// The legacy D6X evidence struct is deliberately opaque and does not encode
+/// address domain or retrieval outcome. This envelope keeps those fields
+/// alongside the derived D6X evidence so an adapter can round-trip the runtime
+/// attempt without changing closure_identity_commitment.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ResolutionEvidenceEnvelopeV1 {
+    pub attempt: ResolutionAttemptV1,
+    pub evidence:
+        crate::qualified_dependency_closure_d6x::SemanticDependencyResolutionEvidenceV1,
+}
+
+impl ResolutionEvidenceEnvelopeV1 {
+    pub fn from_attempt(attempt: ResolutionAttemptV1) -> Option<Self> {
+        if !attempt.structurally_valid() {
+            return None;
+        }
+        let evidence = attempt.to_resolution_evidence();
+        Some(Self { attempt, evidence })
+    }
+
+    pub fn to_attempt(&self) -> ResolutionAttemptV1 {
+        self.attempt.clone()
+    }
+
+    pub fn to_resolution_evidence(
+        &self,
+    ) -> &crate::qualified_dependency_closure_d6x::SemanticDependencyResolutionEvidenceV1 {
+        &self.evidence
     }
 }
 
