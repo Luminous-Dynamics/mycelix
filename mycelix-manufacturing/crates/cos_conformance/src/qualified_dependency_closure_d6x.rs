@@ -264,9 +264,8 @@ impl DependencyClosureCertificateV1 {
             && self.dependencies.iter().all(|dependency| matches!(self.dependency_resolutions.get(dependency), Some(SemanticDependencyResolutionV1::Present | SemanticDependencyResolutionV1::Stale)))
             && self.missing_dependencies.iter().all(|dependency| matches!(self.dependency_resolutions.get(dependency), Some(SemanticDependencyResolutionV1::Missing)))
             && self.resolution_evidence.iter().all(|(dependency, evidence)| {
-                self.dependencies.contains(dependency)
-                    || self.missing_dependencies.contains(dependency)
-            } && evidence.structurally_valid())
+                self.resolution_evidence_is_consistent(dependency, evidence)
+            })
             && self.claim_ceiling == D6X_CLAIM_CEILING
             && self.included_node_ids.len() == self.included_node_commitments.len()
             && self.included_edges.len() == self.included_edge_commitments.len()
@@ -290,6 +289,39 @@ impl DependencyClosureCertificateV1 {
                 }
             }
             && self.commitment == self.recompute()
+    }
+
+    fn resolution_evidence_is_consistent(
+        &self,
+        dependency: &SemanticDependencyReferenceV1,
+        evidence: &SemanticDependencyResolutionEvidenceV1,
+    ) -> bool {
+        if !evidence.structurally_valid() {
+            return false;
+        }
+
+        let resolution = match self.dependency_resolutions.get(dependency) {
+            Some(resolution) => resolution,
+            None => return false,
+        };
+
+        match resolution {
+            SemanticDependencyResolutionV1::Missing => {
+                // A missing dependency has no observed semantic content. The
+                // retrieval reference may still document where resolution was
+                // attempted, but it must not claim an observed commitment.
+                evidence.observed_commitment.is_none()
+            }
+            SemanticDependencyResolutionV1::Present | SemanticDependencyResolutionV1::Stale => {
+                match (&dependency.commitment, &evidence.observed_commitment) {
+                    (Some(expected), Some(observed)) => expected == observed,
+                    // Omitting an observed commitment is allowed when the
+                    // runtime cannot expose it, but a supplied observation must
+                    // agree with the semantic dependency commitment.
+                    _ => true,
+                }
+            }
+        }
     }
 
     fn expected_dependencies(&self) -> BTreeSet<SemanticDependencyReferenceV1> {
@@ -863,6 +895,45 @@ mod tests {
         assert_eq!(c.closure_identity_commitment, identity);
         assert!(c.valid());
         assert_ne!(c.commitment, compute_dependency_closure(&a,&e,&d,&p).unwrap().commitment);
+    }
+
+    #[test]
+    fn resolution_evidence_observed_commitment_must_match_selected_dependency() {
+        let (a,e,d)=projection(false); let p=profile(BTreeSet::new());
+        let mut c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
+        let dep=SemanticDependencyReferenceV1::node("dep", Some("commit-dep".into()));
+        c.resolution_evidence.insert(dep, SemanticDependencyResolutionEvidenceV1 {
+            retrieval_reference: Some("retrieval".into()),
+            observed_commitment: Some("wrong-commitment".into()),
+            qualification_context_commitment: None,
+        });
+        assert!(!c.valid());
+    }
+
+    #[test]
+    fn resolution_evidence_missing_dependency_cannot_claim_observed_commitment() {
+        let (a,e,d)=projection(false); let p=profile(["missing".into()].into_iter().collect());
+        let mut c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
+        let dep=SemanticDependencyReferenceV1::node("missing", None);
+        c.resolution_evidence.insert(dep, SemanticDependencyResolutionEvidenceV1 {
+            retrieval_reference: Some("retrieval-attempt".into()),
+            observed_commitment: Some("unexpected-observation".into()),
+            qualification_context_commitment: None,
+        });
+        assert!(!c.valid());
+    }
+
+    #[test]
+    fn resolution_evidence_observation_is_optional_but_consistent() {
+        let (a,e,d)=projection(false); let p=profile(BTreeSet::new());
+        let mut c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
+        let dep=SemanticDependencyReferenceV1::node("dep", Some("commit-dep".into()));
+        c.resolution_evidence.insert(dep, SemanticDependencyResolutionEvidenceV1 {
+            retrieval_reference: Some("retrieval".into()),
+            observed_commitment: None,
+            qualification_context_commitment: Some("qualification-context".into()),
+        });
+        assert!(c.valid());
     }
 
     #[test]
