@@ -409,7 +409,9 @@ mod tests {
             semantic_profile_id: "integral".into(),
             semantic_profile_version: "1".into(),
             current_frontier_root: Some("frontier-1".into()),
-            d6p_eligibility_context_root: Some("d6p-1".into()),
+            d6p_eligibility_context_root: Some(commitment_set_digest(
+                &["d6p-receipt-1".into()].into_iter().collect()
+            )),
             d6n_observer_context_root: Some("d6n-1".into()),
             d6o_lifecycle_context_root: Some("d6o-1".into()),
             membership_authority_scope_root: Some("membership-1".into()),
