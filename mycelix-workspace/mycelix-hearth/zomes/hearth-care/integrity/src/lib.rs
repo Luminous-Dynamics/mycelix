@@ -421,22 +421,6 @@ mod tests {
         Timestamp::from_micros(1_000_000)
     }
 
-    fn create_action() -> Create {
-        Create {
-            author: agent_key_1(),
-            timestamp: timestamp_now(),
-            action_seq: 0,
-            prev_action: ActionHash::from_raw_36(vec![0; 36]),
-            entry_type: EntryType::App(AppEntryDef {
-                entry_index: 0.into(),
-                zome_index: 0.into(),
-                visibility: EntryVisibility::Public,
-            }),
-            entry_hash: EntryHash::from_raw_36(vec![0; 36]),
-            weight: Default::default(),
-        }
-    }
-
     fn valid_schedule() -> CareSchedule {
         CareSchedule {
             hearth_hash: action_hash_1(),
@@ -486,7 +470,7 @@ mod tests {
 
     #[test]
     fn test_valid_schedule_passes() {
-        let result = validate_schedule(&valid_schedule(), &create_action()).unwrap();
+        let result = validate_schedule(&valid_schedule()).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -494,7 +478,7 @@ mod tests {
     fn test_schedule_empty_title_fails() {
         let mut schedule = valid_schedule();
         schedule.title = "".to_string();
-        let result = validate_schedule(&schedule, &create_action()).unwrap();
+        let result = validate_schedule(&schedule).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
@@ -502,7 +486,7 @@ mod tests {
     fn test_schedule_title_at_limit_passes() {
         let mut schedule = valid_schedule();
         schedule.title = "a".repeat(256);
-        let result = validate_schedule(&schedule, &create_action()).unwrap();
+        let result = validate_schedule(&schedule).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -510,7 +494,7 @@ mod tests {
     fn test_schedule_title_over_limit_fails() {
         let mut schedule = valid_schedule();
         schedule.title = "a".repeat(257);
-        let result = validate_schedule(&schedule, &create_action()).unwrap();
+        let result = validate_schedule(&schedule).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
@@ -518,7 +502,7 @@ mod tests {
     fn test_schedule_empty_description_passes() {
         let mut schedule = valid_schedule();
         schedule.description = "".to_string();
-        let result = validate_schedule(&schedule, &create_action()).unwrap();
+        let result = validate_schedule(&schedule).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -526,7 +510,7 @@ mod tests {
     fn test_schedule_description_at_limit_passes() {
         let mut schedule = valid_schedule();
         schedule.description = "d".repeat(4096);
-        let result = validate_schedule(&schedule, &create_action()).unwrap();
+        let result = validate_schedule(&schedule).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -534,7 +518,7 @@ mod tests {
     fn test_schedule_description_over_limit_fails() {
         let mut schedule = valid_schedule();
         schedule.description = "d".repeat(4097);
-        let result = validate_schedule(&schedule, &create_action()).unwrap();
+        let result = validate_schedule(&schedule).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
@@ -542,7 +526,7 @@ mod tests {
     fn test_schedule_notes_at_limit_passes() {
         let mut schedule = valid_schedule();
         schedule.notes = "n".repeat(4096);
-        let result = validate_schedule(&schedule, &create_action()).unwrap();
+        let result = validate_schedule(&schedule).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -550,7 +534,7 @@ mod tests {
     fn test_schedule_notes_over_limit_fails() {
         let mut schedule = valid_schedule();
         schedule.notes = "n".repeat(4097);
-        let result = validate_schedule(&schedule, &create_action()).unwrap();
+        let result = validate_schedule(&schedule).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
