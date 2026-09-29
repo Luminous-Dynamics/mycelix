@@ -975,6 +975,19 @@ mod tests {
     }
 
     #[test]
+    fn observation_and_observer_identity_are_distinct() {
+        let observer_profile = observer("observer-A", "evidence-1", "custody-1");
+        let mut item = evidence(
+            "observation-1",
+            observer_profile,
+            ExternalObservedStateV1::Applied,
+        );
+        item.observer_id = "observer-A".into();
+        assert_ne!(item.observation.observation_id, item.observer_id);
+        assert!(item.structurally_valid());
+    }
+
+    #[test]
     fn independent_observers_can_qualify_evidence() {
         let e1 = evidence("obs-1", observer("obs-1", "evidence-1", "custody-1"), ExternalObservedStateV1::Applied);
         let e2 = evidence("obs-2", observer("obs-2", "evidence-2", "custody-2"), ExternalObservedStateV1::Applied);
