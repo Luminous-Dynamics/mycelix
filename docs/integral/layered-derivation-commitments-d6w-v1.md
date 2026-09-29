@@ -35,7 +35,7 @@ Each layer uses a distinct D6S-CANON-1 domain label under the shared D6S hash-do
 
 ## D6S integration
 
-D6W is a diagnostic decomposition around the existing D6S receipt model. It does not replace D6P current-finality eligibility, D6N contestability, D6O lifecycle context, or D6T canonical encoding. A layered receipt is not interchangeable with a D6S receipt until a verifier explicitly reconstructs and cross-checks the shared projection, environment, profile, status, and result commitments.
+D6W is a diagnostic decomposition around the existing D6S receipt model. It does not replace D6P current-finality eligibility, D6N contestability, D6O lifecycle context, or D6T canonical encoding. A layered receipt is not interchangeable with a D6S receipt. The reference model now exposes a verifier that reconstructs input, derivation, and result layers from the supplied projection, environment, profile, and optional deterministic trace, then cross-checks those layers against the D6S receipt's commitments, node/edge sets, D6P receipt set, status, and result payload commitment. This is a cross-check boundary, not a claim that D6W itself supplies D6S qualification.
 
 ## Verification and exit gate
 
