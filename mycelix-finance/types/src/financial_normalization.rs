@@ -532,6 +532,41 @@ mod tests {
 
 
 #[cfg(test)]
+mod replay_frontier_tests {
+    use super::*;
+
+    fn observation() -> MarketObservation {
+        MarketObservation {
+            observation_id: "replay-obs".into(),
+            subject: FinancialSubjectRef {
+                subject_id: "instrument:replay".into(),
+                subject_kind: FinancialSubjectKind::Instrument,
+                validity_interval: ValidityInterval { valid_from_micros: Some(0), valid_to_micros: None },
+                identifier_aliases: vec![],
+                lineage_relations: vec![],
+                information_frontier: InformationFrontier { as_of_micros: 100, frontier_id: "f100".into() },
+            },
+            observed_at_micros: 90, published_at_micros: Some(91), available_at_micros: Some(92), ingested_at_micros: 93,
+            unit: MarketUnit::Price { currency: "USD".into() },
+            value: DecimalValue { value: "100.00".into(), scale: 2 },
+            status: EvidenceStatus::ObservedUnqualified,
+            source: SourceRef { source_id: "src-replay".into(), provider_id: "provider-replay".into(), common_ancestry_id: None, retrieved_at_micros: 93 },
+            evidence_refs: vec![],
+            information_frontier: InformationFrontier { as_of_micros: 100, frontier_id: "f100".into() },
+        }
+    }
+
+    #[test]
+    fn projection_binds_to_requested_frontier() {
+        let obs = observation();
+        let recipe = NormalizationRecipe { recipe_id: "identity".into(), adjustment: AdjustmentKind::None, target_unit: None, multiplier: None, output_scale: None, session: None, evidence_refs: vec![], factor_observation: None };
+        let frontier = InformationFrontier { as_of_micros: 110, frontier_id: "f110".into() };
+        let normalized = normalize_observation_at_frontier(&obs, &recipe, &frontier).unwrap();
+        assert_eq!(normalized.information_frontier, frontier);
+    }
+}
+
+#[cfg(test)]
 mod factor_binding_tests {
     use super::*;
     use crate::{FinancialSubjectKind, FinancialSubjectRef, IdentifierAlias, SourceRef, ValidityInterval};
