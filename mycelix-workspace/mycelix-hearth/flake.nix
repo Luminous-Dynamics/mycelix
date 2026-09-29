@@ -16,6 +16,7 @@
 
     holonix = {
       url = "github:holochain/holonix?ref=main-0.7"; # Holochain 0.7 toolchain
+  # Lock refresh is CI-owned; do not hand-edit flake.lock.
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
