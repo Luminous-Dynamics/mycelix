@@ -52,10 +52,27 @@ forbid "$flake_lock" '"ref": "0.600.0-dev.0"' "lockfile no longer resolves hc-sc
 forbid "$flake_lock" '"ref": "v0.6.3"' "lockfile no longer resolves Lair 0.6"
 forbid "$flake_lock" '"ref": "v0.3.2"' "lockfile no longer resolves Kitsune2 0.3"
 
+# The dependency floor is not source qualification. HDI 0.8 uses the 0.7
+# FlatOp vocabulary, so reject known 0.6 validation dispatcher patterns.
+legacy_source=0
+while IFS= read -r -d '' file; do
+  for pattern in     'FlatOp::StoreEntry'     'FlatOp::RegisterCreateLink'     'FlatOp::RegisterDeleteLink'     'FlatOp::RegisterUpdate'     'FlatOp::RegisterDelete'     'FlatOp::RegisterAgentActivity'     'Action::Create'     'Action::Update'     'Action::Delete'
+  do
+    if grep -Fq -- "$pattern" "$file"; then
+      echo "FAIL: legacy Holochain 0.6 source pattern '$pattern' in $file"
+      legacy_source=1
+    fi
+  done
+done < <(find zomes -path '*/src/*.rs' -type f -print0)
+
+if [[ "$legacy_source" -ne 0 ]]; then
+  fail=1
+fi
+
 if [[ "$fail" -ne 0 ]]; then
   echo
   echo "Holochain 0.7 qualification guard: FAIL"
-  echo "Regenerate mycelix-hearth/flake.lock from the 0.7 Holonix declaration before qualifying the branch."
+  echo "Resolve dependency/lock/source blockers before labeling Hearth 0.7-qualified."
   exit 1
 fi
 
