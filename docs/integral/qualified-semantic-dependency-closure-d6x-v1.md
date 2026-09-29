@@ -62,7 +62,7 @@ Cycles are permitted at the graph level. The traversal uses a deterministic visi
 
 D6X does not re-qualify truth, causality, authority, current-finality, authorization, or actuation. It consumes the qualified projection and existing Mycelix qualifications. Symthaea can propose candidate closures, but serialization of a proposal does not promote it to qualified authority.
 
-Provenance and custody edges are excluded unless the closure profile explicitly selects them. This prevents incidental reachability from becoming semantic dependency. Currentness is likewise evaluated only on edges actually selected by the closure traversal; an unrelated incoming edge cannot make a selected node stale. A dangling edge whose kind/rule does not qualify for traversal is also ignored rather than promoted into a missing semantic dependency.
+Provenance and custody edges are excluded unless the closure profile explicitly selects them. This prevents incidental reachability from becoming semantic dependency. Currentness is likewise evaluated only on edges actually selected by the closure traversal; an unrelated incoming edge cannot make a selected node stale. If multiple rules match the same edge, `CurrentOnly` dominates `Any` deterministically rather than depending on rule iteration order. A dangling edge whose kind/rule does not qualify for traversal is also ignored rather than promoted into a missing semantic dependency.
 
 ## D6W binding
 
@@ -114,9 +114,10 @@ The reference model currently includes fixtures for:
 19. dependency-domain structural validation rejects malformed Edge/D6PReceipt references.
 20. currentness state cannot create a stale-resolution entry for an unselected/resource-truncated node.
 21. an unrelated current-only incoming edge cannot make a selected node stale unless that edge is itself selected.
-22. an unmatched dangling edge does not block an otherwise complete closure.
-23. resolution evidence may change the audit certificate commitment without changing semantic closure identity.
-24. resolution evidence for an unselected dependency invalidates the certificate.
+22. overlapping matching rules resolve deterministically with `CurrentOnly` dominating `Any`.
+23. an unmatched dangling edge does not block an otherwise complete closure.
+24. resolution evidence may change the audit certificate commitment without changing semantic closure identity.
+25. resolution evidence for an unselected dependency invalidates the certificate.
 
 Before interoperability or production claims, add cross-language golden vectors, currentness/D6P fixtures, contradiction-preservation fixtures, cycle fixtures, resource-limit fixtures, and execute the Rust/WASM/Holochain conformance corpus.
 
