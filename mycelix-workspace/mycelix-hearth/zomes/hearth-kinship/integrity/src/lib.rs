@@ -1651,13 +1651,5 @@ mod tests {
         let d = make_digest(0, 604_800_000_000);
         assert_eq!(d.epoch_start, Timestamp::from_micros(0));
     }
-    
-    #[test]
-    fn stable_hearth_identity_rule_is_documented_in_validation_helpers() {
-        // Membership and AgentToHearths validation both route their Hearth hash
-        // through validate_stable_hearth_identity, so an Update action cannot
-        // silently become the relationship identity.
-        assert!(std::any::type_name::<ActionHash>().contains("HoloHash"));
-    }
 
 }
