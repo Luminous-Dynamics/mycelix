@@ -644,7 +644,12 @@ mod tests {
         let (mut a,e,d)=projection(false); let p=profile(BTreeSet::new());
         let before=compute_dependency_closure(&a,&e,&d,&p).unwrap();
 
-        a.edges.get_mut("e1").unwrap().to_node_id = "root".into();
+        a.nodes.insert("alt".into(), QualifiedNodeV1 {
+            node_id:"alt".into(), kind:ClaimGraphNodeKindV1::Evidence,
+            node_commitment:"commit-alt".into(), historical_only:false,
+            current_frontier_root:Some("frontier".into()), claim_ceiling:D6S_CLAIM_CEILING.into(),
+        });
+        a.edges.get_mut("e1").unwrap().to_node_id = "alt".into();
         let endpoint_changed=compute_dependency_closure(&a,&e,&d,&p).unwrap();
         assert_ne!(before.closure_identity_commitment, endpoint_changed.closure_identity_commitment);
 
