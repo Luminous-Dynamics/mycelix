@@ -127,6 +127,40 @@ pub fn get_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>
     }
 }
 
+/// Follow a single, unambiguous update chain to the latest valid record.
+///
+/// Unlike the permissive resolver, this helper never chooses one branch merely
+/// because it happens to be last in a metadata vector. Holochain explicitly
+/// permits branching updates and leaves conflict resolution to the application.
+/// For callers that require one canonical state, any fan-out is therefore a
+/// hard error until the application supplies an explicit conflict policy.
+pub fn get_latest_record_strict(action_hash: ActionHash) -> ExternResult<Option<Record>> {
+    let Some(details) = get_details(action_hash, GetOptions::default())? else {
+        return Ok(None);
+    };
+
+    match details {
+        Details::Record(record_details) => {
+            match record_details.updates.as_slice() {
+                [] => {
+                    if record_details.deletes.is_empty() {
+                        Ok(Some(record_details.record))
+                    } else {
+                        Ok(None)
+                    }
+                }
+                [update] => get_latest_record_strict(update.action_address().clone()),
+                _ => Err(wasm_error!(WasmErrorInner::Guest(format!(
+                    "Ambiguous update history at {}: {} valid updates require explicit conflict resolution",
+                    action_hash,
+                    record_details.updates.len()
+                )))),
+            }
+        }
+        Details::Entry(_) => Ok(None),
+    }
+}
+
 /// Resolve a list of links into their corresponding records, following update chains.
 ///
 /// Iterates over `links`, converts each target to an `ActionHash`, and fetches
