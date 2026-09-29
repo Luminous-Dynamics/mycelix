@@ -210,7 +210,7 @@ version = "0.1.0"
     # The verifier checks the exact manifest after all files exist.
     lines = [
         f"{sha256_bytes((root / name).read_bytes())}  {name}"
-        for name in sorted(FILES)
+        for name in sorted(FILES + ["evidence-receipt.v1.json", "evidence-receipt.v1.sha256", "manifest.pre-receipt.sha256"])
     ]
     (root / "manifest.sha256").write_text("\n".join(lines) + "\n")
 
