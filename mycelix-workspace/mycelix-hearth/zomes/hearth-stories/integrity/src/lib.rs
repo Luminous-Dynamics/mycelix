@@ -134,8 +134,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
             },
             OpEntry::UpdateEntry {
-                app_entry,
-            action,
+            app_entry,
+            action: _,
+            ..
         } => match app_entry {
                 EntryTypes::FamilyStory(story) => {
                     validate_story_update(&story)?;
@@ -164,13 +165,11 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             original_action,
             ..
         }) => {
-{
             let result = check_link_author_match(original_action.author(), action.author());
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
             validate_delete_link(link_type, &link.tag())
-        }
         }
         FlatOp::CreateRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
