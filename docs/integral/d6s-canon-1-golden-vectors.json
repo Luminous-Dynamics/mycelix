@@ -1,0 +1,51 @@
+{
+  "profile": "D6S-CANON-1",
+  "hash_domain": "MYCELIX-INTEGRAL-D6S-RECEIPT-V1\\u0000",
+  "cases": [
+    {
+      "name": "empty-object",
+      "value": {},
+      "canonical": "{}",
+      "commitment": "183d04dd650b0e8fb84ebb0fedff9738bebbf3dc6647f066f1bf58dab3a827c7"
+    },
+    {
+      "name": "empty-array",
+      "value": [],
+      "canonical": "[]",
+      "commitment": "0c91c705ab934093fc479f18e052e12180c8de16239b7bb57a8c662bcd4a1d04"
+    },
+    {
+      "name": "reordered-properties",
+      "value": {
+        "b": 2,
+        "a": 1
+      },
+      "canonical": "{\"a\":1,\"b\":2}",
+      "commitment": "6e2d6dcd7ab2bc1bd2a1f7be2b45e735202775da406edafc0b30719b09b1a363"
+    },
+    {
+      "name": "nested",
+      "value": {
+        "nested": {
+          "z": true,
+          "a": null
+        },
+        "items": [
+          3,
+          2,
+          1
+        ]
+      },
+      "canonical": "{\"items\":[3,2,1],\"nested\":{\"a\":null,\"z\":true}}",
+      "commitment": "03257af918c2bf3f6297f41273b3a1e750985ad3834a1ff930827fd3ebacac4f"
+    },
+    {
+      "name": "control-characters",
+      "value": {
+        "control": "\\u0000\\n\\t"
+      },
+      "canonical": "{\"control\":\"\\u0000\\n\\t\"}",
+      "commitment": "2858d768f111071c54c72c3b5b6589b78401261c2c3dac1618c4b4389504697d"
+    }
+  ]
+}
