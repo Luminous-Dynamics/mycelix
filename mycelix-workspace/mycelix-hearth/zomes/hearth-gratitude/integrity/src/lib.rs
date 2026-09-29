@@ -118,10 +118,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::GratitudeAnchor(anchor) => validate_anchor(anchor),
             },
             OpEntry::UpdateEntry {
-                app_entry,
-            action,
-                original_action_hash: _,
-
+            app_entry,
+            action: _,
+            ..
         } => match app_entry {
                 EntryTypes::GratitudeExpression(_) => {
                     // Gratitude expressions are immutable once created.
@@ -143,13 +142,11 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             original_action,
             ..
         }) => {
-{
             let result = check_link_author_match(original_action.author(), action.author());
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
             validate_delete_link(link_type, &link.tag())
-        }
         }
         FlatOp::CreateRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
