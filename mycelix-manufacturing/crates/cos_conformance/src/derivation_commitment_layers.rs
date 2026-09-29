@@ -506,23 +506,13 @@ mod tests {
     }
 
     #[test]
-    fn canonicalization_version_mutation_changes_derivation_not_input() {
+    fn canonicalization_version_is_part_of_derivation_layer() {
         let (input, derivation, _, _) = layers("trace-1");
-        let mut projection = projection();
-        projection.canonicalization_version = "D6S-CANON-2".into();
-        let d6s = build_canonical_receipt(
-            &projection,
-            &env(),
-            &profile(),
-            &[d6p_receipt()],
-            DerivationResultStatusV1::Supported,
-            "result-1".into(),
-            false,
-            false,
-        );
-        assert!(d6s.is_none());
+        let mut changed = derivation.clone();
+        changed.canonicalization_version = "D6S-CANON-2".into();
+        assert!(!changed.structurally_valid());
+        assert_ne!(derivation.commitment(), changed.commitment());
         assert_eq!(input.commitment(), layers("trace-1").0.commitment());
-        assert_ne!(derivation.canonicalization_version, "D6S-CANON-2");
     }
 
     #[test]
