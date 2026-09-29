@@ -47,13 +47,13 @@ jobs:
         shell: bash
         env:
           PRODUCT_HEAD: ee25ad45a2b663ba02eb722cf1cb9fe7b82624d4
-          PRODUCT_PARENT: 8619e0f516bb9b6681032b0310c23f5a42826415
+          PRODUCT_PARENT: 3c133078ae1e03cc4107fad06f05e8e5bcbf73e5
           PRODUCT_TREE: c203ea93dd636a9775387431b9b17fdd37bf6230
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$PRODUCT_HEAD"
           test "$(git rev-parse HEAD^)" = "$PRODUCT_PARENT"
-          test "$(git rev-list --count "$PRODUCT_PARENT".."$PRODUCT_HEAD")" -eq 2
+          test "$(git rev-list --count "$PRODUCT_PARENT".."$PRODUCT_HEAD")" -eq 1
           test "$(git rev-parse "$PRODUCT_HEAD^{tree}")" = "$PRODUCT_TREE"
           test "$(git diff --name-only HEAD^ HEAD)" = "mycelix-governance/crates/mycelix-constitutional-effect-delivery/src/lib.rs"
       - name: Install pinned Rust toolchain
