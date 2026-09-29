@@ -20,6 +20,8 @@ use serde::{Deserialize, Serialize};
 pub mod financial_intelligence;
 /// Pure frontier/staleness/conflict qualification for market observations.
 pub mod financial_observation_qualification;
+/// Deterministic derived normalization; raw observations remain immutable.
+pub mod financial_normalization;
 
 // =============================================================================
 // CURRENCIES
