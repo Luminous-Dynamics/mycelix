@@ -92,3 +92,13 @@ Out-of-order lifecycle transitions and dependency snapshots may be recorded as t
 
 Claim ceiling: **ReferenceModelOnly**. This does not establish real-world revocation, observer trust, key authenticity, physical observation correctness, distributed consensus, durable storage, production finality, or actuation safety.
 
+
+## Evidence bundles and claim-graph closure
+
+`evidence_claim_graph.rs` gives the evidence chain an explicit typed graph: Source -> Evidence -> Statement -> Registration Receipt -> Validation -> Assessment -> Conclusion -> Human Disposition.
+
+The model enforces endpoint/type compatibility, rejects dangling edges and semantic cycles, and distinguishes structural closure from evidentiary sufficiency. Graph reachability is never treated as truth. Provenance and custody edges cannot become causal support, registration cannot become endorsement, and human disposition cannot become evidence.
+
+Historical-only nodes block current reuse. Symthaea graph proposals remain non-authoritative; conclusion assessment cannot authorize actuation. See `docs/integral/evidence-bundle-claim-graph-v1.md`.
+
+Claim ceiling: **ReferenceModelOnly**. This does not establish source truth, causal validity, cryptographic authenticity, legal authority, production finality, or actuation safety.
