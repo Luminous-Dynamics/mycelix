@@ -756,6 +756,62 @@ mod tests {
     }
 
     #[test]
+    fn logical_delivery_identity_is_bound_to_target_and_all_immutable_fields() {
+        let mut state = nodes();
+        let original = envelope();
+        let admitted = deliver(&mut state, &original, 50, true);
+        assert_eq!(admitted.authority, AuthorityDisposition::LocalAuthority);
+        let original_record = state.deliveries.get("delivery-1").unwrap().clone();
+
+        let mut redirected = original.clone();
+        redirected.target_node = "node-b".into();
+        redirected.attempt_id = "attempt-redirected".into();
+        let outcome = deliver(&mut state, &redirected, 50, true);
+        assert_eq!(outcome.decision, FederationDecision::ContractConflict);
+        assert_eq!(outcome.authority, AuthorityDisposition::NoAuthority);
+        assert!(!cockpit_projection("node-b", &outcome).local_authority);
+        assert_eq!(state.deliveries.get("delivery-1"), Some(&original_record));
+        assert_eq!(state.deliveries.len(), 1);
+    }
+
+    #[test]
+    fn observation_identity_is_insert_only_and_conflicts_never_overwrite() {
+        let mut state = nodes();
+        let first = ObservationRecord {
+            observation_id: "obs-fixed".into(),
+            semantic_subject_id: "subject-1".into(),
+            payload_commitment: "sha256:a".into(),
+            origin_node: "node-a".into(),
+            recognized_by: None,
+            source_observation: true,
+        };
+        assert_eq!(
+            record_observation(&mut state, first.clone()),
+            ObservationWriteResult::Inserted
+        );
+        assert_eq!(
+            record_observation(&mut state, first.clone()),
+            ObservationWriteResult::Duplicate
+        );
+        let mut changed = first.clone();
+        changed.origin_node = "node-b".into();
+        assert_eq!(
+            record_observation(&mut state, changed),
+            ObservationWriteResult::Conflict
+        );
+        assert_eq!(state.observations.get("obs-fixed"), Some(&first));
+        assert_eq!(state.observations.len(), 1);
+
+        let mut independent = first;
+        independent.observation_id = "obs-independent".into();
+        assert_eq!(
+            record_observation(&mut state, independent),
+            ObservationWriteResult::Inserted
+        );
+        assert_eq!(state.observations.len(), 2);
+    }
+
+    #[test]
     fn stale_generation_fails_closed() {
         let mut state = nodes();
         let mut stale = envelope();
