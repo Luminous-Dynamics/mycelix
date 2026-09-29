@@ -8,6 +8,12 @@ on:
       - "mycelix-workspace/mycelix-hearth/flake.nix"
       - "mycelix-workspace/mycelix-hearth/flake.lock"
       - ".github/workflows/hearth-07-lock-refresh.yml"
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "mycelix-workspace/mycelix-hearth/flake.nix"
+      - "mycelix-workspace/mycelix-hearth/flake.lock"
+      - ".github/workflows/hearth-07-lock-refresh.yml"
 
 permissions:
   contents: write
