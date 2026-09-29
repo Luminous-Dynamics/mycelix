@@ -19,20 +19,13 @@ This is required before D6S receipts can be treated as interoperable commitments
 
 ## Current reference implementation
 
-D6S currently uses `serde_json` over ordered Rust collections followed by SHA-256.
+D6S-CANON-1 is now a D6S-specific canonical JSON subset rather than a claim of RFC 8785/JCS compatibility.
 
-That implementation is intentionally **not** described as RFC 8785/JCS-compatible.
+The profile intentionally avoids floating-point canonicalization: current D6S schema numerics are integral, so non-integral JSON numbers are rejected rather than inheriting runtime-specific number formatting.
 
-RFC 8785 defines canonical JSON using I-JSON constraints, deterministic property sorting, specified primitive serialization, and UTF-8 output. It also notes that Unicode normalization is not applied by JCS, so implementations must preserve string data consistently. citeturn0search0turn0search1
+The profile uses recursive UTF-16 code-unit ordering for object properties, preserves array order, preserves Unicode scalar values without normalization, defines deterministic JSON escaping, and emits exact UTF-8 bytes.
 
-D6T must therefore either:
-
-1. adopt a verified JCS profile; or
-2. define a distinct D6S canonical encoding profile with equally explicit interoperability rules.
-
-No interoperability claim should be made until this decision is frozen and golden vectors pass.
-
-## D6S-CANON-1 requirements
+No cross-language interoperability claim is made until an independent implementation reproduces the frozen vectors.
 
 ## D6S-CANON-1 frozen reference rules
 
@@ -45,7 +38,8 @@ The current reference profile deliberately defines a **D6S-specific canonical JS
 5. **Null/booleans:** null, true, and false use those exact lowercase spellings.
 6. **UTF-8:** canonical output is the exact UTF-8 byte sequence of the resulting canonical JSON text.
 7. **Duplicate properties:** typed Rust values cannot represent duplicate object properties; any future parser-facing implementation MUST reject duplicate names rather than last-write-wins coercion.
-8. **Domain separation:** receipt commitments hash D6S_HASH_DOMAIN || canonical_bytes, with the domain label frozen as MYCELIX-INTEGRAL-D6S-RECEIPT-V1\0.
+8. **Domain separation:** commitments hash the frozen D6S domain prefix, an explicit object-domain label, a zero-byte separator, and the canonical bytes. Frozen object labels are `environment`, `derivation-profile`, `qualified-projection`, `canonical-receipt`, and `d6p-context-set`.
+
 9. **Self-commitment:** the receipt_commitment field is cleared before receipt commitment calculation, preventing recursive self-hashing.
 10. **Schema/profile versioning:** the canonicalization version is part of the committed projection/receipt material and MUST change for any incompatible encoding change.
 
@@ -119,7 +113,7 @@ D6T should maintain vectors covering:
 - altered derivation profile;
 - altered input commitments.
 
-RFC 8785 currently has verified errata, including guidance concerning negative zero; any JCS adoption should account for the errata rather than relying on an unqualified summary of the original text. citeturn0search2
+If a future D6S profile adopts RFC 8785/JCS, its current errata and number semantics MUST be incorporated into that profile rather than copied from an older summary.
 
 ## Exit gate
 
