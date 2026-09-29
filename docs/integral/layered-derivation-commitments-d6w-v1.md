@@ -18,7 +18,7 @@ The purpose is mutation localization, not stronger semantic authority.
 C_input commits to the exact qualified projection material:
 
 - source DKG snapshot commitment;
-- D6S projection commitment;
+- projection identity and version;
 - selected node commitments;
 - selected edge commitments;
 - exact D6P current-receipt commitment set;
@@ -34,6 +34,7 @@ C_derivation commits to:
 
 - C_input;
 - exact derivation-profile commitment;
+- D6S-CANON-1 canonicalization version;
 - exact execution/fixpoint trace commitment.
 
 A rule/profile or execution-trace mutation therefore changes C_derivation and downstream commitments without pretending that the qualified evidence itself changed.
