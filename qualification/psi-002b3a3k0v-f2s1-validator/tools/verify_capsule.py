@@ -37,6 +37,9 @@ ALLOWLIST = {
     "runner-python-version.txt",
     "rustc-1.96.0.txt",
     "cargo-1.96.0.txt",
+    "evidence-receipt.v1.json",
+    "evidence-receipt.v1.sha256",
+    "manifest.pre-receipt.sha256",
 }
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
@@ -193,6 +196,35 @@ def verify_lock_and_inventory(root: Path) -> None:
         fail("Cargo.lock sidecar mismatch")
 
 
+def verify_evidence_receipt(root: Path) -> None:
+    receipt = read_json(root / "evidence-receipt.v1.json")
+    if receipt.get("schema") != "psi-002b3a3k0v-f2s1b1-evidence-receipt.v1":
+        fail("unexpected evidence receipt schema")
+    expected = {
+        "cargo-metadata.canonical.json",
+        "cargo-tree.txt",
+        "cargo-tree-offline.txt",
+        "dependency-source-inventory.v1.json",
+        "cargo-lock-source-projection.v1.json",
+        "provenance.v1.json",
+        "Cargo.toml",
+        "Cargo.lock",
+    }
+    files = receipt.get("artifacts")
+    if not isinstance(files, dict) or set(files) != expected:
+        fail("evidence receipt artifact set mismatch")
+    for name in expected:
+        if files[name] != digest(root / name):
+            fail(f"evidence receipt digest mismatch: {name}")
+    pre_manifest_digest = digest(root / "manifest.pre-receipt.sha256")
+    if receipt.get("pre_receipt_manifest_sha256") != pre_manifest_digest:
+        fail("evidence receipt pre-receipt manifest binding mismatch")
+    if read_sidecar(root / "evidence-receipt.v1.sha256", "evidence-receipt.v1.json") != digest(root / "evidence-receipt.v1.json"):
+        fail("evidence receipt sidecar mismatch")
+    if canonical_json(receipt) != (root / "evidence-receipt.v1.json").read_bytes():
+        fail("evidence receipt is not canonical")
+
+
 def verify_manifest_metadata(root: Path) -> None:
     manifest = tomllib.loads((root / "Cargo.toml").read_text())
     package = manifest.get("package", {})
@@ -218,6 +250,7 @@ def main() -> int:
     verify_manifest_metadata(root)
     verify_provenance(root)
     verify_lock_and_inventory(root)
+    verify_evidence_receipt(root)
     print("CAPSULE VERIFY: PASS (evidence integrity only; no schema/currentness/crypto qualification)")
     return 0
 
