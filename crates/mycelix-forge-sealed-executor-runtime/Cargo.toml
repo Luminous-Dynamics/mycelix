@@ -1,0 +1,11 @@
+[package]
+name = "mycelix-forge-sealed-executor-runtime"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+publish = false
+
+[dependencies]
+mycelix-forge-core = { path = "../mycelix-forge-core" }
+mycelix-forge-sealed-executor-interface = { path = "../mycelix-forge-sealed-executor-interface" }
+thiserror = "2"
