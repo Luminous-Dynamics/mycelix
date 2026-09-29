@@ -61,6 +61,13 @@ pub enum EvidencePolicyClass {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EvidenceBasisRef {
+    pub source_id: String,
+    pub source_version: String,
+    pub source_digest: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EvidencePolicy {
     pub policy_id: String,
     pub version: u64,
@@ -69,11 +76,24 @@ pub struct EvidencePolicy {
     /// that the strategy is universally effective.
     pub scope: String,
     pub rationale: String,
+    pub evidence_basis: Vec<EvidenceBasisRef>,
+    pub evidence_review_digest: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExperimentalProtocolRef {
+    pub protocol_id: String,
+    pub protocol_version: String,
+    pub hypothesis_digest: String,
+    pub outcome_measure_digest: String,
+    pub analysis_plan_digest: String,
+    pub allocation_policy: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExperimentalAssignment {
     pub experiment_id: String,
+    pub protocol: ExperimentalProtocolRef,
     pub hypothesis: String,
     pub outcome_measure: String,
     pub assignment_version: u64,
@@ -105,6 +125,10 @@ pub enum InstructionalScienceContractError {
     ZeroVersion,
     EmptyScope,
     EmptyRationale,
+    NoEvidenceBasis,
+    InvalidEvidenceBasis,
+    EmptyEvidenceReviewDigest,
+    InvalidExperimentalProtocol,
     DuplicateAccessibilityRequirement,
     EmptyAccessibilityOther,
     DuplicateTaskAffordance,
@@ -133,12 +157,50 @@ impl EvidencePolicy {
         if self.rationale.trim().is_empty() {
             return Err(InstructionalScienceContractError::EmptyRationale);
         }
+        if self.evidence_basis.is_empty() {
+            return Err(InstructionalScienceContractError::NoEvidenceBasis);
+        }
+        let mut refs = BTreeSet::new();
+        for evidence in &self.evidence_basis {
+            if evidence.source_id.trim().is_empty()
+                || evidence.source_version.trim().is_empty()
+                || evidence.source_digest.trim().is_empty()
+            {
+                return Err(InstructionalScienceContractError::InvalidEvidenceBasis);
+            }
+            if !refs.insert((
+                evidence.source_id.clone(),
+                evidence.source_version.clone(),
+                evidence.source_digest.clone(),
+            )) {
+                return Err(InstructionalScienceContractError::InvalidEvidenceBasis);
+            }
+        }
+        if self.evidence_review_digest.trim().is_empty() {
+            return Err(InstructionalScienceContractError::EmptyEvidenceReviewDigest);
+        }
+        Ok(())
+    }
+}
+
+impl ExperimentalProtocolRef {
+    pub fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.protocol_id.trim().is_empty()
+            || self.protocol_version.trim().is_empty()
+            || self.hypothesis_digest.trim().is_empty()
+            || self.outcome_measure_digest.trim().is_empty()
+            || self.analysis_plan_digest.trim().is_empty()
+            || self.allocation_policy.trim().is_empty()
+        {
+            return Err(InstructionalScienceContractError::InvalidExperimentalProtocol);
+        }
         Ok(())
     }
 }
 
 impl ExperimentalAssignment {
     pub fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        self.protocol.validate()?;
         if self.experiment_id.trim().is_empty() {
             return Err(InstructionalScienceContractError::EmptyId);
         }
@@ -243,6 +305,12 @@ mod tests {
             class,
             scope: "Use when retrieval is appropriate to the task and material.".into(),
             rationale: "Named evidence policy; not a universal efficacy claim.".into(),
+            evidence_basis: vec![EvidenceBasisRef {
+                source_id: "source:retrieval-review".into(),
+                source_version: "1".into(),
+                source_digest: "blake3:evidence".into(),
+            }],
+            evidence_review_digest: "blake3:policy-review".into(),
         }
     }
 
@@ -286,6 +354,14 @@ mod tests {
             rationale: "Pre-registered comparison of a presentation preference hypothesis.".into(),
             experimental_assignment: Some(ExperimentalAssignment {
                 experiment_id: "exp-1".into(),
+                protocol: ExperimentalProtocolRef {
+                    protocol_id: "protocol:preference-match".into(),
+                    protocol_version: "1".into(),
+                    hypothesis_digest: "blake3:hypothesis".into(),
+                    outcome_measure_digest: "blake3:outcome".into(),
+                    analysis_plan_digest: "blake3:analysis".into(),
+                    allocation_policy: "explicit-experimental-assignment-v1".into(),
+                },
                 hypothesis: "Matching may improve this task outcome under this protocol.".into(),
                 outcome_measure: "delayed_retrieval_score".into(),
                 assignment_version: 1,
