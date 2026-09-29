@@ -326,6 +326,15 @@ def main() -> int:
             refresh_inventory_integrity(p)
         expect_fail(base, "duplicate-inventory-record", duplicate_inventory_record)
 
+        def unexpected_inventory_field(p: Path) -> None:
+            path = p / "dependency-source-inventory.v1.json"
+            inventory = json.loads(path.read_text())
+            inventory["unexpected"] = True
+            path.write_bytes(canonical(inventory))
+            refresh_inventory_integrity(p)
+
+        expect_fail(base, "unexpected-inventory-field", unexpected_inventory_field)
+
         print("CAPSULE NEGATIVE TESTS: PASS (tamper rejection only; no qualification claim)")
         return 0
 
