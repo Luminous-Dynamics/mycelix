@@ -297,6 +297,24 @@ fn currentness_ceiling(
         .min_by_key(|currentness| currentness.rank())
 }
 
+fn claim_ceiling_currentness_is_compatible(
+    claim_ceiling: SemanticClaimCeilingV1,
+    currentness: SemanticCurrentnessV1,
+) -> bool {
+    match claim_ceiling {
+        SemanticClaimCeilingV1::Unresolved => {
+            !matches!(currentness, SemanticCurrentnessV1::Current)
+        }
+        SemanticClaimCeilingV1::HistoricalEvidence => {
+            !matches!(currentness, SemanticCurrentnessV1::Current)
+        }
+        SemanticClaimCeilingV1::CurrentQualifiedEvidence => {
+            matches!(currentness, SemanticCurrentnessV1::Current)
+        }
+        SemanticClaimCeilingV1::Assessment | SemanticClaimCeilingV1::Conclusion => true,
+    }
+}
+
 fn scope_relation_is_conservative(
     profile: &SemanticDerivationProfileV1,
     claim: &SemanticDerivedClaimV1,
@@ -407,7 +425,9 @@ pub fn assess_semantic_derivation(
     let Some(currentness_ceiling) = currentness_ceiling(profile, &input_map) else {
         return SemanticConservationDispositionV1::InsufficientEvidence;
     };
-    if !claim.currentness.is_no_stronger_than(currentness_ceiling) {
+    if !claim.currentness.is_no_stronger_than(currentness_ceiling)
+        || !claim_ceiling_currentness_is_compatible(claim.claim_ceiling, claim.currentness)
+    {
         return SemanticConservationDispositionV1::BlockedCurrentness;
     }
 
@@ -688,6 +708,27 @@ mod tests {
         r.output_currentness = c.currentness;
         assert_eq!(
             assess_semantic_derivation(&profile(), &[input], &c, &r),
+            SemanticConservationDispositionV1::BlockedCurrentness
+        );
+    }
+
+    #[test]
+    fn claim_ceiling_and_currentness_must_agree() {
+        let mut c = claim();
+        c.currentness = SemanticCurrentnessV1::Unknown;
+        let mut r = receipt(SemanticConservationDispositionV1::Conserved);
+        r.output_currentness = c.currentness;
+        assert_eq!(
+            assess_semantic_derivation(&profile(), &[d6p_input()], &c, &r),
+            SemanticConservationDispositionV1::BlockedCurrentness
+        );
+
+        c.currentness = SemanticCurrentnessV1::Current;
+        c.claim_ceiling = SemanticClaimCeilingV1::HistoricalEvidence;
+        r.output_currentness = c.currentness;
+        r.output_claim_ceiling = c.claim_ceiling;
+        assert_eq!(
+            assess_semantic_derivation(&profile(), &[d6p_input()], &c, &r),
             SemanticConservationDispositionV1::BlockedCurrentness
         );
     }
