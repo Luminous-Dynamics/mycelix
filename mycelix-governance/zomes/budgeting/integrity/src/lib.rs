@@ -276,7 +276,7 @@ fn bind_author(
     claimed_did: &str,
     action: &TypedAction<EntryCreationData>,
 ) -> ValidateCallbackResult {
-    let author_did = did_for_author(&action.author());
+    let author_did = did_for_author(action.author());
     require_did_is_author(entity, field, claimed_did, &author_did)
 }
 
