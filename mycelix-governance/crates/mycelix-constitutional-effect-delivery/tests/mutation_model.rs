@@ -113,20 +113,18 @@ impl Model {
             return self.halt();
         }
 
-        let duplicate = self.observations.iter().any(|o| {
-            o.attempt == attempt && o.kind == kind
-        });
-        if duplicate {
-            return Effect::Rejected;
-        }
-
         let sequence = self.next_sequence;
         self.next_sequence += 1;
         self.observations.push(ModelObservation { sequence, attempt, kind });
 
         self.state = match kind {
             ObservationKind::TransportAccepted | ObservationKind::ProviderAcknowledged => self.state,
-            ObservationKind::OutcomeUnknown => DeliveryState::OutcomeUnknown,
+            ObservationKind::OutcomeUnknown => match self.state {
+                DeliveryState::AttemptStarted | DeliveryState::OutcomeUnknown => {
+                    DeliveryState::OutcomeUnknown
+                }
+                _ => self.state,
+            },
             ObservationKind::SemanticSuccess | ObservationKind::ReconciliationSuccess => {
                 if self.state == DeliveryState::KnownNoEffect {
                     return self.halt();
