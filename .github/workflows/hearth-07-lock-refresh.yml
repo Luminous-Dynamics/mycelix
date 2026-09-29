@@ -1,15 +1,13 @@
 name: Hearth Holochain 0.7 lock refresh
 
+# Branch-push only: the job commits the resolved lock back to the same branch.
+# PR events are intentionally excluded because GitHub may check out a merge ref
+# and the workflow must have write access to the actual head branch.
+
 on:
   push:
     branches:
       - hearth-holochain-0.7-foundation
-    paths:
-      - "mycelix-workspace/mycelix-hearth/flake.nix"
-      - "mycelix-workspace/mycelix-hearth/flake.lock"
-      - ".github/workflows/hearth-07-lock-refresh.yml"
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "mycelix-workspace/mycelix-hearth/flake.nix"
       - "mycelix-workspace/mycelix-hearth/flake.lock"
