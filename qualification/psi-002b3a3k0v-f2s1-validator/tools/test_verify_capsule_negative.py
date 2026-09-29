@@ -214,6 +214,25 @@ version = "0.1.0"
     ]
     (root / "manifest.sha256").write_text("\n".join(lines) + "\n")
 
+def refresh_final_integrity(root: Path) -> None:
+    receipt_path = root / "evidence-receipt.v1.json"
+    receipt = json.loads(receipt_path.read_text())
+    receipt["pre_receipt_manifest_sha256"] = sha256_bytes(
+        (root / "manifest.pre-receipt.sha256").read_bytes()
+    )
+    receipt_path.write_bytes(canonical(receipt))
+    write_sidecar(root, "evidence-receipt.v1.sha256")
+
+    lines = [
+        f"{sha256_bytes((root / name).read_bytes())}  {name}"
+        for name in sorted(FILES + [
+            "evidence-receipt.v1.json",
+            "evidence-receipt.v1.sha256",
+            "manifest.pre-receipt.sha256",
+        ])
+    ]
+    (root / "manifest.sha256").write_text("\n".join(lines) + "\n")
+
 def expect_fail(base: Path, name: str, mutate) -> None:
     case = base.parent / name
     shutil.copytree(base, case, symlinks=True)
@@ -249,7 +268,30 @@ def main() -> int:
         expect_fail(base, "extra-file", lambda p: (p / "unexpected.txt").write_text("unexpected\n"))
         expect_fail(base, "symlink", lambda p: ((p / "link").symlink_to(p / "Cargo.toml")))
         expect_fail(base, "duplicate-entry", lambda p: (p / "manifest.sha256").write_text((p / "manifest.sha256").read_text() + (p / "manifest.sha256").read_text().splitlines()[0] + "\n"))
-        expect_fail(base, "digest-mismatch", lambda p: (p / "Cargo.lock.sha256").write_text("0" * 64 + "  Cargo.lock\n"))
+        expect_fail(base, "digest-mismatch", lambda p: (p / "Cargo.lock.sha256").write_text("0" * 64 + "  Cargo.lock\n"))\n\n        def reorder_pre_receipt(p: Path) -> None:
+            lines = (p / "manifest.pre-receipt.sha256").read_text().splitlines()
+            (p / "manifest.pre-receipt.sha256").write_text("\n".join(reversed(lines)) + "\n")
+            refresh_final_integrity(p)
+        expect_fail(base, "pre-receipt-reordered", reorder_pre_receipt)
+
+        def duplicate_pre_receipt(p: Path) -> None:
+            lines = (p / "manifest.pre-receipt.sha256").read_text().splitlines()
+            (p / "manifest.pre-receipt.sha256").write_text("\n".join(lines + [lines[0]]) + "\n")
+            refresh_final_integrity(p)
+        expect_fail(base, "pre-receipt-duplicate", duplicate_pre_receipt)
+
+        def unexpected_pre_receipt(p: Path) -> None:
+            lines = (p / "manifest.pre-receipt.sha256").read_text().splitlines()
+            lines.append("0" * 64 + "  unexpected.txt")
+            (p / "manifest.pre-receipt.sha256").write_text("\n".join(lines) + "\n")
+            refresh_final_integrity(p)
+        expect_fail(base, "pre-receipt-unexpected", unexpected_pre_receipt)
+
+        def omitted_pre_receipt(p: Path) -> None:
+            lines = (p / "manifest.pre-receipt.sha256").read_text().splitlines()
+            (p / "manifest.pre-receipt.sha256").write_text("\n".join(lines[:-1]) + "\n")
+            refresh_final_integrity(p)
+        expect_fail(base, "pre-receipt-omitted", omitted_pre_receipt)
 
         print("CAPSULE NEGATIVE TESTS: PASS (tamper rejection only; no qualification claim)")
         return 0
