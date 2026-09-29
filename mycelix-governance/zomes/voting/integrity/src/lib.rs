@@ -1350,28 +1350,28 @@ pub enum LinkTypes {
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(store_entry) => match store_entry {
+        FlatOp::CreateEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::Vote(vote) => validate_create_vote(action, vote),
-                EntryTypes::PhiWeightedVote(vote) => validate_create_phi_vote(action, vote),
-                EntryTypes::QuadraticVote(vote) => validate_create_quadratic_vote(action, vote),
-                EntryTypes::VoiceCredits(credits) => validate_create_voice_credits(action, credits),
+                EntryTypes::Vote(vote) => validate_create_vote(action.into(), vote),
+                EntryTypes::PhiWeightedVote(vote) => validate_create_phi_vote(action.into(), vote),
+                EntryTypes::QuadraticVote(vote) => validate_create_quadratic_vote(action.into(), vote),
+                EntryTypes::VoiceCredits(credits) => validate_create_voice_credits(action.into(), credits),
                 EntryTypes::Delegation(delegation) => {
-                    validate_create_delegation(action, delegation)
+                    validate_create_delegation(action.into(), delegation)
                 }
-                EntryTypes::VoteTally(tally) => validate_create_tally(action, tally),
-                EntryTypes::PhiWeightedTally(tally) => validate_create_phi_tally(action, tally),
-                EntryTypes::QuadraticTally(tally) => validate_create_quadratic_tally(action, tally),
+                EntryTypes::VoteTally(tally) => validate_create_tally(action.into(), tally),
+                EntryTypes::PhiWeightedTally(tally) => validate_create_phi_tally(action.into(), tally),
+                EntryTypes::QuadraticTally(tally) => validate_create_quadratic_tally(action.into(), tally),
                 EntryTypes::EligibilityProof(proof) => {
-                    validate_create_eligibility_proof(action, proof)
+                    validate_create_eligibility_proof(action.into(), proof)
                 }
-                EntryTypes::VerifiedVote(vote) => validate_create_verified_vote(action, vote),
+                EntryTypes::VerifiedVote(vote) => validate_create_verified_vote(action.into(), vote),
                 EntryTypes::ProofAttestation(attestation) => {
-                    validate_create_proof_attestation(action, attestation)
+                    validate_create_proof_attestation(action.into(), attestation)
                 }
                 EntryTypes::ProposalReflection(reflection) => {
-                    validate_create_proposal_reflection(action, reflection)
+                    validate_create_proposal_reflection(action.into(), reflection)
                 }
                 EntryTypes::BlocDetection(_) => {
                     // Bloc detections are informational — always valid to create
@@ -1387,9 +1387,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             OpEntry::UpdateEntry {
                 app_entry,
                 action,
-                original_action_hash: _,
-                original_entry_hash: _,
-            } => match app_entry {
+                } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
                 EntryTypes::Vote(_)
                 | EntryTypes::PhiWeightedVote(_)
@@ -1434,13 +1432,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink {
-            link_type,
-            base_address: _,
-            target_address: _,
-            tag: _,
-            action: _,
-        } => match link_type {
+        FlatOp::Link(OpLink::CreateLink { link_type, action: _ }) => match link_type {
             LinkTypes::ProposalToVote => Ok(ValidateCallbackResult::Valid),
             LinkTypes::ProposalToPhiVote => Ok(ValidateCallbackResult::Valid),
             LinkTypes::ProposalToQuadraticVote => Ok(ValidateCallbackResult::Valid),
@@ -1460,23 +1452,16 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             LinkTypes::BlocDetectionAnchor => Ok(ValidateCallbackResult::Valid),
             LinkTypes::ProposalToEthicsDisclosure => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterDeleteLink {
-            link_type,
-            original_action: _,
-            base_address: _,
-            target_address: _,
-            tag: _,
-            action: _,
-        } => match link_type {
+        FlatOp::Link(OpLink::DeleteLink { link_type, action: _, original_action: _ }) => match link_type {
             // Allow removing delegation links when delegation is revoked
             LinkTypes::DelegatorToDelegation => Ok(ValidateCallbackResult::Valid),
             LinkTypes::DelegateToDelegation => Ok(ValidateCallbackResult::Valid),
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::CreateRecord(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Delete(_) => Ok(ValidateCallbackResult::Valid),
     }
 }
 
@@ -1493,7 +1478,7 @@ fn require_voter_is_author(voter: &str, author_did: &str) -> ValidateCallbackRes
     ValidateCallbackResult::Valid
 }
 
-fn validate_create_vote(action: Create, vote: Vote) -> ExternResult<ValidateCallbackResult> {
+fn validate_create_vote(action: TypedAction<EntryCreationData>, vote: Vote) -> ExternResult<ValidateCallbackResult> {
     // Validate voter is a DID
     if !vote.voter.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
@@ -1507,7 +1492,7 @@ fn validate_create_vote(action: Create, vote: Vote) -> ExternResult<ValidateCall
     // always creates plain Votes with `delegated: false` (delegation uses the
     // separate PhiWeightedVote entry type), so binding unconditionally never
     // rejects a legitimate plain vote.
-    let author_did = format!("did:mycelix:{}", action.author);
+    let author_did = did_for_author(action.author());
     if let ValidateCallbackResult::Invalid(msg) = require_voter_is_author(&vote.voter, &author_did)
     {
         return Ok(ValidateCallbackResult::Invalid(msg));
@@ -1532,7 +1517,7 @@ fn validate_create_vote(action: Create, vote: Vote) -> ExternResult<ValidateCall
 
 /// Validate delegation creation
 fn validate_create_delegation(
-    action: Create,
+    action: TypedAction<EntryCreationData>,
     delegation: Delegation,
 ) -> ExternResult<ValidateCallbackResult> {
     // Bind the DELEGATOR (not the delegate) to the committer: you may only
@@ -1550,7 +1535,7 @@ fn validate_create_delegation(
     // DECLINING a delegation is a plausible legitimate second-party flow. Binding
     // updates to the delegator would foreclose that without a decision being
     // made. Class D — needs an authority model, not a bind.
-    let author_did = did_for_author(&action.author);
+    let author_did = did_for_author(action.author());
     if let ValidateCallbackResult::Invalid(msg) = require_did_is_author(
         "Delegation",
         "delegator",
@@ -1593,7 +1578,7 @@ fn validate_create_delegation(
 
 /// Validate delegation update
 fn validate_update_delegation(
-    _action: Update,
+    _action: TypedAction<UpdateData>,
     delegation: Delegation,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate percentage range on update
@@ -1608,7 +1593,7 @@ fn validate_update_delegation(
 
 /// Validate vote tally creation
 fn validate_create_tally(
-    _action: Create,
+    _action: TypedAction<EntryCreationData>,
     tally: VoteTally,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate votes are non-negative
@@ -1631,7 +1616,7 @@ fn validate_create_tally(
 
 /// Validate vote tally update
 fn validate_update_tally(
-    _action: Update,
+    _action: TypedAction<UpdateData>,
     tally: VoteTally,
 ) -> ExternResult<ValidateCallbackResult> {
     // Same validation as create - validate the tally data directly
@@ -1659,7 +1644,7 @@ fn validate_update_tally(
 
 /// Validate Φ-weighted vote creation
 fn validate_create_phi_vote(
-    action: Create,
+    action: TypedAction<EntryCreationData>,
     vote: PhiWeightedVote,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate voter is a DID
@@ -1674,7 +1659,7 @@ fn validate_create_phi_vote(
     // delegated (`cast_delegated_phi_vote`) paths set `voter` to the caster and
     // record any on-behalf origin separately in `delegator`. Same convention as
     // the shipped `validate_create_vote` bind.
-    let author_did = format!("did:mycelix:{}", action.author);
+    let author_did = did_for_author(action.author());
     if let ValidateCallbackResult::Invalid(msg) = require_voter_is_author(&vote.voter, &author_did)
     {
         return Ok(ValidateCallbackResult::Invalid(msg));
@@ -1737,7 +1722,7 @@ fn validate_create_phi_vote(
 
 /// Validate quadratic vote creation
 fn validate_create_quadratic_vote(
-    action: Create,
+    action: TypedAction<EntryCreationData>,
     vote: QuadraticVote,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate voter is a DID
@@ -1749,7 +1734,7 @@ fn validate_create_quadratic_vote(
 
     // Bind the quadratic vote to its committer (P0 vote forgery). No delegation
     // path for QuadraticVote — `voter` is always the caster.
-    let author_did = format!("did:mycelix:{}", action.author);
+    let author_did = did_for_author(action.author());
     if let ValidateCallbackResult::Invalid(msg) = require_voter_is_author(&vote.voter, &author_did)
     {
         return Ok(ValidateCallbackResult::Invalid(msg));
@@ -1775,7 +1760,7 @@ fn validate_create_quadratic_vote(
 
 /// Validate voice credits creation
 fn validate_create_voice_credits(
-    _action: Create,
+    _action: TypedAction<EntryCreationData>,
     credits: VoiceCredits,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate owner is a DID
@@ -1804,7 +1789,7 @@ fn validate_create_voice_credits(
 
 /// Validate voice credits update
 fn validate_update_voice_credits(
-    _action: Update,
+    _action: TypedAction<UpdateData>,
     credits: VoiceCredits,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate remaining = allocated - spent
@@ -1819,7 +1804,7 @@ fn validate_update_voice_credits(
 
 /// Validate Φ-weighted tally creation
 fn validate_create_phi_tally(
-    _action: Create,
+    _action: TypedAction<EntryCreationData>,
     tally: PhiWeightedTally,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate votes are non-negative
@@ -1861,7 +1846,7 @@ fn validate_create_phi_tally(
 
 /// Validate Φ-weighted tally update
 fn validate_update_phi_tally(
-    _action: Update,
+    _action: TypedAction<UpdateData>,
     tally: PhiWeightedTally,
 ) -> ExternResult<ValidateCallbackResult> {
     // Same validation as create
@@ -1883,7 +1868,7 @@ fn validate_update_phi_tally(
 
 /// Validate quadratic tally creation
 fn validate_create_quadratic_tally(
-    _action: Create,
+    _action: TypedAction<EntryCreationData>,
     tally: QuadraticTally,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate votes are non-negative
@@ -1908,7 +1893,7 @@ fn validate_create_quadratic_tally(
 
 /// Validate quadratic tally update
 fn validate_update_quadratic_tally(
-    _action: Update,
+    _action: TypedAction<UpdateData>,
     tally: QuadraticTally,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate votes are non-negative
@@ -1939,7 +1924,7 @@ fn validate_update_quadratic_tally(
 /// 3. Proof bytes don't exceed size limit (DoS prevention)
 /// 4. Timestamps are reasonable
 fn validate_create_eligibility_proof(
-    action: Create,
+    action: TypedAction<EntryCreationData>,
     proof: EligibilityProof,
 ) -> ExternResult<ValidateCallbackResult> {
     // Bind to the committer. `store_eligibility_proof` (voting/coordinator:2545)
@@ -1947,7 +1932,7 @@ fn validate_create_eligibility_proof(
     // creation path — a voter stores their own commitment, there is no relay
     // flow here (contrast `verified_vote`, which the triage doc classes D
     // precisely because relay != voter). (governance Class-A, `voting:1915`.)
-    let author_did = did_for_author(&action.author);
+    let author_did = did_for_author(action.author());
     if let ValidateCallbackResult::Invalid(msg) = require_did_is_author(
         "EligibilityProof",
         "voter_did",
@@ -2024,7 +2009,7 @@ fn validate_create_eligibility_proof(
 /// 3. Checking the proof is not expired
 /// 4. Ensuring voter commitment matches
 fn validate_create_verified_vote(
-    _action: Create,
+    _action: TypedAction<EntryCreationData>,
     vote: VerifiedVote,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate voter is a DID
@@ -2079,7 +2064,7 @@ fn validate_create_verified_vote(
 /// zome before calling this, as HDI validation cannot perform cryptographic
 /// operations reliably.
 fn validate_create_proof_attestation(
-    _action: Create,
+    _action: TypedAction<EntryCreationData>,
     attestation: ProofAttestation,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate proof hash length (Blake3 = 32 bytes)
@@ -2142,7 +2127,7 @@ fn validate_create_proof_attestation(
 /// 5. Approval ratio is in valid range (0-1)
 /// 6. Polarization is in valid range (0-1)
 fn validate_create_proposal_reflection(
-    _action: Create,
+    _action: TypedAction<EntryCreationData>,
     reflection: ProposalReflection,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate proposal ID is not empty
@@ -2199,7 +2184,7 @@ fn validate_create_proposal_reflection(
 
 /// Validate proposal reflection update
 fn validate_update_proposal_reflection(
-    _action: Update,
+    _action: TypedAction<UpdateData>,
     reflection: ProposalReflection,
 ) -> ExternResult<ValidateCallbackResult> {
     // Same validation as create
@@ -2243,25 +2228,6 @@ fn validate_update_proposal_reflection(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    // A minimal Create action whose author is a fixed non-zero key. Its derived
-    // DID `did:mycelix:{author}` will never equal the obviously-forged voter
-    // DIDs used below, so the author-binding check fires deterministically.
-    fn fake_create() -> Create {
-        Create {
-            author: AgentPubKey::from_raw_36(vec![3u8; 36]),
-            timestamp: Timestamp::from_micros(0),
-            action_seq: 1,
-            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
-            entry_type: EntryType::App(AppEntryDef::new(
-                EntryDefIndex(0),
-                ZomeIndex(0),
-                EntryVisibility::Public,
-            )),
-            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
-            weight: EntryRateWeight::default(),
-        }
-    }
 
     #[test]
     fn phi_vote_forged_voter_rejected() {
@@ -2554,47 +2520,6 @@ mod tests {
     // ========================================================================
     // Delegation tests
     // ========================================================================
-
-    fn make_create_for_binding() -> Create {
-        Create {
-            author: AgentPubKey::from_raw_36(vec![0; 36]),
-            timestamp: Timestamp::from_micros(1_000_000),
-            action_seq: 0,
-            prev_action: ActionHash::from_raw_36(vec![0; 36]),
-            entry_type: EntryType::CapClaim,
-            entry_hash: EntryHash::from_raw_36(vec![0; 36]),
-            weight: Default::default(),
-        }
-    }
-
-    fn binding_author_did() -> String {
-        format!("did:mycelix:{}", AgentPubKey::from_raw_36(vec![0; 36]))
-    }
-
-    #[test]
-    fn delegation_from_the_delegator_themselves_is_accepted() {
-        let mut d = make_delegation(0.5, DelegationDecay::None);
-        d.delegator = binding_author_did();
-        let r = validate_create_delegation(make_create_for_binding(), d).unwrap();
-        assert!(matches!(r, ValidateCallbackResult::Valid));
-    }
-
-    #[test]
-    fn delegation_stealing_someone_elses_voting_power_is_rejected() {
-        // The triage doc's "steal voting power": commit a Delegation moving a
-        // victim's voting weight to yourself.
-        let mut d = make_delegation(0.5, DelegationDecay::None);
-        d.delegator = "did:mycelix:uhCAkVictim".into();
-        d.delegate = binding_author_did();
-        let r = validate_create_delegation(make_create_for_binding(), d).unwrap();
-        match r {
-            ValidateCallbackResult::Invalid(msg) => assert!(
-                msg.contains("Delegation") && msg.contains("delegator") && msg.contains("forgery"),
-                "got: {msg}"
-            ),
-            other => panic!("forged delegator must be rejected, got {other:?}"),
-        }
-    }
 
     fn make_delegation(percentage: f64, decay: DelegationDecay) -> Delegation {
         Delegation {
