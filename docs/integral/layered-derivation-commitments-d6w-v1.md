@@ -141,15 +141,16 @@ The reference module covers:
 1. deterministic reconstruction;
 2. input mutation propagation;
 3. derivation-profile mutation isolation;
-4. execution-trace mutation isolation;
-5. result mutation isolation;
-6. claim-ceiling mutation propagation;
-7. tampered D6S receipt rejection;
-8. D6P context binding;
-9. exact three-layer chaining;
-10. exact verifier reconstruction;
-11. trace mismatch rejection;
-12. authorization boundary.
+4. canonicalization-version isolation;
+5. execution-trace mutation isolation;
+6. result mutation isolation;
+7. claim-ceiling mutation propagation;
+8. tampered D6S receipt rejection;
+9. D6P context binding;
+10. exact three-layer chaining;
+11. exact verifier reconstruction;
+12. trace mismatch rejection;
+13. authorization boundary.
 
 ## Claim ceiling
 
