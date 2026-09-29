@@ -194,7 +194,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             ..
         }) => Ok(check_link_author_match(
             original_action.author(),
-            &action.author(),
+            action.author(),
         )),
         FlatOp::CreateRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
@@ -209,7 +209,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             let original = must_get_action(update.original_action_hash())?;
             Ok(check_author_match(
                 original.action().author(),
-                &action.author(),
+                action.author(),
                 "update",
             ))
         }
