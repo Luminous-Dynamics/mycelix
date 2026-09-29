@@ -143,6 +143,92 @@ mod tests {
     }
 
     #[test]
+    fn runtime_attempt_round_trip_preserves_address_domain_and_outcome() {
+        for (address_kind, outcome, observed) in [
+            (
+                ResolutionAddressKindV1::Action,
+                ResolutionAttemptOutcomeV1::Retrieved,
+                Some("commitment"),
+            ),
+            (
+                ResolutionAddressKindV1::Entry,
+                ResolutionAttemptOutcomeV1::Unavailable,
+                None,
+            ),
+            (
+                ResolutionAddressKindV1::External,
+                ResolutionAttemptOutcomeV1::Historical,
+                None,
+            ),
+        ] {
+            let attempt = ResolutionAttemptV1 {
+                address_kind,
+                address: "runtime-address".into(),
+                outcome,
+                observed_commitment: observed.map(str::to_owned),
+                qualification_context_commitment: Some("qualification-context".into()),
+            };
+            let envelope = ResolutionEvidenceEnvelopeV1::from_attempt(attempt.clone())
+                .expect("valid runtime attempt should envelope");
+            assert_eq!(envelope.to_attempt(), attempt);
+            assert_eq!(
+                envelope.to_resolution_evidence(),
+                &attempt.to_resolution_evidence()
+            );
+        }
+    }
+
+    #[test]
+    fn runtime_outcome_maps_monotonically_to_d6x_resolution() {
+        let retrieved = ResolutionAttemptV1 {
+            address_kind: ResolutionAddressKindV1::Action,
+            address: "action-address".into(),
+            outcome: ResolutionAttemptOutcomeV1::Retrieved,
+            observed_commitment: Some("commitment".into()),
+            qualification_context_commitment: None,
+        };
+        let unavailable = ResolutionAttemptV1 {
+            address_kind: ResolutionAddressKindV1::Entry,
+            address: "entry-address".into(),
+            outcome: ResolutionAttemptOutcomeV1::Unavailable,
+            observed_commitment: None,
+            qualification_context_commitment: None,
+        };
+        let historical = ResolutionAttemptV1 {
+            address_kind: ResolutionAddressKindV1::External,
+            address: "external-address".into(),
+            outcome: ResolutionAttemptOutcomeV1::Historical,
+            observed_commitment: None,
+            qualification_context_commitment: None,
+        };
+
+        assert_eq!(
+            retrieved.semantic_resolution(),
+            crate::qualified_dependency_closure_d6x::SemanticDependencyResolutionV1::Present
+        );
+        assert_eq!(
+            unavailable.semantic_resolution(),
+            crate::qualified_dependency_closure_d6x::SemanticDependencyResolutionV1::Missing
+        );
+        assert_eq!(
+            historical.semantic_resolution(),
+            crate::qualified_dependency_closure_d6x::SemanticDependencyResolutionV1::Stale
+        );
+    }
+
+    #[test]
+    fn invalid_runtime_attempt_cannot_enter_lossless_envelope() {
+        let attempt = ResolutionAttemptV1 {
+            address_kind: ResolutionAddressKindV1::Entry,
+            address: "entry-address".into(),
+            outcome: ResolutionAttemptOutcomeV1::Retrieved,
+            observed_commitment: None,
+            qualification_context_commitment: None,
+        };
+        assert!(ResolutionEvidenceEnvelopeV1::from_attempt(attempt).is_none());
+    }
+
+    #[test]
     fn external_address_remains_runtime_evidence_not_semantic_identity() {
         let attempt = ResolutionAttemptV1 {
             address_kind: ResolutionAddressKindV1::External,
