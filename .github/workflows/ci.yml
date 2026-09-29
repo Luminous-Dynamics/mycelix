@@ -50,7 +50,7 @@ jobs:
               - 'mycelix-civic/**'
               - 'crates/mycelix-bridge-*/**'
             hearth:
-              - 'mycelix-hearth/**'
+              - 'mycelix-workspace/mycelix-hearth/**'
               - 'crates/mycelix-bridge-*/**'
             finance:
               - 'mycelix-finance/**'
@@ -104,10 +104,11 @@ jobs:
           # single CI run surfaces every cluster's violations at once,
           # exiting non-zero at the end if any were found.
           status=0
-          for dir in mycelix-commons mycelix-civic mycelix-hearth mycelix-finance mycelix-governance mycelix-identity mycelix-personal mycelix-attribution; do
+          for dir in mycelix-commons mycelix-civic mycelix-finance mycelix-governance mycelix-identity mycelix-personal mycelix-attribution; do
             echo "=== Checking $dir ==="
             (cd "$dir" && cargo fmt --all --check) || status=1
           done
+          (cd mycelix-workspace/mycelix-hearth && cargo fmt --all --check) || status=1
           (cd crates/mycelix-bridge-common && cargo fmt --all --check) || status=1
           (cd crates/mycelix-bridge-entry-types && cargo fmt --all --check) || status=1
           exit $status
@@ -183,9 +184,9 @@ jobs:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: mycelix-hearth
+          workspaces: mycelix-workspace/mycelix-hearth
       - name: Test hearth
-        run: cd mycelix-hearth && cargo test --workspace
+        run: cd mycelix-workspace/mycelix-hearth && cargo test --workspace
 
   test-finance:
     needs: changes
