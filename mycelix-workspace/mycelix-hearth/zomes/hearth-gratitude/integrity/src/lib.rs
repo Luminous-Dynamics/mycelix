@@ -139,6 +139,15 @@ EntryTypes::GratitudeExpression(expr) => validate_gratitude(expr),
         }
         FlatOp::CreateRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Update(OpUpdate::Entry { action, .. }) => {
+            let original = must_get_action(action.original_action_address.clone())?;
+            Ok(check_author_match(
+                original.action().author(),
+                action.author(),
+                "update",
+            ))
+        }
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Valid),
         
         FlatOp::Delete(_) => Ok(ValidateCallbackResult::Invalid(
             "Gratitude expressions cannot be deleted once created".into(),
@@ -215,10 +224,7 @@ fn validate_circle_update(circle: AppreciationCircle) -> ExternResult<ValidateCa
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_anchor(
-    _action: Create,
-    anchor: GratitudeAnchor,
-) -> ExternResult<ValidateCallbackResult> {
+fn validate_anchor(anchor: GratitudeAnchor) -> ExternResult<ValidateCallbackResult> {
     // Check that total counts don't overflow when summed.
     if anchor
         .total_given
