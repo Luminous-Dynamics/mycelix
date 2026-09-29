@@ -23,6 +23,7 @@ pub mod contestable_finality;
 pub mod observer_lifecycle;
 pub mod evidence_claim_graph;
 pub mod finality_eligibility_composition;
+pub mod canonical_derivation_receipt;
 
 pub const CORPUS_ID: &str = "COS-CONF-001";
 pub const FORMAL_OBLIGATIONS: [&str; 10] = [
