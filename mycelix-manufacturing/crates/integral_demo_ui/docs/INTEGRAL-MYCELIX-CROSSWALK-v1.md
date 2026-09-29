@@ -297,3 +297,12 @@ D6I makes unresolved disagreement addressable as a first-class branch set. A con
 A reconciliation record must bind to the exact conflict and an explicit human decision artifact that names both observation identities and the current generation. It must also identify a distinct reconciliation artifact and a revision at a strictly newer generation. Missing, stale, mismatched, or identity-colliding records fail validation. The source observations remain intact; reconciliation creates a new governance/revision path rather than rewriting history.
 
 This is a structural reference-model gate, not a resolution algorithm. It does not decide which observation is true, does not treat an accepted disposition as proof of factual correctness, and does not imply that a revision was executed. The model preserves the difference between disagreement, human disposition, and subsequent revision.
+
+### D6J transparency receipts
+
+D6J adds a small append-only registration and receipt model in `cos_conformance::integral_demo_transparency`. A statement registration binds its stable identity, opaque digest, origin, source reference, evidence reference, and schema generation to a record with a log generation and append index. An exact repeat of the same statement identity and bound fields is idempotent; reuse of that identity with changed digest, origin, source, evidence, or generation is rejected.
+
+A receipt is issued only for a record present in the model log and repeats the exact registration bindings. Structural verification checks those fields against the stored record. The model intentionally does **not** implement a signature, Merkle tree, verifiable data structure, trusted timestamp, cryptographic inclusion proof, or network transparency service; an opaque digest is not itself proof of integrity.
+
+A valid receipt therefore establishes only that this reference log contains a matching registration record. It does not establish statement truth, evidence quality, identity authenticity, consent, endorsement, governance legitimacy, authorization, or execution. Foreign origin remains foreign, and the receipt schema has no authority field. The module is a candidate reusable substrate primitive, not an Integral-ratified rule or production security claim. Claim ceiling remains `ReferenceModelOnly`.
+
