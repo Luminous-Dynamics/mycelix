@@ -303,6 +303,67 @@ impl ExperimentalAnalysisRef {
     }
 }
 
+/// Execution provenance for the computation represented by an analysis receipt.
+///
+/// These fields describe how the computation was produced. They do not certify
+/// the validity of the method or the truth of its result.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalAnalysisExecution {
+    pub software_id: String,
+    pub software_version: String,
+    pub software_digest: String,
+    pub environment_id: String,
+    pub environment_digest: String,
+    pub randomness_policy: String,
+    pub random_seed: Option<u64>,
+    pub multiple_comparison_policy: String,
+    pub sensitivity_analysis_plan_digest: String,
+}
+
+impl InstructionalAnalysisExecution {
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.software_id.trim().is_empty()
+            || self.software_version.trim().is_empty()
+            || self.software_digest.trim().is_empty()
+            || self.environment_id.trim().is_empty()
+            || self.environment_digest.trim().is_empty()
+            || self.randomness_policy.trim().is_empty()
+            || self.multiple_comparison_policy.trim().is_empty()
+            || self.sensitivity_analysis_plan_digest.trim().is_empty()
+        {
+            return Err(InstructionalScienceContractError::InvalidAnalysisExecution);
+        }
+        Ok(())
+    }
+}
+
+/// Explicit uncertainty attached to a computed result.
+///
+/// The representation is deliberately generic: the analysis method defines
+/// what quantity and interval/uncertainty measure are valid. This type records
+/// the reported uncertainty without turning it into a substantive interpretation.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalUncertaintyReceipt {
+    pub uncertainty_kind: String,
+    pub uncertainty_method_version: String,
+    pub lower_bound: String,
+    pub upper_bound: String,
+    pub confidence_level: Option<String>,
+}
+
+impl InstructionalUncertaintyReceipt {
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.uncertainty_kind.trim().is_empty()
+            || self.uncertainty_method_version.trim().is_empty()
+            || self.lower_bound.trim().is_empty()
+            || self.upper_bound.trim().is_empty()
+        {
+            return Err(InstructionalScienceContractError::InvalidUncertaintyReceipt);
+        }
+        Ok(())
+    }
+}
+
 /// A reproducible, immutable receipt for an analysis over outcome observations.
 ///
 /// The receipt binds the computation to exact plans, inputs, cohort rules,
@@ -328,6 +389,8 @@ pub struct InstructionalAnalysisReceipt {
     pub estimand: String,
     pub kind: InstructionalAnalysisKind,
     pub experimental_provenance: Option<ExperimentalAnalysisRef>,
+    pub execution: InstructionalAnalysisExecution,
+    pub uncertainty: Option<InstructionalUncertaintyReceipt>,
     pub prespecified: bool,
     pub deviation_rationale: Option<String>,
     pub result_digest: String,
@@ -356,6 +419,10 @@ impl InstructionalAnalysisReceipt {
         }
         if self.analysis_version == 0 {
             return Err(InstructionalScienceContractError::ZeroAnalysisVersion);
+        }
+        self.execution.validate()?;
+        if let Some(uncertainty) = &self.uncertainty {
+            uncertainty.validate()?;
         }
         if matches!(self.kind, InstructionalAnalysisKind::ExperimentalEffectEstimate) {
             self.experimental_provenance.as_ref().ok_or(
@@ -425,6 +492,8 @@ pub enum InstructionalScienceContractError {
     ZeroSupersededObservationVersion,
     InvalidExperimentalAnalysisReference,
     MissingExperimentalAnalysisReference,
+    InvalidAnalysisExecution,
+    InvalidUncertaintyReceipt,
 }
 
 impl EvidencePolicy {
@@ -777,6 +846,18 @@ mod tests {
             estimand: "mean outcome difference".into(),
             kind: InstructionalAnalysisKind::ExperimentalEffectEstimate,
             experimental_provenance: None,
+            execution: InstructionalAnalysisExecution {
+                software_id: "praxis-analyzer".into(),
+                software_version: "1".into(),
+                software_digest: "blake3:software".into(),
+                environment_id: "test-env".into(),
+                environment_digest: "blake3:environment".into(),
+                randomness_policy: "deterministic".into(),
+                random_seed: None,
+                multiple_comparison_policy: "none".into(),
+                sensitivity_analysis_plan_digest: "blake3:sensitivity".into(),
+            },
+            uncertainty: None,
             prespecified: true,
             deviation_rationale: None,
             result_digest: "blake3:result".into(),
