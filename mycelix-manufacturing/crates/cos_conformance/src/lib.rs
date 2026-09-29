@@ -25,6 +25,8 @@ pub mod evidence_claim_graph;
 pub mod finality_eligibility_composition;
 pub mod canonical_derivation_receipt;
 pub mod layered_derivation_commitment;
+pub mod qualified_dependency_closure_d6x;
+pub mod d6x_resolution_adapter;
 
 pub const CORPUS_ID: &str = "COS-CONF-001";
 pub const FORMAL_OBLIGATIONS: [&str; 10] = [
