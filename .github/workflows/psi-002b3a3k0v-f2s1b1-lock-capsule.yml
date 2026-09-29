@@ -161,7 +161,8 @@ jobs:
               },
               "toolchain": {
                   "rust": "1.96.0",
-                  "rustc_version_sha256": sha256("../../rustc-version.tmp") if Path("../../rustc-version.tmp").exists() else None,
+                  "rustc_version_sha256": sha256("../../rustc-1.96.0.txt"),
+                  "cargo_version_sha256": sha256("../../cargo-1.96.0.txt"),
               },
               "runner": {
                   "os_release_sha256": sha256("../../runner-os-release.txt"),
@@ -175,6 +176,31 @@ jobs:
           Path("provenance.v1.sha256").write_text(
               hashlib.sha256(raw + b"\\n").hexdigest() + "  provenance.v1.json\\n"
           )
+          PY
+
+          python3 - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          p = json.loads(Path("provenance.v1.json").read_text())
+          assert p["schema"] == "psi-002b3a3k0v-f2s1b1-provenance.v1"
+          assert p["qualification"] == "PSI-002B3A3K0V-F2S1"
+          assert p["package"] == "psi-002b3a3k0v-f2s1-validator"
+          assert len(p["source"]["commit_sha"]) == 40 and all(c in "0123456789abcdef" for c in p["source"]["commit_sha"])
+          assert len(p["source"]["tree_sha"]) == 40 and all(c in "0123456789abcdef" for c in p["source"]["tree_sha"])
+          for key in ("workflow_sha256", "manifest_sha256", "lock_sha256"):
+              value = p["source"][key]
+              assert len(value) == 64 and all(c in "0123456789abcdef" for c in value), key
+          assert p["source"]["workflow_sha256"] == Path("../../workflow-sha256.txt").read_text().split()[0]
+          assert p["source"]["manifest_sha256"] == hashlib.sha256(Path("Cargo.toml").read_bytes()).hexdigest()
+          assert p["source"]["lock_sha256"] == hashlib.sha256(Path("Cargo.lock").read_bytes()).hexdigest()
+          assert p["toolchain"]["rust"] == "1.96.0"
+          assert p["toolchain"]["rustc_version_sha256"] == hashlib.sha256(Path("../../rustc-1.96.0.txt").read_bytes()).hexdigest()
+          assert p["toolchain"]["cargo_version_sha256"] == hashlib.sha256(Path("../../cargo-1.96.0.txt").read_bytes()).hexdigest()
+          canonical = json.dumps(p, sort_keys=True, separators=(",", ":")).encode() + b"\\n"
+          recorded = Path("provenance.v1.sha256").read_text().strip().split()
+          assert recorded == [hashlib.sha256(canonical).hexdigest(), "provenance.v1.json"]
           PY
 
       - name: Verify locked/offline metadata after capsule generation
@@ -280,6 +306,8 @@ jobs:
               "dependency-source-inventory.v1.sha256",
               "cargo-lock-source-projection.v1.json",
               "cargo-lock-source-projection.v1.sha256",
+              "provenance.v1.json",
+              "provenance.v1.sha256",
               "source-commit.txt",
               "source-tree.txt",
               "source-status.txt",
