@@ -113,6 +113,8 @@ The reference model currently includes fixtures for:
 18. changing a selected edge endpoint or edge kind changes semantic closure identity even when the edge ID/commitment is unchanged.
 19. dependency-domain structural validation rejects malformed Edge/D6PReceipt references.
 20. currentness state cannot create a stale-resolution entry for an unselected/resource-truncated node.
+21. resolution evidence may change the audit certificate commitment without changing semantic closure identity.
+22. resolution evidence for an unselected dependency invalidates the certificate.
 
 Before interoperability or production claims, add cross-language golden vectors, currentness/D6P fixtures, contradiction-preservation fixtures, cycle fixtures, resource-limit fixtures, and execute the Rust/WASM/Holochain conformance corpus.
 
@@ -120,6 +122,6 @@ Claim ceiling: **ReferenceModelOnly**.
 
 ## Identity/evidence boundary
 
-D6X semantic dependency identity is intentionally kept independent of runtime retrieval evidence. A dependency reference says **what semantic object is required**; its resolution state says whether the closure selected it as present, missing, or stale under the named profile. Future Holochain addresses, retrieval receipts, validator observations, and retry metadata should be represented as resolution evidence rather than silently incorporated into the semantic dependency identity.
+D6X semantic dependency identity is intentionally kept independent of runtime retrieval evidence. The certificate may carry optional `SemanticDependencyResolutionEvidenceV1` keyed only by selected/missing dependencies; this is audit/provenance material and participates in the certificate commitment, but is excluded from `closure_identity_commitment`. A dependency reference says **what semantic object is required**; its resolution state says whether the closure selected it as present, missing, or stale under the named profile. Future Holochain addresses, retrieval receipts, validator observations, and retry metadata should be represented as resolution evidence rather than silently incorporated into the semantic dependency identity. This lets retrieval evidence vary while preserving the semantic dependency identity.
 
 This separation matches the architectural direction suggested by Holochain's validation model: dependencies used for deterministic validation need addressable retrieval, and unavailable dependencies are represented as unresolved so validation can be retried. D6X remains a reference-model analogue, not a claim of runtime equivalence. 
