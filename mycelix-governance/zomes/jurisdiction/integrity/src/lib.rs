@@ -92,63 +92,47 @@ pub fn check_update_jurisdiction(
 // VALIDATION CALLBACK
 // ============================================================================
 
-/// HDI 0.7 single validation callback using FlatOp pattern
+/// HDI 0.8 single validation callback using the 0.7 action/FlatOp model
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(store_entry) => match store_entry {
+        FlatOp::CreateEntry(create_entry) => match create_entry {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::Jurisdiction(record) => validate_create_jurisdiction(action, record),
-            },
-            OpEntry::UpdateEntry {
-                app_entry,
-                action,
-                original_action_hash,
-                original_entry_hash: _,
-            } => match app_entry {
-                EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
                 EntryTypes::Jurisdiction(record) => {
-                    validate_update_jurisdiction(action, record, original_action_hash)
+                    validate_create_jurisdiction(action.into(), record)
                 }
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink {
-            link_type,
-            base_address: _,
-            target_address: _,
-            tag: _,
-            action: _,
-        } => match link_type {
-            LinkTypes::ZoneById => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::TagToZone => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::ActiveZones => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::AuthorityToZone => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Update(update) => match update {
+            OpUpdate::Entry { app_entry, action } => match app_entry {
+                EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
+                EntryTypes::Jurisdiction(record) => {
+                    validate_update_jurisdiction(action, record)
+                }
+            },
+            _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterDeleteLink {
-            link_type,
-            original_action: _,
-            base_address: _,
-            target_address: _,
-            tag: _,
-            action: _,
-        } => match link_type {
-            LinkTypes::ZoneById => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::TagToZone => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::ActiveZones => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::AuthorityToZone => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Link(link) => match link {
+            OpLink::CreateLink { link_type, .. } | OpLink::DeleteLink { link_type, .. } => {
+                match link_type {
+                    LinkTypes::ZoneById => Ok(ValidateCallbackResult::Valid),
+                    LinkTypes::TagToZone => Ok(ValidateCallbackResult::Valid),
+                    LinkTypes::ActiveZones => Ok(ValidateCallbackResult::Valid),
+                    LinkTypes::AuthorityToZone => Ok(ValidateCallbackResult::Valid),
+                }
+            }
         },
-        FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::CreateRecord(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Delete(_) => Ok(ValidateCallbackResult::Valid),
     }
 }
 
 /// Validate jurisdiction creation
 fn validate_create_jurisdiction(
-    _action: Create,
+    _action: TypedAction<EntryCreationData>,
     record: JurisdictionRecord,
 ) -> ExternResult<ValidateCallbackResult> {
     match check_create_jurisdiction(&record) {
@@ -159,11 +143,10 @@ fn validate_create_jurisdiction(
 
 /// Validate jurisdiction update
 fn validate_update_jurisdiction(
-    _action: Update,
+    action: TypedAction<UpdateData>,
     record: JurisdictionRecord,
-    original_action_hash: ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
-    let original_record = must_get_valid_record(original_action_hash)?;
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
     let original: JurisdictionRecord = original_record
         .entry()
         .to_app_option()
