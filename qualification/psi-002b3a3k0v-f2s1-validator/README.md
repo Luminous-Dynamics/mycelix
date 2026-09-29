@@ -75,6 +75,24 @@ The capsule now has a non-circular final evidence layer. A `manifest.pre-receipt
 The independent capsule verifier validates `manifest.pre-receipt.sha256` as an evidence structure, not merely as an opaque digest. It requires the exact base-evidence file set, deterministic sorted ordering, unique paths, valid SHA-256 records, matching file digests, and no self-reference. Negative self-tests cover reordered, duplicated, unexpected, and omitted pre-receipt entries while refreshing the outer receipt/final manifest so those cases exercise the pre-receipt parser itself.
 
 
+## Lock projection structural boundary
+
+The independent capsule verifier treats the lock/source projection as a structured
+boundary rather than a set of convenient fields. It requires Cargo.lock format
+version 4 with exactly the expected top-level fields, rejects duplicate full
+package identities, requires the inventory's exact top-level/package record shape,
+and requires canonical inventory package ordering. Lock and inventory identities
+are compared with multiplicity preserved before the canonical source projection
+is checked.
+
+The generator's independent lock/source check applies the same structural
+constraints before producing the projection. This prevents duplicate records,
+unexpected inventory fields, or unexpected lock envelope fields from being
+normalized
+into an apparently valid dependency evidence state.
+
+**NOT EXECUTED / NOT A PASS.**
+
 ## Dependency-record multiplicity
 
 The independent capsule verifier preserves dependency-record multiplicity when projecting `Cargo.lock` and the dependency inventory. It does not collapse records into sets before comparison, so duplicate inventory records cannot be silently normalized away. The negative self-test includes an explicit duplicate inventory record while refreshing the dependent receipt and outer manifest integrity records.
