@@ -57,7 +57,7 @@ map.
 
 Changing an input commitment without changing the derivation receipt is rejected.
 
-Changing the serialization while retaining the same exact claim commitment cannot amplify the claim.
+Changing the serialization while retaining the same exact claim commitment cannot amplify the claim. The replay guard also preserves the exact scope relation, scope commitment, narrowing witness, and semantic environment; serialization cannot be used to smuggle a wider scope or foreign environment under an unchanged claim identifier.
 
 This prevents:
 
@@ -225,7 +225,9 @@ The source-level tests cover:
 14. conclusion cannot create authorization;
 15. provenance/supporting input cannot become authority;
 16. exact conserved derivation;
-17. D6P and D6Q artifacts retain distinct semantic identities.
+17. D6P and D6Q artifacts retain distinct semantic identities;
+18. D6Q assessments can be explicitly bound to a shared semantic environment;
+19. serialization cannot change scope or semantic environment.
 
 ## Formal invariants
 
