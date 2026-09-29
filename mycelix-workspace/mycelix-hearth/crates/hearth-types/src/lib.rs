@@ -591,7 +591,6 @@ pub struct ActiveHearthView {
     pub hearth_hash: ActionHash,
     pub latest_hearth_record_hash: ActionHash,
     pub membership_record_hash: ActionHash,
-    pub agent: AgentPubKey,
     pub role: MemberRole,
     pub name: String,
     pub description: String,
@@ -599,7 +598,18 @@ pub struct ActiveHearthView {
     pub created_by: AgentPubKey,
     pub created_at: Timestamp,
     pub max_members: u32,
+}
+
+/// One source observation of the connected agent's Active Hearth catalog.
+///
+/// The envelope deliberately carries agent and observation time even when the
+/// catalog is empty. This prevents an empty vector from losing the provenance
+/// of the read that established that emptiness.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActiveHearthCatalogView {
+    pub agent: AgentPubKey,
     pub observed_at: Timestamp,
+    pub hearths: Vec<ActiveHearthView>,
 }
 
 // NOTE: Anchor is NOT defined here. Each integrity zome defines its own
