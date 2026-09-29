@@ -306,3 +306,20 @@ A receipt is issued only for a record present in the model log and repeats the e
 
 A valid receipt therefore establishes only that this reference log contains a matching registration record. It does not establish statement truth, evidence quality, identity authenticity, consent, endorsement, governance legitimacy, authorization, or execution. Foreign origin remains foreign, and the receipt schema has no authority field. The module is a candidate reusable substrate primitive, not an Integral-ratified rule or production security claim. Claim ceiling remains `ReferenceModelOnly`.
 
+### D6K validation versus conclusion semantics
+
+D6K separates four questions that can otherwise collapse into one boolean result:
+
+1. **Structural validation** — does the artifact satisfy the reference-model schema/invariants?
+2. **Evidence binding** — is declared evidence present, or is there an explicit conflict?
+3. **Conclusion status** — what does the model explicitly record: unresolved, supported, disputed, or rejected?
+4. **Human disposition** — has a human/governance actor explicitly recorded a disposition?
+
+The new `cos_conformance::integral_demo_validation` model enforces that structural validity cannot manufacture a conclusion; a supported conclusion requires bound, non-conflicting evidence; a disputed conclusion requires an explicit evidence conflict; and a human disposition cannot silently resolve an otherwise unresolved record.
+
+These states are deliberately not truth values. In particular, `StructurallyValid` means only that the reference-model invariants passed. `Supported` records a declared support state under the model's evidence binding, not objective truth. `Disputed` preserves unresolved disagreement rather than selecting a winner. `Rejected` records an explicit model conclusion and does not itself prove the underlying proposition false.
+
+This boundary complements D6J: a transparency receipt can establish registration of an exact record, while D6K prevents that registration/validation fact from being interpreted as a conclusion about the record's truth. Human disposition remains a separate governance fact and does not become evidence merely by being recorded.
+
+Claim ceiling remains `ReferenceModelOnly`; these semantics are proposed reusable substrate primitives, not Integral-ratified governance rules.
+
