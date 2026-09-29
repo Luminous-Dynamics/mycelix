@@ -105,7 +105,7 @@ pub struct ExperimentalAssignment {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InstructionalStrategyAssignment {
-    pub assignment_id: String,
+    pub assignment: InstructionalAssignmentRef,
     pub learner_id: LearnerId,
     pub strategy: InstructionalStrategyKind,
     pub policy: EvidencePolicy,
