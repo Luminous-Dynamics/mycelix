@@ -20,7 +20,6 @@ use mycelix_leptos_core::use_consciousness;
 struct PersonalProfileSnapshot {
     profile: Result<Option<ProfileView>, String>,
     trust_credentials: Result<Vec<TrustCredentialView>, String>,
-    agent_did: Option<String>,
 }
 
 async fn load_personal_profile(ctx: HolochainCtx) -> PersonalProfileSnapshot {
@@ -31,7 +30,6 @@ async fn load_personal_profile(ctx: HolochainCtx) -> PersonalProfileSnapshot {
         return PersonalProfileSnapshot {
             profile: Err(reason.clone()),
             trust_credentials: Err(reason),
-            agent_did,
         };
     }
 
@@ -58,7 +56,6 @@ async fn load_personal_profile(ctx: HolochainCtx) -> PersonalProfileSnapshot {
     PersonalProfileSnapshot {
         profile,
         trust_credentials,
-        agent_did,
     }
 }
 
