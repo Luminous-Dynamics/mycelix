@@ -159,6 +159,40 @@ jobs:
       - name: Compile Hearth WASM zomes
         working-directory: mycelix-workspace/mycelix-hearth
         run: nix develop .#ci --impure --command cargo build --release --target wasm32-unknown-unknown --workspace
+  # Runtime qualification is deliberately separate from the generic Hearth
+  # workspace test above: tests/ is an independent Cargo workspace and its
+  # Sweettests are #[ignore]-gated, so cargo test --workspace does not execute
+  # them. This job packs the actual 0.7 DNA/hApp and runs the ignored Sweettest
+  # suite against real SweetConductors.
+  hearth-holochain-07-sweettest:
+    needs: [hearth-holochain-07-build]
+    if: needs.hearth-holochain-07-build.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: cachix/install-nix-action@v31
+      - name: Verify Holochain 0.7 toolchain
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: |
+          nix develop .#ci --impure --command hc --version
+          nix develop .#ci --impure --command holochain --version
+      - name: Verify committed Holochain 0.7 graph
+        run: bash mycelix-workspace/mycelix-hearth/tools/verify-holochain-07.sh
+      - name: Compile Hearth WASM zomes
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: nix develop .#ci --impure --command cargo build --release --target wasm32-unknown-unknown --workspace
+      - name: Pack Hearth DNA
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: nix develop .#ci --impure --command hc dna pack dna
+      - name: Pack Hearth hApp
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: nix develop .#ci --impure --command hc app pack .
+      - name: Run Hearth Sweettest suite against Holochain 0.7
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: nix develop .#ci --impure --command cargo test --release --manifest-path tests/Cargo.toml --tests -- --ignored --test-threads=2
   # Per-cluster test jobs
   test-cos-conformance:
     needs: changes
@@ -488,6 +522,7 @@ jobs:
       - format
       - hearth-holochain-07-guard
       - hearth-holochain-07-build
+      - hearth-holochain-07-sweettest
       - hearth-canonical-source-guard
       - test-cos-conformance
       - test-commons
