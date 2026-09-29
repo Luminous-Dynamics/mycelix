@@ -64,3 +64,10 @@ Reversal, refund, remediation, and correction are modeled as new semantic effect
 
 Archive recovery remains historical reconstruction input only. An archive cannot establish current external finality or current actuation authorization, even when its source frontier equals the current frontier. See `docs/integral/external-effect-finality-compensation-v1.md`.
 
+
+## Contestable multi-observer external finality
+
+`contestable_finality.rs` models observer independence, dependent/correlated evidence, explicit observation-set qualification, contested external state, and qualified finality resolution. Distinct observer IDs never imply independent evidence: shared evidence/custody/upstream roots are conservatively treated as dependent. Provider self-report, archive mirrors, stale observations, lifecycle tombstones, and unresolved contradictions cannot manufacture current finality.
+
+Finality resolution is a new semantic evidence transition. It preserves contradictory observations, rejects arrival-order/majority heuristics, and cannot authorize actuation or mutate the predecessor effect. See `docs/integral/contestable-multi-observer-finality-v1.md`.
+
