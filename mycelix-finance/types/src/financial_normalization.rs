@@ -24,6 +24,30 @@ pub struct NormalizationRecipe {
     /// Evidence required to perform the transformation. Every reference must
     /// be available at the replay frontier; otherwise the transformation fails closed.
     pub evidence_refs: Vec<EvidenceRef>,
+    #[serde(default)]
+    pub factor_observation: Option<NormalizationFactorObservation>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NormalizationFactorObservation {
+    pub factor_id: String,
+    pub kind: NormalizationFactorKind,
+    pub value: DecimalValue,
+    pub status: EvidenceStatus,
+    pub observed_at_micros: i64,
+    pub available_at_micros: Option<i64>,
+    pub effective_from_micros: Option<i64>,
+    pub effective_to_micros: Option<i64>,
+    pub source: super::SourceRef,
+    pub information_frontier: InformationFrontier,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum NormalizationFactorKind {
+    FxRate { base_currency: String, quote_currency: String },
+    SplitRatio,
+    DividendPerShare { currency: String },
+    UnitConversion { from_unit: String, to_unit: String },
 }
 
 /// Explicitly typed transformations prevent provider-specific adjustment
@@ -136,6 +160,12 @@ pub enum NormalizationError {
     ConflictingEvidence,
     FutureObservation,
     FrontierMismatch,
+    MissingFactorObservation,
+    FactorIdentityMismatch,
+    FactorUnavailableAtFrontier,
+    FactorNotEffectiveAtObservation,
+    FactorValueMismatch,
+    FactorUnitMismatch,
 }
 
 /// Apply a single deterministic multiplier and optional output scale.
@@ -156,12 +186,16 @@ pub fn normalize_observation_at_frontier(
     frontier: &InformationFrontier,
 ) -> Result<NormalizedObservation, NormalizationError> {
     validate_frontier(observation, recipe, frontier)?;
+    let factor = recipe.factor_observation.as_ref();
+    if matches!(recipe.adjustment, AdjustmentKind::Split | AdjustmentKind::Dividend | AdjustmentKind::CurrencyConversion | AdjustmentKind::UnitConversion) && factor.is_none() { return Err(NormalizationError::MissingFactorObservation); }
+    if let Some(f) = factor { validate_factor(observation, recipe, f, frontier)?; }
+    let factor_value = factor.map(|f| f.value.clone());
     let output_unit = recipe
         .target_unit
         .clone()
         .unwrap_or_else(|| observation.unit.clone());
 
-    let value = match recipe.multiplier.as_ref() {
+    let value = match factor_value.as_ref().or(recipe.multiplier.as_ref()) {
         Some(multiplier) => multiply_decimal(&observation.value, multiplier)?,
         None => observation.value.clone(),
     };
@@ -226,6 +260,25 @@ fn validate_frontier(
         if evidence.information_frontier.as_of_micros > frontier.as_of_micros {
             return Err(NormalizationError::FrontierMismatch);
         }
+    }
+    Ok(())
+}
+
+fn validate_factor(observation: &MarketObservation, recipe: &NormalizationRecipe, factor: &NormalizationFactorObservation, frontier: &InformationFrontier) -> Result<(), NormalizationError> {
+    if recipe.factor_observation.as_ref().map(|f| f.factor_id.as_str()) != Some(factor.factor_id.as_str()) { return Err(NormalizationError::FactorIdentityMismatch); }
+    match factor.status { EvidenceStatus::Protected => return Err(NormalizationError::ProtectedEvidence), EvidenceStatus::Conflicting | EvidenceStatus::Unavailable | EvidenceStatus::Unknown | EvidenceStatus::Stale | EvidenceStatus::FutureInaccessible => return Err(NormalizationError::FactorUnavailableAtFrontier), EvidenceStatus::Known | EvidenceStatus::ObservedUnqualified => {} }
+    let available = factor.available_at_micros.ok_or(NormalizationError::FactorUnavailableAtFrontier)?;
+    if available > frontier.as_of_micros || factor.information_frontier.as_of_micros > frontier.as_of_micros { return Err(NormalizationError::FactorUnavailableAtFrontier); }
+    if let Some(from) = factor.effective_from_micros { if observation.observed_at_micros < from { return Err(NormalizationError::FactorNotEffectiveAtObservation); } }
+    if let Some(to) = factor.effective_to_micros { if observation.observed_at_micros >= to { return Err(NormalizationError::FactorNotEffectiveAtObservation); } }
+    if let Some(multiplier) = recipe.multiplier.as_ref() { if multiplier != &factor.value { return Err(NormalizationError::FactorValueMismatch); } }
+    match (&factor.kind, &observation.unit, recipe.target_unit.as_ref()) {
+        (NormalizationFactorKind::FxRate { base_currency, quote_currency }, MarketUnit::Price { currency }, Some(MarketUnit::Price { currency: target })) if base_currency == currency && quote_currency == target => {},
+        (NormalizationFactorKind::FxRate { .. }, _, Some(MarketUnit::Price { .. })) => return Err(NormalizationError::FactorUnitMismatch),
+        (NormalizationFactorKind::SplitRatio, _, _) => {},
+        (NormalizationFactorKind::DividendPerShare { currency }, MarketUnit::Price { currency: obs_currency }, _) if currency == obs_currency => {},
+        (NormalizationFactorKind::UnitConversion { .. }, _, _) => {},
+        (NormalizationFactorKind::DividendPerShare { .. }, _, _) => return Err(NormalizationError::FactorUnitMismatch),
     }
     Ok(())
 }
@@ -374,6 +427,12 @@ mod tests {
             output_scale,
             session: None,
             evidence_refs: vec![],
+            factor_observation: multiplier.map(|v| NormalizationFactorObservation {
+                factor_id: "factor-1".into(), kind: match adjustment { AdjustmentKind::CurrencyConversion => NormalizationFactorKind::FxRate { base_currency: "USD".into(), quote_currency: "EUR".into() }, AdjustmentKind::Split => NormalizationFactorKind::SplitRatio, AdjustmentKind::Dividend => NormalizationFactorKind::DividendPerShare { currency: "USD".into() }, _ => NormalizationFactorKind::UnitConversion { from_unit: "USD".into(), to_unit: "EUR".into() } },
+                value: DecimalValue { value: v.into(), scale: multiplier_scale }, status: EvidenceStatus::Known, observed_at_micros: 1_700_000_000_000_100, available_at_micros: Some(1_700_000_000_000_300), effective_from_micros: Some(0), effective_to_micros: None,
+                source: SourceRef { source_id: "factor-src".into(), provider_id: "factor-provider".into(), common_ancestry_id: Some("factor-upstream".into()), retrieved_at_micros: 1_700_000_000_000_400 }, information_frontier: InformationFrontier { as_of_micros: 1_700_000_000_000_000, frontier_id: "frontier-1".into() },
+            }),
+        }
     }
 
     #[test]
@@ -481,9 +540,7 @@ mod frontier_tests {
     fn fx_evidence(available: i64, status: EvidenceStatus) -> EvidenceRef {
         let o=obs(); EvidenceRef { evidence_id: "fx-1".into(), artifact_id: None, source: o.source, status, observed_at_micros: Some(available-1), available_at_micros: Some(available), information_frontier: frontier(available) }
     }
-    fn fx_recipe(e: EvidenceRef) -> NormalizationRecipe {
-        NormalizationRecipe { recipe_id: "fx-r1".into(), adjustment: AdjustmentKind::CurrencyConversion, target_unit: Some(MarketUnit::Price { currency: "EUR".into() }), multiplier: Some(DecimalValue { value: "0.9".into(), scale: 1 }), output_scale: Some(2), session: None, evidence_refs: vec![e] }
-    }
+    fn fx_recipe(e: EvidenceRef) -> NormalizationRecipe { NormalizationRecipe { recipe_id: "fx-r1".into(), adjustment: AdjustmentKind::CurrencyConversion, target_unit: Some(MarketUnit::Price { currency: "EUR".into() }), multiplier: Some(DecimalValue { value: "0.9".into(), scale: 1 }), output_scale: Some(2), session: None, evidence_refs: vec![e.clone()], factor_observation: Some(NormalizationFactorObservation { factor_id: e.evidence_id.clone(), kind: NormalizationFactorKind::FxRate { base_currency: "USD".into(), quote_currency: "EUR".into() }, value: DecimalValue { value: "0.9".into(), scale: 1 }, status: e.status, observed_at_micros: e.observed_at_micros.unwrap_or(0), available_at_micros: e.available_at_micros, effective_from_micros: Some(0), effective_to_micros: None, source: e.source.clone(), information_frontier: e.information_frontier.clone() }) } }
     #[test] fn future_fx_is_rejected_at_historical_frontier() { assert_eq!(normalize_observation_at_frontier(&obs(), &fx_recipe(fx_evidence(150, EvidenceStatus::Known)), &frontier(120)), Err(NormalizationError::EvidenceUnavailableAtFrontier)); }
     #[test] fn protected_fx_is_rejected_even_when_available() { assert_eq!(normalize_observation_at_frontier(&obs(), &fx_recipe(fx_evidence(105, EvidenceStatus::Protected)), &frontier(120)), Err(NormalizationError::ProtectedEvidence)); }
     #[test] fn available_fx_can_be_used_at_frontier() { let r=normalize_observation_at_frontier(&obs(), &fx_recipe(fx_evidence(105, EvidenceStatus::Known)), &frontier(120)).unwrap(); assert_eq!(r.evidence_refs.len(), 1); }
