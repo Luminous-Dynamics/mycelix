@@ -124,6 +124,29 @@ jobs:
       - name: Verify Holochain 0.7 dependency and lock invariants
         run: bash mycelix-workspace/mycelix-hearth/tools/verify-holochain-07.sh
 
+  # Real Holochain 0.7 qualification: resolve the declared Holonix input first,
+  # then compile/test the actual Hearth workspace inside that toolchain.
+  hearth-holochain-07-build:
+    needs: [changes, hearth-holochain-07-guard]
+    if: needs.changes.outputs.hearth == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: cachix/install-nix-action@v31
+      - name: Resolve the declared Holochain 0.7 input
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: nix flake update
+      - name: Re-run 0.7 guard against the resolved graph
+        run: bash mycelix-workspace/mycelix-hearth/tools/verify-holochain-07.sh
+      - name: Compile and test Hearth
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: nix develop .#ci --impure --command cargo test --workspace
+      - name: Compile Hearth WASM zomes
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: nix develop .#ci --impure --command cargo build --release --target wasm32-unknown-unknown --workspace
   # Per-cluster test jobs
   test-cos-conformance:
     needs: changes
