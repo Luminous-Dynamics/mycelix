@@ -337,6 +337,10 @@ jobs:
           assert "manifest.sha256" not in recorded, "manifest must not self-reference"
           PY
 
+      - name: Independently verify packaged capsule
+        run: |
+          python3 qualification/psi-002b3a3k0v-f2s1-validator/tools/verify_capsule.py capsule
+
       - name: Upload lock capsule
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
