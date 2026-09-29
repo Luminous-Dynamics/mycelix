@@ -323,3 +323,18 @@ This boundary complements D6J: a transparency receipt can establish registration
 
 Claim ceiling remains `ReferenceModelOnly`; these semantics are proposed reusable substrate primitives, not Integral-ratified governance rules.
 
+### D6L evidence bundles and claim graphs
+
+D6L makes the evidence-to-claim path explicit as a typed graph rather than relying on adjacency, serialization order, or boolean validation results. The cos_conformance::integral_demo_claims module defines nodes for Source, Evidence, Statement, Receipt, Validation, Assessment, Conclusion, and HumanDisposition, plus explicit relations such as Provides, Supports, Disputes, DerivedFrom, RegisteredAs, ValidatedAs, AssessedAs, Concludes, and DispositionOf.
+
+The bundle validator requires stable identities, generation binding, explicit source/evidence references where applicable, valid relation endpoints, and duplicate rejection. It preserves foreign origin and rejects semantic mutations that would launder origin, source, evidence, or graph structure. Canonical semantic equivalence ignores node/edge serialization order while retaining every semantic field.
+
+The D6J transparency receipt and D6K validation layers are connected only through an explicit evidence binding. receipt_validation_bridge verifies that a receipt and validation node refer to the same evidence binding and generation; it does not infer that registration proves truth, that validation proves truth, or that either creates authority.
+
+The graph therefore preserves the chain:
+
+Source → Evidence → Statement → Registration Receipt → Validation → Assessment → Conclusion → Human Disposition
+
+while keeping each transition explicit. Connectivity is not causality, registration is not endorsement, validation is not truth, conclusion is not authorization, and human disposition is not evidence.
+
+D6L remains ReferenceModelOnly. It is a candidate reusable substrate primitive and does not establish Integral ratification, evidentiary truth, governance legitimacy, causal attribution, production security, or real-world execution.
