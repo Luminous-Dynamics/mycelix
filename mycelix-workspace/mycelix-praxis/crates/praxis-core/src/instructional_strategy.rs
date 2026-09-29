@@ -564,6 +564,7 @@ impl InstructionalInterpretationReceipt {
         if let Some(provenance) = &self.experimental_provenance {
             provenance.validate()?;
         }
+        self.evidence_sufficiency.validate()?;
         if self.generated_at < 0 {
             return Err(InstructionalScienceContractError::NegativeInterpretationGeneratedAt);
         }
@@ -644,14 +645,58 @@ pub enum InstructionalRobustnessStatus {
     Inconclusive,
 }
 
+/// Exact sensitivity-analysis provenance bound to the primary estimand.
+///
+/// A sensitivity analysis may change assumptions, missing-data handling, or
+/// analytic method, but it must continue to target the same declared estimand.
+/// This is a provenance constraint, not a claim that the sensitivity result is
+/// scientifically consistent with the primary result.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalSensitivityAnalysisRef {
+    pub analysis: InstructionalAnalysisRef,
+    pub estimand: InstructionalEstimandKind,
+    pub assumptions_digest: String,
+    pub result_digest: String,
+}
+
+impl InstructionalSensitivityAnalysisRef {
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        self.analysis.validate()?;
+        if matches!(&self.estimand, InstructionalEstimandKind::Other(value) if value.trim().is_empty())
+            || self.assumptions_digest.trim().is_empty()
+            || self.result_digest.trim().is_empty()
+        {
+            return Err(InstructionalScienceContractError::InvalidSensitivityAnalysisReference);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum InstructionalEvidenceSetClosure {
+    Closed,
+    Open,
+    Incomplete,
+    NotAssessed,
+}
+
 /// Describes whether a claim's declared evidence has been checked for robustness.
-/// This is descriptive metadata, not a scientific-validity score.
+///
+/// Closed means the enumerated evidence set is declared complete relative to
+/// its recorded scope digest. It does not mean that the evidence is complete in
+/// the scientific literature, that the result is valid, or that a claim is true.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InstructionalEvidenceSufficiencyReceipt {
     pub evidence_id: String,
     pub evidence_version: u64,
     pub evidence_set_digest: String,
+    pub primary_analysis: InstructionalAnalysisRef,
+    pub primary_estimand: InstructionalEstimandKind,
     pub evidence: Vec<InstructionalEvidenceRef>,
+    pub sensitivity_analyses: Vec<InstructionalSensitivityAnalysisRef>,
+    pub closure_status: InstructionalEvidenceSetClosure,
+    pub closure_digest: String,
+    pub counterevidence_acknowledgement_digest: Option<String>,
     pub robustness_status: InstructionalRobustnessStatus,
     pub assumptions_digest: String,
     pub sensitivity_plan_digest: String,
@@ -663,6 +708,7 @@ impl InstructionalEvidenceSufficiencyReceipt {
     pub fn validate(&self) -> Result<(), InstructionalScienceContractError> {
         if self.evidence_id.trim().is_empty()
             || self.evidence_set_digest.trim().is_empty()
+            || self.closure_digest.trim().is_empty()
             || self.assumptions_digest.trim().is_empty()
             || self.sensitivity_plan_digest.trim().is_empty()
             || self.limitations_digest.trim().is_empty()
@@ -675,9 +721,87 @@ impl InstructionalEvidenceSufficiencyReceipt {
         if self.evidence.is_empty() {
             return Err(InstructionalScienceContractError::NoEvidenceReferences);
         }
+        self.primary_analysis.validate()?;
+        if matches!(&self.primary_estimand, InstructionalEstimandKind::Other(value) if value.trim().is_empty()) {
+            return Err(InstructionalScienceContractError::InvalidPrimaryEstimand);
+        }
+
+        let mut evidence_refs = BTreeSet::new();
+        let mut primary_count = 0usize;
+        let mut sensitivity_refs = BTreeSet::new();
+        let mut counterevidence_count = 0usize;
+
         for evidence in &self.evidence {
             evidence.validate()?;
+            let key = (
+                evidence.evidence_id.clone(),
+                evidence.evidence_version,
+                evidence.evidence_digest.clone(),
+            );
+            if !evidence_refs.insert(key) {
+                return Err(InstructionalScienceContractError::DuplicateEvidenceReference);
+            }
+            match evidence.role {
+                InstructionalEvidenceRole::PrimaryAnalysis => primary_count += 1,
+                InstructionalEvidenceRole::SensitivityAnalysis => {
+                    sensitivity_refs.insert((
+                        evidence.evidence_id.clone(),
+                        evidence.evidence_version,
+                        evidence.evidence_digest.clone(),
+                    ));
+                }
+                InstructionalEvidenceRole::Counterevidence => counterevidence_count += 1,
+                InstructionalEvidenceRole::Limitation => {}
+            }
         }
+
+        if primary_count != 1 {
+            return Err(InstructionalScienceContractError::ExactlyOnePrimaryAnalysis);
+        }
+        let primary_key = (
+            self.primary_analysis.analysis_id.clone(),
+            self.primary_analysis.analysis_version,
+            self.primary_analysis.analysis_digest.clone(),
+        );
+        let primary_evidence_matches = self.evidence.iter().any(|evidence| {
+            matches!(evidence.role, InstructionalEvidenceRole::PrimaryAnalysis)
+                && (
+                    evidence.evidence_id.clone(),
+                    evidence.evidence_version,
+                    evidence.evidence_digest.clone(),
+                ) == primary_key
+        });
+        if !primary_evidence_matches {
+            return Err(InstructionalScienceContractError::PrimaryAnalysisReferenceMismatch);
+        }
+
+        if sensitivity_refs.len() != self.sensitivity_analyses.len() {
+            return Err(InstructionalScienceContractError::SensitivityEvidenceReferenceMismatch);
+        }
+
+        for sensitivity in &self.sensitivity_analyses {
+            sensitivity.validate()?;
+            if sensitivity.estimand != self.primary_estimand {
+                return Err(InstructionalScienceContractError::SensitivityEstimandMismatch);
+            }
+            let key = (
+                sensitivity.analysis.analysis_id.clone(),
+                sensitivity.analysis.analysis_version,
+                sensitivity.analysis.analysis_digest.clone(),
+            );
+            if !sensitivity_refs.contains(&key) {
+                return Err(InstructionalScienceContractError::SensitivityEvidenceReferenceMismatch);
+            }
+        }
+
+        if counterevidence_count > 0 {
+            if self.counterevidence_acknowledgement_digest.as_deref().is_none_or(|v| v.trim().is_empty()) {
+                return Err(InstructionalScienceContractError::CounterevidenceRequiresAcknowledgement);
+            }
+        } else if self.counterevidence_acknowledgement_digest.is_some() {
+            return Err(InstructionalScienceContractError::UnexpectedCounterevidenceAcknowledgement);
+        }
+
         if self.generated_at < 0 {
             return Err(InstructionalScienceContractError::NegativeEvidenceGeneratedAt);
         }
@@ -819,6 +943,15 @@ pub enum InstructionalScienceContractError {
     CausalClaimRequiresExperimentalProvenance,
     NegativeClaimGeneratedAt,
     InvalidEvidenceReference,
+    InvalidSensitivityAnalysisReference,
+    InvalidPrimaryEstimand,
+    DuplicateEvidenceReference,
+    ExactlyOnePrimaryAnalysis,
+    PrimaryAnalysisReferenceMismatch,
+    SensitivityEvidenceReferenceMismatch,
+    SensitivityEstimandMismatch,
+    CounterevidenceRequiresAcknowledgement,
+    UnexpectedCounterevidenceAcknowledgement,
     ZeroEvidenceReferenceVersion,
     InvalidEvidenceSufficiencyReceipt,
     ZeroEvidenceSufficiencyVersion,
@@ -1387,12 +1520,22 @@ mod tests {
             evidence_id: "evidence-1".into(),
             evidence_version: 1,
             evidence_set_digest: "blake3:evidence-set".into(),
+            primary_analysis: InstructionalAnalysisRef {
+                analysis_id: "analysis-1".into(),
+                analysis_version: 1,
+                analysis_digest: "blake3:analysis".into(),
+            },
+            primary_estimand: InstructionalEstimandKind::MeanDifference,
             evidence: vec![InstructionalEvidenceRef {
                 evidence_id: "analysis-1".into(),
                 evidence_version: 1,
                 evidence_digest: "blake3:analysis".into(),
                 role: InstructionalEvidenceRole::PrimaryAnalysis,
             }],
+            sensitivity_analyses: vec![],
+            closure_status: InstructionalEvidenceSetClosure::Closed,
+            closure_digest: "blake3:closure".into(),
+            counterevidence_acknowledgement_digest: None,
             robustness_status: InstructionalRobustnessStatus::Consistent,
             assumptions_digest: "blake3:assumptions".into(),
             sensitivity_plan_digest: "blake3:sensitivity".into(),
@@ -1434,6 +1577,140 @@ mod tests {
             generated_at: 200,
         };
         assert_eq!(claim.validate(), Ok(()));
+    }
+
+    #[test]
+    fn sensitivity_analysis_must_target_the_same_estimand() {
+        let mut receipt = InstructionalEvidenceSufficiencyReceipt {
+            evidence_id: "evidence-2".into(),
+            evidence_version: 1,
+            evidence_set_digest: "blake3:evidence-set".into(),
+            primary_analysis: InstructionalAnalysisRef {
+                analysis_id: "analysis-1".into(),
+                analysis_version: 1,
+                analysis_digest: "blake3:analysis-1".into(),
+            },
+            primary_estimand: InstructionalEstimandKind::MeanDifference,
+            evidence: vec![
+                InstructionalEvidenceRef {
+                    evidence_id: "analysis-1".into(),
+                    evidence_version: 1,
+                    evidence_digest: "blake3:analysis-1".into(),
+                    role: InstructionalEvidenceRole::PrimaryAnalysis,
+                },
+                InstructionalEvidenceRef {
+                    evidence_id: "analysis-2".into(),
+                    evidence_version: 1,
+                    evidence_digest: "blake3:analysis-2".into(),
+                    role: InstructionalEvidenceRole::SensitivityAnalysis,
+                },
+            ],
+            sensitivity_analyses: vec![InstructionalSensitivityAnalysisRef {
+                analysis: InstructionalAnalysisRef {
+                    analysis_id: "analysis-2".into(),
+                    analysis_version: 1,
+                    analysis_digest: "blake3:analysis-2".into(),
+                },
+                estimand: InstructionalEstimandKind::RiskRatio,
+                assumptions_digest: "blake3:sensitivity-assumptions".into(),
+                result_digest: "blake3:sensitivity-result".into(),
+            }],
+            closure_status: InstructionalEvidenceSetClosure::Closed,
+            closure_digest: "blake3:closure".into(),
+            counterevidence_acknowledgement_digest: None,
+            robustness_status: InstructionalRobustnessStatus::Sensitive,
+            assumptions_digest: "blake3:assumptions".into(),
+            sensitivity_plan_digest: "blake3:sensitivity-plan".into(),
+            limitations_digest: "blake3:limitations".into(),
+            generated_at: 200,
+        };
+        assert_eq!(
+            receipt.validate(),
+            Err(InstructionalScienceContractError::SensitivityEstimandMismatch)
+        );
+        receipt.sensitivity_analyses[0].estimand = InstructionalEstimandKind::MeanDifference;
+        assert_eq!(receipt.validate(), Ok(()));
+    }
+
+    #[test]
+    fn counterevidence_requires_explicit_acknowledgement() {
+        let mut receipt = InstructionalEvidenceSufficiencyReceipt {
+            evidence_id: "evidence-3".into(),
+            evidence_version: 1,
+            evidence_set_digest: "blake3:evidence-set".into(),
+            primary_analysis: InstructionalAnalysisRef {
+                analysis_id: "analysis-1".into(),
+                analysis_version: 1,
+                analysis_digest: "blake3:analysis-1".into(),
+            },
+            primary_estimand: InstructionalEstimandKind::MeanDifference,
+            evidence: vec![
+                InstructionalEvidenceRef {
+                    evidence_id: "analysis-1".into(),
+                    evidence_version: 1,
+                    evidence_digest: "blake3:analysis-1".into(),
+                    role: InstructionalEvidenceRole::PrimaryAnalysis,
+                },
+                InstructionalEvidenceRef {
+                    evidence_id: "counter-1".into(),
+                    evidence_version: 1,
+                    evidence_digest: "blake3:counter".into(),
+                    role: InstructionalEvidenceRole::Counterevidence,
+                },
+            ],
+            sensitivity_analyses: vec![],
+            closure_status: InstructionalEvidenceSetClosure::Open,
+            closure_digest: "blake3:closure".into(),
+            counterevidence_acknowledgement_digest: None,
+            robustness_status: InstructionalRobustnessStatus::NotAssessed,
+            assumptions_digest: "blake3:assumptions".into(),
+            sensitivity_plan_digest: "blake3:sensitivity-plan".into(),
+            limitations_digest: "blake3:limitations".into(),
+            generated_at: 200,
+        };
+        assert_eq!(
+            receipt.validate(),
+            Err(InstructionalScienceContractError::CounterevidenceRequiresAcknowledgement)
+        );
+        receipt.counterevidence_acknowledgement_digest = Some("blake3:ack".into());
+        assert_eq!(receipt.validate(), Ok(()));
+    }
+
+    #[test]
+    fn primary_analysis_reference_must_match_evidence_set() {
+        let mut receipt = InstructionalEvidenceSufficiencyReceipt {
+            evidence_id: "evidence-4".into(),
+            evidence_version: 1,
+            evidence_set_digest: "blake3:evidence-set".into(),
+            primary_analysis: InstructionalAnalysisRef {
+                analysis_id: "analysis-2".into(),
+                analysis_version: 1,
+                analysis_digest: "blake3:analysis-2".into(),
+            },
+            primary_estimand: InstructionalEstimandKind::MeanDifference,
+            evidence: vec![InstructionalEvidenceRef {
+                evidence_id: "analysis-1".into(),
+                evidence_version: 1,
+                evidence_digest: "blake3:analysis-1".into(),
+                role: InstructionalEvidenceRole::PrimaryAnalysis,
+            }],
+            sensitivity_analyses: vec![],
+            closure_status: InstructionalEvidenceSetClosure::Closed,
+            closure_digest: "blake3:closure".into(),
+            counterevidence_acknowledgement_digest: None,
+            robustness_status: InstructionalRobustnessStatus::NotAssessed,
+            assumptions_digest: "blake3:assumptions".into(),
+            sensitivity_plan_digest: "blake3:sensitivity-plan".into(),
+            limitations_digest: "blake3:limitations".into(),
+            generated_at: 200,
+        };
+        assert_eq!(
+            receipt.validate(),
+            Err(InstructionalScienceContractError::PrimaryAnalysisReferenceMismatch)
+        );
+        receipt.evidence[0].evidence_id = "analysis-2".into();
+        receipt.evidence[0].evidence_digest = "blake3:analysis-2".into();
+        assert_eq!(receipt.validate(), Ok(()));
     }
 
 }
