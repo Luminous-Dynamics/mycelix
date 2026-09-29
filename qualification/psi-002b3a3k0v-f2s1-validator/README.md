@@ -68,3 +68,8 @@ The verifier is accompanied by `tools/test_verify_capsule_negative.py`, which fi
 ## Final evidence receipt
 
 The capsule now has a non-circular final evidence layer. A `manifest.pre-receipt.sha256` records the pre-receipt evidence set; `evidence-receipt.v1.json` then binds the canonical metadata/tree, dependency inventory, lock projection, provenance, manifest, and lockfile plus that pre-receipt manifest digest. The final `manifest.sha256` covers the receipt and pre-receipt manifest as well. This avoids self-referential hashing while ensuring the final packaged evidence is covered by two independent integrity layers.
+
+
+## Pre-receipt manifest verification
+
+The independent capsule verifier validates `manifest.pre-receipt.sha256` as an evidence structure, not merely as an opaque digest. It requires the exact base-evidence file set, deterministic sorted ordering, unique paths, valid SHA-256 records, matching file digests, and no self-reference. Negative self-tests cover reordered, duplicated, unexpected, and omitted pre-receipt entries while refreshing the outer receipt/final manifest so those cases exercise the pre-receipt parser itself.
