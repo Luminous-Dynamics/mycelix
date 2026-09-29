@@ -197,7 +197,7 @@ jobs:
           raw = json.dumps(provenance, sort_keys=True, separators=(",", ":")).encode()
           Path("provenance.v1.json").write_bytes(raw + b"\n")
           Path("provenance.v1.sha256").write_text(
-              hashlib.sha256(raw + b"\n").hexdigest() + "  provenance.v1.json\\n"
+              hashlib.sha256(raw + b"\n").hexdigest() + "  provenance.v1.json\n"
           )
           PY
 
