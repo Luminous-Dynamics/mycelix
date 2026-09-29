@@ -536,6 +536,27 @@ pub struct ActiveHearthCatalogView {
     pub hearths: Vec<ActiveHearthView>,
 }
 
+/// Source provenance for one successful Active Hearth catalog observation.
+///
+/// observed_at is the timestamp supplied by Kinship. It is provenance for the
+/// source read, not a browser-computed freshness classification.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActiveHearthCatalogProvenance {
+    pub source: String,
+    pub agent: String,
+    pub observed_at: i64,
+}
+
+/// Stable Hearth identity plus the source records that justify its presence in
+/// the current Active catalog.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActiveHearthEvidence {
+    pub hearth: HearthView,
+    pub latest_hearth_record_hash: String,
+    pub membership_record_hash: String,
+    pub role: MemberRole,
+}
+
 /// Member view for the frontend.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MemberView {
