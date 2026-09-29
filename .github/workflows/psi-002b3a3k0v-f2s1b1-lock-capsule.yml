@@ -84,6 +84,50 @@ jobs:
           )
           PY
 
+      - name: Independently verify lock/source inventory
+        working-directory: qualification/psi-002b3a3k0v-f2s1-validator
+        run: |
+          python3 - <<'PY'
+          import json
+          import hashlib
+          import tomllib
+          from pathlib import Path
+
+          lock = tomllib.loads(Path("Cargo.lock").read_text())
+          inventory = json.loads(Path("dependency-source-inventory.v1.json").read_text())
+
+          lock_packages = []
+          for package in lock.get("package", []):
+              lock_packages.append({
+                  "name": package["name"],
+                  "version": package["version"],
+                  "source": package.get("source"),
+                  "checksum": package.get("checksum"),
+              })
+          lock_packages.sort(key=lambda x: (x["name"], x["version"], x["source"] or ""))
+
+          inventory_packages = [
+              {
+                  "name": p["name"],
+                  "version": p["version"],
+                  "source": p.get("source"),
+                  "checksum": p.get("checksum"),
+              }
+              for p in inventory["packages"]
+          ]
+          inventory_packages.sort(key=lambda x: (x["name"], x["version"], x["source"] or ""))
+
+          assert lock_packages == inventory_packages, "source inventory does not independently match Cargo.lock"
+          assert inventory["lock_sha256"] == hashlib.sha256(Path("Cargo.lock").read_bytes()).hexdigest(), "inventory lock digest mismatch"
+          assert inventory["manifest_sha256"] == hashlib.sha256(Path("Cargo.toml").read_bytes()).hexdigest(), "inventory manifest digest mismatch"
+
+          projection = json.dumps(lock_packages, sort_keys=True, separators=(",", ":")).encode()
+          Path("cargo-lock-source-projection.v1.json").write_bytes(projection + b"\\n")
+          Path("cargo-lock-source-projection.v1.sha256").write_text(
+              hashlib.sha256(projection + b"\\n").hexdigest() + "  cargo-lock-source-projection.v1.json\\n"
+          )
+          PY
+
       - name: Verify locked/offline metadata after capsule generation
         working-directory: qualification/psi-002b3a3k0v-f2s1-validator
         run: |
@@ -124,6 +168,8 @@ jobs:
           cp qualification/psi-002b3a3k0v-f2s1-validator/cargo-tree-offline.txt capsule/
           cp qualification/psi-002b3a3k0v-f2s1-validator/dependency-source-inventory.v1.json capsule/
           cp qualification/psi-002b3a3k0v-f2s1-validator/dependency-source-inventory.v1.sha256 capsule/
+          cp qualification/psi-002b3a3k0v-f2s1-validator/cargo-lock-source-projection.v1.json capsule/
+          cp qualification/psi-002b3a3k0v-f2s1-validator/cargo-lock-source-projection.v1.sha256 capsule/
           cp runner-uname.txt runner-os-release.txt runner-python-version.txt capsule/
           rustc +1.96.0 --version --verbose > capsule/rustc-1.96.0.txt
           cargo +1.96.0 --version --verbose > capsule/cargo-1.96.0.txt
