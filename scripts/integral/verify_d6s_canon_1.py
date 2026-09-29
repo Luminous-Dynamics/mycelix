@@ -24,10 +24,20 @@ def reject_duplicate_keys(pairs):
     return result
 
 
+def parse_integer(token):
+    if token == "-0":
+        raise ValueError("negative zero is rejected at the parser boundary")
+    value = int(token)
+    if value < -(2**63) or value > 2**64 - 1:
+        raise ValueError("integer outside the frozen i64/u64 domain")
+    return value
+
+
 def load_json(text):
     return json.loads(
         text,
         object_pairs_hook=reject_duplicate_keys,
+        parse_int=parse_integer,
         parse_constant=lambda value: (_ for _ in ()).throw(
             ValueError(f"non-finite number: {value}")
         ),
@@ -112,7 +122,20 @@ def main():
                 f"actual:   {actual_commitment}"
             )
 
-    print(f"verified {len(corpus['cases'])} D6S-CANON-1 vectors")
+    for case in corpus.get("rejections", []):
+        try:
+            value = load_json(case["json"])
+            canonical_json(value)
+        except (TypeError, ValueError):
+            continue
+        raise SystemExit(
+            f"{case['name']}: malformed input was unexpectedly accepted"
+        )
+
+    print(
+        f"verified {len(corpus['cases'])} D6S-CANON-1 vectors and "
+        f"{len(corpus.get('rejections', []))} rejection vectors"
+    )
 
 
 if __name__ == "__main__":
