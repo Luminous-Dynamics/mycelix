@@ -297,6 +297,75 @@ pub enum InstructionalEstimandKind {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalEstimandDefinition {
+    pub kind: InstructionalEstimandKind,
+    pub population_scope_digest: String,
+    pub treatment_condition_digest: String,
+    pub comparator_condition_digest: String,
+    pub outcome_variable_digest: String,
+    pub population_level_summary: String,
+    pub intercurrent_event_strategy: String,
+    pub estimand_digest: String,
+}
+
+impl InstructionalEstimandDefinition {
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if matches!(&self.kind, InstructionalEstimandKind::Other(value) if value.trim().is_empty())
+            || self.population_scope_digest.trim().is_empty()
+            || self.treatment_condition_digest.trim().is_empty()
+            || self.comparator_condition_digest.trim().is_empty()
+            || self.outcome_variable_digest.trim().is_empty()
+            || self.population_level_summary.trim().is_empty()
+            || self.intercurrent_event_strategy.trim().is_empty()
+            || self.estimand_digest.trim().is_empty()
+        {
+            return Err(InstructionalScienceContractError::InvalidEstimandDefinition);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalEstimandRef {
+    pub estimand_digest: String,
+}
+
+impl InstructionalEstimandRef {
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.estimand_digest.trim().is_empty() {
+            return Err(InstructionalScienceContractError::InvalidEstimandReference);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalIdentifyingAssumptionsReceipt {
+    pub assumptions_id: String,
+    pub assumptions_version: u64,
+    pub assumptions_digest: String,
+    pub identification_strategy: String,
+    pub limitations_digest: String,
+}
+
+impl InstructionalIdentifyingAssumptionsReceipt {
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.assumptions_id.trim().is_empty()
+            || self.assumptions_digest.trim().is_empty()
+            || self.identification_strategy.trim().is_empty()
+            || self.limitations_digest.trim().is_empty()
+        {
+            return Err(InstructionalScienceContractError::InvalidIdentifyingAssumptionsReceipt);
+        }
+        if self.assumptions_version == 0 {
+            return Err(InstructionalScienceContractError::ZeroIdentifyingAssumptionsVersion);
+        }
+        Ok(())
+    }
+}
+
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum InstructionalAnalysisPlanStatus {
     Draft,
     Locked,
@@ -412,6 +481,8 @@ pub struct InstructionalAnalysisReceipt {
     pub analysis_method: String,
     pub analysis_method_version: String,
     pub estimand: InstructionalEstimandKind,
+    pub estimand_definition: InstructionalEstimandDefinition,
+    pub estimand_ref: InstructionalEstimandRef,
     pub kind: InstructionalAnalysisKind,
     pub experimental_provenance: Option<ExperimentalAnalysisRef>,
     pub execution: InstructionalAnalysisExecution,
@@ -424,6 +495,13 @@ pub struct InstructionalAnalysisReceipt {
 
 impl InstructionalAnalysisReceipt {
     pub fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        self.estimand_definition.validate()?;
+        self.estimand_ref.validate()?;
+        if self.estimand_definition.kind != self.estimand
+            || self.estimand_definition.estimand_digest != self.estimand_ref.estimand_digest
+        {
+            return Err(InstructionalScienceContractError::EstimandKindMismatch);
+        }
         if self.analysis_id.trim().is_empty()
             || self.analysis_plan_id.trim().is_empty()
             || self.analysis_plan_version.trim().is_empty()
@@ -490,6 +568,7 @@ pub struct InstructionalAnalysisRef {
     pub analysis_id: String,
     pub analysis_version: u64,
     pub analysis_digest: String,
+    pub estimand_ref: InstructionalEstimandRef,
 }
 
 impl InstructionalAnalysisRef {
@@ -500,6 +579,7 @@ impl InstructionalAnalysisRef {
         if self.analysis_version == 0 {
             return Err(InstructionalScienceContractError::ZeroAnalysisReferenceVersion);
         }
+        self.estimand_ref.validate()?;
         Ok(())
     }
 }
@@ -529,12 +609,14 @@ pub struct InstructionalInterpretationReceipt {
     pub interpretation_id: String,
     pub interpretation_version: u64,
     pub analysis: InstructionalAnalysisRef,
+    pub estimand_ref: InstructionalEstimandRef,
     pub analysis_kind: InstructionalAnalysisKind,
     pub interpretation_kind: InstructionalInterpretationKind,
     pub scope: InstructionalInterpretationScope,
     pub statement: String,
     pub limitations: String,
     pub experimental_provenance: Option<ExperimentalAnalysisRef>,
+    pub identifying_assumptions: Option<InstructionalIdentifyingAssumptionsReceipt>,
     pub evidence_sufficiency: InstructionalEvidenceSufficiencyRef,
     pub generated_at: i64,
 }
@@ -551,18 +633,25 @@ impl InstructionalInterpretationReceipt {
             return Err(InstructionalScienceContractError::ZeroInterpretationVersion);
         }
         self.analysis.validate()?;
+        self.estimand_ref.validate()?;
+        if self.estimand_ref.estimand_digest != self.analysis.estimand_ref.estimand_digest {
+            return Err(InstructionalScienceContractError::InterpretationEstimandMismatch);
+        }
 
         if matches!(&self.interpretation_kind, &InstructionalInterpretationKind::Causal)
             && (!matches!(
                 &self.analysis_kind,
                 &InstructionalAnalysisKind::ExperimentalEffectEstimate
-            ) || self.experimental_provenance.is_none())
+            ) || self.experimental_provenance.is_none() || self.identifying_assumptions.is_none())
         {
             return Err(InstructionalScienceContractError::CausalInterpretationRequiresExperimentalProvenance);
         }
 
         if let Some(provenance) = &self.experimental_provenance {
             provenance.validate()?;
+        }
+        if let Some(assumptions) = &self.identifying_assumptions {
+            assumptions.validate()?;
         }
         self.evidence_sufficiency.validate()?;
         if self.generated_at < 0 {
@@ -838,12 +927,15 @@ pub struct InstructionalClaimReceipt {
     pub claim_version: u64,
     pub interpretation: InstructionalInterpretationRef,
     pub analysis: InstructionalAnalysisRef,
+    pub estimand_ref: InstructionalEstimandRef,
     pub interpretation_kind: InstructionalInterpretationKind,
     pub claim_kind: InstructionalClaimKind,
     pub scope: InstructionalInterpretationScope,
     pub statement: String,
     pub qualification: String,
     pub experimental_provenance: Option<ExperimentalAnalysisRef>,
+    pub identifying_assumptions: Option<InstructionalIdentifyingAssumptionsReceipt>,
+    pub evidence_sufficiency: InstructionalEvidenceSufficiencyRef,
     pub generated_at: i64,
 }
 
@@ -861,17 +953,24 @@ impl InstructionalClaimReceipt {
         self.interpretation.validate()?;
         self.evidence_sufficiency.validate()?;
         self.analysis.validate()?;
+        self.estimand_ref.validate()?;
+        if self.estimand_ref.estimand_digest != self.analysis.estimand_ref.estimand_digest {
+            return Err(InstructionalScienceContractError::ClaimEstimandMismatch);
+        }
 
         if matches!(&self.claim_kind, &InstructionalClaimKind::Causal)
             && (!matches!(
                 &self.interpretation_kind,
                 &InstructionalInterpretationKind::Causal
-            ) || self.experimental_provenance.is_none())
+            ) || self.experimental_provenance.is_none() || self.identifying_assumptions.is_none())
         {
             return Err(InstructionalScienceContractError::CausalClaimRequiresExperimentalProvenance);
         }
         if let Some(provenance) = &self.experimental_provenance {
             provenance.validate()?;
+        }
+        if let Some(assumptions) = &self.identifying_assumptions {
+            assumptions.validate()?;
         }
         if self.generated_at < 0 {
             return Err(InstructionalScienceContractError::NegativeClaimGeneratedAt);
@@ -932,6 +1031,13 @@ pub enum InstructionalScienceContractError {
     InvalidPrespecifiedPlanStatus,
     InvalidAnalysisReference,
     ZeroAnalysisReferenceVersion,
+    InvalidEstimandDefinition,
+    InvalidEstimandReference,
+    EstimandKindMismatch,
+    InvalidIdentifyingAssumptionsReceipt,
+    ZeroIdentifyingAssumptionsVersion,
+    InterpretationEstimandMismatch,
+    ClaimEstimandMismatch,
     InvalidInterpretationReceipt,
     ZeroInterpretationVersion,
     CausalInterpretationRequiresExperimentalProvenance,
@@ -1329,8 +1435,22 @@ mod tests {
             analysis_method: "difference-in-means".into(),
             analysis_method_version: "1".into(),
             estimand: InstructionalEstimandKind::MeanDifference,
+            estimand_definition: InstructionalEstimandDefinition {
+                kind: InstructionalEstimandKind::MeanDifference,
+                population_scope_digest: "blake3:population".into(),
+                treatment_condition_digest: "blake3:treatment".into(),
+                comparator_condition_digest: "blake3:comparator".into(),
+                outcome_variable_digest: "blake3:outcome".into(),
+                population_level_summary: "mean difference".into(),
+                intercurrent_event_strategy: "treatment policy".into(),
+                estimand_digest: "blake3:estimand".into(),
+            },
+            estimand_ref: InstructionalEstimandRef {
+                estimand_digest: "blake3:estimand".into(),
+            },
             kind: InstructionalAnalysisKind::ExperimentalEffectEstimate,
             experimental_provenance: None,
+            identifying_assumptions: None,
             execution: InstructionalAnalysisExecution {
                 software_id: "praxis-analyzer".into(),
                 software_version: "1".into(),
@@ -1429,8 +1549,22 @@ mod tests {
             analysis_method: "difference-in-means".into(),
             analysis_method_version: "1".into(),
             estimand: InstructionalEstimandKind::MeanDifference,
+            estimand_definition: InstructionalEstimandDefinition {
+                kind: InstructionalEstimandKind::MeanDifference,
+                population_scope_digest: "blake3:population".into(),
+                treatment_condition_digest: "blake3:treatment".into(),
+                comparator_condition_digest: "blake3:comparator".into(),
+                outcome_variable_digest: "blake3:outcome".into(),
+                population_level_summary: "mean difference".into(),
+                intercurrent_event_strategy: "treatment policy".into(),
+                estimand_digest: "blake3:estimand".into(),
+            },
+            estimand_ref: InstructionalEstimandRef {
+                estimand_digest: "blake3:estimand".into(),
+            },
             kind: InstructionalAnalysisKind::Descriptive,
             experimental_provenance: None,
+            identifying_assumptions: None,
             execution: InstructionalAnalysisExecution {
                 software_id: "praxis-analyzer".into(),
                 software_version: "1".into(),
@@ -1465,6 +1599,15 @@ mod tests {
                 analysis_id: "analysis-1".into(),
                 analysis_version: 1,
                 analysis_digest: "blake3:analysis".into(),
+            estimand_ref: InstructionalEstimandRef {
+                estimand_digest: "blake3:estimand".into(),
+            },
+            estimand_ref: InstructionalEstimandRef {
+                estimand_digest: "blake3:estimand".into(),
+            },
+            estimand_ref: InstructionalEstimandRef {
+                estimand_digest: "blake3:estimand".into(),
+            },
             },
             analysis_kind: InstructionalAnalysisKind::Descriptive,
             interpretation_kind: InstructionalInterpretationKind::Causal,
@@ -1472,6 +1615,7 @@ mod tests {
             statement: "The strategy caused an improvement.".into(),
             limitations: "Causal identification is not established by this analysis.".into(),
             experimental_provenance: None,
+            identifying_assumptions: None,
             generated_at: 200,
         };
         assert_eq!(
@@ -1494,6 +1638,12 @@ mod tests {
                 analysis_id: "analysis-1".into(),
                 analysis_version: 1,
                 analysis_digest: "blake3:analysis".into(),
+            estimand_ref: InstructionalEstimandRef {
+                estimand_digest: "blake3:estimand".into(),
+            },
+            estimand_ref: InstructionalEstimandRef {
+                estimand_digest: "blake3:estimand".into(),
+            },
             },
             interpretation_kind: InstructionalInterpretationKind::Descriptive,
             claim_kind: InstructionalClaimKind::Descriptive,
@@ -1501,6 +1651,7 @@ mod tests {
             statement: "The observed group mean was higher.".into(),
             qualification: "Descriptive result; no causal or learner-level inference.".into(),
             experimental_provenance: None,
+            identifying_assumptions: None,
             evidence_sufficiency: InstructionalEvidenceSufficiencyRef {
                 evidence_id: "evidence-1".into(),
                 evidence_version: 1,
@@ -1524,6 +1675,9 @@ mod tests {
                 analysis_id: "analysis-1".into(),
                 analysis_version: 1,
                 analysis_digest: "blake3:analysis".into(),
+            estimand_ref: InstructionalEstimandRef {
+                estimand_digest: "blake3:estimand".into(),
+            },
             },
             primary_estimand: InstructionalEstimandKind::MeanDifference,
             evidence: vec![InstructionalEvidenceRef {
@@ -1562,6 +1716,12 @@ mod tests {
                 analysis_id: "analysis-2".into(),
                 analysis_version: 1,
                 analysis_digest: "blake3:analysis".into(),
+            estimand_ref: InstructionalEstimandRef {
+                estimand_digest: "blake3:estimand".into(),
+            },
+            estimand_ref: InstructionalEstimandRef {
+                estimand_digest: "blake3:estimand".into(),
+            },
             },
             interpretation_kind: InstructionalInterpretationKind::Descriptive,
             claim_kind: InstructionalClaimKind::Descriptive,
@@ -1569,6 +1729,7 @@ mod tests {
             statement: "The observed group mean was higher.".into(),
             qualification: "Descriptive result.".into(),
             experimental_provenance: None,
+            identifying_assumptions: None,
             evidence_sufficiency: InstructionalEvidenceSufficiencyRef {
                 evidence_id: "evidence-2".into(),
                 evidence_version: 1,
@@ -1589,6 +1750,9 @@ mod tests {
                 analysis_id: "analysis-1".into(),
                 analysis_version: 1,
                 analysis_digest: "blake3:analysis-1".into(),
+            estimand_ref: InstructionalEstimandRef {
+                estimand_digest: "blake3:estimand".into(),
+            },
             },
             primary_estimand: InstructionalEstimandKind::MeanDifference,
             evidence: vec![
@@ -1610,6 +1774,9 @@ mod tests {
                     analysis_id: "analysis-2".into(),
                     analysis_version: 1,
                     analysis_digest: "blake3:analysis-2".into(),
+            estimand_ref: InstructionalEstimandRef {
+                estimand_digest: "blake3:estimand".into(),
+            },
                 },
                 estimand: InstructionalEstimandKind::RiskRatio,
                 assumptions_digest: "blake3:sensitivity-assumptions".into(),
@@ -1642,6 +1809,9 @@ mod tests {
                 analysis_id: "analysis-1".into(),
                 analysis_version: 1,
                 analysis_digest: "blake3:analysis-1".into(),
+            estimand_ref: InstructionalEstimandRef {
+                estimand_digest: "blake3:estimand".into(),
+            },
             },
             primary_estimand: InstructionalEstimandKind::MeanDifference,
             evidence: vec![
@@ -1686,6 +1856,9 @@ mod tests {
                 analysis_id: "analysis-2".into(),
                 analysis_version: 1,
                 analysis_digest: "blake3:analysis-2".into(),
+            estimand_ref: InstructionalEstimandRef {
+                estimand_digest: "blake3:estimand".into(),
+            },
             },
             primary_estimand: InstructionalEstimandKind::MeanDifference,
             evidence: vec![InstructionalEvidenceRef {
@@ -1712,5 +1885,65 @@ mod tests {
         receipt.evidence[0].evidence_digest = "blake3:analysis-2".into();
         assert_eq!(receipt.validate(), Ok(()));
     }
+
+    #[test]
+    fn estimand_definition_must_match_exact_reference() {
+        let mut receipt = InstructionalAnalysisReceipt {
+            analysis_id: "analysis-estimand".into(),
+            analysis_version: 1,
+            analysis_plan_id: "plan".into(),
+            analysis_plan_version: "1".into(),
+            analysis_plan_digest: "blake3:plan".into(),
+            analysis_plan_status: InstructionalAnalysisPlanStatus::Locked,
+            outcome_measure_id: "outcome".into(),
+            outcome_measure_version: "1".into(),
+            input_observation_set_digest: "blake3:inputs".into(),
+            cohort_definition_digest: "blake3:cohort".into(),
+            inclusion_rules_digest: "blake3:include".into(),
+            exclusion_rules_digest: "blake3:exclude".into(),
+            missing_data_policy: "complete-case".into(),
+            analysis_method: "difference".into(),
+            analysis_method_version: "1".into(),
+            estimand: InstructionalEstimandKind::MeanDifference,
+            estimand_definition: InstructionalEstimandDefinition {
+                kind: InstructionalEstimandKind::MeanDifference,
+                population_scope_digest: "blake3:population".into(),
+                treatment_condition_digest: "blake3:treatment".into(),
+                comparator_condition_digest: "blake3:comparator".into(),
+                outcome_variable_digest: "blake3:outcome".into(),
+                population_level_summary: "mean difference".into(),
+                intercurrent_event_strategy: "treatment policy".into(),
+                estimand_digest: "blake3:estimand".into(),
+            },
+            estimand_ref: InstructionalEstimandRef {
+                estimand_digest: "blake3:estimand".into(),
+            },
+            kind: InstructionalAnalysisKind::Descriptive,
+            experimental_provenance: None,
+            execution: InstructionalAnalysisExecution {
+                software_id: "tool".into(),
+                software_version: "1".into(),
+                software_digest: "blake3:tool".into(),
+                environment_id: "env".into(),
+                environment_digest: "blake3:env".into(),
+                randomness_policy: "deterministic".into(),
+                random_seed: None,
+                multiple_comparison_policy: "none".into(),
+                sensitivity_analysis_plan_digest: "blake3:sens".into(),
+            },
+            uncertainty: None,
+            prespecified: true,
+            deviation_rationale: None,
+            result_digest: "blake3:result".into(),
+            generated_at: 1,
+        };
+        assert_eq!(receipt.validate(), Ok(()));
+        receipt.estimand_ref.estimand_digest = "blake3:other".into();
+        assert_eq!(
+            receipt.validate(),
+            Err(InstructionalScienceContractError::EstimandKindMismatch)
+        );
+    }
+
 
 }
