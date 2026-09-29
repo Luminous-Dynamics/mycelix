@@ -128,28 +128,24 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::CreateEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
-                EntryTypes::FamilyStory(story) => validate_story(action, story),
-                EntryTypes::StoryCollection(collection) => validate_collection(action, collection),
-                EntryTypes::FamilyTradition(tradition) => validate_tradition(action, tradition),
+                EntryTypes::FamilyStory(story) => validate_story(story),
+                EntryTypes::StoryCollection(collection) => validate_collection(collection),
+                EntryTypes::FamilyTradition(tradition) => validate_tradition(tradition),
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
             },
-            OpEntry::UpdateEntry {
-                app_entry,
-                action: _,
-                original_action_hash,
-                original_entry_hash: _,
-            } => match app_entry {
+            OpEntry::UpdateEntry { app_entry, action, .. } => {
+                match app_entry {
                 EntryTypes::FamilyStory(story) => {
                     validate_story_update(&story)?;
-                    validate_story_immutable_fields(&story, &original_action_hash)
+                    validate_story_immutable_fields(&story, &action.original_action_address)
                 }
                 EntryTypes::StoryCollection(collection) => {
                     validate_collection_update(&collection)?;
-                    validate_collection_immutable_fields(&collection, &original_action_hash)
+                    validate_collection_immutable_fields(&collection, &action.original_action_address)
                 }
                 EntryTypes::FamilyTradition(tradition) => {
                     validate_tradition_update(&tradition)?;
-                    validate_tradition_immutable_fields(&tradition, &original_action_hash)
+                    validate_tradition_immutable_fields(&tradition, &action.original_action_address)
                 }
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Invalid(
                     "Anchor cannot be updated once created".into(),
@@ -157,43 +153,29 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::Link(OpLink::CreateLink { link_type, action }) => validate_create_link(link_type, &action.tag),
-        FlatOp::Link(OpLink::DeleteLink { link_type, action, original_action }) => {
-            let result = check_link_author_match(original_action.author(), &action.author());
+        FlatOp::Link(OpLink::CreateLink { link_type, action }) => validate_create_link(link_type, &action.data.tag),
+        FlatOp::Link(link @ OpLink::DeleteLink { link_type, action, original_action }) => {
+            let result = check_link_author_match(original_action.author(), action.author());
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
-            validate_delete_link(link_type, &original_action.tag)
+            validate_delete_link(link_type, &link.tag())
         }
         FlatOp::CreateRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::Update(update) => {
-            let action = match &update {
-                OpUpdate::Entry { action, .. }
-                | OpUpdate::PrivateEntry { action, .. }
-                | OpUpdate::Agent { action, .. }
-                | OpUpdate::CapClaim { action, .. }
-                | OpUpdate::CapGrant { action, .. } => action,
-            };
-            let original = must_get_action(action.original_action_address.clone())?;
-            Ok(check_author_match(
-                original.action().author(),
-                &action.author(),
-                "update",
-            ))
-        }
+        
         FlatOp::Delete(OpDelete { action, .. }) => {
             let original = must_get_action(action.deletes_address.clone())?;
             Ok(check_author_match(
                 original.action().author(),
-                &action.author(),
+                action.author(),
                 "delete",
             ))
         }
     }
 }
 
-fn validate_story(_action: Create, story: FamilyStory) -> ExternResult<ValidateCallbackResult> {
+fn validate_story(story: FamilyStory) -> ExternResult<ValidateCallbackResult> {
     if story.title.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Story title cannot be empty".into(),
@@ -339,9 +321,7 @@ fn validate_tradition_immutable_fields(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_collection(
-    _action: Create,
-    collection: StoryCollection,
+fn validate_collection(collection: StoryCollection,
 ) -> ExternResult<ValidateCallbackResult> {
     if collection.name.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -382,9 +362,7 @@ fn validate_collection_update(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_tradition(
-    _action: Create,
-    tradition: FamilyTradition,
+fn validate_tradition(tradition: FamilyTradition,
 ) -> ExternResult<ValidateCallbackResult> {
     if tradition.name.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
