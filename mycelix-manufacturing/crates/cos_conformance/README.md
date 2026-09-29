@@ -113,3 +113,24 @@ D6Q adds `evidence_claim_graph.rs`, a reference-model envelope for the typed cha
 The graph enforces endpoint compatibility, rejects dangling edges and semantic cycles, and keeps structural closure separate from evidentiary sufficiency. Reachability is not truth; provenance/custody are not causal support; registration is not endorsement; human disposition is not evidence; and conclusion is not authorization.
 
 D6Q remains `ReferenceModelOnly` and does not establish source truth, causality, cryptographic authenticity, legal authority, production finality, or actuation safety. See `docs/integral/evidence-bundle-claim-graph-v1.md`.
+
+## Canonical derivation receipts over DKG projections
+
+`canonical_derivation_receipt.rs` implements D6S as a ReferenceModelOnly bridge from the persistent Mycelix DKG into a bounded derivation projection.
+
+The pipeline is:
+
+`DKG -> qualified projection -> derivation DAG -> canonical receipt`
+
+The projection commits the exact source DKG snapshot, projection/canonicalization version, typed node and edge commitments, D6P current-finality receipt commitments, D6N/D6O context commitments, semantic environment, and derivation profile.
+
+D6S rejects dangling or type-incompatible edges, semantic derivation/support cycles unless an explicitly named recursive-fixpoint rule is present, historical inputs in a current `Supported` result, and D6P receipts from the wrong current frontier. Provenance/custody cycles do not become derivation cycles.
+
+Current D6P receipts are bound to the exact environment frontier and exact D6P context commitment set. Contradiction/unresolved flags must agree with the result disposition.
+
+The receipt uses deterministic Rust `serde_json` encoding and SHA-256 only as a ReferenceModelOnly integrity commitment. This is **not** a cross-language canonicalization claim; D6T #3464 freezes that protocol boundary.
+
+See `docs/integral/canonical-derivation-receipt-v1.md`.
+
+Claim ceiling: **ReferenceModelOnly**.
+
