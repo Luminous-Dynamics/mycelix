@@ -302,6 +302,24 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 // Link Validation
 // ============================================================================
 
+fn validate_stable_hearth_identity(
+    hearth_hash: &ActionHash,
+) -> ExternResult<ValidateCallbackResult> {
+    let record = must_get_valid_record(hearth_hash.clone())?;
+    let expected_entry_type = EntryType::App(UnitEntryTypes::Hearth.try_into()?);
+    let action = record.action();
+
+    if !matches!(&action.data, ActionData::Create(_))
+        || action.entry_type() != Some(&expected_entry_type)
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Hearth identity must reference the original Hearth Create action".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
 fn action_hash_from_link(
     hash: AnyLinkableHash,
     label: &str,
@@ -325,6 +343,28 @@ fn validate_create_link(
     author: &AgentPubKey,
 ) -> ExternResult<ValidateCallbackResult> {
     match link_type {
+        LinkTypes::AgentToHearths => {
+            let agent = match agent_key_from_link(base_address, "AgentToHearths base") {
+                Ok(agent) => agent,
+                Err(result) => return Ok(result),
+            };
+            let hearth_hash =
+                match action_hash_from_link(target_address, "AgentToHearths target") {
+                    Ok(hash) => hash,
+                    Err(result) => return Ok(result),
+                };
+
+            if agent != *author {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "AgentToHearths base must be the link author".into(),
+                ));
+            }
+
+            let identity = validate_stable_hearth_identity(&hearth_hash)?;
+            if identity != ValidateCallbackResult::Valid {
+                return Ok(identity);
+            }
+        }
         LinkTypes::HearthToMembers => {
             let hearth_hash = match action_hash_from_link(base_address, "HearthToMembers base") {
                 Ok(hash) => hash,
@@ -520,6 +560,11 @@ where
 fn validate_membership_admission(
     membership: &HearthMembership,
 ) -> ExternResult<ValidateCallbackResult> {
+    let identity = validate_stable_hearth_identity(&membership.hearth_hash)?;
+    if identity != ValidateCallbackResult::Valid {
+        return Ok(identity);
+    }
+
     match &membership.admission {
         MembershipAdmission::Founder => {
             let (hearth, _): (Hearth, AgentPubKey) =
@@ -1606,4 +1651,5 @@ mod tests {
         let d = make_digest(0, 604_800_000_000);
         assert_eq!(d.epoch_start, Timestamp::from_micros(0));
     }
+
 }
