@@ -131,6 +131,8 @@ pub struct DependencyClosureCertificateV1 {
     /// Legacy flat IDs retained for wire compatibility; typed dependencies are authoritative for identity.
     pub missing_dependency_ids: BTreeSet<String>,
     pub missing_dependencies: BTreeSet<SemanticDependencyReferenceV1>,
+    /// Canonical typed set of all selected semantic dependencies.
+    pub dependencies: BTreeSet<SemanticDependencyReferenceV1>,
     pub status: DependencyClosureStatusV1,
     pub cycle_detected: bool,
     pub claim_ceiling: String,
@@ -158,6 +160,7 @@ impl DependencyClosureCertificateV1 {
                 non_empty(id) && non_empty(from) && non_empty(to) && from != to && non_empty(commitment))
             && self.missing_dependency_ids.iter().all(|v| non_empty(v))
             && self.missing_dependencies.iter().all(SemanticDependencyReferenceV1::structurally_valid)
+            && self.dependencies.iter().all(SemanticDependencyReferenceV1::structurally_valid)
             && self.claim_ceiling == D6X_CLAIM_CEILING
             && self.included_node_ids.len() == self.included_node_commitments.len()
             && self.included_edges.len() == self.included_edge_commitments.len()
@@ -181,9 +184,7 @@ impl DependencyClosureCertificateV1 {
             &self.semantic_environment_commitment,
             &self.derivation_profile_commitment,
             &self.root_node_ids,
-            &self.included_nodes,
-            &self.included_d6p_receipt_commitments,
-            &self.included_edges,
+            &self.dependencies,
             &self.missing_dependencies,
             &self.status,
             &self.cycle_detected,
@@ -231,8 +232,12 @@ pub fn compute_dependency_closure(
     let mut included_edges = BTreeSet::new();
     let mut missing = BTreeSet::new();
     let mut missing_dependencies = BTreeSet::new();
+    let mut dependencies = BTreeSet::new();
     let selected_d6p_receipts: BTreeSet<String> = profile.required_d6p_receipt_commitments.intersection(&projection.d6p_current_receipt_commitments).cloned().collect();
     let missing_d6p_receipts: BTreeSet<String> = profile.required_d6p_receipt_commitments.difference(&projection.d6p_current_receipt_commitments).cloned().collect();
+    for receipt in &selected_d6p_receipts {
+        dependencies.insert(SemanticDependencyReferenceV1::d6p_receipt(receipt.clone()));
+    }
     for receipt in missing_d6p_receipts {
         missing.insert(receipt.clone());
         missing_dependencies.insert(SemanticDependencyReferenceV1::d6p_receipt(receipt));
@@ -263,6 +268,7 @@ pub fn compute_dependency_closure(
             break;
         }
         included_ids.insert(id.clone());
+        dependencies.insert(SemanticDependencyReferenceV1::node(id.clone(), Some(node.node_commitment.clone())));
 
         for edge in projection.edges.values() {
             if edge.from_node_id != id { continue; }
@@ -277,6 +283,7 @@ pub fn compute_dependency_closure(
                 break;
             }
             included_edges.insert(edge.edge_id.clone());
+            dependencies.insert(SemanticDependencyReferenceV1::edge(edge.edge_id.clone(), Some(edge.edge_commitment.clone())));
             if rule.currentness == DependencyCurrentnessV1::CurrentOnly && to.historical_only { blocked_currentness = true; }
             if !queued.contains(&to.node_id) { queue.push_back(to.node_id.clone()); }
         }
@@ -314,6 +321,7 @@ pub fn compute_dependency_closure(
         included_edges: included_edges.iter().filter_map(|id| projection.edges.get(id).map(|e| (id.clone(), (e.from_node_id.clone(), e.to_node_id.clone(), e.kind, e.edge_commitment.clone())))).collect(),
         missing_dependency_ids: missing,
         missing_dependencies,
+        dependencies,
         status, cycle_detected, claim_ceiling: D6X_CLAIM_CEILING.into(), commitment: String::new(),
     };
     out.closure_identity_commitment = out.closure_identity();
