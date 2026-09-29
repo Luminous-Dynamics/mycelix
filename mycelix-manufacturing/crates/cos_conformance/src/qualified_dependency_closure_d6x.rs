@@ -109,6 +109,7 @@ impl SemanticDependencyReferenceV1 {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DependencyClosureCertificateV1 {
     pub schema_version: String,
     pub algorithm_version: String,
@@ -140,6 +141,13 @@ pub struct DependencyClosureCertificateV1 {
 }
 impl DependencyClosureCertificateV1 {
     pub fn valid(&self) -> bool {
+        let expected_dependencies = self.expected_dependencies();
+        let expected_missing_ids = self
+            .missing_dependencies
+            .iter()
+            .map(|dependency| dependency.identifier.clone())
+            .collect::<BTreeSet<_>>();
+
         self.schema_version == D6X_SCHEMA_VERSION
             && self.algorithm_version == D6X_ALGORITHM_VERSION
             && non_empty(&self.closure_profile_commitment)
@@ -161,6 +169,8 @@ impl DependencyClosureCertificateV1 {
             && self.missing_dependency_ids.iter().all(|v| non_empty(v))
             && self.missing_dependencies.iter().all(SemanticDependencyReferenceV1::structurally_valid)
             && self.dependencies.iter().all(SemanticDependencyReferenceV1::structurally_valid)
+            && self.dependencies == expected_dependencies
+            && self.missing_dependency_ids == expected_missing_ids
             && self.claim_ceiling == D6X_CLAIM_CEILING
             && self.included_node_ids.len() == self.included_node_commitments.len()
             && self.included_edges.len() == self.included_edge_commitments.len()
@@ -174,6 +184,27 @@ impl DependencyClosureCertificateV1 {
                 DependencyClosureStatusV1::BlockedCurrentness | DependencyClosureStatusV1::BlockedResourceLimit => true,
             }
             && self.commitment == self.recompute()
+    }
+
+    fn expected_dependencies(&self) -> BTreeSet<SemanticDependencyReferenceV1> {
+        let mut expected = BTreeSet::new();
+        expected.extend(
+            self.included_nodes
+                .iter()
+                .map(|(id, commitment)| SemanticDependencyReferenceV1::node(id.clone(), Some(commitment.clone()))),
+        );
+        expected.extend(
+            self.included_edges.iter().map(|(id, (_from, _to, _kind, commitment))|
+                SemanticDependencyReferenceV1::edge(id.clone(), Some(commitment.clone()))
+            ),
+        );
+        expected.extend(
+            self.included_d6p_receipt_commitments
+                .iter()
+                .cloned()
+                .map(SemanticDependencyReferenceV1::d6p_receipt),
+        );
+        expected
     }
     pub fn closure_identity(&self) -> String {
         let identity = (
@@ -502,6 +533,30 @@ mod tests {
         assert!(c.dependencies.contains(&SemanticDependencyReferenceV1::node("dep", Some("commit-dep".into()))));
         assert!(c.dependencies.contains(&SemanticDependencyReferenceV1::edge("e1", Some("edge-e1".into()))));
         assert_eq!(c.dependencies.len(), 3);
+    }
+
+    #[test]
+    fn canonical_dependency_set_mismatch_invalidates_certificate() {
+        let (a,e,d)=projection(false); let p=profile(BTreeSet::new());
+        let mut c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
+        c.dependencies.remove(&SemanticDependencyReferenceV1::node("dep", Some("commit-dep".into())));
+        assert!(!c.valid());
+    }
+
+    #[test]
+    fn canonical_dependency_set_extra_reference_invalidates_certificate() {
+        let (a,e,d)=projection(false); let p=profile(BTreeSet::new());
+        let mut c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
+        c.dependencies.insert(SemanticDependencyReferenceV1::node("noise", Some("commit-noise".into())));
+        assert!(!c.valid());
+    }
+
+    #[test]
+    fn legacy_missing_ids_must_match_typed_missing_dependencies() {
+        let (a,e,d)=projection(false); let p=profile(["missing".into()].into_iter().collect());
+        let mut c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
+        c.missing_dependency_ids.clear();
+        assert!(!c.valid());
     }
 
     #[test]
