@@ -187,6 +187,22 @@ def verify_provenance(root: Path) -> None:
 def verify_lock_and_inventory(root: Path) -> None:
     lock = tomllib.loads((root / "Cargo.lock").read_text())
     inv = read_json(root / "dependency-source-inventory.v1.json")
+
+    if set(lock) != {"version", "package"}:
+        fail("Cargo.lock top-level schema mismatch")
+    if lock.get("version") != 4:
+        fail("unsupported Cargo.lock format version")
+    if not isinstance(lock.get("package"), list):
+        fail("Cargo.lock package section is not a list")
+
+    if set(inv) != {
+        "schema",
+        "toolchain",
+        "manifest_sha256",
+        "lock_sha256",
+        "packages",
+    }:
+        fail("dependency inventory top-level schema mismatch")
     if inv.get("schema") != "psi-002b3a3k0v-f2s1b1-dependency-source-inventory.v1":
         fail("unexpected dependency inventory schema")
     if inv.get("toolchain") != "1.96.0":
@@ -195,20 +211,50 @@ def verify_lock_and_inventory(root: Path) -> None:
         fail("dependency inventory manifest digest mismatch")
     if inv.get("lock_sha256") != digest(root / "Cargo.lock"):
         fail("dependency inventory lock digest mismatch")
+    if not isinstance(inv.get("packages"), list):
+        fail("dependency inventory packages is not a list")
 
     def package_tuple(p):
+        if not isinstance(p, dict):
+            fail("malformed dependency package record")
         try:
             return (p["name"], p["version"], p.get("source"), p.get("checksum"))
         except (KeyError, TypeError):
             fail("malformed dependency package record")
 
-    lock_packages = sorted(
-        package_tuple(p) for p in lock.get("package", [])
-    )
-    inv_packages = sorted(
-        package_tuple(p) for p in inv.get("packages", [])
-    )
-    if lock_packages != inv_packages:
+    def reject_duplicate_identities(packages, label):
+        identities = [package_tuple(p) for p in packages]
+        if len(identities) != len(set(identities)):
+            fail(f"duplicate {label} package identity")
+        return identities
+
+    lock_identities = reject_duplicate_identities(lock["package"], "Cargo.lock")
+    inv_packages = inv["packages"]
+    if any(
+        set(p) != {
+            "id",
+            "name",
+            "version",
+            "source",
+            "checksum",
+            "edition",
+            "rust_version",
+            "manifest_path",
+        }
+        for p in inv_packages
+        if isinstance(p, dict)
+    ):
+        fail("dependency inventory package schema mismatch")
+    if any(not isinstance(p, dict) for p in inv_packages):
+        fail("malformed dependency package record")
+
+    inv_identities = reject_duplicate_identities(inv_packages, "inventory")
+    if [p["id"] for p in inv_packages] != sorted(p["id"] for p in inv_packages):
+        fail("dependency inventory package ordering is not canonical")
+
+    lock_packages = sorted(lock_identities)
+    inventory_packages = sorted(inv_identities)
+    if lock_packages != inventory_packages:
         fail("dependency inventory does not match Cargo.lock")
 
     projection = read_json(root / "cargo-lock-source-projection.v1.json")
@@ -222,12 +268,11 @@ def verify_lock_and_inventory(root: Path) -> None:
         fail("lock source projection is not canonical")
 
     if read_sidecar(root / "dependency-source-inventory.v1.sha256", "dependency-source-inventory.v1.json") != digest(root / "dependency-source-inventory.v1.json"):
-        fail("dependency inventory sidecar mismatch")
+        fail("dependency inventory sidecar digest mismatch")
     if read_sidecar(root / "cargo-lock-source-projection.v1.sha256", "cargo-lock-source-projection.v1.json") != digest(root / "cargo-lock-source-projection.v1.json"):
         fail("lock projection sidecar mismatch")
     if read_sidecar(root / "Cargo.lock.sha256", "Cargo.lock") != digest(root / "Cargo.lock"):
         fail("Cargo.lock sidecar mismatch")
-
 
 def verify_evidence_receipt(root: Path) -> None:
     receipt = read_json(root / "evidence-receipt.v1.json")
