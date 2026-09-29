@@ -47,3 +47,5 @@ jobs:
           git add mycelix-workspace/mycelix-hearth/flake.lock
           git commit -m "HEARTH-0.7-SOURCE: resolve Holochain 0.7 flake lock [skip-hearth-lock]"
           git push origin "HEAD:${{ github.ref_name }}"
+
+# Triggered after initial workflow creation so the 0.7 lock is resolved in CI.
