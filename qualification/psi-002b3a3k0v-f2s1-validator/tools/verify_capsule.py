@@ -15,7 +15,7 @@ import sys
 import tomllib
 from pathlib import Path
 
-ALLOWLIST = {
+BASE_ALLOWLIST = {
     "Cargo.toml",
     "Cargo.lock",
     "Cargo.lock.sha256",
@@ -41,6 +41,12 @@ ALLOWLIST = {
     "evidence-receipt.v1.sha256",
     "manifest.pre-receipt.sha256",
 }
+RECEIPT_FILES = {
+    "evidence-receipt.v1.json",
+    "evidence-receipt.v1.sha256",
+    "manifest.pre-receipt.sha256",
+}
+ALLOWLIST = BASE_ALLOWLIST | RECEIPT_FILES
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
 
@@ -98,6 +104,33 @@ def verify_manifest(root: Path) -> None:
         fail("manifest ordering or file set mismatch")
     if "manifest.sha256" in seen:
         fail("manifest must not self-reference")
+
+
+def verify_pre_receipt_manifest(root: Path) -> None:
+    path = root / "manifest.pre-receipt.sha256"
+    seen = []
+    try:
+        lines = path.read_text().splitlines()
+    except OSError as exc:
+        fail(f"cannot read pre-receipt manifest: {exc}")
+
+    for line in lines:
+        parts = line.split("  ", 1)
+        if len(parts) != 2 or not HEX64.fullmatch(parts[0]):
+            fail("malformed pre-receipt manifest entry")
+        recorded, name = parts
+        if name not in BASE_ALLOWLIST:
+            fail(f"pre-receipt manifest names non-base file {name}")
+        if name in seen:
+            fail(f"duplicate pre-receipt manifest path {name}")
+        seen.append(name)
+        if digest(root / name) != recorded:
+            fail(f"pre-receipt manifest digest mismatch for {name}")
+
+    if seen != sorted(BASE_ALLOWLIST):
+        fail("pre-receipt manifest ordering or file set mismatch")
+    if "manifest.pre-receipt.sha256" in seen:
+        fail("pre-receipt manifest must not self-reference")
 
 
 def verify_provenance(root: Path) -> None:
@@ -248,6 +281,7 @@ def main() -> int:
         fail(f"not a directory: {root}")
     verify_manifest(root)
     verify_manifest_metadata(root)
+    verify_pre_receipt_manifest(root)
     verify_provenance(root)
     verify_lock_and_inventory(root)
     verify_evidence_receipt(root)
