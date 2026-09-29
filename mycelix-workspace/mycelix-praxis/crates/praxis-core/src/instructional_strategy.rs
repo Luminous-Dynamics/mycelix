@@ -431,6 +431,49 @@ impl InstructionalAnalysisExecution {
 }
 
 
+/// Participant-level analysis metric for an outcome.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum InstructionalAnalysisMetric {
+    ChangeFromBaseline,
+    FinalValue,
+    TimeToEvent,
+    EventIndicator,
+    RepeatedMeasures,
+    Other(String),
+}
+
+/// Population/group-level summary measure for an outcome.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum InstructionalSummaryMeasure {
+    Mean,
+    Median,
+    Proportion,
+    Rate,
+    Hazard,
+    RegressionCoefficient,
+    StandardizedEffect,
+    PredictiveMetric,
+    Other(String),
+}
+
+impl InstructionalAnalysisMetric {
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if matches!(self, Self::Other(value) if value.trim().is_empty()) {
+            return Err(InstructionalScienceContractError::InvalidAnalysisOutcomeSemantics);
+        }
+        Ok(())
+    }
+}
+
+impl InstructionalSummaryMeasure {
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if matches!(self, Self::Other(value) if value.trim().is_empty()) {
+            return Err(InstructionalScienceContractError::InvalidAnalysisOutcomeSemantics);
+        }
+        Ok(())
+    }
+}
+
 /// Exact identity of a computed analysis result.
 ///
 /// The value is kept as canonical serialized text so this contract does not
@@ -442,6 +485,11 @@ pub struct InstructionalAnalysisResultReceipt {
     pub result_version: u64,
     pub analysis: InstructionalAnalysisRef,
     pub estimand_ref: InstructionalEstimandRef,
+    pub outcome_measure_id: String,
+    pub outcome_measure_version: String,
+    pub outcome_measure_digest: String,
+    pub analysis_metric: InstructionalAnalysisMetric,
+    pub summary_measure: InstructionalSummaryMeasure,
     pub effect_measure: String,
     pub point_estimate: String,
     pub scale: String,
@@ -455,6 +503,9 @@ pub struct InstructionalAnalysisResultReceipt {
 impl InstructionalAnalysisResultReceipt {
     pub fn validate(&self) -> Result<(), InstructionalScienceContractError> {
         if self.result_id.trim().is_empty()
+            || self.outcome_measure_id.trim().is_empty()
+            || self.outcome_measure_version.trim().is_empty()
+            || self.outcome_measure_digest.trim().is_empty()
             || self.effect_measure.trim().is_empty()
             || self.point_estimate.trim().is_empty()
             || self.scale.trim().is_empty()
@@ -470,6 +521,8 @@ impl InstructionalAnalysisResultReceipt {
         }
         self.analysis.validate()?;
         self.estimand_ref.validate()?;
+        self.analysis_metric.validate()?;
+        self.summary_measure.validate()?;
         if self.estimand_ref.estimand_digest != self.analysis.estimand_ref.estimand_digest {
             return Err(InstructionalScienceContractError::AnalysisResultEstimandMismatch);
         }
@@ -559,6 +612,7 @@ pub struct InstructionalAnalysisReceipt {
     pub analysis_plan_status: InstructionalAnalysisPlanStatus,
     pub outcome_measure_id: String,
     pub outcome_measure_version: String,
+    pub outcome_measure_digest: String,
     pub input_observation_set_digest: String,
     pub cohort_definition_digest: String,
     pub inclusion_rules_digest: String,
@@ -595,6 +649,7 @@ impl InstructionalAnalysisReceipt {
             || self.analysis_plan_digest.trim().is_empty()
             || self.outcome_measure_id.trim().is_empty()
             || self.outcome_measure_version.trim().is_empty()
+            || self.outcome_measure_digest.trim().is_empty()
             || self.input_observation_set_digest.trim().is_empty()
             || self.cohort_definition_digest.trim().is_empty()
             || self.inclusion_rules_digest.trim().is_empty()
@@ -728,6 +783,8 @@ impl InstructionalInterpretationReceipt {
         }
         self.analysis.validate()?;
         self.estimand_ref.validate()?;
+        self.analysis_metric.validate()?;
+        self.summary_measure.validate()?;
         if self.estimand_ref.estimand_digest != self.analysis.estimand_ref.estimand_digest {
             return Err(InstructionalScienceContractError::InterpretationEstimandMismatch);
         }
@@ -1048,6 +1105,8 @@ impl InstructionalClaimReceipt {
         self.evidence_sufficiency.validate()?;
         self.analysis.validate()?;
         self.estimand_ref.validate()?;
+        self.analysis_metric.validate()?;
+        self.summary_measure.validate()?;
         if self.estimand_ref.estimand_digest != self.analysis.estimand_ref.estimand_digest {
             return Err(InstructionalScienceContractError::ClaimEstimandMismatch);
         }
@@ -1123,6 +1182,7 @@ pub enum InstructionalScienceContractError {
     InvalidAnalysisExecution,
     InvalidUncertaintyReceipt,
     InvalidAnalysisResultReceipt,
+    InvalidAnalysisOutcomeSemantics,
     ZeroAnalysisResultVersion,
     AnalysisResultEstimandMismatch,
     NegativeAnalysisResultGeneratedAt,
@@ -2015,6 +2075,11 @@ mod tests {
         let result=InstructionalAnalysisResultReceipt{
             result_id:"result-1".into(), result_version:1, analysis:analysis.clone(),
             estimand_ref:InstructionalEstimandRef{estimand_digest:"blake3:estimand".into()},
+            outcome_measure_id:"outcome".into(),
+            outcome_measure_version:"1".into(),
+            outcome_measure_digest:"blake3:outcome".into(),
+            analysis_metric:InstructionalAnalysisMetric::FinalValue,
+            summary_measure:InstructionalSummaryMeasure::Mean,
             effect_measure:"mean difference".into(), point_estimate:"0.20".into(),
             scale:"difference".into(), unit:"score".into(), aggregation:"population-level".into(),
             timepoint:"post-intervention".into(), result_digest:"blake3:result".into(), generated_at:200,
@@ -2023,6 +2088,59 @@ mod tests {
         let mut mismatched=result.clone();
         mismatched.estimand_ref.estimand_digest="blake3:other".into();
         assert_eq!(mismatched.validate(),Err(InstructionalScienceContractError::AnalysisResultEstimandMismatch));
+    }
+
+    #[test]
+    fn analysis_outcome_semantics_reject_empty_custom_values() {
+        assert_eq!(
+            InstructionalAnalysisMetric::Other(String::new()).validate(),
+            Err(InstructionalScienceContractError::InvalidAnalysisOutcomeSemantics)
+        );
+        assert_eq!(InstructionalAnalysisMetric::FinalValue.validate(), Ok(()));
+        assert_eq!(
+            InstructionalSummaryMeasure::Other(String::new()).validate(),
+            Err(InstructionalScienceContractError::InvalidAnalysisOutcomeSemantics)
+        );
+        assert_eq!(InstructionalSummaryMeasure::Mean.validate(), Ok(()));
+    }
+
+    #[test]
+    fn result_binds_exact_outcome_measure_identity() {
+        let analysis = InstructionalAnalysisRef {
+            analysis_id: "analysis-outcome".into(),
+            analysis_version: 1,
+            analysis_digest: "blake3:analysis-outcome".into(),
+            estimand_ref: InstructionalEstimandRef {
+                estimand_digest: "blake3:estimand".into(),
+            },
+        };
+        let mut result = InstructionalAnalysisResultReceipt {
+            result_id: "result-outcome".into(),
+            result_version: 1,
+            analysis,
+            estimand_ref: InstructionalEstimandRef {
+                estimand_digest: "blake3:estimand".into(),
+            },
+            outcome_measure_id: "outcome".into(),
+            outcome_measure_version: "1".into(),
+            outcome_measure_digest: "blake3:outcome".into(),
+            analysis_metric: InstructionalAnalysisMetric::FinalValue,
+            summary_measure: InstructionalSummaryMeasure::Mean,
+            effect_measure: "mean".into(),
+            point_estimate: "0.20".into(),
+            scale: "difference".into(),
+            unit: "score".into(),
+            aggregation: "population-level".into(),
+            timepoint: "post-intervention".into(),
+            result_digest: "blake3:result-outcome".into(),
+            generated_at: 200,
+        };
+        assert_eq!(result.validate(), Ok(()));
+        result.outcome_measure_digest = String::new();
+        assert_eq!(
+            result.validate(),
+            Err(InstructionalScienceContractError::InvalidAnalysisResultReceipt)
+        );
     }
 
     #[test]
@@ -2036,6 +2154,7 @@ mod tests {
             analysis_plan_status: InstructionalAnalysisPlanStatus::Locked,
             outcome_measure_id: "outcome".into(),
             outcome_measure_version: "1".into(),
+            outcome_measure_digest: "blake3:outcome".into(),
             input_observation_set_digest: "blake3:inputs".into(),
             cohort_definition_digest: "blake3:cohort".into(),
             inclusion_rules_digest: "blake3:include".into(),
