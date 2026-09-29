@@ -58,6 +58,7 @@ enum Op {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Effect {
     Applied,
+    Duplicate,
     Rejected,
     Halted,
     HistoricalCompletionPreserved,
@@ -249,7 +250,7 @@ impl Model {
                 if self.observations.is_empty() {
                     Effect::Rejected
                 } else {
-                    Effect::Applied
+                    Effect::Duplicate
                 }
             },
             Op::Commit => {
@@ -347,7 +348,12 @@ fn apply_op(record: &mut DeliveryRecord<ModelBinding>, op: Op) -> Result<(), Del
         Op::DuplicateLast => {
             let observation = record.observations().last().cloned();
             match observation {
-                Some(o) => record.observe(o).map(|_| ()),
+                Some(o) => match record.observe(o) {
+                    Ok(mycelix_constitutional_effect_delivery::ObservationResult::Duplicate { .. }) => {
+                        Ok(())
+                    }
+                    other => panic!("duplicate observation did not return Duplicate: {other:?}"),
+                },
                 None => Err(DeliveryError::WrongAttempt),
             }
         }
@@ -421,6 +427,10 @@ fn bounded_mutation_model_checks_prefixes_and_recovery() {
                     Effect::VolatileOnly => {
                         assert!(actual.is_ok(), "step {index} {op:?}");
                         assert_eq!(record.snapshot(), before, "volatile mutation leaked at {index}");
+                    }
+                    Effect::Duplicate => {
+                        assert!(actual.is_ok(), "step {index} {op:?}: {actual:?}");
+                        assert_eq!(record.snapshot(), before, "duplicate mutated durable state at {index}");
                     }
                     Effect::HistoricalCompletionPreserved => {
                         assert_eq!(actual, Err(DeliveryError::AlreadyCompleted), "step {index} {op:?}");
