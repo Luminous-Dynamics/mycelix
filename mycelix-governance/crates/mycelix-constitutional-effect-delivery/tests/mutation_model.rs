@@ -245,7 +245,13 @@ impl Model {
                 }
                 self.observe(attempt, ObservationKind::ReconciliationSuccess)
             }
-            Op::DuplicateLast => Effect::Rejected,
+            Op::DuplicateLast => {
+                if self.observations.is_empty() {
+                    Effect::Rejected
+                } else {
+                    Effect::Applied
+                }
+            },
             Op::Commit => {
                 if self.completion {
                     return Effect::HistoricalCompletionPreserved;
