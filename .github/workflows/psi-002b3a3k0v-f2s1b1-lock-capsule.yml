@@ -42,6 +42,10 @@ jobs:
           rm -f Cargo.lock
           cargo +1.96.0 generate-lockfile --manifest-path Cargo.toml
           test -s Cargo.lock
+          cp Cargo.lock Cargo.lock.first
+          cargo +1.96.0 generate-lockfile --manifest-path Cargo.toml
+          cmp Cargo.lock.first Cargo.lock
+          rm Cargo.lock.first
           sha256sum Cargo.lock | tee Cargo.lock.sha256
 
       - name: Freeze dependency/source inventory
@@ -85,6 +89,7 @@ jobs:
         run: |
           cargo +1.96.0 fetch --manifest-path Cargo.toml --locked
           cargo +1.96.0 metadata --manifest-path Cargo.toml --locked --offline --format-version 1 > metadata-offline.json
+          cargo +1.96.0 tree --manifest-path Cargo.toml --locked --offline > cargo-tree-offline.txt
           python3 - <<'PY'
           import json
           from pathlib import Path
@@ -104,6 +109,7 @@ jobs:
               return json.dumps(normalize(value), sort_keys=True, separators=(",", ":"))
 
           assert canonical("cargo-metadata.json") == canonical("metadata-offline.json"), "locked/offline metadata differs"
+          assert Path("cargo-tree.txt").read_text() == Path("cargo-tree-offline.txt").read_text(), "locked/offline dependency trees differ"
           Path("cargo-metadata.canonical.json").write_text(canonical("cargo-metadata.json") + "\n")
           PY
 
@@ -115,6 +121,7 @@ jobs:
           cp qualification/psi-002b3a3k0v-f2s1-validator/Cargo.lock.sha256 capsule/
           cp qualification/psi-002b3a3k0v-f2s1-validator/cargo-metadata.canonical.json capsule/
           cp qualification/psi-002b3a3k0v-f2s1-validator/cargo-tree.txt capsule/
+          cp qualification/psi-002b3a3k0v-f2s1-validator/cargo-tree-offline.txt capsule/
           cp qualification/psi-002b3a3k0v-f2s1-validator/dependency-source-inventory.v1.json capsule/
           cp qualification/psi-002b3a3k0v-f2s1-validator/dependency-source-inventory.v1.sha256 capsule/
           cp runner-uname.txt runner-os-release.txt runner-python-version.txt capsule/
