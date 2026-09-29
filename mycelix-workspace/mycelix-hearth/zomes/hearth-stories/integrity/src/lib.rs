@@ -163,6 +163,15 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         }
         FlatOp::CreateRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Update(OpUpdate::Entry { action, .. }) => {
+            let original = must_get_action(action.original_action_address.clone())?;
+            Ok(check_author_match(
+                original.action().author(),
+                action.author(),
+                "update",
+            ))
+        }
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Valid),
         
         FlatOp::Delete(OpDelete { action, .. }) => {
             let original = must_get_action(action.deletes_address.clone())?;
