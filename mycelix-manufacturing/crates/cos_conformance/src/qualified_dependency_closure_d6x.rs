@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 pub const D6X_SCHEMA_VERSION: &str = "D6X-1";
-pub const D6X_ALGORITHM_VERSION: &str = "D6X-CLOSURE-2";
+pub const D6X_ALGORITHM_VERSION: &str = "D6X-CLOSURE-3";
 pub const D6X_CLAIM_CEILING: &str = D6S_CLAIM_CEILING;
 
 fn non_empty(v: &str) -> bool { !v.trim().is_empty() }
@@ -567,6 +567,24 @@ mod tests {
         assert!(c.dependencies.contains(&SemanticDependencyReferenceV1::node("dep", Some("commit-dep".into()))));
         assert!(c.dependencies.contains(&SemanticDependencyReferenceV1::edge("e1", Some("edge-e1".into()))));
         assert_eq!(c.dependencies.len(), 3);
+    }
+
+    #[test]
+    fn currentness_marks_the_affected_dependency_stale() {
+        let (mut a,e,d)=projection(false);
+        a.nodes.get_mut("dep").unwrap().historical_only = true;
+        let mut p=profile(BTreeSet::new());
+        p.rules = [DependencyRuleV1 {
+            edge_kind: ClaimGraphEdgeKindV1::Supports,
+            from_kind: Some(ClaimGraphNodeKindV1::Statement),
+            to_kind: Some(ClaimGraphNodeKindV1::Evidence),
+            currentness: DependencyCurrentnessV1::CurrentOnly,
+        }].into_iter().collect();
+        let c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
+        let dep=SemanticDependencyReferenceV1::node("dep", Some("commit-dep".into()));
+        assert_eq!(c.status, DependencyClosureStatusV1::BlockedCurrentness);
+        assert_eq!(c.dependency_resolutions.get(&dep), Some(&SemanticDependencyResolutionV1::Stale));
+        assert!(c.valid());
     }
 
     #[test]
