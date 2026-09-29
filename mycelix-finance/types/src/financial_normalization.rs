@@ -509,7 +509,7 @@ mod tests {
             session: None,
             evidence_refs: vec![],
             factor_observation: multiplier.map(|v| NormalizationFactorObservation {
-                factor_id: "factor-1".into(), kind: match adjustment { AdjustmentKind::CurrencyConversion => NormalizationFactorKind::FxRate { base_currency: "USD".into(), quote_currency: "EUR".into() }, AdjustmentKind::Split => NormalizationFactorKind::SplitRatio, AdjustmentKind::Dividend => NormalizationFactorKind::DividendPerShare { currency: "USD".into() }, _ => NormalizationFactorKind::UnitConversion { from_unit: "USD".into(), to_unit: "EUR".into() } },
+                factor_id: "factor-1".into(), source_id: "factor-src".into(), evidence_id: "factor-1-evidence".into(), kind: match adjustment { AdjustmentKind::CurrencyConversion => NormalizationFactorKind::FxRate { base_currency: "USD".into(), quote_currency: "EUR".into() }, AdjustmentKind::Split => NormalizationFactorKind::SplitRatio, AdjustmentKind::Dividend => NormalizationFactorKind::DividendPerShare { currency: "USD".into() }, _ => NormalizationFactorKind::UnitConversion { from_unit: "USD".into(), to_unit: "EUR".into() } },
                 value: DecimalValue { value: v.into(), scale: multiplier_scale }, status: EvidenceStatus::Known, observed_at_micros: 1_700_000_000_000_100, available_at_micros: Some(1_700_000_000_000_300), effective_from_micros: Some(0), effective_to_micros: None,
                 source: SourceRef { source_id: "factor-src".into(), provider_id: "factor-provider".into(), common_ancestry_id: Some("factor-upstream".into()), retrieved_at_micros: 1_700_000_000_000_400 }, information_frontier: InformationFrontier { as_of_micros: 1_700_000_000_000_000, frontier_id: "frontier-1".into() },
             }),
@@ -666,6 +666,8 @@ mod factor_binding_tests {
     fn factor(id: &str, value: &str, status: EvidenceStatus, available: i64, base: &str, quote: &str) -> NormalizationFactorObservation {
         NormalizationFactorObservation {
             factor_id: id.into(),
+            source_id: format!("factor-src-{id}"),
+            evidence_id: format!("factor-evidence-{id}"),
             kind: NormalizationFactorKind::FxRate { base_currency: base.into(), quote_currency: quote.into() },
             value: DecimalValue { value: value.into(), scale: 1 },
             status,
@@ -751,7 +753,7 @@ mod frontier_tests {
     fn fx_evidence(available: i64, status: EvidenceStatus) -> EvidenceRef {
         let o=obs(); EvidenceRef { evidence_id: "fx-1".into(), artifact_id: None, source: o.source, status, observed_at_micros: Some(available-1), available_at_micros: Some(available), information_frontier: frontier(available) }
     }
-    fn fx_recipe(e: EvidenceRef) -> NormalizationRecipe { NormalizationRecipe { recipe_id: "fx-r1".into(), adjustment: AdjustmentKind::CurrencyConversion, target_unit: Some(MarketUnit::Price { currency: "EUR".into() }), multiplier: Some(DecimalValue { value: "0.9".into(), scale: 1 }), output_scale: Some(2), session: None, evidence_refs: vec![e.clone()], factor_observation: Some(NormalizationFactorObservation { factor_id: e.evidence_id.clone(), kind: NormalizationFactorKind::FxRate { base_currency: "USD".into(), quote_currency: "EUR".into() }, value: DecimalValue { value: "0.9".into(), scale: 1 }, status: e.status, observed_at_micros: e.observed_at_micros.unwrap_or(0), available_at_micros: e.available_at_micros, effective_from_micros: Some(0), effective_to_micros: None, source: e.source.clone(), information_frontier: e.information_frontier.clone() }) } }
+    fn fx_recipe(e: EvidenceRef) -> NormalizationRecipe { NormalizationRecipe { recipe_id: "fx-r1".into(), adjustment: AdjustmentKind::CurrencyConversion, target_unit: Some(MarketUnit::Price { currency: "EUR".into() }), multiplier: Some(DecimalValue { value: "0.9".into(), scale: 1 }), output_scale: Some(2), session: None, evidence_refs: vec![e.clone()], factor_observation: Some(NormalizationFactorObservation { factor_id: e.evidence_id.clone(), source_id: e.source.source_id.clone(), evidence_id: e.evidence_id.clone(), kind: NormalizationFactorKind::FxRate { base_currency: "USD".into(), quote_currency: "EUR".into() }, value: DecimalValue { value: "0.9".into(), scale: 1 }, status: e.status, observed_at_micros: e.observed_at_micros.unwrap_or(0), available_at_micros: e.available_at_micros, effective_from_micros: Some(0), effective_to_micros: None, source: e.source.clone(), information_frontier: e.information_frontier.clone() }) } }
     #[test] fn future_fx_is_rejected_at_historical_frontier() { assert_eq!(normalize_observation_at_frontier(&obs(), &fx_recipe(fx_evidence(150, EvidenceStatus::Known)), &frontier(120)), Err(NormalizationError::EvidenceUnavailableAtFrontier)); }
     #[test] fn protected_fx_is_rejected_even_when_available() { assert_eq!(normalize_observation_at_frontier(&obs(), &fx_recipe(fx_evidence(105, EvidenceStatus::Protected)), &frontier(120)), Err(NormalizationError::ProtectedEvidence)); }
     #[test] fn available_fx_can_be_used_at_frontier() { let r=normalize_observation_at_frontier(&obs(), &fx_recipe(fx_evidence(105, EvidenceStatus::Known)), &frontier(120)).unwrap(); assert_eq!(r.evidence_refs.len(), 1); }
