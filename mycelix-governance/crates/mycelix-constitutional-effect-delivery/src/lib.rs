@@ -747,6 +747,9 @@ impl<B: EffectBinding> DeliveryRecord<B> {
     }
 
     fn require_binding(&mut self, binding: &B) -> Result<(), DeliveryError> {
+        if self.state == DeliveryState::IntegrityHalted {
+            return Err(DeliveryError::RetryNotPermitted(self.state));
+        }
         if &self.binding == binding {
             Ok(())
         } else {
@@ -1484,6 +1487,85 @@ mod tests {
         assert_eq!(record.attempts()[1].binding().payload_commitment(), &30);
         assert_eq!(record.attempts()[1].binding().sink_root(), &40);
         assert_eq!(record.attempts()[1].binding().sink_epoch(), &1);
+    }
+
+    #[test]
+    fn halted_retry_paths_reject_wrong_binding_without_mutation() {
+        let mut record = record(ReplayProfile::IdempotentByEffectInstance);
+        let permit = record.start_initial_attempt(&binding()).unwrap();
+        record
+            .observe(Observation::outcome_unknown(binding(), permit.attempt_id(), 8))
+            .unwrap();
+        record
+            .observe(Observation::reconciliation_no_effect(
+                binding(),
+                permit.attempt_id(),
+                9,
+                1,
+            ))
+            .unwrap();
+
+        let before = record.snapshot();
+
+        assert_eq!(
+            record.start_initial_attempt(&drifted()),
+            Err(DeliveryError::RetryNotPermitted(DeliveryState::IntegrityHalted))
+        );
+        assert_eq!(
+            record.retry_same_effect(&drifted()),
+            Err(DeliveryError::RetryNotPermitted(DeliveryState::IntegrityHalted))
+        );
+        assert_eq!(
+            record.retry_after_no_effect(&drifted()),
+            Err(DeliveryError::RetryNotPermitted(DeliveryState::IntegrityHalted))
+        );
+        assert_eq!(record.snapshot(), before);
+    }
+
+    #[test]
+    fn pre_halt_binding_drift_still_halts() {
+        let mut record = record(ReplayProfile::IdempotentByEffectInstance);
+        let before = record.snapshot();
+
+        assert_eq!(
+            record.start_initial_attempt(&drifted()),
+            Err(DeliveryError::BindingMismatch)
+        );
+        assert_eq!(record.state(), DeliveryState::IntegrityHalted);
+        assert_ne!(record.snapshot(), before);
+        assert_eq!(
+            record.halt_provenance().map(|p| p.reason_code()),
+            Some(HaltReason::BindingDrift)
+        );
+    }
+
+    #[test]
+    fn halted_initial_attempt_with_correct_binding_is_rejected_without_mutation() {
+        let mut record = record(ReplayProfile::NoAutomaticRetry);
+        let permit = record.start_initial_attempt(&binding()).unwrap();
+        record
+            .observe(Observation::semantic_success(
+                binding(),
+                permit.attempt_id(),
+                10,
+            ))
+            .unwrap();
+        record.commit_completion().unwrap();
+        record
+            .observe(Observation::reconciliation_no_effect(
+                binding(),
+                permit.attempt_id(),
+                11,
+                1,
+            ))
+            .unwrap();
+
+        let before = record.snapshot();
+        assert_eq!(
+            record.start_initial_attempt(&binding()),
+            Err(DeliveryError::RetryNotPermitted(DeliveryState::IntegrityHalted))
+        );
+        assert_eq!(record.snapshot(), before);
     }
 
     #[test]
