@@ -236,10 +236,20 @@ impl DependencyClosureCertificateV1 {
                 self.included_node_ids.contains(from) && self.included_node_ids.contains(to)
                     && self.included_edge_commitments.contains(commitment))
             && self.closure_identity_commitment == self.closure_identity()
-            && match self.status {
-                DependencyClosureStatusV1::Complete => self.missing_dependency_ids.is_empty(),
-                DependencyClosureStatusV1::BlockedMissingDependency => !self.missing_dependency_ids.is_empty(),
-                DependencyClosureStatusV1::BlockedCurrentness | DependencyClosureStatusV1::BlockedResourceLimit => true,
+            && {
+                let has_stale = self.dependencies.iter().any(|dependency| {
+                    self.dependency_resolutions.get(dependency) == Some(&SemanticDependencyResolutionV1::Stale)
+                });
+                match self.status {
+                    DependencyClosureStatusV1::Complete =>
+                        self.missing_dependency_ids.is_empty() && !has_stale,
+                    DependencyClosureStatusV1::BlockedMissingDependency =>
+                        !self.missing_dependency_ids.is_empty(),
+                    DependencyClosureStatusV1::BlockedCurrentness =>
+                        has_stale,
+                    DependencyClosureStatusV1::BlockedResourceLimit =>
+                        !has_stale,
+                }
             }
             && self.commitment == self.recompute()
     }
@@ -252,12 +262,12 @@ impl DependencyClosureCertificateV1 {
                 .map(|(id, commitment)| SemanticDependencyReferenceV1::node(id.clone(), Some(commitment.clone()))),
         );
         expected.extend(
-            self.included_edges.iter().map(|(id, (_from, _to, _kind, commitment))|
+            self.included_edges.iter().map(|(id, (from, to, kind, commitment))|
                 SemanticDependencyReferenceV1::edge(
                     id.clone(),
-                    self.included_edges.get(id).map(|edge| edge.0.clone()).unwrap_or_default(),
-                    self.included_edges.get(id).map(|edge| edge.1.clone()).unwrap_or_default(),
-                    self.included_edges.get(id).map(|edge| edge.2).unwrap_or(ClaimGraphEdgeKindV1::Provenance),
+                    from.clone(),
+                    to.clone(),
+                    *kind,
                     Some(commitment.clone()),
                 )
             ),
@@ -716,6 +726,15 @@ mod tests {
         assert_eq!(c.dependency_resolutions.get(&SemanticDependencyReferenceV1::node("root", Some("commit-root".into()))), Some(&SemanticDependencyResolutionV1::Present));
         assert_eq!(c.dependency_resolutions.get(&SemanticDependencyReferenceV1::node("missing", None)), Some(&SemanticDependencyResolutionV1::Missing));
         assert!(c.valid());
+    }
+
+    #[test]
+    fn arbitrary_stale_resolution_cannot_make_a_complete_certificate_valid() {
+        let (a,e,d)=projection(false); let p=profile(BTreeSet::new());
+        let mut c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
+        let dep=SemanticDependencyReferenceV1::node("dep", Some("commit-dep".into()));
+        c.dependency_resolutions.insert(dep, SemanticDependencyResolutionV1::Stale);
+        assert!(!c.valid());
     }
 
     #[test]
