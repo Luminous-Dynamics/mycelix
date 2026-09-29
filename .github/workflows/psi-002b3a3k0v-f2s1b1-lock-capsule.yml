@@ -175,6 +175,27 @@ jobs:
           cargo +1.96.0 --version --verbose > capsule/cargo-1.96.0.txt
           sha256sum capsule/* | sort > capsule/manifest.sha256
 
+      - name: Self-audit capsule manifest
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          from pathlib import Path
+
+          capsule = Path("capsule")
+          files = sorted(p for p in capsule.iterdir() if p.is_file() and p.name != "manifest.sha256")
+          expected = [p.name for p in files]
+          recorded = []
+          for line in Path(capsule / "manifest.sha256").read_text().splitlines():
+              digest, name = line.split("  ", 1)
+              recorded.append(name)
+              actual = hashlib.sha256((capsule / name).read_bytes()).hexdigest()
+              assert actual == digest, f"capsule digest mismatch: {name}"
+
+          assert recorded == sorted(expected), "capsule manifest file set mismatch"
+          assert len(recorded) == len(set(recorded)), "capsule manifest contains duplicate paths"
+          assert "manifest.sha256" not in recorded, "manifest must not self-reference"
+          PY
+
       - name: Upload lock capsule
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
