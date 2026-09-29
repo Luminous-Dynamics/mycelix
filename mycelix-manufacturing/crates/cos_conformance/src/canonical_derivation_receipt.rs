@@ -19,7 +19,12 @@ use std::collections::{BTreeMap, BTreeSet};
 pub const D6S_CLAIM_CEILING: &str =
     "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim.";
 pub const D6S_REFERENCE_CANONICALIZATION_VERSION: &str = "D6S-CANON-1";
-pub const D6S_HASH_DOMAIN: &[u8] = b"MYCELIX-INTEGRAL-D6S-RECEIPT-V1\\0";
+pub const D6S_HASH_DOMAIN: &[u8] = b"MYCELIX-INTEGRAL-D6S-RECEIPT-V1\0";
+pub const D6S_DOMAIN_ENVIRONMENT: &str = "environment";
+pub const D6S_DOMAIN_DERIVATION_PROFILE: &str = "derivation-profile";
+pub const D6S_DOMAIN_PROJECTION: &str = "qualified-projection";
+pub const D6S_DOMAIN_RECEIPT: &str = "canonical-receipt";
+pub const D6S_DOMAIN_D6P_CONTEXT_SET: &str = "d6p-context-set";
 
 fn non_empty(value: &str) -> bool {
     !value.trim().is_empty()
@@ -64,7 +69,7 @@ impl SemanticEnvironmentV1 {
     }
 
     pub fn commitment(&self) -> String {
-        canonical_sha256(self)
+        canonical_sha256(D6S_DOMAIN_ENVIRONMENT, self)
     }
 }
 
@@ -87,7 +92,7 @@ impl DerivationProfileV1 {
     }
 
     pub fn commitment(&self) -> String {
-        canonical_sha256(self)
+        canonical_sha256(D6S_DOMAIN_DERIVATION_PROFILE, self)
     }
 }
 
@@ -216,7 +221,7 @@ impl QualifiedProjectionV1 {
     }
 
     pub fn commitment(&self) -> String {
-        canonical_sha256(self)
+        canonical_sha256(D6S_DOMAIN_PROJECTION, self)
     }
 }
 
@@ -299,10 +304,13 @@ pub fn canonical_bytes<T: Serialize>(value: &T) -> Result<Vec<u8>, String> {
 }
 
 /// D6S-CANON-1 commitment with an explicit domain separator.
-pub fn canonical_sha256<T: Serialize>(value: &T) -> String {
+pub fn canonical_sha256<T: Serialize>(domain: &str, value: &T) -> String {
+    assert!(!domain.is_empty(), "D6S commitment domain must be non-empty");
     let bytes = canonical_bytes(value).expect("D6S-CANON-1 values are serializable");
-    let mut input = Vec::with_capacity(D6S_HASH_DOMAIN.len() + bytes.len());
+    let mut input = Vec::with_capacity(D6S_HASH_DOMAIN.len() + domain.len() + bytes.len() + 1);
     input.extend_from_slice(D6S_HASH_DOMAIN);
+    input.extend_from_slice(domain.as_bytes());
+    input.push(0);
     input.extend_from_slice(&bytes);
     sha256_hex(&input)
 }
@@ -381,7 +389,7 @@ fn write_canonical_string(value: &str, out: &mut Vec<u8>) {
 }
 
 pub fn commitment_set_digest(values: &BTreeSet<String>) -> String {
-    canonical_sha256(values)
+    canonical_sha256(D6S_DOMAIN_D6P_CONTEXT_SET, values)
 }
 
 fn result_flags_are_consistent(
@@ -606,7 +614,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn d6t_golden_vectors_are_stable() {
         let cases = [
             (serde_json::json!({}), "{}"),
@@ -633,6 +640,8 @@ mod tests {
             "{\"\u{10000}\":1,\"\u{e000}\":2}"
         );
     }
+
+    #[test]
     fn d6t_rejects_non_integral_numbers() {
         let value = serde_json::json!({"fraction": 1.5});
         assert!(canonical_bytes(&value).is_err());
@@ -642,15 +651,28 @@ mod tests {
     fn d6t_hash_domain_is_not_plain_sha256_of_json() {
         let value = serde_json::json!({"a": 1});
         let bytes = canonical_bytes(&value).unwrap();
-        assert_ne!(canonical_sha256(&value), sha256_hex(&bytes));
+        assert_ne!(canonical_sha256(D6S_DOMAIN_PROJECTION, &value), sha256_hex(&bytes));
+    }
+
+    #[test]
+    fn d6t_domain_separation_vector_is_frozen() {
+        let value = serde_json::json!({"a": 1});
+        assert_eq!(
+            canonical_sha256(D6S_DOMAIN_PROJECTION, &value),
+            "8672b6e3d69e4dffb5d88ba51f789cbabbead62fd14246d1c5d5322973001ab8"
+        );
+        assert_ne!(
+            canonical_sha256(D6S_DOMAIN_PROJECTION, &value),
+            canonical_sha256(D6S_DOMAIN_RECEIPT, &value)
+        );
     }
 
     #[test]
     fn d6t_mutating_a_material_field_changes_commitment() {
         let mut value = serde_json::json!({"environment": "env-1", "result": "result-1"});
-        let before = canonical_sha256(&value);
+        let before = canonical_sha256(D6S_DOMAIN_PROJECTION, &value);
         value["environment"] = serde_json::json!("env-2");
-        assert_ne!(before, canonical_sha256(&value));
+        assert_ne!(before, canonical_sha256(D6S_DOMAIN_PROJECTION, &value));
     }
 
     #[test]
