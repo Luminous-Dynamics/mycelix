@@ -1902,4 +1902,61 @@ mod tests {
         // Active count: only 2 (founder + youth)
         assert_eq!(count_active_memberships(&memberships), 2);
     }
+    
+    #[test]
+    fn active_catalog_membership_resolution_ignores_departed_history() {
+        let agent = fake_agent_a();
+        let memberships = vec![
+            make_membership(&agent, MemberRole::Adult, MembershipStatus::Departed),
+            make_membership(&agent, MemberRole::Adult, MembershipStatus::Active),
+        ];
+
+        assert_eq!(
+            resolve_active_membership_role(&memberships, &agent).unwrap(),
+            Some(MemberRole::Adult)
+        );
+    }
+
+    #[test]
+    fn active_catalog_membership_resolution_returns_none_without_active_membership() {
+        let agent = fake_agent_a();
+        let memberships = vec![make_membership(
+            &agent,
+            MemberRole::Adult,
+            MembershipStatus::Departed,
+        )];
+
+        assert_eq!(
+            resolve_active_membership_role(&memberships, &agent).unwrap(),
+            None
+        );
+    }
+
+    #[test]
+    fn active_catalog_membership_resolution_rejects_conflicting_active_memberships() {
+        let agent = fake_agent_a();
+        let memberships = vec![
+            make_membership(&agent, MemberRole::Adult, MembershipStatus::Active),
+            make_membership(&agent, MemberRole::Founder, MembershipStatus::Active),
+        ];
+
+        assert!(resolve_active_membership_role(&memberships, &agent).is_err());
+    }
+
+    #[test]
+    fn active_catalog_membership_resolution_ignores_other_agents() {
+        let agent = fake_agent_a();
+        let other = fake_agent_b();
+        let memberships = vec![make_membership(
+            &other,
+            MemberRole::Founder,
+            MembershipStatus::Active,
+        )];
+
+        assert_eq!(
+            resolve_active_membership_role(&memberships, &agent).unwrap(),
+            None
+        );
+    }
+
 }
