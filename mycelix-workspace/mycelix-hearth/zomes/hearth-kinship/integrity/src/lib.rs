@@ -240,14 +240,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             Ok(ValidateCallbackResult::Valid)
         }
 
-        FlatOp::Update(update) => {
-            let action = match &update {
-                OpUpdate::Entry { action, .. }
-                | OpUpdate::PrivateEntry { action, .. }
-                | OpUpdate::Agent { action, .. }
-                | OpUpdate::CapClaim { action, .. }
-                | OpUpdate::CapGrant { action, .. } => action,
-            };
+        FlatOp::Update(OpUpdate::Entry { action, .. }) => {
             let original = must_get_action(action.original_action_address.clone())?;
             Ok(check_author_match(
                 original.action().author(),
@@ -255,6 +248,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 "update",
             ))
         }
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Valid)
         FlatOp::Delete(OpDelete { action }) => {
             let original = must_get_action(action.deletes_address.clone())?;
             Ok(check_author_match(
