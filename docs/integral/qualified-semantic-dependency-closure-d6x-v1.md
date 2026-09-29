@@ -120,7 +120,9 @@ The reference model currently includes fixtures for:
 25. resolution evidence for an unselected dependency invalidates the certificate;
 26. selected-dependency observed commitments in resolution evidence must match the dependency commitment when supplied;
 27. missing-dependency resolution evidence cannot claim an observed semantic commitment;
-28. resolution evidence may omit an observed commitment while retaining independent retrieval/qualification context evidence.
+28. resolution evidence may omit an observed commitment while retaining independent retrieval/qualification context evidence;
+29. the runtime-neutral resolution adapter distinguishes Action, Entry, and External address domains without importing those runtime identifiers into semantic identity;
+30. Retrieved attempts require an observed commitment, while unavailable/historical attempts may preserve an address without claiming observed semantic content.
 
 Before interoperability or production claims, add cross-language golden vectors, currentness/D6P fixtures, contradiction-preservation fixtures, cycle fixtures, resource-limit fixtures, and execute the Rust/WASM/Holochain conformance corpus.
 
@@ -131,3 +133,16 @@ Claim ceiling: **ReferenceModelOnly**.
 D6X semantic dependency identity is intentionally kept independent of runtime retrieval evidence. The certificate may carry optional `SemanticDependencyResolutionEvidenceV1` keyed only by selected/missing dependencies; this is audit/provenance material and participates in the certificate commitment, but is excluded from `closure_identity_commitment`. A dependency reference says **what semantic object is required**; its resolution state says whether the closure selected it as present, missing, or stale under the named profile. Future Holochain addresses, retrieval receipts, validator observations, and retry metadata should be represented as resolution evidence rather than silently incorporated into the semantic dependency identity. This lets retrieval evidence vary while preserving the semantic dependency identity. Evidence is nevertheless not unconstrained: it must reference a selected or missing dependency, a supplied observed commitment must agree with the semantic dependency commitment for `Present`/`Stale` resolutions, and `Missing` resolutions cannot claim observed semantic content. Retrieval references and qualification-context commitments remain independent audit fields.
 
 This separation matches the architectural direction suggested by Holochain's validation model: dependencies used for deterministic validation need addressable retrieval, and unavailable dependencies are represented as unresolved so validation can be retried. D6X remains a reference-model analogue, not a claim of runtime equivalence. 
+
+
+## Runtime resolution adapter boundary
+
+The reference model now exposes a separate d6x_resolution_adapter layer. It defines audit-only address and attempt domains:
+
+- Action — suitable for a runtime mapping such as Holochain ActionHash;
+- Entry — suitable for a runtime mapping such as Holochain EntryHash;
+- External — suitable for a runtime mapping such as Holochain ExternalHash.
+
+These are deliberately adapter concepts, not additional semantic dependency kinds. The adapter can record whether a retrieval was Retrieved, Unavailable, or Historical, and can carry observed and qualification-context commitments. It converts into the existing opaque D6X resolution-evidence payload without changing closure_identity_commitment.
+
+This boundary matters because Holochain distinguishes action, entry, and external identifiers, and its validation model treats unavailable deterministic dependencies as unresolved rather than as ordinary validation failure. D6X therefore keeps the runtime address and retrieval outcome in audit evidence while leaving the semantic closure to describe only the dependency itself and its profile-derived resolution state. Holochain-specific runtime behavior remains outside the ReferenceModelOnly contract.
