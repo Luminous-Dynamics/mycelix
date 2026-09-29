@@ -1,0 +1,14 @@
+[package]
+name = "mycelix-forge-review-basis-currentness-trust-context"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+publish = false
+
+[dependencies]
+mycelix-forge-core = { path = "../mycelix-forge-core" }
+mycelix-forge-merge-protected-review-basis = { path = "../mycelix-forge-merge-protected-review-basis" }
+mycelix-forge-proposal = { path = "../mycelix-forge-proposal" }
+mycelix-forge-review-basis-currentness = { path = "../mycelix-forge-review-basis-currentness" }
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
