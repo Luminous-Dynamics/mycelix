@@ -654,7 +654,7 @@ mod tests {
             provider_operation_id: "operation".into(), provider_profile_root: "provider-profile".into(),
             semantic_environment_root: "env".into(), observation_set_id: "set".into(), observation_set_commitment: "set-c".into(),
             d6n_assessment_commitment: "d6n-c".into(), witness_eligibility_ids: ["w".into()].into_iter().collect(),
-            observer_generation_ids: ["g".into()].into_iter().collect(), current_frontier_root: "frontier".into(),
+            observer_generation_ids: ["g".into()].into_iter().collect(), current_frontier_root: "frontier-1".into(),
             lifecycle_profile_id: "life".into(), eligible_independent_count: 1, preserved_contradictory_count: 0,
             disposition: FinalityEligibilityDispositionV1::EligibleCurrent, qualification_transition_id: "t".into(),
             receipt_commitment: "d6p-commitment".into(),
