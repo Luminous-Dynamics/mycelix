@@ -64,3 +64,4 @@ The repository also contains a dependency-free evidence consumer at `tools/verif
 The lock-capsule workflow runs this verifier **after packaging and before artifact upload**. This creates a producer/consumer separation: the workflow constructs the evidence, while a separate implementation independently checks the packaged evidence graph.
 
 The verifier's own PASS message is limited to **evidence integrity only**. It does not qualify JSON Schema semantics, currentness, issuer-key admission, token validity, replay authorization, PSI, or contact-discovery security.
+The verifier is accompanied by `tools/test_verify_capsule_negative.py`, which first checks a synthetic baseline capsule and then requires rejection of tampering cases: provenance mutation, lock mutation, manifest mutation, missing file, extra file, symlink insertion, duplicate manifest entry, and digest mismatch. The workflow executes these tests before uploading the capsule.
