@@ -84,6 +84,8 @@ pub struct DependencyClosureCertificateV1 {
     pub closure_profile_commitment: String,
     pub source_dkg_snapshot_commitment: String,
     pub projection_commitment: String,
+    /// Candidate-independent identity of the selected semantic closure.
+    pub closure_identity_commitment: String,
     pub semantic_environment_commitment: String,
     pub derivation_profile_commitment: String,
     pub root_node_ids: BTreeSet<String>,
@@ -104,6 +106,7 @@ impl DependencyClosureCertificateV1 {
             && non_empty(&self.closure_profile_commitment)
             && non_empty(&self.source_dkg_snapshot_commitment)
             && non_empty(&self.projection_commitment)
+            && non_empty(&self.closure_identity_commitment)
             && non_empty(&self.semantic_environment_commitment)
             && non_empty(&self.derivation_profile_commitment)
             && !self.root_node_ids.is_empty()
@@ -121,6 +124,25 @@ impl DependencyClosureCertificateV1 {
             }
             && self.commitment == self.recompute()
     }
+    pub fn closure_identity(&self) -> String {
+        let identity = (
+            &self.schema_version,
+            &self.algorithm_version,
+            &self.closure_profile_commitment,
+            &self.source_dkg_snapshot_commitment,
+            &self.semantic_environment_commitment,
+            &self.derivation_profile_commitment,
+            &self.root_node_ids,
+            &self.included_node_ids,
+            &self.included_edges,
+            &self.missing_dependency_ids,
+            &self.status,
+            &self.cycle_detected,
+            &self.claim_ceiling,
+        );
+        canonical_sha256("d6x-closure-identity", &identity)
+    }
+
     pub fn recompute(&self) -> String {
         let mut unsigned = self.clone();
         unsigned.commitment.clear();
@@ -213,6 +235,7 @@ pub fn compute_dependency_closure(
         closure_profile_commitment: profile.commitment(),
         source_dkg_snapshot_commitment: projection.source_dkg_snapshot_commitment.clone(),
         projection_commitment: projection.commitment(),
+        closure_identity_commitment: String::new(),
         semantic_environment_commitment: environment.commitment(),
         derivation_profile_commitment: derivation_profile.commitment(),
         root_node_ids: profile.root_node_ids.clone(),
@@ -223,6 +246,7 @@ pub fn compute_dependency_closure(
         missing_dependency_ids: missing,
         status, cycle_detected, claim_ceiling: D6X_CLAIM_CEILING.into(), commitment: String::new(),
     };
+    out.closure_identity_commitment = out.closure_identity();
     out.commitment = out.recompute();
     Some(out)
 }
