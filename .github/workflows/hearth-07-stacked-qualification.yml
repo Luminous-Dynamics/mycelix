@@ -1,0 +1,94 @@
+name: Hearth Holochain 0.7 stacked qualification
+
+# Explicit, immutable qualification path for Hearth migration commits that are
+# intentionally stacked on another feature branch. Normal merge-gate CI remains
+# restricted to main-targeted pull requests.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Exact 40-character commit SHA to qualify"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Hearth 0.7 runtime qualification
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Require immutable commit ref
+        shell: bash
+        run: |
+          ref="${{ inputs.ref }}"
+          if [[ ! "$ref" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "FAIL: qualification requires an exact 40-character commit SHA."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Record resolved source identity
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "${{ inputs.ref }}"
+          printf '%s\n'             "requested_ref=${{ inputs.ref }}"             "resolved_commit=$(git rev-parse HEAD)"             "qualified_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"             > hearth-07-qualification-evidence.txt
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve toolchain versions
+        working-directory: mycelix-workspace/mycelix-hearth
+        shell: bash
+        run: |
+          nix develop .#ci --impure --command bash -lc '
+            holochain --version
+            hc --version
+            cargo --version
+            rustc --version
+          ' | tee -a "$GITHUB_WORKSPACE/hearth-07-qualification-evidence.txt"
+
+      - name: Verify Holochain 0.7 source invariants
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: bash tools/verify-holochain-07.sh
+
+      - name: Build all Hearth WASM zomes
+        working-directory: mycelix-workspace/mycelix-hearth
+        timeout-minutes: 60
+        run: |
+          nix develop .#ci --impure --command             cargo build --release --target wasm32-unknown-unknown --workspace
+
+      - name: Pack Hearth DNA
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: |
+          nix develop .#ci --impure --command hc dna pack dna/
+          test -s dna/mycelix_hearth.dna
+          sha256sum dna/mycelix_hearth.dna | tee -a "$GITHUB_WORKSPACE/hearth-07-qualification-evidence.txt"
+
+      - name: Run dedicated Sweettest workspace against Holochain 0.7
+        working-directory: mycelix-workspace/mycelix-hearth/tests
+        timeout-minutes: 45
+        run: |
+          nix develop ../.#ci --impure --command             cargo test --release -- --ignored --test-threads=1
+
+      - name: Publish immutable qualification evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: hearth-07-qualification-${{ inputs.ref }}
+          path: |
+            hearth-07-qualification-evidence.txt
+            mycelix-workspace/mycelix-hearth/dna/mycelix_hearth.dna
+          if-no-files-found: error
+          retention-days: 30
