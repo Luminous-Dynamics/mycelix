@@ -676,6 +676,75 @@ mod tests {
     }
 
     #[test]
+    fn d6t_receipt_material_field_mutations_change_commitment() {
+        let receipt = build_canonical_receipt(
+            &projection(), &env(), &profile(), &[d6p_receipt()],
+            DerivationResultStatusV1::Supported, "result-1".into(), false, false
+        ).unwrap();
+        let baseline = receipt.recomputed_commitment();
+
+        let mut mutated = receipt.clone();
+        mutated.schema_version = "D6S-2".into();
+        assert_ne!(baseline, mutated.recomputed_commitment());
+
+        let mut mutated = receipt.clone();
+        mutated.projection_version = "2".into();
+        assert_ne!(baseline, mutated.recomputed_commitment());
+
+        let mut mutated = receipt.clone();
+        mutated.canonicalization_version = "D6S-CANON-2".into();
+        assert_ne!(baseline, mutated.recomputed_commitment());
+
+        let mut mutated = receipt.clone();
+        mutated.source_dkg_snapshot_commitment = "dkg-snapshot-2".into();
+        assert_ne!(baseline, mutated.recomputed_commitment());
+
+        let mut mutated = receipt.clone();
+        mutated.projection_commitment = "projection-2".into();
+        assert_ne!(baseline, mutated.recomputed_commitment());
+
+        let mut mutated = receipt.clone();
+        mutated.semantic_environment_commitment = "environment-2".into();
+        assert_ne!(baseline, mutated.recomputed_commitment());
+
+        let mut mutated = receipt.clone();
+        mutated.derivation_profile_commitment = "profile-2".into();
+        assert_ne!(baseline, mutated.recomputed_commitment());
+
+        let mut mutated = receipt.clone();
+        mutated.input_node_commitments.insert("node-new".into());
+        assert_ne!(baseline, mutated.recomputed_commitment());
+
+        let mut mutated = receipt.clone();
+        mutated.input_edge_commitments.insert("edge-new".into());
+        assert_ne!(baseline, mutated.recomputed_commitment());
+
+        let mut mutated = receipt.clone();
+        mutated.d6p_current_receipt_commitments.insert("d6p-new".into());
+        assert_ne!(baseline, mutated.recomputed_commitment());
+
+        let mut mutated = receipt.clone();
+        mutated.result_status = DerivationResultStatusV1::Rejected;
+        assert_ne!(baseline, mutated.recomputed_commitment());
+
+        let mut mutated = receipt.clone();
+        mutated.result_commitment = "result-2".into();
+        assert_ne!(baseline, mutated.recomputed_commitment());
+
+        let mut mutated = receipt.clone();
+        mutated.contradiction_preserved = true;
+        assert_ne!(baseline, mutated.recomputed_commitment());
+
+        let mut mutated = receipt.clone();
+        mutated.unresolved_preserved = true;
+        assert_ne!(baseline, mutated.recomputed_commitment());
+
+        let mut mutated = receipt;
+        mutated.claim_ceiling = "different-claim-ceiling".into();
+        assert_ne!(baseline, mutated.recomputed_commitment());
+    }
+
+    #[test]
     fn canonical_bytes_are_deterministic() {
         let a = projection();
         let b = projection();
