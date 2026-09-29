@@ -224,9 +224,6 @@ fn validate_profile(
     profile: &AutonomyProfile,
     _action: &TypedAction<CreateData>,
 ) -> ExternResult<ValidateCallbackResult> {
-    profile: &AutonomyProfile,
-    _action: &Create,
-) -> ExternResult<ValidateCallbackResult> {
     if profile.capabilities.len() > 50 {
         return Ok(ValidateCallbackResult::Invalid(
             "Autonomy profile cannot have more than 50 capabilities".into(),
