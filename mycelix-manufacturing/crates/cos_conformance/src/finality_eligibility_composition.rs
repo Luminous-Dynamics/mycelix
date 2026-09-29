@@ -257,9 +257,15 @@ impl FinalityEligibilityLedgerV1 {
         if !receipt.structurally_valid() {
             return FinalityCompositionRecordDispositionV1::InsufficientEvidence;
         }
-        if let Some(existing_id) = self.terminal_receipt_by_effect.get(&receipt.effect_id) {
-            if existing_id != &receipt.receipt_id {
-                return FinalityCompositionRecordDispositionV1::Conflict;
+        let terminal = matches!(
+            receipt.disposition,
+            FinalityEligibilityDispositionV1::EligibleCurrent
+        );
+        if terminal {
+            if let Some(existing_id) = self.terminal_receipt_by_effect.get(&receipt.effect_id) {
+                if existing_id != &receipt.receipt_id {
+                    return FinalityCompositionRecordDispositionV1::Conflict;
+                }
             }
         }
         match self.receipts.get(&receipt.receipt_id) {
@@ -268,8 +274,10 @@ impl FinalityEligibilityLedgerV1 {
             }
             Some(_) => FinalityCompositionRecordDispositionV1::Conflict,
             None => {
-                self.terminal_receipt_by_effect
-                    .insert(receipt.effect_id.clone(), receipt.receipt_id.clone());
+                if terminal {
+                    self.terminal_receipt_by_effect
+                        .insert(receipt.effect_id.clone(), receipt.receipt_id.clone());
+                }
                 self.receipts.insert(receipt.receipt_id.clone(), receipt);
                 FinalityCompositionRecordDispositionV1::Recorded
             }
@@ -1299,6 +1307,70 @@ mod tests {
         assert_eq!(
             ledger.record_receipt(second),
             FinalityCompositionRecordDispositionV1::Conflict
+        );
+    }
+
+    #[test]
+    fn non_terminal_receipt_does_not_block_later_qualified_receipt() {
+        let g = generation("observer-A");
+        let e = observation("obs-1", &g, ExternalObservedStateV1::Applied);
+        let s = set(&["obs-1"]);
+        let a = d6n_assessment(&s, &[(
+            "obs-1".into(),
+            "observer-A".into(),
+            ObservationClassificationV1::CorroboratingIndependent,
+        )]);
+        let (_, r) = ledger_and_receipt(&g, &e);
+        let composition = compose_finality_eligibility(
+            &s, &a, std::slice::from_ref(&e), std::slice::from_ref(&r),
+            "life-profile-1", "frontier-1", 1
+        );
+
+        let non_terminal = CurrentFinalityEligibilityReceiptV1 {
+            receipt_id: "receipt-insufficient".into(),
+            effect_id: composition.effect_id.clone(),
+            effect_lineage_id: composition.effect_lineage_id.clone(),
+            lifecycle_generation_id: composition.lifecycle_generation_id.clone(),
+            route_id: composition.route_id.clone(),
+            provider_id: composition.provider_id.clone(),
+            provider_operation_id: composition.provider_operation_id.clone(),
+            provider_profile_root: composition.provider_profile_root.clone(),
+            semantic_environment_root: composition.semantic_environment_root.clone(),
+            observation_set_id: composition.observation_set_id.clone(),
+            observation_set_commitment: composition.observation_set_commitment.clone(),
+            d6n_assessment_commitment: composition.d6n_assessment_commitment.clone(),
+            witness_eligibility_ids: ["eligibility-obs-1".into()].into_iter().collect(),
+            observer_generation_ids: ["observer-A".into()].into_iter().collect(),
+            current_frontier_root: "frontier-1".into(),
+            lifecycle_profile_id: "life-profile-1".into(),
+            eligible_independent_count: 0,
+            preserved_contradictory_count: 0,
+            disposition: FinalityEligibilityDispositionV1::InsufficientEligibleWitnesses,
+            qualification_transition_id: "pending".into(),
+            receipt_commitment: "pending-receipt".into(),
+            claim_ceiling: FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING.into(),
+        };
+
+        let terminal = CurrentFinalityEligibilityReceiptV1 {
+            receipt_id: "receipt-qualified".into(),
+            ..non_terminal.clone()
+        };
+        let terminal = CurrentFinalityEligibilityReceiptV1 {
+            disposition: FinalityEligibilityDispositionV1::EligibleCurrent,
+            eligible_independent_count: 1,
+            qualification_transition_id: "qualified".into(),
+            receipt_commitment: "qualified-receipt".into(),
+            ..terminal
+        };
+
+        let mut ledger = FinalityEligibilityLedgerV1::default();
+        assert_eq!(
+            ledger.record_receipt(non_terminal),
+            FinalityCompositionRecordDispositionV1::Recorded
+        );
+        assert_eq!(
+            ledger.record_receipt(terminal),
+            FinalityCompositionRecordDispositionV1::Recorded
         );
     }
 
