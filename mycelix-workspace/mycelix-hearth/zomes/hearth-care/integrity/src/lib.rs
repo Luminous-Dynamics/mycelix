@@ -126,76 +126,66 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(store_entry) => match store_entry {
+        FlatOp::CreateEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
-                EntryTypes::CareSchedule(schedule) => validate_schedule(&schedule, &action),
+                EntryTypes::CareSchedule(schedule) => validate_schedule(&schedule),
                 EntryTypes::CareSwap(swap) => validate_swap(&swap),
                 EntryTypes::MealPlan(plan) => validate_meal_plan(&plan),
             },
             OpEntry::UpdateEntry {
                 app_entry,
-                action: _,
-                original_action_hash,
-                original_entry_hash: _,
-            } => match app_entry {
+            action,
+        } => match app_entry {
                 EntryTypes::CareSchedule(schedule) => {
                     validate_schedule_update(&schedule)?;
-                    validate_schedule_immutable_fields(&schedule, &original_action_hash)
+                    validate_schedule_immutable_fields(&schedule, &action.original_action_address)
                 }
                 EntryTypes::CareSwap(swap) => {
                     validate_swap_update(&swap)?;
-                    validate_swap_immutable_fields(&swap, &original_action_hash)
+                    validate_swap_immutable_fields(&swap, &action.original_action_address)
                 }
                 EntryTypes::MealPlan(plan) => {
                     validate_meal_plan_update(&plan)?;
-                    validate_meal_plan_immutable_fields(&plan, &original_action_hash)
+                    validate_meal_plan_immutable_fields(&plan, &action.original_action_address)
                 }
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink {
-            link_type: _,
-            base_address: _,
-            target_address: _,
-            tag,
-            action: _,
-        } => {
-            if tag.0.len() > 256 {
+        FlatOp::Link(OpLink::CreateLink { action, .. }) => {
+            if action.data.tag.0.len() > 256 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Link tag too long (max 256 bytes)".into(),
                 ));
             }
             Ok(ValidateCallbackResult::Valid)
         }
-        FlatOp::RegisterDeleteLink { action, .. } => {
-            let original_action = must_get_action(action.link_add_address.clone())?;
+        FlatOp::Link(link @ OpLink::DeleteLink {
+            action,
+            original_action,
+            ..
+        }) => {
+{
             Ok(check_link_author_match(
-                original_action.action().author(),
-                &action.author,
+                original_action.author(), action.author(),
             ))
         }
-        FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterUpdate(update) => {
-            let action = match &update {
-                OpUpdate::Entry { action, .. }
-                | OpUpdate::PrivateEntry { action, .. }
-                | OpUpdate::Agent { action, .. }
-                | OpUpdate::CapClaim { action, .. }
-                | OpUpdate::CapGrant { action, .. } => action,
-            };
+        }
+        FlatOp::CreateRecord(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Update(OpUpdate::Entry { action, .. }) => {
             let original = must_get_action(action.original_action_address.clone())?;
             Ok(check_author_match(
                 original.action().author(),
-                &action.author,
+                action.author(),
                 "update",
             ))
         }
-        FlatOp::RegisterDelete(OpDelete { action, .. }) => {
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Delete(OpDelete { action }) => {
             let original = must_get_action(action.deletes_address.clone())?;
             Ok(check_author_match(
                 original.action().author(),
-                &action.author,
+                action.author(),
                 "delete",
             ))
         }
@@ -204,7 +194,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 
 fn validate_schedule(
     schedule: &CareSchedule,
-    _action: &Create,
+
 ) -> ExternResult<ValidateCallbackResult> {
     if schedule.title.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
