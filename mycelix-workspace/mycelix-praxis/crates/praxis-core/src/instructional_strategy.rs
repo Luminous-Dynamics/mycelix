@@ -437,7 +437,7 @@ impl InstructionalAnalysisReceipt {
             || self.missing_data_policy.trim().is_empty()
             || self.analysis_method.trim().is_empty()
             || self.analysis_method_version.trim().is_empty()
-            || self.estimand.trim().is_empty()
+            || matches!(&self.estimand, InstructionalEstimandKind::Other(value) if value.trim().is_empty())
             || self.result_digest.trim().is_empty()
         {
             return Err(InstructionalScienceContractError::InvalidAnalysisReceipt);
@@ -447,7 +447,7 @@ impl InstructionalAnalysisReceipt {
         }
         if self.prespecified
             && matches!(
-                self.analysis_plan_status,
+                &self.analysis_plan_status,
                 InstructionalAnalysisPlanStatus::Draft
                     | InstructionalAnalysisPlanStatus::Superseded
             )
@@ -458,7 +458,7 @@ impl InstructionalAnalysisReceipt {
         if let Some(uncertainty) = &self.uncertainty {
             uncertainty.validate()?;
         }
-        if matches!(self.kind, InstructionalAnalysisKind::ExperimentalEffectEstimate) {
+        if matches!(&self.kind, InstructionalAnalysisKind::ExperimentalEffectEstimate) {
             self.experimental_provenance.as_ref().ok_or(
                 InstructionalScienceContractError::MissingExperimentalAnalysisReference,
             )?.validate()?;
@@ -551,9 +551,9 @@ impl InstructionalInterpretationReceipt {
         }
         self.analysis.validate()?;
 
-        if matches!(self.interpretation_kind, InstructionalInterpretationKind::Causal)
+        if matches!(&self.interpretation_kind, InstructionalInterpretationKind::Causal)
             && (!matches!(
-                self.analysis_kind,
+                &self.analysis_kind,
                 InstructionalAnalysisKind::ExperimentalEffectEstimate
             ) || self.experimental_provenance.is_none())
         {
@@ -636,9 +636,9 @@ impl InstructionalClaimReceipt {
         self.interpretation.validate()?;
         self.analysis.validate()?;
 
-        if matches!(self.claim_kind, InstructionalClaimKind::Causal)
+        if matches!(&self.claim_kind, InstructionalClaimKind::Causal)
             && (!matches!(
-                self.interpretation_kind,
+                &self.interpretation_kind,
                 InstructionalInterpretationKind::Causal
             ) || self.experimental_provenance.is_none())
         {
