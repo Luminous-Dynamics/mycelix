@@ -1,0 +1,70 @@
+name: Constitutional Effect Delivery Halt Provenance Exact Qualification
+
+on:
+  pull_request:
+    branches:
+      - fix/d1e-b2-recovery-declaration-order
+  push:
+    branches:
+      - constitutional-effect-delivery-halt-qualification-v0.2
+  workflow_dispatch:
+
+concurrency:
+  group: constitutional-effect-delivery-halt-qualification
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: exact D1E-B2 Rust core
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out exact qualification wrapper
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Bind exact qualification wrapper topology
+        shell: bash
+        env:
+          QUALIFIER_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          PRODUCT_HEAD: 7b3eb1e66d5ea75c4945c80b793ff6584a6ded21
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$QUALIFIER_HEAD"
+          test "$(git rev-parse HEAD^)" = "$PRODUCT_HEAD"
+          test "$(git rev-list --count "$PRODUCT_HEAD".."$QUALIFIER_HEAD")" -eq 1
+      - name: Check out exact semantic qualification subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 7b3eb1e66d5ea75c4945c80b793ff6584a6ded21
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Bind exact repaired subject
+        shell: bash
+        env:
+          PRODUCT_HEAD: 7b3eb1e66d5ea75c4945c80b793ff6584a6ded21
+          PRODUCT_PARENT: 5c4c674d9e608f50b95024a8b38bdff243e76592
+          PRODUCT_TREE: b19659c827bdd89ad9cdb30e2d954391fef6fbb3
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$PRODUCT_HEAD"
+          test "$(git rev-parse HEAD^)" = "$PRODUCT_PARENT"
+          test "$(git rev-list --count "$PRODUCT_PARENT".."$PRODUCT_HEAD")" -eq 1
+          test "$(git rev-parse "$PRODUCT_HEAD^{tree}")" = "$PRODUCT_TREE"
+          test "$(git diff --name-only HEAD^ HEAD)" = "mycelix-governance/crates/mycelix-constitutional-effect-delivery/src/lib.rs"
+      - name: Install pinned Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.98.1 --profile minimal
+          rustc +1.98.1 --version
+          cargo +1.98.1 --version
+      - name: Run exact package tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +1.98.1 test --locked --manifest-path mycelix-governance/Cargo.toml --package mycelix-constitutional-effect-delivery --all-targets
