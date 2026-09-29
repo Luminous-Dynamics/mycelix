@@ -54,7 +54,7 @@ def main() -> int:
 
     must_reject(b'{"a":', "invalid or ambiguous JSON")
     must_reject(b'{"a":1} trailing', "invalid or ambiguous JSON")
-    must_reject(b'\\xef\\xbb\\xbf{"a":1}', "BOM")
+    must_reject(b'\xef\xbb\xbf{"a":1}', "BOM")
     must_reject(b'{"a":1}\xff', "valid UTF-8")
 
     print("RAW JSON BOUNDARY TESTS: PASS (duplicate rejection and raw-byte identity only)")
