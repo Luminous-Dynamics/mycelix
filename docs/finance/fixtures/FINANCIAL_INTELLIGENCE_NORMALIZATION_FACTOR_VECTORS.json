@@ -1,6 +1,6 @@
 {
-  "schema": "mycelix.finance.normalization-factor-v1",
-  "qualification": "A normalization factor is a typed observation. Numeric equality does not substitute for factor identity, lineage, availability, temporal validity, or unit compatibility.",
+  "schema": "mycelix.finance.normalization-factor-v2",
+  "qualification": "A normalization factor is a typed observation. Numeric equality does not substitute for factor identity, lineage, availability, temporal validity, or unit compatibility. Identity-addressed factor references bind factor, source, and evidence identities; unresolved or substituted identities fail closed.",
   "vectors": [
     {
       "id": "factor-available-qualified",
@@ -51,6 +51,16 @@
       "id": "raw-immutability",
       "expected": "accept",
       "notes": "Successful normalization creates a projection; source observation remains byte-for-byte semantically unchanged."
+    },
+    {
+      "id": "factor-ref-same-id-altered-value",
+      "expected": "reject:factor_reference_mismatch",
+      "notes": "Identity reference resolves to a factor whose value was altered; numeric payload is not authoritative."
+    },
+    {
+      "id": "factor-ref-hidden-transitive-dependency",
+      "expected": "reject:factor_reference_unresolved",
+      "notes": "A transformation cannot use a factor whose canonical evidence identity is not explicitly resolved at the requested frontier."
     }
   ]
 }
