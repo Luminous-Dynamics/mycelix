@@ -63,9 +63,28 @@ forbid "$flake_lock" '"ref": "holochain-0.6.0"' "lockfile no longer resolves Hol
 forbid "$flake_lock" '"ref": "0.600.0-dev.0"' "lockfile no longer resolves hc-scaffold 0.6"
 forbid "$flake_lock" '"ref": "v0.6.3"' "lockfile no longer resolves Lair 0.6"
 forbid "$flake_lock" '"ref": "v0.3.2"' "lockfile no longer resolves Kitsune2 0.3"
-forbid "$cargo_lock" 'name = "hdk"\nversion = "0.6' "Cargo lock contains no Holochain 0.6 HDK"
-forbid "$cargo_lock" 'name = "hdi"\nversion = "0.7.1' "Cargo lock contains no Holochain 0.6 HDI"
-forbid "$tests_cargo_lock" 'name = "holochain"\nversion = "0.6' "Sweettest lock contains no Holochain 0.6 conductor"
+if grep -A1 -F 'name = "hdk"' "$cargo_lock" | grep -Fq 'version = "0.6'; then
+  echo "FAIL: Cargo lock contains Holochain 0.6 HDK"
+  fail=1
+else
+  echo "PASS: Cargo lock contains no Holochain 0.6 HDK"
+fi
+
+if grep -A1 -F 'name = "hdi"' "$cargo_lock" | grep -Fq 'version = "0.7.1'; then
+  echo "FAIL: Cargo lock contains Holochain 0.6 HDI"
+  fail=1
+else
+  echo "PASS: Cargo lock contains no Holochain 0.6 HDI"
+fi
+
+if grep -A1 -F 'name = "holochain"' "$tests_cargo_lock" | grep -Fq 'version = "0.6'; then
+  echo "FAIL: Sweettest lock contains Holochain 0.6 conductor"
+  fail=1
+else
+  echo "PASS: Sweettest lock contains no Holochain 0.6 conductor"
+fi
+
+
 
 # The dependency floor is not source qualification. HDI 0.8 uses the 0.7
 # FlatOp vocabulary, so reject known 0.6 validation dispatcher patterns.
