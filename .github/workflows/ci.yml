@@ -146,12 +146,11 @@ jobs:
         with:
           submodules: recursive
       - uses: cachix/install-nix-action@v31
-      - name: Resolve the declared Holochain 0.7 input
-        working-directory: mycelix-workspace/mycelix-hearth
-        run: nix flake update
-      - name: Re-run 0.7 guard against the resolved graph
+      # Qualification consumes the committed lockfile. Dependency resolution is
+      # performed only by hearth-07-lock-refresh.yml, never inside the gate.
+      - name: Verify committed Holochain 0.7 graph
         run: bash mycelix-workspace/mycelix-hearth/tools/verify-holochain-07.sh
-      - name: Require the refreshed lock to be committed
+      - name: Require a clean Hearth dependency graph
         working-directory: mycelix-workspace/mycelix-hearth
         run: git diff --exit-code -- flake.lock
       - name: Compile and test Hearth
