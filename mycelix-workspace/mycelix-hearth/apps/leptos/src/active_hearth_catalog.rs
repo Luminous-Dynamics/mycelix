@@ -3,66 +3,72 @@
 
 //! Source-backed catalog of Hearths in which the connected agent is currently Active.
 //!
-//! `hearth_kinship.get_my_hearths` is discovery/history evidence: historical
-//! `AgentToHearths` links can survive after a membership becomes `Departed`.
-//! This provider therefore verifies every discovered Hearth independently with
-//! `get_caller_role`. Only `Some(role)` establishes current Active membership.
+//! Kinship establishes the catalog semantics. The browser performs only
+//! defense-in-depth validation and carries the source observation/provenance
+//! through the view model.
 //!
-//! There is one additional fail-closed boundary: `get_my_hearths` follows Hearth
-//! update chains and currently returns only the latest Record, while membership
-//! links are keyed by the stable Hearth ActionHash. Until Kinship exposes stable
-//! identity and latest display state together, an Update record is rejected as
-//! identity-ambiguous instead of using its newer ActionHash as membership truth.
-//!
-//! The resulting catalog is read evidence only. It does not grant mutation
-//! authority; every consequential zome call must continue enforcing membership
-//! and role at the source.
+//! The source observation is not a global-consensus claim: Holochain DHT reads
+//! reflect the caller's current observed view, and may be stale relative to
+//! peers. The observation timestamp is therefore provenance, not a browser-
+//! computed freshness verdict.
 
-use crate::record_bridge::{self, WireRecord};
-use hearth_leptos_types::{HearthType, HearthView, MemberRole};
+use hearth_leptos_types::{
+    ActiveHearthCatalogProvenance, ActiveHearthCatalogView, ActiveHearthEvidence, ActiveHearthView,
+    HearthView, MemberRole,
+};
 use leptos::prelude::*;
 use mycelix_leptos_client::HoloHashBytes;
 use mycelix_leptos_core::holochain_provider::use_holochain;
 use mycelix_leptos_core::{AvailabilityStateKind, ConnectionStatus};
-use serde::Deserialize;
 use std::cell::{Cell, RefCell};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 use wasm_bindgen_futures::spawn_local;
 
+const ACTIVE_HEARTHS_SOURCE: &str = "hearth_kinship.get_my_active_hearths";
+
 #[derive(Clone, Debug)]
 pub struct ActiveHearthCatalogSnapshot {
-    /// Completeness of the Active-membership catalog as a whole.
+    /// Completeness of the source observation as represented to the UI.
     pub availability: AvailabilityStateKind,
     /// Exact connected AgentPubKey display identity the catalog was established for.
     pub connected_agent: Option<String>,
-    /// Complete Active catalog. Deliberately empty unless availability is Live.
+    /// Source provenance for a successful catalog observation, including empty observations.
+    pub provenance: Option<ActiveHearthCatalogProvenance>,
+    /// Complete stable-identity Hearth projection retained for the selection seam.
     pub hearths: Vec<HearthView>,
-    /// Current role proven by `get_caller_role`, keyed by Hearth ActionHash.
-    /// Deliberately empty unless availability is Live.
+    /// Stable Hearth ActionHash -> current role established by Kinship.
     pub roles: BTreeMap<String, MemberRole>,
-    /// Number of records returned by historical discovery.
+    /// Full source evidence, including latest display and membership record hashes.
+    pub evidence: Vec<ActiveHearthEvidence>,
+    /// Number of source records returned by Kinship.
     pub discovered_records: usize,
-    /// Number of unique, well-formed Hearth candidates derived from discovery.
+    /// Number of unique, well-formed stable Hearth identities accepted.
     pub unique_candidates: usize,
-    /// Number of candidates for which current Active membership was proven.
+    /// Number of Active memberships established by the source contract.
     pub verified_active: usize,
-    /// Number of malformed discovery records.
+    /// Number of malformed or internally inconsistent source items.
     pub malformed_candidates: usize,
-    /// Number of latest Hearth Update records rejected because the stable
-    /// membership identity is not present in the discovery response.
+    /// Retained for compatibility with the old selection accounting seam.
+    /// Canonical Kinship resolution now establishes stable identity directly.
     pub identity_ambiguous_candidates: usize,
-    /// Number of current-membership queries that failed transport/source validation.
+    /// Retained for compatibility with the old selection accounting seam.
+    /// Membership resolution is atomic inside the source endpoint.
     pub membership_query_failures: usize,
 }
 
 impl ActiveHearthCatalogSnapshot {
-    fn with_state(availability: AvailabilityStateKind, connected_agent: Option<String>) -> Self {
+    fn with_state(
+        availability: AvailabilityStateKind,
+        connected_agent: Option<String>,
+    ) -> Self {
         Self {
             availability,
             connected_agent,
+            provenance: None,
             hearths: Vec::new(),
             roles: BTreeMap::new(),
+            evidence: Vec::new(),
             discovered_records: 0,
             unique_candidates: 0,
             verified_active: 0,
@@ -94,109 +100,138 @@ impl ActiveHearthCatalogState {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
-struct WireHearth {
-    name: String,
-    description: String,
-    hearth_type: HearthType,
-    created_by: Vec<u8>,
-    created_at: i64,
-    max_members: u32,
-}
+/// Validate and normalize one source-backed ActiveHearthView.
+///
+/// The source endpoint already establishes membership and role. The browser
+/// only verifies that the returned wire identities are structurally valid and
+/// remain bound to the current connected agent.
+fn source_view_to_evidence(
+    view: ActiveHearthView,
+    connected_agent: &str,
+) -> Option<ActiveHearthEvidence> {
+    HoloHashBytes::from_action_raw_base64(&view.hearth_hash).ok()?;
+    HoloHashBytes::from_action_raw_base64(&view.latest_hearth_record_hash).ok()?;
+    HoloHashBytes::from_action_raw_base64(&view.membership_record_hash).ok()?;
+    HoloHashBytes::from_agent_display(connected_agent).ok()?;
+    HoloHashBytes::from_agent_display(&view.created_by).ok()?;
 
-/// Holochain Update actions carry `original_action_address`; Create actions do
-/// not. The generic browser Record mirror already exposes action content as a
-/// map because fields such as `author` are read from the same representation.
-fn record_has_identity_ambiguous_update(record: &WireRecord) -> bool {
-    record
-        .signed_action
-        .hashed
-        .content
-        .get("original_action_address")
-        .is_some()
-}
-
-fn record_to_hearth(record: &WireRecord) -> Option<HearthView> {
-    if record_has_identity_ambiguous_update(record) {
+    // A membership record cannot itself be the Hearth identity.
+    if view.membership_record_hash == view.hearth_hash {
         return None;
     }
 
-    let hash = record.action_hash_b64();
-    HoloHashBytes::from_action_raw_base64(&hash).ok()?;
-    let hearth: WireHearth = record.decode_entry()?;
+    let hearth = HearthView {
+        // Stable identity, never the latest update action.
+        hash: view.hearth_hash,
+        name: view.name,
+        description: view.description,
+        hearth_type: view.hearth_type,
+        created_by: view.created_by,
+        created_at: view.created_at,
+        max_members: view.max_members,
+    };
 
-    Some(HearthView {
-        hash,
-        name: hearth.name,
-        description: hearth.description,
-        hearth_type: hearth.hearth_type,
-        created_by: record_bridge::agent_display(&hearth.created_by)?,
-        created_at: hearth.created_at / 1_000_000,
-        max_members: hearth.max_members,
+    Some(ActiveHearthEvidence {
+        hearth,
+        latest_hearth_record_hash: view.latest_hearth_record_hash,
+        membership_record_hash: view.membership_record_hash,
+        role: view.role,
     })
 }
 
-#[derive(Default)]
-struct CatalogEvidence {
+fn degraded_snapshot(
+    connected_agent: String,
+    provenance: Option<ActiveHearthCatalogProvenance>,
     discovered_records: usize,
     unique_candidates: usize,
+    verified_active: usize,
     malformed_candidates: usize,
-    identity_ambiguous_candidates: usize,
-    membership_queries_succeeded: usize,
-    membership_query_failures: usize,
-    active: Vec<(HearthView, MemberRole)>,
+) -> ActiveHearthCatalogSnapshot {
+    ActiveHearthCatalogSnapshot {
+        availability: AvailabilityStateKind::Degraded,
+        connected_agent: Some(connected_agent),
+        provenance,
+        hearths: Vec::new(),
+        roles: BTreeMap::new(),
+        evidence: Vec::new(),
+        discovered_records,
+        unique_candidates,
+        verified_active,
+        malformed_candidates,
+        identity_ambiguous_candidates: 0,
+        membership_query_failures: 0,
+    }
 }
 
-/// Convert a completed probe into a publishable catalog.
-///
-/// Any malformed candidate, identity ambiguity, failed membership query, or
-/// internal count mismatch means completeness was not established. Partial
-/// Active results are therefore discarded rather than published under
-/// `Degraded` and accidentally consumed as a complete catalog.
-fn finalize_catalog(
+fn finalize_source_catalog(
     connected_agent: String,
-    mut evidence: CatalogEvidence,
+    source: ActiveHearthCatalogView,
 ) -> ActiveHearthCatalogSnapshot {
-    let query_shape_complete = evidence.membership_queries_succeeded
-        + evidence.membership_query_failures
-        == evidence.unique_candidates;
-    let complete = evidence.malformed_candidates == 0
-        && evidence.identity_ambiguous_candidates == 0
-        && evidence.membership_query_failures == 0
-        && query_shape_complete;
+    let provenance = ActiveHearthCatalogProvenance {
+        source: ACTIVE_HEARTHS_SOURCE.to_string(),
+        agent: source.agent.clone(),
+        observed_at: source.observed_at,
+    };
+    let discovered_records = source.hearths.len();
 
-    let verified_active = evidence.active.len();
-    if !complete {
-        return ActiveHearthCatalogSnapshot {
-            availability: AvailabilityStateKind::Degraded,
-            connected_agent: Some(connected_agent),
-            hearths: Vec::new(),
-            roles: BTreeMap::new(),
-            discovered_records: evidence.discovered_records,
-            unique_candidates: evidence.unique_candidates,
-            verified_active,
-            malformed_candidates: evidence.malformed_candidates,
-            identity_ambiguous_candidates: evidence.identity_ambiguous_candidates,
-            membership_query_failures: evidence.membership_query_failures,
-        };
+    if source.agent != connected_agent {
+        return degraded_snapshot(
+            connected_agent,
+            Some(provenance),
+            discovered_records,
+            0,
+            0,
+            discovered_records,
+        );
     }
 
-    // Canonicalization is representational only. Selection policy must never use
-    // catalog ordering; `hearth_selection` enforces zero/one/many explicitly.
-    evidence
-        .active
-        .sort_by(|(a, _), (b, _)| a.hash.cmp(&b.hash));
+    let mut evidence = Vec::with_capacity(discovered_records);
+    let mut stable_hashes = BTreeSet::new();
+    let mut malformed_candidates = 0usize;
+
+    for view in source.hearths {
+        let Some(item) = source_view_to_evidence(view, &connected_agent) else {
+            malformed_candidates += 1;
+            continue;
+        };
+
+        if !stable_hashes.insert(item.hearth.hash.clone()) {
+            // Duplicate stable identity means the source response is not a
+            // canonical catalog. Do not silently choose one representation.
+            malformed_candidates += 1;
+            continue;
+        }
+
+        evidence.push(item);
+    }
+
+    let complete = malformed_candidates == 0 && stable_hashes.len() == discovered_records;
+    let verified_active = evidence.len();
+
+    if !complete {
+        return degraded_snapshot(
+            connected_agent,
+            Some(provenance),
+            discovered_records,
+            stable_hashes.len(),
+            verified_active,
+            malformed_candidates,
+        );
+    }
+
+    // Ordering is representational only. Selection policy must never use it.
+    evidence.sort_by(|a, b| a.hearth.hash.cmp(&b.hearth.hash));
 
     let roles = evidence
-        .active
         .iter()
-        .map(|(hearth, role)| (hearth.hash.clone(), role.clone()))
+        .map(|item| (item.hearth.hash.clone(), item.role.clone()))
         .collect::<BTreeMap<_, _>>();
+
     let hearths = evidence
-        .active
-        .into_iter()
-        .map(|(hearth, _)| hearth)
+        .iter()
+        .map(|item| item.hearth.clone())
         .collect::<Vec<_>>();
+
     let availability = if hearths.is_empty() {
         AvailabilityStateKind::Empty
     } else {
@@ -206,10 +241,12 @@ fn finalize_catalog(
     ActiveHearthCatalogSnapshot {
         availability,
         connected_agent: Some(connected_agent),
+        provenance: Some(provenance),
         hearths,
         roles,
-        discovered_records: evidence.discovered_records,
-        unique_candidates: evidence.unique_candidates,
+        evidence,
+        discovered_records,
+        unique_candidates: stable_hashes.len(),
         verified_active,
         malformed_candidates: 0,
         identity_ambiguous_candidates: 0,
@@ -227,22 +264,26 @@ async fn load_active_catalog(
     generation: Rc<Cell<u64>>,
     token: u64,
 ) -> Option<ActiveHearthCatalogSnapshot> {
-    let records = match hc
-        .call_zome_default::<(), Vec<WireRecord>>("hearth_kinship", "get_my_hearths", &())
+    let source = match hc
+        .call_zome_default::<(), ActiveHearthCatalogView>(
+            "hearth_kinship",
+            "get_my_active_hearths",
+            &(),
+        )
         .await
     {
-        Ok(records) => {
+        Ok(source) => {
             if generation.get() != token {
                 return None;
             }
-            records
+            source
         }
         Err(error) => {
             if generation.get() != token {
                 return None;
             }
             web_sys::console::log_1(
-                &format!("[Hearth] Active catalog discovery failed: {error}").into(),
+                &format!("[Hearth] {ACTIVE_HEARTHS_SOURCE} failed: {error}").into(),
             );
             return Some(ActiveHearthCatalogSnapshot::with_state(
                 AvailabilityStateKind::Unavailable,
@@ -251,88 +292,7 @@ async fn load_active_catalog(
         }
     };
 
-    if records.is_empty() {
-        return Some(ActiveHearthCatalogSnapshot {
-            availability: AvailabilityStateKind::Empty,
-            connected_agent: Some(connected_agent),
-            hearths: Vec::new(),
-            roles: BTreeMap::new(),
-            discovered_records: 0,
-            unique_candidates: 0,
-            verified_active: 0,
-            malformed_candidates: 0,
-            identity_ambiguous_candidates: 0,
-            membership_query_failures: 0,
-        });
-    }
-
-    let mut evidence = CatalogEvidence {
-        discovered_records: records.len(),
-        ..CatalogEvidence::default()
-    };
-    let mut candidates = BTreeMap::<String, HearthView>::new();
-
-    for record in &records {
-        if record_has_identity_ambiguous_update(record) {
-            evidence.identity_ambiguous_candidates += 1;
-            continue;
-        }
-
-        match record_to_hearth(record) {
-            Some(hearth) => {
-                candidates.entry(hearth.hash.clone()).or_insert(hearth);
-            }
-            None => evidence.malformed_candidates += 1,
-        }
-    }
-    evidence.unique_candidates = candidates.len();
-
-    for (hearth_hash_text, hearth) in candidates {
-        let hearth_hash = match HoloHashBytes::from_action_raw_base64(&hearth_hash_text) {
-            Ok(hash) => hash,
-            Err(_) => {
-                // `record_to_hearth` already validates this; retain fail-closed
-                // behavior if that invariant ever changes.
-                evidence.malformed_candidates += 1;
-                continue;
-            }
-        };
-
-        let role = hc
-            .call_zome_default::<HoloHashBytes, Option<MemberRole>>(
-                "hearth_kinship",
-                "get_caller_role",
-                &hearth_hash,
-            )
-            .await;
-
-        if generation.get() != token {
-            return None;
-        }
-
-        match role {
-            Ok(Some(role)) => {
-                evidence.membership_queries_succeeded += 1;
-                evidence.active.push((hearth, role));
-            }
-            Ok(None) => {
-                // A historical/departed discovery link is a valid negative
-                // result, not a source failure.
-                evidence.membership_queries_succeeded += 1;
-            }
-            Err(error) => {
-                evidence.membership_query_failures += 1;
-                web_sys::console::log_1(
-                    &format!(
-                        "[Hearth] Active membership proof failed for {hearth_hash_text}: {error}"
-                    )
-                    .into(),
-                );
-            }
-        }
-    }
-
-    Some(finalize_catalog(connected_agent, evidence))
+    Some(finalize_source_catalog(connected_agent, source))
 }
 
 pub fn provide_active_hearth_catalog() -> ActiveHearthCatalogState {
@@ -410,6 +370,7 @@ pub fn provide_active_hearth_catalog() -> ActiveHearthCatalogState {
             ));
             return;
         };
+
         if HoloHashBytes::from_agent_display(&connected_agent).is_err() {
             invalidate(&generation_effect);
             *key_effect.borrow_mut() = None;
@@ -437,6 +398,7 @@ pub fn provide_active_hearth_catalog() -> ActiveHearthCatalogState {
         let state_load = state_effect.clone();
         let hc_load = hc_effect.clone();
         let generation_load = generation_effect.clone();
+
         spawn_local(async move {
             let result = load_active_catalog(
                 hc_load,
@@ -449,6 +411,7 @@ pub fn provide_active_hearth_catalog() -> ActiveHearthCatalogState {
             if generation_load.get() != token {
                 return;
             }
+
             if let Some(snapshot) = result {
                 state_load.snapshot.set(snapshot);
                 state_load.loading.set(false);
@@ -466,7 +429,6 @@ pub fn use_active_hearth_catalog() -> ActiveHearthCatalogState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::record_bridge::{WireHashedAction, WireRecordEntry, WireSignedAction};
     use hearth_leptos_types::HearthType;
     use mycelix_leptos_client::{HoloHashKind, HOLO_HASH_WIRE_LEN};
 
@@ -477,14 +439,21 @@ mod tests {
         HoloHashBytes::from_raw_39(bytes).expect("test hash must be valid")
     }
 
+    fn action_hash(discriminator: u8) -> String {
+        hash_of_kind(HoloHashKind::Action, discriminator).to_raw_base64()
+    }
+
     fn agent(discriminator: u8) -> String {
         hash_of_kind(HoloHashKind::Agent, discriminator).to_holochain_display()
     }
 
-    fn hearth(discriminator: u8, name: &str) -> HearthView {
-        HearthView {
-            hash: hash_of_kind(HoloHashKind::Action, discriminator).to_raw_base64(),
-            name: name.to_string(),
+    fn source_view(discriminator: u8, source_agent: String) -> ActiveHearthView {
+        ActiveHearthView {
+            hearth_hash: action_hash(discriminator),
+            latest_hearth_record_hash: action_hash(discriminator.wrapping_add(10)),
+            membership_record_hash: action_hash(discriminator.wrapping_add(20)),
+            role: MemberRole::Adult,
+            name: format!("Hearth {discriminator}"),
             description: String::new(),
             hearth_type: HearthType::Chosen,
             created_by: agent(90),
@@ -493,108 +462,113 @@ mod tests {
         }
     }
 
-    fn record_with_action_content(content: serde_json::Value) -> WireRecord {
-        WireRecord {
-            signed_action: WireSignedAction {
-                hashed: WireHashedAction {
-                    hash: hash_of_kind(HoloHashKind::Action, 7).into_raw_39(),
-                    content,
-                },
-                signature: serde_json::Value::Null,
-            },
-            entry: WireRecordEntry::Other(serde_json::Value::Null),
+    fn source(agent: String, observed_at: i64, hearths: Vec<ActiveHearthView>) -> ActiveHearthCatalogView {
+        ActiveHearthCatalogView {
+            agent,
+            observed_at,
+            hearths,
         }
     }
 
     #[test]
-    fn update_record_is_identity_ambiguous_until_source_returns_stable_hash() {
-        let create = record_with_action_content(serde_json::json!({
-            "author": []
-        }));
-        let update = record_with_action_content(serde_json::json!({
-            "author": [],
-            "original_action_address": []
-        }));
-
-        assert!(!record_has_identity_ambiguous_update(&create));
-        assert!(record_has_identity_ambiguous_update(&update));
+    fn source_contract_keeps_stable_and_latest_record_identities_separate() {
+        let view = source_view(1, agent(1));
+        assert_ne!(view.hearth_hash, view.latest_hearth_record_hash);
+        assert_ne!(view.hearth_hash, view.membership_record_hash);
     }
 
     #[test]
-    fn all_historical_candidates_establish_empty_active_catalog() {
-        let snapshot = finalize_catalog(
-            agent(1),
-            CatalogEvidence {
-                discovered_records: 2,
-                unique_candidates: 2,
-                membership_queries_succeeded: 2,
-                ..CatalogEvidence::default()
-            },
+    fn empty_source_observation_retains_provenance() {
+        let connected = agent(1);
+        let snapshot = finalize_source_catalog(
+            connected.clone(),
+            source(connected.clone(), 123_456, Vec::new()),
         );
 
         assert_eq!(snapshot.availability, AvailabilityStateKind::Empty);
         assert!(snapshot.hearths.is_empty());
-        assert_eq!(snapshot.discovered_records, 2);
-        assert_eq!(snapshot.verified_active, 0);
+        assert!(snapshot.evidence.is_empty());
+        assert_eq!(
+            snapshot.provenance.as_ref().map(|p| p.observed_at),
+            Some(123_456)
+        );
+        assert_eq!(
+            snapshot.provenance.as_ref().map(|p| p.agent.as_str()),
+            Some(connected.as_str())
+        );
+        assert_eq!(
+            snapshot.provenance.as_ref().map(|p| p.source.as_str()),
+            Some(ACTIVE_HEARTHS_SOURCE)
+        );
     }
 
     #[test]
-    fn complete_active_proofs_publish_live_catalog_and_roles_together() {
-        let a = hearth(1, "A");
-        let b = hearth(2, "B");
-        let snapshot = finalize_catalog(
-            agent(1),
-            CatalogEvidence {
-                discovered_records: 2,
-                unique_candidates: 2,
-                membership_queries_succeeded: 2,
-                active: vec![(b.clone(), MemberRole::Adult), (a.clone(), MemberRole::Founder)],
-                ..CatalogEvidence::default()
-            },
+    fn complete_source_catalog_is_live_and_preserves_evidence() {
+        let connected = agent(1);
+        let records = vec![source_view(2, connected.clone())];
+        let snapshot = finalize_source_catalog(
+            connected.clone(),
+            source(connected.clone(), 200, records),
         );
 
         assert_eq!(snapshot.availability, AvailabilityStateKind::Live);
-        assert_eq!(snapshot.hearths.len(), 2);
-        assert_eq!(snapshot.hearths[0].hash, a.hash);
-        assert_eq!(snapshot.hearths[1].hash, b.hash);
-        assert_eq!(snapshot.roles.get(&a.hash), Some(&MemberRole::Founder));
-        assert_eq!(snapshot.roles.get(&b.hash), Some(&MemberRole::Adult));
+        assert_eq!(snapshot.discovered_records, 1);
+        assert_eq!(snapshot.unique_candidates, 1);
+        assert_eq!(snapshot.verified_active, 1);
+        assert_eq!(snapshot.hearths[0].hash, action_hash(2));
+        assert_eq!(
+            snapshot.evidence[0].latest_hearth_record_hash,
+            action_hash(12)
+        );
+        assert_eq!(
+            snapshot.evidence[0].membership_record_hash,
+            action_hash(22)
+        );
+        assert_eq!(snapshot.evidence[0].role, MemberRole::Adult);
+        assert_eq!(snapshot.provenance.as_ref().map(|p| p.observed_at), Some(200));
     }
 
     #[test]
-    fn one_failed_membership_query_discards_partial_active_catalog() {
-        let active = hearth(1, "A");
-        let snapshot = finalize_catalog(
-            agent(1),
-            CatalogEvidence {
-                discovered_records: 2,
-                unique_candidates: 2,
-                membership_queries_succeeded: 1,
-                membership_query_failures: 1,
-                active: vec![(active, MemberRole::Adult)],
-                ..CatalogEvidence::default()
-            },
+    fn source_agent_mismatch_degrades_the_whole_catalog() {
+        let connected = agent(1);
+        let snapshot = finalize_source_catalog(
+            connected,
+            source(agent(2), 300, vec![source_view(2, agent(2))]),
         );
 
         assert_eq!(snapshot.availability, AvailabilityStateKind::Degraded);
         assert!(snapshot.hearths.is_empty());
-        assert!(snapshot.roles.is_empty());
-        assert_eq!(snapshot.verified_active, 1);
-        assert_eq!(snapshot.membership_query_failures, 1);
+        assert!(snapshot.evidence.is_empty());
+        assert_eq!(snapshot.malformed_candidates, 1);
     }
 
     #[test]
-    fn malformed_discovery_candidate_prevents_complete_catalog_claim() {
-        let snapshot = finalize_catalog(
-            agent(1),
-            CatalogEvidence {
-                discovered_records: 2,
-                unique_candidates: 1,
-                malformed_candidates: 1,
-                membership_queries_succeeded: 1,
-                active: vec![(hearth(1, "A"), MemberRole::Adult)],
-                ..CatalogEvidence::default()
-            },
+    fn duplicate_stable_identity_degrades_instead_of_deduplicating_authority() {
+        let connected = agent(1);
+        let records = vec![
+            source_view(2, connected.clone()),
+            source_view(2, connected.clone()),
+        ];
+        let snapshot = finalize_source_catalog(
+            connected.clone(),
+            source(connected, 400, records),
+        );
+
+        assert_eq!(snapshot.availability, AvailabilityStateKind::Degraded);
+        assert!(snapshot.hearths.is_empty());
+        assert!(snapshot.evidence.is_empty());
+        assert_eq!(snapshot.malformed_candidates, 1);
+    }
+
+    #[test]
+    fn membership_hash_cannot_be_the_stable_hearth_identity() {
+        let connected = agent(1);
+        let mut record = source_view(2, connected.clone());
+        record.membership_record_hash = record.hearth_hash.clone();
+
+        let snapshot = finalize_source_catalog(
+            connected.clone(),
+            source(connected, 500, vec![record]),
         );
 
         assert_eq!(snapshot.availability, AvailabilityStateKind::Degraded);
@@ -603,37 +577,30 @@ mod tests {
     }
 
     #[test]
-    fn updated_hearth_identity_ambiguity_prevents_complete_catalog_claim() {
-        let snapshot = finalize_catalog(
-            agent(1),
-            CatalogEvidence {
-                discovered_records: 2,
-                unique_candidates: 1,
-                identity_ambiguous_candidates: 1,
-                membership_queries_succeeded: 1,
-                active: vec![(hearth(1, "A"), MemberRole::Adult)],
-                ..CatalogEvidence::default()
-            },
+    fn malformed_source_hash_degrades_the_whole_catalog() {
+        let connected = agent(1);
+        let mut record = source_view(2, connected.clone());
+        record.latest_hearth_record_hash = "not-an-action-hash".into();
+
+        let snapshot = finalize_source_catalog(
+            connected.clone(),
+            source(connected, 600, vec![record]),
         );
 
         assert_eq!(snapshot.availability, AvailabilityStateKind::Degraded);
         assert!(snapshot.hearths.is_empty());
-        assert_eq!(snapshot.identity_ambiguous_candidates, 1);
+        assert!(snapshot.evidence.is_empty());
     }
 
     #[test]
-    fn incomplete_query_shape_cannot_be_mislabeled_empty() {
-        let snapshot = finalize_catalog(
-            agent(1),
-            CatalogEvidence {
-                discovered_records: 2,
-                unique_candidates: 2,
-                membership_queries_succeeded: 1,
-                ..CatalogEvidence::default()
-            },
+    fn mock_or_unknown_state_has_no_source_provenance() {
+        let mock = ActiveHearthCatalogSnapshot::with_state(
+            AvailabilityStateKind::Mock,
+            None,
         );
+        let unknown = ActiveHearthCatalogSnapshot::unknown(None);
 
-        assert_eq!(snapshot.availability, AvailabilityStateKind::Degraded);
-        assert!(snapshot.hearths.is_empty());
+        assert!(mock.provenance.is_none());
+        assert!(unknown.provenance.is_none());
     }
 }
