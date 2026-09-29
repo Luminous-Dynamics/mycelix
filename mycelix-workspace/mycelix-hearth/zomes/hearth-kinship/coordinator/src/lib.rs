@@ -995,10 +995,6 @@ pub fn get_my_active_hearths(_: ()) -> ExternResult<Vec<ActiveHearthView>> {
 
         let hearth: Hearth = entry_from_record(&hearth_record, "Hearth")?;
 
-        if hearth_hash == hearth_record.action_address() {
-            // Expected for an unmodified Hearth: stable identity and latest
-            // display record happen to be the same action.
-        }
 
         active.push(ActiveHearthView {
             hearth_hash,
