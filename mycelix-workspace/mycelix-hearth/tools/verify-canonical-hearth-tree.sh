@@ -18,8 +18,8 @@ check() {
 }
 
 check '(^|[^/[:alnum:]_-])mycelix-hearth/'
-check '(^|[[:space:]="'"'"''])\\./mycelix-hearth/'
-check '\\.\\./mycelix-hearth/'
+check '(^|[[:space:]="'"'"''])\./mycelix-hearth/'
+check '\.\./mycelix-hearth/'
 
 if [[ "$legacy" -ne 0 ]]; then
   echo
