@@ -25,7 +25,7 @@ The closure profile fixes:
 - currentness requirements;
 - excluded-boundary policy;
 - node/edge resource limits;
-- D6X algorithm version;
+- D6X algorithm version (currently `D6X-CLOSURE-4`);
 - claim ceiling.
 
 The certificate binds:
@@ -47,7 +47,7 @@ The certificate distinguishes two identities:
 - `commitment` is an audit/provenance certificate commitment and remains bound to the candidate projection;
 - `closure_identity_commitment` is the candidate-independent semantic identity consumed by D6W.
 
-The semantic identity binds the exact selected node-id → node-commitment mapping and selected edge-id → endpoint/kind/commitment mapping. Selected and missing dependencies are represented through a typed reference algebra (`Node`, `Edge`, `D6PReceipt`). Each dependency also has an explicit resolution state (`Present`, `Missing`, `Stale`); not-selected material is represented by absence rather than an `Excluded` dependency. The selected typed set is the canonical semantic dependency set; the parallel node/edge/D6P collections remain explicit compatibility/audit views. Certificate validation reconstructs the canonical selected set from those views and rejects omission, injection, or commitment/type drift. The legacy flat missing-ID view is likewise required to equal the identifier projection of the typed missing-dependency set. It deliberately excludes irrelevant candidate material, so adding unused material must not perturb the closure identity or downstream D6W input identity.
+The semantic identity binds the exact selected node-id → node-commitment mapping and selected edge-id → endpoint/kind/commitment mapping. Selected and missing dependencies are represented through a typed reference algebra (`Node`, `Edge`, `D6PReceipt`). Edge references additionally bind their exact endpoint node IDs and edge kind; this prevents an edge's semantic identity from collapsing to edge ID/commitment alone. D6P receipt references require their identifier and commitment to be identical. Each dependency also has an explicit resolution state (`Present`, `Missing`, `Stale`); not-selected material is represented by absence rather than an `Excluded` dependency. The selected typed set is the canonical semantic dependency set; the parallel node/edge/D6P collections remain explicit compatibility/audit views. Certificate validation reconstructs the canonical selected set from those views and rejects omission, injection, or commitment/type drift. The legacy flat missing-ID view is likewise required to equal the identifier projection of the typed missing-dependency set. It deliberately excludes irrelevant candidate material, so adding unused material must not perturb the closure identity or downstream D6W input identity.
 
 ## Status semantics
 
@@ -110,7 +110,16 @@ The reference model currently includes fixtures for:
 15. adding an unselected typed dependency invalidates the certificate.
 16. mutating the legacy missing-ID compatibility view invalidates the certificate.
 17. selected, missing, and stale dependency resolution states are explicitly bound and validated.
+18. changing a selected edge endpoint or edge kind changes semantic closure identity even when the edge ID/commitment is unchanged.
+19. dependency-domain structural validation rejects malformed Edge/D6PReceipt references.
+20. currentness state cannot create a stale-resolution entry for an unselected/resource-truncated node.
 
 Before interoperability or production claims, add cross-language golden vectors, currentness/D6P fixtures, contradiction-preservation fixtures, cycle fixtures, resource-limit fixtures, and execute the Rust/WASM/Holochain conformance corpus.
 
 Claim ceiling: **ReferenceModelOnly**.
+
+## Identity/evidence boundary
+
+D6X semantic dependency identity is intentionally kept independent of runtime retrieval evidence. A dependency reference says **what semantic object is required**; its resolution state says whether the closure selected it as present, missing, or stale under the named profile. Future Holochain addresses, retrieval receipts, validator observations, and retry metadata should be represented as resolution evidence rather than silently incorporated into the semantic dependency identity.
+
+This separation matches the architectural direction suggested by Holochain's validation model: dependencies used for deterministic validation need addressable retrieval, and unavailable dependencies are represented as unresolved so validation can be retried. D6X remains a reference-model analogue, not a claim of runtime equivalence. 
