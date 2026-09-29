@@ -567,6 +567,41 @@ pub struct RhythmSummary {
     pub avg_participation_bp: u32,
 }
 
+/// Canonical active-Hearth catalog item bound to one caller AgentPubKey.
+/// The stable hearth identity is the creation ActionHash in `hearth_hash`.
+/// `hearth` is the latest valid display content, while `membership_hash`
+/// identifies the current membership revision used as authority evidence.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActiveHearthCatalogItem {
+    pub hearth_hash: ActionHash,
+    pub hearth: HearthCatalogData,
+    pub membership_hash: ActionHash,
+    pub membership: HearthMembershipCatalogData,
+    pub agent: AgentPubKey,
+}
+
+/// Minimal display projection of a Hearth record. The identity hash is kept
+/// separately so metadata updates never become a new Hearth identity.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HearthCatalogData {
+    pub name: String,
+    pub description: String,
+    pub hearth_type: HearthType,
+    pub created_by: AgentPubKey,
+    pub created_at: Timestamp,
+    pub max_members: u32,
+}
+
+/// Membership evidence returned with the canonical catalog item.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HearthMembershipCatalogData {
+    pub agent: AgentPubKey,
+    pub role: MemberRole,
+    pub status: MembershipStatus,
+    pub display_name: String,
+    pub joined_at: Timestamp,
+    pub admission: MembershipAdmission,
+}
 // ============================================================================
 // Cross-Zome DTOs
 // ============================================================================
