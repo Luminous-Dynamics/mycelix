@@ -1,4 +1,4 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::fs;
 
@@ -51,10 +51,10 @@ pub enum QualificationResult {
     Invalid(String),
 }
 
-/// Domain-neutral epistemic state for engineering evidence.
+/// Compatibility vocabulary for the original seven-state outcome algebra.
 ///
-/// These states describe evidence/qualification semantics only. They are not
-/// physical safety determinations and are not synonyms for Holochain validation states.
+/// New evidence records should use EvidenceState instead, because these
+/// seven concepts belong to different semantic dimensions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EvidenceOutcomeState {
     Supported,
@@ -64,6 +64,97 @@ pub enum EvidenceOutcomeState {
     Superseded,
     Disputed,
     ExternallyAuthoritative,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EpistemicDisposition {
+    Supported,
+    Contradicted,
+    Unresolved,
+    Indeterminate,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LifecycleDisposition {
+    Current,
+    Superseded,
+    Retired,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConflictDisposition {
+    Uncontested,
+    Disputed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AuthorityProvenance {
+    Commons,
+    External,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EvidenceModality {
+    Observation,
+    Measurement,
+    Prediction,
+    Simulation,
+    Interpretation,
+    Attestation,
+}
+
+/// Orthogonal evidence state. The dimensions intentionally do not collapse
+/// into one status enum, preventing semantic/product-enum explosion.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EvidenceState {
+    pub epistemic_disposition: EpistemicDisposition,
+    pub lifecycle_disposition: LifecycleDisposition,
+    pub conflict_disposition: ConflictDisposition,
+    pub authority_provenance: AuthorityProvenance,
+    pub evidence_modality: EvidenceModality,
+    pub contradiction_reference: Option<String>,
+    pub unresolved_dependency_reference: Option<String>,
+    pub external_authority_reference: Option<String>,
+}
+
+impl EvidenceState {
+    /// Validate only semantic/provenance consistency. This is not a safety,
+    /// certification, regulatory, or physical-engineering assessment.
+    pub fn validate(&self) -> Result<(), String> {
+        if self.epistemic_disposition == EpistemicDisposition::Contradicted
+            && self.contradiction_reference.is_none()
+        {
+            return Err("contradicted evidence requires a contradiction reference".into());
+        }
+
+        if self.epistemic_disposition == EpistemicDisposition::Unresolved
+            && self.unresolved_dependency_reference.is_none()
+        {
+            return Err("unresolved evidence requires a dependency reference".into());
+        }
+
+        if self.conflict_disposition == ConflictDisposition::Disputed
+            && self.contradiction_reference.is_none()
+        {
+            return Err("disputed evidence requires a conflict reference".into());
+        }
+
+        match self.authority_provenance {
+            AuthorityProvenance::External if self.external_authority_reference.is_none() => {
+                Err("external authority requires an external-authority reference".into())
+            }
+            AuthorityProvenance::Commons if self.external_authority_reference.is_some() => {
+                Err("commons authority cannot carry an external-authority reference".into())
+            }
+            _ => Ok(()),
+        }
+    }
 }
 
 pub fn parse_corpus(json: &str) -> Result<Corpus, String> {
@@ -133,6 +224,19 @@ mod tests {
     fn corpus() -> Corpus {
         parse_corpus(include_str!("../../../../docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1.json"))
             .expect("bundled corpus must parse")
+    }
+
+    fn valid_state() -> EvidenceState {
+        EvidenceState {
+            epistemic_disposition: EpistemicDisposition::Supported,
+            lifecycle_disposition: LifecycleDisposition::Current,
+            conflict_disposition: ConflictDisposition::Uncontested,
+            authority_provenance: AuthorityProvenance::Commons,
+            evidence_modality: EvidenceModality::Measurement,
+            contradiction_reference: None,
+            unresolved_dependency_reference: None,
+            external_authority_reference: None,
+        }
     }
 
     #[test]
@@ -232,5 +336,76 @@ mod tests {
         assert_eq!(c.status, "semantic-qualification-only");
         assert!(c.vectors.iter().any(|v| v.id == "MC-CONFIG-013"));
         assert!(c.vectors.iter().any(|v| v.id == "MC-CONFIG-017"));
+    }
+
+    #[test]
+    fn supported_measurement_is_a_valid_current_commons_state() {
+        assert!(valid_state().validate().is_ok());
+    }
+
+    #[test]
+    fn unresolved_is_not_contradicted_and_requires_dependency() {
+        let mut state = valid_state();
+        state.epistemic_disposition = EpistemicDisposition::Unresolved;
+        assert!(state.validate().is_err());
+
+        state.unresolved_dependency_reference = Some("dep-1".into());
+        assert!(state.validate().is_ok());
+        assert_ne!(EpistemicDisposition::Unresolved, EpistemicDisposition::Contradicted);
+    }
+
+    #[test]
+    fn contradicted_requires_explicit_conflict_reference() {
+        let mut state = valid_state();
+        state.epistemic_disposition = EpistemicDisposition::Contradicted;
+        assert!(state.validate().is_err());
+
+        state.contradiction_reference = Some("evidence-2".into());
+        assert!(state.validate().is_ok());
+    }
+
+    #[test]
+    fn supported_evidence_can_be_disputed_without_becoming_contradicted() {
+        let mut state = valid_state();
+        state.conflict_disposition = ConflictDisposition::Disputed;
+        assert!(state.validate().is_err());
+
+        state.contradiction_reference = Some("claim-2".into());
+        assert!(state.validate().is_ok());
+        assert_eq!(state.epistemic_disposition, EpistemicDisposition::Supported);
+    }
+
+    #[test]
+    fn external_authority_requires_explicit_reference() {
+        let mut state = valid_state();
+        state.authority_provenance = AuthorityProvenance::External;
+        assert!(state.validate().is_err());
+
+        state.external_authority_reference = Some("authority-1".into());
+        assert!(state.validate().is_ok());
+    }
+
+    #[test]
+    fn commons_cannot_silently_claim_external_authority() {
+        let mut state = valid_state();
+        state.external_authority_reference = Some("authority-1".into());
+        assert!(state.validate().is_err());
+    }
+
+    #[test]
+    fn modality_remains_independent_from_epistemic_disposition() {
+        let mut state = valid_state();
+        state.evidence_modality = EvidenceModality::Simulation;
+        assert!(state.validate().is_ok());
+        assert_eq!(state.epistemic_disposition, EpistemicDisposition::Supported);
+    }
+
+    #[test]
+    fn superseded_and_retired_are_lifecycle_states_not_erasure() {
+        let mut state = valid_state();
+        state.lifecycle_disposition = LifecycleDisposition::Superseded;
+        assert!(state.validate().is_ok());
+        state.lifecycle_disposition = LifecycleDisposition::Retired;
+        assert!(state.validate().is_ok());
     }
 }
