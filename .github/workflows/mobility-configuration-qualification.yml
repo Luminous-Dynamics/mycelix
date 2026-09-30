@@ -5,6 +5,8 @@ on:
     paths:
       - 'docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1.json'
       - 'docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1_TEST_VECTORS.md'
+      - 'docs/mobility/MOBILITY_QUALIFICATION_OUTCOME_ALGEBRA_V1.md'
+      - 'docs/mobility/MOBILITY_QUALIFICATION_OUTCOME_ALGEBRA_V1.json'
       - 'mycelix-commons/crates/mobility-configuration-qualification/**'
       - 'tools/mobility_qualification_reference.py'
       - 'tools/compare_mobility_qualification.py'
@@ -15,6 +17,8 @@ on:
     paths:
       - 'docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1.json'
       - 'docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1_TEST_VECTORS.md'
+      - 'docs/mobility/MOBILITY_QUALIFICATION_OUTCOME_ALGEBRA_V1.md'
+      - 'docs/mobility/MOBILITY_QUALIFICATION_OUTCOME_ALGEBRA_V1.json'
       - 'mycelix-commons/crates/mobility-configuration-qualification/**'
       - 'tools/mobility_qualification_reference.py'
       - 'tools/compare_mobility_qualification.py'
