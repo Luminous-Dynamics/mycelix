@@ -48,32 +48,36 @@ FORBIDDEN = {
 "software-firmware-change":"unchanged-cad-means-unchanged-configuration",
 "retired-physical-artifact":"historical-existence-means-current-validity",
 }
+TOP_LEVEL_KEYS = {"schema_version", "status", "vectors"}
+VECTOR_KEYS = {"id", "scenario", "expected_outcome", "forbidden_inference"}
 
 def evaluate(corpus):
-    if corpus.get("schema_version") != "mobility-configuration-contract-qualification-v1":
+    if not isinstance(corpus, dict) or set(corpus) != TOP_LEVEL_KEYS:
+        return False, "unexpected_top_level_shape"
+    if corpus["schema_version"] != "mobility-configuration-contract-qualification-v1":
         return False, "schema_version"
-    if corpus.get("status") != "semantic-qualification-only":
+    if corpus["status"] != "semantic-qualification-only":
         return False, "status"
-    vectors = corpus.get("vectors")
+    vectors = corpus["vectors"]
     if not isinstance(vectors, list) or len(vectors) != len(EXPECTED):
         return False, "vector_count"
     seen = set()
     expected_ids = {scenario: f"MC-CONFIG-{index:03d}" for index, scenario in enumerate(EXPECTED, 1)}
     seen_ids = set()
     for vector in vectors:
-        if not isinstance(vector, dict):
+        if not isinstance(vector, dict) or set(vector) != VECTOR_KEYS:
             return False, "vector_shape"
-        scenario = vector.get("scenario")
+        scenario = vector["scenario"]
         if scenario in seen:
             return False, f"duplicate:{scenario}"
         seen.add(scenario)
         if scenario not in EXPECTED:
             return False, f"unknown_scenario:{scenario}"
-        if vector.get("expected_outcome") != EXPECTED[scenario]:
+        if vector["expected_outcome"] != EXPECTED[scenario]:
             return False, f"outcome:{scenario}"
-        if vector.get("forbidden_inference") != FORBIDDEN[scenario]:
+        if vector["forbidden_inference"] != FORBIDDEN[scenario]:
             return False, f"boundary:{scenario}"
-        if vector.get("id") != expected_ids[scenario]:
+        if vector["id"] != expected_ids[scenario]:
             return False, f"id:{scenario}"
         if vector["id"] in seen_ids:
             return False, f"duplicate_id:{vector['id']}"
