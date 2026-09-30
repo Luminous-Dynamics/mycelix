@@ -103,6 +103,10 @@ impl InputCommitmentV1 {
         canonical_sha256("d6w-input", &v)
     }
     pub fn valid(&self) -> bool {
+        fn strictly_sorted_unique(values: &[String]) -> bool {
+            values.windows(2).all(|pair| pair[0] < pair[1])
+        }
+
         self.schema_version == D6W_SCHEMA_VERSION
             && !self.source_snapshot.is_empty()
             && is_canonical_sha256_commitment(&self.projection)
@@ -110,8 +114,11 @@ impl InputCommitmentV1 {
             && is_canonical_sha256_commitment(&self.dependency_closure)
             && !self.nodes.is_empty()
             && self.nodes.iter().all(|v| is_canonical_sha256_commitment(v))
+            && strictly_sorted_unique(&self.nodes)
             && self.edges.iter().all(|v| is_canonical_sha256_commitment(v))
+            && strictly_sorted_unique(&self.edges)
             && self.d6p_receipts.iter().all(|v| !v.is_empty())
+            && strictly_sorted_unique(&self.d6p_receipts)
             && self.claim_ceiling == D6S_CLAIM_CEILING
             && is_canonical_sha256_commitment(&self.commitment)
             && self.commitment == self.recompute()
