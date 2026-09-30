@@ -3,6 +3,8 @@
 
 from dataclasses import dataclass
 from enum import Enum
+import json
+from pathlib import Path
 
 
 class Classification(str, Enum):
@@ -77,6 +79,24 @@ def apply(projection: Projection, witness: Witness, state: State, witness_ref: s
 
 
 def self_test() -> None:
+    contract = json.loads(
+        Path(__file__).resolve().parents[1]
+        .joinpath("docs/mobility/MOBILITY_RECONCILIATION_EVIDENCE_PROJECTION_V1.json")
+        .read_text()
+    )
+    vector_ids = [v["id"] for v in contract["vectors"]]
+    assert vector_ids == [f"REP-{i:03d}" for i in range(1, 10)]
+    assert all(
+        set(v) == {
+            "id",
+            "scenario",
+            "reconciliation_classification",
+            "projection",
+            "forbidden_inference",
+        }
+        for v in contract["vectors"]
+    )
+
     base = State()
 
     disputed = apply(
@@ -133,6 +153,19 @@ def self_test() -> None:
         Witness(Classification.INCOMPARABLE),
         base, "w-incomparable",
     ) == base
+
+    external = State(
+        epistemic="indeterminate",
+        lifecycle="current",
+        conflict="uncontested",
+        conflict_reference=None,
+    )
+    projected_external = apply(
+        Projection.CONFLICT_REFERENCE_ONLY,
+        Witness(Classification.CONFLICTING, disputed=False),
+        external, "w-external",
+    )
+    assert projected_external.epistemic == "indeterminate"
 
 
 if __name__ == "__main__":
