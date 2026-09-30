@@ -101,6 +101,10 @@ impl Relationship360 {
             return Err(Relationship360Error::QualifiedRelationshipMismatch);
         }
 
+        qualified
+            .validate_certificate()
+            .map_err(Relationship360Error::Qualification)?;
+
         let mut participants = relationship.participants.clone();
         participants.sort();
 
