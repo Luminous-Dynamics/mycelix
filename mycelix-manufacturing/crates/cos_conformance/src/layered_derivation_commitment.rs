@@ -140,8 +140,8 @@ mod tests {
         let e=SemanticEnvironmentV1{semantic_profile_id:"sem".into(),semantic_profile_version:"1".into(),current_frontier_root:Some("frontier".into()),d6p_eligibility_context_root:None,d6n_observer_context_root:None,d6o_lifecycle_context_root:None,membership_authority_scope_root:None,dependency_snapshot_root:Some("snapshot".into()),historical_cutoff:None,policy_version:"policy".into(),claim_ceiling:D6S_CLAIM_CEILING.into()};
         let d=DerivationProfileV1{profile_id:"d".into(),version:"1".into(),rule_ids:["r".into()].into_iter().collect(),permits_recursive_fixpoint:false,claim_ceiling:D6S_CLAIM_CEILING.into()};
         let mut nodes=BTreeMap::new();
-        for (id,k) in [("root",ClaimGraphNodeKindV1::Statement),("dep",ClaimGraphNodeKindV1::Evidence)]{nodes.insert(id.into(),QualifiedNodeV1{node_id:id.into(),kind:k,node_commitment:format!("n-{id}"),historical_only:false,current_frontier_root:Some("frontier".into()),claim_ceiling:D6S_CLAIM_CEILING.into()});}
-        if extra{nodes.insert("noise".into(),QualifiedNodeV1{node_id:"noise".into(),kind:ClaimGraphNodeKindV1::Source,node_commitment:"n-noise".into(),historical_only:false,current_frontier_root:Some("frontier".into()),claim_ceiling:D6S_CLAIM_CEILING.into()});}
+        for (id,k) in [("root",ClaimGraphNodeKindV1::Statement),("dep",ClaimGraphNodeKindV1::Evidence)]{nodes.insert(id.into(),QualifiedNodeV1{node_id:id.into(),kind:k,content_commitment:format!("c-{id}"),node_commitment:format!("n-{id}"),historical_only:false,current_frontier_root:Some("frontier".into()),claim_ceiling:D6S_CLAIM_CEILING.into()});}
+        if extra{nodes.insert("noise".into(),QualifiedNodeV1{node_id:"noise".into(),kind:ClaimGraphNodeKindV1::Source,content_commitment:"c-noise".into(),node_commitment:"n-noise".into(),historical_only:false,current_frontier_root:Some("frontier".into()),claim_ceiling:D6S_CLAIM_CEILING.into()});}
         let mut edges=BTreeMap::new();
         edges.insert("e1".into(),QualifiedEdgeV1{edge_id:"e1".into(),from_node_id:"root".into(),to_node_id:"dep".into(),kind:ClaimGraphEdgeKindV1::Supports,edge_commitment:"e-e1".into(),claim_ceiling:D6S_CLAIM_CEILING.into()});
         if extra{edges.insert("noise-edge".into(),QualifiedEdgeV1{edge_id:"noise-edge".into(),from_node_id:"noise".into(),to_node_id:"dep".into(),kind:ClaimGraphEdgeKindV1::Provenance,edge_commitment:"e-noise".into(),claim_ceiling:D6S_CLAIM_CEILING.into()});}
@@ -151,6 +151,32 @@ mod tests {
         let c=compute_dependency_closure(&p,&e,&d,&cp).unwrap();
         (p,e,d,c)
     }
+
+    #[test]
+    fn d6w_rejects_stale_environment_commitment() {
+        let (mut p,e,d,c)=fixture(false);
+        p.semantic_environment_commitment = "stale-environment".into();
+        assert!(!p.commitments_match_sources(&e,&d));
+        assert!(InputCommitmentV1::from_projection(&p,&e,&c).is_none());
+    }
+
+    #[test]
+    fn d6w_rejects_stale_derivation_profile_commitment() {
+        let (mut p,e,d,c)=fixture(false);
+        p.derivation_profile_commitment = "stale-profile".into();
+        assert!(!p.commitments_match_sources(&e,&d));
+        assert!(InputCommitmentV1::from_projection(&p,&e,&c).is_none());
+    }
+
+    #[test]
+    fn d6w_rejects_stale_selected_node_binding() {
+        let (mut p,e,d,c)=fixture(false);
+        let node = p.nodes.get_mut("dep").unwrap();
+        node.content_commitment = "changed-content".into();
+        assert!(!p.commitments_match_sources(&e,&d));
+        assert!(InputCommitmentV1::from_projection(&p,&e,&c).is_none());
+    }
+
     #[test] fn closure_is_bound_into_input(){let(p,e,d,c)=fixture(false);let i=InputCommitmentV1::from_projection(&p,&e,&c).unwrap();assert!(i.valid());assert!(!i.dependency_closure.is_empty());let x=LayeredReceiptV1::new(&i,&DerivationCommitmentV1::new(&i,&d,None).unwrap(),&ResultCommitmentV1::new(&DerivationCommitmentV1::new(&i,&d,None).unwrap(),DerivationResultStatusV1::Supported,"x".into(),false,false).unwrap());assert!(x.is_some());}
     #[test] fn blocked_closure_cannot_enter_d6w_input(){
         let(p,e,d,mut c)=fixture(false);
