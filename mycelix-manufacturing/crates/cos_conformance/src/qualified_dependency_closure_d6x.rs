@@ -247,6 +247,7 @@ impl DependencyClosureCertificateV1 {
             && non_empty(&self.semantic_environment_commitment)
             && non_empty(&self.derivation_profile_commitment)
             && !self.root_node_ids.is_empty()
+            && self.root_node_ids.iter().all(|id| self.included_node_ids.contains(id))
             && self.included_node_commitments.iter().all(|v| non_empty(v))
             && self.included_node_ids.iter().all(|v| non_empty(v))
             && self.included_nodes.iter().all(|(id, commitment)| non_empty(id) && non_empty(commitment))
