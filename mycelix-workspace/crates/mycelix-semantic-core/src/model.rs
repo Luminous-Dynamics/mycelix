@@ -99,10 +99,8 @@ impl Commitment32 {
 
         let mut out = [0_u8; 32];
         for (index, pair) in bytes.chunks_exact(2).enumerate() {
-            let high =
-                decode_hex_nibble(pair[0]).ok_or(SemanticCoreError::InvalidCommitmentHex)?;
-            let low =
-                decode_hex_nibble(pair[1]).ok_or(SemanticCoreError::InvalidCommitmentHex)?;
+            let high = decode_hex_nibble(pair[0]).ok_or(SemanticCoreError::InvalidCommitmentHex)?;
+            let low = decode_hex_nibble(pair[1]).ok_or(SemanticCoreError::InvalidCommitmentHex)?;
             out[index] = (high << 4) | low;
         }
         Ok(Self(out))
@@ -403,9 +401,18 @@ mod tests {
             environment.interpretation_profile().id().as_str(),
             "interpretation/base"
         );
-        assert_eq!(environment.identity_profile().id().as_str(), "identity/base");
-        assert_eq!(environment.authority_profile().id().as_str(), "authority/base");
-        assert_eq!(environment.temporal_profile().id().as_str(), "temporal/base");
+        assert_eq!(
+            environment.identity_profile().id().as_str(),
+            "identity/base"
+        );
+        assert_eq!(
+            environment.authority_profile().id().as_str(),
+            "authority/base"
+        );
+        assert_eq!(
+            environment.temporal_profile().id().as_str(),
+            "temporal/base"
+        );
         assert_eq!(
             environment.canonicalization_profile().id().as_str(),
             "canonical/domain-v1"
