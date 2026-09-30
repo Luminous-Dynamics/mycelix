@@ -988,6 +988,28 @@ mod tests {
     }
 
     #[test]
+    fn conflicting_dependency_kinds_are_rejected() {
+        let id = [11u8; 32];
+        let assertion = QualificationDependency::new(
+            QualificationDependencyKind::Assertion, id, b"record/assertion".to_vec()
+        ).unwrap();
+        let commitment = QualificationDependency::new(
+            QualificationDependencyKind::Commitment, id, b"record/commitment".to_vec()
+        ).unwrap();
+        assert_eq!(
+            validate_dependency_results(&[
+                QualificationDependencyResult {
+                    dependency: assertion, resolution: QualificationDependencyResolution::Valid
+                },
+                QualificationDependencyResult {
+                    dependency: commitment, resolution: QualificationDependencyResolution::Valid
+                },
+            ]),
+            Err(QualificationError::ConflictingDependencyAddress { logical_id: id })
+        );
+    }
+
+    #[test]
     fn tampered_commitment_identity_is_rejected() {
         let r = relationship(b"identity");
         let mut c = crate::Commitment::new_content_bound(
