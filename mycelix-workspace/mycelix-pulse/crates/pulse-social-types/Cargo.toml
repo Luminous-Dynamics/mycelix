@@ -1,1 +1,14 @@
-[package]\nname = "pulse-social-types"\nversion = "0.1.0"\nedition = "2024"\nrust-version = "1.96"\nlicense = "AGPL-3.0-or-later"\npublish = false\ndescription = "Transport-neutral semantic contracts for Mycelix Pulse social features"\n\n[dependencies]\nserde = { version = "1", features = ["derive"] }\n\n[dev-dependencies]\nserde_json = "1"\n
+[package]
+name = "pulse-social-types"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.96"
+license = "AGPL-3.0-or-later"
+publish = false
+description = "Transport-neutral semantic contracts for Mycelix Pulse social features"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+serde_json = "1"
