@@ -652,6 +652,80 @@ impl InstructionalTransformationContractRef {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum InstructionalTransformationContractEvolutionKind {
+    /// The predecessor and successor expose exactly the same semantic schema.
+    SemanticallyIdentical,
+    /// Existing valid inputs remain intended to be accepted by the successor.
+    ///
+    /// This is an explicit compatibility assessment; the verifier does not
+    /// infer it merely from the parameter maps.
+    BackwardCompatible,
+    /// Historical receipts are explicitly declared replayable under the
+    /// successor contract, subject to the separately recorded assessment.
+    ReplayCompatible,
+    /// The semantic schema changed in a way that must not be treated as a
+    /// compatible continuation.
+    Breaking,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalTransformationContractEvolutionReceipt {
+    pub evolution_id: String,
+    pub evolution_version: u64,
+    pub predecessor: InstructionalTransformationContractRef,
+    pub successor: InstructionalTransformationContractRef,
+    pub relation: InstructionalTransformationContractEvolutionKind,
+    pub rationale: String,
+    /// Digest of the explicit compatibility/replay assessment. The assessment
+    /// itself may live outside this receipt; raw learner data must not be
+    /// embedded here.
+    pub assessment_digest: String,
+}
+
+impl InstructionalTransformationContractEvolutionReceipt {
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.evolution_id.trim().is_empty()
+            || self.evolution_version == 0
+            || self.rationale.trim().is_empty()
+            || self.assessment_digest.trim().is_empty()
+        {
+            return Err(InstructionalScienceContractError::InvalidTransformationContractEvolution);
+        }
+
+        if self.predecessor.contract_id.trim().is_empty()
+            || self.predecessor.contract_version.trim().is_empty()
+            || self.predecessor.contract_digest.trim().is_empty()
+            || self.successor.contract_id.trim().is_empty()
+            || self.successor.contract_version.trim().is_empty()
+            || self.successor.contract_digest.trim().is_empty()
+        {
+            return Err(InstructionalScienceContractError::InvalidTransformationContractEvolution);
+        }
+
+        if self.predecessor == self.successor {
+            return Err(InstructionalScienceContractError::TransformationContractEvolutionSelfReference);
+        }
+
+        match self.relation {
+            InstructionalTransformationContractEvolutionKind::SemanticallyIdentical => {
+                if self.predecessor.contract_digest != self.successor.contract_digest {
+                    return Err(InstructionalScienceContractError::SemanticallyIdenticalContractDigestMismatch);
+                }
+            }
+            InstructionalTransformationContractEvolutionKind::Breaking => {
+                if self.predecessor.contract_digest == self.successor.contract_digest {
+                    return Err(InstructionalScienceContractError::BreakingContractDigestUnchanged);
+                }
+            }
+            InstructionalTransformationContractEvolutionKind::BackwardCompatible
+            | InstructionalTransformationContractEvolutionKind::ReplayCompatible => {}
+        }
+
+        Ok(())
+    }
+}
+
 pub struct InstructionalOutcomeTransformationParameterSchema {
     pub schema_id: String,
     pub schema_version: String,
@@ -1625,6 +1699,10 @@ pub enum InstructionalScienceContractError {
     InvalidTransformationContractReference,
     TransformationContractDigestMismatch,
     InvalidTransformationContractProvenance,
+    InvalidTransformationContractEvolution,
+    TransformationContractEvolutionSelfReference,
+    SemanticallyIdenticalContractDigestMismatch,
+    BreakingContractDigestUnchanged,
     ZeroAnalysisResultVersion,
     AnalysisResultEstimandMismatch,
     NegativeAnalysisResultGeneratedAt,
@@ -2641,6 +2719,78 @@ mod tests {
         assert_eq!(schema.validate_for(&operation, "1", &transformation_spec(vec![("method", InstructionalTransformationParameter::Identifier("z-score".into()))])), Ok(()));
         schema.contract.contract_digest = "blake3:wrong".into();
         assert_eq!(schema.validate_for(&operation, "1", &transformation_spec(vec![("method", InstructionalTransformationParameter::Identifier("z-score".into()))])), Err(InstructionalScienceContractError::TransformationContractDigestMismatch));
+    }
+
+    #[test]
+    fn transformation_contract_evolution_requires_explicit_relationship() {
+        let operation = InstructionalOutcomeTransformationKind::Standardization;
+        let predecessor_schema =
+            InstructionalOutcomeTransformationParameterSchema::for_operation(&operation, "1")
+                .unwrap();
+        let successor_schema =
+            InstructionalOutcomeTransformationParameterSchema::for_operation(&operation, "2")
+                .unwrap();
+
+        let mut receipt = InstructionalTransformationContractEvolutionReceipt {
+            evolution_id: "evolution-standardization".into(),
+            evolution_version: 1,
+            predecessor: predecessor_schema.contract.clone(),
+            successor: successor_schema.contract.clone(),
+            relation: InstructionalTransformationContractEvolutionKind::SemanticallyIdentical,
+            rationale: "same semantic contract".into(),
+            assessment_digest: "blake3:assessment".into(),
+        };
+        assert_eq!(
+            receipt.validate(),
+            Err(InstructionalScienceContractError::SemanticallyIdenticalContractDigestMismatch)
+        );
+
+        receipt.relation = InstructionalTransformationContractEvolutionKind::Breaking;
+        assert_eq!(receipt.validate(), Ok(()));
+    }
+
+    #[test]
+    fn transformation_contract_evolution_rejects_self_reference() {
+        let operation = InstructionalOutcomeTransformationKind::Standardization;
+        let schema =
+            InstructionalOutcomeTransformationParameterSchema::for_operation(&operation, "1")
+                .unwrap();
+        let receipt = InstructionalTransformationContractEvolutionReceipt {
+            evolution_id: "self".into(),
+            evolution_version: 1,
+            predecessor: schema.contract.clone(),
+            successor: schema.contract,
+            relation: InstructionalTransformationContractEvolutionKind::BackwardCompatible,
+            rationale: "invalid self relation".into(),
+            assessment_digest: "blake3:assessment".into(),
+        };
+        assert_eq!(
+            receipt.validate(),
+            Err(InstructionalScienceContractError::TransformationContractEvolutionSelfReference)
+        );
+    }
+
+    #[test]
+    fn transformation_contract_evolution_compatibility_is_explicit_not_inferred() {
+        let operation = InstructionalOutcomeTransformationKind::Standardization;
+        let predecessor =
+            InstructionalOutcomeTransformationParameterSchema::for_operation(&operation, "1")
+                .unwrap()
+                .contract;
+        let successor =
+            InstructionalOutcomeTransformationParameterSchema::for_operation(&operation, "2")
+                .unwrap()
+                .contract;
+        let receipt = InstructionalTransformationContractEvolutionReceipt {
+            evolution_id: "replay".into(),
+            evolution_version: 1,
+            predecessor,
+            successor,
+            relation: InstructionalTransformationContractEvolutionKind::ReplayCompatible,
+            rationale: "explicit replay assessment".into(),
+            assessment_digest: "blake3:replay-assessment".into(),
+        };
+        assert_eq!(receipt.validate(), Ok(()));
     }
 
     #[test]
