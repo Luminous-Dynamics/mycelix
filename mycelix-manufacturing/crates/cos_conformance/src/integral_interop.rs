@@ -67,9 +67,26 @@ pub fn validate_selected_oad_design_semantics(value: &Value) -> Result<(), Strin
     .as_array()
     .ok_or_else(|| "production_steps must be an array".to_string())?;
 
+    const PRODUCTION_STEP_FIELDS: &[&str] = &[
+        "estimated_hours",
+        "name",
+        "safety_notes",
+        "sequence_index",
+        "skill_tier",
+        "tools_required",
+    ];
+
     for (index, step) in steps.iter().enumerate() {
         if !step.is_object() {
             return Err(format!("production step {index} must be an object"));
+        }
+
+        for field in step.as_object().unwrap().keys() {
+            if !PRODUCTION_STEP_FIELDS.contains(&field.as_str()) {
+                return Err(format!(
+                    "unknown production_steps[{index}] field is not part of the frozen semantic projection: {field}"
+                ));
+            }
         }
 
         let name = step
