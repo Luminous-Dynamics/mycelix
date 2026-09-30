@@ -3006,6 +3006,7 @@ mod tests {
                 operation_version: "1".into(),
                 parameter_schema: test_transformation_contract_schema(&InstructionalOutcomeTransformationKind::Standardization, "1").unwrap(),
                 parameters: transformation_spec(vec![("method", InstructionalTransformationParameter::Identifier("z-score".into()))]),
+                transformation_digest: String::new(),
             }],
         };
         assert_eq!(chain.validate_for_output(&output), Ok(()));
