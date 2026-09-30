@@ -46,17 +46,21 @@ NON_IMPLICATIONS = {
 }
 
 
-def validate(relation: str, source: str, target: str) -> None:
+def validate(relation: str, source: str, target: str, source_scope: str, target_scope: str) -> None:
+    if not source_scope or not target_scope:
+        raise ValueError("relationship requires explicit scopes")
     if relation not in RELATIONS:
         raise ValueError(f"unknown relation: {relation}")
     if (source, target) not in RELATIONS[relation]:
         raise ValueError(f"invalid endpoint kinds for {relation}: {source}->{target}")
+    if relation not in {"supersedes", "changes"} and source_scope != target_scope:
+        raise ValueError(f"{relation} cannot cross configuration scopes: {source_scope}->{target_scope}")
 
 
 def main() -> None:
-    validate("manufactured_as", "manufacturing_event", "physical_artifact")
-    validate("interprets", "evidence_record", "operational_observation")
-    validate("authorizes", "external_authority_reference", "evidence_record")
+    validate("manufactured_as", "manufacturing_event", "physical_artifact", "cfg-a", "cfg-a")
+    validate("interprets", "evidence_record", "operational_observation", "cfg-a", "cfg-a")
+    validate("authorizes", "external_authority_reference", "evidence_record", "cfg-a", "cfg-a")
 
     for relation, source, target in [
         ("derived_from", "manufacturing_event", "physical_artifact"),
@@ -64,12 +68,23 @@ def main() -> None:
         ("authorizes", "evidence_record", "evidence_record"),
     ]:
         try:
-            validate(relation, source, target)
+            validate(relation, source, target, "cfg-a", "cfg-b")
         except ValueError:
             pass
         else:
             raise AssertionError("semantic substitution was accepted")
 
+    validate("supersedes", "design_artifact", "design_artifact", "cfg-b", "cfg-a")
+    for args in [
+        ("inspected_as", "inspection_record", "physical_artifact", "cfg-a", "cfg-b"),
+        ("tested_as", "test_record", "physical_artifact", "cfg-a", "cfg-b"),
+    ]:
+        try:
+            validate(*args)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("cross-scope relationship was accepted")
     assert ("derived_from", "manufactured_as") in NON_IMPLICATIONS
     assert ("interprets", "observed_as") in NON_IMPLICATIONS
     print("evidence-relationship reference corpus: PASS")
