@@ -6,10 +6,6 @@ on:
       - myc-int-demo-d6t-canonical-encoding
   workflow_dispatch:
 
-concurrency:
-  group: d6s-canon-1-${{ github.ref }}
-  cancel-in-progress: false
-
 env:
   CARGO_TERM_COLOR: always
 
