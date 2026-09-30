@@ -200,7 +200,17 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 }
                 validate_membership_admission(&membership)
             }
-            EntryTypes::KinshipBond(bond) => validate_bond(&bond),
+            EntryTypes::KinshipBond(bond) => {
+                let structural = validate_bond(&bond)?;
+                if structural != ValidateCallbackResult::Valid {
+                    return Ok(structural);
+                }
+                // member_a is the actor represented by the coordinator's bond
+                // creation operation. Bind that claim to the cryptographic
+                // action author so a forged bond cannot later inherit the
+                // original-author update rule with a different actor.
+                validate_claimed_agent(action.author(), &bond.member_a, "KinshipBond.member_a")
+            },
             EntryTypes::HearthInvitation(invitation) => {
                 let authorship = validate_claimed_agent(
                     action.author(),
