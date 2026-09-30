@@ -4,57 +4,86 @@
   "vectors": [
     {
       "id": "valid-baseline",
-      "mutation": "none",
+      "operation": "none",
+      "path": "$",
+      "value": null,
       "expected": "accept"
     },
     {
       "id": "missing-design-id",
-      "mutation": "remove design_version.id",
+      "operation": "remove",
+      "path": "design_version.id",
+      "value": null,
       "expected": "reject"
     },
     {
       "id": "null-materials",
-      "mutation": "set design_version.materials to null",
+      "operation": "set",
+      "path": "design_version.materials",
+      "value": null,
       "expected": "reject"
     },
     {
       "id": "materials-wrong-type",
-      "mutation": "set design_version.materials to a string",
+      "operation": "set",
+      "path": "design_version.materials",
+      "value": "stainless-steel",
       "expected": "reject"
     },
     {
       "id": "bom-fractional",
-      "mutation": "set bill_of_materials_kg.silicone to 0.25",
+      "operation": "set",
+      "path": "design_version.parameters.bill_of_materials_kg.silicone",
+      "value": 0.25,
       "expected": "reject"
     },
     {
       "id": "bom-wrong-type",
-      "mutation": "set bill_of_materials_kg.silicone to a string",
+      "operation": "set",
+      "path": "design_version.parameters.bill_of_materials_kg.silicone",
+      "value": "2",
       "expected": "reject"
     },
     {
       "id": "step-name-wrong-type",
-      "mutation": "set production_steps[0].name to a number",
+      "operation": "set",
+      "path": "design_version.parameters.production_steps[0].name",
+      "value": 42,
       "expected": "reject"
     },
     {
       "id": "step-hours-fractional",
-      "mutation": "set production_steps[0].estimated_hours to 1.5",
+      "operation": "set",
+      "path": "design_version.parameters.production_steps[0].estimated_hours",
+      "value": 1.5,
       "expected": "reject"
     },
     {
       "id": "step-tools-wrong-type",
-      "mutation": "set production_steps[0].tools_required to a string",
+      "operation": "set",
+      "path": "design_version.parameters.production_steps[0].tools_required",
+      "value": "press",
       "expected": "reject"
     },
     {
       "id": "step-sequence-fractional",
-      "mutation": "set production_steps[0].sequence_index to 0.5",
+      "operation": "set",
+      "path": "design_version.parameters.production_steps[0].sequence_index",
+      "value": 0.5,
       "expected": "reject"
     },
     {
       "id": "step-safety-wrong-type",
-      "mutation": "set production_steps[0].safety_notes to an array",
+      "operation": "set",
+      "path": "design_version.parameters.production_steps[0].safety_notes",
+      "value": ["guarded press"],
+      "expected": "reject"
+    },
+    {
+      "id": "unknown-step-field",
+      "operation": "set",
+      "path": "design_version.parameters.production_steps[0].future_field",
+      "value": "must-fail-closed",
       "expected": "reject"
     }
   ]
