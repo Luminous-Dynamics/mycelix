@@ -1,0 +1,13 @@
+{
+  "manifest_version": 1,
+  "profile": "D6S-CANON-1",
+  "corpus_path": "docs/integral/d6s-canon-1-golden-vectors.json",
+  "corpus_sha256": "a82401297a236b802e4756c65798db8af545076abf7db159883a1d28cf98c4f5",
+  "canonicalization_version": "D6S-CANON-1",
+  "hash_domain": "MYCELIX-INTEGRAL-D6S-RECEIPT-V1\\u0000",
+  "expected_vector_count": 7,
+  "expected_rejection_count": 9,
+  "independent_verifier": "scripts/integral/verify_d6s_canon_1.py",
+  "rust_conformance_command": "cargo test --manifest-path mycelix-manufacturing/Cargo.toml -p cos_conformance",
+  "claim_ceiling": "ReferenceModelOnly"
+}
