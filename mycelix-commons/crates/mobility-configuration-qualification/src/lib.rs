@@ -29,6 +29,7 @@ const EXPECTED_OUTCOMES: &[&str] = &[
 ];
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct Corpus {
     pub schema_version: String,
     pub status: String,
@@ -36,6 +37,7 @@ pub struct Corpus {
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct Vector {
     pub id: String,
     pub scenario: String,
@@ -177,6 +179,17 @@ mod tests {
         let mut c = corpus();
         c.vectors[0].expected_outcome = "unsafe-universal-safety-score".into();
         assert!(matches!(qualify(&c), QualificationResult::Invalid(_)));
+    }
+
+    #[test]
+    fn unknown_fields_are_rejected() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(include_str!(
+                "../../../../docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1.json"
+            ))
+            .expect("corpus must parse as JSON");
+        value["unexpected"] = serde_json::json!("must-fail");
+        assert!(parse_corpus(&value.to_string()).is_err());
     }
 
     #[test]
