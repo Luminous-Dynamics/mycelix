@@ -170,6 +170,12 @@ pub struct ChangeSetV1 {
     pub changed_artifacts: Vec<ArtifactRef>,
     #[serde(default)]
     pub changed_inputs: Vec<ArtifactRef>,
+    #[serde(default)]
+    pub changed_requirements: Vec<ArtifactRef>,
+    #[serde(default)]
+    pub changed_methods: Vec<ArtifactRef>,
+    #[serde(default)]
+    pub changed_toolchains: Vec<ArtifactRef>,
 }
 
 /// The impact of a ChangeSet on one evidence record.
@@ -193,16 +199,17 @@ pub fn classify_impact(
     let mut reasons = Vec::new();
     let mut obligations = Vec::new();
 
-    if evidence.configuration.id == change.predecessor_configuration.id
-        && evidence.subject.id == change.proposed_configuration.id
-    {
-        reasons.push("configuration transition changes evidence context".into());
-        obligations.push("engineering_review".into());
+    // This classifier only propagates evidence from the exact predecessor
+    // configuration. Evidence from another configuration is not silently
+    // imported into this transition.
+    if evidence.configuration.id != change.predecessor_configuration.id {
         return EvidenceImpact {
             evidence_id: evidence.evidence_id.clone(),
-            class: ImpactClass::RequiresReview,
-            reasons,
-            obligations,
+            class: ImpactClass::Unknown,
+            reasons: vec![
+                "evidence belongs to a configuration other than the change predecessor".into(),
+            ],
+            obligations: vec!["configuration_alignment".into()],
         };
     }
 
@@ -235,11 +242,58 @@ pub fn classify_impact(
         };
     }
 
-    if change.changed_artifacts.is_empty() && change.changed_inputs.is_empty() {
+    let method_changed = evidence.method.as_ref().is_some_and(|method| {
+        change.changed_methods.iter().any(|changed| changed.id == method.id)
+    });
+    if method_changed {
+        reasons.push("evidence method changed".into());
+        obligations.push("method_review".into());
+        return EvidenceImpact {
+            evidence_id: evidence.evidence_id.clone(),
+            class: ImpactClass::RequiresReview,
+            reasons,
+            obligations,
+        };
+    }
+
+    let toolchain_changed = evidence.toolchain.iter().any(|tool| {
+        change.changed_toolchains.iter().any(|changed| changed.id == tool.id)
+    });
+    if toolchain_changed {
+        reasons.push("evidence toolchain changed".into());
+        obligations.push("reproducibility_review".into());
+        return EvidenceImpact {
+            evidence_id: evidence.evidence_id.clone(),
+            class: ImpactClass::RequiresReview,
+            reasons,
+            obligations,
+        };
+    }
+
+    let requirement_changed = evidence.basis.iter().any(|basis| {
+        change.changed_requirements.iter().any(|changed| changed.id == basis.id)
+    });
+    if requirement_changed {
+        reasons.push("evidence basis requirement changed".into());
+        obligations.push("requirement_review".into());
+        return EvidenceImpact {
+            evidence_id: evidence.evidence_id.clone(),
+            class: ImpactClass::RequiresReview,
+            reasons,
+            obligations,
+        };
+    }
+
+    if change.changed_artifacts.is_empty()
+        && change.changed_inputs.is_empty()
+        && change.changed_requirements.is_empty()
+        && change.changed_methods.is_empty()
+        && change.changed_toolchains.is_empty()
+    {
         return EvidenceImpact {
             evidence_id: evidence.evidence_id.clone(),
             class: ImpactClass::Unaffected,
-            reasons: vec!["no semantic dependencies changed".into()],
+            reasons: vec!["no declared semantic dependencies changed".into()],
             obligations,
         };
     }
@@ -347,6 +401,9 @@ mod tests {
                 kind: "component".into(),
             }],
             changed_inputs: vec![],
+            changed_requirements: vec![],
+            changed_methods: vec![],
+            changed_toolchains: vec![],
         };
         let impact = classify_impact(&evidence, &change);
         assert_eq!(impact.class, ImpactClass::RequiresReview);
@@ -370,6 +427,9 @@ mod tests {
                 kind: "configuration".into(),
             },
             changed_artifacts: vec![],
+            changed_requirements: vec![],
+            changed_methods: vec![],
+            changed_toolchains: vec![],
             changed_inputs: vec![ArtifactRef {
                 id: "material-batch-1".into(),
                 kind: "material_batch".into(),
@@ -397,6 +457,9 @@ mod tests {
                 kind: "parameter".into(),
             }],
             changed_inputs: vec![],
+            changed_requirements: vec![],
+            changed_methods: vec![],
+            changed_toolchains: vec![],
         };
         let impact = classify_impact(&evidence, &change);
         assert_eq!(impact.class, ImpactClass::Unknown);
