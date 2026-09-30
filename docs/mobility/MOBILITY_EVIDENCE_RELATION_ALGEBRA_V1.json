@@ -1,9 +1,8 @@
 {
   "schema_version": "mobility-evidence-relationship-algebra-v1",
   "scope": "semantic-provenance-only",
-  "relations": [
-    [
-      "derived_from",
+  "relations": {
+    "derived_from": [
       [
         "design_artifact",
         "requirement"
@@ -17,150 +16,120 @@
         "evidence_record"
       ]
     ],
-    [
-      "manufactured_as",
+    "manufactured_as": [
       [
-        [
-          "manufacturing_event",
-          "physical_artifact"
-        ]
+        "manufacturing_event",
+        "physical_artifact"
       ]
     ],
-    [
-      "inspected_as",
+    "inspected_as": [
       [
-        [
-          "inspection_record",
-          "physical_artifact"
-        ]
+        "inspection_record",
+        "physical_artifact"
       ]
     ],
-    [
-      "tested_as",
+    "tested_as": [
       [
-        [
-          "test_record",
-          "physical_artifact"
-        ]
+        "test_record",
+        "physical_artifact"
       ]
     ],
-    [
-      "observed_as",
+    "observed_as": [
       [
-        [
-          "operational_observation",
-          "physical_artifact"
-        ]
+        "operational_observation",
+        "physical_artifact"
       ]
     ],
-    [
-      "interprets",
+    "interprets": [
       [
-        [
-          "evidence_record",
-          "inspection_record"
-        ],
-        [
-          "evidence_record",
-          "test_record"
-        ],
-        [
-          "evidence_record",
-          "operational_observation"
-        ]
+        "evidence_record",
+        "inspection_record"
+      ],
+      [
+        "evidence_record",
+        "test_record"
+      ],
+      [
+        "evidence_record",
+        "operational_observation"
       ]
     ],
-    [
-      "supersedes",
+    "supersedes": [
       [
-        [
-          "design_artifact",
-          "design_artifact"
-        ],
-        [
-          "evidence_record",
-          "evidence_record"
-        ],
-        [
-          "change_set",
-          "change_set"
-        ]
+        "design_artifact",
+        "design_artifact"
+      ],
+      [
+        "evidence_record",
+        "evidence_record"
+      ],
+      [
+        "change_set",
+        "change_set"
       ]
     ],
-    [
-      "changes",
+    "changes": [
       [
-        [
-          "change_set",
-          "design_artifact"
-        ],
-        [
-          "change_set",
-          "physical_artifact"
-        ],
-        [
-          "change_set",
-          "evidence_record"
-        ]
+        "change_set",
+        "design_artifact"
+      ],
+      [
+        "change_set",
+        "physical_artifact"
+      ],
+      [
+        "change_set",
+        "evidence_record"
       ]
     ],
-    [
-      "requires_revalidation",
+    "requires_revalidation": [
       [
-        [
-          "impact_assessment",
-          "revalidation_obligation"
-        ],
-        [
-          "change_set",
-          "revalidation_obligation"
-        ]
+        "impact_assessment",
+        "revalidation_obligation"
+      ],
+      [
+        "change_set",
+        "revalidation_obligation"
       ]
     ],
-    [
-      "disputes",
+    "disputes": [
       [
-        [
-          "evidence_record",
-          "evidence_record"
-        ]
+        "evidence_record",
+        "evidence_record"
       ]
     ],
-    [
-      "authorizes",
+    "authorizes": [
       [
-        [
-          "external_authority_reference",
-          "evidence_record"
-        ],
-        [
-          "external_authority_reference",
-          "physical_artifact"
-        ]
+        "external_authority_reference",
+        "evidence_record"
+      ],
+      [
+        "external_authority_reference",
+        "physical_artifact"
       ]
     ]
-  ],
+  },
   "non_implications": [
-    [
-      "derived_from",
-      "manufactured_as"
-    ],
-    [
-      "interprets",
-      "observed_as"
-    ],
-    [
-      "changes",
-      "revalidation_complete"
-    ],
-    [
-      "disputes",
-      "physical_falsehood"
-    ],
-    [
-      "authorizes",
-      "commons_consensus_authority"
-    ]
+    {
+      "relation": "derived_from",
+      "does_not_imply": "manufactured_as"
+    },
+    {
+      "relation": "interprets",
+      "does_not_imply": "observed_as"
+    },
+    {
+      "relation": "changes",
+      "does_not_imply": "revalidation_complete"
+    },
+    {
+      "relation": "disputes",
+      "does_not_imply": "physical_falsehood"
+    },
+    {
+      "relation": "authorizes",
+      "does_not_imply": "commons_consensus_authority"
+    }
   ],
   "forbidden_claims": [
     "physical_safety",
