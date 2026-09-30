@@ -378,7 +378,6 @@ impl fmt::Display for ConsentError {
             Self::AlreadyInactive => "consent is already inactive",
             Self::UnauthorizedRevocation => "only the grantor may revoke consent",
             Self::NonMonotonicEventTime => "consent event time cannot move backwards",
-            Self::NonMonotonicEventTime => "consent event time cannot move backwards",
             Self::MissingGrantEvent => "consent lifecycle is missing its grant event",
             Self::InvalidLifecycle => "consent lifecycle history is invalid",
             Self::NotGranted => "consent is not active",
