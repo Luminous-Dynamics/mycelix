@@ -665,6 +665,66 @@ pub fn current_finality_receipt_is_non_authorizing(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn committed_receipt() -> CurrentFinalityEligibilityReceiptV1 {
+        let mut receipt = CurrentFinalityEligibilityReceiptV1 {
+            receipt_id: "receipt-1".into(),
+            effect_id: "effect-1".into(),
+            effect_lineage_id: "lineage-1".into(),
+            lifecycle_generation_id: "generation-1".into(),
+            route_id: "route-1".into(),
+            provider_id: "provider-1".into(),
+            provider_operation_id: "operation-1".into(),
+            provider_profile_root: "provider-profile-1".into(),
+            semantic_environment_root: "environment-1".into(),
+            observation_set_id: "set-1".into(),
+            observation_set_commitment: "set-commitment-1".into(),
+            d6n_assessment_commitment: "assessment-1".into(),
+            witness_eligibility_ids: ["witness-1".into()].into_iter().collect(),
+            observer_generation_ids: ["generation-1".into()].into_iter().collect(),
+            current_frontier_root: "frontier-1".into(),
+            lifecycle_profile_id: "lifecycle-1".into(),
+            eligible_independent_count: 1,
+            preserved_contradictory_count: 0,
+            disposition: FinalityEligibilityDispositionV1::EligibleCurrent,
+            qualification_transition_id: "transition-1".into(),
+            receipt_commitment: String::new(),
+            claim_ceiling: FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING.into(),
+        };
+        receipt.receipt_commitment = receipt.recomputed_commitment();
+        receipt
+    }
+
+    #[test]
+    fn current_receipt_commitment_binds_every_semantic_field() {
+        let receipt = committed_receipt();
+        assert!(receipt.commitment_matches());
+
+        let mut mutated = receipt.clone();
+        mutated.provider_operation_id = "operation-attacker".into();
+        assert!(!mutated.commitment_matches());
+
+        let mut mutated = receipt.clone();
+        mutated.current_frontier_root = "frontier-attacker".into();
+        assert!(!mutated.commitment_matches());
+
+        let mut mutated = receipt.clone();
+        mutated.disposition = FinalityEligibilityDispositionV1::Contested;
+        assert!(!mutated.commitment_matches());
+    }
+
+    #[test]
+    fn current_receipt_commitment_is_domain_separated_and_canonical_length() {
+        let receipt = committed_receipt();
+        assert_eq!(receipt.receipt_commitment.len(), 64);
+        assert!(receipt.receipt_commitment.bytes().all(|b| {
+            b.is_ascii_digit() || (b'a'..=b'f').contains(&b)
+        }));
+
+        let mut mutated = receipt.clone();
+        mutated.receipt_commitment = String::from("receipt-1");
+        assert!(!mutated.commitment_matches());
+    }
     use crate::contestable_finality::{
         ExternalObserverProfileV1, ExternalObservedStateV1, ExternalObservationSourceV1,
         ExternalObserverRoleV1, ObservationAssessmentV1, ObservationSetDispositionV1,
