@@ -170,6 +170,24 @@ impl Commitment {
     }
 
     pub fn transition(&mut self, event: CommitmentEvent) -> Result<(), CommitmentError> {
+        let actor_allowed = match event.kind {
+            CommitmentEventKind::Request => event.actor == self.obligor,
+            CommitmentEventKind::Accept | CommitmentEventKind::Decline => {
+                event.actor == self.beneficiary
+            }
+            CommitmentEventKind::Activate
+            | CommitmentEventKind::PartialFulfillment
+            | CommitmentEventKind::Fulfillment => event.actor == self.obligor,
+            CommitmentEventKind::Dispute
+            | CommitmentEventKind::Cancel
+            | CommitmentEventKind::Expire => {
+                event.actor == self.obligor || event.actor == self.beneficiary
+            }
+        };
+        if !actor_allowed {
+            return Err(CommitmentError::UnauthorizedActor);
+        }
+
         let next = next_status(self.status, event.kind)
             .ok_or(CommitmentError::InvalidTransition {
                 from: self.status,
