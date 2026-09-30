@@ -327,6 +327,18 @@ mod tests {
     }
 
     #[test]
+    fn relation_rejects_unknown_authority_fields() {
+        let encoded = r#"{"schema_version":1,"relation":"Membership","subject":"agent-a","target":"space-1","provenance":"MycelixCanonical","capability":"admin"}"#;
+        assert!(serde_json::from_str::<SocialRelationV1>(encoded).is_err());
+    }
+
+    #[test]
+    fn observation_rejects_unknown_authority_fields() {
+        let encoded = r#"{"schema_version":1,"provider":"activitypub","external_id":"object-1","observed_at_micros":1,"object":{"schema_version":1,"object_id":"post-001","revision":"rev-001","kind":"Post","provenance":"MycelixCanonical"},"authorized":true}"#;
+        assert!(serde_json::from_str::<SocialObservationV1>(encoded).is_err());
+    }
+
+    #[test]
     fn serde_unknown_enum_value_fails() {
         let encoded = r#"{"schema_version":1,"relation":"Blocked","subject":"a","target":"b","provenance":"MycelixCanonical"}"#;
         let decoded = serde_json::from_str::<SocialRelationV1>(encoded);
