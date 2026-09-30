@@ -88,6 +88,12 @@ impl Commitment {
         if obligor == beneficiary {
             return Err(CommitmentError::SelfCommitment);
         }
+        if actor != obligor {
+            return Err(CommitmentError::UnauthorizedActor {
+                kind: CommitmentEventKind::Request,
+                actor,
+            });
+        }
         let first = CommitmentEvent {
             kind: CommitmentEventKind::Request,
             actor,
@@ -113,6 +119,13 @@ impl Commitment {
                 event: event.kind,
             })?;
 
+        if !actor_allowed(event.kind, &event.actor, &self.obligor, &self.beneficiary) {
+            return Err(CommitmentError::UnauthorizedActor {
+                kind: event.kind,
+                actor: event.actor,
+            });
+        }
+
         if let Some(previous) = self.events.last() {
             if event.occurred_at < previous.occurred_at {
                 return Err(CommitmentError::NonMonotonicEventTime);
@@ -128,6 +141,24 @@ impl Commitment {
         self.status = next;
         self.events.push(event);
         Ok(())
+    }
+}
+
+fn actor_allowed(
+    kind: CommitmentEventKind,
+    actor: &ParticipantRef,
+    obligor: &ParticipantRef,
+    beneficiary: &ParticipantRef,
+) -> bool {
+    match kind {
+        CommitmentEventKind::Request
+        | CommitmentEventKind::Activate
+        | CommitmentEventKind::PartialFulfillment
+        | CommitmentEventKind::Fulfillment => actor == obligor,
+        CommitmentEventKind::Accept | CommitmentEventKind::Decline => actor == beneficiary,
+        CommitmentEventKind::Dispute
+        | CommitmentEventKind::Cancel
+        | CommitmentEventKind::Expire => actor == obligor || actor == beneficiary,
     }
 }
 
@@ -155,6 +186,7 @@ pub enum CommitmentError {
     InvalidTransition { from: CommitmentStatus, event: CommitmentEventKind },
     NonMonotonicEventTime,
     FulfillmentRequiresEvidence,
+    UnauthorizedActor { kind: CommitmentEventKind, actor: ParticipantRef },
 }
 
 impl fmt::Display for CommitmentError {
@@ -164,6 +196,11 @@ impl fmt::Display for CommitmentError {
             Self::InvalidTransition { from, event } => write!(f, "invalid transition from {from:?} via {event:?}"),
             Self::NonMonotonicEventTime => write!(f, "event time cannot move backwards"),
             Self::FulfillmentRequiresEvidence => write!(f, "fulfillment requires an evidence reference"),
+            Self::UnauthorizedActor { kind, actor } => write!(
+                f,
+                "actor {:?} is not authorized for commitment event {:?}",
+                actor, kind
+            ),
         }
     }
 }
@@ -200,6 +237,43 @@ mod tests {
             p("did", "alice"),
             Some("e:request".into()),
         ).unwrap()
+    }
+
+    #[test]
+    fn wrong_actor_cannot_accept() {
+        let mut c = commitment();
+        assert_eq!(
+            c.transition(event(CommitmentEventKind::Accept, p("did", "alice"), 110, Some("e"))),
+            Err(CommitmentError::UnauthorizedActor {
+                kind: CommitmentEventKind::Accept,
+                actor: p("did", "alice"),
+            })
+        );
+        assert_eq!(c.status, CommitmentStatus::Requested);
+    }
+
+    #[test]
+    fn wrong_actor_cannot_fulfill() {
+        let mut c = commitment();
+        c.transition(event(CommitmentEventKind::Accept, p("org", "acme"), 110, Some("e"))).unwrap();
+        c.transition(event(CommitmentEventKind::Activate, p("did", "alice"), 120, Some("e"))).unwrap();
+        assert_eq!(
+            c.transition(event(CommitmentEventKind::Fulfillment, p("org", "acme"), 130, Some("e"))),
+            Err(CommitmentError::UnauthorizedActor {
+                kind: CommitmentEventKind::Fulfillment,
+                actor: p("org", "acme"),
+            })
+        );
+        assert_eq!(c.status, CommitmentStatus::Active);
+    }
+
+    #[test]
+    fn either_party_may_dispute_or_cancel() {
+        let mut c = commitment();
+        c.transition(event(CommitmentEventKind::Accept, p("org", "acme"), 110, Some("e"))).unwrap();
+        c.transition(event(CommitmentEventKind::Dispute, p("org", "acme"), 120, Some("e"))).unwrap();
+        c.transition(event(CommitmentEventKind::Cancel, p("did", "alice"), 130, Some("e"))).unwrap();
+        assert_eq!(c.status, CommitmentStatus::Cancelled);
     }
 
     #[test]
