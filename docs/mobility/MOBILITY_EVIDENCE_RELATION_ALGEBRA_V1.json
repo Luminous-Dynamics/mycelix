@@ -138,5 +138,13 @@
     "physical_equivalence",
     "measurement_truth",
     "engineering_correctness"
-  ]
+  ],
+  "scope_rules": {
+    "ordinary_relations_require_same_source_and_target_scope": true,
+    "cross_scope_relations": [
+      "supersedes",
+      "changes"
+    ],
+    "scope_identifiers_are_not_holochain_action_timestamps": true
+  }
 }
