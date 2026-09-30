@@ -4,14 +4,16 @@ on:
   push:
     branches:
       - myc-int-demo-d6t-canonical-encoding
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
   workflow_dispatch:
 
-# Keep only the newest pending qualification for this branch. GitHub Actions
-# intentionally cancels superseded pending runs; the head commit is the
-# qualification subject, so older pending commits must not consume a runner.
+# The qualification subject is always the exact branch head, never a synthetic
+# pull-request merge ref. Superseded pending runs are disposable because they
+# cannot qualify the newer commit.
 concurrency:
-  group: d6s-canon-1-${{ github.ref }}
-  cancel-in-progress: false
+  group: d6s-canon-1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 env:
   CARGO_TERM_COLOR: always
@@ -21,9 +23,16 @@ jobs:
     name: D6S-CANON-1 qualification
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      QUALIFIED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
     steps:
-      - name: Checkout exact commit
+      - name: Checkout exact qualification subject
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.QUALIFIED_SHA }}
+
+      - name: Assert exact qualification subject
+        run: test "$(git rev-parse HEAD)" = "$QUALIFIED_SHA"
 
       - name: Install pinned Rust
         uses: dtolnay/rust-toolchain@1.96.0
@@ -41,7 +50,8 @@ jobs:
         run: |
           {
             echo "D6S-CANON-1 QUALIFICATION"
-            echo "commit=${GITHUB_SHA}"
+            echo "commit=${QUALIFIED_SHA}"
+            echo "event=${GITHUB_EVENT_NAME}"
             echo "rust=$(rustc --version)"
             echo "cargo=$(cargo --version)"
             echo "python=$(python3 --version)"
