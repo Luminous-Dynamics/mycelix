@@ -50,7 +50,7 @@ fn rust_canonicalizer_matches_frozen_d6s_golden_vectors() {
         D6S_HASH_DOMAIN,
         "golden corpus hash domain must match the Rust reference"
     );
-    assert_eq!(corpus.cases.len(), 7);
+    assert_eq!(corpus.cases.len(), 8);
     assert_eq!(corpus.rejections.len(), 9);
 
     for case in corpus.cases {
