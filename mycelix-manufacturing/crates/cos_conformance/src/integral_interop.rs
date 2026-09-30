@@ -37,17 +37,27 @@ pub fn validate_selected_oad_design_semantics(value: &Value) -> Result<(), Strin
         return Err("design_version.spec_id must be a string".into());
     }
 
-    if !required(value, "design_version.materials")?.is_array() {
-        return Err("design_version.materials must be an array".into());
+    let materials = required(value, "design_version.materials")?
+        .as_array()
+        .ok_or_else(|| "design_version.materials must be an array".to_string())?;
+    for (index, material) in materials.iter().enumerate() {
+        if !material.is_string() {
+            return Err(format!("design_version.materials[{index}] must be a string"));
+        }
     }
 
-    if !required(
+    let bill_of_materials = required(
         value,
         "design_version.parameters.bill_of_materials_kg",
     )?
-    .is_object()
-    {
-        return Err("bill_of_materials_kg must be an object".into());
+    .as_object()
+    .ok_or_else(|| "bill_of_materials_kg must be an object".to_string())?;
+    for (material, quantity) in bill_of_materials {
+        if quantity.as_i64().is_none() && quantity.as_u64().is_none() {
+            return Err(format!(
+                "bill_of_materials_kg[{material}] must be an integral JSON number"
+            ));
+        }
     }
 
     let steps = required(
@@ -61,22 +71,66 @@ pub fn validate_selected_oad_design_semantics(value: &Value) -> Result<(), Strin
         if !step.is_object() {
             return Err(format!("production step {index} must be an object"));
         }
-        for field in [
-            "name",
-            "estimated_hours",
-            "skill_tier",
-            "tools_required",
-            "sequence_index",
-            "safety_notes",
-        ] {
-            let field_value = step
-                .get(field)
-                .ok_or_else(|| format!("missing required production_steps[{index}].{field}"))?;
-            if field_value.is_null() {
+
+        let name = step
+            .get("name")
+            .ok_or_else(|| format!("missing required production_steps[{index}].name"))?;
+        if !name.is_string() {
+            return Err(format!(
+                "production_steps[{index}].name must be a string"
+            ));
+        }
+
+        let estimated_hours = step.get("estimated_hours").ok_or_else(|| {
+            format!("missing required production_steps[{index}].estimated_hours")
+        })?;
+        if estimated_hours.as_i64().is_none() && estimated_hours.as_u64().is_none() {
+            return Err(format!(
+                "production_steps[{index}].estimated_hours must be an integral JSON number"
+            ));
+        }
+
+        let skill_tier = step
+            .get("skill_tier")
+            .ok_or_else(|| format!("missing required production_steps[{index}].skill_tier"))?;
+        if !skill_tier.is_string() {
+            return Err(format!(
+                "production_steps[{index}].skill_tier must be a string"
+            ));
+        }
+
+        let tools_required = step.get("tools_required").ok_or_else(|| {
+            format!("missing required production_steps[{index}].tools_required")
+        })?;
+        let tools = tools_required.as_array().ok_or_else(|| {
+            format!(
+                "production_steps[{index}].tools_required must be an array"
+            )
+        })?;
+        for (tool_index, tool) in tools.iter().enumerate() {
+            if !tool.is_string() {
                 return Err(format!(
-                    "required production_steps[{index}].{field} is null"
+                    "production_steps[{index}].tools_required[{tool_index}] must be a string"
                 ));
             }
+        }
+
+        let sequence_index = step.get("sequence_index").ok_or_else(|| {
+            format!("missing required production_steps[{index}].sequence_index")
+        })?;
+        if sequence_index.as_i64().is_none() && sequence_index.as_u64().is_none() {
+            return Err(format!(
+                "production_steps[{index}].sequence_index must be an integral JSON number"
+            ));
+        }
+
+        let safety_notes = step.get("safety_notes").ok_or_else(|| {
+            format!("missing required production_steps[{index}].safety_notes")
+        })?;
+        if !safety_notes.is_string() {
+            return Err(format!(
+                "production_steps[{index}].safety_notes must be a string"
+            ));
         }
     }
 
@@ -155,6 +209,65 @@ mod tests {
         let mut changed = fixture();
         changed["design_version"].as_object_mut().unwrap().remove("id");
         assert!(selected_oad_design_semantic_commitment_checked(&changed).is_err());
+    }
+
+
+
+    #[test]
+    fn wrong_selected_types_fail_closed() {
+        let cases = [
+            ("materials", serde_json::json!({"materials": "stainless-steel"})),
+            (
+                "bill_of_materials_kg",
+                serde_json::json!({"bill_of_materials_kg": ["bad"]}),
+            ),
+        ];
+
+        for (field, replacement) in cases {
+            let mut changed = fixture();
+            if field == "materials" {
+                changed["design_version"]["materials"] = replacement["materials"].clone();
+            } else {
+                changed["design_version"]["parameters"]["bill_of_materials_kg"] =
+                    replacement["bill_of_materials_kg"].clone();
+            }
+            assert!(
+                selected_oad_design_semantic_commitment_checked(&changed).is_err(),
+                "{field} wrong type must fail closed"
+            );
+        }
+
+        let production_cases = [
+            ("name", serde_json::json!(42)),
+            ("estimated_hours", serde_json::json!(1.5)),
+            ("skill_tier", serde_json::json!(false)),
+            ("tools_required", serde_json::json!("press")),
+            ("sequence_index", serde_json::json!(1.5)),
+            ("safety_notes", serde_json::json!(["guarded press"])),
+        ];
+
+        for (field, replacement) in production_cases {
+            let mut changed = fixture();
+            changed["design_version"]["parameters"]["production_steps"][0][field] =
+                replacement;
+            assert!(
+                selected_oad_design_semantic_commitment_checked(&changed).is_err(),
+                "production_steps[0].{field} wrong type must fail closed"
+            );
+        }
+    }
+
+    #[test]
+    fn integral_numeric_boundaries_remain_valid() {
+        let mut changed = fixture();
+        changed["design_version"]["parameters"]["bill_of_materials_kg"]["silicone"] =
+            serde_json::json!(-1);
+        changed["design_version"]["parameters"]["production_steps"][0]["estimated_hours"] =
+            serde_json::json!(0);
+        changed["design_version"]["parameters"]["production_steps"][0]["sequence_index"] =
+            serde_json::json!(-1);
+
+        assert!(selected_oad_design_semantic_commitment_checked(&changed).is_ok());
     }
 
     #[test]
