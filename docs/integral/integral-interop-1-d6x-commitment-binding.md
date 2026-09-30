@@ -61,10 +61,10 @@ The positive mutation path recomputes the selected commitment after a semantic c
 
 ## Security rationale
 
-A hash commitment is useful for integrity only if verifiers can establish what was committed. NIST describes SHA-256 as a digest mechanism for detecting message changes; the security property is therefore meaningful here only when the digest is bound to a defined semantic serialization. citeturn3search0turn3search2
+A hash commitment is useful for integrity only if verifiers can establish what was committed. NIST describes SHA-256 as a digest mechanism for detecting message changes; the security property is therefore meaningful here only when the digest is bound to a defined semantic serialization. (NIST FIPS 180-4 / SHA-256)
 
-This boundary is intentionally narrower than generic JSON canonicalization. RFC 8785 defines recursive UTF-16 property ordering and deterministic JSON serialization, while D6S-CANON-1 remains its own versioned contract with its integer-only numeric rule. citeturn1search0
+This boundary is intentionally narrower than generic JSON canonicalization. RFC 8785 defines recursive UTF-16 property ordering and deterministic JSON serialization, while D6S-CANON-1 remains its own versioned contract with its integer-only numeric rule. (RFC 8785)
 
 ## Interoperability boundary
 
-Integral's public developer guide describes OAD → COS as a data contract in which the Certified Design Package supplies the production-plan inputs. The public technical material remains a development/reference surface rather than a ratified wire schema, so this fixture remains ReferenceModelOnly. citeturn0search24turn0search0
+Integral's public developer guide describes OAD → COS as a data contract in which the Certified Design Package supplies the production-plan inputs. The public technical material remains a development/reference surface rather than a ratified wire schema, so this fixture remains ReferenceModelOnly. (Integral developer guide and public OAD documentation)
