@@ -129,6 +129,20 @@ mod tests {
     }
 
     #[test]
+    fn machine_corpus_ids_are_present_in_source_vector_document() {
+        let prose = include_str!(
+            "../../../../docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1_TEST_VECTORS.md"
+        );
+        for vector in corpus().vectors {
+            assert!(
+                prose.contains(&vector.id),
+                "{} is missing from the source qualification document",
+                vector.id
+            );
+        }
+    }
+
+    #[test]
     fn every_vector_preserves_a_forbidden_inference_boundary() {
         assert!(corpus()
             .vectors
