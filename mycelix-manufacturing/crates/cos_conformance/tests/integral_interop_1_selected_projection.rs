@@ -43,3 +43,29 @@ fn unselected_oad_metadata_is_not_a_d6x_dependency() {
     let ia=InputCommitmentV1::from_projection(&a,&e,&ca).unwrap(); let ib=InputCommitmentV1::from_projection(&b,&e,&cb).unwrap();
     assert_eq!(ia.commitment,ib.commitment);
 }
+
+
+#[test]
+fn irrelevant_symbolic_candidate_material_does_not_block_d6w_consumption() {
+    let baseline = fixture();
+    let mut projection = selected_projection(&baseline);
+    projection.nodes.insert(
+        "candidate:legacy-noise".into(),
+        QualifiedNodeV1 {
+            node_id: "candidate:legacy-noise".into(),
+            kind: ClaimGraphNodeKindV1::Source,
+            content_commitment: "legacy-content".into(),
+            node_commitment: "legacy-symbolic".into(),
+            historical_only: false,
+            current_frontier_root: Some("integral-frontier-1".into()),
+            claim_ceiling: D6S_CLAIM_CEILING.into(),
+        },
+    );
+
+    let e = env();
+    let d = derivation();
+    let closure = compute_dependency_closure(&projection, &e, &d, &profile()).unwrap();
+    let input = InputCommitmentV1::from_projection(&projection, &e, &closure)
+        .expect("irrelevant legacy candidate material must remain outside D6W consumption");
+    assert_eq!(input.projection, closure.closure_identity_commitment);
+}
