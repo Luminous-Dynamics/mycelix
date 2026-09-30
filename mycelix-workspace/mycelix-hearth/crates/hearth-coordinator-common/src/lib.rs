@@ -8,6 +8,25 @@ use mycelix_zome_helpers as _;
 // Re-export from mycelix-zome-helpers so existing consumers keep compiling.
 pub use mycelix_zome_helpers::{get_latest_record, records_from_links};
 
+/// Resolve a record only when its update chain has exactly one canonical successor.
+/// Authority-bearing state must not silently select one branch of a concurrent update.
+pub fn get_unique_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
+    let Some(details) = get_details(action_hash, GetOptions::default())? else {
+        return Ok(None);
+    };
+    match details {
+        Details::Record(record_details) => match record_details.updates.as_slice() {
+            [] if !record_details.deletes.is_empty() => Ok(None),
+            [] => Ok(Some(record_details.record)),
+            [update] => get_unique_latest_record(update.action_address().clone()),
+            _ => Err(wasm_error!(WasmErrorInner::Guest(
+                "Conflicting update branches prevent canonical record resolution".into(),
+            ))),
+        },
+        Details::Entry(_) => Ok(None),
+    }
+}
+
 /// Decode a typed value from a ZomeCallResponse, providing context for error messages.
 pub fn decode_zome_response<T: serde::de::DeserializeOwned + std::fmt::Debug>(
     response: ZomeCallResponse,
