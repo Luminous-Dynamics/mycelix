@@ -14,6 +14,24 @@ use crate::{
     DelegationId,
 };
 
+/// Version-neutral seam for resolving exact external qualification dependencies.
+///
+/// Adapters (for example, Holochain integrity-zome code) own the transport and
+/// address-type mapping. Core qualification only consumes the deterministic
+/// three-state result and never observes ambient network/current state.
+pub trait QualificationDependencyResolver {
+    fn resolve(&self, dependency: &QualificationDependency) -> QualificationDependencyResolution;
+}
+
+impl<F> QualificationDependencyResolver for F
+where
+    F: Fn(&QualificationDependency) -> QualificationDependencyResolution,
+{
+    fn resolve(&self, dependency: &QualificationDependency) -> QualificationDependencyResolution {
+        self(dependency)
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct QualificationCertificate {
     pub schema_version: u16,
@@ -169,6 +187,38 @@ impl QualifiedRelationshipInputs {
     ) -> Result<Self, QualificationError> {
         Self::qualify_with_dependencies(
             relationship, assertions, frontiers, commitments, consents, delegations, &[],
+        )
+    }
+
+    /// Resolve an explicit dependency manifest through a version-specific adapter,
+    /// then enter the same deterministic qualification path used by pre-resolved results.
+    /// Invalid and unresolved dependencies are never collapsed into success.
+    pub fn qualify_with_resolver<R: QualificationDependencyResolver>(
+        relationship: &RelationshipRecord,
+        assertions: &[RelationshipAssertion],
+        frontiers: &[SourceFrontier],
+        commitments: &[Commitment],
+        consents: &[Consent],
+        delegations: &[Delegation],
+        dependencies: &[QualificationDependency],
+        resolver: &R,
+    ) -> Result<Self, QualificationError> {
+        let dependency_results = dependencies
+            .iter()
+            .cloned()
+            .map(|dependency| QualificationDependencyResult {
+                resolution: resolver.resolve(&dependency),
+                dependency,
+            })
+            .collect::<Vec<_>>();
+        Self::qualify_with_dependencies(
+            relationship,
+            assertions,
+            frontiers,
+            commitments,
+            consents,
+            delegations,
+            &dependency_results,
         )
     }
 
@@ -785,6 +835,65 @@ mod tests {
             7,
         )
         .unwrap()
+    }
+
+    #[test]
+    fn resolver_results_are_canonicalized_and_bound() {
+        let r = relationship(b"resolver-boundary");
+        let first = QualificationDependency::new(
+            QualificationDependencyKind::Commitment,
+            [11u8; 32],
+            b"record/hash/first".to_vec(),
+        )
+        .unwrap();
+        let second = QualificationDependency::new(
+            QualificationDependencyKind::Consent,
+            [12u8; 32],
+            b"record/hash/second".to_vec(),
+        )
+        .unwrap();
+        let qualified = QualifiedRelationshipInputs::qualify_with_resolver(
+            &r,
+            &[],
+            &[],
+            &[],
+            &[],
+            &[],
+            &[second.clone(), first.clone()],
+            &|dependency: &QualificationDependency| {
+                assert!(!dependency.record_address.is_empty());
+                QualificationDependencyResolution::Valid
+            },
+        )
+        .unwrap();
+        assert_eq!(qualified.dependencies, vec![first, second]);
+        assert!(qualified.validate_certificate().is_ok());
+    }
+
+    #[test]
+    fn resolver_unresolved_dependency_fails_closed() {
+        let r = relationship(b"resolver-unresolved");
+        let dependency = QualificationDependency::new(
+            QualificationDependencyKind::Delegation,
+            [13u8; 32],
+            b"record/hash/missing".to_vec(),
+        )
+        .unwrap();
+        assert_eq!(
+            QualifiedRelationshipInputs::qualify_with_resolver(
+                &r,
+                &[],
+                &[],
+                &[],
+                &[],
+                &[],
+                &[dependency.clone()],
+                &|_| QualificationDependencyResolution::Unresolved,
+            ),
+            Err(QualificationError::UnresolvedDependency {
+                logical_id: dependency.logical_id,
+            })
+        );
     }
 
     #[test]
