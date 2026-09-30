@@ -9,6 +9,7 @@ This matrix defines the interoperability contract before executable golden hashe
 | Change selected OAD production step | changes | **must change** | changes | **must change** | **must change** |
 | Change selected OAD material quantity | changes | **must change** | changes | **must change** | **must change** |
 | Change selected COS task production semantics | changes | **must change** | changes | **must change** | **must change** |
+| Change unselected OAD certification metadata | changes full D6S object identity | **must remain unchanged** | changes only if audit projection records it | **must remain unchanged** | **must remain unchanged** |
 | Add unrelated FRS observation | unchanged for selected OAD/COS objects | **must remain unchanged** | may change | **must remain unchanged** | **must remain unchanged** |
 | Add unused COS candidate | unchanged for selected objects | **must remain unchanged** | may change | **must remain unchanged** | **must remain unchanged** |
 | Change projection identifier only | unchanged | **must remain unchanged** | changes | **must remain unchanged** | **must remain unchanged** |
