@@ -396,31 +396,60 @@ fn validate_delegations(
                 error,
             })?;
 
-        let revoke_events = delegation
-            .events
-            .iter()
-            .filter(|event| event.kind == crate::DelegationEventKind::Revoke)
-            .collect::<Vec<_>>();
+        let first = delegation.events.first().ok_or_else(|| {
+            QualificationError::InvalidDelegation {
+                id: delegation.id,
+                error: DelegationError::NonMonotonicEventTime,
+            }
+        })?;
+        if first.kind != crate::DelegationEventKind::Grant
+            || first.actor != delegation.principal
+            || first.occurred_at != delegation.granted_at
+            || first.authority_epoch != delegation.authority_epoch
+        {
+            return Err(QualificationError::InvalidDelegation {
+                id: delegation.id,
+                error: DelegationError::StaleAuthorityEpoch,
+            });
+        }
+
+        for event in delegation.events.iter().skip(1) {
+            if event.occurred_at < delegation.granted_at {
+                return Err(QualificationError::InvalidDelegation {
+                    id: delegation.id,
+                    error: DelegationError::NonMonotonicEventTime,
+                });
+            }
+            if event.kind != crate::DelegationEventKind::Revoke
+                || event.actor != delegation.principal
+                || event.authority_epoch != delegation.authority_epoch
+            {
+                return Err(QualificationError::InvalidDelegation {
+                    id: delegation.id,
+                    error: DelegationError::StaleAuthorityEpoch,
+                });
+            }
+        }
 
         match delegation.status {
-            DelegationStatus::Active if !revoke_events.is_empty() => {
+            DelegationStatus::Active
+                if delegation.events.iter().any(|e| e.kind == crate::DelegationEventKind::Revoke) =>
+            {
                 return Err(QualificationError::InvalidDelegation {
                     id: delegation.id,
                     error: DelegationError::AlreadyInactive,
                 });
             }
-            DelegationStatus::Revoked => {
-                let valid_revoke = revoke_events.last().is_some_and(|event| {
-                    event.actor == delegation.principal
-                        && event.authority_epoch == delegation.authority_epoch
+            DelegationStatus::Revoked
+                if delegation.events.last().map(|e| e.kind)
+                    != Some(crate::DelegationEventKind::Revoke) =>
+            {
+                return Err(QualificationError::InvalidDelegation {
+                    id: delegation.id,
+                    error: DelegationError::AlreadyInactive,
                 });
-                if !valid_revoke {
-                    return Err(QualificationError::InvalidDelegation {
-                        id: delegation.id,
-                        error: DelegationError::StaleAuthorityEpoch,
-                    });
-                }
             }
+            _ => {}
         }
     }
 
@@ -439,28 +468,27 @@ fn validate_delegations(
         })?;
 
     for delegation in delegations {
-
-        let mut candidate = delegation.clone();
-        if candidate.status == DelegationStatus::Revoked {
-            candidate.status = DelegationStatus::Active;
-        }
-
-        let request = ExecutionRequest {
-            principal: candidate.principal.clone(),
-            delegate: candidate.delegate.clone(),
-            action: candidate.action.clone(),
-            resource: candidate.resource.clone(),
-            mode: candidate.mode,
-            requested_at: candidate.granted_at,
-            authority_epoch: candidate.authority_epoch,
+        let result = if delegation.status == DelegationStatus::Revoked {
+            // Historical records must remain auditable/projectable without
+            // silently turning revoked authority back into current authority.
+            delegation.validate_parent_chain_structure(&context)
+        } else {
+            let request = ExecutionRequest {
+                principal: delegation.principal.clone(),
+                delegate: delegation.delegate.clone(),
+                action: delegation.action.clone(),
+                resource: delegation.resource.clone(),
+                mode: delegation.mode,
+                requested_at: delegation.granted_at,
+                authority_epoch: delegation.authority_epoch,
+            };
+            delegation.authorize(&request, &context).map(|_| ())
         };
 
-        candidate
-            .authorize(&request, &context)
-            .map_err(|error| QualificationError::InvalidDelegation {
-                id: candidate.id,
-                error,
-            })?;
+        result.map_err(|error| QualificationError::InvalidDelegation {
+            id: delegation.id,
+            error,
+        })?;
     }
 
     Ok(())
