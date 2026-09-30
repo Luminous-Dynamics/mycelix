@@ -1,0 +1,42 @@
+{
+  "schema": "mobility-reconciliation-evidence-projection-v1",
+  "scope": "semantic-provenance-only",
+  "projections": {
+    "conflict_reference_only": {
+      "allowed_classifications": ["conflicting"],
+      "effects": ["set_conflict_reference", "preserve_epistemic_disposition"],
+      "forbidden": ["promote_to_contradicted"]
+    },
+    "lifecycle_supersession": {
+      "allowed_classifications": ["superseded"],
+      "effects": ["set_lifecycle_superseded", "preserve_epistemic_disposition"],
+      "forbidden": ["delete_predecessor_history", "promote_to_contradicted"]
+    },
+    "indeterminate_reference": {
+      "allowed_classifications": ["indeterminate"],
+      "effects": ["set_indeterminate_or_explicit_unresolved"],
+      "forbidden": ["promote_to_contradicted", "interpret_as_failure"]
+    },
+    "no_epistemic_promotion": {
+      "allowed_classifications": ["coexistent", "sequential", "incomparable"],
+      "effects": ["preserve_existing_epistemic_disposition"],
+      "forbidden": ["promote_to_supported", "infer_causality", "infer_disagreement"]
+    }
+  },
+  "invariants": [
+    "conflicting_does_not_imply_contradicted",
+    "disputed_does_not_imply_contradicted",
+    "superseded_affects_lifecycle_not_epistemic_disposition",
+    "indeterminate_does_not_imply_failure",
+    "unresolved_does_not_imply_contradiction",
+    "external_authority_provenance_is_not_rewritten",
+    "evidence_modality_is_not_rewritten",
+    "projection_requires_valid_witness",
+    "projection_does_not_imply_physical_safety",
+    "projection_does_not_imply_certification",
+    "projection_does_not_imply_regulatory_approval",
+    "projection_does_not_imply_physical_equivalence",
+    "projection_does_not_imply_measurement_truth",
+    "projection_does_not_imply_engineering_correctness"
+  ]
+}
