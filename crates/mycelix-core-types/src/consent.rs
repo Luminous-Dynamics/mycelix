@@ -280,8 +280,11 @@ impl Consent {
         let mut status = ConsentStatus::Granted;
         let mut previous_at = first.occurred_at;
         for event in self.events.iter().skip(1) {
-            if event.occurred_at < previous_at || event.authority_epoch != self.authority_epoch {
-                return Err(ConsentError::InvalidLifecycle);
+            if event.authority_epoch != self.authority_epoch {
+                return Err(ConsentError::StaleAuthorityEpoch);
+            }
+            if event.occurred_at < previous_at {
+                return Err(ConsentError::NonMonotonicEventTime);
             }
             if event.actor != self.grantor {
                 return Err(ConsentError::UnauthorizedRevocation);
@@ -374,6 +377,7 @@ impl fmt::Display for ConsentError {
             Self::InvalidExpiry => "consent expiry cannot precede grant time",
             Self::AlreadyInactive => "consent is already inactive",
             Self::UnauthorizedRevocation => "only the grantor may revoke consent",
+            Self::NonMonotonicEventTime => "consent event time cannot move backwards",
             Self::NonMonotonicEventTime => "consent event time cannot move backwards",
             Self::MissingGrantEvent => "consent lifecycle is missing its grant event",
             Self::InvalidLifecycle => "consent lifecycle history is invalid",
