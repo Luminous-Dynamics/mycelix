@@ -32,7 +32,7 @@ jobs:
       - run: cargo fmt --check
       - run: cargo test
       - name: Emit normalized Rust result
-        run: cargo run --quiet --bin mobility-qualification -- ../../../../docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1.json > /tmp/rust-normalized.json
+        run: cargo run --quiet --bin mobility-qualification -- ../../../docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1.json > /tmp/rust-normalized.json
       - uses: actions/upload-artifact@v4
         with:
           name: mobility-rust-normalized
