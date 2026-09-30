@@ -264,6 +264,45 @@ mod tests {
         let _ = d;
     }
 
+    #[test]
+    fn d6w_rejects_self_consistent_closure_with_wrong_selected_node() {
+        let (p,e,d,mut c) = fixture(false);
+        c.included_nodes.insert("dep".into(), "substituted-node".into());
+        c.included_node_commitments.insert("substituted-node".into());
+        c.dependencies = c.expected_dependencies();
+        c.dependency_resolutions = c
+            .dependencies
+            .iter()
+            .map(|dependency| (dependency.clone(), qualified_dependency_closure_d6x::SemanticDependencyResolutionV1::Present))
+            .collect();
+        c.closure_identity_commitment = c.closure_identity();
+        c.commitment = c.recompute();
+
+        assert!(c.valid());
+        assert!(InputCommitmentV1::from_projection(&p, &e, &c).is_none());
+        let _ = d;
+    }
+
+    #[test]
+    fn d6w_rejects_self_consistent_closure_with_wrong_selected_edge() {
+        let (p,e,d,mut c) = fixture(false);
+        let edge = c.included_edges.get_mut("e1").unwrap();
+        edge.3 = "substituted-edge".into();
+        c.included_edge_commitments.insert("substituted-edge".into());
+        c.dependencies = c.expected_dependencies();
+        c.dependency_resolutions = c
+            .dependencies
+            .iter()
+            .map(|dependency| (dependency.clone(), qualified_dependency_closure_d6x::SemanticDependencyResolutionV1::Present))
+            .collect();
+        c.closure_identity_commitment = c.closure_identity();
+        c.commitment = c.recompute();
+
+        assert!(c.valid());
+        assert!(InputCommitmentV1::from_projection(&p, &e, &c).is_none());
+        let _ = d;
+    }
+
     #[test] fn closure_is_bound_into_input(){let(p,e,d,c)=fixture(false);let i=InputCommitmentV1::from_projection(&p,&e,&c).unwrap();assert!(i.valid());assert!(!i.dependency_closure.is_empty());let x=LayeredReceiptV1::new(&i,&DerivationCommitmentV1::new(&i,&d,None).unwrap(),&ResultCommitmentV1::new(&DerivationCommitmentV1::new(&i,&d,None).unwrap(),DerivationResultStatusV1::Supported,"x".into(),false,false).unwrap());assert!(x.is_some());}
     #[test] fn blocked_closure_cannot_enter_d6w_input(){
         let(p,e,d,mut c)=fixture(false);
