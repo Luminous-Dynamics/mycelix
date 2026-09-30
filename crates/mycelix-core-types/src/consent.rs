@@ -195,6 +195,9 @@ impl Consent {
         if self.status != ConsentStatus::Granted { return Err(ConsentError::AlreadyInactive); }
         if actor != &self.grantor { return Err(ConsentError::UnauthorizedRevocation); }
         if occurred_at < self.granted_at { return Err(ConsentError::NonMonotonicEventTime); }
+        if authority_epoch != self.authority_epoch {
+            return Err(ConsentError::StaleAuthorityEpoch);
+        }
         self.status = ConsentStatus::Revoked;
         self.events.push(ConsentEvent {
             kind: ConsentEventKind::Revoke,
@@ -309,6 +312,26 @@ mod tests {
             requested_at: at,
             authority_epoch: epoch,
         }
+    }
+
+    #[test]
+    fn stale_revocation_epoch_does_not_mutate_state() {
+        let mut c = consent();
+        let before = c.clone();
+        let actor = participant("did", "alice");
+        assert_eq!(
+            c.revoke(&actor, 150, 8),
+            Err(ConsentError::StaleAuthorityEpoch)
+        );
+        assert_eq!(c, before);
+    }
+
+    #[test]
+    fn current_epoch_revocation_still_succeeds() {
+        let mut c = consent();
+        let actor = participant("did", "alice");
+        c.revoke(&actor, 150, 7).unwrap();
+        assert_eq!(c.status, ConsentStatus::Revoked);
     }
 
     #[test]
