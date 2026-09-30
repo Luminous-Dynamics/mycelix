@@ -3,8 +3,9 @@
 
 //! Adversarial qualification for the canonical Active Hearth catalog.
 //!
-//! The important case here is two independently admitted memberships for the
-//! same agent/Hearth pair. The catalog must not silently select one authority.
+//! The important admission invariant is that one agent/Hearth pair cannot
+//! acquire two Active memberships through the public invitation flow. The
+//! catalog then proves the admitted state remains cardinality-one.
 
 use holochain::prelude::*;
 use holochain::sweettest::*;
@@ -64,12 +65,12 @@ fn hearth_dna_path() -> PathBuf {
     path
 }
 
-/// Two independently accepted invitations create two Active memberships for
-/// one agent/Hearth pair. The canonical catalog must fail closed rather than
-/// selecting one of the conflicting authority records.
+/// Two invitations may exist, but only one can be consumed into an Active
+/// membership for the same agent/Hearth pair. The catalog must expose exactly
+/// that one authoritative membership rather than inheriting invitation count.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
-async fn test_active_catalog_fails_closed_on_conflicting_active_memberships() {
+async fn test_duplicate_active_membership_admission_is_rejected_and_catalog_remains_unique() {
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
 
     let mut alice_conductor = SweetConductor::from_standard_config().await;
@@ -163,5 +164,19 @@ async fn test_active_catalog_fails_closed_on_conflicting_active_memberships() {
     assert!(
         join.await.is_err(),
         "second Active admission must be rejected rather than creating conflicting authority"
+    );
+
+    let catalog: Vec<serde_json::Value> = bob_conductor
+        .call(
+            &bob.zome("hearth_kinship"),
+            "get_my_active_hearths",
+            (),
+        )
+        .await;
+
+    assert_eq!(
+        catalog.len(),
+        1,
+        "one admitted membership must yield exactly one canonical Active Hearth"
     );
 }
