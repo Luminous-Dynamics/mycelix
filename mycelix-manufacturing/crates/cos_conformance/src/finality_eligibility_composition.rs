@@ -838,6 +838,24 @@ mod tests {
     }
 
     #[test]
+    fn composition_commitment_binds_semantic_provenance() {
+        let composition = matching_composition();
+        assert!(composition.commitment_matches());
+
+        let mut mutated = composition.clone();
+        mutated.effect_lineage_id = "lineage-attacker".into();
+        assert!(!mutated.commitment_matches());
+
+        let mut mutated = composition.clone();
+        mutated.witnesses[0].d6o_eligibility_ids = BTreeSet::new();
+        assert!(!mutated.commitment_matches());
+
+        let mut mutated = composition;
+        mutated.disposition = FinalityEligibilityDispositionV1::Contested;
+        assert!(!mutated.commitment_matches());
+    }
+
+    #[test]
     fn current_receipt_provenance_is_reconstructed_from_composition() {
         let receipt = committed_receipt();
         let composition = matching_composition();
