@@ -201,6 +201,13 @@ fn validate_commitments(
 
     for commitment in commitments {
         if commitment.relationship_id != relationship_id {
+        commitment
+            .validate_identity()
+            .map_err(|error| QualificationError::InvalidCommitment {
+                id: commitment.id,
+                error,
+            })?;
+
             return Err(QualificationError::UnrelatedCommitment { id: commitment.id });
         }
         if commitment.events.is_empty() {
@@ -237,28 +244,6 @@ fn validate_commitments(
         })?;
 
         for event in commitment.events.iter().skip(1) {
-            let actor_allowed = match event.kind {
-                CommitmentEventKind::Request => event.actor == commitment.obligor,
-                CommitmentEventKind::Accept | CommitmentEventKind::Decline => {
-                    event.actor == commitment.beneficiary
-                }
-                CommitmentEventKind::Activate
-                | CommitmentEventKind::PartialFulfillment
-                | CommitmentEventKind::Fulfillment => event.actor == commitment.obligor,
-                CommitmentEventKind::Dispute
-                | CommitmentEventKind::Cancel
-                | CommitmentEventKind::Expire => {
-                    event.actor == commitment.obligor || event.actor == commitment.beneficiary
-                }
-            };
-
-            if !actor_allowed {
-                return Err(QualificationError::CommitmentActorMismatch {
-                    id: commitment.id,
-                    event: event.kind,
-                });
-            }
-
             replay
                 .transition(event.clone())
                 .map_err(|error| QualificationError::InvalidCommitment {
