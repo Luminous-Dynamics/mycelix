@@ -191,6 +191,25 @@ mod tests {
         assert!(InputCommitmentV1::from_projection(&p,&e,&c).is_none());
     }
 
+    #[test]
+    fn d6w_rejects_source_snapshot_substitution() {
+        let (mut p,e,d,c) = fixture(false);
+        p.source_dkg_snapshot_commitment = "different-snapshot".into();
+
+        assert!(!p.commitments_match_sources(&e, &d));
+        assert!(InputCommitmentV1::from_projection(&p, &e, &c).is_none());
+    }
+
+    #[test]
+    fn d6w_rejects_closure_snapshot_mismatch() {
+        let (p,e,d,mut c) = fixture(false);
+        c.source_dkg_snapshot_commitment = "different-snapshot".into();
+        c.commitment = c.recompute();
+
+        assert!(InputCommitmentV1::from_projection(&p, &e, &c).is_none());
+        let _ = d;
+    }
+
     #[test] fn closure_is_bound_into_input(){let(p,e,d,c)=fixture(false);let i=InputCommitmentV1::from_projection(&p,&e,&c).unwrap();assert!(i.valid());assert!(!i.dependency_closure.is_empty());let x=LayeredReceiptV1::new(&i,&DerivationCommitmentV1::new(&i,&d,None).unwrap(),&ResultCommitmentV1::new(&DerivationCommitmentV1::new(&i,&d,None).unwrap(),DerivationResultStatusV1::Supported,"x".into(),false,false).unwrap());assert!(x.is_some());}
     #[test] fn blocked_closure_cannot_enter_d6w_input(){
         let(p,e,d,mut c)=fixture(false);
