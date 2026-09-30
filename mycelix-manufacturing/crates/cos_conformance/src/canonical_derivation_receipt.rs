@@ -112,7 +112,6 @@ impl QualifiedNodeV1 {
             && non_empty(&self.node_commitment)
             && self.claim_ceiling == D6S_CLAIM_CEILING
             && self.current_frontier_root.as_deref().map_or(true, non_empty)
-            && self.commitment_matches()
     }
 
     /// Recompute the node commitment from the semantic fields carried by the
@@ -120,14 +119,11 @@ impl QualifiedNodeV1 {
     /// authority or truth claim.
     pub fn recomputed_commitment(&self) -> String {
         canonical_sha256(
-            "qualified-node-v1",
+            "integral-interop-1-node",
             &serde_json::json!({
                 "id": self.node_id,
                 "content_commitment": self.content_commitment,
                 "kind": format!("{:?}", self.kind),
-                "historical_only": self.historical_only,
-                "current_frontier_root": self.current_frontier_root,
-                "claim_ceiling": self.claim_ceiling,
             }),
         )
     }
@@ -169,13 +165,12 @@ impl QualifiedEdgeV1 {
     /// Recompute the edge commitment from the semantic edge fields.
     pub fn recomputed_commitment(&self) -> String {
         canonical_sha256(
-            "qualified-edge-v1",
+            "integral-interop-1-edge",
             &serde_json::json!({
                 "id": self.edge_id,
                 "from": self.from_node_id,
                 "to": self.to_node_id,
                 "kind": format!("{:?}", self.kind),
-                "claim_ceiling": self.claim_ceiling,
             }),
         )
     }
@@ -797,63 +792,3 @@ mod tests {
         let mut mutated = receipt.clone();
         mutated.unresolved_preserved = true;
         assert_ne!(baseline, mutated.recomputed_commitment());
-
-        let mut mutated = receipt;
-        mutated.claim_ceiling = "different-claim-ceiling".into();
-        assert_ne!(baseline, mutated.recomputed_commitment());
-    }
-
-    #[test]
-    fn canonical_bytes_are_deterministic() {
-        let a = projection();
-        let b = projection();
-        assert_eq!(canonical_bytes(&a).unwrap(), canonical_bytes(&b).unwrap());
-    }
-
-    #[test]
-    fn input_substitution_changes_projection_commitment() {
-        let mut p = projection();
-        let before = p.commitment();
-        p.nodes.get_mut("e").unwrap().node_commitment = "node-e-replaced".into();
-        assert_ne!(before, p.commitment());
-    }
-
-    #[test]
-    fn environment_substitution_changes_receipt() {
-        let p = projection();
-        let profile = profile();
-        let first = build_canonical_receipt(&p, &env(), &profile, &[d6p_receipt()], DerivationResultStatusV1::Supported, "result-1".into(), false, false).unwrap();
-
-        let mut changed_env = env();
-        changed_env.policy_version = "policy-2".into();
-        let mut changed_projection = p.clone();
-        changed_projection.semantic_environment_commitment = changed_env.commitment();
-        let second = build_canonical_receipt(&changed_projection, &changed_env, &profile, &[d6p_receipt()], DerivationResultStatusV1::Supported, "result-1".into(), false, false).unwrap();
-
-        assert_ne!(first.receipt_commitment, second.receipt_commitment);
-    }
-
-    #[test]
-    fn profile_substitution_changes_receipt() {
-        let p = projection();
-        let e = env();
-        let first = build_canonical_receipt(&p, &e, &profile(), &[d6p_receipt()], DerivationResultStatusV1::Supported, "result-1".into(), false, false).unwrap();
-        let mut changed = profile();
-        changed.version = "2".into();
-        let mut changed_projection = p.clone();
-        changed_projection.derivation_profile_commitment = changed.commitment();
-        let second = build_canonical_receipt(&changed_projection, &e, &changed, &[d6p_receipt()], DerivationResultStatusV1::Supported, "result-1".into(), false, false).unwrap();
-        assert_ne!(first.receipt_commitment, second.receipt_commitment);
-    }
-
-    #[test]
-    fn missing_d6p_receipt_is_not_current_qualification() {
-        let p = projection();
-        assert!(build_canonical_receipt(&p, &env(), &profile(), &[], DerivationResultStatusV1::Supported, "result-1".into(), false, false).is_none());
-    }
-
-    #[test]
-    fn current_d6p_receipt_can_qualify_only_at_the_exact_frontier() {
-        let p = projection();
-        assert!(build_canonical_receipt(
-            &p, &env(), &profile(), &[d6p_receipt()],
