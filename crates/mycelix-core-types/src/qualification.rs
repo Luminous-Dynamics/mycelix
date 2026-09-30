@@ -116,6 +116,7 @@ pub enum ConsentQualificationError {
     RevocationStateMismatch,
     ExpiryStateMismatch,
     GrantEpochMismatch,
+    IdentityMismatch { error: crate::ConsentError },
 }
 
 fn validate_frontiers(frontiers: &[SourceFrontier]) -> Result<(), QualificationError> {
@@ -299,6 +300,13 @@ fn validate_consents(
         if consent.relationship_id != relationship_id {
             return Err(QualificationError::UnrelatedConsent { id: consent.id });
         }
+
+        consent
+            .validate_identity()
+            .map_err(|error| QualificationError::InvalidConsent {
+                id: consent.id,
+                reason: ConsentQualificationError::IdentityMismatch { error },
+            })?;
 
         if consent.events.is_empty() {
             return Err(QualificationError::InvalidConsent {
