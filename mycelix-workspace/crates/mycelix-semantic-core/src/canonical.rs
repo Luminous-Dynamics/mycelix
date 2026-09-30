@@ -1,8 +1,6 @@
 use sha2::{Digest, Sha256};
 
-use crate::{
-    Commitment32, SemanticEnvironmentV1, SemanticProfileRefV1, SemanticSubjectRefV1,
-};
+use crate::{Commitment32, SemanticEnvironmentV1, SemanticProfileRefV1, SemanticSubjectRefV1};
 
 /// Stable identifier for the language-neutral outer commitment profile.
 pub const SEMANTIC_COMMITMENT_PROFILE_ID: &str =
@@ -35,9 +33,7 @@ impl SemanticCommitmentProfileV1 {
 const ENVIRONMENT_DOMAIN_SEPARATOR: &[u8] = b"MYCELIX_SEMANTIC_ENVIRONMENT_V1\0";
 const SUBJECT_DOMAIN_SEPARATOR: &[u8] = b"MYCELIX_SEMANTIC_SUBJECT_V1\0";
 
-pub(crate) fn derive_environment_commitment(
-    environment: &SemanticEnvironmentV1,
-) -> Commitment32 {
+pub(crate) fn derive_environment_commitment(environment: &SemanticEnvironmentV1) -> Commitment32 {
     let mut canonical = Vec::with_capacity(512);
     canonical.extend_from_slice(ENVIRONMENT_DOMAIN_SEPARATOR);
     canonical.extend_from_slice(&SEMANTIC_COMMITMENT_PROFILE_REVISION.to_be_bytes());
