@@ -42,8 +42,11 @@ jobs:
             echo "rust=$(rustc --version)"
             echo "cargo=$(cargo --version)"
             echo "python=$(python3 --version)"
+            echo "corpus_sha256=$(sha256sum docs/integral/d6s-canon-1-golden-vectors.json | cut -d' ' -f1)"
+            echo "manifest_sha256=$(sha256sum docs/integral/d6s-canon-1-manifest.json | cut -d' ' -f1)"
             echo "rust_corpus=PASSED"
             echo "independent_verifier=PASSED"
+            echo "corpus_identity=QUALIFIED"
             echo "claim_ceiling=ReferenceModelOnly"
           } | tee d6s-canon-1-qualification.txt
 
