@@ -709,7 +709,7 @@ mod tests {
             resource: ResourceScope::named("acme:opportunity:7").unwrap(),
             mode: DelegationMode::Execute, requested_at: 120, authority_epoch: 4,
         };
-        assert_eq!(a.authorize(&req, &context(&[])), Err(DelegationError::MissingParent { id: a_id }));
+        assert_eq!(a.authorize(&req, &context(&[])), Err(DelegationError::MissingParent { id: b_id }));
     }
 
     #[test]
