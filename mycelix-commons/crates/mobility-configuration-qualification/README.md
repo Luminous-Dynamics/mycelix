@@ -25,14 +25,35 @@ A green result does **not** establish:
 
 The harness is deliberately small. It validates the qualification corpus itself rather than attempting to become a universal engineering ontology or safety oracle.
 
-## Independent reconstruction
+## Differential qualification
 
-The corpus is stored separately at:
+Rust and Python independently reconstruct the same semantic contract and emit a versioned normalized representation.
 
-`docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1.json`
+The differential comparator uses **structural canonicalization**, not raw file-byte equality:
 
-The source prose corpus remains:
+1. each evaluator emits the same four semantic fields per vector;
+2. vector records are canonicalized by `id`;
+3. the comparator requires exactly the expected top-level and vector field sets;
+4. it requires the canonical `MC-CONFIG-001` through `MC-CONFIG-020` ordering;
+5. it requires the schema, version, status, cardinality, and complete vector identity set;
+6. it then compares the parsed canonical JSON structures for exact equality.
 
-`docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1_TEST_VECTORS.md`
+This means insignificant JSON whitespace/key-order differences cannot hide a semantic mismatch, while extra fields, missing fields, duplicate IDs, omitted vectors, reordered IDs, or changed semantic tuples fail closed.
 
-The intended next step is a second, independently reconstructed implementation and then the two physical-domain fixtures described in #3711.
+The workflow transfers the two normalized outputs as separate GitHub Actions artifacts. GitHub's v4 artifact system makes uploaded artifacts immutable, and v4 download performs SHA-256 integrity validation of the downloaded artifact.
+
+## Deliberate corruption probes
+
+The workflow mutates:
+
+- a Rust input corpus expected outcome;
+- a Python input corpus forbidden-inference boundary;
+- a normalized differential result.
+
+Each mutation must be rejected. These are negative controls: a green workflow means the harness demonstrated rejection of known-invalid changes, not that the underlying physical system is safe.
+
+## Qualification boundary
+
+A passing evaluator means only that the machine-readable corpus satisfies the declared semantic/structural rules. It is not an engineering analysis or certification decision.
+
+The Holochain layer, where later integrated, may validate protocol-level structure and authorship. It must not be treated as an authority that establishes physical truth or regulatory approval.
