@@ -75,3 +75,21 @@ The corpus therefore checks the stronger invariant:
 > every mutation propagates exactly through the declared dependency boundary, and no farther.
 
 The Integral developer guide describes OAD → COS as a data contract in which the certified design package is the authoritative source for the COS production plan; the conformance fixture remains a local reference model rather than a claim about a ratified Integral wire schema. 
+
+
+## Graph-boundary mutation coverage
+
+The corpus now reaches below the OAD projection boundary into the qualified graph itself. It exercises:
+
+- selected root-node commitment changes;
+- selected semantic-edge commitment changes;
+- selected semantic-edge removal;
+- selected semantic-edge kind substitution with a non-dependency edge kind;
+- irrelevant candidate-node commitment changes;
+- irrelevant candidate-edge commitment changes.
+
+Selected graph mutations must propagate through D6X and D6W even when the originating OAD semantic commitment is unchanged. Irrelevant graph mutations must be visible only to the D6X certificate/audit commitment.
+
+This deliberately separates the **source semantic boundary** from the **qualified graph boundary**: a graph can change without the upstream OAD semantic projection changing, and the test must prove whether that graph mutation is inside or outside the declared D6X dependency policy.
+
+The public Integral documentation currently describes the OAD → COS Certified Design Package as the contract that carries the certified design's production-plan information, while the project's technical-specification page labels the Certified Design data structure as DRAFT and the OAD → COS interface as PENDING. This is why these vectors remain explicitly ReferenceModelOnly rather than being presented as a ratified Integral protocol. citeturn0search22turn0search3
