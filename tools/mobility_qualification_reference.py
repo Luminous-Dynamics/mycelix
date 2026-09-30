@@ -59,6 +59,8 @@ def evaluate(corpus):
         return False, "vector_count"
     seen = set()
     for vector in vectors:
+        if not isinstance(vector, dict):
+            return False, "vector_shape"
         scenario = vector.get("scenario")
         if scenario in seen:
             return False, f"duplicate:{scenario}"
@@ -69,17 +71,42 @@ def evaluate(corpus):
             return False, f"outcome:{scenario}"
         if vector.get("forbidden_inference") != FORBIDDEN[scenario]:
             return False, f"boundary:{scenario}"
+        if not isinstance(vector.get("id"), str) or not vector["id"].startswith("MC-CONFIG-"):
+            return False, f"id:{scenario}"
     if seen != set(EXPECTED):
         return False, "scenario_set"
     return True, "valid"
 
+def normalized(corpus):
+    vectors = [{
+        "id": v["id"], "scenario": v["scenario"],
+        "expected_outcome": v["expected_outcome"],
+        "forbidden_inference": v["forbidden_inference"],
+    } for v in corpus["vectors"]]
+    vectors.sort(key=lambda v: v["id"])
+    return {
+        "schema": "mobility-qualification-normalized-v1",
+        "schema_version": corpus["schema_version"],
+        "status": corpus["status"],
+        "vectors": vectors,
+    }
+
 def main():
-    path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1.json")
+    args = sys.argv[1:]
+    normalized_mode = "--normalized" in args
+    args = [a for a in args if a != "--normalized"]
+    path = Path(args[0]) if args else Path("docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1.json")
     corpus = json.loads(path.read_text())
     ok, reason = evaluate(corpus)
     corrupted = json.loads(json.dumps(corpus))
     corrupted["vectors"][0]["expected_outcome"] = "unsafe-universal-safety-score"
     corrupted_ok, _ = evaluate(corrupted)
+    if normalized_mode:
+        if not ok or corrupted_ok:
+            print(json.dumps({"result":"invalid","reason":reason,"corruption_probe":"failed"}, sort_keys=True))
+            return 1
+        print(json.dumps(normalized(corpus), sort_keys=True, separators=(",", ":")))
+        return 0
     result = {"implementation":"python-reference-v1","result":"valid" if ok else "invalid",
               "reason":reason,"corruption_probe":"rejected" if not corrupted_ok else "ACCEPTED_UNEXPECTEDLY"}
     print(json.dumps(result, sort_keys=True))
