@@ -48,6 +48,27 @@ impl InputCommitmentV1 {
         {
             return None;
         }
+        // The certificate must describe exactly the selected source objects,
+        // not merely a self-consistent certificate carrying the same projection.
+        let selected_node_bindings = closure
+            .included_nodes
+            .iter()
+            .all(|(id, commitment)| p.nodes.get(id).is_some_and(|node| &node.node_commitment == commitment));
+        let selected_edge_bindings = closure
+            .included_edges
+            .iter()
+            .all(|(id, (from, to, kind, commitment))| {
+                p.edges.get(id).is_some_and(|edge| {
+                    &edge.from_node_id == from
+                        && &edge.to_node_id == to
+                        && &edge.kind == kind
+                        && &edge.edge_commitment == commitment
+                })
+            });
+        if !selected_node_bindings || !selected_edge_bindings {
+            return None;
+        }
+
         let mut v = Self {
             schema_version: D6W_SCHEMA_VERSION.into(),
             source_snapshot: p.source_dkg_snapshot_commitment.clone(),
