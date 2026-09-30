@@ -144,9 +144,11 @@ pub struct DelegationContext<'a> {
 
 impl<'a> DelegationContext<'a> {
     pub fn from_slice(delegations: &'a [Delegation]) -> Result<Self, DelegationError> {
-        for (index, delegation) in delegations.iter().enumerate() {
-            if delegations[index + 1..].iter().any(|other| other.id == delegation.id) {
-                return Err(DelegationError::DuplicateDelegationId { id: delegation.id });
+        let mut ids = delegations.iter().map(|delegation| delegation.id).collect::<Vec<_>>();
+        ids.sort_unstable();
+        for pair in ids.windows(2) {
+            if pair[0] == pair[1] {
+                return Err(DelegationError::DuplicateDelegationId { id: pair[0] });
             }
         }
         Ok(Self { delegations })
@@ -565,6 +567,33 @@ mod tests {
     }
 
     #[test]
+    fn parent_epoch_mismatch_fails_closed() {
+        let relationship = RelationshipId::derive("test", b"epoch");
+        let parent = Delegation::grant(
+            DelegationId::derive(relationship, b"parent"),
+            relationship, p("alice"), p("broker"),
+            ActionScope::named("create-opportunity").unwrap(),
+            ResourceScope::named("acme:opportunity:7").unwrap(),
+            DelegationMode::Execute, 100, None, 4, None,
+        ).unwrap();
+        let child = Delegation::grant(
+            DelegationId::derive(relationship, b"child"),
+            relationship, p("broker"), p("agent"),
+            ActionScope::named("create-opportunity").unwrap(),
+            ResourceScope::named("acme:opportunity:7").unwrap(),
+            DelegationMode::Execute, 150, None, 5, Some(parent.id),
+        ).unwrap();
+        let req = ExecutionRequest {
+            principal: p("broker"), delegate: p("agent"),
+            action: ActionScope::named("create-opportunity").unwrap(),
+            resource: ResourceScope::named("acme:opportunity:7").unwrap(),
+            mode: DelegationMode::Execute, requested_at: 180, authority_epoch: 5,
+        };
+        assert_eq!(child.authorize(&req, &context(&[parent])),
+            Err(DelegationError::ParentEpochMismatch));
+    }
+
+    #[test]
     fn parent_chain_cycle_is_rejected() {
         let relationship = RelationshipId::derive("test", b"cycle");
         let a_id = DelegationId::derive(relationship, b"a");
@@ -588,7 +617,7 @@ mod tests {
             mode: DelegationMode::Execute, requested_at: 120, authority_epoch: 4,
         };
         assert_eq!(a.authorize(&req, &context(&[b, a])),
-            Err(DelegationError::DelegationCycle { id: a_id }));
+            Err(DelegationError::DelegationCycle { id: b_id }));
     }
 
     #[test]
