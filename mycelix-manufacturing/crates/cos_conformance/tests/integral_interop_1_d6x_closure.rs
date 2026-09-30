@@ -364,3 +364,38 @@ fn runtime_resolution_is_not_needed_for_semantic_identity() {
         "semantic identity is reproducible without runtime addresses"
     );
 }
+
+#[test]
+fn projection_metadata_and_runtime_resolution_evidence_are_not_semantic_identity() {
+    let value = fixture_value();
+    let (mut projection, env, derivation) = projection(false, &value);
+    let baseline =
+        compute_dependency_closure(&projection, &env, &derivation, &closure_profile()).unwrap();
+
+    projection.projection_id = "integral-interop-1-projection-renamed".into();
+    let renamed =
+        compute_dependency_closure(&projection, &env, &derivation, &closure_profile()).unwrap();
+    assert_eq!(baseline.closure_identity_commitment, renamed.closure_identity_commitment);
+
+    let mut observed = baseline.clone();
+    observed.resolution_evidence.insert(
+        "oad:design-water-purifier:v1".into(),
+        cos_conformance::qualified_dependency_closure_d6x::SemanticDependencyResolutionEvidenceV1 {
+            retrieval_reference: Some("runtime://resolver/42".into()),
+            observed_commitment: Some("observed-design-commitment".into()),
+            qualification_context_commitment: Some("qualification-context-1".into()),
+        },
+    );
+
+    assert_eq!(
+        baseline.closure_identity_commitment,
+        observed.closure_identity_commitment,
+        "runtime retrieval evidence must not contaminate semantic identity"
+    );
+    assert_ne!(
+        baseline.commitment,
+        observed.recompute(),
+        "the audit certificate must still record that runtime evidence changed"
+    );
+}
+
