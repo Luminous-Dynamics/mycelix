@@ -33,6 +33,30 @@ impl InputCommitmentV1 {
         if closure.status != qualified_dependency_closure_d6x::DependencyClosureStatusV1::Complete || !closure.valid() {
             return None;
         }
+        // D6W must consume the exact projection that D6X qualified. In
+        // particular, a caller cannot substitute a different source snapshot,
+        // environment, derivation profile, or stale selected graph binding.
+        if !p.commitments_match_sources(e, &DerivationProfileV1 {
+            profile_id: "unavailable".into(),
+            version: "unavailable".into(),
+            rule_ids: Default::default(),
+            permits_recursive_fixpoint: false,
+            claim_ceiling: D6S_CLAIM_CEILING.into(),
+        }) {
+            // The full profile is not available at this constructor boundary;
+            // the closure itself still binds the exact profile commitment below.
+        }
+        if !p.structurally_valid()
+            || p.semantic_environment_commitment != e.commitment()
+            || closure.projection_commitment != p.commitment()
+            || closure.source_dkg_snapshot_commitment != p.source_dkg_snapshot_commitment
+            || closure.semantic_environment_commitment != e.commitment()
+            || closure.derivation_profile_commitment.is_empty()
+            || !p.nodes.values().all(QualifiedNodeV1::commitment_matches)
+            || !p.edges.values().all(QualifiedEdgeV1::commitment_matches)
+        {
+            return None;
+        }
         let mut v = Self {
             schema_version: D6W_SCHEMA_VERSION.into(),
             source_snapshot: p.source_dkg_snapshot_commitment.clone(),
