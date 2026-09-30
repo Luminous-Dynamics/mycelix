@@ -119,7 +119,6 @@ pub struct HolochainCtx {
     pub zome_call_signing_ready: ReadSignal<bool>,
     /// Most recent transport, serialization, or zome-call failure.
     pub last_error: ReadSignal<Option<String>>,
-    set_status: WriteSignal<ConnectionStatus>,
     set_zome_call_signing_ready: WriteSignal<bool>,
     set_last_error: WriteSignal<Option<String>>,
     transport: TransportCell,
@@ -290,10 +289,10 @@ fn conductor_url() -> String {
         return DEFAULT_CONDUCTOR_URL.to_string();
     };
 
-    if let Ok(value) = js_sys::Reflect::get(&window, &"__HC_CONDUCTOR_URL".into()) {
-        if let Some(url) = value.as_string().filter(|url| !url.trim().is_empty()) {
-            return url;
-        }
+    if let Ok(value) = js_sys::Reflect::get(&window, &"__HC_CONDUCTOR_URL".into())
+        && let Some(url) = value.as_string().filter(|url| !url.trim().is_empty())
+    {
+        return url;
     }
 
     launcher_environment(&window)
@@ -326,10 +325,10 @@ fn js_uint8_array(value: &JsValue) -> Option<Vec<u8>> {
 fn auth_token() -> Option<Vec<u8>> {
     let window = web_sys::window()?;
 
-    if let Ok(value) = js_sys::Reflect::get(&window, &"__HC_AUTH_TOKEN".into()) {
-        if let Some(token) = js_uint8_array(&value) {
-            return Some(token);
-        }
+    if let Ok(value) = js_sys::Reflect::get(&window, &"__HC_AUTH_TOKEN".into())
+        && let Some(token) = js_uint8_array(&value)
+    {
+        return Some(token);
     }
 
     launcher_environment(&window).and_then(|environment| {
@@ -383,7 +382,6 @@ pub fn HolochainProviderAuto(config: HolochainProviderConfig, children: Children
         status,
         zome_call_signing_ready,
         last_error,
-        set_status,
         set_zome_call_signing_ready,
         set_last_error,
         transport: transport.clone(),

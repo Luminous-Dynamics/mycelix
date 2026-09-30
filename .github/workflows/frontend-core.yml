@@ -1,0 +1,227 @@
+name: Mycelix Frontend Core
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-leptos-core/**'
+      - 'crates/mycelix-leptos-ui/**'
+      - 'crates/mycelix-leptos-client/**'
+      - '.github/workflows/frontend-core.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/mycelix-leptos-core/**'
+      - 'crates/mycelix-leptos-ui/**'
+      - 'crates/mycelix-leptos-client/**'
+      - '.github/workflows/frontend-core.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-core-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  frontend-core:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+          submodules: recursive
+
+      - name: Verify exact subject checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ github.event.pull_request.head.sha || github.sha }}'
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$expected" || {
+            echo "::error::Expected exact subject $expected, got $actual"
+            exit 1
+          }
+
+      - name: Verify shared frontend source distribution
+        shell: bash
+        run: |
+          set -euo pipefail
+          for manifest in \
+            crates/mycelix-leptos-client/Cargo.toml \
+            crates/mycelix-leptos-ui/Cargo.toml \
+            crates/mycelix-leptos-core/Cargo.toml \
+            mycelix-workspace/mycelix-personal/crates/personal-leptos-types/Cargo.toml \
+            mycelix-workspace/mycelix-identity/crates/mycelix-crypto/Cargo.toml; do
+            test -f "$manifest" || {
+              echo "::error file=$manifest::Required shared frontend dependency source is missing from this repository."
+              exit 1
+            }
+          done
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87b
+        with:
+          toolchain: 1.96.0
+          components: rustfmt,clippy
+          targets: wasm32-unknown-unknown
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          workspaces: |
+            crates/mycelix-leptos-core
+            crates/mycelix-leptos-ui
+            crates/mycelix-leptos-client
+
+      - name: Resolve shared frontend manifests
+        run: |
+          set -euo pipefail
+          cargo metadata --manifest-path crates/mycelix-leptos-client/Cargo.toml --no-deps --format-version 1 >/dev/null
+          cargo metadata --manifest-path crates/mycelix-leptos-ui/Cargo.toml --no-deps --format-version 1 >/dev/null
+          cargo metadata --manifest-path crates/mycelix-leptos-core/Cargo.toml --no-deps --format-version 1 >/dev/null
+
+      - name: Check changed frontend Rust formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          head='${{ github.event.pull_request.head.sha || github.sha }}'
+          if [ '${{ github.event_name }}' = 'pull_request' ]; then
+            base='${{ github.event.pull_request.base.sha }}'
+          else
+            base='${{ github.event.before }}'
+          fi
+
+          if [ -z "$base" ] || [[ "$base" =~ ^0+$ ]]; then
+            echo "::error::Cannot establish a comparison base for scoped rustfmt qualification."
+            exit 1
+          fi
+
+          mapfile -t rust_files < <(
+            git diff --diff-filter=ACMR --name-only "$base" "$head" -- \
+              'crates/mycelix-leptos-client/**/*.rs' \
+              'crates/mycelix-leptos-ui/**/*.rs' \
+              'crates/mycelix-leptos-core/**/*.rs' \
+              | sort -u
+          )
+
+          if [ "${#rust_files[@]}" -eq 0 ]; then
+            echo "No changed shared-frontend Rust files to format-check."
+            exit 0
+          fi
+
+          printf 'rustfmt subject file: %s\n' "${rust_files[@]}"
+          rustfmt --edition 2024 --check "${rust_files[@]}"
+
+      - name: Check shared frontend crates for wasm32
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path crates/mycelix-leptos-client/Cargo.toml --target wasm32-unknown-unknown
+          cargo check --manifest-path crates/mycelix-leptos-ui/Cargo.toml --target wasm32-unknown-unknown
+          cargo check --manifest-path crates/mycelix-leptos-core/Cargo.toml --target wasm32-unknown-unknown
+
+      - name: Run shared frontend unit tests
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path crates/mycelix-leptos-client/Cargo.toml --lib
+          cargo test --manifest-path crates/mycelix-leptos-ui/Cargo.toml --lib
+          cargo test --manifest-path crates/mycelix-leptos-core/Cargo.toml --lib
+
+      - name: Clippy shared frontend crates
+        id: clippy
+        shell: bash
+        run: |
+          set -uo pipefail
+          log="$RUNNER_TEMP/frontend-core-clippy.log"
+          : > "$log"
+          status=0
+
+          for manifest in \
+            crates/mycelix-leptos-client/Cargo.toml \
+            crates/mycelix-leptos-ui/Cargo.toml \
+            crates/mycelix-leptos-core/Cargo.toml; do
+            printf '\n===== cargo clippy: %s =====\n' "$manifest" | tee -a "$log"
+            cargo clippy \
+              --message-format short \
+              --manifest-path "$manifest" \
+              --lib -- -D warnings 2>&1 | tee -a "$log"
+            rc=${PIPESTATUS[0]}
+            if [ "$rc" -ne 0 ]; then
+              status="$rc"
+            fi
+          done
+
+          exit "$status"
+
+      - name: Upload exact Clippy diagnostics
+        if: ${{ always() && steps.clippy.outcome == 'failure' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: frontend-core-clippy-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/frontend-core-clippy.log
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Prove checkout immutability
+        id: immutability
+        if: always()
+        shell: bash
+        run: |
+          set -uo pipefail
+          log="$RUNNER_TEMP/frontend-core-immutability.log"
+          : > "$log"
+
+          {
+            echo '=== git status --short ==='
+            git status --short
+            echo '=== untracked paths ==='
+            git ls-files --others --exclude-standard
+            echo '=== git diff --stat ==='
+            git diff --stat
+            echo '=== git diff ==='
+            git diff
+          } 2>&1 | tee "$log"
+          status=${PIPESTATUS[0]}
+
+          if ! git diff --exit-code >>"$log" 2>&1; then
+            status=1
+          fi
+          if [ -n "$(git status --porcelain)" ]; then
+            status=1
+          fi
+
+          exit "$status"
+
+      - name: Preserve generated frontend lockfiles
+        if: ${{ always() && steps.immutability.outcome == 'failure' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/frontend-locks"
+          mkdir -p "$out"
+          for crate in \
+            crates/mycelix-leptos-client \
+            crates/mycelix-leptos-ui \
+            crates/mycelix-leptos-core; do
+            if [ -f "$crate/Cargo.lock" ]; then
+              mkdir -p "$out/$crate"
+              cp "$crate/Cargo.lock" "$out/$crate/Cargo.lock"
+            fi
+          done
+
+      - name: Upload exact immutability diagnostics
+        if: ${{ always() && steps.immutability.outcome == 'failure' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: frontend-core-immutability-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            ${{ runner.temp }}/frontend-core-immutability.log
+            ${{ runner.temp }}/frontend-locks
+          if-no-files-found: error
+          retention-days: 7
