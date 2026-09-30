@@ -71,6 +71,31 @@ pub struct QualifiedRelationshipInputs {
 }
 
 impl QualifiedRelationshipInputs {
+    pub fn validate_certificate(&self) -> Result<(), QualificationError> {
+        let expected = qualification_input_digest(
+            self.relationship_id,
+            &self.assertions,
+            &self.frontiers,
+            &self.commitments,
+            &self.consents,
+            &self.delegations,
+        );
+        if self.certificate.schema_version != QualificationCertificate::SCHEMA_VERSION
+            || self.certificate.input_digest != expected
+            || self.certificate.assertion_evidence
+                != self.assertions.iter()
+                    .map(|a| (a.envelope.assertion_id, a.envelope.evidence.clone()))
+                    .collect::<Vec<_>>()
+            || self.certificate.commitment_ids != self.commitments.iter().map(|c| c.id).collect::<Vec<_>>()
+            || self.certificate.consent_ids != self.consents.iter().map(|c| c.id).collect::<Vec<_>>()
+            || self.certificate.delegation_ids != self.delegations.iter().map(|d| d.id).collect::<Vec<_>>()
+            || self.certificate.frontiers != self.frontiers
+        {
+            return Err(QualificationError::CertificateMismatch);
+        }
+        Ok(())
+    }
+
     pub fn qualify(
         relationship: &RelationshipRecord,
         assertions: &[RelationshipAssertion],
@@ -112,6 +137,7 @@ impl QualifiedRelationshipInputs {
         let certificate = QualificationCertificate {
             schema_version: QualificationCertificate::SCHEMA_VERSION,
             input_digest: qualification_input_digest(
+                relationship.relationship_id,
                 &ordered_assertions,
                 &canonical_frontiers,
                 &ordered_commitments,
@@ -170,6 +196,7 @@ pub enum QualificationError {
     UnrelatedDelegation { id: crate::DelegationId },
     DuplicateDelegationId { id: crate::DelegationId },
     InvalidDelegation { id: crate::DelegationId, error: DelegationError },
+    CertificateMismatch,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -194,6 +221,7 @@ fn write_bytes(out: &mut Vec<u8>, bytes: &[u8]) {
 }
 
 fn qualification_input_digest(
+    relationship_id: RelationshipId,
     assertions: &[RelationshipAssertion],
     frontiers: &[SourceFrontier],
     commitments: &[Commitment],
@@ -202,6 +230,7 @@ fn qualification_input_digest(
 ) -> [u8; 32] {
     let mut out = Vec::new();
     out.extend_from_slice(b"mycelix.qualification-inputs.v1\0");
+    out.extend_from_slice(relationship_id.as_bytes());
 
     write_len(&mut out, assertions.len());
     for assertion in assertions {
