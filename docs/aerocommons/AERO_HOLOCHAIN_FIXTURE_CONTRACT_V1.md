@@ -2,7 +2,7 @@
 
 This contract binds the 14-case authority-ceiling corpus to Holochain-shaped validation fixtures.
 
-It is deliberately one layer below a production AeroCommons integrity zome. The fixtures describe the operation shape and dependency semantics that a real hdi validator must implement; they do not emulate the Holochain conductor.
+It is deliberately one layer below a production AeroCommons integrity zome. The fixtures describe the operation shape and dependency semantics that a real HDI validator must implement; they do not emulate the Holochain conductor.
 
 ## Fixture fields
 
@@ -29,9 +29,9 @@ Each case declares:
 
 The fixture contract does not say that a `Valid` operation is an engineering-valid claim.
 
-For example, AC-AUTH-006 deliberately expects `Valid` for a referenced CreateRecord while separately forbidding the inference that this proves later Update/DeleteLink operations are valid. Holochain documents this limitation for `must_get_valid_record`: it validates the CreateRecord operation, not every later DHT operation derived from the same action. citeturn0search0
+For example, AC-AUTH-006 deliberately expects `Valid` for a referenced CreateRecord while separately forbidding the inference that this proves later Update/DeleteLink operations are valid. Holochain's current documentation explicitly notes that `must_get_valid_record` checks the CreateRecord operation and does not necessarily capture later Update/DeleteLink validation failures.
 
-Likewise, AC-AUTH-011 preserves the distinction between `Invalid` and `Unresolved`: if an addressable dependency cannot currently be retrieved, validation is indeterminate and can be retried rather than converted into a negative engineering conclusion. citeturn0search0turn0search3
+Likewise, AC-AUTH-011 preserves the distinction between `Invalid` and `Unresolved`: if an addressable dependency cannot currently be retrieved, validation is indeterminate and can be retried rather than converted into a negative engineering conclusion.
 
 ## Next binding layer
 
