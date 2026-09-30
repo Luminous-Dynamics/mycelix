@@ -2950,6 +2950,7 @@ mod tests {
         );
 
         receipt.relation = InstructionalTransformationContractEvolutionKind::Breaking;
+        receipt.evolution_digest = receipt.compute_digest().unwrap();
         assert_eq!(receipt.validate(), Ok(()));
     }
 
