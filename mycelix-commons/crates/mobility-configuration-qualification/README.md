@@ -38,9 +38,15 @@ The differential comparator uses **structural canonicalization**, not raw file-b
 5. it requires the schema, version, status, cardinality, and complete vector identity set;
 6. it then compares the parsed canonical JSON structures for exact equality.
 
-This means insignificant JSON whitespace/key-order differences cannot hide a semantic mismatch, while extra fields, missing fields, duplicate IDs, omitted vectors, reordered IDs, or changed semantic tuples fail closed.
+This means insignificant JSON whitespace/key-order differences cannot hide a semantic mismatch, while extra fields, missing fields, duplicate IDs, omitted vectors, noncanonical normalized ordering, or changed semantic tuples fail closed.
 
-The workflow transfers the two normalized outputs as separate GitHub Actions artifacts. GitHub's v4 artifact system makes uploaded artifacts immutable, and v4 download performs SHA-256 integrity validation of the downloaded artifact.
+The workflow transfers the two normalized outputs as separate GitHub Actions artifacts. GitHub's v4 artifact system makes uploaded artifacts immutable, and download performs artifact SHA-256 integrity validation. The producer jobs also publish the exact normalized-file SHA-256 as job outputs, and the differential job verifies those file hashes explicitly before parsing either result.
+
+## Mutation matrix
+
+The workflow also generates 20 deterministic negative corpus mutations and runs **both** evaluators against every mutation. Coverage includes missing/unknown top-level fields, wrong schema/status, missing/duplicate vectors, unknown and incorrectly typed IDs, incorrectly typed semantic fields, unknown vector fields, altered expected outcomes, altered forbidden-inference boundaries, unknown/empty scenarios, empty semantic fields, and duplicate IDs after permutation.
+
+Input vector ordering is intentionally a separate positive invariant: the workflow reverses the checked-in corpus and requires both evaluators to normalize it back to the same canonical representation. Ordering in the source corpus is therefore not treated as semantic identity; canonical ordering is enforced at the normalized-output boundary.
 
 ## Deliberate corruption probes
 
