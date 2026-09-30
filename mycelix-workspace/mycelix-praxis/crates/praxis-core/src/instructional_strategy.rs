@@ -629,6 +629,29 @@ impl InstructionalOutcomeTransformationSpec {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum InstructionalTransformationContractStatus { Proposed, Active, Retired }
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalTransformationContractRef {
+    pub contract_id: String,
+    pub contract_version: String,
+    pub contract_digest: String,
+    pub status: InstructionalTransformationContractStatus,
+}
+
+impl InstructionalTransformationContractRef {
+    fn validate_against(&self, schema_digest: &str) -> Result<(), InstructionalScienceContractError> {
+        if self.contract_id.trim().is_empty() || self.contract_version.trim().is_empty() || self.contract_digest.trim().is_empty() {
+            return Err(InstructionalScienceContractError::InvalidTransformationContractReference);
+        }
+        if self.contract_digest != schema_digest {
+            return Err(InstructionalScienceContractError::TransformationContractDigestMismatch);
+        }
+        Ok(())
+    }
+}
+
 pub struct InstructionalOutcomeTransformationParameterSchema {
     pub schema_id: String,
     pub schema_version: String,
@@ -637,6 +660,9 @@ pub struct InstructionalOutcomeTransformationParameterSchema {
     pub required_parameters: BTreeSet<String>,
     pub allowed_parameters: BTreeMap<String, InstructionalTransformationParameterKind>,
     pub schema_digest: String,
+    pub contract: InstructionalTransformationContractRef,
+    pub evidence_basis: Vec<EvidenceBasisRef>,
+    pub review_digest: String,
 }
 
 impl InstructionalOutcomeTransformationParameterSchema {
@@ -715,6 +741,16 @@ impl InstructionalOutcomeTransformationParameterSchema {
         if operation_version.trim().is_empty() {
             return Err(InstructionalScienceContractError::InvalidTransformationParameterSchema);
         }
+        let operation_name = match operation {
+            InstructionalOutcomeTransformationKind::UnitConversion => "unit-conversion",
+            InstructionalOutcomeTransformationKind::Normalization => "normalization",
+            InstructionalOutcomeTransformationKind::Standardization => "standardization",
+            InstructionalOutcomeTransformationKind::BaselineAdjustment => "baseline-adjustment",
+            InstructionalOutcomeTransformationKind::CompositeConstruction => "composite-construction",
+            InstructionalOutcomeTransformationKind::SubgroupSelection => "subgroup-selection",
+            InstructionalOutcomeTransformationKind::Rounding => "rounding",
+            InstructionalOutcomeTransformationKind::Other(_) => return Err(InstructionalScienceContractError::InvalidTransformationParameterSchema),
+        };
         let mut schema = Self {
             schema_id: "praxis:instructional-outcome-transformation-contract".into(),
             schema_version: "1".into(),
@@ -723,8 +759,21 @@ impl InstructionalOutcomeTransformationParameterSchema {
             required_parameters: required,
             allowed_parameters: allowed,
             schema_digest: String::new(),
+            contract: InstructionalTransformationContractRef {
+                contract_id: format!("praxis:instructional-outcome-transformation:{}:{}", operation_name, operation_version),
+                contract_version: operation_version.into(),
+                contract_digest: String::new(),
+                status: InstructionalTransformationContractStatus::Active,
+            },
+            evidence_basis: vec![EvidenceBasisRef {
+                source_id: "source:instructional-transformation-contract".into(),
+                source_version: "1".into(),
+                source_digest: "blake3:contract-definition".into(),
+            }],
+            review_digest: "blake3:contract-review".into(),
         };
         schema.schema_digest = schema.compute_digest()?;
+        schema.contract.contract_digest = schema.schema_digest.clone();
         Ok(schema)
     }
 
@@ -749,6 +798,17 @@ impl InstructionalOutcomeTransformationParameterSchema {
         }
         if self.compute_digest()? != self.schema_digest {
             return Err(InstructionalScienceContractError::TransformationParameterSchemaDigestMismatch);
+        }
+        self.contract.validate_against(&self.schema_digest)?;
+        if self.evidence_basis.is_empty() || self.review_digest.trim().is_empty() {
+            return Err(InstructionalScienceContractError::InvalidTransformationContractProvenance);
+        }
+        let mut evidence_refs = BTreeSet::new();
+        for evidence in &self.evidence_basis {
+            if evidence.source_id.trim().is_empty() || evidence.source_version.trim().is_empty() || evidence.source_digest.trim().is_empty()
+                || !evidence_refs.insert((evidence.source_id.clone(), evidence.source_version.clone(), evidence.source_digest.clone())) {
+                return Err(InstructionalScienceContractError::InvalidTransformationContractProvenance);
+            }
         }
         for required in &self.required_parameters {
             if !parameters.parameters.contains_key(required) {
@@ -1562,6 +1622,9 @@ pub enum InstructionalScienceContractError {
     MissingTransformationParameter,
     UndeclaredTransformationParameter,
     TransformationParameterKindMismatch,
+    InvalidTransformationContractReference,
+    TransformationContractDigestMismatch,
+    InvalidTransformationContractProvenance,
     ZeroAnalysisResultVersion,
     AnalysisResultEstimandMismatch,
     NegativeAnalysisResultGeneratedAt,
@@ -2567,6 +2630,17 @@ mod tests {
             chain.validate_for_output(&input),
             Err(InstructionalScienceContractError::TransformationOutputMismatch)
         );
+    }
+
+    #[test]
+    fn transformation_contract_reference_tracks_semantic_digest_and_allows_retirement() {
+        let operation = InstructionalOutcomeTransformationKind::Standardization;
+        let mut schema = InstructionalOutcomeTransformationParameterSchema::for_operation(&operation, "1").unwrap();
+        assert_eq!(schema.contract.contract_digest, schema.schema_digest);
+        schema.contract.status = InstructionalTransformationContractStatus::Retired;
+        assert_eq!(schema.validate_for(&operation, "1", &transformation_spec(vec![("method", InstructionalTransformationParameter::Identifier("z-score".into()))])), Ok(()));
+        schema.contract.contract_digest = "blake3:wrong".into();
+        assert_eq!(schema.validate_for(&operation, "1", &transformation_spec(vec![("method", InstructionalTransformationParameter::Identifier("z-score".into()))])), Err(InstructionalScienceContractError::TransformationContractDigestMismatch));
     }
 
     #[test]
