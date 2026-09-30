@@ -7,7 +7,7 @@
 //! This is the CORE membership and relationship zome for the Hearth cluster.
 
 use hdk::prelude::*;
-use hearth_coordinator_common::records_from_links;
+use hearth_coordinator_common::{get_unique_latest_record, records_from_links};
 use hearth_kinship_integrity::*;
 use hearth_types::*;
 use mycelix_bridge_common::{
@@ -107,28 +107,6 @@ fn membership_records_for_hearth(
     // reintroduce "last update wins" semantics.
     membership_records_for_hearth_strict(hearth_hash)
 }
-/// Resolve a single record's update chain only when it has one unambiguous
-/// successor at every step. Holochain permits branching updates, so a
-/// canonical catalog must not inherit the shared helper's "last vector item"
-/// convention as an authority rule.
-fn get_unique_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(None);
-    };
-
-    match details {
-        Details::Record(record_details) => match record_details.updates.as_slice() {
-            [] if !record_details.deletes.is_empty() => Ok(None),
-            [] => Ok(Some(record_details.record)),
-            [update] => get_unique_latest_record(update.action_address().clone()),
-            _ => Err(wasm_error!(WasmErrorInner::Guest(
-                "Canonical Hearth evidence has conflicting update branches".into()
-            ))),
-        },
-        Details::Entry(_) => Ok(None),
-    }
-}
-
 /// Resolve membership links for canonical catalog assembly without silently
 /// dropping missing/deleted evidence. A discovered active Hearth must fail
 /// closed when one of its membership evidence records cannot be resolved.
