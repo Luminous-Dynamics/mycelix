@@ -16,6 +16,7 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 pub const D6X_SCHEMA_VERSION: &str = "D6X-1";
 pub const D6X_ALGORITHM_VERSION: &str = "D6X-CLOSURE-4";
+pub const D6X_CANONICALIZATION_VERSION: &str = "D6S-CANON-1";
 pub const D6X_CLAIM_CEILING: &str = D6S_CLAIM_CEILING;
 
 fn non_empty(v: &str) -> bool { !v.trim().is_empty() }
@@ -354,6 +355,7 @@ impl DependencyClosureCertificateV1 {
         let identity = (
             &self.schema_version,
             &self.algorithm_version,
+            &D6X_CANONICALIZATION_VERSION,
             &self.closure_profile_commitment,
             &self.source_dkg_snapshot_commitment,
             &self.semantic_environment_commitment,
@@ -1014,6 +1016,14 @@ mod tests {
         let mut c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
         c.missing_dependency_ids.clear();
         assert!(!c.valid());
+    }
+
+    #[test]
+    fn d6x_canonicalization_version_matches_underlying_canon_contract() {
+        assert_eq!(
+            D6X_CANONICALIZATION_VERSION,
+            crate::canonical_derivation_receipt::D6S_REFERENCE_CANONICALIZATION_VERSION
+        );
     }
 
     #[test]
