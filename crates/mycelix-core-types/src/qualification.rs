@@ -651,8 +651,7 @@ mod tests {
     #[test]
     fn tampered_commitment_identity_is_rejected() {
         let r = relationship(b"identity");
-        let mut c = crate::Commitment::new(
-            crate::CommitmentId::derive(r.relationship_id, b"c"),
+        let mut c = crate::Commitment::new_content_bound(
             r.relationship_id,
             p("did", "alice"),
             p("org", "acme"),
@@ -727,8 +726,7 @@ mod tests {
     fn unrelated_records_are_rejected_instead_of_filtered() {
         let r = relationship(b"r");
         let other = relationship(b"other");
-        let c = crate::Commitment::new(
-            crate::CommitmentId::derive(other.relationship_id, b"c"),
+        let c = crate::Commitment::new_content_bound(
             other.relationship_id,
             p("did", "alice"),
             p("org", "acme"),
