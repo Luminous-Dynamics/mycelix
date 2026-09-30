@@ -847,6 +847,33 @@ pub fn get_caller_vote_weight(hearth_hash: ActionHash) -> ExternResult<u32> {
     Ok(0)
 }
 
+/// Classify membership authority for one caller/hearth pair.
+///
+/// This rule is intentionally pure: discovery may produce zero, one, or many
+/// membership records, but only exactly one current Active record can become
+/// authority. Multiple Active records are a conflict, never an ordering choice.
+fn classify_active_membership_indices(
+    agent: &AgentPubKey,
+    memberships: &[HearthMembership],
+) -> ExternResult<Option<usize>> {
+    let active: Vec<usize> = memberships
+        .iter()
+        .enumerate()
+        .filter(|(_, membership)| {
+            membership.agent == *agent && membership.status == MembershipStatus::Active
+        })
+        .map(|(index, _)| index)
+        .collect();
+
+    match active.as_slice() {
+        [] => Ok(None),
+        [index] => Ok(Some(*index)),
+        _ => Err(wasm_error!(WasmErrorInner::Guest(
+            "Conflicting active membership revisions for this Hearth and agent".into()
+        ))),
+    }
+}
+
 /// Get the caller's role in a given hearth.
 /// Returns None if the caller is not an active member.
 /// Used by decisions zome to check eligible_roles and derive vote weight.
@@ -988,32 +1015,23 @@ pub fn get_my_active_hearths(_: ()) -> ExternResult<Vec<ActiveHearthCatalogItem>
         let hearth: Hearth = entry_from_record(&hearth_record, "Hearth")?;
 
         let memberships = membership_records_for_hearth_strict(&hearth_hash)?;
-        let active: Vec<(Record, HearthMembership)> = memberships
-            .into_iter()
-            .filter(|(_, membership)| {
-                membership.agent == agent && membership.status == MembershipStatus::Active
-            })
-            .collect();
+        let membership_values: Vec<HearthMembership> =
+            memberships.iter().map(|(_, membership)| membership.clone()).collect();
 
-        match active.as_slice() {
-            [] => {
-                // Historical/departed discovery links remain observable but
-                // never establish active membership.
-                continue;
-            }
-            [(_membership_record, _membership)] => {}
-            _ => {
-                return Err(wasm_error!(WasmErrorInner::Guest(
-                    "Conflicting active membership revisions for this Hearth and agent".into()
-                )));
-            }
-        }
+        let Some(active_index) =
+            classify_active_membership_indices(&agent, &membership_values)?
+        else {
+            // Historical/departed discovery links remain observable but
+            // never establish active membership.
+            continue;
+        };
 
-        let (membership_record, membership) = active.into_iter().next().ok_or_else(|| {
-            wasm_error!(WasmErrorInner::Guest(
-                "Active membership evidence disappeared during catalog assembly".into()
-            ))
-        })?;
+        let (membership_record, membership) =
+            memberships.into_iter().nth(active_index).ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "Active membership evidence disappeared during catalog assembly".into()
+                ))
+            })?;
 
         if membership.hearth_hash != hearth_hash || membership.agent != agent {
             return Err(wasm_error!(WasmErrorInner::Guest(
@@ -1181,6 +1199,43 @@ mod tests {
             .iter()
             .find(|m| m.agent == *agent && m.status == MembershipStatus::Active)
             .map(|m| m.role.clone())
+    }
+
+    #[test]
+    fn active_membership_authority_zero_one_many() {
+        let agent = AgentPubKey::from_raw_32([1; 32]);
+        let hearth = ActionHash::from_raw_36(vec![2; 36]);
+
+        let make = |status, name: &str| HearthMembership {
+            hearth_hash: hearth.clone(),
+            agent: agent.clone(),
+            role: MemberRole::Adult,
+            status,
+            display_name: name.into(),
+            joined_at: Timestamp::now(),
+            admission: MembershipAdmission::Founder,
+        };
+
+        let none = vec![make(MembershipStatus::Departed, "old")];
+        assert_eq!(
+            classify_active_membership_indices(&agent, &none).unwrap(),
+            None
+        );
+
+        let one = vec![make(MembershipStatus::Active, "current")];
+        assert_eq!(
+            classify_active_membership_indices(&agent, &one).unwrap(),
+            Some(0)
+        );
+
+        let conflict = vec![
+            make(MembershipStatus::Active, "branch-a"),
+            make(MembershipStatus::Active, "branch-b"),
+        ];
+        assert!(
+            classify_active_membership_indices(&agent, &conflict).is_err(),
+            "multiple Active memberships must fail closed"
+        );
     }
 
     // ---- Entry Type Existence ----
