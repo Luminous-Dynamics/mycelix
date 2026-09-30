@@ -480,6 +480,9 @@ mod tests {
             },
             changed_artifacts: vec![],
             changed_inputs: vec![],
+            changed_requirements: vec![],
+            changed_methods: vec![],
+            changed_toolchains: vec![],
         };
         let impact = classify_impact(&evidence, &change);
         assert_eq!(impact.class, ImpactClass::Unaffected);
