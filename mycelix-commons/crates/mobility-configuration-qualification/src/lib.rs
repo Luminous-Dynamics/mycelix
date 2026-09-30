@@ -108,6 +108,114 @@ pub enum EvidenceModality {
     Attestation,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EvidenceNodeKind {
+    Requirement,
+    DesignArtifact,
+    PhysicalArtifact,
+    ManufacturingEvent,
+    InspectionRecord,
+    TestRecord,
+    OperationalObservation,
+    MaintenanceEvent,
+    EvidenceRecord,
+    ChangeSet,
+    ImpactAssessment,
+    RevalidationObligation,
+    ExternalAuthorityReference,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EvidenceRelation {
+    DerivedFrom,
+    ManufacturedAs,
+    InspectedAs,
+    TestedAs,
+    ObservedAs,
+    Interprets,
+    Supersedes,
+    Changes,
+    RequiresRevalidation,
+    Disputes,
+    Authorizes,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EvidenceRelationship {
+    pub relation: EvidenceRelation,
+    pub source_kind: EvidenceNodeKind,
+    pub target_kind: EvidenceNodeKind,
+}
+
+impl EvidenceRelationship {
+    /// Validate relationship typing only. A valid edge never implies a
+    /// different edge type, physical equivalence, safety, or certification.
+    pub fn validate(&self) -> Result<(), String> {
+        let valid = match self.relation {
+            EvidenceRelation::DerivedFrom => matches!(
+                (self.source_kind, self.target_kind),
+                (EvidenceNodeKind::DesignArtifact, EvidenceNodeKind::Requirement)
+                    | (EvidenceNodeKind::EvidenceRecord, EvidenceNodeKind::DesignArtifact)
+                    | (EvidenceNodeKind::ChangeSet, EvidenceNodeKind::EvidenceRecord)
+            ),
+            EvidenceRelation::ManufacturedAs => matches!(
+                (self.source_kind, self.target_kind),
+                (EvidenceNodeKind::ManufacturingEvent, EvidenceNodeKind::PhysicalArtifact)
+            ),
+            EvidenceRelation::InspectedAs => matches!(
+                (self.source_kind, self.target_kind),
+                (EvidenceNodeKind::InspectionRecord, EvidenceNodeKind::PhysicalArtifact)
+            ),
+            EvidenceRelation::TestedAs => matches!(
+                (self.source_kind, self.target_kind),
+                (EvidenceNodeKind::TestRecord, EvidenceNodeKind::PhysicalArtifact)
+            ),
+            EvidenceRelation::ObservedAs => matches!(
+                (self.source_kind, self.target_kind),
+                (EvidenceNodeKind::OperationalObservation, EvidenceNodeKind::PhysicalArtifact)
+            ),
+            EvidenceRelation::Interprets => matches!(
+                (self.source_kind, self.target_kind),
+                (EvidenceNodeKind::EvidenceRecord, EvidenceNodeKind::InspectionRecord)
+                    | (EvidenceNodeKind::EvidenceRecord, EvidenceNodeKind::TestRecord)
+                    | (EvidenceNodeKind::EvidenceRecord, EvidenceNodeKind::OperationalObservation)
+            ),
+            EvidenceRelation::Supersedes => matches!(
+                (self.source_kind, self.target_kind),
+                (EvidenceNodeKind::DesignArtifact, EvidenceNodeKind::DesignArtifact)
+                    | (EvidenceNodeKind::EvidenceRecord, EvidenceNodeKind::EvidenceRecord)
+                    | (EvidenceNodeKind::ChangeSet, EvidenceNodeKind::ChangeSet)
+            ),
+            EvidenceRelation::Changes => matches!(
+                (self.source_kind, self.target_kind),
+                (EvidenceNodeKind::ChangeSet, EvidenceNodeKind::DesignArtifact)
+                    | (EvidenceNodeKind::ChangeSet, EvidenceNodeKind::PhysicalArtifact)
+                    | (EvidenceNodeKind::ChangeSet, EvidenceNodeKind::EvidenceRecord)
+            ),
+            EvidenceRelation::RequiresRevalidation => matches!(
+                (self.source_kind, self.target_kind),
+                (EvidenceNodeKind::ImpactAssessment, EvidenceNodeKind::RevalidationObligation)
+                    | (EvidenceNodeKind::ChangeSet, EvidenceNodeKind::RevalidationObligation)
+            ),
+            EvidenceRelation::Disputes => matches!(
+                (self.source_kind, self.target_kind),
+                (EvidenceNodeKind::EvidenceRecord, EvidenceNodeKind::EvidenceRecord)
+            ),
+            EvidenceRelation::Authorizes => matches!(
+                (self.source_kind, self.target_kind),
+                (EvidenceNodeKind::ExternalAuthorityReference, EvidenceNodeKind::EvidenceRecord)
+                    | (EvidenceNodeKind::ExternalAuthorityReference, EvidenceNodeKind::PhysicalArtifact)
+            ),
+        };
+        if valid { Ok(()) } else {
+            Err(format!("invalid source/target kinds for {:?}", self.relation))
+        }
+    }
+}
+
 /// Orthogonal evidence state. The dimensions intentionally do not collapse
 /// into one status enum, preventing semantic/product-enum explosion.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -392,6 +500,58 @@ mod tests {
         dispute.conflict_reference = Some("claim-2".into());
         assert!(dispute.validate().is_ok());
         assert!(dispute.contradiction_reference.is_none());
+    }
+
+    #[test]
+    fn relationship_typing_accepts_declared_edges() {
+        let relationship = EvidenceRelationship {
+            relation: EvidenceRelation::ManufacturedAs,
+            source_kind: EvidenceNodeKind::ManufacturingEvent,
+            target_kind: EvidenceNodeKind::PhysicalArtifact,
+        };
+        assert!(relationship.validate().is_ok());
+    }
+
+    #[test]
+    fn relationship_typing_rejects_semantic_substitution() {
+        let relationship = EvidenceRelationship {
+            relation: EvidenceRelation::DerivedFrom,
+            source_kind: EvidenceNodeKind::ManufacturingEvent,
+            target_kind: EvidenceNodeKind::PhysicalArtifact,
+        };
+        assert!(relationship.validate().is_err());
+    }
+
+    #[test]
+    fn interpretation_does_not_become_observation() {
+        let interpretation = EvidenceRelationship {
+            relation: EvidenceRelation::Interprets,
+            source_kind: EvidenceNodeKind::EvidenceRecord,
+            target_kind: EvidenceNodeKind::OperationalObservation,
+        };
+        assert!(interpretation.validate().is_ok());
+        let observation = EvidenceRelationship {
+            relation: EvidenceRelation::ObservedAs,
+            source_kind: EvidenceNodeKind::EvidenceRecord,
+            target_kind: EvidenceNodeKind::PhysicalArtifact,
+        };
+        assert!(observation.validate().is_err());
+    }
+
+    #[test]
+    fn authorization_is_external_authority_only() {
+        let external = EvidenceRelationship {
+            relation: EvidenceRelation::Authorizes,
+            source_kind: EvidenceNodeKind::ExternalAuthorityReference,
+            target_kind: EvidenceNodeKind::EvidenceRecord,
+        };
+        assert!(external.validate().is_ok());
+        let commons = EvidenceRelationship {
+            relation: EvidenceRelation::Authorizes,
+            source_kind: EvidenceNodeKind::EvidenceRecord,
+            target_kind: EvidenceNodeKind::EvidenceRecord,
+        };
+        assert!(commons.validate().is_err());
     }
 
     #[test]
