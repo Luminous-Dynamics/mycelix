@@ -15,7 +15,7 @@
     flake-utils.url = "github:numtide/flake-utils";
 
     holonix = {
-      url = "github:holochain/holonix/ffcc7c63b4b87dde16a69247775639b49c5778b1"; # Holochain 0.7.0 / main-0.7 qualification closure
+      url = "github:holochain/holonix/main-0.7"; # locked to the Holochain 0.7.0 closure in flake.lock
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
