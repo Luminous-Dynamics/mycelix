@@ -752,6 +752,67 @@ mod tests {
         receipt
     }
 
+    fn matching_composition() -> FinalityEligibilityCompositionV1 {
+        FinalityEligibilityCompositionV1 {
+            composition_id: "composition:set-1".into(),
+            effect_id: "effect-1".into(),
+            effect_lineage_id: "lineage-1".into(),
+            lifecycle_generation_id: "generation-1".into(),
+            route_id: "route-1".into(),
+            provider_id: "provider-1".into(),
+            provider_operation_id: "operation-1".into(),
+            provider_profile_root: "provider-profile-1".into(),
+            semantic_environment_root: "environment-1".into(),
+            observation_set_id: "set-1".into(),
+            observation_set_commitment: "set-commitment-1".into(),
+            d6n_assessment_commitment: "assessment-1".into(),
+            lifecycle_profile_id: "lifecycle-1".into(),
+            current_frontier_root: "frontier-1".into(),
+            eligible_independent_count: 1,
+            required_independent_observations: 1,
+            preserved_contradictory_count: 0,
+            witnesses: vec![FinalityWitnessEligibilityV1 {
+                observation_id: "observation-1".into(),
+                observer_id: "observer-1".into(),
+                observer_generation_id: Some("generation-1".into()),
+                d6n_observation_set_id: "set-1".into(),
+                d6n_observation_set_commitment: "set-commitment-1".into(),
+                d6n_classification: ObservationClassificationV1::CorroboratingIndependent,
+                d6o_eligibility_id: Some("witness-1".into()),
+                d6o_disposition: Some(EvidenceEligibilityDispositionV1::EligibleCurrent),
+                d6o_dependency_snapshot_id: Some("dependency-1".into()),
+                observation_frontier_root: "frontier-1".into(),
+                current_frontier_root: "frontier-1".into(),
+                lifecycle_profile_id: "lifecycle-1".into(),
+                witness_commitment: "witness-commitment-1".into(),
+                claim_ceiling: FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING.into(),
+            }],
+            disposition: FinalityEligibilityDispositionV1::EligibleCurrent,
+            qualification_transition_id: Some("transition-1".into()),
+            composition_commitment: "composition-commitment-1".into(),
+            claim_ceiling: FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING.into(),
+        }
+    }
+
+    #[test]
+    fn current_receipt_provenance_is_reconstructed_from_composition() {
+        let receipt = committed_receipt();
+        let composition = matching_composition();
+        assert!(current_receipt_matches_composition(&receipt, &composition));
+
+        let mut substituted = composition.clone();
+        substituted.provider_operation_id = "operation-attacker".into();
+        assert!(!current_receipt_matches_composition(&receipt, &substituted));
+
+        let mut substituted = composition.clone();
+        substituted.witnesses[0].d6o_eligibility_id = Some("witness-attacker".into());
+        assert!(!current_receipt_matches_composition(&receipt, &substituted));
+
+        let mut substituted = composition;
+        substituted.current_frontier_root = "frontier-attacker".into();
+        assert!(!current_receipt_matches_composition(&receipt, &substituted));
+    }
+
     #[test]
     fn current_receipt_commitment_binds_every_semantic_field() {
         let receipt = committed_receipt();
