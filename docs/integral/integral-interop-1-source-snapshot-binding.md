@@ -1,0 +1,61 @@
+# Integral Interop 1 — Source Snapshot Identity Binding
+
+Status: **ReferenceModelOnly**
+
+## Purpose
+
+D6X and D6W carry source_dkg_snapshot_commitment as a semantic dependency identity. The current ReferenceModelOnly boundary does **not** claim that this commitment can reconstruct or independently validate the underlying DKG snapshot object; that object is outside this fixture's source boundary.
+
+The security property implemented here is narrower and testable:
+
+> A source snapshot identity is part of the D6X closure identity and the D6W input identity, and an older closure cannot be paired with a projection naming a different source snapshot.
+
+This distinguishes **snapshot identity** from **runtime retrieval evidence**.
+
+## Identity boundary
+
+The source snapshot commitment participates in the D6X closure identity alongside:
+
+- closure profile commitment;
+- semantic environment commitment;
+- derivation profile commitment;
+- selected roots;
+- typed selected node and edge dependencies;
+- missing-dependency/resolution state;
+- closure status and claim ceiling.
+
+Therefore changing only source_dkg_snapshot_commitment produces a different D6X closure identity.
+
+D6W copies the exact projection source snapshot commitment into InputCommitmentV1. D6W additionally requires:
+
+- the D6X closure to be complete and valid;
+- the closure projection commitment to equal the projection commitment;
+- the closure source snapshot commitment to equal the projection source snapshot commitment;
+- projection node and edge commitments to match their semantic sources.
+
+An old closure cannot therefore be reused with a projection that names another source snapshot.
+
+## Retrieval evidence is different
+
+SemanticDependencyResolutionEvidenceV1 contains runtime/audit information such as retrieval references, observed commitments, and qualification-context commitments. That evidence is intentionally excluded from candidate-independent closure identity.
+
+Changing a retrieval reference can therefore change the audit certificate while leaving the semantic closure identity unchanged, provided the semantic dependency itself has not changed.
+
+This separation prevents a storage URI, resolver address, or runtime lookup record from silently becoming semantic identity.
+
+## What this does not prove
+
+This tranche does **not** prove that a supplied source snapshot commitment is backed by a particular external DKG snapshot object. That requires an explicit source-snapshot object and a separately specified commitment algorithm at the DKG boundary.
+
+Accordingly, this remains ReferenceModelOnly; no Integral wire-schema or DKG snapshot format is inferred.
+
+## Adversarial coverage
+
+The conformance tests cover:
+
+1. changing the source snapshot changes D6X closure identity;
+2. pairing a changed projection with an old closure is rejected by D6W;
+3. pairing a changed projection with a freshly derived closure yields a distinct D6X/D6W identity rather than silently retaining the old identity;
+4. runtime resolution evidence does not become semantic identity.
+
+The key invariant is **identity propagation without pretending to validate an out-of-bound source object**.
