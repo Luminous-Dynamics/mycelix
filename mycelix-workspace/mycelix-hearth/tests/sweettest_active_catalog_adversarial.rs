@@ -265,3 +265,103 @@ async fn test_active_membership_delete_is_rejected() {
         "deleting Active membership evidence must be rejected; departure must use the lifecycle update"
     );
 }
+
+
+/// A legitimate departure must use the constrained Active -> Departed lifecycle
+/// and immediately remove the Hearth from the caller's canonical Active catalog.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires Holochain conductor (nix develop)"]
+async fn test_leave_hearth_removes_catalog_authority() {
+    let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
+
+    let mut alice_conductor = SweetConductor::from_standard_config().await;
+    let mut bob_conductor = SweetConductor::from_standard_config().await;
+
+    let (alice,) = alice_conductor
+        .setup_app("test-app", &[dna_file.clone()])
+        .await
+        .unwrap()
+        .into_tuple();
+    let (bob,) = bob_conductor
+        .setup_app("test-app", &[dna_file.clone()])
+        .await
+        .unwrap()
+        .into_tuple();
+
+    SweetConductor::exchange_peer_info([&alice_conductor, &bob_conductor]).await;
+
+    let hearth: Record = alice_conductor
+        .call(
+            &alice.zome("hearth_kinship"),
+            "create_hearth",
+            CreateHearthInput {
+                name: "Departure Catalog Test".into(),
+                description: "A legitimate departure must revoke active catalog authority".into(),
+                hearth_type: HearthType::Nuclear,
+                max_members: Some(4),
+            },
+        )
+        .await;
+    let hearth_hash = hearth.action_address().clone();
+
+    let invitation: Record = alice_conductor
+        .call(
+            &alice.zome("hearth_kinship"),
+            "invite_member",
+            InviteMemberInput {
+                hearth_hash,
+                invitee_agent: bob.agent_pubkey().clone(),
+                proposed_role: MemberRole::Adult,
+                message: "Departure lifecycle".into(),
+                expires_at: Timestamp::from_micros(
+                    Timestamp::now().as_micros() + 86_400_000_000,
+                ),
+            },
+        )
+        .await;
+
+    tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+
+    let membership: Record = bob_conductor
+        .call(
+            &bob.zome("hearth_kinship"),
+            "accept_invitation",
+            AcceptInvitationInput {
+                invitation_hash: invitation.action_address().clone(),
+                display_name: "Bob".into(),
+            },
+        )
+        .await;
+    let membership_hash = membership.action_address().clone();
+
+    tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+
+    let before: Vec<serde_json::Value> = bob_conductor
+        .call(
+            &bob.zome("hearth_kinship"),
+            "get_my_active_hearths",
+            (),
+        )
+        .await;
+    assert_eq!(before.len(), 1);
+
+    let _: Record = bob_conductor
+        .call(
+            &bob.zome("hearth_kinship"),
+            "leave_hearth",
+            membership_hash,
+        )
+        .await;
+
+    let after: Vec<serde_json::Value> = bob_conductor
+        .call(
+            &bob.zome("hearth_kinship"),
+            "get_my_active_hearths",
+            (),
+        )
+        .await;
+    assert!(
+        after.is_empty(),
+        "Departed membership must no longer establish Active Hearth authority"
+    );
+}
