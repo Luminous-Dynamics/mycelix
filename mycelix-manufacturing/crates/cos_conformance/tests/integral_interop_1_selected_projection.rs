@@ -40,7 +40,7 @@ fn unselected_oad_metadata_is_not_a_d6x_dependency() {
     let e=env(); let d=derivation(); let a=selected_projection(&baseline); let b=selected_projection(&changed);
     let ca=compute_dependency_closure(&a,&e,&d,&profile()).unwrap(); let cb=compute_dependency_closure(&b,&e,&d,&profile()).unwrap();
     assert_eq!(ca.closure_identity_commitment,cb.closure_identity_commitment);
-    let ia=InputCommitmentV1::from_projection(&a,&e,&ca,&profile()).unwrap(); let ib=InputCommitmentV1::from_projection(&b,&e,&cb,&profile()).unwrap();
+    let ia=InputCommitmentV1::from_projection(&a,&e,&ca,&profile(),&d).unwrap(); let ib=InputCommitmentV1::from_projection(&b,&e,&cb,&profile(),&d).unwrap();
     assert_eq!(ia.commitment,ib.commitment);
 }
 
@@ -65,7 +65,7 @@ fn irrelevant_symbolic_candidate_material_does_not_block_d6w_consumption() {
     let e = env();
     let d = derivation();
     let closure = compute_dependency_closure(&projection, &e, &d, &profile()).unwrap();
-    let input = InputCommitmentV1::from_projection(&projection, &e, &closure, &profile())
+    let input = InputCommitmentV1::from_projection(&projection, &e, &closure, &profile(), &d)
         .expect("irrelevant legacy candidate material must remain outside D6W consumption");
     assert_eq!(input.projection, closure.closure_identity_commitment);
 }
