@@ -7,6 +7,7 @@ use std::fs;
 /// Kept in a dedicated module so identity does not collapse into relationship
 /// scope strings or Holochain protocol metadata.
 pub mod identity_lineage;
+pub mod temporal_applicability;
 
 const EXPECTED_COUNT: usize = 20;
 const EXPECTED_PREFIX: &str = "MC-CONFIG-";
