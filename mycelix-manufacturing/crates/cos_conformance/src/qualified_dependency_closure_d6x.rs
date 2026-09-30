@@ -724,8 +724,11 @@ mod tests {
     fn selected_edge_kind_changes_identity() {
         let (mut a,e,d)=projection(false); let p=profile(BTreeSet::new());
         let before=compute_dependency_closure(&a,&e,&d,&p).unwrap();
-        a.edges.get_mut("e1").unwrap().kind=ClaimGraphEdgeKindV1::Provenance;
-        a.edges.get_mut("e1").unwrap().edge_commitment = a.edges.get("e1").unwrap().recomputed_commitment();
+        {
+            let edge = a.edges.get_mut("e1").unwrap();
+            edge.kind=ClaimGraphEdgeKindV1::Provenance;
+            edge.edge_commitment = edge.recomputed_commitment();
+        }
         let after=compute_dependency_closure(&a,&e,&d,&p).unwrap();
         assert_ne!(before.closure_identity_commitment, after.closure_identity_commitment);
     }
@@ -771,15 +774,21 @@ mod tests {
             content_commitment:"content-alt".into(), node_commitment:"commit-alt".into(), historical_only:false,
             current_frontier_root:Some("frontier".into()), claim_ceiling:D6S_CLAIM_CEILING.into(),
         });
-        a.edges.get_mut("e1").unwrap().to_node_id = "alt".into();
-        a.edges.get_mut("e1").unwrap().edge_commitment = a.edges.get("e1").unwrap().recomputed_commitment();
+        {
+            let edge = a.edges.get_mut("e1").unwrap();
+            edge.to_node_id = "alt".into();
+            edge.edge_commitment = edge.recomputed_commitment();
+        }
         let endpoint_changed=compute_dependency_closure(&a,&e,&d,&p).unwrap();
         assert_ne!(before.closure_identity_commitment, endpoint_changed.closure_identity_commitment);
 
         let (mut a,e,d)=projection(false);
         let before=compute_dependency_closure(&a,&e,&d,&p).unwrap();
-        a.edges.get_mut("e1").unwrap().kind = ClaimGraphEdgeKindV1::Provenance;
-        a.edges.get_mut("e1").unwrap().edge_commitment = a.edges.get("e1").unwrap().recomputed_commitment();
+        {
+            let edge = a.edges.get_mut("e1").unwrap();
+            edge.kind = ClaimGraphEdgeKindV1::Provenance;
+            edge.edge_commitment = edge.recomputed_commitment();
+        }
         let kind_changed=compute_dependency_closure(&a,&e,&d,&p).unwrap();
         assert_ne!(before.closure_identity_commitment, kind_changed.closure_identity_commitment);
     }
