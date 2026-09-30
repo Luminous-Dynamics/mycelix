@@ -1,0 +1,61 @@
+{
+  "profile": "integral-interop-1",
+  "projection_version": "integral-interop-1-design-semantic-v1",
+  "vectors": [
+    {
+      "id": "valid-baseline",
+      "mutation": "none",
+      "expected": "accept"
+    },
+    {
+      "id": "missing-design-id",
+      "mutation": "remove design_version.id",
+      "expected": "reject"
+    },
+    {
+      "id": "null-materials",
+      "mutation": "set design_version.materials to null",
+      "expected": "reject"
+    },
+    {
+      "id": "materials-wrong-type",
+      "mutation": "set design_version.materials to a string",
+      "expected": "reject"
+    },
+    {
+      "id": "bom-fractional",
+      "mutation": "set bill_of_materials_kg.silicone to 0.25",
+      "expected": "reject"
+    },
+    {
+      "id": "bom-wrong-type",
+      "mutation": "set bill_of_materials_kg.silicone to a string",
+      "expected": "reject"
+    },
+    {
+      "id": "step-name-wrong-type",
+      "mutation": "set production_steps[0].name to a number",
+      "expected": "reject"
+    },
+    {
+      "id": "step-hours-fractional",
+      "mutation": "set production_steps[0].estimated_hours to 1.5",
+      "expected": "reject"
+    },
+    {
+      "id": "step-tools-wrong-type",
+      "mutation": "set production_steps[0].tools_required to a string",
+      "expected": "reject"
+    },
+    {
+      "id": "step-sequence-fractional",
+      "mutation": "set production_steps[0].sequence_index to 0.5",
+      "expected": "reject"
+    },
+    {
+      "id": "step-safety-wrong-type",
+      "mutation": "set production_steps[0].safety_notes to an array",
+      "expected": "reject"
+    }
+  ]
+}
