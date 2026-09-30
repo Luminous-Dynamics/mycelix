@@ -161,11 +161,18 @@ impl ReservationLedger {
         match state {
             ReservationState::Active(reservation) => {
                 let reservation = reservation.clone();
-                *state = if release {
-                    ReservationState::Released(reservation)
+                if release {
+                    *state = ReservationState::Released(reservation);
                 } else {
-                    ReservationState::Consumed(reservation)
-                };
+                    // Consumption transfers the reserved quantity out of the
+                    // remaining inventory capacity. Release returns capacity;
+                    // consume permanently removes it.
+                    self.capacity = self
+                        .capacity
+                        .checked_sub(reservation.quantity)
+                        .ok_or(ReservationError::Overflow)?;
+                    *state = ReservationState::Consumed(reservation);
+                }
                 Ok(ApplyOutcome::Applied)
             }
             ReservationState::Released(_) if release => Ok(ApplyOutcome::Idempotent),
@@ -354,15 +361,19 @@ mod tests {
     }
 
     #[test]
-    fn terminal_reservations_do_not_block_capacity() {
+    fn consumed_inventory_is_removed_from_capacity() {
         let mut ledger = ReservationLedger::new(2);
         ledger.apply(ReservationEvent::Reserve(reservation("i1", "r1", 2))).unwrap();
         ledger.apply(ReservationEvent::Consume { intent_id: "i1".into() }).unwrap();
 
-        assert_eq!(ledger.available(), 2);
+        assert_eq!(ledger.capacity(), 0);
+        assert_eq!(ledger.available(), 0);
         assert_eq!(
-            ledger.apply(ReservationEvent::Reserve(reservation("i2", "r1", 2))),
-            Ok(ApplyOutcome::Applied)
+            ledger.apply(ReservationEvent::Reserve(reservation("i2", "r1", 1))),
+            Err(ReservationError::InsufficientCapacity {
+                requested: 1,
+                available: 0
+            })
         );
     }
 }
