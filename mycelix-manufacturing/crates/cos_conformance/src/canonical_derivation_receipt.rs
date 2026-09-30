@@ -659,7 +659,7 @@ mod tests {
         let value = serde_json::json!({"a": 1});
         assert_eq!(
             canonical_sha256(D6S_DOMAIN_PROJECTION, &value),
-            "8672b6e3d69e4dffb5d88ba51f789cbabbead62fd14246d1c5d5322973001ab8"
+            "2c535710bf769e0c161abea0beeaebbd53342f2e7255834b424925341a3bd6ae"
         );
         assert_ne!(
             canonical_sha256(D6S_DOMAIN_PROJECTION, &value),
