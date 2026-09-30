@@ -13,6 +13,8 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 pub mod capability;
+pub mod grant;
+pub mod identity;
 pub mod runtime;
 
 /// Maximum IPC frame size (2MB, matching existing Symthaea convention).
