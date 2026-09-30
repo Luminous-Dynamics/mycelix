@@ -45,6 +45,7 @@ class EvidenceState:
     authority: Authority
     modality: Modality
     contradiction_reference: str | None = None
+    conflict_reference: str | None = None
     unresolved_dependency_reference: str | None = None
     external_authority_reference: str | None = None
 
@@ -53,7 +54,7 @@ class EvidenceState:
             raise ValueError("contradicted requires contradiction reference")
         if self.epistemic is Epistemic.UNRESOLVED and not self.unresolved_dependency_reference:
             raise ValueError("unresolved requires dependency reference")
-        if self.conflict is Conflict.DISPUTED and not self.contradiction_reference:
+        if self.conflict is Conflict.DISPUTED and not self.conflict_reference:
             raise ValueError("disputed requires conflict reference")
         if self.authority is Authority.EXTERNAL and not self.external_authority_reference:
             raise ValueError("external authority requires external-authority reference")
@@ -108,7 +109,7 @@ def main() -> None:
     disputed = EvidenceState(
         Epistemic.SUPPORTED, Lifecycle.CURRENT, Conflict.DISPUTED,
         Authority.COMMONS, Modality.MEASUREMENT,
-        contradiction_reference="claim-2",
+        conflict_reference="claim-2",
     )
     expect_valid(disputed)
     assert disputed.epistemic is Epistemic.SUPPORTED
