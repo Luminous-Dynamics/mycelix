@@ -1511,6 +1511,107 @@ impl InstructionalResolutionPolicyProvenanceReceipt {
     }
 }
 
+
+/// Declared semantic relationship between two resolution-policy versions.
+///
+/// Compatibility is an explicit assessment, never inferred from version numbers.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum InstructionalResolutionPolicyEvolutionKind {
+    SemanticallyIdentical,
+    BackwardCompatible,
+    ReplayCompatible,
+    Breaking,
+}
+
+/// Independently addressable provenance for a resolution-policy evolution.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalResolutionPolicyEvolutionReceipt {
+    pub evolution_id: String,
+    pub evolution_version: u64,
+    pub predecessor: InstructionalResolutionPolicyRef,
+    pub successor: InstructionalResolutionPolicyRef,
+    pub relation: InstructionalResolutionPolicyEvolutionKind,
+    pub rationale: String,
+    pub assessment_digest: String,
+    pub canonicalization_version: String,
+    pub evolution_digest: String,
+}
+
+impl InstructionalResolutionPolicyEvolutionReceipt {
+    fn canonical_bytes(&self) -> Result<Vec<u8>, InstructionalScienceContractError> {
+        serde_json::to_vec(&(
+            "praxis:instructional-resolution-policy-evolution",
+            self.canonicalization_version.as_str(),
+            self.evolution_id.as_str(),
+            self.evolution_version,
+            &self.predecessor,
+            &self.successor,
+            &self.relation,
+            self.rationale.as_str(),
+            self.assessment_digest.as_str(),
+        )).map_err(|_| InstructionalScienceContractError::InvalidResolutionPolicyEvolution)
+    }
+
+    fn compute_digest(&self) -> Result<String, InstructionalScienceContractError> {
+        Ok(format!("blake3:{}", hash_to_string(&self.canonical_bytes()?)))
+    }
+
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.evolution_id.trim().is_empty()
+            || self.evolution_version == 0
+            || self.rationale.trim().is_empty()
+            || self.assessment_digest.trim().is_empty()
+            || self.canonicalization_version.trim().is_empty()
+            || self.evolution_digest.trim().is_empty()
+        {
+            return Err(InstructionalScienceContractError::InvalidResolutionPolicyEvolution);
+        }
+        self.predecessor.validate()?;
+        self.successor.validate()?;
+        if self.predecessor == self.successor {
+            return Err(InstructionalScienceContractError::ResolutionPolicyEvolutionSelfReference);
+        }
+        match self.relation {
+            InstructionalResolutionPolicyEvolutionKind::SemanticallyIdentical => {
+                if self.predecessor.policy_digest != self.successor.policy_digest {
+                    return Err(InstructionalScienceContractError::SemanticallyIdenticalResolutionPolicyDigestMismatch);
+                }
+            }
+            InstructionalResolutionPolicyEvolutionKind::Breaking => {
+                if self.predecessor.policy_digest == self.successor.policy_digest {
+                    return Err(InstructionalScienceContractError::BreakingResolutionPolicyDigestUnchanged);
+                }
+            }
+            InstructionalResolutionPolicyEvolutionKind::BackwardCompatible
+            | InstructionalResolutionPolicyEvolutionKind::ReplayCompatible => {}
+        }
+        if self.compute_digest()? != self.evolution_digest {
+            return Err(InstructionalScienceContractError::ResolutionPolicyEvolutionDigestMismatch);
+        }
+        Ok(())
+    }
+}
+
+/// Exact identity of a policy-evolution receipt.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalResolutionPolicyEvolutionRef {
+    pub evolution_id: String,
+    pub evolution_version: u64,
+    pub evolution_digest: String,
+}
+
+impl InstructionalResolutionPolicyEvolutionRef {
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.evolution_id.trim().is_empty() || self.evolution_digest.trim().is_empty() {
+            return Err(InstructionalScienceContractError::InvalidResolutionPolicyEvolutionReference);
+        }
+        if self.evolution_version == 0 {
+            return Err(InstructionalScienceContractError::ZeroResolutionPolicyEvolutionReferenceVersion);
+        }
+        Ok(())
+    }
+}
+
 /// Derived closure classification for an exact derivation resolution.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum InstructionalDerivationClosureStatus {
@@ -2460,6 +2561,13 @@ pub enum InstructionalScienceContractError {
     ResolutionClosureStatusMismatch,
     ResolutionClosureDigestMismatch,
     InvalidResolutionPolicyProvenance,
+    InvalidResolutionPolicyEvolution,
+    ResolutionPolicyEvolutionSelfReference,
+    SemanticallyIdenticalResolutionPolicyDigestMismatch,
+    BreakingResolutionPolicyDigestUnchanged,
+    ResolutionPolicyEvolutionDigestMismatch,
+    InvalidResolutionPolicyEvolutionReference,
+    ZeroResolutionPolicyEvolutionReferenceVersion,
     DuplicateResolutionPolicyProvenanceReference,
     ResolutionPolicyProvenanceDigestMismatch,
     DuplicateTransformationReference,
@@ -4271,6 +4379,147 @@ mod tests {
         assert_eq!(
             receipt.validate(),
             Err(InstructionalScienceContractError::EstimandKindMismatch)
+        );
+    }
+
+
+    #[test]
+    fn resolution_policy_evolution_requires_explicit_relationship() {
+        let predecessor = InstructionalResolutionPolicyRef {
+            policy_id: "praxis:resolution-policy".into(),
+            policy_version: "1".into(),
+            policy_digest: "blake3:policy-v1".into(),
+        };
+        let successor = InstructionalResolutionPolicyRef {
+            policy_id: "praxis:resolution-policy".into(),
+            policy_version: "2".into(),
+            policy_digest: "blake3:policy-v2".into(),
+        };
+        let mut receipt = InstructionalResolutionPolicyEvolutionReceipt {
+            evolution_id: "resolution-policy-evolution-1".into(),
+            evolution_version: 1,
+            predecessor,
+            successor,
+            relation: InstructionalResolutionPolicyEvolutionKind::Breaking,
+            rationale: "Changed closure classification semantics.".into(),
+            assessment_digest: "blake3:assessment".into(),
+            canonicalization_version: "1".into(),
+            evolution_digest: String::new(),
+        };
+        receipt.evolution_digest = receipt.compute_digest().unwrap();
+        assert_eq!(receipt.validate(), Ok(()));
+    }
+
+    #[test]
+    fn resolution_policy_evolution_rejects_invalid_semantic_relationships() {
+        let same = InstructionalResolutionPolicyRef {
+            policy_id: "praxis:resolution-policy".into(),
+            policy_version: "1".into(),
+            policy_digest: "blake3:same".into(),
+        };
+        let different = InstructionalResolutionPolicyRef {
+            policy_id: "praxis:resolution-policy".into(),
+            policy_version: "2".into(),
+            policy_digest: "blake3:different".into(),
+        };
+        let mut identical = InstructionalResolutionPolicyEvolutionReceipt {
+            evolution_id: "identical".into(),
+            evolution_version: 1,
+            predecessor: same.clone(),
+            successor: different.clone(),
+            relation: InstructionalResolutionPolicyEvolutionKind::SemanticallyIdentical,
+            rationale: "Incorrectly asserted identical.".into(),
+            assessment_digest: "blake3:assessment".into(),
+            canonicalization_version: "1".into(),
+            evolution_digest: String::new(),
+        };
+        identical.evolution_digest = identical.compute_digest().unwrap();
+        assert_eq!(identical.validate(), Err(InstructionalScienceContractError::SemanticallyIdenticalResolutionPolicyDigestMismatch));
+
+        let mut breaking = InstructionalResolutionPolicyEvolutionReceipt {
+            evolution_id: "breaking".into(),
+            evolution_version: 1,
+            predecessor: same.clone(),
+            successor: InstructionalResolutionPolicyRef {
+                policy_id: same.policy_id.clone(),
+                policy_version: "2".into(),
+                policy_digest: same.policy_digest.clone(),
+            },
+            relation: InstructionalResolutionPolicyEvolutionKind::Breaking,
+            rationale: "Incorrectly asserted breaking.".into(),
+            assessment_digest: "blake3:assessment".into(),
+            canonicalization_version: "1".into(),
+            evolution_digest: String::new(),
+        };
+        breaking.evolution_digest = breaking.compute_digest().unwrap();
+        assert_eq!(breaking.validate(), Err(InstructionalScienceContractError::BreakingResolutionPolicyDigestUnchanged));
+    }
+
+    #[test]
+    fn resolution_policy_evolution_rejects_self_reference_and_tampering() {
+        let policy = InstructionalResolutionPolicyRef {
+            policy_id: "praxis:resolution-policy".into(),
+            policy_version: "1".into(),
+            policy_digest: "blake3:policy".into(),
+        };
+        let mut self_reference = InstructionalResolutionPolicyEvolutionReceipt {
+            evolution_id: "self".into(),
+            evolution_version: 1,
+            predecessor: policy.clone(),
+            successor: policy.clone(),
+            relation: InstructionalResolutionPolicyEvolutionKind::BackwardCompatible,
+            rationale: "Self evolution is invalid.".into(),
+            assessment_digest: "blake3:assessment".into(),
+            canonicalization_version: "1".into(),
+            evolution_digest: String::new(),
+        };
+        self_reference.evolution_digest = self_reference.compute_digest().unwrap();
+        assert_eq!(self_reference.validate(), Err(InstructionalScienceContractError::ResolutionPolicyEvolutionSelfReference));
+
+        let mut receipt = InstructionalResolutionPolicyEvolutionReceipt {
+            evolution_id: "tamper".into(),
+            evolution_version: 1,
+            predecessor: policy,
+            successor: InstructionalResolutionPolicyRef {
+                policy_id: "praxis:resolution-policy".into(),
+                policy_version: "2".into(),
+                policy_digest: "blake3:next".into(),
+            },
+            relation: InstructionalResolutionPolicyEvolutionKind::ReplayCompatible,
+            rationale: "Explicit replay assessment.".into(),
+            assessment_digest: "blake3:assessment".into(),
+            canonicalization_version: "1".into(),
+            evolution_digest: String::new(),
+        };
+        receipt.evolution_digest = receipt.compute_digest().unwrap();
+        assert_eq!(receipt.validate(), Ok(()));
+        receipt.rationale = "Tampered.".into();
+        assert_eq!(receipt.validate(), Err(InstructionalScienceContractError::ResolutionPolicyEvolutionDigestMismatch));
+    }
+
+    #[test]
+    fn resolution_policy_evolution_reference_validates_exact_identity() {
+        let reference = InstructionalResolutionPolicyEvolutionRef {
+            evolution_id: "evolution".into(),
+            evolution_version: 1,
+            evolution_digest: "blake3:evolution".into(),
+        };
+        assert_eq!(reference.validate(), Ok(()));
+        assert_eq!(
+            (InstructionalResolutionPolicyEvolutionRef {
+                evolution_id: String::new(),
+                evolution_version: 1,
+                evolution_digest: "blake3:evolution".into(),
+            }).validate(),
+            Err(InstructionalScienceContractError::InvalidResolutionPolicyEvolutionReference)
+        );
+        assert_eq!(
+            (InstructionalResolutionPolicyEvolutionRef {
+                evolution_id: "evolution".into(),
+                evolution_version: 0,
+                evolution_digest: "blake3:evolution".into(),
+            }).validate(),
+            Err(InstructionalScienceContractError::ZeroResolutionPolicyEvolutionReferenceVersion)
         );
     }
 
