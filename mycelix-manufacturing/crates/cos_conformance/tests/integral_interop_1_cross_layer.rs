@@ -739,3 +739,37 @@ fn stale_selected_edge_commitment_is_rejected_at_d6x_boundary() {
         &closure_profile(false),
     ).is_none());
 }
+
+
+#[test]
+fn d6w_standalone_input_rejects_noncanonical_selected_commitment() {
+    let baseline = fixture();
+    let (projection, env, derivation) = projection(&baseline, false, false);
+    let closure = compute_dependency_closure(&projection, &env, &derivation, &closure_profile(false))
+        .expect("baseline closure");
+    let mut input = InputCommitmentV1::from_projection(&projection, &env, &closure)
+        .expect("baseline input");
+    input.nodes[0] = "LEGACY-SYMBOLIC".into();
+    input.commitment = input.recompute();
+    assert!(!input.valid(), "re-hashing cannot make a noncanonical selected commitment valid");
+}
+
+#[test]
+fn d6w_standalone_input_rejects_noncanonical_edge_and_receipt_commitments() {
+    let baseline = fixture();
+    let (projection, env, derivation) = projection(&baseline, false, true);
+    let closure = compute_dependency_closure(&projection, &env, &derivation, &closure_profile(true))
+        .expect("baseline closure");
+    let input = InputCommitmentV1::from_projection(&projection, &env, &closure)
+        .expect("baseline input");
+
+    let mut edge_mutated = input.clone();
+    edge_mutated.edges[0] = "edge-symbolic".into();
+    edge_mutated.commitment = edge_mutated.recompute();
+    assert!(!edge_mutated.valid());
+
+    let mut receipt_mutated = input;
+    receipt_mutated.d6p_receipts[0] = "receipt-symbolic".into();
+    receipt_mutated.commitment = receipt_mutated.recompute();
+    assert!(!receipt_mutated.valid());
+}
