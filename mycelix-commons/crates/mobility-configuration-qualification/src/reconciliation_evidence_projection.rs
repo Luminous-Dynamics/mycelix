@@ -288,6 +288,8 @@ mod tests {
 
     #[test]
     fn coexistent_does_not_promote_to_supported() {
+        let mut base = base_state();
+        base.epistemic_disposition = EpistemicDisposition::Indeterminate;
         let mut witness = conflict_witness();
         witness.disputed = false;
         witness.compatibility = Compatibility::Compatible;
@@ -304,13 +306,15 @@ mod tests {
         let projection = ReconciliationEvidenceProjection::NoEpistemicPromotion {
             witness_ref: "w-coexistent".into(),
         };
-        let projected = projection.apply(&witness, &base_state()).unwrap();
-        assert_eq!(projected.epistemic_disposition, EpistemicDisposition::Supported);
+        let projected = projection.apply(&witness, &base).unwrap();
+        assert_eq!(projected.epistemic_disposition, EpistemicDisposition::Indeterminate);
         assert_eq!(projected.conflict_reference, None);
     }
 
     #[test]
     fn incompatible_sequential_does_not_imply_causality() {
+        let mut base = base_state();
+        base.epistemic_disposition = EpistemicDisposition::Indeterminate;
         let mut witness = conflict_witness();
         witness.disputed = false;
         witness.right_applicability = interval(Some(20), Some(30));
@@ -328,11 +332,13 @@ mod tests {
             witness_ref: "w-sequential".into(),
         };
         assert_eq!(witness.result.classification, ReconciliationClass::Sequential);
-        assert!(projection.apply(&witness, &base_state()).is_ok());
+        assert!(projection.apply(&witness, &base).is_ok());
     }
 
     #[test]
     fn incomparable_does_not_become_disputed() {
+        let mut base = base_state();
+        base.epistemic_disposition = EpistemicDisposition::Indeterminate;
         let mut witness = conflict_witness();
         witness.disputed = false;
         witness.comparability = Comparability::Incomparable;
@@ -349,8 +355,25 @@ mod tests {
         let projection = ReconciliationEvidenceProjection::NoEpistemicPromotion {
             witness_ref: "w-incomparable".into(),
         };
-        let projected = projection.apply(&witness, &base_state()).unwrap();
+        let projected = projection.apply(&witness, &base).unwrap();
         assert_eq!(projected.conflict_disposition, ConflictDisposition::Uncontested);
+        assert_eq!(projected.epistemic_disposition, EpistemicDisposition::Indeterminate);
+    }
+
+    #[test]
+    fn projection_preserves_external_authority_and_modality() {
+        let witness = conflict_witness();
+        let mut base = base_state();
+        base.authority_provenance = crate::AuthorityProvenance::External;
+        base.external_authority_reference = Some("authority-1".into());
+        base.evidence_modality = crate::EvidenceModality::Measurement;
+        let projection = ReconciliationEvidenceProjection::ConflictReferenceOnly {
+            witness_ref: "w-external".into(),
+        };
+        let projected = projection.apply(&witness, &base).unwrap();
+        assert_eq!(projected.authority_provenance, crate::AuthorityProvenance::External);
+        assert_eq!(projected.external_authority_reference.as_deref(), Some("authority-1"));
+        assert_eq!(projected.evidence_modality, crate::EvidenceModality::Measurement);
     }
 
     #[test]
