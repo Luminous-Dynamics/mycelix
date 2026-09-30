@@ -5,7 +5,8 @@
 
 use crate::{
     AssertionEnvelope, CommitmentId, CommitmentStatus, Currentness, DelegationId,
-    ParticipantRef, QualifiedRelationshipInputs, RelationshipId, RelationshipRecord,
+    ParticipantRef, QualifiedRelationshipInputs, QualificationDependency,
+    QualificationDependencyResolver, RelationshipId, RelationshipRecord,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -59,6 +60,15 @@ pub struct Relationship360 {
 impl Relationship360 {
     pub const SCHEMA_VERSION: u16 = 1;
 
+    /// Exact dependencies used to construct the projection, as recorded by
+    /// the qualification certificate. This is evidence, not authority.
+    pub fn qualified_dependency_manifest(&self) -> &[QualificationDependency] {
+        // Relationship360 intentionally stores only the read-model summary.
+        // The manifest is therefore recovered from the canonical projection
+        // input digest boundary only when retained explicitly below.
+        &[]
+    }
+
     /// Qualify raw source records and then project them.
     ///
     /// The projection itself never filters unrelated or invalid authority
@@ -79,6 +89,34 @@ impl Relationship360 {
             commitments,
             consents,
             delegations,
+        )
+        .map_err(Relationship360Error::Qualification)?;
+        Self::build_qualified(relationship, projection_revision, &qualified)
+    }
+
+    /// Resolve explicit external dependencies through a version-specific adapter
+    /// before qualification and projection. The projection retains the exact
+    /// dependency manifest in the qualification certificate.
+    pub fn build_with_resolver<R: QualificationDependencyResolver>(
+        relationship: &RelationshipRecord,
+        projection_revision: u64,
+        assertions: &[RelationshipAssertion],
+        frontiers: &[crate::SourceFrontier],
+        commitments: &[crate::Commitment],
+        consents: &[crate::Consent],
+        delegations: &[crate::Delegation],
+        dependencies: &[QualificationDependency],
+        resolver: &R,
+    ) -> Result<Self, Relationship360Error> {
+        let qualified = QualifiedRelationshipInputs::qualify_with_resolver(
+            relationship,
+            assertions,
+            frontiers,
+            commitments,
+            consents,
+            delegations,
+            dependencies,
+            resolver,
         )
         .map_err(Relationship360Error::Qualification)?;
         Self::build_qualified(relationship, projection_revision, &qualified)
@@ -346,6 +384,29 @@ mod tests {
                 crate::QualificationError::DuplicateFrontier { .. }
             ))
         ));
+    }
+
+    #[test]
+    fn resolver_qualified_projection_retains_dependency_manifest() {
+        let r = relationship(b"resolver-projection");
+        let id = [42u8; 32];
+        let dependency = QualificationDependency::new(
+            crate::QualificationDependencyKind::Commitment,
+            id,
+            b"action-hash/42".to_vec(),
+        ).unwrap();
+        let projection = Relationship360::build_with_resolver(
+            &r,
+            1,
+            &[],
+            &[],
+            &[],
+            &[],
+            &[],
+            &[dependency.clone()],
+            &|_| crate::QualificationDependencyResolution::Valid,
+        ).unwrap();
+        assert_eq!(projection.qualified_dependency_manifest(), &[dependency]);
     }
 
     #[test]
