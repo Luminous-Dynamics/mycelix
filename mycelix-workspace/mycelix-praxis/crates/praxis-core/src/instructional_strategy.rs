@@ -1105,6 +1105,7 @@ impl InstructionalOutcomeTransformationReceipt {
             || self.transformation_version == 0
             || self.operation_version.trim().is_empty()
             || self.transformation_digest.trim().is_empty()
+            || self.sequence == 0
         {
             return Err(InstructionalScienceContractError::InvalidTransformation);
         }
@@ -1129,6 +1130,9 @@ pub struct InstructionalOutcomeTransformationRef {
     pub transformation_id: String,
     pub transformation_version: u64,
     pub transformation_digest: String,
+    pub sequence: u32,
+    pub input_outcome: InstructionalOutcomeRef,
+    pub output_outcome: InstructionalOutcomeRef,
 }
 
 impl InstructionalOutcomeTransformationRef {
@@ -1138,6 +1142,11 @@ impl InstructionalOutcomeTransformationRef {
             || self.transformation_digest.trim().is_empty()
         {
             return Err(InstructionalScienceContractError::InvalidTransformationReference);
+        }
+        self.input_outcome.validate()?;
+        self.output_outcome.validate()?;
+        if self.input_outcome == self.output_outcome {
+            return Err(InstructionalScienceContractError::TransformationIdentityNoOp);
         }
         Ok(())
     }
