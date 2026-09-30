@@ -17,7 +17,7 @@
 
 use hdk::prelude::*;
 use hearth_bridge_integrity::*;
-use hearth_coordinator_common::{decode_zome_response, get_latest_record};
+use hearth_coordinator_common::{decode_zome_response, get_unique_latest_record};
 use hearth_types::{
     BondUpdate, CareSummary, DigestEpochInput, GratitudeSummary, RhythmSummary, SeveranceInput,
     SeveranceSummaryData, WeeklyDigest,
@@ -838,7 +838,7 @@ fn get_cached_credential(did: &str) -> ExternResult<Option<ConsciousnessCredenti
         ))
     })?;
 
-    if let Some(record) = get_latest_record(target)? {
+    if let Some(record) = get_unique_latest_record(target)? {
         let cached: CachedCredentialEntry = record
             .entry()
             .to_app_option()
