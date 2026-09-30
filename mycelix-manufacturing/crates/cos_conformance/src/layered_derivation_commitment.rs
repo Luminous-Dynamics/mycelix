@@ -347,6 +347,35 @@ mod tests {
     }
 
     #[test]
+    fn d6w_input_rejects_self_consistent_closure_that_omits_required_traversal() {
+        let (p, e, d, mut closure) = fixture(false);
+        let expected_profile = closure_profile();
+
+        closure.included_nodes.remove("dep");
+        closure.included_node_ids.remove("dep");
+        closure.included_node_commitments
+            .retain(|commitment| commitment != &p.nodes["dep"].node_commitment);
+        closure.included_edges.clear();
+        closure.included_edge_commitments.clear();
+        closure.dependencies = closure.expected_dependencies();
+        closure.dependency_resolutions = closure
+            .dependencies
+            .iter()
+            .map(|dependency| (
+                dependency.clone(),
+                qualified_dependency_closure_d6x::SemanticDependencyResolutionV1::Present,
+            ))
+            .collect();
+        closure.closure_identity_commitment = closure.closure_identity();
+        closure.commitment = closure.recompute();
+
+        assert!(closure.valid());
+        assert!(InputCommitmentV1::from_projection(
+            &p, &e, &closure, &expected_profile, &d
+        ).is_none());
+    }
+
+    #[test]
     fn d6w_rejects_stale_environment_commitment() {
         let (mut p,e,d,c)=fixture(false);
         p.semantic_environment_commitment = "stale-environment".into();
