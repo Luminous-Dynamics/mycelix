@@ -362,8 +362,8 @@ pub fn accept_invitation(input: AcceptInvitationInput) -> ExternResult<Record> {
     let agent = agent_info()?.agent_initial_pubkey;
     let now = sys_time()?;
 
-    let invitation_record = get(input.invitation_hash.clone(), GetOptions::default())?.ok_or(
-        wasm_error!(WasmErrorInner::Guest("Invitation not found".into())),
+    let invitation_record = get_unique_latest_record(input.invitation_hash.clone())?.ok_or(
+        wasm_error!(WasmErrorInner::Guest("Invitation not found or has conflicting/deleted revisions".into())),
     )?;
     let invitation: HearthInvitation = entry_from_record(&invitation_record, "HearthInvitation")?;
 
@@ -391,8 +391,8 @@ pub fn accept_invitation(input: AcceptInvitationInput) -> ExternResult<Record> {
 
     // Best-effort coordinator guard. Integrity validation independently binds
     // the resulting membership to this exact invitation and response.
-    let hearth_record = get(invitation.hearth_hash.clone(), GetOptions::default())?.ok_or(
-        wasm_error!(WasmErrorInner::Guest("Hearth not found".into())),
+    let hearth_record = get_unique_latest_record(invitation.hearth_hash.clone())?.ok_or(
+        wasm_error!(WasmErrorInner::Guest("Hearth not found or has conflicting/deleted revisions".into())),
     )?;
     let hearth: Hearth = entry_from_record(&hearth_record, "Hearth")?;
     let mut active_count = 0u32;
