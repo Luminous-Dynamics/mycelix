@@ -31,3 +31,21 @@ A fourth operational case is tested explicitly:
 - Runtime retrieval evidence → audit certificate may change, but closure identity and D6W input remain stable.
 
 The implementation is intentionally a conformance harness, not an assertion that Integral has adopted these exact Rust types, field names, or hash domains.
+
+
+## Declarative corpus
+
+The executable mutation matrix is also represented as
+`mycelix-manufacturing/crates/cos_conformance/testdata/integral_interop_1_cross_layer_vectors.json`.
+
+Each vector declares:
+
+- `id`: stable mutation identifier;
+- `operation`: `set`, `candidate-noise`, `require-d6p-receipt`, or `runtime-evidence`;
+- `path`: mutation target, or `$` for whole-fixture operations;
+- `value`: operation-specific value;
+- `expected`: one of `identity-preserving`, `identity-changing`, `invalid-no-identity`, `blocked-no-d6w`, `dependency-satisfied`, or `audit-only`.
+
+The test runner validates the corpus vocabulary and executes each supported semantic mutation. Runtime evidence is deliberately handled by the dedicated audit-boundary test because it mutates the D6X certificate rather than the source OAD fixture.
+
+This makes the mutation matrix reviewable as data while retaining Rust-level assertions for the cryptographic propagation boundary.
