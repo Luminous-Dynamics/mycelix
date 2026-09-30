@@ -1140,6 +1140,7 @@ impl InstructionalOutcomeTransformationRef {
         if self.transformation_id.trim().is_empty()
             || self.transformation_version == 0
             || self.transformation_digest.trim().is_empty()
+            || self.sequence == 0
         {
             return Err(InstructionalScienceContractError::InvalidTransformationReference);
         }
