@@ -112,45 +112,63 @@ mod tests {
     use super::*;
 
     #[test]
-    fn rejection_cases_are_explicitly_rejected() {
-        for id in [
-            "AC-AUTH-001",
-            "AC-AUTH-002",
-            "AC-AUTH-003",
-            "AC-AUTH-005",
-            "AC-AUTH-007",
-            "AC-AUTH-009",
-            "AC-AUTH-010",
-            "AC-AUTH-012",
-            "AC-AUTH-014",
-        ] {
-            assert!(matches!(
-                id,
-                "AC-AUTH-001"
-                    | "AC-AUTH-002"
-                    | "AC-AUTH-003"
-                    | "AC-AUTH-005"
-                    | "AC-AUTH-007"
-                    | "AC-AUTH-009"
-                    | "AC-AUTH-010"
-                    | "AC-AUTH-012"
-                    | "AC-AUTH-014"
-            ));
+    fn entry_cases_execute_the_declared_authority_boundary() {
+        let cases = [
+            ("AC-AUTH-001", false),
+            ("AC-AUTH-002", false),
+            ("AC-AUTH-003", false),
+            ("AC-AUTH-004", true),
+            ("AC-AUTH-005", false),
+            ("AC-AUTH-008", true),
+            ("AC-AUTH-009", false),
+            ("AC-AUTH-010", false),
+            ("AC-AUTH-012", false),
+            ("AC-AUTH-013", true),
+            ("AC-AUTH-014", false),
+        ];
+
+        for (case_id, expected_valid) in cases {
+            let result = validate_fixture_entry(FixtureEntry {
+                case_id: case_id.to_string(),
+                dependency: None,
+            })
+            .expect("non-dependency fixture cases should return a validation result");
+
+            assert_eq!(
+                matches!(result, ValidateCallbackResult::Valid),
+                expected_valid,
+                "unexpected result for {case_id}: {result:?}"
+            );
         }
     }
 
     #[test]
-    fn non_escalation_cases_are_explicitly_accepted() {
-        for id in ["AC-AUTH-004", "AC-AUTH-006", "AC-AUTH-008", "AC-AUTH-013"] {
-            assert!(!id.is_empty());
-        }
+    fn unknown_case_fails_closed() {
+        let result = validate_fixture_entry(FixtureEntry {
+            case_id: "UNKNOWN".to_string(),
+            dependency: None,
+        })
+        .expect("unknown fixture IDs should produce Invalid, not a host error");
+
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
     #[test]
-    fn unresolved_case_is_host_dependency_driven() {
-        // AC-AUTH-011 deliberately does not synthesize Invalid. In a real conductor,
-        // must_get_valid_record on an unavailable ActionHash produces
-        // UnresolvedDependencies, which is retried by Holochain.
-        assert_eq!("AC-AUTH-011", "AC-AUTH-011");
+    fn dependency_cases_require_explicit_addresses() {
+        for case_id in ["AC-AUTH-006", "AC-AUTH-011"] {
+            let result = validate_fixture_entry(FixtureEntry {
+                case_id: case_id.to_string(),
+                dependency: None,
+            });
+
+            assert!(
+                result.is_err(),
+                "{case_id} must not silently omit its addressable dependency"
+            );
+        }
     }
+
+    // AC-AUTH-011 intentionally delegates unresolved-dependency behavior to must_get_valid_record.
+    // A real conductor test is required to exercise the UnresolvedDependencies result; a host
+    // unit test must not pretend to establish it.
 }
