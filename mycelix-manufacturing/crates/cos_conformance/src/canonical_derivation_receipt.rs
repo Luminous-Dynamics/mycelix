@@ -30,12 +30,20 @@ fn non_empty(value: &str) -> bool {
     !value.trim().is_empty()
 }
 
+/// Return whether a commitment is in the exact textual form emitted by
+/// D6S-CANON-1 SHA-256 commitments: 64 lowercase hexadecimal characters.
+/// This is deliberately separate from legacy ReferenceModelOnly acceptance so
+/// compatibility can be narrowed at stronger consumption boundaries.
+pub fn is_canonical_sha256_commitment(value: &str) -> bool {
+    value.len() == 64 && value.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+}
+
 fn is_legacy_opaque_commitment(value: &str) -> bool {
     // Existing ReferenceModelOnly fixtures historically used symbolic
     // commitments such as "commit-root". Preserve those fixtures while
     // enforcing binding whenever a value has the canonical 64-hex SHA-256
     // representation emitted by D6S-CANON-1.
-    value.len() != 64 || !value.bytes().all(|b| b.is_ascii_hexdigit())
+    !is_canonical_sha256_commitment(value)
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {
