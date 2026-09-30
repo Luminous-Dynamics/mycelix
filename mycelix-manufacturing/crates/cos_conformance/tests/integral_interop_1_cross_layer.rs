@@ -289,6 +289,179 @@ fn evaluate(
     Some((selected, closure_id, input, derivation_id))
 }
 
+
+
+fn path_tokens(path: &str) -> Vec<String> {
+    let mut tokens = Vec::new();
+    for segment in path.split('.') {
+        let mut rest = segment;
+        while let Some(open) = rest.find('[') {
+            if open > 0 {
+                tokens.push(rest[..open].to_owned());
+            }
+            let close = rest[open..]
+                .find(']')
+                .expect("array path token must close");
+            tokens.push(rest[open + 1..open + close].to_owned());
+            rest = &rest[open + close + 1..];
+        }
+        if !rest.is_empty() {
+            tokens.push(rest.to_owned());
+        }
+    }
+    tokens
+}
+
+fn set_path(root: &mut Value, path: &str, replacement: Value) {
+    let tokens = path_tokens(path);
+    assert!(!tokens.is_empty());
+
+    fn descend(current: &mut Value, tokens: &[String], replacement: Value) {
+        if tokens.len() == 1 {
+            match current {
+                Value::Object(map) => {
+                    map.insert(tokens[0].clone(), replacement);
+                }
+                Value::Array(values) => {
+                    let index: usize = tokens[0].parse().expect("array index");
+                    values[index] = replacement;
+                }
+                _ => panic!("cannot descend into scalar"),
+            }
+            return;
+        }
+
+        match current {
+            Value::Object(map) => descend(
+                map.get_mut(&tokens[0]).expect("object path component"),
+                &tokens[1..],
+                replacement,
+            ),
+            Value::Array(values) => {
+                let index: usize = tokens[0].parse().expect("array index");
+                descend(&mut values[index], &tokens[1..], replacement);
+            }
+            _ => panic!("cannot descend into scalar"),
+        }
+    }
+
+    descend(root, &tokens, replacement);
+}
+
+#[test]
+fn declarative_cross_layer_corpus_is_self_describing_and_executable() {
+    let corpus: Value = serde_json::from_str(include_str!(
+        "../testdata/integral_interop_1_cross_layer_vectors.json"
+    ))
+    .expect("cross-layer corpus must be valid JSON");
+
+    assert_eq!(corpus["profile"], "integral-interop-1");
+    assert_eq!(
+        corpus["projection_version"],
+        "integral-interop-1-design-semantic-v1"
+    );
+    assert_eq!(corpus["classification"], "cross-layer-propagation-v1");
+
+    let baseline = fixture();
+    let baseline_eval =
+        evaluate(&baseline, false, false, false).expect("baseline must resolve");
+
+    for vector in corpus["vectors"].as_array().expect("vectors array") {
+        let id = vector["id"].as_str().expect("vector id");
+        let operation = vector["operation"].as_str().expect("vector operation");
+        let expected = vector["expected"].as_str().expect("vector expected");
+
+        assert!(
+            matches!(
+                expected,
+                "identity-preserving"
+                    | "identity-changing"
+                    | "invalid-no-identity"
+                    | "blocked-no-d6w"
+                    | "dependency-satisfied"
+                    | "audit-only"
+            ),
+            "{id}: unknown classification"
+        );
+
+        if operation == "runtime-evidence" {
+            assert_eq!(expected, "audit-only", "{id}");
+            continue;
+        }
+
+        let mut mutated = baseline.clone();
+        let mut with_candidate_noise = false;
+        let mut d6p_receipt = false;
+        let mut require_d6p_receipt = false;
+
+        match operation {
+            "set" => set_path(&mut mutated, vector["path"].as_str().unwrap(), vector["value"].clone()),
+            "candidate-noise" => with_candidate_noise = true,
+            "require-d6p-receipt" => {
+                require_d6p_receipt = true;
+                d6p_receipt = vector["value"].as_bool().unwrap();
+            }
+            other => panic!("{id}: unsupported operation {other}"),
+        }
+
+        match expected {
+            "identity-preserving" => {
+                let actual = evaluate(
+                    &mutated,
+                    with_candidate_noise,
+                    d6p_receipt,
+                    require_d6p_receipt,
+                )
+                .expect(id);
+                assert_eq!(baseline_eval.0, actual.0, "{id}: OAD identity changed");
+                assert_eq!(baseline_eval.1, actual.1, "{id}: D6X identity changed");
+                assert_eq!(
+                    baseline_eval.2.as_ref().map(|v| &v.commitment),
+                    actual.2.as_ref().map(|v| &v.commitment),
+                    "{id}: D6W input changed"
+                );
+                assert_eq!(baseline_eval.3, actual.3, "{id}: D6W derivation changed");
+            }
+            "identity-changing" => {
+                let actual = evaluate(
+                    &mutated,
+                    with_candidate_noise,
+                    d6p_receipt,
+                    require_d6p_receipt,
+                )
+                .expect(id);
+                assert_ne!(baseline_eval.0, actual.0, "{id}: OAD identity did not change");
+                assert_ne!(baseline_eval.1, actual.1, "{id}: D6X identity did not change");
+                assert_ne!(
+                    baseline_eval.2.as_ref().map(|v| &v.commitment),
+                    actual.2.as_ref().map(|v| &v.commitment),
+                    "{id}: D6W input did not change"
+                );
+                assert_ne!(baseline_eval.3, actual.3, "{id}: D6W derivation did not change");
+            }
+            "invalid-no-identity" => {
+                assert!(
+                    validate_selected_oad_design_semantics(&mutated).is_err(),
+                    "{id}: validation must reject"
+                );
+                assert!(evaluate(&mutated, false, false, false).is_none(), "{id}");
+            }
+            "blocked-no-d6w" => {
+                let actual = evaluate(&mutated, false, false, true).expect(id);
+                assert_eq!(actual.2, None, "{id}: blocked D6X entered D6W");
+            }
+            "dependency-satisfied" => {
+                let actual = evaluate(&mutated, false, true, true).expect(id);
+                assert_ne!(baseline_eval.1, actual.1, "{id}: D6X did not bind receipt");
+                assert!(actual.2.is_some(), "{id}: D6W input missing");
+                assert!(actual.3.is_some(), "{id}: D6W derivation missing");
+            }
+            "audit-only" => unreachable!("handled above"),
+            _ => unreachable!(),
+        }
+    }
+}
+
 #[test]
 fn cross_layer_mutation_matrix_is_executable() {
     let baseline = fixture();
