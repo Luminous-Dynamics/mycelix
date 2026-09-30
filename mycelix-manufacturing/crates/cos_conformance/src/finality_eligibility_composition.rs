@@ -847,7 +847,7 @@ mod tests {
         assert!(!mutated.commitment_matches());
 
         let mut mutated = composition.clone();
-        mutated.witnesses[0].d6o_eligibility_ids = BTreeSet::new();
+        mutated.witnesses[0].d6o_eligibility_id = Some("witness-attacker".into());
         assert!(!mutated.commitment_matches());
 
         let mut mutated = composition;
