@@ -17,7 +17,8 @@ use cos_conformance::layered_derivation_commitment::{
 };
 use cos_conformance::qualified_dependency_closure_d6x::{
     compute_dependency_closure, DependencyClosureProfileV1, DependencyCurrentnessV1,
-    DependencyRuleV1, DependencyClosureStatusV1,
+    DependencyRuleV1, DependencyClosureStatusV1, SemanticDependencyReferenceV1,
+    SemanticDependencyResolutionEvidenceV1,
 };
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
@@ -264,29 +265,114 @@ fn closure_profile(require_d6p_receipt: bool) -> DependencyClosureProfileV1 {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct CrossLayerObservation {
+    oad_semantic_commitment: String,
+    d6x_identity: String,
+    d6x_certificate: String,
+    d6x_status: DependencyClosureStatusV1,
+    d6w_input: Option<String>,
+    d6w_derivation: Option<String>,
+}
+
+impl CrossLayerObservation {
+    fn from_closure(
+        selected: String,
+        closure: &cos_conformance::qualified_dependency_closure_d6x::DependencyClosureCertificateV1,
+        input: Option<InputCommitmentV1>,
+        derivation: Option<String>,
+    ) -> Self {
+        Self {
+            oad_semantic_commitment: selected,
+            d6x_identity: closure.closure_identity_commitment.clone(),
+            d6x_certificate: closure.commitment.clone(),
+            d6x_status: closure.status,
+            d6w_input: input.map(|v| v.commitment),
+            d6w_derivation: derivation,
+        }
+    }
+}
+
 fn evaluate(
     value: &Value,
     with_candidate_noise: bool,
     d6p_receipt: bool,
     require_d6p_receipt: bool,
-) -> Option<(String, String, Option<InputCommitmentV1>, Option<String>)> {
+    runtime_evidence: bool,
+) -> Option<CrossLayerObservation> {
     let selected = selected_oad_design_semantic_commitment_checked(value).ok()?;
     let (projection, env, derivation) =
         projection(value, with_candidate_noise, d6p_receipt);
-    let closure = compute_dependency_closure(
+    let mut closure = compute_dependency_closure(
         &projection,
         &env,
         &derivation,
         &closure_profile(require_d6p_receipt),
     )?;
-    let closure_id = closure.closure_identity_commitment.clone();
+
+    if runtime_evidence {
+        let dependency = SemanticDependencyReferenceV1::node(
+            "oad:design-water-purifier:v1",
+            projection
+                .nodes
+                .get("oad:design-water-purifier:v1")
+                .map(|node| node.node_commitment.clone()),
+        );
+        closure.resolution_evidence.insert(
+            dependency,
+            SemanticDependencyResolutionEvidenceV1 {
+                retrieval_reference: Some("runtime://resolver/42".into()),
+                observed_commitment: projection
+                    .nodes
+                    .get("oad:design-water-purifier:v1")
+                    .map(|node| node.node_commitment.clone()),
+                qualification_context_commitment: Some("runtime-qualification-1".into()),
+            },
+        );
+        closure.commitment = closure.recompute();
+    }
+
     let input = InputCommitmentV1::from_projection(&projection, &env, &closure);
     let derivation_id = input
         .as_ref()
         .and_then(|input| DerivationCommitmentV1::new(input, &derivation, None))
         .map(|d| d.commitment);
 
-    Some((selected, closure_id, input, derivation_id))
+    Some(CrossLayerObservation::from_closure(
+        selected,
+        &closure,
+        input,
+        derivation_id,
+    ))
+}
+
+fn assert_delta(
+    id: &str,
+    baseline: &CrossLayerObservation,
+    actual: &CrossLayerObservation,
+    expected: &Value,
+) {
+    let checks = [
+        ("oad_semantic_commitment", baseline.oad_semantic_commitment != actual.oad_semantic_commitment),
+        ("d6x_identity", baseline.d6x_identity != actual.d6x_identity),
+        ("d6x_certificate", baseline.d6x_certificate != actual.d6x_certificate),
+        ("d6w_input", baseline.d6w_input != actual.d6w_input),
+        ("d6w_derivation", baseline.d6w_derivation != actual.d6w_derivation),
+    ];
+    for (field, changed) in checks {
+        assert_eq!(
+            expected[field].as_bool().expect("expected delta boolean"),
+            changed,
+            "{id}: unexpected {field} propagation"
+        );
+    }
+    assert_eq!(
+        expected["d6x_status"].as_str().expect("expected status"),
+        serde_json::to_string(&actual.d6x_status)
+            .expect("status serialization")
+            .trim_matches('"'),
+        "{id}: unexpected D6X status"
+    );
 }
 
 
@@ -360,105 +446,80 @@ fn declarative_cross_layer_corpus_is_self_describing_and_executable() {
         corpus["projection_version"],
         "integral-interop-1-design-semantic-v1"
     );
-    assert_eq!(corpus["classification"], "cross-layer-propagation-v1");
+    assert_eq!(corpus["classification"], "cross-layer-propagation-v2");
 
     let baseline = fixture();
     let baseline_eval =
-        evaluate(&baseline, false, false, false).expect("baseline must resolve");
+        evaluate(&baseline, false, false, false, false).expect("baseline must resolve");
 
     for vector in corpus["vectors"].as_array().expect("vectors array") {
         let id = vector["id"].as_str().expect("vector id");
         let operation = vector["operation"].as_str().expect("vector operation");
-        let expected = vector["expected"].as_str().expect("vector expected");
+        let expected = &vector["expected"];
+        let expected_status = expected["d6x_status"]
+            .as_str()
+            .expect("expected D6X status");
 
         assert!(
             matches!(
-                expected,
-                "identity-preserving"
-                    | "identity-changing"
-                    | "invalid-no-identity"
-                    | "blocked-no-d6w"
-                    | "dependency-satisfied"
-                    | "audit-only"
+                expected_status,
+                "Complete"
+                    | "BlockedMissingDependency"
+                    | "BlockedCurrentness"
+                    | "BlockedResourceLimit"
             ),
-            "{id}: unknown classification"
+            "{id}: unknown D6X status"
         );
-
-        if operation == "runtime-evidence" {
-            assert_eq!(expected, "audit-only", "{id}");
-            continue;
-        }
 
         let mut mutated = baseline.clone();
         let mut with_candidate_noise = false;
         let mut d6p_receipt = false;
         let mut require_d6p_receipt = false;
+        let mut runtime_evidence = false;
 
         match operation {
-            "set" => set_path(&mut mutated, vector["path"].as_str().unwrap(), vector["value"].clone()),
+            "set" => set_path(
+                &mut mutated,
+                vector["path"].as_str().expect("set path"),
+                vector["value"].clone(),
+            ),
             "candidate-noise" => with_candidate_noise = true,
             "require-d6p-receipt" => {
                 require_d6p_receipt = true;
-                d6p_receipt = vector["value"].as_bool().unwrap();
+                d6p_receipt = vector["value"].as_bool().expect("receipt boolean");
             }
+            "runtime-evidence" => runtime_evidence = true,
             other => panic!("{id}: unsupported operation {other}"),
         }
 
-        match expected {
-            "identity-preserving" => {
-                let actual = evaluate(
+        if expected["valid"].as_bool() == Some(false) {
+            assert!(
+                validate_selected_oad_design_semantics(&mutated).is_err(),
+                "{id}: validation must reject"
+            );
+            assert!(
+                evaluate(
                     &mutated,
                     with_candidate_noise,
                     d6p_receipt,
                     require_d6p_receipt,
+                    runtime_evidence,
                 )
-                .expect(id);
-                assert_eq!(baseline_eval.0, actual.0, "{id}: OAD identity changed");
-                assert_eq!(baseline_eval.1, actual.1, "{id}: D6X identity changed");
-                assert_eq!(
-                    baseline_eval.2.as_ref().map(|v| &v.commitment),
-                    actual.2.as_ref().map(|v| &v.commitment),
-                    "{id}: D6W input changed"
-                );
-                assert_eq!(baseline_eval.3, actual.3, "{id}: D6W derivation changed");
-            }
-            "identity-changing" => {
-                let actual = evaluate(
-                    &mutated,
-                    with_candidate_noise,
-                    d6p_receipt,
-                    require_d6p_receipt,
-                )
-                .expect(id);
-                assert_ne!(baseline_eval.0, actual.0, "{id}: OAD identity did not change");
-                assert_ne!(baseline_eval.1, actual.1, "{id}: D6X identity did not change");
-                assert_ne!(
-                    baseline_eval.2.as_ref().map(|v| &v.commitment),
-                    actual.2.as_ref().map(|v| &v.commitment),
-                    "{id}: D6W input did not change"
-                );
-                assert_ne!(baseline_eval.3, actual.3, "{id}: D6W derivation did not change");
-            }
-            "invalid-no-identity" => {
-                assert!(
-                    validate_selected_oad_design_semantics(&mutated).is_err(),
-                    "{id}: validation must reject"
-                );
-                assert!(evaluate(&mutated, false, false, false).is_none(), "{id}");
-            }
-            "blocked-no-d6w" => {
-                let actual = evaluate(&mutated, false, false, true).expect(id);
-                assert_eq!(actual.2, None, "{id}: blocked D6X entered D6W");
-            }
-            "dependency-satisfied" => {
-                let actual = evaluate(&mutated, false, true, true).expect(id);
-                assert_ne!(baseline_eval.1, actual.1, "{id}: D6X did not bind receipt");
-                assert!(actual.2.is_some(), "{id}: D6W input missing");
-                assert!(actual.3.is_some(), "{id}: D6W derivation missing");
-            }
-            "audit-only" => unreachable!("handled above"),
-            _ => unreachable!(),
+                .is_none(),
+                "{id}: invalid mutation must produce no observation"
+            );
+            continue;
         }
+
+        let actual = evaluate(
+            &mutated,
+            with_candidate_noise,
+            d6p_receipt,
+            require_d6p_receipt,
+            runtime_evidence,
+        )
+        .expect(id);
+        assert_delta(id, &baseline_eval, &actual, expected);
     }
 }
 
@@ -472,7 +533,7 @@ fn cross_layer_mutation_matrix_is_executable() {
     let mut metadata = baseline.clone();
     metadata["certification"]["documentation_bundle_uri"] =
         Value::from("urn:integral:bundle:changed");
-    let metadata_eval = evaluate(&metadata, false, false, false).expect("metadata must resolve");
+    let metadata_eval = evaluate(&metadata, false, false, false, false).expect("metadata must resolve");
     assert_eq!(baseline_eval.0, metadata_eval.0);
     assert_eq!(baseline_eval.1, metadata_eval.1);
     assert_eq!(
@@ -484,7 +545,7 @@ fn cross_layer_mutation_matrix_is_executable() {
     let mut selected = baseline.clone();
     selected["design_version"]["parameters"]["production_steps"][1]["estimated_hours"] =
         Value::from(3);
-    let selected_eval = evaluate(&selected, false, false, false).expect("selected mutation must resolve");
+    let selected_eval = evaluate(&selected, false, false, false, false).expect("selected mutation must resolve");
     assert_ne!(baseline_eval.0, selected_eval.0);
     assert_ne!(baseline_eval.1, selected_eval.1);
     assert_ne!(
@@ -493,7 +554,7 @@ fn cross_layer_mutation_matrix_is_executable() {
     );
     assert_ne!(baseline_eval.3, selected_eval.3);
 
-    let noisy_eval = evaluate(&baseline, true, false, false).expect("candidate noise must resolve");
+    let noisy_eval = evaluate(&baseline, true, false, false, false).expect("candidate noise must resolve");
     assert_eq!(baseline_eval.0, noisy_eval.0);
     assert_eq!(baseline_eval.1, noisy_eval.1);
     assert_eq!(
@@ -506,9 +567,9 @@ fn cross_layer_mutation_matrix_is_executable() {
     invalid["design_version"]["parameters"]["bill_of_materials_kg"]["silicone"] =
         serde_json::json!(0.25);
     assert!(validate_selected_oad_design_semantics(&invalid).is_err());
-    assert!(evaluate(&invalid, false, false, false).is_none());
+    assert!(evaluate(&invalid, false, false, false, false).is_none());
 
-    let missing_receipt = evaluate(&baseline, false, false, true).expect("blocked D6X must still certify its boundary");
+    let missing_receipt = evaluate(&baseline, false, false, true, false).expect("blocked D6X must still certify its boundary");
     assert_eq!(
         missing_receipt.2, None,
         "blocked D6X closure must not enter D6W"
