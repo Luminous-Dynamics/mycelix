@@ -19,6 +19,15 @@ use crate::{
 /// Adapters (for example, Holochain integrity-zome code) own the transport and
 /// address-type mapping. Core qualification only consumes the deterministic
 /// three-state result and never observes ambient network/current state.
+///
+/// Implementations must be observationally pure for a given dependency and
+/// pinned validation context: resolving the same dependency twice must return
+/// the same result. Implementations must not consult wall-clock time, mutable
+/// current-state metadata, local caches with authority-bearing freshness, or
+/// caller identity. A missing/unavailable dependency must be `Unresolved`;
+/// malformed or identity-mismatched retrieved content must be `Invalid`.
+/// The trait cannot enforce these requirements; each host adapter must test
+/// them at its own boundary.
 pub trait QualificationDependencyResolver {
     fn resolve(&self, dependency: &QualificationDependency) -> QualificationDependencyResolution;
 }
