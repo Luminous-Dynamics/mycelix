@@ -110,6 +110,102 @@
         "d6w_derivation": false,
         "d6x_status": "Complete"
       }
+    },
+    {
+      "id": "selected-node-commitment",
+      "operation": "graph-mutation",
+      "mutation": "selected-node-commitment",
+      "path": "$",
+      "value": null,
+      "expected": {
+        "valid": true,
+        "oad_semantic_commitment": false,
+        "d6x_identity": true,
+        "d6x_certificate": true,
+        "d6w_input": true,
+        "d6w_derivation": true,
+        "d6x_status": "Complete"
+      }
+    },
+    {
+      "id": "selected-edge-commitment",
+      "operation": "graph-mutation",
+      "mutation": "selected-edge-commitment",
+      "path": "$",
+      "value": null,
+      "expected": {
+        "valid": true,
+        "oad_semantic_commitment": false,
+        "d6x_identity": true,
+        "d6x_certificate": true,
+        "d6w_input": true,
+        "d6w_derivation": true,
+        "d6x_status": "Complete"
+      }
+    },
+    {
+      "id": "selected-edge-removal",
+      "operation": "graph-mutation",
+      "mutation": "selected-edge-removal",
+      "path": "$",
+      "value": null,
+      "expected": {
+        "valid": true,
+        "oad_semantic_commitment": false,
+        "d6x_identity": true,
+        "d6x_certificate": true,
+        "d6w_input": true,
+        "d6w_derivation": true,
+        "d6x_status": "Complete"
+      }
+    },
+    {
+      "id": "wrong-edge-kind",
+      "operation": "graph-mutation",
+      "mutation": "wrong-edge-kind",
+      "path": "$",
+      "value": null,
+      "expected": {
+        "valid": true,
+        "oad_semantic_commitment": false,
+        "d6x_identity": true,
+        "d6x_certificate": true,
+        "d6w_input": true,
+        "d6w_derivation": true,
+        "d6x_status": "Complete"
+      }
+    },
+    {
+      "id": "irrelevant-node-commitment",
+      "operation": "graph-mutation",
+      "mutation": "irrelevant-node-commitment",
+      "path": "$",
+      "value": null,
+      "expected": {
+        "valid": true,
+        "oad_semantic_commitment": false,
+        "d6x_identity": false,
+        "d6x_certificate": true,
+        "d6w_input": false,
+        "d6w_derivation": false,
+        "d6x_status": "Complete"
+      }
+    },
+    {
+      "id": "irrelevant-edge-commitment",
+      "operation": "graph-mutation",
+      "mutation": "irrelevant-edge-commitment",
+      "path": "$",
+      "value": null,
+      "expected": {
+        "valid": true,
+        "oad_semantic_commitment": false,
+        "d6x_identity": false,
+        "d6x_certificate": true,
+        "d6w_input": false,
+        "d6w_derivation": false,
+        "d6x_status": "Complete"
+      }
     }
   ]
 }
