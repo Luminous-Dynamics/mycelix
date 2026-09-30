@@ -23,6 +23,7 @@ pub struct QualificationCertificate {
     pub consent_ids: Vec<ConsentId>,
     pub delegation_ids: Vec<DelegationId>,
     pub frontiers: Vec<SourceFrontier>,
+    pub dependencies: Vec<QualificationDependency>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -139,6 +140,7 @@ impl QualifiedRelationshipInputs {
             &self.commitments,
             &self.consents,
             &self.delegations,
+            &self.dependencies,
         );
         if self.certificate.schema_version != QualificationCertificate::SCHEMA_VERSION
             || self.certificate.input_digest != expected
