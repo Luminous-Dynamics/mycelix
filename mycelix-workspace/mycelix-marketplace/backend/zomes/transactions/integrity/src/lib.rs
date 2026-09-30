@@ -6,6 +6,9 @@ use hdi::prelude::*;
 mod conflicts;
 pub use conflicts::*;
 
+mod reservation;
+pub use reservation::{ApplyOutcome, Reservation, ReservationError, ReservationEvent, ReservationLedger, ReservationState};
+
 /// Transaction entry - represents a purchase in the marketplace
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
