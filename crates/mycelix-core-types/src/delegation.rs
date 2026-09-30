@@ -176,7 +176,39 @@ impl Delegation {
     pub const MAX_CHAIN_DEPTH: usize = 64;
 
     pub fn grant(
-        _id: DelegationId,
+        id: DelegationId,
+        relationship_id: RelationshipId,
+        principal: PrincipalRef,
+        delegate: PrincipalRef,
+        action: ActionScope,
+        resource: ResourceScope,
+        mode: DelegationMode,
+        granted_at: i64,
+        expires_at: Option<i64>,
+        authority_epoch: AuthorityEpoch,
+        parent: Option<DelegationId>,
+    ) -> Result<Self, DelegationError> {
+        let delegation = Self::grant_content_bound(
+            relationship_id,
+            principal,
+            delegate,
+            action,
+            resource,
+            mode,
+            granted_at,
+            expires_at,
+            authority_epoch,
+            parent,
+        )?;
+        if id != delegation.id {
+            return Err(DelegationError::IdentityMismatch);
+        }
+        Ok(delegation)
+    }
+
+    /// Construct a delegation whose identifier is deterministically derived
+    /// from its immutable authority content.
+    pub fn grant_content_bound(
         relationship_id: RelationshipId,
         principal: PrincipalRef,
         delegate: PrincipalRef,
@@ -553,8 +585,7 @@ mod tests {
 
     fn delegation(mode: DelegationMode) -> Delegation {
         let relationship = RelationshipId::derive("test", b"relationship");
-        Delegation::grant(
-            DelegationId::derive(relationship, b"delegation"),
+        Delegation::grant_content_bound(
             relationship,
             p("alice"), p("agent"),
             ActionScope::named("create-opportunity").unwrap(),
@@ -574,6 +605,27 @@ mod tests {
 
     fn context<'a>(delegations: &'a [Delegation]) -> DelegationContext<'a> {
         DelegationContext::from_slice(delegations).unwrap()
+    }
+
+    #[test]
+    fn mismatched_supplied_identity_is_rejected() {
+        let relationship = RelationshipId::derive("test", b"identity-mismatch");
+        assert_eq!(
+            Delegation::grant(
+                DelegationId::derive(relationship, b"caller-chosen"),
+                relationship,
+                p("alice"),
+                p("agent"),
+                ActionScope::named("create-opportunity").unwrap(),
+                ResourceScope::named("resource-a").unwrap(),
+                DelegationMode::Execute,
+                100,
+                None,
+                7,
+                None,
+            ),
+            Err(DelegationError::IdentityMismatch)
+        );
     }
 
     #[test]
@@ -630,8 +682,7 @@ mod tests {
     fn missing_parent_is_not_caller_assertable() {
         let relationship = RelationshipId::derive("test", b"relationship");
         let parent = DelegationId::derive(relationship, b"parent");
-        let child = Delegation::grant(
-            DelegationId::derive(relationship, b"child"),
+        let child = Delegation::grant_content_bound(
             relationship, p("alice"), p("agent"),
             ActionScope::named("create-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
@@ -646,15 +697,13 @@ mod tests {
     #[test]
     fn valid_parent_chain_authorizes() {
         let relationship = RelationshipId::derive("test", b"chain");
-        let parent = Delegation::grant(
-            DelegationId::derive(relationship, b"parent"),
+        let parent = Delegation::grant_content_bound(
             relationship, p("alice"), p("broker"),
             ActionScope::named("create-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
             DelegationMode::Execute, 100, Some(300), 4, None,
         ).unwrap();
-        let child = Delegation::grant(
-            DelegationId::derive(relationship, b"child"),
+        let child = Delegation::grant_content_bound(
             relationship, p("broker"), p("agent"),
             ActionScope::named("create-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
@@ -673,8 +722,7 @@ mod tests {
     #[test]
     fn revoked_parent_blocks_child() {
         let relationship = RelationshipId::derive("test", b"revoked-parent");
-        let mut parent = Delegation::grant(
-            DelegationId::derive(relationship, b"parent"),
+        let mut parent = Delegation::grant_content_bound(
             relationship, p("alice"), p("broker"),
             ActionScope::named("create-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
@@ -682,8 +730,7 @@ mod tests {
         ).unwrap();
         let parent_id = parent.id;
         parent.revoke(&p("alice"), 160, 4).unwrap();
-        let child = Delegation::grant(
-            DelegationId::derive(relationship, b"child"),
+        let child = Delegation::grant_content_bound(
             relationship, p("broker"), p("agent"),
             ActionScope::named("create-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
@@ -703,15 +750,13 @@ mod tests {
     #[test]
     fn parent_scope_and_epoch_escalation_fail_closed() {
         let relationship = RelationshipId::derive("test", b"scope");
-        let parent = Delegation::grant(
-            DelegationId::derive(relationship, b"parent"),
+        let parent = Delegation::grant_content_bound(
             relationship, p("alice"), p("broker"),
             ActionScope::named("create-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
             DelegationMode::Propose, 100, Some(300), 4, None,
         ).unwrap();
-        let child = Delegation::grant(
-            DelegationId::derive(relationship, b"child"),
+        let child = Delegation::grant_content_bound(
             relationship, p("broker"), p("agent"),
             ActionScope::named("delete-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
@@ -730,15 +775,13 @@ mod tests {
     #[test]
     fn parent_epoch_mismatch_fails_closed() {
         let relationship = RelationshipId::derive("test", b"epoch");
-        let parent = Delegation::grant(
-            DelegationId::derive(relationship, b"parent"),
+        let parent = Delegation::grant_content_bound(
             relationship, p("alice"), p("broker"),
             ActionScope::named("create-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
             DelegationMode::Execute, 100, None, 4, None,
         ).unwrap();
-        let child = Delegation::grant(
-            DelegationId::derive(relationship, b"child"),
+        let child = Delegation::grant_content_bound(
             relationship, p("broker"), p("agent"),
             ActionScope::named("create-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
@@ -786,15 +829,13 @@ mod tests {
     #[test]
     fn child_cannot_outlive_parent() {
         let relationship = RelationshipId::derive("test", b"expiry");
-        let parent = Delegation::grant(
-            DelegationId::derive(relationship, b"parent"),
+        let parent = Delegation::grant_content_bound(
             relationship, p("alice"), p("broker"),
             ActionScope::named("create-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
             DelegationMode::Execute, 100, Some(200), 4, None,
         ).unwrap();
-        let child = Delegation::grant(
-            DelegationId::derive(relationship, b"child"),
+        let child = Delegation::grant_content_bound(
             relationship, p("broker"), p("agent"),
             ActionScope::named("create-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
