@@ -1612,6 +1612,113 @@ impl InstructionalResolutionPolicyEvolutionRef {
     }
 }
 
+
+/// Independently addressable evidence and review provenance for a policy
+/// evolution assessment. This records the basis of an assessment without
+/// treating its existence or digest as proof that compatibility is correct.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalResolutionPolicyEvolutionAssessmentReceipt {
+    pub assessment_id: String,
+    pub assessment_version: u64,
+    pub evolution: InstructionalResolutionPolicyEvolutionRef,
+    pub evidence_basis: Vec<EvidenceBasisRef>,
+    pub review_digest: String,
+    pub canonicalization_version: String,
+    pub assessment_digest: String,
+}
+
+impl InstructionalResolutionPolicyEvolutionAssessmentReceipt {
+    fn canonical_bytes(&self) -> Result<Vec<u8>, InstructionalScienceContractError> {
+        let mut evidence = self.evidence_basis.clone();
+        evidence.sort_by(|a, b| (
+            a.source_id.as_str(), a.source_version.as_str(), a.source_digest.as_str()
+        ).cmp(&(
+            b.source_id.as_str(), b.source_version.as_str(), b.source_digest.as_str()
+        )));
+        serde_json::to_vec(&(
+            "praxis:instructional-resolution-policy-evolution-assessment",
+            self.canonicalization_version.as_str(),
+            self.assessment_id.as_str(),
+            self.assessment_version,
+            &self.evolution,
+            &evidence,
+            self.review_digest.as_str(),
+        )).map_err(|_| InstructionalScienceContractError::InvalidResolutionPolicyEvolutionAssessment)
+    }
+
+    fn compute_digest(&self) -> Result<String, InstructionalScienceContractError> {
+        Ok(format!("blake3:{}", hash_to_string(&self.canonical_bytes()?)))
+    }
+
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.assessment_id.trim().is_empty()
+            || self.assessment_version == 0
+            || self.review_digest.trim().is_empty()
+            || self.canonicalization_version.trim().is_empty()
+            || self.assessment_digest.trim().is_empty()
+            || self.evidence_basis.is_empty()
+        {
+            return Err(InstructionalScienceContractError::InvalidResolutionPolicyEvolutionAssessment);
+        }
+        self.evolution.validate()?;
+        let mut evidence_refs = BTreeSet::new();
+        for evidence in &self.evidence_basis {
+            if evidence.source_id.trim().is_empty()
+                || evidence.source_version.trim().is_empty()
+                || evidence.source_digest.trim().is_empty()
+            {
+                return Err(InstructionalScienceContractError::InvalidResolutionPolicyEvolutionAssessment);
+            }
+            if !evidence_refs.insert((
+                evidence.source_id.clone(),
+                evidence.source_version.clone(),
+                evidence.source_digest.clone(),
+            )) {
+                return Err(InstructionalScienceContractError::DuplicateResolutionPolicyEvolutionAssessmentEvidence);
+            }
+        }
+        if self.compute_digest()? != self.assessment_digest {
+            return Err(InstructionalScienceContractError::ResolutionPolicyEvolutionAssessmentDigestMismatch);
+        }
+        Ok(())
+    }
+
+    fn validate_against(
+        &self,
+        evolution: &InstructionalResolutionPolicyEvolutionReceipt,
+    ) -> Result<(), InstructionalScienceContractError> {
+        self.validate()?;
+        evolution.validate()?;
+        if self.evolution.evolution_id != evolution.evolution_id
+            || self.evolution.evolution_version != evolution.evolution_version
+            || self.evolution.evolution_digest != evolution.evolution_digest
+        {
+            return Err(InstructionalScienceContractError::ResolutionPolicyEvolutionAssessmentMismatch);
+        }
+        Ok(())
+    }
+}
+
+/// Exact identity of a policy-evolution assessment provenance receipt.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalResolutionPolicyEvolutionAssessmentRef {
+    pub assessment_id: String,
+    pub assessment_version: u64,
+    pub assessment_digest: String,
+}
+
+impl InstructionalResolutionPolicyEvolutionAssessmentRef {
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.assessment_id.trim().is_empty() || self.assessment_digest.trim().is_empty() {
+            return Err(InstructionalScienceContractError::InvalidResolutionPolicyEvolutionAssessmentReference);
+        }
+        if self.assessment_version == 0 {
+            return Err(InstructionalScienceContractError::ZeroResolutionPolicyEvolutionAssessmentReferenceVersion);
+        }
+        Ok(())
+    }
+}
+
 /// Derived closure classification for an exact derivation resolution.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum InstructionalDerivationClosureStatus {
@@ -2562,6 +2669,12 @@ pub enum InstructionalScienceContractError {
     ResolutionClosureDigestMismatch,
     InvalidResolutionPolicyProvenance,
     InvalidResolutionPolicyEvolution,
+    InvalidResolutionPolicyEvolutionAssessment,
+    DuplicateResolutionPolicyEvolutionAssessmentEvidence,
+    ResolutionPolicyEvolutionAssessmentDigestMismatch,
+    ResolutionPolicyEvolutionAssessmentMismatch,
+    InvalidResolutionPolicyEvolutionAssessmentReference,
+    ZeroResolutionPolicyEvolutionAssessmentReferenceVersion,
     ResolutionPolicyEvolutionSelfReference,
     SemanticallyIdenticalResolutionPolicyDigestMismatch,
     BreakingResolutionPolicyDigestUnchanged,
@@ -4523,5 +4636,140 @@ mod tests {
         );
     }
 
+
+    #[test]
+    fn resolution_policy_evolution_assessment_binds_exact_evolution_and_evidence() {
+        let predecessor = InstructionalResolutionPolicyRef {
+            policy_id: "praxis:resolution-policy".into(),
+            policy_version: "1".into(),
+            policy_digest: "blake3:policy-v1".into(),
+        };
+        let successor = InstructionalResolutionPolicyRef {
+            policy_id: "praxis:resolution-policy".into(),
+            policy_version: "2".into(),
+            policy_digest: "blake3:policy-v2".into(),
+        };
+        let mut evolution = InstructionalResolutionPolicyEvolutionReceipt {
+            evolution_id: "evolution-1".into(),
+            evolution_version: 1,
+            predecessor,
+            successor,
+            relation: InstructionalResolutionPolicyEvolutionKind::Breaking,
+            rationale: "Updated policy semantics.".into(),
+            assessment_digest: "blake3:assessment-input".into(),
+            canonicalization_version: "1".into(),
+            evolution_digest: String::new(),
+        };
+        evolution.evolution_digest = evolution.compute_digest().unwrap();
+        assert_eq!(evolution.validate(), Ok(()));
+
+        let mut assessment = InstructionalResolutionPolicyEvolutionAssessmentReceipt {
+            assessment_id: "assessment-1".into(),
+            assessment_version: 1,
+            evolution: InstructionalResolutionPolicyEvolutionRef {
+                evolution_id: evolution.evolution_id.clone(),
+                evolution_version: evolution.evolution_version,
+                evolution_digest: evolution.evolution_digest.clone(),
+            },
+            evidence_basis: vec![
+                EvidenceBasisRef {
+                    source_id: "source:b".into(),
+                    source_version: "2".into(),
+                    source_digest: "blake3:b".into(),
+                },
+                EvidenceBasisRef {
+                    source_id: "source:a".into(),
+                    source_version: "1".into(),
+                    source_digest: "blake3:a".into(),
+                },
+            ],
+            review_digest: "blake3:review".into(),
+            canonicalization_version: "1".into(),
+            assessment_digest: String::new(),
+        };
+        assessment.assessment_digest = assessment.compute_digest().unwrap();
+        assert_eq!(assessment.validate_against(&evolution), Ok(()));
+
+        let original_digest = assessment.assessment_digest.clone();
+        assessment.evidence_basis.reverse();
+        assert_eq!(assessment.compute_digest().unwrap(), original_digest);
+        assessment.evidence_basis[0] = assessment.evidence_basis[1].clone();
+        assert_eq!(
+            assessment.validate(),
+            Err(InstructionalScienceContractError::DuplicateResolutionPolicyEvolutionAssessmentEvidence)
+        );
+    }
+
+    #[test]
+    fn resolution_policy_evolution_assessment_rejects_tampering_and_wrong_evolution() {
+        let evolution_ref = InstructionalResolutionPolicyEvolutionRef {
+            evolution_id: "evolution-1".into(),
+            evolution_version: 1,
+            evolution_digest: "blake3:evolution".into(),
+        };
+        let mut assessment = InstructionalResolutionPolicyEvolutionAssessmentReceipt {
+            assessment_id: "assessment-1".into(),
+            assessment_version: 1,
+            evolution: evolution_ref.clone(),
+            evidence_basis: vec![EvidenceBasisRef {
+                source_id: "source:review".into(),
+                source_version: "1".into(),
+                source_digest: "blake3:source".into(),
+            }],
+            review_digest: "blake3:review".into(),
+            canonicalization_version: "1".into(),
+            assessment_digest: String::new(),
+        };
+        assessment.assessment_digest = assessment.compute_digest().unwrap();
+        assert_eq!(assessment.validate(), Ok(()));
+        assessment.review_digest = "blake3:tampered".into();
+        assert_eq!(
+            assessment.validate(),
+            Err(InstructionalScienceContractError::ResolutionPolicyEvolutionAssessmentDigestMismatch)
+        );
+
+        let wrong_evolution = InstructionalResolutionPolicyEvolutionReceipt {
+            evolution_id: "evolution-other".into(),
+            evolution_version: 1,
+            predecessor: InstructionalResolutionPolicyRef {
+                policy_id: "policy".into(), policy_version: "1".into(), policy_digest: "blake3:p1".into(),
+            },
+            successor: InstructionalResolutionPolicyRef {
+                policy_id: "policy".into(), policy_version: "2".into(), policy_digest: "blake3:p2".into(),
+            },
+            relation: InstructionalResolutionPolicyEvolutionKind::Breaking,
+            rationale: "Other evolution".into(),
+            assessment_digest: "blake3:input".into(),
+            canonicalization_version: "1".into(),
+            evolution_digest: "blake3:other".into(),
+        };
+        // The mismatch is detected after each receipt's own integrity checks.
+        let mut changed = assessment.clone();
+        changed.review_digest = "blake3:review".into();
+        changed.assessment_digest = changed.compute_digest().unwrap();
+        assert_eq!(
+            changed.validate_against(&wrong_evolution),
+            Err(InstructionalScienceContractError::ResolutionPolicyEvolutionAssessmentMismatch)
+        );
+    }
+
+    #[test]
+    fn resolution_policy_evolution_assessment_reference_requires_identity() {
+        let reference = InstructionalResolutionPolicyEvolutionAssessmentRef {
+            assessment_id: "assessment".into(),
+            assessment_version: 1,
+            assessment_digest: "blake3:assessment".into(),
+        };
+        assert_eq!(reference.validate(), Ok(()));
+        let invalid = InstructionalResolutionPolicyEvolutionAssessmentRef {
+            assessment_id: "assessment".into(),
+            assessment_version: 0,
+            assessment_digest: "blake3:assessment".into(),
+        };
+        assert_eq!(
+            invalid.validate(),
+            Err(InstructionalScienceContractError::ZeroResolutionPolicyEvolutionAssessmentReferenceVersion)
+        );
+    }
 
 }
