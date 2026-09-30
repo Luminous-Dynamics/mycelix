@@ -1417,6 +1417,203 @@ impl InstructionalAnalysisDerivationResolutionReceipt {
     }
 }
 
+/// Exact identity of the versioned policy used to classify resolution closure.
+///
+/// Policy identity is deliberately opaque here: this contract records which
+/// versioned policy was applied without embedding policy semantics in the
+/// provenance graph itself.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalResolutionPolicyRef {
+    pub policy_id: String,
+    pub policy_version: String,
+    pub policy_digest: String,
+}
+
+impl InstructionalResolutionPolicyRef {
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.policy_id.trim().is_empty()
+            || self.policy_version.trim().is_empty()
+            || self.policy_digest.trim().is_empty()
+        {
+            return Err(InstructionalScienceContractError::InvalidResolutionPolicyReference);
+        }
+        Ok(())
+    }
+}
+
+/// Derived closure classification for an exact derivation resolution.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum InstructionalDerivationClosureStatus {
+    /// Every transformation edge has a locally verified receipt.
+    FullyResolved,
+    /// At least one edge is externally bound and no edge is unresolved.
+    ExternallyBound,
+    /// The graph mixes resolved/external edges with unavailable edges.
+    PartiallyResolved,
+    /// Every transformation edge is unresolved.
+    Unresolved,
+    /// The derivation is valid but has no transformation edges.
+    ///
+    /// This is intentionally not treated as fully resolved: there is no
+    /// transformation receipt to verify, so closure is not evidence of
+    /// receipt availability.
+    NotApplicable,
+}
+
+impl InstructionalDerivationClosureStatus {
+    fn derive(
+        resolved_edge_count: usize,
+        external_edge_count: usize,
+        unresolved_edge_count: usize,
+    ) -> Self {
+        let total = resolved_edge_count + external_edge_count + unresolved_edge_count;
+        if total == 0 {
+            return Self::NotApplicable;
+        }
+        if unresolved_edge_count == 0 && external_edge_count == 0 {
+            return Self::FullyResolved;
+        }
+        if unresolved_edge_count == 0 && external_edge_count > 0 {
+            return Self::ExternallyBound;
+        }
+        if unresolved_edge_count == total {
+            return Self::Unresolved;
+        }
+        Self::PartiallyResolved
+    }
+}
+
+/// Deterministic, independently addressable closure of a derivation resolution.
+///
+/// The counts and status are derived from the exact resolution entries during
+/// validation. They are retained in the receipt so a verifier can audit the
+/// classification without trusting an external summary.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalAnalysisDerivationResolutionClosureReceipt {
+    pub closure_id: String,
+    pub closure_version: u64,
+    pub derivation: InstructionalAnalysisDerivationRef,
+    pub resolution: InstructionalAnalysisDerivationRef,
+    pub resolution_policy: InstructionalResolutionPolicyRef,
+    pub resolved_edge_count: u32,
+    pub external_edge_count: u32,
+    pub unresolved_edge_count: u32,
+    pub status: InstructionalDerivationClosureStatus,
+    pub canonicalization_version: String,
+    pub closure_digest: String,
+}
+
+impl InstructionalAnalysisDerivationResolutionClosureReceipt {
+    fn canonical_bytes(&self) -> Result<Vec<u8>, InstructionalScienceContractError> {
+        serde_json::to_vec(&(
+            "praxis:instructional-analysis-derivation-resolution-closure",
+            self.canonicalization_version.as_str(),
+            self.closure_id.as_str(),
+            self.closure_version,
+            &self.derivation,
+            &self.resolution,
+            &self.resolution_policy,
+            self.resolved_edge_count,
+            self.external_edge_count,
+            self.unresolved_edge_count,
+            &self.status,
+        ))
+        .map_err(|_| InstructionalScienceContractError::InvalidResolutionClosure)
+    }
+
+    fn compute_digest(&self) -> Result<String, InstructionalScienceContractError> {
+        Ok(format!("blake3:{}", hash_to_string(&self.canonical_bytes()?)))
+    }
+
+    fn validate_for_resolution(
+        &self,
+        resolution: &InstructionalAnalysisDerivationResolutionReceipt,
+        derivation: &InstructionalAnalysisDerivationReceipt,
+    ) -> Result<(), InstructionalScienceContractError> {
+        if self.closure_id.trim().is_empty()
+            || self.closure_version == 0
+            || self.canonicalization_version.trim().is_empty()
+            || self.closure_digest.trim().is_empty()
+        {
+            return Err(InstructionalScienceContractError::InvalidResolutionClosure);
+        }
+        self.derivation.validate()?;
+        self.resolution.validate()?;
+        self.resolution_policy.validate()?;
+
+        let expected_derivation = InstructionalAnalysisDerivationRef {
+            derivation_id: derivation.derivation_id.clone(),
+            derivation_version: derivation.derivation_version,
+            derivation_digest: derivation.derivation_digest.clone(),
+        };
+        if self.derivation != expected_derivation {
+            return Err(InstructionalScienceContractError::ResolutionClosureDerivationMismatch);
+        }
+
+        let expected_resolution = InstructionalAnalysisDerivationRef {
+            derivation_id: resolution.derivation.derivation_id.clone(),
+            derivation_version: resolution.derivation.derivation_version,
+            derivation_digest: resolution.resolution_digest.clone(),
+        };
+        if self.resolution != expected_resolution {
+            return Err(InstructionalScienceContractError::ResolutionClosureResolutionMismatch);
+        }
+
+        resolution.validate_for_derivation(derivation)?;
+
+        let mut resolved = 0u32;
+        let mut external = 0u32;
+        let mut unresolved = 0u32;
+        for edge in &resolution.transformations {
+            match edge.status {
+                InstructionalTransformationResolutionStatus::Resolved => resolved += 1,
+                InstructionalTransformationResolutionStatus::External => external += 1,
+                InstructionalTransformationResolutionStatus::Unresolved => unresolved += 1,
+            }
+        }
+
+        if self.resolved_edge_count != resolved
+            || self.external_edge_count != external
+            || self.unresolved_edge_count != unresolved
+        {
+            return Err(InstructionalScienceContractError::ResolutionClosureCountMismatch);
+        }
+
+        let expected_status =
+            InstructionalDerivationClosureStatus::derive(resolved, external, unresolved);
+        if self.status != expected_status {
+            return Err(InstructionalScienceContractError::ResolutionClosureStatusMismatch);
+        }
+
+        if self.compute_digest()? != self.closure_digest {
+            return Err(InstructionalScienceContractError::ResolutionClosureDigestMismatch);
+        }
+        Ok(())
+    }
+
+    pub fn validate_against_resolution(
+        &self,
+        resolution: &InstructionalAnalysisDerivationResolutionReceipt,
+        derivation: &InstructionalAnalysisDerivationReceipt,
+    ) -> Result<(), InstructionalScienceContractError> {
+        self.validate_for_resolution(resolution, derivation)
+    }
+
+    pub fn validate_against_receipts(
+        &self,
+        resolution: &InstructionalAnalysisDerivationResolutionReceipt,
+        derivation: &InstructionalAnalysisDerivationReceipt,
+        receipts: &[InstructionalOutcomeTransformationReceipt],
+    ) -> Result<(), InstructionalScienceContractError> {
+        self.validate_for_resolution(resolution, derivation)?;
+        resolution.validate_against_receipts(derivation, receipts)
+    }
+
+    pub fn is_receipt_fully_verified(&self) -> bool {
+        matches!(self.status, InstructionalDerivationClosureStatus::FullyResolved)
+    }
+}
+
 /// Provenance-preserving ordered transformation chain for a computed result.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InstructionalTransformationChain {
@@ -2185,6 +2382,13 @@ pub enum InstructionalScienceContractError {
     MissingResolvedTransformationReceipt,
     ResolvedTransformationDigestMismatch,
     ResolutionDigestMismatch,
+    InvalidResolutionPolicyReference,
+    InvalidResolutionClosure,
+    ResolutionClosureDerivationMismatch,
+    ResolutionClosureResolutionMismatch,
+    ResolutionClosureCountMismatch,
+    ResolutionClosureStatusMismatch,
+    ResolutionClosureDigestMismatch,
     DuplicateTransformationReference,
     AnalysisDerivationDigestMismatch,
     AnalysisDerivationSequenceMismatch,
@@ -3484,6 +3688,138 @@ mod tests {
             resolution.validate_against_receipts(&derivation, &[wrong_receipt]),
             Err(InstructionalScienceContractError::ResolvedTransformationDigestMismatch)
         );
+    }
+
+    #[test]
+    fn derivation_resolution_closure_is_deterministic_and_fail_closed() {
+        let raw = InstructionalOutcomeRef { outcome_measure_id: "raw".into(), outcome_measure_version: "1".into(), outcome_measure_digest: "blake3:raw".into() };
+        let normalized = InstructionalOutcomeRef { outcome_measure_id: "normalized".into(), outcome_measure_version: "1".into(), outcome_measure_digest: "blake3:normalized".into() };
+        let operation = InstructionalOutcomeTransformationKind::Rounding;
+        let schema = test_transformation_contract_schema(&operation, "1").unwrap();
+        let parameters = transformation_spec(vec![
+            ("decimal_places", InstructionalTransformationParameter::Integer(2)),
+            ("rounding_mode", InstructionalTransformationParameter::Identifier("half-even".into())),
+        ]);
+        let mut receipt = InstructionalOutcomeTransformationReceipt {
+            transformation_id: "closure-edge".into(), transformation_version: 1, sequence: 1,
+            input_outcome: raw.clone(), output_outcome: normalized.clone(), operation,
+            operation_version: "1".into(), parameter_schema: schema, parameters,
+            transformation_digest: String::new(),
+        };
+        receipt.transformation_digest = receipt.compute_digest().unwrap();
+
+        let mut derivation = InstructionalAnalysisDerivationReceipt {
+            derivation_id: "closure-graph".into(), derivation_version: 1,
+            result: InstructionalAnalysisResultRef { result_id: "closure-result".into(), result_version: 1, result_digest: "blake3:closure-result".into() },
+            analysis: InstructionalAnalysisRef { analysis_id: "closure-analysis".into(), analysis_version: 1, analysis_digest: "blake3:closure-analysis".into() },
+            input_observation_set_digest: "blake3:closure-observations".into(),
+            source_outcome: raw.clone(), derived_outcome: normalized.clone(),
+            transformations: vec![InstructionalOutcomeTransformationRef {
+                transformation_id: receipt.transformation_id.clone(), transformation_version: receipt.transformation_version,
+                transformation_digest: receipt.transformation_digest.clone(), sequence: 1,
+                input_outcome: raw, output_outcome: normalized,
+            }],
+            canonicalization_version: "1".into(), derivation_digest: String::new(),
+        };
+        derivation.derivation_digest = derivation.compute_digest().unwrap();
+        assert_eq!(derivation.validate(), Ok(()));
+
+        let mut resolution = InstructionalAnalysisDerivationResolutionReceipt {
+            resolution_id: "closure-resolution".into(), resolution_version: 1,
+            derivation: InstructionalAnalysisDerivationRef {
+                derivation_id: derivation.derivation_id.clone(), derivation_version: derivation.derivation_version,
+                derivation_digest: derivation.derivation_digest.clone(),
+            },
+            transformations: vec![InstructionalTransformationResolution {
+                transformation: derivation.transformations[0].clone(),
+                status: InstructionalTransformationResolutionStatus::Resolved,
+                provenance_bundle: None,
+            }],
+            canonicalization_version: "1".into(), resolution_digest: String::new(),
+        };
+        resolution.resolution_digest = resolution.compute_digest().unwrap();
+        assert_eq!(resolution.validate_against_receipts(&derivation, &[receipt.clone()]), Ok(()));
+
+        let mut closure = InstructionalAnalysisDerivationResolutionClosureReceipt {
+            closure_id: "closure-1".into(), closure_version: 1,
+            derivation: InstructionalAnalysisDerivationRef {
+                derivation_id: derivation.derivation_id.clone(), derivation_version: derivation.derivation_version,
+                derivation_digest: derivation.derivation_digest.clone(),
+            },
+            resolution: InstructionalAnalysisDerivationRef {
+                derivation_id: resolution.derivation.derivation_id.clone(),
+                derivation_version: resolution.derivation.derivation_version,
+                derivation_digest: resolution.resolution_digest.clone(),
+            },
+            resolution_policy: InstructionalResolutionPolicyRef {
+                policy_id: "praxis:resolution-policy".into(), policy_version: "1".into(), policy_digest: "blake3:resolution-policy".into(),
+            },
+            resolved_edge_count: 1, external_edge_count: 0, unresolved_edge_count: 0,
+            status: InstructionalDerivationClosureStatus::FullyResolved,
+            canonicalization_version: "1".into(), closure_digest: String::new(),
+        };
+        closure.closure_digest = closure.compute_digest().unwrap();
+        assert_eq!(closure.validate_against_receipts(&resolution, &derivation, &[receipt.clone()]), Ok(()));
+        assert!(closure.is_receipt_fully_verified());
+
+        let mut tampered = closure.clone();
+        tampered.resolved_edge_count = 0;
+        assert_eq!(
+            tampered.validate_against_resolution(&resolution, &derivation),
+            Err(InstructionalScienceContractError::ResolutionClosureCountMismatch)
+        );
+
+        let mut unresolved = resolution.clone();
+        unresolved.transformations[0].status = InstructionalTransformationResolutionStatus::Unresolved;
+        unresolved.resolution_digest = unresolved.compute_digest().unwrap();
+        let mut partial = closure.clone();
+        partial.resolution.derivation_digest = unresolved.resolution_digest.clone();
+        partial.resolved_edge_count = 0;
+        partial.unresolved_edge_count = 1;
+        partial.status = InstructionalDerivationClosureStatus::Unresolved;
+        partial.closure_digest = partial.compute_digest().unwrap();
+        assert_eq!(partial.validate_against_resolution(&unresolved, &derivation), Ok(()));
+        assert!(!partial.is_receipt_fully_verified());
+
+        let mut external = resolution.clone();
+        external.transformations[0].status = InstructionalTransformationResolutionStatus::External;
+        external.transformations[0].provenance_bundle = Some(InstructionalProvenanceBundleRef {
+            bundle_id: "bundle:closure".into(), bundle_version: "1".into(), bundle_digest: "blake3:bundle".into(),
+        });
+        external.resolution_digest = external.compute_digest().unwrap();
+        let mut external_closure = closure.clone();
+        external_closure.resolution.derivation_digest = external.resolution_digest.clone();
+        external_closure.resolved_edge_count = 0;
+        external_closure.external_edge_count = 1;
+        external_closure.status = InstructionalDerivationClosureStatus::ExternallyBound;
+        external_closure.closure_digest = external_closure.compute_digest().unwrap();
+        assert_eq!(external_closure.validate_against_resolution(&external, &derivation), Ok(()));
+        assert!(!external_closure.is_receipt_fully_verified());
+
+        let mut zero = derivation.clone();
+        zero.transformations.clear();
+        zero.source_outcome = zero.derived_outcome.clone();
+        zero.derivation_digest = zero.compute_digest().unwrap();
+        assert_eq!(zero.validate(), Ok(()));
+        let mut zero_resolution = InstructionalAnalysisDerivationResolutionReceipt {
+            resolution_id: "zero-resolution".into(), resolution_version: 1,
+            derivation: InstructionalAnalysisDerivationRef {
+                derivation_id: zero.derivation_id.clone(), derivation_version: zero.derivation_version,
+                derivation_digest: zero.derivation_digest.clone(),
+            },
+            transformations: Vec::new(), canonicalization_version: "1".into(), resolution_digest: String::new(),
+        };
+        zero_resolution.resolution_digest = zero_resolution.compute_digest().unwrap();
+        let mut not_applicable = closure.clone();
+        not_applicable.derivation.derivation_digest = zero.derivation_digest.clone();
+        not_applicable.resolution.derivation_digest = zero_resolution.resolution_digest.clone();
+        not_applicable.resolved_edge_count = 0;
+        not_applicable.external_edge_count = 0;
+        not_applicable.unresolved_edge_count = 0;
+        not_applicable.status = InstructionalDerivationClosureStatus::NotApplicable;
+        not_applicable.closure_digest = not_applicable.compute_digest().unwrap();
+        assert_eq!(not_applicable.validate_against_resolution(&zero_resolution, &zero), Ok(()));
+        assert!(!not_applicable.is_receipt_fully_verified());
     }
 
     #[test]
