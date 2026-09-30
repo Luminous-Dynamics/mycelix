@@ -346,7 +346,6 @@ pub enum ConsentError {
     NotGranted,
     NotYetEffective,
     Expired,
-    StaleAuthorityEpoch,
     AudienceMismatch,
     PurposeMismatch,
     ScopeExceeded,
