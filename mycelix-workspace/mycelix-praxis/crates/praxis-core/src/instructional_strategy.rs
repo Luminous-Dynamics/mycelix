@@ -534,6 +534,32 @@ pub enum InstructionalTransformationParameter {
     TimestampSeconds(i64),
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum InstructionalTransformationParameterKind {
+    Text,
+    Integer,
+    Decimal,
+    Boolean,
+    Digest,
+    Identifier,
+    DurationSeconds,
+    TimestampSeconds,
+}
+
+impl InstructionalTransformationParameter {
+    fn kind(&self) -> InstructionalTransformationParameterKind {
+        match self {
+            Self::Text(_) => InstructionalTransformationParameterKind::Text,
+            Self::Integer(_) => InstructionalTransformationParameterKind::Integer,
+            Self::Decimal(_) => InstructionalTransformationParameterKind::Decimal,
+            Self::Boolean(_) => InstructionalTransformationParameterKind::Boolean,
+            Self::Digest(_) => InstructionalTransformationParameterKind::Digest,
+            Self::Identifier(_) => InstructionalTransformationParameterKind::Identifier,
+            Self::DurationSeconds(_) => InstructionalTransformationParameterKind::DurationSeconds,
+            Self::TimestampSeconds(_) => InstructionalTransformationParameterKind::TimestampSeconds,
+        }
+    }
+
 impl InstructionalTransformationParameter {
     fn validate(&self) -> Result<(), InstructionalScienceContractError> {
         match self {
@@ -603,6 +629,144 @@ impl InstructionalOutcomeTransformationSpec {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalOutcomeTransformationParameterSchema {
+    pub schema_id: String,
+    pub schema_version: String,
+    pub operation: InstructionalOutcomeTransformationKind,
+    pub operation_version: String,
+    pub required_parameters: BTreeSet<String>,
+    pub allowed_parameters: BTreeMap<String, InstructionalTransformationParameterKind>,
+    pub schema_digest: String,
+}
+
+impl InstructionalOutcomeTransformationParameterSchema {
+    fn canonical_bytes(&self) -> Result<Vec<u8>, InstructionalScienceContractError> {
+        serde_json::to_vec(&(
+            "praxis:instructional-outcome-transformation-parameter-schema",
+            self.schema_id.as_str(),
+            self.schema_version.as_str(),
+            &self.operation,
+            self.operation_version.as_str(),
+            &self.required_parameters,
+            &self.allowed_parameters,
+        )).map_err(|_| InstructionalScienceContractError::InvalidTransformationParameterSchema)
+    }
+
+    fn compute_digest(&self) -> Result<String, InstructionalScienceContractError> {
+        Ok(format!("blake3:{}", hash_to_string(&self.canonical_bytes()?)))
+    }
+
+    fn for_operation(
+        operation: &InstructionalOutcomeTransformationKind,
+        operation_version: &str,
+    ) -> Result<Self, InstructionalScienceContractError> {
+        let mut allowed = BTreeMap::new();
+        let mut required = BTreeSet::new();
+        let add = |allowed: &mut BTreeMap<String, InstructionalTransformationParameterKind>, name: &str, kind: InstructionalTransformationParameterKind| {
+            allowed.insert(name.to_string(), kind);
+        };
+        match operation {
+            InstructionalOutcomeTransformationKind::UnitConversion => {
+                add(&mut allowed, "source_unit", InstructionalTransformationParameterKind::Identifier);
+                add(&mut allowed, "target_unit", InstructionalTransformationParameterKind::Identifier);
+                add(&mut allowed, "conversion_rule", InstructionalTransformationParameterKind::Identifier);
+                required.extend(["source_unit".into(), "target_unit".into(), "conversion_rule".into()]);
+            }
+            InstructionalOutcomeTransformationKind::Normalization => {
+                add(&mut allowed, "method", InstructionalTransformationParameterKind::Identifier);
+                add(&mut allowed, "reference", InstructionalTransformationParameterKind::Digest);
+                add(&mut allowed, "lower_bound", InstructionalTransformationParameterKind::Decimal);
+                add(&mut allowed, "upper_bound", InstructionalTransformationParameterKind::Decimal);
+                required.insert("method".into());
+            }
+            InstructionalOutcomeTransformationKind::Standardization => {
+                add(&mut allowed, "method", InstructionalTransformationParameterKind::Identifier);
+                add(&mut allowed, "center", InstructionalTransformationParameterKind::Decimal);
+                add(&mut allowed, "scale", InstructionalTransformationParameterKind::Decimal);
+                add(&mut allowed, "reference", InstructionalTransformationParameterKind::Digest);
+                required.insert("method".into());
+            }
+            InstructionalOutcomeTransformationKind::BaselineAdjustment => {
+                add(&mut allowed, "method", InstructionalTransformationParameterKind::Identifier);
+                add(&mut allowed, "baseline_reference", InstructionalTransformationParameterKind::Digest);
+                add(&mut allowed, "baseline_timestamp", InstructionalTransformationParameterKind::TimestampSeconds);
+                required.extend(["method".into(), "baseline_reference".into()]);
+            }
+            InstructionalOutcomeTransformationKind::CompositeConstruction => {
+                add(&mut allowed, "components_digest", InstructionalTransformationParameterKind::Digest);
+                add(&mut allowed, "method", InstructionalTransformationParameterKind::Identifier);
+                add(&mut allowed, "weights_digest", InstructionalTransformationParameterKind::Digest);
+                required.extend(["components_digest".into(), "method".into()]);
+            }
+            InstructionalOutcomeTransformationKind::SubgroupSelection => {
+                add(&mut allowed, "cohort_definition_digest", InstructionalTransformationParameterKind::Digest);
+                add(&mut allowed, "selection_rule", InstructionalTransformationParameterKind::Identifier);
+                required.extend(["cohort_definition_digest".into(), "selection_rule".into()]);
+            }
+            InstructionalOutcomeTransformationKind::Rounding => {
+                add(&mut allowed, "decimal_places", InstructionalTransformationParameterKind::Integer);
+                add(&mut allowed, "rounding_mode", InstructionalTransformationParameterKind::Identifier);
+                required.extend(["decimal_places".into(), "rounding_mode".into()]);
+            }
+            InstructionalOutcomeTransformationKind::Other(_) => {
+                return Err(InstructionalScienceContractError::InvalidTransformationParameterSchema);
+            }
+        }
+        if operation_version.trim().is_empty() {
+            return Err(InstructionalScienceContractError::InvalidTransformationParameterSchema);
+        }
+        let mut schema = Self {
+            schema_id: "praxis:instructional-outcome-transformation-contract".into(),
+            schema_version: "1".into(),
+            operation: operation.clone(),
+            operation_version: operation_version.into(),
+            required_parameters: required,
+            allowed_parameters: allowed,
+            schema_digest: String::new(),
+        };
+        schema.schema_digest = schema.compute_digest()?;
+        Ok(schema)
+    }
+
+    fn validate_for(
+        &self,
+        operation: &InstructionalOutcomeTransformationKind,
+        operation_version: &str,
+        parameters: &InstructionalOutcomeTransformationSpec,
+    ) -> Result<(), InstructionalScienceContractError> {
+        if self.schema_id.trim().is_empty()
+            || self.schema_version.trim().is_empty()
+            || self.operation_version.trim().is_empty()
+            || self.schema_digest.trim().is_empty()
+            || self.required_parameters.iter().any(|key| key.trim().is_empty())
+            || self.allowed_parameters.keys().any(|key| key.trim().is_empty())
+            || !self.required_parameters.is_subset(&self.allowed_parameters.keys().cloned().collect())
+        {
+            return Err(InstructionalScienceContractError::InvalidTransformationParameterSchema);
+        }
+        if &self.operation != operation || self.operation_version != operation_version {
+            return Err(InstructionalScienceContractError::TransformationParameterSchemaMismatch);
+        }
+        if self.compute_digest()? != self.schema_digest {
+            return Err(InstructionalScienceContractError::TransformationParameterSchemaDigestMismatch);
+        }
+        for required in &self.required_parameters {
+            if !parameters.parameters.contains_key(required) {
+                return Err(InstructionalScienceContractError::MissingTransformationParameter);
+            }
+        }
+        for (name, value) in &parameters.parameters {
+            let expected = self.allowed_parameters.get(name)
+                .ok_or(InstructionalScienceContractError::UndeclaredTransformationParameter)?;
+            if expected != &value.kind() {
+                return Err(InstructionalScienceContractError::TransformationParameterKindMismatch);
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InstructionalOutcomeTransformationReceipt {
     pub transformation_id: String,
     pub transformation_version: u64,
@@ -611,6 +775,7 @@ pub struct InstructionalOutcomeTransformationReceipt {
     pub output_outcome: InstructionalOutcomeRef,
     pub operation: InstructionalOutcomeTransformationKind,
     pub operation_version: String,
+    pub parameter_schema: InstructionalOutcomeTransformationParameterSchema,
     pub parameters: InstructionalOutcomeTransformationSpec,
 }
 
@@ -626,6 +791,7 @@ impl InstructionalOutcomeTransformationReceipt {
         self.output_outcome.validate()?;
         self.operation.validate()?;
         self.parameters.validate()?;
+        self.parameter_schema.validate_for(&self.operation, &self.operation_version, &self.parameters)?;
         if self.input_outcome == self.output_outcome {
             return Err(InstructionalScienceContractError::TransformationIdentityNoOp);
         }
@@ -1390,6 +1556,12 @@ pub enum InstructionalScienceContractError {
     TransformationOutputMismatch,
     InvalidTransformationParameters,
     TransformationParametersDigestMismatch,
+    InvalidTransformationParameterSchema,
+    TransformationParameterSchemaMismatch,
+    TransformationParameterSchemaDigestMismatch,
+    MissingTransformationParameter,
+    UndeclaredTransformationParameter,
+    TransformationParameterKindMismatch,
     ZeroAnalysisResultVersion,
     AnalysisResultEstimandMismatch,
     NegativeAnalysisResultGeneratedAt,
@@ -2386,7 +2558,8 @@ mod tests {
                 output_outcome: output.clone(),
                 operation: InstructionalOutcomeTransformationKind::Standardization,
                 operation_version: "1".into(),
-                parameters: transformation_spec(vec![("method", InstructionalTransformationParameter::Text("z-score".into()))]),
+                parameter_schema: InstructionalOutcomeTransformationParameterSchema::for_operation(&InstructionalOutcomeTransformationKind::Standardization, "1").unwrap(),
+                parameters: transformation_spec(vec![("method", InstructionalTransformationParameter::Identifier("z-score".into()))]),
             }],
         };
         assert_eq!(chain.validate_for_output(&output), Ok(()));
@@ -2397,6 +2570,21 @@ mod tests {
     }
 
     #[test]
+    #[test]
+    fn transformation_parameter_contract_rejects_undeclared_and_wrong_kind() {
+        let operation = InstructionalOutcomeTransformationKind::Standardization;
+        let schema = InstructionalOutcomeTransformationParameterSchema::for_operation(&operation, "1").unwrap();
+        let mut spec = transformation_spec(vec![("method", InstructionalTransformationParameter::Identifier("z-score".into()))]);
+        assert_eq!(schema.validate_for(&operation, "1", &spec), Ok(()));
+        spec.parameters.insert("unexpected".into(), InstructionalTransformationParameter::Text("x".into()));
+        spec.spec_digest = spec.compute_digest().unwrap();
+        assert_eq!(schema.validate_for(&operation, "1", &spec), Err(InstructionalScienceContractError::UndeclaredTransformationParameter));
+        spec.parameters.remove("unexpected");
+        spec.parameters.insert("method".into(), InstructionalTransformationParameter::Text("z-score".into()));
+        spec.spec_digest = spec.compute_digest().unwrap();
+        assert_eq!(schema.validate_for(&operation, "1", &spec), Err(InstructionalScienceContractError::TransformationParameterKindMismatch));
+    }
+
     fn transformation_parameters_are_semantically_typed() {
         let spec = transformation_spec(vec![
             ("baseline_seconds", InstructionalTransformationParameter::DurationSeconds(3600)),
@@ -2443,7 +2631,8 @@ mod tests {
             output_outcome: outcome,
             operation: InstructionalOutcomeTransformationKind::Rounding,
             operation_version: "1".into(),
-            parameters: transformation_spec(vec![("decimal_places", InstructionalTransformationParameter::Integer(2))]),
+            parameter_schema: InstructionalOutcomeTransformationParameterSchema::for_operation(&InstructionalOutcomeTransformationKind::Rounding, "1").unwrap(),
+            parameters: transformation_spec(vec![("decimal_places", InstructionalTransformationParameter::Integer(2)), ("rounding_mode", InstructionalTransformationParameter::Identifier("half-even".into()))]),
         };
         assert_eq!(
             transformation.validate(),
