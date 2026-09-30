@@ -148,12 +148,21 @@ pub struct EvidenceRelationship {
     pub relation: EvidenceRelation,
     pub source_kind: EvidenceNodeKind,
     pub target_kind: EvidenceNodeKind,
+    /// Stable engineering/configuration scope identifiers. These are semantic
+    /// bindings, not Holochain action timestamps.
+    pub source_scope_ref: String,
+    pub target_scope_ref: String,
 }
 
 impl EvidenceRelationship {
     /// Validate relationship typing only. A valid edge never implies a
     /// different edge type, physical equivalence, safety, or certification.
     pub fn validate(&self) -> Result<(), String> {
+        if self.source_scope_ref.trim().is_empty() || self.target_scope_ref.trim().is_empty() {
+            return Err("relationship requires explicit source and target scope references".into());
+        }
+
+        let same_scope = self.source_scope_ref == self.target_scope_ref;
         let valid = match self.relation {
             EvidenceRelation::DerivedFrom => matches!(
                 (self.source_kind, self.target_kind),
@@ -210,7 +219,11 @@ impl EvidenceRelationship {
                     | (EvidenceNodeKind::ExternalAuthorityReference, EvidenceNodeKind::PhysicalArtifact)
             ),
         };
-        if valid { Ok(()) } else {
+        let scope_valid = match self.relation {
+            EvidenceRelation::Supersedes | EvidenceRelation::Changes => true,
+            _ => same_scope,
+        };
+        if valid && scope_valid { Ok(()) } else {
             Err(format!("invalid source/target kinds for {:?}", self.relation))
         }
     }
@@ -508,6 +521,8 @@ mod tests {
             relation: EvidenceRelation::ManufacturedAs,
             source_kind: EvidenceNodeKind::ManufacturingEvent,
             target_kind: EvidenceNodeKind::PhysicalArtifact,
+            source_scope_ref: "cfg-a".into(),
+            target_scope_ref: "cfg-a".into(),
         };
         assert!(relationship.validate().is_ok());
     }
@@ -518,6 +533,8 @@ mod tests {
             relation: EvidenceRelation::DerivedFrom,
             source_kind: EvidenceNodeKind::ManufacturingEvent,
             target_kind: EvidenceNodeKind::PhysicalArtifact,
+            source_scope_ref: "cfg-a".into(),
+            target_scope_ref: "cfg-a".into(),
         };
         assert!(relationship.validate().is_err());
     }
@@ -528,12 +545,16 @@ mod tests {
             relation: EvidenceRelation::Interprets,
             source_kind: EvidenceNodeKind::EvidenceRecord,
             target_kind: EvidenceNodeKind::OperationalObservation,
+            source_scope_ref: "cfg-a".into(),
+            target_scope_ref: "cfg-a".into(),
         };
         assert!(interpretation.validate().is_ok());
         let observation = EvidenceRelationship {
             relation: EvidenceRelation::ObservedAs,
             source_kind: EvidenceNodeKind::EvidenceRecord,
             target_kind: EvidenceNodeKind::PhysicalArtifact,
+            source_scope_ref: "cfg-a".into(),
+            target_scope_ref: "cfg-a".into(),
         };
         assert!(observation.validate().is_err());
     }
@@ -544,16 +565,64 @@ mod tests {
             relation: EvidenceRelation::Authorizes,
             source_kind: EvidenceNodeKind::ExternalAuthorityReference,
             target_kind: EvidenceNodeKind::EvidenceRecord,
+            source_scope_ref: "authority-scope".into(),
+            target_scope_ref: "cfg-a".into(),
         };
-        assert!(external.validate().is_ok());
+        assert!(external.validate().is_err());
+        let external_same_scope = EvidenceRelationship {
+            relation: EvidenceRelation::Authorizes,
+            source_kind: EvidenceNodeKind::ExternalAuthorityReference,
+            target_kind: EvidenceNodeKind::EvidenceRecord,
+            source_scope_ref: "cfg-a".into(),
+            target_scope_ref: "cfg-a".into(),
+        };
+        assert!(external_same_scope.validate().is_ok());
         let commons = EvidenceRelationship {
             relation: EvidenceRelation::Authorizes,
             source_kind: EvidenceNodeKind::EvidenceRecord,
             target_kind: EvidenceNodeKind::EvidenceRecord,
+            source_scope_ref: "cfg-a".into(),
+            target_scope_ref: "cfg-a".into(),
         };
         assert!(commons.validate().is_err());
     }
 
+
+    #[test]
+    fn ordinary_relationships_cannot_cross_configuration_scope() {
+        let relationship = EvidenceRelationship {
+            relation: EvidenceRelation::InspectedAs,
+            source_kind: EvidenceNodeKind::InspectionRecord,
+            target_kind: EvidenceNodeKind::PhysicalArtifact,
+            source_scope_ref: "cfg-a".into(),
+            target_scope_ref: "cfg-b".into(),
+        };
+        assert!(relationship.validate().is_err());
+    }
+
+    #[test]
+    fn supersession_can_explicitly_cross_configuration_scope() {
+        let relationship = EvidenceRelationship {
+            relation: EvidenceRelation::Supersedes,
+            source_kind: EvidenceNodeKind::DesignArtifact,
+            target_kind: EvidenceNodeKind::DesignArtifact,
+            source_scope_ref: "cfg-b".into(),
+            target_scope_ref: "cfg-a".into(),
+        };
+        assert!(relationship.validate().is_ok());
+    }
+
+    #[test]
+    fn missing_scope_reference_is_fail_closed() {
+        let relationship = EvidenceRelationship {
+            relation: EvidenceRelation::TestedAs,
+            source_kind: EvidenceNodeKind::TestRecord,
+            target_kind: EvidenceNodeKind::PhysicalArtifact,
+            source_scope_ref: String::new(),
+            target_scope_ref: "cfg-a".into(),
+        };
+        assert!(relationship.validate().is_err());
+    }
     #[test]
     fn external_authority_requires_explicit_reference() {
         let mut state = valid_state();
