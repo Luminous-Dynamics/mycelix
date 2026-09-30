@@ -1,0 +1,89 @@
+{
+  "schema": "mobility-temporal-reconciliation-algebra-v1",
+  "scope": "semantic-provenance-only",
+  "classifications": [
+    "coexistent",
+    "conflicting",
+    "sequential",
+    "incomparable",
+    "indeterminate",
+    "superseded"
+  ],
+  "comparability": [
+    "comparable",
+    "incomparable",
+    "unknown"
+  ],
+  "compatibility": [
+    "compatible",
+    "incompatible",
+    "unknown"
+  ],
+  "precedence": [
+    "explicit_supersession",
+    "explicit_incomparability",
+    "unknown_comparability_or_compatibility",
+    "compatibility_and_temporal_relation"
+  ],
+  "interval_encoding": "normalized-utc-unix-seconds-with-explicit-null-bounds",
+  "disputed_is_orthogonal": true,
+  "forbidden_inferences": [
+    "physical_safety",
+    "unsafe_condition",
+    "certification",
+    "regulatory_approval",
+    "physical_equivalence",
+    "engineering_correctness",
+    "causality"
+  ],
+  "vectors": [
+    {
+      "id": "TC-RECON-001",
+      "semantic_case": "compatible_overlap"
+    },
+    {
+      "id": "TC-RECON-002",
+      "semantic_case": "incompatible_overlap"
+    },
+    {
+      "id": "TC-RECON-003",
+      "semantic_case": "incompatible_disjoint"
+    },
+    {
+      "id": "TC-RECON-004",
+      "semantic_case": "unknown_interval"
+    },
+    {
+      "id": "TC-RECON-005",
+      "semantic_case": "incomparable"
+    },
+    {
+      "id": "TC-RECON-006",
+      "semantic_case": "unknown_comparability"
+    },
+    {
+      "id": "TC-RECON-007",
+      "semantic_case": "unknown_compatibility"
+    },
+    {
+      "id": "TC-RECON-008",
+      "semantic_case": "explicit_supersession"
+    },
+    {
+      "id": "TC-RECON-009",
+      "semantic_case": "disputed_conflict"
+    },
+    {
+      "id": "TC-RECON-010",
+      "semantic_case": "compatible_unknown_time"
+    },
+    {
+      "id": "TC-RECON-011",
+      "semantic_case": "different_artifact_incomparable"
+    },
+    {
+      "id": "TC-RECON-012",
+      "semantic_case": "publication_time_ignored"
+    }
+  ]
+}
