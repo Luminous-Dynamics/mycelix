@@ -7,13 +7,7 @@ pub mod identity_lineage;
 pub mod temporal_applicability;
 pub mod temporal_reconciliation;
 pub mod temporal_reconciliation_witness;
-
-/// Typed identity/lineage semantics for the mobility evidence substrate.
-///
-/// Kept in a dedicated module so identity does not collapse into relationship
-/// scope strings or Holochain protocol metadata.
-pub mod identity_lineage;
-pub mod temporal_applicability;
+pub mod reconciliation_evidence_projection;
 
 const EXPECTED_COUNT: usize = 20;
 const EXPECTED_PREFIX: &str = "MC-CONFIG-";
