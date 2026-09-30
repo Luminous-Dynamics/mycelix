@@ -1680,6 +1680,37 @@ mod tests {
     }
 
     #[test]
+    fn identity_bearing_entry_author_must_match_claimed_identity() {
+        assert_eq!(
+            validate_claimed_agent(&fake_agent_a(), &fake_agent_a(), "Hearth.created_by"),
+            ValidateCallbackResult::Valid
+        );
+        assert!(matches!(
+            validate_claimed_agent(&fake_agent_a(), &fake_agent_b(), "Hearth.created_by"),
+            ValidateCallbackResult::Invalid(message) if message.contains("Hearth.created_by")
+        ));
+    }
+
+    #[test]
+    fn membership_author_binding_blocks_forged_founder_identity() {
+        // A malicious author must not be able to publish a membership that
+        // claims to belong to another agent, even if its admission payload is
+        // otherwise structurally valid.
+        assert!(matches!(
+            validate_claimed_agent(&fake_agent_b(), &fake_agent_a(), "HearthMembership.agent"),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn invitation_author_binding_blocks_forged_inviter_identity() {
+        assert!(matches!(
+            validate_claimed_agent(&fake_agent_b(), &fake_agent_a(), "HearthInvitation.inviter"),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
     fn anchor_immutability_documented() {
         // Anchor should be created once and never updated.
         // The integrity validate() function rejects UpdateEntry for Anchor.
