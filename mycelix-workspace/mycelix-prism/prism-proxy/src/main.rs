@@ -25,7 +25,7 @@ const MAX_RESPONSE_SIZE: usize = 10 * 1024 * 1024; // 10MB
 fn build_provider_client(user_agent: &str, timeout_secs: u64) -> reqwest::Client {
     reqwest::Client::builder()
         .user_agent(user_agent)
-        .redirect(reqwest::redirect::Policy::limited(5))
+        .redirect(reqwest::redirect::Policy::none())
         .timeout(std::time::Duration::from_secs(timeout_secs))
         .build()
         .expect("HTTP client TLS init failed")
