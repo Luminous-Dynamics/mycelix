@@ -629,7 +629,6 @@ impl InstructionalOutcomeTransformationSpec {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum InstructionalTransformationContractStatus { Proposed, Active, Retired }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -759,6 +758,8 @@ impl InstructionalOutcomeTransformationParameterSchema {
     fn for_operation(
         operation: &InstructionalOutcomeTransformationKind,
         operation_version: &str,
+        evidence_basis: Vec<EvidenceBasisRef>,
+        review_digest: String,
     ) -> Result<Self, InstructionalScienceContractError> {
         let mut allowed = BTreeMap::new();
         let mut required = BTreeSet::new();
@@ -839,15 +840,28 @@ impl InstructionalOutcomeTransformationParameterSchema {
                 contract_digest: String::new(),
                 status: InstructionalTransformationContractStatus::Active,
             },
-            evidence_basis: vec![EvidenceBasisRef {
-                source_id: "source:instructional-transformation-contract".into(),
-                source_version: "1".into(),
-                source_digest: "blake3:contract-definition".into(),
-            }],
-            review_digest: "blake3:contract-review".into(),
+            evidence_basis,
+            review_digest,
         };
         schema.schema_digest = schema.compute_digest()?;
         schema.contract.contract_digest = schema.schema_digest.clone();
+        if schema.evidence_basis.is_empty() || schema.review_digest.trim().is_empty() {
+            return Err(InstructionalScienceContractError::InvalidTransformationContractProvenance);
+        }
+        let mut evidence_refs = BTreeSet::new();
+        for evidence in &schema.evidence_basis {
+            if evidence.source_id.trim().is_empty()
+                || evidence.source_version.trim().is_empty()
+                || evidence.source_digest.trim().is_empty()
+                || !evidence_refs.insert((
+                    evidence.source_id.clone(),
+                    evidence.source_version.clone(),
+                    evidence.source_digest.clone(),
+                ))
+            {
+                return Err(InstructionalScienceContractError::InvalidTransformationContractProvenance);
+            }
+        }
         Ok(schema)
     }
 
@@ -1918,6 +1932,24 @@ fn transformation_spec(entries: Vec<(&str, InstructionalTransformationParameter)
 }
 
 #[cfg(test)]
+fn test_transformation_contract_schema(
+    operation: &InstructionalOutcomeTransformationKind,
+    operation_version: &str,
+) -> InstructionalOutcomeTransformationParameterSchema {
+    InstructionalOutcomeTransformationParameterSchema::for_operation(
+        operation,
+        operation_version,
+        vec![EvidenceBasisRef {
+            source_id: "test:instructional-transformation-contract".into(),
+            source_version: "1".into(),
+            source_digest: "blake3:test-contract-evidence".into(),
+        }],
+        "blake3:test-contract-review".into(),
+    )
+    .expect("test transformation contract schema")
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -2699,7 +2731,7 @@ mod tests {
                 output_outcome: output.clone(),
                 operation: InstructionalOutcomeTransformationKind::Standardization,
                 operation_version: "1".into(),
-                parameter_schema: InstructionalOutcomeTransformationParameterSchema::for_operation(&InstructionalOutcomeTransformationKind::Standardization, "1").unwrap(),
+                parameter_schema: test_transformation_contract_schema(&InstructionalOutcomeTransformationKind::Standardization, "1").unwrap(),
                 parameters: transformation_spec(vec![("method", InstructionalTransformationParameter::Identifier("z-score".into()))]),
             }],
         };
@@ -2711,9 +2743,23 @@ mod tests {
     }
 
     #[test]
+    fn transformation_contract_constructor_requires_explicit_provenance() {
+        let operation = InstructionalOutcomeTransformationKind::Standardization;
+        assert_eq!(
+            InstructionalOutcomeTransformationParameterSchema::for_operation(
+                &operation,
+                "1",
+                Vec::new(),
+                String::new(),
+            ),
+            Err(InstructionalScienceContractError::InvalidTransformationContractProvenance)
+        );
+    }
+
+    #[test]
     fn transformation_contract_reference_tracks_semantic_digest_and_allows_retirement() {
         let operation = InstructionalOutcomeTransformationKind::Standardization;
-        let mut schema = InstructionalOutcomeTransformationParameterSchema::for_operation(&operation, "1").unwrap();
+        let mut schema = test_transformation_contract_schema(&operation, "1").unwrap();
         assert_eq!(schema.contract.contract_digest, schema.schema_digest);
         schema.contract.status = InstructionalTransformationContractStatus::Retired;
         assert_eq!(schema.validate_for(&operation, "1", &transformation_spec(vec![("method", InstructionalTransformationParameter::Identifier("z-score".into()))])), Ok(()));
@@ -2725,10 +2771,10 @@ mod tests {
     fn transformation_contract_evolution_requires_explicit_relationship() {
         let operation = InstructionalOutcomeTransformationKind::Standardization;
         let predecessor_schema =
-            InstructionalOutcomeTransformationParameterSchema::for_operation(&operation, "1")
+            test_transformation_contract_schema(&operation, "1")
                 .unwrap();
         let successor_schema =
-            InstructionalOutcomeTransformationParameterSchema::for_operation(&operation, "2")
+            test_transformation_contract_schema(&operation, "2")
                 .unwrap();
 
         let mut receipt = InstructionalTransformationContractEvolutionReceipt {
@@ -2753,7 +2799,7 @@ mod tests {
     fn transformation_contract_evolution_rejects_self_reference() {
         let operation = InstructionalOutcomeTransformationKind::Standardization;
         let schema =
-            InstructionalOutcomeTransformationParameterSchema::for_operation(&operation, "1")
+            test_transformation_contract_schema(&operation, "1")
                 .unwrap();
         let receipt = InstructionalTransformationContractEvolutionReceipt {
             evolution_id: "self".into(),
@@ -2774,11 +2820,11 @@ mod tests {
     fn transformation_contract_evolution_compatibility_is_explicit_not_inferred() {
         let operation = InstructionalOutcomeTransformationKind::Standardization;
         let predecessor =
-            InstructionalOutcomeTransformationParameterSchema::for_operation(&operation, "1")
+            test_transformation_contract_schema(&operation, "1")
                 .unwrap()
                 .contract;
         let successor =
-            InstructionalOutcomeTransformationParameterSchema::for_operation(&operation, "2")
+            test_transformation_contract_schema(&operation, "2")
                 .unwrap()
                 .contract;
         let receipt = InstructionalTransformationContractEvolutionReceipt {
@@ -2796,7 +2842,7 @@ mod tests {
     #[test]
     fn transformation_parameter_contract_rejects_undeclared_and_wrong_kind() {
         let operation = InstructionalOutcomeTransformationKind::Standardization;
-        let schema = InstructionalOutcomeTransformationParameterSchema::for_operation(&operation, "1").unwrap();
+        let schema = test_transformation_contract_schema(&operation, "1").unwrap();
         let mut spec = transformation_spec(vec![("method", InstructionalTransformationParameter::Identifier("z-score".into()))]);
         assert_eq!(schema.validate_for(&operation, "1", &spec), Ok(()));
         spec.parameters.insert("unexpected".into(), InstructionalTransformationParameter::Text("x".into()));
@@ -2855,7 +2901,7 @@ mod tests {
             output_outcome: outcome,
             operation: InstructionalOutcomeTransformationKind::Rounding,
             operation_version: "1".into(),
-            parameter_schema: InstructionalOutcomeTransformationParameterSchema::for_operation(&InstructionalOutcomeTransformationKind::Rounding, "1").unwrap(),
+            parameter_schema: test_transformation_contract_schema(&InstructionalOutcomeTransformationKind::Rounding, "1").unwrap(),
             parameters: transformation_spec(vec![("decimal_places", InstructionalTransformationParameter::Integer(2)), ("rounding_mode", InstructionalTransformationParameter::Identifier("half-even".into()))]),
         };
         assert_eq!(
