@@ -655,6 +655,63 @@ pub fn compose_finality_eligibility(
     }
 }
 
+/// Verify that a D6P current-finality receipt is a faithful projection of
+/// the authoritative D6P composition that produced it.
+///
+/// This closes the gap between receipt self-integrity and provenance: a receipt
+/// may be cryptographically self-consistent while still describing a different
+/// composition unless its semantic fields and witness sets are reconstructed
+/// from the D6P composition.
+pub fn current_receipt_matches_composition(
+    receipt: &CurrentFinalityEligibilityReceiptV1,
+    composition: &FinalityEligibilityCompositionV1,
+) -> bool {
+    if !receipt.commitment_matches() || !composition.structurally_valid() {
+        return false;
+    }
+
+    if receipt.effect_id != composition.effect_id
+        || receipt.effect_lineage_id != composition.effect_lineage_id
+        || receipt.lifecycle_generation_id != composition.lifecycle_generation_id
+        || receipt.route_id != composition.route_id
+        || receipt.provider_id != composition.provider_id
+        || receipt.provider_operation_id != composition.provider_operation_id
+        || receipt.provider_profile_root != composition.provider_profile_root
+        || receipt.semantic_environment_root != composition.semantic_environment_root
+        || receipt.observation_set_id != composition.observation_set_id
+        || receipt.observation_set_commitment != composition.observation_set_commitment
+        || receipt.d6n_assessment_commitment != composition.d6n_assessment_commitment
+        || receipt.current_frontier_root != composition.current_frontier_root
+        || receipt.lifecycle_profile_id != composition.lifecycle_profile_id
+        || receipt.eligible_independent_count != composition.eligible_independent_count
+        || receipt.preserved_contradictory_count != composition.preserved_contradictory_count
+        || receipt.disposition != composition.disposition
+        || receipt.claim_ceiling != composition.claim_ceiling
+    {
+        return false;
+    }
+
+    let expected_witness_eligibility_ids = composition
+        .witnesses
+        .iter()
+        .filter_map(|witness| witness.d6o_eligibility_id.clone())
+        .collect::<BTreeSet<_>>();
+    let expected_observer_generation_ids = composition
+        .witnesses
+        .iter()
+        .filter_map(|witness| witness.observer_generation_id.clone())
+        .collect::<BTreeSet<_>>();
+
+    if receipt.witness_eligibility_ids != expected_witness_eligibility_ids
+        || receipt.observer_generation_ids != expected_observer_generation_ids
+    {
+        return false;
+    }
+
+    composition.qualification_transition_id.as_deref()
+        == Some(receipt.qualification_transition_id.as_str())
+}
+
 pub fn current_finality_receipt_is_non_authorizing(
     receipt: &CurrentFinalityEligibilityReceiptV1,
 ) -> bool {
