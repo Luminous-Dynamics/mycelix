@@ -546,7 +546,9 @@ pub fn leave_hearth(membership_hash: ActionHash) -> ExternResult<Record> {
     )?;
     let agent = agent_info()?.agent_initial_pubkey;
 
-    let record = get(membership_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
+    // Membership hashes are stable identity anchors; resolve the latest revision
+    // before authorizing departure so a stale Active revision cannot be departed twice.
+    let record = get_latest_record(membership_hash.clone())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Membership not found".into())
     ))?;
     let membership: HearthMembership = entry_from_record(&record, "HearthMembership")?;
