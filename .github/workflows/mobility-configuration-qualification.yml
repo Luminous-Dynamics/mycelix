@@ -68,3 +68,11 @@ jobs:
           path: /tmp/python
       - name: Compare independent normalized results
         run: python3 tools/compare_mobility_qualification.py /tmp/rust/rust-normalized.json /tmp/python/python-normalized.json
+      - name: Prove comparator rejects altered semantic output
+        run: |
+          python3 -c 'import json; p="/tmp/python/python-normalized.json"; d=json.load(open(p)); d["vectors"][0]["forbidden_inference"] += "-corrupted"; json.dump(d,open("/tmp/corrupted.json","w"))'
+          if python3 tools/compare_mobility_qualification.py /tmp/rust/rust-normalized.json /tmp/corrupted.json; then
+            echo "Comparator accepted a corrupted semantic result" >&2
+            exit 1
+          fi
+          echo "Comparator correctly rejected corrupted semantic output"
