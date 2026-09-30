@@ -186,6 +186,58 @@ impl Consent {
         })
     }
 
+    /// Canonical immutable consent content. Lifecycle state is deliberately excluded.
+    pub fn canonical_bytes(&self) -> Vec<u8> {
+        let mut out = Vec::new();
+        out.extend_from_slice(b"mycelix.consent-content.v1\0");
+        out.extend_from_slice(self.relationship_id.as_bytes());
+        write_participant(&mut out, &self.grantor.participant);
+        write_participant(&mut out, &self.audience.principal.participant);
+        match &self.purpose {
+            ConsentPurpose::Named(value) => write_bytes(&mut out, value.as_bytes()),
+        }
+        out.push(match self.scope.mode { AccessMode::Read => 0, AccessMode::Disclose => 1 });
+        write_len(&mut out, self.scope.data_classes.len());
+        for class in &self.scope.data_classes {
+            match class {
+                DataClass::Public => out.push(0),
+                DataClass::Identity => out.push(1),
+                DataClass::Contact => out.push(2),
+                DataClass::Financial => out.push(3),
+                DataClass::Health => out.push(4),
+                DataClass::Operational => out.push(5),
+                DataClass::Confidential => out.push(6),
+                DataClass::Custom(value) => {
+                    out.push(7);
+                    write_bytes(&mut out, value.as_bytes());
+                }
+            }
+        }
+        write_len(&mut out, self.scope.fields.len());
+        for field in &self.scope.fields { write_bytes(&mut out, field.as_bytes()); }
+        out.extend_from_slice(&self.granted_at.to_le_bytes());
+        match self.expires_at {
+            Some(value) => { out.push(1); out.extend_from_slice(&value.to_le_bytes()); }
+            None => out.push(0),
+        }
+        out.extend_from_slice(&self.authority_epoch.to_le_bytes());
+        out
+    }
+
+    /// Canonical immutable content plus explicit lifecycle history.
+    pub fn state_canonical_bytes(&self) -> Vec<u8> {
+        let mut out = self.canonical_bytes();
+        out.push(self.status as u8);
+        write_len(&mut out, self.events.len());
+        for event in &self.events {
+            out.push(event.kind as u8);
+            write_participant(&mut out, &event.actor.participant);
+            out.extend_from_slice(&event.occurred_at.to_le_bytes());
+            out.extend_from_slice(&event.authority_epoch.to_le_bytes());
+        }
+        out
+    }
+
     pub fn revoke(
         &mut self,
         actor: &PrincipalRef,
@@ -244,6 +296,20 @@ pub enum ConsentError {
     PurposeMismatch,
     ScopeExceeded,
     RequesterNotInAudience,
+}
+
+fn write_len(out: &mut Vec<u8>, len: usize) {
+    out.extend_from_slice(&(len as u64).to_le_bytes());
+}
+
+fn write_bytes(out: &mut Vec<u8>, bytes: &[u8]) {
+    write_len(out, bytes.len());
+    out.extend_from_slice(bytes);
+}
+
+fn write_participant(out: &mut Vec<u8>, participant: &ParticipantRef) {
+    write_bytes(out, participant.namespace.as_bytes());
+    write_bytes(out, participant.identifier.as_bytes());
 }
 
 impl fmt::Display for ConsentError {
