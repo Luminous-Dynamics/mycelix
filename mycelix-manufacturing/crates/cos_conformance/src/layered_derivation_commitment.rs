@@ -1,6 +1,6 @@
 //! D6W diagnostic decomposition of D6S commitments. Integrity only; no authority.
 use crate::canonical_derivation_receipt::{
-    canonical_sha256, CanonicalDerivationReceiptV1, DerivationProfileV1,
+    canonical_sha256, is_canonical_sha256_commitment, CanonicalDerivationReceiptV1, DerivationProfileV1,
     DerivationResultStatusV1, QualifiedProjectionV1, SemanticEnvironmentV1, D6S_CLAIM_CEILING,
 };
 use serde::{Deserialize, Serialize};
@@ -43,8 +43,14 @@ impl InputCommitmentV1 {
             || closure.semantic_environment_commitment != e.commitment()
             || closure.derivation_profile_commitment != p.derivation_profile_commitment
             || closure.derivation_profile_commitment.is_empty()
-            || !p.nodes.values().all(QualifiedNodeV1::commitment_matches)
-            || !p.edges.values().all(QualifiedEdgeV1::commitment_matches)
+            || !p.nodes.values().all(|node| {
+                QualifiedNodeV1::commitment_matches(&node)
+                    && is_canonical_sha256_commitment(&node.node_commitment)
+            })
+            || !p.edges.values().all(|edge| {
+                QualifiedEdgeV1::commitment_matches(&edge)
+                    && is_canonical_sha256_commitment(&edge.edge_commitment)
+            })
         {
             return None;
         }
@@ -176,11 +182,11 @@ mod tests {
         let e=SemanticEnvironmentV1{semantic_profile_id:"sem".into(),semantic_profile_version:"1".into(),current_frontier_root:Some("frontier".into()),d6p_eligibility_context_root:None,d6n_observer_context_root:None,d6o_lifecycle_context_root:None,membership_authority_scope_root:None,dependency_snapshot_root:Some("snapshot".into()),historical_cutoff:None,policy_version:"policy".into(),claim_ceiling:D6S_CLAIM_CEILING.into()};
         let d=DerivationProfileV1{profile_id:"d".into(),version:"1".into(),rule_ids:["r".into()].into_iter().collect(),permits_recursive_fixpoint:false,claim_ceiling:D6S_CLAIM_CEILING.into()};
         let mut nodes=BTreeMap::new();
-        for (id,k) in [("root",ClaimGraphNodeKindV1::Statement),("dep",ClaimGraphNodeKindV1::Evidence)]{nodes.insert(id.into(),QualifiedNodeV1{node_id:id.into(),kind:k,content_commitment:format!("c-{id}"),node_commitment:format!("n-{id}"),historical_only:false,current_frontier_root:Some("frontier".into()),claim_ceiling:D6S_CLAIM_CEILING.into()});}
-        if extra{nodes.insert("noise".into(),QualifiedNodeV1{node_id:"noise".into(),kind:ClaimGraphNodeKindV1::Source,content_commitment:"c-noise".into(),node_commitment:"n-noise".into(),historical_only:false,current_frontier_root:Some("frontier".into()),claim_ceiling:D6S_CLAIM_CEILING.into()});}
+        for (id,k) in [("root",ClaimGraphNodeKindV1::Statement),("dep",ClaimGraphNodeKindV1::Evidence)]{nodes.insert(id.into(),QualifiedNodeV1{node_id:id.into(),kind:k,content_commitment:format!("c-{id}"),node_commitment:canonical_sha256("integral-interop-1-node",&serde_json::json!({"id":id,"content_commitment":format!("c-{id}"),"kind":format!("{k:?}")})),historical_only:false,current_frontier_root:Some("frontier".into()),claim_ceiling:D6S_CLAIM_CEILING.into()});}
+        if extra{nodes.insert("noise".into(),QualifiedNodeV1{node_id:"noise".into(),kind:ClaimGraphNodeKindV1::Source,content_commitment:"c-noise".into(),node_commitment:canonical_sha256("integral-interop-1-node",&serde_json::json!({"id":"noise","content_commitment":"c-noise","kind":format!("{:?}",ClaimGraphNodeKindV1::Source)})),historical_only:false,current_frontier_root:Some("frontier".into()),claim_ceiling:D6S_CLAIM_CEILING.into()});}
         let mut edges=BTreeMap::new();
-        edges.insert("e1".into(),QualifiedEdgeV1{edge_id:"e1".into(),from_node_id:"root".into(),to_node_id:"dep".into(),kind:ClaimGraphEdgeKindV1::Supports,edge_commitment:"e-e1".into(),claim_ceiling:D6S_CLAIM_CEILING.into()});
-        if extra{edges.insert("noise-edge".into(),QualifiedEdgeV1{edge_id:"noise-edge".into(),from_node_id:"noise".into(),to_node_id:"dep".into(),kind:ClaimGraphEdgeKindV1::Provenance,edge_commitment:"e-noise".into(),claim_ceiling:D6S_CLAIM_CEILING.into()});}
+        edges.insert("e1".into(),QualifiedEdgeV1{edge_id:"e1".into(),from_node_id:"root".into(),to_node_id:"dep".into(),kind:ClaimGraphEdgeKindV1::Supports,edge_commitment:canonical_sha256("integral-interop-1-edge",&serde_json::json!({"id":"e1","from":"root","to":"dep","kind":format!("{:?}",ClaimGraphEdgeKindV1::Supports)})),claim_ceiling:D6S_CLAIM_CEILING.into()});
+        if extra{edges.insert("noise-edge".into(),QualifiedEdgeV1{edge_id:"noise-edge".into(),from_node_id:"noise".into(),to_node_id:"dep".into(),kind:ClaimGraphEdgeKindV1::Provenance,edge_commitment:canonical_sha256("integral-interop-1-edge",&serde_json::json!({"id":"noise-edge","from":"noise","to":"dep","kind":format!("{:?}",ClaimGraphEdgeKindV1::Provenance)})),claim_ceiling:D6S_CLAIM_CEILING.into()});}
         let p=QualifiedProjectionV1{projection_id:"p".into(),projection_version:"1".into(),canonicalization_version:"D6S-CANON-1".into(),source_dkg_snapshot_commitment:"snapshot".into(),nodes,edges,d6p_current_receipt_commitments:BTreeSet::new(),d6n_context_commitment:None,d6o_context_commitment:None,semantic_environment_commitment:e.commitment(),derivation_profile_commitment:d.commitment(),claim_ceiling:D6S_CLAIM_CEILING.into()};
         let rule=DependencyRuleV1{edge_kind:ClaimGraphEdgeKindV1::Supports,from_kind:Some(ClaimGraphNodeKindV1::Statement),to_kind:Some(ClaimGraphNodeKindV1::Evidence),currentness:DependencyCurrentnessV1::Any};
         let cp=DependencyClosureProfileV1{profile_id:"cp".into(),version:"1".into(),root_node_ids:["root".into()].into_iter().collect(),required_node_ids:BTreeSet::new(),required_d6p_receipt_commitments:BTreeSet::new(),rules:[rule].into_iter().collect(),excluded_boundary_policy:"rule-matched semantic edges only".into(),max_nodes:16,max_edges:16,claim_ceiling:D6S_CLAIM_CEILING.into()};
@@ -268,7 +274,7 @@ mod tests {
     fn d6w_rejects_self_consistent_closure_with_wrong_selected_node() {
         let (p,e,d,mut c) = fixture(false);
         c.included_nodes.insert("dep".into(), "substituted-node".into());
-        c.included_node_commitments.remove("n-dep");
+        c.included_node_commitments.remove(&p.nodes.get("dep").unwrap().node_commitment);
         c.included_node_commitments.insert("substituted-node".into());
         c.dependencies = c.expected_dependencies();
         c.dependency_resolutions = c
@@ -302,6 +308,15 @@ mod tests {
         c.commitment = c.recompute();
 
         assert!(c.valid());
+        assert!(InputCommitmentV1::from_projection(&p, &e, &c).is_none());
+        let _ = d;
+    }
+
+    #[test]
+    fn d6w_rejects_legacy_symbolic_selected_commitment() {
+        let (mut p,e,d,c) = fixture(false);
+        p.nodes.get_mut("dep").unwrap().node_commitment = "legacy-symbolic".into();
+        assert!(!is_canonical_sha256_commitment(&p.nodes["dep"].node_commitment));
         assert!(InputCommitmentV1::from_projection(&p, &e, &c).is_none());
         let _ = d;
     }
