@@ -170,17 +170,42 @@ fn membership_records_for_hearth_strict(
     Ok(records)
 }
 
+/// Resolve exactly one Active membership for the caller within a Hearth.
+///
+/// This is the authority boundary for caller-scoped membership decisions:
+/// zero Active records means no authority, one means canonical authority, and
+/// multiple Active records are a conflict rather than an ordering choice.
+fn active_membership_for_agent(
+    hearth_hash: &ActionHash,
+    agent: &AgentPubKey,
+) -> ExternResult<Option<HearthMembership>> {
+    let memberships = membership_records_for_hearth(hearth_hash)?;
+    let values: Vec<HearthMembership> =
+        memberships.into_iter().map(|(_, membership)| membership).collect();
+
+    let Some(index) = classify_active_membership_indices(agent, &values)? else {
+        return Ok(None);
+    };
+
+    values.into_iter().nth(index).ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Active membership authority disappeared during resolution".into()
+        ))
+    }).map(Some)
+}
+
 /// Verify the caller has a guardian-level role (Founder, Elder, or Adult)
-/// within the specified hearth. Returns the caller's membership record.
+/// within the specified hearth. Returns the caller's canonical membership.
 fn require_guardian_role(hearth_hash: &ActionHash) -> ExternResult<HearthMembership> {
     let agent = agent_info()?.agent_initial_pubkey;
-    for (_, membership) in membership_records_for_hearth(hearth_hash)? {
-        if membership.agent == agent
-            && membership.status == MembershipStatus::Active
-            && membership.role.is_guardian()
-        {
-            return Ok(membership);
-        }
+    let Some(membership) = active_membership_for_agent(hearth_hash, &agent)? else {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Caller does not have an Active membership in this hearth".into()
+        )));
+    };
+
+    if membership.role.is_guardian() {
+        return Ok(membership);
     }
 
     Err(wasm_error!(WasmErrorInner::Guest(
@@ -861,12 +886,9 @@ pub fn is_guardian(hearth_hash: ActionHash) -> ExternResult<bool> {
 #[hdk_extern]
 pub fn get_caller_vote_weight(hearth_hash: ActionHash) -> ExternResult<u32> {
     let agent = agent_info()?.agent_initial_pubkey;
-    for (_, membership) in membership_records_for_hearth(&hearth_hash)? {
-        if membership.agent == agent && membership.status == MembershipStatus::Active {
-            return Ok(membership.role.default_vote_weight_bp());
-        }
-    }
-    Ok(0)
+    Ok(active_membership_for_agent(&hearth_hash, &agent)?
+        .map(|membership| membership.role.default_vote_weight_bp())
+        .unwrap_or(0))
 }
 
 /// Classify membership authority for one caller/hearth pair.
@@ -902,12 +924,8 @@ fn classify_active_membership_indices(
 #[hdk_extern]
 pub fn get_caller_role(hearth_hash: ActionHash) -> ExternResult<Option<MemberRole>> {
     let agent = agent_info()?.agent_initial_pubkey;
-    for (_, membership) in membership_records_for_hearth(&hearth_hash)? {
-        if membership.agent == agent && membership.status == MembershipStatus::Active {
-            return Ok(Some(membership.role));
-        }
-    }
-    Ok(None)
+    Ok(active_membership_for_agent(&hearth_hash, &agent)?
+        .map(|membership| membership.role))
 }
 
 /// Get the count of active members in a hearth.
