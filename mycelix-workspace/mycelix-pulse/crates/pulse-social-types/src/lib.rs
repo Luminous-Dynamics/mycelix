@@ -27,6 +27,7 @@ pub struct SocialRevisionV1(pub String);
 /// The kind of semantic object being referenced.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum SocialObjectKind {
+    ChatMessage,
     Post,
     Comment,
     Reaction,
@@ -202,6 +203,16 @@ mod tests {
             kind: SocialObjectKind::Post,
             provenance: SocialProvenance::MycelixCanonical,
         }
+    }
+
+    #[test]
+    fn chat_message_kind_has_stable_serde_name() {
+        let encoded = serde_json::to_string(&SocialObjectKind::ChatMessage).unwrap();
+        assert_eq!(encoded, "\"ChatMessage\"");
+        assert_eq!(
+            serde_json::from_str::<SocialObjectKind>(&encoded).unwrap(),
+            SocialObjectKind::ChatMessage
+        );
     }
 
     #[test]
