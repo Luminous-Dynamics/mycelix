@@ -247,6 +247,9 @@ impl Consent {
         if self.status != ConsentStatus::Granted { return Err(ConsentError::AlreadyInactive); }
         if actor != &self.grantor { return Err(ConsentError::UnauthorizedRevocation); }
         if occurred_at < self.granted_at { return Err(ConsentError::NonMonotonicEventTime); }
+        if authority_epoch != self.authority_epoch {
+            return Err(ConsentError::StaleAuthorityEpoch);
+        }
         self.status = ConsentStatus::Revoked;
         self.events.push(ConsentEvent {
             kind: ConsentEventKind::Revoke,
@@ -254,6 +257,55 @@ impl Consent {
             occurred_at,
             authority_epoch,
         });
+        Ok(())
+    }
+
+    /// Validate the complete lifecycle history without consulting ambient state.
+    ///
+    /// This is intentionally separate from authorization: historical revoked or
+    /// expired consent can remain a valid auditable record without granting
+    /// current access.
+    pub fn validate_lifecycle(&self) -> Result<(), ConsentError> {
+        let first = self.events.first().ok_or(ConsentError::MissingGrantEvent)?;
+        if first.kind != ConsentEventKind::Grant || first.actor != self.grantor {
+            return Err(ConsentError::InvalidLifecycle);
+        }
+        if first.occurred_at != self.granted_at {
+            return Err(ConsentError::InvalidLifecycle);
+        }
+        if first.authority_epoch != self.authority_epoch {
+            return Err(ConsentError::StaleAuthorityEpoch);
+        }
+
+        let mut status = ConsentStatus::Granted;
+        let mut previous_at = first.occurred_at;
+        for event in self.events.iter().skip(1) {
+            if event.occurred_at < previous_at || event.authority_epoch != self.authority_epoch {
+                return Err(ConsentError::InvalidLifecycle);
+            }
+            if event.actor != self.grantor {
+                return Err(ConsentError::UnauthorizedRevocation);
+            }
+            status = match (status, event.kind) {
+                (ConsentStatus::Granted, ConsentEventKind::Revoke) => ConsentStatus::Revoked,
+                (ConsentStatus::Granted, ConsentEventKind::Expire) => {
+                    let expiry = self.expires_at.ok_or(ConsentError::InvalidLifecycle)?;
+                    if event.occurred_at < expiry {
+                        return Err(ConsentError::InvalidLifecycle);
+                    }
+                    ConsentStatus::Expired
+                }
+                _ => return Err(ConsentError::InvalidLifecycle),
+            };
+            previous_at = event.occurred_at;
+        }
+
+        if status != self.status {
+            return Err(ConsentError::InvalidLifecycle);
+        }
+        if matches!(self.status, ConsentStatus::Expired) && self.expires_at.is_none() {
+            return Err(ConsentError::InvalidLifecycle);
+        }
         Ok(())
     }
 
@@ -288,6 +340,9 @@ pub enum ConsentError {
     AlreadyInactive,
     UnauthorizedRevocation,
     NonMonotonicEventTime,
+    StaleAuthorityEpoch,
+    MissingGrantEvent,
+    InvalidLifecycle,
     NotGranted,
     NotYetEffective,
     Expired,
@@ -459,6 +514,31 @@ mod tests {
         assert_eq!(c.authorize(&request("relationship-support", 170, 7)), Err(ConsentError::NotGranted));
     }
 
+
+    #[test]
+    fn stale_epoch_revocation_is_rejected_without_mutation() {
+        let mut c = consent();
+        let before = c.clone();
+        let grantor = participant("did", "alice");
+        assert_eq!(
+            c.revoke(&grantor, 160, 8),
+            Err(ConsentError::StaleAuthorityEpoch)
+        );
+        assert_eq!(c, before);
+    }
+
+    #[test]
+    fn lifecycle_history_is_replayed_deterministically() {
+        let c = consent();
+        assert!(c.validate_lifecycle().is_ok());
+    }
+
+    #[test]
+    fn tampered_lifecycle_status_is_rejected() {
+        let mut c = consent();
+        c.status = ConsentStatus::Revoked;
+        assert_eq!(c.validate_lifecycle(), Err(ConsentError::InvalidLifecycle));
+    }
     #[test]
     fn non_grantor_cannot_revoke() {
         let mut c = consent();
