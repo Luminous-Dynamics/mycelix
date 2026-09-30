@@ -1441,6 +1441,76 @@ impl InstructionalResolutionPolicyRef {
     }
 }
 
+/// Provenance record for the resolution policy used by a closure.
+///
+/// The policy's semantic identity is kept separate from its supporting
+/// evidence and review metadata.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalResolutionPolicyProvenanceReceipt {
+    pub provenance_id: String,
+    pub provenance_version: u64,
+    pub policy: InstructionalResolutionPolicyRef,
+    pub evidence_basis: Vec<EvidenceBasisRef>,
+    pub review_digest: String,
+    pub canonicalization_version: String,
+    pub provenance_digest: String,
+}
+
+impl InstructionalResolutionPolicyProvenanceReceipt {
+    fn canonical_bytes(&self) -> Result<Vec<u8>, InstructionalScienceContractError> {
+        let mut evidence = self.evidence_basis.clone();
+        evidence.sort_by(|a, b| (
+            a.source_id.as_str(), a.source_version.as_str(), a.source_digest.as_str()
+        ).cmp(&(
+            b.source_id.as_str(), b.source_version.as_str(), b.source_digest.as_str()
+        )));
+        serde_json::to_vec(&(
+            "praxis:instructional-resolution-policy-provenance",
+            self.canonicalization_version.as_str(),
+            self.provenance_id.as_str(),
+            self.provenance_version,
+            &self.policy,
+            &evidence,
+            self.review_digest.as_str(),
+        )).map_err(|_| InstructionalScienceContractError::InvalidResolutionPolicyProvenance)
+    }
+
+    fn compute_digest(&self) -> Result<String, InstructionalScienceContractError> {
+        Ok(format!("blake3:{}", hash_to_string(&self.canonical_bytes()?)))
+    }
+
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.provenance_id.trim().is_empty()
+            || self.provenance_version == 0
+            || self.review_digest.trim().is_empty()
+            || self.canonicalization_version.trim().is_empty()
+            || self.provenance_digest.trim().is_empty()
+            || self.evidence_basis.is_empty()
+        {
+            return Err(InstructionalScienceContractError::InvalidResolutionPolicyProvenance);
+        }
+        self.policy.validate()?;
+        let mut refs = BTreeSet::new();
+        for evidence in &self.evidence_basis {
+            if evidence.source_id.trim().is_empty()
+                || evidence.source_version.trim().is_empty()
+                || evidence.source_digest.trim().is_empty()
+                || !refs.insert((
+                    evidence.source_id.clone(),
+                    evidence.source_version.clone(),
+                    evidence.source_digest.clone(),
+                ))
+            {
+                return Err(InstructionalScienceContractError::DuplicateResolutionPolicyProvenanceReference);
+            }
+        }
+        if self.compute_digest()? != self.provenance_digest {
+            return Err(InstructionalScienceContractError::ResolutionPolicyProvenanceDigestMismatch);
+        }
+        Ok(())
+    }
+}
+
 /// Derived closure classification for an exact derivation resolution.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum InstructionalDerivationClosureStatus {
@@ -2389,6 +2459,9 @@ pub enum InstructionalScienceContractError {
     ResolutionClosureCountMismatch,
     ResolutionClosureStatusMismatch,
     ResolutionClosureDigestMismatch,
+    InvalidResolutionPolicyProvenance,
+    DuplicateResolutionPolicyProvenanceReference,
+    ResolutionPolicyProvenanceDigestMismatch,
     DuplicateTransformationReference,
     AnalysisDerivationDigestMismatch,
     AnalysisDerivationSequenceMismatch,
