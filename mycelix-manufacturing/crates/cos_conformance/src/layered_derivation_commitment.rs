@@ -268,6 +268,7 @@ mod tests {
     fn d6w_rejects_self_consistent_closure_with_wrong_selected_node() {
         let (p,e,d,mut c) = fixture(false);
         c.included_nodes.insert("dep".into(), "substituted-node".into());
+        c.included_node_commitments.remove("n-dep");
         c.included_node_commitments.insert("substituted-node".into());
         c.dependencies = c.expected_dependencies();
         c.dependency_resolutions = c
@@ -287,7 +288,9 @@ mod tests {
     fn d6w_rejects_self_consistent_closure_with_wrong_selected_edge() {
         let (p,e,d,mut c) = fixture(false);
         let edge = c.included_edges.get_mut("e1").unwrap();
+        let old_edge_commitment = edge.3.clone();
         edge.3 = "substituted-edge".into();
+        c.included_edge_commitments.remove(&old_edge_commitment);
         c.included_edge_commitments.insert("substituted-edge".into());
         c.dependencies = c.expected_dependencies();
         c.dependency_resolutions = c
