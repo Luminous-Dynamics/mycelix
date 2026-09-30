@@ -49,3 +49,29 @@ Each vector declares:
 The test runner validates the corpus vocabulary and executes each supported semantic mutation. Runtime evidence is deliberately handled by the dedicated audit-boundary test because it mutates the D6X certificate rather than the source OAD fixture.
 
 This makes the mutation matrix reviewable as data while retaining Rust-level assertions for the cryptographic propagation boundary.
+
+
+## Exact propagation matrix
+
+The machine-readable corpus now records the expected delta at each identity boundary, rather than only a coarse classification. Each valid vector declares whether it changes:
+
+- the selected OAD semantic commitment;
+- the D6X candidate-independent closure identity;
+- the D6X certificate/audit commitment;
+- the D6W input commitment;
+- the D6W derivation commitment;
+- the D6X closure status.
+
+This makes an important distinction executable:
+
+- **semantic identity** answers whether the qualified dependency boundary changed;
+- **certificate/audit identity** may change when candidate or runtime evidence changes without changing semantic identity;
+- **D6W** is fail-closed and must never consume an incomplete D6X closure.
+
+For the current ReferenceModelOnly fixture, candidate noise and runtime resolution evidence are intentionally audit-only, while a required-but-missing D6P receipt changes the D6X closure identity and blocks D6W consumption.
+
+The corpus therefore checks the stronger invariant:
+
+> every mutation propagates exactly through the declared dependency boundary, and no farther.
+
+The Integral developer guide describes OAD → COS as a data contract in which the certified design package is the authoritative source for the COS production plan; the conformance fixture remains a local reference model rather than a claim about a ratified Integral wire schema. 
