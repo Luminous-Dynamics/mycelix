@@ -1207,14 +1207,42 @@ impl InstructionalAnalysisDerivationReceipt {
         self.derived_outcome.validate()?;
 
         let mut refs = BTreeSet::new();
-        for transformation in &self.transformations {
-            transformation.validate()?;
-            if !refs.insert((
-                transformation.transformation_id.clone(),
-                transformation.transformation_version,
-                transformation.transformation_digest.clone(),
-            )) {
-                return Err(InstructionalScienceContractError::DuplicateTransformationReference);
+        let mut seen_outputs = BTreeSet::new();
+        if self.transformations.is_empty() {
+            if self.source_outcome != self.derived_outcome {
+                return Err(InstructionalScienceContractError::AnalysisDerivationEndpointMismatch);
+            }
+        } else {
+            for (index, transformation) in self.transformations.iter().enumerate() {
+                transformation.validate()?;
+                if transformation.sequence != (index + 1) as u32 {
+                    return Err(InstructionalScienceContractError::AnalysisDerivationSequenceMismatch);
+                }
+                if index == 0 {
+                    if transformation.input_outcome != self.source_outcome {
+                        return Err(InstructionalScienceContractError::AnalysisDerivationEndpointMismatch);
+                    }
+                } else if self.transformations[index - 1].output_outcome != transformation.input_outcome {
+                    return Err(InstructionalScienceContractError::AnalysisDerivationChainMismatch);
+                }
+                if !refs.insert((
+                    transformation.transformation_id.clone(),
+                    transformation.transformation_version,
+                    transformation.transformation_digest.clone(),
+                )) {
+                    return Err(InstructionalScienceContractError::DuplicateTransformationReference);
+                }
+                let output_key = (
+                    transformation.output_outcome.outcome_measure_id.clone(),
+                    transformation.output_outcome.outcome_measure_version.clone(),
+                    transformation.output_outcome.outcome_measure_digest.clone(),
+                );
+                if !seen_outputs.insert(output_key) {
+                    return Err(InstructionalScienceContractError::AnalysisDerivationCycle);
+                }
+            }
+            if self.transformations.last().unwrap().output_outcome != self.derived_outcome {
+                return Err(InstructionalScienceContractError::AnalysisDerivationEndpointMismatch);
             }
         }
 
