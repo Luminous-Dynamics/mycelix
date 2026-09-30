@@ -729,6 +729,30 @@ pub fn current_receipt_matches_composition(
         == Some(receipt.qualification_transition_id.as_str())
 }
 
+/// Reconstruct the authoritative D6P composition from its source inputs and
+/// require the supplied receipt to be an exact projection of that result.
+pub fn verify_current_receipt_provenance(
+    receipt: &CurrentFinalityEligibilityReceiptV1,
+    set: &ExternalObservationSetV1,
+    assessment: &ObservationSetAssessmentV1,
+    evidence: &[ExternalObservedEvidenceV1],
+    eligibility_receipts: &[EvidenceEligibilityReceiptV1],
+    lifecycle_profile_id: &str,
+    current_frontier_root: &str,
+    required_independent_observations: u32,
+) -> bool {
+    let composition = compose_finality_eligibility(
+        set,
+        assessment,
+        evidence,
+        eligibility_receipts,
+        lifecycle_profile_id,
+        current_frontier_root,
+        required_independent_observations,
+    );
+    current_receipt_matches_composition(receipt, &composition)
+}
+
 pub fn current_finality_receipt_is_non_authorizing(
     receipt: &CurrentFinalityEligibilityReceiptV1,
 ) -> bool {
