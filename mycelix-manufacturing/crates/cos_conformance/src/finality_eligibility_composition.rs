@@ -770,7 +770,7 @@ mod tests {
     }
 
     fn matching_composition() -> FinalityEligibilityCompositionV1 {
-        FinalityEligibilityCompositionV1 {
+        let mut composition = FinalityEligibilityCompositionV1 {
             composition_id: "composition:set-1".into(),
             effect_id: "effect-1".into(),
             effect_lineage_id: "lineage-1".into(),
@@ -808,7 +808,9 @@ mod tests {
             qualification_transition_id: Some("transition-1".into()),
             composition_commitment: "composition-commitment-1".into(),
             claim_ceiling: FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING.into(),
-        }
+        };
+        composition.composition_commitment = composition.recomputed_commitment();
+        composition
     }
 
     #[test]
