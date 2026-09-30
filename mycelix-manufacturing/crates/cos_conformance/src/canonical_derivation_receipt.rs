@@ -880,7 +880,7 @@ mod tests {
         let mut p = projection();
         p.nodes.insert("x".into(), QualifiedNodeV1 {
             node_id: "x".into(), kind: ClaimGraphNodeKindV1::Assessment,
-            node_commitment: "node-x".into(), historical_only: false,
+            content_commitment: "content-x".into(), node_commitment: "node-x".into(), historical_only: false,
             current_frontier_root: Some("frontier-1".into()), claim_ceiling: D6S_CLAIM_CEILING.into(),
         });
         p.edges.insert("cycle-a".into(), QualifiedEdgeV1 {
