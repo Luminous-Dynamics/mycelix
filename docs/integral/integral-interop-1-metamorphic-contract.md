@@ -69,3 +69,20 @@ on a contract.
 That distinction is preserved here: this tranche freezes a deterministic
 ReferenceModelOnly boundary without presenting it as an external protocol
 commitment.
+
+
+## Declarative vector schema
+
+The machine-readable corpus uses explicit mutation operations rather than prose
+descriptions:
+
+- `set`: replace the value at a dot/array-index path.
+- `reorder-object`: rebuild an object at the path with reversed insertion order.
+- `swap-array`: exchange the first two array elements.
+- `reparse`: serialize and parse the supplied JSON value.
+- `hash-domain`: replace the semantic hash domain for the same projection.
+
+Each vector declares an `id`, `operation`, `path`, `value` where applicable,
+and an expected outcome. The Rust conformance test executes these vectors
+directly. This makes the corpus closer to an interoperable test specification
+rather than a prose checklist.
