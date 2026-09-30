@@ -337,12 +337,8 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         }
         FlatOp::Delete(OpDelete { action }) => {
             let original = must_get_valid_record(action.deletes_address.clone())?;
-            let original_action: TypedAction<EntryCreationData> =
-                original.action().clone().try_into().map_err(|_| {
-                    wasm_error!(WasmErrorInner::Guest(
-                        "Deleted address must reference an entry creation action".into(),
-                    ))
-                })?;
+            let original_action =
+                TypedAction::<EntryCreationData>::try_from_action(original.action().clone())?;
 
             let authorship = check_author_match(
                 original_action.author(),
