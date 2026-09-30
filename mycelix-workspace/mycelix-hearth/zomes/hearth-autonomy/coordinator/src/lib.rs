@@ -9,7 +9,7 @@
 use hdk::prelude::*;
 use hearth_autonomy_integrity::*;
 use hearth_coordinator_common::{
-    decode_zome_response, get_latest_record, records_from_links, require_guardian,
+    decode_zome_response, get_unique_latest_record, records_from_links, require_guardian,
     require_membership,
 };
 use hearth_types::*;
@@ -217,7 +217,7 @@ pub fn approve_capability(input: ApproveCapabilityInput) -> ExternResult<Record>
     let now = sys_time()?;
 
     // Get the request to find its hearth_hash for guardian verification
-    let request_record = get_latest_record(input.request_hash.clone())?.ok_or(wasm_error!(
+    let request_record = get_unique_latest_record(input.request_hash.clone())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Autonomy request not found".into())
     ))?;
     let mut request: AutonomyRequest = request_record
@@ -313,7 +313,7 @@ pub fn advance_tier(input: AdvanceTierInput) -> ExternResult<Record> {
     let now = sys_time()?;
 
     // Get the current profile (follow update chain)
-    let profile_record = get_latest_record(input.profile_hash.clone())?.ok_or(wasm_error!(
+    let profile_record = get_unique_latest_record(input.profile_hash.clone())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Autonomy profile not found".into())
     ))?;
 
@@ -417,7 +417,7 @@ pub fn progress_transition(transition_hash: ActionHash) -> ExternResult<Record> 
     )?;
     let now = sys_time()?;
 
-    let record = get_latest_record(transition_hash.clone())?.ok_or(wasm_error!(
+    let record = get_unique_latest_record(transition_hash.clone())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Tier transition not found".into())
     ))?;
 
@@ -462,7 +462,7 @@ pub fn progress_transition(transition_hash: ActionHash) -> ExternResult<Record> 
                 wasm_error!(WasmErrorInner::Guest("Invalid profile link target".into()))
             })?;
 
-            if let Some(profile_record) = get_latest_record(profile_hash.clone())? {
+            if let Some(profile_record) = get_unique_latest_record(profile_hash.clone())? {
                 let mut profile: AutonomyProfile = profile_record
                     .entry()
                     .to_app_option()
@@ -504,7 +504,7 @@ pub fn get_autonomy_profile(member: AgentPubKey) -> ExternResult<Option<Record>>
     if let Some(link) = links.last() {
         let action_hash = ActionHash::try_from(link.target.clone())
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        Ok(get_latest_record(action_hash)?)
+        Ok(get_unique_latest_record(action_hash)?)
     } else {
         Ok(None)
     }
@@ -528,7 +528,7 @@ pub fn check_capability(input: CheckCapabilityInput) -> ExternResult<bool> {
     let action_hash = ActionHash::try_from(profile_link.target.clone())
         .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
 
-    let record = match get_latest_record(action_hash)? {
+    let record = match get_unique_latest_record(action_hash)? {
         Some(r) => r,
         None => return Ok(false),
     };
