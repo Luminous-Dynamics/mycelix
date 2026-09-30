@@ -742,6 +742,45 @@ fn stale_selected_edge_commitment_is_rejected_at_d6x_boundary() {
 
 
 #[test]
+fn d6w_standalone_input_rejects_duplicate_selected_commitments() {
+    let baseline = fixture();
+    let (projection, env, derivation) = projection(&baseline, false, false);
+    let closure = compute_dependency_closure(&projection, &env, &derivation, &closure_profile(false))
+        .expect("baseline closure");
+    let input = InputCommitmentV1::from_projection(&projection, &env, &closure)
+        .expect("baseline input");
+
+    let mut duplicated = input.clone();
+    duplicated.nodes.push(duplicated.nodes[0].clone());
+    duplicated.commitment = duplicated.recompute();
+    assert!(
+        !duplicated.valid(),
+        "re-hashing must not make duplicate selected commitments canonical"
+    );
+}
+
+#[test]
+fn d6w_standalone_input_rejects_noncanonical_selected_commitment_order() {
+    let baseline = fixture();
+    let (projection, env, derivation) = projection(&baseline, false, false);
+    let closure = compute_dependency_closure(&projection, &env, &derivation, &closure_profile(false))
+        .expect("baseline closure");
+    let input = InputCommitmentV1::from_projection(&projection, &env, &closure)
+        .expect("baseline input");
+
+    assert!(input.nodes.windows(2).all(|pair| pair[0] < pair[1]));
+    assert!(input.edges.windows(2).all(|pair| pair[0] < pair[1]));
+
+    let mut reordered = input.clone();
+    reordered.nodes.reverse();
+    reordered.commitment = reordered.recompute();
+    assert!(
+        !reordered.valid(),
+        "re-hashing must not make reordered selected commitments canonical"
+    );
+}
+
+#[test]
 fn d6w_standalone_input_rejects_noncanonical_selected_commitment() {
     let baseline = fixture();
     let (projection, env, derivation) = projection(&baseline, false, false);
