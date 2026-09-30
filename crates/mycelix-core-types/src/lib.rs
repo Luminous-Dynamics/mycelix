@@ -152,6 +152,7 @@ pub mod harmonic;
 pub mod k_vector;
 pub mod moral;
 pub mod relationship;
+pub mod commitment;
 pub mod trust;
 pub mod wisdom_engine;
 
@@ -161,6 +162,7 @@ pub use harmonic::*;
 pub use k_vector::*;
 pub use moral::*;
 pub use relationship::*;
+pub use commitment::*;
 pub use trust::*;
 pub use wisdom_engine::*;
 
