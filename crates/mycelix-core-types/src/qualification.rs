@@ -82,11 +82,11 @@ pub struct QualificationDependencyResult {
 }
 
 impl QualificationCertificate {
-    pub const SCHEMA_VERSION: u16 = 1;
+    pub const SCHEMA_VERSION: u16 = 2;
 
     pub fn canonical_bytes(&self) -> Vec<u8> {
         let mut out = Vec::new();
-        out.extend_from_slice(b"mycelix.qualification-certificate.v1\0");
+        out.extend_from_slice(b"mycelix.qualification-certificate.v2\0");
         out.extend_from_slice(&self.schema_version.to_le_bytes());
         out.extend_from_slice(&self.input_digest);
         write_len(&mut out, self.assertion_evidence.len());
@@ -319,7 +319,7 @@ fn qualification_input_digest(
     dependencies: &[QualificationDependency],
 ) -> [u8; 32] {
     let mut out = Vec::new();
-    out.extend_from_slice(b"mycelix.qualification-inputs.v1\0");
+    out.extend_from_slice(b"mycelix.qualification-inputs.v2\0");
     out.extend_from_slice(relationship_id.as_bytes());
 
     write_len(&mut out, assertions.len());
