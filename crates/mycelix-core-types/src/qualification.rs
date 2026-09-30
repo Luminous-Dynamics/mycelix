@@ -25,6 +25,61 @@ pub struct QualificationCertificate {
     pub frontiers: Vec<SourceFrontier>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub enum QualificationDependencyKind {
+    Assertion,
+    Commitment,
+    Consent,
+    Delegation,
+    Frontier,
+}
+
+/// Stable, version-neutral identity of an external qualification dependency.
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct QualificationDependency {
+    pub kind: QualificationDependencyKind,
+    pub logical_id: [u8; 32],
+    pub record_address: Vec<u8>,
+}
+
+impl QualificationDependency {
+    pub fn new(
+        kind: QualificationDependencyKind,
+        logical_id: [u8; 32],
+        record_address: Vec<u8>,
+    ) -> Result<Self, QualificationError> {
+        if record_address.is_empty() {
+            return Err(QualificationError::EmptyDependencyAddress { logical_id });
+        }
+        Ok(Self { kind, logical_id, record_address })
+    }
+
+    fn canonical_bytes(&self, out: &mut Vec<u8>) {
+        out.push(match self.kind {
+            QualificationDependencyKind::Assertion => 0,
+            QualificationDependencyKind::Commitment => 1,
+            QualificationDependencyKind::Consent => 2,
+            QualificationDependencyKind::Delegation => 3,
+            QualificationDependencyKind::Frontier => 4,
+        });
+        out.extend_from_slice(&self.logical_id);
+        write_bytes(out, &self.record_address);
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum QualificationDependencyResolution {
+    Valid,
+    Invalid { reason: String },
+    Unresolved,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct QualificationDependencyResult {
+    pub dependency: QualificationDependency,
+    pub resolution: QualificationDependencyResolution,
+}
+
 impl QualificationCertificate {
     pub const SCHEMA_VERSION: u16 = 1;
 
@@ -49,6 +104,10 @@ impl QualificationCertificate {
             write_bytes(&mut out, frontier.source.as_bytes());
             out.extend_from_slice(&frontier.observed_revision.to_le_bytes());
         }
+        write_len(&mut out, self.dependencies.len());
+        for dependency in &self.dependencies {
+            dependency.canonical_bytes(&mut out);
+        }
         out
     }
 
@@ -68,6 +127,7 @@ pub struct QualifiedRelationshipInputs {
     /// Deterministic evidence of the exact qualified dependency set.
     /// This is not authority and must never be treated as a bearer capability.
     pub certificate: QualificationCertificate,
+    pub dependencies: Vec<QualificationDependency>,
 }
 
 impl QualifiedRelationshipInputs {
@@ -90,6 +150,7 @@ impl QualifiedRelationshipInputs {
             || self.certificate.consent_ids != self.consents.iter().map(|c| c.id).collect::<Vec<_>>()
             || self.certificate.delegation_ids != self.delegations.iter().map(|d| d.id).collect::<Vec<_>>()
             || self.certificate.frontiers != self.frontiers
+            || self.certificate.dependencies != self.dependencies
         {
             return Err(QualificationError::CertificateMismatch);
         }
@@ -104,6 +165,23 @@ impl QualifiedRelationshipInputs {
         consents: &[Consent],
         delegations: &[Delegation],
     ) -> Result<Self, QualificationError> {
+        Self::qualify_with_dependencies(
+            relationship, assertions, frontiers, commitments, consents, delegations, &[],
+        )
+    }
+
+    /// Qualify only after an adapter has supplied deterministic dependency results.
+    /// Invalid and unresolved dependencies are never collapsed into success.
+    pub fn qualify_with_dependencies(
+        relationship: &RelationshipRecord,
+        assertions: &[RelationshipAssertion],
+        frontiers: &[SourceFrontier],
+        commitments: &[Commitment],
+        consents: &[Consent],
+        delegations: &[Delegation],
+        dependency_results: &[QualificationDependencyResult],
+    ) -> Result<Self, QualificationError> {
+        let dependencies = validate_dependency_results(dependency_results)?;
         relationship
             .validate_schema()
             .map_err(QualificationError::RelationshipSchema)?;
@@ -143,6 +221,7 @@ impl QualifiedRelationshipInputs {
                 &ordered_commitments,
                 &ordered_consents,
                 &ordered_delegations,
+                &dependencies,
             ),
             assertion_evidence: ordered_assertions
                 .iter()
@@ -152,6 +231,7 @@ impl QualifiedRelationshipInputs {
             consent_ids: ordered_consents.iter().map(|c| c.id).collect(),
             delegation_ids: ordered_delegations.iter().map(|d| d.id).collect(),
             frontiers: canonical_frontiers.clone(),
+            dependencies: dependencies.clone(),
         };
 
         Ok(Self {
@@ -162,6 +242,7 @@ impl QualifiedRelationshipInputs {
             consents: ordered_consents,
             delegations: ordered_delegations,
             certificate,
+            dependencies,
         })
     }
 }
@@ -197,6 +278,11 @@ pub enum QualificationError {
     DuplicateDelegationId { id: crate::DelegationId },
     InvalidDelegation { id: crate::DelegationId, error: DelegationError },
     CertificateMismatch,
+    EmptyDependencyAddress { logical_id: [u8; 32] },
+    DuplicateDependencyId { logical_id: [u8; 32] },
+    ConflictingDependencyAddress { logical_id: [u8; 32] },
+    InvalidDependency { logical_id: [u8; 32], reason: String },
+    UnresolvedDependency { logical_id: [u8; 32] },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -228,6 +314,7 @@ fn qualification_input_digest(
     commitments: &[Commitment],
     consents: &[Consent],
     delegations: &[Delegation],
+    dependencies: &[QualificationDependency],
 ) -> [u8; 32] {
     let mut out = Vec::new();
     out.extend_from_slice(b"mycelix.qualification-inputs.v1\0");
@@ -262,7 +349,57 @@ fn qualification_input_digest(
         write_bytes(&mut out, &delegation.state_canonical_bytes());
     }
 
+    write_len(&mut out, dependencies.len());
+    for dependency in dependencies {
+        dependency.canonical_bytes(&mut out);
+    }
+
     *blake3::hash(&out).as_bytes()
+}
+
+fn validate_dependency_results(
+    results: &[QualificationDependencyResult],
+) -> Result<Vec<QualificationDependency>, QualificationError> {
+    let mut ordered = results.to_vec();
+    ordered.sort_by(|a, b| a.dependency.cmp(&b.dependency));
+
+    for pair in ordered.windows(2) {
+        if pair[0].dependency.logical_id == pair[1].dependency.logical_id {
+            if pair[0].dependency == pair[1].dependency {
+                return Err(QualificationError::DuplicateDependencyId {
+                    logical_id: pair[0].dependency.logical_id,
+                });
+            }
+            return Err(QualificationError::ConflictingDependencyAddress {
+                logical_id: pair[0].dependency.logical_id,
+            });
+        }
+    }
+
+    let mut dependencies = Vec::with_capacity(ordered.len());
+    for result in ordered {
+        if result.dependency.record_address.is_empty() {
+            return Err(QualificationError::EmptyDependencyAddress {
+                logical_id: result.dependency.logical_id,
+            });
+        }
+        match result.resolution {
+            QualificationDependencyResolution::Valid => {}
+            QualificationDependencyResolution::Invalid { reason } => {
+                return Err(QualificationError::InvalidDependency {
+                    logical_id: result.dependency.logical_id,
+                    reason,
+                });
+            }
+            QualificationDependencyResolution::Unresolved => {
+                return Err(QualificationError::UnresolvedDependency {
+                    logical_id: result.dependency.logical_id,
+                });
+            }
+        }
+        dependencies.push(result.dependency);
+    }
+    Ok(dependencies)
 }
 
 fn validate_frontiers(frontiers: &[SourceFrontier]) -> Result<(), QualificationError> {
@@ -646,6 +783,88 @@ mod tests {
             7,
         )
         .unwrap()
+    }
+
+    #[test]
+    fn unresolved_dependency_never_qualifies() {
+        let id = [7u8; 32];
+        let dependency = QualificationDependency::new(
+            QualificationDependencyKind::Delegation, id, b"record/hash/7".to_vec()
+        ).unwrap();
+        assert_eq!(
+            validate_dependency_results(&[QualificationDependencyResult {
+                dependency, resolution: QualificationDependencyResolution::Unresolved,
+            }]),
+            Err(QualificationError::UnresolvedDependency { logical_id: id })
+        );
+    }
+
+    #[test]
+    fn invalid_dependency_never_qualifies() {
+        let id = [8u8; 32];
+        let dependency = QualificationDependency::new(
+            QualificationDependencyKind::Consent, id, b"record/hash/8".to_vec()
+        ).unwrap();
+        assert_eq!(
+            validate_dependency_results(&[QualificationDependencyResult {
+                dependency,
+                resolution: QualificationDependencyResolution::Invalid {
+                    reason: "record content does not match expected consent identity".into(),
+                },
+            }]),
+            Err(QualificationError::InvalidDependency {
+                logical_id: id,
+                reason: "record content does not match expected consent identity".into(),
+            })
+        );
+    }
+
+    #[test]
+    fn exact_dependency_address_is_bound_into_certificate() {
+        let r = relationship(b"dependency-address");
+        let id = [9u8; 32];
+        let d1 = QualificationDependency::new(
+            QualificationDependencyKind::Commitment, id, b"record/hash/a".to_vec()
+        ).unwrap();
+        let d2 = QualificationDependency::new(
+            QualificationDependencyKind::Commitment, id, b"record/hash/b".to_vec()
+        ).unwrap();
+        let left = QualifiedRelationshipInputs::qualify_with_dependencies(
+            &r, &[], &[], &[], &[], &[],
+            &[QualificationDependencyResult {
+                dependency: d1, resolution: QualificationDependencyResolution::Valid
+            }],
+        ).unwrap();
+        let right = QualifiedRelationshipInputs::qualify_with_dependencies(
+            &r, &[], &[], &[], &[], &[],
+            &[QualificationDependencyResult {
+                dependency: d2, resolution: QualificationDependencyResolution::Valid
+            }],
+        ).unwrap();
+        assert_ne!(left.certificate.input_digest, right.certificate.input_digest);
+        assert_ne!(left.certificate.digest(), right.certificate.digest());
+    }
+
+    #[test]
+    fn conflicting_dependency_addresses_are_rejected() {
+        let id = [10u8; 32];
+        let a = QualificationDependency::new(
+            QualificationDependencyKind::Assertion, id, b"record/a".to_vec()
+        ).unwrap();
+        let b = QualificationDependency::new(
+            QualificationDependencyKind::Assertion, id, b"record/b".to_vec()
+        ).unwrap();
+        assert_eq!(
+            validate_dependency_results(&[
+                QualificationDependencyResult {
+                    dependency: a, resolution: QualificationDependencyResolution::Valid
+                },
+                QualificationDependencyResult {
+                    dependency: b, resolution: QualificationDependencyResolution::Valid
+                },
+            ]),
+            Err(QualificationError::ConflictingDependencyAddress { logical_id: id })
+        );
     }
 
     #[test]
