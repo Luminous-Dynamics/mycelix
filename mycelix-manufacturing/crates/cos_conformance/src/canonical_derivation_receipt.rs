@@ -588,7 +588,7 @@ pub fn current_receipt_is_bound(
     expected_commitment: &str,
     environment: &SemanticEnvironmentV1,
 ) -> bool {
-    receipt.structurally_valid()
+    receipt.commitment_matches()
         && matches!(receipt.disposition, FinalityEligibilityDispositionV1::EligibleCurrent)
         && receipt.receipt_commitment == expected_commitment
         && receipt.claim_ceiling
@@ -632,7 +632,7 @@ mod tests {
     }
 
     fn d6p_receipt() -> CurrentFinalityEligibilityReceiptV1 {
-        CurrentFinalityEligibilityReceiptV1 {
+        let mut receipt = CurrentFinalityEligibilityReceiptV1 {
             receipt_id: "d6p-1".into(), effect_id: "effect".into(), effect_lineage_id: "lineage".into(),
             lifecycle_generation_id: "generation".into(), route_id: "route".into(), provider_id: "provider".into(),
             provider_operation_id: "operation".into(), provider_profile_root: "provider-profile".into(),
