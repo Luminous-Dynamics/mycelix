@@ -336,14 +336,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             ))
         }
         FlatOp::Delete(OpDelete { action }) => {
-            let original = must_get_valid_record(action.deletes_address.clone())?;
-
-            if canonical_catalog_entry_is_non_deletable(&original)? {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Canonical Hearth catalog evidence cannot be deleted; use its defined lifecycle transition instead".into(),
-                ));
-            }
-
+            let original = must_get_action(action.deletes_address.clone())?;
             Ok(check_author_match(
                 original.action().author(),
                 action.author(),
@@ -352,19 +345,6 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         }
         _ => Ok(ValidateCallbackResult::Valid),
     }
-}
-
-fn canonical_catalog_entry_is_non_deletable(
-    record: &Record,
-) -> ExternResult<bool> {
-    if record.entry().to_app_option::<Hearth>()?.is_some()
-        || record.entry().to_app_option::<HearthMembership>()?.is_some()
-        || record.entry().to_app_option::<HearthInvitation>()?.is_some()
-        || record.entry().to_app_option::<InvitationResponse>()?.is_some()
-    {
-        return Ok(true);
-    }
-    Ok(false)
 }
 
 // ============================================================================
