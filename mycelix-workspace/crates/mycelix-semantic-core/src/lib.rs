@@ -17,6 +17,6 @@ pub use canonical::{
 };
 pub use identity::{SemanticEnvironmentRefV1, SemanticSubjectRefV1};
 pub use model::{
-    BoundedSemanticTextV1, Commitment32, MAX_SEMANTIC_TEXT_BYTES, SchemaRefV1,
-    SemanticCoreError, SemanticEnvironmentV1, SemanticIdV1, SemanticProfileRefV1,
+    BoundedSemanticTextV1, Commitment32, MAX_SEMANTIC_TEXT_BYTES, SchemaRefV1, SemanticCoreError,
+    SemanticEnvironmentV1, SemanticIdV1, SemanticProfileRefV1,
 };
