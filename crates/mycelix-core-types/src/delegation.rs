@@ -96,6 +96,16 @@ impl DelegationId {
         Self(*h.finalize().as_bytes())
     }
 
+    /// Derive the canonical, content-bound address for a delegation.
+    pub fn derive_content_bound(delegation: &Delegation) -> Self {
+        let mut h = blake3::Hasher::new();
+        h.update(b"mycelix.delegation-content.v1\0");
+        let canonical = delegation.canonical_bytes();
+        h.update(&(canonical.len() as u64).to_le_bytes());
+        h.update(&canonical);
+        Self(*h.finalize().as_bytes())
+    }
+
     pub const fn as_bytes(&self) -> &[u8; 32] { &self.0 }
 }
 
@@ -204,6 +214,9 @@ impl Delegation {
         if self.status != DelegationStatus::Active { return Err(DelegationError::AlreadyInactive); }
         if actor != &self.principal { return Err(DelegationError::UnauthorizedRevocation); }
         if occurred_at < self.granted_at { return Err(DelegationError::NonMonotonicEventTime); }
+        if authority_epoch != self.authority_epoch {
+            return Err(DelegationError::StaleAuthorityEpoch);
+        }
         self.status = DelegationStatus::Revoked;
         self.events.push(DelegationEvent {
             kind: DelegationEventKind::Revoke,
@@ -214,11 +227,64 @@ impl Delegation {
         Ok(())
     }
 
+    /// Canonical immutable authority content used for content-addressed identity.
+    pub fn canonical_bytes(&self) -> Vec<u8> {
+        let mut out = Vec::new();
+        out.extend_from_slice(b"mycelix.delegation-content.v1\0");
+        out.extend_from_slice(self.relationship_id.as_bytes());
+        self.principal.canonical_bytes(&mut out);
+        self.delegate.canonical_bytes(&mut out);
+        self.action.canonical_bytes(&mut out);
+        self.resource.canonical_bytes(&mut out);
+        out.push(match self.mode {
+            DelegationMode::Propose => 0,
+            DelegationMode::Execute => 1,
+        });
+        out.extend_from_slice(&self.granted_at.to_le_bytes());
+        match self.expires_at {
+            Some(value) => { out.push(1); out.extend_from_slice(&value.to_le_bytes()); }
+            None => out.push(0),
+        }
+        out.extend_from_slice(&self.authority_epoch.to_le_bytes());
+        match self.parent {
+            Some(parent) => { out.push(1); out.extend_from_slice(parent.as_bytes()); }
+            None => out.push(0),
+        }
+        out
+    }
+
+    /// Canonical mutable state, including the revocation event log.
+    pub fn state_canonical_bytes(&self) -> Vec<u8> {
+        let mut out = self.canonical_bytes();
+        out.push(match self.status {
+            DelegationStatus::Active => 0,
+            DelegationStatus::Revoked => 1,
+        });
+        out.extend_from_slice(&(self.events.len() as u64).to_le_bytes());
+        for event in &self.events {
+            out.push(match event.kind {
+                DelegationEventKind::Grant => 0,
+                DelegationEventKind::Revoke => 1,
+            });
+            event.actor.canonical_bytes(&mut out);
+            out.extend_from_slice(&event.occurred_at.to_le_bytes());
+            out.extend_from_slice(&event.authority_epoch.to_le_bytes());
+        }
+        out
+    }
+
+    pub fn validate_identity(&self) -> Result<(), DelegationError> {
+        let expected = DelegationId::derive_content_bound(self);
+        if self.id != expected { return Err(DelegationError::IdentityMismatch); }
+        Ok(())
+    }
+
     pub fn authorize(
         &self,
         request: &ExecutionRequest,
         context: &DelegationContext<'_>,
     ) -> Result<ExecutionDecision, DelegationError> {
+        self.validate_identity()?;
         self.validate_request(request)?;
         if self.parent.is_some() {
             self.validate_parent_chain(context, request)?;
@@ -329,6 +395,7 @@ pub enum DelegationError {
     ActionExceeded,
     ResourceExceeded,
     ModeMismatch,
+    IdentityMismatch,
     DuplicateDelegationId { id: DelegationId },
     MissingParent { id: DelegationId },
     ParentInactive { id: DelegationId },
@@ -343,6 +410,34 @@ pub enum DelegationError {
     ChildOutlivesParent,
     DelegationCycle { id: DelegationId },
     DelegationChainTooDeep,
+}
+
+impl PrincipalRef {
+    fn canonical_bytes(&self, out: &mut Vec<u8>) {
+        write_len_prefixed(out, self.participant.namespace.as_bytes());
+        write_len_prefixed(out, self.participant.identifier.as_bytes());
+    }
+}
+
+impl ActionScope {
+    fn canonical_bytes(&self, out: &mut Vec<u8>) {
+        match self {
+            Self::Named(value) => { out.push(0); write_len_prefixed(out, value.as_bytes()); }
+        }
+    }
+}
+
+impl ResourceScope {
+    fn canonical_bytes(&self, out: &mut Vec<u8>) {
+        match self {
+            Self::Named(value) => { out.push(0); write_len_prefixed(out, value.as_bytes()); }
+        }
+    }
+}
+
+fn write_len_prefixed(out: &mut Vec<u8>, bytes: &[u8]) {
+    out.extend_from_slice(&(bytes.len() as u64).to_le_bytes());
+    out.extend_from_slice(bytes);
 }
 
 impl fmt::Display for DelegationError {
@@ -363,6 +458,7 @@ impl fmt::Display for DelegationError {
             Self::ActionExceeded => "requested action exceeds delegation",
             Self::ResourceExceeded => "requested resource exceeds delegation",
             Self::ModeMismatch => "request mode does not match delegation",
+            Self::IdentityMismatch => "delegation identifier does not match canonical authority content",
             Self::DuplicateDelegationId { .. } => "delegation context contains duplicate identifiers",
             Self::MissingParent { .. } => "parent delegation is missing from validation context",
             Self::ParentInactive { .. } => "parent delegation is not active",
@@ -654,6 +750,31 @@ mod tests {
         };
         assert_eq!(child.authorize(&req, &context(&[parent])),
             Err(DelegationError::ChildOutlivesParent));
+    }
+
+    #[test]
+    fn content_bound_identity_is_deterministic_and_detects_tampering() {
+        let mut d = delegation(DelegationMode::Execute);
+        d.id = DelegationId::derive_content_bound(&d);
+        assert_eq!(d.validate_identity(), Ok(()));
+
+        d.resource = ResourceScope::named("acme:opportunity:8").unwrap();
+        assert_eq!(d.validate_identity(), Err(DelegationError::IdentityMismatch));
+    }
+
+    #[test]
+    fn stale_revocation_epoch_does_not_mutate_state() {
+        let mut d = delegation(DelegationMode::Execute);
+        let before = d.clone();
+        assert_eq!(d.revoke(&p("alice"), 160, 5), Err(DelegationError::StaleAuthorityEpoch));
+        assert_eq!(d, before);
+    }
+
+    #[test]
+    fn canonical_bytes_are_stable() {
+        let d = delegation(DelegationMode::Execute);
+        assert_eq!(d.canonical_bytes(), d.canonical_bytes());
+        assert_eq!(d.state_canonical_bytes(), d.state_canonical_bytes());
     }
 
     #[test]
