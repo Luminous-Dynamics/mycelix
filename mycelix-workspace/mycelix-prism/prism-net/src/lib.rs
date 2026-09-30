@@ -32,6 +32,8 @@ pub enum FetchError {
     Policy(&'static str),
     #[error("DNS resolution returned no addresses for {host}")]
     NoDnsAnswers { host: String },
+    #[error("DNS resolution failed for {host}: {reason}")]
+    DnsResolution { host: String, reason: String },
     #[error("DNS resolution included a prohibited address for {host}: {addr}")]
     UnsafeDnsAnswer { host: String, addr: IpAddr },
     #[error("Response headers exceed configured bounds")]
@@ -109,12 +111,13 @@ impl SafeFetchClient {
                 });
             }
         } else {
-            let addrs: Vec<SocketAddr> =
-                tokio::net::lookup_host((host.as_str(), port))
-                    .await
-                    .map_err(reqwest::Error::from)
-                    .map_err(FetchError::Http)?
-                    .collect();
+            let addrs: Vec<SocketAddr> = tokio::net::lookup_host((host.as_str(), port))
+                .await
+                .map_err(|e| FetchError::DnsResolution {
+                    host: host.clone(),
+                    reason: e.to_string(),
+                })?
+                .collect();
 
             if addrs.is_empty() {
                 return Err(FetchError::NoDnsAnswers { host });
