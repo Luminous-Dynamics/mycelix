@@ -55,18 +55,17 @@ pub struct Relationship360 {
     pub commitments: Vec<CommitmentSummary>,
     pub consents: Vec<ConsentSummary>,
     pub delegations: Vec<DelegationSummary>,
+    /// Exact external dependencies used during qualification.
+    pub dependencies: Vec<QualificationDependency>,
 }
 
 impl Relationship360 {
-    pub const SCHEMA_VERSION: u16 = 1;
+    pub const SCHEMA_VERSION: u16 = 2;
 
     /// Exact dependencies used to construct the projection, as recorded by
     /// the qualification certificate. This is evidence, not authority.
     pub fn qualified_dependency_manifest(&self) -> &[QualificationDependency] {
-        // Relationship360 intentionally stores only the read-model summary.
-        // The manifest is therefore recovered from the canonical projection
-        // input digest boundary only when retained explicitly below.
-        &[]
+        &self.dependencies
     }
 
     /// Qualify raw source records and then project them.
@@ -205,6 +204,7 @@ impl Relationship360 {
             commitments,
             consents,
             delegations,
+            dependencies: qualified.dependencies.clone(),
         })
     }
 
@@ -218,7 +218,7 @@ impl Relationship360 {
 
     pub fn canonical_bytes(&self) -> Vec<u8> {
         let mut out = Vec::new();
-        out.extend_from_slice(b"mycelix.relationship-360.v1\0");
+        out.extend_from_slice(b"mycelix.relationship-360.v2\0");
         out.extend_from_slice(&self.schema_version.to_le_bytes());
         out.extend_from_slice(self.relationship_id.as_bytes());
         out.extend_from_slice(&self.relationship_revision.to_le_bytes());
@@ -257,6 +257,11 @@ impl Relationship360 {
             out.push(x.status as u8);
             out.push(x.mode as u8);
             out.extend_from_slice(&x.authority_epoch.to_le_bytes());
+        }
+
+        out.extend_from_slice(&(self.dependencies.len() as u64).to_le_bytes());
+        for dependency in &self.dependencies {
+            dependency.canonical_bytes(&mut out);
         }
 
         out
