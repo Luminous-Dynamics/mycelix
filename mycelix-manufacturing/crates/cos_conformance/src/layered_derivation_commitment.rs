@@ -160,6 +160,8 @@ impl LayeredReceiptV1 {
             || closure.projection_commitment != p.commitment()
             || closure.semantic_environment_commitment != e.commitment()
             || closure.derivation_profile_commitment != profile.commitment()
+            || closure.closure_profile_commitment != profile.commitment()
+            || closure.root_node_ids != profile.root_node_ids
             || d6s.projection_commitment!=p.commitment()
             || d6s.semantic_environment_commitment!=e.commitment()
             || d6s.derivation_profile_commitment!=profile.commitment()
