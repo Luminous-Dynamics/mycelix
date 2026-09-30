@@ -1,0 +1,126 @@
+{
+  "schema_version": "mobility-configuration-contract-qualification-v1",
+  "status": "semantic-qualification-only",
+  "vectors": [
+    {
+      "id": "MC-CONFIG-001",
+      "scenario": "same-design-different-artifacts",
+      "expected_outcome": "distinct-physical-artifacts",
+      "forbidden_inference": "artifact-identity-collapse"
+    },
+    {
+      "id": "MC-CONFIG-002",
+      "scenario": "same-cad-different-process",
+      "expected_outcome": "manufacturing-lineage-preserved",
+      "forbidden_inference": "cad-equality-proves-physical-equivalence"
+    },
+    {
+      "id": "MC-CONFIG-003",
+      "scenario": "component-substitution",
+      "expected_outcome": "substitution-lineage-and-revalidation",
+      "forbidden_inference": "compatibility-claim-proves-equivalence"
+    },
+    {
+      "id": "MC-CONFIG-004",
+      "scenario": "failed-test-followed-by-later-test",
+      "expected_outcome": "historical-evidence-preserved",
+      "forbidden_inference": "later-pass-erases-failure"
+    },
+    {
+      "id": "MC-CONFIG-005",
+      "scenario": "simulation-equals-measurement",
+      "expected_outcome": "prediction-observation-remain-distinct",
+      "forbidden_inference": "numerical-equality-converts-prediction-to-observation"
+    },
+    {
+      "id": "MC-CONFIG-006",
+      "scenario": "negative-inspection-finding",
+      "expected_outcome": "negative-evidence-preserved",
+      "forbidden_inference": "only-success-is-authoritative"
+    },
+    {
+      "id": "MC-CONFIG-007",
+      "scenario": "undeclared-dependency",
+      "expected_outcome": "unknown-or-review-required",
+      "forbidden_inference": "missing-dependency-means-unaffected"
+    },
+    {
+      "id": "MC-CONFIG-008",
+      "scenario": "private-payload-public-provenance",
+      "expected_outcome": "controlled-payload-with-public-provenance",
+      "forbidden_inference": "public-commitment-proves-private-access"
+    },
+    {
+      "id": "MC-CONFIG-009",
+      "scenario": "foreign-engineering-identifier",
+      "expected_outcome": "explicit-binding-or-rejection",
+      "forbidden_inference": "foreign-id-silently-becomes-native"
+    },
+    {
+      "id": "MC-CONFIG-010",
+      "scenario": "holochain-hash-as-engineering-id",
+      "expected_outcome": "reject-semantic-substitution",
+      "forbidden_inference": "protocol-hash-is-engineering-identity"
+    },
+    {
+      "id": "MC-CONFIG-011",
+      "scenario": "observation-versus-diagnosis",
+      "expected_outcome": "observation-separate-from-interpretation",
+      "forbidden_inference": "observation-proves-root-cause"
+    },
+    {
+      "id": "MC-CONFIG-012",
+      "scenario": "repair-lineage",
+      "expected_outcome": "repair-history-and-resulting-state-preserved",
+      "forbidden_inference": "repair-erases-history"
+    },
+    {
+      "id": "MC-CONFIG-013",
+      "scenario": "external-authority-disposition",
+      "expected_outcome": "external-authority-remains-attributable",
+      "forbidden_inference": "graph-consensus-generates-authority"
+    },
+    {
+      "id": "MC-CONFIG-014",
+      "scenario": "assurance-criticality-metadata",
+      "expected_outcome": "metadata-remains-descriptive",
+      "forbidden_inference": "criticality-label-proves-safety"
+    },
+    {
+      "id": "MC-CONFIG-015",
+      "scenario": "multimodal-interface",
+      "expected_outcome": "interface-dependencies-explicit",
+      "forbidden_inference": "shared-connector-proves-interoperability"
+    },
+    {
+      "id": "MC-CONFIG-016",
+      "scenario": "configuration-supersession",
+      "expected_outcome": "historical-predecessor-preserved",
+      "forbidden_inference": "supersession-deletes-history"
+    },
+    {
+      "id": "MC-CONFIG-017",
+      "scenario": "open-revalidation-obligation",
+      "expected_outcome": "obligation-remains-open",
+      "forbidden_inference": "obligation-means-test-passed"
+    },
+    {
+      "id": "MC-CONFIG-018",
+      "scenario": "ground-and-marine-instances",
+      "expected_outcome": "shared-core-profile-specific-divergence",
+      "forbidden_inference": "domain-neutrality-forces-identical-engineering"
+    },
+    {
+      "id": "MC-CONFIG-019",
+      "scenario": "software-firmware-change",
+      "expected_outcome": "dependency-aware-change-lineage",
+      "forbidden_inference": "unchanged-cad-means-unchanged-configuration"
+    },
+    {
+      "id": "MC-CONFIG-020",
+      "scenario": "retired-physical-artifact",
+      "expected_outcome": "historical-artifact-not-active",
+      "forbidden_inference": "historical-existence-means-current-validity"
+    }
+  ]
+}
