@@ -2,6 +2,8 @@ use serde::Deserialize;
 use thiserror::Error;
 
 const CORPUS: &str = include_str!("../../../docs/aerocommons/AERO_AUTHORITY_CEILING_V1.json");
+const FIXTURES: &str =
+    include_str!("../../../docs/aerocommons/AERO_HOLOCHAIN_FIXTURE_CONTRACT_V1.json");
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Corpus {
@@ -31,6 +33,28 @@ pub enum ValidatorResult {
     Unresolved,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct FixtureContract {
+    pub schema: String,
+    pub status: String,
+    pub validator_model: String,
+    pub authority_ceiling: String,
+    pub cases: Vec<FixtureCase>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct FixtureCase {
+    pub id: String,
+    pub operation_kind: String,
+    pub operation_variant: String,
+    pub subject_kind: String,
+    pub dependency_mode: String,
+    pub mutable_state_dependency: bool,
+    pub expected_validator_result: ValidatorResult,
+    pub engineering_status: String,
+    pub forbidden_inference: String,
+}
+
 #[derive(Debug, Error)]
 pub enum CorpusError {
     #[error("corpus JSON is invalid: {0}")]
@@ -45,12 +69,20 @@ pub enum CorpusError {
     MissingNonclaim(&'static str),
     #[error("case {0} has an empty required field")]
     EmptyField(String),
+    #[error("fixture contract is invalid: {0}")]
+    Fixture(String),
 }
 
 pub fn load() -> Result<Corpus, CorpusError> {
     let corpus: Corpus = serde_json::from_str(CORPUS)?;
     validate(&corpus)?;
     Ok(corpus)
+}
+
+pub fn load_fixture_contract() -> Result<FixtureContract, CorpusError> {
+    let contract: FixtureContract = serde_json::from_str(FIXTURES)?;
+    validate_fixture_contract(&contract)?;
+    Ok(contract)
 }
 
 pub fn validate(corpus: &Corpus) -> Result<(), CorpusError> {
@@ -100,6 +132,98 @@ pub fn validate(corpus: &Corpus) -> Result<(), CorpusError> {
     Ok(())
 }
 
+pub fn validate_fixture_contract(contract: &FixtureContract) -> Result<(), CorpusError> {
+    if contract.schema != "aerocommons-holochain-fixture-contract-v1" {
+        return Err(CorpusError::Fixture(format!(
+            "unexpected schema: {}",
+            contract.schema
+        )));
+    }
+    if contract.validator_model != "holochain-integrity-validation" {
+        return Err(CorpusError::Fixture(format!(
+            "unexpected validator model: {}",
+            contract.validator_model
+        )));
+    }
+    if contract.authority_ceiling != "protocol_integrity_only" {
+        return Err(CorpusError::Fixture(format!(
+            "unexpected authority ceiling: {}",
+            contract.authority_ceiling
+        )));
+    }
+    if contract.cases.len() != 14 {
+        return Err(CorpusError::Fixture(format!(
+            "expected 14 fixture cases, found {}",
+            contract.cases.len()
+        )));
+    }
+
+    let corpus = load()?;
+    let corpus_ids: std::collections::BTreeSet<_> =
+        corpus.cases.iter().map(|case| case.id.as_str()).collect();
+    let fixture_ids: std::collections::BTreeSet<_> = contract
+        .cases
+        .iter()
+        .map(|case| case.id.as_str())
+        .collect();
+
+    if corpus_ids != fixture_ids {
+        return Err(CorpusError::Fixture(
+            "fixture IDs must exactly match authority-ceiling corpus IDs".into(),
+        ));
+    }
+
+    for fixture in &contract.cases {
+        if fixture.operation_kind.is_empty()
+            || fixture.operation_variant.is_empty()
+            || fixture.subject_kind.is_empty()
+            || fixture.dependency_mode.is_empty()
+            || fixture.engineering_status.is_empty()
+            || fixture.forbidden_inference.is_empty()
+        {
+            return Err(CorpusError::Fixture(format!(
+                "{} has an empty required field",
+                fixture.id
+            )));
+        }
+
+        if fixture.mutable_state_dependency
+            && fixture.expected_validator_result != ValidatorResult::Invalid
+        {
+            return Err(CorpusError::Fixture(format!(
+                "{} marks mutable state as a validation dependency without rejecting it",
+                fixture.id
+            )));
+        }
+
+        if fixture.dependency_mode == "addressable_valid_record"
+            && fixture.expected_validator_result == ValidatorResult::Unresolved
+        {
+            // This is the explicit missing-dependency case: the fixture contract models
+            // the deterministic retrieval path, while Unresolved captures temporary
+            // unavailability rather than inventing a negative engineering result.
+        }
+
+        let source = corpus
+            .cases
+            .iter()
+            .find(|case| case.id == fixture.id)
+            .expect("fixture IDs were checked above");
+
+        if fixture.expected_validator_result != source.expected_validator_result
+            || fixture.engineering_status != source.engineering_status
+            || fixture.forbidden_inference != source.forbidden_inference
+        {
+            return Err(CorpusError::Fixture(format!(
+                "{} diverges from the authority-ceiling corpus",
+                fixture.id
+            )));
+        }
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -108,6 +232,49 @@ mod tests {
     fn bundled_corpus_is_valid() {
         let corpus = load().expect("bundled authority-ceiling corpus must validate");
         assert_eq!(corpus.cases.len(), 14);
+    }
+
+    #[test]
+    fn bundled_holochain_fixture_contract_is_valid() {
+        let fixtures =
+            load_fixture_contract().expect("bundled Holochain fixture contract must validate");
+        assert_eq!(fixtures.cases.len(), 14);
+    }
+
+    #[test]
+    fn fixture_contract_has_one_to_one_case_coverage() {
+        let corpus = load().unwrap();
+        let fixtures = load_fixture_contract().unwrap();
+
+        let corpus_ids: std::collections::BTreeSet<_> =
+            corpus.cases.iter().map(|case| case.id.as_str()).collect();
+        let fixture_ids: std::collections::BTreeSet<_> =
+            fixtures.cases.iter().map(|case| case.id.as_str()).collect();
+
+        assert_eq!(corpus_ids, fixture_ids);
+    }
+
+    #[test]
+    fn mutable_state_is_only_used_by_rejection_fixture() {
+        let fixtures = load_fixture_contract().unwrap();
+        for case in &fixtures.cases {
+            if case.mutable_state_dependency {
+                assert_eq!(case.expected_validator_result, ValidatorResult::Invalid);
+            }
+        }
+    }
+
+    #[test]
+    fn missing_dependency_is_unresolved_not_invalid() {
+        let fixtures = load_fixture_contract().unwrap();
+        let case = fixtures
+            .cases
+            .iter()
+            .find(|case| case.id == "AC-AUTH-011")
+            .unwrap();
+
+        assert_eq!(case.dependency_mode, "addressable_valid_record");
+        assert_eq!(case.expected_validator_result, ValidatorResult::Unresolved);
     }
 
     #[test]
