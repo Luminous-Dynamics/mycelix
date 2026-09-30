@@ -6,7 +6,7 @@
 //! Provides CRUD operations for emergency plans, alerts, and safety check-ins.
 
 use hdk::prelude::*;
-use hearth_coordinator_common::{decode_zome_response, get_unique_latest_record, require_membership};
+use hearth_coordinator_common::{get_unique_latest_record, require_membership};
 use hearth_emergency_integrity::*;
 use hearth_types::*;
 use mycelix_bridge_common::{
@@ -326,7 +326,7 @@ pub fn get_active_alerts(hearth_hash: ActionHash) -> ExternResult<Vec<Record>> {
                 "Link target is not an ActionHash".into()
             )))?;
 
-        if let Some(record) = get_latest_record(target)? {
+        if let Some(record) = get_unique_latest_record(target)? {
             let alert: EmergencyAlert = record
                 .entry()
                 .to_app_option()
@@ -365,7 +365,7 @@ pub fn get_alert_checkins(alert_hash: ActionHash) -> ExternResult<Vec<Record>> {
                 "Link target is not an ActionHash".into()
             )))?;
 
-        if let Some(record) = get_latest_record(target)? {
+        if let Some(record) = get_unique_latest_record(target)? {
             checkins.push(record);
         }
     }
@@ -391,7 +391,7 @@ pub fn get_emergency_plan(hearth_hash: ActionHash) -> ExternResult<Option<Record
                     "Link target is not an ActionHash".into()
                 )))?;
 
-        let record = get_latest_record(target)?;
+        let record = get_unique_latest_record(target)?;
         Ok(record)
     } else {
         Ok(None)

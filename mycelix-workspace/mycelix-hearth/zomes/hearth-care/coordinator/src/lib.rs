@@ -372,7 +372,7 @@ pub fn create_care_digest(input: DigestEpochInput) -> ExternResult<Vec<CareSumma
     for link in links {
         let action_hash = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        if let Some(record) = get_latest_record(action_hash)? {
+        if let Some(record) = get_unique_latest_record(action_hash)? {
             let schedule: CareSchedule = record
                 .entry()
                 .to_app_option()
