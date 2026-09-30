@@ -1,7 +1,8 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-const CORPUS: &str = include_str!("../../../docs/aerocommons/AERO_AUTHORITY_CEILING_V1.json");
+const CORPUS: &str =
+    include_str!("../../../docs/aerocommons/AERO_AUTHORITY_CEILING_V1.json");
 const FIXTURES: &str =
     include_str!("../../../docs/aerocommons/AERO_HOLOCHAIN_FIXTURE_CONTRACT_V1.json");
 
@@ -187,6 +188,30 @@ pub fn validate_fixture_contract(contract: &FixtureContract) -> Result<(), Corpu
             )));
         }
 
+        let expected_operation = if fixture.id == "AC-AUTH-007" {
+            "FlatOp::Link"
+        } else {
+            "FlatOp::CreateRecord"
+        };
+        if fixture.operation_kind != expected_operation {
+            return Err(CorpusError::Fixture(format!(
+                "{} declares unexpected Holochain 0.7 FlatOp kind {}",
+                fixture.id, fixture.operation_kind
+            )));
+        }
+
+        let expected_variant = if fixture.id == "AC-AUTH-007" {
+            "OpLink::CreateLink"
+        } else {
+            "OpRecord::CreateEntry"
+        };
+        if fixture.operation_variant != expected_variant {
+            return Err(CorpusError::Fixture(format!(
+                "{} declares unexpected Holochain 0.7 operation variant {}",
+                fixture.id, fixture.operation_variant
+            )));
+        }
+
         if fixture.mutable_state_dependency
             && fixture.expected_validator_result != ValidatorResult::Invalid
         {
@@ -194,14 +219,6 @@ pub fn validate_fixture_contract(contract: &FixtureContract) -> Result<(), Corpu
                 "{} marks mutable state as a validation dependency without rejecting it",
                 fixture.id
             )));
-        }
-
-        if fixture.dependency_mode == "addressable_valid_record"
-            && fixture.expected_validator_result == ValidatorResult::Unresolved
-        {
-            // This is the explicit missing-dependency case: the fixture contract models
-            // the deterministic retrieval path, while Unresolved captures temporary
-            // unavailability rather than inventing a negative engineering result.
         }
 
         let source = corpus
@@ -255,6 +272,20 @@ mod tests {
     }
 
     #[test]
+    fn fixture_contract_uses_real_holochain_07_flat_op_names() {
+        let fixtures = load_fixture_contract().unwrap();
+        for case in &fixtures.cases {
+            if case.id == "AC-AUTH-007" {
+                assert_eq!(case.operation_kind, "FlatOp::Link");
+                assert_eq!(case.operation_variant, "OpLink::CreateLink");
+            } else {
+                assert_eq!(case.operation_kind, "FlatOp::CreateRecord");
+                assert_eq!(case.operation_variant, "OpRecord::CreateEntry");
+            }
+        }
+    }
+
+    #[test]
     fn mutable_state_is_only_used_by_rejection_fixture() {
         let fixtures = load_fixture_contract().unwrap();
         for case in &fixtures.cases {
@@ -278,7 +309,7 @@ mod tests {
     }
 
     #[test]
-    fn corpus_contains_both_rejection_and_non_escalation_cases() {
+    fn corpus_contains_all_three_protocol_outcomes() {
         let corpus = load().unwrap();
         assert!(corpus
             .cases
