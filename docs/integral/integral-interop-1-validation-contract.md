@@ -59,3 +59,17 @@ describes certified designs as version-locked inputs to COS, and the developer
 guide describes data contracts as versioned independently of the systems they
 connect. This profile therefore freezes only the selected semantic boundary
 needed for the ReferenceModelOnly D6X demonstration.
+
+
+## Declarative vector schema
+
+The validation corpus is executable rather than prose-only. Each vector declares:
+
+- `operation`: currently `none`, `set`, or `remove`;
+- `path`: a dot-separated path with optional array indices;
+- `value`: the replacement value for `set`;
+- `expected`: `accept` or `reject`.
+
+The conformance test applies every vector and checks both structural validation
+and commitment production. A rejected vector must therefore produce no semantic
+commitment, not merely an error from an auxiliary validator.
