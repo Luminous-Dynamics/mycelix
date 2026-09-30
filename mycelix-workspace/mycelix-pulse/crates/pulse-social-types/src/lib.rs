@@ -147,6 +147,22 @@ impl SocialObjectRefV1 {
     }
 }
 
+impl SocialObservationV1 {
+    pub fn validate(&self) -> Result<(), SocialContractError> {
+        if self.schema_version != SOCIAL_SCHEMA_VERSION_V1 {
+            return Err(SocialContractError::UnsupportedSchemaVersion(
+                self.schema_version,
+            ));
+        }
+        validate_bounded(&self.provider, "provider", MAX_PROVENANCE_BYTES)?;
+        validate_bounded(&self.external_id, "external_id", MAX_EXTERNAL_ID_BYTES)?;
+        if self.observed_at_micros < 0 {
+            return Err(SocialContractError::InvalidTimestamp);
+        }
+        self.object.validate()
+    }
+}
+
 impl SocialRelationV1 {
     pub fn validate(&self) -> Result<(), SocialContractError> {
         if self.schema_version != SOCIAL_SCHEMA_VERSION_V1 {
@@ -245,6 +261,38 @@ mod tests {
         assert_eq!(
             reference.validate(),
             Err(SocialContractError::FieldTooLong("object_id"))
+        );
+    }
+
+    #[test]
+    fn nested_observation_reference_must_validate() {
+        let mut observation = SocialObservationV1 {
+            schema_version: SOCIAL_SCHEMA_VERSION_V1,
+            provider: "activitypub".into(),
+            external_id: "object-1".into(),
+            observed_at_micros: 1,
+            object: object_ref(),
+        };
+        observation.object.schema_version = 2;
+        assert_eq!(
+            observation.validate(),
+            Err(SocialContractError::UnsupportedSchemaVersion(2))
+        );
+    }
+
+    #[test]
+    fn nested_observation_identity_must_validate() {
+        let mut observation = SocialObservationV1 {
+            schema_version: SOCIAL_SCHEMA_VERSION_V1,
+            provider: "activitypub".into(),
+            external_id: "object-1".into(),
+            observed_at_micros: 1,
+            object: object_ref(),
+        };
+        observation.object.object_id = SocialObjectIdV1(" ".into());
+        assert_eq!(
+            observation.validate(),
+            Err(SocialContractError::EmptyField("object_id"))
         );
     }
 
