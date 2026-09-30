@@ -8,7 +8,7 @@
 use hdk::prelude::*;
 use hearth_care_integrity::*;
 use hearth_coordinator_common::{
-    decode_zome_response, get_latest_record, records_from_links, require_membership,
+    decode_zome_response, get_unique_latest_record, records_from_links, require_membership,
 };
 use hearth_types::*;
 use mycelix_bridge_common::{GovernanceEligibility, civic_requirement_basic};
@@ -131,7 +131,7 @@ pub fn complete_task(input: CompleteTaskInput) -> ExternResult<Record> {
     )?;
     let now = sys_time()?;
 
-    let record = get(input.schedule_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
+    let record = get_unique_latest_record(input.schedule_hash.clone())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Care schedule not found".into())
     ))?;
 
@@ -211,7 +211,7 @@ pub fn propose_swap(input: ProposeSwapInput) -> ExternResult<Record> {
     )?;
     require_membership(&input.hearth_hash)?;
     let schedule_record =
-        get(input.original_schedule_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
+        get_unique_latest_record(input.original_schedule_hash.clone())?.ok_or(wasm_error!(
             WasmErrorInner::Guest("Original care schedule not found".into())
         ))?;
 
@@ -411,7 +411,7 @@ pub fn create_care_digest(input: DigestEpochInput) -> ExternResult<Vec<CareSumma
 // ============================================================================
 
 fn update_swap_status(swap_hash: ActionHash, new_status: SwapStatus) -> ExternResult<Record> {
-    let record = get(swap_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
+    let record = get_unique_latest_record(swap_hash.clone())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Care swap not found".into())
     ))?;
 

@@ -7,7 +7,7 @@
 //! and budget tracking with guardian authorization and signal emission.
 
 use hdk::prelude::*;
-use hearth_coordinator_common::{decode_zome_response, get_latest_record};
+use hearth_coordinator_common::{decode_zome_response, get_unique_latest_record};
 use hearth_resources_integrity::*;
 use hearth_types::*;
 use mycelix_bridge_common::{
@@ -161,7 +161,7 @@ pub fn register_resource(input: RegisterResourceInput) -> ExternResult<Record> {
         (),
     )?;
 
-    let record = get(resource_hash, GetOptions::default())?.ok_or(wasm_error!(
+    let record = get_unique_latest_record(resource_hash)?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Could not find the newly created SharedResource".into())
     ))?;
 
@@ -181,7 +181,7 @@ pub fn lend_resource(input: LendResourceInput) -> ExternResult<Record> {
     let now = sys_time()?;
 
     // Get the resource to find its hearth
-    let resource_record = get(input.resource_hash.clone(), GetOptions::default())?.ok_or(
+    let resource_record = get_unique_latest_record(input.resource_hash.clone())?.ok_or(
         wasm_error!(WasmErrorInner::Guest("Resource not found".into())),
     )?;
     let resource: SharedResource = resource_record
@@ -230,7 +230,7 @@ pub fn lend_resource(input: LendResourceInput) -> ExternResult<Record> {
         due_date: input.due_date,
     })?;
 
-    let record = get(loan_hash, GetOptions::default())?.ok_or(wasm_error!(
+    let record = get_unique_latest_record(loan_hash)?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Could not find the newly created ResourceLoan".into())
     ))?;
 
@@ -249,7 +249,7 @@ pub fn return_resource(loan_hash: ActionHash) -> ExternResult<Record> {
     )?;
     let agent = agent_info()?.agent_initial_pubkey;
 
-    let existing = get(loan_hash.clone(), GetOptions::default())?
+    let existing = get_unique_latest_record(loan_hash.clone())?
         .ok_or(wasm_error!(WasmErrorInner::Guest("Loan not found".into())))?;
     let mut loan: ResourceLoan = existing
         .entry()
@@ -327,7 +327,7 @@ pub fn create_budget_category(input: CreateBudgetInput) -> ExternResult<Record> 
         (),
     )?;
 
-    let record = get(budget_hash, GetOptions::default())?.ok_or(wasm_error!(
+    let record = get_unique_latest_record(budget_hash)?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Could not find the newly created BudgetCategory".into())
     ))?;
 
@@ -342,7 +342,7 @@ pub fn log_expense(input: LogExpenseInput) -> ExternResult<Record> {
         &civic_requirement_basic(),
         "log_expense",
     )?;
-    let existing = get(input.budget_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
+    let existing = get_unique_latest_record(input.budget_hash.clone())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Budget category not found".into())
     ))?;
     let mut budget: BudgetCategory = existing

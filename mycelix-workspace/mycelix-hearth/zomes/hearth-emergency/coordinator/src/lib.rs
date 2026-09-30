@@ -6,7 +6,7 @@
 //! Provides CRUD operations for emergency plans, alerts, and safety check-ins.
 
 use hdk::prelude::*;
-use hearth_coordinator_common::{decode_zome_response, get_latest_record, require_membership};
+use hearth_coordinator_common::{decode_zome_response, get_unique_latest_record, require_membership};
 use hearth_emergency_integrity::*;
 use hearth_types::*;
 use mycelix_bridge_common::{
@@ -105,7 +105,7 @@ pub fn create_emergency_plan(input: CreateEmergencyPlanInput) -> ExternResult<Re
         (),
     )?;
 
-    let record = get(plan_hash, GetOptions::default())?.ok_or(wasm_error!(
+    let record = get_unique_latest_record(plan_hash)?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Could not find the newly created EmergencyPlan".into())
     ))?;
 
@@ -180,7 +180,7 @@ pub fn raise_alert(input: RaiseAlertInput) -> ExternResult<Record> {
     };
     emit_signal(&signal)?;
 
-    let record = get(alert_hash, GetOptions::default())?.ok_or(wasm_error!(
+    let record = get_unique_latest_record(alert_hash)?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Could not find the newly created EmergencyAlert".into())
     ))?;
 
@@ -196,7 +196,7 @@ pub fn check_in(input: CheckInInput) -> ExternResult<Record> {
     let agent = agent_info()?.agent_initial_pubkey;
 
     // Retrieve the alert to get the hearth_hash
-    let alert_record = get(input.alert_hash.clone(), GetOptions::default())?
+    let alert_record = get_unique_latest_record(input.alert_hash.clone())?
         .ok_or(wasm_error!(WasmErrorInner::Guest("Alert not found".into())))?;
     let alert: EmergencyAlert = alert_record
         .entry()
