@@ -180,14 +180,18 @@ impl SafeFetchClient {
             .get("content-type")
             .and_then(|v| v.to_str().ok())
             .map(str::to_owned);
+        let has_auth_headers = response.headers.contains_key("www-authenticate")
+            || response.headers.contains_key("authorization")
+            || response.headers.contains_key("x-csrf-token");
+        let has_cookies = response.headers.contains_key("set-cookie");
 
         let metadata = FetchMetadata {
             url: response.url,
             status: response.status,
             headers: response.headers,
             content_type,
-            has_auth_headers: false,
-            has_cookies: false,
+            has_auth_headers,
+            has_cookies,
         };
 
         Ok(FetchedPage {
