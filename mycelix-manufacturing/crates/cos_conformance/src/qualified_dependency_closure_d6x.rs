@@ -403,6 +403,11 @@ pub fn compute_dependency_closure(
 ) -> Option<DependencyClosureCertificateV1> {
     if !projection.structurally_valid() || !environment.structurally_valid()
         || !derivation_profile.structurally_valid() || !profile.structurally_valid() { return None; }
+    // The closure boundary must not accept a projection whose node/edge,
+    // environment, or derivation commitments no longer match their semantic
+    // sources. This also makes the source-snapshot identity an explicit input
+    // to the D6X boundary rather than an unchecked opaque field.
+    if !projection.commitments_match_sources(environment, derivation_profile) { return None; }
     if projection.semantic_environment_commitment != environment.commitment()
         || projection.derivation_profile_commitment != derivation_profile.commitment() { return None; }
 
