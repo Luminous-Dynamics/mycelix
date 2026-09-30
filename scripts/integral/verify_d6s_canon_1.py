@@ -4,6 +4,10 @@
 This intentionally does not import the Rust reference implementation.
 It validates the frozen golden-vector contract using Python's standard
 library and rejects ambiguous/non-integral values.
+
+The manifest binds the verifier run to an exact corpus byte hash and
+expected vector cardinalities, so "passed" cannot silently drift to a
+different corpus.
 """
 
 import hashlib
@@ -13,6 +17,7 @@ from pathlib import Path
 
 
 DOMAIN = b"MYCELIX-INTEGRAL-D6S-RECEIPT-V1\0"
+PROFILE = "D6S-CANON-1"
 
 
 def reject_duplicate_keys(pairs):
@@ -91,22 +96,57 @@ def commitment(canonical_bytes):
 
 
 def main():
+    root = Path(__file__).parents[2]
     vector_path = (
         Path(sys.argv[1])
         if len(sys.argv) > 1
-        else Path(__file__).parents[2]
-        / "docs"
-        / "integral"
-        / "d6s-canon-1-golden-vectors.json"
+        else root / "docs" / "integral" / "d6s-canon-1-golden-vectors.json"
     )
+    manifest_path = root / "docs" / "integral" / "d6s-canon-1-manifest.json"
 
-    corpus = load_json(vector_path.read_text(encoding="utf-8"))
-    if corpus["profile"] != "D6S-CANON-1":
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if manifest["profile"] != PROFILE:
+        raise SystemExit("manifest profile mismatch")
+    if manifest["canonicalization_version"] != PROFILE:
+        raise SystemExit("manifest canonicalization version mismatch")
+    if manifest["hash_domain"].encode("utf-8") != DOMAIN:
+        raise SystemExit("manifest hash domain mismatch")
+    if manifest["corpus_path"] != vector_path.relative_to(root).as_posix():
+        raise SystemExit("manifest corpus path mismatch")
+    if manifest["independent_verifier"] != "scripts/integral/verify_d6s_canon_1.py":
+        raise SystemExit("manifest verifier path mismatch")
+    if manifest["claim_ceiling"] != "ReferenceModelOnly":
+        raise SystemExit("manifest claim ceiling mismatch")
+
+    corpus_bytes = vector_path.read_bytes()
+    actual_corpus_sha256 = hashlib.sha256(corpus_bytes).hexdigest()
+    if actual_corpus_sha256 != manifest["corpus_sha256"]:
+        raise SystemExit(
+            "corpus identity mismatch\n"
+            f"expected: {manifest['corpus_sha256']}\n"
+            f"actual:   {actual_corpus_sha256}"
+        )
+
+    corpus = load_json(corpus_bytes.decode("utf-8"))
+    if corpus["profile"] != PROFILE:
         raise SystemExit("unexpected canonicalization profile")
     if corpus["hash_domain"].encode("utf-8") != DOMAIN:
         raise SystemExit("unexpected hash domain")
 
-    for case in corpus["cases"]:
+    cases = corpus["cases"]
+    rejections = corpus.get("rejections", [])
+    if len(cases) != manifest["expected_vector_count"]:
+        raise SystemExit(
+            f"vector count mismatch: expected {manifest['expected_vector_count']}, "
+            f"actual {len(cases)}"
+        )
+    if len(rejections) != manifest["expected_rejection_count"]:
+        raise SystemExit(
+            f"rejection count mismatch: expected {manifest['expected_rejection_count']}, "
+            f"actual {len(rejections)}"
+        )
+
+    for case in cases:
         actual = canonical_json(case["value"])
         if actual != case["canonical"]:
             raise SystemExit(
@@ -122,7 +162,7 @@ def main():
                 f"actual:   {actual_commitment}"
             )
 
-    for case in corpus.get("rejections", []):
+    for case in rejections:
         try:
             value = load_json(case["json"])
             canonical_json(value)
@@ -133,9 +173,11 @@ def main():
         )
 
     print(
-        f"verified {len(corpus['cases'])} D6S-CANON-1 vectors and "
-        f"{len(corpus.get('rejections', []))} rejection vectors"
+        f"verified {len(cases)} D6S-CANON-1 vectors and "
+        f"{len(rejections)} rejection vectors"
     )
+    print(f"corpus_sha256={actual_corpus_sha256}")
+    print("claim_ceiling=ReferenceModelOnly")
 
 
 if __name__ == "__main__":
