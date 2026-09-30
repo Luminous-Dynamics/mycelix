@@ -10,8 +10,52 @@ use crate::{
     AssertionEnvelope, Commitment, CommitmentError, CommitmentEventKind, Consent,
     ConsentEventKind, ConsentStatus, Delegation, DelegationContext, DelegationError,
     DelegationStatus, ExecutionRequest, RelationshipAssertion, RelationshipId,
-    RelationshipRecord, SourceFrontier,
+    RelationshipRecord, SourceFrontier, AssertionId, EvidenceRef, CommitmentId, ConsentId,
+    DelegationId,
 };
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct QualificationCertificate {
+    pub schema_version: u16,
+    pub input_digest: [u8; 32],
+    pub assertion_evidence: Vec<(AssertionId, EvidenceRef)>,
+    pub commitment_ids: Vec<CommitmentId>,
+    pub consent_ids: Vec<ConsentId>,
+    pub delegation_ids: Vec<DelegationId>,
+    pub frontiers: Vec<SourceFrontier>,
+}
+
+impl QualificationCertificate {
+    pub const SCHEMA_VERSION: u16 = 1;
+
+    pub fn canonical_bytes(&self) -> Vec<u8> {
+        let mut out = Vec::new();
+        out.extend_from_slice(b"mycelix.qualification-certificate.v1\0");
+        out.extend_from_slice(&self.schema_version.to_le_bytes());
+        out.extend_from_slice(&self.input_digest);
+        write_len(&mut out, self.assertion_evidence.len());
+        for (id, evidence) in &self.assertion_evidence {
+            out.extend_from_slice(id.as_bytes());
+            write_bytes(&mut out, &evidence.canonical_bytes());
+        }
+        write_len(&mut out, self.commitment_ids.len());
+        for id in &self.commitment_ids { out.extend_from_slice(id.as_bytes()); }
+        write_len(&mut out, self.consent_ids.len());
+        for id in &self.consent_ids { out.extend_from_slice(id.as_bytes()); }
+        write_len(&mut out, self.delegation_ids.len());
+        for id in &self.delegation_ids { out.extend_from_slice(id.as_bytes()); }
+        write_len(&mut out, self.frontiers.len());
+        for frontier in &self.frontiers {
+            write_bytes(&mut out, frontier.source.as_bytes());
+            out.extend_from_slice(&frontier.observed_revision.to_le_bytes());
+        }
+        out
+    }
+
+    pub fn digest(&self) -> [u8; 32] {
+        *blake3::hash(&self.canonical_bytes()).as_bytes()
+    }
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct QualifiedRelationshipInputs {
@@ -21,6 +65,9 @@ pub struct QualifiedRelationshipInputs {
     pub commitments: Vec<Commitment>,
     pub consents: Vec<Consent>,
     pub delegations: Vec<Delegation>,
+    /// Deterministic evidence of the exact qualified dependency set.
+    /// This is not authority and must never be treated as a bearer capability.
+    pub certificate: QualificationCertificate,
 }
 
 impl QualifiedRelationshipInputs {
@@ -59,17 +106,36 @@ impl QualifiedRelationshipInputs {
         ordered_delegations.sort_by_key(|d| d.id);
         validate_delegations(relationship.relationship_id, &ordered_delegations)?;
 
+        let mut canonical_frontiers = frontiers.to_vec();
+        canonical_frontiers.sort_by(|a, b| a.source.cmp(&b.source));
+
+        let certificate = QualificationCertificate {
+            schema_version: QualificationCertificate::SCHEMA_VERSION,
+            input_digest: qualification_input_digest(
+                &ordered_assertions,
+                &canonical_frontiers,
+                &ordered_commitments,
+                &ordered_consents,
+                &ordered_delegations,
+            ),
+            assertion_evidence: ordered_assertions
+                .iter()
+                .map(|a| (a.envelope.assertion_id, a.envelope.evidence.clone()))
+                .collect(),
+            commitment_ids: ordered_commitments.iter().map(|c| c.id).collect(),
+            consent_ids: ordered_consents.iter().map(|c| c.id).collect(),
+            delegation_ids: ordered_delegations.iter().map(|d| d.id).collect(),
+            frontiers: canonical_frontiers.clone(),
+        };
+
         Ok(Self {
             relationship_id: relationship.relationship_id,
             assertions: ordered_assertions,
-            frontiers: {
-                let mut value = frontiers.to_vec();
-                value.sort_by(|a, b| a.source.cmp(&b.source));
-                value
-            },
+            frontiers: canonical_frontiers,
             commitments: ordered_commitments,
             consents: ordered_consents,
             delegations: ordered_delegations,
+            certificate,
         })
     }
 }
@@ -116,6 +182,57 @@ pub enum ConsentQualificationError {
     RevocationStateMismatch,
     ExpiryStateMismatch,
     GrantEpochMismatch,
+}
+
+fn write_len(out: &mut Vec<u8>, len: usize) {
+    out.extend_from_slice(&(len as u64).to_le_bytes());
+}
+
+fn write_bytes(out: &mut Vec<u8>, bytes: &[u8]) {
+    write_len(out, bytes.len());
+    out.extend_from_slice(bytes);
+}
+
+fn qualification_input_digest(
+    assertions: &[RelationshipAssertion],
+    frontiers: &[SourceFrontier],
+    commitments: &[Commitment],
+    consents: &[Consent],
+    delegations: &[Delegation],
+) -> [u8; 32] {
+    let mut out = Vec::new();
+    out.extend_from_slice(b"mycelix.qualification-inputs.v1\0");
+
+    write_len(&mut out, assertions.len());
+    for assertion in assertions {
+        out.extend_from_slice(assertion.envelope.assertion_id.as_bytes());
+        write_bytes(&mut out, &assertion.envelope.evidence.canonical_bytes());
+        out.extend_from_slice(&assertion.envelope.schema_version.to_le_bytes());
+        out.extend_from_slice(&assertion.envelope.observed_at.as_unix_seconds().to_le_bytes());
+    }
+
+    write_len(&mut out, frontiers.len());
+    for frontier in frontiers {
+        write_bytes(&mut out, frontier.source.as_bytes());
+        out.extend_from_slice(&frontier.observed_revision.to_le_bytes());
+    }
+
+    write_len(&mut out, commitments.len());
+    for commitment in commitments {
+        write_bytes(&mut out, &commitment.state_canonical_bytes());
+    }
+
+    write_len(&mut out, consents.len());
+    for consent in consents {
+        write_bytes(&mut out, &consent.state_canonical_bytes());
+    }
+
+    write_len(&mut out, delegations.len());
+    for delegation in delegations {
+        write_bytes(&mut out, &delegation.state_canonical_bytes());
+    }
+
+    *blake3::hash(&out).as_bytes()
 }
 
 fn validate_frontiers(frontiers: &[SourceFrontier]) -> Result<(), QualificationError> {
@@ -571,6 +688,36 @@ mod tests {
                 ..
             })
         ));
+    }
+
+    #[test]
+    fn qualification_certificate_is_permutation_invariant() {
+        let r = relationship(b"certificate");
+        let a = assertion(r.relationship_id, "crm", 7, 1);
+        let b = assertion(r.relationship_id, "crm", 7, 2);
+        let frontier = SourceFrontier::new("crm", 7).unwrap();
+        let left = QualifiedRelationshipInputs::qualify(
+            &r, &[a.clone(), b.clone()], &[frontier.clone()], &[], &[], &[]
+        ).unwrap();
+        let right = QualifiedRelationshipInputs::qualify(
+            &r, &[b, a], &[frontier], &[], &[], &[]
+        ).unwrap();
+        assert_eq!(left.certificate, right.certificate);
+        assert_eq!(left.certificate.digest(), right.certificate.digest());
+    }
+
+    #[test]
+    fn qualification_certificate_changes_when_dependency_changes() {
+        let r = relationship(b"certificate-change");
+        let a = assertion(r.relationship_id, "crm", 7, 1);
+        let b = assertion(r.relationship_id, "crm", 7, 2);
+        let left = QualifiedRelationshipInputs::qualify(
+            &r, &[a], &[SourceFrontier::new("crm", 7).unwrap()], &[], &[], &[]
+        ).unwrap();
+        let right = QualifiedRelationshipInputs::qualify(
+            &r, &[b], &[SourceFrontier::new("crm", 7).unwrap()], &[], &[], &[]
+        ).unwrap();
+        assert_ne!(left.certificate.digest(), right.certificate.digest());
     }
 
     #[test]
