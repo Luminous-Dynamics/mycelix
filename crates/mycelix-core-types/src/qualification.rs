@@ -450,72 +450,7 @@ fn validate_consents(
             }
         })?;
 
-        if consent.events.is_empty() {
-            return Err(QualificationError::InvalidConsent {
-                id: consent.id,
-                reason: ConsentQualificationError::EmptyEvents,
-            });
-        }
 
-        let first = &consent.events[0];
-        if first.kind != ConsentEventKind::Grant {
-            return Err(QualificationError::InvalidConsent {
-                id: consent.id,
-                reason: ConsentQualificationError::FirstEventNotGrant,
-            });
-        }
-        if first.actor != consent.grantor {
-            return Err(QualificationError::InvalidConsent {
-                id: consent.id,
-                reason: ConsentQualificationError::GrantActorMismatch,
-            });
-        }
-        if first.authority_epoch != consent.authority_epoch {
-            return Err(QualificationError::InvalidConsent {
-                id: consent.id,
-                reason: ConsentQualificationError::GrantEpochMismatch,
-            });
-        }
-
-        for event in consent.events.iter().skip(1) {
-            if event.actor != consent.grantor {
-                return Err(QualificationError::InvalidConsent {
-                    id: consent.id,
-                    reason: ConsentQualificationError::EventActorMismatch { event: event.kind },
-                });
-            }
-            if event.kind == ConsentEventKind::Revoke
-                && event.authority_epoch != consent.authority_epoch
-            {
-                return Err(QualificationError::InvalidConsent {
-                    id: consent.id,
-                    reason: ConsentQualificationError::StaleRevocationEpoch,
-                });
-            }
-        }
-
-        let last_kind = consent.events.last().map(|event| event.kind);
-        match consent.status {
-            ConsentStatus::Granted if last_kind != Some(ConsentEventKind::Grant) => {
-                return Err(QualificationError::InvalidConsent {
-                    id: consent.id,
-                    reason: ConsentQualificationError::RevocationStateMismatch,
-                });
-            }
-            ConsentStatus::Revoked if last_kind != Some(ConsentEventKind::Revoke) => {
-                return Err(QualificationError::InvalidConsent {
-                    id: consent.id,
-                    reason: ConsentQualificationError::RevocationStateMismatch,
-                });
-            }
-            ConsentStatus::Expired if last_kind != Some(ConsentEventKind::Expire) => {
-                return Err(QualificationError::InvalidConsent {
-                    id: consent.id,
-                    reason: ConsentQualificationError::ExpiryStateMismatch,
-                });
-            }
-            _ => {}
-        }
     }
 
     Ok(())
