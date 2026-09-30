@@ -32,8 +32,23 @@ impl InputCommitmentV1 {
         e: &SemanticEnvironmentV1,
         closure: &DependencyClosureCertificateV1,
         closure_profile: &DependencyClosureProfileV1,
+        derivation_profile: &DerivationProfileV1,
     ) -> Option<Self> {
         if closure.status != qualified_dependency_closure_d6x::DependencyClosureStatusV1::Complete || !closure.valid() {
+            return None;
+        }
+        // Do not accept a merely self-consistent closure certificate. Re-execute
+        // the exact D6X profile against the exact projection/environment/profile
+        // and bind D6W to the resulting semantic closure identity. Runtime
+        // evidence is intentionally excluded from this identity comparison.
+        let Some(expected_closure) =
+            qualified_dependency_closure_d6x::compute_dependency_closure(
+                p, e, derivation_profile, closure_profile,
+            )
+        else {
+            return None;
+        };
+        if expected_closure.closure_identity_commitment != closure.closure_identity_commitment {
             return None;
         }
         // D6W must consume the exact projection that D6X qualified. In
@@ -45,6 +60,7 @@ impl InputCommitmentV1 {
             || closure.source_dkg_snapshot_commitment != p.source_dkg_snapshot_commitment
             || closure.semantic_environment_commitment != e.commitment()
             || closure.derivation_profile_commitment != p.derivation_profile_commitment
+            || closure.derivation_profile_commitment != derivation_profile.commitment()
             || closure.closure_profile_commitment != closure_profile.commitment()
             || closure.root_node_ids != closure_profile.root_node_ids
             || closure.derivation_profile_commitment.is_empty()
@@ -189,7 +205,7 @@ impl LayeredReceiptV1 {
             || d6s.input_node_commitments!=p.nodes.values().map(|n|n.node_commitment.clone()).collect()
             || d6s.input_edge_commitments!=p.edges.values().map(|n|n.edge_commitment.clone()).collect()
             || d6s.d6p_current_receipt_commitments!=p.d6p_current_receipt_commitments { return false; }
-        let Some(input)=InputCommitmentV1::from_projection(p,e,closure,closure_profile) else{return false};
+        let Some(input)=InputCommitmentV1::from_projection(p,e,closure,closure_profile,profile) else{return false};
         if !input.valid(){return false}
         let Some(derivation)=DerivationCommitmentV1::new(&input,profile,trace) else{return false};
         let Some(result)=ResultCommitmentV1::new(&derivation,d6s.result_status,d6s.result_commitment.clone(),d6s.contradiction_preserved,d6s.unresolved_preserved) else{return false};
@@ -269,7 +285,7 @@ mod tests {
         )
         .expect("rejected D6S receipt does not require current D6P evidence");
 
-        let input = InputCommitmentV1::from_projection(&p, &e, &closure, &closure_profile)
+        let input = InputCommitmentV1::from_projection(&p, &e, &closure, &closure_profile, &d)
             .expect("complete D6X closure must enter D6W");
         let derivation = DerivationCommitmentV1::new(&input, &d, None)
             .expect("D6W derivation commitment");
@@ -335,7 +351,7 @@ mod tests {
         let (mut p,e,d,c)=fixture(false);
         p.semantic_environment_commitment = "stale-environment".into();
         assert!(!p.commitments_match_sources(&e,&d));
-        assert!(InputCommitmentV1::from_projection(&p,&e,&c,&closure_profile()).is_none());
+        assert!(InputCommitmentV1::from_projection(&p,&e,&c,&closure_profile(),&d).is_none());
     }
 
     #[test]
@@ -343,7 +359,7 @@ mod tests {
         let (mut p,e,d,c)=fixture(false);
         p.derivation_profile_commitment = "stale-profile".into();
         assert!(!p.commitments_match_sources(&e,&d));
-        assert!(InputCommitmentV1::from_projection(&p,&e,&c,&closure_profile()).is_none());
+        assert!(InputCommitmentV1::from_projection(&p,&e,&c,&closure_profile(),&d).is_none());
     }
 
     #[test]
@@ -352,7 +368,7 @@ mod tests {
         let node = p.nodes.get_mut("dep").unwrap();
         node.node_commitment = "0000000000000000000000000000000000000000000000000000000000000000".into();
         assert!(!p.commitments_match_sources(&e,&d));
-        assert!(InputCommitmentV1::from_projection(&p,&e,&c,&closure_profile()).is_none());
+        assert!(InputCommitmentV1::from_projection(&p,&e,&c,&closure_profile(),&d).is_none());
     }
 
     #[test]
@@ -360,7 +376,7 @@ mod tests {
         let (mut p,e,d,c) = fixture(false);
         p.source_dkg_snapshot_commitment = "different-snapshot".into();
 
-        assert!(InputCommitmentV1::from_projection(&p, &e, &c, &closure_profile()).is_none());
+        assert!(InputCommitmentV1::from_projection(&p, &e, &c, &closure_profile(), &d).is_none());
 
         let changed = compute_dependency_closure(
             &p,
@@ -391,8 +407,8 @@ mod tests {
         assert_ne!(c.source_dkg_snapshot_commitment, changed.source_dkg_snapshot_commitment);
         assert_ne!(c.closure_identity_commitment, changed.closure_identity_commitment);
 
-        let original_input = InputCommitmentV1::from_projection(&fixture(false).0, &e, &c, &closure_profile()).unwrap();
-        let changed_input = InputCommitmentV1::from_projection(&p, &e, &changed, &closure_profile()).unwrap();
+        let original_input = InputCommitmentV1::from_projection(&fixture(false).0, &e, &c, &closure_profile(), &d).unwrap();
+        let changed_input = InputCommitmentV1::from_projection(&p, &e, &changed, &closure_profile(), &d).unwrap();
         assert_ne!(original_input.commitment, changed_input.commitment);
     }
 
@@ -402,7 +418,7 @@ mod tests {
         c.source_dkg_snapshot_commitment = "different-snapshot".into();
         c.commitment = c.recompute();
 
-        assert!(InputCommitmentV1::from_projection(&p, &e, &c, &closure_profile()).is_none());
+        assert!(InputCommitmentV1::from_projection(&p, &e, &c, &closure_profile(), &d).is_none());
         let _ = d;
     }
 
@@ -422,7 +438,7 @@ mod tests {
         c.commitment = c.recompute();
 
         assert!(c.valid());
-        assert!(InputCommitmentV1::from_projection(&p, &e, &c, &closure_profile()).is_none());
+        assert!(InputCommitmentV1::from_projection(&p, &e, &c, &closure_profile(), &d).is_none());
         let _ = d;
     }
 
@@ -444,7 +460,7 @@ mod tests {
         c.commitment = c.recompute();
 
         assert!(c.valid());
-        assert!(InputCommitmentV1::from_projection(&p, &e, &c, &closure_profile()).is_none());
+        assert!(InputCommitmentV1::from_projection(&p, &e, &c, &closure_profile(), &d).is_none());
         let _ = d;
     }
 
@@ -453,20 +469,20 @@ mod tests {
         let (mut p,e,d,c) = fixture(false);
         p.nodes.get_mut("dep").unwrap().node_commitment = "legacy-symbolic".into();
         assert!(!is_canonical_sha256_commitment(&p.nodes["dep"].node_commitment));
-        assert!(InputCommitmentV1::from_projection(&p, &e, &c, &closure_profile()).is_none());
+        assert!(InputCommitmentV1::from_projection(&p, &e, &c, &closure_profile(), &d).is_none());
         let _ = d;
     }
 
-    #[test] fn closure_is_bound_into_input(){let(p,e,d,c)=fixture(false);let i=InputCommitmentV1::from_projection(&p,&e,&c,&closure_profile()).unwrap();assert!(i.valid());assert!(!i.dependency_closure.is_empty());let x=LayeredReceiptV1::new(&i,&DerivationCommitmentV1::new(&i,&d,None).unwrap(),&ResultCommitmentV1::new(&DerivationCommitmentV1::new(&i,&d,None).unwrap(),DerivationResultStatusV1::Supported,"x".into(),false,false).unwrap());assert!(x.is_some());}
+    #[test] fn closure_is_bound_into_input(){let(p,e,d,c)=fixture(false);let i=InputCommitmentV1::from_projection(&p,&e,&c,&closure_profile(),&d).unwrap();assert!(i.valid());assert!(!i.dependency_closure.is_empty());let x=LayeredReceiptV1::new(&i,&DerivationCommitmentV1::new(&i,&d,None).unwrap(),&ResultCommitmentV1::new(&DerivationCommitmentV1::new(&i,&d,None).unwrap(),DerivationResultStatusV1::Supported,"x".into(),false,false).unwrap());assert!(x.is_some());}
     #[test] fn blocked_closure_cannot_enter_d6w_input(){
         let(p,e,d,mut c)=fixture(false);
         c.status=qualified_dependency_closure_d6x::DependencyClosureStatusV1::BlockedResourceLimit;
         c.commitment=c.recompute();
-        assert!(InputCommitmentV1::from_projection(&p,&e,&c,&closure_profile()).is_none());
+        assert!(InputCommitmentV1::from_projection(&p,&e,&c,&closure_profile(),&d).is_none());
         let _=d;
     }
-    #[test] fn closure_mutation_changes_input(){let(p,e,d,c)=fixture(false);let mut i=InputCommitmentV1::from_projection(&p,&e,&c,&closure_profile()).unwrap();let old=i.commitment.clone();i.dependency_closure="tampered".into();i.commitment=i.recompute();assert_ne!(old,i.commitment);assert!(DerivationCommitmentV1::new(&i,&d,None).is_some());}
-    #[test] fn irrelevant_material_does_not_change_closure_or_input(){let(a,e,d,c1)=fixture(false);let(b,_,_,c2)=fixture(true);assert_ne!(c1.commitment,c2.commitment);assert_eq!(c1.closure_identity_commitment,c2.closure_identity_commitment);assert_eq!(InputCommitmentV1::from_projection(&a,&e,&c1,&closure_profile()).unwrap().commitment,InputCommitmentV1::from_projection(&b,&e,&c2,&closure_profile()).unwrap().commitment);}
-    #[test] fn irrelevant_d6p_receipt_does_not_change_closure_or_input(){let(a,e,d,c1)=fixture(false);let(mut b,_,_,c2)=fixture(false);b.d6p_current_receipt_commitments.insert("irrelevant".into());let c2=compute_dependency_closure(&b,&e,&d,&{let mut p=DependencyClosureProfileV1{profile_id:"cp".into(),version:"1".into(),root_node_ids:["root".into()].into_iter().collect(),required_node_ids:BTreeSet::new(),required_d6p_receipt_commitments:BTreeSet::new(),rules:[DependencyRuleV1{edge_kind:ClaimGraphEdgeKindV1::Supports,from_kind:Some(ClaimGraphNodeKindV1::Statement),to_kind:Some(ClaimGraphNodeKindV1::Evidence),currentness:DependencyCurrentnessV1::Any}].into_iter().collect(),excluded_boundary_policy:"rule-matched semantic edges only".into(),max_nodes:16,max_edges:16,claim_ceiling:D6S_CLAIM_CEILING.into()};p}).unwrap();assert_eq!(c1.closure_identity_commitment,c2.closure_identity_commitment);assert_eq!(InputCommitmentV1::from_projection(&a,&e,&c1,&closure_profile()).unwrap().commitment,InputCommitmentV1::from_projection(&b,&e,&c2,&closure_profile()).unwrap().commitment);}
+    #[test] fn closure_mutation_changes_input(){let(p,e,d,c)=fixture(false);let mut i=InputCommitmentV1::from_projection(&p,&e,&c,&closure_profile(),&d).unwrap();let old=i.commitment.clone();i.dependency_closure="tampered".into();i.commitment=i.recompute();assert_ne!(old,i.commitment);assert!(DerivationCommitmentV1::new(&i,&d,None).is_some());}
+    #[test] fn irrelevant_material_does_not_change_closure_or_input(){let(a,e,d,c1)=fixture(false);let(b,_,_,c2)=fixture(true);assert_ne!(c1.commitment,c2.commitment);assert_eq!(c1.closure_identity_commitment,c2.closure_identity_commitment);assert_eq!(InputCommitmentV1::from_projection(&a,&e,&c1,&closure_profile(),&d).unwrap().commitment,InputCommitmentV1::from_projection(&b,&e,&c2,&closure_profile(),&d).unwrap().commitment);}
+    #[test] fn irrelevant_d6p_receipt_does_not_change_closure_or_input(){let(a,e,d,c1)=fixture(false);let(mut b,_,_,c2)=fixture(false);b.d6p_current_receipt_commitments.insert("irrelevant".into());let c2=compute_dependency_closure(&b,&e,&d,&{let mut p=DependencyClosureProfileV1{profile_id:"cp".into(),version:"1".into(),root_node_ids:["root".into()].into_iter().collect(),required_node_ids:BTreeSet::new(),required_d6p_receipt_commitments:BTreeSet::new(),rules:[DependencyRuleV1{edge_kind:ClaimGraphEdgeKindV1::Supports,from_kind:Some(ClaimGraphNodeKindV1::Statement),to_kind:Some(ClaimGraphNodeKindV1::Evidence),currentness:DependencyCurrentnessV1::Any}].into_iter().collect(),excluded_boundary_policy:"rule-matched semantic edges only".into(),max_nodes:16,max_edges:16,claim_ceiling:D6S_CLAIM_CEILING.into()};p}).unwrap();assert_eq!(c1.closure_identity_commitment,c2.closure_identity_commitment);assert_eq!(InputCommitmentV1::from_projection(&a,&e,&c1,&closure_profile(),&d).unwrap().commitment,InputCommitmentV1::from_projection(&b,&e,&c2,&closure_profile(),&d).unwrap().commitment);}
     #[test] fn required_d6p_receipt_is_bound_into_closure(){let(a,e,d,_)=fixture(false);let mut p=DependencyClosureProfileV1{profile_id:"cp".into(),version:"1".into(),root_node_ids:["root".into()].into_iter().collect(),required_node_ids:BTreeSet::new(),required_d6p_receipt_commitments:["r1".into()].into_iter().collect(),rules:[DependencyRuleV1{edge_kind:ClaimGraphEdgeKindV1::Supports,from_kind:Some(ClaimGraphNodeKindV1::Statement),to_kind:Some(ClaimGraphNodeKindV1::Evidence),currentness:DependencyCurrentnessV1::Any}].into_iter().collect(),excluded_boundary_policy:"rule-matched semantic edges only".into(),max_nodes:16,max_edges:16,claim_ceiling:D6S_CLAIM_CEILING.into()};let blocked=compute_dependency_closure(&a,&e,&d,&p).unwrap();assert_eq!(blocked.status,qualified_dependency_closure_d6x::DependencyClosureStatusV1::BlockedMissingDependency);let mut b=a.clone();b.d6p_current_receipt_commitments.insert("r1".into());let complete=compute_dependency_closure(&b,&e,&d,&p).unwrap();assert_eq!(complete.status,qualified_dependency_closure_d6x::DependencyClosureStatusV1::Complete);assert_ne!(blocked.closure_identity_commitment,complete.closure_identity_commitment);}
 }
