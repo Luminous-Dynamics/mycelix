@@ -539,6 +539,22 @@ mod tests {
     }
 
     #[test]
+    fn stale_lifecycle_epoch_is_typed_as_stale_authority() {
+        let mut c = consent();
+        c.events.push(ConsentEvent {
+            kind: ConsentEventKind::Revoke,
+            actor: c.grantor.clone(),
+            occurred_at: 160,
+            authority_epoch: 8,
+        });
+        c.status = ConsentStatus::Revoked;
+        assert_eq!(
+            c.validate_lifecycle(),
+            Err(ConsentError::StaleAuthorityEpoch)
+        );
+    }
+
+    #[test]
     fn tampered_lifecycle_status_is_rejected() {
         let mut c = consent();
         c.status = ConsentStatus::Revoked;
