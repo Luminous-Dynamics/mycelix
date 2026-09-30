@@ -222,7 +222,7 @@ fn get_invitation_response_records(invitation_hash: &ActionHash) -> ExternResult
     for link in links {
         let target = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid response link".into())))?;
-        if let Some(record) = get(target, GetOptions::default())? {
+        if let Some(record) = get_unique_latest_record(target)? {
             let response: InvitationResponse = entry_from_record(&record, "InvitationResponse")?;
             if response.invitation_hash == *invitation_hash {
                 responses.push(record);
@@ -951,20 +951,21 @@ fn recovery_threshold(adult_count: usize) -> usize {
 /// H4: Propose auto social recovery if the hearth has >= 3 adult-level members.
 /// Cross-cluster call to identity cluster is best-effort (don't block on failure).
 fn propose_auto_recovery(hearth_hash: &ActionHash) -> ExternResult<()> {
-    let mut adult_agents: Vec<AgentPubKey> = Vec::new();
+    let mut adult_agents = std::collections::BTreeSet::<AgentPubKey>::new();
     for (_, membership) in membership_records_for_hearth(hearth_hash)? {
         if membership.status == MembershipStatus::Active && membership.role.is_guardian() {
-            adult_agents.push(membership.agent);
+            adult_agents.insert(membership.agent);
         }
     }
 
-    // Need at least 3 adults for social recovery quorum
+    // Need at least 3 distinct adults for social recovery quorum.
     if adult_agents.len() < 3 {
         return Ok(());
     }
 
-    // Compute threshold: 60% rounded up
+    // Compute threshold: 60% rounded up.
     let threshold = recovery_threshold(adult_agents.len());
+    let adult_agents: Vec<AgentPubKey> = adult_agents.into_iter().collect();
 
     // Best-effort cross-cluster call to identity recovery
     #[derive(Serialize, Debug)]
@@ -1183,7 +1184,7 @@ pub fn get_bond_snapshots(hearth_hash: ActionHash) -> ExternResult<Vec<BondUpdat
     for link in links {
         let action_hash = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        if let Some(record) = get_latest_record(action_hash)? {
+        if let Some(record) = get_unique_latest_record(action_hash)? {
             let bond: KinshipBond = entry_from_record(&record, "KinshipBond")?;
             let last_tended_micros: i64 = bond.last_tended.as_micros();
             let elapsed_micros: u64 = if now_micros > last_tended_micros {
