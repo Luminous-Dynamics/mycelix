@@ -130,6 +130,7 @@ fn get_unique_latest_record(action_hash: ActionHash) -> ExternResult<Option<Reco
 
     match details {
         Details::Record(record_details) => match record_details.updates.as_slice() {
+            [] if !record_details.deletes.is_empty() => Ok(None),
             [] => Ok(Some(record_details.record)),
             [update] => get_unique_latest_record(update.action_address().clone()),
             _ => Err(wasm_error!(WasmErrorInner::Guest(
