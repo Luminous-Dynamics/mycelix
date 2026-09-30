@@ -66,7 +66,10 @@ impl CapabilityGrant {
         if self.renderer_process != renderer_process || self.site != *site {
             return Err(DenialReason::OriginMismatch);
         }
-        if self.agent_cluster != agent_cluster || self.origin != *origin {
+        if self.agent_cluster != agent_cluster
+            || self.origin != *origin
+            || request.origin != *origin
+        {
             return Err(DenialReason::OriginMismatch);
         }
         if self.capability != request.capability {
