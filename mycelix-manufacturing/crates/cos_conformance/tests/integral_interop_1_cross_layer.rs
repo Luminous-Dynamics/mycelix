@@ -769,7 +769,7 @@ fn d6w_standalone_input_rejects_noncanonical_edge_and_receipt_commitments() {
     assert!(!edge_mutated.valid());
 
     let mut receipt_mutated = input;
-    receipt_mutated.d6p_receipts[0] = "receipt-symbolic".into();
+    receipt_mutated.d6p_receipts[0].clear();
     receipt_mutated.commitment = receipt_mutated.recompute();
     assert!(!receipt_mutated.valid());
 }
