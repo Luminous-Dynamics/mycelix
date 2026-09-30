@@ -94,6 +94,9 @@ impl SafeFetchClient {
             .redirect(reqwest::redirect::Policy::none())
             .no_proxy()
             .timeout(self.timeout)
+            .connect_timeout(self.timeout.min(Duration::from_secs(10)))
+            .retry(reqwest::retry::never())
+            .read_timeout(self.timeout)
             // Do not ask the server for compressed content in this legacy
             // bridge. Encoded-vs-decoded capture is a separate WEB-CAPTURE
             // semantic and must not be silently collapsed here.
@@ -152,13 +155,21 @@ impl SafeFetchClient {
         let status = response.status().as_u16();
         let headers = response.headers().clone();
         let final_url = response.url().clone();
-        let body = response.bytes().await?.to_vec();
-
-        if body.len() > self.max_body_size {
-            return Err(FetchError::TooLarge {
-                size: body.len(),
-                max: self.max_body_size,
-            });
+        let mut body = Vec::with_capacity(
+            response
+                .content_length()
+                .unwrap_or(0)
+                .min(self.max_body_size as u64) as usize,
+        );
+        let mut response = response;
+        while let Some(chunk) = response.chunk().await? {
+            if body.len().saturating_add(chunk.len()) > self.max_body_size {
+                return Err(FetchError::TooLarge {
+                    size: body.len().saturating_add(chunk.len()),
+                    max: self.max_body_size,
+                });
+            }
+            body.extend_from_slice(&chunk);
         }
 
         Ok(SafeFetchResponse {
