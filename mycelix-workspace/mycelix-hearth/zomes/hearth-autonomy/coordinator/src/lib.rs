@@ -99,6 +99,30 @@ fn is_capability_granted(cap: &str, capabilities: &[String], restrictions: &[Str
     capabilities.iter().any(|c| c == cap) && !restrictions.iter().any(|r| r == cap)
 }
 
+/// Resolve a member's autonomy profile only when exactly one profile identity exists.
+/// Multiple profile links are an authority conflict, not an ordering decision.
+fn unique_profile_for_member(member: AgentPubKey) -> ExternResult<Option<Record>> {
+    let links = get_links(
+        LinkQuery::try_new(member, LinkTypes::AgentToProfile)?,
+        GetStrategy::default(),
+    )?;
+    let mut targets = std::collections::BTreeSet::<ActionHash>::new();
+    for link in links {
+        let target = ActionHash::try_from(link.target).map_err(|_| {
+            wasm_error!(WasmErrorInner::Guest("Invalid autonomy profile link target".into()))
+        })?;
+        targets.insert(target);
+    }
+
+    match targets.len() {
+        0 => Ok(None),
+        1 => get_unique_latest_record(targets.into_iter().next().expect("one target")),
+        _ => Err(wasm_error!(WasmErrorInner::Guest(
+            "Conflicting autonomy profiles prevent canonical profile resolution".into(),
+        ))),
+    }
+}
+
 // ============================================================================
 // Extern Functions
 // ============================================================================
@@ -451,29 +475,19 @@ pub fn progress_transition(transition_hash: ActionHash) -> ExternResult<Record> 
         transition.completed_at = Some(now);
 
         // Update the member's autonomy profile to reflect the new tier.
-        // Find the profile via AgentToProfile links.
-        let profile_links = get_links(
-            LinkQuery::try_new(transition.member.clone(), LinkTypes::AgentToProfile)?,
-            GetStrategy::default(),
-        )?;
+        // Resolve exactly one profile identity; do not select an arbitrary link.
+        if let Some(profile_record) = unique_profile_for_member(transition.member.clone())? {
+            let profile_hash = profile_record.action_address().clone();
+            let mut profile: AutonomyProfile = profile_record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Invalid autonomy profile entry".into()
+                )))?;
 
-        if let Some(profile_link) = profile_links.last() {
-            let profile_hash = ActionHash::try_from(profile_link.target.clone()).map_err(|_| {
-                wasm_error!(WasmErrorInner::Guest("Invalid profile link target".into()))
-            })?;
-
-            if let Some(profile_record) = get_unique_latest_record(profile_hash.clone())? {
-                let mut profile: AutonomyProfile = profile_record
-                    .entry()
-                    .to_app_option()
-                    .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-                    .ok_or(wasm_error!(WasmErrorInner::Guest(
-                        "Invalid autonomy profile entry".into()
-                    )))?;
-
-                profile.current_tier = transition.to_tier.clone();
-                update_entry(profile_hash, &EntryTypes::AutonomyProfile(profile))?;
-            }
+            profile.current_tier = transition.to_tier.clone();
+            update_entry(profile_hash, &EntryTypes::AutonomyProfile(profile))?;
         }
     }
 
@@ -495,19 +509,7 @@ pub fn progress_transition(transition_hash: ActionHash) -> ExternResult<Record> 
 /// Get a member's autonomy profile via AgentToProfile links.
 #[hdk_extern]
 pub fn get_autonomy_profile(member: AgentPubKey) -> ExternResult<Option<Record>> {
-    let links = get_links(
-        LinkQuery::try_new(member, LinkTypes::AgentToProfile)?,
-        GetStrategy::default(),
-    )?;
-
-    // Return the most recent profile link target
-    if let Some(link) = links.last() {
-        let action_hash = ActionHash::try_from(link.target.clone())
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        Ok(get_unique_latest_record(action_hash)?)
-    } else {
-        Ok(None)
-    }
+    unique_profile_for_member(member)
 }
 
 /// Runtime permission check: returns true if a member has a given capability
@@ -515,20 +517,7 @@ pub fn get_autonomy_profile(member: AgentPubKey) -> ExternResult<Option<Record>>
 #[hdk_extern]
 pub fn check_capability(input: CheckCapabilityInput) -> ExternResult<bool> {
     let CheckCapabilityInput { member, capability } = input;
-    let links = get_links(
-        LinkQuery::try_new(member, LinkTypes::AgentToProfile)?,
-        GetStrategy::default(),
-    )?;
-
-    let profile_link = match links.last() {
-        Some(link) => link,
-        None => return Ok(false),
-    };
-
-    let action_hash = ActionHash::try_from(profile_link.target.clone())
-        .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-
-    let record = match get_unique_latest_record(action_hash)? {
+    let record = match unique_profile_for_member(member)? {
         Some(r) => r,
         None => return Ok(false),
     };
