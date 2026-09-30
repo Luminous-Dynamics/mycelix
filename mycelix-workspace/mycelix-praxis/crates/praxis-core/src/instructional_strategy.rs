@@ -543,12 +543,18 @@ impl InstructionalTransformationParameter {
                 }
             }
             Self::Decimal(value) => {
-                if value.trim().is_empty() || value.parse::<f64>().is_err() {
+                if value.trim().is_empty()
+                    || value.parse::<f64>().map(|number| !number.is_finite()).unwrap_or(true)
+                {
                     return Err(InstructionalScienceContractError::InvalidTransformationParameters);
                 }
             }
             Self::Digest(value) => {
-                if value.trim().is_empty() || !value.starts_with("blake3:") {
+                if value.trim().is_empty()
+                    || !value.starts_with("blake3:")
+                    || value.len() != "blake3:".len() + 64
+                    || !value["blake3:".len()..].chars().all(|character| character.is_ascii_hexdigit())
+                {
                     return Err(InstructionalScienceContractError::InvalidTransformationParameters);
                 }
             }
