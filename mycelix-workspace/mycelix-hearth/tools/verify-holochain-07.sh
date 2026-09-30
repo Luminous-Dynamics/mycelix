@@ -4,7 +4,7 @@ set -euo pipefail
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 workspace="${root}/Cargo.toml"
 tests="${root}/tests/Cargo.toml"
-lock="${root}/Cargo.lock"
+flake_lock="${root}/flake.lock"
 
 fail() {
   echo "FAIL: $*" >&2
@@ -13,7 +13,7 @@ fail() {
 
 [[ -f "$workspace" ]] || fail "missing Hearth workspace Cargo.toml"
 [[ -f "$tests" ]] || fail "missing Sweettest workspace Cargo.toml"
-[[ -f "$lock" ]] || fail "missing Hearth Cargo.lock"
+[[ -f "$flake_lock" ]] || fail "missing Hearth flake.lock"
 
 require_exact() {
   local file="$1"
@@ -49,14 +49,14 @@ for file in "$workspace" "$tests"; do
   forbidden "$file" 'holochain_types = "0.6'
 done
 
-# The lockfile is part of the qualification closure. Verify the resolved
-# versions, not merely the manifest declarations.
-grep -Fq -- 'name = "holochain"' "$lock" || fail "Cargo.lock has no holochain package"
-grep -Fq -- 'version = "0.7.0"' "$lock" || fail "Cargo.lock does not resolve Holochain 0.7.0"
-grep -Fq -- 'name = "hdk"' "$lock" || fail "Cargo.lock has no hdk package"
-grep -Fq -- 'name = "hdi"' "$lock" || fail "Cargo.lock has no hdi package"
+# The Nix lockfile is part of the qualification closure. The workflow must not
+# silently resolve a Holochain 0.6 Holonix input while claiming 0.7.
+require_exact "$flake_lock" '"ref": "holochain-0.7.0"'
+require_exact "$flake_lock" '"ref": "main-0.7"'
+require_exact "$flake_lock" '"ref": "v0.7.1"'
+require_exact "$flake_lock" '"ref": "v0.5.0"'
 
 echo "Holochain 0.7 source invariants: PASS"
 echo "workspace=$workspace"
 echo "tests=$tests"
-echo "lock=$lock"
+echo "flake_lock=$flake_lock"
