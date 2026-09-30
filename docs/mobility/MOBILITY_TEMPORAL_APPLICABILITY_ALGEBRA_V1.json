@@ -1,0 +1,25 @@
+{
+  "schema_version": "mobility-temporal-applicability-algebra-v1",
+  "scope": "semantic-provenance-only",
+  "time_representation": "unix_seconds_utc",
+  "concepts": [
+    "event_time",
+    "applicability_interval",
+    "publication_time",
+    "external_authority_time",
+    "protocol_publication_time"
+  ],
+  "interval_rules": {
+    "end_must_not_precede_start": true,
+    "unknown_bounds_are_explicit": true,
+    "unknown_bound_overlap": "indeterminate"
+  },
+  "forbidden_inferences": [
+    "publication_time_is_event_time",
+    "event_time_establishes_truth",
+    "holochain_action_timestamp_is_engineering_validity",
+    "open_interval_implies_current_safety",
+    "temporal_overlap_implies_physical_equivalence",
+    "later_evidence_erases_earlier_evidence"
+  ]
+}
