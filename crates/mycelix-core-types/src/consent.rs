@@ -390,6 +390,37 @@ mod tests {
     }
 
     #[test]
+    fn content_bound_identity_is_deterministic() {
+        let c = consent();
+        assert_eq!(c.id, ConsentId::derive_content_bound(&c));
+        assert_eq!(c.validate_identity(), Ok(()));
+        assert_eq!(c.canonical_bytes(), c.canonical_bytes());
+        assert_eq!(c.state_canonical_bytes(), c.state_canonical_bytes());
+    }
+
+    #[test]
+    fn identity_detects_immutable_content_tampering() {
+        let mut c = consent();
+        c.scope = DisclosureScope::new(
+            AccessMode::Disclose,
+            vec![DataClass::Contact],
+            vec!["phone".into()],
+        ).unwrap();
+        assert_eq!(c.validate_identity(), Err(ConsentError::IdentityMismatch));
+    }
+
+    #[test]
+    fn lifecycle_mutation_does_not_change_immutable_identity() {
+        let mut c = consent();
+        let id = c.id;
+        let canonical = c.canonical_bytes();
+        c.revoke(&participant("did", "alice"), 150, 7).unwrap();
+        assert_eq!(c.id, id);
+        assert_eq!(c.canonical_bytes(), canonical);
+        assert_ne!(c.state_canonical_bytes(), canonical);
+    }
+
+    #[test]
     fn matching_request_is_authorized() {
         assert!(consent().authorize(&request("relationship-support", 150, 7)).is_ok());
     }
