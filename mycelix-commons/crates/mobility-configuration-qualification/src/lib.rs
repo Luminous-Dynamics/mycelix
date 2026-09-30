@@ -2,6 +2,12 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::fs;
 
+/// Typed identity/lineage semantics for the mobility evidence substrate.
+///
+/// Kept in a dedicated module so identity does not collapse into relationship
+/// scope strings or Holochain protocol metadata.
+pub mod identity_lineage;
+
 const EXPECTED_COUNT: usize = 20;
 const EXPECTED_PREFIX: &str = "MC-CONFIG-";
 
