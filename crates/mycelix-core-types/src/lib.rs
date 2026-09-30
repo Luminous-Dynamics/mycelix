@@ -154,6 +154,7 @@ pub mod moral;
 pub mod relationship;
 pub mod commitment;
 pub mod consent;
+pub mod delegation;
 pub mod trust;
 pub mod wisdom_engine;
 
@@ -165,6 +166,7 @@ pub use moral::*;
 pub use relationship::*;
 pub use commitment::*;
 pub use consent::*;
+pub use delegation::*;
 pub use trust::*;
 pub use wisdom_engine::*;
 
