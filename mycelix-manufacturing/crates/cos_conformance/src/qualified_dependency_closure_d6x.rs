@@ -621,35 +621,27 @@ mod tests {
         };
         let mut nodes = BTreeMap::new();
         for (id, kind) in [("root", ClaimGraphNodeKindV1::Statement),("dep", ClaimGraphNodeKindV1::Evidence)] {
-            let mut node = QualifiedNodeV1 {
-                node_id:id.into(), kind, node_commitment:String::new(),
+            nodes.insert(id.into(), QualifiedNodeV1 {
+                node_id:id.into(), kind, node_commitment:format!("commit-{id}"),
                 historical_only:false, current_frontier_root:Some("frontier".into()), claim_ceiling:D6S_CLAIM_CEILING.into(),
-            };
-            node.node_commitment = node.recomputed_commitment();
-            nodes.insert(node.node_id.clone(), node);
+            });
         }
         if extra {
-            let mut noise = QualifiedNodeV1 {
-                node_id:"noise".into(), kind:ClaimGraphNodeKindV1::Source, node_commitment:String::new(),
+            nodes.insert("noise".into(), QualifiedNodeV1 {
+                node_id:"noise".into(), kind:ClaimGraphNodeKindV1::Source, node_commitment:"commit-noise".into(),
                 historical_only:false, current_frontier_root:Some("frontier".into()), claim_ceiling:D6S_CLAIM_CEILING.into(),
-            };
-            noise.node_commitment = noise.recomputed_commitment();
-            nodes.insert(noise.node_id.clone(), noise);
+            });
         }
         let mut edges = BTreeMap::new();
-        let mut e1 = QualifiedEdgeV1 {
+        edges.insert("e1".into(), QualifiedEdgeV1 {
             edge_id:"e1".into(), from_node_id:"root".into(), to_node_id:"dep".into(),
-            kind:ClaimGraphEdgeKindV1::Supports, edge_commitment:String::new(), claim_ceiling:D6S_CLAIM_CEILING.into(),
-        };
-        e1.edge_commitment = e1.recomputed_commitment();
-        edges.insert(e1.edge_id.clone(), e1);
+            kind:ClaimGraphEdgeKindV1::Supports, edge_commitment:"edge-e1".into(), claim_ceiling:D6S_CLAIM_CEILING.into(),
+        });
         if extra {
-            let mut noise_edge = QualifiedEdgeV1 {
+            edges.insert("noise-edge".into(), QualifiedEdgeV1 {
                 edge_id:"noise-edge".into(), from_node_id:"noise".into(), to_node_id:"dep".into(),
-                kind:ClaimGraphEdgeKindV1::Provenance, edge_commitment:String::new(), claim_ceiling:D6S_CLAIM_CEILING.into(),
-            };
-            noise_edge.edge_commitment = noise_edge.recomputed_commitment();
-            edges.insert(noise_edge.edge_id.clone(), noise_edge);
+                kind:ClaimGraphEdgeKindV1::Provenance, edge_commitment:"edge-noise".into(), claim_ceiling:D6S_CLAIM_CEILING.into(),
+            });
         }
         let p = QualifiedProjectionV1 {
             projection_id:"projection".into(), projection_version:"1".into(),
