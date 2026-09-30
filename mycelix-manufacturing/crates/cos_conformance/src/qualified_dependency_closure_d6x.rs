@@ -622,13 +622,13 @@ mod tests {
         let mut nodes = BTreeMap::new();
         for (id, kind) in [("root", ClaimGraphNodeKindV1::Statement),("dep", ClaimGraphNodeKindV1::Evidence)] {
             nodes.insert(id.into(), QualifiedNodeV1 {
-                node_id:id.into(), kind, node_commitment:format!("commit-{id}"),
+                node_id:id.into(), kind, content_commitment:format!("content-{id}"), node_commitment:format!("commit-{id}"),
                 historical_only:false, current_frontier_root:Some("frontier".into()), claim_ceiling:D6S_CLAIM_CEILING.into(),
             });
         }
         if extra {
             nodes.insert("noise".into(), QualifiedNodeV1 {
-                node_id:"noise".into(), kind:ClaimGraphNodeKindV1::Source, node_commitment:"commit-noise".into(),
+                node_id:"noise".into(), kind:ClaimGraphNodeKindV1::Source, content_commitment:"content-noise".into(), node_commitment:"commit-noise".into(),
                 historical_only:false, current_frontier_root:Some("frontier".into()), claim_ceiling:D6S_CLAIM_CEILING.into(),
             });
         }
@@ -768,7 +768,7 @@ mod tests {
 
         a.nodes.insert("alt".into(), QualifiedNodeV1 {
             node_id:"alt".into(), kind:ClaimGraphNodeKindV1::Evidence,
-            node_commitment:"commit-alt".into(), historical_only:false,
+            content_commitment:"content-alt".into(), node_commitment:"commit-alt".into(), historical_only:false,
             current_frontier_root:Some("frontier".into()), claim_ceiling:D6S_CLAIM_CEILING.into(),
         });
         a.edges.get_mut("e1").unwrap().to_node_id = "alt".into();
@@ -868,7 +868,7 @@ mod tests {
         let (mut a,e,d)=projection(false);
         a.nodes.insert("other".into(), QualifiedNodeV1 {
             node_id:"other".into(), kind:ClaimGraphNodeKindV1::Statement,
-            node_commitment:"commit-other".into(), historical_only:false,
+            content_commitment:"content-other".into(), node_commitment:"commit-other".into(), historical_only:false,
             current_frontier_root:Some("frontier".into()), claim_ceiling:D6S_CLAIM_CEILING.into(),
         });
         a.edges.insert("unselected-current-only".into(), QualifiedEdgeV1 {
