@@ -27,6 +27,7 @@ pub mod canonical_derivation_receipt;
 pub mod layered_derivation_commitment;
 pub mod qualified_dependency_closure_d6x;
 pub mod d6x_resolution_adapter;
+pub mod integral_interop;
 
 pub const CORPUS_ID: &str = "COS-CONF-001";
 pub const FORMAL_OBLIGATIONS: [&str; 10] = [
