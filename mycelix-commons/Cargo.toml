@@ -5,6 +5,7 @@ members = [
     "crates/commons-leptos-types",
     "crates/commons-types",
     "crates/mutualaid-common",
+    "crates/aero-evidence-types",
 
     # Property domain (4 zomes)
     "zomes/property-registry/integrity",
@@ -167,6 +168,7 @@ getrandom_03 = { package = "getrandom", version = "0.3" }
 # Internal shared crates
 commons-types = { path = "crates/commons-types" }
 mutualaid-common = { path = "crates/mutualaid-common" }
+aero-evidence-types = { path = "crates/aero-evidence-types" }
 support-types = { path = "crates/support-types" }
 mycelix-bridge-common = { path = "../crates/mycelix-bridge-common" }
 mycelix-bridge-entry-types = { path = "../crates/mycelix-bridge-entry-types" }
