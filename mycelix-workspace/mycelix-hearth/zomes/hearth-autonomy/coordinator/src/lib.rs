@@ -116,7 +116,14 @@ fn unique_profile_for_member(member: AgentPubKey) -> ExternResult<Option<Record>
 
     match targets.len() {
         0 => Ok(None),
-        1 => get_unique_latest_record(targets.into_iter().next().expect("one target")),
+        1 => {
+            let target = targets.into_iter().next().ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "Autonomy profile target disappeared during resolution".into(),
+                ))
+            })?;
+            get_unique_latest_record(target)
+        },
         _ => Err(wasm_error!(WasmErrorInner::Guest(
             "Conflicting autonomy profiles prevent canonical profile resolution".into(),
         ))),
