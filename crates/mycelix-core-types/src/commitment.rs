@@ -94,6 +94,32 @@ impl Commitment {
         actor: ParticipantRef,
         evidence_ref: Option<String>,
     ) -> Result<Self, CommitmentError> {
+        let commitment = Self::new_content_bound(
+            relationship_id,
+            obligor,
+            beneficiary,
+            due_at,
+            created_at,
+            actor,
+            evidence_ref,
+        )?;
+        if id != commitment.id {
+            return Err(CommitmentError::IdentityMismatch);
+        }
+        Ok(commitment)
+    }
+
+    /// Construct a commitment whose identifier is deterministically derived
+    /// from its immutable obligation content.
+    pub fn new_content_bound(
+        relationship_id: RelationshipId,
+        obligor: ParticipantRef,
+        beneficiary: ParticipantRef,
+        due_at: Option<i64>,
+        created_at: i64,
+        actor: ParticipantRef,
+        evidence_ref: Option<String>,
+    ) -> Result<Self, CommitmentError> {
         if obligor == beneficiary {
             return Err(CommitmentError::SelfCommitment);
         }
@@ -275,8 +301,7 @@ mod tests {
 
     fn commitment() -> Commitment {
         let relationship = RelationshipId::derive("test", b"relationship");
-        Commitment::new(
-            CommitmentId::derive(relationship, b"commitment"),
+        Commitment::new_content_bound(
             relationship,
             p("did", "alice"),
             p("org", "acme"),
@@ -285,6 +310,24 @@ mod tests {
             p("did", "alice"),
             Some("e:request".into()),
         ).unwrap()
+    }
+
+    #[test]
+    fn mismatched_supplied_identity_is_rejected() {
+        let relationship = RelationshipId::derive("test", b"identity-mismatch");
+        assert_eq!(
+            Commitment::new(
+                CommitmentId::derive(relationship, b"caller-chosen"),
+                relationship,
+                p("did", "alice"),
+                p("org", "acme"),
+                None,
+                100,
+                p("did", "alice"),
+                None,
+            ),
+            Err(CommitmentError::IdentityMismatch)
+        );
     }
 
     #[test]
