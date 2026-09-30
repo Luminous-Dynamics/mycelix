@@ -151,18 +151,21 @@ impl ReservationLedger {
         intent_id: &str,
         release: bool,
     ) -> Result<ApplyOutcome, ReservationError> {
-        let state = self
+        let current = self
             .reservations
-            .get_mut(intent_id)
+            .get(intent_id)
             .ok_or_else(|| ReservationError::UnknownIntent {
                 intent_id: intent_id.to_owned(),
             })?;
 
-        match state {
+        match current {
             ReservationState::Active(reservation) => {
                 let reservation = reservation.clone();
                 if release {
-                    *state = ReservationState::Released(reservation);
+                    self.reservations.insert(
+                        intent_id.to_owned(),
+                        ReservationState::Released(reservation),
+                    );
                 } else {
                     // Consumption transfers the reserved quantity out of the
                     // remaining inventory capacity. Release returns capacity;
@@ -171,7 +174,10 @@ impl ReservationLedger {
                         .capacity
                         .checked_sub(reservation.quantity)
                         .ok_or(ReservationError::Overflow)?;
-                    *state = ReservationState::Consumed(reservation);
+                    self.reservations.insert(
+                        intent_id.to_owned(),
+                        ReservationState::Consumed(reservation),
+                    );
                 }
                 Ok(ApplyOutcome::Applied)
             }
