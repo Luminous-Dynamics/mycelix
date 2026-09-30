@@ -622,25 +622,25 @@ mod tests {
         let mut nodes = BTreeMap::new();
         for (id, kind) in [("root", ClaimGraphNodeKindV1::Statement),("dep", ClaimGraphNodeKindV1::Evidence)] {
             nodes.insert(id.into(), QualifiedNodeV1 {
-                node_id:id.into(), kind, node_commitment:format!("commit-{id}"),
+                node_id:id.into(), kind, node_commitment:String::new(),
                 historical_only:false, current_frontier_root:Some("frontier".into()), claim_ceiling:D6S_CLAIM_CEILING.into(),
             });
         }
         if extra {
             nodes.insert("noise".into(), QualifiedNodeV1 {
-                node_id:"noise".into(), kind:ClaimGraphNodeKindV1::Source, node_commitment:"commit-noise".into(),
+                node_id:"noise".into(), kind:ClaimGraphNodeKindV1::Source, node_commitment:String::new(),
                 historical_only:false, current_frontier_root:Some("frontier".into()), claim_ceiling:D6S_CLAIM_CEILING.into(),
             });
         }
         let mut edges = BTreeMap::new();
         edges.insert("e1".into(), QualifiedEdgeV1 {
             edge_id:"e1".into(), from_node_id:"root".into(), to_node_id:"dep".into(),
-            kind:ClaimGraphEdgeKindV1::Supports, edge_commitment:"edge-e1".into(), claim_ceiling:D6S_CLAIM_CEILING.into(),
+            kind:ClaimGraphEdgeKindV1::Supports, edge_commitment:String::new(), claim_ceiling:D6S_CLAIM_CEILING.into(),
         });
         if extra {
             edges.insert("noise-edge".into(), QualifiedEdgeV1 {
                 edge_id:"noise-edge".into(), from_node_id:"noise".into(), to_node_id:"dep".into(),
-                kind:ClaimGraphEdgeKindV1::Provenance, edge_commitment:"edge-noise".into(), claim_ceiling:D6S_CLAIM_CEILING.into(),
+                kind:ClaimGraphEdgeKindV1::Provenance, edge_commitment:String::new(), claim_ceiling:D6S_CLAIM_CEILING.into(),
             });
         }
         let p = QualifiedProjectionV1 {
@@ -699,7 +699,7 @@ mod tests {
     fn selected_node_commitment_changes_identity() {
         let (mut a,e,d)=projection(false); let p=profile(BTreeSet::new());
         let before=compute_dependency_closure(&a,&e,&d,&p).unwrap();
-        a.nodes.get_mut("dep").unwrap().node_commitment="changed".into();
+        { let dep=a.nodes.get_mut("dep").unwrap(); dep.content_commitment="changed".into(); dep.node_commitment=dep.recomputed_commitment(); }
         let after=compute_dependency_closure(&a,&e,&d,&p).unwrap();
         assert_ne!(before.closure_identity_commitment, after.closure_identity_commitment);
     }
@@ -708,7 +708,7 @@ mod tests {
     fn selected_edge_commitment_changes_identity() {
         let (mut a,e,d)=projection(false); let p=profile(BTreeSet::new());
         let before=compute_dependency_closure(&a,&e,&d,&p).unwrap();
-        a.edges.get_mut("e1").unwrap().edge_commitment="changed".into();
+        { let edge=a.edges.get_mut("e1").unwrap(); edge.kind=ClaimGraphEdgeKindV1::DerivedFrom; edge.edge_commitment=edge.recomputed_commitment(); }
         let after=compute_dependency_closure(&a,&e,&d,&p).unwrap();
         assert_ne!(before.closure_identity_commitment, after.closure_identity_commitment);
     }
@@ -725,6 +725,7 @@ mod tests {
         let (mut a,e,d)=projection(false); let p=profile(BTreeSet::new());
         let before=compute_dependency_closure(&a,&e,&d,&p).unwrap();
         a.edges.get_mut("e1").unwrap().kind=ClaimGraphEdgeKindV1::Provenance;
+        a.edges.get_mut("e1").unwrap().edge_commitment = a.edges.get("e1").unwrap().recomputed_commitment();
         let after=compute_dependency_closure(&a,&e,&d,&p).unwrap();
         assert_ne!(before.closure_identity_commitment, after.closure_identity_commitment);
     }
@@ -771,12 +772,14 @@ mod tests {
             current_frontier_root:Some("frontier".into()), claim_ceiling:D6S_CLAIM_CEILING.into(),
         });
         a.edges.get_mut("e1").unwrap().to_node_id = "alt".into();
+        a.edges.get_mut("e1").unwrap().edge_commitment = a.edges.get("e1").unwrap().recomputed_commitment();
         let endpoint_changed=compute_dependency_closure(&a,&e,&d,&p).unwrap();
         assert_ne!(before.closure_identity_commitment, endpoint_changed.closure_identity_commitment);
 
         let (mut a,e,d)=projection(false);
         let before=compute_dependency_closure(&a,&e,&d,&p).unwrap();
         a.edges.get_mut("e1").unwrap().kind = ClaimGraphEdgeKindV1::Provenance;
+        a.edges.get_mut("e1").unwrap().edge_commitment = a.edges.get("e1").unwrap().recomputed_commitment();
         let kind_changed=compute_dependency_closure(&a,&e,&d,&p).unwrap();
         assert_ne!(before.closure_identity_commitment, kind_changed.closure_identity_commitment);
     }
