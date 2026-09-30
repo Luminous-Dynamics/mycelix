@@ -103,6 +103,16 @@ impl ResolutionEvidenceEnvelopeV1 {
         Some(Self { attempt, evidence })
     }
 
+    /// Validates that the envelope has not drifted from its source attempt.
+    ///
+    /// This protects the audit boundary from carrying contradictory typed and
+    /// legacy evidence representations. It does not validate semantic
+    /// commitment equality; that remains a D6X certificate invariant.
+    pub fn structurally_valid(&self) -> bool {
+        self.attempt.structurally_valid()
+            && self.evidence == self.attempt.to_resolution_evidence()
+    }
+
     pub fn to_attempt(&self) -> ResolutionAttemptV1 {
         self.attempt.clone()
     }
@@ -214,6 +224,20 @@ mod tests {
             historical.semantic_resolution(),
             crate::qualified_dependency_closure_d6x::SemanticDependencyResolutionV1::Stale
         );
+    }
+
+    #[test]
+    fn envelope_rejects_drift_between_typed_attempt_and_legacy_evidence() {
+        let attempt = ResolutionAttemptV1 {
+            address_kind: ResolutionAddressKindV1::Action,
+            address: "action-address".into(),
+            outcome: ResolutionAttemptOutcomeV1::Retrieved,
+            observed_commitment: Some("commitment".into()),
+            qualification_context_commitment: None,
+        };
+        let mut envelope = ResolutionEvidenceEnvelopeV1::from_attempt(attempt).unwrap();
+        envelope.evidence.observed_commitment = Some("different".into());
+        assert!(!envelope.structurally_valid());
     }
 
     #[test]
