@@ -843,7 +843,7 @@ pub fn amend_vote(input: AmendVoteInput) -> ExternResult<Record> {
 /// Get a single decision by its action hash.
 #[hdk_extern]
 pub fn get_decision(decision_hash: ActionHash) -> ExternResult<Option<Record>> {
-    get(decision_hash, GetOptions::default())
+    get_unique_latest_record(decision_hash)
 }
 
 /// Get all decisions for a hearth.
