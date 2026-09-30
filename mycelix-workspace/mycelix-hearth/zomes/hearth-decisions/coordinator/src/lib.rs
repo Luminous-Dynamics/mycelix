@@ -6,7 +6,7 @@
 //! Provides CRUD operations for decisions, voting, tallying, and finalization.
 
 use hdk::prelude::*;
-use hearth_coordinator_common::{decode_zome_response, get_latest_record};
+use hearth_coordinator_common::{decode_zome_response, get_unique_latest_record};
 use hearth_decisions_integrity::*;
 use hearth_types::*;
 use mycelix_bridge_common::{
