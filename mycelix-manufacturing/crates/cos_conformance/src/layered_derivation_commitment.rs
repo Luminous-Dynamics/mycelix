@@ -226,6 +226,10 @@ mod tests {
 
         assert_ne!(c.source_dkg_snapshot_commitment, changed.source_dkg_snapshot_commitment);
         assert_ne!(c.closure_identity_commitment, changed.closure_identity_commitment);
+
+        let original_input = InputCommitmentV1::from_projection(&fixture(false).0, &e, &c).unwrap();
+        let changed_input = InputCommitmentV1::from_projection(&p, &e, &changed).unwrap();
+        assert_ne!(original_input.commitment, changed_input.commitment);
     }
 
     #[test]
