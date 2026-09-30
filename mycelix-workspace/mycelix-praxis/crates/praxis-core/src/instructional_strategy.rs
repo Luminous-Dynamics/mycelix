@@ -1397,10 +1397,10 @@ impl InstructionalAnalysisDerivationResolutionReceipt {
                         && candidate.transformation_version == resolution.transformation.transformation_version
                         && candidate.transformation_digest == resolution.transformation.transformation_digest
                 }).ok_or(InstructionalScienceContractError::MissingResolvedTransformationReceipt)?;
-                receipt.validate()?;
                 if receipt.compute_digest()? != resolution.transformation.transformation_digest {
                     return Err(InstructionalScienceContractError::ResolvedTransformationDigestMismatch);
                 }
+                receipt.validate()?;
             }
         }
         Ok(())
@@ -3479,10 +3479,10 @@ mod tests {
         );
 
         let mut wrong_receipt = receipt;
-        wrong_receipt.transformation_digest = "blake3:tampered".into();
+        wrong_receipt.operation_version = "2".into();
         assert_eq!(
             resolution.validate_against_receipts(&derivation, &[wrong_receipt]),
-            Err(InstructionalScienceContractError::MissingResolvedTransformationReceipt)
+            Err(InstructionalScienceContractError::ResolvedTransformationDigestMismatch)
         );
     }
 
