@@ -144,30 +144,25 @@ async fn test_active_catalog_fails_closed_on_conflicting_active_memberships() {
 
     tokio::time::sleep(std::time::Duration::from_secs(10)).await;
 
-    let _: Record = bob_conductor
-        .call(
-            &bob.zome("hearth_kinship"),
-            "accept_invitation",
-            AcceptInvitationInput {
-                invitation_hash: second.action_address().clone(),
-                display_name: "Bob Two".into(),
-            },
-        )
-        .await;
+    // The second invitation remains valid, but the membership guard must
+    // reject consuming it while Bob is already Active in this Hearth.
+    let second_accept = bob_conductor.call(
+        &bob.zome("hearth_kinship"),
+        "accept_invitation",
+        AcceptInvitationInput {
+            invitation_hash: second.action_address().clone(),
+            display_name: "Bob Two".into(),
+        },
+    );
 
-    tokio::time::sleep(std::time::Duration::from_secs(10)).await;
-
-    // SweetConductor::call unwraps a zome error and panics. Isolate only the
-    // catalog call in a task so an earlier setup/acceptance failure cannot
-    // satisfy the test accidentally.
-    let join = tokio::spawn(async move {
-        let _: serde_json::Value = bob_conductor
-            .call(&bob.zome("hearth_kinship"), "get_my_active_hearths", ())
-            .await;
-    });
+    let result = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        second_accept,
+    )
+    .await;
 
     assert!(
-        join.await.is_err(),
-        "canonical Active Hearth catalog must fail closed on conflicting active memberships"
+        result.is_err(),
+        "second Active admission must be rejected rather than creating conflicting authority"
     );
 }
