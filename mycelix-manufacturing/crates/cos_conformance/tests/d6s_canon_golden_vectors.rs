@@ -2,6 +2,10 @@ use cos_conformance::canonical_derivation_receipt::{canonical_bytes, canonical_s
 use serde::Deserialize;
 use serde_json::Value;
 
+fn hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
 #[derive(Debug, Deserialize)]
 struct Fixture {
     canonicalization_version: String,
@@ -26,7 +30,7 @@ fn machine_readable_d6s_canon_1_vectors_match_reference_implementation() {
     assert_eq!(fixture.canonicalization_version, D6S_REFERENCE_CANONICALIZATION_VERSION);
     assert_eq!(
         fixture.hash_domain_prefix_hex,
-        hex::encode(D6S_HASH_DOMAIN),
+        hex(D6S_HASH_DOMAIN),
         "fixture must bind the exact hash-domain prefix"
     );
 
