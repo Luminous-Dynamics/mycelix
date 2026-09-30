@@ -12,10 +12,11 @@
 //! after an assignment. They are not causal effects, learner traits, mastery,
 //! credentials, trust, or authorization.
 
+use crate::crypto::hash_to_string;
 use crate::learner_profile_state::PresentationModality;
 use crate::learning_evidence::LearnerId;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum AccessibilityRequirement {
@@ -516,6 +517,46 @@ impl InstructionalOutcomeTransformationKind {
     }
 }
 
+/// Canonical, privacy-safe parameters for one transformation.
+///
+/// Parameters use a sorted map so independent implementations can serialize
+/// the same logical parameter set deterministically. Raw learner observations
+/// must never be embedded here; use digests or non-sensitive references instead.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalOutcomeTransformationSpec {
+    pub canonicalization_version: String,
+    pub parameters: BTreeMap<String, String>,
+    pub spec_digest: String,
+}
+
+impl InstructionalOutcomeTransformationSpec {
+    fn canonical_bytes(&self) -> Result<Vec<u8>, InstructionalScienceContractError> {
+        serde_json::to_vec(&(
+            "praxis:instructional-outcome-transformation-spec",
+            self.canonicalization_version.as_str(),
+            &self.parameters,
+        ))
+        .map_err(|_| InstructionalScienceContractError::InvalidTransformationParameters)
+    }
+
+    pub fn compute_digest(&self) -> Result<String, InstructionalScienceContractError> {
+        Ok(format!("blake3:{}", hash_to_string(&self.canonical_bytes()?)))
+    }
+
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.canonicalization_version.trim().is_empty()
+            || self.spec_digest.trim().is_empty()
+            || self.parameters.keys().any(|key| key.trim().is_empty())
+        {
+            return Err(InstructionalScienceContractError::InvalidTransformationParameters);
+        }
+        if self.compute_digest()? != self.spec_digest {
+            return Err(InstructionalScienceContractError::TransformationParametersDigestMismatch);
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InstructionalOutcomeTransformationReceipt {
     pub transformation_id: String,
@@ -525,7 +566,7 @@ pub struct InstructionalOutcomeTransformationReceipt {
     pub output_outcome: InstructionalOutcomeRef,
     pub operation: InstructionalOutcomeTransformationKind,
     pub operation_version: String,
-    pub parameters_digest: String,
+    pub parameters: InstructionalOutcomeTransformationSpec,
 }
 
 impl InstructionalOutcomeTransformationReceipt {
@@ -533,13 +574,13 @@ impl InstructionalOutcomeTransformationReceipt {
         if self.transformation_id.trim().is_empty()
             || self.transformation_version == 0
             || self.operation_version.trim().is_empty()
-            || self.parameters_digest.trim().is_empty()
         {
             return Err(InstructionalScienceContractError::InvalidTransformation);
         }
         self.input_outcome.validate()?;
         self.output_outcome.validate()?;
         self.operation.validate()?;
+        self.parameters.validate()?;
         if self.input_outcome == self.output_outcome {
             return Err(InstructionalScienceContractError::TransformationIdentityNoOp);
         }
@@ -1302,6 +1343,8 @@ pub enum InstructionalScienceContractError {
     TransformationSequenceMismatch,
     TransformationChainMismatch,
     TransformationOutputMismatch,
+    InvalidTransformationParameters,
+    TransformationParametersDigestMismatch,
     ZeroAnalysisResultVersion,
     AnalysisResultEstimandMismatch,
     NegativeAnalysisResultGeneratedAt,
@@ -1500,6 +1543,20 @@ impl InstructionalAdaptationContext {
         }
         Ok(())
     }
+}
+
+fn transformation_spec(entries: Vec<(&str, &str)>) -> InstructionalOutcomeTransformationSpec {
+    let parameters = entries
+        .into_iter()
+        .map(|(key, value)| (key.to_string(), value.to_string()))
+        .collect();
+    let mut spec = InstructionalOutcomeTransformationSpec {
+        canonicalization_version: "1".into(),
+        parameters,
+        spec_digest: String::new(),
+    };
+    spec.spec_digest = spec.compute_digest().expect("test transformation spec must hash");
+    spec
 }
 
 #[cfg(test)]
@@ -2284,13 +2341,25 @@ mod tests {
                 output_outcome: output.clone(),
                 operation: InstructionalOutcomeTransformationKind::Standardization,
                 operation_version: "1".into(),
-                parameters_digest: "blake3:params".into(),
+                parameters: transformation_spec(vec![("method", "z-score")]),
             }],
         };
         assert_eq!(chain.validate_for_output(&output), Ok(()));
         assert_eq!(
             chain.validate_for_output(&input),
             Err(InstructionalScienceContractError::TransformationOutputMismatch)
+        );
+    }
+
+    #[test]
+    fn transformation_parameters_digest_is_reconstructible_and_tamper_evident() {
+        let spec = transformation_spec(vec![("decimal_places", "2"), ("mode", "half-even")]);
+        assert_eq!(spec.compute_digest().unwrap(), spec.spec_digest);
+        let mut tampered = spec.clone();
+        tampered.parameters.insert("mode".into(), "away-from-zero".into());
+        assert_eq!(
+            tampered.validate(),
+            Err(InstructionalScienceContractError::TransformationParametersDigestMismatch)
         );
     }
 
@@ -2309,7 +2378,7 @@ mod tests {
             output_outcome: outcome,
             operation: InstructionalOutcomeTransformationKind::Rounding,
             operation_version: "1".into(),
-            parameters_digest: "blake3:params".into(),
+            parameters: transformation_spec(vec![("decimal_places", "2")]),
         };
         assert_eq!(
             transformation.validate(),
