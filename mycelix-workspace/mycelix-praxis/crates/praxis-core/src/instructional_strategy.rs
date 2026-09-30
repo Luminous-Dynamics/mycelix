@@ -3018,6 +3018,36 @@ mod tests {
     }
 
     #[test]
+    fn transformation_digest_detects_tampering() {
+        let input = InstructionalOutcomeRef {
+            outcome_measure_id: "raw".into(),
+            outcome_measure_version: "1".into(),
+            outcome_measure_digest: "blake3:raw".into(),
+        };
+        let output = InstructionalOutcomeRef {
+            outcome_measure_id: "normalized".into(),
+            outcome_measure_version: "1".into(),
+            outcome_measure_digest: "blake3:normalized".into(),
+        };
+        let mut transformation = InstructionalOutcomeTransformationReceipt {
+            transformation_id: "transform-digest".into(),
+            transformation_version: 1,
+            sequence: 1,
+            input_outcome: input,
+            output_outcome: output,
+            operation: InstructionalOutcomeTransformationKind::Normalization,
+            operation_version: "1".into(),
+            parameter_schema: test_transformation_contract_schema(&InstructionalOutcomeTransformationKind::Normalization, "1").unwrap(),
+            parameters: transformation_spec(vec![("method", InstructionalTransformationParameter::Identifier("min-max".into()))]),
+            transformation_digest: String::new(),
+        };
+        transformation.transformation_digest = transformation.compute_digest().unwrap();
+        assert_eq!(transformation.validate(), Ok(()));
+        transformation.sequence = 2;
+        assert_eq!(transformation.validate(), Err(InstructionalScienceContractError::TransformationDigestMismatch));
+    }
+
+    #[test]
     fn transformation_contract_constructor_requires_explicit_provenance() {
         let operation = InstructionalOutcomeTransformationKind::Standardization;
         assert_eq!(
