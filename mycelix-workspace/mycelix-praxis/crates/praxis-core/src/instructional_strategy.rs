@@ -2584,6 +2584,7 @@ mod tests {
         assert_eq!(schema.validate_for(&operation, "1", &spec), Err(InstructionalScienceContractError::TransformationParameterKindMismatch));
     }
 
+    #[test]
     fn transformation_parameters_are_semantically_typed() {
         let spec = transformation_spec(vec![
             ("baseline_seconds", InstructionalTransformationParameter::DurationSeconds(3600)),
@@ -2632,3 +2633,77 @@ mod tests {
             operation_version: "1".into(),
             parameter_schema: InstructionalOutcomeTransformationParameterSchema::for_operation(&InstructionalOutcomeTransformationKind::Rounding, "1").unwrap(),
             parameters: transformation_spec(vec![("decimal_places", InstructionalTransformationParameter::Integer(2)), ("rounding_mode", InstructionalTransformationParameter::Identifier("half-even".into()))]),
+        };
+        assert_eq!(
+            transformation.validate(),
+            Err(InstructionalScienceContractError::TransformationIdentityNoOp)
+        );
+    }
+
+    #[test]
+    fn estimand_definition_must_match_exact_reference() {
+        let mut receipt = InstructionalAnalysisReceipt {
+            analysis_id: "analysis-estimand".into(),
+            analysis_version: 1,
+            analysis_plan_id: "plan".into(),
+            analysis_plan_version: "1".into(),
+            analysis_plan_digest: "blake3:plan".into(),
+            analysis_plan_status: InstructionalAnalysisPlanStatus::Locked,
+            outcome_measure_id: "outcome".into(),
+            outcome_measure_version: "1".into(),
+            outcome_measure_digest: "blake3:outcome".into(),
+            input_observation_set_digest: "blake3:inputs".into(),
+            cohort_definition_digest: "blake3:cohort".into(),
+            inclusion_rules_digest: "blake3:include".into(),
+            exclusion_rules_digest: "blake3:exclude".into(),
+            missing_data_policy: "complete-case".into(),
+            analysis_method: "difference".into(),
+            analysis_method_version: "1".into(),
+            estimand: InstructionalEstimandKind::MeanDifference,
+            estimand_definition: InstructionalEstimandDefinition {
+                kind: InstructionalEstimandKind::MeanDifference,
+                population_scope_digest: "blake3:population".into(),
+                treatment_condition_digest: "blake3:treatment".into(),
+                comparator_condition_digest: "blake3:comparator".into(),
+                outcome_variable_digest: "blake3:outcome".into(),
+                population_level_summary: "mean difference".into(),
+                intercurrent_event_strategy: "treatment policy".into(),
+                estimand_digest: "blake3:estimand".into(),
+            },
+            estimand_ref: InstructionalEstimandRef {
+                estimand_digest: "blake3:estimand".into(),
+            },
+            kind: InstructionalAnalysisKind::Descriptive,
+            experimental_provenance: None,
+            result: InstructionalAnalysisResultRef {
+                result_id: "result-1".into(),
+                result_version: 1,
+                result_digest: "blake3:result".into(),
+            },
+            execution: InstructionalAnalysisExecution {
+                software_id: "tool".into(),
+                software_version: "1".into(),
+                software_digest: "blake3:tool".into(),
+                environment_id: "env".into(),
+                environment_digest: "blake3:env".into(),
+                randomness_policy: "deterministic".into(),
+                random_seed: None,
+                multiple_comparison_policy: "none".into(),
+                sensitivity_analysis_plan_digest: "blake3:sens".into(),
+            },
+            uncertainty: None,
+            prespecified: true,
+            deviation_rationale: None,
+            result_digest: "blake3:result".into(),
+            generated_at: 1,
+        };
+        assert_eq!(receipt.validate(), Ok(()));
+        receipt.estimand_ref.estimand_digest = "blake3:other".into();
+        assert_eq!(
+            receipt.validate(),
+            Err(InstructionalScienceContractError::EstimandKindMismatch)
+        );
+    }
+
+
+}
