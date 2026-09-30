@@ -104,7 +104,7 @@ impl InputCommitmentV1 {
     }
     pub fn valid(&self) -> bool {
         self.schema_version == D6W_SCHEMA_VERSION
-            && is_canonical_sha256_commitment(&self.source_snapshot)
+            && !self.source_snapshot.is_empty()
             && is_canonical_sha256_commitment(&self.projection)
             && is_canonical_sha256_commitment(&self.environment)
             && is_canonical_sha256_commitment(&self.dependency_closure)
