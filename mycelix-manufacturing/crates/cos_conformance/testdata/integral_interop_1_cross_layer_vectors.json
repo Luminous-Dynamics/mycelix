@@ -1,56 +1,115 @@
 {
   "profile": "integral-interop-1",
   "projection_version": "integral-interop-1-design-semantic-v1",
-  "classification": "cross-layer-propagation-v1",
+  "classification": "cross-layer-propagation-v2",
+  "expected_delta_fields": [
+    "oad_semantic_commitment",
+    "d6x_identity",
+    "d6x_certificate",
+    "d6w_input",
+    "d6w_derivation",
+    "d6x_status"
+  ],
   "vectors": [
     {
       "id": "certification-metadata",
       "operation": "set",
       "path": "certification.documentation_bundle_uri",
       "value": "urn:integral:bundle:changed",
-      "expected": "identity-preserving"
+      "expected": {
+        "valid": true,
+        "oad_semantic_commitment": false,
+        "d6x_identity": false,
+        "d6x_certificate": false,
+        "d6w_input": false,
+        "d6w_derivation": false,
+        "d6x_status": "Complete"
+      }
     },
     {
       "id": "selected-production-step",
       "operation": "set",
       "path": "design_version.parameters.production_steps[1].estimated_hours",
       "value": 3,
-      "expected": "identity-changing"
+      "expected": {
+        "valid": true,
+        "oad_semantic_commitment": true,
+        "d6x_identity": true,
+        "d6x_certificate": true,
+        "d6w_input": true,
+        "d6w_derivation": true,
+        "d6x_status": "Complete"
+      }
     },
     {
       "id": "irrelevant-candidate-noise",
       "operation": "candidate-noise",
       "path": "$",
       "value": null,
-      "expected": "identity-preserving"
+      "expected": {
+        "valid": true,
+        "oad_semantic_commitment": false,
+        "d6x_identity": false,
+        "d6x_certificate": true,
+        "d6w_input": false,
+        "d6w_derivation": false,
+        "d6x_status": "Complete"
+      }
     },
     {
       "id": "invalid-fractional-bom",
       "operation": "set",
       "path": "design_version.parameters.bill_of_materials_kg.silicone",
       "value": 0.25,
-      "expected": "invalid-no-identity"
+      "expected": {
+        "valid": false,
+        "d6x_status": "Complete"
+      }
     },
     {
       "id": "required-receipt-missing",
       "operation": "require-d6p-receipt",
       "path": "$",
       "value": false,
-      "expected": "blocked-no-d6w"
+      "expected": {
+        "valid": true,
+        "oad_semantic_commitment": false,
+        "d6x_identity": true,
+        "d6x_certificate": true,
+        "d6w_input": true,
+        "d6w_derivation": true,
+        "d6x_status": "BlockedMissingDependency"
+      }
     },
     {
       "id": "required-receipt-present",
       "operation": "require-d6p-receipt",
       "path": "$",
       "value": true,
-      "expected": "dependency-satisfied"
+      "expected": {
+        "valid": true,
+        "oad_semantic_commitment": false,
+        "d6x_identity": true,
+        "d6x_certificate": true,
+        "d6w_input": true,
+        "d6w_derivation": true,
+        "d6x_status": "Complete"
+      }
     },
     {
       "id": "runtime-resolution-evidence",
       "operation": "runtime-evidence",
       "path": "$",
       "value": "runtime://resolver/42",
-      "expected": "audit-only"
+      "expected": {
+        "valid": true,
+        "oad_semantic_commitment": false,
+        "d6x_identity": false,
+        "d6x_certificate": true,
+        "d6w_input": false,
+        "d6w_derivation": false,
+        "d6x_status": "Complete"
+      }
     }
   ]
 }
