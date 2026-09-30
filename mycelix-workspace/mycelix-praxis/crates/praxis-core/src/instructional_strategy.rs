@@ -3110,11 +3110,32 @@ mod tests {
                 analysis_digest: "blake3:analysis".into(),
             },
             input_observation_set_digest: "blake3:observations".into(),
+            source_outcome: InstructionalOutcomeRef {
+                outcome_measure_id: "raw".into(),
+                outcome_measure_version: "1".into(),
+                outcome_measure_digest: "blake3:raw".into(),
+            },
+            derived_outcome: InstructionalOutcomeRef {
+                outcome_measure_id: "normalized".into(),
+                outcome_measure_version: "1".into(),
+                outcome_measure_digest: "blake3:normalized".into(),
+            },
             transformations: vec![
                 InstructionalOutcomeTransformationRef {
                     transformation_id: "transform-a".into(),
                     transformation_version: 1,
                     transformation_digest: "blake3:transform-a".into(),
+                    sequence: 1,
+                    input_outcome: InstructionalOutcomeRef {
+                        outcome_measure_id: "raw".into(),
+                        outcome_measure_version: "1".into(),
+                        outcome_measure_digest: "blake3:raw".into(),
+                    },
+                    output_outcome: InstructionalOutcomeRef {
+                        outcome_measure_id: "normalized".into(),
+                        outcome_measure_version: "1".into(),
+                        outcome_measure_digest: "blake3:normalized".into(),
+                    },
                 },
             ],
             canonicalization_version: "1".into(),
