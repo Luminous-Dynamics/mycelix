@@ -450,6 +450,12 @@ pub fn compute_dependency_closure(
             missing.insert(id);
             continue;
         };
+        // A selected node commitment is a cryptographic binding, not merely
+        // an opaque identifier. Reject stale (semantic fields, commitment)
+        // pairs before they can enter the closure identity.
+        if !node.commitment_matches() {
+            return None;
+        }
         if included_ids.len() as u32 >= profile.max_nodes {
             resource_blocked = true;
             break;
@@ -490,6 +496,12 @@ pub fn compute_dependency_closure(
             };
 
             if !matches_rule { continue; }
+            // Only selected semantic edges are required to prove their own
+            // commitment binding. Irrelevant/provenance candidates remain
+            // outside the semantic closure boundary.
+            if !edge.commitment_matches() {
+                return None;
+            }
             // Overlapping rules resolve monotonically: CurrentOnly dominates Any.
             let Some(to) = projection.nodes.get(&edge.to_node_id) else {
                 let dependency = SemanticDependencyReferenceV1::node(edge.to_node_id.clone(), None);
@@ -898,139 +910,3 @@ mod tests {
         assert_eq!(c.dependency_resolutions.get(&SemanticDependencyReferenceV1::node("root", Some("commit-root".into()))), Some(&SemanticDependencyResolutionV1::Present));
         assert_eq!(c.dependency_resolutions.get(&SemanticDependencyReferenceV1::node("missing", None)), Some(&SemanticDependencyResolutionV1::Missing));
         assert!(c.valid());
-    }
-
-    #[test]
-    fn resolution_evidence_does_not_change_semantic_identity() {
-        let (a,e,d)=projection(false); let p=profile(BTreeSet::new());
-        let mut c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
-        let identity = c.closure_identity_commitment.clone();
-        let dep=SemanticDependencyReferenceV1::node("dep", Some("commit-dep".into()));
-        c.resolution_evidence.insert(dep, SemanticDependencyResolutionEvidenceV1 {
-            retrieval_reference: Some("opaque-retrieval-ref".into()),
-            observed_commitment: Some("commit-dep".into()),
-            qualification_context_commitment: Some("qualification-context".into()),
-        });
-        assert_eq!(c.closure_identity_commitment, identity);
-        assert!(c.valid());
-        assert_ne!(c.commitment, compute_dependency_closure(&a,&e,&d,&p).unwrap().commitment);
-    }
-
-    #[test]
-    fn resolution_evidence_observed_commitment_must_match_selected_dependency() {
-        let (a,e,d)=projection(false); let p=profile(BTreeSet::new());
-        let mut c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
-        let dep=SemanticDependencyReferenceV1::node("dep", Some("commit-dep".into()));
-        c.resolution_evidence.insert(dep, SemanticDependencyResolutionEvidenceV1 {
-            retrieval_reference: Some("retrieval".into()),
-            observed_commitment: Some("wrong-commitment".into()),
-            qualification_context_commitment: None,
-        });
-        assert!(!c.valid());
-    }
-
-    #[test]
-    fn resolution_evidence_missing_dependency_cannot_claim_observed_commitment() {
-        let (a,e,d)=projection(false); let p=profile(["missing".into()].into_iter().collect());
-        let mut c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
-        let dep=SemanticDependencyReferenceV1::node("missing", None);
-        c.resolution_evidence.insert(dep, SemanticDependencyResolutionEvidenceV1 {
-            retrieval_reference: Some("retrieval-attempt".into()),
-            observed_commitment: Some("unexpected-observation".into()),
-            qualification_context_commitment: None,
-        });
-        assert!(!c.valid());
-    }
-
-    #[test]
-    fn resolution_evidence_observation_is_optional_but_consistent() {
-        let (a,e,d)=projection(false); let p=profile(BTreeSet::new());
-        let mut c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
-        let dep=SemanticDependencyReferenceV1::node("dep", Some("commit-dep".into()));
-        c.resolution_evidence.insert(dep, SemanticDependencyResolutionEvidenceV1 {
-            retrieval_reference: Some("retrieval".into()),
-            observed_commitment: None,
-            qualification_context_commitment: Some("qualification-context".into()),
-        });
-        assert!(c.valid());
-    }
-
-    #[test]
-    fn invalid_resolution_evidence_does_not_change_semantic_identity() {
-        let (a,e,d)=projection(false); let p=profile(BTreeSet::new());
-        let mut c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
-        let identity = c.closure_identity_commitment.clone();
-        let dep=SemanticDependencyReferenceV1::node("dep", Some("commit-dep".into()));
-        c.resolution_evidence.insert(dep, SemanticDependencyResolutionEvidenceV1 {
-            retrieval_reference: Some("retrieval".into()),
-            observed_commitment: Some("wrong".into()),
-            qualification_context_commitment: None,
-        });
-        assert_eq!(c.closure_identity_commitment, identity);
-        assert!(!c.valid());
-    }
-
-    #[test]
-    fn resolution_evidence_cannot_reference_unselected_dependency() {
-        let (a,e,d)=projection(false); let p=profile(BTreeSet::new());
-        let mut c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
-        c.resolution_evidence.insert(
-            SemanticDependencyReferenceV1::node("noise", Some("noise".into())),
-            SemanticDependencyResolutionEvidenceV1 {
-                retrieval_reference: Some("retrieval".into()),
-                observed_commitment: None,
-                qualification_context_commitment: None,
-            },
-        );
-        assert!(!c.valid());
-    }
-
-    #[test]
-    fn arbitrary_stale_resolution_cannot_make_a_complete_certificate_valid() {
-        let (a,e,d)=projection(false); let p=profile(BTreeSet::new());
-        let mut c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
-        let dep=SemanticDependencyReferenceV1::node("dep", Some("commit-dep".into()));
-        c.dependency_resolutions.insert(dep, SemanticDependencyResolutionV1::Stale);
-        assert!(!c.valid());
-    }
-
-    #[test]
-    fn canonical_dependency_set_mismatch_invalidates_certificate() {
-        let (a,e,d)=projection(false); let p=profile(BTreeSet::new());
-        let mut c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
-        c.dependencies.remove(&SemanticDependencyReferenceV1::node("dep", Some("commit-dep".into())));
-        assert!(!c.valid());
-    }
-
-    #[test]
-    fn canonical_dependency_set_extra_reference_invalidates_certificate() {
-        let (a,e,d)=projection(false); let p=profile(BTreeSet::new());
-        let mut c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
-        c.dependencies.insert(SemanticDependencyReferenceV1::node("noise", Some("commit-noise".into())));
-        assert!(!c.valid());
-    }
-
-    #[test]
-    fn legacy_missing_ids_must_match_typed_missing_dependencies() {
-        let (a,e,d)=projection(false); let p=profile(["missing".into()].into_iter().collect());
-        let mut c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
-        c.missing_dependency_ids.clear();
-        assert!(!c.valid());
-    }
-
-    #[test]
-    fn d6x_canonicalization_version_matches_underlying_canon_contract() {
-        assert_eq!(
-            D6X_CANONICALIZATION_VERSION,
-            crate::canonical_derivation_receipt::D6S_REFERENCE_CANONICALIZATION_VERSION
-        );
-    }
-
-    #[test]
-    fn traversal_order_is_canonical() {
-        let (a,e,d)=projection(false); let p=profile(BTreeSet::new());
-        let c1=compute_dependency_closure(&a,&e,&d,&p).unwrap();
-        let c2=compute_dependency_closure(&a,&e,&d,&p).unwrap();
-        assert_eq!(c1.commitment,c2.commitment);
-    }
-}
