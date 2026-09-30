@@ -1,0 +1,29 @@
+name: Mobility Configuration Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1.json'
+      - 'docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1_TEST_VECTORS.md'
+      - 'mycelix-commons/crates/mobility-configuration-qualification/**'
+      - '.github/workflows/mobility-configuration-qualification.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1.json'
+      - 'docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1_TEST_VECTORS.md'
+      - 'mycelix-commons/crates/mobility-configuration-qualification/**'
+      - '.github/workflows/mobility-configuration-qualification.yml'
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mycelix-commons/crates/mobility-configuration-qualification
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo fmt --check
+      - run: cargo test
