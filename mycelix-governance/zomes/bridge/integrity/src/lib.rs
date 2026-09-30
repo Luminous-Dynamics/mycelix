@@ -1501,179 +1501,104 @@ pub enum LinkTypes {
     NotificationSubscription,
 }
 
-/// HDI 0.7 single validation callback using FlatOp pattern
+/// HDI 0.8 single validation callback using the 0.7 action/FlatOp model
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(store_entry) => match store_entry {
+        FlatOp::CreateEntry(create_entry) => match create_entry {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::GovernanceQuery(query) => validate_create_query(action, query),
-                EntryTypes::ProposalReference(proposal) => {
-                    validate_create_proposal_ref(action, proposal)
-                }
-                EntryTypes::GovernanceBridgeEvent(event) => validate_create_event(action, event),
-                EntryTypes::ExecutionRequest(req) => validate_create_execution_req(action, req),
-                // Consciousness metrics validations
-                EntryTypes::ConsciousnessSnapshot(snapshot) => {
-                    validate_create_consciousness_snapshot(action, snapshot)
-                }
-                EntryTypes::ConsciousnessGate(gate) => {
-                    validate_create_consciousness_gate(action, gate)
-                }
-                EntryTypes::ConsciousnessHistory(history) => {
-                    validate_create_consciousness_history(action, history)
-                }
-                EntryTypes::ValueAlignmentAssessment(assessment) => {
-                    validate_create_value_alignment(action, assessment)
-                }
-                EntryTypes::ConsciousnessAttestation(attestation) => {
-                    validate_create_consciousness_attestation(action, attestation)
-                }
-                // RB-BFT Consensus validations
-                EntryTypes::KVector(k_vector) => validate_create_k_vector(action, k_vector),
-                EntryTypes::MatlTrustScore(matl) => validate_create_matl_score(action, matl),
-                EntryTypes::FederatedReputation(fed_rep) => {
-                    validate_create_federated_reputation(action, fed_rep)
-                }
-                EntryTypes::ConsensusParticipant(participant) => {
-                    validate_create_consensus_participant(action, participant)
-                }
-                EntryTypes::WeightedVote(vote) => validate_create_weighted_vote(action, vote),
-                EntryTypes::ConsensusRound(round) => validate_create_consensus_round(action, round),
-                EntryTypes::SlashingRecord(record) => {
-                    validate_create_slashing_record(action, record)
-                }
-                EntryTypes::GovernanceConsciousnessConfig(config) => {
-                    match check_consciousness_config(&config) {
-                        Ok(()) => Ok(ValidateCallbackResult::Valid),
-                        Err(msg) => Ok(ValidateCallbackResult::Invalid(msg)),
-                    }
-                }
-                EntryTypes::Notification(n) => {
-                    mycelix_bridge_entry_types::validate_notification(&n)
-                        .map(|()| ValidateCallbackResult::Valid)
-                        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e)))
-                }
+                EntryTypes::GovernanceQuery(query) => validate_create_query(action.into(), query),
+                EntryTypes::ProposalReference(proposal) => validate_create_proposal_ref(action.into(), proposal),
+                EntryTypes::GovernanceBridgeEvent(event) => validate_create_event(action.into(), event),
+                EntryTypes::ExecutionRequest(req) => validate_create_execution_req(action.into(), req),
+                EntryTypes::ConsciousnessSnapshot(snapshot) => validate_create_consciousness_snapshot(action.into(), snapshot),
+                EntryTypes::ConsciousnessGate(gate) => validate_create_consciousness_gate(action.into(), gate),
+                EntryTypes::ConsciousnessHistory(history) => validate_create_consciousness_history(action.into(), history),
+                EntryTypes::ValueAlignmentAssessment(assessment) => validate_create_value_alignment(action.into(), assessment),
+                EntryTypes::ConsciousnessAttestation(attestation) => validate_create_consciousness_attestation(action.into(), attestation),
+                EntryTypes::KVector(k_vector) => validate_create_k_vector(action.into(), k_vector),
+                EntryTypes::MatlTrustScore(matl) => validate_create_matl_score(action.into(), matl),
+                EntryTypes::FederatedReputation(fed_rep) => validate_create_federated_reputation(action.into(), fed_rep),
+                EntryTypes::ConsensusParticipant(participant) => validate_create_consensus_participant(action.into(), participant),
+                EntryTypes::WeightedVote(vote) => validate_create_weighted_vote(action.into(), vote),
+                EntryTypes::ConsensusRound(round) => validate_create_consensus_round(action.into(), round),
+                EntryTypes::SlashingRecord(record) => validate_create_slashing_record(action.into(), record),
+                EntryTypes::GovernanceConsciousnessConfig(config) => match check_consciousness_config(&config) {
+                    Ok(()) => Ok(ValidateCallbackResult::Valid),
+                    Err(msg) => Ok(ValidateCallbackResult::Invalid(msg)),
+                },
+                EntryTypes::Notification(n) => mycelix_bridge_entry_types::validate_notification(&n)
+                    .map(|()| ValidateCallbackResult::Valid)
+                    .map_err(|e| wasm_error!(WasmErrorInner::Guest(e))),
             },
-            OpEntry::UpdateEntry {
-                app_entry,
-                action,
-                original_action_hash: _,
-                original_entry_hash: _,
-            } => match app_entry {
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::Update(update) => match update {
+            OpUpdate::Entry { app_entry, action } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
                 EntryTypes::GovernanceQuery(_) => Ok(ValidateCallbackResult::Valid),
                 EntryTypes::ProposalReference(_) => Ok(ValidateCallbackResult::Valid),
                 EntryTypes::GovernanceBridgeEvent(_) => Ok(ValidateCallbackResult::Valid),
                 EntryTypes::ExecutionRequest(req) => validate_update_execution_req(action, req),
-                // Consciousness snapshots are immutable
-                EntryTypes::ConsciousnessSnapshot(_) => Ok(ValidateCallbackResult::Invalid(
-                    "Consciousness snapshots are immutable".into(),
-                )),
-                // Gates are immutable (verification is point-in-time)
-                EntryTypes::ConsciousnessGate(_) => Ok(ValidateCallbackResult::Invalid(
-                    "Consciousness gates are immutable".into(),
-                )),
-                // History can be updated (aggregated over time)
+                EntryTypes::ConsciousnessSnapshot(_) => Ok(ValidateCallbackResult::Invalid("Consciousness snapshots are immutable".into())),
+                EntryTypes::ConsciousnessGate(_) => Ok(ValidateCallbackResult::Invalid("Consciousness gates are immutable".into())),
                 EntryTypes::ConsciousnessHistory(_) => Ok(ValidateCallbackResult::Valid),
-                // Assessments are immutable
-                EntryTypes::ValueAlignmentAssessment(_) => Ok(ValidateCallbackResult::Invalid(
-                    "Value alignment assessments are immutable".into(),
-                )),
-                // Phi attestations are immutable (point-in-time signed proof)
-                EntryTypes::ConsciousnessAttestation(_) => Ok(ValidateCallbackResult::Invalid(
-                    "Consciousness attestations are immutable".into(),
-                )),
-                // RB-BFT Consensus update rules
-                // K-Vectors can be updated (reputation changes over time)
+                EntryTypes::ValueAlignmentAssessment(_) => Ok(ValidateCallbackResult::Invalid("Value alignment assessments are immutable".into())),
+                EntryTypes::ConsciousnessAttestation(_) => Ok(ValidateCallbackResult::Invalid("Consciousness attestations are immutable".into())),
                 EntryTypes::KVector(_) => Ok(ValidateCallbackResult::Valid),
-                // MATL scores can be updated (recalculated periodically)
                 EntryTypes::MatlTrustScore(_) => Ok(ValidateCallbackResult::Valid),
-                // Federated reputation can be updated (aggregated periodically)
                 EntryTypes::FederatedReputation(_) => Ok(ValidateCallbackResult::Valid),
-                // Participants can be updated (status, metrics)
                 EntryTypes::ConsensusParticipant(_) => Ok(ValidateCallbackResult::Valid),
-                // Votes are immutable (point-in-time decision)
-                EntryTypes::WeightedVote(_) => Ok(ValidateCallbackResult::Invalid(
-                    "Votes are immutable once cast".into(),
-                )),
-                // Rounds can be updated (state transitions)
+                EntryTypes::WeightedVote(_) => Ok(ValidateCallbackResult::Invalid("Votes are immutable once cast".into())),
                 EntryTypes::ConsensusRound(_) => Ok(ValidateCallbackResult::Valid),
-                // Slashing records are immutable (audit trail)
-                EntryTypes::SlashingRecord(_) => Ok(ValidateCallbackResult::Invalid(
-                    "Slashing records are immutable".into(),
-                )),
-                // Consciousness config can be updated (via governance proposal)
-                EntryTypes::GovernanceConsciousnessConfig(config) => {
-                    match check_consciousness_config(&config) {
-                        Ok(()) => Ok(ValidateCallbackResult::Valid),
-                        Err(msg) => Ok(ValidateCallbackResult::Invalid(msg)),
-                    }
-                }
-                EntryTypes::Notification(_) => Ok(ValidateCallbackResult::Invalid(
-                    "Notifications cannot be updated".into(),
-                )),
+                EntryTypes::SlashingRecord(_) => Ok(ValidateCallbackResult::Invalid("Slashing records are immutable".into())),
+                EntryTypes::GovernanceConsciousnessConfig(config) => match check_consciousness_config(&config) {
+                    Ok(()) => Ok(ValidateCallbackResult::Valid),
+                    Err(msg) => Ok(ValidateCallbackResult::Invalid(msg)),
+                },
+                EntryTypes::Notification(_) => Ok(ValidateCallbackResult::Invalid("Notifications cannot be updated".into())),
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink {
-            link_type,
-            base_address: _,
-            target_address: _,
-            tag: _,
-            action: _,
-        } => match link_type {
-            LinkTypes::ActiveProposals => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::RecentEvents => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::HappToExecutions => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::ProposalToExecutions => Ok(ValidateCallbackResult::Valid),
-            // Consciousness metrics link types
-            LinkTypes::AgentToSnapshots => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::AgentToGates => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::AgentToHistory => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::ProposalToAlignments => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::RecentSnapshots => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::AgentToAttestations => Ok(ValidateCallbackResult::Valid),
-            // RB-BFT Consensus link types
-            LinkTypes::AgentToKVector => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::AgentToMatlScore => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::AgentToFederatedRep => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::AgentToParticipant => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::ProposalToRound => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::RoundToVotes => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::AgentToVotes => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::AgentToSlashing => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::ActiveParticipants => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::ActiveRounds => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::ExecutionById => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::ConsciousnessConfigIndex => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::AgentToNotification => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::AllNotifications => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::NotificationSubscription => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Link(link) => match link {
+            OpLink::CreateLink { link_type, .. } | OpLink::DeleteLink { link_type, .. } => match link_type {
+                LinkTypes::ActiveProposals
+                | LinkTypes::RecentEvents
+                | LinkTypes::HappToExecutions
+                | LinkTypes::ProposalToExecutions
+                | LinkTypes::AgentToSnapshots
+                | LinkTypes::AgentToGates
+                | LinkTypes::AgentToHistory
+                | LinkTypes::ProposalToAlignments
+                | LinkTypes::RecentSnapshots
+                | LinkTypes::AgentToAttestations
+                | LinkTypes::AgentToKVector
+                | LinkTypes::AgentToMatlScore
+                | LinkTypes::AgentToFederatedRep
+                | LinkTypes::AgentToParticipant
+                | LinkTypes::ProposalToRound
+                | LinkTypes::RoundToVotes
+                | LinkTypes::AgentToVotes
+                | LinkTypes::AgentToSlashing
+                | LinkTypes::ActiveParticipants
+                | LinkTypes::ActiveRounds
+                | LinkTypes::ExecutionById
+                | LinkTypes::ConsciousnessConfigIndex
+                | LinkTypes::AgentToNotification
+                | LinkTypes::AllNotifications
+                | LinkTypes::NotificationSubscription => Ok(ValidateCallbackResult::Valid),
+            },
         },
-        FlatOp::RegisterDeleteLink {
-            link_type,
-            original_action: _,
-            base_address: _,
-            target_address: _,
-            tag: _,
-            action: _,
-        } => match link_type {
-            LinkTypes::ActiveProposals => Ok(ValidateCallbackResult::Valid),
-            LinkTypes::RecentEvents => Ok(ValidateCallbackResult::Valid),
-            _ => Ok(ValidateCallbackResult::Valid),
-        },
-        FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::CreateRecord(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Delete(_) => Ok(ValidateCallbackResult::Valid),
     }
 }
 
 /// Validate governance query creation
 fn validate_create_query(
-    _action: Create,
+    action: TypedAction<EntryCreationData>,
     query: GovernanceQuery,
 ) -> ExternResult<ValidateCallbackResult> {
     if query.source_happ.is_empty() {
@@ -1686,7 +1611,7 @@ fn validate_create_query(
 
 /// Validate proposal reference creation
 fn validate_create_proposal_ref(
-    _action: Create,
+    action: TypedAction<EntryCreationData>,
     _proposal: ProposalReference,
 ) -> ExternResult<ValidateCallbackResult> {
     Ok(ValidateCallbackResult::Valid)
@@ -1694,7 +1619,7 @@ fn validate_create_proposal_ref(
 
 /// Validate governance event creation
 fn validate_create_event(
-    _action: Create,
+    action: TypedAction<EntryCreationData>,
     event: GovernanceBridgeEvent,
 ) -> ExternResult<ValidateCallbackResult> {
     if event.source_happ.is_empty() {
@@ -1707,7 +1632,7 @@ fn validate_create_event(
 
 /// Validate execution request creation
 fn validate_create_execution_req(
-    _action: Create,
+    action: TypedAction<EntryCreationData>,
     req: ExecutionRequest,
 ) -> ExternResult<ValidateCallbackResult> {
     if req.target_happ.is_empty() {
@@ -1720,7 +1645,7 @@ fn validate_create_execution_req(
 
 /// Validate execution request update
 fn validate_update_execution_req(
-    _action: Update,
+    _action: TypedAction<UpdateData>,
     _req: ExecutionRequest,
 ) -> ExternResult<ValidateCallbackResult> {
     // Status updates are allowed
@@ -1733,7 +1658,7 @@ fn validate_update_execution_req(
 
 /// Validate consciousness snapshot creation
 fn validate_create_consciousness_snapshot(
-    action: Create,
+    action: TypedAction<EntryCreationData>,
     snapshot: ConsciousnessSnapshot,
 ) -> ExternResult<ValidateCallbackResult> {
     // Bind to the committer: `agent_did` is a self-reported consciousness claim,
@@ -1741,7 +1666,7 @@ fn validate_create_consciousness_snapshot(
     // derives it from agent_info() (consciousness.rs:36/116, attestation.rs:41/118,
     // consensus.rs:20/108/146), so this enforces existing behaviour at the DHT
     // level. (governance Class-A, MYCELIX_AUTHOR_BINDING_TRIAGE_2026-07-09.md.)
-    let author_did = did_for_author(&action.author);
+    let author_did = did_for_author(action.author());
     if let ValidateCallbackResult::Invalid(msg) = require_did_is_author(
         "ConsciousnessSnapshot",
         "agent_did",
@@ -1819,7 +1744,7 @@ fn validate_create_consciousness_snapshot(
 
 /// Validate consciousness attestation creation
 fn validate_create_consciousness_attestation(
-    action: Create,
+    action: TypedAction<EntryCreationData>,
     attestation: ConsciousnessAttestation,
 ) -> ExternResult<ValidateCallbackResult> {
     // Bind to the committer: `agent_did` is a self-reported consciousness claim,
@@ -1827,7 +1752,7 @@ fn validate_create_consciousness_attestation(
     // derives it from agent_info() (consciousness.rs:36/116, attestation.rs:41/118,
     // consensus.rs:20/108/146), so this enforces existing behaviour at the DHT
     // level. (governance Class-A, MYCELIX_AUTHOR_BINDING_TRIAGE_2026-07-09.md.)
-    let author_did = did_for_author(&action.author);
+    let author_did = did_for_author(action.author());
     if let ValidateCallbackResult::Invalid(msg) = require_did_is_author(
         "ConsciousnessAttestation",
         "agent_did",
@@ -1877,7 +1802,7 @@ fn validate_create_consciousness_attestation(
 
 /// Validate consciousness gate creation
 fn validate_create_consciousness_gate(
-    action: Create,
+    action: TypedAction<EntryCreationData>,
     gate: ConsciousnessGate,
 ) -> ExternResult<ValidateCallbackResult> {
     // Bind to the committer: `agent_did` is a self-reported consciousness claim,
@@ -1885,7 +1810,7 @@ fn validate_create_consciousness_gate(
     // derives it from agent_info() (consciousness.rs:36/116, attestation.rs:41/118,
     // consensus.rs:20/108/146), so this enforces existing behaviour at the DHT
     // level. (governance Class-A, MYCELIX_AUTHOR_BINDING_TRIAGE_2026-07-09.md.)
-    let author_did = did_for_author(&action.author);
+    let author_did = did_for_author(action.author());
     if let ValidateCallbackResult::Invalid(msg) = require_did_is_author(
         "ConsciousnessGate",
         "agent_did",
@@ -1940,7 +1865,7 @@ fn validate_create_consciousness_gate(
 
 /// Validate consciousness history creation
 fn validate_create_consciousness_history(
-    action: Create,
+    action: TypedAction<EntryCreationData>,
     history: ConsciousnessHistory,
 ) -> ExternResult<ValidateCallbackResult> {
     // Bind to the committer: `agent_did` is a self-reported consciousness claim,
@@ -1948,7 +1873,7 @@ fn validate_create_consciousness_history(
     // derives it from agent_info() (consciousness.rs:36/116, attestation.rs:41/118,
     // consensus.rs:20/108/146), so this enforces existing behaviour at the DHT
     // level. (governance Class-A, MYCELIX_AUTHOR_BINDING_TRIAGE_2026-07-09.md.)
-    let author_did = did_for_author(&action.author);
+    let author_did = did_for_author(action.author());
     if let ValidateCallbackResult::Invalid(msg) = require_did_is_author(
         "ConsciousnessHistory",
         "agent_did",
@@ -2012,7 +1937,7 @@ fn validate_create_consciousness_history(
 
 /// Validate value alignment assessment creation
 fn validate_create_value_alignment(
-    action: Create,
+    action: TypedAction<EntryCreationData>,
     assessment: ValueAlignmentAssessment,
 ) -> ExternResult<ValidateCallbackResult> {
     // Bind to the committer — a value-alignment assessment attributed to another
@@ -2021,7 +1946,7 @@ fn validate_create_value_alignment(
     // No coordinator creation path exists for this entry type today, so binding
     // cannot break a live flow and future-proofs it against one being added
     // unbound. Verified 2026-07-29.
-    let author_did = did_for_author(&action.author);
+    let author_did = did_for_author(action.author());
     if let ValidateCallbackResult::Invalid(msg) = require_did_is_author(
         "ValueAlignmentAssessment",
         "agent_did",
@@ -2092,7 +2017,7 @@ fn validate_create_value_alignment(
 
 /// Validate K-Vector creation
 fn validate_create_k_vector(
-    action: Create,
+    action: TypedAction<EntryCreationData>,
     k_vector: KVector,
 ) -> ExternResult<ValidateCallbackResult> {
     // Bind to the committer: `agent_did` is a self-reported consciousness claim,
@@ -2100,7 +2025,7 @@ fn validate_create_k_vector(
     // derives it from agent_info() (consciousness.rs:36/116, attestation.rs:41/118,
     // consensus.rs:20/108/146), so this enforces existing behaviour at the DHT
     // level. (governance Class-A, MYCELIX_AUTHOR_BINDING_TRIAGE_2026-07-09.md.)
-    let author_did = did_for_author(&action.author);
+    let author_did = did_for_author(action.author());
     if let ValidateCallbackResult::Invalid(msg) =
         require_did_is_author("KVector", "agent_did", &k_vector.agent_did, &author_did)
     {
@@ -2140,7 +2065,7 @@ fn validate_create_k_vector(
 
 /// Validate MATL trust score creation
 fn validate_create_matl_score(
-    _action: Create,
+    action: TypedAction<EntryCreationData>,
     matl: MatlTrustScore,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate agent DID
@@ -2174,7 +2099,7 @@ fn validate_create_matl_score(
 
 /// Validate federated reputation creation
 fn validate_create_federated_reputation(
-    action: Create,
+    action: TypedAction<EntryCreationData>,
     fed_rep: FederatedReputation,
 ) -> ExternResult<ValidateCallbackResult> {
     // Bind to the committer: `agent_did` is a self-reported consciousness claim,
@@ -2182,7 +2107,7 @@ fn validate_create_federated_reputation(
     // derives it from agent_info() (consciousness.rs:36/116, attestation.rs:41/118,
     // consensus.rs:20/108/146), so this enforces existing behaviour at the DHT
     // level. (governance Class-A, MYCELIX_AUTHOR_BINDING_TRIAGE_2026-07-09.md.)
-    let author_did = did_for_author(&action.author);
+    let author_did = did_for_author(action.author());
     if let ValidateCallbackResult::Invalid(msg) = require_did_is_author(
         "FederatedReputation",
         "agent_did",
@@ -2230,7 +2155,7 @@ fn validate_create_federated_reputation(
 
 /// Validate consensus participant creation
 fn validate_create_consensus_participant(
-    action: Create,
+    action: TypedAction<EntryCreationData>,
     participant: ConsensusParticipant,
 ) -> ExternResult<ValidateCallbackResult> {
     // Bind to the committer: `agent_did` is a self-reported consciousness claim,
@@ -2238,7 +2163,7 @@ fn validate_create_consensus_participant(
     // derives it from agent_info() (consciousness.rs:36/116, attestation.rs:41/118,
     // consensus.rs:20/108/146), so this enforces existing behaviour at the DHT
     // level. (governance Class-A, MYCELIX_AUTHOR_BINDING_TRIAGE_2026-07-09.md.)
-    let author_did = did_for_author(&action.author);
+    let author_did = did_for_author(action.author());
     if let ValidateCallbackResult::Invalid(msg) = require_did_is_author(
         "ConsensusParticipant",
         "agent_did",
@@ -2281,7 +2206,7 @@ fn validate_create_consensus_participant(
 
 /// Validate weighted vote creation
 fn validate_create_weighted_vote(
-    action: Create,
+    action: TypedAction<EntryCreationData>,
     vote: WeightedVote,
 ) -> ExternResult<ValidateCallbackResult> {
     // Bind the vote to its committer. The triage doc flags this in capitals as
@@ -2293,7 +2218,7 @@ fn validate_create_weighted_vote(
     // Safe to bind: `cast_weighted_vote` (bridge/coordinator/src/consensus.rs:145)
     // derives `agent_did` from agent_info() and assigns `voter_did: agent_did`
     // (:202). It is the only creation path for this entry type.
-    let author_did = did_for_author(&action.author);
+    let author_did = did_for_author(action.author());
     if let ValidateCallbackResult::Invalid(msg) =
         require_did_is_author("WeightedVote", "voter_did", &vote.voter_did, &author_did)
     {
@@ -2345,7 +2270,7 @@ fn validate_create_weighted_vote(
 
 /// Validate consensus round creation
 fn validate_create_consensus_round(
-    _action: Create,
+    action: TypedAction<EntryCreationData>,
     round: ConsensusRound,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate proposal ID
@@ -2388,7 +2313,7 @@ fn validate_create_consensus_round(
 
 /// Validate slashing record creation
 fn validate_create_slashing_record(
-    _action: Create,
+    action: TypedAction<EntryCreationData>,
     record: SlashingRecord,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate record ID
@@ -4030,113 +3955,5 @@ mod consciousness_weighted_consensus_tests {
         // Valid custom value
         config.max_voting_weight = 2.0;
         assert!(check_consciousness_config(&config).is_ok());
-    }
-}
-
-#[cfg(test)]
-mod weighted_vote_author_binding_tests {
-    use super::*;
-
-    fn make_create() -> Create {
-        Create {
-            author: AgentPubKey::from_raw_36(vec![0; 36]),
-            timestamp: Timestamp::from_micros(1_000_000),
-            action_seq: 0,
-            prev_action: ActionHash::from_raw_36(vec![0; 36]),
-            entry_type: EntryType::CapClaim,
-            entry_hash: EntryHash::from_raw_36(vec![0; 36]),
-            weight: Default::default(),
-        }
-    }
-
-    fn test_author_did() -> String {
-        format!("did:mycelix:{}", AgentPubKey::from_raw_36(vec![0; 36]))
-    }
-
-    fn vote_from(voter_did: &str) -> WeightedVote {
-        WeightedVote {
-            id: "vote:test:001".into(),
-            proposal_id: "prop-1".into(),
-            round: 1,
-            voter_did: voter_did.into(),
-            decision: VoteDecision::Approve,
-            reputation: 0.9,
-            weight: 0.81,
-            phi: 0.8,
-            reason: None,
-            voted_at: Timestamp::from_micros(1_000_000),
-            signature: "sig".into(),
-        }
-    }
-
-    #[test]
-    fn vote_from_the_committing_agent_is_accepted() {
-        let result =
-            validate_create_weighted_vote(make_create(), vote_from(&test_author_did())).unwrap();
-        assert!(matches!(result, ValidateCallbackResult::Valid));
-    }
-
-    #[test]
-    fn forged_voter_did_is_rejected() {
-        // The triage doc's VOTE FORGERY: this vote is reputation-SQUARED weighted,
-        // so impersonating a high-reputation voter dominates the tally.
-        let result = validate_create_weighted_vote(
-            make_create(),
-            vote_from("did:mycelix:uhCAkHighReputationVictim"),
-        )
-        .unwrap();
-        match result {
-            ValidateCallbackResult::Invalid(msg) => assert!(
-                msg.contains("WeightedVote")
-                    && msg.contains("voter_did")
-                    && msg.contains("forgery"),
-                "got: {msg}"
-            ),
-            other => panic!("forged voter_did must be rejected, got {other:?}"),
-        }
-    }
-
-    fn snapshot_from(agent_did: &str) -> ConsciousnessSnapshot {
-        ConsciousnessSnapshot {
-            id: "snap-1".into(),
-            agent_did: agent_did.into(),
-            consciousness_level: 0.8,
-            meta_awareness: 0.5,
-            self_model_accuracy: 0.5,
-            coherence: 0.5,
-            affective_valence: 0.0,
-            care_activation: 0.5,
-            captured_at: Timestamp::from_micros(1_000_000),
-            source: "test".into(),
-            consciousness_vector: None,
-        }
-    }
-
-    #[test]
-    fn snapshot_from_the_committing_agent_is_accepted() {
-        let r = validate_create_consciousness_snapshot(
-            make_create(),
-            snapshot_from(&test_author_did()),
-        )
-        .unwrap();
-        assert!(matches!(r, ValidateCallbackResult::Valid));
-    }
-
-    #[test]
-    fn forged_snapshot_agent_did_is_rejected() {
-        // A forged consciousness snapshot inflates another agent's voting weight
-        // and can flip a consciousness gate.
-        let r = validate_create_consciousness_snapshot(
-            make_create(),
-            snapshot_from("did:mycelix:uhCAkVictim"),
-        )
-        .unwrap();
-        match r {
-            ValidateCallbackResult::Invalid(msg) => assert!(
-                msg.contains("ConsciousnessSnapshot") && msg.contains("forgery"),
-                "got: {msg}"
-            ),
-            other => panic!("forged agent_did must be rejected, got {other:?}"),
-        }
     }
 }

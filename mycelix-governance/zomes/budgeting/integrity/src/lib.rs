@@ -169,7 +169,7 @@ pub enum LinkTypes {
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(store_entry) => match store_entry {
+        FlatOp::CreateEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
                 EntryTypes::Anchor(anchor) => Ok(validate_anchor(&anchor)),
                 EntryTypes::BudgetCycle(cycle) => validate_create_budget_cycle(action, cycle),
@@ -196,12 +196,8 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }),
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink {
-            base_address,
-            target_address,
-            ..
-        } => {
-            if base_address.as_ref().len() != 39 || target_address.as_ref().len() != 39 {
+        FlatOp::Link(link) => {
+            if link.base_address().as_ref().len() != 39 || link.target_address().as_ref().len() != 39 {
                 return Ok(invalid("budget links must connect valid Holochain hashes"));
             }
             Ok(ValidateCallbackResult::Valid)
@@ -211,7 +207,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 }
 
 fn validate_create_budget_cycle(
-    action: Create,
+    action: TypedAction<EntryCreationData>,
     cycle: BudgetCycle,
 ) -> ExternResult<ValidateCallbackResult> {
     let shape = validate_budget_cycle(&cycle);
@@ -227,7 +223,7 @@ fn validate_create_budget_cycle(
 }
 
 fn validate_create_budget_project(
-    action: Create,
+    action: TypedAction<EntryCreationData>,
     project: BudgetProject,
 ) -> ExternResult<ValidateCallbackResult> {
     let shape = validate_budget_project(&project);
@@ -243,7 +239,7 @@ fn validate_create_budget_project(
 }
 
 fn validate_create_budget_vote(
-    action: Create,
+    action: TypedAction<EntryCreationData>,
     vote: BudgetVote,
 ) -> ExternResult<ValidateCallbackResult> {
     let shape = validate_budget_vote(&vote);
@@ -259,7 +255,7 @@ fn validate_create_budget_vote(
 }
 
 fn validate_create_disbursement(
-    action: Create,
+    action: TypedAction<EntryCreationData>,
     disbursement: Disbursement,
 ) -> ExternResult<ValidateCallbackResult> {
     let shape = validate_disbursement(&disbursement);
@@ -274,8 +270,13 @@ fn validate_create_disbursement(
     ))
 }
 
-fn bind_author(entity: &str, field: &str, claimed_did: &str, action: &Create) -> ValidateCallbackResult {
-    let author_did = did_for_author(&action.author);
+fn bind_author(
+    entity: &str,
+    field: &str,
+    claimed_did: &str,
+    action: &TypedAction<EntryCreationData>,
+) -> ValidateCallbackResult {
+    let author_did = did_for_author(action.author());
     require_did_is_author(entity, field, claimed_did, &author_did)
 }
 
