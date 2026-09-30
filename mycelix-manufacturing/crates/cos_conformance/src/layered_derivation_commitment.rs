@@ -310,6 +310,7 @@ mod tests {
             &e,
             &d,
             &closure_profile,
+            &[],
             None,
         ));
 
