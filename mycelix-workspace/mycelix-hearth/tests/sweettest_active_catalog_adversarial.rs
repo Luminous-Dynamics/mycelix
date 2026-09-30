@@ -69,7 +69,6 @@ fn hearth_dna_path() -> PathBuf {
 /// selecting one of the conflicting authority records.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
-#[should_panic]
 async fn test_active_catalog_fails_closed_on_conflicting_active_memberships() {
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
 
@@ -158,10 +157,17 @@ async fn test_active_catalog_fails_closed_on_conflicting_active_memberships() {
 
     tokio::time::sleep(std::time::Duration::from_secs(10)).await;
 
-    // If the catalog silently chooses one membership, this call returns and
-    // the test fails because #[should_panic] is not satisfied. The expected
-    // behavior is a fail-closed zome error.
-    let _: serde_json::Value = bob_conductor
-        .call(&bob.zome("hearth_kinship"), "get_my_active_hearths", ())
-        .await;
+    // SweetConductor::call unwraps a zome error and panics. Isolate only the
+    // catalog call in a task so an earlier setup/acceptance failure cannot
+    // satisfy the test accidentally.
+    let join = tokio::spawn(async move {
+        let _: serde_json::Value = bob_conductor
+            .call(&bob.zome("hearth_kinship"), "get_my_active_hearths", ())
+            .await;
+    });
+
+    assert!(
+        join.await.is_err(),
+        "canonical Active Hearth catalog must fail closed on conflicting active memberships"
+    );
 }
