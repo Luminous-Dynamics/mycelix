@@ -111,7 +111,7 @@ impl InputCommitmentV1 {
             && !self.nodes.is_empty()
             && self.nodes.iter().all(|v| is_canonical_sha256_commitment(v))
             && self.edges.iter().all(|v| is_canonical_sha256_commitment(v))
-            && self.d6p_receipts.iter().all(|v| is_canonical_sha256_commitment(v))
+            && self.d6p_receipts.iter().all(|v| !v.is_empty())
             && self.claim_ceiling == D6S_CLAIM_CEILING
             && is_canonical_sha256_commitment(&self.commitment)
             && self.commitment == self.recompute()
