@@ -321,6 +321,7 @@ mod tests {
             &e,
             &d,
             &wrong_profile,
+            &[],
             None,
         ));
     }
