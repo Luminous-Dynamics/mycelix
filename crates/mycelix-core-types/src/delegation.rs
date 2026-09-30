@@ -748,6 +748,38 @@ mod tests {
     }
 
     #[test]
+    fn historical_parent_structure_survives_revocation() {
+        let relationship = RelationshipId::derive("test", b"historical-revocation");
+        let mut parent = Delegation::grant_content_bound(
+            relationship, p("alice"), p("broker"),
+            ActionScope::named("create-opportunity").unwrap(),
+            ResourceScope::named("acme:opportunity:7").unwrap(),
+            DelegationMode::Execute, 100, None, 4, None,
+        ).unwrap();
+        let parent_id = parent.id;
+        parent.revoke(&p("alice"), 160, 4).unwrap();
+
+        let child = Delegation::grant_content_bound(
+            relationship, p("broker"), p("agent"),
+            ActionScope::named("create-opportunity").unwrap(),
+            ResourceScope::named("acme:opportunity:7").unwrap(),
+            DelegationMode::Execute, 150, None, 4, Some(parent_id),
+        ).unwrap();
+
+        assert_eq!(
+            child.validate_parent_chain_structure(&context(&[parent])),
+            Ok(())
+        );
+        assert_eq!(
+            child.authorize(
+                &request(DelegationMode::Execute, 155, 4),
+                &context(&[parent]),
+            ),
+            Err(DelegationError::ParentInactive { id: parent_id })
+        );
+    }
+
+    #[test]
     fn parent_scope_and_epoch_escalation_fail_closed() {
         let relationship = RelationshipId::derive("test", b"scope");
         let parent = Delegation::grant_content_bound(
@@ -800,10 +832,9 @@ mod tests {
     #[test]
     fn forged_parent_cycle_cannot_pass_identity_binding() {
         let relationship = RelationshipId::derive("test", b"cycle");
-        let a_id = DelegationId::derive(relationship, b"a");
         let b_id = DelegationId::derive(relationship, b"b");
-        let a = Delegation::grant(
-            a_id, relationship, p("root"), p("broker"),
+        let a = Delegation::grant_content_bound(
+            relationship, p("root"), p("broker"),
             ActionScope::named("create-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
             DelegationMode::Execute, 100, None, 4, Some(b_id),
