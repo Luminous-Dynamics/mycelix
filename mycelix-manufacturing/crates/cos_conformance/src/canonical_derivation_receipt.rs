@@ -141,16 +141,9 @@ impl QualifiedNodeV1 {
     }
 
     pub fn commitment_matches(&self) -> bool {
-        self.structurally_valid_without_commitment()
+        self.structurally_valid()
             && (is_legacy_opaque_commitment(&self.node_commitment)
                 || self.node_commitment == self.recomputed_commitment())
-    }
-
-    fn structurally_valid_without_commitment(&self) -> bool {
-        non_empty(&self.node_id)
-            && non_empty(&self.node_commitment)
-            && self.claim_ceiling == D6S_CLAIM_CEILING
-            && self.current_frontier_root.as_deref().map_or(true, non_empty)
     }
 }
 
@@ -188,18 +181,9 @@ impl QualifiedEdgeV1 {
     }
 
     pub fn commitment_matches(&self) -> bool {
-        self.structurally_valid_without_commitment()
+        self.structurally_valid()
             && (is_legacy_opaque_commitment(&self.edge_commitment)
                 || self.edge_commitment == self.recomputed_commitment())
-    }
-
-    fn structurally_valid_without_commitment(&self) -> bool {
-        non_empty(&self.edge_id)
-            && non_empty(&self.from_node_id)
-            && non_empty(&self.to_node_id)
-            && self.from_node_id != self.to_node_id
-            && non_empty(&self.edge_commitment)
-            && self.claim_ceiling == D6S_CLAIM_CEILING
     }
 
     fn is_derivation_semantic(&self) -> bool {
@@ -805,3 +789,211 @@ mod tests {
         let mut mutated = receipt.clone();
         mutated.unresolved_preserved = true;
         assert_ne!(baseline, mutated.recomputed_commitment());
+
+        let mut mutated = receipt;
+        mutated.claim_ceiling = "different-claim-ceiling".into();
+        assert_ne!(baseline, mutated.recomputed_commitment());
+    }
+
+    #[test]
+    fn canonical_bytes_are_deterministic() {
+        let a = projection();
+        let b = projection();
+        assert_eq!(canonical_bytes(&a).unwrap(), canonical_bytes(&b).unwrap());
+    }
+
+    #[test]
+    fn input_substitution_changes_projection_commitment() {
+        let mut p = projection();
+        let before = p.commitment();
+        p.nodes.get_mut("e").unwrap().node_commitment = "node-e-replaced".into();
+        assert_ne!(before, p.commitment());
+    }
+
+    #[test]
+    fn environment_substitution_changes_receipt() {
+        let p = projection();
+        let profile = profile();
+        let first = build_canonical_receipt(&p, &env(), &profile, &[d6p_receipt()], DerivationResultStatusV1::Supported, "result-1".into(), false, false).unwrap();
+
+        let mut changed_env = env();
+        changed_env.policy_version = "policy-2".into();
+        let mut changed_projection = p.clone();
+        changed_projection.semantic_environment_commitment = changed_env.commitment();
+        let second = build_canonical_receipt(&changed_projection, &changed_env, &profile, &[d6p_receipt()], DerivationResultStatusV1::Supported, "result-1".into(), false, false).unwrap();
+
+        assert_ne!(first.receipt_commitment, second.receipt_commitment);
+    }
+
+    #[test]
+    fn profile_substitution_changes_receipt() {
+        let p = projection();
+        let e = env();
+        let first = build_canonical_receipt(&p, &e, &profile(), &[d6p_receipt()], DerivationResultStatusV1::Supported, "result-1".into(), false, false).unwrap();
+        let mut changed = profile();
+        changed.version = "2".into();
+        let mut changed_projection = p.clone();
+        changed_projection.derivation_profile_commitment = changed.commitment();
+        let second = build_canonical_receipt(&changed_projection, &e, &changed, &[d6p_receipt()], DerivationResultStatusV1::Supported, "result-1".into(), false, false).unwrap();
+        assert_ne!(first.receipt_commitment, second.receipt_commitment);
+    }
+
+    #[test]
+    fn missing_d6p_receipt_is_not_current_qualification() {
+        let p = projection();
+        assert!(build_canonical_receipt(&p, &env(), &profile(), &[], DerivationResultStatusV1::Supported, "result-1".into(), false, false).is_none());
+    }
+
+    #[test]
+    fn current_d6p_receipt_can_qualify_only_at_the_exact_frontier() {
+        let p = projection();
+        assert!(build_canonical_receipt(
+            &p, &env(), &profile(), &[d6p_receipt()],
+            DerivationResultStatusV1::Supported, "result-1".into(), false, false
+        ).is_some());
+
+        let mut stale = d6p_receipt();
+        stale.current_frontier_root = "frontier-0".into();
+        assert!(build_canonical_receipt(
+            &p, &env(), &profile(), &[stale],
+            DerivationResultStatusV1::Supported, "result-1".into(), false, false
+        ).is_none());
+    }
+
+    #[test]
+    fn derivation_cycles_are_rejected_but_provenance_cycles_are_not() {
+        let mut p = projection();
+        p.nodes.insert("x".into(), QualifiedNodeV1 {
+            node_id: "x".into(), kind: ClaimGraphNodeKindV1::Assessment,
+            node_commitment: "node-x".into(), historical_only: false,
+            current_frontier_root: Some("frontier-1".into()), claim_ceiling: D6S_CLAIM_CEILING.into(),
+        });
+        p.edges.insert("cycle-a".into(), QualifiedEdgeV1 {
+            edge_id: "cycle-a".into(), from_node_id: "a".into(), to_node_id: "x".into(),
+            kind: ClaimGraphEdgeKindV1::Supports, edge_commitment: "edge-a".into(), claim_ceiling: D6S_CLAIM_CEILING.into(),
+        });
+        p.edges.insert("cycle-b".into(), QualifiedEdgeV1 {
+            edge_id: "cycle-b".into(), from_node_id: "x".into(), to_node_id: "a".into(),
+            kind: ClaimGraphEdgeKindV1::Provenance, edge_commitment: "edge-b".into(), claim_ceiling: D6S_CLAIM_CEILING.into(),
+        });
+        assert!(!p.derivation_cycle_exists());
+        p.edges.get_mut("cycle-b").unwrap().kind = ClaimGraphEdgeKindV1::Supports;
+        assert!(p.derivation_cycle_exists());
+    }
+
+    #[test]
+    fn historical_input_cannot_be_promoted_to_supported_current_result() {
+        let mut p = projection();
+        p.nodes.get_mut("e").unwrap().historical_only = true;
+        assert!(build_canonical_receipt(
+            &p, &env(), &profile(), &[d6p_receipt()],
+            DerivationResultStatusV1::Supported, "result-1".into(), false, false
+        ).is_none());
+    }
+
+    #[test]
+    fn projection_context_must_match_the_semantic_environment() {
+        let mut p = projection();
+        p.d6n_context_commitment = Some("different-d6n".into());
+        assert!(build_canonical_receipt(
+            &p, &env(), &profile(), &[d6p_receipt()],
+            DerivationResultStatusV1::Supported, "result-1".into(), false, false
+        ).is_none());
+    }
+
+    #[test]
+    fn result_status_must_match_preserved_conflict_state() {
+        assert!(result_flags_are_consistent(
+            DerivationResultStatusV1::Disputed, true, false
+        ));
+        assert!(!result_flags_are_consistent(
+            DerivationResultStatusV1::Disputed, false, false
+        ));
+        assert!(result_flags_are_consistent(
+            DerivationResultStatusV1::BlockedMissingEvidence, false, true
+        ));
+        assert!(!result_flags_are_consistent(
+            DerivationResultStatusV1::Supported, true, false
+        ));
+    }
+
+    #[test]
+    fn source_dkg_snapshot_and_canonicalization_version_are_receipt_inputs() {
+        let p = projection();
+        let e = env();
+        let first = build_canonical_receipt(
+            &p, &e, &profile(), &[d6p_receipt()],
+            DerivationResultStatusV1::Supported, "result-1".into(), false, false
+        ).unwrap();
+
+        let mut changed = p.clone();
+        changed.source_dkg_snapshot_commitment = "dkg-snapshot-2".into();
+        let second = build_canonical_receipt(
+            &changed, &e, &profile(), &[d6p_receipt()],
+            DerivationResultStatusV1::Supported, "result-1".into(), false, false
+        ).unwrap();
+        assert_ne!(first.receipt_commitment, second.receipt_commitment);
+
+        let mut changed = p;
+        changed.canonicalization_version = "D6S-RUST-REF-2".into();
+        assert!(!changed.structurally_valid());
+    }
+
+    #[test]
+    fn receipt_commitment_is_self_consistent() {
+        let r = build_canonical_receipt(&projection(), &env(), &profile(), &[d6p_receipt()], DerivationResultStatusV1::Supported, "result-1".into(), false, false).unwrap();
+        assert!(r.commitment_matches());
+    }
+
+    #[test]
+    fn verifier_reconstructs_the_exact_receipt() {
+        let receipt = build_canonical_receipt(
+            &projection(), &env(), &profile(), &[d6p_receipt()],
+            DerivationResultStatusV1::Supported, "result-1".into(), false, false
+        ).unwrap();
+        assert!(verify_canonical_receipt(
+            &receipt, &projection(), &env(), &profile(), &[d6p_receipt()]
+        ));
+
+        let mut mutated = receipt.clone();
+        mutated.result_commitment = "result-2".into();
+        assert!(!verify_canonical_receipt(
+            &mutated, &projection(), &env(), &profile(), &[d6p_receipt()]
+        ));
+    }
+
+    #[test]
+    fn contradiction_and_unresolved_are_explicit() {
+        let r = build_canonical_receipt(&projection(), &env(), &profile(), &[], DerivationResultStatusV1::Disputed, "result-1".into(), true, false).unwrap();
+        assert!(r.contradiction_preserved);
+        assert!(!r.unresolved_preserved);
+        assert!(r.commitment_matches());
+    }
+
+    #[test]
+    fn d6p_binding_is_exact_and_non_authorizing() {
+        let r = CurrentFinalityEligibilityReceiptV1 {
+            receipt_id: "r".into(), effect_id: "effect".into(), effect_lineage_id: "lineage".into(),
+            lifecycle_generation_id: "generation".into(), route_id: "route".into(), provider_id: "provider".into(),
+            provider_operation_id: "operation".into(), provider_profile_root: "provider-profile".into(),
+            semantic_environment_root: "env".into(), observation_set_id: "set".into(), observation_set_commitment: "set-c".into(),
+            d6n_assessment_commitment: "d6n-c".into(), witness_eligibility_ids: ["w".into()].into_iter().collect(),
+            observer_generation_ids: ["g".into()].into_iter().collect(), current_frontier_root: "frontier-1".into(),
+            lifecycle_profile_id: "life".into(), eligible_independent_count: 1, preserved_contradictory_count: 0,
+            disposition: FinalityEligibilityDispositionV1::EligibleCurrent, qualification_transition_id: "t".into(),
+            receipt_commitment: "d6p-commitment".into(),
+            claim_ceiling: crate::finality_eligibility_composition::FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING.into(),
+        };
+        assert!(current_receipt_is_bound(&r, "d6p-commitment", &env()));
+        assert!(!current_receipt_is_bound(&r, "different", &env()));
+    }
+}
+
+trait ProjectionCanonicalTestBytes {
+    fn canonical_bytes_for_test(&self) -> Vec<u8>;
+}
+impl ProjectionCanonicalTestBytes for QualifiedProjectionV1 {
+    fn canonical_bytes_for_test(&self) -> Vec<u8> {
+        serde_json::to_vec(self).expect("projection is serializable")
+    }
+}
