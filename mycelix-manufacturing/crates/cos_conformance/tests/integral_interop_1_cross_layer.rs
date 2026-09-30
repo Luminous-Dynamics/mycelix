@@ -526,42 +526,40 @@ fn declarative_cross_layer_corpus_is_self_describing_and_executable() {
 #[test]
 fn cross_layer_mutation_matrix_is_executable() {
     let baseline = fixture();
-    let baseline_eval = evaluate(&baseline, false, false, false).expect("baseline must resolve");
+    let baseline_eval =
+        evaluate(&baseline, false, false, false, false).expect("baseline must resolve");
     assert!(validate_selected_oad_design_semantics(&baseline).is_ok());
-    assert!(baseline_eval.2.is_some());
+    assert!(baseline_eval.d6w_input.is_some());
 
     let mut metadata = baseline.clone();
     metadata["certification"]["documentation_bundle_uri"] =
         Value::from("urn:integral:bundle:changed");
-    let metadata_eval = evaluate(&metadata, false, false, false, false).expect("metadata must resolve");
-    assert_eq!(baseline_eval.0, metadata_eval.0);
-    assert_eq!(baseline_eval.1, metadata_eval.1);
-    assert_eq!(
-        baseline_eval.2.as_ref().unwrap().commitment,
-        metadata_eval.2.as_ref().unwrap().commitment
-    );
-    assert_eq!(baseline_eval.3, metadata_eval.3);
+    let metadata_eval =
+        evaluate(&metadata, false, false, false, false).expect("metadata must resolve");
+    assert_eq!(baseline_eval.oad_semantic_commitment, metadata_eval.oad_semantic_commitment);
+    assert_eq!(baseline_eval.d6x_identity, metadata_eval.d6x_identity);
+    assert_eq!(baseline_eval.d6x_certificate, metadata_eval.d6x_certificate);
+    assert_eq!(baseline_eval.d6w_input, metadata_eval.d6w_input);
+    assert_eq!(baseline_eval.d6w_derivation, metadata_eval.d6w_derivation);
 
     let mut selected = baseline.clone();
     selected["design_version"]["parameters"]["production_steps"][1]["estimated_hours"] =
         Value::from(3);
-    let selected_eval = evaluate(&selected, false, false, false, false).expect("selected mutation must resolve");
-    assert_ne!(baseline_eval.0, selected_eval.0);
-    assert_ne!(baseline_eval.1, selected_eval.1);
-    assert_ne!(
-        baseline_eval.2.as_ref().unwrap().commitment,
-        selected_eval.2.as_ref().unwrap().commitment
-    );
-    assert_ne!(baseline_eval.3, selected_eval.3);
+    let selected_eval =
+        evaluate(&selected, false, false, false, false).expect("selected mutation must resolve");
+    assert_ne!(baseline_eval.oad_semantic_commitment, selected_eval.oad_semantic_commitment);
+    assert_ne!(baseline_eval.d6x_identity, selected_eval.d6x_identity);
+    assert_ne!(baseline_eval.d6x_certificate, selected_eval.d6x_certificate);
+    assert_ne!(baseline_eval.d6w_input, selected_eval.d6w_input);
+    assert_ne!(baseline_eval.d6w_derivation, selected_eval.d6w_derivation);
 
-    let noisy_eval = evaluate(&baseline, true, false, false, false).expect("candidate noise must resolve");
-    assert_eq!(baseline_eval.0, noisy_eval.0);
-    assert_eq!(baseline_eval.1, noisy_eval.1);
-    assert_eq!(
-        baseline_eval.2.as_ref().unwrap().commitment,
-        noisy_eval.2.as_ref().unwrap().commitment
-    );
-    assert_eq!(baseline_eval.3, noisy_eval.3);
+    let noisy_eval =
+        evaluate(&baseline, true, false, false, false).expect("candidate noise must resolve");
+    assert_eq!(baseline_eval.oad_semantic_commitment, noisy_eval.oad_semantic_commitment);
+    assert_eq!(baseline_eval.d6x_identity, noisy_eval.d6x_identity);
+    assert_ne!(baseline_eval.d6x_certificate, noisy_eval.d6x_certificate);
+    assert_eq!(baseline_eval.d6w_input, noisy_eval.d6w_input);
+    assert_eq!(baseline_eval.d6w_derivation, noisy_eval.d6w_derivation);
 
     let mut invalid = baseline.clone();
     invalid["design_version"]["parameters"]["bill_of_materials_kg"]["silicone"] =
@@ -569,20 +567,26 @@ fn cross_layer_mutation_matrix_is_executable() {
     assert!(validate_selected_oad_design_semantics(&invalid).is_err());
     assert!(evaluate(&invalid, false, false, false, false).is_none());
 
-    let missing_receipt = evaluate(&baseline, false, false, true, false).expect("blocked D6X must still certify its boundary");
+    let missing_receipt =
+        evaluate(&baseline, false, false, true, false).expect("blocked D6X must still certify its boundary");
     assert_eq!(
-        missing_receipt.2, None,
-        "blocked D6X closure must not enter D6W"
+        missing_receipt.d6x_status,
+        DependencyClosureStatusV1::BlockedMissingDependency
     );
+    assert!(missing_receipt.d6w_input.is_none());
+    assert!(missing_receipt.d6w_derivation.is_none());
+    assert_ne!(baseline_eval.d6x_identity, missing_receipt.d6x_identity);
+    assert_ne!(baseline_eval.d6x_certificate, missing_receipt.d6x_certificate);
 
     let present_receipt =
-        evaluate(&baseline, false, true, true).expect("required D6P receipt should unblock D6X");
-    assert_ne!(
-        missing_receipt.1, present_receipt.1,
-        "adding a required D6P receipt must change semantic closure identity"
-    );
-    assert!(present_receipt.2.is_some());
-    assert!(present_receipt.3.is_some());
+        evaluate(&baseline, false, true, true, false).expect("required D6P receipt should unblock D6X");
+    assert_eq!(present_receipt.d6x_status, DependencyClosureStatusV1::Complete);
+    assert_ne!(baseline_eval.d6x_identity, present_receipt.d6x_identity);
+    assert_ne!(baseline_eval.d6x_certificate, present_receipt.d6x_certificate);
+    assert!(present_receipt.d6w_input.is_some());
+    assert!(present_receipt.d6w_derivation.is_some());
+    assert_ne!(baseline_eval.d6w_input, present_receipt.d6w_input);
+    assert_ne!(baseline_eval.d6w_derivation, present_receipt.d6w_derivation);
 }
 
 #[test]
