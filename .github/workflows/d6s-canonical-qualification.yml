@@ -22,14 +22,14 @@ jobs:
       - name: Checkout exact commit
         uses: actions/checkout@v4
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+      - name: Install pinned Rust
+        uses: dtolnay/rust-toolchain@1.96.0
 
       - name: Check D6S formatting
         run: cargo fmt --manifest-path mycelix-manufacturing/Cargo.toml --all -- --check
 
-      - name: Run D6S Rust corpus
-        run: cargo test --manifest-path mycelix-manufacturing/Cargo.toml -p cos_conformance canonical_derivation_receipt
+      - name: Run complete COS conformance corpus
+        run: cargo test --manifest-path mycelix-manufacturing/Cargo.toml -p cos_conformance
 
       - name: Run independent D6S-CANON-1 verifier
         run: python3 scripts/integral/verify_d6s_canon_1.py
