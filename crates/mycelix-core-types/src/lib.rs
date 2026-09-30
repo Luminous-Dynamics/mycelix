@@ -153,6 +153,7 @@ pub mod k_vector;
 pub mod moral;
 pub mod relationship;
 pub mod commitment;
+pub mod consent;
 pub mod trust;
 pub mod wisdom_engine;
 
@@ -163,6 +164,7 @@ pub use k_vector::*;
 pub use moral::*;
 pub use relationship::*;
 pub use commitment::*;
+pub use consent::*;
 pub use trust::*;
 pub use wisdom_engine::*;
 
