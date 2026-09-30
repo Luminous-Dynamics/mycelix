@@ -2995,7 +2995,7 @@ mod tests {
             outcome_measure_version: "1".into(),
             outcome_measure_digest: "blake3:standardized".into(),
         };
-        let chain = InstructionalTransformationChain {
+        let mut chain = InstructionalTransformationChain {
             transformations: vec![InstructionalOutcomeTransformationReceipt {
                 transformation_id: "transform-1".into(),
                 transformation_version: 1,
@@ -3009,6 +3009,7 @@ mod tests {
                 transformation_digest: String::new(),
             }],
         };
+        chain.transformations[0].transformation_digest = chain.transformations[0].compute_digest().unwrap();
         assert_eq!(chain.validate_for_output(&output), Ok(()));
         assert_eq!(
             chain.validate_for_output(&input),
