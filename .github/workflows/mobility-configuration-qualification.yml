@@ -38,6 +38,14 @@ jobs:
           name: mobility-rust-normalized
           path: /tmp/rust-normalized.json
           if-no-files-found: error
+      - name: Prove Rust evaluator rejects altered corpus
+        run: |
+          python3 -c 'import json; p="../../../docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1.json"; d=json.load(open(p)); d["vectors"][0]["expected_outcome"]="unsafe-universal-safety-score"; json.dump(d,open("/tmp/rust-corrupted.json","w"))'
+          if cargo run --quiet --bin mobility-qualification -- /tmp/rust-corrupted.json > /tmp/rust-corrupted.out; then
+            echo "Rust evaluator accepted a corrupted corpus" >&2
+            exit 1
+          fi
+          echo "Rust evaluator correctly rejected corrupted corpus"
 
   qualify-reference:
     runs-on: ubuntu-latest
@@ -47,6 +55,14 @@ jobs:
         run: python3 tools/mobility_qualification_reference.py
       - name: Emit normalized reference result
         run: python3 tools/mobility_qualification_reference.py --normalized > /tmp/python-normalized.json
+      - name: Prove Python evaluator rejects altered corpus
+        run: |
+          python3 -c 'import json; p="docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1.json"; d=json.load(open(p)); d["vectors"][0]["forbidden_inference"]="corrupted-boundary"; json.dump(d,open("/tmp/python-corrupted.json","w"))'
+          if python3 tools/mobility_qualification_reference.py /tmp/python-corrupted.json > /tmp/python-corrupted.out; then
+            echo "Python evaluator accepted a corrupted corpus" >&2
+            exit 1
+          fi
+          echo "Python evaluator correctly rejected corrupted corpus"
       - uses: actions/upload-artifact@v4
         with:
           name: mobility-python-normalized
