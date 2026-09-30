@@ -4,47 +4,65 @@
   "vectors": [
     {
       "id": "object-order",
-      "operation": "reparse-equivalent-json-with-different-object-order",
+      "operation": "reparse",
+      "path": "$",
+      "value": "{\\"design_version\\":{\\"id\\":\\"design-water-purifier\\",\\"spec_id\\":\\"spec-water-purifier\\",\\"materials\\":[\\"stainless-steel\\",\\"silicone\\"],\\"parameters\\":{\\"bill_of_materials_kg\\":{\\"silicone\\":0,\\"stainless-steel\\":2},\\"production_steps\\":[{\\"name\\":\\"cut-and-form\\",\\"estimated_hours\\":1,\\"skill_tier\\":\\"medium\\",\\"tools_required\\":[\\"press\\"],\\"sequence_index\\":0,\\"safety_notes\\":\\"guarded press\\"},{\\"name\\":\\"assemble\\",\\"estimated_hours\\":2,\\"skill_tier\\":\\"medium\\",\\"tools_required\\":[\\"torque-tool\\"],\\"sequence_index\\":1,\\"safety_notes\\":\\"verify seal\\"}]}}}}",
       "expected": "same-commitment"
     },
     {
       "id": "irrelevant-metadata",
-      "operation": "mutate design_version.certification-adjacent metadata",
+      "operation": "set",
+      "path": "design_version.change_log",
+      "value": "unrelated revision",
       "expected": "same-commitment"
     },
     {
       "id": "unknown-top-level-field",
-      "operation": "add unknown top-level field",
+      "operation": "set",
+      "path": "future_top_level_field",
+      "value": {"must_not": "enter the frozen semantic projection"},
       "expected": "same-commitment"
     },
     {
       "id": "production-step-object-order",
-      "operation": "rebuild one production step with different object-key order",
+      "operation": "reorder-object",
+      "path": "design_version.parameters.production_steps[0]",
+      "value": null,
       "expected": "same-commitment"
     },
     {
       "id": "production-step-array-order",
-      "operation": "swap production_steps[0] and production_steps[1]",
+      "operation": "swap-array",
+      "path": "design_version.parameters.production_steps",
+      "value": null,
       "expected": "different-commitment"
     },
     {
       "id": "selected-semantic-mutation",
-      "operation": "change production_steps[1].estimated_hours",
+      "operation": "set",
+      "path": "design_version.parameters.production_steps[1].estimated_hours",
+      "value": 3,
       "expected": "different-commitment"
     },
     {
       "id": "projection-version-domain",
-      "operation": "hash the same selected projection under a different projection domain",
+      "operation": "hash-domain",
+      "path": "$",
+      "value": "integral-interop-1-design-semantic-v2",
       "expected": "different-commitment"
     },
     {
       "id": "invalid-fractional-number",
-      "operation": "set bill_of_materials_kg.silicone to 0.25",
+      "operation": "set",
+      "path": "design_version.parameters.bill_of_materials_kg.silicone",
+      "value": 0.25,
       "expected": "reject-no-commitment"
     },
     {
       "id": "unknown-selected-step-field",
-      "operation": "add an unknown field inside production_steps[0]",
+      "operation": "set",
+      "path": "design_version.parameters.production_steps[0].future_field",
+      "value": "not-in-projection",
       "expected": "reject-no-commitment"
     }
   ]
