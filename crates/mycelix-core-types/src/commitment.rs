@@ -288,6 +288,40 @@ mod tests {
     }
 
     #[test]
+    fn identity_is_bound_to_immutable_obligation_content() {
+        let c = commitment();
+        assert_eq!(c.id, CommitmentId::derive_content_bound(&c));
+        assert!(c.validate_identity().is_ok());
+    }
+
+    #[test]
+    fn immutable_content_tampering_breaks_identity() {
+        let mut c = commitment();
+        c.due_at = Some(201);
+        assert_eq!(c.validate_identity(), Err(CommitmentError::IdentityMismatch));
+    }
+
+    #[test]
+    fn lifecycle_events_do_not_change_identity() {
+        let mut c = commitment();
+        let id = c.id;
+        c.transition(event(CommitmentEventKind::Accept, p("org", "acme"), 110, Some("e:accept"))).unwrap();
+        assert_eq!(c.id, id);
+        assert!(c.validate_identity().is_ok());
+    }
+
+    #[test]
+    fn unauthorized_lifecycle_actor_is_rejected_without_mutation() {
+        let mut c = commitment();
+        let before = c.clone();
+        assert_eq!(
+            c.transition(event(CommitmentEventKind::Accept, p("did", "mallory"), 110, Some("e"))),
+            Err(CommitmentError::UnauthorizedActor)
+        );
+        assert_eq!(c, before);
+    }
+
+    #[test]
     fn normal_lifecycle_is_explicit() {
         let mut c = commitment();
         c.transition(event(CommitmentEventKind::Accept, p("org", "acme"), 110, Some("e:accept"))).unwrap();
