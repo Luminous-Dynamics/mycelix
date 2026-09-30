@@ -33,6 +33,7 @@ use std::collections::{BTreeMap, BTreeSet};
 pub const FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING: &str =
     "D6N/D6O finality-eligibility composition reference semantics only; no semantic authority or actuation claim.";
 pub const D6P_RECEIPT_COMMITMENT_DOMAIN: &[u8] = b"MYCELIX-INTEGRAL-D6P-RECEIPT-V1\\0";
+pub const D6P_COMPOSITION_COMMITMENT_DOMAIN: &[u8] = b"MYCELIX-INTEGRAL-D6P-COMPOSITION-V1\\0";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FinalityEligibilityDispositionV1 {
@@ -150,6 +151,22 @@ impl FinalityEligibilityCompositionV1 {
             && !self.current_frontier_root.is_empty()
             && !self.composition_commitment.is_empty()
             && self.claim_ceiling == FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING
+    }
+    
+    pub fn recomputed_commitment(&self) -> String {
+        let mut unsigned = self.clone();
+        unsigned.composition_commitment.clear();
+        let bytes = serde_json::to_vec(&unsigned)
+            .expect("D6P composition reference model must be serializable");
+        let mut input = Vec::with_capacity(D6P_COMPOSITION_COMMITMENT_DOMAIN.len() + bytes.len());
+        input.extend_from_slice(D6P_COMPOSITION_COMMITMENT_DOMAIN);
+        input.extend_from_slice(&bytes);
+        let digest = Sha256::digest(&input);
+        digest.iter().map(|byte| format!("{byte:02x}")).collect()
+    }
+
+    pub fn commitment_matches(&self) -> bool {
+        self.structurally_valid() && self.composition_commitment == self.recomputed_commitment()
     }
 }
 
@@ -647,12 +664,12 @@ pub fn compose_finality_eligibility(
         } else {
             None
         },
-        composition_commitment: format!(
-            "composition:{}:{}:{}",
-            set.set_commitment, assessment.assessment_commitment, eligible_count
-        ),
+        composition_commitment: String::new(),
         claim_ceiling: FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING.to_owned(),
-    }
+    };
+    let mut composition = composition;
+    composition.composition_commitment = composition.recomputed_commitment();
+    composition
 }
 
 /// Verify that a D6P current-finality receipt is a faithful projection of
@@ -666,7 +683,7 @@ pub fn current_receipt_matches_composition(
     receipt: &CurrentFinalityEligibilityReceiptV1,
     composition: &FinalityEligibilityCompositionV1,
 ) -> bool {
-    if !receipt.commitment_matches() || !composition.structurally_valid() {
+    if !receipt.commitment_matches() || !composition.commitment_matches() {
         return false;
     }
 
