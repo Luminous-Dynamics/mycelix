@@ -108,7 +108,7 @@ fn find_existing_vote_for_decision(
                 .ok_or(wasm_error!(WasmErrorInner::Guest(
                     "Link target is not an ActionHash".into()
                 )))?;
-        if let Some(record) = get_latest_record(target.clone())? {
+        if let Some(record) = get_unique_latest_record(target.clone())? {
             let existing_vote: Vote = record
                 .entry()
                 .to_app_option()
@@ -863,7 +863,7 @@ pub fn get_hearth_decisions(hearth_hash: ActionHash) -> ExternResult<Vec<Record>
                 "Link target is not an ActionHash".into()
             )))?;
 
-        if let Some(record) = get_latest_record(target)? {
+        if let Some(record) = get_unique_latest_record(target)? {
             decisions.push(record);
         }
     }
@@ -888,7 +888,7 @@ pub fn get_decision_votes(decision_hash: ActionHash) -> ExternResult<Vec<Record>
                 "Link target is not an ActionHash".into()
             )))?;
 
-        if let Some(record) = get_latest_record(target)? {
+        if let Some(record) = get_unique_latest_record(target)? {
             votes.push(record);
         }
     }
@@ -914,7 +914,7 @@ pub fn get_vote_history(decision_hash: ActionHash) -> ExternResult<Vec<Record>> 
                 "Link target is not an ActionHash".into()
             )))?;
 
-        if let Some(record) = get_latest_record(target)? {
+        if let Some(record) = get_unique_latest_record(target)? {
             votes.push(record);
         }
     }
@@ -943,7 +943,7 @@ pub fn get_decision_outcome(decision_hash: ActionHash) -> ExternResult<Option<Re
                     "Link target is not an ActionHash".into()
                 )))?;
 
-        return get_latest_record(target);
+        return get_unique_latest_record(target);
     }
 
     Ok(None)
@@ -971,7 +971,7 @@ pub fn get_my_pending_votes(hearth_hash: ActionHash) -> ExternResult<Vec<Record>
                 "Link target is not an ActionHash".into()
             )))?;
 
-        if let Some(record) = get_latest_record(target)? {
+        if let Some(record) = get_unique_latest_record(target)? {
             let vote: Vote = record
                 .entry()
                 .to_app_option()
@@ -1007,7 +1007,7 @@ pub fn get_my_pending_votes(hearth_hash: ActionHash) -> ExternResult<Vec<Record>
             continue;
         }
 
-        if let Some(record) = get_latest_record(target)? {
+        if let Some(record) = get_unique_latest_record(target)? {
             let decision: Decision = record
                 .entry()
                 .to_app_option()
