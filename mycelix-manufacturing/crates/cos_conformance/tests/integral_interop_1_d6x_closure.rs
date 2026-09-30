@@ -299,8 +299,8 @@ fn irrelevant_frs_and_candidate_cos_material_do_not_contaminate_closure() {
         "irrelevant candidate material must not change semantic closure identity"
     );
 
-    let clean_input = InputCommitmentV1::from_projection(&clean, &env, &clean_closure).unwrap();
-    let noisy_input = InputCommitmentV1::from_projection(&noisy, &env, &noisy_closure).unwrap();
+    let clean_input = InputCommitmentV1::from_projection(&clean, &env, &clean_closure, &closure_profile()).unwrap();
+    let noisy_input = InputCommitmentV1::from_projection(&noisy, &env, &noisy_closure, &closure_profile()).unwrap();
     assert_eq!(
         clean_input.commitment, noisy_input.commitment,
         "D6W input must inherit the candidate-independent closure boundary"
@@ -330,9 +330,9 @@ fn selected_design_change_propagates_to_d6x_and_d6w() {
     );
 
     let baseline_input =
-        InputCommitmentV1::from_projection(&baseline_projection, &env, &baseline_closure).unwrap();
+        InputCommitmentV1::from_projection(&baseline_projection, &env, &baseline_closure, &closure_profile()).unwrap();
     let changed_input =
-        InputCommitmentV1::from_projection(&changed_projection, &env, &changed_closure).unwrap();
+        InputCommitmentV1::from_projection(&changed_projection, &env, &changed_closure, &closure_profile()).unwrap();
 
     assert_ne!(baseline_input.commitment, changed_input.commitment);
 
