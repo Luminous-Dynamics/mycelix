@@ -61,3 +61,13 @@ fn adversarial_validation_vectors_match_the_declared_boundary() {
         serde_json::json!(0.5);
     assert!(validate_selected_oad_design_semantics(&value).is_err());
 }
+
+
+#[test]
+fn unknown_selected_production_step_field_fails_closed() {
+    let mut value = fixture();
+    value["design_version"]["parameters"]["production_steps"][0]["future_field"] =
+        serde_json::json!("must-not-silently-enter-identity");
+    assert!(validate_selected_oad_design_semantics(&value).is_err());
+    assert!(selected_oad_design_semantic_commitment_checked(&value).is_err());
+}
