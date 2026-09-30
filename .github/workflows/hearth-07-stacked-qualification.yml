@@ -43,10 +43,18 @@ jobs:
         shell: bash
         run: |
           test "$(git rev-parse HEAD)" = "${{ inputs.ref }}"
-          printf '%s\n'             "requested_ref=${{ inputs.ref }}"             "resolved_commit=$(git rev-parse HEAD)"             "qualified_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+          printf '%s\n' \
+            "requested_ref=${{ inputs.ref }}" \
+            "resolved_commit=$(git rev-parse HEAD)" \
+            "qualified_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             "actions_checkout_sha=3d3c42e5aac5ba805825da76410c181273ba90b1" \
             "cachix_install_nix_action_sha=8aa03977d8d733052d78f4e008a241fd1dbf36b3" \
-            "actions_upload_artifact_sha=043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"             > hearth-07-qualification-evidence.txt
+            "actions_upload_artifact_sha=043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" \
+            > hearth-07-qualification-evidence.txt
+
+      - name: Verify Holochain 0.7 source invariants
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: bash tools/verify-holochain-07.sh
 
       - uses: cachix/install-nix-action@8aa03977d8d733052d78f4e008a241fd1dbf36b3 # v31.10.6
         with:
@@ -62,10 +70,6 @@ jobs:
             cargo --version
             rustc --version
           ' | tee -a "$GITHUB_WORKSPACE/hearth-07-qualification-evidence.txt"
-
-      - name: Verify Holochain 0.7 source invariants
-        working-directory: mycelix-workspace/mycelix-hearth
-        run: bash tools/verify-holochain-07.sh
 
       - name: Build all Hearth WASM zomes
         working-directory: mycelix-workspace/mycelix-hearth
