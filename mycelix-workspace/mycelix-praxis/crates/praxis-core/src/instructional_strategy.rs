@@ -741,6 +741,16 @@ impl InstructionalOutcomeTransformationParameterSchema {
         if operation_version.trim().is_empty() {
             return Err(InstructionalScienceContractError::InvalidTransformationParameterSchema);
         }
+        let operation_name = match operation {
+            InstructionalOutcomeTransformationKind::UnitConversion => "unit-conversion",
+            InstructionalOutcomeTransformationKind::Normalization => "normalization",
+            InstructionalOutcomeTransformationKind::Standardization => "standardization",
+            InstructionalOutcomeTransformationKind::BaselineAdjustment => "baseline-adjustment",
+            InstructionalOutcomeTransformationKind::CompositeConstruction => "composite-construction",
+            InstructionalOutcomeTransformationKind::SubgroupSelection => "subgroup-selection",
+            InstructionalOutcomeTransformationKind::Rounding => "rounding",
+            InstructionalOutcomeTransformationKind::Other(_) => return Err(InstructionalScienceContractError::InvalidTransformationParameterSchema),
+        };
         let mut schema = Self {
             schema_id: "praxis:instructional-outcome-transformation-contract".into(),
             schema_version: "1".into(),
@@ -750,7 +760,7 @@ impl InstructionalOutcomeTransformationParameterSchema {
             allowed_parameters: allowed,
             schema_digest: String::new(),
             contract: InstructionalTransformationContractRef {
-                contract_id: format!("praxis:instructional-outcome-transformation:{}", operation_version),
+                contract_id: format!("praxis:instructional-outcome-transformation:{}:{}", operation_name, operation_version),
                 contract_version: operation_version.into(),
                 contract_digest: String::new(),
                 status: InstructionalTransformationContractStatus::Active,
