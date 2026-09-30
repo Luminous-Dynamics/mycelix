@@ -415,15 +415,24 @@ fn validate_dependency_results(
     let mut ordered = results.to_vec();
     ordered.sort_by(|a, b| a.dependency.cmp(&b.dependency));
 
-    for pair in ordered.windows(2) {
-        if pair[0].dependency.logical_id == pair[1].dependency.logical_id {
-            if pair[0].dependency == pair[1].dependency {
+    // `QualificationDependency` orders by kind before logical ID. That means
+    // two references to the same logical dependency can be separated by other
+    // kinds and evade an adjacent-window check. Track logical IDs independently
+    // so a cross-kind collision is rejected just as strictly as an exact
+    // duplicate.
+    let mut seen = std::collections::BTreeMap::<[u8; 32], QualificationDependency>::new();
+    for result in &ordered {
+        if let Some(previous) = seen.insert(
+            result.dependency.logical_id,
+            result.dependency.clone(),
+        ) {
+            if previous == result.dependency {
                 return Err(QualificationError::DuplicateDependencyId {
-                    logical_id: pair[0].dependency.logical_id,
+                    logical_id: result.dependency.logical_id,
                 });
             }
             return Err(QualificationError::ConflictingDependencyAddress {
-                logical_id: pair[0].dependency.logical_id,
+                logical_id: result.dependency.logical_id,
             });
         }
     }
