@@ -1164,6 +1164,8 @@ pub struct InstructionalAnalysisDerivationReceipt {
     pub result: InstructionalAnalysisResultRef,
     pub analysis: InstructionalAnalysisRef,
     pub input_observation_set_digest: String,
+    pub source_outcome: InstructionalOutcomeRef,
+    pub derived_outcome: InstructionalOutcomeRef,
     pub transformations: Vec<InstructionalOutcomeTransformationRef>,
     pub canonicalization_version: String,
     pub derivation_digest: String,
@@ -1179,6 +1181,8 @@ impl InstructionalAnalysisDerivationReceipt {
             &self.result,
             &self.analysis,
             self.input_observation_set_digest.as_str(),
+            &self.source_outcome,
+            &self.derived_outcome,
             &self.transformations,
         ))
         .map_err(|_| InstructionalScienceContractError::InvalidAnalysisDerivationReceipt)
@@ -1199,6 +1203,8 @@ impl InstructionalAnalysisDerivationReceipt {
         }
         self.result.validate()?;
         self.analysis.validate()?;
+        self.source_outcome.validate()?;
+        self.derived_outcome.validate()?;
 
         let mut refs = BTreeSet::new();
         for transformation in &self.transformations {
