@@ -192,12 +192,40 @@ mod tests {
     }
 
     #[test]
-    fn d6w_rejects_source_snapshot_substitution() {
+    fn d6w_rejects_source_snapshot_substitution_against_old_closure() {
         let (mut p,e,d,c) = fixture(false);
         p.source_dkg_snapshot_commitment = "different-snapshot".into();
 
-        assert!(!p.commitments_match_sources(&e, &d));
         assert!(InputCommitmentV1::from_projection(&p, &e, &c).is_none());
+
+        let changed = compute_dependency_closure(
+            &p,
+            &e,
+            &d,
+            &DependencyClosureProfileV1 {
+                profile_id: "cp".into(),
+                version: "1".into(),
+                root_node_ids: ["root".into()].into_iter().collect(),
+                required_node_ids: BTreeSet::new(),
+                required_d6p_receipt_commitments: BTreeSet::new(),
+                rules: [DependencyRuleV1 {
+                    edge_kind: ClaimGraphEdgeKindV1::Supports,
+                    from_kind: Some(ClaimGraphNodeKindV1::Statement),
+                    to_kind: Some(ClaimGraphNodeKindV1::Evidence),
+                    currentness: DependencyCurrentnessV1::Any,
+                }]
+                .into_iter()
+                .collect(),
+                excluded_boundary_policy: "rule-matched semantic edges only".into(),
+                max_nodes: 16,
+                max_edges: 16,
+                claim_ceiling: D6S_CLAIM_CEILING.into(),
+            },
+        )
+        .unwrap();
+
+        assert_ne!(c.source_dkg_snapshot_commitment, changed.source_dkg_snapshot_commitment);
+        assert_ne!(c.closure_identity_commitment, changed.closure_identity_commitment);
     }
 
     #[test]
