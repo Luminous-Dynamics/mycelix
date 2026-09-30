@@ -1253,6 +1253,15 @@ mod tests {
             None
         );
 
+        let other_agent = AgentPubKey::from_raw_32([3; 32]);
+        let mut foreign = make(MembershipStatus::Active, "foreign");
+        foreign.agent = other_agent;
+        assert_eq!(
+            classify_active_membership_indices(&agent, &[foreign]).unwrap(),
+            None,
+            "an Active membership for another agent cannot establish caller authority"
+        );
+
         let one = vec![make(MembershipStatus::Active, "current")];
         assert_eq!(
             classify_active_membership_indices(&agent, &one).unwrap(),
