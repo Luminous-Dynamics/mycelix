@@ -391,7 +391,7 @@ fn evaluate_with_graph_mutation(
         closure.commitment = closure.recompute();
     }
 
-    let input = InputCommitmentV1::from_projection(&projection, &env, &closure, &closure_profile(require_d6p_receipt));
+    let input = InputCommitmentV1::from_projection(&projection, &env, &closure, &closure_profile(require_d6p_receipt), &derivation);
     let derivation_id = input
         .as_ref()
         .and_then(|input| DerivationCommitmentV1::new(input, &derivation, None))
@@ -667,7 +667,7 @@ fn runtime_resolution_evidence_does_not_propagate_into_identity_layers() {
     )
     .expect("baseline closure");
 
-    let input = InputCommitmentV1::from_projection(&projection, &env, &closure, &closure_profile(false))
+    let input = InputCommitmentV1::from_projection(&projection, &env, &closure, &closure_profile(false), &derivation)
         .expect("baseline D6W input");
     let mut observed = closure.clone();
     observed.resolution_evidence.insert(
@@ -699,7 +699,7 @@ fn runtime_resolution_evidence_does_not_propagate_into_identity_layers() {
     assert_eq!(closure.closure_identity_commitment, observed.closure_identity_commitment);
     assert_ne!(closure.commitment, observed.recompute());
 
-    let observed_input = InputCommitmentV1::from_projection(&projection, &env, &observed, &closure_profile(false))
+    let observed_input = InputCommitmentV1::from_projection(&projection, &env, &observed, &closure_profile(false), &derivation)
         .expect("runtime evidence must not block a complete closure");
     assert_eq!(input.commitment, observed_input.commitment);
 }
@@ -747,7 +747,7 @@ fn d6w_standalone_input_rejects_duplicate_selected_commitments() {
     let (projection, env, derivation) = projection(&baseline, false, false);
     let closure = compute_dependency_closure(&projection, &env, &derivation, &closure_profile(false))
         .expect("baseline closure");
-    let input = InputCommitmentV1::from_projection(&projection, &env, &closure, &closure_profile(false))
+    let input = InputCommitmentV1::from_projection(&projection, &env, &closure, &closure_profile(false), &derivation)
         .expect("baseline input");
 
     let mut duplicated = input.clone();
@@ -765,7 +765,7 @@ fn d6w_standalone_input_rejects_noncanonical_selected_commitment_order() {
     let (projection, env, derivation) = projection(&baseline, false, false);
     let closure = compute_dependency_closure(&projection, &env, &derivation, &closure_profile(false))
         .expect("baseline closure");
-    let input = InputCommitmentV1::from_projection(&projection, &env, &closure, &closure_profile(false))
+    let input = InputCommitmentV1::from_projection(&projection, &env, &closure, &closure_profile(false), &derivation)
         .expect("baseline input");
 
     assert!(input.nodes.windows(2).all(|pair| pair[0] < pair[1]));
@@ -786,7 +786,7 @@ fn d6w_standalone_input_rejects_noncanonical_selected_commitment() {
     let (projection, env, derivation) = projection(&baseline, false, false);
     let closure = compute_dependency_closure(&projection, &env, &derivation, &closure_profile(false))
         .expect("baseline closure");
-    let mut input = InputCommitmentV1::from_projection(&projection, &env, &closure, &closure_profile(false))
+    let mut input = InputCommitmentV1::from_projection(&projection, &env, &closure, &closure_profile(false), &derivation)
         .expect("baseline input");
     input.nodes[0] = "LEGACY-SYMBOLIC".into();
     input.commitment = input.recompute();
@@ -799,7 +799,7 @@ fn d6w_standalone_input_rejects_noncanonical_edge_and_receipt_commitments() {
     let (projection, env, derivation) = projection(&baseline, false, true);
     let closure = compute_dependency_closure(&projection, &env, &derivation, &closure_profile(true))
         .expect("baseline closure");
-    let input = InputCommitmentV1::from_projection(&projection, &env, &closure, &closure_profile(true))
+    let input = InputCommitmentV1::from_projection(&projection, &env, &closure, &closure_profile(true), &derivation)
         .expect("baseline input");
 
     let mut edge_mutated = input.clone();
