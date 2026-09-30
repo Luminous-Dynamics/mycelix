@@ -186,7 +186,7 @@ mod tests {
     fn d6w_rejects_stale_selected_node_binding() {
         let (mut p,e,d,c)=fixture(false);
         let node = p.nodes.get_mut("dep").unwrap();
-        node.content_commitment = "changed-content".into();
+        node.node_commitment = "0000000000000000000000000000000000000000000000000000000000000000".into();
         assert!(!p.commitments_match_sources(&e,&d));
         assert!(InputCommitmentV1::from_projection(&p,&e,&c).is_none());
     }
