@@ -6,6 +6,8 @@ from pathlib import Path
 
 EXPECTED_KEYS = {"schema", "schema_version", "status", "vectors"}
 VECTOR_KEYS = {"id", "scenario", "expected_outcome", "forbidden_inference"}
+EXPECTED_SCHEMA_VERSION = "mobility-configuration-contract-qualification-v1"
+EXPECTED_IDS = [f"MC-CONFIG-{n:03d}" for n in range(1, 21)]
 
 def load(path):
     value = json.loads(Path(path).read_text())
@@ -13,6 +15,8 @@ def load(path):
         raise ValueError(f"{path}: unexpected normalized top-level shape")
     if value["schema"] != "mobility-qualification-normalized-v1":
         raise ValueError(f"{path}: unsupported normalized schema")
+    if value["schema_version"] != EXPECTED_SCHEMA_VERSION:
+        raise ValueError(f"{path}: unexpected qualification schema version")
     if value["status"] != "semantic-qualification-only":
         raise ValueError(f"{path}: unsafe qualification status")
     vectors = value["vectors"]
@@ -23,8 +27,8 @@ def load(path):
         if not isinstance(item, dict) or set(item) != VECTOR_KEYS:
             raise ValueError(f"{path}: malformed vector")
         ids.append(item["id"])
-    if len(set(ids)) != 20 or ids != sorted(ids):
-        raise ValueError(f"{path}: duplicate or noncanonical vector IDs")
+    if len(set(ids)) != 20 or ids != sorted(ids) or ids != EXPECTED_IDS:
+        raise ValueError(f"{path}: duplicate, incomplete, or noncanonical vector IDs")
     return value
 
 def main():
