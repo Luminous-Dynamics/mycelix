@@ -1,0 +1,51 @@
+{
+  "profile": "integral-interop-1",
+  "projection_version": "integral-interop-1-design-semantic-v1",
+  "vectors": [
+    {
+      "id": "object-order",
+      "operation": "reparse-equivalent-json-with-different-object-order",
+      "expected": "same-commitment"
+    },
+    {
+      "id": "irrelevant-metadata",
+      "operation": "mutate design_version.certification-adjacent metadata",
+      "expected": "same-commitment"
+    },
+    {
+      "id": "unknown-top-level-field",
+      "operation": "add unknown top-level field",
+      "expected": "same-commitment"
+    },
+    {
+      "id": "production-step-object-order",
+      "operation": "rebuild one production step with different object-key order",
+      "expected": "same-commitment"
+    },
+    {
+      "id": "production-step-array-order",
+      "operation": "swap production_steps[0] and production_steps[1]",
+      "expected": "different-commitment"
+    },
+    {
+      "id": "selected-semantic-mutation",
+      "operation": "change production_steps[1].estimated_hours",
+      "expected": "different-commitment"
+    },
+    {
+      "id": "projection-version-domain",
+      "operation": "hash the same selected projection under a different projection domain",
+      "expected": "different-commitment"
+    },
+    {
+      "id": "invalid-fractional-number",
+      "operation": "set bill_of_materials_kg.silicone to 0.25",
+      "expected": "reject-no-commitment"
+    },
+    {
+      "id": "unknown-selected-step-field",
+      "operation": "add an unknown field inside production_steps[0]",
+      "expected": "reject-no-commitment"
+    }
+  ]
+}
