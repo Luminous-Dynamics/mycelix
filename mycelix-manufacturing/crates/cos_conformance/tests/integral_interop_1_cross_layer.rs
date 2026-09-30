@@ -331,7 +331,7 @@ fn evaluate_with_graph_mutation(
             }
             "selected-edge-commitment" => {
                 let edge = projection.edges.get_mut("oad->cos:production-plan")?;
-                edge.kind = ClaimGraphEdgeKindV1::DerivedFrom;
+                edge.kind = ClaimGraphEdgeKindV1::Supports;
                 edge.edge_commitment = edge.recomputed_commitment();
             }
             "selected-edge-removal" => {
