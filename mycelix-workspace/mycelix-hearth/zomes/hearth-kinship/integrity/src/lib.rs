@@ -336,11 +336,32 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             ))
         }
         FlatOp::Delete(OpDelete { action }) => {
-            let original = must_get_action(action.deletes_address.clone())?;
-            Ok(check_author_match(
-                original.action().author(),
+            let original = must_get_valid_record(action.deletes_address.clone())?;
+            let original_action: TypedAction<EntryCreationData> =
+                original.action().clone().try_into().map_err(|_| {
+                    wasm_error!(WasmErrorInner::Guest(
+                        "Deleted address must reference an entry creation action".into(),
+                    ))
+                })?;
+
+            let authorship = check_author_match(
+                original_action.author(),
                 action.author(),
                 "delete",
+            );
+            if authorship != ValidateCallbackResult::Valid {
+                return Ok(authorship);
+            }
+
+            // Hearth's integrity model is append-only for application evidence.
+            // Membership departure is represented by the constrained
+            // Active -> Departed update, never by deletion. Deleting an
+            // admission proof, Hearth identity, membership revision, invitation,
+            // response, index anchor, bond, or digest would create an avoidable
+            // gap between historical provenance and current authority.
+            Ok(ValidateCallbackResult::Invalid(
+                "Hearth application entries cannot be deleted; use the defined update lifecycle instead"
+                    .into(),
             ))
         }
         _ => Ok(ValidateCallbackResult::Valid),
