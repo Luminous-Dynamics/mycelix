@@ -104,10 +104,17 @@ impl InputCommitmentV1 {
     }
     pub fn valid(&self) -> bool {
         self.schema_version == D6W_SCHEMA_VERSION
-            && !self.source_snapshot.is_empty() && !self.projection.is_empty()
-            && !self.environment.is_empty() && !self.dependency_closure.is_empty()
+            && is_canonical_sha256_commitment(&self.source_snapshot)
+            && is_canonical_sha256_commitment(&self.projection)
+            && is_canonical_sha256_commitment(&self.environment)
+            && is_canonical_sha256_commitment(&self.dependency_closure)
             && !self.nodes.is_empty()
-            && self.claim_ceiling == D6S_CLAIM_CEILING && self.commitment == self.recompute()
+            && self.nodes.iter().all(|v| is_canonical_sha256_commitment(v))
+            && self.edges.iter().all(|v| is_canonical_sha256_commitment(v))
+            && self.d6p_receipts.iter().all(|v| is_canonical_sha256_commitment(v))
+            && self.claim_ceiling == D6S_CLAIM_CEILING
+            && is_canonical_sha256_commitment(&self.commitment)
+            && self.commitment == self.recompute()
     }
 }
 
