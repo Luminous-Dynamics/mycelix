@@ -3149,6 +3149,89 @@ mod tests {
     }
 
     #[test]
+    fn analysis_derivation_receipt_rejects_discontinuity_cycle_and_endpoint_mismatch() {
+        let raw = InstructionalOutcomeRef {
+            outcome_measure_id: "raw".into(),
+            outcome_measure_version: "1".into(),
+            outcome_measure_digest: "blake3:raw".into(),
+        };
+        let normalized = InstructionalOutcomeRef {
+            outcome_measure_id: "normalized".into(),
+            outcome_measure_version: "1".into(),
+            outcome_measure_digest: "blake3:normalized".into(),
+        };
+        let standardized = InstructionalOutcomeRef {
+            outcome_measure_id: "standardized".into(),
+            outcome_measure_version: "1".into(),
+            outcome_measure_digest: "blake3:standardized".into(),
+        };
+        let mut derivation = InstructionalAnalysisDerivationReceipt {
+            derivation_id: "derivation-graph".into(),
+            derivation_version: 1,
+            result: InstructionalAnalysisResultRef {
+                result_id: "result-graph".into(),
+                result_version: 1,
+                result_digest: "blake3:result-graph".into(),
+            },
+            analysis: InstructionalAnalysisRef {
+                analysis_id: "analysis-graph".into(),
+                analysis_version: 1,
+                analysis_digest: "blake3:analysis-graph".into(),
+            },
+            input_observation_set_digest: "blake3:observations".into(),
+            source_outcome: raw.clone(),
+            derived_outcome: standardized.clone(),
+            transformations: vec![
+                InstructionalOutcomeTransformationRef {
+                    transformation_id: "transform-1".into(),
+                    transformation_version: 1,
+                    transformation_digest: "blake3:transform-1".into(),
+                    sequence: 1,
+                    input_outcome: raw.clone(),
+                    output_outcome: normalized.clone(),
+                },
+                InstructionalOutcomeTransformationRef {
+                    transformation_id: "transform-2".into(),
+                    transformation_version: 1,
+                    transformation_digest: "blake3:transform-2".into(),
+                    sequence: 2,
+                    input_outcome: normalized.clone(),
+                    output_outcome: standardized.clone(),
+                },
+            ],
+            canonicalization_version: "1".into(),
+            derivation_digest: String::new(),
+        };
+        derivation.derivation_digest = derivation.compute_digest().unwrap();
+        assert_eq!(derivation.validate(), Ok(()));
+
+        let mut discontinuity = derivation.clone();
+        discontinuity.transformations[1].input_outcome = raw.clone();
+        discontinuity.derivation_digest = discontinuity.compute_digest().unwrap();
+        assert_eq!(
+            discontinuity.validate(),
+            Err(InstructionalScienceContractError::AnalysisDerivationChainMismatch)
+        );
+
+        let mut cycle = derivation.clone();
+        cycle.transformations[1].output_outcome = raw.clone();
+        cycle.derived_outcome = raw.clone();
+        cycle.derivation_digest = cycle.compute_digest().unwrap();
+        assert_eq!(
+            cycle.validate(),
+            Err(InstructionalScienceContractError::AnalysisDerivationCycle)
+        );
+
+        let mut endpoint = derivation.clone();
+        endpoint.derived_outcome = raw;
+        endpoint.derivation_digest = endpoint.compute_digest().unwrap();
+        assert_eq!(
+            endpoint.validate(),
+            Err(InstructionalScienceContractError::AnalysisDerivationEndpointMismatch)
+        );
+    }
+
+    #[test]
     fn transformation_contract_constructor_requires_explicit_provenance() {
         let operation = InstructionalOutcomeTransformationKind::Standardization;
         assert_eq!(
