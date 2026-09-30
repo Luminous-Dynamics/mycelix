@@ -13,6 +13,8 @@ def load(path):
     value = json.loads(Path(path).read_text())
     if not isinstance(value, dict) or set(value) != EXPECTED_KEYS:
         raise ValueError(f"{path}: unexpected normalized top-level shape")
+    if not isinstance(value["schema"], str) or not isinstance(value["schema_version"], str) or not isinstance(value["status"], str):
+        raise ValueError(f"{path}: normalized top-level values must be strings")
     if value["schema"] != "mobility-qualification-normalized-v1":
         raise ValueError(f"{path}: unsupported normalized schema")
     if value["schema_version"] != EXPECTED_SCHEMA_VERSION:
@@ -26,6 +28,8 @@ def load(path):
     for item in vectors:
         if not isinstance(item, dict) or set(item) != VECTOR_KEYS:
             raise ValueError(f"{path}: malformed vector")
+        if not all(isinstance(item[key], str) for key in VECTOR_KEYS):
+            raise ValueError(f"{path}: normalized vector values must be strings")
         ids.append(item["id"])
     if len(set(ids)) != 20 or ids != sorted(ids) or ids != EXPECTED_IDS:
         raise ValueError(f"{path}: duplicate, incomplete, or noncanonical vector IDs")
