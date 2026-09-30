@@ -608,7 +608,7 @@ mod tests {
             b_id, relationship, p("broker"), p("root"),
             ActionScope::named("create-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute, 110, None, 4, Some(a_id),
+            DelegationMode::Execute, 100, None, 4, Some(a_id),
         ).unwrap();
         let req = ExecutionRequest {
             principal: p("root"), delegate: p("broker"),
