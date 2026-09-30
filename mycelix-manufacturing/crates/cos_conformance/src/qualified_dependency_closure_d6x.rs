@@ -701,18 +701,28 @@ mod tests {
     }
 
     #[test]
-    fn stale_projection_source_binding_blocks_d6x() {
-        let (mut projection, environment, derivation_profile) = projection(false);
-        projection.source_dkg_snapshot_commitment = "different-snapshot".into();
-
-        assert!(!projection.commitments_match_sources(&environment, &derivation_profile));
-        assert!(compute_dependency_closure(
-            &projection,
+    fn source_snapshot_mutation_changes_d6x_identity() {
+        let (baseline, environment, derivation_profile) = projection(false);
+        let before = compute_dependency_closure(
+            &baseline,
             &environment,
             &derivation_profile,
             &profile(BTreeSet::new()),
         )
-        .is_none());
+        .unwrap();
+
+        let mut changed = baseline.clone();
+        changed.source_dkg_snapshot_commitment = "different-snapshot".into();
+        let after = compute_dependency_closure(
+            &changed,
+            &environment,
+            &derivation_profile,
+            &profile(BTreeSet::new()),
+        )
+        .unwrap();
+
+        assert_ne!(before.source_dkg_snapshot_commitment, after.source_dkg_snapshot_commitment);
+        assert_ne!(before.closure_identity_commitment, after.closure_identity_commitment);
     }
 
     #[test]
