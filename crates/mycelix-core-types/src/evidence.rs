@@ -19,6 +19,14 @@ use crate::ParticipantRef;
 pub const EVIDENCE_SCHEMA_VERSION: u16 = 1;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct ObservationTime(i64);
+
+impl ObservationTime {
+    pub const fn from_unix_seconds(seconds: i64) -> Self { Self(seconds) }
+    pub const fn as_unix_seconds(self) -> i64 { self.0 }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct AssertionId([u8; 32]);
 
 impl AssertionId {
@@ -177,6 +185,7 @@ pub struct AssertionEnvelope {
     pub predicate: String,
     pub object: String,
     pub status: EpistemicStatus,
+    pub observed_at: ObservationTime,
     pub source: AssertionSource,
     pub evidence: EvidenceRef,
     pub lineages: Vec<LineageRef>,
@@ -189,6 +198,7 @@ impl AssertionEnvelope {
         predicate: impl Into<String>,
         object: impl Into<String>,
         status: EpistemicStatus,
+        observed_at: ObservationTime,
         source: AssertionSource,
         evidence: EvidenceRef,
     ) -> Result<Self, EvidenceError> {
@@ -210,6 +220,7 @@ impl AssertionEnvelope {
             predicate,
             object,
             status,
+            observed_at,
             source,
             evidence,
             lineages: Vec::new(),
@@ -276,6 +287,7 @@ impl AssertionEnvelope {
         write_bytes(&mut out, self.predicate.as_bytes());
         write_bytes(&mut out, self.object.as_bytes());
         out.push(self.status as u8);
+        out.extend_from_slice(&self.observed_at.as_unix_seconds().to_le_bytes());
         out.push(self.source.visibility as u8);
         out.extend_from_slice(&self.evidence.canonical_bytes());
         out.extend_from_slice(&(self.lineages.len() as u64).to_le_bytes());
@@ -360,6 +372,7 @@ mod tests {
             "account-status",
             "active",
             status,
+            ObservationTime::from_unix_seconds(1_700_000_000),
             AssertionSource {
                 source_revision: ev.source_revision.clone(),
                 visibility: Visibility::Relationship,
@@ -401,10 +414,18 @@ mod tests {
     }
 
     #[test]
-    fn same_assertion_can_have_distinct_sources() {
+    fn same_semantic_assertion_can_have_distinct_sources() {
         let subject = p("did", "alice");
-        let a = AssertionId::derive("crm", &subject, "account-status", "active");
-        let b = AssertionId::derive("erp", &subject, "account-status", "active");
+        let a = AssertionId::derive("relationship", &subject, "account-status", "active");
+        let b = AssertionId::derive("relationship", &subject, "account-status", "active");
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn different_semantic_assertions_have_distinct_ids() {
+        let subject = p("did", "alice");
+        let a = AssertionId::derive("relationship", &subject, "account-status", "active");
+        let b = AssertionId::derive("relationship", &subject, "account-status", "inactive");
         assert_ne!(a, b);
     }
 
