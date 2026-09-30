@@ -562,7 +562,12 @@ fn declarative_cross_layer_corpus_is_self_describing_and_executable() {
                 d6p_receipt = vector["value"].as_bool().expect("receipt boolean");
             }
             "runtime-evidence" => runtime_evidence = true,
-            "graph-mutation" => {}
+            "graph-mutation" => {
+                let mutation = vector["mutation"].as_str().expect("graph mutation");
+                if mutation.starts_with("irrelevant-") {
+                    with_candidate_noise = true;
+                }
+            }
             other => panic!("{id}: unsupported operation {other}"),
         }
 
