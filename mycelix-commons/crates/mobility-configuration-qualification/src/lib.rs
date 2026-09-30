@@ -6,6 +6,7 @@ use std::fs;
 pub mod identity_lineage;
 pub mod temporal_applicability;
 pub mod temporal_reconciliation;
+pub mod temporal_reconciliation_witness;
 
 /// Typed identity/lineage semantics for the mobility evidence substrate.
 ///
