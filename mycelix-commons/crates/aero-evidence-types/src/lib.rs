@@ -23,7 +23,6 @@ pub enum ClaimKind {
     Observation,
     Derived,
 }
-
 /// Lifecycle state of an evidence record.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -148,6 +147,111 @@ pub fn validate_evidence(
     Ok(())
 }
 
+
+
+/// Result of propagating a configuration change through one evidence record.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ImpactClass {
+    Unaffected,
+    ConditionallyValid,
+    Invalidated,
+    RequiresReview,
+    Unknown,
+}
+
+/// A machine-readable configuration transition.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChangeSetV1 {
+    pub change_id: String,
+    pub predecessor_configuration: ArtifactRef,
+    pub proposed_configuration: ArtifactRef,
+    #[serde(default)]
+    pub changed_artifacts: Vec<ArtifactRef>,
+    #[serde(default)]
+    pub changed_inputs: Vec<ArtifactRef>,
+}
+
+/// The impact of a ChangeSet on one evidence record.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EvidenceImpact {
+    pub evidence_id: String,
+    pub class: ImpactClass,
+    pub reasons: Vec<String>,
+    pub obligations: Vec<String>,
+}
+
+/// Conservative impact classification.
+///
+/// This function intentionally prefers review/unknown over silent inheritance.
+/// It is a structural propagation primitive, not an engineering or
+/// certification decision.
+pub fn classify_impact(
+    evidence: &AeroEvidenceV1,
+    change: &ChangeSetV1,
+) -> EvidenceImpact {
+    let mut reasons = Vec::new();
+    let mut obligations = Vec::new();
+
+    if evidence.configuration.id == change.predecessor_configuration.id
+        && evidence.subject.id == change.proposed_configuration.id
+    {
+        reasons.push("configuration transition changes evidence context".into());
+        obligations.push("engineering_review".into());
+        return EvidenceImpact {
+            evidence_id: evidence.evidence_id.clone(),
+            class: ImpactClass::RequiresReview,
+            reasons,
+            obligations,
+        };
+    }
+
+    let subject_changed = change
+        .changed_artifacts
+        .iter()
+        .any(|artifact| artifact.id == evidence.subject.id);
+    if subject_changed {
+        reasons.push("evidence subject changed".into());
+        obligations.push("engineering_review".into());
+        return EvidenceImpact {
+            evidence_id: evidence.evidence_id.clone(),
+            class: ImpactClass::RequiresReview,
+            reasons,
+            obligations,
+        };
+    }
+
+    let input_changed = evidence.inputs.iter().any(|input| {
+        change.changed_inputs.iter().any(|changed| changed.id == input.id)
+    });
+    if input_changed {
+        reasons.push("declared evidence input changed".into());
+        obligations.push("revalidation".into());
+        return EvidenceImpact {
+            evidence_id: evidence.evidence_id.clone(),
+            class: ImpactClass::Invalidated,
+            reasons,
+            obligations,
+        };
+    }
+
+    if change.changed_artifacts.is_empty() && change.changed_inputs.is_empty() {
+        return EvidenceImpact {
+            evidence_id: evidence.evidence_id.clone(),
+            class: ImpactClass::Unaffected,
+            reasons: vec!["no semantic dependencies changed".into()],
+            obligations,
+        };
+    }
+
+    EvidenceImpact {
+        evidence_id: evidence.evidence_id.clone(),
+        class: ImpactClass::Unknown,
+        reasons: vec!["change dependency is not represented in evidence".into()],
+        obligations: vec!["dependency_analysis".into()],
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -224,4 +328,98 @@ mod tests {
             serde_json::from_str(&encoded).expect("deserialize");
         assert_eq!(value, decoded);
     }
+
+    #[test]
+    fn changed_subject_requires_review() {
+        let evidence = fixture();
+        let change = ChangeSetV1 {
+            change_id: "change-001".into(),
+            predecessor_configuration: ArtifactRef {
+                id: "fixture-v1".into(),
+                kind: "configuration".into(),
+            },
+            proposed_configuration: ArtifactRef {
+                id: "fixture-v2".into(),
+                kind: "configuration".into(),
+            },
+            changed_artifacts: vec![ArtifactRef {
+                id: "fixture".into(),
+                kind: "component".into(),
+            }],
+            changed_inputs: vec![],
+        };
+        let impact = classify_impact(&evidence, &change);
+        assert_eq!(impact.class, ImpactClass::RequiresReview);
+    }
+
+    #[test]
+    fn changed_declared_input_invalidates_evidence() {
+        let mut evidence = fixture();
+        evidence.inputs.push(ArtifactRef {
+            id: "material-batch-1".into(),
+            kind: "material_batch".into(),
+        });
+        let change = ChangeSetV1 {
+            change_id: "change-002".into(),
+            predecessor_configuration: ArtifactRef {
+                id: "fixture-v1".into(),
+                kind: "configuration".into(),
+            },
+            proposed_configuration: ArtifactRef {
+                id: "fixture-v2".into(),
+                kind: "configuration".into(),
+            },
+            changed_artifacts: vec![],
+            changed_inputs: vec![ArtifactRef {
+                id: "material-batch-1".into(),
+                kind: "material_batch".into(),
+            }],
+        };
+        let impact = classify_impact(&evidence, &change);
+        assert_eq!(impact.class, ImpactClass::Invalidated);
+    }
+
+    #[test]
+    fn undeclared_dependency_is_unknown() {
+        let evidence = fixture();
+        let change = ChangeSetV1 {
+            change_id: "change-003".into(),
+            predecessor_configuration: ArtifactRef {
+                id: "fixture-v1".into(),
+                kind: "configuration".into(),
+            },
+            proposed_configuration: ArtifactRef {
+                id: "fixture-v2".into(),
+                kind: "configuration".into(),
+            },
+            changed_artifacts: vec![ArtifactRef {
+                id: "hidden-dependency".into(),
+                kind: "parameter".into(),
+            }],
+            changed_inputs: vec![],
+        };
+        let impact = classify_impact(&evidence, &change);
+        assert_eq!(impact.class, ImpactClass::Unknown);
+    }
+
+    #[test]
+    fn empty_semantic_change_is_unaffected() {
+        let evidence = fixture();
+        let change = ChangeSetV1 {
+            change_id: "change-004".into(),
+            predecessor_configuration: ArtifactRef {
+                id: "fixture-v1".into(),
+                kind: "configuration".into(),
+            },
+            proposed_configuration: ArtifactRef {
+                id: "fixture-v1".into(),
+                kind: "configuration".into(),
+            },
+            changed_artifacts: vec![],
+            changed_inputs: vec![],
+        };
+        let impact = classify_impact(&evidence, &change);
+        assert_eq!(impact.class, ImpactClass::Unaffected);
+    }
+
 }
