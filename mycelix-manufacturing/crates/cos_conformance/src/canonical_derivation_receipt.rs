@@ -1020,3 +1020,24 @@ impl ProjectionCanonicalTestBytes for QualifiedProjectionV1 {
         serde_json::to_vec(self).expect("projection is serializable")
     }
 }
+
+
+#[cfg(test)]
+mod canonical_commitment_representation_tests {
+    use super::is_canonical_sha256_commitment;
+
+    #[test]
+    fn canonical_commitment_representation_is_exact() {
+        assert!(is_canonical_sha256_commitment(
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+        ));
+        assert!(!is_canonical_sha256_commitment(
+            "0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF"
+        ));
+        assert!(!is_canonical_sha256_commitment("commit-root"));
+        assert!(!is_canonical_sha256_commitment(""));
+        assert!(!is_canonical_sha256_commitment(
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcde"
+        ));
+    }
+}
