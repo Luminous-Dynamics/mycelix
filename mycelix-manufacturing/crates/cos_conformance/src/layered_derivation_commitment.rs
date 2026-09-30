@@ -323,7 +323,7 @@ mod tests {
 
     #[test]
     fn d6w_input_rejects_self_consistent_closure_with_wrong_profile() {
-        let (p, e, _d, mut closure) = fixture(false);
+        let (p, e, d, mut closure) = fixture(false);
         let expected_profile = closure_profile();
 
         closure.closure_profile_commitment = "forged-profile".into();
@@ -342,7 +342,7 @@ mod tests {
 
         assert!(closure.valid());
         assert!(InputCommitmentV1::from_projection(
-            &p, &e, &closure, &expected_profile
+            &p, &e, &closure, &expected_profile, &d
         ).is_none());
     }
 
