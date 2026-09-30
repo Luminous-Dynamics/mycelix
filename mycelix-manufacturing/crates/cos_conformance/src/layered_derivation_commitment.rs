@@ -7,7 +7,9 @@ use serde::{Deserialize, Serialize};
 
 #[path = "qualified_dependency_closure_d6x.rs"]
 pub mod qualified_dependency_closure_d6x;
-use qualified_dependency_closure_d6x::DependencyClosureCertificateV1;
+use qualified_dependency_closure_d6x::{
+    DependencyClosureCertificateV1, DependencyClosureProfileV1,
+};
 
 pub const D6W_SCHEMA_VERSION: &str = "D6W-1";
 
@@ -167,6 +169,7 @@ impl LayeredReceiptV1 {
     pub fn verifies_d6s(
         &self, d6s:&CanonicalDerivationReceiptV1, p:&QualifiedProjectionV1,
         e:&SemanticEnvironmentV1, profile:&DerivationProfileV1,
+        closure_profile:&DependencyClosureProfileV1,
         closure:&DependencyClosureCertificateV1, trace:Option<String>
     )->bool {
         if !d6s.commitment_matches() || !closure.valid()
@@ -174,8 +177,8 @@ impl LayeredReceiptV1 {
             || closure.projection_commitment != p.commitment()
             || closure.semantic_environment_commitment != e.commitment()
             || closure.derivation_profile_commitment != profile.commitment()
-            || closure.closure_profile_commitment != profile.commitment()
-            || closure.root_node_ids != profile.root_node_ids
+            || closure.closure_profile_commitment != closure_profile.commitment()
+            || closure.root_node_ids != closure_profile.root_node_ids
             || d6s.projection_commitment!=p.commitment()
             || d6s.semantic_environment_commitment!=e.commitment()
             || d6s.derivation_profile_commitment!=profile.commitment()
@@ -203,6 +206,28 @@ mod tests {
     use crate::evidence_claim_graph::{ClaimGraphEdgeKindV1,ClaimGraphNodeKindV1};
     use qualified_dependency_closure_d6x::{compute_dependency_closure,DependencyClosureProfileV1,DependencyRuleV1,DependencyCurrentnessV1};
 
+    fn closure_profile() -> DependencyClosureProfileV1 {
+        DependencyClosureProfileV1 {
+            profile_id: "cp".into(),
+            version: "1".into(),
+            root_node_ids: ["root".into()].into_iter().collect(),
+            required_node_ids: BTreeSet::new(),
+            required_d6p_receipt_commitments: BTreeSet::new(),
+            rules: [DependencyRuleV1 {
+                edge_kind: ClaimGraphEdgeKindV1::Supports,
+                from_kind: Some(ClaimGraphNodeKindV1::Statement),
+                to_kind: Some(ClaimGraphNodeKindV1::Evidence),
+                currentness: DependencyCurrentnessV1::Any,
+            }]
+            .into_iter()
+            .collect(),
+            excluded_boundary_policy: "rule-matched semantic edges only".into(),
+            max_nodes: 16,
+            max_edges: 16,
+            claim_ceiling: D6S_CLAIM_CEILING.into(),
+        }
+    }
+
     fn fixture(extra:bool)->(QualifiedProjectionV1,SemanticEnvironmentV1,DerivationProfileV1,DependencyClosureCertificateV1){
         let e=SemanticEnvironmentV1{semantic_profile_id:"sem".into(),semantic_profile_version:"1".into(),current_frontier_root:Some("frontier".into()),d6p_eligibility_context_root:None,d6n_observer_context_root:None,d6o_lifecycle_context_root:None,membership_authority_scope_root:None,dependency_snapshot_root:Some("snapshot".into()),historical_cutoff:None,policy_version:"policy".into(),claim_ceiling:D6S_CLAIM_CEILING.into()};
         let d=DerivationProfileV1{profile_id:"d".into(),version:"1".into(),rule_ids:["r".into()].into_iter().collect(),permits_recursive_fixpoint:false,claim_ceiling:D6S_CLAIM_CEILING.into()};
@@ -213,10 +238,68 @@ mod tests {
         edges.insert("e1".into(),QualifiedEdgeV1{edge_id:"e1".into(),from_node_id:"root".into(),to_node_id:"dep".into(),kind:ClaimGraphEdgeKindV1::Supports,edge_commitment:canonical_sha256("integral-interop-1-edge",&serde_json::json!({"id":"e1","from":"root","to":"dep","kind":format!("{:?}",ClaimGraphEdgeKindV1::Supports)})),claim_ceiling:D6S_CLAIM_CEILING.into()});
         if extra{edges.insert("noise-edge".into(),QualifiedEdgeV1{edge_id:"noise-edge".into(),from_node_id:"noise".into(),to_node_id:"dep".into(),kind:ClaimGraphEdgeKindV1::Provenance,edge_commitment:canonical_sha256("integral-interop-1-edge",&serde_json::json!({"id":"noise-edge","from":"noise","to":"dep","kind":format!("{:?}",ClaimGraphEdgeKindV1::Provenance)})),claim_ceiling:D6S_CLAIM_CEILING.into()});}
         let p=QualifiedProjectionV1{projection_id:"p".into(),projection_version:"1".into(),canonicalization_version:"D6S-CANON-1".into(),source_dkg_snapshot_commitment:"snapshot".into(),nodes,edges,d6p_current_receipt_commitments:BTreeSet::new(),d6n_context_commitment:None,d6o_context_commitment:None,semantic_environment_commitment:e.commitment(),derivation_profile_commitment:d.commitment(),claim_ceiling:D6S_CLAIM_CEILING.into()};
-        let rule=DependencyRuleV1{edge_kind:ClaimGraphEdgeKindV1::Supports,from_kind:Some(ClaimGraphNodeKindV1::Statement),to_kind:Some(ClaimGraphNodeKindV1::Evidence),currentness:DependencyCurrentnessV1::Any};
-        let cp=DependencyClosureProfileV1{profile_id:"cp".into(),version:"1".into(),root_node_ids:["root".into()].into_iter().collect(),required_node_ids:BTreeSet::new(),required_d6p_receipt_commitments:BTreeSet::new(),rules:[rule].into_iter().collect(),excluded_boundary_policy:"rule-matched semantic edges only".into(),max_nodes:16,max_edges:16,claim_ceiling:D6S_CLAIM_CEILING.into()};
+        let cp = closure_profile();
         let c=compute_dependency_closure(&p,&e,&d,&cp).unwrap();
         (p,e,d,c)
+    }
+
+    #[test]
+    fn d6w_verifier_binds_the_dependency_closure_profile_not_the_derivation_profile() {
+        let (p, e, d, closure) = fixture(false);
+        let closure_profile = closure_profile();
+
+        assert_ne!(
+            closure_profile.commitment(),
+            d.commitment(),
+            "the test must exercise the distinct D6X/D6S profile domains"
+        );
+
+        let d6s = crate::canonical_derivation_receipt::build_canonical_receipt(
+            &p,
+            &e,
+            &d,
+            &[],
+            DerivationResultStatusV1::Rejected,
+            "result-1".into(),
+            false,
+            false,
+        )
+        .expect("rejected D6S receipt does not require current D6P evidence");
+
+        let input = InputCommitmentV1::from_projection(&p, &e, &closure)
+            .expect("complete D6X closure must enter D6W");
+        let derivation = DerivationCommitmentV1::new(&input, &d, None)
+            .expect("D6W derivation commitment");
+        let result = ResultCommitmentV1::new(
+            &derivation,
+            DerivationResultStatusV1::Rejected,
+            "result-1".into(),
+            false,
+            false,
+        )
+        .expect("D6W result commitment");
+        let receipt = LayeredReceiptV1::new(&input, &derivation, &result)
+            .expect("D6W layered receipt");
+
+        assert!(receipt.verifies_d6s(
+            &d6s,
+            &p,
+            &e,
+            &d,
+            &closure_profile,
+            None,
+        ));
+
+        let mut wrong_profile = closure_profile.clone();
+        wrong_profile.version = "2".into();
+        assert!(!receipt.verifies_d6s(
+            &d6s,
+            &p,
+            &e,
+            &d,
+            &wrong_profile,
+            None,
+        ));
     }
 
     #[test]
