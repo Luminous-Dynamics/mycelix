@@ -1,6 +1,6 @@
 //! D6W diagnostic decomposition of D6S commitments. Integrity only; no authority.
 use crate::canonical_derivation_receipt::{
-    canonical_sha256, is_canonical_sha256_commitment, CanonicalDerivationReceiptV1, DerivationProfileV1,
+    canonical_sha256, is_canonical_sha256_commitment, CanonicalDerivationReceiptV1, CurrentFinalityEligibilityReceiptV1, DerivationProfileV1,
     DerivationResultStatusV1, QualifiedProjectionV1, SemanticEnvironmentV1, D6S_CLAIM_CEILING,
 };
 use serde::{Deserialize, Serialize};
@@ -189,9 +189,13 @@ impl LayeredReceiptV1 {
         &self, d6s:&CanonicalDerivationReceiptV1, p:&QualifiedProjectionV1,
         e:&SemanticEnvironmentV1, profile:&DerivationProfileV1,
         closure_profile:&DependencyClosureProfileV1,
-        closure:&DependencyClosureCertificateV1, trace:Option<String>
+        closure:&DependencyClosureCertificateV1,
+        current_d6p_receipts:&[CurrentFinalityEligibilityReceiptV1],
+        trace:Option<String>
     )->bool {
-        if !d6s.commitment_matches() || !closure.valid()
+        if !crate::canonical_derivation_receipt::verify_canonical_receipt(
+            d6s, p, e, profile, current_d6p_receipts
+        ) || !closure.valid()
             || !p.commitments_match_sources(e, profile)
             || closure.projection_commitment != p.commitment()
             || closure.semantic_environment_commitment != e.commitment()
