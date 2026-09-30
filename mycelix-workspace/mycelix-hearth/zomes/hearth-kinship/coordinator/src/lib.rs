@@ -673,28 +673,15 @@ pub fn create_kinship_bond(input: CreateBondInput) -> ExternResult<Record> {
     let now = sys_time()?;
     let initial_strength = input.initial_strength_bp.unwrap_or(BOND_BASE_FAMILY);
 
-    // Verify both caller and member_b are active members of this hearth
-    let mut caller_is_member = false;
-    let mut member_b_is_member = false;
-    for (_, membership) in membership_records_for_hearth(&input.hearth_hash)? {
-        if membership.status == MembershipStatus::Active {
-            if membership.agent == agent {
-                caller_is_member = true;
-            }
-            if membership.agent == input.member_b {
-                member_b_is_member = true;
-            }
-        }
-        if caller_is_member && member_b_is_member {
-            break;
-        }
-    }
-    if !caller_is_member {
+    // Resolve both participants through the same exact-one Active membership
+    // authority rule used by caller-scoped governance decisions. A duplicate
+    // Active membership is a conflict, not evidence to merge into a boolean.
+    if active_membership_for_agent(&input.hearth_hash, &agent)?.is_none() {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Caller is not an active member of this hearth".into()
         )));
     }
-    if !member_b_is_member {
+    if active_membership_for_agent(&input.hearth_hash, &input.member_b)?.is_none() {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "member_b is not an active member of this hearth".into()
         )));
