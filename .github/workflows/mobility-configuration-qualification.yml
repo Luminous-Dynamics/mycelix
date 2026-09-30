@@ -159,6 +159,6 @@ jobs:
       - name: Prove input ordering is canonicalized, not semantically significant
         run: |
           python3 -c 'import json; p="docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1.json"; d=json.load(open(p)); d["vectors"]=list(reversed(d["vectors"])); json.dump(d,open("/tmp/reordered.json","w"))'
-          ./mycelix-commons/target/debug/mobility-qualification --normalized /tmp/reordered.json > /tmp/reordered-rust.json
+          ./mycelix-commons/target/debug/mobility-qualification /tmp/reordered.json > /tmp/reordered-rust.json
           python3 tools/mobility_qualification_reference.py --normalized /tmp/reordered.json > /tmp/reordered-python.json
           python3 tools/compare_mobility_qualification.py /tmp/reordered-rust.json /tmp/reordered-python.json
