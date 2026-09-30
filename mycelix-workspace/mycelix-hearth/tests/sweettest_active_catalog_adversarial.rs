@@ -180,3 +180,88 @@ async fn test_duplicate_active_membership_admission_is_rejected_and_catalog_rema
         "one admitted membership must yield exactly one canonical Active Hearth"
     );
 }
+
+/// Membership authority is append-only: a member must depart via the
+/// constrained Active -> Departed update rather than deleting the evidence
+/// leaf that the canonical catalog consumes.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires Holochain conductor (nix develop)"]
+async fn test_active_membership_delete_is_rejected() {
+    let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
+
+    let mut alice_conductor = SweetConductor::from_standard_config().await;
+    let mut bob_conductor = SweetConductor::from_standard_config().await;
+
+    let (alice,) = alice_conductor
+        .setup_app("test-app", &[dna_file.clone()])
+        .await
+        .unwrap()
+        .into_tuple();
+    let (bob,) = bob_conductor
+        .setup_app("test-app", &[dna_file.clone()])
+        .await
+        .unwrap()
+        .into_tuple();
+
+    SweetConductor::exchange_peer_info([&alice_conductor, &bob_conductor]).await;
+
+    let hearth: Record = alice_conductor
+        .call(
+            &alice.zome("hearth_kinship"),
+            "create_hearth",
+            CreateHearthInput {
+                name: "Delete Protection Test".into(),
+                description: "Membership evidence must not be deletable".into(),
+                hearth_type: HearthType::Nuclear,
+                max_members: Some(4),
+            },
+        )
+        .await;
+    let hearth_hash = hearth.action_address().clone();
+    let bob_agent = bob.agent_pubkey().clone();
+
+    let invitation: Record = alice_conductor
+        .call(
+            &alice.zome("hearth_kinship"),
+            "invite_member",
+            InviteMemberInput {
+                hearth_hash,
+                invitee_agent: bob_agent,
+                proposed_role: MemberRole::Adult,
+                message: "Delete protection".into(),
+                expires_at: Timestamp::from_micros(
+                    Timestamp::now().as_micros() + 86_400_000_000,
+                ),
+            },
+        )
+        .await;
+
+    tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+
+    let membership: Record = bob_conductor
+        .call(
+            &bob.zome("hearth_kinship"),
+            "accept_invitation",
+            AcceptInvitationInput {
+                invitation_hash: invitation.action_address().clone(),
+                display_name: "Bob".into(),
+            },
+        )
+        .await;
+    let membership_hash = membership.action_address().clone();
+
+    let join = tokio::spawn(async move {
+        let _: Record = bob_conductor
+            .call(
+                &bob.zome("hearth_kinship"),
+                "delete_entry",
+                membership_hash,
+            )
+            .await;
+    });
+
+    assert!(
+        join.await.is_err(),
+        "deleting Active membership evidence must be rejected; departure must use the lifecycle update"
+    );
+}
