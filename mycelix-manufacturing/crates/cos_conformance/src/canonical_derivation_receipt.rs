@@ -274,6 +274,21 @@ impl QualifiedProjectionV1 {
     pub fn commitment(&self) -> String {
         canonical_sha256(D6S_DOMAIN_PROJECTION, self)
     }
+
+    /// Verify commitments whose semantic source is present in this projection.
+    /// The source DKG snapshot commitment remains opaque because its source
+    /// object is outside this reference-model boundary.
+    pub fn commitments_match_sources(
+        &self,
+        environment: &SemanticEnvironmentV1,
+        derivation_profile: &DerivationProfileV1,
+    ) -> bool {
+        self.structurally_valid()
+            && self.semantic_environment_commitment == environment.commitment()
+            && self.derivation_profile_commitment == derivation_profile.commitment()
+            && self.nodes.values().all(QualifiedNodeV1::commitment_matches)
+            && self.edges.values().all(QualifiedEdgeV1::commitment_matches)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
