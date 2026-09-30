@@ -6,10 +6,39 @@
       "id": "object-order",
       "operation": "reparse",
       "path": "$",
-      "value": "{\\"design_version\\":{\\"id\\":\\"design-water-purifier\\",\\"spec_id\\":\\"spec-water-purifier\\",\\"materials\\":[\\"stainless-steel\\",\\"silicone\\"],\\"parameters\\":{\\"bill_of_materials_kg\\":{\\"silicone\\":0,\\"stainless-steel\\":2},\\"production_steps\\":[{\\"name\\":\\"cut-and-form\\",\\"estimated_hours\\":1,\\"skill_tier\\":\\"medium\\",\\"tools_required\\":[\\"press\\"],\\"sequence_index\\":0,\\"safety_notes\\":\\"guarded press\\"},{\\"name\\":\\"assemble\\",\\"estimated_hours\\":2,\\"skill_tier\\":\\"medium\\",\\"tools_required\\":[\\"torque-tool\\"],\\"sequence_index\\":1,\\"safety_notes\\":\\"verify seal\\"}]}}}}",
+      "value": {
+        "design_version": {
+          "id": "design-water-purifier",
+          "spec_id": "spec-water-purifier",
+          "materials": ["stainless-steel", "silicone"],
+          "parameters": {
+            "bill_of_materials_kg": {
+              "silicone": 0,
+              "stainless-steel": 2
+            },
+            "production_steps": [
+              {
+                "name": "cut-and-form",
+                "estimated_hours": 1,
+                "skill_tier": "medium",
+                "tools_required": ["press"],
+                "sequence_index": 0,
+                "safety_notes": "guarded press"
+              },
+              {
+                "name": "assemble",
+                "estimated_hours": 2,
+                "skill_tier": "medium",
+                "tools_required": ["torque-tool"],
+                "sequence_index": 1,
+                "safety_notes": "verify seal"
+              }
+            ]
+          }
+        }
+      },
       "expected": "same-commitment"
     },
-    {
       "id": "irrelevant-metadata",
       "operation": "set",
       "path": "design_version.change_log",
