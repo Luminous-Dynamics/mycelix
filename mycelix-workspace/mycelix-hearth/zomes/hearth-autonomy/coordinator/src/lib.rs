@@ -162,6 +162,15 @@ pub fn create_autonomy_profile(input: CreateAutonomyProfileInput) -> ExternResul
         )));
     }
 
+    // A profile is a unique member identity, not an append-only collection.
+    // Reject an already-linked profile rather than silently creating a second
+    // profile that would make later capability checks ambiguous.
+    if unique_profile_for_member(input.member.clone())?.is_some() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Member already has an autonomy profile".into()
+        )));
+    }
+
     let profile = AutonomyProfile {
         hearth_hash: input.hearth_hash.clone(),
         member: input.member.clone(),
