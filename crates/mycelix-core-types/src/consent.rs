@@ -159,8 +159,58 @@ pub struct ConsentRequest {
 }
 
 impl Consent {
+    /// Canonical immutable authority content used for identity binding.
+    pub fn canonical_bytes(&self) -> Vec<u8> {
+        let mut out = Vec::new();
+        out.extend_from_slice(b"mycelix.consent-content.v1\\0");
+        out.extend_from_slice(self.relationship_id.as_bytes());
+        canonical_principal(&mut out, &self.grantor);
+        canonical_principal(&mut out, &self.audience.principal);
+        canonical_purpose(&mut out, &self.purpose);
+        canonical_scope(&mut out, &self.scope);
+        out.extend_from_slice(&self.granted_at.to_le_bytes());
+        match self.expires_at {
+            Some(value) => {
+                out.push(1);
+                out.extend_from_slice(&value.to_le_bytes());
+            }
+            None => out.push(0),
+        }
+        out.extend_from_slice(&self.authority_epoch.to_le_bytes());
+        out
+    }
+
+    /// Canonical mutable lifecycle state, separate from immutable identity.
+    pub fn state_canonical_bytes(&self) -> Vec<u8> {
+        let mut out = self.canonical_bytes();
+        out.push(match self.status {
+            ConsentStatus::Granted => 0,
+            ConsentStatus::Revoked => 1,
+            ConsentStatus::Expired => 2,
+        });
+        out.extend_from_slice(&(self.events.len() as u64).to_le_bytes());
+        for event in &self.events {
+            out.push(match event.kind {
+                ConsentEventKind::Grant => 0,
+                ConsentEventKind::Revoke => 1,
+                ConsentEventKind::Expire => 2,
+            });
+            canonical_principal(&mut out, &event.actor);
+            out.extend_from_slice(&event.occurred_at.to_le_bytes());
+            out.extend_from_slice(&event.authority_epoch.to_le_bytes());
+        }
+        out
+    }
+
+    pub fn validate_identity(&self) -> Result<(), ConsentError> {
+        if self.id != ConsentId::derive_content_bound(self) {
+            return Err(ConsentError::IdentityMismatch);
+        }
+        Ok(())
+    }
+
     pub fn grant(
-        id: ConsentId,
+        _id: ConsentId,
         relationship_id: RelationshipId,
         grantor: PrincipalRef,
         audience: AudienceRef,
@@ -179,11 +229,14 @@ impl Consent {
             occurred_at: granted_at,
             authority_epoch,
         };
-        Ok(Self {
-            id, relationship_id, grantor, audience, purpose, scope,
+        let mut consent = Self {
+            id: ConsentId([0; 32]),
+            relationship_id, grantor, audience, purpose, scope,
             granted_at, expires_at, authority_epoch,
             status: ConsentStatus::Granted, events: vec![event],
-        })
+        };
+        consent.id = ConsentId::derive_content_bound(&consent);
+        Ok(consent)
     }
 
     pub fn revoke(
@@ -243,6 +296,7 @@ pub enum ConsentError {
     NotYetEffective,
     Expired,
     StaleAuthorityEpoch,
+    IdentityMismatch,
     AudienceMismatch,
     PurposeMismatch,
     ScopeExceeded,
@@ -262,6 +316,7 @@ impl fmt::Display for ConsentError {
             Self::NotYetEffective => "consent was not active at request time",
             Self::Expired => "consent had expired at request time",
             Self::StaleAuthorityEpoch => "request authority epoch does not match consent",
+            Self::IdentityMismatch => "consent identifier does not match canonical authority content",
             Self::AudienceMismatch => "request audience does not match consent audience",
             Self::PurposeMismatch => "request purpose does not match consent purpose",
             Self::ScopeExceeded => "requested scope exceeds granted scope",
@@ -332,6 +387,37 @@ mod tests {
         let actor = participant("did", "alice");
         c.revoke(&actor, 150, 7).unwrap();
         assert_eq!(c.status, ConsentStatus::Revoked);
+    }
+
+    #[test]
+    fn content_bound_identity_is_deterministic() {
+        let c = consent();
+        assert_eq!(c.id, ConsentId::derive_content_bound(&c));
+        assert_eq!(c.validate_identity(), Ok(()));
+        assert_eq!(c.canonical_bytes(), c.canonical_bytes());
+        assert_eq!(c.state_canonical_bytes(), c.state_canonical_bytes());
+    }
+
+    #[test]
+    fn identity_detects_immutable_content_tampering() {
+        let mut c = consent();
+        c.scope = DisclosureScope::new(
+            AccessMode::Disclose,
+            vec![DataClass::Contact],
+            vec!["phone".into()],
+        ).unwrap();
+        assert_eq!(c.validate_identity(), Err(ConsentError::IdentityMismatch));
+    }
+
+    #[test]
+    fn lifecycle_mutation_does_not_change_immutable_identity() {
+        let mut c = consent();
+        let id = c.id;
+        let canonical = c.canonical_bytes();
+        c.revoke(&participant("did", "alice"), 150, 7).unwrap();
+        assert_eq!(c.id, id);
+        assert_eq!(c.canonical_bytes(), canonical);
+        assert_ne!(c.state_canonical_bytes(), canonical);
     }
 
     #[test]
@@ -433,4 +519,51 @@ mod tests {
     fn supporting_evidence_is_not_embedded_as_authority() {
         assert_eq!(ConsentStatus::Granted, consent().status);
     }
+}
+
+
+fn canonical_principal(out: &mut Vec<u8>, principal: &PrincipalRef) {
+    write_len_prefixed(out, principal.participant.namespace.as_bytes());
+    write_len_prefixed(out, principal.participant.identifier.as_bytes());
+}
+
+fn canonical_purpose(out: &mut Vec<u8>, purpose: &ConsentPurpose) {
+    match purpose {
+        ConsentPurpose::Named(value) => {
+            out.push(0);
+            write_len_prefixed(out, value.as_bytes());
+        }
+    }
+}
+
+fn canonical_scope(out: &mut Vec<u8>, scope: &DisclosureScope) {
+    out.push(match scope.mode {
+        AccessMode::Read => 0,
+        AccessMode::Disclose => 1,
+    });
+    out.extend_from_slice(&(scope.data_classes.len() as u64).to_le_bytes());
+    for class in &scope.data_classes {
+        match class {
+            DataClass::Public => out.push(0),
+            DataClass::Identity => out.push(1),
+            DataClass::Contact => out.push(2),
+            DataClass::Financial => out.push(3),
+            DataClass::Health => out.push(4),
+            DataClass::Operational => out.push(5),
+            DataClass::Confidential => out.push(6),
+            DataClass::Custom(value) => {
+                out.push(7);
+                write_len_prefixed(out, value.as_bytes());
+            }
+        }
+    }
+    out.extend_from_slice(&(scope.fields.len() as u64).to_le_bytes());
+    for field in &scope.fields {
+        write_len_prefixed(out, field.as_bytes());
+    }
+}
+
+fn write_len_prefixed(out: &mut Vec<u8>, bytes: &[u8]) {
+    out.extend_from_slice(&(bytes.len() as u64).to_le_bytes());
+    out.extend_from_slice(bytes);
 }
