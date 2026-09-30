@@ -383,7 +383,7 @@ impl fmt::Display for ConsentError {
             Self::NotGranted => "consent is not active",
             Self::NotYetEffective => "consent was not active at request time",
             Self::Expired => "consent had expired at request time",
-            Self::StaleAuthorityEpoch => "request authority epoch does not match consent",
+            Self::StaleAuthorityEpoch => "consent authority epoch is stale or mismatched",
             Self::AudienceMismatch => "request audience does not match consent audience",
             Self::PurposeMismatch => "request purpose does not match consent purpose",
             Self::ScopeExceeded => "requested scope exceeds granted scope",
