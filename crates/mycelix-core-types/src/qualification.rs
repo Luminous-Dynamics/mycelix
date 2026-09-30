@@ -73,7 +73,7 @@ impl QualificationDependency {
         Ok(Self { kind, logical_id, record_address })
     }
 
-    fn canonical_bytes(&self, out: &mut Vec<u8>) {
+    pub(crate) fn canonical_bytes(&self, out: &mut Vec<u8>) {
         out.push(match self.kind {
             QualificationDependencyKind::Assertion => 0,
             QualificationDependencyKind::Commitment => 1,
