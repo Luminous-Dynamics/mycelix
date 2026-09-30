@@ -120,6 +120,7 @@ pub struct QualifiedNodeV1 {
 impl QualifiedNodeV1 {
     pub fn structurally_valid(&self) -> bool {
         non_empty(&self.node_id)
+            && non_empty(&self.content_commitment)
             && non_empty(&self.node_commitment)
             && self.claim_ceiling == D6S_CLAIM_CEILING
             && self.current_frontier_root.as_deref().map_or(true, non_empty)
@@ -171,7 +172,6 @@ impl QualifiedEdgeV1 {
             && self.from_node_id != self.to_node_id
             && non_empty(&self.edge_commitment)
             && self.claim_ceiling == D6S_CLAIM_CEILING
-            && self.commitment_matches()
     }
 
     /// Recompute the edge commitment from the semantic edge fields.
