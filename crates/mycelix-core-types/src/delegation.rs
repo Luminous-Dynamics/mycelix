@@ -299,6 +299,68 @@ impl Delegation {
         })
     }
 
+    /// Validate the immutable parent-chain constraints without evaluating current
+    /// mutable activation state. This is used by historical qualification so a
+    /// revoked delegation remains projectable/auditable without becoming current
+    /// execution authority.
+    pub fn validate_parent_chain_structure(
+        &self,
+        context: &DelegationContext<'_>,
+    ) -> Result<(), DelegationError> {
+        self.validate_identity()?;
+        let mut child = self;
+        let mut next = self.parent;
+        let mut visited = Vec::new();
+        let mut depth = 0usize;
+
+        while let Some(parent_id) = next {
+            if depth >= Self::MAX_CHAIN_DEPTH {
+                return Err(DelegationError::DelegationChainTooDeep);
+            }
+            if visited.contains(&parent_id) || parent_id == child.id {
+                return Err(DelegationError::DelegationCycle { id: parent_id });
+            }
+            visited.push(parent_id);
+
+            let parent = context.get(parent_id)?;
+            if parent.relationship_id != child.relationship_id {
+                return Err(DelegationError::ParentRelationshipMismatch);
+            }
+            if parent.delegate != child.principal {
+                return Err(DelegationError::ParentPrincipalMismatch);
+            }
+            if parent.authority_epoch != child.authority_epoch {
+                return Err(DelegationError::ParentEpochMismatch);
+            }
+            if !parent.action.contains(&child.action) {
+                return Err(DelegationError::ParentActionExceeded);
+            }
+            if !parent.resource.contains(&child.resource) {
+                return Err(DelegationError::ParentResourceExceeded);
+            }
+            if !child.mode.is_contained_by(parent.mode) {
+                return Err(DelegationError::ParentModeExceeded);
+            }
+            if child.granted_at < parent.granted_at {
+                return Err(DelegationError::ParentNotYetEffective);
+            }
+            if let Some(parent_expiry) = parent.expires_at {
+                if child.granted_at >= parent_expiry {
+                    return Err(DelegationError::ParentExpired);
+                }
+                if child.expires_at.is_none_or(|child_expiry| child_expiry > parent_expiry) {
+                    return Err(DelegationError::ChildOutlivesParent);
+                }
+            }
+
+            child = parent;
+            next = parent.parent;
+            depth += 1;
+        }
+
+        Ok(())
+    }
+
     fn validate_request(&self, request: &ExecutionRequest) -> Result<(), DelegationError> {
         if self.status != DelegationStatus::Active { return Err(DelegationError::NotActive); }
         if request.requested_at < self.granted_at { return Err(DelegationError::NotYetEffective); }
