@@ -196,10 +196,15 @@ fn get_invitation_response_records(invitation_hash: &ActionHash) -> ExternResult
         LinkQuery::try_new(invitation_hash.clone(), LinkTypes::InvitationToResponses)?,
         GetStrategy::default(),
     )?;
-    let mut responses = Vec::new();
+    let mut targets = std::collections::BTreeSet::<ActionHash>::new();
     for link in links {
         let target = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid response link".into())))?;
+        targets.insert(target);
+    }
+
+    let mut responses = Vec::new();
+    for target in targets {
         if let Some(record) = get_unique_latest_record(target)? {
             let response: InvitationResponse = entry_from_record(&record, "InvitationResponse")?;
             if response.invitation_hash == *invitation_hash {
@@ -790,8 +795,8 @@ pub fn tend_bond(input: TendBondInput) -> ExternResult<Record> {
 pub fn get_bond_health(input: GetBondHealthInput) -> ExternResult<u32> {
     let now = sys_time()?;
 
-    let record = get(input.bond_hash, GetOptions::default())?
-        .ok_or(wasm_error!(WasmErrorInner::Guest("Bond not found".into())))?;
+    let record = get_unique_latest_record(input.bond_hash)?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Bond not found or has conflicting revisions".into())))?;
     let bond: KinshipBond = entry_from_record(&record, "KinshipBond")?;
 
     // Calculate days inactive using integer microsecond math.
