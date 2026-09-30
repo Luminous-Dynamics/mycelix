@@ -1254,6 +1254,169 @@ impl InstructionalAnalysisDerivationReceipt {
     }
 }
 
+/// Exact identity of an analysis derivation receipt.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalAnalysisDerivationRef {
+    pub derivation_id: String,
+    pub derivation_version: u64,
+    pub derivation_digest: String,
+}
+impl InstructionalAnalysisDerivationRef {
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.derivation_id.trim().is_empty() || self.derivation_digest.trim().is_empty() {
+            return Err(InstructionalScienceContractError::InvalidDerivationReference);
+        }
+        if self.derivation_version == 0 {
+            return Err(InstructionalScienceContractError::ZeroDerivationReferenceVersion);
+        }
+        Ok(())
+    }
+}
+
+/// Exact identity of a provenance bundle that may hold an external receipt.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalProvenanceBundleRef {
+    pub bundle_id: String,
+    pub bundle_version: String,
+    pub bundle_digest: String,
+}
+impl InstructionalProvenanceBundleRef {
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.bundle_id.trim().is_empty() || self.bundle_version.trim().is_empty() || self.bundle_digest.trim().is_empty() {
+            return Err(InstructionalScienceContractError::InvalidProvenanceBundleReference);
+        }
+        Ok(())
+    }
+}
+
+/// Resolution state for one transformation edge.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum InstructionalTransformationResolutionStatus {
+    Resolved,
+    External,
+    Unresolved,
+}
+
+/// Resolution metadata for one exact transformation edge.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalTransformationResolution {
+    pub transformation: InstructionalOutcomeTransformationRef,
+    pub status: InstructionalTransformationResolutionStatus,
+    pub provenance_bundle: Option<InstructionalProvenanceBundleRef>,
+}
+impl InstructionalTransformationResolution {
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        self.transformation.validate()?;
+        match self.status {
+            InstructionalTransformationResolutionStatus::Resolved => {}
+            InstructionalTransformationResolutionStatus::External => {
+                self.provenance_bundle.as_ref()
+                    .ok_or(InstructionalScienceContractError::ExternalResolutionRequiresBundle)?
+                    .validate()?;
+            }
+            InstructionalTransformationResolutionStatus::Unresolved => {
+                if self.provenance_bundle.is_some() {
+                    return Err(InstructionalScienceContractError::UnresolvedResolutionCannotHaveBundle);
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Explicit resolution receipt for a derivation graph.
+///
+/// Structural derivation validity and receipt resolution remain separate:
+/// a coherent graph may still contain external or unavailable receipts.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalAnalysisDerivationResolutionReceipt {
+    pub resolution_id: String,
+    pub resolution_version: u64,
+    pub derivation: InstructionalAnalysisDerivationRef,
+    pub transformations: Vec<InstructionalTransformationResolution>,
+    pub canonicalization_version: String,
+    pub resolution_digest: String,
+}
+impl InstructionalAnalysisDerivationResolutionReceipt {
+    fn canonical_bytes(&self) -> Result<Vec<u8>, InstructionalScienceContractError> {
+        serde_json::to_vec(&(
+            "praxis:instructional-analysis-derivation-resolution",
+            self.canonicalization_version.as_str(),
+            self.resolution_id.as_str(),
+            self.resolution_version,
+            &self.derivation,
+            &self.transformations,
+        ))
+        .map_err(|_| InstructionalScienceContractError::InvalidTransformationResolution)
+    }
+    fn compute_digest(&self) -> Result<String, InstructionalScienceContractError> {
+        Ok(format!("blake3:{}", hash_to_string(&self.canonical_bytes()?)))
+    }
+    fn validate_for_derivation(&self, derivation: &InstructionalAnalysisDerivationReceipt) -> Result<(), InstructionalScienceContractError> {
+        if self.resolution_id.trim().is_empty() || self.resolution_version == 0
+            || self.canonicalization_version.trim().is_empty() || self.resolution_digest.trim().is_empty()
+        {
+            return Err(InstructionalScienceContractError::InvalidTransformationResolution);
+        }
+        self.derivation.validate()?;
+        let expected = InstructionalAnalysisDerivationRef {
+            derivation_id: derivation.derivation_id.clone(),
+            derivation_version: derivation.derivation_version,
+            derivation_digest: derivation.derivation_digest.clone(),
+        };
+        if self.derivation != expected {
+            return Err(InstructionalScienceContractError::ResolutionDerivationMismatch);
+        }
+        if self.transformations.len() != derivation.transformations.len() {
+            return Err(InstructionalScienceContractError::ResolutionTransformationCountMismatch);
+        }
+        for (index, resolution) in self.transformations.iter().enumerate() {
+            resolution.validate()?;
+            if resolution.transformation.sequence != (index + 1) as u32 {
+                return Err(InstructionalScienceContractError::ResolutionSequenceMismatch);
+            }
+            if resolution.transformation != derivation.transformations[index] {
+                return Err(InstructionalScienceContractError::ResolutionTransformationMismatch);
+            }
+        }
+        if self.compute_digest()? != self.resolution_digest {
+            return Err(InstructionalScienceContractError::ResolutionDigestMismatch);
+        }
+        Ok(())
+    }
+    pub fn validate_against_receipts(
+        &self,
+        derivation: &InstructionalAnalysisDerivationReceipt,
+        receipts: &[InstructionalOutcomeTransformationReceipt],
+    ) -> Result<(), InstructionalScienceContractError> {
+        self.validate_for_derivation(derivation)?;
+        for resolution in &self.transformations {
+            if matches!(resolution.status, InstructionalTransformationResolutionStatus::Resolved) {
+                let receipt = receipts.iter().find(|candidate| {
+                    candidate.transformation_id == resolution.transformation.transformation_id
+                        && candidate.transformation_version == resolution.transformation.transformation_version
+                        && candidate.transformation_digest == resolution.transformation.transformation_digest
+                }).ok_or(InstructionalScienceContractError::MissingResolvedTransformationReceipt)?;
+                receipt.validate()?;
+                if receipt.compute_digest()? != resolution.transformation.transformation_digest {
+                    return Err(InstructionalScienceContractError::ResolvedTransformationDigestMismatch);
+                }
+            }
+        }
+        Ok(())
+    }
+    pub fn is_fully_resolved(&self) -> bool {
+        !self.transformations.is_empty() && self.transformations.iter().all(|resolution| {
+            matches!(resolution.status, InstructionalTransformationResolutionStatus::Resolved)
+        })
+    }
+    pub fn has_unresolved_edges(&self) -> bool {
+        self.transformations.iter().any(|resolution| {
+            matches!(resolution.status, InstructionalTransformationResolutionStatus::Unresolved)
+        })
+    }
+}
+
 /// Provenance-preserving ordered transformation chain for a computed result.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InstructionalTransformationChain {
@@ -2009,6 +2172,19 @@ pub enum InstructionalScienceContractError {
     TransformationDigestMismatch,
     InvalidTransformationReference,
     InvalidAnalysisDerivationReceipt,
+    InvalidDerivationReference,
+    ZeroDerivationReferenceVersion,
+    InvalidProvenanceBundleReference,
+    InvalidTransformationResolution,
+    ResolutionDerivationMismatch,
+    ResolutionTransformationCountMismatch,
+    ResolutionSequenceMismatch,
+    ResolutionTransformationMismatch,
+    ExternalResolutionRequiresBundle,
+    UnresolvedResolutionCannotHaveBundle,
+    MissingResolvedTransformationReceipt,
+    ResolvedTransformationDigestMismatch,
+    ResolutionDigestMismatch,
     DuplicateTransformationReference,
     AnalysisDerivationDigestMismatch,
     AnalysisDerivationSequenceMismatch,
@@ -3228,6 +3404,85 @@ mod tests {
         assert_eq!(
             endpoint.validate(),
             Err(InstructionalScienceContractError::AnalysisDerivationEndpointMismatch)
+        );
+    }
+
+    #[test]
+    fn derivation_resolution_is_fail_closed_and_receipt_backed() {
+        let raw = InstructionalOutcomeRef { outcome_measure_id: "raw".into(), outcome_measure_version: "1".into(), outcome_measure_digest: "blake3:raw".into() };
+        let normalized = InstructionalOutcomeRef { outcome_measure_id: "normalized".into(), outcome_measure_version: "1".into(), outcome_measure_digest: "blake3:normalized".into() };
+        let operation = InstructionalOutcomeTransformationKind::Rounding;
+        let schema = test_transformation_contract_schema(&operation, "1").unwrap();
+        let parameters = transformation_spec(vec![
+            ("decimal_places", InstructionalTransformationParameter::Integer(2)),
+            ("rounding_mode", InstructionalTransformationParameter::Identifier("half-even".into())),
+        ]);
+        let mut receipt = InstructionalOutcomeTransformationReceipt {
+            transformation_id: "resolved-edge".into(), transformation_version: 1, sequence: 1,
+            input_outcome: raw.clone(), output_outcome: normalized.clone(), operation,
+            operation_version: "1".into(), parameter_schema: schema, parameters,
+            transformation_digest: String::new(),
+        };
+        receipt.transformation_digest = receipt.compute_digest().unwrap();
+        let mut derivation = InstructionalAnalysisDerivationReceipt {
+            derivation_id: "resolution-graph".into(), derivation_version: 1,
+            result: InstructionalAnalysisResultRef { result_id: "result-resolution".into(), result_version: 1, result_digest: "blake3:result-resolution".into() },
+            analysis: InstructionalAnalysisRef { analysis_id: "analysis-resolution".into(), analysis_version: 1, analysis_digest: "blake3:analysis-resolution".into() },
+            input_observation_set_digest: "blake3:observations".into(),
+            source_outcome: raw.clone(), derived_outcome: normalized.clone(),
+            transformations: vec![InstructionalOutcomeTransformationRef {
+                transformation_id: receipt.transformation_id.clone(), transformation_version: receipt.transformation_version,
+                transformation_digest: receipt.transformation_digest.clone(), sequence: 1,
+                input_outcome: raw, output_outcome: normalized,
+            }],
+            canonicalization_version: "1".into(), derivation_digest: String::new(),
+        };
+        derivation.derivation_digest = derivation.compute_digest().unwrap();
+        assert_eq!(derivation.validate(), Ok(()));
+        let mut resolution = InstructionalAnalysisDerivationResolutionReceipt {
+            resolution_id: "resolution-1".into(), resolution_version: 1,
+            derivation: InstructionalAnalysisDerivationRef {
+                derivation_id: derivation.derivation_id.clone(), derivation_version: derivation.derivation_version,
+                derivation_digest: derivation.derivation_digest.clone(),
+            },
+            transformations: vec![InstructionalTransformationResolution {
+                transformation: derivation.transformations[0].clone(),
+                status: InstructionalTransformationResolutionStatus::Resolved,
+                provenance_bundle: None,
+            }],
+            canonicalization_version: "1".into(), resolution_digest: String::new(),
+        };
+        resolution.resolution_digest = resolution.compute_digest().unwrap();
+        assert_eq!(resolution.validate_against_receipts(&derivation, &[receipt.clone()]), Ok(()));
+        assert!(resolution.is_fully_resolved());
+
+        let mut unresolved = resolution.clone();
+        unresolved.transformations[0].status = InstructionalTransformationResolutionStatus::Unresolved;
+        unresolved.resolution_digest = unresolved.compute_digest().unwrap();
+        assert_eq!(unresolved.validate_against_receipts(&derivation, &[]), Ok(()));
+        assert!(!unresolved.is_fully_resolved());
+        assert!(unresolved.has_unresolved_edges());
+
+        let mut external = unresolved.clone();
+        external.transformations[0].status = InstructionalTransformationResolutionStatus::External;
+        external.transformations[0].provenance_bundle = Some(InstructionalProvenanceBundleRef {
+            bundle_id: "bundle:remote".into(), bundle_version: "1".into(), bundle_digest: "blake3:remote-bundle".into(),
+        });
+        external.resolution_digest = external.compute_digest().unwrap();
+        assert_eq!(external.validate_against_receipts(&derivation, &[]), Ok(()));
+        assert!(!external.is_fully_resolved());
+
+        let missing = resolution.clone();
+        assert_eq!(
+            missing.validate_against_receipts(&derivation, &[]),
+            Err(InstructionalScienceContractError::MissingResolvedTransformationReceipt)
+        );
+
+        let mut wrong_receipt = receipt;
+        wrong_receipt.transformation_digest = "blake3:tampered".into();
+        assert_eq!(
+            resolution.validate_against_receipts(&derivation, &[wrong_receipt]),
+            Err(InstructionalScienceContractError::MissingResolvedTransformationReceipt)
         );
     }
 
