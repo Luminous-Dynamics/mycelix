@@ -517,15 +517,51 @@ impl InstructionalOutcomeTransformationKind {
     }
 }
 
-/// Canonical, privacy-safe parameters for one transformation.
+/// Typed, canonical, privacy-safe parameters for one transformation.
 ///
 /// Parameters use a sorted map so independent implementations can serialize
 /// the same logical parameter set deterministically. Raw learner observations
 /// must never be embedded here; use digests or non-sensitive references instead.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum InstructionalTransformationParameter {
+    Text(String),
+    Integer(i64),
+    Decimal(String),
+    Boolean(bool),
+    Digest(String),
+    Identifier(String),
+    DurationSeconds(i64),
+    TimestampSeconds(i64),
+}
+
+impl InstructionalTransformationParameter {
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        match self {
+            Self::Text(value) | Self::Identifier(value) => {
+                if value.trim().is_empty() {
+                    return Err(InstructionalScienceContractError::InvalidTransformationParameters);
+                }
+            }
+            Self::Decimal(value) => {
+                if value.trim().is_empty() || value.parse::<f64>().is_err() {
+                    return Err(InstructionalScienceContractError::InvalidTransformationParameters);
+                }
+            }
+            Self::Digest(value) => {
+                if value.trim().is_empty() || !value.starts_with("blake3:") {
+                    return Err(InstructionalScienceContractError::InvalidTransformationParameters);
+                }
+            }
+            Self::Integer(_) | Self::Boolean(_) | Self::DurationSeconds(_) | Self::TimestampSeconds(_) => {}
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InstructionalOutcomeTransformationSpec {
     pub canonicalization_version: String,
-    pub parameters: BTreeMap<String, String>,
+    pub parameters: BTreeMap<String, InstructionalTransformationParameter>,
     pub spec_digest: String,
 }
 
@@ -549,6 +585,9 @@ impl InstructionalOutcomeTransformationSpec {
             || self.parameters.keys().any(|key| key.trim().is_empty())
         {
             return Err(InstructionalScienceContractError::InvalidTransformationParameters);
+        }
+        for parameter in self.parameters.values() {
+            parameter.validate()?;
         }
         if self.compute_digest()? != self.spec_digest {
             return Err(InstructionalScienceContractError::TransformationParametersDigestMismatch);
@@ -1545,10 +1584,10 @@ impl InstructionalAdaptationContext {
     }
 }
 
-fn transformation_spec(entries: Vec<(&str, &str)>) -> InstructionalOutcomeTransformationSpec {
+fn transformation_spec(entries: Vec<(&str, InstructionalTransformationParameter)>) -> InstructionalOutcomeTransformationSpec {
     let parameters = entries
         .into_iter()
-        .map(|(key, value)| (key.to_string(), value.to_string()))
+        .map(|(key, value)| (key.to_string(), value))
         .collect();
     let mut spec = InstructionalOutcomeTransformationSpec {
         canonicalization_version: "1".into(),
@@ -2341,7 +2380,7 @@ mod tests {
                 output_outcome: output.clone(),
                 operation: InstructionalOutcomeTransformationKind::Standardization,
                 operation_version: "1".into(),
-                parameters: transformation_spec(vec![("method", "z-score")]),
+                parameters: transformation_spec(vec![("method", InstructionalTransformationParameter::Text("z-score".into()))]),
             }],
         };
         assert_eq!(chain.validate_for_output(&output), Ok(()));
@@ -2352,11 +2391,31 @@ mod tests {
     }
 
     #[test]
+    fn transformation_parameters_are_semantically_typed() {
+        let spec = transformation_spec(vec![
+            ("baseline_seconds", InstructionalTransformationParameter::DurationSeconds(3600)),
+            ("reference", InstructionalTransformationParameter::Digest("blake3:reference".into())),
+            ("enabled", InstructionalTransformationParameter::Boolean(true)),
+        ]);
+        assert_eq!(spec.validate(), Ok(()));
+        let mut invalid = spec.clone();
+        invalid.parameters.insert(
+            "reference".into(),
+            InstructionalTransformationParameter::Digest("sha256:wrong-family".into()),
+        );
+        invalid.spec_digest = invalid.compute_digest().unwrap();
+        assert_eq!(
+            invalid.validate(),
+            Err(InstructionalScienceContractError::InvalidTransformationParameters)
+        );
+    }
+
+    #[test]
     fn transformation_parameters_digest_is_reconstructible_and_tamper_evident() {
-        let spec = transformation_spec(vec![("decimal_places", "2"), ("mode", "half-even")]);
+        let spec = transformation_spec(vec![("decimal_places", InstructionalTransformationParameter::Integer(2)), ("mode", InstructionalTransformationParameter::Text("half-even".into()))]);
         assert_eq!(spec.compute_digest().unwrap(), spec.spec_digest);
         let mut tampered = spec.clone();
-        tampered.parameters.insert("mode".into(), "away-from-zero".into());
+        tampered.parameters.insert("mode".into(), InstructionalTransformationParameter::Text("away-from-zero".into()));
         assert_eq!(
             tampered.validate(),
             Err(InstructionalScienceContractError::TransformationParametersDigestMismatch)
@@ -2378,7 +2437,7 @@ mod tests {
             output_outcome: outcome,
             operation: InstructionalOutcomeTransformationKind::Rounding,
             operation_version: "1".into(),
-            parameters: transformation_spec(vec![("decimal_places", "2")]),
+            parameters: transformation_spec(vec![("decimal_places", InstructionalTransformationParameter::Integer(2))]),
         };
         assert_eq!(
             transformation.validate(),
