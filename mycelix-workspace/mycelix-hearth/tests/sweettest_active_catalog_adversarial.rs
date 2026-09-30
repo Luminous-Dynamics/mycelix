@@ -146,23 +146,22 @@ async fn test_active_catalog_fails_closed_on_conflicting_active_memberships() {
 
     // The second invitation remains valid, but the membership guard must
     // reject consuming it while Bob is already Active in this Hearth.
-    let second_accept = bob_conductor.call(
-        &bob.zome("hearth_kinship"),
-        "accept_invitation",
-        AcceptInvitationInput {
-            invitation_hash: second.action_address().clone(),
-            display_name: "Bob Two".into(),
-        },
-    );
-
-    let result = tokio::time::timeout(
-        std::time::Duration::from_secs(5),
-        second_accept,
-    )
-    .await;
+    let second_invitation = second.action_address().clone();
+    let join = tokio::spawn(async move {
+        let _: Record = bob_conductor
+            .call(
+                &bob.zome("hearth_kinship"),
+                "accept_invitation",
+                AcceptInvitationInput {
+                    invitation_hash: second_invitation,
+                    display_name: "Bob Two".into(),
+                },
+            )
+            .await;
+    });
 
     assert!(
-        result.is_err(),
+        join.await.is_err(),
         "second Active admission must be rejected rather than creating conflicting authority"
     );
 }
