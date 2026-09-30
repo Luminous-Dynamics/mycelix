@@ -1,0 +1,54 @@
+name: D6S Canonical Qualification
+
+on:
+  push:
+    branches:
+      - myc-int-demo-d6t-canonical-encoding
+  workflow_dispatch:
+
+concurrency:
+  group: d6s-canon-1-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  d6s-canon-1:
+    name: D6S-CANON-1 qualification
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Check D6S formatting
+        run: cargo fmt --manifest-path mycelix-manufacturing/Cargo.toml --all -- --check
+
+      - name: Run D6S Rust corpus
+        run: cargo test --manifest-path mycelix-manufacturing/Cargo.toml -p cos_conformance canonical_derivation_receipt
+
+      - name: Run independent D6S-CANON-1 verifier
+        run: python3 scripts/integral/verify_d6s_canon_1.py
+
+      - name: Emit qualification record
+        run: |
+          {
+            echo "D6S-CANON-1 QUALIFICATION"
+            echo "commit=${GITHUB_SHA}"
+            echo "rust=$(rustc --version)"
+            echo "cargo=$(cargo --version)"
+            echo "python=$(python3 --version)"
+            echo "rust_corpus=PASSED"
+            echo "independent_verifier=PASSED"
+            echo "claim_ceiling=ReferenceModelOnly"
+          } | tee d6s-canon-1-qualification.txt
+
+      - name: Upload qualification record
+        uses: actions/upload-artifact@v4
+        with:
+          name: d6s-canon-1-qualification-${{ github.sha }}
+          path: d6s-canon-1-qualification.txt
