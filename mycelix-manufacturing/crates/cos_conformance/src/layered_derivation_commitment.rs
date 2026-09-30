@@ -105,6 +105,7 @@ impl LayeredReceiptV1 {
         closure:&DependencyClosureCertificateV1, trace:Option<String>
     )->bool {
         if !d6s.commitment_matches() || !closure.valid()
+            || !p.commitments_match_sources(e, profile)
             || closure.projection_commitment != p.commitment()
             || closure.semantic_environment_commitment != e.commitment()
             || closure.derivation_profile_commitment != profile.commitment()
