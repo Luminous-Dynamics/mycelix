@@ -1,0 +1,56 @@
+{
+  "profile": "integral-interop-1",
+  "projection_version": "integral-interop-1-design-semantic-v1",
+  "classification": "cross-layer-propagation-v1",
+  "vectors": [
+    {
+      "id": "certification-metadata",
+      "operation": "set",
+      "path": "certification.documentation_bundle_uri",
+      "value": "urn:integral:bundle:changed",
+      "expected": "identity-preserving"
+    },
+    {
+      "id": "selected-production-step",
+      "operation": "set",
+      "path": "design_version.parameters.production_steps[1].estimated_hours",
+      "value": 3,
+      "expected": "identity-changing"
+    },
+    {
+      "id": "irrelevant-candidate-noise",
+      "operation": "candidate-noise",
+      "path": "$",
+      "value": null,
+      "expected": "identity-preserving"
+    },
+    {
+      "id": "invalid-fractional-bom",
+      "operation": "set",
+      "path": "design_version.parameters.bill_of_materials_kg.silicone",
+      "value": 0.25,
+      "expected": "invalid-no-identity"
+    },
+    {
+      "id": "required-receipt-missing",
+      "operation": "require-d6p-receipt",
+      "path": "$",
+      "value": false,
+      "expected": "blocked-no-d6w"
+    },
+    {
+      "id": "required-receipt-present",
+      "operation": "require-d6p-receipt",
+      "path": "$",
+      "value": true,
+      "expected": "dependency-satisfied"
+    },
+    {
+      "id": "runtime-resolution-evidence",
+      "operation": "runtime-evidence",
+      "path": "$",
+      "value": "runtime://resolver/42",
+      "expected": "audit-only"
+    }
+  ]
+}
