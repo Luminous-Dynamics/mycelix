@@ -200,7 +200,6 @@ fn validate_commitments(
     }
 
     for commitment in commitments {
-        if commitment.relationship_id != relationship_id {
         commitment
             .validate_identity()
             .map_err(|error| QualificationError::InvalidCommitment {
@@ -208,6 +207,7 @@ fn validate_commitments(
                 error,
             })?;
 
+        if commitment.relationship_id != relationship_id {
             return Err(QualificationError::UnrelatedCommitment { id: commitment.id });
         }
         if commitment.events.is_empty() {
@@ -546,6 +546,31 @@ mod tests {
             7,
         )
         .unwrap()
+    }
+
+    #[test]
+    fn tampered_commitment_identity_is_rejected() {
+        let r = relationship(b"identity");
+        let mut c = crate::Commitment::new(
+            crate::CommitmentId::derive(r.relationship_id, b"c"),
+            r.relationship_id,
+            p("did", "alice"),
+            p("org", "acme"),
+            None,
+            1,
+            p("did", "alice"),
+            None,
+        )
+        .unwrap();
+        c.beneficiary = p("org", "other");
+
+        assert!(matches!(
+            QualifiedRelationshipInputs::qualify(&r, &[], &[], &[c], &[], &[]),
+            Err(QualificationError::InvalidCommitment {
+                error: crate::CommitmentError::IdentityMismatch,
+                ..
+            })
+        ));
     }
 
     #[test]
