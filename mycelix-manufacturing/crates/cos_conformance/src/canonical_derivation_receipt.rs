@@ -108,6 +108,9 @@ impl DerivationProfileV1 {
 pub struct QualifiedNodeV1 {
     pub node_id: String,
     pub kind: ClaimGraphNodeKindV1,
+    /// Commitment to the node's underlying semantic content.
+    pub content_commitment: String,
+    /// Commitment to the qualified node binding carried by this projection.
     pub node_commitment: String,
     pub historical_only: bool,
     pub current_frontier_root: Option<String>,
@@ -640,17 +643,17 @@ mod tests {
         let mut nodes = BTreeMap::new();
         nodes.insert("e".into(), QualifiedNodeV1 {
             node_id: "e".into(), kind: ClaimGraphNodeKindV1::Evidence,
-            node_commitment: "node-e".into(), historical_only: false,
+            content_commitment: "content-e".into(), node_commitment: "node-e".into(), historical_only: false,
             current_frontier_root: Some("frontier-1".into()), claim_ceiling: D6S_CLAIM_CEILING.into(),
         });
         nodes.insert("a".into(), QualifiedNodeV1 {
             node_id: "a".into(), kind: ClaimGraphNodeKindV1::Assessment,
-            node_commitment: "node-a".into(), historical_only: false,
+            content_commitment: "content-a".into(), node_commitment: "node-a".into(), historical_only: false,
             current_frontier_root: Some("frontier-1".into()), claim_ceiling: D6S_CLAIM_CEILING.into(),
         });
         nodes.insert("c".into(), QualifiedNodeV1 {
             node_id: "c".into(), kind: ClaimGraphNodeKindV1::Conclusion,
-            node_commitment: "node-c".into(), historical_only: false,
+            content_commitment: "content-c".into(), node_commitment: "node-c".into(), historical_only: false,
             current_frontier_root: Some("frontier-1".into()), claim_ceiling: D6S_CLAIM_CEILING.into(),
         });
         let mut edges = BTreeMap::new();
