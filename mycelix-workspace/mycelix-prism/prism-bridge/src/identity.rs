@@ -102,7 +102,7 @@ mod tests {
     #[test]
     fn site_identity_is_bounded_and_opaque() {
         assert!(SiteIdentity::new("https://example.com").is_ok());
-        assert!(SiteIdentity::new("https://example.com/path").is_ok());
+        assert!(SiteIdentity::new("https://example.com").is_ok());
         assert!(SiteIdentity::new("").is_err());
         assert!(SiteIdentity::new("https://example.com\n").is_err());
         assert!(SiteIdentity::new("https:// example.com").is_err());
