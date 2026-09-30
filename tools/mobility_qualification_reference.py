@@ -58,6 +58,8 @@ def evaluate(corpus):
     if not isinstance(vectors, list) or len(vectors) != len(EXPECTED):
         return False, "vector_count"
     seen = set()
+    expected_ids = {scenario: f"MC-CONFIG-{index:03d}" for index, scenario in enumerate(EXPECTED, 1)}
+    seen_ids = set()
     for vector in vectors:
         if not isinstance(vector, dict):
             return False, "vector_shape"
@@ -71,8 +73,11 @@ def evaluate(corpus):
             return False, f"outcome:{scenario}"
         if vector.get("forbidden_inference") != FORBIDDEN[scenario]:
             return False, f"boundary:{scenario}"
-        if not isinstance(vector.get("id"), str) or not vector["id"].startswith("MC-CONFIG-"):
+        if vector.get("id") != expected_ids[scenario]:
             return False, f"id:{scenario}"
+        if vector["id"] in seen_ids:
+            return False, f"duplicate_id:{vector['id']}"
+        seen_ids.add(vector["id"])
     if seen != set(EXPECTED):
         return False, "scenario_set"
     return True, "valid"
