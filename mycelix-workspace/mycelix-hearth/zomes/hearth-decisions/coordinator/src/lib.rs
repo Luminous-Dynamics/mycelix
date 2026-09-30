@@ -242,7 +242,7 @@ pub fn cast_vote(input: CastVoteInput) -> ExternResult<Record> {
     let agent = agent_info()?.agent_initial_pubkey;
 
     // Get the decision to find its hearth_hash
-    let decision_record = get(input.decision_hash.clone(), GetOptions::default())?.ok_or(
+    let decision_record = get_unique_latest_record(input.decision_hash.clone())?.ok_or(
         wasm_error!(WasmErrorInner::Guest("Decision not found".into())),
     )?;
     let decision: Decision = decision_record
@@ -391,7 +391,7 @@ pub fn tally_votes(decision_hash: ActionHash) -> ExternResult<Vec<(u32, u32)>> {
                 "Link target is not an ActionHash".into()
             )))?;
 
-        if let Some(record) = get_latest_record(target)? {
+        if let Some(record) = get_unique_latest_record(target)? {
             let vote: Vote = record
                 .entry()
                 .to_app_option()
@@ -725,7 +725,7 @@ pub fn amend_vote(input: AmendVoteInput) -> ExternResult<Record> {
         )?;
 
     // Read old vote's choice for the amendment signal
-    let old_vote_record = get(existing_vote_hash.clone(), GetOptions::default())?.ok_or(
+    let old_vote_record = get_unique_latest_record(existing_vote_hash.clone())?.ok_or(
         wasm_error!(WasmErrorInner::Guest("Existing vote not found".into())),
     )?;
     let old_vote: Vote = old_vote_record
