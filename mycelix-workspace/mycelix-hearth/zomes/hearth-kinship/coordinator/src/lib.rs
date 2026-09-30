@@ -744,9 +744,27 @@ pub fn tend_bond(input: TendBondInput) -> ExternResult<Record> {
     )?;
     let now = sys_time()?;
 
-    let record = get(input.bond_hash.clone(), GetOptions::default())?
-        .ok_or(wasm_error!(WasmErrorInner::Guest("Bond not found".into())))?;
+    let record = get_unique_latest_record(input.bond_hash.clone())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Bond not found or has conflicting/deleted revisions".into()
+        )))?;
     let bond: KinshipBond = entry_from_record(&record, "KinshipBond")?;
+
+    // Tending is a current authority-bearing mutation: the caller must still
+    // have exactly one Active membership in this Hearth, and must be the bond's
+    // member_a (the entry's signer-bound actor). Historical bond possession is
+    // not sufficient authorization after departure.
+    let agent = agent_info()?.agent_initial_pubkey;
+    if bond.member_a != agent {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only bond member_a may tend this bond".into()
+        )));
+    }
+    if active_membership_for_agent(&bond.hearth_hash, &agent)?.is_none() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Bond member_a is not an active Hearth member".into()
+        )));
+    }
 
     // Compute days since last tended
     let now_micros: i64 = now.as_micros();
@@ -1129,7 +1147,7 @@ pub fn get_neglected_bonds(hearth_hash: ActionHash) -> ExternResult<Vec<Record>>
     for link in links {
         let action_hash = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        if let Some(record) = get_latest_record(action_hash)? {
+        if let Some(record) = get_unique_latest_record(action_hash)? {
             let bond: KinshipBond = entry_from_record(&record, "KinshipBond")?;
             let last_tended_micros: i64 = bond.last_tended.as_micros();
             let elapsed_micros: u64 = if now_micros > last_tended_micros {
