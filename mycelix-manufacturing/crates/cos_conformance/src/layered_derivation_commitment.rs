@@ -43,13 +43,22 @@ impl InputCommitmentV1 {
             || closure.semantic_environment_commitment != e.commitment()
             || closure.derivation_profile_commitment != p.derivation_profile_commitment
             || closure.derivation_profile_commitment.is_empty()
-            || !p.nodes.values().all(|node| {
-                QualifiedNodeV1::commitment_matches(&node)
-                    && is_canonical_sha256_commitment(&node.node_commitment)
+            || !closure.included_nodes.iter().all(|(id, commitment)| {
+                p.nodes.get(id).is_some_and(|node| {
+                    QualifiedNodeV1::commitment_matches(&node)
+                        && &node.node_commitment == commitment
+                        && is_canonical_sha256_commitment(&node.node_commitment)
+                })
             })
-            || !p.edges.values().all(|edge| {
-                QualifiedEdgeV1::commitment_matches(&edge)
-                    && is_canonical_sha256_commitment(&edge.edge_commitment)
+            || !closure.included_edges.iter().all(|(id, (from, to, kind, commitment))| {
+                p.edges.get(id).is_some_and(|edge| {
+                    QualifiedEdgeV1::commitment_matches(&edge)
+                        && &edge.from_node_id == from
+                        && &edge.to_node_id == to
+                        && &edge.kind == kind
+                        && &edge.edge_commitment == commitment
+                        && is_canonical_sha256_commitment(&edge.edge_commitment)
+                })
             })
         {
             return None;
