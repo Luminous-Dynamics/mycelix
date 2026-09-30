@@ -576,7 +576,7 @@ mod tests {
             DelegationMode::Execute, 100, None, 4, Some(b_id),
         ).unwrap();
         let b = Delegation::grant(
-            b_id, relationship, p("broker"), p("agent"),
+            b_id, relationship, p("broker"), p("root"),
             ActionScope::named("create-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
             DelegationMode::Execute, 110, None, 4, Some(a_id),
@@ -588,7 +588,7 @@ mod tests {
             mode: DelegationMode::Execute, requested_at: 120, authority_epoch: 4,
         };
         assert_eq!(a.authorize(&req, &context(&[b, a])),
-            Err(DelegationError::ParentPrincipalMismatch));
+            Err(DelegationError::DelegationCycle { id: a_id }));
     }
 
     #[test]
