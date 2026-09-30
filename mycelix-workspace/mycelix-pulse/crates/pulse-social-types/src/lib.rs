@@ -58,6 +58,7 @@ pub enum SocialProvenance {
 
 /// Stable semantic reference. It intentionally does not contain UI state.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SocialObjectRefV1 {
     pub schema_version: u8,
     pub object_id: SocialObjectIdV1,
@@ -76,6 +77,7 @@ pub enum SocialRelationKind {
 
 /// Relationship observations never grant a capability by themselves.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SocialRelationV1 {
     pub schema_version: u8,
     pub relation: SocialRelationKind,
@@ -87,6 +89,7 @@ pub struct SocialRelationV1 {
 /// An externally observed social object. Provider identity remains separate
 /// from Mycelix identity and semantic object identity.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SocialObservationV1 {
     pub schema_version: u8,
     pub provider: String,
@@ -271,6 +274,13 @@ mod tests {
         };
         assert!(relation.validate().is_ok());
         // Deliberately no capability/authorization field exists.
+    }
+
+    #[test]
+    fn serde_unknown_fields_fail_closed() {
+        let encoded = r#"{"schema_version":1,"object_id":"post-001","revision":"rev-001","kind":"Post","provenance":"MycelixCanonical","capability":"admin"}"#;
+        let decoded = serde_json::from_str::<SocialObjectRefV1>(encoded);
+        assert!(decoded.is_err());
     }
 
     #[test]
