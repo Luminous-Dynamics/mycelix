@@ -135,10 +135,10 @@ fn apply_vector(baseline: &Value, vector: &Value) -> Result<Value, String> {
         "reorder-object" => reorder_object_at_path(&mut value, path),
         "swap-array" => swap_array_at_path(&mut value, path),
         "reparse" => {
-            let raw = vector["value"]
-                .as_str()
-                .ok_or_else(|| "reparse value must be a JSON string".to_owned())?;
-            value = serde_json::from_str(raw).map_err(|error| error.to_string())?;
+            let encoded =
+                serde_json::to_vec(&vector["value"]).map_err(|error| error.to_string())?;
+            value =
+                serde_json::from_slice(&encoded).map_err(|error| error.to_string())?;
         }
         "hash-domain" => return Ok(vector["value"].clone()),
         other => return Err(format!("unsupported metamorphic operation: {other}")),
