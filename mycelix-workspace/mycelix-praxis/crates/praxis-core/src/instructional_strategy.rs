@@ -1105,6 +1105,7 @@ impl InstructionalOutcomeTransformationReceipt {
             || self.transformation_version == 0
             || self.operation_version.trim().is_empty()
             || self.transformation_digest.trim().is_empty()
+            || self.sequence == 0
         {
             return Err(InstructionalScienceContractError::InvalidTransformation);
         }
@@ -1129,6 +1130,9 @@ pub struct InstructionalOutcomeTransformationRef {
     pub transformation_id: String,
     pub transformation_version: u64,
     pub transformation_digest: String,
+    pub sequence: u32,
+    pub input_outcome: InstructionalOutcomeRef,
+    pub output_outcome: InstructionalOutcomeRef,
 }
 
 impl InstructionalOutcomeTransformationRef {
@@ -1136,8 +1140,14 @@ impl InstructionalOutcomeTransformationRef {
         if self.transformation_id.trim().is_empty()
             || self.transformation_version == 0
             || self.transformation_digest.trim().is_empty()
+            || self.sequence == 0
         {
             return Err(InstructionalScienceContractError::InvalidTransformationReference);
+        }
+        self.input_outcome.validate()?;
+        self.output_outcome.validate()?;
+        if self.input_outcome == self.output_outcome {
+            return Err(InstructionalScienceContractError::TransformationIdentityNoOp);
         }
         Ok(())
     }
@@ -1155,6 +1165,8 @@ pub struct InstructionalAnalysisDerivationReceipt {
     pub result: InstructionalAnalysisResultRef,
     pub analysis: InstructionalAnalysisRef,
     pub input_observation_set_digest: String,
+    pub source_outcome: InstructionalOutcomeRef,
+    pub derived_outcome: InstructionalOutcomeRef,
     pub transformations: Vec<InstructionalOutcomeTransformationRef>,
     pub canonicalization_version: String,
     pub derivation_digest: String,
@@ -1170,6 +1182,8 @@ impl InstructionalAnalysisDerivationReceipt {
             &self.result,
             &self.analysis,
             self.input_observation_set_digest.as_str(),
+            &self.source_outcome,
+            &self.derived_outcome,
             &self.transformations,
         ))
         .map_err(|_| InstructionalScienceContractError::InvalidAnalysisDerivationReceipt)
@@ -1190,16 +1204,46 @@ impl InstructionalAnalysisDerivationReceipt {
         }
         self.result.validate()?;
         self.analysis.validate()?;
+        self.source_outcome.validate()?;
+        self.derived_outcome.validate()?;
 
         let mut refs = BTreeSet::new();
-        for transformation in &self.transformations {
-            transformation.validate()?;
-            if !refs.insert((
-                transformation.transformation_id.clone(),
-                transformation.transformation_version,
-                transformation.transformation_digest.clone(),
-            )) {
-                return Err(InstructionalScienceContractError::DuplicateTransformationReference);
+        let mut seen_outputs = BTreeSet::new();
+        if self.transformations.is_empty() {
+            if self.source_outcome != self.derived_outcome {
+                return Err(InstructionalScienceContractError::AnalysisDerivationEndpointMismatch);
+            }
+        } else {
+            for (index, transformation) in self.transformations.iter().enumerate() {
+                transformation.validate()?;
+                if transformation.sequence != (index + 1) as u32 {
+                    return Err(InstructionalScienceContractError::AnalysisDerivationSequenceMismatch);
+                }
+                if index == 0 {
+                    if transformation.input_outcome != self.source_outcome {
+                        return Err(InstructionalScienceContractError::AnalysisDerivationEndpointMismatch);
+                    }
+                } else if self.transformations[index - 1].output_outcome != transformation.input_outcome {
+                    return Err(InstructionalScienceContractError::AnalysisDerivationChainMismatch);
+                }
+                if !refs.insert((
+                    transformation.transformation_id.clone(),
+                    transformation.transformation_version,
+                    transformation.transformation_digest.clone(),
+                )) {
+                    return Err(InstructionalScienceContractError::DuplicateTransformationReference);
+                }
+                let output_key = (
+                    transformation.output_outcome.outcome_measure_id.clone(),
+                    transformation.output_outcome.outcome_measure_version.clone(),
+                    transformation.output_outcome.outcome_measure_digest.clone(),
+                );
+                if !seen_outputs.insert(output_key) {
+                    return Err(InstructionalScienceContractError::AnalysisDerivationCycle);
+                }
+            }
+            if self.transformations.last().unwrap().output_outcome != self.derived_outcome {
+                return Err(InstructionalScienceContractError::AnalysisDerivationEndpointMismatch);
             }
         }
 
@@ -1967,6 +2011,10 @@ pub enum InstructionalScienceContractError {
     InvalidAnalysisDerivationReceipt,
     DuplicateTransformationReference,
     AnalysisDerivationDigestMismatch,
+    AnalysisDerivationSequenceMismatch,
+    AnalysisDerivationChainMismatch,
+    AnalysisDerivationEndpointMismatch,
+    AnalysisDerivationCycle,
     TransformationSequenceMismatch,
     TransformationChainMismatch,
     TransformationOutputMismatch,
@@ -3063,11 +3111,32 @@ mod tests {
                 analysis_digest: "blake3:analysis".into(),
             },
             input_observation_set_digest: "blake3:observations".into(),
+            source_outcome: InstructionalOutcomeRef {
+                outcome_measure_id: "raw".into(),
+                outcome_measure_version: "1".into(),
+                outcome_measure_digest: "blake3:raw".into(),
+            },
+            derived_outcome: InstructionalOutcomeRef {
+                outcome_measure_id: "normalized".into(),
+                outcome_measure_version: "1".into(),
+                outcome_measure_digest: "blake3:normalized".into(),
+            },
             transformations: vec![
                 InstructionalOutcomeTransformationRef {
                     transformation_id: "transform-a".into(),
                     transformation_version: 1,
                     transformation_digest: "blake3:transform-a".into(),
+                    sequence: 1,
+                    input_outcome: InstructionalOutcomeRef {
+                        outcome_measure_id: "raw".into(),
+                        outcome_measure_version: "1".into(),
+                        outcome_measure_digest: "blake3:raw".into(),
+                    },
+                    output_outcome: InstructionalOutcomeRef {
+                        outcome_measure_id: "normalized".into(),
+                        outcome_measure_version: "1".into(),
+                        outcome_measure_digest: "blake3:normalized".into(),
+                    },
                 },
             ],
             canonicalization_version: "1".into(),
@@ -3077,6 +3146,89 @@ mod tests {
         assert_eq!(derivation.validate(), Ok(()));
         derivation.transformations.push(derivation.transformations[0].clone());
         assert_eq!(derivation.validate(), Err(InstructionalScienceContractError::DuplicateTransformationReference));
+    }
+
+    #[test]
+    fn analysis_derivation_receipt_rejects_discontinuity_cycle_and_endpoint_mismatch() {
+        let raw = InstructionalOutcomeRef {
+            outcome_measure_id: "raw".into(),
+            outcome_measure_version: "1".into(),
+            outcome_measure_digest: "blake3:raw".into(),
+        };
+        let normalized = InstructionalOutcomeRef {
+            outcome_measure_id: "normalized".into(),
+            outcome_measure_version: "1".into(),
+            outcome_measure_digest: "blake3:normalized".into(),
+        };
+        let standardized = InstructionalOutcomeRef {
+            outcome_measure_id: "standardized".into(),
+            outcome_measure_version: "1".into(),
+            outcome_measure_digest: "blake3:standardized".into(),
+        };
+        let mut derivation = InstructionalAnalysisDerivationReceipt {
+            derivation_id: "derivation-graph".into(),
+            derivation_version: 1,
+            result: InstructionalAnalysisResultRef {
+                result_id: "result-graph".into(),
+                result_version: 1,
+                result_digest: "blake3:result-graph".into(),
+            },
+            analysis: InstructionalAnalysisRef {
+                analysis_id: "analysis-graph".into(),
+                analysis_version: 1,
+                analysis_digest: "blake3:analysis-graph".into(),
+            },
+            input_observation_set_digest: "blake3:observations".into(),
+            source_outcome: raw.clone(),
+            derived_outcome: standardized.clone(),
+            transformations: vec![
+                InstructionalOutcomeTransformationRef {
+                    transformation_id: "transform-1".into(),
+                    transformation_version: 1,
+                    transformation_digest: "blake3:transform-1".into(),
+                    sequence: 1,
+                    input_outcome: raw.clone(),
+                    output_outcome: normalized.clone(),
+                },
+                InstructionalOutcomeTransformationRef {
+                    transformation_id: "transform-2".into(),
+                    transformation_version: 1,
+                    transformation_digest: "blake3:transform-2".into(),
+                    sequence: 2,
+                    input_outcome: normalized.clone(),
+                    output_outcome: standardized.clone(),
+                },
+            ],
+            canonicalization_version: "1".into(),
+            derivation_digest: String::new(),
+        };
+        derivation.derivation_digest = derivation.compute_digest().unwrap();
+        assert_eq!(derivation.validate(), Ok(()));
+
+        let mut discontinuity = derivation.clone();
+        discontinuity.transformations[1].input_outcome = raw.clone();
+        discontinuity.derivation_digest = discontinuity.compute_digest().unwrap();
+        assert_eq!(
+            discontinuity.validate(),
+            Err(InstructionalScienceContractError::AnalysisDerivationChainMismatch)
+        );
+
+        let mut cycle = derivation.clone();
+        cycle.transformations[1].output_outcome = raw.clone();
+        cycle.derived_outcome = raw.clone();
+        cycle.derivation_digest = cycle.compute_digest().unwrap();
+        assert_eq!(
+            cycle.validate(),
+            Err(InstructionalScienceContractError::AnalysisDerivationCycle)
+        );
+
+        let mut endpoint = derivation.clone();
+        endpoint.derived_outcome = raw;
+        endpoint.derivation_digest = endpoint.compute_digest().unwrap();
+        assert_eq!(
+            endpoint.validate(),
+            Err(InstructionalScienceContractError::AnalysisDerivationEndpointMismatch)
+        );
     }
 
     #[test]
