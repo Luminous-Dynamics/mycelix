@@ -23,6 +23,7 @@ on:
       - 'mycelix-commons/crates/mobility-configuration-qualification/**'
       - 'tools/mobility_qualification_reference.py'
       - 'tools/compare_mobility_qualification.py'
+      - 'tools/generate_mobility_qualification_mutations.py'
       - '.github/workflows/mobility-configuration-qualification.yml'
 
 permissions:
