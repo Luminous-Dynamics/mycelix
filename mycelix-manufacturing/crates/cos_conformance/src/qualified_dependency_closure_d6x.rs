@@ -701,6 +701,21 @@ mod tests {
     }
 
     #[test]
+    fn stale_projection_source_binding_blocks_d6x() {
+        let (mut projection, environment, derivation_profile) = projection(false);
+        projection.source_dkg_snapshot_commitment = "different-snapshot".into();
+
+        assert!(!projection.commitments_match_sources(&environment, &derivation_profile));
+        assert!(compute_dependency_closure(
+            &projection,
+            &environment,
+            &derivation_profile,
+            &profile(BTreeSet::new()),
+        )
+        .is_none());
+    }
+
+    #[test]
     fn selected_node_commitment_changes_identity() {
         let (mut a,e,d)=projection(false); let p=profile(BTreeSet::new());
         let before=compute_dependency_closure(&a,&e,&d,&p).unwrap();
