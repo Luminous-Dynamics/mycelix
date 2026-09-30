@@ -326,27 +326,13 @@ fn evaluate_with_graph_mutation(
         match mutation {
             "selected-node-commitment" => {
                 let node = projection.nodes.get_mut("oad:design-water-purifier:v1")?;
-                node.node_commitment = canonical_sha256(
-                    "integral-interop-1-node",
-                    &serde_json::json!({
-                        "id": node.node_id,
-                        "content_commitment": "mutated-selected-node-content",
-                        "kind": format!("{:?}", node.kind),
-                    }),
-                );
+                node.content_commitment = "mutated-selected-node-content".into();
+                node.node_commitment = node.recomputed_commitment();
             }
             "selected-edge-commitment" => {
                 let edge = projection.edges.get_mut("oad->cos:production-plan")?;
-                edge.edge_commitment = canonical_sha256(
-                    "integral-interop-1-edge",
-                    &serde_json::json!({
-                        "id": edge.edge_id,
-                        "from": edge.from_node_id,
-                        "to": edge.to_node_id,
-                        "kind": format!("{:?}", edge.kind),
-                        "mutation": "selected-edge",
-                    }),
-                );
+                edge.kind = ClaimGraphEdgeKindV1::DerivedFrom;
+                edge.edge_commitment = edge.recomputed_commitment();
             }
             "selected-edge-removal" => {
                 projection.edges.remove("oad->cos:production-plan");
@@ -716,4 +702,40 @@ fn runtime_resolution_evidence_does_not_propagate_into_identity_layers() {
     let observed_input = InputCommitmentV1::from_projection(&projection, &env, &observed)
         .expect("runtime evidence must not block a complete closure");
     assert_eq!(input.commitment, observed_input.commitment);
+}
+
+#[test]
+fn stale_selected_node_commitment_is_rejected_at_d6x_boundary() {
+    let baseline = fixture();
+    let (mut projection, env, derivation) = projection(&baseline, false, false);
+    let node = projection.nodes.get_mut("oad:design-water-purifier:v1").expect("selected node");
+    let stale = node.node_commitment.clone();
+    node.content_commitment = "semantic-content-mutated-with-stale-binding".into();
+    node.node_commitment = stale;
+
+    assert!(!projection.nodes["oad:design-water-purifier:v1"].commitment_matches());
+    assert!(compute_dependency_closure(
+        &projection,
+        &env,
+        &derivation,
+        &closure_profile(false),
+    ).is_none());
+}
+
+#[test]
+fn stale_selected_edge_commitment_is_rejected_at_d6x_boundary() {
+    let baseline = fixture();
+    let (mut projection, env, derivation) = projection(&baseline, false, false);
+    let edge = projection.edges.get_mut("oad->cos:production-plan").expect("selected edge");
+    let stale = edge.edge_commitment.clone();
+    edge.kind = ClaimGraphEdgeKindV1::DerivedFrom;
+    edge.edge_commitment = stale;
+
+    assert!(!projection.edges["oad->cos:production-plan"].commitment_matches());
+    assert!(compute_dependency_closure(
+        &projection,
+        &env,
+        &derivation,
+        &closure_profile(false),
+    ).is_none());
 }
