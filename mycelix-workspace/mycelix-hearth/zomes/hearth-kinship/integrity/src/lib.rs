@@ -213,6 +213,22 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 if structural != ValidateCallbackResult::Valid {
                     return Ok(structural);
                 }
+                let original_record = must_get_valid_record(action.original_action_address.clone())?;
+                let original: HearthMembership = original_record
+                    .entry()
+                    .to_app_option()
+                    .map_err(|e| {
+                        wasm_error!(WasmErrorInner::Guest(format!(
+                            "Failed to deserialize original HearthMembership: {e}"
+                        )))
+                    })?
+                    .ok_or(wasm_error!(WasmErrorInner::Guest(
+                        "Original HearthMembership entry is missing".into()
+                    )))?;
+                let authorship = validate_membership_update_author(action.author(), &original.agent);
+                if authorship != ValidateCallbackResult::Valid {
+                    return Ok(authorship);
+                }
                 validate_membership_immutable_fields(
                     &membership,
                     &action.original_action_address,
@@ -751,6 +767,18 @@ fn validate_hearth_immutable_fields(
     Ok(ValidateCallbackResult::Valid)
 }
 
+fn validate_membership_update_author(
+    action_author: &AgentPubKey,
+    original_agent: &AgentPubKey,
+) -> ValidateCallbackResult {
+    if action_author != original_agent {
+        return ValidateCallbackResult::Invalid(
+            "Only the member can publish a membership departure update".into(),
+        );
+    }
+    ValidateCallbackResult::Valid
+}
+
 fn validate_membership_immutable_fields(
     new: &HearthMembership,
     original_action_hash: &ActionHash,
@@ -915,6 +943,20 @@ mod tests {
             expires_at: Timestamp::from_micros(2_000_000),
             status: InvitationStatus::Pending,
         }
+    }
+
+    // ---- Membership update authorship ----
+
+    #[test]
+    fn membership_departure_update_requires_member_author() {
+        assert_eq!(
+            validate_membership_update_author(&fake_agent_a(), &fake_agent_a()),
+            ValidateCallbackResult::Valid
+        );
+        assert!(matches!(
+            validate_membership_update_author(&fake_agent_b(), &fake_agent_a()),
+            ValidateCallbackResult::Invalid(_)
+        ));
     }
 
     // ---- Hearth Serde Roundtrips ----
