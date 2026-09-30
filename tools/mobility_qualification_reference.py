@@ -54,6 +54,8 @@ VECTOR_KEYS = {"id", "scenario", "expected_outcome", "forbidden_inference"}
 def evaluate(corpus):
     if not isinstance(corpus, dict) or set(corpus) != TOP_LEVEL_KEYS:
         return False, "unexpected_top_level_shape"
+    if not isinstance(corpus["schema_version"], str) or not isinstance(corpus["status"], str):
+        return False, "top_level_types"
     if corpus["schema_version"] != "mobility-configuration-contract-qualification-v1":
         return False, "schema_version"
     if corpus["status"] != "semantic-qualification-only":
@@ -67,6 +69,8 @@ def evaluate(corpus):
     for vector in vectors:
         if not isinstance(vector, dict) or set(vector) != VECTOR_KEYS:
             return False, "vector_shape"
+        if not all(isinstance(vector[key], str) for key in VECTOR_KEYS):
+            return False, "vector_types"
         scenario = vector["scenario"]
         if scenario in seen:
             return False, f"duplicate:{scenario}"
@@ -87,29 +91,32 @@ def evaluate(corpus):
     return True, "valid"
 
 def normalized(corpus):
-    vectors = [{
-        "id": v["id"], "scenario": v["scenario"],
-        "expected_outcome": v["expected_outcome"],
-        "forbidden_inference": v["forbidden_inference"],
-    } for v in corpus["vectors"]]
+    vectors = [{"id": v["id"], "scenario": v["scenario"],
+                "expected_outcome": v["expected_outcome"],
+                "forbidden_inference": v["forbidden_inference"]}
+               for v in corpus["vectors"]]
     vectors.sort(key=lambda v: v["id"])
-    return {
-        "schema": "mobility-qualification-normalized-v1",
-        "schema_version": corpus["schema_version"],
-        "status": corpus["status"],
-        "vectors": vectors,
-    }
+    return {"schema": "mobility-qualification-normalized-v1",
+            "schema_version": corpus["schema_version"],
+            "status": corpus["status"], "vectors": vectors}
 
 def main():
     args = sys.argv[1:]
     normalized_mode = "--normalized" in args
     args = [a for a in args if a != "--normalized"]
     path = Path(args[0]) if args else Path("docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1.json")
-    corpus = json.loads(path.read_text())
+    try:
+        corpus = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        print(json.dumps({"result": "invalid", "reason": f"input:{exc}"}))
+        return 1
     ok, reason = evaluate(corpus)
     corrupted = json.loads(json.dumps(corpus))
-    corrupted["vectors"][0]["expected_outcome"] = "unsafe-universal-safety-score"
-    corrupted_ok, _ = evaluate(corrupted)
+    if ok:
+        corrupted["vectors"][0]["expected_outcome"] = "unsafe-universal-safety-score"
+        corrupted_ok, _ = evaluate(corrupted)
+    else:
+        corrupted_ok = False
     if normalized_mode:
         if not ok or corrupted_ok:
             print(json.dumps({"result":"invalid","reason":reason,"corruption_probe":"failed"}, sort_keys=True))
