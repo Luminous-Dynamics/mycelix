@@ -176,22 +176,6 @@ impl SocialRelationV1 {
     }
 }
 
-impl SocialObservationV1 {
-    pub fn validate(&self) -> Result<(), SocialContractError> {
-        if self.schema_version != SOCIAL_SCHEMA_VERSION_V1 {
-            return Err(SocialContractError::UnsupportedSchemaVersion(
-                self.schema_version,
-            ));
-        }
-        validate_bounded(&self.provider, "provider", MAX_PROVENANCE_BYTES)?;
-        validate_bounded(&self.external_id, "external_id", MAX_EXTERNAL_ID_BYTES)?;
-        if self.observed_at_micros < 0 {
-            return Err(SocialContractError::InvalidTimestamp);
-        }
-        self.object.validate()
-    }
-}
-
 fn validate_bounded(
     value: &str,
     field: &'static str,
