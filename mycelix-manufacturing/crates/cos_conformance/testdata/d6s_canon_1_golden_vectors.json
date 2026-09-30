@@ -1,0 +1,73 @@
+{
+  "canonicalization_version": "D6S-CANON-1",
+  "hash_domain_prefix_hex": "4d5943454c49582d494e54454752414c2d4436532d524543454950542d563100",
+  "vectors": [
+    {
+      "id": "empty-object",
+      "domain": "projection",
+      "value": {},
+      "canonical_json": "{}",
+      "sha256": "6498f0b5682984f8b66c0aa75ee9941378b3b11bdeeefba115671d21decba332"
+    },
+    {
+      "id": "object-key-order",
+      "domain": "projection",
+      "value": {
+        "b": 2,
+        "a": 1
+      },
+      "canonical_json": "{\"a\":1,\"b\":2}",
+      "sha256": "97500f38ee7820039a2af59c4c70c94da1a98048f63cb785fbabda0eba8a38bb"
+    },
+    {
+      "id": "nested-order-and-array-order",
+      "domain": "projection",
+      "value": {
+        "nested": {
+          "z": true,
+          "a": null
+        },
+        "items": [
+          3,
+          2,
+          1
+        ]
+      },
+      "canonical_json": "{\"items\":[3,2,1],\"nested\":{\"a\":null,\"z\":true}}",
+      "sha256": "fc0b105a4830314f457039b5f7b7d1dd6880b9072c3c56aa9adb66f87213d507"
+    },
+    {
+      "id": "utf16-property-order",
+      "domain": "projection",
+      "value": {
+        "𐀀": 1,
+        "": 2
+      },
+      "canonical_json": "{\"𐀀\":1,\"\":2}",
+      "sha256": "1f62661e79751b50aae8ae6c47b83b425262fd8322b7f1f49ca81f20abd6ce34"
+    },
+    {
+      "id": "escaping-and-non-ascii",
+      "domain": "projection",
+      "value": {
+        "text": "quote",
+        "control": "\u0000\n\t",
+        "slash": "\\",
+        "emoji": "😀"
+      },
+      "canonical_json": "{\"control\":\"\\u0000\\n\\t\",\"emoji\":\"😀\",\"slash\":\"\\\\\",\"text\":\"quote\"}",
+      "sha256": "d7ecfa8c8f2d27bf3d4e315c8207ae70363afb6defdfad3d36f66a1887f244db"
+    },
+    {
+      "id": "integer-boundaries",
+      "domain": "projection",
+      "value": {
+        "min": -9223372036854776000,
+        "max": 9223372036854776000,
+        "u": 18446744073709552000
+      },
+      "canonical_json": "{\"max\":9223372036854775807,\"min\":-9223372036854775808,\"u\":18446744073709551615}",
+      "sha256": "d3204ce58a14ba090b5d1e5784809095b271f88b8d4c69fbffa8401bce6aba7d"
+    }
+  ]
+}
