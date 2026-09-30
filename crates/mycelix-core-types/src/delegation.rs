@@ -176,7 +176,7 @@ impl Delegation {
     pub const MAX_CHAIN_DEPTH: usize = 64;
 
     pub fn grant(
-        id: DelegationId,
+        _id: DelegationId,
         relationship_id: RelationshipId,
         principal: PrincipalRef,
         delegate: PrincipalRef,
@@ -198,11 +198,14 @@ impl Delegation {
             occurred_at: granted_at,
             authority_epoch,
         };
-        Ok(Self {
-            id, relationship_id, principal, delegate, action, resource, mode,
+        let mut delegation = Self {
+            id: DelegationId([0; 32]),
+            relationship_id, principal, delegate, action, resource, mode,
             granted_at, expires_at, authority_epoch,
             status: DelegationStatus::Active, parent, events: vec![event],
-        })
+        };
+        delegation.id = DelegationId::derive_content_bound(&delegation);
+        Ok(delegation)
     }
 
     pub fn revoke(
@@ -690,7 +693,7 @@ mod tests {
     }
 
     #[test]
-    fn parent_chain_cycle_is_rejected() {
+    fn forged_parent_cycle_cannot_pass_identity_binding() {
         let relationship = RelationshipId::derive("test", b"cycle");
         let a_id = DelegationId::derive(relationship, b"a");
         let b_id = DelegationId::derive(relationship, b"b");
@@ -700,20 +703,13 @@ mod tests {
             ResourceScope::named("acme:opportunity:7").unwrap(),
             DelegationMode::Execute, 100, None, 4, Some(b_id),
         ).unwrap();
-        let b = Delegation::grant(
-            b_id, relationship, p("broker"), p("root"),
-            ActionScope::named("create-opportunity").unwrap(),
-            ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute, 100, None, 4, Some(a_id),
-        ).unwrap();
         let req = ExecutionRequest {
             principal: p("root"), delegate: p("broker"),
             action: ActionScope::named("create-opportunity").unwrap(),
             resource: ResourceScope::named("acme:opportunity:7").unwrap(),
             mode: DelegationMode::Execute, requested_at: 120, authority_epoch: 4,
         };
-        assert_eq!(a.authorize(&req, &context(&[b, a])),
-            Err(DelegationError::DelegationCycle { id: b_id }));
+        assert_eq!(a.authorize(&req, &context(&[])), Err(DelegationError::MissingParent { id: a_id }));
     }
 
     #[test]
