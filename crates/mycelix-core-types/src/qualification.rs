@@ -209,6 +209,7 @@ pub enum ConsentQualificationError {
     RevocationStateMismatch,
     ExpiryStateMismatch,
     GrantEpochMismatch,
+    InvalidLifecycle,
 }
 
 fn write_len(out: &mut Vec<u8>, len: usize) {
@@ -430,6 +431,24 @@ fn validate_consents(
         if consent.relationship_id != relationship_id {
             return Err(QualificationError::UnrelatedConsent { id: consent.id });
         }
+
+        consent.validate_lifecycle().map_err(|error| {
+            let reason = match error {
+                crate::ConsentError::MissingGrantEvent
+                | crate::ConsentError::InvalidLifecycle
+                | crate::ConsentError::NonMonotonicEventTime => {
+                    ConsentQualificationError::InvalidLifecycle
+                }
+                crate::ConsentError::StaleAuthorityEpoch => {
+                    ConsentQualificationError::StaleRevocationEpoch
+                }
+                _ => ConsentQualificationError::InvalidLifecycle,
+            };
+            QualificationError::InvalidConsent {
+                id: consent.id,
+                reason,
+            }
+        })?;
 
         if consent.events.is_empty() {
             return Err(QualificationError::InvalidConsent {
