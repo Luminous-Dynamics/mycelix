@@ -7,7 +7,7 @@
 //! This is the CORE membership and relationship zome for the Hearth cluster.
 
 use hdk::prelude::*;
-use hearth_coordinator_common::{get_latest_record, records_from_links};
+use hearth_coordinator_common::records_from_links;
 use hearth_kinship_integrity::*;
 use hearth_types::*;
 use mycelix_bridge_common::{
@@ -101,24 +101,12 @@ fn entry_from_record<T: TryFrom<SerializedBytes, Error = SerializedBytesError>>(
 fn membership_records_for_hearth(
     hearth_hash: &ActionHash,
 ) -> ExternResult<Vec<(Record, HearthMembership)>> {
-    let links = get_links(
-        LinkQuery::try_new(hearth_hash.clone(), LinkTypes::HearthToMembers)?,
-        GetStrategy::default(),
-    )?;
-    let mut records = Vec::new();
-    for link in links {
-        let target = ActionHash::try_from(link.target)
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid membership link".into())))?;
-        if let Some(record) = get_latest_record(target)? {
-            let membership: HearthMembership = entry_from_record(&record, "HearthMembership")?;
-            if membership.hearth_hash == *hearth_hash {
-                records.push((record, membership));
-            }
-        }
-    }
-    Ok(records)
+    // Membership is authority-bearing evidence throughout this zome, not only
+    // in the Active Hearth catalog. Resolve every linked revision through the
+    // same branch-aware canonical resolver so no caller can accidentally
+    // reintroduce "last update wins" semantics.
+    membership_records_for_hearth_strict(hearth_hash)
 }
-
 /// Resolve a single record's update chain only when it has one unambiguous
 /// successor at every step. Holochain permits branching updates, so a
 /// canonical catalog must not inherit the shared helper's "last vector item"
