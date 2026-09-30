@@ -119,6 +119,7 @@ pub struct EvidenceState {
     pub authority_provenance: AuthorityProvenance,
     pub evidence_modality: EvidenceModality,
     pub contradiction_reference: Option<String>,
+    pub conflict_reference: Option<String>,
     pub unresolved_dependency_reference: Option<String>,
     pub external_authority_reference: Option<String>,
 }
@@ -140,7 +141,7 @@ impl EvidenceState {
         }
 
         if self.conflict_disposition == ConflictDisposition::Disputed
-            && self.contradiction_reference.is_none()
+            && self.conflict_reference.is_none()
         {
             return Err("disputed evidence requires a conflict reference".into());
         }
@@ -234,6 +235,7 @@ mod tests {
             authority_provenance: AuthorityProvenance::Commons,
             evidence_modality: EvidenceModality::Measurement,
             contradiction_reference: None,
+            conflict_reference: None,
             unresolved_dependency_reference: None,
             external_authority_reference: None,
         }
@@ -370,9 +372,26 @@ mod tests {
         state.conflict_disposition = ConflictDisposition::Disputed;
         assert!(state.validate().is_err());
 
-        state.contradiction_reference = Some("claim-2".into());
+        state.conflict_reference = Some("claim-2".into());
         assert!(state.validate().is_ok());
         assert_eq!(state.epistemic_disposition, EpistemicDisposition::Supported);
+        assert!(state.contradiction_reference.is_none());
+        assert!(state.conflict_reference.is_some());
+    }
+
+    #[test]
+    fn contradiction_and_dispute_use_distinct_references() {
+        let mut contradiction = valid_state();
+        contradiction.epistemic_disposition = EpistemicDisposition::Contradicted;
+        contradiction.contradiction_reference = Some("evidence-2".into());
+        assert!(contradiction.validate().is_ok());
+        assert!(contradiction.conflict_reference.is_none());
+
+        let mut dispute = valid_state();
+        dispute.conflict_disposition = ConflictDisposition::Disputed;
+        dispute.conflict_reference = Some("claim-2".into());
+        assert!(dispute.validate().is_ok());
+        assert!(dispute.contradiction_reference.is_none());
     }
 
     #[test]
