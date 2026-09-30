@@ -179,6 +179,131 @@ pub struct ChangeSetV1 {
 }
 
 /// The impact of a ChangeSet on one evidence record.
+/// Identity class for a referenced engineering object.
+///
+/// These identities are deliberately distinct: an exact external payload,
+/// an engineering artifact, a configuration, a source-evidence observation,
+/// an execution instance, and an epistemic relation are not interchangeable.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IdentityKind {
+    Artifact,
+    Content,
+    Configuration,
+    SourceEvidence,
+    Execution,
+    EpistemicRelation,
+}
+
+/// A typed, opaque identity reference.
+///
+/// The identifier is intentionally not interpreted as a universal UUID or
+/// digest. The identity profile belongs to the referenced system/profile.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IdentityRef {
+    pub kind: IdentityKind,
+    pub id: String,
+    pub profile: String,
+}
+
+/// A reference to evidence already governed by the broader Mycelix evidence
+/// substrate. AeroCommons may specialize the surrounding engineering
+/// relationship without creating a second evidence authority.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EvidenceRef {
+    pub evidence: IdentityRef,
+    pub source: Option<IdentityRef>,
+}
+
+/// Engineering assertion predicate.
+///
+/// These are assertions about relationships, not merely navigation edges.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AssertionKind {
+    DemonstratesRequirement,
+    Supports,
+    Contradicts,
+    Reproduces,
+    DependsOn,
+    DerivedFrom,
+    ObservedIn,
+    Invalidates,
+    RequiresRevalidation,
+}
+
+/// Provenance-bearing engineering relationship.
+///
+/// A relation is substantive evidence about the relationship between two
+/// addressable objects. It must therefore carry its own identity and basis.
+/// It is not equivalent to a Holochain link.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EpistemicRelationV1 {
+    pub relation_id: IdentityRef,
+    pub subject: IdentityRef,
+    pub predicate: AssertionKind,
+    pub object: IdentityRef,
+    #[serde(default)]
+    pub basis: Vec<EvidenceRef>,
+    pub scope: Option<ValidityDomain>,
+    pub effective_time: Option<String>,
+    pub lifecycle: EvidenceLifecycle,
+    pub predecessor: Option<IdentityRef>,
+}
+
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum RelationValidationError {
+    #[error("relation identity must have kind epistemic_relation")]
+    WrongIdentityKind,
+    #[error("relation identity id must not be empty")]
+    EmptyRelationId,
+    #[error("relation identity profile must not be empty")]
+    EmptyRelationProfile,
+    #[error("relation subject id must not be empty")]
+    EmptySubjectId,
+    #[error("relation object id must not be empty")]
+    EmptyObjectId,
+    #[error("reproduction or invalidation relations require basis evidence")]
+    MissingBasis,
+    #[error("superseded relation requires a predecessor")]
+    SupersededWithoutPredecessor,
+}
+
+/// Structural validation only. This does not establish that the asserted
+/// engineering relationship is physically true.
+pub fn validate_epistemic_relation(
+    relation: &EpistemicRelationV1,
+) -> Result<(), RelationValidationError> {
+    if relation.relation_id.kind != IdentityKind::EpistemicRelation {
+        return Err(RelationValidationError::WrongIdentityKind);
+    }
+    if relation.relation_id.id.trim().is_empty() {
+        return Err(RelationValidationError::EmptyRelationId);
+    }
+    if relation.relation_id.profile.trim().is_empty() {
+        return Err(RelationValidationError::EmptyRelationProfile);
+    }
+    if relation.subject.id.trim().is_empty() {
+        return Err(RelationValidationError::EmptySubjectId);
+    }
+    if relation.object.id.trim().is_empty() {
+        return Err(RelationValidationError::EmptyObjectId);
+    }
+    if matches!(
+        relation.predicate,
+        AssertionKind::Reproduces | AssertionKind::Invalidates
+    ) && relation.basis.is_empty()
+    {
+        return Err(RelationValidationError::MissingBasis);
+    }
+    if relation.lifecycle == EvidenceLifecycle::Superseded
+        && relation.predecessor.is_none()
+    {
+        return Err(RelationValidationError::SupersededWithoutPredecessor);
+    }
+    Ok(())
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EvidenceImpact {
     pub evidence_id: String,
@@ -463,6 +588,42 @@ mod tests {
         };
         let impact = classify_impact(&evidence, &change);
         assert_eq!(impact.class, ImpactClass::Unknown);
+    }
+
+
+    #[test]
+    fn epistemic_relation_requires_own_identity() {
+        let relation = EpistemicRelationV1 {
+            relation_id: IdentityRef { kind: IdentityKind::EpistemicRelation, id: "rel-1".into(), profile: "aero-relation-v1".into() },
+            subject: IdentityRef { kind: IdentityKind::Artifact, id: "inspection-1".into(), profile: "artifact-v1".into() },
+            predicate: AssertionKind::DemonstratesRequirement,
+            object: IdentityRef { kind: IdentityKind::Artifact, id: "requirement-7".into(), profile: "requirement-v1".into() },
+            basis: vec![EvidenceRef {
+                evidence: IdentityRef { kind: IdentityKind::SourceEvidence, id: "evidence-1".into(), profile: "myc-evidence-v1".into() },
+                source: None,
+            }],
+            scope: None,
+            effective_time: None,
+            lifecycle: EvidenceLifecycle::Active,
+            predecessor: None,
+        };
+        assert_eq!(validate_epistemic_relation(&relation), Ok(()));
+    }
+
+    #[test]
+    fn reproduction_relation_requires_basis() {
+        let relation = EpistemicRelationV1 {
+            relation_id: IdentityRef { kind: IdentityKind::EpistemicRelation, id: "rel-2".into(), profile: "aero-relation-v1".into() },
+            subject: IdentityRef { kind: IdentityKind::Execution, id: "execution-2".into(), profile: "execution-v1".into() },
+            predicate: AssertionKind::Reproduces,
+            object: IdentityRef { kind: IdentityKind::SourceEvidence, id: "evidence-1".into(), profile: "myc-evidence-v1".into() },
+            basis: vec![],
+            scope: None,
+            effective_time: None,
+            lifecycle: EvidenceLifecycle::Active,
+            predecessor: None,
+        };
+        assert_eq!(validate_epistemic_relation(&relation), Err(RelationValidationError::MissingBasis));
     }
 
     #[test]
