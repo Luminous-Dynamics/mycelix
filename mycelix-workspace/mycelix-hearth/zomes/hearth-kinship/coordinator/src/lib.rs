@@ -487,8 +487,10 @@ pub fn decline_invitation(invitation_hash: ActionHash) -> ExternResult<Record> {
     let agent = agent_info()?.agent_initial_pubkey;
     let now = sys_time()?;
 
-    let invitation_record = get(invitation_hash.clone(), GetOptions::default())?.ok_or(
-        wasm_error!(WasmErrorInner::Guest("Invitation not found".into())),
+    let invitation_record = get_unique_latest_record(invitation_hash.clone())?.ok_or(
+        wasm_error!(WasmErrorInner::Guest(
+            "Invitation not found or has conflicting/deleted revisions".into()
+        )),
     )?;
     let invitation: HearthInvitation = entry_from_record(&invitation_record, "HearthInvitation")?;
 
@@ -565,10 +567,11 @@ pub fn leave_hearth(membership_hash: ActionHash) -> ExternResult<Record> {
     )?;
     let agent = agent_info()?.agent_initial_pubkey;
 
-    // Membership hashes are stable identity anchors; resolve the latest revision
-    // before authorizing departure so a stale Active revision cannot be departed twice.
-    let record = get_latest_record(membership_hash.clone())?.ok_or(wasm_error!(
-        WasmErrorInner::Guest("Membership not found".into())
+    // Membership hashes are stable identity anchors. Resolve the canonical
+    // revision with the same branch-aware fail-closed rule used by the catalog
+    // so a stale/branched membership can never authorize departure.
+    let record = get_unique_latest_record(membership_hash.clone())?.ok_or(wasm_error!(
+        WasmErrorInner::Guest("Membership not found or has conflicting/deleted revisions".into())
     ))?;
     let membership: HearthMembership = entry_from_record(&record, "HearthMembership")?;
 
