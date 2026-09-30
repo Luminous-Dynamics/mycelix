@@ -240,6 +240,33 @@ impl AssertionEnvelope {
         }
     }
 
+    /// Classify an older evidence reference against this envelope's explicit lineage.
+    ///
+    /// The envelope itself is the newer record. Its lineage can therefore tell a
+    /// projection why an older reference is superseded or corrected without making
+    /// the newer record appear stale merely because it mentions history.
+    pub fn lineage_currentness(
+        &self,
+        evidence: &EvidenceRef,
+        frontier: Option<&SourceFrontier>,
+    ) -> Currentness {
+        let base = match frontier {
+            Some(frontier) => frontier.currentness(evidence),
+            None => return Currentness::Unknown,
+        };
+        if matches!(base, Currentness::Unknown | Currentness::NotObservedInFrontier) {
+            return base;
+        }
+        self.lineages
+            .iter()
+            .find(|lineage| lineage.evidence == *evidence)
+            .map(|lineage| match lineage.kind {
+                CorrectionKind::Corrects => Currentness::Corrected,
+                CorrectionKind::Supersedes => Currentness::Superseded,
+            })
+            .unwrap_or(base)
+    }
+
     pub fn canonical_bytes(&self) -> Vec<u8> {
         let mut out = Vec::new();
         out.extend_from_slice(b"mycelix.assertion-envelope.v1\0");
@@ -400,7 +427,9 @@ mod tests {
         };
         current = current.with_lineage(corrected).unwrap();
         assert_eq!(current.lineages.len(), 1);
-        assert_eq!(current.currentness(Some(&SourceFrontier::new("crm", 7).unwrap())), Currentness::Current);
+        let frontier = SourceFrontier::new("crm", 8).unwrap();
+        assert_eq!(current.currentness(Some(&frontier)), Currentness::Current);
+        assert_eq!(current.lineage_currentness(&old, Some(&frontier)), Currentness::Corrected);
     }
 
     #[test]
@@ -430,6 +459,19 @@ mod tests {
         // Consent/delegation remain separate policy layers.
         let assertion = envelope("crm", 7, EpistemicStatus::Observed);
         assert_eq!(assertion.status, EpistemicStatus::Observed);
+    }
+
+    #[test]
+    fn superseded_lineage_is_explicit() {
+        let mut current = envelope("crm", 8, EpistemicStatus::Observed);
+        let old = evidence("crm", 7, "record/7", 0x01);
+        current = current.with_lineage(LineageRef {
+            assertion_id: current.assertion_id,
+            evidence: old.clone(),
+            kind: CorrectionKind::Supersedes,
+        }).unwrap();
+        let frontier = SourceFrontier::new("crm", 8).unwrap();
+        assert_eq!(current.lineage_currentness(&old, Some(&frontier)), Currentness::Superseded);
     }
 
     #[test]
