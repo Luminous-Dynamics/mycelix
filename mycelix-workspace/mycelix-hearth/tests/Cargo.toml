@@ -58,6 +58,10 @@ name = "sweettest_multi_hearth"
 path = "sweettest_multi_hearth.rs"
 
 [[test]]
+name = "sweettest_active_catalog_adversarial"
+path = "sweettest_active_catalog_adversarial.rs"
+
+[[test]]
 name = "sweettest_resources"
 path = "sweettest_resources.rs"
 
