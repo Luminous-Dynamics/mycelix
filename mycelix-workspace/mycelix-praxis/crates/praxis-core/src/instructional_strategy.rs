@@ -3764,6 +3764,47 @@ mod tests {
     }
 
     #[test]
+    fn resolution_policy_provenance_is_tamper_evident_and_order_independent() {
+        let policy = InstructionalResolutionPolicyRef {
+            policy_id: "praxis:resolution-policy".into(),
+            policy_version: "1".into(),
+            policy_digest: "blake3:policy".into(),
+        };
+        let mut provenance = InstructionalResolutionPolicyProvenanceReceipt {
+            provenance_id: "policy-provenance".into(),
+            provenance_version: 1,
+            policy,
+            evidence_basis: vec![
+                EvidenceBasisRef { source_id: "study:b".into(), source_version: "1".into(), source_digest: "blake3:b".into() },
+                EvidenceBasisRef { source_id: "study:a".into(), source_version: "1".into(), source_digest: "blake3:a".into() },
+            ],
+            review_digest: "blake3:review".into(),
+            canonicalization_version: "1".into(),
+            provenance_digest: String::new(),
+        };
+        provenance.provenance_digest = provenance.compute_digest().unwrap();
+        assert_eq!(provenance.validate(), Ok(()));
+        let mut reordered = provenance.clone();
+        reordered.evidence_basis.reverse();
+        reordered.provenance_digest = reordered.compute_digest().unwrap();
+        assert_eq!(reordered.provenance_digest, provenance.provenance_digest);
+
+        let mut tampered = provenance.clone();
+        tampered.review_digest = "blake3:tampered".into();
+        assert_eq!(
+            tampered.validate(),
+            Err(InstructionalScienceContractError::ResolutionPolicyProvenanceDigestMismatch)
+        );
+
+        let mut duplicate = provenance.clone();
+        duplicate.evidence_basis.push(duplicate.evidence_basis[0].clone());
+        assert_eq!(
+            duplicate.validate(),
+            Err(InstructionalScienceContractError::DuplicateResolutionPolicyProvenanceReference)
+        );
+    }
+
+    #[test]
     fn derivation_resolution_closure_is_deterministic_and_fail_closed() {
         let raw = InstructionalOutcomeRef { outcome_measure_id: "raw".into(), outcome_measure_version: "1".into(), outcome_measure_digest: "blake3:raw".into() };
         let normalized = InstructionalOutcomeRef { outcome_measure_id: "normalized".into(), outcome_measure_version: "1".into(), outcome_measure_digest: "blake3:normalized".into() };
