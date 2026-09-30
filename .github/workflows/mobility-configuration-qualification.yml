@@ -20,9 +20,13 @@ on:
       - 'tools/compare_mobility_qualification.py'
       - '.github/workflows/mobility-configuration-qualification.yml'
 
+permissions:
+  contents: read
+
 jobs:
   qualify-rust:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: mycelix-commons/crates/mobility-configuration-qualification
@@ -38,6 +42,7 @@ jobs:
           name: mobility-rust-normalized
           path: /tmp/rust-normalized.json
           if-no-files-found: error
+          retention-days: 30
       - name: Prove Rust evaluator rejects altered corpus
         run: |
           python3 -c 'import json; p="../../../docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1.json"; d=json.load(open(p)); d["vectors"][0]["expected_outcome"]="unsafe-universal-safety-score"; json.dump(d,open("/tmp/rust-corrupted.json","w"))'
@@ -49,6 +54,7 @@ jobs:
 
   qualify-reference:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - name: Independent reference evaluation
@@ -68,9 +74,11 @@ jobs:
           name: mobility-python-normalized
           path: /tmp/python-normalized.json
           if-no-files-found: error
+          retention-days: 30
 
   differential:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: [qualify-rust, qualify-reference]
     steps:
       - uses: actions/checkout@v4
