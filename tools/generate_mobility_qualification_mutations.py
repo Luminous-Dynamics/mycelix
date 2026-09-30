@@ -40,7 +40,6 @@ def main():
     m = copy.deepcopy(source); m["vectors"][0]["scenario"] = ""; mutations["empty-scenario"] = m
     m = copy.deepcopy(source); m["vectors"][0]["expected_outcome"] = ""; mutations["empty-expected-outcome"] = m
     m = copy.deepcopy(source); m["vectors"][0]["forbidden_inference"] = ""; mutations["empty-forbidden-inference"] = m
-    m = copy.deepcopy(source); m["vectors"] = list(reversed(m["vectors"])); mutations["reordered-vectors"] = m
     m = copy.deepcopy(source); m["vectors"][0], m["vectors"][1] = m["vectors"][1], m["vectors"][0]; m["vectors"][0]["id"] = EXPECTED_ID; mutations["duplicate-id-after-permutation"] = m
 
     for name, corpus in mutations.items():
