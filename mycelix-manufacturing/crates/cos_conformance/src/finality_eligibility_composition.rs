@@ -27,10 +27,12 @@ use crate::observer_lifecycle::{
     ObserverEvidenceProvenanceV1,
 };
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub const FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING: &str =
     "D6N/D6O finality-eligibility composition reference semantics only; no semantic authority or actuation claim.";
+pub const D6P_RECEIPT_COMMITMENT_DOMAIN: &[u8] = b"MYCELIX-INTEGRAL-D6P-RECEIPT-V1\\0";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FinalityEligibilityDispositionV1 {
@@ -198,6 +200,27 @@ impl CurrentFinalityEligibilityReceiptV1 {
             && !self.qualification_transition_id.is_empty()
             && !self.receipt_commitment.is_empty()
             && self.claim_ceiling == FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING
+    }
+
+    /// Recompute the D6P receipt commitment from every semantic receipt field.
+    ///
+    /// This is an integrity binding only; it does not confer finality,
+    /// authority, truth, or actuation rights.
+    pub fn recomputed_commitment(&self) -> String {
+        let mut unsigned = self.clone();
+        unsigned.receipt_commitment.clear();
+        let bytes = serde_json::to_vec(&unsigned)
+            .expect("D6P receipt reference model must be serializable");
+        let mut input =
+            Vec::with_capacity(D6P_RECEIPT_COMMITMENT_DOMAIN.len() + bytes.len());
+        input.extend_from_slice(D6P_RECEIPT_COMMITMENT_DOMAIN);
+        input.extend_from_slice(&bytes);
+        let digest = Sha256::digest(&input);
+        digest.iter().map(|byte| format!("{byte:02x}")).collect()
+    }
+
+    pub fn commitment_matches(&self) -> bool {
+        self.structurally_valid() && self.receipt_commitment == self.recomputed_commitment()
     }
 }
 
