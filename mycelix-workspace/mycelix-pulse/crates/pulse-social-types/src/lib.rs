@@ -307,6 +307,43 @@ mod tests {
     }
 
     #[test]
+    fn custom_audience_empty_fails_closed() {
+        assert_eq!(
+            SocialAudience::Custom("   ".into()).validate(),
+            Err(SocialContractError::InvalidCustomAudience)
+        );
+    }
+
+    #[test]
+    fn custom_audience_exact_byte_limit_is_accepted() {
+        let audience = SocialAudience::Custom("x".repeat(MAX_CUSTOM_AUDIENCE_BYTES));
+        assert!(audience.validate().is_ok());
+    }
+
+    #[test]
+    fn custom_audience_over_byte_limit_fails_closed() {
+        let audience = SocialAudience::Custom("x".repeat(MAX_CUSTOM_AUDIENCE_BYTES + 1));
+        assert_eq!(
+            audience.validate(),
+            Err(SocialContractError::FieldTooLong("custom_audience"))
+        );
+    }
+
+    #[test]
+    fn bounded_fields_use_utf8_byte_limits() {
+        let value = "é".repeat(MAX_OBJECT_ID_BYTES / "é".len());
+        assert_eq!(value.len(), MAX_OBJECT_ID_BYTES);
+        assert!(SocialObjectIdV1(value).validate().is_ok());
+
+        let over = format!("{}é", "é".repeat(MAX_OBJECT_ID_BYTES / "é".len()));
+        assert_eq!(over.len(), MAX_OBJECT_ID_BYTES + "é".len());
+        assert_eq!(
+            SocialObjectIdV1(over).validate(),
+            Err(SocialContractError::FieldTooLong("object_id"))
+        );
+    }
+
+    #[test]
     fn relation_validation_does_not_authorize() {
         let relation = SocialRelationV1 {
             schema_version: SOCIAL_SCHEMA_VERSION_V1,
