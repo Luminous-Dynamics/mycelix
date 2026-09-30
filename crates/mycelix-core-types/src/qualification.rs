@@ -381,6 +381,49 @@ fn validate_delegations(
         }
     }
 
+    // Validate every record before any parent-chain authorization is attempted.
+    // Otherwise a valid child could temporarily authorize against a forged
+    // parent that appears later in the deterministic ordering.
+    for delegation in delegations {
+        if delegation.relationship_id != relationship_id {
+            return Err(QualificationError::UnrelatedDelegation { id: delegation.id });
+        }
+
+        delegation
+            .validate_identity()
+            .map_err(|error| QualificationError::InvalidDelegation {
+                id: delegation.id,
+                error,
+            })?;
+
+        let revoke_events = delegation
+            .events
+            .iter()
+            .filter(|event| event.kind == crate::DelegationEventKind::Revoke)
+            .collect::<Vec<_>>();
+
+        match delegation.status {
+            DelegationStatus::Active if !revoke_events.is_empty() => {
+                return Err(QualificationError::InvalidDelegation {
+                    id: delegation.id,
+                    error: DelegationError::AlreadyInactive,
+                });
+            }
+            DelegationStatus::Revoked => {
+                let valid_revoke = revoke_events.last().is_some_and(|event| {
+                    event.actor == delegation.principal
+                        && event.authority_epoch == delegation.authority_epoch
+                });
+                if !valid_revoke {
+                    return Err(QualificationError::InvalidDelegation {
+                        id: delegation.id,
+                        error: DelegationError::StaleAuthorityEpoch,
+                    });
+                }
+            }
+        }
+    }
+
     let context = DelegationContext::from_slice(delegations)
         .map_err(|error| match error {
             DelegationError::DuplicateDelegationId { id } => {
@@ -396,30 +439,9 @@ fn validate_delegations(
         })?;
 
     for delegation in delegations {
-        if delegation.relationship_id != relationship_id {
-            return Err(QualificationError::UnrelatedDelegation { id: delegation.id });
-        }
-
-        delegation
-            .validate_identity()
-            .map_err(|error| QualificationError::InvalidDelegation {
-                id: delegation.id,
-                error,
-            })?;
 
         let mut candidate = delegation.clone();
         if candidate.status == DelegationStatus::Revoked {
-            let has_valid_revoke = candidate.events.iter().any(|event| {
-                event.kind == crate::DelegationEventKind::Revoke
-                    && event.actor == candidate.principal
-                    && event.authority_epoch == candidate.authority_epoch
-            });
-            if !has_valid_revoke {
-                return Err(QualificationError::InvalidDelegation {
-                    id: candidate.id,
-                    error: DelegationError::StaleAuthorityEpoch,
-                });
-            }
             candidate.status = DelegationStatus::Active;
         }
 
@@ -612,3 +634,5 @@ mod tests {
         assert_eq!(left, right);
     }
 }
+
+
