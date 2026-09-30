@@ -174,8 +174,26 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         // 0.7: entry ops are named for the action being validated. The
         // TypedAction payload exposes the common author via author().
         FlatOp::CreateEntry(OpEntry::CreateEntry { app_entry, action }) => match app_entry {
-            EntryTypes::Hearth(hearth) => validate_hearth(&hearth),
+            EntryTypes::Hearth(hearth) => {
+                let structural = validate_hearth(&hearth)?;
+                if structural != ValidateCallbackResult::Valid {
+                    return Ok(structural);
+                }
+                Ok(validate_claimed_agent(
+                    action.author(),
+                    &hearth.created_by,
+                    "Hearth.created_by",
+                ))
+            },
             EntryTypes::HearthMembership(membership) => {
+                let authorship = validate_claimed_agent(
+                    action.author(),
+                    &membership.agent,
+                    "HearthMembership.agent",
+                );
+                if authorship != ValidateCallbackResult::Valid {
+                    return Ok(authorship);
+                }
                 let structural = validate_membership(&membership)?;
                 if structural != ValidateCallbackResult::Valid {
                     return Ok(structural);
@@ -183,7 +201,17 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 validate_membership_admission(&membership)
             }
             EntryTypes::KinshipBond(bond) => validate_bond(&bond),
-            EntryTypes::HearthInvitation(invitation) => validate_invitation(&invitation),
+            EntryTypes::HearthInvitation(invitation) => {
+                let authorship = validate_claimed_agent(
+                    action.author(),
+                    &invitation.inviter,
+                    "HearthInvitation.inviter",
+                );
+                if authorship != ValidateCallbackResult::Valid {
+                    return Ok(authorship);
+                }
+                validate_invitation(&invitation)
+            },
             EntryTypes::InvitationResponse(response) => {
                 let authorship = validate_claimed_agent(
                     action.author(),
@@ -500,6 +528,19 @@ pub fn validate_hearth(hearth: &Hearth) -> ExternResult<ValidateCallbackResult> 
         ));
     }
     Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_claimed_agent(
+    action_author: &AgentPubKey,
+    claimed_agent: &AgentPubKey,
+    field: &str,
+) -> ValidateCallbackResult {
+    if action_author != claimed_agent {
+        return ValidateCallbackResult::Invalid(format!(
+            "{field} must match the action author",
+        ));
+    }
+    ValidateCallbackResult::Valid
 }
 
 pub fn validate_membership(membership: &HearthMembership) -> ExternResult<ValidateCallbackResult> {
