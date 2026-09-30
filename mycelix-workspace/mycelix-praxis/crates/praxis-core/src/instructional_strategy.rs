@@ -680,14 +680,39 @@ pub struct InstructionalTransformationContractEvolutionReceipt {
     /// itself may live outside this receipt; raw learner data must not be
     /// embedded here.
     pub assessment_digest: String,
+    /// Version of the canonical serialization used for the evolution digest.
+    pub canonicalization_version: String,
+    /// Tamper-evident digest of this receipt, excluding this field itself.
+    pub evolution_digest: String,
 }
 
 impl InstructionalTransformationContractEvolutionReceipt {
+    fn canonical_bytes(&self) -> Result<Vec<u8>, InstructionalScienceContractError> {
+        serde_json::to_vec(&(
+            "praxis:instructional-transformation-contract-evolution",
+            self.canonicalization_version.as_str(),
+            &self.evolution_id,
+            self.evolution_version,
+            &self.predecessor,
+            &self.successor,
+            &self.relation,
+            &self.rationale,
+            &self.assessment_digest,
+        ))
+        .map_err(|_| InstructionalScienceContractError::InvalidTransformationContractEvolution)
+    }
+
+    fn compute_digest(&self) -> Result<String, InstructionalScienceContractError> {
+        Ok(format!("blake3:{}", hash_to_string(&self.canonical_bytes()?)))
+    }
+
     fn validate(&self) -> Result<(), InstructionalScienceContractError> {
         if self.evolution_id.trim().is_empty()
             || self.evolution_version == 0
             || self.rationale.trim().is_empty()
             || self.assessment_digest.trim().is_empty()
+            || self.canonicalization_version.trim().is_empty()
+            || self.evolution_digest.trim().is_empty()
         {
             return Err(InstructionalScienceContractError::InvalidTransformationContractEvolution);
         }
@@ -719,6 +744,131 @@ impl InstructionalTransformationContractEvolutionReceipt {
             }
             InstructionalTransformationContractEvolutionKind::BackwardCompatible
             | InstructionalTransformationContractEvolutionKind::ReplayCompatible => {}
+        }
+
+        if self.compute_digest()? != self.evolution_digest {
+            return Err(InstructionalScienceContractError::TransformationContractEvolutionDigestMismatch);
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalTransformationContractEvolutionRef {
+    pub evolution_id: String,
+    pub evolution_version: u64,
+    pub evolution_digest: String,
+}
+
+impl InstructionalTransformationContractEvolutionRef {
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.evolution_id.trim().is_empty()
+            || self.evolution_version == 0
+            || self.evolution_digest.trim().is_empty()
+        {
+            return Err(InstructionalScienceContractError::InvalidTransformationContractEvolutionReference);
+        }
+        Ok(())
+    }
+}
+
+/// Provenance for a transformation contract is a separate layer from the
+/// semantic contract digest. It binds the exact contract state to its evidence,
+/// review record, and explicit evolution history without embedding learner data.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalTransformationContractProvenanceReceipt {
+    pub provenance_id: String,
+    pub provenance_version: u64,
+    pub contract: InstructionalTransformationContractRef,
+    pub evidence_basis: Vec<EvidenceBasisRef>,
+    pub review_digest: String,
+    pub evolution_refs: Vec<InstructionalTransformationContractEvolutionRef>,
+    pub canonicalization_version: String,
+    pub provenance_digest: String,
+}
+
+impl InstructionalTransformationContractProvenanceReceipt {
+    fn canonical_bytes(&self) -> Result<Vec<u8>, InstructionalScienceContractError> {
+        let mut evidence = self.evidence_basis.iter()
+            .map(|item| (
+                item.source_id.clone(),
+                item.source_version.clone(),
+                item.source_digest.clone(),
+            ))
+            .collect::<Vec<_>>();
+        evidence.sort();
+
+        let mut evolution = self.evolution_refs.iter()
+            .map(|item| (
+                item.evolution_id.clone(),
+                item.evolution_version,
+                item.evolution_digest.clone(),
+            ))
+            .collect::<Vec<_>>();
+        evolution.sort();
+
+        serde_json::to_vec(&(
+            "praxis:instructional-transformation-contract-provenance",
+            self.canonicalization_version.as_str(),
+            &self.provenance_id,
+            self.provenance_version,
+            &self.contract,
+            &evidence,
+            &self.review_digest,
+            &evolution,
+        ))
+        .map_err(|_| InstructionalScienceContractError::InvalidTransformationContractProvenanceReceipt)
+    }
+
+    fn compute_digest(&self) -> Result<String, InstructionalScienceContractError> {
+        Ok(format!("blake3:{}", hash_to_string(&self.canonical_bytes()?)))
+    }
+
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.provenance_id.trim().is_empty()
+            || self.provenance_version == 0
+            || self.contract.contract_id.trim().is_empty()
+            || self.contract.contract_version.trim().is_empty()
+            || self.contract.contract_digest.trim().is_empty()
+            || self.review_digest.trim().is_empty()
+            || self.canonicalization_version.trim().is_empty()
+            || self.provenance_digest.trim().is_empty()
+            || self.evidence_basis.is_empty()
+        {
+            return Err(InstructionalScienceContractError::InvalidTransformationContractProvenanceReceipt);
+        }
+
+        let mut evidence_refs = BTreeSet::new();
+        for evidence in &self.evidence_basis {
+            if evidence.source_id.trim().is_empty()
+                || evidence.source_version.trim().is_empty()
+                || evidence.source_digest.trim().is_empty()
+                || !evidence_refs.insert((
+                    evidence.source_id.clone(),
+                    evidence.source_version.clone(),
+                    evidence.source_digest.clone(),
+                ))
+            {
+                return Err(InstructionalScienceContractError::DuplicateTransformationContractProvenanceReference);
+            }
+        }
+
+        let mut evolution_refs = BTreeSet::new();
+        for evolution in &self.evolution_refs {
+            evolution.validate()?;
+            if !evolution_refs.insert((
+                evolution.evolution_id.clone(),
+                evolution.evolution_version,
+                evolution.evolution_digest.clone(),
+            ))
+            {
+                return Err(InstructionalScienceContractError::DuplicateTransformationContractProvenanceReference);
+            }
+        }
+
+        if self.compute_digest()? != self.provenance_digest {
+            return Err(InstructionalScienceContractError::TransformationContractProvenanceDigestMismatch);
         }
 
         Ok(())
@@ -925,13 +1075,36 @@ pub struct InstructionalOutcomeTransformationReceipt {
     pub operation_version: String,
     pub parameter_schema: InstructionalOutcomeTransformationParameterSchema,
     pub parameters: InstructionalOutcomeTransformationSpec,
+    /// Canonical digest of this complete transformation edge, excluding this field.
+    pub transformation_digest: String,
 }
 
 impl InstructionalOutcomeTransformationReceipt {
+    fn canonical_bytes(&self) -> Result<Vec<u8>, InstructionalScienceContractError> {
+        serde_json::to_vec(&(
+            "praxis:instructional-outcome-transformation-receipt",
+            self.transformation_id.as_str(),
+            self.transformation_version,
+            self.sequence,
+            &self.input_outcome,
+            &self.output_outcome,
+            &self.operation,
+            self.operation_version.as_str(),
+            &self.parameter_schema,
+            &self.parameters,
+        ))
+        .map_err(|_| InstructionalScienceContractError::InvalidTransformation)
+    }
+
+    fn compute_digest(&self) -> Result<String, InstructionalScienceContractError> {
+        Ok(format!("blake3:{}", hash_to_string(&self.canonical_bytes()?)))
+    }
+
     fn validate(&self) -> Result<(), InstructionalScienceContractError> {
         if self.transformation_id.trim().is_empty()
             || self.transformation_version == 0
             || self.operation_version.trim().is_empty()
+            || self.transformation_digest.trim().is_empty()
         {
             return Err(InstructionalScienceContractError::InvalidTransformation);
         }
@@ -942,6 +1115,96 @@ impl InstructionalOutcomeTransformationReceipt {
         self.parameter_schema.validate_for(&self.operation, &self.operation_version, &self.parameters)?;
         if self.input_outcome == self.output_outcome {
             return Err(InstructionalScienceContractError::TransformationIdentityNoOp);
+        }
+        if self.compute_digest()? != self.transformation_digest {
+            return Err(InstructionalScienceContractError::TransformationDigestMismatch);
+        }
+        Ok(())
+    }
+}
+
+/// Exact identity of one transformation edge in a provenance graph.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalOutcomeTransformationRef {
+    pub transformation_id: String,
+    pub transformation_version: u64,
+    pub transformation_digest: String,
+}
+
+impl InstructionalOutcomeTransformationRef {
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.transformation_id.trim().is_empty()
+            || self.transformation_version == 0
+            || self.transformation_digest.trim().is_empty()
+        {
+            return Err(InstructionalScienceContractError::InvalidTransformationReference);
+        }
+        Ok(())
+    }
+}
+
+/// A compact derivation closure for an analysis result.
+///
+/// This is intentionally a graph of exact references rather than a copy of the
+/// underlying receipts. It can therefore cross privacy/storage boundaries while
+/// remaining independently verifiable.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalAnalysisDerivationReceipt {
+    pub derivation_id: String,
+    pub derivation_version: u64,
+    pub result: InstructionalAnalysisResultRef,
+    pub analysis: InstructionalAnalysisRef,
+    pub input_observation_set_digest: String,
+    pub transformations: Vec<InstructionalOutcomeTransformationRef>,
+    pub canonicalization_version: String,
+    pub derivation_digest: String,
+}
+
+impl InstructionalAnalysisDerivationReceipt {
+    fn canonical_bytes(&self) -> Result<Vec<u8>, InstructionalScienceContractError> {
+        serde_json::to_vec(&(
+            "praxis:instructional-analysis-derivation",
+            self.canonicalization_version.as_str(),
+            self.derivation_id.as_str(),
+            self.derivation_version,
+            &self.result,
+            &self.analysis,
+            self.input_observation_set_digest.as_str(),
+            &self.transformations,
+        ))
+        .map_err(|_| InstructionalScienceContractError::InvalidAnalysisDerivationReceipt)
+    }
+
+    fn compute_digest(&self) -> Result<String, InstructionalScienceContractError> {
+        Ok(format!("blake3:{}", hash_to_string(&self.canonical_bytes()?)))
+    }
+
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.derivation_id.trim().is_empty()
+            || self.derivation_version == 0
+            || self.input_observation_set_digest.trim().is_empty()
+            || self.canonicalization_version.trim().is_empty()
+            || self.derivation_digest.trim().is_empty()
+        {
+            return Err(InstructionalScienceContractError::InvalidAnalysisDerivationReceipt);
+        }
+        self.result.validate()?;
+        self.analysis.validate()?;
+
+        let mut refs = BTreeSet::new();
+        for transformation in &self.transformations {
+            transformation.validate()?;
+            if !refs.insert((
+                transformation.transformation_id.clone(),
+                transformation.transformation_version,
+                transformation.transformation_digest.clone(),
+            )) {
+                return Err(InstructionalScienceContractError::DuplicateTransformationReference);
+            }
+        }
+
+        if self.compute_digest()? != self.derivation_digest {
+            return Err(InstructionalScienceContractError::AnalysisDerivationDigestMismatch);
         }
         Ok(())
     }
@@ -1699,6 +1962,11 @@ pub enum InstructionalScienceContractError {
     InvalidOutcomeReference,
     InvalidTransformation,
     TransformationIdentityNoOp,
+    TransformationDigestMismatch,
+    InvalidTransformationReference,
+    InvalidAnalysisDerivationReceipt,
+    DuplicateTransformationReference,
+    AnalysisDerivationDigestMismatch,
     TransformationSequenceMismatch,
     TransformationChainMismatch,
     TransformationOutputMismatch,
@@ -1717,6 +1985,11 @@ pub enum InstructionalScienceContractError {
     TransformationContractEvolutionSelfReference,
     SemanticallyIdenticalContractDigestMismatch,
     BreakingContractDigestUnchanged,
+    TransformationContractEvolutionDigestMismatch,
+    InvalidTransformationContractEvolutionReference,
+    InvalidTransformationContractProvenanceReceipt,
+    DuplicateTransformationContractProvenanceReference,
+    TransformationContractProvenanceDigestMismatch,
     ZeroAnalysisResultVersion,
     AnalysisResultEstimandMismatch,
     NegativeAnalysisResultGeneratedAt,
@@ -2722,7 +2995,7 @@ mod tests {
             outcome_measure_version: "1".into(),
             outcome_measure_digest: "blake3:standardized".into(),
         };
-        let chain = InstructionalTransformationChain {
+        let mut chain = InstructionalTransformationChain {
             transformations: vec![InstructionalOutcomeTransformationReceipt {
                 transformation_id: "transform-1".into(),
                 transformation_version: 1,
@@ -2733,13 +3006,77 @@ mod tests {
                 operation_version: "1".into(),
                 parameter_schema: test_transformation_contract_schema(&InstructionalOutcomeTransformationKind::Standardization, "1").unwrap(),
                 parameters: transformation_spec(vec![("method", InstructionalTransformationParameter::Identifier("z-score".into()))]),
+                transformation_digest: String::new(),
             }],
         };
+        chain.transformations[0].transformation_digest = chain.transformations[0].compute_digest().unwrap();
         assert_eq!(chain.validate_for_output(&output), Ok(()));
         assert_eq!(
             chain.validate_for_output(&input),
             Err(InstructionalScienceContractError::TransformationOutputMismatch)
         );
+    }
+
+    #[test]
+    fn transformation_digest_detects_tampering() {
+        let input = InstructionalOutcomeRef {
+            outcome_measure_id: "raw".into(),
+            outcome_measure_version: "1".into(),
+            outcome_measure_digest: "blake3:raw".into(),
+        };
+        let output = InstructionalOutcomeRef {
+            outcome_measure_id: "normalized".into(),
+            outcome_measure_version: "1".into(),
+            outcome_measure_digest: "blake3:normalized".into(),
+        };
+        let mut transformation = InstructionalOutcomeTransformationReceipt {
+            transformation_id: "transform-digest".into(),
+            transformation_version: 1,
+            sequence: 1,
+            input_outcome: input,
+            output_outcome: output,
+            operation: InstructionalOutcomeTransformationKind::Normalization,
+            operation_version: "1".into(),
+            parameter_schema: test_transformation_contract_schema(&InstructionalOutcomeTransformationKind::Normalization, "1").unwrap(),
+            parameters: transformation_spec(vec![("method", InstructionalTransformationParameter::Identifier("min-max".into()))]),
+            transformation_digest: String::new(),
+        };
+        transformation.transformation_digest = transformation.compute_digest().unwrap();
+        assert_eq!(transformation.validate(), Ok(()));
+        transformation.sequence = 2;
+        assert_eq!(transformation.validate(), Err(InstructionalScienceContractError::TransformationDigestMismatch));
+    }
+
+    #[test]
+    fn analysis_derivation_receipt_rejects_duplicate_transformation_refs() {
+        let mut derivation = InstructionalAnalysisDerivationReceipt {
+            derivation_id: "derivation-1".into(),
+            derivation_version: 1,
+            result: InstructionalAnalysisResultRef {
+                result_id: "result-1".into(),
+                result_version: 1,
+                result_digest: "blake3:result".into(),
+            },
+            analysis: InstructionalAnalysisRef {
+                analysis_id: "analysis-1".into(),
+                analysis_version: 1,
+                analysis_digest: "blake3:analysis".into(),
+            },
+            input_observation_set_digest: "blake3:observations".into(),
+            transformations: vec![
+                InstructionalOutcomeTransformationRef {
+                    transformation_id: "transform-a".into(),
+                    transformation_version: 1,
+                    transformation_digest: "blake3:transform-a".into(),
+                },
+            ],
+            canonicalization_version: "1".into(),
+            derivation_digest: String::new(),
+        };
+        derivation.derivation_digest = derivation.compute_digest().unwrap();
+        assert_eq!(derivation.validate(), Ok(()));
+        derivation.transformations.push(derivation.transformations[0].clone());
+        assert_eq!(derivation.validate(), Err(InstructionalScienceContractError::DuplicateTransformationReference));
     }
 
     #[test]
@@ -2785,13 +3122,17 @@ mod tests {
             relation: InstructionalTransformationContractEvolutionKind::SemanticallyIdentical,
             rationale: "same semantic contract".into(),
             assessment_digest: "blake3:assessment".into(),
+            canonicalization_version: "1".into(),
+            evolution_digest: String::new(),
         };
+        receipt.evolution_digest = receipt.compute_digest().unwrap();
         assert_eq!(
             receipt.validate(),
             Err(InstructionalScienceContractError::SemanticallyIdenticalContractDigestMismatch)
         );
 
         receipt.relation = InstructionalTransformationContractEvolutionKind::Breaking;
+        receipt.evolution_digest = receipt.compute_digest().unwrap();
         assert_eq!(receipt.validate(), Ok(()));
     }
 
@@ -2835,8 +3176,109 @@ mod tests {
             relation: InstructionalTransformationContractEvolutionKind::ReplayCompatible,
             rationale: "explicit replay assessment".into(),
             assessment_digest: "blake3:replay-assessment".into(),
+            canonicalization_version: "1".into(),
+            evolution_digest: String::new(),
         };
+        let mut receipt = receipt;
+        receipt.evolution_digest = receipt.compute_digest().unwrap();
         assert_eq!(receipt.validate(), Ok(()));
+    }
+
+    #[test]
+    fn transformation_contract_evolution_digest_is_reconstructible_and_tamper_evident() {
+        let operation = InstructionalOutcomeTransformationKind::Standardization;
+        let predecessor = test_transformation_contract_schema(&operation, "1").unwrap().contract;
+        let successor = test_transformation_contract_schema(&operation, "2").unwrap().contract;
+        let mut receipt = InstructionalTransformationContractEvolutionReceipt {
+            evolution_id: "digest-test".into(),
+            evolution_version: 1,
+            predecessor,
+            successor,
+            relation: InstructionalTransformationContractEvolutionKind::Breaking,
+            rationale: "semantic change".into(),
+            assessment_digest: "blake3:assessment".into(),
+            canonicalization_version: "1".into(),
+            evolution_digest: String::new(),
+        };
+        receipt.evolution_digest = receipt.compute_digest().unwrap();
+        assert_eq!(receipt.validate(), Ok(()));
+        receipt.rationale = "tampered".into();
+        assert_eq!(
+            receipt.validate(),
+            Err(InstructionalScienceContractError::TransformationContractEvolutionDigestMismatch)
+        );
+    }
+
+    #[test]
+    fn transformation_contract_provenance_digest_binds_evidence_and_evolution_history() {
+        let operation = InstructionalOutcomeTransformationKind::Standardization;
+        let contract = test_transformation_contract_schema(&operation, "1").unwrap().contract;
+        let provenance = InstructionalTransformationContractProvenanceReceipt {
+            provenance_id: "provenance-1".into(),
+            provenance_version: 1,
+            contract,
+            evidence_basis: vec![EvidenceBasisRef {
+                source_id: "study:example".into(),
+                source_version: "1".into(),
+                source_digest: "blake3:study".into(),
+            }],
+            review_digest: "blake3:review".into(),
+            evolution_refs: vec![InstructionalTransformationContractEvolutionRef {
+                evolution_id: "evolution-1".into(),
+                evolution_version: 1,
+                evolution_digest: "blake3:evolution".into(),
+            }],
+            canonicalization_version: "1".into(),
+            provenance_digest: String::new(),
+        };
+        let mut provenance = provenance;
+        provenance.provenance_digest = provenance.compute_digest().unwrap();
+        assert_eq!(provenance.validate(), Ok(()));
+        let mut tampered = provenance.clone();
+        tampered.review_digest = "blake3:changed-review".into();
+        assert_eq!(
+            tampered.validate(),
+            Err(InstructionalScienceContractError::TransformationContractProvenanceDigestMismatch)
+        );
+        tampered = provenance.clone();
+        tampered.evidence_basis.push(EvidenceBasisRef {
+            source_id: "study:example".into(),
+            source_version: "1".into(),
+            source_digest: "blake3:study".into(),
+        });
+        assert_eq!(
+            tampered.validate(),
+            Err(InstructionalScienceContractError::DuplicateTransformationContractProvenanceReference)
+        );
+    }
+
+    #[test]
+    fn transformation_contract_provenance_digest_is_order_independent_for_reference_sets() {
+        let operation = InstructionalOutcomeTransformationKind::Standardization;
+        let contract = test_transformation_contract_schema(&operation, "1").unwrap().contract;
+        let mut first = InstructionalTransformationContractProvenanceReceipt {
+            provenance_id: "provenance-order".into(),
+            provenance_version: 1,
+            contract: contract.clone(),
+            evidence_basis: vec![
+                EvidenceBasisRef { source_id: "b".into(), source_version: "1".into(), source_digest: "blake3:b".into() },
+                EvidenceBasisRef { source_id: "a".into(), source_version: "1".into(), source_digest: "blake3:a".into() },
+            ],
+            review_digest: "blake3:review".into(),
+            evolution_refs: vec![
+                InstructionalTransformationContractEvolutionRef { evolution_id: "b".into(), evolution_version: 1, evolution_digest: "blake3:b".into() },
+                InstructionalTransformationContractEvolutionRef { evolution_id: "a".into(), evolution_version: 1, evolution_digest: "blake3:a".into() },
+            ],
+            canonicalization_version: "1".into(),
+            provenance_digest: String::new(),
+        };
+        first.provenance_digest = first.compute_digest().unwrap();
+        let mut second = first.clone();
+        second.evidence_basis.reverse();
+        second.evolution_refs.reverse();
+        second.provenance_digest = second.compute_digest().unwrap();
+        assert_eq!(first.provenance_digest, second.provenance_digest);
+        assert_eq!(second.validate(), Ok(()));
     }
 
     #[test]
