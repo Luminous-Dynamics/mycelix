@@ -1441,6 +1441,95 @@ impl InstructionalResolutionPolicyRef {
     }
 }
 
+/// Independently addressable provenance of a resolution policy.
+///
+/// The semantic policy identity remains separate from evidence, review, and
+/// evolution metadata so provenance changes do not silently alter semantics.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalResolutionPolicyProvenanceReceipt {
+    pub provenance_id: String,
+    pub provenance_version: u64,
+    pub policy: InstructionalResolutionPolicyRef,
+    pub evidence_basis: Vec<EvidenceBasisRef>,
+    pub review_digest: String,
+    pub evolution_refs: Vec<InstructionalResolutionPolicyEvolutionRef>,
+    pub canonicalization_version: String,
+    pub provenance_digest: String,
+}
+
+impl InstructionalResolutionPolicyProvenanceReceipt {
+    fn canonical_bytes(&self) -> Result<Vec<u8>, InstructionalScienceContractError> {
+        let mut evidence = self.evidence_basis.clone();
+        evidence.sort_by(|a, b| (
+            a.source_id.as_str(), a.source_version.as_str(), a.source_digest.as_str()
+        ).cmp(&(
+            b.source_id.as_str(), b.source_version.as_str(), b.source_digest.as_str()
+        )));
+        let mut evolution = self.evolution_refs.clone();
+        evolution.sort_by(|a, b| (
+            a.evolution_id.as_str(), a.evolution_version, a.evolution_digest.as_str()
+        ).cmp(&(
+            b.evolution_id.as_str(), b.evolution_version, b.evolution_digest.as_str()
+        )));
+        serde_json::to_vec(&(
+            "praxis:instructional-resolution-policy-provenance",
+            self.canonicalization_version.as_str(),
+            self.provenance_id.as_str(),
+            self.provenance_version,
+            &self.policy,
+            &evidence,
+            self.review_digest.as_str(),
+            &evolution,
+        )).map_err(|_| InstructionalScienceContractError::InvalidResolutionPolicyProvenance)
+    }
+
+    fn compute_digest(&self) -> Result<String, InstructionalScienceContractError> {
+        Ok(format!("blake3:{}", hash_to_string(&self.canonical_bytes()?)))
+    }
+
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.provenance_id.trim().is_empty()
+            || self.provenance_version == 0
+            || self.review_digest.trim().is_empty()
+            || self.canonicalization_version.trim().is_empty()
+            || self.provenance_digest.trim().is_empty()
+            || self.evidence_basis.is_empty()
+        {
+            return Err(InstructionalScienceContractError::InvalidResolutionPolicyProvenance);
+        }
+        self.policy.validate()?;
+        let mut evidence = BTreeSet::new();
+        for reference in &self.evidence_basis {
+            if reference.source_id.trim().is_empty()
+                || reference.source_version.trim().is_empty()
+                || reference.source_digest.trim().is_empty()
+                || !evidence.insert((
+                    reference.source_id.clone(),
+                    reference.source_version.clone(),
+                    reference.source_digest.clone(),
+                ))
+            {
+                return Err(InstructionalScienceContractError::DuplicateResolutionPolicyProvenanceReference);
+            }
+        }
+        let mut evolution = BTreeSet::new();
+        for reference in &self.evolution_refs {
+            reference.validate()?;
+            if !evolution.insert((
+                reference.evolution_id.clone(),
+                reference.evolution_version,
+                reference.evolution_digest.clone(),
+            )) {
+                return Err(InstructionalScienceContractError::DuplicateResolutionPolicyProvenanceReference);
+            }
+        }
+        if self.compute_digest()? != self.provenance_digest {
+            return Err(InstructionalScienceContractError::ResolutionPolicyProvenanceDigestMismatch);
+        }
+        Ok(())
+    }
+}
+
 /// Derived closure classification for an exact derivation resolution.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum InstructionalDerivationClosureStatus {
@@ -2389,6 +2478,9 @@ pub enum InstructionalScienceContractError {
     ResolutionClosureCountMismatch,
     ResolutionClosureStatusMismatch,
     ResolutionClosureDigestMismatch,
+    InvalidResolutionPolicyProvenance,
+    DuplicateResolutionPolicyProvenanceReference,
+    ResolutionPolicyProvenanceDigestMismatch,
     DuplicateTransformationReference,
     AnalysisDerivationDigestMismatch,
     AnalysisDerivationSequenceMismatch,
