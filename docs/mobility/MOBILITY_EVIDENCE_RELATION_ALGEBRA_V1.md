@@ -8,6 +8,12 @@ It exists because a digital thread is not merely a collection of records. NIST d
 
 The relationship algebra is deliberately narrower than an engineering ontology. It establishes provenance and semantic boundaries; it does not establish physical safety, certification, regulatory approval, or engineering correctness.
 
+## Configuration scope
+
+Every relationship carries explicit `source_scope_ref` and `target_scope_ref` identifiers. Ordinary evidentiary relationships must remain within one configuration scope. `supersedes` and `changes` may cross scopes, but only because the cross-scope transition itself is the declared relationship. A physical artifact identity remains distinct from configuration identity.
+
+These scope references are engineering/provenance identifiers, not Holochain action timestamps. Holochain source-chain timestamps are author-supplied metadata and are not an adequate substitute for an engineering validity interval. citeturn0search0turn0search4
+
 ## Relationship vocabulary
 
 | Relation | Source → target | Meaning |
@@ -41,6 +47,7 @@ In particular:
 - `requires_revalidation` does not imply that revalidation is complete.
 - `disputes` does not imply that either disputed record is physically false.
 - `authorizes` can only originate from an explicit external-authority reference; commons consensus cannot manufacture external authority.
+- ordinary relationships cannot silently cross configuration scopes.
 
 ## Holochain boundary
 
