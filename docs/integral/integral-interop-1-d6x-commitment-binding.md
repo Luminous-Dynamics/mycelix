@@ -68,3 +68,17 @@ This boundary is intentionally narrower than generic JSON canonicalization. RFC 
 ## Interoperability boundary
 
 Integral's public developer guide describes OAD → COS as a data contract in which the Certified Design Package supplies the production-plan inputs. The public technical material remains a development/reference surface rather than a ratified wire schema, so this fixture remains ReferenceModelOnly. (Integral developer guide and public OAD documentation)
+
+
+## Projection-level binding
+
+D6W additionally verifies the commitments whose source objects are available at the projection boundary:
+
+- `semantic_environment_commitment == SemanticEnvironmentV1::commitment()`;
+- `derivation_profile_commitment == DerivationProfileV1::commitment()`;
+- every node binding is internally consistent;
+- every edge binding is internally consistent.
+
+The source DKG snapshot commitment remains opaque in this ReferenceModelOnly layer because the source snapshot object itself is outside the fixture boundary.
+
+This prevents a projection from becoming a trusted wrapper around stale environment/profile or graph commitments. D6W must reconstruct the available semantic sources before accepting the projection as an input boundary.
