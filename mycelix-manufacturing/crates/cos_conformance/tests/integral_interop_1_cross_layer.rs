@@ -300,9 +300,82 @@ fn evaluate(
     require_d6p_receipt: bool,
     runtime_evidence: bool,
 ) -> Option<CrossLayerObservation> {
+    evaluate_with_graph_mutation(
+        value,
+        with_candidate_noise,
+        d6p_receipt,
+        require_d6p_receipt,
+        runtime_evidence,
+        None,
+    )
+}
+
+fn evaluate_with_graph_mutation(
+    value: &Value,
+    with_candidate_noise: bool,
+    d6p_receipt: bool,
+    require_d6p_receipt: bool,
+    runtime_evidence: bool,
+    graph_mutation: Option<&str>,
+) -> Option<CrossLayerObservation> {
     let selected = selected_oad_design_semantic_commitment_checked(value).ok()?;
-    let (projection, env, derivation) =
+    let (mut projection, env, derivation) =
         projection(value, with_candidate_noise, d6p_receipt);
+
+    if let Some(mutation) = graph_mutation {
+        match mutation {
+            "selected-node-commitment" => {
+                let node = projection.nodes.get_mut("oad:design-water-purifier:v1")?;
+                node.node_commitment = canonical_sha256(
+                    "integral-interop-1-node",
+                    &serde_json::json!({
+                        "id": node.node_id,
+                        "content_commitment": "mutated-selected-node-content",
+                        "kind": format!("{:?}", node.kind),
+                    }),
+                );
+            }
+            "selected-edge-commitment" => {
+                let edge = projection.edges.get_mut("oad->cos:production-plan")?;
+                edge.edge_commitment = canonical_sha256(
+                    "integral-interop-1-edge",
+                    &serde_json::json!({
+                        "id": edge.edge_id,
+                        "from": edge.from_node_id,
+                        "to": edge.to_node_id,
+                        "kind": format!("{:?}", edge.kind),
+                        "mutation": "selected-edge",
+                    }),
+                );
+            }
+            "selected-edge-removal" => {
+                projection.edges.remove("oad->cos:production-plan");
+            }
+            "wrong-edge-kind" => {
+                let edge = projection.edges.get_mut("oad->cos:production-plan")?;
+                edge.kind = ClaimGraphEdgeKindV1::Provenance;
+                edge.edge_commitment = canonical_sha256(
+                    "integral-interop-1-edge",
+                    &serde_json::json!({
+                        "id": edge.edge_id,
+                        "from": edge.from_node_id,
+                        "to": edge.to_node_id,
+                        "kind": format!("{:?}", edge.kind),
+                    }),
+                );
+            }
+            "irrelevant-node-commitment" => {
+                let node = projection.nodes.get_mut("frs:observation:noise")?;
+                node.node_commitment = "mutated-irrelevant-node".into();
+            }
+            "irrelevant-edge-commitment" => {
+                let edge = projection.edges.get_mut("frs->cos:candidate")?;
+                edge.edge_commitment = "mutated-irrelevant-edge".into();
+            }
+            other => panic!("unsupported graph mutation {other}"),
+        }
+    }
+
     let mut closure = compute_dependency_closure(
         &projection,
         &env,
@@ -489,6 +562,7 @@ fn declarative_cross_layer_corpus_is_self_describing_and_executable() {
                 d6p_receipt = vector["value"].as_bool().expect("receipt boolean");
             }
             "runtime-evidence" => runtime_evidence = true,
+            "graph-mutation" => {}
             other => panic!("{id}: unsupported operation {other}"),
         }
 
@@ -511,12 +585,13 @@ fn declarative_cross_layer_corpus_is_self_describing_and_executable() {
             continue;
         }
 
-        let actual = evaluate(
+        let actual = evaluate_with_graph_mutation(
             &mutated,
             with_candidate_noise,
             d6p_receipt,
             require_d6p_receipt,
             runtime_evidence,
+            vector["mutation"].as_str(),
         )
         .expect(id);
         assert_delta(id, &baseline_eval, &actual, expected);
