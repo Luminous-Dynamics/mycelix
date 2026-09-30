@@ -1,4 +1,4 @@
-use cos_conformance::{canonical_bytes, D6S_HASH_DOMAIN, D6S_REFERENCE_CANONICALIZATION_VERSION};
+use cos_conformance::{canonical_bytes, d6s_raw_json::parse_d6s_canon_json, D6S_HASH_DOMAIN, D6S_REFERENCE_CANONICALIZATION_VERSION};
 use sha2::{Digest, Sha256};
 use serde_json::Value;
 use std::fs;
@@ -71,30 +71,27 @@ fn rust_canonicalizer_matches_frozen_d6s_golden_vectors() {
 }
 
 #[test]
-fn rust_canonicalizer_rejects_non_integral_numeric_boundaries() {
+fn rust_raw_parser_rejects_every_frozen_d6s_rejection_vector() {
     let bytes = fs::read(corpus_path()).expect("D6S golden corpus must exist");
     let corpus: GoldenCorpus =
         serde_json::from_slice(&bytes).expect("D6S golden corpus must parse");
 
     for case in corpus.rejections {
-        if matches!(
-            case.name.as_str(),
-            "fractional-number"
-                | "exponent-number"
-                | "u64-overflow"
-                | "i64-underflow"
-                | "negative-zero"
-                | "non-finite-nan"
-                | "non-finite-infinity"
-        ) {
-            let parsed = serde_json::from_str::<Value>(&case.json);
-            if let Ok(value) = parsed {
-                assert!(
-                    canonical_bytes(&value).is_err(),
-                    "{}: invalid numeric input was unexpectedly canonicalized",
-                    case.name
-                );
-            }
-        }
+        assert!(
+            parse_d6s_canon_json(case.json.as_bytes()).is_err(),
+            "{}: raw D6S input was unexpectedly accepted",
+            case.name
+        );
     }
+}
+
+#[test]
+fn typed_canonicalizer_remains_distinct_from_raw_lexical_validation() {
+    let typed = serde_json::json!({"value": 1});
+    assert!(canonical_bytes(&typed).is_ok());
+
+    // serde_json::Value has already erased the lexical distinction between
+    // inputs such as "1" and "1e0". The raw-input gate owns that distinction.
+    let exponent = r#"1e0"#;
+    assert!(parse_d6s_canon_json(exponent.as_bytes()).is_err());
 }
