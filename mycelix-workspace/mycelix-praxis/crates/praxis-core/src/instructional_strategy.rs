@@ -3048,6 +3048,38 @@ mod tests {
     }
 
     #[test]
+    fn analysis_derivation_receipt_rejects_duplicate_transformation_refs() {
+        let mut derivation = InstructionalAnalysisDerivationReceipt {
+            derivation_id: "derivation-1".into(),
+            derivation_version: 1,
+            result: InstructionalAnalysisResultRef {
+                result_id: "result-1".into(),
+                result_version: 1,
+                result_digest: "blake3:result".into(),
+            },
+            analysis: InstructionalAnalysisRef {
+                analysis_id: "analysis-1".into(),
+                analysis_version: 1,
+                analysis_digest: "blake3:analysis".into(),
+            },
+            input_observation_set_digest: "blake3:observations".into(),
+            transformations: vec![
+                InstructionalOutcomeTransformationRef {
+                    transformation_id: "transform-a".into(),
+                    transformation_version: 1,
+                    transformation_digest: "blake3:transform-a".into(),
+                },
+            ],
+            canonicalization_version: "1".into(),
+            derivation_digest: String::new(),
+        };
+        derivation.derivation_digest = derivation.compute_digest().unwrap();
+        assert_eq!(derivation.validate(), Ok(()));
+        derivation.transformations.push(derivation.transformations[0].clone());
+        assert_eq!(derivation.validate(), Err(InstructionalScienceContractError::DuplicateTransformationReference));
+    }
+
+    #[test]
     fn transformation_contract_constructor_requires_explicit_provenance() {
         let operation = InstructionalOutcomeTransformationKind::Standardization;
         assert_eq!(
