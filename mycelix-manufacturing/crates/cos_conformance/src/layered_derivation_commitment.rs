@@ -41,6 +41,7 @@ impl InputCommitmentV1 {
             || closure.projection_commitment != p.commitment()
             || closure.source_dkg_snapshot_commitment != p.source_dkg_snapshot_commitment
             || closure.semantic_environment_commitment != e.commitment()
+            || closure.derivation_profile_commitment != p.derivation_profile_commitment
             || closure.derivation_profile_commitment.is_empty()
             || !p.nodes.values().all(QualifiedNodeV1::commitment_matches)
             || !p.edges.values().all(QualifiedEdgeV1::commitment_matches)
