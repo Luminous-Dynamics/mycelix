@@ -51,6 +51,21 @@ pub enum QualificationResult {
     Invalid(String),
 }
 
+/// Domain-neutral epistemic state for engineering evidence.
+///
+/// These states describe evidence/qualification semantics only. They are not
+/// physical safety determinations and are not synonyms for Holochain validation states.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EvidenceOutcomeState {
+    Supported,
+    Contradicted,
+    Unresolved,
+    Indeterminate,
+    Superseded,
+    Disputed,
+    ExternallyAuthoritative,
+}
+
 pub fn parse_corpus(json: &str) -> Result<Corpus, String> {
     serde_json::from_str(json).map_err(|e| format!("invalid qualification corpus: {e}"))
 }
@@ -197,6 +212,18 @@ mod tests {
         let mut c = corpus();
         c.schema_version = "other".into();
         assert!(matches!(qualify(&c), QualificationResult::Invalid(_)));
+    }
+
+    #[test]
+    fn outcome_algebra_has_explicit_unresolved_state() {
+        assert_ne!(EvidenceOutcomeState::Unresolved, EvidenceOutcomeState::Contradicted);
+        assert_eq!(EvidenceOutcomeState::Unresolved, EvidenceOutcomeState::Unresolved);
+    }
+
+    #[test]
+    fn outcome_algebra_preserves_historical_and_disputed_states() {
+        assert_ne!(EvidenceOutcomeState::Superseded, EvidenceOutcomeState::Supported);
+        assert_ne!(EvidenceOutcomeState::Disputed, EvidenceOutcomeState::Supported);
     }
 
     #[test]
