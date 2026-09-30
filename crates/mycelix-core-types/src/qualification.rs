@@ -750,6 +750,26 @@ mod tests {
     }
 
     #[test]
+    fn qualification_certificate_tampering_is_rejected() {
+        let r = relationship(b"certificate-tamper");
+        let a = assertion(r.relationship_id, "crm", 7, 1);
+        let mut qualified = QualifiedRelationshipInputs::qualify(
+            &r,
+            &[a],
+            &[SourceFrontier::new("crm", 7).unwrap()],
+            &[],
+            &[],
+            &[],
+        ).unwrap();
+        qualified.certificate.input_digest[0] ^= 1;
+
+        assert_eq!(
+            qualified.validate_certificate(),
+            Err(QualificationError::CertificateMismatch)
+        );
+    }
+
+    #[test]
     fn unrelated_records_are_rejected_instead_of_filtered() {
         let r = relationship(b"r");
         let other = relationship(b"other");
