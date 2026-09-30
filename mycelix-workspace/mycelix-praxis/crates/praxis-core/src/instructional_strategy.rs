@@ -1075,13 +1075,36 @@ pub struct InstructionalOutcomeTransformationReceipt {
     pub operation_version: String,
     pub parameter_schema: InstructionalOutcomeTransformationParameterSchema,
     pub parameters: InstructionalOutcomeTransformationSpec,
+    /// Canonical digest of this complete transformation edge, excluding this field.
+    pub transformation_digest: String,
 }
 
 impl InstructionalOutcomeTransformationReceipt {
+    fn canonical_bytes(&self) -> Result<Vec<u8>, InstructionalScienceContractError> {
+        serde_json::to_vec(&(
+            "praxis:instructional-outcome-transformation-receipt",
+            self.transformation_id.as_str(),
+            self.transformation_version,
+            self.sequence,
+            &self.input_outcome,
+            &self.output_outcome,
+            &self.operation,
+            self.operation_version.as_str(),
+            &self.parameter_schema,
+            &self.parameters,
+        ))
+        .map_err(|_| InstructionalScienceContractError::InvalidTransformation)
+    }
+
+    fn compute_digest(&self) -> Result<String, InstructionalScienceContractError> {
+        Ok(format!("blake3:{}", hash_to_string(&self.canonical_bytes()?)))
+    }
+
     fn validate(&self) -> Result<(), InstructionalScienceContractError> {
         if self.transformation_id.trim().is_empty()
             || self.transformation_version == 0
             || self.operation_version.trim().is_empty()
+            || self.transformation_digest.trim().is_empty()
         {
             return Err(InstructionalScienceContractError::InvalidTransformation);
         }
@@ -1092,6 +1115,96 @@ impl InstructionalOutcomeTransformationReceipt {
         self.parameter_schema.validate_for(&self.operation, &self.operation_version, &self.parameters)?;
         if self.input_outcome == self.output_outcome {
             return Err(InstructionalScienceContractError::TransformationIdentityNoOp);
+        }
+        if self.compute_digest()? != self.transformation_digest {
+            return Err(InstructionalScienceContractError::TransformationDigestMismatch);
+        }
+        Ok(())
+    }
+}
+
+/// Exact identity of one transformation edge in a provenance graph.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalOutcomeTransformationRef {
+    pub transformation_id: String,
+    pub transformation_version: u64,
+    pub transformation_digest: String,
+}
+
+impl InstructionalOutcomeTransformationRef {
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.transformation_id.trim().is_empty()
+            || self.transformation_version == 0
+            || self.transformation_digest.trim().is_empty()
+        {
+            return Err(InstructionalScienceContractError::InvalidTransformationReference);
+        }
+        Ok(())
+    }
+}
+
+/// A compact derivation closure for an analysis result.
+///
+/// This is intentionally a graph of exact references rather than a copy of the
+/// underlying receipts. It can therefore cross privacy/storage boundaries while
+/// remaining independently verifiable.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstructionalAnalysisDerivationReceipt {
+    pub derivation_id: String,
+    pub derivation_version: u64,
+    pub result: InstructionalAnalysisResultRef,
+    pub analysis: InstructionalAnalysisRef,
+    pub input_observation_set_digest: String,
+    pub transformations: Vec<InstructionalOutcomeTransformationRef>,
+    pub canonicalization_version: String,
+    pub derivation_digest: String,
+}
+
+impl InstructionalAnalysisDerivationReceipt {
+    fn canonical_bytes(&self) -> Result<Vec<u8>, InstructionalScienceContractError> {
+        serde_json::to_vec(&(
+            "praxis:instructional-analysis-derivation",
+            self.canonicalization_version.as_str(),
+            self.derivation_id.as_str(),
+            self.derivation_version,
+            &self.result,
+            &self.analysis,
+            self.input_observation_set_digest.as_str(),
+            &self.transformations,
+        ))
+        .map_err(|_| InstructionalScienceContractError::InvalidAnalysisDerivationReceipt)
+    }
+
+    fn compute_digest(&self) -> Result<String, InstructionalScienceContractError> {
+        Ok(format!("blake3:{}", hash_to_string(&self.canonical_bytes()?)))
+    }
+
+    fn validate(&self) -> Result<(), InstructionalScienceContractError> {
+        if self.derivation_id.trim().is_empty()
+            || self.derivation_version == 0
+            || self.input_observation_set_digest.trim().is_empty()
+            || self.canonicalization_version.trim().is_empty()
+            || self.derivation_digest.trim().is_empty()
+        {
+            return Err(InstructionalScienceContractError::InvalidAnalysisDerivationReceipt);
+        }
+        self.result.validate()?;
+        self.analysis.validate()?;
+
+        let mut refs = BTreeSet::new();
+        for transformation in &self.transformations {
+            transformation.validate()?;
+            if !refs.insert((
+                transformation.transformation_id.clone(),
+                transformation.transformation_version,
+                transformation.transformation_digest.clone(),
+            )) {
+                return Err(InstructionalScienceContractError::DuplicateTransformationReference);
+            }
+        }
+
+        if self.compute_digest()? != self.derivation_digest {
+            return Err(InstructionalScienceContractError::AnalysisDerivationDigestMismatch);
         }
         Ok(())
     }
@@ -1849,6 +1962,11 @@ pub enum InstructionalScienceContractError {
     InvalidOutcomeReference,
     InvalidTransformation,
     TransformationIdentityNoOp,
+    TransformationDigestMismatch,
+    InvalidTransformationReference,
+    InvalidAnalysisDerivationReceipt,
+    DuplicateTransformationReference,
+    AnalysisDerivationDigestMismatch,
     TransformationSequenceMismatch,
     TransformationChainMismatch,
     TransformationOutputMismatch,
