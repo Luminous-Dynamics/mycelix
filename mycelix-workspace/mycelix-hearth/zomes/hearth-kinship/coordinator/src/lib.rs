@@ -119,9 +119,34 @@ fn membership_records_for_hearth(
     Ok(records)
 }
 
+/// Resolve a single record's update chain only when it has one unambiguous
+/// successor at every step. Holochain permits branching updates, so a
+/// canonical catalog must not inherit the shared helper's "last vector item"
+/// convention as an authority rule.
+fn get_unique_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
+    let Some(details) = get_details(action_hash, GetOptions::default())? else {
+        return Ok(None);
+    };
+
+    match details {
+        Details::Record(record_details) => match record_details.updates.as_slice() {
+            [] => Ok(Some(record_details.record)),
+            [update] => get_unique_latest_record(update.action_address().clone()),
+            _ => Err(wasm_error!(WasmErrorInner::Guest(
+                "Canonical Hearth evidence has conflicting update branches".into()
+            ))),
+        },
+        Details::Entry(_) => Ok(None),
+    }
+}
+
 /// Resolve membership links for canonical catalog assembly without silently
 /// dropping missing/deleted evidence. A discovered active Hearth must fail
 /// closed when one of its membership evidence records cannot be resolved.
+///
+/// Link actions are distinct even when base/target/type/tag are identical, so
+/// duplicate HearthToMembers links must be deduplicated before cardinality is
+/// interpreted as membership authority.
 fn membership_records_for_hearth_strict(
     hearth_hash: &ActionHash,
 ) -> ExternResult<Vec<(Record, HearthMembership)>> {
@@ -129,12 +154,17 @@ fn membership_records_for_hearth_strict(
         LinkQuery::try_new(hearth_hash.clone(), LinkTypes::HearthToMembers)?,
         GetStrategy::default(),
     )?;
-    let mut records = Vec::new();
+    let mut targets = std::collections::BTreeSet::<ActionHash>::new();
     for link in links {
         let target = ActionHash::try_from(link.target).map_err(|_| {
             wasm_error!(WasmErrorInner::Guest("Invalid membership link".into()))
         })?;
-        let record = get_latest_record(target.clone())?.ok_or_else(|| {
+        targets.insert(target);
+    }
+
+    let mut records = Vec::new();
+    for target in targets {
+        let record = get_unique_latest_record(target.clone())?.ok_or_else(|| {
             wasm_error!(WasmErrorInner::Guest(format!(
                 "Active Hearth catalog evidence is incomplete: membership record {:?} is missing",
                 target
@@ -1007,7 +1037,7 @@ pub fn get_my_active_hearths(_: ()) -> ExternResult<Vec<ActiveHearthCatalogItem>
     let mut catalog = Vec::new();
 
     for hearth_hash in hearth_hashes {
-        let hearth_record = get_latest_record(hearth_hash.clone())?.ok_or_else(|| {
+        let hearth_record = get_unique_latest_record(hearth_hash.clone())?.ok_or_else(|| {
             wasm_error!(WasmErrorInner::Guest(
                 "Active Hearth discovery evidence is incomplete: Hearth record missing".into()
             ))
