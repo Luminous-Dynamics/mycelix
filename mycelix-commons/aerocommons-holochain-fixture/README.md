@@ -2,8 +2,8 @@
 
 Test-only integrity zome for **AEROCOMMONS-011**.
 
-This crate is deliberately a separate Cargo workspace so the current Mycelix
-0.6 production zomes are not forced onto Holochain 0.7.
+This crate is deliberately a separate Cargo workspace so the Holochain 0.7 / HDI 0.8
+qualification fixture remains isolated from production zome implementation changes.
 
 Pinned compatibility target:
 
