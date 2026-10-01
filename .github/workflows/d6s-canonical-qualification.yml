@@ -8,19 +8,16 @@ on:
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
   workflow_dispatch:
 
-# The qualification subject is always the exact branch head, never a synthetic
-# pull-request merge ref. Superseded pending runs are disposable because they
-# cannot qualify the newer commit.
 concurrency:
-  group: d6s-canon-1-${{ github.event.pull_request.number || github.ref }}
+  group: d6s-canon-reference-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  d6s-canon-1:
-    name: D6S-CANON-1 qualification
+  d6s-canon-reference:
+    name: D6S canonical reference qualification
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -46,25 +43,30 @@ jobs:
       - name: Run independent D6S-CANON-1 verifier
         run: python3 scripts/integral/verify_d6s_canon_1.py
 
+      - name: Run D6S-CANON-2 authority-boundary fixture verifier
+        run: python3 scripts/integral/verify_d6s_canon_2_authority_boundary.py
+
       - name: Emit qualification record
         run: |
           {
-            echo "D6S-CANON-1 QUALIFICATION"
+            echo "D6S CANONICAL REFERENCE QUALIFICATION"
             echo "commit=${QUALIFIED_SHA}"
             echo "event=${GITHUB_EVENT_NAME}"
             echo "rust=$(rustc --version)"
             echo "cargo=$(cargo --version)"
             echo "python=$(python3 --version)"
-            echo "corpus_sha256=$(sha256sum docs/integral/d6s-canon-1-golden-vectors.json | cut -d' ' -f1)"
-            echo "manifest_sha256=$(sha256sum docs/integral/d6s-canon-1-manifest.json | cut -d' ' -f1)"
+            echo "canon1_corpus_sha256=$(sha256sum docs/integral/d6s-canon-1-golden-vectors.json | cut -d' ' -f1)"
+            echo "canon1_manifest_sha256=$(sha256sum docs/integral/d6s-canon-1-manifest.json | cut -d' ' -f1)"
+            echo "canon2_fixture_sha256=$(sha256sum docs/integral/d6s-canon-2-authority-boundary-fixture.json | cut -d' ' -f1)"
             echo "rust_corpus=PASSED"
-            echo "independent_verifier=PASSED"
+            echo "canon1_independent_verifier=PASSED"
+            echo "canon2_authority_boundary_fixture=PASSED"
             echo "corpus_identity=QUALIFIED"
             echo "claim_ceiling=ReferenceModelOnly"
-          } | tee d6s-canon-1-qualification.txt
+          } | tee d6s-canonical-reference-qualification.txt
 
       - name: Upload qualification record
         uses: actions/upload-artifact@v4
         with:
-          name: d6s-canon-1-qualification-${{ env.QUALIFIED_SHA }}
-          path: d6s-canon-1-qualification.txt
+          name: d6s-canonical-reference-${{ env.QUALIFIED_SHA }}
+          path: d6s-canonical-reference-qualification.txt
