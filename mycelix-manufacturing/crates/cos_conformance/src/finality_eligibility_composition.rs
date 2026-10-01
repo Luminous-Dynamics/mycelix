@@ -1384,6 +1384,16 @@ mod tests {
         disposition_mutation.composition_commitment = disposition_mutation.recomputed_commitment();
         assert!(disposition_mutation.commitment_matches());
         assert!(!disposition_mutation.semantically_valid());
+
+        let mut duplicate_witness = compose_finality_eligibility(
+            &s, &a, &[observation("obs-1", &g1, ExternalObservedStateV1::Applied),
+            observation("obs-2", &g2, ExternalObservedStateV1::Applied)],
+            &[r1, r2], "life-profile-1", "frontier-1", 1
+        );
+        duplicate_witness.witnesses[1] = duplicate_witness.witnesses[0].clone();
+        duplicate_witness.composition_commitment = duplicate_witness.recomputed_commitment();
+        assert!(duplicate_witness.commitment_matches());
+        assert!(!duplicate_witness.semantically_valid());
     }
 
     #[test]
