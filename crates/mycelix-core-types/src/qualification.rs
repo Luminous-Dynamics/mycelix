@@ -96,8 +96,30 @@ impl QualificationDependency {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct QualificationDependencyObservation {
+    pub kind: QualificationDependencyKind,
+    pub logical_id: [u8; 32],
+    pub record_address: Vec<u8>,
+}
+
+impl QualificationDependencyObservation {
+    pub fn from_dependency(dependency: &QualificationDependency) -> Self {
+        Self {
+            kind: dependency.kind,
+            logical_id: dependency.logical_id,
+            record_address: dependency.record_address.clone(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum QualificationDependencyResolution {
+    /// Legacy/unattested success is intentionally not accepted by qualification.
+    /// Host adapters must prove what they actually retrieved.
     Valid,
+    /// A host adapter attested the exact kind, logical identity, and record address
+    /// it retrieved. Core compares this observation against the requested dependency.
+    Attested { observed: QualificationDependencyObservation },
     Invalid { reason: String },
     Unresolved,
 }
@@ -454,7 +476,21 @@ fn validate_dependency_results(
             });
         }
         match result.resolution {
-            QualificationDependencyResolution::Valid => {}
+            QualificationDependencyResolution::Valid => {
+                return Err(QualificationError::InvalidDependency {
+                    logical_id: result.dependency.logical_id,
+                    reason: "dependency resolver returned success without an attested observation".into(),
+                });
+            }
+            QualificationDependencyResolution::Attested { observed } => {
+                let expected = QualificationDependencyObservation::from_dependency(&result.dependency);
+                if observed != expected {
+                    return Err(QualificationError::InvalidDependency {
+                        logical_id: result.dependency.logical_id,
+                        reason: "dependency observation does not match requested kind, logical ID, or record address".into(),
+                    });
+                }
+            }
             QualificationDependencyResolution::Invalid { reason } => {
                 return Err(QualificationError::InvalidDependency {
                     logical_id: result.dependency.logical_id,
@@ -880,7 +916,9 @@ mod tests {
             &[second.clone(), first.clone()],
             &|dependency: &QualificationDependency| {
                 assert!(!dependency.record_address.is_empty());
-                QualificationDependencyResolution::Valid
+                QualificationDependencyResolution::Attested {
+                    observed: QualificationDependencyObservation::from_dependency(dependency),
+                }
             },
         )
         .unwrap();
@@ -961,13 +999,17 @@ mod tests {
         let left = QualifiedRelationshipInputs::qualify_with_dependencies(
             &r, &[], &[], &[], &[], &[],
             &[QualificationDependencyResult {
-                dependency: d1, resolution: QualificationDependencyResolution::Valid
+                dependency: d1.clone(), resolution: QualificationDependencyResolution::Attested {
+                    observed: QualificationDependencyObservation::from_dependency(&d1)
+                }
             }],
         ).unwrap();
         let right = QualifiedRelationshipInputs::qualify_with_dependencies(
             &r, &[], &[], &[], &[], &[],
             &[QualificationDependencyResult {
-                dependency: d2, resolution: QualificationDependencyResolution::Valid
+                dependency: d2.clone(), resolution: QualificationDependencyResolution::Attested {
+                    observed: QualificationDependencyObservation::from_dependency(&d2)
+                }
             }],
         ).unwrap();
         assert_ne!(left.certificate.input_digest, right.certificate.input_digest);
@@ -986,10 +1028,14 @@ mod tests {
         assert_eq!(
             validate_dependency_results(&[
                 QualificationDependencyResult {
-                    dependency: a, resolution: QualificationDependencyResolution::Valid
+                    dependency: a.clone(), resolution: QualificationDependencyResolution::Attested {
+                        observed: QualificationDependencyObservation::from_dependency(&a)
+                    }
                 },
                 QualificationDependencyResult {
-                    dependency: b, resolution: QualificationDependencyResolution::Valid
+                    dependency: b.clone(), resolution: QualificationDependencyResolution::Attested {
+                        observed: QualificationDependencyObservation::from_dependency(&b)
+                    }
                 },
             ]),
             Err(QualificationError::ConflictingDependencyAddress { logical_id: id })
@@ -1008,10 +1054,14 @@ mod tests {
         assert_eq!(
             validate_dependency_results(&[
                 QualificationDependencyResult {
-                    dependency: assertion, resolution: QualificationDependencyResolution::Valid
+                    dependency: assertion.clone(), resolution: QualificationDependencyResolution::Attested {
+                        observed: QualificationDependencyObservation::from_dependency(&assertion)
+                    }
                 },
                 QualificationDependencyResult {
-                    dependency: commitment, resolution: QualificationDependencyResolution::Valid
+                    dependency: commitment.clone(), resolution: QualificationDependencyResolution::Attested {
+                        observed: QualificationDependencyObservation::from_dependency(&commitment)
+                    }
                 },
             ]),
             Err(QualificationError::ConflictingDependencyAddress { logical_id: id })
