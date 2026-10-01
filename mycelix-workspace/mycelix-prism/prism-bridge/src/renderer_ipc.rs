@@ -357,7 +357,7 @@ mod tests {
         writer.write_all(&envelope).await.unwrap();
 
         let mut connection =
-            RendererCapabilityConnection::from_stream(reader, binding(process, 1)).unwrap();
+            RendererCapabilityConnection::from_stream(reader, controller(process, 1)).unwrap();
         assert!(matches!(
             connection.receive_request().await,
             Err(RendererIpcError::Capability(
