@@ -22,8 +22,8 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
 
-    # Holochain from holonix — version pinned in nix/modules/holochain-versions.nix
-    # To upgrade: update holochain-versions.nix, then `nix flake lock --update-input holonix`
+    # Holochain from Holonix — direct commit pin below is the source of truth.
+    # Current pin is Holochain 0.6-era; the ROS-006 0.7 normalization must update this input and regenerate flake.lock together.
     holonix = {
       url = "github:holochain/holonix/d21b3543"; # Must match holonixCommit in holochain-versions.nix
       inputs.nixpkgs.follows = "nixpkgs";
