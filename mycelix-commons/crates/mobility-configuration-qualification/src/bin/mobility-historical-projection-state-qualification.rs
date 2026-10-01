@@ -28,7 +28,7 @@ fn projection(v:&serde_json::Value)->Result<ReconciliationEvidenceProjection,Str
 fn evaluate(c:&Case)->String{
     let p=match projection(&c.projection){Ok(v)=>v,Err(_)=>return "rejected".into()};
     if let Some(h)=&c.required_historical_ref {
-        if p.witness_ref()!=h { return "rejected".into(); }
+        if p.witness_identity()!=h { return "rejected".into(); }
     }
     match p.apply(&c.witness,&c.base_state) {
         Ok(actual) if actual==c.expected_state => "accepted".into(),
