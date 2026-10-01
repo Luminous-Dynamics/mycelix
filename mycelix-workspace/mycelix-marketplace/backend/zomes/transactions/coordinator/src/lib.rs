@@ -26,19 +26,53 @@ pub fn create_transaction(input: CreateTransactionInput) -> ExternResult<Transac
     let agent_info = agent_info()?;
     let buyer = agent_info.agent_initial_pubkey.clone();
 
-    // The client supplies seller and total for backwards-compatible wire
-    // compatibility, but neither value is trusted. Resolve the listing from
-    // the listings zome and require the submitted terms to match the DHT.
+    // The listing remains useful for presentation and stale-revision checks,
+    // but economic admission is now authorized by the seller-issued reservation
+    // certificate. A transaction without that certificate is not accepted.
     let listing = get_listing_for_purchase(input.listing_hash.clone())?;
-    let expected_total = validate_purchase_terms(&input, &listing, &buyer)
-        .map_err(|reason| wasm_error!(WasmErrorInner::Guest(reason)))?;
+    let certificate = get_reservation_certificate(input.reservation_certificate_hash.clone())?;
 
-    // Create transaction entry from verified listing terms.
+    if certificate.seller != listing.seller_agent_id {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Reservation certificate seller does not own the purchased listing".into(),
+        )));
+    }
+    if certificate.listing_hash != listing.listing_hash {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Reservation certificate is for a different listing".into(),
+        )));
+    }
+    if certificate.intent.buyer != buyer {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Reservation certificate intent belongs to a different buyer".into(),
+        )));
+    }
+    if certificate.quantity != input.quantity {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Transaction quantity must equal the reserved quantity".into(),
+        )));
+    }
+
+    let expected_total = certificate
+        .intent
+        .unit_price_cents
+        .checked_mul(certificate.quantity as u64)
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Reservation price multiplication overflow".into())))?;
+
+    if input.seller != certificate.seller
+        || input.total_price_cents != expected_total
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Submitted transaction terms do not match the reservation certificate".into(),
+        )));
+    }
+
     let transaction = Transaction {
         buyer: buyer.clone(),
-        seller: listing.seller_agent_id.clone(),
-        listing_hash: listing.listing_hash.clone(),
-        quantity: input.quantity,
+        seller: certificate.seller.clone(),
+        listing_hash: certificate.listing_hash.clone(),
+        reservation_certificate_hash: input.reservation_certificate_hash.clone(),
+        quantity: certificate.quantity,
         total_price_cents: expected_total,
         status: TransactionStatus::Pending,
         created_at: time::now()?,
@@ -1212,6 +1246,24 @@ fn update_transaction_status(
     })
 }
 
+fn get_reservation_certificate(
+    certificate_hash: ActionHash,
+) -> ExternResult<ReservationCertificate> {
+    let record = get(certificate_hash, GetOptions::default())?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
+            "Reservation certificate not found".into(),
+        )))?;
+    record
+        .entry()
+        .to_app_option::<ReservationCertificate>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+            "Could not decode reservation certificate: {e:?}"
+        ))))?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
+            "Reservation certificate record does not contain an application entry".into(),
+        )))
+}
+
 // ===== Input/Output Types =====
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -1241,6 +1293,7 @@ pub struct ApplyArbitrationTransactionConflictInput {
 pub struct CreateTransactionInput {
     pub seller: AgentPubKey,
     pub listing_hash: ActionHash,
+    pub reservation_certificate_hash: ActionHash,
     pub quantity: u32,
     pub total_price_cents: u64,
 }
