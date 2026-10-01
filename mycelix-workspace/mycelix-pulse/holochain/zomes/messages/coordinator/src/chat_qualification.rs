@@ -38,8 +38,9 @@ const INBOX_V2_TAG: &[u8] = b"inbox-v2";
 ///
 /// This is intentionally not a /chat route and does not return UI state.
 /// Every live V2 inbox-link candidate is represented, including missing,
-/// rejected, non-V2, wrong-action, and unreadable records. Only an entirely
-/// valid qualification can cross the downstream semantic projection boundary.
+/// rejected, non-V2, wrong-action, and unreadable records. A fully valid
+/// host-observed qualification is useful for inspection, but is not sufficient
+/// to cross the protocol-level completeness boundary required for projection.
 #[hdk_extern]
 pub fn get_inbox_v2_qualification(_: ()) -> ExternResult<V2InboxQualificationV1> {
     let me = agent_info()?.agent_initial_pubkey;
