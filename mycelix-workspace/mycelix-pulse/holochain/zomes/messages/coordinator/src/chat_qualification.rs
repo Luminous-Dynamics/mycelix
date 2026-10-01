@@ -101,7 +101,13 @@ pub fn get_inbox_v2_qualification(_: ()) -> ExternResult<V2InboxQualificationV1>
         // get_details() is intentionally network-backed here. The qualification
         // boundary must distinguish a genuinely absent record from a local-cache
         // miss; Holochain documents GetOptions::network() for this purpose.
-        let Some(details) = get_details(hash.clone(), GetOptions::network())? else {
+        // Use a single remote authority rather than Holochain 0.6's
+        // multi-peer race mode. A race can accept the first peer response even
+        // when another peer has already integrated the record; that is useful
+        // for ordinary reads but is the wrong failure mode for qualification.
+        // This still does NOT establish global DHT completeness.
+        let record_get_options = GetOptions::network().with_remote_agent_count(1);
+        let Some(details) = get_details(hash.clone(), record_get_options)? else {
             candidates.push(V2CandidateAccountingV1 {
                 evidence_id: Some(evidence_id),
                 disposition: V2CandidateDispositionV1::Missing,
@@ -218,14 +224,3 @@ pub fn get_inbox_v2_qualification(_: ()) -> ExternResult<V2InboxQualificationV1>
 /// The inspection endpoint above intentionally returns the full candidate
 /// accounting object even when some candidates are disqualified. This wrapper
 /// is the fail-closed promotion gate: only a fully valid accounting object is
-/// returned as success.
-#[hdk_extern]
-pub fn qualify_inbox_v2(_: ()) -> ExternResult<V2InboxQualificationV1> {
-    let qualification = get_inbox_v2_qualification(())?;
-    qualification
-        .validate()
-        .map_err(|error| wasm_error!(WasmErrorInner::Guest(format!(
-            "V2 qualification failed closed: {error:?}"
-        )))?;
-    Ok(qualification)
-}
