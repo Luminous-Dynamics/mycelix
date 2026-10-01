@@ -24,7 +24,7 @@ pub enum V2CandidateEnumerationV1 {
     /// action; it is not a count of individual delete actions. Deleted links
     /// are counted separately so the adapter cannot silently erase the
     /// distinction between "currently live" and "observed then deleted".
-    Complete {
+    HostObservedComplete {
         live_links: u32,
         deleted_links: u32,
     },
@@ -125,7 +125,7 @@ impl V2InboxQualificationV1 {
         }
         self.enumeration.validate()?;
 
-        if let V2CandidateEnumerationV1::Complete { live_links, .. } = self.enumeration {
+        if let V2CandidateEnumerationV1::HostObservedComplete { live_links, .. } = self.enumeration {
             if live_links as usize != self.candidates.len() {
                 return Err(ChatProjectionError::QualificationCountMismatch);
             }
@@ -197,11 +197,16 @@ impl V2InboxQualificationV1 {
         Ok(())
     }
 
+    /// The current adapter proves only that its host observed a complete set of
+    /// links returned by its Holochain query. Holochain documents that link
+    /// queries can filter invalid data, so this observation is not a global DHT
+    /// completeness proof. Keep the projection boundary closed until a
+    /// protocol-level completeness witness exists.
     pub fn into_projection_inputs(
         &self,
     ) -> Result<(V2InboxCompletenessV1, Vec<QualifiedV2MessageV1>), ChatProjectionError> {
         self.validate()?;
-        Ok((V2InboxCompletenessV1::Complete, self.qualified.clone()))
+        Err(ChatProjectionError::IncompleteCandidateEnumeration)
     }
 
     pub fn candidate_count(&self) -> usize {
@@ -248,7 +253,7 @@ mod tests {
     ) -> V2InboxQualificationV1 {
         V2InboxQualificationV1 {
             schema_version: V2_QUALIFICATION_SCHEMA_VERSION_V1,
-            enumeration: V2CandidateEnumerationV1::Complete {
+            enumeration: V2CandidateEnumerationV1::HostObservedComplete {
                 live_links: candidates.len() as u32,
                 deleted_links: 0,
             },
@@ -271,9 +276,10 @@ mod tests {
         assert!(q.validate().is_ok());
         assert_eq!(q.candidate_count(), 1);
         assert_eq!(q.valid_candidate_count(), 1);
-        let (completeness, inputs) = q.into_projection_inputs().unwrap();
-        assert_eq!(completeness, V2InboxCompletenessV1::Complete);
-        assert_eq!(inputs.len(), 1);
+        assert_eq!(
+            q.into_projection_inputs(),
+            Err(ChatProjectionError::IncompleteCandidateEnumeration)
+        );
     }
 
     #[test]
