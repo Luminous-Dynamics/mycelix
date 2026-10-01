@@ -40,7 +40,7 @@ impl std::error::Error for SandboxEnforcementError {}
 mod linux {
     use super::*;
     use std::mem::size_of;
-    use std::os::fd::RawFd;
+    use std::os::fd::{AsRawFd, RawFd};
 
     const LANDLOCK_CREATE_RULESET_VERSION: u32 = 1 << 0;
     const LANDLOCK_CREATE_RULESET_ERRATA: u32 = 1 << 1;
@@ -99,7 +99,12 @@ mod linux {
         Ok(())
     }
 
-    /// Install the first real OS-enforced renderer boundary.
+    /// Install the first real OS-enforced filesystem boundary.
+    ///
+    /// This deliberately reports only the filesystem layer. It does NOT
+    /// claim that the complete renderer profile (network, child-process,
+    /// syscall, device policy) has been enforced. The supervisor therefore
+    /// must not treat this receipt as sufficient for capability authority.
     ///
     /// This deliberately requires a caller-provided filesystem root. An
     /// empty/no-root policy would create a false sense of confinement because
@@ -177,7 +182,7 @@ mod linux {
         Ok(SandboxEnforcementReceipt {
             assignment_id,
             installation_id,
-            adapter: SandboxAdapterKind::LinuxSeccompLandlockV1,
+            adapter: SandboxAdapterKind::LinuxLandlockFilesystemV1,
             policy_digest: profile.policy_digest(),
             enforced: true,
         })
