@@ -10,13 +10,14 @@ use crate::grant::CapabilityGrantStore;
 use crate::identity::{AgentClusterId, RendererProcessId, SiteIdentity};
 use crate::lifecycle::{LifecycleError, RendererBinding, RendererLifecycle};
 use crate::capability::OriginBinding;
-use crate::session::{RendererSessionManager, RendererSessionManagerError};
+use crate::session::{CapabilityIngress, CapabilityIngressError, RendererSessionManagerError};
 use tokio::net::UnixStream;
 
 #[derive(Debug)]
 pub enum RendererSecurityError {
     Lifecycle(LifecycleError),
     Session(RendererSessionManagerError),
+    Ingress(CapabilityIngressError),
     NoActiveBinding,
 }
 
@@ -28,6 +29,10 @@ impl From<RendererSessionManagerError> for RendererSecurityError {
     fn from(error: RendererSessionManagerError) -> Self { Self::Session(error) }
 }
 
+impl From<CapabilityIngressError> for RendererSecurityError {
+    fn from(error: CapabilityIngressError) -> Self { Self::Ingress(error) }
+}
+
 /// The broker's single state owner for renderer lifecycle + grants + IPC
 /// attachment. The browser controller supplies process/site/origin/cluster
 /// identities; renderer messages never mutate these values.
@@ -35,7 +40,7 @@ impl From<RendererSessionManagerError> for RendererSecurityError {
 pub struct RendererSecurityController {
     lifecycle: RendererLifecycle,
     grants: CapabilityGrantStore,
-    sessions: RendererSessionManager,
+    ingress: CapabilityIngress,
 }
 
 impl RendererSecurityController {
@@ -53,8 +58,16 @@ impl RendererSecurityController {
         &self.grants
     }
 
-    pub fn sessions(&self) -> &RendererSessionManager {
-        &self.sessions
+    pub fn sessions(&self) -> &crate::session::RendererSessionManager {
+        self.ingress.sessions()
+    }
+
+    pub fn sessions_mut(&mut self) -> &mut crate::session::RendererSessionManager {
+        self.ingress.sessions_mut()
+    }
+
+    pub fn ingress(&self) -> &CapabilityIngress {
+        &self.ingress
     }
 
     /// Commit a new browser-authoritative navigation.
@@ -69,7 +82,7 @@ impl RendererSecurityController {
         origin: OriginBinding,
         agent_cluster: AgentClusterId,
     ) -> Result<&RendererBinding, RendererSecurityError> {
-        self.sessions.close();
+        self.ingress.close();
         Ok(self.lifecycle.commit_navigation(
             process,
             site,
@@ -96,7 +109,8 @@ impl RendererSecurityController {
             .current()
             .ok_or(RendererSecurityError::NoActiveBinding)?;
 
-        self.sessions
+        self.ingress
+            .sessions_mut()
             .establish_from_stream(stream, binding.process, binding.generation)?;
         Ok(())
     }
@@ -148,7 +162,7 @@ mod tests {
         assert_eq!(second.generation, 2);
         assert_eq!(second.process, p2);
         assert!(controller.grants.is_empty());
-        assert!(controller.sessions.current().is_none());
+        assert!(controller.sessions().current().is_none());
     }
 
     #[test]
@@ -171,8 +185,8 @@ mod tests {
         controller.commit_navigation(process, site, origin, cluster).unwrap();
         controller.establish_renderer_session(&reader).unwrap();
 
-        assert_eq!(controller.sessions.current().unwrap().renderer_process, process);
-        assert_eq!(controller.sessions.current().unwrap().generation, 1);
+        assert_eq!(controller.sessions().current().unwrap().renderer_process, process);
+        assert_eq!(controller.sessions().current().unwrap().generation, 1);
 
         drop(writer);
     }
