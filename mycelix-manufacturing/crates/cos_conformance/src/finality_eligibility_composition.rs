@@ -400,6 +400,8 @@ receipt: &CurrentFinalityEligibilityReceiptV1,
 composition: &FinalityEligibilityCompositionV1,
 ) -> bool {
 receipt.commitment_matches()
+    && receipt.semantically_valid()
+    && composition.semantically_valid()
     && composition.commitment_matches()
     && receipt.composition_commitment == composition.composition_commitment
     && receipt.effect_id == composition.effect_id
