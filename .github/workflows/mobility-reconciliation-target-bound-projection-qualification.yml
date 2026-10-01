@@ -68,3 +68,14 @@ jobs:
           python3 -c 'import json; p="docs/mobility/MOBILITY_RECONCILIATION_TARGET_BOUND_PROJECTION_V1_EXECUTABLE.json"; d=json.load(open(p)); d["cases"][0]["configuration_scope"]=d["cases"][0]["witness"]["witness_identity"]; d["cases"][0]["projection"]["configuration_scope"]=d["cases"][0]["configuration_scope"]; json.dump(d,open("/tmp/witness-target.json","w"))'
           if python3 tools/mobility_target_bound_projection_reference.py /tmp/witness-target.json >/tmp/py 2>&1; then exit 1; fi
           if cargo run --quiet --manifest-path mycelix-commons/crates/mobility-configuration-qualification/Cargo.toml --bin mobility-target-bound-projection-qualification -- /tmp/witness-target.json >/tmp/rs 2>&1; then exit 1; fi
+
+      - name: Replace physical artifact with witness identity and require rejection
+        run: |
+          python3 -c 'import json; p="docs/mobility/MOBILITY_RECONCILIATION_TARGET_BOUND_PROJECTION_V1_EXECUTABLE.json"; d=json.load(open(p)); d["cases"][0]["physical_artifact_scope"]=d["cases"][0]["witness"]["witness_identity"]; d["cases"][0]["projection"]["physical_artifact_scope"]=d["cases"][0]["physical_artifact_scope"]; json.dump(d,open("/tmp/witness-artifact.json","w"))'
+          if python3 tools/mobility_target_bound_projection_reference.py /tmp/witness-artifact.json >/tmp/py 2>&1; then exit 1; fi
+          if cargo run --quiet --manifest-path mycelix-commons/crates/mobility-configuration-qualification/Cargo.toml --bin mobility-target-bound-projection-qualification -- /tmp/witness-artifact.json >/tmp/rs 2>&1; then exit 1; fi
+      - name: Reverse configuration-artifact applicability and require rejection
+        run: |
+          python3 -c 'import json; p="docs/mobility/MOBILITY_RECONCILIATION_TARGET_BOUND_PROJECTION_V1_EXECUTABLE.json"; d=json.load(open(p)); b=d["cases"][0]["projection"]["configuration_artifact_binding"]; b["source"],b["target"]=b["target"],b["source"]; json.dump(d,open("/tmp/reversed-applies-to.json","w"))'
+          if python3 tools/mobility_target_bound_projection_reference.py /tmp/reversed-applies-to.json >/tmp/py 2>&1; then exit 1; fi
+          if cargo run --quiet --manifest-path mycelix-commons/crates/mobility-configuration-qualification/Cargo.toml --bin mobility-target-bound-projection-qualification -- /tmp/reversed-applies-to.json >/tmp/rs 2>&1; then exit 1; fi
