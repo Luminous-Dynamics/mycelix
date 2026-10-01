@@ -90,6 +90,45 @@ The adapter is responsible for producing an explicit dependency observation. The
 
 This lets the ROS-006 safety property advance now without coupling its core semantics to the Holochain migration.
 
+
+## Additional root-workspace finding
+
+A second pass over the active branch shows that the unified `mycelix-workspace/Cargo.toml` has a substantially larger direct Holochain surface than the three standalone application workspaces alone suggest. Its Holochain section directly pins:
+
+- `hdk = 0.6.1`
+- `hdi = 0.7.1`
+- `holochain = 0.6.1`
+- `holochain_client = 0.8.1`
+- `holochain_types = 0.6.1`
+- `holochain_zome_types = 0.6.1`
+- `holo_hash = 0.6.1`
+- `holochain_integrity_types = 0.6.1`
+- `holochain_state = 0.6.1`
+- `holochain_p2p = 0.6.1`
+- `holochain_keystore = 0.6.1`
+- `holochain_sqlite = 0.6.1`
+- `holochain_wasmer_host = 0.0.102`
+- `kitsune2 = 0.4.1`
+- `lair_keystore = 0.6.3`
+
+This makes the normalization task materially broader than changing only hdk/hdi. The official 0.7 compatibility table places the client at 0.9.0, Lair at 0.7.1, and the core/conductor at 0.7.0. The remaining internal Holochain crates should be allowed to resolve from the coherent 0.7 graph unless a concrete source-level reason requires a direct pin.
+
+The root workspace also contains comments documenting earlier attempts to keep standalone test workspaces containing loose Holochain 0.6 requirements out of the unified resolution. Those exclusions should be treated as migration inventory, not silently removed: each excluded workspace needs an explicit compatibility decision during the 0.7 normalization.
+
+### Consequence for execution
+
+The next Holochain migration should be treated as a **dependency-graph normalization**, not a version-string patch:
+
+1. establish one 0.7 compatibility matrix for each active Holochain workspace;
+2. update the root/unified workspace and standalone civic/commons workspaces coherently;
+3. update the Holonix/Nix lock graph;
+4. regenerate Cargo locks in the actual 0.7 environment;
+5. use compiler diagnostics to enumerate the 0.6 action/re-export/API migration;
+6. separately inspect excluded standalone test workspaces for stale 0.6 requirements;
+7. record which DNAs receive new hashes and therefore represent new networks.
+
+This is consistent with Holochain's documented 0.6→0.7 process and its warning that integrity dependency changes break DNA compatibility.
+
 ## Evidence status
 
 - Holochain 0.7 target: **confirmed from official compatibility guidance**.
