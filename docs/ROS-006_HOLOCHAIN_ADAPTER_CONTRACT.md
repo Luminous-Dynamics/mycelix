@@ -15,7 +15,7 @@ For every declared QualificationDependency:
 5. Retrieved content is decoded into the expected domain type.
 6. The adapter verifies that the retrieved content's canonical identity equals the declared logical ID and that the fetched address is the declared address.
 7. Malformed content or identity/address mismatch maps to Invalid.
-8. Only an independently verified dependency maps to Valid.
+8. Only an independently verified dependency produces an Attested observation.
 9. The resulting dependency manifest remains ordered and is bound into the qualification certificate and Relationship 360 projection.
 
 The adapter must not consult wall-clock time, mutable metadata, caller identity, link state, current application state, or network-dependent queries whose answer can vary between validators.
@@ -46,9 +46,11 @@ The semantic mapping is intentionally strict:
 
 | Host observation | Core result |
 | --- | --- |
-| exact address retrieved, expected type decoded, logical identity verified | Valid |
+| exact address retrieved, expected type decoded, logical identity verified | Attested observation |
 | address unavailable / dependency not yet retrievable | Unresolved |
 | malformed bytes, wrong entry/action type, logical ID mismatch, address mismatch, or explicit validation failure | Invalid |
+
+`QualificationDependencyResolution::Valid` is retained only as a legacy compatibility enum variant and is deliberately rejected by core qualification. A host adapter must return `Attested { observed: ... }`, not bare `Valid`.
 
 Never map an identity mismatch to Unresolved: the dependency was retrieved, so the failure is definitive.
 
@@ -56,7 +58,7 @@ Never map an unavailable dependency to Invalid: that would make temporary DHT in
 
 ## 5. Stronger attestation requirement
 
-The three-state resolver is intentionally a narrow seam, but a bare Valid result cannot by itself prove that an adapter actually validated the exact requested identity and address.
+The resolver seam is intentionally narrow, but a bare success result cannot by itself prove that an adapter actually validated the exact requested identity and address.
 
 The production adapter contract therefore returns an observation containing:
 
@@ -64,7 +66,7 @@ The production adapter contract therefore returns an observation containing:
 - observed logical ID;
 - exact retrieved record address.
 
-Core ROS compares all three fields with the requested dependency before accepting Valid.
+Core ROS compares all three fields with the requested dependency before accepting the dependency as qualified.
 
 This makes the security property enforceable at the version-neutral boundary rather than relying entirely on adapter discipline.
 
