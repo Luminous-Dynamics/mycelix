@@ -17,7 +17,7 @@
 //! This is runtime evidence of the Holochain 0.7 app-interface boundary, not a claim
 //! that every possible authorization dimension has been qualified.
 
-use holochain::conductor::api::{AppRequest, AppResponse};
+use holochain::conductor::api::{AppRequest, AppResponse, ZomeCallParamsSigned};
 use holochain::prelude::*;
 use holochain::sweettest::{SweetConductor, SweetDnaFile};
 use holochain::test_utils::new_zome_call_params;
