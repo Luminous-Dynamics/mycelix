@@ -1285,6 +1285,176 @@ mod tests {
         assert_eq!(result.eligible_independent_count, 2);
     }
 
+    fn receipt_for_composition(
+        composition: &FinalityEligibilityCompositionV1,
+    ) -> CurrentFinalityEligibilityReceiptV1 {
+        let mut receipt = CurrentFinalityEligibilityReceiptV1 {
+            receipt_id: "receipt-authoritative-1".into(),
+            effect_id: composition.effect_id.clone(),
+            effect_lineage_id: composition.effect_lineage_id.clone(),
+            lifecycle_generation_id: composition.lifecycle_generation_id.clone(),
+            route_id: composition.route_id.clone(),
+            provider_id: composition.provider_id.clone(),
+            provider_operation_id: composition.provider_operation_id.clone(),
+            provider_profile_root: composition.provider_profile_root.clone(),
+            semantic_environment_root: composition.semantic_environment_root.clone(),
+            observation_set_id: composition.observation_set_id.clone(),
+            observation_set_commitment: composition.observation_set_commitment.clone(),
+            d6n_assessment_commitment: composition.d6n_assessment_commitment.clone(),
+            witness_eligibility_ids: composition
+                .witnesses
+                .iter()
+                .filter_map(|witness| witness.d6o_eligibility_id.clone())
+                .collect(),
+            observer_generation_ids: composition
+                .witnesses
+                .iter()
+                .filter_map(|witness| witness.observer_generation_id.clone())
+                .collect(),
+            current_frontier_root: composition.current_frontier_root.clone(),
+            lifecycle_profile_id: composition.lifecycle_profile_id.clone(),
+            eligible_independent_count: composition.eligible_independent_count,
+            preserved_contradictory_count: composition.preserved_contradictory_count,
+            disposition: composition.disposition,
+            qualification_transition_id: composition
+                .qualification_transition_id
+                .clone()
+                .unwrap_or_default(),
+            receipt_commitment: String::new(),
+            claim_ceiling: composition.claim_ceiling.clone(),
+        };
+        receipt.receipt_commitment = receipt.recomputed_commitment();
+        receipt
+    }
+
+    #[test]
+    fn d6p_authoritative_provenance_rejects_source_substitution() {
+        let generation = generation("observer-A");
+        let evidence = observation("obs-1", &generation, ExternalObservedStateV1::Applied);
+        let set = set(&["obs-1"]);
+        let assessment = d6n_assessment(
+            &set,
+            &[(
+                "obs-1".into(),
+                "observer-A".into(),
+                ObservationClassificationV1::CorroboratingIndependent,
+            )],
+        );
+        let (_, eligibility) = ledger_and_receipt(&generation, &evidence);
+        let composition = compose_finality_eligibility(
+            &set,
+            &assessment,
+            std::slice::from_ref(&evidence),
+            std::slice::from_ref(&eligibility),
+            "life-profile-1",
+            "frontier-1",
+            1,
+        );
+        let receipt = receipt_for_composition(&composition);
+
+        assert!(verify_current_receipt_provenance(
+            &receipt,
+            &set,
+            &assessment,
+            std::slice::from_ref(&evidence),
+            std::slice::from_ref(&eligibility),
+            "life-profile-1",
+            "frontier-1",
+            1,
+        ));
+
+        let mut substituted_set = set.clone();
+        substituted_set.provider_operation_id = "operation-attacker".into();
+        assert!(!verify_current_receipt_provenance(
+            &receipt,
+            &substituted_set,
+            &assessment,
+            std::slice::from_ref(&evidence),
+            std::slice::from_ref(&eligibility),
+            "life-profile-1",
+            "frontier-1",
+            1,
+        ));
+
+        let substituted_assessment = d6n_assessment(
+            &set,
+            &[(
+                "obs-1".into(),
+                "observer-A".into(),
+                ObservationClassificationV1::ContradictoryIndependent,
+            )],
+        );
+        assert!(!verify_current_receipt_provenance(
+            &receipt,
+            &set,
+            &substituted_assessment,
+            std::slice::from_ref(&evidence),
+            std::slice::from_ref(&eligibility),
+            "life-profile-1",
+            "frontier-1",
+            1,
+        ));
+
+        let mut substituted_evidence = evidence.clone();
+        substituted_evidence.observer_id = "observer-attacker".into();
+        assert!(!verify_current_receipt_provenance(
+            &receipt,
+            &set,
+            &assessment,
+            std::slice::from_ref(&substituted_evidence),
+            std::slice::from_ref(&eligibility),
+            "life-profile-1",
+            "frontier-1",
+            1,
+        ));
+
+        let mut substituted_eligibility = eligibility.clone();
+        substituted_eligibility.dependency_snapshot_id = "snapshot-attacker".into();
+        assert!(!verify_current_receipt_provenance(
+            &receipt,
+            &set,
+            &assessment,
+            std::slice::from_ref(&evidence),
+            std::slice::from_ref(&substituted_eligibility),
+            "life-profile-1",
+            "frontier-1",
+            1,
+        ));
+
+        assert!(!verify_current_receipt_provenance(
+            &receipt,
+            &set,
+            &assessment,
+            std::slice::from_ref(&evidence),
+            std::slice::from_ref(&eligibility),
+            "lifecycle-attacker",
+            "frontier-1",
+            1,
+        ));
+
+        assert!(!verify_current_receipt_provenance(
+            &receipt,
+            &set,
+            &assessment,
+            std::slice::from_ref(&evidence),
+            std::slice::from_ref(&eligibility),
+            "life-profile-1",
+            "frontier-attacker",
+            1,
+        ));
+
+        assert!(!verify_current_receipt_provenance(
+            &receipt,
+            &set,
+            &assessment,
+            std::slice::from_ref(&evidence),
+            std::slice::from_ref(&eligibility),
+            "life-profile-1",
+            "frontier-1",
+            2,
+        ));
+    }
+
     #[test]
     fn d6p_composition_is_invariant_to_evidence_and_receipt_order() {
         let g1 = generation("observer-A");
