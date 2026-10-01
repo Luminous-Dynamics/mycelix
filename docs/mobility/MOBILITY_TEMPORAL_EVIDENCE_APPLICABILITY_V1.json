@@ -97,6 +97,54 @@
       "scenario": "Holochain validation treated as engineering authority",
       "expected_outcome": "rejected",
       "forbidden_inference": "protocol validation is not engineering authority"
+    },
+    {
+      "id": "TEA-017",
+      "scenario": "effectivity exactly equals configuration applicability",
+      "expected_outcome": "accepted",
+      "forbidden_inference": "temporal equality does not establish epistemic truth"
+    },
+    {
+      "id": "TEA-018",
+      "scenario": "effectivity is strictly inside configuration applicability",
+      "expected_outcome": "accepted",
+      "forbidden_inference": "narrower effectivity does not imply stronger evidence"
+    },
+    {
+      "id": "TEA-019",
+      "scenario": "effectivity extends beyond configuration applicability",
+      "expected_outcome": "rejected",
+      "forbidden_inference": "evidence cannot silently outlive its declared configuration scope"
+    },
+    {
+      "id": "TEA-020",
+      "scenario": "effectivity begins before configuration applicability",
+      "expected_outcome": "rejected",
+      "forbidden_inference": "evidence cannot silently predate its declared configuration scope"
+    },
+    {
+      "id": "TEA-021",
+      "scenario": "open configuration applicability contains open evidence effectivity",
+      "expected_outcome": "accepted",
+      "forbidden_inference": "open-ended effectivity does not mean permanent truth"
+    },
+    {
+      "id": "TEA-022",
+      "scenario": "finite configuration applicability contains open evidence effectivity",
+      "expected_outcome": "rejected",
+      "forbidden_inference": "open evidence effectivity cannot outlive finite configuration scope"
+    },
+    {
+      "id": "TEA-023",
+      "scenario": "event interval is disjoint from both effectivity and configuration intervals",
+      "expected_outcome": "accepted",
+      "forbidden_inference": "temporal disjointness does not erase historical event provenance"
+    },
+    {
+      "id": "TEA-024",
+      "scenario": "successor configuration attempts predecessor evidence effectivity",
+      "expected_outcome": "rejected",
+      "forbidden_inference": "configuration succession does not inherit evidence"
     }
   ]
 }
