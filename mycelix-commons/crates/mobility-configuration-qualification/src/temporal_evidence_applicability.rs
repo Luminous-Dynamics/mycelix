@@ -31,6 +31,91 @@ pub enum EvidenceDisposition {
     Unresolved,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EvidenceDispositionTransition {
+    /// Evidence record whose epistemic state is changing.
+    pub evidence: IdentityRef,
+    /// Explicit predecessor transition. None is permitted only for the initial
+    /// disposition assertion; subsequent transitions must point to exactly one
+    /// prior transition record.
+    pub predecessor: Option<IdentityRef>,
+    pub from: EvidenceDisposition,
+    pub to: EvidenceDisposition,
+    /// Addressable witness for why the transition is being asserted.
+    pub basis: IdentityRef,
+}
+
+impl EvidenceDispositionTransition {
+    pub fn validate(&self) -> Result<(), String> {
+        self.evidence.validate()?;
+        if !matches!(
+            self.evidence.kind,
+            IdentityKind::InspectionRecord
+                | IdentityKind::TestRecord
+                | IdentityKind::OperationalObservation
+                | IdentityKind::MaintenanceEvent
+        ) {
+            return Err("disposition transition requires a typed evidence event".into());
+        }
+
+        if let Some(predecessor) = &self.predecessor {
+            predecessor.validate()?;
+            if predecessor == &self.evidence {
+                return Err("disposition predecessor cannot be the evidence record itself".into());
+            }
+            if !matches!(
+                predecessor.kind,
+                IdentityKind::EvidenceRecord | IdentityKind::ReconciliationWitness
+            ) {
+                return Err("disposition predecessor must be an EvidenceRecord or ReconciliationWitness".into());
+            }
+        }
+
+        self.basis.validate()?;
+        if self.basis == self.evidence {
+            return Err("disposition basis cannot be the evidence record itself".into());
+        }
+        if !matches!(
+            self.basis.kind,
+            IdentityKind::EvidenceRecord | IdentityKind::ReconciliationWitness
+        ) {
+            return Err("disposition basis must be an EvidenceRecord or ReconciliationWitness".into());
+        }
+
+        self.from.validate(&self.evidence)?;
+        self.to.validate(&self.evidence)?;
+
+        if self.from == self.to {
+            return Err("disposition transition must change epistemic state".into());
+        }
+
+        if self.predecessor.is_none() && self.from != EvidenceDisposition::Active {
+            return Err("genesis disposition must start from Active".into());
+        }
+
+        match (&self.from, &self.to) {
+            (EvidenceDisposition::Active, EvidenceDisposition::Disputed { .. })
+            | (EvidenceDisposition::Active, EvidenceDisposition::Superseded { .. })
+            | (EvidenceDisposition::Active, EvidenceDisposition::Retracted { .. })
+            | (EvidenceDisposition::Active, EvidenceDisposition::Unresolved)
+            | (EvidenceDisposition::Disputed { .. }, EvidenceDisposition::Active)
+            | (EvidenceDisposition::Disputed { .. }, EvidenceDisposition::Superseded { .. })
+            | (EvidenceDisposition::Disputed { .. }, EvidenceDisposition::Retracted { .. })
+            | (EvidenceDisposition::Disputed { .. }, EvidenceDisposition::Unresolved)
+            | (EvidenceDisposition::Unresolved, EvidenceDisposition::Active)
+            | (EvidenceDisposition::Unresolved, EvidenceDisposition::Disputed { .. })
+            | (EvidenceDisposition::Unresolved, EvidenceDisposition::Superseded { .. })
+            | (EvidenceDisposition::Unresolved, EvidenceDisposition::Retracted { .. }) => Ok(()),
+            (EvidenceDisposition::Superseded { .. }, _)
+            | (EvidenceDisposition::Retracted { .. }, _) => {
+                Err("superseded and retracted dispositions are terminal".into())
+            }
+            _ => Err("unsupported evidence disposition transition".into()),
+        }
+    }
+}
+
 impl EvidenceDisposition {
     pub fn validate(&self, evidence: &IdentityRef) -> Result<(), String> {
         let witness = match self {
