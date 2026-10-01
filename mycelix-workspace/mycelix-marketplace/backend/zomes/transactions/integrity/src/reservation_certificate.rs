@@ -440,6 +440,90 @@ mod tests {
         }).unwrap_err();
         assert!(matches!(error, CertificateError::AlreadyReleased(_)));
     }
+
+    fn transaction_for(intent: &PurchaseIntent) -> crate::Transaction {
+        crate::Transaction {
+            buyer: intent.buyer.clone(),
+            seller: intent.seller.clone(),
+            listing_hash: intent.listing_hash.clone(),
+            reservation_certificate_hash: hash(99),
+            quantity: intent.quantity,
+            total_price_cents: intent.unit_price_cents * u64::from(intent.quantity),
+            status: crate::TransactionStatus::Pending,
+            created_at: Timestamp::from_micros(1_000_000),
+            updated_at: Timestamp::from_micros(1_000_000),
+            tracking_info: None,
+            epistemic: crate::EpistemicClassification {
+                empirical: crate::EmpiricalLevel::E1Testimonial,
+                normative: crate::NormativeLevel::N1Communal,
+                materiality: crate::MaterialityLevel::M1Temporal,
+            },
+        }
+    }
+
+    #[test]
+    fn transaction_binding_accepts_exact_certificate_terms() {
+        let i = intent();
+        let c = certificate("c1", 0, None, i.quantity);
+        let tx = transaction_for(&i);
+        assert!(validate_transaction_reservation_binding(&tx, &c).is_ok());
+    }
+
+    #[test]
+    fn transaction_binding_rejects_cross_listing_certificate() {
+        let i = intent();
+        let c = certificate("c1", 0, None, i.quantity);
+        let mut tx = transaction_for(&i);
+        tx.listing_hash = hash(77);
+        assert!(validate_transaction_reservation_binding(&tx, &c)
+            .unwrap_err()
+            .contains("listing"));
+    }
+
+    #[test]
+    fn transaction_binding_rejects_cross_buyer_certificate() {
+        let i = intent();
+        let c = certificate("c1", 0, None, i.quantity);
+        let mut tx = transaction_for(&i);
+        tx.buyer = agent(88);
+        assert!(validate_transaction_reservation_binding(&tx, &c)
+            .unwrap_err()
+            .contains("buyer"));
+    }
+
+    #[test]
+    fn transaction_binding_rejects_quantity_mismatch() {
+        let i = intent();
+        let c = certificate("c1", 0, None, i.quantity);
+        let mut tx = transaction_for(&i);
+        tx.quantity = 2;
+        tx.total_price_cents = i.unit_price_cents * 2;
+        assert!(validate_transaction_reservation_binding(&tx, &c)
+            .unwrap_err()
+            .contains("quantity"));
+    }
+
+    #[test]
+    fn transaction_binding_rejects_price_mismatch() {
+        let i = intent();
+        let c = certificate("c1", 0, None, i.quantity);
+        let mut tx = transaction_for(&i);
+        tx.total_price_cents += 1;
+        assert!(validate_transaction_reservation_binding(&tx, &c)
+            .unwrap_err()
+            .contains("total"));
+    }
+
+    #[test]
+    fn transaction_binding_rejects_certificate_that_is_listing_hash() {
+        let i = intent();
+        let c = certificate("c1", 0, None, i.quantity);
+        let mut tx = transaction_for(&i);
+        tx.reservation_certificate_hash = tx.listing_hash.clone();
+        assert!(validate_transaction_reservation_binding(&tx, &c)
+            .unwrap_err()
+            .contains("distinct"));
+    }
 }
 
 
