@@ -6,6 +6,8 @@ Branch: `feat/ros-006-qualification-boundary-v2`
 
 ## Purpose
 
+Detailed source-level inventory: [`ROS-006_HOLOCHAIN_07_SOURCE_MIGRATION_INVENTORY.md`](ROS-006_HOLOCHAIN_07_SOURCE_MIGRATION_INVENTORY.md).
+
 This matrix turns the repository's confirmed 0.6-era Holochain surface into an explicit migration contract. It is intentionally separate from ROS-006 qualification semantics.
 
 Holochain's official 0.7 compatibility generation is:
