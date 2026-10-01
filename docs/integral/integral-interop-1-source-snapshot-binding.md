@@ -61,6 +61,16 @@ The canonical receipt constructor uses the same source-binding check, so a
 self-consistent projection cannot become a canonical D6S receipt merely by
 recomputing its projection and receipt commitments.
 
+## Trust in the environment
+
+The equality check is only as authoritative as the supplied semantic environment.
+D6S computes and checks the environment's commitment, but this reference model
+does not authenticate who supplied that environment or prove that its
+`dependency_snapshot_root` was obtained from a trusted DKG boundary. A caller
+must authenticate or independently obtain the environment before treating its
+snapshot root as authoritative. If that step is absent, the check establishes
+internal consistency only—not source provenance.
+
 ## What this does not prove
 
 This tranche does **not** prove that a supplied source snapshot commitment is backed by a particular external DKG snapshot object. That requires an explicit source-snapshot object and a separately specified commitment algorithm at the DKG boundary.
