@@ -196,6 +196,31 @@ impl FinalityEligibilityCompositionV1 {
                 return false;
             }
 
+            let expected_witness_commitment = format!(
+                "witness:{}:{}:{}",
+                witness.observation_id,
+                self.observation_set_commitment,
+                witness
+                    .d6o_eligibility_id
+                    .as_deref()
+                    .unwrap_or("missing")
+            );
+            if witness.witness_commitment != expected_witness_commitment {
+                return false;
+            }
+
+            let d6o_fields_present = witness.d6o_eligibility_id.is_some()
+                || witness.d6o_disposition.is_some()
+                || witness.d6o_dependency_snapshot_id.is_some()
+                || witness.observer_generation_id.is_some();
+            let d6o_fields_complete = witness.d6o_eligibility_id.is_some()
+                && witness.d6o_disposition.is_some()
+                && witness.d6o_dependency_snapshot_id.is_some()
+                && witness.observer_generation_id.is_some();
+            if d6o_fields_present != d6o_fields_complete {
+                return false;
+            }
+
             if witness.counts_as_current_independent_witness() {
                 derived_eligible_count += 1;
             }
