@@ -17,6 +17,7 @@ pub enum IdentityKind {
     MaintenanceEvent,
     ChangeSet,
     EvidenceRecord,
+    ReconciliationWitness,
 }
 
 /// An explicitly namespaced engineering identifier.
@@ -125,6 +126,7 @@ impl LineageEdge {
                 (IdentityKind::DesignRevision, IdentityKind::DesignRevision)
                     | (IdentityKind::ConfigurationRevision, IdentityKind::ConfigurationRevision)
                     | (IdentityKind::EvidenceRecord, IdentityKind::EvidenceRecord)
+                    | (IdentityKind::ReconciliationWitness, IdentityKind::ReconciliationWitness)
             ),
         };
 
@@ -258,6 +260,28 @@ mod tests {
         let a = id(IdentityKind::PhysicalArtifact, "artifact-a");
         let b = id(IdentityKind::PhysicalArtifact, "artifact-b");
         assert_ne!(a, b);
+    }
+
+    #[test]
+    #[test]
+    fn witness_supersession_preserves_witness_identity_history() {
+        let old = id(IdentityKind::ReconciliationWitness, "witness-r1");
+        let new = id(IdentityKind::ReconciliationWitness, "witness-r2");
+        assert!(LineageEdge {
+            relation: LineageRelation::Supersedes,
+            source: new,
+            target: old,
+        }
+        .validate()
+        .is_ok());
+    }
+
+    #[test]
+    fn reconciliation_witness_is_not_a_claim_identity() {
+        let witness = id(IdentityKind::ReconciliationWitness, "witness-r1");
+        let claim = id(IdentityKind::EvidenceRecord, "claim-r1");
+        assert_ne!(witness, claim);
+        assert_ne!(witness.kind, claim.kind);
     }
 
     #[test]
