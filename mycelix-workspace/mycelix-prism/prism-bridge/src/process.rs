@@ -93,14 +93,49 @@ pub enum SandboxAdapterKind {
     UnsupportedPlatform,
 }
 
-/// Non-secret evidence from the OS sandbox adapter. A policy digest alone is
-/// never accepted as evidence; enforced must only be true after actual OS enforcement.
+/// Distinct OS-enforced security layers. An adapter may enforce only a subset;
+/// the supervisor must require coverage of every layer required by the profile.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(u8)]
+pub enum SandboxEnforcementLayer {
+    Filesystem = 0,
+    Network = 1,
+    Device = 2,
+    ChildProcess = 3,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SandboxEnforcementSet(u8);
+
+impl SandboxEnforcementSet {
+    pub const EMPTY: Self = Self(0);
+    pub const fn from_layer(layer: SandboxEnforcementLayer) -> Self { Self(1 << (layer as u8)) }
+    pub const fn contains(self, layer: SandboxEnforcementLayer) -> bool { self.0 & (1 << (layer as u8)) != 0 }
+    pub const fn union(self, other: Self) -> Self { Self(self.0 | other.0) }
+    pub const fn covers(self, required: Self) -> bool { self.0 & required.0 == required.0 }
+}
+
+impl SandboxProfileV1 {
+    /// Capability authority requires an OS enforcement receipt covering every
+    /// layer required by the broker-owned renderer profile.
+    pub const fn required_enforcement_layers(self) -> SandboxEnforcementSet {
+        SandboxEnforcementSet::from_layer(SandboxEnforcementLayer::Filesystem)
+            .union(SandboxEnforcementSet::from_layer(SandboxEnforcementLayer::Network))
+            .union(SandboxEnforcementSet::from_layer(SandboxEnforcementLayer::Device))
+            .union(SandboxEnforcementSet::from_layer(SandboxEnforcementLayer::ChildProcess))
+    }
+}
+
+/// Non-secret evidence from an OS sandbox adapter. The policy digest commits to
+/// the requested profile; enforced_layers records what this adapter actually
+/// enforced. A digest alone is never proof of enforcement.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SandboxEnforcementReceipt {
     pub assignment_id: RendererProcessAssignmentId,
     pub installation_id: SandboxInstallationId,
     pub adapter: SandboxAdapterKind,
     pub policy_digest: [u8; 32],
+    pub enforced_layers: SandboxEnforcementSet,
     pub enforced: bool,
 }
 
