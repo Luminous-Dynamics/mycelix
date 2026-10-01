@@ -11,6 +11,8 @@ use crate::temporal_reconciliation::{
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TemporalReconciliationWitness {
+    /// Stable engineering identity for this witness; distinct from both claims.
+    pub witness_identity: IdentityRef,
     pub left_claim: IdentityRef,
     pub right_claim: IdentityRef,
     pub left_applicability: TemporalInterval,
@@ -24,6 +26,10 @@ pub struct TemporalReconciliationWitness {
 
 impl TemporalReconciliationWitness {
     pub fn validate(&self) -> Result<(), String> {
+        self.witness_identity.validate()?;
+        if self.witness_identity.kind != crate::identity_lineage::IdentityKind::ReconciliationWitness {
+            return Err("reconciliation witness identity must use ReconciliationWitness kind".into());
+        }
         self.left_claim.validate()?;
         self.right_claim.validate()?;
         if self.left_claim == self.right_claim {
@@ -63,6 +69,7 @@ mod tests {
     }
 
     fn conflict_witness() -> TemporalReconciliationWitness {
+        let witness_identity = claim("witness-1", IdentityKind::ReconciliationWitness);
         let left = claim("claim-a", IdentityKind::EvidenceRecord);
         let right = claim("claim-b", IdentityKind::EvidenceRecord);
         let left_applicability = interval(Some(0), Some(10));
@@ -76,6 +83,7 @@ mod tests {
             false,
         ).unwrap();
         TemporalReconciliationWitness {
+            witness_identity,
             left_claim: left,
             right_claim: right,
             left_applicability,
@@ -86,6 +94,29 @@ mod tests {
             disputed: false,
             result,
         }
+    }
+
+    #[test]
+    #[test]
+    fn witness_identity_is_distinct_from_claim_identity() {
+        let witness = conflict_witness();
+        assert_eq!(witness.witness_identity.kind, IdentityKind::ReconciliationWitness);
+        assert_ne!(witness.witness_identity, witness.left_claim);
+        assert_ne!(witness.witness_identity, witness.right_claim);
+    }
+
+    #[test]
+    fn wrong_witness_identity_kind_is_rejected() {
+        let mut witness = conflict_witness();
+        witness.witness_identity.kind = IdentityKind::EvidenceRecord;
+        assert!(witness.validate().is_err());
+    }
+
+    #[test]
+    fn missing_witness_identity_is_rejected() {
+        let mut witness = conflict_witness();
+        witness.witness_identity.id.clear();
+        assert!(witness.validate().is_err());
     }
 
     #[test]
