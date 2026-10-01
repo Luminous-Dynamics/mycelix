@@ -95,7 +95,8 @@ The eventual concrete adapter should have host-level tests for at least:
 - resolver output cannot depend on caller identity;
 - resolver output cannot depend on mutable link/current-state metadata;
 - a retrieved dependency that is valid as a CreateRecord but fails the ROS domain identity/lifecycle checks is still invalid for ROS-006;
-- an adapter cannot return Valid while changing kind, logical ID, or exact record address in its observed result;
+- an adapter cannot return Attested while changing kind, logical ID, or exact record address in its observed result;
+- a bare Valid result is rejected as unattested;
 - repeated qualification with the same pinned inputs produces the same certificate digest and projection bytes.
 
 ## 7. Integration placement
@@ -118,7 +119,7 @@ It is not a bearer capability, does not grant authority, and must not be interpr
 
 1. Reconcile and explicitly document the Holochain dependency matrix used by the workspace.
 2. Define the Relationship 360 integrity/coordinator boundary.
-3. Implement the thin adapter with observed identity/address binding.
+3. Implement the thin adapter with observed identity/address binding; the core attestation check is already present.
 4. Run the adversarial matrix at the adapter boundary.
 5. Only then allow Relationship 360 projection to consume qualified inputs.
 
