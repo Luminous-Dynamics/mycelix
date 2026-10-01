@@ -18,6 +18,7 @@ struct Case {
     expected: String,
     target: mobility_configuration_qualification::identity_lineage::IdentityRef,
     configuration_scope: mobility_configuration_qualification::identity_lineage::IdentityRef,
+    physical_artifact_scope: mobility_configuration_qualification::identity_lineage::IdentityRef,
     witness: TemporalReconciliationWitness,
     projection: TargetBoundReconciliationProjection,
     base_state: EvidenceState,
@@ -28,7 +29,7 @@ struct Case {
 struct Normalized { id: String, operation: String, expected: String, actual: String }
 
 fn evaluate(c: &Case) -> String {
-    match c.projection.apply(&c.target, &c.configuration_scope, &c.witness, &c.base_state) {
+    match c.projection.apply(&c.target, &c.configuration_scope, &c.physical_artifact_scope, &c.witness, &c.base_state) {
         Ok(actual) if actual == c.expected_state => "accepted".into(),
         _ => "rejected".into(),
     }
@@ -41,9 +42,9 @@ fn main() {
     assert_eq!(corpus.schema, "mobility-reconciliation-target-bound-projection-executable-v1");
     assert_eq!(corpus.schema_version, "mobility-reconciliation-target-bound-projection-v1");
     assert_eq!(corpus.status, "semantic-provenance-only");
-    assert_eq!(corpus.cases.len(), 18);
+    assert_eq!(corpus.cases.len(), 26);
 
-    let expected_ids: Vec<String> = (1..=18).map(|n| format!("TBP-{n:03}")).collect();
+    let expected_ids: Vec<String> = (1..=26).map(|n| format!("TBP-{n:03}")).collect();
     let actual_ids: Vec<String> = corpus.cases.iter().map(|c| c.id.clone()).collect();
     assert_eq!(actual_ids, expected_ids);
 

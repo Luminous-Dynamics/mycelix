@@ -16,6 +16,8 @@ use serde::{Deserialize, Serialize};
 pub struct TargetBoundReconciliationProjection {
     pub target: IdentityRef,
     pub configuration_scope: IdentityRef,
+    pub physical_artifact_scope: IdentityRef,
+    pub configuration_artifact_binding: crate::identity_lineage::LineageEdge,
     pub projection: ReconciliationEvidenceProjection,
 }
 
@@ -24,6 +26,7 @@ impl TargetBoundReconciliationProjection {
         &self,
         target: &IdentityRef,
         configuration_scope: &IdentityRef,
+        physical_artifact_scope: &IdentityRef,
         witness: &TemporalReconciliationWitness,
         base: &EvidenceState,
     ) -> Result<(), String> {
@@ -40,6 +43,22 @@ impl TargetBoundReconciliationProjection {
         }
         if &self.configuration_scope != configuration_scope {
             return Err("projection configuration scope does not identify the supplied configuration scope".into());
+        }
+        self.physical_artifact_scope.validate()?;
+        if self.physical_artifact_scope.kind != IdentityKind::PhysicalArtifact {
+            return Err("projection physical artifact scope must use PhysicalArtifact identity kind".into());
+        }
+        if &self.physical_artifact_scope != physical_artifact_scope {
+            return Err("projection physical artifact scope does not identify the supplied physical artifact".into());
+        }
+        self.configuration_artifact_binding.validate()?;
+        if self.configuration_artifact_binding.relation != crate::identity_lineage::LineageRelation::AppliesTo {
+            return Err("configuration-artifact binding must use AppliesTo relation".into());
+        }
+        if self.configuration_artifact_binding.source != self.configuration_scope
+            || self.configuration_artifact_binding.target != self.physical_artifact_scope
+        {
+            return Err("configuration-artifact binding must exactly match configuration and physical artifact scopes".into());
         }
         if self.configuration_scope == witness.witness_identity
             || self.configuration_scope == witness.left_claim
@@ -60,10 +79,11 @@ impl TargetBoundReconciliationProjection {
         &self,
         target: &IdentityRef,
         configuration_scope: &IdentityRef,
+        physical_artifact_scope: &IdentityRef,
         witness: &TemporalReconciliationWitness,
         base: &EvidenceState,
     ) -> Result<EvidenceState, String> {
-        self.validate(target, configuration_scope, witness, base)?;
+        self.validate(target, configuration_scope, physical_artifact_scope, witness, base)?;
         self.projection.apply(witness, base)
     }
 
@@ -138,6 +158,12 @@ mod tests {
         TargetBoundReconciliationProjection {
             target,
             configuration_scope: id(IdentityKind::ConfigurationRevision, "config-r1"),
+            physical_artifact_scope: id(IdentityKind::PhysicalArtifact, "artifact-a"),
+            configuration_artifact_binding: crate::identity_lineage::LineageEdge {
+                relation: crate::identity_lineage::LineageRelation::AppliesTo,
+                source: id(IdentityKind::ConfigurationRevision, "config-r1"),
+                target: id(IdentityKind::PhysicalArtifact, "artifact-a"),
+            },
             projection: ReconciliationEvidenceProjection::ConflictReferenceOnly {
                 witness_ref: id(IdentityKind::ReconciliationWitness, "w1"),
             },
@@ -147,28 +173,28 @@ mod tests {
     #[test]
     fn exact_target_binding_is_accepted() {
         let t = target("target-a");
-        assert!(projection(t.clone()).apply(&t, &id(IdentityKind::ConfigurationRevision, "config-r1"), &witness(), &base()).is_ok());
+        assert!(projection(t.clone()).apply(&t, &id(IdentityKind::ConfigurationRevision, "config-r1"), &id(IdentityKind::PhysicalArtifact, "artifact-a"), &witness(), &base()).is_ok());
     }
 
     #[test]
     fn different_target_is_rejected_even_with_identical_state() {
         let declared = target("target-a");
         let supplied = target("target-b");
-        assert!(projection(declared).apply(&supplied, &id(IdentityKind::ConfigurationRevision, "config-r1"), &witness(), &base()).is_err());
+        assert!(projection(declared).apply(&supplied, &id(IdentityKind::ConfigurationRevision, "config-r1"), &id(IdentityKind::PhysicalArtifact, "artifact-a"), &witness(), &base()).is_err());
     }
 
     #[test]
     fn witness_identity_cannot_be_target() {
         let t = id(IdentityKind::ReconciliationWitness, "w1");
         let p = projection(t.clone());
-        assert!(p.validate(&t, &id(IdentityKind::ConfigurationRevision, "config-r1"), &witness(), &base()).is_err());
+        assert!(p.validate(&t, &id(IdentityKind::ConfigurationRevision, "config-r1"), &id(IdentityKind::PhysicalArtifact, "artifact-a"), &witness(), &base()).is_err());
     }
 
     #[test]
     fn compared_claim_identity_cannot_be_target() {
         let t = id(IdentityKind::EvidenceRecord, "claim-a");
         let p = projection(t.clone());
-        assert!(p.validate(&t, &id(IdentityKind::ConfigurationRevision, "config-r1"), &witness(), &base()).is_err());
+        assert!(p.validate(&t, &id(IdentityKind::ConfigurationRevision, "config-r1"), &id(IdentityKind::PhysicalArtifact, "artifact-a"), &witness(), &base()).is_err());
     }
 
     #[test]
@@ -179,16 +205,15 @@ mod tests {
             id: "uhC0target".into(),
         };
         let p = projection(t.clone());
-        assert!(p.validate(&t, &witness(), &base()).is_err());
+        assert!(p.validate(&t, &id(IdentityKind::ConfigurationRevision, "config-r1"), &id(IdentityKind::PhysicalArtifact, "artifact-a"), &witness(), &base()).is_err());
     }
 
-    #[test]
     #[test]
     fn configuration_scope_must_be_explicitly_matching() {
         let t = target("target-a");
         let p = projection(t.clone());
         let wrong_scope = id(IdentityKind::ConfigurationRevision, "config-r2");
-        assert!(p.validate(&t, &wrong_scope, &witness(), &base()).is_err());
+        assert!(p.validate(&t, &wrong_scope, &id(IdentityKind::PhysicalArtifact, "artifact-a"), &witness(), &base()).is_err());
     }
 
     #[test]
@@ -196,7 +221,7 @@ mod tests {
         let t = target("target-a");
         let p = projection(t.clone());
         let witness_scope = id(IdentityKind::ReconciliationWitness, "w1");
-        assert!(p.validate(&t, &witness_scope, &witness(), &base()).is_err());
+        assert!(p.validate(&t, &witness_scope, &id(IdentityKind::PhysicalArtifact, "artifact-a"), &witness(), &base()).is_err());
     }
 
     #[test]
@@ -204,14 +229,58 @@ mod tests {
         let t = target("target-a");
         let p = projection(t.clone());
         let scope = IdentityRef { kind: IdentityKind::ConfigurationRevision, namespace: "holochain".into(), id: "uhC0config".into() };
-        assert!(p.validate(&t, &scope, &witness(), &base()).is_err());
+        assert!(p.validate(&t, &scope, &id(IdentityKind::PhysicalArtifact, "artifact-a"), &witness(), &base()).is_err());
+    }
+
+    #[test]
+    fn different_physical_artifact_is_rejected() {
+        let t = target("target-a");
+        let p = projection(t.clone());
+        assert!(p.apply(
+            &t,
+            &id(IdentityKind::ConfigurationRevision, "config-r1"),
+            &id(IdentityKind::PhysicalArtifact, "artifact-b"),
+            &witness(),
+            &base(),
+        ).is_err());
+    }
+
+    #[test]
+    fn reversed_configuration_artifact_binding_is_rejected() {
+        let t = target("target-a");
+        let mut p = projection(t.clone());
+        p.configuration_artifact_binding = crate::identity_lineage::LineageEdge {
+            relation: crate::identity_lineage::LineageRelation::AppliesTo,
+            source: id(IdentityKind::PhysicalArtifact, "artifact-a"),
+            target: id(IdentityKind::ConfigurationRevision, "config-r1"),
+        };
+        assert!(p.validate(
+            &t,
+            &id(IdentityKind::ConfigurationRevision, "config-r1"),
+            &id(IdentityKind::PhysicalArtifact, "artifact-a"),
+            &witness(),
+            &base(),
+        ).is_err());
+    }
+
+    #[test]
+    fn artifact_identity_cannot_be_configuration_scope() {
+        let t = target("target-a");
+        let p = projection(t.clone());
+        assert!(p.validate(
+            &t,
+            &id(IdentityKind::PhysicalArtifact, "artifact-a"),
+            &id(IdentityKind::PhysicalArtifact, "artifact-a"),
+            &witness(),
+            &base(),
+        ).is_err());
     }
 
     #[test]
     fn historical_target_binding_is_independent_of_witness_revision() {
         let t = target("target-a");
         let p1 = projection(t.clone());
-        assert!(p1.apply(&t, &id(IdentityKind::ConfigurationRevision, "config-r1"), &witness(), &base()).is_ok());
+        assert!(p1.apply(&t, &id(IdentityKind::ConfigurationRevision, "config-r1"), &id(IdentityKind::PhysicalArtifact, "artifact-a"), &witness(), &base()).is_ok());
         assert_eq!(p1.witness_identity().id, "w1");
         assert_eq!(p1.target.id, "target-a");
     }

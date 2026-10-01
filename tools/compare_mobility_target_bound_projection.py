@@ -3,7 +3,7 @@ import json, sys
 from pathlib import Path
 
 VERSION = "mobility-reconciliation-target-bound-projection-v1"
-IDS = [f"TBP-{i:03}" for i in range(1, 19)]
+IDS = [f"TBP-{i:03}" for i in range(1, 27)]
 
 def load(path):
     d = json.loads(Path(path).read_text())
@@ -17,4 +17,4 @@ def load(path):
 
 a, b = load(sys.argv[1]), load(sys.argv[2])
 assert a == b, "normalized outputs differ"
-print(json.dumps({"result": "matched", "cases": 18, "scope": "semantic-provenance-only"}))
+print(json.dumps({"result": "matched", "cases": 26, "scope": "semantic-provenance-only"}))
