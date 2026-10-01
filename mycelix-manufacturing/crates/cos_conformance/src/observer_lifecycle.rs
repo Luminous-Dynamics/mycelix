@@ -861,7 +861,7 @@ impl ObserverLifecycleLedgerV1 {
         &mut self,
         receipt: EvidenceEligibilityReceiptV1,
     ) -> LifecycleRecordDispositionV1 {
-        if !receipt.structurally_valid() {
+        if !receipt.commitment_matches() {
             return LifecycleRecordDispositionV1::InsufficientEvidence;
         }
         match self.eligibility_receipts.get(&receipt.eligibility_id) {
@@ -1163,6 +1163,22 @@ pub fn eligibility_receipt_matches(
         && receipt.qualification_profile_id == profile.profile_id
 }
 
+fn expected_eligibility_transition_ids(
+    generation_id: &str,
+    current_frontier_sequence: u64,
+    ledger: &ObserverLifecycleLedgerV1,
+) -> BTreeSet<String> {
+    ledger
+        .transitions
+        .values()
+        .filter(|transition| {
+            transition.predecessor_generation_id == generation_id
+                && transition.effective_frontier_sequence <= current_frontier_sequence
+        })
+        .map(|transition| transition.transition_id.clone())
+        .collect()
+}
+
 /// Reconstruct the D6O qualified boundary from the authoritative lifecycle ledger.
 ///
 /// This verifies the receipt against the same eligibility procedure that produced it,
@@ -1183,6 +1199,15 @@ pub fn verify_eligibility_receipt_provenance(
         return false;
     }
     if receipt.current_generation_id.as_deref() != Some(generation.generation_id.as_str()) {
+        return false;
+    }
+    if receipt.lifecycle_transition_ids
+        != expected_eligibility_transition_ids(
+            &generation.generation_id,
+            receipt.current_frontier_sequence,
+            ledger,
+        )
+    {
         return false;
     }
 
