@@ -71,6 +71,13 @@ jobs:
           test -s flake.lock
           sha256sum flake.lock | tee -a "$GITHUB_WORKSPACE/hearth-07-lock-refresh-evidence.txt"
 
+      - name: Generate Hearth SDK package-lock.json
+        working-directory: mycelix-workspace/mycelix-hearth/sdk-ts
+        timeout-minutes: 15
+        run: |
+          nix develop ../.#ci --command npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          test -s package-lock.json
+
       - name: Verify Holochain 0.7 source invariants
         working-directory: mycelix-workspace/mycelix-hearth
         run: bash tools/verify-holochain-07.sh
@@ -122,6 +129,7 @@ jobs:
             "mycelix-workspace/mycelix-hearth/flake.lock"
             "mycelix-workspace/mycelix-hearth/Cargo.lock"
             "mycelix-workspace/mycelix-hearth/tests/Cargo.lock"
+            "mycelix-workspace/mycelix-hearth/sdk-ts/package-lock.json"
           )
           for path in "${changed[@]}"; do
             case " ${allowed[*]} " in
@@ -137,6 +145,7 @@ jobs:
           test -s mycelix-workspace/mycelix-hearth/flake.lock
           test -s mycelix-workspace/mycelix-hearth/Cargo.lock
           test -s mycelix-workspace/mycelix-hearth/tests/Cargo.lock
+          test -s mycelix-workspace/mycelix-hearth/sdk-ts/package-lock.json
 
       - name: Commit generated dependency closure
         shell: bash
@@ -149,7 +158,8 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add mycelix-workspace/mycelix-hearth/flake.lock \
             mycelix-workspace/mycelix-hearth/Cargo.lock \
-            mycelix-workspace/mycelix-hearth/tests/Cargo.lock
+            mycelix-workspace/mycelix-hearth/tests/Cargo.lock \
+            mycelix-workspace/mycelix-hearth/sdk-ts/package-lock.json
           if git diff --cached --quiet; then
             echo "No dependency-lock changes were generated."
             exit 0
@@ -166,5 +176,6 @@ jobs:
             hearth-07-lock-refresh-evidence.txt
             mycelix-workspace/mycelix-hearth/Cargo.lock
             mycelix-workspace/mycelix-hearth/tests/Cargo.lock
+            mycelix-workspace/mycelix-hearth/sdk-ts/package-lock.json
           if-no-files-found: error
           retention-days: 30
