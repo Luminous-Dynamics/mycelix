@@ -1158,6 +1158,98 @@ mod tests {
     }
 
     #[test]
+    fn d6p_composition_is_invariant_to_evidence_and_receipt_order() {
+        let g1 = generation("observer-A");
+        let g2 = generation("observer-B");
+        let e1 = observation("obs-1", &g1, ExternalObservedStateV1::Applied);
+        let e2 = observation("obs-2", &g2, ExternalObservedStateV1::Applied);
+        let s = set(&["obs-1", "obs-2"]);
+        let a = d6n_assessment(
+            &s,
+            &[
+                ("obs-1".into(), "observer-A".into(), ObservationClassificationV1::CorroboratingIndependent),
+                ("obs-2".into(), "observer-B".into(), ObservationClassificationV1::CorroboratingIndependent),
+            ],
+        );
+        let (_, r1) = ledger_and_receipt(&g1, &e1);
+        let (_, r2) = ledger_and_receipt(&g2, &e2);
+
+        let forward = compose_finality_eligibility(
+            &s, &a, &[e1.clone(), e2.clone()], &[r1.clone(), r2.clone()], "life-profile-1", "frontier-1", 2
+        );
+        let reversed = compose_finality_eligibility(
+            &s, &a, &[e2, e1], &[r2, r1], "life-profile-1", "frontier-1", 2
+        );
+
+        assert_eq!(forward, reversed);
+        assert!(forward.commitment_matches());
+    }
+
+    #[test]
+    fn d6p_composition_ignores_irrelevant_extra_evidence() {
+        let g = generation("observer-A");
+        let e = observation("obs-1", &g, ExternalObservedStateV1::Applied);
+        let irrelevant = observation("obs-irrelevant", &g, ExternalObservedStateV1::Applied);
+        let s = set(&["obs-1"]);
+        let a = d6n_assessment(
+            &s,
+            &[("obs-1".into(), "observer-A".into(), ObservationClassificationV1::CorroboratingIndependent)],
+        );
+        let (_, r) = ledger_and_receipt(&g, &e);
+
+        let baseline = compose_finality_eligibility(
+            &s, &a, std::slice::from_ref(&e), std::slice::from_ref(&r), "life-profile-1", "frontier-1", 1
+        );
+        let with_irrelevant = compose_finality_eligibility(
+            &s, &a, &[e, irrelevant], &[r], "life-profile-1", "frontier-1", 1
+        );
+
+        assert_eq!(baseline, with_irrelevant);
+    }
+
+    #[test]
+    fn d6p_composition_is_invariant_to_identical_duplicate_evidence() {
+        let g = generation("observer-A");
+        let e = observation("obs-1", &g, ExternalObservedStateV1::Applied);
+        let s = set(&["obs-1"]);
+        let a = d6n_assessment(
+            &s,
+            &[("obs-1".into(), "observer-A".into(), ObservationClassificationV1::CorroboratingIndependent)],
+        );
+        let (_, r) = ledger_and_receipt(&g, &e);
+
+        let baseline = compose_finality_eligibility(
+            &s, &a, std::slice::from_ref(&e), std::slice::from_ref(&r), "life-profile-1", "frontier-1", 1
+        );
+        let duplicated = compose_finality_eligibility(
+            &s, &a, &[e.clone(), e], &[r.clone(), r], "life-profile-1", "frontier-1", 1
+        );
+
+        assert_eq!(baseline, duplicated);
+    }
+
+    #[test]
+    fn d6p_composition_rejects_conflicting_duplicate_evidence() {
+        let g = generation("observer-A");
+        let e = observation("obs-1", &g, ExternalObservedStateV1::Applied);
+        let mut conflicting = e.clone();
+        conflicting.observation.provider_operation_id = "operation-conflict".into();
+        let s = set(&["obs-1"]);
+        let a = d6n_assessment(
+            &s,
+            &[("obs-1".into(), "observer-A".into(), ObservationClassificationV1::CorroboratingIndependent)],
+        );
+        let (_, r) = ledger_and_receipt(&g, &e);
+
+        let result = compose_finality_eligibility(
+            &s, &a, &[e, conflicting], &[r], "life-profile-1", "frontier-1", 1
+        );
+
+        assert_eq!(result.disposition, FinalityEligibilityDispositionV1::BlockedBinding);
+        assert_eq!(result.composition_commitment, "blocked");
+    }
+
+    #[test]
     fn historical_only_does_not_count() {
         let g = generation("observer-A");
         let e = observation("obs-1", &g, ExternalObservedStateV1::Applied);
