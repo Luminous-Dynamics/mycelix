@@ -227,6 +227,146 @@ impl ApplicabilityTransition {
     }
 }
 
+
+/// Explicit lifecycle transition for a physical artifact.
+///
+/// Physical-artifact identity and lifecycle state are separate from
+/// configuration applicability. A replacement therefore creates a distinct
+/// artifact identity and never transfers predecessor applicability implicitly.
+/// Retirement and reactivation preserve the same artifact identity while
+/// requiring explicit lifecycle events; reactivation does not resurrect
+/// predecessor applicability automatically.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ArtifactLifecycleTransitionKind {
+    Repair,
+    Replacement,
+    Retirement,
+    Reactivation,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ArtifactLifecycleTransition {
+    pub kind: ArtifactLifecycleTransitionKind,
+    pub artifact: IdentityRef,
+    pub successor_artifact: Option<IdentityRef>,
+    pub transition_event: LineageEdge,
+    pub retirement_event: Option<LineageEdge>,
+    pub predecessor_applicability: Option<LineageEdge>,
+    pub successor_applicability: Option<LineageEdge>,
+}
+
+impl ArtifactLifecycleTransition {
+    pub fn validate(&self) -> Result<(), String> {
+        self.artifact.validate()?;
+        if self.artifact.kind != IdentityKind::PhysicalArtifact {
+            return Err("artifact lifecycle transition requires a physical artifact".into());
+        }
+        if let Some(successor) = &self.successor_artifact {
+            successor.validate()?;
+            if successor.kind != IdentityKind::PhysicalArtifact {
+                return Err("successor artifact must be a physical artifact".into());
+            }
+        }
+        if let Some(edge) = &self.predecessor_applicability {
+            edge.validate()?;
+            if edge.relation != LineageRelation::AppliesTo
+                || edge.target != self.artifact
+                || edge.source.kind != IdentityKind::ConfigurationRevision
+            {
+                return Err("predecessor applicability must exactly bind a configuration to the transitioned artifact".into());
+            }
+        }
+        if let Some(edge) = &self.successor_applicability {
+            edge.validate()?;
+            let successor = self.successor_artifact.as_ref().ok_or_else(|| {
+                "successor applicability requires a successor physical artifact".to_string()
+            })?;
+            if edge.relation != LineageRelation::AppliesTo
+                || edge.target != *successor
+                || edge.source.kind != IdentityKind::ConfigurationRevision
+            {
+                return Err("successor applicability must exactly bind a configuration to the successor artifact".into());
+            }
+        }
+        if self.retirement_event.is_some()
+            && self.kind != ArtifactLifecycleTransitionKind::Reactivation
+        {
+            return Err("retirement event is only a dependency of reactivation".into());
+        }
+
+        match self.kind {
+            ArtifactLifecycleTransitionKind::Repair => {
+                if self.successor_artifact.is_some()
+                    || self.successor_applicability.is_some()
+                    || self.retirement_event.is_some()
+                {
+                    return Err("repair preserves artifact identity and cannot declare a successor or retirement dependency".into());
+                }
+                if self.transition_event.relation != LineageRelation::RepairedAs
+                    || self.transition_event.source.kind != IdentityKind::MaintenanceEvent
+                    || self.transition_event.target != self.artifact
+                {
+                    return Err("repair requires MaintenanceEvent RepairedAs transitioned artifact".into());
+                }
+            }
+            ArtifactLifecycleTransitionKind::Replacement => {
+                let successor = self.successor_artifact.as_ref().ok_or_else(|| {
+                    "replacement requires a distinct successor physical artifact".to_string()
+                })?;
+                if successor == &self.artifact {
+                    return Err("replacement requires distinct physical-artifact identities".into());
+                }
+                if self.retirement_event.is_some() {
+                    return Err("replacement does not encode retirement dependency".into());
+                }
+                if self.transition_event.relation != LineageRelation::ReplacedBy
+                    || self.transition_event.source != self.artifact
+                    || self.transition_event.target != *successor
+                {
+                    return Err("replacement requires predecessor ReplacedBy successor".into());
+                }
+            }
+            ArtifactLifecycleTransitionKind::Retirement => {
+                if self.successor_artifact.is_some() || self.successor_applicability.is_some() {
+                    return Err("retirement does not create a successor artifact or applicability claim".into());
+                }
+                if self.transition_event.relation != LineageRelation::Retires
+                    || self.transition_event.source.kind != IdentityKind::ArtifactLifecycleEvent
+                    || self.transition_event.target != self.artifact
+                {
+                    return Err("retirement requires ArtifactLifecycleEvent Retires artifact".into());
+                }
+            }
+            ArtifactLifecycleTransitionKind::Reactivation => {
+                if self.successor_artifact.is_some() || self.successor_applicability.is_some() {
+                    return Err("reactivation preserves artifact identity and does not resurrect applicability implicitly".into());
+                }
+                if self.transition_event.relation != LineageRelation::Reactivates
+                    || self.transition_event.source.kind != IdentityKind::ArtifactLifecycleEvent
+                    || self.transition_event.target != self.artifact
+                {
+                    return Err("reactivation requires ArtifactLifecycleEvent Reactivates artifact".into());
+                }
+                let retirement = self.retirement_event.as_ref().ok_or_else(|| {
+                    "reactivation requires an explicit prior retirement event".to_string()
+                })?;
+                if retirement.relation != LineageRelation::Retires
+                    || retirement.source.kind != IdentityKind::ArtifactLifecycleEvent
+                    || retirement.target != self.artifact
+                {
+                    return Err("reactivation retirement dependency must explicitly retire the same artifact".into());
+                }
+                retirement.validate()?;
+            }
+        }
+
+        self.transition_event.validate()?;
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
