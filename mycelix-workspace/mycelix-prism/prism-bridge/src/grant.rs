@@ -29,7 +29,6 @@ impl ResourceScope {
     pub fn allows(&self, resource: Option<&str>) -> bool {
         match self {
             Self::Any => true,
-            Self::Exact(expected) => resource == Some(expected.as_str()),
             Self::LegacyPrefix(prefix) => resource.is_some_and(|value| {
                 let Some(suffix) = value.strip_prefix(prefix) else {
                     return false;
