@@ -180,14 +180,14 @@ mod tests {
     fn different_target_is_rejected_even_with_identical_state() {
         let declared = target("target-a");
         let supplied = target("target-b");
-        assert!(projection(declared).apply(&supplied, &id(IdentityKind::ConfigurationRevision, "config-r1"), &witness(), &base()).is_err());
+        assert!(projection(declared).apply(&supplied, &id(IdentityKind::ConfigurationRevision, "config-r1"), &id(IdentityKind::PhysicalArtifact, "artifact-a"), &witness(), &base()).is_err());
     }
 
     #[test]
     fn witness_identity_cannot_be_target() {
         let t = id(IdentityKind::ReconciliationWitness, "w1");
         let p = projection(t.clone());
-        assert!(p.validate(&t, &id(IdentityKind::ConfigurationRevision, "config-r1"), &witness(), &base()).is_err());
+        assert!(p.validate(&t, &id(IdentityKind::ConfigurationRevision, "config-r1"), &id(IdentityKind::PhysicalArtifact, "artifact-a"), &witness(), &base()).is_err());
     }
 
     #[test]
@@ -205,7 +205,7 @@ mod tests {
             id: "uhC0target".into(),
         };
         let p = projection(t.clone());
-        assert!(p.validate(&t, &witness(), &base()).is_err());
+        assert!(p.validate(&t, &id(IdentityKind::ConfigurationRevision, "config-r1"), &id(IdentityKind::PhysicalArtifact, "artifact-a"), &witness(), &base()).is_err());
     }
 
     #[test]
@@ -280,7 +280,7 @@ mod tests {
     fn historical_target_binding_is_independent_of_witness_revision() {
         let t = target("target-a");
         let p1 = projection(t.clone());
-        assert!(p1.apply(&t, &id(IdentityKind::ConfigurationRevision, "config-r1"), &witness(), &base()).is_ok());
+        assert!(p1.apply(&t, &id(IdentityKind::ConfigurationRevision, "config-r1"), &id(IdentityKind::PhysicalArtifact, "artifact-a"), &witness(), &base()).is_ok());
         assert_eq!(p1.witness_identity().id, "w1");
         assert_eq!(p1.target.id, "target-a");
     }
