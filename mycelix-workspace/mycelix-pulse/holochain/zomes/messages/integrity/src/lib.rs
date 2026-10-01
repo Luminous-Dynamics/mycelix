@@ -1394,6 +1394,11 @@ mod tests {
     /// sender==author, timestamp skew) are proven instead by the Sweettest
     /// suite, which is the only place a real HDI host is available.
     #[test]
+    fn inbox_v2_tag_is_exactly_canonical() {
+        assert_eq!(INBOX_V2_TAG, b"inbox-v2");
+    }
+
+    #[test]
     fn v2_structure_accepts_a_well_formed_entry() {
         assert!(validate_email_v2_structure(&test_email_v2()).is_ok());
     }
