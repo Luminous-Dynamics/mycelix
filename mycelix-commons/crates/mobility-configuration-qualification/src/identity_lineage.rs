@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 /// Domain-neutral identity kinds. These are engineering semantics, not
 /// Holochain action types.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)
 #[serde(rename_all = "snake_case")]
 pub enum IdentityKind {
     Requirement,
@@ -26,7 +26,7 @@ pub enum IdentityKind {
 /// The namespace prevents foreign identifiers from silently becoming native
 /// engineering identities. A Holochain hash is protocol metadata and is not a
 /// valid engineering identifier merely because it is unique.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)
 #[serde(deny_unknown_fields)]
 pub struct IdentityRef {
     pub kind: IdentityKind,
