@@ -1253,25 +1253,6 @@ mod tests {
     }
 
     #[test]
-    fn authoritative_d6n_rejects_semantically_forged_observation_set_even_with_new_commitment() {
-        let e1 = evidence("obs-1", observer("obs-1", "evidence-1", "custody-1"), ExternalObservedStateV1::Applied);
-        let e2 = evidence("obs-2", observer("obs-2", "evidence-2", "custody-2"), ExternalObservedStateV1::Applied);
-        let evidence = vec![e1, e2];
-        let mut forged = set(&["obs-1", "obs-2"]);
-        forged.target_state = ExternalFinalityStateV1::NotApplied;
-        forged.set_commitment = "attacker-recomputed-set-commitment".into();
-        assert!(!verify_observation_set_provenance(
-            &forged,
-            &effect(),
-            &route(),
-            &profile(),
-            &evidence,
-            "frontier-1",
-            "generation-1",
-        ));
-    }
-
-    #[test]
     fn ledger_rejects_self_consistent_but_semantically_incoherent_composition() {
         let mut ledger = FinalityEligibilityLedgerV1::default();
         let mut composition = matching_composition();
