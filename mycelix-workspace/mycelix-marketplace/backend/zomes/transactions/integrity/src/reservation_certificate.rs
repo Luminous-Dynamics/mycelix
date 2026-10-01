@@ -186,7 +186,12 @@ impl InventoryFrontier {
         if certificate.seller != self.seller { return Err(CertificateError::WrongSeller); }
         if certificate.listing_hash != self.listing_hash { return Err(CertificateError::WrongListing); }
         if certificate.listing_revision != self.listing_revision { return Err(CertificateError::WrongRevision); }
-        if self.certificates.contains_key(&certificate.certificate_id) { return Err(CertificateError::IntentConflict); }
+        if let Some(existing) = self.certificates.get(&certificate.certificate_id) {
+            if existing == &certificate {
+                return Ok(ApplyOutcome::Idempotent);
+            }
+            return Err(CertificateError::IntentConflict);
+        }
         self.check_frontier(&certificate.seller, certificate.sequence, &certificate.previous_certificate_id)?;
 
         let reservation = Reservation {
@@ -203,9 +208,18 @@ impl InventoryFrontier {
     }
 
     fn terminal(&mut self, certificate_id: &str, seller: AgentPubKey, sequence: u64, previous_certificate_id: Option<String>, release: bool) -> Result<ApplyOutcome, CertificateError> {
-        self.check_frontier(&seller, sequence, &previous_certificate_id)?;
         let certificate = self.certificates.get(certificate_id)
             .ok_or_else(|| CertificateError::UnknownCertificate(certificate_id.to_owned()))?;
+
+        let expected_head = format!("{}:{}", certificate_id, if release { "release" } else { "consume" });
+        if self.head_certificate_id.as_deref() == Some(expected_head.as_str())
+            && sequence.checked_add(1) == Some(self.next_sequence)
+            && previous_certificate_id.as_deref() == Some(certificate_id)
+        {
+            return Ok(ApplyOutcome::Idempotent);
+        }
+
+        self.check_frontier(&seller, sequence, &previous_certificate_id)?;
         if certificate.seller != self.seller { return Err(CertificateError::WrongSeller); }
 
         let event = if release {
