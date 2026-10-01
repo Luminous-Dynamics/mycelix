@@ -317,7 +317,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn stale_generation_is_denied_by_session_boundary() {
+    async fn session_close_invalidates_capability_ingress() {
         let (mut writer, reader) = UnixStream::pair().unwrap();
         let process = RendererProcessId::new(std::process::id() as u64).unwrap();
         let request = request_payload(1);
@@ -330,10 +330,13 @@ mod tests {
 
         let mut connection =
             RendererCapabilityConnection::from_stream(reader, binding(process, 2)).unwrap();
-        // The connection is browser-bound to generation 2. A stale renderer
-        // cannot substitute generation 1 because the connection does not accept
-        // generation input from the request.
-        let admitted = connection.receive_request().await.unwrap();
-        assert_eq!(admitted.request_id, RequestId::new(1).unwrap());
+        connection.close();
+
+        assert!(matches!(
+            connection.receive_request().await,
+            Err(RendererIpcError::Capability(
+                CapabilityIngressError::Session(_)
+            ))
+        ));
     }
 }
