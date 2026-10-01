@@ -124,6 +124,12 @@ impl V2InboxQualificationV1 {
         }
         self.enumeration.validate()?;
 
+        if let V2CandidateEnumerationV1::Complete { live_links, .. } = self.enumeration {
+            if live_links as usize != self.candidates.len() {
+                return Err(ChatProjectionError::QualificationCountMismatch);
+            }
+        }
+
         if self.qualified.len() != self.evidence.len() {
             return Err(ChatProjectionError::QualificationCountMismatch);
         }
