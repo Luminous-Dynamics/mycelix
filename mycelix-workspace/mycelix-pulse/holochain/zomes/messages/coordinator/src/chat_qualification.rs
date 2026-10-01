@@ -76,7 +76,7 @@ pub fn get_inbox_v2_qualification(_: ()) -> ExternResult<V2InboxQualificationV1>
             continue;
         }
 
-        let Some(Action::CreateLink(create_link_action)) = Some(create_link.action()) else {
+        let Action::CreateLink(create_link_action) = create_link.action() else {
             candidates.push(V2CandidateAccountingV1 {
                 evidence_id: Some(DurableEvidenceIdV1(create_link.action_address().to_string())),
                 disposition: V2CandidateDispositionV1::WrongActionType,
