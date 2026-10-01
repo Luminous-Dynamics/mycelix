@@ -753,6 +753,439 @@
           "disputed": false
         }
       }
+    },
+    {
+      "id": "WRV-011",
+      "operation": "transition",
+      "expected": "rejected",
+      "previous": {
+        "witness_identity": {
+          "kind": "reconciliation_witness",
+          "namespace": "synthetic",
+          "id": "w1"
+        },
+        "left_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-a"
+        },
+        "right_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-b"
+        },
+        "left_applicability": {
+          "start": 0,
+          "end": 10
+        },
+        "right_applicability": {
+          "start": 5,
+          "end": 15
+        },
+        "comparability": "comparable",
+        "compatibility": "incompatible",
+        "explicitly_superseded": false,
+        "disputed": false,
+        "result": {
+          "classification": "conflicting",
+          "disputed": false
+        }
+      },
+      "current": {
+        "witness_identity": {
+          "kind": "reconciliation_witness",
+          "namespace": "synthetic",
+          "id": "w1"
+        },
+        "left_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-a"
+        },
+        "right_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-b"
+        },
+        "left_applicability": {
+          "start": 10,
+          "end": 0
+        },
+        "right_applicability": {
+          "start": 5,
+          "end": 15
+        },
+        "comparability": "comparable",
+        "compatibility": "incompatible",
+        "explicitly_superseded": false,
+        "disputed": false,
+        "result": {
+          "classification": "conflicting",
+          "disputed": false
+        }
+      },
+      "supersession": null
+    },
+    {
+      "id": "WRV-012",
+      "operation": "transition",
+      "expected": "rejected",
+      "previous": {
+        "witness_identity": {
+          "kind": "reconciliation_witness",
+          "namespace": "synthetic",
+          "id": "w1"
+        },
+        "left_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-a"
+        },
+        "right_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-b"
+        },
+        "left_applicability": {
+          "start": 0,
+          "end": 10
+        },
+        "right_applicability": {
+          "start": 5,
+          "end": 15
+        },
+        "comparability": "comparable",
+        "compatibility": "incompatible",
+        "explicitly_superseded": false,
+        "disputed": false,
+        "result": {
+          "classification": "conflicting",
+          "disputed": false
+        }
+      },
+      "current": {
+        "witness_identity": {
+          "kind": "reconciliation_witness",
+          "namespace": "synthetic",
+          "id": "w1"
+        },
+        "left_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-a"
+        },
+        "right_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-b"
+        },
+        "left_applicability": {
+          "start": 0,
+          "end": 10
+        },
+        "right_applicability": {
+          "start": 5,
+          "end": 15
+        },
+        "comparability": "comparable",
+        "compatibility": "incompatible",
+        "explicitly_superseded": false,
+        "disputed": false,
+        "result": {
+          "classification": "sequential",
+          "disputed": false
+        }
+      },
+      "supersession": null
+    },
+    {
+      "id": "WRV-013",
+      "operation": "identity",
+      "expected": "accepted",
+      "previous": {
+        "witness_identity": {
+          "kind": "reconciliation_witness",
+          "namespace": "synthetic",
+          "id": "w1"
+        },
+        "left_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-a"
+        },
+        "right_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-b"
+        },
+        "left_applicability": {
+          "start": 0,
+          "end": 10
+        },
+        "right_applicability": {
+          "start": 5,
+          "end": 15
+        },
+        "comparability": "comparable",
+        "compatibility": "incompatible",
+        "explicitly_superseded": false,
+        "disputed": false,
+        "result": {
+          "classification": "conflicting",
+          "disputed": false
+        }
+      },
+      "current": {
+        "witness_identity": {
+          "kind": "reconciliation_witness",
+          "namespace": "synthetic",
+          "id": "w1"
+        },
+        "left_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-a"
+        },
+        "right_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-b"
+        },
+        "left_applicability": {
+          "start": 0,
+          "end": 10
+        },
+        "right_applicability": {
+          "start": 5,
+          "end": 15
+        },
+        "comparability": "comparable",
+        "compatibility": "incompatible",
+        "explicitly_superseded": false,
+        "disputed": true,
+        "result": {
+          "classification": "conflicting",
+          "disputed": true
+        }
+      }
+    },
+    {
+      "id": "WRV-014",
+      "operation": "identity",
+      "expected": "accepted",
+      "previous": {
+        "witness_identity": {
+          "kind": "reconciliation_witness",
+          "namespace": "synthetic",
+          "id": "w1"
+        },
+        "left_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-a"
+        },
+        "right_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-b"
+        },
+        "left_applicability": {
+          "start": 0,
+          "end": 10
+        },
+        "right_applicability": {
+          "start": 5,
+          "end": 15
+        },
+        "comparability": "comparable",
+        "compatibility": "incompatible",
+        "explicitly_superseded": false,
+        "disputed": false,
+        "result": {
+          "classification": "conflicting",
+          "disputed": false
+        }
+      },
+      "current": {
+        "witness_identity": {
+          "kind": "reconciliation_witness",
+          "namespace": "synthetic",
+          "id": "w1"
+        },
+        "left_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-a"
+        },
+        "right_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-b"
+        },
+        "left_applicability": {
+          "start": 0,
+          "end": 1
+        },
+        "right_applicability": {
+          "start": 3,
+          "end": 4
+        },
+        "comparability": "comparable",
+        "compatibility": "incompatible",
+        "explicitly_superseded": false,
+        "disputed": true,
+        "result": {
+          "classification": "sequential",
+          "disputed": false
+        }
+      }
+    },
+    {
+      "id": "WRV-015",
+      "operation": "identity",
+      "expected": "accepted",
+      "previous": {
+        "witness_identity": {
+          "kind": "reconciliation_witness",
+          "namespace": "synthetic",
+          "id": "w1"
+        },
+        "left_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-a"
+        },
+        "right_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-b"
+        },
+        "left_applicability": {
+          "start": 0,
+          "end": 10
+        },
+        "right_applicability": {
+          "start": 5,
+          "end": 15
+        },
+        "comparability": "comparable",
+        "compatibility": "incompatible",
+        "explicitly_superseded": false,
+        "disputed": false,
+        "result": {
+          "classification": "conflicting",
+          "disputed": false
+        }
+      },
+      "current": {
+        "witness_identity": {
+          "kind": "reconciliation_witness",
+          "namespace": "synthetic",
+          "id": "w1"
+        },
+        "left_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-a"
+        },
+        "right_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-b"
+        },
+        "left_applicability": {
+          "start": 0,
+          "end": 10
+        },
+        "right_applicability": {
+          "start": 5,
+          "end": 15
+        },
+        "comparability": "comparable",
+        "compatibility": "incompatible",
+        "explicitly_superseded": true,
+        "disputed": false,
+        "result": {
+          "classification": "superseded",
+          "disputed": false
+        }
+      }
+    },
+    {
+      "id": "WRV-016",
+      "operation": "projection",
+      "expected": "rejected",
+      "previous": {
+        "witness_identity": {
+          "kind": "reconciliation_witness",
+          "namespace": "synthetic",
+          "id": "w1"
+        },
+        "left_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-a"
+        },
+        "right_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-b"
+        },
+        "left_applicability": {
+          "start": 0,
+          "end": 10
+        },
+        "right_applicability": {
+          "start": 5,
+          "end": 15
+        },
+        "comparability": "comparable",
+        "compatibility": "incompatible",
+        "explicitly_superseded": false,
+        "disputed": false,
+        "result": {
+          "classification": "conflicting",
+          "disputed": false
+        }
+      },
+      "current": {
+        "witness_identity": {
+          "kind": "reconciliation_witness",
+          "namespace": "synthetic",
+          "id": "w16"
+        },
+        "left_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-a"
+        },
+        "right_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-b"
+        },
+        "left_applicability": {
+          "start": 0,
+          "end": 10
+        },
+        "right_applicability": {
+          "start": 5,
+          "end": 15
+        },
+        "comparability": "comparable",
+        "compatibility": "incompatible",
+        "explicitly_superseded": false,
+        "disputed": false,
+        "result": {
+          "classification": "conflicting",
+          "disputed": false
+        }
+      },
+      "projection_ref": {
+        "kind": "reconciliation_witness",
+        "namespace": "synthetic",
+        "id": "w1"
+      }
     }
   ]
 }
