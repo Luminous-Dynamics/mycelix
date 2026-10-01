@@ -119,10 +119,9 @@ impl QualifiedV2MessageV1 {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ChatThreadRelationV1 {
     Unthreaded,
-    Threaded { thread_id: [u8; 32], in_reply_to: Option<[u8; 32]> },
-    Reply {
+    Threaded {
         thread_id: [u8; 32],
-        in_reply_to: [u8; 32],
+        in_reply_to: Option<[u8; 32]>,
     },
 }
 
@@ -149,9 +148,9 @@ pub fn normalize_thread_relation(
             if reply == message_id {
                 return Err(ChatProjectionError::SelfReply);
             }
-            Ok(ChatThreadRelationV1::Reply {
+            Ok(ChatThreadRelationV1::Threaded {
                 thread_id,
-                in_reply_to: reply,
+                in_reply_to: Some(reply),
             })
         }
         (None, Some(_)) => Err(ChatProjectionError::ReplyWithoutThread),
@@ -357,7 +356,10 @@ mod tests {
     fn explicit_thread_without_reply_is_preserved() {
         assert_eq!(
             normalize_thread_relation([1; 32], Some([7; 32]), None).unwrap(),
-            ChatThreadRelationV1::Threaded { thread_id: [7; 32], in_reply_to: None }
+            ChatThreadRelationV1::Threaded {
+                thread_id: [7; 32],
+                in_reply_to: None,
+            }
         );
     }
 
