@@ -17,10 +17,14 @@ use crate::contestable_finality::{
     ObservationIndependenceV1,
 };
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub const OBSERVER_LIFECYCLE_CLAIM_CEILING: &str =
     "Observer/evidence lifecycle reference semantics only; no real-world trust, revocation infrastructure, or authority claim.";
+
+pub const D6O_ELIGIBILITY_RECEIPT_COMMITMENT_DOMAIN: &[u8] =
+    b"MYCELIX-INTEGRAL-D6O-ELIGIBILITY-RECEIPT-V1\0";
 
 fn non_empty(value: &str) -> bool {
     !value.trim().is_empty()
@@ -306,6 +310,20 @@ pub struct EvidenceEligibilityReceiptV1 {
 }
 
 impl EvidenceEligibilityReceiptV1 {
+    pub fn recomputed_commitment(&self) -> String {
+        let mut unsigned = self.clone();
+        unsigned.eligibility_commitment.clear();
+        let payload = serde_json::to_vec(&unsigned).expect("receipt serialization must succeed");
+        let mut hasher = Sha256::new();
+        hasher.update(D6O_ELIGIBILITY_RECEIPT_COMMITMENT_DOMAIN);
+        hasher.update(payload);
+        format!("{:x}", hasher.finalize())
+    }
+
+    pub fn commitment_matches(&self) -> bool {
+        self.structurally_valid() && self.eligibility_commitment == self.recomputed_commitment()
+    }
+
     pub fn structurally_valid(&self) -> bool {
         non_empty(&self.eligibility_id)
             && non_empty(&self.observation_id)
@@ -1158,6 +1176,9 @@ pub fn verify_eligibility_receipt_provenance(
     profile: &ObserverLifecycleProfileV1,
     ledger: &ObserverLifecycleLedgerV1,
 ) -> bool {
+    if !receipt.commitment_matches() {
+        return false;
+    }
     if !eligibility_receipt_matches(receipt, evidence, generation, snapshot, profile) {
         return false;
     }
@@ -1840,6 +1861,55 @@ mod tests {
     }
 
     #[test]
+    fn eligibility_receipt_commitment_binds_semantic_fields() {
+        let (_ledger, generation, snapshot) = active_ledger();
+        let mut receipt = EvidenceEligibilityReceiptV1 {
+            eligibility_id: "eligibility-1".into(),
+            observation_id: "obs-1".into(),
+            observer_id: generation.observer_id.clone(),
+            observer_generation_id: generation.generation_id.clone(),
+            observation_profile_id: generation.observation_profile_id.clone(),
+            semantic_environment_root: generation.semantic_environment_root.clone(),
+            dependency_snapshot_id: snapshot.snapshot_id.clone(),
+            observation_frontier_root: "frontier-1".into(),
+            observation_frontier_sequence: 1,
+            current_frontier_root: "frontier-1".into(),
+            current_frontier_sequence: 1,
+            current_generation_id: Some(generation.generation_id.clone()),
+            qualification_profile_id: profile().profile_id.clone(),
+            provenance: ObserverEvidenceProvenanceV1::Live,
+            classification: ObservationClassificationV1::CorroboratingIndependent,
+            disposition: EvidenceEligibilityDispositionV1::EligibleCurrent,
+            lifecycle_transition_ids: BTreeSet::new(),
+            eligibility_commitment: String::new(),
+            claim_ceiling: OBSERVER_LIFECYCLE_CLAIM_CEILING.into(),
+        };
+        receipt.eligibility_commitment = receipt.recomputed_commitment();
+        assert!(receipt.commitment_matches());
+
+        let mut forged = receipt.clone();
+        forged.current_frontier_root = "frontier-2".into();
+        assert!(!forged.commitment_matches());
+
+        let mut forged = receipt.clone();
+        forged.lifecycle_transition_ids.insert("transition-forged".into());
+        assert!(!forged.commitment_matches());
+
+        let mut forged = receipt.clone();
+        forged.classification = ObservationClassificationV1::ContradictoryIndependent;
+        assert!(!forged.commitment_matches());
+    }
+
+    #[test]
+    fn eligibility_receipt_commitment_domain_is_versioned_and_nul_terminated() {
+        assert!(D6O_ELIGIBILITY_RECEIPT_COMMITMENT_DOMAIN.ends_with(&[0]));
+        assert_eq!(
+            D6O_ELIGIBILITY_RECEIPT_COMMITMENT_DOMAIN,
+            b"MYCELIX-INTEGRAL-D6O-ELIGIBILITY-RECEIPT-V1\0"
+        );
+    }
+
+    #[test]
     fn eligibility_receipt_binds_exact_observer_generation() {
         let (ledger, generation, snapshot) = active_ledger();
         let e = evidence("obs-1", &generation, "frontier-1", ExternalObservedStateV1::Applied);
@@ -2120,9 +2190,11 @@ mod tests {
             classification: ObservationClassificationV1::CorroboratingIndependent,
             disposition: EvidenceEligibilityDispositionV1::EligibleCurrent,
             lifecycle_transition_ids: BTreeSet::new(),
-            eligibility_commitment: "eligibility-commitment".into(),
+            eligibility_commitment: String::new(),
             claim_ceiling: OBSERVER_LIFECYCLE_CLAIM_CEILING.into(),
         };
+        let mut receipt = receipt;
+        receipt.eligibility_commitment = receipt.recomputed_commitment();
 
         assert!(verify_eligibility_receipt_provenance(
             &receipt, &e, &generation, &snapshot, &profile(), &ledger
