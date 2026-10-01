@@ -40,9 +40,10 @@ jobs:
           persist-credentials: false
           submodules: recursive
 
-      - name: Record immutable source identity
+      - name: Initialize external evidence capsule
         shell: bash
         run: |
+          evidence="$RUNNER_TEMP/hearth-07-lock-refresh-evidence.txt"
           test "$(git rev-parse HEAD)" = "${{ inputs.ref }}"
           printf '%s\n' \
             "workflow=hearth-07-lock-refresh-evidence" \
@@ -57,7 +58,7 @@ jobs:
             "workflow_sha=$(git hash-object .github/workflows/hearth-07-lock-refresh-evidence.yml)" \
             "run_id=$GITHUB_RUN_ID" \
             "run_attempt=$GITHUB_RUN_ATTEMPT" \
-            > hearth-07-lock-refresh-evidence.txt
+            > "$evidence"
 
       - uses: cachix/install-nix-action@8aa03977d8d733052d78f4e008a241fd1dbf36b3 # v31.10.6
         with:
@@ -69,7 +70,7 @@ jobs:
         run: |
           nix flake lock --extra-experimental-features 'nix-command flakes'
           test -s flake.lock
-          sha256sum flake.lock | tee -a "$GITHUB_WORKSPACE/hearth-07-lock-refresh-evidence.txt"
+          sha256sum flake.lock | tee -a "$RUNNER_TEMP/hearth-07-lock-refresh-evidence.txt"
 
       - name: Generate Hearth SDK package-lock.json
         working-directory: mycelix-workspace/mycelix-hearth/sdk-ts
@@ -91,7 +92,7 @@ jobs:
             hc --version
             cargo --version
             rustc --version
-          ' | tee -a "$GITHUB_WORKSPACE/hearth-07-lock-refresh-evidence.txt"
+          ' | tee -a "$RUNNER_TEMP/hearth-07-lock-refresh-evidence.txt"
 
       - name: Generate Hearth Cargo.lock
         working-directory: mycelix-workspace/mycelix-hearth
@@ -105,7 +106,7 @@ jobs:
         timeout-minutes: 45
         run: |
           nix develop .#ci --command cargo metadata --locked --format-version 1 >/dev/null
-          sha256sum Cargo.lock | tee -a "$GITHUB_WORKSPACE/hearth-07-lock-refresh-evidence.txt"
+          sha256sum Cargo.lock | tee -a "$RUNNER_TEMP/hearth-07-lock-refresh-evidence.txt"
 
       - name: Generate dedicated tests Cargo.lock
         working-directory: mycelix-workspace/mycelix-hearth/tests
@@ -119,7 +120,7 @@ jobs:
         timeout-minutes: 45
         run: |
           nix develop ../.#ci --command cargo metadata --locked --format-version 1 >/dev/null
-          sha256sum Cargo.lock | tee -a "$GITHUB_WORKSPACE/hearth-07-lock-refresh-evidence.txt"
+          sha256sum Cargo.lock | tee -a "$RUNNER_TEMP/hearth-07-lock-refresh-evidence.txt"
 
       - name: Verify generated lockfiles are the only source changes
         shell: bash
@@ -165,15 +166,19 @@ jobs:
             exit 0
           fi
           git commit -m "HEARTH-0.7-LOCKS: seal generated dependency closure"
+          generated_commit="$(git rev-parse HEAD)"
           git push --set-upstream origin "$branch"
-          printf '%s\n' "generated_branch=$branch" >> "$GITHUB_WORKSPACE/hearth-07-lock-refresh-evidence.txt"
+          printf '%s\n' \
+            "generated_branch=$branch" \
+            "generated_commit=$generated_commit" \
+            >> "$RUNNER_TEMP/hearth-07-lock-refresh-evidence.txt"
 
       - name: Publish lock refresh evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: hearth-07-lock-refresh-${{ inputs.ref }}
           path: |
-            hearth-07-lock-refresh-evidence.txt
+            ${{ runner.temp }}/hearth-07-lock-refresh-evidence.txt
             mycelix-workspace/mycelix-hearth/Cargo.lock
             mycelix-workspace/mycelix-hearth/tests/Cargo.lock
             mycelix-workspace/mycelix-hearth/sdk-ts/package-lock.json
