@@ -6,6 +6,8 @@ Purpose: establish the Holochain 0.7 target without performing an unsafe partial
 
 Detailed execution matrix: [`ROS-006_HOLOCHAIN_07_NORMALIZATION_MATRIX.md`](ROS-006_HOLOCHAIN_07_NORMALIZATION_MATRIX.md).
 
+Concrete source inventory: [`ROS-006_HOLOCHAIN_07_SOURCE_MIGRATION_INVENTORY.md`](ROS-006_HOLOCHAIN_07_SOURCE_MIGRATION_INVENTORY.md).
+
 ## Current state
 
 The repository is **not yet Holochain-0.7 normalized**. The inspected active workspaces still contain a mixture of 0.6-era Holochain dependencies, and the workspace Nix lock is explicitly resolving a Holochain 0.6 generation.
