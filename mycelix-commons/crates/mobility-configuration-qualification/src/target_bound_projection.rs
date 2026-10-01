@@ -194,7 +194,7 @@ mod tests {
     fn compared_claim_identity_cannot_be_target() {
         let t = id(IdentityKind::EvidenceRecord, "claim-a");
         let p = projection(t.clone());
-        assert!(p.validate(&t, &id(IdentityKind::ConfigurationRevision, "config-r1"), &witness(), &base()).is_err());
+        assert!(p.validate(&t, &id(IdentityKind::ConfigurationRevision, "config-r1"), &id(IdentityKind::PhysicalArtifact, "artifact-a"), &witness(), &base()).is_err());
     }
 
     #[test]
