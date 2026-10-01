@@ -86,10 +86,10 @@ def main():
     d=json.loads(path.read_text())
     if d["schema"] != CORPUS_SCHEMA or d["schema_version"] != VERSION or d["status"] != "semantic-provenance-only":
         raise SystemExit("invalid executable corpus envelope")
-    if len(d["cases"]) != 10:
+    if len(d["cases"]) != 16:
         raise SystemExit("expected 10 executable cases")
     ids=[c["id"] for c in d["cases"]]
-    if ids != [f"WRV-{i:03}" for i in range(1,11)]:
+    if ids != [f"WRV-{i:03}" for i in range(1,17)]:
         raise SystemExit("unexpected case identifiers")
     out=[]
     for c in d["cases"]:
