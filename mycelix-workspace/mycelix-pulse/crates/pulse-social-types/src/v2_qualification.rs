@@ -37,7 +37,7 @@ pub enum V2CandidateEnumerationV1 {
 impl V2CandidateEnumerationV1 {
     fn validate(&self) -> Result<(), ChatProjectionError> {
         match self {
-            Self::Complete { .. } => Ok(()),
+            Self::HostObservedComplete { .. } => Ok(()),
             Self::Incomplete {
                 skipped_links,
                 unreadable_links,
