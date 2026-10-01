@@ -167,7 +167,7 @@ fn hearth_dna_path() -> PathBuf {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_create_and_query_story() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
     let (alice,) = conductor
         .setup_app("test-app", &[dna_file.clone()])
@@ -231,7 +231,7 @@ async fn test_create_and_query_story() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_update_story() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
     let (alice,) = conductor
         .setup_app("test-app", &[dna_file.clone()])
@@ -299,7 +299,7 @@ async fn test_update_story() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_create_collection_and_add() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
     let (alice,) = conductor
         .setup_app("test-app", &[dna_file.clone()])
@@ -390,7 +390,7 @@ async fn test_create_collection_and_add() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_create_tradition() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
     let (alice,) = conductor
         .setup_app("test-app", &[dna_file.clone()])
@@ -469,8 +469,8 @@ async fn test_create_tradition() {
 async fn test_membership_required() {
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
 
-    let mut alice_conductor = SweetConductor::from_standard_config().await;
-    let mut bob_conductor = SweetConductor::from_standard_config().await;
+    let mut alice_conductor = SweetConductor::standard().await;
+    let mut bob_conductor = SweetConductor::standard().await;
 
     let (alice,) = alice_conductor
         .setup_app("test-app", &[dna_file.clone()])
