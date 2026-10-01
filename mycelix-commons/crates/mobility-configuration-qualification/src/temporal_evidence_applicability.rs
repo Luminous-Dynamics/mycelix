@@ -17,6 +17,37 @@ impl EvidenceEventInterval {
     }
 }
 
+/// Current documented epistemic disposition of an evidence record.
+///
+/// This is deliberately separate from event/effectivity time. A disposition
+/// never rewrites or erases the historical event or applicability interval.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EvidenceDisposition {
+    Active,
+    Superseded { by: IdentityRef },
+    Disputed { by: IdentityRef },
+    Retracted { by: IdentityRef },
+    Unresolved,
+}
+
+impl EvidenceDisposition {
+    pub fn validate(&self, evidence: &IdentityRef) -> Result<(), String> {
+        let witness = match self {
+            Self::Active | Self::Unresolved => return Ok(()),
+            Self::Superseded { by } | Self::Disputed { by } | Self::Retracted { by } => by,
+        };
+        witness.validate()?;
+        if witness == evidence {
+            return Err("evidence disposition witness cannot be the evidence record itself".into());
+        }
+        if !matches!(witness.kind, IdentityKind::EvidenceRecord | IdentityKind::ReconciliationWitness) {
+            return Err("evidence disposition witness must be an EvidenceRecord or ReconciliationWitness".into());
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TemporalEvidenceApplicability {
@@ -30,6 +61,8 @@ pub struct TemporalEvidenceApplicability {
     pub configuration_applicability: TemporalConfigurationApplicability,
     pub event_interval: EvidenceEventInterval,
     pub effectivity_interval: ApplicabilityInterval,
+    /// Epistemic status is orthogonal to temporal scope and does not rewrite it.
+    pub disposition: EvidenceDisposition,
 }
 
 impl TemporalEvidenceApplicability {
@@ -42,6 +75,7 @@ impl TemporalEvidenceApplicability {
         self.event_interval.validate()?
             .and_then(|_| self.validate_effectivity_containment())?;
         self.effectivity_interval.validate()?;
+        self.disposition.validate(&self.evidence)?;
 
         if self.configuration.kind != IdentityKind::ConfigurationRevision {
             return Err("temporal evidence applicability requires a configuration revision".into());
@@ -143,6 +177,7 @@ mod tests {
             },
             event_interval: EvidenceEventInterval { start: 100, end: Some(110) },
             effectivity_interval: ApplicabilityInterval { start: 120, end: Some(200) },
+            disposition: EvidenceDisposition::Active,
         }
     }
 
@@ -290,6 +325,61 @@ mod tests {
         value.configuration_applicability.interval.end = Some(200);
         value.effectivity_interval = ApplicabilityInterval { start: 150, end: Some(250) };
         assert!(value.validate().is_err());
+    }
+
+    #[test]
+    fn disputed_disposition_does_not_change_temporal_scope() {
+        let mut value = evidence_case();
+        value.disposition = EvidenceDisposition::Disputed {
+            by: id(IdentityKind::ReconciliationWitness, "witness-1"),
+        };
+        assert!(value.validate().is_ok());
+        assert_eq!(value.effectivity_interval, ApplicabilityInterval { start: 120, end: Some(200) });
+        assert_eq!(value.event_interval.start, 100);
+    }
+
+    #[test]
+    fn superseded_disposition_is_explicitly_witnessed() {
+        let mut value = evidence_case();
+        value.disposition = EvidenceDisposition::Superseded {
+            by: id(IdentityKind::EvidenceRecord, "evidence-2"),
+        };
+        assert!(value.validate().is_ok());
+    }
+
+    #[test]
+    fn retracted_disposition_is_explicitly_witnessed() {
+        let mut value = evidence_case();
+        value.disposition = EvidenceDisposition::Retracted {
+            by: id(IdentityKind::ReconciliationWitness, "correction-1"),
+        };
+        assert!(value.validate().is_ok());
+    }
+
+    #[test]
+    fn disposition_cannot_self_reference() {
+        let mut value = evidence_case();
+        value.disposition = EvidenceDisposition::Disputed {
+            by: value.evidence.clone(),
+        };
+        assert!(value.validate().is_err());
+    }
+
+    #[test]
+    fn disposition_witness_must_be_typed() {
+        let mut value = evidence_case();
+        value.disposition = EvidenceDisposition::Superseded {
+            by: id(IdentityKind::ConfigurationRevision, "cfg-2"),
+        };
+        assert!(value.validate().is_err());
+    }
+
+    #[test]
+    fn unresolved_disposition_preserves_temporal_evidence() {
+        let mut value = evidence_case();
+        value.disposition = EvidenceDisposition::Unresolved;
+        assert!(value.validate().is_ok());
+        assert_eq!(value.effectivity_interval.start, 120);
     }
 
     #[test]
