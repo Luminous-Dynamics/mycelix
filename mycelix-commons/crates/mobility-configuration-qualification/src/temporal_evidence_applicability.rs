@@ -34,6 +34,8 @@ pub enum EvidenceDisposition {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EvidenceDispositionTransition {
+    /// Stable address of this immutable transition record.
+    pub transition_id: IdentityRef,
     /// Evidence record whose epistemic state is changing.
     pub evidence: IdentityRef,
     /// Explicit predecessor transition. None is permitted only for the initial
@@ -48,6 +50,13 @@ pub struct EvidenceDispositionTransition {
 
 impl EvidenceDispositionTransition {
     pub fn validate(&self) -> Result<(), String> {
+        self.transition_id.validate()?;
+        if !matches!(self.transition_id.kind, IdentityKind::EvidenceRecord | IdentityKind::ReconciliationWitness) {
+            return Err("disposition transition identity must be an EvidenceRecord or ReconciliationWitness".into());
+        }
+        if self.transition_id == self.evidence {
+            return Err("disposition transition identity cannot equal its evidence record".into());
+        }
         self.evidence.validate()?;
         if !matches!(
             self.evidence.kind,
@@ -61,6 +70,9 @@ impl EvidenceDispositionTransition {
 
         if let Some(predecessor) = &self.predecessor {
             predecessor.validate()?;
+            if predecessor == &self.transition_id {
+                return Err("disposition transition cannot be its own predecessor".into());
+            }
             if predecessor == &self.evidence {
                 return Err("disposition predecessor cannot be the evidence record itself".into());
             }
@@ -112,6 +124,67 @@ impl EvidenceDispositionTransition {
                 Err("superseded and retracted dispositions are terminal".into())
             }
             _ => Err("unsupported evidence disposition transition".into()),
+        }
+    }
+}
+
+/// Result of validating the available transition graph. Missing records are
+/// surfaced separately from invalid records; branch points are retained.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DispositionChainAssessment {
+    Complete { branch_points: Vec<IdentityRef> },
+    Unresolved { missing: Vec<IdentityRef>, branch_points: Vec<IdentityRef> },
+}
+
+impl EvidenceDispositionTransition {
+    /// Validate supplied transitions by exact identity, without mutable
+    /// "latest" indexes or wall-clock ordering.
+    pub fn validate_graph(
+        transitions: &[EvidenceDispositionTransition],
+    ) -> Result<DispositionChainAssessment, String> {
+        use std::collections::BTreeMap;
+        let mut by_id = BTreeMap::new();
+        let mut children: BTreeMap<IdentityRef, usize> = BTreeMap::new();
+        let mut genesis: BTreeMap<IdentityRef, usize> = BTreeMap::new();
+        for transition in transitions {
+            transition.validate()?;
+            if by_id.insert(transition.transition_id.clone(), transition).is_some() {
+                return Err("duplicate disposition transition identity".into());
+            }
+            if let Some(parent) = &transition.predecessor {
+                *children.entry(parent.clone()).or_default() += 1;
+            } else {
+                *genesis.entry(transition.evidence.clone()).or_default() += 1;
+            }
+        }
+        if genesis.values().any(|count| *count > 1) {
+            return Err("evidence record has multiple genesis disposition assertions".into());
+        }
+        let mut missing = Vec::new();
+        for transition in transitions {
+            if let Some(parent_id) = &transition.predecessor {
+                match by_id.get(parent_id) {
+                    None => missing.push(parent_id.clone()),
+                    Some(parent) => {
+                        if parent.evidence != transition.evidence {
+                            return Err("disposition predecessor belongs to different evidence".into());
+                        }
+                        if parent.to != transition.from {
+                            return Err("transition source state does not match predecessor target state".into());
+                        }
+                    }
+                }
+            }
+        }
+        missing.sort_by(|a, b| (&a.namespace, &a.id).cmp(&(&b.namespace, &b.id)));
+        missing.dedup();
+        let branch_points = children.into_iter()
+            .filter_map(|(parent, count)| if count > 1 { Some(parent) } else { None })
+            .collect();
+        if missing.is_empty() {
+            Ok(DispositionChainAssessment::Complete { branch_points })
+        } else {
+            Ok(DispositionChainAssessment::Unresolved { missing, branch_points })
         }
     }
 }
