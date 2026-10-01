@@ -219,8 +219,10 @@ impl FinalityEligibilityCompositionV1 {
             FinalityEligibilityDispositionV1::EligibleCurrent => {
                 self.preserved_contradictory_count == 0
                     && self.eligible_independent_count >= self.required_independent_observations
-                    && self.qualification_transition_id.as_deref()
-                        == Some("qualified-finality-eligibility-transition")
+                    && self
+                        .qualification_transition_id
+                        .as_deref()
+                        .is_some_and(|id| !id.is_empty())
             }
             FinalityEligibilityDispositionV1::Contested => {
                 self.preserved_contradictory_count > 0
