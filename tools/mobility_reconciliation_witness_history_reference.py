@@ -48,11 +48,11 @@ def evaluate(c):
     return "accepted" if transition_ok(c["previous"],c["current"],c.get("supersession")) and projection_ok(c.get("predecessor_projection_ref"),c["previous"]) and projection_ok(c.get("successor_projection_ref"),c["current"]) else "rejected"
 
 def validate_chain(d):
-    chain=d.get("chain",[]); refs=d.get("chain_projection_refs",[])
-    if len(chain)!=3 or len(refs)!=3: return False
+    chain=d.get("chain",[]); refs=d.get("chain_projection_refs",[]); edges=d.get("chain_supersessions",[])
+    if len(chain)!=3 or len(refs)!=3 or len(edges)!=2: return False
     if not all(witness_ok(w) for w in chain): return False
     if not all(projection_ok(r,w) for r,w in zip(refs,chain)): return False
-    return all(transition_ok(chain[i],chain[i+1],{"relation":"supersedes","source":chain[i+1]["witness_identity"],"target":chain[i]["witness_identity"]}) for i in range(2))
+    return all(supersession_ok(edges[i],chain[i+1],chain[i]) and transition_ok(chain[i],chain[i+1],edges[i]) for i in range(2))
 
 def main():
     path=Path(sys.argv[1] if len(sys.argv)>1 else "docs/mobility/MOBILITY_RECONCILIATION_WITNESS_HISTORY_V1_EXECUTABLE.json")
