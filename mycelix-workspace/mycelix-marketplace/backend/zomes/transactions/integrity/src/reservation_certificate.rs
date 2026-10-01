@@ -86,6 +86,10 @@ pub struct ReservationCertificate {
     pub sequence: u64,
     pub previous_certificate_id: Option<String>,
     pub previous_frontier_action: Option<ActionHash>,
+    /// Economic state immediately before this reservation event.
+    pub pre_state: ReservationFrontierState,
+    /// Economic state immediately after this reservation event.
+    pub post_state: ReservationFrontierState,
 }
 
 impl ReservationCertificate {
@@ -103,6 +107,14 @@ impl ReservationCertificate {
         if self.sequence > 0 && (self.previous_certificate_id.is_none() || self.previous_frontier_action.is_none()) {
             return Err(CertificateError::MissingPrevious);
         }
+        self.pre_state.validate().map_err(|_| CertificateError::InvalidPreState)?;
+        self.post_state.validate().map_err(|_| CertificateError::InvalidPostState)?;
+        self.pre_state
+            .validate_transition(
+                FrontierStateTransition::Reserve { quantity: self.quantity },
+                &self.post_state,
+            )
+            .map_err(|_| CertificateError::InvalidStateTransition)?;
         Ok(())
     }
 }
@@ -118,6 +130,9 @@ pub enum CertificateError {
     QuantityMismatch,
     GenesisHasPrevious,
     MissingPrevious,
+    InvalidPreState,
+    InvalidPostState,
+    InvalidStateTransition,
     WrongSeller,
     WrongListing,
     WrongRevision,
@@ -358,6 +373,18 @@ impl InventoryFrontier {
         }
         self.check_frontier(&certificate.seller, certificate.sequence, &certificate.previous_certificate_id)?;
 
+        let current_state = self.post_state();
+        if current_state != certificate.pre_state {
+            return Err(CertificateError::InvalidPreState);
+        }
+        certificate
+            .pre_state
+            .validate_transition(
+                FrontierStateTransition::Reserve { quantity: certificate.quantity },
+                &certificate.post_state,
+            )
+            .map_err(|_| CertificateError::InvalidStateTransition)?;
+
         let reservation = Reservation {
             intent_id: certificate.intent.intent_id.clone(),
             listing_revision: format!("{:?}", certificate.listing_revision),
@@ -441,6 +468,8 @@ mod tests {
             listing_revision: hash(4), intent_hash: hash(5), quantity, sequence,
             previous_certificate_id: previous.map(str::to_owned),
             previous_frontier_action: previous.map(|_| hash(6)),
+            pre_state: ReservationFrontierState::from_capacity(2),
+            post_state: ReservationFrontierState::from_capacity(2).after_reserve(quantity).unwrap(),
             intent,
         }
     }
