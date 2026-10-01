@@ -14,6 +14,8 @@ fail() {
 [[ -f "$workspace" ]] || fail "missing Hearth workspace Cargo.toml"
 [[ -f "$tests" ]] || fail "missing Sweettest workspace Cargo.toml"
 [[ -f "$flake_lock" ]] || fail "missing Hearth flake.lock"
+[[ -f "$sdk_package" ]] || fail "missing Hearth SDK package.json"
+[[ -f "$sdk_lock" ]] || fail "missing Hearth SDK package-lock.json"
 
 require_version_family() {
   local file="$1"
