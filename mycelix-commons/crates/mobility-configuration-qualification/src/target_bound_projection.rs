@@ -233,6 +233,50 @@ mod tests {
     }
 
     #[test]
+    fn different_physical_artifact_is_rejected() {
+        let t = target("target-a");
+        let p = projection(t.clone());
+        assert!(p.apply(
+            &t,
+            &id(IdentityKind::ConfigurationRevision, "config-r1"),
+            &id(IdentityKind::PhysicalArtifact, "artifact-b"),
+            &witness(),
+            &base(),
+        ).is_err());
+    }
+
+    #[test]
+    fn reversed_configuration_artifact_binding_is_rejected() {
+        let t = target("target-a");
+        let mut p = projection(t.clone());
+        p.configuration_artifact_binding = crate::identity_lineage::LineageEdge {
+            relation: crate::identity_lineage::LineageRelation::AppliesTo,
+            source: id(IdentityKind::PhysicalArtifact, "artifact-a"),
+            target: id(IdentityKind::ConfigurationRevision, "config-r1"),
+        };
+        assert!(p.validate(
+            &t,
+            &id(IdentityKind::ConfigurationRevision, "config-r1"),
+            &id(IdentityKind::PhysicalArtifact, "artifact-a"),
+            &witness(),
+            &base(),
+        ).is_err());
+    }
+
+    #[test]
+    fn artifact_identity_cannot_be_configuration_scope() {
+        let t = target("target-a");
+        let p = projection(t.clone());
+        assert!(p.validate(
+            &t,
+            &id(IdentityKind::PhysicalArtifact, "artifact-a"),
+            &id(IdentityKind::PhysicalArtifact, "artifact-a"),
+            &witness(),
+            &base(),
+        ).is_err());
+    }
+
+    #[test]
     fn historical_target_binding_is_independent_of_witness_revision() {
         let t = target("target-a");
         let p1 = projection(t.clone());
