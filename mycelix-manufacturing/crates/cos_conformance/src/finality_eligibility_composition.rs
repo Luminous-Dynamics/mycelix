@@ -23,8 +23,9 @@ use crate::contestable_finality::{
     ObservationSetAssessmentV1, CONTESTABLE_FINALITY_CLAIM_CEILING,
 };
 use crate::observer_lifecycle::{
+    verify_eligibility_receipt_provenance,
     EvidenceEligibilityDispositionV1, EvidenceEligibilityReceiptV1,
-    ObserverEvidenceProvenanceV1,
+    ObserverEvidenceProvenanceV1, ObserverLifecycleLedgerV1, ObserverLifecycleProfileV1,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -982,6 +983,127 @@ pub fn current_receipt_matches_composition(
 
 /// Reconstruct the authoritative D6P composition from its source inputs and
 /// require the supplied receipt to be an exact projection of that result.
+/// Compose D6P only after independently reconstructing every supplied
+/// current-eligibility D6O receipt from the authoritative lifecycle ledger.
+///
+/// The legacy compose function intentionally remains a ReferenceModelOnly
+/// convenience API. This boundary is the qualified path: a receipt can
+/// contribute to current-finality composition only after D6O provenance has
+/// been checked against authoritative generation, dependency, profile,
+/// transition, and current-continuity state.
+///
+/// Supplied receipts that fail authoritative D6O reconstruction are fail-closed
+/// rather than being allowed to contribute merely because their own commitment
+/// is internally consistent.
+pub fn compose_finality_eligibility_from_authoritative_d6o(
+    set: &ExternalObservationSetV1,
+    assessment: &ObservationSetAssessmentV1,
+    evidence: &[ExternalObservedEvidenceV1],
+    eligibility_receipts: &[EvidenceEligibilityReceiptV1],
+    lifecycle_profile: &ObserverLifecycleProfileV1,
+    d6o_ledger: &ObserverLifecycleLedgerV1,
+    current_frontier_root: &str,
+    required_independent_observations: u32,
+) -> FinalityEligibilityCompositionV1 {
+    let mut evidence_by_id = BTreeMap::new();
+    for item in evidence {
+        if item.structurally_valid() {
+            evidence_by_id.insert(item.observation.observation_id.clone(), item);
+        }
+    }
+
+    let mut authoritative_receipts = Vec::new();
+    for receipt in eligibility_receipts {
+        let Some(assessment_item) = assessment
+            .assessments
+            .iter()
+            .find(|item| item.observation_id == receipt.observation_id)
+        else {
+            continue;
+        };
+
+        if !matches!(
+            assessment_item.classification,
+            ObservationClassificationV1::CorroboratingIndependent
+        ) {
+            continue;
+        }
+
+        let Some(observation) = evidence_by_id.get(&receipt.observation_id) else {
+            return compose_finality_eligibility(
+                set,
+                assessment,
+                evidence,
+                &[],
+                lifecycle_profile.profile_id.as_str(),
+                current_frontier_root,
+                required_independent_observations,
+            );
+        };
+        let Some(generation) = d6o_ledger
+            .generations
+            .get(&receipt.observer_generation_id)
+        else {
+            return compose_finality_eligibility(
+                set,
+                assessment,
+                evidence,
+                &[],
+                lifecycle_profile.profile_id.as_str(),
+                current_frontier_root,
+                required_independent_observations,
+            );
+        };
+        let Some(snapshot) = d6o_ledger
+            .dependency_snapshots
+            .get(&receipt.dependency_snapshot_id)
+        else {
+            return compose_finality_eligibility(
+                set,
+                assessment,
+                evidence,
+                &[],
+                lifecycle_profile.profile_id.as_str(),
+                current_frontier_root,
+                required_independent_observations,
+            );
+        };
+
+        if receipt.qualification_profile_id != lifecycle_profile.profile_id
+            || !verify_eligibility_receipt_provenance(
+                receipt,
+                observation,
+                generation,
+                snapshot,
+                lifecycle_profile,
+                d6o_ledger,
+            )
+        {
+            return compose_finality_eligibility(
+                set,
+                assessment,
+                evidence,
+                &[],
+                lifecycle_profile.profile_id.as_str(),
+                current_frontier_root,
+                required_independent_observations,
+            );
+        }
+
+        authoritative_receipts.push(receipt.clone());
+    }
+
+    compose_finality_eligibility(
+        set,
+        assessment,
+        evidence,
+        &authoritative_receipts,
+        lifecycle_profile.profile_id.as_str(),
+        current_frontier_root,
+        required_independent_observations,
+    )
+}
+
 pub fn verify_current_receipt_provenance(
     receipt: &CurrentFinalityEligibilityReceiptV1,
     set: &ExternalObservationSetV1,
