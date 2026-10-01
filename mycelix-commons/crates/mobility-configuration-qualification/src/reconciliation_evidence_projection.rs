@@ -1,4 +1,5 @@
 use crate::{
+    identity_lineage::{IdentityKind, IdentityRef},
     temporal_reconciliation_witness::TemporalReconciliationWitness,
     ConflictDisposition, EpistemicDisposition, EvidenceState, LifecycleDisposition,
 };
@@ -15,17 +16,17 @@ use serde::{Deserialize, Serialize};
 #[serde(deny_unknown_fields)]
 pub enum ReconciliationEvidenceProjection {
     ConflictReferenceOnly {
-        witness_ref: String,
+        witness_ref: IdentityRef,
     },
     LifecycleSupersession {
-        witness_ref: String,
+        witness_ref: IdentityRef,
     },
     IndeterminateReference {
-        witness_ref: String,
+        witness_ref: IdentityRef,
         unresolved_dependency_reference: Option<String>,
     },
     NoEpistemicPromotion {
-        witness_ref: String,
+        witness_ref: IdentityRef,
     },
 }
 
@@ -39,8 +40,12 @@ impl ReconciliationEvidenceProjection {
         base.validate()?;
 
         let witness_ref = self.witness_ref();
-        if witness_ref.trim().is_empty() {
-            return Err("reconciliation projection requires a non-empty witness reference".into());
+        witness_ref.validate()?;
+        if witness_ref.kind != IdentityKind::ReconciliationWitness {
+            return Err("reconciliation projection reference must use ReconciliationWitness kind".into());
+        }
+        if witness_ref != &witness.witness_identity {
+            return Err("reconciliation projection reference does not identify the supplied witness".into());
         }
 
         match (&self, witness.result.classification) {
@@ -83,7 +88,7 @@ impl ReconciliationEvidenceProjection {
 
         match self {
             Self::ConflictReferenceOnly { witness_ref } => {
-                state.conflict_reference = Some(witness_ref.clone());
+                state.conflict_reference = Some(witness_ref.id.clone());
                 state.conflict_disposition = if witness.result.disputed {
                     ConflictDisposition::Disputed
                 } else {
@@ -111,7 +116,7 @@ impl ReconciliationEvidenceProjection {
         Ok(state)
     }
 
-    fn witness_ref(&self) -> &str {
+    fn witness_ref(&self) -> &IdentityRef {
         match self {
             Self::ConflictReferenceOnly { witness_ref }
             | Self::LifecycleSupersession { witness_ref }
@@ -131,6 +136,14 @@ mod tests {
     fn claim(id: &str) -> IdentityRef {
         IdentityRef {
             kind: IdentityKind::EvidenceRecord,
+            namespace: "synthetic".into(),
+            id: id.into(),
+        }
+    }
+
+    fn witness_identity(id: &str) -> IdentityRef {
+        IdentityRef {
+            kind: IdentityKind::ReconciliationWitness,
             namespace: "synthetic".into(),
             id: id.into(),
         }
@@ -157,6 +170,7 @@ mod tests {
         .unwrap();
 
         TemporalReconciliationWitness {
+            witness_identity: witness_identity("witness-1"),
             left_claim: claim("claim-a"),
             right_claim: claim("claim-b"),
             left_applicability,
@@ -187,7 +201,7 @@ mod tests {
     fn conflicting_witness_projects_to_conflict_reference_not_contradiction() {
         let witness = conflict_witness();
         let projection = ReconciliationEvidenceProjection::ConflictReferenceOnly {
-            witness_ref: "witness-1".into(),
+            witness_ref: witness_identity("witness-1"),
         };
         let projected = projection.apply(&witness, &base_state()).unwrap();
         assert_eq!(projected.conflict_reference.as_deref(), Some("witness-1"));
@@ -200,12 +214,12 @@ mod tests {
     fn conflicting_witness_cannot_use_lifecycle_or_indeterminate_projection() {
         let witness = conflict_witness();
         assert!(ReconciliationEvidenceProjection::LifecycleSupersession {
-            witness_ref: "w".into()
+            witness_ref: witness_identity("witness-1")
         }
         .validate(&witness, &base_state())
         .is_err());
         assert!(ReconciliationEvidenceProjection::IndeterminateReference {
-            witness_ref: "w".into(),
+            witness_ref: witness_identity("witness-1"),
             unresolved_dependency_reference: None
         }
         .validate(&witness, &base_state())
@@ -228,7 +242,7 @@ mod tests {
         .unwrap();
 
         let projection = ReconciliationEvidenceProjection::LifecycleSupersession {
-            witness_ref: "w-superseded".into(),
+            witness_ref: witness_identity("witness-1"),
         };
         let projected = projection.apply(&witness, &base_state()).unwrap();
         assert_eq!(projected.lifecycle_disposition, LifecycleDisposition::Superseded);
@@ -251,7 +265,7 @@ mod tests {
         .unwrap();
 
         let projection = ReconciliationEvidenceProjection::IndeterminateReference {
-            witness_ref: "w-indeterminate".into(),
+            witness_ref: witness_identity("witness-1"),
             unresolved_dependency_reference: None,
         };
         let projected = projection.apply(&witness, &base_state()).unwrap();
@@ -275,7 +289,7 @@ mod tests {
         .unwrap();
 
         let projection = ReconciliationEvidenceProjection::IndeterminateReference {
-            witness_ref: "w-unresolved".into(),
+            witness_ref: witness_identity("witness-1"),
             unresolved_dependency_reference: Some("dependency-1".into()),
         };
         let projected = projection.apply(&witness, &base_state()).unwrap();
@@ -304,7 +318,7 @@ mod tests {
         .unwrap();
 
         let projection = ReconciliationEvidenceProjection::NoEpistemicPromotion {
-            witness_ref: "w-coexistent".into(),
+            witness_ref: witness_identity("witness-1"),
         };
         let projected = projection.apply(&witness, &base).unwrap();
         assert_eq!(projected.epistemic_disposition, EpistemicDisposition::Indeterminate);
@@ -329,7 +343,7 @@ mod tests {
         .unwrap();
 
         let projection = ReconciliationEvidenceProjection::NoEpistemicPromotion {
-            witness_ref: "w-sequential".into(),
+            witness_ref: witness_identity("witness-1"),
         };
         assert_eq!(witness.result.classification, ReconciliationClass::Sequential);
         assert!(projection.apply(&witness, &base).is_ok());
@@ -353,7 +367,7 @@ mod tests {
         .unwrap();
 
         let projection = ReconciliationEvidenceProjection::NoEpistemicPromotion {
-            witness_ref: "w-incomparable".into(),
+            witness_ref: witness_identity("witness-1"),
         };
         let projected = projection.apply(&witness, &base).unwrap();
         assert_eq!(projected.conflict_disposition, ConflictDisposition::Uncontested);
@@ -368,7 +382,7 @@ mod tests {
         base.external_authority_reference = Some("authority-1".into());
         base.evidence_modality = crate::EvidenceModality::Measurement;
         let projection = ReconciliationEvidenceProjection::ConflictReferenceOnly {
-            witness_ref: "w-external".into(),
+            witness_ref: witness_identity("witness-1"),
         };
         let projected = projection.apply(&witness, &base).unwrap();
         assert_eq!(projected.authority_provenance, crate::AuthorityProvenance::External);
@@ -377,10 +391,28 @@ mod tests {
     }
 
     #[test]
+    fn wrong_witness_identity_is_rejected() {
+        let witness = conflict_witness();
+        let projection = ReconciliationEvidenceProjection::ConflictReferenceOnly {
+            witness_ref: witness_identity("different-witness"),
+        };
+        assert!(projection.validate(&witness, &base_state()).is_err());
+    }
+
+    #[test]
+    fn claim_identity_cannot_be_used_as_witness_reference() {
+        let witness = conflict_witness();
+        let projection = ReconciliationEvidenceProjection::ConflictReferenceOnly {
+            witness_ref: claim("claim-a"),
+        };
+        assert!(projection.validate(&witness, &base_state()).is_err());
+    }
+
+    #[test]
     fn empty_witness_reference_is_rejected() {
         let witness = conflict_witness();
         let projection = ReconciliationEvidenceProjection::ConflictReferenceOnly {
-            witness_ref: " ".into(),
+            witness_ref: IdentityRef { kind: IdentityKind::ReconciliationWitness, namespace: "synthetic".into(), id: " ".into() },
         };
         assert!(projection.validate(&witness, &base_state()).is_err());
     }

@@ -1,0 +1,17 @@
+{
+  "schema": "mobility-reconciliation-witness-identity-v1",
+  "scope": "semantic-provenance-only",
+  "identity_kind": "reconciliation_witness",
+  "required_projection_binding": "exact_identity_equality",
+  "vectors": [
+    {"id":"RWI-001","scenario":"valid typed witness identity","expected":"accepted","forbidden_inference":"identity proves physical truth"},
+    {"id":"RWI-002","scenario":"empty witness identity","expected":"rejected","forbidden_inference":"missing identity can be inferred"},
+    {"id":"RWI-003","scenario":"wrong identity kind","expected":"rejected","forbidden_inference":"evidence-record identity is interchangeable with witness identity"},
+    {"id":"RWI-004","scenario":"projection references different witness","expected":"rejected","forbidden_inference":"non-empty reference proves witness association"},
+    {"id":"RWI-005","scenario":"projection uses compared claim identity","expected":"rejected","forbidden_inference":"claim identity and witness identity are interchangeable"},
+    {"id":"RWI-006","scenario":"exact witness identity reused by projection","expected":"accepted","forbidden_inference":"identity creates engineering correctness"},
+    {"id":"RWI-007","scenario":"witness supersession","expected":"accepted","forbidden_inference":"supersession deletes predecessor witness"},
+    {"id":"RWI-008","scenario":"Holochain-shaped identifier","expected":"rejected","forbidden_inference":"protocol hash is native engineering identity"}
+  ],
+  "forbidden_claims": ["physical_safety","certification","regulatory_approval","physical_equivalence","engineering_correctness","measurement_truth"]
+}
