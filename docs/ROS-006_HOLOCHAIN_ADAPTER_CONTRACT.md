@@ -20,19 +20,27 @@ For every declared QualificationDependency:
 
 The adapter must not consult wall-clock time, mutable metadata, caller identity, link state, current application state, or network-dependent queries whose answer can vary between validators.
 
-## 2. Holochain host mapping
+## 2. Holochain 0.7 host mapping
 
-Holochain validation explicitly requires deterministic validation for a given operation. The supported deterministic dependency retrieval functions include must_get_action, must_get_entry, and must_get_valid_record. A dependency that cannot be retrieved causes validation to terminate with an unresolved-dependency result rather than becoming a validation failure.
+The production target is the Holochain 0.7 compatibility generation: Holochain 0.7.0, HDK 0.7.0, and HDI 0.8.0. The adapter must isolate host-version details from core-types.
 
-For dependencies where the action/record itself must already be validated, prefer must_get_valid_record. The adapter must still perform application-level type and identity checks after retrieval.
+Holochain validation provides deterministic must_get_* host functions, including must_get_action, must_get_entry, and must_get_valid_record. A dependency that cannot be retrieved must remain an unresolved dependency rather than being silently converted into a validation failure.
 
-Important limitation: Holochain documents that must_get_valid_record establishes validity for the CreateRecord operation, not necessarily every later Update/Delete operation associated with the same underlying data. ROS-006 therefore must not treat "valid record" as a substitute for domain identity or lifecycle validation.
+For dependencies where the action/record itself must already be validated, prefer must_get_valid_record. The adapter must still perform application-level type, logical-identity, lifecycle, and exact-address checks after retrieval.
 
-Holochain 0.6 is maintenance-mode. Its current compatibility table specifies HDK 0.6.3 and HDI 0.7.3. Holochain 0.7 changes the action model and uses TypedAction<...>; the adapter must isolate these differences from core-types.
+Important limitation: must_get_valid_record establishes validity for the CreateRecord operation; it is not a substitute for ROS domain identity or lifecycle validation of later Update/Delete history.
 
-Repository pin audit: mycelix-core-types currently declares optional HDI 0.7.1, holo_hash 0.6.1, holochain_integrity_types 0.6.1, and hdk_derive 0.6.1. These pins do not exactly match the current Holochain 0.6.3 compatibility table. Do not describe the repository as being on the current 0.6 compatibility set until the workspace pins are deliberately reconciled. This mismatch is an integration risk worth resolving before the concrete Relationship 360 adapter is implemented.
+The 0.6 → 0.7 migration changes the Action representation: Action now contains shared header data plus ActionData, and TypedAction is used by several operation types. This difference must remain entirely inside the concrete adapter/host layer; core qualification must not depend on Holochain action enums or version-specific re-exports.
 
-## 3. Adapter result contract
+## 3. Repository migration boundary
+
+The repository currently contains active 0.6-era Holochain dependency declarations. The target is to normalize active Holochain workspaces onto one coherent 0.7 compatibility generation rather than introducing a special 0.7 dependency island for ROS-006.
+
+Do not mechanically edit version strings without regenerating lockfiles and migrating the associated 0.6 API surface. Holochain's official upgrade guidance identifies action-model, transport, conductor, and test-harness changes, and integrity-zome dependency changes alter DNA compatibility.
+
+ROS-006 therefore remains Holochain-version-neutral until the host workspace itself has been migrated and verified.
+
+## 4. Adapter result contract
 
 The semantic mapping is intentionally strict:
 
@@ -46,23 +54,23 @@ Never map an identity mismatch to Unresolved: the dependency was retrieved, so t
 
 Never map an unavailable dependency to Invalid: that would make temporary DHT incompleteness indistinguishable from corrupt or malicious data.
 
-## 4. Stronger attestation requirement
+## 5. Stronger attestation requirement
 
 The three-state resolver is intentionally a narrow seam, but a bare Valid result cannot by itself prove that an adapter actually validated the exact requested identity and address.
 
-The preferred production adapter contract should therefore return an observation containing:
+The production adapter contract therefore returns an observation containing:
 
 - dependency kind;
 - observed logical ID;
 - exact retrieved record address.
 
-Core ROS should compare all three fields with the requested dependency before accepting Valid.
+Core ROS compares all three fields with the requested dependency before accepting Valid.
 
 This makes the security property enforceable at the version-neutral boundary rather than relying entirely on adapter discipline.
 
-The Holochain adapter should construct the observation from the record/hash it actually retrieved. It must not construct it by copying the requested dependency before retrieval.
+The Holochain adapter must construct the observation from the record/hash it actually retrieved. It must not construct it by copying the requested dependency before retrieval.
 
-## 5. Determinism requirements
+## 6. Determinism requirements
 
 For a fixed validation context, adapter resolution must be observationally pure:
 
@@ -77,7 +85,7 @@ For a fixed validation context, adapter resolution must be observationally pure:
 
 Caching is allowed only when it is semantically transparent: a cache hit and a fresh retrieval must produce the same result.
 
-## 6. Required adapter test matrix
+## 7. Required adapter test matrix
 
 The eventual concrete adapter should have host-level tests for at least:
 
@@ -94,12 +102,12 @@ The eventual concrete adapter should have host-level tests for at least:
 - resolver output cannot depend on wall-clock time;
 - resolver output cannot depend on caller identity;
 - resolver output cannot depend on mutable link/current-state metadata;
-- a retrieved dependency that is valid as a CreateRecord but fails the ROS domain identity/lifecycle checks is still invalid for ROS-006;
+- a retrieved dependency that is valid as a CreateRecord but fails ROS domain identity/lifecycle checks is still invalid for ROS-006;
 - an adapter cannot return Attested while changing kind, logical ID, or exact record address in its observed result;
 - a bare Valid result is rejected as unattested;
 - repeated qualification with the same pinned inputs produces the same certificate digest and projection bytes.
 
-## 7. Integration placement
+## 8. Integration placement
 
 Do not attach this adapter to an unrelated existing DNA merely because that DNA already has Holochain infrastructure.
 
@@ -109,24 +117,26 @@ The core-types crate should remain Holochain-version-neutral. The adapter should
 
 Holochain hash/record -> deterministic typed dependency observation -> ROS-006 resolver result -> core qualification.
 
-## 8. Security invariant
+## 9. Security invariant
 
 A successful qualification certificate proves only that the declared dependency set was deterministically resolved and that the core qualification rules accepted the supplied records.
 
 It is not a bearer capability, does not grant authority, and must not be interpreted as current authorization outside the explicitly validated input set.
 
-## 9. Recommended sequencing
+## 10. Recommended sequencing
 
-1. Reconcile and explicitly document the Holochain dependency matrix used by the workspace.
-2. Define the Relationship 360 integrity/coordinator boundary.
-3. Implement the thin adapter with observed identity/address binding; the core attestation check is already present.
-4. Run the adversarial matrix at the adapter boundary.
-5. Only then allow Relationship 360 projection to consume qualified inputs.
+1. Normalize active Holochain workspaces to the official 0.7 compatibility generation.
+2. Regenerate and commit workspace lockfiles from the 0.7 environment.
+3. Migrate 0.6 API usage using compiler diagnostics and Holochain's upgrade guide.
+4. Define the Relationship 360 integrity/coordinator boundary.
+5. Implement the thin adapter with observed identity/address binding; the core attestation check is already present.
+6. Run the adversarial matrix at the adapter boundary.
+7. Only then allow Relationship 360 projection to consume qualified inputs.
 
 ## References
 
+- Holochain 0.7 compatibility: https://developer.holochain.org/resources/compatibility/holochain-0.7/
+- Holochain 0.6 -> 0.7 upgrade notes: https://developer.holochain.org/resources/upgrade/upgrade-holochain-0.7/
 - Holochain validation: https://developer.holochain.org/build/validation/
 - Holochain must_get host functions: https://developer.holochain.org/build/must-get-host-functions/
 - Holochain validate callback: https://developer.holochain.org/build/validate-callback/
-- Holochain 0.6 compatibility: https://developer.holochain.org/resources/compatibility/holochain-0.6/
-- Holochain 0.6 -> 0.7 upgrade notes: https://developer.holochain.org/resources/upgrade/upgrade-holochain-0.7/
