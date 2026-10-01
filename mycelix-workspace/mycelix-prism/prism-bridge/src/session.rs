@@ -115,6 +115,10 @@ impl RendererSessionManager {
         self.current.as_ref()
     }
 
+    pub fn current_session_id(&self) -> Option<RendererSessionId> {
+        self.current.as_ref().map(|session| session.session_id)
+    }
+
     pub fn establish_from_stream(
         &mut self,
         stream: &UnixStream,
@@ -151,6 +155,22 @@ impl RendererSessionManager {
         generation: u64,
         request_id: RequestId,
     ) -> Result<(), RendererSessionManagerError> {
+        let session_id = self.current_session_id().ok_or(RendererSessionManagerError::Session(
+            CapabilityError::SessionClosed,
+        ))?;
+        self.accept_request_for_session(stream, generation, session_id, request_id)
+    }
+
+    /// Admit a request only for the session that owns the renderer connection.
+    /// This prevents an old socket from inheriting authority after the broker
+    /// replaces the active session for the same OS process.
+    pub fn accept_request_for_session(
+        &mut self,
+        stream: &UnixStream,
+        generation: u64,
+        expected_session: RendererSessionId,
+        request_id: RequestId,
+    ) -> Result<(), RendererSessionManagerError> {
         let peer = authenticate_peer(stream)?;
         let session = self
             .current
@@ -158,6 +178,11 @@ impl RendererSessionManager {
             .ok_or(RendererSessionManagerError::Session(
                 CapabilityError::SessionClosed,
             ))?;
+        if session.session_id != expected_session {
+            return Err(RendererSessionManagerError::Session(
+                CapabilityError::PeerMismatch,
+            ));
+        }
         session.accept_request(peer.peer_id, generation, request_id)?;
         Ok(())
     }
@@ -253,11 +278,12 @@ impl CapabilityIngress {
         stream: &UnixStream,
         generation: u64,
         authoritative: &RendererBinding,
+        session_id: RendererSessionId,
         request_id: RequestId,
         payload: &[u8],
     ) -> Result<CapabilityRequest, CapabilityIngressError> {
         self.sessions
-            .accept_request(stream, generation, request_id)
+            .accept_request_for_session(stream, generation, session_id, request_id)
             .map_err(CapabilityIngressError::Session)?;
 
         let request: CapabilityRequest =
