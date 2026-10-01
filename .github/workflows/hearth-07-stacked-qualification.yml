@@ -21,7 +21,7 @@ env:
 jobs:
   qualify:
     name: Hearth 0.7 runtime qualification
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
       - name: Require immutable commit ref
@@ -37,6 +37,7 @@ jobs:
         with:
           ref: ${{ inputs.ref }}
           fetch-depth: 0
+          persist-credentials: false
           submodules: recursive
 
       - name: Record resolved source identity
@@ -47,9 +48,14 @@ jobs:
             "requested_ref=${{ inputs.ref }}" \
             "resolved_commit=$(git rev-parse HEAD)" \
             "qualified_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            "runner_os=$RUNNER_OS" \
+            "runner_image=${ImageOS:-unknown}" \
             "actions_checkout_sha=3d3c42e5aac5ba805825da76410c181273ba90b1" \
             "cachix_install_nix_action_sha=8aa03977d8d733052d78f4e008a241fd1dbf36b3" \
             "actions_upload_artifact_sha=043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" \
+            "workflow_sha=$(git hash-object .github/workflows/hearth-07-stacked-qualification.yml)" \
+            "run_id=$GITHUB_RUN_ID" \
+            "run_attempt=$GITHUB_RUN_ATTEMPT" \
             > hearth-07-qualification-evidence.txt
 
       - name: Verify Holochain 0.7 source invariants
@@ -83,6 +89,7 @@ jobs:
           nix develop .#ci --command hc dna pack dna/
           test -s dna/mycelix_hearth.dna
           sha256sum dna/mycelix_hearth.dna | tee -a "$GITHUB_WORKSPACE/hearth-07-qualification-evidence.txt"
+          sha256sum Cargo.lock tests/Cargo.toml | tee -a "$GITHUB_WORKSPACE/hearth-07-qualification-evidence.txt"
 
       - name: Run dedicated Sweettest workspace against Holochain 0.7
         working-directory: mycelix-workspace/mycelix-hearth/tests
