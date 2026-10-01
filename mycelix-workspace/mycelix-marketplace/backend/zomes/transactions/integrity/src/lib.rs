@@ -15,7 +15,7 @@ pub use reservation_certificate::{
     validate_create_reservation_terminal, validate_transaction_reservation_binding,
     CertificateError, FrontierEvent, FrontierStateTransition, InventoryFrontier,
     IntentError, PurchaseIntent, ReservationCertificate, ReservationFrontierState,
-    ReservationTerminalEvidence, ReservationTerminalOutcome,
+    ReservationCapacityEvidence, ReservationTerminalEvidence, ReservationTerminalOutcome,
 };
 
 /// Transaction entry - represents a purchase in the marketplace
@@ -144,6 +144,7 @@ pub enum EntryTypes {
     PurchaseIntent(PurchaseIntent),
     ReservationCertificate(ReservationCertificate),
     ReservationTerminalEvidence(ReservationTerminalEvidence),
+    ReservationCapacityEvidence(ReservationCapacityEvidence),
 }
 
 #[hdk_extern]
@@ -169,6 +170,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::ReservationTerminalEvidence(evidence) => {
                     validate_create_reservation_terminal(&evidence, &action)
                 }
+                EntryTypes::ReservationCapacityEvidence(evidence) => {
+                    validate_create_reservation_capacity(&evidence, &action)
+                }
             },
             OpEntry::UpdateEntry {
                 app_entry, action, ..
@@ -190,6 +194,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 )),
                 EntryTypes::ReservationTerminalEvidence(_) => Ok(ValidateCallbackResult::Invalid(
                     "Reservation terminal evidence is immutable".into(),
+                )),
+                EntryTypes::ReservationCapacityEvidence(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Reservation capacity evidence is immutable".into(),
                 )),
             },
             _ => Ok(ValidateCallbackResult::Valid),
