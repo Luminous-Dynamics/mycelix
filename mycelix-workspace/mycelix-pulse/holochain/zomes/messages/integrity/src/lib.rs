@@ -1166,6 +1166,15 @@ fn validate_inbox_link_v2(
         }
     };
     let record = must_get_valid_record(target_action_hash)?;
+    // The inbox relation points to the durable message creation action, not
+    // merely to any record whose current entry happens to deserialize as V2.
+    // V2 messages are immutable, but keeping this invariant explicit prevents
+    // future mutable entry types from accidentally becoming inbox targets.
+    if !matches!(record.action(), Action::Create(_)) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "AgentToInboxV2 target must be a Create action".into(),
+        ));
+    }
     let entry = record.entry().as_option().ok_or_else(|| {
         wasm_error!(WasmErrorInner::Guest(
             "AgentToInboxV2 target record has no entry".into()
