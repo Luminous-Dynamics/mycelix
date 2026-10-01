@@ -841,6 +841,31 @@ pub enum ReservationTerminalOutcome {
     Consumed,
 }
 
+/// Immutable seller-authored capacity revision evidence.
+#[hdk_entry_helper]
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReservationCapacityEvidence {
+    pub seller: AgentPubKey,
+    pub listing_hash: ActionHash,
+    pub listing_revision: ActionHash,
+    pub capacity: u32,
+    pub sequence: u64,
+    pub previous_frontier_action: ActionHash,
+    pub pre_state: ReservationFrontierState,
+    pub post_state: ReservationFrontierState,
+}
+
+impl ReservationCapacityEvidence {
+    pub fn validate_state_transition(&self) -> Result<(), &'static str> {
+        self.pre_state.validate()?;
+        self.post_state.validate()?;
+        self.pre_state.validate_transition(
+            FrontierStateTransition::SetCapacity { capacity: self.capacity },
+            &self.post_state,
+        )
+    }
+}
+
 impl ReservationTerminalEvidence {
     /// Pure validation of the economic state transition represented by this
     /// terminal event. The Holochain validator additionally binds the evidence
