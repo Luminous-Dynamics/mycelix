@@ -331,6 +331,7 @@ impl CurrentFinalityEligibilityReceiptV1 {
             && !self.observation_set_id.is_empty()
             && !self.observation_set_commitment.is_empty()
             && !self.d6n_assessment_commitment.is_empty()
+            && !self.composition_commitment.is_empty()
             && !self.witness_eligibility_ids.is_empty()
             && !self.observer_generation_ids.is_empty()
             && !self.current_frontier_root.is_empty()
@@ -2300,6 +2301,7 @@ mod tests {
             observation_set_id: composition.observation_set_id.clone(),
             observation_set_commitment: composition.observation_set_commitment.clone(),
             d6n_assessment_commitment: composition.d6n_assessment_commitment.clone(),
+            composition_commitment: composition.composition_commitment.clone(),
             witness_eligibility_ids: ["eligibility-obs-1".into()].into_iter().collect(),
             observer_generation_ids: ["observer-A".into()].into_iter().collect(),
             current_frontier_root: "frontier-1".into(),
@@ -2356,6 +2358,7 @@ mod tests {
             observation_set_id: composition.observation_set_id.clone(),
             observation_set_commitment: composition.observation_set_commitment.clone(),
             d6n_assessment_commitment: composition.d6n_assessment_commitment.clone(),
+            composition_commitment: composition.composition_commitment.clone(),
             witness_eligibility_ids: ["eligibility-obs-1".into()].into_iter().collect(),
             observer_generation_ids: ["observer-A".into()].into_iter().collect(),
             current_frontier_root: "frontier-1".into(),
