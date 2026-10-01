@@ -638,6 +638,137 @@ mod tests {
         assert_eq!(f.post_state(), ReservationFrontierState { capacity: 5, active_reserved: 0, available: 5 });
     }
 
+    #[derive(Debug, Clone)]
+    struct ReconstructionEvent {
+        sequence: u64,
+        previous_id: Option<&'static str>,
+        id: &'static str,
+        transition: FrontierStateTransition,
+        pre_state: ReservationFrontierState,
+        post_state: ReservationFrontierState,
+    }
+
+    fn reconstruct_frontier(
+        genesis: ReservationFrontierState,
+        events: &[ReconstructionEvent],
+    ) -> Result<ReservationFrontierState, &'static str> {
+        let mut state = genesis;
+        let mut expected_sequence = 0;
+        let mut previous_id = None;
+
+        for event in events {
+            if event.sequence != expected_sequence {
+                return Err("frontier sequence gap");
+            }
+            if event.previous_id != previous_id {
+                return Err("frontier predecessor mismatch");
+            }
+            if event.pre_state != state {
+                return Err("frontier pre-state mismatch");
+            }
+            state.validate_transition(event.transition, &event.post_state)?;
+            state = event.post_state.clone();
+            expected_sequence = expected_sequence
+                .checked_add(1)
+                .ok_or("frontier sequence overflow")?;
+            previous_id = Some(event.id);
+        }
+
+        Ok(state)
+    }
+
+    #[test]
+    fn independent_reconstruction_matches_mixed_frontier_history() {
+        let genesis = ReservationFrontierState::from_capacity(10);
+        let reserved = genesis.after_reserve(4).unwrap();
+        let increased = reserved.after_set_capacity(12).unwrap();
+        let released = increased.after_release(4).unwrap();
+        let consumed_capacity = released.after_reserve(3).unwrap();
+        let consumed = consumed_capacity.after_consume(3).unwrap();
+
+        let events = vec![
+            ReconstructionEvent {
+                sequence: 0,
+                previous_id: None,
+                id: "reserve-1",
+                transition: FrontierStateTransition::Reserve { quantity: 4 },
+                pre_state: genesis.clone(),
+                post_state: reserved.clone(),
+            },
+            ReconstructionEvent {
+                sequence: 1,
+                previous_id: Some("reserve-1"),
+                id: "capacity-1",
+                transition: FrontierStateTransition::SetCapacity { capacity: 12 },
+                pre_state: reserved.clone(),
+                post_state: increased.clone(),
+            },
+            ReconstructionEvent {
+                sequence: 2,
+                previous_id: Some("capacity-1"),
+                id: "release-1",
+                transition: FrontierStateTransition::Release { quantity: 4 },
+                pre_state: increased.clone(),
+                post_state: released.clone(),
+            },
+            ReconstructionEvent {
+                sequence: 3,
+                previous_id: Some("release-1"),
+                id: "reserve-2",
+                transition: FrontierStateTransition::Reserve { quantity: 3 },
+                pre_state: released.clone(),
+                post_state: consumed_capacity.clone(),
+            },
+            ReconstructionEvent {
+                sequence: 4,
+                previous_id: Some("reserve-2"),
+                id: "consume-2",
+                transition: FrontierStateTransition::Consume { quantity: 3 },
+                pre_state: consumed_capacity,
+                post_state: consumed.clone(),
+            },
+        ];
+
+        assert_eq!(reconstruct_frontier(genesis, &events).unwrap(), consumed);
+    }
+
+    #[test]
+    fn independent_reconstruction_rejects_tampered_state_and_sequence_gaps() {
+        let genesis = ReservationFrontierState::from_capacity(5);
+        let reserved = genesis.after_reserve(2).unwrap();
+
+        let mut tampered = vec![ReconstructionEvent {
+            sequence: 0,
+            previous_id: None,
+            id: "reserve-1",
+            transition: FrontierStateTransition::Reserve { quantity: 2 },
+            pre_state: genesis.clone(),
+            post_state: ReservationFrontierState {
+                capacity: 5,
+                active_reserved: 1,
+                available: 4,
+            },
+        }];
+        assert_eq!(
+            reconstruct_frontier(genesis.clone(), &tampered),
+            Err("frontier post-state does not match the deterministic transition")
+        );
+
+        tampered[0].post_state = reserved.clone();
+        tampered.push(ReconstructionEvent {
+            sequence: 2,
+            previous_id: Some("reserve-1"),
+            id: "reserve-2",
+            transition: FrontierStateTransition::Reserve { quantity: 1 },
+            pre_state: reserved.clone(),
+            post_state: reserved.after_reserve(1).unwrap(),
+        });
+        assert_eq!(
+            reconstruct_frontier(genesis, &tampered),
+            Err("frontier sequence gap")
+        );
+    }
+
     #[test]
     fn consume_permanently_removes_capacity() {
         let mut f = frontier(1);
@@ -1236,6 +1367,20 @@ pub fn validate_create_reservation_capacity(
         _ => return Ok(ValidateCallbackResult::Invalid(
             "Reservation capacity evidence is not bound to a valid listing revision".into(),
         )),
+    }
+
+    let prior_activity = must_get_agent_activity(
+        evidence.seller.clone(),
+        ChainFilter::new(action.prev_action.clone())
+            .until_hash(evidence.previous_frontier_action.clone()),
+    )?;
+    if !prior_activity
+        .iter()
+        .any(|activity| activity.action.hashed.hash == evidence.previous_frontier_action)
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reservation capacity predecessor is not an earlier action on the seller source chain".into(),
+        ));
     }
 
     let previous = must_get_valid_record(evidence.previous_frontier_action.clone()).map_err(|_| {
