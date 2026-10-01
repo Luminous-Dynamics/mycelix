@@ -14,6 +14,7 @@ use thiserror::Error;
 
 pub mod authority;
 pub mod capability;
+pub mod process;
 pub mod grant;
 pub mod identity;
 pub mod lifecycle;
