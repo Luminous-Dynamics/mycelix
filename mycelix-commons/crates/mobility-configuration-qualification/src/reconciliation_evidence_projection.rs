@@ -19,14 +19,14 @@ pub enum ReconciliationEvidenceProjection {
         witness_ref: IdentityRef,
     },
     LifecycleSupersession {
-        witness_ref: String,
+        witness_ref: IdentityRef,
     },
     IndeterminateReference {
-        witness_ref: String,
+        witness_ref: IdentityRef,
         unresolved_dependency_reference: Option<String>,
     },
     NoEpistemicPromotion {
-        witness_ref: String,
+        witness_ref: IdentityRef,
     },
 }
 
