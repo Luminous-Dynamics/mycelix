@@ -60,11 +60,11 @@ jobs:
       - uses: actions/setup-python@v5
       - name: Retarget a valid projection and require rejection
         run: |
-          python3 -c 'import json; p="docs/mobility/MOBILITY_RECONCILIATION_TARGET_BOUND_PROJECTION_V1_EXECUTABLE.json"; d=json.load(open(p)); d["cases"][0]["target"]["id"]="target-b"; json.dump(d,open("/tmp/retarget.json","w"))'
+          python3 -c 'import json; p="docs/mobility/MOBILITY_RECONCILIATION_TARGET_BOUND_PROJECTION_V1_EXECUTABLE.json"; d=json.load(open(p)); d["cases"][0]["configuration_scope"]["id"]="config-r2"; json.dump(d,open("/tmp/retarget.json","w"))'
           if python3 tools/mobility_target_bound_projection_reference.py /tmp/retarget.json >/tmp/py 2>&1; then exit 1; fi
           if cargo run --quiet --manifest-path mycelix-commons/crates/mobility-configuration-qualification/Cargo.toml --bin mobility-target-bound-projection-qualification -- /tmp/retarget.json >/tmp/rs 2>&1; then exit 1; fi
-      - name: Replace target with witness identity and require rejection
+      - name: Replace configuration scope with witness identity and require rejection
         run: |
-          python3 -c 'import json; p="docs/mobility/MOBILITY_RECONCILIATION_TARGET_BOUND_PROJECTION_V1_EXECUTABLE.json"; d=json.load(open(p)); d["cases"][0]["target"]=d["cases"][0]["witness"]["witness_identity"]; d["cases"][0]["projection"]["target"]=d["cases"][0]["target"]; json.dump(d,open("/tmp/witness-target.json","w"))'
+          python3 -c 'import json; p="docs/mobility/MOBILITY_RECONCILIATION_TARGET_BOUND_PROJECTION_V1_EXECUTABLE.json"; d=json.load(open(p)); d["cases"][0]["configuration_scope"]=d["cases"][0]["witness"]["witness_identity"]; d["cases"][0]["projection"]["configuration_scope"]=d["cases"][0]["configuration_scope"]; json.dump(d,open("/tmp/witness-target.json","w"))'
           if python3 tools/mobility_target_bound_projection_reference.py /tmp/witness-target.json >/tmp/py 2>&1; then exit 1; fi
           if cargo run --quiet --manifest-path mycelix-commons/crates/mobility-configuration-qualification/Cargo.toml --bin mobility-target-bound-projection-qualification -- /tmp/witness-target.json >/tmp/rs 2>&1; then exit 1; fi

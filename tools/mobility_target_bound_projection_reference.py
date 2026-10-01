@@ -51,14 +51,18 @@ def witness_ok(w):
     }
 
 def project(c):
-    target, w, wrapper, base = c["target"], c["witness"], c["projection"], c["base_state"]
+    target, scope, w, wrapper, base = c["target"], c["configuration_scope"], c["witness"], c["projection"], c["base_state"]
     if not identity_ok(target) or target["kind"] != "evidence_record":
         return None
     if not witness_ok(w):
         return None
-    if not isinstance(wrapper, dict) or set(wrapper) != {"target", "projection"}:
+    if not isinstance(wrapper, dict) or set(wrapper) != {"target", "configuration_scope", "projection"}:
         return None
     if wrapper["target"] != target:
+        return None
+    if not identity_ok(scope) or scope["kind"] != "configuration_revision":
+        return None
+    if wrapper["configuration_scope"] != scope:
         return None
     if target in (w["witness_identity"], w["left_claim"], w["right_claim"]):
         return None
@@ -87,7 +91,7 @@ def main():
     d = json.loads(Path(path).read_text())
     if d.get("schema") != SCHEMA or d.get("schema_version") != VERSION or d.get("status") != "semantic-provenance-only":
         raise SystemExit("invalid corpus envelope")
-    if len(d.get("cases", [])) != 12 or [c["id"] for c in d["cases"]] != IDS:
+    if len(d.get("cases", [])) != 18 or [c["id"] for c in d["cases"]] != [f"TBP-{i:03}" for i in range(1, 19)]:
         raise SystemExit("unexpected corpus IDs/count")
     out = []
     for c in d["cases"]:

@@ -35,3 +35,11 @@ TBP-001..012 cover:
 Qualification is semantic/provenance-only. It does not establish physical correctness, safety, certification, regulatory approval, physical equivalence, measurement truth, or authorship truth.
 
 Holochain validation requires deterministic outcomes from explicitly addressable dependencies; unavailable dependencies remain unresolved rather than becoming an inferred result. Holochain documents these constraints directly. NIST's digital-thread research likewise emphasizes persistent identifiers and traceability across product-lifecycle data.
+
+## MOBILITY-COMMONS-022 scope extension
+
+Target identity does not by itself establish configuration scope. A projection therefore also carries an explicit ConfigurationRevision identity. Validation receives the expected scope separately and requires exact equality.
+
+This prevents a projection from silently crossing configuration revisions while preserving the distinction between target identity, configuration identity, and reconciliation-witness identity. A deliberate configuration transition is represented by a new projection and explicit configuration lineage rather than inferred from timestamps or protocol identifiers.
+
+The executable corpus is extended to TBP-001..018 with wrong-scope, witness-as-scope, Holochain-scope, declaration/supplied-scope mismatch, and explicit-new-scope cases.

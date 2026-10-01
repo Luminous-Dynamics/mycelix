@@ -59,6 +59,11 @@
               "id": "w1"
             }
           }
+        },
+        "configuration_scope": {
+          "kind": "configuration_revision",
+          "namespace": "synthetic",
+          "id": "config-r1"
         }
       },
       "base_state": {
@@ -82,6 +87,11 @@
         "conflict_reference": "w1",
         "unresolved_dependency_reference": null,
         "external_authority_reference": null
+      },
+      "configuration_scope": {
+        "kind": "configuration_revision",
+        "namespace": "synthetic",
+        "id": "config-r1"
       }
     },
     {
@@ -140,6 +150,11 @@
               "id": "w1"
             }
           }
+        },
+        "configuration_scope": {
+          "kind": "configuration_revision",
+          "namespace": "synthetic",
+          "id": "config-r1"
         }
       },
       "base_state": {
@@ -163,6 +178,11 @@
         "conflict_reference": "w1",
         "unresolved_dependency_reference": null,
         "external_authority_reference": null
+      },
+      "configuration_scope": {
+        "kind": "configuration_revision",
+        "namespace": "synthetic",
+        "id": "config-r1"
       }
     },
     {
@@ -221,6 +241,11 @@
               "id": "w1"
             }
           }
+        },
+        "configuration_scope": {
+          "kind": "configuration_revision",
+          "namespace": "synthetic",
+          "id": "config-r1"
         }
       },
       "base_state": {
@@ -244,6 +269,11 @@
         "conflict_reference": "w1",
         "unresolved_dependency_reference": null,
         "external_authority_reference": null
+      },
+      "configuration_scope": {
+        "kind": "configuration_revision",
+        "namespace": "synthetic",
+        "id": "config-r1"
       }
     },
     {
@@ -302,6 +332,11 @@
               "id": "w1"
             }
           }
+        },
+        "configuration_scope": {
+          "kind": "configuration_revision",
+          "namespace": "synthetic",
+          "id": "config-r1"
         }
       },
       "base_state": {
@@ -325,6 +360,11 @@
         "conflict_reference": "w1",
         "unresolved_dependency_reference": null,
         "external_authority_reference": null
+      },
+      "configuration_scope": {
+        "kind": "configuration_revision",
+        "namespace": "synthetic",
+        "id": "config-r1"
       }
     },
     {
@@ -383,6 +423,11 @@
               "id": "w1"
             }
           }
+        },
+        "configuration_scope": {
+          "kind": "configuration_revision",
+          "namespace": "synthetic",
+          "id": "config-r1"
         }
       },
       "base_state": {
@@ -406,6 +451,11 @@
         "conflict_reference": "w1",
         "unresolved_dependency_reference": null,
         "external_authority_reference": null
+      },
+      "configuration_scope": {
+        "kind": "configuration_revision",
+        "namespace": "synthetic",
+        "id": "config-r1"
       }
     },
     {
@@ -464,6 +514,11 @@
               "id": "w1"
             }
           }
+        },
+        "configuration_scope": {
+          "kind": "configuration_revision",
+          "namespace": "synthetic",
+          "id": "config-r1"
         }
       },
       "base_state": {
@@ -487,6 +542,11 @@
         "conflict_reference": "w1",
         "unresolved_dependency_reference": null,
         "external_authority_reference": null
+      },
+      "configuration_scope": {
+        "kind": "configuration_revision",
+        "namespace": "synthetic",
+        "id": "config-r1"
       }
     },
     {
@@ -545,6 +605,11 @@
               "id": "w2"
             }
           }
+        },
+        "configuration_scope": {
+          "kind": "configuration_revision",
+          "namespace": "synthetic",
+          "id": "config-r1"
         }
       },
       "base_state": {
@@ -568,6 +633,11 @@
         "conflict_reference": "w2",
         "unresolved_dependency_reference": null,
         "external_authority_reference": null
+      },
+      "configuration_scope": {
+        "kind": "configuration_revision",
+        "namespace": "synthetic",
+        "id": "config-r1"
       }
     },
     {
@@ -626,6 +696,11 @@
               "id": "w2"
             }
           }
+        },
+        "configuration_scope": {
+          "kind": "configuration_revision",
+          "namespace": "synthetic",
+          "id": "config-r1"
         }
       },
       "base_state": {
@@ -649,6 +724,11 @@
         "conflict_reference": "w2",
         "unresolved_dependency_reference": null,
         "external_authority_reference": null
+      },
+      "configuration_scope": {
+        "kind": "configuration_revision",
+        "namespace": "synthetic",
+        "id": "config-r1"
       }
     },
     {
@@ -707,6 +787,11 @@
               "id": "w1"
             }
           }
+        },
+        "configuration_scope": {
+          "kind": "configuration_revision",
+          "namespace": "synthetic",
+          "id": "config-r1"
         }
       },
       "base_state": {
@@ -730,6 +815,11 @@
         "conflict_reference": "w1",
         "unresolved_dependency_reference": null,
         "external_authority_reference": null
+      },
+      "configuration_scope": {
+        "kind": "configuration_revision",
+        "namespace": "synthetic",
+        "id": "config-r1"
       }
     },
     {
@@ -788,6 +878,11 @@
               "id": "w1"
             }
           }
+        },
+        "configuration_scope": {
+          "kind": "configuration_revision",
+          "namespace": "synthetic",
+          "id": "config-r1"
         }
       },
       "base_state": {
@@ -811,6 +906,11 @@
         "conflict_reference": "w1",
         "unresolved_dependency_reference": null,
         "external_authority_reference": "authority-1"
+      },
+      "configuration_scope": {
+        "kind": "configuration_revision",
+        "namespace": "synthetic",
+        "id": "config-r1"
       }
     },
     {
@@ -869,6 +969,11 @@
               "id": "w1"
             }
           }
+        },
+        "configuration_scope": {
+          "kind": "configuration_revision",
+          "namespace": "synthetic",
+          "id": "config-r1"
         }
       },
       "base_state": {
@@ -892,6 +997,11 @@
         "conflict_reference": "w1",
         "unresolved_dependency_reference": null,
         "external_authority_reference": null
+      },
+      "configuration_scope": {
+        "kind": "configuration_revision",
+        "namespace": "synthetic",
+        "id": "config-r1"
       }
     },
     {
@@ -950,6 +1060,11 @@
               "id": "w1"
             }
           }
+        },
+        "configuration_scope": {
+          "kind": "configuration_revision",
+          "namespace": "synthetic",
+          "id": "config-r1"
         }
       },
       "base_state": {
@@ -973,6 +1088,557 @@
         "conflict_reference": "w1",
         "unresolved_dependency_reference": null,
         "external_authority_reference": null
+      },
+      "configuration_scope": {
+        "kind": "configuration_revision",
+        "namespace": "synthetic",
+        "id": "config-r1"
+      }
+    },
+    {
+      "id": "TBP-013",
+      "operation": "wrong_configuration_scope",
+      "expected": "rejected",
+      "target": {
+        "kind": "evidence_record",
+        "namespace": "synthetic",
+        "id": "target-a"
+      },
+      "witness": {
+        "witness_identity": {
+          "kind": "reconciliation_witness",
+          "namespace": "synthetic",
+          "id": "w1"
+        },
+        "left_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-a"
+        },
+        "right_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-b"
+        },
+        "left_applicability": {
+          "start": 0,
+          "end": 10
+        },
+        "right_applicability": {
+          "start": 5,
+          "end": 15
+        },
+        "comparability": "comparable",
+        "compatibility": "incompatible",
+        "explicitly_superseded": false,
+        "disputed": true,
+        "result": {
+          "classification": "conflicting",
+          "disputed": true
+        }
+      },
+      "projection": {
+        "target": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "target-a"
+        },
+        "projection": {
+          "ConflictReferenceOnly": {
+            "witness_ref": {
+              "kind": "reconciliation_witness",
+              "namespace": "synthetic",
+              "id": "w1"
+            }
+          }
+        },
+        "configuration_scope": {
+          "kind": "configuration_revision",
+          "namespace": "synthetic",
+          "id": "config-r1"
+        }
+      },
+      "base_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "uncontested",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": null,
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "expected_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "disputed",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": "w1",
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "configuration_scope": {
+        "kind": "configuration_revision",
+        "namespace": "synthetic",
+        "id": "config-r2"
+      }
+    },
+    {
+      "id": "TBP-014",
+      "operation": "same_target_different_scope",
+      "expected": "rejected",
+      "target": {
+        "kind": "evidence_record",
+        "namespace": "synthetic",
+        "id": "target-a"
+      },
+      "witness": {
+        "witness_identity": {
+          "kind": "reconciliation_witness",
+          "namespace": "synthetic",
+          "id": "w1"
+        },
+        "left_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-a"
+        },
+        "right_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-b"
+        },
+        "left_applicability": {
+          "start": 0,
+          "end": 10
+        },
+        "right_applicability": {
+          "start": 5,
+          "end": 15
+        },
+        "comparability": "comparable",
+        "compatibility": "incompatible",
+        "explicitly_superseded": false,
+        "disputed": true,
+        "result": {
+          "classification": "conflicting",
+          "disputed": true
+        }
+      },
+      "projection": {
+        "target": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "target-a"
+        },
+        "projection": {
+          "ConflictReferenceOnly": {
+            "witness_ref": {
+              "kind": "reconciliation_witness",
+              "namespace": "synthetic",
+              "id": "w1"
+            }
+          }
+        },
+        "configuration_scope": {
+          "kind": "configuration_revision",
+          "namespace": "synthetic",
+          "id": "config-r1"
+        }
+      },
+      "base_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "uncontested",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": null,
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "expected_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "disputed",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": "w1",
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "configuration_scope": {
+        "kind": "configuration_revision",
+        "namespace": "synthetic",
+        "id": "config-r2"
+      }
+    },
+    {
+      "id": "TBP-015",
+      "operation": "witness_identity_as_configuration_scope",
+      "expected": "rejected",
+      "target": {
+        "kind": "evidence_record",
+        "namespace": "synthetic",
+        "id": "target-a"
+      },
+      "witness": {
+        "witness_identity": {
+          "kind": "reconciliation_witness",
+          "namespace": "synthetic",
+          "id": "w1"
+        },
+        "left_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-a"
+        },
+        "right_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-b"
+        },
+        "left_applicability": {
+          "start": 0,
+          "end": 10
+        },
+        "right_applicability": {
+          "start": 5,
+          "end": 15
+        },
+        "comparability": "comparable",
+        "compatibility": "incompatible",
+        "explicitly_superseded": false,
+        "disputed": true,
+        "result": {
+          "classification": "conflicting",
+          "disputed": true
+        }
+      },
+      "projection": {
+        "target": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "target-a"
+        },
+        "projection": {
+          "ConflictReferenceOnly": {
+            "witness_ref": {
+              "kind": "reconciliation_witness",
+              "namespace": "synthetic",
+              "id": "w1"
+            }
+          }
+        },
+        "configuration_scope": {
+          "kind": "configuration_revision",
+          "namespace": "synthetic",
+          "id": "config-r1"
+        }
+      },
+      "base_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "uncontested",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": null,
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "expected_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "disputed",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": "w1",
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "configuration_scope": {
+        "kind": "reconciliation_witness",
+        "namespace": "synthetic",
+        "id": "w1"
+      }
+    },
+    {
+      "id": "TBP-016",
+      "operation": "holochain_configuration_scope",
+      "expected": "rejected",
+      "target": {
+        "kind": "evidence_record",
+        "namespace": "synthetic",
+        "id": "target-a"
+      },
+      "witness": {
+        "witness_identity": {
+          "kind": "reconciliation_witness",
+          "namespace": "synthetic",
+          "id": "w1"
+        },
+        "left_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-a"
+        },
+        "right_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-b"
+        },
+        "left_applicability": {
+          "start": 0,
+          "end": 10
+        },
+        "right_applicability": {
+          "start": 5,
+          "end": 15
+        },
+        "comparability": "comparable",
+        "compatibility": "incompatible",
+        "explicitly_superseded": false,
+        "disputed": true,
+        "result": {
+          "classification": "conflicting",
+          "disputed": true
+        }
+      },
+      "projection": {
+        "target": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "target-a"
+        },
+        "projection": {
+          "ConflictReferenceOnly": {
+            "witness_ref": {
+              "kind": "reconciliation_witness",
+              "namespace": "synthetic",
+              "id": "w1"
+            }
+          }
+        },
+        "configuration_scope": {
+          "kind": "configuration_revision",
+          "namespace": "synthetic",
+          "id": "config-r1"
+        }
+      },
+      "base_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "uncontested",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": null,
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "expected_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "disputed",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": "w1",
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "configuration_scope": {
+        "kind": "configuration_revision",
+        "namespace": "holochain",
+        "id": "uhC0config"
+      }
+    },
+    {
+      "id": "TBP-017",
+      "operation": "projection_declares_different_scope",
+      "expected": "rejected",
+      "target": {
+        "kind": "evidence_record",
+        "namespace": "synthetic",
+        "id": "target-a"
+      },
+      "witness": {
+        "witness_identity": {
+          "kind": "reconciliation_witness",
+          "namespace": "synthetic",
+          "id": "w1"
+        },
+        "left_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-a"
+        },
+        "right_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-b"
+        },
+        "left_applicability": {
+          "start": 0,
+          "end": 10
+        },
+        "right_applicability": {
+          "start": 5,
+          "end": 15
+        },
+        "comparability": "comparable",
+        "compatibility": "incompatible",
+        "explicitly_superseded": false,
+        "disputed": true,
+        "result": {
+          "classification": "conflicting",
+          "disputed": true
+        }
+      },
+      "projection": {
+        "target": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "target-a"
+        },
+        "projection": {
+          "ConflictReferenceOnly": {
+            "witness_ref": {
+              "kind": "reconciliation_witness",
+              "namespace": "synthetic",
+              "id": "w1"
+            }
+          }
+        },
+        "configuration_scope": {
+          "kind": "configuration_revision",
+          "namespace": "synthetic",
+          "id": "config-r2"
+        }
+      },
+      "base_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "uncontested",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": null,
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "expected_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "disputed",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": "w1",
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "configuration_scope": {
+        "kind": "configuration_revision",
+        "namespace": "synthetic",
+        "id": "config-r1"
+      }
+    },
+    {
+      "id": "TBP-018",
+      "operation": "explicit_new_configuration_scope",
+      "expected": "accepted",
+      "target": {
+        "kind": "evidence_record",
+        "namespace": "synthetic",
+        "id": "target-a"
+      },
+      "witness": {
+        "witness_identity": {
+          "kind": "reconciliation_witness",
+          "namespace": "synthetic",
+          "id": "w1"
+        },
+        "left_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-a"
+        },
+        "right_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-b"
+        },
+        "left_applicability": {
+          "start": 0,
+          "end": 10
+        },
+        "right_applicability": {
+          "start": 5,
+          "end": 15
+        },
+        "comparability": "comparable",
+        "compatibility": "incompatible",
+        "explicitly_superseded": false,
+        "disputed": true,
+        "result": {
+          "classification": "conflicting",
+          "disputed": true
+        }
+      },
+      "projection": {
+        "target": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "target-a"
+        },
+        "projection": {
+          "ConflictReferenceOnly": {
+            "witness_ref": {
+              "kind": "reconciliation_witness",
+              "namespace": "synthetic",
+              "id": "w1"
+            }
+          }
+        },
+        "configuration_scope": {
+          "kind": "configuration_revision",
+          "namespace": "synthetic",
+          "id": "config-r2"
+        }
+      },
+      "base_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "uncontested",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": null,
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "expected_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "disputed",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": "w1",
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "configuration_scope": {
+        "kind": "configuration_revision",
+        "namespace": "synthetic",
+        "id": "config-r2"
       }
     }
   ]

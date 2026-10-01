@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 #[serde(deny_unknown_fields)]
 pub struct TargetBoundReconciliationProjection {
     pub target: IdentityRef,
+    pub configuration_scope: IdentityRef,
     pub projection: ReconciliationEvidenceProjection,
 }
 
@@ -22,6 +23,7 @@ impl TargetBoundReconciliationProjection {
     pub fn validate(
         &self,
         target: &IdentityRef,
+        configuration_scope: &IdentityRef,
         witness: &TemporalReconciliationWitness,
         base: &EvidenceState,
     ) -> Result<(), String> {
@@ -31,6 +33,19 @@ impl TargetBoundReconciliationProjection {
         }
         if &self.target != target {
             return Err("projection target does not identify the supplied evidence target".into());
+        }
+        self.configuration_scope.validate()?;
+        if self.configuration_scope.kind != IdentityKind::ConfigurationRevision {
+            return Err("projection configuration scope must use ConfigurationRevision identity kind".into());
+        }
+        if &self.configuration_scope != configuration_scope {
+            return Err("projection configuration scope does not identify the supplied configuration scope".into());
+        }
+        if self.configuration_scope == witness.witness_identity
+            || self.configuration_scope == witness.left_claim
+            || self.configuration_scope == witness.right_claim
+        {
+            return Err("projection configuration scope must be distinct from witness and claim identities".into());
         }
         if self.target == witness.witness_identity {
             return Err("projection target cannot be the reconciliation witness identity".into());
@@ -44,10 +59,11 @@ impl TargetBoundReconciliationProjection {
     pub fn apply(
         &self,
         target: &IdentityRef,
+        configuration_scope: &IdentityRef,
         witness: &TemporalReconciliationWitness,
         base: &EvidenceState,
     ) -> Result<EvidenceState, String> {
-        self.validate(target, witness, base)?;
+        self.validate(target, configuration_scope, witness, base)?;
         self.projection.apply(witness, base)
     }
 
@@ -121,6 +137,7 @@ mod tests {
     fn projection(target: IdentityRef) -> TargetBoundReconciliationProjection {
         TargetBoundReconciliationProjection {
             target,
+            configuration_scope: id(IdentityKind::ConfigurationRevision, "config-r1"),
             projection: ReconciliationEvidenceProjection::ConflictReferenceOnly {
                 witness_ref: id(IdentityKind::ReconciliationWitness, "w1"),
             },
@@ -130,28 +147,28 @@ mod tests {
     #[test]
     fn exact_target_binding_is_accepted() {
         let t = target("target-a");
-        assert!(projection(t.clone()).apply(&t, &witness(), &base()).is_ok());
+        assert!(projection(t.clone()).apply(&t, &id(IdentityKind::ConfigurationRevision, "config-r1"), &witness(), &base()).is_ok());
     }
 
     #[test]
     fn different_target_is_rejected_even_with_identical_state() {
         let declared = target("target-a");
         let supplied = target("target-b");
-        assert!(projection(declared).apply(&supplied, &witness(), &base()).is_err());
+        assert!(projection(declared).apply(&supplied, &id(IdentityKind::ConfigurationRevision, "config-r1"), &witness(), &base()).is_err());
     }
 
     #[test]
     fn witness_identity_cannot_be_target() {
         let t = id(IdentityKind::ReconciliationWitness, "w1");
         let p = projection(t.clone());
-        assert!(p.validate(&t, &witness(), &base()).is_err());
+        assert!(p.validate(&t, &id(IdentityKind::ConfigurationRevision, "config-r1"), &witness(), &base()).is_err());
     }
 
     #[test]
     fn compared_claim_identity_cannot_be_target() {
         let t = id(IdentityKind::EvidenceRecord, "claim-a");
         let p = projection(t.clone());
-        assert!(p.validate(&t, &witness(), &base()).is_err());
+        assert!(p.validate(&t, &id(IdentityKind::ConfigurationRevision, "config-r1"), &witness(), &base()).is_err());
     }
 
     #[test]
@@ -166,10 +183,35 @@ mod tests {
     }
 
     #[test]
+    #[test]
+    fn configuration_scope_must_be_explicitly_matching() {
+        let t = target("target-a");
+        let p = projection(t.clone());
+        let wrong_scope = id(IdentityKind::ConfigurationRevision, "config-r2");
+        assert!(p.validate(&t, &wrong_scope, &witness(), &base()).is_err());
+    }
+
+    #[test]
+    fn witness_identity_cannot_be_configuration_scope() {
+        let t = target("target-a");
+        let p = projection(t.clone());
+        let witness_scope = id(IdentityKind::ReconciliationWitness, "w1");
+        assert!(p.validate(&t, &witness_scope, &witness(), &base()).is_err());
+    }
+
+    #[test]
+    fn holochain_configuration_scope_is_rejected() {
+        let t = target("target-a");
+        let p = projection(t.clone());
+        let scope = IdentityRef { kind: IdentityKind::ConfigurationRevision, namespace: "holochain".into(), id: "uhC0config".into() };
+        assert!(p.validate(&t, &scope, &witness(), &base()).is_err());
+    }
+
+    #[test]
     fn historical_target_binding_is_independent_of_witness_revision() {
         let t = target("target-a");
         let p1 = projection(t.clone());
-        assert!(p1.apply(&t, &witness(), &base()).is_ok());
+        assert!(p1.apply(&t, &id(IdentityKind::ConfigurationRevision, "config-r1"), &witness(), &base()).is_ok());
         assert_eq!(p1.witness_identity().id, "w1");
         assert_eq!(p1.target.id, "target-a");
     }
