@@ -19,7 +19,8 @@ use std::collections::BTreeMap;
 
 use crate::reservation::{ApplyOutcome, Reservation, ReservationError, ReservationLedger};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
 pub struct PurchaseIntent {
     pub intent_id: String,
     pub buyer: AgentPubKey,
@@ -79,10 +80,12 @@ pub struct ReservationCertificate {
     pub seller: AgentPubKey,
     pub listing_hash: ActionHash,
     pub listing_revision: ActionHash,
+    pub intent_hash: ActionHash,
     pub intent: PurchaseIntent,
     pub quantity: u32,
     pub sequence: u64,
     pub previous_certificate_id: Option<String>,
+    pub previous_frontier_action: Option<ActionHash>,
 }
 
 impl ReservationCertificate {
@@ -94,8 +97,12 @@ impl ReservationCertificate {
         if self.listing_hash != self.intent.listing_hash { return Err(CertificateError::ListingMismatch); }
         if self.listing_revision != self.intent.listing_revision { return Err(CertificateError::ListingRevisionMismatch); }
         if self.quantity != self.intent.quantity { return Err(CertificateError::QuantityMismatch); }
-        if self.sequence == 0 && self.previous_certificate_id.is_some() { return Err(CertificateError::GenesisHasPrevious); }
-        if self.sequence > 0 && self.previous_certificate_id.is_none() { return Err(CertificateError::MissingPrevious); }
+        if self.sequence == 0 && (self.previous_certificate_id.is_some() || self.previous_frontier_action.is_some()) {
+            return Err(CertificateError::GenesisHasPrevious);
+        }
+        if self.sequence > 0 && (self.previous_certificate_id.is_none() || self.previous_frontier_action.is_none()) {
+            return Err(CertificateError::MissingPrevious);
+        }
         Ok(())
     }
 }
@@ -298,8 +305,10 @@ mod tests {
         let intent = PurchaseIntent { quantity, ..intent() };
         ReservationCertificate {
             certificate_id: id.into(), seller: agent(2), listing_hash: hash(3),
-            listing_revision: hash(4), quantity, sequence,
-            previous_certificate_id: previous.map(str::to_owned), intent,
+            listing_revision: hash(4), intent_hash: hash(5), quantity, sequence,
+            previous_certificate_id: previous.map(str::to_owned),
+            previous_frontier_action: previous.map(|_| hash(6)),
+            intent,
         }
     }
 
@@ -431,4 +440,196 @@ mod tests {
         }).unwrap_err();
         assert!(matches!(error, CertificateError::AlreadyReleased(_)));
     }
+}
+
+
+/// Immutable seller-authored terminal evidence for one exact reservation.
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct ReservationTerminalEvidence {
+    pub certificate_hash: ActionHash,
+    pub seller: AgentPubKey,
+    pub intent_hash: ActionHash,
+    pub outcome: ReservationTerminalOutcome,
+    pub sequence: u64,
+    pub previous_frontier_action: ActionHash,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum ReservationTerminalOutcome {
+    Released,
+    Consumed,
+}
+
+/// Validate a buyer-authored PurchaseIntent at the Holochain boundary.
+pub fn validate_create_purchase_intent(
+    intent: &PurchaseIntent,
+    action: &Create,
+) -> ExternResult<ValidateCallbackResult> {
+    if let Err(error) = intent.validate() {
+        return Ok(ValidateCallbackResult::Invalid(format!("Invalid purchase intent: {error:?}")));
+    }
+    if action.author != intent.buyer {
+        return Ok(ValidateCallbackResult::Invalid(
+            "PurchaseIntent must be authored by its buyer".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Validate a seller-issued reservation against exact addressable dependencies.
+/// This intentionally avoids mutable link collections in validation.
+pub fn validate_create_reservation_certificate(
+    certificate: &ReservationCertificate,
+    action: &Create,
+) -> ExternResult<ValidateCallbackResult> {
+    if let Err(error) = certificate.validate() {
+        return Ok(ValidateCallbackResult::Invalid(format!(
+            "Invalid reservation certificate: {error:?}"
+        )));
+    }
+    if action.author != certificate.seller {
+        return Ok(ValidateCallbackResult::Invalid(
+            "ReservationCertificate must be authored by its seller".into(),
+        ));
+    }
+
+    let intent_record = must_get_valid_record(certificate.intent_hash.clone()).map_err(|_| {
+        wasm_error!(WasmErrorInner::Guest(
+            "ReservationCertificate references a missing or invalid PurchaseIntent".into(),
+        ))
+    })?;
+    let intent = intent_record
+        .entry()
+        .to_app_option::<PurchaseIntent>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Invalid PurchaseIntent entry: {e:?}"))))?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
+            "ReservationCertificate intent dependency has the wrong entry type".into(),
+        )))?;
+
+    if intent != certificate.intent
+        || intent.seller != certificate.seller
+        || intent.listing_hash != certificate.listing_hash
+        || intent.listing_revision != certificate.listing_revision
+        || intent.quantity != certificate.quantity
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "ReservationCertificate does not exactly bind its PurchaseIntent".into(),
+        ));
+    }
+
+    let listing_action = must_get_action(certificate.listing_hash.clone())?;
+    if listing_action.author() != &certificate.seller {
+        return Ok(ValidateCallbackResult::Invalid(
+            "ReservationCertificate seller does not own the referenced listing action".into(),
+        ));
+    }
+
+    let revision_action = must_get_action(certificate.listing_revision.clone())?;
+    if revision_action.author() != &certificate.seller {
+        return Ok(ValidateCallbackResult::Invalid(
+            "ReservationCertificate listing revision is not seller-authored".into(),
+        ));
+    }
+
+    match revision_action.action() {
+        Action::Create(_) => {
+            if certificate.listing_revision != certificate.listing_hash {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "A create action can only be the listing's root revision".into(),
+                ));
+            }
+        }
+        Action::Update(update) => {
+            if update.original_action_address != certificate.listing_hash {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Listing revision does not descend from the referenced listing root".into(),
+                ));
+            }
+        }
+        _ => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Listing revision must reference a listing create or update action".into(),
+            ));
+        }
+    }
+
+    if certificate.sequence > 0 {
+        let previous_hash = certificate.previous_frontier_action.clone().ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Non-genesis reservation certificate omitted previous frontier action".into(),
+            ))
+        })?;
+        let previous = must_get_valid_record(previous_hash).map_err(|_| {
+            wasm_error!(WasmErrorInner::Guest(
+                "ReservationCertificate references a missing or invalid previous frontier record".into(),
+            ))
+        })?;
+        if previous.action().author() != &certificate.seller {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Previous frontier record is not seller-authored".into(),
+            ));
+        }
+    } else if certificate.previous_frontier_action.is_some() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Genesis reservation certificate cannot reference a previous frontier".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Validate seller-authored terminal evidence and bind it to the exact
+/// reservation certificate and immediately preceding frontier action.
+pub fn validate_create_reservation_terminal(
+    evidence: &ReservationTerminalEvidence,
+    action: &Create,
+) -> ExternResult<ValidateCallbackResult> {
+    if action.author != evidence.seller {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reservation terminal evidence must be authored by the seller".into(),
+        ));
+    }
+
+    let certificate_record = must_get_valid_record(evidence.certificate_hash.clone()).map_err(|_| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Reservation terminal evidence references a missing or invalid certificate".into(),
+        ))
+    })?;
+    let certificate = certificate_record
+        .entry()
+        .to_app_option::<ReservationCertificate>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Invalid certificate entry: {e:?}"))))?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
+            "Reservation terminal certificate dependency has the wrong entry type".into(),
+        )))?;
+
+    if certificate.seller != evidence.seller || certificate.intent_hash != evidence.intent_hash {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reservation terminal evidence does not bind to the certificate seller/intent".into(),
+        ));
+    }
+
+    let previous = must_get_valid_record(evidence.previous_frontier_action.clone()).map_err(|_| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Reservation terminal evidence references a missing or invalid previous frontier".into(),
+        ))
+    })?;
+    if previous.action().author() != &evidence.seller {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reservation terminal previous frontier is not seller-authored".into(),
+        ));
+    }
+    if previous.action_address() != evidence.certificate_hash {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reservation terminal evidence must immediately follow its reservation certificate".into(),
+        ));
+    }
+    if evidence.sequence != certificate.sequence + 1 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reservation terminal evidence sequence does not follow its certificate".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
 }
