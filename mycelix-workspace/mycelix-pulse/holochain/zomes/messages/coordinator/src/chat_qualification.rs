@@ -54,7 +54,10 @@ pub fn get_inbox_v2_qualification(_: ()) -> ExternResult<V2InboxQualificationV1>
     let link_details = get_links_details(
         LinkQuery::try_new(me.clone(), LinkTypes::AgentToInboxV2)?
             .tag_prefix(LinkTag::new(INBOX_V2_TAG.to_vec())),
-        GetStrategy::default(),
+        // Qualification is evidence collection, not a cache-only read. Use the
+        // network strategy explicitly so a warm local cache cannot silently turn
+        // an otherwise resolvable inbox relation into a false "missing" result.
+        GetStrategy::Network,
     )?;
 
     let observed_links = link_details.into_inner();
@@ -95,7 +98,10 @@ pub fn get_inbox_v2_qualification(_: ()) -> ExternResult<V2InboxQualificationV1>
 
         let evidence_id = DurableEvidenceIdV1(hash.to_string());
 
-        let Some(details) = get_details(hash.clone(), GetOptions::default())? else {
+        // get_details() is intentionally network-backed here. The qualification
+        // boundary must distinguish a genuinely absent record from a local-cache
+        // miss; Holochain documents GetOptions::network() for this purpose.
+        let Some(details) = get_details(hash.clone(), GetOptions::network())? else {
             candidates.push(V2CandidateAccountingV1 {
                 evidence_id: Some(evidence_id),
                 disposition: V2CandidateDispositionV1::Missing,
