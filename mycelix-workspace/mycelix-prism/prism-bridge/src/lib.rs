@@ -15,6 +15,7 @@ use thiserror::Error;
 pub mod authority;
 pub mod capability;
 pub mod process;
+pub mod supervisor;
 pub mod grant;
 pub mod identity;
 pub mod lifecycle;
@@ -148,7 +149,6 @@ mod tests {
         let frame = encode_frame(&msg).unwrap();
         assert!(frame.len() > 4);
 
-        // Decode (skip 4-byte length prefix)
         let decoded: RendererToSpore = decode_payload(&frame[4..]).unwrap();
         match decoded {
             RendererToSpore::SearchQuery { query_id, text } => {
