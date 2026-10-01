@@ -18,6 +18,30 @@ use crate::chat_projection::{
 
 pub const V2_QUALIFICATION_SCHEMA_VERSION_V1: u8 = 1;
 
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub enum V2CandidateEnumerationV1 {
+    Complete,
+    Incomplete {
+        skipped_links: u32,
+        unreadable_links: u32,
+    },
+}
+
+impl V2CandidateEnumerationV1 {
+    fn validate(&self) -> Result<(), ChatProjectionError> {
+        match self {
+            Self::Complete => Ok(()),
+            Self::Incomplete {
+                skipped_links,
+                unreadable_links,
+            } if *skipped_links == 0 && *unreadable_links == 0 => {
+                Err(ChatProjectionError::IncompleteCandidateEnumeration)
+            }
+            Self::Incomplete { .. } => Err(ChatProjectionError::IncompleteCandidateEnumeration),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum V2CandidateDispositionV1 {
     Valid,
@@ -70,6 +94,9 @@ impl V2QualifiedEvidenceV1 {
 #[serde(deny_unknown_fields)]
 pub struct V2InboxQualificationV1 {
     pub schema_version: u8,
+    /// Proves that candidate enumeration itself completed. Candidate accounting
+    /// cannot compensate for links that were never observed by the adapter.
+    pub enumeration: V2CandidateEnumerationV1,
 
     /// Every discovered candidate, including candidates that cannot cross the
     /// qualification boundary. A candidate must never disappear merely because
@@ -89,6 +116,7 @@ impl V2InboxQualificationV1 {
         if self.schema_version != V2_QUALIFICATION_SCHEMA_VERSION_V1 {
             return Err(ChatProjectionError::UnsupportedSchemaVersion(self.schema_version));
         }
+        self.enumeration.validate()?;
 
         if self.qualified.len() != self.evidence.len() {
             return Err(ChatProjectionError::QualificationCountMismatch);
@@ -207,6 +235,7 @@ mod tests {
     ) -> V2InboxQualificationV1 {
         V2InboxQualificationV1 {
             schema_version: V2_QUALIFICATION_SCHEMA_VERSION_V1,
+            enumeration: V2CandidateEnumerationV1::Complete,
             candidates,
             qualified: messages,
             evidence,
@@ -229,6 +258,21 @@ mod tests {
         let (completeness, inputs) = q.into_projection_inputs().unwrap();
         assert_eq!(completeness, V2InboxCompletenessV1::Complete);
         assert_eq!(inputs.len(), 1);
+    }
+
+    #[test]
+    fn incomplete_enumeration_blocks_even_an_empty_inbox() {
+        let q = V2InboxQualificationV1 {
+            schema_version: V2_QUALIFICATION_SCHEMA_VERSION_V1,
+            enumeration: V2CandidateEnumerationV1::Incomplete {
+                skipped_links: 1,
+                unreadable_links: 0,
+            },
+            candidates: vec![],
+            qualified: vec![],
+            evidence: vec![],
+        };
+        assert_eq!(q.validate(), Err(ChatProjectionError::IncompleteCandidateEnumeration));
     }
 
     #[test]
@@ -344,7 +388,7 @@ mod tests {
 
     #[test]
     fn unknown_fields_are_rejected() {
-        let encoded = r#"{"schema_version":1,"candidates":[],"qualified":[],"evidence":[],"authority":"admin"}"#;
+        let encoded = r#"{"schema_version":1,"enumeration":"Complete","candidates":[],"qualified":[],"evidence":[],"authority":"admin"}"#;
         assert!(serde_json::from_str::<V2InboxQualificationV1>(encoded).is_err());
     }
 }
