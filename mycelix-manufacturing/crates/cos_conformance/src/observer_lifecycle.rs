@@ -33,6 +33,10 @@ pub const D6O_SNAPSHOT_COMMITMENT_DOMAIN: &[u8] =
     b"MYCELIX-INTEGRAL-D6O-SNAPSHOT-V1\0";
 pub const D6O_ROTATION_COMMITMENT_DOMAIN: &[u8] =
     b"MYCELIX-INTEGRAL-D6O-ROTATION-V1\0";
+pub const D6O_CONTINUITY_ROOT_DOMAIN: &[u8] =
+    b"MYCELIX-INTEGRAL-D6O-CONTINUITY-ROOT-V1\0";
+pub const D6O_PROFILE_COMMITMENT_DOMAIN: &[u8] =
+    b"MYCELIX-INTEGRAL-D6O-PROFILE-V1\0";
 
 
 fn non_empty(value: &str) -> bool {
@@ -131,6 +135,18 @@ pub struct ObserverLifecycleProfileV1 {
 }
 
 impl ObserverLifecycleProfileV1 {
+    pub fn recomputed_commitment(&self) -> String {
+        let mut unsigned = self.clone();
+        unsigned.profile_commitment.clear();
+        recompute_domain_commitment(D6O_PROFILE_COMMITMENT_DOMAIN, &unsigned)
+    }
+
+    pub fn commitment_matches(&self) -> bool {
+        self.structurally_valid()
+            && (!is_canonical_sha256_commitment(&self.profile_commitment)
+                || self.profile_commitment == self.recomputed_commitment())
+    }
+
     pub fn structurally_valid(&self) -> bool {
         non_empty(&self.profile_id)
             && non_empty(&self.semantic_environment_root)
@@ -321,6 +337,19 @@ pub struct ObserverRotationCertificateV1 {
 }
 
 impl ObserverRotationCertificateV1 {
+    pub fn recomputed_continuity_root(&self) -> String {
+        let mut unsigned = self.clone();
+        unsigned.continuity_root.clear();
+        unsigned.certificate_commitment.clear();
+        recompute_domain_commitment(D6O_CONTINUITY_ROOT_DOMAIN, &unsigned)
+    }
+
+    pub fn continuity_root_matches(&self) -> bool {
+        non_empty(&self.continuity_root)
+            && (!is_canonical_sha256_commitment(&self.continuity_root)
+                || self.continuity_root == self.recomputed_continuity_root())
+    }
+
     pub fn recomputed_commitment(&self) -> String {
         let mut unsigned = self.clone();
         unsigned.certificate_commitment.clear();
@@ -470,7 +499,7 @@ impl ObserverLifecycleLedgerV1 {
         &mut self,
         generation: ObserverGenerationV1,
     ) -> LifecycleRecordDispositionV1 {
-        if !generation.structurally_valid() {
+        if !generation.commitment_matches() {
             return LifecycleRecordDispositionV1::InsufficientEvidence;
         }
 
@@ -630,7 +659,7 @@ impl ObserverLifecycleLedgerV1 {
         &mut self,
         transition: ObserverStatusTransitionV1,
     ) -> LifecycleRecordDispositionV1 {
-        if !transition.structurally_valid()
+        if !transition.commitment_matches()
             || !Self::transition_step_is_possible(transition.from_status, transition.to_status)
         {
             return LifecycleRecordDispositionV1::InsufficientEvidence;
@@ -716,7 +745,7 @@ impl ObserverLifecycleLedgerV1 {
         &mut self,
         snapshot: EvidenceDependencySnapshotV1,
     ) -> LifecycleRecordDispositionV1 {
-        if !snapshot.structurally_valid() {
+        if !snapshot.commitment_matches() {
             return LifecycleRecordDispositionV1::InsufficientEvidence;
         }
 
@@ -818,7 +847,7 @@ impl ObserverLifecycleLedgerV1 {
         &mut self,
         certificate: ObserverRotationCertificateV1,
     ) -> ObserverRotationDispositionV1 {
-        if !certificate.structurally_valid() {
+        if !certificate.commitment_matches() || !certificate.continuity_root_matches() {
             return ObserverRotationDispositionV1::InsufficientEvidence;
         }
 
@@ -951,10 +980,11 @@ pub fn assess_observer_rotation(
     transition: &ObserverStatusTransitionV1,
     certificate: &ObserverRotationCertificateV1,
 ) -> ObserverRotationDispositionV1 {
-    if !predecessor.structurally_valid()
-        || !successor.structurally_valid()
-        || !transition.structurally_valid()
-        || !certificate.structurally_valid()
+    if !predecessor.commitment_matches()
+        || !successor.commitment_matches()
+        || !transition.commitment_matches()
+        || !certificate.commitment_matches()
+        || !certificate.continuity_root_matches()
     {
         return ObserverRotationDispositionV1::InsufficientEvidence;
     }
@@ -1079,7 +1109,7 @@ pub fn assess_evidence_eligibility(
     if !evidence.structurally_valid()
         || !generation.structurally_valid()
         || !snapshot.structurally_valid()
-        || !profile.structurally_valid()
+        || !profile.commitment_matches()
         || observation_frontier_sequence == 0
         || current_frontier_sequence == 0
         || !non_empty(observation_frontier_root)
@@ -1221,7 +1251,7 @@ pub fn eligibility_receipt_matches(
         && evidence.structurally_valid()
         && generation.structurally_valid()
         && snapshot.structurally_valid()
-        && profile.structurally_valid()
+        && profile.commitment_matches()
         && receipt.observation_id == evidence.observation.observation_id
         && receipt.observer_id == evidence.observer_id
         && receipt.observer_generation_id == generation.generation_id
@@ -1270,7 +1300,7 @@ pub fn verify_eligibility_receipt_provenance(
     if receipt.current_generation_id.as_deref() != Some(generation.generation_id.as_str()) {
         return false;
     }
-    if !generation.commitment_matches() || !snapshot.commitment_matches() {
+    if !generation.commitment_matches() || !snapshot.commitment_matches() || !profile.commitment_matches() {
         return false;
     }
     if !ledger.transitions.values().all(ObserverStatusTransitionV1::commitment_matches) {
@@ -2081,6 +2111,62 @@ mod tests {
         assert!(!verify_eligibility_receipt_provenance(
             &receipt, &e, &generation, &snapshot, &profile(), &ledger
         ));
+    }
+
+    #[test]
+    fn canonical_transition_commitment_is_required_at_ledger_boundary() {
+        let generation = generation("observer-A-g1", 1, None);
+        let mut transition = transition(
+            &generation,
+            "transition-ledger-canonical",
+            ObserverStatusV1::Suspended,
+            2,
+            None,
+        );
+        transition.transition_commitment = transition.recomputed_commitment();
+
+        let mut ledger = ObserverLifecycleLedgerV1::default();
+        assert_eq!(
+            ledger.record_generation(generation.clone()),
+            LifecycleRecordDispositionV1::Recorded
+        );
+        assert_eq!(
+            ledger.record_transition(transition.clone()),
+            LifecycleRecordDispositionV1::Recorded
+        );
+
+        transition.reason = "forged-after-signing".into();
+        assert_eq!(
+            ledger.record_transition(transition),
+            LifecycleRecordDispositionV1::Conflict
+        );
+    }
+
+    #[test]
+    fn canonical_profile_commitment_binds_semantic_policy() {
+        let mut canonical = profile();
+        canonical.profile_commitment = canonical.recomputed_commitment();
+        assert!(canonical.commitment_matches());
+        canonical.allowed_roles.remove(&ExternalObserverRoleV1::SettlementAuthority);
+        assert!(!canonical.commitment_matches());
+    }
+
+    #[test]
+    fn canonical_continuity_root_binds_rotation_semantics() {
+        let predecessor = generation("observer-A-g1", 1, None);
+        let successor = generation("observer-A-g2", 2, Some(&predecessor.generation_id));
+        let transition = transition(
+            &predecessor,
+            "rotate-continuity-canonical",
+            ObserverStatusV1::Superseded,
+            2,
+            Some(&successor.generation_id),
+        );
+        let mut certificate = rotation_certificate(&predecessor, &successor, &transition);
+        certificate.continuity_root = certificate.recomputed_continuity_root();
+        assert!(certificate.continuity_root_matches());
+        certificate.successor_profile_id = "profile-substituted".into();
+        assert!(!certificate.continuity_root_matches());
     }
 
     #[test]
