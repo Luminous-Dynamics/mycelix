@@ -20,9 +20,10 @@ pub const V2_QUALIFICATION_SCHEMA_VERSION_V1: u8 = 1;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum V2CandidateEnumerationV1 {
-    /// Enumeration completed for the host's observed live-link set. Deleted
-    /// links are counted separately so the adapter cannot silently erase the
-    /// distinction between "never observed" and "observed then deleted".
+    /// Enumeration completed for the host's observed link set. `deleted_links` counts observed link-create records that have at least one valid delete
+    /// action; it is not a count of individual delete actions. Deleted links
+    /// are counted separately so the adapter cannot silently erase the
+    /// distinction between "currently live" and "observed then deleted".
     Complete {
         live_links: u32,
         deleted_links: u32,
@@ -288,6 +289,25 @@ mod tests {
             evidence: vec![evidence(1)],
         };
         assert_eq!(q.validate(), Err(ChatProjectionError::QualificationCountMismatch));
+    }
+
+    #[test]
+    fn observed_deleted_link_does_not_create_a_live_candidate() {
+        let q = V2InboxQualificationV1 {
+            schema_version: V2_QUALIFICATION_SCHEMA_VERSION_V1,
+            enumeration: V2CandidateEnumerationV1::Complete {
+                live_links: 0,
+                deleted_links: 1,
+            },
+            candidates: vec![],
+            qualified: vec![],
+            evidence: vec![],
+        };
+
+        assert!(q.validate().is_ok());
+        assert_eq!(q.candidate_count(), 0);
+        assert_eq!(q.valid_candidate_count(), 0);
+        assert_eq!(q.into_projection_inputs().unwrap().1.len(), 0);
     }
 
     #[test]
