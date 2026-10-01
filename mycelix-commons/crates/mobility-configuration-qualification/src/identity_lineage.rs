@@ -26,7 +26,7 @@ pub enum IdentityKind {
 /// The namespace prevents foreign identifiers from silently becoming native
 /// engineering identities. A Holochain hash is protocol metadata and is not a
 /// valid engineering identifier merely because it is unique.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct IdentityRef {
     pub kind: IdentityKind,
