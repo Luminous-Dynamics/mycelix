@@ -7,6 +7,13 @@
 
 use url::Url;
 
+fn has_dot_segment(path: &str) -> bool {
+    path.split('/').any(|segment| {
+        let lower = segment.to_ascii_lowercase();
+        matches!(lower.as_str(), "." | ".." | "%2e" | "%2e%2e" | ".%2e" | "%2e.")
+    })
+}
+
 pub const MAX_RESOURCE_URL_LEN: usize = 4096;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -28,6 +35,9 @@ impl ResourceIdentity {
         }
         if url.host_str().is_none() {
             return Err(ResourceError::MissingHost);
+        }
+        if has_dot_segment(url.path()) {
+            return Err(ResourceError::TraversalSegment);
         }
         Ok(Self::Url(url))
     }
@@ -80,6 +90,9 @@ impl ResourceScopeV1 {
         if !path.starts_with('/') {
             return Err(ResourceError::InvalidPath);
         }
+        if has_dot_segment(path) {
+            return Err(ResourceError::TraversalSegment);
+        }
         Ok(Self::PathPrefix {
             origin: identity.origin(),
             path: path.to_owned(),
@@ -109,6 +122,7 @@ pub enum ResourceError {
     UserinfoNotAllowed,
     MissingHost,
     InvalidPath,
+    TraversalSegment,
 }
 
 #[cfg(test)]
