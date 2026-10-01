@@ -5,7 +5,7 @@
 //! supervisor cannot attach renderer IPC before sandbox and identity
 //! qualification.
 
-use crate::process::{ProcessIdentity, RendererLaunchReceipt, SandboxProfileV1};
+use crate::process::{ProcessIdentity, RendererLaunchReceipt, SandboxEnforcementReceipt, SandboxProfileV1};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RendererProcessState {
@@ -20,8 +20,7 @@ pub enum RendererProcessState {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RendererSandboxReceipt {
-    pub assignment_id: crate::process::RendererProcessAssignmentId,
-    pub profile: SandboxProfileV1,
+    pub enforcement: SandboxEnforcementReceipt,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -36,6 +35,10 @@ pub struct RendererExitReceipt {
 pub enum RendererSupervisorError {
     InvalidTransition,
     SandboxNotQualified,
+    SandboxEnforcementMissing,
+    SandboxPolicyMismatch,
+    SandboxAssignmentMismatch,
+    SandboxInstallationInvalid,
     IdentityNotBound,
     IpcNotAttached,
     AlreadyRetired,
@@ -66,11 +69,24 @@ impl RendererSupervisorState {
         &mut self,
         receipt: RendererSandboxReceipt,
     ) -> Result<(), RendererSupervisorError> {
-        if self.state != RendererProcessState::Assigned
-            || receipt.assignment_id != self.launch.assignment_id
-            || receipt.profile != self.launch.sandbox
-        {
+        if self.state != RendererProcessState::Assigned {
             return Err(RendererSupervisorError::InvalidTransition);
+        }
+        let evidence = receipt.enforcement;
+        if evidence.assignment_id != self.launch.assignment_id {
+            return Err(RendererSupervisorError::SandboxAssignmentMismatch);
+        }
+        if evidence.installation_id.0 == 0 {
+            return Err(RendererSupervisorError::SandboxInstallationInvalid);
+        }
+        if !evidence.enforced {
+            return Err(RendererSupervisorError::SandboxEnforcementMissing);
+        }
+        if evidence.policy_digest != self.launch.sandbox.policy_digest() {
+            return Err(RendererSupervisorError::SandboxPolicyMismatch);
+        }
+        if matches!(evidence.adapter, crate::process::SandboxAdapterKind::UnsupportedPlatform) {
+            return Err(RendererSupervisorError::SandboxEnforcementMissing);
         }
         self.sandbox = Some(receipt);
         self.state = RendererProcessState::SandboxQualified;
@@ -159,6 +175,17 @@ impl RendererSupervisorState {
 mod tests {
     use super::*;
     use crate::identity::RendererProcessId;
+    use crate::process::{next_sandbox_installation_id, SandboxAdapterKind};
+
+    fn sandbox_receipt(state: &RendererSupervisorState) -> RendererSandboxReceipt {
+        RendererSandboxReceipt { enforcement: SandboxEnforcementReceipt {
+            assignment_id: state.launch.assignment_id,
+            installation_id: next_sandbox_installation_id().unwrap(),
+            adapter: SandboxAdapterKind::LinuxSeccompLandlockV1,
+            policy_digest: state.launch.sandbox.policy_digest(),
+            enforced: true,
+        }}
+    }
 
     fn launch() -> RendererLaunchReceipt {
         let process = RendererProcessId::new(7).unwrap();
@@ -183,11 +210,7 @@ mod tests {
             Err(RendererSupervisorError::SandboxNotQualified)
         ));
 
-        let sandbox = RendererSandboxReceipt {
-            assignment_id: state.launch.assignment_id,
-            profile: state.launch.sandbox,
-        };
-        state.record_sandbox(sandbox).unwrap();
+        state.record_sandbox(sandbox_receipt(&state)).unwrap();
         assert!(matches!(
             state.attach_ipc(),
             Err(RendererSupervisorError::IdentityNotBound)
@@ -218,12 +241,7 @@ mod tests {
     #[test]
     fn wrong_process_identity_cannot_bind() {
         let mut state = RendererSupervisorState::new(launch());
-        state
-            .record_sandbox(RendererSandboxReceipt {
-                assignment_id: state.launch.assignment_id,
-                profile: state.launch.sandbox,
-            })
-            .unwrap();
+        state.record_sandbox(sandbox_receipt(&state)).unwrap();
         assert!(matches!(
             state.bind_identity(ProcessIdentity::new(42, 101).unwrap()),
             Err(RendererSupervisorError::ProcessMismatch)
