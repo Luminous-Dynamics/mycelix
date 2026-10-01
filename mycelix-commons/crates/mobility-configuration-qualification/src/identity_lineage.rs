@@ -18,6 +18,7 @@ pub enum IdentityKind {
     ChangeSet,
     EvidenceRecord,
     ReconciliationWitness,
+    ArtifactLifecycleEvent,
 }
 
 /// An explicitly namespaced engineering identifier.
@@ -62,6 +63,8 @@ pub enum LineageRelation {
     MaintainedAs,
     RepairedAs,
     ReplacedBy,
+    Retires,
+    Reactivates,
     Supersedes,
 }
 
@@ -125,6 +128,10 @@ impl LineageEdge {
                 (self.source.kind, self.target.kind),
                 (IdentityKind::ComponentInstance, IdentityKind::ComponentInstance)
                     | (IdentityKind::PhysicalArtifact, IdentityKind::PhysicalArtifact)
+            ),
+            LineageRelation::Retires | LineageRelation::Reactivates => matches!(
+                (self.source.kind, self.target.kind),
+                (IdentityKind::ArtifactLifecycleEvent, IdentityKind::PhysicalArtifact)
             ),
             LineageRelation::Supersedes => matches!(
                 (self.source.kind, self.target.kind),
