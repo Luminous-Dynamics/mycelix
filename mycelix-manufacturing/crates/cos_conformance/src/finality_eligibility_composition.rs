@@ -1034,6 +1034,38 @@ pub fn compose_finality_eligibility_from_authoritative_d6n_d6o(
     )
 }
 
+pub fn compose_finality_eligibility_from_authoritative_d6n_d6o(
+    effect: &SemanticEffectV1,
+    route: &ProviderRouteV1,
+    profile: &FinalityQualificationProfileV1,
+    set: &ExternalObservationSetV1,
+    assessment: &ObservationSetAssessmentV1,
+    evidence: &[ExternalObservedEvidenceV1],
+    eligibility_receipts: &[EvidenceEligibilityReceiptV1],
+    lifecycle_profile: &ObserverLifecycleProfileV1,
+    d6o_ledger: &ObserverLifecycleLedgerV1,
+    current_frontier_root: &str,
+    live_generation_id: &str,
+    required_independent_observations: u32,
+) -> FinalityEligibilityCompositionV1 {
+    if !verify_observation_set_assessment_provenance(
+        assessment, effect, route, profile, set, evidence,
+        current_frontier_root, live_generation_id,
+    ) {
+        return compose_finality_eligibility(
+            set, assessment, evidence, &[],
+            lifecycle_profile.profile_id.as_str(),
+            current_frontier_root,
+            required_independent_observations,
+        );
+    }
+    compose_finality_eligibility_from_authoritative_d6o(
+        set, assessment, evidence, eligibility_receipts,
+        lifecycle_profile, d6o_ledger, current_frontier_root,
+        required_independent_observations,
+    )
+}
+
 pub fn compose_finality_eligibility_from_authoritative_d6o(
     set: &ExternalObservationSetV1,
     assessment: &ObservationSetAssessmentV1,
@@ -1043,24 +1075,7 @@ pub fn compose_finality_eligibility_from_authoritative_d6o(
     d6o_ledger: &ObserverLifecycleLedgerV1,
     current_frontier_root: &str,
     required_independent_observations: u32,
-) -> FinalityEligibilityCompositionV1 { {
-    if !verify_observation_set_assessment_provenance(
-        assessment,
-        effect,
-        route,
-        profile,
-        set,
-        evidence,
-        current_frontier_root,
-        live_generation_id,
-    ) {
-        return compose_finality_eligibility(
-            set, assessment, evidence, &[],
-            lifecycle_profile.profile_id.as_str(),
-            current_frontier_root,
-            required_independent_observations,
-        );
-    }
+) -> FinalityEligibilityCompositionV1 {
     let mut evidence_by_id = BTreeMap::new();
     for item in evidence {
         if item.structurally_valid() {
@@ -1160,6 +1175,7 @@ pub fn compose_finality_eligibility_from_authoritative_d6o(
     )
 }
 
+}
 pub fn verify_current_receipt_provenance(
     receipt: &CurrentFinalityEligibilityReceiptV1,
     set: &ExternalObservationSetV1,
