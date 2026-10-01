@@ -683,6 +683,16 @@ pub fn validate_create_reservation_certificate(
                 "Non-genesis reservation certificate omitted previous frontier action".into(),
             ))
         })?;
+
+        // The application-level frontier reference must also agree with the
+        // actual source-chain predecessor. Holochain already validates source
+        // chain continuity, so this check prevents an author from naming an
+        // unrelated older seller record as the economic predecessor.
+        if action.prev_action != previous_hash {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Reservation frontier predecessor does not match the seller source-chain predecessor".into(),
+            ));
+        }
         let previous = must_get_valid_record(previous_hash).map_err(|_| {
             wasm_error!(WasmErrorInner::Guest(
                 "ReservationCertificate references a missing or invalid previous frontier record".into(),
@@ -815,6 +825,11 @@ pub fn validate_create_reservation_terminal(
     if previous.action_address() != evidence.certificate_hash {
         return Ok(ValidateCallbackResult::Invalid(
             "Reservation terminal evidence must immediately follow its reservation certificate".into(),
+        ));
+    }
+    if action.prev_action != evidence.certificate_hash {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reservation terminal predecessor does not match the seller source-chain predecessor".into(),
         ));
     }
     if evidence.sequence != certificate.sequence + 1 {
