@@ -55,7 +55,7 @@ fn main() {
     assert_eq!(corpus.schema, "mobility-reconciliation-witness-revision-executable-v1");
     assert_eq!(corpus.schema_version, "mobility-reconciliation-witness-revision-v1");
     assert_eq!(corpus.status, "semantic-provenance-only");
-    assert_eq!(corpus.cases.len(), 10);
+    assert_eq!(corpus.cases.len(), 16);
 
     let mut outputs: Vec<_> = corpus.cases.iter().map(|case| {
         Normalized { id: case.id.clone(), operation: case.operation.clone(),
