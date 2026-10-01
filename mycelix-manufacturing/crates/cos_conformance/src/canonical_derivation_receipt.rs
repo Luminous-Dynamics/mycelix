@@ -588,7 +588,7 @@ pub fn current_receipt_is_bound(
     expected_commitment: &str,
     environment: &SemanticEnvironmentV1,
 ) -> bool {
-    receipt.commitment_matches()
+    receipt.semantically_valid()
         && matches!(receipt.disposition, FinalityEligibilityDispositionV1::EligibleCurrent)
         && receipt.receipt_commitment == expected_commitment
         && receipt.claim_ceiling
@@ -1025,6 +1025,23 @@ impl ProjectionCanonicalTestBytes for QualifiedProjectionV1 {
 #[cfg(test)]
 mod canonical_commitment_representation_tests {
     use super::is_canonical_sha256_commitment;
+
+    #[test]
+    fn self_consistent_but_incoherent_d6p_receipt_is_not_current() {
+        let mut receipt = d6p_receipt();
+        receipt.witness_eligibility_ids = ["w1".into(), "w2".into()].into_iter().collect();
+        receipt.observer_generation_ids = ["g1".into()].into_iter().collect();
+        receipt.eligible_independent_count = 2;
+        receipt.receipt_commitment = receipt.recomputed_commitment();
+
+        assert!(receipt.commitment_matches());
+        assert!(!receipt.semantically_valid());
+        assert!(!current_receipt_is_bound(
+            &receipt,
+            &receipt.receipt_commitment,
+            &env(),
+        ));
+    }
 
     #[test]
     fn canonical_commitment_representation_is_exact() {
