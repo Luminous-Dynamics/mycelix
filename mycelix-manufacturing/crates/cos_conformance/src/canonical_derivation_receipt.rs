@@ -294,6 +294,15 @@ impl QualifiedProjectionV1 {
         self.structurally_valid()
             && self.semantic_environment_commitment == environment.commitment()
             && self.derivation_profile_commitment == derivation_profile.commitment()
+            // When the semantic environment names the authoritative dependency
+            // snapshot, the projection cannot substitute a different snapshot
+            // merely by recomputing its own projection commitment. The snapshot
+            // remains opaque here, but its identity is no longer disconnected
+            // from the environment that authorizes the projection.
+            && environment
+                .dependency_snapshot_root
+                .as_deref()
+                .is_none_or(|expected| self.source_dkg_snapshot_commitment == expected)
             && self.nodes.values().all(QualifiedNodeV1::commitment_matches)
             && self.edges.values().all(QualifiedEdgeV1::commitment_matches)
     }
@@ -940,6 +949,21 @@ mod tests {
         assert!(!result_flags_are_consistent(
             DerivationResultStatusV1::Supported, true, false
         ));
+    }
+
+    #[test]
+    fn source_snapshot_must_match_authoritative_environment_root() {
+        let mut projection = projection();
+        let environment = env();
+        let profile = profile();
+
+        assert!(projection.commitments_match_sources(&environment, &profile));
+
+        projection.source_dkg_snapshot_commitment = "attacker-snapshot".into();
+        projection.semantic_environment_commitment = environment.commitment();
+        // Recomputing the projection commitment would make the record
+        // self-consistent, but it must not make it provenance-consistent.
+        assert!(!projection.commitments_match_sources(&environment, &profile));
     }
 
     #[test]
