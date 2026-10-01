@@ -142,19 +142,22 @@ impl RendererSessionManager {
         Ok(self.current.as_ref().expect("session was just established"))
     }
 
+    /// Authenticate the live IPC endpoint again before advancing session state.
+    /// The caller never supplies the peer identity as an authority value.
     pub fn accept_request(
         &mut self,
-        peer_id: RendererPeerId,
+        stream: &UnixStream,
         generation: u64,
         request_id: RequestId,
     ) -> Result<(), RendererSessionManagerError> {
+        let peer = authenticate_peer(stream)?;
         let session = self
             .current
             .as_mut()
             .ok_or(RendererSessionManagerError::Session(
                 CapabilityError::SessionClosed,
             ))?;
-        session.accept_request(peer_id, generation, request_id)?;
+        session.accept_request(peer.peer_id, generation, request_id)?;
         Ok(())
     }
 
@@ -211,16 +214,15 @@ mod tests {
         let process = RendererProcessId::new(std::process::id() as u64).unwrap();
         manager.establish_from_stream(&left, process, 11).unwrap();
 
-        let peer = manager.current().unwrap().peer_id;
-        manager.accept_request(peer, 11, RequestId::new(1).unwrap()).unwrap();
+        manager.accept_request(&left, 11, RequestId::new(1).unwrap()).unwrap();
         assert!(matches!(
-            manager.accept_request(peer, 10, RequestId::new(2).unwrap()),
+            manager.accept_request(&left, 10, RequestId::new(2).unwrap()),
             Err(RendererSessionManagerError::Session(
                 CapabilityError::GenerationMismatch
             ))
         ));
         assert!(matches!(
-            manager.accept_request(RendererPeerId::new(peer.0 + 1).unwrap(), 11, RequestId::new(2).unwrap()),
+            manager.accept_request(&right, 11, RequestId::new(2).unwrap()),
             Err(RendererSessionManagerError::Session(CapabilityError::PeerMismatch))
         ));
         let _ = right;
