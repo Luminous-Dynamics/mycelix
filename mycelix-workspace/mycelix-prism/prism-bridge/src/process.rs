@@ -89,7 +89,7 @@ impl SandboxInstallationId {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SandboxAdapterKind {
-    LinuxSeccompLandlockV1,
+    LinuxLandlockFilesystemV1,
     UnsupportedPlatform,
 }
 
