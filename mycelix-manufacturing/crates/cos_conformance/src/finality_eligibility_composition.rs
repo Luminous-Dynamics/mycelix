@@ -472,10 +472,60 @@ fn d6n_assessment_is_exact(
     set: &ExternalObservationSetV1,
     assessment: &ObservationSetAssessmentV1,
 ) -> bool {
-    assessment.structurally_valid()
-        && assessment.set_id == set.set_id
-        && assessment.claim_ceiling == CONTESTABLE_FINALITY_CLAIM_CEILING
-        && assessment.assessment_commitment == format!("assessment:{}", set.set_commitment)
+    if !assessment.structurally_valid()
+        || assessment.set_id != set.set_id
+        || assessment.claim_ceiling != CONTESTABLE_FINALITY_CLAIM_CEILING
+        || assessment.assessment_commitment != format!("assessment:{}", set.set_commitment)
+        || assessment.assessments.len() != set.observation_ids.len()
+    {
+        return false;
+    }
+
+    let mut observation_ids = BTreeSet::new();
+    let mut independent_count = 0u32;
+    let mut contradictory_independent_count = 0u32;
+    let mut dependent_count = 0u32;
+
+    for item in &assessment.assessments {
+        if !item.structurally_valid()
+            || !set.observation_ids.contains(&item.observation_id)
+            || !observation_ids.insert(item.observation_id.clone())
+            || item.assessment_commitment
+                != format!(
+                    "{}:{}:{}",
+                    item.observation_id, item.evidence_root, item.custody_root
+                )
+        {
+            return false;
+        }
+
+        if matches!(
+            item.classification,
+            ObservationClassificationV1::CorroboratingIndependent
+        ) {
+            independent_count += 1;
+        }
+        if matches!(
+            item.classification,
+            ObservationClassificationV1::ContradictoryIndependent
+        ) {
+            contradictory_independent_count += 1;
+        }
+        if matches!(
+            item.classification,
+            ObservationClassificationV1::CorroboratingDependent
+                | ObservationClassificationV1::ContradictoryDependent
+        ) {
+            dependent_count += 1;
+        }
+    }
+
+    observation_ids == set.observation_ids
+        && assessment.independent_count == independent_count
+        && assessment.contradictory_independent_count == contradictory_independent_count
+        && assessment.dependent_count == dependent_count
+        && (assessment.disposition == ObservationSetDispositionV1::Contested)
+            == (contradictory_independent_count > 0)
 }
 
 fn observation_matches_set(
@@ -1340,6 +1390,83 @@ mod tests {
         };
         receipt.receipt_commitment = receipt.recomputed_commitment();
         receipt
+    }
+
+    #[test]
+    fn d6p_rejects_assessment_with_duplicate_or_missing_observation_ids() {
+        let set = set(&["obs-1", "obs-2"]);
+        let mut assessment = d6n_assessment(
+            &set,
+            &[
+                (
+                    "obs-1".into(),
+                    "observer-A".into(),
+                    ObservationClassificationV1::CorroboratingIndependent,
+                ),
+                (
+                    "obs-2".into(),
+                    "observer-B".into(),
+                    ObservationClassificationV1::CorroboratingIndependent,
+                ),
+            ],
+        );
+
+        assessment.assessments[1] = assessment.assessments[0].clone();
+        assert_eq!(assessment.assessments.len(), set.observation_ids.len());
+
+        let generation = generation("observer-A");
+        let evidence = observation("obs-1", &generation, ExternalObservedStateV1::Applied);
+        let (_, eligibility) = ledger_and_receipt(&generation, &evidence);
+
+        let composition = compose_finality_eligibility(
+            &set,
+            &assessment,
+            std::slice::from_ref(&evidence),
+            std::slice::from_ref(&eligibility),
+            "life-profile-1",
+            "frontier-1",
+            1,
+        );
+
+        assert_eq!(
+            composition.disposition,
+            FinalityEligibilityDispositionV1::BlockedBinding
+        );
+        assert_eq!(composition.composition_commitment, "blocked");
+    }
+
+    #[test]
+    fn d6p_rejects_self_consistent_assessment_count_substitution() {
+        let set = set(&["obs-1"]);
+        let mut assessment = d6n_assessment(
+            &set,
+            &[(
+                "obs-1".into(),
+                "observer-A".into(),
+                ObservationClassificationV1::CorroboratingIndependent,
+            )],
+        );
+        assessment.independent_count = 0;
+
+        let generation = generation("observer-A");
+        let evidence = observation("obs-1", &generation, ExternalObservedStateV1::Applied);
+        let (_, eligibility) = ledger_and_receipt(&generation, &evidence);
+
+        let composition = compose_finality_eligibility(
+            &set,
+            &assessment,
+            std::slice::from_ref(&evidence),
+            std::slice::from_ref(&eligibility),
+            "life-profile-1",
+            "frontier-1",
+            1,
+        );
+
+        assert_eq!(
+            composition.disposition,
+            FinalityEligibilityDispositionV1::BlockedBinding
+        );
+        assert_eq!(composition.composition_commitment, "blocked");
     }
 
     #[test]
