@@ -18,6 +18,7 @@ pub mod identity;
 pub mod lifecycle;
 pub mod resource;
 pub mod runtime;
+pub mod session;
 
 /// Maximum IPC frame size (2MB, matching existing Symthaea convention).
 pub const MAX_FRAME_SIZE: usize = 2 * 1024 * 1024;
