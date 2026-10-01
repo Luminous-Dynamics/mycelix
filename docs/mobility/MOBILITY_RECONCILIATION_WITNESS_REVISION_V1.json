@@ -1,0 +1,67 @@
+{
+  "schema": "mobility-reconciliation-witness-revision-v1",
+  "scope": "semantic-provenance-only",
+  "status": "qualification-only",
+  "vectors": [
+    {
+      "id": "WRV-001",
+      "scenario": "same identity with identical complete witness payload",
+      "expected": "accepted",
+      "forbidden_inference": "identity repetition does not create a new revision"
+    },
+    {
+      "id": "WRV-002",
+      "scenario": "same identity with changed claim pair",
+      "expected": "rejected",
+      "forbidden_inference": "witness identity is immutable by meaning"
+    },
+    {
+      "id": "WRV-003",
+      "scenario": "same identity with changed applicability interval",
+      "expected": "rejected",
+      "forbidden_inference": "witness identity is immutable by meaning"
+    },
+    {
+      "id": "WRV-004",
+      "scenario": "same identity with changed reconciliation inputs or result",
+      "expected": "rejected",
+      "forbidden_inference": "witness identity is immutable by meaning"
+    },
+    {
+      "id": "WRV-005",
+      "scenario": "new witness identity without explicit successor-to-predecessor supersession",
+      "expected": "rejected",
+      "forbidden_inference": "new identity alone does not establish revision lineage"
+    },
+    {
+      "id": "WRV-006",
+      "scenario": "new witness identity with explicit Supersedes lineage",
+      "expected": "accepted",
+      "forbidden_inference": "supersession preserves predecessor history"
+    },
+    {
+      "id": "WRV-007",
+      "scenario": "historical projection remains bound to predecessor identity after successor exists",
+      "expected": "accepted",
+      "forbidden_inference": "supersession does not retarget historical provenance"
+    },
+    {
+      "id": "WRV-008",
+      "scenario": "successor witness attempts to validate a predecessor projection",
+      "expected": "rejected",
+      "forbidden_inference": "projection identity binding is exact"
+    },
+    {
+      "id": "WRV-009",
+      "scenario": "predecessor remains valid after successor supersedes it",
+      "expected": "accepted",
+      "forbidden_inference": "historical witnesses remain addressable"
+    },
+    {
+      "id": "WRV-010",
+      "scenario": "Holochain-shaped witness identity used as engineering identity",
+      "expected": "rejected",
+      "forbidden_inference": "protocol identity is not native engineering identity"
+    }
+  ]
+}\n
