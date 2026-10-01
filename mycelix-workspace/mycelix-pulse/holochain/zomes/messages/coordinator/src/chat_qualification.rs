@@ -14,10 +14,12 @@
 //!
 //! Holochain get() silently omits records that are not valid from the
 //! delivering agent's perspective, so this path uses get_details() for each
-//! discovered ActionHash. A successful link enumeration is treated as complete
-//! for the live link set returned by the Holochain host; any candidate that
-//! cannot be resolved or qualified is retained in the accounting vector and
-//! prevents projection through the downstream fail-closed contract.
+//! discovered ActionHash. Link enumeration uses get_links_details() so the
+//! adapter can distinguish live links from observed deletions. Enumeration is
+//! still explicitly scoped to the live-link set returned by this Holochain
+//! host; any candidate that cannot be resolved or qualified is retained in the
+//! accounting vector and prevents projection through the downstream fail-closed
+//! contract.
 
 use hdk::prelude::*;
 use mail_messages_integrity::EncryptedEmailV2;
@@ -42,7 +44,6 @@ const INBOX_V2_TAG: &[u8] = b"inbox-v2";
 pub fn get_inbox_v2_qualification(_: ()) -> ExternResult<V2InboxQualificationV1> {
     let me = agent_info()?.agent_initial_pubkey;
 
-    // get_links returns live links for the exact V2 inbox link type/tag.
     // A successful call is the adapter's explicit enumeration boundary. It
     // does not claim that an arbitrary remote peer has an omniscient view of
     // the DHT; it establishes the complete set returned by this host query.
@@ -194,7 +195,10 @@ pub fn get_inbox_v2_qualification(_: ()) -> ExternResult<V2InboxQualificationV1>
 
     let qualification = V2InboxQualificationV1 {
         schema_version: V2_QUALIFICATION_SCHEMA_VERSION_V1,
-        enumeration: V2CandidateEnumerationV1::Complete,
+        enumeration: V2CandidateEnumerationV1::Complete {
+            live_links,
+            deleted_links,
+        },
         candidates,
         qualified,
         evidence,
