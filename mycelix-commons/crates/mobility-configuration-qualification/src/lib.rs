@@ -5,6 +5,7 @@ use std::fs;
 /// Typed identity/lineage semantics for the mobility evidence substrate.
 pub mod identity_lineage;
 pub mod temporal_applicability;
+pub mod temporal_evidence_applicability;
 pub mod temporal_reconciliation;
 pub mod temporal_reconciliation_witness;
 pub mod reconciliation_evidence_projection;
