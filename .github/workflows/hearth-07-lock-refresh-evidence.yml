@@ -13,7 +13,7 @@ on:
         type: string
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   CARGO_TERM_COLOR: always
@@ -120,6 +120,26 @@ jobs:
           git status --short
           git status --short | grep -E '^[?M][?M ]+mycelix-workspace/mycelix-hearth/(flake\.lock|Cargo\.lock|tests/Cargo\.lock)
           test -z "$unexpected"
+
+      - name: Commit generated dependency closure
+        shell: bash
+        env:
+          TARGET_REF: ${{ inputs.ref }}
+        run: |
+          branch="hearth-0.7-lock-refresh/$TARGET_REF"
+          git switch -c "$branch"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add mycelix-workspace/mycelix-hearth/flake.lock \
+            mycelix-workspace/mycelix-hearth/Cargo.lock \
+            mycelix-workspace/mycelix-hearth/tests/Cargo.lock
+          if git diff --cached --quiet; then
+            echo "No dependency-lock changes were generated."
+            exit 0
+          fi
+          git commit -m "HEARTH-0.7-LOCKS: seal generated dependency closure"
+          git push --set-upstream origin "$branch"
+          printf '%s\n' "generated_branch=$branch" >> "$GITHUB_WORKSPACE/hearth-07-lock-refresh-evidence.txt"
 
       - name: Publish lock refresh evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
