@@ -1399,6 +1399,24 @@ mod tests {
     }
 
     #[test]
+    fn d6p_semantic_validation_rejects_self_consistent_witness_metadata_mutations() {
+        let composition = matching_composition();
+        assert!(composition.semantically_valid());
+
+        let mut mutated = composition.clone();
+        mutated.witnesses[0].witness_commitment = "witness:attacker".into();
+        mutated.composition_commitment = mutated.recomputed_commitment();
+        assert!(mutated.commitment_matches());
+        assert!(!mutated.semantically_valid());
+
+        let mut mutated = composition.clone();
+        mutated.witnesses[0].d6o_eligibility_id = None;
+        mutated.composition_commitment = mutated.recomputed_commitment();
+        assert!(mutated.commitment_matches());
+        assert!(!mutated.semantically_valid());
+    }
+
+    #[test]
     fn d6p_semantic_validation_rejects_self_consistent_count_mutations() {
         let g1 = generation("observer-A");
         let g2 = generation("observer-B");
