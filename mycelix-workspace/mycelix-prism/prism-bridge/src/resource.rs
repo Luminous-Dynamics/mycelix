@@ -7,7 +7,6 @@
 
 use url::Url;
 
-
 pub const MAX_RESOURCE_URL_LEN: usize = 4096;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
