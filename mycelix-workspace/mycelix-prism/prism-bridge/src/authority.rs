@@ -187,7 +187,7 @@ mod tests {
         controller.commit_navigation(p, s, o, a).unwrap();
         assert_eq!(controller.clear().unwrap(), 0);
         assert!(controller.binding().is_none());
-        assert!(controller.sessions.current().is_none());
+        assert!(controller.sessions().current().is_none());
     }
 
     #[tokio::test]
