@@ -19,7 +19,7 @@
 //! current reuse.
 
 use crate::contestable_finality::{
-    verify_observation_set_assessment_provenance, ExternalObservedEvidenceV1,
+    verify_observation_set_assessment_provenance, verify_observation_set_provenance, ExternalObservedEvidenceV1,
     ExternalObservationSetV1, FinalityQualificationProfileV1, ObservationClassificationV1,
     ObservationSetAssessmentV1, CONTESTABLE_FINALITY_CLAIM_CEILING,
 };
@@ -1011,7 +1011,15 @@ pub fn compose_finality_eligibility_from_authoritative_d6n_d6o(
     live_generation_id: &str,
     required_independent_observations: u32,
 ) -> FinalityEligibilityCompositionV1 {
-    if !verify_observation_set_assessment_provenance(
+    if !verify_observation_set_provenance(
+        set,
+        effect,
+        route,
+        profile,
+        evidence,
+        current_frontier_root,
+        live_generation_id,
+    ) || !verify_observation_set_assessment_provenance(
         assessment, effect, route, profile, set, evidence,
         current_frontier_root, live_generation_id,
     ) {
@@ -1138,7 +1146,6 @@ pub fn compose_finality_eligibility_from_authoritative_d6o(
     )
 }
 
-}
 pub fn verify_current_receipt_provenance(
     receipt: &CurrentFinalityEligibilityReceiptV1,
     set: &ExternalObservationSetV1,
@@ -1243,6 +1250,25 @@ mod tests {
         };
         composition.composition_commitment = composition.recomputed_commitment();
         composition
+    }
+
+    #[test]
+    fn authoritative_d6n_rejects_semantically_forged_observation_set_even_with_new_commitment() {
+        let e1 = evidence("obs-1", observer("obs-1", "evidence-1", "custody-1"), ExternalObservedStateV1::Applied);
+        let e2 = evidence("obs-2", observer("obs-2", "evidence-2", "custody-2"), ExternalObservedStateV1::Applied);
+        let evidence = vec![e1, e2];
+        let mut forged = set(&["obs-1", "obs-2"]);
+        forged.target_state = ExternalFinalityStateV1::NotApplied;
+        forged.set_commitment = "attacker-recomputed-set-commitment".into();
+        assert!(!verify_observation_set_provenance(
+            &forged,
+            &effect(),
+            &route(),
+            &profile(),
+            &evidence,
+            "frontier-1",
+            "generation-1",
+        ));
     }
 
     #[test]
