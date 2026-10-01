@@ -8,6 +8,7 @@ pub mod temporal_applicability;
 pub mod temporal_reconciliation;
 pub mod temporal_reconciliation_witness;
 pub mod reconciliation_evidence_projection;
+pub mod target_bound_projection;
 pub mod witness_revision;
 
 const EXPECTED_COUNT: usize = 20;
