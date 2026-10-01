@@ -32,8 +32,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 pub const FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING: &str =
     "D6N/D6O finality-eligibility composition reference semantics only; no semantic authority or actuation claim.";
-pub const D6P_RECEIPT_COMMITMENT_DOMAIN: &[u8] = b"MYCELIX-INTEGRAL-D6P-RECEIPT-V1\\0";
-pub const D6P_COMPOSITION_COMMITMENT_DOMAIN: &[u8] = b"MYCELIX-INTEGRAL-D6P-COMPOSITION-V1\\0";
+pub const D6P_RECEIPT_COMMITMENT_DOMAIN: &[u8] = b"MYCELIX-INTEGRAL-D6P-RECEIPT-V1\0";
+pub const D6P_COMPOSITION_COMMITMENT_DOMAIN: &[u8] = b"MYCELIX-INTEGRAL-D6P-COMPOSITION-V1\0";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FinalityEligibilityDispositionV1 {
@@ -890,6 +890,13 @@ mod tests {
         let mut mutated = receipt.clone();
         mutated.disposition = FinalityEligibilityDispositionV1::Contested;
         assert!(!mutated.commitment_matches());
+    }
+
+    #[test]
+    fn d6p_commitment_domains_end_with_a_nul_separator() {
+        assert_eq!(D6P_RECEIPT_COMMITMENT_DOMAIN.last(), Some(&0));
+        assert_eq!(D6P_COMPOSITION_COMMITMENT_DOMAIN.last(), Some(&0));
+        assert_ne!(D6P_RECEIPT_COMMITMENT_DOMAIN, D6P_COMPOSITION_COMMITMENT_DOMAIN);
     }
 
     #[test]
