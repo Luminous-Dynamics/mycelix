@@ -542,6 +542,7 @@ pub fn verify_observation_set_provenance(
     }
 
     let mut observed_ids = BTreeSet::new();
+    let mut matching_evidence_count = 0usize;
     let mut has_target_support = false;
     for item in evidence {
         if !item.structurally_valid()
@@ -550,6 +551,7 @@ pub fn verify_observation_set_provenance(
         {
             continue;
         }
+        matching_evidence_count += 1;
         observed_ids.insert(item.observation.observation_id.clone());
         has_target_support |= matches!(
             (set.target_state, item.observation.observed_state),
@@ -559,7 +561,9 @@ pub fn verify_observation_set_provenance(
         );
     }
 
-    observed_ids == set.observation_ids && has_target_support
+    matching_evidence_count == set.observation_ids.len()
+        && observed_ids == set.observation_ids
+        && has_target_support
 }
 
 pub fn assess_observation_set(
