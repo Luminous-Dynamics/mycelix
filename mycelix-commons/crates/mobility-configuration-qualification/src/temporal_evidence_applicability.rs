@@ -540,6 +540,71 @@ mod tests {
         assert_eq!(value.effectivity_interval.start, 120);
     }
 
+    fn graph_transition(
+        transition_id: &str,
+        predecessor: Option<&str>,
+        from: EvidenceDisposition,
+        to: EvidenceDisposition,
+    ) -> EvidenceDispositionTransition {
+        EvidenceDispositionTransition {
+            transition_id: id(IdentityKind::ReconciliationWitness, transition_id),
+            evidence: id(IdentityKind::InspectionRecord, "inspection-graph"),
+            predecessor: predecessor.map(|p| id(IdentityKind::ReconciliationWitness, p)),
+            from,
+            to,
+            basis: id(IdentityKind::ReconciliationWitness, "basis-graph"),
+        }
+    }
+
+    #[test]
+    fn graph_validates_predecessor_state_continuity() {
+        let disputed = EvidenceDisposition::Disputed { by: id(IdentityKind::ReconciliationWitness, "w1") };
+        let root = graph_transition("t1", None, EvidenceDisposition::Active, disputed.clone());
+        let child = graph_transition("t2", Some("t1"), disputed, EvidenceDisposition::Active);
+        assert_eq!(EvidenceDispositionTransition::validate_graph(&[root, child]),
+            Ok(DispositionChainAssessment::Complete { branch_points: vec![] }));
+    }
+
+    #[test]
+    fn graph_reports_missing_predecessor_as_unresolved() {
+        let child = graph_transition("t2", Some("missing"), EvidenceDisposition::Active,
+            EvidenceDisposition::Disputed { by: id(IdentityKind::ReconciliationWitness, "w1") });
+        assert_eq!(EvidenceDispositionTransition::validate_graph(&[child]),
+            Ok(DispositionChainAssessment::Unresolved {
+                missing: vec![id(IdentityKind::ReconciliationWitness, "missing")],
+                branch_points: vec![],
+            }));
+    }
+
+    #[test]
+    fn graph_rejects_predecessor_state_mismatch() {
+        let root = graph_transition("t1", None, EvidenceDisposition::Active,
+            EvidenceDisposition::Disputed { by: id(IdentityKind::ReconciliationWitness, "w1") });
+        let child = graph_transition("t2", Some("t1"), EvidenceDisposition::Active,
+            EvidenceDisposition::Retracted { by: id(IdentityKind::ReconciliationWitness, "w2") });
+        assert!(EvidenceDispositionTransition::validate_graph(&[root, child]).is_err());
+    }
+
+    #[test]
+    fn graph_preserves_competing_branches_explicitly() {
+        let disputed = EvidenceDisposition::Disputed { by: id(IdentityKind::ReconciliationWitness, "w1") };
+        let root = graph_transition("t1", None, EvidenceDisposition::Active, disputed.clone());
+        let left = graph_transition("t2", Some("t1"), disputed.clone(), EvidenceDisposition::Active);
+        let right = graph_transition("t3", Some("t1"), disputed,
+            EvidenceDisposition::Retracted { by: id(IdentityKind::ReconciliationWitness, "w2") });
+        assert_eq!(EvidenceDispositionTransition::validate_graph(&[root, left, right]),
+            Ok(DispositionChainAssessment::Complete {
+                branch_points: vec![id(IdentityKind::ReconciliationWitness, "t1")],
+            }));
+    }
+
+    #[test]
+    fn graph_rejects_duplicate_transition_identity() {
+        let one = graph_transition("t1", None, EvidenceDisposition::Active,
+            EvidenceDisposition::Disputed { by: id(IdentityKind::ReconciliationWitness, "w1") });
+        assert!(EvidenceDispositionTransition::validate_graph(&[one.clone(), one]).is_err());
+    }
+
     #[test]
     fn wrong_evidence_kind_is_rejected() {
         let mut value = evidence_case();
