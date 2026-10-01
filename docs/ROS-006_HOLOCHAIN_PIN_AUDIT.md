@@ -2,40 +2,88 @@
 
 Audit date: 2026-10-01  
 Scope: repository manifests and the committed mycelix-civic/Cargo.lock inspected on branch feat/ros-006-qualification-boundary-v2.  
-Purpose: avoid assuming that a repository-wide Holochain upgrade is a local ROS-006 change.
+Purpose: establish the Holochain 0.7 target without performing an unsafe partial dependency migration inside ROS-006.
 
-## Findings
+## Current state
 
-| Location | Declared Holochain versions | Observation |
+The repository is **not yet Holochain-0.7 normalized**. The inspected active workspaces still contain a mixture of 0.6-era Holochain dependencies.
+
+| Location | Current declarations | Required 0.7 target |
 | --- | --- | --- |
-| crates/mycelix-core-types/Cargo.toml | optional HDI =0.7.1, holo_hash =0.6.1, holochain_integrity_types =0.6.1, hdk_derive =0.6.1 | Explicit optional host integration; hdk is not declared in this manifest. |
-| mycelix-workspace/Cargo.toml | HDK/HDI/Holochain family pinned to 0.6.1 / 0.7.1 | Main workspace dependency set has an explicit coordinated 0.6.1-era pin set. |
-| mycelix-civic/Cargo.toml | HDK =0.6.1, HDI =0.7.1, related types =0.6.1 | Explicit exact pins. |
-| mycelix-civic/Cargo.lock | HDK 0.6.1, HDI 0.7.1, hdk_derive / holo_hash / holochain_integrity_types / holochain_zome_types 0.6.1 | The inspected civic lockfile resolves the declared versions consistently. |
-| mycelix-commons/Cargo.toml | HDK 0.6.0, HDI 0.7.0, integrity types 0.6.0; holo_hash uses compatible 0.6 range | Commons has a distinct, older workspace pin set. |
+| mycelix-workspace/Cargo.toml | HDK 0.6.1, HDI 0.7.1, Holochain/types family 0.6.1 | HDK 0.7.0, HDI 0.8.0, Holochain 0.7.0 family |
+| mycelix-civic/Cargo.toml | HDK 0.6.1, HDI 0.7.1, zome/integrity types 0.6.1 | HDK 0.7.0, HDI 0.8.0, corresponding 0.7 zome/integrity types |
+| mycelix-commons/Cargo.toml | HDK 0.6.0, HDI 0.7.0, integrity types 0.6.0 | HDK 0.7.0, HDI 0.8.0, corresponding 0.7 zome/integrity types |
+| crates/mycelix-core-types/Cargo.toml | optional HDI 0.7.1 plus 0.6-era Holochain type dependencies | optional 0.7-generation host integration; default core remains Holochain-independent |
 
-## Compatibility interpretation
+This is a migration inventory, not evidence of a compile failure. The important finding is that the repository's current dependency generation does not match the intended Holochain 0.7 baseline.
 
-The official Holochain 0.6 compatibility table currently lists Holochain/HDK 0.6.3 and HDI 0.7.3 as the latest compatible versions, and describes 0.6 as maintenance-mode. That is a statement about the latest compatible set, not proof that every earlier 0.6.x set is inherently invalid.
+## Canonical 0.7 compatibility target
 
-The inspected civic lockfile confirms that the civic workspace resolves its exact 0.6.1 / 0.7.1 family consistently. The important repository-level issue is therefore workspace divergence and maintenance intent, not a demonstrated compile failure in the 0.6.1 pins.
+Holochain's current 0.7 compatibility table recommends:
 
-The commons workspace declares 0.6.0-era dependencies, while the main workspace and civic workspace declare 0.6.1-era dependencies. Since these are separate workspaces, their manifests and lockfiles must be evaluated independently. A successful resolution in one workspace does not establish compatibility for another.
+- Holochain/conductor: 0.7.0
+- HDK: 0.7.0
+- HDI: 0.8.0
+- JavaScript client: 0.21.0
+- Rust client: 0.9.0
+- hc CLI: 0.7.0
+- hc-scaffold: 0.700.0
+- hc-spin: 0.700.0
+- Lair: 0.7.1
 
-## ROS-006 implications
+For this repository, "Holochain 0.7 everywhere" means that every **active Holochain application workspace** uses one coherent 0.7 compatibility generation. It does not mean unrelated Rust dependencies should be changed merely because they are in the same repository.
 
-1. Keep mycelix-core-types independent of HDK/HDI by default. Its optional integration dependencies should not leak into the default qualification core.
-2. Before implementing a Holochain adapter, choose its actual host workspace and inherit that workspace's pinned dependency set rather than inventing a new mixed set.
-3. Do not blanket-bump all Holochain dependencies solely to match the latest compatibility table. Validate each workspace independently and account for DNA compatibility: Holochain's tooling guidance notes that integrity-zome dependency updates change the DNA hash, potentially creating a separate network/DHT identity.
-4. Record the selected conductor, HDK, HDI, zome types, serialized-bytes, and relevant derive/hash versions together in an adapter-specific compatibility manifest.
-5. Treat successful cargo check as compile evidence only. Add host-level/sweettest validation for actual must_get_* behavior and the ROS mapping of Valid, Invalid, and Unresolved.
+## Migration hazards that must be handled together
 
-## Recommended decision
+The official 0.6 → 0.7 guide identifies several breaking changes:
 
-For ROS-006, do not change dependency pins in this PR without a runnable, workspace-specific verification path and an explicit compatibility decision. The next implementation should target the eventual Relationship 360 integrity/coordinator workspace and inherit its chosen version matrix. If Relationship 360 is intentionally to use a newer Holochain release, treat that as a separate, deliberate DNA/version migration with its own test and compatibility evidence.
+1. The action model changed. Variant action structs were replaced by a header plus typed data payload. Integrity validation and coordinator signal_action code must be migrated.
+2. holochain_zome_types and holochain_integrity_types re-exports changed; imports that bypass the preludes need review.
+3. must_get_agent_activity gained additional deterministic-response variants.
+4. block_agent and unblock_agent were removed.
+5. tx5/WebRTC transport was removed; iroh/QUIC is the network transport.
+6. Conductor configuration fields changed, including removal of signal_url and webrtc_config.
+7. Sweettest/Holochain feature names changed: sqlite-encrypted → encryption, wasmer_sys → wasmer-sys-cranelift, and transport-iroh is removed.
+8. The official guide requires cargo update after dependency changes so the lockfile resolves the complete compatible graph.
+9. Integrity-zome dependency changes alter the DNA hash, so a 0.7 migration is a network/DHT compatibility event rather than a transparent in-place dependency bump.
 
-## Source
+## Safe execution boundary
 
-- Holochain 0.6 compatibility table: https://developer.holochain.org/resources/compatibility/holochain-0.6/
-- Holochain tooling compatibility guidance, including DNA hash implications: https://developer.holochain.org/resources/compatibility/
-- Holochain 0.6 upgrade guidance: https://developer.holochain.org/resources/upgrade/upgrade-holochain-0.6/
+Do **not** mechanically replace the version strings in the current manifests and commit the result without regenerating and validating the corresponding lockfiles. That would create a repository state whose dependency declarations advertise 0.7 while its resolved graph and source code may still be 0.6-shaped.
+
+The migration should therefore be executed as a dedicated Holochain-0.7 normalization effort:
+
+1. Update each active workspace's root Holochain dependency matrix together.
+2. Regenerate each workspace lockfile in a real Holochain-0.7/Nix environment.
+3. Enumerate and migrate 0.6 API usage from compiler diagnostics rather than guessing.
+4. Update conductor/sandbox configuration and test harnesses.
+5. Run workspace-specific build/test evidence, including zome host tests where applicable.
+6. Record the resulting dependency graph and DNA/network break explicitly.
+7. Only then make the 0.7 pins the repository-wide default.
+
+ROS-006 remains correctly Holochain-independent at its qualification core. Its eventual adapter should consume the already-normalized 0.7 host workspace rather than introducing a special dependency island.
+
+## Relationship to ROS-006
+
+The ROS-006 qualification hardening already enforces an important boundary independent of the Holochain migration:
+
+transport → observation → qualification → projection
+
+The adapter is responsible for producing an explicit dependency observation. The core qualification layer verifies the observation against the requested logical identity, dependency kind, and exact record address. A bare legacy Valid result is rejected as unattested.
+
+This lets the ROS-006 safety property advance now without coupling its core semantics to the Holochain migration.
+
+## Evidence status
+
+- Holochain 0.7 target: **confirmed from official compatibility guidance**.
+- Current Mycelix dependency generation: **0.6-era / mixed; confirmed from repository manifests**.
+- 0.7 source/API migration: **not yet executed**.
+- Regenerated 0.7 lockfiles: **not yet produced**.
+- Full 0.7 workspace compile/test evidence: **not yet available**.
+- ROS-006 qualification-core hardening: **implemented on PR head**.
+
+## Sources
+
+- Holochain 0.7 compatibility table: https://developer.holochain.org/resources/compatibility/holochain-0.7/
+- Holochain 0.6 → 0.7 upgrade guide: https://developer.holochain.org/resources/upgrade/upgrade-holochain-0.7/
+- Holochain tooling compatibility guidance: https://developer.holochain.org/resources/compatibility/
