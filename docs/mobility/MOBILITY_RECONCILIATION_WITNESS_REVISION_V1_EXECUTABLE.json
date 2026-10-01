@@ -601,7 +601,7 @@
     },
     {
       "id": "WRV-009",
-      "operation": "identity",
+      "operation": "supersession_preserves_predecessor",
       "expected": "accepted",
       "previous": {
         "witness_identity": {
@@ -640,7 +640,7 @@
         "witness_identity": {
           "kind": "reconciliation_witness",
           "namespace": "synthetic",
-          "id": "w1"
+          "id": "w2"
         },
         "left_claim": {
           "kind": "evidence_record",
@@ -658,7 +658,7 @@
         },
         "right_applicability": {
           "start": 5,
-          "end": 15
+          "end": 20
         },
         "comparability": "comparable",
         "compatibility": "incompatible",
@@ -667,6 +667,19 @@
         "result": {
           "classification": "conflicting",
           "disputed": false
+        }
+      },
+      "supersession": {
+        "relation": "supersedes",
+        "source": {
+          "kind": "reconciliation_witness",
+          "namespace": "synthetic",
+          "id": "w2"
+        },
+        "target": {
+          "kind": "reconciliation_witness",
+          "namespace": "synthetic",
+          "id": "w1"
         }
       }
     },
