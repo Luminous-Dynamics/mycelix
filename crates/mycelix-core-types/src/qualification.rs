@@ -1239,6 +1239,73 @@ mod tests {
         ).unwrap();
         assert_eq!(left, right);
     }
+
+    #[test]
+    fn unattested_valid_dependency_is_rejected() {
+        let id = [21u8; 32];
+        let dependency = QualificationDependency::new(
+            QualificationDependencyKind::Commitment,
+            id,
+            b"record/unattested".to_vec(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            validate_dependency_results(&[QualificationDependencyResult {
+                dependency,
+                resolution: QualificationDependencyResolution::Valid,
+            }]),
+            Err(QualificationError::InvalidDependency {
+                logical_id: id,
+                reason: "dependency resolver returned success without an attested observation".into(),
+            })
+        );
+    }
+
+    #[test]
+    fn mismatched_dependency_observation_is_rejected() {
+        let id = [22u8; 32];
+        let dependency = QualificationDependency::new(
+            QualificationDependencyKind::Consent,
+            id,
+            b"record/exact".to_vec(),
+        )
+        .unwrap();
+        let observed = QualificationDependencyObservation {
+            kind: QualificationDependencyKind::Commitment,
+            logical_id: id,
+            record_address: b"record/exact".to_vec(),
+        };
+
+        assert_eq!(
+            validate_dependency_results(&[QualificationDependencyResult {
+                dependency,
+                resolution: QualificationDependencyResolution::Attested { observed },
+            }]),
+            Err(QualificationError::InvalidDependency {
+                logical_id: id,
+                reason: "dependency observation does not match requested kind, logical ID, or record address".into(),
+            })
+        );
+    }
+
+    #[test]
+    fn exact_dependency_observation_is_accepted() {
+        let id = [23u8; 32];
+        let dependency = QualificationDependency::new(
+            QualificationDependencyKind::Delegation,
+            id,
+            b"record/exact-delegation".to_vec(),
+        )
+        .unwrap();
+        let observed = QualificationDependencyObservation::from_dependency(&dependency);
+
+        assert!(validate_dependency_results(&[QualificationDependencyResult {
+            dependency,
+            resolution: QualificationDependencyResolution::Attested { observed },
+        }]).is_ok());
+    }
+
 }
 
 
