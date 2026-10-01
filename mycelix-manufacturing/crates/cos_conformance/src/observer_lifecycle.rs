@@ -25,9 +25,30 @@ pub const OBSERVER_LIFECYCLE_CLAIM_CEILING: &str =
 
 pub const D6O_ELIGIBILITY_RECEIPT_COMMITMENT_DOMAIN: &[u8] =
     b"MYCELIX-INTEGRAL-D6O-ELIGIBILITY-RECEIPT-V1\0";
+pub const D6O_GENERATION_COMMITMENT_DOMAIN: &[u8] =
+    b"MYCELIX-INTEGRAL-D6O-GENERATION-V1\0";
+pub const D6O_TRANSITION_COMMITMENT_DOMAIN: &[u8] =
+    b"MYCELIX-INTEGRAL-D6O-TRANSITION-V1\0";
+pub const D6O_SNAPSHOT_COMMITMENT_DOMAIN: &[u8] =
+    b"MYCELIX-INTEGRAL-D6O-SNAPSHOT-V1\0";
+pub const D6O_ROTATION_COMMITMENT_DOMAIN: &[u8] =
+    b"MYCELIX-INTEGRAL-D6O-ROTATION-V1\0";
+
 
 fn non_empty(value: &str) -> bool {
     !value.trim().is_empty()
+}
+
+fn recompute_domain_commitment<T: Serialize>(domain: &[u8], value: &T) -> String {
+    let payload = serde_json::to_vec(value).expect("lifecycle commitment serialization must succeed");
+    let mut hasher = Sha256::new();
+    hasher.update(domain);
+    hasher.update(payload);
+    format!("{:x}", hasher.finalize())
+}
+
+fn is_canonical_sha256_commitment(value: &str) -> bool {
+    value.len() == 64 && value.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -143,6 +164,18 @@ pub struct ObserverGenerationV1 {
 }
 
 impl ObserverGenerationV1 {
+    pub fn recomputed_commitment(&self) -> String {
+        let mut unsigned = self.clone();
+        unsigned.generation_commitment.clear();
+        recompute_domain_commitment(D6O_GENERATION_COMMITMENT_DOMAIN, &unsigned)
+    }
+
+    pub fn commitment_matches(&self) -> bool {
+        self.structurally_valid()
+            && (!is_canonical_sha256_commitment(&self.generation_commitment)
+                || self.generation_commitment == self.recomputed_commitment())
+    }
+
     pub fn structurally_valid(&self) -> bool {
         non_empty(&self.generation_id)
             && non_empty(&self.observer_id)
@@ -187,6 +220,18 @@ pub struct ObserverStatusTransitionV1 {
 }
 
 impl ObserverStatusTransitionV1 {
+    pub fn recomputed_commitment(&self) -> String {
+        let mut unsigned = self.clone();
+        unsigned.transition_commitment.clear();
+        recompute_domain_commitment(D6O_TRANSITION_COMMITMENT_DOMAIN, &unsigned)
+    }
+
+    pub fn commitment_matches(&self) -> bool {
+        self.structurally_valid()
+            && (!is_canonical_sha256_commitment(&self.transition_commitment)
+                || self.transition_commitment == self.recomputed_commitment())
+    }
+
     pub fn structurally_valid(&self) -> bool {
         non_empty(&self.transition_id)
             && non_empty(&self.observer_id)
@@ -227,6 +272,18 @@ pub struct EvidenceDependencySnapshotV1 {
 }
 
 impl EvidenceDependencySnapshotV1 {
+    pub fn recomputed_commitment(&self) -> String {
+        let mut unsigned = self.clone();
+        unsigned.snapshot_commitment.clear();
+        recompute_domain_commitment(D6O_SNAPSHOT_COMMITMENT_DOMAIN, &unsigned)
+    }
+
+    pub fn commitment_matches(&self) -> bool {
+        self.structurally_valid()
+            && (!is_canonical_sha256_commitment(&self.snapshot_commitment)
+                || self.snapshot_commitment == self.recomputed_commitment())
+    }
+
     pub fn structurally_valid(&self) -> bool {
         non_empty(&self.snapshot_id)
             && non_empty(&self.observer_generation_id)
@@ -264,6 +321,18 @@ pub struct ObserverRotationCertificateV1 {
 }
 
 impl ObserverRotationCertificateV1 {
+    pub fn recomputed_commitment(&self) -> String {
+        let mut unsigned = self.clone();
+        unsigned.certificate_commitment.clear();
+        recompute_domain_commitment(D6O_ROTATION_COMMITMENT_DOMAIN, &unsigned)
+    }
+
+    pub fn commitment_matches(&self) -> bool {
+        self.structurally_valid()
+            && (!is_canonical_sha256_commitment(&self.certificate_commitment)
+                || self.certificate_commitment == self.recomputed_commitment())
+    }
+
     pub fn structurally_valid(&self) -> bool {
         non_empty(&self.certificate_id)
             && non_empty(&self.observer_id)
@@ -1201,6 +1270,12 @@ pub fn verify_eligibility_receipt_provenance(
     if receipt.current_generation_id.as_deref() != Some(generation.generation_id.as_str()) {
         return false;
     }
+    if !generation.commitment_matches() || !snapshot.commitment_matches() {
+        return false;
+    }
+    if !ledger.transitions.values().all(ObserverStatusTransitionV1::commitment_matches) {
+        return false;
+    }
     if receipt.lifecycle_transition_ids
         != expected_eligibility_transition_ids(
             &generation.generation_id,
@@ -2006,6 +2081,59 @@ mod tests {
         assert!(!verify_eligibility_receipt_provenance(
             &receipt, &e, &generation, &snapshot, &profile(), &ledger
         ));
+    }
+
+    #[test]
+    fn canonical_d6o_commitments_bind_authoritative_lifecycle_objects() {
+        let generation = generation("observer-A-g1", 1, None);
+        let mut canonical_generation = generation.clone();
+        canonical_generation.generation_commitment = canonical_generation.recomputed_commitment();
+        assert!(canonical_generation.commitment_matches());
+        canonical_generation.evidence_root = "evidence-substituted".into();
+        assert!(!canonical_generation.commitment_matches());
+
+        let mut transition = transition(
+            &generation,
+            "suspend-canonical",
+            ObserverStatusV1::Suspended,
+            2,
+            None,
+        );
+        transition.transition_commitment = transition.recomputed_commitment();
+        assert!(transition.commitment_matches());
+        transition.reason = "forged-reason".into();
+        assert!(!transition.commitment_matches());
+
+        let mut snapshot = snapshot(
+            "snapshot-canonical",
+            &generation.generation_id,
+            1,
+            None,
+            &generation.evidence_root,
+            &generation.custody_root,
+            ObservationIndependenceV1::DeclaredIndependent,
+        );
+        snapshot.snapshot_commitment = snapshot.recomputed_commitment();
+        assert!(snapshot.commitment_matches());
+        snapshot.custody_root = "custody-substituted".into();
+        assert!(!snapshot.commitment_matches());
+
+        let mut successor = generation("observer-A-g2", 2, Some(&generation.generation_id));
+        let mut rotation_transition = transition(
+            &generation,
+            "rotate-canonical",
+            ObserverStatusV1::Superseded,
+            2,
+            Some(&successor.generation_id),
+        );
+        rotation_transition.transition_commitment = rotation_transition.recomputed_commitment();
+        let mut certificate = rotation_certificate(&generation, &successor, &rotation_transition);
+        certificate.certificate_commitment = certificate.recomputed_commitment();
+        assert!(certificate.commitment_matches());
+        certificate.successor_environment_root = "env-substituted".into();
+        assert!(!certificate.commitment_matches());
+
+        successor.generation_commitment = successor.recomputed_commitment();
     }
 
     #[test]
