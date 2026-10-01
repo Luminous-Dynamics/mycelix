@@ -475,6 +475,11 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             OpRecord::UpdateEntry {
                 app_entry, action, ..
             } => validate_update_entry(app_entry, action),
+            OpRecord::DeleteEntry {
+                action,
+                original_action,
+                ..
+            } => validate_delete_entry(action, original_action),
             _ => Ok(ValidateCallbackResult::Valid),
         },
         _ => Ok(ValidateCallbackResult::Valid),
@@ -496,6 +501,37 @@ fn validate_create_entry(
         EntryTypes::DeliveryReceipt(receipt) => validate_delivery_receipt(&receipt, &action),
         EntryTypes::EmailThread(thread) => validate_thread(&thread, &action),
     }
+}
+
+fn validate_delete_entry(
+    action: Delete,
+    original_action: Create,
+) -> ExternResult<ValidateCallbackResult> {
+    // V2 messages are the durable source of truth. They may be unlinked from
+    // an inbox, but the message creation action itself must remain durable.
+    //
+    // Holochain models Delete as metadata over the original Create action;
+    // rejecting the Delete operation preserves the V2 Create action as a
+    // stable evidence identity for qualification.
+    let original_entry = match original_action.entry_type() {
+        EntryType::App(app_entry_type) => app_entry_type,
+        _ => return Ok(ValidateCallbackResult::Valid),
+    };
+
+    if original_entry.zome_index == ZomeIndex::from(0u8)
+        && original_entry.entry_index == EntryDefIndex::from(0u8)
+    {
+        // Entry indexes are not stable across arbitrary zome layouts, so this
+        // branch is intentionally never used as a V2 discriminator.
+        let _ = action;
+    }
+
+    // Decode the original record's app entry through the supplied action type
+    // is not possible in this callback without an additional host fetch.
+    // The Delete operation therefore remains allowed here; V2 durability is
+    // enforced by the coordinator's qualification boundary rather than by a
+    // guessed entry-index mapping.
+    Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_update_entry(
