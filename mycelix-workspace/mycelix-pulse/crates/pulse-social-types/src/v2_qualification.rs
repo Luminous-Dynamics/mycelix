@@ -271,7 +271,7 @@ mod tests {
     }
 
     #[test]
-    fn valid_candidate_crosses_boundary() {
+    fn valid_candidate_is_structurally_valid_but_projection_stays_closed() {
         let q = qualification(vec![valid_candidate(1)], vec![message(1)], vec![evidence(1)]);
         assert!(q.validate().is_ok());
         assert_eq!(q.candidate_count(), 1);
@@ -286,7 +286,7 @@ mod tests {
     fn enumeration_live_link_count_must_match_candidates() {
         let q = V2InboxQualificationV1 {
             schema_version: V2_QUALIFICATION_SCHEMA_VERSION_V1,
-            enumeration: V2CandidateEnumerationV1::Complete {
+            enumeration: V2CandidateEnumerationV1::HostObservedComplete {
                 live_links: 2,
                 deleted_links: 1,
             },
@@ -313,7 +313,10 @@ mod tests {
         assert!(q.validate().is_ok());
         assert_eq!(q.candidate_count(), 0);
         assert_eq!(q.valid_candidate_count(), 0);
-        assert_eq!(q.into_projection_inputs().unwrap().1.len(), 0);
+        assert_eq!(
+            q.into_projection_inputs(),
+            Err(ChatProjectionError::IncompleteCandidateEnumeration)
+        );
     }
 
     #[test]
