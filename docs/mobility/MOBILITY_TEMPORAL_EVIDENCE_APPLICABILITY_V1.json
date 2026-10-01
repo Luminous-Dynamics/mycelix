@@ -1,0 +1,102 @@
+{
+  "schema_version": "mobility-temporal-evidence-applicability-v1",
+  "status": "semantic-qualification-only",
+  "vectors": [
+    {
+      "id": "TEA-001",
+      "scenario": "event interval and effectivity interval are disjoint",
+      "expected_outcome": "accepted",
+      "forbidden_inference": "temporal overlap is not required"
+    },
+    {
+      "id": "TEA-002",
+      "scenario": "event interval is zero length",
+      "expected_outcome": "rejected",
+      "forbidden_inference": "invalid interval does not become valid effectivity"
+    },
+    {
+      "id": "TEA-003",
+      "scenario": "effectivity interval is zero length",
+      "expected_outcome": "rejected",
+      "forbidden_inference": "zero-length effectivity is not a valid applicability window"
+    },
+    {
+      "id": "TEA-004",
+      "scenario": "open-ended effectivity",
+      "expected_outcome": "accepted",
+      "forbidden_inference": "open-ended does not mean permanent truth"
+    },
+    {
+      "id": "TEA-005",
+      "scenario": "wrong physical artifact",
+      "expected_outcome": "rejected",
+      "forbidden_inference": "evidence cannot retarget implicitly"
+    },
+    {
+      "id": "TEA-006",
+      "scenario": "wrong configuration revision",
+      "expected_outcome": "rejected",
+      "forbidden_inference": "configuration applicability must be exact"
+    },
+    {
+      "id": "TEA-007",
+      "scenario": "replacement artifact reuses predecessor evidence",
+      "expected_outcome": "rejected",
+      "forbidden_inference": "artifact replacement does not inherit evidence"
+    },
+    {
+      "id": "TEA-008",
+      "scenario": "successor configuration reuses predecessor evidence",
+      "expected_outcome": "rejected",
+      "forbidden_inference": "configuration succession does not inherit evidence"
+    },
+    {
+      "id": "TEA-009",
+      "scenario": "Holochain-shaped artifact identifier",
+      "expected_outcome": "rejected",
+      "forbidden_inference": "protocol hashes are not engineering identity"
+    },
+    {
+      "id": "TEA-010",
+      "scenario": "later effectivity window with preserved earlier event",
+      "expected_outcome": "accepted",
+      "forbidden_inference": "later applicability does not erase historical event provenance"
+    },
+    {
+      "id": "TEA-011",
+      "scenario": "design revision used as evidence identity",
+      "expected_outcome": "rejected",
+      "forbidden_inference": "typed evidence identity is required"
+    },
+    {
+      "id": "TEA-012",
+      "scenario": "event/effectivity overlap",
+      "expected_outcome": "accepted",
+      "forbidden_inference": "overlap is descriptive and does not establish truth"
+    },
+    {
+      "id": "TEA-013",
+      "scenario": "effectivity interval starts after event",
+      "expected_outcome": "accepted",
+      "forbidden_inference": "event time and effectivity time remain independent"
+    },
+    {
+      "id": "TEA-014",
+      "scenario": "later record exists after earlier evidence",
+      "expected_outcome": "accepted",
+      "forbidden_inference": "later evidence does not erase historical evidence"
+    },
+    {
+      "id": "TEA-015",
+      "scenario": "effectivity treated as safety certification",
+      "expected_outcome": "rejected",
+      "forbidden_inference": "effectivity is not safety or certification"
+    },
+    {
+      "id": "TEA-016",
+      "scenario": "Holochain validation treated as engineering authority",
+      "expected_outcome": "rejected",
+      "forbidden_inference": "protocol validation is not engineering authority"
+    }
+  ]
+}
