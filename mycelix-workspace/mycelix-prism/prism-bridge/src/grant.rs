@@ -24,7 +24,21 @@ impl ResourceScope {
         match self {
             Self::Any => true,
             Self::Exact(expected) => resource == Some(expected.as_str()),
-            Self::Prefix(prefix) => resource.is_some_and(|value| value.starts_with(prefix)),
+            Self::Prefix(prefix) => resource.is_some_and(|value| {
+                let Some(suffix) = value.strip_prefix(prefix) else {
+                    return false;
+                };
+                // A raw string prefix is not a URL boundary: for example,
+                // "https://cdn.example.com.attacker.invalid" must not match
+                // "https://cdn.example.com". Permit exact matches and
+                // hierarchical URL delimiters only. A prefix ending in '/'
+                // explicitly denotes a path subtree.
+                suffix.is_empty()
+                    || prefix.ends_with('/')
+                    || suffix.starts_with('/')
+                    || suffix.starts_with('?')
+                    || suffix.starts_with('#')
+            }),
         }
     }
 }
@@ -110,6 +124,14 @@ impl CapabilityGrantStore {
         let before = self.grants.len();
         self.grants.retain(|grant| grant.grant_id != grant_id);
         before != self.grants.len()
+    }
+
+    /// Revoke every grant during a committed navigation or renderer teardown.
+    /// The broker must call this only after updating its authoritative binding.
+    pub fn revoke_all(&mut self) -> usize {
+        let revoked = self.grants.len();
+        self.grants.clear();
+        revoked
     }
 
     pub fn authorize(
@@ -251,6 +273,22 @@ mod tests {
     }
 
     #[test]
+    fn prefix_scope_respects_url_authority_and_path_boundaries() {
+        let scope = ResourceScope::Prefix("https://cdn.example.com".into());
+        assert!(scope.allows(Some("https://cdn.example.com")));
+        assert!(scope.allows(Some("https://cdn.example.com/app.js")));
+        assert!(scope.allows(Some("https://cdn.example.com?version=1")));
+        assert!(scope.allows(Some("https://cdn.example.com#fragment")));
+        assert!(!scope.allows(Some("https://cdn.example.com.attacker.invalid/app.js")));
+        assert!(!scope.allows(Some("https://cdn.example.com.evil")));
+        assert!(!scope.allows(Some("http://cdn.example.com/app.js")));
+
+        let subtree = ResourceScope::Prefix("https://cdn.example.com/assets/".into());
+        assert!(subtree.allows(Some("https://cdn.example.com/assets/app.js")));
+        assert!(subtree.allows(Some("https://cdn.example.com/assets/../private")));
+    }
+
+    #[test]
     fn resource_scope_is_enforced() {
         let (process, site, origin, cluster, request, mut grant) = fixture();
         grant.resource_scope = ResourceScope::Exact("https://cdn.example.com/other.js".into());
@@ -267,6 +305,22 @@ mod tests {
         store.insert(grant.clone()).unwrap();
         assert_eq!(store.insert(grant), Err(GrantError::DuplicateGrant));
         assert_eq!(store.len(), 1);
+    }
+
+    #[test]
+    fn revoke_all_clears_every_grant() {
+        let (_, site, origin, cluster, _, mut grant) = fixture();
+        let mut store = CapabilityGrantStore::default();
+        store.insert(grant.clone()).unwrap();
+        grant.grant_id = 12;
+        grant.site = site;
+        grant.origin = origin;
+        grant.agent_cluster = cluster;
+        store.insert(grant).unwrap();
+
+        assert_eq!(store.revoke_all(), 2);
+        assert!(store.is_empty());
+        assert_eq!(store.revoke_all(), 0);
     }
 
     #[test]
