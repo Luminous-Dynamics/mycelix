@@ -213,7 +213,7 @@ pub fn qualify_inbox_v2(_: ()) -> ExternResult<V2InboxQualificationV1> {
         .validate()
         .map_err(|error| wasm_error!(WasmErrorInner::Guest(format!(
             "V2 qualification failed closed: {error:?}"
-        )))?;
+        ))))?;
 
     qualification
         .into_projection_inputs()
