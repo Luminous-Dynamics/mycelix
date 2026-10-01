@@ -129,12 +129,38 @@ The next Holochain migration should be treated as a **dependency-graph normaliza
 
 This is consistent with Holochain's documented 0.6→0.7 process and its warning that integrity dependency changes break DNA compatibility.
 
+
+## Source-level 0.6 API hotspot scan
+
+A targeted read of the active civic/commons integrity zomes confirms that the migration risk is not limited to dependency declarations. Representative files on this branch still contain the Holochain 0.6 action/validation API that the official 0.7 guide identifies as breaking.
+
+Confirmed examples include:
+
+| Workspace / path | Confirmed 0.6-shaped API | 0.7 migration implication |
+| --- | --- | --- |
+| `mycelix-civic/zomes/civic-bridge/integrity/src/lib.rs` | `FlatOp::StoreEntry`, `FlatOp::RegisterUpdate`, `FlatOp::RegisterDelete`, `FlatOp::RegisterDeleteLink` | migrate validation callback to 0.7 `FlatOp` variants and typed actions |
+| `mycelix-civic/zomes/justice-cases/integrity/src/lib.rs` | `StoreEntry`, `RegisterCreateLink`, `RegisterDeleteLink`, `RegisterUpdate`, `RegisterDelete` | same action/FlatOp migration |
+| `mycelix-civic/zomes/emergency-incidents/integrity/src/lib.rs` | `StoreEntry`, `RegisterCreateLink`, `RegisterDeleteLink`, `StoreRecord`, `RegisterAgentActivity`, `RegisterUpdate` | same action/FlatOp migration; agent-activity handling must use the 0.7 API |
+| `mycelix-commons/zomes/property-registry/integrity/src/lib.rs` | `StoreEntry`, `RegisterCreateLink`, `RegisterDeleteLink`, `StoreRecord`, `RegisterAgentActivity`, `RegisterUpdate`; `EntryCreationAction::Create` | migrate both FlatOp and `EntryCreationAction` usage |
+| `mycelix-commons/zomes/property-transfer/integrity/src/lib.rs` | `StoreEntry`, `RegisterCreateLink`, `RegisterDeleteLink`, `StoreRecord`, `RegisterAgentActivity`, `RegisterUpdate`; `EntryCreationAction::Create` | same action/typed-action migration |
+| `mycelix-commons/zomes/housing-membership/integrity/src/lib.rs` | `StoreEntry`, `RegisterCreateLink`, `RegisterDeleteLink`, `StoreRecord`, `RegisterAgentActivity`, `RegisterUpdate` | same action/FlatOp migration |
+
+This scan is deliberately a **source audit, not a build result**. It establishes concrete migration hotspots without claiming that every occurrence in the repository has been enumerated or that any 0.7 build currently succeeds.
+
+The pattern is significant: the active civic and commons integrity zomes are structurally dependent on the 0.6 validation callback model. The official 0.7 upgrade guide says the action-model rewrite is the bulk of the upgrade work and specifically replaces legacy `FlatOp` variants such as `StoreEntry`, `StoreRecord`, and `RegisterUpdate` with 0.7 forms such as `CreateEntry`, `CreateRecord`, and `Update`, with typed actions carrying the relevant payload.
+
+### Migration consequence
+
+The safest next implementation unit is therefore **one representative integrity-zome migration in a dedicated 0.7 normalization branch/workspace**, followed by compiler-driven propagation across the remaining zomes. Do not start changing these validation callbacks inside ROS-006 itself: the ROS-006 core is intentionally Holochain-version-neutral, and the migration needs a coherent HDK/HDI/toolchain environment first.
+
+A particularly useful first migration target is `mycelix-civic/zomes/civic-bridge/integrity`, because it is a bridge boundary and its callback is small enough to serve as a representative compiler/migration fixture before applying the same transformations to the larger civic and commons zomes.
+
 ## Evidence status
 
 - Holochain 0.7 target: **confirmed from official compatibility guidance**.
 - Current Mycelix Cargo dependency generation: **0.6-era / mixed; confirmed from repository manifests**.
 - Current Mycelix Nix dependency generation: **0.6-era; confirmed from committed flake.lock**.
-- Holochain 0.7 source/API migration: **not yet executed**.
+- Holochain 0.7 source/API migration: **not yet executed; concrete 0.6-shaped hotspots confirmed by targeted source inspection**.
 - Regenerated 0.7 Cargo/Nix lockfiles: **not yet produced**.
 - Full 0.7 workspace compile/test evidence: **not yet available**.
 - ROS-006 qualification-core hardening: **implemented on PR head**.
