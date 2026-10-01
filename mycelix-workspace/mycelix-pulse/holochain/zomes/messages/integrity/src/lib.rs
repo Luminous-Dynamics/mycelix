@@ -1614,6 +1614,79 @@ mod tests {
         Record::new(signed_action, Some(entry))
     }
 
+    /// Builds a Record wrapping an EncryptedEmailV2 entry for host-mocked
+    /// validation tests. The record's action hash is supplied by the caller
+    /// through the mock host, so the test exercises the same dependency path as
+    /// the real Delete validation callback.
+    fn v2_email_record(author: AgentPubKey, email: &EncryptedEmailV2) -> Record {
+        let entry = Entry::App(
+            AppEntryBytes::try_from(SerializedBytes::try_from(email.clone()).unwrap()).unwrap(),
+        );
+        let entry_hash = EntryHash::from_raw_36(vec![29; 36]);
+        let action = Action::Create(Create {
+            author,
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![28; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex(0),
+                ZomeIndex(0),
+                EntryVisibility::Public,
+            )),
+            entry_hash,
+            weight: Default::default(),
+        });
+        let signed_action = SignedActionHashed::new_unchecked(action, Signature([0; 64]));
+        Record::new(signed_action, Some(entry))
+    }
+
+    #[test]
+    fn encrypted_email_v2_delete_is_rejected_at_integrity_boundary() {
+        let author = AgentPubKey::from_raw_36(vec![31; 36]);
+        let email = test_email_v2();
+        let original_action_hash = ActionHash::from_raw_36(vec![32; 36]);
+
+        hdi::hdi::set_hdi(MockRecordHdi {
+            record: v2_email_record(author.clone(), &email),
+        });
+
+        let delete = Delete {
+            author,
+            timestamp: Timestamp::from_micros(1),
+            action_seq: 1,
+            prev_action: ActionHash::from_raw_36(vec![33; 36]),
+            deletes_address: original_action_hash.clone(),
+        };
+
+        let result = validate_delete_entry(original_action_hash, delete).unwrap();
+        assert!(
+            matches!(result, ValidateCallbackResult::Invalid(message) if message.contains("EncryptedEmailV2")),
+            "V2 message deletion must fail closed at integrity validation: {result:?}"
+        );
+    }
+
+    #[test]
+    fn non_v2_delete_remains_allowed() {
+        let author = AgentPubKey::from_raw_36(vec![34; 36]);
+        let email = test_email();
+        let original_action_hash = ActionHash::from_raw_36(vec![35; 36]);
+
+        hdi::hdi::set_hdi(MockRecordHdi {
+            record: email_record(author.clone(), &email),
+        });
+
+        let delete = Delete {
+            author,
+            timestamp: Timestamp::from_micros(1),
+            action_seq: 1,
+            prev_action: ActionHash::from_raw_36(vec![36; 36]),
+            deletes_address: original_action_hash.clone(),
+        };
+
+        let result = validate_delete_entry(original_action_hash, delete).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
     fn test_attachment(email_hash: ActionHash) -> EncryptedAttachment {
         EncryptedAttachment {
             email_hash,
