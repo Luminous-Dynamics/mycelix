@@ -194,6 +194,7 @@ pub enum CapabilityIngressError {
     OriginMismatch,
     ProcessMismatch,
     GenerationMismatch,
+    RequestIdMismatch,
 }
 
 impl fmt::Display for CapabilityIngressError {
@@ -207,6 +208,9 @@ impl fmt::Display for CapabilityIngressError {
             }
             Self::GenerationMismatch => {
                 f.write_str("renderer session generation does not match authoritative generation")
+            }
+            Self::RequestIdMismatch => {
+                f.write_str("renderer capability envelope request id does not match payload request id")
             }
         }
     }
@@ -237,11 +241,56 @@ impl CapabilityIngress {
     ) -> Result<CapabilityRequest, CapabilityIngressError> {
         let request: CapabilityRequest =
             crate::decode_payload(payload).map_err(CapabilityIngressError::Decode)?;
+        self.admit_decoded(stream, generation, authoritative, request.request_id, request)
+    }
 
+    /// Admit a versioned transport envelope. The envelope request ID is
+    /// authenticated against the live peer/session before the capability body
+    /// is decoded. This keeps expensive/complex capability decoding behind the
+    /// authenticated session boundary.
+    pub fn admit_envelope(
+        &mut self,
+        stream: &UnixStream,
+        generation: u64,
+        authoritative: &RendererBinding,
+        request_id: RequestId,
+        payload: &[u8],
+    ) -> Result<CapabilityRequest, CapabilityIngressError> {
         self.sessions
-            .accept_request(stream, generation, request.request_id)
+            .accept_request(stream, generation, request_id)
             .map_err(CapabilityIngressError::Session)?;
 
+        let request: CapabilityRequest =
+            crate::decode_payload(payload).map_err(CapabilityIngressError::Decode)?;
+        if request.request_id != request_id {
+            return Err(CapabilityIngressError::RequestIdMismatch);
+        }
+
+        self.check_authoritative_binding(generation, authoritative, &request)?;
+        Ok(request)
+    }
+
+    fn admit_decoded(
+        &mut self,
+        stream: &UnixStream,
+        generation: u64,
+        authoritative: &RendererBinding,
+        request_id: RequestId,
+        request: CapabilityRequest,
+    ) -> Result<CapabilityRequest, CapabilityIngressError> {
+        self.sessions
+            .accept_request(stream, generation, request_id)
+            .map_err(CapabilityIngressError::Session)?;
+        self.check_authoritative_binding(generation, authoritative, &request)?;
+        Ok(request)
+    }
+
+    fn check_authoritative_binding(
+        &self,
+        generation: u64,
+        authoritative: &RendererBinding,
+        request: &CapabilityRequest,
+    ) -> Result<(), CapabilityIngressError> {
         let session = self
             .sessions
             .current()
@@ -257,7 +306,7 @@ impl CapabilityIngress {
             return Err(CapabilityIngressError::OriginMismatch);
         }
 
-        Ok(request)
+        Ok(())
     }
 
     pub fn close(&mut self) {
