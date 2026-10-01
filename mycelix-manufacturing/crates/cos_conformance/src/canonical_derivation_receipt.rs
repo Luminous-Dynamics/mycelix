@@ -622,7 +622,7 @@ mod tests {
             d6n_observer_context_root: Some("d6n-1".into()),
             d6o_lifecycle_context_root: Some("d6o-1".into()),
             membership_authority_scope_root: Some("membership-1".into()),
-            dependency_snapshot_root: Some("deps-1".into()),
+            dependency_snapshot_root: Some("dkg-snapshot-1".into()),
             historical_cutoff: Some(100),
             policy_version: "policy-1".into(),
             claim_ceiling: D6S_CLAIM_CEILING.into(),
