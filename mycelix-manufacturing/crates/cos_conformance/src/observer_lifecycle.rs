@@ -1145,6 +1145,55 @@ pub fn eligibility_receipt_matches(
         && receipt.qualification_profile_id == profile.profile_id
 }
 
+/// Reconstruct the D6O qualified boundary from the authoritative lifecycle ledger.
+///
+/// This verifies the receipt against the same eligibility procedure that produced it,
+/// rather than treating receipt fields as authority. The caller supplies the authoritative
+/// generation, dependency snapshot, profile, ledger, and observed evidence.
+pub fn verify_eligibility_receipt_provenance(
+    receipt: &EvidenceEligibilityReceiptV1,
+    evidence: &ExternalObservedEvidenceV1,
+    generation: &ObserverGenerationV1,
+    snapshot: &EvidenceDependencySnapshotV1,
+    profile: &ObserverLifecycleProfileV1,
+    ledger: &ObserverLifecycleLedgerV1,
+) -> bool {
+    if !eligibility_receipt_matches(receipt, evidence, generation, snapshot, profile) {
+        return false;
+    }
+    if receipt.current_generation_id.as_deref() != Some(generation.generation_id.as_str()) {
+        return false;
+    }
+
+    let expected = assess_evidence_eligibility(
+        evidence,
+        generation,
+        snapshot,
+        profile,
+        ledger,
+        receipt.classification,
+        receipt.provenance,
+        receipt.observation_frontier_root.as_str(),
+        receipt.observation_frontier_sequence,
+        receipt.current_frontier_root.as_str(),
+        receipt.current_frontier_sequence,
+        ObserverLifecycleUsePurposeV1::CurrentFinalityEligibility,
+    );
+
+    receipt.disposition == expected
+        && receipt.disposition == EvidenceEligibilityDispositionV1::EligibleCurrent
+        && ledger.current_continuous_generation_id(
+            &generation.observer_id,
+            receipt.current_frontier_sequence,
+        ) == receipt.current_generation_id
+        && ledger
+            .dependency_snapshot_at(
+                &generation.generation_id,
+                receipt.current_frontier_sequence,
+            )
+            .is_some_and(|current| current.snapshot_id == snapshot.snapshot_id)
+}
+
 pub fn lifecycle_proposal_is_authoritative(
     proposal: &ObserverLifecycleProposalV1,
 ) -> bool {
@@ -2047,6 +2096,55 @@ mod tests {
             reversed.dependency_snapshot_at(&generation.generation_id, 2),
             ordered.dependency_snapshot_at(&generation.generation_id, 2)
         );
+    }
+
+    #[test]
+    fn authoritative_receipt_reconstruction_rejects_source_substitution() {
+        let (ledger, generation, snapshot) = active_ledger();
+        let e = evidence("obs-1", &generation, "frontier-1", ExternalObservedStateV1::Applied);
+        let receipt = EvidenceEligibilityReceiptV1 {
+            eligibility_id: "eligibility-1".into(),
+            observation_id: "obs-1".into(),
+            observer_id: generation.observer_id.clone(),
+            observer_generation_id: generation.generation_id.clone(),
+            observation_profile_id: generation.observation_profile_id.clone(),
+            semantic_environment_root: generation.semantic_environment_root.clone(),
+            dependency_snapshot_id: snapshot.snapshot_id.clone(),
+            observation_frontier_root: e.observation.observed_frontier_root.clone(),
+            observation_frontier_sequence: 1,
+            current_frontier_root: "frontier-1".into(),
+            current_frontier_sequence: 1,
+            current_generation_id: Some(generation.generation_id.clone()),
+            qualification_profile_id: profile().profile_id.clone(),
+            provenance: ObserverEvidenceProvenanceV1::Live,
+            classification: ObservationClassificationV1::CorroboratingIndependent,
+            disposition: EvidenceEligibilityDispositionV1::EligibleCurrent,
+            lifecycle_transition_ids: BTreeSet::new(),
+            eligibility_commitment: "eligibility-commitment".into(),
+            claim_ceiling: OBSERVER_LIFECYCLE_CLAIM_CEILING.into(),
+        };
+
+        assert!(verify_eligibility_receipt_provenance(
+            &receipt, &e, &generation, &snapshot, &profile(), &ledger
+        ));
+
+        let mut forged_snapshot = receipt.clone();
+        forged_snapshot.dependency_snapshot_id = "snapshot-substituted".into();
+        assert!(!verify_eligibility_receipt_provenance(
+            &forged_snapshot, &e, &generation, &snapshot, &profile(), &ledger
+        ));
+
+        let mut forged_generation = receipt.clone();
+        forged_generation.observer_generation_id = "observer-A-g2".into();
+        assert!(!verify_eligibility_receipt_provenance(
+            &forged_generation, &e, &generation, &snapshot, &profile(), &ledger
+        ));
+
+        let mut changed_evidence = e.clone();
+        changed_evidence.observer.custody_root = "custody-substituted".into();
+        assert!(!verify_eligibility_receipt_provenance(
+            &receipt, &changed_evidence, &generation, &snapshot, &profile(), &ledger
+        ));
     }
 
     #[test]
