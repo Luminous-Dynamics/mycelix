@@ -217,7 +217,20 @@ impl FinalityEligibilityCompositionV1 {
                 && witness.d6o_disposition.is_some()
                 && witness.d6o_dependency_snapshot_id.is_some()
                 && witness.observer_generation_id.is_some();
-            if d6o_fields_present != d6o_fields_complete {
+            if d6o_fields_present != d6o_fields_complete
+                || witness
+                    .d6o_eligibility_id
+                    .as_deref()
+                    .is_some_and(str::is_empty)
+                || witness
+                    .d6o_dependency_snapshot_id
+                    .as_deref()
+                    .is_some_and(str::is_empty)
+                || witness
+                    .observer_generation_id
+                    .as_deref()
+                    .is_some_and(str::is_empty)
+            {
                 return false;
             }
 
@@ -351,6 +364,8 @@ impl CurrentFinalityEligibilityReceiptV1 {
             || self.eligible_independent_count == 0
             || self.witness_eligibility_ids.is_empty()
             || self.observer_generation_ids.is_empty()
+            || self.witness_eligibility_ids.iter().any(String::is_empty)
+            || self.observer_generation_ids.iter().any(String::is_empty)
         {
             return false;
         }
@@ -1566,6 +1581,49 @@ mod tests {
 
         assert_eq!(result.disposition, FinalityEligibilityDispositionV1::BlockedBinding);
         assert_eq!(result.composition_commitment, "blocked");
+    }
+
+    #[test]
+    fn d6p_semantic_validation_rejects_empty_witness_identity_members() {
+        let mut receipt = committed_receipt();
+        receipt.witness_eligibility_ids = [String::new()].into_iter().collect();
+        receipt.observer_generation_ids = ["generation-1".into()].into_iter().collect();
+        receipt.receipt_commitment = receipt.recomputed_commitment();
+
+        assert!(receipt.commitment_matches());
+        assert!(!receipt.semantically_valid());
+
+        let mut receipt = committed_receipt();
+        receipt.witness_eligibility_ids = ["witness-1".into()].into_iter().collect();
+        receipt.observer_generation_ids = [String::new()].into_iter().collect();
+        receipt.receipt_commitment = receipt.recomputed_commitment();
+
+        assert!(receipt.commitment_matches());
+        assert!(!receipt.semantically_valid());
+    }
+
+    #[test]
+    fn d6p_semantic_validation_rejects_empty_witness_d6o_metadata() {
+        let mut composition = matching_composition();
+        composition.witnesses[0].d6o_eligibility_id = Some(String::new());
+        composition.composition_commitment = composition.recomputed_commitment();
+
+        assert!(composition.commitment_matches());
+        assert!(!composition.semantically_valid());
+
+        let mut composition = matching_composition();
+        composition.witnesses[0].d6o_dependency_snapshot_id = Some(String::new());
+        composition.composition_commitment = composition.recomputed_commitment();
+
+        assert!(composition.commitment_matches());
+        assert!(!composition.semantically_valid());
+
+        let mut composition = matching_composition();
+        composition.witnesses[0].observer_generation_id = Some(String::new());
+        composition.composition_commitment = composition.recomputed_commitment();
+
+        assert!(composition.commitment_matches());
+        assert!(!composition.semantically_valid());
     }
 
     #[test]
