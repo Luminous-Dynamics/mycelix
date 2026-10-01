@@ -12,5 +12,6 @@ serde = { workspace = true }
 tokio = { workspace = true }
 log = { workspace = true }
 thiserror = { workspace = true }
+url = { workspace = true }
 blake3 = { workspace = true }
 getrandom = { workspace = true }
