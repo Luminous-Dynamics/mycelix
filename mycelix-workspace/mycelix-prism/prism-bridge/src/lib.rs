@@ -12,6 +12,7 @@ use prism_common::{ContentZone, QueryId, SafetyLevel, SearchResult, TabId};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+pub mod authority;
 pub mod capability;
 pub mod grant;
 pub mod identity;
