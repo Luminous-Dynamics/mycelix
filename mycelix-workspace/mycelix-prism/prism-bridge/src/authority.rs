@@ -36,11 +36,21 @@ impl From<CapabilityIngressError> for RendererSecurityError {
 /// The broker's single state owner for renderer lifecycle + grants + IPC
 /// attachment. The browser controller supplies process/site/origin/cluster
 /// identities; renderer messages never mutate these values.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct RendererSecurityController {
     lifecycle: RendererLifecycle,
     grants: CapabilityGrantStore,
     ingress: CapabilityIngress,
+}
+
+impl Default for RendererSecurityController {
+    fn default() -> Self {
+        Self {
+            lifecycle: RendererLifecycle::default(),
+            grants: CapabilityGrantStore::default(),
+            ingress: CapabilityIngress::new(crate::session::RendererSessionManager::new()),
+        }
+    }
 }
 
 impl RendererSecurityController {
@@ -99,7 +109,7 @@ impl RendererSecurityController {
     /// Tear down all renderer authority. No binding, grant, or IPC session
     /// remains valid after this transition.
     pub fn clear(&mut self) -> Result<usize, RendererSecurityError> {
-        self.sessions.close();
+        self.ingress.close();
         Ok(self.lifecycle.clear(&mut self.grants)?)
     }
 
@@ -107,16 +117,17 @@ impl RendererSecurityController {
     pub fn establish_renderer_session(
         &mut self,
         stream: &UnixStream,
-    ) -> Result<(), RendererSecurityError> {
+    ) -> Result<crate::capability::RendererSessionId, RendererSecurityError> {
         let binding = self
             .lifecycle
             .current()
             .ok_or(RendererSecurityError::NoActiveBinding)?;
 
-        self.ingress
+        let session = self
+            .ingress
             .sessions_mut()
             .establish_from_stream(stream, binding.process, binding.generation)?;
-        Ok(())
+        Ok(session.session_id)
     }
 }
 
