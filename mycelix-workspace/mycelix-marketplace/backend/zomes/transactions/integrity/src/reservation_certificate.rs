@@ -985,6 +985,11 @@ pub fn validate_create_reservation_certificate(
                     "Reservation frontier sequence does not follow its previous certificate".into(),
                 ));
             }
+            if previous_certificate.post_state != certificate.pre_state {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Reservation frontier post-state does not equal the next reservation pre-state".into(),
+                ));
+            }
         } else if let Some(previous_terminal) = previous
             .entry()
             .to_app_option::<ReservationTerminalEvidence>()
