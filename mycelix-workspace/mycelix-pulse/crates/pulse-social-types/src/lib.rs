@@ -9,6 +9,10 @@
 
 use serde::{Deserialize, Serialize};
 
+mod chat_projection;
+
+pub use chat_projection::*;
+
 pub const SOCIAL_SCHEMA_VERSION_V1: u8 = 1;
 pub const MAX_OBJECT_ID_BYTES: usize = 256;
 pub const MAX_REVISION_ID_BYTES: usize = 256;
