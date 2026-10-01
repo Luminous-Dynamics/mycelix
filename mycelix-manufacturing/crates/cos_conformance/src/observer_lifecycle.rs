@@ -1926,6 +1926,89 @@ mod tests {
     }
 
     #[test]
+    fn eligibility_receipt_recording_requires_canonical_commitment() {
+        let (mut ledger, generation, snapshot) = active_ledger();
+        let e = evidence("obs-1", &generation, "frontier-1", ExternalObservedStateV1::Applied);
+        let mut receipt = EvidenceEligibilityReceiptV1 {
+            eligibility_id: "eligibility-record-1".into(),
+            observation_id: e.observation.observation_id.clone(),
+            observer_id: generation.observer_id.clone(),
+            observer_generation_id: generation.generation_id.clone(),
+            observation_profile_id: generation.observation_profile_id.clone(),
+            semantic_environment_root: generation.semantic_environment_root.clone(),
+            dependency_snapshot_id: snapshot.snapshot_id.clone(),
+            observation_frontier_root: "frontier-1".into(),
+            observation_frontier_sequence: 1,
+            current_frontier_root: "frontier-1".into(),
+            current_frontier_sequence: 1,
+            current_generation_id: Some(generation.generation_id.clone()),
+            qualification_profile_id: profile().profile_id,
+            provenance: ObserverEvidenceProvenanceV1::Live,
+            classification: ObservationClassificationV1::CorroboratingIndependent,
+            disposition: EvidenceEligibilityDispositionV1::EligibleCurrent,
+            lifecycle_transition_ids: BTreeSet::new(),
+            eligibility_commitment: String::new(),
+            claim_ceiling: OBSERVER_LIFECYCLE_CLAIM_CEILING.into(),
+        };
+
+        assert_eq!(
+            ledger.record_eligibility_receipt(receipt.clone()),
+            LifecycleRecordDispositionV1::InsufficientEvidence
+        );
+
+        receipt.eligibility_commitment = receipt.recomputed_commitment();
+        assert_eq!(
+            ledger.record_eligibility_receipt(receipt),
+            LifecycleRecordDispositionV1::Recorded
+        );
+    }
+
+    #[test]
+    fn authoritative_receipt_reconstruction_rejects_recomputed_transition_provenance_substitution() {
+        let (mut ledger, generation, snapshot) = active_ledger();
+        let e = evidence("obs-1", &generation, "frontier-1", ExternalObservedStateV1::Applied);
+        let mut receipt = EvidenceEligibilityReceiptV1 {
+            eligibility_id: "eligibility-transition-1".into(),
+            observation_id: e.observation.observation_id.clone(),
+            observer_id: generation.observer_id.clone(),
+            observer_generation_id: generation.generation_id.clone(),
+            observation_profile_id: generation.observation_profile_id.clone(),
+            semantic_environment_root: generation.semantic_environment_root.clone(),
+            dependency_snapshot_id: snapshot.snapshot_id.clone(),
+            observation_frontier_root: "frontier-1".into(),
+            observation_frontier_sequence: 1,
+            current_frontier_root: "frontier-1".into(),
+            current_frontier_sequence: 1,
+            current_generation_id: Some(generation.generation_id.clone()),
+            qualification_profile_id: profile().profile_id,
+            provenance: ObserverEvidenceProvenanceV1::Live,
+            classification: ObservationClassificationV1::CorroboratingIndependent,
+            disposition: EvidenceEligibilityDispositionV1::EligibleCurrent,
+            lifecycle_transition_ids: BTreeSet::new(),
+            eligibility_commitment: String::new(),
+            claim_ceiling: OBSERVER_LIFECYCLE_CLAIM_CEILING.into(),
+        };
+        receipt.eligibility_commitment = receipt.recomputed_commitment();
+
+        let mut forged = receipt.clone();
+        forged.lifecycle_transition_ids.insert("forged-transition".into());
+        forged.eligibility_commitment = forged.recomputed_commitment();
+
+        assert!(!verify_eligibility_receipt_provenance(
+            &forged, &e, &generation, &snapshot, &profile(), &ledger
+        ));
+
+        let transition = transition(&generation, "post-receipt-suspend", ObserverStatusV1::Suspended, 2, None);
+        assert_eq!(
+            ledger.record_transition(transition),
+            LifecycleRecordDispositionV1::Recorded
+        );
+        assert!(!verify_eligibility_receipt_provenance(
+            &receipt, &e, &generation, &snapshot, &profile(), &ledger
+        ));
+    }
+
+    #[test]
     fn eligibility_receipt_commitment_domain_is_versioned_and_nul_terminated() {
         assert!(D6O_ELIGIBILITY_RECEIPT_COMMITMENT_DOMAIN.ends_with(&[0]));
         assert_eq!(
