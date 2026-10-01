@@ -9,6 +9,9 @@ pub use conflicts::*;
 mod reservation;
 pub use reservation::{ApplyOutcome, Reservation, ReservationError, ReservationEvent, ReservationLedger, ReservationState};
 
+mod reservation_certificate;
+pub use reservation_certificate::{CertificateError, FrontierEvent, InventoryFrontier, IntentError, PurchaseIntent, ReservationCertificate};
+
 /// Transaction entry - represents a purchase in the marketplace
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
