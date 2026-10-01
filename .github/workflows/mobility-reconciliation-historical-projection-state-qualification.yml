@@ -1,0 +1,71 @@
+name: mobility-reconciliation-historical-projection-state-qualification
+on:
+  pull_request:
+    paths:
+      - "docs/mobility/MOBILITY_RECONCILIATION_HISTORICAL_PROJECTION_STATE_V1_EXECUTABLE.json"
+      - "docs/mobility/MOBILITY_RECONCILIATION_HISTORICAL_PROJECTION_STATE_V1.md"
+      - "mycelix-commons/crates/mobility-configuration-qualification/**"
+      - "tools/mobility_reconciliation_historical_projection_state_reference.py"
+      - "tools/compare_mobility_reconciliation_historical_projection_state.py"
+      - ".github/workflows/mobility-reconciliation-historical-projection-state-qualification.yml"
+  push:
+    branches: [main]
+    paths:
+      - "docs/mobility/MOBILITY_RECONCILIATION_HISTORICAL_PROJECTION_STATE_V1_EXECUTABLE.json"
+      - "mycelix-commons/crates/mobility-configuration-qualification/**"
+      - "tools/mobility_reconciliation_historical_projection_state_reference.py"
+      - "tools/compare_mobility_reconciliation_historical_projection_state.py"
+      - ".github/workflows/mobility-reconciliation-historical-projection-state-qualification.yml"
+permissions: {contents: read}
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo fmt --all -- --check
+      - run: cargo test -p mobility-configuration-qualification
+      - run: cargo run --quiet --manifest-path mycelix-commons/crates/mobility-configuration-qualification/Cargo.toml --bin mobility-historical-projection-state-qualification -- docs/mobility/MOBILITY_RECONCILIATION_HISTORICAL_PROJECTION_STATE_V1_EXECUTABLE.json > /tmp/rust.json
+      - uses: actions/upload-artifact@v4
+        with: {name: mobility-historical-projection-state-rust, path: /tmp/rust.json, if-no-files-found: error}
+  reference:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.x"}
+      - run: python3 tools/mobility_reconciliation_historical_projection_state_reference.py > /tmp/python.json
+      - uses: actions/upload-artifact@v4
+        with: {name: mobility-historical-projection-state-python, path: /tmp/python.json, if-no-files-found: error}
+  differential:
+    runs-on: ubuntu-latest
+    needs: [rust, reference]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: {name: mobility-historical-projection-state-rust, path: /tmp/rust}
+      - uses: actions/download-artifact@v4
+        with: {name: mobility-historical-projection-state-python, path: /tmp/python}
+      - run: python3 tools/compare_mobility_reconciliation_historical_projection_state.py /tmp/rust/rust.json /tmp/python/python.json
+      - name: Corrupt normalized state outcome
+        run: |
+          python3 -c 'import json; p="/tmp/python/python.json"; d=json.load(open(p)); d["cases"][0]["actual"]="rejected"; json.dump(d,open("/tmp/corrupt.json","w"))'
+          if python3 tools/compare_mobility_reconciliation_historical_projection_state.py /tmp/rust/rust.json /tmp/corrupt.json; then exit 1; fi
+  corpus-corruption:
+    runs-on: ubuntu-latest
+    needs: [rust, reference]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.x"}
+      - name: Retarget historical witness and require rejection
+        run: |
+          python3 -c 'import json; p="docs/mobility/MOBILITY_RECONCILIATION_HISTORICAL_PROJECTION_STATE_V1_EXECUTABLE.json"; d=json.load(open(p)); d["cases"][2]["projection"]["lifecycle_supersession"]["witness_ref"]=d["cases"][1]["witness"]["witness_identity"]; json.dump(d,open("/tmp/retarget.json","w"))'
+          if python3 tools/mobility_reconciliation_historical_projection_state_reference.py /tmp/retarget.json >/tmp/py 2>&1; then exit 1; fi
+          if cargo run --quiet --manifest-path mycelix-commons/crates/mobility-configuration-qualification/Cargo.toml --bin mobility-historical-projection-state-qualification -- /tmp/retarget.json >/tmp/rs 2>&1; then exit 1; fi
+      - name: Mutate authority provenance and require rejection
+        run: |
+          python3 -c 'import json; p="docs/mobility/MOBILITY_RECONCILIATION_HISTORICAL_PROJECTION_STATE_V1_EXECUTABLE.json"; d=json.load(open(p)); d["cases"][4]["expected_state"]["authority_provenance"]="commons"; json.dump(d,open("/tmp/authority.json","w"))'
+          if python3 tools/mobility_reconciliation_historical_projection_state_reference.py /tmp/authority.json >/tmp/py 2>&1; then exit 1; fi
+          if cargo run --quiet --manifest-path mycelix-commons/crates/mobility-configuration-qualification/Cargo.toml --bin mobility-historical-projection-state-qualification -- /tmp/authority.json >/tmp/rs 2>&1; then exit 1; fi
