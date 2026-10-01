@@ -1,7 +1,7 @@
 //! Broker-owned resource identities and scopes.
 //!
 //! Renderer resource strings are untrusted input. This module provides the
-//! next authority boundary: parse/canonicalize a resource before applying a
+//! next authority boundary: parse and restrict a resource before applying a
 //! capability scope. It deliberately does not perform network I/O or target
 //! admission.
 
@@ -156,6 +156,22 @@ mod tests {
         let scope = ResourceScopeV1::path_prefix("https://example.com", "/assets/").unwrap();
         assert!(scope.allows(&ResourceIdentity::parse_url("https://example.com/assets/app.js").unwrap()));
         assert!(!scope.allows(&ResourceIdentity::parse_url("https://example.com/assets-evil/app.js").unwrap()));
+    }
+
+    #[test]
+    fn dot_segments_are_rejected_before_scope_evaluation() {
+        assert_eq!(
+            ResourceIdentity::parse_url("https://example.com/assets/../private.js"),
+            Err(ResourceError::TraversalSegment)
+        );
+        assert_eq!(
+            ResourceIdentity::parse_url("https://example.com/assets/%2e%2e/private.js"),
+            Err(ResourceError::TraversalSegment)
+        );
+        assert_eq!(
+            ResourceScopeV1::path_prefix("https://example.com", "/assets/../"),
+            Err(ResourceError::TraversalSegment)
+        );
     }
 
     #[test]
