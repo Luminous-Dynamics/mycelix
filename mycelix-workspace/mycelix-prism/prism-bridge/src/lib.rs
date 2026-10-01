@@ -17,6 +17,7 @@ pub mod grant;
 pub mod identity;
 pub mod lifecycle;
 pub mod resource;
+pub mod renderer_ipc;
 pub mod runtime;
 pub mod session;
 
