@@ -1239,3 +1239,648 @@ fn validate_inbox_link_v2(
             "AgentToInboxV2 base does not match envelope recipient".into(),
         ));
     }
+    if email.sender != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "AgentToInboxV2 author does not match envelope sender".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Validate `AgentToInbox` link creation.
+///
+/// This closes the spam hole: without these checks, any agent could write a link
+/// from ANY base AgentPubKey to ANY entry, polluting other users' inboxes with
+/// arbitrary content. Enforces the three invariants that make an inbox trustworthy:
+///
+/// 1. **Base is an AgentPubKey.** Inbox links address a recipient agent, not an entry.
+/// 2. **Target deserializes as `EncryptedEmail`.** Catches attempts to link
+///    unrelated entry types into the inbox namespace.
+/// 3. **Identity coherence.** The link's base must equal `email.recipient`, and
+///    the link's author must equal `email.sender` (which in turn already equals
+///    the email's `action.author` via `validate_encrypted_email`). This means
+///    Eve cannot deliver to Bob's inbox an envelope Alice authored.
+fn validate_inbox_link(
+    base_address: AnyLinkableHash,
+    target_address: AnyLinkableHash,
+    action: CreateLink,
+) -> ExternResult<ValidateCallbackResult> {
+    // 1. Base must be an AgentPubKey (inbox owner).
+    let inbox_owner = match base_address.into_agent_pub_key() {
+        Some(a) => a,
+        None => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "AgentToInbox link base must be an AgentPubKey".to_string(),
+            ));
+        }
+    };
+
+    // 2. Target must be an ActionHash pointing at an EncryptedEmail.
+    let target_action_hash = match target_address.into_action_hash() {
+        Some(h) => h,
+        None => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "AgentToInbox link target must be an ActionHash".to_string(),
+            ));
+        }
+    };
+
+    let record = must_get_valid_record(target_action_hash)?;
+    let entry = record.entry().as_option().ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "AgentToInbox target record has no entry".to_string()
+        ))
+    })?;
+
+    // Only app entries can be an EncryptedEmail; bail on Agent/Cap/CounterSign.
+    let Entry::App(app_bytes) = entry else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "AgentToInbox target entry is not an app entry".to_string(),
+        ));
+    };
+
+    let email: EncryptedEmail =
+        match EncryptedEmail::try_from(SerializedBytes::from(app_bytes.clone())) {
+            Ok(e) => e,
+            Err(e) => {
+                return Ok(ValidateCallbackResult::Invalid(format!(
+                    "AgentToInbox target entry failed to deserialize as EncryptedEmail: {}",
+                    e
+                )));
+            }
+        };
+
+    // 3. Identity coherence — Eve cannot spam Bob's inbox.
+    if email.recipient != inbox_owner {
+        return Ok(ValidateCallbackResult::Invalid(
+            "AgentToInbox link base does not match envelope recipient".to_string(),
+        ));
+    }
+
+    if email.sender != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "AgentToInbox link author does not match envelope sender".to_string(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_delete_link(
+    _link_type: LinkTypes,
+    original_action: CreateLink,
+    _base_address: AnyLinkableHash,
+    _target_address: AnyLinkableHash,
+    _tag: LinkTag,
+    action: DeleteLink,
+) -> ExternResult<ValidateCallbackResult> {
+    // Only the original link author can delete the link
+    if original_action.author != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only the link author can delete a link".to_string(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_email() -> EncryptedEmail {
+        EncryptedEmail {
+            sender: AgentPubKey::from_raw_36(vec![1; 36]),
+            recipient: AgentPubKey::from_raw_36(vec![2; 36]),
+            encrypted_subject: vec![3; 16],
+            encrypted_body: vec![4; 32],
+            encrypted_attachments: Vec::new(),
+            ephemeral_pubkey: vec![5; 32],
+            nonce: [6; 24],
+            signature: vec![7; 64],
+            crypto_suite: CryptoSuite {
+                key_exchange: "x25519".into(),
+                symmetric: "aes-256-gcm".into(),
+                signature: "ed25519".into(),
+            },
+            message_id: "message-1".into(),
+            in_reply_to: None,
+            references: Vec::new(),
+            timestamp: Timestamp::from_micros(42),
+            priority: EmailPriority::Normal,
+            read_receipt_requested: false,
+            expires_at: None,
+        }
+    }
+
+    #[test]
+    fn test_email_signing_content_deterministic() {
+        let email = test_email();
+        assert_eq!(email_signing_content(&email), email_signing_content(&email));
+        assert_eq!(SHA256_LEN, 32);
+        assert_eq!(ED25519_SIG_LEN, 64);
+        assert_eq!(DILITHIUM3_SIG_LEN, 3293);
+        assert_eq!(DILITHIUM2_SIG_LEN, 2420);
+        assert_eq!(X25519_KEY_LEN, 32);
+        assert_eq!(KYBER1024_KEY_LEN, 1568);
+        assert_eq!(KYBER768_KEY_LEN, 1088);
+        assert_eq!(MAX_CHUNK_SIZE, 10 * 1024 * 1024);
+        assert_eq!(MAX_TOTAL_CHUNKS, 1000);
+    }
+
+    #[test]
+    fn signing_content_binds_routing_crypto_and_metadata() {
+        let email = test_email();
+        let original = email_signing_content(&email);
+
+        let mut changed = email.clone();
+        changed.ephemeral_pubkey[0] ^= 1;
+        assert_ne!(original, email_signing_content(&changed));
+
+        let mut changed = email.clone();
+        changed.crypto_suite.symmetric = "chacha20-poly1305".into();
+        assert_ne!(original, email_signing_content(&changed));
+
+        let mut changed = email;
+        changed.read_receipt_requested = true;
+        assert_ne!(original, email_signing_content(&changed));
+    }
+
+    fn test_email_v2() -> EncryptedEmailV2 {
+        EncryptedEmailV2 {
+            version: 2,
+            cipher_suite:
+                mail_leptos_types::protocol::SUITE_X25519_MLKEM768_AES_256_GCM_AGENT_MLDSA65.into(),
+            message_id: [1; 32],
+            sender: AgentPubKey::from_raw_36(vec![1; 36]),
+            recipient: AgentPubKey::from_raw_36(vec![2; 36]),
+            sender_mldsa_key_id: [2; 32],
+            recipient_hybrid_key_id: [3; 32],
+            sender_mldsa_bundle_hash: ActionHash::from_raw_36(vec![10; 36]),
+            recipient_bundle_hash: ActionHash::from_raw_36(vec![11; 36]),
+            x25519_ephemeral_public_key: [4; 32],
+            ml_kem_ciphertext: vec![5; 1088],
+            nonce: [6; 12],
+            ciphertext: vec![7; 48],
+            in_reply_to: None,
+            thread_id: None,
+            created_at_micros: 42,
+            agent_signature: vec![8; ED25519_SIG_LEN],
+            ml_dsa_signature: vec![9; ML_DSA_65_SIGNATURE_BYTES],
+        }
+    }
+
+    /// These structural checks run without any HDI host function, so they
+    /// prove real evidence in a plain `cargo test` — no live conductor
+    /// needed. The host-dependent checks (agent-signature verification,
+    /// sender==author, timestamp skew) are proven instead by the Sweettest
+    /// suite, which is the only place a real HDI host is available.
+    #[test]
+    fn inbox_v2_tag_is_exactly_canonical() {
+        assert_eq!(INBOX_V2_TAG, b"inbox-v2");
+    }
+
+    #[test]
+    fn v2_structure_accepts_a_well_formed_entry() {
+        assert!(validate_email_v2_structure(&test_email_v2()).is_ok());
+    }
+
+    #[test]
+    fn v2_structure_rejects_short_ciphertext() {
+        let mut email = test_email_v2();
+        email.ciphertext = vec![1; 15]; // below the 16-byte AES-GCM tag floor
+        let error = validate_email_v2_structure(&email).unwrap_err();
+        assert!(error.contains("ciphertext"), "unexpected error: {error}");
+    }
+
+    #[test]
+    fn v2_structure_rejects_oversized_ciphertext() {
+        let mut email = test_email_v2();
+        email.ciphertext = vec![1; MAX_ENCRYPTED_BODY_BYTES + 1];
+        let error = validate_email_v2_structure(&email).unwrap_err();
+        assert!(error.contains("ciphertext"), "unexpected error: {error}");
+    }
+
+    #[test]
+    fn v2_structure_rejects_wrong_length_ml_dsa_signature() {
+        let mut email = test_email_v2();
+        email.ml_dsa_signature.pop();
+        let error = validate_email_v2_structure(&email).unwrap_err();
+        assert!(error.contains("ML-DSA"), "unexpected error: {error}");
+    }
+
+    #[test]
+    fn v2_structure_rejects_wrong_length_agent_signature() {
+        let mut email = test_email_v2();
+        email.agent_signature = vec![1; 63];
+        let error = validate_email_v2_structure(&email).unwrap_err();
+        assert!(
+            error.contains("Agent signature"),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[test]
+    fn v2_structure_rejects_unknown_version_and_suite() {
+        let mut email = test_email_v2();
+        email.version = 99;
+        let error = validate_email_v2_structure(&email).unwrap_err();
+        assert!(error.contains("envelope"), "unexpected error: {error}");
+
+        let mut email = test_email_v2();
+        email.cipher_suite = "attacker-chosen-suite".into();
+        let error = validate_email_v2_structure(&email).unwrap_err();
+        assert!(error.contains("envelope"), "unexpected error: {error}");
+    }
+
+    /// `validate_email_v2_structure` is deliberately the host-*independent*
+    /// structural check only (lengths, canonical encoding) — a
+    /// garbage-but-correctly-sized ML-DSA signature passes here by design.
+    /// Cryptographic ML-DSA verification against the sender's historical key
+    /// bundle happens in the separate, host-*dependent* `verify_ml_dsa_v2`
+    /// (called from `validate_encrypted_email_v2`, proven below) — it was
+    /// not merged into this structural check because it needs
+    /// `must_get_valid_record`, unavailable without a live HDI host.
+    #[test]
+    fn v2_structure_does_not_cryptographically_verify_ml_dsa() {
+        let mut email = test_email_v2();
+        email.ml_dsa_signature = vec![0xAB; ML_DSA_65_SIGNATURE_BYTES]; // garbage, right length
+        assert!(validate_email_v2_structure(&email).is_ok());
+    }
+
+    /// Real evidence for the ML-DSA gap closed in `verify_ml_dsa_v2`: HDI/WASM
+    /// *can* link real ML-DSA-65 verification (see that function's doc
+    /// comment) — this proves it end to end using a mocked HDI host
+    /// (`hdi::test_utils::set_hdi`) so it runs as a plain, fast `cargo test`
+    /// with no live conductor. A real keypair signs a real transcript; the
+    /// mock's `must_get_valid_record` returns a `HybridKeyBundleV2` record
+    /// authored by the claimed sender, matching `sender_mldsa_key_id`.
+    struct MockRecordHdi {
+        record: Record,
+    }
+
+    impl hdi::hdi::HdiT for MockRecordHdi {
+        fn must_get_valid_record(&self, _: MustGetValidRecordInput) -> ExternResult<Record> {
+            Ok(self.record.clone())
+        }
+        fn verify_signature(&self, _: VerifySignature) -> ExternResult<bool> {
+            unimplemented!("not exercised by verify_ml_dsa_v2")
+        }
+        fn must_get_entry(&self, _: MustGetEntryInput) -> ExternResult<EntryHashed> {
+            unimplemented!("not exercised by verify_ml_dsa_v2")
+        }
+        fn must_get_action(&self, _: MustGetActionInput) -> ExternResult<SignedActionHashed> {
+            unimplemented!("not exercised by verify_ml_dsa_v2")
+        }
+        fn must_get_agent_activity(
+            &self,
+            _: MustGetAgentActivityInput,
+        ) -> ExternResult<Vec<RegisterAgentActivity>> {
+            unimplemented!("not exercised by verify_ml_dsa_v2")
+        }
+        fn dna_info(&self, _: ()) -> ExternResult<DnaInfo> {
+            unimplemented!("not exercised by verify_ml_dsa_v2")
+        }
+        fn zome_info(&self, _: ()) -> ExternResult<ZomeInfo> {
+            unimplemented!("not exercised by verify_ml_dsa_v2")
+        }
+        fn trace(&self, _: TraceMsg) -> ExternResult<()> {
+            unimplemented!("not exercised by verify_ml_dsa_v2")
+        }
+        fn x_salsa20_poly1305_decrypt(
+            &self,
+            _: XSalsa20Poly1305Decrypt,
+        ) -> ExternResult<Option<XSalsa20Poly1305Data>> {
+            unimplemented!("not exercised by verify_ml_dsa_v2")
+        }
+        fn x_25519_x_salsa20_poly1305_decrypt(
+            &self,
+            _: X25519XSalsa20Poly1305Decrypt,
+        ) -> ExternResult<Option<XSalsa20Poly1305Data>> {
+            unimplemented!("not exercised by verify_ml_dsa_v2")
+        }
+        fn ed_25519_x_salsa20_poly1305_decrypt(
+            &self,
+            _: Ed25519XSalsa20Poly1305Decrypt,
+        ) -> ExternResult<XSalsa20Poly1305Data> {
+            unimplemented!("not exercised by verify_ml_dsa_v2")
+        }
+    }
+
+    /// Builds a `Record` wrapping a `HybridKeyBundleV2` entry, authored by
+    /// `author`, suitable for the mock's `must_get_valid_record` to return.
+    fn bundle_record(author: AgentPubKey, bundle: &HybridKeyBundleV2) -> Record {
+        let entry = Entry::App(
+            AppEntryBytes::try_from(SerializedBytes::try_from(bundle.clone()).unwrap()).unwrap(),
+        );
+        let entry_hash = EntryHash::from_raw_36(vec![9; 36]);
+        let action = Action::Create(Create {
+            author,
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex(0),
+                ZomeIndex(0),
+                EntryVisibility::Public,
+            )),
+            entry_hash,
+            weight: Default::default(),
+        });
+        let signed_action = SignedActionHashed::new_unchecked(action, Signature([0; 64]));
+        Record::new(signed_action, Some(entry))
+    }
+
+    /// Builds a `Record` wrapping an `EncryptedEmail` entry, authored by `author`,
+    /// suitable for the mock's `must_get_valid_record` to return.
+    fn email_record(author: AgentPubKey, email: &EncryptedEmail) -> Record {
+        let entry = Entry::App(
+            AppEntryBytes::try_from(SerializedBytes::try_from(email.clone()).unwrap()).unwrap(),
+        );
+        let entry_hash = EntryHash::from_raw_36(vec![19; 36]);
+        let action = Action::Create(Create {
+            author,
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![18; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex(0),
+                ZomeIndex(0),
+                EntryVisibility::Public,
+            )),
+            entry_hash,
+            weight: Default::default(),
+        });
+        let signed_action = SignedActionHashed::new_unchecked(action, Signature([0; 64]));
+        Record::new(signed_action, Some(entry))
+    }
+
+    fn test_attachment(email_hash: ActionHash) -> EncryptedAttachment {
+        EncryptedAttachment {
+            email_hash,
+            encrypted_filename: vec![1; 8],
+            encrypted_mime_type: vec![2; 8],
+            encrypted_content: vec![3; 16],
+            chunk_index: 0,
+            total_chunks: 1,
+            content_hash: vec![4; 32],
+            nonce: [5; 24],
+        }
+    }
+
+    /// Proves the P0 author-binding fix: an EncryptedAttachment whose `email_hash`
+    /// resolves to an email sent by someone other than the attachment's own
+    /// committer is rejected (previously any agent could attach arbitrary content
+    /// to any email in the system).
+    #[test]
+    fn attachment_citing_someone_elses_email_is_rejected() {
+        let real_sender = AgentPubKey::from_raw_36(vec![1; 36]);
+        let impostor = AgentPubKey::from_raw_36(vec![99; 36]);
+        let mut email = test_email();
+        email.sender = real_sender.clone();
+        let email_hash = ActionHash::from_raw_36(vec![20; 36]);
+
+        hdi::hdi::set_hdi(MockRecordHdi {
+            record: email_record(real_sender, &email),
+        });
+
+        let attachment = test_attachment(email_hash);
+        let action = Create {
+            author: impostor,
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex(0),
+                ZomeIndex(0),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![1; 36]),
+            weight: Default::default(),
+        };
+        let result = validate_attachment(&attachment, &action).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn attachment_citing_its_own_email_is_accepted() {
+        let sender = AgentPubKey::from_raw_36(vec![1; 36]);
+        let mut email = test_email();
+        email.sender = sender.clone();
+        let email_hash = ActionHash::from_raw_36(vec![20; 36]);
+
+        hdi::hdi::set_hdi(MockRecordHdi {
+            record: email_record(sender.clone(), &email),
+        });
+
+        let attachment = test_attachment(email_hash);
+        let action = Create {
+            author: sender,
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex(0),
+                ZomeIndex(0),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![1; 36]),
+            weight: Default::default(),
+        };
+        let result = validate_attachment(&attachment, &action).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    fn test_bundle(ml_dsa_verifying_key: Vec<u8>) -> HybridKeyBundleV2 {
+        HybridKeyBundleV2 {
+            version: 2,
+            suite: mail_leptos_types::protocol::SUITE_X25519_MLKEM768_AES_256_GCM_AGENT_MLDSA65
+                .into(),
+            key_id: [0; 32],
+            x25519_public_key: [1; 32],
+            ml_kem_768_public_key: vec![2; 1184],
+            ml_dsa_65_public_key: ml_dsa_verifying_key,
+            state: HybridKeyStateV2::Active,
+            created_at: 0,
+            expires_at: u64::MAX,
+            agent_signature: vec![3; 64],
+        }
+    }
+
+    #[test]
+    fn verify_ml_dsa_v2_accepts_a_genuinely_valid_signature() {
+        use ml_dsa::{Generate, Keypair};
+        let signing_key = ml_dsa::SigningKey::<ml_dsa::MlDsa65>::generate();
+        let verifying_key = signing_key.verifying_key();
+        let vk_bytes = {
+            use ml_dsa::common::KeyExport;
+            verifying_key.to_bytes().to_vec()
+        };
+
+        let transcript = b"pulse-v2-test-transcript".to_vec();
+        let ml_dsa_signature = {
+            use ml_dsa::signature::{SignatureEncoding, Signer};
+            signing_key.sign(&transcript).to_bytes().to_vec()
+        };
+
+        let author = AgentPubKey::from_raw_36(vec![7; 36]);
+        let mut bundle = test_bundle(vk_bytes);
+        bundle.key_id = hybrid_key_id(&bundle);
+
+        let mut email = test_email_v2();
+        email.sender = author.clone();
+        email.sender_mldsa_key_id = bundle.key_id;
+        email.ml_dsa_signature = ml_dsa_signature;
+
+        hdi::hdi::set_hdi(MockRecordHdi {
+            record: bundle_record(author, &bundle),
+        });
+
+        assert_eq!(
+            verify_ml_dsa_v2(&email, &transcript).unwrap(),
+            Ok(()),
+            "a genuinely valid ML-DSA signature over the exact transcript must verify"
+        );
+    }
+
+    #[test]
+    fn verify_ml_dsa_v2_rejects_a_tampered_signature() {
+        use ml_dsa::{Generate, Keypair};
+        let signing_key = ml_dsa::SigningKey::<ml_dsa::MlDsa65>::generate();
+        let verifying_key = signing_key.verifying_key();
+        let vk_bytes = {
+            use ml_dsa::common::KeyExport;
+            verifying_key.to_bytes().to_vec()
+        };
+
+        let transcript = b"pulse-v2-test-transcript".to_vec();
+        let mut ml_dsa_signature = {
+            use ml_dsa::signature::{SignatureEncoding, Signer};
+            signing_key.sign(&transcript).to_bytes().to_vec()
+        };
+        ml_dsa_signature[0] ^= 1; // tamper with one bit of an otherwise-real signature
+
+        let author = AgentPubKey::from_raw_36(vec![7; 36]);
+        let mut bundle = test_bundle(vk_bytes);
+        bundle.key_id = hybrid_key_id(&bundle);
+
+        let mut email = test_email_v2();
+        email.sender = author.clone();
+        email.sender_mldsa_key_id = bundle.key_id;
+        email.ml_dsa_signature = ml_dsa_signature;
+
+        hdi::hdi::set_hdi(MockRecordHdi {
+            record: bundle_record(author, &bundle),
+        });
+
+        assert!(
+            verify_ml_dsa_v2(&email, &transcript).unwrap().is_err(),
+            "a tampered ML-DSA signature must be rejected"
+        );
+    }
+
+    #[test]
+    fn verify_ml_dsa_v2_rejects_a_bundle_from_the_wrong_author() {
+        use ml_dsa::{Generate, Keypair};
+        let signing_key = ml_dsa::SigningKey::<ml_dsa::MlDsa65>::generate();
+        let verifying_key = signing_key.verifying_key();
+        let vk_bytes = {
+            use ml_dsa::common::KeyExport;
+            verifying_key.to_bytes().to_vec()
+        };
+
+        let transcript = b"pulse-v2-test-transcript".to_vec();
+        let ml_dsa_signature = {
+            use ml_dsa::signature::{SignatureEncoding, Signer};
+            signing_key.sign(&transcript).to_bytes().to_vec()
+        };
+
+        let real_author = AgentPubKey::from_raw_36(vec![7; 36]);
+        let claimed_sender = AgentPubKey::from_raw_36(vec![77; 36]);
+        let mut bundle = test_bundle(vk_bytes);
+        bundle.key_id = hybrid_key_id(&bundle);
+
+        let mut email = test_email_v2();
+        email.sender = claimed_sender;
+        email.sender_mldsa_key_id = bundle.key_id;
+        email.ml_dsa_signature = ml_dsa_signature;
+
+        // The bundle record is authored by `real_author`, not `email.sender` —
+        // a sender can't borrow someone else's key bundle by pointing at it.
+        hdi::hdi::set_hdi(MockRecordHdi {
+            record: bundle_record(real_author, &bundle),
+        });
+
+        assert!(
+            verify_ml_dsa_v2(&email, &transcript).unwrap().is_err(),
+            "a bundle authored by someone else must be rejected"
+        );
+    }
+
+    /// Real evidence for the recipient-side half of the ML-DSA gap: a
+    /// message to a recipient whose key bundle is genuinely `Active` is
+    /// accepted.
+    #[test]
+    fn verify_recipient_key_state_accepts_an_active_recipient_bundle() {
+        let recipient = AgentPubKey::from_raw_36(vec![2; 36]);
+        let mut bundle = test_bundle(vec![0; 1952]); // ML-DSA-65 pubkey size; unused here
+        bundle.key_id = hybrid_key_id(&bundle);
+
+        let mut email = test_email_v2();
+        email.recipient = recipient.clone();
+        email.recipient_hybrid_key_id = bundle.key_id;
+
+        hdi::hdi::set_hdi(MockRecordHdi {
+            record: bundle_record(recipient, &bundle),
+        });
+
+        assert_eq!(
+            verify_recipient_key_state(&email).unwrap(),
+            Ok(()),
+            "a recipient bundle in the Active state must be accepted"
+        );
+    }
+
+    #[test]
+    fn verify_recipient_key_state_rejects_a_revoked_recipient_bundle() {
+        let recipient = AgentPubKey::from_raw_36(vec![2; 36]);
+        let mut bundle = test_bundle(vec![0; 1952]);
+        bundle.state = HybridKeyStateV2::RevokedCompromised;
+        bundle.key_id = hybrid_key_id(&bundle);
+
+        let mut email = test_email_v2();
+        email.recipient = recipient.clone();
+        email.recipient_hybrid_key_id = bundle.key_id;
+
+        hdi::hdi::set_hdi(MockRecordHdi {
+            record: bundle_record(recipient, &bundle),
+        });
+
+        assert!(
+            verify_recipient_key_state(&email).unwrap().is_err(),
+            "a message to a recipient whose key bundle is revoked must be rejected"
+        );
+    }
+
+    #[test]
+    fn verify_recipient_key_state_rejects_a_bundle_from_the_wrong_author() {
+        let real_owner = AgentPubKey::from_raw_36(vec![2; 36]);
+        let claimed_recipient = AgentPubKey::from_raw_36(vec![22; 36]);
+        let mut bundle = test_bundle(vec![0; 1952]);
+        bundle.key_id = hybrid_key_id(&bundle);
+
+        let mut email = test_email_v2();
+        email.recipient = claimed_recipient;
+        email.recipient_hybrid_key_id = bundle.key_id;
+
+        // The bundle record is authored by `real_owner`, not `email.recipient` —
+        // a sender can't point `recipient_bundle_hash` at someone else's bundle.
+        hdi::hdi::set_hdi(MockRecordHdi {
+            record: bundle_record(real_owner, &bundle),
+        });
+
+        assert!(
+            verify_recipient_key_state(&email).unwrap().is_err(),
+            "a bundle authored by someone other than the claimed recipient must be rejected"
+        );
+    }
+}
