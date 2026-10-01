@@ -516,8 +516,7 @@ pub fn build_canonical_receipt(
     if !environment.structurally_valid()
         || !profile.structurally_valid()
         || !projection.structurally_valid()
-        || projection.semantic_environment_commitment != environment.commitment()
-        || projection.derivation_profile_commitment != profile.commitment()
+        || !projection.commitments_match_sources(environment, profile)
         || !projection_context_matches_environment(projection, environment)
         || !projection.dangling_edge_ids().is_empty()
         || !projection.incompatible_edge_ids().is_empty()
@@ -964,6 +963,29 @@ mod tests {
         // Recomputing the projection commitment would make the record
         // self-consistent, but it must not make it provenance-consistent.
         assert!(!projection.commitments_match_sources(&environment, &profile));
+    }
+
+    #[test]
+    fn canonical_receipt_rejects_self_consistent_snapshot_substitution() {
+        let projection = {
+            let mut projection = projection();
+            projection.source_dkg_snapshot_commitment = "attacker-snapshot".into();
+            projection
+        };
+        let environment = env();
+        let profile = profile();
+
+        assert!(projection.commitment() != projection.source_dkg_snapshot_commitment);
+        assert!(build_canonical_receipt(
+            &projection,
+            &environment,
+            &profile,
+            &[d6p_receipt()],
+            DerivationResultStatusV1::Supported,
+            "result-1".into(),
+            false,
+            false,
+        ).is_none());
     }
 
     #[test]
