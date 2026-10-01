@@ -497,6 +497,160 @@ mod tests {
         assert!(t.validate().is_err());
     }
 
+
+    #[test]
+    fn replacement_requires_distinct_artifact_and_never_inherits_applicability() {
+        let old = id(IdentityKind::PhysicalArtifact, "artifact-a");
+        let new = id(IdentityKind::PhysicalArtifact, "artifact-b");
+        let transition = ArtifactLifecycleTransition {
+            kind: ArtifactLifecycleTransitionKind::Replacement,
+            artifact: old.clone(),
+            successor_artifact: Some(new.clone()),
+            transition_event: LineageEdge {
+                relation: LineageRelation::ReplacedBy,
+                source: old.clone(),
+                target: new.clone(),
+            },
+            retirement_event: None,
+            predecessor_applicability: Some(LineageEdge {
+                relation: LineageRelation::AppliesTo,
+                source: id(IdentityKind::ConfigurationRevision, "config-r1"),
+                target: old,
+            }),
+            successor_applicability: None,
+        };
+        assert!(transition.validate().is_ok());
+    }
+
+    #[test]
+    fn replacement_cannot_reuse_same_artifact_identity() {
+        let artifact = id(IdentityKind::PhysicalArtifact, "artifact-a");
+        let transition = ArtifactLifecycleTransition {
+            kind: ArtifactLifecycleTransitionKind::Replacement,
+            artifact: artifact.clone(),
+            successor_artifact: Some(artifact.clone()),
+            transition_event: LineageEdge {
+                relation: LineageRelation::ReplacedBy,
+                source: artifact.clone(),
+                target: artifact.clone(),
+            },
+            retirement_event: None,
+            predecessor_applicability: None,
+            successor_applicability: None,
+        };
+        assert!(transition.validate().is_err());
+    }
+
+    #[test]
+    fn reversed_replacement_is_rejected() {
+        let old = id(IdentityKind::PhysicalArtifact, "artifact-a");
+        let new = id(IdentityKind::PhysicalArtifact, "artifact-b");
+        let transition = ArtifactLifecycleTransition {
+            kind: ArtifactLifecycleTransitionKind::Replacement,
+            artifact: old.clone(),
+            successor_artifact: Some(new.clone()),
+            transition_event: LineageEdge {
+                relation: LineageRelation::ReplacedBy,
+                source: new,
+                target: old,
+            },
+            retirement_event: None,
+            predecessor_applicability: None,
+            successor_applicability: None,
+        };
+        assert!(transition.validate().is_err());
+    }
+
+    #[test]
+    fn repair_preserves_identity_without_successor() {
+        let artifact = id(IdentityKind::PhysicalArtifact, "artifact-a");
+        let transition = ArtifactLifecycleTransition {
+            kind: ArtifactLifecycleTransitionKind::Repair,
+            artifact: artifact.clone(),
+            successor_artifact: None,
+            transition_event: LineageEdge {
+                relation: LineageRelation::RepairedAs,
+                source: id(IdentityKind::MaintenanceEvent, "repair-1"),
+                target: artifact,
+            },
+            retirement_event: None,
+            predecessor_applicability: None,
+            successor_applicability: None,
+        };
+        assert!(transition.validate().is_ok());
+    }
+
+    #[test]
+    fn retirement_preserves_artifact_identity_and_history() {
+        let artifact = id(IdentityKind::PhysicalArtifact, "artifact-a");
+        let transition = ArtifactLifecycleTransition {
+            kind: ArtifactLifecycleTransitionKind::Retirement,
+            artifact: artifact.clone(),
+            successor_artifact: None,
+            transition_event: LineageEdge {
+                relation: LineageRelation::Retires,
+                source: id(IdentityKind::ArtifactLifecycleEvent, "retire-1"),
+                target: artifact,
+            },
+            retirement_event: None,
+            predecessor_applicability: None,
+            successor_applicability: None,
+        };
+        assert!(transition.validate().is_ok());
+    }
+
+    #[test]
+    fn reactivation_requires_explicit_retirement_and_does_not_restore_applicability() {
+        let artifact = id(IdentityKind::PhysicalArtifact, "artifact-a");
+        let retirement = LineageEdge {
+            relation: LineageRelation::Retires,
+            source: id(IdentityKind::ArtifactLifecycleEvent, "retire-1"),
+            target: artifact.clone(),
+        };
+        let transition = ArtifactLifecycleTransition {
+            kind: ArtifactLifecycleTransitionKind::Reactivation,
+            artifact: artifact.clone(),
+            successor_artifact: None,
+            transition_event: LineageEdge {
+                relation: LineageRelation::Reactivates,
+                source: id(IdentityKind::ArtifactLifecycleEvent, "reactivate-1"),
+                target: artifact,
+            },
+            retirement_event: Some(retirement),
+            predecessor_applicability: None,
+            successor_applicability: None,
+        };
+        assert!(transition.validate().is_ok());
+    }
+
+    #[test]
+    fn reactivation_with_successor_applicability_is_rejected() {
+        let artifact = id(IdentityKind::PhysicalArtifact, "artifact-a");
+        let retirement = LineageEdge {
+            relation: LineageRelation::Retires,
+            source: id(IdentityKind::ArtifactLifecycleEvent, "retire-1"),
+            target: artifact.clone(),
+        };
+        let transition = ArtifactLifecycleTransition {
+            kind: ArtifactLifecycleTransitionKind::Reactivation,
+            artifact: artifact.clone(),
+            successor_artifact: None,
+            transition_event: LineageEdge {
+                relation: LineageRelation::Reactivates,
+                source: id(IdentityKind::ArtifactLifecycleEvent, "reactivate-1"),
+                target: artifact.clone(),
+            },
+            retirement_event: Some(retirement),
+            predecessor_applicability: None,
+            successor_applicability: Some(LineageEdge {
+                relation: LineageRelation::AppliesTo,
+                source: id(IdentityKind::ConfigurationRevision, "config-r2"),
+                target: artifact,
+            }),
+        };
+        assert!(transition.validate().is_err());
+    }
+
     #[test]
     fn same_design_can_instantiate_two_distinct_physical_artifacts() {
         let design = id(IdentityKind::DesignRevision, "design-r1");
