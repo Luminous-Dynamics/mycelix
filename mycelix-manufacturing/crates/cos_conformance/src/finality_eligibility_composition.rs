@@ -402,7 +402,18 @@ impl FinalityEligibilityLedgerV1 {
         &mut self,
         witness: FinalityWitnessEligibilityV1,
     ) -> FinalityCompositionRecordDispositionV1 {
-        if !witness.structurally_valid() {
+        if !witness.structurally_valid()
+            || witness.witness_commitment
+                != format!(
+                    "witness:{}:{}:{}",
+                    witness.observation_id,
+                    witness.d6n_observation_set_commitment,
+                    witness
+                        .d6o_eligibility_id
+                        .as_deref()
+                        .unwrap_or("missing")
+                )
+        {
             return FinalityCompositionRecordDispositionV1::InsufficientEvidence;
         }
         match self.witnesses.get(&witness.observation_id) {
@@ -422,7 +433,7 @@ impl FinalityEligibilityLedgerV1 {
         &mut self,
         composition: FinalityEligibilityCompositionV1,
     ) -> FinalityCompositionRecordDispositionV1 {
-        if !composition.structurally_valid() {
+        if !composition.semantically_valid() {
             return FinalityCompositionRecordDispositionV1::InsufficientEvidence;
         }
         match self.compositions.get(&composition.composition_id) {
@@ -442,8 +453,16 @@ impl FinalityEligibilityLedgerV1 {
         &mut self,
         receipt: CurrentFinalityEligibilityReceiptV1,
     ) -> FinalityCompositionRecordDispositionV1 {
-        if !receipt.structurally_valid() {
+        if !receipt.structurally_valid() || !receipt.commitment_matches() {
             return FinalityCompositionRecordDispositionV1::InsufficientEvidence;
+        }
+        let Some(composition) = self.compositions.values().find(|composition| {
+            composition.composition_commitment == receipt.composition_commitment
+        }) else {
+            return FinalityCompositionRecordDispositionV1::InsufficientEvidence;
+        };
+        if !current_receipt_matches_composition(&receipt, composition) {
+            return FinalityCompositionRecordDispositionV1::Conflict;
         }
         let terminal = matches!(
             receipt.disposition,
@@ -1067,6 +1086,37 @@ mod tests {
         };
         composition.composition_commitment = composition.recomputed_commitment();
         composition
+    }
+
+    #[test]
+    fn ledger_rejects_self_consistent_but_semantically_incoherent_composition() {
+        let mut ledger = FinalityEligibilityLedgerV1::default();
+        let mut composition = matching_composition();
+        composition.disposition = FinalityEligibilityDispositionV1::InsufficientEligibleWitnesses;
+        composition.composition_commitment = composition.recomputed_commitment();
+        assert!(!composition.semantically_valid());
+        assert_eq!(
+            ledger.record_composition(composition),
+            FinalityCompositionRecordDispositionV1::InsufficientEvidence
+        );
+    }
+
+    #[test]
+    fn ledger_requires_receipt_to_project_a_recorded_composition() {
+        let mut ledger = FinalityEligibilityLedgerV1::default();
+        let composition = matching_composition();
+        assert_eq!(
+            ledger.record_composition(composition.clone()),
+            FinalityCompositionRecordDispositionV1::Recorded
+        );
+
+        let mut receipt = committed_receipt();
+        receipt.composition_commitment = composition.composition_commitment.clone();
+        receipt.receipt_commitment = receipt.recomputed_commitment();
+        assert_eq!(
+            ledger.record_receipt(receipt),
+            FinalityCompositionRecordDispositionV1::Recorded
+        );
     }
 
     #[test]
