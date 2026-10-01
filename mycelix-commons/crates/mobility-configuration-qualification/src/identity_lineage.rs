@@ -53,6 +53,7 @@ impl IdentityRef {
 pub enum LineageRelation {
     Instantiates,
     Configures,
+    AppliesTo,
     ComponentOf,
     ManufacturedFrom,
     InspectedAs,
@@ -89,6 +90,10 @@ impl LineageEdge {
                 (self.source.kind, self.target.kind),
                 (IdentityKind::ConfigurationRevision, IdentityKind::DesignRevision)
                     | (IdentityKind::ConfigurationRevision, IdentityKind::ComponentInstance)
+            ),
+            LineageRelation::AppliesTo => matches!(
+                (self.source.kind, self.target.kind),
+                (IdentityKind::ConfigurationRevision, IdentityKind::PhysicalArtifact)
             ),
             LineageRelation::ComponentOf => matches!(
                 (self.source.kind, self.target.kind),
