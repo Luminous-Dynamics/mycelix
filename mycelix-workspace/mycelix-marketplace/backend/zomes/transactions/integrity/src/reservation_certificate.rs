@@ -786,6 +786,10 @@ pub struct ReservationTerminalEvidence {
     pub outcome: ReservationTerminalOutcome,
     pub sequence: u64,
     pub previous_frontier_action: ActionHash,
+    /// Economic state immediately before this terminal transition.
+    pub pre_state: ReservationFrontierState,
+    /// Economic state immediately after this terminal transition.
+    pub post_state: ReservationFrontierState,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -1030,6 +1034,11 @@ pub fn validate_create_reservation_certificate(
                     "Reservation frontier sequence does not follow its previous terminal event".into(),
                 ));
             }
+            if previous_terminal.post_state != certificate.pre_state {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Reservation frontier terminal post-state does not equal the next reservation pre-state".into(),
+                ));
+            }
         } else {
             return Ok(ValidateCallbackResult::Invalid(
                 "Previous frontier action is not a recognized reservation frontier event".into(),
@@ -1075,13 +1084,33 @@ pub fn validate_create_reservation_terminal(
         ));
     }
 
-    // Terminal evidence is the next frontier event after the reservation
-    // certificate. The explicit predecessor hash must therefore be the exact
-    // certificate action, not merely some seller-authored earlier record.
     if evidence.previous_frontier_action != evidence.certificate_hash {
         return Ok(ValidateCallbackResult::Invalid(
             "Reservation terminal predecessor must equal its reservation certificate".into(),
         ));
+    }
+
+    if evidence.pre_state != certificate.post_state {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reservation terminal pre-state must equal the reservation certificate post-state".into(),
+        ));
+    }
+
+    let expected_transition = match evidence.outcome {
+        ReservationTerminalOutcome::Released => FrontierStateTransition::Release {
+            quantity: certificate.quantity,
+        },
+        ReservationTerminalOutcome::Consumed => FrontierStateTransition::Consume {
+            quantity: certificate.quantity,
+        },
+    };
+    if let Err(error) = evidence.pre_state.validate_transition(
+        expected_transition,
+        &evidence.post_state,
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(format!(
+            "Reservation terminal state transition is invalid: {error}"
+        )));
     }
 
     let previous = must_get_valid_record(evidence.previous_frontier_action.clone()).map_err(|_| {
@@ -1094,10 +1123,7 @@ pub fn validate_create_reservation_terminal(
             "Reservation terminal previous frontier is not seller-authored".into(),
         ));
     }
-    // As with reservation admission, unrelated seller-authored records may
-    // interleave between the certificate and its terminal evidence. Require the
-    // certificate to be an earlier source-chain action rather than requiring
-    // immediate adjacency.
+
     let prior_activity = must_get_agent_activity(
         evidence.seller.clone(),
         ChainFilter::new(action.prev_action.clone())
