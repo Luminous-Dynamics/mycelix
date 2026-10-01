@@ -26,6 +26,7 @@ const KYBER768_KEY_LEN: usize = 1088;
 const MAX_ENCRYPTED_SUBJECT_BYTES: usize = 64 * 1024;
 const MAX_ENCRYPTED_BODY_BYTES: usize = 2 * 1024 * 1024;
 const MAX_MESSAGE_ID_BYTES: usize = 512;
+const INBOX_V2_TAG: &[u8] = b"inbox-v2";
 
 // Phase 0.8 client-authoritative timestamp bounds.
 // `email.timestamp` is client-signed (RFC 5322 Date:). `action.timestamp` is
@@ -1098,7 +1099,7 @@ fn validate_create_link(
     link_type: LinkTypes,
     base_address: AnyLinkableHash,
     target_address: AnyLinkableHash,
-    _tag: LinkTag,
+    tag: LinkTag,
     action: CreateLink,
 ) -> ExternResult<ValidateCallbackResult> {
     match link_type {
@@ -1118,7 +1119,7 @@ fn validate_create_link(
             Ok(ValidateCallbackResult::Valid)
         }
         LinkTypes::AgentToInbox => validate_inbox_link(base_address, target_address, action),
-        LinkTypes::AgentToInboxV2 => validate_inbox_link_v2(base_address, target_address, action),
+        LinkTypes::AgentToInboxV2 => validate_inbox_link_v2(base_address, target_address, tag, action),
         LinkTypes::FolderToEmails
         | LinkTypes::EmailToAttachments
         | LinkTypes::EmailToReadReceipts
@@ -1136,8 +1137,18 @@ fn validate_create_link(
 fn validate_inbox_link_v2(
     base_address: AnyLinkableHash,
     target_address: AnyLinkableHash,
+    tag: LinkTag,
     action: CreateLink,
 ) -> ExternResult<ValidateCallbackResult> {
+    // The link type alone is not the complete V2 inbox namespace: the tag is
+    // part of the application contract and is the same prefix used by the
+    // qualification adapter. Enforce the canonical tag at the integrity
+    // boundary so an alternate tag cannot masquerade as an inbox-V2 link.
+    if !tag.as_ref().starts_with(INBOX_V2_TAG) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "AgentToInboxV2 link tag must use the inbox-v2 namespace".into(),
+        ));
+    }
     let inbox_owner = match base_address.into_agent_pub_key() {
         Some(agent) => agent,
         None => {
