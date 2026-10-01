@@ -70,6 +70,10 @@ impl RendererSecurityController {
         &self.ingress
     }
 
+    pub fn ingress_mut(&mut self) -> &mut CapabilityIngress {
+        &mut self.ingress
+    }
+
     /// Commit a new browser-authoritative navigation.
     ///
     /// The old IPC attachment is closed before the old grants are invalidated
