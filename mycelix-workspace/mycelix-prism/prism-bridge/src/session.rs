@@ -14,7 +14,7 @@ use crate::capability::{
     AuthenticatedRendererSession, CapabilityError, RendererPeerId, RendererSessionId,
     RequestId,
 };
-use crate::identity::RendererProcessId;
+use crate::identity::{IdentityError, RendererProcessId};
 use std::fmt;
 use tokio::net::UnixStream;
 
@@ -33,6 +33,7 @@ pub enum RendererSessionManagerError {
         observed: RendererProcessId,
     },
     Session(CapabilityError),
+    Identity(IdentityError),
     SessionAlreadyActive,
 }
 
@@ -49,6 +50,7 @@ impl fmt::Display for RendererSessionManagerError {
                 expected.0, observed.0
             ),
             Self::Session(error) => write!(f, "renderer session error: {error}"),
+            Self::Identity(error) => write!(f, "renderer identity error: {error}"),
             Self::SessionAlreadyActive => f.write_str("renderer session is already active"),
         }
     }
@@ -59,6 +61,12 @@ impl std::error::Error for RendererSessionManagerError {}
 impl From<CapabilityError> for RendererSessionManagerError {
     fn from(error: CapabilityError) -> Self {
         Self::Session(error)
+    }
+}
+
+impl From<IdentityError> for RendererSessionManagerError {
+    fn from(error: IdentityError) -> Self {
+        Self::Identity(error)
     }
 }
 
