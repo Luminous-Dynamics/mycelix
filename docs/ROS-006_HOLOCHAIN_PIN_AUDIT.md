@@ -211,7 +211,7 @@ For this fixture, do not:
 5. change application entry validation behavior while performing the API migration;
 6. mix the migration with ROS-006 qualification semantics.
 
-The official 0.7 guide explicitly describes `EntryCreationAction` → `TypedAction<EntryCreationData>` and the `FlatOp` renames, making these compiler errors expected migration work rather than reasons to weaken validation. citeturn1search0
+The official 0.7 guide explicitly describes `EntryCreationAction` → `TypedAction<EntryCreationData>` and the `FlatOp` renames, making these compiler errors expected migration work rather than reasons to weaken validation.
 
 ### Migration gate
 
