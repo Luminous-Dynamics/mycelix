@@ -64,6 +64,24 @@
           "kind": "configuration_revision",
           "namespace": "synthetic",
           "id": "config-r1"
+        },
+        "physical_artifact_scope": {
+          "kind": "physical_artifact",
+          "namespace": "synthetic",
+          "id": "artifact-a"
+        },
+        "configuration_artifact_binding": {
+          "relation": "applies_to",
+          "source": {
+            "kind": "configuration_revision",
+            "namespace": "synthetic",
+            "id": "config-r1"
+          },
+          "target": {
+            "kind": "physical_artifact",
+            "namespace": "synthetic",
+            "id": "artifact-a"
+          }
         }
       },
       "base_state": {
@@ -92,6 +110,11 @@
         "kind": "configuration_revision",
         "namespace": "synthetic",
         "id": "config-r1"
+      },
+      "physical_artifact_scope": {
+        "kind": "physical_artifact",
+        "namespace": "synthetic",
+        "id": "artifact-a"
       }
     },
     {
@@ -155,6 +178,24 @@
           "kind": "configuration_revision",
           "namespace": "synthetic",
           "id": "config-r1"
+        },
+        "physical_artifact_scope": {
+          "kind": "physical_artifact",
+          "namespace": "synthetic",
+          "id": "artifact-a"
+        },
+        "configuration_artifact_binding": {
+          "relation": "applies_to",
+          "source": {
+            "kind": "configuration_revision",
+            "namespace": "synthetic",
+            "id": "config-r1"
+          },
+          "target": {
+            "kind": "physical_artifact",
+            "namespace": "synthetic",
+            "id": "artifact-a"
+          }
         }
       },
       "base_state": {
@@ -183,6 +224,11 @@
         "kind": "configuration_revision",
         "namespace": "synthetic",
         "id": "config-r1"
+      },
+      "physical_artifact_scope": {
+        "kind": "physical_artifact",
+        "namespace": "synthetic",
+        "id": "artifact-a"
       }
     },
     {
@@ -246,6 +292,24 @@
           "kind": "configuration_revision",
           "namespace": "synthetic",
           "id": "config-r1"
+        },
+        "physical_artifact_scope": {
+          "kind": "physical_artifact",
+          "namespace": "synthetic",
+          "id": "artifact-a"
+        },
+        "configuration_artifact_binding": {
+          "relation": "applies_to",
+          "source": {
+            "kind": "configuration_revision",
+            "namespace": "synthetic",
+            "id": "config-r1"
+          },
+          "target": {
+            "kind": "physical_artifact",
+            "namespace": "synthetic",
+            "id": "artifact-a"
+          }
         }
       },
       "base_state": {
@@ -274,6 +338,11 @@
         "kind": "configuration_revision",
         "namespace": "synthetic",
         "id": "config-r1"
+      },
+      "physical_artifact_scope": {
+        "kind": "physical_artifact",
+        "namespace": "synthetic",
+        "id": "artifact-a"
       }
     },
     {
@@ -337,6 +406,24 @@
           "kind": "configuration_revision",
           "namespace": "synthetic",
           "id": "config-r1"
+        },
+        "physical_artifact_scope": {
+          "kind": "physical_artifact",
+          "namespace": "synthetic",
+          "id": "artifact-a"
+        },
+        "configuration_artifact_binding": {
+          "relation": "applies_to",
+          "source": {
+            "kind": "configuration_revision",
+            "namespace": "synthetic",
+            "id": "config-r1"
+          },
+          "target": {
+            "kind": "physical_artifact",
+            "namespace": "synthetic",
+            "id": "artifact-a"
+          }
         }
       },
       "base_state": {
@@ -365,6 +452,11 @@
         "kind": "configuration_revision",
         "namespace": "synthetic",
         "id": "config-r1"
+      },
+      "physical_artifact_scope": {
+        "kind": "physical_artifact",
+        "namespace": "synthetic",
+        "id": "artifact-a"
       }
     },
     {
@@ -428,6 +520,24 @@
           "kind": "configuration_revision",
           "namespace": "synthetic",
           "id": "config-r1"
+        },
+        "physical_artifact_scope": {
+          "kind": "physical_artifact",
+          "namespace": "synthetic",
+          "id": "artifact-a"
+        },
+        "configuration_artifact_binding": {
+          "relation": "applies_to",
+          "source": {
+            "kind": "configuration_revision",
+            "namespace": "synthetic",
+            "id": "config-r1"
+          },
+          "target": {
+            "kind": "physical_artifact",
+            "namespace": "synthetic",
+            "id": "artifact-a"
+          }
         }
       },
       "base_state": {
@@ -456,6 +566,11 @@
         "kind": "configuration_revision",
         "namespace": "synthetic",
         "id": "config-r1"
+      },
+      "physical_artifact_scope": {
+        "kind": "physical_artifact",
+        "namespace": "synthetic",
+        "id": "artifact-a"
       }
     },
     {
@@ -519,6 +634,24 @@
           "kind": "configuration_revision",
           "namespace": "synthetic",
           "id": "config-r1"
+        },
+        "physical_artifact_scope": {
+          "kind": "physical_artifact",
+          "namespace": "synthetic",
+          "id": "artifact-a"
+        },
+        "configuration_artifact_binding": {
+          "relation": "applies_to",
+          "source": {
+            "kind": "configuration_revision",
+            "namespace": "synthetic",
+            "id": "config-r1"
+          },
+          "target": {
+            "kind": "physical_artifact",
+            "namespace": "synthetic",
+            "id": "artifact-a"
+          }
         }
       },
       "base_state": {
@@ -547,6 +680,11 @@
         "kind": "configuration_revision",
         "namespace": "synthetic",
         "id": "config-r1"
+      },
+      "physical_artifact_scope": {
+        "kind": "physical_artifact",
+        "namespace": "synthetic",
+        "id": "artifact-a"
       }
     },
     {
@@ -610,6 +748,24 @@
           "kind": "configuration_revision",
           "namespace": "synthetic",
           "id": "config-r1"
+        },
+        "physical_artifact_scope": {
+          "kind": "physical_artifact",
+          "namespace": "synthetic",
+          "id": "artifact-a"
+        },
+        "configuration_artifact_binding": {
+          "relation": "applies_to",
+          "source": {
+            "kind": "configuration_revision",
+            "namespace": "synthetic",
+            "id": "config-r1"
+          },
+          "target": {
+            "kind": "physical_artifact",
+            "namespace": "synthetic",
+            "id": "artifact-a"
+          }
         }
       },
       "base_state": {
@@ -638,6 +794,11 @@
         "kind": "configuration_revision",
         "namespace": "synthetic",
         "id": "config-r1"
+      },
+      "physical_artifact_scope": {
+        "kind": "physical_artifact",
+        "namespace": "synthetic",
+        "id": "artifact-a"
       }
     },
     {
@@ -701,6 +862,24 @@
           "kind": "configuration_revision",
           "namespace": "synthetic",
           "id": "config-r1"
+        },
+        "physical_artifact_scope": {
+          "kind": "physical_artifact",
+          "namespace": "synthetic",
+          "id": "artifact-a"
+        },
+        "configuration_artifact_binding": {
+          "relation": "applies_to",
+          "source": {
+            "kind": "configuration_revision",
+            "namespace": "synthetic",
+            "id": "config-r1"
+          },
+          "target": {
+            "kind": "physical_artifact",
+            "namespace": "synthetic",
+            "id": "artifact-a"
+          }
         }
       },
       "base_state": {
@@ -729,6 +908,11 @@
         "kind": "configuration_revision",
         "namespace": "synthetic",
         "id": "config-r1"
+      },
+      "physical_artifact_scope": {
+        "kind": "physical_artifact",
+        "namespace": "synthetic",
+        "id": "artifact-a"
       }
     },
     {
@@ -792,6 +976,24 @@
           "kind": "configuration_revision",
           "namespace": "synthetic",
           "id": "config-r1"
+        },
+        "physical_artifact_scope": {
+          "kind": "physical_artifact",
+          "namespace": "synthetic",
+          "id": "artifact-a"
+        },
+        "configuration_artifact_binding": {
+          "relation": "applies_to",
+          "source": {
+            "kind": "configuration_revision",
+            "namespace": "synthetic",
+            "id": "config-r1"
+          },
+          "target": {
+            "kind": "physical_artifact",
+            "namespace": "synthetic",
+            "id": "artifact-a"
+          }
         }
       },
       "base_state": {
@@ -820,6 +1022,11 @@
         "kind": "configuration_revision",
         "namespace": "synthetic",
         "id": "config-r1"
+      },
+      "physical_artifact_scope": {
+        "kind": "physical_artifact",
+        "namespace": "synthetic",
+        "id": "artifact-a"
       }
     },
     {
@@ -883,6 +1090,24 @@
           "kind": "configuration_revision",
           "namespace": "synthetic",
           "id": "config-r1"
+        },
+        "physical_artifact_scope": {
+          "kind": "physical_artifact",
+          "namespace": "synthetic",
+          "id": "artifact-a"
+        },
+        "configuration_artifact_binding": {
+          "relation": "applies_to",
+          "source": {
+            "kind": "configuration_revision",
+            "namespace": "synthetic",
+            "id": "config-r1"
+          },
+          "target": {
+            "kind": "physical_artifact",
+            "namespace": "synthetic",
+            "id": "artifact-a"
+          }
         }
       },
       "base_state": {
@@ -911,6 +1136,11 @@
         "kind": "configuration_revision",
         "namespace": "synthetic",
         "id": "config-r1"
+      },
+      "physical_artifact_scope": {
+        "kind": "physical_artifact",
+        "namespace": "synthetic",
+        "id": "artifact-a"
       }
     },
     {
@@ -974,6 +1204,24 @@
           "kind": "configuration_revision",
           "namespace": "synthetic",
           "id": "config-r1"
+        },
+        "physical_artifact_scope": {
+          "kind": "physical_artifact",
+          "namespace": "synthetic",
+          "id": "artifact-a"
+        },
+        "configuration_artifact_binding": {
+          "relation": "applies_to",
+          "source": {
+            "kind": "configuration_revision",
+            "namespace": "synthetic",
+            "id": "config-r1"
+          },
+          "target": {
+            "kind": "physical_artifact",
+            "namespace": "synthetic",
+            "id": "artifact-a"
+          }
         }
       },
       "base_state": {
@@ -1002,6 +1250,11 @@
         "kind": "configuration_revision",
         "namespace": "synthetic",
         "id": "config-r1"
+      },
+      "physical_artifact_scope": {
+        "kind": "physical_artifact",
+        "namespace": "synthetic",
+        "id": "artifact-a"
       }
     },
     {
@@ -1065,6 +1318,24 @@
           "kind": "configuration_revision",
           "namespace": "synthetic",
           "id": "config-r1"
+        },
+        "physical_artifact_scope": {
+          "kind": "physical_artifact",
+          "namespace": "synthetic",
+          "id": "artifact-a"
+        },
+        "configuration_artifact_binding": {
+          "relation": "applies_to",
+          "source": {
+            "kind": "configuration_revision",
+            "namespace": "synthetic",
+            "id": "config-r1"
+          },
+          "target": {
+            "kind": "physical_artifact",
+            "namespace": "synthetic",
+            "id": "artifact-a"
+          }
         }
       },
       "base_state": {
@@ -1093,6 +1364,11 @@
         "kind": "configuration_revision",
         "namespace": "synthetic",
         "id": "config-r1"
+      },
+      "physical_artifact_scope": {
+        "kind": "physical_artifact",
+        "namespace": "synthetic",
+        "id": "artifact-a"
       }
     },
     {
@@ -1156,6 +1432,24 @@
           "kind": "configuration_revision",
           "namespace": "synthetic",
           "id": "config-r1"
+        },
+        "physical_artifact_scope": {
+          "kind": "physical_artifact",
+          "namespace": "synthetic",
+          "id": "artifact-a"
+        },
+        "configuration_artifact_binding": {
+          "relation": "applies_to",
+          "source": {
+            "kind": "configuration_revision",
+            "namespace": "synthetic",
+            "id": "config-r1"
+          },
+          "target": {
+            "kind": "physical_artifact",
+            "namespace": "synthetic",
+            "id": "artifact-a"
+          }
         }
       },
       "base_state": {
@@ -1184,6 +1478,11 @@
         "kind": "configuration_revision",
         "namespace": "synthetic",
         "id": "config-r2"
+      },
+      "physical_artifact_scope": {
+        "kind": "physical_artifact",
+        "namespace": "synthetic",
+        "id": "artifact-a"
       }
     },
     {
@@ -1247,6 +1546,24 @@
           "kind": "configuration_revision",
           "namespace": "synthetic",
           "id": "config-r1"
+        },
+        "physical_artifact_scope": {
+          "kind": "physical_artifact",
+          "namespace": "synthetic",
+          "id": "artifact-a"
+        },
+        "configuration_artifact_binding": {
+          "relation": "applies_to",
+          "source": {
+            "kind": "configuration_revision",
+            "namespace": "synthetic",
+            "id": "config-r1"
+          },
+          "target": {
+            "kind": "physical_artifact",
+            "namespace": "synthetic",
+            "id": "artifact-a"
+          }
         }
       },
       "base_state": {
@@ -1275,6 +1592,11 @@
         "kind": "configuration_revision",
         "namespace": "synthetic",
         "id": "config-r2"
+      },
+      "physical_artifact_scope": {
+        "kind": "physical_artifact",
+        "namespace": "synthetic",
+        "id": "artifact-a"
       }
     },
     {
@@ -1338,6 +1660,24 @@
           "kind": "configuration_revision",
           "namespace": "synthetic",
           "id": "config-r1"
+        },
+        "physical_artifact_scope": {
+          "kind": "physical_artifact",
+          "namespace": "synthetic",
+          "id": "artifact-a"
+        },
+        "configuration_artifact_binding": {
+          "relation": "applies_to",
+          "source": {
+            "kind": "configuration_revision",
+            "namespace": "synthetic",
+            "id": "config-r1"
+          },
+          "target": {
+            "kind": "physical_artifact",
+            "namespace": "synthetic",
+            "id": "artifact-a"
+          }
         }
       },
       "base_state": {
@@ -1366,6 +1706,11 @@
         "kind": "reconciliation_witness",
         "namespace": "synthetic",
         "id": "w1"
+      },
+      "physical_artifact_scope": {
+        "kind": "physical_artifact",
+        "namespace": "synthetic",
+        "id": "artifact-a"
       }
     },
     {
@@ -1429,6 +1774,24 @@
           "kind": "configuration_revision",
           "namespace": "synthetic",
           "id": "config-r1"
+        },
+        "physical_artifact_scope": {
+          "kind": "physical_artifact",
+          "namespace": "synthetic",
+          "id": "artifact-a"
+        },
+        "configuration_artifact_binding": {
+          "relation": "applies_to",
+          "source": {
+            "kind": "configuration_revision",
+            "namespace": "synthetic",
+            "id": "config-r1"
+          },
+          "target": {
+            "kind": "physical_artifact",
+            "namespace": "synthetic",
+            "id": "artifact-a"
+          }
         }
       },
       "base_state": {
@@ -1457,6 +1820,11 @@
         "kind": "configuration_revision",
         "namespace": "holochain",
         "id": "uhC0config"
+      },
+      "physical_artifact_scope": {
+        "kind": "physical_artifact",
+        "namespace": "synthetic",
+        "id": "artifact-a"
       }
     },
     {
@@ -1520,6 +1888,24 @@
           "kind": "configuration_revision",
           "namespace": "synthetic",
           "id": "config-r2"
+        },
+        "physical_artifact_scope": {
+          "kind": "physical_artifact",
+          "namespace": "synthetic",
+          "id": "artifact-a"
+        },
+        "configuration_artifact_binding": {
+          "relation": "applies_to",
+          "source": {
+            "kind": "configuration_revision",
+            "namespace": "synthetic",
+            "id": "config-r1"
+          },
+          "target": {
+            "kind": "physical_artifact",
+            "namespace": "synthetic",
+            "id": "artifact-a"
+          }
         }
       },
       "base_state": {
@@ -1548,6 +1934,11 @@
         "kind": "configuration_revision",
         "namespace": "synthetic",
         "id": "config-r1"
+      },
+      "physical_artifact_scope": {
+        "kind": "physical_artifact",
+        "namespace": "synthetic",
+        "id": "artifact-a"
       }
     },
     {
@@ -1611,6 +2002,24 @@
           "kind": "configuration_revision",
           "namespace": "synthetic",
           "id": "config-r2"
+        },
+        "physical_artifact_scope": {
+          "kind": "physical_artifact",
+          "namespace": "synthetic",
+          "id": "artifact-a"
+        },
+        "configuration_artifact_binding": {
+          "relation": "applies_to",
+          "source": {
+            "kind": "configuration_revision",
+            "namespace": "synthetic",
+            "id": "config-r1"
+          },
+          "target": {
+            "kind": "physical_artifact",
+            "namespace": "synthetic",
+            "id": "artifact-a"
+          }
         }
       },
       "base_state": {
@@ -1639,6 +2048,923 @@
         "kind": "configuration_revision",
         "namespace": "synthetic",
         "id": "config-r2"
+      },
+      "physical_artifact_scope": {
+        "kind": "physical_artifact",
+        "namespace": "synthetic",
+        "id": "artifact-a"
+      }
+    },
+    {
+      "id": "TBP-019",
+      "operation": "wrong_physical_artifact",
+      "expected": "rejected",
+      "target": {
+        "kind": "evidence_record",
+        "namespace": "synthetic",
+        "id": "target-a"
+      },
+      "witness": {
+        "witness_identity": {
+          "kind": "reconciliation_witness",
+          "namespace": "synthetic",
+          "id": "w1"
+        },
+        "left_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-a"
+        },
+        "right_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-b"
+        },
+        "left_applicability": {
+          "start": 0,
+          "end": 10
+        },
+        "right_applicability": {
+          "start": 5,
+          "end": 15
+        },
+        "comparability": "comparable",
+        "compatibility": "incompatible",
+        "explicitly_superseded": false,
+        "disputed": true,
+        "result": {
+          "classification": "conflicting",
+          "disputed": true
+        }
+      },
+      "projection": {
+        "target": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "target-a"
+        },
+        "projection": {
+          "ConflictReferenceOnly": {
+            "witness_ref": {
+              "kind": "reconciliation_witness",
+              "namespace": "synthetic",
+              "id": "w1"
+            }
+          }
+        },
+        "configuration_scope": {
+          "kind": "configuration_revision",
+          "namespace": "synthetic",
+          "id": "config-r1"
+        },
+        "physical_artifact_scope": {
+          "kind": "physical_artifact",
+          "namespace": "synthetic",
+          "id": "artifact-a"
+        },
+        "configuration_artifact_binding": {
+          "relation": "applies_to",
+          "source": {
+            "kind": "configuration_revision",
+            "namespace": "synthetic",
+            "id": "config-r1"
+          },
+          "target": {
+            "kind": "physical_artifact",
+            "namespace": "synthetic",
+            "id": "artifact-a"
+          }
+        }
+      },
+      "base_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "uncontested",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": null,
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "expected_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "disputed",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": "w1",
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "configuration_scope": {
+        "kind": "configuration_revision",
+        "namespace": "synthetic",
+        "id": "config-r1"
+      },
+      "physical_artifact_scope": {
+        "kind": "physical_artifact",
+        "namespace": "synthetic",
+        "id": "artifact-b"
+      }
+    },
+    {
+      "id": "TBP-020",
+      "operation": "projection_declares_different_physical_artifact",
+      "expected": "rejected",
+      "target": {
+        "kind": "evidence_record",
+        "namespace": "synthetic",
+        "id": "target-a"
+      },
+      "witness": {
+        "witness_identity": {
+          "kind": "reconciliation_witness",
+          "namespace": "synthetic",
+          "id": "w1"
+        },
+        "left_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-a"
+        },
+        "right_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-b"
+        },
+        "left_applicability": {
+          "start": 0,
+          "end": 10
+        },
+        "right_applicability": {
+          "start": 5,
+          "end": 15
+        },
+        "comparability": "comparable",
+        "compatibility": "incompatible",
+        "explicitly_superseded": false,
+        "disputed": true,
+        "result": {
+          "classification": "conflicting",
+          "disputed": true
+        }
+      },
+      "projection": {
+        "target": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "target-a"
+        },
+        "projection": {
+          "ConflictReferenceOnly": {
+            "witness_ref": {
+              "kind": "reconciliation_witness",
+              "namespace": "synthetic",
+              "id": "w1"
+            }
+          }
+        },
+        "configuration_scope": {
+          "kind": "configuration_revision",
+          "namespace": "synthetic",
+          "id": "config-r1"
+        },
+        "physical_artifact_scope": {
+          "kind": "physical_artifact",
+          "namespace": "synthetic",
+          "id": "artifact-b"
+        },
+        "configuration_artifact_binding": {
+          "relation": "applies_to",
+          "source": {
+            "kind": "configuration_revision",
+            "namespace": "synthetic",
+            "id": "config-r1"
+          },
+          "target": {
+            "kind": "physical_artifact",
+            "namespace": "synthetic",
+            "id": "artifact-a"
+          }
+        }
+      },
+      "base_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "uncontested",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": null,
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "expected_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "disputed",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": "w1",
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "configuration_scope": {
+        "kind": "configuration_revision",
+        "namespace": "synthetic",
+        "id": "config-r1"
+      },
+      "physical_artifact_scope": {
+        "kind": "physical_artifact",
+        "namespace": "synthetic",
+        "id": "artifact-a"
+      }
+    },
+    {
+      "id": "TBP-021",
+      "operation": "reversed_applies_to_binding",
+      "expected": "rejected",
+      "target": {
+        "kind": "evidence_record",
+        "namespace": "synthetic",
+        "id": "target-a"
+      },
+      "witness": {
+        "witness_identity": {
+          "kind": "reconciliation_witness",
+          "namespace": "synthetic",
+          "id": "w1"
+        },
+        "left_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-a"
+        },
+        "right_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-b"
+        },
+        "left_applicability": {
+          "start": 0,
+          "end": 10
+        },
+        "right_applicability": {
+          "start": 5,
+          "end": 15
+        },
+        "comparability": "comparable",
+        "compatibility": "incompatible",
+        "explicitly_superseded": false,
+        "disputed": true,
+        "result": {
+          "classification": "conflicting",
+          "disputed": true
+        }
+      },
+      "projection": {
+        "target": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "target-a"
+        },
+        "projection": {
+          "ConflictReferenceOnly": {
+            "witness_ref": {
+              "kind": "reconciliation_witness",
+              "namespace": "synthetic",
+              "id": "w1"
+            }
+          }
+        },
+        "configuration_scope": {
+          "kind": "configuration_revision",
+          "namespace": "synthetic",
+          "id": "config-r1"
+        },
+        "physical_artifact_scope": {
+          "kind": "physical_artifact",
+          "namespace": "synthetic",
+          "id": "artifact-a"
+        },
+        "configuration_artifact_binding": {
+          "relation": "applies_to",
+          "source": {
+            "kind": "physical_artifact",
+            "namespace": "synthetic",
+            "id": "artifact-a"
+          },
+          "target": {
+            "kind": "configuration_revision",
+            "namespace": "synthetic",
+            "id": "config-r1"
+          }
+        }
+      },
+      "base_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "uncontested",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": null,
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "expected_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "disputed",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": "w1",
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "configuration_scope": {
+        "kind": "configuration_revision",
+        "namespace": "synthetic",
+        "id": "config-r1"
+      },
+      "physical_artifact_scope": {
+        "kind": "physical_artifact",
+        "namespace": "synthetic",
+        "id": "artifact-a"
+      }
+    },
+    {
+      "id": "TBP-022",
+      "operation": "wrong_lineage_relation",
+      "expected": "rejected",
+      "target": {
+        "kind": "evidence_record",
+        "namespace": "synthetic",
+        "id": "target-a"
+      },
+      "witness": {
+        "witness_identity": {
+          "kind": "reconciliation_witness",
+          "namespace": "synthetic",
+          "id": "w1"
+        },
+        "left_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-a"
+        },
+        "right_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-b"
+        },
+        "left_applicability": {
+          "start": 0,
+          "end": 10
+        },
+        "right_applicability": {
+          "start": 5,
+          "end": 15
+        },
+        "comparability": "comparable",
+        "compatibility": "incompatible",
+        "explicitly_superseded": false,
+        "disputed": true,
+        "result": {
+          "classification": "conflicting",
+          "disputed": true
+        }
+      },
+      "projection": {
+        "target": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "target-a"
+        },
+        "projection": {
+          "ConflictReferenceOnly": {
+            "witness_ref": {
+              "kind": "reconciliation_witness",
+              "namespace": "synthetic",
+              "id": "w1"
+            }
+          }
+        },
+        "configuration_scope": {
+          "kind": "configuration_revision",
+          "namespace": "synthetic",
+          "id": "config-r1"
+        },
+        "physical_artifact_scope": {
+          "kind": "physical_artifact",
+          "namespace": "synthetic",
+          "id": "artifact-a"
+        },
+        "configuration_artifact_binding": {
+          "relation": "configures",
+          "source": {
+            "kind": "configuration_revision",
+            "namespace": "synthetic",
+            "id": "config-r1"
+          },
+          "target": {
+            "kind": "physical_artifact",
+            "namespace": "synthetic",
+            "id": "artifact-a"
+          }
+        }
+      },
+      "base_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "uncontested",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": null,
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "expected_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "disputed",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": "w1",
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "configuration_scope": {
+        "kind": "configuration_revision",
+        "namespace": "synthetic",
+        "id": "config-r1"
+      },
+      "physical_artifact_scope": {
+        "kind": "physical_artifact",
+        "namespace": "synthetic",
+        "id": "artifact-a"
+      }
+    },
+    {
+      "id": "TBP-023",
+      "operation": "witness_identity_as_physical_artifact",
+      "expected": "rejected",
+      "target": {
+        "kind": "evidence_record",
+        "namespace": "synthetic",
+        "id": "target-a"
+      },
+      "witness": {
+        "witness_identity": {
+          "kind": "reconciliation_witness",
+          "namespace": "synthetic",
+          "id": "w1"
+        },
+        "left_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-a"
+        },
+        "right_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-b"
+        },
+        "left_applicability": {
+          "start": 0,
+          "end": 10
+        },
+        "right_applicability": {
+          "start": 5,
+          "end": 15
+        },
+        "comparability": "comparable",
+        "compatibility": "incompatible",
+        "explicitly_superseded": false,
+        "disputed": true,
+        "result": {
+          "classification": "conflicting",
+          "disputed": true
+        }
+      },
+      "projection": {
+        "target": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "target-a"
+        },
+        "projection": {
+          "ConflictReferenceOnly": {
+            "witness_ref": {
+              "kind": "reconciliation_witness",
+              "namespace": "synthetic",
+              "id": "w1"
+            }
+          }
+        },
+        "configuration_scope": {
+          "kind": "configuration_revision",
+          "namespace": "synthetic",
+          "id": "config-r1"
+        },
+        "physical_artifact_scope": {
+          "kind": "physical_artifact",
+          "namespace": "synthetic",
+          "id": "artifact-a"
+        },
+        "configuration_artifact_binding": {
+          "relation": "applies_to",
+          "source": {
+            "kind": "configuration_revision",
+            "namespace": "synthetic",
+            "id": "config-r1"
+          },
+          "target": {
+            "kind": "physical_artifact",
+            "namespace": "synthetic",
+            "id": "artifact-a"
+          }
+        }
+      },
+      "base_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "uncontested",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": null,
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "expected_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "disputed",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": "w1",
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "configuration_scope": {
+        "kind": "configuration_revision",
+        "namespace": "synthetic",
+        "id": "config-r1"
+      },
+      "physical_artifact_scope": {
+        "kind": "reconciliation_witness",
+        "namespace": "synthetic",
+        "id": "w1"
+      }
+    },
+    {
+      "id": "TBP-024",
+      "operation": "configuration_identity_as_physical_artifact",
+      "expected": "rejected",
+      "target": {
+        "kind": "evidence_record",
+        "namespace": "synthetic",
+        "id": "target-a"
+      },
+      "witness": {
+        "witness_identity": {
+          "kind": "reconciliation_witness",
+          "namespace": "synthetic",
+          "id": "w1"
+        },
+        "left_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-a"
+        },
+        "right_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-b"
+        },
+        "left_applicability": {
+          "start": 0,
+          "end": 10
+        },
+        "right_applicability": {
+          "start": 5,
+          "end": 15
+        },
+        "comparability": "comparable",
+        "compatibility": "incompatible",
+        "explicitly_superseded": false,
+        "disputed": true,
+        "result": {
+          "classification": "conflicting",
+          "disputed": true
+        }
+      },
+      "projection": {
+        "target": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "target-a"
+        },
+        "projection": {
+          "ConflictReferenceOnly": {
+            "witness_ref": {
+              "kind": "reconciliation_witness",
+              "namespace": "synthetic",
+              "id": "w1"
+            }
+          }
+        },
+        "configuration_scope": {
+          "kind": "configuration_revision",
+          "namespace": "synthetic",
+          "id": "config-r1"
+        },
+        "physical_artifact_scope": {
+          "kind": "physical_artifact",
+          "namespace": "synthetic",
+          "id": "artifact-a"
+        },
+        "configuration_artifact_binding": {
+          "relation": "applies_to",
+          "source": {
+            "kind": "configuration_revision",
+            "namespace": "synthetic",
+            "id": "config-r1"
+          },
+          "target": {
+            "kind": "physical_artifact",
+            "namespace": "synthetic",
+            "id": "artifact-a"
+          }
+        }
+      },
+      "base_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "uncontested",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": null,
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "expected_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "disputed",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": "w1",
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "configuration_scope": {
+        "kind": "configuration_revision",
+        "namespace": "synthetic",
+        "id": "config-r1"
+      },
+      "physical_artifact_scope": {
+        "kind": "configuration_revision",
+        "namespace": "synthetic",
+        "id": "config-r1"
+      }
+    },
+    {
+      "id": "TBP-025",
+      "operation": "holochain_physical_artifact",
+      "expected": "rejected",
+      "target": {
+        "kind": "evidence_record",
+        "namespace": "synthetic",
+        "id": "target-a"
+      },
+      "witness": {
+        "witness_identity": {
+          "kind": "reconciliation_witness",
+          "namespace": "synthetic",
+          "id": "w1"
+        },
+        "left_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-a"
+        },
+        "right_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-b"
+        },
+        "left_applicability": {
+          "start": 0,
+          "end": 10
+        },
+        "right_applicability": {
+          "start": 5,
+          "end": 15
+        },
+        "comparability": "comparable",
+        "compatibility": "incompatible",
+        "explicitly_superseded": false,
+        "disputed": true,
+        "result": {
+          "classification": "conflicting",
+          "disputed": true
+        }
+      },
+      "projection": {
+        "target": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "target-a"
+        },
+        "projection": {
+          "ConflictReferenceOnly": {
+            "witness_ref": {
+              "kind": "reconciliation_witness",
+              "namespace": "synthetic",
+              "id": "w1"
+            }
+          }
+        },
+        "configuration_scope": {
+          "kind": "configuration_revision",
+          "namespace": "synthetic",
+          "id": "config-r1"
+        },
+        "physical_artifact_scope": {
+          "kind": "physical_artifact",
+          "namespace": "synthetic",
+          "id": "artifact-a"
+        },
+        "configuration_artifact_binding": {
+          "relation": "applies_to",
+          "source": {
+            "kind": "configuration_revision",
+            "namespace": "synthetic",
+            "id": "config-r1"
+          },
+          "target": {
+            "kind": "physical_artifact",
+            "namespace": "synthetic",
+            "id": "artifact-a"
+          }
+        }
+      },
+      "base_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "uncontested",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": null,
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "expected_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "disputed",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": "w1",
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "configuration_scope": {
+        "kind": "configuration_revision",
+        "namespace": "synthetic",
+        "id": "config-r1"
+      },
+      "physical_artifact_scope": {
+        "kind": "physical_artifact",
+        "namespace": "holochain",
+        "id": "uhC0artifact"
+      }
+    },
+    {
+      "id": "TBP-026",
+      "operation": "binding_targets_different_artifact",
+      "expected": "rejected",
+      "target": {
+        "kind": "evidence_record",
+        "namespace": "synthetic",
+        "id": "target-a"
+      },
+      "witness": {
+        "witness_identity": {
+          "kind": "reconciliation_witness",
+          "namespace": "synthetic",
+          "id": "w1"
+        },
+        "left_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-a"
+        },
+        "right_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-b"
+        },
+        "left_applicability": {
+          "start": 0,
+          "end": 10
+        },
+        "right_applicability": {
+          "start": 5,
+          "end": 15
+        },
+        "comparability": "comparable",
+        "compatibility": "incompatible",
+        "explicitly_superseded": false,
+        "disputed": true,
+        "result": {
+          "classification": "conflicting",
+          "disputed": true
+        }
+      },
+      "projection": {
+        "target": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "target-a"
+        },
+        "projection": {
+          "ConflictReferenceOnly": {
+            "witness_ref": {
+              "kind": "reconciliation_witness",
+              "namespace": "synthetic",
+              "id": "w1"
+            }
+          }
+        },
+        "configuration_scope": {
+          "kind": "configuration_revision",
+          "namespace": "synthetic",
+          "id": "config-r1"
+        },
+        "physical_artifact_scope": {
+          "kind": "physical_artifact",
+          "namespace": "synthetic",
+          "id": "artifact-a"
+        },
+        "configuration_artifact_binding": {
+          "relation": "applies_to",
+          "source": {
+            "kind": "configuration_revision",
+            "namespace": "synthetic",
+            "id": "config-r1"
+          },
+          "target": {
+            "kind": "physical_artifact",
+            "namespace": "synthetic",
+            "id": "artifact-b"
+          }
+        }
+      },
+      "base_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "uncontested",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": null,
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "expected_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "disputed",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": "w1",
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "configuration_scope": {
+        "kind": "configuration_revision",
+        "namespace": "synthetic",
+        "id": "config-r1"
+      },
+      "physical_artifact_scope": {
+        "kind": "physical_artifact",
+        "namespace": "synthetic",
+        "id": "artifact-a"
       }
     }
   ]
