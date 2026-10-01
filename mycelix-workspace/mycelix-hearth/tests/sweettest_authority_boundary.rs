@@ -24,19 +24,6 @@ use holochain::test_utils::new_zome_call_params;
 
 use std::path::PathBuf;
 
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-enum HearthType {
-    Nuclear,
-}
-
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-struct CreateHearthInput {
-    name: String,
-    description: String,
-    hearth_type: HearthType,
-    max_members: Option<u32>,
-}
-
 fn hearth_dna_path() -> PathBuf {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     path.pop();
@@ -84,19 +71,14 @@ async fn test_authenticated_app_call_reaches_zome() {
         .unwrap()
         .into_tuple();
 
-    let input = CreateHearthInput {
-        name: "Authority Boundary Fixture".into(),
-        description: "Holochain 0.7 authenticated app-interface qualification".into(),
-        hearth_type: HearthType::Nuclear,
-        max_members: Some(4),
-    };
-
-    // The cell author is implicitly authorized when no capability secret is supplied.
+    // Use a read-only coordinator query with no application-level civic gate.
+    // This isolates the Holochain app-interface authentication/authorization boundary
+    // from Hearth's higher-level eligibility policy.
     let signed = signed_call(
         &conductor,
         alice.cell_id(),
-        "create_hearth",
-        input,
+        "get_my_hearths",
+        (),
         None,
     )
     .await;
@@ -106,7 +88,7 @@ async fn test_authenticated_app_call_reaches_zome() {
     match response {
         AppResponse::ZomeCalled(result) => match *result {
             ZomeCallResponse::Ok(output) => {
-                let _: Record = output.decode().expect("authorized zome result must decode");
+                let _: Vec<Record> = output.decode().expect("authorized zome result must decode");
             }
             other => panic!("authorized call reached conductor but returned {other:?}"),
         },
@@ -126,19 +108,15 @@ async fn test_invalid_capability_is_rejected_before_zome_dispatch() {
         .unwrap()
         .into_tuple();
 
-    let input = CreateHearthInput {
-        name: "Should Never Execute".into(),
-        description: "Invalid capability boundary case".into(),
-        hearth_type: HearthType::Nuclear,
-        max_members: Some(4),
-    };
-
+    // Same application call as the authorized case, but with an invalid capability.
+    // Any Unauthorized response therefore isolates capability rejection rather than
+    // a Hearth semantic/business-rule failure.
     let invalid_secret = CapSecret::from([0xA5; CAP_SECRET_BYTES]);
     let signed = signed_call(
         &conductor,
         alice.cell_id(),
-        "create_hearth",
-        input,
+        "get_my_hearths",
+        (),
         Some(invalid_secret),
     )
     .await;
