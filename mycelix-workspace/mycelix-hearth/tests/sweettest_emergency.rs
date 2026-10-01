@@ -159,8 +159,8 @@ fn hearth_dna_path() -> PathBuf {
 async fn test_emergency_lifecycle() {
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
 
-    let mut alice_conductor = SweetConductor::from_standard_config().await;
-    let mut bob_conductor = SweetConductor::from_standard_config().await;
+    let mut alice_conductor = SweetConductor::standard().await;
+    let mut bob_conductor = SweetConductor::standard().await;
 
     let (alice,) = alice_conductor
         .setup_app("test-app", &[dna_file.clone()])
