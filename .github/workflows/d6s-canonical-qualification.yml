@@ -21,7 +21,7 @@ env:
 jobs:
   d6s-canon-reference:
     name: D6S canonical reference qualification
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       QUALIFIED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
@@ -30,12 +30,15 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ env.QUALIFIED_SHA }}
+          persist-credentials: false
 
       - name: Assert exact qualification subject
         run: test "$(git rev-parse HEAD)" = "$QUALIFIED_SHA"
 
       - name: Install pinned Rust
-        uses: dtolnay/rust-toolchain@1.96.0
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # master @ 2025-08-23
+        with:
+          toolchain: 1.96.0
 
       - name: Check D6S formatting
         run: cargo fmt --manifest-path mycelix-manufacturing/Cargo.toml --all -- --check
@@ -56,18 +59,30 @@ jobs:
         run: |
           {
             echo "D6S CANONICAL REFERENCE QUALIFICATION"
+            echo "status=qualified"
             echo "commit=${QUALIFIED_SHA}"
+            echo "workflow=${GITHUB_WORKFLOW}"
+            echo "workflow_ref=${GITHUB_WORKFLOW_REF}"
+            echo "workflow_sha=$(git hash-object .github/workflows/d6s-canonical-qualification.yml)"
+            echo "run_id=${GITHUB_RUN_ID}"
+            echo "run_attempt=${GITHUB_RUN_ATTEMPT}"
             echo "event=${GITHUB_EVENT_NAME}"
+            echo "runner_os=${RUNNER_OS}"
+            echo "runner_image=${ImageOS:-unknown}"
+            echo "rust_action_sha=e97e2d8cc328f1b50210efc529dca0028893a2d9"
+            echo "rust_action_toolchain=1.96.0"
+            echo "checkout_action_sha=11bd71901bbe5b1630ceea73d27597364c9af683"
+            echo "upload_artifact_action_sha=ea165f8d65b6e75b540449e92b4886f43607fa02"
             echo "rust=$(rustc --version)"
             echo "cargo=$(cargo --version)"
             echo "python=$(python3 --version)"
+            echo "cargo_lock_sha256=$(sha256sum mycelix-manufacturing/Cargo.lock | cut -d' ' -f1)"
             echo "canon1_corpus_sha256=$(sha256sum docs/integral/d6s-canon-1-golden-vectors.json | cut -d' ' -f1)"
             echo "canon1_manifest_sha256=$(sha256sum docs/integral/d6s-canon-1-manifest.json | cut -d' ' -f1)"
             echo "canon2_fixture_sha256=$(sha256sum docs/integral/d6s-canon-2-authority-boundary-fixture.json | cut -d' ' -f1)"
             echo "rust_corpus=PASSED"
             echo "canon1_independent_verifier=PASSED"
             echo "canon2_authority_boundary_fixture=PASSED"
-            echo "corpus_identity=QUALIFIED"
             echo "claim_ceiling=ReferenceModelOnly"
           } | tee d6s-canonical-reference-qualification.txt
 
