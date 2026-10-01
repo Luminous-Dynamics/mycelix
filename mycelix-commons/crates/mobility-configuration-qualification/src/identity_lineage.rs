@@ -168,8 +168,7 @@ impl ApplicabilityTransition {
     pub fn validate(&self) -> Result<(), String> {
         self.predecessor.validate()?;
         self.successor.validate()?;
-        self.predecessor_artifact.validate()?
-        ;
+        self.predecessor_artifact.validate()?;
         if let Some(artifact) = &self.successor_artifact {
             artifact.validate()?;
         }
