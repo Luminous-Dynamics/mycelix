@@ -1,0 +1,90 @@
+{
+  "schema_version": "mobility-temporal-evidence-effectivity-containment-v1",
+  "status": "semantic-qualification-only",
+  "vectors": [
+    {
+      "id": "TEEC-001",
+      "scenario": "evidence effectivity exactly equals configuration applicability",
+      "expected_outcome": "accepted",
+      "forbidden_inference": "containment does not establish truth, safety, or certification"
+    },
+    {
+      "id": "TEEC-002",
+      "scenario": "evidence effectivity is strictly inside configuration applicability",
+      "expected_outcome": "accepted",
+      "forbidden_inference": "strict containment does not imply causal validity"
+    },
+    {
+      "id": "TEEC-003",
+      "scenario": "evidence effectivity ends exactly at configuration applicability end",
+      "expected_outcome": "accepted",
+      "forbidden_inference": "half-open scope does not turn the boundary into an inclusive instant"
+    },
+    {
+      "id": "TEEC-004",
+      "scenario": "evidence effectivity starts before configuration applicability",
+      "expected_outcome": "rejected",
+      "forbidden_inference": "event-time overlap cannot authorize out-of-scope effectivity"
+    },
+    {
+      "id": "TEEC-005",
+      "scenario": "evidence effectivity extends beyond finite configuration applicability",
+      "expected_outcome": "rejected",
+      "forbidden_inference": "evidence cannot outlive its explicitly declared configuration scope"
+    },
+    {
+      "id": "TEEC-006",
+      "scenario": "finite configuration applicability contains open-ended evidence effectivity",
+      "expected_outcome": "rejected",
+      "forbidden_inference": "open-ended evidence does not override a finite configuration scope"
+    },
+    {
+      "id": "TEEC-007",
+      "scenario": "open-ended configuration applicability contains open-ended evidence effectivity",
+      "expected_outcome": "accepted",
+      "forbidden_inference": "open-ended applicability is not permanent truth"
+    },
+    {
+      "id": "TEEC-008",
+      "scenario": "evidence event occurs before its effectivity interval while effectivity remains contained",
+      "expected_outcome": "accepted",
+      "forbidden_inference": "event time and effectivity time remain independent"
+    },
+    {
+      "id": "TEEC-009",
+      "scenario": "evidence effectivity and event interval are disjoint but effectivity is contained",
+      "expected_outcome": "accepted",
+      "forbidden_inference": "event/effectivity overlap is descriptive rather than a validity criterion"
+    },
+    {
+      "id": "TEEC-010",
+      "scenario": "temporal applicability witness names a different configuration",
+      "expected_outcome": "rejected",
+      "forbidden_inference": "configuration identity cannot be silently substituted"
+    },
+    {
+      "id": "TEEC-011",
+      "scenario": "configuration successor attempts to reuse predecessor temporal applicability",
+      "expected_outcome": "rejected",
+      "forbidden_inference": "successor configuration does not inherit predecessor applicability"
+    },
+    {
+      "id": "TEEC-012",
+      "scenario": "replacement physical artifact attempts to reuse predecessor temporal applicability",
+      "expected_outcome": "rejected",
+      "forbidden_inference": "replacement artifact does not inherit predecessor evidence"
+    },
+    {
+      "id": "TEEC-013",
+      "scenario": "temporal witness interval is independently duplicated instead of explicitly referenced",
+      "expected_outcome": "rejected-by-design",
+      "forbidden_inference": "duplicate intervals are not an authoritative substitute for an explicit applicability witness"
+    },
+    {
+      "id": "TEEC-014",
+      "scenario": "Holochain validation is used as engineering authority for temporal containment",
+      "expected_outcome": "rejected",
+      "forbidden_inference": "deterministic data validation is not engineering truth or certification"
+    }
+  ]
+}
