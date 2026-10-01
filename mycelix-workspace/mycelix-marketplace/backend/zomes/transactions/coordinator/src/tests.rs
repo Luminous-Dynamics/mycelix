@@ -40,6 +40,7 @@ mod tests {
         CreateTransactionInput {
             seller: AgentPubKey::from_raw_36(vec![2u8; 36]),
             listing_hash: ActionHash::from_raw_36(vec![3u8; 36]),
+            reservation_certificate_hash: ActionHash::from_raw_36(vec![4u8; 36]),
             quantity: 2,
             total_price_cents: 3998,
         }
@@ -49,6 +50,7 @@ mod tests {
             buyer: AgentPubKey::from_raw_36(vec![1u8; 36]),
             seller: AgentPubKey::from_raw_36(vec![2u8; 36]),
             listing_hash: ActionHash::from_raw_36(vec![3u8; 36]),
+            reservation_certificate_hash: ActionHash::from_raw_36(vec![4u8; 36]),
             quantity: 1,
             total_price_cents: 1999,
             status: TransactionStatus::Pending,
