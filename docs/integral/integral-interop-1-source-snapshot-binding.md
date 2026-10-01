@@ -43,6 +43,24 @@ Changing a retrieval reference can therefore change the audit certificate while 
 
 This separation prevents a storage URI, resolver address, or runtime lookup record from silently becoming semantic identity.
 
+## Environment binding
+
+Where `SemanticEnvironmentV1.dependency_snapshot_root` is present, D6S requires the
+projection's `source_dkg_snapshot_commitment` to equal that environment root.
+This does not reconstruct the external DKG snapshot; it prevents a projection
+from silently switching snapshot identity while retaining the same semantic
+environment commitment.
+
+A caller can therefore distinguish two cases:
+
+- **bound identity:** the environment names the snapshot and D6S checks exact equality;
+- **opaque identity:** the environment does not name one, so the external snapshot
+  remains an explicit out-of-bound trust boundary.
+
+The canonical receipt constructor uses the same source-binding check, so a
+self-consistent projection cannot become a canonical D6S receipt merely by
+recomputing its projection and receipt commitments.
+
 ## What this does not prove
 
 This tranche does **not** prove that a supplied source snapshot commitment is backed by a particular external DKG snapshot object. That requires an explicit source-snapshot object and a separately specified commitment algorithm at the DKG boundary.
