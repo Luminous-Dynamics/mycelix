@@ -345,9 +345,10 @@ mod tests {
         request.resource = Some(CapabilityResource::new(
             "https://cdn.example.com/assets/../private.js",
         ).unwrap());
-        assert!(grant
-            .authorizes(process, &site, &origin, cluster, &request, 150)
-            .is_ok());
+        assert_eq!(
+            grant.authorizes(process, &site, &origin, cluster, &request, 150),
+            Err(DenialReason::ResourcePolicyDenied)
+        );
     }
 
     #[test]
