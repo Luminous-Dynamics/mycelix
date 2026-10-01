@@ -10,7 +10,12 @@ mod reservation;
 pub use reservation::{ApplyOutcome, Reservation, ReservationError, ReservationEvent, ReservationLedger, ReservationState};
 
 mod reservation_certificate;
-pub use reservation_certificate::{CertificateError, FrontierEvent, InventoryFrontier, IntentError, PurchaseIntent, ReservationCertificate};
+pub use reservation_certificate::{
+    validate_create_purchase_intent, validate_create_reservation_certificate,
+    validate_create_reservation_terminal, CertificateError, FrontierEvent, InventoryFrontier,
+    IntentError, PurchaseIntent, ReservationCertificate, ReservationTerminalEvidence,
+    ReservationTerminalOutcome,
+};
 
 /// Transaction entry - represents a purchase in the marketplace
 #[hdk_entry_helper]
@@ -131,6 +136,9 @@ pub enum EntryTypes {
     Transaction(Transaction),
     TransactionConflictApproval(TransactionConflictApproval),
     TransactionConflictResolution(TransactionConflictResolutionEntry),
+    PurchaseIntent(PurchaseIntent),
+    ReservationCertificate(ReservationCertificate),
+    ReservationTerminalEvidence(ReservationTerminalEvidence),
 }
 
 #[hdk_extern]
@@ -147,6 +155,15 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::TransactionConflictResolution(resolution) => {
                     validate_create_conflict_resolution(&resolution, &action)
                 }
+                EntryTypes::PurchaseIntent(intent) => {
+                    validate_create_purchase_intent(&intent, &action)
+                }
+                EntryTypes::ReservationCertificate(certificate) => {
+                    validate_create_reservation_certificate(&certificate, &action)
+                }
+                EntryTypes::ReservationTerminalEvidence(evidence) => {
+                    validate_create_reservation_terminal(&evidence, &action)
+                }
             },
             OpEntry::UpdateEntry {
                 app_entry, action, ..
@@ -159,6 +176,15 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 )),
                 EntryTypes::TransactionConflictResolution(_) => Ok(ValidateCallbackResult::Invalid(
                     "Transaction conflict resolutions are immutable".into(),
+                )),
+                EntryTypes::PurchaseIntent(_) => Ok(ValidateCallbackResult::Invalid(
+                    "PurchaseIntent records are immutable".into(),
+                )),
+                EntryTypes::ReservationCertificate(_) => Ok(ValidateCallbackResult::Invalid(
+                    "ReservationCertificate records are immutable".into(),
+                )),
+                EntryTypes::ReservationTerminalEvidence(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Reservation terminal evidence is immutable".into(),
                 )),
             },
             _ => Ok(ValidateCallbackResult::Valid),
@@ -173,6 +199,15 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 )),
                 EntryTypes::TransactionConflictResolution(_) => Ok(ValidateCallbackResult::Invalid(
                     "Transaction conflict resolutions are immutable".into(),
+                )),
+                EntryTypes::PurchaseIntent(_) => Ok(ValidateCallbackResult::Invalid(
+                    "PurchaseIntent records are immutable".into(),
+                )),
+                EntryTypes::ReservationCertificate(_) => Ok(ValidateCallbackResult::Invalid(
+                    "ReservationCertificate records are immutable".into(),
+                )),
+                EntryTypes::ReservationTerminalEvidence(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Reservation terminal evidence is immutable".into(),
                 )),
             },
             _ => Ok(ValidateCallbackResult::Valid),
