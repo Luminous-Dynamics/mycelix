@@ -109,7 +109,7 @@ impl CapabilityGrant {
             return Err(DenialReason::CapabilityNotGranted);
         }
         let resource = request.resource.as_ref().map(|r| r.as_str());
-        if matches!(self.resource_scope, ResourceScope::Typed(_)) {
+        if matches!(&self.resource_scope, ResourceScope::Typed(_)) {
             let Some(identity) = resource.and_then(|value| ResourceIdentity::parse_url(value).ok()) else {
                 return Err(DenialReason::ResourcePolicyDenied);
             };
