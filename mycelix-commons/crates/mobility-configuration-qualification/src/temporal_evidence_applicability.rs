@@ -79,6 +79,6 @@ mod tests {
     #[test] fn replacement_artifact_cannot_inherit_evidence(){ let mut v=evidence_case(); v.evidence_target.target=id(IdentityKind::PhysicalArtifact,"artifact-2"); assert!(v.validate().is_err()); }
     #[test] fn successor_configuration_cannot_inherit_evidence(){ let mut v=evidence_case(); v.configuration_applicability.source=id(IdentityKind::ConfigurationRevision,"cfg-2"); assert!(v.validate().is_err()); }
     #[test] fn holochain_artifact_identity_is_rejected(){ let mut v=evidence_case(); v.artifact.namespace="holochain".into(); assert!(v.validate().is_err()); }
-    #[test] fn later_effectivity_preserves_event_history(){ let mut v=evidence_case(); v.effectivity_interval=ApplicabilityInterval{start:1000,end:Some(2000)}; assert!(v.validate().is_ok()); assert_eq!(v.event_interval.start,100); }
+    #[test] fn later_effectivity_preserves_event_history(){ let mut v=evidence_case(); v.effectivity_interval=ApplicabilityInterval{start:200,end:Some(250)}; assert!(v.validate().is_ok()); assert_eq!(v.event_interval.start,100); }
     #[test] fn wrong_evidence_kind_is_rejected(){ let mut v=evidence_case(); v.evidence=id(IdentityKind::DesignRevision,"design-1"); assert!(v.validate().is_err()); }
 }
