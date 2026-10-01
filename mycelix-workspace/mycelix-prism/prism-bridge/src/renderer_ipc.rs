@@ -12,8 +12,10 @@
 //! process identity, site, or navigation generation as authority.
 
 use crate::capability::{CapabilityRequest, RequestId};
+use crate::authority::{RendererSecurityController, RendererSecurityError};
 use crate::lifecycle::RendererBinding;
-use crate::session::{CapabilityIngress, CapabilityIngressError, RendererSessionManager};
+use crate::session::CapabilityIngressError;
+use std::sync::{Arc, Mutex};
 use std::fmt;
 use std::path::{Path, PathBuf};
 use tokio::io::AsyncReadExt;
@@ -33,6 +35,7 @@ pub const MAX_RENDERER_IPC_FRAME_SIZE: usize = 64 * 1024;
 pub struct RendererIpcListener {
     listener: UnixListener,
     socket_path: PathBuf,
+    controller: Arc<Mutex<RendererSecurityController>>,
 }
 
 #[derive(Debug)]
@@ -42,6 +45,7 @@ pub enum RendererIpcError {
     InvalidFrameLength(usize),
     InvalidVersion(u16),
     Capability(CapabilityIngressError),
+    SecurityController(RendererSecurityError),
     SocketPermissions(std::io::Error),
 }
 
@@ -58,6 +62,7 @@ impl fmt::Display for RendererIpcError {
                 write!(f, "unsupported renderer IPC protocol version {version}")
             }
             Self::Capability(error) => write!(f, "renderer capability admission failed: {error}"),
+            Self::SecurityController(error) => write!(f, "renderer security controller rejected operation: {error:?}"),
             Self::SocketPermissions(error) => {
                 write!(f, "renderer IPC socket permission hardening failed: {error}")
             }
@@ -78,7 +83,10 @@ impl RendererIpcListener {
     ///
     /// Existing paths are never replaced implicitly. Callers must perform
     /// explicit stale-socket cleanup as part of browser startup/recovery.
-    pub fn bind(path: impl Into<PathBuf>) -> Result<Self, RendererIpcError> {
+    pub fn bind(
+        path: impl Into<PathBuf>,
+        controller: Arc<Mutex<RendererSecurityController>>,
+    ) -> Result<Self, RendererIpcError> {
         let socket_path = path.into();
         if !socket_path.is_absolute() {
             return Err(RendererIpcError::Bind(std::io::Error::new(
@@ -108,6 +116,7 @@ impl RendererIpcListener {
         Ok(Self {
             listener,
             socket_path,
+            controller,
         })
     }
 
@@ -117,12 +126,9 @@ impl RendererIpcListener {
 
     /// Accept exactly one renderer connection and bind it to the browser's
     /// authoritative process/generation.
-    pub async fn accept(
-        &self,
-        authoritative: RendererBinding,
-    ) -> Result<RendererCapabilityConnection, RendererIpcError> {
+    pub async fn accept(&self) -> Result<RendererCapabilityConnection, RendererIpcError> {
         let (stream, _) = self.listener.accept().await.map_err(RendererIpcError::Io)?;
-        RendererCapabilityConnection::from_stream(stream, authoritative)
+        RendererCapabilityConnection::from_stream(stream, Arc::clone(&self.controller))
     }
 }
 
@@ -133,33 +139,31 @@ impl RendererIpcListener {
 #[derive(Debug)]
 pub struct RendererCapabilityConnection {
     stream: UnixStream,
-    authoritative: RendererBinding,
-    ingress: CapabilityIngress,
+    controller: Arc<Mutex<RendererSecurityController>>,
 }
 
 impl RendererCapabilityConnection {
     pub fn from_stream(
         stream: UnixStream,
-        authoritative: RendererBinding,
+        controller: Arc<Mutex<RendererSecurityController>>,
     ) -> Result<Self, RendererIpcError> {
-        let process = authoritative.process;
-        let generation = authoritative.generation;
-        let mut sessions = RendererSessionManager::new();
-        sessions
-            .establish_from_stream(&stream, process, generation)
-            .map_err(|error| RendererIpcError::Capability(
-                CapabilityIngressError::Session(error),
+        {
+            let mut guard = controller.lock().map_err(|_| RendererIpcError::SecurityController(
+                RendererSecurityError::NoActiveBinding,
             ))?;
+            guard.establish_renderer_session(&stream).map_err(RendererIpcError::SecurityController)?;
+        }
 
-        Ok(Self {
-            stream,
-            authoritative,
-            ingress: CapabilityIngress::new(sessions),
-        })
+        Ok(Self { stream, controller })
     }
 
-    pub fn authoritative(&self) -> &RendererBinding {
-        &self.authoritative
+    pub fn authoritative(&self) -> Result<RendererBinding, RendererIpcError> {
+        let guard = self.controller.lock().map_err(|_| RendererIpcError::SecurityController(
+            RendererSecurityError::NoActiveBinding,
+        ))?;
+        guard.binding().cloned().ok_or(RendererIpcError::SecurityController(
+            RendererSecurityError::NoActiveBinding,
+        ))
     }
 
     /// Receive one bounded capability frame and pass it through the sole
@@ -179,11 +183,18 @@ impl RendererCapabilityConnection {
         if envelope.payload.is_empty() || envelope.payload.len() > MAX_RENDERER_IPC_FRAME_SIZE {
             return Err(RendererIpcError::InvalidFrameLength(envelope.payload.len()));
         }
-        self.ingress
+        let mut guard = self.controller.lock().map_err(|_| RendererIpcError::SecurityController(
+            RendererSecurityError::NoActiveBinding,
+        ))?;
+        let authoritative = guard.binding().cloned().ok_or(RendererIpcError::SecurityController(
+            RendererSecurityError::NoActiveBinding,
+        ))?;
+        guard
+            .ingress_mut()
             .admit_envelope(
                 &self.stream,
-                self.authoritative.generation,
-                &self.authoritative,
+                authoritative.generation,
+                &authoritative,
                 envelope.request_id,
                 &envelope.payload,
             )
@@ -192,7 +203,9 @@ impl RendererCapabilityConnection {
 
     /// Close the session and invalidate all session-local sequencing state.
     pub fn close(&mut self) {
-        self.ingress.close();
+        if let Ok(mut guard) = self.controller.lock() {
+            guard.ingress_mut().close();
+        }
     }
 }
 
