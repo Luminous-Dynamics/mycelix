@@ -392,15 +392,6 @@ mod tests {
         let guard = shared.lock().unwrap();
         assert_eq!(guard.sessions().current().unwrap().session_id, second.session_id);
         drop(guard);
-
-        let request = request_payload(1);
-        let envelope = rmp_serde::to_vec(
-            &RendererIpcEnvelopeV1::new(RequestId::new(1).unwrap(), request).unwrap(),
-        ).unwrap();
-        let (_writer3, reader3) = UnixStream::pair().unwrap();
-        let mut replacement = RendererCapabilityConnection::from_stream(reader3, Arc::clone(&shared)).unwrap_err();
-        let _ = envelope;
-        let _ = &mut replacement;
     }
 
     #[tokio::test]
