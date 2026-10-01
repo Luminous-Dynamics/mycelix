@@ -166,6 +166,32 @@ pub struct InventoryFrontier {
     certificates: BTreeMap<String, ReservationCertificate>,
 }
 
+/// Deterministic snapshot of the economic state represented by a frontier.
+///
+/// This is intentionally structural rather than cryptographic. On the current
+/// Holochain 0.6 baseline, the authoritative content-addressed predecessor
+/// remains the action hash; this snapshot gives independent reducers an exact
+/// post-state to compare without introducing an unsupported arbitrary-byte hash
+/// dependency.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReservationFrontierState {
+    pub capacity: u32,
+    pub active_reserved: u32,
+    pub available: u32,
+}
+
+impl ReservationFrontierState {
+    pub fn validate(&self) -> Result<(), &'static str> {
+        if self.active_reserved > self.capacity {
+            return Err("Frontier state has more reserved inventory than capacity");
+        }
+        if self.available != self.capacity - self.active_reserved {
+            return Err("Frontier state available capacity is inconsistent");
+        }
+        Ok(())
+    }
+}
+
 impl InventoryFrontier {
     pub fn new(seller: AgentPubKey, listing_hash: ActionHash, listing_revision: ActionHash, capacity: u32) -> Self {
         Self {
@@ -185,6 +211,13 @@ impl InventoryFrontier {
     pub fn capacity(&self) -> u32 { self.ledger.capacity() }
     pub fn available(&self) -> u32 { self.ledger.available() }
     pub fn active_reserved(&self) -> u32 { self.ledger.active_reserved() }
+    pub fn post_state(&self) -> ReservationFrontierState {
+        ReservationFrontierState {
+            capacity: self.capacity(),
+            active_reserved: self.active_reserved(),
+            available: self.available(),
+        }
+    }
     pub fn next_sequence(&self) -> u64 { self.next_sequence }
     pub fn head_certificate_id(&self) -> Option<&str> { self.head_certificate_id.as_deref() }
     pub fn certificate(&self, certificate_id: &str) -> Option<&ReservationCertificate> { self.certificates.get(certificate_id) }
@@ -387,6 +420,20 @@ mod tests {
             f.apply(FrontierEvent::Reserve(certificate("c2", 2, Some("c1:release"), 1))),
             Ok(ApplyOutcome::Applied)
         );
+    }
+
+    #[test]
+    fn frontier_post_state_is_self_consistent_and_reconstructible() {
+        let mut f = frontier(5);
+        assert_eq!(f.post_state(), ReservationFrontierState { capacity: 5, active_reserved: 0, available: 5 });
+        f.apply(FrontierEvent::Reserve(certificate("c1", 0, None, 3))).unwrap();
+        assert_eq!(f.post_state(), ReservationFrontierState { capacity: 5, active_reserved: 3, available: 2 });
+        f.post_state().validate().unwrap();
+        f.apply(FrontierEvent::Release {
+            certificate_id: "c1".into(), seller: agent(2), sequence: 1,
+            previous_certificate_id: Some("c1".into()),
+        }).unwrap();
+        assert_eq!(f.post_state(), ReservationFrontierState { capacity: 5, active_reserved: 0, available: 5 });
     }
 
     #[test]
