@@ -59,13 +59,21 @@ jobs:
             "run_attempt=$GITHUB_RUN_ATTEMPT" \
             > hearth-07-lock-refresh-evidence.txt
 
-      - name: Verify Holochain 0.7 source invariants
-        working-directory: mycelix-workspace/mycelix-hearth
-        run: bash tools/verify-holochain-07.sh
-
       - uses: cachix/install-nix-action@8aa03977d8d733052d78f4e008a241fd1dbf36b3 # v31.10.6
         with:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Refresh Nix lock closure
+        working-directory: mycelix-workspace/mycelix-hearth
+        timeout-minutes: 30
+        run: |
+          nix flake lock --extra-experimental-features 'nix-command flakes'
+          test -s flake.lock
+          sha256sum flake.lock | tee -a "$GITHUB_WORKSPACE/hearth-07-lock-refresh-evidence.txt"
+
+      - name: Verify Holochain 0.7 source invariants
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: bash tools/verify-holochain-07.sh
 
       - name: Resolve toolchain
         working-directory: mycelix-workspace/mycelix-hearth
@@ -110,8 +118,34 @@ jobs:
         shell: bash
         run: |
           git status --short
-          git status --short | grep -E '^[?M][?M ]+mycelix-workspace/mycelix-hearth/(Cargo\.lock|tests/Cargo\.lock)$' >/dev/null
-          unexpected="$(git status --short | grep -v -E '^[?M][?M ]+mycelix-workspace/mycelix-hearth/(Cargo\.lock|tests/Cargo\.lock)$' || true)"
+          git status --short | grep -E '^[?M][?M ]+mycelix-workspace/mycelix-hearth/(flake\.lock|Cargo\.lock|tests/Cargo\.lock)
+          test -z "$unexpected"
+
+      - name: Publish lock refresh evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hearth-07-lock-refresh-${{ inputs.ref }}
+          path: |
+            hearth-07-lock-refresh-evidence.txt
+            mycelix-workspace/mycelix-hearth/Cargo.lock
+            mycelix-workspace/mycelix-hearth/tests/Cargo.lock
+          if-no-files-found: error
+          retention-days: 30
+ >/dev/null
+          unexpected="$(git status --short | grep -v -E '^[?M][?M ]+mycelix-workspace/mycelix-hearth/(flake\.lock|Cargo\.lock|tests/Cargo\.lock)
+          test -z "$unexpected"
+
+      - name: Publish lock refresh evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hearth-07-lock-refresh-${{ inputs.ref }}
+          path: |
+            hearth-07-lock-refresh-evidence.txt
+            mycelix-workspace/mycelix-hearth/Cargo.lock
+            mycelix-workspace/mycelix-hearth/tests/Cargo.lock
+          if-no-files-found: error
+          retention-days: 30
+ || true)"
           test -z "$unexpected"
 
       - name: Publish lock refresh evidence
