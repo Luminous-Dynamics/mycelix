@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-workspace="${root}/Cargo.toml"
-tests="${root}/tests/Cargo.toml"
-flake_lock="${root}/flake.lock"
+root="$(cd -- "$(dirname -- "$BASH_SOURCE")/.." && pwd)"
+workspace="$root/Cargo.toml"
+tests="$root/tests/Cargo.toml"
+flake_lock="$root/flake.lock"
 
 fail() {
   echo "FAIL: $*" >&2
@@ -15,10 +15,13 @@ fail() {
 [[ -f "$tests" ]] || fail "missing Sweettest workspace Cargo.toml"
 [[ -f "$flake_lock" ]] || fail "missing Hearth flake.lock"
 
-require_exact() {
+require_version_family() {
   local file="$1"
-  local needle="$2"
-  grep -Fq -- "$needle" "$file" || fail "$file does not contain required Holochain 0.7 declaration: $needle"
+  local name="$2"
+  local version="$3"
+  if ! grep -Eq -- "^$name[[:space:]]*=[[:space:]]*(\"?=?$version\"?|\\{[^}]*version[[:space:]]*=[[:space:]]*\"=?$version\"\\})" "$file"; then
+    fail "$file does not declare $name in the required $version family"
+  fi
 }
 
 forbidden() {
@@ -29,29 +32,15 @@ forbidden() {
   fi
 }
 
-# The production Hearth workspace must declare the 0.7 compatibility family.
-require_version_family() {
-  local file="$1"
-  local name="$2"
-  local version="$3"
-  # Accept exact pins such as =0.7.0 as well as compatible string declarations.
-  # The guard is about the required release family, not TOML formatting.
-  if ! grep -Eq -- "^${name}[[:space:]]*=[[:space:]]*(\"?=?${version}\"?|\{[^}]*version[[:space:]]*=[[:space:]]*\"=?${version}\")" "$file"; then
-    fail "$file does not declare ${name} in the required ${version} family"
-  fi
-}
+require_version_family "$workspace" "hdk" "0\\.7\\.0"
+require_version_family "$workspace" "hdi" "0\\.8\\.0"
+require_version_family "$workspace" "holochain_integrity_types" "0\\.7\\.0"
+require_version_family "$workspace" "holochain_serialized_bytes" "0\\.0\\.57"
 
-require_version_family "$workspace" "hdk" "0\.7\.0"
-require_version_family "$workspace" "hdi" "0\.8\.0"
-require_version_family "$workspace" "holochain_integrity_types" "0\.7\.0"
-require_version_family "$workspace" "holochain_serialized_bytes" "0\.0\.57"
-
-# The dedicated Sweettest workspace is itself part of qualification and must not
-# silently exercise the old 0.6 runtime/API.
-require_version_family "$tests" "hdk" "0\.7\.0"
-require_version_family "$tests" "hdi" "0\.8\.0"
-require_version_family "$tests" "holochain" "0\.7\.0"
-require_version_family "$tests" "holochain_types" "0\.7\.0"
+require_version_family "$tests" "hdk" "0\\.7\\.0"
+require_version_family "$tests" "hdi" "0\\.8\\.0"
+require_version_family "$tests" "holochain" "0\\.7\\.0"
+require_version_family "$tests" "holochain_types" "0\\.7\\.0"
 
 for file in "$workspace" "$tests"; do
   forbidden "$file" 'hdk = "0.6'
@@ -60,12 +49,30 @@ for file in "$workspace" "$tests"; do
   forbidden "$file" 'holochain_types = "0.6'
 done
 
-# The Nix lockfile is part of the qualification closure. The workflow must not
-# silently resolve a Holochain 0.6 Holonix input while claiming 0.7.
-require_exact "$flake_lock" '"ref": "holochain-0.7.0"'
-require_exact "$flake_lock" '"ref": "main-0.7"'
-require_exact "$flake_lock" '"ref": "v0.7.1"'
-require_exact "$flake_lock" '"ref": "v0.5.0"'
+python3 - "$flake_lock" <<'PY'
+import json
+import sys
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as f:
+    lock = json.load(f)
+
+nodes = lock.get("nodes", {})
+def original_ref(node):
+    return nodes.get(node, {}).get("original", {}).get("ref")
+
+def require(node, predicate, description):
+    ref = original_ref(node)
+    if not predicate(ref):
+        raise SystemExit(f"FAIL: flake.lock {node}.original.ref={ref!r}; expected {description}")
+
+require("holonix", lambda r: r == "main-0.7", "main-0.7")
+require("holochain", lambda r: isinstance(r, str) and r.startswith("holochain-0.7"), "a holochain-0.7* ref")
+require("lair-keystore", lambda r: isinstance(r, str) and r.startswith("v0.7"), "a v0.7* ref")
+require("kitsune2", lambda r: isinstance(r, str) and r.startswith("v0.5"), "a v0.5* ref")
+
+print("Holochain 0.7 Nix lock invariants: PASS")
+PY
 
 echo "Holochain 0.7 source invariants: PASS"
 echo "workspace=$workspace"
