@@ -12,7 +12,8 @@ pub use reservation::{ApplyOutcome, Reservation, ReservationError, ReservationEv
 mod reservation_certificate;
 pub use reservation_certificate::{
     validate_create_purchase_intent, validate_create_reservation_certificate,
-    validate_create_reservation_terminal, CertificateError, FrontierEvent, InventoryFrontier,
+    validate_create_reservation_terminal, validate_transaction_reservation_binding,
+    CertificateError, FrontierEvent, InventoryFrontier,
     IntentError, PurchaseIntent, ReservationCertificate, ReservationTerminalEvidence,
     ReservationTerminalOutcome,
 };
@@ -271,17 +272,8 @@ fn validate_create_transaction(
             "Transaction reservation dependency is not a ReservationCertificate".into(),
         )))?;
 
-    if certificate.seller != transaction.seller
-        || certificate.intent.buyer != transaction.buyer
-        || certificate.listing_hash != transaction.listing_hash
-        || certificate.quantity != transaction.quantity
-        || certificate.intent.unit_price_cents
-            .checked_mul(transaction.quantity as u64)
-            != Some(transaction.total_price_cents)
-    {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Transaction terms do not exactly match its reservation certificate".into(),
-        ));
+    if let Err(reason) = validate_transaction_reservation_binding(transaction, &certificate) {
+        return Ok(ValidateCallbackResult::Invalid(reason));
     }
 
     if certificate_record.action().author() != &transaction.seller {
