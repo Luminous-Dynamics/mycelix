@@ -41,6 +41,24 @@ Both intervals use deterministic half-open semantics [start, end):
 
 The effectivity interval reuses the same interval semantics established by MOBILITY-COMMONS-026.
 
+## Configuration applicability containment
+
+MOBILITY-COMMONS-028 makes the temporal scope relationship explicit: the evidence effectivity interval must be fully contained within the referenced `TemporalConfigurationApplicability` interval for the exact same configuration revision and physical artifact.
+
+Under the half-open `[start, end)` semantics:
+
+- exact equality is accepted;
+- strict interior containment is accepted;
+- an effectivity ending exactly at the configuration end is accepted;
+- an effectivity beginning before configuration applicability is rejected;
+- an effectivity extending past configuration applicability is rejected;
+- a finite configuration interval cannot contain an open-ended evidence effectivity;
+- an open-ended configuration interval may contain a finite or open-ended evidence effectivity.
+
+This is a scope constraint, not an epistemic judgment. Event time may be before, inside, or after the effectivity interval. Event/effectivity overlap remains descriptive and is not used to establish validity.
+
+The implementation references the explicit temporal applicability witness rather than copying its interval into the evidence record. That avoids a second independently editable interval becoming an implicit or divergent source of truth.
+
 ## Critical non-inferences
 
 An effectivity interval does not imply:
@@ -60,7 +78,7 @@ This separation is intentional: digital-thread systems need temporal alignment a
 
 ## Historical preservation
 
-Ending an effectivity interval does not delete or invalidate the historical event. A later record does not erase an earlier record. Lifecycle supersession remains orthogonal to temporal effectivity.
+Ending an effectivity interval does not delete or invalidate the historical event. A later record does not erase an earlier record. Lifecycle supersession remains orthogonal to temporal effectivity. Configuration successors and replacement physical artifacts require new explicit temporal applicability witnesses; containment never creates inheritance.
 
 ## Qualification boundary
 

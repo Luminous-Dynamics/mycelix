@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::identity_lineage::{ApplicabilityInterval, IdentityKind, IdentityRef, LineageEdge, LineageRelation};
+use crate::identity_lineage::{ApplicabilityInterval, IdentityKind, IdentityRef, LineageEdge, LineageRelation, TemporalConfigurationApplicability};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -24,7 +24,10 @@ pub struct TemporalEvidenceApplicability {
     pub configuration: IdentityRef,
     pub artifact: IdentityRef,
     pub evidence_target: LineageEdge,
-    pub configuration_applicability: LineageEdge,
+    /// Explicit temporal witness for the exact configuration-to-artifact applicability.
+    /// The evidence effectivity interval must be contained by this witness; the
+    /// underlying lineage edge is never treated as timeless applicability.
+    pub configuration_applicability: TemporalConfigurationApplicability,
     pub event_interval: EvidenceEventInterval,
     pub effectivity_interval: ApplicabilityInterval,
 }
@@ -36,7 +39,8 @@ impl TemporalEvidenceApplicability {
         self.artifact.validate()?;
         self.evidence_target.validate()?;
         self.configuration_applicability.validate()?;
-        self.event_interval.validate()?;
+        self.event_interval.validate()?
+            .and_then(|_| self.validate_effectivity_containment())?;
         self.effectivity_interval.validate()?;
 
         if self.configuration.kind != IdentityKind::ConfigurationRevision {
@@ -61,14 +65,35 @@ impl TemporalEvidenceApplicability {
             return Err("evidence target must exactly bind the typed evidence event to the physical artifact".into());
         }
 
-        if self.configuration_applicability.relation != LineageRelation::AppliesTo
-            || self.configuration_applicability.source != self.configuration
-            || self.configuration_applicability.target != self.artifact
+        if self.configuration_applicability.configuration != self.configuration
+            || self.configuration_applicability.artifact != self.artifact
         {
-            return Err("configuration applicability must exactly bind the configuration revision to the physical artifact".into());
+            return Err("temporal configuration applicability must exactly bind the declared configuration and physical artifact".into());
         }
 
         Ok(())
+    }
+
+    /// Enforce scope containment without using event/effectivity overlap as a
+    /// validity rule. Half-open intervals mean equal bounded ends are allowed;
+    /// a finite configuration interval cannot contain an open-ended effectivity.
+    fn validate_effectivity_containment(&self) -> Result<(), String> {
+        let config = &self.configuration_applicability.interval;
+        let effectivity = &self.effectivity_interval;
+
+        if effectivity.start < config.start {
+            return Err("evidence effectivity starts before configuration applicability".into());
+        }
+
+        match (config.end, effectivity.end) {
+            (Some(config_end), Some(effectivity_end)) if effectivity_end > config_end => {
+                Err("evidence effectivity extends beyond configuration applicability".into())
+            }
+            (Some(_), None) => {
+                Err("open-ended evidence effectivity requires open-ended configuration applicability".into())
+            }
+            _ => Ok(()),
+        }
     }
 
     pub fn temporal_overlap(&self) -> bool {
@@ -110,7 +135,12 @@ mod tests {
                 source: evidence,
                 target: artifact.clone(),
             },
-            configuration_applicability: applies_to(&configuration, &artifact),
+            configuration_applicability: TemporalConfigurationApplicability {
+                configuration: configuration.clone(),
+                artifact: artifact.clone(),
+                applicability: applies_to(&configuration, &artifact),
+                interval: ApplicabilityInterval { start: 90, end: Some(300) },
+            },
             event_interval: EvidenceEventInterval { start: 100, end: Some(110) },
             effectivity_interval: ApplicabilityInterval { start: 120, end: Some(200) },
         }
@@ -169,7 +199,7 @@ mod tests {
     #[test]
     fn evidence_does_not_inherit_to_a_successor_configuration() {
         let mut value = evidence_case();
-        value.configuration_applicability.source = id(IdentityKind::ConfigurationRevision, "cfg-2");
+        value.configuration_applicability.applicability.source = id(IdentityKind::ConfigurationRevision, "cfg-2");
         assert!(value.validate().is_err());
     }
 
@@ -186,6 +216,80 @@ mod tests {
         value.effectivity_interval = ApplicabilityInterval { start: 1_000, end: Some(2_000) };
         assert!(value.validate().is_ok());
         assert_eq!(value.event_interval.start, 100);
+    }
+
+    #[test]
+    fn effectivity_exactly_matches_configuration_interval() {
+        let mut value = evidence_case();
+        value.effectivity_interval = ApplicabilityInterval { start: 90, end: Some(300) };
+        assert!(value.validate().is_ok());
+    }
+
+    #[test]
+    fn effectivity_strictly_inside_configuration_interval_is_accepted() {
+        let mut value = evidence_case();
+        value.effectivity_interval = ApplicabilityInterval { start: 100, end: Some(299) };
+        assert!(value.validate().is_ok());
+    }
+
+    #[test]
+    fn effectivity_starting_at_configuration_end_is_rejected() {
+        let mut value = evidence_case();
+        value.effectivity_interval = ApplicabilityInterval { start: 300, end: Some(301) };
+        assert!(value.validate().is_err());
+    }
+
+    #[test]
+    fn effectivity_starting_before_configuration_is_rejected() {
+        let mut value = evidence_case();
+        value.effectivity_interval = ApplicabilityInterval { start: 89, end: Some(200) };
+        assert!(value.validate().is_err());
+    }
+
+    #[test]
+    fn effectivity_ending_at_configuration_end_is_accepted() {
+        let mut value = evidence_case();
+        value.effectivity_interval = ApplicabilityInterval { start: 150, end: Some(300) };
+        assert!(value.validate().is_ok());
+    }
+
+    #[test]
+    fn effectivity_extending_beyond_configuration_is_rejected() {
+        let mut value = evidence_case();
+        value.effectivity_interval = ApplicabilityInterval { start: 150, end: Some(301) };
+        assert!(value.validate().is_err());
+    }
+
+    #[test]
+    fn finite_configuration_cannot_contain_open_ended_effectivity() {
+        let mut value = evidence_case();
+        value.effectivity_interval = ApplicabilityInterval { start: 150, end: None };
+        assert!(value.validate().is_err());
+    }
+
+    #[test]
+    fn open_ended_configuration_can_contain_open_ended_effectivity() {
+        let mut value = evidence_case();
+        value.configuration_applicability.interval.end = None;
+        value.effectivity_interval = ApplicabilityInterval { start: 150, end: None };
+        assert!(value.validate().is_ok());
+    }
+
+    #[test]
+    fn event_time_can_be_outside_effectivity_without_bypassing_containment() {
+        let mut value = evidence_case();
+        value.event_interval = EvidenceEventInterval { start: 10, end: Some(20) };
+        value.effectivity_interval = ApplicabilityInterval { start: 150, end: Some(200) };
+        assert!(value.validate().is_ok());
+    }
+
+    #[test]
+    fn temporal_applicability_witness_mismatch_is_rejected() {
+        let mut value = evidence_case();
+        value.configuration_applicability.interval.start = 100;
+        value.configuration_applicability.interval.end = Some(200);
+        value.effectivity_interval = ApplicabilityInterval { start: 150, end: Some(250) };
+        assert!(value.validate().is_err());
     }
 
     #[test]
