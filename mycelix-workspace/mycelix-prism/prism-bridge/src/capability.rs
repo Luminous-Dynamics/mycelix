@@ -124,6 +124,63 @@ pub struct CapabilityRequest {
     pub resource: Option<CapabilityResource>,
 }
 
+/// Transport-assigned identity for a live renderer IPC peer.
+///
+/// The transport layer must authenticate this identity before it reaches the
+/// broker. A renderer cannot choose or replace it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct RendererPeerId(pub u64);
+
+impl RendererPeerId {
+    pub fn new(value: u64) -> Result<Self, CapabilityError> {
+        if value == 0 { Err(CapabilityError::InvalidPeerId) } else { Ok(Self(value)) }
+    }
+}
+
+/// Broker-assigned session identity. It is deliberately separate from the
+/// renderer process identity: process identity describes the browser's
+/// security principal, while session identity describes one authenticated IPC
+/// attachment to that principal.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct RendererSessionId(pub u128);
+
+impl RendererSessionId {
+    pub fn new(value: u128) -> Result<Self, CapabilityError> {
+        if value == 0 { Err(CapabilityError::InvalidSessionId) } else { Ok(Self(value)) }
+    }
+}
+
+/// Authenticated renderer session state. This is a deterministic protocol
+/// contract, not an implementation of OS/IPC authentication. The constructor
+/// is intended to be called only by the broker after the transport has
+/// authenticated the live peer and the browser has supplied the generation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AuthenticatedRendererSession {
+    pub session_id: RendererSessionId,
+    pub peer_id: RendererPeerId,
+    pub renderer_process: crate::identity::RendererProcessId,
+    pub generation: u64,
+    sequence: RequestSequence,
+    active: bool,
+}
+
+impl AuthenticatedRendererSession {
+    pub fn establish(session_id: RendererSessionId, peer_id: RendererPeerId, renderer_process: crate::identity::RendererProcessId, generation: u64) -> Self {
+        Self { session_id, peer_id, renderer_process, generation, sequence: RequestSequence::default(), active: true }
+    }
+
+    pub fn accept_request(&mut self, peer_id: RendererPeerId, generation: u64, request_id: RequestId) -> Result<(), CapabilityError> {
+        if !self.active { return Err(CapabilityError::SessionClosed); }
+        if self.peer_id != peer_id { return Err(CapabilityError::PeerMismatch); }
+        if self.generation != generation { return Err(CapabilityError::GenerationMismatch); }
+        self.sequence.check_and_record(request_id)
+    }
+
+    pub fn close(&mut self) { self.active = false; }
+    pub fn is_active(&self) -> bool { self.active }
+    pub fn last_request(&self) -> Option<RequestId> { self.sequence.last() }
+}
+
 /// Explicit response. Denial is a normal protocol result, never an error path
 /// that can accidentally become an implicit allow.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -157,6 +214,11 @@ pub enum CapabilityError {
     InvalidRequestId,
     InvalidOrigin,
     InvalidResource,
+    InvalidPeerId,
+    InvalidSessionId,
+    SessionClosed,
+    PeerMismatch,
+    GenerationMismatch,
     RequestIdReplay { previous: RequestId, received: RequestId },
 }
 
