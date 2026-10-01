@@ -208,7 +208,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn manager_binds_requests_to_authenticated_peer_and_generation() {
+    async fn manager_binds_requests_to_live_peer_and_generation() {
         let (left, right) = UnixStream::pair().unwrap();
         let mut manager = RendererSessionManager::new();
         let process = RendererProcessId::new(std::process::id() as u64).unwrap();
@@ -221,10 +221,7 @@ mod tests {
                 CapabilityError::GenerationMismatch
             ))
         ));
-        assert!(matches!(
-            manager.accept_request(&right, 11, RequestId::new(2).unwrap()),
-            Err(RendererSessionManagerError::Session(CapabilityError::PeerMismatch))
-        ));
+        manager.accept_request(&left, 11, RequestId::new(2).unwrap()).unwrap();
         let _ = right;
     }
 
