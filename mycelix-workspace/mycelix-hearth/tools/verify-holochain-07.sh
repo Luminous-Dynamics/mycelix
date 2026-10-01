@@ -30,10 +30,21 @@ forbidden() {
 }
 
 # The production Hearth workspace must declare the 0.7 compatibility family.
-require_exact "$workspace" 'hdk = "0.7.0"'
-require_exact "$workspace" 'hdi = "0.8.0"'
-require_exact "$workspace" 'holochain_integrity_types = "0.7.0"'
-require_exact "$workspace" 'holochain_serialized_bytes = "0.0.57"'
+require_version_family() {
+  local file="$1"
+  local name="$2"
+  local version="$3"
+  # Accept exact pins such as =0.7.0 as well as compatible string declarations.
+  # The guard is about the required release family, not TOML formatting.
+  if ! grep -Eq -- "^${name}[[:space:]]*=[[:space:]]*(\"?=?${version}\"?|\{[^}]*version[[:space:]]*=[[:space:]]*\"=?${version}\")" "$file"; then
+    fail "$file does not declare ${name} in the required ${version} family"
+  fi
+}
+
+require_version_family "$workspace" "hdk" "0\.7\.0"
+require_version_family "$workspace" "hdi" "0\.8\.0"
+require_version_family "$workspace" "holochain_integrity_types" "0\.7\.0"
+require_version_family "$workspace" "holochain_serialized_bytes" "0\.0\.57"
 
 # The dedicated Sweettest workspace is itself part of qualification and must not
 # silently exercise the old 0.6 runtime/API.
