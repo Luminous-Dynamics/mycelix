@@ -294,7 +294,7 @@ impl QualifiedProjectionV1 {
         self.structurally_valid()
             && self.semantic_environment_commitment == environment.commitment()
             && self.derivation_profile_commitment == derivation_profile.commitment()
-            // When the semantic environment names the authoritative dependency
+            // When the supplied semantic environment declares a dependency
             // snapshot, the projection cannot substitute a different snapshot
             // merely by recomputing its own projection commitment. The snapshot
             // remains opaque here, but its identity is no longer disconnected
@@ -951,7 +951,7 @@ mod tests {
     }
 
     #[test]
-    fn source_snapshot_must_match_authoritative_environment_root() {
+    fn source_snapshot_must_match_declared_environment_root() {
         let mut projection = projection();
         let environment = env();
         let profile = profile();
