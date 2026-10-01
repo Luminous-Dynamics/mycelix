@@ -206,7 +206,7 @@ impl V2InboxQualificationV1 {
         &self,
     ) -> Result<(V2InboxCompletenessV1, Vec<QualifiedV2MessageV1>), ChatProjectionError> {
         self.validate()?;
-        Err(ChatProjectionError::IncompleteCandidateEnumeration)
+        Err(ChatProjectionError::CompletenessWitnessRequired)
     }
 
     pub fn candidate_count(&self) -> usize {
@@ -278,7 +278,7 @@ mod tests {
         assert_eq!(q.valid_candidate_count(), 1);
         assert_eq!(
             q.into_projection_inputs(),
-            Err(ChatProjectionError::IncompleteCandidateEnumeration)
+            Err(ChatProjectionError::CompletenessWitnessRequired)
         );
     }
 
@@ -315,7 +315,7 @@ mod tests {
         assert_eq!(q.valid_candidate_count(), 0);
         assert_eq!(
             q.into_projection_inputs(),
-            Err(ChatProjectionError::IncompleteCandidateEnumeration)
+            Err(ChatProjectionError::CompletenessWitnessRequired)
         );
     }
 
