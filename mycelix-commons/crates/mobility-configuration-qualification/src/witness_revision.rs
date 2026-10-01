@@ -9,6 +9,7 @@ use crate::temporal_reconciliation_witness::TemporalReconciliationWitness;
 pub fn validate_transition(
     previous: &TemporalReconciliationWitness,
     current: &TemporalReconciliationWitness,
+    supersession: Option<&LineageEdge>,
 ) -> Result<(), String> {
     previous.validate()?;
     current.validate()?;
@@ -29,13 +30,25 @@ pub fn validate_transition(
         );
     }
 
-    LineageEdge {
-        relation: LineageRelation::Supersedes,
-        source: current.witness_identity.clone(),
-        target: previous.witness_identity.clone(),
+    let supersession = supersession.ok_or_else(|| {
+        "changed witness identity requires explicit Supersedes lineage".to_string()
+    })?;
+
+    supersession
+        .validate()
+        .map_err(|e| format!("invalid witness supersession lineage: {e}"))?;
+
+    if supersession.relation != LineageRelation::Supersedes
+        || supersession.source != current.witness_identity
+        || supersession.target != previous.witness_identity
+    {
+        return Err(
+            "witness supersession must point from the successor identity to the predecessor identity"
+                .into(),
+        );
     }
-    .validate()
-    .map_err(|e| format!("witness revision requires explicit supersession lineage: {e}"))
+
+    Ok(())
 }
 
 /// Validate that a projection remains bound to the exact historical witness
@@ -99,7 +112,7 @@ mod tests {
     #[test]
     fn identical_payload_with_same_identity_is_not_a_revision() {
         let a = witness("w1");
-        assert!(validate_transition(&a, &a).is_ok());
+        assert!(validate_transition(&a, &a, None).is_ok());
     }
 
     #[test]
@@ -107,7 +120,7 @@ mod tests {
         let previous = witness("w1");
         let mut current = previous.clone();
         current.right_claim = id(IdentityKind::EvidenceRecord, "claim-c");
-        assert!(validate_transition(&previous, &current).is_err());
+        assert!(validate_transition(&previous, &current, None).is_err());
     }
 
     #[test]
@@ -123,7 +136,7 @@ mod tests {
             current.explicitly_superseded,
             current.disputed,
         ).unwrap();
-        assert!(validate_transition(&previous, &current).is_err());
+        assert!(validate_transition(&previous, &current, None).is_err());
     }
 
     #[test]
@@ -139,7 +152,7 @@ mod tests {
             current.explicitly_superseded,
             current.disputed,
         ).unwrap();
-        assert!(validate_transition(&previous, &current).is_err());
+        assert!(validate_transition(&previous, &current, None).is_err());
     }
 
     #[test]
@@ -156,7 +169,25 @@ mod tests {
             current.explicitly_superseded,
             current.disputed,
         ).unwrap();
-        assert!(validate_transition(&previous, &current).is_ok());
+        let lineage = LineageEdge {
+            relation: LineageRelation::Supersedes,
+            source: current.witness_identity.clone(),
+            target: previous.witness_identity.clone(),
+        };
+        assert!(validate_transition(&previous, &current, Some(&lineage)).is_ok());
+    }
+
+    #[test]
+    #[test]
+    fn mismatched_supersession_lineage_is_rejected() {
+        let previous = witness("w1");
+        let current = witness("w2");
+        let wrong = LineageEdge {
+            relation: LineageRelation::Supersedes,
+            source: previous.witness_identity.clone(),
+            target: current.witness_identity.clone(),
+        };
+        assert!(validate_transition(&previous, &current, Some(&wrong)).is_err());
     }
 
     #[test]
@@ -182,7 +213,12 @@ mod tests {
         ).unwrap();
 
         assert!(previous.validate().is_ok());
-        assert!(validate_transition(&previous, &successor).is_ok());
+        let lineage = LineageEdge {
+            relation: LineageRelation::Supersedes,
+            source: successor.witness_identity.clone(),
+            target: previous.witness_identity.clone(),
+        };
+        assert!(validate_transition(&previous, &successor, Some(&lineage)).is_ok());
         assert!(previous.validate().is_ok());
     }
 }
