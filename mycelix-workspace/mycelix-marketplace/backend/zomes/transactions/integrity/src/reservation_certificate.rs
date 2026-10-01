@@ -462,14 +462,24 @@ mod tests {
     }
 
     fn certificate(id: &str, sequence: u64, previous: Option<&str>, quantity: u32) -> ReservationCertificate {
+        certificate_with_capacity(id, sequence, previous, quantity, 2)
+    }
+
+    fn certificate_with_capacity(
+        id: &str,
+        sequence: u64,
+        previous: Option<&str>,
+        quantity: u32,
+        capacity: u32,
+    ) -> ReservationCertificate {
         let intent = PurchaseIntent { quantity, ..intent() };
         ReservationCertificate {
             certificate_id: id.into(), seller: agent(2), listing_hash: hash(3),
             listing_revision: hash(4), intent_hash: hash(5), quantity, sequence,
             previous_certificate_id: previous.map(str::to_owned),
             previous_frontier_action: previous.map(|_| hash(6)),
-            pre_state: ReservationFrontierState::from_capacity(2),
-            post_state: ReservationFrontierState::from_capacity(2).after_reserve(quantity).unwrap(),
+            pre_state: ReservationFrontierState::from_capacity(capacity),
+            post_state: ReservationFrontierState::from_capacity(capacity).after_reserve(quantity).unwrap(),
             intent,
         }
     }
@@ -481,9 +491,9 @@ mod tests {
     #[test]
     fn seller_frontier_serializes_two_competing_reservations() {
         let mut f = frontier(1);
-        assert_eq!(f.apply(FrontierEvent::Reserve(certificate("c1", 0, None, 1))), Ok(ApplyOutcome::Applied));
+        assert_eq!(f.apply(FrontierEvent::Reserve(certificate_with_capacity("c1", 0, None, 1, 1))), Ok(ApplyOutcome::Applied));
         assert!(matches!(
-            f.apply(FrontierEvent::Reserve(certificate("c2", 1, Some("c1"), 1))),
+            f.apply(FrontierEvent::Reserve(certificate_with_capacity("c2", 1, Some("c1"), 1, 1))),
             Err(CertificateError::Capacity(ReservationError::InsufficientCapacity { .. }))
         ));
         assert_eq!(f.active_reserved(), 1);
@@ -539,14 +549,14 @@ mod tests {
     #[test]
     fn release_returns_capacity_then_next_reservation_can_admit() {
         let mut f = frontier(1);
-        f.apply(FrontierEvent::Reserve(certificate("c1", 0, None, 1))).unwrap();
+        f.apply(FrontierEvent::Reserve(certificate_with_capacity("c1", 0, None, 1, 1))).unwrap();
         f.apply(FrontierEvent::Release {
             certificate_id: "c1".into(), seller: agent(2), sequence: 1,
             previous_certificate_id: Some("c1".into()),
         }).unwrap();
         assert_eq!(f.available(), 1);
         assert_eq!(
-            f.apply(FrontierEvent::Reserve(certificate("c2", 2, Some("c1:release"), 1))),
+            f.apply(FrontierEvent::Reserve(certificate_with_capacity("c2", 2, Some("c1:release"), 1, 1))),
             Ok(ApplyOutcome::Applied)
         );
     }
@@ -638,7 +648,7 @@ mod tests {
     #[test]
     fn consume_permanently_removes_capacity() {
         let mut f = frontier(1);
-        f.apply(FrontierEvent::Reserve(certificate("c1", 0, None, 1))).unwrap();
+        f.apply(FrontierEvent::Reserve(certificate_with_capacity("c1", 0, None, 1, 1))).unwrap();
         f.apply(FrontierEvent::Consume {
             certificate_id: "c1".into(), seller: agent(2), sequence: 1,
             previous_certificate_id: Some("c1".into()),
@@ -675,7 +685,7 @@ mod tests {
     #[test]
     fn terminal_conflict_cannot_cross_release_and_consume() {
         let mut f = frontier(1);
-        f.apply(FrontierEvent::Reserve(certificate("c1", 0, None, 1))).unwrap();
+        f.apply(FrontierEvent::Reserve(certificate_with_capacity("c1", 0, None, 1, 1))).unwrap();
         f.apply(FrontierEvent::Release {
             certificate_id: "c1".into(), seller: agent(2), sequence: 1,
             previous_certificate_id: Some("c1".into()),
