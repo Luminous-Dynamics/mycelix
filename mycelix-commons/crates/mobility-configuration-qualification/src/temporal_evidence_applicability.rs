@@ -69,6 +69,7 @@ mod tests {
     #[test] fn event_and_effectivity_can_be_disjoint(){ let v=evidence_case(); assert!(v.validate().is_ok()); assert!(!v.temporal_overlap()); }
     #[test] fn exact_effectivity_equality_is_accepted(){ let mut v=evidence_case(); v.effectivity_interval=v.configuration_applicability_interval; assert!(v.validate().is_ok()); }
     #[test] fn effectivity_inside_configuration_is_accepted(){ assert!(evidence_case().validate().is_ok()); }
+    #[test] fn effectivity_touching_configuration_end_is_rejected(){ let mut v=evidence_case(); v.effectivity_interval=ApplicabilityInterval{start:300,end:Some(301)}; assert!(v.validate().is_err()); }
     #[test] fn effectivity_past_configuration_end_is_rejected(){ let mut v=evidence_case(); v.effectivity_interval.end=Some(301); assert!(v.validate().is_err()); }
     #[test] fn effectivity_before_configuration_start_is_rejected(){ let mut v=evidence_case(); v.effectivity_interval.start=49; assert!(v.validate().is_err()); }
     #[test] fn open_configuration_can_contain_open_effectivity(){ let mut v=evidence_case(); v.configuration_applicability_interval.end=None; v.effectivity_interval.end=None; assert!(v.validate().is_ok()); }
