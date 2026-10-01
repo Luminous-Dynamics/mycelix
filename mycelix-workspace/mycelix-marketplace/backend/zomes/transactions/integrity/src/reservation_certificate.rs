@@ -1154,6 +1154,117 @@ pub fn validate_create_reservation_certificate(
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Validate seller-authored capacity revision evidence and bind it to the exact
+/// listing revision and preceding frontier state.
+pub fn validate_create_reservation_capacity(
+    evidence: &ReservationCapacityEvidence,
+    action: &Create,
+) -> ExternResult<ValidateCallbackResult> {
+    if action.author != evidence.seller {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reservation capacity evidence must be authored by the seller".into(),
+        ));
+    }
+    if evidence.sequence == 0 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reservation capacity evidence cannot be a genesis event".into(),
+        ));
+    }
+    if let Err(error) = evidence.validate_state_transition() {
+        return Ok(ValidateCallbackResult::Invalid(error.into()));
+    }
+
+    let listing_action = must_get_action(evidence.listing_hash.clone())?;
+    if listing_action.author() != &evidence.seller {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reservation capacity listing is not seller-authored".into(),
+        ));
+    }
+    let revision_action = must_get_action(evidence.listing_revision.clone())?;
+    if revision_action.author() != &evidence.seller {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reservation capacity listing revision is not seller-authored".into(),
+        ));
+    }
+    match revision_action.action() {
+        Action::Create(_) if evidence.listing_revision == evidence.listing_hash => {}
+        Action::Update(update) if update.original_action_address == evidence.listing_hash => {}
+        _ => return Ok(ValidateCallbackResult::Invalid(
+            "Reservation capacity evidence is not bound to a valid listing revision".into(),
+        )),
+    }
+
+    let previous = must_get_valid_record(evidence.previous_frontier_action.clone()).map_err(|_| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Reservation capacity evidence references a missing frontier predecessor".into(),
+        ))
+    })?;
+    if previous.action().author() != &evidence.seller {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reservation capacity predecessor is not seller-authored".into(),
+        ));
+    }
+
+    let predecessor_state = if let Some(certificate) = previous
+        .entry().to_app_option::<ReservationCertificate>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Invalid reservation certificate: {e:?}"))))? {
+        if certificate.seller != evidence.seller
+            || certificate.listing_hash != evidence.listing_hash
+            || certificate.listing_revision != evidence.listing_revision
+            || certificate.sequence.checked_add(1) != Some(evidence.sequence)
+        {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Reservation capacity predecessor does not match the frontier domain or sequence".into(),
+            ));
+        }
+        certificate.post_state
+    } else if let Some(terminal) = previous
+        .entry().to_app_option::<ReservationTerminalEvidence>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Invalid terminal evidence: {e:?}"))))? {
+        let certificate_record = must_get_valid_record(terminal.certificate_hash.clone()).map_err(|_| {
+            wasm_error!(WasmErrorInner::Guest("Terminal evidence references a missing certificate".into()))
+        })?;
+        let certificate = certificate_record.entry().to_app_option::<ReservationCertificate>()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Invalid terminal certificate: {e:?}"))))?
+            .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Terminal predecessor has wrong certificate type".into())))?;
+        if certificate.seller != evidence.seller
+            || certificate.listing_hash != evidence.listing_hash
+            || certificate.listing_revision != evidence.listing_revision
+            || terminal.sequence.checked_add(1) != Some(evidence.sequence)
+        {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Reservation capacity terminal predecessor does not match the frontier domain or sequence".into(),
+            ));
+        }
+        terminal.post_state
+    } else if let Some(capacity) = previous
+        .entry().to_app_option::<ReservationCapacityEvidence>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Invalid capacity evidence: {e:?}"))))? {
+        if capacity.seller != evidence.seller
+            || capacity.listing_hash != evidence.listing_hash
+            || capacity.listing_revision != evidence.listing_revision
+            || capacity.sequence.checked_add(1) != Some(evidence.sequence)
+        {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Reservation capacity predecessor does not match the frontier domain or sequence".into(),
+            ));
+        }
+        capacity.post_state
+    } else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reservation capacity predecessor is not a recognized frontier event".into(),
+        ));
+    };
+
+    if predecessor_state != evidence.pre_state {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reservation capacity pre-state does not equal predecessor post-state".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
 /// Validate seller-authored terminal evidence and bind it to the exact
 /// reservation certificate and immediately preceding frontier action.
 pub fn validate_create_reservation_terminal(
