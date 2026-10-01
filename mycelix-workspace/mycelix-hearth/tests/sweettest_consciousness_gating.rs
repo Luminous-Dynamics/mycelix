@@ -139,7 +139,7 @@ fn hearth_dna_path() -> PathBuf {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_create_decision_blocked_without_consciousness_credential() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
     let (alice,) = conductor
         .setup_app("test-app", &[dna_file.clone()])
@@ -214,7 +214,7 @@ async fn test_create_decision_blocked_without_consciousness_credential() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_bridge_health_check_not_gated() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
     let (alice,) = conductor
         .setup_app("test-app", &[dna_file.clone()])
@@ -239,7 +239,7 @@ async fn test_bridge_health_check_not_gated() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_read_operations_not_gated() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
     let (alice,) = conductor
         .setup_app("test-app", &[dna_file.clone()])
@@ -303,7 +303,7 @@ pub struct ConsciousnessCredential {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_consensus_decision_also_blocked() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
     let (alice,) = conductor
         .setup_app("test-app", &[dna_file.clone()])
@@ -369,7 +369,7 @@ async fn test_consensus_decision_also_blocked() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_expired_credential_rejected() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
     let (alice,) = conductor
         .setup_app("test-app", &[dna_file.clone()])
@@ -431,7 +431,7 @@ async fn test_expired_credential_rejected() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_tier_rejection_message_is_specific() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
     let (alice,) = conductor
         .setup_app("test-app", &[dna_file.clone()])
@@ -504,7 +504,7 @@ async fn test_tier_rejection_message_is_specific() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_dimension_rejection_right_tier_wrong_identity() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
     let (alice,) = conductor
         .setup_app("test-app", &[dna_file.clone()])
@@ -594,7 +594,7 @@ async fn test_valid_credential_passes_gate() {
     // Since this requires the full identity bridge infrastructure,
     // it serves as the integration test target for end-to-end gating.
 
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
 
     // In a full setup, we'd install both hearth DNA and identity bridge DNA:
@@ -708,7 +708,7 @@ pub struct CreateAutonomyProfileInput {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_audit_event_created_on_gate() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
     let (alice,) = conductor
         .setup_app("test-app", &[dna_file.clone()])
@@ -791,7 +791,7 @@ async fn test_audit_event_created_on_gate() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_cache_returns_fresh_credential() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
     let (alice,) = conductor
         .setup_app("test-app", &[dna_file.clone()])
@@ -884,7 +884,7 @@ async fn test_cache_returns_fresh_credential() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_cross_zome_gate_hearth_to_bridge() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
     let (alice,) = conductor
         .setup_app("test-app", &[dna_file.clone()])
@@ -933,7 +933,7 @@ async fn test_cross_zome_gate_hearth_to_bridge() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_constitutional_action_requires_guardian() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
     let (alice,) = conductor
         .setup_app("test-app", &[dna_file.clone()])
