@@ -78,7 +78,7 @@ jobs:
         working-directory: mycelix-workspace/mycelix-hearth
         shell: bash
         run: |
-          nix develop .#ci --command bash -lc '
+          nix develop .#ci --locked --command bash -lc '
             holochain --version
             hc --version
             cargo --version
@@ -89,12 +89,12 @@ jobs:
         working-directory: mycelix-workspace/mycelix-hearth
         timeout-minutes: 60
         run: |
-          nix develop .#ci --command             cargo build --release --target wasm32-unknown-unknown --workspace
+          nix develop .#ci --locked --command             cargo build --locked --release --target wasm32-unknown-unknown --workspace
 
       - name: Pack Hearth DNA
         working-directory: mycelix-workspace/mycelix-hearth
         run: |
-          nix develop .#ci --command hc dna pack dna/
+          nix develop .#ci --locked --command hc dna pack dna/
           test -s dna/mycelix_hearth.dna
           sha256sum dna/mycelix_hearth.dna | tee -a "$GITHUB_WORKSPACE/hearth-07-qualification-evidence.txt"
           sha256sum flake.lock Cargo.lock tests/Cargo.lock tests/Cargo.toml sdk-ts/package-lock.json | tee -a "$GITHUB_WORKSPACE/hearth-07-qualification-evidence.txt"
@@ -103,7 +103,7 @@ jobs:
         working-directory: mycelix-workspace/mycelix-hearth/tests
         timeout-minutes: 45
         run: |
-          nix develop ../.#ci --command             cargo test --release -- --ignored --test-threads=1
+          nix develop ../.#ci --locked --command             cargo test --locked --release -- --ignored --test-threads=1
 
       - name: Seal post-test source tree
         shell: bash
