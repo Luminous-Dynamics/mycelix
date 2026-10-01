@@ -40,8 +40,11 @@ jobs:
       - name: Check D6S formatting
         run: cargo fmt --manifest-path mycelix-manufacturing/Cargo.toml --all -- --check
 
+      - name: Assert locked dependency graph
+        run: cargo metadata --manifest-path mycelix-manufacturing/Cargo.toml --locked --no-deps --format-version 1 > /dev/null
+
       - name: Run complete COS conformance corpus
-        run: cargo test --manifest-path mycelix-manufacturing/Cargo.toml -p cos_conformance
+        run: cargo test --manifest-path mycelix-manufacturing/Cargo.toml -p cos_conformance --locked
 
       - name: Run independent D6S-CANON-1 verifier
         run: python3 scripts/integral/verify_d6s_canon_1.py
