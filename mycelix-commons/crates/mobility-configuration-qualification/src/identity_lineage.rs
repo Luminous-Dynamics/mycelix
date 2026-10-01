@@ -139,6 +139,75 @@ impl LineageEdge {
     }
 }
 
+
+ 
+/// A deterministic half-open interval used to qualify when a configuration
+/// applicability assertion is in force. This is temporal scope, not proof of
+/// safety, conformance, certification, or measurement truth.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ApplicabilityInterval {
+    pub start: u64,
+    pub end: Option<u64>,
+}
+
+impl ApplicabilityInterval {
+    pub fn validate(&self) -> Result<(), String> {
+        if let Some(end) = self.end {
+            if end <= self.start {
+                return Err("applicability interval must satisfy start < end".into());
+            }
+        }
+        Ok(())
+    }
+
+    pub fn contains(&self, instant: u64) -> bool {
+        instant >= self.start && self.end.map(|end| instant < end).unwrap_or(true)
+    }
+
+    pub fn overlaps(&self, other: &Self) -> bool {
+        let left_end = self.end.unwrap_or(u64::MAX);
+        let right_end = other.end.unwrap_or(u64::MAX);
+        self.start < right_end && other.start < left_end
+    }
+}
+
+/// Explicitly time-scoped configuration applicability.
+///
+/// The underlying AppliesTo edge remains the identity/lineage assertion;
+/// this wrapper prevents consumers from silently treating that assertion as
+/// timeless.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TemporalConfigurationApplicability {
+    pub configuration: IdentityRef,
+    pub artifact: IdentityRef,
+    pub applicability: LineageEdge,
+    pub interval: ApplicabilityInterval,
+}
+
+impl TemporalConfigurationApplicability {
+    pub fn validate(&self) -> Result<(), String> {
+        self.configuration.validate()?;
+        self.artifact.validate()?;
+        self.interval.validate()?;
+        if self.configuration.kind != IdentityKind::ConfigurationRevision {
+            return Err("temporal applicability requires a configuration revision".into());
+        }
+        if self.artifact.kind != IdentityKind::PhysicalArtifact {
+            return Err("temporal applicability requires a physical artifact".into());
+        }
+        if self.applicability.relation != LineageRelation::AppliesTo
+            || self.applicability.source != self.configuration
+            || self.applicability.target != self.artifact
+        {
+            return Err("temporal applicability requires an exact configuration-to-artifact AppliesTo edge".into());
+        }
+        self.applicability.validate()?;
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
