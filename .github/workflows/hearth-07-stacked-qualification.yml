@@ -109,7 +109,7 @@ jobs:
         shell: bash
         run: |
           test -z "$(git status --short)"
-          printf '%s\\n' "git_status_clean=true" | tee -a "$GITHUB_WORKSPACE/hearth-07-qualification-evidence.txt"
+          printf '%s\n' "git_status_clean=true" | tee -a "$GITHUB_WORKSPACE/hearth-07-qualification-evidence.txt"
 
       - name: Publish immutable qualification evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
