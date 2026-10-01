@@ -11,7 +11,7 @@
 //! The renderer endpoint is broker-owned. The renderer never supplies its
 //! process identity, site, or navigation generation as authority.
 
-use crate::capability::{CapabilityRequest, RequestId};
+use crate::capability::{CapabilityRequest, RequestId, RendererSessionId};
 use crate::authority::{RendererSecurityController, RendererSecurityError};
 use crate::lifecycle::RendererBinding;
 use crate::session::CapabilityIngressError;
@@ -140,6 +140,7 @@ impl RendererIpcListener {
 pub struct RendererCapabilityConnection {
     stream: UnixStream,
     controller: Arc<Mutex<RendererSecurityController>>,
+    session_id: RendererSessionId,
 }
 
 impl RendererCapabilityConnection {
@@ -151,10 +152,11 @@ impl RendererCapabilityConnection {
             let mut guard = controller.lock().map_err(|_| RendererIpcError::SecurityController(
                 RendererSecurityError::NoActiveBinding,
             ))?;
-            guard.establish_renderer_session(&stream).map_err(RendererIpcError::SecurityController)?;
+            let session_id = guard
+                .establish_renderer_session(&stream)
+                .map_err(RendererIpcError::SecurityController)?;
+            return Ok(Self { stream, controller, session_id });
         }
-
-        Ok(Self { stream, controller })
     }
 
     pub fn authoritative(&self) -> Result<RendererBinding, RendererIpcError> {
@@ -194,7 +196,7 @@ impl RendererCapabilityConnection {
             .admit_envelope(
                 &self.stream,
                 authoritative.generation,
-                &authoritative,
+                self.session_id,
                 envelope.request_id,
                 &envelope.payload,
             )
