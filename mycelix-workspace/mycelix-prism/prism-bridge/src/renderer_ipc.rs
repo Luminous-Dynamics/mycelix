@@ -273,7 +273,7 @@ mod tests {
         let envelope = RendererIpcEnvelopeV1::new(RequestId::new(1).unwrap(), payload.clone()).unwrap();
         assert_eq!(envelope.version, RENDERER_IPC_VERSION);
         assert_eq!(envelope.payload, payload);
-        assert!(RendererIpcEnvelopeV1::new(vec![0; MAX_RENDERER_IPC_FRAME_SIZE + 1]).is_err());
+        assert!(RendererIpcEnvelopeV1::new(RequestId::new(1).unwrap(), vec![0; MAX_RENDERER_IPC_FRAME_SIZE + 1]).is_err());
     }
 
     #[tokio::test]
@@ -319,7 +319,7 @@ mod tests {
         let (mut writer, reader) = UnixStream::pair().unwrap();
         let process = RendererProcessId::new(std::process::id() as u64).unwrap();
         let request = request_payload(1);
-        let envelope = rmp_serde::to_vec(&RendererIpcEnvelopeV1::new(request).unwrap()).unwrap();
+        let envelope = rmp_serde::to_vec(&RendererIpcEnvelopeV1::new(RequestId::new(1).unwrap(), request).unwrap()).unwrap();
         writer
             .write_all(&(envelope.len() as u32).to_be_bytes())
             .await
