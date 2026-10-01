@@ -228,6 +228,11 @@ impl fmt::Display for CapabilityError {
             Self::InvalidRequestId => f.write_str("request id must be non-zero"),
             Self::InvalidOrigin => f.write_str("origin binding is invalid"),
             Self::InvalidResource => f.write_str("capability resource is invalid"),
+            Self::InvalidPeerId => f.write_str("peer id is invalid"),
+            Self::InvalidSessionId => f.write_str("session id is invalid"),
+            Self::SessionClosed => f.write_str("session is closed"),
+            Self::PeerMismatch => f.write_str("peer does not match session"),
+            Self::GenerationMismatch => f.write_str("generation does not match session"),
             Self::RequestIdReplay { previous, received } => {
                 write!(f, "request id replay/regression: previous={}, received={}", previous.0, received.0)
             }

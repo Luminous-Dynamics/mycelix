@@ -1,0 +1,305 @@
+//! Broker-owned renderer process identity and sandbox contract.
+//!
+//! This module does not claim to implement OS sandboxing. It defines the
+//! browser-side contract that a future process supervisor must satisfy before
+//! a renderer can receive capability authority.
+//!
+//! Security property:
+//! PID is never treated as a stable renderer identity. On Linux the process
+//! start-time value from /proc/<pid>/stat is retained with the assignment so
+//! PID reuse cannot inherit an old RendererProcessId.
+
+use crate::identity::RendererProcessId;
+use std::fmt;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct RendererProcessAssignmentId(pub u128);
+
+impl RendererProcessAssignmentId {
+    pub fn new(value: u128) -> Result<Self, ProcessContractError> {
+        if value == 0 {
+            return Err(ProcessContractError::InvalidAssignmentId);
+        }
+        Ok(Self(value))
+    }
+}
+
+/// Explicit sandbox policy. These are requirements, not proof that the OS
+/// sandbox has actually been installed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SandboxProfileV1 {
+    pub network: NetworkPolicy,
+    pub filesystem: FilesystemPolicy,
+    pub devices: DevicePolicy,
+    pub child_processes: ChildProcessPolicy,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NetworkPolicy {
+    BrokerOnly,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FilesystemPolicy {
+    NoAmbientAccess,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DevicePolicy {
+    None,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ChildProcessPolicy {
+    Deny,
+}
+
+impl SandboxProfileV1 {
+    pub const fn renderer_default() -> Self {
+        Self {
+            network: NetworkPolicy::BrokerOnly,
+            filesystem: FilesystemPolicy::NoAmbientAccess,
+            devices: DevicePolicy::None,
+            child_processes: ChildProcessPolicy::Deny,
+        }
+    }
+}
+
+/// Kernel-observed process identity. PID alone is deliberately insufficient.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ProcessIdentity {
+    pub pid: u32,
+    pub start_time_ticks: u64,
+}
+
+impl ProcessIdentity {
+    pub fn new(pid: u32, start_time_ticks: u64) -> Result<Self, ProcessContractError> {
+        if pid == 0 || start_time_ticks == 0 {
+            return Err(ProcessContractError::InvalidProcessIdentity);
+        }
+        Ok(Self { pid, start_time_ticks })
+    }
+}
+
+/// Non-secret launch receipt. It binds browser-assigned identity to an OS
+/// process observation, generation, and the sandbox policy that was required.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RendererLaunchReceipt {
+    pub assignment_id: RendererProcessAssignmentId,
+    pub renderer_process: RendererProcessId,
+    pub process: ProcessIdentity,
+    pub generation: u64,
+    pub sandbox: SandboxProfileV1,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProcessContractError {
+    InvalidAssignmentId,
+    InvalidProcessIdentity,
+    ProcessAlreadyAssigned,
+    NoActiveAssignment,
+    ProcessIdentityMismatch,
+    UnsupportedProcessObservation,
+    ProcessNotFound,
+}
+
+impl fmt::Display for ProcessContractError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidAssignmentId => f.write_str("renderer process assignment id must be non-zero"),
+            Self::InvalidProcessIdentity => f.write_str("renderer process identity is invalid"),
+            Self::ProcessAlreadyAssigned => f.write_str("a renderer process assignment is already active"),
+            Self::NoActiveAssignment => f.write_str("no renderer process assignment is active"),
+            Self::ProcessIdentityMismatch => f.write_str("observed process identity does not match assignment"),
+            Self::UnsupportedProcessObservation => f.write_str("this platform does not expose the required process identity observation"),
+            Self::ProcessNotFound => f.write_str("renderer process was not found"),
+        }
+    }
+}
+
+impl std::error::Error for ProcessContractError {}
+
+#[derive(Debug, Default)]
+pub struct RendererProcessController {
+    active: Option<RendererLaunchReceipt>,
+}
+
+impl RendererProcessController {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn active(&self) -> Option<&RendererLaunchReceipt> {
+        self.active.as_ref()
+    }
+
+    /// Register a process only after the browser has assigned its logical
+    /// RendererProcessId and observed the OS process identity.
+    pub fn register_launch(
+        &mut self,
+        renderer_process: RendererProcessId,
+        generation: u64,
+        process: ProcessIdentity,
+        sandbox: SandboxProfileV1,
+    ) -> Result<RendererLaunchReceipt, ProcessContractError> {
+        if self.active.is_some() {
+            return Err(ProcessContractError::ProcessAlreadyAssigned);
+        }
+
+        let assignment_id = RendererProcessAssignmentId::new(next_assignment_id())?;
+        let receipt = RendererLaunchReceipt {
+            assignment_id,
+            renderer_process,
+            process,
+            generation,
+            sandbox,
+        };
+        self.active = Some(receipt);
+        Ok(receipt)
+    }
+
+    /// Validate that a live OS observation still denotes the exact assigned
+    /// process. A PID match with a different start time is rejected.
+    pub fn validate_identity(
+        &self,
+        renderer_process: RendererProcessId,
+        observed: ProcessIdentity,
+    ) -> Result<(), ProcessContractError> {
+        let receipt = self.active.as_ref().ok_or(ProcessContractError::NoActiveAssignment)?;
+        if receipt.renderer_process != renderer_process || receipt.process != observed {
+            return Err(ProcessContractError::ProcessIdentityMismatch);
+        }
+        Ok(())
+    }
+
+    /// Explicitly retire the assignment. A replacement process must receive a
+    /// fresh RendererProcessId/generation/session binding.
+    pub fn retire(
+        &mut self,
+        renderer_process: RendererProcessId,
+        observed: ProcessIdentity,
+    ) -> Result<RendererLaunchReceipt, ProcessContractError> {
+        self.validate_identity(renderer_process, observed)?;
+        Ok(self.active.take().expect("validated active assignment"))
+    }
+
+    /// Check the currently assigned process against the host OS.
+    pub fn observe_current(&self) -> Result<(), ProcessContractError> {
+        let receipt = self.active.as_ref().ok_or(ProcessContractError::NoActiveAssignment)?;
+        let observed = observe_process_identity(receipt.process.pid)?;
+        self.validate_identity(receipt.renderer_process, observed)
+    }
+}
+
+fn next_assignment_id() -> u128 {
+    let mut bytes = [0u8; 16];
+    if getrandom::fill(&mut bytes).is_err() {
+        // A zero ID is rejected, so a failed RNG can never silently create a
+        // valid assignment. The caller will retry/fail closed.
+        return 0;
+    }
+    u128::from_be_bytes(bytes)
+}
+
+/// Linux process identity observation.
+///
+/// /proc/<pid>/stat field 22 is the process start time after system boot.
+/// It is retained because a PID can later be reused for a different process.
+pub fn observe_process_identity(pid: u32) -> Result<ProcessIdentity, ProcessContractError> {
+    #[cfg(target_os = "linux")]
+    {
+        let stat = std::fs::read_to_string(format!("/proc/{pid}/stat"))
+            .map_err(|_| ProcessContractError::ProcessNotFound)?;
+        let close = stat.rfind(')').ok_or(ProcessContractError::ProcessNotFound)?;
+        let fields = stat[close + 1..].split_whitespace().collect::<Vec<_>>();
+        let start_time = fields
+            .get(19)
+            .and_then(|value| value.parse::<u64>().ok())
+            .ok_or(ProcessContractError::ProcessNotFound)?;
+        return ProcessIdentity::new(pid, start_time);
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = pid;
+        Err(ProcessContractError::UnsupportedProcessObservation)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn renderer_sandbox_profile_is_explicit() {
+        let profile = SandboxProfileV1::renderer_default();
+        assert_eq!(profile.network, NetworkPolicy::BrokerOnly);
+        assert_eq!(profile.filesystem, FilesystemPolicy::NoAmbientAccess);
+        assert_eq!(profile.devices, DevicePolicy::None);
+        assert_eq!(profile.child_processes, ChildProcessPolicy::Deny);
+    }
+
+    #[test]
+    fn pid_alone_is_not_a_process_identity() {
+        let first = ProcessIdentity::new(42, 100).unwrap();
+        let reused = ProcessIdentity::new(42, 200).unwrap();
+        assert_ne!(first, reused);
+    }
+
+    #[test]
+    fn mismatched_start_time_cannot_validate() {
+        let mut controller = RendererProcessController::new();
+        let process = RendererProcessId::new(7).unwrap();
+        controller
+            .register_launch(
+                process,
+                1,
+                ProcessIdentity::new(42, 100).unwrap(),
+                SandboxProfileV1::renderer_default(),
+            )
+            .unwrap();
+
+        assert!(matches!(
+            controller.validate_identity(process, ProcessIdentity::new(42, 200).unwrap()),
+            Err(ProcessContractError::ProcessIdentityMismatch)
+        ));
+    }
+
+    #[test]
+    fn retirement_requires_exact_identity() {
+        let mut controller = RendererProcessController::new();
+        let process = RendererProcessId::new(7).unwrap();
+        let identity = ProcessIdentity::new(42, 100).unwrap();
+        controller
+            .register_launch(process, 1, identity, SandboxProfileV1::renderer_default())
+            .unwrap();
+
+        assert!(controller.retire(process, identity).is_ok());
+        assert!(controller.active().is_none());
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn observes_current_process_identity() {
+        let pid = std::process::id();
+        let identity = observe_process_identity(pid).unwrap();
+        assert_eq!(identity.pid, pid);
+        assert!(identity.start_time_ticks > 0);
+    }
+
+    #[test]
+    fn failed_assignment_generation_fails_closed() {
+        let mut controller = RendererProcessController::new();
+        let process = RendererProcessId::new(7).unwrap();
+        // A valid registration must never use an all-zero assignment ID.
+        let receipt = controller
+            .register_launch(
+                process,
+                1,
+                ProcessIdentity::new(42, 100).unwrap(),
+                SandboxProfileV1::renderer_default(),
+            )
+            .unwrap();
+        assert_ne!(receipt.assignment_id.0, 0);
+    }
+}
