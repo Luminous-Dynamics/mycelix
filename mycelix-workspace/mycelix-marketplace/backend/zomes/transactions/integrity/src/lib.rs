@@ -465,6 +465,7 @@ mod tests {
             buyer: mock_agent(1),
             seller: mock_agent(2),
             listing_hash: ActionHash::from_raw_36(vec![3u8; 36]),
+            reservation_certificate_hash: ActionHash::from_raw_36(vec![4u8; 36]),
             quantity: 1,
             total_price_cents: 1999,
             status: TransactionStatus::Pending,
