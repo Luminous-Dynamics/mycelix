@@ -97,7 +97,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn witness_identity_is_distinct_from_claim_identity() {
         let witness = conflict_witness();
         assert_eq!(witness.witness_identity.kind, IdentityKind::ReconciliationWitness);
