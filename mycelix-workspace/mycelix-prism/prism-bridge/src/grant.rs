@@ -9,14 +9,20 @@ use crate::capability::{
     Capability, CapabilityRequest, CapabilityResponse, DenialReason, OriginBinding,
 };
 use crate::identity::{AgentClusterId, RendererProcessId, SiteIdentity};
+use crate::resource::{ResourceIdentity, ResourceScopeV1};
 
 pub const MAX_ACTIVE_GRANTS: usize = 256;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ResourceScope {
     Any,
-    Exact(String),
-    Prefix(String),
+    /// Transitional compatibility scope. Never use this variant for new
+    /// privileged authority; it exists only while older broker callers are
+    /// migrated to typed resource identities.
+    LegacyPrefix(String),
+    /// Parsed/canonical broker-owned resource scope. Sensitive authorization
+    /// paths must use this variant rather than comparing renderer strings.
+    Typed(ResourceScopeV1),
 }
 
 impl ResourceScope {
@@ -24,7 +30,7 @@ impl ResourceScope {
         match self {
             Self::Any => true,
             Self::Exact(expected) => resource == Some(expected.as_str()),
-            Self::Prefix(prefix) => resource.is_some_and(|value| {
+            Self::LegacyPrefix(prefix) => resource.is_some_and(|value| {
                 let Some(suffix) = value.strip_prefix(prefix) else {
                     return false;
                 };
@@ -39,6 +45,19 @@ impl ResourceScope {
                     || suffix.starts_with('?')
                     || suffix.starts_with('#')
             }),
+            Self::Typed(scope) => resource
+                .and_then(|value| ResourceIdentity::parse_url(value).ok())
+                .is_some_and(|identity| scope.allows(&identity)),
+        }
+    }
+
+    /// Authorize an already-parsed broker-owned identity. Legacy string
+    /// scopes intentionally cannot authorize through this path.
+    pub fn allows_identity(&self, resource: Option<&ResourceIdentity>) -> bool {
+        match self {
+            Self::Any => true,
+            Self::LegacyPrefix(_) => false,
+            Self::Typed(scope) => resource.is_some_and(|identity| scope.allows(identity)),
         }
     }
 }
@@ -90,7 +109,14 @@ impl CapabilityGrant {
             return Err(DenialReason::CapabilityNotGranted);
         }
         let resource = request.resource.as_ref().map(|r| r.as_str());
-        if !self.resource_scope.allows(resource) {
+        if matches!(self.resource_scope, ResourceScope::Typed(_)) {
+            let Some(identity) = resource.and_then(|value| ResourceIdentity::parse_url(value).ok()) else {
+                return Err(DenialReason::ResourcePolicyDenied);
+            };
+            if !self.resource_scope.allows_identity(Some(&identity)) {
+                return Err(DenialReason::ResourcePolicyDenied);
+            }
+        } else if !self.resource_scope.allows(resource) {
             return Err(DenialReason::ResourcePolicyDenied);
         }
         Ok(())
@@ -216,7 +242,9 @@ mod tests {
             origin: origin.clone(),
             agent_cluster: cluster,
             capability: Capability::NetworkFetch,
-            resource_scope: ResourceScope::Prefix("https://cdn.example.com/".into()),
+            resource_scope: ResourceScope::Typed(
+                ResourceScopeV1::path_prefix("https://cdn.example.com", "/").unwrap(),
+            ),
             issued_at_ms: 100,
             expires_at_ms: 200,
         };
@@ -274,7 +302,7 @@ mod tests {
 
     #[test]
     fn prefix_scope_respects_url_authority_and_path_boundaries() {
-        let scope = ResourceScope::Prefix("https://cdn.example.com".into());
+        let scope = ResourceScope::LegacyPrefix("https://cdn.example.com".into());
         assert!(scope.allows(Some("https://cdn.example.com")));
         assert!(scope.allows(Some("https://cdn.example.com/app.js")));
         assert!(scope.allows(Some("https://cdn.example.com?version=1")));
@@ -283,7 +311,7 @@ mod tests {
         assert!(!scope.allows(Some("https://cdn.example.com.evil")));
         assert!(!scope.allows(Some("http://cdn.example.com/app.js")));
 
-        let subtree = ResourceScope::Prefix("https://cdn.example.com/assets/".into());
+        let subtree = ResourceScope::LegacyPrefix("https://cdn.example.com/assets/".into());
         assert!(subtree.allows(Some("https://cdn.example.com/assets/app.js")));
         assert!(subtree.allows(Some("https://cdn.example.com/assets/../private")));
     }
@@ -291,9 +319,48 @@ mod tests {
     #[test]
     fn resource_scope_is_enforced() {
         let (process, site, origin, cluster, request, mut grant) = fixture();
-        grant.resource_scope = ResourceScope::Exact("https://cdn.example.com/other.js".into());
+        grant.resource_scope = ResourceScope::Typed(
+            ResourceScopeV1::exact_url("https://cdn.example.com/other.js").unwrap(),
+        );
         assert_eq!(
             grant.authorizes(process, &site, &origin, cluster, &request, 150),
+            Err(DenialReason::ResourcePolicyDenied)
+        );
+    }
+
+    #[test]
+    fn typed_resource_scope_rejects_malformed_renderer_resource() {
+        let (process, site, origin, cluster, mut request, mut grant) = fixture();
+        grant.resource_scope = ResourceScope::Typed(
+            ResourceScopeV1::origin("https://cdn.example.com").unwrap(),
+        );
+        request.resource = Some(CapabilityResource::new(
+            "https://cdn.example.com.attacker.invalid/a.js",
+        ).unwrap());
+        assert_eq!(
+            grant.authorizes(process, &site, &origin, cluster, &request, 150),
+            Err(DenialReason::ResourcePolicyDenied)
+        );
+
+        request.resource = Some(CapabilityResource::new(
+            "https://cdn.example.com/assets/../private.js",
+        ).unwrap());
+        assert!(grant
+            .authorizes(process, &site, &origin, cluster, &request, 150)
+            .is_ok());
+    }
+
+    #[test]
+    fn typed_scope_cannot_be_bypassed_by_legacy_prefix_semantics() {
+        let (process, site, origin, cluster, request, mut grant) = fixture();
+        grant.resource_scope =
+            ResourceScope::Typed(ResourceScopeV1::host("https://cdn.example.com").unwrap());
+        let mut forged = request.clone();
+        forged.resource = Some(
+            CapabilityResource::new("https://cdn.example.com.attacker.invalid/a.js").unwrap(),
+        );
+        assert_eq!(
+            grant.authorizes(process, &site, &origin, cluster, &forged, 150),
             Err(DenialReason::ResourcePolicyDenied)
         );
     }
