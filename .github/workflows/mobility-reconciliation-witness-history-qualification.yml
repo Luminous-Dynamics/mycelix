@@ -1,0 +1,98 @@
+name: mobility-reconciliation-witness-history-qualification
+
+on:
+  pull_request:
+    paths:
+      - "docs/mobility/MOBILITY_RECONCILIATION_WITNESS_HISTORY_V1_EXECUTABLE.json"
+      - "docs/mobility/MOBILITY_RECONCILIATION_WITNESS_HISTORY_V1.md"
+      - "mycelix-commons/crates/mobility-configuration-qualification/**"
+      - "tools/mobility_reconciliation_witness_history_reference.py"
+      - "tools/compare_mobility_reconciliation_witness_history.py"
+      - ".github/workflows/mobility-reconciliation-witness-history-qualification.yml"
+  push:
+    branches: [main]
+    paths:
+      - "docs/mobility/MOBILITY_RECONCILIATION_WITNESS_HISTORY_V1_EXECUTABLE.json"
+      - "mycelix-commons/crates/mobility-configuration-qualification/**"
+      - "tools/mobility_reconciliation_witness_history_reference.py"
+      - "tools/compare_mobility_reconciliation_witness_history.py"
+      - ".github/workflows/mobility-reconciliation-witness-history-qualification.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo fmt --all -- --check
+      - run: cargo test -p mobility-configuration-qualification
+      - run: cargo run --quiet --manifest-path mycelix-commons/crates/mobility-configuration-qualification/Cargo.toml --bin mobility-witness-history-qualification -- docs/mobility/MOBILITY_RECONCILIATION_WITNESS_HISTORY_V1_EXECUTABLE.json > /tmp/rust.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mobility-witness-history-rust-normalized
+          path: /tmp/rust.json
+          if-no-files-found: error
+
+  reference:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - run: python3 tools/mobility_reconciliation_witness_history_reference.py > /tmp/python.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mobility-witness-history-python-normalized
+          path: /tmp/python.json
+          if-no-files-found: error
+
+  differential:
+    runs-on: ubuntu-latest
+    needs: [rust, reference]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: mobility-witness-history-rust-normalized
+          path: /tmp/rust
+      - uses: actions/download-artifact@v4
+        with:
+          name: mobility-witness-history-python-normalized
+          path: /tmp/python
+      - run: python3 tools/compare_mobility_reconciliation_witness_history.py /tmp/rust/rust.json /tmp/python/python.json
+      - name: Normalized-output corruption probe
+        run: |
+          python3 -c 'import json; p="/tmp/python/python.json"; d=json.load(open(p)); d["cases"][1]["actual"]="rejected"; json.dump(d,open("/tmp/corrupted.json","w"))'
+          if python3 tools/compare_mobility_reconciliation_witness_history.py /tmp/rust/rust.json /tmp/corrupted.json; then exit 1; fi
+
+  corpus-corruption:
+    runs-on: ubuntu-latest
+    needs: [rust, reference]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Retarget historical projection and require rejection
+        run: |
+          python3 -c 'import json; p="docs/mobility/MOBILITY_RECONCILIATION_WITNESS_HISTORY_V1_EXECUTABLE.json"; d=json.load(open(p)); d["cases"][1]["predecessor_projection_ref"]=d["cases"][1]["current"]["witness_identity"]; json.dump(d,open("/tmp/corrupted.json","w"))'
+          if python3 tools/mobility_reconciliation_witness_history_reference.py /tmp/corrupted.json >/tmp/py.out 2>&1; then exit 1; fi
+          if cargo run --quiet --manifest-path mycelix-commons/crates/mobility-configuration-qualification/Cargo.toml --bin mobility-witness-history-qualification -- /tmp/corrupted.json >/tmp/rs.out 2>&1; then exit 1; fi
+          echo "Both evaluators rejected historical projection retargeting"
+      - name: Reverse supersession and require rejection
+        run: |
+          python3 -c 'import json; p="docs/mobility/MOBILITY_RECONCILIATION_WITNESS_HISTORY_V1_EXECUTABLE.json"; d=json.load(open(p)); e=d["cases"][1]["supersession"]; e["source"],e["target"]=e["target"],e["source"]; json.dump(d,open("/tmp/reversed.json","w"))'
+          if python3 tools/mobility_reconciliation_witness_history_reference.py /tmp/reversed.json >/tmp/py.out 2>&1; then exit 1; fi
+          if cargo run --quiet --manifest-path mycelix-commons/crates/mobility-configuration-qualification/Cargo.toml --bin mobility-witness-history-qualification -- /tmp/reversed.json >/tmp/rs.out 2>&1; then exit 1; fi
+          echo "Both evaluators rejected reversed supersession"
+      - name: Corrupt explicit three-generation lineage and require rejection
+        run: |
+          python3 -c 'import json; p="docs/mobility/MOBILITY_RECONCILIATION_WITNESS_HISTORY_V1_EXECUTABLE.json"; d=json.load(open(p)); e=d["chain_supersessions"][1]; e["source"],e["target"]=e["target"],e["source"]; json.dump(d,open("/tmp/chain-corrupted.json","w"))'
+          if python3 tools/mobility_reconciliation_witness_history_reference.py /tmp/chain-corrupted.json >/tmp/py.out 2>&1; then exit 1; fi
+          if cargo run --quiet --manifest-path mycelix-commons/crates/mobility-configuration-qualification/Cargo.toml --bin mobility-witness-history-qualification -- /tmp/chain-corrupted.json >/tmp/rs.out 2>&1; then exit 1; fi
+          echo "Both evaluators rejected corrupted explicit chain lineage"
