@@ -4,7 +4,7 @@ from pathlib import Path
 
 SCHEMA = "mobility-reconciliation-target-bound-projection-executable-v1"
 VERSION = "mobility-reconciliation-target-bound-projection-v1"
-IDS = [f"TBP-{i:03}" for i in range(1, 13)]
+IDS = [f"TBP-{i:03}" for i in range(1, 27)]
 STATE_FIELDS = {
     "epistemic_disposition", "lifecycle_disposition", "conflict_disposition",
     "authority_provenance", "evidence_modality", "contradiction_reference",
@@ -51,18 +51,27 @@ def witness_ok(w):
     }
 
 def project(c):
-    target, scope, w, wrapper, base = c["target"], c["configuration_scope"], c["witness"], c["projection"], c["base_state"]
+    target, scope, artifact, w, wrapper, base = c["target"], c["configuration_scope"], c["physical_artifact_scope"], c["witness"], c["projection"], c["base_state"]
     if not identity_ok(target) or target["kind"] != "evidence_record":
         return None
     if not witness_ok(w):
         return None
-    if not isinstance(wrapper, dict) or set(wrapper) != {"target", "configuration_scope", "projection"}:
+    if not identity_ok(artifact) or artifact["kind"] != "physical_artifact":
+        return None
+    if not isinstance(wrapper, dict) or set(wrapper) != {"target", "configuration_scope", "physical_artifact_scope", "configuration_artifact_binding", "projection"}:
         return None
     if wrapper["target"] != target:
         return None
     if not identity_ok(scope) or scope["kind"] != "configuration_revision":
         return None
     if wrapper["configuration_scope"] != scope:
+        return None
+    if wrapper["physical_artifact_scope"] != artifact:
+        return None
+    binding = wrapper["configuration_artifact_binding"]
+    if not isinstance(binding, dict) or set(binding) != {"relation", "source", "target"}:
+        return None
+    if binding["relation"] != "applies_to" or binding["source"] != scope or binding["target"] != artifact:
         return None
     if target in (w["witness_identity"], w["left_claim"], w["right_claim"]):
         return None
@@ -91,7 +100,7 @@ def main():
     d = json.loads(Path(path).read_text())
     if d.get("schema") != SCHEMA or d.get("schema_version") != VERSION or d.get("status") != "semantic-provenance-only":
         raise SystemExit("invalid corpus envelope")
-    if len(d.get("cases", [])) != 18 or [c["id"] for c in d["cases"]] != [f"TBP-{i:03}" for i in range(1, 19)]:
+    if len(d.get("cases", [])) != 26 or [c["id"] for c in d["cases"]] != [f"TBP-{i:03}" for i in range(1, 27)]:
         raise SystemExit("unexpected corpus IDs/count")
     out = []
     for c in d["cases"]:
