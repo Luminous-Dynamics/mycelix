@@ -39,7 +39,7 @@ const INBOX_V2_TAG: &[u8] = b"inbox-v2";
 /// rejected, non-V2, wrong-action, and unreadable records. Only an entirely
 /// valid qualification can cross the downstream semantic projection boundary.
 #[hdk_extern]
-pub fn qualify_inbox_v2(_: ()) -> ExternResult<V2InboxQualificationV1> {
+pub fn get_inbox_v2_qualification(_: ()) -> ExternResult<V2InboxQualificationV1> {
     let me = agent_info()?.agent_initial_pubkey;
 
     // get_links returns live links for the exact V2 inbox link type/tag.
@@ -173,11 +173,22 @@ pub fn qualify_inbox_v2(_: ()) -> ExternResult<V2InboxQualificationV1> {
         evidence,
     };
 
+    Ok(qualification)
+}
+
+/// Strict qualification gate for callers that require projection-ready V2 data.
+///
+/// The inspection endpoint above intentionally returns the full candidate
+/// accounting object even when some candidates are disqualified. This wrapper
+/// is the fail-closed promotion gate: only a fully valid accounting object is
+/// returned as success.
+#[hdk_extern]
+pub fn qualify_inbox_v2(_: ()) -> ExternResult<V2InboxQualificationV1> {
+    let qualification = get_inbox_v2_qualification(())?;
     qualification
         .validate()
         .map_err(|error| wasm_error!(WasmErrorInner::Guest(format!(
             "V2 qualification failed closed: {error:?}"
         )))?;
-
     Ok(qualification)
 }
