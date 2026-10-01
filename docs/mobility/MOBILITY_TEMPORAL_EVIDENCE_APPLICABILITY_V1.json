@@ -145,6 +145,12 @@
       "scenario": "successor configuration attempts predecessor evidence effectivity",
       "expected_outcome": "rejected",
       "forbidden_inference": "configuration succession does not inherit evidence"
+    },
+    {
+      "id": "TEA-025",
+      "scenario": "effectivity begins exactly at configuration end",
+      "expected_outcome": "rejected",
+      "forbidden_inference": "half-open boundary equality does not imply containment"
     }
   ]
 }
