@@ -48,10 +48,10 @@ require_version_family "$workspace" "holochain_serialized_bytes" "0\.0\.57"
 
 # The dedicated Sweettest workspace is itself part of qualification and must not
 # silently exercise the old 0.6 runtime/API.
-require_exact "$tests" 'hdk = "0.7.0"'
-require_exact "$tests" 'hdi = "0.8.0"'
-require_exact "$tests" 'holochain = "0.7.0"'
-require_exact "$tests" 'holochain_types = "0.7.0"'
+require_version_family "$tests" "hdk" "0\.7\.0"
+require_version_family "$tests" "hdi" "0\.8\.0"
+require_version_family "$tests" "holochain" "0\.7\.0"
+require_version_family "$tests" "holochain_types" "0\.7\.0"
 
 for file in "$workspace" "$tests"; do
   forbidden "$file" 'hdk = "0.6'
