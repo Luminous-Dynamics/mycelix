@@ -1144,9 +1144,9 @@ fn validate_inbox_link_v2(
     // part of the application contract and is the same prefix used by the
     // qualification adapter. Enforce the canonical tag at the integrity
     // boundary so an alternate tag cannot masquerade as an inbox-V2 link.
-    if !tag.as_ref().starts_with(INBOX_V2_TAG) {
+    if tag.as_ref() != INBOX_V2_TAG {
         return Ok(ValidateCallbackResult::Invalid(
-            "AgentToInboxV2 link tag must use the inbox-v2 namespace".into(),
+            "AgentToInboxV2 link tag must equal the canonical inbox-v2 tag".into(),
         ));
     }
     let inbox_owner = match base_address.into_agent_pub_key() {
