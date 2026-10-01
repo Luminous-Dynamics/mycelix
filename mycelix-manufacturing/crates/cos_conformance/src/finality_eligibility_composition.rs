@@ -1527,6 +1527,42 @@ mod tests {
     }
 
     #[test]
+    fn d6p_receipt_rejects_composition_identity_substitution() {
+        let g = generation("observer-A");
+        let e = observation("obs-1", &g, ExternalObservedStateV1::Applied);
+        let s = set(&["obs-1"]);
+        let a = d6n_assessment(
+            &s,
+            &[(
+                "obs-1".into(),
+                "observer-A".into(),
+                ObservationClassificationV1::CorroboratingIndependent,
+            )],
+        );
+        let (_, r) = ledger_and_receipt(&g, &e);
+        let composition = compose_finality_eligibility(
+            &s,
+            &a,
+            std::slice::from_ref(&e),
+            std::slice::from_ref(&r),
+            "life-profile-1",
+            "frontier-1",
+            1,
+        );
+        let receipt = receipt_for_composition(&composition);
+
+        assert!(current_receipt_matches_composition(&receipt, &composition));
+
+        let mut substituted = composition.clone();
+        substituted.witnesses[0].observer_id = "observer-substituted".into();
+        substituted.composition_commitment = substituted.recomputed_commitment();
+
+        assert!(substituted.commitment_matches());
+        assert!(substituted.semantically_valid());
+        assert!(!current_receipt_matches_composition(&receipt, &substituted));
+    }
+
+    #[test]
     fn d6p_authoritative_provenance_rejects_source_substitution() {
         let generation = generation("observer-A");
         let evidence = observation("obs-1", &generation, ExternalObservedStateV1::Applied);
