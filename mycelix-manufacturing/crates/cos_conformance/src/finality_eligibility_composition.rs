@@ -953,7 +953,7 @@ mod tests {
                 observation_frontier_root: "frontier-1".into(),
                 current_frontier_root: "frontier-1".into(),
                 lifecycle_profile_id: "lifecycle-1".into(),
-                witness_commitment: "witness-commitment-1".into(),
+                witness_commitment: "witness:observation-1:set-commitment-1:witness-1".into(),
                 claim_ceiling: FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING.into(),
             }],
             disposition: FinalityEligibilityDispositionV1::EligibleCurrent,
