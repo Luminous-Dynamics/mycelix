@@ -315,6 +315,30 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn envelope_request_id_must_match_capability_payload() {
+        let (mut writer, reader) = UnixStream::pair().unwrap();
+        let process = RendererProcessId::new(std::process::id() as u64).unwrap();
+        let envelope = rmp_serde::to_vec(
+            &RendererIpcEnvelopeV1::new(RequestId::new(2).unwrap(), request_payload(1)).unwrap(),
+        )
+        .unwrap();
+        writer
+            .write_all(&(envelope.len() as u32).to_be_bytes())
+            .await
+            .unwrap();
+        writer.write_all(&envelope).await.unwrap();
+
+        let mut connection =
+            RendererCapabilityConnection::from_stream(reader, binding(process, 1)).unwrap();
+        assert!(matches!(
+            connection.receive_request().await,
+            Err(RendererIpcError::Capability(
+                CapabilityIngressError::RequestIdMismatch
+            ))
+        ));
+    }
+
+    #[tokio::test]
     async fn session_close_invalidates_capability_ingress() {
         let (mut writer, reader) = UnixStream::pair().unwrap();
         let process = RendererProcessId::new(std::process::id() as u64).unwrap();
