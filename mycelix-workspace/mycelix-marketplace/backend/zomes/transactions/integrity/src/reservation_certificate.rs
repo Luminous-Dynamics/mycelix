@@ -190,6 +190,106 @@ impl ReservationFrontierState {
         }
         Ok(())
     }
+
+    pub fn from_capacity(capacity: u32) -> Self {
+        Self {
+            capacity,
+            active_reserved: 0,
+            available: capacity,
+        }
+    }
+
+    pub fn after_reserve(
+        &self,
+        quantity: u32,
+    ) -> Result<Self, &'static str> {
+        if quantity == 0 {
+            return Err("Reservation quantity must be non-zero");
+        }
+        if quantity > self.available {
+            return Err("Reservation exceeds available capacity");
+        }
+        Ok(Self {
+            capacity: self.capacity,
+            active_reserved: self.active_reserved + quantity,
+            available: self.available - quantity,
+        })
+    }
+
+    pub fn after_release(
+        &self,
+        quantity: u32,
+    ) -> Result<Self, &'static str> {
+        if quantity == 0 {
+            return Err("Reservation quantity must be non-zero");
+        }
+        if quantity > self.active_reserved {
+            return Err("Release exceeds active reserved quantity");
+        }
+        Ok(Self {
+            capacity: self.capacity,
+            active_reserved: self.active_reserved - quantity,
+            available: self.available + quantity,
+        })
+    }
+
+    pub fn after_consume(
+        &self,
+        quantity: u32,
+    ) -> Result<Self, &'static str> {
+        if quantity == 0 {
+            return Err("Reservation quantity must be non-zero");
+        }
+        if quantity > self.active_reserved || quantity > self.capacity {
+            return Err("Consumption exceeds active inventory state");
+        }
+        Ok(Self {
+            capacity: self.capacity - quantity,
+            active_reserved: self.active_reserved - quantity,
+            available: self.available,
+        })
+    }
+
+    pub fn after_set_capacity(
+        &self,
+        capacity: u32,
+    ) -> Result<Self, &'static str> {
+        if capacity < self.active_reserved {
+            return Err("Capacity cannot fall below active reservations");
+        }
+        Ok(Self {
+            capacity,
+            active_reserved: self.active_reserved,
+            available: capacity - self.active_reserved,
+        })
+    }
+
+    pub fn validate_transition(
+        &self,
+        event: FrontierStateTransition,
+        post: &Self,
+    ) -> Result<(), &'static str> {
+        self.validate()?;
+        post.validate()?;
+        let expected = match event {
+            FrontierStateTransition::Reserve { quantity } => self.after_reserve(quantity)?,
+            FrontierStateTransition::Release { quantity } => self.after_release(quantity)?,
+            FrontierStateTransition::Consume { quantity } => self.after_consume(quantity)?,
+            FrontierStateTransition::SetCapacity { capacity } => self.after_set_capacity(capacity)?,
+        };
+        if &expected != post {
+            return Err("Frontier post-state does not match the deterministic transition");
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FrontierStateTransition {
+    Reserve { quantity: u32 },
+    Release { quantity: u32 },
+    Consume { quantity: u32 },
+    SetCapacity { capacity: u32 },
 }
 
 impl InventoryFrontier {
@@ -420,6 +520,76 @@ mod tests {
             f.apply(FrontierEvent::Reserve(certificate("c2", 2, Some("c1:release"), 1))),
             Ok(ApplyOutcome::Applied)
         );
+    }
+
+    #[test]
+    fn frontier_state_transition_algebra_matches_all_inventory_events() {
+        let genesis = ReservationFrontierState::from_capacity(10);
+
+        let reserved = ReservationFrontierState {
+            capacity: 10,
+            active_reserved: 3,
+            available: 7,
+        };
+        genesis
+            .validate_transition(
+                FrontierStateTransition::Reserve { quantity: 3 },
+                &reserved,
+            )
+            .unwrap();
+
+        let released = ReservationFrontierState {
+            capacity: 10,
+            active_reserved: 0,
+            available: 10,
+        };
+        reserved
+            .validate_transition(
+                FrontierStateTransition::Release { quantity: 3 },
+                &released,
+            )
+            .unwrap();
+
+        let consumed = ReservationFrontierState {
+            capacity: 7,
+            active_reserved: 0,
+            available: 7,
+        };
+        reserved
+            .validate_transition(
+                FrontierStateTransition::Consume { quantity: 3 },
+                &consumed,
+            )
+            .unwrap();
+
+        let increased = ReservationFrontierState {
+            capacity: 15,
+            active_reserved: 3,
+            available: 12,
+        };
+        reserved
+            .validate_transition(
+                FrontierStateTransition::SetCapacity { capacity: 15 },
+                &increased,
+            )
+            .unwrap();
+    }
+
+    #[test]
+    fn frontier_state_transition_rejects_forged_post_state() {
+        let before = ReservationFrontierState::from_capacity(5);
+        let forged = ReservationFrontierState {
+            capacity: 5,
+            active_reserved: 3,
+            available: 3,
+        };
+
+        assert!(before
+            .validate_transition(
+                FrontierStateTransition::Reserve { quantity: 1 },
+                &forged,
+            )
+            .is_err());
     }
 
     #[test]
