@@ -286,6 +286,7 @@ pub enum ChatProjectionError {
     UnqualifiedEvidence,
     MissingQualifiedCandidate,
     IncompleteCandidateEnumeration,
+    CompletenessWitnessRequired,
     ReplyWithoutThread,
     ZeroThreadId,
     ZeroReplyId,
