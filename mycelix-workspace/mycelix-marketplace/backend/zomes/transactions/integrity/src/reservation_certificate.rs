@@ -684,15 +684,24 @@ pub fn validate_create_reservation_certificate(
             ))
         })?;
 
-        // The application-level frontier reference must also agree with the
-        // actual source-chain predecessor. Holochain already validates source
-        // chain continuity, so this check prevents an author from naming an
-        // unrelated older seller record as the economic predecessor.
-        if action.prev_action != previous_hash {
+        // The economic frontier predecessor must be an earlier action on the
+        // same seller source chain, but it need not be the immediately preceding
+        // source-chain action. Sellers can legitimately interleave unrelated
+        // Marketplace records (messages, listings, updates, etc.) between
+        // inventory events. Holochain's source-chain continuity plus this bounded
+        // activity proof prevents a forked/later action from being smuggled in as
+        // the predecessor without imposing global adjacency on the seller chain.
+        let prior_activity = must_get_agent_activity(
+            certificate.seller.clone(),
+            ChainFilter::new(action.prev_action.clone())
+                .until_hash(previous_hash.clone()),
+        )?;
+        if !prior_activity.iter().any(|activity| activity.action.hashed.hash == previous_hash) {
             return Ok(ValidateCallbackResult::Invalid(
-                "Reservation frontier predecessor does not match the seller source-chain predecessor".into(),
+                "Reservation frontier predecessor is not an earlier action on the seller source chain".into(),
             ));
         }
+
         let previous = must_get_valid_record(previous_hash).map_err(|_| {
             wasm_error!(WasmErrorInner::Guest(
                 "ReservationCertificate references a missing or invalid previous frontier record".into(),
@@ -822,14 +831,21 @@ pub fn validate_create_reservation_terminal(
             "Reservation terminal previous frontier is not seller-authored".into(),
         ));
     }
-    if previous.action_address() != evidence.certificate_hash {
+    // As with reservation admission, unrelated seller-authored records may
+    // interleave between the certificate and its terminal evidence. Require the
+    // certificate to be an earlier source-chain action rather than requiring
+    // immediate adjacency.
+    let prior_activity = must_get_agent_activity(
+        evidence.seller.clone(),
+        ChainFilter::new(action.prev_action.clone())
+            .until_hash(evidence.certificate_hash.clone()),
+    )?;
+    if !prior_activity
+        .iter()
+        .any(|activity| activity.action.hashed.hash == evidence.certificate_hash)
+    {
         return Ok(ValidateCallbackResult::Invalid(
-            "Reservation terminal evidence must immediately follow its reservation certificate".into(),
-        ));
-    }
-    if action.prev_action != evidence.certificate_hash {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Reservation terminal predecessor does not match the seller source-chain predecessor".into(),
+            "Reservation terminal certificate is not an earlier action on the seller source chain".into(),
         ));
     }
     if evidence.sequence != certificate.sequence + 1 {
