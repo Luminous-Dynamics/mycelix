@@ -11,7 +11,7 @@
 //! The renderer endpoint is broker-owned. The renderer never supplies its
 //! process identity, site, or navigation generation as authority.
 
-use crate::capability::CapabilityRequest;
+use crate::capability::{CapabilityRequest, RequestId};
 use crate::lifecycle::RendererBinding;
 use crate::session::{CapabilityIngress, CapabilityIngressError, RendererSessionManager};
 use std::fmt;
@@ -166,12 +166,26 @@ impl RendererCapabilityConnection {
     /// capability ingress.
     pub async fn receive_request(&mut self) -> Result<CapabilityRequest, RendererIpcError> {
         let payload = read_bounded_frame(&mut self.stream).await?;
+        let envelope: RendererIpcEnvelopeV1 =
+            rmp_serde::from_slice(&payload).map_err(|error| {
+                RendererIpcError::Io(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!("invalid renderer IPC envelope: {error}"),
+                ))
+            })?;
+        if envelope.version != RENDERER_IPC_VERSION {
+            return Err(RendererIpcError::InvalidVersion(envelope.version));
+        }
+        if envelope.payload.is_empty() || envelope.payload.len() > MAX_RENDERER_IPC_FRAME_SIZE {
+            return Err(RendererIpcError::InvalidFrameLength(envelope.payload.len()));
+        }
         self.ingress
-            .admit(
+            .admit_envelope(
                 &self.stream,
                 self.authoritative.generation,
                 &self.authoritative,
-                &payload,
+                envelope.request_id,
+                &envelope.payload,
             )
             .map_err(Into::into)
     }
@@ -200,25 +214,7 @@ async fn read_bounded_frame(stream: &mut UnixStream) -> Result<Vec<u8>, Renderer
         .await
         .map_err(RendererIpcError::Io)?;
 
-    // Version is intentionally the first field of the dedicated envelope.
-    // Decode only the bounded transport envelope here; privileged policy
-    // remains in CapabilityIngress.
-    let envelope: RendererIpcEnvelopeV1 =
-        rmp_serde::from_slice(&payload).map_err(|error| {
-            RendererIpcError::Io(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                format!("invalid renderer IPC envelope: {error}"),
-            ))
-        })?;
-
-    if envelope.version != RENDERER_IPC_VERSION {
-        return Err(RendererIpcError::InvalidVersion(envelope.version));
-    }
-    if envelope.payload.is_empty() || envelope.payload.len() > MAX_RENDERER_IPC_FRAME_SIZE {
-        return Err(RendererIpcError::InvalidFrameLength(envelope.payload.len()));
-    }
-
-    Ok(envelope.payload)
+    Ok(payload)
 }
 
 /// Versioned transport envelope. The body remains an opaque, bounded
@@ -226,16 +222,18 @@ async fn read_bounded_frame(stream: &mut UnixStream) -> Result<Vec<u8>, Renderer
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct RendererIpcEnvelopeV1 {
     pub version: u16,
+    pub request_id: RequestId,
     pub payload: Vec<u8>,
 }
 
 impl RendererIpcEnvelopeV1 {
-    pub fn new(payload: Vec<u8>) -> Result<Self, RendererIpcError> {
+    pub fn new(request_id: RequestId, payload: Vec<u8>) -> Result<Self, RendererIpcError> {
         if payload.is_empty() || payload.len() > MAX_RENDERER_IPC_FRAME_SIZE {
             return Err(RendererIpcError::InvalidFrameLength(payload.len()));
         }
         Ok(Self {
             version: RENDERER_IPC_VERSION,
+            request_id,
             payload,
         })
     }
@@ -272,7 +270,7 @@ mod tests {
     #[test]
     fn envelope_is_versioned_and_bounded() {
         let payload = request_payload(1);
-        let envelope = RendererIpcEnvelopeV1::new(payload.clone()).unwrap();
+        let envelope = RendererIpcEnvelopeV1::new(RequestId::new(1).unwrap(), payload.clone()).unwrap();
         assert_eq!(envelope.version, RENDERER_IPC_VERSION);
         assert_eq!(envelope.payload, payload);
         assert!(RendererIpcEnvelopeV1::new(vec![0; MAX_RENDERER_IPC_FRAME_SIZE + 1]).is_err());
@@ -303,7 +301,7 @@ mod tests {
         let (mut writer, reader) = UnixStream::pair().unwrap();
         let process = RendererProcessId::new(std::process::id() as u64).unwrap();
         let request = request_payload(1);
-        let envelope = rmp_serde::to_vec(&RendererIpcEnvelopeV1::new(request).unwrap()).unwrap();
+        let envelope = rmp_serde::to_vec(&RendererIpcEnvelopeV1::new(RequestId::new(1).unwrap(), request).unwrap()).unwrap();
         writer
             .write_all(&(envelope.len() as u32).to_be_bytes())
             .await
