@@ -13,9 +13,9 @@ mod reservation_certificate;
 pub use reservation_certificate::{
     validate_create_purchase_intent, validate_create_reservation_certificate,
     validate_create_reservation_terminal, validate_transaction_reservation_binding,
-    CertificateError, FrontierEvent, InventoryFrontier,
-    IntentError, PurchaseIntent, ReservationCertificate, ReservationTerminalEvidence,
-    ReservationTerminalOutcome,
+    CertificateError, FrontierEvent, FrontierStateTransition, InventoryFrontier,
+    IntentError, PurchaseIntent, ReservationCertificate, ReservationFrontierState,
+    ReservationTerminalEvidence, ReservationTerminalOutcome,
 };
 
 /// Transaction entry - represents a purchase in the marketplace
