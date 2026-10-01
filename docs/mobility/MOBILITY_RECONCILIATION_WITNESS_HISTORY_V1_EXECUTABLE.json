@@ -1225,5 +1225,33 @@
       "namespace": "synthetic",
       "id": "w3"
     }
+  ],
+  "chain_supersessions": [
+    {
+      "relation": "supersedes",
+      "source": {
+        "kind": "reconciliation_witness",
+        "namespace": "synthetic",
+        "id": "w2"
+      },
+      "target": {
+        "kind": "reconciliation_witness",
+        "namespace": "synthetic",
+        "id": "w1"
+      }
+    },
+    {
+      "relation": "supersedes",
+      "source": {
+        "kind": "reconciliation_witness",
+        "namespace": "synthetic",
+        "id": "w3"
+      },
+      "target": {
+        "kind": "reconciliation_witness",
+        "namespace": "synthetic",
+        "id": "w2"
+      }
+    }
   ]
 }
