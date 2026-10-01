@@ -20,7 +20,13 @@ pub const V2_QUALIFICATION_SCHEMA_VERSION_V1: u8 = 1;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum V2CandidateEnumerationV1 {
-    Complete,
+    /// Enumeration completed for the host's observed live-link set. Deleted
+    /// links are counted separately so the adapter cannot silently erase the
+    /// distinction between "never observed" and "observed then deleted".
+    Complete {
+        live_links: u32,
+        deleted_links: u32,
+    },
     Incomplete {
         skipped_links: u32,
         unreadable_links: u32,
@@ -30,7 +36,7 @@ pub enum V2CandidateEnumerationV1 {
 impl V2CandidateEnumerationV1 {
     fn validate(&self) -> Result<(), ChatProjectionError> {
         match self {
-            Self::Complete => Ok(()),
+            Self::Complete { .. } => Ok(()),
             Self::Incomplete {
                 skipped_links,
                 unreadable_links,
@@ -235,7 +241,10 @@ mod tests {
     ) -> V2InboxQualificationV1 {
         V2InboxQualificationV1 {
             schema_version: V2_QUALIFICATION_SCHEMA_VERSION_V1,
-            enumeration: V2CandidateEnumerationV1::Complete,
+            enumeration: V2CandidateEnumerationV1::Complete {
+                live_links: candidates.len() as u32,
+                deleted_links: 0,
+            },
             candidates,
             qualified: messages,
             evidence,
