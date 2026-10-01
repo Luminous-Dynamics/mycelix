@@ -39,6 +39,30 @@ impl PurchaseIntent {
         if self.buyer == self.seller { return Err(IntentError::BuyerSellerMustDiffer); }
         Ok(())
     }
+
+    /// Canonical, domain-separated identity material for semantic intent IDs.
+    ///
+    /// The coordinator should hash these exact bytes with the protocol's
+    /// approved digest to obtain intent_id. Length-prefixing prevents
+    /// delimiter-collision ambiguity, and all binary identifiers are encoded
+    /// from their raw 36-byte Holochain representation.
+    pub fn canonical_identity_material(&self) -> Vec<u8> {
+        let mut out = Vec::new();
+        push_field(&mut out, b"mycelix.marketplace.purchase-intent/v1");
+        push_field(&mut out, &self.buyer.get_raw_36());
+        push_field(&mut out, &self.seller.get_raw_36());
+        push_field(&mut out, &self.listing_hash.get_raw_36());
+        push_field(&mut out, &self.listing_revision.get_raw_36());
+        push_field(&mut out, &self.quantity.to_le_bytes());
+        push_field(&mut out, &self.unit_price_cents.to_le_bytes());
+        push_field(&mut out, self.client_nonce.as_bytes());
+        out
+    }
+}
+
+fn push_field(out: &mut Vec<u8>, field: &[u8]) {
+    out.extend_from_slice(&(field.len() as u32).to_le_bytes());
+    out.extend_from_slice(field);
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -302,6 +326,17 @@ mod tests {
         assert_eq!(f.apply(FrontierEvent::Reserve(c1.clone())), Ok(ApplyOutcome::Applied));
         assert_eq!(f.apply(FrontierEvent::Reserve(c1)), Ok(ApplyOutcome::Idempotent));
         assert_eq!(f.active_reserved(), 1);
+    }
+
+    #[test]
+    fn canonical_intent_identity_material_is_stable_and_domain_separated() {
+        let a = intent();
+        let mut b = a.clone();
+        b.client_nonce = "nonce-2".into();
+
+        assert_eq!(a.canonical_identity_material(), a.canonical_identity_material());
+        assert_ne!(a.canonical_identity_material(), b.canonical_identity_material());
+        assert!(a.canonical_identity_material().starts_with(&36u32.to_le_bytes()));
     }
 
     #[test]
