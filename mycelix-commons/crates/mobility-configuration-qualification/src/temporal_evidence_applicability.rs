@@ -557,6 +557,37 @@ mod tests {
     }
 
     #[test]
+    fn transition_requires_genesis_active_state() {
+        let t = graph_transition("genesis", None,
+            EvidenceDisposition::Unresolved, EvidenceDisposition::Active);
+        assert!(t.validate().is_err());
+    }
+
+    #[test]
+    fn transition_rejects_terminal_retraction_reopening() {
+        let t = graph_transition("later", Some("earlier"),
+            EvidenceDisposition::Retracted { by: id(IdentityKind::ReconciliationWitness, "r1") },
+            EvidenceDisposition::Active);
+        assert!(t.validate().is_err());
+    }
+
+    #[test]
+    fn transition_rejects_terminal_supersession_reopening() {
+        let t = graph_transition("later", Some("earlier"),
+            EvidenceDisposition::Superseded { by: id(IdentityKind::EvidenceRecord, "replacement") },
+            EvidenceDisposition::Active);
+        assert!(t.validate().is_err());
+    }
+
+    #[test]
+    fn transition_requires_typed_basis() {
+        let mut t = graph_transition("t1", None, EvidenceDisposition::Active,
+            EvidenceDisposition::Disputed { by: id(IdentityKind::ReconciliationWitness, "w1") });
+        t.basis = id(IdentityKind::ConfigurationRevision, "cfg");
+        assert!(t.validate().is_err());
+    }
+
+    #[test]
     fn graph_validates_predecessor_state_continuity() {
         let disputed = EvidenceDisposition::Disputed { by: id(IdentityKind::ReconciliationWitness, "w1") };
         let root = graph_transition("t1", None, EvidenceDisposition::Active, disputed.clone());
