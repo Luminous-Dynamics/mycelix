@@ -10,6 +10,7 @@
 use serde::{Deserialize, Serialize};
 
 pub mod chat_projection;
+pub mod v2_qualification;
 
 pub const SOCIAL_SCHEMA_VERSION_V1: u8 = 1;
 pub const MAX_OBJECT_ID_BYTES: usize = 256;
