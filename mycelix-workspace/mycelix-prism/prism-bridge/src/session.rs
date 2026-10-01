@@ -11,10 +11,11 @@
 //! unauthenticated identity.
 
 use crate::capability::{
-    AuthenticatedRendererSession, CapabilityError, RendererPeerId, RendererSessionId,
-    RequestId,
+    AuthenticatedRendererSession, CapabilityError, CapabilityRequest, RendererPeerId,
+    RendererSessionId, RequestId,
 };
 use crate::identity::{IdentityError, RendererProcessId};
+use crate::lifecycle::RendererBinding;
 use std::fmt;
 use tokio::net::UnixStream;
 
@@ -169,6 +170,101 @@ impl RendererSessionManager {
     }
 }
 
+/// The only broker ingress that turns an authenticated renderer payload into a
+/// capability request.
+///
+/// This is intentionally separate from generic MessagePack decoding. Decoding
+/// proves only that bytes form a syntactically valid request. Admission first
+/// re-authenticates the live IPC peer and checks session generation/request
+/// sequencing, then binds the request to the browser-authoritative renderer
+/// identity. Callers can pass the returned request to capability/grant policy;
+/// they must not authorize directly from decoded transport bytes.
+///
+/// The renderer-supplied origin remains a claim and must equal the
+/// browser-authoritative committed origin before the request is admitted.
+#[derive(Debug)]
+pub struct CapabilityIngress {
+    sessions: RendererSessionManager,
+}
+
+#[derive(Debug)]
+pub enum CapabilityIngressError {
+    Decode(crate::BridgeError),
+    Session(RendererSessionManagerError),
+    OriginMismatch,
+    ProcessMismatch,
+    GenerationMismatch,
+}
+
+impl fmt::Display for CapabilityIngressError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Decode(error) => write!(f, "capability request decode failed: {error}"),
+            Self::Session(error) => write!(f, "capability session admission failed: {error}"),
+            Self::OriginMismatch => f.write_str("renderer origin does not match authoritative origin"),
+            Self::ProcessMismatch => {
+                f.write_str("renderer session process does not match authoritative renderer process")
+            }
+            Self::GenerationMismatch => {
+                f.write_str("renderer session generation does not match authoritative generation")
+            }
+        }
+    }
+}
+
+impl std::error::Error for CapabilityIngressError {}
+
+impl CapabilityIngress {
+    pub fn new(sessions: RendererSessionManager) -> Self {
+        Self { sessions }
+    }
+
+    pub fn sessions(&self) -> &RendererSessionManager {
+        &self.sessions
+    }
+
+    pub fn sessions_mut(&mut self) -> &mut RendererSessionManager {
+        &mut self.sessions
+    }
+
+    /// Admit one raw capability payload after live peer/session authentication.
+    pub fn admit(
+        &mut self,
+        stream: &UnixStream,
+        generation: u64,
+        authoritative: &RendererBinding,
+        payload: &[u8],
+    ) -> Result<CapabilityRequest, CapabilityIngressError> {
+        let request: CapabilityRequest =
+            crate::decode_payload(payload).map_err(CapabilityIngressError::Decode)?;
+
+        self.sessions
+            .accept_request(stream, generation, request.request_id)
+            .map_err(CapabilityIngressError::Session)?;
+
+        let session = self
+            .sessions
+            .current()
+            .expect("accepted request requires an active session");
+
+        if session.renderer_process != authoritative.process {
+            return Err(CapabilityIngressError::ProcessMismatch);
+        }
+        if generation != authoritative.generation {
+            return Err(CapabilityIngressError::GenerationMismatch);
+        }
+        if request.origin != authoritative.origin {
+            return Err(CapabilityIngressError::OriginMismatch);
+        }
+
+        Ok(request)
+    }
+
+    pub fn close(&mut self) {
+        self.sessions.close();
+    }
+}
+
 fn fresh_session_id() -> Result<RendererSessionId, RendererSessionManagerError> {
     let mut bytes = [0u8; 16];
     getrandom::fill(&mut bytes).map_err(|error| {
@@ -182,7 +278,30 @@ fn fresh_session_id() -> Result<RendererSessionId, RendererSessionManagerError> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::capability::{Capability, CapabilityResource, OriginBinding};
+    use crate::identity::{AgentClusterId, SiteIdentity};
     use tokio::net::UnixStream;
+
+    fn binding(host: &str, process: RendererProcessId, generation: u64) -> RendererBinding {
+        RendererBinding {
+            process,
+            site: SiteIdentity::new(format!("https://{host}")).unwrap(),
+            origin: OriginBinding::new(format!("https://{host}")).unwrap(),
+            agent_cluster: AgentClusterId::new(1).unwrap(),
+            generation,
+        }
+    }
+
+    fn payload(request_id: u64, origin: &str) -> Vec<u8> {
+        crate::encode_frame(&CapabilityRequest {
+            request_id: RequestId::new(request_id).unwrap(),
+            capability: Capability::NetworkFetch,
+            origin: OriginBinding::new(origin).unwrap(),
+            resource: Some(CapabilityResource::new("https://example.com/data").unwrap()),
+        })
+        .unwrap()[4..]
+            .to_vec()
+    }
 
     #[tokio::test]
     async fn authenticates_live_unix_peer_and_binds_browser_process() {
@@ -222,6 +341,75 @@ mod tests {
             ))
         ));
         manager.accept_request(&left, 11, RequestId::new(2).unwrap()).unwrap();
+        let _ = right;
+    }
+
+    #[tokio::test]
+    async fn capability_ingress_rejects_forged_origin() {
+        let (left, right) = UnixStream::pair().unwrap();
+        let process = RendererProcessId::new(std::process::id() as u64).unwrap();
+        let mut ingress = CapabilityIngress::new(RendererSessionManager::new());
+        ingress
+            .sessions_mut()
+            .establish_from_stream(&left, process, 7)
+            .unwrap();
+
+        let request = ingress.admit(
+            &left,
+            7,
+            &binding("victim.example", process, 7),
+            &payload(1, "https://attacker.example"),
+        );
+        assert!(matches!(request, Err(CapabilityIngressError::OriginMismatch)));
+        let _ = right;
+    }
+
+    #[tokio::test]
+    async fn capability_ingress_rejects_stale_generation_before_policy() {
+        let (left, right) = UnixStream::pair().unwrap();
+        let process = RendererProcessId::new(std::process::id() as u64).unwrap();
+        let mut ingress = CapabilityIngress::new(RendererSessionManager::new());
+        ingress
+            .sessions_mut()
+            .establish_from_stream(&left, process, 8)
+            .unwrap();
+
+        let request = ingress.admit(
+            &left,
+            7,
+            &binding("example.com", process, 7),
+            &payload(1, "https://example.com"),
+        );
+        assert!(matches!(
+            request,
+            Err(CapabilityIngressError::Session(
+                RendererSessionManagerError::Session(CapabilityError::GenerationMismatch)
+            ))
+        ));
+        let _ = right;
+    }
+
+    #[tokio::test]
+    async fn capability_ingress_rejects_request_replay() {
+        let (left, right) = UnixStream::pair().unwrap();
+        let process = RendererProcessId::new(std::process::id() as u64).unwrap();
+        let mut ingress = CapabilityIngress::new(RendererSessionManager::new());
+        ingress
+            .sessions_mut()
+            .establish_from_stream(&left, process, 9)
+            .unwrap();
+        let authoritative = binding("example.com", process, 9);
+
+        ingress
+            .admit(&left, 9, &authoritative, &payload(1, "https://example.com"))
+            .unwrap();
+        let replay = ingress.admit(&left, 9, &authoritative, &payload(1, "https://example.com"));
+        assert!(matches!(
+            replay,
+            Err(CapabilityIngressError::Session(
+                RendererSessionManagerError::Session(CapabilityError::RequestIdReplay { .. })
+            ))
+        ));
         let _ = right;
     }
 
