@@ -19,11 +19,12 @@ def project(c):
  if not witness_ok(w) or not isinstance(p,dict) or not isinstance(b,dict): return None
  if set(b)!={"epistemic_disposition","lifecycle_disposition","conflict_disposition","authority_provenance","evidence_modality","contradiction_reference","conflict_reference","unresolved_dependency_reference","external_authority_reference"}: return None
  kind=next(iter(p),None); body=p.get(kind,{})
+ kind=kind.removesuffix("Only") if False else kind
  if body.get("witness_ref")!=w["witness_identity"]: return None
  out=dict(b)
- if kind=="conflict_reference_only" and w["result"]["classification"]=="conflicting":
+ if kind=="ConflictReferenceOnly" and w["result"]["classification"]=="conflicting":
   out["conflict_reference"]=w["witness_identity"]["id"]; out["conflict_disposition"]="disputed" if w["result"]["disputed"] else "uncontested"
- elif kind=="lifecycle_supersession" and w["result"]["classification"]=="superseded": out["lifecycle_disposition"]="superseded"
+ elif kind=="LifecycleSupersession" and w["result"]["classification"]=="superseded": out["lifecycle_disposition"]="superseded"
  else: return None
  return out
 def evaluate(c):
