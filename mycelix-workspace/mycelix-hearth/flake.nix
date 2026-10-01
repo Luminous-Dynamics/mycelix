@@ -45,7 +45,7 @@
         devShells = {
           default = holochainBase.mkHolochainShell {
             name = "hearth";
-            extraBuildInputs = with pkgs; [ nodejs_20 ];
+            extraBuildInputs = with pkgs; [ nodejs_24 perl ];
             extraShellHook = ''
               echo "Mycelix Hearth — Family/Household/Kinship Coordination"
               echo ""
@@ -79,6 +79,7 @@
               pkg-config
               openssl
               openssl.dev
+              perl
             ];
 
             inherit (holochainBase.envVars)
