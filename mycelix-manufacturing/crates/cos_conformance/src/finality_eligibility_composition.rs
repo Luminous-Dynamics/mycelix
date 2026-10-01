@@ -165,6 +165,83 @@ impl FinalityEligibilityCompositionV1 {
         digest.iter().map(|byte| format!("{byte:02x}")).collect()
     }
 
+    /// Validate the internal semantic relationships of a committed D6P
+    /// composition without reconstructing D6N/D6O authority.
+    ///
+    /// This is deliberately narrower than authoritative reconstruction:
+    /// callers can use it to reject a self-consistent-but-incoherent
+    /// composition, while `compose_finality_eligibility` remains the source
+    /// of truth for provenance.
+    pub fn semantically_valid(&self) -> bool {
+        if !self.commitment_matches()
+            || self.required_independent_observations == 0
+            || self.witnesses.is_empty()
+        {
+            return false;
+        }
+
+        let mut observation_ids = BTreeSet::new();
+        let mut derived_eligible_count = 0u32;
+        let mut derived_contradictory_count = 0u32;
+
+        for witness in &self.witnesses {
+            if !witness.structurally_valid()
+                || witness.d6n_observation_set_id != self.observation_set_id
+                || witness.d6n_observation_set_commitment != self.observation_set_commitment
+                || witness.observation_frontier_root != self.current_frontier_root
+                || witness.current_frontier_root != self.current_frontier_root
+                || witness.lifecycle_profile_id != self.lifecycle_profile_id
+                || !observation_ids.insert(witness.observation_id.clone())
+            {
+                return false;
+            }
+
+            if witness.counts_as_current_independent_witness() {
+                derived_eligible_count += 1;
+            }
+
+            if matches!(
+                witness.d6n_classification,
+                ObservationClassificationV1::ContradictoryIndependent
+                    | ObservationClassificationV1::ContradictoryDependent
+            ) {
+                derived_contradictory_count += 1;
+            }
+        }
+
+        if self.eligible_independent_count != derived_eligible_count
+            || self.preserved_contradictory_count != derived_contradictory_count
+        {
+            return false;
+        }
+
+        match self.disposition {
+            FinalityEligibilityDispositionV1::EligibleCurrent => {
+                self.preserved_contradictory_count == 0
+                    && self.eligible_independent_count >= self.required_independent_observations
+                    && self.qualification_transition_id.as_deref()
+                        == Some("qualified-finality-eligibility-transition")
+            }
+            FinalityEligibilityDispositionV1::Contested => {
+                self.preserved_contradictory_count > 0
+                    && self.qualification_transition_id.is_none()
+            }
+            FinalityEligibilityDispositionV1::InsufficientEligibleWitnesses => {
+                self.preserved_contradictory_count == 0
+                    && self.eligible_independent_count < self.required_independent_observations
+                    && self.qualification_transition_id.is_none()
+            }
+            FinalityEligibilityDispositionV1::BlockedBinding
+            | FinalityEligibilityDispositionV1::BlockedProfile
+            | FinalityEligibilityDispositionV1::BlockedCurrentness
+            | FinalityEligibilityDispositionV1::BlockedLifecycle
+            | FinalityEligibilityDispositionV1::BlockedDependency
+            | FinalityEligibilityDispositionV1::BlockedContinuity
+            | FinalityEligibilityDispositionV1::BlockedArchive
+            | FinalityEligibilityDispositionV1::BlockedAuthorization => false,
+        }
+    }
+
     pub fn commitment_matches(&self) -> bool {
         self.structurally_valid() && self.composition_commitment == self.recomputed_commitment()
     }
@@ -683,7 +760,7 @@ pub fn current_receipt_matches_composition(
     receipt: &CurrentFinalityEligibilityReceiptV1,
     composition: &FinalityEligibilityCompositionV1,
 ) -> bool {
-    if !receipt.commitment_matches() || !composition.commitment_matches() {
+    if !receipt.commitment_matches() || !composition.semantically_valid() {
         return false;
     }
 
@@ -1268,6 +1345,43 @@ mod tests {
 
         assert_eq!(result.disposition, FinalityEligibilityDispositionV1::BlockedBinding);
         assert_eq!(result.composition_commitment, "blocked");
+    }
+
+    #[test]
+    fn d6p_semantic_validation_rejects_self_consistent_count_mutations() {
+        let g1 = generation("observer-A");
+        let g2 = generation("observer-B");
+        let e1 = observation("obs-1", &g1, ExternalObservedStateV1::Applied);
+        let e2 = observation("obs-2", &g2, ExternalObservedStateV1::Applied);
+        let s = set(&["obs-1", "obs-2"]);
+        let a = d6n_assessment(
+            &s,
+            &[
+                ("obs-1".into(), "observer-A".into(), ObservationClassificationV1::CorroboratingIndependent),
+                ("obs-2".into(), "observer-B".into(), ObservationClassificationV1::CorroboratingIndependent),
+            ],
+        );
+        let (_, r1) = ledger_and_receipt(&g1, &e1);
+        let (_, r2) = ledger_and_receipt(&g2, &e2);
+        let baseline = compose_finality_eligibility(
+            &s, &a, &[e1, e2], &[r1, r2], "life-profile-1", "frontier-1", 1
+        );
+
+        assert!(baseline.semantically_valid());
+
+        let mut count_mutation = baseline.clone();
+        count_mutation.eligible_independent_count += 1;
+        count_mutation.composition_commitment = count_mutation.recomputed_commitment();
+        assert!(count_mutation.commitment_matches());
+        assert!(!count_mutation.semantically_valid());
+
+        let mut disposition_mutation = baseline;
+        disposition_mutation.disposition =
+            FinalityEligibilityDispositionV1::InsufficientEligibleWitnesses;
+        disposition_mutation.qualification_transition_id = None;
+        disposition_mutation.composition_commitment = disposition_mutation.recomputed_commitment();
+        assert!(disposition_mutation.commitment_matches());
+        assert!(!disposition_mutation.semantically_valid());
     }
 
     #[test]
