@@ -11,7 +11,7 @@
 //! architecture-qualified filter is installed.
 
 use crate::process::{SandboxAdapterKind, SandboxEnforcementReceipt, SandboxInstallationId,
-    SandboxProfileV1, RendererProcessAssignmentId, ProcessContractError};
+    SandboxProfileV1, RendererProcessAssignmentId, ProcessContractError, SandboxEnforcementLayer, SandboxEnforcementSet};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SandboxEnforcementError {
@@ -184,6 +184,7 @@ mod linux {
             installation_id,
             adapter: SandboxAdapterKind::LinuxLandlockFilesystemV1,
             policy_digest: profile.policy_digest(),
+            enforced_layers: SandboxEnforcementSet::from_layer(SandboxEnforcementLayer::Filesystem),
             enforced: true,
         })
     }
