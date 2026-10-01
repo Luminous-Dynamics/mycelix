@@ -318,6 +318,30 @@ impl CurrentFinalityEligibilityReceiptV1 {
     pub fn commitment_matches(&self) -> bool {
         self.structurally_valid() && self.receipt_commitment == self.recomputed_commitment()
     }
+
+    /// Validate the receipt's internal coherence without asserting provenance
+    /// from the authoritative D6P source inputs.
+    pub fn semantically_valid(&self) -> bool {
+        if !self.commitment_matches()
+            || self.eligible_independent_count == 0
+            || self.witness_eligibility_ids.is_empty()
+            || self.observer_generation_ids.is_empty()
+        {
+            return false;
+        }
+
+        match self.disposition {
+            FinalityEligibilityDispositionV1::EligibleCurrent => {
+                self.preserved_contradictory_count == 0
+                    && self.eligible_independent_count
+                        == self.witness_eligibility_ids.len() as u32
+                    && self.witness_eligibility_ids.len()
+                        == self.observer_generation_ids.len()
+                    && !self.qualification_transition_id.is_empty()
+            }
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
