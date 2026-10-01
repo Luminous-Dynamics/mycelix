@@ -409,7 +409,9 @@ mod tests {
             &[],
             &[],
             &[dependency.clone()],
-            &|_| crate::QualificationDependencyResolution::Valid,
+            &|requested| crate::QualificationDependencyResolution::Attested {
+                observed: crate::QualificationDependencyObservation::from_dependency(requested),
+            },
         ).unwrap();
         assert_eq!(projection.qualified_dependency_manifest(), &[dependency]);
     }
