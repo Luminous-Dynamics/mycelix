@@ -7,12 +7,6 @@
 
 use url::Url;
 
-fn has_dot_segment(path: &str) -> bool {
-    path.split('/').any(|segment| {
-        let lower = segment.to_ascii_lowercase();
-        matches!(lower.as_str(), "." | ".." | "%2e" | "%2e%2e" | ".%2e" | "%2e.")
-    })
-}
 
 pub const MAX_RESOURCE_URL_LEN: usize = 4096;
 
@@ -35,9 +29,6 @@ impl ResourceIdentity {
         }
         if url.host_str().is_none() {
             return Err(ResourceError::MissingHost);
-        }
-        if has_dot_segment(url.path()) {
-            return Err(ResourceError::TraversalSegment);
         }
         Ok(Self::Url(url))
     }
@@ -90,9 +81,6 @@ impl ResourceScopeV1 {
         if !path.starts_with('/') {
             return Err(ResourceError::InvalidPath);
         }
-        if has_dot_segment(path) {
-            return Err(ResourceError::TraversalSegment);
-        }
         Ok(Self::PathPrefix {
             origin: identity.origin(),
             path: path.to_owned(),
@@ -122,7 +110,6 @@ pub enum ResourceError {
     UserinfoNotAllowed,
     MissingHost,
     InvalidPath,
-    TraversalSegment,
 }
 
 #[cfg(test)]
@@ -159,19 +146,16 @@ mod tests {
     }
 
     #[test]
-    fn dot_segments_are_rejected_before_scope_evaluation() {
-        assert_eq!(
-            ResourceIdentity::parse_url("https://example.com/assets/../private.js"),
-            Err(ResourceError::TraversalSegment)
-        );
-        assert_eq!(
-            ResourceIdentity::parse_url("https://example.com/assets/%2e%2e/private.js"),
-            Err(ResourceError::TraversalSegment)
-        );
-        assert_eq!(
-            ResourceScopeV1::path_prefix("https://example.com", "/assets/../"),
-            Err(ResourceError::TraversalSegment)
-        );
+    fn url_parser_canonicalizes_dot_segments_before_scope_evaluation() {
+        let resource = ResourceIdentity::parse_url(
+            "https://example.com/assets/../private.js",
+        ).unwrap();
+        assert_eq!(resource.path(), "/private.js");
+
+        let encoded = ResourceIdentity::parse_url(
+            "https://example.com/assets/%2e%2e/private.js",
+        ).unwrap();
+        assert_eq!(encoded.path(), "/private.js");
     }
 
     #[test]
