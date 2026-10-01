@@ -116,7 +116,7 @@ impl ReconciliationEvidenceProjection {
         Ok(state)
     }
 
-    fn witness_ref(&self) -> &IdentityRef {
+    pub fn witness_identity(&self) -> &IdentityRef {
         match self {
             Self::ConflictReferenceOnly { witness_ref }
             | Self::LifecycleSupersession { witness_ref }

@@ -1,0 +1,569 @@
+{
+  "schema": "mobility-reconciliation-historical-projection-state-executable-v1",
+  "schema_version": "mobility-reconciliation-historical-projection-state-v1",
+  "status": "semantic-provenance-only",
+  "cases": [
+    {
+      "id": "HPS-001",
+      "operation": "project_conflict",
+      "expected": "accepted",
+      "witness": {
+        "witness_identity": {
+          "kind": "reconciliation_witness",
+          "namespace": "synthetic",
+          "id": "w1"
+        },
+        "left_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-a"
+        },
+        "right_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-b"
+        },
+        "left_applicability": {
+          "start": 0,
+          "end": 10
+        },
+        "right_applicability": {
+          "start": 5,
+          "end": 15
+        },
+        "comparability": "comparable",
+        "compatibility": "incompatible",
+        "explicitly_superseded": false,
+        "disputed": true,
+        "result": {
+          "classification": "conflicting",
+          "disputed": true
+        }
+      },
+      "projection": {
+        "ConflictReferenceOnly": {
+          "witness_ref": {
+            "kind": "reconciliation_witness",
+            "namespace": "synthetic",
+            "id": "w1"
+          }
+        }
+      },
+      "base_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "uncontested",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": null,
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "expected_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "disputed",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": "w1",
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      }
+    },
+    {
+      "id": "HPS-002",
+      "operation": "project_successor",
+      "expected": "accepted",
+      "witness": {
+        "witness_identity": {
+          "kind": "reconciliation_witness",
+          "namespace": "synthetic",
+          "id": "w2"
+        },
+        "left_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-a"
+        },
+        "right_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-c"
+        },
+        "left_applicability": {
+          "start": 0,
+          "end": 10
+        },
+        "right_applicability": {
+          "start": 5,
+          "end": 16
+        },
+        "comparability": "comparable",
+        "compatibility": "compatible",
+        "explicitly_superseded": true,
+        "disputed": false,
+        "result": {
+          "classification": "superseded",
+          "disputed": false
+        }
+      },
+      "projection": {
+        "LifecycleSupersession": {
+          "witness_ref": {
+            "kind": "reconciliation_witness",
+            "namespace": "synthetic",
+            "id": "w2"
+          }
+        }
+      },
+      "base_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "uncontested",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": null,
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "expected_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "superseded",
+        "conflict_disposition": "uncontested",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": null,
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      }
+    },
+    {
+      "id": "HPS-003",
+      "operation": "historical_binding",
+      "expected": "rejected",
+      "witness": {
+        "witness_identity": {
+          "kind": "reconciliation_witness",
+          "namespace": "synthetic",
+          "id": "w2"
+        },
+        "left_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-a"
+        },
+        "right_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-c"
+        },
+        "left_applicability": {
+          "start": 0,
+          "end": 10
+        },
+        "right_applicability": {
+          "start": 5,
+          "end": 16
+        },
+        "comparability": "comparable",
+        "compatibility": "compatible",
+        "explicitly_superseded": true,
+        "disputed": false,
+        "result": {
+          "classification": "superseded",
+          "disputed": false
+        }
+      },
+      "projection": {
+        "LifecycleSupersession": {
+          "witness_ref": {
+            "kind": "reconciliation_witness",
+            "namespace": "synthetic",
+            "id": "w2"
+          }
+        }
+      },
+      "base_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "disputed",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": "w1",
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "expected_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "disputed",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": "w1",
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "required_historical_ref": {
+        "kind": "reconciliation_witness",
+        "namespace": "synthetic",
+        "id": "w1"
+      }
+    },
+    {
+      "id": "HPS-004",
+      "operation": "retarget_historical_projection",
+      "expected": "rejected",
+      "witness": {
+        "witness_identity": {
+          "kind": "reconciliation_witness",
+          "namespace": "synthetic",
+          "id": "w2"
+        },
+        "left_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-a"
+        },
+        "right_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-c"
+        },
+        "left_applicability": {
+          "start": 0,
+          "end": 10
+        },
+        "right_applicability": {
+          "start": 5,
+          "end": 16
+        },
+        "comparability": "comparable",
+        "compatibility": "compatible",
+        "explicitly_superseded": true,
+        "disputed": false,
+        "result": {
+          "classification": "superseded",
+          "disputed": false
+        }
+      },
+      "projection": {
+        "ConflictReferenceOnly": {
+          "witness_ref": {
+            "kind": "reconciliation_witness",
+            "namespace": "synthetic",
+            "id": "w2"
+          }
+        }
+      },
+      "base_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "disputed",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": "w1",
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "expected_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "disputed",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": "w1",
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "required_historical_ref": {
+        "kind": "reconciliation_witness",
+        "namespace": "synthetic",
+        "id": "w1"
+      }
+    },
+    {
+      "id": "HPS-005",
+      "operation": "authority_preservation",
+      "expected": "accepted",
+      "witness": {
+        "witness_identity": {
+          "kind": "reconciliation_witness",
+          "namespace": "synthetic",
+          "id": "w1"
+        },
+        "left_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-a"
+        },
+        "right_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-b"
+        },
+        "left_applicability": {
+          "start": 0,
+          "end": 10
+        },
+        "right_applicability": {
+          "start": 5,
+          "end": 15
+        },
+        "comparability": "comparable",
+        "compatibility": "incompatible",
+        "explicitly_superseded": false,
+        "disputed": true,
+        "result": {
+          "classification": "conflicting",
+          "disputed": true
+        }
+      },
+      "projection": {
+        "ConflictReferenceOnly": {
+          "witness_ref": {
+            "kind": "reconciliation_witness",
+            "namespace": "synthetic",
+            "id": "w1"
+          }
+        }
+      },
+      "base_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "uncontested",
+        "authority_provenance": "external",
+        "evidence_modality": "measurement",
+        "contradiction_reference": null,
+        "conflict_reference": null,
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": "authority-1"
+      },
+      "expected_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "disputed",
+        "authority_provenance": "external",
+        "evidence_modality": "measurement",
+        "contradiction_reference": null,
+        "conflict_reference": "w1",
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": "authority-1"
+      }
+    },
+    {
+      "id": "HPS-006",
+      "operation": "modality_preservation",
+      "expected": "accepted",
+      "witness": {
+        "witness_identity": {
+          "kind": "reconciliation_witness",
+          "namespace": "synthetic",
+          "id": "w1"
+        },
+        "left_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-a"
+        },
+        "right_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-b"
+        },
+        "left_applicability": {
+          "start": 0,
+          "end": 10
+        },
+        "right_applicability": {
+          "start": 5,
+          "end": 15
+        },
+        "comparability": "comparable",
+        "compatibility": "incompatible",
+        "explicitly_superseded": false,
+        "disputed": true,
+        "result": {
+          "classification": "conflicting",
+          "disputed": true
+        }
+      },
+      "projection": {
+        "ConflictReferenceOnly": {
+          "witness_ref": {
+            "kind": "reconciliation_witness",
+            "namespace": "synthetic",
+            "id": "w1"
+          }
+        }
+      },
+      "base_state": {
+        "epistemic_disposition": "indeterminate",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "uncontested",
+        "authority_provenance": "commons",
+        "evidence_modality": "observation",
+        "contradiction_reference": null,
+        "conflict_reference": null,
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "expected_state": {
+        "epistemic_disposition": "indeterminate",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "disputed",
+        "authority_provenance": "commons",
+        "evidence_modality": "observation",
+        "contradiction_reference": null,
+        "conflict_reference": "w1",
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      }
+    },
+    {
+      "id": "HPS-007",
+      "operation": "successor_does_not_rewrite_predecessor",
+      "expected": "accepted",
+      "witness": {
+        "witness_identity": {
+          "kind": "reconciliation_witness",
+          "namespace": "synthetic",
+          "id": "w3"
+        },
+        "left_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-a"
+        },
+        "right_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-d"
+        },
+        "left_applicability": {
+          "start": 0,
+          "end": 10
+        },
+        "right_applicability": {
+          "start": 5,
+          "end": 17
+        },
+        "comparability": "comparable",
+        "compatibility": "incompatible",
+        "explicitly_superseded": false,
+        "disputed": false,
+        "result": {
+          "classification": "conflicting",
+          "disputed": false
+        }
+      },
+      "projection": {
+        "ConflictReferenceOnly": {
+          "witness_ref": {
+            "kind": "reconciliation_witness",
+            "namespace": "synthetic",
+            "id": "w3"
+          }
+        }
+      },
+      "base_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "disputed",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": "w1",
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "expected_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "uncontested",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": "w3",
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      }
+    },
+    {
+      "id": "HPS-008",
+      "operation": "historical_state_snapshot",
+      "expected": "accepted",
+      "witness": {
+        "witness_identity": {
+          "kind": "reconciliation_witness",
+          "namespace": "synthetic",
+          "id": "w1"
+        },
+        "left_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-a"
+        },
+        "right_claim": {
+          "kind": "evidence_record",
+          "namespace": "synthetic",
+          "id": "claim-b"
+        },
+        "left_applicability": {
+          "start": 0,
+          "end": 10
+        },
+        "right_applicability": {
+          "start": 5,
+          "end": 15
+        },
+        "comparability": "comparable",
+        "compatibility": "incompatible",
+        "explicitly_superseded": false,
+        "disputed": true,
+        "result": {
+          "classification": "conflicting",
+          "disputed": true
+        }
+      },
+      "projection": {
+        "ConflictReferenceOnly": {
+          "witness_ref": {
+            "kind": "reconciliation_witness",
+            "namespace": "synthetic",
+            "id": "w1"
+          }
+        }
+      },
+      "base_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "uncontested",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": null,
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      },
+      "expected_state": {
+        "epistemic_disposition": "supported",
+        "lifecycle_disposition": "current",
+        "conflict_disposition": "disputed",
+        "authority_provenance": "commons",
+        "evidence_modality": "interpretation",
+        "contradiction_reference": null,
+        "conflict_reference": "w1",
+        "unresolved_dependency_reference": null,
+        "external_authority_reference": null
+      }
+    }
+  ]
+}
