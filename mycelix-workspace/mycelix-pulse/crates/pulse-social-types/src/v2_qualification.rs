@@ -276,6 +276,21 @@ mod tests {
     }
 
     #[test]
+    fn enumeration_live_link_count_must_match_candidates() {
+        let q = V2InboxQualificationV1 {
+            schema_version: V2_QUALIFICATION_SCHEMA_VERSION_V1,
+            enumeration: V2CandidateEnumerationV1::Complete {
+                live_links: 2,
+                deleted_links: 1,
+            },
+            candidates: vec![valid_candidate(1)],
+            qualified: vec![message(1)],
+            evidence: vec![evidence(1)],
+        };
+        assert_eq!(q.validate(), Err(ChatProjectionError::QualificationCountMismatch));
+    }
+
+    #[test]
     fn incomplete_enumeration_blocks_even_an_empty_inbox() {
         let q = V2InboxQualificationV1 {
             schema_version: V2_QUALIFICATION_SCHEMA_VERSION_V1,
