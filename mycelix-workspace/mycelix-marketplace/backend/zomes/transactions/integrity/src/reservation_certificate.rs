@@ -1038,6 +1038,15 @@ pub fn validate_create_reservation_terminal(
         ));
     }
 
+    // Terminal evidence is the next frontier event after the reservation
+    // certificate. The explicit predecessor hash must therefore be the exact
+    // certificate action, not merely some seller-authored earlier record.
+    if evidence.previous_frontier_action != evidence.certificate_hash {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reservation terminal predecessor must equal its reservation certificate".into(),
+        ));
+    }
+
     let previous = must_get_valid_record(evidence.previous_frontier_action.clone()).map_err(|_| {
         wasm_error!(WasmErrorInner::Guest(
             "Reservation terminal evidence references a missing or invalid previous frontier".into(),
@@ -1065,7 +1074,11 @@ pub fn validate_create_reservation_terminal(
             "Reservation terminal certificate is not an earlier action on the seller source chain".into(),
         ));
     }
-    if evidence.sequence != certificate.sequence + 1 {
+    if evidence.sequence != certificate.sequence.checked_add(1).ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Reservation terminal evidence sequence overflow".into(),
+        ))
+    })? {
         return Ok(ValidateCallbackResult::Invalid(
             "Reservation terminal evidence sequence does not follow its certificate".into(),
         ));
