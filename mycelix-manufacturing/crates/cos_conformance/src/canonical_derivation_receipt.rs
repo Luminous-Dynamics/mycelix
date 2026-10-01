@@ -641,9 +641,11 @@ mod tests {
             observer_generation_ids: ["g".into()].into_iter().collect(), current_frontier_root: "frontier-1".into(),
             lifecycle_profile_id: "life".into(), eligible_independent_count: 1, preserved_contradictory_count: 0,
             disposition: FinalityEligibilityDispositionV1::EligibleCurrent, qualification_transition_id: "t".into(),
-            receipt_commitment: "d6p-receipt-1".into(),
+            receipt_commitment: String::new(),
             claim_ceiling: crate::finality_eligibility_composition::FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING.into(),
-        }
+        };
+        receipt.receipt_commitment = receipt.recomputed_commitment();
+        receipt
     }
 
     fn projection() -> QualifiedProjectionV1 {
@@ -1004,10 +1006,12 @@ mod tests {
             observer_generation_ids: ["g".into()].into_iter().collect(), current_frontier_root: "frontier-1".into(),
             lifecycle_profile_id: "life".into(), eligible_independent_count: 1, preserved_contradictory_count: 0,
             disposition: FinalityEligibilityDispositionV1::EligibleCurrent, qualification_transition_id: "t".into(),
-            receipt_commitment: "d6p-commitment".into(),
+            receipt_commitment: String::new(),
             claim_ceiling: crate::finality_eligibility_composition::FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING.into(),
         };
-        assert!(current_receipt_is_bound(&r, "d6p-commitment", &env()));
+        let expected_commitment = r.recomputed_commitment();
+        r.receipt_commitment = expected_commitment.clone();
+        assert!(current_receipt_is_bound(&r, &expected_commitment, &env()));
         assert!(!current_receipt_is_bound(&r, "different", &env()));
     }
 }
