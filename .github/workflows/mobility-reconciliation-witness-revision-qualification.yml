@@ -1,0 +1,33 @@
+name: mobility-reconciliation-witness-revision-qualification
+
+on:
+  push:
+    paths:
+      - "mycelix-commons/crates/mobility-configuration-qualification/**"
+      - "tools/mobility_reconciliation_witness_revision_reference.py"
+      - "docs/mobility/MOBILITY_RECONCILIATION_WITNESS_REVISION_V1.*"
+      - ".github/workflows/mobility-reconciliation-witness-revision-qualification.yml"
+  pull_request:
+    paths:
+      - "mycelix-commons/crates/mobility-configuration-qualification/**"
+      - "tools/mobility_reconciliation_witness_revision_reference.py"
+      - "docs/mobility/MOBILITY_RECONCILIATION_WITNESS_REVISION_V1.*"
+      - ".github/workflows/mobility-reconciliation-witness-revision-qualification.yml"
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo fmt --all -- --check
+      - run: cargo test -p mobility-configuration-qualification
+
+  reference:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - run: python3 tools/mobility_reconciliation_witness_revision_reference.py
