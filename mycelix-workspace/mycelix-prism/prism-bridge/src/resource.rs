@@ -39,13 +39,7 @@ impl ResourceIdentity {
     }
 
     pub fn origin(&self) -> String {
-        let url = self.as_url();
-        format!(
-            "{}://{}{}",
-            url.scheme(),
-            url.host_str().unwrap_or_default(),
-            url.port().map(|p| format!(":{p}")).unwrap_or_default()
-        )
+        self.as_url().origin().ascii_serialization()
     }
 
     pub fn host(&self) -> Option<&str> {
