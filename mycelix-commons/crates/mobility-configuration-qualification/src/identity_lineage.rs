@@ -263,7 +263,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn witness_supersession_preserves_witness_identity_history() {
         let old = id(IdentityKind::ReconciliationWitness, "witness-r1");
         let new = id(IdentityKind::ReconciliationWitness, "witness-r2");
