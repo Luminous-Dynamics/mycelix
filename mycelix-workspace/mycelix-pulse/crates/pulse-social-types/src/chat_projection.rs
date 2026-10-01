@@ -114,11 +114,12 @@ impl QualifiedV2MessageV1 {
 }
 
 /// Explicit Chat relationship semantics derived only from authenticated V2
-/// thread/reply metadata.
+/// thread/reply metadata. No root relationship is inferred when only a thread
+/// identifier is present.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ChatThreadRelationV1 {
     Unthreaded,
-    ThreadRoot { thread_id: [u8; 32] },
+    Threaded { thread_id: [u8; 32], in_reply_to: Option<[u8; 32]> },
     Reply {
         thread_id: [u8; 32],
         in_reply_to: [u8; 32],
@@ -136,7 +137,7 @@ pub fn normalize_thread_relation(
             if thread_id == [0; 32] {
                 return Err(ChatProjectionError::ZeroThreadId);
             }
-            Ok(ChatThreadRelationV1::ThreadRoot { thread_id })
+            Ok(ChatThreadRelationV1::Threaded { thread_id, in_reply_to: None })
         }
         (Some(thread_id), Some(reply)) => {
             if thread_id == [0; 32] {
@@ -356,7 +357,7 @@ mod tests {
     fn explicit_thread_without_reply_is_preserved() {
         assert_eq!(
             normalize_thread_relation([1; 32], Some([7; 32]), None).unwrap(),
-            ChatThreadRelationV1::ThreadRoot { thread_id: [7; 32] }
+            ChatThreadRelationV1::Threaded { thread_id: [7; 32], in_reply_to: None }
         );
     }
 
