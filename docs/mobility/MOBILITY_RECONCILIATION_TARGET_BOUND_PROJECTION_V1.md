@@ -43,3 +43,25 @@ Target identity does not by itself establish configuration scope. A projection t
 This prevents a projection from silently crossing configuration revisions while preserving the distinction between target identity, configuration identity, and reconciliation-witness identity. A deliberate configuration transition is represented by a new projection and explicit configuration lineage rather than inferred from timestamps or protocol identifiers.
 
 The executable corpus is extended to TBP-001..018 with wrong-scope, witness-as-scope, Holochain-scope, declaration/supplied-scope mismatch, and explicit-new-scope cases.
+
+
+## MOBILITY-COMMONS-023 physical-artifact applicability extension
+
+Target binding plus configuration scope still leaves a semantic gap: a configuration revision can be named without identifying the physical artifact instance to which the projection applies.
+
+This extension therefore adds:
+
+- `physical_artifact_scope`, which must be a typed `PhysicalArtifact` identity;
+- an explicit `LineageEdge` with relation `AppliesTo`;
+- exact equality between the supplied configuration scope and the edge source;
+- exact equality between the supplied physical-artifact scope and the edge target.
+
+The only permitted applicability direction is:
+
+`ConfigurationRevision -> PhysicalArtifact`
+
+The binding is provenance/applicability metadata. It does not establish physical equivalence, engineering correctness, safety, certification, regulatory validity, or measurement truth.
+
+The executable corpus is extended to 26 deterministic cases, including reversed-edge, wrong-relation, identity-substitution, Holochain-shaped identity, and target-mismatch probes. The independent Rust and Python evaluators must produce identical normalized results.
+
+This preserves the central boundary: configuration identity and physical-artifact identity remain distinct, and applicability must be explicit rather than inferred.
