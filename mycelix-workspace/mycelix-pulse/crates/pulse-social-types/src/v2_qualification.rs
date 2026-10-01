@@ -397,7 +397,7 @@ mod tests {
 
     #[test]
     fn unknown_fields_are_rejected() {
-        let encoded = r#"{"schema_version":1,"enumeration":"Complete","candidates":[],"qualified":[],"evidence":[],"authority":"admin"}"#;
+        let encoded = r#"{"schema_version":1,"enumeration":{"live_links":0,"deleted_links":0},"candidates":[],"qualified":[],"evidence":[],"authority":"admin"}"#;
         assert!(serde_json::from_str::<V2InboxQualificationV1>(encoded).is_err());
     }
 }
