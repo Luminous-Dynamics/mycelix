@@ -155,6 +155,75 @@ The safest next implementation unit is therefore **one representative integrity-
 
 A particularly useful first migration target is `mycelix-civic/zomes/civic-bridge/integrity`, because it is a bridge boundary and its callback is small enough to serve as a representative compiler/migration fixture before applying the same transformations to the larger civic and commons zomes.
 
+
+## Representative migration worksheet: civic-bridge integrity
+
+The targeted read of `mycelix-civic/zomes/civic-bridge/integrity/src/lib.rs` makes this a useful first 0.7 compiler fixture.
+
+Current validation dispatcher hotspots:
+
+- `FlatOp::StoreEntry(OpEntry::CreateEntry { ... })`
+- `FlatOp::StoreEntry(OpEntry::UpdateEntry { ... })`
+- `FlatOp::StoreEntry(_)`
+- `FlatOp::RegisterUpdate(update)`
+- `FlatOp::RegisterDeleteLink { ... }`
+- `FlatOp::RegisterDelete(OpDelete { ... })`
+
+The 0.7 guide gives the corresponding structural transformations:
+
+| Current 0.6-shaped code | 0.7 target shape |
+| --- | --- |
+| `FlatOp::StoreEntry` | `FlatOp::CreateEntry` |
+| `FlatOp::RegisterUpdate` | `FlatOp::Update` |
+| `FlatOp::RegisterDeleteLink` | `FlatOp::Link(OpLink::DeleteLink { .. })` |
+| `FlatOp::RegisterDelete` | `FlatOp::Delete(OpDelete { action })` |
+| `action.author` | `action.author()` |
+| `action.timestamp` | `action.timestamp()` |
+| variant action structs | `TypedAction<D>` / `ActionData` |
+
+The existing civic-bridge logic also performs explicit author checks on update/delete operations. Those checks should be preserved semantically during migration rather than replaced with a generic "compile fix". The 0.7 action accessors are specifically designed to preserve access to common header fields while the action data is split out.
+
+### Test-preservation requirement
+
+The civic-bridge file currently has a large pure validation test surface for:
+
+- civic-domain allowlisting;
+- JSON parameter size and validity boundaries;
+- event payload size;
+- related-hash cardinality;
+- optional result/success fields;
+- serialization round-trips;
+- type aliases;
+- validation wrapper behavior.
+
+The 0.7 migration should therefore be treated as a **behavior-preserving type/API migration**. Those tests should remain unchanged wherever they test entry semantics, while new 0.7-specific tests should cover the migrated dispatcher paths and author-binding behavior.
+
+This is preferable to broad test rewrites: Holochain's 0.7 change is an action representation migration, while these entry-validation invariants are application semantics.
+
+### Do-not-do list
+
+For this fixture, do not:
+
+1. mechanically rename `StoreEntry` to `CreateEntry` without changing the surrounding match types;
+2. keep constructing `EntryCreationAction::Create` after migrating to `TypedAction<EntryCreationData>`;
+3. recreate old action structs merely to satisfy existing helper signatures;
+4. weaken author checks because the accessor locations changed;
+5. change application entry validation behavior while performing the API migration;
+6. mix the migration with ROS-006 qualification semantics.
+
+The official 0.7 guide explicitly describes `EntryCreationAction` → `TypedAction<EntryCreationData>` and the `FlatOp` renames, making these compiler errors expected migration work rather than reasons to weaken validation. citeturn1search0
+
+### Migration gate
+
+This fixture should not be declared migrated until all four evidence layers exist:
+
+1. **dependency evidence** — coherent 0.7 Cargo/Nix graph;
+2. **compiler evidence** — civic-bridge integrity builds against that graph;
+3. **behavior evidence** — existing validation tests pass without semantic weakening;
+4. **host evidence** — the actual zome/test harness runs under the 0.7 conductor/toolchain.
+
+Until then, the repository should continue to label the migration as planned/in-progress rather than implying 0.7 compatibility.
+
 ## Evidence status
 
 - Holochain 0.7 target: **confirmed from official compatibility guidance**.
