@@ -95,7 +95,6 @@ impl QualificationDependency {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
 /// Host-observed identity for a qualification dependency.
 ///
 /// `Attested` is a semantic boundary term, not a claim of cryptographic
