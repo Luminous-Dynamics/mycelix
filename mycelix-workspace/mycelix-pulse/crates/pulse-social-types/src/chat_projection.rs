@@ -9,6 +9,8 @@
 //! boundary's required completeness metadata, but this crate cannot independently
 //! prove that a remote zome call actually performed validation.
 
+use serde::{Deserialize, Serialize};
+
 use crate::{
     SocialContractError, SocialObjectIdV1, SocialObjectKind, SocialObjectRefV1,
     SocialProvenance, SocialRevisionV1, SOCIAL_SCHEMA_VERSION_V1,
@@ -23,7 +25,7 @@ pub const AGENT_KEY_RAW_BYTES: usize = 39;
 /// This is intentionally not parsed as an ActionHash. The projection preserves
 /// the exact qualified-boundary representation and makes no independent proof
 /// claim about it.
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct DurableEvidenceIdV1(pub String);
 
 impl DurableEvidenceIdV1 {
@@ -39,7 +41,7 @@ impl DurableEvidenceIdV1 {
 }
 
 /// Raw agent identity carried by the qualified V2 envelope.
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct AgentKeyV1(pub Vec<u8>);
 
 impl AgentKeyV1 {
@@ -56,7 +58,7 @@ impl AgentKeyV1 {
 /// The current get_inbox_v2 implementation drops several retrieval failures
 /// instead of reporting them. Such a response must therefore be treated as
 /// incomplete until a qualified boundary can account for those cases.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum V2InboxCompletenessV1 {
     Complete,
     Incomplete {
@@ -89,7 +91,8 @@ impl V2InboxCompletenessV1 {
 /// No verified boolean exists on purpose. Qualification is a boundary
 /// property; the projection must not manufacture a cryptographic receipt from
 /// ordinary wire data.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct QualifiedV2MessageV1 {
     pub message_id: [u8; 32],
     pub evidence_id: DurableEvidenceIdV1,
@@ -116,7 +119,7 @@ impl QualifiedV2MessageV1 {
 /// Explicit Chat relationship semantics derived only from authenticated V2
 /// thread/reply metadata. No root relationship is inferred when only a thread
 /// identifier is present.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum ChatThreadRelationV1 {
     Unthreaded,
     Threaded {
@@ -159,7 +162,8 @@ pub fn normalize_thread_relation(
 
 /// Semantic Chat projection with no mutable UI state and no second durable
 /// store identity.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ChatMessageProjectionV1 {
     pub schema_version: u8,
     pub object: SocialObjectRefV1,
@@ -437,4 +441,27 @@ mod tests {
             Err(ChatProjectionError::InvalidAgentKey("sender"))
         );
     }
+    #[test]
+    fn projection_serde_round_trip_preserves_evidence_and_thread() {
+        let mut input = message(1);
+        input.thread_id = Some([7; 32]);
+        input.in_reply_to = Some([2; 32]);
+        let projection = project_v2_message(&input).unwrap();
+        let encoded = serde_json::to_string(&projection).unwrap();
+        let decoded = serde_json::from_str::<ChatMessageProjectionV1>(&encoded).unwrap();
+        assert_eq!(decoded, projection);
+    }
+
+    #[test]
+    fn projection_serde_rejects_unknown_fields() {
+        let input = message(1);
+        let projection = project_v2_message(&input).unwrap();
+        let mut encoded = serde_json::to_value(&projection).unwrap();
+        encoded.as_object_mut().unwrap().insert(
+            "authority".into(),
+            serde_json::Value::String("admin".into()),
+        );
+        assert!(serde_json::from_value::<ChatMessageProjectionV1>(encoded).is_err());
+    }
+
 }
