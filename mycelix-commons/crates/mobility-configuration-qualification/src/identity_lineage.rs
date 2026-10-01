@@ -157,7 +157,8 @@ impl LineageEdge {
 pub struct ApplicabilityTransition {
     pub predecessor: IdentityRef,
     pub successor: IdentityRef,
-    pub artifact: IdentityRef,
+    pub predecessor_artifact: IdentityRef,
+    pub successor_artifact: Option<IdentityRef>,
     pub supersession: LineageEdge,
     pub predecessor_applicability: LineageEdge,
     pub successor_applicability: Option<LineageEdge>,
@@ -167,15 +168,24 @@ impl ApplicabilityTransition {
     pub fn validate(&self) -> Result<(), String> {
         self.predecessor.validate()?;
         self.successor.validate()?;
-        self.artifact.validate()?;
+        self.predecessor_artifact.validate()?
+        ;
+        if let Some(artifact) = &self.successor_artifact {
+            artifact.validate()?;
+        }
 
         if self.predecessor.kind != IdentityKind::ConfigurationRevision
             || self.successor.kind != IdentityKind::ConfigurationRevision
         {
             return Err("applicability transition requires configuration revisions".into());
         }
-        if self.artifact.kind != IdentityKind::PhysicalArtifact {
+        if self.predecessor_artifact.kind != IdentityKind::PhysicalArtifact {
             return Err("applicability transition requires a physical artifact".into());
+        }
+        if let Some(artifact) = &self.successor_artifact {
+            if artifact.kind != IdentityKind::PhysicalArtifact {
+                return Err("successor applicability requires a physical artifact".into());
+            }
         }
         if self.predecessor == self.successor {
             return Err("configuration applicability transition requires distinct revisions".into());
@@ -191,7 +201,7 @@ impl ApplicabilityTransition {
 
         if self.predecessor_applicability.relation != LineageRelation::AppliesTo
             || self.predecessor_applicability.source != self.predecessor
-            || self.predecessor_applicability.target != self.artifact
+            || self.predecessor_applicability.target != self.predecessor_artifact
         {
             return Err("predecessor applicability must exactly bind predecessor configuration to artifact".into());
         }
@@ -200,7 +210,7 @@ impl ApplicabilityTransition {
         if let Some(successor) = &self.successor_applicability {
             if successor.relation != LineageRelation::AppliesTo
                 || successor.source != self.successor
-                || successor.target != self.artifact
+                || Some(successor.target.clone()) != self.successor_artifact
             {
                 return Err("successor applicability must exactly bind successor configuration to artifact".into());
             }
@@ -232,7 +242,8 @@ mod tests {
         let t = ApplicabilityTransition {
             predecessor: predecessor.clone(),
             successor: successor.clone(),
-            artifact: artifact.clone(),
+            predecessor_artifact: artifact.clone(),
+            successor_artifact: None,
             supersession: LineageEdge {
                 relation: LineageRelation::Supersedes,
                 source: successor.clone(),
@@ -256,7 +267,8 @@ mod tests {
         let mut t = ApplicabilityTransition {
             predecessor: predecessor.clone(),
             successor: successor.clone(),
-            artifact: artifact.clone(),
+            predecessor_artifact: artifact.clone(),
+            successor_artifact: None,
             supersession: LineageEdge {
                 relation: LineageRelation::Supersedes,
                 source: successor.clone(),
@@ -270,6 +282,7 @@ mod tests {
             successor_applicability: None,
         };
         assert!(t.validate().is_ok());
+        t.successor_artifact = Some(artifact.clone());
         t.successor_applicability = Some(LineageEdge {
             relation: LineageRelation::AppliesTo,
             source: successor,
@@ -287,7 +300,8 @@ mod tests {
         let t = ApplicabilityTransition {
             predecessor: predecessor.clone(),
             successor: successor.clone(),
-            artifact: new_artifact.clone(),
+            predecessor_artifact: old_artifact.clone(),
+            successor_artifact: Some(new_artifact.clone()),
             supersession: LineageEdge {
                 relation: LineageRelation::Supersedes,
                 source: successor.clone(),
@@ -316,7 +330,8 @@ mod tests {
         let t = ApplicabilityTransition {
             predecessor: predecessor.clone(),
             successor: successor.clone(),
-            artifact: old_artifact.clone(),
+            predecessor_artifact: old_artifact.clone(),
+            successor_artifact: None,
             supersession: LineageEdge {
                 relation: LineageRelation::Supersedes,
                 source: successor.clone(),
