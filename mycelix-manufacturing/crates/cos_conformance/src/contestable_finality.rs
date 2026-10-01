@@ -1028,6 +1028,30 @@ mod tests {
     }
 
     #[test]
+    fn authoritative_assessment_rejects_self_consistent_semantic_substitution() {
+        let e1 = evidence("obs-1", observer("obs-1", "evidence-1", "custody-1"), ExternalObservedStateV1::Applied);
+        let e2 = evidence("obs-2", observer("obs-2", "evidence-2", "custody-2"), ExternalObservedStateV1::Applied);
+        let s = set(&["obs-1", "obs-2"]);
+        let expected = assess_observation_set(
+            &effect(), &route(), &profile(), &s, &[e1.clone(), e2.clone()],
+            "frontier-1", "generation-1",
+        );
+        assert!(verify_observation_set_assessment_provenance(
+            &expected, &effect(), &route(), &profile(), &s,
+            &[e1.clone(), e2.clone()], "frontier-1", "generation-1",
+        ));
+
+        let mut forged = expected.clone();
+        forged.assessments[0].classification =
+            ObservationClassificationV1::ContradictoryIndependent;
+        forged.assessment_commitment = expected.assessment_commitment.clone();
+        assert!(!verify_observation_set_assessment_provenance(
+            &forged, &effect(), &route(), &profile(), &s,
+            &[e1, e2], "frontier-1", "generation-1",
+        ));
+    }
+
+    #[test]
     fn provider_report_does_not_satisfy_independent_requirement() {
         let mut e = evidence("obs-1", observer("obs-1", "evidence-1", "custody-1"), ExternalObservedStateV1::Applied);
         e.observation.source = ExternalObservationSourceV1::ProviderReported;
