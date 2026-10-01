@@ -33,6 +33,33 @@ The 0.6 -> 0.7 guide identifies three host/runtime changes that must not be trea
 2. `signal_url` and `webrtc_config` conductor settings are removed.
 3. Holochain 0.7 cannot consume 0.6 databases; the upgrade flow requires clearing old conductor data, and DNA hashes change.
 
+## Audited pre-migration graph (2026-10-01)
+
+A source-level audit of the branch confirms that the runtime migration is still a **multi-workspace graph normalization**, not a single dependency edit:
+
+| Workspace | Current HDK | Current HDI | Observation |
+| --- | --- | --- | --- |
+| `mycelix-civic` | `=0.6.1` | `=0.7.1` | Exact pins; also carries explicit `holochain_zome_types`, `holochain_integrity_types`, `holo_hash`, and `hdk_derive` 0.6-era pins. |
+| `mycelix-commons` | `0.6.0` | `0.7.0` | Independent workspace with a different 0.6-era dependency baseline. |
+| `mycelix-workspace` | host aggregation | host aggregation | Direct Holonix input; lock regeneration is required before claiming a 0.7 environment. |
+
+This matters because Holochain's 0.7 guide requires HDK 0.7.0 and HDI 0.8.0, and explicitly calls out additional feature/API changes beyond those two version strings. citeturn0search1turn0search0
+
+### Concrete normalization implication
+
+Do **not** update only `mycelix-civic/Cargo.toml` and call the repository migrated. At minimum, the Civic and Commons workspace roots must converge on the 0.7-compatible graph, their lockfiles must be regenerated, and any direct 0.6-era Holochain type pins/features must be compiler-audited.
+
+The official guide specifically calls out these additional 0.7-sensitive items:
+
+- `holochain_serialized_bytes = 0.0.57` when explicitly pinned;
+- `holochain_zome_types`, `holochain_integrity_types`, and `holo_hash` feature changes;
+- `holochain` Sweettest dependency feature changes;
+- `transport-iroh` removal as an explicit feature;
+- `wasmer_sys` → `wasmer-sys-cranelift`;
+- `sqlite-encrypted` → `encryption`.
+
+These should be discovered from the actual manifests rather than blindly inserted into every workspace. citeturn0search1
+
 ## Runtime migration surfaces
 
 ### R0 — Holonix / Nix graph
