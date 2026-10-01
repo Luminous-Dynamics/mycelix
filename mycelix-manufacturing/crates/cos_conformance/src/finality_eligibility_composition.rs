@@ -175,6 +175,40 @@ impl FinalityEligibilityCompositionV1 {
     /// callers can use it to reject a self-consistent-but-incoherent
     /// composition, while `compose_finality_eligibility` remains the source
     /// of truth for provenance.
+/// Verify that a D6P receipt is an exact projection of the authoritative
+/// composition it claims to represent. Commitment equality alone is insufficient:
+/// both objects may be attacker-generated and internally self-consistent.
+pub fn verify_current_receipt_provenance_from_composition(
+    receipt: &CurrentFinalityEligibilityReceiptV1,
+    composition: &FinalityEligibilityCompositionV1,
+) -> bool {
+    receipt.commitment_matches()
+        && composition.commitment_matches()
+        && receipt.composition_commitment == composition.composition_commitment
+        && receipt.effect_id == composition.effect_id
+        && receipt.effect_lineage_id == composition.effect_lineage_id
+        && receipt.lifecycle_generation_id == composition.lifecycle_generation_id
+        && receipt.route_id == composition.route_id
+        && receipt.provider_id == composition.provider_id
+        && receipt.provider_operation_id == composition.provider_operation_id
+        && receipt.provider_profile_root == composition.provider_profile_root
+        && receipt.semantic_environment_root == composition.semantic_environment_root
+        && receipt.observation_set_id == composition.observation_set_id
+        && receipt.observation_set_commitment == composition.observation_set_commitment
+        && receipt.d6n_assessment_commitment == composition.d6n_assessment_commitment
+        && receipt.witness_eligibility_ids
+            == composition.witnesses.iter().filter_map(|w| w.d6o_eligibility_id.clone()).collect()
+        && receipt.observer_generation_ids
+            == composition.witnesses.iter().filter_map(|w| w.observer_generation_id.clone()).collect()
+        && receipt.current_frontier_root == composition.current_frontier_root
+        && receipt.lifecycle_profile_id == composition.lifecycle_profile_id
+        && receipt.eligible_independent_count == composition.eligible_independent_count
+        && receipt.preserved_contradictory_count == composition.preserved_contradictory_count
+        && receipt.disposition == composition.disposition
+        && receipt.qualification_transition_id
+            == composition.qualification_transition_id.clone().unwrap_or_default()
+}
+
     pub fn semantically_valid(&self) -> bool {
         if !self.commitment_matches()
             || self.required_independent_observations == 0
