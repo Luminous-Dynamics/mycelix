@@ -96,6 +96,14 @@ impl QualificationDependency {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+/// Host-observed identity for a qualification dependency.
+///
+/// `Attested` is a semantic boundary term, not a claim of cryptographic
+/// attestation by the core-types crate. The concrete host adapter is
+/// responsible for establishing the observation from the record it actually
+/// retrieved; core qualification then enforces exact agreement with the
+/// requested dependency.
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct QualificationDependencyObservation {
     pub kind: QualificationDependencyKind,
     pub logical_id: [u8; 32],
@@ -117,8 +125,10 @@ pub enum QualificationDependencyResolution {
     /// Legacy/unattested success is intentionally not accepted by qualification.
     /// Host adapters must prove what they actually retrieved.
     Valid,
-    /// A host adapter attested the exact kind, logical identity, and record address
-    /// it retrieved. Core compares this observation against the requested dependency.
+    /// A host adapter reports the exact kind, logical identity, and record address
+    /// it established from the content it actually retrieved. `Attested` is a
+    /// semantic boundary term here, not proof of cryptographic attestation.
+    /// Core compares this observation against the requested dependency.
     Attested { observed: QualificationDependencyObservation },
     Invalid { reason: String },
     Unresolved,
