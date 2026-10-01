@@ -1287,6 +1287,19 @@ mod tests {
     }
 
     #[test]
+    fn receipt_provenance_requires_authoritative_composition_binding() {
+        let composition = matching_composition();
+        let mut receipt = committed_receipt();
+        receipt.composition_commitment = composition.composition_commitment.clone();
+        receipt.receipt_commitment = receipt.recomputed_commitment();
+        assert!(verify_current_receipt_provenance_from_composition(&receipt, &composition));
+
+        receipt.eligible_independent_count += 1;
+        receipt.receipt_commitment = receipt.recomputed_commitment();
+        assert!(!verify_current_receipt_provenance_from_composition(&receipt, &composition));
+    }
+
+    #[test]
     fn ledger_rejects_self_consistent_but_semantically_incoherent_composition() {
         let mut ledger = FinalityEligibilityLedgerV1::default();
         let mut composition = matching_composition();
