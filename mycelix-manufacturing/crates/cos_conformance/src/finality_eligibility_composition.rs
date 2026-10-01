@@ -1541,6 +1541,57 @@ mod tests {
     }
 
     #[test]
+    fn authoritative_d6o_boundary_rejects_forged_but_self_consistent_receipt() {
+        let generation = generation("observer-A");
+        let evidence = observation("obs-1", &generation, ExternalObservedStateV1::Applied);
+        let (ledger, receipt) = ledger_and_receipt(&generation, &evidence);
+        let set = set(&["obs-1"]);
+        let assessment = d6n_assessment(
+            &set,
+            &[(
+                "obs-1".into(),
+                "observer-A".into(),
+                ObservationClassificationV1::CorroboratingIndependent,
+            )],
+        );
+        let valid = compose_finality_eligibility_from_authoritative_d6o(
+            &set,
+            &assessment,
+            std::slice::from_ref(&evidence),
+            std::slice::from_ref(&receipt),
+            &lifecycle_profile(),
+            &ledger,
+            "frontier-1",
+            1,
+        );
+        assert_eq!(
+            valid.disposition,
+            FinalityEligibilityDispositionV1::EligibleCurrent
+        );
+
+        let mut forged = receipt;
+        forged.current_frontier_root = "frontier-attacker".into();
+        forged.eligibility_commitment = forged.recomputed_commitment();
+        assert!(forged.commitment_matches());
+
+        let rejected = compose_finality_eligibility_from_authoritative_d6o(
+            &set,
+            &assessment,
+            std::slice::from_ref(&evidence),
+            std::slice::from_ref(&forged),
+            &lifecycle_profile(),
+            &ledger,
+            "frontier-1",
+            1,
+        );
+        assert_ne!(
+            rejected.disposition,
+            FinalityEligibilityDispositionV1::EligibleCurrent
+        );
+        assert_eq!(rejected.eligible_independent_count, 0);
+    }
+
+    #[test]
     fn eligible_independent_witness_counts() {
         let g1 = generation("observer-A");
         let g2 = generation("observer-B");
