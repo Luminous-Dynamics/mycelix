@@ -364,6 +364,7 @@ fn validate_transaction_update_fields(
     if updated.buyer != original.buyer
         || updated.seller != original.seller
         || updated.listing_hash != original.listing_hash
+        || updated.reservation_certificate_hash != original.reservation_certificate_hash
         || updated.quantity != original.quantity
         || updated.total_price_cents != original.total_price_cents
         || updated.created_at != original.created_at
