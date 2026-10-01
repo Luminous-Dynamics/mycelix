@@ -55,6 +55,17 @@ pub enum ChildProcessPolicy {
 }
 
 impl SandboxProfileV1 {
+    /// Stable commitment to the requested policy; this is not proof of OS enforcement.
+    pub fn policy_digest(&self) -> [u8; 32] {
+        let bytes = [
+            match self.network { NetworkPolicy::BrokerOnly => 1 },
+            match self.filesystem { FilesystemPolicy::NoAmbientAccess => 1 },
+            match self.devices { DevicePolicy::None => 1 },
+            match self.child_processes { ChildProcessPolicy::Deny => 1 },
+        ];
+        *blake3::hash(&bytes).as_bytes()
+    }
+
     pub const fn renderer_default() -> Self {
         Self {
             network: NetworkPolicy::BrokerOnly,
@@ -63,6 +74,34 @@ impl SandboxProfileV1 {
             child_processes: ChildProcessPolicy::Deny,
         }
     }
+}
+
+/// Independent identity for one sandbox installation attempt.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct SandboxInstallationId(pub u128);
+
+impl SandboxInstallationId {
+    pub fn new(value: u128) -> Result<Self, ProcessContractError> {
+        if value == 0 { return Err(ProcessContractError::InvalidSandboxInstallationId); }
+        Ok(Self(value))
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SandboxAdapterKind {
+    LinuxSeccompLandlockV1,
+    UnsupportedPlatform,
+}
+
+/// Non-secret evidence from the OS sandbox adapter. A policy digest alone is
+/// never accepted as evidence; enforced must only be true after actual OS enforcement.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SandboxEnforcementReceipt {
+    pub assignment_id: RendererProcessAssignmentId,
+    pub installation_id: SandboxInstallationId,
+    pub adapter: SandboxAdapterKind,
+    pub policy_digest: [u8; 32],
+    pub enforced: bool,
 }
 
 /// Kernel-observed process identity. PID alone is deliberately insufficient.
@@ -95,6 +134,7 @@ pub struct RendererLaunchReceipt {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProcessContractError {
     InvalidAssignmentId,
+    InvalidSandboxInstallationId,
     InvalidProcessIdentity,
     ProcessAlreadyAssigned,
     NoActiveAssignment,
@@ -107,6 +147,7 @@ impl fmt::Display for ProcessContractError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InvalidAssignmentId => f.write_str("renderer process assignment id must be non-zero"),
+            Self::InvalidSandboxInstallationId => f.write_str("sandbox installation id must be non-zero"),
             Self::InvalidProcessIdentity => f.write_str("renderer process identity is invalid"),
             Self::ProcessAlreadyAssigned => f.write_str("a renderer process assignment is already active"),
             Self::NoActiveAssignment => f.write_str("no renderer process assignment is active"),
@@ -191,6 +232,12 @@ impl RendererProcessController {
     }
 }
 
+pub fn next_sandbox_installation_id() -> Result<SandboxInstallationId, ProcessContractError> {
+    let mut bytes = [0u8; 16];
+    getrandom::fill(&mut bytes).map_err(|_| ProcessContractError::InvalidSandboxInstallationId)?;
+    SandboxInstallationId::new(u128::from_be_bytes(bytes))
+}
+
 fn next_assignment_id() -> u128 {
     let mut bytes = [0u8; 16];
     if getrandom::fill(&mut bytes).is_err() {
@@ -237,6 +284,16 @@ mod tests {
         assert_eq!(profile.filesystem, FilesystemPolicy::NoAmbientAccess);
         assert_eq!(profile.devices, DevicePolicy::None);
         assert_eq!(profile.child_processes, ChildProcessPolicy::Deny);
+        assert_ne!(profile.policy_digest(), [0u8; 32]);
+    }
+
+    #[test]
+    fn sandbox_installation_ids_are_independent() {
+        let a = next_sandbox_installation_id().unwrap();
+        let b = next_sandbox_installation_id().unwrap();
+        assert_ne!(a, b);
+        assert_ne!(a.0, 0);
+        assert_ne!(b.0, 0);
     }
 
     #[test]
