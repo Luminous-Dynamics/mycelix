@@ -224,3 +224,30 @@ This inventory is a controlled planning/audit artifact. It does **not** claim:
 - migrated DNA hashes.
 
 Those require execution in the actual 0.7 environment.
+
+
+## Follow-up source audit — concrete host-side blockers (2026-10-02)
+
+The branch tree and maintained workspace files were rechecked against the migration checklist. This pass confirms that the host-side issues are present in executable files, not only in historical documentation:
+
+| Surface | Observed source state | Migration consequence |
+| --- | --- | --- |
+| `mycelix-workspace/flake.nix` | Direct Holonix pin `d21b3543`; comment identifies it as 0.6-era | Root shell is not a verified 0.7 toolchain; update the input and lock together in a real Nix environment. |
+| `mycelix-civic/flake.nix` | Same Holonix pin `d21b3543` | Civic's standalone shell independently retains the 0.6-era host baseline. |
+| `mycelix-commons/flake.nix` | Same Holonix pin `d21b3543` | Commons' standalone shell independently retains the 0.6-era host baseline. |
+| `mycelix-civic/Cargo.toml` | HDK `=0.6.1`, HDI `=0.7.1`; explicit 0.6.1 pins for zome/integrity/hash/derive crates | Civic needs coordinated dependency and source migration, not only a core crate bump. |
+| `mycelix-commons/Cargo.toml` | HDK `0.6.0`, HDI `0.7.0`, integrity types `0.6.0`, hash `0.6` with `hashing` | Commons has a separate baseline and feature graph that must be normalized and compiled independently. |
+| `mycelix-workspace/sdk-ts/docker/conductor-config.yaml` | Explicit `webrtc`, `signal_url`, and `db_sync_strategy: Fast` | This fixture is incompatible with the documented 0.7 transport/config model and needs a 0.7-specific replacement plus parser/startup evidence. |
+| `mycelix-workspace/scripts/start-conductor.sh` | Prerequisites specify Holochain/Lair 0.6.x; generated config writes `signal_url`, `relay_url`, `tx5Transport`, and `db_sync_strategy: Resilient` | The script actively emits obsolete host configuration and can silently reuse a pre-existing conductor data root. It must be version-gated and its fresh-data lifecycle made explicit before it is a valid 0.7 launcher. |
+
+### Additional execution safeguards
+
+- Keep the 0.6 launcher/config fixtures intact as historical or compatibility fixtures until the intended support matrix is explicitly chosen; add or migrate a clearly named 0.7 path rather than silently changing assumptions for all consumers.
+- The 0.7 launcher must refuse to start against an existing 0.6 data root unless the operator explicitly selects a new, empty 0.7 root. This is a guardrail, not a data migration mechanism.
+- The Docker test fixture should declare its intended conductor generation and use QUIC/iroh-compatible networking; a YAML text edit alone is not acceptance evidence.
+- Standalone Civic and Commons flakes must not drift from the root Holonix generation. Prefer one shared, explicit version authority where the repository architecture permits it, while preserving reproducible lockfiles for each independently-entered flake.
+- Treat this source scan as static inspection only. It does not establish the complete count of all legacy strings across the repository, nor does it establish that any 0.7 config or launcher works.
+
+### Updated gate interpretation
+
+R0 remains **blocked** on actual Holonix 0.7 pin selection and lock/shell execution. R1 and R3 now have confirmed concrete remediation targets in the SDK TypeScript Docker conductor fixture and workspace launcher, but remain **pending** until a 0.7 conductor parses and starts them. R2 additionally requires a fail-closed data-root policy in the new launcher. No ROS-006 qualification or projection semantics were changed in this audit.
