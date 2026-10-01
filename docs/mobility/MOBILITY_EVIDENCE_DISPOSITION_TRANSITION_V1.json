@@ -4,28 +4,128 @@
   "semantics": {
     "append_only": true,
     "temporal_scope_is_immutable": true,
-    "terminal_dispositions": ["superseded", "retracted"],
+    "terminal_dispositions": [
+      "superseded",
+      "retracted"
+    ],
     "genesis_from": "active",
     "missing_dependency": "unresolved_at_protocol_layer"
   },
   "vectors": [
-    {"id":"EDT-001","case":"active_to_disputed_genesis","expected":"accepted"},
-    {"id":"EDT-002","case":"active_to_superseded_genesis","expected":"accepted"},
-    {"id":"EDT-003","case":"active_to_retracted_genesis","expected":"accepted"},
-    {"id":"EDT-004","case":"active_to_unresolved_genesis","expected":"accepted"},
-    {"id":"EDT-005","case":"disputed_to_active_with_predecessor","expected":"accepted"},
-    {"id":"EDT-006","case":"unresolved_to_active_with_predecessor","expected":"accepted"},
-    {"id":"EDT-007","case":"genesis_cannot_start_non_active","expected":"rejected"},
-    {"id":"EDT-008","case":"non_genesis_requires_explicit_predecessor","expected":"rejected"},
-    {"id":"EDT-009","case":"retracted_is_terminal","expected":"rejected"},
-    {"id":"EDT-010","case":"superseded_is_terminal","expected":"rejected"},
-    {"id":"EDT-011","case":"self_referencing_predecessor","expected":"rejected"},
-    {"id":"EDT-012","case":"untyped_basis","expected":"rejected"},
-    {"id":"EDT-013","case":"disposition_transition_does_not_rewrite_event_or_effectivity","expected":"accepted"},
-    {"id":"EDT-014","case":"missing_predecessor_dependency","expected":"unresolved_at_protocol_layer"},
-    {"id":"EDT-015","case":"concurrent_disposition_branches_require_explicit_reconciliation","expected":"not_silently_collapsed"},
-    {"id":"EDT-016","case":"successor_configuration_does_not_inherit_disposition","expected":"rejected"},
-    {"id":"EDT-017","case":"replacement_artifact_does_not_inherit_disposition","expected":"rejected"},
-    {"id":"EDT-018","case":"holochain_validation_is_not_evidence_disposition","expected":"rejected"}
+    {
+      "id": "EDT-001",
+      "case": "active_to_disputed_genesis",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-002",
+      "case": "active_to_superseded_genesis",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-003",
+      "case": "active_to_retracted_genesis",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-004",
+      "case": "active_to_unresolved_genesis",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-005",
+      "case": "disputed_to_active_with_predecessor",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-006",
+      "case": "unresolved_to_active_with_predecessor",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-007",
+      "case": "genesis_cannot_start_non_active",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-008",
+      "case": "non_genesis_requires_explicit_predecessor",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-009",
+      "case": "retracted_is_terminal",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-010",
+      "case": "superseded_is_terminal",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-011",
+      "case": "self_referencing_predecessor",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-012",
+      "case": "untyped_basis",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-013",
+      "case": "disposition_transition_does_not_rewrite_event_or_effectivity",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-014",
+      "case": "missing_predecessor_dependency",
+      "expected": "unresolved_at_protocol_layer"
+    },
+    {
+      "id": "EDT-015",
+      "case": "concurrent_disposition_branches_require_explicit_reconciliation",
+      "expected": "not_silently_collapsed"
+    },
+    {
+      "id": "EDT-016",
+      "case": "successor_configuration_does_not_inherit_disposition",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-017",
+      "case": "replacement_artifact_does_not_inherit_disposition",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-018",
+      "case": "holochain_validation_is_not_evidence_disposition",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-019",
+      "case": "duplicate_transition_identity",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-020",
+      "case": "predecessor_source_state_mismatch",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-021",
+      "case": "multiple_genesis_assertions",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-022",
+      "case": "branch_point_is_reported_without_selecting_winner",
+      "expected": "explicit_branch"
+    },
+    {
+      "id": "EDT-023",
+      "case": "missing_predecessor_identity",
+      "expected": "unresolved_at_protocol_layer"
+    }
   ]
 }
