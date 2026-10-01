@@ -168,7 +168,7 @@ mod tests {
     fn compared_claim_identity_cannot_be_target() {
         let t = id(IdentityKind::EvidenceRecord, "claim-a");
         let p = projection(t.clone());
-        assert!(p.validate(&t, &witness(), &base()).is_err());
+        assert!(p.validate(&t, &id(IdentityKind::ConfigurationRevision, "config-r1"), &witness(), &base()).is_err());
     }
 
     #[test]
@@ -180,6 +180,31 @@ mod tests {
         };
         let p = projection(t.clone());
         assert!(p.validate(&t, &witness(), &base()).is_err());
+    }
+
+    #[test]
+    #[test]
+    fn configuration_scope_must_be_explicitly_matching() {
+        let t = target("target-a");
+        let p = projection(t.clone());
+        let wrong_scope = id(IdentityKind::ConfigurationRevision, "config-r2");
+        assert!(p.validate(&t, &wrong_scope, &witness(), &base()).is_err());
+    }
+
+    #[test]
+    fn witness_identity_cannot_be_configuration_scope() {
+        let t = target("target-a");
+        let p = projection(t.clone());
+        let witness_scope = id(IdentityKind::ReconciliationWitness, "w1");
+        assert!(p.validate(&t, &witness_scope, &witness(), &base()).is_err());
+    }
+
+    #[test]
+    fn holochain_configuration_scope_is_rejected() {
+        let t = target("target-a");
+        let p = projection(t.clone());
+        let scope = IdentityRef { kind: IdentityKind::ConfigurationRevision, namespace: "holochain".into(), id: "uhC0config".into() };
+        assert!(p.validate(&t, &scope, &witness(), &base()).is_err());
     }
 
     #[test]
