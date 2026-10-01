@@ -46,18 +46,45 @@ pub fn get_inbox_v2_qualification(_: ()) -> ExternResult<V2InboxQualificationV1>
     // A successful call is the adapter's explicit enumeration boundary. It
     // does not claim that an arbitrary remote peer has an omniscient view of
     // the DHT; it establishes the complete set returned by this host query.
-    let links = get_links(
+    // Use get_links_details rather than get_links so the qualification
+    // evidence records whether a matching link was observed and later deleted.
+    // Holochain documents that get_links returns only live links, while
+    // get_links_details exposes creates together with their delete actions.
+    let link_details = get_links_details(
         LinkQuery::try_new(me.clone(), LinkTypes::AgentToInboxV2)?
             .tag_prefix(LinkTag::new(INBOX_V2_TAG.to_vec())),
         GetStrategy::default(),
     )?;
 
-    let mut candidates = Vec::with_capacity(links.len());
+    let observed_links = link_details.into_inner();
+    let deleted_links = observed_links
+        .iter()
+        .filter(|(_, deletes)| !deletes.is_empty())
+        .count() as u32;
+
+    let live_links = observed_links
+        .iter()
+        .filter(|(_, deletes)| deletes.is_empty())
+        .count() as u32;
+
+    let mut candidates = Vec::with_capacity(live_links as usize);
     let mut qualified = Vec::new();
     let mut evidence = Vec::new();
 
-    for link in links {
-        let Some(hash) = link.target.clone().into_action_hash() else {
+    for (create_link, deletes) in observed_links {
+        if !deletes.is_empty() {
+            continue;
+        }
+
+        let Some(Action::CreateLink(create_link_action)) = Some(create_link.action()) else {
+            candidates.push(V2CandidateAccountingV1 {
+                evidence_id: Some(DurableEvidenceIdV1(create_link.action_address().to_string())),
+                disposition: V2CandidateDispositionV1::WrongActionType,
+            });
+            continue;
+        };
+
+        let Some(hash) = create_link_action.target_address.clone().into_action_hash() else {
             candidates.push(V2CandidateAccountingV1 {
                 evidence_id: None,
                 disposition: V2CandidateDispositionV1::Unreadable,
