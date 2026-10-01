@@ -499,6 +499,21 @@ fn d6n_assessment_is_exact(
             return false;
         }
 
+        // D6P consumes the D6N assessment as a qualified semantic
+        // boundary. An Independent classification must agree with the
+        // independence declaration that produced it; otherwise a
+        // self-consistent assessment can relabel dependent evidence as
+        // independent without changing its commitment shape.
+        if matches!(
+            item.classification,
+            ObservationClassificationV1::CorroboratingIndependent
+                | ObservationClassificationV1::ContradictoryIndependent
+        ) && item.independence
+            != crate::contestable_finality::ObservationIndependenceV1::DeclaredIndependent
+        {
+            return false;
+        }
+
         if matches!(
             item.classification,
             ObservationClassificationV1::CorroboratingIndependent
@@ -1433,6 +1448,41 @@ mod tests {
             FinalityEligibilityDispositionV1::BlockedBinding
         );
         assert_eq!(composition.composition_commitment, "blocked");
+    }
+
+    #[test]
+    fn d6p_rejects_independent_assessment_without_independent_declaration() {
+        let g = generation("observer-A");
+        let e = observation("obs-1", &g, ExternalObservedStateV1::Applied);
+        let s = set(&["obs-1"]);
+        let mut a = d6n_assessment(
+            &s,
+            &[(
+                "obs-1".into(),
+                "observer-A".into(),
+                ObservationClassificationV1::CorroboratingIndependent,
+            )],
+        );
+
+        a.assessments[0].independence =
+            crate::contestable_finality::ObservationIndependenceV1::DeclaredDependent;
+
+        let (_, r) = ledger_and_receipt(&g, &e);
+        let result = compose_finality_eligibility(
+            &s,
+            &a,
+            &[e],
+            &[r],
+            "life-profile-1",
+            "frontier-1",
+            1,
+        );
+
+        assert_eq!(
+            result.disposition,
+            FinalityEligibilityDispositionV1::BlockedBinding
+        );
+        assert_eq!(result.composition_commitment, "blocked");
     }
 
     #[test]
