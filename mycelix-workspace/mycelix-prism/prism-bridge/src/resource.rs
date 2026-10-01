@@ -78,7 +78,22 @@ impl ResourceScopeV1 {
 
     pub fn path_prefix(origin: &str, path: &str) -> Result<Self, ResourceError> {
         let identity = ResourceIdentity::parse_url(origin)?;
-        if !path.starts_with('/') {
+        if !path.starts_with('/') || path.contains('?') || path.contains('#') {
+            return Err(ResourceError::InvalidPath);
+        }
+        // Path scopes are policy inputs, not URL references. Resolve them
+        // against the canonical origin and require the serialized path to be
+        // unchanged so dot-segments and special-scheme backslashes cannot
+        // silently broaden or relocate the scope.
+        let canonical = identity
+            .as_url()
+            .join(path)
+            .map_err(|_| ResourceError::InvalidPath)?;
+        if canonical.origin().ascii_serialization() != identity.origin()
+            || canonical.path() != path
+            || canonical.query().is_some()
+            || canonical.fragment().is_some()
+        {
             return Err(ResourceError::InvalidPath);
         }
         Ok(Self::PathPrefix {
@@ -143,6 +158,14 @@ mod tests {
         let scope = ResourceScopeV1::path_prefix("https://example.com", "/assets/").unwrap();
         assert!(scope.allows(&ResourceIdentity::parse_url("https://example.com/assets/app.js").unwrap()));
         assert!(!scope.allows(&ResourceIdentity::parse_url("https://example.com/assets-evil/app.js").unwrap()));
+        assert_eq!(
+            ResourceScopeV1::path_prefix("https://example.com", "/assets/../"),
+            Err(ResourceError::InvalidPath)
+        );
+        assert_eq!(
+            ResourceScopeV1::path_prefix("https://example.com", "/assets?x=1"),
+            Err(ResourceError::InvalidPath)
+        );
     }
 
     #[test]
