@@ -1,1 +1,350 @@
-// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics\n// SPDX-License-Identifier: AGPL-3.0-or-later\n\n//! Evidence-accounting contract for the V2 durable-message qualification boundary.\n//!\n//! This module does not perform Holochain retrieval or validation. It defines\n//! the information a transport adapter must account for before a V2 inbox may\n//! be projected into Chat.\n\nuse serde::{Deserialize, Serialize};\n\nuse crate::chat_projection::{\n    ChatProjectionError, DurableEvidenceIdV1, QualifiedV2MessageV1,\n    V2InboxCompletenessV1,\n};\n\npub const V2_QUALIFICATION_SCHEMA_VERSION_V1: u8 = 1;\n\n#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]\npub enum V2CandidateDispositionV1 {\n    Valid, Missing, Invalid, NonV2, WrongActionType, Unreadable,\n}\n\n#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]\n#[serde(deny_unknown_fields)]\npub struct V2CandidateAccountingV1 {\n    pub evidence_id: Option<DurableEvidenceIdV1>,\n    pub disposition: V2CandidateDispositionV1,\n}\n\n/// Local qualification state observed for one durable V2 record.\n///\n/// This is deliberately not called a validation receipt. Holochain validation\n/// receipts are author-conductor-local and are not a general current-validity certificate.\n#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]\npub enum V2RecordValidationStateV1 {\n    Valid, Rejected, Unavailable,\n}\n\n#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]\n#[serde(deny_unknown_fields)]\npub struct V2QualifiedEvidenceV1 {\n    pub evidence_id: DurableEvidenceIdV1,\n    pub action_timestamp_micros: i64,\n    pub validation_state: V2RecordValidationStateV1,\n}\n\nimpl V2QualifiedEvidenceV1 {\n    pub fn validate(&self) -> Result<(), ChatProjectionError> {\n        self.evidence_id.validate()?;\n        if self.action_timestamp_micros < 0 {\n            return Err(ChatProjectionError::InvalidTimestamp);\n        }\n        Ok(())\n    }\n}\n\n#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]\n#[serde(deny_unknown_fields)]\npub struct V2InboxQualificationV1 {\n    pub schema_version: u8,\n    pub candidates: Vec<V2CandidateAccountingV1>,\n    pub qualified: Vec<QualifiedV2MessageV1>,\n    pub evidence: Vec<V2QualifiedEvidenceV1>,\n}\n\nimpl V2InboxQualificationV1 {\n    pub fn validate(&self) -> Result<(), ChatProjectionError> {\n        if self.schema_version != V2_QUALIFICATION_SCHEMA_VERSION_V1 {\n            return Err(ChatProjectionError::UnsupportedSchemaVersion(self.schema_version));\n        }\n        if self.candidates.len() != self.qualified.len() || self.qualified.len() != self.evidence.len() {\n            return Err(ChatProjectionError::QualificationCountMismatch);\n        }\n        for ((candidate, message), evidence) in self.candidates.iter().zip(self.qualified.iter()).zip(self.evidence.iter()) {\n            if candidate.disposition != V2CandidateDispositionV1::Valid {\n                return Err(ChatProjectionError::UnqualifiedCandidate);\n            }\n            message.validate()?;\n            evidence.validate()?;\n            if message.evidence_id != evidence.evidence_id {\n                return Err(ChatProjectionError::EvidenceIdentityMismatch);\n            }\n            if evidence.validation_state != V2RecordValidationStateV1::Valid {\n                return Err(ChatProjectionError::UnqualifiedEvidence);\n            }\n        }\n        Ok(())\n    }\n\n    pub fn into_projection_inputs(&self) -> Result<(V2InboxCompletenessV1, Vec<QualifiedV2MessageV1>), ChatProjectionError> {\n        self.validate()?;\n        Ok((V2InboxCompletenessV1::Complete, self.qualified.clone()))\n    }\n}\n\n#[cfg(test)]\nmod tests {\n    use super::*;\n    use crate::chat_projection::{AgentKeyV1, AGENT_KEY_RAW_BYTES};\n\n    fn message(byte: u8) -> QualifiedV2MessageV1 {\n        QualifiedV2MessageV1 {\n            message_id: [byte; 32], evidence_id: DurableEvidenceIdV1(format!("uhCAk{byte:02x}")),\n            sender: AgentKeyV1(vec![1; AGENT_KEY_RAW_BYTES]), recipient: AgentKeyV1(vec![2; AGENT_KEY_RAW_BYTES]),\n            thread_id: None, in_reply_to: None, created_at_micros: 10,\n        }\n    }\n    fn evidence(byte: u8) -> V2QualifiedEvidenceV1 {\n        V2QualifiedEvidenceV1 { evidence_id: DurableEvidenceIdV1(format!("uhCAk{byte:02x}")), action_timestamp_micros: 11, validation_state: V2RecordValidationStateV1::Valid }\n    }\n    fn qualification(candidate: V2CandidateAccountingV1, message: QualifiedV2MessageV1, evidence: V2QualifiedEvidenceV1) -> V2InboxQualificationV1 {\n        V2InboxQualificationV1 { schema_version: V2_QUALIFICATION_SCHEMA_VERSION_V1, candidates: vec![candidate], qualified: vec![message], evidence: vec![evidence] }\n    }\n\n    #[test]\n    fn valid_candidate_crosses_boundary() {\n        let q = qualification(V2CandidateAccountingV1 { evidence_id: Some(DurableEvidenceIdV1("uhCAk01".into())), disposition: V2CandidateDispositionV1::Valid }, message(1), evidence(1));\n        assert!(q.validate().is_ok());\n        let (completeness, inputs) = q.into_projection_inputs().unwrap();\n        assert_eq!(completeness, V2InboxCompletenessV1::Complete);\n        assert_eq!(inputs.len(), 1);\n    }\n\n    #[test]\n    fn missing_candidate_fails_closed() {\n        let q = qualification(V2CandidateAccountingV1 { evidence_id: None, disposition: V2CandidateDispositionV1::Missing }, message(1), evidence(1));\n        assert_eq!(q.validate(), Err(ChatProjectionError::UnqualifiedCandidate));\n    }\n\n    #[test]\n    fn evidence_identity_must_match() {\n        let q = qualification(V2CandidateAccountingV1 { evidence_id: Some(DurableEvidenceIdV1("uhCAk01".into())), disposition: V2CandidateDispositionV1::Valid }, message(1), evidence(2));\n        assert_eq!(q.validate(), Err(ChatProjectionError::EvidenceIdentityMismatch));\n    }\n\n    #[test]\n    fn rejected_record_fails_closed() {\n        let q = qualification(V2CandidateAccountingV1 { evidence_id: Some(DurableEvidenceIdV1("uhCAk01".into())), disposition: V2CandidateDispositionV1::Valid }, message(1), V2QualifiedEvidenceV1 { validation_state: V2RecordValidationStateV1::Rejected, ..evidence(1) });\n        assert_eq!(q.validate(), Err(ChatProjectionError::UnqualifiedEvidence));\n    }\n\n    #[test]\n    fn count_mismatch_fails_closed() {\n        let mut q = qualification(V2CandidateAccountingV1 { evidence_id: Some(DurableEvidenceIdV1("uhCAk01".into())), disposition: V2CandidateDispositionV1::Valid }, message(1), evidence(1));\n        q.qualified.push(message(2));\n        assert_eq!(q.validate(), Err(ChatProjectionError::QualificationCountMismatch));\n    }\n\n    #[test]\n    fn unknown_fields_are_rejected() {\n        let encoded = r#"{"schema_version":1,"candidates":[],"qualified":[],"evidence":[],"authority":"admin"}"#;\n        assert!(serde_json::from_str::<V2InboxQualificationV1>(encoded).is_err());\n    }\n}\n
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+//! Evidence-accounting contract for the V2 durable-message qualification boundary.
+//!
+//! This module does not perform Holochain retrieval or validation. It defines
+//! the information a transport adapter must account for before a V2 inbox may
+//! be projected into Chat.
+
+use std::collections::HashSet;
+
+use serde::{Deserialize, Serialize};
+
+use crate::chat_projection::{
+    ChatProjectionError, DurableEvidenceIdV1, QualifiedV2MessageV1,
+    V2InboxCompletenessV1,
+};
+
+pub const V2_QUALIFICATION_SCHEMA_VERSION_V1: u8 = 1;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub enum V2CandidateDispositionV1 {
+    Valid,
+    Missing,
+    Invalid,
+    NonV2,
+    WrongActionType,
+    Unreadable,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct V2CandidateAccountingV1 {
+    /// Some dispositions can still have durable identity even when the record
+    /// itself cannot be qualified (for example, a known action that is missing).
+    pub evidence_id: Option<DurableEvidenceIdV1>,
+    pub disposition: V2CandidateDispositionV1,
+}
+
+/// Local qualification state observed for one durable V2 record.
+///
+/// This is deliberately not called a validation receipt. Holochain validation
+/// receipts are author-conductor-local and are not a general current-validity certificate.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub enum V2RecordValidationStateV1 {
+    Valid,
+    Rejected,
+    Unavailable,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct V2QualifiedEvidenceV1 {
+    pub evidence_id: DurableEvidenceIdV1,
+    pub action_timestamp_micros: i64,
+    pub validation_state: V2RecordValidationStateV1,
+}
+
+impl V2QualifiedEvidenceV1 {
+    pub fn validate(&self) -> Result<(), ChatProjectionError> {
+        self.evidence_id.validate()?;
+        if self.action_timestamp_micros < 0 {
+            return Err(ChatProjectionError::InvalidTimestamp);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct V2InboxQualificationV1 {
+    pub schema_version: u8,
+
+    /// Every discovered candidate, including candidates that cannot cross the
+    /// qualification boundary. A candidate must never disappear merely because
+    /// its record is missing, invalid, non-V2, or otherwise unreadable.
+    pub candidates: Vec<V2CandidateAccountingV1>,
+
+    /// Only candidates with Valid disposition may appear here.
+    pub qualified: Vec<QualifiedV2MessageV1>,
+
+    /// One evidence record for every qualified message, in the same logical
+    /// set (not necessarily the same ordering) as qualified.
+    pub evidence: Vec<V2QualifiedEvidenceV1>,
+}
+
+impl V2InboxQualificationV1 {
+    pub fn validate(&self) -> Result<(), ChatProjectionError> {
+        if self.schema_version != V2_QUALIFICATION_SCHEMA_VERSION_V1 {
+            return Err(ChatProjectionError::UnsupportedSchemaVersion(self.schema_version));
+        }
+
+        if self.qualified.len() != self.evidence.len() {
+            return Err(ChatProjectionError::QualificationCountMismatch);
+        }
+
+        let mut candidate_evidence = HashSet::new();
+        let mut valid_candidate_evidence = HashSet::new();
+
+        for candidate in &self.candidates {
+            if let Some(evidence_id) = &candidate.evidence_id {
+                evidence_id.validate()?;
+                if !candidate_evidence.insert(evidence_id) {
+                    return Err(ChatProjectionError::DuplicateEvidenceIdentity);
+                }
+            }
+
+            if candidate.disposition == V2CandidateDispositionV1::Valid {
+                let Some(evidence_id) = &candidate.evidence_id else {
+                    return Err(ChatProjectionError::EvidenceIdentityMismatch);
+                };
+                valid_candidate_evidence.insert(evidence_id.clone());
+            }
+        }
+
+        let mut qualified_evidence = HashSet::new();
+        let mut message_ids = HashSet::new();
+
+        for (message, evidence) in self.qualified.iter().zip(&self.evidence) {
+            message.validate()?;
+            evidence.validate()?;
+
+            if !message_ids.insert(message.message_id) {
+                return Err(ChatProjectionError::DuplicateMessageIdentity);
+            }
+
+            if !qualified_evidence.insert(evidence.evidence_id.clone()) {
+                return Err(ChatProjectionError::DuplicateEvidenceIdentity);
+            }
+
+            if message.evidence_id != evidence.evidence_id {
+                return Err(ChatProjectionError::EvidenceIdentityMismatch);
+            }
+
+            if evidence.validation_state != V2RecordValidationStateV1::Valid {
+                return Err(ChatProjectionError::UnqualifiedEvidence);
+            }
+
+            if !valid_candidate_evidence.contains(&evidence.evidence_id) {
+                return Err(ChatProjectionError::EvidenceIdentityMismatch);
+            }
+        }
+
+        if valid_candidate_evidence.len() != self.qualified.len() {
+            return Err(ChatProjectionError::MissingQualifiedCandidate);
+        }
+
+        if self
+            .candidates
+            .iter()
+            .any(|candidate| candidate.disposition != V2CandidateDispositionV1::Valid)
+        {
+            return Err(ChatProjectionError::UnqualifiedCandidate);
+        }
+
+        Ok(())
+    }
+
+    pub fn into_projection_inputs(
+        &self,
+    ) -> Result<(V2InboxCompletenessV1, Vec<QualifiedV2MessageV1>), ChatProjectionError> {
+        self.validate()?;
+        Ok((V2InboxCompletenessV1::Complete, self.qualified.clone()))
+    }
+
+    pub fn candidate_count(&self) -> usize {
+        self.candidates.len()
+    }
+
+    pub fn valid_candidate_count(&self) -> usize {
+        self.candidates
+            .iter()
+            .filter(|candidate| candidate.disposition == V2CandidateDispositionV1::Valid)
+            .count()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::chat_projection::{AgentKeyV1, AGENT_KEY_RAW_BYTES};
+
+    fn message(byte: u8) -> QualifiedV2MessageV1 {
+        QualifiedV2MessageV1 {
+            message_id: [byte; 32],
+            evidence_id: DurableEvidenceIdV1(format!("uhCAk{byte:02x}")),
+            sender: AgentKeyV1(vec![1; AGENT_KEY_RAW_BYTES]),
+            recipient: AgentKeyV1(vec![2; AGENT_KEY_RAW_BYTES]),
+            thread_id: None,
+            in_reply_to: None,
+            created_at_micros: 10,
+        }
+    }
+
+    fn evidence(byte: u8) -> V2QualifiedEvidenceV1 {
+        V2QualifiedEvidenceV1 {
+            evidence_id: DurableEvidenceIdV1(format!("uhCAk{byte:02x}")),
+            action_timestamp_micros: 11,
+            validation_state: V2RecordValidationStateV1::Valid,
+        }
+    }
+
+    fn qualification(
+        candidates: Vec<V2CandidateAccountingV1>,
+        messages: Vec<QualifiedV2MessageV1>,
+        evidence: Vec<V2QualifiedEvidenceV1>,
+    ) -> V2InboxQualificationV1 {
+        V2InboxQualificationV1 {
+            schema_version: V2_QUALIFICATION_SCHEMA_VERSION_V1,
+            candidates,
+            qualified: messages,
+            evidence,
+        }
+    }
+
+    fn valid_candidate(byte: u8) -> V2CandidateAccountingV1 {
+        V2CandidateAccountingV1 {
+            evidence_id: Some(DurableEvidenceIdV1(format!("uhCAk{byte:02x}"))),
+            disposition: V2CandidateDispositionV1::Valid,
+        }
+    }
+
+    #[test]
+    fn valid_candidate_crosses_boundary() {
+        let q = qualification(vec![valid_candidate(1)], vec![message(1)], vec![evidence(1)]);
+        assert!(q.validate().is_ok());
+        assert_eq!(q.candidate_count(), 1);
+        assert_eq!(q.valid_candidate_count(), 1);
+        let (completeness, inputs) = q.into_projection_inputs().unwrap();
+        assert_eq!(completeness, V2InboxCompletenessV1::Complete);
+        assert_eq!(inputs.len(), 1);
+    }
+
+    #[test]
+    fn missing_candidate_is_accounted_for_but_blocks_projection() {
+        let q = qualification(
+            vec![
+                valid_candidate(1),
+                V2CandidateAccountingV1 {
+                    evidence_id: None,
+                    disposition: V2CandidateDispositionV1::Missing,
+                },
+            ],
+            vec![message(1)],
+            vec![evidence(1)],
+        );
+        assert_eq!(q.validate(), Err(ChatProjectionError::UnqualifiedCandidate));
+    }
+
+    #[test]
+    fn valid_candidate_without_evidence_identity_fails_closed() {
+        let q = qualification(
+            vec![V2CandidateAccountingV1 {
+                evidence_id: None,
+                disposition: V2CandidateDispositionV1::Valid,
+            }],
+            vec![message(1)],
+            vec![evidence(1)],
+        );
+        assert_eq!(q.validate(), Err(ChatProjectionError::EvidenceIdentityMismatch));
+    }
+
+    #[test]
+    fn evidence_identity_must_match_message_and_candidate() {
+        let q = qualification(vec![valid_candidate(1)], vec![message(1)], vec![evidence(2)]);
+        assert_eq!(q.validate(), Err(ChatProjectionError::EvidenceIdentityMismatch));
+    }
+
+    #[test]
+    fn rejected_record_is_explicitly_accounted_but_blocks_projection() {
+        let q = qualification(
+            vec![V2CandidateAccountingV1 {
+                evidence_id: Some(DurableEvidenceIdV1("uhCAk01".into())),
+                disposition: V2CandidateDispositionV1::Invalid,
+            }],
+            vec![],
+            vec![],
+        );
+        assert_eq!(q.validate(), Err(ChatProjectionError::UnqualifiedCandidate));
+    }
+
+    #[test]
+    fn rejected_validation_state_blocks_projection() {
+        let q = qualification(
+            vec![valid_candidate(1)],
+            vec![message(1)],
+            vec![V2QualifiedEvidenceV1 {
+                validation_state: V2RecordValidationStateV1::Rejected,
+                ..evidence(1)
+            }],
+        );
+        assert_eq!(q.validate(), Err(ChatProjectionError::UnqualifiedEvidence));
+    }
+
+    #[test]
+    fn missing_qualified_message_is_detected() {
+        let q = qualification(
+            vec![valid_candidate(1), valid_candidate(2)],
+            vec![message(1)],
+            vec![evidence(1)],
+        );
+        assert_eq!(q.validate(), Err(ChatProjectionError::MissingQualifiedCandidate));
+    }
+
+    #[test]
+    fn count_mismatch_between_qualified_and_evidence_fails_closed() {
+        let q = qualification(
+            vec![valid_candidate(1)],
+            vec![message(1), message(2)],
+            vec![evidence(1)],
+        );
+        assert_eq!(q.validate(), Err(ChatProjectionError::QualificationCountMismatch));
+    }
+
+    #[test]
+    fn duplicate_candidate_evidence_fails_closed() {
+        let q = qualification(
+            vec![valid_candidate(1), valid_candidate(1)],
+            vec![message(1)],
+            vec![evidence(1)],
+        );
+        assert_eq!(q.validate(), Err(ChatProjectionError::DuplicateEvidenceIdentity));
+    }
+
+    #[test]
+    fn duplicate_message_identity_fails_closed() {
+        let q = qualification(
+            vec![valid_candidate(1), valid_candidate(2)],
+            vec![message(1), message(1)],
+            vec![evidence(1), evidence(2)],
+        );
+        assert_eq!(q.validate(), Err(ChatProjectionError::DuplicateMessageIdentity));
+    }
+
+    #[test]
+    fn duplicate_qualified_evidence_fails_closed() {
+        let q = qualification(
+            vec![valid_candidate(1), valid_candidate(2)],
+            vec![message(1), message(2)],
+            vec![evidence(1), evidence(1)],
+        );
+        assert_eq!(q.validate(), Err(ChatProjectionError::DuplicateEvidenceIdentity));
+    }
+
+    #[test]
+    fn unknown_fields_are_rejected() {
+        let encoded = r#"{"schema_version":1,"candidates":[],"qualified":[],"evidence":[],"authority":"admin"}"#;
+        assert!(serde_json::from_str::<V2InboxQualificationV1>(encoded).is_err());
+    }
+}
