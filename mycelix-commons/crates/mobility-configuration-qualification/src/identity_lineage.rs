@@ -146,6 +146,80 @@ impl LineageEdge {
     }
 }
 
+
+/// Explicit lifecycle transition for configuration applicability.
+///
+/// A configuration successor never inherits physical-artifact applicability
+/// implicitly from its predecessor. Each successor applicability claim must be
+/// represented by its own exact AppliesTo edge.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ApplicabilityTransition {
+    pub predecessor: IdentityRef,
+    pub successor: IdentityRef,
+    pub predecessor_artifact: IdentityRef,
+    pub successor_artifact: Option<IdentityRef>,
+    pub supersession: LineageEdge,
+    pub predecessor_applicability: LineageEdge,
+    pub successor_applicability: Option<LineageEdge>,
+}
+
+impl ApplicabilityTransition {
+    pub fn validate(&self) -> Result<(), String> {
+        self.predecessor.validate()?;
+        self.successor.validate()?;
+        self.predecessor_artifact.validate()?;
+        if let Some(artifact) = &self.successor_artifact {
+            artifact.validate()?;
+        }
+
+        if self.predecessor.kind != IdentityKind::ConfigurationRevision
+            || self.successor.kind != IdentityKind::ConfigurationRevision
+        {
+            return Err("applicability transition requires configuration revisions".into());
+        }
+        if self.predecessor_artifact.kind != IdentityKind::PhysicalArtifact {
+            return Err("applicability transition requires a physical artifact".into());
+        }
+        if let Some(artifact) = &self.successor_artifact {
+            if artifact.kind != IdentityKind::PhysicalArtifact {
+                return Err("successor applicability requires a physical artifact".into());
+            }
+        }
+        if self.predecessor == self.successor {
+            return Err("configuration applicability transition requires distinct revisions".into());
+        }
+
+        if self.supersession.relation != LineageRelation::Supersedes
+            || self.supersession.source != self.successor
+            || self.supersession.target != self.predecessor
+        {
+            return Err("configuration transition requires explicit successor-to-predecessor Supersedes edge".into());
+        }
+        self.supersession.validate()?;
+
+        if self.predecessor_applicability.relation != LineageRelation::AppliesTo
+            || self.predecessor_applicability.source != self.predecessor
+            || self.predecessor_applicability.target != self.predecessor_artifact
+        {
+            return Err("predecessor applicability must exactly bind predecessor configuration to artifact".into());
+        }
+        self.predecessor_applicability.validate()?;
+
+        if let Some(successor) = &self.successor_applicability {
+            if successor.relation != LineageRelation::AppliesTo
+                || successor.source != self.successor
+                || Some(successor.target.clone()) != self.successor_artifact
+            {
+                return Err("successor applicability must exactly bind successor configuration to artifact".into());
+            }
+            successor.validate()?;
+        }
+
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -156,6 +230,124 @@ mod tests {
             namespace: "mobility".into(),
             id: value.into(),
         }
+    }
+
+
+    #[test]
+    fn configuration_successor_does_not_inherit_applicability_implicitly() {
+        let predecessor = id(IdentityKind::ConfigurationRevision, "config-r1");
+        let successor = id(IdentityKind::ConfigurationRevision, "config-r2");
+        let artifact = id(IdentityKind::PhysicalArtifact, "artifact-a");
+        let t = ApplicabilityTransition {
+            predecessor: predecessor.clone(),
+            successor: successor.clone(),
+            predecessor_artifact: artifact.clone(),
+            successor_artifact: None,
+            supersession: LineageEdge {
+                relation: LineageRelation::Supersedes,
+                source: successor.clone(),
+                target: predecessor.clone(),
+            },
+            predecessor_applicability: LineageEdge {
+                relation: LineageRelation::AppliesTo,
+                source: predecessor,
+                target: artifact.clone(),
+            },
+            successor_applicability: None,
+        };
+        assert!(t.validate().is_ok());
+    }
+
+    #[test]
+    fn successor_same_artifact_requires_explicit_new_applicability() {
+        let predecessor = id(IdentityKind::ConfigurationRevision, "config-r1");
+        let successor = id(IdentityKind::ConfigurationRevision, "config-r2");
+        let artifact = id(IdentityKind::PhysicalArtifact, "artifact-a");
+        let mut t = ApplicabilityTransition {
+            predecessor: predecessor.clone(),
+            successor: successor.clone(),
+            predecessor_artifact: artifact.clone(),
+            successor_artifact: None,
+            supersession: LineageEdge {
+                relation: LineageRelation::Supersedes,
+                source: successor.clone(),
+                target: predecessor.clone(),
+            },
+            predecessor_applicability: LineageEdge {
+                relation: LineageRelation::AppliesTo,
+                source: predecessor,
+                target: artifact.clone(),
+            },
+            successor_applicability: None,
+        };
+        assert!(t.validate().is_ok());
+        t.successor_artifact = Some(artifact.clone());
+        t.successor_applicability = Some(LineageEdge {
+            relation: LineageRelation::AppliesTo,
+            source: successor,
+            target: artifact,
+        });
+        assert!(t.validate().is_ok());
+    }
+
+    #[test]
+    fn successor_retargeting_is_explicit_and_distinct() {
+        let predecessor = id(IdentityKind::ConfigurationRevision, "config-r1");
+        let successor = id(IdentityKind::ConfigurationRevision, "config-r2");
+        let old_artifact = id(IdentityKind::PhysicalArtifact, "artifact-a");
+        let new_artifact = id(IdentityKind::PhysicalArtifact, "artifact-b");
+        let t = ApplicabilityTransition {
+            predecessor: predecessor.clone(),
+            successor: successor.clone(),
+            predecessor_artifact: old_artifact.clone(),
+            successor_artifact: Some(new_artifact.clone()),
+            supersession: LineageEdge {
+                relation: LineageRelation::Supersedes,
+                source: successor.clone(),
+                target: predecessor.clone(),
+            },
+            predecessor_applicability: LineageEdge {
+                relation: LineageRelation::AppliesTo,
+                source: predecessor,
+                target: old_artifact,
+            },
+            successor_applicability: Some(LineageEdge {
+                relation: LineageRelation::AppliesTo,
+                source: successor,
+                target: new_artifact,
+            }),
+        };
+        assert!(t.validate().is_ok());
+    }
+
+    #[test]
+    fn successor_cannot_silently_retarget_predecessor_edge() {
+        let predecessor = id(IdentityKind::ConfigurationRevision, "config-r1");
+        let successor = id(IdentityKind::ConfigurationRevision, "config-r2");
+        let old_artifact = id(IdentityKind::PhysicalArtifact, "artifact-a");
+        let new_artifact = id(IdentityKind::PhysicalArtifact, "artifact-b");
+        let t = ApplicabilityTransition {
+            predecessor: predecessor.clone(),
+            successor: successor.clone(),
+            predecessor_artifact: old_artifact.clone(),
+            successor_artifact: None,
+            supersession: LineageEdge {
+                relation: LineageRelation::Supersedes,
+                source: successor.clone(),
+                target: predecessor.clone(),
+            },
+            predecessor_applicability: LineageEdge {
+                relation: LineageRelation::AppliesTo,
+                source: predecessor,
+                target: new_artifact,
+            },
+            successor_applicability: Some(LineageEdge {
+                relation: LineageRelation::AppliesTo,
+                source: successor,
+                target: old_artifact,
+            }),
+        };
+        assert!(t.validate().is_err());
     }
 
     #[test]
