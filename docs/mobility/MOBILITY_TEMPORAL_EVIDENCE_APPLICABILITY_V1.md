@@ -56,6 +56,12 @@ An effectivity interval does not imply:
 
 An event interval also does not automatically define effectivity.
 
+## Configuration containment
+
+The evidence effectivity interval must be contained within the explicit temporal applicability interval of the configuration-to-artifact binding. This is a scope constraint: evidence cannot claim applicability outside the configuration/artifact context it names. It does not imply that the evidence is causally valid, sufficient, true, safe, or certified.
+
+An effectivity interval may be shorter than configuration applicability. Exact equality is permitted. A finite configuration applicability interval cannot contain open-ended evidence effectivity. Because intervals are half-open, an evidence interval beginning exactly at the configuration end is outside the configuration scope and is rejected.
+
 This separation is intentional: digital-thread systems need temporal alignment and persistent associations, while the semantics of those associations must remain explicit rather than being inferred from timestamps alone. citeturn1search1turn2search0
 
 ## Historical preservation
