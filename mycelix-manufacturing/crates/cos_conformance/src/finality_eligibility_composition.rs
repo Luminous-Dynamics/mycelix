@@ -19,7 +19,8 @@
 //! current reuse.
 
 use crate::contestable_finality::{
-    ExternalObservedEvidenceV1, ExternalObservationSetV1, ObservationClassificationV1,
+    verify_observation_set_assessment_provenance, ExternalObservedEvidenceV1,
+    ExternalObservationSetV1, FinalityQualificationProfileV1, ObservationClassificationV1,
     ObservationSetAssessmentV1, CONTESTABLE_FINALITY_CLAIM_CEILING,
 };
 use crate::observer_lifecycle::{
@@ -29,6 +30,7 @@ use crate::observer_lifecycle::{
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use crate::substitution_continuity::{ProviderRouteV1, SemanticEffectV1};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub const FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING: &str =
@@ -995,7 +997,10 @@ pub fn current_receipt_matches_composition(
 /// Supplied receipts that fail authoritative D6O reconstruction are fail-closed
 /// rather than being allowed to contribute merely because their own commitment
 /// is internally consistent.
-pub fn compose_finality_eligibility_from_authoritative_d6o(
+pub fn compose_finality_eligibility_from_authoritative_d6n_d6o(
+    effect: &SemanticEffectV1,
+    route: &ProviderRouteV1,
+    profile: &FinalityQualificationProfileV1,
     set: &ExternalObservationSetV1,
     assessment: &ObservationSetAssessmentV1,
     evidence: &[ExternalObservedEvidenceV1],
@@ -1003,8 +1008,26 @@ pub fn compose_finality_eligibility_from_authoritative_d6o(
     lifecycle_profile: &ObserverLifecycleProfileV1,
     d6o_ledger: &ObserverLifecycleLedgerV1,
     current_frontier_root: &str,
+    live_generation_id: &str,
     required_independent_observations: u32,
 ) -> FinalityEligibilityCompositionV1 {
+    if !verify_observation_set_assessment_provenance(
+        assessment,
+        effect,
+        route,
+        profile,
+        set,
+        evidence,
+        current_frontier_root,
+        live_generation_id,
+    ) {
+        return compose_finality_eligibility(
+            set, assessment, evidence, &[],
+            lifecycle_profile.profile_id.as_str(),
+            current_frontier_root,
+            required_independent_observations,
+        );
+    }
     let mut evidence_by_id = BTreeMap::new();
     for item in evidence {
         if item.structurally_valid() {
@@ -1554,7 +1577,7 @@ mod tests {
                 ObservationClassificationV1::CorroboratingIndependent,
             )],
         );
-        let valid = compose_finality_eligibility_from_authoritative_d6o(
+        let valid = compose_finality_eligibility_from_authoritative_d6n_d6o(
             &set,
             &assessment,
             std::slice::from_ref(&evidence),
