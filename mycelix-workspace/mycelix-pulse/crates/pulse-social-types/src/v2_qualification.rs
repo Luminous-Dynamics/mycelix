@@ -301,7 +301,7 @@ mod tests {
     fn observed_deleted_link_does_not_create_a_live_candidate() {
         let q = V2InboxQualificationV1 {
             schema_version: V2_QUALIFICATION_SCHEMA_VERSION_V1,
-            enumeration: V2CandidateEnumerationV1::Complete {
+            enumeration: V2CandidateEnumerationV1::HostObservedComplete {
                 live_links: 0,
                 deleted_links: 1,
             },
