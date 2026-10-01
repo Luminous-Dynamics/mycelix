@@ -255,6 +255,7 @@ impl RendererIpcEnvelopeV1 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::authority::RendererSecurityController;
     use crate::capability::{Capability, CapabilityResource, OriginBinding, RequestId};
     use crate::identity::{AgentClusterId, RendererProcessId, SiteIdentity};
     use tokio::io::AsyncWriteExt;
@@ -268,6 +269,21 @@ mod tests {
             agent_cluster: AgentClusterId::new(1).unwrap(),
             generation,
         }
+    }
+
+
+    fn controller(process: RendererProcessId, generation: u64) -> Arc<Mutex<RendererSecurityController>> {
+        let mut controller = RendererSecurityController::new();
+        controller
+            .commit_navigation(
+                process,
+                SiteIdentity::new("https://example.com").unwrap(),
+                OriginBinding::new("https://example.com").unwrap(),
+                AgentClusterId::new(1).unwrap(),
+            )
+            .unwrap();
+        assert_eq!(controller.generation(), generation);
+        Arc::new(Mutex::new(controller))
     }
 
     fn request_payload(id: u64) -> Vec<u8> {
@@ -296,10 +312,7 @@ mod tests {
 
         let mut connection = RendererCapabilityConnection::from_stream(
             reader,
-            binding(
-                RendererProcessId::new(std::process::id() as u64).unwrap(),
-                1,
-            ),
+            controller(RendererProcessId::new(std::process::id() as u64).unwrap(), 1),
         )
         .unwrap();
 
@@ -322,7 +335,7 @@ mod tests {
         writer.write_all(&envelope).await.unwrap();
 
         let mut connection =
-            RendererCapabilityConnection::from_stream(reader, binding(process, 1)).unwrap();
+            RendererCapabilityConnection::from_stream(reader, controller(process, 1)).unwrap();
         let admitted = connection.receive_request().await.unwrap();
         assert_eq!(admitted.request_id, RequestId::new(1).unwrap());
     }
@@ -364,7 +377,7 @@ mod tests {
         writer.write_all(&envelope).await.unwrap();
 
         let mut connection =
-            RendererCapabilityConnection::from_stream(reader, binding(process, 2)).unwrap();
+            RendererCapabilityConnection::from_stream(reader, controller(process, 2)).unwrap();
         connection.close();
 
         assert!(matches!(
