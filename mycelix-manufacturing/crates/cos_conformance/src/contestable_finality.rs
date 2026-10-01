@@ -512,6 +512,56 @@ pub fn verify_observation_set_assessment_provenance(
     assessment == &expected
 }
 
+/// Reconstruct the authoritative D6N observation-set binding from the effect,
+/// route, qualification profile, live lifecycle generation, current frontier, and
+/// supplied evidence. The set commitment is deliberately not treated as proof:
+/// an attacker who changes semantic fields can recompute a superficial commitment,
+/// so the consumer must reconstruct the semantic binding itself.
+pub fn verify_observation_set_provenance(
+    set: &ExternalObservationSetV1,
+    effect: &SemanticEffectV1,
+    route: &ProviderRouteV1,
+    profile: &FinalityQualificationProfileV1,
+    evidence: &[ExternalObservedEvidenceV1],
+    current_frontier_root: &str,
+    live_generation_id: &str,
+) -> bool {
+    if !set.structurally_valid()
+        || !effect.structurally_valid()
+        || !route.structurally_valid()
+        || !profile.structurally_valid()
+        || !effect_matches(effect, set)
+        || !route_matches(route, set)
+        || set.qualification_profile_id != profile.profile_id
+        || set.semantic_environment_root != effect.semantic_environment_root
+        || set.lifecycle_generation_id != live_generation_id
+        || (profile.current_frontier_required
+            && set.observation_frontier_root != current_frontier_root)
+    {
+        return false;
+    }
+
+    let mut observed_ids = BTreeSet::new();
+    let mut has_target_support = false;
+    for item in evidence {
+        if !item.structurally_valid()
+            || !set.observation_ids.contains(&item.observation.observation_id)
+            || !observation_matches(item, set)
+        {
+            continue;
+        }
+        observed_ids.insert(item.observation.observation_id.clone());
+        has_target_support |= matches!(
+            (set.target_state, item.observation.observed_state),
+            (ExternalFinalityStateV1::Applied, crate::effect_finality::ExternalObservedStateV1::Applied)
+                | (ExternalFinalityStateV1::NotApplied, crate::effect_finality::ExternalObservedStateV1::NotApplied)
+                | (ExternalFinalityStateV1::NotApplied, crate::effect_finality::ExternalObservedStateV1::Reversed)
+        );
+    }
+
+    observed_ids == set.observation_ids && has_target_support
+}
+
 pub fn assess_observation_set(
     effect: &SemanticEffectV1,
     route: &ProviderRouteV1,
