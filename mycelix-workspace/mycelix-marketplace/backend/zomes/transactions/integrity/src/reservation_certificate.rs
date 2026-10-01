@@ -693,6 +693,75 @@ pub fn validate_create_reservation_certificate(
                 "Previous frontier record is not seller-authored".into(),
             ));
         }
+
+        // The frontier is per seller + listing + exact revision. A seller-authored
+        // record from another economic domain is not a valid predecessor merely
+        // because its author matches.
+        if let Some(previous_certificate) = previous
+            .entry()
+            .to_app_option::<ReservationCertificate>()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+                "Invalid previous frontier certificate entry: {e:?}"
+            ))))?
+        {
+            if previous_certificate.seller != certificate.seller
+                || previous_certificate.listing_hash != certificate.listing_hash
+                || previous_certificate.listing_revision != certificate.listing_revision
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Previous frontier certificate belongs to a different seller/listing/revision".into(),
+                ));
+            }
+            if previous_certificate.sequence.checked_add(1) != Some(certificate.sequence) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Reservation frontier sequence does not follow its previous certificate".into(),
+                ));
+            }
+        } else if let Some(previous_terminal) = previous
+            .entry()
+            .to_app_option::<ReservationTerminalEvidence>()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+                "Invalid previous frontier terminal entry: {e:?}"
+            ))))?
+        {
+            if previous_terminal.seller != certificate.seller {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Previous frontier terminal evidence belongs to another seller".into(),
+                ));
+            }
+            let terminal_certificate = must_get_valid_record(
+                previous_terminal.certificate_hash.clone(),
+            )
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+                "Previous frontier terminal evidence references a missing certificate".into(),
+            )))?;
+            let terminal_certificate = terminal_certificate
+                .entry()
+                .to_app_option::<ReservationCertificate>()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+                    "Invalid previous frontier terminal certificate: {e:?}"
+                ))))?
+                .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
+                    "Previous frontier terminal certificate has the wrong entry type".into(),
+                )))?;
+            if terminal_certificate.seller != certificate.seller
+                || terminal_certificate.listing_hash != certificate.listing_hash
+                || terminal_certificate.listing_revision != certificate.listing_revision
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Previous frontier terminal evidence belongs to a different seller/listing/revision".into(),
+                ));
+            }
+            if previous_terminal.sequence.checked_add(1) != Some(certificate.sequence) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Reservation frontier sequence does not follow its previous terminal event".into(),
+                ));
+            }
+        } else {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Previous frontier action is not a recognized reservation frontier event".into(),
+            ));
+        }
     } else if certificate.previous_frontier_action.is_some() {
         return Ok(ValidateCallbackResult::Invalid(
             "Genesis reservation certificate cannot reference a previous frontier".into(),
