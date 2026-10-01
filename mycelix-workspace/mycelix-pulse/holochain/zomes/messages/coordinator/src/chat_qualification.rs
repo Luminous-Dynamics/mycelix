@@ -232,5 +232,19 @@ pub fn qualify_inbox_v2(_: ()) -> ExternResult<V2InboxQualificationV1> {
         .map_err(|error| wasm_error!(WasmErrorInner::Guest(format!(
             "V2 qualification failed closed: {error:?}"
         )))?;
-    Ok(qualification)
+
+    // Structural qualification is necessary but intentionally not sufficient
+    // for Chat promotion. The transport-neutral contract still rejects
+    // host-observed enumeration as a projection input because no protocol-level
+    // completeness witness exists yet. Do not return the apparently-qualified
+    // object from this promotion gate: doing so would turn a host-local
+    // observation into an accidental /chat activation capability.
+    qualification
+        .into_projection_inputs()
+        .map(|_| qualification)
+        .map_err(|error| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "V2 Chat promotion remains fail-closed: {error:?}"
+            )))
+        })
 }
