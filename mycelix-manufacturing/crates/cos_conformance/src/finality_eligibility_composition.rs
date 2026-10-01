@@ -1292,12 +1292,12 @@ mod tests {
             "life-profile-1", "frontier-1", 1
         );
         let threshold_two = compose_finality_eligibility(
-            &s, &a, &[e1, e2], &[r1, r2], "life-profile-1", "frontier-1", 2
+            &s, &a, &[e1, e2], &[r1, r2], "life-profile-1", "frontier-1", 3
         );
 
         assert_ne!(threshold_one.composition_commitment, threshold_two.composition_commitment);
         assert_eq!(threshold_one.disposition, FinalityEligibilityDispositionV1::EligibleCurrent);
-        assert_eq!(threshold_two.disposition, FinalityEligibilityDispositionV1::EligibleCurrent);
+        assert_eq!(threshold_two.disposition, FinalityEligibilityDispositionV1::InsufficientEligibleWitnesses);
         assert_ne!(threshold_one.required_independent_observations, threshold_two.required_independent_observations);
     }
 
