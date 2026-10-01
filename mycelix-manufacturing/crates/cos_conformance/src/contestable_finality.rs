@@ -1053,6 +1053,25 @@ mod tests {
     }
 
     #[test]
+    fn authoritative_set_provenance_rejects_semantic_substitution_even_with_new_commitment() {
+        let e1 = evidence("obs-1", observer("obs-1", "evidence-1", "custody-1"), ExternalObservedStateV1::Applied);
+        let e2 = evidence("obs-2", observer("obs-2", "evidence-2", "custody-2"), ExternalObservedStateV1::Applied);
+        let evidence = vec![e1, e2];
+        let mut forged = set(&["obs-1", "obs-2"]);
+        forged.target_state = ExternalFinalityStateV1::NotApplied;
+        forged.set_commitment = "attacker-recomputed-set-commitment".into();
+        assert!(!verify_observation_set_provenance(
+            &forged,
+            &effect(),
+            &route(),
+            &profile(),
+            &evidence,
+            "frontier-1",
+            "generation-1",
+        ));
+    }
+
+    #[test]
     fn observation_and_observer_identity_are_distinct() {
         let observer_profile = observer("observer-A", "evidence-1", "custody-1");
         let mut item = evidence(
