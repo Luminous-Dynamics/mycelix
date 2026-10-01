@@ -301,6 +301,10 @@ pub struct CurrentFinalityEligibilityReceiptV1 {
     pub observation_set_id: String,
     pub observation_set_commitment: String,
     pub d6n_assessment_commitment: String,
+    /// Candidate-independent D6P composition identity that this receipt projects.
+    /// This links the qualified receipt to the exact committed composition without
+    /// requiring downstream D6S consumers to reconstruct D6N/D6O semantics.
+    pub composition_commitment: String,
     pub witness_eligibility_ids: BTreeSet<String>,
     pub observer_generation_ids: BTreeSet<String>,
     pub current_frontier_root: String,
@@ -906,6 +910,7 @@ pub fn current_receipt_matches_composition(
         || receipt.observation_set_id != composition.observation_set_id
         || receipt.observation_set_commitment != composition.observation_set_commitment
         || receipt.d6n_assessment_commitment != composition.d6n_assessment_commitment
+        || receipt.composition_commitment != composition.composition_commitment
         || receipt.current_frontier_root != composition.current_frontier_root
         || receipt.lifecycle_profile_id != composition.lifecycle_profile_id
         || receipt.eligible_independent_count != composition.eligible_independent_count
@@ -1381,6 +1386,7 @@ mod tests {
             observation_set_id: composition.observation_set_id.clone(),
             observation_set_commitment: composition.observation_set_commitment.clone(),
             d6n_assessment_commitment: composition.d6n_assessment_commitment.clone(),
+            composition_commitment: composition.composition_commitment.clone(),
             witness_eligibility_ids: composition
                 .witnesses
                 .iter()
@@ -2449,6 +2455,7 @@ mod tests {
             observation_set_id: "set-1".into(),
             observation_set_commitment: "set-commitment".into(),
             d6n_assessment_commitment: "assessment:set-commitment".into(),
+            composition_commitment: "composition-test".into(),
             witness_eligibility_ids: ["eligibility-1".into()].into_iter().collect(),
             observer_generation_ids: ["generation-1".into()].into_iter().collect(),
             current_frontier_root: "frontier-1".into(),
