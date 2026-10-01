@@ -690,6 +690,49 @@ mod tests {
         assert!(matches!(error, CertificateError::AlreadyReleased(_)));
     }
 
+    #[test]
+    fn terminal_state_evidence_is_exactly_foldable() {
+        let certificate = certificate_with_capacity("c1", 0, None, 1, 2);
+        let released = ReservationTerminalEvidence {
+            certificate_hash: hash(9),
+            seller: agent(2),
+            intent_hash: certificate.intent_hash.clone(),
+            outcome: ReservationTerminalOutcome::Released,
+            sequence: 1,
+            previous_frontier_action: hash(9),
+            pre_state: certificate.post_state.clone(),
+            post_state: certificate.post_state.after_release(1).unwrap(),
+        };
+        assert!(released.validate_state_transition(&certificate).is_ok());
+
+        let consumed = ReservationTerminalEvidence {
+            outcome: ReservationTerminalOutcome::Consumed,
+            post_state: certificate.post_state.after_consume(1).unwrap(),
+            ..released.clone()
+        };
+        assert!(consumed.validate_state_transition(&certificate).is_ok());
+    }
+
+    #[test]
+    fn terminal_state_evidence_rejects_forged_post_state() {
+        let certificate = certificate_with_capacity("c1", 0, None, 1, 2);
+        let evidence = ReservationTerminalEvidence {
+            certificate_hash: hash(9),
+            seller: agent(2),
+            intent_hash: certificate.intent_hash.clone(),
+            outcome: ReservationTerminalOutcome::Released,
+            sequence: 1,
+            previous_frontier_action: hash(9),
+            pre_state: certificate.post_state.clone(),
+            post_state: ReservationFrontierState {
+                capacity: 2,
+                active_reserved: 0,
+                available: 1,
+            },
+        };
+        assert!(evidence.validate_state_transition(&certificate).is_err());
+    }
+
     fn transaction_for(intent: &PurchaseIntent) -> crate::Transaction {
         crate::Transaction {
             buyer: intent.buyer.clone(),
@@ -796,6 +839,39 @@ pub struct ReservationTerminalEvidence {
 pub enum ReservationTerminalOutcome {
     Released,
     Consumed,
+}
+
+impl ReservationTerminalEvidence {
+    /// Pure validation of the economic state transition represented by this
+    /// terminal event. The Holochain validator additionally binds the evidence
+    /// to the addressable certificate and seller source-chain predecessor.
+    pub fn validate_state_transition(
+        &self,
+        certificate: &ReservationCertificate,
+    ) -> Result<(), &'static str> {
+        if self.seller != certificate.seller {
+            return Err("Terminal evidence seller does not match certificate seller");
+        }
+        if self.intent_hash != certificate.intent_hash {
+            return Err("Terminal evidence intent does not match certificate intent");
+        }
+        if self.previous_frontier_action != self.certificate_hash {
+            return Err("Terminal evidence predecessor must equal certificate");
+        }
+        if self.pre_state != certificate.post_state {
+            return Err("Terminal pre-state must equal certificate post-state");
+        }
+
+        let transition = match self.outcome {
+            ReservationTerminalOutcome::Released => FrontierStateTransition::Release {
+                quantity: certificate.quantity,
+            },
+            ReservationTerminalOutcome::Consumed => FrontierStateTransition::Consume {
+                quantity: certificate.quantity,
+            },
+        };
+        self.pre_state.validate_transition(transition, &self.post_state)
+    }
 }
 
 /// Purely validate that a transaction is authorized by one exact reservation certificate.
