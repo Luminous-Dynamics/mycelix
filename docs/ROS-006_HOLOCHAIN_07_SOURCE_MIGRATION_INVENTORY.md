@@ -8,7 +8,7 @@ Branch: `feat/ros-006-qualification-boundary-v2`
 
 This inventory converts the previously identified 0.6-era Holochain API hotspots into concrete source locations and migration units. It is deliberately separate from ROS-006 qualification semantics.
 
-The official Holochain 0.6 → 0.7 guide identifies the action-model rewrite as the bulk of the upgrade work: `Action` becomes a header plus `ActionData`, `FlatOp` variants are renamed/restructured, and `EntryCreationAction` becomes `TypedAction<EntryCreationData>`. cite-like-placeholder
+The official Holochain 0.6 → 0.7 guide identifies the action-model rewrite as the bulk of the upgrade work: `Action` becomes a header plus `ActionData`, `FlatOp` variants are renamed/restructured, and `EntryCreationAction` becomes `TypedAction<EntryCreationData>`.
 
 ## Inventory
 
