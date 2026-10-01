@@ -30,6 +30,10 @@ pub struct Transaction {
     /// Listing being purchased
     pub listing_hash: ActionHash,
 
+    /// Seller-issued reservation admission certificate. Every transaction must
+    /// bind to the exact certificate that authorized its inventory reservation.
+    pub reservation_certificate_hash: ActionHash,
+
     /// Quantity purchased
     pub quantity: u32,
 
@@ -252,6 +256,40 @@ fn validate_create_transaction(
     if let Err(reason) = validate_create_transaction_fields(transaction, &action.author) {
         return Ok(ValidateCallbackResult::Invalid(reason));
     }
+
+    let certificate_record = must_get_valid_record(transaction.reservation_certificate_hash.clone())
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+            "Transaction references a missing or invalid reservation certificate".into(),
+        )))?;
+    let certificate = certificate_record
+        .entry()
+        .to_app_option::<ReservationCertificate>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+            "Could not decode reservation certificate: {e:?}"
+        ))))?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
+            "Transaction reservation dependency is not a ReservationCertificate".into(),
+        )))?;
+
+    if certificate.seller != transaction.seller
+        || certificate.intent.buyer != transaction.buyer
+        || certificate.listing_hash != transaction.listing_hash
+        || certificate.quantity != transaction.quantity
+        || certificate.intent.unit_price_cents
+            .checked_mul(transaction.quantity as u64)
+            != Some(transaction.total_price_cents)
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Transaction terms do not exactly match its reservation certificate".into(),
+        ));
+    }
+
+    if certificate_record.action().author() != &transaction.seller {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reservation certificate is not seller-authored".into(),
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
@@ -263,6 +301,9 @@ fn validate_create_transaction_fields(
 
     if author != &transaction.buyer {
         return Err("Transaction creation must be authored by the buyer".into());
+    }
+    if transaction.reservation_certificate_hash == transaction.listing_hash {
+        return Err("Reservation certificate must be distinct from the listing hash".into());
     }
     if transaction.status != TransactionStatus::Pending {
         return Err("New transactions must start in Pending status".into());
