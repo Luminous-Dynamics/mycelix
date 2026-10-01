@@ -584,7 +584,7 @@ fn receipt_binding_failure(
     lifecycle_profile_id: &str,
     current_frontier_root: &str,
 ) -> Option<FinalityEligibilityDispositionV1> {
-    if !receipt.structurally_valid() {
+    if !receipt.commitment_matches() {
         return Some(FinalityEligibilityDispositionV1::BlockedBinding);
     }
     if receipt.observation_id != evidence.observation.observation_id
@@ -1360,9 +1360,11 @@ mod tests {
             classification: ObservationClassificationV1::CorroboratingIndependent,
             disposition: EvidenceEligibilityDispositionV1::EligibleCurrent,
             lifecycle_transition_ids: BTreeSet::new(),
-            eligibility_commitment: format!("eligibility:{}", observation.observation.observation_id),
+            eligibility_commitment: String::new(),
             claim_ceiling: crate::observer_lifecycle::OBSERVER_LIFECYCLE_CLAIM_CEILING.into(),
         };
+        let mut receipt = receipt;
+        receipt.eligibility_commitment = receipt.recomputed_commitment();
         (ledger, receipt)
     }
 
