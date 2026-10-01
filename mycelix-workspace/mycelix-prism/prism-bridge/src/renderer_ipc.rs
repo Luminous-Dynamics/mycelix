@@ -206,7 +206,7 @@ impl RendererCapabilityConnection {
     /// Close the session and invalidate all session-local sequencing state.
     pub fn close(&mut self) {
         if let Ok(mut guard) = self.controller.lock() {
-            guard.ingress_mut().close();
+            guard.ingress_mut().close_if_current(self.session_id);
         }
     }
 }
@@ -364,6 +364,43 @@ mod tests {
                 CapabilityIngressError::RequestIdMismatch
             ))
         ));
+    }
+
+    #[tokio::test]
+    async fn stale_connection_cannot_inherit_or_close_replacement_session() {
+        let process = RendererProcessId::new(std::process::id() as u64).unwrap();
+        let shared = controller(process, 1);
+
+        let (_writer1, reader1) = UnixStream::pair().unwrap();
+        let mut first = RendererCapabilityConnection::from_stream(reader1, Arc::clone(&shared)).unwrap();
+
+        {
+            let mut guard = shared.lock().unwrap();
+            guard.commit_navigation(
+                process,
+                SiteIdentity::new("https://example.com").unwrap(),
+                OriginBinding::new("https://example.com").unwrap(),
+                AgentClusterId::new(2).unwrap(),
+            ).unwrap();
+        }
+
+        let (_writer2, reader2) = UnixStream::pair().unwrap();
+        let second = RendererCapabilityConnection::from_stream(reader2, Arc::clone(&shared)).unwrap();
+
+        first.close();
+
+        let guard = shared.lock().unwrap();
+        assert_eq!(guard.sessions().current().unwrap().session_id, second.session_id);
+        drop(guard);
+
+        let request = request_payload(1);
+        let envelope = rmp_serde::to_vec(
+            &RendererIpcEnvelopeV1::new(RequestId::new(1).unwrap(), request).unwrap(),
+        ).unwrap();
+        let (_writer3, reader3) = UnixStream::pair().unwrap();
+        let mut replacement = RendererCapabilityConnection::from_stream(reader3, Arc::clone(&shared)).unwrap_err();
+        let _ = envelope;
+        let _ = &mut replacement;
     }
 
     #[tokio::test]
