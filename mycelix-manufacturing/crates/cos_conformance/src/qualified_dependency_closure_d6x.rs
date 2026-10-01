@@ -11,6 +11,7 @@ use crate::canonical_derivation_receipt::{
     D6S_CLAIM_CEILING,
 };
 use crate::evidence_claim_graph::{ClaimGraphEdgeKindV1, ClaimGraphNodeKindV1};
+use crate::finality_eligibility_composition::{verify_current_receipt_provenance_from_composition, CurrentFinalityEligibilityReceiptV1, FinalityEligibilityCompositionV1};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
@@ -394,6 +395,42 @@ fn cycle_exists(nodes: &BTreeSet<String>, edges: &[(String, String)]) -> bool {
     let mut active = BTreeSet::new();
     let mut done = BTreeSet::new();
     adjacency.keys().any(|id| visit(id, &adjacency, &mut active, &mut done))
+}
+
+/// Authoritative D6X entrypoint: before a closure can consume D6P receipt
+/// commitments, reconstruct each selected receipt from its authoritative D6P
+/// composition. This closes the finality->closure gap where an opaque receipt
+/// commitment could otherwise be treated as sufficient provenance.
+pub fn compute_dependency_closure_from_authoritative_d6p(
+    projection: &QualifiedProjectionV1,
+    environment: &SemanticEnvironmentV1,
+    derivation_profile: &DerivationProfileV1,
+    profile: &DependencyClosureProfileV1,
+    d6p_receipts: &[CurrentFinalityEligibilityReceiptV1],
+    d6p_compositions: &[FinalityEligibilityCompositionV1],
+) -> Option<DependencyClosureCertificateV1> {
+    if !projection.structurally_valid()
+        || !environment.structurally_valid()
+        || !derivation_profile.structurally_valid()
+        || !profile.structurally_valid()
+    {
+        return None;
+    }
+
+    for commitment in &profile.required_d6p_receipt_commitments {
+        if !projection.d6p_current_receipt_commitments.contains(commitment) {
+            return None;
+        }
+        let receipt = d6p_receipts.iter().find(|r| r.receipt_commitment == *commitment)?;
+        let composition = d6p_compositions
+            .iter()
+            .find(|c| c.composition_commitment == receipt.composition_commitment)?;
+        if !verify_current_receipt_provenance_from_composition(receipt, composition) {
+            return None;
+        }
+    }
+
+    compute_dependency_closure(projection, environment, derivation_profile, profile)
 }
 
 pub fn compute_dependency_closure(
