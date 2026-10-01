@@ -4,6 +4,8 @@ Audit date: 2026-10-01
 Scope: repository manifests, the committed `mycelix-workspace/flake.lock`, and the committed `mycelix-civic/Cargo.lock` inspected on branch `feat/ros-006-qualification-boundary-v2`.  
 Purpose: establish the Holochain 0.7 target without performing an unsafe partial dependency migration inside ROS-006.
 
+Detailed execution matrix: [`ROS-006_HOLOCHAIN_07_NORMALIZATION_MATRIX.md`](ROS-006_HOLOCHAIN_07_NORMALIZATION_MATRIX.md).
+
 ## Current state
 
 The repository is **not yet Holochain-0.7 normalized**. The inspected active workspaces still contain a mixture of 0.6-era Holochain dependencies, and the workspace Nix lock is explicitly resolving a Holochain 0.6 generation.
