@@ -43,7 +43,7 @@ A source-level audit of the branch confirms that the runtime migration is still 
 | `mycelix-commons` | `0.6.0` | `0.7.0` | Independent workspace with a different 0.6-era dependency baseline. |
 | `mycelix-workspace` | host aggregation | host aggregation | Direct Holonix input; lock regeneration is required before claiming a 0.7 environment. |
 
-This matters because Holochain's 0.7 guide requires HDK 0.7.0 and HDI 0.8.0, and explicitly calls out additional feature/API changes beyond those two version strings. citeturn0search1turn0search0
+This matters because Holochain's 0.7 guide requires HDK 0.7.0 and HDI 0.8.0, and explicitly calls out additional feature/API changes beyond those two version strings.
 
 ### Concrete normalization implication
 
@@ -58,7 +58,7 @@ The official guide specifically calls out these additional 0.7-sensitive items:
 - `wasmer_sys` → `wasmer-sys-cranelift`;
 - `sqlite-encrypted` → `encryption`.
 
-These should be discovered from the actual manifests rather than blindly inserted into every workspace. citeturn0search1
+These should be discovered from the actual manifests rather than blindly inserted into every workspace.
 
 ## Runtime migration surfaces
 
