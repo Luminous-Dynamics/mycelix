@@ -178,7 +178,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn mismatched_supersession_lineage_is_rejected() {
         let previous = witness("w1");
         let current = witness("w2");
