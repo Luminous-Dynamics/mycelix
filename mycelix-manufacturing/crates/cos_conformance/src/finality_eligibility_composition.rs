@@ -1250,6 +1250,58 @@ mod tests {
     }
 
     #[test]
+    fn d6p_composition_rejects_conflicting_duplicate_receipt() {
+        let g = generation("observer-A");
+        let e = observation("obs-1", &g, ExternalObservedStateV1::Applied);
+        let s = set(&["obs-1"]);
+        let a = d6n_assessment(
+            &s,
+            &[("obs-1".into(), "observer-A".into(), ObservationClassificationV1::CorroboratingIndependent)],
+        );
+        let (_, r) = ledger_and_receipt(&g, &e);
+        let mut conflicting = r.clone();
+        conflicting.provider_operation_id = "operation-conflict".into();
+
+        let result = compose_finality_eligibility(
+            &s, &a, &[e], &[r, conflicting], "life-profile-1", "frontier-1", 1
+        );
+
+        assert_eq!(result.disposition, FinalityEligibilityDispositionV1::BlockedBinding);
+        assert_eq!(result.composition_commitment, "blocked");
+    }
+
+    #[test]
+    fn d6p_composition_identity_binds_the_required_observation_threshold() {
+        let g1 = generation("observer-A");
+        let g2 = generation("observer-B");
+        let e1 = observation("obs-1", &g1, ExternalObservedStateV1::Applied);
+        let e2 = observation("obs-2", &g2, ExternalObservedStateV1::Applied);
+        let s = set(&["obs-1", "obs-2"]);
+        let a = d6n_assessment(
+            &s,
+            &[
+                ("obs-1".into(), "observer-A".into(), ObservationClassificationV1::CorroboratingIndependent),
+                ("obs-2".into(), "observer-B".into(), ObservationClassificationV1::CorroboratingIndependent),
+            ],
+        );
+        let (_, r1) = ledger_and_receipt(&g1, &e1);
+        let (_, r2) = ledger_and_receipt(&g2, &e2);
+
+        let threshold_one = compose_finality_eligibility(
+            &s, &a, &[e1.clone(), e2.clone()], &[r1.clone(), r2.clone()],
+            "life-profile-1", "frontier-1", 1
+        );
+        let threshold_two = compose_finality_eligibility(
+            &s, &a, &[e1, e2], &[r1, r2], "life-profile-1", "frontier-1", 2
+        );
+
+        assert_ne!(threshold_one.composition_commitment, threshold_two.composition_commitment);
+        assert_eq!(threshold_one.disposition, FinalityEligibilityDispositionV1::EligibleCurrent);
+        assert_eq!(threshold_two.disposition, FinalityEligibilityDispositionV1::EligibleCurrent);
+        assert_ne!(threshold_one.required_independent_observations, threshold_two.required_independent_observations);
+    }
+
+    #[test]
     fn historical_only_does_not_count() {
         let g = generation("observer-A");
         let e = observation("obs-1", &g, ExternalObservedStateV1::Applied);
