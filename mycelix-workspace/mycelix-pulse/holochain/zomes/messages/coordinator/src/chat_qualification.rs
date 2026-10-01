@@ -207,7 +207,7 @@ pub fn get_inbox_v2_qualification(_: ()) -> ExternResult<V2InboxQualificationV1>
 
     let qualification = V2InboxQualificationV1 {
         schema_version: V2_QUALIFICATION_SCHEMA_VERSION_V1,
-        enumeration: V2CandidateEnumerationV1::Complete {
+        enumeration: V2CandidateEnumerationV1::HostObservedComplete {
             live_links,
             deleted_links,
         },
