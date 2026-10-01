@@ -476,6 +476,7 @@ impl FinalityEligibilityLedgerV1 {
 fn d6n_assessment_is_exact(
     set: &ExternalObservationSetV1,
     assessment: &ObservationSetAssessmentV1,
+    required_independent_observations: u32,
 ) -> bool {
     if !assessment.structurally_valid()
         || assessment.set_id != set.set_id
@@ -540,12 +541,23 @@ fn d6n_assessment_is_exact(
         }
     }
 
-    observation_ids == set.observation_ids
-        && assessment.independent_count == independent_count
-        && assessment.contradictory_independent_count == contradictory_independent_count
-        && assessment.dependent_count == dependent_count
-        && (assessment.disposition == ObservationSetDispositionV1::Contested)
-            == (contradictory_independent_count > 0)
+    if observation_ids != set.observation_ids
+        || assessment.independent_count != independent_count
+        || assessment.contradictory_independent_count != contradictory_independent_count
+        || assessment.dependent_count != dependent_count
+    {
+        return false;
+    }
+
+    let expected_disposition = if contradictory_independent_count > 0 {
+        ObservationSetDispositionV1::Contested
+    } else if independent_count >= required_independent_observations {
+        ObservationSetDispositionV1::QualifiedEvidence
+    } else {
+        ObservationSetDispositionV1::InsufficientEvidence
+    };
+
+    assessment.disposition == expected_disposition
 }
 
 fn observation_matches_set(
@@ -729,7 +741,11 @@ pub fn compose_finality_eligibility(
     };
 
     if !set.structurally_valid()
-        || !d6n_assessment_is_exact(set, assessment)
+        || !d6n_assessment_is_exact(
+            set,
+            assessment,
+            required_independent_observations,
+        )
         || lifecycle_profile_id.is_empty()
         || current_frontier_root.is_empty()
         || required_independent_observations == 0
@@ -786,6 +802,8 @@ pub fn compose_finality_eligibility(
 
         if !observation_matches_set(observation, set)
             || item.observer_id != observation.observer_id
+            || item.evidence_root != observation.observer.evidence_root
+            || item.custody_root != observation.observer.custody_root
             || item.assessment_commitment.is_empty()
         {
             return empty(FinalityEligibilityDispositionV1::BlockedBinding);
@@ -1560,6 +1578,77 @@ mod tests {
         assert!(substituted.commitment_matches());
         assert!(substituted.semantically_valid());
         assert!(!current_receipt_matches_composition(&receipt, &substituted));
+    }
+
+    #[test]
+    fn d6p_rejects_self_consistent_assessment_disposition_substitution() {
+        let g = generation("observer-A");
+        let e = observation("obs-1", &g, ExternalObservedStateV1::Applied);
+        let s = set(&["obs-1"]);
+        let mut a = d6n_assessment(
+            &s,
+            &[(
+                "obs-1".into(),
+                "observer-A".into(),
+                ObservationClassificationV1::CorroboratingIndependent,
+            )],
+        );
+        assert_eq!(a.disposition, ObservationSetDispositionV1::QualifiedEvidence);
+
+        a.disposition = ObservationSetDispositionV1::InsufficientEvidence;
+        let (_, r) = ledger_and_receipt(&g, &e);
+        let result = compose_finality_eligibility(
+            &s,
+            &a,
+            std::slice::from_ref(&e),
+            std::slice::from_ref(&r),
+            "life-profile-1",
+            "frontier-1",
+            1,
+        );
+        assert_eq!(
+            result.disposition,
+            FinalityEligibilityDispositionV1::BlockedBinding
+        );
+        assert_eq!(result.composition_commitment, "blocked");
+    }
+
+    #[test]
+    fn d6p_rejects_assessment_root_substitution_against_observer_evidence() {
+        let g = generation("observer-A");
+        let e = observation("obs-1", &g, ExternalObservedStateV1::Applied);
+        let s = set(&["obs-1"]);
+        let mut a = d6n_assessment(
+            &s,
+            &[(
+                "obs-1".into(),
+                "observer-A".into(),
+                ObservationClassificationV1::CorroboratingIndependent,
+            )],
+        );
+        a.assessments[0].evidence_root = "substituted-evidence-root".into();
+        a.assessments[0].assessment_commitment = format!(
+            "{}:{}:{}",
+            a.assessments[0].observation_id,
+            a.assessments[0].evidence_root,
+            a.assessments[0].custody_root
+        );
+
+        let (_, r) = ledger_and_receipt(&g, &e);
+        let result = compose_finality_eligibility(
+            &s,
+            &a,
+            std::slice::from_ref(&e),
+            std::slice::from_ref(&r),
+            "life-profile-1",
+            "frontier-1",
+            1,
+        );
+        assert_eq!(
+            result.disposition,
+            FinalityEligibilityDispositionV1::BlockedBinding
+        );
+        assert_eq!(result.composition_commitment, "blocked");
     }
 
     #[test]
