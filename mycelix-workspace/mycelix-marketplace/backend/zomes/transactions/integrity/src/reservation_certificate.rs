@@ -691,6 +691,50 @@ mod tests {
     }
 
     #[test]
+    fn capacity_state_evidence_is_exactly_foldable() {
+        let pre = ReservationFrontierState {
+            capacity: 10,
+            active_reserved: 3,
+            available: 7,
+        };
+        let evidence = ReservationCapacityEvidence {
+            seller: agent(2),
+            listing_hash: hash(3),
+            listing_revision: hash(4),
+            capacity: 12,
+            sequence: 1,
+            previous_frontier_action: hash(9),
+            pre_state: pre.clone(),
+            post_state: pre.after_set_capacity(12).unwrap(),
+        };
+        assert!(evidence.validate_state_transition().is_ok());
+    }
+
+    #[test]
+    fn capacity_state_evidence_rejects_capacity_below_reservations() {
+        let pre = ReservationFrontierState {
+            capacity: 10,
+            active_reserved: 3,
+            available: 7,
+        };
+        let evidence = ReservationCapacityEvidence {
+            seller: agent(2),
+            listing_hash: hash(3),
+            listing_revision: hash(4),
+            capacity: 2,
+            sequence: 1,
+            previous_frontier_action: hash(9),
+            pre_state: pre,
+            post_state: ReservationFrontierState {
+                capacity: 2,
+                active_reserved: 3,
+                available: 0,
+            },
+        };
+        assert!(evidence.validate_state_transition().is_err());
+    }
+
+    #[test]
     fn terminal_state_evidence_is_exactly_foldable() {
         let certificate = certificate_with_capacity("c1", 0, None, 1, 2);
         let released = ReservationTerminalEvidence {
