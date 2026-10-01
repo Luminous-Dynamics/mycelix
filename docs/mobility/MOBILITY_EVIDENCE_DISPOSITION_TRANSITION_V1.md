@@ -37,3 +37,9 @@ These transitions do not establish truth, safety, certification, regulatory appr
 The deterministic dependency model is intentionally compatible with Holochain validation: addressable dependencies can be validated deterministically, while unavailable dependencies remain unresolved. Holochain's source-chain model is itself append-only and explicitly links records through prior history.
 
 For lifecycle traceability, this is consistent with NIST work describing digital threads as explicit associations across lifecycle stages and temporal alignment of execution data.
+
+## Graph validation
+
+Each immutable transition has its own typed `transition_id`. Graph validation resolves predecessor references by that exact identity, checks evidence identity continuity and requires each child's `from` state to equal its predecessor's `to` state. Duplicate transition identities and multiple genesis assertions for one evidence event are invalid.
+
+A missing predecessor is returned as an unresolved dependency, not a negative evidence judgment. When multiple children reference one predecessor, the graph assessment reports the branch point and retains every branch; it does not select a winning state. A separate, explicit reconciliation record is required before a consumer may treat the competing branches as reconciled. This graph check validates only the supplied dependency set; callers must retrieve the complete referenced records by address before treating the assessment as complete.
