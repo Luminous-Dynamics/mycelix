@@ -193,6 +193,14 @@ impl RendererSessionManager {
         }
         self.current = None;
     }
+
+    pub fn close_if_current(&mut self, expected_session: RendererSessionId) -> bool {
+        if self.current_session_id() != Some(expected_session) {
+            return false;
+        }
+        self.close();
+        true
+    }
 }
 
 /// The only broker ingress that turns an authenticated renderer payload into a
@@ -337,6 +345,10 @@ impl CapabilityIngress {
 
     pub fn close(&mut self) {
         self.sessions.close();
+    }
+
+    pub fn close_if_current(&mut self, session_id: RendererSessionId) -> bool {
+        self.sessions.close_if_current(session_id)
     }
 }
 
