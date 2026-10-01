@@ -461,6 +461,45 @@ pub enum ReservationTerminalOutcome {
     Consumed,
 }
 
+/// Purely validate that a transaction is authorized by one exact reservation certificate.
+///
+/// This is deliberately independent of DHT access so coordinator/integrity tests can
+/// exercise the economic binding without constructing a full Holochain validation context.
+pub fn validate_transaction_reservation_binding(
+    transaction: &crate::Transaction,
+    certificate: &ReservationCertificate,
+) -> Result<(), String> {
+    certificate
+        .validate()
+        .map_err(|error| format!("Invalid reservation certificate: {error:?}"))?;
+
+    if transaction.reservation_certificate_hash == transaction.listing_hash {
+        return Err("Reservation certificate must be distinct from the listing hash".into());
+    }
+    if certificate.seller != transaction.seller {
+        return Err("Transaction seller does not match reservation certificate seller".into());
+    }
+    if certificate.intent.buyer != transaction.buyer {
+        return Err("Transaction buyer does not match reservation intent buyer".into());
+    }
+    if certificate.listing_hash != transaction.listing_hash {
+        return Err("Transaction listing does not match reservation certificate listing".into());
+    }
+    if certificate.quantity != transaction.quantity {
+        return Err("Transaction quantity does not match reservation certificate quantity".into());
+    }
+    let expected_total = certificate
+        .intent
+        .unit_price_cents
+        .checked_mul(u64::from(transaction.quantity))
+        .ok_or_else(|| "Reservation transaction total overflow".to_string())?;
+    if transaction.total_price_cents != expected_total {
+        return Err("Transaction total does not match reservation terms".into());
+    }
+
+    Ok(())
+}
+
 /// Validate a buyer-authored PurchaseIntent at the Holochain boundary.
 pub fn validate_create_purchase_intent(
     intent: &PurchaseIntent,
