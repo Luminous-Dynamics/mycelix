@@ -13,6 +13,7 @@ struct Corpus {
     cases: Vec<Case>,
     chain: Vec<TemporalReconciliationWitness>,
     chain_projection_refs: Vec<IdentityRef>,
+    chain_supersessions: Vec<LineageEdge>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -51,7 +52,7 @@ fn evaluate(case: &Case) -> String {
 }
 
 fn validate_chain(corpus: &Corpus) -> Result<(), String> {
-    if corpus.chain.len() != 3 || corpus.chain_projection_refs.len() != 3 {
+    if corpus.chain.len() != 3 || corpus.chain_projection_refs.len() != 3 || corpus.chain_supersessions.len() != 2 {
         return Err("expected exactly three witness generations and three projection bindings".into());
     }
     for witness in &corpus.chain { witness.validate()?; }
@@ -59,13 +60,9 @@ fn validate_chain(corpus: &Corpus) -> Result<(), String> {
     for (witness, projection_ref) in corpus.chain.iter().zip(refs) {
         validate_projection_binding(projection_ref, witness)?;
     }
-    for pair in corpus.chain.windows(2) {
-        let edge = LineageEdge {
-            relation: mobility_configuration_qualification::identity_lineage::LineageRelation::Supersedes,
-            source: pair[1].witness_identity.clone(),
-            target: pair[0].witness_identity.clone(),
-        };
-        validate_transition(&pair[0], &pair[1], Some(&edge))?;
+    for (pair, edge) in corpus.chain.windows(2).zip(&corpus.chain_supersessions) {
+        edge.validate()?;
+        validate_transition(&pair[0], &pair[1], Some(edge))?;
     }
     Ok(())
 }
