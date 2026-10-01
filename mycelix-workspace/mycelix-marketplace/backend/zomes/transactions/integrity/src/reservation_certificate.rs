@@ -296,11 +296,12 @@ mod tests {
     }
 
     #[test]
-    fn replay_is_not_a_second_admission() {
+    fn replay_of_exact_certificate_is_idempotent() {
         let mut f = frontier(2);
-        f.apply(FrontierEvent::Reserve(certificate("c1", 0, None, 1))).unwrap();
-        let error = f.apply(FrontierEvent::Reserve(certificate("c1", 0, None, 1))).unwrap_err();
-        assert!(matches!(error, CertificateError::SequenceMismatch { .. }));
+        let c1 = certificate("c1", 0, None, 1);
+        assert_eq!(f.apply(FrontierEvent::Reserve(c1.clone())), Ok(ApplyOutcome::Applied));
+        assert_eq!(f.apply(FrontierEvent::Reserve(c1)), Ok(ApplyOutcome::Idempotent));
+        assert_eq!(f.active_reserved(), 1);
     }
 
     #[test]
