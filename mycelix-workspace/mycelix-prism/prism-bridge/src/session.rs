@@ -90,8 +90,7 @@ pub fn authenticate_peer(
     let pid = pid as u64;
     Ok(AuthenticatedPeer {
         peer_id: RendererPeerId::new(pid)?,
-        process: RendererProcessId::new(pid)
-            .map_err(RendererSessionManagerError::Session)?,
+        process: RendererProcessId::new(pid)?,
     })
 }
 
