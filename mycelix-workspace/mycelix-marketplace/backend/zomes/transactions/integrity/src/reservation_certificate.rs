@@ -20,7 +20,7 @@ use std::collections::BTreeMap;
 use crate::reservation::{ApplyOutcome, Reservation, ReservationError, ReservationLedger};
 
 #[hdk_entry_helper]
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PurchaseIntent {
     pub intent_id: String,
     pub buyer: AgentPubKey,
@@ -445,7 +445,7 @@ mod tests {
 
 /// Immutable seller-authored terminal evidence for one exact reservation.
 #[hdk_entry_helper]
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ReservationTerminalEvidence {
     pub certificate_hash: ActionHash,
     pub seller: AgentPubKey,
