@@ -11,8 +11,9 @@ pub use reservation::{ApplyOutcome, Reservation, ReservationError, ReservationEv
 
 mod reservation_certificate;
 pub use reservation_certificate::{
-    validate_create_purchase_intent, validate_create_reservation_certificate,
-    validate_create_reservation_terminal, validate_transaction_reservation_binding,
+    validate_create_purchase_intent, validate_create_reservation_capacity,
+    validate_create_reservation_certificate, validate_create_reservation_terminal,
+    validate_transaction_reservation_binding,
     CertificateError, FrontierEvent, FrontierStateTransition, InventoryFrontier,
     IntentError, PurchaseIntent, ReservationCertificate, ReservationFrontierState,
     ReservationCapacityEvidence, ReservationTerminalEvidence, ReservationTerminalOutcome,
