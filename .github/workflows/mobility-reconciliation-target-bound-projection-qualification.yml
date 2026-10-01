@@ -1,0 +1,70 @@
+name: mobility-reconciliation-target-bound-projection-qualification
+on:
+  pull_request:
+    paths:
+      - "docs/mobility/MOBILITY_RECONCILIATION_TARGET_BOUND_PROJECTION_V1_EXECUTABLE.json"
+      - "docs/mobility/MOBILITY_RECONCILIATION_TARGET_BOUND_PROJECTION_V1.md"
+      - "mycelix-commons/crates/mobility-configuration-qualification/**"
+      - "tools/mobility_target_bound_projection_reference.py"
+      - "tools/compare_mobility_target_bound_projection.py"
+      - ".github/workflows/mobility-reconciliation-target-bound-projection-qualification.yml"
+  push:
+    branches: [main]
+    paths:
+      - "docs/mobility/MOBILITY_RECONCILIATION_TARGET_BOUND_PROJECTION_V1_EXECUTABLE.json"
+      - "mycelix-commons/crates/mobility-configuration-qualification/**"
+      - "tools/mobility_target_bound_projection_reference.py"
+      - "tools/compare_mobility_target_bound_projection.py"
+      - ".github/workflows/mobility-reconciliation-target-bound-projection-qualification.yml"
+permissions: {contents: read}
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo fmt --all -- --check
+      - run: cargo test -p mobility-configuration-qualification
+      - run: cargo run --quiet --manifest-path mycelix-commons/crates/mobility-configuration-qualification/Cargo.toml --bin mobility-target-bound-projection-qualification -- docs/mobility/MOBILITY_RECONCILIATION_TARGET_BOUND_PROJECTION_V1_EXECUTABLE.json > /tmp/rust.json
+      - uses: actions/upload-artifact@v4
+        with: {name: mobility-target-bound-projection-rust, path: /tmp/rust.json, if-no-files-found: error}
+  reference:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.x"}
+      - run: python3 tools/mobility_target_bound_projection_reference.py > /tmp/python.json
+      - uses: actions/upload-artifact@v4
+        with: {name: mobility-target-bound-projection-python, path: /tmp/python.json, if-no-files-found: error}
+  differential:
+    runs-on: ubuntu-latest
+    needs: [rust, reference]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: {name: mobility-target-bound-projection-rust, path: /tmp/rust}
+      - uses: actions/download-artifact@v4
+        with: {name: mobility-target-bound-projection-python, path: /tmp/python}
+      - run: python3 tools/compare_mobility_target_bound_projection.py /tmp/rust/rust.json /tmp/python/python.json
+      - name: Corrupt normalized output
+        run: |
+          python3 -c 'import json; p="/tmp/python/python.json"; d=json.load(open(p)); d["cases"][0]["actual"]="rejected"; json.dump(d,open("/tmp/corrupt.json","w"))'
+          if python3 tools/compare_mobility_target_bound_projection.py /tmp/rust/rust.json /tmp/corrupt.json; then exit 1; fi
+  corpus-corruption:
+    runs-on: ubuntu-latest
+    needs: [rust, reference]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+      - name: Retarget a valid projection and require rejection
+        run: |
+          python3 -c 'import json; p="docs/mobility/MOBILITY_RECONCILIATION_TARGET_BOUND_PROJECTION_V1_EXECUTABLE.json"; d=json.load(open(p)); d["cases"][0]["target"]["id"]="target-b"; json.dump(d,open("/tmp/retarget.json","w"))'
+          if python3 tools/mobility_target_bound_projection_reference.py /tmp/retarget.json >/tmp/py 2>&1; then exit 1; fi
+          if cargo run --quiet --manifest-path mycelix-commons/crates/mobility-configuration-qualification/Cargo.toml --bin mobility-target-bound-projection-qualification -- /tmp/retarget.json >/tmp/rs 2>&1; then exit 1; fi
+      - name: Replace target with witness identity and require rejection
+        run: |
+          python3 -c 'import json; p="docs/mobility/MOBILITY_RECONCILIATION_TARGET_BOUND_PROJECTION_V1_EXECUTABLE.json"; d=json.load(open(p)); d["cases"][0]["target"]=d["cases"][0]["witness"]["witness_identity"]; d["cases"][0]["projection"]["target"]=d["cases"][0]["target"]; json.dump(d,open("/tmp/witness-target.json","w"))'
+          if python3 tools/mobility_target_bound_projection_reference.py /tmp/witness-target.json >/tmp/py 2>&1; then exit 1; fi
+          if cargo run --quiet --manifest-path mycelix-commons/crates/mobility-configuration-qualification/Cargo.toml --bin mobility-target-bound-projection-qualification -- /tmp/witness-target.json >/tmp/rs 2>&1; then exit 1; fi
