@@ -1076,6 +1076,22 @@ mod tests {
     }
 
     #[test]
+    fn authoritative_set_provenance_rejects_duplicate_observation_ids() {
+        let e1 = evidence("obs-1", observer("obs-1", "evidence-1", "custody-1"), ExternalObservedStateV1::Applied);
+        let e2 = evidence("obs-2", observer("obs-2", "evidence-2", "custody-2"), ExternalObservedStateV1::Applied);
+        let evidence = vec![e1.clone(), e1, e2];
+        assert!(!verify_observation_set_provenance(
+            &set(&["obs-1", "obs-2"]),
+            &effect(),
+            &route(),
+            &profile(),
+            &evidence,
+            "frontier-1",
+            "generation-1",
+        ));
+    }
+
+    #[test]
     fn observation_and_observer_identity_are_distinct() {
         let observer_profile = observer("observer-A", "evidence-1", "custody-1");
         let mut item = evidence(
