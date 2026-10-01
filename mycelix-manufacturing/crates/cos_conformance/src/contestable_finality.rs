@@ -484,6 +484,34 @@ fn independent_candidate(
         )
 }
 
+/// Reconstruct the D6N observation-set assessment from authoritative inputs.
+///
+/// This deliberately compares the complete deterministic result rather than
+/// trusting the assessment's self-reported counts, classifications, or
+/// commitment. A caller therefore cannot substitute a forged-but-self-consistent
+/// assessment without changing the authoritative derivation inputs.
+pub fn verify_observation_set_assessment_provenance(
+    assessment: &ObservationSetAssessmentV1,
+    effect: &SemanticEffectV1,
+    route: &ProviderRouteV1,
+    profile: &FinalityQualificationProfileV1,
+    set: &ExternalObservationSetV1,
+    evidence: &[ExternalObservedEvidenceV1],
+    current_frontier_root: &str,
+    live_generation_id: &str,
+) -> bool {
+    let expected = assess_observation_set(
+        effect,
+        route,
+        profile,
+        set,
+        evidence,
+        current_frontier_root,
+        live_generation_id,
+    );
+    assessment == &expected
+}
+
 pub fn assess_observation_set(
     effect: &SemanticEffectV1,
     route: &ProviderRouteV1,
