@@ -90,3 +90,9 @@ jobs:
           if python3 tools/mobility_reconciliation_witness_history_reference.py /tmp/reversed.json >/tmp/py.out 2>&1; then exit 1; fi
           if cargo run --quiet --manifest-path mycelix-commons/crates/mobility-configuration-qualification/Cargo.toml --bin mobility-witness-history-qualification -- /tmp/reversed.json >/tmp/rs.out 2>&1; then exit 1; fi
           echo "Both evaluators rejected reversed supersession"
+      - name: Corrupt explicit three-generation lineage and require rejection
+        run: |
+          python3 -c 'import json; p="docs/mobility/MOBILITY_RECONCILIATION_WITNESS_HISTORY_V1_EXECUTABLE.json"; d=json.load(open(p)); e=d["chain_supersessions"][1]; e["source"],e["target"]=e["target"],e["source"]; json.dump(d,open("/tmp/chain-corrupted.json","w"))'
+          if python3 tools/mobility_reconciliation_witness_history_reference.py /tmp/chain-corrupted.json >/tmp/py.out 2>&1; then exit 1; fi
+          if cargo run --quiet --manifest-path mycelix-commons/crates/mobility-configuration-qualification/Cargo.toml --bin mobility-witness-history-qualification -- /tmp/chain-corrupted.json >/tmp/rs.out 2>&1; then exit 1; fi
+          echo "Both evaluators rejected corrupted explicit chain lineage"
