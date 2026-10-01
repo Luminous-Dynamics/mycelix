@@ -367,6 +367,75 @@ impl ArtifactLifecycleTransition {
     }
 }
 
+
+ 
+/// A deterministic half-open interval used to qualify when a configuration
+/// applicability assertion is in force. This is temporal scope, not proof of
+/// safety, conformance, certification, or measurement truth.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ApplicabilityInterval {
+    pub start: u64,
+    pub end: Option<u64>,
+}
+
+impl ApplicabilityInterval {
+    pub fn validate(&self) -> Result<(), String> {
+        if let Some(end) = self.end {
+            if end <= self.start {
+                return Err("applicability interval must satisfy start < end".into());
+            }
+        }
+        Ok(())
+    }
+
+    pub fn contains(&self, instant: u64) -> bool {
+        instant >= self.start && self.end.map(|end| instant < end).unwrap_or(true)
+    }
+
+    pub fn overlaps(&self, other: &Self) -> bool {
+        let left_end = self.end.unwrap_or(u64::MAX);
+        let right_end = other.end.unwrap_or(u64::MAX);
+        self.start < right_end && other.start < left_end
+    }
+}
+
+/// Explicitly time-scoped configuration applicability.
+///
+/// The underlying AppliesTo edge remains the identity/lineage assertion;
+/// this wrapper prevents consumers from silently treating that assertion as
+/// timeless.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TemporalConfigurationApplicability {
+    pub configuration: IdentityRef,
+    pub artifact: IdentityRef,
+    pub applicability: LineageEdge,
+    pub interval: ApplicabilityInterval,
+}
+
+impl TemporalConfigurationApplicability {
+    pub fn validate(&self) -> Result<(), String> {
+        self.configuration.validate()?;
+        self.artifact.validate()?;
+        self.interval.validate()?;
+        if self.configuration.kind != IdentityKind::ConfigurationRevision {
+            return Err("temporal applicability requires a configuration revision".into());
+        }
+        if self.artifact.kind != IdentityKind::PhysicalArtifact {
+            return Err("temporal applicability requires a physical artifact".into());
+        }
+        if self.applicability.relation != LineageRelation::AppliesTo
+            || self.applicability.source != self.configuration
+            || self.applicability.target != self.artifact
+        {
+            return Err("temporal applicability requires an exact configuration-to-artifact AppliesTo edge".into());
+        }
+        self.applicability.validate()?;
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -379,6 +448,84 @@ mod tests {
         }
     }
 
+
+
+    #[test]
+    fn temporal_applicability_rejects_zero_length_interval() {
+        assert!(ApplicabilityInterval { start: 10, end: Some(10) }.validate().is_err());
+    }
+
+    #[test]
+    fn temporal_applicability_rejects_reversed_interval() {
+        assert!(ApplicabilityInterval { start: 20, end: Some(10) }.validate().is_err());
+    }
+
+    #[test]
+    fn temporal_applicability_uses_half_open_bounds() {
+        let interval = ApplicabilityInterval { start: 10, end: Some(20) };
+        assert!(interval.contains(10));
+        assert!(interval.contains(19));
+        assert!(!interval.contains(20));
+    }
+
+    #[test]
+    fn adjacent_intervals_do_not_overlap() {
+        let left = ApplicabilityInterval { start: 0, end: Some(10) };
+        let right = ApplicabilityInterval { start: 10, end: Some(20) };
+        assert!(!left.overlaps(&right));
+    }
+
+    #[test]
+    fn overlapping_intervals_are_detected() {
+        let left = ApplicabilityInterval { start: 0, end: Some(10) };
+        let right = ApplicabilityInterval { start: 9, end: Some(20) };
+        assert!(left.overlaps(&right));
+    }
+
+    #[test]
+    fn open_ended_interval_overlaps_later_interval() {
+        let open = ApplicabilityInterval { start: 10, end: None };
+        let later = ApplicabilityInterval { start: 100, end: Some(200) };
+        assert!(open.overlaps(&later));
+    }
+
+    #[test]
+    fn temporal_applicability_requires_exact_edge_binding() {
+        let configuration = id(IdentityKind::ConfigurationRevision, "config-r1");
+        let artifact = id(IdentityKind::PhysicalArtifact, "artifact-a");
+        let t = TemporalConfigurationApplicability {
+            configuration: configuration.clone(),
+            artifact: artifact.clone(),
+            applicability: LineageEdge {
+                relation: LineageRelation::AppliesTo,
+                source: configuration,
+                target: id(IdentityKind::PhysicalArtifact, "artifact-b"),
+            },
+            interval: ApplicabilityInterval { start: 0, end: Some(10) },
+        };
+        assert!(t.validate().is_err());
+    }
+
+    #[test]
+    fn temporal_applicability_rejects_holochain_configuration_identity() {
+        let configuration = IdentityRef {
+            kind: IdentityKind::ConfigurationRevision,
+            namespace: "holochain".into(),
+            id: "uhC0-invalid".into(),
+        };
+        let artifact = id(IdentityKind::PhysicalArtifact, "artifact-a");
+        let t = TemporalConfigurationApplicability {
+            configuration: configuration.clone(),
+            artifact: artifact.clone(),
+            applicability: LineageEdge {
+                relation: LineageRelation::AppliesTo,
+                source: configuration,
+                target: artifact,
+            },
+            interval: ApplicabilityInterval { start: 0, end: Some(10) },
+        };
+        assert!(t.validate().is_err());
+    }
 
     #[test]
     fn configuration_successor_does_not_inherit_applicability_implicitly() {
