@@ -1327,19 +1327,32 @@ fn validate_inbox_link(
 }
 
 fn validate_delete_link(
-    _link_type: LinkTypes,
+    link_type: LinkTypes,
     original_action: CreateLink,
     _base_address: AnyLinkableHash,
     _target_address: AnyLinkableHash,
     _tag: LinkTag,
     action: DeleteLink,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Only the original link author can delete the link
+    // Only the original link author can delete the link.
     if original_action.author != action.author {
         return Ok(ValidateCallbackResult::Invalid(
             "Only the link author can delete a link".to_string(),
         ));
     }
+
+    // A V2 inbox link is a protocol namespace, not merely a LinkTypes enum
+    // variant. The create action was already validated before it could become
+    // deletable, so the deletion boundary should preserve that namespace
+    // invariant rather than silently accepting an alternate tag.
+    if matches!(link_type, LinkTypes::AgentToInboxV2)
+        && original_action.tag.as_ref() != INBOX_V2_TAG
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "AgentToInboxV2 delete target must use the canonical inbox-v2 tag".into(),
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
@@ -1438,6 +1451,17 @@ mod tests {
     fn inbox_v2_tag_is_exactly_canonical() {
         assert_eq!(INBOX_V2_TAG, b"inbox-v2");
     }
+
+    #[test]
+    fn inbox_v2_delete_preserves_canonical_tag_contract() {
+        let noncanonical = LinkTag::from(vec![b'i', b'n', b'b', b'o', b'x', b'-', b'v', b'3']);
+        assert_ne!(noncanonical.as_ref(), INBOX_V2_TAG);
+
+        // Keep this assertion close to the validation boundary: the delete
+        // callback must not create a second, weaker V2 namespace.
+        assert_ne!(noncanonical.as_ref(), b"inbox-v2");
+    }
+
 
     #[test]
     fn v2_structure_accepts_a_well_formed_entry() {
