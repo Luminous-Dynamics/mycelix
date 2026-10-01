@@ -1345,15 +1345,17 @@ fn validate_delete_link(
     // variant. The create action was already validated before it could become
     // deletable, so the deletion boundary should preserve that namespace
     // invariant rather than silently accepting an alternate tag.
-    if matches!(link_type, LinkTypes::AgentToInboxV2)
-        && original_action.tag.as_ref() != INBOX_V2_TAG
-    {
+    if !valid_delete_link_namespace(link_type, &original_action.tag) {
         return Ok(ValidateCallbackResult::Invalid(
             "AgentToInboxV2 delete target must use the canonical inbox-v2 tag".into(),
         ));
     }
 
     Ok(ValidateCallbackResult::Valid)
+}
+
+fn valid_delete_link_namespace(link_type: LinkTypes, tag: &LinkTag) -> bool {
+    !matches!(link_type, LinkTypes::AgentToInboxV2) || tag.as_ref() == INBOX_V2_TAG
 }
 
 #[cfg(test)]
@@ -1453,13 +1455,24 @@ mod tests {
     }
 
     #[test]
-    fn inbox_v2_delete_preserves_canonical_tag_contract() {
-        let noncanonical = LinkTag::from(vec![b'i', b'n', b'b', b'o', b'x', b'-', b'v', b'3']);
-        assert_ne!(noncanonical.as_ref(), INBOX_V2_TAG);
+    fn inbox_v2_delete_requires_canonical_tag() {
+        let canonical = LinkTag::from(INBOX_V2_TAG.to_vec());
+        let noncanonical = LinkTag::from(b"inbox-v3".to_vec());
 
-        // Keep this assertion close to the validation boundary: the delete
-        // callback must not create a second, weaker V2 namespace.
-        assert_ne!(noncanonical.as_ref(), b"inbox-v2");
+        assert!(valid_delete_link_namespace(
+            LinkTypes::AgentToInboxV2,
+            &canonical
+        ));
+        assert!(!valid_delete_link_namespace(
+            LinkTypes::AgentToInboxV2,
+            &noncanonical
+        ));
+
+        // Other link namespaces retain their existing delete semantics.
+        assert!(valid_delete_link_namespace(
+            LinkTypes::AgentToSentV2,
+            &noncanonical
+        ));
     }
 
 
