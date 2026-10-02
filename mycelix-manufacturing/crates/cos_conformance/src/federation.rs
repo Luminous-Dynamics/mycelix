@@ -618,7 +618,14 @@ pub fn run_scenario(
             | FederationMutation::Reconnect
             | FederationMutation::StaleSchema
             | FederationMutation::ConflictingObservation
-            | FederationMutation::ExpiredAuthorization => {}
+            | FederationMutation::ExpiredAuthorization
+            | FederationMutation::ContractOriginMutation
+            | FederationMutation::ContractTargetMutation
+            | FederationMutation::ContractSubjectMutation
+            | FederationMutation::ContractPayloadMutation
+            | FederationMutation::ContractAuthorizationGenerationMutation
+            | FederationMutation::ContractPredecessorMutation
+            | FederationMutation::ContractExpiryMutation => {}
         }
 
         match step.mutation {
