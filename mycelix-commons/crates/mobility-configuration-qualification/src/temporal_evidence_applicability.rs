@@ -2445,6 +2445,93 @@ mod tests {
     }
 
     #[test]
+    fn reconciliation_coverage_assessment_is_invariant_to_transition_order() {
+        let disputed = EvidenceDisposition::Disputed {
+            by: id(IdentityKind::ReconciliationWitness, "w1"),
+        };
+        let root_transition = graph_transition(
+            "order-t1",
+            None,
+            EvidenceDisposition::Active,
+            disputed.clone(),
+        );
+        let left = graph_transition(
+            "order-t2",
+            Some("order-t1"),
+            disputed.clone(),
+            EvidenceDisposition::Active,
+        );
+        let right = graph_transition(
+            "order-t3",
+            Some("order-t1"),
+            disputed,
+            EvidenceDisposition::Retracted {
+                by: id(IdentityKind::ReconciliationWitness, "w2"),
+            },
+        );
+        let reconciliation = EvidenceDispositionReconciliation {
+            reconciliation_id: id(
+                IdentityKind::ReconciliationWitness,
+                "reconcile-transition-order",
+            ),
+            evidence: id(IdentityKind::InspectionRecord, "inspection-graph"),
+            branch_point: root_transition.transition_id.clone(),
+            branch_heads: vec![left.transition_id.clone(), right.transition_id.clone()],
+            authority: id(IdentityKind::ReconciliationWitness, "authority-1"),
+            authority_scope: id(IdentityKind::ReconciliationWitness, "authority-scope-1"),
+            authority_delegation: id(
+                IdentityKind::ReconciliationWitness,
+                "authority-delegation-1",
+            ),
+            basis: vec![],
+        };
+        let scope = authority_scope(&reconciliation.reconciliation_id.id);
+        let delegation = authority_delegation(&reconciliation.reconciliation_id.id);
+        let mut boundary = coverage_boundary();
+        boundary.reconciliation = reconciliation.reconciliation_id.clone();
+        let coverage = EvidenceDispositionReconciliationCoverage {
+            coverage_id: id(
+                IdentityKind::ReconciliationWitness,
+                "coverage-transition-order",
+            ),
+            reconciliation: reconciliation.reconciliation_id.clone(),
+            branch_point: reconciliation.branch_point.clone(),
+            covered_branch_heads: reconciliation.branch_heads.clone(),
+            boundary: boundary.boundary_id.clone(),
+            basis: boundary.basis.clone(),
+        };
+        let forward = vec![
+            root_transition.clone(),
+            left.clone(),
+            right.clone(),
+        ];
+        let reverse = vec![right, left, root_transition];
+
+        let forward_result = coverage
+            .validate_against_graph_and_authority_chain_assessment(
+                &reconciliation,
+                &scope,
+                &delegation,
+                &[delegation.clone()],
+                &boundary,
+                &forward,
+            )
+            .unwrap();
+        let reverse_result = coverage
+            .validate_against_graph_and_authority_chain_assessment(
+                &reconciliation,
+                &scope,
+                &delegation,
+                &[delegation],
+                &boundary,
+                &reverse,
+            )
+            .unwrap();
+
+        assert_eq!(forward_result, reverse_result);
+    }
+
+    #[test]
     fn reconciliation_coverage_reports_unresolved_named_authority_chain() {
         let mut root = authority_delegation("reconcile-coverage-authority-missing");
         root.delegation_id = id(IdentityKind::ReconciliationWitness, "authority-coverage-root");
