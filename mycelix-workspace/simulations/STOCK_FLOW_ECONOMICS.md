@@ -40,6 +40,8 @@ state representation.
 - aggregate asset/liability accounting
 - gross leverage observable
 - net credit impulse observable
+- EconomicObservables derived financial/operating measurements
+- descriptive Minsky financing-regime classifier
 - accounting-invariant tests
 
 Credit creation now follows the minimal private-money balance-sheet structure: the lender records a loan claim and deposit liability while the borrower records the matching deposit asset and debt liability. Debt repayment reverses the loan/deposit entries. Physical cash remains a distinct instrument. This closes an important modeling gap: in a bank-credit model, a deposit is itself a bank liability rather than an unexplained pool of money. Godley/Lavoie-style SFC accounting explicitly represents deposits and loans this way.
