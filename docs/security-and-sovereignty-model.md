@@ -116,6 +116,7 @@ The bridge kernel now has an optional Ed25519 path behind the existing identity 
 - Permit lifetime is also bounded by the freshness lease of the verification evidence that produced it. A five-minute kernel cap is therefore a maximum, not a promise that five minutes of authority exists.
 - Enforcement revalidates both current revocation/authority state and the evidence freshness lease before effect; stale evidence cannot authorize merely because the permit itself has not expired.
 - `VerificationEvidence` is now opaque outside the bridge crate; callers cannot manufacture trusted evidence by supplying boolean fields.
+- The unbounded evidence-construction helper is test-only; production verification paths must supply an explicit bounded freshness lease.
 - The next adapter should consume the existing Mycelix institutional authority identity rather than inventing a second grant-hashing or authority-identity scheme. The canonical profile developed in PR #75 (`mycelix-authority-grant-v1-blake3-framed-semantic`) binds authority-relevant grant semantics, including proof lineage and delegation parent. That work remains a separate draft integration dependency.
 
 This separation prevents a valid signature from being treated as a synthetic proof of institutional authority, prevents arbitrary callers from manufacturing the verification hand-off itself, and prevents valid evidence for one capability from being replayed against another.
