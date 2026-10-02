@@ -101,6 +101,13 @@ try {
 }
 if (!fixtureRejected) throw new Error("duplicate-key negative control was accepted");
 
+function canonicalAsciiJson(value) {
+  if (Array.isArray(value)) return "[" + value.map(canonicalAsciiJson).join(",") + "]";
+  if (value !== null && typeof value === "object") {
+    return "{" + Object.keys(value).sort().map((key) => JSON.stringify(key) + ":" + canonicalAsciiJson(value[key])).join(",") + "}";
+  }
+  return JSON.stringify(value);
+}
 const expect = new Map([
   ["EXECUTION_AUTHENTICATED", ["VERIFIED", "EXECUTION_OBSERVED"]],
   ["REQUIRED_DEPENDENCY", ["UNAVAILABLE", "EVIDENCE_MISSING"]],
@@ -143,7 +150,12 @@ for (const v of corpus.vectors) {
   if (v.kind === "availability" && v.expected_state !== "UNAVAILABLE") throw new Error(v.vector_id + ": availability vector must remain unavailable");
   if (v.proposition_id === "RECEIPT_CEILING" && v.expected_claims.includes("rotation_adoption")) throw new Error("receipt ceiling violated");
   if (v.proposition_id === "CLAIM_CEILING" && v.mutation?.operation === "add_required_constraint" && v.mutation.expected_effect !== "rotation_authorization remains unadmitted") throw new Error("claim ceiling monotonicity contract missing");
-  if (v.proposition_id === "CANONICALIZATION_ORDER" && v.mutation?.expected_effect !== "canonical commitment bytes unchanged") throw new Error("canonicalization metamorphic contract missing");
+  if (v.proposition_id === "CANONICALIZATION_ORDER") {
+    if (v.mutation?.expected_effect !== "canonical commitment bytes unchanged") throw new Error("canonicalization metamorphic contract missing");
+    const before = JSON.parse(v.mutation.before_wire);
+    const after = JSON.parse(v.mutation.after_wire);
+    if (canonicalAsciiJson(before) !== v.mutation.expected_canonical || canonicalAsciiJson(after) !== v.mutation.expected_canonical) throw new Error("canonicalization bytes differ after property reordering");
+  }
   if (v.proposition_id === "CANONICAL_JSON") {
     let rejected = false;
     try { scanDuplicateObjectKeys(v.mutation.fixture); } catch (err) { rejected = String(err).includes("duplicate key"); }
