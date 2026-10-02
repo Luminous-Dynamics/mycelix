@@ -1,0 +1,88 @@
+{
+  "schema": "mycelix.civic-resilience.option-space.v1",
+  "program": "CIV-RES-001D",
+  "parent_subject": "bf4f63099e68bd67c02dc741ac4eff340d321b0b",
+  "topology": "child_of_civ_res_001a",
+  "runtime_owner": "Deferred",
+  "artifact_kinds": [
+    "OptionPathway",
+    "OptionAccessEvidence",
+    "OptionCapacityObservation",
+    "BarrierObservation",
+    "ResolutionAttempt",
+    "ResolutionOutcomeObservation"
+  ],
+  "option_dimensions": [
+    "breadth",
+    "accessibility",
+    "independence_redundancy",
+    "eligibility_constraints",
+    "temporal_availability",
+    "provider_dependency_concentration",
+    "credibility_perceived_availability",
+    "scope",
+    "currentness",
+    "uncertainty"
+  ],
+  "opaque_reference_kinds": [
+    "EvidenceRef",
+    "MeasurementRef",
+    "MethodRef",
+    "TimeEvidenceRef",
+    "AuthorityDecisionRef",
+    "ExternalEffectRef",
+    "VerificationRef",
+    "StudyRef"
+  ],
+  "required_non_equivalences": [
+    "resource exists != resource reachable",
+    "resource reachable != resource usable",
+    "resource usable != resource credible to subject",
+    "stale capacity != current capacity",
+    "missing capacity != zero capacity",
+    "nominal option count != independent option count",
+    "event time != effectivity time",
+    "effectivity time != currentness proof",
+    "objective availability != perceived availability",
+    "aggregate perception trend != individual state",
+    "model recommendation != pathway authority",
+    "completion != outcome improvement",
+    "outcome improvement != causal effect",
+    "aggregate option capacity != individual risk"
+  ],
+  "forbidden_universal_person_risk_surfaces": [
+    "PersonRiskScore",
+    "SuicideRiskScore",
+    "ViolenceRiskScore",
+    "CriminalityScore",
+    "SocialValueScore",
+    "PolicingPriority",
+    "ServiceWorthinessScore"
+  ],
+  "forbidden_scalar_models": [
+    "resilience",
+    "capability",
+    "risk",
+    "safety",
+    "option_score"
+  ],
+  "evidence_primitive_policy": "opaque_refs_until_shared_evidence_convergence",
+  "privacy_rule": "compose_with_civ_res_001b_release_boundary",
+  "operational_rule": "compose_with_sup_civ_owner_lines",
+  "continuation": [
+    "CIV-RES-004",
+    "SYM-CIVIC-002"
+  ],
+  "nonclaims": [
+    "service_effectiveness",
+    "community_resilience",
+    "suicide_prediction",
+    "violence_prediction",
+    "clinical_judgment",
+    "causal_effect",
+    "public_safety",
+    "municipal_authority",
+    "legal_compliance",
+    "deployment_readiness"
+  ]
+}
