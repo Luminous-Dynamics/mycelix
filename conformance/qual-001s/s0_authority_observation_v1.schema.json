@@ -16,6 +16,7 @@
     "dispatch_nonce_hex",
     "dispatch_ref",
     "dispatch_input_commitment_sha256",
+    "dispatch_envelope_sha256",
     "dispatch_input_canonical_json",
     "authenticated_principal_identity",
     "policy_scope_identity",
@@ -142,6 +143,9 @@
       "type": "string",
       "minLength": 2,
       "maxLength": 65535
+    },
+    "dispatch_envelope_sha256": {
+      "$ref": "#/$defs/sha256"
     }
   },
   "$defs": {
