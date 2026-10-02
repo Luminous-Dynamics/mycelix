@@ -38,7 +38,7 @@ jobs:
 
       - name: Format
         run: |
-          cargo fmt --manifest-path mycelix-workspace/Cargo.toml -- --check
+          cargo fmt --manifest-path mycelix-workspace/mycelix-pulse/holochain/Cargo.toml -- --check
 
       - name: Check qualification adapter
         run: |
