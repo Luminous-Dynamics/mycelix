@@ -16,6 +16,7 @@ pub mod decay_garden;
 pub mod metabolic_oracle;
 pub mod poc;
 pub mod recognition;
+pub mod sector_flow;
 pub mod stock_flow;
 
 pub use commons::{CommonsContribution, CommonsPool, CommonsResult};
@@ -29,6 +30,8 @@ pub use poc::{
     calculate_mycel_score, jubilee_normalize, GamingDetection, GamingRecommendation,
     MycelCalculation, MycelComponent, MycelScore,
 };
+pub use sector_flow::{EconomicSector, FlowCategory, SectorFlow, SectorTransactionMatrix};
+
 pub use stock_flow::{
     ActorBalanceSheet, ActorId, CreditCreation, DebtRepayment, EconomicState, MonetaryFlow,
     MonetaryStock, RealStock,
