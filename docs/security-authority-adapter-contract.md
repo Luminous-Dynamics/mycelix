@@ -114,11 +114,15 @@ Current authority status belongs in the runtime/application authority provider. 
 
 The integration must therefore create trusted evidence only inside the bridge's verifier boundary. Public callers must not receive a constructor that accepts arbitrary booleans such as `verified: true`.
 
+The resulting evidence must also be bound to the exact capability it verifies. The bridge kernel derives a stable capability commitment from the canonical capability semantics and records that commitment in the opaque evidence and any issued permit. Evidence for one capability therefore cannot be replayed to qualify or revalidate a different capability.
+
 The resulting evidence should represent independently established propositions:
 
 - signature verified;
 - authority is currently not revoked;
-- authority resolution is unambiguous.
+- authority resolution is unambiguous;
+- evidence is bound to the exact capability semantics;
+- the bounded freshness lease remains valid.
 
 ## Required qualification scenarios
 
@@ -134,8 +138,9 @@ The integration tranche is not complete until deterministic tests cover:
 8. changed delegation parent;
 9. changed proof lineage;
 10. partitioned authority state that cannot establish one current answer;
-11. enforcement-time revocation after an earlier Allow;
-12. advisory/model output attempting to expand capability.
+11. evidence verified for a different capability;
+12. enforcement-time revocation after an earlier Allow;
+13. advisory/model output attempting to expand capability.
 
 ## Evidence levels
 
