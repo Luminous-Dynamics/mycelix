@@ -82,3 +82,21 @@ An `EvidenceDispositionAuthorityScope` is now a separate addressable witness tha
 This prevents an authority witness from being structurally reused for an unrelated reconciliation merely because both identities are individually well-typed. It still does **not** establish real-world institutional authority, delegation legitimacy, certification, or entitlement; those remain external claims that must be represented by appropriate evidence.
 
 The authority-scope witness is also carried through coverage validation: the boundary must name the exact same scope identity as the reconciliation, and the supplied scope witness must bind that identity to the same authority and reconciliation subject. This closes the remaining structural gap between naming an authority and naming the scope in which that authority witness is being relied upon.
+
+
+### Authority delegation chains
+
+An `EvidenceDispositionAuthorityDelegation` may reference an exact predecessor delegation. When a predecessor is supplied, the delegated subject MUST remain identical and the predecessor grantee MUST equal the current grantor. This makes the delegation edge explicit rather than allowing an authority to appear from an unrelated witness.
+
+Delegation graph validation is finite and address-based:
+
+- duplicate delegation identities are invalid;
+- a missing predecessor is unresolved rather than treated as a negative authority finding;
+- predecessor subject changes are invalid;
+- predecessor grantee/current grantor discontinuity is invalid;
+- closed predecessor cycles are invalid because they have no historical root;
+- multiple independent root delegations may coexist and are retained rather than collapsed.
+
+The scope witness must reference the exact delegation identity it relies upon. Reconciliation and coverage witnesses must carry that same delegation identity through their authority bindings. This closes the structural gap where a correctly typed delegation could otherwise be silently substituted for the delegation actually named by a scope.
+
+These rules describe provenance continuity only. They do not prove that a grantor possesses real-world legal or institutional authority, that a delegation is legally effective, or that a subject is otherwise entitled to act. They also do not claim that the supplied delegation graph is globally complete. This bounded treatment follows Holochain's validation model: addressable dependencies can be deterministically checked, while unavailable dependencies remain unresolved rather than becoming inferred negative facts.
