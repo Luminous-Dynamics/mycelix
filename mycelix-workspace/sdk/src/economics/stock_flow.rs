@@ -514,6 +514,34 @@ mod tests {
     }
 
     #[test]
+    fn income_transfer_changes_net_worth_only_through_the_posted_deposit() {
+        let mut s = state();
+        s.create_credit(&CreditCreation::new("bank", "household", 500).unwrap())
+            .unwrap();
+        let before_household = s.actors[1].net_worth();
+        let before_bank = s.actors[0].net_worth();
+
+        s.apply_income_transfer(
+            &IncomeTransfer::with_category(
+                "household",
+                "bank",
+                100,
+                EconomicFlowCategory::Wage,
+            )
+            .unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(s.actors[1].net_worth(), before_household - 100);
+        assert_eq!(s.actors[0].net_worth(), before_bank + 100);
+        assert_eq!(
+            s.actors[0].net_worth() + s.actors[1].net_worth(),
+            before_bank + before_household
+        );
+        assert!(s.claims_liabilities_identity_holds());
+    }
+
+    #[test]
     fn credit_creation_preserves_aggregate_net_financial_assets() {
         let mut s = state();
         s.create_credit(&CreditCreation::new("bank", "household", 500).unwrap())
