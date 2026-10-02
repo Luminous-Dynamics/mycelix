@@ -127,3 +127,16 @@ Consequently, D6W can now make a precise claim at each boundary:
 - canonical D6P receipt identity: representation/integrity;
 - authoritative-D6P admission: receipt-to-composition provenance reconstruction;
 - authoritative D6N/D6O source: still an upstream trust boundary unless separately reconstructed.
+
+### Fail-closed authoritative reconstruction
+
+The authoritative D6N/D6O → D6P composition entrypoint is fail-closed. If the
+observation set, assessment, or supplied D6O eligibility material cannot be
+reconstructed against the authoritative source boundary, the authoritative
+entrypoint returns no qualified composition rather than returning a
+ReferenceModelOnly fallback that could be mistaken for an authoritative result.
+
+This distinction matters because provenance models treat provenance assertions
+themselves as information whose validity can require independent assessment;
+internal consistency of a returned record is not equivalent to establishing its
+source history. citeturn0search0turn0search12
