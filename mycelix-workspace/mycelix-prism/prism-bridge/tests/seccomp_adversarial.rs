@@ -33,7 +33,10 @@ fn child() -> ! {
         unsafe { libc::_exit(93) };
     }
 
-    let denied = unsafe { libc::getppid() };
+    // Exercise the kernel syscall directly rather than the libc getppid()
+    // wrapper: getppid() is specified as always-successful, so its wrapper
+    // behavior is not the right boundary for proving a seccomp errno action.
+    let denied = unsafe { libc::syscall(libc::SYS_getppid) };
     let errno = std::io::Error::last_os_error().raw_os_error();
     if denied != -1 || errno != Some(libc::EPERM) {
         unsafe { libc::_exit(94) };
