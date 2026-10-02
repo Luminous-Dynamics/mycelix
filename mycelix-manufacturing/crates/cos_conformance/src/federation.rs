@@ -572,12 +572,25 @@ pub enum ObservationWriteResult {
     Duplicate,
     Conflict,
     RejectedSourceClaim,
+    RejectedMalformedObservation,
 }
 
 fn record_observation_identity(
     state: &mut FederationState,
     observation: ObservationRecord,
 ) -> ObservationWriteResult {
+    if observation.observation_id.is_empty()
+        || observation.semantic_subject_id.is_empty()
+        || observation.payload_commitment.is_empty()
+        || observation.origin_node.is_empty()
+        || observation
+            .recognized_by
+            .as_ref()
+            .is_some_and(String::is_empty)
+    {
+        return ObservationWriteResult::RejectedMalformedObservation;
+    }
+
     if let Some(existing) = state.observations.get(&observation.observation_id) {
         return if existing == &observation {
             ObservationWriteResult::Duplicate
@@ -1277,6 +1290,36 @@ mod tests {
         assert!(!cockpit_projection("node-b", &outcome).local_authority);
         assert_eq!(state.delivery("delivery-1"), Some(&original_record));
         assert_eq!(state.delivery_count(), 1);
+    }
+
+    #[test]
+    fn generic_observation_api_rejects_empty_identity_fields() {
+        let mut state = nodes();
+        let cases: [fn(&mut ObservationRecord); 5] = [
+            |o| o.observation_id.clear(),
+            |o| o.semantic_subject_id.clear(),
+            |o| o.payload_commitment.clear(),
+            |o| o.origin_node.clear(),
+            |o| o.recognized_by = Some(String::new()),
+        ];
+
+        for mutate in cases {
+            let mut observation = ObservationRecord {
+                observation_id: "obs-valid".into(),
+                semantic_subject_id: "subject-1".into(),
+                payload_commitment: "sha256:valid".into(),
+                origin_node: "node-a".into(),
+                recognized_by: None,
+                source_observation: false,
+            };
+            mutate(&mut observation);
+
+            assert_eq!(
+                record_observation(&mut state, observation),
+                ObservationWriteResult::RejectedMalformedObservation
+            );
+            assert_eq!(state.observation_count(), 0);
+        }
     }
 
     #[test]
