@@ -32,7 +32,7 @@
 use holochain::conductor::api::{AppRequest, AppResponse, ZomeCallParamsSigned};
 use holochain::prelude::*;
 use holochain::sweettest::{SweetConductor, SweetDnaFile};
-use holochain::test_utils::new_zome_call_params;
+use holochain::test_utils::{new_zome_call_params, retry_fn_until_timeout};
 
 use std::path::PathBuf;
 
@@ -54,6 +54,24 @@ async fn signed_call<P: serde::Serialize + std::fmt::Debug>(
     let mut params =
         new_zome_call_params(cell_id, function, payload, "hearth_kinship").unwrap();
     params.cap_secret = cap_secret;
+
+    ZomeCallParamsSigned::try_from_params(&conductor.keystore(), params)
+        .await
+        .unwrap()
+}
+
+async fn signed_call_as_agent<P: serde::Serialize + std::fmt::Debug>(
+    conductor: &SweetConductor,
+    cell_id: &CellId,
+    provenance: AgentPubKey,
+    function: &str,
+    payload: P,
+    cap_secret: CapSecret,
+) -> ZomeCallParamsSigned {
+    let mut params =
+        new_zome_call_params(cell_id, function, payload, "hearth_kinship").unwrap();
+    params.provenance = provenance;
+    params.cap_secret = Some(cap_secret);
 
     ZomeCallParamsSigned::try_from_params(&conductor.keystore(), params)
         .await
@@ -514,7 +532,7 @@ fn test_authority_case_manifest_is_structurally_valid() {
         .as_array()
         .expect("authority case manifest must contain a cases array");
 
-    assert_eq!(cases.len(), 9, "manifest must enumerate all current authority cases");
+    assert_eq!(cases.len(), 10, "manifest must enumerate all current authority cases");
 
     let mut ids = cases
         .iter()
