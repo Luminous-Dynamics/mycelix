@@ -53,6 +53,25 @@ async fn signed_call<P: serde::Serialize + std::fmt::Debug>(
         .unwrap()
 }
 
+async fn signed_expired_call(
+    conductor: &SweetConductor,
+    cell_id: &CellId,
+    function: &str,
+) -> ZomeCallParamsSigned {
+    let mut params =
+        new_zome_call_params(cell_id, function, (), "hearth_kinship").unwrap();
+
+    // Keep the normal generated nonce/provenance/signature, but make the signed
+    // invocation's expiry unambiguously earlier than the conductor's current time.
+    params.expires_at = Timestamp::now()
+        .saturating_sub(&std::time::Duration::from_secs(60));
+    params.cap_secret = None;
+
+    ZomeCallParamsSigned::try_from_params(&conductor.keystore(), params)
+        .await
+        .unwrap()
+}
+
 async fn submit_call(
     conductor: &SweetConductor,
     signed: ZomeCallParamsSigned,
@@ -179,6 +198,30 @@ async fn test_invalid_capability_is_rejected_before_zome_dispatch() {
     }
 }
 
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires Holochain conductor (nix develop)"]
+async fn test_expired_signed_call_is_rejected_before_zome_dispatch() {
+    let mut conductor = SweetConductor::standard().await;
+    let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
+
+    let (alice,) = conductor
+        .setup_app("test-app", &[dna_file])
+        .await
+        .unwrap()
+        .into_tuple();
+
+    let signed = signed_expired_call(&conductor, alice.cell_id(), "get_my_hearths").await;
+    let response = submit_call(&conductor, signed).await;
+
+    match response {
+        AppResponse::ZomeCalled(result) => match *result {
+            ZomeCallResponse::Unauthorized(..) => {}
+            other => panic!("expired invocation should be rejected before zome dispatch, got {other:?}"),
+        },
+        other => panic!("expected ZomeCalled response for expiry rejection, got {other:?}"),
+    }
+}
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
