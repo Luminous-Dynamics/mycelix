@@ -168,6 +168,7 @@ impl EconomicEvidenceCapsule {
                             .checked_add(observation.deposits)
                             != Some(observation.liquidity)
                         || !observation.liquidity_stock_flow_reconciliation_holds()
+                        || !observation.net_working_capital_stock_flow_reconciliation_holds()
                         || !observation.liquidity_flow_reconciliation_holds()
                 }) {
                     return Err(EconomicStepError::Serialization(
@@ -424,6 +425,23 @@ mod tests {
             ActorEconomicObservables::from_state_and_transitions(&fixture_state(), &[])
                 .unwrap();
         actors.get_mut("household").unwrap().liquidity = 1;
+
+        assert!(EconomicEvidenceCapsule::seal_with_actor_observations(
+            manifest,
+            &chain,
+            &observations,
+            Some(&actors),
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn evidence_capsule_rejects_tampered_actor_working_capital() {
+        let (manifest, chain, observations) = fixture();
+        let mut actors =
+            ActorEconomicObservables::from_state_and_transitions(&fixture_state(), &[])
+                .unwrap();
+        actors.get_mut("household").unwrap().net_working_capital_change = 1;
 
         assert!(EconomicEvidenceCapsule::seal_with_actor_observations(
             manifest,
