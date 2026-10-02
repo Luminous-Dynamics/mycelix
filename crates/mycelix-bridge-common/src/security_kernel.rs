@@ -623,7 +623,7 @@ mod tests {
         assert_eq!(
             result,
             Err(AuthorizationDecision::Deny(
-                AuthorizationDenial::ActionNotGranted
+                AuthorizationDenial::ActionNotGranted,
             ))
         );
     }
