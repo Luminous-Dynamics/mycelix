@@ -1161,7 +1161,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn terminal_replay_after_listing_revision_bridge_is_idempotent() {
         let mut f = frontier(2);
         f.apply(FrontierEvent::Reserve(certificate_with_capacity(
@@ -1188,6 +1187,7 @@ mod tests {
         assert_eq!(f.apply(terminal), Ok(ApplyOutcome::Idempotent));
     }
 
+    #[test]
     fn historical_consume_is_valid_after_listing_revision_bridge() {
         let mut f = frontier(2);
         assert_eq!(
