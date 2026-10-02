@@ -444,6 +444,7 @@ fn seccomp_tsync_constrains_existing_sibling_threads() {
         .arg("--exact")
         .arg("seccomp_tsync_constrains_existing_sibling_threads")
         .arg("--nocapture")
+        .env("RUST_TEST_THREADS", "1")
         .env("PRISM_SECCOMP_THREAD_CHILD", "1")
         .status()
         .expect("failed to launch seccomp thread-sync child");
