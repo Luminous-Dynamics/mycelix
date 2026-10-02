@@ -36,6 +36,9 @@ require_version_family "$tests" "hdi" "0\\.8\\.0"
 require_version_family "$tests" "holochain" "0\\.7\\.0"
 require_version_family "$tests" "holochain_types" "0\\.7\\.0"
 
+grep -Fq '"@holochain/client": "^0.21.0"' "$sdk_package" || fail "$sdk_package does not declare @holochain/client ^0.21.0"
+grep -Fq '"node": ">=24.0.0"' "$sdk_package" || fail "$sdk_package does not require Node >=24.0.0"
+
 for file in "$workspace" "$tests"; do
   forbidden "$file" 'hdk = "0.6'
   forbidden "$file" 'hdi = "0.7'
