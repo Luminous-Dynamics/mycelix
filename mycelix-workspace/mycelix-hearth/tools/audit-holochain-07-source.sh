@@ -185,6 +185,35 @@ check_validation_determinism() {
   echo "OK:   $file validation determinism surface"
 }
 
+# Dependency retrieval semantics: must_get_action only proves retrieval; it does not prove
+# that the referenced record passed application validation. Update/delete authorization
+# therefore uses must_get_valid_record before trusting the referenced author. Valid-record
+# consumers must also inspect the referenced entry/action rather than treating retrieval
+# itself as the invariant.
+check_dependency_semantics() {
+  local file="$1"
+  if rg -n --pcre2 'must_get_action\(action\.(?:original_action_address|deletes_address)' "$file" >/tmp/hearth07_weak_dependency.$ 2>/dev/null; then
+    echo "FAIL: $file uses must_get_action for update/delete authorization"
+    cat /tmp/hearth07_weak_dependency.$
+    fail=1
+  fi
+  if rg -n --pcre2 'must_get_valid_record\(' "$file" >/dev/null 2>&1; then
+    if rg -n --pcre2 '\.(?:entry\(\)\.to_app_option|action\(\))|try_from_action' "$file" >/dev/null 2>&1; then
+      echo "OK:   $file valid-record dependencies are semantically inspected"
+    else
+      echo "FAIL: $file retrieves a valid record without inspecting its entry/action"
+      fail=1
+    fi
+  else
+    echo "OK:   $file has no must_get_valid_record dependency sites"
+  fi
+  rm -f /tmp/hearth07_weak_dependency.$
+}
+
+for file in "${integrity_files[@]}"; do
+  check_dependency_semantics "$file"
+done
+
 for file in "${integrity_files[@]}"; do
   check_validation_determinism "$file"
 done
