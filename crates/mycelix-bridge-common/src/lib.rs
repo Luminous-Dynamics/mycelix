@@ -103,7 +103,7 @@ pub use collective_phi::{
 
 pub mod security_kernel;
 pub use security_kernel::{
-    authorize, authorize_permit, verify_capability, AdvisoryResult, AuthorizationDecision,
+    authorize, authorize_permit, revalidate_permit, verify_capability, AdvisoryResult, AuthorizationDecision,
     AuthorizationDenial, AuthorizationIndeterminacy, AuthorizationPermit, AuthorizationRequest,
     Capability, CapabilityAction, EnforcementRequest, VerificationEvidence, VerifiedCapability,
 };
