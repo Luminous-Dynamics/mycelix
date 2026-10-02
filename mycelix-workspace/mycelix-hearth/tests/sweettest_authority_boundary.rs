@@ -72,7 +72,7 @@ async fn signed_call_with_nonce<P: serde::Serialize + std::fmt::Debug>(
 
     // Use explicit ordered nonces so the fixture proves stale/lower-nonce rejection,
     // rather than relying on the incidental ordering of freshly generated nonces.
-    params.nonce = Nonce256Bits::try_from(nonce_bytes.to_vec())
+    params.nonce = Nonce256Bits::try_from(nonce_bytes.as_slice())
         .expect("32-byte nonce must construct a Nonce256Bits value");
     params.cap_secret = None;
 
