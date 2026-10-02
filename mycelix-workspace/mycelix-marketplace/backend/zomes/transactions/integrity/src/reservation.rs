@@ -385,8 +385,10 @@ mod tests {
                 available: 2
             })
         );
-        assert_eq!(a.active_reserved(), b.active_reserved());
         assert_eq!(a.active_reserved(), 3);
+        assert_eq!(a.available(), 1);
+        assert_eq!(b.active_reserved(), 2);
+        assert_eq!(b.available(), 2);
     }
 
     #[test]
