@@ -396,6 +396,15 @@ mod tests {
             ),
             -25
         );
+
+        let mut tampered = post_sheet.clone();
+        tampered.entries.iter_mut().find(|entry| {
+            entry.sector == EconomicSector::Firm
+                && entry.instrument == BalanceSheetInstrument::TradeReceivables
+        }).unwrap().amount += 1;
+        assert!(matrix
+            .validate_against_balance_sheet_delta(&pre_sheet, &tampered)
+            .is_err());
     }
 
     #[test]
