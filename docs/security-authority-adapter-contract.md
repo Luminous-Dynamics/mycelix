@@ -85,6 +85,16 @@ For the bridge hand-off, the authority-freshness commitment should be the existi
 
 Only after this chain is established may the bridge kernel receive trusted verification evidence.
 
+The bridge binding is derived deterministically from that stable freshness commitment. The `mycelix-bridge-common::authority_binding_from_freshness_digest` helper commits the authority-binding domain separator, freshness protocol version, freshness profile, and exact `CurrentAuthorityFreshness.freshness_digest`. It does not include `verified_at_ms`, `lease_until_ms`, transport metadata, or other dynamic proof fields.
+
+Therefore:
+
+- unchanged semantic freshness with a renewed verification lease preserves the bridge authority binding;
+- a changed generation/state, which changes `freshness_digest`, necessarily changes the bridge authority binding; and
+- a changed freshness protocol/profile cannot be interpreted as the same binding domain.
+
+This wrapper is not a second authority identity. The authoritative semantic identity remains PR #75's canonical grant identity plus PR #74's generation-bound freshness commitment; the bridge only domain-separates that existing commitment for its permit/evidence boundary.
+
 ## Fail-closed rules
 
 The adapter must return no positive current-authority evidence when:
