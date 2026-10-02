@@ -5,7 +5,7 @@
 //! supervisor cannot attach renderer IPC before sandbox and identity
 //! qualification.
 
-use crate::process::{ProcessIdentity, RendererLaunchReceipt, SandboxEnforcementReceipt, SandboxEvidenceBundle, SandboxEnforcementLayer, SandboxEnforcementSet, SandboxProfileV1};
+use crate::process::{ProcessIdentity, RendererLaunchReceipt, RendererProcessAssignmentId, SandboxEnforcementReceipt, SandboxEvidenceBundle, SandboxEnforcementLayer, SandboxProfileV1};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RendererProcessState {
