@@ -62,9 +62,47 @@ check_absent_multiline() {
   fi
 }
 
+check_integrity_coverage() {
+  local files
+  mapfile -t files < <(git ls-files 'mycelix-workspace/mycelix-hearth/zomes/*/integrity/src/lib.rs')
+  if [[ "${#files[@]}" -eq 0 ]]; then
+    echo "FAIL: no Hearth integrity zomes discovered"
+    fail=1
+    return
+  fi
+
+  local missing=0
+  local file
+  for file in "${files[@]}"; do
+    if ! git grep -qE -- 'pub fn validate\(op: Op\)' -- "$file"; then
+      echo "FAIL: integrity zome lacks validate callback: $file"
+      missing=1
+      continue
+    fi
+    if ! git grep -qE -- 'FlatOp::(CreateEntry|CreateRecord|Update|Delete|Link|AgentActivity)' -- "$file"; then
+      echo "FAIL: integrity zome lacks Holochain 0.7 FlatOp handling: $file"
+      missing=1
+    fi
+    if ! git grep -qE -- 'ActionData::|\.author\(\)|\.timestamp\(\)|\.data\b' -- "$file"; then
+      echo "FAIL: integrity zome lacks explicit 0.7 action access: $file"
+      missing=1
+    fi
+  done
+
+  if [[ "$missing" -ne 0 ]]; then
+    fail=1
+  else
+    echo "OK:   all ${#files[@]} Hearth integrity zomes have 0.7 validation coverage"
+  fi
+}
+
+
 echo "HEARTH-0.7 deterministic source audit"
 echo "HEAD: $(git rev-parse HEAD)"
 echo
+
+# Every integrity zome must independently expose the migrated 0.7 validation shape.
+check_integrity_coverage
 
 # Legacy Rust action model / removed APIs.
 check_absent "legacy FlatOp variants" 'FlatOp::(StoreEntry|StoreRecord|RegisterUpdate|RegisterDelete|RegisterCreateLink|RegisterDeleteLink|RegisterAgentActivity)'
