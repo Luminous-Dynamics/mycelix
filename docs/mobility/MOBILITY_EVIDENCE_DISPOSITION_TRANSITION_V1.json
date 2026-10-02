@@ -152,6 +152,5 @@
       "case": "reconciliation_rejects_nested_heads_as_competing_branches",
       "expected": "rejected"
     }
-  ],
-  "vectors_count": 28
+  ]
 }
