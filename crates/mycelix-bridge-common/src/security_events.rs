@@ -11,9 +11,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::security_kernel::{
-    AuthorizationDecision, AuthorizationRequest, EnforcementRequest,
-};
+use crate::security_kernel::{AuthorizationDecision, AuthorizationRequest, EnforcementRequest};
 
 pub const MAX_PROVENANCE_IDENTIFIER_BYTES: usize = 512;
 
@@ -44,7 +42,10 @@ impl ProvenanceRef {
         if artifact_id.len() > MAX_PROVENANCE_IDENTIFIER_BYTES {
             return Err("provenance artifact identifier exceeds size limit");
         }
-        Ok(Self { artifact_id, relation })
+        Ok(Self {
+            artifact_id,
+            relation,
+        })
     }
 }
 
@@ -151,8 +152,7 @@ impl SecurityEvent {
 mod tests {
     use super::*;
     use crate::security_kernel::{
-        authorize_permit, Capability, CapabilityAction, VerificationEvidence,
-        VerifiedCapability,
+        Capability, CapabilityAction, VerificationEvidence, VerifiedCapability, authorize_permit,
     };
 
     fn verified() -> VerifiedCapability {
@@ -177,10 +177,13 @@ mod tests {
     #[test]
     fn provenance_ref_rejects_empty_and_oversized_ids() {
         assert!(ProvenanceRef::new("", ProvenanceRelation::References).is_err());
-        assert!(ProvenanceRef::new(
-            "x".repeat(MAX_PROVENANCE_IDENTIFIER_BYTES + 1),
-            ProvenanceRelation::References
-        ).is_err());
+        assert!(
+            ProvenanceRef::new(
+                "x".repeat(MAX_PROVENANCE_IDENTIFIER_BYTES + 1),
+                ProvenanceRelation::References
+            )
+            .is_err()
+        );
     }
 
     #[test]
@@ -196,8 +199,10 @@ mod tests {
             permit,
             VerificationEvidence::new(true, true, true),
             150,
-        ).unwrap();
-        let source = ProvenanceRef::new("evidence:source-1", ProvenanceRelation::DerivedFrom).unwrap();
+        )
+        .unwrap();
+        let source =
+            ProvenanceRef::new("evidence:source-1", ProvenanceRelation::DerivedFrom).unwrap();
 
         let event = SecurityEvent::from_enforcement_request(
             "event:1",
@@ -231,10 +236,13 @@ mod tests {
             "did:mycelix:alice",
             "capability:1",
             request,
-            AuthorizationDecision::Deny(crate::security_kernel::AuthorizationDenial::ActionNotGranted),
+            AuthorizationDecision::Deny(
+                crate::security_kernel::AuthorizationDenial::ActionNotGranted,
+            ),
             7,
             151,
-        ).unwrap();
+        )
+        .unwrap();
         assert!(matches!(event.decision, AuthorizationDecision::Deny(_)));
     }
 }
