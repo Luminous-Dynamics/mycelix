@@ -98,6 +98,11 @@ jobs:
             exit 1
           fi
           echo "qualification=PRISM-BRIDGE-COMPONENT"
+          if [[ "${{ job.status }}" == "success" ]]; then
+            echo "qualified=true"
+          else
+            echo "qualified=false"
+          fi
           echo "rust=1.96.0"
           echo "source_head=${expected_head}"
           echo "checked_out_head=${checked_out_head}"
